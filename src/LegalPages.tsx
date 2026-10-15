@@ -1,6 +1,7 @@
 import { Box, Typography } from '@mui/material'
 import { CONTACT_EMAIL } from './lib/contact'
 import { typePx } from './ui/scale'
+import { TYPE_SCALE } from './ui/card'
 
 // Privacy Policy + Terms of Service pages. Reachable at /privacy and /terms, linked
 // from the footer, and used as the Google OAuth consent-screen policy links. Written
@@ -10,18 +11,23 @@ import { typePx } from './ui/scale'
 const LAST_UPDATED = 'August 5, 2026'
 const SITE = 'sportydolphin.fun'
 
+// Underlined, because these links sit inside sentences: the site blue measures 2.5:1 against the
+// dark theme's body text, under the 3:1 a colour alone needs to mark a link (axe's
+// link-in-text-block, which the layout sweep runs).
+const INLINE_LINK_SX = { color: 'primary.main', textDecoration: 'underline', textUnderlineOffset: '2px' } as const
+
 function LegalLayout({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Box sx={{ maxWidth: 760, mx: 'auto', px: { xs: 0.5, sm: 1 }, py: 1, lineHeight: 1.6 }}>
-      <Typography sx={{ fontSize: { xs: '1.6rem', sm: '2rem' }, fontWeight: 900, letterSpacing: typePx(-0.5) }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.page, fontWeight: 900, letterSpacing: typePx(-0.5) }}>
         {title}
       </Typography>
-      <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mt: 0.5, mb: 3 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 0.5, mb: 3 }}>
         Last updated: {LAST_UPDATED}
       </Typography>
       {children}
-      <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', mt: 4, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-        Questions? Email <Box component="a" href={`mailto:${CONTACT_EMAIL}`} sx={{ color: 'primary.main', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>{CONTACT_EMAIL}</Box>.
+      <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 4, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+        Questions? Email <Box component="a" href={`mailto:${CONTACT_EMAIL}`} sx={INLINE_LINK_SX}>{CONTACT_EMAIL}</Box>.
       </Typography>
     </Box>
   )
@@ -29,7 +35,7 @@ function LegalLayout({ title, children }: { title: string; children: React.React
 
 function H({ children }: { children: React.ReactNode }) {
   return (
-    <Typography component="h2" sx={{ fontSize: '1.15rem', fontWeight: 800, mt: 3.5, mb: 1 }}>
+    <Typography component="h2" sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, mt: 3.5, mb: 1 }}>
       {children}
     </Typography>
   )
@@ -37,7 +43,7 @@ function H({ children }: { children: React.ReactNode }) {
 
 function P({ children }: { children: React.ReactNode }) {
   return (
-    <Typography sx={{ fontSize: '0.95rem', color: 'text.primary', mb: 1.25 }}>
+    <Typography sx={{ fontSize: TYPE_SCALE.title, color: 'text.primary', mb: 1.25 }}>
       {children}
     </Typography>
   )
@@ -45,7 +51,7 @@ function P({ children }: { children: React.ReactNode }) {
 
 function Bullets({ items }: { items: React.ReactNode[] }) {
   return (
-    <Box component="ul" sx={{ pl: 3, mb: 1.5, '& li': { fontSize: '0.95rem', color: 'text.primary', mb: 0.6 } }}>
+    <Box component="ul" sx={{ pl: 3, mb: 1.5, '& li': { fontSize: TYPE_SCALE.title, color: 'text.primary', mb: 0.6 } }}>
       {items.map((it, i) => <li key={i}>{it}</li>)}
     </Box>
   )
@@ -113,7 +119,7 @@ export function PrivacyPolicy() {
       <P>
         Your account data is kept while your account exists. You can delete your account and
         everything attached to it at any time: see{' '}
-        <Box component="a" href="/delete-account" sx={{ color: 'primary.main', textDecoration: 'none' }}>Delete your account and data</Box>,
+        <Box component="a" href="/delete-account" sx={INLINE_LINK_SX}>Delete your account and data</Box>,
         which covers both the in-app route and how to ask by email if you can no longer sign in,
         and lists exactly what is removed and what is kept. You can also clear the
         browser-stored preferences at any time by clearing your browser data.
@@ -175,7 +181,7 @@ export function DeleteAccount() {
         This is immediate and does not wait on anybody.
       </P>
       <Bullets items={[
-        <>Sign in at <Box component="a" href="/" sx={{ color: 'primary.main', textDecoration: 'none' }}>{SITE}</Box>.</>,
+        <>Sign in at <Box component="a" href="/" sx={INLINE_LINK_SX}>{SITE}</Box>.</>,
         <>Open the account menu, then <b>Settings</b>.</>,
         <>Scroll to <b>Danger zone</b> and choose <b>Delete account</b>.</>,
         <>Type <b>DELETE</b> to confirm.</>,
@@ -191,7 +197,7 @@ export function DeleteAccount() {
         with, you no longer have the app, or the steps above will not work for you.
       </P>
       <P>
-        Email <Box component="a" href={`mailto:${CONTACT_EMAIL}?subject=Delete%20my%20account`} sx={{ color: 'primary.main', textDecoration: 'none' }}>{CONTACT_EMAIL}</Box> with
+        Email <Box component="a" href={`mailto:${CONTACT_EMAIL}?subject=Delete%20my%20account`} sx={INLINE_LINK_SX}>{CONTACT_EMAIL}</Box> with
         the subject <b>Delete my account</b>, and say which email address the account uses. Send
         it from that address if you still can, since that is the quickest way to confirm the
         account is yours. If you cannot, say so and there will be another way to check.
@@ -229,7 +235,7 @@ export function DeleteAccount() {
       ]} />
       <P>
         Nothing is kept that identifies you, and nothing is ever sold or shared. See the{' '}
-        <Box component="a" href="/privacy" sx={{ color: 'primary.main', textDecoration: 'none' }}>Privacy Policy</Box> for
+        <Box component="a" href="/privacy" sx={INLINE_LINK_SX}>Privacy Policy</Box> for
         what is collected in the first place.
       </P>
 
@@ -263,7 +269,7 @@ export function TermsOfService() {
         Statistics and scores come from third-party sources, including the public MLB Stats API
         and the official WPBL stats feed. Every source behind the WPBL section, what was used from
         each and on what basis, is listed on the{' '}
-        <Box component="a" href="/wpbl/sources" sx={{ color: 'primary.main', textDecoration: 'none' }}>data sources</Box>{' '}
+        <Box component="a" href="/wpbl/sources" sx={INLINE_LINK_SX}>data sources</Box>{' '}
         page. The site does its best to present this data faithfully, but it cannot guarantee that
         everything is correct or up to date. Do not rely on the site for any decision that matters,
         and never for betting or wagering.

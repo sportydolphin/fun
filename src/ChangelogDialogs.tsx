@@ -5,6 +5,7 @@ import type { ChangelogChange, ChangelogEntry } from './version'
 import { CHANGELOG } from './changelog'
 import { ACCENT } from './mlb/constants'
 import { useIsAdmin } from './lib/admin'
+import { TYPE_SCALE } from './ui/card'
 
 /**
  * The "What's New" dialog and its per-day detail view.
@@ -89,7 +90,7 @@ const fmtDate = (iso: string): string =>
 
 function ChangelogBullet({ text }: { text: string }) {
   return (
-    <Typography component="li" sx={{ fontSize: '0.86rem', color: 'text.secondary', mb: 0.6, lineHeight: 1.45 }}>
+    <Typography component="li" sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mb: 0.6, lineHeight: 1.45 }}>
       {text}
     </Typography>
   )
@@ -107,7 +108,7 @@ function MoreLink({ label, onClick }: { label: string; onClick: () => void }) {
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
       sx={{
         display: 'inline-block', mt: 0.75, cursor: 'pointer',
-        fontSize: '0.72rem', fontWeight: 700, color: ACCENT,
+        fontSize: TYPE_SCALE.meta, fontWeight: 700, color: ACCENT,
         '&:hover': { textDecoration: 'underline' },
       }}
     >
@@ -138,7 +139,7 @@ export default function ChangelogDialogs({ open, onClose }: { open: boolean; onC
       <Dialog open={open} onClose={closeAll} maxWidth="sm" fullWidth fullScreen={!isDesktop}>
         <DialogTitle sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
           What's New
-          <Typography component="span" sx={{ fontSize: '0.8rem', color: 'text.disabled', fontWeight: 600 }}>
+          <Typography component="span" sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', fontWeight: 600 }}>
             · currently v{APP_VERSION}
           </Typography>
         </DialogTitle>
@@ -153,10 +154,10 @@ export default function ChangelogDialogs({ open, onClose }: { open: boolean; onC
                     met on every one of a hundred and twelve blocks, and it is the one thing on
                     them they have no use for. */}
                 <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
-                  <Typography sx={{ fontWeight: 800, fontSize: '1rem', lineHeight: 1.2 }}>
+                  <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.heading, lineHeight: 1.2 }}>
                     {day.title ?? fmtDate(day.date)}
                   </Typography>
-                  <Typography sx={{ ml: 'auto', fontSize: '0.72rem', color: 'text.disabled', lineHeight: 1.2 }}>
+                  <Typography sx={{ ml: 'auto', fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.2 }}>
                     {day.title ? `${fmtDate(day.date)} · ${day.versions}` : day.versions}
                   </Typography>
                 </Box>
@@ -198,7 +199,7 @@ export default function ChangelogDialogs({ open, onClose }: { open: boolean; onC
           <>
             <DialogTitle sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
               {fmtDate(openDay.date)}
-              <Typography component="span" sx={{ fontSize: '0.8rem', color: 'text.disabled', fontWeight: 600 }}>
+              <Typography component="span" sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', fontWeight: 600 }}>
                 {openDay.versions}
               </Typography>
             </DialogTitle>
@@ -211,11 +212,11 @@ export default function ChangelogDialogs({ open, onClose }: { open: boolean; onC
                 <Box key={entry.version} sx={{ mb: idx === openDay.releases.length - 1 ? 0 : 2.5 }}>
                   {(entry.title || openDay.releases.length > 1) && (
                     <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
-                      <Typography sx={{ fontWeight: 800, fontSize: '0.92rem', lineHeight: 1.2 }}>
+                      <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.title, lineHeight: 1.2 }}>
                         {entry.title ?? `v${entry.version}`}
                       </Typography>
                       {entry.title && (
-                        <Typography sx={{ ml: 'auto', fontSize: '0.72rem', color: 'text.disabled', lineHeight: 1.2 }}>
+                        <Typography sx={{ ml: 'auto', fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.2 }}>
                           v{entry.version}
                         </Typography>
                       )}
