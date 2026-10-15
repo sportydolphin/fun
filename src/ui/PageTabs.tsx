@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { Box } from '@mui/material'
 import { linkPress, pressable, FOCUS_RING } from './interaction'
+import { TYPE_SCALE } from './card'
 
 // THE ROW THAT PICKS A PAGE WITHIN A TAB: WPBL Stats' boards, MLB Stats' boards, MLB Standings'
 // modes. Moved out of WPBL's StatsView in Oct 2026, when MLB's equivalents were still a centred
@@ -73,7 +74,7 @@ export function PageTabs({ options, value, onChange, mb = 1.25, sub = false }: {
             borderBottom: '2px solid', borderColor: on ? UNDERLINE : 'transparent',
             color: on ? 'text.primary' : 'text.secondary',
             // Tightened on a phone so WPBL's five fit 375px without the last one hanging off the edge.
-            fontSize: sub ? { xs: '0.78rem', sm: '0.8rem' } : { xs: '0.86rem', sm: '0.9rem' },
+            fontSize: sub ? TYPE_SCALE.body : { xs: TYPE_SCALE.body, sm: TYPE_SCALE.title },
             fontWeight: on ? 800 : 600, transition: 'color 0.15s',
             '&:hover': { color: 'text.primary' },
           }}>

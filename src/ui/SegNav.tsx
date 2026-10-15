@@ -3,6 +3,7 @@ import { Box } from '@mui/material'
 import type { Theme, SxProps } from '@mui/material'
 import { scrollBehavior } from '../lib/motion'
 import { pressable, FOCUS_RING } from './interaction'
+import { TYPE_SCALE } from './card'
 
 /** A "there is something new here" dot.
  *
@@ -132,7 +133,7 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
               px: sm ? 1 : 1.75, py: sm ? 0.3 : 0.5,
               borderRadius: 999,
               cursor: 'pointer',
-              fontSize: sm ? '0.68rem' : '0.75rem',
+              fontSize: sm ? TYPE_SCALE.micro : TYPE_SCALE.meta,
               lineHeight: 1.4,
               whiteSpace: 'nowrap',
               ...(fill ? { flex: { xs: 1, sm: 'none' }, textAlign: 'center' } : {}),

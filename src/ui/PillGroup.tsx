@@ -1,6 +1,7 @@
 import { Box } from '@mui/material'
 import { pressable, FOCUS_RING } from './interaction'
 import { chromePx, typePx } from './scale'
+import { TYPE_SCALE } from './card'
 
 // Moved out of src/wpbl/ui.tsx in Oct 2026, when MLB took the same split WPBL draws between its two
 // segmented controls: a raised chip for NAVIGATION (SegNav, shared since MLB's SegControl folded into it) and this solid
@@ -54,7 +55,7 @@ export function PillGroup({ options, value, onChange, mb }: {
               // one. That is the whole reason --app-chrome excludes --sd-text-scale.
               minHeight: chromePx(28),
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '0.68rem', fontWeight: 800, letterSpacing: typePx(0.3),
+              fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.3),
               whiteSpace: 'nowrap', userSelect: 'none', transition: 'all 0.15s',
               bgcolor: on ? 'var(--wpbl-accent-solid)' : 'transparent',
               color: on ? '#fff' : 'text.secondary',

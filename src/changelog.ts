@@ -10,6 +10,16 @@ import { ENTRIES as v1_000 } from './changelog/v1.000-1.049'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.166.2',
+    date:    '2026-10-15',
+    changes: [
+      {
+        short: 'One set of text sizes in shared parts',
+        full:  "The parts both leagues draw (player cards, Compare, box scores, play by play, tabs, filter chips and page headers) now use the site's one set of text sizes. Box score numbers and play text are a touch smaller and match the Stats tables, and the icons in a page's header bar match each other.",
+      },
+    ],
+  },
+  {
     version: '1.166.1',
     date:    '2026-10-15',
     changes: [

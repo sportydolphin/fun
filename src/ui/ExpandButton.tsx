@@ -20,7 +20,7 @@ export function ExpandButton({ onExpand, title = 'Open as a full page' }: {
       aria-label={title}
       sx={headerIconChipSx}
     >
-      <OpenInFull aria-hidden sx={{ ...HEADER_ICON_SX, fontSize: '0.85rem' }} />
+      <OpenInFull aria-hidden sx={HEADER_ICON_SX} />
     </Box>
   )
 }
