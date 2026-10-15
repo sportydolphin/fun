@@ -227,9 +227,10 @@ export function TopPerformers({
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', gap: { xs: 1.25, sm: 1.75 }, alignItems: 'flex-end' }}>
-              {[TYPE_SCALE.display, TYPE_SCALE.title, TYPE_SCALE.title].map((size, i) => (
+              {/* The first is the hero stat, a size up, as the loaded card draws it. */}
+              {[0, 1, 2].map(i => (
                 <Box key={i}>
-                  <Typography sx={{ fontSize: size, lineHeight: 1 }}><Skeleton variant="text" sx={{ width: '1.6em' }} /></Typography>
+                  <Typography sx={{ fontSize: i === 0 ? TYPE_SCALE.display : TYPE_SCALE.title, lineHeight: 1 }}><Skeleton variant="text" sx={{ width: '1.6em' }} /></Typography>
                   <Typography sx={{ fontSize: TYPE_SCALE.caption, lineHeight: 1, mt: 0.2 }}><Skeleton variant="text" sx={{ width: '1.5rem' }} /></Typography>
                 </Box>
               ))}

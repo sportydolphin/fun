@@ -325,6 +325,10 @@ export function ReadingCard({ article, teamById, from, isNew, onOpen, ghost, row
       sx={{
         ...cardSx, display: 'flex', flexDirection: r('row', 'column'), alignItems: 'stretch',
         gap: r(1.25, 0), p: r(1, 0), height: '100%',
+        // Unboxed as a row: the rows only appear inside Home's Reading card, where each one's own
+        // border made a box inside a box, three times over. The card's divider separates them
+        // instead (ReadingHomeCard), and the hover fill still marks the row under the pointer.
+        ...(rows ? { border: 'none', bgcolor: 'transparent', borderRadius: 1.5 } : null),
       }}
     >
       <Cover article={article} teamById={teamById} badge={18} fresh={isNew}

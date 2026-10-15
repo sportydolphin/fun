@@ -142,7 +142,13 @@ export function ReadingHomeCard({ teamById }: { teamById: Map<string, WpblTeam> 
     <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
       {/* Rows at every width: the card shares its row with Watch, and three covers on top in half a
           row would be stamps. */}
-      <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: '1fr' }}>
+      {/* Unboxed rows with a rule between them (see ReadingCard's `rows`), pulled out by their own
+          padding so a cover lines up with the card's title rather than sitting a step in from it. */}
+      <Box sx={{
+        display: 'grid', gap: 0, gridTemplateColumns: '1fr', mx: -1,
+        // Doubled &&: each row's own `border: none` is one class too, and this has to outrank it.
+        '&& > * + *': { borderTop: '1px solid', borderColor: 'divider' },
+      }}>
         {picks.map(a => <ReadingCard key={a.post_id} article={a} teamById={teamById} from="home" rows
           isNew={isNew(String(a.post_id), a.published_at)} onOpen={() => markOpened(String(a.post_id))} />)}
       </Box>
