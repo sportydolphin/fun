@@ -86,12 +86,12 @@
          they appear in place without moving anything. */
       .sd-bar .sd-sw { display: grid; grid-template-columns: 1fr 1fr; flex-shrink: 0; margin-left: calc(6px * var(--sd-s)); padding: 2px; border-radius: 999px;
         border: 1px solid #60a5fa55; background: #60a5fa14; }
-      .sd-bar .sd-sw b { padding: 3px calc(8px * var(--sd-s)); border-radius: 999px; text-align: center; letter-spacing: 0.3px;
-        font: 800 calc(10.56px * var(--sd-s) * var(--sd-t, 1))/1 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+      .sd-bar .sd-sw b { padding: 5px calc(8.8px * var(--sd-s)); border-radius: 999px; text-align: center; letter-spacing: calc(0.3px * var(--sd-s) * var(--sd-t, 1));
+        font: 800 calc(12px * var(--sd-s) * var(--sd-t, 1))/1 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
         color: rgba(0,0,0,0.6); }
       .sd-bar .sd-sw b.on { color: #fff; background: #1565c0; }
-      .sd-bar .sd-sw b.on.rb { background: linear-gradient(90deg, #ff3b30, #ff9500, #ffcc00, #34c759, #007aff, #5856d6, #af52de, #ff3b30);
-        background-size: 200% 100%; text-shadow: 0 1px 1px rgba(0,0,0,0.35); }
+      .sd-bar .sd-sw b.on.rb { background: linear-gradient(90deg, #ff3b30, #ff9500, #ffcc00, #34c759, #007aff, #8a88ff, #af52de, #ff3b30);
+        background-size: 200% 100%; color: #111; }
       .sd-bar nav { display: none; align-self: stretch; }
       .sd-bar nav i { position: relative; display: inline-flex; align-items: center; gap: calc(4px * var(--sd-s));
         padding: 0 calc(10px * var(--sd-s)); font: 600 calc(13.6px * var(--sd-s) * var(--sd-t, 1))/1.5 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;

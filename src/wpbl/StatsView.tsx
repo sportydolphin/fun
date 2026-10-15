@@ -146,6 +146,7 @@ const boardTabOptions = (newBoards?: ReadonlySet<string>) => BOARD_TABS.map(b =>
     // SegNav's pills do one level up.
     adornment: badge ? <NewDot sx={{ ml: 0.6 }} /> : undefined,
     ariaLabel: badge ? `${b.label}, updated` : undefined,
+    title: badge ? `New board: ${b.label}` : undefined,
   }
 })
 type Mode = 'players' | 'teams'

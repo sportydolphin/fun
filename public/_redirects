@@ -56,6 +56,11 @@
 /wpbl/series/hunters-vs-heights    /wpbl/series/heights-vs-hunters 301
 /wpbl/series/queens-vs-heights     /wpbl/series/heights-vs-queens 301
 /wpbl/series/queens-vs-hunters     /wpbl/series/hunters-vs-queens 301
+# The Scores tab's URL is /wpbl/schedule, kept because it is what the search engines indexed, but
+# the tab reads "Scores" and MLB's is /mlb/scores, so /wpbl/scores is the address people guess.
+# A 301 rather than a second page; src/App.tsx folds it the same way for in-app and dev loads.
+/wpbl/scores     /wpbl/schedule   301
+/wpbl/scores/    /wpbl/schedule   301
 /mlb/          /mlb       301
 /mlb/scores/     /mlb/scores      301
 /mlb/standings/  /mlb/standings   301

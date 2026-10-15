@@ -13,7 +13,7 @@
 import { useCallback, useState } from 'react'
 import { Box } from '@mui/material'
 import { Check, ErrorOutlined, Link as LinkIcon } from '@mui/icons-material'
-import { HeaderChipLabel, HEADER_ICON_SX, headerChipSx } from './headerBar'
+import { HeaderChipLabel, HEADER_ICON_SX, headerChipSx, headerIconChipSx } from './headerBar'
 
 export type CopyState = 'idle' | 'copied' | 'failed'
 
@@ -50,17 +50,21 @@ export function CopyLinkButton({ url, title = 'Copy link', onCopy, copiedColor =
       title={title}
       aria-label={label}
       sx={{
-        ...headerChipSx,
+        // An icon at rest (see headerIconChipSx); the outcome is spelled out while it shows, since
+        // a tick alone is easy to miss and "Couldn't copy" is the one result that must be read.
+        ...(state === 'idle' ? headerIconChipSx : headerChipSx),
         // Confirmation is the accent and failure the theme's error colour; idle is every other
         // control in the bar (see headerBar).
         ...(state === 'copied' ? { color: copiedColor } : state === 'failed' ? { color: 'error.main' } : {}),
       }}
     >
-      <HeaderChipLabel icon={state === 'copied' ? <Check aria-hidden sx={HEADER_ICON_SX} />
-        : state === 'failed' ? <ErrorOutlined aria-hidden sx={HEADER_ICON_SX} />
-          : <LinkIcon aria-hidden sx={HEADER_ICON_SX} />}>
-        {label}
-      </HeaderChipLabel>
+      {state === 'idle'
+        ? <LinkIcon aria-hidden sx={HEADER_ICON_SX} />
+        : (
+          <HeaderChipLabel icon={state === 'copied' ? <Check aria-hidden sx={HEADER_ICON_SX} /> : <ErrorOutlined aria-hidden sx={HEADER_ICON_SX} />}>
+            {label}
+          </HeaderChipLabel>
+        )}
     </Box>
   )
 }

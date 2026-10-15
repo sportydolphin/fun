@@ -7,7 +7,7 @@
 import { Box } from '@mui/material'
 import { OpenInFull } from '@mui/icons-material'
 import { pressable } from './interaction'
-import { HeaderChipLabel, HEADER_ICON_SX, headerChipSx } from './headerBar'
+import { HEADER_ICON_SX, headerIconChipSx } from './headerBar'
 
 export function ExpandButton({ onExpand, title = 'Open as a full page' }: {
   onExpand: () => void
@@ -18,9 +18,9 @@ export function ExpandButton({ onExpand, title = 'Open as a full page' }: {
       {...pressable(onExpand)}
       title={title}
       aria-label={title}
-      sx={headerChipSx}
+      sx={headerIconChipSx}
     >
-      <HeaderChipLabel icon={<OpenInFull aria-hidden sx={{ ...HEADER_ICON_SX, fontSize: '0.85rem' }} />}>Expand</HeaderChipLabel>
+      <OpenInFull aria-hidden sx={{ ...HEADER_ICON_SX, fontSize: '0.85rem' }} />
     </Box>
   )
 }

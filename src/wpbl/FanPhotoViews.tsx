@@ -214,6 +214,11 @@ function PhotoCard({ photo, names, onOpen, frame, focusable = true, subject, pri
   const size = frame === 'rail'
     ? { width: '100%', height: { xs: chromePx(RAIL_TILE_H.xs), sm: chromePx(RAIL_TILE_H.sm) } }
     : { width: '100%', aspectRatio: photo.width && photo.height ? `${photo.width} / ${photo.height}` : '4 / 3' }
+  // A lazy tile was a flat grey box until its photo arrived, which on a slow phone read as a broken
+  // gallery rather than one still loading. The index carries no colour or preview to paint
+  // instead, so the box shows the site's loading wave and the photo fades in over it. A photo
+  // already in the cache is complete before React can hear its load event, hence the ref.
+  const [loaded, setLoaded] = useState(false)
   return (
     <Box sx={{ minWidth: 0 }}>
       <Box
@@ -229,9 +234,16 @@ function PhotoCard({ photo, names, onOpen, frame, focusable = true, subject, pri
           '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
         }}
       >
+        {!loaded && <Skeleton variant="rectangular" animation="wave" sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', bgcolor: 'transparent' }} />}
         <Box component="img" src={photo.card_url} alt={caption} loading={priority ? 'eager' : 'lazy'}
           fetchPriority={priority === 'high' ? 'high' : undefined}
-          sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
+          ref={(el: HTMLImageElement | null) => { if (el?.complete && el.naturalWidth > 0) setLoaded(true) }}
+          // An error ends the wait too: a photo that will never come must not shimmer forever.
+          onLoad={() => setLoaded(true)} onError={() => setLoaded(true)}
+          sx={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain',
+            opacity: loaded ? 1 : 0, transition: 'opacity 0.25s',
+          }} />
       </Box>
       {showCaption && (
         <Typography sx={{
@@ -434,6 +446,14 @@ function useRailAutoScroll(
 
 // ─── The strip (player page, Game Center) ──────────────────────────────────────────
 
+/** The rail's edge fade: each side fades only while there is more to scroll to on it. */
+function railFade(start: boolean, end: boolean): string | undefined {
+  if (!start && !end) return undefined
+  const a = start ? 'transparent 0, #000 24px' : '#000 0'
+  const b = end ? '#000 calc(100% - 56px), transparent 100%' : '#000 100%'
+  return `linear-gradient(to right, ${a}, ${b})`
+}
+
 /** A horizontal rail of a subject's or a game's photos, opening the lightbox. `from` labels the
  *  open event so a player-page strip and a Game Center strip can be judged separately.
  *  `autoScroll` makes it drift on its own (Home only; see useRailAutoScroll). `phoneInset` is for
@@ -480,17 +500,23 @@ export function FanPhotoStrip({ photos, resolveNames, from, autoScroll = false, 
             flick. Switching snap on mid-glide makes the browser yank the nearest photo into place,
             and that was the only snap the Home rail ever did. A photo rail of mixed widths reads
             fine scrolling freely; the arrows still page it on a desktop. */}
-        <RailScroller scrollRef={scrollRef} onScroll={syncEdges} snap={!autoScroll} phoneInset={phoneInset}>
-          {tiles(false)}
-          {/* The loop's second copy (see useRailAutoScroll). `display: contents` so its tiles are
-              flex items of the rail like the originals, with the same gap at the seam. `inert`
-              takes the copy out of the tab order and the accessibility tree while leaving it clickable. */}
-          {looping && (
-            <Box data-loop-copy aria-hidden inert sx={{ display: 'contents' }}>
-              {tiles(true)}
-            </Box>
-          )}
-        </RailScroller>
+        {/* The edge with more photos past it fades out, so the tile cut off there reads as "more
+            this way" rather than as a photo clipped by mistake. A mask on a wrapper rather than an
+            overlay: the page shows through the fade in both themes, and the arrows, siblings of
+            this wrapper, stay solid on top of it. */}
+        <Box sx={{ maskImage: railFade(canPrev, canNext), WebkitMaskImage: railFade(canPrev, canNext) }}>
+          <RailScroller scrollRef={scrollRef} onScroll={syncEdges} snap={!autoScroll} phoneInset={phoneInset}>
+            {tiles(false)}
+            {/* The loop's second copy (see useRailAutoScroll). `display: contents` so its tiles are
+                flex items of the rail like the originals, with the same gap at the seam. `inert`
+                takes the copy out of the tab order and the accessibility tree while leaving it clickable. */}
+            {looping && (
+              <Box data-loop-copy aria-hidden inert sx={{ display: 'contents' }}>
+                {tiles(true)}
+              </Box>
+            )}
+          </RailScroller>
+        </Box>
         <RailArrow dir="left" show={canPrev} onClick={() => page(-1)} label="photographs" />
         <RailArrow dir="right" show={canNext} onClick={() => page(1)} label="photographs" />
       </Box>

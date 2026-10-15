@@ -124,6 +124,8 @@ export function ToolbarNav({ section, path, sx }: { section: NavSection; path: s
               } else navigate(t.href)
             }}
             sx={tabSx(on)}
+            // Says what the dot is for on hover; a screen reader already hears it from the dot.
+            title={t.badge ? t.badgeNote : undefined}
           >
             {t.label}
             {/* In the tab's padding, not beside the label: a dot that took width would move every

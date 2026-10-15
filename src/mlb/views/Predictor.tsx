@@ -291,16 +291,16 @@ function QuickPickTeam({ team, side, picked, dimmed, onPick }: {
   )
 }
 
-// The crowd-vote share on the outer edge of a matchup row. Reserves its column
-// width even with no votes (renders blank) so the two teams stay aligned.
-function PctLabel({ pct, align }: { pct: number | null; align: 'left' | 'right' }) {
+// The crowd-vote share on the outer edge of a matchup row: 50 on each side before anyone picks.
+function PctLabel({ pct, align, votes, total }: { pct: number; align: 'left' | 'right'; votes: number; total: number }) {
   return (
-    <Typography sx={{
+    // The count behind the share on hover: early in a day one pick is "100%", and the number is
+    // what says how little that means.
+    <Typography title={total ? `${votes} of ${total} fan ${total === 1 ? 'pick' : 'picks'}` : undefined} sx={{
       fontSize: TYPE_SCALE.meta, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
       color: 'text.secondary', textAlign: align, lineHeight: 1, whiteSpace: 'nowrap',
-      visibility: pct === null ? 'hidden' : 'visible',
     }}>
-      {pct ?? 0}%
+      {pct}%
     </Typography>
   )
 }
@@ -315,8 +315,10 @@ function QuickPickRow({ game, prediction, gameVotes, onPick }: {
   const awayVotes  = gameVotes?.[game.away.teamId] ?? 0
   const homeVotes  = gameVotes?.[game.home.teamId] ?? 0
   const totalVotes = awayVotes + homeVotes
-  const awayPct    = totalVotes ? Math.round(awayVotes / totalVotes * 100) : null
-  const homePct    = awayPct !== null ? 100 - awayPct : null
+  // An even split before anyone has picked, rather than no meter and blank labels: the row then
+  // has one shape from the first visit of the day, and 50/50 is the honest reading of no votes.
+  const awayPct    = totalVotes ? Math.round(awayVotes / totalVotes * 100) : 50
+  const homePct    = 100 - awayPct
   const isDark     = useDark()
   // Ring color in dark mode gives the bars maximum contrast; light stays on TEAM_BG.
   const awayCol    = isDark ? ringColor(game.away.teamId, true) : TEAM_BG[game.away.teamId] ?? '#888'
@@ -332,7 +334,7 @@ function QuickPickRow({ game, prediction, gameVotes, onPick }: {
         gridTemplateColumns: `minmax(${chromePx(26)},auto) minmax(0,1fr) auto minmax(0,1fr) minmax(${chromePx(26)},auto)`,
         alignItems: 'center', columnGap: 0.6,
       }}>
-        <PctLabel pct={awayPct} align="left" />
+        <PctLabel pct={awayPct} align="left" votes={awayVotes} total={totalVotes} />
         <QuickPickTeam
           team={game.away}
           side="away"
@@ -348,30 +350,28 @@ function QuickPickRow({ game, prediction, gameVotes, onPick }: {
           dimmed={hasPick && !pickedHome}
           onPick={() => onPick(game.home.teamId)}
         />
-        <PctLabel pct={homePct} align="right" />
+        <PctLabel pct={homePct} align="right" votes={homeVotes} total={totalVotes} />
       </Box>
 
       {/* Tug-of-war meter: crowd split in team colors, scaling with the vote %.
           The side you picked pulls to full strength so the bar shows the crowd
           lean and your call at once. A hairline gap marks the boundary. */}
-      {awayPct !== null && (
-        <Box sx={{ display: 'flex', alignItems: 'stretch', height: chromePx(6), gap: chromePx(2) }}>
-          <Box sx={{
-            width: `${awayPct}%`, minWidth: awayPct > 0 ? chromePx(4) : 0,
-            bgcolor: awayCol, opacity: !hasPick ? 0.72 : pickedAway ? 1 : 0.32,
-            borderRadius: '999px 3px 3px 999px',
-            boxShadow: pickedAway ? `0 0 6px ${awayCol}88` : 'none',
-            transition: 'width 0.45s ease, opacity 0.2s',
-          }} />
-          <Box sx={{
-            flex: 1, minWidth: homePct! > 0 ? chromePx(4) : 0,
-            bgcolor: homeCol, opacity: !hasPick ? 0.72 : pickedHome ? 1 : 0.32,
-            borderRadius: '3px 999px 999px 3px',
-            boxShadow: pickedHome ? `0 0 6px ${homeCol}88` : 'none',
-            transition: 'opacity 0.2s',
-          }} />
-        </Box>
-      )}
+      <Box sx={{ display: 'flex', alignItems: 'stretch', height: chromePx(6), gap: chromePx(2) }}>
+        <Box sx={{
+          width: `${awayPct}%`, minWidth: awayPct > 0 ? chromePx(4) : 0,
+          bgcolor: awayCol, opacity: !hasPick ? 0.72 : pickedAway ? 1 : 0.32,
+          borderRadius: '999px 3px 3px 999px',
+          boxShadow: pickedAway ? `0 0 6px ${awayCol}88` : 'none',
+          transition: 'width 0.45s ease, opacity 0.2s',
+        }} />
+        <Box sx={{
+          flex: 1, minWidth: homePct > 0 ? chromePx(4) : 0,
+          bgcolor: homeCol, opacity: !hasPick ? 0.72 : pickedHome ? 1 : 0.32,
+          borderRadius: '3px 999px 999px 3px',
+          boxShadow: pickedHome ? `0 0 6px ${homeCol}88` : 'none',
+          transition: 'opacity 0.2s',
+        }} />
+      </Box>
     </Box>
   )
 }

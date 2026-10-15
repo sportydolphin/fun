@@ -22,7 +22,7 @@ import { useSyncExternalStore } from 'react'
 
 export type NavSection = 'wpbl' | 'mlb'
 
-export interface SectionNavTab { key: string; label: string; href: string; badge?: boolean }
+export interface SectionNavTab { key: string; label: string; href: string; badge?: boolean; /** What the dot is for (seen.ts `note`), as a tooltip. */ badgeNote?: string }
 
 /** What a More row does when the section is mounted, by the row's key. The rows themselves (names,
  *  addresses, groups) are static lists the shell reads without the section (WPBL_MORE_PAGES,
