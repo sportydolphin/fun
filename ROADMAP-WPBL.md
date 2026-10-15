@@ -1147,9 +1147,14 @@ worth doing:
    reading sabermetrics only for wOBA and wRC+ and park factors only for OPS+ and ERA+. **MLB has no
    WAR**: "most war" there offers no row, because the site has no MLB WAR to rank. A career answers
    on MLB only the figures that need no league (K%, ISO and the like).
-5. **Live games first.** A club playing right now puts "Live · 3-2, bottom 6" at the top.
-6. **Clubs as the subject.** "SF team ERA", "most runs by a team" opens the team stats board.
-7. **The other section.** An MLB name typed on WPBL offers one row into MLB, and the reverse.
+5. ✅ **Live games first** (Oct 14, v1.162.0). A club typed alone ("Dodgers", "SF score") asks the
+   section's game lookup for today, and a game under way leads as "SF 3 at NY 2 · Live · Bottom 6".
+6. ✅ **Clubs as the subject** (Oct 14, v1.162.0). "SF team ERA", "most runs by a team", "Dodgers hr"
+   open the team stats board sorted on the stat (`parseTeamRankText`). MLB's Teams board has the
+   plain columns only, so an advanced figure there offers no row.
+7. ✅ **The other section** (Oct 14, v1.162.0). A name the section on screen cannot find is looked
+   up in the other one, after the section found nobody and only for a plain name
+   (`src/otherSection.ts`).
 8. ✅ **A part of a player's page** (Oct 14). "Ohtani splits", "Whitmore game log" opens the card
    scrolled there, through `lib/sectionScroll.ts` as a club page row does: the game log, splits,
    pitch mix, advanced, fielding and contract on MLB; the game log, pitch profile, matchups, hit
@@ -1159,12 +1164,15 @@ worth doing:
    pitch mix" there opens on whichever role is showing.
 9. **Spans and splits.** "hr since August", "avg at home 2026" as a Find link with a date range,
    once the Find board takes one.
-10. **Records and firsts.** "first home run", "longest game" opens the Hall of Firsts or Bests.
+10. **Records and firsts.** ✅ Records (Oct 14, v1.162.0): "most hr in a game", "longest scoreless
+    outing" open Bests at that card (`parseRecordText`), and the season ranking steps aside for
+    single-game words. Firsts wait for a page to link: there is no Hall of Firsts yet.
 11. ✅ **Questions in Recent** (Oct 14). A ranking, a Find question or a glossary term run from the
     box comes back in Recent, merged with the players and clubs by when each was opened
     (`src/lib/recentQuestions.ts`). On this device only: the sections' synced recents are typed as
     a player or a club, and an older client drops anything else as it writes the list back.
-12. **Keyboard.** Tab accepts the top row; a "?" row lists what the box understands.
+12. ✅ **Keyboard** (Oct 14, v1.162.0). Tab completes the lit row's name into the box, ready for
+    " avg" after it; "?" lists everything the box understands.
 13. **Examples from use.** Pick the idle examples from what readers ask, once the "Offered nothing
     for" list on /admin (live from v1.158.0) and the picks by kind have a few weeks in them.
 14. ✅ **Measure the forgiving pass** (Oct 14). A pick of a row only the typo fallback found carries
@@ -1623,6 +1631,25 @@ is retired.
 ---
 
 ## Shipped log
+
+### Oct 14, 2026: the search on every page, and what it shows before you type (v1.162.0)
+
+**The box and Ctrl+K were missing on every standalone page** (About the league, a series, Batter vs
+pitcher, Compare, both glossaries): the shell drew the search only where WpblApp or MlbStats owned
+the route. They show on every page of either section now, and a search opened on one mounts that
+section hidden so players and clubs still answer (`SectionSearchContext`); both sections stopped
+writing the address on a cold mount from a path they do not own, which would otherwise have moved
+the reader. **Empty, the box is the manual**: a Try list, one example per thing it reads, pinned to
+the row each one is there to show (`commandPaletteExamples.test.ts`), and "?" brings it back. New
+readings: a club as the subject (item 6), the other league's names (item 7), single-game records
+(item 10), thresholds as said ("300 hitters", "era between 2 and 3", "double digit hr"; a floor and
+a ceiling on one stat now both stay), a ranking among one position or role ("best catcher", "top
+relievers"), the words people use for pages ("wild card", "trades"), MLB's scores on a day, and the
+site's own controls (dark mode, settings, feedback). **Both players boards filter by position or
+role** for that (`pos=`, `src/league/positionFilter.ts`), shown as a chip that removes it; a role is
+read off the season (half or more starts is a starter), since both rosters list every pitcher as P.
+A ranking row reads "Leaders · Hitting · 2026 · Kelsie Whitmore leads with 9", the year being the one
+the leader was read for. Tab completes (item 12) and a live game leads (item 5).
 
 ### Oct 14, 2026: every player's season, totalled once (v1.161.0)
 

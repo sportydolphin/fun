@@ -11,14 +11,15 @@
 // tab on a modified click like any other.
 
 import { describeFinderQuery, finderFields, type FinderSide } from './league/finder'
-import { parseClubPage, parseFinderText, parseGameQuery, parseLeaderText, rankField, rankLowerBetter, type ClubPagePart, type ParsedFinder, type ParsedLeader, type RankSide } from './league/finderParse'
+import { parseClubPage, parseFinderText, parseGameQuery, parseLeaderText, parsePositionRank, parseRecordText, parseTeamRankText, rankField, rankLowerBetter, type ClubPagePart, type ParsedFinder, type ParsedLeader, type RankSide } from './league/finderParse'
 import { MLB_FINDER_CLUBS, mlbFinderHref } from './mlb/finderLink'
-import { CURRENT_SEASON, TEAM_ABBR } from './mlb/constants'
+import { CURRENT_SEASON, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_ABBR } from './mlb/constants'
 import { MLB_GLOSSARY_PAGE, mlbClubById, mlbTeamPath, mlbUrlFor } from './mlb/routes'
 import { WPBL_FINDER_CLUBS, wpblFinderHref } from './wpbl/finderLink'
 import { WPBL_TEAMS } from './wpbl/constants'
 import { WPBL_GLOSSARY_PAGE, wpblSeriesPath, wpblTeamPath } from './wpbl/routes'
 import { askedTerms, glossaryTermKey } from './league/glossary'
+import { positionFilterDef } from './league/positionFilter'
 import { MLB_STAT_TERMS } from './mlb/statGlossary'
 import { STAT_TERMS } from './wpbl/glossary'
 import type { LeaderAsk, LeaderPeek } from './mlb/state/SearchBridgeContext'
@@ -64,7 +65,11 @@ export interface LeaderSuggestion {
   key: string
   /** "Most home runs", "Lowest ERA". */
   title: string
+  /** "Hitting · 2026", for Recent. */
   subtitle: string
+  /** The two halves of it, which the palette lays out around the leader. */
+  side: string
+  span: string
   href: string
   parsed: ParsedLeader
   /** What the row's link ranks, in the stats table's terms, for the section to name the leader. */
@@ -164,10 +169,134 @@ export function leaderSuggestions(section: FinderSection, text: string, opts: Le
       if (p.season) params.set('season', String(p.season))
       href = `/wpbl/stats?${params}`
     }
-    const span = p.career ? (section === 'mlb' ? 'all time' : 'all time, one season so far') : p.season ?? 'this season'
-    const subtitle = [p.side === 'pitching' ? 'Pitching' : p.side === 'overall' ? 'Overall' : 'Hitting', span].join(' · ')
+    // The year by number wherever the shell knows it: MLB's is the calendar's, and WPBL's arrives
+    // with the leader (LeaderPeek.season), which is the newest season with a final.
+    const span = p.career ? (section === 'mlb' ? 'All time' : 'All time, one season so far')
+      : String(p.season ?? (section === 'mlb' ? CURRENT_SEASON : 'This season'))
+    const sideLabel = p.side === 'pitching' ? 'Pitching' : p.side === 'overall' ? 'Overall' : 'Hitting'
+    const subtitle = [sideLabel, span].join(' · ')
     const ask = { side: p.side, sort, dir: p.dir, season: p.season, career: p.career }
-    return [{ key: `leader-${href}`, title: leaderTitle(p), subtitle, href, parsed: p, ask }]
+    return [{ key: `leader-${href}`, title: leaderTitle(p), subtitle, side: sideLabel, span, href, parsed: p, ask }]
+  })
+}
+
+export interface TeamRankSuggestion {
+  key: string
+  /** "Lowest ERA by a team", or "San Francisco Firebells team ERA" when a club was named. */
+  title: string
+  subtitle: string
+  href: string
+}
+
+// MLB's Teams board has the plain columns only (SeasonGridView takes HITTING_STAT_DEFS and
+// PITCHING_STAT_DEFS), so an advanced figure there would open the board on its default sort while
+// the row promised another: no row instead. WPBL's builds from the same columns as its players.
+const MLB_TEAM_SORTS: Record<FinderSide, Set<string>> = {
+  hitting: new Set(HITTING_STAT_DEFS.map(d => d.key)),
+  pitching: new Set(PITCHING_STAT_DEFS.map(d => d.key)),
+}
+
+function clubFullName(section: FinderSection, id: string): string | null {
+  if (section === 'mlb') return mlbClubById(Number(id))?.name ?? null
+  const t = WPBL_TEAMS[id]
+  return t ? `${t.city} ${t.name}` : null
+}
+
+/** "SF team ERA", "most runs by a team": the section's team stats board, sorted on the stat. */
+export function teamRankSuggestions(section: FinderSection, text: string): TeamRankSuggestion[] {
+  return parseTeamRankText(text, sectionClubs(section)).flatMap(({ leader: p, clubIds }) => {
+    const side = p.side as FinderSide
+    const sort = BOARD_COLUMNS[section][side][p.field]
+    if (!sort || (section === 'mlb' && !MLB_TEAM_SORTS[side].has(sort))) return []
+    let href: string
+    if (section === 'mlb') {
+      href = mlbUrlFor({ view: 'teamStats', lb: side, sort, dir: p.dir, season: p.season }, CURRENT_SEASON)
+    } else {
+      const params = new URLSearchParams({ board: 'teams', side, sort })
+      if (p.dir) params.set('dir', p.dir)
+      if (p.season) params.set('season', String(p.season))
+      href = `/wpbl/stats?${params}`
+    }
+    const span = String(p.season ?? (section === 'mlb' ? CURRENT_SEASON : 'This season'))
+    const subtitle = ['Team stats', side === 'pitching' ? 'Pitching' : 'Hitting', span].join(' · ')
+    const club = clubIds.length === 1 ? clubFullName(section, clubIds[0]) : null
+    const ranked = leaderTitle(p)
+    // "Lowest ERA" names the ranking; with a club named, the stat alone is the question.
+    const stat = ranked.replace(/^(Most|Fewest|Highest|Lowest) /, '')
+    const title = club ? `${club} team ${stat}` : `${ranked} by a team`
+    return [{ key: `team-rank-${href}-${club ?? ''}`, title, subtitle, href }]
+  })
+}
+
+/** "best catcher", "most hr by a shortstop", "top relievers": the players board, narrowed to the
+ *  position or role (`pos=`, src/league/positionFilter.ts) and sorted on the stat when one was
+ *  named. The same shape as a ranking row, so the palette draws it as one. */
+export function positionRankSuggestions(section: FinderSection, text: string): Omit<LeaderSuggestion, 'parsed' | 'ask' | 'side' | 'span'>[] {
+  return parsePositionRank(text).flatMap(({ pos, leader: p }) => {
+    const def = positionFilterDef(pos)
+    const side = def.side
+    const sort = p ? BOARD_COLUMNS[section][side][p.field] : null
+    if (p && !sort) return []
+    let href: string
+    if (section === 'mlb') {
+      href = mlbUrlFor({ view: 'stats', lb: side, sort, dir: p?.dir ?? null, season: p?.season ?? null, who: pos }, CURRENT_SEASON)
+    } else {
+      const params = new URLSearchParams({ board: 'players', side })
+      if (sort) params.set('sort', sort)
+      if (p?.dir) params.set('dir', p.dir)
+      if (p?.season) params.set('season', String(p.season))
+      params.set('pos', pos)
+      href = `/wpbl/stats?${params}`
+    }
+    const who = def.plural.toLowerCase()
+    const title = p ? `${leaderTitle(p)} among ${who}` : `Best ${who}`
+    const span = String(p?.season ?? (section === 'mlb' ? CURRENT_SEASON : 'This season'))
+    const subtitle = ['Leaders', side === 'pitching' ? 'Pitching' : 'Hitting', span, `${def.plural} only`].join(' · ')
+    return [{ key: `pos-rank-${href}`, title, subtitle, href }]
+  })
+}
+
+export interface RecordSuggestion {
+  key: string
+  /** "Most home runs in a game", "Longest scoreless outing". */
+  title: string
+  subtitle: string
+  href: string
+  /** The Bests card to scroll to (lib/sectionScroll.ts), `best-<board key>`. */
+  scrollTo: string
+}
+
+// The finder's fields as the Bests boards key them (league/bests.ts, shared by both sections). Only
+// the measures a board exists for: a record nobody keeps (batter strikeouts, walks) offers no row.
+const BEST_BOARDS: Record<FinderSide, Record<string, { key: string; label: string }>> = {
+  hitting: {
+    tb: { key: 'tb', label: 'Most total bases in a game' }, rbi: { key: 'rbi', label: 'Most RBI in a game' },
+    h: { key: 'h', label: 'Most hits in a game' }, hr: { key: 'hr', label: 'Most home runs in a game' },
+    ob: { key: 'ob', label: 'Most times on base in a game' }, sb: { key: 'sb', label: 'Most stolen bases in a game' },
+  },
+  pitching: {
+    so: { key: 'so', label: 'Most strikeouts in a game' }, ip: { key: 'outs', label: 'Longest outing' },
+    outs: { key: 'outs', label: 'Longest outing' }, scoreless: { key: 'scoreless', label: 'Longest scoreless outing' },
+    pitches: { key: 'pitches', label: 'Most pitches in a game' },
+  },
+}
+
+/** "most hr in a game", "longest scoreless outing": the Bests board, at that record's card. */
+export function recordSuggestions(section: FinderSection, text: string): RecordSuggestion[] {
+  const seen = new Set<string>()
+  return parseRecordText(text).flatMap(({ side, field }) => {
+    const s = side as FinderSide
+    const board = BEST_BOARDS[s][field]
+    if (!board || seen.has(board.key)) return []
+    seen.add(board.key)
+    const href = section === 'mlb'
+      ? mlbUrlFor({ view: 'bests', lb: s }, CURRENT_SEASON)
+      : `/wpbl/stats?${new URLSearchParams({ board: 'bests', side: s })}`
+    return [{
+      key: `record-${href}-${board.key}`, title: board.label,
+      subtitle: `Bests · the single-game record, ${s === 'pitching' ? 'pitching' : 'hitting'}`,
+      href, scrollTo: `best-${board.key}`,
+    }]
   })
 }
 

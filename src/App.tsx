@@ -7,7 +7,7 @@ import { useSearchBridge, noteSearchFocus } from './mlb/state/SearchBridgeContex
 import type { PlayerBridgeItem, SearchResultRow, SearchResultAvatar } from './mlb/state/SearchBridgeContext'
 import { requestSectionScroll } from './lib/sectionScroll'
 import { MLB_PLAYER_PARTS, PLAYER_PART_LABEL, WPBL_PLAYER_PARTS, playerPartKey } from './lib/playerParts'
-import type { PaletteIdleGroup } from './CommandPalette'
+import type { PaletteAction, PaletteIdleGroup } from './CommandPalette'
 import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT } from './mlb/constants'
 import { useTheme } from './ThemeContext'
 import { DevSettings, MobilePreviewHost } from './dev/DevSettings'
@@ -46,7 +46,7 @@ import { setDeactivationHandler, resetActiveCache } from './lib/userActive'
 // the WPBL feature-flagged sections via src/lib/admin.ts.
 import { ADMIN_EMAIL } from './lib/admin'
 import { typePx } from './ui/scale'
-import { SectionActiveContext } from './lib/panelActive'
+import { SectionActiveContext, SectionSearchContext } from './lib/panelActive'
 import { otherSectionPath } from './sectionSwitch'
 
 // The MLB feature is by far the largest part of the app — code-split it so the
@@ -155,10 +155,12 @@ type Route = '/' | '/mlb' | '/wpbl' | '/wpbl/api' | '/privacy' | '/terms' | '/de
 /** A section kept mounted across a switch to the other one (see keptMlb in App). Hidden with
  *  `display: none`, which also hides its fixed bottom bar; `contents` while shown, so the wrapper
  *  adds no box and the section lays out exactly as it did as a direct child. */
-function KeptSection({ active, children }: { active: boolean; children: React.ReactNode }) {
+function KeptSection({ active, search, children }: { active: boolean; search: boolean; children: React.ReactNode }) {
   return (
     <SectionActiveContext.Provider value={active}>
-      <div style={{ display: active ? 'contents' : 'none' }}>{children}</div>
+      <SectionSearchContext.Provider value={search}>
+        <div style={{ display: active ? 'contents' : 'none' }}>{children}</div>
+      </SectionSearchContext.Provider>
     </SectionActiveContext.Provider>
   )
 }
@@ -418,6 +420,10 @@ function AppInner() {
   const keptWpbl = useRef(false)
   if (isMlbPath(path)) keptMlb.current = true
   if (rendersWpblApp(path)) keptWpbl.current = true
+  // The same, for a search opened on a standalone page of a section that was never visited (a
+  // cold load of /wpbl/league): the palette's players and clubs come from the section, so it is
+  // mounted then, hidden. Bumped rather than read from the ref alone, so it renders.
+  const [, setKeptBump] = useState(0)
   const keepMlb = keptMlb.current
   const keepWpbl = keptWpbl.current
   // THE SECTION TABS LIVE IN THIS BAR above a phone's width (ToolbarNav, src/sectionNav.ts), and
@@ -513,7 +519,13 @@ function AppInner() {
   // icon beside it sideways on each refresh: the one layout shift left in the toolbar. The route is
   // known on the first frame, and the two sections that answer a search are exactly the ones that
   // mount below. A query typed in that half second waits in the bridge and is answered on arrival.
-  const searchShown = bridge.isRegistered || rendersWpblApp(path) || isMlbPath(path)
+  //
+  // EVERY PAGE OF EITHER SECTION, not only the ones its app draws. Until Oct 2026 this was
+  // rendersWpblApp || isMlbPath, so the standalone pages (About the league, a season series,
+  // Batter vs pitcher, Compare, the glossaries) lost the box and Ctrl+K: exactly the pages a
+  // reader is most likely to want to leave by searching. The section answers from behind them
+  // (SectionSearchContext, keptWpbl above).
+  const searchShown = bridge.isRegistered || navSection !== null
   // STABLE, because MlbStats is memoized on it. This shell re-renders on every toolbar change (it
   // reads the search bridge), and with an inline footer here the whole MLB section re-rendered
   // with it: opening a team page from Home went round MlbStats and this shell three times, about
@@ -555,9 +567,13 @@ function AppInner() {
     // The sections load their search data on the first focus of the search (onFirstSearchFocus),
     // which used to be the field's; opening the palette is that moment now.
     noteSearchFocus()
+    // On a standalone page whose section is not mounted yet, mount it behind the page so it can
+    // answer. Its search data loads now, the moment the field's first focus always loaded it.
+    if (navSection === 'wpbl' && !keptWpbl.current) { keptWpbl.current = true; setKeptBump(n => n + 1) }
+    if (navSection === 'mlb' && !keptMlb.current) { keptMlb.current = true; setKeptBump(n => n + 1) }
     track(EVENTS.COMMAND_PALETTE_OPENED, { section: searchSection, via })
     setPaletteOpen(true)
-  }, [paletteOpen, searchSection])
+  }, [paletteOpen, searchSection, navSection])
   // "/" as on GitHub and YouTube, never while typing somewhere and never under a modal. Ctrl+K
   // fires from inside a field too, since a modifier chord cannot be typing, and closes the palette
   // again; it is the browser's own "search the web" key, so it is taken only where a section
@@ -668,6 +684,22 @@ function AppInner() {
       })),
     }]
   }, [paletteOpen, bridge])
+
+  // What the site does, as rows the search can offer ("dark mode", "send feedback"). Each is a control
+  // already in the toolbar, the account menu or the footer; the search is one more way to reach it,
+  // and the only one that does not need the reader to know where it lives.
+  const paletteActions = useMemo<PaletteAction[]>(() => [
+    { key: 'theme', title: mode === 'dark' ? 'Light mode' : 'Dark mode', hint: 'Switch the theme',
+      words: ['dark mode', 'light mode', 'theme', 'night mode', 'dark', 'light'], run: toggleTheme },
+    { key: 'settings', title: 'Settings', hint: 'Units, text size, swiping and more',
+      words: ['preferences', 'options', 'text size', 'units', 'accessibility'], run: () => setSettingsOpen(true) },
+    { key: 'changelog', title: 'What’s new', hint: 'Every change to the site',
+      words: ['whats new', 'what is new', 'changelog', 'updates', 'release notes', 'version'], run: () => setChangelogOpen(true) },
+    { key: 'feedback', title: 'Send feedback', hint: 'A bug, an idea, or a missing stat',
+      words: ['feedback', 'report a bug', 'bug', 'contact', 'suggestion', 'idea'], run: () => setFeedbackOpen(true) },
+    ...(user ? [] : [{ key: 'signin', title: 'Sign in', hint: 'Keep your recents and picks on every device',
+      words: ['log in', 'login', 'sign up', 'account', 'register'], run: () => openAuthDialog('signin') }]),
+  ], [mode, toggleTheme, user, openAuthDialog])
 
   // Show the post sign-in/out toast stashed by AuthContext (or the delete-account
   // flow) just before it reloaded the page
@@ -1373,7 +1405,7 @@ function AppInner() {
               its section switch working, and moving to another path clears it. */}
           <AppErrorBoundary inline where="page" resetKey={path}>
           {keepMlb && (
-            <KeptSection active={isMlbPath(path)}>
+            <KeptSection active={isMlbPath(path)} search={navSection === 'mlb'}>
               {/* A screen tall, for the reason the /wpbl fallback below gives: at spinner height the
                   footer painted halfway up the screen and was then shoved off it, 0.13 of layout
                   shift on a desktop load (Oct 1, 2026). The section keeps itself a screen tall once
@@ -1458,7 +1490,7 @@ function AppInner() {
             </Suspense>
           )}
           {keepWpbl && (
-            <KeptSection active={rendersWpblApp(path)}>
+            <KeptSection active={rendersWpblApp(path)} search={navSection === 'wpbl'}>
               {/* A SCREEN TALL, NOT A SPINNER TALL. React.lazy suspends for at least a tick even
                   with the chunk preloaded, so this is always the first thing painted on /wpbl, and at
                   spinner height it put the footer halfway up the screen for that frame. The
@@ -1592,7 +1624,8 @@ function AppInner() {
           <CommandPalette open={paletteOpen} onClose={closePalette} section={searchSection}
             results={paletteResults} idle={paletteIdle} searching={bridge.searching}
             resolveCompare={bridge.resolveCompare} resolveGames={bridge.resolveGames}
-            resolveLeader={bridge.resolveLeader} resolvePlayerStat={bridge.resolvePlayerStat} seasonCount={bridge.seasonCount} />
+            resolveLeader={bridge.resolveLeader} resolvePlayerStat={bridge.resolvePlayerStat} seasonCount={bridge.seasonCount}
+            actions={paletteActions} />
         </Suspense>
       )}
 

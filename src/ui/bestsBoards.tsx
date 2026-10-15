@@ -2,6 +2,7 @@ import React, { useMemo } from 'react'
 import { Box, Typography, useMediaQuery, useTheme } from '@mui/material'
 import { SectionCard, TYPE_SCALE } from './card'
 import { BOARD_COLUMN, BOARD_COLUMN_WIDE } from './layoutWidths'
+import { sectionAnchorId, useSectionScroll } from '../lib/sectionScroll'
 
 // The Bests board's body, for both sections: the best single game anyone had, by each of a handful
 // of measures. The arithmetic is src/league/bests.ts and the row is src/ui/gameLine.tsx; this is
@@ -33,6 +34,8 @@ export function BestsBoards<R extends { display: string }>({
   /** A card's loading shape: the real title and the rows it nearly always has. */
   skeleton?: (board: BestsBoardShape<R>) => React.ReactNode
 }) {
+  // A record asked for in the search lands on its card once the card is drawn.
+  useSectionScroll()
   const theme = useTheme()
   // Two columns only where the layout below actually splits into two. `noSsr` because this is a
   // client-only SPA and the default would render the one-column branch first and then jump.
@@ -76,7 +79,10 @@ export function BestsBoards<R extends { display: string }>({
               {col.map(b => loading && skeleton
                 ? <React.Fragment key={b.key}>{skeleton(b)}</React.Fragment>
                 : (
-                  <SectionCard key={b.key} title={b.label}>
+                  // The anchor a search for the record scrolls to ("most hr in a game"), clear of the
+                  // pinned chrome above it.
+                  <Box key={b.key} id={sectionAnchorId(`best-${b.key}`)} sx={{ scrollMarginTop: 'calc(var(--app-header-h, 0px) + 8px)' }}>
+                  <SectionCard title={b.label}>
                     {b.rows.length === 0
                       ? <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>Nothing here yet.</Typography>
                       : b.rows.map((r, i) => renderRow(r, i, b))}
@@ -86,6 +92,7 @@ export function BestsBoards<R extends { display: string }>({
                       </Typography>
                     )}
                   </SectionCard>
+                  </Box>
                 ))}
             </Box>
           ))}

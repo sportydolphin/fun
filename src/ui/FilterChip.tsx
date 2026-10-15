@@ -98,3 +98,16 @@ export function FilterSelect({ value, options, onChange, active, ariaLabel }: {
     </Box>
   )
 }
+
+/** A filter that is ON and has no picker of its own on the board, said in words with a way out:
+ *  "Catchers ✕". The search sets these (`?pos=` from "best catcher"), and a board narrowed by
+ *  something the reader cannot see would read as a board missing most of its players. */
+export function ActiveFilterChip({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <Box component="button" type="button" onClick={onClear} aria-label={`${label}: remove filter`}
+      sx={{ ...filterChipSx(true), font: 'inherit', fontSize: '0.74rem', fontWeight: 700, gap: 0.5 }}>
+      {label}
+      <Box component="span" aria-hidden sx={{ fontSize: '0.9em', lineHeight: 1 }}>✕</Box>
+    </Box>
+  )
+}

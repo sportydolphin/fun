@@ -24,7 +24,11 @@ export interface TeamBridgeItem {
 }
 
 /** A row the section works out for the palette from typed text: a pair's compare page, a game. */
-export interface CompareRow { title: string; subtitle: string; href: string }
+export interface CompareRow {
+  title: string; subtitle: string; href: string
+  /** A game under way right now, which the palette puts above everything else. */
+  live?: boolean
+}
 
 /** A ranking typed in the box, in the section's own stats-table terms: `sort` is the column key
  *  the row's link sorts on, so the peek ranks exactly what the link opens. */
@@ -32,7 +36,12 @@ export interface LeaderAsk { side: RankSide; sort: string; dir: 'asc' | 'desc' |
 
 /** Who leads a ranking, as the stats table would put them first. `others` is how many share the
  *  lead on the number as printed. */
-export interface LeaderPeek { name: string; others: number; value: string }
+export interface LeaderPeek {
+  name: string; others: number; value: string
+  /** The year the board was read for, so the row can name it rather than say "this season" (which
+   *  between seasons is last year). Null for an all-time board. */
+  season?: number | null
+}
 
 /** A stat typed beside a name ("Whitmore avg"): the column it means on each side the section's
  *  table has one for, the side the word leans to, and the span typed with it, if any. */

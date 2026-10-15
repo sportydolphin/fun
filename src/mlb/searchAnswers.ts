@@ -118,5 +118,5 @@ export async function mlbLeaderPeek(ask: LeaderAsk): Promise<LeaderPeek | null> 
   const value = top ? printed(def, top.stat) : null
   if (!top || !value) return null
   const others = ranked.slice(1).filter(e => printed(def, e.stat) === value).length
-  return { name: top.playerName, others, value }
+  return { name: top.playerName, others, value, season: ask.career ? null : ask.season ?? CURRENT_SEASON }
 }

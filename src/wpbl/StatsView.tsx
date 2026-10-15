@@ -49,7 +49,8 @@ import { PageTabs } from '../ui/PageTabs'
 import { TABLE_CAP } from '../ui/ExpandRow'
 import { HEAD_LABEL_SX, HEAD_LEAGUE_SX, HEAD_LEAGUE_TINT } from '../ui/statsTableHead'
 import { useAxisLock } from '../ui/useAxisLock'
-import { FilterChip, FilterSelect } from '../ui/FilterChip'
+import { ActiveFilterChip, FilterChip, FilterSelect } from '../ui/FilterChip'
+import { matchesPositionFilter, parsePositionFilter, positionFilterDef, type PositionFilter } from '../league/positionFilter'
 import { LeadersBoard, LeadersBoardSkeleton } from './LeadersBoard'
 // The boards that render outside the shared season table, behind their own chunks. Hitting and
 // Pitching are what the tab opens on; Tracking (the TrackMan boards) is a separate sub-tab with
@@ -325,7 +326,7 @@ const STATS_PATH = '/wpbl/stats'
  * the target is this tab. See `playFragmentFor` in entryUrl.ts for the related case of the URL
  * fragment, which needs capturing rather than carrying.
  */
-export const STATS_URL_PARAMS = ['board', 'side', 'sort', 'dir', 'q', 'team', 'opp', 'venue'] as const
+export const STATS_URL_PARAMS = ['board', 'side', 'sort', 'dir', 'q', 'team', 'opp', 'venue', 'pos'] as const
 
 /** Copy this board's params from one query onto another, leaving everything else alone.
  *
@@ -398,6 +399,7 @@ function boardAxes(board: string | null): { source: Source; mode: Mode; side?: S
 function axesFromQuery(): {
   source?: Source; mode?: Mode; side?: Side; sortKey?: string; sortAsc?: boolean
   find?: string | null; findTeam?: string | null; findOpp?: string | null; findVenue?: FinderVenue
+  pos?: string | null
 } {
   if (typeof window === 'undefined') return {}
   // Only on the stats tab. A player modal opened from here owns the path, and the axes on it
@@ -426,6 +428,8 @@ function axesFromQuery(): {
     findTeam: q.get('team'),
     findOpp: q.get('opp'),
     findVenue: venue === 'home' || venue === 'away' ? (venue as FinderVenue) : undefined,
+    // A position or role on the players board ("best catcher" in the search).
+    pos: q.get('pos'),
   }
 }
 
@@ -986,6 +990,9 @@ export default function WpblStatsView({
     venue: fromUrl.findVenue ?? 'any',
   }))
   const [teamId, setTeamId] = useState<string | null>(null)
+  // A position or role, from the address only (the search writes it): the board has no picker for
+  // it, so it shows as a chip that removes it. See src/league/positionFilter.ts.
+  const [pos, setPos] = useState<PositionFilter | null>(() => parsePositionFilter(fromUrl.pos))
   // One row and one integer (see fetchWpblTrackedGameCount), read so the chip row can decide
   // whether Tracked is worth offering without loading the tracking scan to find out. Null
   // until it answers, and null means "do not offer": showing the chip and then discovering it
@@ -1327,7 +1334,7 @@ export default function WpblStatsView({
   const applyAddress = useRef<() => void>(() => {})
   applyAddress.current = () => {
     const sp = new URLSearchParams(window.location.search)
-    if (!['board', 'side', 'sort'].some(k => sp.has(k))) return
+    if (!['board', 'side', 'sort', 'pos'].some(k => sp.has(k))) return
     const q = axesFromQuery()
     if (!q.source && !q.side && !q.sortKey) return
     // The writer leaves every default off, so a param that is absent IS the default.
@@ -1335,6 +1342,7 @@ export default function WpblStatsView({
     const nextSide: Side = q.side ?? defaultSide(nextSource, q.mode)
     setSource(nextSource)
     setMode(q.mode ?? 'players')
+    setPos(parsePositionFilter(q.pos))
     if (nextSide !== side) switchSide(nextSide, false)
     // After the switch, which re-sorts on the side's headline column: no `sort` is that column.
     const next = defaultSort(nextSide, q.sortKey)
@@ -1445,11 +1453,12 @@ export default function WpblStatsView({
     set('team', finding ? findQuery.teamId : null)
     set('opp', finding ? findQuery.oppId : null)
     set('venue', finding && findQuery.venue !== 'any' ? findQuery.venue : null)
+    set('pos', source === 'season' && mode === 'players' ? pos : null)
     const str = q.toString()
     const url = str ? `${window.location.pathname}?${str}` : window.location.pathname
     if (url === window.location.pathname + window.location.search) return
     window.history.replaceState(window.history.state, '', url)
-  }, [active, source, mode, side, sortKey, sortAsc, findQuery, scope])
+  }, [active, source, mode, side, sortKey, sortAsc, findQuery, scope, pos])
 
   const bestAsc = activeCol.lowerBetter ?? false
   const bestFirst = sortAsc === bestAsc
@@ -1535,6 +1544,7 @@ export default function WpblStatsView({
       // small number rather than an extreme one, and the bar would only hide the bench.
       let list = valueSeasons ?? []
       if (teamId) list = list.filter(s => s.player.team_id === teamId)
+      if (pos) list = list.filter(s => matchesPositionFilter(pos, displayPositionFromIndex(s.player, positionIndex).label))
       built = list.map(s => ({
         key: s.player.id, team: teamById.get(s.player.team_id),
         label: s.player.name, fullName: s.player.name, sublabel: displayPositionFromIndex(s.player, positionIndex).label ?? undefined,
@@ -1550,6 +1560,10 @@ export default function WpblStatsView({
         : pitSeasons.map(s => ({ player: s.player, totals: s.totals as Totals, qualified: s.totals.outs >= qual.minOuts }))
       let list = seasons
       if (teamId) list = list.filter(s => s.player.team_id === teamId)
+      if (pos) {
+        list = list.filter(s => matchesPositionFilter(pos, displayPositionFromIndex(s.player, positionIndex).label,
+          side === 'pitching' ? s.totals as WpblPitchingTotals : null))
+      }
       // The qualifier applies to every sort, counting stats included: a 1-for-1 HR leader shouldn't
       // top the board over a full-season slugger, and a lit "✓ Qualified" chip must not silently do
       // nothing on a counting stat.
@@ -1574,7 +1588,7 @@ export default function WpblStatsView({
       : plateAppearances(r.totals as WpblBattingTotals)
     // Then the name, so a tie reads the same whichever source built the rows (leaderOrder.ts).
     return built.sort((a, b) => compareRows(val(a), val(b), sortAsc, sample(a), sample(b), a.label, b.label))
-  }, [mode, side, players, lines, fielding, valueSeasons, batSeasons, pitSeasons, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope, positionIndex])
+  }, [mode, side, players, lines, fielding, valueSeasons, batSeasons, pitSeasons, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope, positionIndex, pos])
 
   // Standard competition ranking (1, 2, T-3, T-3, 5), judged on the number AS SHOWN. Three hitters
   // printed at .400 and numbered 8, 9 and 10 claims an order the reader cannot see, which is
@@ -2321,6 +2335,12 @@ export default function WpblStatsView({
         )}
       </Box>
       </Box>
+
+      {source === 'season' && mode === 'players' && pos && (
+        <Box sx={{ display: 'flex', mb: 1 }}>
+          <ActiveFilterChip label={positionFilterDef(pos).plural} onClear={() => setPos(null)} />
+        </Box>
+      )}
 
       {/* Tracked and Pitches each render their own boards (league tiles + ranked leaders)
           rather than the shared table: a different shape of data, not more columns. Both read

@@ -10,7 +10,8 @@ import { scrollBehavior } from '../../lib/motion'
 import { typePx } from '../../ui/scale'
 import { NameText } from '../../ui/NameText'
 import { PillGroup } from '../../ui/PillGroup'
-import { FilterChip, FilterSelect } from '../../ui/FilterChip'
+import { ActiveFilterChip, FilterChip, FilterSelect } from '../../ui/FilterChip'
+import { matchesPositionFilter, positionFilterDef, type PositionFilter } from '../../league/positionFilter'
 import { CARD_BORDER } from '../../ui/card'
 import { pressable, FOCUS_RING } from '../../ui/interaction'
 import { sortBoard, ascFor, isBestFirst, leagueLine } from '../lib/statsBoard'
@@ -40,6 +41,9 @@ export interface StatsViewProps {
   setVizSeason: (s: number) => void
   allTime: boolean
   setAllTime: (b: boolean) => void
+  /** A position or role ("best catcher" in the search), from the address; cleared by its chip. */
+  who?: PositionFilter | null
+  setWho?: (w: PositionFilter | null) => void
   gameScope: GameScope
   setGameScope: (s: GameScope) => void
   lbData: LeaderboardEntry[] | null
@@ -59,7 +63,7 @@ export interface StatsViewProps {
 }
 
 export function StatsView({
-  boardTabs, lbGroup, sideSwitch, vizSeason, setVizSeason, allTime, setAllTime, gameScope, setGameScope,
+  boardTabs, lbGroup, sideSwitch, vizSeason, setVizSeason, allTime, setAllTime, who = null, setWho, gameScope, setGameScope,
   lbData, lbFullscreen, setLbFullscreen,
   setLbStatsLimit,
   lbQualified, setLbQualified,
@@ -136,7 +140,16 @@ export function StatsView({
   }, [needParks, vizSeason])
   const parkMap = allTime ? null : parks?.season === vizSeason ? parks.map : 'pending'
   // Every row with its advanced figures beside StatsAPI's, so a sort on either reads one line.
-  const rows = useMemo(() => (lbData ? withAdvanced(lbData, lbGroup, saberMap, parkMap) : null), [lbData, lbGroup, saberMap, parkMap])
+  // Narrowed to a position or role first, so the qualifier, the ranks and the count all speak of the
+  // players on screen. The league line below still reads the whole pool, as it does for qualifying.
+  const rows = useMemo(() => {
+    if (!lbData) return null
+    const pool = who
+      ? lbData.filter(e => matchesPositionFilter(who, e.position,
+        lbGroup === 'pitching' ? { g: Number(e.stat?.gamesPlayed ?? e.stat?.gamesPitched ?? 0), gs: Number(e.stat?.gamesStarted ?? 0) } : null))
+      : lbData
+    return withAdvanced(pool, lbGroup, saberMap, parkMap)
+  }, [lbData, lbGroup, saberMap, parkMap, who])
 
   // ── What a reversed sort means in all-time mode ───────────────────────
   // The career pool is a union of per-stat *leaders*, not the ~22k-player
@@ -418,6 +431,12 @@ export function StatsView({
         </Box>
       </Box>}
       </StatsBar>
+
+      {who && setWho && (
+        <Box sx={{ display: 'flex', mb: 1 }}>
+          <ActiveFilterChip label={positionFilterDef(who).plural} onClear={() => setWho(null)} />
+        </Box>
+      )}
 
       {/* LOADING IS THE BOARD DRAWN EMPTY: its real title and subtitle, which need no data, over
           empty rows. It was a centred spinner, which left the footer in view on a phone. */}

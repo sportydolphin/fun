@@ -418,6 +418,10 @@ export interface MlbSnapshot {
   dir?: 'asc' | 'desc' | null
   /** Fielding's position, as StatsAPI abbreviates it. Left off for All. */
   pos?: MlbFieldingPosition | null
+  /** The Players table's position or role filter (src/league/positionFilter.ts), spelled `pos` on
+   *  the address as Fielding's is. Kept as the raw string because this module imports nothing; the
+   *  section parses it, and drops what it does not know. */
+  who?: string | null
   /** Fielding's club filter, by id; the address spells it as the club's slug. Not `teamId`, which
    *  is a club's own PAGE: this is a board narrowed to one club's fielders. */
   club?: number | null
@@ -461,6 +465,7 @@ export function mlbUrlFor(s: MlbSnapshot, currentSeason?: number): string {
     // The sort, on every board that has columns. Each board leaves off its own default.
     if ((s.view === 'stats' || s.view === 'teamStats' || s.view === 'fielding') && s.sort) params.set('sort', s.sort)
     if ((s.view === 'stats' || s.view === 'teamStats' || s.view === 'fielding') && s.dir) params.set('dir', s.dir)
+    if (s.view === 'stats' && s.who) params.set('pos', s.who)
     if (s.view === 'fielding') {
       if (s.pos) params.set('pos', s.pos)
       const club = s.club != null ? mlbClubById(s.club) : undefined
@@ -510,6 +515,8 @@ export function mlbSnapshotFromUrl(pathname: string, search: string): MlbSnapsho
     const g = q.get('games')
     snap.games = g === 'post' || g === 'all' ? g : 'regular'
   }
+  // Only when the address says one, so a plain Players address reads back exactly as it was written.
+  if (v === 'stats' && q.get('pos')) snap.who = q.get('pos')
   if (v === 'stats' || v === 'teamStats' || v === 'fielding') {
     snap.sort = q.get('sort') || null
     const dir = q.get('dir')

@@ -9,7 +9,7 @@
 // IMPORTS NOTHING, which is the point of it being its own file. The list of words must stay a
 // superset of the parser's NUMBER_WORDS plus "without"; finderParse.test.ts holds it to that.
 
-const COUNT_WORDS = /(?<![a-z])(zero|no|none|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|without|multi)(?![a-z])/i
+const COUNT_WORDS = /(?<![a-z])(zero|no|none|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|without|multi|double|triple)(?![a-z])/i
 
 export function mightBeFinderQuestion(text: string): boolean {
   return /\d/.test(text) || COUNT_WORDS.test(text)
