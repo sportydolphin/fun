@@ -85,6 +85,7 @@ const EXEMPT: Record<string, string> = {
   'src/wpbl/gameDetail/GameDetailModal.tsx': 'the same win model, for the swing of the game',
   'src/wpbl/ScoreCardNotes.tsx': 'grouped by game for each card, never summed across games',
   'src/wpbl/WpblApp.tsx': 'warms the reads Home makes, into the cache, and sums nothing',
+  'src/wpbl/player/usePlayerReads.ts': 'reads the league lines for the card, which PlayerDetail.tsx cuts to the season before they are summed',
   // Mentions the read in a comment only.
   'src/league/bests.ts': 'comment only',
   'src/league/finder.ts': 'comment only',
@@ -93,6 +94,7 @@ const EXEMPT: Record<string, string> = {
   'src/wpbl/derive/playByPlay.ts': 'comment only',
   'src/wpbl/derive/runEnvironment.ts': 'comment only',
   'src/wpbl/derive/teamSpec.ts': 'comment only',
+  'src/wpbl/player/usePlayerSeason.ts': 'comment only',
 }
 const NOT_YET = new Set<string>([])
 

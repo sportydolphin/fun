@@ -379,7 +379,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
   // ─── Switching clubs, without the spinner ──────────────────────────────────
   //
   // The team rail is four buttons whose whole purpose is to be tapped back and forth, so the
-  // three per-club reads are cached (see perTeamCache in api.ts) and this repaints from that
+  // three per-club reads are cached (see keyedCache in api/core.ts) and this repaints from that
   // cache, rather than clearing to null and waiting on the network, which would make the second
   // visit to a club spin exactly as long as the first.
   //

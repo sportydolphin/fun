@@ -783,7 +783,7 @@ function everyoneSlate({ players, batting, pitching, games }: AwardBallotInput):
  * ordering is just the standings. That is fine for the one award where the reader already knows
  * every candidate by heart.
  *
- * The record is counted here rather than taken from `computeStandings`, which lives in api.ts
+ * The record is counted here rather than taken from `computeStandings`, which lives in api/games.ts
  * and would drag the supabase client into a file whose header promises it has none. It is a
  * win and a loss per final game, which is the entire tiebreak-free version of the table and
  * all this needs: nothing downstream sorts on it beyond putting the best record first.
