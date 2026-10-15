@@ -321,8 +321,12 @@ export { basesPhrase, BaseDiamond } from '../ui/BaseDiamond'
 // Player portrait: circular headshot ringed in the team's secondary hue (matching the
 // TeamBadge ring so players and teams read as one set). Falls back to the player's
 // initials on the team color when no portrait is bundled (see ./portraits.ts).
-export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ring, eager, priority }: {
+export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ring, eager, priority, onReady }: {
   name: string; teamId: string | null; size?: number
+  /** Told once the frame has its final look: the face has loaded (or failed), or there is no
+   *  face and the initials are it. For a caller that holds a placeholder over the frame until
+   *  then, since the bare club-coloured disc in between reads as a blink. */
+  onReady?: () => void
   /** The face a card is ABOUT, drawn on arrival: the player card's band. Loads eagerly at high
    *  priority, and shows the 128 copy (almost always already cached, by the list row the card was
    *  opened from) until the full-size one has loaded. Without that the band rose into view with an
@@ -354,6 +358,8 @@ export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ri
   // rendition has loaded, because these are cut-outs: left underneath, the soft copy would show
   // through the transparent edge around the sharp one.
   const placeholder = priority && art?.srcSet ? art.src : null
+  const hasArt = !!art
+  useEffect(() => { if (!hasArt) onReady?.() }, [hasArt, onReady])
   return (
     <Box sx={{
       // Same as TeamBadge: art scales with the chrome, not with the reader's text size.
@@ -375,10 +381,16 @@ export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ri
             sizes={`${Math.ceil(size * 1.4)}px`}
             alt={name} loading={eager || priority ? 'eager' : 'lazy'}
             fetchPriority={priority ? 'high' : undefined}
-            onLoad={placeholder ? (e: React.SyntheticEvent<HTMLImageElement>) => {
-              const frame = e.currentTarget.parentElement
-              if (frame) frame.style.backgroundImage = 'none'
-            } : undefined}
+            // A cached face is complete before React can hear its load event, hence the ref.
+            ref={onReady ? (el: HTMLImageElement | null) => { if (el?.complete) onReady() } : undefined}
+            onLoad={(e: React.SyntheticEvent<HTMLImageElement>) => {
+              if (placeholder) {
+                const frame = e.currentTarget.parentElement
+                if (frame) frame.style.backgroundImage = 'none'
+              }
+              onReady?.()
+            }}
+            onError={onReady}
             sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         : <Typography sx={{ fontSize: size * 0.36, fontWeight: 800, color: '#fff' }}>{initials}</Typography>}
