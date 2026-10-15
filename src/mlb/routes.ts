@@ -515,7 +515,8 @@ export function mlbSnapshotFromUrl(pathname: string, search: string): MlbSnapsho
     const g = q.get('games')
     snap.games = g === 'post' || g === 'all' ? g : 'regular'
   }
-  if (v === 'stats') snap.who = q.get('pos') || null
+  // Only when the address says one, so a plain Players address reads back exactly as it was written.
+  if (v === 'stats' && q.get('pos')) snap.who = q.get('pos')
   if (v === 'stats' || v === 'teamStats' || v === 'fielding') {
     snap.sort = q.get('sort') || null
     const dir = q.get('dir')
