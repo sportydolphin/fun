@@ -14,6 +14,7 @@ import { TeamLogo } from '../components/TeamLogo'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
 import { useDeepLink } from '../state/deepLink'
 import { typePx, chromePx } from '../../ui/scale'
+import { useLastShape, useRememberShape } from '../../lib/lastShape'
 import { playerLink, rowClick, LINK_SX } from '../lib/links'
 
 // ─── Roster Moves: trades, DFAs, claims, signings from the transactions feed ─
@@ -446,6 +447,14 @@ function RosterMovesModal({ open, onClose, moves, hotStove, followedTeamId, onPl
 // the phase is known, so it should be the likely one.
 const winterMonth = () => [10, 11, 0, 1, 2].includes(new Date().getMonth())
 
+function NoMoves({ hidden }: { hidden?: boolean }) {
+  return (
+    <Typography aria-hidden={hidden || undefined} sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', textAlign: 'center', py: 2.5, visibility: hidden ? 'hidden' : undefined }}>
+      No notable moves lately.
+    </Typography>
+  )
+}
+
 export function RosterMovesCard({ hotStove, followedTeamId, onPlayerClick, onTeamClick }: {
   /** Winter mode, from the season phase; null while the phase is read, and nothing is fetched. */
   hotStove: boolean | null
@@ -476,6 +485,10 @@ export function RosterMovesCard({ hotStove, followedTeamId, onPlayerClick, onTea
   // Group trades first, then take the top units, so a two-player swap counts as one
   // entry and never gets split across the card's cutoff.
   const top = groupUnits(cardMoves(moves ?? [], winter, followedTeamId)).slice(0, 4)
+  // How many the card drew last time, which the loading state ghosts: four was the guess, and in a
+  // quiet week (two moves, mid-October) the card shrank by two rows as the list landed.
+  const ghostRows = useLastShape('mlb.rosterMoves', 4)
+  useRememberShape('mlb.rosterMoves', moves === null ? undefined : top.length)
 
   return (
     <SectionCard
@@ -501,13 +514,14 @@ export function RosterMovesCard({ hotStove, followedTeamId, onPlayerClick, onTea
       {/* The rows' own hover inset, pulled back out so their content starts on the title's edge. */}
       <Box sx={{ mx: -0.75 }}>
         {moves === null ? (
-          // Four plain moves, the card's most likely shape: the row itself, ghosted, so nothing
-          // moves when the list lands (a trade block is a little taller, and rarer).
-          [0, 1, 2, 3].map(i => <MoveRowItem key={i} move={GHOST_MOVE} ghost />)
+          // The rows the card drew last time, plain moves: the row itself, ghosted, so nothing
+          // moves when the list lands (a trade block is a little taller, and rarer). None last time
+          // reserves the empty line, unseen.
+          ghostRows > 0
+            ? Array.from({ length: ghostRows }, (_, i) => <MoveRowItem key={i} move={GHOST_MOVE} ghost />)
+            : <NoMoves hidden />
         ) : top.length === 0 ? (
-          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', textAlign: 'center', py: 2.5 }}>
-            No notable moves lately.
-          </Typography>
+          <NoMoves />
         ) : (
           top.map(u => renderUnit(u, { onPlayerClick, onTeamClick }))
         )}
