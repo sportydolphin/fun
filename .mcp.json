@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "serena": {
+      "command": "uvx",
+      "args": [
+        "--python", "3.11",
+        "--from", "git+https://github.com/oraios/serena@v2.0.0",
+        "serena", "start-mcp-server",
+        "--context", "claude-code",
+        "--project-from-cwd",
+        "--agent-interface", "tools",
+        "--open-web-dashboard", "False"
+      ],
+      "env": {
+        "UV_PYTHON_DOWNLOADS": "never"
+      }
+    }
+  }
+}

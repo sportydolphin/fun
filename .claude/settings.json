@@ -23,6 +23,18 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/claude-clip-output.mjs",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }

@@ -654,7 +654,8 @@ async function main() {
       const [r, w, t] = cases[next++]
       const res = await runCase(browser, r, w, t)
       results.push(res)
-      process.stderr.write(`\r${results.length}/${cases.length}`)
+      // A terminal only: piped (CI, an agent's shell) each \r is one more line of a log nobody reads.
+      if (process.stderr.isTTY) process.stderr.write(`\r${results.length}/${cases.length}`)
     }
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker))

@@ -1,0 +1,7 @@
+# Read by ripgrep (Claude Code's Grep and Glob), not by git. These are data, not code: a search
+# for a column name otherwise spends its whole result budget on archive JSON (3,707 of 3,866 hits
+# for `runs_scored`) before reaching one line of source. To search them on purpose, pass the file
+# itself as the path; a named file is never ignored.
+archive/
+scripts/fixtures/
+package-lock.json
