@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Dialog, IconButton, List, ListItemButton, Typography } from '@mui/material'
-import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups, SportsBaseball, MenuBook } from '@mui/icons-material'
+import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups, SportsBaseball, MenuBook, Person, TravelExplore } from '@mui/icons-material'
 import { setSearchQuery, type CompareRow, type LeaderPeek, type PlayerStatAsk, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
 import type { NavSection } from './sectionNav'
 import { boardColumn, peekText, clubPageSuggestions, definitionSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs, teamRankSuggestions } from './finderSearch'
@@ -89,7 +89,7 @@ const QUESTION_ICON: Record<RecentQuestion['kind'], React.ReactNode> = {
   definition: <MenuBook sx={{ fontSize: ICON_SIZE.md }} />,
 }
 
-interface Group { label: string; items: Item[]; onClear?: () => void }
+interface Group { label: string; items: Item[]; onClear?: () => void; /** Two columns from `sm` up. */ grid?: boolean }
 
 interface PageEntry { label: string; hint?: string; href: string }
 
@@ -127,12 +127,54 @@ const MORE_PAGES: Record<NavSection, PageEntry[]> = {
   mlb: MLB_MORE.map(p => ({ label: p.label, hint: p.hint, href: p.href })),
 }
 
-const EXAMPLES: Record<NavSection, string[]> = {
-  // One ranking among the line questions, so a reader learns the box takes both. No year in it,
-  // which would go stale every spring.
-  wpbl: ['most strikeouts', '5 strikeouts no walks', '3+ hits vs SF'],
-  mlb: ['most home runs', '10 strikeouts no walks', '4-for-4 vs Dodgers'],
+/** One thing the box can do, shown before anything is typed: what to type, and what it gets. */
+interface Example { q: string; what: string; icon: React.ReactNode }
+
+const ic = (Icon: typeof Search) => <Icon sx={{ fontSize: ICON_SIZE.md }} />
+
+// THE EMPTY BOX IS THE MANUAL. Until Oct 2026 it showed the section's tabs (already on screen in
+// the toolbar) and three stat questions, so a reader who opened it had no way to learn it also takes
+// a player's stat, a game, a series, a club's page, a definition or the other league's names. One
+// row per thing it understands, in roughly the order a reader reaches for them, each a real query
+// that answers (pinned in commandPaletteExamples.test.ts). A pick types it into the box rather than
+// opening it, so the reader sees the answer form and learns the phrasing.
+//
+// Names are durable ones: WPBL's are the first season's, which stay on record; MLB's are not
+// Yankees, per CLAUDE.md. No year anywhere, which would go stale every spring.
+const EXAMPLES: Record<NavSection, Example[]> = {
+  wpbl: [
+    { q: 'Whitmore', what: 'A player, by name or number, typos too', icon: ic(Person) },
+    { q: 'Whitmore avg', what: 'A player’s stat, answered in the row', icon: ic(Person) },
+    { q: 'Whitmore game log', what: 'A player’s page, opened at that part', icon: ic(Person) },
+    { q: 'most strikeouts', what: 'Rank every player, advanced stats too', icon: ic(Leaderboard) },
+    { q: 'SF team ERA', what: 'Rank the clubs', icon: ic(Groups) },
+    { q: 'Firebells last game', what: 'A game, by club and day', icon: ic(SportsBaseball) },
+    { q: 'Firebells vs Hunters', what: 'Two clubs’ season series', icon: ic(CompareArrows) },
+    { q: 'Whitmore vs Ibarra', what: 'Two players side by side', icon: ic(CompareArrows) },
+    { q: '5 strikeouts no walks', what: 'Every game line that matches', icon: ic(ManageSearch) },
+    { q: 'SF roster', what: 'A club’s page', icon: ic(Groups) },
+    { q: 'what is FIP', what: 'What a stat means', icon: ic(MenuBook) },
+    { q: 'standings', what: 'Any page on the site', icon: ic(Article) },
+    { q: 'Ohtani', what: 'MLB players too', icon: ic(TravelExplore) },
+  ],
+  mlb: [
+    { q: 'Ohtani', what: 'A player, active or retired, typos too', icon: ic(Person) },
+    { q: 'Ohtani hr', what: 'A player’s stat, answered in the row', icon: ic(Person) },
+    { q: 'Ohtani splits', what: 'A player’s page, opened at that part', icon: ic(Person) },
+    { q: 'most home runs', what: 'Rank every player, this year or all time', icon: ic(Leaderboard) },
+    { q: 'Dodgers team ERA', what: 'Rank the clubs', icon: ic(Groups) },
+    { q: 'Dodgers last game', what: 'A game, by club and day', icon: ic(SportsBaseball) },
+    { q: 'Ohtani vs Betts', what: 'Two players side by side', icon: ic(CompareArrows) },
+    { q: '10 strikeouts no walks', what: 'Every game line that matches', icon: ic(ManageSearch) },
+    { q: 'Dodgers roster', what: 'A club’s page', icon: ic(Groups) },
+    { q: 'what is wRC+', what: 'What a stat means', icon: ic(MenuBook) },
+    { q: 'standings', what: 'Any page on the site', icon: ic(Article) },
+    { q: 'Kelsie Whitmore', what: 'WPBL players too', icon: ic(TravelExplore) },
+  ],
 }
+
+/** For the test that keeps every example answering. */
+export const PALETTE_EXAMPLES = EXAMPLES
 
 /** How well a page's name answers the query: a name that starts with it beats a word in it, which
  *  beats a mention in the hint. Zero is no match. */
@@ -324,14 +366,12 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       return [
         { label: 'Recent', items: recent, onClear: clearRecent },
         ...idle.filter(g => g !== sectionRecent).map(g => ({ label: g.label, items: g.rows.map(rowItem(g.kind)), onClear: g.onClear })),
-        { label: 'Pages', items: TAB_PAGES[section].map(pageItem) },
         {
-          label: 'Ask a stat question',
+          label: 'Try',
+          grid: true,
           items: EXAMPLES[section].map(ex => ({
-            key: `ex-${ex}`, kind: 'example' as const, title: ex,
-            subtitle: leaderSuggestions(section, ex).length ? 'Rank every player' : 'Search every game line',
-            icon: <ManageSearch sx={{ fontSize: ICON_SIZE.md }} />,
-            onOpen: () => { change(ex); inputRef.current?.focus() },
+            key: `ex-${ex.q}`, kind: 'example' as const, title: ex.q, subtitle: ex.what, icon: ex.icon,
+            onOpen: () => { change(ex.q); inputRef.current?.focus() },
           })),
         },
       ].filter(g => g.items.length)
@@ -497,7 +537,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
           value={text}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => change(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="A player, a club, a page, or “5 strikeouts no walks”"
+          placeholder="A player, a club, a game, a stat or a question"
           role="combobox"
           aria-label="Search players, clubs, pages or a stat question"
           aria-expanded
@@ -532,6 +572,9 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
                   </Box>
                 )}
               </Box>
+              <Box role={g.grid ? 'group' : undefined} aria-label={g.grid ? g.label : undefined} sx={g.grid ? {
+                display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+              } : { display: 'contents' }}>
               {g.items.map(item => {
                 index += 1
                 const i = index
@@ -561,6 +604,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
                   </ListItemButton>
                 )
               })}
+              </Box>
             </React.Fragment>
           ))}
         </List>

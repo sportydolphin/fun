@@ -136,7 +136,7 @@ describe('the search box', () => {
     const user = userEvent.setup()
     render(<Host />)
     await user.click(screen.getByRole('button', { name: 'Close search' }))
-    await waitFor(() => expect(named('command_palette_dismissed')).toEqual([{ section: 'wpbl', typed: 0, shown: 8 }]))
+    await waitFor(() => expect(named('command_palette_dismissed')).toEqual([{ section: 'wpbl', typed: 0, shown: 13 }]))
   })
 
   it('offers the compare page for "A vs B" once the section finds both, and counts the pick', async () => {
