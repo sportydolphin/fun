@@ -885,10 +885,10 @@ export default function WpblStatsView({
   focus?: WpblStatsFocus
   /** Board keys that should wear a "new here" dot on their chip. The same news is one dot on
    *  the Stats pill a level up; these are the half that points the rest of the way to each
-   *  board. Owned by WpblApp, which reads the seen flags. */
+   *  board. Owned by WpblApp, from the registry in lib/seen.ts. */
   newBoards?: ReadonlySet<string>
-  /** Called once the reader has actually reached one of those boards, by any route. Owned by
-   *  WpblApp, which writes the seen flag and drops the board from `newBoards`. */
+  /** Called whenever the reader reaches a board, by any route. WpblApp records it, which drops
+   *  the board from `newBoards` if it was there. */
   onBoardSeen?: (key: string) => void
   // Whether this pane is the one on screen. The pager keeps visited tabs mounted, so without
   // it every return to Stats after the first would go unrecorded (see the board log below).
@@ -1069,7 +1069,7 @@ export default function WpblStatsView({
   useEffect(() => {
     // Any route onto a newly shipped board retires its dot, not just a tap on the chip: a
     // ?board= link and the back button both land here without going through selectBoard.
-    if (source === 'bests' || source === 'find') onBoardSeen?.(source)
+    onBoardSeen?.(source)
   }, [source, onBoardSeen])
   const [trackedSeen, setTrackedSeen] = useState(seedAxes.source === 'tracked')
   useEffect(() => { if (source === 'tracked') setTrackedSeen(true) }, [source])
