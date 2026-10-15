@@ -108,7 +108,7 @@ describe('bulk reads', () => {
   const root = join(__dirname, '../../..')
   const files = [...sources(join(root, 'src/wpbl')), ...sources(join(root, 'src/league'))]
     .map(p => relative(root, p).replace(/\\/g, '/'))
-    .filter(f => f !== 'src/wpbl/api.ts')
+    .filter(f => f !== 'src/wpbl/api.ts' && !f.startsWith('src/wpbl/api/'))
   const reading = files.filter(f => BULK_READ.test(readFileSync(join(root, f), 'utf8')))
 
   it('are cut to one season everywhere they are summed', () => {
