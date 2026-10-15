@@ -67,7 +67,7 @@ the site, each of which used to fail only there:
 - **Cron scripts**: `node --check` on every `scripts/*.mjs`, and an esbuild bundle of every
   `scripts/*.ts`. Lint and `tsc` skip `scripts/` entirely.
 - **Edge functions**: `deno cache` resolves each `supabase/functions/*/index.ts` and everything it
-  imports, which is how the missing-`.ts` trap in CLAUDE.md now fails on the pull request instead of
+  imports, which is how the missing-`.ts` trap in src/wpbl/CLAUDE.md now fails on the pull request instead of
   at `supabase functions deploy`. It is not `deno check`: Deno's strict mode reports ten disagreements
   between the supabase-js types and the ingest's row shapes, and those are their own piece of work.
 
@@ -164,7 +164,7 @@ gap: a module whose only importer is its own test is dead code knip will call al
 
 `scripts/layout-sweep.mjs` drives Chrome against the dev server and checks four things at four
 widths (375, 760, 960, 1440) and both text sizes: text that overflows its box, anything that
-moves when a page's skeleton is replaced by its content (the loading-states rule in CLAUDE.md;
+moves when a page's skeleton is replaced by its content (the loading-states rule in src/CLAUDE.md;
 default text size only, since Large text breaks overflow and almost never a skeleton's size),
 every outline under 3:1 against what is behind it (the borders rule), and the axe-core rules in
 `AXE_RULES`: text contrast, and a name on every control, link, image and input (the

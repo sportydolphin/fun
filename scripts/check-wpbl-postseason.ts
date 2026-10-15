@@ -77,7 +77,7 @@ async function fetchGames(): Promise<Row[]> {
     throw new Error('VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are required (try: node --env-file=.env)')
   }
   const cols = 'id,game_date,status,game_type,counts_in_standings,home_team_id,away_team_id'
-  // Explicit limit and an order, per the paging rule in CLAUDE.md. A season is ~40 rows, so
+  // Explicit limit and an order, per the paging rule in src/wpbl/CLAUDE.md. A season is ~40 rows, so
   // one page is the whole table, but a bare select would cap at 1000 without saying so and
   // this is the kind of file that gets copied.
   const url = `${base.replace(/\/+$/, '')}/rest/v1/wpbl_games?select=${cols}&order=game_date.asc,id.asc&limit=2000`

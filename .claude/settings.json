@@ -4,7 +4,23 @@
       {
         "matcher": "startup|resume",
         "hooks": [
-          { "type": "command", "command": "node scripts/open-prs.mjs", "timeout": 20 }
+          {
+            "type": "command",
+            "command": "node scripts/open-prs.mjs",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/claude-read-guard.mjs",
+            "timeout": 10
+          }
         ]
       }
     ]
