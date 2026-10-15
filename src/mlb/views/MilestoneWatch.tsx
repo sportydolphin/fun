@@ -12,6 +12,7 @@ import { SectionCard, CardLink, TYPE_SCALE, edge, ACCENT_EDGE } from '../../ui/c
 import { chromePx, typePx } from '../../ui/scale'
 import { NameText } from '../../ui/NameText'
 import { playerLink, LINK_SX } from '../lib/links'
+import { useLastShape, useRememberShape } from '../../lib/lastShape'
 
 const FEATURED = 3          // hero chases shown on the card; the rest live in the modal
 const RECENT_ON_CARD = 2    // cap on how many "just reached" rows lead the featured strip
@@ -355,6 +356,13 @@ function MilestoneModal({ items, reached, liveTeamIds, seasonOver, season, onClo
 
 // ─── Card ─────────────────────────────────────────────────────────────────────
 
+
+/** Only measured, never read: the chase a loading card ghosts. */
+const GHOST_ITEM: MilestoneItem = {
+  playerId: 0, playerName: 'Bobby Witt Jr.', teamId: 0, teamAbbr: '', group: 'hitting', statKey: 'hits',
+  statLabel: 'hits', current: 990, target: 1000, remaining: 10, kind: 'career',
+}
+
 export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonOver, onPlayerClick }: {
   season: number
   liveTeamIds?: Set<number>
@@ -397,9 +405,7 @@ export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonO
   // A season total cannot be reached once the season is over; a career mark or a record carries
   // into next year, so those stay as what is next.
   const chases = (items ?? []).filter(it => !seasonOver || it.kind !== 'season')
-  if (loading) return null
-  if (seasonOver ? !chases.length && !reached.length : !chases.length && !recent.length) return null
-
+  const empty = seasonOver ? !chases.length && !reached.length : !chases.length && !recent.length
   const isLive = (it: MilestoneItem) => !!liveTeamIds?.has(it.teamId)
 
   // Float chases whose team is playing right now to the front (those are the ones
@@ -414,6 +420,27 @@ export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonO
   const leading = seasonOver ? [...reached].sort(byNotability) : recent
   const recentCap = orderedChases.length ? RECENT_ON_CARD : FEATURED
   const featured = [...leading.slice(0, recentCap), ...orderedChases].slice(0, FEATURED)
+  // The rows the card drew last time (none: it was not drawn), each as whether it carried a tag,
+  // which makes a row a few px taller, for the loading state. It used to draw nothing until the
+  // data landed, then arrive whole, three rows tall, pushing both report cards under it down the page.
+  const lastRows = useLastShape<boolean[]>('mlb.milestones', Array(FEATURED).fill(false))
+  useRememberShape('mlb.milestones', loading ? undefined : empty ? [] : featured.map(it => isLive(it) || !!it.achievedOn || it.kind === 'record'))
+  if (loading) {
+    if (!lastRows.length) return null
+    return (
+      <SectionCard icon="🏆" title="Milestone Watch" subtitle={<Box component="span" sx={{ visibility: 'hidden' }}>Closest first.</Box>}>
+        <Box aria-hidden sx={{ mx: -2, mb: -1.5, visibility: 'hidden' }}>
+          {lastRows.map((tagged, i) => (
+            <Box key={i} sx={{ borderBottom: i < lastRows.length - 1 ? '1px solid' : 'none', borderColor: 'divider' }}>
+              <FeaturedMilestone item={tagged ? { ...GHOST_ITEM, kind: 'record' } : GHOST_ITEM} isLive={false} />
+            </Box>
+          ))}
+        </Box>
+      </SectionCard>
+    )
+  }
+  if (empty) return null
+
   // The modal holds both tabs: every chase plus the whole season's reached archive
   // (recent ⊂ reached, so no double count). That's the "View all" universe.
   const total = chases.length + reached.length

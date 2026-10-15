@@ -16,6 +16,7 @@ import {
   SurvivorPick, SurvivorStats, HotHitter, SurvivorLeaderRow, SurvivorResult,
 } from './survivorData'
 import { chromePx, typePx } from '../../ui/scale'
+import { useLastShape, useRememberShape } from '../../lib/lastShape'
 
 const ZERO_STATS: SurvivorStats = { currentStreak: 0, longestStreak: 0, totalHits: 0, totalPicks: 0 }
 
@@ -156,8 +157,21 @@ function SurvivorLeaderboardModal({ userId, onClose }: { userId: string | null; 
 
 // ─── Widget ─────────────────────────────────────────────────────────────────
 
+// The search box and the no-suggestions line, shared with the loading state's ghost of them.
+const SEARCH_SX = {
+  width: '100%', px: 1.25, py: chromePx(8), borderRadius: 2, fontSize: TYPE_SCALE.body,
+  border: '1px solid', borderColor: 'outline', bgcolor: 'background.default',
+} as const
+const EMPTY_SX = { fontSize: TYPE_SCALE.meta, color: 'text.disabled', textAlign: 'center', py: 1.5 } as const
+
+/** What a signed-in reader's card held last time, for the loading state to ghost. */
+interface SurvivorShape { pick: boolean; change: boolean; hitters: number; recent: boolean }
+
+/** Only measured, never read: the pick a loading card ghosts. */
+const GHOST_PICK: SurvivorPick = { gameDate: '', playerId: 0, playerName: 'Bobby Witt Jr.', teamId: 118, result: 'pending' }
+
 export function StreakSurvivorWidget() {
-  const { user, openAuthDialog } = useAuth()
+  const { user, loading: authLoading, openAuthDialog } = useAuth()
   const today = survivorToday()
   const season = new Date().getFullYear()
 
@@ -170,8 +184,10 @@ export function StreakSurvivorWidget() {
   const [myPick, setMyPick]         = useState<SurvivorPick | null>(null)
   const [stats, setStats]           = useState<SurvivorStats>(ZERO_STATS)
   const [pickable, setPickable]     = useState<Set<number>>(new Set())
-  const [hotHitters, setHotHitters] = useState<HotHitter[]>([])
+  const [hotHitters, setHotHitters] = useState<HotHitter[] | null>(null)
   const [recent, setRecent]         = useState<SurvivorPick[]>([])
+  // Which reader and slate the pick and form were last read for.
+  const [userFor, setUserFor]       = useState<string | null>(null)
   const [loading, setLoading]       = useState(true)
   const [saving, setSaving]         = useState(false)
   const [changing, setChanging]     = useState(false)   // expanded picker even though a pick exists
@@ -202,17 +218,20 @@ export function StreakSurvivorWidget() {
   // Hot-hitter suggestions are season-based, independent of the slate day.
   useEffect(() => {
     let cancelled = false
-    fetchHotHitters(season).then(hh => { if (!cancelled) setHotHitters(hh) })
+    fetchHotHitters(season).then(hh => { if (!cancelled) setHotHitters(hh) }, () => { if (!cancelled) setHotHitters([]) })
     return () => { cancelled = true }
   }, [season])
 
   // Per-user state, keyed to the slate day so a rolled-forward pick loads correctly.
   useEffect(() => {
     let cancelled = false
-    if (!user) { setMyPick(null); setStats(ZERO_STATS); setRecent([]); return }
-    fetchMyPick(user.id, slateDate).then(p => { if (!cancelled) setMyPick(p) })
+    if (!user) { setMyPick(null); setStats(ZERO_STATS); setRecent([]); setUserFor(null); return }
+    const key = `${user.id}:${slateDate}`
     fetchMyStats(user.id).then(s => { if (!cancelled) setStats(s) })
-    fetchMyRecentPicks(user.id, 6).then(r => { if (!cancelled) setRecent(r) })
+    Promise.allSettled([
+      fetchMyPick(user.id, slateDate).then(p => { if (!cancelled) setMyPick(p) }),
+      fetchMyRecentPicks(user.id, 6).then(r => { if (!cancelled) setRecent(r) }),
+    ]).then(() => { if (!cancelled) setUserFor(key) })
     return () => { cancelled = true }
   }, [user?.id, slateDate]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -248,6 +267,19 @@ export function StreakSurvivorWidget() {
   // Graded picks only (hit/miss/void), oldest-left, capped for the form dots.
   const recentForm = recent.filter(r => r.result !== 'pending').slice(0, 6).reverse()
 
+  // A signed-out reader's card needs nothing read: it is the pitch, from the first frame. A
+  // signed-in one waits for the slate, their pick and form, and the suggestions, and until then
+  // ghosts what it held last time. It drew a spinner the size of none of them, then grew by
+  // whatever arrived (a pick, eight suggested hitters, a form row), each a jump of its own.
+  const userReady = !!user && !loading && userFor === `${user.id}:${slateDate}` && hotHitters !== null
+  const showsPick = !!myPick && !changing
+  const lastShape = useLastShape<SurvivorShape | null>('mlb.survivor', null)
+  useRememberShape('mlb.survivor', userReady ? {
+    pick: showsPick, change: showsPick && !pickLocked && myPick!.result === 'pending',
+    hitters: (hotHitters ?? []).length, recent: recentForm.length > 0,
+  } satisfies SurvivorShape : undefined)
+  const ghost = user && !userReady ? lastShape : null
+
   // ── Card shell ──
   const Shell = (children: React.ReactNode) => (
     <SectionCard
@@ -266,11 +298,14 @@ export function StreakSurvivorWidget() {
       <Box sx={{ mx: -2, mb: -1.5 }}>
       {children}
       {/* Recent form: last few graded picks, oldest-left */}
-      {user && recentForm.length > 0 && (
-        <Box sx={{ px: 2, py: chromePx(8), borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
+      {user && (ghost ? ghost.recent : userReady && recentForm.length > 0) && (
+        <Box aria-hidden={ghost ? true : undefined} sx={{
+          px: 2, py: chromePx(8), borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1,
+          ...(ghost ? { '& > *': { visibility: 'hidden' } } : null),
+        }}>
           <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary' }}>Recent</Typography>
           <Box sx={{ display: 'flex', gap: 0.5 }}>
-            {recentForm.map((r, i) => (
+            {(ghost ? [] : recentForm).map((r, i) => (
               <Box key={i} title={`${r.gameDate}: ${RESULT_META[r.result].label} (${r.playerName})`} sx={{
                 width: chromePx(9), height: chromePx(9), borderRadius: '50%', bgcolor: RESULT_META[r.result].color,
               }} />
@@ -298,16 +333,14 @@ export function StreakSurvivorWidget() {
         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
         placeholder="Search any hitter…"
         sx={{
-          width: '100%', px: 1.25, py: chromePx(8), borderRadius: 2, fontSize: TYPE_SCALE.body,
-          border: '1px solid', borderColor: 'outline', bgcolor: 'background.default',
-          color: 'text.primary', outline: 'none', '&:focus': { borderColor: ACCENT_EDGE },
+          ...SEARCH_SX, color: 'text.primary', outline: 'none', '&:focus': { borderColor: ACCENT_EDGE },
           '&::placeholder': { color: 'text.disabled' },
         }}
       />
       {(results.length ? results.map(p => ({
         playerId: p.id, playerName: p.fullName, teamId: p.currentTeam!.id,
         subtitle: p.primaryPosition?.abbreviation, disabled: !pickable.has(p.currentTeam!.id),
-      })) : hotHitters.map(h => ({
+      })) : (hotHitters ?? []).map(h => ({
         playerId: h.playerId, playerName: h.playerName, teamId: h.teamId,
         subtitle: `${h.streak}-game hit streak`, disabled: !pickable.has(h.teamId),
       }))).map(opt => (
@@ -320,8 +353,8 @@ export function StreakSurvivorWidget() {
           onPick={() => pick({ playerId: opt.playerId, playerName: opt.playerName, teamId: opt.teamId })}
         />
       ))}
-      {!results.length && !hotHitters.length && (
-        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', textAlign: 'center', py: 1.5 }}>
+      {!results.length && !(hotHitters ?? []).length && (
+        <Typography sx={EMPTY_SX}>
           Search for a hitter to make your pick.
         </Typography>
       )}
@@ -331,8 +364,23 @@ export function StreakSurvivorWidget() {
   // ── Body states ──
   let body: React.ReactNode
 
-  if (loading) {
+  if (authLoading || (user && !userReady && !ghost)) {
     body = <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={26} sx={{ color: ACCENT_TEXT }} /></Box>
+  } else if (ghost) {
+    body = (
+      <Box aria-hidden sx={{ visibility: 'hidden' }}>
+        {ghost.pick ? pickBody(GHOST_PICK, !ghost.change) : chooseBody(
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+            <Box sx={SEARCH_SX}>&nbsp;</Box>
+            {ghost.hitters > 0
+              ? Array.from({ length: ghost.hitters }, (_, i) => (
+                  <HitterRow key={i} name={GHOST_PICK.playerName} teamId={GHOST_PICK.teamId} subtitle="10-game hit streak" onPick={() => {}} />
+                ))
+              : <Typography sx={EMPTY_SX}>Search for a hitter to make your pick.</Typography>}
+          </Box>,
+        )}
+      </Box>
+    )
   } else if (!user) {
     body = (
       <Box sx={{ px: 2, pt: 0.5, pb: 1.75 }}>
@@ -348,7 +396,13 @@ export function StreakSurvivorWidget() {
       </Box>
     )
   } else if (myPick && !changing) {
-    body = (
+    body = pickBody(myPick, pickLocked)
+  } else {
+    body = chooseBody(suggestions)
+  }
+
+  function pickBody(myPick: SurvivorPick, pickLocked: boolean) {
+    return (
       <Box sx={{ px: 2, pt: 0.5, pb: 1.5 }}>
         <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', mb: 0.75 }}>
           {isTomorrow ? "Tomorrow's pick" : "Today's pick"}
@@ -378,8 +432,10 @@ export function StreakSurvivorWidget() {
         )}
       </Box>
     )
-  } else {
-    body = (
+  }
+
+  function chooseBody(suggestions: React.ReactNode) {
+    return (
       <Box sx={{ px: 2, pt: 0.5, pb: 1.5 }}>
         <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', mb: 0.75 }}>
           {changing ? 'Change your pick' : isTomorrow ? "Pick tomorrow's hitter" : "Pick today's hitter"}

@@ -109,7 +109,7 @@ describe('toolbar accessibility', () => {
     // It lives in the account menu (moved out of the bar on Oct 15, 2026), and is a real control
     // there: whichever way round the theme starts, it says where it is going.
     await userEvent.click(await screen.findByRole('button', { name: 'Account menu' }))
-    const toggle = await screen.findByRole('button', { name: /Switch to (light|dark) theme/ })
+    const toggle = await screen.findByRole('menuitem', { name: /Switch to (light|dark) theme/ })
     expect(toggle).toBeInTheDocument()
   })
 

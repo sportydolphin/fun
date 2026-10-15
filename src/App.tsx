@@ -2,7 +2,10 @@ import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo, useR
 import { ACCENT_EDGE } from './ui/card'
 import { createPortal } from 'react-dom'
 import { Typography, Box, IconButton, AppBar, Toolbar, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery } from '@mui/material'
-import { Brightness4, Brightness7, AccountCircle, Search } from '@mui/icons-material'
+import {
+  AccountCircle, Search, DarkModeOutlined, LightModeOutlined, SettingsOutlined, LogoutOutlined, LoginOutlined,
+  PersonAddAltOutlined, InsightsOutlined,
+} from '@mui/icons-material'
 import { useSearchBridge, noteSearchFocus } from './mlb/state/SearchBridgeContext'
 import type { PlayerBridgeItem, SearchResultRow, SearchResultAvatar } from './mlb/state/SearchBridgeContext'
 import { requestSectionScroll } from './lib/sectionScroll'
@@ -869,21 +872,14 @@ function AppInner() {
   // the bar is also tightest on a phone. Settings and the command palette still offer it too. The
   // menu stays open, so the reader sees the page change under it and can flip it straight back.
   const themeRow = (
-    <Box
-      {...pressable(toggleTheme)}
+    <AccountMenuRow
+      onPress={toggleTheme}
+      icon={mode === 'dark' ? LightModeOutlined : DarkModeOutlined}
+      label={mode === 'dark' ? 'Light theme' : 'Dark theme'}
       // Names the action rather than the state: a control called "Dark theme" is ambiguous about
       // whether it reports the current theme or the one it switches to.
-      aria-label={mode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-      sx={{
-        px: 2, py: 1.1, cursor: 'pointer',
-        display: 'flex', alignItems: 'center', gap: 1,
-        borderBottom: '1px solid', borderColor: 'divider',
-        '&:hover': { bgcolor: 'action.hover' },
-      }}
-    >
-      {mode === 'dark' ? <Brightness7 sx={{ fontSize: '1.1rem', color: 'text.secondary' }} /> : <Brightness4 sx={{ fontSize: '1.1rem', color: 'text.secondary' }} />}
-      <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>{mode === 'dark' ? 'Light theme' : 'Dark theme'}</Typography>
-    </Box>
+      ariaLabel={mode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+    />
   )
 
   return (
@@ -1273,11 +1269,7 @@ function AppInner() {
                 </Box>
 
                 {accountOpen && (
-                  <Paper elevation={8} sx={{
-                    position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 1400,
-                    borderRadius: 2.5, minWidth: 220, overflow: 'hidden',
-                    border: '1px solid', borderColor: 'outline',
-                  }}>
+                  <Paper elevation={8} role="menu" aria-label="Account" sx={ACCOUNT_MENU_SX}>
                     {/* User info */}
                     <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
                       {/* Username (primary) or full name if no username */}
@@ -1300,48 +1292,16 @@ function AppInner() {
                       </Typography>
                     </Box>
 
-                    {themeRow}
-
-                    {/* Settings */}
-                    <Box
-                      {...pressable(() => { setAccountOpen(false); setSettingsOpen(true) })}
-                      sx={{
-                        px: 2, py: 1.1, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: 1,
-                        borderBottom: '1px solid', borderColor: 'divider',
-                        '&:hover': { bgcolor: 'action.hover' },
-                      }}
-                    >
-                      <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>⚙️ Settings</Typography>
+                    <Box sx={ACCOUNT_MENU_GROUP_SX}>
+                      {themeRow}
+                      <AccountMenuRow icon={SettingsOutlined} label="Settings" onPress={() => { setAccountOpen(false); setSettingsOpen(true) }} />
+                      {/* Admin: only shown to the site owner */}
+                      {isAdmin && (
+                        <AccountMenuRow icon={InsightsOutlined} label="Admin" onPress={() => { setAccountOpen(false); navigate('/admin') }} />
+                      )}
                     </Box>
-
-                    {/* Admin — only shown to the site owner */}
-                    {isAdmin && (
-                      <Box
-                        {...pressable(() => { setAccountOpen(false); navigate('/admin') })}
-                        sx={{
-                          px: 2, py: 1.1, cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', gap: 1,
-                          borderBottom: '1px solid', borderColor: 'divider',
-                          '&:hover': { bgcolor: 'action.hover' },
-                        }}
-                      >
-                        <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>⚡ Admin</Typography>
-                      </Box>
-                    )}
-
-                    {/* Sign out */}
-                    <Box
-                      {...pressable(async () => { setAccountOpen(false); await signOut() })}
-                      sx={{
-                        px: 2, py: 1.25, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: 1,
-                        '&:hover': { bgcolor: 'action.hover' },
-                      }}
-                    >
-                      <Typography sx={{ fontSize: '0.85rem', color: 'error.main', fontWeight: 600 }}>
-                        Sign out
-                      </Typography>
+                    <Box sx={{ ...ACCOUNT_MENU_GROUP_SX, borderTop: '1px solid', borderColor: 'divider' }}>
+                      <AccountMenuRow icon={LogoutOutlined} label="Sign out" danger onPress={async () => { setAccountOpen(false); await signOut() }} />
                     </Box>
                   </Paper>
                 )}
@@ -1362,49 +1322,15 @@ function AppInner() {
                 </IconButton>
 
                 {accountOpen && (
-                  <Paper elevation={8} sx={{
-                    position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 1400,
-                    borderRadius: 2.5, minWidth: 220, overflow: 'hidden',
-                    border: '1px solid', borderColor: 'outline',
-                  }}>
-                    {/* Sign in */}
-                    <Box
-                      {...pressable(() => { setAccountOpen(false); openAuthDialog('signin') })}
-                      sx={{
-                        px: 2, py: 1.25, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: 1,
-                        borderBottom: '1px solid', borderColor: 'divider',
-                        '&:hover': { bgcolor: 'action.hover' },
-                      }}
-                    >
-                      <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>Sign in</Typography>
+                  <Paper elevation={8} role="menu" aria-label="Account" sx={ACCOUNT_MENU_SX}>
+                    <Box sx={ACCOUNT_MENU_GROUP_SX}>
+                      <AccountMenuRow icon={LoginOutlined} label="Sign in" onPress={() => { setAccountOpen(false); openAuthDialog('signin') }} />
+                      <AccountMenuRow icon={PersonAddAltOutlined} label="Create an account" onPress={() => { setAccountOpen(false); openAuthDialog('signup') }} />
                     </Box>
-
-                    {/* Create an account */}
-                    <Box
-                      {...pressable(() => { setAccountOpen(false); openAuthDialog('signup') })}
-                      sx={{
-                        px: 2, py: 1.25, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: 1,
-                        borderBottom: '1px solid', borderColor: 'divider',
-                        '&:hover': { bgcolor: 'action.hover' },
-                      }}
-                    >
-                      <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>Create an account</Typography>
-                    </Box>
-
-                    {themeRow}
-
-                    {/* Settings — available without an account */}
-                    <Box
-                      {...pressable(() => { setAccountOpen(false); setSettingsOpen(true) })}
-                      sx={{
-                        px: 2, py: 1.1, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: 1,
-                        '&:hover': { bgcolor: 'action.hover' },
-                      }}
-                    >
-                      <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>⚙️ Settings</Typography>
+                    {/* Settings: available without an account */}
+                    <Box sx={{ ...ACCOUNT_MENU_GROUP_SX, borderTop: '1px solid', borderColor: 'divider' }}>
+                      {themeRow}
+                      <AccountMenuRow icon={SettingsOutlined} label="Settings" onPress={() => { setAccountOpen(false); setSettingsOpen(true) }} />
                     </Box>
                   </Paper>
                 )}
@@ -1745,6 +1671,44 @@ function AppInner() {
           {authToast === 'in' ? 'Successfully signed in' : authToast === 'deleted' ? 'Your account has been deleted' : 'Signed out'}
         </Alert>
       </Snackbar>
+    </Box>
+  )
+}
+
+// ─── The account menu ─────────────────────────────────────────────────────────
+// One row shape for every entry, signed in or out. The rows used to be drawn one by one: the theme
+// row had an icon, Settings and Admin had an emoji inside their label, Sign in and Sign out had
+// nothing, so the labels started at three different places, the padding differed by row, and a rule
+// under every row made five items read as five separate boxes. Now every label starts on the same
+// line behind a same-size icon, and rules fall only between groups.
+
+const ACCOUNT_MENU_SX = {
+  position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 1400,
+  borderRadius: 2.5, minWidth: 232, overflow: 'hidden',
+  border: '1px solid', borderColor: 'outline',
+} as const
+const ACCOUNT_MENU_GROUP_SX = { py: 0.5 } as const
+
+function AccountMenuRow({ icon: Icon, label, onPress, danger, ariaLabel }: {
+  icon: typeof SettingsOutlined; label: string; onPress: () => void; danger?: boolean; ariaLabel?: string
+}) {
+  const ink = danger ? 'error.main' : 'text.secondary'
+  return (
+    <Box
+      {...pressable(onPress)}
+      role="menuitem"
+      aria-label={ariaLabel}
+      sx={{
+        px: 2, py: 1, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', gap: 1.5,
+        '&:hover': { bgcolor: 'action.hover' },
+        ...FOCUS_RING,
+      }}
+    >
+      <Icon aria-hidden sx={{ fontSize: '1.15rem', color: ink, flexShrink: 0 }} />
+      <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, lineHeight: 1.4, color: danger ? 'error.main' : 'text.primary' }}>
+        {label}
+      </Typography>
     </Box>
   )
 }
