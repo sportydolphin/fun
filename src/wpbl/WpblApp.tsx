@@ -2118,7 +2118,8 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     const m = await import('./searchAnswers')
     const season = m.askedSeason(ask.career ? 'career' : ask.season, games)
     if (season === undefined) return null
-    return m.wpblLeaderPeek(ask, players, await loadBoard(season, m.boardNeeds({ [ask.side]: ask.sort })))
+    const peek = m.wpblLeaderPeek(ask, players, await loadBoard(season, m.boardNeeds({ [ask.side]: ask.sort })))
+    return peek && { ...peek, season }
   }, [players, games, loadBoard])
   useEffect(() => {
     if (searchActive) updateSearchBridge({ resolvePlayerStat, resolveLeader })

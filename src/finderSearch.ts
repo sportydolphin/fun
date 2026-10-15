@@ -65,7 +65,11 @@ export interface LeaderSuggestion {
   key: string
   /** "Most home runs", "Lowest ERA". */
   title: string
+  /** "Hitting · 2026", for Recent. */
   subtitle: string
+  /** The two halves of it, which the palette lays out around the leader. */
+  side: string
+  span: string
   href: string
   parsed: ParsedLeader
   /** What the row's link ranks, in the stats table's terms, for the section to name the leader. */
@@ -165,10 +169,14 @@ export function leaderSuggestions(section: FinderSection, text: string, opts: Le
       if (p.season) params.set('season', String(p.season))
       href = `/wpbl/stats?${params}`
     }
-    const span = p.career ? (section === 'mlb' ? 'all time' : 'all time, one season so far') : p.season ?? 'this season'
-    const subtitle = [p.side === 'pitching' ? 'Pitching' : p.side === 'overall' ? 'Overall' : 'Hitting', span].join(' · ')
+    // The year by number wherever the shell knows it: MLB's is the calendar's, and WPBL's arrives
+    // with the leader (LeaderPeek.season), which is the newest season with a final.
+    const span = p.career ? (section === 'mlb' ? 'All time' : 'All time, one season so far')
+      : String(p.season ?? (section === 'mlb' ? CURRENT_SEASON : 'This season'))
+    const sideLabel = p.side === 'pitching' ? 'Pitching' : p.side === 'overall' ? 'Overall' : 'Hitting'
+    const subtitle = [sideLabel, span].join(' · ')
     const ask = { side: p.side, sort, dir: p.dir, season: p.season, career: p.career }
-    return [{ key: `leader-${href}`, title: leaderTitle(p), subtitle, href, parsed: p, ask }]
+    return [{ key: `leader-${href}`, title: leaderTitle(p), subtitle, side: sideLabel, span, href, parsed: p, ask }]
   })
 }
 
@@ -209,7 +217,7 @@ export function teamRankSuggestions(section: FinderSection, text: string): TeamR
       if (p.season) params.set('season', String(p.season))
       href = `/wpbl/stats?${params}`
     }
-    const span = p.season ?? 'this season'
+    const span = String(p.season ?? (section === 'mlb' ? CURRENT_SEASON : 'This season'))
     const subtitle = ['Team stats', side === 'pitching' ? 'Pitching' : 'Hitting', span].join(' · ')
     const club = clubIds.length === 1 ? clubFullName(section, clubIds[0]) : null
     const ranked = leaderTitle(p)
@@ -223,7 +231,7 @@ export function teamRankSuggestions(section: FinderSection, text: string): TeamR
 /** "best catcher", "most hr by a shortstop", "top relievers": the players board, narrowed to the
  *  position or role (`pos=`, src/league/positionFilter.ts) and sorted on the stat when one was
  *  named. The same shape as a ranking row, so the palette draws it as one. */
-export function positionRankSuggestions(section: FinderSection, text: string): Omit<LeaderSuggestion, 'parsed' | 'ask'>[] {
+export function positionRankSuggestions(section: FinderSection, text: string): Omit<LeaderSuggestion, 'parsed' | 'ask' | 'side' | 'span'>[] {
   return parsePositionRank(text).flatMap(({ pos, leader: p }) => {
     const def = positionFilterDef(pos)
     const side = def.side
@@ -242,7 +250,8 @@ export function positionRankSuggestions(section: FinderSection, text: string): O
     }
     const who = def.plural.toLowerCase()
     const title = p ? `${leaderTitle(p)} among ${who}` : `Best ${who}`
-    const subtitle = ['Leaders', `${def.plural} only`, p?.season ?? 'this season'].join(' · ')
+    const span = String(p?.season ?? (section === 'mlb' ? CURRENT_SEASON : 'This season'))
+    const subtitle = ['Leaders', side === 'pitching' ? 'Pitching' : 'Hitting', span, `${def.plural} only`].join(' · ')
     return [{ key: `pos-rank-${href}`, title, subtitle, href }]
   })
 }

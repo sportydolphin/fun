@@ -57,7 +57,7 @@ describe('the season figures (OPS+, wRC+, FIP, WAR)', () => {
 
   it("puts WAR on WPBL's Overall side, and offers no MLB row, since the site has no MLB WAR", () => {
     expect(leaderSuggestions('wpbl', 'most war')[0]).toMatchObject({
-      title: 'Most WAR', subtitle: 'Overall · this season', href: '/wpbl/stats?board=players&side=overall&sort=war&dir=desc',
+      title: 'Most WAR', subtitle: 'Overall · This season', href: '/wpbl/stats?board=players&side=overall&sort=war&dir=desc',
     })
     expect(leaderSuggestions('mlb', 'most war')).toEqual([])
   })
@@ -196,9 +196,9 @@ describe('MLB: the leader in the ranking row', () => {
       entry(3, 'Julio Rodriguez', { plateAppearances: 590, avg: '.310', homeRuns: 40 }),
     ])
     expect(await mlbLeaderPeek({ side: 'hitting', sort: 'avg', dir: null, season: 2026, career: false }))
-      .toEqual({ name: 'Julio Rodriguez', others: 0, value: '.310' })
+      .toMatchObject({ name: 'Julio Rodriguez', others: 0, value: '.310' })
     expect(await mlbLeaderPeek({ side: 'hitting', sort: 'hr', dir: null, season: 2026, career: false }))
-      .toEqual({ name: 'Cal Raleigh', others: 1, value: '40' })
+      .toMatchObject({ name: 'Cal Raleigh', others: 1, value: '40' })
     expect(fetchLeaderboardData).toHaveBeenCalledWith('hitting', 2026)
   })
 
@@ -208,7 +208,7 @@ describe('MLB: the leader in the ranking row', () => {
       { ...entry(2, 'Ty Cobb', { avg: '.366' }), qualified: true },
     ])
     expect(await mlbLeaderPeek({ side: 'hitting', sort: 'avg', dir: null, season: null, career: true }))
-      .toEqual({ name: 'Ty Cobb', others: 0, value: '.366' })
+      .toEqual({ name: 'Ty Cobb', others: 0, value: '.366', season: null })
   })
 })
 
@@ -235,7 +235,7 @@ describe('MLB: the season figures', () => {
     vi.mocked(fetchLeaderboardData).mockResolvedValue(pool)
     vi.mocked(fetchSeasonSabermetrics).mockResolvedValue(new Map([[1, { wrcPlus: 150 }], [2, { wrcPlus: 300 }], [3, { wrcPlus: 160 }]]))
     expect(await mlbLeaderPeek({ side: 'hitting', sort: 'wrcPlus', dir: null, season: 2026, career: false }))
-      .toEqual({ name: 'Julio Rodriguez', others: 0, value: '160' })
+      .toMatchObject({ name: 'Julio Rodriguez', others: 0, value: '160' })
     expect(fetchSeasonSabermetrics).toHaveBeenCalledWith(2026)
     expect(fetchParkFactors).not.toHaveBeenCalled()
   })
@@ -305,10 +305,10 @@ describe('the palette', () => {
     render(<Host resolveLeader={resolveLeader} />)
     await user.type(screen.getByRole('combobox'), 'most hr')
     // "hr" is a hitting board and a pitching one ("home runs allowed"); the hitting one comes first.
-    await waitFor(() => expect(screen.getAllByRole('option')[0]).toHaveTextContent('Most home runsLeaders · Kelsie Whitmore leads with 9 · Hitting · this season'))
+    await waitFor(() => expect(screen.getAllByRole('option')[0]).toHaveTextContent('Most home runsLeaders · Hitting · This season · Kelsie Whitmore leads with 9'))
     expect(resolveLeader).toHaveBeenCalledWith({ side: 'hitting', sort: 'hr', dir: 'desc', season: null, career: false })
 
     await user.keyboard('{Enter}')
-    expect(getRecentQuestions('wpbl')[0]).toMatchObject({ title: 'Most home runs', subtitle: 'Leaders · Hitting · this season' })
+    expect(getRecentQuestions('wpbl')[0]).toMatchObject({ title: 'Most home runs', subtitle: 'Leaders · Hitting · This season' })
   })
 })

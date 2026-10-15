@@ -32,7 +32,12 @@ export interface LeaderAsk { side: RankSide; sort: string; dir: 'asc' | 'desc' |
 
 /** Who leads a ranking, as the stats table would put them first. `others` is how many share the
  *  lead on the number as printed. */
-export interface LeaderPeek { name: string; others: number; value: string }
+export interface LeaderPeek {
+  name: string; others: number; value: string
+  /** The year the board was read for, so the row can name it rather than say "this season" (which
+   *  between seasons is last year). Null for an all-time board. */
+  season?: number | null
+}
 
 /** A stat typed beside a name ("Whitmore avg"): the column it means on each side the section's
  *  table has one for, the side the word leans to, and the span typed with it, if any. */

@@ -243,6 +243,10 @@ function datedScores(section: NavSection, q: string): PageEntry | null {
   return { label: `Scores ${label}`, hint: iso, href: `${MLB_VIEW_PATHS.scores}?date=${iso}` }
 }
 
+/** The year a leader was read for, as the row says it, or null when the section did not say. */
+const peekSpan = (p: LeaderPeek | undefined): string | null =>
+  !p || p.season === undefined ? null : p.season === null ? 'All time' : String(p.season)
+
 const rowItem = (kind: 'result' | 'recent') => (r: SearchResultRow): Item => ({
   key: `${kind}-${r.key}`, kind, title: r.title, subtitle: r.subtitle, avatar: r.avatar, onOpen: r.onSelect,
   forgiving: r.forgiving, rowKey: r.key,
@@ -461,7 +465,9 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     }))
     const leaders: Item[] = [...positionRanks, ...leaderRows.map(s => ({
       key: s.key, kind: 'leader', title: s.title, href: s.href,
-      subtitle: ['Leaders', peek[s.key] ? peekText(peek[s.key]) : null, s.subtitle].filter(Boolean).join(' · '),
+      // Leaders · Hitting · 2026 · Kelsie Whitmore leads with 9: what kind of row, which board, which
+      // year, then the answer. The year the leader was read for wins over the guess made before it.
+      subtitle: ['Leaders', s.side, peekSpan(peek[s.key]) ?? s.span, peek[s.key] ? peekText(peek[s.key]) : null].filter(Boolean).join(' · '),
       recentSubtitle: `Leaders · ${s.subtitle}`,
       icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
       onOpen: () => {},

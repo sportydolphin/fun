@@ -29,7 +29,7 @@ describe('all-time rankings', () => {
   it('links MLB to the all-time board', () => {
     const [r] = leaderSuggestions('mlb', 'most hr all time')
     expect(r.href).toBe('/mlb/stats?season=all&sort=hr&dir=desc')
-    expect(r.subtitle).toBe('Hitting · all time')
+    expect(r.subtitle).toBe('Hitting · All time')
     expect(leaderSuggestions('mlb', 'career era leaders')[0].href).toBe('/mlb/stats?lb=pitching&season=all&sort=era')
   })
 
@@ -54,7 +54,7 @@ describe('all-time rankings', () => {
   it('answers WPBL with its one table only while the league has one season', () => {
     const [r] = leaderSuggestions('wpbl', 'most hr all time', { seasonCount: 1 })
     expect(r.href).toBe('/wpbl/stats?board=players&side=hitting&sort=hr&dir=desc')
-    expect(r.subtitle).toBe('Hitting · all time, one season so far')
+    expect(r.subtitle).toBe('Hitting · All time, one season so far')
     expect(leaderSuggestions('wpbl', 'most hr all time', { seasonCount: 2 })).toEqual([])
     expect(leaderSuggestions('wpbl', 'most hr all time')).toEqual([])
   })
