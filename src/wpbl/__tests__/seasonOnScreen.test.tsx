@@ -94,12 +94,7 @@ const EXEMPT: Record<string, string> = {
   'src/wpbl/derive/runEnvironment.ts': 'comment only',
   'src/wpbl/derive/teamSpec.ts': 'comment only',
 }
-const NOT_YET = new Set<string>([
-  // The search rows' position labels: the stored current season when it is current, else every
-  // season's lines through buildPositionIndex. Passed until Oct 15, 2026 only because it shared
-  // WpblApp.tsx with the Standings tab, which cuts. Harmless while one season is on record.
-  'src/wpbl/app/useWpblSearch.ts',
-])
+const NOT_YET = new Set<string>([])
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap(name => {
