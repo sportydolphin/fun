@@ -5,7 +5,7 @@ import {
   displayFinderValue, describeFinderQuery, finderLowerBetter, conditionsForPer,
   FINDER_OPS,
   type FinderCondition, type FinderOp, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
-  type FinderSide, type FinderSort, type FinderTally, type FinderVenue,
+  type FinderBoardSide, type FinderSort, type FinderTally, type FinderVenue,
 } from '../league/finder'
 import { GameLineFrame } from './gameLine'
 import type { LeagueGame, LeaguePlayer } from '../league/types'
@@ -143,7 +143,7 @@ const CONDITION_COLUMNS = `minmax(0, 1fr) 3rem 3.75rem ${chromePx(34)}`
 /** One `stat op value` row. `n` is the 1-based position, spoken into the labels so a screen reader
  *  with several conditions can tell the rows apart. */
 function ConditionRow({ side, per, n, condition, onChange, onRemove }: {
-  side: FinderSide
+  side: FinderBoardSide
   per: FinderPer
   n: number
   condition: FinderCondition
@@ -203,7 +203,7 @@ export interface FinderExample {
 
 /** One way a typed question can be read, in the shape src/league/finderParse.ts returns. */
 export interface FinderReading {
-  side: FinderSide
+  side: FinderBoardSide
   per: FinderPer
   conditions: FinderCondition[]
   teamId: string | null
@@ -230,7 +230,7 @@ function scopeWords(q: Pick<FinderQuery, 'teamId' | 'oppId' | 'venue'>, clubAbbr
  * pitcher's line and a hitter's.
  */
 function AskBox({ side, parse, onAsk, clubAbbr }: {
-  side: FinderSide
+  side: FinderBoardSide
   parse: (text: string) => FinderReading[]
   onAsk: (r: FinderReading) => void
   clubAbbr: (id: string) => string
@@ -358,7 +358,7 @@ function gameLabel(game: LeagueGame | null, teamId: string | null, clubAbbr: (id
 function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
   side, query, rows, sort, onSort, headlineField, clubAbbr, rowParts, loading,
 }: {
-  side: FinderSide
+  side: FinderBoardSide
   query: FinderQuery
   rows: FinderRow<P, G>[]
   sort: FinderSort | null
@@ -510,7 +510,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   side, query, onQuery, result, clubs, clubAbbr, intro, loading = false, renderRow, rowParts, tallyParts,
   sort, onSort, examples, stickyTop, parse, onAsk, accent,
 }: {
-  side: FinderSide
+  side: FinderBoardSide
   /** Owned by the section, which mirrors it into the address bar. */
   query: FinderQuery
   onQuery: (q: FinderQuery) => void
@@ -576,7 +576,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // included: `describeFinderQuery` knows only the stat conditions, and a summary that omits the
   // who and where claims a wider search than it ran. The unasked question gets its own wording,
   // since "612 games where every game line" reads as a bug.
-  const who = side === 'pitching' ? ['pitcher', 'pitchers'] : ['hitter', 'hitters']
+  const who = side === 'pitching' ? ['pitcher', 'pitchers'] : side === 'fielding' ? ['fielder', 'fielders'] : ['hitter', 'hitters']
   const games_ = season ? (result.total === 1 ? who[0] : who[1]) : result.total === 1 ? 'game' : 'games'
   const scopeText = scopeWords(query, clubAbbr)
   const total = result.total.toLocaleString()
@@ -591,7 +591,9 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   const qualifierNote = result.qualifier
     ? result.qualifier.field === 'pa'
       ? `Qualified hitters only: ${result.qualifier.min} plate appearances or more. Add a plate appearances condition to set your own bar.`
-      : `Qualified pitchers only: ${displayFinderValue(side, 'ip', result.qualifier.min)} innings or more. Add an innings condition to set your own bar.`
+      : result.qualifier.field === 'g'
+        ? `Qualified fielders only: ${result.qualifier.min} games or more. Add a games played condition to set your own bar.`
+        : `Qualified pitchers only: ${displayFinderValue(side, 'ip', result.qualifier.min)} innings or more. Add an innings condition to set your own bar.`
     : null
   // Offered only to an empty form: an example replaces the conditions, so once there are some it is a
   // way to lose them, and the chips sat between the typed box and the rows they would overwrite.
@@ -801,7 +803,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
                   <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
                     {season
                       ? `Searched the seasons of ${result.searched.toLocaleString()} ${result.searched === 1 ? who[0] : who[1]}.`
-                      : `Searched ${result.searched.toLocaleString()} ${result.searched === 1 ? 'line' : 'lines'}${side === 'pitching' ? ' from pitchers who appeared' : ' from batters who came to the plate'}.`}
+                      : `Searched ${result.searched.toLocaleString()} ${result.searched === 1 ? 'line' : 'lines'}${side === 'pitching' ? ' from pitchers who appeared' : side === 'fielding' ? ' from fielders who were in on a play' : ' from batters who came to the plate'}.`}
                     {' '}Loosen a condition, or widen the club and venue.
                   </Typography>
                 </Box>

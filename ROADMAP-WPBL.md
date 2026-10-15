@@ -1632,6 +1632,23 @@ is retired.
 
 ## Shipped log
 
+### Oct 14, 2026: Find on Fielding (v1.163.0)
+
+**Find answers the side switch's third option.** It had stood aside for Fielding since the switch
+gained it, because the engine read batting and pitching lines only, while every fielding line was
+already mirrored and cached app-wide. Now the engine has a third field set (total chances, putouts,
+assists, errors, double plays, passed balls, stolen bases allowed, catcher's interference) and a
+season's fielding percentage, and the board, the address (`side=fielding`) and the "Ask in words"
+box all take it. Two things the line's shape decided. **A fielder's games are games played, read off
+every line**, as the Stats tab's Fielding table counts them: the feed writes a fielding line only for
+a night with a play to make, so a count of them undercounted the games a percentage qualifies on and
+the "of 11" beside the tally. And **there is no position**, so "3 errors at shortstop" cannot be
+asked. The parser takes the sides a section has (`WPBL_FINDER_SIDES`), so MLB, which stores no
+fielding lines yet, is never offered a fielding reading; "double plays" is the batter's unless a word
+says the fielder turned it. The fielding words stay out of the typo fixer, which the name search also
+runs: "chances" is one slip from Chance and "turned" from Turner. MLB's half is item 6.6 in
+ROADMAP.md.
+
 ### Oct 14, 2026: the search on every page, and what it shows before you type (v1.162.0)
 
 **The box and Ctrl+K were missing on every standalone page** (About the league, a series, Batter vs

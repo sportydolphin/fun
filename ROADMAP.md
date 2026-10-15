@@ -347,6 +347,17 @@ will actually see all winter. The functional items do not wait.
       database headroom; *cleared Oct 11* by the audit's ops item 4 in ROADMAP-WPBL.md. One season
       first, measured, before any backfill (see "From the Oct 10 audit" above).
    5. *Tracked* last, if at all.
+   6. *Fielding lines in the mirror, then Find on Fielding.* WPBL's Find answers Fielding since
+      Oct 14 (v1.163.0) because it stores a fielding line per game; MLB's mirror stores batting and
+      pitching only, so its Find keeps Fielding disabled. Needs an `mlb_fielding_lines` table in the
+      neutral columns (`FieldingGameLine` in `league/types.ts`: po, a, e, dp, pb, sba, ci), written
+      by `sync-mlb-lines.mjs` from the same box scores it already reads (StatsAPI's per-player
+      `stats.fielding`), a column on `mlb_season_lines`, and a backfill. Measure 2026 first: roughly
+      40k rows a season (eight-odd fielders a club a game) if written only for a game with a play,
+      as WPBL's feed does. Then the board
+      is wiring: pass `fielding` to `runFinder`, add Fielding examples, and hand MLB's parser
+      `['hitting', 'pitching', 'fielding']` in `finderSearch.ts` and `views/FindView.tsx`. A box score
+      gives no position for a play, so "errors at shortstop" stays out of reach in both sections.
 
    ✅ *Oct 11: one navigation for both Stats tabs.* Fielding stopped being a board and became the
    third option of the side switch every board draws (`sideSwitch` in MlbStats, PillGroup's

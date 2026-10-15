@@ -43,7 +43,7 @@ function mlbStatsPath(search: string): string {
   const side = q.get('side') === 'fielding' || board === 'fielding' ? 'fielding' : q.get('side') === 'pitching' ? 'pitching' : 'hitting'
   if (board === 'players' || board === 'fielding') return side === 'fielding' ? MLB_VIEW_PATHS.fielding : mlbUrlFor({ view: 'stats', lb: side })
   if (board === 'teams') return mlbUrlFor({ view: 'teamStats', lb: side === 'fielding' ? 'hitting' : side, fielding: side === 'fielding' })
-  // Bests and Find have no fielding side, so a link naming one reads as the default.
+  // MLB's Bests and Find have no fielding side (WPBL's Find does), so a link naming one reads as the default.
   if (board === 'bests' || board === 'find') return mlbUrlFor({ view: board, lb: side === 'pitching' ? 'pitching' : 'hitting' })
   return mlbUrlFor({ view: 'leaderboard', lb: side === 'fielding' ? 'hitting' : side, fielding: side === 'fielding' })
 }

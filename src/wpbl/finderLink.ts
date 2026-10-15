@@ -4,8 +4,11 @@
 // section imports the other to get at it.
 
 import type { FinderClubAlias, ParsedFinder } from '../league/finderParse'
-import { encodeFinderQuery } from '../league/finder'
+import { encodeFinderQuery, type FinderBoardSide } from '../league/finder'
 import { WPBL_TEAMS } from './constants'
+
+/** The sides WPBL's Find board searches: the glove too, since the section stores fielding lines. */
+export const WPBL_FINDER_SIDES: readonly FinderBoardSide[] = ['hitting', 'pitching', 'fielding']
 
 export const WPBL_FINDER_CLUBS: FinderClubAlias[] = Object.values(WPBL_TEAMS).map(t => ({
   id: t.id, names: [t.abbr, t.city, t.name, `${t.city} ${t.name}`],
