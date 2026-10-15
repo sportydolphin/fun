@@ -159,7 +159,7 @@ describe('where the rule is applied', () => {
   // refactor that drops the call leaves every one of those places quietly wrong and no test
   // that reads data can see it.
   it('runs on the schedule read', () => {
-    const api = readFileSync('src/wpbl/api.ts', 'utf8')
+    const api = readFileSync('src/wpbl/api/games.ts', 'utf8')
     const fn = api.slice(api.indexOf('export function fetchWpblSchedule'))
     expect(fn.slice(0, fn.indexOf('\n}')).includes('cleanSchedule(')).toBe(true)
     // cleanSchedule drops the phantoms, sorts, and settles.

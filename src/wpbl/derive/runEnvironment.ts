@@ -13,7 +13,7 @@ import { wobaWeights, fipWeights, type WobaWeights } from './linearWeights'
 import type { FipWeights } from '../stats'
 import type { WpblGame, WpblRunValuePlay } from '../types'
 
-/** The play columns run expectancy reads. Shared with fetchWpblAllRunValuePlays in api.ts. */
+/** The play columns run expectancy reads. Shared with fetchWpblAllRunValuePlays in api/plays.ts. */
 export const RUN_VALUE_PLAY_SELECT =
   'game_id,sequence,inning,half,team_id,batter_id,batter_name,pitcher_id,pitcher_name,'
   + 'outs,first_base,second_base,third_base,event_type,runs_scored,narrative,pitch_sequence'

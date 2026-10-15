@@ -19,7 +19,7 @@
 // statline in the Live pane therefore shows what that batter finished with. That is a lie the
 // panel tells and it is the reason this is a dev tool rather than a feature.
 //
-// HOW IT REACHES THE APP. Through a slot in api.ts that this module fills in, NOT through an
+// HOW IT REACHES THE APP. Through a slot in api/core.ts that this module fills in, NOT through an
 // import from api.ts into the dev module and NOT through a dev import in the read path. The
 // difference is production: `DevSettings` is the only thing that imports this file and it is
 // proven absent from the production bundle, so everything here goes with it. An import the

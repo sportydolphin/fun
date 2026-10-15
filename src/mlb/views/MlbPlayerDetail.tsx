@@ -21,7 +21,7 @@ import { CompareArrows, EmojiEvents, Star, StarBorder } from '@mui/icons-materia
 import {
   CARD_TYPE as TYPE, StatCardContext, SeasonPicker, LineCaption, SeasonLine, RateStrip, CameoBlock, StatLogTable,
   PlayerBand, BandBadge, BandChips, BAND_CHIP_SX, SectionHead, BATTING_BEST, PITCHING_BEST,
-  type LineCol, type StatCardEnv,
+  StatTip, CARD_SECTION_SX, type LineCol, type StatCardEnv,
 } from '../../ui/playerCard'
 import { DetailPageBar } from '../../ui/DetailPageBar'
 import { ModalShell } from '../../ui/ModalShell'
@@ -42,7 +42,7 @@ import { fetchPlayerContract } from '../api'
 import { careerSpan } from '../lib/utils'
 import { mlbClubById, mlbCompareStartPath, withMlbCompareSeason, mlbUrlFor, MLB_GLOSSARY_PAGE, MLB_FIELDING_POSITIONS, type MlbFieldingPosition } from '../routes'
 import { track, EVENTS } from '../../lib/analytics'
-import { linkTo, UNSTYLED_LINK } from '../../nav'
+import { linkTo } from '../../nav'
 import { mlbStatFull, mlbStatPlain } from '../statGlossary'
 import {
   fetchMlbBio, fetchCareer, fetchSeasonBundle, fetchPostseasonLines, fetchSeasonLog, fetchSeasonRanks,
@@ -68,16 +68,7 @@ const glossaryLink = linkTo(MLB_GLOSSARY_PAGE)
 const statTip = (k: string): React.ReactNode => {
   const full = mlbStatFull(k)
   if (!full) return null
-  const plain = mlbStatPlain(k)
-  return (
-    <>
-      <Box sx={{ fontWeight: plain ? 700 : undefined }}>{full}</Box>
-      {plain && <Box sx={{ mt: 0.25 }}>{plain}</Box>}
-      <Box {...glossaryLink} sx={{ ...UNSTYLED_LINK, display: 'inline-block', mt: 0.5, fontWeight: 700, textDecoration: 'underline' }}>
-        Every stat explained ›
-      </Box>
-    </>
-  )
+  return <StatTip full={full} plain={mlbStatPlain(k)} glossary={glossaryLink} />
 }
 
 /**
@@ -120,7 +111,7 @@ const shortDate = (iso: string): string => {
 /** A postseason round, for marking October games when the log shows both. */
 const ROUND: Record<string, string> = { F: 'WC', D: 'DS', L: 'CS', W: 'WS' }
 
-const sectionSx = { ...TYPE.label, color: 'text.secondary', mb: 1 } as const
+const sectionSx = CARD_SECTION_SX
 
 /** Ten games before "Show more", where WPBL's card opens on five: five is under a week of a
  *  162-game schedule, and the jump from there to "Show 124 more" was most of a season. */
@@ -134,7 +125,7 @@ const MLB_LOG_PREVIEW = 10
  *  Applied as a transition. The card makes nine of these reads and each answer re-renders all of
  *  it, at whatever moment it lands; as an ordinary update every one is a block of main-thread work
  *  that a sheet sliding up or a panel sliding in has to wait out. A transition lets React render it
- *  between frames, the same rule WPBL's card follows (see lateUpdate in PlayerDetail). */
+ *  between frames, the same rule WPBL's card follows (see lateUpdate in wpbl/player/usePlayerReads.ts). */
 function useLoaded<T>(key: string | null, load: () => Promise<T>): T | undefined {
   const [got, setGot] = useState<{ key: string; value: T } | null>(null)
   useEffect(() => {

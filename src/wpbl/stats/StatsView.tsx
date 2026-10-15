@@ -73,7 +73,7 @@ let statsOpened = false
  *  section's teams and schedule are in (WpblApp's `loading`), and none of these reads needs either
  *  of them to FETCH, only to aggregate, so a reader landing on /wpbl/stats waited one whole Supabase
  *  round trip (about 650ms) before the slowest reads on the site had even started. Each fetcher
- *  shares an in-flight request (`once` in api.ts), so the tab's own effects pick these up rather
+ *  shares an in-flight request (`once` in api/core.ts), so the tab's own effects pick these up rather
  *  than asking twice. Failures are the tab's to handle when it asks; here they are dropped. */
 export function warmStatsReads(picked: number | null): void {
   const drop = () => { /* the tab's own read reports it */ }

@@ -67,6 +67,9 @@ export const TYPE_SCALE_LEGACY: readonly string[] = [
   'src/wpbl/PitchingUsage.tsx',
   'src/wpbl/PlayValue.tsx',
   'src/wpbl/PlayerDetail.tsx',
+  // Moved out of PlayerDetail.tsx on Oct 15, 2026, sizes and all: a pure move, converted with it.
+  'src/wpbl/player/bandStore.tsx',
+  'src/wpbl/player/pieces.tsx',
   'src/wpbl/PlayersIndex.tsx',
   'src/wpbl/Reading.tsx',
   'src/wpbl/ReadingPage.tsx',

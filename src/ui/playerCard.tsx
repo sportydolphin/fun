@@ -19,6 +19,7 @@ import { chromePx, typePx } from './scale'
 import { ICON_SIZE, TYPE_SCALE } from './card'
 import { usePhoneLayout } from './ModalShell'
 import { playerPartAnchor, type PlayerPart } from '../lib/playerParts'
+import { UNSTYLED_LINK, type linkTo } from '../nav'
 
 /** What a league supplies to the card parts. */
 export interface StatCardEnv {
@@ -46,6 +47,35 @@ export function ordinal(n: number): string {
     case 3: return `${n}rd`
     default: return `${n}th`
   }
+}
+
+/**
+ * A stat's tooltip: what the letters stand for, what the number is for, and a link to the
+ * section's glossary page. Each section looks its terms up in its own glossary and hands the
+ * results here, so the two cards' tooltips are one drawing.
+ *
+ * Two tiers, because they answer different questions: the expansion says what the letters
+ * are, the sentence says what the number is for. A reader who knows the first still wants
+ * the second, and one run-on line makes them read it to find out which half they needed.
+ *
+ * The link is where every term can be found, by a reader or a crawler; the tooltip is only
+ * where a reader meets one.
+ */
+export function StatTip({ full, plain, glossary }: {
+  full: React.ReactNode
+  plain?: string | null
+  /** The glossary page, as `linkTo` spreads it. */
+  glossary: ReturnType<typeof linkTo>
+}) {
+  return (
+    <>
+      <Box sx={{ fontWeight: plain ? 700 : undefined }}>{full}</Box>
+      {plain && <Box sx={{ mt: 0.25 }}>{plain}</Box>}
+      <Box {...glossary} sx={{ ...UNSTYLED_LINK, display: 'inline-block', mt: 0.5, fontWeight: 700, textDecoration: 'underline' }}>
+        Every stat explained ›
+      </Box>
+    </>
+  )
 }
 
 /** The player modal sits at zIndex 1600; MUI's tooltip defaults to 1500, so it would
@@ -167,7 +197,9 @@ export const CARD_TYPE = {
   micro: { fontSize: TYPE_SCALE.caption, fontWeight: 700 },
 } as const
 const TYPE = CARD_TYPE
-const sectionSx = { ...TYPE.label, color: 'text.secondary', mb: 1 } as const
+/** A block's plain heading where it has no caption: the season label, a role's name. */
+export const CARD_SECTION_SX = { ...TYPE.label, color: 'text.secondary', mb: 1 } as const
+const sectionSx = CARD_SECTION_SX
 
 /**
  * The season's name, as the heading of the season line AND the control that changes it: a native

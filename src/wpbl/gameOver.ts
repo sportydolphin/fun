@@ -185,7 +185,7 @@ function dedupeSchedule<T extends SettleableGame & Pick<WpblGame, 'game_date' | 
 }
 
 /** The schedule as every reader sees it: in one order, phantoms dropped, then settled. Here
- *  rather than in api.ts so the jobs that compute what the browser would
+ *  rather than in api/games.ts so the jobs that compute what the browser would
  *  (scripts/compute-wpbl-player-seasons.ts) can clean a raw read the same way without bundling the
  *  supabase client.
  *

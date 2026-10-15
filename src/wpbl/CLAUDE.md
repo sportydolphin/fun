@@ -115,7 +115,7 @@ Loaded when you read anything under `src/wpbl/`. The feed and ingest traps (ids,
   `?season=`; the ballot pins to `AWARDS_SEASON`; batter vs pitcher and the win model use every
   season on purpose. `__tests__/seasonOnScreen.test.tsx` fails any file that reads a league-wide
   table without cutting it or saying why. **The play log is the exception that reads one year:**
-  every play read is a filter over `fetchWpblPlayLog(season)` in api.ts, which asks the database
+  every play read is a filter over `fetchWpblPlayLog(season)` in api/plays.ts, which asks the database
   for that season alone (`null` is every season). Pass the season on screen, keep the `cut` anyway
   (it is free on rows already one year), and hold what you read WITH the season it was read for,
   or a year picked from the menu cuts the last year's plays to nothing and draws an empty board.
