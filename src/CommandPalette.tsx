@@ -243,6 +243,15 @@ function datedScores(section: NavSection, q: string): PageEntry | null {
   return { label: `Scores ${label}`, hint: iso, href: `${MLB_VIEW_PATHS.scores}?date=${iso}` }
 }
 
+/** The club ids `text` names when it is a club and nothing else ("Dodgers", "SF", "Firebells
+ *  score"), or null. A name two clubs share is both. */
+export function soleClub(text: string, clubs: readonly { id: string; names: string[] }[]): string[] | null {
+  const t = text.trim().toLowerCase().replace(/^the\s+/, '').replace(/\s+(score|game|live|now)$/, '')
+  if (!t) return null
+  const ids = clubs.filter(c => c.names.some(n => n.toLowerCase() === t)).map(c => c.id)
+  return ids.length ? ids : null
+}
+
 /** The year a leader was read for, as the row says it, or null when the section did not say. */
 const peekSpan = (p: LeaderPeek | undefined): string | null =>
   !p || p.season === undefined ? null : p.season === null ? 'All time' : String(p.season)
@@ -382,6 +391,23 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     return () => { live = false; clearTimeout(t) }
   }, [text, leaderRows, resolveLeader])
 
+  // A club playing RIGHT NOW: "Dodgers" offers their live game above everything else, with the score
+  // and the inning. Asked of the section's own game lookup for today, only when the text is a club and
+  // nothing more (a day or a second club is already a game question, answered by the rows above).
+  const [liveRows, setLiveRows] = useState<{ text: string; rows: CompareRow[] } | null>(null)
+  useEffect(() => {
+    const clubs = sectionClubs(section)
+    const ids = resolveGames && !parseGameQuery(text, clubs) ? soleClub(text, clubs) : null
+    if (!ids || !resolveGames) return
+    let live = true
+    const t = setTimeout(() => {
+      resolveGames({ clubs: [ids], when: { date: todayIso() } })
+        .then(rows => { if (live) setLiveRows({ text, rows: rows.filter(r => r.live) }) })
+        .catch(() => {})
+    }, 250)
+    return () => { live = false; clearTimeout(t) }
+  }, [text, section, resolveGames])
+
   // "Ohtani" on WPBL, "Whitmore" on MLB: one row into the other section, asked only once this one
   // has finished and found no player, and only for text that is a plain name (no stat, year or
   // number), so a question never costs a lookup in a section it is not about.
@@ -418,6 +444,13 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       },
     })
 
+    const tryItems: Item[] = EXAMPLES[section].map(ex => ({
+      key: `ex-${ex.q}`, kind: 'example' as const, title: ex.q, subtitle: ex.what, icon: ex.icon,
+      onOpen: () => { change(ex.q); inputRef.current?.focus() },
+    }))
+    // "?" is a question about the box itself: the whole of the Try list, with nothing else around it.
+    if (q === '?') return [{ label: 'What the search understands', grid: true, items: tryItems }]
+
     if (!q) {
       // Recent is the section's players and clubs and this device's questions, as one list.
       const sectionRecent = idle.find(g => g.label === 'Recent')
@@ -429,21 +462,19 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       return [
         { label: 'Recent', items: recent, onClear: clearRecent },
         ...idle.filter(g => g !== sectionRecent).map(g => ({ label: g.label, items: g.rows.map(rowItem(g.kind)), onClear: g.onClear })),
-        {
-          label: 'Try',
-          grid: true,
-          items: EXAMPLES[section].map(ex => ({
-            key: `ex-${ex.q}`, kind: 'example' as const, title: ex.q, subtitle: ex.what, icon: ex.icon,
-            onOpen: () => { change(ex.q); inputRef.current?.focus() },
-          })),
-        },
+        { label: 'Try', grid: true, items: tryItems },
       ].filter(g => g.items.length)
     }
 
-    const games: Item[] = gameRows && gameRows.text === text ? gameRows.rows.map(r => ({
+    const gameItem = (r: CompareRow): Item => ({
       key: `game-${r.href}`, kind: 'game' as const, title: r.title, subtitle: r.subtitle, href: r.href,
       icon: <SportsBaseball sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
-    })) : []
+    })
+    const asked = gameRows && gameRows.text === text ? gameRows.rows : []
+    // Live games lead, whichever lookup found them: a reader typing a club mid-game wants the game.
+    const liveGames: Item[] = [...asked.filter(r => r.live), ...(liveRows && liveRows.text === text ? liveRows.rows : [])]
+      .filter((r, i, all) => all.findIndex(o => o.href === r.href) === i).map(gameItem)
+    const games: Item[] = asked.filter(r => !r.live).map(gameItem)
     const matchups: Item[] = matchupSuggestions(section, text).map(m => ({
       key: m.key, kind: 'matchup', title: m.title, subtitle: 'Season series · every meeting', href: m.href,
       icon: <CompareArrows sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
@@ -520,6 +551,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     // likely the board, so it waits behind the rankings and the Find readings.
     const glossary = { label: 'Glossary', items: definitions }
     return [
+      { label: 'Live now', items: liveGames },
       ...(defined.asked ? [glossary] : []),
       { label: 'Games', items: games },
       { label: 'Matchups', items: matchups },
@@ -538,7 +570,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       { label: 'Pages', items: pages },
       { label: 'Actions', items: acts },
     ].filter(g => g.items.length)
-  }, [text, results, idle, section, compare, gameRows, recentQs, rowPicks, leaderRows, peeks, answers, elsewhere, ownPlayers, actions])
+  }, [text, results, idle, section, compare, gameRows, liveRows, recentQs, rowPicks, leaderRows, peeks, answers, elsewhere, ownPlayers, actions])
 
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups])
   const current = Math.min(active, Math.max(0, flat.length - 1))
@@ -588,6 +620,13 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     if (e.key === 'ArrowDown') { e.preventDefault(); setActive((current + 1) % Math.max(1, flat.length)) }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((current - 1 + flat.length) % Math.max(1, flat.length)) }
     else if (e.key === 'Enter' && flat[current]) { e.preventDefault(); activate(flat[current]) }
+    // TAB COMPLETES: the lit row's name goes into the box, so "whit" Tab is "Kelsie Whitmore" and the
+    // reader can go on to type " avg" or " game log" after it. Only while something is typed, and
+    // never Shift+Tab, so the key still leaves the box when there is nothing to complete.
+    else if (e.key === 'Tab' && !e.shiftKey && text.trim() && flat[current] && flat[current].title.toLowerCase() !== text.trim().toLowerCase()) {
+      e.preventDefault()
+      change(`${flat[current].title} `)
+    }
   }
 
   const empty = text.trim() && !flat.length && !searching
@@ -696,7 +735,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       </Box>
       <Box sx={{ px: 2, py: 0.75, borderTop: '1px solid', borderColor: 'divider', display: { xs: 'none', sm: 'block' } }}>
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
-          ↑ ↓ to move · Enter to open · Esc to close
+          ↑ ↓ to move · Enter to open · Tab to complete · ? for everything it understands
         </Typography>
       </Box>
     </Dialog>

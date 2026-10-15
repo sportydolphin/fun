@@ -24,7 +24,11 @@ export interface TeamBridgeItem {
 }
 
 /** A row the section works out for the palette from typed text: a pair's compare page, a game. */
-export interface CompareRow { title: string; subtitle: string; href: string }
+export interface CompareRow {
+  title: string; subtitle: string; href: string
+  /** A game under way right now, which the palette puts above everything else. */
+  live?: boolean
+}
 
 /** A ranking typed in the box, in the section's own stats-table terms: `sort` is the column key
  *  the row's link sorts on, so the peek ranks exactly what the link opens. */

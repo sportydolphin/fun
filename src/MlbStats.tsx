@@ -266,7 +266,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           const all = pools.flat().filter(g => !seen.has(g.gamePk) && !!seen.add(g.gamePk))
           return pickGames(all, when, today, g => g.date, g => g.state !== 'scheduled').map(g => gameRow({
             away: TEAM_ABBR[g.awayId] ?? String(g.awayId), home: TEAM_ABBR[g.homeId] ?? String(g.homeId),
-            awayScore: g.awayScore, homeScore: g.homeScore, state: g.state, date: g.date,
+            awayScore: g.awayScore, homeScore: g.homeScore, state: g.state, date: g.date, inning: g.inning,
             href: mlbGamePath(g.gamePk),
           }))
         } catch { return [] }

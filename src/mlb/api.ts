@@ -70,6 +70,8 @@ export async function searchPlayersForgiving(name: string): Promise<Player[]> {
 export interface ScheduleGameLite {
   gamePk: number; date: string; awayId: number; homeId: number
   awayScore: number | null; homeScore: number | null; state: 'final' | 'live' | 'scheduled'
+  /** "Bottom 6", "Mid 3", while the game is live. */
+  inning?: string | null
 }
 
 /**
@@ -79,7 +81,8 @@ export interface ScheduleGameLite {
  */
 export async function fetchClubGames(teamId: number, opponentId: number | null, start: string, end: string): Promise<ScheduleGameLite[]> {
   const opp = opponentId != null ? `&opponentId=${opponentId}` : ''
-  const r = await fetch(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=${teamId}${opp}&startDate=${start}&endDate=${end}`)
+  // The line score, for where a live game is ("Bottom 6"), which the palette's live row says.
+  const r = await fetch(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=${teamId}${opp}&startDate=${start}&endDate=${end}&hydrate=linescore`)
   const d = await r.json()
   return (d.dates ?? []).flatMap((day: any) => (day.games ?? []).map((g: any): ScheduleGameLite => {
     const s = g.status?.abstractGameState
@@ -88,6 +91,9 @@ export async function fetchClubGames(teamId: number, opponentId: number | null, 
       awayId: g.teams?.away?.team?.id, homeId: g.teams?.home?.team?.id,
       awayScore: g.teams?.away?.score ?? null, homeScore: g.teams?.home?.score ?? null,
       state: s === 'Final' ? 'final' : s === 'Live' ? 'live' : 'scheduled',
+      inning: s === 'Live' && g.linescore?.currentInning
+        ? `${g.linescore.inningState === 'Middle' ? 'Mid' : g.linescore.inningState === 'End' ? 'End' : g.linescore.inningHalf ?? ''} ${g.linescore.currentInning}`.trim()
+        : null,
     }
   }))
 }

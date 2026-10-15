@@ -2076,6 +2076,9 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       away: teamById.get(g.away_team_id)?.abbr ?? g.away_team_id,
       home: teamById.get(g.home_team_id)?.abbr ?? g.home_team_id,
       awayScore: g.away_score, homeScore: g.home_score, state: g.status, date: g.game_date,
+      inning: g.status === 'live' && g.live_state?.inning
+        ? `${g.live_state.half === 'top' ? 'Top' : g.live_state.half === 'bottom' ? 'Bottom' : 'Mid'} ${g.live_state.inning}`
+        : null,
       href: wpblGamePath(g, teams, games),
     }))
   }, [games, teams, teamById])

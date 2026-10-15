@@ -13,6 +13,8 @@ export interface GameRowInput {
   /** 'YYYY-MM-DD', the day the schedule lists it on. */
   date: string
   href: string
+  /** Where a live game is, "Bottom 6", when the section knows. */
+  inning?: string | null
 }
 
 /** "Sep 9, 2026", read as a calendar day so no zone can move it to the 8th. */
@@ -25,7 +27,11 @@ export function gameRow(g: GameRowInput): CompareRow {
   const scored = g.state !== 'scheduled' && g.awayScore != null && g.homeScore != null
   return {
     title: scored ? `${g.away} ${g.awayScore} at ${g.home} ${g.homeScore}` : `${g.away} at ${g.home}`,
-    subtitle: `${g.state === 'final' ? 'Final' : g.state === 'live' ? 'Live' : 'Scheduled'} · ${shortDay(g.date)}`,
+    // A live game says where it is rather than what day it is: the day is today.
+    subtitle: g.state === 'live'
+      ? (g.inning ? `Live · ${g.inning}` : 'Live')
+      : `${g.state === 'final' ? 'Final' : 'Scheduled'} · ${shortDay(g.date)}`,
     href: g.href,
+    ...(g.state === 'live' ? { live: true } : {}),
   }
 }
