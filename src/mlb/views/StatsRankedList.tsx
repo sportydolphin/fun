@@ -1,6 +1,6 @@
 import { TeamLogo } from '../components/TeamLogo'
 import React, { useEffect, useRef, useState } from 'react'
-import { ACCENT_EDGE } from '../../ui/card'
+import { ACCENT_EDGE, TYPE_SCALE } from '../../ui/card'
 import { Box, Typography, Skeleton } from '@mui/material'
 import type { StatDef } from '../types'
 import { ACCENT, TEAM_SEASONS } from '../constants'
@@ -118,11 +118,11 @@ const rowSx = (first: boolean) => ({
 }) as const
 const RANK_SX = {
   width: '1.875rem', whiteSpace: 'nowrap', flexShrink: 0, display: 'flex', justifyContent: 'center',
-  fontSize: '0.8rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+  fontSize: TYPE_SCALE.body, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
 } as const
-const NAME_SX = { fontSize: '0.85rem', fontWeight: 600, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as const
-const CONTEXT_SX = { fontSize: '0.68rem', lineHeight: 1.35, color: 'text.disabled', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as const
-const VALUE_SX = { flexShrink: 0, fontSize: '1.05rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)', fontVariantNumeric: 'tabular-nums' } as const
+const NAME_SX = { fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as const
+const CONTEXT_SX = { fontSize: TYPE_SCALE.micro, lineHeight: 1.35, color: 'text.disabled', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } as const
+const VALUE_SX = { flexShrink: 0, fontSize: TYPE_SCALE.heading, fontWeight: 800, color: 'var(--wpbl-accent-fg)', fontVariantNumeric: 'tabular-nums' } as const
 
 function ListRowSkeleton({ first }: { first: boolean }) {
   return (
@@ -190,17 +190,17 @@ export function StatsRankedList({
       {/* WPBL's header: "Player", the league's figure, the ranked stat with its direction arrow. On
           the ERA board the numbers ascend and nothing else says so. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.25, py: 0.7, borderBottom: '1px solid', borderColor: 'divider' }}>
-        <Typography sx={{ flex: 1, minWidth: 0, fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.disabled' }}>
+        <Typography sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.disabled' }}>
           {clubs ? 'Club' : 'Player'}
         </Typography>
         {league && (
-          <Typography data-league-head="" sx={{ flexShrink: 0, fontSize: '0.62rem', fontWeight: 600, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+          <Typography data-league-head="" sx={{ flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 600, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
             League avg {league}
           </Typography>
         )}
-        <Typography sx={{ flexShrink: 0, fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4), color: 'var(--wpbl-accent-fg)' }}>
+        <Typography sx={{ flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.4), color: 'var(--wpbl-accent-fg)' }}>
           {def.label}
-          <Box component="span" aria-label={asc ? 'ascending' : 'descending'} sx={{ ml: 0.3, fontSize: '0.62rem' }}>{asc ? '↑' : '↓'}</Box>
+          <Box component="span" aria-label={asc ? 'ascending' : 'descending'} sx={{ ml: 0.3, fontSize: TYPE_SCALE.caption }}>{asc ? '↑' : '↓'}</Box>
         </Typography>
       </Box>
 
@@ -239,7 +239,7 @@ export const controlPill = (on: boolean) => ({
   ...FOCUS_RING,
   display: 'inline-flex', alignItems: 'center', gap: 0.4, flexShrink: 0,
   cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
-  minHeight: 34, px: 1.25, borderRadius: 999, fontSize: '0.78rem', fontWeight: 700,
+  minHeight: 34, px: 1.25, borderRadius: 999, fontSize: TYPE_SCALE.body, fontWeight: 700,
   border: '1px solid', transition: 'all 0.15s',
   borderColor: on ? ACCENT_EDGE : 'outline',
   bgcolor: on ? `${ACCENT}12` : 'transparent',
@@ -266,10 +266,10 @@ function OptionTile({ label, hint, on, onClick, disabled }: {
       bgcolor: on ? `${ACCENT}14` : 'transparent',
       ...(disabled ? {} : hoverOnly({ borderColor: ACCENT_EDGE })),
     }}>
-      <Typography sx={{ fontSize: '0.85rem', fontWeight: 800, lineHeight: 1.2, color: on ? 'var(--wpbl-accent-fg)' : 'text.primary' }}>{label}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, lineHeight: 1.2, color: on ? 'var(--wpbl-accent-fg)' : 'text.primary' }}>{label}</Typography>
       {hint && (
         <Typography sx={{
-          fontSize: '0.66rem', lineHeight: 1.25, color: 'text.disabled', overflowWrap: 'anywhere',
+          fontSize: TYPE_SCALE.micro, lineHeight: 1.25, color: 'text.disabled', overflowWrap: 'anywhere',
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>{hint}</Typography>
       )}
@@ -283,7 +283,7 @@ function SheetDone({ onClose }: { onClose: () => void }) {
     <Box {...pressable(onClose)} sx={{
       ...FOCUS_RING, minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'center',
       borderRadius: 2, cursor: 'pointer', userSelect: 'none',
-      bgcolor: 'var(--wpbl-accent-solid)', color: '#fff', fontWeight: 800, fontSize: '0.9rem',
+      bgcolor: 'var(--wpbl-accent-solid)', color: '#fff', fontWeight: 800, fontSize: TYPE_SCALE.title,
     }}>Done</Box>
   )
 }
@@ -337,7 +337,7 @@ export function SortBody({ statDefs, sortKey, asc, reversible, onPick, onDirecti
           <OptionTile label="Worst first" on={!best} disabled={!reversible} onClick={() => onDirection(false)} />
         </Box>
         {!reversible && (
-          <Typography sx={{ mt: 0.75, fontSize: '0.68rem', color: 'text.disabled', lineHeight: 1.3 }}>
+          <Typography sx={{ mt: 0.75, fontSize: TYPE_SCALE.micro, color: 'text.disabled', lineHeight: 1.3 }}>
             Career leaders only. The bottom of this stat is thousands of players tied on zero, so there is no worst first.
           </Typography>
         )}
@@ -383,7 +383,7 @@ export function FilterBody({
             anything drawn here. */}
         <Box component="select" aria-label="Season" value={seasonValue} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onSeason(e.target.value)}
           sx={{
-            ...FOCUS_RING, width: '100%', minHeight: 52, px: 1.25, borderRadius: 2, fontSize: '0.9rem', fontWeight: 700,
+            ...FOCUS_RING, width: '100%', minHeight: 52, px: 1.25, borderRadius: 2, fontSize: TYPE_SCALE.title, fontWeight: 700,
             fontFamily: 'inherit', color: 'text.primary', bgcolor: 'transparent', border: '1px solid', borderColor: 'outline',
           }}>
           {allTime && <option value="all">All-Time</option>}
@@ -403,7 +403,7 @@ export function FilterBody({
             // Thirty clubs is a list, which the OS picker is better at than a wall of tiles.
             <Box component="select" aria-label={c.title} value={c.value} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => c.onChange(e.target.value)}
               sx={{
-                ...FOCUS_RING, width: '100%', minHeight: 52, px: 1.25, borderRadius: 2, fontSize: '0.9rem', fontWeight: 700,
+                ...FOCUS_RING, width: '100%', minHeight: 52, px: 1.25, borderRadius: 2, fontSize: TYPE_SCALE.title, fontWeight: 700,
                 fontFamily: 'inherit', color: 'text.primary', bgcolor: 'transparent', border: '1px solid', borderColor: 'outline',
               }}>
               {c.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -427,7 +427,7 @@ export function FilterBody({
           {cards.onReset && (
             <Box {...pressable(cards.onReset)} sx={{
               ...FOCUS_RING, mt: 1, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              borderRadius: 2, cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700, color: 'var(--wpbl-accent-fg)',
+              borderRadius: 2, cursor: 'pointer', fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'var(--wpbl-accent-fg)',
             }}>Back to the featured cards</Box>
           )}
         </SheetGroup>
@@ -499,7 +499,7 @@ export function SortFilterPill({ label, bestFirst, filtersSet, open, onOpen }: {
       <Box component="span" sx={{ color: 'text.secondary', fontWeight: 700 }}>{bestFirst ? 'Sort' : 'Worst'}</Box>
       {label}
       {filtersSet && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: ACCENT }} />}
-      <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
+      <Box component="span" sx={{ fontSize: TYPE_SCALE.caption }}>▾</Box>
     </Box>
   )
 }

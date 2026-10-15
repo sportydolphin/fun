@@ -1,4 +1,5 @@
 import { chromePx } from './scale'
+import { TYPE_SCALE } from './card'
 
 // THE STATS TABLE'S HEADER, both sections': two rows, the labels and then the league.
 //
@@ -31,7 +32,7 @@ export const HEAD_LEAGUE_TINT = 'linear-gradient(rgba(128,128,128,0.07), rgba(12
  *  cell's own sticky styles (background, z-index, left), after them. */
 export const HEAD_LEAGUE_SX = {
   position: 'sticky', top: HEAD_LABEL_H,
-  py: 0.25, fontSize: '0.58rem', fontWeight: 600, letterSpacing: 0, lineHeight: 1.1,
+  py: 0.25, fontSize: TYPE_SCALE.caption, fontWeight: 600, letterSpacing: 0, lineHeight: 1.1,
   color: 'text.secondary', textTransform: 'none', whiteSpace: 'nowrap', verticalAlign: 'middle',
   fontVariantNumeric: 'tabular-nums',
 } as const

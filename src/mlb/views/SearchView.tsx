@@ -1,5 +1,5 @@
 import type { MlbOpenSource } from '../state/useMlbState'
-import { ACCENT_EDGE } from '../../ui/card'
+import { ACCENT_EDGE, ICON_SIZE, TYPE_SCALE } from '../../ui/card'
 import React, { useRef, useEffect, lazy, Suspense } from 'react'
 import {
   Box, Typography, Paper, CircularProgress, Divider,
@@ -212,11 +212,11 @@ export function SearchView({
       {/* Nothing selected yet: prompt to search instead of auto-loading a player */}
       {!hasStats && !loadingStats && (
         <Box sx={{ textAlign: 'center', py: { xs: 6, sm: 10 }, px: 2, color: 'text.disabled' }}>
-          <Search sx={{ fontSize: '2.6rem', opacity: 0.5, mb: 1 }} />
-          <Typography sx={{ fontSize: '0.98rem', fontWeight: 700, color: 'text.secondary' }}>
+          <Search fontSize="large" sx={{ opacity: 0.5, mb: 1 }} />
+          <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, color: 'text.secondary' }}>
             Search for a player or team
           </Typography>
-          <Typography sx={{ fontSize: '0.78rem', mt: 0.5 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.body, mt: 0.5 }}>
             Use the search bar above to look someone up.
           </Typography>
         </Box>
@@ -236,7 +236,7 @@ export function SearchView({
                 aria-label="Season"
                 value={String(season)}
                 onChange={e => handleSeasonChange(Number(e.target.value))}
-                style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', color: 'inherit', padding: `${chromePx(6)} ${chromePx(14)}`, borderRadius: 999, fontFamily: 'inherit' }}
+                style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: TYPE_SCALE.body, fontWeight: 700, cursor: 'pointer', color: 'inherit', padding: `${chromePx(6)} ${chromePx(14)}`, borderRadius: 999, fontFamily: 'inherit' }}
               >
                 {currentAvailableSeasons.map(y => <option key={y} value={y}>{y}</option>)}
               </select>
@@ -276,7 +276,7 @@ export function SearchView({
                       transition: 'background 0.15s, color 0.15s',
                     }}
                   >
-                    {downloading ? <CircularProgress size={13} sx={{ color: 'rgba(255,255,255,0.6)' }} /> : <MoreVert sx={{ fontSize: '0.95rem' }} />}
+                    {downloading ? <CircularProgress size={13} sx={{ color: 'rgba(255,255,255,0.6)' }} /> : <MoreVert sx={{ fontSize: ICON_SIZE.sm }} />}
                   </Box>
                 </Tooltip>
               </Box>
@@ -291,19 +291,19 @@ export function SearchView({
               >
                 <MenuItem
                   onClick={() => { const el = cardMenuAnchor; setCardMenuAnchor(null); setCardOptionsAnchor(el) }}
-                  sx={{ fontSize: '0.85rem', gap: 1 }}
+                  sx={{ fontSize: TYPE_SCALE.body, gap: 1 }}
                 >
-                  <Tune sx={{ fontSize: '1rem' }} /> Customize card
+                  <Tune sx={{ fontSize: ICON_SIZE.sm }} /> Customize card
                 </MenuItem>
-                <MenuItem onClick={() => { setCardMenuAnchor(null); setFullscreen(true) }} sx={{ fontSize: '0.85rem', gap: 1 }}>
-                  <OpenInFull sx={{ fontSize: '1rem' }} /> Fullscreen
+                <MenuItem onClick={() => { setCardMenuAnchor(null); setFullscreen(true) }} sx={{ fontSize: TYPE_SCALE.body, gap: 1 }}>
+                  <OpenInFull sx={{ fontSize: ICON_SIZE.sm }} /> Fullscreen
                 </MenuItem>
                 <Divider />
-                <MenuItem disabled={downloading} onClick={() => handleDownload('centered')} sx={{ fontSize: '0.85rem', gap: 1 }}>
-                  <FileDownload sx={{ fontSize: '1rem' }} /> Download centered
+                <MenuItem disabled={downloading} onClick={() => handleDownload('centered')} sx={{ fontSize: TYPE_SCALE.body, gap: 1 }}>
+                  <FileDownload sx={{ fontSize: ICON_SIZE.sm }} /> Download centered
                 </MenuItem>
-                <MenuItem disabled={downloading} onClick={() => handleDownload('tiktok')} sx={{ fontSize: '0.85rem', gap: 1 }}>
-                  <FileDownload sx={{ fontSize: '1rem' }} /> Download for TikTok
+                <MenuItem disabled={downloading} onClick={() => handleDownload('tiktok')} sx={{ fontSize: TYPE_SCALE.body, gap: 1 }}>
+                  <FileDownload sx={{ fontSize: ICON_SIZE.sm }} /> Download for TikTok
                 </MenuItem>
               </Menu>
               {/* Options popover */}
@@ -317,7 +317,7 @@ export function SearchView({
               >
                 {/* Colors */}
                 <Box sx={{ mb: 1.75 }}>
-                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled', mb: 0.75 }}>
+                  <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled', mb: 0.75 }}>
                     Colors
                   </Typography>
                   <Box
@@ -326,12 +326,12 @@ export function SearchView({
                       display: 'inline-flex', alignItems: 'center', gap: 0.5,
                       cursor: 'pointer', px: 1.5, py: 0.5, borderRadius: 999,
                       border: '1.5px solid', borderColor: 'outline',
-                      fontSize: '0.8rem', fontWeight: 600, color: 'text.secondary',
+                      fontSize: TYPE_SCALE.body, fontWeight: 600, color: 'text.secondary',
                       '&:hover': { borderColor: ACCENT_EDGE, color: ACCENT_TEXT },
                       transition: 'border-color 0.15s, color 0.15s',
                     }}
                   >
-                    <Shuffle sx={{ fontSize: '0.88rem' }} /> Shuffle
+                    <Shuffle sx={{ fontSize: ICON_SIZE.sm }} /> Shuffle
                   </Box>
                 </Box>
 
@@ -345,10 +345,10 @@ export function SearchView({
                   return (
                     <Box sx={{ mb: 1.75 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
-                        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled' }}>
+                        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled' }}>
                           Batting stats
                         </Typography>
-                        <Box {...pressable(() => setHitSel(allHit ? hitDefaults : hitDefs.map(d => d.key)))} sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', userSelect: 'none' }}>
+                        <Box {...pressable(() => setHitSel(allHit ? hitDefaults : hitDefs.map(d => d.key)))} sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', userSelect: 'none' }}>
                           {allHit ? 'Reset' : 'All'}
                         </Box>
                       </Box>
@@ -371,10 +371,10 @@ export function SearchView({
                   return (
                     <Box sx={{ mb: 1.75 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
-                        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled' }}>
+                        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled' }}>
                           Pitching stats
                         </Typography>
-                        <Box {...pressable(() => setPitSel(allPit ? pitDefaults : pitDefs.map(d => d.key)))} sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', userSelect: 'none' }}>
+                        <Box {...pressable(() => setPitSel(allPit ? pitDefaults : pitDefs.map(d => d.key)))} sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', userSelect: 'none' }}>
                           {allPit ? 'Reset' : 'All'}
                         </Box>
                       </Box>
@@ -389,7 +389,7 @@ export function SearchView({
 
                 {/* League rank */}
                 <Box>
-                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled', mb: 0.75 }}>
+                  <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled', mb: 0.75 }}>
                     League rank
                   </Typography>
                   <PillGroup
@@ -477,20 +477,20 @@ export function SearchView({
               <SectionLabel strong>Schedule</SectionLabel>
               <Box
                 {...pressable(e => { e.stopPropagation(); setShowFullSchedule(true) })}
-                sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+                sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
               >
                 Full schedule →
               </Box>
             </Box>
             <Box className="sc-chevron" sx={{
-              fontSize: '0.75rem', color: 'text.disabled',
+              fontSize: TYPE_SCALE.meta, color: 'text.disabled',
               transition: 'transform 0.18s, color 0.15s',
               transform: scheduleOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
             }}>▾</Box>
           </Box>
           {scheduleOpen && (
             <Box sx={{ borderRadius: { xs: 0, sm: 3 }, border: '1px solid', borderColor: 'outline', overflow: 'hidden', mx: { xs: -2, sm: 0 } }}>
-              <Suspense fallback={<Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', px: 1.5, py: 1 }}>Loading schedule…</Typography>}>
+              <Suspense fallback={<Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', px: 1.5, py: 1 }}>Loading schedule…</Typography>}>
                 <TeamScheduleStrip
                   teamId={team.id}
                   teamColor={TEAM_BG[team.id] ?? ACCENT}
@@ -519,7 +519,7 @@ export function SearchView({
           >
             <SectionLabel strong>Roster</SectionLabel>
             <Box className="rs-chevron" sx={{
-              fontSize: '0.75rem', color: 'text.disabled',
+              fontSize: TYPE_SCALE.meta, color: 'text.disabled',
               transition: 'transform 0.18s, color 0.15s',
               transform: rosterOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
             }}>▾</Box>
