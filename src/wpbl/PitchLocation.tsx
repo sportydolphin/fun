@@ -4,6 +4,7 @@ import { useUnits } from '../UnitsContext'
 import { fmtSpeed, speedUnit } from '../lib/units'
 import type { WpblPitchLoc } from './api'
 import { chromePx, AccentPanel } from './ui'
+import { TYPE_SCALE } from '../ui/card'
 
 // Pitch-location plots for a pitcher: one combined strike zone (all pitches, colored by
 // pitch type) plus small multiples — a mini zone per pitch type. Locations come from the
@@ -129,7 +130,7 @@ export function PitchLocationCard({ rows, accent, gamesPitched }: { rows: WpblPi
       sx={{ mb: 2 }}
     >
       <>
-        <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mb: 1 }}>Catcher&apos;s view</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', mb: 1 }}>Catcher&apos;s view</Typography>
         {/* Combined zone, all pitches colored by type */}
         <Box sx={{ maxWidth: chromePx(210), mx: 'auto' }}>
           <Zone points={allPoints} size={200} />
@@ -140,7 +141,7 @@ export function PitchLocationCard({ rows, accent, gamesPitched }: { rows: WpblPi
           {groups.map(([t]) => (
             <Box key={t} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 0.75, py: 0.35, borderRadius: 1, bgcolor: 'action.hover' }}>
               <Box sx={{ width: 9, height: 9, borderRadius: '50%', bgcolor: colorOf(t), flexShrink: 0 }} />
-              <Typography sx={{ fontSize: '0.72rem', fontWeight: 700 }}>{t}</Typography>
+              <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700 }}>{t}</Typography>
             </Box>
           ))}
         </Box>
@@ -154,8 +155,8 @@ export function PitchLocationCard({ rows, accent, gamesPitched }: { rows: WpblPi
                 <Box key={t}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.4 }}>
                     <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: colorOf(t), flexShrink: 0 }} />
-                    <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t}</Typography>
-                    <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+                    <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t}</Typography>
+                    <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
                       {ps.length}{av != null ? ` · ${fmtSpeed(av, units)} ${speedUnit(units)}` : ''}
                     </Typography>
                   </Box>

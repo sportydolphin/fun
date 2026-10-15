@@ -6,6 +6,7 @@ import type { TakeSwingLine } from './derive/pitchValue'
 import type { WpblPlayer } from './types'
 import { typePx } from '../ui/scale'
 import { InfoDot } from '../ui/InfoDot'
+import { TYPE_SCALE } from '../ui/card'
 
 // ─── Taking and swinging ──────────────────────────────────────────────────────
 //
@@ -60,7 +61,7 @@ function Row({ row, rank, accent, onOpen }: {
   const num = (v: number) => (
     <Typography sx={{
       width: VALUE_COL, textAlign: 'right', flexShrink: 0,
-      fontSize: '0.85rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+      fontSize: TYPE_SCALE.body, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
       // The sign is printed on every figure, so hue is a second copy of it rather than the
       // only carrier: this reads correctly in greyscale and to anyone who cannot separate the
       // two colours. Same rule as the count grid.
@@ -81,12 +82,12 @@ function Row({ row, rank, accent, onOpen }: {
     >
       {/* Rank and portrait as LeaderRow draws them, so this list lines up with the leaderboards
           above and beside it rather than reading as a different kind of list. */}
-      <Box sx={{ width: '1.125rem', textAlign: 'center', fontSize: '0.8rem', fontWeight: 800, color: rank <= 3 ? accent : 'text.disabled', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{rank}</Box>
+      <Box sx={{ width: '1.125rem', textAlign: 'center', fontSize: TYPE_SCALE.body, fontWeight: 800, color: rank <= 3 ? accent : 'text.disabled', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{rank}</Box>
       <PlayerPortrait name={name} teamId={row.teamId} size={32} />
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flex: 1 }}>
         {/* MEASURED, not budgeted by length: two value columns leave a phone about 120px for
             the name, and a character budget let "Ashton Lansdell" through to be cut off. */}
-        <FittedName name={name} wrapperSx={{ minWidth: 0 }} sx={{ fontSize: '0.85rem', fontWeight: 600 }} />
+        <FittedName name={name} wrapperSx={{ minWidth: 0 }} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600 }} />
         {row.teamId && <TeamBadge team={{ id: row.teamId, abbr: row.teamId }} size={16} />}
       </Box>
       {num(took)}
@@ -129,7 +130,7 @@ export default function TakeSwingBoard({ rows, side, accent, isNarrow, expanded,
           {['TOOK', 'SWUNG'].map(h => (
             <Typography key={h} sx={{
               width: VALUE_COL, textAlign: 'right', flexShrink: 0,
-              fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.6), color: 'text.disabled',
+              fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.6), color: 'text.disabled',
             }}>{h}</Typography>
           ))}
         </Box>

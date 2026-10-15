@@ -6,6 +6,7 @@ import { BoxTable, BOX_POS_SX } from '../../ui/gameCenter'
 import { usePhoneLayout, wpblFeatureName } from '../ui'
 import type { WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine } from '../types'
 import { BAT_COLS, PIT_COLS, buildBattingRows, BOX_NAME_MAX } from './shared'
+import { TYPE_SCALE } from '../../ui/card'
 
 export function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
   team: WpblTeam
@@ -80,7 +81,7 @@ export function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
           cols={[{ key: 'ip', label: 'IP', bold: true, w: 32 }, ...PIT_COLS.map(c => ({ key: c.key as string, label: c.label }))]}
           rows={pitching.map(p => ({
             key: p.id, ...nameFor(p.player_id),
-            suffix: p.decision ? <Typography component="span" sx={{ fontSize: '0.56rem', fontWeight: 700, color, lineHeight: 1 }}>({p.decision})</Typography> : null,
+            suffix: p.decision ? <Typography component="span" sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color, lineHeight: 1 }}>({p.decision})</Typography> : null,
             cells: [outsToIp(p.outs), ...PIT_COLS.map(c => (p[c.key] == null ? null : Number(p[c.key])))],
           }))}
           totals={[outsToIp(pitOuts), ...pitTotals]}

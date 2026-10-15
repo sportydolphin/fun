@@ -312,11 +312,11 @@ function WatchSkeleton({ shelf }: { shelf: Shelf }) {
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
                 {['Highlights', 'Condensed game'].map(label => (
                   <Box key={label} sx={GAME_PILL}>
-                    <Box component="span" sx={{ fontSize: '0.6rem', visibility: 'hidden' }}>▶</Box><TextGhost>{label}</TextGhost>
+                    <Box component="span" sx={{ fontSize: TYPE_SCALE.caption, visibility: 'hidden' }}>▶</Box><TextGhost>{label}</TextGhost>
                   </Box>
                 ))}
               </Box>
-              <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.3 }}><TextGhost>Condensed game: WPBL from Day 1</TextGhost></Typography>
+              <Typography sx={{ fontSize: TYPE_SCALE.meta, lineHeight: 1.3 }}><TextGhost>Condensed game: WPBL from Day 1</TextGhost></Typography>
             </Box>
           </Box>
         ))}
@@ -412,7 +412,7 @@ function GameWatchCard({ entry, teamById, roundLabel, href, onOpenGame, fresh }:
           {videos.map((v, i) => (
             <Box key={v.video_id} component="button" type="button" onClick={() => play(v)}
               sx={{ ...GAME_PILL, cursor: 'pointer', ...hoverOnly({ borderColor: 'text.secondary' }), ...FOCUS_RING }}>
-              <Box component="span" aria-hidden sx={{ fontSize: '0.6rem' }}>▶</Box>{labels[i]}
+              <Box component="span" aria-hidden sx={{ fontSize: TYPE_SCALE.caption }}>▶</Box>{labels[i]}
               {fresh.isNew(v) && (
                 <Box component="span" role="img" aria-label="new" sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'var(--wpbl-accent-solid)' }} />
               )}

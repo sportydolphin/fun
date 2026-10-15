@@ -7,6 +7,7 @@ import { CheckCircle, Cancel } from '@mui/icons-material'
 import { supabase } from './lib/supabase'
 import { USERNAME_RE as VALID_RE, usernameValidationMsg as validationMsg } from './lib/usernames'
 import { ensureActiveUser } from './lib/userActive'
+import { ICON_SIZE } from './ui/card'
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -106,13 +107,13 @@ export function UsernameDialog({ open, onClose, userId, currentUsername, onSaved
   } else if (status === 'available') {
     helperText = (
       <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: 'success.main' }}>
-        <CheckCircle sx={{ fontSize: '0.85rem' }} /> Available
+        <CheckCircle sx={{ fontSize: ICON_SIZE.sm }} /> Available
       </Box>
     )
   } else if (status === 'taken') {
     helperText = (
       <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: 'error.main' }}>
-        <Cancel sx={{ fontSize: '0.85rem' }} /> Already taken
+        <Cancel sx={{ fontSize: ICON_SIZE.sm }} /> Already taken
       </Box>
     )
   } else if (saveErr) {
@@ -136,7 +137,7 @@ export function UsernameDialog({ open, onClose, userId, currentUsername, onSaved
             htmlInput: { spellCheck: false, autoCapitalize: 'none', autoCorrect: 'off' },
             input: {
               startAdornment: (
-                <Typography sx={{ color: 'text.disabled', mr: 0.25, fontSize: '1rem', lineHeight: 1, userSelect: 'none' }}>@</Typography>
+                <Typography sx={{ color: 'text.disabled', mr: 0.25, fontSize: 'inherit', lineHeight: 1, userSelect: 'none' }}>@</Typography>
               ),
             },
             formHelperText: { component: 'div' } as object,

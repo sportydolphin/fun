@@ -5,6 +5,7 @@ import {
 } from '@mui/material'
 import { submitFeedback } from './lib/feedback'
 import { CONTACT_EMAIL } from './lib/contact'
+import { ICON_SIZE, TYPE_SCALE } from './ui/card'
 
 const MAX_LEN = 2000
 
@@ -56,15 +57,15 @@ export function FeedbackDialog({ open, onClose, userId, userEmail }: {
       <DialogContent>
         {sent ? (
           <Box sx={{ py: 3, textAlign: 'center' }}>
-            <Typography sx={{ fontSize: '2rem', mb: 1 }}>🙏</Typography>
+            <Typography sx={{ fontSize: ICON_SIZE.lg, mb: 1 }}>🙏</Typography>
             <Typography sx={{ fontWeight: 700 }}>Thanks, got it.</Typography>
-            <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', mt: 0.5 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 0.5 }}>
               Every note gets read.
             </Typography>
           </Box>
         ) : (
           <>
-            <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', mb: 2 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mb: 2 }}>
               Found a bug, or have an idea for the site? Tell me about it.
             </Typography>
             <TextField
@@ -78,7 +79,7 @@ export function FeedbackDialog({ open, onClose, userId, userEmail }: {
               onChange={e => setMessage(e.target.value.slice(0, MAX_LEN))}
               disabled={sending}
             />
-            <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', textAlign: 'right', mt: 0.5 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', textAlign: 'right', mt: 0.5 }}>
               {message.length} / {MAX_LEN}
             </Typography>
             <TextField
@@ -92,7 +93,7 @@ export function FeedbackDialog({ open, onClose, userId, userEmail }: {
               sx={{ mt: 1 }}
             />
             {failed && (
-              <Typography sx={{ fontSize: '0.78rem', color: 'error.main', mt: 1.5 }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'error.main', mt: 1.5 }}>
                 Something went wrong sending that. You can also email {CONTACT_EMAIL}.
               </Typography>
             )}

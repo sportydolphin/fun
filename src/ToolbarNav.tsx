@@ -19,6 +19,7 @@ import { MLB_NAV, MLB_VIEW_PATHS, MLB_MORE, mlbNavKeyFromPath } from './mlb/rout
 import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 import { hoverOnly, FOCUS_RING } from './ui/interaction'
 import { MorePanel, type MoreRow } from './ui/MoreMenu'
+import { TYPE_SCALE } from './ui/card'
 
 const STATIC_TABS: Record<NavSection, SectionNavTab[]> = {
   wpbl: WPBL_NAV.map(n => ({ key: n.key, label: n.label, href: wpblPathFor(n.key) })),
@@ -86,7 +87,7 @@ export function ToolbarNav({ section, path, sx }: { section: NavSection; path: s
     textDecoration: 'none', whiteSpace: 'nowrap', userSelect: 'none',
     // ONE WEIGHT, lit or not. A bolder lit label is a wider one, so every tab switch nudged the
     // tabs after it sideways by a couple of pixels; the colour and the stripe say which is lit.
-    fontSize: '0.85rem', fontWeight: 600,
+    fontSize: TYPE_SCALE.body, fontWeight: 600,
     color: on ? 'text.primary' : 'text.secondary',
     transition: 'color 0.15s',
     ...hoverOnly({ color: 'text.primary' }),
@@ -151,7 +152,7 @@ export function ToolbarNav({ section, path, sx }: { section: NavSection; path: s
         sx={tabSx(moreCurrent || !!anchor)}
       >
         More
-        <Box component="span" aria-hidden sx={{ fontSize: '0.6rem' }}>▾</Box>
+        <Box component="span" aria-hidden sx={{ fontSize: TYPE_SCALE.caption }}>▾</Box>
       </Box>
       <MorePanel id={`${section}-more`} anchor={anchor} onClose={() => setAnchor(null)} rows={more} />
     </Box>

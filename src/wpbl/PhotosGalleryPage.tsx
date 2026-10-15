@@ -9,6 +9,7 @@ import { ArchiveGrid } from './Photos'
 import { fanPhotoTeamName, type FanPhotoIndex, type FanPhotoWithSubjects } from './fanPhotos'
 import type { WpblPlayer, WpblPhoto } from './types'
 import { track, EVENTS } from '../lib/analytics'
+import { TYPE_SCALE } from '../ui/card'
 
 // The /wpbl/photos gallery: every published fan photograph, filterable by who is in it, plus the
 // Wikimedia Commons archive of women's baseball history as one more category. A sibling
@@ -122,7 +123,7 @@ export default function PhotosGalleryPage() {
         <GallerySkeleton />
       ) : total === 0 && archive.length === 0 ? (
         <Box sx={{ py: 6, textAlign: 'center' }}>
-          <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary' }}>No photos yet.</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>No photos yet.</Typography>
           <FanPhotoSubmitNote variant="block" />
         </Box>
       ) : (

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { CloudOffOutlined, SyncProblemOutlined, ScoreboardOutlined } from '@mui/icons-material'
 import { feedHealth, describeGap, type FeedHealthGame } from './derive/feedHealth'
+import { ICON_SIZE, TYPE_SCALE } from '../ui/card'
 
 /**
  * Why this game is not moving, said out loud.
@@ -116,10 +117,10 @@ function Note({ Icon, title, detail }: {
         bgcolor: 'rgba(245,158,11,0.08)',
       }}
     >
-      <Icon sx={{ fontSize: '1.05rem', flexShrink: 0, color: '#f59e0b', mt: '1px' }} />
+      <Icon sx={{ fontSize: ICON_SIZE.md, flexShrink: 0, color: '#f59e0b', mt: '1px' }} />
       <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.25 }}>{title}</Typography>
-        <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.4, mt: 0.15 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.25 }}>{title}</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.4, mt: 0.15 }}>
           {detail}
         </Typography>
       </Box>

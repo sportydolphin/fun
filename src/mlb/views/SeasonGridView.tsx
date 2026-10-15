@@ -12,7 +12,7 @@ import { printedRanks } from '../../ui/leaders'
 import { ExpandRow, TABLE_CAP } from '../../ui/ExpandRow'
 import { HEAD_LABEL_SX, HEAD_LEAGUE_SX, HEAD_LEAGUE_TINT } from '../../ui/statsTableHead'
 import { StatsBar, STATS_BOARD_ROOT_SX } from './StatsBar'
-import { TABLE_FRAME_SX, TABLE_MAX_H, ROW_TINT_VAR, ROW_TINT, TABLE_FOOT_SX, FOOT_TEXT_SX, RankMarkText, frozenSx, FROZEN_EDGE, NAME_W } from './statsTable'
+import { TABLE_FRAME_SX, TABLE_MAX_H, ROW_TINT_VAR, ROW_TINT, TABLE_FOOT_SX, FOOT_TEXT_SX, RankMarkText, frozenSx, FROZEN_EDGE, NAME_W, NAME_INNER_MAX } from './statsTable'
 
 import { playerLink, teamLink, rowClick, LINK_SX } from '../lib/links'
 import { fetchAllTeamStats } from '../api'
@@ -108,12 +108,6 @@ const SAMPLE: Record<string, string> = {
 const TEAM_FIELDING_SAMPLE: Record<string, string> = {
   g: '162', gs: '162', inn: '13023.0', tc: '6038', po: '4385', a: '1653', e: '118', dp: '163',
   fpct: '.990', rf9: '4.26', sba: '160', cs: '51', csPct: '.325', pb: '16',
-}
-
-/** "Cal Raleigh" as "C. Raleigh", as Players' phone table shortens a name to fit its column. */
-const abbrevName = (name: string) => {
-  const i = name.indexOf(' ')
-  return i < 0 ? name : `${name[0]}. ${name.slice(i + 1)}`
 }
 
 interface Loaded { key: string; rows: GridRow[]; teamGames: Map<number, number> }
@@ -485,9 +479,12 @@ export function SeasonGridView({
                             <RankMarkText rank={ranks[idx]} />
                           </Typography>
                           {r.teamId > 0 && <TeamLogo teamId={r.teamId} abbr={TEAM_ABBR[r.teamId] ?? ''} size={20} />}
-                          <Box sx={{ minWidth: 0 }}>
+                          {/* Capped as Players' phone column is, because a table cell grows to fit a
+                              nowrap name: without the cap NameText never overflows, so it never steps
+                              down to "F. Last" and the frozen column widens instead. */}
+                          <Box sx={{ minWidth: 0, maxWidth: frozenOn ? NAME_INNER_MAX : undefined }}>
                             {r.playerId
-                              ? <NameText name={frozenOn ? abbrevName(r.name) : r.name} linkProps={link}
+                              ? <NameText name={r.name} linkProps={link}
                                   sx={{ ...LINK_SX, display: 'block', fontWeight: 600, fontSize: TYPE_SCALE.body, lineHeight: 1.15 }} />
                               : (
                                 <Typography {...link} sx={{ ...LINK_SX, display: 'block', fontWeight: 600, fontSize: TYPE_SCALE.body, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

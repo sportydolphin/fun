@@ -212,10 +212,6 @@ export function StatsView({
     whiteSpace: 'nowrap' as const,
     verticalAlign: 'middle' as const,
   }
-  const abbrevName = (name: string) => {
-    const i = name.indexOf(' ')
-    return i < 0 ? name : `${name[0]}. ${name.slice(i + 1)}`
-  }
   // A counting stat in all-time mode has only one honest direction, so clicking
   // its header again re-sorts rather than flipping.
   const canReverse = (def: any) => !allTime || def.isRate
@@ -639,7 +635,7 @@ export function StatsView({
                               card behind the tap already has the face. */}
                           {e.teamId > 0 && <TeamLogo teamId={e.teamId} abbr={e.teamAbbr} size={20} />}
                           <Box sx={{ minWidth: 0, maxWidth: phoneTable ? NAME_INNER_MAX : undefined }}>
-                            <NameText name={isDesktop ? e.playerName : abbrevName(e.playerName)}
+                            <NameText name={e.playerName}
                               linkProps={playerLink(e.playerId, e.playerName, handleLbPlayerClick)}
                               sx={{ ...LINK_SX, display: 'block', fontWeight: 600, fontSize: TYPE_SCALE.body, lineHeight: 1.15 }} />
                             {/* The position, as WPBL's row says it: the club is already the mark beside it.

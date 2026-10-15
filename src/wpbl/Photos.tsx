@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { ModalShell, CARD_BORDER, hoverOnly } from './ui'
 import type { WpblPhoto } from './types'
 import { track, EVENTS } from '../lib/analytics'
+import { TYPE_SCALE } from '../ui/card'
 
 // The WPBL archive gallery: freely licensed women's baseball photography mirrored from
 // Wikimedia Commons into `wpbl_photos` (scripts/sync-wpbl-commons.mjs), shown as the "From the
@@ -71,7 +72,7 @@ function Credit({ photo, compact }: { photo: WpblPhoto; compact?: boolean }) {
       aria-label={`${creator}, ${photo.license_short}, on Wikimedia Commons, opens in a new tab`}
       sx={{
         display: 'block', textDecoration: 'none', color: 'text.disabled',
-        fontSize: compact ? '0.62rem' : '0.7rem', lineHeight: 1.35,
+        fontSize: compact ? TYPE_SCALE.caption : TYPE_SCALE.meta, lineHeight: 1.35,
         '&:hover': { color: 'text.secondary', textDecoration: 'underline' },
         '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2, borderRadius: 1 },
       }}
@@ -112,7 +113,7 @@ export function PhotoLightbox({ photo, onClose }: { photo: WpblPhoto; onClose: (
             sx={{ maxWidth: '100%', maxHeight: { xs: '55vh', sm: '65vh' }, objectFit: 'contain', display: 'block' }}
           />
         </Box>
-        <Typography sx={{ mt: 1.25, fontSize: '0.85rem', lineHeight: 1.45 }}>{caption}</Typography>
+        <Typography sx={{ mt: 1.25, fontSize: TYPE_SCALE.body, lineHeight: 1.45 }}>{caption}</Typography>
         <Box sx={{ mt: 1 }}><Credit photo={photo} /></Box>
       </Box>
     </ModalShell>
@@ -140,7 +141,7 @@ export function ArchiveGrid({ photos }: { photos: WpblPhoto[] }) {
       {/* Said once, at the top, rather than repeated on every tile: what this collection is and
           why the site can show it. The per-photo credit below still carries the creator and the
           licence, which is what the licences actually require. */}
-      <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', lineHeight: 1.5, mb: 1.75 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.5, mb: 1.75 }}>
         Freely licensed photographs of women's baseball, from the All-American Girls Professional
         Baseball League through to the present day, held by Wikimedia Commons. Every image links
         back to its file page, where its full provenance lives.
@@ -168,7 +169,7 @@ export function ArchiveGrid({ photos }: { photos: WpblPhoto[] }) {
                 sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
             </Box>
             <Typography sx={{
-              fontSize: '0.72rem', fontWeight: 600, lineHeight: 1.3, mt: 0.6,
+              fontSize: TYPE_SCALE.meta, fontWeight: 600, lineHeight: 1.3, mt: 0.6,
               display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
             }}>
               {photoCaption(p)}

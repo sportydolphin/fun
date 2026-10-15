@@ -4,6 +4,7 @@ import { SectionCard } from './ui'
 import GameGrid, { formatGameColumn, useGridGames, GRID_FLAG } from './GameGrid'
 import { buildUsageGrid, outsToIpShort } from './derive/pitchingUsage'
 import type { WpblPitchingUsageRow, WpblPlayer } from './types'
+import { TYPE_SCALE } from '../ui/card'
 
 /**
  * Bullpen usage — who has been worked, and who should be available tonight.
@@ -39,7 +40,7 @@ export default function PitchingUsage({
   if (!games.length) {
     return (
       <SectionCard collapsed={collapsed} onToggleCollapse={onToggleCollapse} title="Pitching usage" subtitle="Every game">
-        <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', py: 1 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>
           No pitching recorded yet.
         </Typography>
       </SectionCard>
@@ -97,7 +98,7 @@ export default function PitchingUsage({
           return (
             <Box sx={{ textAlign: 'center', lineHeight: 1.15 }}>
               <Typography sx={{
-                fontSize: '0.72rem', fontWeight: c.started ? 800 : 600,
+                fontSize: TYPE_SCALE.meta, fontWeight: c.started ? 800 : 600,
                 fontVariantNumeric: 'tabular-nums',
                 // Plain text, as in the lineup grid: a start is told by its weight, not the club accent.
                 color: 'text.primary',
@@ -108,7 +109,7 @@ export default function PitchingUsage({
                 )}
               </Typography>
               <Typography sx={{
-                fontSize: '0.55rem', fontWeight: 600, color: 'text.disabled',
+                fontSize: TYPE_SCALE.caption, fontWeight: 600, color: 'text.disabled',
                 fontVariantNumeric: 'tabular-nums',
               }}>
                 {outsToIpShort(c.outs)}
@@ -117,7 +118,7 @@ export default function PitchingUsage({
           )
         }}
       />
-      <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', pt: 1, lineHeight: 1.5 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', pt: 1, lineHeight: 1.5 }}>
         Pitches thrown over innings pitched, oldest to newest. The number beside each name is their
         total across these {games.length} games ({totalPitches} staff-wide). <b>Bold</b> started;
         <Box component="span" sx={{ color: GRID_FLAG, fontWeight: 900 }}> *</Box> came back on

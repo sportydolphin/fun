@@ -2,6 +2,7 @@ import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { isChunkLoadError, reloadForNewBuild, runningBuild } from './lib/staleBuild'
 import { track, EVENTS } from './lib/analytics'
+import { TYPE_SCALE } from './ui/card'
 
 // The last line under the whole app. Before this there was none, so ANY render error, most often
 // a lazy chunk a new deploy had removed (see lib/staleBuild.ts), unmounted the tree and left a
@@ -73,12 +74,12 @@ export class AppErrorBoundary extends React.Component<Props, State> {
         justifyContent: 'center', gap: 1.5, px: 3, textAlign: 'center',
         bgcolor: inline ? undefined : 'background.default',
       }}>
-        <Typography sx={{ fontSize: '1.05rem', fontWeight: 800 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800 }}>
           {reloading ? 'Loading the latest version…' : stale ? 'The site was just updated' : 'Something went wrong'}
         </Typography>
         {!reloading && (
           <>
-            <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', maxWidth: 360 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', maxWidth: 360 }}>
               {stale
                 ? 'This page was opened before the update. Reloading brings it up to date.'
                 : inline
@@ -87,7 +88,7 @@ export class AppErrorBoundary extends React.Component<Props, State> {
             </Typography>
             <Box component="button" type="button" onClick={() => window.location.reload()} sx={{
               mt: 0.5, px: 2.5, py: 1, border: 0, borderRadius: 999, cursor: 'pointer',
-              font: 'inherit', fontSize: '0.9rem', fontWeight: 800,
+              font: 'inherit', fontSize: TYPE_SCALE.title, fontWeight: 800,
               bgcolor: 'primary.main', color: 'primary.contrastText',
             }}>Reload</Box>
           </>

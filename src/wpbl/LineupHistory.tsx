@@ -4,6 +4,7 @@ import { SectionCard } from './ui'
 import GameGrid, { formatGameColumn, useGridGames, GRID_FLAG } from './GameGrid'
 import { buildLineupGrid } from './derive/lineupGrid'
 import type { WpblLineupHistoryRow, WpblPlayer } from './types'
+import { TYPE_SCALE } from '../ui/card'
 
 /**
  * "Last N lineups" — the grid Fangraphs' Roster Resource keeps on the right of a depth
@@ -38,7 +39,7 @@ export default function LineupHistory({
   if (!games.length) {
     return (
       <SectionCard collapsed={collapsed} onToggleCollapse={onToggleCollapse} title="Lineup history" subtitle="Every game">
-        <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', py: 1 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>
           No lineups recorded yet.
         </Typography>
       </SectionCard>
@@ -88,7 +89,7 @@ export default function LineupHistory({
           if (!c) return null
           return (
             <Typography sx={{
-              fontSize: '0.68rem', lineHeight: 1.2, textAlign: 'center',
+              fontSize: TYPE_SCALE.micro, lineHeight: 1.2, textAlign: 'center',
               fontVariantNumeric: 'tabular-nums',
               // A start is stated plainly; a substitute appearance is lighter and italic, so
               // scanning a row shows regular usage at a glance. PLAIN TEXT COLOURS, not the club
@@ -104,7 +105,7 @@ export default function LineupHistory({
           )
         }}
       />
-      <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', pt: 1, lineHeight: 1.5 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', pt: 1, lineHeight: 1.5 }}>
         Position and lineup spot per game, oldest to newest. <b>Bold</b> started; <i>italic</i> entered
         as a substitute. Under each date is the opponent, then the pitcher who <i>started</i> for
         them and their throwing hand &mdash; relievers who followed aren't shown here.

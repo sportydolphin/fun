@@ -41,6 +41,7 @@ import type {
 import { typePx } from '../ui/scale'
 import { useWpblSeason } from './SeasonContext'
 import { inSeason } from './season'
+import { ICON_SIZE } from '../ui/card'
 
 // One empty tally for every category nobody has voted in, so a memo keyed on it holds: a fresh
 // `{}` per render recomputed both lists on every render.
@@ -1479,7 +1480,7 @@ export function FanAwardsCta({ onOpen, now = () => Date.now() }: {
         '&:active': { transform: 'scale(0.99)' },
       }}
     >
-      <Typography aria-hidden sx={{ fontSize: '1.05rem', lineHeight: 1, flexShrink: 0 }}>&#127942;</Typography>
+      <Typography aria-hidden sx={{ fontSize: ICON_SIZE.md, lineHeight: 1, flexShrink: 0 }}>&#127942;</Typography>
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 900, lineHeight: 1.25 }}>
           Fan awards are open
@@ -1723,7 +1724,7 @@ export default function FanVoteCard({
           </Typography>
           {/* Ornament, and hidden from the accessibility tree: the label above already says this
               goes somewhere. Raw px because a chevron is neither type nor structure. */}
-          <Box aria-hidden sx={{ fontSize: 11, lineHeight: 1, opacity: 0.85, mt: '1px' }}>&#8250;</Box>
+          <Box aria-hidden sx={{ fontSize: '11px', lineHeight: 1, opacity: 0.85, mt: '1px' }}>&#8250;</Box>
         </Box>
       }
     >
