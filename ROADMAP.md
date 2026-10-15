@@ -577,6 +577,14 @@ will actually see all winter. The functional items do not wait.
    list holds 90 files and 1,115 typed-in sizes. The admin pages are about 200 of them, WPBL's
    `SeasonPage` 51, `WpblApp` 30, `TeamPage` 29. Twenty-nine files have five or fewer and can come
    off in one pass, `SeriesSheet` among them once its score step exists.
+   ✅ *Batch A, Oct 15 (v1.167.1):* 90 files to 61. Every shell and WPBL file with five or fewer
+   sizes is off, and the two fan-award share images are a named exemption in `typeScale.test.ts`
+   (a fixed-pixel PNG, never converting). Next, in order: B, the shell (`App`, `AuthDialogs`,
+   `SettingsDialog`, `NotificationBell`, `ChangelogDialogs`, `LegalPages`, 79 sizes); C, the WPBL
+   pages readers see this winter (`SeasonPage`, `WpblApp`, `TeamPage`, `RunValueView`, `Reading`,
+   Game Center's play by play and pitch data, `TeamsGrid` and the rest, about 400); D, admin and
+   dev tools (317, last or never). WPBL's `Live` and `LiveGameView` wait for spring with MLB's live
+   files; SVG chart labels wait with MLB's charts.
 3. **One copy of each formatting helper.** `ordinal` is written 11 times, and three WPBL copies
    (`LiveGameView`, `RunValueView`, `WinProbView`) would print "21th"; they only label innings,
    so nobody has seen it. `outsToIp` / `ipToOuts` are copied six times beside `league/innings.ts`
