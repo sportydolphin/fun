@@ -30,7 +30,8 @@ export const MLB_FINDER_CLUBS: FinderClubAlias[] = (() => {
 export function mlbFinderHref(p: Omit<ParsedFinder, 'season'> & { season?: number | null }): string {
   return mlbUrlFor({
     view: 'find',
-    lb: p.side,
+    // MLB's parser is never asked for fielding (finderSearch.ts), so this only narrows the type.
+    lb: p.side === 'pitching' ? 'pitching' : 'hitting',
     find: encodeFinderQuery(p) || null,
     findTeam: p.teamId ? Number(p.teamId) : null,
     findOpp: p.oppId ? Number(p.oppId) : null,

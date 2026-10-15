@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.163.0',
+    date:    '2026-10-14',
+    changes: [
+      {
+        short: 'Find: fielding',
+        full:  "WPBL's Find board now has a Fielding side: putouts, assists, errors, double plays, a catcher's passed balls and stolen bases allowed, one game at a time or over a season with fielding percentage. Ask it in words too: \"2 errors\", \"10 putouts 0 errors vs SF\".",
+      },
+    ],
+  },
+  {
     version: '1.162.1',
     date:    '2026-10-14',
     changes: [

@@ -89,6 +89,24 @@ export interface PitchingGameLine {
   decision?: string | null
 }
 
+/** One fielder's line for one game. Written only for a game in which the fielder recorded something,
+ *  so a count of these is games with a play to make, never games played (see `gamesAppeared` in
+ *  src/wpbl/stats.ts). No position: the feed's line does not say where the play was made. */
+export interface FieldingGameLine {
+  id: string
+  game_id: string
+  player_id: string
+  team_id: string | null
+  po: number
+  a: number
+  e: number
+  dp: number
+  /** Passed balls, stolen bases allowed and catcher's interference: a catcher's three. */
+  pb: number
+  sba: number
+  ci: number
+}
+
 /**
  * One row of the play log, as the pitch-code boards read it.
  *

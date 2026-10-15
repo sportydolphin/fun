@@ -402,3 +402,36 @@ describe('pickGames', () => {
     expect(pick(null)).toEqual(['2026-09-09', '2026-09-20'])
   })
 })
+
+describe('parseFinderText on a section with a Fielding side', () => {
+  const SIDES = ['hitting', 'pitching', 'fielding'] as const
+  const read = (t: string) => parseFinderText(t, CLUBS, SIDES)
+
+  it('reads a fielding stat as the fielding side, and only where the section has one', () => {
+    expect(read('2 errors')[0]).toMatchObject({ side: 'fielding', per: 'game', conditions: [{ field: 'e', op: 'gte', value: 2 }] })
+    expect(read('10 putouts 0 errors vs SF')[0]).toMatchObject({
+      side: 'fielding', oppId: 'SF',
+      conditions: [{ field: 'po', op: 'gte', value: 10 }, { field: 'e', op: 'eq', value: 0 }],
+    })
+    // MLB stores no fielding lines, so its parser is never handed the side and offers nothing.
+    expect(parseFinderText('2 errors', CLUBS)).toEqual([])
+  })
+
+  it('reads a season of errors or a fielding percentage as a season', () => {
+    expect(read('10 errors')[0]).toMatchObject({ side: 'fielding', per: 'season' })
+    expect(read('fielding percentage over .980')[0]).toMatchObject({
+      side: 'fielding', per: 'season', conditions: [{ field: 'fpct', op: 'gte', value: 981 }],
+    })
+  })
+
+  it('gives a double play to the batter unless a word says the fielder turned it', () => {
+    expect(read('2 double plays').map(r => r.side)).toEqual(['hitting', 'fielding'])
+    expect(read('fielders with 2 double plays').map(r => r.side)).toEqual(['fielding'])
+    expect(read('turned 2 double plays')[0]).toMatchObject({ side: 'fielding', ignored: [] })
+  })
+
+  it('leaves the hitting and pitching readings as they were', () => {
+    expect(read('5 strikeouts').filter(x => x.per === 'game').map(x => x.side)).toEqual(['pitching', 'hitting'])
+    expect(read('4-for-4').map(x => x.side)).toEqual(['hitting'])
+  })
+})
