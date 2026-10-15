@@ -90,7 +90,7 @@ export default tseslint.config(
       // every `RequestInit`.
       'no-undef': 'off',
 
-      // CLAUDE.md's traps, as rules, so they are checked rather than remembered.
+      // The CLAUDE.md traps, as rules, so they are checked rather than remembered.
       'no-restricted-syntax': ['error',
         // MUI reads a bare `letterSpacing: 0.5` as 0.5px, which does not grow with the type
         // around it (rem, scaled per section and by the reader's Large text). 175 of them had
@@ -107,7 +107,7 @@ export default tseslint.config(
         // The two that exist are deliberate and say so beside them.
         {
           selector: "Property[key.name='passive'] > Literal[value=false]",
-          message: 'A passive:false touch listener makes scrolling wait on JavaScript. See the ModalShell trap in CLAUDE.md; if it is truly needed, disable this line with the reason.',
+          message: 'A passive:false touch listener makes scrolling wait on JavaScript. See the ModalShell trap in src/CLAUDE.md; if it is truly needed, disable this line with the reason.',
         },
       ],
     },
