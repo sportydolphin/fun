@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.162.1',
+    date:    '2026-10-14',
+    changes: [
+      {
+        short: 'Find: a tidier question',
+        full:  "On the Find board each condition now sits on one line with its stat, a comparison symbol and a number, joined by \"and\". The stat list is grouped, adding a condition picks a stat you have not used yet, and the example questions show as links under an empty form.",
+      },
+    ],
+  },
+  {
     version: '1.162.0',
     date:    '2026-10-14',
     changes: [

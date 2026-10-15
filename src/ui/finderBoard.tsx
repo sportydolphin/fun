@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Box, Skeleton, Typography } from '@mui/material'
 import {
-  finderFields, finderUnit, finderColumns, defaultCondition, parseFinderValue, unparseFinderValue,
+  finderFieldGroups, finderUnit, finderColumns, defaultCondition, parseFinderValue, unparseFinderValue,
   displayFinderValue, describeFinderQuery, finderLowerBetter, conditionsForPer,
   FINDER_OPS,
   type FinderCondition, type FinderOp, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
@@ -9,7 +9,7 @@ import {
 } from '../league/finder'
 import { GameLineFrame } from './gameLine'
 import type { LeagueGame, LeaguePlayer } from '../league/types'
-import { SectionCard, TYPE_SCALE, CARD_BORDER, ACCENT_EDGE } from './card'
+import { SectionCard, SectionLabel, TYPE_SCALE, CARD_BORDER, ACCENT_EDGE } from './card'
 import { ExpandRow } from './ExpandRow'
 import { LeaderCard, LeaderCardSkeleton, PORTRAIT_PX, type LeaderItem } from './leaders'
 import { FOCUS_RING, TAPPABLE, hoverOnly, pressable } from './interaction'
@@ -56,17 +56,21 @@ const COL = { rank: 1.5, player: 8, game: 5.25, result: 3.75, stat: 2.4, gap: 0.
 const tableMinRem = (stats: number, per: FinderPer = 'game') => per === 'season'
   ? COL.rank + COL.player + stats * COL.stat + (stats + 1) * COL.gap + 2.5
   : COL.rank + COL.player + COL.game + COL.result + stats * COL.stat + (stats + 3) * COL.gap + 2.5
-/** The rail's width, and the tally's when it sits beside the table. */
-const RAIL_REM = 22
+/** The rail's width, and the tally's when it sits beside the table. Wide enough for a condition on
+ *  one line (CONDITION_COLUMNS): at 22 the value and its ✕ wrapped under every row. */
+const RAIL_REM = 24
 const TALLY_REM = 17
 const PANE_GAP_REM = 1.25
 /** What a season question searches, the same in both sections. */
 const SEASON_INTRO = 'Each player’s box-score lines added up over the season, for the seasons that match.'
 
+// A FIELD IS SQUARE-CORNERED AND ONLY A FIELD IS. The grain switch is a pill toggle and the examples
+// are links; when all three were the same rounded outline, the form read as a heap of identical
+// chips with no telling which one was the question.
 const fieldSx = {
   ...FOCUS_RING,
   minHeight: chromePx(34), py: 0.4,
-  borderRadius: 999, border: '1px solid', borderColor: CARD_BORDER,
+  borderRadius: 1.5, border: '1px solid', borderColor: CARD_BORDER,
   bgcolor: 'background.paper', color: 'text.primary',
   fontSize: TYPE_SCALE.meta, fontWeight: 700, fontFamily: 'inherit',
   ...hoverOnly({ borderColor: 'text.disabled' }),
@@ -93,14 +97,18 @@ const textButtonSx = {
  * Painted to match the chips around it rather than left at the UA default, which on Windows is a
  * grey 3D box that looks like a bug next to the rest of the bar.
  */
-function Picker({ value, onChange, options, label }: {
+function Picker({ value, onChange, options, groups, label, title, sx }: {
   value: string
   onChange: (v: string) => void
-  options: { value: string; label: string }[]
+  options?: { value: string; label: string }[]
+  /** Options under headings, for the stat picker. */
+  groups?: { label: string; options: { value: string; label: string }[] }[]
   label: string
+  title?: string
+  sx?: object
 }) {
   return (
-    <Box component="select" aria-label={label} value={value}
+    <Box component="select" aria-label={label} title={title} value={value}
       onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onChange(e.target.value)}
       sx={{
         ...fieldSx,
@@ -113,11 +121,24 @@ function Picker({ value, onChange, options, label }: {
         backgroundRepeat: 'no-repeat',
         // Capped at the row, for the rail: a long club name in a 22em column otherwise runs past it.
         minWidth: 0, maxWidth: '100%', flexShrink: 0, pl: 1.25, pr: 3, cursor: 'pointer',
+        textOverflow: 'ellipsis',
+        ...sx,
       }}>
-      {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      {options?.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      {groups?.map(g => (
+        <optgroup key={g.label} label={g.label}>
+          {g.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </optgroup>
+      ))}
     </Box>
   )
 }
+
+/** A condition's four columns. ONE LINE AT EVERY WIDTH, which is the whole point: sized to their
+ *  content, the four wrapped in the desktop rail and on a phone, leaving a value and a ✕ on a line
+ *  of their own under every stat. The stat takes what is left; the comparison is a symbol, so its
+ *  column is narrow and fixed, and every row's columns line up under the last. */
+const CONDITION_COLUMNS = `minmax(0, 1fr) 3rem 3.75rem ${chromePx(34)}`
 
 /** One `stat op value` row. `n` is the 1-based position, spoken into the labels so a screen reader
  *  with several conditions can tell the rows apart. */
@@ -136,39 +157,37 @@ function ConditionRow({ side, per, n, condition, onChange, onRemove }: {
   // updates on every keystroke either way: the draft is about what is DRAWN.
   const [draft, setDraft] = useState<string | null>(null)
   useEffect(() => { setDraft(null) }, [condition.field])
+  const op = FINDER_OPS.find(o => o.op === condition.op)
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-      {/* Sized to its content, not stretched: a stat dropdown that ran the whole row was the worst
-          of the board's desktop sizing. The row packs left instead. */}
-      <Picker label={`Stat, condition ${n}`} value={condition.field}
-        options={finderFields(side, per).map(f => ({ value: f.key, label: f.label }))}
+    <Box sx={{ display: 'grid', gridTemplateColumns: CONDITION_COLUMNS, alignItems: 'center', columnGap: 0.75 }}>
+      <Picker label={`Stat, condition ${n}`} value={condition.field} sx={{ width: '100%' }}
+        groups={finderFieldGroups(side, per).map(g => ({ label: g.label, options: g.fields.map(f => ({ value: f.key, label: f.label })) }))}
         onChange={field => onChange({ ...condition, field })} />
-      <Picker label={`Comparison, condition ${n}`} value={condition.op}
-        options={FINDER_OPS.map(o => ({ value: o.op, label: o.label }))}
-        onChange={op => onChange({ ...condition, op: op as FinderOp })} />
-      {/* The value and its remove button wrap as one: on a phone the row does not fit, and a lone
-          ✕ on a line of its own read as belonging to nothing. */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-        {/* A TEXT INPUT, NOT type="number", and innings are why. "4.2" means four and two thirds in
-            this sport, so the value is parsed with `ipToOuts` rather than with Number, and a number
-            input's own stepper would offer 4.3, which is not an innings figure that exists.
-            `inputMode` still brings up the numeric keypad on a phone. */}
-        <Box component="input" aria-label={`Value, condition ${n}`} inputMode="decimal"
-          value={draft ?? unparseFinderValue(side, condition.field, condition.value)}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-            setDraft(e.target.value)
-            onChange({ ...condition, value: parseFinderValue(side, condition.field, e.target.value) })
-          }}
-          onBlur={() => setDraft(null)}
-          sx={{ ...fieldSx, width: '4rem', px: 1.25, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }} />
-        <Box {...pressable(onRemove)} aria-label={`Remove condition ${n}`} sx={{
-          ...FOCUS_RING,
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          width: chromePx(34), height: chromePx(34), borderRadius: 999, cursor: 'pointer', userSelect: 'none',
-          color: 'text.secondary', fontSize: TYPE_SCALE.body, fontWeight: 800,
-          ...hoverOnly({ color: 'text.primary', bgcolor: 'action.hover' }),
-        }}>✕</Box>
-      </Box>
+      {/* THE SYMBOL, with the words in the tooltip, the accessible name and the summary sentence
+          over the results. "at least" made this column as wide as the stat's. */}
+      <Picker label={`Comparison, condition ${n}: ${op?.label ?? ''}`} title={op?.label} value={condition.op}
+        sx={{ width: '100%', pl: 1, pr: 2.25, backgroundPosition: 'right 10px center, right 5px center' }}
+        options={FINDER_OPS.map(o => ({ value: o.op, label: o.symbol }))}
+        onChange={o => onChange({ ...condition, op: o as FinderOp })} />
+      {/* A TEXT INPUT, NOT type="number", and innings are why. "4.2" means four and two thirds in
+          this sport, so the value is parsed with `ipToOuts` rather than with Number, and a number
+          input's own stepper would offer 4.3, which is not an innings figure that exists.
+          `inputMode` still brings up the numeric keypad on a phone. */}
+      <Box component="input" aria-label={`Value, condition ${n}`} inputMode="decimal"
+        value={draft ?? unparseFinderValue(side, condition.field, condition.value)}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+          setDraft(e.target.value)
+          onChange({ ...condition, value: parseFinderValue(side, condition.field, e.target.value) })
+        }}
+        onBlur={() => setDraft(null)}
+        sx={{ ...fieldSx, boxSizing: 'border-box', width: '100%', minWidth: 0, px: 0.75, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }} />
+      <Box {...pressable(onRemove)} aria-label={`Remove condition ${n}`} sx={{
+        ...FOCUS_RING,
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        width: chromePx(34), height: chromePx(34), borderRadius: 999, cursor: 'pointer', userSelect: 'none',
+        color: 'text.secondary', fontSize: TYPE_SCALE.body, fontWeight: 800,
+        ...hoverOnly({ color: 'text.primary', bgcolor: 'action.hover' }),
+      }}>✕</Box>
     </Box>
   )
 }
@@ -193,9 +212,6 @@ export interface FinderReading {
   /** Words that were not understood, said back so a dropped name is visible. */
   ignored: string[]
 }
-
-const sameConditions = (a: FinderCondition[], b: FinderCondition[]) =>
-  a.length === b.length && a.every((c, i) => c.field === b[i].field && c.op === b[i].op && c.value === b[i].value)
 
 /** The club, opponent and venue in words: "for NY, vs LA, at home". */
 function scopeWords(q: Pick<FinderQuery, 'teamId' | 'oppId' | 'venue'>, clubAbbr: (id: string) => string): string {
@@ -231,8 +247,10 @@ function AskBox({ side, parse, onAsk, clubAbbr }: {
         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setText(e.target.value)}
         onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); ask() } }}
         sx={{ ...fieldSx, boxSizing: 'border-box', width: '100%', px: 1.5, fontWeight: 600, '&::placeholder': { color: 'text.secondary', opacity: 1 } }} />
-      {/* Always the same height, so the form under it does not jump on every keystroke. */}
-      <Box aria-live="polite" sx={{ minHeight: '1.75rem', display: 'flex', alignItems: 'center', px: 0.5 }}>
+      {/* DRAWN ONLY WHILE THERE IS TEXT. Reserved always, it was a blank band between the box and
+          the conditions that read as a gap in the form; it opens on the first keystroke, which is
+          the reader's own input moving the page, and then holds its height while they type. */}
+      <Box aria-live="polite" sx={{ minHeight: '1.75rem', display: text.trim() ? 'flex' : 'none', alignItems: 'center', px: 0.5 }}>
         {!text.trim() ? null : best ? (
           <Box {...pressable(ask)} sx={{
             ...FOCUS_RING, minWidth: 0, cursor: 'pointer', borderRadius: 1, px: 0.5, mx: -0.5,
@@ -540,7 +558,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     onQuery({ ...query, conditions: query.conditions.map((x, j) => (j === i ? c : x)) })
   const removeCondition = (i: number) => onQuery({ ...query, conditions: query.conditions.filter((_, j) => j !== i) })
   const season = query.per === 'season'
-  const addCondition = () => onQuery({ ...query, conditions: [...query.conditions, defaultCondition(side, query.per)] })
+  const addCondition = () => onQuery({ ...query, conditions: [...query.conditions, defaultCondition(side, query.per, query.conditions)] })
   const askWhole = (ex: FinderExample) => { onQuery({ ...query, per: ex.per ?? 'game', conditions: ex.conditions }); setFolded(true) }
   // A switch of grain keeps every condition the other grain can ask. "3+ home runs" means something
   // over a season too, and is a better start than an empty form; a rate has no meaning in one game,
@@ -575,7 +593,9 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
       ? `Qualified hitters only: ${result.qualifier.min} plate appearances or more. Add a plate appearances condition to set your own bar.`
       : `Qualified pitchers only: ${displayFinderValue(side, 'ip', result.qualifier.min)} innings or more. Add an innings condition to set your own bar.`
     : null
-  const shownExamples = examples.filter(ex => (ex.per ?? 'game') === query.per)
+  // Offered only to an empty form: an example replaces the conditions, so once there are some it is a
+  // way to lose them, and the chips sat between the typed box and the rows they would overwrite.
+  const shownExamples = hasConditions ? [] : examples.filter(ex => (ex.per ?? 'game') === query.per)
   // The same words loading and loaded, so the row does not reflow when the answer lands. A game
   // question nearly always runs past the cap; a season one is a list of a few dozen at most, so it
   // names no count the skeleton would have to guess.
@@ -656,32 +676,16 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
           <AskBox side={side} parse={parse} clubAbbr={clubAbbr} onAsk={r => { onAsk(r); setFolded(true) }} />
         )}
 
-        {shownExamples.length > 0 && (
-          // One row that scrolls sideways on a phone, where the chips wrapped would be a block of
-          // their own above the form; wrapped wherever there is the width.
-          <Box role="group" aria-label="Example questions" sx={{
-            display: 'flex', gap: 0.75, flexWrap: { xs: 'nowrap', sm: 'wrap' }, overflowX: { xs: 'auto', sm: 'visible' },
-            mx: { xs: -2, sm: 0 }, px: { xs: 2, sm: 0 }, py: 0.25,
-            scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' },
-          }}>
-            {shownExamples.map(ex => {
-              const on = sameConditions(ex.conditions, query.conditions)
-              return (
-                <Box key={ex.label} {...pressable(() => askWhole(ex))} aria-pressed={on} sx={{
-                  ...FOCUS_RING, flexShrink: 0, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
-                  display: 'inline-flex', alignItems: 'center', minHeight: chromePx(28), px: 1.25, borderRadius: 999,
-                  border: '1px solid', borderColor: on ? ACCENT_EDGE : CARD_BORDER,
-                  color: on ? ACCENT_EDGE : 'text.secondary', fontSize: TYPE_SCALE.meta, fontWeight: 700,
-                  ...hoverOnly({ color: 'text.primary' }),
-                }}>{ex.label}</Box>
-              )
-            })}
-          </Box>
-        )}
-
+        {/* THE CONDITIONS READ AS A SENTENCE: "and" between rows, since every condition is AND and a
+            stack of identical rows said nothing about how they combine. */}
         {query.conditions.map((c, i) => (
-          <ConditionRow key={i} side={side} per={query.per} n={i + 1} condition={c}
-            onChange={next => setCondition(i, next)} onRemove={() => removeCondition(i)} />
+          <React.Fragment key={i}>
+            {i > 0 && (
+              <Typography aria-hidden sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary', px: 0.5, mt: -0.5, mb: -0.5 }}>and</Typography>
+            )}
+            <ConditionRow side={side} per={query.per} n={i + 1} condition={c}
+              onChange={next => setCondition(i, next)} onRemove={() => removeCondition(i)} />
+          </React.Fragment>
         ))}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
           {query.conditions.length < MAX_CONDITIONS && (
@@ -700,12 +704,29 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
           )}
         </Box>
 
+        {shownExamples.length > 0 && (
+          // LINKS, NOT CHIPS: a shortcut to a whole question is a different kind of thing from the
+          // fields that build one, and wrapped as text they take two lines on a phone where a row
+          // of chips scrolled off the side of the card.
+          <Box role="group" aria-label="Example questions" sx={{
+            display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 1.25, rowGap: 0.25,
+            fontSize: TYPE_SCALE.meta,
+          }}>
+            <Box component="span" sx={{ color: 'text.secondary', fontWeight: 700 }}>Try</Box>
+            {shownExamples.map(ex => (
+              <Box key={ex.label} {...pressable(() => askWhole(ex))} sx={{
+                ...FOCUS_RING, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', borderRadius: 0.5,
+                color: ACCENT_EDGE, fontWeight: 700, ...hoverOnly({ textDecoration: 'underline' }),
+              }}>{ex.label}</Box>
+            ))}
+          </Box>
+        )}
+
         {/* WHO AND WHERE, kept apart from the conditions above because they are a different kind
             of question: those ask what happened in a game, these ask which games to look at. */}
-        <Box sx={{
-          display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap',
-          pt: 1, mt: 0.5, borderTop: '1px solid', borderColor: 'divider',
-        }}>
+        <Box sx={{ pt: 1.25, mt: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
+        <SectionLabel>Club and venue</SectionLabel>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
           {/* The club and the venue read as one clause ("New York, at home"), so they stay on one
               row; the opponent is the one that wraps on a phone, before this pair may split. */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', maxWidth: '100%' }}>
@@ -721,6 +742,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
           </Box>
           <Picker label="Opponent" value={query.oppId ?? ''} options={clubOptions('Any opponent')}
             onChange={v => onQuery({ ...query, oppId: v || null })} />
+        </Box>
         </Box>
       </Box>
     </SectionCard>
