@@ -84,6 +84,7 @@ const EXEMPT: Record<string, string> = {
   'src/wpbl/WinProbView.tsx': 'the win model is how games go, and a new year has too few plays to train one',
   'src/wpbl/gameDetail/GameDetailModal.tsx': 'the same win model, for the swing of the game',
   'src/wpbl/ScoreCardNotes.tsx': 'grouped by game for each card, never summed across games',
+  'src/wpbl/WpblApp.tsx': 'warms the reads Home makes, into the cache, and sums nothing',
   // Mentions the read in a comment only.
   'src/league/bests.ts': 'comment only',
   'src/league/finder.ts': 'comment only',
@@ -93,7 +94,12 @@ const EXEMPT: Record<string, string> = {
   'src/wpbl/derive/runEnvironment.ts': 'comment only',
   'src/wpbl/derive/teamSpec.ts': 'comment only',
 }
-const NOT_YET = new Set<string>([])
+const NOT_YET = new Set<string>([
+  // The search rows' position labels: the stored current season when it is current, else every
+  // season's lines through buildPositionIndex. Passed until Oct 15, 2026 only because it shared
+  // WpblApp.tsx with the Standings tab, which cuts. Harmless while one season is on record.
+  'src/wpbl/app/useWpblSearch.ts',
+])
 
 function sources(dir: string): string[] {
   return readdirSync(dir).flatMap(name => {

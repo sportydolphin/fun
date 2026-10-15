@@ -1,7 +1,7 @@
 import type { LeaderboardEntry, StatDef } from '../types'
 import { fmt, fmtDecimal, parseIP } from './utils'
 
-// THE ADVANCED VIEW OF MLB'S STATS TABLE, WPBL's (VIEW_ORDER in src/wpbl/StatsView.tsx) column for
+// THE ADVANCED VIEW OF MLB'S STATS TABLE, WPBL's (VIEW_ORDER in src/wpbl/stats/axes.ts) column for
 // column, so the Standard / Advanced switch means the same thing in both sections.
 //
 // EVERYTHING BUT wOBA AND wRC+ IS COMPUTED HERE from the season line the table already holds, which

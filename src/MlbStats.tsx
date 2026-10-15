@@ -504,7 +504,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     />
   )
   // A board tab keeps the side where the board has it, and drops back to the last of Hitting and
-  // Pitching where it does not, as WPBL's does (selectBoard in src/wpbl/StatsView.tsx).
+  // Pitching where it does not, as WPBL's does (selectBoard in src/wpbl/stats/StatsView.tsx).
   const pickBoard = (tab: MlbStatsTab) => {
     let target: MlbView = tab
     if (statsSide === 'fielding') {

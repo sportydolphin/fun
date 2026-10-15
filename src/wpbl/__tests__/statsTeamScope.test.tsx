@@ -39,7 +39,7 @@ vi.mock('../api', async (importOriginal) => ({
   wpblStatsCacheAgeMs: () => 0,
 }))
 
-const { default: StatsView } = await import('../StatsView')
+const { default: StatsView } = await import('../stats/StatsView')
 
 const TEAMS: WpblTeam[] = (['SF', 'BOS'] as const).map((id, i) => ({
   id, city: id, name: id, abbr: id, color: null, color_secondary: null,
