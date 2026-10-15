@@ -10,6 +10,16 @@ import { ENTRIES as v1_000 } from './changelog/v1.000-1.049'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.167.0',
+    date:    '2026-10-15',
+    changes: [
+      {
+        short: 'MLB game preview, in the WPBL style',
+        full:  "An upcoming MLB game's preview now looks like WPBL's: the two club logos in the matchup line and in the season comparison's key, and a tap on either opens the club. Its type now follows the site's sizes, with the probable starters, venue and weather where they were.",
+      },
+    ],
+  },
+  {
     version: '1.166.2',
     date:    '2026-10-15',
     changes: [

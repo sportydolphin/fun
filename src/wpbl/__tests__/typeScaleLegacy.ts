@@ -34,7 +34,6 @@ export const TYPE_SCALE_LEGACY: readonly string[] = [
   'src/mlb/components/charts.tsx',
   'src/mlb/components/ui.tsx',
   'src/mlb/dev/IconStudio.tsx',
-  'src/mlb/views/GamePreview.tsx',
   'src/mlb/views/LiveGameCenter.tsx',
   'src/mlb/views/PlayoffOddsBoard.tsx',
   'src/mlb/views/PredictionStats.tsx',

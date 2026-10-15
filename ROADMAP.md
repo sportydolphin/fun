@@ -542,18 +542,18 @@ will actually see all winter. The functional items do not wait.
    `FilterChip`, with `ChipRow` and the new-item dot), the navigation pill (`SegNav`, which replaced
    MLB's `SegControl`), the info dot (MLB's `InfoTip` onto `InfoDot`), the heading drawing
    (`heading.tsx`; who owns the h1 stays per section), the game-line row (`gameLine.tsx`), and the
-   Bests and Find boards (`bestsBoards.tsx`, `finderBoard.tsx`), so each section's view now only
+   Bests and Find boards (`bestsBoards.tsx`, `finderBoard.tsx`), and the game preview (`gamePreview.tsx`, Oct 15, in WPBL's look: club marks in the legend, MLB's probable starters kept as its own slot), so each section's view now only
    feeds its own data, controls and row parts. Filter chips and nav pills are taller on a touch
    screen only. Two guards keep it that way: `src/__tests__/sectionParity.test.ts` fails on a
    component file name in both `wpbl/` and `mlb/` without a written reason, and the type-scale test
    now holds every file to the scale except a frozen legacy list (`typeScaleLegacy.ts`) that can
-   only shrink. Still two drawings: the game preview, and the bracket (MLB's retires Nov 1).
+   only shrink (both game previews are off it). Still two drawings: the bracket (MLB's retires Nov 1).
    ✅ *The legacy list, Oct 15 (v1.166.1):* 33 MLB files to 16. Off it: every file with five or
    fewer typed-in sizes, and the Stats tab and search. MLB's Stats tables were WPBL's size for
    size, so WPBL's `StatsView` and `src/ui/statsTableHead.ts` moved with them, on the same steps.
    *Left, on purpose:* the live and postseason files (convert in spring, when they return),
    predictions (wait for October's numbers in "MLB: what gets used"), the charts (SVG labels),
-   `GamePreview` (share it with WPBL instead), Standings and the player card's `cards.tsx` (after
+   `GamePreview` (shared with WPBL in v1.167.0, and off the list since), Standings and the player card's `cards.tsx` (after
    Nov 1, when the bracket mode retires), and `SeriesSheet`'s 1.9 to 2.4rem score, which needs a
    step above `page` shared with WPBL's series page (2 to 3rem) rather than a guess in one file.
 

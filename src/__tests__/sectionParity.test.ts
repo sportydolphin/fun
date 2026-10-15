@@ -17,10 +17,10 @@ const ALLOWED: Record<string, string> = {
   'GlossaryPage.tsx': "binds each league's terms to src/ui/Glossary.tsx and StandalonePage.tsx",
   'StatsView.tsx': "each league's own boards; the table frame and head are shared (statsTableHead.ts, leaders.tsx)",
   'BestsView.tsx': "each league's inputs and controls; the engine is src/league/bests.ts, the layout src/ui/bestsBoards.tsx",
+  'GamePreview.tsx': "each league's numbers, club marks and links, plus what only it has (MLB's probable starters, WPBL's leaders and rosters); the drawing is src/ui/gamePreview.tsx",
   'FindView.tsx': "each league's inputs and parts; the engine is src/league/finder.ts, the board src/ui/finderBoard.tsx",
   // Still two drawings. Each is a candidate for a shared frame, and taking it off this list is how
   // that is recorded.
-  'GamePreview.tsx': 'not yet shared',
   'PlayoffBracket.tsx': "not yet shared; MLB's retires with the postseason on Nov 1",
 }
 
