@@ -16,7 +16,7 @@ type TrackingRows = {
   pitching: Parameters<typeof aggregateTracking>[2]
 }
 import { WPBL_ACCENT } from './constants'
-import { SectionCard, LeaderRow, CARD_BORDER, chromePx } from './ui'
+import { SectionCard, LeaderRow, leaderPlaces, CARD_BORDER, chromePx } from './ui'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
 import type { WpblTeam, WpblPlayer } from './types'
@@ -162,8 +162,8 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
           ]} />}>
             {board.veloLeaders.length === 0
               ? <EmptyState title="No velocity data yet" />
-              : board.veloLeaders.slice(0, 10).map((l: VeloLeader, i) => (
-                  <LeaderRow key={l.player?.id ?? l.name} rank={i + 1} player={l.player} name={l.name} teamId={l.teamId}
+              : board.veloLeaders.slice(0, 10).map((l: VeloLeader, i, top) => (
+                  <LeaderRow key={l.player?.id ?? l.name} {...leaderPlaces(top.map(x => fmtSpeed(x.maxVelo, units)))[i]} player={l.player} name={l.name} teamId={l.teamId}
                     value={fmtSpeed(l.maxVelo, units)} unit={speedUnit(units)} sub={`avg ${fmtSpeed(l.avgVelo, units)} · ${l.count} pitches`} accent={accent} onOpen={onOpenPlayer} />
                 ))}
           </SectionCard>
@@ -173,8 +173,8 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
               "The average spin rate of each pitcher's tracked pitches, in revolutions per minute. Underneath: their highest, and how many pitches were tracked.",
               'Only the games the league has published radar readings for are counted.',
             ]} />}>
-              {board.spinLeaders.slice(0, 8).map((l: SpinLeader, i) => (
-                <LeaderRow key={l.player?.id ?? l.name} rank={i + 1} player={l.player} name={l.name} teamId={l.teamId}
+              {board.spinLeaders.slice(0, 8).map((l: SpinLeader, i, top) => (
+                <LeaderRow key={l.player?.id ?? l.name} {...leaderPlaces(top.map(x => String(Math.round(x.avgSpin))))[i]} player={l.player} name={l.name} teamId={l.teamId}
                   value={String(Math.round(l.avgSpin))} unit="rpm" sub={`max ${Math.round(l.maxSpin)} · ${l.count} pitches`} accent={accent} onOpen={onOpenPlayer} />
               ))}
             </SectionCard>
@@ -190,8 +190,8 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
                 'Every tracked ball in play, ranked by exit velocity: how fast it was going as it left the bat.',
                 'Only the games the league has published radar readings for are counted.',
               ]} />}>
-                {board.hardestHits.slice(0, 10).map((b: BattedBall, i) => (
-                  <LeaderRow key={i} rank={i + 1} player={b.player} name={b.name} teamId={b.teamId}
+                {board.hardestHits.slice(0, 10).map((b: BattedBall, i, top) => (
+                  <LeaderRow key={i} {...leaderPlaces(top.map(x => fmtSpeed(x.exit ?? 0, units)))[i]} player={b.player} name={b.name} teamId={b.teamId}
                     value={fmtSpeed(b.exit ?? 0, units)} unit={speedUnit(units)} accent={accent} onOpen={onOpenPlayer}
                     sub={[b.hitType, b.distance != null ? `${fmtDistance(b.distance, units)} ${distanceUnit(units)}` : null].filter(Boolean).join(' · ') || undefined} />
                 ))}
@@ -202,8 +202,8 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
                   'Every tracked ball in play, ranked by how far the radar measured it traveling.',
                   "The radar can't follow a ball once it leaves the field, so home runs, usually the longest hits, often have no distance and won't appear here.",
                 ]} />}>
-                  {board.longestHits.slice(0, 10).map((b: BattedBall, i) => (
-                    <LeaderRow key={i} rank={i + 1} player={b.player} name={b.name} teamId={b.teamId}
+                  {board.longestHits.slice(0, 10).map((b: BattedBall, i, top) => (
+                    <LeaderRow key={i} {...leaderPlaces(top.map(x => fmtDistance(x.distance!, units)))[i]} player={b.player} name={b.name} teamId={b.teamId}
                       value={fmtDistance(b.distance!, units)} unit={distanceUnit(units)} accent={accent} onOpen={onOpenPlayer}
                       sub={[b.hitType, b.exit != null ? `${fmtSpeed(b.exit, units)} ${speedUnit(units)} EV` : null].filter(Boolean).join(' · ') || undefined} />
                   ))}

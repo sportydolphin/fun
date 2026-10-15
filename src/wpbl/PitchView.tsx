@@ -10,7 +10,7 @@ import {
   type PitchBoard, type PitchProfile, type PitchCounts, type PitchKind,
 } from './derive/pitches'
 import { wpblAccentFg } from './constants'
-import { SectionCard, LeaderRow, CARD_BORDER } from './ui'
+import { SectionCard, LeaderRow, leaderPlaces, CARD_BORDER } from './ui'
 import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 import { wpblQualifiers } from './stats'
 import { typePx } from '../ui/scale'
@@ -216,8 +216,8 @@ function RateBoard({ title, explain, qualifier, rows, valueOf, subOf, league, ac
       titleAdornment={<InfoDot text={[explain, `League average: ${league}.`, qualifier]} />}>
       {rows.length === 0
         ? <EmptyState title="Not enough pitches yet" />
-        : rows.slice(0, 10).map((p, i) => (
-            <LeaderRow key={p.player?.id ?? p.name} rank={i + 1} player={p.player} name={p.name} teamId={p.teamId}
+        : rows.slice(0, 10).map((p, i, top) => (
+            <LeaderRow key={p.player?.id ?? p.name} {...leaderPlaces(top.map(valueOf))[i]} player={p.player} name={p.name} teamId={p.teamId}
               value={valueOf(p)} sub={subOf(p)} accent={accent} onOpen={onOpenPlayer} />
           ))}
     </SectionCard>
