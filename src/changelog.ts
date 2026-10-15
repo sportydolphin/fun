@@ -4,6 +4,28 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.162.0',
+    date:    '2026-10-14',
+    changes: [
+      {
+        short: 'Search: on every page',
+        full:  "The search box and Ctrl+K now work on every page, including About the league, a season series, Batter vs pitcher, Compare and the glossaries.",
+      },
+      {
+        short: 'Search: what it can do',
+        full:  "Open the search with nothing typed, or type \"?\", to see one example of everything it understands. Tab fills in the highlighted name so you can keep typing.",
+      },
+      {
+        short: 'Search: more questions',
+        full:  "Try \"SF team ERA\", \"most hr in a game\", \"best catcher\", \"top relievers\", \"300 hitters\" or \"era between 2 and 3\". A club playing right now shows its live game first, and an MLB name on WPBL (or the reverse) offers a link across.",
+      },
+      {
+        short: 'Stats: filter by position',
+        full:  "The Players tables in both sections can be narrowed to one position, or to starters or relievers, from the search. A chip above the table shows the filter and removes it.",
+      },
+    ],
+  },
+  {
     version: '1.161.0',
     date:    '2026-10-14',
     changes: [
