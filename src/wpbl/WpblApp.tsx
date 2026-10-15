@@ -34,7 +34,7 @@ import { seriesContexts } from './derive/series'
 import { boxScoreRevision, formatRevisionDay } from './derive/feedHealth'
 import { postseasonScheduleRows, postseasonSlots, type PostseasonScheduleRow, type PostseasonSlot } from './derive/bracket'
 import { track, EVENTS } from '../lib/analytics'
-import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
+import { useFeatureDots } from '../lib/seen'
 import WpblHome, { WpblHomeSkeleton, homeLandingReadsLines } from './Home'
 import { offseasonByCalendar } from './offseasonCalendar'
 import FanAwardsSheet from './FanAwardsSheet'
@@ -1199,40 +1199,17 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   const [statsFocus, setStatsFocus] = useState<WpblStatsFocus>(
     () => (seedTracking() ? { group: 'tracking', token: 1 } : { group: 'hitting', token: 0 }))
 
-  // "Something new here" dots for the two boards that shipped together on the Stats tab, Bests
-  // and Find. The Stats PILL in the nav wears ONE dot to say "there is something new in here";
-  // it is retired the moment the reader is on the Stats tab, by any route, because that is the
-  // whole of what the pill was asking. Each CHIP inside then wears its own dot to point the
-  // rest of the way, retired only by opening that board (reported by StatsView via onBoardSeen).
-  // Clearing the pill does NOT touch the chips: reaching a chip means being on the tab, so the
-  // pill is always retired at or before either chip anyway. Read once at mount: shouldShowBadge()
-  // consults localStorage and an expiry date, and neither changes under us mid-session.
-  //
-  // A badge is pulled by hand once its board has been on the tab long enough that the dot means
-  // "there is a dot" rather than "new"; each registration goes with its call site (see lib/seen.ts).
-  const [statsPillNew, setStatsPillNew] = useState(() => shouldShowBadge('stats-tab-v184'))
-  const [newBoards, setNewBoards] = useState<Set<string>>(() => {
-    const s = new Set<string>()
-    if (shouldShowBadge('bests-v184')) s.add('bests')
-    if (shouldShowBadge('find-v184')) s.add('find')
-    return s
-  })
-  const markBoardSeen = useCallback((key: string) => {
-    const badge = key === 'bests' ? 'bests-v184' : key === 'find' ? 'find-v184' : null
-    if (!badge) return
-    markBadgeSeen(badge)
-    setNewBoards(prev => {
-      if (!prev.has(key)) return prev
-      const next = new Set(prev); next.delete(key); return next
-    })
-  }, [])
-  const navBadge = (key: string): boolean => key === 'stats' && statsPillNew
-  // Retire the Stats pill dot the moment the reader is on the tab, whichever board opens: a
-  // tap, a swipe, or a deep link all set view to 'stats'. The chip dots inside are untouched
-  // and keep pointing at the two new boards.
-  useEffect(() => {
-    if (view === 'stats' && statsPillNew) { markBadgeSeen('stats-tab-v184'); setStatsPillNew(false) }
-  }, [view, statsPillNew])
+  // "Something new here" dots, all derived from the registry in lib/seen.ts: a nav pill lights
+  // while a live feature under its tab is unreached, and the board chips inside light the same
+  // way. Arriving on a tab, by a tap, a swipe or a deep link, puts out its pill; the chips keep
+  // pointing until their board opens (reported by StatsView via onBoardSeen).
+  const featureDots = useFeatureDots()
+  const { visit: visitPlace } = featureDots
+  const { dotsUnder } = featureDots
+  const newBoards = useMemo(() => dotsUnder('wpbl/stats'), [dotsUnder])
+  const markBoardSeen = useCallback((key: string) => visitPlace(`wpbl/stats/${key}`), [visitPlace])
+  const navBadge = (key: string): boolean => featureDots.dot(`wpbl/${key}`)
+  useEffect(() => { visitPlace(`wpbl/${view}`) }, [view, visitPlace])
 
   // SEEDED FROM THE LAST GOOD READS, the way the overlay hosts are. This component unmounts
   // whenever the reader opens a page from the More menu (App renders those instead of it), so
