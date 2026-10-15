@@ -172,6 +172,9 @@ const rendersWpblApp = wpblAppOwnsPath
 const isWpblSection = (p: string) =>
   rendersWpblApp(p) || p === '/wpbl/api' || isWpblLeaguePage(p) || isWpblGlossaryPage(p)
   || isWpblSourcesPage(p) || isWpblSeasonPage(p) || isWpblScorigamiPage(p) || isWpblMatchupsPage(p) || isWpblPhotosPage(p) || isWpblReadingPage(p) || isWpblWatchPage(p) || isWpblPlayersIndex(p) || isWpblComparePage(p) || isWpblSeriesPage(p)
+/** Whether some page draws this path; anything else gets the in-app 404. */
+const isKnownPath = (p: string) =>
+  isWpblSection(p) || isMlbSection(p) || p === '/' || p === '/admin' || p === '/privacy' || p === '/terms' || p === '/delete-account'
 
 // Brand lockup in the toolbar. The logo is sized to the wordmark's line box so the
 // two read as one unit, and the wordmark is held back until the viewport can show it
@@ -271,8 +274,16 @@ function ConfettiBurst({ x, y, onDone }: { x: number; y: number; onDone: () => v
 // analytics beacon) sometimes see mis-cased URLs like /WPBL. Lowercasing the
 // pathname on read means those still render the right view and stop splitting a
 // single page across two entries in Web Analytics. Search/hash are preserved.
+// Paths that are another spelling of a real page. Production answers these with a 301 from
+// public/_redirects; this is the same fold for dev and for a link followed inside the app, which
+// never reach that file and would otherwise draw an empty page.
+const PATH_ALIASES: Record<string, string> = {
+  '/wpbl/scores': '/wpbl/schedule',
+}
+
 function readPath(): string {
-  const p = window.location.pathname.toLowerCase()
+  const lower = window.location.pathname.toLowerCase()
+  const p = PATH_ALIASES[lower] ?? lower
   if (p !== window.location.pathname) {
     window.history.replaceState({}, '', p + window.location.search + window.location.hash)
   }
@@ -1554,6 +1565,31 @@ function AppInner() {
               <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
                 <DeleteAccount />
               </Suspense>
+            </Box>
+          )}
+          {/* A path no page claims. Production never gets here (public/_redirects is an allow-list
+              and answers a real 404), but dev and an in-app link to a dead path drew nothing at
+              all: a toolbar over an empty screen, with no tabs to leave by. Same words and the
+              same two ways out as public/404.html. */}
+          {!isKnownPath(path) && (
+            <Box sx={{ maxWidth: 480, mx: 'auto', pt: 8, textAlign: 'center' }}>
+              <Typography component="h1" sx={{ fontSize: '2.5rem', fontWeight: 800, lineHeight: 1 }}>404</Typography>
+              <Typography component="h2" sx={{ fontSize: '1.25rem', fontWeight: 700, mt: 1.5 }}>That page doesn't exist</Typography>
+              <Typography sx={{ color: 'text.secondary', mt: 1 }}>
+                The link may be broken, or the page may have moved. Both league sections are below.
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1.25, justifyContent: 'center', mt: 3 }}>
+                {(['/wpbl', '/mlb'] as const).map((to, i) => (
+                  <Box key={to} {...linkTo(to)} sx={{
+                    ...UNSTYLED_LINK, px: 2, py: 1, borderRadius: 999, fontWeight: 700, border: '1px solid',
+                    borderColor: i === 0 ? 'primary.main' : 'outline',
+                    bgcolor: i === 0 ? 'primary.main' : 'transparent',
+                    color: i === 0 ? 'primary.contrastText' : 'text.primary',
+                  }}>
+                    {to === '/wpbl' ? 'WPBL stats' : 'MLB stats'}
+                  </Box>
+                ))}
+              </Box>
             </Box>
           )}
           </AppErrorBoundary>

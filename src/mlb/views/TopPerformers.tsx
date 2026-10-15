@@ -3,7 +3,7 @@ import { TeamLogo } from '../components/TeamLogo'
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { pressable } from '../../ui/interaction'
 import { TYPE_SCALE, ICON_SIZE } from '../../ui/card'
-import { Box, Typography } from '@mui/material'
+import { Box, Skeleton, Typography } from '@mui/material'
 import { accentColor, edgeTone, cardGradient } from '../lib/colorUtils'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
@@ -196,10 +196,46 @@ export function TopPerformers({
 
   const isDark = useDark()
 
+  // The loaded card drawn empty (src/CLAUDE.md): a one-line "Loading performers…" here was about
+  // 70px for the three seconds the box scores take, and the 184px card that replaced it pushed the
+  // whole discovery column down. Same header, same pane, same type sizes, so nothing moves.
   if (loading) {
     return (
-      <Box sx={{ py: 3, textAlign: 'center' }}>
-        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>Loading performers…</Typography>
+      <Box sx={{ borderRadius: 2.5, overflow: 'hidden', border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper' }}>
+        <Box sx={{ px: 1.75, py: 1, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 0.75 }}>
+          <Typography sx={{
+            flex: 1, fontWeight: 800, fontSize: TYPE_SCALE.micro, textTransform: 'uppercase',
+            letterSpacing: typePx(1), color: 'text.secondary', lineHeight: 1, whiteSpace: 'nowrap',
+          }}>
+            {postseason ? 'Postseason Standout' : 'Single-Game Standout'}
+          </Typography>
+          <Box sx={{ height: ICON_SIZE.md, width: '4.5rem', display: 'flex', alignItems: 'center' }}>
+            <Skeleton variant="text" sx={{ width: '100%', fontSize: TYPE_SCALE.caption }} />
+          </Box>
+        </Box>
+        <Box sx={{ px: 1.75, pt: 1.5, pb: 1.75, display: 'flex', gap: 1.5, alignItems: 'stretch' }}>
+          <Box sx={{ flexShrink: 0, width: chromePx(58), minHeight: chromePx(70), borderRadius: 2, border: '2px solid', borderColor: 'outline', bgcolor: 'action.hover' }}>
+            <Box sx={{ width: '100%', aspectRatio: '2 / 3' }} />
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1.15, mb: 0.25 }}>
+              <Skeleton variant="text" sx={{ width: '8rem' }} />
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', height: 14, mb: 1.25 }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.meta, lineHeight: 1 }}>
+                <Skeleton variant="text" sx={{ width: '9rem' }} />
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', gap: { xs: 1.25, sm: 1.75 }, alignItems: 'flex-end' }}>
+              {[TYPE_SCALE.display, TYPE_SCALE.title, TYPE_SCALE.title].map((size, i) => (
+                <Box key={i}>
+                  <Typography sx={{ fontSize: size, lineHeight: 1 }}><Skeleton variant="text" sx={{ width: '1.6em' }} /></Typography>
+                  <Typography sx={{ fontSize: TYPE_SCALE.caption, lineHeight: 1, mt: 0.2 }}><Skeleton variant="text" sx={{ width: '1.5rem' }} /></Typography>
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        </Box>
       </Box>
     )
   }
@@ -246,7 +282,9 @@ export function TopPerformers({
             component="img"
             src={HEADSHOT(entry.playerId)}
             alt={entry.playerName}
-            sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }}
+            // HEADSHOT is 2:3 and that ratio is what sets the card's height. Declared, so the card
+            // is its final height before the photo arrives rather than growing when it does.
+            sx={{ width: '100%', height: 'auto', aspectRatio: '2 / 3', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }}
           />
         </Box>
 
