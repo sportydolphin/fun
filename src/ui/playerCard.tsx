@@ -785,6 +785,48 @@ export function RateStrip({ cells, placeholder }: {
   )
 }
 
+/**
+ * The figures a box score has no column for (wins added, runs on the bases), as one quiet row under
+ * the season line: label, figure and the place on the board each came from.
+ *
+ * QUIETER THAN THE RATE STRIP ON PURPOSE. The strip's four are what every stat site leads a player
+ * with; these are this site's own reads of the play log, worth a look and not a headline.
+ *
+ * THE PLACE IS DRAWN AS A SAMPLE WHILE LOADING, not left blank, so the second figure does not slide
+ * right when the first one's rank lands: these arrive after the rest of the card.
+ */
+export function ValueStrip({ cells, placeholder }: {
+  cells: { label: string; value: string; rank?: StatRank | null }[]
+  /** The loading state: the figure and the place are samples, drawn as bars of their width. */
+  placeholder?: boolean
+}) {
+  const { tip, ink, rankBar } = useStatCard()
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 2.5, rowGap: 0.5, mt: 1.25 }}>
+      {cells.map(c => {
+        const lit = !placeholder && isLitRank(c.rank, rankBar)
+        return (
+          <Box key={c.label} sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, minWidth: 0 }}>
+            <TapTip title={tip(c.label)} popperZIndex={TIP_Z}
+              sx={{ ...TYPE.micro, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', ...keepCase(c.label) }}>
+              {c.label}
+            </TapTip>
+            <Typography component="span" sx={{ ...TYPE.figure, fontVariantNumeric: 'tabular-nums', ...(lit ? { color: ink } : {}) }}>
+              {placeholder ? <FigureBar sample={c.value} /> : c.value}
+            </Typography>
+            <Typography component="span" sx={{
+              ...TYPE.micro, fontVariantNumeric: 'tabular-nums',
+              ...(lit ? { color: ink, fontWeight: 800 } : { color: 'text.secondary' }),
+            }}>
+              {placeholder ? <FigureBar sample="10th of 70" /> : c.rank ? `${ordinal(c.rank.rank)} of ${c.rank.of}` : ''}
+            </Typography>
+          </Box>
+        )
+      })}
+    </Box>
+  )
+}
+
 const FORM_INK = { label: 'rgba(255,255,255,0.72)', opp: 'rgba(255,255,255,0.75)', value: '#fff' }
 
 /**

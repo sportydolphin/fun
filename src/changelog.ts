@@ -10,6 +10,20 @@ import { ENTRIES as v1_000 } from './changelog/v1.000-1.049'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.165.0',
+    date:    '2026-10-15',
+    changes: [
+      {
+        short: 'Wins added and baserunning on players and Compare',
+        full:  "A WPBL player's card now shows their wins added (WPA) under the season line, and a hitter's runs on the bases (BsR), each with its place in the league: the same numbers and order as the Run value board. Compare has both as rows too.",
+      },
+      {
+        short: 'One baserunning number',
+        full:  "Run value's \"Best on the bases\" now ranks BsR, the same number as the Stats tab's BsR column and the baserunning part of WAR: steals measured against the league's average runner for every time a player reached first, extra bases, and double plays hit into. The steal card's list of who runs most is gone.",
+      },
+    ],
+  },
+  {
     version: '1.164.0',
     date:    '2026-10-15',
     changes: [

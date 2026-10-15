@@ -7,11 +7,10 @@ import {
 } from './api'
 import {
   BASE_ROW_ORDER, BASE_SHORT, buildRunExpectancy, describeState, eventValues, reOf, workedExample,
-  fmtRe, fmtRunValue, playRunValues, runValueLeaders, stealEconomy, topRunners,
+  fmtRe, fmtRunValue, playRunValues, runValueLeaders, stealEconomy,
   type ReTable, type WorkedExample,
 } from './derive/runExpectancy'
-import { winProbModel, wpaLeaders } from './derive/winProbability'
-import { baserunningEvents, baserunningLeaders, runnerIds, type BaserunningLine } from './derive/baserunning'
+import { basesLine, seasonValueBoards } from './derive/seasonValue'
 import { PlayValueCard, StealCard } from './PlayValue'
 import { wpblAccentFg } from './constants'
 import { SectionCard, LeaderRow, ExpandRow, chromePx, BaseDiamond, BOARD_COLUMN, BOARD_COLUMN_WIDE } from './ui'
@@ -378,14 +377,6 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
   )
 }
 
-/** "8 SB, 1 caught · 7 of 12 extra bases". A pickoff is folded into "caught": to a reader both are a
- *  runner out on the bases without a ball in play, and two words for it would not fit a phone. */
-function basesLine(r: BaserunningLine<unknown>): string {
-  const caught = r.cs + r.pickoffs
-  const steals = caught ? `${r.sb} SB, ${caught} caught` : `${r.sb} SB`
-  return r.chances ? `${steals} · ${r.extra} of ${r.chances} extra bases` : steals
-}
-
 /** "6th", for an inning in a sentence. Innings only, so the teens never come up. */
 function ordinal(n: number): string {
   return `${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'}`
@@ -398,10 +389,10 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
    *  one without the schedule, and it also needs to know which games have finished.
    *  See derive/runExpectancy.ts. */
   games: WpblGame[]
-  /** SB and CS live on the box score, not in the play log, so the steal card cannot be built
-   *  from the plays this board already holds. Handed down from the Stats tab, which has
-   *  fetched them anyway, so it costs no request. */
-  battingLines?: Pick<WpblBattingLine, 'game_id' | 'player_id' | 'sb' | 'cs'>[]
+  /** The season's box-score lines: each hitter's times on first, which BsR charges the league's
+   *  steal rate against. Handed down from the Stats tab, which has fetched them anyway, so it
+   *  costs no request. */
+  battingLines?: WpblBattingLine[]
   onOpenPlayer: (p: WpblPlayer) => void
 }) {
   const [tableOpen, setTableOpen] = useState(() => readTableOpen())
@@ -468,14 +459,16 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
     () => (plays && table ? playRunValues(plays, games, table) : []), [plays, games, table])
   const leaders = useMemo(
     () => runValueLeaders(values, players, side).slice(0, 10), [values, players, side])
-  // The same plays priced in wins. The model is cached on these two arrays for the session, so
-  // Game Center's chart and this board build it once between them.
-  // The runner's name off a base, resolved to the player who batted under it that game.
-  const idOf = useMemo(() => (plays ? runnerIds(plays, players) : null), [plays, players])
+  // The same plays priced in wins, and the runs on the bases: one build shared with the player
+  // card and Compare (derive/seasonValue.ts), so a place printed there is a place on this board.
+  const boards = useMemo(
+    // Not before the lines: without times on first nobody is charged, and the order would change
+    // when they landed.
+    () => (plays && battingLines?.length ? seasonValueBoards(plays, games, players, battingLines) : null),
+    [plays, games, players, battingLines])
   const wpa = useMemo(() => {
-    if (!plays || !idOf) return []
-    const model = winProbModel(plays, games)
-    const one = (s: 'hitting' | 'pitching') => wpaLeaders(model, plays, games, players, s, s === 'hitting' ? idOf : undefined)
+    if (!boards) return []
+    const one = (s: 'hitting' | 'pitching') => (s === 'hitting' ? boards.wpaHitting : boards.wpaPitching)
     if (!wpaBoth) return one(side).slice(0, 10).map(r => ({ ...r, faced: 0 }))
     // Keyed as wpaLeaders keys them, so a player the log names but cannot resolve still adds up.
     const rows = new Map<string, ReturnType<typeof one>[number] & { faced: number }>()
@@ -486,14 +479,11 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
       if (row) { row.wpa += r.wpa; row.faced += r.pa } else rows.set(key(r), { ...r, pa: 0, faced: r.pa })
     }
     return [...rows.values()].sort((a, b) => b.wpa - a.wpa).slice(0, 10)
-  }, [plays, games, players, side, idOf, wpaBoth])
+  }, [boards, side, wpaBoth])
   // Hitting only: a pitcher's side of a steal is shared with the catcher, and nothing on the
   // row says how.
   const bases = useMemo(
-    () => (plays && table && idOf && side === 'hitting'
-      ? baserunningLeaders(baserunningEvents(plays, games, table, idOf), players).slice(0, 10)
-      : []),
-    [plays, games, table, idOf, players, side])
+    () => (boards && side === 'hitting' ? boards.bases.slice(0, 10) : []), [boards, side])
 
   // The per-event averages, which the play-value card draws and the worked example has to land
   // on. One memo for both, which is the point of them being on one board: they are pure and
@@ -522,11 +512,8 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
   // the grid. See `fullCountSwing`.
   const fullCount = useMemo(
     () => fullCountSwing(values, counts, { balls: 3, strikes: 2 }), [values, counts])
-  // The steal card's two halves. `econ` is free, off the same `values` pass everything above
-  // walks; `runners` needs the box score, which is why this board takes battingLines.
+  // The steal card. Free, off the same `values` pass everything above walks.
   const econ = useMemo(() => stealEconomy(values), [values])
-  const runners = useMemo(
-    () => topRunners(battingLines ?? [], games, players), [battingLines, games, players])
   const worked = useMemo(() => workedExample(values, rows), [values, rows])
   const workedDate = useMemo(() => {
     const g = worked && games.find(x => x.id === worked.value.play.game_id)
@@ -687,15 +674,16 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
       {!pitching && (
         <SectionCard title="Best on the bases"
           titleAdornment={<InfoDot text={[
-            'Steals, caught stealing and pickoffs are worth the change in the value of the situation, plus a run if the runner scored.',
+            'Steals, caught stealing and pickoffs are worth the change in the value of the situation, plus a run if the runner scored. Each player is then charged what the league’s runners gained or lost stealing per time on first, for every time they reached first, so zero is an average runner and a player who reached often without running is measured against that average too.',
             'Extra bases are the chances to go first to third or second to home on a single, first to home on a double, or tag up on a fly ball with fewer than two out. Each is measured against what runners in this league usually do in the same spot, so taking the base adds and being thrown out subtracts.',
-            'Under each name: steals, and how many of those chances the runner took the extra base.',
+            'Double plays hit into count too, against how often the league hits into one with a runner on first.',
+            'Under each name: steals, and how many of those chances the runner took the extra base. The total is BsR, the same number as the Stats tab’s BsR column and the baserunning part of WAR.',
           ]} />}>
           {bases.length === 0
             ? <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
             : shownBases.map((r, i) => (
                 <LeaderRow key={r.player?.id ?? r.name} rank={i + 1} player={r.player} name={r.player?.name ?? r.name}
-                  teamId={r.teamId} value={fmtRunValue(r.total)} unit="runs" accent={accent}
+                  teamId={r.teamId} value={fmtRunValue(r.bsr)} unit="runs" accent={accent}
                   onOpen={onOpenPlayer} sub={basesLine(r)} />
               ))}
           {isNarrow && bases.length > LIST_CAP && (
@@ -722,7 +710,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
       {/* A verdict rather than a measurement, and the one thing here still behind the switch.
           Kept next to the prices it argues from. */}
       {experiments && (
-        <StealCard econ={econ} runners={runners} accent={accent} onOpenPlayer={onOpenPlayer} />
+        <StealCard econ={econ} accent={accent} />
       )}
 
       {counts.length > 0 && <CountBoard counts={counts} fullCount={fullCount} accent={accent} />}

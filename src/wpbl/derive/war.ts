@@ -6,6 +6,7 @@ import { countsInStandings } from '../../league/season'
 import { wobaWeights, fipWeights, wobaContext, woba, isInfieldFly } from './linearWeights'
 import { doublePlayWorth, readDoublePlay, type FieldPosition, type FieldingLedger } from './fielding'
 import type { CatcherArmLine } from './catching'
+import { baserunningRuns, timesOnFirst, type BaserunningLine, type BaserunningRuns } from './baserunning'
 import type { PlayRunValue, ReTable } from './runExpectancy'
 import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer } from '../types'
 
@@ -112,11 +113,57 @@ export interface WarInput {
   players: WpblPlayer[]
   batting: WpblBattingLine[]
   pitching: WpblPitchingLine[]
-  /** Baserunning runs per player, from `baserunningLeaders`: steal attempts and pickoffs, and
-   *  extra bases, apart, because only the steals are centred here. */
-  baserunning: ReadonlyMap<string, { steal: number; advance: number }>
+  /** The runners, from `baserunningLeaders`, raw: `centredBaserunning` centres the steals. */
+  baserunning: readonly BaserunningLine<WpblPlayer>[]
   ledger: FieldingLedger
   arm: readonly CatcherArmLine<unknown>[]
+}
+
+/** BsR for a season: `baserunningRuns` over the season's hitters. `batting` is the season's
+ *  lines; the schedule keeps the postseason out, as in every aggregate. `gdp` is
+ *  `doublePlayRuns`; WAR leaves it out here and adds it to every line it keys, the roster's or not. */
+export function centredBaserunning(
+  runners: readonly BaserunningLine<WpblPlayer>[],
+  players: WpblPlayer[],
+  batting: WpblBattingLine[],
+  games: WpblGame[],
+  gdp?: ReadonlyMap<string, number>,
+): BaserunningRuns<WpblPlayer>[] {
+  // The club of the player's last line in the season, for a row with no runner event to take it from.
+  const club = new Map<string, string>()
+  for (const l of batting) if (l.team_id) club.set(l.player_id, l.team_id)
+  const hitters = aggregateBatting(players, batting, games, 'regular')
+    .map(s => ({ player: s.player, onFirst: timesOnFirst(s.totals), teamId: club.get(s.player.id) ?? null }))
+  return baserunningRuns([...runners], hitters, timesOnFirst(sumBatting(batting, games, 'regular')), gdp)
+}
+
+/**
+ * Runs per batter on double plays hit into, against the league's rate (FanGraphs' wGDP), the third
+ * part of BsR. A chance is a plate appearance with a runner on first and fewer than two out; a
+ * double play hit into costs what `doublePlayWorth` says the second out was worth, on average.
+ * Keyed by the play's batter id, every one of them, as WAR has always counted them.
+ */
+export function doublePlayRuns(values: readonly PlayRunValue[], table: ReTable): Map<string, number> {
+  const chances = new Map<string, { opp: number; gidp: number }>()
+  let opp = 0, gidp = 0, worth = 0
+  for (const v of values) {
+    const p = v.play
+    if (!p.pitch_sequence || !p.batter_id || v.outs >= 2 || !(v.bases & 1)) continue
+    const c = chances.get(p.batter_id) ?? { opp: 0, gidp: 0 }
+    c.opp++; opp++
+    const dp = p.narrative ? readDoublePlay(p.narrative) : null
+    if (dp?.ground) {
+      c.gidp++; gidp++
+      worth += doublePlayWorth(v, table, true) ?? 0
+    }
+    chances.set(p.batter_id, c)
+  }
+  const out = new Map<string, number>()
+  if (opp > 0 && gidp > 0) {
+    const rate = gidp / opp, cost = worth / gidp
+    for (const [id, c] of chances) out.set(id, (rate * c.opp - c.gidp) * cost)
+  }
+  return out
 }
 
 export function warSeason(input: WarInput): WarSeason | null {
@@ -159,44 +206,16 @@ export function warSeason(input: WarInput): WarSeason | null {
   }
 
   // ── Baserunning, and double plays hit into ────────────────────────────────────
-  // Steals are FanGraphs' wSB: runs on attempts and pickoffs, less the league's steal runs per
-  // time on first (singles, walks, hit batters, less intentional walks) times the player's own.
-  // This league ran below its break-even, so the league rate is negative and a hitter who reached
-  // and stayed put earns back what an average runner lost. A pinch runner has no times on first
-  // and keeps the raw figure, as in FanGraphs. Extra bases arrive centred already.
-  const onFirst = (t: { h: number; doubles: number; triples: number; hr: number; bb: number; hbp: number; ibb: number }) =>
-    t.h - t.doubles - t.triples - t.hr + t.bb + t.hbp - t.ibb
-  const opps = new Map<string, number>()
-  for (const s of aggregateBatting(players, batting, games, 'regular')) opps.set(s.player.id, onFirst(s.totals))
-  let lgSteal = 0
-  for (const b of baserunning.values()) lgSteal += b.steal
-  const lgOnFirst = onFirst(lgBat)
-  const stealRate = lgOnFirst > 0 ? lgSteal / lgOnFirst : 0
-  for (const [id, b] of baserunning) line(id).bsr += b.steal + b.advance
-  for (const [id, n] of opps) line(id).bsr -= stealRate * n
-  // A chance is a plate appearance with a runner on first and fewer than two out; a double play
-  // hit into costs what `doublePlayWorth` says the second out was worth, on average.
-  const chances = new Map<string, { opp: number; gidp: number }>()
-  let opp = 0, gidp = 0, worth = 0
-  for (const v of values) {
-    const p = v.play
-    if (!p.pitch_sequence || !p.batter_id || v.outs >= 2 || !(v.bases & 1)) continue
-    const c = chances.get(p.batter_id) ?? { opp: 0, gidp: 0 }
-    c.opp++; opp++
-    const dp = p.narrative ? readDoublePlay(p.narrative) : null
-    if (dp?.ground) {
-      c.gidp++; gidp++
-      worth += doublePlayWorth(v, table, true) ?? 0
-    }
-    chances.set(p.batter_id, c)
+  // BsR, from `baserunningRuns` (baserunning.ts), which says why the steals are centred, then the
+  // double plays. The same two calls Run value's bases board makes, so the column and the board
+  // are one number.
+  for (const b of centredBaserunning(baserunning, players, batting, games)) {
+    if (b.player) line(b.player.id).bsr += b.bsr
   }
-  if (opp > 0 && gidp > 0) {
-    const rate = gidp / opp, cost = worth / gidp
-    for (const [id, c] of chances) {
-      const l = line(id)
-      l.gdp = (rate * c.opp - c.gidp) * cost
-      l.bsr += l.gdp
-    }
+  for (const [id, g] of doublePlayRuns(values, table)) {
+    const l = line(id)
+    l.gdp = g
+    l.bsr += g
   }
 
   // ── Fielding, centred per position per out ────────────────────────────────────

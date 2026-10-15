@@ -349,3 +349,71 @@ export function baserunningLeaders<P extends { id: string }>(
   }
   return [...rows.values()].sort((a, b) => b.total - a.total)
 }
+
+/** Times on first base: singles, walks and hit batters, less intentional walks. The chances to
+ *  steal that the league's steal rate is charged against. */
+export function timesOnFirst(t: { h: number; doubles: number; triples: number; hr: number; bb: number; hbp: number; ibb: number }): number {
+  return t.h - t.doubles - t.triples - t.hr + t.bb + t.hbp - t.ibb
+}
+
+export interface BaserunningRuns<P> extends BaserunningLine<P> {
+  /** Times on first, the steal chances this player was charged the league's rate for. */
+  onFirst: number
+  /** Runs on double plays hit into against the league's rate (war.ts, `doublePlayRuns`). */
+  gdp: number
+  /** BsR: steal runs less the league's steal runs per time on first times the player's own
+   *  (FanGraphs' wSB), plus the extra-base runs, which are centred already, plus `gdp`. Zero is
+   *  an average runner on every part. */
+  bsr: number
+}
+
+/**
+ * BsR per player, the site's one baserunning number: WAR's baserunning component, Run value's
+ * "Best on the bases" board, the player card and Compare all read it.
+ *
+ * WHY THE STEALS ARE CENTRED. `baserunningLeaders` prices a steal attempt against not running,
+ * so its zero is a player who never ran, while its extra bases are priced against the league's
+ * average runner. Two baselines in one total. This league ran below its break-even, so its
+ * average runner LOST runs stealing; charged that rate per time on first, a hitter who reached
+ * often and stayed put earns back what an average runner would have cost in their place. A
+ * pinch runner has no times on first and keeps the raw figure, as in FanGraphs; so does a runner
+ * the log could not name, which no line can be found for.
+ *
+ * Every hitter is a row, runner or not, because the charge reaches them all. The league rate is
+ * summed over the named runners only, which is what WAR has always used: changing it would move
+ * every stored WAR figure.
+ */
+export function baserunningRuns<P extends { id: string; name: string }>(
+  runners: BaserunningLine<P>[],
+  /** Every hitter, with the club off their lines (never the roster's, which is today's). */
+  hitters: { player: P; onFirst: number; teamId: string | null }[],
+  lgOnFirst: number,
+  /** Double-play runs by player id; a player it leaves out has none. */
+  gdp?: ReadonlyMap<string, number>,
+): BaserunningRuns<P>[] {
+  let lgSteal = 0
+  for (const r of runners) if (r.player) lgSteal += r.stealRuns
+  const rate = lgOnFirst > 0 ? lgSteal / lgOnFirst : 0
+  const onFirst = new Map(hitters.map(h => [h.player.id, h.onFirst]))
+  const rows: BaserunningRuns<P>[] = []
+  const seen = new Set<string>()
+  for (const r of runners) {
+    const n = r.player ? onFirst.get(r.player.id) ?? 0 : 0
+    if (r.player) seen.add(r.player.id)
+    // In this order, which is WAR's: the two runs, the charge, then the double plays.
+    const g = r.player ? gdp?.get(r.player.id) : undefined
+    const base = r.stealRuns + r.advanceRuns - rate * n
+    rows.push({ ...r, onFirst: n, gdp: g ?? 0, bsr: g == null ? base : base + g })
+  }
+  for (const h of hitters) {
+    if (seen.has(h.player.id)) continue
+    rows.push({
+      player: h.player, name: h.player.name, teamId: h.teamId,
+      sb: 0, cs: 0, pickoffs: 0, chances: 0, extra: 0, thrownOut: 0,
+      stealRuns: 0, advanceRuns: 0, total: 0, onFirst: h.onFirst, gdp: 0, bsr: 0 + 0 - rate * h.onFirst,
+    })
+    const g = gdp?.get(h.player.id)
+    if (g != null) { const row = rows[rows.length - 1]; row.gdp = g; row.bsr += g }
+  }
+  return rows.sort((a, b) => b.bsr - a.bsr)
+}

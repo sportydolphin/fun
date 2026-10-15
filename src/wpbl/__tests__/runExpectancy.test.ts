@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   baseCode, buildRunExpectancy, playRunValues, biggestSwings, runValueLeaders, reOf, fmtRunValue,
-  stealEconomy, topRunners, workedExample,
+  stealEconomy, workedExample,
   type EventValue, type PlayRunValue, type RunValueGame,
 } from '../derive/runExpectancy'
 import type { WpblRunValuePlay } from '../types'
@@ -402,34 +402,6 @@ describe('the running game', () => {
     expect(stealEconomy([value('stolen_base', 0.1)]).breakEven).toBeNull()
     expect(stealEconomy([value('caught_stealing', -0.8)]).breakEven).toBeNull()
     expect(stealEconomy([]).successRate).toBeNull()
-  })
-})
-
-describe('who runs', () => {
-  const line = (player_id: string, sb: number, cs: number, game_id = 'g1') =>
-    ({ game_id, player_id, sb, cs })
-  const roster = [
-    { id: 'p1', name: 'Fast One' }, { id: 'p2', name: 'Fast Two' },
-  ] as Parameters<typeof topRunners>[2]
-
-  it('adds a runner up across her games and ranks by attempts', () => {
-    const rows = topRunners(
-      [line('p1', 2, 0), line('p1', 1, 1), line('p2', 1, 0)],
-      [game()], roster)
-    expect(rows.map(r => [r.name, r.sb, r.cs])).toEqual([['Fast One', 3, 1], ['Fast Two', 1, 0]])
-  })
-
-  // Same contract as every other season aggregate. A postseason steal is not a season steal,
-  // and this one would otherwise be the only number on the board that quietly included one.
-  it('leaves the postseason out', () => {
-    const rows = topRunners(
-      [line('p1', 2, 0), line('p1', 5, 0, 'post')],
-      [game(), game('post', { game_type: 'semifinal' })], roster)
-    expect(rows[0].sb).toBe(2)
-  })
-
-  it('ignores a line where nobody ran', () => {
-    expect(topRunners([line('p1', 0, 0)], [game()], roster)).toEqual([])
   })
 })
 

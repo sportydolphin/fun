@@ -1,8 +1,7 @@
 import { Box, Typography } from '@mui/material'
-import { fmtRunValue, type EventValue, type RunnerLine, type StealEconomy } from './derive/runExpectancy'
-import { SectionCard, pressable, FOCUS_RING, TAPPABLE, hoverOnly } from './ui'
+import { fmtRunValue, type EventValue, type StealEconomy } from './derive/runExpectancy'
+import { SectionCard, pressable, FOCUS_RING, TAPPABLE } from './ui'
 import { ExperimentalChip } from '../ExperimentsContext'
-import type { WpblPlayer } from './types'
 
 // The two cards that say what a play is WORTH, as opposed to how often it happened.
 //
@@ -55,11 +54,9 @@ import type { WpblPlayer } from './types'
  * on weeks ago has no way to tell which of the things in front of them is the one that may be
  * wrong tomorrow.
  */
-export function StealCard({ econ, runners, accent, onOpenPlayer }: {
+export function StealCard({ econ, accent }: {
   econ: StealEconomy
-  runners: RunnerLine[]
   accent: string
-  onOpenPlayer: (p: WpblPlayer) => void
 }) {
   const { breakEven, successRate } = econ
   // Both rates or nothing: the card is a comparison, and half of one is not a smaller version
@@ -130,26 +127,6 @@ export function StealCard({ econ, runners, accent, onOpenPlayer }: {
              ${fmtRunValue(econ.net)} runs to the league this season.`}
       </Typography>
 
-      {runners.length > 0 && (
-        <Box sx={{ mt: 2 }}>
-          <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.06em', color: 'text.disabled', mb: 0.75 }}>
-            WHO RUNS
-          </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
-            {runners.map(r => (
-              <Box key={r.name} {...(r.player ? pressable(() => onOpenPlayer(r.player!)) : {})} sx={{
-                ...(r.player ? FOCUS_RING : null),
-                px: 1.25, py: 0.5, borderRadius: 2, border: '1px solid', borderColor: 'outline',
-                fontSize: '0.8rem', cursor: r.player ? 'pointer' : 'default',
-                ...(r.player ? hoverOnly({ borderColor: accent }) : {}),
-              }}>
-                <Box component="span" sx={{ fontWeight: 700 }}>{r.name}</Box>
-                <Box component="span" sx={{ color: 'text.disabled' }}> {r.sb} for {r.sb + r.cs}</Box>
-              </Box>
-            ))}
-          </Box>
-        </Box>
-      )}
     </SectionCard>
   )
 }

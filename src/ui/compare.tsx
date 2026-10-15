@@ -30,6 +30,8 @@ export interface CompareRowView {
   bText: string
   /** Null on a tie, when either side has no number, and on every playing-time row. */
   leader: CompareSide | null
+  /** The figures are on their way: drawn as ghosts in the row they will fill. */
+  pending?: boolean
 }
 
 /** A name not known yet, at a typical name's length. */
@@ -278,7 +280,9 @@ export function CompareBlocksCard({ title, blocks }: { title: React.ReactNode; b
     <CompareCard title={title}>
       {blocks.filter(b => b.length > 0).map((rows, i) => (
         <Box key={rows[0].key} sx={i > 0 ? BLOCK_RULE : undefined}>
-          {rows.map(r => <StatRowFrame key={r.key} a={r.aText} label={r.label} b={r.bText} leader={r.leader} />)}
+          {rows.map(r => (r.pending
+            ? <StatRowFrame key={r.key} a={<TextGhost>000</TextGhost>} label={r.label} b={<TextGhost>000</TextGhost>} />
+            : <StatRowFrame key={r.key} a={r.aText} label={r.label} b={r.bText} leader={r.leader} />))}
         </Box>
       ))}
     </CompareCard>

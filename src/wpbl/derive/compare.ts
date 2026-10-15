@@ -20,6 +20,8 @@
 //    side the reader should discount. Hiding the numbers would leave the short-sample player
 //    with a page that says nothing about them at all.
 
+import type { BoardPlace, PlayerSeasonValue } from './seasonValue'
+import { fmtRunValue } from '../../league/runExpectancy'
 import {
   sumBatting, sumPitching, plateAppearances, hasPlateAppearance, wpblQualifiers, fmtRate, fmtTwo,
   scaleToBasis, kRateLabel, ERA_BASIS_CANONICAL,
@@ -50,6 +52,8 @@ export interface WpblCompareRow {
   /** Who is ahead, or null. Null covers a tie AND either side having no number at all; the
    *  two are different facts and neither one is a win. */
   leader: WpblCompareSide | null
+  /** Not known yet: the figure arrives after the page (`value` below). Drawn as a ghost. */
+  pending?: boolean
 }
 
 export interface WpblCompareGroup {
@@ -68,6 +72,9 @@ export interface WpblCompareGroup {
   barText: string | null
   rate: WpblCompareRow[]
   counting: WpblCompareRow[]
+  /** Wins added, and a hitter's runs on the bases: Run value's own boards (derive/seasonValue.ts).
+   *  Empty when the caller passed no `value` at all. */
+  value: WpblCompareRow[]
 }
 
 /** One slice of a duel: every plate appearance between the two in that part of the year. */
@@ -268,9 +275,19 @@ export function buildWpblComparison(
      *  the rest of the page does not wait on it. */
     plays?: WpblMatchupPlay[]
     basis?: EraBasis
+    /** Each side's places on Run value's boards (`playerSeasonValue`). Null while the play log is
+     *  on its way, which keeps the rows and ghosts their figures; left out, there are no rows. */
+    value?: { a: PlayerSeasonValue; b: PlayerSeasonValue } | null
   },
 ): WpblComparison {
-  const { teams, games, batting, pitching, plays, basis = ERA_BASIS_CANONICAL } = opts
+  const { teams, games, batting, pitching, plays, basis = ERA_BASIS_CANONICAL, value } = opts
+  // The same rows either way, so nothing moves when the figures land.
+  const valueRows = (specs: [key: string, label: string, digits: 1 | 2, pick: (v: PlayerSeasonValue) => BoardPlace | null][]): WpblCompareRow[] =>
+    value === undefined ? [] : specs.map(([key, label, digits, pick]) => {
+      const fmt = (v: number | null) => (v == null ? '—' : fmtRunValue(v, digits))
+      if (!value) return { ...row(key, label, 'high', null, null, fmt), pending: true }
+      return row(key, label, 'high', pick(value.a)?.value ?? null, pick(value.b)?.value ?? null, fmt)
+    })
   const q = wpblQualifiers(teams, games)
 
   const forPlayer = <T extends { player_id: string }>(lines: T[], p: WpblPlayer) =>
@@ -304,6 +321,7 @@ export function buildWpblComparison(
       barText: q.active ? `${q.minPa} PA` : null,
       rate,
       counting,
+      value: valueRows([['wpa', 'WPA', 2, v => v.wpaHitting], ['bsr', 'BsR', 1, v => v.bases]]),
     })
   }
 
@@ -318,6 +336,7 @@ export function buildWpblComparison(
       barText: q.active ? `${outsToIp(q.minOuts)} IP` : null,
       rate,
       counting,
+      value: valueRows([['wpa', 'WPA', 2, v => v.wpaPitching]]),
     })
   }
 
