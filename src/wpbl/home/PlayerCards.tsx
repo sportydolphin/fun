@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Skeleton, Typography } from '@mui/material'
 import type { WpblGame, WpblPlayer, WpblTeam, WpblBattingLine, WpblPitchingLine } from '../types'
 import { fetchWpblPlayerLines } from '../api'
@@ -159,7 +159,9 @@ function SeasonStrip({ player, lines, games }: { player: WpblPlayer; lines: Line
       ) : (
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 0.5 }}>
           {(cells ?? ['G', '', '', '', '', ''].map(l => [l, ''] as [string, string])).map(([label, value], i) => (
-            <StatCell key={i} label={cells ? label : ' '}
+            // A no-break space, not ' ': a lone space collapses, so the label row took no height
+            // until the stats landed and the card grew by a line under the reader.
+            <StatCell key={i} label={cells ? label : ' '}
               value={cells ? value : <Skeleton variant="text" width="70%" sx={{ mx: 'auto', fontSize: TYPE_SCALE.title }} />} />
           ))}
         </Box>
@@ -202,6 +204,11 @@ export function PlayerOfTheDayCard({ players, teams, games, onOpenPlayer }: {
     return () => { live = false }
   }, [player])
   const own = lines && player && lines.id === player.id ? lines.lines : null
+  // Keyed to the player, so a new pick (the date turning over) waits for its own face.
+  const [faceFor, setFaceFor] = useState<string | null>(null)
+  const playerId = player?.id ?? null
+  const onFaceReady = useCallback(() => setFaceFor(playerId), [playerId])
+  const faceReady = !!player && faceFor === player.id
 
   const team = player?.team_id ? teams.get(player.team_id) : undefined
   const position = player
@@ -228,9 +235,17 @@ export function PlayerOfTheDayCard({ players, teams, games, onOpenPlayer }: {
           ...UNSTYLED_LINK, display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0,
           borderRadius: 2, p: 0.5, mx: -0.5, ...(player ? { ...TAPPABLE, ...FOCUS_RING } : null),
         }}>
-          {player
-            ? <PlayerPortrait name={player.name} teamId={player.team_id} size={72} />
-            : <Skeleton variant="circular" sx={{ flexShrink: 0, width: 'calc(72px * var(--app-chrome, 1))', height: 'calc(72px * var(--app-chrome, 1))' }} />}
+          {/* The skeleton circle stays over the portrait until its face has loaded, and the face
+              fades in under it. Swapped straight in, the frame painted as a bare club-coloured disc
+              for the beat before the photo arrived: grey, then navy, then a face, a blink. */}
+          <Box sx={{ position: 'relative', flexShrink: 0 }}>
+            {player
+              ? <Box sx={{ opacity: faceReady ? 1 : 0, transition: 'opacity 0.25s' }}>
+                  <PlayerPortrait name={player.name} teamId={player.team_id} size={72} eager onReady={onFaceReady} />
+                </Box>
+              : <Box sx={{ width: 'calc(72px * var(--app-chrome, 1))', height: 'calc(72px * var(--app-chrome, 1))' }} />}
+            {!faceReady && <Skeleton variant="circular" sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />}
+          </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             {player
               ? <FittedName name={player.name} sx={NAME_SX} />
