@@ -21,7 +21,7 @@ import { track, EVENTS } from '../../lib/analytics'
 import {
   wpblGamePath, wpblComparePath,
 } from '../routes'
-import { currentSeason, seasonsOnRecord } from '../season'
+import { currentSeason, inSeason, seasonsOnRecord } from '../season'
 
 /** The empty result list, one array for good: the bridge compares by identity, and a fresh `[]`
  *  per publish would wake every subscriber to say nothing changed. */
@@ -81,13 +81,18 @@ export function useWpblSearch({ searchActive, players, teams, games, openPlayer,
     if (!searchUsed) return
     let cancelled = false
     // The current season's stored positions when they are current (derive/playerSeasons.ts), which
-    // the answers read anyway, so a search costs no box-score read at all; the lines otherwise.
+    // the answers read anyway, so a search costs no box-score read at all; the lines otherwise, cut
+    // to that same year against the WHOLE schedule. Uncut, a second season on record would blend two
+    // years of starts into one label. This hook runs above WpblSeasonProvider, so it cannot take
+    // useWpblSeason's cut, and the year is the current one rather than the reader's ?season= anyway.
     const year = currentSeason(games)
     ;(year == null ? Promise.resolve(null) : fetchWpblPlayerSeasons(year))
       .then(async stored => {
         const index: Map<string, PrimaryPosition> = stored?.current
           ? new Map(stored.rows.flatMap(r => (r.scope === 'regular' && r.position ? [[r.player_id, r.position] as const] : [])))
-          : buildPositionIndex((await fetchWpblAllLines()).batting, games)
+          : year == null
+            ? new Map()
+            : buildPositionIndex(inSeason((await fetchWpblAllLines()).batting, games, year), games)
         if (!cancelled) setPositionIndex(index)
       })
       .catch(() => { /* search falls back to the roster's own labels */ })
