@@ -51,9 +51,10 @@ describe('who owns the page heading', () => {
 // and it renders fine on a desktop, so only this catches it coming back.
 describe('every tab title is drawn on a phone', () => {
   const TAB_TITLE_FILES = [
-    'src/wpbl/StatsView.tsx',
+    'src/wpbl/stats/StatsView.tsx',
     'src/wpbl/TeamsGrid.tsx',
-    'src/wpbl/WpblApp.tsx', // Scores and Standings both live here
+    'src/wpbl/app/ScoresTab.tsx',
+    'src/wpbl/app/StandingsTab.tsx',
   ]
 
   it.each(TAB_TITLE_FILES)('%s draws its title through TabTitle', (file) => {
@@ -96,10 +97,11 @@ describe('a kept-alive tab off screen', () => {
 describe('no tab hardcodes its heading level', () => {
   const TAB_VIEWS = [
     'src/wpbl/home/WpblHome.tsx',
-    'src/wpbl/StatsView.tsx',
+    'src/wpbl/stats/StatsView.tsx',
     'src/wpbl/TeamsGrid.tsx',
     'src/wpbl/TeamPage.tsx',
-    'src/wpbl/WpblApp.tsx',
+    'src/wpbl/app/ScoresTab.tsx',
+    'src/wpbl/app/StandingsTab.tsx',
   ]
 
   it.each(TAB_VIEWS)('%s asks the context instead', (file) => {

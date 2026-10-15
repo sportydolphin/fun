@@ -601,7 +601,9 @@ will actually see all winter. The functional items do not wait.
    that is rightly per league (`api`, `types`, `routes`, `league`).
 6. **Split WPBL's largest files into folders,** as #103 did for Home and Game Center:
    `StatsView.tsx` (191 KB), `WpblApp.tsx` (151 KB), `PlayerDetail.tsx` (116 KB), `FanVote.tsx`
-   (111 KB), `SeasonPage.tsx` (91 KB).
+   (111 KB), `SeasonPage.tsx` (91 KB). ✅ *Stats, the shell and the player card done Oct 15*
+   (#112, #114: `src/wpbl/stats/`, `src/wpbl/app/`, `src/wpbl/player/`); `FanVote` and
+   `SeasonPage` are left.
 7. **What's new loads every release ever written.** `ChangelogDialogs` is the third-largest chunk,
    80 KB gzipped, because `changelog.ts` imports every archive back to v1.000. Load the archives
    only when a reader scrolls past the newest releases.

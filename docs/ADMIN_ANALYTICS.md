@@ -289,7 +289,7 @@ Break one of these and the dashboard keeps rendering. It just lies.
   assumption: it's true of today's traffic mix, not of the data.
 - **Inside the Stats tab, `open` and `return` are per page-load, not per browser.** The tab
   pager unmounts a pane when the reader leaves it, so the flag behind those two names lives at
-  module scope in [`StatsView.tsx`](../src/wpbl/StatsView.tsx). A component-scoped flag would be
+  module scope in [`stats/StatsView.tsx`](../src/wpbl/stats/StatsView.tsx). A component-scoped flag would be
   born false on every visit and call all of them `open`. It also means the board a `return`
   reports is the default one, not the board that reader left: the unmount takes the axes with
   it. Board counts are therefore arrivals plus deliberate switches, and only the switches say

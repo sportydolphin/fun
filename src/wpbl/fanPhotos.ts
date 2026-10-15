@@ -1,6 +1,6 @@
 // Fan photos: joining the three flat reads into the lookups every surface asks for.
 //
-// The fetchers in api.ts return three parallel arrays (photos, their subject tags, the figure
+// The fetchers in api/photos.ts return three parallel arrays (photos, their subject tags, the figure
 // dictionary). This module joins them in memory, the same shape the section uses for league-wide
 // data, and is deliberately pure: types-only imports, no supabase client, so it unit-tests as a
 // plain function. See docs/FAN_PHOTOS.md.
@@ -108,7 +108,7 @@ export function buildFanPhotoIndex(
 
   for (const p of photos) {
     // Only published photos reach an audience surface. For a reader RLS already guarantees it;
-    // for the owner, whose read includes the backlog, this is what enforces it (see api.ts).
+    // for the owner, whose read includes the backlog, this is what enforces it (see api/photos.ts).
     if (p.approved === false) continue
     const playerIds = playerTags.get(p.id) ?? []
     const figureKeys = figureTags.get(p.id) ?? []

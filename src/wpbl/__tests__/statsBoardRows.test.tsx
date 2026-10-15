@@ -33,7 +33,7 @@ vi.mock('../api', async (importOriginal) => ({
 // Flipped per test: the phone's table folds the league into its headers and hides the site footer.
 let PHONE = false
 
-const { default: StatsView } = await import('../StatsView')
+const { default: StatsView } = await import('../stats/StatsView')
 
 const TEAMS: WpblTeam[] = (['SF', 'BOS'] as const).map((id, i) => ({
   id, city: id, name: id, abbr: id, color: null, color_secondary: null,

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Box } from '@mui/material'
 
-// THE STATS TAB'S CONTROL BAR, PINNED, as WPBL's is (barRef in src/wpbl/StatsView.tsx): the board
+// THE STATS TAB'S CONTROL BAR, PINNED, as WPBL's is (barRef in src/wpbl/stats/ControlBar.tsx): the board
 // tabs and the board's own controls stay under the toolbar while a long board scrolls, so changing
 // the side, the season or the view never means scrolling back to the top. Until Oct 2026 MLB's
 // scrolled away with the page and WPBL's did not, the one difference left between the two tabs.

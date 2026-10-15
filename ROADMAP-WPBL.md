@@ -686,7 +686,7 @@ its thresholds off games played, so the qualified filter drifts too.
 **Standings have the same hole, one layer up.** `game_type` and `counts_in_standings` are
 both ingested and stored
 ([`wpbl-ingest/index.ts:652`](supabase/functions/wpbl-ingest/index.ts)) but **no consumer
-reads either**. `computeStandings` ([`api.ts:467`](src/wpbl/api.ts)) filters on
+reads either**. `computeStandings` ([`api/games.ts`](src/wpbl/api/games.ts)) filters on
 `status === 'final'` alone.
 
 **Blast radius**: everything reading those four functions. Stats tab, home leaders, team

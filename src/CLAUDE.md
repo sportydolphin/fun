@@ -94,7 +94,7 @@ Loaded when you read anything under `src/`. The section-specific traps are in `s
   every phone on Sep 14, 2026, so anything still describing those as experimental is stale.
 
 - **`--app-header-h` is the pinned chrome's height, in plain screen pixels,** spent as a sticky
-  `top` (`PINNED_CHROME` in [`StatsView.tsx`](wpbl/StatsView.tsx)). Above a phone it is the
+  `top` (`PINNED_CHROME` in [`stats/layout.ts`](wpbl/stats/layout.ts)). Above a phone it is the
   WHOLE of the pinned chrome: both sections' tabs live inside the toolbar
   ([`ToolbarNav.tsx`](ToolbarNav.tsx), fed by [`sectionNav.ts`](sectionNav.ts)), two rows
   of it below 1024px. There was a second variable for WPBL's own pill row until v1.124.0 removed
