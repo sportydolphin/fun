@@ -579,8 +579,9 @@ will actually see all winter. The functional items do not wait.
    off in one pass, `SeriesSheet` among them once its score step exists.
    ✅ *Batch A, Oct 15 (v1.167.1):* 90 files to 61. Every shell and WPBL file with five or fewer
    sizes is off, and the two fan-award share images are a named exemption in `typeScale.test.ts`
-   (a fixed-pixel PNG, never converting). Next, in order: B, the shell (`App`, `AuthDialogs`,
-   `SettingsDialog`, `NotificationBell`, `ChangelogDialogs`, `LegalPages`, 79 sizes); C, the WPBL
+   (a fixed-pixel PNG, never converting). ✅ *Batch B, Oct 15 (v1.167.2):* the shell (`App`,
+   `AuthDialogs`, `SettingsDialog`, `NotificationBell`, `ChangelogDialogs`, `LegalPages`, 76 sizes),
+   59 files left; a dialog's hero glyph is a new `ICON_SIZE.xl` (2rem). Next, in order: C, the WPBL
    pages readers see this winter (`SeasonPage`, `WpblApp`, `TeamPage`, `RunValueView`, `Reading`,
    Game Center's play by play and pitch data, `TeamsGrid` and the rest, about 400); D, admin and
    dev tools (317, last or never). WPBL's `Live` and `LiveGameView` wait for spring with MLB's live

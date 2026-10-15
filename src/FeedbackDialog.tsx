@@ -57,7 +57,7 @@ export function FeedbackDialog({ open, onClose, userId, userEmail }: {
       <DialogContent>
         {sent ? (
           <Box sx={{ py: 3, textAlign: 'center' }}>
-            <Typography sx={{ fontSize: ICON_SIZE.lg, mb: 1 }}>🙏</Typography>
+            <Typography sx={{ fontSize: ICON_SIZE.xl, mb: 1 }}>🙏</Typography>
             <Typography sx={{ fontWeight: 700 }}>Thanks, got it.</Typography>
             <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 0.5 }}>
               Every note gets read.

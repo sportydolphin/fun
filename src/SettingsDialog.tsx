@@ -36,6 +36,7 @@ import { PasswordChecklist } from './PasswordChecklist'
 import { useAccessibilitySettings, type TextScale } from './AccessibilityContext'
 import { track, EVENTS } from './lib/analytics'
 import { typePx } from './ui/scale'
+import { ICON_SIZE, TYPE_SCALE } from './ui/card'
 
 interface Props {
   open:             boolean
@@ -71,10 +72,10 @@ function SettingsLabel({ children, icon, danger, sx }: {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mb: 0.75 }}>
       {icon && (
-        <Box aria-hidden sx={{ display: 'flex', color, '& > svg': { fontSize: '1rem' } }}>{icon}</Box>
+        <Box aria-hidden sx={{ display: 'flex', color, '& > svg': { fontSize: ICON_SIZE.sm } }}>{icon}</Box>
       )}
       <Typography sx={{
-        fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
+        fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
         color, ...sx,
       }}>
         {children}
@@ -127,14 +128,14 @@ function Row({ title, hint, control, onClick, chevron, first, children }: {
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
-        <Typography sx={{ fontSize: '0.88rem', fontWeight: 700, minWidth: 0 }}>{title}</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, minWidth: 0 }}>{title}</Typography>
         <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
           {control}
           {chevron && <ChevronRight sx={{ color: 'text.disabled' }} />}
         </Box>
       </Box>
       {hint && (
-        <Typography sx={{ fontSize: '0.74rem', color: 'text.secondary', mt: 0.3, lineHeight: 1.45 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 0.3, lineHeight: 1.45 }}>
           {hint}
         </Typography>
       )}
@@ -180,7 +181,7 @@ function PillGroup<T extends string | number>({ options, value, onChange, accent
               flex: fullWidth ? 1 : 'none',
               px: fullWidth ? 1 : 1.4, py: 0.5,
               textAlign: 'center', cursor: 'pointer', userSelect: 'none',
-              fontSize: '0.75rem', fontWeight: 700, whiteSpace: 'nowrap',
+              fontSize: TYPE_SCALE.meta, fontWeight: 700, whiteSpace: 'nowrap',
               bgcolor: active ? accent : 'transparent',
               color: active ? '#fff' : 'text.secondary',
               transition: 'background-color 0.15s',
@@ -198,8 +199,8 @@ function PillGroup<T extends string | number>({ options, value, onChange, accent
 function ErrorNote({ children }: { children: React.ReactNode }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, mt: 0.75, color: 'error.main' }}>
-      <WarningAmber sx={{ fontSize: '0.95rem', mt: '1px', flexShrink: 0 }} />
-      <Typography sx={{ fontSize: '0.74rem' }}>{children}</Typography>
+      <WarningAmber sx={{ fontSize: ICON_SIZE.sm, mt: '1px', flexShrink: 0 }} />
+      <Typography sx={{ fontSize: TYPE_SCALE.meta }}>{children}</Typography>
     </Box>
   )
 }
@@ -408,7 +409,7 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
               {selectedTeam && (
                 <TeamLogo teamId={selectedTeam.id} abbr={selectedTeam.abbreviation} size={22} decorative />
               )}
-              <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: selectedTeam ? 'text.primary' : 'text.disabled', whiteSpace: 'nowrap' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: selectedTeam ? 'text.primary' : 'text.disabled', whiteSpace: 'nowrap' }}>
                 {selectedTeam ? selectedTeam.abbreviation : loadingTeams ? 'Loading…' : 'Not set'}
               </Typography>
               <ExpandMore sx={{ color: 'text.disabled', transition: 'transform 0.15s', transform: pickerOpen ? 'rotate(180deg)' : 'none' }} />
@@ -447,7 +448,7 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
                           }}
                         >
                           <TeamLogo teamId={t.id} abbr={t.abbreviation} size={28} decorative />
-                          <Typography sx={{ fontSize: '0.56rem', fontWeight: 800, lineHeight: 1.1, textAlign: 'center' }}>
+                          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, lineHeight: 1.1, textAlign: 'center' }}>
                             {t.abbreviation}
                           </Typography>
                         </Box>
@@ -458,7 +459,7 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
                     <Typography
                       {...pressable(() => selectTeam(null))}
                       sx={{
-                        fontSize: '0.72rem', fontWeight: 700, color: 'error.main', cursor: 'pointer',
+                        fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'error.main', cursor: 'pointer',
                         mt: 1, display: 'inline-block', borderRadius: 1,
                         '&:hover': { textDecoration: 'underline' }, ...FOCUS_RING,
                       }}
@@ -504,7 +505,7 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
             // wedged into the middle of it, which wrapped onto two lines at 375px and left
             // the control stranded. Four fixed choices are a pill row, not a select.
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mt: 1 }}>
-              <Typography sx={{ fontSize: '0.74rem', color: 'text.secondary' }}>Lead time</Typography>
+              <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Lead time</Typography>
               <PillGroup
                 options={[5, 10, 15, 30].map(m => ({ key: m, label: `${m}m` }))}
                 value={gsLead}
@@ -684,7 +685,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
                 <Box sx={{ p: 1.75, borderTop: '1px solid', borderColor: 'divider' }}>
                   {pwDone ? (
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
-                      <Typography sx={{ fontSize: '0.82rem', color: 'success.main', fontWeight: 700 }}>
+                      <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'success.main', fontWeight: 700 }}>
                         Password {hasPassword ? 'changed' : 'set'}.
                       </Typography>
                       <Button size="small" onClick={closePasswordForm}>Done</Button>
@@ -723,7 +724,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
                         error={pwConfirm.length > 0 && pwConfirm !== pwNext}
                       />
                       {pwErr && (
-                        <Typography sx={{ fontSize: '0.78rem', color: 'error.main', mt: 1, lineHeight: 1.45 }}>
+                        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'error.main', mt: 1, lineHeight: 1.45 }}>
                           {pwErr}
                         </Typography>
                       )}
@@ -760,7 +761,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
                 onChange={l => setLeague(l)}
               />
             </Box>
-            <Typography sx={{ fontSize: '0.74rem', color: 'text.secondary', mb: 1.25, lineHeight: 1.45 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mb: 1.25, lineHeight: 1.45 }}>
               {LEAGUE_BLURB[league]}
             </Typography>
             {league === 'wpbl'
@@ -790,7 +791,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
                       setBusy(false)
                     })}
                     sx={{
-                      fontSize: '0.78rem', fontWeight: 700, color: 'error.main',
+                      fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'error.main',
                       cursor: busy ? 'default' : 'pointer', borderRadius: 1, px: 0.5,
                       '&:hover': { textDecoration: busy ? 'none' : 'underline' }, ...FOCUS_RING,
                     }}
@@ -937,8 +938,8 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
               ) : (
                 <Box sx={{ p: 1.75 }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1.25 }}>
-                    <WarningAmber sx={{ color: 'error.main', fontSize: '1.1rem', mt: '1px', flexShrink: 0 }} />
-                    <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.5 }}>
+                    <WarningAmber sx={{ color: 'error.main', fontSize: ICON_SIZE.md, mt: '1px', flexShrink: 0 }} />
+                    <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.5 }}>
                       This permanently deletes your account, username, followed team/players, and prediction history. This can't be undone.
                     </Typography>
                   </Box>

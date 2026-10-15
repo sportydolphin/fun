@@ -24,6 +24,7 @@ import { wpblGameStartSource } from './wpbl/notifications/gameStart'
 import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 import { useForegroundInterval } from './lib/foregroundInterval'
 import { typePx } from './ui/scale'
+import { ICON_SIZE, TYPE_SCALE } from './ui/card'
 
 // Registered at module load so the set of sources is declared in one place.
 registerNotificationSource(picksReadySource)
@@ -132,7 +133,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
             <Badge
               badgeContent={unread}
               max={9}
-              sx={{ '& .MuiBadge-badge': { bgcolor: '#ef4444', color: '#fff', fontSize: '0.6rem', minWidth: 15, height: 15 } }}
+              sx={{ '& .MuiBadge-badge': { bgcolor: '#ef4444', color: '#fff', fontSize: TYPE_SCALE.caption, minWidth: 15, height: 15 } }}
             >
               <Notifications />
             </Badge>
@@ -158,7 +159,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
               position: 'sticky', top: 0, bgcolor: 'background.raised', zIndex: 1,
             }}>
               <Typography id="notification-panel-title" sx={{
-                flex: 1, fontSize: '0.62rem', fontWeight: 800, color: 'text.secondary',
+                flex: 1, fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.secondary',
                 textTransform: 'uppercase', letterSpacing: typePx(1),
               }}>
                 Notifications
@@ -176,7 +177,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
                     // keeps the header its original height while the target grows.
                     flexShrink: 0, px: 1, minHeight: 32, my: -0.5, borderRadius: 1,
                     display: 'flex', alignItems: 'center',
-                    fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary',
+                    fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary',
                     textTransform: 'uppercase', letterSpacing: typePx(0.5), cursor: 'pointer',
                     '&:hover': { color: 'text.primary', bgcolor: 'action.hover' },
                     ...FOCUS_RING,
@@ -189,13 +190,13 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
 
             {items.length === 0 ? (
               <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
-                <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary' }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
                   You're all caught up
                 </Typography>
                 {/* Deliberately section-neutral. The default section is WPBL, so the old
                     "pick reminders" wording described a feature the reader may not have,
                     in a section they may never open. */}
-                <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.5 }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', mt: 0.5 }}>
                   Game reminders and updates will show up here.
                 </Typography>
               </Box>
@@ -214,15 +215,15 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
                     ...FOCUS_RING,
                   }}
                 >
-                  <Typography sx={{ fontSize: '1rem', lineHeight: 1.2, flexShrink: 0 }}>{n.icon}</Typography>
+                  <Typography sx={{ fontSize: ICON_SIZE.sm, lineHeight: 1.2, flexShrink: 0 }}>{n.icon}</Typography>
                   <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Typography sx={{ fontSize: '0.78rem', fontWeight: n.read ? 600 : 800, lineHeight: 1.3 }}>
+                    <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: n.read ? 600 : 800, lineHeight: 1.3 }}>
                       {n.title}
                     </Typography>
-                    <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', lineHeight: 1.35, mt: 0.15 }}>
+                    <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.35, mt: 0.15 }}>
                       {n.body}
                     </Typography>
-                    <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', mt: 0.35 }}>
+                    <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 0.35 }}>
                       {timeAgo(n.createdAt)}
                     </Typography>
                   </Box>
@@ -253,7 +254,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
                       ...FOCUS_RING,
                     }}
                   >
-                    <Close sx={{ fontSize: '0.9rem' }} />
+                    <Close sx={{ fontSize: ICON_SIZE.sm }} />
                   </Box>
                 </Box>
               ))

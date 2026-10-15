@@ -7,6 +7,7 @@ import { CheckCircle, Cancel } from '@mui/icons-material'
 import { usernameValidationMsg } from './lib/usernames'
 import { PasswordChecklist } from './PasswordChecklist'
 import type { AuthMode } from './AuthContext'
+import { ICON_SIZE, TYPE_SCALE } from './ui/card'
 
 // The sign-in, email-confirmed and choose-a-new-password dialogs: markup only.
 //
@@ -89,7 +90,7 @@ export default function AuthDialogs({
 
             {mode === 'reset' && !successMsg && (
               <Box sx={{ mb: 2, px: 1.5, py: 1.25, borderRadius: 2, bgcolor: 'action.hover', border: '1px solid', borderColor: 'outline' }}>
-                <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', lineHeight: 1.5 }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.5 }}>
                   Enter the email you sign in with and we'll send a link that lets you choose a new password.
                 </Typography>
               </Box>
@@ -98,7 +99,7 @@ export default function AuthDialogs({
             {/* Context blurb for sign-up prompt */}
             {mode === 'signup' && !successMsg && (
               <Box sx={{ mb: 2, px: 1.5, py: 1.25, borderRadius: 2, bgcolor: 'action.hover', border: '1px solid', borderColor: 'outline' }}>
-                <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', lineHeight: 1.5 }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.5 }}>
                   Save your followed team and players so they sync across all your devices.
                 </Typography>
               </Box>
@@ -107,14 +108,14 @@ export default function AuthDialogs({
             {/* ── Success state (email confirmation sent) ── */}
             {successMsg ? (
               <Box sx={{ py: 2, textAlign: 'center' }}>
-                <Typography sx={{ fontSize: '2rem', mb: 1.5, lineHeight: 1 }}>{mode === 'reset' ? '🔑' : '📬'}</Typography>
+                <Typography sx={{ fontSize: ICON_SIZE.xl, mb: 1.5, lineHeight: 1 }}>{mode === 'reset' ? '🔑' : '📬'}</Typography>
                 <Typography sx={{ fontWeight: 700, mb: 0.75 }}>
                   {mode === 'reset' ? 'Check your inbox' : 'Almost there!'}
                 </Typography>
-                <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', lineHeight: 1.6 }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.6 }}>
                   {successMsg}
                 </Typography>
-                <Typography sx={{ fontSize: '0.75rem', color: 'text.disabled', mt: 1.5, lineHeight: 1.5 }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mt: 1.5, lineHeight: 1.5 }}>
                   {mode === 'reset'
                     ? 'Open it on this device and you can set the new password right here. The link works once, and not for long.'
                     : 'Click the link in that email to activate your account. It signs you in on whichever device you open it.'}
@@ -136,7 +137,7 @@ export default function AuthDialogs({
                       startIcon={<GoogleIcon />}
                       sx={{
                         mb: 2, py: 1, borderColor: 'divider', color: 'text.primary',
-                        textTransform: 'none', fontWeight: 600, fontSize: '0.9rem',
+                        textTransform: 'none', fontWeight: 600, fontSize: TYPE_SCALE.title,
                         '&:hover': { borderColor: 'text.secondary', bgcolor: 'action.hover' },
                       }}
                     >
@@ -144,7 +145,7 @@ export default function AuthDialogs({
                     </Button>
 
                     <Divider sx={{ mb: 2 }}>
-                      <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', px: 1 }}>or</Typography>
+                      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', px: 1 }}>or</Typography>
                     </Divider>
                   </>
                 )}
@@ -186,7 +187,7 @@ export default function AuthDialogs({
                     <Typography
                       component="span"
                       {...pressable(() => goToMode('reset'))}
-                      sx={{ fontSize: '0.78rem', color: 'text.secondary', cursor: 'pointer', '&:hover': { color: 'text.primary' } }}
+                      sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', cursor: 'pointer', '&:hover': { color: 'text.primary' } }}
                     >
                       Forgot password?
                     </Typography>
@@ -203,7 +204,7 @@ export default function AuthDialogs({
                       htmlInput: { spellCheck: false, autoCapitalize: 'none', autoCorrect: 'off' },
                       input: {
                         startAdornment: (
-                          <Typography sx={{ color: 'text.disabled', mr: 0.25, fontSize: '1rem', lineHeight: 1, userSelect: 'none' }}>@</Typography>
+                          <Typography sx={{ color: 'text.disabled', mr: 0.25, fontSize: 'inherit', lineHeight: 1, userSelect: 'none' }}>@</Typography>
                         ),
                       },
                       formHelperText: { component: 'div' } as object,
@@ -217,11 +218,11 @@ export default function AuthDialogs({
                         </Box>
                       ) : usernameStat === 'available' ? (
                         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: 'success.main' }}>
-                          <CheckCircle sx={{ fontSize: '0.85rem' }} /> Available
+                          <CheckCircle sx={{ fontSize: ICON_SIZE.sm }} /> Available
                         </Box>
                       ) : usernameStat === 'taken' ? (
                         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: 'error.main' }}>
-                          <Cancel sx={{ fontSize: '0.85rem' }} /> Already taken
+                          <Cancel sx={{ fontSize: ICON_SIZE.sm }} /> Already taken
                         </Box>
                       ) : "Leave blank and we'll pick one for you"
                     }
@@ -231,7 +232,7 @@ export default function AuthDialogs({
                 {error && (
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, mt: 1, color: 'error.main' }}>
                     <Box component="span" sx={{ flexShrink: 0, mt: '1px' }}>⚠️</Box>
-                    <Typography sx={{ fontSize: '0.78rem' }}>{error}</Typography>
+                    <Typography sx={{ fontSize: TYPE_SCALE.body }}>{error}</Typography>
                   </Box>
                 )}
 
@@ -239,7 +240,7 @@ export default function AuthDialogs({
                   <Typography
                     component="span"
                     {...pressable(mode === 'reset' ? () => goToMode('signin') : switchMode)}
-                    sx={{ fontSize: '0.8rem', color: 'text.secondary', cursor: 'pointer', '&:hover': { color: 'text.primary' } }}
+                    sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', cursor: 'pointer', '&:hover': { color: 'text.primary' } }}
                   >
                     {mode === 'reset' ? 'Back to sign in'
                       : mode === 'signin' ? "Don't have an account? Sign up"
@@ -279,9 +280,9 @@ export default function AuthDialogs({
         <Dialog open={confirmed} onClose={closeConfirmed} maxWidth="xs" fullWidth>
           <DialogContent sx={{ pt: '24px !important' }}>
             <Box sx={{ py: 1, textAlign: 'center' }}>
-              <Typography sx={{ fontSize: '2.5rem', mb: 1, lineHeight: 1 }}>✅</Typography>
-              <Typography sx={{ fontWeight: 700, fontSize: '1.05rem', mb: 0.75 }}>Email confirmed</Typography>
-              <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', lineHeight: 1.6 }}>
+              <Typography sx={{ fontSize: ICON_SIZE.xl, mb: 1, lineHeight: 1 }}>✅</Typography>
+              <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.heading, mb: 0.75 }}>Email confirmed</Typography>
+              <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.6 }}>
                 Your account is active and you're signed in on this device.
               </Typography>
             </Box>
@@ -307,14 +308,14 @@ export default function AuthDialogs({
           <DialogContent sx={{ pt: '8px !important' }}>
             {recoveryDone ? (
               <Box sx={{ py: 2, textAlign: 'center' }}>
-                <Typography sx={{ fontSize: '2rem', mb: 1.5, lineHeight: 1 }}>✅</Typography>
-                <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', lineHeight: 1.6 }}>
+                <Typography sx={{ fontSize: ICON_SIZE.xl, mb: 1.5, lineHeight: 1 }}>✅</Typography>
+                <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.6 }}>
                   You're signed in on this device, and that's the password to use from now on.
                 </Typography>
               </Box>
             ) : (
               <>
-                <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', mb: 2, lineHeight: 1.5 }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mb: 2, lineHeight: 1.5 }}>
                   That link signed you in. Set a password now and it's the one you'll use from here
                   on. Close this and your old password still works, but you'll need a fresh link to
                   try again.
@@ -343,7 +344,7 @@ export default function AuthDialogs({
                 {recoveryErr && (
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, mt: 1, color: 'error.main' }}>
                     <Box component="span" sx={{ flexShrink: 0, mt: '1px' }}>⚠️</Box>
-                    <Typography sx={{ fontSize: '0.78rem' }}>{recoveryErr}</Typography>
+                    <Typography sx={{ fontSize: TYPE_SCALE.body }}>{recoveryErr}</Typography>
                   </Box>
                 )}
               </>

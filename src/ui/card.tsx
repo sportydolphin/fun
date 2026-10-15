@@ -109,6 +109,9 @@ export const TYPE_SCALE = {
  * nobody would maintain.
  */
 export const ICON_SIZE = {
+  /** A dialog's one hero glyph above its message (the sign-in mail, the confirmed tick, the
+   *  feedback thanks). Those were 2 and 2.5rem, typed in, before the shell joined the scale. */
+  xl: '2rem',
   lg: '1.35rem',
   md: '1.15rem',
   sm: '0.85rem',

@@ -51,6 +51,7 @@ import { ADMIN_EMAIL } from './lib/admin'
 import { typePx } from './ui/scale'
 import { SectionActiveContext, SectionSearchContext } from './lib/panelActive'
 import { otherSectionPath } from './sectionSwitch'
+import { ICON_SIZE, TYPE_SCALE } from './ui/card'
 
 // The MLB feature is by far the largest part of the app — code-split it so the
 // landing page and other projects don't ship its ~entire view tree up front.
@@ -859,7 +860,7 @@ function AppInner() {
   }, [path, authLoading, isAdmin])
 
   const backBtn = (
-    <Box {...linkTo('/mlb')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
+    <Box {...linkTo('/mlb')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: TYPE_SCALE.body, fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
   )
 
   // The section the brand lockup returns to. A reader in WPBL who clicks the logo means "home",
@@ -1104,7 +1105,7 @@ function AppInner() {
                       // the only way to /mlb from the bar, and it was the smallest target on it.
                       px: 1.1, py: '5px', borderRadius: 999, userSelect: 'none',
                       cursor: active ? 'default' : 'pointer',
-                      fontSize: '0.75rem', fontWeight: 800, letterSpacing: typePx(0.3), lineHeight: 1,
+                      fontSize: TYPE_SCALE.meta, fontWeight: 800, letterSpacing: typePx(0.3), lineHeight: 1,
                       // Dark on the rainbow: white measured 1.5:1 on its yellow. With RAINBOW's
                       // lightened indigo every stop clears 4.5:1 against this ink.
                       color: rainbow ? '#111' : active ? '#fff' : 'text.secondary',
@@ -1174,9 +1175,9 @@ function AppInner() {
                 '&:focus-visible': FOCUS_RING,
               }}
             >
-              <Search sx={{ fontSize: '0.9rem', color: 'text.secondary', flexShrink: 0 }} />
+              <Search sx={{ fontSize: ICON_SIZE.sm, color: 'text.secondary', flexShrink: 0 }} />
               <Box component="span" sx={{
-                flex: 1, minWidth: 0, fontSize: '0.82rem', color: 'text.secondary',
+                flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, color: 'text.secondary',
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               }}>
                 {/* Not "player or team" any more: it finds pages and stat questions too, and beside the
@@ -1185,7 +1186,7 @@ function AppInner() {
               </Box>
               {finePointer && (
                 <Box component="kbd" aria-hidden sx={{
-                  flexShrink: 0, fontFamily: 'inherit', fontSize: '0.66rem', fontWeight: 700, lineHeight: 1.4,
+                  flexShrink: 0, fontFamily: 'inherit', fontSize: TYPE_SCALE.micro, fontWeight: 700, lineHeight: 1.4,
                   color: 'text.secondary', px: 0.6, borderRadius: 1, border: '1px solid', borderColor: 'outline',
                 }}>
                   {shortcutLabel}
@@ -1241,7 +1242,7 @@ function AppInner() {
                   }}
                 >
                   {showHandle && (
-                    <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                    <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, color: 'text.secondary', whiteSpace: 'nowrap' }}>
                       {username ? (
                         // The Roboto/Arial "@" dips toward the baseline and reads as sitting
                         // low next to the lowercase handle — nudge it up a hair to optically center.
@@ -1274,16 +1275,16 @@ function AppInner() {
                     <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
                       {/* Username (primary) or full name if no username */}
                       {username ? (
-                        <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', lineHeight: 1.3, mb: 0.2 }}>
+                        <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.title, lineHeight: 1.3, mb: 0.2 }}>
                           @{username}
                         </Typography>
                       ) : user.user_metadata?.full_name ? (
-                        <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', lineHeight: 1.3, mb: 0.2 }}>
+                        <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.title, lineHeight: 1.3, mb: 0.2 }}>
                           {user.user_metadata.full_name}
                         </Typography>
                       ) : null}
                       <Typography sx={{
-                        fontSize: (username || user.user_metadata?.full_name) ? '0.72rem' : '0.9rem',
+                        fontSize: (username || user.user_metadata?.full_name) ? TYPE_SCALE.meta : TYPE_SCALE.title,
                         fontWeight: (username || user.user_metadata?.full_name) ? 400 : 600,
                         color: (username || user.user_metadata?.full_name) ? 'text.secondary' : 'text.primary',
                         lineHeight: 1.3, wordBreak: 'break-all',
@@ -1482,7 +1483,7 @@ function AppInner() {
                   the other standalone WPBL pages (see WpblPage): above 600px the toolbar's tabs
                   are the way back. */}
               <Box sx={{ maxWidth: 760, mx: 'auto', px: { xs: 2, sm: 3 }, mb: 2, display: { xs: 'block', sm: 'none' } }}>
-                <Box {...linkTo('/wpbl')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>← Back to WPBL</Box>
+                <Box {...linkTo('/wpbl')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: TYPE_SCALE.body, fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>← Back to WPBL</Box>
               </Box>
               <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
                 <WpblApiDocs />
@@ -1495,7 +1496,7 @@ function AppInner() {
           {path === '/admin' && !authLoading && isAdmin && (
             <Box>
               <Box sx={{ maxWidth: 860, mx: 'auto', px: { xs: 1.5, sm: 3 }, mb: 2 }}>
-                <Box {...linkTo('/wpbl')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>← Back to WPBL</Box>
+                <Box {...linkTo('/wpbl')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: TYPE_SCALE.body, fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>← Back to WPBL</Box>
               </Box>
               <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
                 <AdminPage />
@@ -1534,8 +1535,8 @@ function AppInner() {
               same two ways out as public/404.html. */}
           {!isKnownPath(path) && (
             <Box sx={{ maxWidth: 480, mx: 'auto', pt: 8, textAlign: 'center' }}>
-              <Typography component="h1" sx={{ fontSize: '2.5rem', fontWeight: 800, lineHeight: 1 }}>404</Typography>
-              <Typography component="h2" sx={{ fontSize: '1.25rem', fontWeight: 700, mt: 1.5 }}>That page doesn't exist</Typography>
+              <Typography component="h1" sx={{ fontSize: TYPE_SCALE.page, fontWeight: 800, lineHeight: 1 }}>404</Typography>
+              <Typography component="h2" sx={{ fontSize: TYPE_SCALE.display, fontWeight: 700, mt: 1.5 }}>That page doesn't exist</Typography>
               <Typography sx={{ color: 'text.secondary', mt: 1 }}>
                 The link may be broken, or the page may have moved. Both league sections are below.
               </Typography>
@@ -1705,8 +1706,8 @@ function AccountMenuRow({ icon: Icon, label, onPress, danger, ariaLabel }: {
         ...FOCUS_RING,
       }}
     >
-      <Icon aria-hidden sx={{ fontSize: '1.15rem', color: ink, flexShrink: 0 }} />
-      <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, lineHeight: 1.4, color: danger ? 'error.main' : 'text.primary' }}>
+      <Icon aria-hidden sx={{ fontSize: ICON_SIZE.md, color: ink, flexShrink: 0 }} />
+      <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.4, color: danger ? 'error.main' : 'text.primary' }}>
         {label}
       </Typography>
     </Box>

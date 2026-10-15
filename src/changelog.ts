@@ -10,6 +10,16 @@ import { ENTRIES as v1_000 } from './changelog/v1.000-1.049'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.167.2',
+    date:    '2026-10-15',
+    changes: [
+      {
+        short: 'Steadier text sizes in menus and dialogs',
+        full:  "The account menu, search box, sign-in and settings dialogs, notifications, What's new, the Privacy and Terms pages and the not-found page now use the site's one set of text sizes. Privacy and Terms take the same page title as the site's other standalone pages, and their links are underlined so they read as links in dark mode.",
+      },
+    ],
+  },
+  {
     version: '1.167.1',
     date:    '2026-10-15',
     changes: [
