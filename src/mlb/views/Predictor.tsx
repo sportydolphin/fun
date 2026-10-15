@@ -12,6 +12,7 @@ import { ensureActiveUser } from '../../lib/userActive'
 import { useDevSim } from '../dev/devSim'
 import { useDeepLink } from '../state/deepLink'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
+import { useLastShape, useRememberShape } from '../../lib/lastShape'
 import { SCHEDULE_GAME_TYPES, isUnplayed, hasStartTime } from '../gameStatus'
 import { fetchSeasonPhase, fetchSeasonDates } from '../seasonPhase'
 import { useDevSeasonPhase } from '../dev/devSeasonPhase'
@@ -305,6 +306,19 @@ function PctLabel({ pct, align, votes, total }: { pct: number; align: 'left' | '
   )
 }
 
+/** Only measured, never read: the matchup a loading card ghosts. */
+const GHOST_GAME: TodayGame = {
+  gamePk: 0, gameTime: '', state: 'preview', winnerId: null,
+  away: { teamId: 0, abbr: '', name: 'Guardians', pitcher: null },
+  home: { teamId: 0, abbr: '', name: 'Guardians', pitcher: null },
+}
+
+/** The "Make predictions →" link under the quick picks, shared with the loading state's copy. */
+const MORE_LINK_SX = {
+  alignSelf: 'center', mt: 0.4, px: 1, py: 0.3,
+  fontSize: TYPE_SCALE.meta, fontWeight: 700, color: ACCENT_TEXT, borderRadius: 999,
+} as const
+
 function QuickPickRow({ game, prediction, gameVotes, onPick }: {
   game:       TodayGame
   prediction: number | null
@@ -577,6 +591,11 @@ export function PredictorWidget({ onPicksSettled }: {
   const canOpen           = !loading && games.length > 0
   const quickPicks        = previewGames.slice(0, 3)   // up to 3 open matchups to pick inline
 
+  // How many quick-pick rows the card drew last time, and whether the "Make predictions" link was
+  // under them, for the loading state to reserve: a postseason day has two games, a summer one fifteen.
+  const lastShape = useLastShape('mlb.predictor', { rows: 1, more: false })
+  useRememberShape('mlb.predictor', loading ? undefined : { rows: quickPicks.length, more: games.length > quickPicks.length })
+
   const settled = !loading && predsLoaded
   useEffect(() => {
     if (settled) onPicksSettled?.(remainingCount)
@@ -718,12 +737,22 @@ export function PredictorWidget({ onPicksSettled }: {
           )}
         </Box>
 
-        {/* While the slate loads, the room one quick-pick row takes, which is the card's shape on
-            nearly every day with games. Without it the card grew by a third as the games arrived,
-            and on a phone everything under it moved. */}
-        {loading && (
-          <Box aria-hidden sx={{ px: 2, pb: 1.75, pt: 0.25 }}>
-            <Skeleton variant="rounded" sx={{ height: chromePx(51), borderRadius: 2 }} />
+        {/* While the slate loads, the rows the card drew last time (one on a first visit), each a
+            row and its vote meter, and the link under them if there was one. Without it the card
+            grew as the games arrived, and on a phone everything under it moved. */}
+        {loading && lastShape.rows > 0 && (
+          <Box aria-hidden sx={{ px: 2, pb: 1.75, pt: 0.25, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {Array.from({ length: lastShape.rows }, (_, i) => (
+              // The row itself, unseen, under a skeleton: its height is its logos and padding, which
+              // a fixed number guessed 13px wrong at the desktop scale.
+              <Box key={i} sx={{ position: 'relative' }}>
+                <Box sx={{ visibility: 'hidden' }}>
+                  <QuickPickRow game={GHOST_GAME} prediction={null} onPick={() => {}} />
+                </Box>
+                <Skeleton variant="rounded" sx={{ position: 'absolute', inset: 0, height: 'auto', borderRadius: 2 }} />
+              </Box>
+            ))}
+            {lastShape.more && <Box sx={{ ...MORE_LINK_SX, visibility: 'hidden' }}>Make predictions →</Box>}
           </Box>
         )}
 
@@ -742,12 +771,7 @@ export function PredictorWidget({ onPicksSettled }: {
             {games.length > quickPicks.length && (
               <Box
                 {...pressable(() => canOpen && setModalOpen(true))}
-                sx={{
-                  alignSelf: 'center', mt: 0.4, px: 1, py: 0.3,
-                  fontSize: TYPE_SCALE.meta, fontWeight: 700, color: ACCENT_TEXT,
-                  cursor: 'pointer', borderRadius: 999,
-                  '&:hover': { bgcolor: `${ACCENT}12` },
-                }}
+                sx={{ ...MORE_LINK_SX, cursor: 'pointer', '&:hover': { bgcolor: `${ACCENT}12` } }}
               >
                 Make predictions →
               </Box>
