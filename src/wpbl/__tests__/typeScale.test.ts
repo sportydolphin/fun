@@ -110,12 +110,20 @@ describe('the WPBL type scale', () => {
   const typedIn = (rel: string) => fontSizes(read(rel))
     .filter(f => /\d\s*rem/.test(f.value) || /^\d+(\.\d+)?$/.test(f.value))
   const legacy = new Set(TYPE_SCALE_LEGACY)
+  // Not legacy, and never converting: these draw an IMAGE at a fixed pixel size for html2canvas, so
+  // their type must not follow the reader's text or chrome scale, or one result would export at a
+  // different size for each reader. Each file's header says the same. Nothing else belongs here.
+  const FIXED_PIXEL_IMAGES = new Set(['src/wpbl/awardShareCard.tsx', 'src/wpbl/AwardsWinnersExport.tsx'])
 
   it('holds every file off the legacy list to the scale', () => {
     const offenders = sources('src')
-      .filter(rel => !legacy.has(rel))
+      .filter(rel => !legacy.has(rel) && !FIXED_PIXEL_IMAGES.has(rel))
       .flatMap(rel => typedIn(rel).map(f => `${rel}:${f.line}  fontSize: ${f.value}`))
     expect(offenders).toEqual([])
+  })
+
+  it.each([...FIXED_PIXEL_IMAGES])('%s still draws a fixed-pixel image', rel => {
+    expect(typedIn(rel).length).toBeGreaterThan(0)
   })
 
   it.each([...TYPE_SCALE_LEGACY])('%s is still legacy (take it off the list once converted)', rel => {

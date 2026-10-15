@@ -1,6 +1,7 @@
 import { Box, Typography } from '@mui/material'
 import { passwordChecklist, type PasswordContext } from './lib/passwordPolicy'
 import { VISUALLY_HIDDEN } from './ui/heading'
+import { TYPE_SCALE } from './ui/card'
 
 /**
  * The password requirements, under the field, updating as it is typed.
@@ -35,13 +36,13 @@ export function PasswordChecklist({ password, context, sx }: {
           {/* aria-hidden on the glyph, with the state spelled out in the label text instead:
               a screen reader announcing "tick" or "dash" says nothing useful on its own. */}
           <Box component="span" aria-hidden sx={{
-            fontSize: '0.7rem', lineHeight: 1.6, width: 12, flexShrink: 0, textAlign: 'center',
+            fontSize: TYPE_SCALE.meta, lineHeight: 1.6, width: 12, flexShrink: 0, textAlign: 'center',
             color: item.ok ? 'success.main' : 'text.disabled',
           }}>
             {item.ok ? '✓' : '·'}
           </Box>
           <Typography sx={{
-            fontSize: '0.72rem', lineHeight: 1.6,
+            fontSize: TYPE_SCALE.meta, lineHeight: 1.6,
             color: item.ok ? 'success.main' : 'text.secondary',
           }}>
             <Box component="span" className="sr-only" sx={VISUALLY_HIDDEN}>

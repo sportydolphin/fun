@@ -49,6 +49,7 @@ import { WpblAddressSeasonProvider, useWpblSeason } from './SeasonContext'
 import { SeasonMenu } from './SeasonMenu'
 import { useSeasonValueBoards } from './useSeasonValue'
 import { playerSeasonValue } from './derive/seasonValue'
+import { TYPE_SCALE } from '../ui/card'
 
 // The frame (heads, cards, rows, picker and their loading states) is src/ui/compare.tsx since
 // Oct 9, 2026, shared with /mlb/compare. What stays here is what is WPBL's: the portrait and club
@@ -424,7 +425,7 @@ function ComparePageBody({ path, onNavigate }: {
             <CompareGroupCard key={g.key} group={g} />
           ))}
           {comparison.groups.length === 0 && (
-            <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>
               Neither has a box-score line this season, so there is nothing to compare yet.
             </Typography>
           )}

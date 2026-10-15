@@ -1,6 +1,7 @@
 import { Box, Typography } from '@mui/material'
 import { VISUALLY_HIDDEN } from '../PageHeading'
 import type { WpblGamePlay, WpblCorrectionSource } from '../types'
+import { TYPE_SCALE } from '../../ui/card'
 
 /**
  * The mark on a play the league did not account for itself.
@@ -21,7 +22,7 @@ export function SourceMark({ source }: { source: WpblCorrectionSource }) {
   return (
     <>
       <Box component="span" aria-hidden title={what} sx={{
-        ml: 0.4, fontSize: '0.62rem', verticalAlign: 'super',
+        ml: 0.4, fontSize: TYPE_SCALE.caption, verticalAlign: 'super',
         color: 'text.disabled', cursor: 'help',
       }}>&dagger;</Box>
       <Box component="span" sx={VISUALLY_HIDDEN}>{` (${what})`}</Box>
@@ -70,8 +71,8 @@ export function SourceNote({ plays }: { plays: WpblGamePlay[] }) {
   return (
     <Box sx={{ mt: 1.5, px: 1, display: 'flex', flexDirection: 'column', gap: 0.4 }}>
       {[...counts].map(([source, n]) => (
-        <Typography key={source} sx={{ fontSize: '0.68rem', color: 'text.disabled', lineHeight: 1.5 }}>
-          <Box component="span" aria-hidden sx={{ verticalAlign: 'super', fontSize: '0.6rem' }}>&dagger;</Box>
+        <Typography key={source} sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', lineHeight: 1.5 }}>
+          <Box component="span" aria-hidden sx={{ verticalAlign: 'super', fontSize: TYPE_SCALE.caption }}>&dagger;</Box>
           {` ${n} play${n === 1 ? '' : 's'} ${SOURCE_WORDS[source]}${SOURCE_WHY[source]?.(n) ?? ''}.`}
           {source === 'external' && (
             <>

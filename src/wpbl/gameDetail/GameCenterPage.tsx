@@ -15,6 +15,7 @@ import { GAME_PAGE_W } from '../layoutWidths'
 import { DetailPageBar } from '../DetailPageBar'
 import type { WpblTeam, WpblGame, WpblPlayer, WpblVideo } from '../types'
 import { type Tab, EmptyBody } from './shared'
+import { TYPE_SCALE } from '../../ui/card'
 
 /**
  * Game Center as a desktop page: every board at once, no tabs.
@@ -76,7 +77,7 @@ function PageSection({ v, order, children }: { v: Board; order: number; children
       order: { xs: order, lg: 0 },
     }}>
       <Typography id={`${sectionId(v)}-h`} component="h2" sx={{
-        px: 2, pt: 1.75, pb: 1, fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase',
+        px: 2, pt: 1.75, pb: 1, fontSize: TYPE_SCALE.meta, fontWeight: 800, textTransform: 'uppercase',
         letterSpacing: typePx(0.8), color: 'text.secondary',
       }}>
         {SECTION_LABEL[v]}
@@ -180,7 +181,7 @@ export function GameCenterPage({
           borderBottom: '1px solid', borderColor: 'divider',
         }}>
           {(final || live) && away && home && (
-            <Typography sx={{ fontSize: '0.85rem', fontWeight: 800, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
               {away.abbr} {game.away_score ?? 0}
               <Box component="span" sx={{ color: 'text.disabled', mx: 0.75 }}>·</Box>
               {home.abbr} {game.home_score ?? 0}
@@ -189,7 +190,7 @@ export function GameCenterPage({
           <Box sx={{ display: 'flex', gap: 0.5, ml: 'auto', flexWrap: 'wrap' }}>
             {jumpTo.map(v => (
               <Box key={v} component="a" href={`#${sectionId(v)}`} onClick={jump(v)} sx={{
-                px: 1.25, py: 0.5, borderRadius: 999, fontSize: '0.75rem', fontWeight: 700,
+                px: 1.25, py: 0.5, borderRadius: 999, fontSize: TYPE_SCALE.meta, fontWeight: 700,
                 color: 'text.secondary', textDecoration: 'none',
                 ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }),
                 ...FOCUS_RING,

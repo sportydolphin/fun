@@ -7,6 +7,7 @@ import { wpblSeriesPath } from './routes'
 import { linkTo, UNSTYLED_LINK } from '../nav'
 import type { WpblTeam, WpblGame, WpblStandingRow } from './types'
 import { typePx } from '../ui/scale'
+import { TYPE_SCALE } from '../ui/card'
 
 // Washes behind a cell rather than coloured text. The record is spelled out in the cell
 // already, so the tint is pure reinforcement, which is what lets it be this quiet, and what
@@ -45,7 +46,7 @@ export default function HeadToHead({ rows, games, onSelect, title = 'Head to hea
   const teamLink = useWpblTeamLink()
 
   const head = {
-    fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: typePx(0.4),
+    fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: typePx(0.4),
     color: 'text.disabled', textAlign: 'center' as const, py: 0.5,
   }
 
@@ -102,13 +103,13 @@ export default function HeadToHead({ rows, games, onSelect, title = 'Head to hea
                       instead, which is also what the standings table above these rows uses.
                       Columns stay abbreviated in both: they are only as wide as a cell. */}
                   <Typography sx={{
-                    fontSize: '0.62rem', fontWeight: 800, letterSpacing: typePx(0.3), color: 'text.secondary',
+                    fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.3), color: 'text.secondary',
                     display: { xs: 'block', sm: 'none' },
                   }}>
                     {rowTeam.abbr}
                   </Typography>
                   <Typography sx={{
-                    fontSize: '0.78rem', fontWeight: 700, color: 'text.secondary', minWidth: 0,
+                    fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.secondary', minWidth: 0,
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     display: { xs: 'none', sm: 'block' },
                   }}>
@@ -121,7 +122,7 @@ export default function HeadToHead({ rows, games, onSelect, title = 'Head to hea
                 // what makes the grid read as a matrix rather than as a table with a hole.
                 if (colTeam.id === rowTeam.id) {
                   return (
-                    <Box component="td" key={colTeam.id} sx={{ textAlign: 'center', color: 'text.disabled', fontSize: '0.8rem', py: { xs: 0.75, md: 1.25 } }}>
+                    <Box component="td" key={colTeam.id} sx={{ textAlign: 'center', color: 'text.disabled', fontSize: TYPE_SCALE.body, py: { xs: 0.75, md: 1.25 } }}>
                       —
                     </Box>
                   )
@@ -149,7 +150,7 @@ export default function HeadToHead({ rows, games, onSelect, title = 'Head to hea
                       sx={{ ...UNSTYLED_LINK, display: 'block', py: { xs: 0.75, md: 1.25 }, borderRadius: 1, ...FOCUS_RING, ...TAPPABLE }}
                     >
                       <Typography sx={{
-                        fontSize: '0.82rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+                        fontSize: TYPE_SCALE.body, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
                         color: met ? 'text.primary' : 'text.disabled',
                       }}>
                         {/* An unplayed pairing is a dot, not "0–0": the two look identical at a

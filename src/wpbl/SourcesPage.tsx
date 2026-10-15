@@ -135,7 +135,7 @@ function Detail({ label, children }: { label: string; children: React.ReactNode 
   return (
     <>
       <Typography component="dt" sx={{
-        fontSize: '0.62rem', fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase',
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase',
         color: 'text.disabled', lineHeight: 1.9, whiteSpace: 'nowrap',
       }}>
         {label}

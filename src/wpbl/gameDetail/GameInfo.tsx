@@ -2,6 +2,7 @@ import { Box, Typography } from '@mui/material'
 import { boxScoreRevision, formatRevisionDay } from '../derive/feedHealth'
 import { typePx } from '../../ui/scale'
 import type { WpblGame, WpblGameDetails } from '../types'
+import { TYPE_SCALE } from '../../ui/card'
 
 /**
  * The reference block: the facts about a game that are not the game.
@@ -54,19 +55,19 @@ export function GameInfo({ game, details }: { game: WpblGame; details: WpblGameD
   return (
     <Box sx={{ px: 2, pt: 2.5, pb: 1 }}>
       <Typography sx={{
-        fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1),
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1),
         color: 'text.disabled', mb: 0.75,
       }}>Game info</Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 2, rowGap: 0.5 }}>
         {facts.map(f => (
           <Box key={f.label} sx={{ display: 'contents' }}>
-            <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled', whiteSpace: 'nowrap' }}>{f.label}</Typography>
-            <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary' }}>{f.value}</Typography>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', whiteSpace: 'nowrap' }}>{f.label}</Typography>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>{f.value}</Typography>
           </Box>
         ))}
       </Box>
       {transcribed && (
-        <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', mt: 1 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mt: 1 }}>
           Length, weather and the crew transcribed by{' '}
           <Box component="a" href="https://github.com/exu6jh/RetroWPBL" target="_blank" rel="noopener noreferrer"
             sx={{ color: 'inherit', textDecoration: 'underline' }}>RetroWPBL</Box>

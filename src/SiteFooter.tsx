@@ -6,6 +6,7 @@ import { ACCENT } from './mlb/constants'
 import { track, EVENTS } from './lib/analytics'
 import { WPBL_FOOTER_PAGES } from './wpbl/morePages'
 import { MLB_MORE_PAGES } from './mlb/routes'
+import { TYPE_SCALE } from './ui/card'
 
 const KOFI_URL = 'https://ko-fi.com/sportydolphin'
 
@@ -13,7 +14,7 @@ const KOFI_URL = 'https://ko-fi.com/sportydolphin'
 // default, brand accent on hover. Works in both themes via text.* tokens.
 const linkSx = {
   cursor: 'pointer', userSelect: 'none' as const, whiteSpace: 'nowrap' as const,
-  fontSize: '0.72rem', fontWeight: 600, color: 'text.secondary',
+  fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary',
   textDecoration: 'none', transition: 'color 0.15s',
   '&:hover': { color: ACCENT },
 }
@@ -72,7 +73,7 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
       <Box sx={{
         maxWidth: 1100, mx: 'auto',
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75,
-        fontSize: '0.72rem', color: 'text.disabled',
+        fontSize: TYPE_SCALE.meta, color: 'text.disabled',
       }}>
         {pages.length > 0 && (
           // FOLDED AWAY, NOT DELETED, and the difference is the whole reason this is a `<details>`
@@ -97,7 +98,7 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
           >
             <Box component="summary">
               More pages
-              <Box component="span" className="footer-caret" aria-hidden sx={{ fontSize: '0.6rem', transition: 'transform 0.15s' }}>▾</Box>
+              <Box component="span" className="footer-caret" aria-hidden sx={{ fontSize: TYPE_SCALE.caption, transition: 'transform 0.15s' }}>▾</Box>
             </Box>
             <Box sx={{ mt: 0.75 }}>
               <FooterRow>

@@ -4,6 +4,7 @@ import { wpblAccent, wpblSurface, wpblFullName, playedInnings } from '../constan
 import { usePhoneLayout, TeamBadge, pressable, FOCUS_RING, TAPPABLE } from '../ui'
 import type { WpblTeam, WpblGame } from '../types'
 import { StatHead, StatCell, scoreTableSx } from './shared'
+import { TYPE_SCALE } from '../../ui/card'
 
 // One compact block instead of a tall full-name score header stacked on a separate line
 // score that repeated the same teams and totals. The team name/logo lead each row; the R
@@ -72,7 +73,7 @@ export function Scoreboard({ away, home, game, awayWon, homeWon, onOpenTeam }: {
             }}
           >
             <TeamBadge team={team} size={24} />
-            <Typography sx={{ fontSize: isMobile ? '0.86rem' : '0.95rem', fontWeight: won ? 800 : 600, lineHeight: 1.15, whiteSpace: 'nowrap', color: won || !decided ? 'text.primary' : 'text.secondary' }}>
+            <Typography sx={{ fontSize: isMobile ? TYPE_SCALE.body : TYPE_SCALE.title, fontWeight: won ? 800 : 600, lineHeight: 1.15, whiteSpace: 'nowrap', color: won || !decided ? 'text.primary' : 'text.secondary' }}>
               {isMobile ? team.name : wpblFullName(team)}
             </Typography>
           </Box>
@@ -83,7 +84,7 @@ export function Scoreboard({ away, home, game, awayWon, homeWon, onOpenTeam }: {
           const r = skipped ? undefined : runsByInning(line, n)
           return (
             <Box component="td" key={n} sx={{
-              fontSize: '0.9rem', fontWeight: r ? 800 : 500, lineHeight: 1.2,
+              fontSize: TYPE_SCALE.title, fontWeight: r ? 800 : 500, lineHeight: 1.2,
               color: r ? 'text.primary' : 'text.disabled',
               textAlign: 'center', px: 0.4, py: 0.45, fontVariantNumeric: 'tabular-nums',
             }}>{skipped ? 'X' : r == null ? '' : r}</Box>
@@ -92,7 +93,7 @@ export function Scoreboard({ away, home, game, awayWon, homeWon, onOpenTeam }: {
         <Box component="td" sx={{ width: 8 }} />
         {/* The final (R) carries the winner's team color for a pop that reinforces the result. */}
         <Box component="td" sx={{ textAlign: 'center', px: 0.4, py: 0.5 }}>
-          <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: won ? accent : !decided ? 'text.primary' : 'text.secondary' }}>{runs ?? 0}</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: won ? accent : !decided ? 'text.primary' : 'text.secondary' }}>{runs ?? 0}</Typography>
         </Box>
         <StatCell>{hits ?? 0}</StatCell>
         <StatCell>{errs ?? 0}</StatCell>

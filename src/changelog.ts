@@ -10,6 +10,20 @@ import { ENTRIES as v1_000 } from './changelog/v1.000-1.049'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.167.1',
+    date:    '2026-10-15',
+    changes: [
+      {
+        short: 'Full names in the MLB Stats table on a phone',
+        full:  "The MLB Players, Teams and Fielding tables now show a player's full name whenever it fits, and shorten to an initial only when it does not. A name ending in Jr. or II keeps its surname (\"V. Guerrero Jr.\"), and a name a hair too wide now shortens instead of being cut off, in both leagues.",
+      },
+      {
+        short: 'Steadier text sizes across the site',
+        full:  "The toolbar, footer, sign-in dialogs and about thirty smaller WPBL pieces (photos, the line score, head-to-head, lineups, pitching usage, Watch, Reading and Sources) now use the site's one set of text sizes.",
+      },
+    ],
+  },
+  {
     version: '1.167.0',
     date:    '2026-10-15',
     changes: [

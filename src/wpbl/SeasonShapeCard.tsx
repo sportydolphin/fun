@@ -6,6 +6,7 @@ import { useChartScrub } from './chartScrub'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
 import { wpblAccent, wpblFullName } from './constants'
 import { SectionCard, chromePx, pressable, FOCUS_RING, CARD_BORDER } from './ui'
+import { TYPE_SCALE } from '../ui/card'
 
 // The standings plotted against the calendar.
 //
@@ -273,7 +274,7 @@ export default function SeasonShapeCard({ shape, onPreview, page }: {
           display: 'inline-flex', alignItems: 'center', gap: 0.5,
           minHeight: chromePx(30), px: 1.25, borderRadius: 999,
           border: '1px solid', borderColor: CARD_BORDER,
-          fontSize: '0.74rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+          fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
           // THE PHONE'S WAIT, NOT OURS. `pressable` is an `onClick`, and a browser holds a tap
           // back until it knows the second half of a double-tap-to-zoom is not coming: up to
           // 300ms between lifting a finger and this hearing about it, which on a control whose
@@ -307,7 +308,7 @@ export default function SeasonShapeCard({ shape, onPreview, page }: {
           lit-up box where they wanted a number. The findings below it are ordinary text and
           stay selectable. */}
       <Typography sx={{
-        mt: 1.25, fontSize: '0.72rem', color: 'text.disabled', fontVariantNumeric: 'tabular-nums',
+        mt: 1.25, fontSize: TYPE_SCALE.meta, color: 'text.disabled', fontVariantNumeric: 'tabular-nums',
         userSelect: 'none', WebkitTapHighlightColor: 'transparent',
       }}>
         Through {dateLabel}
@@ -323,7 +324,7 @@ export default function SeasonShapeCard({ shape, onPreview, page }: {
       eight words arriving at a fact that takes four. A label and the number is how every
       other figure on this page is written. */}
       {lead && (
-        <Typography sx={{ mt: 1.25, fontSize: '0.8rem', color: 'text.secondary', lineHeight: 1.5 }}>
+        <Typography sx={{ mt: 1.25, fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.5 }}>
           <Box component="span" sx={{ fontWeight: 800, color: 'text.primary' }}>Days in first</Box>
           {': '}
           {/* CITY, NOT THE FULL NAME, because this one is a LIST. "San Francisco Firebells 20,
@@ -337,7 +338,7 @@ export default function SeasonShapeCard({ shape, onPreview, page }: {
       )}
 
       {run && (
-        <Typography sx={{ mt: 0.75, fontSize: '0.8rem', color: 'text.secondary', lineHeight: 1.5 }}>
+        <Typography sx={{ mt: 0.75, fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.5 }}>
           <Box component="span" sx={{ fontWeight: 800, color: 'text.primary' }}>Biggest climb</Box>
           {': '}{wpblFullName(run.team)}, up {run.swing} games since{' '}
           {shape.columns[run.from].date
