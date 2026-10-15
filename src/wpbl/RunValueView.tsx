@@ -13,7 +13,7 @@ import {
 import { basesLine, seasonValueBoards } from './derive/seasonValue'
 import { PlayValueCard, StealCard } from './PlayValue'
 import { wpblAccentFg } from './constants'
-import { SectionCard, LeaderRow, ExpandRow, chromePx, BaseDiamond, BOARD_COLUMN, BOARD_COLUMN_WIDE } from './ui'
+import { SectionCard, LeaderRow, leaderPlaces, ExpandRow, chromePx, BaseDiamond, BOARD_COLUMN, BOARD_COLUMN_WIDE } from './ui'
 import { useExperiments } from '../ExperimentsContext'
 import CountBoard from './CountBoard'
 import TakeSwingBoard from './TakeSwingBoard'
@@ -616,18 +616,25 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
           carries whatever the scorer typed ("Andreanne Leblanc", "Isabella Villareal"), and the
           Pitch by pitch tab next door, which reads the roster, spelled the same people correctly. */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 }, minWidth: 0 }}>
-      <SectionCard title={pitching ? 'Most runs saved' : 'Most runs created'}
+      {/* NOT "RUNS CREATED". That name belongs to wRC+ in the glossary, and the Stats tab's Bat and Pit
+          columns are runs too, priced without the situation: the same hitter came out +19.7 here
+          and +14.5 there under two names that both meant "the runs this player produced". The title
+          is the board's own unit, and the note says how it differs from the other two. */}
+      <SectionCard title="Best run value"
         titleAdornment={<InfoDot text={[
           SITUATION_VALUE,
           'A plate appearance is worth the runs that scored on it, plus the value of the situation it left, minus the value of the one it started in.',
           pitching
             ? 'This adds up every plate appearance against a pitcher and flips the sign, so keeping runs off the board ranks higher.'
             : 'This adds up every plate appearance a hitter has had this season. Steals and wild pitches are not counted here; steals are on Best on the bases.',
+          pitching
+            ? 'Not the same as Pit on the Stats tab, which is built from strikeouts, walks and home runs only and ignores the runners on base. This counts every plate appearance and the situation it came in.'
+            : 'Not the same as Bat on the Stats tab, which values a hit the same whatever the situation. This counts the runners on and the outs, so a single with the bases loaded is worth more here than one with them empty.',
         ]} />}>
         {leaders.length === 0
           ? <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
           : shownLeaders.map((r, i) => (
-              <LeaderRow key={r.player?.id ?? r.name} rank={i + 1} player={r.player} name={r.player?.name ?? r.name}
+              <LeaderRow key={r.player?.id ?? r.name} {...leaderPlaces(shownLeaders.map(x => fmtRunValue(x.value)))[i]} player={r.player} name={r.player?.name ?? r.name}
                 teamId={r.teamId} value={fmtRunValue(r.value)} unit="runs" accent={accent}
                 onOpen={onOpenPlayer}
                 sub={pitching ? `${r.pa} batters faced` : `${r.pa} times up`} />
@@ -649,13 +656,13 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
           pitching
             ? 'A pitcher gets the change on every plate appearance against them, with the sign flipped. One whole win is 1.00.'
             : 'A hitter gets the change, and a steal, caught stealing or pickoff goes to the runner. One whole win is +1.00.',
-          'Unlike runs created, a hit in a tie game in the 7th is worth far more here than the same hit in a rout.',
+          'Unlike run value, a hit in a tie game in the 7th is worth far more here than the same hit in a rout.',
           'Both ways adds a player’s batting and pitching together. It is not WAR: WAR, on the Stats tab’s Overall side, ignores the score, and this is the record of who swung close games.',
         ]} />}>
         {wpa.length === 0
           ? <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
           : shownWpa.map((r, i) => (
-              <LeaderRow key={r.player?.id ?? r.name} rank={i + 1} player={r.player} name={r.player?.name ?? r.name}
+              <LeaderRow key={r.player?.id ?? r.name} {...leaderPlaces(shownWpa.map(x => fmtRunValue(x.wpa, 2)))[i]} player={r.player} name={r.player?.name ?? r.name}
                 teamId={r.teamId} value={fmtRunValue(r.wpa, 2)} unit="wins" accent={accent}
                 onOpen={onOpenPlayer}
                 sub={wpaBoth
@@ -682,7 +689,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
           {bases.length === 0
             ? <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
             : shownBases.map((r, i) => (
-                <LeaderRow key={r.player?.id ?? r.name} rank={i + 1} player={r.player} name={r.player?.name ?? r.name}
+                <LeaderRow key={r.player?.id ?? r.name} {...leaderPlaces(shownBases.map(x => fmtRunValue(x.bsr)))[i]} player={r.player} name={r.player?.name ?? r.name}
                   teamId={r.teamId} value={fmtRunValue(r.bsr)} unit="runs" accent={accent}
                   onOpen={onOpenPlayer} sub={basesLine(r)} />
               ))}

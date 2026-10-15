@@ -796,7 +796,8 @@ export function RateStrip({ cells, placeholder }: {
  * right when the first one's rank lands: these arrive after the rest of the card.
  */
 export function ValueStrip({ cells, placeholder }: {
-  cells: { label: string; value: string; rank?: StatRank | null }[]
+  /** `term` is the glossary entry the label's tooltip reads, where the label is a variant of it. */
+  cells: { label: string; term?: string; value: string; rank?: StatRank | null }[]
   /** The loading state: the figure and the place are samples, drawn as bars of their width. */
   placeholder?: boolean
 }) {
@@ -807,7 +808,7 @@ export function ValueStrip({ cells, placeholder }: {
         const lit = !placeholder && isLitRank(c.rank, rankBar)
         return (
           <Box key={c.label} sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, minWidth: 0 }}>
-            <TapTip title={tip(c.label)} popperZIndex={TIP_Z}
+            <TapTip title={tip(c.term ?? c.label)} popperZIndex={TIP_Z}
               sx={{ ...TYPE.micro, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', ...keepCase(c.label) }}>
               {c.label}
             </TapTip>

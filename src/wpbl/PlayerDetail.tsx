@@ -1118,12 +1118,16 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
    *  player the board does not list, which is a season with no plate appearance on that side. */
   const valueStrip = (r: Role) => {
     if (!valueOn) return null
-    const cell = (label: string, p: BoardPlace | null | undefined, digits: 1 | 2, sample: string) => ({
-      label, value: myValue ? (p ? fmtRunValue(p.value, digits) : '—') : sample, rank: p ?? null,
+    const cell = (label: string, p: BoardPlace | null | undefined, digits: 1 | 2, sample: string, term?: string) => ({
+      label, term, value: myValue ? (p ? fmtRunValue(p.value, digits) : '—') : sample, rank: p ?? null,
     })
+    // ONE SIDE, SAID SO WHEN THERE ARE TWO. The Stats table's WPA is both sides added, as its WAR
+    // is, so for a player with a line on each side this figure is not that one: it takes the
+    // table's own "Pos WAR" / "Pit WAR" form. From the lines, so the label is right on first paint.
+    const split = hasSeasonBatting && hasSeasonPitching
     const cells = r === 'pitching'
-      ? [cell('WPA', myValue?.wpaPitching, 2, '+0.00')]
-      : [cell('WPA', myValue?.wpaHitting, 2, '+0.00'), cell('BsR', myValue?.bases, 1, '+0.0')]
+      ? [cell(split ? 'Pit WPA' : 'WPA', myValue?.wpaPitching, 2, '+0.00', 'WPA')]
+      : [cell(split ? 'Bat WPA' : 'WPA', myValue?.wpaHitting, 2, '+0.00', 'WPA'), cell('BsR', myValue?.bases, 1, '+0.0')]
     return <ValueStrip cells={cells} placeholder={!myValue} />
   }
 

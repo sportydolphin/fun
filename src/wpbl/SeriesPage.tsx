@@ -33,7 +33,7 @@ import {
   WPBL_MATCHUPS_PAGE, findWpblSeriesPair, wpblSeriesSlugFromPath, wpblSeriesPath,
   wpblComparePath, wpblGamePath, wpblPlayerPath, wpblTeamPath,
 } from './routes'
-import { SegNav, TeamBadge, TYPE_SCALE, FOCUS_RING, TextGhost, LeaderRow, hoverOnly, pressable, chromePx } from './ui'
+import { SegNav, TeamBadge, TYPE_SCALE, FOCUS_RING, TextGhost, LeaderRow, leaderPlaces, hoverOnly, pressable, chromePx } from './ui'
 import { SECTION_CAPTION_SX, useRankInk } from './cardParts'
 import { WpblLinkProvider } from './LinkContext'
 import { useEraBasis } from './EraBasisContext'
@@ -320,11 +320,11 @@ function SeriesBody({ A, B, clubs, teams, games: allGames, players, lines: allLi
       </Box>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: 4, rowGap: 2 }}>
         <Board title="At the plate" empty="Nobody has enough plate appearances in these games yet." skeleton={!leaders}>
-          {leaders?.batters.slice(0, ROWS).map((b, i) => {
+          {leaders?.batters.slice(0, ROWS).map((b, i, top) => {
             const t = b.season.totals
             return (
               <LeaderRow
-                key={b.season.player.id} rank={i + 1} player={b.season.player} name={b.season.player.name}
+                key={b.season.player.id} {...leaderPlaces(top.map(x => fmtRate(x.season.totals.ops)))[i]} player={b.season.player} name={b.season.player.name}
                 teamId={b.teamId} value={fmtRate(t.ops)} unit="OPS" accent={ink} onOpen={openPlayer}
                 sub={`${t.h}-for-${t.ab}${t.hr ? `, ${t.hr} HR` : ''}${t.rbi ? `, ${t.rbi} RBI` : ''}${t.bb ? `, ${t.bb} BB` : ''}`}
               />
@@ -332,11 +332,11 @@ function SeriesBody({ A, B, clubs, teams, games: allGames, players, lines: allLi
           })}
         </Board>
         <Board title="On the mound" empty="Nobody has enough innings in these games yet." skeleton={!leaders}>
-          {leaders?.pitchers.slice(0, ROWS).map((p, i) => {
+          {leaders?.pitchers.slice(0, ROWS).map((p, i, top) => {
             const t = p.season.totals
             return (
               <LeaderRow
-                key={p.season.player.id} rank={i + 1} player={p.season.player} name={p.season.player.name}
+                key={p.season.player.id} {...leaderPlaces(top.map(x => fmtEra(x.season.totals.era)))[i]} player={p.season.player} name={p.season.player.name}
                 teamId={p.teamId} value={fmtEra(t.era)} unit="ERA" accent={ink} onOpen={openPlayer}
                 sub={`${outsToIp(t.outs)} IP, ${t.so} SO, ${t.bb} BB${t.w ? `, ${t.w}-${t.l}` : ''}`}
               />

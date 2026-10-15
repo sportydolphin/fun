@@ -65,6 +65,8 @@ import { setDynamicSeo } from '../seo'
 import { wpblSeasonYearFromPath, wpblSeasonPath } from './routes'
 import { completedSeason, gamesInSeason, inSeason, seasonsOnRecord } from './season'
 import { localIsoDate } from './derive/homePlayers'
+import { compareRows } from './leaderOrder'
+import { printedRanks } from '../ui/leaders'
 
 /** A batter's side of the plate, from the roster's `bats`, normalised to one letter. Switch
  *  hitters ('S') and unknowns fall outside the two toggle states and simply are not counted in
@@ -102,21 +104,34 @@ const PIT_BOARDS: PitKey[] = [
 ]
 
 const TOP_N = 3
+/** Everyone tied for the last place shown is shown, up to this: the 2026 wins title was a
+ *  five-way tie at 3, and three of the five, picked by roster order, read as a ranking of them. */
+const TIED_CAP = 6
+
+/**
+ * The top three and anyone tied with the third, in the Leaders board's order (`compareRows`: value,
+ * then the bigger sample, then the name). A tie is judged on the figure as printed, as the Leaders
+ * board and the Stats table judge it, so two co-leaders read "T-1" here as they do there.
+ */
+function topWithTies<S>(sorted: S[], text: (s: S) => string): S[] {
+  if (sorted.length <= TOP_N) return sorted
+  const cut = text(sorted[TOP_N - 1])
+  let n = TOP_N
+  while (n < sorted.length && n < TIED_CAP && text(sorted[n]) === cut) n++
+  return sorted.slice(0, n)
+}
 
 /** Rank a set of season lines by one accessor, dropping nulls and (for a rate title) anyone
- *  short of the qualifying bar. Ties break on the value alone; a stable enough order for three
- *  rows. */
+ *  short of the qualifying bar. */
 function rankBatting(seasons: WpblBatSeason[], board: BatKey, minPa: number, active: boolean): WpblBatSeason[] {
   const eligible = seasons.filter(s => {
     if (board.get(s.totals) == null) return false
     if (board.rate && active && plateAppearances(s.totals) < minPa) return false
     return true
   })
-  eligible.sort((a, b) => {
-    const av = board.get(a.totals)!, bv = board.get(b.totals)!
-    return board.asc ? av - bv : bv - av
-  })
-  return eligible.slice(0, TOP_N)
+  eligible.sort((a, b) => compareRows(board.get(a.totals), board.get(b.totals), !!board.asc,
+    plateAppearances(a.totals), plateAppearances(b.totals), a.player.name, b.player.name))
+  return topWithTies(eligible, s => board.fmt(board.get(s.totals)!))
 }
 
 function rankPitching(seasons: WpblPitSeason[], board: PitKey, minOuts: number, active: boolean): WpblPitSeason[] {
@@ -128,13 +143,11 @@ function rankPitching(seasons: WpblPitSeason[], board: PitKey, minOuts: number, 
     // only the rate boards gate. The `w`/`s` boards drop a zero via the value sort naturally.
     return true
   })
-  eligible.sort((a, b) => {
-    const av = board.get(a.totals)!, bv = board.get(b.totals)!
-    return board.asc ? av - bv : bv - av
-  })
+  eligible.sort((a, b) => compareRows(board.get(a.totals), board.get(b.totals), !!board.asc,
+    a.totals.outs, b.totals.outs, a.player.name, b.player.name))
   // Drop trailing zeros on a counting board so "Saves" does not list three players tied at 0.
   const nonZero = eligible.filter(s => (board.get(s.totals) ?? 0) > 0)
-  return (nonZero.length ? nonZero : eligible).slice(0, TOP_N)
+  return topWithTies(nonZero.length ? nonZero : eligible, s => board.fmt(board.get(s.totals)!))
 }
 
 // ─── Biggest plays / most improbable win ─────────────────────────────────────────
@@ -804,17 +817,21 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
               if (rows.length === 0) return null
               return { key: board.label, chip: board.chip, node: (
                 <LeaderBoard key={board.label} title={board.label}>
-                  {rows.map((s, i) => (
-                    <LeaderRow
-                      key={s.player.id}
-                      rank={i + 1}
-                      name={s.player.name}
-                      teamId={s.player.team_id}
-                      value={board.fmt(board.get(s.totals)!)}
-                      href={playerHref(s.player)}
-                      onNavigate={href => { opened('batting_leaders', 'player'); onNavigate(href) }}
-                    />
-                  ))}
+                  {withRanks(rows.map(s => board.fmt(board.get(s.totals)!))).map(({ rank, wide }, i) => {
+                    const s = rows[i]
+                    return (
+                      <LeaderRow
+                        key={s.player.id}
+                        rank={rank}
+                        wide={wide}
+                        name={s.player.name}
+                        teamId={s.player.team_id}
+                        value={board.fmt(board.get(s.totals)!)}
+                        href={playerHref(s.player)}
+                        onNavigate={href => { opened('batting_leaders', 'player'); onNavigate(href) }}
+                      />
+                    )
+                  })}
                 </LeaderBoard>
               ) }
             })} />
@@ -825,17 +842,21 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
               if (rows.length === 0) return null
               return { key: board.label, chip: board.chip, node: (
                 <LeaderBoard key={board.label} title={board.label}>
-                  {rows.map((s, i) => (
-                    <LeaderRow
-                      key={s.player.id}
-                      rank={i + 1}
-                      name={s.player.name}
-                      teamId={s.player.team_id}
-                      value={board.fmt(board.get(s.totals)!)}
-                      href={playerHref(s.player)}
-                      onNavigate={href => { opened('pitching_leaders', 'player'); onNavigate(href) }}
-                    />
-                  ))}
+                  {withRanks(rows.map(s => board.fmt(board.get(s.totals)!))).map(({ rank, wide }, i) => {
+                    const s = rows[i]
+                    return (
+                      <LeaderRow
+                        key={s.player.id}
+                        rank={rank}
+                        wide={wide}
+                        name={s.player.name}
+                        teamId={s.player.team_id}
+                        value={board.fmt(board.get(s.totals)!)}
+                        href={playerHref(s.player)}
+                        onNavigate={href => { opened('pitching_leaders', 'player'); onNavigate(href) }}
+                      />
+                    )
+                  })}
                 </LeaderBoard>
               ) }
             })} />
@@ -1473,8 +1494,18 @@ function LeaderBoard({ title, children }: { title: string; children: React.React
   )
 }
 
-function LeaderRow({ rank, name, teamId, value, href, onNavigate }: {
-  rank: number; name: string; teamId: string | null; value: string; href: string; onNavigate: (to: string) => void
+/** "T-1" for a shared place, and whether the board needs the wider rank column for one. */
+function withRanks(texts: string[]): { rank: string; wide: boolean }[] {
+  const ranks = printedRanks(texts)
+  const wide = ranks.some(r => r.tied)
+  return ranks.map(r => ({ rank: r.tied ? `T-${r.rank}` : String(r.rank), wide }))
+}
+
+function LeaderRow({ rank, wide = false, name, teamId, value, href, onNavigate }: {
+  rank: string
+  /** Room for "T-1": every row of a board with a tie, so the names still line up. */
+  wide?: boolean
+  name: string; teamId: string | null; value: string; href: string; onNavigate: (to: string) => void
 }) {
   return (
     <Box
@@ -1487,7 +1518,7 @@ function LeaderRow({ rank, name, teamId, value, href, onNavigate }: {
         borderRadius: 1.5, px: 0.75, py: 0.5, ...TAPPABLE,
       }}
     >
-      <Typography sx={{ flexShrink: 0, width: '1rem', fontSize: '0.8rem', fontWeight: 700, color: 'text.disabled' }}>
+      <Typography sx={{ flexShrink: 0, width: wide ? '1.75rem' : '1rem', fontSize: '0.8rem', fontWeight: 700, color: 'text.disabled', whiteSpace: 'nowrap' }}>
         {rank}
       </Typography>
       {/* The player's face, not a bare team-colour dot: the portrait keeps the club signal (it

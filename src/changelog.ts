@@ -10,6 +10,20 @@ import { ENTRIES as v1_000 } from './changelog/v1.000-1.049'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.166.0',
+    date:    '2026-10-15',
+    changes: [
+      {
+        short: 'Ties read as ties',
+        full:  "The 2026 season page now shows a shared place as \"T-1\" and lists everyone tied for the last spot: the home run title was a tie at 11, and wins a five-way tie at 3. The Run value, Pitch by pitch, Tracking and series boards mark ties the same way.",
+      },
+      {
+        short: 'Run value: clearer names',
+        full:  "Run value's first board is now \"Best run value\", and its note says how it differs from Bat and Pit on the Stats tab. A two-way player's card labels wins added \"Bat WPA\" and \"Pit WPA\", since the Stats table's WPA adds both sides.",
+      },
+    ],
+  },
+  {
     version: '1.165.0',
     date:    '2026-10-15',
     changes: [

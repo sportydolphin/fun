@@ -5,6 +5,7 @@
 // below so nothing in the section had to change its imports.
 
 import { useDark } from '../ui/useDark'
+import { printedRanks } from '../ui/leaders'
 import React, { useEffect, useLayoutEffect, useMemo, useCallback, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import type { Theme, SxProps } from '@mui/material'
@@ -547,8 +548,26 @@ export function RailScroller({ onScroll, scrollRef, children, snap = true, phone
  *
  *  `player` null means the feed named someone no roster row matched: the row still renders,
  *  it just is not clickable, because there is no page to open. */
-export function LeaderRow({ rank, player, name, teamId, value, unit, sub, accent, onOpen }: {
+/**
+ * The places for a list of `LeaderRow`s, judged on the value as printed: two rows that read the
+ * same share a place and say "T-2", as the Leaders board and the Stats table do. Spread one over
+ * each row (`{...places[i]}`). Without it a board numbered rows 1, 2, 3 by array position, and a
+ * reader saw two players on the same figure ranked one above the other.
+ */
+export function leaderPlaces(texts: string[]): { rank: number; tied: boolean; wide: boolean; first: boolean }[] {
+  const ranks = printedRanks(texts)
+  const wide = ranks.some(r => r.tied)
+  return ranks.map((r, i) => ({ ...r, wide, first: i === 0 }))
+}
+
+export function LeaderRow({ rank, tied = false, wide = false, first, player, name, teamId, value, unit, sub, accent, onOpen }: {
   rank: number
+  /** A shared place, drawn "T-2". From `leaderPlaces`, with `wide` and `first`. */
+  tied?: boolean
+  /** Room for "T-2" on every row of a board that has one, so the names still line up. */
+  wide?: boolean
+  /** The top row, which carries no rule. Defaults to rank 1, which a tie for first makes two of. */
+  first?: boolean
   player: WpblPlayer | null
   name: string
   teamId: string | null
@@ -569,7 +588,7 @@ export function LeaderRow({ rank, player, name, teamId, value, unit, sub, accent
       {...(clickable ? playerLink(player!, onOpen) : {})}
       sx={{
         display: 'flex', alignItems: 'center', gap: 1.25, px: 0.5, py: 0.85,
-        borderTop: rank === 1 ? 'none' : '1px solid', borderColor: 'divider',
+        borderTop: (first ?? rank === 1) ? 'none' : '1px solid', borderColor: 'divider',
         borderRadius: 1, cursor: clickable ? 'pointer' : 'default',
         WebkitTapHighlightColor: 'transparent',
         // Hover is gated on a device that actually has one, the same guard the Stats table
@@ -581,7 +600,7 @@ export function LeaderRow({ rank, player, name, teamId, value, unit, sub, accent
         },
       }}
     >
-      <Box sx={{ width: '1.125rem', textAlign: 'center', fontSize: '0.8rem', fontWeight: 800, color: rank <= 3 ? accent : 'text.disabled', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{rank}</Box>
+      <Box sx={{ width: wide ? '1.75rem' : '1.125rem', textAlign: 'center', fontSize: '0.8rem', fontWeight: 800, color: rank <= 3 ? accent : 'text.disabled', flexShrink: 0, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{tied ? `T-${rank}` : rank}</Box>
       <PlayerPortrait name={name} teamId={teamId} size={32} />
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
