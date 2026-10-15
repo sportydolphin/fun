@@ -293,14 +293,27 @@ function QuickPickTeam({ team, side, picked, dimmed, onPick }: {
 
 // The crowd-vote share on the outer edge of a matchup row. Reserves its column
 // width even with no votes (renders blank) so the two teams stay aligned.
-function PctLabel({ pct, align }: { pct: number | null; align: 'left' | 'right' }) {
+function PctLabel({ pct, align, votes, total }: { pct: number | null; align: 'left' | 'right'; votes: number; total: number }) {
   return (
-    <Typography sx={{
+    // The count behind the share on hover: early in a day one pick is "100%", and the number is
+    // what says how little that means.
+    <Typography title={total ? `${votes} of ${total} fan ${total === 1 ? 'pick' : 'picks'}` : undefined} sx={{
       fontSize: TYPE_SCALE.meta, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
       color: 'text.secondary', textAlign: align, lineHeight: 1, whiteSpace: 'nowrap',
       visibility: pct === null ? 'hidden' : 'visible',
     }}>
       {pct ?? 0}%
+    </Typography>
+  )
+}
+
+/** What the bars and the percentages are. Without it a lone early pick drew "0%" against "100%"
+ *  over a bar that was all one colour, which read as an error or as a forecast. Drawn whether or
+ *  not any votes are in, and in the loading state too, so nothing moves when they land. */
+function CrowdCaption() {
+  return (
+    <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary', lineHeight: 1.3, textAlign: 'center' }}>
+      Percentages are fans' picks so far
     </Typography>
   )
 }
@@ -332,7 +345,7 @@ function QuickPickRow({ game, prediction, gameVotes, onPick }: {
         gridTemplateColumns: `minmax(${chromePx(26)},auto) minmax(0,1fr) auto minmax(0,1fr) minmax(${chromePx(26)},auto)`,
         alignItems: 'center', columnGap: 0.6,
       }}>
-        <PctLabel pct={awayPct} align="left" />
+        <PctLabel pct={awayPct} align="left" votes={awayVotes} total={totalVotes} />
         <QuickPickTeam
           team={game.away}
           side="away"
@@ -348,7 +361,7 @@ function QuickPickRow({ game, prediction, gameVotes, onPick }: {
           dimmed={hasPick && !pickedHome}
           onPick={() => onPick(game.home.teamId)}
         />
-        <PctLabel pct={homePct} align="right" />
+        <PctLabel pct={homePct} align="right" votes={homeVotes} total={totalVotes} />
       </Box>
 
       {/* Tug-of-war meter: crowd split in team colors, scaling with the vote %.
@@ -722,8 +735,9 @@ export function PredictorWidget({ onPicksSettled }: {
             nearly every day with games. Without it the card grew by a third as the games arrived,
             and on a phone everything under it moved. */}
         {loading && (
-          <Box aria-hidden sx={{ px: 2, pb: 1.75, pt: 0.25 }}>
+          <Box aria-hidden sx={{ px: 2, pb: 1.75, pt: 0.25, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <Skeleton variant="rounded" sx={{ height: chromePx(51), borderRadius: 2 }} />
+            <CrowdCaption />
           </Box>
         )}
 
@@ -739,6 +753,7 @@ export function PredictorWidget({ onPicksSettled }: {
                 onPick={teamId => handlePick(g.gamePk, teamId)}
               />
             ))}
+            <CrowdCaption />
             {games.length > quickPicks.length && (
               <Box
                 {...pressable(() => canOpen && setModalOpen(true))}

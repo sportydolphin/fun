@@ -1515,15 +1515,16 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   const selectTabRef = useRef(selectTab)
   selectTabRef.current = selectTab
   const statsBadge = navBadge('stats')
+  const statsBadgeNote = featureDots.note('wpbl/stats')
   useEffect(() => {
     if (!active) return
     publishSectionNav({
       section: 'wpbl',
-      tabs: NAV.map(n => ({ key: n.key, label: n.label, href: wpblPathFor(n.key), badge: n.key === 'stats' && statsBadge })),
+      tabs: NAV.map(n => ({ key: n.key, label: n.label, href: wpblPathFor(n.key), badge: n.key === 'stats' && statsBadge, badgeNote: n.key === 'stats' ? statsBadgeNote : undefined })),
       active: view,
       onSelect: k => selectTabRef.current(k as WpblView, 'pill'),
     })
-  }, [view, statsBadge, active])
+  }, [view, statsBadge, statsBadgeNote, active])
   useEffect(() => active ? () => clearSectionNav('wpbl') : undefined, [active])
   // Every team-page open in the section funnels through here, so it is the only place that can
   // count them all: the Teams grid, the standings table, the Stats table, the bracket and the

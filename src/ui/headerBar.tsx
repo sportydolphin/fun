@@ -38,6 +38,13 @@ export const headerChipSx = {
   ...FOCUS_RING,
 } as const
 
+/** A chip that is only its icon: square, the same 28px as the worded chips, so a bar of both still
+ *  reads as one row. For the controls that do not change what is shown (Copy link, Expand): a bar
+ *  of five uppercase words (club, Expand, Compare, Copy link, close) was a wall to scan for the one
+ *  that mattered, so those two keep their name as a tooltip and an aria-label, and Compare, the one
+ *  that opens something, keeps its word. */
+export const headerIconChipSx = { ...headerChipSx, px: 0, width: chromePx(28), justifyContent: 'center' } as const
+
 /** A chip's icon and word. */
 export function HeaderChipLabel({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return (

@@ -24,6 +24,8 @@ export interface PageTab {
   /** Drawn after the label, e.g. WPBL's NewDot. Aria-hidden by its owner, so pass `ariaLabel` too. */
   adornment?: React.ReactNode
   ariaLabel?: string
+  /** A hover tooltip: what the adornment means, where it is a dot. */
+  title?: string
 }
 
 export function PageTabs({ options, value, onChange, mb = 1.25, sub = false }: {
@@ -63,7 +65,7 @@ export function PageTabs({ options, value, onChange, mb = 1.25, sub = false }: {
         return (
           // aria-current on a plain button too: it is the page indicator either way, and it is what
           // the keep-in-view effect above looks for.
-          <Box key={o.value} {...press} aria-current={on ? 'page' : undefined} aria-label={o.ariaLabel} sx={{
+          <Box key={o.value} {...press} aria-current={on ? 'page' : undefined} aria-label={o.ariaLabel} title={o.title} sx={{
             ...FOCUS_RING,
             pb: sub ? 0.75 : 1, mb: '-1px', flexShrink: 0, cursor: 'pointer', userSelect: 'none',
             whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center',

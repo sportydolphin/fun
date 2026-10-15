@@ -34,6 +34,9 @@ import { useCallback, useState } from 'react'
 export interface Feature {
   /** Where it lives: the section, then the nav tab, then whatever sits inside it, e.g. a chip. */
   place: string
+  /** What it is, in a few words, for the tooltip on a dot that points at it. A dot alone said
+   *  "something" and never what, so a reader who hovered the Stats tab learned nothing. */
+  label: string
   /** After this, no reader sees the dot. */
   until: Date
 }
@@ -45,8 +48,8 @@ const FEATURES = {
   // a few weeks rather than expiring with it: these boards are the durable archive (single-game
   // and query-any records survive the feed stopping), so a reader returning after the season is
   // exactly who the dot still points at.
-  'bests-v184': { place: 'wpbl/stats/bests', until: new Date('2026-10-31T23:59:59Z') },
-  'find-v184': { place: 'wpbl/stats/find', until: new Date('2026-10-31T23:59:59Z') },
+  'bests-v184': { place: 'wpbl/stats/bests', label: 'Bests, the top single games', until: new Date('2026-10-31T23:59:59Z') },
+  'find-v184': { place: 'wpbl/stats/find', label: 'Find, search every game', until: new Date('2026-10-31T23:59:59Z') },
 } as const satisfies Record<string, Feature>
 
 type Registry = Record<string, Feature>
@@ -78,6 +81,16 @@ export function hasDot(place: string, reached: Reached, now = Date.now(), regist
   const d = depth(place)
   return Object.entries(registry).some(([id, f]) =>
     now <= f.until.getTime() && isUnder(f.place, place) && (reached[id] ?? 0) < d)
+}
+
+/** What a dot at `place` points at, for its tooltip: "New: Bests, …; Find, …", or undefined when
+ *  `place` wears no dot. */
+export function dotNote(place: string, reached: Reached, now = Date.now(), registry: Registry = FEATURES): string | undefined {
+  const d = depth(place)
+  const labels = Object.entries(registry)
+    .filter(([id, f]) => now <= f.until.getTime() && isUnder(f.place, place) && (reached[id] ?? 0) < d)
+    .map(([, f]) => f.label)
+  return labels.length > 0 ? `New: ${labels.join('; ')}` : undefined
 }
 
 /** The reader is at `place`: every feature at or under it has been reached that deep. Returns
@@ -112,8 +125,9 @@ export function useFeatureDots() {
     }
     return out
   }, [reached])
+  const note = useCallback((place: string) => dotNote(place, reached), [reached])
   const markVisited = useCallback((place: string) => setReached(prev => visit(place, prev)), [])
-  return { dot, dotsUnder, visit: markVisited }
+  return { dot, note, dotsUnder, visit: markVisited }
 }
 
 /** Dev only: forget how far the reader has gone, so the dots can be checked again. Expired

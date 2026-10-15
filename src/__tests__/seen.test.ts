@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { hasDot, visit, readReached, type Feature } from '../lib/seen'
+import { hasDot, dotNote, visit, readReached, type Feature } from '../lib/seen'
 
 // A dot is derived from the registry at every level on the way to a feature, and gated on a date
 // as well as a visit. The date half is the part nobody will notice breaking: if the expiry stops
@@ -9,8 +9,8 @@ import { hasDot, visit, readReached, type Feature } from '../lib/seen'
 
 const UNTIL = new Date('2026-10-31T23:59:59Z')
 const REG: Record<string, Feature> = {
-  find: { place: 'wpbl/stats/find', until: UNTIL },
-  bests: { place: 'wpbl/stats/bests', until: UNTIL },
+  find: { place: 'wpbl/stats/find', label: 'Find', until: UNTIL },
+  bests: { place: 'wpbl/stats/bests', label: 'Bests', until: UNTIL },
 }
 const BEFORE = Date.parse('2026-10-14T12:00:00Z')
 const AFTER = Date.parse('2026-11-01T12:00:00Z')
@@ -60,6 +60,14 @@ describe('feature dots', () => {
   it('reads the old seen flag as all the way there', () => {
     localStorage.setItem('sdSeen:find', '1')
     expect(hasDot('wpbl/stats/find', fresh(), BEFORE, REG)).toBe(false)
+  })
+
+  // The tooltip says what the dot points at, and only what is still unreached under that place.
+  it('names what a dot points at, and drops what the reader has reached', () => {
+    expect(dotNote('wpbl/stats', fresh(), BEFORE, REG)).toBe('New: Find; Bests')
+    const r = visit('wpbl/stats/find', fresh(), REG)
+    expect(dotNote('wpbl/stats', r, BEFORE, REG)).toBe('New: Bests')
+    expect(dotNote('wpbl/stats', fresh(), AFTER, REG)).toBeUndefined()
   })
 
   // Private mode and blocked storage. A dot that can never be dismissed, on every single visit,
