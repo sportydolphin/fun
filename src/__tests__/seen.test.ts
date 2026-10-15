@@ -1,56 +1,75 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { hasDot, visit, readReached, type Feature } from '../lib/seen'
 
-// The badge is gated on a date as well as a click, and the date half is the part nobody will
-// notice breaking: if the expiry stops being honoured, a dot advertising an August release is
-// still sitting in the nav at Christmas, and the only symptom is that it never goes away for
-// anyone who ignores it. These pin both halves.
+// A dot is derived from the registry at every level on the way to a feature, and gated on a date
+// as well as a visit. The date half is the part nobody will notice breaking: if the expiry stops
+// being honoured, a dot advertising an August release is still in the nav at Christmas. The depth
+// half is what lets one entry light both a nav pill and a chip and put them out separately.
+// A registry of its own, so these test the mechanism and outlive whatever is registered today.
 
-// Whichever badge is registered today: these test the mechanism, not the release. When the
-// last one is retired and BADGES is empty, this file goes with it.
-const KEY = 'runs-v152'
-const BEFORE_EXPIRY = new Date('2026-08-27T12:00:00Z')
-const AFTER_EXPIRY = new Date('2026-10-01T12:00:00Z')
+const UNTIL = new Date('2026-10-31T23:59:59Z')
+const REG: Record<string, Feature> = {
+  find: { place: 'wpbl/stats/find', until: UNTIL },
+  bests: { place: 'wpbl/stats/bests', until: UNTIL },
+}
+const BEFORE = Date.parse('2026-10-14T12:00:00Z')
+const AFTER = Date.parse('2026-11-01T12:00:00Z')
+const fresh = () => readReached(REG)
 
-describe('shouldShowBadge', () => {
+describe('feature dots', () => {
   beforeEach(() => { localStorage.clear() })
-  afterEach(() => { vi.useRealTimers() })
 
-  it('shows for a reader who has not seen it, before the expiry', () => {
-    vi.setSystemTime(BEFORE_EXPIRY)
-    expect(shouldShowBadge(KEY)).toBe(true)
+  it('lights the feature and every place on the way to it, and nothing beside it', () => {
+    const r = fresh()
+    expect(hasDot('wpbl/stats', r, BEFORE, REG)).toBe(true)
+    expect(hasDot('wpbl/stats/find', r, BEFORE, REG)).toBe(true)
+    expect(hasDot('wpbl/home', r, BEFORE, REG)).toBe(false)
+    expect(hasDot('wpbl/stats/hitting', r, BEFORE, REG)).toBe(false)
   })
 
-  it('stops once marked seen', () => {
-    vi.setSystemTime(BEFORE_EXPIRY)
-    markBadgeSeen(KEY)
-    expect(shouldShowBadge(KEY)).toBe(false)
+  it('reaching the tab puts out the pill and leaves the chips pointing', () => {
+    const r = visit('wpbl/stats', fresh(), REG)
+    expect(hasDot('wpbl/stats', r, BEFORE, REG)).toBe(false)
+    expect(hasDot('wpbl/stats/find', r, BEFORE, REG)).toBe(true)
+    expect(hasDot('wpbl/stats/bests', r, BEFORE, REG)).toBe(true)
   })
 
-  it('stops after the expiry even for a reader who never saw it', () => {
-    vi.setSystemTime(AFTER_EXPIRY)
-    expect(shouldShowBadge(KEY)).toBe(false)
+  it('a deep link onto one board puts out its chip only, and the pill stays for the other', () => {
+    const r = visit('wpbl/stats/find', fresh(), REG)
+    expect(hasDot('wpbl/stats/find', r, BEFORE, REG)).toBe(false)
+    expect(hasDot('wpbl/stats/bests', r, BEFORE, REG)).toBe(true)
+    expect(hasDot('wpbl/stats', r, BEFORE, REG)).toBe(true)
   })
 
-  it('marking is idempotent', () => {
-    vi.setSystemTime(BEFORE_EXPIRY)
-    markBadgeSeen(KEY)
-    markBadgeSeen(KEY)
-    expect(shouldShowBadge(KEY)).toBe(false)
+  it('persists across a reload, and never goes back up', () => {
+    visit('wpbl/stats/find', fresh(), REG)
+    const r = visit('wpbl/stats', fresh(), REG)
+    expect(hasDot('wpbl/stats/find', r, BEFORE, REG)).toBe(false)
   })
 
-  // Private mode and blocked storage. Showing a badge that can never be dismissed, on every
-  // single visit, is worse than showing nothing.
-  it('shows nothing when localStorage throws', () => {
-    vi.setSystemTime(BEFORE_EXPIRY)
-    const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked') })
-    expect(shouldShowBadge(KEY)).toBe(false)
-    spy.mockRestore()
+  it('returns the same object when nothing moved', () => {
+    const r = visit('wpbl/stats', fresh(), REG)
+    expect(visit('wpbl/stats', r, REG)).toBe(r)
+    expect(visit('wpbl/home', r, REG)).toBe(r)
   })
 
-  it('marking never throws when storage is unavailable', () => {
-    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
-    expect(() => markBadgeSeen(KEY)).not.toThrow()
-    spy.mockRestore()
+  it('stops after the expiry even for a reader who never looked', () => {
+    expect(hasDot('wpbl/stats', fresh(), AFTER, REG)).toBe(false)
+  })
+
+  it('reads the old seen flag as all the way there', () => {
+    localStorage.setItem('sdSeen:find', '1')
+    expect(hasDot('wpbl/stats/find', fresh(), BEFORE, REG)).toBe(false)
+  })
+
+  // Private mode and blocked storage. A dot that can never be dismissed, on every single visit,
+  // is worse than none.
+  it('shows nothing when localStorage throws, and visiting never throws', () => {
+    const get = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked') })
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
+    const r = fresh()
+    expect(hasDot('wpbl/stats', r, BEFORE, REG)).toBe(false)
+    expect(() => visit('wpbl/stats/find', { find: 0 }, REG)).not.toThrow()
+    get.mockRestore(); set.mockRestore()
   })
 })

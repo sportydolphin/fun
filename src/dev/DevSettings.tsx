@@ -39,7 +39,7 @@ import {
   devLivePlayCount, devLiveSnapshot, restartDevLive, setDevLiveEnabled, setDevLiveGame,
   setDevLivePlaying, setDevLiveSpeed, stepDevLive, subscribeDevLive,
 } from '../wpbl/dev/devLiveGame'
-import { resetBadgesForDev } from '../lib/seen'
+import { resetFeatureDotsForDev } from '../lib/seen'
 import { useNotifications, addEventNotification, refreshNotifications, clearNotifications } from '../lib/notifications'
 import { sampleNotifications } from '../../shared/notifications'
 import type { NotificationPayload } from '../../shared/notifications'
@@ -776,7 +776,7 @@ function MarkerControls() {
     <>
       <Typography sx={heading}>Markers</Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-        <Button size="small" variant="outlined" sx={btn} onClick={() => { resetBadgesForDev(); setDone('Feature dots back. Reload to see them.') }}>
+        <Button size="small" variant="outlined" sx={btn} onClick={() => { resetFeatureDotsForDev(); setDone('Feature dots back. Reload to see them.') }}>
           Show "new feature" dots again
         </Button>
         <Button size="small" variant="outlined" sx={btn} onClick={() => { devBackdateNewSince(14); setDone('Last visit set to 14 days ago. Reload Reading or Watch.') }}>
