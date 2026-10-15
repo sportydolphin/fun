@@ -1713,6 +1713,40 @@ export async function fetchWpblGameLines(gameId: string): Promise<{ batting: Wpb
   return { batting: asGame(batting, id, gameId), pitching: asGame(pitching, id, gameId), fielding: asGame(fielding, id, gameId) }
 }
 
+// Batting and pitching lines for a handful of games, in one read per table. For the offseason Home's
+// Star of the final, which needs the five championship games and nothing else: that page skips
+// `fetchWpblAllLines` on purpose (about 73KB gzipped for no card), and a box-score read per game
+// would be fifteen requests where two do. Kept for the session, since a decided series does not
+// change under it.
+const linesForGamesCache = new Map<string, { batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>()
+export function fetchWpblLinesForGames(gameIds: string[]): Promise<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }> {
+  const key = [...gameIds].sort().join(',')
+  const hit = linesForGamesCache.get(key)
+  if (hit) return Promise.resolve(hit)
+  if (gameIds.length === 0) return Promise.resolve({ batting: [], pitching: [] })
+  return once(`linesFor:${key}`, async () => {
+    // The dev overlay can stand one game in for another; read the source ids and hand each row
+    // back under the id it was asked for, as fetchWpblGameLines does for one.
+    const asked = new Map(gameIds.map(g => [overlayGameId(g), g]))
+    const ids = [...asked.keys()]
+    const [batting, pitching] = await Promise.all([
+      safe('fetchWpblLinesForGamesBatting', () =>
+        supabase.from('wpbl_batting_lines').select(BATTING_LINE_COLUMNS).in('game_id', ids)
+          .order('id', { ascending: true }) as unknown as PromiseLike<{ data: WpblBattingLine[] | null; error: unknown }>,
+        [] as WpblBattingLine[]),
+      safe('fetchWpblLinesForGamesPitching', () =>
+        supabase.from('wpbl_pitching_lines').select(PITCHING_LINE_COLUMNS).in('game_id', ids)
+          .order('id', { ascending: true }) as unknown as PromiseLike<{ data: WpblPitchingLine[] | null; error: unknown }>,
+        [] as WpblPitchingLine[]),
+    ])
+    const back = <T extends { game_id: string }>(rows: T[]) => rows.map(r => ({ ...r, game_id: asked.get(r.game_id) ?? r.game_id }))
+    const out = { batting: back(batting), pitching: back(pitching) }
+    // An empty answer may be a timeout (safe() falls back to []), so only a real one is kept.
+    if (out.batting.length > 0 || out.pitching.length > 0) linesForGamesCache.set(key, out)
+    return out
+  })
+}
+
 // Lineup history for one team: which slot and position each player filled, game by game.
 //
 // Reads the wpbl_lineup_history view rather than wpbl_batting_lines, because "did they start
