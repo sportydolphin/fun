@@ -15,7 +15,7 @@ import { parseClubPage, parseFinderText, parseGameQuery, parseLeaderText, parseP
 import { MLB_FINDER_CLUBS, mlbFinderHref } from './mlb/finderLink'
 import { CURRENT_SEASON, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_ABBR } from './mlb/constants'
 import { MLB_GLOSSARY_PAGE, mlbClubById, mlbTeamPath, mlbUrlFor } from './mlb/routes'
-import { WPBL_FINDER_CLUBS, wpblFinderHref } from './wpbl/finderLink'
+import { WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, wpblFinderHref } from './wpbl/finderLink'
 import { WPBL_TEAMS } from './wpbl/constants'
 import { WPBL_GLOSSARY_PAGE, wpblSeriesPath, wpblTeamPath } from './wpbl/routes'
 import { askedTerms, glossaryTermKey } from './league/glossary'
@@ -42,12 +42,13 @@ function clubLabel(section: FinderSection, id: string): string {
 
 /** Every reading of `text` as a question for this section's Find board, best first. */
 export function finderSuggestions(section: FinderSection, text: string): FinderSuggestion[] {
-  const parsed = parseFinderText(text, section === 'mlb' ? MLB_FINDER_CLUBS : WPBL_FINDER_CLUBS)
+  const parsed = section === 'mlb'
+    ? parseFinderText(text, MLB_FINDER_CLUBS)
+    : parseFinderText(text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES)
   return parsed.map(p => {
     const title = describeFinderQuery(p.side, p)
-    const bits = [p.per === 'season'
-      ? (p.side === 'pitching' ? 'Pitching, season totals' : 'Batting, season totals')
-      : (p.side === 'pitching' ? 'Pitching lines' : 'Batting lines')]
+    const sideWord = p.side === 'pitching' ? 'Pitching' : p.side === 'fielding' ? 'Fielding' : 'Batting'
+    const bits = [p.per === 'season' ? `${sideWord}, season totals` : `${sideWord} lines`]
     if (p.teamId) bits.push(`for ${clubLabel(section, p.teamId)}`)
     if (p.oppId) bits.push(`vs ${clubLabel(section, p.oppId)}`)
     if (p.venue === 'home') bits.push('at home')

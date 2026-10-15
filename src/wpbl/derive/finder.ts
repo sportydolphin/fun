@@ -6,4 +6,4 @@ export {
   EMPTY_FINDER_QUERY, decodeFinderPer, decodeFinderQuery, describeFinderQuery, encodeFinderQuery, finderFields,
   parseFinderValue, finderColumns, validFinderSort, runFinder as runWpblFinder,
 } from '../../league/finder'
-export type { FinderQuery, FinderSide, FinderSort, FinderVenue } from '../../league/finder'
+export type { FinderBoardSide, FinderQuery, FinderSide, FinderSort, FinderVenue } from '../../league/finder'

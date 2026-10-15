@@ -1,5 +1,6 @@
 import { parseCompareText, parseFinderText, parseLeaderText } from '../league/finderParse'
 import { mightBeFinderQuestion } from '../finderGate'
+import { WPBL_FINDER_SIDES } from './finderLink'
 
 /**
  * The props of one `wpbl_searched` event: a settled query and what answered it.
@@ -17,7 +18,7 @@ import { mightBeFinderQuestion } from '../finderGate'
  * `finder` is how many readings the palette offered, from the same parser it uses.
  */
 export function wpblSearchedProps(q: string, players: number, teams: number): Record<string, unknown> {
-  const finder = mightBeFinderQuestion(q) ? parseFinderText(q).length : 0
+  const finder = mightBeFinderQuestion(q) ? parseFinderText(q, [], WPBL_FINDER_SIDES).length : 0
   // The same holds for a ranking ("most strikeouts") and a pair ("Whitmore vs Ibarra"), both read
   // since Oct 14, 2026. A pair whose names found nobody shows no row, and the palette's own close
   // keeps that text (`command_palette_dismissed`), so it is not lost by being left out here.

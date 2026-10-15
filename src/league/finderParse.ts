@@ -1,5 +1,5 @@
 import { finderFields, finderLowerBetter, parseFinderValue } from './finder'
-import type { FinderCondition, FinderOp, FinderPer, FinderSide, FinderVenue } from './finder'
+import type { FinderBoardSide, FinderCondition, FinderOp, FinderPer, FinderSide, FinderVenue } from './finder'
 import { editDistance } from '../lib/fuzzyName'
 import type { PlayerPart } from '../lib/playerParts'
 import { positionFilterDef, type PositionFilter } from './positionFilter'
@@ -20,7 +20,8 @@ import { positionFilterDef, type PositionFilter } from './positionFilter'
  * what licenses the loose grammar below, and also why it gives up rather than guessing when a
  * number has no stat beside it: nothing is suggested, and the search falls back to names.
  *
- * TWO SIDES, BECAUSE "5 STRIKEOUTS" IS TWO QUESTIONS. A pitcher who struck five out and a batter
+ * TWO SIDES, BECAUSE "5 STRIKEOUTS" IS TWO QUESTIONS (three where the section has a Fielding side:
+ * "2 double plays" is a batter's or a fielder's). A pitcher who struck five out and a batter
  * who struck out five times are both lines the finder can find. So it returns every side the
  * words can be read on, best first: a stat only one side records (innings, RBI) or a word like
  * "allowed" settles it, and otherwise each stat leans the way a fan usually means it (strikeouts
@@ -44,7 +45,7 @@ export interface FinderClubAlias {
 }
 
 export interface ParsedFinder {
-  side: FinderSide
+  side: FinderBoardSide
   per: FinderPer
   conditions: FinderCondition[]
   teamId: string | null
@@ -60,7 +61,7 @@ export interface ParsedFinder {
 
 /** One word or phrase for a stat, and the field it means on each side that records it. Whether a
  *  field needs a season (a rate, games played) is the engine's to say, not the alias's. */
-export interface StatAlias { hitting?: string; pitching?: string; overall?: string; lean?: FinderSide }
+export interface StatAlias { hitting?: string; pitching?: string; fielding?: string; overall?: string; lean?: FinderSide }
 
 /** A side a stats table ranks on: the bat, the arm, or a player's whole game (WPBL's WAR). */
 export type RankSide = FinderSide | 'overall'
@@ -87,7 +88,10 @@ add({ hitting: 'rbi' }, 'rbi', 'rbis', 'runs batted in', 'ribbies')
 add({ hitting: 'r' }, 'runs scored')
 add({ hitting: 'sb' }, 'stolen bases', 'stolen base', 'steals', 'steal', 'sb', 'sbs', 'swipes')
 add({ hitting: 'cs' }, 'caught stealing', 'cs')
-add({ hitting: 'gdp' }, 'gdp', 'gidp', 'double plays', 'double play', 'grounded into double plays')
+add({ hitting: 'gdp' }, 'gdp', 'gidp', 'grounded into double plays')
+// A batter grounds into one and a fielder turns one: the batter's by default, the fielder's on a
+// Fielding side when a word says so ("turned", "fielders").
+add({ hitting: 'gdp', fielding: 'dp', lean: 'hitting' }, 'double plays', 'double play', 'dp', 'dps')
 add({ hitting: 'ob' }, 'times on base', 'tob')
 add({ hitting: 'pa' }, 'plate appearances', 'plate appearance', 'pa', 'pas')
 add({ hitting: 'so' }, 'struck out', 'times struck out')
@@ -119,6 +123,16 @@ add({ pitching: 'hld' }, 'holds', 'hold', 'hld')
 add({ pitching: 'gs' }, 'games started', 'starts', 'start', 'gs')
 add({ hitting: 'g' }, 'games played', 'gp')
 add({ pitching: 'g' }, 'appearances', 'games pitched', 'outings pitched')
+// The glove. No bare "a" or "e", which are words and initials before they are stats.
+add({ fielding: 'tc' }, 'total chances', 'chances', 'tc')
+add({ fielding: 'po' }, 'putouts', 'putout', 'put outs', 'po')
+add({ fielding: 'a' }, 'assists', 'assist')
+add({ fielding: 'e' }, 'errors', 'error')
+add({ fielding: 'dp' }, 'double plays turned', 'turned double plays')
+add({ fielding: 'pb' }, 'passed balls', 'passed ball', 'pb')
+add({ fielding: 'sba' }, 'stolen bases allowed', 'steals allowed', 'sba')
+add({ fielding: 'ci' }, 'catchers interference', 'catcher interference', 'ci')
+add({ fielding: 'fpct' }, 'fielding percentage', 'fielding pct', 'fielding average', 'fpct')
 
 // Longest first, so "runs batted in" is read before "runs" and "hit by pitch" before "hit".
 const STAT_PHRASES = Object.keys(STAT_ALIASES).sort((a, b) => b.length - a.length)
@@ -223,7 +237,7 @@ const GAME_WORDS = /(?<![a-z])(in a game|in one game|in a single game|single gam
 // has done it in a game, so the question can only be about a season; above `typical` it is a rare
 // night and a plausible season both, so both readings are offered. Generous on purpose: a max set
 // too low drops a real game question, where one set too high only offers a season reading second.
-const GAME_LIMITS: Record<FinderSide, Record<string, { typical: number; max: number }>> = {
+const GAME_LIMITS: Record<FinderBoardSide, Record<string, { typical: number; max: number }>> = {
   hitting: {
     h: { typical: 4, max: 7 }, ab: { typical: 6, max: 11 }, pa: { typical: 6, max: 12 }, r: { typical: 4, max: 6 },
     hr: { typical: 2, max: 4 }, '2b': { typical: 2, max: 4 }, '3b': { typical: 1, max: 3 }, rbi: { typical: 6, max: 12 },
@@ -239,8 +253,13 @@ const GAME_LIMITS: Record<FinderSide, Record<string, { typical: number; max: num
     w: { typical: 1, max: 1 }, l: { typical: 1, max: 1 }, sv: { typical: 1, max: 1 }, hld: { typical: 1, max: 1 },
     gs: { typical: 1, max: 1 },
   },
+  fielding: {
+    tc: { typical: 12, max: 22 }, po: { typical: 12, max: 21 }, a: { typical: 6, max: 12 }, e: { typical: 2, max: 4 },
+    dp: { typical: 2, max: 5 }, pb: { typical: 2, max: 4 }, sba: { typical: 3, max: 8 }, ci: { typical: 1, max: 2 },
+  },
 }
 const HITTING_HINTS = ['hitter', 'hitters', 'hitting', 'batter', 'batters', 'batting']
+const FIELDING_HINTS = ['fielder', 'fielders', 'fielding', 'defense', 'defence', 'defensive', 'glove', 'turned']
 
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const alt = (xs: string[]) => xs.map(esc).join('|')
@@ -314,9 +333,18 @@ function normalize(text: string): string {
 // letters or more, because shorter ones collide with real names and clubs ("twins" is one letter
 // from "wins"), and never a word that is itself a club's, which the caller passes in. The corrected
 // question is what the row then states in words, so a wrong guess shows before anyone acts on it.
+//
+// NOT THE FIELDING WORDS. The name search runs its text through this too (`nameWords`), so a stat
+// word one slip from a common name rewrites the name: "chances" would turn Chance into a stat and
+// "turned" would turn Turner into a hint, and the player would go unfound. A slip in "erorrs" just
+// goes unread, which costs a row nobody gets rather than a player nobody can find.
 const STAT_VOCAB: string[] = (() => {
   const words = new Set<string>()
-  for (const p of [...Object.keys(STAT_ALIASES), ...PITCHING_HINTS, ...HITTING_HINTS]) {
+  const phrases = Object.keys(STAT_ALIASES).filter(p => {
+    const a = STAT_ALIASES[p]
+    return a.hitting || a.pitching
+  })
+  for (const p of [...phrases, ...PITCHING_HINTS, ...HITTING_HINTS]) {
     for (const w of p.split(' ')) if (w.length >= 4) words.add(w)
   }
   return [...words]
@@ -335,12 +363,12 @@ function fixStatTypos(text: string, keep: ReadonlySet<string> = new Set()): stri
   })
 }
 
-const RATE_FIELDS = new Set(['avg', 'obp', 'slg', 'ops', 'era', 'whip'])
+const RATE_FIELDS = new Set(['avg', 'obp', 'slg', 'ops', 'era', 'whip', 'fpct'])
 
 /** The number a match carried, in the field's own unit once the side is known: innings in outs
  *  ("6.2" is 20), a rate in its last printed digit (".300" is 300), which is why the raw text is
  *  kept. The finder's own parser does the converting, so a typed question and a typed box agree. */
-function valueFor(side: FinderSide, field: string, raw: string, shift: number): number | null {
+function valueFor(side: FinderBoardSide, field: string, raw: string, shift: number): number | null {
   const text = raw in NUMBER_WORDS ? String(NUMBER_WORDS[raw]) : raw
   const n = Number(text)
   if (!Number.isFinite(n)) return null
@@ -410,8 +438,15 @@ function takeYear(rest: string): { rest: string; season: number | null } {
  * One reading per side, and per club when a name could mean more than one (two Chicagos, two
  * Los Angeleses), capped at four. A condition the text names twice ("3 hits 4 hits") keeps the
  * last, which is what a reader who corrected themselves meant.
+ *
+ * `sides` are the ones the section's Find board has. Fielding is WPBL's alone until MLB stores
+ * fielding lines, so it is asked for rather than assumed: offered to MLB, "2 errors" would be a
+ * link to a board that cannot answer it.
  */
-export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] = []): ParsedFinder[] {
+export function parseFinderText(
+  text: string, clubs: readonly FinderClubAlias[] = [],
+  sides: readonly FinderBoardSide[] = ['hitting', 'pitching'],
+): ParsedFinder[] {
   const clubWords = new Set(clubs.flatMap(c => c.names.flatMap(n => normalize(n).split(' '))))
   let rest = ` ${wordedThresholds(fixStatTypos(normalize(text), clubWords))} `
   if (!rest.trim()) return []
@@ -513,18 +548,21 @@ export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] 
 
   const leftover = rest.split(/[^a-z0-9]+/).filter(Boolean)
   const words = new Set(leftover)
-  const hintP = PITCHING_HINTS.some(w => words.has(w))
-  const hintH = HITTING_HINTS.some(w => words.has(w))
-  const hints = new Set([...PITCHING_HINTS, ...HITTING_HINTS])
+  const hinted: Record<FinderBoardSide, boolean> = {
+    hitting: HITTING_HINTS.some(w => words.has(w)),
+    pitching: PITCHING_HINTS.some(w => words.has(w)),
+    fielding: FIELDING_HINTS.some(w => words.has(w)),
+  }
+  const hints = new Set([...PITCHING_HINTS, ...HITTING_HINTS, ...FIELDING_HINTS])
   const ignored = leftover.filter((w, i) => !FILLER.has(w) && !hints.has(w) && leftover.indexOf(w) === i)
 
   const readings: { parsed: ParsedFinder; score: number }[] = []
-  for (const side of ['hitting', 'pitching'] as const) {
+  for (const side of sides) {
     const byField = new Map<string, FinderCondition>()
     let ok = true
     let score = 0
     if (forLine.seen) {
-      if (side === 'pitching') ok = false
+      if (side !== 'hitting') ok = false
       else {
         byField.set('h', { field: 'h', op: 'eq', value: forLine.h })
         byField.set('ab', { field: 'ab', op: 'eq', value: forLine.ab })
@@ -544,12 +582,11 @@ export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] 
       else byField.delete(field)
       byField.set(op === 'eq' ? field : `${field}:${op}`, { field, op, value })
       // A phrase only this side records is decisive; a lean is a tiebreak.
-      if (!p.alias[side === 'hitting' ? 'pitching' : 'hitting']) score += 2
+      if (!sides.some(o => o !== side && p.alias[o])) score += 2
       else if (p.alias.lean === side) score += 1
     }
     if (!ok) continue
-    if (side === 'pitching' && hintP) score += 3
-    if (side === 'hitting' && hintH) score += 3
+    if (hinted[side]) score += 3
     // The engine reads at most six conditions off a link (decodeFinderQuery).
     const conditions = [...byField.values()].slice(0, 6)
 
@@ -581,15 +618,15 @@ export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] 
     }
   }
 
-  // A hint word rules the other side out: "pitchers with 2 hits" is not a question about batters.
-  const filtered = hintP !== hintH
-    ? readings.filter(r => r.parsed.side === (hintP ? 'pitching' : 'hitting'))
-    : readings
+  // A hint word rules the other sides out: "pitchers with 2 hits" is not a question about batters.
+  const named = sides.filter(s => hinted[s])
+  const filtered = named.length === 1 ? readings.filter(r => r.parsed.side === named[0]) : readings
+  const order: FinderBoardSide[] = ['hitting', 'pitching', 'fielding']
   return (filtered.length ? filtered : readings)
-    // Hitting before pitching on a tie, and a side's game before its season; within those, the
-    // clubs in the order they were listed.
+    // Hitting, then pitching, then fielding on a tie, and a side's game before its season; within
+    // those, the clubs in the order they were listed.
     .sort((a, b) => b.score - a.score
-      || (a.parsed.side === b.parsed.side ? 0 : a.parsed.side === 'hitting' ? -1 : 1)
+      || order.indexOf(a.parsed.side) - order.indexOf(b.parsed.side)
       || (a.parsed.per === b.parsed.per ? 0 : a.parsed.per === 'game' ? -1 : 1))
     .slice(0, 4)
     .map(r => r.parsed)

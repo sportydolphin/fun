@@ -3,7 +3,7 @@ import {
   runWpblFinder, encodeFinderQuery, decodeFinderQuery, parseFinderValue, describeFinderQuery,
   finderColumns, validFinderSort, decodeFinderPer, EMPTY_FINDER_QUERY, type FinderQuery,
 } from '../derive/finder'
-import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer } from '../types'
+import type { WpblBattingLine, WpblFieldingLine, WpblGame, WpblPitchingLine, WpblPlayer } from '../types'
 
 // The finder, and the ways a query engine lies without looking like it.
 //
@@ -414,5 +414,65 @@ describe('season totals', () => {
     expect(decodeFinderQuery(raw, 'hitting')).toEqual(query.conditions)
     expect(decodeFinderQuery('avg.gte.300', 'hitting')).toEqual([])
     expect(describeFinderQuery('hitting', query)).toBe('Batting average at least .300')
+  })
+})
+
+describe('the fielding side', () => {
+  const fld = (o: Partial<WpblFieldingLine> = {}): WpblFieldingLine => ({
+    id: Math.random().toString(36).slice(2), game_id: 'g1', player_id: 'a', team_id: 'NY',
+    po: 0, a: 0, e: 0, pb: 0, sba: 0, ci: 0, dp: 0, created_at: '', ...o,
+  } as WpblFieldingLine)
+  const games = ['g1', 'g2', 'g3', 'g4'].map((id, i) => game({ id, game_date: `2026-08-0${i + 1}` }))
+
+  it('searches the fielding lines, which ride in the options', () => {
+    const fielding = [fld({ player_id: 'a', e: 2, po: 3 }), fld({ player_id: 'b', team_id: 'LA', e: 1, a: 4 })]
+    const r = runWpblFinder('fielding', [], [], PLAYERS, games, q({ conditions: [{ field: 'e', op: 'gte', value: 2 }] }),
+      50, null, { fielding })
+    expect(names(r)).toEqual(['Jaida Lee'])
+    expect(r.rows[0].values).toMatchObject({ tc: 5, po: 3, e: 2 })
+    expect(r.rows[0].detail).toBe('3 PO, 0 A, 2 E')
+    // Asked without the lines, the side searches nothing rather than borrowing another side's.
+    expect(runWpblFinder('fielding', [bat({ ab: 4 })], [], PLAYERS, games, q(), 50, null, {}).total).toBe(0)
+  })
+
+  // A FIELDING LINE IS WRITTEN ONLY FOR A NIGHT WITH A PLAY TO MAKE, so counting them undercounts a
+  // fielder's games, which is the bar a fielding percentage qualifies on. Games come off every line.
+  it('counts a fielder\'s games off every line, and qualifies a percentage on them', () => {
+    const batting = ['g1', 'g2', 'g3', 'g4'].map(g => bat({ game_id: g, player_id: 'a', ab: 3 }))
+      .concat([bat({ game_id: 'g1', player_id: 'b', team_id: 'LA', ab: 3 })])
+    const fielding = [
+      fld({ game_id: 'g1', player_id: 'a', po: 4 }), fld({ game_id: 'g3', player_id: 'a', po: 5, a: 1 }),
+      fld({ game_id: 'g1', player_id: 'b', team_id: 'LA', po: 2 }),
+    ]
+    const season = (conditions: FinderQuery['conditions']) => runWpblFinder('fielding', batting, [], PLAYERS, games,
+      q({ per: 'season', conditions }), 50, null, { fielding, qualify: { minPa: 0, minOuts: 0, minG: 3 } })
+    const r = season([{ field: 'fpct', op: 'gte', value: 1000 }])
+    // Four games played for Lee, though only two of them had a fielding line; Sato's one game is
+    // under the bar.
+    expect(names(r)).toEqual(['Jaida Lee'])
+    expect(r.rows[0].values).toMatchObject({ g: 4, tc: 10, fpct: 1000 })
+    expect(r.qualifier).toEqual({ field: 'g', min: 3 })
+    // A games condition is the reader's own bar.
+    expect(names(season([{ field: 'fpct', op: 'gte', value: 1000 }, { field: 'g', op: 'gte', value: 1 }])))
+      .toEqual(['Ayami Sato', 'Jaida Lee'])
+  })
+
+  it('reads the tally against games played, not nights with a chance', () => {
+    const batting = ['g1', 'g2', 'g3'].map(g => bat({ game_id: g, player_id: 'a', ab: 3 }))
+    const fielding = [fld({ game_id: 'g1', player_id: 'a', e: 1, po: 1 })]
+    const r = runWpblFinder('fielding', batting, [], PLAYERS, games, q({ conditions: [{ field: 'e', op: 'gte', value: 1 }] }),
+      50, null, { fielding })
+    expect(r.tally[0]).toMatchObject({ games: 1, played: 3 })
+  })
+
+  it('keeps a fielding question in the address, and reads it back in words', () => {
+    const raw = encodeFinderQuery({ per: 'season', conditions: [{ field: 'fpct', op: 'gte', value: 980 }] })
+    expect(decodeFinderQuery(raw, 'fielding')).toEqual([{ field: 'fpct', op: 'gte', value: 980 }])
+    expect(decodeFinderQuery(raw, 'hitting')).toEqual([])
+    expect(parseFinderValue('fielding', 'fpct', '.980')).toBe(980)
+    expect(describeFinderQuery('fielding', { conditions: [{ field: 'e', op: 'eq', value: 0 }, { field: 'tc', op: 'gte', value: 8 }] }))
+      .toBe('Errors exactly 0 and Total chances at least 8')
+    expect(finderColumns('fielding', { conditions: [{ field: 'pb', op: 'gte', value: 1 }] }).map(c => c.key))
+      .toEqual(['tc', 'po', 'a', 'e', 'dp', 'pb'])
   })
 })

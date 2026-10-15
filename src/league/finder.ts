@@ -1,6 +1,6 @@
 import { ipToOuts, outsToIp } from './innings'
 import { scopedLines, type SeasonScope } from './season'
-import type { BattingGameLine, LeagueGame, LeaguePlayer, PitchingGameLine } from './types'
+import type { BattingGameLine, FieldingGameLine, LeagueGame, LeaguePlayer, PitchingGameLine } from './types'
 
 /**
  * The finder: every game line in the league that matches a set of conditions.
@@ -42,6 +42,16 @@ import type { BattingGameLine, LeagueGame, LeaguePlayer, PitchingGameLine } from
  */
 
 export type FinderSide = 'hitting' | 'pitching'
+/**
+ * Every side the board can search: the two above, and the glove.
+ *
+ * A SEPARATE TYPE RATHER THAN A WIDER FinderSide, because the two are not the same question. Every
+ * section has batting and pitching lines; only one that stores fielding lines has a Fielding side
+ * (WPBL does, MLB's mirror does not yet), and everything keyed by `FinderSide` (the ranking,
+ * all-time and Bests tables in finderSearch.ts) is about boards that have no Fielding side.
+ * Widened, each of those would need a fielding entry that means nothing.
+ */
+export type FinderBoardSide = FinderSide | 'fielding'
 
 /** The three comparisons, which is all a box-score number ever needs. */
 export type FinderOp = 'gte' | 'lte' | 'eq'
@@ -165,6 +175,20 @@ const PIT_FIELDS: Field<DecidedPitching>[] = [
   { key: 'baserunners', label: 'Baserunners allowed', unit: 'BR', value: l => l.h + l.bb + l.hbp },
 ]
 
+// THE GLOVE: every number on the fielding line, and total chances, the sum a reader means by "how
+// much fielding" and the denominator of fielding percentage. No position, because the line has none:
+// "3 errors at shortstop" cannot be asked, only "3 errors".
+const FLD_FIELDS: Field<FieldingGameLine>[] = [
+  { key: 'tc', label: 'Total chances', unit: 'TC', value: l => l.po + l.a + l.e },
+  { key: 'po', label: 'Putouts', unit: 'PO', value: l => l.po },
+  { key: 'a', label: 'Assists', unit: 'A', value: l => l.a },
+  { key: 'e', label: 'Errors', unit: 'E', value: l => l.e },
+  { key: 'dp', label: 'Double plays turned', unit: 'DP', value: l => l.dp },
+  { key: 'pb', label: 'Passed balls', unit: 'PB', value: l => l.pb },
+  { key: 'sba', label: 'Stolen bases allowed', unit: 'SBA', value: l => l.sba },
+  { key: 'ci', label: 'Catcher’s interference', unit: 'CI', value: l => l.ci },
+]
+
 // ─── What only a season can be asked about ────────────────────────────────────
 //
 // A season line is the player's game lines summed, plus `g`, the games in it. Every counting field
@@ -212,13 +236,26 @@ const pitSeasonFields = (eraInnings: number): Field<SeasonPitching>[] => [
 /** For labels and parsing, where the basis plays no part. */
 const PIT_SEASON_FIELDS = pitSeasonFields(9)
 
-function allFields(side: FinderSide): Field<never>[] {
-  return (side === 'pitching' ? [...PIT_FIELDS, ...PIT_SEASON_FIELDS] : [...HIT_FIELDS, ...HIT_SEASON_FIELDS]) as Field<never>[]
+// A FIELDER'S GAMES ARE GAMES PLAYED, not lines summed: a fielding line exists only for a night with
+// a play to make, so `g` here is replaced by the games appeared in on any line (see `fieldingGames`),
+// which is what the Stats tab's Fielding table counts and qualifies on. No chances is no percentage:
+// it reads 0, which no "at least" passes, and the qualifier keeps it off the list anyway.
+type SeasonFielding = FieldingGameLine & { g: number }
+const FLD_SEASON_FIELDS: Field<SeasonFielding>[] = [
+  { key: 'g', label: 'Games played', unit: 'G', value: l => l.g, seasonOnly: true },
+  { key: 'fpct', label: 'Fielding percentage', unit: 'FPCT', ...RATE3,
+    value: l => thousandths(ratio(l.po + l.a, l.po + l.a + l.e)) },
+]
+
+function allFields(side: FinderBoardSide): Field<never>[] {
+  return (side === 'pitching' ? [...PIT_FIELDS, ...PIT_SEASON_FIELDS]
+    : side === 'fielding' ? [...FLD_FIELDS, ...FLD_SEASON_FIELDS]
+    : [...HIT_FIELDS, ...HIT_SEASON_FIELDS]) as Field<never>[]
 }
 
 /** The fields one side can be asked about, in the order the pickers list them. A season can be
  *  asked everything a game can, and then its games and its rates. */
-export function finderFields(side: FinderSide, per: FinderPer = 'game'): { key: string; label: string; unit: string }[] {
+export function finderFields(side: FinderBoardSide, per: FinderPer = 'game'): { key: string; label: string; unit: string }[] {
   return allFields(side)
     .filter(f => per === 'season' || !f.seasonOnly)
     .map(f => ({ key: f.key, label: f.label, unit: f.unit }))
@@ -229,7 +266,7 @@ export function finderFields(side: FinderSide, per: FinderPer = 'game'): { key: 
 // allowed". Grouped, a reader looking for walks scans one heading rather than the whole list. Every
 // field must sit in exactly one group, or the picker silently cannot offer it: pinned in
 // src/league/__tests__/finderGroups.test.ts.
-const FIELD_GROUPS: Record<FinderSide, [string, string[]][]> = {
+const FIELD_GROUPS: Record<FinderBoardSide, [string, string[]][]> = {
   hitting: [
     ['Hits', ['h', 'tb', 'hr', '2b', '3b']],
     ['Runs', ['rbi', 'r']],
@@ -245,28 +282,34 @@ const FIELD_GROUPS: Record<FinderSide, [string, string[]][]> = {
     ['Allowed', ['h', 'r', 'er', 'hr', 'baserunners']],
     ['Rates', ['era', 'whip']],
   ],
+  fielding: [
+    ['Chances', ['tc', 'po', 'a', 'e', 'dp']],
+    ['Catching', ['pb', 'sba', 'ci']],
+    ['Playing time', ['g']],
+    ['Rates', ['fpct']],
+  ],
 }
 
 /** The same fields as `finderFields`, under the picker's headings. A group with nothing askable at
  *  this grain (the rates, for one game) is left out. */
-export function finderFieldGroups(side: FinderSide, per: FinderPer = 'game'): { label: string; fields: { key: string; label: string }[] }[] {
+export function finderFieldGroups(side: FinderBoardSide, per: FinderPer = 'game'): { label: string; fields: { key: string; label: string }[] }[] {
   const byKey = new Map(finderFields(side, per).map(f => [f.key, f]))
   return FIELD_GROUPS[side]
     .map(([label, keys]) => ({ label, fields: keys.flatMap(k => byKey.get(k) ?? []) }))
     .filter(g => g.fields.length > 0)
 }
 
-function fieldFor(side: FinderSide, key: string): Field<never> | null {
+function fieldFor(side: FinderBoardSide, key: string): Field<never> | null {
   return allFields(side).find(f => f.key === key) ?? null
 }
 
 /** Whether the low end of this field is the good end (ERA, WHIP), so a list ordered by it starts there. */
-export function finderLowerBetter(side: FinderSide, key: string): boolean {
+export function finderLowerBetter(side: FinderBoardSide, key: string): boolean {
   return !!fieldFor(side, key)?.lowerBetter
 }
 
 /** The conditions another grain can still ask: going back to single games drops every rate. */
-export function conditionsForPer(side: FinderSide, per: FinderPer, conditions: FinderCondition[]): FinderCondition[] {
+export function conditionsForPer(side: FinderBoardSide, per: FinderPer, conditions: FinderCondition[]): FinderCondition[] {
   const known = new Set(finderFields(side, per).map(f => f.key))
   return conditions.filter(c => known.has(c.field))
 }
@@ -274,12 +317,16 @@ export function conditionsForPer(side: FinderSide, per: FinderPer, conditions: F
 /** The condition a freshly added row carries. A game asks for the side's headline count, and a
  *  season for its headline rate: what a season question is usually about, and the one default that
  *  means the same thing in a thirty-game season and a 162-game one. */
-export function defaultCondition(side: FinderSide, per: FinderPer = 'game', taken: FinderCondition[] = []): FinderCondition {
+export function defaultCondition(side: FinderBoardSide, per: FinderPer = 'game', taken: FinderCondition[] = []): FinderCondition {
   // A SECOND ROW MUST NOT REPEAT THE FIRST. Always the headline, a second press of Add read "Hits at
   // least 3 and Hits at least 3", which narrows nothing and looks like the button misfired. The next
   // pick is a stat that is a natural second clause, then any stat not yet asked.
   const used = new Set(taken.map(c => c.field))
-  const preset = (per === 'season'
+  const preset = (side === 'fielding'
+    ? per === 'season'
+      ? [{ field: 'fpct', op: 'gte', value: 980 }, { field: 'e', op: 'lte', value: 2 }, { field: 'dp', op: 'gte', value: 5 }]
+      : [{ field: 'e', op: 'gte', value: 2 }, { field: 'po', op: 'gte', value: 10 }, { field: 'a', op: 'gte', value: 5 }]
+    : per === 'season'
     ? side === 'pitching'
       ? [{ field: 'era', op: 'lte', value: 300 }, { field: 'so', op: 'gte', value: 30 }, { field: 'whip', op: 'lte', value: 120 }]
       : [{ field: 'avg', op: 'gte', value: 300 }, { field: 'hr', op: 'gte', value: 3 }, { field: 'ops', op: 'gte', value: 800 }]
@@ -294,26 +341,26 @@ export function defaultCondition(side: FinderSide, per: FinderPer = 'game', take
 }
 
 /** What the reader typed, in the field's own unit. NaN and negatives clamp to 0. */
-export function parseFinderValue(side: FinderSide, fieldKey: string, raw: string): number {
+export function parseFinderValue(side: FinderBoardSide, fieldKey: string, raw: string): number {
   const f = fieldFor(side, fieldKey)
   const n = f?.parse ? f.parse(raw) : Number(raw)
   return Number.isFinite(n) && n > 0 ? n : 0
 }
 
 /** The stored number as the reader would have typed it, for the input box. */
-export function unparseFinderValue(side: FinderSide, fieldKey: string, v: number): string {
+export function unparseFinderValue(side: FinderBoardSide, fieldKey: string, v: number): string {
   const f = fieldFor(side, fieldKey)
   return f?.unparse ? f.unparse(v) : String(v)
 }
 
 /** A stored number as it should be drawn. */
-export function displayFinderValue(side: FinderSide, fieldKey: string, v: number): string {
+export function displayFinderValue(side: FinderBoardSide, fieldKey: string, v: number): string {
   const f = fieldFor(side, fieldKey)
   return f?.display ? f.display(v) : String(v)
 }
 
 /** The unit label for a field, for the row's big number. */
-export function finderUnit(side: FinderSide, fieldKey: string): string {
+export function finderUnit(side: FinderBoardSide, fieldKey: string): string {
   return fieldFor(side, fieldKey)?.unit ?? ''
 }
 
@@ -326,12 +373,19 @@ const PIT_COLUMNS = ['ip', 'h', 'r', 'er', 'bb', 'so', 'hr']
 // make the rates, and the rates.
 const HIT_SEASON_COLUMNS = ['g', 'pa', 'h', 'hr', 'rbi', 'sb', 'avg', 'obp', 'slg', 'ops']
 const PIT_SEASON_COLUMNS = ['g', 'gs', 'w', 'l', 'sv', 'ip', 'er', 'bb', 'so', 'era', 'whip']
+// The catcher's three join only when asked about: on every other fielder's line they are zeros.
+const FLD_COLUMNS = ['tc', 'po', 'a', 'e', 'dp']
+const FLD_SEASON_COLUMNS = ['g', 'tc', 'po', 'a', 'e', 'dp', 'fpct']
+const COLUMNS: Record<FinderBoardSide, Record<FinderPer, string[]>> = {
+  hitting: { game: HIT_COLUMNS, season: HIT_SEASON_COLUMNS },
+  pitching: { game: PIT_COLUMNS, season: PIT_SEASON_COLUMNS },
+  fielding: { game: FLD_COLUMNS, season: FLD_SEASON_COLUMNS },
+}
 
 /** The stat columns for the table: the side's standard line, then every field a condition names
  *  that the line lacks, in the order asked. */
-export function finderColumns(side: FinderSide, query: Pick<FinderQuery, 'conditions'> & { per?: FinderPer }): { key: string; unit: string; label: string }[] {
-  const season = query.per === 'season'
-  const keys = [...(side === 'pitching' ? (season ? PIT_SEASON_COLUMNS : PIT_COLUMNS) : (season ? HIT_SEASON_COLUMNS : HIT_COLUMNS))]
+export function finderColumns(side: FinderBoardSide, query: Pick<FinderQuery, 'conditions'> & { per?: FinderPer }): { key: string; unit: string; label: string }[] {
+  const keys = [...COLUMNS[side][query.per ?? 'game']]
   for (const c of query.conditions) if (!keys.includes(c.field) && fieldFor(side, c.field)) keys.push(c.field)
   return keys.map(k => { const f = fieldFor(side, k)!; return { key: k, unit: f.unit, label: f.label } })
 }
@@ -342,7 +396,7 @@ export interface FinderSort { key: string; desc: boolean }
 
 /** The sort, or null once it names a column the table no longer draws: a sort on a condition's own
  *  column outlives the condition otherwise, ordering the list by a number nobody can see. */
-export function validFinderSort(side: FinderSide, query: Pick<FinderQuery, 'conditions'> & { per?: FinderPer }, sort: FinderSort | null): FinderSort | null {
+export function validFinderSort(side: FinderBoardSide, query: Pick<FinderQuery, 'conditions'> & { per?: FinderPer }, sort: FinderSort | null): FinderSort | null {
   if (!sort) return null
   if (sort.key === 'date') return query.per === 'season' ? null : sort
   return finderColumns(side, query).some(c => c.key === sort.key) ? sort : null
@@ -387,7 +441,7 @@ export interface FinderResult<P extends LeaguePlayer = LeaguePlayer, G extends L
   headlineField: string
   /** The bar a season question about a rate applied, so the board can say who was left out and
    *  why. Null when none was: a game question, no rate asked, or the reader set their own. */
-  qualifier: { field: 'pa' | 'ip'; min: number } | null
+  qualifier: { field: 'pa' | 'ip' | 'g'; min: number } | null
 }
 
 /** What the section knows that the engine cannot: the innings an ERA is quoted per, and the
@@ -395,8 +449,12 @@ export interface FinderResult<P extends LeaguePlayer = LeaguePlayer, G extends L
 export interface FinderOptions {
   /** Seven in WPBL (or the reader's choice; see EraBasisContext), nine in MLB. */
   eraInnings?: number
-  /** The season's bar for a rate title, in plate appearances and outs. Absent applies none. */
-  qualify?: { minPa: number; minOuts: number } | null
+  /** The season's bar for a rate title, in plate appearances, outs and (for a fielder) games.
+   *  Absent applies none. */
+  qualify?: { minPa: number; minOuts: number; minG?: number } | null
+  /** The fielding lines, for the Fielding side. Here rather than beside the other two because only a
+   *  section that stores them has that side; asked without them, it searches nothing. */
+  fielding?: FieldingGameLine[]
 }
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
@@ -432,6 +490,24 @@ const pitSeasonDetail = (era: Field<SeasonPitching>) => (l: SeasonPitching): str
     l.sv > 0 && plural(l.sv, 'SV', 'SV'),
     `${outsToIp(l.outs)} IP`, `${showHundredths(era.value(l))} ERA`, `${l.so} K`,
   ].filter(Boolean).join(', ')
+
+const fldDetail = (l: FieldingGameLine): string => [
+  `${l.po} PO`, `${l.a} A`,
+  l.e > 0 && `${l.e} E`,
+  l.dp > 0 && `${l.dp} DP`,
+  l.pb > 0 && `${l.pb} PB`,
+  l.sba > 0 && `${l.sba} SBA`,
+  l.ci > 0 && `${l.ci} CI`,
+].filter(Boolean).join(', ')
+
+const fldSeasonDetail = (l: SeasonFielding): string => {
+  const tc = l.po + l.a + l.e
+  return [
+    plural(l.g, 'G', 'G'), `${tc} TC`, `${l.e} E`,
+    l.dp > 0 && `${l.dp} DP`,
+    tc > 0 && `${showThousandths(thousandths(ratio(l.po + l.a, tc)))} FPCT`,
+  ].filter(Boolean).join(', ')
+}
 
 const passes = (v: number, c: FinderCondition): boolean =>
   c.op === 'gte' ? v >= c.value : c.op === 'lte' ? v <= c.value : v === c.value
@@ -483,10 +559,12 @@ function seasonLines<L extends AnyLine>(lines: L[]): (L & { g: number })[] {
  * (`opts.qualify`), because otherwise every list of ".400 hitters" is led by a 2-for-4 and every
  * "ERA under 1.00" by a reliever's two clean innings. A condition on plate appearances, at-bats or
  * innings is the reader setting a bar of their own, and replaces it: "who hit .400 in at least 10
- * PA" is a real question, and the board would otherwise refuse to ask it.
+ * PA" is a real question, and the board would otherwise refuse to ask it. A fielding percentage is
+ * barred on games played (`qualify.minG`, the Stats tab's fielding bar), and a condition on games or
+ * total chances replaces that one.
  */
 export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
-  side: FinderSide,
+  side: FinderBoardSide,
   batting: BattingGameLine[],
   pitching: PitchingGameLine[],
   players: P[],
@@ -500,7 +578,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
   const gameById = new Map(finals.map(g => [g.id, g]))
   const playerById = new Map(players.map(p => [p.id, p]))
   const season = query.per === 'season'
-  const headlineField = query.conditions[0]?.field ?? (side === 'pitching' ? 'so' : 'h')
+  const headlineField = query.conditions[0]?.field ?? (side === 'pitching' ? 'so' : side === 'fielding' ? 'tc' : 'h')
 
   // Every filter that is about the GAME rather than the line, applied once per line because a
   // line's club is its own and not the roster's. `oppId` and `venue` both need the game row,
@@ -515,28 +593,37 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     return true
   }
 
+  // The lines a question looks at: finals, the season slice, then the club, opponent and venue. The
+  // club, opponent and venue cut BEFORE a season is summed, which is what makes a season question
+  // "at home" a home split.
+  const cutLines = <L extends AnyLine>(lines: L[]): L[] =>
+    scopedLines(lines.filter(l => gameById.has(l.game_id)), finals, query.scope)
+      .filter(l => (!query.teamId || l.team_id === query.teamId) && gameOk(gameById.get(l.game_id), l.team_id))
+
   const collect = <L extends AnyLine>(
     lines: L[], fields: Field<L>[], detail: (l: L) => string, played: (l: L) => boolean,
-    bar: { field: 'pa' | 'ip'; own: string[]; min: number | undefined },
+    bar: { field: 'pa' | 'ip' | 'g'; own: string[]; min: number | undefined },
+    gamesPlayed?: Map<string, number>,
   ): FinderResult<P, G> => {
     const byKey = new Map(fields.map(f => [f.key, f]))
     const head = byKey.get(headlineField) ?? fields[0]
-    const inScope = scopedLines(lines.filter(l => gameById.has(l.game_id)), finals, query.scope)
     // THE SEARCHED COUNT EXCLUDES LINES THAT ARE NOT APPEARANCES. Ninety-seven of the season's
     // batting lines are a pitcher's all-zero row, and telling a reader who found nothing that we
     // looked through 610 lines when 97 of them could never match anything is a worse answer than
-    // the number they would have guessed. The club, opponent and venue cut here too, BEFORE a
-    // season is summed, which is what makes a season question "at home" a home split.
-    const cut = inScope.filter(l => (!query.teamId || l.team_id === query.teamId) && gameOk(gameById.get(l.game_id), l.team_id))
+    // the number they would have guessed.
+    const cut = cutLines(lines)
     const pool = cut.filter(played)
     // Appearances per player in the games the question looks at, the denominator for the tally's
-    // "2 of 11".
-    const appearances = new Map<string, number>()
-    for (const line of pool) appearances.set(line.player_id, (appearances.get(line.player_id) ?? 0) + 1)
+    // "2 of 11". A fielder's are handed in, since the fielding lines alone are only the nights with
+    // a play to make.
+    const appearances = gamesPlayed ?? new Map<string, number>()
+    if (!gamesPlayed) for (const line of pool) appearances.set(line.player_id, (appearances.get(line.player_id) ?? 0) + 1)
     // A season sums every line, a night in the field without a trip to the plate included, so its
     // games played agree with the Players table's; a season that never came to the plate is dropped
-    // after the sum, for the reason above.
-    const candidates = season ? seasonLines(cut).filter(played) : pool
+    // after the sum, for the reason above. A fielder's games are the games played, as above.
+    const candidates = season
+      ? seasonLines(cut).filter(played).map(l => (gamesPlayed?.has(l.player_id) ? { ...l, g: gamesPlayed.get(l.player_id)! } : l))
+      : pool
 
     const asksRate = season && query.conditions.some(c => byKey.get(c.field)?.rate)
     const ownBar = query.conditions.some(c => bar.own.includes(c.field))
@@ -633,6 +720,23 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
   }
 
   const qualify = opts.qualify ?? null
+  if (side === 'fielding') {
+    // GAMES PLAYED off every kind of line, in the same cut: the batting and pitching lines are
+    // written for every appearance, the fielding lines only for a night with a play to make. The
+    // same rule as `gamesAppeared` in src/wpbl/stats.ts, which the Stats tab's Fielding table counts.
+    const fielding = opts.fielding ?? []
+    const nights = new Map<string, Set<string>>()
+    for (const l of [...cutLines(batting), ...cutLines(pitching), ...cutLines(fielding)]) {
+      const set = nights.get(l.player_id)
+      if (set) set.add(l.game_id)
+      else nights.set(l.player_id, new Set([l.game_id]))
+    }
+    const played = new Map([...nights].map(([id, set]) => [id, set.size]))
+    return collect(fielding, [...FLD_FIELDS, ...FLD_SEASON_FIELDS] as Field<FieldingGameLine>[],
+      season ? fldSeasonDetail as (l: FieldingGameLine) => string : fldDetail,
+      l => l.po + l.a + l.e + l.dp + l.pb + l.sba + l.ci > 0,
+      { field: 'g', own: ['g', 'tc'], min: qualify?.minG }, played)
+  }
   if (side === 'pitching') {
     const seasonFields = pitSeasonFields(opts.eraInnings ?? 9)
     const era = seasonFields.find(f => f.key === 'era')!
@@ -688,7 +792,7 @@ export function decodeFinderPer(raw: string | null): FinderPer {
  * is visible in the count. The opposite, keeping a condition whose field is nonsense, is what
  * `runFinder` refuses: there it would silently answer a question nobody asked.
  */
-export function decodeFinderQuery(raw: string | null, side: FinderSide): FinderCondition[] {
+export function decodeFinderQuery(raw: string | null, side: FinderBoardSide): FinderCondition[] {
   if (!raw) return []
   const known = new Set(finderFields(side, decodeFinderPer(raw)).map(f => f.key))
   const ops = new Set(FINDER_OPS.map(o => o.op as string))
@@ -704,7 +808,7 @@ export function decodeFinderQuery(raw: string | null, side: FinderSide): FinderC
 }
 
 /** The query in words, for the line above the results. */
-export function describeFinderQuery(side: FinderSide, q: Pick<FinderQuery, 'conditions'> & { per?: FinderPer }): string {
+export function describeFinderQuery(side: FinderBoardSide, q: Pick<FinderQuery, 'conditions'> & { per?: FinderPer }): string {
   const labels = new Map(finderFields(side, 'season').map(f => [f.key, f]))
   const parts = q.conditions.map(c => {
     const f = labels.get(c.field)

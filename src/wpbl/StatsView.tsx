@@ -32,7 +32,7 @@ import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine,
 import { currentSeason, isPostseasonGame, scopedLines, type SeasonScope } from './season'
 import {
   decodeFinderPer, decodeFinderQuery, encodeFinderQuery, finderFields,
-  type FinderQuery, type FinderVenue,
+  type FinderBoardSide, type FinderQuery, type FinderVenue,
 } from './derive/finder'
 import type { EraBasis } from './stats'
 import { track, EVENTS } from '../lib/analytics'
@@ -91,9 +91,9 @@ const WpblDraftValue = lazy(() => import('./DraftValue'))
 //
 // FIELDING IS THE THIRD SIDE, on screen as well as in here (Oct 2026). It was a tab in the board row
 // for a while, because a third option did not fit a phone beside Sort and Filters (390px in a 351px
-// row); those two are one pill now, which is what made the room. Only Leaders, Players and Teams
-// answer it (`fieldingBoard`). Every other board reads `boardSide`, the last of Hitting or Pitching
-// the reader chose, and moving to one of them while on Fielding drops the switch back to it.
+// row); those two are one pill now, which is what made the room. Leaders, Players, Teams and Find
+// answer it (`sideOn`). Every other board reads `boardSide`, the last of Hitting or Pitching the
+// reader chose, and moving to one of them while on Fielding drops the switch back to it.
 //
 // OVERALL IS THE FOURTH, and the first (Oct 2026). Every other side splits a player in half, so a
 // two-way player's season was never added up anywhere, and the value figures (wins added, run
@@ -250,11 +250,12 @@ const SIDES: { value: Side; label: string }[] = [
   { value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }, { value: 'fielding', label: 'Fielding' },
 ]
 /** Whether a board answers a side. Hitting and Pitching are answered everywhere. Fielding by the
- *  season tables (one row per fielder, one per club) and the leader cards built from the same lines:
- *  Bests, Find and the play-by-play boards read batting and pitching lines only. Overall by Leaders
- *  and Players, the two that rank players: a club's wins added is just its record. */
+ *  season tables (one row per fielder, one per club), the leader cards built from the same lines, and
+ *  Find, which searches the fielding lines one night at a time: Bests and the play-by-play boards
+ *  read batting and pitching lines only. Overall by Leaders and Players, the two that rank players: a
+ *  club's wins added is just its record. */
 function sideOn(side: Side, source: Source, mode: Mode = 'players'): boolean {
-  if (side === 'fielding') return source === 'season' || source === 'leaders'
+  if (side === 'fielding') return source === 'season' || source === 'leaders' || source === 'find'
   if (side === 'overall') return source === 'leaders' || (source === 'season' && mode === 'players')
   return true
 }
@@ -974,6 +975,8 @@ export default function WpblStatsView({
   const [ballSide, setBallSide] = useState<BallSide>(
     fromUrl.side === 'pitching' || (!fromUrl.side && seedAxes.side === 'pitching') ? 'pitching' : 'hitting')
   const boardSide: BallSide = side === 'fielding' || side === 'overall' ? ballSide : side
+  // Find answers Fielding as well, which no other board past the season tables does.
+  const findSide: FinderBoardSide = side === 'fielding' ? 'fielding' : boardSide
   const [mode, setMode] = useState<Mode>(fromUrl.mode ?? 'players')
   // THE FIND BOARD'S QUESTION, seeded from the address bar exactly once, like the axes above.
   // `scope` is NOT held in here: the season slice is a control the whole tab shares (the chips
@@ -982,7 +985,8 @@ export default function WpblStatsView({
   const [findQuery, setFindQuery] = useState<Omit<FinderQuery, 'scope'>>(() => ({
     conditions: decodeFinderQuery(
       fromUrl.find ?? null,
-      fromUrl.side === 'pitching' || (!fromUrl.side && seedAxes.side === 'pitching') ? 'pitching' : 'hitting',
+      fromUrl.side === 'pitching' || fromUrl.side === 'fielding' ? fromUrl.side
+        : !fromUrl.side && seedAxes.side === 'pitching' ? 'pitching' : 'hitting',
     ),
     per: decodeFinderPer(fromUrl.find ?? null),
     teamId: fromUrl.findTeam || null,
@@ -1319,7 +1323,7 @@ export default function WpblStatsView({
     // board rather than as a stat that does not apply. Drop those on the switch; a shared field
     // (strikeouts, home runs, walks) stays and changes sense with the side.
     setFindQuery(prev => {
-      const valid = new Set(finderFields(s === 'hitting' || s === 'pitching' ? s : 'hitting', prev.per).map(f => f.key))
+      const valid = new Set(finderFields(s === 'overall' ? 'hitting' : s, prev.per).map(f => f.key))
       const conditions = prev.conditions.filter(c => valid.has(c.field))
       return conditions.length === prev.conditions.length ? prev : { ...prev, conditions }
     })
@@ -1353,7 +1357,7 @@ export default function WpblStatsView({
     // prunes conditions the new side lacks, so this lands whole.
     if (nextSource === 'find') {
       setFindQuery({
-        conditions: decodeFinderQuery(q.find ?? null, nextSide === 'pitching' ? 'pitching' : 'hitting'),
+        conditions: decodeFinderQuery(q.find ?? null, nextSide === 'overall' ? 'hitting' : nextSide),
         per: decodeFinderPer(q.find ?? null),
         teamId: q.findTeam || null,
         oppId: q.findOpp || null,
@@ -2373,9 +2377,10 @@ export default function WpblStatsView({
         <Suspense fallback={<SubViewFallback />}>
           <WpblTrackingView side={boardSide} games={games} onOpenPlayer={onOpenPlayer} />
         </Suspense>
-      ) : !linesIn && (source === 'bests' || source === 'find' || source === 'draft' || source === 'runs') ? (
+      ) : (!linesIn && (source === 'bests' || source === 'find' || source === 'draft' || source === 'runs'))
+        || (source === 'find' && side === 'fielding' && fielding == null) ? (
         // Bests, Find, Draft and Run value read the box-score lines, which a tab opened on a board
-        // the stored seasons answer has not read yet.
+        // the stored seasons answer has not read yet; Find on Fielding the fielding lines too.
         <SubViewFallback />
       ) : source === 'bests' ? (
         // FULL BLEED for the same reason Run value is, and the board caps and centres inside
@@ -2392,8 +2397,8 @@ export default function WpblStatsView({
       ) : source === 'find' ? (
         <Box sx={fullBleedSx}>
           <Suspense fallback={<SubViewFallback />}>
-            <WpblFindView side={boardSide} teams={teams} players={players} batting={lines.batting}
-              pitching={lines.pitching} games={games}
+            <WpblFindView side={findSide} teams={teams} players={players} batting={lines.batting}
+              pitching={lines.pitching} fielding={fielding ?? []} games={games}
               query={{ ...findQuery, scope }} onQuery={q => setFindQuery(q)}
               onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
           </Suspense>
