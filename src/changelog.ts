@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.164.0',
+    date:    '2026-10-15',
+    changes: [
+      {
+        short: 'Home: the champion card, filled in',
+        full:  'The 2026 Season card on Home now shows the champion with its 3–2 series win, its standing and semifinal, each game of the final as a small box score, and a Star of the final with a link to their player page.',
+      },
+    ],
+  },
+  {
     version: '1.163.0',
     date:    '2026-10-14',
     changes: [

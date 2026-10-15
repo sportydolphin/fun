@@ -10,10 +10,12 @@ import {
   fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblTrackedGameIds, computeStandings, countsInStandings,
   fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays,
   getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblTrackedGameIds, wpblHomeCacheAgeMs,
-  fetchWpblArticles, getCachedWpblArticles,
+  fetchWpblArticles, getCachedWpblArticles, fetchWpblLinesForGames,
 } from './api'
+import { seriesStar, type SeriesStar } from './derive/seriesStar'
+import { NameText } from '../ui/NameText'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblAccentFg, wpblSurface, wpblFullName, formatGameTime, gameStartMs, countdownLabel, relativeDayLabel, relativeDayShort } from './constants'
-import { useWpblGameLink } from './LinkContext'
+import { useWpblGameLink, useWpblPlayerLink } from './LinkContext'
 import { WPBL_LEAGUE_PAGE, WPBL_SEASON_PAGE, WPBL_RECAP_YEARS, wpblSeasonPath, WPBL_READING_PAGE, WPBL_PATH_EVENT, WPBL_COMPARE_BASE, wpblComparePath } from './routes'
 import { readMinutes, sourceOf, SOURCES } from './derive/articles'
 import { ReadingCard } from './Reading'
@@ -56,6 +58,7 @@ import { typePx } from '../ui/scale'
 import { useWpblSeason } from './SeasonContext'
 import { offseasonByCalendar, nextOpeningDay, rememberNextOpeningDay } from './offseasonCalendar'
 import { seasonOf, gamesInSeason, latestSeason } from './season'
+import { ordinal } from './percentiles'
 
 // WPBL home dashboard: the scoreboard strip, then a card feed in two columns from md up and one
 // column on a phone. Everything on it is derived from data the section already caches: the
@@ -910,8 +913,10 @@ export function nextGameContext(
  * Sizes on this card come from `TYPE_SCALE`, like the rest of the page. The scale, and the test
  * that keeps a raw rem literal out of this file, live in ui.tsx.
  */
-function NextGameCard({ games, teams, postseason: postRows, onOpenGame, devForceRecap, devChampion }: {
+function NextGameCard({ games, teams, postseason: postRows, onOpenGame, players, onOpenPlayer, devForceRecap, devChampion }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>
+  /** For the season card's Star of the final, once this slot has become it. */
+  players: WpblPlayer[]; onOpenPlayer: (p: WpblPlayer) => void
   /** The dated-but-unpublished postseason, for when the feed has run out of games. */
   postseason: PostseasonScheduleRow[]
   onOpenGame: (g: WpblGame) => void
@@ -962,7 +967,8 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame, devForce
   // schedule, so the end-of-season Home can be seen before the final is played. `import.meta.env.DEV`
   // is first so this whole branch drops from production.
   if (import.meta.env.DEV && devForceRecap) {
-    return <SeasonRecapPreviewCard teams={teams} games={seasonGames} devChampion={devChampion} onOpenGame={onOpenGame} />
+    return <SeasonRecapPreviewCard teams={teams} games={seasonGames} devChampion={devChampion} onOpenGame={onOpenGame}
+      players={players} onOpenPlayer={onOpenPlayer} />
   }
   // Nothing in the feed ahead falls to the postseason calendar; once THAT is exhausted too, the
   // season is over and this slot becomes the recap card. Same retire-by-emptiness the strip uses,
@@ -970,7 +976,7 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame, devForce
   if (!next) {
     return nextPostseasonRow(postRows)
       ? <NextPostseasonCard rows={postRows} teams={teams} games={seasonGames} />
-      : <SeasonRecapPreviewCard teams={teams} games={seasonGames} onOpenGame={onOpenGame} />
+      : <SeasonRecapPreviewCard teams={teams} games={seasonGames} onOpenGame={onOpenGame} players={players} onOpenPlayer={onOpenPlayer} />
   }
   const g = next.g
   const away = teams.get(g.away_team_id)
@@ -1236,9 +1242,10 @@ function finalTitleStake(series: BracketSeries): string | null {
   return lead.team ? `${lead.team.name} can clinch` : null
 }
 
-function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame }: {
+function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame, players, onOpenPlayer }: {
   teams: Map<string, WpblTeam>; games: WpblGame[]
   onOpenGame: (g: WpblGame) => void
+  players: WpblPlayer[]; onOpenPlayer: (p: WpblPlayer) => void
   /** Dev only: a simulated champion to headline instead of the real one, with no series line
    *  since a random winner is not the club that actually led the final. Null (or absent) shows
    *  whatever the real bracket gives, which is the pre-champion state while the final is on. */
@@ -1270,6 +1277,7 @@ function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame }: {
       ? championshipGames(games, finalSeries.home.team.id, finalSeries.away.team.id)
       : [],
     [finalSeries, games])
+  const star = useFinalStar(champTeam?.id ?? null, finalLog)
 
   const shown = useRef(false)
   useEffect(() => {
@@ -1291,8 +1299,16 @@ function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame }: {
   // of their other blocks instead (see `RecapLink`); only the off-season text is one link whole.
   const split = finalInProgress || !!champTeam
 
+  // THE SPLIT BODIES PUT THE RECAP IN THE HEADER, where Reading and Compare put their way on. A solid
+  // button across the foot competed with the champion for the eye, and it was the only one on Home.
+  // The pre-champion body keeps its button: there the whole card is one anchor, so the link cannot
+  // also be a second anchor in the header.
+  const headerLink = split
+    ? <Box {...recap} sx={CARD_LINK_SX}>{finalInProgress ? 'Season so far ›' : 'Recap ›'}</Box>
+    : undefined
+
   return (
-    <SectionCard title={`${yearWord}Season`} fill>
+    <SectionCard title={`${yearWord}Season`} fill action={headerLink}>
       {/* The whole body is the link, the way the league card's is: a card whose one job is to send
           a reader to the recap should open it from anywhere on the card, not just a trailing word.
           `flex: 1` + centred so it absorbs whatever height the card beside it (Last game) forces,
@@ -1301,11 +1317,11 @@ function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame }: {
         {...(split ? {} : recap)}
         sx={{
           flex: 1, display: 'flex', flexDirection: 'column', gap: 1.25,
-          // Top-aligned for the final in progress, so it fills from the top and its CTA pins to the
-          // bottom; centred for the off-season line or two. The champion body SPREADS its three
-          // blocks instead (see ChampionRecapBody): this card is stretched to the height of the one
-          // beside it, and pinning the CTA put all of that slack in one hole above it.
-          justifyContent: champTeam ? 'space-between' : finalInProgress ? 'flex-start' : 'center',
+          // TOP-ALIGNED WHENEVER THERE ARE BLOCKS, and the slack falls under the last one. This card is
+          // stretched to the height of Player of the day beside it; `space-between` used to spread
+          // that slack between the champion and its own result, so the gaps on the card were sized
+          // by a different card's content. Centred only for the off-season line or two.
+          justifyContent: split ? 'flex-start' : 'center',
           textDecoration: 'none', color: 'inherit', borderRadius: 1, p: 0.5, mx: -0.5,
           ...(split ? null : TAPPABLE),
         }}
@@ -1314,7 +1330,8 @@ function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame }: {
           <ChampionshipInProgressBody series={finalSeries} teams={teams} log={finalLog} recap={recap} onOpenGame={onOpenGame} />
         ) : champTeam ? (
           <ChampionRecapBody champion={champTeam} series={series} teams={teams} log={finalLog} isDark={isDark} yearWord={yearWord}
-            recap={recap} onOpenGame={onOpenGame} />
+            path={titlePath(champTeam, standings, bracket)} recap={recap} onOpenGame={onOpenGame}
+            star={star} players={players} onOpenPlayer={onOpenPlayer} />
         ) : (
           <>
             <Typography sx={{ fontSize: TYPE_SCALE.display, fontWeight: 800, lineHeight: 1.15 }}>
@@ -1387,9 +1404,6 @@ function ChampionshipInProgressBody({ series, teams, log, recap, onOpenGame }: {
       </RecapLink>
 
       <SeriesGameLog log={log} teams={teams} onOpenGame={onOpenGame} />
-
-      <Box sx={{ flex: 1 }} />
-      <RecapButton recap={recap}>The season so far</RecapButton>
     </>
   )
 }
@@ -1409,21 +1423,14 @@ function RecapLink({ recap, sx, children }: { recap: RecapLinkProps; sx?: object
   )
 }
 
-/** The recap's call to action, as a solid button across the card's foot.
+/** The recap's call to action for the pre-champion body, as a solid button across the card's foot.
  *
- *  A BUTTON, NOT A LINE OF LINK TEXT. The recap is the one thing this card exists to send a reader
- *  to, and once the games became buttons of their own a blue sentence under five bordered chips was
- *  the quietest thing on the card. It borrows the Fan awards button's treatment (solid accent, a
- *  shadow in its own hue, lift on hover) so the two primary actions side by side on Home read as
- *  the same kind of thing. Full width, because a pill at one end of a card this wide reads as a
- *  tag rather than as the way on.
- *
- *  `recap` is the link when the card is split into blocks; without it the button is only the look,
- *  for the off-season body, where the whole card is already the anchor and a second one inside it
- *  would be invalid. */
-function RecapButton({ recap, children }: { recap?: RecapLinkProps; children: React.ReactNode }) {
+ *  Only the LOOK of a button: that body is one anchor already, and a second anchor inside it would
+ *  be invalid. The split bodies (final in progress, champion) carry the recap in the card header
+ *  instead, because there it sat under the champion as a second headline. */
+function RecapButton({ children }: { children: React.ReactNode }) {
   return (
-    <Box {...(recap ?? {})} sx={{
+    <Box sx={{
       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75,
       mt: 0.5, px: 2, py: 1.1, borderRadius: 1.5,
       bgcolor: 'var(--wpbl-accent-solid)', color: '#fff', textDecoration: 'none',
@@ -1433,7 +1440,7 @@ function RecapButton({ recap, children }: { recap?: RecapLinkProps; children: Re
       '&:active': { transform: 'scale(0.98)' },
       ...hoverOnly({ filter: 'brightness(1.08)', transform: 'translateY(-1px)' }),
       // The off-season card is the anchor around this, so its hover lifts the button too.
-      ...(recap ? FOCUS_RING : { 'a:hover > &': { filter: 'brightness(1.08)' } }),
+      'a:hover > &': { filter: 'brightness(1.08)' },
     }}>
       <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 900, color: 'inherit' }}>{children}</Typography>
       {/* Ornament, hidden from the accessibility tree: the label already says where this goes. */}
@@ -1444,13 +1451,19 @@ function RecapButton({ recap, children }: { recap?: RecapLinkProps; children: Re
 
 /** The championship series, game by game, each one a way into its Game Center.
  *
- *  BORDERED CHIPS WITH A CHEVRON, NOT A LINE OF TEXT, because Home's scoreboard is gone for the
- *  offseason and this is now the one place on Home a postseason box score opens from; a line of
- *  grey text inside a card that was itself one link did not read as five more links. Two columns
- *  spend the card's width rather than its height; one on a phone, where two columns of
- *  "GAME 1  LA 11 @ SF 7  ›" do not fit side by side. Played games carry the score with the winner
- *  in the club's colour (the series overview's rule); one still to come carries its date. Shared
- *  by the in-progress and the finished (champion) bodies. */
+ *  ONE ROW OF EQUAL TILES, each a small box score: the game and its date, then both clubs with
+ *  their runs, the winner in its colour and the loser in secondary ink. It was two columns of
+ *  "GAME 1  LA 7 @ SF 6  ›" chips, which left a five-game final with an orphan in the last row and
+ *  most of every chip blank between the score and its chevron. A row of five spends the width;
+ *  stacking the two clubs spends height the card has spare beside Player of the day, and keeps
+ *  the batting order (away over home, as a line score reads). The winner's colour runs along the
+ *  tile's top, so the series reads left to right as a run of colours before any number is read.
+ *  One still to come shows the clubs with no runs.
+ *
+ *  Badges and dates only from `lg` up: five tiles in the half-width card at 960px are about 80px,
+ *  and on a phone about 60px; either holds "LA 11" and no more. The full line is the tile's
+ *  accessible name. Shared by the
+ *  in-progress and the champion bodies. */
 function SeriesGameLog({ log, teams, onOpenGame }: {
   log: WpblGame[]; teams: Map<string, WpblTeam>; onOpenGame: (g: WpblGame) => void
 }) {
@@ -1458,44 +1471,53 @@ function SeriesGameLog({ log, teams, onOpenGame }: {
   const gameLink = useWpblGameLink()
   if (log.length === 0) return null
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 0.75, mt: 0.25 }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${log.length}, minmax(0, 1fr))`, gap: 0.75 }}>
       {log.map((g, i) => {
         const a = teams.get(g.away_team_id), h = teams.get(g.home_team_id)
         const played = g.status === 'final' && g.home_score != null && g.away_score != null
-        const awayWon = played && g.away_score! > g.home_score!
         const homeWon = played && g.home_score! > g.away_score!
-        const side = (t: WpblTeam | undefined, score: number | null, won: boolean) => (
-          <Box component="span" sx={{
-            fontWeight: won ? 800 : 600,
-            color: won && t ? wpblAccent(t.id, isDark) : 'text.secondary',
-          }}>{t?.abbr} {score}</Box>
+        const winner = played ? (homeWon ? h : a) : undefined
+        const time = formatGameTime(g.game_date, g.start_time)
+        const label = played
+          ? `Game ${i + 1}: ${a ? wpblFullName(a) : 'Away'} ${g.away_score}, ${h ? wpblFullName(h) : 'Home'} ${g.home_score}`
+          : `Game ${i + 1}: ${relativeDayShort(g.game_date)}${time ? `, ${time}` : ''}`
+        const club = (t: WpblTeam | undefined, score: number | null, won: boolean) => (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+            {t && <Box sx={{ display: { xs: 'none', lg: 'flex' }, flexShrink: 0 }}><TeamBadge team={t} size={16} /></Box>}
+            <Typography noWrap sx={{
+              flex: 1, minWidth: 0, fontSize: TYPE_SCALE.meta, fontWeight: won ? 800 : 600,
+              color: won && t ? wpblAccent(t.id, isDark) : 'text.secondary',
+            }}>{t?.abbr ?? '—'}</Typography>
+            <Typography sx={{
+              flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: won ? 900 : 600, fontVariantNumeric: 'tabular-nums',
+              color: won ? 'text.primary' : 'text.secondary',
+            }}>{score ?? ''}</Typography>
+          </Box>
         )
         return (
-          <Box key={g.id} {...gameLink(g, onOpenGame)} sx={{
-            display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, px: 1, py: 0.7,
+          <Box key={g.id} {...gameLink(g, onOpenGame)} aria-label={label} sx={{
+            display: 'flex', flexDirection: 'column', gap: 0.4, minWidth: 0,
+            px: { xs: 0.6, lg: 1 }, pt: 0.6, pb: 0.75,
             border: '1px solid', borderColor: INNER_BORDER, borderRadius: 1.5,
+            // The winner's colour along the top, lifted to the border floor like any club edge.
+            ...(winner ? { borderTop: '3px solid', borderTopColor: edge(wpblColor(winner.id)) } : null),
             textDecoration: 'none', color: 'inherit', cursor: 'pointer',
             transition: 'background 0.12s, border-color 0.12s',
-            ...hoverOnly({ bgcolor: 'action.hover', borderColor: 'text.disabled' }), ...FOCUS_RING,
+            ...hoverOnly({ bgcolor: 'action.hover' }), ...FOCUS_RING,
           }}>
-            <Typography sx={{
-              fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase',
-              color: 'text.disabled', flexShrink: 0, whiteSpace: 'nowrap',
-            }}>
-              Game {i + 1}
-            </Typography>
-            {played ? (
-              <Typography noWrap sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontVariantNumeric: 'tabular-nums' }}>
-                {side(a, g.away_score, awayWon)}
-                <Box component="span" sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.micro }}> @ </Box>
-                {side(h, g.home_score, homeWon)}
+            <Box aria-hidden sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, minWidth: 0 }}>
+              <Typography sx={{
+                flexShrink: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.5),
+                textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1.2,
+              }}>G{i + 1}</Typography>
+              <Typography noWrap sx={{ display: { xs: 'none', lg: 'block' }, minWidth: 0, fontSize: TYPE_SCALE.caption, color: 'text.secondary', lineHeight: 1.2 }}>
+                {relativeDayShort(g.game_date)}
               </Typography>
-            ) : (
-              <Typography noWrap sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>
-                {relativeDayShort(g.game_date)}{formatGameTime(g.game_date, g.start_time) ? `, ${formatGameTime(g.game_date, g.start_time)}` : ''}
-              </Typography>
-            )}
-            <Typography aria-hidden sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.disabled', flexShrink: 0 }}>›</Typography>
+            </Box>
+            <Box aria-hidden sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
+              {club(a, played ? g.away_score : null, played && !homeWon)}
+              {club(h, played ? g.home_score : null, homeWon)}
+            </Box>
           </Box>
         )
       })}
@@ -1503,18 +1525,81 @@ function SeriesGameLog({ log, teams, onOpenGame }: {
   )
 }
 
-/** The finished-season body: the champion crowned, the final it won, and the series game by game, so
- *  the slot's height carries the story rather than the white space that used to sit under it. A
- *  tinted champion hero leads, then the finals result, then the box scores; the CTA pins to the
- *  bottom. The finals block is the real championship result; a dev-simulated champion has none, so it
- *  shows the crown and the log of the real finalists' games alone. */
-function ChampionRecapBody({ champion, series, teams, log, isDark, recap, onOpenGame, yearWord }: {
+/** The champion's Star of the final, off a read of the final's own lines (see
+ *  fetchWpblLinesForGames: the offseason Home does not load the season's). `undefined` while that
+ *  read is in flight, so the card can hold the row's place; null when there is no champion, no
+ *  played game, or nobody on the champion with a line worth naming. */
+function useFinalStar(championId: string | null, log: WpblGame[]): SeriesStar | null | undefined {
+  const ids = log.filter(g => g.status === 'final').map(g => g.id).join(',')
+  const key = championId && ids ? `${championId}|${ids}` : null
+  const [res, setRes] = useState<{ key: string; star: SeriesStar | null } | null>(null)
+  useEffect(() => {
+    if (!key || !championId) return
+    let cancelled = false
+    fetchWpblLinesForGames(ids.split(',')).then(l => {
+      if (!cancelled) setRes({ key, star: seriesStar(championId, l.batting, l.pitching) })
+    })
+    return () => { cancelled = true }
+  }, [key, championId, ids])
+  if (!key) return null
+  return res?.key === key ? res.star : undefined
+}
+
+/** One row of the champion's road to the title: the stage, then what happened in it. */
+interface TitlePathStep {
+  stage: string
+  /** The club beaten, for a series row; absent for the regular season. */
+  beat?: WpblTeam
+  /** "28–20 · 2nd seed", or a series score "2–1". */
+  detail: string
+}
+
+/** The champion's regular season and semifinal, the two steps before the final the hero already
+ *  states. Off the standings and the bracket the card has computed anyway, so it costs no read.
+ *  A step the data cannot vouch for is left out rather than guessed: a dev-simulated champion that
+ *  did not actually win its semifinal gets no semifinal row. */
+function titlePath(champion: WpblTeam, standings: ReturnType<typeof computeStandings>, bracket: WpblBracket | null): TitlePathStep[] {
+  const steps: TitlePathStep[] = []
+  const row = standings.find(r => r.team.id === champion.id)
+  const semi = bracket?.semifinals.find(s => s.home.team?.id === champion.id || s.away.team?.id === champion.id)
+  const mine = semi ? (semi.home.team?.id === champion.id ? semi.home : semi.away) : null
+  if (row) {
+    steps.push({
+      stage: 'Standings',
+      detail: `${row.wins}–${row.losses}${mine?.seed != null ? ` · ${ordinal(mine.seed)} seed` : ''}`,
+    })
+  }
+  if (semi && mine && semi.winner?.id === champion.id) {
+    const other = mine === semi.home ? semi.away : semi.home
+    if (other.team) steps.push({ stage: 'Semifinal', beat: other.team, detail: `${mine.wins}–${other.wins}` })
+  }
+  return steps
+}
+
+/** The finished-season body: the champion crowned with its final, the road there, and the final
+ *  game by game.
+ *
+ *  THE SERIES SCORE LIVES IN THE HERO. It used to be its own line under it, small grey text with
+ *  the RUNNER-UP's badge leading "def. San Francisco Firebells", which read at a glance as the
+ *  Firebells having beaten someone, while the right half of the hero band sat empty. Now the band
+ *  says the whole result: who won, what, and 3–2 over whom.
+ *
+ *  Blocks stack from the top at a fixed gap. The card is stretched to Player of the day beside it,
+ *  and the slack goes under the last block instead of between the champion and its own result.
+ *  A dev-simulated champion has no real series, so its hero shows the crown alone and the strip
+ *  carries the real finalists' games. */
+function ChampionRecapBody({ champion, series, teams, log, path, star, players, onOpenPlayer, isDark, recap, onOpenGame, yearWord }: {
+  /** The Star of the final: undefined while its read is in flight, null for none. */
+  star: SeriesStar | null | undefined
+  players: WpblPlayer[]
+  onOpenPlayer: (p: WpblPlayer) => void
   /** "2026 ", or nothing before the schedule has a year. */
   yearWord: string
   champion: WpblTeam
   series: ChampionResult | null
   teams: Map<string, WpblTeam>
   log: WpblGame[]
+  path: TitlePathStep[]
   isDark: boolean
   recap: RecapLinkProps
   onOpenGame: (g: WpblGame) => void
@@ -1522,19 +1607,23 @@ function ChampionRecapBody({ champion, series, teams, log, isDark, recap, onOpen
   // Only games that were played: a decided series has no fixture left, and this also drops a
   // still-scheduled decider under a dev-simulated champion, where the real series is not over.
   const played = log.filter(g => g.status === 'final' && g.home_score != null && g.away_score != null)
+  const runnerUp = series?.runnerUp ?? null
+  const playerLink = useWpblPlayerLink()
+  // The roster is a separate read from the lines, so the star waits on both: a resolved star whose
+  // player has not landed yet is still loading, not missing.
+  const starPlayer = star ? players.find(p => p.id === star.playerId) ?? null : null
+  const starLoading = star === undefined || (!!star && !starPlayer && players.length === 0)
+  const stageSx = {
+    fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase',
+    color: 'text.secondary', lineHeight: 1.3,
+  } as const
   return (
     <>
       <RecapLink recap={recap}>
-        {/* CHAMPION HERO: a full-bleed band tinted in the club's surface colour, warming to gold on the
-            right, so the one thing this card is now about spends the card's width instead of sitting on
-            a bare line. A gold trophy and eyebrow mark the title; the club name carries the accent and
-            the badge takes a gold ring rather than its own secondary. */}
-        {/* A ROW, NAMED EXPLICITLY. CLUB_BAND is a column (it stacks two club rows), and spreading it
-            here without overriding that stacked the badge over the text, centred, while everything
-            under the band reads left-aligned; the eyebrow also sat off-centre under the name, which is
-            wider. The gradient runs left to right for the same reason: it was drawn for this row. */}
+        {/* A ROW, NAMED EXPLICITLY: CLUB_BAND is a column (it stacks two club rows). The gradient
+            warms to gold on the right, which is where the series score now sits. */}
         <Box sx={{
-          ...CLUB_BAND, flexDirection: 'row', alignItems: 'center', gap: 1.5, px: 2, py: 1.75,
+          ...CLUB_BAND, flexDirection: 'row', alignItems: 'center', gap: 1.5, px: 2, py: 1.5,
           background: `linear-gradient(105deg, ${wpblSurface(champion.id, isDark)} 55%, ${alpha('#e0a100', isDark ? 0.22 : 0.15)})`,
         }}>
           <TeamBadge team={champion} size={52} ring="var(--wpbl-medal-1)" />
@@ -1546,43 +1635,107 @@ function ChampionRecapBody({ champion, series, teams, log, isDark, recap, onOpen
                 color: 'var(--wpbl-medal-1)',
               }}>{`${yearWord}WPBL Champions`}</Typography>
             </Box>
-            <Typography noWrap sx={{
+            {/* Wraps rather than ellipsising: the score column takes the right of this row, and on
+                a phone at Large text the full name needs a second line, not a cut. */}
+            <Typography sx={{
               fontSize: TYPE_SCALE.display, fontWeight: 800, lineHeight: 1.15,
               color: wpblAccent(champion.id, isDark),
             }}>{wpblFullName(champion)}</Typography>
           </Box>
+          {series && runnerUp && (
+            <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}
+              aria-label={`Beat ${wpblFullName(runnerUp)} ${series.champWins}–${series.rivalWins} in the final`}>
+              <Typography aria-hidden sx={{
+                fontSize: TYPE_SCALE.page, fontWeight: 900, lineHeight: 1.05, fontVariantNumeric: 'tabular-nums',
+                color: 'var(--wpbl-medal-1)',
+              }}>{series.champWins}–{series.rivalWins}</Typography>
+              <Typography aria-hidden sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                def. {runnerUp.abbr}
+              </Typography>
+            </Box>
+          )}
         </Box>
       </RecapLink>
 
-      {/* THE FINAL, real championship only: the runner-up it beat and the series score as the hero
-          number. Absent for a dev-simulated champion, whose random club has no real series (the box
-          scores below still carry the true finalists' games). */}
-      {/* The final and its games are ONE block, so the card's spread (see the body's
-          `space-between`) puts room around the pair rather than between a result and its own box
-          scores. */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {series && series.runnerUp && (
-          <RecapLink recap={recap} sx={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
-            <TeamBadge team={series.runnerUp} size={22} />
-            {/* Wraps rather than ellipsising: at Large text on a phone the runner-up's full name
-                does not fit one line, and a result cut to "def. San Francisco Firebell…" loses
-                the one word saying what this line is about. Sized to its text, not `flex: 1`, so
-                the score follows the sentence it finishes instead of sitting at the far edge. */}
-            <Typography sx={{ flex: '0 1 auto', minWidth: 0, fontSize: TYPE_SCALE.body, lineHeight: 1.3, color: 'text.secondary' }}>
-              def. {wpblFullName(series.runnerUp)} in the final
-            </Typography>
-            <Typography sx={{
-              fontSize: TYPE_SCALE.heading, fontWeight: 900, fontVariantNumeric: 'tabular-nums',
-              color: 'var(--wpbl-medal-1)', flexShrink: 0,
-            }}>{series.champWins}–{series.rivalWins}</Typography>
-          </RecapLink>
+      {/* THE ROAD TO THE TITLE: each stage's label OVER its row, at every width. A label column
+          beside the rows took 8.5rem out of the game tiles, which on a desktop cut "LA" to "L" and
+          the dates to "Se…", and the card had height to spare beside Player of the day anyway. */}
+      <Box sx={{
+        display: 'flex', flexDirection: 'column', gap: 0.4,
+        '& > .stage:not(:first-of-type)': { mt: 0.75 },
+      }}>
+        {path.map(step => (
+          <Fragment key={step.stage}>
+            <Typography className="stage" sx={stageSx}>{step.stage}</Typography>
+            <RecapLink recap={recap} sx={{ flexDirection: 'row', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+              {step.beat && <TeamBadge team={step.beat} size={20} />}
+              <Typography sx={{ minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 600 }}>
+                {step.beat ? <>def. {wpblFullName(step.beat)} </> : null}
+                <Box component="span" sx={{ fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>{step.detail}</Box>
+              </Typography>
+            </RecapLink>
+          </Fragment>
+        ))}
+        {played.length > 0 && (
+          <>
+            <Typography className="stage" sx={stageSx}>Final</Typography>
+            <SeriesGameLog log={played} teams={teams} onOpenGame={onOpenGame} />
+          </>
         )}
-        <SeriesGameLog log={played} teams={teams} onOpenGame={onOpenGame} />
+        {/* THE STAR OF THE FINAL, after the games it was picked from. A real link to the player page,
+            since a player page is what readers open most. Its read lands after first paint, so the
+            row holds its place in the same shape (a 32px portrait over two lines) while it does. */}
+        {(starLoading || starPlayer) && (
+          <>
+            <Typography className="stage" sx={stageSx}>Star of the final</Typography>
+            {starLoading || !star || !starPlayer ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {/* EXACTLY the loaded row's box, in the loaded row's units: the portrait is chrome
+                    (PlayerPortrait scales its px), the two lines are type at line height 1.25. A raw
+                    32px circle and Typography's default 1.5 each made this row a few px off the one
+                    replacing it, and on a desktop that moved Player of the day beside it. */}
+                <Skeleton variant="circular" sx={{ width: chromePx(32), height: chromePx(32), flexShrink: 0 }} />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Box sx={{ height: `calc(${TYPE_SCALE.body} * 1.25)`, display: 'flex', alignItems: 'center' }}>
+                    <Skeleton variant="rounded" sx={{ width: '8rem', height: '0.65em', fontSize: TYPE_SCALE.body }} />
+                  </Box>
+                  <Box sx={{ height: `calc(${TYPE_SCALE.meta} * 1.25)`, display: 'flex', alignItems: 'center' }}>
+                    <Skeleton variant="rounded" sx={{ width: '6rem', height: '0.65em', fontSize: TYPE_SCALE.meta }} />
+                  </Box>
+                </Box>
+              </Box>
+            ) : (
+              <Box {...linkWithEvent(playerLink(starPlayer, onOpenPlayer), starPlayer.id)} sx={{
+                display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, borderRadius: 1,
+                textDecoration: 'none', color: 'inherit', ...TAPPABLE, ...FOCUS_RING,
+              }}>
+                <PlayerPortrait name={starPlayer.name} teamId={champion.id} size={32} />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <NameText name={starPlayer.name} component="p" sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, lineHeight: 1.25 }} />
+                  <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', fontVariantNumeric: 'tabular-nums', lineHeight: 1.25 }}>
+                    {star.statline}{star.games > 1 ? ` in ${star.games} games` : ''}
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+          </>
+        )}
       </Box>
-
-      <RecapButton recap={recap}>{`Read the ${yearWord}recap`}</RecapButton>
     </>
   )
+}
+
+/** A player link that records the season card's tap first, under the same event the offseason
+ *  Home's other player cards use, so /admin counts every player opened from Home in one place. */
+function linkWithEvent(link: object, playerId: string) {
+  const l = link as { onClick?: (e: React.MouseEvent) => void }
+  return {
+    ...l,
+    onClick: (e: React.MouseEvent) => {
+      track(EVENTS.WPBL_HOME_PLAYER_OPEN, { card: 'final_star', playerId })
+      l.onClick?.(e)
+    },
+  }
 }
 
 /** The soonest postseason fixture still ahead, or null once the calendar is exhausted.
@@ -2704,7 +2857,10 @@ function OffseasonHomeSkeleton() {
           real card rather than a guess at its height. */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
         <PlayerOfTheDayCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
-        <CardSkeleton minHeight={{ xs: '26.5rem', md: '21.6rem' }} titleWidth="6rem" lines={5} />
+        {/* The champion card's own height, measured at 375, 760, 960 and 1440 (Oct 15, 2026): one
+            number at every width, since its rows stack the same way everywhere. Taller here than
+            the card puts the row out of step with Player of the day, which then moves on load. */}
+        <CardSkeleton minHeight={{ xs: '23.95rem', md: '23.9rem' }} titleWidth="6rem" lines={5} />
       </Box>
       {awards && (
         <Box sx={{ mt: 1.5 }}>
@@ -3179,7 +3335,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
         <>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
             <PlayerOfTheDayCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} />
-            <NextGameCard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame}
+            <NextGameCard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} players={players} onOpenPlayer={onOpenPlayer}
               devForceRecap={devForceRecap} devChampion={devChampTeam} />
           </Box>
           {/* The award results, for the days they stay up after the final (AWARDS_RESULTS_UNTIL). */}
@@ -3278,7 +3434,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           display: { xs: 'flex', md: 'grid' }, flexDirection: 'column',
           gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
         }}>
-          <NextGameCard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame}
+          <NextGameCard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} players={players} onOpenPlayer={onOpenPlayer}
             devForceRecap={devForceRecap} devChampion={devChampTeam} />
           <LastGameCard games={games} teams={teamMap} players={players} onOpenGame={onOpenGame} onOpenPlayer={onOpenPlayer} />
         </Box>
