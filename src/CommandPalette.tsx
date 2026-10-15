@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Dialog, IconButton, List, ListItemButton, Typography } from '@mui/material'
-import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups, SportsBaseball, MenuBook, Person, TravelExplore } from '@mui/icons-material'
+import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups, SportsBaseball, MenuBook, Person, TravelExplore, EmojiEvents, Tune } from '@mui/icons-material'
 import { setSearchQuery, type CompareRow, type LeaderPeek, type PlayerStatAsk, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
 import type { NavSection } from './sectionNav'
-import { boardColumn, peekText, clubPageSuggestions, definitionSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs, teamRankSuggestions } from './finderSearch'
+import { boardColumn, peekText, recordSuggestions, clubPageSuggestions, definitionSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs, teamRankSuggestions } from './finderSearch'
 import { otherSectionPlayer, type OtherSectionRow } from './otherSection'
 import { requestSectionScroll } from './lib/sectionScroll'
 import { clearRecentQuestions, getRecentQuestions, getRowPicks, mergeRecent, recordRecentQuestion, recordRowPick, type RecentQuestion } from './lib/recentQuestions'
-import { nameWords, parseCompareText, parseGameQuery, typedPart, typedSeason, typedStat } from './league/finderParse'
+import { nameWords, parseCompareText, parseGameQuery, todayIso, typedPart, typedSeason, typedStat } from './league/finderParse'
 import { mightBeFinderQuestion } from './finderGate'
 import { linkTo, navigate } from './nav'
 import { track, EVENTS } from './lib/analytics'
@@ -42,7 +42,18 @@ import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 
 // 'suggestion' was MLB's "Your team" / "Trending" idle rows, since removed; it stays here because
 // older `command_palette_picked` events carry it.
-export type PickKind = 'club_page' | 'game' | 'matchup' | 'compare' | 'finder' | 'leader' | 'team_rank' | 'definition' | 'result' | 'other_section' | 'recent' | 'suggestion' | 'page' | 'example'
+export type PickKind = 'club_page' | 'game' | 'matchup' | 'compare' | 'finder' | 'leader' | 'team_rank' | 'record' | 'definition' | 'result' | 'other_section' | 'recent' | 'suggestion' | 'page' | 'action' | 'example'
+
+/** Something the site DOES rather than a page it has: dark mode, settings, feedback. The shell owns
+ *  each one (its dialogs and the theme live there), so it hands them in. */
+export interface PaletteAction {
+  key: string
+  title: string
+  hint: string
+  /** What a reader might type for it, besides the title. */
+  words: string[]
+  run: () => void
+}
 
 /** A group the palette shows before anything is typed: the recents. Built by
  *  the shell from the search bridge, since only it holds both sections' shapes. */
@@ -176,14 +187,60 @@ const EXAMPLES: Record<NavSection, Example[]> = {
 /** For the test that keeps every example answering. */
 export const PALETTE_EXAMPLES = EXAMPLES
 
-/** How well a page's name answers the query: a name that starts with it beats a word in it, which
- *  beats a mention in the hint. Zero is no match. */
+// What else a reader calls a page, by its label in either section. A page's own name is matched
+// already; these are the words people use for what is on it ("wild card" is a standings question,
+// "trades" is roster moves). A label missing from a section simply has nothing to match there.
+const PAGE_WORDS: Record<string, string[]> = {
+  'Scores': ['schedule', 'scoreboard', 'results', 'fixtures', 'calendar', 'games today'],
+  'Standings': ['table', 'wild card', 'wildcard', 'division', 'race', 'seeding', 'games back'],
+  'Teams': ['clubs', 'rosters'],
+  'Stats': ['leaderboard', 'statistics'],
+  'Playoff odds': ['odds', 'chances', 'projections', 'magic number'],
+  'Postseason bracket': ['bracket', 'playoffs', 'postseason', 'world series'],
+  'Season recap': ['recap', 'review', 'year in review', 'champions'],
+  'Rules & glossary': ['rules', 'glossary', 'definitions'],
+  'Compare players': ['compare', 'head to head', 'side by side'],
+  'Batter vs pitcher': ['matchups', 'bvp', 'versus'],
+  'Milestone Watch': ['milestones', 'approaching'],
+  'Roster moves': ['trades', 'transactions', 'signings', 'call ups', 'injuries'],
+  'Predictions': ['picks', 'pickem', 'predict'],
+  'All players': ['players', 'roster', 'directory'],
+  'About the league': ['about', 'league', 'history', 'how it works'],
+  'Charts & payroll': ['payroll', 'salaries', 'run differential', 'charts'],
+  'Watch': ['videos', 'highlights', 'youtube', 'broadcasts'],
+  'Photos': ['gallery', 'pictures'],
+  'Reading': ['articles', 'news', 'writers'],
+  'Data sources': ['sources', 'api', 'data'],
+}
+
+/** How well a page's name answers the query: a name that starts with it beats a word in it or a
+ *  word people use for it, which beat a mention in the hint. Zero is no match. */
 function pageScore(p: PageEntry, q: string): number {
   const label = p.label.toLowerCase()
   if (label.startsWith(q)) return 3
   if (label.split(/\s+/).some(w => w.startsWith(q))) return 2
+  // Three letters before a synonym answers, so "pi" on the way to a name does not offer Predictions.
+  if (q.length >= 3 && PAGE_WORDS[p.label]?.some(w => w.startsWith(q) || q === w)) return 2
   if (p.hint?.toLowerCase().includes(q)) return 1
   return 0
+}
+
+/** "scores yesterday", "tomorrow's games": MLB's scoreboard on that day. WPBL's Scores is the whole
+ *  season on one page, so a day there is the game row's job (parseGameQuery), not a page's. */
+const DAY_SHIFT: Record<string, number> = { yesterday: -1, 'last night': -1, today: 0, tonight: 0, tomorrow: 1 }
+const DAY = '(yesterday|last night|today|tonight|tomorrow)'
+const SCORES = '(?:scores?|scoreboard|results|games)'
+const DATED_SCORES = new RegExp(`^(?:${SCORES}\\s+${DAY}|${DAY}(?:'?s)?\\s+${SCORES})$`)
+function datedScores(section: NavSection, q: string): PageEntry | null {
+  if (section !== 'mlb') return null
+  const m = q.match(DATED_SCORES)
+  if (!m) return null
+  const word = m[1] ?? m[2]
+  const d = new Date()
+  d.setDate(d.getDate() + DAY_SHIFT[word])
+  const iso = todayIso(d)
+  const label = word === 'last night' ? 'yesterday' : word === 'tonight' ? 'today' : word
+  return { label: `Scores ${label}`, hint: iso, href: `${MLB_VIEW_PATHS.scores}?date=${iso}` }
 }
 
 const rowItem = (kind: 'result' | 'recent') => (r: SearchResultRow): Item => ({
@@ -202,7 +259,7 @@ const GROUP_LABEL_SX = {
   fontSize: TYPE_SCALE.micro, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary',
 } as const
 
-export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames, resolveLeader, resolvePlayerStat, seasonCount = null }: {
+export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames, resolveLeader, resolvePlayerStat, seasonCount = null, actions = [] }: {
   open: boolean
   onClose: () => void
   section: NavSection
@@ -221,6 +278,8 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   resolvePlayerStat?: SearchBridgeState['resolvePlayerStat']
   /** How many seasons the section has on record, from the search bridge. */
   seasonCount?: number | null
+  /** The site's own actions (theme, settings, feedback), from the shell. */
+  actions?: PaletteAction[]
 }) {
   const [text, setText] = useState('')
   // The questions and pick times, read fresh on every open: another tab may have asked one.
@@ -412,6 +471,14 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       subtitle: elsewhere.row.subtitle, href: elsewhere.row.href,
       icon: <SportsBaseball sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
     }] : []
+    const records: Item[] = recordSuggestions(section, text).map(s => ({
+      key: s.key, kind: 'record', title: s.title, subtitle: s.subtitle, href: s.href, scrollTo: s.scrollTo,
+      icon: <EmojiEvents sx={{ fontSize: ICON_SIZE.md }} />,
+      onOpen: () => requestSectionScroll(s.scrollTo),
+    }))
+    const acts: Item[] = q.length < 2 ? [] : actions
+      .filter(a => [a.title.toLowerCase(), ...a.words].some(w => w.startsWith(q) || (q.length >= 4 && q.includes(w))))
+      .map(a => ({ key: `action-${a.key}`, kind: 'action', title: a.title, subtitle: a.hint, icon: <Tune sx={{ fontSize: ICON_SIZE.md }} />, onOpen: a.run }))
     const defined = definitionSuggestions(section, text)
     const definitions: Item[] = defined.rows.map(s => ({
       key: s.key, kind: 'definition', title: s.title, subtitle: s.subtitle, href: s.href, scrollTo: s.scrollTo,
@@ -431,8 +498,9 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       },
     }))
     const seen = new Set<string>()
-    const pages: Item[] = [...TAB_PAGES[section], ...BOARD_PAGES[section], ...MORE_PAGES[section]]
-      .map(p => ({ p, score: pageScore(p, q) }))
+    const dated = datedScores(section, q)
+    const pages: Item[] = [...(dated ? [dated] : []), ...TAB_PAGES[section], ...BOARD_PAGES[section], ...MORE_PAGES[section]]
+      .map(p => ({ p, score: p === dated ? 4 : pageScore(p, q) }))
       .filter(x => x.score > 0 && !seen.has(x.p.href) && seen.add(x.p.href))
       .sort((a, b) => b.score - a.score)
       .slice(0, 6)
@@ -447,6 +515,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       { label: 'Matchups', items: matchups },
       { label: 'Clubs', items: clubPages },
       { label: 'Compare', items: compared },
+      { label: 'Records', items: records },
       { label: 'Team stats', items: teamRanks },
       { label: 'Leaders', items: leaders },
       { label: 'Find', items: finder },
@@ -457,8 +526,9 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       }) },
       { label: section === 'mlb' ? 'In the WPBL' : 'In MLB', items: other },
       { label: 'Pages', items: pages },
+      { label: 'Actions', items: acts },
     ].filter(g => g.items.length)
-  }, [text, results, idle, section, compare, gameRows, recentQs, rowPicks, leaderRows, peeks, answers, elsewhere, ownPlayers])
+  }, [text, results, idle, section, compare, gameRows, recentQs, rowPicks, leaderRows, peeks, answers, elsewhere, ownPlayers, actions])
 
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups])
   const current = Math.min(active, Math.max(0, flat.length - 1))

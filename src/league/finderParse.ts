@@ -266,6 +266,24 @@ const WITHOUT = new RegExp(`${B_START}without\\s+(?:a\\s+|an\\s+|any\\s+)?${STAT
 const HITTING_RATE = new RegExp(`${B_START}(?:hitting|batting|hit)\\s+${PREFIX}${RATE}${B_END}`, 'g')
 const RATE_HITTER = new RegExp(`${B_START}${PREFIX}${RATE}\\s*(?:hitters?|batters?)${B_END}`, 'g')
 // "4-for-4", "3 for 5": hits and at-bats, both exact, because "3-for-5" means exactly that.
+// A threshold said the way people say it rather than the way the finder writes it. Rewritten to the
+// finder's own phrasing before the passes run, so each reading reuses the operators above.
+//   "300 hitters", "hitting 300": batting average, which is spoken without its point.
+//   "era between 2 and 3", "between 20 and 30 hr": both ends, inclusive.
+const BARE_AVERAGE_HITTER = /(?<![\d.])([1-4]\d\d)(?=\s+(?:hitters?|batters?)(?![a-z]))/g
+const BARE_AVERAGE_HITTING = /(?<![a-z])(hitting|batting)\s+((?:over|above|under|below|at least|at most)\s+)?([1-4]\d\d)(?![\d.])/g
+const RANGE_NUM = '(\\d+(?:\\.\\d+)?|\\.\\d+)'
+
+function wordedThresholds(rest: string): string {
+  const between = new RegExp(`${B_START}between\\s+${RANGE_NUM}\\s+(?:and|to|-)\\s+${RANGE_NUM}\\s+${STAT}${B_END}`, 'g')
+  const statBetween = new RegExp(`${B_START}${STAT}\\s+between\\s+${RANGE_NUM}\\s+(?:and|to|-)\\s+${RANGE_NUM}${B_END}`, 'g')
+  return rest
+    .replace(BARE_AVERAGE_HITTER, '.$1')
+    .replace(BARE_AVERAGE_HITTING, (_m: string, verb: string, op: string | undefined, n: string) => `${verb} ${op ?? ''}.${n}`)
+    .replace(between, (_m: string, lo: string, hi: string, stat: string) => `at least ${lo} ${stat} and at most ${hi} ${stat}`)
+    .replace(statBetween, (_m: string, stat: string, lo: string, hi: string) => `${stat} at least ${lo} and ${stat} at most ${hi}`)
+}
+
 const FOR_LINE = /(?<![a-z0-9])(\d+)\s*(?:-|\s)\s*for\s*(?:-|\s)\s*(\d+)(?![a-z0-9])/g
 
 /** Lowercase, accents folded, the comparison glyphs spelled the ASCII way, and the hyphenated
@@ -280,6 +298,9 @@ function normalize(text: string): string {
     .replace(/[,;!?]/g, ' ')
     .replace(/on-base/g, 'on base')
     .replace(/(?<![a-z0-9])multi[- ]?(?=hit|homer|hr|home run|rbi|steal|sb|strikeout|k|walk|double|run)/g, '2 ')
+    // "double digit hr", "triple-digit strikeouts": the floor the phrase names.
+    .replace(/(?<![a-z0-9])double[- ]?digits?(?![a-z])/g, '10+')
+    .replace(/(?<![a-z0-9])triple[- ]?digits?(?![a-z])/g, '100+')
     .replace(/(?<![a-z0-9])sub-(?=[\d.])/g, 'sub ')
     .replace(/(\d)-(?=[a-z])/g, '$1 ')
     .replace(/\s+/g, ' ')
@@ -391,7 +412,7 @@ function takeYear(rest: string): { rest: string; season: number | null } {
  */
 export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] = []): ParsedFinder[] {
   const clubWords = new Set(clubs.flatMap(c => c.names.flatMap(n => normalize(n).split(' '))))
-  let rest = ` ${fixStatTypos(normalize(text), clubWords)} `
+  let rest = ` ${wordedThresholds(fixStatTypos(normalize(text), clubWords))} `
   if (!rest.trim()) return []
   const year = takeYear(rest)
   rest = year.rest
@@ -514,7 +535,13 @@ export function parseFinderText(text: string, clubs: readonly FinderClubAlias[] 
       if (!field) { ok = false; break }
       const value = valueFor(side, field, p.raw, p.shift)
       if (value == null) { ok = false; break }
-      byField.set(field, { field, op: p.bare && finderLowerBetter(side, field) ? 'lte' : p.op, value })
+      // A floor and a ceiling on one stat are a RANGE ("era between 2 and 3") and both stay; a second
+      // of the same kind replaces the first, as before. An exact value replaces either, and either
+      // replaces it.
+      const op: FinderOp = p.bare && finderLowerBetter(side, field) ? 'lte' : p.op
+      if (op === 'eq') { byField.delete(`${field}:gte`); byField.delete(`${field}:lte`) }
+      else byField.delete(field)
+      byField.set(op === 'eq' ? field : `${field}:${op}`, { field, op, value })
       // A phrase only this side records is decisive; a lean is a tiebreak.
       if (!p.alias[side === 'hitting' ? 'pitching' : 'hitting']) score += 2
       else if (p.alias.lean === side) score += 1
@@ -608,6 +635,9 @@ const STAT_ANY = new RegExp(`${B_START}(${alt(RANK_PHRASES)})${B_END}`, 'g')
 export function parseLeaderText(text: string): ParsedLeader[] {
   let rest = ` ${fixStatTypos(normalize(text))} `
   if (!rest.trim()) return []
+  // "Most hr in a game" is a single-game record (parseRecordText), not the season board: answering
+  // it with the season's home run leaders reads as a right answer to a question nobody asked.
+  if (SINGLE_GAME.test(rest)) return []
   const span = takeCareer(rest)
   const year = takeYear(span.rest)
   rest = year.rest
@@ -775,6 +805,33 @@ export function parseClubPage(text: string, clubs: readonly FinderClubAlias[]): 
   const left = rest.split(/[^a-z0-9]+/).filter(w => w && !FILLER.has(w) && !['team', 'club', 'page', 's'].includes(w))
   if (left.length) return []
   return ids.map(clubId => ({ clubId, part: part! }))
+}
+
+// ─── A single-game record ─────────────────────────────────────────────────────
+
+/** The words that make a ranking about ONE game rather than a season. Not a bare "game", which is
+ *  filler in a Find question ("5 strikeout games"), and not "record" alone, which is as often a
+ *  season record as a game's. Exported so parseLeaderText can step aside for it. */
+const SINGLE_GAME = /(?<![a-z])(in (?:a|one) (?:single )?game|in (?:a|one) start|in (?:an|one) outing|single[- ]game(?: records?| highs?| bests?)?|one[- ]game|game (?:records?|highs?|bests?)|in a day)(?![a-z])/
+const SINGLE_GAME_G = new RegExp(SINGLE_GAME.source, 'g')
+const LONGEST_OUTING = /(?<![a-z])longest\s+(scoreless\s+)?(?:outings?|starts?|appearances?)(?![a-z])/
+
+/**
+ * "most hr in a game", "single game strikeout record", "longest scoreless outing": the best single
+ * game by a measure, for the section's Bests board. The measure is read by the ranking parser, so
+ * every stat word it knows works here too; which measures have a board is the caller's question.
+ * `field` is the finder's, plus two the Bests board has and the finder does not: `outs` for the
+ * longest outing and `scoreless` for the longest scoreless one.
+ */
+export function parseRecordText(text: string): { side: RankSide; field: string }[] {
+  const rest = ` ${fixStatTypos(normalize(text))} `
+  const longest = rest.match(LONGEST_OUTING)
+  if (longest) return [{ side: 'pitching', field: longest[1] ? 'scoreless' : 'outs' }]
+  if (!SINGLE_GAME.test(rest)) return []
+  // A record is the most of something: "fewest" or "lowest" in one game is not a record anyone keeps.
+  return parseLeaderText(rest.replace(SINGLE_GAME_G, ' ').replace(/(?<![a-z])(records?|highs?|bests?)(?![a-z])/g, ' '))
+    .filter(p => !p.career && p.side !== 'overall' && p.dir !== 'asc')
+    .map(p => ({ side: p.side, field: p.field }))
 }
 
 // ─── A ranking of clubs ───────────────────────────────────────────────────────

@@ -11,7 +11,7 @@
 // tab on a modified click like any other.
 
 import { describeFinderQuery, finderFields, type FinderSide } from './league/finder'
-import { parseClubPage, parseFinderText, parseGameQuery, parseLeaderText, parseTeamRankText, rankField, rankLowerBetter, type ClubPagePart, type ParsedFinder, type ParsedLeader, type RankSide } from './league/finderParse'
+import { parseClubPage, parseFinderText, parseGameQuery, parseLeaderText, parseRecordText, parseTeamRankText, rankField, rankLowerBetter, type ClubPagePart, type ParsedFinder, type ParsedLeader, type RankSide } from './league/finderParse'
 import { MLB_FINDER_CLUBS, mlbFinderHref } from './mlb/finderLink'
 import { CURRENT_SEASON, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_ABBR } from './mlb/constants'
 import { MLB_GLOSSARY_PAGE, mlbClubById, mlbTeamPath, mlbUrlFor } from './mlb/routes'
@@ -216,6 +216,50 @@ export function teamRankSuggestions(section: FinderSection, text: string): TeamR
     const stat = ranked.replace(/^(Most|Fewest|Highest|Lowest) /, '')
     const title = club ? `${club} team ${stat}` : `${ranked} by a team`
     return [{ key: `team-rank-${href}-${club ?? ''}`, title, subtitle, href }]
+  })
+}
+
+export interface RecordSuggestion {
+  key: string
+  /** "Most home runs in a game", "Longest scoreless outing". */
+  title: string
+  subtitle: string
+  href: string
+  /** The Bests card to scroll to (lib/sectionScroll.ts), `best-<board key>`. */
+  scrollTo: string
+}
+
+// The finder's fields as the Bests boards key them (league/bests.ts, shared by both sections). Only
+// the measures a board exists for: a record nobody keeps (batter strikeouts, walks) offers no row.
+const BEST_BOARDS: Record<FinderSide, Record<string, { key: string; label: string }>> = {
+  hitting: {
+    tb: { key: 'tb', label: 'Most total bases in a game' }, rbi: { key: 'rbi', label: 'Most RBI in a game' },
+    h: { key: 'h', label: 'Most hits in a game' }, hr: { key: 'hr', label: 'Most home runs in a game' },
+    ob: { key: 'ob', label: 'Most times on base in a game' }, sb: { key: 'sb', label: 'Most stolen bases in a game' },
+  },
+  pitching: {
+    so: { key: 'so', label: 'Most strikeouts in a game' }, ip: { key: 'outs', label: 'Longest outing' },
+    outs: { key: 'outs', label: 'Longest outing' }, scoreless: { key: 'scoreless', label: 'Longest scoreless outing' },
+    pitches: { key: 'pitches', label: 'Most pitches in a game' },
+  },
+}
+
+/** "most hr in a game", "longest scoreless outing": the Bests board, at that record's card. */
+export function recordSuggestions(section: FinderSection, text: string): RecordSuggestion[] {
+  const seen = new Set<string>()
+  return parseRecordText(text).flatMap(({ side, field }) => {
+    const s = side as FinderSide
+    const board = BEST_BOARDS[s][field]
+    if (!board || seen.has(board.key)) return []
+    seen.add(board.key)
+    const href = section === 'mlb'
+      ? mlbUrlFor({ view: 'bests', lb: s }, CURRENT_SEASON)
+      : `/wpbl/stats?${new URLSearchParams({ board: 'bests', side: s })}`
+    return [{
+      key: `record-${href}-${board.key}`, title: board.label,
+      subtitle: `Bests · the single-game record, ${s === 'pitching' ? 'pitching' : 'hitting'}`,
+      href, scrollTo: `best-${board.key}`,
+    }]
   })
 }
 

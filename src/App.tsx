@@ -7,7 +7,7 @@ import { useSearchBridge, noteSearchFocus } from './mlb/state/SearchBridgeContex
 import type { PlayerBridgeItem, SearchResultRow, SearchResultAvatar } from './mlb/state/SearchBridgeContext'
 import { requestSectionScroll } from './lib/sectionScroll'
 import { MLB_PLAYER_PARTS, PLAYER_PART_LABEL, WPBL_PLAYER_PARTS, playerPartKey } from './lib/playerParts'
-import type { PaletteIdleGroup } from './CommandPalette'
+import type { PaletteAction, PaletteIdleGroup } from './CommandPalette'
 import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT } from './mlb/constants'
 import { useTheme } from './ThemeContext'
 import { DevSettings, MobilePreviewHost } from './dev/DevSettings'
@@ -684,6 +684,22 @@ function AppInner() {
       })),
     }]
   }, [paletteOpen, bridge])
+
+  // What the site does, as rows the search can offer ("dark mode", "send feedback"). Each is a control
+  // already in the toolbar, the account menu or the footer; the search is one more way to reach it,
+  // and the only one that does not need the reader to know where it lives.
+  const paletteActions = useMemo<PaletteAction[]>(() => [
+    { key: 'theme', title: mode === 'dark' ? 'Light mode' : 'Dark mode', hint: 'Switch the theme',
+      words: ['dark mode', 'light mode', 'theme', 'night mode', 'dark', 'light'], run: toggleTheme },
+    { key: 'settings', title: 'Settings', hint: 'Units, text size, swiping and more',
+      words: ['preferences', 'options', 'text size', 'units', 'accessibility'], run: () => setSettingsOpen(true) },
+    { key: 'changelog', title: 'What’s new', hint: 'Every change to the site',
+      words: ['whats new', 'what is new', 'changelog', 'updates', 'release notes', 'version'], run: () => setChangelogOpen(true) },
+    { key: 'feedback', title: 'Send feedback', hint: 'A bug, an idea, or a missing stat',
+      words: ['feedback', 'report a bug', 'bug', 'contact', 'suggestion', 'idea'], run: () => setFeedbackOpen(true) },
+    ...(user ? [] : [{ key: 'signin', title: 'Sign in', hint: 'Keep your recents and picks on every device',
+      words: ['log in', 'login', 'sign up', 'account', 'register'], run: () => openAuthDialog('signin') }]),
+  ], [mode, toggleTheme, user, openAuthDialog])
 
   // Show the post sign-in/out toast stashed by AuthContext (or the delete-account
   // flow) just before it reloaded the page
@@ -1608,7 +1624,8 @@ function AppInner() {
           <CommandPalette open={paletteOpen} onClose={closePalette} section={searchSection}
             results={paletteResults} idle={paletteIdle} searching={bridge.searching}
             resolveCompare={bridge.resolveCompare} resolveGames={bridge.resolveGames}
-            resolveLeader={bridge.resolveLeader} resolvePlayerStat={bridge.resolvePlayerStat} seasonCount={bridge.seasonCount} />
+            resolveLeader={bridge.resolveLeader} resolvePlayerStat={bridge.resolvePlayerStat} seasonCount={bridge.seasonCount}
+            actions={paletteActions} />
         </Suspense>
       )}
 
