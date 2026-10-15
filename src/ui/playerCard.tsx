@@ -16,6 +16,7 @@ import { ExpandMore } from '@mui/icons-material'
 import { TapTip } from './TapTip'
 import { TAPPABLE, hoverOnly } from './interaction'
 import { chromePx, typePx } from './scale'
+import { ICON_SIZE, TYPE_SCALE } from './card'
 import { usePhoneLayout } from './ModalShell'
 import { playerPartAnchor, type PlayerPart } from '../lib/playerParts'
 
@@ -62,13 +63,13 @@ export const TIP_Z = 1700
 
 /** A section's label: small, uppercase, secondary. The one heading style on the card. */
 export const SECTION_LABEL_SX = {
-  fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5),
+  fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5),
   color: 'text.secondary',
 } as const
 
 /** What sits on a section's right: its sample, its scope, or how to use it. */
 export const SECTION_CAPTION_SX = {
-  fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', fontVariantNumeric: 'tabular-nums',
+  fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled', fontVariantNumeric: 'tabular-nums',
 } as const
 
 /**
@@ -122,7 +123,7 @@ export function ShowMoreButton({ expanded, onClick, accent, children }: {
       sx={{
         width: '100%', mt: 0.5, py: 0.75, px: 1, border: 'none', borderRadius: 1,
         bgcolor: 'transparent', color: accent, cursor: 'pointer', font: 'inherit',
-        fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5),
+        fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5),
         ...TAPPABLE,
         ...hoverOnly({ bgcolor: 'action.hover' }),
         '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },
@@ -159,11 +160,11 @@ export function ShowMoreButton({ expanded, onClick, accent, children }: {
  * emphasis here is the club's colour, spent in the two places named in GameLogTable.
  */
 export const CARD_TYPE = {
-  hero: { fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em' },
-  figure: { fontSize: '0.95rem', fontWeight: 700 },
-  body: { fontSize: { xs: '0.74rem', sm: '0.8rem' }, fontWeight: 600 },
-  label: { fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5) },
-  micro: { fontSize: '0.6rem', fontWeight: 700 },
+  hero: { fontSize: TYPE_SCALE.display, fontWeight: 800, letterSpacing: '-0.02em' },
+  figure: { fontSize: TYPE_SCALE.title, fontWeight: 700 },
+  body: { fontSize: { xs: TYPE_SCALE.meta, sm: TYPE_SCALE.body }, fontWeight: 600 },
+  label: { fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5) },
+  micro: { fontSize: TYPE_SCALE.caption, fontWeight: 700 },
 } as const
 const TYPE = CARD_TYPE
 const sectionSx = { ...TYPE.label, color: 'text.secondary', mb: 1 } as const
@@ -203,7 +204,7 @@ export function SeasonPicker<C extends boolean = false>({ label, season, seasons
       '&:focus-within': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
     }}>
       <Typography sx={{ ...sectionSx, mb: 0, color: 'text.primary', whiteSpace: 'nowrap' }}>{label}</Typography>
-      <ExpandMore aria-hidden sx={{ fontSize: '1.1rem', color: 'text.secondary' }} />
+      <ExpandMore aria-hidden sx={{ fontSize: ICON_SIZE.md, color: 'text.secondary' }} />
       <Box component="select" value={season} aria-label="Change season"
         onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
           const v = e.target.value
@@ -487,7 +488,7 @@ function CompactSeasonLine({ cols, placeholder }: { cols: LineCol[]; placeholder
 /** The compact line's cells: a little less air than the desktop's, since the columns share the screen. */
 const COMPACT_CELL_SX = { px: 0.4 } as const
 /** A step under `figure`, so a pitching line fits the screen in one row. */
-const COMPACT_FIGURE_SX = { fontSize: '0.85rem' } as const
+const COMPACT_FIGURE_SX = { fontSize: TYPE_SCALE.body } as const
 
 function FullSeasonLine({ cols, lead, placeholder, ranksPending }: { cols: LineCol[]; lead?: LineCol[]; placeholder?: boolean; ranksPending?: boolean }) {
   const { tip, ink, rankBar } = useStatCard()
@@ -872,16 +873,16 @@ export function FormStrip({ title, games, ink = FORM_INK }: {
       {/* 0.72 white, the dimmest thing on the band and so the case its wash is budgeted against.
           These sit 74% to 96% along it, which is its strongest end, and still clear 4.5:1 on all
           four clubs with about a fifth of a step to spare. See BAND_WASH. */}
-      <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: ink.label, mb: 0.6 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: ink.label, mb: 0.6 }}>
         {title}
       </Typography>
       <Box sx={{ display: 'flex', gap: 1 }}>
         {games.map((g, i) => (
           <Box key={i} sx={{ textAlign: 'center', minWidth: 0 }}>
-            <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: ink.opp, whiteSpace: 'nowrap' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: ink.opp, whiteSpace: 'nowrap' }}>
               {g.opp}
             </Typography>
-            <Typography sx={{ fontSize: '0.82rem', fontWeight: 800, color: ink.value, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, color: ink.value, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
               {g.value}
             </Typography>
           </Box>
@@ -1216,7 +1217,7 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
                 {/* A label, so the card's label grey rather than the club's colour: red "SEASON" on the
                     Firebells sat in the same row as blue best-game marks and read as a third kind of
                     emphasis. The rule above the row is what sets it apart. */}
-                <Box component="td" sx={{ ...totalTdSx, textAlign: 'left', fontSize: '0.6rem', letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.secondary' }}>
+                <Box component="td" sx={{ ...totalTdSx, textAlign: 'left', fontSize: TYPE_SCALE.caption, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.secondary' }}>
                   {totalsLabel}
                 </Box>
                 {leadHeaders.slice(1).map(h => <Box component="td" key={h} sx={{ ...totalTdSx, textAlign: 'left' }} />)}
@@ -1354,18 +1355,18 @@ export function PlayerBand({ bandRef, background, stripe, portrait, name, nameAs
         {portrait}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-            <Typography component={nameAs} sx={{ fontSize: { xs: '1.2rem', sm: '1.4rem' }, fontWeight: 800, lineHeight: 1.15, color: ink.name, m: 0 }}>
+            <Typography component={nameAs} sx={{ fontSize: { xs: TYPE_SCALE.display, sm: TYPE_SCALE.page }, fontWeight: 800, lineHeight: 1.15, color: ink.name, m: 0 }}>
               {name}
             </Typography>
             {badge}
           </Box>
           {meta && (
-            <Typography sx={{ fontSize: '0.8rem', color: ink.meta, mt: 0.25 }}>{meta}</Typography>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, color: ink.meta, mt: 0.25 }}>{meta}</Typography>
           )}
           {/* Separate lines, not one run-on: joined with a separator the draft line wraps
               mid-phrase behind a long hometown and reads as part of the address. */}
           {lines?.map(l => (
-            <Typography key={l} sx={{ fontSize: '0.72rem', color: ink.line, mt: 0.1 }}>{l}</Typography>
+            <Typography key={l} sx={{ fontSize: TYPE_SCALE.meta, color: ink.line, mt: 0.1 }}>{l}</Typography>
           ))}
           {chips}
         </Box>
@@ -1379,7 +1380,7 @@ export function PlayerBand({ bandRef, background, stripe, portrait, name, nameAs
  *  colour, which on some clubs' primaries measures under 4.5:1. */
 export function BandBadge({ children }: { children: React.ReactNode }) {
   return (
-    <Box sx={{ flexShrink: 0, px: 0.85, py: 0.2, borderRadius: 1, bgcolor: 'rgba(255,255,255,0.22)', color: '#fff', fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5) }}>
+    <Box sx={{ flexShrink: 0, px: 0.85, py: 0.2, borderRadius: 1, bgcolor: 'rgba(255,255,255,0.22)', color: '#fff', fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5) }}>
       {children}
     </Box>
   )
@@ -1391,7 +1392,7 @@ export const BAND_CHIP_SX = {
   display: 'inline-flex', alignItems: 'center', gap: 0.4, textDecoration: 'none',
   px: 0.9, py: 0.3, borderRadius: 999, color: '#fff', whiteSpace: 'nowrap', flexShrink: 0,
   bgcolor: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.32)',
-  fontSize: '0.66rem', fontWeight: 800, lineHeight: 1.2,
+  fontSize: TYPE_SCALE.micro, fontWeight: 800, lineHeight: 1.2,
 } as const
 
 /**

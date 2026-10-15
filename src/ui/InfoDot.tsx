@@ -1,6 +1,7 @@
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { TapTip } from './TapTip'
+import { TYPE_SCALE } from './card'
 
 /**
  * A small circled "i" beside a card title that opens a plain explanation of how the card's number
@@ -29,7 +30,7 @@ export function InfoDot({ text, label = 'How this is worked out' }: {
       title={
         <Box sx={{ maxWidth: '19rem', py: 0.25 }}>
           {paras.map((t, i) => (
-            <Typography key={i} sx={{ fontSize: '0.75rem', lineHeight: 1.5, mt: i ? 0.75 : 0 }}>{t}</Typography>
+            <Typography key={i} sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1.5, mt: i ? 0.75 : 0 }}>{t}</Typography>
           ))}
         </Box>
       }
@@ -38,7 +39,7 @@ export function InfoDot({ text, label = 'How this is worked out' }: {
         width: 16, height: 16, borderRadius: '50%',
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         border: '1px solid', borderColor: 'text.disabled', color: 'text.secondary',
-        fontSize: '0.6rem', fontWeight: 800, lineHeight: 1, fontStyle: 'normal',
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, lineHeight: 1, fontStyle: 'normal',
         // The circle is 16px to sit quietly beside a title; the target is not. Ten pixels of
         // invisible reach on every side brings it to a thumb's width without moving the title.
         '&::after': { content: '""', position: 'absolute', inset: -10 },

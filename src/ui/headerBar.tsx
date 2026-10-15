@@ -12,10 +12,11 @@ import { Box, Typography } from '@mui/material'
 import { ChevronLeft } from '@mui/icons-material'
 import { hoverOnly, FOCUS_RING, pressable } from './interaction'
 import { chromePx, typePx } from './scale'
+import { ICON_SIZE, TYPE_SCALE } from './card'
 
 /** Every word in a header bar. */
 export const HEADER_TEXT_SX = {
-  fontSize: '0.66rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
+  fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
   lineHeight: 1, whiteSpace: 'nowrap',
 } as const
 
@@ -27,7 +28,7 @@ export const HEADER_EYEBROW_SX = {
 } as const
 
 /** An icon beside a header word. */
-export const HEADER_ICON_SX = { fontSize: '1rem', flexShrink: 0 } as const
+export const HEADER_ICON_SX = { fontSize: ICON_SIZE.sm, flexShrink: 0 } as const
 
 /** A control in a header bar: the same pill as the scope pills on the card (28px, the chrome scale). */
 export const headerChipSx = {
@@ -63,7 +64,7 @@ export function HeaderBack({ onBack, label = 'Back', ariaLabel }: {
 }) {
   return (
     <Box {...pressable(onBack)} aria-label={ariaLabel ?? label} sx={{ ...headerChipSx, ml: -1, pl: 0.5, gap: 0.25 }}>
-      <HeaderChipLabel icon={<ChevronLeft aria-hidden sx={{ fontSize: '1.15rem' }} />}>{label}</HeaderChipLabel>
+      <HeaderChipLabel icon={<ChevronLeft aria-hidden sx={{ fontSize: ICON_SIZE.md }} />}>{label}</HeaderChipLabel>
     </Box>
   )
 }

@@ -1,5 +1,6 @@
 import { Box } from '@mui/material'
 import { TAPPABLE, pressable, FOCUS_RING } from './interaction'
+import { TYPE_SCALE } from './card'
 
 // WPBL's, moved here for MLB's phone Stats list (Oct 9, 2026), so the two lists end the same way.
 
@@ -39,11 +40,11 @@ export function ExpandRow({ expanded, moreLabel, onToggle, flush }: {
       cursor: 'pointer', userSelect: 'none',
       ...(flush ? { mx: -2, mb: -1.5, mt: 0.5 } : {}),
       borderTop: '1px solid', borderColor: 'divider',
-      fontSize: '0.78rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+      fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
       ...TAPPABLE,
     }}>
       {expanded ? 'Show fewer' : moreLabel}
-      <Box component="span" sx={{ fontSize: '0.66rem' }}>{expanded ? '▴' : '▾'}</Box>
+      <Box component="span" sx={{ fontSize: TYPE_SCALE.micro }}>{expanded ? '▴' : '▾'}</Box>
     </Box>
   )
 }

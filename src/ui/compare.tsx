@@ -10,7 +10,7 @@
 import React, { useMemo, useState } from 'react'
 import { Box, Typography, Skeleton, TextField, InputAdornment, useTheme } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
-import { CARD_BORDER, MICRO_TEXT, TextGhost } from './card'
+import { CARD_BORDER, ICON_SIZE, MICRO_TEXT, TYPE_SCALE, TextGhost } from './card'
 import { hoverOnly, FOCUS_RING } from './interaction'
 import { chromePx, typePx } from './scale'
 import { NameText } from './NameText'
@@ -57,7 +57,7 @@ export const VS_SX = {
 /** The empty slot beside the one player chosen so far. */
 export const PICK_SLOT = {
   flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-  minHeight: chromePx(96), color: 'text.disabled', fontSize: '0.82rem',
+  minHeight: chromePx(96), color: 'text.disabled', fontSize: TYPE_SCALE.body,
 } as const
 
 /**
@@ -91,7 +91,7 @@ export function CompareHead({ name, href, portrait, badge, subline, onNavigate, 
           ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
         }}
       >
-        <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, lineHeight: 1.2 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1.2 }}>
           {name}
         </Typography>
       </Box>
@@ -127,7 +127,7 @@ export function CompareHeadSkeleton({ withChange }: { withChange?: boolean }) {
   return (
     <Box aria-hidden sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75, minWidth: 0, flex: 1 }}>
       <Skeleton variant="circular" width={chromePx(64)} height={chromePx(64)} />
-      <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, lineHeight: 1.2 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1.2 }}>
         <TextGhost>{GHOST_HEAD_NAME}</TextGhost>
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, maxWidth: '100%' }}>
@@ -168,7 +168,7 @@ export function CompareCard({ title, subtitle, children }: {
         bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: CARD_BORDER,
       }}>
         <Typography component="h2" sx={{
-          fontSize: '0.78rem', fontWeight: 800, letterSpacing: typePx(0.8),
+          fontSize: TYPE_SCALE.body, fontWeight: 800, letterSpacing: typePx(0.8),
           textTransform: 'uppercase', lineHeight: 1.3,
         }}>
           {title}
@@ -240,7 +240,7 @@ export function StatRowFrame({ a, label, b, leader }: {
         bgcolor: leads ? 'var(--wpbl-compare-lead)' : 'transparent',
       }}>
         <Typography component="span" sx={{
-          fontSize: '0.8rem', fontWeight: leads ? 800 : 600,
+          fontSize: TYPE_SCALE.body, fontWeight: leads ? 800 : 600,
           fontVariantNumeric: 'tabular-nums', color: 'text.primary',
         }}>
           {text}
@@ -323,7 +323,7 @@ export function HeadToHeadCard({ duels }: { duels: HeadToHeadView[] }) {
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, textAlign: 'center' }}>
         {duels.map(d => (
           <Box key={d.key}>
-            <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, mb: 0.25 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, mb: 0.25 }}>
               {d.heading}
             </Typography>
             {d.slices.map(s => (
@@ -331,7 +331,7 @@ export function HeadToHeadCard({ duels }: { duels: HeadToHeadView[] }) {
                 <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', lineHeight: 1.3 }}>
                   {s.label}
                 </Typography>
-                <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
                   {s.line}
                 </Typography>
               </Box>
@@ -349,7 +349,7 @@ export function HeadToHeadSkeleton({ labels = ['Regular season'] }: { labels?: s
   return (
     <CompareCard title="Head to head">
       <Box aria-hidden sx={{ textAlign: 'center' }}>
-        <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, mb: 0.25 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, mb: 0.25 }}>
           <TextGhost>{GHOST_NAME} batting against {GHOST_NAME}</TextGhost>
         </Typography>
         {labels.map(label => (
@@ -357,7 +357,7 @@ export function HeadToHeadSkeleton({ labels = ['Regular season'] }: { labels?: s
             <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', lineHeight: 1.3 }}>
               {label}
             </Typography>
-            <Typography sx={{ fontSize: '0.82rem', fontVariantNumeric: 'tabular-nums' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, fontVariantNumeric: 'tabular-nums' }}>
               <TextGhost>0-for-0 (.000) · 0 PA · 0 SO</TextGhost>
             </Typography>
           </Box>
@@ -440,7 +440,7 @@ export function ComparePicker({ candidates, onPick, skeleton, limit, limitNote, 
         fullWidth
         slotProps={{ input: {
           startAdornment: (
-            <InputAdornment position="start"><SearchIcon sx={{ fontSize: '1.1rem' }} /></InputAdornment>
+            <InputAdornment position="start"><SearchIcon sx={{ fontSize: ICON_SIZE.md }} /></InputAdornment>
           ),
         } }}
         sx={{ mb: 1.5 }}
@@ -465,7 +465,7 @@ export function ComparePicker({ candidates, onPick, skeleton, limit, limitNote, 
             }}
           >
             {c.badge}
-            <NameText name={c.name} sx={{ fontSize: '0.82rem', fontWeight: 600, minWidth: 0, flex: 1 }} />
+            <NameText name={c.name} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, minWidth: 0, flex: 1 }} />
             {c.position && (
               <Typography noWrap sx={{ fontSize: MICRO_TEXT, color: 'text.disabled', flexShrink: 1, minWidth: 0 }}>
                 {c.position}
@@ -482,13 +482,13 @@ export function ComparePicker({ candidates, onPick, skeleton, limit, limitNote, 
         {skeleton && Array.from({ length: 24 }, (_, i) => (
           <Box key={i} aria-hidden sx={{ ...PICK_ROW, borderColor: CARD_BORDER }}>
             <Skeleton variant="circular" width={chromePx(20)} height={chromePx(20)} sx={{ flexShrink: 0 }} />
-            <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, minWidth: 0, flex: 1 }} noWrap>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, minWidth: 0, flex: 1 }} noWrap>
               <TextGhost>{GHOST_NAME}</TextGhost>
             </Typography>
           </Box>
         ))}
         {!skeleton && shown.length === 0 && (
-          <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', p: 1 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', p: 1 }}>
             {emptyText}
           </Typography>
         )}
@@ -510,7 +510,7 @@ export function CompareAgainLink({ href, onNavigate }: { href: string; onNavigat
       href={href}
       onClick={e => { if (!isModified(e)) { e.preventDefault(); onNavigate(href) } }}
       sx={{
-        alignSelf: 'center', fontSize: '0.8rem', fontWeight: 700,
+        alignSelf: 'center', fontSize: TYPE_SCALE.body, fontWeight: 700,
         color: 'var(--wpbl-accent-fg)',
         textDecoration: 'none', ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
       }}

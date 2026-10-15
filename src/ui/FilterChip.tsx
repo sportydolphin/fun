@@ -1,7 +1,7 @@
 import React from 'react'
 import { Box } from '@mui/material'
 import { pressable, hoverOnly, FOCUS_RING } from './interaction'
-import { CARD_BORDER, ACCENT_EDGE } from './card'
+import { CARD_BORDER, ACCENT_EDGE, TYPE_SCALE } from './card'
 import { chromePx } from './scale'
 
 // A FILTER on the board in front of the reader: a club, a slice of the season, the qualifying
@@ -23,7 +23,7 @@ export const filterChipSx = (active: boolean) => ({
   ...FOCUS_RING,
   display: 'inline-flex', alignItems: 'center', cursor: 'pointer', userSelect: 'none',
   flexShrink: 0, whiteSpace: 'nowrap',
-  px: 1, py: 0.4, borderRadius: 999, fontSize: '0.74rem', fontWeight: 700,
+  px: 1, py: 0.4, borderRadius: 999, fontSize: TYPE_SCALE.meta, fontWeight: 700,
   border: '1px solid', transition: 'all 0.15s',
   borderColor: active ? ACCENT_EDGE : CARD_BORDER,
   color: active ? 'var(--wpbl-accent-fg)' : 'text.secondary',
@@ -94,7 +94,7 @@ export function FilterSelect({ value, options, onChange, active, ariaLabel }: {
         }}>
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </Box>
-      <Box component="span" aria-hidden sx={{ position: 'absolute', right: chromePx(8), fontSize: '0.6rem', pointerEvents: 'none' }}>▾</Box>
+      <Box component="span" aria-hidden sx={{ position: 'absolute', right: chromePx(8), fontSize: TYPE_SCALE.caption, pointerEvents: 'none' }}>▾</Box>
     </Box>
   )
 }
@@ -105,7 +105,7 @@ export function FilterSelect({ value, options, onChange, active, ariaLabel }: {
 export function ActiveFilterChip({ label, onClear }: { label: string; onClear: () => void }) {
   return (
     <Box component="button" type="button" onClick={onClear} aria-label={`${label}: remove filter`}
-      sx={{ ...filterChipSx(true), font: 'inherit', fontSize: '0.74rem', fontWeight: 700, gap: 0.5 }}>
+      sx={{ ...filterChipSx(true), font: 'inherit', fontSize: TYPE_SCALE.meta, fontWeight: 700, gap: 0.5 }}>
       {label}
       <Box component="span" aria-hidden sx={{ fontSize: '0.9em', lineHeight: 1 }}>✕</Box>
     </Box>
