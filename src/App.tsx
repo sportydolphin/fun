@@ -180,6 +180,10 @@ const isKnownPath = (p: string) =>
 // two read as one unit, and the wordmark is held back until the viewport can show it
 // without the ellipsis biting into it. See the toolbar brand block for the math.
 const BRAND_LOGO_H = 32
+// The section switch's WPBL fill. Its label is dark (#111), and each stop clears 4.5:1 against it:
+// Apple's indigo #5856d6 was the one that did not (3.3:1), so it is lifted to #8a88ff. index.html's
+// static copy of the bar repeats this gradient; change both.
+const RAINBOW = 'linear-gradient(90deg, #ff3b30, #ff9500, #ffcc00, #34c759, #007aff, #8a88ff, #af52de, #ff3b30)'
 // Where the toolbar holds the section tabs, the widths at which the search field and the handle
 // beside the account icon come back inline. Measured, at the 1.25 desktop scale, with WPBL's
 // tabs (the longer set, with the Stats dot) and the wordmark showing: brand, tabs, field and
@@ -1007,44 +1011,26 @@ function AppInner() {
               sportydolphin
             </Typography>
 
-            {/* League switcher — slides between the two top-level sections (MLB | WPBL).
-                A single absolutely-positioned thumb translates between the two equal-
-                width segments so the fill glides instead of jumping; it goes rainbow
-                on the WPBL side, plain accent on MLB. Acts as one switch: a click
-                anywhere on it flips to the other league. */}
+            {/* League switcher: MLB | WPBL, a thumb that glides between two equal halves, rainbow on
+                the WPBL side and the solid accent on MLB.
+                EACH HALF IS A LINK TO ITS OWN LEAGUE. Until Oct 15, 2026 the whole control was one
+                toggle, so pressing "WPBL" while on WPBL took the reader to MLB: the label promised
+                the opposite of what it did. The lit half is the page you are on (aria-current) and
+                does nothing. A plain group, not a button holding two links, which nested one
+                control in another for a screen reader. */}
             <Box
               ref={leagueSwitchRef}
-              // Warm the other section before the click; see preloadSection.
-              onMouseEnter={() => preloadSection(path)}
-              onFocus={() => preloadSection(path)}
-              onPointerDown={() => preloadSection(path)}
-              {...pressable(() => {
-                // Every WPBL tab and /wpbl/api count as the WPBL side, so flipping from any
-                // of them goes to MLB: to the same page there where it has one (sectionSwitch.ts).
-                const toWpbl = !isWpblSection(path)
-                const target = otherSectionPath(path, !toWpbl, window.location.search)
-                if (toWpbl) {
-                  // Pop confetti from the bottom edge of the WPBL segment (right half of the
-                  // control), held until the thumb finishes sliding across (matches the 0.28s slide).
-                  const r = leagueSwitchRef.current?.getBoundingClientRect()
-                  if (r) {
-                    window.clearTimeout(confettiTimer.current)
-                    confettiTimer.current = window.setTimeout(() => {
-                      setConfetti(c => ({ key: (c?.key ?? 0) + 1, x: r.left + r.width * 0.75, y: r.bottom }))
-                    }, 280)
-                  }
-                }
-                navigate(target)
-              })}
+              role="group"
+              aria-label="League"
               sx={{
               // Equal-width columns (grid, not flex) so both segments are the same
-              // width regardless of label length — otherwise MLB would be narrower
+              // width regardless of label length, otherwise MLB would be narrower
               // than WPBL and the 50% thumb wouldn't line up with either segment.
               position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', flexShrink: 0,
               // Twice the lockup's own gap: the switch is a control of its own, and at the lockup's
               // spacing it read as part of the name. See TOOLBAR SPACING below.
               ml: 0.75,
-              p: '2px', borderRadius: 999, cursor: 'pointer',
+              p: '2px', borderRadius: 999,
               border: '1px solid', borderColor: ACCENT_EDGE, bgcolor: `${ACCENT}14`,
             }}>
               {(isMlbSection(path) || isWpblSection(path)) && (() => {
@@ -1056,10 +1042,12 @@ function AppInner() {
                     transform: wpblActive ? 'translateX(100%)' : 'translateX(0)',
                     transition: 'transform 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
                     // WPBL side: the rainbow gently pans (repeat the first stop at the end so
-                    // the 200%-wide fill loops seamlessly). MLB stays a plain accent fill.
+                    // the 200%-wide fill loops seamlessly). MLB stays a plain accent fill. The pan
+                    // stops for a reader who asked for less motion: styles.css collapses every
+                    // animation under prefers-reduced-motion and the Settings override.
                     ...(wpblActive
                       ? {
-                          background: 'linear-gradient(90deg, #ff3b30, #ff9500, #ffcc00, #34c759, #007aff, #5856d6, #af52de, #ff3b30)',
+                          background: RAINBOW,
                           backgroundSize: '200% 100%',
                           animation: 'wpblShimmer 4s linear infinite',
                           '@keyframes wpblShimmer': {
@@ -1078,28 +1066,59 @@ function AppInner() {
                 // slid the rainbow across and left the label in unselected grey on top of it.
                 // Every WPBL tab counts, and /wpbl/api too, so the switch stays "on WPBL" in
                 // the docs.
-                const active = seg.to === '/wpbl' ? isWpblSection(path) : isMlbSection(path)
-                const rainbow = active && seg.to === '/wpbl'
+                const toWpbl = seg.to === '/wpbl'
+                const active = toWpbl ? isWpblSection(path) : isMlbSection(path)
+                const rainbow = active && toWpbl
                 return (
-                  // An anchor, not a plain Box, purely so a crawler can see the two
-                  // sections exist: the switch is what makes /mlb reachable at all.
-                  // It only cancels the browser's navigation and lets the click bubble
-                  // to the parent, which owns the toggle (and the confetti); handling
-                  // it here as well would navigate twice on one click.
+                  // A real anchor, so a crawler can see both sections exist: the switch is what
+                  // makes /mlb reachable at all. The href is the league's root; the click goes to
+                  // the same page in the other league where it has one (sectionSwitch.ts).
                   <Box
                     key={seg.to}
                     component="a"
                     href={seg.to}
-                    onClick={e => e.preventDefault()}
+                    aria-current={active ? 'page' : undefined}
+                    // Warm the other section before the click; see preloadSection.
+                    onMouseEnter={active ? undefined : () => preloadSection(path)}
+                    onFocus={active ? undefined : () => preloadSection(path)}
+                    onPointerDown={active ? undefined : () => preloadSection(path)}
+                    onClick={(e: React.MouseEvent) => {
+                      // Modified clicks open a new tab the browser's way.
+                      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+                      e.preventDefault()
+                      if (active) return
+                      const target = otherSectionPath(path, isWpblSection(path), window.location.search)
+                      if (toWpbl) {
+                        // Pop confetti from the bottom edge of the WPBL segment (right half of the
+                        // control), held until the thumb finishes sliding across (matches the 0.28s slide).
+                        const r = leagueSwitchRef.current?.getBoundingClientRect()
+                        if (r) {
+                          window.clearTimeout(confettiTimer.current)
+                          confettiTimer.current = window.setTimeout(() => {
+                            setConfetti(c => ({ key: (c?.key ?? 0) + 1, x: r.left + r.width * 0.75, y: r.bottom }))
+                          }, 280)
+                        }
+                      }
+                      navigate(target)
+                    }}
                     sx={{
-                      ...UNSTYLED_LINK,
+                      ...UNSTYLED_LINK, ...FOCUS_RING,
                       position: 'relative', zIndex: 1, textAlign: 'center',
-                      px: 1, py: '3px', borderRadius: 999, userSelect: 'none',
-                      fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.3), lineHeight: 1,
-                      color: active ? '#fff' : 'text.secondary',
-                      textShadow: rainbow ? '0 1px 1px rgba(0,0,0,0.35)' : 'none',
+                      // Bigger than it was (0.66rem over 3px, about 20px tall in all): the switch is
+                      // the only way to /mlb from the bar, and it was the smallest target on it.
+                      px: 1.1, py: '5px', borderRadius: 999, userSelect: 'none',
+                      cursor: active ? 'default' : 'pointer',
+                      fontSize: '0.75rem', fontWeight: 800, letterSpacing: typePx(0.3), lineHeight: 1,
+                      // Dark on the rainbow: white measured 1.5:1 on its yellow. With RAINBOW's
+                      // lightened indigo every stop clears 4.5:1 against this ink.
+                      color: rainbow ? '#111' : active ? '#fff' : 'text.secondary',
                       transition: 'color 0.2s',
-                      '&:hover': { color: active ? '#fff' : 'text.primary' },
+                      '&:hover': { color: rainbow ? '#111' : active ? '#fff' : 'text.primary' },
+                      // A finger-sized target on a touch screen without a taller pill: the hit area
+                      // reaches past the visible edge, above and below, into the bar's own padding.
+                      '@media (pointer: coarse)': {
+                        '&::after': { content: '""', position: 'absolute', left: 0, right: 0, top: '-8px', bottom: '-8px' },
+                      },
                     }}
                   >
                     {seg.label}
