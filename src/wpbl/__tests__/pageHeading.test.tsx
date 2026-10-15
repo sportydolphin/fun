@@ -68,7 +68,7 @@ describe('every tab title is drawn on a phone', () => {
 
   it("Home's title, which is not a TabTitle, spreads nothing that hides it either", () => {
     // Line endings normalised, so a Windows checkout (CRLF) reads the file the way the search expects.
-    const src = readFileSync('src/wpbl/Home.tsx', 'utf8').replace(/\r\n/g, '\n')
+    const src = readFileSync('src/wpbl/home/WpblHome.tsx', 'utf8').replace(/\r\n/g, '\n')
     const at = src.indexOf("Women's Pro Baseball League\n          </Typography>")
     expect(at).toBeGreaterThan(-1)
     const tag = src.slice(src.lastIndexOf('<Typography', at), at)
@@ -95,7 +95,7 @@ describe('a kept-alive tab off screen', () => {
 // naming the wrong page.
 describe('no tab hardcodes its heading level', () => {
   const TAB_VIEWS = [
-    'src/wpbl/Home.tsx',
+    'src/wpbl/home/WpblHome.tsx',
     'src/wpbl/StatsView.tsx',
     'src/wpbl/TeamsGrid.tsx',
     'src/wpbl/TeamPage.tsx',

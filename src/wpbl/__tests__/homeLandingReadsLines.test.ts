@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { homeLandingReadsLines } from '../Home'
+import { homeLandingReadsLines } from '../home/WpblHome'
 import { AWARDS_RESULTS_UNTIL } from '../awards'
 
 // The warm-up's guess at whether a Home landing will draw from the season's box-score lines.

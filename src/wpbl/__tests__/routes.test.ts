@@ -27,7 +27,9 @@ import sitemap from '../../../public/sitemap.xml?raw'
 import playersIndexSource from '../PlayersIndex.tsx?raw'
 import seoSource from '../../seo.ts?raw'
 import fanVoteSource from '../FanVote.tsx?raw'
-import homeSource from '../Home.tsx?raw'
+import homeSource from '../home/WpblHome.tsx?raw'
+// Every file Home draws from, for the checks that must hold wherever on Home the code lands.
+const homeFiles = Object.values(import.meta.glob<string>('../home/*.tsx', { query: '?raw', import: 'default', eager: true }))
 import robots from '../../../public/robots.txt?raw'
 import {
   WPBL_NAV, WPBL_VIEW_PATHS, wpblPathFor, wpblViewFromPath, wpblAppOwnsPath, normalizeWpblView,
@@ -680,7 +682,7 @@ describe('/wpbl/awards, the fan ballot', () => {
   // still answers 200, the sitemap still lists it, and Google would keep sending readers to a
   // Home page with no ballot on it.
   it('is gated by nothing', () => {
-    expect(homeSource).not.toContain('useIsAdmin')
+    for (const src of homeFiles) expect(src).not.toContain('useIsAdmin')
     expect(fanVoteSource).not.toContain('useIsAdmin')
     expect(fanVoteSource).not.toContain('useHasRole')
   })

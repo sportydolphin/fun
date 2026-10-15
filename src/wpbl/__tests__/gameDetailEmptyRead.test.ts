@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { isEmptyReadOf } from '../GameDetail'
+import { isEmptyReadOf } from '../gameDetail/GameDetailModal'
 
 // The Live Game Center closed between plays because it reloaded the plays mirror on every
 // realtime change, and the ingest DELETES then reinserts every play each pass: a reload landing

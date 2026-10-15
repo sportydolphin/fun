@@ -66,7 +66,7 @@ vi.mock('../api', async (importOriginal) => {
   }
 })
 
-const { default: GameDetailModal } = await import('../GameDetail')
+const { default: GameDetailModal } = await import('../gameDetail/GameDetailModal')
 
 /** The sheet, with the Box Score tab open: a final opens on its Recap. */
 async function openBoxScore() {

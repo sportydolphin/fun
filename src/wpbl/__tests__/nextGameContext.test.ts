@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { nextGameContext } from '../Home'
+import { nextGameContext } from '../home/NextGameCard'
 import type { WpblGame, WpblTeam } from '../types'
 
 // What Home's Next game card says under the clock.

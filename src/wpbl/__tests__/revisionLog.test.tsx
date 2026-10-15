@@ -65,7 +65,7 @@ vi.mock('../api', async (importOriginal) => {
   }
 })
 
-const { default: GameDetailModal } = await import('../GameDetail')
+const { default: GameDetailModal } = await import('../gameDetail/GameDetailModal')
 
 /** The rows read "<who> · <what>" across two spans, so a plain text match sees neither half
  *  whole. Matching on the composed text is what the reader actually sees. */

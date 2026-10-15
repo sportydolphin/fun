@@ -1,7 +1,7 @@
 // PreToolUse hook for Claude Code's Read tool (wired in .claude/settings.json).
 //
 // Refuses a WHOLE read of a very large file and tells the agent to find the part it needs first.
-// A whole read of ARCHITECTURE.md, a month of the roadmap log or Home.tsx is 30k to 60k tokens,
+// A whole read of ARCHITECTURE.md or a month of the roadmap log is 30k to 60k tokens,
 // it stays in the conversation for every later turn, and almost every task needs one section of
 // it. A read that passes `offset` or `limit` goes through untouched, so nothing is ever out of
 // reach. Raise LIMIT rather than deleting this if it gets in the way: without it, one careless

@@ -35,7 +35,8 @@ import { boxScoreRevision, formatRevisionDay } from './derive/feedHealth'
 import { postseasonScheduleRows, postseasonSlots, type PostseasonScheduleRow, type PostseasonSlot } from './derive/bracket'
 import { track, EVENTS } from '../lib/analytics'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
-import WpblHome, { WpblHomeSkeleton, homeLandingReadsLines } from './Home'
+import WpblHome, { homeLandingReadsLines } from './home/WpblHome'
+import { WpblHomeSkeleton } from './home/Skeletons'
 import { offseasonByCalendar } from './offseasonCalendar'
 import FanAwardsSheet from './FanAwardsSheet'
 import { awardsResultsShowOnHome } from './awards'
@@ -80,7 +81,7 @@ import { typePx } from '../ui/scale'
 // of what the landing view would otherwise download and parse. GameDetail is the biggest single
 // file in the section (line score, box score, play-by-play, pitch data, recap tab) and it drags
 // Highlights, GamePreview and the live poller along with it.
-const GameDetailModal = lazy(() => import('./GameDetail'))
+const GameDetailModal = lazy(() => import('./gameDetail/GameDetailModal'))
 /**
  * The same import, run while the section is idle.
  *
@@ -95,7 +96,7 @@ function usePreloadGameDetail() {
   useEffect(() => {
     // The player card too: it is reached from every leaderboard, roster and box score, and cold its
     // chunk cost the first open a fetch, a Suspense tick and a parse before the sheet could move.
-    const warm = () => { void import('./GameDetail'); void import('./PlayerDetail') }
+    const warm = () => { void import('./gameDetail/GameDetailModal'); void import('./PlayerDetail') }
     const hasRIC = typeof window.requestIdleCallback === 'function'
     const id = hasRIC ? window.requestIdleCallback(warm, { timeout: 2000 }) : window.setTimeout(warm, 800)
     return () => { if (hasRIC) window.cancelIdleCallback(id as number); else window.clearTimeout(id as number) }
@@ -1734,7 +1735,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // Deliberately scoped to a Home landing. Deep links (a shared ?game=, or ?view=stats) open
   // a view that wants a different, smaller slice, so this should not be speculative. The
   // whole-season play log is not warmed here: it is the most expensive read on the section and
-  // Home fetches it last on purpose (see the play-log effect in Home.tsx). Nor are the box-score
+  // Home fetches it last on purpose (see the play-log effect in home/WpblHome.tsx). Nor are the box-score
   // lines when the calendar says Home will not draw them (homeLandingReadsLines): warming a read
   // nothing consumes is the whole cost and none of the benefit.
   const landsOnHome = useRef(view === 'home')

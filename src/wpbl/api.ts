@@ -196,7 +196,7 @@ export function fetchWpblSchedule(): Promise<WpblGame[]> {
 //
 // This is a FALLBACK, not the delivery mechanism. Both live surfaces also hold a Supabase
 // Realtime subscription on the row (Live.tsx) or on the plays and batting lines feeding it
-// (GameDetail.tsx), and those push within a second of the write. The poll exists for the case
+// (gameDetail/GameDetailModal.tsx), and those push within a second of the write. The poll exists for the case
 // where a subscription drops silently, which websockets do.
 //
 // Not faster: a poll cannot beat Realtime to a change, so a 5s poll only asks three times as
@@ -1137,7 +1137,7 @@ export function fetchWpblAllTracking(): Promise<WpblTrackRow[]> {
  * Just the distinct game ids that carry tracking, for Home's "new tracking batch" banner.
  *
  * The banner reduces the whole tracking table to `new Set(game_id)` (see `useNewTrackingBatch` in
- * Home.tsx), so calling `fetchWpblAllTracking` for it moved the entire table across the wire to
+ * home/TrackingBanner.tsx), so calling `fetchWpblAllTracking` for it moved the entire table across the wire to
  * count a handful of games: 766 rows for a set of 2 today, and it grows with every tracked game
  * while the answer stays tiny. This reads the ONE column instead, and the full table stays behind
  * `fetchWpblAllTracking` for the Tracking tab, which actually plots the pitches.

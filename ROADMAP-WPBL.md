@@ -1049,7 +1049,7 @@ layouts, NN/g on modal and nonmodal dialogs and on tabs, Notion's side peek and 
    Swapping games remounts Game Center (it seeds its tabs and data once); the panel tells a swap
    from an opening and does not slide in again. Every layout question in Game Center now asks
    `usePhoneLayout()`, and so does `useWpblName`.
-3. ✅ **The full-page Game Center** (Oct 5, `GameCenterPage` in [GameDetail.tsx](src/wpbl/GameDetail.tsx)).
+3. ✅ **The full-page Game Center** (Oct 5, `GameCenterPage` in [GameCenterPage.tsx](src/wpbl/gameDetail/GameCenterPage.tsx)).
    Two columns from `lg`: the narrative on the left (Recap, or Live during a game, then the
    play-by-play), the numbers on the right (both box scores stacked, then pitch data). One column
    in reading order between `md` and `lg`, with the two box scores side by side once they fit
