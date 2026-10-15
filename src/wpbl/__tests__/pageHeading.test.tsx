@@ -53,7 +53,8 @@ describe('every tab title is drawn on a phone', () => {
   const TAB_TITLE_FILES = [
     'src/wpbl/stats/StatsView.tsx',
     'src/wpbl/TeamsGrid.tsx',
-    'src/wpbl/WpblApp.tsx', // Scores and Standings both live here
+    'src/wpbl/app/ScoresTab.tsx',
+    'src/wpbl/app/StandingsTab.tsx',
   ]
 
   it.each(TAB_TITLE_FILES)('%s draws its title through TabTitle', (file) => {
@@ -99,7 +100,8 @@ describe('no tab hardcodes its heading level', () => {
     'src/wpbl/stats/StatsView.tsx',
     'src/wpbl/TeamsGrid.tsx',
     'src/wpbl/TeamPage.tsx',
-    'src/wpbl/WpblApp.tsx',
+    'src/wpbl/app/ScoresTab.tsx',
+    'src/wpbl/app/StandingsTab.tsx',
   ]
 
   it.each(TAB_VIEWS)('%s asks the context instead', (file) => {

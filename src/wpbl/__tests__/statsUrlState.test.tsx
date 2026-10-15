@@ -198,12 +198,12 @@ describe('the params a cold load arrives with', () => {
     for (const k of keys) expect(STATS_URL_PARAMS).toContain(k)
   })
 
-  // A SOURCE CHECK, DELIBERATELY. `urlFor` is a closure over WpblApp's component state and is
-  // not exported, so the wiring cannot be reached from a unit test, and rendering the whole
-  // section to assert one line of address bar would be a slow test of everything else. The
-  // failure to catch is this call not existing at all, and that is a thing a file can be asked.
-  it('is wired into the url WpblApp builds for this tab', () => {
-    const src = readFileSync(join(process.cwd(), 'src/wpbl/WpblApp.tsx'), 'utf8')
+  // A SOURCE CHECK, DELIBERATELY. `wpblUrlFor` takes the roster, the schedule and the clubs,
+  // and building all three to assert one line of address bar would be a slow test of everything
+  // else. The failure to catch is this call not existing at all, and that is a thing a file can
+  // be asked.
+  it('is wired into the url the section builds for this tab', () => {
+    const src = readFileSync(join(process.cwd(), 'src/wpbl/app/snapshot.ts'), 'utf8')
     expect(src).toContain('carryStatsParams(')
   })
 })

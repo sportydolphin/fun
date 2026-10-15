@@ -67,7 +67,7 @@ The obvious shape for this was a sixth nav item. It would have been wrong three 
    plainly: six destinations at the top of an 812px screen is the least reachable place on
    the device, and the sixth used to sit off-screen entirely.
 2. We already answered this question once. Tracking was its own tab and is now a stat group
-   inside Stats, with `normalizeView()` in [`WpblApp.tsx`](../src/wpbl/WpblApp.tsx) still
+   inside Stats, with `normalizeView()` in [`app/snapshot.ts`](../src/wpbl/app/snapshot.ts) still
    catching the old links. Content earns a place, not a tab.
 3. A tab implies volume. She files about twice a week. A tab showing the same six headlines
    for four days reads as a dead section; a rail that quietly refreshes reads as a live one.

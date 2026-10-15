@@ -28,7 +28,7 @@ export function SubViewFallback() {
 
 /** This tab while the section's first read is in flight: its title, its control bar and its table,
  *  at the same full-bleed measure the loaded tab draws them at, so nothing moves when it lands.
- *  Desktop measurements over the 1.25 scale, in chromePx. See TabSkeleton in WpblApp.tsx. */
+ *  Desktop measurements over the 1.25 scale, in chromePx. See TabSkeleton in app/Placeholders.tsx. */
 export function StatsSkeleton({ newBoards }: { newBoards?: ReadonlySet<string> }) {
   // The board the address will open on: Leaders, unless it names another (axesFromQuery). Only
   // the leaders and the table have skeletons of their own; any other board draws the table's.
