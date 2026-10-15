@@ -64,7 +64,7 @@ const opens = () => track.mock.calls.filter(c => c[0] === 'command_palette_opene
 
 async function ready() {
   render(<Mounted />)
-  await screen.findByRole('button', { name: /Switch to (light|dark) theme/ })
+  await screen.findByRole('button', { name: 'Account menu' })
 }
 
 describe('opening the search box', () => {

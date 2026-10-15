@@ -536,7 +536,7 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
           display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.75,
           pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
         }}>
-          <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'var(--wpbl-accent-fg)' }}>
+          <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.primary' }}>
             {r.label} · Game {r.gameNumber}
           </Typography>
           {/* Spelled out rather than left as the bracket's asterisk: there is no key beside a
@@ -634,7 +634,7 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenTeam, on
             display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.75,
             pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
           }}>
-            <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'var(--wpbl-accent-fg)' }}>
+            <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.primary' }}>
               {ser.label} · Game {ser.gameNumber}
             </Typography>
             {ser.line && (
@@ -836,7 +836,8 @@ function StandingsView({ teams, games: allGames, onOpenTeam }: {
     <SeasonMenu label="season" sx={{ mb: -0.5 }} />
     <Typography aria-live="polite" sx={{
       mb: -1.25, fontSize: '0.72rem', fontWeight: asOf ? 800 : 600, textAlign: 'left',
-      color: asOf ? 'var(--wpbl-accent-fg)' : 'text.disabled',
+      // Weight, not the site blue, marks a past date: blue on this site means a link.
+      color: asOf ? 'text.primary' : 'text.disabled',
       fontVariantNumeric: 'tabular-nums',
     }}>
       {asOf ?? (pastSeason ? `Final ${season} standings` : 'Current standings')}

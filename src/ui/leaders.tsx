@@ -8,8 +8,12 @@ import { useLineNameFit, nameAtStage } from './names'
 // ONE LEADER CARD FOR BOTH STATS TABS. Until Oct 2026 MLB drew three tall raised cards of ten with
 // medals, a gradient header and a different accent per value, and WPBL a grid of bare cards of five
 // with plain ranks, so the same board read as two products across the league switch. Agreed then:
-// five rows, ranks as numbers with the top three in the accent and "T-2" for a shared place, no
+// five rows, ranks as numbers with the top three set apart and "T-2" for a shared place, no
 // medals (an emoji in a section whose every other label is text, and a podium WPBL never had).
+// The top three were in the site blue until Oct 15, 2026, beside the blue "See all" and the blue
+// links everywhere else, so a rank read as something to press. They are set apart by ink now, and
+// the blue means a link. Names went from bold to medium in the same pass: with the title, the
+// name and the value all at 700 or more, nothing on the card led, and the value is what it ranks.
 //
 // The frame and the row are shared; what a row SHOWS is the section's own, the way the Compare
 // frame is (src/ui/compare.tsx): MLB's headshot and club logo, WPBL's portrait and badge, each
@@ -36,8 +40,6 @@ export const LEADER_GRID_SX = {
   },
 } as const
 
-/** Both sections' accent, for the top three ranks. A rank is text, so the foreground-safe var. */
-const RANK_ACCENT = 'var(--wpbl-accent-fg)'
 
 export interface LeaderItem {
   key: string
@@ -71,7 +73,7 @@ const RANK_SX = {
   fontSize: TYPE_SCALE.meta, fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1,
 } as const
 const NAME_SX = {
-  fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.25, minWidth: 0,
+  fontSize: TYPE_SCALE.body, fontWeight: 500, lineHeight: 1.25, minWidth: 0,
   whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
 } as const
 const VALUE_SX = {
@@ -126,7 +128,7 @@ export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKe
                   transition: 'opacity 0.18s, background-color 0.18s',
                   '@media (hover: hover)': { '&:hover': it.linkProps ? { bgcolor: 'action.hover' } : {} },
                 }}>
-                <Box sx={{ ...RANK_SX, color: it.rank <= 3 ? RANK_ACCENT : 'text.disabled' }}>
+                <Box sx={{ ...RANK_SX, color: it.rank <= 3 ? 'text.primary' : 'text.secondary' }}>
                   {it.tied ? `T-${it.rank}` : it.rank}
                 </Box>
                 {it.portrait}

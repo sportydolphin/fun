@@ -860,6 +860,28 @@ function AppInner() {
   // always pointed and the one place non-section pages have a real link back into an app.
   const brandHome = isWpblSection(path) ? '/wpbl' : '/mlb'
 
+  // The theme switch, as a row of the account menu rather than a toolbar icon. In the bar it was
+  // a yellow sun, the most saturated thing on every page, for a setting most readers make once;
+  // the bar is also tightest on a phone. Settings and the command palette still offer it too. The
+  // menu stays open, so the reader sees the page change under it and can flip it straight back.
+  const themeRow = (
+    <Box
+      {...pressable(toggleTheme)}
+      // Names the action rather than the state: a control called "Dark theme" is ambiguous about
+      // whether it reports the current theme or the one it switches to.
+      aria-label={mode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+      sx={{
+        px: 2, py: 1.1, cursor: 'pointer',
+        display: 'flex', alignItems: 'center', gap: 1,
+        borderBottom: '1px solid', borderColor: 'divider',
+        '&:hover': { bgcolor: 'action.hover' },
+      }}
+    >
+      {mode === 'dark' ? <Brightness7 sx={{ fontSize: '1.1rem', color: 'text.secondary' }} /> : <Brightness4 sx={{ fontSize: '1.1rem', color: 'text.secondary' }} />}
+      <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>{mode === 'dark' ? 'Light theme' : 'Dark theme'}</Typography>
+    </Box>
+  )
+
   return (
     // Plain root. The desktop scale moved down to the content box below the toolbar; the
     // note there says why.
@@ -1181,16 +1203,6 @@ function AppInner() {
                 in WPBL too. See src/dev/DevSettings.tsx. Never in a production build. */}
             {import.meta.env.DEV && <DevSettings showMlbTools={isMlbPath(path)} showWpblTools={isWpblSection(path)} />}
 
-            <IconButton
-              onClick={toggleTheme}
-              size="small"
-              // Names the action rather than the state: a control called "Dark theme" is
-              // ambiguous about whether it reports the current theme or the one it switches to.
-              aria-label={mode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-              sx={{ color: mode === 'dark' ? '#fbbf24' : 'text.secondary' }}
-            >
-              {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
-            </IconButton>
           {user ? (
             <ClickAwayListener onClickAway={() => setAccountOpen(false)}>
               <Box sx={{ position: 'relative' }}>
@@ -1268,6 +1280,8 @@ function AppInner() {
                         {user.email}
                       </Typography>
                     </Box>
+
+                    {themeRow}
 
                     {/* Settings */}
                     <Box
@@ -1359,6 +1373,8 @@ function AppInner() {
                     >
                       <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>Create an account</Typography>
                     </Box>
+
+                    {themeRow}
 
                     {/* Settings — available without an account */}
                     <Box
