@@ -224,6 +224,38 @@ export function finderFields(side: FinderSide, per: FinderPer = 'game'): { key: 
     .map(f => ({ key: f.key, label: f.label, unit: f.unit }))
 }
 
+// THE STAT PICKER'S HEADINGS. Nineteen stats in the feed's own order read as a list nobody sorted:
+// "Wins, Losses, Saves" sat between innings and strikeouts, and the rates came after "Baserunners
+// allowed". Grouped, a reader looking for walks scans one heading rather than the whole list. Every
+// field must sit in exactly one group, or the picker silently cannot offer it: pinned in
+// src/league/__tests__/finderGroups.test.ts.
+const FIELD_GROUPS: Record<FinderSide, [string, string[]][]> = {
+  hitting: [
+    ['Hits', ['h', 'tb', 'hr', '2b', '3b']],
+    ['Runs', ['rbi', 'r']],
+    ['On base', ['ob', 'bb', 'hbp', 'so']],
+    ['Running', ['sb', 'cs', 'gdp']],
+    ['Playing time', ['g', 'pa', 'ab']],
+    ['Rates', ['avg', 'obp', 'slg', 'ops']],
+  ],
+  pitching: [
+    ['Workload', ['ip', 'g', 'gs', 'bf', 'pitches', 'strikes']],
+    ['Decisions', ['w', 'l', 'sv', 'hld']],
+    ['Strikeouts and walks', ['so', 'bb', 'hbp', 'wp', 'bk']],
+    ['Allowed', ['h', 'r', 'er', 'hr', 'baserunners']],
+    ['Rates', ['era', 'whip']],
+  ],
+}
+
+/** The same fields as `finderFields`, under the picker's headings. A group with nothing askable at
+ *  this grain (the rates, for one game) is left out. */
+export function finderFieldGroups(side: FinderSide, per: FinderPer = 'game'): { label: string; fields: { key: string; label: string }[] }[] {
+  const byKey = new Map(finderFields(side, per).map(f => [f.key, f]))
+  return FIELD_GROUPS[side]
+    .map(([label, keys]) => ({ label, fields: keys.flatMap(k => byKey.get(k) ?? []) }))
+    .filter(g => g.fields.length > 0)
+}
+
 function fieldFor(side: FinderSide, key: string): Field<never> | null {
   return allFields(side).find(f => f.key === key) ?? null
 }
@@ -242,9 +274,23 @@ export function conditionsForPer(side: FinderSide, per: FinderPer, conditions: F
 /** The condition a freshly added row carries. A game asks for the side's headline count, and a
  *  season for its headline rate: what a season question is usually about, and the one default that
  *  means the same thing in a thirty-game season and a 162-game one. */
-export function defaultCondition(side: FinderSide, per: FinderPer = 'game'): FinderCondition {
-  if (per === 'season') return side === 'pitching' ? { field: 'era', op: 'lte', value: 300 } : { field: 'avg', op: 'gte', value: 300 }
-  return { field: side === 'pitching' ? 'so' : 'h', op: 'gte', value: side === 'pitching' ? 5 : 3 }
+export function defaultCondition(side: FinderSide, per: FinderPer = 'game', taken: FinderCondition[] = []): FinderCondition {
+  // A SECOND ROW MUST NOT REPEAT THE FIRST. Always the headline, a second press of Add read "Hits at
+  // least 3 and Hits at least 3", which narrows nothing and looks like the button misfired. The next
+  // pick is a stat that is a natural second clause, then any stat not yet asked.
+  const used = new Set(taken.map(c => c.field))
+  const preset = (per === 'season'
+    ? side === 'pitching'
+      ? [{ field: 'era', op: 'lte', value: 300 }, { field: 'so', op: 'gte', value: 30 }, { field: 'whip', op: 'lte', value: 120 }]
+      : [{ field: 'avg', op: 'gte', value: 300 }, { field: 'hr', op: 'gte', value: 3 }, { field: 'ops', op: 'gte', value: 800 }]
+    : side === 'pitching'
+      ? [{ field: 'so', op: 'gte', value: 5 }, { field: 'bb', op: 'eq', value: 0 }, { field: 'ip', op: 'gte', value: 15 }]
+      : [{ field: 'h', op: 'gte', value: 3 }, { field: 'hr', op: 'gte', value: 1 }, { field: 'rbi', op: 'gte', value: 2 }]
+  ) as FinderCondition[]
+  const next = preset.find(c => !used.has(c.field))
+  if (next) return next
+  const free = finderFields(side, per).find(f => !used.has(f.key))
+  return { field: free?.key ?? preset[0].field, op: 'gte', value: 1 }
 }
 
 /** What the reader typed, in the field's own unit. NaN and negatives clamp to 0. */
