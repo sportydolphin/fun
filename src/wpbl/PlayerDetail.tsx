@@ -20,7 +20,7 @@ import SwipeableViews from './SwipeableViews'
 import { WrittenAbout } from './Reading'
 import { aboutPlayerFirst } from './derive/articles'
 import { FanPhotoPlayerStrip } from './FanPhotoViews'
-import { PlayerClips } from './Watch'
+import { PlayerClips, usePlayerHasClips } from './Watch'
 import { PitchLocationCard } from './PitchLocation'
 import SprayChart from './SprayChart'
 import PitchProfileBlock from './PitchProfile'
@@ -38,7 +38,7 @@ import { type BoardPlace } from './derive/seasonValue'
 import { fmtRunValue } from '../league/runExpectancy'
 import {
   statTip, gamePosition, type Role, RankProgress, FieldingLine, MatchupTable, CompareChip,
-  BAND_WASH, BAND_WASH_FLOOR, SENTENCE_W, CARD_RANK_BAR,
+  BAND_WASH, BAND_WASH_FLOOR, SENTENCE_W, CARD_RANK_BAR, RoleHeading, SummaryCard,
 } from './player/pieces'
 import { createBandStore, BandAwareEyebrow, useBandObserver } from './player/bandStore'
 import { usePlayerAwards, usePlayerLines, usePlayerMatchupPlays, useLeagueReads } from './player/usePlayerReads'
@@ -64,6 +64,10 @@ import { shortDate } from '../lib/format'
 //
 // The card's parts, its reads and its season arithmetic live in ./player/; this file holds its
 // state and draws it.
+
+/** Which part of a role's season line to draw: all of it (the phone), the headline four and the
+ *  value strip (the desktop's summary card), or the standard line alone (the desktop's section). */
+type LinePart = 'all' | 'summary' | 'table'
 
 // ─── the modal ───────────────────────────────────────────────────────────────
 
@@ -463,23 +467,24 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     setPickedSeason(y)
     setScope('regular')
   }
-  const lineCaption = (r: Role, scopeControl?: React.ReactNode, metaOverride?: React.ReactNode) => {
+  const seasonPickerNode = () => {
     const noun = scope === 'postseason' ? 'postseason' : 'season'
     // The year comes off the SCHEDULE rather than the clock (see `season`): this card is a
     // permanent page with a shareable URL, and read next January a wall-clock year would relabel a
     // 2026 line as 2027's.
     const label = career ? (scope === 'postseason' ? 'Career postseason' : 'Career')
       : season != null ? `${season} ${noun}` : noun.charAt(0).toUpperCase() + noun.slice(1)
-    return (
-      <LineCaption
-        picker={season != null
-          ? <SeasonPicker<true> career label={label} season={career ? 'career' : season} seasons={seasons} onChange={pickSeason} />
-          : <Typography sx={{ ...sectionSx, mb: 0 }}>{label}</Typography>}
-        meta={metaOverride !== undefined ? metaOverride : r === 'pitching' ? pitchingMeta : battingMeta}
-        control={scopeControl}
-      />
-    )
+    return season != null
+      ? <SeasonPicker<true> career label={label} season={career ? 'career' : season} seasons={seasons} onChange={pickSeason} />
+      : <Typography sx={{ ...sectionSx, mb: 0 }}>{label}</Typography>
   }
+  const lineCaption = (r: Role, scopeControl?: React.ReactNode, metaOverride?: React.ReactNode) => (
+    <LineCaption
+      picker={seasonPickerNode()}
+      meta={metaOverride !== undefined ? metaOverride : r === 'pitching' ? pitchingMeta : battingMeta}
+      control={scopeControl}
+    />
+  )
 
   // The log's totals row only off the regular season. On it the row repeated the season line a
   // few inches above, figure for figure, and on a phone it was the most cramped row on the card.
@@ -516,10 +521,10 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     profile: <PitchProfileBlock player={player} side="batting" players={players} teams={teams} games={games} season={career ? null : season} scope={scope} accent={color} />,
     /** Under the profile: her line against every pitcher she has faced. */
     matchups: <MatchupTable player={player} side="batting" lines={matchups?.vsPitchers ?? []} players={players} scope={scope} accent={color} />,
-    line: (scopeControl?: React.ReactNode) => (
+    line: (scopeControl?: React.ReactNode, part: LinePart = 'all') => (
       <>
-        {lineCaption('batting', scopeControl)}
-        {rateHead('batting')}
+        {part === 'all' && lineCaption('batting', scopeControl)}
+        {part !== 'table' && rateHead('batting')}
         {/* THE STANDARD LINE, in MLB.com's column order with the rates at the end, which is how
             every stat site's table reads, so the header row is a thing a reader checks rather than
             reads. Every column is always drawn: 3B and CS sit where a reader expects them even at
@@ -528,7 +533,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
             ranked, so a total-bases lead still reaches the card through the counting ranks.
             A stat in the headline is drawn there and SeasonLine leaves it out here, at every width.
             SO carries no rank, ever: second in the league in strikeouts is not an achievement. */}
-        <SeasonLine ranksPending={ranksPending} reserveRanks headline={headline('batting').map(c => c.label)} cols={linkRanks('batting', [
+        {part !== 'summary' && <SeasonLine ranksPending={ranksPending} reserveRanks headline={headline('batting').map(c => c.label)} cols={linkRanks('batting', [
           { label: 'G', value: bt.g },
           { label: 'AB', value: bt.ab },
           { label: 'R', value: bt.r, rank: countRank(ranks?.battingCounts, 'c_r') },
@@ -552,8 +557,8 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
             ...(bt.sh ? [{ label: 'SH', value: bt.sh }] : []),
             ...(bt.sf ? [{ label: 'SF', value: bt.sf }] : []),
           ].map((c, i) => (i === 0 ? { ...c, breakBefore: true } : c)),
-        ])} />
-        {valueStrip('batting')}
+        ])} />}
+        {part !== 'table' && valueStrip('batting')}
       </>
     ),
     season: (
@@ -603,16 +608,16 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     profile: <PitchProfileBlock player={player} side="pitching" players={players} teams={teams} games={games} season={career ? null : season} scope={scope} accent={color} />,
     /** Under the profile: what every batter she has faced did against her. */
     matchups: <MatchupTable player={player} side="pitching" lines={matchups?.vsBatters ?? []} players={players} scope={scope} accent={color} />,
-    line: (scopeControl?: React.ReactNode) => (
+    line: (scopeControl?: React.ReactNode, part: LinePart = 'all') => (
       <>
-        {lineCaption('pitching', scopeControl)}
-        {rateHead('pitching')}
+        {part === 'all' && lineCaption('pitching', scopeControl)}
+        {part !== 'table' && rateHead('pitching')}
         {/* MLB.com's pitching order, the rates where it puts them. The rarer columns follow WHIP once
             they have happened, and the pitch count closes the line: it is the only figure on the card
             saying how hard the innings were, which the counting stats cannot (they say what was given
             up). Batters faced is not a column, being very nearly innings times three plus the
             baserunners already itemised; `pt.bf` is still read, by the role rule in positions.ts. */}
-        <SeasonLine ranksPending={ranksPending} reserveRanks headline={headline('pitching').map(c => c.label)} cols={linkRanks('pitching', [
+        {part !== 'summary' && <SeasonLine ranksPending={ranksPending} reserveRanks headline={headline('pitching').map(c => c.label)} cols={linkRanks('pitching', [
           { label: 'W', value: pt.w, rank: countRank(ranks?.pitchingCounts, 'c_w') },
           { label: 'L', value: pt.l },
           { label: 'ERA', value: fmtEra(pt.era) },
@@ -631,8 +636,8 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
           ...(pt.wp ? [{ label: 'WP', value: pt.wp }] : []),
           ...(pt.bk ? [{ label: 'BK', value: pt.bk }] : []),
           { label: 'P', value: pt.pitches },
-        ])} />
-        {valueStrip('pitching')}
+        ])} />}
+        {part !== 'table' && valueStrip('pitching')}
       </>
     ),
     season: (
@@ -713,14 +718,14 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
       matchups: null,
       extras: null,
       season: null,
-      line: () => (
+      line: (_scopeControl?: React.ReactNode, part: LinePart = 'all') => (
         <>
-          {lineCaption(r,
+          {part === 'all' && lineCaption(r,
             <Box aria-hidden sx={{ visibility: 'hidden' }}>{scopeNav}</Box>,
             r === 'pitching' ? '' : <Skeleton variant="text" sx={{ display: 'inline-block', width: '3.5em' }} />)}
-          <Box sx={{ mb: 1.5 }}><RateStrip cells={head} placeholder /></Box>
-          <SeasonLine cols={lineCols} headline={head.map(c => c.label)} placeholder reserveRanks />
-          {valueStrip(r)}
+          {part !== 'table' && <Box sx={{ mb: 1.5 }}><RateStrip cells={head} placeholder /></Box>}
+          {part !== 'summary' && <SeasonLine cols={lineCols} headline={head.map(c => c.label)} placeholder reserveRanks />}
+          {part !== 'table' && valueStrip(r)}
         </>
       ),
       log: (
@@ -734,7 +739,12 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
       ),
     }
   }
-  const paneFor = (r: Role) => (loading ? skeletonPane(r) : r === 'pitching' ? pitchingPane : battingPane)
+  // THE DESKTOP WAITS FOR THE CLIPS TOO, because it draws them above the role sections and has to
+  // know whether there is a row to make room for. Both reads are cached app-wide and usually land
+  // before the player's lines; when they do not, the skeleton simply stays a moment longer.
+  const hasClips = usePlayerHasClips(player.id)
+  const deskSkeleton = loading || (wide && hasClips == null)
+  const paneFor = (r: Role) => (deskSkeleton ? skeletonPane(r) : r === 'pitching' ? pitchingPane : battingPane)
 
   // One control, drawn on the season caption at every width (see lineCaption).
   const scopeNav = (
@@ -759,7 +769,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   // drag rubber-bands and lets go, which is the same answer the tab bar gives.
   //
   // While loading, the one role the filed position points to: see skeletonPane.
-  const roles: Role[] = loading
+  const roles: Role[] = deskSkeleton
     ? [/P/.test(player.position ?? '') ? 'pitching' : 'batting']
     : twoWay
       ? (pitcherFirst ? ['pitching', 'batting'] : ['batting', 'pitching'])
@@ -771,62 +781,61 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   // would hide a catcher's fielding line behind a tab.
   //
   /**
-   * THE DESKTOP PAGE: one stack of full-width blocks, per role.
+   * THE DESKTOP PAGE, in three tiers: the summary, the clips, then a titled section per role.
    *
-   * NOT A RAIL OF RATES BESIDE THE TABLES. A left rail has nothing substantial to hold, and it
-   * cannot be narrowed: the log asks for its natural width and the rail takes whatever is left, so
-   * the SHORTER the log the WIDER the void, and a pitcher, who has the least to say, gets the
-   * emptiest card. Any floor small enough to fix that is one the batting log would push through,
-   * back into its own horizontal scroller.
+   * IT WAS ONE STACK OF SAME-SIZED LABELS. Every block had the same small uppercase heading, so
+   * "PITCHING" (six blocks) read at the size of "FIELDING", a two-way player's batting started four
+   * sections below the fold, and the clips, the most human thing on the page, were last. Now:
    *
-   * ACROSS THE TOP THERE IS NOTHING LEFT OVER. The headline spans, the standard line under it
-   * spans, the log under that spans, and the card is a single column of full-width blocks, which
-   * is both the shape the phone uses and the shape every stat page has always had.
+   *   1. THE SUMMARY. The season (picker and Regular / Playoffs / Both, page-level because they
+   *      re-slice every number below), then each role's headline four in an outlined card, side by
+   *      side for a two-way player.
+   *   2. THE CLIPS, when there are any, right under what they illustrate.
+   *   3. A SECTION PER ROLE under a real heading (RoleHeading): the rest of the standard line, the
+   *      game log, the matchups, the pitch profile and the charts. Then Fielding as a section of its
+   *      own, then the photos and the reading.
    *
-   * NO TABS ON A DESKTOP: tabs buy vertical space on a phone, a desktop dialog is not short of it,
-   * and a two-way player is exactly who a stat site puts two tables on one page for. Baseball
-   * Reference has never asked anyone to choose between Standard Batting and Standard Pitching.
-   * That is also why the club band has no headline rates: it could only ever show one role.
+   * NOT A RAIL OF RATES BESIDE THE TABLES, still: a rail has nothing substantial to hold, and the
+   * shorter the log the wider its void. Every block spans.
    *
-   * The phone keeps the pager and the pills, which is what a 375px column can hold.
+   * NO TABS ON A DESKTOP: a desktop dialog is not short of height, and a two-way player is exactly
+   * who a stat site puts two tables on one page for. The phone keeps the pager and the pills.
    */
-  const desktopRoleBlock = (r: Role, first: boolean, last: boolean) => {
+  const roleName = (r: Role) => (r === 'pitching' ? 'Pitching' : 'Batting')
+  const roleMeta = (r: Role) => (deskSkeleton ? '' : r === 'pitching' ? pitchingMeta : battingMeta)
+  const desktopSummary = (
+    <>
+      <LineCaption picker={seasonPickerNode()} control={hasPostseason || deskSkeleton
+        ? <Box sx={deskSkeleton ? { visibility: 'hidden' } : undefined} aria-hidden={deskSkeleton || undefined}>{scopeNav}</Box>
+        : undefined} />
+      <Box sx={{ display: 'grid', gridTemplateColumns: roles.length > 1 ? '1fr 1fr' : '1fr', gap: 2, mt: 0.5 }}>
+        {roles.map(r => (
+          <SummaryCard key={r} label={twoWay ? roleName(r) : undefined} caption={roleMeta(r)}>
+            {paneFor(r).line(undefined, 'summary')}
+          </SummaryCard>
+        ))}
+      </Box>
+    </>
+  )
+  const desktopRoleBlock = (r: Role, first: boolean) => {
     const pane = paneFor(r)
     return (
-      <Box key={r} sx={{ mb: last ? 0 : 3.5 }}>
-        {/* Named only when there are two of them. On a single-role card the heading would be
-            answering a question nobody asked: a hitter's page does not need to say "Batting". */}
-        {twoWay && (
-          <Typography sx={{ ...sectionSx, color: color, mb: 1 }}>
-            {r === 'pitching' ? 'Pitching' : 'Batting'}
-          </Typography>
-        )}
-        {/* The same headline and standard line as the phone: four figures with their ranks, then
-            the line in the order every stat site prints it. Until Oct 2026 the desktop put the rates
-            first as the line's own lead columns, an order no other site uses. */}
-        {pane.line(first && hasPostseason ? scopeNav : undefined)}
+      <Box key={r}>
+        {/* No sample on the heading: the summary card above already says it. */}
+        <RoleHeading title={roleName(r)} first={first} />
+        {/* The rest of the standard line: the headline four are in the summary above it. */}
+        {pane.line(undefined, 'table')}
         {/* THE CAMEO AND THE QUALIFYING METER: without them a desktop reader of a below-the-bar
             player meets four unranked rates and no word about why, and a two-way cameo loses the
             one line saying the player also pitched. Capped to a reading measure, because both are
             sentences and a sentence set across 1050px is not read. */}
         <Box sx={{ maxWidth: chromePx(SENTENCE_W) }}>{pane.season}</Box>
-        {/* WHAT SHE DID, THEN HOW. The game log follows the season line, as it does on every stat
-            site, then her record against each opponent, then the pitch profile and the charts,
-            which explain the numbers above them. The profile used to come second, and on a phone
-            it put about 420px of pitch mix between the season and the games it came from. */}
+        {/* WHAT SHE DID, THEN HOW: the games, her record against each opponent, then the pitch
+            profile and the charts, which explain the numbers above them. */}
         {pane.log}
         {pane.matchups}
         {pane.profile}
         {pane.extras}
-        {/* Fielding belongs to the PLAYER, not to a role, so it is drawn once, after the last
-            role. On a two-way card it would otherwise appear twice, and its totals are the
-            player's mound work and outfield work added together either way. LAST among the stats:
-            it is the least reliable number on the card. The pitch plot above it used to be the
-            one block below fielding, as stale data, and it now draws only for a pitcher with at
-            least half her games tracked. */}
-        {last && hasFielding && (
-          <FieldingLine ft={ft} positions={twoWay ? fieldedPositions : undefined} />
-        )}
       </Box>
     )
   }
@@ -1067,18 +1076,29 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
                holding one of them. See desktopRoleBlock for what each role is made of and why
                the tabs come off up here. */
             <Box sx={{ minHeight: 0, overflowY: 'auto', px: 2, pt: 2, pb: 2 }}>
-              {roles.map((r, i) => desktopRoleBlock(r, i === 0, i === roles.length - 1))}
-              {/* Under everything, spanning, for the reason it always did: it is the one block
-                  here that is neither a season fact nor a game, and a well-covered player put
-                  346px of article cards against a rail with nothing like that much to say.
-                  NOT UNTIL THE LINES ARE IN. These three fetch on their own and land first, on
-                  the bottom of the screen under a one-role skeleton, and the season blocks then
-                  pushed them down by up to 2,800px: most of a cold player page's layout shift
-                  in October 2026. Drawn after, they arrive below everything already there. */}
-              {!loading && (
+              {desktopSummary}
+              {/* The clips under the summary, which is what they illustrate. Drawn only once the
+                  page knows whether there are any (see deskSkeleton): a row of posters arriving
+                  late here would push every section under it down by its own height. */}
+              {!deskSkeleton && hasClips && <PlayerClips playerId={player.id} />}
+              {roles.map((r, i) => desktopRoleBlock(r, i === 0))}
+              {/* Fielding belongs to the PLAYER, not to a role, so it is its own section, once. On
+                  a two-way card its totals are the mound work and the outfield work added
+                  together, which the caption says. LAST among the stats: it is the least reliable
+                  number on the card. */}
+              {!deskSkeleton && hasFielding && (
+                <>
+                  <RoleHeading title="Fielding" part="fielding"
+                    caption={twoWay && fieldedPositions.length > 0 ? fieldedPositions.join(', ').toUpperCase() : undefined} />
+                  <FieldingLine ft={ft} bare />
+                </>
+              )}
+              {/* NOT UNTIL THE LINES ARE IN. These fetch on their own and land first, and the season
+                  blocks then pushed them down by up to 2,800px: most of a cold player page's layout
+                  shift in October 2026. Drawn after, they arrive below everything already there. */}
+              {!deskSkeleton && (
                 <>
                   <FanPhotoPlayerStrip playerId={player.id} players={players} />
-                  <PlayerClips playerId={player.id} />
                   <Box sx={{ mt: 1 }}>
                     <WrittenAbout articles={writtenAbout} title={`Written about ${player.name}`} accent={color} wide />
                   </Box>

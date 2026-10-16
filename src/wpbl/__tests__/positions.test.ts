@@ -178,7 +178,7 @@ describe('positionsPlayed', () => {
 describe('leadsWithPitching', () => {
   /** A shortstop, unless told otherwise. */
   const who = (o: Partial<Parameters<typeof leadsWithPitching>[0]> = {}) => leadsWithPitching({
-    position: 'SS', hasBatting: true, hasPitching: true, gs: 0, bf: 0, pa: 0, ...o,
+    position: 'SS', played: null, hasBatting: true, hasPitching: true, gs: 0, bf: 0, pa: 0, ...o,
   })
 
   it('leads with whichever half exists when only one does', () => {
@@ -190,6 +190,14 @@ describe('leadsWithPitching', () => {
     // "RHP, UTL" with a full set of at-bats and one relief inning still leads with pitching.
     expect(who({ position: 'RHP, UTL', bf: 4, pa: 60 })).toBe(true)
     expect(who({ position: 'LHP' })).toBe(true)
+  })
+
+  // Kelsie Whitmore, filed RHP: six starts, and centre field in most of her other games while
+  // leading the league in home runs. The season moved her off the mound, so the bat leads.
+  it('lets the box score move a filed pitcher to the field', () => {
+    expect(who({ position: 'RHP', played: 'CF', gs: 6, bf: 116, pa: 64 })).toBe(false)
+    // An override to the mound itself changes nothing.
+    expect(who({ position: 'RHP, UTL', played: 'P' })).toBe(true)
   })
 
   // Emi Saiki, filed SS: 2 starts, 54 batters faced, 17 plate appearances, and on Sep 4, 2026

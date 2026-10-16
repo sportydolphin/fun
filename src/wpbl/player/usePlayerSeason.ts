@@ -5,7 +5,7 @@ import { computeWpblPlayerRanks } from '../percentiles'
 import type { EraBasis } from '../stats'
 import { outsToIp } from '../constants'
 
-import { positionsPlayed, leadsWithPitching } from '../positions'
+import { positionsPlayed, leadsWithPitching, playedPosition } from '../positions'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine } from '../types'
 import { useSeasonValueBoards } from '../useSeasonValue'
 import { playerSeasonValue } from '../derive/seasonValue'
@@ -103,7 +103,7 @@ export function usePlayerSeason({ player, players, teams, games, seasonGames, se
   // as a one-line summary, so genuine two-way players stand apart from occasional-hitting
   // pitchers. Thresholds are absolute (AB / outs) so they hold at any sample size.
   const pitcherFirst = leadsWithPitching({
-    position: player.position, hasBatting, hasPitching,
+    position: player.position, played: playedPosition(player.position, batting, games), hasBatting, hasPitching,
     gs: pt.gs, bf: pt.bf, pa: plateAppearances(bt),
   })
   const BAT_CAMEO_AB = 10, PIT_CAMEO_OUTS = 9

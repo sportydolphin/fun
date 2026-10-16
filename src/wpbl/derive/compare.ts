@@ -28,7 +28,7 @@ import {
   aggregateBatting, aggregatePitching,
   type WpblBattingTotals, type WpblPitchingTotals, type EraBasis,
 } from '../stats'
-import { leadsWithPitching } from '../positions'
+import { leadsWithPitching, buildPositionIndex, displayPositionFromIndex } from '../positions'
 import { outsToIp } from '../innings'
 import { scopedLines } from '../season'
 import { classifyPa, playerPlayIds, type WpblMatchupPlay } from './matchups'
@@ -424,13 +424,16 @@ export function rankCompareCandidates(
   // once rather than per player, which is the reason to use them over 118 calls to `sumBatting`.
   const bat = new Map(aggregateBatting(players, batting, games).map(s => [s.player.id, s.totals]))
   const pit = new Map(aggregatePitching(players, pitching, games).map(s => [s.player.id, s.totals]))
+  const positions = buildPositionIndex(batting, games)
 
   const describe = (player: WpblPlayer): WpblCompareCandidate => {
     const b = bat.get(player.id)
     const p = pit.get(player.id)
     const pa = b ? plateAppearances(b) : 0
+    const shown = displayPositionFromIndex(player, positions)
     const pitcher = leadsWithPitching({
       position: player.position,
+      played: shown.overridden ? shown.label : null,
       hasBatting: !!b, hasPitching: !!p,
       gs: p?.gs ?? 0, bf: p?.bf ?? 0, pa,
     })

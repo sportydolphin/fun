@@ -13,7 +13,7 @@ import { slugifyName } from './slug'
 // From src/league, not constants.ts, which the Pages function must never import: it pulls in
 // the team logos through import.meta.glob, which only Vite understands.
 import { outsToIp } from '../league/innings'
-import { displayPosition, leadsWithPitching } from './positions'
+import { displayPosition, leadsWithPitching, playedPosition } from './positions'
 import type { WpblBattingLine, WpblPitchingLine, WpblLiveState } from './types'
 
 // Only the columns the card needs. The Pages function selects exactly these, so a preview
@@ -86,7 +86,7 @@ function describeSeason(
   const hasBatting = plateAppearances(bt) > 0
   const hasPitching = pt.outs > 0 || pt.bf > 0
   const pitcherFirst = leadsWithPitching({
-    position: player.position, hasBatting, hasPitching,
+    position: player.position, played: playedPosition(player.position, batting, games), hasBatting, hasPitching,
     gs: pt.gs, bf: pt.bf, pa: plateAppearances(bt),
   })
 
@@ -158,7 +158,7 @@ export function seasonHeadline(
   const hasBatting = plateAppearances(bt) > 0
   const hasPitching = pt.outs > 0 || pt.bf > 0
   if (leadsWithPitching({
-    position: player.position, hasBatting, hasPitching,
+    position: player.position, played: playedPosition(player.position, batting, games), hasBatting, hasPitching,
     gs: pt.gs, bf: pt.bf, pa: plateAppearances(bt),
   })) {
     const record = pt.w || pt.l ? `${pt.w}-${pt.l}, ` : ''

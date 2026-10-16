@@ -273,14 +273,24 @@ const PITCHER_LEAD_EDGE = 1.5
  *   against plate appearances is one unit measured twice, so it says which half of the season
  *   is the bigger half without having to weigh an inning against an at-bat.
  *
+ * AND THE OTHER WAY ROUND. A filed pitcher whose season the box score has moved to a place in the
+ * field (`played`, the `displayPosition` override) is a position player who also pitches, and
+ * leads with the bat. Kelsie Whitmore is filed RHP, made six starts, and played centre field in
+ * most of her other games while leading the league in home runs; by the filing alone her page
+ * opened on a 5.25 ERA and put the best bat in the league behind a tab. The override already
+ * needs four fielded games and a strict majority (see `primaryPosition`), so a pitcher's odd day
+ * at first base does not move her.
+ *
  * Falls back to the filed position when `bf` is missing, which older mirrored rows carry as
  * null, so a feed that stops publishing the column degrades to the filed-position answer rather
  * than to nonsense.
  */
 export function leadsWithPitching(a: {
-  /** The FILED position, not the played one. Relabelling where she stands on the field is a
-   *  different question from which half of her season to lead with. */
+  /** The FILED position. */
   position: string | null | undefined
+  /** Where the season says she has played instead, when it overrides the filing: `playedPosition`.
+   *  Required, so every surface that answers this question answers it from the same evidence. */
+  played: string | null
   hasBatting: boolean
   hasPitching: boolean
   /** Games started on the mound. */
@@ -294,8 +304,19 @@ export function leadsWithPitching(a: {
 }): boolean {
   if (!a.hasPitching) return false
   if (!a.hasBatting) return true
-  if (/P/.test(a.position ?? '')) return true
+  if (/P/.test(a.position ?? '')) return !(a.played && !/P/.test(a.played))
   return a.gs > 0 && a.bf > a.pa * PITCHER_LEAD_EDGE
+}
+
+/** The position the season has moved a player to, or null where it agrees with the roster (or
+ *  has not said enough). What `leadsWithPitching` takes as `played`. */
+export function playedPosition(
+  official: string | null | undefined,
+  lines: readonly SeasonPositionedLine[],
+  games: WpblSeasonGame[],
+): string | null {
+  const d = displayPosition(official, lines, games)
+  return d.overridden ? d.label : null
 }
 
 /** Each position code the roster or a box score writes, as words. */

@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.169.0',
+    date:    '2026-10-16',
+    changes: [
+      {
+        short: 'WPBL player pages, reorganized',
+        full:  "On a computer, a WPBL player page now opens on a summary: the season and its Regular / Playoffs / Both switch, then the four headline numbers for each role in their own card, side by side for a two-way player, with the player's clips right under them. Batting, Pitching and Fielding follow as titled sections holding the full line, the game log and the splits. A player filed as a pitcher who has mostly played the field, like Kelsie Whitmore, now leads with batting everywhere: the page, shared links, Home and the Discord card.",
+      },
+    ],
+  },
+  {
     version: '1.168.0',
     date:    '2026-10-16',
     changes: [
