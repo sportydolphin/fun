@@ -1,8 +1,56 @@
 # Women's Baseball Roadmap
 
-> The slow move from "the WPBL and MLB" toward **women's baseball, all of it**. Scoped Oct 15, 2026.
-> Companion docs: [ROADMAP-WPBL.md](ROADMAP-WPBL.md) (the league this grows out of) and
-> [ROADMAP.md](ROADMAP.md) (MLB). Nothing here outranks the 2027 WPBL work.
+> The slow move from "the WPBL and MLB" toward **women's baseball, all of it**. Scoped Oct 15, 2026;
+> last updated **Oct 16, 2026**. Companion docs: [ROADMAP-WPBL.md](ROADMAP-WPBL.md) (the league this
+> grows out of), [ROADMAP.md](ROADMAP.md) (MLB), and [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md) (how
+> the World Cup import works). Nothing here outranks the 2027 WPBL work.
+
+## Where it stands (Oct 16, 2026)
+
+Phase 0 is mostly done: the back end is built and waiting on WBSC's permission.
+
+| Done | What | Where |
+|---|---|---|
+| Oct 15 | Scope, data probe of every World Cup since 2016, this roadmap | this file |
+| Oct 16 | The importer: wbsc.org pages into validated files, all 30 games of the 2026 group stage passing | [sportydolphin/fun#122](https://github.com/sportydolphin/fun/pull/122), [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md) |
+| Oct 16 | The crosswalk proposer: 39 candidate WBSC-to-WPBL matches for a person to confirm | [sportydolphin/fun#123](https://github.com/sportydolphin/fun/pull/123) |
+
+**Waiting on:** replies to the owner's outreach (WBSC for permission; Baseball Prospectus and
+RetroWPBL as neighbours, see [Neighbours](#neighbours)). Record each reply here, with its date.
+
+**Nothing is on the site, and no WBSC data is in git.** The repository is public, so committing
+the data would publish it. Everything WBSC-derived lives in two gitignored folders on the machine
+that ran the import: `.wbsc-cache/` (the downloaded pages) and `archive/wbsc/` (the output and the
+crosswalk).
+
+## Pick up here
+
+In order. Each step says what done looks like; the commands are in
+[docs/WBSC_INGEST.md](docs/WBSC_INGEST.md).
+
+1. **Restore the local data if this is a fresh machine.** Re-run the import for every event done so
+   far (today the two 2026 groups: `npm run wbsc -- --list` prints the keys), about 30 requests per
+   event, 1.5 s apart. Done when each event's folder is back in `archive/wbsc/`. The crosswalk
+   cannot be re-downloaded: see the warning under step 2.
+2. **Review the crosswalk.** `npm run wbsc -- --propose`, then in
+   `archive/wbsc/crosswalk-review.json` put a name in `checked_by` and a `yes` or `no` on each
+   candidate, then `npm run wbsc -- --confirm`. The 2026 groups propose 39: 32 by full name, 4 that
+   look like the roster's nicknames (Bebbere, Schroder, Albayati, del Castillo) and 3 Korean players
+   who only share a surname with a WPBL player. Done when the review file is empty.
+   **The decisions are hand work held only in a gitignored file.** Until permission lets it into
+   git, keep a private copy of `archive/wbsc/crosswalk.json` somewhere other than this machine.
+3. **Import the back catalog.** 2024 and 2023 (pitch by pitch), then 2018 and 2016 (plate
+   appearances only). Expect the validation to stop on codes the 2026 games never used; add each to
+   `src/intl/wbsc/codes.ts` after checking it against the scorer's narrative, with a test. Then
+   `--propose` again for those events. Done when `npm run wbsc -- --all` writes every event.
+4. **Re-measure the provisional numbers** in `src/intl/league.ts` (the pitch-board bars) on the
+   full catalog.
+5. **Build `international.json`**, the one file a WPBL player page will read: per WPBL player, each
+   event's batting and pitching totals and the games behind them, from the confirmed crosswalk. It
+   can be built and tested now; it stays gitignored like the rest.
+6. **On permission** (and only then): take `archive/wbsc/` out of `.gitignore` (the cache stays
+   ignored), add a size budget for it in CI, commit the data, and start phase 1 below. On a "no":
+   delete the two folders and keep the code for another source.
 
 ## The approach
 
@@ -45,9 +93,10 @@ advance. Tainan (Aug 25–27, after two rained-out days): Japan 5–0, Venezuela
 3–2 advance. The Finals are reported for Rockford, **Jul 19–25, 2027**. 239 players on 12 rosters,
 3,827 play rows.
 
-**The overlap with the WPBL: 32 of the WPBL's 118 players** played in the 2026 group stage, by
-name match (hand verification still needed): 8 USA, 8 Australia, 8 Canada, 5 Mexico, 2 Korea,
-1 Great Britain. **None of the WPBL's nine Japanese players** was on Japan's roster, which is
+**The overlap with the WPBL: about 36 of the WPBL's 118 players** played in the 2026 group stage.
+The first probe found 32 by exact name (8 USA, 8 Australia, 8 Canada, 5 Mexico, 2 Korea, 1 Great
+Britain); the crosswalk proposer also finds the roster's nicknames and an O'Sullivan WBSC spells
+"O ` SULLIVAN". Hand verification decides the final count. **None of the WPBL's nine Japanese players** was on Japan's roster, which is
 drawn from the domestic game. So the first feature covers about a quarter of the league, and most
 of the clubs' best-known names.
 
@@ -73,21 +122,44 @@ it links every game back to wbsc.org. Ask; do not assume.
 changes. Each event becomes one trimmed JSON file in the repo (like `archive/`), served from
 Cloudflare's cache, read by the browser. Supabase is not touched.
 
-Sizes, measured on the 2026 group stage:
+Sizes, measured on the 2026 group stage by the built importer:
 
-- Raw WBSC payloads: about 700 KB a game, 21 MB for 30 games. **Never committed.**
-- Trimmed to the fields we read: about 630 KB for the whole 30-game play log, plus the box lines.
-- Every World Cup since 2016 (about 190 games) trims to an estimated 5 to 8 MB of files, all of it
+- Raw WBSC pages: about 700 KB a game. The importer caches only each game's data, gzipped: about
+  800 KB for all 30. **Never committed.**
+- Output: 1.5 MB for the 30 games, 1.3 MB of it the play log.
+- Every World Cup since 2016 (about 190 games) comes to an estimated 8 to 10 MB of files, all of it
   static. For scale, the WPBL's 2026 season in `archive/` is 6 MB.
 
 Rules for the audit, enforced rather than remembered:
 
 1. A size budget in CI for the event files, like a bundle budget: a new event that blows it fails
-   the build instead of quietly growing the deploy.
-2. The import writes only an allow-list of fields; a new WBSC field does not ride along.
-3. The crosswalk (WBSC tournament player id to WPBL player id) is a small checked-in file.
+   the build instead of quietly growing the deploy. Added with publication, when the files first
+   enter git.
+2. The import writes only an allow-list of fields; a new WBSC field does not ride along. (Built.)
+3. The crosswalk (WBSC tournament player id to WPBL player id) is a small file beside the events,
+   gitignored with them until permission. (Built.)
 4. The only data that ever needs a live path is the 2027 Finals while it is being played (phase 4),
    and even that can be a cached proxy rather than a table.
+
+---
+
+## Neighbours
+
+Almost nobody covers these stats, and the few who do are partners, not rivals. The one that
+matters is the data's owner.
+
+| Who | What they do | How we treat them |
+|---|---|---|
+| **WBSC** | Owns the box scores and play logs; sponsors and video rights on its pages | Ask first. Credit and link every game back to wbsc.org. Never use its video or photos. A "no" ends the World Cup part. |
+| **Baseball Prospectus' women's baseball site** | Pitch and hit tracking from the 2019-era World Cup ([SABR piece](https://sabr.org/latest/ramos-bringing-tracking-data-to-womens-baseball)); may be dormant | Reach out; their tracking beside our box scores is a natural pairing. |
+| **Baseball-Reference Bullpen** | Wiki pages with tournament line scores and rosters | Link to it, never copy from it. |
+| **RetroWPBL** | A hand transcription of WPBL scoring, used here with permission | If it ever goes international, coordinate rather than race. |
+| **The writers on Reading** | Analysis, not stats | The readers who most want this data; every new page can send people to them. |
+| **National federations, MLB.com, local press** | News and recaps that link to WBSC box scores | Sources of links to us, not competition. |
+
+What would be new: one player's career across competitions on one page. Nobody does that today.
+The rules are the ones Reading already follows: ask first, credit and link on every row, take stats
+and never media, and give back (publish the crosswalk as open data once it may be public).
 
 ---
 
@@ -113,16 +185,16 @@ Three stages, each earned by the one before. Nothing in the first two changes th
 
 | When | Phase | Done when |
 |---|---|---|
-| **Oct–Nov 2026** | **0. Permission, and the back end built behind it.** Email WBSC, Baseball Prospectus and RetroWPBL. Meanwhile build the importer and the crosswalk, with the data kept out of git ([docs/WBSC_INGEST.md](docs/WBSC_INGEST.md)). | A reply from WBSC, all 30 group games passing validation, and the 32 name matches checked. |
-| **Nov 2026–Jan 2027** | **1. International row on WPBL player pages**, from the 2026 group stage. An import script (`scripts/`, run by hand) writes the trimmed file; the player page reads it. | The 32 players' pages show their World Cup line, linked to wbsc.org. |
+| **Oct–Nov 2026** | **0. Permission, and the back end built behind it.** Email WBSC, Baseball Prospectus and RetroWPBL. Meanwhile build the importer and the crosswalk, with the data kept out of git ([docs/WBSC_INGEST.md](docs/WBSC_INGEST.md)). | A reply from WBSC, all 30 group games passing validation (✅ Oct 16), and the crosswalk candidates checked. |
+| **Nov 2026–Jan 2027** | **1. International row on WPBL player pages**, from the 2026 group stage. `npm run wbsc` writes the files; the player page reads `international.json`. | The matched players' pages show their World Cup line, linked to wbsc.org. |
 | **Jan–Mar 2027** | **2. The back catalog and the event pages.** 2016, 2018, 2023, 2024 for the same players (an international career line), then `/world-cup/2026` and `/world-cup/2024`. | A player's page shows every World Cup they played; two event pages are live and in the sitemap. |
 | **April 2027** | **Decision point.** Read `events`: do people open the International row and the event pages, and does search bring anyone to them? | Go, smaller, or stop. Written here. |
 | **May–Jun 2027** | **3. Ready for the Finals**, only on a go. Pre-build `/world-cup/2027` from the schedule; check the continental championships' data while there. | The page exists with the schedule and rosters before Jul 19. |
 | **Jul 19–25, 2027** | **4. The Finals, results within the hour.** A job that re-imports during event week only, then freezes. Not a live Game Center: the 2027 WPBL season is running at the same time and gets the attention. | Every Finals game on the site within an hour of the last out; frozen to a file after. |
 | **Late 2027 on** | **5. Maybe.** Navigation stage 3. The continental qualifiers. AAGPBL history with the Players Association's blessing. A domestic league if one publishes data. | Each is its own decision, not a commitment made here. |
 
-Rough effort, for one person: phase 0 is an afternoon plus waiting; phase 1 is a weekend; phase 2
-is two or three; phase 4 is mostly unattended once phase 3 is done.
+Rough effort, for one person: phase 0 is an afternoon plus waiting (the build took a day); phase 1
+is a weekend; phase 2 is two or three; phase 4 is mostly unattended once phase 3 is done.
 
 ---
 
