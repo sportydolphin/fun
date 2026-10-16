@@ -296,7 +296,9 @@ function FigureBar({ sample }: { sample: string | number }) {
 }
 
 /**
- * How a zero is drawn, in the season line and every row table.
+ * How a zero is drawn in a row table (the game log, the matchups). NOT in the season line: one row
+ * of figures with greyed holes in it read as a broken table, where down a forty-row log the same
+ * dimming is what lets a quiet week look quiet.
  *
  * A STEP BELOW `text.disabled`, not at it. That grey is also the game log's date column and every
  * header on the card, so a zero drawn in it read as furniture of the same weight as "Sep 13", and
@@ -317,18 +319,11 @@ export const ZERO_SX = { color: 'text.disabled', opacity: 0.6 } as const
  * THE RANK ROW sits under the value it belongs to. A rank is a fact about one number, and drawn
  * anywhere else it makes a reader hold a figure in their head on the way to it.
  *
- * THE POPULATION IS NOT PRINTED. Every other rank on this site carries its field ("2nd of
- * 33"), and this row deliberately does not: it would be the same phrase under ten columns, or
- * a line of small print under the table repeating what the two rank fields are. What is left
- * is an ordinal in a cell, which is the form a stat table has used for a century. The rate
- * columns still carry "of N" (see the lead group) for the reader who wants the denominator.
+ * THE POPULATION IS NOT PRINTED, here or anywhere on the card: an ordinal in a cell is the form a
+ * stat table has used for a century, and the field is the rank's tooltip (see RankText).
  *
- * WHICH RANKS APPEAR IS THE PROJECT'S OWN MEASURED BAR: `bestCountingRanks` keeps a top-5 gate
- * against a field of at least ten, because lighting every top-3 lights cells on the few players a
- * reader can already place and nothing at all on most of the roster. That helper's two-row CAP
- * is dropped here, because it rations vertical space and a rank in a cell costs none. So a card
- * shows every rank worth printing, and a player who leads nothing gets no row at all instead of
- * a line of "34th · 41st · 28th" that reads as a verdict.
+ * WHICH RANKS APPEAR IS THE CALLER'S BAR, applied before the cells arrive, so a player who leads
+ * nothing gets no rank at all instead of a line of "34th · 41st · 28th" that reads as a verdict.
  */
 export interface LineCol {
   label: string
@@ -348,7 +343,7 @@ export interface LineCol {
  *
  * Above `md` the four rates are these first columns rather than a block beside the table (see
  * desktopRoleBlock). They differ from a counting column in three ways and no others: the figure
- * is a step or two larger, the rank carries its population, and a heavier rule closes the group.
+ * is a step or two larger, its rank is lit at the league's bar, and a heavier rule closes the group.
  * Everything that makes a table a table -- one header row, one figure row, one rank row, one
  * caption over all of it -- is shared, which is the entire point: there is no second grid left
  * to fall out of alignment with.
@@ -357,16 +352,14 @@ export interface LineCol {
  * on a phone and another on a desktop. The phone passes no lead at all: seventeen columns do not
  * fit 375px, which is why the strip exists there.
  *
- * THE RANK KEEPS "of 33" HERE and the counting ranks stay bare, which looks like an
- * inconsistency and is a fact about the data: a rate rank is taken against the QUALIFIED field
- * and a counting rank against everyone who recorded the stat, so one population printed across
- * the whole row would be wrong for half of it. The group rule is what says these are two kinds
- * of column.
+ * A rate rank is taken against the QUALIFIED field and a counting rank against everyone who
+ * recorded the stat, so the two kinds of column have different populations: each rank's tooltip
+ * names its own, and the group rule is what says these are two kinds of column.
  */
-export function SeasonLine({ cols, lead, headline, placeholder, ranksPending }: {
+export function SeasonLine({ cols, lead, headline, placeholder, ranksPending, reserveRanks }: {
   cols: LineCol[]
   lead?: LineCol[]
-  /** The labels the headline strip above already shows, which a phone leaves out of the line. */
+  /** The labels the headline strip above already shows, which the line leaves out at every width. */
   headline?: string[]
   /** The loading state: every value is a sample, drawn as a bar of its width. See FigureBar. */
   placeholder?: boolean
@@ -374,13 +367,29 @@ export function SeasonLine({ cols, lead, headline, placeholder, ranksPending }: 
    *  is the height it was as a placeholder and will be once ranked, rather than a row short between
    *  the two reads, which moved everything under it twice. Above a phone only, for now. */
   ranksPending?: boolean
+  /** Draw the rank row whether or not anything in it is ranked. For a league whose bar is so high
+   *  that most players rank nothing: the loading state cannot know which kind of player it is
+   *  drawing, so the row is always there and the card does not change height when the ranks land. */
+  reserveRanks?: boolean
 }) {
   const phone = usePhoneLayout()
-  if (!phone) return <FullSeasonLine cols={cols} lead={lead} placeholder={placeholder} ranksPending={ranksPending} />
-  const inHead = new Set(headline ?? [])
+  // NOT PRINTED TWICE, AT ANY WIDTH. The desktop used to keep the whole standard line on the
+  // argument that one row costs nothing, so "3-1, 5.25, 15, 1.92" sat large in the headline and
+  // again a few pixels below it, and the card read as numbers for the sake of numbers.
   // W and L are the headline's "W-L".
-  const shown = cols.filter(c => !inHead.has(c.label) && !(inHead.has('W-L') && (c.label === 'W' || c.label === 'L')))
-  return <CompactSeasonLine cols={shown} placeholder={placeholder} />
+  const inHead = new Set(headline ?? [])
+  const dropped = (c: LineCol) => inHead.has(c.label) || (inHead.has('W-L') && (c.label === 'W' || c.label === 'L'))
+  // A dropped column that started a group (AVG, at the head of the rates) hands the break to the
+  // next one shown, or OBP and SLG would fold into the row of counts.
+  const shown: LineCol[] = []
+  let carry = false
+  for (const c of cols) {
+    if (dropped(c)) { carry = carry || !!c.breakBefore; continue }
+    shown.push(carry ? { ...c, breakBefore: true } : c)
+    carry = false
+  }
+  if (!phone) return <FullSeasonLine cols={shown} lead={lead} placeholder={placeholder} ranksPending={ranksPending} reserveRanks={reserveRanks} />
+  return <CompactSeasonLine cols={shown} placeholder={placeholder} reserveRanks={reserveRanks} />
 }
 
 /**
@@ -404,7 +413,7 @@ export function SeasonLine({ cols, lead, headline, placeholder, ranksPending }: 
  * row or two depends on the digits and on the reader's text size, so a fixed count would be wrong
  * for somebody.
  */
-function CompactSeasonLine({ cols, placeholder }: { cols: LineCol[]; placeholder?: boolean }) {
+function CompactSeasonLine({ cols, placeholder, reserveRanks }: { cols: LineCol[]; placeholder?: boolean; reserveRanks?: boolean }) {
   const { tip, ink } = useStatCard()
   const boxRef = useRef<HTMLDivElement>(null)
   // Columns per row, or null for the one-row measuring pass.
@@ -479,22 +488,22 @@ function CompactSeasonLine({ cols, placeholder }: { cols: LineCol[]; placeholder
               </Box>
               <Box component="tr">
                 {row.map((c, j) => c ? (
-                  // The desktop line's three states: a top-five figure lit, a true zero dimmed.
+                  // Two states: a ranked figure lit, everything else plain. See ZERO_SX for why zeros are not dimmed here.
                   <Box component="td" key={c.label} sx={{
                     ...lineTdSx, ...COMPACT_CELL_SX, ...COMPACT_FIGURE_SX, ...rule(row, j), ...edge(j),
-                    ...(placeholder ? {} : c.rank != null ? { color: ink, fontWeight: 800 } : isZeroStat(c.value) ? ZERO_SX : {}),
+                    ...(placeholder ? {} : c.rank != null ? { color: ink, fontWeight: 800 } : {}),
                   }}>
                     {placeholder ? <FigureBar sample={c.value} /> : c.value}
                   </Box>
                 ) : <Box component="td" key={`pad${j}`} sx={edge(j)} />)}
               </Box>
-              {row.some(c => c?.rank != null) && (
+              {(reserveRanks || row.some(c => c?.rank != null)) && (
                 <Box component="tr">
                   {row.map((c, j) => c ? (
                     <Box component="td" key={c.label}
                       sx={{ ...lineRankSx, ...COMPACT_CELL_SX, ...rule(row, j), ...edge(j), ...(c.rank != null && !placeholder ? { color: ink, fontWeight: 800 } : {}) }}>
                       {/* A placeholder's rank only holds the row open: see skeletonPane. */}
-                      {placeholder ? ' ' : c.rank ? <RankText onRank={c.onRank} label={c.label}>{ordinal(c.rank.rank)}</RankText> : ''}
+                      {placeholder ? ' ' : c.rank ? <RankText onRank={c.onRank} label={c.label} rank={c.rank} /> : ' '}
                     </Box>
                   ) : <Box component="td" key={`pad${j}`} sx={edge(j)} />)}
                 </Box>
@@ -512,7 +521,7 @@ const COMPACT_CELL_SX = { px: 0.4 } as const
 /** A step under `figure`, so a pitching line fits the screen in one row. */
 const COMPACT_FIGURE_SX = { fontSize: TYPE_SCALE.body } as const
 
-function FullSeasonLine({ cols, lead, placeholder, ranksPending }: { cols: LineCol[]; lead?: LineCol[]; placeholder?: boolean; ranksPending?: boolean }) {
+function FullSeasonLine({ cols, lead, placeholder, ranksPending, reserveRanks }: { cols: LineCol[]; lead?: LineCol[]; placeholder?: boolean; ranksPending?: boolean; reserveRanks?: boolean }) {
   const { tip, ink, rankBar } = useStatCard()
   const heads = lead ?? []
   const all = [...heads, ...cols]
@@ -601,7 +610,7 @@ function FullSeasonLine({ cols, lead, placeholder, ranksPending }: { cols: LineC
       if (i === heads.length - 1 && cols.length > 0) return { borderRight: '2px solid', borderRightColor: 'divider' }
       return row[j + 1] ? colRuleSx(j, n) : {}
     }
-    const anyRank = ranksPending || row.some(c => c?.rank != null)
+    const anyRank = ranksPending || reserveRanks || row.some(c => c?.rank != null)
     return (
       <Box component="table" key={k} sx={{
         width: '100%', minWidth: folded ? 0 : 'max-content', borderCollapse: 'collapse',
@@ -619,13 +628,11 @@ function FullSeasonLine({ cols, lead, placeholder, ranksPending }: { cols: LineC
         <Box component="tbody">
           <Box component="tr">
             {row.map((c, j) => c ? (
-              // Three states, in order of precedence. A TOP-FIVE FIGURE is bold and in the rank
-              // blue: the rank row under it already says so in words, and a reader scanning
-              // a dozen identical white numbers should not have to find that out by reading.
-              // Only the top five light up, which is `bestCountingRanks`' own measured bar, so
-              // a card lights two or three cells rather than half a row. A true zero dims,
-              // because half a batting line is zeros for most of the roster. A rate reading
-              // `.000` is a measurement and keeps its weight. Everything else is plain.
+              // Two states. A RANKED FIGURE is bold and in the rank blue: the rank row under it
+              // already says so in words, and a reader scanning a dozen identical white numbers
+              // should not have to find that out by reading. Everything else is plain, zeros
+              // included: in a one-row line a dimmed 0 under 3B or CS made the row look patchy
+              // rather than quiet (see ZERO_SX).
               <Box component="td" key={c.label}
                 sx={{
                   ...lineTdSx,
@@ -639,8 +646,7 @@ function FullSeasonLine({ cols, lead, placeholder, ranksPending }: { cols: LineC
                   ...(isLead(offset + j) ? { ...TYPE.hero, lineHeight: 1.2, pt: 0.5 } : {}),
                   verticalAlign: 'baseline',
                   ...rule(j),
-                  ...(placeholder ? {} : lit(c, offset + j) ? { color: ink, fontWeight: 800 }
-                    : isZeroStat(c.value) ? ZERO_SX : {}),
+                  ...(placeholder ? {} : lit(c, offset + j) ? { color: ink, fontWeight: 800 } : {}),
                 }}>
                 {placeholder ? <FigureBar sample={c.value} /> : c.value}
               </Box>
@@ -656,9 +662,7 @@ function FullSeasonLine({ cols, lead, placeholder, ranksPending }: { cols: LineC
                 <Box component="td" key={c.label}
                   sx={{ ...lineRankSx, ...rule(j), ...(lit(c, offset + j) ? { color: ink, fontWeight: 800 } : {}) }}>
                   {placeholder || ranksPending ? ' ' : !c.rank ? '' : (
-                    <RankText onRank={c.onRank} label={c.label}>
-                      {isLead(offset + j) ? `${ordinal(c.rank.rank)} of ${c.rank.of}` : ordinal(c.rank.rank)}
-                    </RankText>
+                    <RankText onRank={c.onRank} label={c.label} rank={c.rank} />
                   )}
                 </Box>
               ) : <Box component="td" key={`pad${j}`} />)}
@@ -729,17 +733,24 @@ export const isLitRank = (r: StatRank | null | undefined, bar: number): boolean 
 /** A rank, as a link to the league table it was taken from when the league offers one. A button
  *  rather than an anchor: the table it opens is a board sorted around this player, which is
  *  section state rather than a page with an address of its own. */
-function RankText({ onRank, label, children }: { onRank?: () => void; label: string; children: string }) {
-  if (!onRank) return <>{children}</>
+//
+// THE PLACE ALONE, "2nd", with its field in the tooltip. Every rank used to carry its population
+// ("9th of 16", "4th of 38", "3rd of 66"), and a card with a dozen of them read as a wall of
+// fractions with five different denominators. The field still matters to the reader who asks, so
+// it is the hover title and the accessible name rather than ink.
+function RankText({ onRank, label, rank }: { onRank?: () => void; label: string; rank: StatRank }) {
+  const place = ordinal(rank.rank)
+  const full = `${place} of ${rank.of}`
+  if (!onRank) return <Box component="span" title={full}>{place}</Box>
   return (
-    <Box component="button" type="button" onClick={onRank} aria-label={`${children} in ${label}: see the league table`}
+    <Box component="button" type="button" onClick={onRank} title={full} aria-label={`${full} in ${label}: see the league table`}
       sx={{
         font: 'inherit', color: 'inherit', bgcolor: 'transparent', border: 'none', p: 0, m: 0,
         cursor: 'pointer', textUnderlineOffset: 2,
         ...hoverOnly({ textDecoration: 'underline' }),
         '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 1, borderRadius: 0.5 },
       }}>
-      {children}
+      {place}
     </Box>
   )
 }
@@ -794,14 +805,11 @@ export function RateStrip({ cells, placeholder }: {
               they qualify as the day after. Four dashes in a row under four numbers that are right
               there read as missing data; what is missing is the comparison, and the meter below
               says so in words. */}
-          {/* WITH ITS POPULATION, as the desktop's lead columns print it. The phone used to say a
-              bare "9th" where the desktop said "9th of 16", and the pitch profile three blocks
-              down said "of 21"; every rate rank on the card now reads the same way against the
-              same field. */}
+          {/* The place alone, its field in the tooltip, as every rank on the card (see RankText). */}
           <Typography sx={{
             ...TYPE.micro, fontVariantNumeric: 'tabular-nums',
             ...(isTopFive(c.rank) ? { color: ink, fontWeight: 800 } : { color: 'text.secondary' }),
-          }}>{c.rank && !placeholder ? <RankText onRank={c.onRank} label={c.label}>{`${ordinal(c.rank.rank)} of ${c.rank.of}`}</RankText> : ' '}</Typography>
+          }}>{c.rank && !placeholder ? <RankText onRank={c.onRank} label={c.label} rank={c.rank} /> : ' '}</Typography>
         </Box>
       ))}
     </Box>
@@ -842,7 +850,7 @@ export function ValueStrip({ cells, placeholder }: {
               ...TYPE.micro, fontVariantNumeric: 'tabular-nums',
               ...(lit ? { color: ink, fontWeight: 800 } : { color: 'text.secondary' }),
             }}>
-              {placeholder ? <FigureBar sample="10th of 70" /> : c.rank ? `${ordinal(c.rank.rank)} of ${c.rank.of}` : ''}
+              {placeholder ? <FigureBar sample="10th" /> : c.rank ? <RankText label={c.label} rank={c.rank} /> : ''}
             </Typography>
           </Box>
         )
@@ -1082,7 +1090,7 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
   /** Per lead column, laid over its default (the first dimmed, the rest bold). */
   leadSx?: object[]
 }) {
-  const { tip, ink } = useStatCard()
+  const { tip } = useStatCard()
   // Column index → the value to mark, for the columns that have one. Computed once for the
   // table rather than per cell, which would be O(rows²) down a forty-game log.
   const marks = useMemo(() => {
@@ -1205,9 +1213,10 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
                   </Box>
                 ))}
                 {r.cells.map((c, j) => {
-                  // The rank ink, the card's one colour for a good number. Every
-                  // column that can be marked is one where more is better, so it only ever lands
-                  // on good news.
+                  // BOLD WITH A DOT UNDER IT, NOT THE RANK BLUE. Blue on this card means a league
+                  // rank, and the same blue on a game's 6 SO said "league leader" about a figure that
+                  // is only this player's own best night. Every column that can be marked is one
+                  // where more is better, so the mark only ever lands on good news.
                   if (placeholder) return <Box component="td" key={j} sx={tdSx}><FigureBar sample={c} /></Box>
                   const top = marks.get(j) != null && Number(c) === marks.get(j)
                   // A ZERO DIMS, exactly as it does in the season line above. It is the same
@@ -1219,7 +1228,7 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
                   // thing that did not happen.
                   return (
                     <Box component="td" key={j} sx={
-                      top ? { ...tdSx, fontWeight: 800, color: ink }
+                      top ? { ...tdSx, ...BEST_GAME_SX }
                         : isZeroStat(c) ? { ...tdSx, ...ZERO_SX }
                           : tdSx
                     }>{c}</Box>
@@ -1257,6 +1266,14 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
     </Box>
   )
 }
+
+/** A best game's cell: heavier, with a dot centred under the figure. A background rather than a
+ *  pseudo-element or a border, so it takes no room and the row's height cannot move. */
+const BEST_GAME_SX = {
+  fontWeight: 800, color: 'text.primary',
+  backgroundImage: 'radial-gradient(circle, currentColor 1.5px, transparent 2px)',
+  backgroundSize: '6px 6px', backgroundRepeat: 'no-repeat', backgroundPosition: 'center bottom 1px',
+} as const
 
 /** The narrowest a row table's stat column may be: two figures and their padding. */
 const STAT_COL_MIN = '1.3rem'
@@ -1334,7 +1351,7 @@ const BAND_INK = { name: '#fff', meta: 'rgba(255,255,255,0.88)', line: 'rgba(255
  * so its body is a scroller, and a scroller takes ownership of a touch before the drag handler can.
  * Only while the band is PINNED above that scroller (see `grab`).
  */
-export function PlayerBand({ bandRef, background, stripe, portrait, name, nameAs = 'div', badge, meta, lines, chips, aside, ink = BAND_INK, grab = true }: {
+export function PlayerBand({ bandRef, background, stripe, portrait, name, nameAs = 'div', badge, meta, lines, facts, chips, aside, ink = BAND_INK, grab = true }: {
   bandRef?: (el: HTMLDivElement | null) => void
   /**
    * Be the sheet's grab surface. Off where the band scrolls WITH the content, as the first thing in
@@ -1360,6 +1377,12 @@ export function PlayerBand({ bandRef, background, stripe, portrait, name, nameAs
   meta?: string
   /** Smaller lines under that, one fact each (hometown, draft), so a long one never wraps into the next. */
   lines?: string[]
+  /**
+   * Facts with a label (Hometown, Drafted). Below `md` they are lines like `lines`, as `inline`
+   * says them; from `md` they move to the band's right as labelled columns, which is the band's
+   * one large empty area on a wide card and the place the eye goes after the name.
+   */
+  facts?: BandFact[]
   /** Under the facts: awards. */
   chips?: React.ReactNode
   /** Right of the facts, from `md` up: the form strip. */
@@ -1390,12 +1413,39 @@ export function PlayerBand({ bandRef, background, stripe, portrait, name, nameAs
           {lines?.map(l => (
             <Typography key={l} sx={{ fontSize: TYPE_SCALE.meta, color: ink.line, mt: 0.1 }}>{l}</Typography>
           ))}
+          {facts?.map(f => (
+            <Typography key={f.label} sx={{ display: { xs: 'block', md: 'none' }, fontSize: TYPE_SCALE.meta, color: ink.line, mt: 0.1 }}>
+              {f.inline ?? f.value}
+            </Typography>
+          ))}
           {chips}
         </Box>
+        {facts && facts.length > 0 && (
+          <Box component="dl" sx={{ display: { xs: 'none', md: 'flex' }, flexShrink: 0, gap: 3, m: 0, px: 1.5 }}>
+            {facts.map(f => (
+              <Box key={f.label} sx={{ minWidth: 0 }}>
+                <Typography component="dt" sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: ink.line }}>
+                  {f.label}
+                </Typography>
+                <Typography component="dd" sx={{ m: 0, fontSize: TYPE_SCALE.body, fontWeight: 700, color: ink.name, whiteSpace: 'nowrap' }}>
+                  {f.value}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        )}
         {aside}
       </Box>
     </Box>
   )
+}
+
+/** One labelled fact on the band. */
+export interface BandFact {
+  label: string
+  value: string
+  /** How a phone's line says it, where the value alone would not ("Drafted round 1, pick 1"). */
+  inline?: string
 }
 
 /** A small uppercase tag beside the name. White on a translucent white wash rather than a club

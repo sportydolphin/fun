@@ -50,8 +50,8 @@ export function wpblPlayerCard(
   // player ("RHP, UTL"), and "RHP, UTL, San Francisco Firebells" reads as one long list.
   const subject = [displayPosition(player.position, batting, games).label, teamName].filter(Boolean).join(' · ')
   return {
-    title: `${player.name} — WPBL stats | sportydolphin.fun`,
-    ogTitle: `${player.name} — ${subject}`,
+    title: `${player.name}: WPBL stats | sportydolphin.fun`,
+    ogTitle: `${player.name} · ${subject}`,
     description: describeSeason(player, teamName, batting, pitching, games),
     cardPath: `/cards/${slugifyName(player.name)}.webp`,
   }
@@ -102,12 +102,12 @@ function describeSeason(
     // A hitter with no homers and no RBI is described by what they did do, rather than by
     // two zeroes: an 0-for-3 card shouldn't read "with 0 HR and 0 RBI".
     const power = [t.hr ? `${t.hr} HR` : '', t.rbi ? `${t.rbi} RBI` : ''].filter(Boolean).join(' and ')
-    const body = power ? `with ${power}` : `— ${t.h}-for-${t.ab}`
+    const body = power ? `with ${power}` : `going ${t.h}-for-${t.ab}`
     return `${slash} ${body} in ${plural(t.g, 'game')}. ${tail}`
   }
   // Drafted, or on the roster but yet to appear. Still worth a real card.
   const role = player.position ? `${player.position} for the ${teamName}` : `On the ${teamName} roster`
-  return `${role}. WPBL stats, game log, and bio — updated after every game.`
+  return `${role}. WPBL stats, game log, and bio, updated after every game.`
 }
 
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`

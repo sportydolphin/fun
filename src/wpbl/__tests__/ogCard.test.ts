@@ -32,13 +32,13 @@ const pitcher = { id: 'p2', name: 'Jill Albayati', position: 'RHP' }
 describe('wpblPlayerCard', () => {
   it('titles the card with the player, their position, and their club', () => {
     const card = wpblPlayerCard(hitter, HEIGHTS, [bat({ ab: 4, h: 2 })], [], GAMES)
-    expect(card.ogTitle).toBe('Denae Benites — C · New York Heights')
-    expect(card.title).toBe('Denae Benites — WPBL stats | sportydolphin.fun')
+    expect(card.ogTitle).toBe('Denae Benites · C · New York Heights')
+    expect(card.title).toBe('Denae Benites: WPBL stats | sportydolphin.fun')
   })
 
   it('separates a two-way position code from the club with a middot, not a comma', () => {
     const card = wpblPlayerCard({ id: 'p4', name: 'Jill Albayati', position: 'RHP, UTL' }, 'San Francisco Firebells', [], [], GAMES)
-    expect(card.ogTitle).toBe('Jill Albayati — RHP, UTL · San Francisco Firebells')
+    expect(card.ogTitle).toBe('Jill Albayati · RHP, UTL · San Francisco Firebells')
   })
 
   it('leads a hitter with the slash line and their power numbers', () => {
@@ -49,7 +49,7 @@ describe('wpblPlayerCard', () => {
 
   it('describes a hitter with no homers or RBI by what they did do', () => {
     const card = wpblPlayerCard(hitter, HEIGHTS, [bat({ ab: 3, h: 1 })], [], GAMES)
-    expect(card.description).toContain('— 1-for-3 in 1 game.')
+    expect(card.description).toContain('going 1-for-3 in 1 game.')
     expect(card.description).not.toContain('0 HR')
   })
 
@@ -80,12 +80,12 @@ describe('wpblPlayerCard', () => {
   it('ignores appearances with no plate appearance', () => {
     // A pinch-runner who scored: a batting row, but nothing that makes an 0-for-0 line.
     const card = wpblPlayerCard(hitter, HEIGHTS, [bat({ r: 1 })], [], GAMES)
-    expect(card.description).toBe('C for the New York Heights. WPBL stats, game log, and bio — updated after every game.')
+    expect(card.description).toBe('C for the New York Heights. WPBL stats, game log, and bio, updated after every game.')
   })
 
   it('falls back to a roster line for a player yet to appear', () => {
     const card = wpblPlayerCard(hitter, HEIGHTS, [], [], GAMES)
-    expect(card.description).toBe('C for the New York Heights. WPBL stats, game log, and bio — updated after every game.')
+    expect(card.description).toBe('C for the New York Heights. WPBL stats, game log, and bio, updated after every game.')
   })
 
   it('leaves postseason games out of the season line it describes', () => {
