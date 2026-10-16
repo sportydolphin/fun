@@ -12,6 +12,7 @@ import { accentColor, edgeTone, fmtGB, teamLogoSrc, teamLogoCrop, useTextTone, t
 import { StatGrid } from './ui'
 import { chromePx, typePx } from '../../ui/scale'
 import { teamLink, LINK_SX } from '../lib/links'
+import { ordinal } from '../../lib/format'
 
 // ─── Team card inner ──────────────────────────────────────────────────────────
 
@@ -30,12 +31,6 @@ export interface TeamCardInnerProps {
   onToggleHitStat?: (key: string) => void
   onTogglePitStat?: (key: string) => void
   standing?: TeamStandingInfo
-}
-
-function ordinal(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd']
-  const v = n % 100
-  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0])
 }
 
 export function TeamCardInner({ team, hittingStats, pitchingStats, palette, season, rankMode, hitLeaders, pitLeaders, large, selectedHitStats, selectedPitStats, onToggleHitStat, onTogglePitStat, standing }: TeamCardInnerProps) {

@@ -21,7 +21,7 @@ import { saveDataOn } from './lib/saveData'
 import { AuthProvider, useAuth } from './AuthContext'
 import { UnitsProvider } from './UnitsContext'
 import { EraBasisProvider } from './wpbl/EraBasisContext'
-import { navigate, linkTo, UNSTYLED_LINK } from './nav'
+import { navigate, linkTo, UNSTYLED_LINK, isModified } from './nav'
 import { ExperimentsProvider } from './ExperimentsContext'
 import { AccessibilityProvider } from './AccessibilityContext'
 import { PENDING_USERNAME_PREFIX } from './AuthContext'
@@ -1081,7 +1081,7 @@ function AppInner() {
                     onPointerDown={active ? undefined : () => preloadSection(path)}
                     onClick={(e: React.MouseEvent) => {
                       // Modified clicks open a new tab the browser's way.
-                      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+                      if (isModified(e)) return
                       e.preventDefault()
                       if (active) return
                       const target = otherSectionPath(path, isWpblSection(path), window.location.search)

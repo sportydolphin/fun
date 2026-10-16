@@ -26,6 +26,7 @@ import {
 import { TeamBadge, FOCUS_RING, pressable } from './ui'
 import type { WpblGame, WpblTeam } from './types'
 import { TYPE_SCALE } from '../ui/card'
+import { ordinal } from '../lib/format'
 
 type Side = 'scored' | 'allowed'
 type Rgb = [number, number, number]
@@ -50,7 +51,6 @@ const contrast = (a: Rgb, b: Rgb) => {
 const mix = (a: Rgb, b: Rgb, t: number): Rgb => a.map((v, i) => v + (b[i] - v) * t) as Rgb
 const css = (c: Rgb) => `rgb(${c.map(Math.round).join(',')})`
 
-const ordinal = (n: number) => (n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`)
 const fmt = (v: number) => (v === 0 ? '0' : v.toFixed(1))
 
 function Pill({ on, label, onClick }: { on: boolean; label: string; onClick: () => void }) {

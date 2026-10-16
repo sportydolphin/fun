@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { WPBL_LEAGUE_PAGE, WPBL_PATH_EVENT } from '../routes'
 import { CARD_BORDER, CARD_FILL, hoverOnly, TYPE_SCALE } from '../ui'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
+import { isModified } from '../../nav'
 
 /**
  * One line on Home pointing at /wpbl/league, where Reading, Highlights and the archive live.
@@ -26,7 +27,7 @@ export function LeagueCard() {
   // rather than a tab, so there is no view to switch to: push the entry and tell the shell the
   // path moved, which is what makes it re-read and swap in the page.
   const go = (e: React.MouseEvent) => {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+    if (isModified(e)) return
     e.preventDefault()
     track(EVENTS.WPBL_LEAGUE_CARD_OPEN, { from: 'home' })
     window.history.pushState({ ...window.history.state, wpbl: undefined }, '', WPBL_LEAGUE_PAGE)

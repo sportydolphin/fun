@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  boardWinner, buildBoard, buildRunsRound, gradeRunsRound, halfInningStarted, nextHalfInning, ordinal, runsKey,
+  boardWinner, buildBoard, buildRunsRound, gradeRunsRound, halfInningStarted, nextHalfInning, runsKey,
   type PredictGame, type PredictPlay,
 } from '../derive/predictions'
 import { buildRoundCard, buildStandingsMessage, buildWinnerMessage, type CardRound } from '../discordPredictions'
@@ -288,11 +288,5 @@ describe('the cards in the channel', () => {
     expect(card.embeds?.[0].description).toContain('Nobody has called one right yet')
     expect(card.embeds?.[0].footer?.text).toContain('1 round settled')
     expect(card.embeds?.[0].footer?.text).toContain('1 still live')
-  })
-})
-
-describe('ordinals', () => {
-  it('reads the way a scorebook does', () => {
-    expect([1, 2, 3, 4, 11, 12, 13, 21].map(ordinal)).toEqual(['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st'])
   })
 })

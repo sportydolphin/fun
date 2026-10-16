@@ -14,6 +14,7 @@ import { usePhoneLayout } from '../../ui/ModalShell'
 import { chromePx, typePx } from '../../ui/scale'
 import { playerLink } from '../lib/links'
 import { TYPE_SCALE } from '../../ui/card'
+import { outsToIp } from '../../league/innings'
 
 // Per-inning + R/H/E line score plus full batting / pitching tables.
 interface InningLine { num: number; away: number | null; home: number | null }
@@ -168,7 +169,6 @@ const PIT_COLS: { key: keyof PitcherLine; label: string }[] = [
   { key: 'bb', label: 'BB' }, { key: 'k', label: 'SO' }, { key: 'hr', label: 'HR' },
   { key: 'pitches', label: 'P' },
 ]
-const outsToIp = (outs: number) => `${Math.floor(outs / 3)}.${outs % 3}`
 // What the phone's name column holds at the dense size: past it a first name becomes an initial,
 // so the surname, the part a reader needs, is the part that survives. WPBL's BOX_NAME_MAX.
 const BOX_NAME_MAX = 11

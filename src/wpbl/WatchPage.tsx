@@ -15,6 +15,7 @@ import { track, EVENTS } from '../lib/analytics'
 import type { WpblGame, WpblTeam, WpblVideo } from './types'
 import { useNewSince } from './newSince'
 import { typePx } from '../ui/scale'
+import { isModified } from '../nav'
 
 // /wpbl/watch: every video the site mirrors, from the league's channel and from WPBL from Day 1,
 // on three shelves.
@@ -218,8 +219,6 @@ function GroupHeading({ children }: { children: React.ReactNode }) {
     }}>{children}</Typography>
   )
 }
-
-const isModified = (e: React.MouseEvent) => e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
 
 // The game card's parts, one definition for the loaded card and its skeleton.
 const SHELF_BAR = {

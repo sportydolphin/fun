@@ -4,12 +4,12 @@ import { Box, Typography } from '@mui/material'
 import { fetchWpblAllPitchPlays, getCachedWpblAllPitchPlays } from './api'
 import { aggregatePitchCodes, pitchQualifiers, rankBy, fmtPct, type PitchRates, type PitchCounts } from './derive/pitches'
 import { wpblQualifiers } from './stats'
-import { ordinal } from './percentiles'
 import { SectionHead, SECTION_CAPTION_SX, ShowMoreButton, useRankInk } from './cardParts'
 import { inSeason, gamesInSeason, type SeasonScope } from './season'
 import type { WpblGame, WpblPitchPlay, WpblPlayer, WpblTeam } from './types'
 import { typePx } from '../ui/scale'
 import { TYPE_SCALE } from '../ui/card'
+import { ordinal } from '../lib/format'
 
 // The pitch profile on a player page: what the league's pitch-by-pitch log says about how this
 // player pitched, or how this player hit. One component, two sides.

@@ -40,21 +40,16 @@ import { useEraBasis } from './EraBasisContext'
 import { WPBL_TEAMS, wpblFullName } from './constants'
 import WpblPage, { SectionHeading } from './WpblPage'
 import { setDynamicSeo } from '../seo'
-import { linkTo, UNSTYLED_LINK } from '../nav'
+import { linkTo, UNSTYLED_LINK, isModified } from '../nav'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 import { WpblAddressSeasonProvider, useWpblSeason } from './SeasonContext'
 import { SeasonMenu } from './SeasonMenu'
-
-const isModified = (e: React.MouseEvent) =>
-  e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
+import { shortDate } from '../lib/format'
 
 /** Rows per board. Five meetings is a regular-season series, and five a side is as many leaders
  *  and matchups as clear the bar in most pairings. */
 const ROWS = 5
-
-const shortDate = (iso: string) =>
-  new Date(`${iso}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })
 
 type Club = Pick<WpblTeam, 'id' | 'name' | 'city' | 'abbr'>
 

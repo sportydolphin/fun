@@ -25,12 +25,10 @@ import { WPBL_SOURCES, SOURCE_GROUPS } from './sources'
 import { CARD_BORDER, SectionCard, TYPE_SCALE, hoverOnly } from './ui'
 import WpblPage from './WpblPage'
 import { typePx } from '../ui/scale'
+import { isModified } from '../nav'
 
 /** Modified clicks are left to the browser, so open-in-new-tab works on an internal link the
  *  way it does on any other. Same rule as LeaguePage. */
-const isModified = (e: React.MouseEvent) =>
-  e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
-
 export default function SourcesPage({ onNavigate }: { onNavigate: (to: string) => void }) {
   // NO STANDFIRST UNDER THIS HEADING. An opener like "almost nothing on this site is original
   // reporting" is both true and a terrible thing to say to a reader: this is the page handed to

@@ -15,6 +15,7 @@ import { CURRENT_SEASON, TEAM_ABBR } from './constants'
 import { combineStatLines } from './lib/gameScope'
 import type { CareerStatSplit, RecentGameEntry } from './types'
 import { MLB_QUALIFY_IP_PER_GAME, MLB_QUALIFY_PA_PER_GAME } from './qualify'
+import { ipToOuts } from '../league/innings'
 
 const API = 'https://statsapi.mlb.com/api/v1'
 
@@ -444,12 +445,6 @@ export interface SeasonRanks {
   /** The qualifying bars this season, which the sample line names a shortfall against. */
   minPa: number
   minOuts: number
-}
-
-/** Outs from a "123.1"-style innings string. */
-export const ipToOuts = (ip: any): number => {
-  const [w, f] = String(ip ?? '0').split('.')
-  return (Number(w) || 0) * 3 + (Number(f) || 0)
 }
 
 interface RankDef { label: string; value: (s: any) => number | null; rate?: boolean; lower?: boolean }

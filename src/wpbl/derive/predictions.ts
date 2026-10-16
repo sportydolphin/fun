@@ -23,6 +23,7 @@
  * disagree, and the round has to be built off whichever is further along.
  */
 import { runsOnPlay } from './playByPlay.ts'
+import { ordinal } from '../../lib/format.ts'
 
 export type Half = 'top' | 'bottom'
 
@@ -73,12 +74,6 @@ const playHalf = (p: PredictPlay): HalfInning =>
   ({ inning: p.inning, half: p.half === 'bottom' ? 'bottom' : 'top' })
 
 /** 1 becomes "1st". Used in both the question and the card, so it lives with the rules. */
-export function ordinal(n: number): string {
-  const rest = n % 100
-  if (rest >= 11 && rest <= 13) return `${n}th`
-  return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`
-}
-
 /** How far the game has actually got, by the two sources that can answer and often disagree. */
 export function currentHalfIndex(game: PredictGame, plays: PredictPlay[]): number | null {
   let byPlays: number | null = null

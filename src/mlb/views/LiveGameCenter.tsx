@@ -34,6 +34,8 @@ import {
   useGameSeries, SeriesBand, SeriesBandSkeleton, TopPerformers, BiggestSwings, GameInfo, biggestSwings,
 } from './GameSummary'
 import type { Performer, GameInfoData } from './GameSummary'
+import { ordinal } from '../../lib/format'
+import { isModified } from '../../nav'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -308,12 +310,6 @@ async function fetchWinProb(gamePk: number): Promise<WpPoint[]> {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function ordinal(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd']
-  const v = n % 100
-  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0])
-}
 
 // ─── Bases diamond + outs ─────────────────────────────────────────────────────
 
@@ -1200,7 +1196,7 @@ function GamePageLayout({ gamePk, heading, eyebrow, actions, onBack, header, awa
   }, [ready, initialTab])
 
   const jump = (to: keyof typeof GC_SECTION) => (e: React.MouseEvent) => {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+    if (isModified(e)) return
     e.preventDefault()
     document.getElementById(GC_SECTION[to])?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
   }

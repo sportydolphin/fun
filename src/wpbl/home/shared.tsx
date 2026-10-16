@@ -2,7 +2,7 @@ import { useDark } from '../../ui/useDark'
 import { useEffect, useState } from 'react'
 import { Typography, alpha } from '@mui/material'
 import { WPBL_ACCENT, countdownLabel } from '../constants'
-import { linkTo } from '../../nav'
+import { linkTo, isModified } from '../../nav'
 import { TYPE_SCALE } from '../ui'
 import { track } from '../../lib/analytics'
 import { HOME_WIDE_W } from '../layoutWidths'
@@ -104,7 +104,7 @@ export function trackedLinkTo(to: string, event: string, props: Record<string, u
   return {
     ...base,
     onClick: (e: React.MouseEvent) => {
-      if (!(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)) track(event, props)
+      if (!isModified(e)) track(event, props)
       base.onClick(e)
     },
   }

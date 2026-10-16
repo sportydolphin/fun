@@ -14,6 +14,7 @@ import type {
   WpblBattingLine, WpblGame, WpblGamePlay, WpblPitchingLine, WpblPlayer, WpblTeam,
 } from './types'
 import { typePx } from '../ui/scale'
+import { ordinal } from '../lib/format'
 
 /**
  * The Live tab: what is happening right now, then the shape of how it got here.
@@ -785,6 +786,3 @@ function currentPitcherLine(
 }
 
 /** "3rd". Innings only, so the teens never come up. */
-function ordinal(n: number): string {
-  return `${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'}`
-}

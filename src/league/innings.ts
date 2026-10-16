@@ -8,9 +8,10 @@ export function outsToIp(outs: number): string {
 }
 
 // The inverse: parse an IP entry ("5.2" = 5 innings + 2 outs) into total outs.
-// Accepts "5", "5.0", "5.1", "5.2"; clamps an invalid fraction (.3+) down to .2.
-export function ipToOuts(ip: string): number {
-  const t = ip.trim()
+// Accepts "5", "5.0", "5.1", "5.2"; clamps an invalid fraction (.3+) down to .2. Takes a number
+// or nothing too, since StatsAPI's `inningsPitched` is not always a string.
+export function ipToOuts(ip: string | number | null | undefined): number {
+  const t = String(ip ?? '').trim()
   if (!t) return 0
   const [wholeStr, fracStr] = t.split('.')
   const whole = parseInt(wholeStr || '0', 10) || 0

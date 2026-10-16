@@ -34,9 +34,7 @@ import WpblPage from './WpblPage'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 import { typePx } from '../ui/scale'
-
-const isModified = (e: React.MouseEvent) =>
-  e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
+import { isModified } from '../nav'
 
 // ONE VOCABULARY across every surface that shows a matchup: "batter" (never "hitter"), "matchup"
 // (never "duel" or "pair"), "edge" for who has had the better of it, "lopsided" for how much. The

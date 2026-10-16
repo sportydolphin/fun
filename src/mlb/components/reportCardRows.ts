@@ -6,6 +6,7 @@ import { TeamSummary, SosEntry } from '../types'
 import { TEAM_ABBR } from '../constants'
 import type { StreakRow, PitchPaLeaders, SalaryRow } from '../api'
 import type { LbRow, PlayerLbRow } from './leaderboards'
+import { outsToIp } from '../../league/innings'
 
 export interface AgeEntry { teamId: number; abbr: string; avgAge: number }
 
@@ -15,10 +16,6 @@ const HIT_STREAK_LABELS = ['ON FIRE', 'LOCKED IN', 'HEATING UP']
 const HITLESS_LABELS    = ['ICE COLD', 'LOST IT', 'IN A FUNK']
 const SCORELESS_LABELS  = ['NASTY', 'DEALING', 'FILTHY']
 const IRONMAN_LABELS    = ['IRON MAN', 'NEVER SITS', 'ALWAYS IN']
-
-function outsToIp(outs: number): string {
-  return `${Math.floor(outs / 3)}.${outs % 3}`
-}
 
 export function buildStreakRows(rows: StreakRow[], kind: 'hitting' | 'hitless' | 'scoreless' | 'gamesPlayed'): PlayerLbRow[] {
   if (!rows.length) return []

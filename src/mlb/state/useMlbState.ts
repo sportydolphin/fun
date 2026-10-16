@@ -8,11 +8,8 @@ import {
 import {
   loadPrefsFromSupabase, savePrefsToSupabase,
   getLocalFollowedTeamId, setLocalFollowedTeamId, getLocalFollowedPlayerIds,
-  loadRecentSearchesFromSupabase, saveRecentSearchesToSupabase,
 } from '../storage/prefs'
-import {
-  RecentSearchItem, getLocalRecentSearches, setLocalRecentSearches, mergeRecent,
-} from '../storage/recentSearches'
+import { useMlbRecents } from '../storage/recentSearches'
 import {
   HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS,
   DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS,
@@ -235,20 +232,9 @@ export function useMlbState() {
   }, [])
 
   // ─── Recent searches (localStorage + cross-device sync when signed in) ────────
-  const [recentSearches, setRecentSearches] = useState<RecentSearchItem[]>(getLocalRecentSearches)
-
-  const addRecentSearch = useCallback((item: RecentSearchItem) => {
-    setRecentSearches(prev => {
-      const next = mergeRecent(prev, item)
-      setLocalRecentSearches(next)
-      return next
-    })
-  }, [])
-
-  const clearRecentSearches = useCallback(() => {
-    setRecentSearches([])
-    setLocalRecentSearches([])
-  }, [])
+  const {
+    items: recentSearches, record: addRecentSearch, clear: clearRecentSearches,
+  } = useMlbRecents(user?.id ?? null)
 
   // ─── Supabase: load prefs on login ────────────────────────────────────────────
   // When a user logs in, pull their preferences. If they have a row, apply it and
@@ -275,18 +261,6 @@ export function useMlbState() {
         savePrefsToSupabase(uid, followedTeamId, followedPlayerIds)
       }
     })
-
-    // Recent searches sync separately so a missing column can't break the above.
-    loadRecentSearchesFromSupabase(uid).then(remote => {
-      if (remote && remote.length > 0) {
-        setRecentSearches(remote)
-        setLocalRecentSearches(remote)
-      } else {
-        // Nothing stored server-side yet, so seed it from whatever's local.
-        const local = getLocalRecentSearches()
-        if (local.length > 0) saveRecentSearchesToSupabase(uid, local)
-      }
-    })
   }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Supabase: sync prefs on change (when logged in) ─────────────────────────
@@ -300,19 +274,6 @@ export function useMlbState() {
     }, 800)
     return () => { if (syncTimerRef.current) clearTimeout(syncTimerRef.current) }
   }, [user?.id, followedTeamId, followedPlayerIds])
-
-  // ─── Supabase: sync recent searches on change (when logged in) ────────────────
-  const recentSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const recentSyncSkipRef = useRef(true)  // skip the first run (freshly loaded, no change)
-  useEffect(() => {
-    if (!user?.id) return
-    if (recentSyncSkipRef.current) { recentSyncSkipRef.current = false; return }
-    if (recentSyncTimerRef.current) clearTimeout(recentSyncTimerRef.current)
-    recentSyncTimerRef.current = setTimeout(() => {
-      saveRecentSearchesToSupabase(user.id, recentSearches)
-    }, 800)
-    return () => { if (recentSyncTimerRef.current) clearTimeout(recentSyncTimerRef.current) }
-  }, [user?.id, recentSearches])
 
   // ─── View & navigation ────────────────────────────────────────────────────────
   // The address this section was landed on, read once, and every initial value below comes from

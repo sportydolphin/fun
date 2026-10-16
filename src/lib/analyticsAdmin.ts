@@ -394,12 +394,8 @@ export function trimLeadingEmpty<T extends { events: number }>(series: T[]): T[]
   return first <= 0 ? series : series.slice(first)
 }
 
-/** "Aug 5" — a compact axis/row label from a YYYY-MM-DD date, parsed without a TZ shift. */
-export function shortDate(iso: string): string {
-  const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
-  return new Date(y, (m ?? 1) - 1, d ?? 1)
-    .toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-}
+// The admin pages and their tests import it from here.
+export { shortDate } from './format'
 
 /** `wpbl_player_opened` → "Wpbl player opened", so the events table reads as prose. */
 export function prettyEvent(name: string): string {

@@ -14,11 +14,9 @@ import { CARD_BORDER, ICON_SIZE, MICRO_TEXT, TYPE_SCALE, TextGhost } from './car
 import { hoverOnly, FOCUS_RING } from './interaction'
 import { chromePx, typePx } from './scale'
 import { NameText } from './NameText'
+import { isModified } from '../nav'
 
 /** Modified clicks are left to the browser, so open-in-new-tab works on an internal link. */
-const isModified = (e: React.MouseEvent) =>
-  e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
-
 /** Which side of the page. 'a' is always the left column and the first player in the URL. */
 export type CompareSide = 'a' | 'b'
 

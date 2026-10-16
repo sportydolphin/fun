@@ -1,3 +1,4 @@
+import { ordinal } from '../../lib/format.ts'
 /**
  * "Call the Play": turns a real plate appearance from the league's play-by-play into a
  * multiple-choice question.
@@ -132,9 +133,6 @@ export function isTriviaCandidate(play: TriviaPlay): boolean {
   if (play.inning == null || play.outs == null) return false
   return true
 }
-
-const ORDINALS = ['0th', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th']
-const ordinal = (n: number) => ORDINALS[n] ?? `${n}th`
 
 /** Runners, named, because "runner on second" is a situation and "Caitlin Eynon on second" is
  *  a story. Empty strings rather than nulls are how the feed says "nobody there". */

@@ -37,13 +37,14 @@ import { useSectionScroll } from '../lib/sectionScroll'
 import { type BoardPlace } from './derive/seasonValue'
 import { fmtRunValue } from '../league/runExpectancy'
 import {
-  statTip, gamePosition, type Role, RankProgress, FieldingLine, MatchupTable, shortDate, CompareChip,
+  statTip, gamePosition, type Role, RankProgress, FieldingLine, MatchupTable, CompareChip,
   BAND_WASH, BAND_WASH_FLOOR, SENTENCE_W,
 } from './player/pieces'
 import { createBandStore, BandAwareEyebrow, useBandObserver } from './player/bandStore'
 import { usePlayerAwards, usePlayerLines, usePlayerMatchupPlays, useLeagueReads } from './player/usePlayerReads'
 import { usePlayerSeason } from './player/usePlayerSeason'
 import { ICON_SIZE, TYPE_SCALE } from '../ui/card'
+import { shortDate } from '../lib/format'
 
 
 // Player page: profile, season totals aggregated from box-score lines, where those totals sit

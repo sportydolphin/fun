@@ -29,6 +29,7 @@ import { useWpblSeason } from './SeasonContext'
 import { SeasonMenu } from './SeasonMenu'
 import { sectionAnchorId, useSectionScroll } from '../lib/sectionScroll'
 import { ICON_SIZE, TYPE_SCALE } from '../ui/card'
+import { ordinal } from '../lib/format'
 
 // A team's page: header + record, results, season batting/pitching totals, top hitters /
 // pitchers, and a roster with inline stats. Self-contained: fetches its own roster + box-score
@@ -1067,7 +1068,3 @@ function pitcherStats(t: WpblPitchingTotals | undefined, fmtEra: (v: number | nu
   ]
 }
 
-function ordinal(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd'], v = n % 100
-  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0])
-}

@@ -1,3 +1,4 @@
+import { ipToOuts, outsToIp } from '../league/innings'
 // Two MLB players side by side: StatsAPI lines in, rows out. Pure, no React, no fetch, so the
 // rules below are pinned by __tests__/compare.test.ts against recorded payloads.
 //
@@ -54,14 +55,6 @@ const rate3 = (v: number | null) => (v == null ? dash : v.toFixed(3).replace(/^0
 const two = (v: number | null) => (v == null ? dash : v.toFixed(2))
 const one = (v: number | null) => (v == null ? dash : v.toFixed(1))
 const pct = (v: number | null) => (v == null ? dash : `${(v * 100).toFixed(1)}%`)
-
-/** Outs from a "123.1"-style innings string. A local copy, like reportCardData's: playerProfile's
- *  comes with that module's fetches, and this file stays importable by the edge and the tests. */
-const ipToOuts = (ip: any): number => {
-  const [w, f] = String(ip ?? '0').split('.')
-  return (Number(w) || 0) * 3 + (Number(f) || 0)
-}
-const outsToIp = (outs: number) => `${Math.floor(outs / 3)}.${outs % 3}`
 
 /** One row with its leader decided. The null guard is the point: `(a ?? 0) > (b ?? 0)` would
  *  hand the tick to whoever has a number when the other has none. */

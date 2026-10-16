@@ -1,6 +1,6 @@
 import React from 'react'
 import { Box, Typography } from '@mui/material'
-import { navBack } from '../nav'
+import { navBack, isModified } from '../nav'
 import { TYPE_SCALE } from './card'
 import { hoverOnly, FOCUS_RING } from './interaction'
 import { panelShiftSx, useSidePanelOpen } from './ModalShell'
@@ -18,9 +18,6 @@ import { typePx } from './scale'
 //
 // Shared since Oct 9, 2026 (it was WPBL's alone), so the section's own parts come in as props:
 // where Back goes and what it says, and whether the title is the page's <h1>.
-
-const isModified = (e: React.MouseEvent) =>
-  e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
 
 export default function StandalonePage({ title, standfirst, maxWidth = '56.25rem', back, headingTag = 'h1', children }: {
   /** The page's own name, rendered as `headingTag`: its <h1>, or a <div> while a modal owns the
