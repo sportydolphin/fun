@@ -158,7 +158,8 @@ pg_cron) · GitHub Actions for cron · installable PWA · Cloudflare Pages at
   workflow, or integration. It is large: find the section with Grep, then read that part.
 - [ROADMAP-WPBL.md](ROADMAP-WPBL.md) for anything under `/wpbl` (the clock and the priority list);
   its dated shipped log is under [`docs/roadmap-log/`](docs/roadmap-log/), one file per month.
-  [ROADMAP.md](ROADMAP.md) is the MLB equivalent. [README.md](README.md) for scripts.
+  [ROADMAP.md](ROADMAP.md) is the MLB equivalent. [ROADMAP-UI.md](ROADMAP-UI.md) is the visual
+  overhaul (Apple Sports direction, designed in Figma first). [README.md](README.md) for scripts.
 - [docs/](docs/). Read the named one BEFORE touching what it guards: `CI.md` (`ci.yml`, test
   config, lint rules, the layout sweep), `ADMIN_ANALYTICS.md` (the `events` table, `admin_*` RPCs;
   its security section is what keeps analytics private), `WAR.md` (`derive/war.ts`,
