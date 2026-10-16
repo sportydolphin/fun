@@ -394,15 +394,15 @@ export function StatTable({ title, caption, part, row, league, reserveRanks, pla
           </Box>
           <Box component="tbody">
             <Box component="tr">
-              <Box component="td" sx={{ ...tdSx, ...LEAD_SX, borderTop: 'none', textAlign: 'left', fontWeight: 700 }}>{row.lead}</Box>
+              <Box component="td" sx={{ ...tdSx, ...LEAD_SX, ...ROW_TOP_SX, borderTop: 'none', textAlign: 'left', fontWeight: 700 }}>{row.lead}</Box>
               {row.cols.map(c => {
                 const lit = !placeholder && !c.pending && c.rank != null
                 return (
-                  <Box component="td" key={c.label} sx={{ ...tdSx, borderTop: 'none', fontWeight: 700, ...(lit ? { color: ink, fontWeight: 800 } : {}) }}>
+                  <Box component="td" key={c.label} sx={{ ...tdSx, ...ROW_TOP_SX, borderTop: 'none', fontWeight: 700, ...(lit ? { color: ink, fontWeight: 800 } : {}) }}>
                     {placeholder || c.pending ? <FigureBar sample={c.value} /> : c.value}
                     {ranked && (
                       <Box sx={{ ...TYPE.micro, lineHeight: 1.3, color: lit ? ink : 'text.secondary', ...(lit ? { fontWeight: 800 } : {}) }}>
-                        {lit && c.rank ? <RankText onRank={c.onRank} label={c.label} rank={c.rank} /> : ' '}
+                        {lit && c.rank ? <RankText onRank={c.onRank} label={c.label} rank={c.rank} /> : ' '}
                       </Box>
                     )}
                   </Box>
@@ -427,6 +427,12 @@ export function StatTable({ title, caption, part, row, league, reserveRanks, pla
     </Box>
   )
 }
+
+/** ONE LINE OF FIGURES, ranked or not. The rank line under a figure makes its cell a line taller,
+ *  and a table cell centres its content, so a ranked figure sat half a line above its neighbours.
+ *  Every cell starts at the top, and the rank line is a non-breaking space where there is no rank:
+ *  a plain space collapses to nothing, which is how the two came apart. */
+const ROW_TOP_SX = { verticalAlign: 'top' } as const
 
 /** The lead column, pinned while the row scrolls under it. Opaque, or the figures scroll through
  *  the label, with room on its right so a figure scrolling in does not touch it. */

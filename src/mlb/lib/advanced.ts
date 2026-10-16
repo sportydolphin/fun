@@ -182,3 +182,50 @@ export const ADVANCED_ORDER: Record<'hitting' | 'pitching', readonly string[]> =
   hitting: ['pa', 'bbPct', 'kPct', 'avg', 'obp', 'slg', 'ops', 'opsPlus', 'iso', 'xbh', 'babip', 'sbPct', 'woba', 'wrcPlus'],
   pitching: ['ip', 'bf', 'so9', 'kbb', 'hr9', 'kPct', 'bbPct', 'kbbPct', 'strikePct', 'whip', 'babip', 'eraPlus', 'era', 'fip'],
 }
+
+/**
+ * The player card's League avg row: every rate on the card's tables, keyed by the column's label and
+ * formatted as the card prints the player's. The slash line, ERA and WHIP are the Stats table's own
+ * league line (`leagueLine`), everything else `advancedLeague`, so the card and the table agree.
+ *
+ * WHAT HAS NO LEAGUE FIGURE HERE: the Statcast expected stats (xBA, xSLG, xwOBA), which StatsAPI
+ * reports per player only. A count has none on purpose: an average count beside one player's season
+ * is a figure about how many players there are.
+ */
+export function cardLeagueFigures(
+  entries: LeaderboardEntry[], group: 'hitting' | 'pitching',
+  base: Record<string, string> | null,
+  saber: Map<number, Sabermetric> | null,
+  swings: { misses: number; swings: number } | null,
+): Record<string, string> {
+  const adv = advancedLeague(entries, group, saber)
+  const out: Record<string, string> = {}
+  const put = (label: string, v: number | undefined, f: (v: number) => string) => { if (v != null && Number.isFinite(v)) out[label] = f(v) }
+  const three = (v: number) => fmtDecimal(v, 3)
+  const two = (v: number) => fmtDecimal(v, 2)
+  const pct = (v: number) => `${(v * 100).toFixed(1)}%`
+  const whiff = swings && swings.swings > 0 ? swings.misses / swings.swings : undefined
+  if (group === 'hitting') {
+    for (const [label, key] of [['AVG', 'avg'], ['OBP', 'obp'], ['SLG', 'slg'], ['OPS', 'ops']] as const) if (base?.[key]) out[label] = base[key]
+    put('wOBA', adv.woba, three)
+    put('wRC+', adv.wrcPlus, v => String(Math.round(v)))
+    put('OPS+', adv.opsPlus, v => String(Math.round(v)))
+    put('ISO', adv.iso, three)
+    put('BABIP', adv.babipCalc, three)
+    put('K%', adv.kPct, pct)
+    put('BB%', adv.bbPct, pct)
+    put('Whiff%', whiff, pct)
+    return out
+  }
+  for (const [label, key] of [['ERA', 'era'], ['WHIP', 'whip']] as const) if (base?.[key]) out[label] = base[key]
+  // FanGraphs centres FIP and xFIP on the league's ERA, and ERA- on 100.
+  put('FIP', adv.fip, two)
+  put('xFIP', adv.fip, two)
+  put('ERA-', 100, v => String(v))
+  put('K%', adv.kPct, pct)
+  put('BB%', adv.bbPct, pct)
+  put('K-BB%', adv.kbbPct, pct)
+  put('BABIP', adv.babipCalc, three)
+  put('Whiff%', whiff, pct)
+  return out
+}
