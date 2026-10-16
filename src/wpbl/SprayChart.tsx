@@ -235,12 +235,10 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
         ))}
       </Box>
 
-      {/* THE PICTURE AND THE NUMBERS, SIDE BY SIDE ON A DESKTOP.
-
-      A chart capped at 460px and centred inside a 1,080px card leaves most of the block
-      empty, and the only place to read a small zone is the 11px label inside it. A list
-      beside it fixes both at once: the space is used, and every zone has a figure in
-      ordinary type that does not depend on the wedge being big enough to hold one.
+      {/* THE PICTURE, AND BESIDE IT ON A DESKTOP WHAT THE PICTURE CANNOT SAY: pull / centre /
+      oppo and how many balls it is made of. There used to be a bar per zone here too, which put
+      every zone's share on the page twice, a few inches apart, beside the wedges already printing
+      it; the field is the one place those figures are read.
 
       It stacks below `md`, where the card is a sheet and there is no width to share. */}
       <Box sx={{
@@ -334,7 +332,6 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
         })}
       </Box>
 
-      {/* The breakdown. Busiest zone first, which is the order a reader asks for it in. */}
       <Box sx={{ flex: { md: '0 0 auto' }, width: { md: chromePx(210) }, minWidth: 0 }}>
         {/* WHERE THE MISSING FIGURE IS, rather than in the note at the foot of the card. "Pull"
         is defined by which box the batter stood in, and the feed records a switch hitter's
@@ -359,30 +356,6 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
             ))}
           </Box>
         )}
-        {/* Beside the field only. Below `md` the list stacks directly under the chart and repeats,
-            zone for zone, the percentages already printed on it, one scroll away from the picture
-            it duplicates. The Pull tiles and the count stay: neither is on the field. */}
-        <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-        {profile.zones
-          .filter(z => valueOf(z, mode) > 0)
-          .sort((a, b) => valueOf(b, mode) - valueOf(a, mode))
-          .map(z => {
-            const n = valueOf(z, mode)
-            return (
-              <Box key={z.zone} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, py: 0.25 }}>
-                <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, width: chromePx(26), flexShrink: 0, color: 'text.secondary' }}>
-                  {z.zone}
-                </Typography>
-                <Box sx={{ flex: 1, height: 4, borderRadius: 999, bgcolor: 'action.hover', overflow: 'hidden', minWidth: 0 }}>
-                  <Box sx={{ width: `${(n / max) * 100}%`, height: '100%', bgcolor: heat }} />
-                </Box>
-                <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
-                  {pct(n)}
-                </Typography>
-              </Box>
-            )
-          })}
-        </Box>
         {/* THE DENOMINATOR, because the field shows shares and a share with no count behind it
             cannot be judged: 100% of one ball and 44% of thirty-two look equally confident. */}
         <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 0.75, display: 'block' }}>

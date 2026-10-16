@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, Skeleton, useMediaQuery } from '@mui/material'
 import { plateAppearances, fmtRate, fmtTwo } from './stats'
 import { scopedLines, inSeason, seasonsPlayed, latestSeason, gamesInSeason, type SeasonScope } from './season'
-import { COUNT_RANK_BAR, COUNT_RANK_MIN_FIELD, type WpblStatRank } from './percentiles'
+import { COUNT_RANK_MIN_FIELD, type WpblStatRank } from './percentiles'
 import { useEraBasis } from './EraBasisContext'
 import { wpblAccent, wpblColor, wpblSecondary, wpblFullName, outsToIp } from './constants'
 import { ModalShell, AfterShellEnters, PlayerPortrait, CopyLinkButton, SegNav, chromePx, hoverOnly, CARD_BORDER } from './ui'
@@ -13,8 +13,8 @@ import { WpblVisuallyHiddenH1 } from './PageHeading'
 import { PLAYER_PAGE_W } from './layoutWidths'
 import { SectionHead, useRankInk } from './cardParts'
 import {
-  StatCardContext, SeasonPicker, LineCaption, SeasonLine, RateStrip, ValueStrip, FormStrip, CameoBlock, StatLogTable,
-  PlayerBand, BandBadge, BandChips, BAND_CHIP_SX, BATTING_BEST, PITCHING_BEST, LOG_PREVIEW, CARD_SECTION_SX, type StatCardEnv,
+  StatCardContext, SeasonPicker, LineCaption, SeasonLine, RateStrip, ValueStrip, CameoBlock, StatLogTable,
+  PlayerBand, BandBadge, BandChips, BAND_CHIP_SX, type BandFact, BATTING_BEST, PITCHING_BEST, LOG_PREVIEW, CARD_SECTION_SX, type StatCardEnv,
 } from '../ui/playerCard'
 import SwipeableViews from './SwipeableViews'
 import { WrittenAbout } from './Reading'
@@ -25,7 +25,7 @@ import { PitchLocationCard } from './PitchLocation'
 import SprayChart from './SprayChart'
 import PitchProfileBlock from './PitchProfile'
 import { isBattedBall } from './api'
-import { displayPosition } from './positions'
+import { displayPosition, positionName } from './positions'
 import { wpblPlayerShortPath, WPBL_AWARDS_PATH } from './routes'
 import { playerMatchups, playerPlayIds } from './derive/matchups'
 import { EmojiEvents } from '@mui/icons-material'
@@ -38,7 +38,7 @@ import { type BoardPlace } from './derive/seasonValue'
 import { fmtRunValue } from '../league/runExpectancy'
 import {
   statTip, gamePosition, type Role, RankProgress, FieldingLine, MatchupTable, CompareChip,
-  BAND_WASH, BAND_WASH_FLOOR, SENTENCE_W,
+  BAND_WASH, BAND_WASH_FLOOR, SENTENCE_W, CARD_RANK_BAR,
 } from './player/pieces'
 import { createBandStore, BandAwareEyebrow, useBandObserver } from './player/bandStore'
 import { usePlayerAwards, usePlayerLines, usePlayerMatchupPlays, useLeagueReads } from './player/usePlayerReads'
@@ -250,14 +250,14 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
 
   const {
     bt, pt, ft, battingLog, pitchingLog, hasPostseason, hasBatting, hasPitching, hasSeasonBatting, hasSeasonPitching,
-    hasFielding, fieldedPositions, ranks, valueOn, myValue, ranksPending, batRankPool, pitRankPool,
+    hasFielding, fieldedPositions, ranks, valueOn, myValue, ranksPending,
     pitcherFirst, battingCameo, pitchingCameo, twoWay, battingMeta, pitchingMeta,
   } = usePlayerSeason({ player, players, teams, games, seasonGames, season, career, scope, batting, pitching, fielding, leagueLines, eraBasis, thisSeason })
   const ink = useRankInk()
   // What the shared card parts need from this section: its stat definitions as tooltips, its rank
-  // blue, and its top-five bar.
+  // blue, and the bar a rank has to clear to be printed (see CARD_RANK_BAR).
   const cardEnv = useMemo<StatCardEnv>(
-    () => ({ tip: k => statTip(k, eraBasis), ink, rankBar: COUNT_RANK_BAR }),
+    () => ({ tip: k => statTip(k, eraBasis), ink, rankBar: CARD_RANK_BAR }),
     [eraBasis, ink])
 
 
@@ -291,20 +291,16 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   // side matches, so the label would fall through to naming the player's own team and the row
   // would read "@ NY" for a game played for New York. The line always knows; the roster row only
   // knows now.
-  const oppLabel = (gameId: string, lineTeam: string | null): { date: string; text: string; short: string } => {
+  const oppLabel = (gameId: string, lineTeam: string | null): { date: string; text: string } => {
     const g = gameById.get(gameId)
-    if (!g) return { date: '', text: '', short: '' }
+    if (!g) return { date: '', text: '' }
     const forTeam = lineTeam ?? player.team_id
     const isHome = g.home_team_id === forTeam
     const oppId = isHome ? g.away_team_id : g.home_team_id
     const opp = teamById.get(oppId)
     const date = shortDate(g.game_date)
     const abbr = opp?.abbr ?? oppId
-    // `short` is the same fact with the spaces squeezed out, for the band's form strip, which
-    // is competing for width with the name beside it rather than sitting in a table column.
-    // Home is unmarked and away carries the '@', which is the shortest spelling that still
-    // says which it was.
-    return { date, text: `${isHome ? 'vs' : '@'} ${abbr}`, short: `${isHome ? '' : '@'}${abbr}` }
+    return { date, text: `${isHome ? 'vs' : '@'} ${abbr}` }
   }
 
   // The lead columns of one game-log row, plus what tapping it does. Every log builds its
@@ -337,18 +333,6 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
       return db.localeCompare(da)
     })
 
-  // The band's form strip: the last few games for whichever role is on screen, oldest first.
-  // Reversed off `newestFirst` rather than sorted again, so the two can never disagree about
-  // which game is the most recent (a doubleheader shares a date, and only a stable sort of the
-  // same list keeps them in the same relative order in both places).
-  const FORM_GAMES = 5
-  const formGames = (r: Role): { opp: string; value: string }[] =>
-    r === 'pitching'
-      ? newestFirst(pitchingLog).slice(0, FORM_GAMES).reverse()
-        .map(l => ({ opp: oppLabel(l.game_id, l.team_id).short, value: outsToIp(l.outs) }))
-      : newestFirst(battingLog).slice(0, FORM_GAMES).reverse()
-        .map(l => ({ opp: oppLabel(l.game_id, l.team_id).short, value: `${l.h}-${l.ab}` }))
-
   // Posts naming this player: the ones whose headline names them first (the profiles), then the
   // rest, each newest first. See aboutPlayerFirst.
   const writtenAbout = useMemo(
@@ -356,12 +340,37 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     [articles, player.id, player.name])
 
   // The position she has actually been playing, which is not always the one on the roster.
-  // `overridden` puts the filed one alongside rather than dropping it: a reader who knows her
-  // as the club's catcher should not have to wonder whether we lost her.
   const pos = displayPosition(player.position, batting, games)
+  // THE META LINE IN WORDS. It was "#3 · CF · listed RHP · B/T R/R · 28 yrs", five codes in a row,
+  // and "listed RHP" read as a note about our data rather than a fact about the player. What that
+  // phrase was protecting is kept: a two-way player whose filed position is the mound says so as a
+  // second position ("Center field / Pitcher"), and anyone else the season has moved still names
+  // the listing, so a reader who knows her as the club's catcher does not wonder whether we lost her.
+  const played = positionName(pos.label)
+  const filed = pos.overridden ? positionName(pos.official) : null
+  const posText = !played ? null
+    : !filed || filed === played ? played
+      : twoWay ? `${played} / ${filed}`
+        : `${played} (listed ${filed.toLowerCase()})`
+  const hands = [player.bats ? `Bats ${player.bats}` : null, player.throws ? `throws ${player.throws}` : null].filter(Boolean).join(', ')
   // Uniform number leads the meta line when the roster carries one (69 of 118 do). It is a
   // fact of identity a reader looks for first, so it goes ahead of position and handedness.
-  const subParts = [player.jersey_number ? `#${player.jersey_number}` : null, pos.label, pos.overridden && pos.official ? `listed ${pos.official}` : null, [player.bats, player.throws].filter(Boolean).join('/') ? `B/T ${player.bats || '-'}/${player.throws || '-'}` : null, player.age != null ? `${player.age} yrs` : null].filter(Boolean)
+  const subParts = [
+    player.jersey_number ? `#${player.jersey_number}` : null,
+    posText,
+    hands ? hands.charAt(0).toUpperCase() + hands.slice(1) : null,
+    player.age != null ? `Age ${player.age}` : null,
+  ].filter(Boolean)
+  // The facts with a label. On a phone they are the lines under the meta, as before; on a wide
+  // card they take the band's right-hand side, where the form strip used to repeat the top of the
+  // game log. A draft slot on its own ("Round 1, Pick 1") read as a stray line, so it says what it is.
+  const draft = player.draft_round
+    ? `Round ${player.draft_round}${player.draft_pick ? `, pick ${player.draft_pick}` : ''}`
+    : null
+  const facts: BandFact[] = [
+    ...(player.hometown ? [{ label: 'Hometown', value: player.hometown }] : []),
+    ...(draft ? [{ label: 'Drafted', value: draft, inline: `Drafted ${draft.charAt(0).toLowerCase()}${draft.slice(1)}` }] : []),
+  ]
 
   // ── the two panes ──────────────────────────────────────────────────────────
 
@@ -375,10 +384,13 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
    */
   const countRank = (rs: WpblStatRank[] | undefined, key: string): WpblStatRank | null => {
     const r = rs?.find(x => x.key === key)
-    return r && r.of >= COUNT_RANK_MIN_FIELD && r.rank <= COUNT_RANK_BAR && r.value > 0 ? r : null
+    return r && r.of >= COUNT_RANK_MIN_FIELD && r.rank <= CARD_RANK_BAR && r.value > 0 ? r : null
   }
-  const rateRank = (rs: WpblStatRank[] | undefined, key: string): WpblStatRank | null =>
-    rs?.find(x => x.key === key) ?? null
+  /** A rate's rank, at the same bar: a 9th of 16 under an ERA is a verdict, not a fact worth ink. */
+  const rateRank = (rs: WpblStatRank[] | undefined, key: string): WpblStatRank | null => {
+    const r = rs?.find(x => x.key === key)
+    return r && r.rank <= CARD_RANK_BAR ? r : null
+  }
 
   /**
    * A printed rank opens the league table it was taken from, sorted by that stat, with this player
@@ -407,10 +419,8 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   const headline = (r: Role) => {
     // A count's place in the whole field, as a rate's is in the qualified one. Nothing for a zero,
     // which is not a place.
-    const countCell = (label: string, value: number, rs: WpblStatRank[] | undefined, key: string) => {
-      const rk = rs?.find(x => x.key === key)
-      return { label, value: String(value), rank: rk && value > 0 ? rk : null }
-    }
+    const countCell = (label: string, value: number, rs: WpblStatRank[] | undefined, key: string) =>
+      ({ label, value: String(value), rank: countRank(rs, key) })
     return r === 'pitching' ? [
       leadsWithSaves ? countCell('SV', pt.s, ranks?.pitchingCounts, 'c_s') : { label: 'W-L', value: `${pt.w}-${pt.l}` },
       { label: 'ERA', value: fmtEra(pt.era), rank: rateRank(ranks?.pitching, 'era') },
@@ -423,11 +433,9 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
       { label: 'OPS', value: fmtRate(bt.ops), rank: rateRank(ranks?.batting, 'ops') },
     ]
   }
-  /** A rate in the standard line, ranked only at the counting bar: "1st" under OBP, never "9th". */
-  const lineRate = (label: string, value: string, rs: WpblStatRank[] | undefined, key: string) => {
-    const rk = rs?.find(x => x.key === key)
-    return { label, value, rank: rk && rk.rank <= COUNT_RANK_BAR ? rk : null }
-  }
+  /** A rate in the standard line, ranked only at the card's bar: "1st" under OBP, never "9th". */
+  const lineRate = (label: string, value: string, rs: WpblStatRank[] | undefined, key: string) =>
+    ({ label, value, rank: rateRank(rs, key) })
 
   const rateHead = (r: Role) => (
     <Box sx={{ mb: 1.5 }}>
@@ -485,23 +493,27 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
    *  player the board does not list, which is a season with no plate appearance on that side. */
   const valueStrip = (r: Role) => {
     if (!valueOn) return null
-    const cell = (label: string, p: BoardPlace | null | undefined, digits: 1 | 2, sample: string, term?: string) => ({
-      label, term, value: myValue ? (p ? fmtRunValue(p.value, digits) : '—') : sample, rank: p ?? null,
+    const cell = (label: string, p: BoardPlace | null | undefined, digits: 1 | 2, sample: string, term: string) => ({
+      label, term, value: myValue ? (p ? fmtRunValue(p.value, digits) : '—') : sample,
+      rank: p && p.rank <= CARD_RANK_BAR ? p : null,
     })
-    // ONE SIDE, SAID SO WHEN THERE ARE TWO. The Stats table's WPA is both sides added, as its WAR
-    // is, so for a player with a line on each side this figure is not that one: it takes the
-    // table's own "Pos WAR" / "Pit WAR" form. From the lines, so the label is right on first paint.
+    // IN WORDS, NOT "Pit WPA" AND "BsR". These are the site's own reads of the play log, the two
+    // figures on the card a reader is least likely to know, and a pair of abbreviations under the
+    // table read as more numbers rather than as a claim. The tooltip still carries the term.
+    // ONE SIDE, SAID SO WHEN THERE ARE TWO: the Stats table's WPA is both sides added, so for a
+    // player with a line on each side this figure is not that one. From the lines, so the label is
+    // right on first paint.
     const split = hasSeasonBatting && hasSeasonPitching
     const cells = r === 'pitching'
-      ? [cell(split ? 'Pit WPA' : 'WPA', myValue?.wpaPitching, 2, '+0.00', 'WPA')]
-      : [cell(split ? 'Bat WPA' : 'WPA', myValue?.wpaHitting, 2, '+0.00', 'WPA'), cell('BsR', myValue?.bases, 1, '+0.0')]
+      ? [cell(split ? 'Wins added pitching' : 'Wins added', myValue?.wpaPitching, 2, '+0.00', 'WPA')]
+      : [cell(split ? 'Wins added batting' : 'Wins added', myValue?.wpaHitting, 2, '+0.00', 'WPA'), cell('Baserunning runs', myValue?.bases, 1, '+0.0', 'BsR')]
     return <ValueStrip cells={cells} placeholder={!myValue} />
   }
 
   const battingPane = {
     hasLog: battingLog.length > 0,
     /** Between the season line and the log: how the season was hit, from every pitch seen. */
-    profile: <PitchProfileBlock player={player} side="batting" players={players} teams={teams} games={games} season={career ? null : season} scope={scope} rankPool={batRankPool} accent={color} />,
+    profile: <PitchProfileBlock player={player} side="batting" players={players} teams={teams} games={games} season={career ? null : season} scope={scope} accent={color} />,
     /** Under the profile: her line against every pitcher she has faced. */
     matchups: <MatchupTable player={player} side="batting" lines={matchups?.vsPitchers ?? []} players={players} scope={scope} accent={color} />,
     line: (scopeControl?: React.ReactNode) => (
@@ -514,9 +526,9 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
             zero. The less-read columns follow the rates once they have happened, in
             Baseball-Reference's order. NO TOTAL BASES: SLG is it divided by at-bats, and it is still
             ranked, so a total-bases lead still reaches the card through the counting ranks.
-            A stat in the headline keeps its rank there and not here, so no figure is ranked twice.
+            A stat in the headline is drawn there and SeasonLine leaves it out here, at every width.
             SO carries no rank, ever: second in the league in strikeouts is not an achievement. */}
-        <SeasonLine ranksPending={ranksPending} headline={headline('batting').map(c => c.label)} cols={linkRanks('batting', [
+        <SeasonLine ranksPending={ranksPending} reserveRanks headline={headline('batting').map(c => c.label)} cols={linkRanks('batting', [
           { label: 'G', value: bt.g },
           { label: 'AB', value: bt.ab },
           { label: 'R', value: bt.r, rank: countRank(ranks?.battingCounts, 'c_r') },
@@ -588,7 +600,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   const pitchingPane = {
     hasLog: pitchingLog.length > 0 || seasonPitchLocs.length > 0,
     /** Between the season line and the log: how the season was pitched, from every pitch thrown. */
-    profile: <PitchProfileBlock player={player} side="pitching" players={players} teams={teams} games={games} season={career ? null : season} scope={scope} rankPool={pitRankPool} accent={color} />,
+    profile: <PitchProfileBlock player={player} side="pitching" players={players} teams={teams} games={games} season={career ? null : season} scope={scope} accent={color} />,
     /** Under the profile: what every batter she has faced did against her. */
     matchups: <MatchupTable player={player} side="pitching" lines={matchups?.vsBatters ?? []} players={players} scope={scope} accent={color} />,
     line: (scopeControl?: React.ReactNode) => (
@@ -600,7 +612,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
             saying how hard the innings were, which the counting stats cannot (they say what was given
             up). Batters faced is not a column, being very nearly innings times three plus the
             baserunners already itemised; `pt.bf` is still read, by the role rule in positions.ts. */}
-        <SeasonLine ranksPending={ranksPending} headline={headline('pitching').map(c => c.label)} cols={linkRanks('pitching', [
+        <SeasonLine ranksPending={ranksPending} reserveRanks headline={headline('pitching').map(c => c.label)} cols={linkRanks('pitching', [
           { label: 'W', value: pt.w, rank: countRank(ranks?.pitchingCounts, 'c_w') },
           { label: 'L', value: pt.l },
           { label: 'ERA', value: fmtEra(pt.era) },
@@ -707,7 +719,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
             <Box aria-hidden sx={{ visibility: 'hidden' }}>{scopeNav}</Box>,
             r === 'pitching' ? '' : <Skeleton variant="text" sx={{ display: 'inline-block', width: '3.5em' }} />)}
           <Box sx={{ mb: 1.5 }}><RateStrip cells={head} placeholder /></Box>
-          <SeasonLine cols={lineCols} headline={head.map(c => c.label)} placeholder />
+          <SeasonLine cols={lineCols} headline={head.map(c => c.label)} placeholder reserveRanks />
           {valueStrip(r)}
         </>
       ),
@@ -741,10 +753,6 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   )
 
   const showTabs = twoWay
-  // The band only takes the hero once there is a hero to take: not while the lines are still
-  // in flight, and never for a fielding-only cameo, whose empty batting totals would put a
-  // .000 OPS on the card as though it were a fact about her.
-  const showBandHero = !loading && (hasBatting || hasPitching)
   // The pager's index space, primary role first. A two-way player gets both panes; everyone
   // else gets exactly one, which is what keeps a lone unswitchable pill off the page. A
   // one-panel pager is not a special case: it simply has no neighbour to reach, so a sideways
@@ -862,14 +870,10 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
       nameAs="h1"
       badge={twoWay ? <BandBadge>Two-way</BandBadge> : undefined}
       meta={subParts.length > 0 ? subParts.join(' · ') : undefined}
-      // 0.75 alpha (PlayerBand's default): the band carries a strong club hue, and at 0.62 these two
-      // lines fall to 3.7:1 over New York's sky blue. They are the smallest text on the card and
-      // the first thing a stronger wash costs. Separate FACTS: the draft line shows for a player
-      // with no hometown on file.
-      lines={[
-        ...(player.hometown ? [player.hometown] : []),
-        ...(player.draft_round ? [`Round ${player.draft_round}, Pick ${player.draft_pick}`] : []),
-      ]}
+      // 0.75 alpha (PlayerBand's default) for the phone's lines and the wide card's labels: the band
+      // carries a strong club hue, and at 0.62 they fall to 3.7:1 over New York's sky blue. Separate
+      // FACTS: the draft line shows for a player with no hometown on file.
+      facts={facts}
       // THE FAN AWARDS THIS PLAYER WON, as a seal under the facts rather than a card further down: it
       // is a fact about the player, it outlasts the season, and a card would put it below the fold on
       // a phone. A real link, so it is crawlable and opens in a new tab. Gold trophy on a light wash,
@@ -892,19 +896,6 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
           ))}
         </BandChips>
       ) : undefined}
-      // Fills the band's own slack, and takes the role on screen so a two-way player's form line
-      // follows the tab rather than contradicting the numbers beside it. Costs no height: the band's
-      // height is set by the 84px portrait. `roles[roleIndex]`, not `role`, so the two cannot fall
-      // out of step mid-swipe.
-      //
-      // NO HEADLINE RATES ON THE BAND. It can only ever show ONE role's numbers, and above `md` every
-      // role is drawn with its own rates as the first columns of its own season line. What the band
-      // keeps is what is true of the player rather than of a role. See desktopRoleBlock.
-      aside={showBandHero ? (() => {
-        const r = roles[roleIndex]
-        const g = formGames(r)
-        return <FormStrip title={`Last ${g.length} · ${r === 'pitching' ? 'IP' : 'H-AB'}`} games={g} />
-      })() : undefined}
     />
   )
   const band = bandBlock()

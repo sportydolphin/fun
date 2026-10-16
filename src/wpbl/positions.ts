@@ -297,3 +297,24 @@ export function leadsWithPitching(a: {
   if (/P/.test(a.position ?? '')) return true
   return a.gs > 0 && a.bf > a.pa * PITCHER_LEAD_EDGE
 }
+
+/** Each position code the roster or a box score writes, as words. */
+const POSITION_NAMES: Record<string, string> = {
+  p: 'Pitcher', sp: 'Pitcher', rp: 'Pitcher', rhp: 'Pitcher', lhp: 'Pitcher',
+  c: 'Catcher', '1b': 'First base', '2b': 'Second base', '3b': 'Third base', ss: 'Shortstop',
+  lf: 'Left field', cf: 'Center field', rf: 'Right field', of: 'Outfield',
+  if: 'Infield', inf: 'Infield', dh: 'Designated hitter', ut: 'Utility', utl: 'Utility',
+}
+
+/**
+ * A position as a reader says it: "CF" is "Center field", "RHP, UTL" is "Pitcher / Utility".
+ *
+ * For the player page's band, where a line of codes ("CF · listed RHP · B/T R/R") read as a data
+ * dump. A code this table does not know is kept as written rather than dropped, and two codes
+ * that mean the same place ("RHP" and "P") are said once.
+ */
+export function positionName(code: string | null | undefined): string | null {
+  const names = String(code ?? '').split(/[,/]/).map(t => t.trim()).filter(Boolean)
+    .map(t => POSITION_NAMES[t.toLowerCase()] ?? t.toUpperCase())
+  return names.length > 0 ? [...new Set(names)].join(' / ') : null
+}

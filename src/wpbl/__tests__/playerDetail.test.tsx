@@ -284,19 +284,21 @@ describe('PlayerDetail: what the tabs actually do', () => {
 })
 
 describe('PlayerDetail: fielding', () => {
-  // One line, shown whole, since Sep 28, 2026. It used to be a bordered panel that hid PO, A and
-  // DP behind a tap, a third frame style on the card to conceal four small figures.
-  it('shows the whole line under a heading, with nothing to open', async () => {
+  // A one-row table, shown whole, since Oct 2026: it was a run-on sentence of figures, and before
+  // that a bordered panel that hid PO, A and DP behind a tap.
+  it('shows the whole line as a table under a heading, with nothing to open', async () => {
     lines.batting = [bat({ ab: 30, h: 12, tb: 18 })]
     lines.fielding = [field({ po: 9, a: 10, e: 1, dp: 2 })]
     show(player())
 
     await waitFor(() => expect(battingShown()).toBe(true))
     expect(screen.getByText('Fielding')).toBeInTheDocument()
-    const line = screen.getByText(/FPCT/)
-    expect(line.textContent).toMatch(/1\u00a0error/)
-    expect(line.textContent).toMatch(/9\u00a0PO/)
-    expect(line.textContent).toMatch(/2\u00a0DP/)
+    const table = screen.getByText('FPCT').closest('table')!
+    const heads = Array.from(table.querySelectorAll('th')).map(th => th.textContent)
+    const cells = Array.from(table.querySelectorAll('td')).map(td => td.textContent)
+    const by = Object.fromEntries(heads.map((h, i) => [h, cells[i]]))
+    expect(by).toMatchObject({ E: '1', PO: '9', A: '10', DP: '2' })
+    expect(heads).not.toContain('PB')
     expect(screen.queryByRole('button', { name: /fielding/i })).not.toBeInTheDocument()
   })
 
@@ -332,18 +334,18 @@ describe('PlayerDetail: league ranks', () => {
   it('puts every rate rank under the rate it belongs to', async () => {
     lines.batting = [bat({ ab: 30, h: 12, tb: 18 })]
     show(player())
-    // A field of one, so she is 1st in every rate. The headline's two rates carry their field, at
-    // every width; OBP and SLG are columns of the standard line and carry the line's bare ordinal,
-    // each under its own column. AVG and OPS are ranked once, in the headline, not again below.
-    // The third is BsR's, in the strip under the line, which ranks her on the bases; waiting for
-    // all three is waiting for the card to finish loading.
-    await waitFor(() => expect(screen.getAllByText('1st of 1')).toHaveLength(3))
+    // A field of one, so she is 1st in every rate. Every rank is the bare place with its field in
+    // the tooltip: AVG and OPS in the headline, OBP and SLG under their own columns of the standard
+    // line, and BsR in the strip under it. Waiting for all five is waiting for the card to load.
+    await waitFor(() => expect(screen.getAllByTitle('1st of 1')).toHaveLength(5))
+    expect(screen.queryByText(/ of \d+$/)).not.toBeInTheDocument()
     const heads = Array.from(lineTable()?.querySelectorAll('th') ?? []).map(th => th.textContent)
     const ranksBy = Object.fromEntries(heads.map((h, i) => [h, rankRow()[i] ?? '']))
     expect(ranksBy.OBP).toBe('1st')
     expect(ranksBy.SLG).toBe('1st')
-    expect(ranksBy.AVG).toBe('')
-    expect(ranksBy.OPS).toBe('')
+    // In the headline, so not printed again in the line under it.
+    expect(heads).not.toContain('AVG')
+    expect(heads).not.toContain('OPS')
   })
 
   // Ranking someone with four trips to the plate would claim she is bad rather than that we do
@@ -355,7 +357,7 @@ describe('PlayerDetail: league ranks', () => {
     await waitFor(() => expect(battingShown()).toBe(true))
     expect(screen.getByText(/Toward qualifying/i)).toBeInTheDocument()
     expect(screen.getByText(/more PA to rank against qualified batters/i)).toBeInTheDocument()
-    expect(screen.queryByText('1st')).not.toBeInTheDocument()
+    expect(rankRow().every(c => !c.trim())).toBe(true)
   })
 
   // A COUNT is not subject to the objection the bar exists for, since a short sample can only
@@ -375,13 +377,14 @@ describe('PlayerDetail: league ranks', () => {
     expect(rankRow()).toContain('1st')
   })
 
-  // Most of the roster leads nothing, and a rank row of blanks is a row of nothing. Anything
-  // below the top-5 bar `bestCountingRanks` measured leaves its cell empty, and a row with no
-  // cell filled is not drawn, so most cards carry no rank row and no population line at all.
-  it('draws no rank row for a player who leads nothing', async () => {
+  // Most of the roster leads nothing. Anything below the card's top-three bar leaves its cell
+  // empty; the row itself is held open, blank, so the card is the height its loading state was
+  // and does not shrink when the ranks land (see SeasonLine's `reserveRanks`).
+  it('leaves the rank row blank for a player who leads nothing', async () => {
     showInLeague(player(), [bat({ ab: 4, h: 1, tb: 1 })])
     await waitFor(() => expect(battingShown()).toBe(true))
-    expect(rankRow()).toEqual([])
+    expect(rankRow().length).toBeGreaterThan(0)
+    expect(rankRow().every(c => !c.trim())).toBe(true)
   })
 
   // Strikeouts are the one column that must never carry a rank. Second in the league in
@@ -424,60 +427,18 @@ describe('PlayerDetail: league ranks', () => {
   })
 })
 
-// The band's form strip. Its ORDER is the thing worth a test: it is the one list on this page
-// that runs oldest-first, against a game log two columns away that runs newest-first, and both
-// are built from the same `newestFirst` helper. A reversal here is silent by construction,
-// because either order renders a plausible-looking row of five games, and the only reader who
-// would catch it is one who already knows how the last week went.
-describe('PlayerDetail: the form strip', () => {
-  // GAMES run g0 (Aug 1) to g9 (Aug 10), so the fixture's own chronology is the assertion.
-  const week = () => [
-    bat({ game_id: 'g5', ab: 4, h: 1 }),
-    bat({ game_id: 'g6', ab: 3, h: 0 }),
-    bat({ game_id: 'g7', ab: 5, h: 3 }),
-    bat({ game_id: 'g8', ab: 4, h: 2 }),
-    bat({ game_id: 'g9', ab: 4, h: 4 }),
-  ]
-
-  const stripValues = (container: HTMLElement) => {
-    const head = Array.from(container.querySelectorAll('*'))
-      .find(el => el.children.length === 0 && /^Last \d+ · /.test(el.textContent ?? ''))
-    // The heading's parent is the strip; the cells are the second child's children, each of
-    // which is an opponent over a value.
-    const cells = head?.parentElement?.lastElementChild
-    return Array.from(cells?.children ?? []).map(c => c.lastElementChild?.textContent ?? '')
-  }
-
-  it('runs oldest to newest, the opposite of the game log beside it', async () => {
-    lines.batting = week()
+// The game log runs newest first. Pinned because the order is a sort on the game's ISO date, and
+// the "Aug 13" label the row shows would sort August after April.
+describe('PlayerDetail: game log order', () => {
+  it('puts the newest game first', async () => {
+    lines.batting = [
+      bat({ game_id: 'g5', ab: 4, h: 1 }),
+      bat({ game_id: 'g9', ab: 4, h: 4 }),
+      bat({ game_id: 'g7', ab: 5, h: 3 }),
+    ]
     const { container } = show(player())
     await waitFor(() => expect(battingShown()).toBe(true))
-    // Aug 6 through Aug 10, in that order. The log's own first row is the newest, Aug 10.
-    expect(stripValues(container)).toEqual(['1-4', '0-3', '3-5', '2-4', '4-4'])
     expect(logRows(container)[0].textContent).toContain('Aug 10')
-  })
-
-  it('shows only the last five, keeping the most recent rather than the first played', async () => {
-    lines.batting = [bat({ game_id: 'g0', ab: 4, h: 4 }), ...week()]
-    const { container } = show(player())
-    await waitFor(() => expect(battingShown()).toBe(true))
-    const values = stripValues(container)
-    expect(values).toHaveLength(5)
-    expect(values[values.length - 1]).toBe('4-4')   // Aug 10, the newest
-    expect(values[0]).toBe('1-4')                    // Aug 6, not the Aug 1 game
-  })
-
-  it('follows the role tab for a two-way player', async () => {
-    lines.batting = week()
-    lines.pitching = [pit({ game_id: 'g9', outs: 12, so: 5 }), pit({ game_id: 'g8', outs: 9 })]
-    const { container } = show(player())
-    await waitFor(() => expect(battingShown()).toBe(true))
-    expect(screen.getByText(/Last \d+ · H-AB/)).toBeInTheDocument()
-    fireEvent.click(rolePills().find(el => el.textContent === 'Pitching')!)
-    await waitFor(() => expect(pitchingShown()).toBe(true))
-    expect(screen.getByText(/Last \d+ · IP/)).toBeInTheDocument()
-    // Innings, not outs: 12 outs is 4.0 IP and 9 is 3.0, oldest first.
-    expect(stripValues(container)).toEqual(['3.0', '4.0'])
   })
 })
 
@@ -511,20 +472,21 @@ describe('PlayerDetail: the headline pair on the club band', () => {
     expect(band(container).textContent).not.toContain('.800')
   })
 
-  // The form strip is the one thing on the band that IS per-role, and it stays, because five
-  // recent games is a shape rather than a statistic: it says how the last week went without
-  // claiming a season total.
-  it('still follows the role tab with the form strip', async () => {
-    // Both sides well clear of the cameo thresholds, or she gets no tabs to follow.
+  // The facts in words: the meta line was "#9 · RHP, UTL · B/T R/R · 24 yrs", and the band had a
+  // form strip repeating the top five rows of the game log. Neither survives.
+  it('says the facts in words, with no form strip', async () => {
     lines.batting = [bat({ game_id: 'g9', ab: 30, h: 12, tb: 18 })]
     lines.pitching = [pit({ game_id: 'g9', outs: 45, er: 5, h: 12, bb: 3, so: 20 })]
-    const { container } = show(player({ position: 'RHP, UTL' }))
+    const { container } = show(player({ position: 'RHP, UTL', hometown: 'Tulsa, Oklahoma', draft_round: 2, draft_pick: 7 }))
     await waitFor(() => expect(pitchingShown()).toBe(true))
 
-    expect(band(container).textContent).toContain('IP')
-    fireEvent.click(rolePills().find(p => p.textContent === 'Batting')!)
-    await waitFor(() => expect(band(container).textContent).toContain('H-AB'))
-    expect(band(container).textContent).not.toContain('IP')
+    const text = band(container).textContent ?? ''
+    expect(text).toContain('Pitcher / Utility')
+    expect(text).toContain('Age 24')
+    expect(text).toContain('Tulsa, Oklahoma')
+    expect(text).toContain('Drafted round 2, pick 7')
+    expect(text).not.toContain('B/T')
+    expect(text).not.toMatch(/Last \d+/)
   })
 
   // A defensive-only cameo has no batting line, so the pane's totals are all zeros. Putting a

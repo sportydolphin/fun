@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.168.0',
+    date:    '2026-10-16',
+    changes: [
+      {
+        short: 'Calmer WPBL player pages',
+        full:  "A player page no longer prints the same figures twice: the four big numbers at the top are left out of the stat line under them, at every width. A league rank now shows only for a top-three place, written as \"2nd\" with the size of the field on hover, and the pitch profile shows each rate against the league without a rank. Blue means a league rank and nothing else; a player's own best game in the log is bold with a dot under it. The header says the facts in words (\"Center field / Pitcher · Bats R, throws R · Age 28\") with the hometown and draft slot labelled, and the strip of the last five games, which repeated the top of the game log, is gone. Fielding is a small table, wins added and baserunning are named in words, and the spray chart drops the list that repeated its percentages.",
+      },
+    ],
+  },
+  {
     version: '1.167.3',
     date:    '2026-10-15',
     changes: [

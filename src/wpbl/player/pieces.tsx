@@ -8,7 +8,7 @@ import type { EraBasis } from '../stats'
 import { TapTip, chromePx, hoverOnly } from '../ui'
 import { SectionHead } from '../cardParts'
 import {
-  CARD_TYPE as TYPE, isZeroStat, ZERO_SX, bleedSx,
+  isZeroStat, ZERO_SX, bleedSx,
   useCollapsibleTable, ExpandToggle, thSx, tdSx, LOG_MAX_H, LOG_MAX_H_XS, TIP_Z,
 } from '../../ui/playerCard'
 import { STAT_TERMS, statFull, statPlain } from '../glossary'
@@ -135,25 +135,18 @@ export function RankProgress({ reason, have, need, unit, fmt, noun, color }: {
   )
 }
 
-/** A figure bound to its label, so a stat line that has to wrap can only break at a
- *  separator, and after it rather than before it: the space in front of a middot is a break
- *  opportunity too, and taking it leaves the next line beginning with a lone "·". Joined with
- *  `'\u00a0· '` for that reason. See the note on `positions` below for the letter this
- *  stopped orphaning. */
-const nbsp = (value: string | number, label: string): string => `${value}\u00a0${label}`
-
 /**
- * Fielding as a heading over one line of figures, at the foot of the card.
+ * Fielding as a heading over a one-row table, at the foot of the card.
  *
  * Over nine games a fielding percentage is almost entirely noise, and setting it as large as a
- * batting average would tell a reader it means as much as the slash line. So it is small, and it
- * is LAST among the stats: the least reliable number on the card comes after everything else.
+ * batting average would tell a reader it means as much as the slash line. So it is in the game
+ * log's small type, and it is LAST among the stats: the least reliable number on the card comes
+ * after everything else.
  *
- * ONE FORMAT FOR EVERYONE. It used to be two: a bordered panel with a club-coloured rule that
- * opened onto a grid of stat chips for a position player, and a bare inline line for a pitcher.
- * Both are now this, a section heading and a wrapping line, which is short enough to show whole:
- * the panel existed to hide PO, A and DP, and hiding four small figures cost a third frame style
- * on a card that already had too many. The line breaks only at a separator (see `nbsp`).
+ * A TABLE, NOT A SENTENCE. It was "1.000 FPCT · 0 errors · 23 PO · 1 A · 4 SBA", a run-on line
+ * that was the one block on the card a reader had to parse rather than scan. A header over a row
+ * is how every other figure here is set, and the columns explain themselves on hover. DP, PB and
+ * SBA only once they have happened.
  */
 export function FieldingLine({ ft, positions }: {
   ft: ReturnType<typeof sumFielding>
@@ -166,21 +159,38 @@ export function FieldingLine({ ft, positions }: {
    *  card with one role there is no tab implying a scope, so the codes would be decoration. */
   positions?: string[]
 }) {
-  const parts = [
-    nbsp(fmtRate(ft.fpct), 'FPCT'),
-    nbsp(ft.e, ft.e === 1 ? 'error' : 'errors'),
-    nbsp(ft.po, 'PO'),
-    nbsp(ft.a, 'A'),
-    ...(ft.dp ? [nbsp(ft.dp, 'DP')] : []),
-    ...(ft.pb ? [nbsp(ft.pb, 'PB')] : []),
-    ...(ft.sba ? [nbsp(ft.sba, 'SBA')] : []),
+  const { basis } = useEraBasis()
+  const cols: [string, string | number][] = [
+    ['FPCT', fmtRate(ft.fpct)],
+    ['E', ft.e],
+    ['PO', ft.po],
+    ['A', ft.a],
+    ...(ft.dp ? [['DP', ft.dp] as [string, number]] : []),
+    ...(ft.pb ? [['PB', ft.pb] as [string, number]] : []),
+    ...(ft.sba ? [['SBA', ft.sba] as [string, number]] : []),
   ]
+  // Wide enough to read as columns rather than as figures run together, never the card's width:
+  // five numbers spread across 1000px would put a hand's span between each one and its neighbour.
+  const cellSx = { minWidth: '3.25rem' }
   return (
     <Box sx={{ mt: 2 }}>
       <SectionHead title="Fielding" part="fielding" caption={positions && positions.length > 0 ? positions.join(', ').toUpperCase() : undefined} />
-      <Typography sx={{ ...TYPE.body, color: 'text.secondary', mt: -0.5, fontVariantNumeric: 'tabular-nums' }}>
-        {parts.join('\u00a0· ')}
-      </Typography>
+      <Box sx={{ overflowX: 'auto' }}>
+        <Box component="table" sx={{ borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
+          <Box component="thead">
+            <Box component="tr">
+              {cols.map(([h]) => (
+                <TapTip key={h} title={statTip(h, basis)} component="th" popperZIndex={TIP_Z} sx={{ ...thSx, ...cellSx, position: 'static' }}>{h}</TapTip>
+              ))}
+            </Box>
+          </Box>
+          <Box component="tbody">
+            <Box component="tr">
+              {cols.map(([h, v]) => <Box component="td" key={h} sx={{ ...tdSx, ...cellSx }}>{v}</Box>)}
+            </Box>
+          </Box>
+        </Box>
+      </Box>
     </Box>
   )
 }
@@ -353,6 +363,16 @@ export function CompareChip({ player, roster }: { player: WpblPlayer; roster: Wp
 export const BAND_WASH: Record<string, number> = { BOS: 0x7a, LA: 0x98, NY: 0x61, SF: 0x8f }
 /** For a club not in the table: the tightest of the four, which is safe for any secondary. */
 export const BAND_WASH_FLOOR = 0x61
+
+/**
+ * The place a league rank has to reach to be printed anywhere on the player card: top three.
+ *
+ * It was five for the counting columns and NO bar at all for the rates, so a card carried a rank
+ * under nearly every figure ("9th of 16" under an ERA, "21st of 31" under a contact rate), and a
+ * rank that is printed for everyone stops meaning anything for anyone. Above three a place is a
+ * fact a reader can look up on the Stats tab, not something the card should be pointing at.
+ */
+export const CARD_RANK_BAR = 3
 
 /**
  * A READING MEASURE, for the two blocks on the desktop card that are sentences rather than
