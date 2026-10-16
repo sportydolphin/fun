@@ -581,11 +581,12 @@ will actually see all winter. The functional items do not wait.
    sizes is off, and the two fan-award share images are a named exemption in `typeScale.test.ts`
    (a fixed-pixel PNG, never converting). ✅ *Batch B, Oct 15 (v1.167.2):* the shell (`App`,
    `AuthDialogs`, `SettingsDialog`, `NotificationBell`, `ChangelogDialogs`, `LegalPages`, 76 sizes),
-   59 files left; a dialog's hero glyph is a new `ICON_SIZE.xl` (2rem). Next, in order: C, the WPBL
-   pages readers see this winter (`SeasonPage`, `WpblApp`, `TeamPage`, `RunValueView`, `Reading`,
-   Game Center's play by play and pitch data, `TeamsGrid` and the rest, about 400); D, admin and
-   dev tools (317, last or never). WPBL's `Live` and `LiveGameView` wait for spring with MLB's live
-   files; SVG chart labels wait with MLB's charts.
+   59 files left; a dialog's hero glyph is a new `ICON_SIZE.xl` (2rem). ✅ *Batch C, Oct 15
+   (v1.167.3):* 32 WPBL files and MLB's `SeriesSheet`, about 400 sizes, 26 files left. The series
+   score is a new `TYPE_SCALE.hero` (2.25rem) on both sections' series pages, the step item 7 asked
+   for. `DraftValue` stays for its SVG labels. *Left, on purpose:* WPBL's `Live` and `LiveGameView`
+   (spring, with MLB's live files), MLB's deferred files (item 7), SVG chart labels, and D, the admin
+   and dev tools (317 sizes, last or never).
 3. **One copy of each formatting helper.** `ordinal` is written 11 times, and three WPBL copies
    (`LiveGameView`, `RunValueView`, `WinProbView`) would print "21th"; they only label innings,
    so nobody has seen it. `outsToIp` / `ipToOuts` are copied six times beside `league/innings.ts`

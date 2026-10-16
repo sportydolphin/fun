@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { Box } from '@mui/material'
+import { TYPE_SCALE } from '../../ui/card'
 
 
 /**
@@ -46,7 +47,7 @@ export function BandAwareEyebrow({ store, index, name, children }: { store: Band
   return (
     <Box component="span" sx={{
       display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-      textTransform: 'none', letterSpacing: 0, fontSize: '0.9rem', fontWeight: 800, color: 'text.primary',
+      textTransform: 'none', letterSpacing: 0, fontSize: TYPE_SCALE.title, fontWeight: 800, color: 'text.primary',
     }}>
       {name}
     </Box>

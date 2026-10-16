@@ -28,6 +28,7 @@ import { typePx } from '../ui/scale'
 import { useWpblSeason } from './SeasonContext'
 import { SeasonMenu } from './SeasonMenu'
 import { sectionAnchorId, useSectionScroll } from '../lib/sectionScroll'
+import { ICON_SIZE, TYPE_SCALE } from '../ui/card'
 
 // A team's page: header + record, results, season batting/pitching totals, top hitters /
 // pitchers, and a roster with inline stats. Self-contained: fetches its own roster + box-score
@@ -64,8 +65,8 @@ function StatTiles({ items }: { items: { label: string; value: string }[] }) {
     }}>
       {items.map(it => (
         <Box key={it.label} sx={{ textAlign: 'center', minWidth: 0 }}>
-          <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{it.value}</Typography>
-          <Typography sx={{ fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled' }}>{it.label}</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{it.value}</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled' }}>{it.label}</Typography>
         </Box>
       ))}
     </Box>
@@ -123,12 +124,12 @@ function ScheduleRow({ game, teamId, teamById, onOpenGame }: {
       borderTop: '1px solid', borderColor: 'divider', '&:first-of-type': { borderTop: 'none' },
       borderRadius: 1, ...TAPPABLE, ...FOCUS_RING,
     }}>
-      <Typography sx={{ width: '2.875rem', fontSize: '0.7rem', fontWeight: 700, color: 'text.disabled', flexShrink: 0 }}>
+      <Typography sx={{ width: '2.875rem', fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.disabled', flexShrink: 0 }}>
         {new Date(`${game.game_date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })}
       </Typography>
-      <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', width: '1rem', flexShrink: 0 }}>{home ? 'vs' : '@'}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', width: '1rem', flexShrink: 0 }}>{home ? 'vs' : '@'}</Typography>
       {opp && <TeamBadge team={opp} size={22} />}
-      <Typography sx={{ flex: 1, minWidth: 0, fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <Typography sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {opp ? opp.name : '—'}
       </Typography>
       {/* Fixed widths, not intrinsic ones. The score column varies between three and five
@@ -138,13 +139,13 @@ function ScheduleRow({ game, teamId, teamById, onOpenGame }: {
           width on scheduled rows lines the kickoff times up with the scores above. */}
       {final ? (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0, width: SCORE_COL_W }}>
-          <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, width: '0.875rem', textAlign: 'center', flexShrink: 0, color: win ? 'success.main' : loss ? 'error.main' : 'text.secondary' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, width: '0.875rem', textAlign: 'center', flexShrink: 0, color: win ? 'success.main' : loss ? 'error.main' : 'text.secondary' }}>
             {win ? 'W' : loss ? 'L' : 'T'}
           </Typography>
-          <Typography sx={{ flex: 1, fontSize: '0.85rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>{us}–{them}</Typography>
+          <Typography sx={{ flex: 1, fontSize: TYPE_SCALE.body, fontWeight: 700, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>{us}–{them}</Typography>
         </Box>
       ) : (
-        <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: live ? '#ef4444' : 'text.secondary', flexShrink: 0, width: SCORE_COL_W, textAlign: 'right' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: live ? '#ef4444' : 'text.secondary', flexShrink: 0, width: SCORE_COL_W, textAlign: 'right' }}>
           {live ? '● Live' : formatGameTime(game.game_date, game.start_time) || 'TBD'}
         </Typography>
       )}
@@ -167,7 +168,7 @@ function LeaderList({ label, note, rows, accent, onOpenPlayer }: {
   if (rows.length === 0) return null
   return (
     <Box sx={{ mb: 1.25, '&:last-of-type': { mb: 0 } }}>
-      <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', mb: 0.4 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', mb: 0.4 }}>
         {label}
         {note && <Box component="span" sx={{ ml: 0.75, fontWeight: 600, letterSpacing: typePx(0.3), textTransform: 'none' }}>{note}</Box>}
       </Typography>
@@ -176,10 +177,10 @@ function LeaderList({ label, note, rows, accent, onOpenPlayer }: {
           display: 'flex', alignItems: 'center', gap: 0.75, py: 0.4, cursor: 'pointer',
           borderRadius: 1, ...TAPPABLE, ...FOCUS_RING,
         }}>
-          <Typography sx={{ width: '0.875rem', fontSize: '0.7rem', fontWeight: 800, color: i === 0 ? accent : 'text.disabled' }}>{i + 1}</Typography>
+          <Typography sx={{ width: '0.875rem', fontSize: TYPE_SCALE.meta, fontWeight: 800, color: i === 0 ? accent : 'text.disabled' }}>{i + 1}</Typography>
           <PlayerPortrait name={r.player.name} teamId={r.player.team_id} size={20} />
-          <FittedName name={r.player.name} wrapperSx={{ flex: 1, minWidth: 0 }} sx={{ fontSize: '0.82rem', fontWeight: i === 0 ? 700 : 600 }} />
-          <Typography sx={{ fontSize: '0.82rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', minWidth: '2.5rem', textAlign: 'right' }}>{r.value}</Typography>
+          <FittedName name={r.player.name} wrapperSx={{ flex: 1, minWidth: 0 }} sx={{ fontSize: TYPE_SCALE.body, fontWeight: i === 0 ? 700 : 600 }} />
+          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, fontVariantNumeric: 'tabular-nums', minWidth: '2.5rem', textAlign: 'right' }}>{r.value}</Typography>
         </Box>
       ))}
     </Box>
@@ -229,7 +230,7 @@ function TeamRail({ teams, current, record, onSelect, onBack, onAllTeams }: {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
       <Box {...pressable(onBack)} aria-label="Back" sx={iconBtn}>
-        <ArrowBackRounded sx={{ fontSize: 20 }} />
+        <ArrowBackRounded sx={{ fontSize: ICON_SIZE.md}} />
       </Box>
 
       <Box role="group" aria-label="Teams" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
@@ -248,9 +249,9 @@ function TeamRail({ teams, current, record, onSelect, onBack, onAllTeams }: {
                 bgcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
               }}>
                 <TeamBadge team={t} size={22} />
-                <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: typePx(0.3), color: accent }}>{t.abbr}</Typography>
+                <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, letterSpacing: typePx(0.3), color: accent }}>{t.abbr}</Typography>
                 {record && (
-                  <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                  <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
                     {record}
                   </Typography>
                 )}
@@ -281,7 +282,7 @@ function TeamRail({ teams, current, record, onSelect, onBack, onAllTeams }: {
 
       {onAllTeams && (
         <Box {...pressable(onAllTeams)} aria-label="All teams" sx={iconBtn}>
-          <GridViewRounded sx={{ fontSize: 18 }} />
+          <GridViewRounded sx={{ fontSize: ICON_SIZE.md}} />
         </Box>
       )}
     </Box>
@@ -672,8 +673,8 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
           {/* The page's heading. A selected club replaces the Teams grid, which is why that
               grid's own h1 is not also on screen; this drops to a plain div if a player or
               game modal opens over it. See PageHeading.tsx. */}
-          <Typography component={headingTag} sx={{ fontSize: '1.25rem', fontWeight: 900, lineHeight: 1.1, m: 0 }}>{wpblFullName(team)}</Typography>
-          <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{recordText}</Typography>
+          <Typography component={headingTag} sx={{ fontSize: TYPE_SCALE.display, fontWeight: 900, lineHeight: 1.1, m: 0 }}>{wpblFullName(team)}</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{recordText}</Typography>
         </Box>
         </Box>
         <SeasonMenu label="season" sx={{ mt: 1.5 }} />
@@ -700,11 +701,11 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
                 }}
               >
                 <TeamBadge team={h.opp} size={16} />
-                <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.secondary' }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.secondary' }}>
                   {h.opp.abbr}
                 </Typography>
                 <Typography sx={{
-                  fontSize: '0.72rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+                  fontSize: TYPE_SCALE.meta, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
                   color: better ? 'success.main' : worse ? 'error.main' : 'text.secondary',
                 }}>
                   {h.w}–{h.l}
@@ -758,7 +759,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
                    which are the axis names, and pointed at nothing. Both this and the value
                    column are flush to the same right edge, so aligning it there parks it
                    directly above the ".192 / .148" it is explaining. */}
-               <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.disabled', mb: 0.5, textAlign: 'right' }}>
+               <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.disabled', mb: 0.5, textAlign: 'right' }}>
                  Club / League
                </Typography>
                <TeamSpecReadout specs={specs} teamId={team.id} kLabel={kLabel}
@@ -805,7 +806,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
               {visibleSchedule.map(g => (
                 <ScheduleRow key={g.id} game={g} teamId={team.id} teamById={teamById} onOpenGame={onOpenGame} />
               ))}
-              {visibleSchedule.length === 0 && <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', py: 1 }}>No games scheduled.</Typography>}
+              {visibleSchedule.length === 0 && <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>No games scheduled.</Typography>}
             </Box>
           </SectionCard>
 
@@ -854,7 +855,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
                 )}
               </>
             ) : (
-              <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled', py: 1 }}>Team stats appear once games are played.</Typography>
+              <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>Team stats appear once games are played.</Typography>
             )}
           </SectionCard>
 
@@ -921,7 +922,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
             ) : undefined}
           >
             {visibleRoster.length === 0 ? (
-              <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', py: 1 }}>Roster coming soon.</Typography>
+              <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>Roster coming soon.</Typography>
             ) : (
               // Two columns on a wide screen. A roster row is a position, a face, a name and three numbers,
               // so across a full-width card most of the row is empty while the card runs well over a
@@ -965,16 +966,16 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
                     }}>
                       {/* 2rem, the width of "RHP,": a two-way player's label ("RHP, UTL") wraps to two
                           lines, and at 1.625rem its first word spilled the column at Large text. */}
-                      <Typography sx={{ width: '2rem', textAlign: 'center', flexShrink: 0, fontSize: '0.72rem', fontWeight: 800, lineHeight: 1.15, color: accent }}>
+                      <Typography sx={{ width: '2rem', textAlign: 'center', flexShrink: 0, fontSize: TYPE_SCALE.meta, fontWeight: 800, lineHeight: 1.15, color: accent }}>
                         {displayPositionFromIndex(p, positionIndex).label || '—'}
                       </Typography>
                       <PlayerPortrait name={p.name} teamId={p.team_id} size={34} />
-                      <FittedName name={p.name} wrapperSx={{ flex: 1, minWidth: 0 }} sx={{ fontSize: '0.88rem', fontWeight: 600 }} />
+                      <FittedName name={p.name} wrapperSx={{ flex: 1, minWidth: 0 }} sx={{ fontSize: TYPE_SCALE.title, fontWeight: 600 }} />
                       <Box sx={{ display: 'flex', gap: 1.5, flexShrink: 0 }}>
                         {stats.map(s => (
                           <Box key={s.label} sx={{ textAlign: 'right', minWidth: '2.125rem' }}>
-                            <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{s.value}</Typography>
-                            <Typography sx={{ fontSize: '0.54rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.3), color: 'text.disabled' }}>{s.label}</Typography>
+                            <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{s.value}</Typography>
+                            <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.3), color: 'text.disabled' }}>{s.label}</Typography>
                           </Box>
                         ))}
                       </Box>
@@ -999,7 +1000,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
                   ...TAPPABLE, ...FOCUS_RING,
                 }}
               >
-                <Typography sx={{ fontSize: '0.76rem', fontWeight: 700, color: accent }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: accent }}>
                   {`Show all ${visibleRoster.length}`}
                 </Typography>
               </Box>

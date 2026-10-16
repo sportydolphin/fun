@@ -23,6 +23,7 @@ import type { WpblTeam, WpblPlayer } from './types'
 import { typePx } from '../ui/scale'
 import { InfoDot } from '../ui/InfoDot'
 import { useWpblSeason } from './SeasonContext'
+import { ICON_SIZE, TYPE_SCALE } from '../ui/card'
 
 // The section's TrackMan showcase: season-wide velocity, spin, and batted-ball leaderboards
 // derived from the feed's pitch tracking (the distinctive data the WPBL feed carries that
@@ -37,12 +38,12 @@ function BestTile({ label, value, unit, name, accent }: {
       flex: 1, minWidth: chromePx(130), p: 1.25, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
       background: `linear-gradient(135deg, ${accent}1f 0%, transparent 70%)`,
     }}>
-      <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: 'text.secondary' }}>{label}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: 'text.secondary' }}>{label}</Typography>
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.4, mt: 0.25 }}>
-        <Typography sx={{ fontSize: '1.7rem', fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: accent }}>{value}</Typography>
-        <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary' }}>{unit}</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.page, fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: accent }}>{value}</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary' }}>{unit}</Typography>
       </Box>
-      <NameText name={name} sx={{ fontSize: '0.75rem', fontWeight: 600, mt: 0.4 }} />
+      <NameText name={name} sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, mt: 0.4 }} />
     </Box>
   )
 }
@@ -50,8 +51,8 @@ function BestTile({ label, value, unit, name, accent }: {
 function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
     <Box sx={{ textAlign: 'center', py: 5, px: 2, color: 'text.secondary' }}>
-      <Typography sx={{ fontSize: '1rem', fontWeight: 700, mb: 0.5 }}>{title}</Typography>
-      {hint && <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled' }}>{hint}</Typography>}
+      <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 700, mb: 0.5 }}>{title}</Typography>
+      {hint && <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>{hint}</Typography>}
     </Box>
   )
 }
@@ -136,12 +137,12 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
         border: '1px solid', borderColor: edge(accent),
         background: `linear-gradient(135deg, ${accent}26 0%, ${accent}0d 70%)`,
       }}>
-        <Box sx={{ fontSize: '1.2rem', lineHeight: 1, flexShrink: 0, mt: '1px' }}>⚠️</Box>
+        <Box sx={{ fontSize: ICON_SIZE.md, lineHeight: 1, flexShrink: 0, mt: '1px' }}>⚠️</Box>
         <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: accent }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: accent }}>
             Partial tracking data
           </Typography>
-          <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', lineHeight: 1.45, mt: 0.25 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.45, mt: 0.25 }}>
             We only have tracking data for the first {board.gameCount} {board.gameCount === 1 ? 'game' : 'games'} of the season, and even those are incomplete. The in-park radar can't reliably track balls hit out of the field, so home runs often show up with no distance or exit velocity and won't rank on these boards. We'll add more as the league posts it.
           </Typography>
         </Box>
@@ -214,7 +215,7 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
         </>
       )}
 
-      <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', textAlign: 'center', px: 2 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', textAlign: 'center', px: 2 }}>
         Pitch and batted-ball tracking from the official league feed. Some pitches are not attributed to a pitcher when the feed omits the name.
       </Typography>
     </Box>

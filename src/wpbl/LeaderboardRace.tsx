@@ -9,6 +9,7 @@ import { countsInStandings } from './season'
 import { prefersReducedMotion } from '../lib/motion'
 import type { WpblPlayer, WpblTeam, WpblGame, WpblBattingLine, WpblRunValuePlay } from './types'
 import { typePx } from '../ui/scale'
+import { TYPE_SCALE } from '../ui/card'
 
 // The batting leaders, raced across the season.
 //
@@ -401,7 +402,7 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
           // controls share these two numbers so the cluster is one size at each breakpoint.
           pl: 1.4, pr: chromePx(26), py: 0, minHeight: { xs: 44, sm: chromePx(30) }, borderRadius: 999,
           border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'transparent',
-          fontSize: '0.82rem', fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.primary',
+          fontSize: TYPE_SCALE.body, fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.primary',
           // Themes the OS-rendered option list so it is not dark text on a dark sheet.
           colorScheme: dark ? 'dark' : 'light',
           ...hoverOnly({ borderColor: 'text.secondary' }),
@@ -413,7 +414,7 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
       </Box>
       <Box aria-hidden sx={{
         position: 'absolute', right: chromePx(12), top: '50%', transform: 'translateY(-50%)',
-        pointerEvents: 'none', fontSize: '0.7rem', color: 'text.secondary', lineHeight: 1,
+        pointerEvents: 'none', fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1,
       }}>▾</Box>
     </Box>
   )
@@ -423,7 +424,7 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
   // the accent and the largest type here.
   const dateChip = (
     <Typography aria-hidden sx={{
-      fontSize: '1.2rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+      fontSize: TYPE_SCALE.display, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
       fontVariantNumeric: 'tabular-nums', lineHeight: 1, flexShrink: 0,
     }}>{dateLabel}</Typography>
   )
@@ -441,7 +442,7 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
         minWidth: { xs: 48, sm: chromePx(44) }, minHeight: { xs: 44, sm: chromePx(30) }, px: 1, borderRadius: 999,
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'transparent',
-        fontSize: '0.72rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: 'text.secondary',
+        fontSize: TYPE_SCALE.meta, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: 'text.secondary',
         ...hoverOnly({ color: 'text.primary', borderColor: 'text.secondary' }),
       }}
     >{SPEEDS[speedIdx].label}</Box>
@@ -453,7 +454,7 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
       display: 'inline-flex', alignItems: 'center', gap: 0.5,
       minHeight: { xs: 44, sm: chromePx(30) }, px: 1.5, borderRadius: 999,
       border: '1px solid', borderColor: CARD_BORDER,
-      fontSize: '0.74rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+      fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
       touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
     }}>
       <Box component="span" aria-hidden>{playing ? '❚❚' : '▶'}</Box>
@@ -514,7 +515,7 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
                 flex: '0 0 clamp(6rem, calc(22vw + 1rem), 9.5rem)', width: 'clamp(6rem, calc(22vw + 1rem), 9.5rem)',
                 display: 'flex', alignItems: 'center', minWidth: 0,
               }}>
-                <NameText name={nameOf.get(id) ?? ''} sx={{ fontSize: '0.84rem', fontWeight: 600, minWidth: 0 }} />
+                <NameText name={nameOf.get(id) ?? ''} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, minWidth: 0 }} />
               </Box>
               {/* The bar and the value riding its tip. */}
               <Box sx={{ position: 'relative', flex: 1, height: chromePx(BAR_PX), minWidth: 0 }}>
@@ -525,7 +526,7 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
                 }} />
                 <Typography aria-hidden sx={{
                   position: 'absolute', left: `${pct}%`, top: '50%', transform: 'translate(6px,-50%)',
-                  fontSize: '0.86rem', fontWeight: 800, color, fontVariantNumeric: 'tabular-nums',
+                  fontSize: TYPE_SCALE.body, fontWeight: 800, color, fontVariantNumeric: 'tabular-nums',
                   transition: valGlide, whiteSpace: 'nowrap',
                 }}>{v}</Typography>
               </Box>

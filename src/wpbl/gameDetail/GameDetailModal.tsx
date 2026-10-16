@@ -36,6 +36,7 @@ import { TeamBox } from './TeamBox'
 import { PlayByPlay } from './PlayByPlay'
 import { PitchData } from './PitchData'
 import { GameCenterPage, TeamHeading, TeamSwitch } from './GameCenterPage'
+import { TYPE_SCALE } from '../../ui/card'
 
 // Read-only game center. Fed entirely by the official-feed mirror (see wpbl-ingest):
 // line score, a tabbed box score (batting / pitching, one team at a time), the
@@ -337,9 +338,9 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
         }}
       >
         {team && <TeamBadge team={team} size={30} />}
-        <Typography sx={{ flex: 1, minWidth: 0, fontSize: '1rem', fontWeight: won ? 800 : 600 }}>{team ? wpblFullName(team) : ''}</Typography>
+        <Typography sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.heading, fontWeight: won ? 800 : 600 }}>{team ? wpblFullName(team) : ''}</Typography>
       </Box>
-      {showScore && <Typography sx={{ flexShrink: 0, fontSize: '1.25rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: won ? 'text.primary' : 'text.secondary' }}>{score ?? 0}</Typography>}
+      {showScore && <Typography sx={{ flexShrink: 0, fontSize: TYPE_SCALE.display, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: won ? 'text.primary' : 'text.secondary' }}>{score ?? 0}</Typography>}
     </Box>
   )
 
@@ -480,14 +481,14 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
       {scoreboard}
       {series && (
         <Box sx={{ px: 2, mt: 1.25, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 1 }}>
-          <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'var(--wpbl-accent-fg)' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'var(--wpbl-accent-fg)' }}>
             {series.label} · Game {series.gameNumber} of {series.bestOf}
           </Typography>
-          {series.line && <Typography sx={{ fontSize: '0.8rem', fontWeight: 700 }}>{series.line}</Typography>}
-          {series.stakes && <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: 'text.secondary' }}>{series.stakes}</Typography>}
+          {series.line && <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700 }}>{series.line}</Typography>}
+          {series.stakes && <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary' }}>{series.stakes}</Typography>}
         </Box>
       )}
-      {game.venue && <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', px: 2, mt: 1 }}>{game.venue}</Typography>}
+      {game.venue && <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', px: 2, mt: 1 }}>{game.venue}</Typography>}
     </>
   ) : null
 
@@ -741,18 +742,18 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
               here. */}
           {series && (
             <Box sx={{ px: 2, mt: 1.25, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 1 }}>
-              <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'var(--wpbl-accent-fg)' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'var(--wpbl-accent-fg)' }}>
                 {series.label} · Game {series.gameNumber} of {series.bestOf}
               </Typography>
               {series.line && (
-                <Typography sx={{ fontSize: '0.8rem', fontWeight: 700 }}>{series.line}</Typography>
+                <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700 }}>{series.line}</Typography>
               )}
               {series.stakes && (
-                <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: 'text.secondary' }}>{series.stakes}</Typography>
+                <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary' }}>{series.stakes}</Typography>
               )}
             </Box>
           )}
-          {game.venue && <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', px: 2, mt: 1 }}>{game.venue}</Typography>}
+          {game.venue && <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', px: 2, mt: 1 }}>{game.venue}</Typography>}
 
           {/* The written recaps: two independent people who each wrote about this game, and two
               cards rather than one "coverage" block. Merging them would put our heading above

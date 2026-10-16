@@ -101,20 +101,20 @@ export function ScoresSkeleton() {
     }}>
       {grid && (
         <CardKicker date={<Skeleton width="5rem" />}>
-          <Typography sx={{ fontSize: '0.72rem', fontWeight: 700 }}><Skeleton width="2rem" /></Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700 }}><Skeleton width="2rem" /></Typography>
         </CardKicker>
       )}
       {[0, 1].map(row => (
         <Box key={row} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
           <Skeleton variant="circular" sx={{ width: chromePx(26), height: chromePx(26), flexShrink: 0 }} />
-          <Typography sx={{ fontSize: '0.9rem', flex: 1 }}><Skeleton width="9rem" /></Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.title, flex: 1 }}><Skeleton width="9rem" /></Typography>
         </Box>
       ))}
       {strip !== 'none' && (grid ? (
         // The grid's strip stacks its label over its line, as the card does there.
         <Box sx={GRID_STRIP_SX}>
-          <Typography sx={{ fontSize: '0.66rem' }}><Skeleton width="8rem" /></Typography>
-          <Typography sx={{ fontSize: '0.72rem' }}><Skeleton width="10rem" /></Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.micro }}><Skeleton width="8rem" /></Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta }}><Skeleton width="10rem" /></Typography>
         </Box>
       ) : (
         // The list's strip: the label and the series line in two type sizes on one
@@ -125,8 +125,8 @@ export function ScoresSkeleton() {
           display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.75,
           pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
         }}>
-          <Typography sx={{ fontSize: '0.66rem' }}><Skeleton width="8rem" /></Typography>
-          <Typography sx={{ fontSize: '0.72rem', flexBasis: strip === 'long' ? { xs: '100%', sm: 'auto' } : 'auto' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.micro }}><Skeleton width="8rem" /></Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, flexBasis: strip === 'long' ? { xs: '100%', sm: 'auto' } : 'auto' }}>
             <Skeleton width={strip === 'long' ? '10rem' : '6rem'} />
           </Typography>
         </Box>
@@ -280,17 +280,17 @@ export function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenT
             width: 26, height: 26, flexShrink: 0, borderRadius: '50%',
             border: '1px dashed', borderColor: CARD_BORDER,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '0.7rem', fontWeight: 800, color: 'text.disabled',
+            fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'text.disabled',
           }}>{p.seed ?? ''}</Box>
         )}
         <Typography noWrap sx={{
-          fontSize: '0.9rem', fontWeight: p.team ? 600 : 500, flex: 1, minWidth: 0,
+          fontSize: TYPE_SCALE.title, fontWeight: p.team ? 600 : 500, flex: 1, minWidth: 0,
           color: p.team ? 'text.primary' : 'text.secondary',
         }}>
           {p.team ? wpblFullName(p.team) : p.label}
         </Typography>
         {p.team && recordById.get(p.team.id) && (
-          <Typography sx={{ flexShrink: 0, fontSize: '0.72rem', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'text.disabled' }}>
+          <Typography sx={{ flexShrink: 0, fontSize: TYPE_SCALE.meta, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'text.disabled' }}>
             {recordById.get(p.team.id)}
           </Typography>
         )}
@@ -316,7 +316,7 @@ export function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenT
           <Box sx={{ flexShrink: 0, textAlign: 'right', minWidth: '3.625rem', whiteSpace: 'nowrap' }}>
             {/* The league published Central wall-clock times, and formatGameTime converts them
                 to the reader's zone the same way it does for a feed game. */}
-            <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary' }}>
               {formatGameTime(r.date, r.time) || r.time}
             </Typography>
           </Box>
@@ -325,7 +325,7 @@ export function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenT
           display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.75,
           pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
         }}>
-          <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.primary' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.primary' }}>
             {r.label} · Game {r.gameNumber}
           </Typography>
           {/* Spelled out rather than left as the bracket's asterisk: there is no key beside a
@@ -333,7 +333,7 @@ export function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenT
               "Scheduled" rather than joining it, because a row that is here at all is scheduled:
               what the reader needs is the one thing about it we do not know, which is which of
               these two clubs is the higher seed. */}
-          <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.disabled' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.disabled' }}>
             {r.ifNecessary ? 'If necessary' : r.seedOrderTbd ? 'Seeding TBD' : 'Scheduled'}
           </Typography>
         </Box>
@@ -348,7 +348,7 @@ export function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenT
     const live = g.status === 'live'
     const ser = series.get(g.id)
     const status = (
-      <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap', color: live ? '#ef4444' : final ? 'text.secondary' : WPBL_ACCENT }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, whiteSpace: 'nowrap', color: live ? '#ef4444' : final ? 'text.secondary' : WPBL_ACCENT }}>
         {live ? '● Live' : final ? `Final${g.innings && g.innings !== 7 ? `/${g.innings}` : ''}` : formatGameTime(g.game_date, g.start_time) || 'TBD'}
       </Typography>
     )
@@ -387,21 +387,21 @@ export function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenT
             <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
               {/* Winner caret on finals: a fixed-width slot keeps both rows' badges aligned. */}
               {final && (
-                <Box sx={{ width: '0.4375rem', flexShrink: 0, mx: -0.5, textAlign: 'center', fontSize: '0.8rem', lineHeight: 1, color: wpblAccent(t.id, isDark) }}>{won ? '▸' : ''}</Box>
+                <Box sx={{ width: '0.4375rem', flexShrink: 0, mx: -0.5, textAlign: 'center', fontSize: TYPE_SCALE.body, lineHeight: 1, color: wpblAccent(t.id, isDark) }}>{won ? '▸' : ''}</Box>
               )}
               <TeamBadge team={t} size={26} />
               {/* Away on top, home on the bottom, and no "@" marking the home side: the league
                   plays every game in one ballpark, so "home" means batting last and nothing
                   else, and a venue marker pointing at a ground that never changes is noise. */}
-              <Typography noWrap sx={{ fontSize: '0.9rem', fontWeight: won ? 800 : 600, flex: 1, minWidth: 0, color: final && !won ? 'text.secondary' : 'text.primary' }}>
+              <Typography noWrap sx={{ fontSize: TYPE_SCALE.title, fontWeight: won ? 800 : 600, flex: 1, minWidth: 0, color: final && !won ? 'text.secondary' : 'text.primary' }}>
                 {wpblFullName(t)}
               </Typography>
               {(final || live) ? (
-                <Typography sx={{ flexShrink: 0, minWidth: '1.125rem', textAlign: 'right', fontSize: '0.95rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: final && !won ? 'text.disabled' : 'text.primary' }}>
+                <Typography sx={{ flexShrink: 0, minWidth: '1.125rem', textAlign: 'right', fontSize: TYPE_SCALE.title, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: final && !won ? 'text.disabled' : 'text.primary' }}>
                   {score}
                 </Typography>
               ) : recordById.get(t.id) && (
-                <Typography sx={{ flexShrink: 0, textAlign: 'right', fontSize: '0.72rem', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'text.disabled' }}>
+                <Typography sx={{ flexShrink: 0, textAlign: 'right', fontSize: TYPE_SCALE.meta, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'text.disabled' }}>
                   {recordById.get(t.id)}
                 </Typography>
               )}
@@ -423,11 +423,11 @@ export function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenT
             display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.75,
             pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
           }}>
-            <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.primary' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.primary' }}>
               {ser.label} · Game {ser.gameNumber}
             </Typography>
             {ser.line && (
-              <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.secondary' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary' }}>
                 {ser.line}
               </Typography>
             )}
@@ -447,10 +447,10 @@ export function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenT
             display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.6,
             pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
           }}>
-            <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.disabled' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.disabled' }}>
               Box score revised
             </Typography>
-            <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.secondary' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary' }}>
               {revisedLabel(g)}
             </Typography>
           </Box>

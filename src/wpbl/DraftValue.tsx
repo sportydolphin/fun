@@ -7,6 +7,7 @@ import { FilterChip } from '../ui/FilterChip'
 import { InfoDot } from '../ui/InfoDot'
 import type { WpblPlayer, WpblBattingLine, WpblPitchingLine } from './types'
 import { regularSeasonLines, type WpblSeasonGame } from './season'
+import { TYPE_SCALE } from '../ui/card'
 
 // "Do earlier draft picks actually produce better players?": a scatter of every drafted
 // player's season rate stat against where they were taken, with the per-round average drawn
@@ -149,7 +150,7 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
   if (!geom) {
     return (
       <Box sx={{ py: 4, textAlign: 'center', color: 'text.secondary' }}>
-        <Typography sx={{ fontSize: '0.85rem' }}>No drafted player has reached {spec.minLabel} yet.</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.body }}>No drafted player has reached {spec.minLabel} yet.</Typography>
       </Box>
     )
   }
@@ -166,7 +167,7 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
           Both were caption lines here, and "r = −0.31" under the verdict was the most
           expert-looking thing on a page read by people who came for the players. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-        <Typography sx={{ fontSize: '0.9rem', fontWeight: 800 }}>{spec.title}</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800 }}>{spec.title}</Typography>
         <InfoDot text={[
           `Each dot is a drafted player's ${spec.yName} this regular season, placed at the pick they were taken with, and sized by how much they played. ${spec.better === 'higher' ? 'Higher' : 'Lower'} is better. The orange line joins each round's average.`,
           r == null
@@ -174,7 +175,7 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
             : `The headline comes from the correlation between pick number and ${spec.yLabel}, r = ${r >= 0 ? '+' : '−'}${Math.abs(r).toFixed(2)}. It runs from −1 to +1, and the further from 0, the stronger the pattern; under 0.2 either way is called no pattern. Because ${spec.better} ${spec.yLabel} is better, ${spec.better === 'higher' ? 'a minus' : 'a plus'} means earlier picks did better.`,
         ]} />
       </Box>
-      <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.35, mt: 0.25, mb: 0.75 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.35, mt: 0.25, mb: 0.75 }}>
         {r == null ? `Only ${points.length} players here, too few to tell.` : verdict(r, spec)}
       </Typography>
 
@@ -262,7 +263,7 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
       <Box sx={{ display: 'flex', gap: 2, mt: 0.5, flexWrap: 'wrap' }}>
         <LegendKey color={DOT} label="One player, sized by playing time" />
         <LegendKey color={LINE} label="Round average" />
-        <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>
           Hollow: fewer than {MIN_SOLID_N} players
         </Typography>
       </Box>
@@ -273,8 +274,8 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
           bgcolor: 'background.paper', border: '1px solid', borderColor: CARD_BORDER,
           boxShadow: 2, pointerEvents: 'none', maxWidth: '15rem',
         }}>
-          <Typography sx={{ fontSize: '0.78rem', fontWeight: 800 }}>{hover.name}</Typography>
-          <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800 }}>{hover.name}</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
             Round {hover.round} · {spec.yLabel} {spec.fmt(hover.y)} · {hover.sample}
           </Typography>
         </Box>
@@ -287,7 +288,7 @@ function LegendKey({ color, label }: { color: string; label: string }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
       <Box sx={{ width: 9, height: 9, borderRadius: '50%', bgcolor: color, flexShrink: 0 }} />
-      <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>{label}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{label}</Typography>
     </Box>
   )
 }
@@ -387,7 +388,7 @@ export default function WpblDraftValue({ players, batting, pitching, games: sche
 
   return (
     <Box>
-      <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', mb: 1.5, lineHeight: 1.5 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mb: 1.5, lineHeight: 1.5 }}>
         Did the players taken early in the draft turn out better? Each dot is one of the {drafted}
         {' '}drafted players ({roundCount} rounds of {roundSize}), placed by where they were picked and
         how they {side === 'pitching' ? 'pitched' : side === 'hitting' ? 'hit' : 'played'}, and sized
@@ -406,7 +407,7 @@ export default function WpblDraftValue({ players, batting, pitching, games: sche
         </Box>
       )}
 
-      <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', mt: 2, lineHeight: 1.5 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mt: 2, lineHeight: 1.5 }}>
         Across {gamesPlayed} regular-season games. A hollow round marker stands on fewer than{' '}
         {MIN_SOLID_N} players, so one good night moves it a long way: read it as noise, not a trend.
       </Typography>

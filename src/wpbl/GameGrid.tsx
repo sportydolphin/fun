@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { pressable, FOCUS_RING, wpblNameStages, tappableIf, CARD_INK } from './ui'
 import type { Theme } from '@mui/material'
 import { typePx } from '../ui/scale'
+import { TYPE_SCALE } from '../ui/card'
 
 /**
  * The scrolling game-by-game grid shared by the lineup-history and pitching-usage cards:
@@ -204,11 +205,11 @@ export default function GameGrid({ columns, rows, renderCell, colWidthRem, nameW
             <Box key={c.id} sx={{
               ...colSize, textAlign: 'center', pb: 0.5, overflow: 'hidden',
             }}>
-              <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, lineHeight: 1.2 }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, lineHeight: 1.2 }}>
                 {c.title}
               </Typography>
               <Typography sx={{
-                fontSize: '0.55rem', fontWeight: 700, lineHeight: 1.3,
+                fontSize: TYPE_SCALE.caption, fontWeight: 700, lineHeight: 1.3,
                 color: c.subColor ?? 'text.disabled',
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               }}>
@@ -218,7 +219,7 @@ export default function GameGrid({ columns, rows, renderCell, colWidthRem, nameW
                 <Typography sx={{
                   // 700 at 8px: see the weight ceiling under TYPE_SCALE. A surname is the one
                   // thing on this grid that has to be READ rather than matched on shape.
-                  fontSize: '0.5rem', fontWeight: 700, lineHeight: 1.3,
+                  fontSize: TYPE_SCALE.nano, fontWeight: 700, lineHeight: 1.3,
                   letterSpacing: typePx(0.2),
                   color: c.sub2Color ?? 'text.disabled',
                   // sub2 carries a pitcher's surname in the lineup grid, not just "LHP",
@@ -259,7 +260,7 @@ export default function GameGrid({ columns, rows, renderCell, colWidthRem, nameW
                   // Gap in ems, not spacing units: at the Large text setting a fixed 4px
                   // leaves the total sitting right on the end of the name.
                   flexShrink: 0, pl: '0.5em',
-                  fontSize: '0.66rem', fontWeight: 700, color: 'text.disabled',
+                  fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled',
                   fontVariantNumeric: 'tabular-nums',
                 }}>
                   {r.meta}
@@ -275,7 +276,7 @@ export default function GameGrid({ columns, rows, renderCell, colWidthRem, nameW
                   overflow: 'hidden',
                 }}>
                   {cell ?? (
-                    <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', opacity: 0.4 }}>
+                    <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', opacity: 0.4 }}>
                       &mdash;
                     </Typography>
                   )}
@@ -326,7 +327,7 @@ function GridName({ name, fitKey }: { name: string; fitKey: number }) {
   return (
     <Typography ref={ref} title={name} sx={{
       flex: 1, minWidth: 0,
-      fontSize: '0.75rem', fontWeight: 600, whiteSpace: 'nowrap',
+      fontSize: TYPE_SCALE.meta, fontWeight: 600, whiteSpace: 'nowrap',
       overflow: 'hidden', textOverflow: 'ellipsis',
     }}>
       {stages[stage]}

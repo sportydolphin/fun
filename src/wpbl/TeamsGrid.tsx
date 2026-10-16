@@ -15,6 +15,7 @@ import { TabTitle } from './PageHeading'
 import { typePx } from '../ui/scale'
 import { useWpblSeason } from './SeasonContext'
 import { SeasonMenu } from './SeasonMenu'
+import { TYPE_SCALE } from '../ui/card'
 
 /**
  * The Teams tab's landing screen: one card per club, in standings order.
@@ -75,7 +76,7 @@ function fixtureFor(teamId: string, games: WpblGame[], byId: Map<string, WpblTea
 
 function FixtureLine({ fixture }: { fixture: Fixture }) {
   if (!fixture) {
-    return <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>Schedule to come</Typography>
+    return <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>Schedule to come</Typography>
   }
   const { kind, game, opp, home } = fixture
   const label = kind === 'live' ? 'Live' : kind === 'next' ? 'Next' : 'Last'
@@ -83,22 +84,22 @@ function FixtureLine({ fixture }: { fixture: Fixture }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
       <Typography sx={{
-        fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.4),
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.4),
         color: kind === 'live' ? LOSS : 'text.disabled', flexShrink: 0,
       }}>
         {label}
       </Typography>
-      <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', flexShrink: 0 }}>{home ? 'vs' : '@'}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', flexShrink: 0 }}>{home ? 'vs' : '@'}</Typography>
       {opp && <TeamBadge team={opp} size={16} />}
       {/* The abbreviation as well as the badge. A 16px logo is a colour, not an identifier:
           two of the four crests are a dark disc with a monogram at that size. */}
       {opp && (
-        <Typography sx={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: typePx(0.2), color: 'text.secondary', flexShrink: 0 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.2), color: 'text.secondary', flexShrink: 0 }}>
           {opp.abbr}
         </Typography>
       )}
       <Typography sx={{
-        fontSize: '0.72rem', fontWeight: 600, color: 'text.secondary', minWidth: 0,
+        fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary', minWidth: 0,
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         fontVariantNumeric: 'tabular-nums',
       }}>
@@ -152,7 +153,7 @@ function TeamCard({ row, rank, ranked, fixture, onOpen }: {
         {ranked && (
           <Typography sx={{
             width: '0.875rem', flexShrink: 0, textAlign: 'center',
-            fontSize: '0.78rem', fontWeight: 800, color: 'text.disabled', fontVariantNumeric: 'tabular-nums',
+            fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'text.disabled', fontVariantNumeric: 'tabular-nums',
           }}>
             {rank}
           </Typography>
@@ -160,7 +161,7 @@ function TeamCard({ row, rank, ranked, fixture, onOpen }: {
         <TeamBadge team={row.team} size={38} />
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography sx={{
-            fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2,
+            fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
             {wpblFullName(row.team)}
@@ -171,23 +172,23 @@ function TeamCard({ row, rank, ranked, fixture, onOpen }: {
                 dots already carry; at three and up it's the headline about the team. */}
             {row.streak && row.streak.count >= 3 && (
               <Typography sx={{
-                fontSize: '0.68rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+                fontSize: TYPE_SCALE.micro, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
                 color: row.streak.type === 'W' ? WIN : LOSS,
               }}>
                 {row.streak.type}{row.streak.count}
               </Typography>
             )}
             {gp === 0 && (
-              <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled' }}>Yet to play</Typography>
+              <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>Yet to play</Typography>
             )}
           </Box>
         </Box>
         <Box sx={{ flexShrink: 0, textAlign: 'right' }}>
-          <Typography sx={{ fontSize: '1.1rem', fontWeight: 800, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>
             {row.wins}–{row.losses}
           </Typography>
           {pct && (
-            <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 600, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
               {pct}
             </Typography>
           )}
@@ -201,11 +202,11 @@ function TeamCard({ row, rank, ranked, fixture, onOpen }: {
         <FixtureLine fixture={fixture} />
         {gp > 0 && (
           <Typography sx={{
-            fontSize: '0.7rem', fontWeight: 700, flexShrink: 0, fontVariantNumeric: 'tabular-nums',
+            fontSize: TYPE_SCALE.meta, fontWeight: 700, flexShrink: 0, fontVariantNumeric: 'tabular-nums',
             color: diff > 0 ? WIN : diff < 0 ? LOSS : 'text.secondary',
           }}>
             {fmtSigned(diff)}
-            <Box component="span" sx={{ ml: 0.5, fontWeight: 700, fontSize: '0.58rem', letterSpacing: typePx(0.3), color: 'text.disabled' }}>DIFF</Box>
+            <Box component="span" sx={{ ml: 0.5, fontWeight: 700, fontSize: TYPE_SCALE.caption, letterSpacing: typePx(0.3), color: 'text.disabled' }}>DIFF</Box>
           </Typography>
         )}
       </Box>
@@ -288,8 +289,8 @@ export default function TeamsGrid({ teams, games: allGames, onSelect }: {
       answer "how do these four differ", while the cards answer "who is who". */}
       {ranked && (
         <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, p: 1.5 }}>
-          <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, mb: 0.25 }}>Club profiles</Typography>
-          <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mb: 1 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, mb: 0.25 }}>Club profiles</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', mb: 1 }}>
             {specs || chartPending
               ? `Each trait against the league average, through ${specs?.minGames ?? specGames} games. The middle ring is average.`
               : 'How each club scores on six traits.'}
@@ -300,12 +301,12 @@ export default function TeamsGrid({ teams, games: allGames, onSelect }: {
                 {rows.map(r => (
                   <Box key={r.team.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
                     <Box sx={{ width: 10, height: 10, borderRadius: '2px', bgcolor: wpblAccent(r.team.id, isDark), flexShrink: 0 }} />
-                    <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary' }}>{r.team.name}</Typography>
+                    <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary' }}>{r.team.name}</Typography>
                   </Box>
                 ))}
               </Box>
               {specs ? <TeamSpecRadar specs={specs} teams={teams} radius={110} /> : <TeamSpecRadarSkeleton radius={110} />}
-              <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.5 }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', mt: 0.5 }}>
                 {TEAM_SPEC_AXES.map(a => `${a.label}: ${a.stat}`).join(' · ')}
               </Typography>
             </>

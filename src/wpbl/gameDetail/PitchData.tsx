@@ -9,6 +9,7 @@ import { prettyType } from '../tracking'
 import { typePx } from '../../ui/scale'
 import type { WpblPlayer, WpblPitchTracking } from '../types'
 import { fmtFeedName, StatHead, StatCell, EmptyBody, tableSx, nameHeadSx, nameCellSx, posSx } from './shared'
+import { TYPE_SCALE } from '../../ui/card'
 
 type BoxPitcher = { name: string; teamAbbr: string; outs: number; pitches: number | null }
 
@@ -187,24 +188,24 @@ export function PitchData({ tracking, boxPitchers, firstHit = null, live = false
   const spins = pitches.map(p => p.spin_rate_rpm).filter((v): v is number => v != null && v > 0)
   const tile = (label: string, value: string) => (
     <Box sx={{ textAlign: 'center', flex: 1, minWidth: '4.25rem' }}>
-      <Typography sx={{ fontSize: '1.15rem', fontWeight: 800, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
-      <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled' }}>{label}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.display, fontWeight: 800, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled' }}>{label}</Typography>
     </Box>
   )
   const sectionLabel = (t: string) => (
-    <Typography sx={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary', mb: 1 }}>{t}</Typography>
+    <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary', mb: 1 }}>{t}</Typography>
   )
   // Standout game-highlights tile for the summary strip: bigger value + who did it.
   const hl = (emoji: string, label: string, value: string, sub: string, first: boolean, nameIn?: 'v' | 's') => (
     <Box sx={{ flex: 1, minWidth: 0, textAlign: 'center', px: 0.75, ...(first ? {} : { borderLeft: '1px solid', borderColor: 'divider' }) }}>
       {/* 700 under 9px: see the weight ceiling under TYPE_SCALE in ui.tsx. */}
-      <Typography sx={{ fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled', whiteSpace: 'nowrap' }}>{emoji} {label}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled', whiteSpace: 'nowrap' }}>{emoji} {label}</Typography>
       {nameIn === 'v'
-        ? <NameText name={value} sx={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.25 }} />
-        : <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.25, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</Typography>}
+        ? <NameText name={value} sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, lineHeight: 1.25 }} />
+        : <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, lineHeight: 1.25, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</Typography>}
       {nameIn === 's'
-        ? <NameText name={sub} sx={{ fontSize: '0.62rem', color: 'text.secondary' }} />
-        : <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</Typography>}
+        ? <NameText name={sub} sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary' }} />
+        : <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</Typography>}
     </Box>
   )
   const highlights = [
@@ -250,13 +251,13 @@ export function PitchData({ tracking, boxPitchers, firstHit = null, live = false
               }}>
                 {/* Velocity + unit */}
                 <Box sx={{ flexShrink: 0, width: '4rem', fontVariantNumeric: 'tabular-nums' }}>
-                  <Typography component="span" sx={{ fontSize: '1rem', fontWeight: 800 }}>{fmtSpeed(p.velo, units)}</Typography>
-                  <Typography component="span" sx={{ fontSize: '0.56rem', fontWeight: 700, color: 'text.disabled', ml: 0.3 }}>{unit}</Typography>
+                  <Typography component="span" sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800 }}>{fmtSpeed(p.velo, units)}</Typography>
+                  <Typography component="span" sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled', ml: 0.3 }}>{unit}</Typography>
                 </Box>
                 {/* Pitch type chip */}
                 <Box sx={{ flexShrink: 0, minWidth: '3.875rem' }}>
                   {p.type && (
-                    <Box component="span" sx={{ px: 0.75, py: 0.15, borderRadius: 1, bgcolor: 'action.selected', fontSize: '0.64rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    <Box component="span" sx={{ px: 0.75, py: 0.15, borderRadius: 1, bgcolor: 'action.selected', fontSize: TYPE_SCALE.micro, fontWeight: 700, whiteSpace: 'nowrap' }}>
                       {p.type}
                     </Box>
                   )}
@@ -264,17 +265,17 @@ export function PitchData({ tracking, boxPitchers, firstHit = null, live = false
                 {/* Batter faced (+ pitcher beneath) */}
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   {p.batter && (
-                    <NameLine names={[p.batter]} sx={{ fontSize: '0.78rem', fontWeight: 600 }} render={n => <>
+                    <NameLine names={[p.batter]} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600 }} render={n => <>
                       <Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>vs </Box>{n(p.batter!)}
-                      {p.inPlay && <Box component="span" sx={{ ml: 0.5, fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.4) }}>in play</Box>}
+                      {p.inPlay && <Box component="span" sx={{ ml: 0.5, fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.4) }}>in play</Box>}
                     </>} />
                   )}
                   {p.pitcher && (
-                    <NameText name={p.pitcher} sx={{ fontSize: '0.64rem', color: 'text.disabled' }} />
+                    <NameText name={p.pitcher} sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled' }} />
                   )}
                 </Box>
                 {/* Spin */}
-                <Box sx={{ flexShrink: 0, color: 'text.secondary', fontSize: '0.72rem', fontVariantNumeric: 'tabular-nums' }}>
+                <Box sx={{ flexShrink: 0, color: 'text.secondary', fontSize: TYPE_SCALE.meta, fontVariantNumeric: 'tabular-nums' }}>
                   {p.spin != null ? `${Math.round(p.spin)} rpm` : ''}
                 </Box>
               </Box>
@@ -304,7 +305,7 @@ export function PitchData({ tracking, boxPitchers, firstHit = null, live = false
                   <Box component="tr" key={`${r.teamAbbr}-${r.name}`} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
                     <Box component="td" sx={{ ...nameCellSx, overflow: 'hidden' }}>
                       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, overflow: 'hidden' }}>
-                        <NameText name={r.name} component="span" sx={{ fontSize: '0.86rem', fontWeight: 600 }} />
+                        <NameText name={r.name} component="span" sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600 }} />
                         <Typography component="span" sx={{ ...posSx, textTransform: 'uppercase' }}>{r.teamAbbr}</Typography>
                       </Box>
                     </Box>
@@ -319,7 +320,7 @@ export function PitchData({ tracking, boxPitchers, firstHit = null, live = false
             </Box>
           </Box>
           {unattributed > 0 && (
-            <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mb: 2.5 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', mb: 2.5 }}>
               Avg / Top / Spin come from TrackMan. {unattributed} tracked pitches (the feed left them unnamed — usually a starter) couldn't be matched to a pitcher.
             </Typography>
           )}
@@ -329,15 +330,15 @@ export function PitchData({ tracking, boxPitchers, firstHit = null, live = false
       {sectionLabel(`Hardest thrown (${unit})`)}
       <Box sx={{ fontVariantNumeric: 'tabular-nums' }}>
         {fastest.map((p, i) => (
-          <Box key={p.activity_id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 0.55, borderTop: i === 0 ? 'none' : '1px solid', borderColor: 'divider', fontSize: '0.82rem' }}>
-            <Box sx={{ width: '1.125rem', color: 'text.disabled', fontSize: '0.72rem', flexShrink: 0 }}>{i + 1}</Box>
+          <Box key={p.activity_id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 0.55, borderTop: i === 0 ? 'none' : '1px solid', borderColor: 'divider', fontSize: TYPE_SCALE.body }}>
+            <Box sx={{ width: '1.125rem', color: 'text.disabled', fontSize: TYPE_SCALE.meta, flexShrink: 0 }}>{i + 1}</Box>
             <Box sx={{ width: '3.25rem', fontWeight: 800, flexShrink: 0 }}>{fmtSpeed(p.release_speed, units)}</Box>
             <NameText name={labelFor(p)} sx={{ flex: 1, minWidth: 0, fontSize: 'inherit', fontWeight: 600 }} />
-            <Box sx={{ color: 'text.secondary', fontSize: '0.75rem', flexShrink: 0 }}>{p.spin_rate_rpm != null ? `${Math.round(p.spin_rate_rpm)} rpm` : ''}</Box>
+            <Box sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.meta, flexShrink: 0 }}>{p.spin_rate_rpm != null ? `${Math.round(p.spin_rate_rpm)} rpm` : ''}</Box>
           </Box>
         ))}
       </Box>
-      <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 2 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', mt: 2 }}>
         {tracking.length} tracked events · TrackMan
       </Typography>
     </Box>

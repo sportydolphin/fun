@@ -2,6 +2,7 @@ import { Box, Typography } from '@mui/material'
 import { fmtRunValue, type EventValue, type StealEconomy } from './derive/runExpectancy'
 import { SectionCard, pressable, FOCUS_RING, TAPPABLE } from './ui'
 import { ExperimentalChip } from '../ExperimentsContext'
+import { TYPE_SCALE } from '../ui/card'
 
 // The two cards that say what a play is WORTH, as opposed to how often it happened.
 //
@@ -73,7 +74,7 @@ export function StealCard({ econ, accent }: {
   return (
     <SectionCard title="They run constantly. Is it working?">
       <ExperimentalChip sx={{ mb: 1.25 }} />
-      <Typography sx={{ fontSize: '0.9rem', lineHeight: 1.6, color: 'text.secondary' }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.title, lineHeight: 1.6, color: 'text.secondary' }}>
         A stolen base moves a team about {Math.abs(econ.perSteal).toFixed(2)} of a run closer to
         scoring. Getting thrown out costs about {Math.abs(econ.perCaught).toFixed(2)}, because
         outs are the thing a team runs out of. In a league that scores this much, running has to
@@ -105,19 +106,19 @@ export function StealCard({ econ, accent }: {
         that reason and not for looks: it is the multiplier both lengths are computed from,
         and inheriting it would leave those numbers describing a value set elsewhere. */}
         <Box sx={{ position: 'relative', height: `${(0.78 + 0.72) * 1.5}rem`, mt: 0.75 }}>
-          <Typography sx={{ position: 'absolute', left: 0, fontSize: '0.78rem', lineHeight: 1.5, fontWeight: 800, color: worthIt ? accent : 'text.primary' }}>
+          <Typography sx={{ position: 'absolute', left: 0, fontSize: TYPE_SCALE.body, lineHeight: 1.5, fontWeight: 800, color: worthIt ? accent : 'text.primary' }}>
             {rate(successRate)} of the time it works
           </Typography>
           <Typography sx={{
             position: 'absolute', left: x(breakEven), transform: 'translateX(-50%)', top: `${0.78 * 1.5}rem`,
-            fontSize: '0.72rem', lineHeight: 1.5, color: 'text.disabled', whiteSpace: 'nowrap',
+            fontSize: TYPE_SCALE.meta, lineHeight: 1.5, color: 'text.disabled', whiteSpace: 'nowrap',
           }}>
             needs {rate(breakEven)}
           </Typography>
         </Box>
       </Box>
 
-      <Typography sx={{ fontSize: '0.9rem', lineHeight: 1.6, color: 'text.secondary' }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.title, lineHeight: 1.6, color: 'text.secondary' }}>
         {worthIt
           ? `Which it does. The season's ${econ.steals + econ.caught} attempts have been worth
              ${fmtRunValue(econ.net)} runs.`
@@ -161,7 +162,7 @@ export function PlayValueCard({ rows, accent, onSeeMethod }: {
 
   return (
     <SectionCard title="What every kind of play is worth">
-      <Typography sx={{ fontSize: '0.82rem', lineHeight: 1.6, color: 'text.secondary' }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1.6, color: 'text.secondary' }}>
         Every play leaves a team a little better or worse off.
         {k && g && k.per < g.per && ` A strikeout costs ${(g.per - k.per).toFixed(2)} of a run
           more than a groundout does, which is the case for putting the ball in play.`}
@@ -185,10 +186,10 @@ export function PlayValueCard({ rows, accent, onSeeMethod }: {
               154px of swing, and the same change is worth 380px on the desktop card. The number
               moves up beside the label, where it is still a column to check the bars against. */}
               <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, mb: 0.5 }}>
-                <Typography component="span" sx={{ fontSize: '0.86rem', fontWeight: 700 }}>{r.label}</Typography>
-                <Typography component="span" sx={{ fontSize: '0.75rem', color: 'text.disabled' }}>{r.n}</Typography>
+                <Typography component="span" sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700 }}>{r.label}</Typography>
+                <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>{r.n}</Typography>
                 <Typography sx={{
-                  ml: 'auto', fontSize: '0.86rem', fontWeight: 800,
+                  ml: 'auto', fontSize: TYPE_SCALE.body, fontWeight: 800,
                   fontVariantNumeric: 'tabular-nums', color: good ? accent : 'text.secondary',
                 }}>
                   {fmtRunValue(r.per, 2)}
@@ -213,7 +214,7 @@ export function PlayValueCard({ rows, accent, onSeeMethod }: {
           )
         })}
       </Box>
-      <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', mt: 1.5, lineHeight: 1.5 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mt: 1.5, lineHeight: 1.5 }}>
         Runs gained or lost on an average one, this season, in this league. The small number is
         how many there have been.
       </Typography>
@@ -235,13 +236,13 @@ export function PlayValueCard({ rows, accent, onSeeMethod }: {
             display: 'flex', alignItems: 'center', gap: 0.75,
             borderTop: '1px solid', borderColor: 'divider',
             cursor: 'pointer', userSelect: 'none', WebkitTapHighlightColor: 'transparent',
-            fontSize: '0.75rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+            fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
             ...TAPPABLE,
           }}
         >
-          <Box component="span" aria-hidden sx={{ fontSize: '0.85rem' }}>&#9432;</Box>
+          <Box component="span" aria-hidden sx={{ fontSize: TYPE_SCALE.body }}>&#9432;</Box>
           How this is worked out
-          <Box component="span" aria-hidden sx={{ ml: 'auto', fontSize: '0.8rem' }}>&darr;</Box>
+          <Box component="span" aria-hidden sx={{ ml: 'auto', fontSize: TYPE_SCALE.body }}>&darr;</Box>
         </Box>
       )}
     </SectionCard>

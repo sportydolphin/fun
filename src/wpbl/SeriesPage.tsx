@@ -244,7 +244,7 @@ function SeriesBody({ A, B, clubs, teams, games: allGames, players, lines: allLi
             gathers toward it like a scoreboard: pinned to the card's far edges, the two win counts
             sat 900px apart around an empty band. */}
         <ClubSide club={A} clubs={clubs} wins={regular.aWins} skeleton={skeleton} align="left" />
-        <Typography aria-hidden sx={{ display: { xs: 'none', md: 'block' }, fontSize: '2.5rem', fontWeight: 300, lineHeight: 1, color: 'text.secondary' }}>–</Typography>
+        <Typography aria-hidden sx={{ display: { xs: 'none', md: 'block' }, fontSize: TYPE_SCALE.hero, fontWeight: 300, lineHeight: 1, color: 'text.secondary' }}>–</Typography>
         <ClubSide club={B} clubs={clubs} wins={regular.bWins} skeleton={skeleton} align="right" />
         <Box sx={{ gridColumn: '1 / -1', textAlign: 'center', '& > *': { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }}>
           <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700 }}>
@@ -423,7 +423,7 @@ function ClubSide({ club, clubs, wins, skeleton, align }: {
       }}
     >
       <Box sx={{ gridArea: 'badge', display: 'flex' }}><TeamBadge team={club} size={wide ? 64 : 44} /></Box>
-      <Typography sx={{ gridArea: 'wins', fontSize: { xs: '2rem', md: '3rem' }, fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+      <Typography sx={{ gridArea: 'wins', fontSize: TYPE_SCALE.hero, fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
         {skeleton ? <TextGhost>0</TextGhost> : wins}
       </Typography>
       <Box sx={{ gridArea: 'name', minWidth: 0 }}>
@@ -657,10 +657,10 @@ function Board({ title, empty, skeleton, children }: {
               <Box sx={{ width: '1.125rem' }} />
               <Skeleton variant="circular" width={32} height={32} />
               <Box sx={{ flex: 1 }}>
-                <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}><TextGhost>Firstname Lastname</TextGhost></Typography>
-                <Typography sx={{ fontSize: '0.72rem' }}><TextGhost>5-for-12, 1 HR</TextGhost></Typography>
+                <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600 }}><TextGhost>Firstname Lastname</TextGhost></Typography>
+                <Typography sx={{ fontSize: TYPE_SCALE.meta }}><TextGhost>5-for-12, 1 HR</TextGhost></Typography>
               </Box>
-              <Typography sx={{ fontSize: '1.05rem', fontWeight: 800 }}><TextGhost>1.000</TextGhost></Typography>
+              <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800 }}><TextGhost>1.000</TextGhost></Typography>
             </Box>
           ))}
         </Box>
@@ -715,7 +715,7 @@ function MatchupRow({ l, lead, clubs, ink, href, onNavigate }: {
         </Box>
       </Box>
       <Box sx={{ textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
-        <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: ink, lineHeight: 1.2 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, color: ink, lineHeight: 1.2 }}>
           {l.h}-for-{l.ab}
         </Typography>
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>

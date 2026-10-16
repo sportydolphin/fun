@@ -25,6 +25,7 @@ import WpblPage from './WpblPage'
 import type { WpblTeam, WpblPlayer } from './types'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
 import { typePx } from '../ui/scale'
+import { TYPE_SCALE } from '../ui/card'
 
 type SortKey = 'club' | 'name' | 'number'
 
@@ -180,7 +181,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
           if (!isModified(e)) { e.preventDefault(); onNavigate(WPBL_COMPARE_BASE) }
         }}
         sx={{
-          display: 'inline-block', mb: 2.5, fontSize: '0.85rem', fontWeight: 700,
+          display: 'inline-block', mb: 2.5, fontSize: TYPE_SCALE.body, fontWeight: 700,
           color: 'primary.main', textDecoration: 'none',
           ...hoverOnly({ textDecoration: 'underline' }),
         }}
@@ -203,7 +204,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
           placeholder="Search players, positions…"
           aria-label="Search players"
           sx={{
-            flex: 1, minWidth: 0, font: 'inherit', fontSize: '0.9rem',
+            flex: 1, minWidth: 0, font: 'inherit', fontSize: TYPE_SCALE.title,
             color: 'text.primary', bgcolor: 'background.paper',
             border: '1px solid', borderColor: 'outline', borderRadius: 999,
             px: 1.75, py: 0.9, outline: 'none',
@@ -275,7 +276,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
             <Typography component="h2" sx={GROUP_TITLE}>
               {team ? wpblFullName(team) : 'Unassigned'}
             </Typography>
-            <Typography sx={{ color: 'text.disabled', fontSize: '0.8rem' }}>
+            <Typography sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.body }}>
               {roster.length}
             </Typography>
             <ExpandMore sx={{
@@ -306,14 +307,14 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
 // One definition each for the loaded rows and their skeletons, so the two cannot drift apart.
 const CELL = { display: 'flex', alignItems: 'center', gap: 1, px: 1, py: 0.75, borderRadius: 1.5 } as const
 const CELL_TEXT = { minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.1 } as const
-const CELL_NAME = { fontSize: '0.9rem', fontWeight: 700, lineHeight: 1.2 } as const
-const CELL_META = { fontSize: '0.72rem', fontWeight: 600 } as const
+const CELL_NAME = { fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2 } as const
+const CELL_META = { fontSize: TYPE_SCALE.meta, fontWeight: 600 } as const
 const GROUP_HEAD = {
   width: '100%', border: 0, background: 'none', p: 0, m: 0, mb: 1.5,
   display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', textAlign: 'left',
   color: 'text.primary', font: 'inherit',
 } as const
-const GROUP_TITLE = { fontSize: '1.05rem', fontWeight: 700 } as const
+const GROUP_TITLE = { fontSize: TYPE_SCALE.heading, fontWeight: 700 } as const
 
 /** Who has appeared in a game, roughly (69 of 118 at the end of 2026): what the skeleton reserves
  *  until the real count lands, so the standfirst wraps where it will and the roster grids are

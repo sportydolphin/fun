@@ -7,11 +7,12 @@ import { pitchSwing, countKey } from './derive/countValue'
 import type { CountValue } from './derive/countValue'
 import { typePx } from '../ui/scale'
 import { InfoDot } from '../ui/InfoDot'
+import { TYPE_SCALE } from '../ui/card'
 
 // The axis labels, spelled the way the situations grid's "0 outs" header on the same board is,
 // so the two grids a reader meets one card apart do not label their axes in two styles.
 const AXIS_SX = {
-  fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
+  fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
   color: 'text.secondary',
 } as const
 
@@ -60,7 +61,7 @@ export default function CountBoard({ counts, fullCount, accent }: {
           "So 0-0 is this league's average plate appearance, and every other count reads against it.",
           'The small number is how many plate appearances reached that count. Counts reached fewer than 25 times are left blank.',
         ]} />}>
-        <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', mb: 1.25, lineHeight: 1.6 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mb: 1.25, lineHeight: 1.6 }}>
           {/* A GAP, SO NO SIGN. These two used to print "+0.13" and "+1.05" beside a grid whose
               3-2 cell reads +0.14, and a signed number in that sentence reads as another cell. */}
           {first != null && (
@@ -99,7 +100,7 @@ export default function CountBoard({ counts, fullCount, accent }: {
                       borderRadius: 1.5, border: '1px dashed', borderColor: 'outline',
                       py: 1.4, textAlign: 'center',
                     }}>
-                      <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled' }}>—</Typography>
+                      <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled' }}>—</Typography>
                     </Box>
                   )
                 }
@@ -112,17 +113,17 @@ export default function CountBoard({ counts, fullCount, accent }: {
                     borderRadius: 1.5, py: 0.9, px: 0.5, textAlign: 'center',
                     bgcolor: fill, color: ink,
                   }}>
-                    <Typography sx={{ fontSize: '0.55rem', fontWeight: 800, color: 'inherit' }}>
+                    <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'inherit' }}>
                       {c.key}
                     </Typography>
                     {/* TWO DECIMALS, not the one place the rest of this board uses. The whole
                         grid lives inside about half a run, so a tenth collapses it: 0-2 and
                         1-2 printed the same figure while one is materially worse than the
                         other, and comparing two cells got no answer from the number. */}
-                    <Typography sx={{ fontSize: '0.95rem', fontWeight: 900, color: 'inherit', fontVariantNumeric: 'tabular-nums', lineHeight: 1.25 }}>
+                    <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 900, color: 'inherit', fontVariantNumeric: 'tabular-nums', lineHeight: 1.25 }}>
                       {fmtRunValue(c.per, 2)}
                     </Typography>
-                    <Typography sx={{ fontSize: '0.5rem', fontWeight: 700, color: 'inherit' }}>
+                    <Typography sx={{ fontSize: TYPE_SCALE.nano, fontWeight: 700, color: 'inherit' }}>
                       {c.n.toLocaleString()} PA
                     </Typography>
                   </Box>
@@ -134,7 +135,7 @@ export default function CountBoard({ counts, fullCount, accent }: {
 
         {/* The two ends of the grid in words, because the one thing a reader should take from
             this card is the size of the gap rather than any single cell. */}
-        <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: 1.25, lineHeight: 1.55 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 1.25, lineHeight: 1.55 }}>
           Best count for a hitter: <strong>{best.key}</strong> ({fmtRunValue(best.per, 2)}
           {', '}{Math.round(best.walk * 100)}% walked). Worst: <strong>{worst.key}</strong>
           {' '}({fmtRunValue(worst.per, 2)}, {Math.round(worst.strikeout * 100)}% struck out).

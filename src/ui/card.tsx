@@ -78,6 +78,10 @@ export const MICRO_TEXT = '0.68rem'
  * next size added has to be a decision about the scale rather than a number typed into an `sx`.
  */
 export const TYPE_SCALE = {
+  /** The one number a page is about: a season series' or a playoff series' wins, as a scoreboard
+   *  draws them. Both sections typed their own (WPBL's series page 2 to 3rem, MLB's SeriesSheet
+   *  1.9 to 2.4rem) until Oct 15, 2026; one step, so the two read alike. */
+  hero: '2.25rem',
   /** A standalone page's own title (the <h1> on /wpbl/league, /wpbl/season and the rest).
    *  Bigger than `display`, which is the largest thing INSIDE a card; this is the page itself. */
   page: '1.5rem',

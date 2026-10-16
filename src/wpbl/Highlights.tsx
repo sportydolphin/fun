@@ -5,6 +5,7 @@ import { track, EVENTS } from '../lib/analytics'
 import type { WpblVideo } from './types'
 import { videoCredit, videoLabel, videoKindName } from './videoChannels'
 import { typePx } from '../ui/scale'
+import { ICON_SIZE, TYPE_SCALE } from '../ui/card'
 
 // The pieces every video surface shares: the thumbnail facade, the play badge, the credit line and
 // the lightbox. Three consumers: the Watch page and its Home card (Watch.tsx, WatchPage.tsx), and
@@ -142,7 +143,7 @@ export function HighlightLightbox({ video, onClose, onPrev, onNext, context }: {
             sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
           />
         </Box>
-        <Typography sx={{ mt: 1.25, fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.3 }}>{video.title}</Typography>
+        <Typography sx={{ mt: 1.25, fontSize: TYPE_SCALE.title, fontWeight: 600, lineHeight: 1.3 }}>{video.title}</Typography>
         {context && <Box sx={{ mt: 0.5 }}>{context}</Box>}
         {credit && <Box sx={{ mt: 0.5 }}><VideoCreditLine credit={credit} /></Box>}
         <Box sx={{ mt: 0.75, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -152,7 +153,7 @@ export function HighlightLightbox({ video, onClose, onPrev, onNext, context }: {
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => track(EVENTS.WPBL_HIGHLIGHT_YOUTUBE, { videoId: video.video_id })}
-            sx={{ flex: 1, fontSize: '0.75rem', color: 'text.secondary', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+            sx={{ flex: 1, fontSize: TYPE_SCALE.meta, color: 'text.secondary', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
           >
             Watch on YouTube ↗
           </Box>
@@ -177,7 +178,7 @@ function PagerButton({ label, glyph, onClick }: { label: string; glyph: string; 
         // these are the only way to the next clip on a phone, where the embed swallows every swipe.
         '@media (pointer: coarse)': { width: 44, height: 44 },
         border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', color: 'text.primary',
-        fontSize: '1.2rem', fontWeight: 700, lineHeight: 1, opacity: onClick ? 1 : 0.35,
+        fontSize: ICON_SIZE.md, fontWeight: 700, lineHeight: 1, opacity: onClick ? 1 : 0.35,
         display: 'flex', alignItems: 'center', justifyContent: 'center', p: 0,
         ...(onClick ? hoverOnly({ borderColor: 'text.secondary' }) : {}), ...FOCUS_RING,
       }}>
@@ -197,7 +198,7 @@ export function VideoCreditLine({ credit, what = 'Video' }: {
   what?: string
 }) {
   return (
-    <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.3 }}>
+    <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>
       {what}:{' '}
       <Box
         component="a"
@@ -256,11 +257,11 @@ function GameHighlightCard({ video }: { video: WpblVideo }) {
           <VideoThumb video={video} badge={30} radius={1.5} />
         </Box>
         <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary' }}>
             {label}
           </Typography>
           <Typography sx={{
-            fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.3, mt: 0.25,
+            fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.3, mt: 0.25,
             display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
           }}>
             {video.title}
