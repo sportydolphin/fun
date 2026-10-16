@@ -2,9 +2,11 @@ import { useDark } from '../ui/useDark'
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { fetchWpblAllPitchPlays, getCachedWpblAllPitchPlays } from './api'
-import { aggregatePitchCodes, pitchQualifiers, fmtPct, type PitchRates, type PitchCounts } from './derive/pitches'
+import { aggregatePitchCodes, pitchQualifiers, fmtPct, type PitchCounts } from './derive/pitches'
+import type { PitchProfile } from '../league/pitches'
+import { BLOCK_GAP } from '../ui/playerCard'
 import { wpblQualifiers } from './stats'
-import { SectionHead, SECTION_CAPTION_SX, ShowMoreButton, useRankInk } from './cardParts'
+import { SectionHead, SECTION_CAPTION_SX, useRankInk } from './cardParts'
 import { inSeason, gamesInSeason, type SeasonScope } from './season'
 import type { WpblGame, WpblPitchPlay, WpblPlayer, WpblTeam } from './types'
 import { typePx } from '../ui/scale'
@@ -23,20 +25,14 @@ import { TYPE_SCALE } from '../ui/card'
 // that already ranks the season line above it. The league figure is the comparison that explains
 // the number; the Pitches board is where a reader goes for the order.
 //
-// NO BOX AROUND IT, and only the headline on first sight. It sits after the game log and the
-// matchups, set in the season line's own type (a small label, a large figure, a line under it).
-// The pitch mix and the figures under it were the tallest block on the card, about 420px on a
-// phone, second from the top; they are one tap down now, behind the same control as the tables.
+// NO BOX AROUND IT. It sits after the game log and the matchups: the whole pitch mix against the
+// league, placement by position rather than by rank, since ranking every row would bring back the
+// clutter the rows replaced, and the outs in play on the ground.
 //
-// WHAT GOES WHERE, decided by what each part can say that nothing else on the page does:
-//   • The headline is the RATES A FAN ALREADY READS, walks and strikeouts per plate appearance,
-//     beside the two pitch rates that explain them. The season line has BB and SO only as
-//     counts. A headline figure may never restate the chart under it (swing rate on a pitcher, or
-//     strike rate, which is the Ball row subtracted from 100): an early version did, twice.
-//   • The rows are the whole pitch mix against the league, placement by position rather than by
-//     rank, since ranking every row would bring back the clutter the rows replaced.
-//   • The extras are the rest that is worth a figure but not a headline slot, drawn as figures
-//     (label, number, league) rather than the sentence of numbers they used to be.
+// THE RATES LIVE IN THE SEASON'S TABLES since Oct 2026. The block used to lead with four large
+// tiles (walk, strikeout, swing and contact, or the pitcher's four) and a row of extras, in a type
+// of their own; they are the Plate discipline table now, in the same cells as every other rate on
+// the card, and this file reads the pitches for both (usePitchProfiles).
 //
 // ONE MEANING PER COLOUR. A row notably better than the league is the section's own blue, worse is
 // amber, and an outcome with no better direction (a foul, a ball in play) is never coloured at all.
@@ -47,29 +43,6 @@ import { TYPE_SCALE } from '../ui/card'
 
 type Side = 'pitching' | 'batting'
 type Better = 'high' | 'low' | null
-
-interface RateDef {
-  key: keyof PitchRates
-  label: string
-  /** Which direction is good. Null: not ranked, because neither is (how often a hitter swings is
-   *  a style, not a skill). */
-  better: Better
-  hint: string
-}
-
-const PITCHER_RATES: RateDef[] = [
-  { key: 'kPct', label: 'Strikeout', better: 'high', hint: 'Strikeouts per batter faced' },
-  { key: 'bbPct', label: 'Walk', better: 'low', hint: 'Walks per batter faced' },
-  { key: 'firstStrikePct', label: '1st-pitch strike', better: 'high', hint: 'Batters whose first pitch was a strike' },
-  { key: 'swStrPct', label: 'Swinging strike', better: 'high', hint: 'Pitches swung at and missed' },
-]
-
-const BATTER_RATES: RateDef[] = [
-  { key: 'bbPct', label: 'Walk', better: 'high', hint: 'Walks per plate appearance' },
-  { key: 'kPct', label: 'Strikeout', better: 'low', hint: 'Strikeouts per plate appearance' },
-  { key: 'swingPct', label: 'Swing', better: null, hint: 'Pitches swung at' },
-  { key: 'contactPct', label: 'Contact', better: 'high', hint: 'Swings that made contact, foul or fair' },
-]
 
 /** The pitch outcomes in the Pitches board's two groups, each with the direction that is good for
  *  a hitter and for a pitcher. Hit by pitch is not a row: it is 0 or 1% for nearly everyone and
@@ -95,9 +68,6 @@ function verdict(v: number | null, league: number | null, better: Better, thresh
   if (v == null || league == null || !better || Math.abs(v - league) < threshold) return null
   return (v > league) === (better === 'high') ? 'good' : 'bad'
 }
-
-const fmtRateFor = (key: keyof PitchRates, v: number | null) =>
-  key === 'pitchesPerPa' ? (v == null ? '—' : v.toFixed(2)) : fmtPct(v, key === 'swStrPct' ? 1 : 0)
 
 /**
  * The pitch outcomes as DOT ROWS against the league: one row per outcome, the player a dot and the
@@ -162,127 +132,100 @@ function MixRows({ me, league, side, better, amber }: {
   )
 }
 
-export default function PitchProfileBlock({ player, side, players, teams, games, season, scope, accent }: {
+/** One side of a player's pitch record and the league's, or null below the bar (see usePitchProfiles). */
+export interface PitchProfilePair { me: PitchProfile<WpblPlayer>; league: PitchProfile<WpblPlayer> }
+
+/**
+ * The player's pitch record from both sides, and the league's, for the slice on the card.
+ *
+ * ONE READ FOR TWO BLOCKS: the plate discipline table (with the season's other tables) and the pitch
+ * mix under the game log. Undefined while the play log is read, null for a side below the bar.
+ *
+ * THE BAR IS THE PITCHES BOARD'S, a third of it. A profile over a handful of pitches is noise wearing
+ * a percentage sign, so a side under it draws neither block. The bar is a SEASON's, so the playoff
+ * slice, a handful of games that the reader chose on purpose, only has to clear the 20-pitch floor.
+ */
+export function usePitchProfiles({ player, players, teams, games, season, scope }: {
   player: WpblPlayer
-  side: Side
   players: WpblPlayer[]
   teams: WpblTeam[]
   /** The whole schedule, every year: `inSeason` needs it to place a play in its year. */
   games: WpblGame[]
-  /** The year on the card. Plays from any other year stay out of the profile and of its league.
-   *  Null only with no schedule at all, when there is no year to cut to. */
+  /** The year on the card, or null for every season (a career). */
   season: number | null
-  /** The page's Regular / Playoffs / Both control. */
   scope: SeasonScope
-  /** The card's control colour, for the disclosure. Never used on a number. */
-  accent: string
-}) {
-  const dark = useDark()
-  const amber = amberFor(dark)
-  // Better than the league: the section's own blue, the same for every club.
-  const better = useRankInk()
-  const [open, setOpen] = useState(false)
-  // The card's season alone, or every season for a career (`season` null). Cached app-wide and
-  // shared with the Stats tab's Pitches board, so a reader who has opened either pays once.
-  const [plays, setPlays] = useState<WpblPitchPlay[] | null>(() => getCachedWpblAllPitchPlays(season))
+}): Record<Side, PitchProfilePair | null> | undefined {
+  // The card's season alone, or every season for a career. Cached app-wide and shared with the
+  // Stats tab's Pitches board, so a reader who has opened either pays once.
+  const [read, setRead] = useState<{ season: number | null; plays: WpblPitchPlay[] } | null>(() => {
+    const cached = getCachedWpblAllPitchPlays(season)
+    return cached ? { season, plays: cached } : null
+  })
   useEffect(() => {
     let cancelled = false
-    fetchWpblAllPitchPlays(season).then(p => { if (!cancelled) setPlays(p) }).catch(() => { /* renders nothing */ })
+    fetchWpblAllPitchPlays(season)
+      .then(p => { if (!cancelled) setRead({ season, plays: p }) })
+      // A failed read draws neither block, as a thin record does.
+      .catch(() => { if (!cancelled) setRead({ season, plays: [] }) })
     return () => { cancelled = true }
   }, [season])
+  const plays = read && read.season === season ? read.plays : null
 
   const seasonGames = useMemo(() => (season == null ? games : gamesInSeason(games, season)), [games, season])
   const board = useMemo(
     () => (plays ? aggregatePitchCodes(season == null ? plays : inSeason(plays, games, season), players, seasonGames, scope) : null),
     [plays, players, games, season, seasonGames, scope])
-  const pool = board ? (side === 'pitching' ? board.pitchers : board.batters) : []
-  const me = pool.find(p => p.player?.id === player.id) ?? null
-  const league = board?.league ?? null
-
-  // The Pitches board's bar, spent here only on whether to draw at all.
-  const minPitches = useMemo(() => {
+  const mins = useMemo(() => {
     const q = wpblQualifiers(teams, seasonGames)
-    const mins = pitchQualifiers(q.active ? q.teamGames : 0)
-    return side === 'pitching' ? mins.minPitcher : mins.minBatter
-  }, [teams, seasonGames, side])
+    return pitchQualifiers(q.active ? q.teamGames : 0)
+  }, [teams, seasonGames])
 
-  // A profile over a handful of pitches is noise wearing a percentage sign. Under a third of the
-  // pitch bar the block does not draw at all. The bar is a SEASON's, so the playoff slice, a
-  // handful of games that the reader chose on purpose, only has to clear the 20-pitch floor.
-  const floor = scope === 'postseason' ? 20 : Math.max(20, minPitches / 3)
-  if (!me || !league || me.pitches < floor) return null
+  return useMemo(() => {
+    if (!board) return undefined
+    const pair = (side: Side): PitchProfilePair | null => {
+      const me = (side === 'pitching' ? board.pitchers : board.batters).find(p => p.player?.id === player.id)
+      const min = side === 'pitching' ? mins.minPitcher : mins.minBatter
+      const floor = scope === 'postseason' ? 20 : Math.max(20, min / 3)
+      return me && me.pitches >= floor ? { me, league: board.league } : null
+    }
+    return { batting: pair('batting'), pitching: pair('pitching') }
+  }, [board, mins, player.id, scope])
+}
 
-  const rates = side === 'pitching' ? PITCHER_RATES : BATTER_RATES
+/**
+ * THE PITCH MIX: every pitch seen or thrown, by outcome, against the league, and the outs in play
+ * on the ground. What is left of the pitch profile once its headline rates moved into the season's
+ * Plate discipline table, where they sit in the same table as every other rate on the card.
+ */
+export default function PitchProfileBlock({ side, profile }: {
+  side: Side
+  profile: PitchProfilePair | null | undefined
+}) {
+  const dark = useDark()
+  const amber = amberFor(dark)
+  // Better than the league: the section's own blue, the same for every club.
+  const better = useRankInk()
+  if (!profile) return null
+  const { me, league } = profile
   const outs = me.groundOuts + me.airOuts
   const coverage = `${me.pitches} pitches ${side === 'pitching' ? 'to' : 'across'} ${me.pa} ${side === 'pitching' ? 'batters' : 'plate appearances'}`
-  // The figures that are worth a number but not a headline slot. Drawn as the tiles are, one step
-  // smaller and never ranked, so the whole block is one format.
-  const extras: { label: string; value: string; league: string; note?: string }[] = [
-    ...(side === 'pitching'
-      ? [{ label: 'Two-strike putaway', value: fmtPct(me.putawayPct, 0), league: fmtPct(league.putawayPct, 0) }]
-      : []),
-    {
-      label: side === 'pitching' ? 'Pitches per batter' : 'Pitches per PA',
-      value: fmtRateFor('pitchesPerPa', me.pitchesPerPa), league: fmtRateFor('pitchesPerPa', league.pitchesPerPa),
-    },
-    // OUTS IN PLAY, AND IT SAYS SO. A hit in the play text reads "singled to center field"
-    // whatever it was, so only the outs can be sorted into ground and air. See battedOutKind.
-    ...(outs >= 10
-      ? [{ label: 'Outs on the ground', value: fmtPct(me.groundOutPct, 0), league: fmtPct(league.groundOutPct, 0), note: `${me.groundOuts} of ${outs}` }]
-      : []),
-  ]
 
   return (
-    <Box sx={{ mt: 2.5 }}>
-      <SectionHead title={side === 'pitching' ? 'Pitch profile' : 'Plate discipline'} part="pitches" caption={coverage} />
-
-      {/* Four across from sm up, two by two on a phone: the figure and the league's beside it. */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(4, minmax(0, 1fr))' }, rowGap: 1.5, columnGap: 1 }}>
-        {rates.map(d => (
-          <Box key={d.key} title={d.hint} sx={{ textAlign: 'center', minWidth: 0 }}>
-            <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {d.label}
-            </Typography>
-            <Typography sx={{ fontSize: TYPE_SCALE.display, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: 'text.primary' }}>
-              {fmtRateFor(d.key, me[d.key])}
-            </Typography>
-            <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>
-              league {fmtRateFor(d.key, league[d.key])}
-            </Typography>
-          </Box>
-        ))}
-      </Box>
-
-      {open && (
-        <>
-          <Box sx={{ mt: 1.75 }}>
-            <MixRows me={me.counts} league={league.counts} side={side} better={better} amber={amber} />
-            <Typography sx={{ mt: 0.5, fontSize: TYPE_SCALE.caption, color: 'text.disabled' }}>
-              Share of every pitch {side === 'pitching' ? 'thrown' : 'seen'}; the tick is the league.
-              {' '}<Box component="span" sx={{ color: better, fontWeight: 700 }}>Blue</Box> is better than the league,
-              {' '}<Box component="span" sx={{ color: amber, fontWeight: 700 }}>amber</Box> is worse.
-            </Typography>
-          </Box>
-          <Box sx={{ mt: 1.5, display: 'grid', gridTemplateColumns: `repeat(${extras.length}, minmax(0, 1fr))`, columnGap: 1 }}>
-            {extras.map(x => (
-              <Box key={x.label} sx={{ textAlign: 'center', minWidth: 0 }}>
-                <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled' }}>
-                  {x.label}
-                </Typography>
-                <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.3, fontVariantNumeric: 'tabular-nums' }}>
-                  {x.value}
-                </Typography>
-                <Typography sx={SECTION_CAPTION_SX}>
-                  league {x.league}{x.note ? ` · ${x.note}` : ''}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
-        </>
+    <Box sx={{ mt: BLOCK_GAP }}>
+      <SectionHead title="Pitch mix" part="pitches" caption={coverage} />
+      <MixRows me={me.counts} league={league.counts} side={side} better={better} amber={amber} />
+      <Typography sx={{ mt: 0.5, fontSize: TYPE_SCALE.caption, color: 'text.disabled' }}>
+        Share of every pitch {side === 'pitching' ? 'thrown' : 'seen'}; the tick is the league.
+        {' '}<Box component="span" sx={{ color: better, fontWeight: 700 }}>Blue</Box> is better than the league,
+        {' '}<Box component="span" sx={{ color: amber, fontWeight: 700 }}>amber</Box> is worse.
+      </Typography>
+      {/* OUTS IN PLAY, AND IT SAYS SO. A hit in the play text reads "singled to center field"
+          whatever it was, so only the outs can be sorted into ground and air. See battedOutKind. */}
+      {outs >= 10 && (
+        <Typography sx={{ mt: 1, ...SECTION_CAPTION_SX, color: 'text.secondary' }}>
+          Outs on the ground: {fmtPct(me.groundOutPct, 0)} ({me.groundOuts} of {outs}), league {fmtPct(league.groundOutPct, 0)}
+        </Typography>
       )}
-      <ShowMoreButton expanded={open} onClick={() => setOpen(o => !o)} accent={accent}>
-        {open ? 'Hide pitch mix' : 'Show pitch mix'}
-      </ShowMoreButton>
     </Box>
   )
 }

@@ -66,6 +66,11 @@ export const MLB_STAT_TERMS: GlossaryTerms = {
   'BB%': { full: 'Walk rate', plain: 'Share of plate appearances ending in a walk.' },
   'K-BB%': { full: 'Strikeout rate minus walk rate', plain: 'The gap between the two, a strong single read of a pitcher.' },
   'Whiff%': { full: 'Whiff rate', plain: 'Share of swings that miss.' },
+  'P/PA': { full: 'Pitches per plate appearance', plain: 'How long a trip to the plate lasts. For a hitter more is patience; for a pitcher fewer is efficiency.' },
+  'Swing%': { full: 'Swing rate', plain: 'Share of all pitches swung at. A style rather than a skill on its own: read it beside Contact%.' },
+  'Contact%': { full: 'Contact rate', plain: 'Share of swings that hit the ball, foul or fair.' },
+  'SwStr%': { full: 'Swinging strike rate', plain: 'Swings and misses over every pitch, not just the swings: the raw miss rate.' },
+  'Strike%': { full: 'Strike rate', plain: 'Every pitch that was not a ball, fouls and balls in play included.' },
   FIP: { full: 'Fielding independent pitching', plain: 'An ERA built only from what the pitcher controls: strikeouts, walks, hit batters and home runs.' },
   xFIP: { full: 'Expected FIP', plain: 'FIP with the pitcher\'s home runs replaced by a league-average rate on the fly balls allowed.' },
   'ERA-': { full: 'ERA minus', plain: 'ERA against the league, adjusted for park. 100 is average and lower is better: 80 is 20% better.' },
@@ -96,13 +101,13 @@ export const MLB_GLOSSARY_GROUPS: GlossaryGroup[] = [
   {
     key: 'batting', label: 'Batting',
     keys: ['AVG', 'OBP', 'SLG', 'OPS', 'wOBA', 'wRC+', 'ISO', 'BABIP', 'xBA', 'xSLG', 'xwOBA', 'WAR',
-      'PA', 'AB', 'H', '1B', '2B', '3B', 'HR', 'R', 'RBI', 'BB', 'SO', 'K%', 'BB%', 'Whiff%',
+      'PA', 'AB', 'H', '1B', '2B', '3B', 'HR', 'R', 'RBI', 'BB', 'SO', 'K%', 'BB%', 'P/PA', 'Swing%', 'Contact%', 'Whiff%', 'SwStr%',
       'SB', 'CS', 'TB', 'HBP', 'GDP', 'SF', 'SH'],
   },
   {
     key: 'pitching', label: 'Pitching',
     keys: ['ERA', 'ERA-', 'FIP', 'FIP-', 'xFIP', 'WHIP', 'BAA', 'W-L', 'W', 'L', 'SV', 'HLD', 'IP', 'ER',
-      'GS', 'BF', 'K/9', 'K/BB', 'K%', 'BB%', 'K-BB%', 'Whiff%', 'WAR', 'WP', 'BK', 'P', 'DEC'],
+      'GS', 'BF', 'K/9', 'K/BB', 'K%', 'BB%', 'K-BB%', 'Strike%', 'Whiff%', 'WAR', 'WP', 'BK', 'P', 'DEC'],
   },
   {
     key: 'fielding', label: 'Fielding',

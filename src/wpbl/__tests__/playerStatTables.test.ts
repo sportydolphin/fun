@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { wpblRoleTables, seasonLead, type WpblTablesInput } from '../player/statTables'
+import { wpblRoleTables, wpblDisciplineCols, seasonLead, type WpblTablesInput } from '../player/statTables'
+import type { PitchProfilePair } from '../PitchProfile'
 import { hittingColumns, pitchingColumns, leagueLine } from '../statColumns'
 import { sumBatting, sumPitching, fmtTwo } from '../stats'
 import type { WobaWeights } from '../derive/linearWeights'
@@ -100,6 +101,29 @@ describe('wpblRoleTables', () => {
     const rank = { rank: 1, of: 20 }
     const cols = wpblRoleTables('batting', input({ rankFor: (_r, l) => (l === 'OBP' ? { rank } : null) })).summary
     expect(cols.filter(c => c.rank).map(c => c.label)).toEqual(['OBP'])
+  })
+})
+
+describe('wpblDisciplineCols', () => {
+  const rates = (over: Record<string, number>) => ({
+    pitchesPerPa: 3.8, strikePct: 0.62, firstStrikePct: 0.58, swingPct: 0.45, whiffPct: 0.2, contactPct: 0.8,
+    swStrPct: 0.09, calledPct: 0.17, putawayPct: 0.3, ...over,
+  })
+  const pair = { me: rates({ whiffPct: 0.25 }), league: rates({}) } as unknown as PitchProfilePair
+
+  it("draws the side's pitch rates with the league under them", () => {
+    const cols = wpblDisciplineCols('batting', { batting: pair, pitching: null })!
+    expect(cols.map(c => c.label)).toEqual(['P/PA', 'Swing%', 'Contact%', 'Whiff%', 'SwStr%', 'CStr%'])
+    expect(cols.find(c => c.label === 'Whiff%')).toMatchObject({ value: '25.0%', league: '20.0%' })
+    expect(cols[0]).toMatchObject({ value: '3.80', league: '3.80' })
+    const pit = wpblDisciplineCols('pitching', { batting: null, pitching: pair })!
+    expect(pit.map(c => c.label)).toEqual(['P/PA', 'Strike%', 'F-Strike%', 'Swing%', 'Whiff%', 'SwStr%', 'Putaway%'])
+  })
+
+  it('draws no table for a record too thin, and samples while the log is read', () => {
+    expect(wpblDisciplineCols('pitching', { batting: pair, pitching: null })).toBeNull()
+    const reading = wpblDisciplineCols('batting', undefined)!
+    expect(reading.every(c => c.pending)).toBe(true)
   })
 })
 

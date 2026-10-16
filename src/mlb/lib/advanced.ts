@@ -196,7 +196,7 @@ export function cardLeagueFigures(
   entries: LeaderboardEntry[], group: 'hitting' | 'pitching',
   base: Record<string, string> | null,
   saber: Map<number, Sabermetric> | null,
-  swings: { misses: number; swings: number } | null,
+  swings: { misses: number; swings: number; pitches: number; pa: number } | null,
 ): Record<string, string> {
   const adv = advancedLeague(entries, group, saber)
   const out: Record<string, string> = {}
@@ -205,6 +205,15 @@ export function cardLeagueFigures(
   const two = (v: number) => fmtDecimal(v, 2)
   const pct = (v: number) => `${(v * 100).toFixed(1)}%`
   const whiff = swings && swings.swings > 0 ? swings.misses / swings.swings : undefined
+  // Plate discipline: the same for a batter and a pitcher, since every pitch has one of each.
+  const discipline = () => {
+    if (!swings) return
+    put('P/PA', ratioOf(swings.pitches, swings.pa), two)
+    put('Swing%', ratioOf(swings.swings, swings.pitches), pct)
+    put('Contact%', whiff != null ? 1 - whiff : undefined, pct)
+    put('Whiff%', whiff, pct)
+    put('SwStr%', ratioOf(swings.misses, swings.pitches), pct)
+  }
   if (group === 'hitting') {
     for (const [label, key] of [['AVG', 'avg'], ['OBP', 'obp'], ['SLG', 'slg'], ['OPS', 'ops']] as const) if (base?.[key]) out[label] = base[key]
     put('wOBA', adv.woba, three)
@@ -214,7 +223,7 @@ export function cardLeagueFigures(
     put('BABIP', adv.babipCalc, three)
     put('K%', adv.kPct, pct)
     put('BB%', adv.bbPct, pct)
-    put('Whiff%', whiff, pct)
+    discipline()
     return out
   }
   for (const [label, key] of [['ERA', 'era'], ['WHIP', 'whip']] as const) if (base?.[key]) out[label] = base[key]
@@ -226,6 +235,8 @@ export function cardLeagueFigures(
   put('BB%', adv.bbPct, pct)
   put('K-BB%', adv.kbbPct, pct)
   put('BABIP', adv.babipCalc, three)
-  put('Whiff%', whiff, pct)
+  put('Strike%', adv.strikePct, pct)
+  discipline()
   return out
 }
+const ratioOf = (a: number, b: number): number | undefined => (b > 0 ? a / b : undefined)

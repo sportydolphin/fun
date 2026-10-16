@@ -6,6 +6,8 @@ import type { WpblBoard } from '../searchAnswers'
 import type { BoardPlace, PlayerSeasonValue } from '../derive/seasonValue'
 import type { StatCol, StatRank, StatRow } from '../../ui/playerCard'
 import type { Role } from './pieces'
+import type { PitchProfilePair } from '../PitchProfile'
+import { fmtPct, type PitchRates } from '../derive/pitches'
 
 // THE PLAYER CARD'S SEASON TABLES, as data: the summary a reader expects, and behind "All stats" the
 // standard line and the advanced figures. Pure, so a test can hold the card's figures against the
@@ -166,3 +168,30 @@ export const row = (lead: string, cols: StatCol[]): StatRow => ({ lead, cols })
 // A league line with nothing in it, for the columns before the league's lines land. Every
 // league-relative column reads it as no baseline and returns null, which the card draws as a sample.
 const EMPTY_LEAGUE = { batting: {}, pitching: {} } as unknown as WpblLeagueLine
+
+/**
+ * PLATE DISCIPLINE, from every pitch in the play log (the Pitches board's arithmetic, read for one
+ * player by usePitchProfiles), with the league's under it. Null when the side's pitch record is too
+ * thin to draw; every cell a sample while the log is read.
+ *
+ * NO K% OR BB% HERE, though the pitch log has both: the Advanced table has them from the box scores,
+ * and the two counts differ by the odd plate appearance the play log missed, which would put two
+ * walk rates on one card a tenth apart.
+ */
+export function wpblDisciplineCols(role: Role, profiles: Record<Role, PitchProfilePair | null> | undefined): StatCol[] | null {
+  const pair = profiles?.[role]
+  if (profiles && !pair) return null
+  const pending = !profiles
+  const defs: [label: string, key: keyof PitchRates][] = role === 'pitching'
+    ? [['P/PA', 'pitchesPerPa'], ['Strike%', 'strikePct'], ['F-Strike%', 'firstStrikePct'], ['Swing%', 'swingPct'],
+      ['Whiff%', 'whiffPct'], ['SwStr%', 'swStrPct'], ['Putaway%', 'putawayPct']]
+    : [['P/PA', 'pitchesPerPa'], ['Swing%', 'swingPct'], ['Contact%', 'contactPct'], ['Whiff%', 'whiffPct'],
+      ['SwStr%', 'swStrPct'], ['CStr%', 'calledPct']]
+  const show = (key: keyof PitchRates, v: number | null) => (key === 'pitchesPerPa' ? (v == null ? '—' : v.toFixed(2)) : fmtPct(v))
+  return defs.map(([label, key]) => ({
+    label,
+    value: pending ? (key === 'pitchesPerPa' ? '0.00' : '00.0%') : show(key, pair!.me[key]),
+    pending,
+    league: pair ? show(key, pair.league[key]) : null,
+  }))
+}

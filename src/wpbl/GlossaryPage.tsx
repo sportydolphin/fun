@@ -40,12 +40,12 @@ const GROUPS: { key: string; label: string; keys: string[] }[] = [
   {
     key: 'batting', label: 'Batting',
     keys: ['AVG', 'OBP', 'SLG', 'OPS', 'wOBA', 'wRC+', 'ISO', 'BABIP', 'PA', 'AB', 'H', '2B', '3B', 'XBH', 'HR', 'R',
-      'RBI', 'BB', 'IBB', 'SO', 'K%', 'BB%', 'SB', 'CS', 'SB%', 'BsR', 'WPA', 'TB', 'HBP', 'GDP', 'SF', 'SH'],
+      'RBI', 'BB', 'IBB', 'SO', 'K%', 'BB%', 'P/PA', 'Swing%', 'Contact%', 'Whiff%', 'SwStr%', 'CStr%', 'SB', 'CS', 'SB%', 'BsR', 'WPA', 'TB', 'HBP', 'GDP', 'SF', 'SH'],
   },
   {
     key: 'pitching', label: 'Pitching',
     keys: ['ERA', 'FIP', 'WHIP', 'W-L', 'SV', 'IP', 'ER', 'BF', 'GS', 'K/7', 'K/9', 'HR/7',
-      'HR/9', 'K/BB', 'K%', 'BB%', 'K-BB%', 'BABIP', 'WPA', 'WP', 'BK', 'P', 'DEC'],
+      'HR/9', 'K/BB', 'K%', 'BB%', 'K-BB%', 'Strike%', 'F-Strike%', 'SwStr%', 'Putaway%', 'BABIP', 'WPA', 'WP', 'BK', 'P', 'DEC'],
   },
   {
     key: 'fielding', label: 'Fielding',

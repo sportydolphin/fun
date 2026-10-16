@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.171.0',
+    date:    '2026-10-16',
+    changes: [
+      {
+        short: 'Plate discipline on player pages',
+        full:  "All stats on every player page now ends with a Plate discipline table, with the league average under it: pitches per plate appearance, swing, contact, whiff and swinging-strike rates for a hitter, and strike, swing, whiff and swinging-strike rates for a pitcher. WPBL pages, read from every pitch in the play log, also show called strikes for a hitter and first-pitch strikes and two-strike putaways for a pitcher. WPBL's pitch profile is now just the pitch mix, and every new term is in both glossaries.",
+      },
+    ],
+  },
+  {
     version: '1.170.0',
     date:    '2026-10-16',
     changes: [
