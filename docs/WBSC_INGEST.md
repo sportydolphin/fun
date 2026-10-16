@@ -1,7 +1,7 @@
 # WBSC ingest: the World Cup, in files
 
 Importing the WBSC Women's Baseball World Cup, the first step of
-[ROADMAP-WOMENS-BASEBALL.md](../ROADMAP-WOMENS-BASEBALL.md). Planned Oct 16, 2026, and steps 1 to 3
+[ROADMAP-WOMENS-BASEBALL.md](../ROADMAP-WOMENS-BASEBALL.md). Planned Oct 16, 2026, and steps 1 to 4
 of the build order built the same day. Everything here was measured on the 30 games of the 2026
 group stage and one game each from 2016, 2018, 2023 and 2024.
 
@@ -173,19 +173,52 @@ Five stages per event:
 
 ## The crosswalk
 
-The link from a WBSC player to a WPBL player is the whole point and the riskiest data, so it is
-never computed at read time. Not built yet (step 4 below).
+The link from a WBSC player to a WPBL player is the whole point and the riskiest data: a wrong link
+puts someone else's World Cup on a player's page. So names are matched once, to build a list a
+person reviews, and never at read time. The logic is
+[`src/intl/wbsc/crosswalk.ts`](../src/intl/wbsc/crosswalk.ts); both files below sit in
+`archive/wbsc/` and are gitignored with the rest, since a link names a WBSC player.
 
-- `archive/wbsc/crosswalk.json`: one row per WBSC tournament player who is also a WPBL player:
-  the namespaced WBSC id, the WPBL player id, the name as each side writes it, who checked it and
-  when.
-- `npm run wbsc -- --propose` writes candidates to a review file by name (first name, last name,
-  accents folded), the way the Commons photos land unapproved. A person confirms each one, and
-  only confirmed rows reach the crosswalk. The 2026 group stage proposes 32. WBSC's given names
-  include middle names, so the WPBL's "Rosi del Castillo" is WBSC's "Rosa Maria Del Castillo
-  Alarcon": exactly the case a person has to confirm.
-- A player in several events is several rows, one per event. Their international career is the
-  rows that share a WPBL id.
+```bash
+npm run wbsc -- --propose
+```
+
+reads every imported event's players and the WPBL roster (`archive/wpbl/wpbl_players.json`) and
+writes `archive/wbsc/crosswalk-review.json`: every plausible pair not already linked or ruled
+out, with the national team beside the roster's hometown so there is a second fact to check. It
+refuses to overwrite a review that holds decisions not yet confirmed. Each candidate is one of:
+
+- **by name**: every word of the roster's name appears in WBSC's, given name first. WBSC writes
+  every given name and both surnames, so "Kelsie Whitmore" is "Kelsie Ann-Gamboa Whitmore" and
+  "Diana Ibarra" is "Diana Ibarra Muñoz".
+- **by surname and initial**: the surname matches and the given names share only a first letter.
+  That catches the nicknames the roster uses ("Allie" for Allison, "Jill" for Jillian, "Rosi" for
+  Rosa Maria Del Castillo Alarcon), and also strangers who share a surname, which is why a person
+  decides.
+- **ambiguous**, on top of either: the same player has another candidate in the same event, so at
+  most one is right.
+
+To review, put your name in `checked_by` and set each `decision` to `yes` or `no` (or leave it
+empty for later), then:
+
+```bash
+npm run wbsc -- --confirm
+```
+
+A yes becomes a link in `archive/wbsc/crosswalk.json` (both ids, the name as each side writes it,
+who checked it and when); a no becomes a rejection there, so the pair is never proposed again;
+the undecided stay in the review file. All or nothing: no reviewer named, a decision that is not
+yes or no, a player missing from either side, or a second link for one player, and nothing moves.
+
+A player in several events is several links, one per event, because WBSC's ids are per
+tournament. Their international career is the links that share a WPBL id.
+
+**The 2026 group stage proposes 39**: 32 by name, 7 by surname and initial, 3 of them ambiguous.
+Of the seven, four look like the roster's nicknames (Bebbere, Schroder, Albayati, del Castillo)
+and three like Korean players who only share a surname with a WPBL player (two against Jaida Lee
+of Newfoundland, one against Minseo Park). The reviewer decides each. One more WBSC spelling turned up here: an
+O'Sullivan written "O ` SULLIVAN", a backtick between spaces, which every apostrophe variant now
+folds to (`APOSTROPHE` in game.ts).
 
 What the player page will eventually read is one derived file, `international.json`, keyed by
 WPBL player id: each event's batting and pitching totals and the games behind them. Small, and the
@@ -219,7 +252,8 @@ enters git.
 2. ✅ **List, fetch and validate** for the 2026 group stage. All 30 games pass.
 3. ✅ **Transform and write**, with the neutral engines (bests, the finder, run expectancy, the
    pitch boards) run on the output in a test.
-4. **The crosswalk proposal** and the hand check of the 32.
+4. ✅ **The crosswalk proposal** (Oct 16, 2026). The hand check of the 39 candidates is the
+   reviewer's, and the one step here a script cannot do.
 5. **The back catalog**: 2024 and 2023 (pitch by pitch), then 2018 and 2016 (plate appearances
    only: no `pitch_sequence`, so the pitch boards skip them). Expect new codes in the validation.
 6. **`international.json`** for the player page, which stays unbuilt until permission.
