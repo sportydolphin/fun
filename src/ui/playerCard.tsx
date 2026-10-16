@@ -1,7 +1,7 @@
 // ─── Player card parts ───────────────────────────────────────────────────────────
 //
 // The pieces a player page is built from, shared by both sections since Oct 2026: the type scale,
-// the season line and its rate strip, the game log (and every other per-row stat table), the club
+// the season tables and the All stats control under them, the game log (and every other per-row stat table), the club
 // band and its form strip, and the section heading and show-more control they all sit under.
 //
 // They were written for WPBL's card first (src/wpbl/PlayerDetail.tsx, whose comments still carry
@@ -10,14 +10,13 @@
 // the leagues comes in through `StatCardContext`: what a header's tooltip says, the colour a good
 // number is drawn in, and how high a rank has to be before it is printed.
 
-import React, { createContext, useContext, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, { createContext, useContext, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Box, Skeleton, Typography, type Theme } from '@mui/material'
 import { ExpandMore } from '@mui/icons-material'
 import { TapTip } from './TapTip'
 import { TAPPABLE, hoverOnly } from './interaction'
 import { chromePx, typePx } from './scale'
 import { ICON_SIZE, TYPE_SCALE } from './card'
-import { usePhoneLayout } from './ModalShell'
 import { playerPartAnchor, type PlayerPart } from '../lib/playerParts'
 import { UNSTYLED_LINK, type linkTo } from '../nav'
 import { ordinal } from '../lib/format'
@@ -155,33 +154,30 @@ export function ShowMoreButton({ expanded, onClick, accent, children }: {
 }
 
 /**
- * THE CARD'S TYPE SCALE. Five steps, and every piece of type on the player card is one of them.
+ * THE CARD'S TYPE SCALE. Three steps for what sits in the sections, and every piece of type there is
+ * one of them; the role headings and the band above are the only larger type on the card.
  *
  * Sizes within a hair of each other (0.56 / 0.58 / 0.60) cannot be read as different levels but
  * are far enough apart to look unconsidered, which is how a card where no single element is
- * wrong ends up feeling careless. So there are five, far enough apart to mean something.
+ * wrong ends up feeling careless.
  *
- * THE STEPS ARE ROLES, NOT SIZES, which is what keeps a new block from inventing a sixth:
+ * THE STEPS ARE ROLES, NOT SIZES, which is what keeps a new block from inventing a fourth:
  *
- *   HERO     the rate line: AVG OBP SLG OPS, or ERA WHIP K/7 K/BB, wherever it is drawn
- *   FIGURE   a season total, in the line under the rates
- *   BODY     a game's numbers, and any real sentence
+ *   BODY     every figure in every table (the season, the log, the matchups), and any real sentence
  *   LABEL    uppercase furniture: section headings, buttons, the fielding label
- *   MICRO    what annotates a figure: column headers, ranks, captions, populations
+ *   MICRO    what annotates a figure: column headers, ranks, captions
  *
- * NO DISPLAY STEP OVER HERO. The rates are columns of one season line, so a larger size for the
- * headline stat (OPS, ERA) would put three sizes in a single row of numbers and a hierarchy the
- * row does not have. Which rate is doing well is already said by the rank under it and the
- * club's colour on it; size in that row carries one distinction only: a rate is not a count.
+ * THERE WERE FIVE until Oct 2026: a HERO size for the four rates at the top of a role and a FIGURE
+ * size for the counts in the line under them. The top of a role then held three sizes of number
+ * and a layout a reader had to learn, where a stat site prints one table. The season is a table
+ * now, in the same cells as the game log, and a lit rank is what picks out a figure, not its size.
  *
  * WEIGHT IS PART OF THE STEP and not a free parameter. Anything uppercase is 800, because at
- * these sizes uppercase needs the weight to hold its counters; figures are 700; running text
- * and a game's cells are 600. There is no 400 on this card, and nothing is 800 for emphasis:
- * emphasis here is the club's colour, spent in the two places named in GameLogTable.
+ * these sizes uppercase needs the weight to hold its counters; the player's season row is 700;
+ * a game's cells and running text are 600. There is no 400 on this card, and nothing is 800 for
+ * emphasis except a lit rank: emphasis here is the rank colour, and the best-game mark in the log.
  */
 export const CARD_TYPE = {
-  hero: { fontSize: TYPE_SCALE.display, fontWeight: 800, letterSpacing: '-0.02em' },
-  figure: { fontSize: TYPE_SCALE.title, fontWeight: 700 },
   body: { fontSize: { xs: TYPE_SCALE.meta, sm: TYPE_SCALE.body }, fontWeight: 600 },
   label: { fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5) },
   micro: { fontSize: TYPE_SCALE.caption, fontWeight: 700 },
@@ -296,7 +292,7 @@ function FigureBar({ sample }: { sample: string | number }) {
 }
 
 /**
- * How a zero is drawn in a row table (the game log, the matchups). NOT in the season line: one row
+ * How a zero is drawn in a row table (the game log, the matchups). NOT in the season tables: one row
  * of figures with greyed holes in it read as a broken table, where down a forty-row log the same
  * dimming is what lets a quiet week look quiet.
  *
@@ -309,408 +305,204 @@ function FigureBar({ sample }: { sample: string | number }) {
 export const ZERO_SX = { color: 'text.disabled', opacity: 0.6 } as const
 
 /**
- * THE SEASON LINE: a table, with a header row, read left to right.
- *
- * A table rather than a wrapping grid of labelled chips: the game log directly below runs
- * fourteen columns at 375px without clipping, so the season line can too, and a header row with
- * one value row takes half the height of two ragged rows of chips, stops repeating a label per
- * box, and is the shape every reader arrives already able to read.
- *
- * THE RANK ROW sits under the value it belongs to. A rank is a fact about one number, and drawn
- * anywhere else it makes a reader hold a figure in their head on the way to it.
- *
- * THE POPULATION IS NOT PRINTED, here or anywhere on the card: an ordinal in a cell is the form a
- * stat table has used for a century, and the field is the rank's tooltip (see RankText).
- *
- * WHICH RANKS APPEAR IS THE CALLER'S BAR, applied before the cells arrive, so a player who leads
- * nothing gets no rank at all instead of a line of "34th · 41st · 28th" that reads as a verdict.
+ * THE SPACE BETWEEN TWO BLOCKS of a role: the summary and the game log, the log and the matchups,
+ * the matchups and the fielding line. One number, because the card had four (2, 2.5, 3 and 1.75)
+ * chosen block by block, and a page where every gap is a slightly different size reads as a page
+ * nobody laid out.
  */
-export interface LineCol {
+export const BLOCK_GAP = 2.5
+
+/**
+ * One column of a stat table: the header, the player's figure, and optionally the league's.
+ *
+ * WHICH RANKS ARRIVE IS THE CALLER'S BAR, applied before the cells get here (top three on WPBL,
+ * top ten on MLB), so a player who leads nothing gets no rank at all instead of a row of
+ * "34th · 41st · 28th" that reads as a verdict. A rank that arrives is lit.
+ */
+export interface StatCol {
   label: string
   value: string | number
+  /** The glossary term the header's tooltip reads, where the label is a variant of one ("Pos WAR"). */
+  term?: string
   /** The player's league position in this column, when there is one worth printing. */
   rank?: StatRank | null
-  /** Where the rank goes when pressed: MLB opens the league table sorted by this stat with the
-   *  player picked out. Without it the rank is plain text. */
+  /** Where the rank goes when pressed: the league table sorted by this stat with the player picked
+   *  out. Without it the rank is plain text. */
   onRank?: () => void
-  /** Starts a new row when the line is folded onto a phone: the rates, say, so ".275 .386" and
-   *  ".516 .902" are never split across two rows. Ignored while the line fits on one. */
-  breakBefore?: boolean
+  /** The league's figure here, for the League avg row. Null for a count, which has no average worth
+   *  printing beside one player's season. */
+  league?: string | number | null
+  /** Not known yet (a read that lands after the card): `value` is a sample, drawn as a bar of its
+   *  width, so the column is already the size the figure will make it. */
+  pending?: boolean
 }
 
+/** A table's one row: what the lead cell calls it ("2026", "Career") and its columns. */
+export interface StatRow { lead: string; cols: StatCol[] }
+
 /**
- * THE LEAD GROUP: rate columns, set large, ahead of the counting line in the SAME table.
+ * A SEASON AS A STAT TABLE: a header row, the player's row, and the league's under it.
  *
- * Above `md` the four rates are these first columns rather than a block beside the table (see
- * desktopRoleBlock). They differ from a counting column in three ways and no others: the figure
- * is a step or two larger, its rank is lit at the league's bar, and a heavier rule closes the group.
- * Everything that makes a table a table -- one header row, one figure row, one rank row, one
- * caption over all of it -- is shared, which is the entire point: there is no second grid left
- * to fall out of alignment with.
+ * The shape every stat site prints a season in, and the dialect of every other table on this card
+ * (the game log, the matchups, the fielding line): `thSx` and `tdSx`, one size of figure, the zebra
+ * on the second row. It replaced a rate strip set large over a folding line of counts, which put
+ * three sizes of number at the top of the card and made a reader learn a layout before reading it.
  *
- * IT IS FED THE SAME CELLS AS THE PHONE'S STRIP, from `rateCells`, so a rate cannot read one way
- * on a phone and another on a desktop. The phone passes no lead at all: seventeen columns do not
- * fit 375px, which is why the strip exists there.
+ * THE LEAD COLUMN PINS on a narrow screen, so the row scrolls sideways under its own label and a
+ * figure is never read without knowing whose it is. Nothing folds: a table that wraps into two rows
+ * of different columns is two tables, and the column a reader is looking for moves.
  *
- * A rate rank is taken against the QUALIFIED field and a counting rank against everyone who
- * recorded the stat, so the two kinds of column have different populations: each rank's tooltip
- * names its own, and the group rule is what says these are two kinds of column.
+ * THE LEAGUE ROW is what makes a wRC+ of 168 or a .421 wOBA mean something to a reader who does not
+ * carry the league's numbers around. Drawn whenever the league is asked for, blank until it lands,
+ * so the table does not grow a row when it does.
+ *
+ * THE RANK sits under the figure it belongs to, in the same cell. A rank is a fact about one number,
+ * and drawn anywhere else it makes a reader hold a figure in their head on the way to it. Its line
+ * is held open (`reserveRanks`) wherever ranks can arrive, so the row is one height before and after.
  */
-export function SeasonLine({ cols, lead, headline, placeholder, ranksPending, reserveRanks }: {
-  cols: LineCol[]
-  lead?: LineCol[]
-  /** The labels the headline strip above already shows, which the line leaves out at every width. */
-  headline?: string[]
-  /** The loading state: every value is a sample, drawn as a bar of its width. See FigureBar. */
-  placeholder?: boolean
-  /** The figures are in and the league ranks are not. Holds the rank row open, blank, so the line
-   *  is the height it was as a placeholder and will be once ranked, rather than a row short between
-   *  the two reads, which moved everything under it twice. Above a phone only, for now. */
-  ranksPending?: boolean
-  /** Draw the rank row whether or not anything in it is ranked. For a league whose bar is so high
-   *  that most players rank nothing: the loading state cannot know which kind of player it is
-   *  drawing, so the row is always there and the card does not change height when the ranks land. */
+export function StatTable({ title, caption, part, row, league, reserveRanks, placeholder }: {
+  /** A heading over the table, as every other section's. None for the summary, which the role's
+   *  own heading already names. */
+  title?: string
+  caption?: React.ReactNode
+  part?: PlayerPart
+  row: StatRow
+  /** Draw the League avg row. */
+  league?: boolean
+  /** Hold the rank line open whether or not anything in it is ranked. */
   reserveRanks?: boolean
+  /** The loading state: every value is a sample, drawn as a bar of its width. */
+  placeholder?: boolean
 }) {
-  const phone = usePhoneLayout()
-  // NOT PRINTED TWICE, AT ANY WIDTH. The desktop used to keep the whole standard line on the
-  // argument that one row costs nothing, so "3-1, 5.25, 15, 1.92" sat large in the headline and
-  // again a few pixels below it, and the card read as numbers for the sake of numbers.
-  // W and L are the headline's "W-L".
-  const inHead = new Set(headline ?? [])
-  const dropped = (c: LineCol) => inHead.has(c.label) || (inHead.has('W-L') && (c.label === 'W' || c.label === 'L'))
-  // A dropped column that started a group (AVG, at the head of the rates) hands the break to the
-  // next one shown, or OBP and SLG would fold into the row of counts.
-  const shown: LineCol[] = []
-  let carry = false
-  for (const c of cols) {
-    if (dropped(c)) { carry = carry || !!c.breakBefore; continue }
-    shown.push(carry ? { ...c, breakBefore: true } : c)
-    carry = false
-  }
-  if (!phone) return <FullSeasonLine cols={shown} lead={lead} placeholder={placeholder} ranksPending={ranksPending} reserveRanks={reserveRanks} />
-  return <CompactSeasonLine cols={shown} placeholder={placeholder} reserveRanks={reserveRanks} />
-}
-
-/**
- * THE LINE ON A PHONE: what the headline does not already say, edge to edge, in as few rows as fit.
- *
- * WHY IT IS NOT THE DESKTOP LINE FOLDED. Under the four-figure headline the full line folded into
- * three or four rows at 375px (a pitching line is seventeen columns, a hitter's up to twenty), so
- * the top of the card was five rows of numbers before the first game, and four of them were printed
- * twice: large in the headline and again a few rows down. So the headline's figures are left out
- * here (W and L with a "W-L"), and what remains runs the full width of the screen the way the game
- * log under it does: the table bleeds, and its first and last columns take the gutter back so no
- * figure sits on the edge of the glass. Above a phone the line is the whole standard line, as every
- * stat site prints it, because there it is one row and the repeat costs nothing.
- *
- * FOLDED AS ONE TABLE, NOT A TABLE PER ROW. Each column is as wide as the widest cell stacked in it
- * rather than every column as wide as the widest figure on the line, which is what lets a hitter's
- * sixteen columns fold into two rows rather than three, and keeps the rows' rules lined up.
- *
- * MEASURED, before paint: each cell's natural width is read off a one-row pass, and the line takes
- * the fewest rows whose stacked columns, plus the two gutters, fit the screen. Whether that is one
- * row or two depends on the digits and on the reader's text size, so a fixed count would be wrong
- * for somebody.
- */
-function CompactSeasonLine({ cols, placeholder, reserveRanks }: { cols: LineCol[]; placeholder?: boolean; reserveRanks?: boolean }) {
   const { tip, ink } = useStatCard()
-  const boxRef = useRef<HTMLDivElement>(null)
-  // Columns per row, or null for the one-row measuring pass.
-  const [per, setPer] = useState<number | null>(null)
-  const sig = cols.map(c => `${c.label}:${c.value}:${c.rank?.rank ?? ''}`).join('|')
-  const [measuredFor, setMeasuredFor] = useState(sig)
-  if (measuredFor !== sig) { setMeasuredFor(sig); setPer(null) }
-  const measuredW = useRef(0)
-  useLayoutEffect(() => {
-    const box = boxRef.current
-    if (!box) return
-    if (per == null) {
-      const widths = Array.from(box.querySelectorAll('th')).map(th => th.getBoundingClientRect().width)
-      // The bleed's negative margin IS the gutter, in whatever px the chrome scale makes it.
-      const gutter = Math.abs(parseFloat(getComputedStyle(box).marginLeft)) || 0
-      const room = box.clientWidth
-      measuredW.current = room
-      const n = widths.length
-      let choice = n
-      for (let r = 1; r <= n; r++) {
-        const p = Math.ceil(n / r)
-        let total = 2 * gutter
-        for (let j = 0; j < p; j++) {
-          let w = 0
-          for (let k = j; k < n; k += p) w = Math.max(w, widths[k])
-          total += w
-        }
-        if (total <= room) { choice = p; break }
-      }
-      setPer(Math.max(1, choice))
-      return
-    }
-    // A new width (a rotated phone, the panel at another chrome scale) measures again from one row.
-    const ro = new ResizeObserver(() => {
-      if (Math.abs(box.clientWidth - measuredW.current) > 1) setPer(null)
-    })
-    ro.observe(box)
-    return () => ro.disconnect()
-  }, [per, sig])
-
-  const measuring = per == null
-  const p = per ?? cols.length
-  const rows: (LineCol | null)[][] = []
-  for (let i = 0; i < cols.length; i += p) {
-    const row: (LineCol | null)[] = cols.slice(i, i + p)
-    while (row.length < p) row.push(null)
-    rows.push(row)
-  }
-  // The gutter, on the outer columns only, once there is a layout to put it in. The measuring pass
-  // has none, so what it reads is each cell's own width.
-  const edge = (j: number) => (measuring ? {} : {
-    ...(j === 0 ? { pl: 2 } : {}),
-    ...(j === p - 1 ? { pr: 2 } : {}),
-  })
-  const rule = (row: (LineCol | null)[], j: number) => (row[j] && row[j + 1] ? colRuleSx(j, p) : {})
-
+  const ranked = reserveRanks || row.cols.some(c => c.rank != null)
   return (
-    <Box ref={boxRef} sx={{ mx: -2, overflowX: 'auto' }}>
-      <Box component="table" sx={{
-        width: measuring ? 'max-content' : '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums',
-      }}>
-        <Box component="tbody">
-          {rows.map((row, k) => (
-            <React.Fragment key={k}>
-              <Box component="tr">
-                {row.map((c, j) => c ? (
-                  <TapTip key={c.label} title={tip(c.label)} component="th" popperZIndex={TIP_Z}
-                    sx={{ ...lineThSx, ...COMPACT_CELL_SX, ...(k > 0 ? { pt: 1 } : {}), ...keepCase(c.label), ...rule(row, j), ...edge(j) }}>
-                    {c.label}
-                  </TapTip>
-                ) : <Box component="th" key={`pad${j}`} sx={{ ...lineThSx, borderBottomColor: 'transparent', ...edge(j) }} />)}
-              </Box>
-              <Box component="tr">
-                {row.map((c, j) => c ? (
-                  // Two states: a ranked figure lit, everything else plain. See ZERO_SX for why zeros are not dimmed here.
-                  <Box component="td" key={c.label} sx={{
-                    ...lineTdSx, ...COMPACT_CELL_SX, ...COMPACT_FIGURE_SX, ...rule(row, j), ...edge(j),
-                    ...(placeholder ? {} : c.rank != null ? { color: ink, fontWeight: 800 } : {}),
-                  }}>
-                    {placeholder ? <FigureBar sample={c.value} /> : c.value}
-                  </Box>
-                ) : <Box component="td" key={`pad${j}`} sx={edge(j)} />)}
-              </Box>
-              {(reserveRanks || row.some(c => c?.rank != null)) && (
-                <Box component="tr">
-                  {row.map((c, j) => c ? (
-                    <Box component="td" key={c.label}
-                      sx={{ ...lineRankSx, ...COMPACT_CELL_SX, ...rule(row, j), ...edge(j), ...(c.rank != null && !placeholder ? { color: ink, fontWeight: 800 } : {}) }}>
-                      {/* A placeholder's rank only holds the row open: see skeletonPane. */}
-                      {placeholder ? ' ' : c.rank ? <RankText onRank={c.onRank} label={c.label} rank={c.rank} /> : ' '}
-                    </Box>
-                  ) : <Box component="td" key={`pad${j}`} sx={edge(j)} />)}
-                </Box>
-              )}
-            </React.Fragment>
-          ))}
-        </Box>
-      </Box>
-    </Box>
-  )
-}
-
-/** The compact line's cells: a little less air than the desktop's, since the columns share the screen. */
-const COMPACT_CELL_SX = { px: 0.4 } as const
-/** A step under `figure`, so a pitching line fits the screen in one row. */
-const COMPACT_FIGURE_SX = { fontSize: TYPE_SCALE.body } as const
-
-function FullSeasonLine({ cols, lead, placeholder, ranksPending, reserveRanks }: { cols: LineCol[]; lead?: LineCol[]; placeholder?: boolean; ranksPending?: boolean; reserveRanks?: boolean }) {
-  const { tip, ink, rankBar } = useStatCard()
-  const heads = lead ?? []
-  const all = [...heads, ...cols]
-  const isLead = (i: number) => i < heads.length
-  // Lit means "a top figure": bold, in the rank ink. A counting rank is pre-gated to the league's
-  // bar by the caller, so its presence is the gate; a rate rank is drawn for every qualified
-  // player, so it takes the shared bar explicitly. Same bar either way, one place to change it.
-  const lit = (c: LineCol, i: number) => (isLead(i) ? isLitRank(c.rank, rankBar) : c.rank != null)
-
-  /**
-   * ONE ROW WHEN IT FITS, AS MANY AS IT TAKES WHEN IT DOES NOT. A standard batting line is sixteen
-   * columns, and at 375px one row ran off the right edge mid-number with nothing to say it
-   * scrolled: a phone's scrollbar only appears once a finger is already moving. So the line
-   * measures its one-row width and folds into equal rows of equal columns.
-   *
-   * MEASURED, NOT A COLUMN COUNT: whether a line fits depends on the reader's text size and on the
-   * digits in it (a pitcher's "2356" pitches), and a fixed count would fold lines that fit. Measured
-   * in a layout effect, before paint, so the folded line is what is first drawn and nothing moves.
-   * The one-row width is remembered, because a folded table cannot say how wide one row would be.
-   */
-  const boxRef = useRef<HTMLDivElement>(null)
-  // Measured off the one-row table: its whole width, and its widest column, which is what an equal
-  // column has to hold. Splitting the total width by the room was not enough: equal columns are as
-  // wide as the WIDEST figure, so "130" and "448" ran into each other at ten to a row.
-  const oneRowW = useRef(0)
-  const widestCol = useRef(0)
-  // How many columns a folded row holds, or null while the line fits on one row.
-  const [fit, setFit] = useState<number | null>(null)
-  // New figures (another season, another scope) are re-measured from one row, since the remembered
-  // width belongs to the old ones. Reset during render, so the stale fold never paints.
-  const sig = all.map(c => `${c.label}:${c.value}`).join('|')
-  const [measuredFor, setMeasuredFor] = useState(sig)
-  if (measuredFor !== sig) { setMeasuredFor(sig); setFit(null) }
-  useLayoutEffect(() => {
-    const box = boxRef.current
-    if (!box) return
-    const check = () => {
-      if (fit == null) {
-        oneRowW.current = box.scrollWidth
-        // The first and last cells carry the bleed's gutter as padding, so they are not a measure.
-        const cells = Array.from(box.querySelectorAll('thead th')).slice(1, -1)
-        widestCol.current = Math.max(0, ...cells.map(c => c.getBoundingClientRect().width))
-      }
-      const css = getComputedStyle(box)
-      const room = box.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight)
-      if (room <= 0 || !oneRowW.current) return
-      // A few px of air on the widest figure, since it sets every column in a folded grid.
-      const next = oneRowW.current > box.clientWidth ? Math.max(2, Math.floor(room / (widestCol.current + 6))) : null
-      if (next !== fit) setFit(next)
-    }
-    check()
-    const ro = new ResizeObserver(check)
-    ro.observe(box)
-    return () => ro.disconnect()
-  }, [fit, sig])
-  const folded = fit != null
-  // FOLDED BY GROUP, then into rows of equal columns. Each group (the counts, the rates, the
-  // extras) starts a row of its own; the largest is split into rows as even as the width allows,
-  // and that row length is every row's, short rows padded with empty cells, so the rows read as one
-  // grid rather than as separate tables. Six counts a row and four rates under them, not seven and
-  // a rate line broken after OBP.
-  const groups: { start: number; cells: LineCol[] }[] = []
-  all.forEach((c, i) => {
-    if (i === 0 || (folded && c.breakBefore)) groups.push({ start: i, cells: [] })
-    groups[groups.length - 1].cells.push(c)
-  })
-  const biggest = Math.max(...groups.map(g => g.cells.length))
-  const per = folded ? Math.ceil(biggest / Math.ceil(biggest / fit!)) : all.length
-  const rows: { start: number; cells: (LineCol | null)[] }[] = []
-  for (const g of groups) {
-    for (let i = 0; i < g.cells.length; i += per) {
-      const cells: (LineCol | null)[] = g.cells.slice(i, i + per)
-      while (folded && cells.length < per) cells.push(null)
-      rows.push({ start: g.start + i, cells })
-    }
-  }
-
-  const table = (row: (LineCol | null)[], offset: number, k: number) => {
-    const n = row.length
-    // The hairline between columns, and a 2px one closing the lead group: it is the only thing
-    // besides size saying the two halves are different kinds of number. Not a tint down the group:
-    // the header's own bottom rule cuts any background into pieces (see colRuleSx). No rule after
-    // the last real cell of a padded half.
-    const rule = (j: number) => {
-      const i = offset + j
-      if (i === heads.length - 1 && cols.length > 0) return { borderRight: '2px solid', borderRightColor: 'divider' }
-      return row[j + 1] ? colRuleSx(j, n) : {}
-    }
-    const anyRank = ranksPending || reserveRanks || row.some(c => c?.rank != null)
-    return (
-      <Box component="table" key={k} sx={{
-        width: '100%', minWidth: folded ? 0 : 'max-content', borderCollapse: 'collapse',
-        fontVariantNumeric: 'tabular-nums',
-        ...(folded ? { tableLayout: 'fixed', mt: k > 0 ? 1 : 0 } : {}),
-      }}>
-        <Box component="thead">
-          <Box component="tr">
-            {row.map((c, j) => c ? (
-              <TapTip key={c.label} title={tip(c.label)} component="th"
-                popperZIndex={TIP_Z} sx={{ ...lineThSx, ...keepCase(c.label), ...rule(j) }}>{c.label}</TapTip>
-            ) : <Box component="th" key={`pad${j}`} sx={{ ...lineThSx, borderBottomColor: 'transparent' }} />)}
-          </Box>
-        </Box>
-        <Box component="tbody">
-          <Box component="tr">
-            {row.map((c, j) => c ? (
-              // Two states. A RANKED FIGURE is bold and in the rank blue: the rank row under it
-              // already says so in words, and a reader scanning a dozen identical white numbers
-              // should not have to find that out by reading. Everything else is plain, zeros
-              // included: in a one-row line a dimmed 0 under 3B or CS made the row look patchy
-              // rather than quiet (see ZERO_SX).
-              <Box component="td" key={c.label}
-                sx={{
-                  ...lineTdSx,
-                  // ONE SIZE FOR THE WHOLE LEAD GROUP. A larger OPS or ERA would put three sizes in
-                  // a single row of numbers and leave a reader working out what the third one meant.
-                  // The rank under the cell and the rank blue already say which rate is doing
-                  // well; size here only has to separate a rate from a count.
-                  // `verticalAlign: baseline` is what makes the two remaining sizes read as one row:
-                  // a large OPS and a 0.95rem at-bat total sit on the same line rather than being
-                  // centred against each other.
-                  ...(isLead(offset + j) ? { ...TYPE.hero, lineHeight: 1.2, pt: 0.5 } : {}),
-                  verticalAlign: 'baseline',
-                  ...rule(j),
-                  ...(placeholder ? {} : lit(c, offset + j) ? { color: ink, fontWeight: 800 } : {}),
-                }}>
-                {placeholder ? <FigureBar sample={c.value} /> : c.value}
-              </Box>
-            ) : <Box component="td" key={`pad${j}`} />)}
-          </Box>
-          {anyRank && (
+    <Box id={part ? playerPartAnchor(part) : undefined} sx={{ ...(title ? { mt: BLOCK_GAP } : null), ...(part ? PART_SCROLL_SX : null) }}>
+      {title && <SectionHead title={title} caption={caption} />}
+      <Box sx={{ ...bleedSx(0.85), overflowX: 'auto' }}>
+        <Box component="table" sx={{ width: '100%', minWidth: 'max-content', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
+          <Box component="thead">
             <Box component="tr">
-              {row.map((c, j) => c ? (
-                // BLANK where there is no rank, not the em dash this project spends on "no
-                // value" elsewhere. That glyph is right in a cell that could have held a
-                // measurement; here two thirds of the row would be dashes, and a row that is
-                // mostly punctuation reads as missing data rather than as an annotation.
-                <Box component="td" key={c.label}
-                  sx={{ ...lineRankSx, ...rule(j), ...(lit(c, offset + j) ? { color: ink, fontWeight: 800 } : {}) }}>
-                  {placeholder || ranksPending ? ' ' : !c.rank ? '' : (
-                    <RankText onRank={c.onRank} label={c.label} rank={c.rank} />
-                  )}
-                </Box>
-              ) : <Box component="td" key={`pad${j}`} />)}
+              <Box component="th" sx={{ ...thSx, ...LEAD_SX, zIndex: 2, textAlign: 'left' }}>Season</Box>
+              {row.cols.map(c => (
+                <TapTip key={c.label} title={tip(c.term ?? c.label)} component="th" popperZIndex={TIP_Z}
+                  sx={{ ...thSx, ...keepCase(c.label), minWidth: STAT_COL_MIN }}>
+                  {c.label}
+                </TapTip>
+              ))}
             </Box>
-          )}
+          </Box>
+          <Box component="tbody">
+            <Box component="tr">
+              <Box component="td" sx={{ ...tdSx, ...LEAD_SX, borderTop: 'none', textAlign: 'left', fontWeight: 700 }}>{row.lead}</Box>
+              {row.cols.map(c => {
+                const lit = !placeholder && !c.pending && c.rank != null
+                return (
+                  <Box component="td" key={c.label} sx={{ ...tdSx, borderTop: 'none', fontWeight: 700, ...(lit ? { color: ink, fontWeight: 800 } : {}) }}>
+                    {placeholder || c.pending ? <FigureBar sample={c.value} /> : c.value}
+                    {ranked && (
+                      <Box sx={{ ...TYPE.micro, lineHeight: 1.3, color: lit ? ink : 'text.secondary', ...(lit ? { fontWeight: 800 } : {}) }}>
+                        {lit && c.rank ? <RankText onRank={c.onRank} label={c.label} rank={c.rank} /> : ' '}
+                      </Box>
+                    )}
+                  </Box>
+                )
+              })}
+            </Box>
+            {league && (
+              <Box component="tr" sx={{ bgcolor: 'action.hover' }}>
+                <Box component="td" sx={{ ...tdSx, ...LEAD_SX, ...LEAD_TINT_SX, textAlign: 'left', color: 'text.secondary' }}>
+                  League avg
+                </Box>
+                {row.cols.map(c => (
+                  <Box component="td" key={c.label} sx={{ ...tdSx, color: 'text.secondary' }}>
+                    {placeholder || c.league == null ? '' : c.league}
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
         </Box>
       </Box>
-    )
-  }
-
-  return (
-    // Scrolls in its own container rather than the page, per the house rule for wide content. Only
-    // a folded line at a very large text size can still need it.
-    // Folded, the grid sits inside the pane's gutter like every other block (the bleed is for a
-    // one-row table that may scroll to the screen's edge), so its equal columns are all the same
-    // width rather than the first and last losing the gutter to padding.
-    <Box ref={boxRef} sx={{ overflowX: 'auto', ...(folded ? { mx: { xs: -2, md: 0 }, px: { xs: 2, md: 0 } } : bleedSx(0.3)) }}>
-      {rows.map((row, k) => table(row.cells, row.start, k))}
     </Box>
   )
 }
 
-/**
- * A hairline between columns, header to rank.
- *
- * A season line is one row of a dozen numbers in one size, one weight and one colour, with
- * nothing between them: a reader checking RBI counts across from the header and loses the
- * place somewhere around BB. The log below solves the same problem with zebra ROWS, which a
- * one-row table has no way to use.
- *
- * NOT A TINTED BAND DOWN ALTERNATE COLUMNS, which looks broken. The header cell carries the rule
- * under the labels, so a band arrives in two pieces with a gap across it, and the rank row is
- * drawn only for some columns, so the pieces are different heights from one column to the next.
- * What is meant to be quiet structure reads as a rendering fault.
- *
- * A rule cannot come apart that way: it is one line, the same on every column, and it is the
- * device a printed box score has used for this exact job. Drawn to the RIGHT of every column
- * but the last, so the table does not end in a stray edge.
- */
-export const colRuleSx = (i: number, n: number) => (i < n - 1
-  ? { borderRight: '1px solid', borderRightColor: 'divider' }
-  : {})
+/** The lead column, pinned while the row scrolls under it. Opaque, or the figures scroll through
+ *  the label, with room on its right so a figure scrolling in does not touch it. */
+const LEAD_SX = { position: 'sticky', left: 0, zIndex: 1, bgcolor: 'background.paper', pr: 1.25 } as const
+/** The league row's lead cell: the row's tint laid over the paper, so it matches the row and still
+ *  hides what scrolls under it. The tint alone is translucent. */
+const LEAD_TINT_SX = { backgroundImage: (t: Theme) => `linear-gradient(${t.palette.action.hover}, ${t.palette.action.hover})` } as const
+
+// ─── All stats ───────────────────────────────────────────────────────────────────
+//
+// Open or shut is the READER'S choice, kept on this device and shared by every card and both roles:
+// a reader who wants the full line wants it on the next player too, and one who opened it once by
+// accident should not be handed it forever on the strength of one tap. A store rather than state so
+// a two-way card's two controls cannot disagree.
+
+const ALL_STATS_KEY = 'sd.playerCard.allStats'
+const allStatsListeners = new Set<() => void>()
+let allStatsOpen: boolean | null = null
+function readAllStats(): boolean {
+  if (allStatsOpen == null) {
+    try { allStatsOpen = localStorage.getItem(ALL_STATS_KEY) === '1' } catch { allStatsOpen = false }
+  }
+  return allStatsOpen
+}
+function setAllStats(open: boolean) {
+  allStatsOpen = open
+  try { localStorage.setItem(ALL_STATS_KEY, open ? '1' : '0') } catch { /* this visit only */ }
+  allStatsListeners.forEach(l => l())
+}
+const subscribeAllStats = (l: () => void) => { allStatsListeners.add(l); return () => { allStatsListeners.delete(l) } }
+const useAllStatsOpen = () => useSyncExternalStore(subscribeAllStats, readAllStats, () => false)
 
 /**
- * EDGE TO EDGE ON A PHONE, for the card's three tables (the season line, the game log, the vs
- * table). The pane's 16px gutter cost 32px across thirteen or fourteen columns, on the one
- * element on the card that is short of width; bled to the screen's edges, the zebra rows run
- * edge to edge and a table wide enough to scroll scrolls to the edge rather than clipping 16px in.
+ * A role's numbers: the summary table, and behind "All stats" the standard line and the advanced
+ * figures as tables of their own, in the same dialect.
+ *
+ * THE SUMMARY IS THE LINE A READER EXPECTS, ten columns, not every figure the feed has. Everything
+ * else is one tap away rather than gone: the full line as every stat site prints it, and the
+ * advanced figures, which used to be a strip under the line (wins added, runs on the bases) or a
+ * section of their own further down (MLB's Advanced).
+ */
+export function StatSummary({ summary, standard, advanced, league, reserveRanks, placeholder, accent }: {
+  summary: StatRow
+  standard?: StatRow | null
+  advanced?: StatRow | null
+  /** Draw the League avg row on every table. */
+  league?: boolean
+  reserveRanks?: boolean
+  placeholder?: boolean
+  accent: string
+}) {
+  const open = useAllStatsOpen()
+  const more = !!standard || !!advanced
+  return (
+    <>
+      <StatTable row={summary} league={league} reserveRanks={reserveRanks} placeholder={placeholder} />
+      {more && open && (
+        <>
+          {standard && <StatTable title="Standard" row={standard} league={league} reserveRanks={reserveRanks} placeholder={placeholder} />}
+          {advanced && <StatTable title="Advanced" part="advanced" row={advanced} league={league} placeholder={placeholder} />}
+        </>
+      )}
+      {more && (
+        <ShowMoreButton expanded={open} onClick={() => setAllStats(!open)} accent={accent}>
+          {open ? 'Fewer stats' : 'All stats'}
+        </ShowMoreButton>
+      )}
+    </>
+  )
+}
+
+/**
+ * EDGE TO EDGE ON A PHONE, for the card's tables (the season tables, the game log, the vs table).
+ * The pane's 16px gutter cost 32px across thirteen or fourteen columns, on the one element on the
+ * card that is short of width; bled to the screen's edges, the zebra rows run edge to edge and a
+ * table wide enough to scroll scrolls to the edge rather than clipping 16px in.
  *
  * THE FIRST AND LAST CELLS TAKE THE GUTTER BACK, so the text in them still sits on the same line
  * as every heading and figure above it: the table bleeds, its content does not. `mdPx` is the
@@ -724,11 +516,6 @@ export const bleedSx = (mdPx: number) => ({
   '& th:first-of-type, & td:first-of-type': { pl: { xs: 2, md: mdPx } },
   '& th:last-of-type, & td:last-of-type': { pr: { xs: 2, md: mdPx } },
 })
-
-/** Worth lighting. The season line's rank row is already gated at this bar, so every
- *  rank it draws passes; the rate strip's is not, and this is what keeps a 16th of 33 from
- *  being lit like a leader. */
-export const isLitRank = (r: StatRank | null | undefined, bar: number): boolean => r != null && r.rank <= bar
 
 /** A rank, as a link to the league table it was taken from when the league offers one. A button
  *  rather than an anchor: the table it opens is a board sorted around this player, which is
@@ -755,106 +542,34 @@ function RankText({ onRank, label, rank }: { onRank?: () => void; label: string;
   )
 }
 
-const lineThSx = {
-  ...TYPE.micro, textTransform: 'uppercase', letterSpacing: typePx(0.4),
-  color: 'text.disabled', textAlign: 'center', py: 0, pb: 0.4, px: 0.3,
-  borderBottom: '1px solid', borderColor: 'divider', whiteSpace: 'nowrap',
-} as const
-const lineTdSx = {
-  ...TYPE.figure, textAlign: 'center', px: 0.3, pt: 0.6, pb: 0, whiteSpace: 'nowrap',
-} as const
-const lineRankSx = {
-  ...TYPE.micro, textAlign: 'center', px: 0.3, pt: 0.1, pb: 0.2,
-  color: 'text.secondary', whiteSpace: 'nowrap',
-} as const
-
 /**
- * The four rates, as a row, at the top of the pane.
+ * A top-level section of a desktop card: Batting, Pitching, Fielding.
  *
- * A full row rather than a centred headline pair, so nothing on the pane sits on an axis of its
- * own, and OBP and SLG are not left to be found further down.
+ * THE SECOND LEVEL THE CARD WAS MISSING. Every heading on it was the same small uppercase label,
+ * so "PITCHING", which holds six blocks, was the same size as "FIELDING" inside it, and the page
+ * read as one long list. A real heading over a rule says where a role starts; the labels under it
+ * stay what they were, the names of the blocks inside. Both sections' cards draw it, so a two-way
+ * page reads the same on either side of the site.
  */
-export function RateStrip({ cells, placeholder }: {
-  cells: { label: string; value: string; rank?: StatRank | null; onRank?: () => void }[]
-  /** The loading state: each value is a sample, drawn as a bar of its width. */
-  placeholder?: boolean
+export function RoleHeading({ title, caption, part, first = false }: {
+  title: string
+  /** On the right: the sample the section's numbers come from ("64 PA"). */
+  caption?: React.ReactNode
+  /** The part of the card this heads, so the search can open the card scrolled to it. */
+  part?: PlayerPart
+  /** The first section has no rule above it: the season caption is right there. */
+  first?: boolean
 }) {
-  const { tip, ink, rankBar } = useStatCard()
-  const isTopFive = (r: StatRank | null | undefined) => isLitRank(r, rankBar)
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${cells.length}, 1fr)`, gap: 0.5 }}>
-      {cells.map(c => (
-        <Box key={c.label} sx={{ textAlign: 'center', minWidth: 0 }}>
-          <TapTip title={tip(c.label)} popperZIndex={TIP_Z}
-            sx={{ ...TYPE.micro, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', display: 'block', ...keepCase(c.label) }}>
-            {c.label}
-          </TapTip>
-          {/* THE SAME RULE AS THE SEASON LINE: top five is bold and in the rank blue, everything
-              else is plain. The bar is the league's `rankBar`, shared so the two blocks cannot come
-              to different views of what is worth lighting up on one card. It matters more here
-              than it looks: a rate rank is drawn for every qualified player, so without the
-              bar this would put the club's colour on a 16th of 33 and turn an accent into
-              decoration. */}
-          <Typography sx={{
-            ...TYPE.hero, lineHeight: 1.15,
-            fontVariantNumeric: 'tabular-nums',
-            ...(isTopFive(c.rank) ? { color: ink } : {}),
-          }}>{placeholder ? <FigureBar sample={c.value} /> : c.value}</Typography>
-          {/* Blank when the player is not ranked, matching the season line's rank row, and a
-              non-breaking space rather than nothing so the strip is exactly as tall the day before
-              they qualify as the day after. Four dashes in a row under four numbers that are right
-              there read as missing data; what is missing is the comparison, and the meter below
-              says so in words. */}
-          {/* The place alone, its field in the tooltip, as every rank on the card (see RankText). */}
-          <Typography sx={{
-            ...TYPE.micro, fontVariantNumeric: 'tabular-nums',
-            ...(isTopFive(c.rank) ? { color: ink, fontWeight: 800 } : { color: 'text.secondary' }),
-          }}>{c.rank && !placeholder ? <RankText onRank={c.onRank} label={c.label} rank={c.rank} /> : ' '}</Typography>
-        </Box>
-      ))}
-    </Box>
-  )
-}
-
-/**
- * The figures a box score has no column for (wins added, runs on the bases), as one quiet row under
- * the season line: label, figure and the place on the board each came from.
- *
- * QUIETER THAN THE RATE STRIP ON PURPOSE. The strip's four are what every stat site leads a player
- * with; these are this site's own reads of the play log, worth a look and not a headline.
- *
- * THE PLACE IS DRAWN AS A SAMPLE WHILE LOADING, not left blank, so the second figure does not slide
- * right when the first one's rank lands: these arrive after the rest of the card.
- */
-export function ValueStrip({ cells, placeholder }: {
-  /** `term` is the glossary entry the label's tooltip reads, where the label is a variant of it. */
-  cells: { label: string; term?: string; value: string; rank?: StatRank | null }[]
-  /** The loading state: the figure and the place are samples, drawn as bars of their width. */
-  placeholder?: boolean
-}) {
-  const { tip, ink, rankBar } = useStatCard()
-  return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 2.5, rowGap: 0.5, mt: 1.25 }}>
-      {cells.map(c => {
-        const lit = !placeholder && isLitRank(c.rank, rankBar)
-        return (
-          <Box key={c.label} sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, minWidth: 0 }}>
-            <TapTip title={tip(c.term ?? c.label)} popperZIndex={TIP_Z}
-              sx={{ ...TYPE.micro, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', ...keepCase(c.label) }}>
-              {c.label}
-            </TapTip>
-            <Typography component="span" sx={{ ...TYPE.figure, fontVariantNumeric: 'tabular-nums', ...(lit ? { color: ink } : {}) }}>
-              {placeholder ? <FigureBar sample={c.value} /> : c.value}
-            </Typography>
-            <Typography component="span" sx={{
-              ...TYPE.micro, fontVariantNumeric: 'tabular-nums',
-              ...(lit ? { color: ink, fontWeight: 800 } : { color: 'text.secondary' }),
-            }}>
-              {placeholder ? <FigureBar sample="10th" /> : c.rank ? <RankText label={c.label} rank={c.rank} /> : ''}
-            </Typography>
-          </Box>
-        )
-      })}
+    <Box id={part ? playerPartAnchor(part) : undefined} sx={{
+      display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', columnGap: 1.5,
+      mb: 1.5, ...(first ? { mt: 1 } : { mt: 4, pt: BLOCK_GAP, borderTop: '1px solid', borderColor: 'divider' }),
+      ...PART_SCROLL_SX,
+    }}>
+      <Typography component="h2" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, m: 0 }}>{title}</Typography>
+      {caption != null && caption !== '' && (
+        <Typography sx={SECTION_CAPTION_SX}>{caption}</Typography>
+      )}
     </Box>
   )
 }
@@ -934,7 +649,7 @@ export function FormStrip({ title, games, ink = FORM_INK }: {
  */
 export function CameoBlock({ label, text }: { label: string; text: string }) {
   return (
-    <Box sx={{ mt: 2 }}>
+    <Box sx={{ mt: BLOCK_GAP }}>
       <SectionHead title={label} />
       <Typography sx={{ ...TYPE.body, color: 'text.secondary', mt: -0.5 }}>{text}</Typography>
     </Box>
@@ -1121,7 +836,7 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
     ...(leadSx?.[k] ?? {}),
   })
   return (
-    <Box ref={sectionRef} id={part ? playerPartAnchor(part) : undefined} sx={{ mt: 2, ...(part ? PART_SCROLL_SX : null) }}>
+    <Box ref={sectionRef} id={part ? playerPartAnchor(part) : undefined} sx={{ mt: BLOCK_GAP, ...(part ? PART_SCROLL_SX : null) }}>
       {caption != null ? <SectionHead title={title} caption={caption} /> : <Typography sx={sectionSx}>{title}</Typography>}
       {/* Capped and self-scrolling, with the header pinned to the top of it and the season row
           pinned to the bottom. This is the one block on the page that grows on its own: a row a

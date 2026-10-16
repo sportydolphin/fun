@@ -2,6 +2,7 @@ import { startTransition, useEffect, useState } from 'react'
 import { fetchWpblPlayerLines, fetchWpblPitcherLocations, getSeedWpblPlayerLines, getCachedWpblPitcherLocations, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllLines, getCachedWpblAllLines, fetchWpblPlayerMatchupPlays, getCachedWpblPlayerMatchupPlays, type WpblPitchLoc } from '../api'
 import { fetchWpblAwardResults, getCachedWpblAwardResults, fanAwardsWon } from '../awardVotes'
 import type { WpblAward } from '../awards'
+import type { WpblBoard, WpblBoardInput } from '../searchAnswers'
 import type { WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblArticle } from '../types'
 
 // The player card's reads. Each is seeded from the session caches on the card's first render, so
@@ -178,3 +179,45 @@ export function usePlayerLines(player: WpblPlayer, onSwap: () => void) {
   }, [player.id, feedKey])
   return { loading, allBatting, allPitching, allFielding, pitchLocs }
 }
+
+/**
+ * The Stats table's own board for the span on the card (a season, or null for the career), for the
+ * figures only the league can price: wOBA, wRC+ and FIP from its run values, and WAR.
+ *
+ * THE SEARCH BOX'S BOARD, NOT A THIRD COPY OF THE ARITHMETIC (searchAnswers.ts): the stored season
+ * rows when they are current, which is one small read, else the same engines the table runs. So the
+ * card, the table and the search answer can never print three different WARs for one player.
+ *
+ * AFTER THE CARD, NEVER BEFORE IT. Undefined until it lands, null if it failed: the card draws the
+ * cells as samples until then, and as a dash after a failure. Imported on use, so the engines stay
+ * out of the card's chunk, and kept per span for the session, so swapping players down a list in
+ * the side panel builds it once.
+ */
+export function usePlayerBoard(base: Omit<WpblBoardInput, 'lines' | 'env' | 'plays'> | null): WpblBoard | null | undefined {
+  const key = base && base.schedule.length > 0 && base.players.length > 0
+    ? `${base.season ?? 'career'}:${base.schedule.length}:${base.players.length}:${base.eraBasis}`
+    : null
+  const [read, setRead] = useState<{ key: string; board: WpblBoard | null } | null>(() => {
+    const done = key ? boardsDone.get(key) : undefined
+    return key && done !== undefined ? { key, board: done } : null
+  })
+  useEffect(() => {
+    if (!key || !base) return
+    let cancelled = false
+    let p = boardsInFlight.get(key)
+    if (!p) {
+      p = import('../searchAnswers')
+        .then(m => m.loadWpblBoard(base, { weights: true, plays: true }))
+        .catch(() => null)
+        // A failure is not kept: the next card to open tries again rather than dashing for the visit.
+        .then(b => { if (b) boardsDone.set(key, b); else boardsInFlight.delete(key); return b })
+      boardsInFlight.set(key, p)
+    }
+    p.then(board => { if (!cancelled) lateUpdate(() => setRead({ key, board })) })
+    return () => { cancelled = true }
+    // `base` is rebuilt every render; the key is everything in it that changes the board.
+  }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
+  return read && read.key === key ? read.board : undefined
+}
+const boardsInFlight = new Map<string, Promise<WpblBoard | null>>()
+const boardsDone = new Map<string, WpblBoard | null>()

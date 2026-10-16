@@ -45,6 +45,9 @@ export interface WpblBoard {
   columns: Record<RankSide, Col<Totals>[]>
   /** WAR and its parts by player id, or null when the play log was not read for this board. */
   value: Map<string, WpblValueTotals> | null
+  /** The span's own run values, for a surface that builds the columns over another slice (the
+   *  player card's playoffs). Null where they could not be read, when the columns dash. */
+  weights: { woba: WobaWeights | null; fip: FipWeights | null }
   qual: ReturnType<typeof wpblQualifiers>
 }
 
@@ -113,6 +116,7 @@ function board(
   return {
     span: i.season == null ? 'career' : String(i.season),
     batting: d.batting, pitching: d.pitching, value: d.value,
+    weights: { woba: d.wWeights, fip: d.fWeights },
     columns: {
       hitting: hittingColumns(ctx) as Col<Totals>[],
       pitching: pitchingColumns(ctx) as Col<Totals>[],
