@@ -313,17 +313,31 @@ export function ClipStrip({ clips, labelFor, from, title = 'Clips' }: {
   )
 }
 
-/** Every Short with a tag, and the tags, from the two app-wide caches. */
-export function useClipTags(): { videos: WpblVideo[]; tags: Map<string, WpblVideoTag> } {
-  const [videos, setVideos] = useState<WpblVideo[]>(() => getCachedWpblVideos() ?? [])
-  const [tags, setTags] = useState<Map<string, WpblVideoTag>>(() => getCachedWpblVideoTags() ?? new Map())
+/** Every Short with a tag, and the tags, from the two app-wide caches. `ready` once both reads
+ *  have answered, a failure included, so a caller waiting on it can never wait forever. */
+export function useClipTags(): { videos: WpblVideo[]; tags: Map<string, WpblVideoTag>; ready: boolean } {
+  const [videos, setVideos] = useState<WpblVideo[] | null>(() => getCachedWpblVideos())
+  const [tags, setTags] = useState<Map<string, WpblVideoTag> | null>(() => getCachedWpblVideoTags())
   useEffect(() => {
     let live = true
-    fetchWpblVideos().then(v => { if (live) setVideos(v) }).catch(() => { /* renders nothing */ })
-    fetchWpblVideoTags().then(t => { if (live) setTags(t) }).catch(() => { /* renders nothing */ })
+    fetchWpblVideos().then(v => { if (live) setVideos(v) }).catch(() => { if (live) setVideos(v => v ?? []) })
+    fetchWpblVideoTags().then(t => { if (live) setTags(t) }).catch(() => { if (live) setTags(t => t ?? new Map()) })
     return () => { live = false }
   }, [])
-  return { videos, tags }
+  return { videos: videos ?? NO_VIDEOS, tags: tags ?? NO_TAGS, ready: videos != null && tags != null }
+}
+const NO_VIDEOS: WpblVideo[] = []
+const NO_TAGS = new Map<string, WpblVideoTag>()
+
+const isPlayerClip = (v: WpblVideo, tags: Map<string, WpblVideoTag>, playerId: string) =>
+  v.is_short === true && !!tags.get(v.video_id)?.player_ids.includes(playerId)
+
+/** Whether this player has any clips, or null until the reads have answered. For a page that
+ *  places the clips above other content and must know before it draws, or the row would arrive
+ *  late and push everything under it down. */
+export function usePlayerHasClips(playerId: string): boolean | null {
+  const { videos, tags, ready } = useClipTags()
+  return useMemo(() => (ready ? videos.some(v => isPlayerClip(v, tags, playerId)) : null), [ready, videos, tags, playerId])
 }
 
 /**
@@ -357,7 +371,6 @@ export function PlayerClips({ playerId }: { playerId: string }) {
   }, [])
   const gameById = useMemo(() => new Map(games.map(g => [g.id, g])), [games])
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
-  const mine = useMemo(() => videos.filter(v => v.is_short === true && tags.get(v.video_id)?.player_ids.includes(playerId)),
-    [videos, tags, playerId])
+  const mine = useMemo(() => videos.filter(v => isPlayerClip(v, tags, playerId)), [videos, tags, playerId])
   return <ClipStrip clips={mine} from="player" labelFor={v => clipLabel(tags.get(v.video_id), gameById, teamById)} />
 }

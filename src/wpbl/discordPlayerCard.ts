@@ -9,7 +9,7 @@
 // leaderboards use, so a number here can never disagree with the number on the site.
 import { sumBatting, sumPitching, plateAppearances, fmtRate, fmtTwo,
   type WpblBattingTotals, type WpblPitchingTotals } from './stats'
-import { displayPosition, leadsWithPitching } from './positions'
+import { displayPosition, leadsWithPitching, playedPosition } from './positions'
 // From innings.ts directly, NOT via the constants.ts re-export. constants.ts imports the
 // team logos as .webp assets, which Vite resolves and the Cloudflare Functions bundler does
 // not: pulling it in here fails the whole functions build, which silently leaves the last
@@ -92,6 +92,7 @@ export function buildPlayerReply(
   // one (a call-up who debuted in the bracket) still has to be led by the side she played.
   const pitcherFirst = leadsWithPitching({
     position: player.position,
+    played: playedPosition(player.position, batted, games),
     hasBatting: hasBatting || hasBattingPost,
     hasPitching: hasPitching || hasPitchingPost,
     gs: pt.gs + ptPost.gs, bf: pt.bf + ptPost.bf,

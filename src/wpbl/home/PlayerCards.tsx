@@ -7,7 +7,7 @@ import { SectionCard, TeamBadge, PlayerPortrait, FittedName, TYPE_SCALE, TAPPABL
 import { sumBatting, sumPitching, plateAppearances, fmtRate } from '../stats'
 import { useEraBasis } from '../EraBasisContext'
 import { outsToIp } from '../innings'
-import { displayPosition, leadsWithPitching } from '../positions'
+import { displayPosition, leadsWithPitching, playedPosition } from '../positions'
 import { wpblFullName } from '../constants'
 import { UNSTYLED_LINK } from '../../nav'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
@@ -135,7 +135,8 @@ function SeasonStrip({ player, lines, games }: { player: WpblPlayer; lines: Line
     const hasBatting = pa > 0
     const hasPitching = pit.outs > 0 || pit.bf > 0
     if (!hasBatting && !hasPitching) return []
-    if (leadsWithPitching({ position: player.position, hasBatting, hasPitching, gs: pit.gs, bf: pit.bf, pa })) {
+    const played = playedPosition(player.position, cut(lines.batting), games)
+    if (leadsWithPitching({ position: player.position, played, hasBatting, hasPitching, gs: pit.gs, bf: pit.bf, pa })) {
       return [
         ['G', String(pit.g)], ['IP', outsToIp(pit.outs)], ['ERA', fmtEra(pit.era)],
         ['K', String(pit.so)], ['WHIP', pit.whip == null ? '—' : pit.whip.toFixed(2)], ['W-L', `${pit.w}–${pit.l}`],
@@ -145,7 +146,7 @@ function SeasonStrip({ player, lines, games }: { player: WpblPlayer; lines: Line
       ['G', String(bat.g)], ['AVG', fmtRate(bat.avg)], ['OBP', fmtRate(bat.obp)],
       ['SLG', fmtRate(bat.slg)], ['HR', String(bat.hr)], ['RBI', String(bat.rbi)],
     ]
-  }, [lines, cut, seasonGames, player.position, fmtEra])
+  }, [lines, cut, seasonGames, games, player.position, fmtEra])
 
   return (
     <Box>
