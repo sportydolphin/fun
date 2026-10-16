@@ -600,18 +600,18 @@ export function LeaderRow({ rank, tied = false, wide = false, first, player, nam
         },
       }}
     >
-      <Box sx={{ width: wide ? '1.75rem' : '1.125rem', textAlign: 'center', fontSize: '0.8rem', fontWeight: 800, color: rank <= 3 ? accent : 'text.disabled', flexShrink: 0, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{tied ? `T-${rank}` : rank}</Box>
+      <Box sx={{ width: wide ? '1.75rem' : '1.125rem', textAlign: 'center', fontSize: TYPE_SCALE.body, fontWeight: 800, color: rank <= 3 ? accent : 'text.disabled', flexShrink: 0, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{tied ? `T-${rank}` : rank}</Box>
       <PlayerPortrait name={name} teamId={teamId} size={32} />
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-          <Typography ref={fit.ref} sx={{ minWidth: 0, fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nameAtStage(name, fit.stage)}</Typography>
+          <Typography ref={fit.ref} sx={{ minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nameAtStage(name, fit.stage)}</Typography>
           {teamId && <TeamBadge team={{ id: teamId, abbr: teamId }} size={16} />}
         </Box>
-        {sub && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</Typography>}
+        {sub && <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</Typography>}
       </Box>
       <Box sx={{ textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
-        <Box component="span" sx={{ fontSize: '1.05rem', fontWeight: 800, color: accent }}>{value}</Box>
-        {unit && <Box component="span" sx={{ fontSize: '0.65rem', fontWeight: 700, color: 'text.disabled', ml: 0.4 }}>{unit}</Box>}
+        <Box component="span" sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, color: accent }}>{value}</Box>
+        {unit && <Box component="span" sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled', ml: 0.4 }}>{unit}</Box>}
       </Box>
     </Box>
   )
@@ -701,11 +701,11 @@ export function AccentPanel({ label, summary, meta, accent, defaultOpen = false,
           '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: -2 },
         }}
       >
-        <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), flexShrink: 0 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), flexShrink: 0 }}>
           {label}
         </Typography>
         {summary != null && (
-          <Typography component="div" sx={{ fontSize: '0.8rem', color: 'text.secondary', fontVariantNumeric: 'tabular-nums', minWidth: 0 }}>
+          <Typography component="div" sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', fontVariantNumeric: 'tabular-nums', minWidth: 0 }}>
             {summary}
           </Typography>
         )}
@@ -722,7 +722,7 @@ export function AccentPanel({ label, summary, meta, accent, defaultOpen = false,
               still says which positions these numbers cover, and it is already an abbreviation of a
               longer list (see FieldingLine). The summary never truncates. */
           <Typography component="div" sx={{
-            ml: 'auto', pl: 1, fontSize: '0.7rem', fontWeight: 700, letterSpacing: typePx(0.3),
+            ml: 'auto', pl: 1, fontSize: TYPE_SCALE.meta, fontWeight: 700, letterSpacing: typePx(0.3),
             color: 'text.disabled', flexShrink: 1000000, minWidth: 0,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>

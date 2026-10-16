@@ -21,6 +21,7 @@ import { track, EVENTS } from '../../lib/analytics'
 import type { WpblPlayer } from '../types'
 import { typePx } from '../../ui/scale'
 import { StatTip, CARD_SECTION_SX } from '../../ui/playerCard'
+import { TYPE_SCALE } from '../../ui/card'
 
 // The parts of WPBL's player card that hold no state of the card's own: the stat tooltip, the
 // qualifying meter, the fielding line, the matchup table, the Compare chip and the band's colours.
@@ -100,7 +101,7 @@ export function RankProgress({ reason, have, need, unit, fmt, noun, color }: {
 }) {
   if (reason === 'ok' || reason === 'no-data') return null
   if (reason === 'season-young') {
-    return <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 1.75 }}>League ranks appear once the season is a few games old.</Typography>
+    return <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', mt: 1.75 }}>League ranks appear once the season is a few games old.</Typography>
   }
   if (need <= 0) return null
   const pct = Math.max(0, Math.min(1, have / need))
@@ -113,21 +114,21 @@ export function RankProgress({ reason, have, need, unit, fmt, noun, color }: {
           headings are what carry the difference. */}
       <Typography sx={sectionSx}>Toward qualifying</Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography sx={{ width: '2.375rem', flexShrink: 0, fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled' }}>
+        <Typography sx={{ width: '2.375rem', flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled' }}>
           {unit}
         </Typography>
-        <Typography sx={{ width: '2.75rem', flexShrink: 0, fontSize: '0.78rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+        <Typography sx={{ width: '2.75rem', flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
           {fmt(have)}
         </Typography>
         <Box sx={{ flex: 1, minWidth: 0, height: 6, borderRadius: 999, bgcolor: 'action.hover', overflow: 'hidden' }}>
           <Box sx={{ width: `${Math.round(pct * 100)}%`, height: '100%', bgcolor: color, borderRadius: 999 }} />
         </Box>
-        <Typography sx={{ width: '2.125rem', flexShrink: 0, textAlign: 'right', fontSize: '0.68rem', fontWeight: 700, color: 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>
+        <Typography sx={{ width: '2.125rem', flexShrink: 0, textAlign: 'right', fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>
           {fmt(need)}
         </Typography>
       </Box>
       {/* Says what the bar is FOR, in the same slot where the strip prints its population. */}
-      <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.6 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', mt: 0.6 }}>
         {fmt(Math.max(0, need - have))} more {unit} to rank against qualified {noun}.
       </Typography>
     </Box>

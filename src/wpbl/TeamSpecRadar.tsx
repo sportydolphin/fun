@@ -10,6 +10,7 @@ import {
 } from './derive/teamSpec'
 import type { WpblTeam } from './types'
 import { typePx } from '../ui/scale'
+import { TYPE_SCALE } from '../ui/card'
 
 // The spec chart. Six spokes, one polygon per club, drawn as SVG because the repo has no chart
 // library and a hexagon does not justify adding one: the whole geometry is `pt()` below.
@@ -406,17 +407,17 @@ export function TeamSpecDetail({ specs, teamId, selected, kLabel, scaleK, onClea
     return (
       <Box sx={{ ...shell, cursor: 'pointer' }} onClick={onClear} role="button" tabIndex={0}
         onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClear() } }}>
-        <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: accent }}>{ax.label}</Typography>
-        <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: accent }}>{ax.label}</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
           {selected === 'arms' ? kLabel : ax.stat}
         </Typography>
-        <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
           {shown(row.raw[selected])}
         </Typography>
-        <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>
           League {shown(specs.league[selected])}
         </Typography>
-        <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary', ml: 'auto', fontVariantNumeric: 'tabular-nums' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary', ml: 'auto', fontVariantNumeric: 'tabular-nums' }}>
           {ORDINAL[rank] ?? rank} of {specs.rows.length}
         </Typography>
       </Box>
@@ -428,17 +429,17 @@ export function TeamSpecDetail({ specs, teamId, selected, kLabel, scaleK, onClea
     <Box sx={shell}>
       {high ? (
         <>
-          <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>Best</Typography>
-          <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: accent }}>{high.best.label}</Typography>
-          <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', ml: 0.5 }}>Weakest</Typography>
-          <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: 'text.secondary' }}>{high.worst.label}</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Best</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: accent }}>{high.best.label}</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', ml: 0.5 }}>Weakest</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'text.secondary' }}>{high.worst.label}</Typography>
         </>
       ) : (
-        <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>Even across all six.</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Even across all six.</Typography>
       )}
       {/* Says the chart is tappable, which nothing else on it does. Drops away the moment a
           reader has tapped once, because by then they know. */}
-      <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', ml: 'auto' }}>Tap a trait</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', ml: 'auto' }}>Tap a trait</Typography>
     </Box>
   )
 }
@@ -461,13 +462,13 @@ export function TeamSpecReadout({ specs, teamId, kLabel, scaleK }: {
     <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: 'auto 1fr auto', columnGap: 1, rowGap: 0.35, alignItems: 'baseline' }}>
       {TEAM_SPEC_AXES.map(a => (
         <Box key={a.key} sx={{ display: 'contents' }}>
-          <Typography component="dt" sx={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: typePx(0.2), color: 'text.secondary' }}>
+          <Typography component="dt" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, letterSpacing: typePx(0.2), color: 'text.secondary' }}>
             {a.label}
           </Typography>
-          <Typography component="dd" sx={{ m: 0, fontSize: '0.7rem', color: 'text.disabled' }}>
+          <Typography component="dd" sx={{ m: 0, fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>
             {a.key === 'arms' ? kLabel : a.stat}
           </Typography>
-          <Typography component="dd" sx={{ m: 0, fontSize: '0.74rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
+          <Typography component="dd" sx={{ m: 0, fontSize: TYPE_SCALE.meta, fontWeight: 700, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>
             {value(a.key)}
             {/* The league number in the same cell, because a rate nobody has a feel for yet
                 ("11.1% strikeouts") says nothing without the thing it is being measured
@@ -498,10 +499,10 @@ export function TeamSpecPlaceholder({ minGames, ready = true }: { minGames: numb
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       gap: 0.5, py: 3, px: 2, borderRadius: 2, border: '1px dashed', borderColor: CARD_BORDER,
     }}>
-      <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: 'text.secondary' }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.secondary' }}>
         Team profile
       </Typography>
-      <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', textAlign: 'center' }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', textAlign: 'center' }}>
         {waiting
           ? 'Loading.'
           : minGames == null

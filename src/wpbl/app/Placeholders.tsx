@@ -9,6 +9,7 @@ import {
 import { SeasonMenu } from '../SeasonMenu'
 import { TabTitle } from '../PageHeading'
 import { ScoresSkeleton } from './ScoresTab'
+import { TYPE_SCALE } from '../../ui/card'
 
 // Shown while a modal's chunk loads. A tap should visibly do something immediately, so this
 // paints the scrim the modal itself is about to paint, and the panel then fills in over it
@@ -82,7 +83,7 @@ export function TabSkeleton({ view }: { view: WpblView }) {
           <TabTitle>WPBL Standings</TabTitle>
           <SeasonMenu label="season" sx={{ mb: -0.5 }} />
           {/* The table's caption, which says this before any data has arrived too. */}
-          <Typography sx={{ mb: -1.25, fontSize: '0.72rem', fontWeight: 600, color: 'text.disabled' }}>
+          <Typography sx={{ mb: -1.25, fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.disabled' }}>
             Current standings
           </Typography>
           {block(chromePx(193))}
@@ -114,8 +115,8 @@ export function TabSkeleton({ view }: { view: WpblView }) {
 export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
     <Box sx={{ textAlign: 'center', py: 6, px: 2, color: 'text.secondary' }}>
-      <Typography sx={{ fontSize: '1rem', fontWeight: 700, mb: 0.5 }}>{title}</Typography>
-      {hint && <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled' }}>{hint}</Typography>}
+      <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 700, mb: 0.5 }}>{title}</Typography>
+      {hint && <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>{hint}</Typography>}
     </Box>
   )
 }

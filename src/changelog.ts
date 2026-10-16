@@ -10,6 +10,16 @@ import { ENTRIES as v1_000 } from './changelog/v1.000-1.049'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.167.3',
+    date:    '2026-10-15',
+    changes: [
+      {
+        short: 'Steadier text sizes across WPBL',
+        full:  "The season recap, team pages, Scores, Standings, Game Center's play by play and pitch data, Reading, Run value, the pitch boards, Scorigami, the players list and the API docs now use the site's one set of text sizes. A season series' score is drawn the same size on WPBL's series page and MLB's series sheet.",
+      },
+    ],
+  },
+  {
     version: '1.167.2',
     date:    '2026-10-15',
     changes: [

@@ -25,6 +25,7 @@ import {
 } from './derive/runsByInning'
 import { TeamBadge, FOCUS_RING, pressable } from './ui'
 import type { WpblGame, WpblTeam } from './types'
+import { TYPE_SCALE } from '../ui/card'
 
 type Side = 'scored' | 'allowed'
 type Rgb = [number, number, number]
@@ -60,7 +61,7 @@ function Pill({ on, label, onClick }: { on: boolean; label: string; onClick: () 
       border: '1px solid', borderColor: on ? 'transparent' : 'outline',
       bgcolor: on ? 'text.primary' : 'transparent',
     }}>
-      <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, color: on ? 'background.paper' : 'text.secondary' }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, color: on ? 'background.paper' : 'text.secondary' }}>
         {label}
       </Typography>
     </Box>
@@ -123,10 +124,10 @@ export default function RunsByInning({ games, teams }: { games: readonly WpblGam
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
             {team && <TeamBadge team={team} size={20} />}
             <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, lineHeight: 1.15 }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, lineHeight: 1.15 }}>
                 {team ? team.abbr : 'WPBL'}
               </Typography>
-              <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', lineHeight: 1.15, fontVariantNumeric: 'tabular-nums' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', lineHeight: 1.15, fontVariantNumeric: 'tabular-nums' }}>
                 {row.games} g
               </Typography>
             </Box>
@@ -144,7 +145,7 @@ export default function RunsByInning({ games, teams }: { games: readonly WpblGam
               sx={{
                 p: 0, height: '2.1rem', borderRadius: '4px',
                 textAlign: 'center', verticalAlign: 'middle',
-                fontSize: '0.72rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+                fontSize: TYPE_SCALE.meta, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
                 bgcolor: fill,
                 color: ink ?? 'text.disabled',
                 // A column this club never batted in: outlined so the grid keeps its shape, with no
@@ -161,11 +162,11 @@ export default function RunsByInning({ games, teams }: { games: readonly WpblGam
     )
   }
 
-  const legendLabel = { fontSize: '0.72rem', color: 'text.secondary', whiteSpace: 'nowrap' as const }
+  const legendLabel = { fontSize: TYPE_SCALE.meta, color: 'text.secondary', whiteSpace: 'nowrap' as const }
 
   return (
     <Box>
-      <Typography sx={{ color: 'text.secondary', fontSize: '0.85rem', mt: -0.75, mb: 1.5 }}>
+      <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.body, mt: -0.75, mb: 1.5 }}>
         Runs per half-inning, club by club.
         {ext && ` League-wide the ${ordinal(ext.high.inning)} is the big inning at ${fmt(perHalf(ext.high)!)} runs, and the ${ordinal(ext.low.inning)} the quietest at ${fmt(perHalf(ext.low)!)}.`}
         {scope === 'postseason' && ` Postseason samples are small: ${minG === maxG ? minG : `${minG} to ${maxG}`} games a club.`}
@@ -195,10 +196,10 @@ export default function RunsByInning({ games, teams }: { games: readonly WpblGam
         </colgroup>
         <thead>
           <tr>
-            <Box component="th" sx={{ p: 0 }}><Box component="span" sx={{ fontSize: '0.6rem', color: 'text.disabled', fontWeight: 700 }}>Inn</Box></Box>
+            <Box component="th" sx={{ p: 0 }}><Box component="span" sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', fontWeight: 700 }}>Inn</Box></Box>
             {grid.columns.map(c => (
               <Box component="th" scope="col" key={c} sx={{
-                p: 0, pb: 0.25, fontSize: '0.68rem', fontWeight: 700, color: 'text.secondary',
+                p: 0, pb: 0.25, fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.secondary',
                 fontVariantNumeric: 'tabular-nums',
               }}>
                 {c === EXTRAS_COLUMN ? '8+' : c}
@@ -223,7 +224,7 @@ export default function RunsByInning({ games, teams }: { games: readonly WpblGam
         <Typography sx={legendLabel}>More runs</Typography>
       </Box>
 
-      <Typography sx={{ color: 'text.disabled', fontSize: '0.78rem', mt: 1 }}>
+      <Typography sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.body, mt: 1 }}>
         Grey is the league&rsquo;s average half-inning this {scopeWord}, {fmt(grid.mean)} runs; red is more,
         blue fewer. Each square is a club&rsquo;s runs in that inning divided by the times it batted in it.
         A bottom half the home side never needed to bat is left out rather than counted as a scoreless

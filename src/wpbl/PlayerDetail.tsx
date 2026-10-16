@@ -43,6 +43,7 @@ import {
 import { createBandStore, BandAwareEyebrow, useBandObserver } from './player/bandStore'
 import { usePlayerAwards, usePlayerLines, usePlayerMatchupPlays, useLeagueReads } from './player/usePlayerReads'
 import { usePlayerSeason } from './player/usePlayerSeason'
+import { ICON_SIZE, TYPE_SCALE } from '../ui/card'
 
 
 // Player page: profile, season totals aggregated from box-score lines, where those totals sit
@@ -884,7 +885,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
                 ...hoverOnly({ bgcolor: 'rgba(255,255,255,0.26)' }),
                 '&:focus-visible': { outline: '2px solid #fff', outlineOffset: 2 },
               }}>
-              <EmojiEvents aria-hidden sx={{ fontSize: '0.85rem', color: '#eab308' }} />
+              <EmojiEvents aria-hidden sx={{ fontSize: ICON_SIZE.sm, color: '#eab308' }} />
               Fan vote · {a.title}
             </Box>
           ))}
@@ -1027,8 +1028,8 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
       {noStats ? (
         <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2 }}>
           <Box sx={{ textAlign: 'center', py: 5, color: 'text.secondary' }}>
-            <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, mb: 0.5 }}>No stats yet</Typography>
-            <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled' }}>Season totals appear here once this player logs a game.</Typography>
+            <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, mb: 0.5 }}>No stats yet</Typography>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>Season totals appear here once this player logs a game.</Typography>
           </Box>
           <FanPhotoPlayerStrip playerId={player.id} players={players} />
           <PlayerClips playerId={player.id} />

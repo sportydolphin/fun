@@ -7,6 +7,7 @@ import { recapThumb, PUBLICATION_NAME as RECAP_PUBLICATION } from './derive/reca
 import type { WpblArticle, WpblGameRecap, WpblTeam } from './types'
 import { track, EVENTS } from '../lib/analytics'
 import { typePx } from '../ui/scale'
+import { TYPE_SCALE } from '../ui/card'
 
 // The WPBL reading surface: a mirror of two independent writers' coverage of the league,
 // read from the wpbl_articles table (populated by scripts/sync-wpbl-substack.ts). Four
@@ -68,7 +69,7 @@ const readLabel = (a: WpblArticle) => `${readMinutes(a.word_count, a.video_count
 // section.
 function ExternalMark() {
   return (
-    <Box component="span" aria-hidden sx={{ fontSize: '0.7rem', color: 'text.disabled', ml: 0.4, flexShrink: 0 }}>↗</Box>
+    <Box component="span" aria-hidden sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', ml: 0.4, flexShrink: 0 }}>↗</Box>
   )
 }
 
@@ -134,7 +135,7 @@ export function AuthorByline({ source, compact, from }: { source: SubstackSource
         sx={{ width: size, height: size, borderRadius: '50%', flexShrink: 0, objectFit: 'cover', bgcolor: 'action.hover' }}
       />
       <Box sx={{ minWidth: 0, flex: 1 }}>
-        <Typography sx={{ fontSize: '0.76rem', color: 'text.secondary', lineHeight: 1.3 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>
           Written by{' '}
           <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{source.authorName}</Box>
         </Typography>
@@ -144,10 +145,10 @@ export function AuthorByline({ source, compact, from }: { source: SubstackSource
         {/* Not on a phone, where two stacked credits with their bios filled most of the first
             screen before a single headline. "Written by" and the publication line carry the
             attribution on their own; the bio is the nice-to-have. */}
-        <Typography sx={{ display: { xs: 'none', sm: 'block' }, fontSize: '0.7rem', color: 'text.disabled', lineHeight: 1.35, fontStyle: source.bioIsQuote ? 'italic' : 'normal' }}>
+        <Typography sx={{ display: { xs: 'none', sm: 'block' }, fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.35, fontStyle: source.bioIsQuote ? 'italic' : 'normal' }}>
           {source.bioIsQuote ? `“${source.bio}”` : source.bio}
         </Typography>
-        <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, color: 'text.disabled', mt: 0.2 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 600, color: 'text.disabled', mt: 0.2 }}>
           {source.publicationName} · <Box component="span" sx={{ whiteSpace: 'nowrap' }}>their Substack ↗</Box>
         </Typography>
       </Box>
@@ -166,15 +167,15 @@ function MetaLine({ article, sx, ghost }: { article: WpblArticle; sx?: object; g
   const parts = [sourceOf(article.source).authorName, dateLabel(article.published_at), cost].filter(Boolean)
   if (ghost) {
     return (
-      <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, lineHeight: 1.4, ...sx }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 600, lineHeight: 1.4, ...sx }}>
         <TextGhost>Writer Name · Sep 00 · 0 min</TextGhost>
         {/* The arrow's room: its larger type sets the line's height. */}
-        <Box component="span" sx={{ fontSize: '0.7rem', ml: 0.4 }}>{' '}</Box>
+        <Box component="span" sx={{ fontSize: TYPE_SCALE.meta, ml: 0.4 }}>{' '}</Box>
       </Typography>
     )
   }
   return (
-    <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, color: 'text.disabled', lineHeight: 1.4, ...sx }}>
+    <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 600, color: 'text.disabled', lineHeight: 1.4, ...sx }}>
       {/* The arrow rides inside the last run: as a sibling there is no break opportunity before
           it, so a full line pushed it past the card's edge and the card's overflow clipped it. */}
       {parts.map((p, i) => (
@@ -277,21 +278,21 @@ export function ReadingLead({ article, teamById, from, isNew, onOpen, ghost }: {
         widths={[480, 800, 1200]} sizes="(max-width: 899px) 100vw, 640px"
         sx={{ aspectRatio: '16 / 9' }} />
       <Box sx={{ p: { xs: 1.5, md: 2.25 }, display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary' }}>
           Latest
         </Typography>
-        <Typography sx={{ fontSize: { xs: '1.15rem', md: '1.4rem' }, fontWeight: 800, lineHeight: 1.2, letterSpacing: typePx(-0.2), mt: 0.5 }}>
+        <Typography sx={{ fontSize: { xs: TYPE_SCALE.display, md: TYPE_SCALE.page }, fontWeight: 800, lineHeight: 1.2, letterSpacing: typePx(-0.2), mt: 0.5 }}>
           {g(article.title)}
         </Typography>
         {article.subtitle && (
           <Typography sx={{
-            fontSize: { xs: '0.8rem', md: '0.88rem' }, color: 'text.secondary', lineHeight: 1.45, mt: 0.75,
+            fontSize: { xs: TYPE_SCALE.body, md: TYPE_SCALE.title }, color: 'text.secondary', lineHeight: 1.45, mt: 0.75,
             display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden',
           }}>
             {g(article.subtitle)}
           </Typography>
         )}
-        <MetaLine article={article} ghost={ghost} sx={{ mt: 1.25, fontSize: '0.72rem' }} />
+        <MetaLine article={article} ghost={ghost} sx={{ mt: 1.25, fontSize: TYPE_SCALE.meta }} />
       </Box>
     </Box>
   )
@@ -338,10 +339,10 @@ export function ReadingCard({ article, teamById, from, isNew, onOpen, ghost, row
           aspectRatio: r('auto', '16 / 9'), borderRadius: r(1.5, 0),
         }} />
       <Box sx={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', p: r(0, 1.25) }}>
-        <Typography sx={{ fontSize: r('0.85rem', '0.9rem'), fontWeight: 700, lineHeight: 1.3 }}>{g(article.title)}</Typography>
+        <Typography sx={{ fontSize: r(TYPE_SCALE.body, TYPE_SCALE.title), fontWeight: 700, lineHeight: 1.3 }}>{g(article.title)}</Typography>
         {article.subtitle && (
           <Typography sx={{
-            fontSize: '0.75rem', color: 'text.secondary', lineHeight: 1.4, mt: 0.35,
+            fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.4, mt: 0.35,
             display: '-webkit-box', WebkitLineClamp: r(2, 3), WebkitBoxOrient: 'vertical', overflow: 'hidden',
           }}>
             {g(article.subtitle)}
@@ -388,16 +389,16 @@ export function GameStoryCard({ article }: { article: WpblArticle }) {
         )}
       </Box>
       <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary' }}>
           Story
         </Typography>
         <Typography sx={{
-          fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.3, mt: 0.25,
+          fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.3, mt: 0.25,
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>
           {article.title}
         </Typography>
-        <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.25 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', mt: 0.25 }}>
           {sourceOf(article.source).authorName} · {readLabel(article)} ↗
         </Typography>
       </Box>
@@ -460,11 +461,11 @@ export function GameRecapLinkCard({ recap }: { recap: WpblGameRecap }) {
             Its sibling `GameStoryCard` says "Story" for the same reason: the two sit one above
             the other and a reader should be able to tell them apart at a glance rather than by
             reading two near-identical sentences. */}
-        <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary' }}>
           Recap
         </Typography>
         <Typography sx={{
-          fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.3, mt: 0.25,
+          fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.3, mt: 0.25,
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>
           {recap.title}
@@ -473,7 +474,7 @@ export function GameRecapLinkCard({ recap }: { recap: WpblGameRecap }) {
         thumbnail inside our chrome reads as our reporting unless something says otherwise;
         readers of the Reading rail have come away thinking its Substack writer ran this site.
         So the publication is named in full on every card. */}
-        <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.25 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', mt: 0.25 }}>
           {RECAP_PUBLICATION} · {dateLabel(recap.published_at)} ↗
         </Typography>
       </Box>
@@ -538,10 +539,10 @@ export function WrittenAbout({ articles, title, limit = 8, from = 'player', acce
                 '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 1 },
               }}
             >
-              <Typography sx={{ flex: 1, minWidth: 0, fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.35 }}>
+              <Typography sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.35 }}>
                 {a.title}
               </Typography>
-              <Typography sx={{ flexShrink: 0, fontSize: '0.68rem', color: 'text.disabled', whiteSpace: 'nowrap' }}>
+              <Typography sx={{ flexShrink: 0, fontSize: TYPE_SCALE.micro, color: 'text.disabled', whiteSpace: 'nowrap' }}>
                 {sourceOf(a.source).authorName} · {dateLabel(a.published_at)} · {readMinutes(a.word_count, a.video_count)} min ↗
               </Typography>
             </Box>

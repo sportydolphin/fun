@@ -1,6 +1,7 @@
 import { Box, Typography } from '@mui/material'
 import { typePx } from '../../ui/scale'
 import type { WpblBattingLine, WpblPitchingLine } from '../types'
+import { TYPE_SCALE } from '../../ui/card'
 
 export type Tab = 'recap' | 'live' | 'box' | 'plays' | 'pitch'
 
@@ -96,7 +97,7 @@ export const fmtFeedName = (n: string): string => {
 export function StatHead({ children, w = 30, dense = false }: { children: React.ReactNode; w?: number; dense?: boolean }) {
   return (
     <Box component="th" sx={{
-      fontSize: dense ? '0.55rem' : '0.64rem', fontWeight: 700, color: 'text.disabled',
+      fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled',
       textTransform: 'uppercase', letterSpacing: dense ? typePx(0.1) : typePx(0.4),
       textAlign: 'center', px: dense ? 0.1 : 0.4, py: 0.4,
       // No width floor in dense mode: fixed layout is doing the dividing, and a minWidth
@@ -114,7 +115,7 @@ export function StatCell({ children, bold = false, dense = false }: { children: 
   const isZero = children === 0 || children === '0'
   return (
     <Box component="td" sx={{
-      fontSize: dense ? '0.76rem' : '0.9rem', fontWeight: isZero ? 500 : bold ? 800 : 600,
+      fontSize: dense ? TYPE_SCALE.meta : TYPE_SCALE.title, fontWeight: isZero ? 500 : bold ? 800 : 600,
       color: isZero ? 'text.disabled' : 'text.primary',
       textAlign: 'center', px: dense ? 0.1 : 0.4, py: dense ? 0.4 : 0.45,
       lineHeight: 1.2, fontVariantNumeric: 'tabular-nums',
@@ -127,8 +128,8 @@ export function StatCell({ children, bold = false, dense = false }: { children: 
 export function EmptyBody({ title, hint }: { title: string; hint: string }) {
   return (
     <Box sx={{ textAlign: 'center', py: 5, px: 2, color: 'text.secondary' }}>
-      <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, mb: 0.5 }}>{title}</Typography>
-      <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled' }}>{hint}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, mb: 0.5 }}>{title}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>{hint}</Typography>
     </Box>
   )
 }
@@ -187,11 +188,11 @@ const NAME_W = '10rem'
 // An opaque bg + right divider keep it legible over the stat cells sliding underneath.
 const stickyName = { position: 'sticky', left: 0, zIndex: 1, bgcolor: 'background.paper', borderRight: '1px solid', borderRightColor: 'divider' } as const
 
-export const nameHeadSx = { ...stickyName, width: '1%', maxWidth: NAME_W, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.4), px: 0.4, py: 0.4 } as const
+export const nameHeadSx = { ...stickyName, width: '1%', maxWidth: NAME_W, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.4), px: 0.4, py: 0.4 } as const
 
 export const nameCellSx = { ...stickyName, width: '1%', maxWidth: NAME_W, whiteSpace: 'nowrap', textAlign: 'left', px: 0.4, py: 0.45 } as const
 
-export const posSx = { fontSize: '0.6rem', color: 'text.disabled', lineHeight: 1, flexShrink: 0 } as const
+export const posSx = { fontSize: TYPE_SCALE.caption, color: 'text.disabled', lineHeight: 1, flexShrink: 0 } as const
 
 // Scoreboard: team name column absorbs slack; innings + R/H/E hug the right and scroll if
 // they overrun. minWidth:max-content floors it so a phone scrolls rather than crushing.

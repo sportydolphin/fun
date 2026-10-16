@@ -67,6 +67,7 @@ import { completedSeason, gamesInSeason, inSeason, seasonsOnRecord } from './sea
 import { localIsoDate } from './derive/homePlayers'
 import { compareRows } from './leaderOrder'
 import { printedRanks } from '../ui/leaders'
+import { ICON_SIZE, TYPE_SCALE } from '../ui/card'
 
 /** A batter's side of the plate, from the roster's `bats`, normalised to one letter. Switch
  *  hitters ('S') and unknowns fall outside the two toggle states and simply are not counted in
@@ -207,11 +208,11 @@ function StatTile({ value, label, sub, highlight, href, onNavigate }: {
       }}
     >
       <Typography sx={{
-        fontSize: { xs: '1.5rem', sm: '1.75rem' }, fontWeight: 800, lineHeight: 1.05,
+        fontSize: TYPE_SCALE.page, fontWeight: 800, lineHeight: 1.05,
         color: highlight ? 'var(--wpbl-accent-fg)' : 'text.primary',
       }}>{value}</Typography>
-      <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: 'text.primary' }}>{label}</Typography>
-      {sub && <Typography sx={{ fontSize: '0.74rem', color: 'text.secondary', lineHeight: 1.3 }}>{sub}</Typography>}
+      <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.primary' }}>{label}</Typography>
+      {sub && <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>{sub}</Typography>}
     </Box>
   )
 }
@@ -741,7 +742,7 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
           {topMatchups && (
             <>
               <SectionHeading seen="season">Lopsided matchups</SectionHeading>
-              <Typography sx={{ color: 'text.secondary', fontSize: '0.85rem', mt: -0.75, mb: 1.5 }}>
+              <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.body, mt: -0.75, mb: 1.5 }}>
                 With four clubs, the same batters and pitchers meet all season. The most lopsided
                 matchups of the regular season:
               </Typography>
@@ -756,7 +757,7 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
                 href={WPBL_MATCHUPS_PAGE}
                 onClick={(e: React.MouseEvent) => { if (!isModified(e)) { e.preventDefault(); onNavigate(WPBL_MATCHUPS_PAGE) } }}
                 sx={{
-                  display: 'inline-block', mt: 1.25, fontSize: '0.8rem', fontWeight: 700,
+                  display: 'inline-block', mt: 1.25, fontSize: TYPE_SCALE.body, fontWeight: 700,
                   color: 'var(--wpbl-accent-fg)', textDecoration: 'none', ...FOCUS_RING,
                   '@media (hover: hover)': { '&:hover': { textDecoration: 'underline' } },
                 }}
@@ -770,7 +771,7 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
           {battedBalls.length > 0 && (
             <>
               <SectionHeading seen="season">Where the ball goes</SectionHeading>
-              <Typography sx={{ color: 'text.secondary', fontSize: '0.85rem', mt: -0.75, mb: 1.5 }}>
+              <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.body, mt: -0.75, mb: 1.5 }}>
                 Every batted ball the league placed, by the hitter&rsquo;s side of the plate.
                 Right-handers pull to left field; the left-handed view is the mirror of it.
               </Typography>
@@ -786,7 +787,7 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
                     bgcolor: hand === h ? 'text.primary' : 'transparent',
                   }}>
                     <Typography sx={{
-                      fontSize: '0.8rem', fontWeight: 800,
+                      fontSize: TYPE_SCALE.body, fontWeight: 800,
                       color: hand === h ? 'background.paper' : 'text.secondary',
                     }}>{h === 'R' ? 'Right-handed' : 'Left-handed'}</Typography>
                   </Box>
@@ -795,7 +796,7 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
               {battedByHand.length > 0 ? (
                 <SprayChart plays={battedByHand} bats={hand} />
               ) : (
-                <Typography sx={{ color: 'text.disabled', fontSize: '0.85rem' }}>
+                <Typography sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.body }}>
                   No batted balls placed for this side yet.
                 </Typography>
               )}
@@ -867,7 +868,7 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
           {eraFip && (eraFip.eraLower.length > 0 || eraFip.eraHigher.length > 0) && (
             <>
               <SectionHeading seen="season">ERA vs FIP</SectionHeading>
-              <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', mb: 1.25, maxWidth: '44rem' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mb: 1.25, maxWidth: '44rem' }}>
                 FIP is an ERA built only from strikeouts, walks, hit batters and home runs, the
                 outcomes no fielder touches. Qualified pitchers, regular season, per {ERA_BASIS_CANONICAL} innings.
                 {leaguePit.babip != null && ` League average on balls in play: ${fmtRate(leaguePit.babip)}.`}
@@ -903,7 +904,7 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
           {wildest.length > 0 && (
             <>
               <SectionHeading seen="season" id="season-wildest">The wildest games</SectionHeading>
-              <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', mb: 1.25, lineHeight: 1.45 }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mb: 1.25, lineHeight: 1.45 }}>
                 Every swing in win probability over a game, added up. The line is the winner&rsquo;s
                 chance, play by play.
               </Typography>
@@ -919,7 +920,7 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
                   <Box {...pressable(() => setAllWild(v => !v))} sx={{
                     ...FOCUS_RING, alignSelf: 'center', cursor: 'pointer', userSelect: 'none',
                     px: 1.5, py: 0.75, borderRadius: 999, border: '1px solid', borderColor: CARD_BORDER,
-                    fontSize: '0.8rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+                    fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
                   }}>
                     {allWild ? 'Show fewer' : `Show all ${wildest.length}`}
                   </Box>
@@ -942,10 +943,10 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
                   ...TAPPABLE,
                 }}
               >
-                <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, mb: 0.5 }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, mb: 0.5 }}>
                   {teamName(comeback.winnerId)} won from {fmtWinPct(comeback.low)}
                 </Typography>
-                <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
                   At its lowest point {teamName(comeback.winnerId)} had a {fmtWinPct(comeback.low)} chance
                   of winning, and won anyway: {teamName(comeback.game.away_team_id)}{' '}
                   {comeback.game.away_score} at {teamName(comeback.game.home_team_id)}{' '}
@@ -975,14 +976,14 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
                   >
                     <Box sx={{ flexShrink: 0, width: 4, alignSelf: 'stretch', borderRadius: 2, bgcolor: wpblColor(bp.teamId) }} />
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.35 }}>
+                      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 600, lineHeight: 1.35 }}>
                         {bp.narrative}
                       </Typography>
-                      <Typography sx={{ fontSize: '0.76rem', color: 'text.disabled', lineHeight: 1.35 }}>
+                      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.35 }}>
                         {teamName(bp.game.away_team_id)} at {teamName(bp.game.home_team_id)} · {bp.game.game_date}
                       </Typography>
                     </Box>
-                    <Typography sx={{ flexShrink: 0, fontSize: '0.82rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)' }}>
+                    <Typography sx={{ flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'var(--wpbl-accent-fg)' }}>
                       {fmtWinPct(bp.winnerBefore)} → {fmtWinPct(bp.winnerAfter)}
                     </Typography>
                   </Box>
@@ -991,7 +992,7 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
                   <Box {...pressable(() => setAllPlays(v => !v))} sx={{
                     ...FOCUS_RING, alignSelf: 'center', cursor: 'pointer', userSelect: 'none',
                     px: 1.5, py: 0.75, borderRadius: 999, border: '1px solid', borderColor: CARD_BORDER,
-                    fontSize: '0.8rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+                    fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
                   }}>
                     {allPlays ? 'Show fewer' : `Show all ${bigPlays.length}`}
                   </Box>
@@ -1028,9 +1029,9 @@ function SeasonChampionBlock({ champ }: {
         bgcolor: 'color-mix(in srgb, var(--wpbl-medal-1) 16%, transparent)',
         borderBottom: '1px solid', borderColor: 'divider',
       }}>
-        <Box aria-hidden sx={{ fontSize: '0.9rem', lineHeight: 1 }}>🏆</Box>
+        <Box aria-hidden sx={{ fontSize: ICON_SIZE.sm, lineHeight: 1 }}>🏆</Box>
         <Typography sx={{
-          fontSize: '0.7rem', fontWeight: 900, letterSpacing: typePx(1), textTransform: 'uppercase',
+          fontSize: TYPE_SCALE.micro, fontWeight: 900, letterSpacing: typePx(1), textTransform: 'uppercase',
           color: 'var(--wpbl-medal-1)',
         }}>WPBL Champions</Typography>
       </Box>
@@ -1039,14 +1040,14 @@ function SeasonChampionBlock({ champ }: {
           ? <TeamBadge team={champ.champion} size={56} />
           : <Skeleton variant="circular" width={chromePx(56)} height={chromePx(56)} sx={{ flexShrink: 0 }} />}
         <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontSize: '1.5rem', fontWeight: 900, lineHeight: 1.1, color: accent }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.page, fontWeight: 900, lineHeight: 1.1, color: accent }}>
             {champ ? wpblFullName(champ.champion) : <TextGhost>Champion Clubname</TextGhost>}
           </Typography>
-          <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, color: 'text.primary', mt: 0.4 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, color: 'text.primary', mt: 0.4 }}>
             Inaugural WPBL champions
           </Typography>
           {(!champ || champ.runnerUp) && (
-            <Typography sx={{ fontSize: '0.85rem', fontWeight: 500, color: 'text.secondary', mt: 0.25 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 500, color: 'text.secondary', mt: 0.25 }}>
               {champ?.runnerUp
                 ? <>Beat {wpblFullName(champ.runnerUp)} {champ.champWins}-{champ.rivalWins} in the championship series.</>
                 : <TextGhost>Beat Runners-up Clubname 3-2 in the championship series.</TextGhost>}
@@ -1086,11 +1087,11 @@ function FinalSeriesGames({ games, teamById, href, onOpen }: {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
             {team && <TeamBadge team={team} size={18} />}
             <Typography sx={{
-              flex: 1, minWidth: 0, fontSize: '0.85rem', fontWeight: won ? 800 : 600,
+              flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: won ? 800 : 600,
               color: won ? 'text.primary' : 'text.secondary',
             }}>{team?.abbr ?? '—'}</Typography>
             <Typography sx={{
-              fontSize: '0.95rem', fontWeight: won ? 900 : 600, fontVariantNumeric: 'tabular-nums',
+              fontSize: TYPE_SCALE.title, fontWeight: won ? 900 : 600, fontVariantNumeric: 'tabular-nums',
               color: won ? 'text.primary' : 'text.secondary',
             }}>{score}</Typography>
           </Box>
@@ -1123,10 +1124,10 @@ function FinalGameHead({ n, date }: { n: number; date: React.ReactNode }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
       <Typography sx={{
-        flex: 1, fontSize: '0.66rem', fontWeight: 800, letterSpacing: typePx(0.6),
+        flex: 1, fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6),
         textTransform: 'uppercase', color: 'text.disabled',
       }}>Game {n}</Typography>
-      <Typography sx={{ fontSize: '0.66rem', fontWeight: 700, color: 'text.disabled' }}>{date}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled' }}>{date}</Typography>
     </Box>
   )
 }
@@ -1156,8 +1157,8 @@ function SeasonSkeleton({ isPhone }: { isPhone: boolean }) {
               {[0, 1].map(j => (
                 <Box key={j} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
                   <Skeleton variant="circular" width={chromePx(18)} height={chromePx(18)} sx={{ flexShrink: 0 }} />
-                  <Typography sx={{ flex: 1, minWidth: 0, fontSize: '0.85rem' }}><TextGhost>SF</TextGhost></Typography>
-                  <Typography sx={{ fontSize: '0.95rem', fontVariantNumeric: 'tabular-nums' }}><TextGhost>0</TextGhost></Typography>
+                  <Typography sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body }}><TextGhost>SF</TextGhost></Typography>
+                  <Typography sx={{ fontSize: TYPE_SCALE.title, fontVariantNumeric: 'tabular-nums' }}><TextGhost>0</TextGhost></Typography>
                 </Box>
               ))}
             </Box>
@@ -1224,7 +1225,7 @@ function FinalStandings({ rows, orderIds, cadence, teamHref, onNavigate }: {
       <Box sx={{
         display: 'grid', gridTemplateColumns: { xs: ST_COLS_XS, sm: ST_COLS }, alignItems: 'center', gap: 1,
         px: 1.25, py: 0.75, borderBottom: '1px solid', borderColor: 'divider',
-        fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em',
+        fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em',
         color: 'text.secondary',
       }}>
         <Box />
@@ -1271,7 +1272,7 @@ function FinalStandings({ rows, orderIds, cadence, teamHref, onNavigate }: {
               ...TAPPABLE,
             }}
           >
-            <Typography sx={{ fontSize: '0.82rem', fontWeight: 800, color: leader ? 'var(--wpbl-accent-fg)' : 'text.disabled' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, color: leader ? 'var(--wpbl-accent-fg)' : 'text.disabled' }}>
               {i + 1}
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.9, minWidth: 0 }}>
@@ -1279,19 +1280,19 @@ function FinalStandings({ rows, orderIds, cadence, teamHref, onNavigate }: {
               <TeamBadge team={r.team} size={22} />
               {/* Full name where it fits, the nickname on a phone: once the fixed numeric columns
                   claim their widths the full name truncates, and the badge already carries the city. */}
-              <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: { xs: 'none', sm: 'block' } }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: { xs: 'none', sm: 'block' } }}>
                 {wpblFullName(r.team)}
               </Typography>
-              <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: { xs: 'block', sm: 'none' } }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: { xs: 'block', sm: 'none' } }}>
                 {r.team.name}
               </Typography>
             </Box>
-            <Typography sx={{ textAlign: 'right', fontSize: '0.9rem', fontWeight: 700 }}>{r.wins}</Typography>
-            <Typography sx={{ textAlign: 'right', fontSize: '0.9rem', fontWeight: 700 }}>{r.losses}</Typography>
-            <Typography sx={{ textAlign: 'right', fontSize: '0.9rem', fontWeight: 800 }}>{fmtRate(r.pct)}</Typography>
-            <Typography sx={{ textAlign: 'right', fontSize: '0.88rem', color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>{fmtGb(r.gamesBack)}</Typography>
+            <Typography sx={{ textAlign: 'right', fontSize: TYPE_SCALE.title, fontWeight: 700 }}>{r.wins}</Typography>
+            <Typography sx={{ textAlign: 'right', fontSize: TYPE_SCALE.title, fontWeight: 700 }}>{r.losses}</Typography>
+            <Typography sx={{ textAlign: 'right', fontSize: TYPE_SCALE.title, fontWeight: 800 }}>{fmtRate(r.pct)}</Typography>
+            <Typography sx={{ textAlign: 'right', fontSize: TYPE_SCALE.title, color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>{fmtGb(r.gamesBack)}</Typography>
             <Typography sx={{
-              textAlign: 'right', fontSize: '0.88rem', fontWeight: 700,
+              textAlign: 'right', fontSize: TYPE_SCALE.title, fontWeight: 700,
               color: diff > 0 ? 'var(--wpbl-pos)' : diff < 0 ? 'var(--wpbl-neg)' : 'text.secondary',
             }}>{fmtDiff(diff)}</Typography>
           </Box>
@@ -1387,23 +1388,23 @@ function WildGameRow({ rank, wild, teamName, href, onOpen, phone }: {
         ...TAPPABLE,
       }}
     >
-      <Typography sx={{ flexShrink: 0, width: '1.25rem', textAlign: 'right', fontSize: '0.85rem', fontWeight: 800, color: 'text.disabled' }}>
+      <Typography sx={{ flexShrink: 0, width: '1.25rem', textAlign: 'right', fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'text.disabled' }}>
         {rank}
       </Typography>
       {!phone && <Box sx={{ color: 'text.secondary' }}><WildLine wild={wild} /></Box>}
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, lineHeight: 1.35 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.35 }}>
           {teamName(g.away_team_id)} {g.away_score}, {teamName(g.home_team_id)} {g.home_score}
         </Typography>
-        <Typography sx={{ fontSize: '0.76rem', color: 'text.disabled', lineHeight: 1.35 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.35 }}>
           {shortDate(g.game_date)}{isPostseasonGame(g) ? ' · Playoffs' : ''} · {wildContext(wild)}
         </Typography>
       </Box>
       <Box sx={{ flexShrink: 0, textAlign: 'right' }}>
-        <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)', lineHeight: 1.2 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, color: 'var(--wpbl-accent-fg)', lineHeight: 1.2 }}>
           {Math.round(wild.wp.excitement * 100)}
         </Typography>
-        <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', lineHeight: 1.2 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', lineHeight: 1.2 }}>
           {phone ? 'swing' : 'points of swing'}
         </Typography>
       </Box>
@@ -1460,7 +1461,7 @@ function JumpRow({ links }: { links: ([string, string] | null)[] }) {
           }}
           sx={{
             ...FOCUS_RING, px: 1.3, py: 0.5, borderRadius: 999, textDecoration: 'none',
-            fontSize: '0.76rem', fontWeight: 700, lineHeight: 1.5, border: '1px solid',
+            fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: 1.5, border: '1px solid',
             borderColor: 'outline', bgcolor: 'background.paper', color: 'text.secondary',
           }}>
           {label}
@@ -1484,7 +1485,7 @@ function LeaderGrid({ children }: { children: React.ReactNode }) {
 function LeaderBoard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Box sx={{ minWidth: 0, borderRadius: 2, p: 1.5, border: '1px solid', borderColor: CARD_BORDER }}>
-      <Typography component="h3" sx={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'text.secondary', mb: 1 }}>
+      <Typography component="h3" sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'text.secondary', mb: 1 }}>
         {title}
       </Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
@@ -1518,15 +1519,15 @@ function LeaderRow({ rank, wide = false, name, teamId, value, href, onNavigate }
         borderRadius: 1.5, px: 0.75, py: 0.5, ...TAPPABLE,
       }}
     >
-      <Typography sx={{ flexShrink: 0, width: wide ? '1.75rem' : '1rem', fontSize: '0.8rem', fontWeight: 700, color: 'text.disabled', whiteSpace: 'nowrap' }}>
+      <Typography sx={{ flexShrink: 0, width: wide ? '1.75rem' : '1rem', fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.disabled', whiteSpace: 'nowrap' }}>
         {rank}
       </Typography>
       {/* The player's face, not a bare team-colour dot: the portrait keeps the club signal (it
           falls back to initials on the team colour with a team-secondary ring) while turning an
           anonymous leaderboard into a row of people, which is what a season recap is about. */}
       <PlayerPortrait name={name} teamId={teamId} size={28} />
-      <NameText name={name} sx={{ flex: 1, minWidth: 0, fontSize: '0.88rem', fontWeight: 600 }} />
-      <Typography sx={{ flexShrink: 0, fontSize: '0.88rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+      <NameText name={name} sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.title, fontWeight: 600 }} />
+      <Typography sx={{ flexShrink: 0, fontSize: TYPE_SCALE.title, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
         {value}
       </Typography>
     </Box>
@@ -1554,7 +1555,7 @@ function PerformanceRow({ rank, name, teamId, context, stat, href, onOpen, wrapC
         borderRadius: 1.5, px: 0.75, py: 0.5, ...TAPPABLE,
       }}
     >
-      <Typography sx={{ flexShrink: 0, width: '1rem', fontSize: '0.8rem', fontWeight: 700, color: 'text.disabled' }}>
+      <Typography sx={{ flexShrink: 0, width: '1rem', fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.disabled' }}>
         {rank}
       </Typography>
       <PlayerPortrait name={name} teamId={teamId} size={28} />
@@ -1564,13 +1565,13 @@ function PerformanceRow({ rank, name, teamId, context, stat, href, onOpen, wrapC
           Here the name gives way to the stat, and the game underneath gets the whole row. */}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, minWidth: 0 }}>
-          <NameText name={name} sx={{ flex: 1, minWidth: 0, fontSize: '0.88rem', fontWeight: 600 }} />
-          <Typography sx={{ flexShrink: 0, fontSize: '0.82rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+          <NameText name={name} sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.title, fontWeight: 600 }} />
+          <Typography sx={{ flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 800, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
             {stat}
           </Typography>
         </Box>
         <Typography sx={{
-          fontSize: '0.72rem', color: 'text.disabled',
+          fontSize: TYPE_SCALE.meta, color: 'text.disabled',
           ...(wrapContext ? {} : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
         }}>
           {context}

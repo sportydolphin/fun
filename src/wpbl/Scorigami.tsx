@@ -29,6 +29,7 @@ import { useReducedMotion } from '../AccessibilityContext'
 import WpblPage from './WpblPage'
 import type { WpblGame, WpblTeam } from './types'
 import { track, EVENTS } from '../lib/analytics'
+import { TYPE_SCALE } from '../ui/card'
 
 const isModified = (e: React.MouseEvent) =>
   e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
@@ -229,20 +230,20 @@ export default function WpblScorigami({ onOpenGame }: {
         }}>
           <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, minWidth: 0 }}>
             {frame == null ? (
-              <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
                 <Box component="span" sx={{ fontWeight: 800, color: 'text.primary' }}>{grid.cells.size}</Box> scores
                 {' · '}<Box component="span" sx={{ fontWeight: 800, color: 'text.primary' }}>{grid.totalGames}</Box> games
               </Typography>
             ) : (
               <Box aria-hidden sx={{ display: 'contents' }}>
                 <Typography sx={{
-                  fontSize: '1.1rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)', lineHeight: 1,
+                  fontSize: TYPE_SCALE.heading, fontWeight: 800, color: 'var(--wpbl-accent-fg)', lineHeight: 1,
                   fontVariantNumeric: 'tabular-nums', minWidth: '3.4em', whiteSpace: 'nowrap',
                 }}>
                   {latestGame ? shortDate(latestGame.game_date) : 'Start'}
                 </Typography>
                 <Typography sx={{
-                  fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1,
+                  fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1,
                   fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
                 }}>
                   {frame}/{total} games
@@ -258,14 +259,14 @@ export default function WpblScorigami({ onOpenGame }: {
               labelPlacement="start"
               sx={{ m: 0, gap: 0.25 }}
               control={<Switch size="small" checked={clubColors} onChange={(_, on) => setClubColors(on)} />}
-              label={<Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: 'text.secondary', whiteSpace: 'nowrap' }}>Club colors</Typography>}
+              label={<Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary', whiteSpace: 'nowrap' }}>Club colors</Typography>}
             />
             <Box {...pressable(play)} aria-label={playing ? 'Pause' : 'Replay the season onto the grid'} sx={{
               ...FOCUS_RING, cursor: 'pointer', userSelect: 'none', flexShrink: 0,
               display: 'inline-flex', alignItems: 'center', gap: 0.5,
               minHeight: { xs: 44, sm: chromePx(30) }, px: 1.5, borderRadius: 999,
               border: '1px solid', borderColor: CARD_BORDER,
-              fontSize: '0.74rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+              fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
               touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
             }}>
               <Box component="span" aria-hidden>{playing ? '❚❚' : '▶'}</Box>
@@ -307,14 +308,14 @@ export default function WpblScorigami({ onOpenGame }: {
               display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end',
               pr: 0.75, pb: 0.75,
             }}>
-              <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', lineHeight: 1 }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled', lineHeight: 1 }}>
                 W&nbsp;\&nbsp;L
               </Typography>
             </Box>
             {/* Top axis: losing scores. */}
             {losers.map(l => (
               <Box key={`h${l}`} sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', pb: 0.75 }}>
-                <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.secondary', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.secondary', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                   {l}
                 </Typography>
               </Box>
@@ -324,7 +325,7 @@ export default function WpblScorigami({ onOpenGame }: {
             {winners.map(w => (
               <Box key={`r${w}`} sx={{ display: 'contents' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', pr: 0.75 }}>
-                  <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.secondary', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                  <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.secondary', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                     {w}
                   </Typography>
                 </Box>
@@ -397,7 +398,7 @@ export default function WpblScorigami({ onOpenGame }: {
                           thing competing with two colours, and it made the grid too busy to read.
                           The square's label still says how many games ended on it. */}
                       {count > 1 && !clubColors && (
-                        <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, lineHeight: 1, color: '#fff' }}>
+                        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, lineHeight: 1, color: '#fff' }}>
                           {count}
                         </Typography>
                       )}
@@ -421,12 +422,12 @@ export default function WpblScorigami({ onOpenGame }: {
           {clubColors && [...teams].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map(t => (
             <Box key={t.id} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6 }}>
               <Box aria-hidden sx={{ width: '0.7rem', height: '0.7rem', borderRadius: 0.5, bgcolor: squareColor(t.id, dark) }} />
-              <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1 }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary', lineHeight: 1 }}>
                 {t.name}
               </Typography>
             </Box>
           ))}
-          <Typography sx={{ fontSize: '0.75rem', color: 'text.disabled', lineHeight: 1.3 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.3 }}>
             {clubColors ? 'Winner lower left.' : 'A number means the score happened more than once.'}
           </Typography>
         </Box>

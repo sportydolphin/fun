@@ -26,6 +26,7 @@ import { typePx } from '../ui/scale'
 import { InfoDot } from '../ui/InfoDot'
 import { useWpblSeason } from './SeasonContext'
 import { PillGroup } from '../ui/PillGroup'
+import { TYPE_SCALE } from '../ui/card'
 
 // The run-value board: what each situation in a game is worth, and who has added the most runs
 // moving between them.
@@ -111,7 +112,7 @@ function ReGrid({ table, accent }: { table: ReTable; accent: string }) {
         <Box />
         {[0, 1, 2].map(o => (
           <Box key={o} sx={{
-            fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
+            fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
             color: 'text.secondary', textAlign: 'center', pb: 0.5,
           }}>{o} out{o === 1 ? '' : 's'}</Box>
         ))}
@@ -121,7 +122,7 @@ function ReGrid({ table, accent }: { table: ReTable; accent: string }) {
             <Box sx={{
               display: 'flex', alignItems: 'center', gap: 0.9, pr: { xs: 0.75, sm: 1.25 },
               whiteSpace: 'nowrap',
-              fontSize: '0.75rem', fontWeight: 700, color: 'text.secondary',
+              fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary',
               borderTop: row === 0 ? 'none' : '1px solid', borderColor: 'divider',
             }}>
               {/* `chrome`, not `none`: this one is art sitting in the page beside the badges and
@@ -156,12 +157,12 @@ function ReGrid({ table, accent }: { table: ReTable; accent: string }) {
                     pointerEvents: 'none',
                   }} />
                   <Typography sx={{
-                    position: 'relative', fontSize: '0.85rem', fontWeight: 800,
+                    position: 'relative', fontSize: TYPE_SCALE.body, fontWeight: 800,
                     fontVariantNumeric: 'tabular-nums',
                     color: cell.re == null ? 'text.disabled' : 'text.primary',
                   }}>{fmtRe(cell.re)}</Typography>
                   <Typography sx={{
-                    position: 'relative', fontSize: '0.58rem', color: 'text.disabled',
+                    position: 'relative', fontSize: TYPE_SCALE.caption, color: 'text.disabled',
                     fontVariantNumeric: 'tabular-nums',
                   }}>{cell.n}</Typography>
                 </Box>
@@ -212,9 +213,9 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
           width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           bgcolor: 'var(--wpbl-accent-solid)', color: '#fff',
-          fontSize: '0.68rem', fontWeight: 800, lineHeight: 1,
+          fontSize: TYPE_SCALE.micro, fontWeight: 800, lineHeight: 1,
         }}>{n}</Box>
-        <Typography sx={{ fontSize: '0.86rem', fontWeight: 800, lineHeight: 1.2 }}>{title}</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, lineHeight: 1.2 }}>{title}</Typography>
       </Box>
       {children}
     </Box>
@@ -225,7 +226,7 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
  *  as four competing weights. */
 function Say({ children }: { children: React.ReactNode }) {
   return (
-    <Typography sx={{ fontSize: '0.82rem', lineHeight: 1.65, color: 'text.secondary' }}>
+    <Typography sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1.65, color: 'text.secondary' }}>
       {children}
     </Typography>
   )
@@ -242,11 +243,11 @@ function Formula() {
     <Box component="span" sx={{
       px: 0.9, py: 0.4, borderRadius: 1.5, bgcolor: 'background.paper',
       border: '1px solid', borderColor: 'outline',
-      fontSize: '0.76rem', fontWeight: 700, color: 'text.primary',
+      fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.primary',
     }}>{t}</Box>
   )
   const op = (o: string) => (
-    <Box component="span" aria-hidden sx={{ fontSize: '0.9rem', fontWeight: 800, color: 'text.disabled' }}>{o}</Box>
+    <Box component="span" aria-hidden sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, color: 'text.disabled' }}>{o}</Box>
   )
   return (
     <Box sx={{
@@ -273,11 +274,11 @@ function Ledger({ label, detail, amount }: { label: string; detail: string; amou
       display: 'grid', gridTemplateColumns: '1fr auto', gap: 1, alignItems: 'baseline', py: 0.35,
     }}>
       <Box sx={{ minWidth: 0 }}>
-        <Typography component="span" sx={{ fontSize: '0.78rem', color: 'text.primary' }}>{label}</Typography>
-        <Typography component="span" sx={{ fontSize: '0.72rem', color: 'text.disabled' }}> {detail}</Typography>
+        <Typography component="span" sx={{ fontSize: TYPE_SCALE.body, color: 'text.primary' }}>{label}</Typography>
+        <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}> {detail}</Typography>
       </Box>
       <Typography sx={{
-        fontSize: '0.82rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: 'text.primary',
+        fontSize: TYPE_SCALE.body, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: 'text.primary',
       }}>
         {/* Explicit signs on every line, including the positive ones: the reader is being asked
             to add three numbers, and a column where two terms are signed and one is not is a
@@ -320,13 +321,13 @@ function WorkedPlay({ worked, date, accent }: {
       border: '1px solid', borderColor: 'outline', borderRadius: 2,
       bgcolor: 'background.paper', px: 1.5, py: 1.25, mt: 1,
     }}>
-      <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', mb: 0.25 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mb: 0.25 }}>
         {v.play.inning != null && `${v.play.half === 'bottom' ? 'Bottom' : 'Top'} ${ordinal(v.play.inning)}`}
         {date && ` · ${date}`}
       </Typography>
       {/* The feed's own sentence for the play, which is the one thing on this card nobody has
           to be taught to read. */}
-      <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: 'text.primary', mb: 1, lineHeight: 1.45 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.primary', mb: 1, lineHeight: 1.45 }}>
         {v.play.narrative || `${v.play.batter_name}, ${worked.event.label.toLowerCase()}`}
       </Typography>
 
@@ -346,11 +347,11 @@ function WorkedPlay({ worked, date, accent }: {
         display: 'grid', gridTemplateColumns: '1fr auto', gap: 1, alignItems: 'baseline',
         borderTop: '2px solid', borderColor: 'divider', mt: 0.75, pt: 0.75,
       }}>
-        <Typography sx={{ fontSize: '0.78rem', fontWeight: 800, color: 'text.primary' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'text.primary' }}>
           That {worked.event.label.toLowerCase()} was worth
         </Typography>
         <Typography sx={{
-          fontSize: '0.95rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+          fontSize: TYPE_SCALE.title, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
           color: total >= 0 ? accent : 'text.secondary',
         }}>
           {fmtRunValue(total, 2)}
@@ -371,8 +372,8 @@ const LIST_CAP = 5
 function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
     <Box sx={{ textAlign: 'center', py: 5, px: 2, color: 'text.secondary' }}>
-      <Typography sx={{ fontSize: '1rem', fontWeight: 700, mb: 0.5 }}>{title}</Typography>
-      {hint && <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled' }}>{hint}</Typography>}
+      <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 700, mb: 0.5 }}>{title}</Typography>
+      {hint && <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>{hint}</Typography>}
     </Box>
   )
 }
@@ -572,7 +573,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
       and a reader who takes +19.0 for runs scored has been misled by us rather than confused
       by the stat. This line is what makes the board safe to show without a warning flag. */}
       <Box sx={{ maxWidth: '70ch' }}>
-        <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', lineHeight: 1.5 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.5 }}>
           Run value is how much better or worse off a play left a team, counted in runs,
           from this league's own {table.games} games.
         </Typography>
@@ -632,7 +633,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
             : 'Not the same as Bat on the Stats tab, which values a hit the same whatever the situation. This counts the runners on and the outs, so a single with the bases loaded is worth more here than one with them empty.',
         ]} />}>
         {leaders.length === 0
-          ? <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
+          ? <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
           : shownLeaders.map((r, i) => (
               <LeaderRow key={r.player?.id ?? r.name} {...leaderPlaces(shownLeaders.map(x => fmtRunValue(x.value)))[i]} player={r.player} name={r.player?.name ?? r.name}
                 teamId={r.teamId} value={fmtRunValue(r.value)} unit="runs" accent={accent}
@@ -660,7 +661,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
           'Both ways adds a player’s batting and pitching together. It is not WAR: WAR, on the Stats tab’s Overall side, ignores the score, and this is the record of who swung close games.',
         ]} />}>
         {wpa.length === 0
-          ? <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
+          ? <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
           : shownWpa.map((r, i) => (
               <LeaderRow key={r.player?.id ?? r.name} {...leaderPlaces(shownWpa.map(x => fmtRunValue(x.wpa, 2)))[i]} player={r.player} name={r.player?.name ?? r.name}
                 teamId={r.teamId} value={fmtRunValue(r.wpa, 2)} unit="wins" accent={accent}
@@ -687,7 +688,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
             'Under each name: steals, and how many of those chances the runner took the extra base. The total is BsR, the same number as the Stats tab’s BsR column and the baserunning part of WAR.',
           ]} />}>
           {bases.length === 0
-            ? <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
+            ? <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
             : shownBases.map((r, i) => (
                 <LeaderRow key={r.player?.id ?? r.name} {...leaderPlaces(shownBases.map(x => fmtRunValue(x.bsr)))[i]} player={r.player} name={r.player?.name ?? r.name}
                   teamId={r.teamId} value={fmtRunValue(r.bsr)} unit="runs" accent={accent}
@@ -752,7 +753,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
             </Box>
             {/* The caption does not repeat "on average": the sentence above carries it, and saying
             it twice within three lines reads as hedging rather than as care. */}
-            <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', mt: 0.75, lineHeight: 1.5 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mt: 0.75, lineHeight: 1.5 }}>
               Runs from here to the end of the inning. The small number is how often the
               situation has come up.
             </Typography>
@@ -774,7 +775,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
             {worked ? (
               <>
                 <WorkedPlay worked={worked} date={workedDate} accent={accent} />
-                <Typography sx={{ fontSize: '0.82rem', lineHeight: 1.65, color: 'text.secondary', mt: 1.25 }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1.65, color: 'text.secondary', mt: 1.25 }}>
                   That is every run-value number on the site. Do the same for all{' '}
                   {worked.event.n} {worked.event.label.toLowerCase()}s this season and the average
                   is {fmtRunValue(worked.event.per, 2)} runs, which is what a{' '}
@@ -803,7 +804,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
           section to be read as a comparison to another league rather than as a record of this
           one. Say where the numbers come from, not what they are unlike. Do not add it. */}
           <Typography sx={{
-            fontSize: '0.72rem', color: 'text.disabled', lineHeight: 1.55,
+            fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.55,
             mt: 2.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider',
           }}>
             Measured from this league&rsquo;s own games and nowhere else: {table.pa.toLocaleString()}{' '}

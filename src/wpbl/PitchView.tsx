@@ -16,6 +16,7 @@ import { wpblQualifiers } from './stats'
 import { typePx } from '../ui/scale'
 import { InfoDot } from '../ui/InfoDot'
 import { useWpblSeason } from './SeasonContext'
+import { TYPE_SCALE } from '../ui/card'
 
 // The Pitches board: plate discipline and pitch mix for the whole league, from the one code
 // letter per pitch that the feed puts on every plate appearance (see derive/pitches.ts).
@@ -93,27 +94,27 @@ function PitchMix({ counts, total }: { counts: PitchCounts; total: number }) {
         <Box key={g.offer} sx={{ display: 'grid', rowGap: 0.3, mt: g.offer === 'swing' ? 0.85 : 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography sx={{
-              width: LABEL_W, flexShrink: 0, fontSize: '0.62rem', fontWeight: 800,
+              width: LABEL_W, flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800,
               textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', whiteSpace: 'nowrap',
             }}>{g.label}</Typography>
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Box sx={{ width: width(groupTotal[g.offer]), height: 10, borderRadius: 5, bgcolor: color[g.offer] }} />
             </Box>
-            <Typography sx={{ width: VALUE_W, flexShrink: 0, textAlign: 'right', fontSize: '0.72rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+            <Typography sx={{ width: VALUE_W, flexShrink: 0, textAlign: 'right', fontSize: TYPE_SCALE.meta, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
               {fmtPct(groupTotal[g.offer] / total, 0)}
             </Typography>
           </Box>
 
           {OUTCOMES.filter(o => o.offer === g.offer && counts[o.key] > 0).map(o => (
             <Box key={o.key} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography sx={{ width: LABEL_W, flexShrink: 0, pl: 1, fontSize: '0.72rem', color: 'text.secondary', whiteSpace: 'nowrap' }}>
+              <Typography sx={{ width: LABEL_W, flexShrink: 0, pl: 1, fontSize: TYPE_SCALE.meta, color: 'text.secondary', whiteSpace: 'nowrap' }}>
                 {o.label}
               </Typography>
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 {/* minWidth keeps the 1% row (hit by pitch) a bar rather than a dot. */}
                 <Box sx={{ width: width(counts[o.key]), minWidth: 3, height: 6, borderRadius: 3, bgcolor: color[o.offer], opacity: 0.75 }} />
               </Box>
-              <Typography sx={{ width: VALUE_W, flexShrink: 0, textAlign: 'right', fontSize: '0.72rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+              <Typography sx={{ width: VALUE_W, flexShrink: 0, textAlign: 'right', fontSize: TYPE_SCALE.meta, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
                 {fmtPct(counts[o.key] / total, 0)}
               </Typography>
             </Box>
@@ -165,15 +166,15 @@ function StatStrip({ items }: { items: { label: string; value: string; sub: stri
           borderTopWidth: i >= 2 ? '1px' : 0,
         }}>
           <Typography sx={{
-            fontSize: '0.58rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.7),
+            fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.7),
             color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>{t.label}</Typography>
           <Typography sx={{
-            fontSize: { xs: '1.5rem', sm: '1.6rem' }, fontWeight: 800, lineHeight: 1.15,
+            fontSize: TYPE_SCALE.page, fontWeight: 800, lineHeight: 1.15,
             letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', color: 'text.primary',
           }}>{t.value}</Typography>
           <Typography sx={{
-            fontSize: '0.68rem', color: 'text.secondary', lineHeight: 1.35,
+            fontSize: TYPE_SCALE.micro, color: 'text.secondary', lineHeight: 1.35,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>{t.sub}</Typography>
         </Box>
@@ -185,8 +186,8 @@ function StatStrip({ items }: { items: { label: string; value: string; sub: stri
 function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
     <Box sx={{ textAlign: 'center', py: 5, px: 2, color: 'text.secondary' }}>
-      <Typography sx={{ fontSize: '1rem', fontWeight: 700, mb: 0.5 }}>{title}</Typography>
-      {hint && <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled' }}>{hint}</Typography>}
+      <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 700, mb: 0.5 }}>{title}</Typography>
+      {hint && <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>{hint}</Typography>}
     </Box>
   )
 }
@@ -324,7 +325,7 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
           ]} />
 
           <Box>
-            <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: 'text.secondary', mb: 0.75 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: 'text.secondary', mb: 0.75 }}>
               Pitch outcomes
             </Typography>
             <PitchMix counts={league.counts} total={board.pitches} />
@@ -386,7 +387,7 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
         </>
       )}
 
-      <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', lineHeight: 1.5 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.5 }}>
         Counted from the play-by-play, one code per pitch: what each pitch did, not how fast it
         was.{trackedVisible ? ' Velocity and spin are on Tracked.' : ''}
         {' '}Postseason games are left out, like every other season number here.

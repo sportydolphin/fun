@@ -8,6 +8,7 @@ import { describeRevision, revisionOverflow } from '../derive/gameRevisions'
 import { pressable, FOCUS_RING, TAPPABLE } from '../ui'
 import { typePx } from '../../ui/scale'
 import type { WpblTeam, WpblPlayer, WpblGameRevision } from '../types'
+import { TYPE_SCALE } from '../../ui/card'
 
 /**
  * What the league changed about this game after it was final.
@@ -55,12 +56,12 @@ export function RevisionLog({ revisions, gameId, away, home, names, onOpenPlayer
         sx={{
           ...pressable, ...TAPPABLE, width: '100%', textAlign: 'left', border: 0, borderRadius: 1,
           background: 'transparent', color: 'text.secondary', px: 0, py: 0.5,
-          display: 'flex', alignItems: 'center', gap: 1, fontSize: '0.78rem',
+          display: 'flex', alignItems: 'center', gap: 1, fontSize: TYPE_SCALE.body,
           '&:focus-visible': FOCUS_RING,
         }}
       >
         <Box component="span" sx={{
-          fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1),
+          fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1),
           color: 'text.disabled',
         }}>Scoring changes</Box>
         <Box component="span" sx={{ color: 'text.disabled' }}>
@@ -75,11 +76,11 @@ export function RevisionLog({ revisions, gameId, away, home, names, onOpenPlayer
         const on = rev.source_updated_at ? leagueDay(rev.source_updated_at) : null
         return (
           <Box key={rev.id} sx={{ mt: 1.25 }}>
-            <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', mb: 0.5 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mb: 0.5 }}>
               {on ? `Revised ${formatRevisionDay(on)}` : 'Revised'}
             </Typography>
             {lines.length === 0 ? (
-              <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
                 The league restamped this game without changing the box score.
               </Typography>
             ) : (
@@ -88,7 +89,7 @@ export function RevisionLog({ revisions, gameId, away, home, names, onOpenPlayer
               }}>
                 {lines.map((l, i) => (
                   <Box key={i} sx={{ display: 'contents' }}>
-                    <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', minWidth: 0 }}>
+                    <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', minWidth: 0 }}>
                       {l.who && (() => {
                         const who = l.playerId ? names.get(l.playerId) : undefined
                         return who && onOpenPlayer ? (
@@ -103,7 +104,7 @@ export function RevisionLog({ revisions, gameId, away, home, names, onOpenPlayer
                       {l.who ? ' · ' : ''}{l.what}
                     </Typography>
                     <Typography sx={{
-                      fontSize: '0.78rem', color: 'text.secondary', whiteSpace: 'normal',
+                      fontSize: TYPE_SCALE.body, color: 'text.secondary', whiteSpace: 'normal',
                       textAlign: 'right', minWidth: 0,
                     }}>
                       <Box component="span" sx={{ color: 'text.disabled' }}>{l.before}</Box>
@@ -115,7 +116,7 @@ export function RevisionLog({ revisions, gameId, away, home, names, onOpenPlayer
               </Box>
             )}
             {over > 0 && (
-              <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', mt: 0.5 }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mt: 0.5 }}>
                 and {over} more, not stored: this revision rewrote more of the game than the log keeps.
               </Typography>
             )}

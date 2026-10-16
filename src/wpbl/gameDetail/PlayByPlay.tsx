@@ -16,6 +16,7 @@ import { typePx } from '../../ui/scale'
 import type { WpblTeam, WpblGame, WpblPlayer, WpblGamePlay, WpblVideo } from '../types'
 import { EmptyBody } from './shared'
 import { SourceMark, SourceNote } from './PlaySource'
+import { TYPE_SCALE } from '../../ui/card'
 
 // Whether the reader has asked for every half-inning open. Per reader and per browser, not per
 // game: a fourteen-click expansion is the same nuisance on the next game as on this one.
@@ -58,7 +59,7 @@ function PitchSequence({ seq, calledThirdStrike }: {
   const tip = (
     <Box sx={{ py: 0.25 }}>
       {pitches.map(p => (
-        <Box key={p.i} sx={{ fontSize: '0.72rem', lineHeight: 1.5, whiteSpace: 'nowrap' }}>
+        <Box key={p.i} sx={{ fontSize: TYPE_SCALE.meta, lineHeight: 1.5, whiteSpace: 'nowrap' }}>
           <Box component="span" sx={{ color: 'text.disabled', mr: 0.75 }}>{p.i + 1}.</Box>
           <Box component="span" sx={{ color: p.color, fontWeight: 700 }}>{p.label}</Box>
         </Box>
@@ -68,7 +69,7 @@ function PitchSequence({ seq, calledThirdStrike }: {
   return (
     <TapTip title={tip} sx={{
       display: 'flex', gap: '2px', flexShrink: 0,
-      fontFamily: 'monospace', fontSize: '0.66rem', fontWeight: 700, lineHeight: 1.6,
+      fontFamily: 'monospace', fontSize: TYPE_SCALE.micro, fontWeight: 700, lineHeight: 1.6,
     }}>
         {pitches.map(p => (
           // THE BACKWARDS K IS A STRIKEOUT LOOKING, not a called strike, so only the last pitch of one is
@@ -402,7 +403,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
             // a finger and not a letter: it must not shrink when the reader's text is small, and it must
             // not grow when it is large.
             px: 0.75, minHeight: chromePx(32), borderRadius: 1, cursor: 'pointer',
-            fontSize: '0.68rem', fontWeight: 800, letterSpacing: typePx(0.6),
+            fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6),
             textTransform: 'uppercase', userSelect: 'none',
             color: scoringOnly ? '#16a34a' : 'text.secondary',
             '@media (hover: hover)': { '&:hover': { color: scoringOnly ? '#16a34a' : 'text.primary' } },
@@ -424,12 +425,12 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
             ...FOCUS_RING, display: 'inline-flex', alignItems: 'center', gap: 0.4,
             // Sized with the lens beside it: see the note there.
             px: 0.75, minHeight: chromePx(32), borderRadius: 1, cursor: 'pointer',
-            fontSize: '0.68rem', fontWeight: 800, letterSpacing: typePx(0.6),
+            fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6),
             textTransform: 'uppercase', color: 'text.secondary', userSelect: 'none',
             '@media (hover: hover)': { '&:hover': { color: 'text.primary' } },
           }}
         >
-          <Box component="span" aria-hidden sx={{ fontSize: '0.6rem', transition: 'transform 0.15s', transform: allOpen ? 'rotate(90deg)' : 'none' }}>▶</Box>
+          <Box component="span" aria-hidden sx={{ fontSize: TYPE_SCALE.caption, transition: 'transform 0.15s', transform: allOpen ? 'rotate(90deg)' : 'none' }}>▶</Box>
           {allOpen ? 'Collapse all' : 'Expand all'}
         </Box>
       </Box>
@@ -437,7 +438,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
           spends its first innings in. Filtered to nothing the pane was blank below the toolbar,
           which reads as a page that failed rather than as a game where nobody has scored. */}
       {scoringOnly && shown.length === 0 && (
-        <Typography sx={{ py: 4, textAlign: 'center', fontSize: '0.82rem', color: 'text.secondary' }}>
+        <Typography sx={{ py: 4, textAlign: 'center', fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
           No runs {game.status === 'final' ? 'in this game' : 'yet'}.
         </Typography>
       )}
@@ -463,14 +464,14 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
               }}
             >
               <Box className="pbpChevron" sx={{
-                fontSize: '0.6rem', color: 'text.disabled', width: '0.75rem', flexShrink: 0,
+                fontSize: TYPE_SCALE.caption, color: 'text.disabled', width: '0.75rem', flexShrink: 0,
                 transition: 'transform 0.15s', transform: open ? 'rotate(90deg)' : 'none',
               }}>▶</Box>
               {team && <TeamBadge team={team} size={18} />}
               {/* The label gives way, not the score. It fits at 320px today and the reader's
                   Large text setting multiplies every rem on this row, so the one thing that
                   must survive that is the number the row exists to show. */}
-              <Typography noWrap sx={{ minWidth: 0, fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary' }}>
+              <Typography noWrap sx={{ minWidth: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary' }}>
                 {g.label}{team ? ` · ${team.abbr}` : ''}
                 {/* WHO THEY BATTED AGAINST, which the league's substitution sentences are otherwise the
                     only place to find. Last in the line and inside the same noWrap, so on a phone it is
@@ -498,7 +499,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                 ml: 'auto', display: 'inline-flex', alignItems: 'baseline', gap: 0.6, flexShrink: 0,
               }}>
                 {g.runs > 0 && (
-                  <Box component="span" sx={{ fontSize: '0.62rem', fontWeight: 800, color: 'var(--wpbl-pos)' }}>
+                  <Box component="span" sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'var(--wpbl-pos)' }}>
                     +{g.runs}
                   </Box>
                 )}
@@ -506,7 +507,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                   component="span"
                   aria-label={`${awayTeam?.abbr ?? 'Away'} ${g.awayTo}, ${homeTeam?.abbr ?? 'Home'} ${g.homeTo} after this half-inning`}
                   sx={{
-                    fontSize: '0.68rem', fontWeight: 700, color: 'text.disabled',
+                    fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled',
                     fontVariantNumeric: 'tabular-nums',
                   }}
                 >{g.awayTo}–{g.homeTo}</Box>
@@ -531,7 +532,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                   const changeLine = change ? (
                     <Box sx={{ py: 0.4, pl: 1, borderLeft: '2px solid', borderColor: 'divider' }}>
                       <Typography sx={{
-                        fontSize: '0.72rem', fontStyle: 'italic', color: 'text.disabled', lineHeight: 1.35,
+                        fontSize: TYPE_SCALE.meta, fontStyle: 'italic', color: 'text.disabled', lineHeight: 1.35,
                       }}>
                         {/* Corrected to the roster spelling through the same `canon` map the
                             play-by-play name uses: `change.to`/`from` come from `pitcher_name`,
@@ -566,7 +567,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                         py: 0.4, pl: 1, borderLeft: '2px solid', borderColor: 'divider',
                       }}>
                         <Typography sx={{
-                          fontSize: '0.72rem', fontStyle: 'italic', color: 'text.disabled', lineHeight: 1.35,
+                          fontSize: TYPE_SCALE.meta, fontStyle: 'italic', color: 'text.disabled', lineHeight: 1.35,
                         }}>
                           {parsed.what}
                           {/* A SUBSTITUTION CAN BE THE CORRECTED ROW (a change naming a pitcher who had already
@@ -603,7 +604,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                         {/* Who did what, on one line. The batter is the thing being scanned
                             for down the column, so it carries the weight; the outcome sits in
                             normal text beside it rather than as one undifferentiated sentence. */}
-                        <Typography sx={{ fontSize: '0.82rem', lineHeight: 1.35 }}>
+                        <Typography sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1.35 }}>
                           {parsed.who && (() => {
                             // parsePlay only fills `who` when the narrative opens with THIS
                             // play's batter, so the id on the row is the right person; a
@@ -625,7 +626,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                           {parsed.what}
                           {p.corrected_source && <SourceMark source={p.corrected_source} />}
                           {runsOnPlay(p) > 0 && (
-                            <Box component="span" sx={{ ml: 0.5, fontSize: '0.66rem', fontWeight: 800, color: 'var(--wpbl-pos)' }}>
+                            <Box component="span" sx={{ ml: 0.5, fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'var(--wpbl-pos)' }}>
                               +{runsOnPlay(p)}
                             </Box>
                           )}
@@ -640,7 +641,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                           {swing?.sequence === p.sequence && (
                             <Box component="span" sx={{
                               ml: 0.6, px: 0.5, py: '1px', borderRadius: 0.75,
-                              fontSize: '0.58rem', fontWeight: 800, letterSpacing: typePx(0.5),
+                              fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5),
                               textTransform: 'uppercase', whiteSpace: 'nowrap',
                               color: 'primary.main', border: '1px solid', borderColor: 'primary.main',
                             }}>{swing.label}</Box>
@@ -657,7 +658,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                               aria-label={`Watch the clip of this play: ${clipBySequence.get(p.sequence)!.title}`}
                               sx={{
                                 ml: 0.6, px: 0.6, py: '1px', borderRadius: 0.75, cursor: 'pointer', font: 'inherit',
-                                fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase',
+                                fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase',
                                 whiteSpace: 'nowrap', verticalAlign: 'baseline',
                                 color: 'var(--wpbl-accent-fg)', bgcolor: 'transparent',
                                 border: '1px solid', borderColor: 'var(--wpbl-accent-fg)',
@@ -668,7 +669,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                         {/* Runners, quieter and condensed: the same information in roughly half the words, not
                             competing with the batter for attention. */}
                         {parsed.detail && (
-                          <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.35, color: 'text.secondary', mt: 0.15 }}>
+                          <Typography sx={{ fontSize: TYPE_SCALE.meta, lineHeight: 1.35, color: 'text.secondary', mt: 0.15 }}>
                             {parsed.detail}
                           </Typography>
                         )}
@@ -680,7 +681,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                       <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
                         {parsed.count && (
                           <Typography sx={{
-                            fontSize: '0.66rem', fontWeight: 700, color: 'text.disabled',
+                            fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled',
                             fontVariantNumeric: 'tabular-nums', lineHeight: 1.6,
                           }}>
                             {parsed.count}
@@ -733,7 +734,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                         sx={{
                           ...FOCUS_RING,
                           flexShrink: 0, alignSelf: 'flex-start', lineHeight: 1.6,
-                          fontSize: '0.66rem', fontWeight: 700, textDecoration: 'none',
+                          fontSize: TYPE_SCALE.micro, fontWeight: 700, textDecoration: 'none',
                           color: 'text.disabled', opacity: 0, transition: 'opacity 0.12s',
                           '&:focus-visible': { opacity: 1 },
                         }}

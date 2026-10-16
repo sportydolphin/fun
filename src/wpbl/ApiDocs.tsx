@@ -1,6 +1,7 @@
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { typePx } from '../ui/scale'
+import { TYPE_SCALE } from '../ui/card'
 
 // A plain-language reference for the WPBL's public stats feed: where it lives, what each
 // endpoint returns, and the things worth knowing before you pull from it. Written up as
@@ -20,7 +21,7 @@ function CodeBlock({ children }: { children: React.ReactNode }) {
         m: 0, mt: 1, mb: 0.5, p: 1.5, borderRadius: 2,
         bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
         border: '1px solid', borderColor: 'outline',
-        overflowX: 'auto', fontSize: '0.78rem', lineHeight: 1.6,
+        overflowX: 'auto', fontSize: TYPE_SCALE.body, lineHeight: 1.6,
         fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
         color: 'text.primary', whiteSpace: 'pre',
       }}
@@ -44,14 +45,14 @@ function Code({ children }: { children: React.ReactNode }) {
 
 function H2({ children }: { children: React.ReactNode }) {
   return (
-    <Typography component="h2" sx={{ fontSize: '1.1rem', fontWeight: 800, mt: 4, mb: 1, letterSpacing: typePx(-0.2) }}>
+    <Typography component="h2" sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, mt: 4, mb: 1, letterSpacing: typePx(-0.2) }}>
       {children}
     </Typography>
   )
 }
 
 function P({ children }: { children: React.ReactNode }) {
-  return <Typography sx={{ fontSize: '0.92rem', lineHeight: 1.65, color: 'text.secondary', mb: 1.25 }}>{children}</Typography>
+  return <Typography sx={{ fontSize: TYPE_SCALE.title, lineHeight: 1.65, color: 'text.secondary', mb: 1.25 }}>{children}</Typography>
 }
 
 // One documented endpoint: method + path + what it returns.
@@ -59,13 +60,13 @@ function EndpointCard({ path, purpose, returns }: { path: string; purpose: strin
   return (
     <Box sx={{ mb: 1.25, p: 1.5, borderRadius: 2, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper' }}>
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
-        <Box component="span" sx={{ fontSize: '0.68rem', fontWeight: 800, color: '#16a34a', letterSpacing: typePx(0.5) }}>GET</Box>
-        <Box component="span" sx={{ fontSize: '0.88rem', fontWeight: 700, fontFamily: 'ui-monospace, Menlo, Consolas, monospace', color: 'var(--wpbl-accent-fg)', wordBreak: 'break-all' }}>
+        <Box component="span" sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: '#16a34a', letterSpacing: typePx(0.5) }}>GET</Box>
+        <Box component="span" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, fontFamily: 'ui-monospace, Menlo, Consolas, monospace', color: 'var(--wpbl-accent-fg)', wordBreak: 'break-all' }}>
           {path}
         </Box>
       </Box>
-      <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', mt: 0.4, lineHeight: 1.5 }}>{purpose}</Typography>
-      <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: 'text.disabled', mt: 1, mb: 0.5 }}>Returns</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 0.4, lineHeight: 1.5 }}>{purpose}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: 'text.disabled', mt: 1, mb: 0.5 }}>Returns</Typography>
       {/* Pre-formatted so the shape reads top-to-bottom instead of wrapping into a wall;
           horizontal scroll keeps a wide line from breaking the layout on narrow screens. */}
       <Box
@@ -74,7 +75,7 @@ function EndpointCard({ path, purpose, returns }: { path: string; purpose: strin
           m: 0, p: 1.25, borderRadius: 1.5,
           bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
           border: '1px solid', borderColor: 'outline',
-          overflowX: 'auto', fontSize: '0.72rem', lineHeight: 1.6,
+          overflowX: 'auto', fontSize: TYPE_SCALE.meta, lineHeight: 1.6,
           fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
           color: 'text.secondary', whiteSpace: 'pre',
         }}
@@ -89,8 +90,8 @@ function EndpointCard({ path, purpose, returns }: { path: string; purpose: strin
 function Note({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Box sx={{ mb: 1.25 }}>
-      <Typography sx={{ fontSize: '0.88rem', fontWeight: 700, mb: 0.2 }}>{title}</Typography>
-      <Typography sx={{ fontSize: '0.88rem', color: 'text.secondary', lineHeight: 1.6 }}>{children}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, mb: 0.2 }}>{title}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.title, color: 'text.secondary', lineHeight: 1.6 }}>{children}</Typography>
     </Box>
   )
 }
@@ -100,10 +101,10 @@ function Note({ title, children }: { title: string; children: React.ReactNode })
 export default function WpblApiDocs() {
   return (
     <Box sx={{ maxWidth: '47.5rem', mx: 'auto', px: { xs: 2, sm: 3 }, pb: 6 }}>
-      <Typography component="h1" sx={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: typePx(-0.4), mb: 0.5 }}>
+      <Typography component="h1" sx={{ fontSize: TYPE_SCALE.page, fontWeight: 800, letterSpacing: typePx(-0.4), mb: 0.5 }}>
         Getting WPBL data
       </Typography>
-      <Typography sx={{ fontSize: '0.95rem', color: 'text.secondary', lineHeight: 1.6, mb: 1 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.title, color: 'text.secondary', lineHeight: 1.6, mb: 1 }}>
         The Women's Pro Baseball League publishes a free public JSON feed with the schedule, box
         scores, play-by-play, rosters, standings and leaderboards. This is a reference for reading
         it: where it lives, what comes back, and the things I learned along the way. Pitch tracking
@@ -111,7 +112,7 @@ export default function WpblApiDocs() {
         with what it now answers.
       </Typography>
       <Box sx={{ p: 1.5, borderRadius: 2, border: '1px dashed', borderColor: 'outline', bgcolor: 'action.hover', mb: 1 }}>
-        <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', lineHeight: 1.55 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.55 }}>
           This is a fan project and is not affiliated with or endorsed by the WPBL. The feed is the
           league's, not ours, so treat it as theirs: it can change or go away at any time, and there
           is no guarantee of uptime or accuracy. This guide points at the public feed only. It does

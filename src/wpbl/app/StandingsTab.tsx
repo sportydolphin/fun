@@ -12,6 +12,7 @@ import { SeasonMenu } from '../SeasonMenu'
 import { TabTitle } from '../PageHeading'
 import { typePx } from '../../ui/scale'
 import { EmptyState } from './Placeholders'
+import { TYPE_SCALE } from '../../ui/card'
 
 export function StandingsView({ teams, games: allGames, onOpenTeam }: {
   teams: WpblTeam[]; games: WpblGame[]; onOpenTeam?: (t: WpblTeam) => void
@@ -78,8 +79,8 @@ export function StandingsView({ teams, games: allGames, onOpenTeam }: {
   const clickable = !!onOpenTeam
   // .667 (drop the leading zero); em dash before a team has played.
   const fmtPct = (pct: number, gp: number) => gp === 0 ? '—' : pct.toFixed(3).replace(/^0\./, '.')
-  const th = { py: 0.85, px: 0.4, fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: typePx(0.4), color: 'text.secondary', textAlign: 'right' as const, whiteSpace: 'nowrap' as const }
-  const td = { py: 1, px: 0.4, fontSize: '0.85rem', textAlign: 'right' as const, fontVariantNumeric: 'tabular-nums' as const, whiteSpace: 'nowrap' as const }
+  const th = { py: 0.85, px: 0.4, fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: typePx(0.4), color: 'text.secondary', textAlign: 'right' as const, whiteSpace: 'nowrap' as const }
+  const td = { py: 1, px: 0.4, fontSize: TYPE_SCALE.body, textAlign: 'right' as const, fontVariantNumeric: 'tabular-nums' as const, whiteSpace: 'nowrap' as const }
   // The numeric columns, in rem rather than px because `tableLayout: 'fixed'` means these widths
   // are the whole story: a cell wider than its column does not push it out, it spills. In px, PCT
   // and STRK overflow at a 1.5 text scale, which on a tabular-nums figure reads as a rendering
@@ -126,7 +127,7 @@ export function StandingsView({ teams, games: allGames, onOpenTeam }: {
         column gap above it is simply gone. */}
     <SeasonMenu label="season" sx={{ mb: -0.5 }} />
     <Typography aria-live="polite" sx={{
-      mb: -1.25, fontSize: '0.72rem', fontWeight: asOf ? 800 : 600, textAlign: 'left',
+      mb: -1.25, fontSize: TYPE_SCALE.meta, fontWeight: asOf ? 800 : 600, textAlign: 'left',
       // Weight, not the site blue, marks a past date: blue on this site means a link.
       color: asOf ? 'text.primary' : 'text.disabled',
       fontVariantNumeric: 'tabular-nums',
@@ -178,8 +179,8 @@ export function StandingsView({ teams, games: allGames, onOpenTeam }: {
                     <TeamBadge team={r.team} size={24} />
                     {/* Full name would truncate on mobile once the numeric columns claim their
                         fixed widths, so fall back to the nickname there (the badge carries the city). */}
-                    <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: { xs: 'none', sm: 'block' } }}>{wpblFullName(r.team)}</Typography>
-                    <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: { xs: 'block', sm: 'none' } }}>{r.team.name}</Typography>
+                    <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: { xs: 'none', sm: 'block' } }}>{wpblFullName(r.team)}</Typography>
+                    <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: { xs: 'block', sm: 'none' } }}>{r.team.name}</Typography>
                   </Box>
                 </Box>
                 <Box component="td" sx={{ ...td, fontWeight: 700 }}>{r.wins}</Box>
@@ -204,7 +205,7 @@ export function StandingsView({ teams, games: allGames, onOpenTeam }: {
       </Box>
       {!played && (
         <Box sx={{ px: 1.5, py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>No games played yet. Records update as results are added.</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>No games played yet. Records update as results are added.</Typography>
         </Box>
       )}
       {/* THE DIVIDERS, over the rows rather than on them. One line at the top of each slot, so

@@ -9,6 +9,7 @@ import { SectionHead, SECTION_CAPTION_SX, ShowMoreButton, useRankInk } from './c
 import { inSeason, gamesInSeason, type SeasonScope } from './season'
 import type { WpblGame, WpblPitchPlay, WpblPlayer, WpblTeam } from './types'
 import { typePx } from '../ui/scale'
+import { TYPE_SCALE } from '../ui/card'
 
 // The pitch profile on a player page: what the league's pitch-by-pitch log says about how this
 // player pitched, or how this player hit. One component, two sides.
@@ -124,7 +125,7 @@ function MixRows({ me, league, side, better, amber }: {
   const max = Math.max(...MIX.flatMap(m => [me[m.key] / tMe, league[m.key] / tLg])) * 1.1
   const group = (swung: boolean) => (
     <Box sx={{ minWidth: 0 }}>
-      <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.disabled', mb: 0.25 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.disabled', mb: 0.25 }}>
         {swung ? 'Swung at' : 'Taken'}
       </Typography>
       {MIX.filter(m => m.swung === swung).map(m => {
@@ -135,7 +136,7 @@ function MixRows({ me, league, side, better, amber }: {
           <Box key={m.key} role="img"
             aria-label={`${m.label}: ${fmtPct(v, 0)}, league ${fmtPct(lg, 0)}${call === 'good' ? ', better than the league' : call === 'bad' ? ', worse than the league' : ''}`}
             sx={{ display: 'grid', gridTemplateColumns: '5.5rem minmax(0, 1fr) 2.25rem', alignItems: 'center', columnGap: 1, height: '1.35rem' }}>
-            <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', whiteSpace: 'nowrap' }}>{m.label}</Typography>
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', whiteSpace: 'nowrap' }}>{m.label}</Typography>
             <Box sx={{ position: 'relative', height: '2px', bgcolor: 'divider' }}>
               {/* The league, as a tick the dot can sit on. */}
               <Box sx={{ position: 'absolute', top: '50%', left: `${(lg / max) * 100}%`, width: '2px', height: 12, bgcolor: 'text.disabled', transform: 'translate(-50%, -50%)' }} />
@@ -149,7 +150,7 @@ function MixRows({ me, league, side, better, amber }: {
                   : { bgcolor: ink ?? 'text.secondary' }),
               }} />
             </Box>
-            <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: ink ?? 'text.primary' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: ink ?? 'text.primary' }}>
               {fmtPct(v, 0)}
             </Typography>
           </Box>
@@ -265,13 +266,13 @@ export default function PitchProfileBlock({ player, side, players, teams, games,
           const lit = r != null && r.rank <= 5
           return (
             <Box key={d.key} title={d.hint} sx={{ textAlign: 'center', minWidth: 0 }}>
-              <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {d.label}
               </Typography>
-              <Typography sx={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: lit ? better : 'text.primary' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.display, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: lit ? better : 'text.primary' }}>
                 {fmtRateFor(d.key, me[d.key])}
               </Typography>
-              <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>
                 league {fmtRateFor(d.key, league[d.key])}
                 {r && <Box component="span" sx={{ color: lit ? better : 'text.secondary', fontWeight: lit ? 800 : 700 }}>
                   {' · '}{ordinal(r.rank)} of {r.of}
@@ -286,7 +287,7 @@ export default function PitchProfileBlock({ player, side, players, teams, games,
         <>
           <Box sx={{ mt: 1.75 }}>
             <MixRows me={me.counts} league={league.counts} side={side} better={better} amber={amber} />
-            <Typography sx={{ mt: 0.5, fontSize: '0.6rem', color: 'text.disabled' }}>
+            <Typography sx={{ mt: 0.5, fontSize: TYPE_SCALE.caption, color: 'text.disabled' }}>
               Share of every pitch {side === 'pitching' ? 'thrown' : 'seen'}; the tick is the league.
               {' '}<Box component="span" sx={{ color: better, fontWeight: 700 }}>Blue</Box> is better than the league,
               {' '}<Box component="span" sx={{ color: amber, fontWeight: 700 }}>amber</Box> is worse.
@@ -295,10 +296,10 @@ export default function PitchProfileBlock({ player, side, players, teams, games,
           <Box sx={{ mt: 1.5, display: 'grid', gridTemplateColumns: `repeat(${extras.length}, minmax(0, 1fr))`, columnGap: 1 }}>
             {extras.map(x => (
               <Box key={x.label} sx={{ textAlign: 'center', minWidth: 0 }}>
-                <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled' }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled' }}>
                   {x.label}
                 </Typography>
-                <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.3, fontVariantNumeric: 'tabular-nums' }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.3, fontVariantNumeric: 'tabular-nums' }}>
                   {x.value}
                 </Typography>
                 <Typography sx={SECTION_CAPTION_SX}>

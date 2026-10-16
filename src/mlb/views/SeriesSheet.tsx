@@ -165,7 +165,7 @@ function Matchup({ s, bracket, records, toTeam }: {
           record={records?.get(left.id)} align="left" toTeam={toTeam} />
         <Box sx={{ textAlign: 'center', px: { xs: 0, md: 1 } }}>
           <SectionLabel>Series</SectionLabel>
-          <Typography sx={{ fontSize: { xs: '1.9rem', md: '2.4rem' }, fontWeight: 900, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.hero, fontWeight: 900, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
             {wl}<Box component="span" sx={{ color: 'text.disabled', fontWeight: 400, mx: 0.5 }}>–</Box>{wr}
           </Typography>
           <Typography sx={{ fontSize: META, fontWeight: 700, color: s.live ? TONE.red : 'text.secondary', whiteSpace: 'nowrap' }}>

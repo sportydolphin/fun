@@ -12,6 +12,7 @@ import { devFanPhotosOn, DEV_FAN_PHOTOS_EVENT, mockFanPhotos } from './dev/devFa
 import { track, EVENTS } from '../lib/analytics'
 import { CONTACT_EMAIL } from '../lib/contact'
 import { useReducedMotion } from '../AccessibilityContext'
+import { TYPE_SCALE } from '../ui/card'
 
 // How many published photos before the Home card earns its slot, and the most it shows in the
 // rail. The threshold is deliberately not small: a card on the front page has to look like a
@@ -69,7 +70,7 @@ const captionIsOnlySubject = (photo: FanPhotoWithSubjects, names: string[], subj
 function Credit({ credit }: { credit: string | null }) {
   if (!credit) return null
   return (
-    <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', lineHeight: 1.35, mt: 0.5 }}>
+    <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', lineHeight: 1.35, mt: 0.5 }}>
       Photo: <Box component="span" sx={{ fontWeight: 600 }}>{credit}</Box>
     </Typography>
   )
@@ -108,21 +109,21 @@ export function FanPhotoSubmitNote({ variant }: { variant: 'line' | 'block' }) {
   )
   if (variant === 'line') {
     return (
-      <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: 1 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 1 }}>
         Took photos at a game? {link('Send them in to be featured')}.
       </Typography>
     )
   }
   return (
     <Box sx={{ mt: 3, p: { xs: 1.75, sm: 2 }, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL }}>
-      <Typography sx={{ fontSize: '0.9rem', fontWeight: 800 }}>Your photos</Typography>
-      <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mt: 0.5, lineHeight: 1.5 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800 }}>Your photos</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 0.5, lineHeight: 1.5 }}>
         Took photos at a WPBL game? Send them in and they could be featured here and on the players'
         pages, always credited to you.
       </Typography>
       {/* Its own line: run on at the end of the sentence it wrapped mid-address on a phone, and
           the address is the one thing in this panel a reader has to act on. */}
-      <Typography sx={{ fontSize: '0.8rem', mt: 0.75, lineHeight: 1.5 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.body, mt: 0.75, lineHeight: 1.5 }}>
         {link(`Email ${CONTACT_EMAIL}`)}
       </Typography>
     </Box>
@@ -152,9 +153,9 @@ export function FanPhotoLightbox({ photo, names, onClose, onEdit, subject }: {
           <Box component="img" src={photo.full_url} alt={caption}
             sx={{ maxWidth: '100%', maxHeight: { xs: '55vh', sm: '65vh' }, objectFit: 'contain', display: 'block' }} />
         </Box>
-        <Typography sx={{ mt: 1.25, fontSize: '0.85rem', lineHeight: 1.45 }}>{caption}</Typography>
+        <Typography sx={{ mt: 1.25, fontSize: TYPE_SCALE.body, lineHeight: 1.45 }}>{caption}</Typography>
         {photo.taken_on && (
-          <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', mt: 0.4 }}>{photo.taken_on}</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mt: 0.4 }}>{photo.taken_on}</Typography>
         )}
         <Credit credit={photo.credit} />
         {onEdit && (
@@ -163,7 +164,7 @@ export function FanPhotoLightbox({ photo, names, onClose, onEdit, subject }: {
             sx={{
               display: 'inline-flex', alignItems: 'center', mt: 1.25, px: 1.6, py: 0.5, borderRadius: 999,
               border: '1px solid', borderColor: 'primary.main', color: 'primary.main', cursor: 'pointer',
-              fontSize: '0.76rem', fontWeight: 800, userSelect: 'none',
+              fontSize: TYPE_SCALE.meta, fontWeight: 800, userSelect: 'none',
             }}>Edit photo</Box>
         )}
       </Box>
@@ -247,7 +248,7 @@ function PhotoCard({ photo, names, onOpen, frame, focusable = true, subject, pri
       </Box>
       {showCaption && (
         <Typography sx={{
-          fontSize: '0.74rem', fontWeight: 600, lineHeight: 1.3, mt: 0.6,
+          fontSize: TYPE_SCALE.meta, fontWeight: 600, lineHeight: 1.3, mt: 0.6,
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>{caption}</Typography>
       )}
@@ -564,10 +565,10 @@ export function FanPhotoGridSkeleton({ count = 18 }: { count?: number }) {
             width: '100%', aspectRatio: ['4 / 3', '3 / 4', '4 / 3', '1 / 1'][i % 4],
             borderRadius: 1.5, bgcolor: 'action.hover', border: '1px solid', borderColor: CARD_BORDER,
           }} />
-          <Typography sx={{ fontSize: '0.74rem', fontWeight: 600, lineHeight: 1.3, mt: 0.6 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, lineHeight: 1.3, mt: 0.6 }}>
             <TextGhost>{i % 3 === 0 ? 'Firstname Lastname and Firstname Lastname' : 'Firstname Lastname'}</TextGhost>
           </Typography>
-          <Typography sx={{ fontSize: '0.62rem', lineHeight: 1.35, mt: 0.5 }}><TextGhost>Photo credit name</TextGhost></Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, lineHeight: 1.35, mt: 0.5 }}><TextGhost>Photo credit name</TextGhost></Typography>
         </Box>
       ))}
     </Box>
@@ -643,12 +644,12 @@ export function FanPhotoHomeCardSkeleton() {
           {[1.5, 1, 1.5, 1.33, 1.5].map((a, i) => (
             <Box key={i} sx={{ flexShrink: 0, width: { xs: `calc(${chromePx(RAIL_TILE_H.xs)} * ${a})`, sm: `calc(${chromePx(RAIL_TILE_H.sm)} * ${a})` } }}>
               <Skeleton variant="rounded" sx={{ width: '100%', height: { xs: chromePx(RAIL_TILE_H.xs), sm: chromePx(RAIL_TILE_H.sm) } }} />
-              <Skeleton variant="text" width="60%" sx={{ fontSize: '0.74rem', lineHeight: 1.3, mt: 0.6 }} />
-              <Skeleton variant="text" width="45%" sx={{ fontSize: '0.62rem', lineHeight: 1.35, mt: 0.5 }} />
+              <Skeleton variant="text" width="60%" sx={{ fontSize: TYPE_SCALE.meta, lineHeight: 1.3, mt: 0.6 }} />
+              <Skeleton variant="text" width="45%" sx={{ fontSize: TYPE_SCALE.caption, lineHeight: 1.35, mt: 0.5 }} />
             </Box>
           ))}
         </Box>
-        <Skeleton variant="text" width="16rem" sx={{ fontSize: '0.72rem', mt: 1, maxWidth: '100%' }} />
+        <Skeleton variant="text" width="16rem" sx={{ fontSize: TYPE_SCALE.meta, mt: 1, maxWidth: '100%' }} />
       </SectionCard>
     </Box>
   )
