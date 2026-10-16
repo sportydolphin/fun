@@ -53,7 +53,8 @@ import {
 } from '../playerProfile'
 import type { LeaderboardEntry, Player, PlayerContract } from '../types'
 import { leagueLine } from '../lib/statsBoard'
-import { fetchLeagueStatsBySeason } from '../components/trendChartUtils'
+import { fetchSeasonPlayerStats, fetchSeasonSabermetrics, fetchSeasonSwings } from '../apiSeasonStats'
+import { cardLeagueFigures } from '../lib/advanced'
 import type { PlayerSeason } from '../state/useMlbState'
 import { combineStatLines } from '../lib/gameScope'
 import { useSectionScroll } from '../../lib/sectionScroll'
@@ -410,16 +411,30 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
   }
   const isReliever = (s: any) => n0(s.gamesStarted) === 0 && n0(s.gamesPlayed ?? s.gamesPitched) > 0
 
-  // THE LEAGUE ROW, from every player's season, which the trend chart already reads (cached), summed
-  // as the Stats table sums its own league line. The regular season only, since that is what the
-  // read holds, and no row on the career, which has no one league to stand beside.
-  const leagueOn = !careerView && season != null && (scope === 'regular' || !hasPost)
-  const leagueHit = useLoaded<any[]>(leagueOn ? `lg-h-${season}` : null, () => fetchLeagueStatsBySeason(season!, 'hitting'))
-  const leaguePit = useLoaded<any[]>(leagueOn ? `lg-p-${season}` : null, () => fetchLeagueStatsBySeason(season!, 'pitching'))
-  const lg: Record<Role, Record<string, string> | null> = useMemo(() => ({
-    hitting: leagueHit ? leagueLine(leagueHit.map(stat => ({ stat })) as LeaderboardEntry[], 'hitting') : null,
-    pitching: leaguePit ? leagueLine(leaguePit.map(stat => ({ stat })) as LeaderboardEntry[], 'pitching') : null,
-  }), [leagueHit, leaguePit])
+  // THE LEAGUE ROW: every rate on the card's tables, over every player's season in the same slice
+  // (the regular season, or the playoffs), summed as the Stats table sums its own league line (see
+  // cardLeagueFigures). The season read is the one the trend chart and the Stats tab already make,
+  // cached; wOBA's weights and the swings are one read each, for the regular season. No row on the
+  // career, which has no one league to stand beside, nor on Both, which StatsAPI has no pool for.
+  const leagueType = hasPost && scope === 'post' ? 'P' : 'R'
+  const leagueOn = !careerView && season != null && (scope !== 'all' || !hasPost)
+  const lgRead = useLoaded<Record<Role, Record<string, string>>>(leagueOn ? `lg-${season}-${leagueType}` : null, async () => {
+    const [hit, pit, saber, hitSwings, pitSwings] = await Promise.all([
+      fetchSeasonPlayerStats('hitting', season!, leagueType),
+      fetchSeasonPlayerStats('pitching', season!, leagueType),
+      leagueType === 'R' ? fetchSeasonSabermetrics(season!) : Promise.resolve(null),
+      fetchSeasonSwings('hitting', season!, leagueType),
+      fetchSeasonSwings('pitching', season!, leagueType),
+    ])
+    const entries = (rows: any[]) => rows.map(r => ({ playerId: Number(r.player?.id), stat: r.stat })) as LeaderboardEntry[]
+    const h = entries(hit), p = entries(pit)
+    return {
+      hitting: cardLeagueFigures(h, 'hitting', leagueLine(h, 'hitting'), saber, hitSwings),
+      pitching: cardLeagueFigures(p, 'pitching', leagueLine(p, 'pitching'), null, pitSwings),
+    }
+  })
+  /** The league's figure for a column, or null where it has none (a count, a Statcast estimate). */
+  const lgOf = (r: Role, label: string): string | null => lgRead?.[r]?.[label] ?? null
   // StatsAPI's sabermetrics are the regular season's, and a season's: none for a career or October.
   const saberOn = !careerView && (scope === 'regular' || !hasPost)
   const twoWay = plan.roles.length > 1
@@ -435,7 +450,6 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
   const summaryCols = (r: Role): StatCol[] => {
     const s = lines[r] ?? {}
     const sab = saberOn ? bundle?.saber[r] : null
-    const L = lg[r]
     const war: StatCol = { label: twoWay ? (r === 'pitching' ? 'Pit WAR' : 'Pos WAR') : 'WAR', term: 'WAR', value: dec(sab?.war, 1) }
     if (r === 'pitching') {
       const lead = relieverLead(s)
@@ -445,11 +459,11 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
         { ...countCol(r, 'IP', ipToOuts(s.inningsPitched)), value: s.inningsPitched ?? '0.0' },
         lead === 'SV' ? countCol(r, 'SV', n0(s.saves)) : lead === 'HLD' ? countCol(r, 'HLD', n0(s.holds), false)
           : { label: 'W-L', value: `${n0(s.wins)}-${n0(s.losses)}` },
-        rateCol(r, 'ERA', rate(s.era), L?.era),
-        rateCol(r, 'WHIP', rate(s.whip), L?.whip),
+        rateCol(r, 'ERA', rate(s.era), lgOf(r, 'ERA')),
+        rateCol(r, 'WHIP', rate(s.whip), lgOf(r, 'WHIP')),
         countCol(r, 'SO', n0(s.strikeOuts)),
         countCol(r, 'BB', n0(s.baseOnBalls), false),
-        { label: 'FIP', value: dec(sab?.fip, 2) },
+        { label: 'FIP', value: dec(sab?.fip, 2), league: lgOf(r, 'FIP') },
         war,
       ]
     }
@@ -457,13 +471,12 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
       countCol(r, 'G', n0(s.gamesPlayed), false),
       countCol(r, 'PA', n0(s.plateAppearances), false),
       countCol(r, 'HR', n0(s.homeRuns)),
-      rateCol(r, 'AVG', rate(s.avg), L?.avg),
-      rateCol(r, 'OBP', rate(s.obp), L?.obp),
-      rateCol(r, 'SLG', rate(s.slg), L?.slg),
-      rateCol(r, 'OPS', rate(s.ops), L?.ops),
-      { label: 'wOBA', value: r3(sab?.woba) },
-      // 100 is the league by definition, so the row needs no read for it.
-      { label: 'wRC+', value: sab?.wRcPlus != null ? Math.round(sab.wRcPlus) : '—', league: leagueOn ? 100 : null },
+      rateCol(r, 'AVG', rate(s.avg), lgOf(r, 'AVG')),
+      rateCol(r, 'OBP', rate(s.obp), lgOf(r, 'OBP')),
+      rateCol(r, 'SLG', rate(s.slg), lgOf(r, 'SLG')),
+      rateCol(r, 'OPS', rate(s.ops), lgOf(r, 'OPS')),
+      { label: 'wOBA', value: r3(sab?.woba), league: lgOf(r, 'wOBA') },
+      { label: 'wRC+', value: sab?.wRcPlus != null ? Math.round(sab.wRcPlus) : '—', league: lgOf(r, 'wRC+') },
       war,
     ]
   }
@@ -477,12 +490,11 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
    */
   const standardCols = (r: Role): StatCol[] => {
     const s = lines[r] ?? {}
-    const L = lg[r]
     if (r === 'pitching') {
       return [
         countCol(r, 'W', n0(s.wins)),
         countCol(r, 'L', n0(s.losses), false),
-        rateCol(r, 'ERA', rate(s.era), L?.era),
+        rateCol(r, 'ERA', rate(s.era), lgOf(r, 'ERA')),
         countCol(r, 'G', n0(s.gamesPlayed ?? s.gamesPitched), false),
         countCol(r, 'GS', n0(s.gamesStarted), false),
         countCol(r, 'SV', n0(s.saves)),
@@ -495,7 +507,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
         countCol(r, 'HR', n0(s.homeRuns), false),
         countCol(r, 'BB', n0(s.baseOnBalls), false),
         countCol(r, 'SO', n0(s.strikeOuts)),
-        rateCol(r, 'WHIP', rate(s.whip), L?.whip),
+        rateCol(r, 'WHIP', rate(s.whip), lgOf(r, 'WHIP')),
         ...(n0(s.hitBatsmen) ? [countCol(r, 'HBP', n0(s.hitBatsmen), false)] : []),
         ...(n0(s.wildPitches) ? [countCol(r, 'WP', n0(s.wildPitches), false)] : []),
         ...(n0(s.balks) ? [countCol(r, 'BK', n0(s.balks), false)] : []),
@@ -517,10 +529,10 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
       countCol(r, 'SO', n0(s.strikeOuts), false),
       countCol(r, 'SB', n0(s.stolenBases)),
       countCol(r, 'CS', n0(s.caughtStealing), false),
-      rateCol(r, 'AVG', rate(s.avg), L?.avg),
-      rateCol(r, 'OBP', rate(s.obp), L?.obp),
-      rateCol(r, 'SLG', rate(s.slg), L?.slg),
-      rateCol(r, 'OPS', rate(s.ops), L?.ops),
+      rateCol(r, 'AVG', rate(s.avg), lgOf(r, 'AVG')),
+      rateCol(r, 'OBP', rate(s.obp), lgOf(r, 'OBP')),
+      rateCol(r, 'SLG', rate(s.slg), lgOf(r, 'SLG')),
+      rateCol(r, 'OPS', rate(s.ops), lgOf(r, 'OPS')),
       ...(n0(s.groundIntoDoublePlay) ? [countCol(r, 'GDP', n0(s.groundIntoDoublePlay), false)] : []),
       ...(n0(s.hitByPitch) ? [countCol(r, 'HBP', n0(s.hitByPitch), false)] : []),
       ...(n0(s.sacBunts) ? [countCol(r, 'SH', n0(s.sacBunts), false)] : []),
@@ -623,12 +635,12 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
     const sab = bundle.saber[r], adv = bundle.advanced[r], xs = bundle.expected[r]
     if (!sab && !adv && !xs) return null
     const war: StatCol = { label: twoWay ? (r === 'pitching' ? 'Pit WAR' : 'Pos WAR') : 'WAR', term: 'WAR', value: dec(sab?.war, 1) }
-    // ERA- and wRC+ are 100 at the league by definition; nothing else here has a league figure on hand.
-    return r === 'pitching' ? [
+    // Every rate takes the league's figure from the row's own read; the Statcast estimates have none.
+    const cols: StatCol[] = r === 'pitching' ? [
       war,
       { label: 'FIP', value: dec(sab?.fip, 2) },
       { label: 'xFIP', value: dec(sab?.xfip, 2) },
-      { label: 'ERA-', value: sab?.eraMinus != null ? Math.round(sab.eraMinus) : '—', league: leagueOn ? 100 : null },
+      { label: 'ERA-', value: sab?.eraMinus != null ? Math.round(sab.eraMinus) : '—' },
       { label: 'K%', value: pct(adv?.strikeoutsPerPlateAppearance) },
       { label: 'BB%', value: pct(adv?.walksPerPlateAppearance) },
       { label: 'K-BB%', value: pct(adv?.strikeoutsMinusWalksPercentage) },
@@ -638,7 +650,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
       { label: 'xwOBA', value: rate(xs?.woba) },
     ] : [
       war,
-      { label: 'wRC+', value: sab?.wRcPlus != null ? Math.round(sab.wRcPlus) : '—', league: leagueOn ? 100 : null },
+      { label: 'wRC+', value: sab?.wRcPlus != null ? Math.round(sab.wRcPlus) : '—' },
       { label: 'wOBA', value: r3(sab?.woba) },
       { label: 'xBA', value: rate(xs?.avg) },
       { label: 'xSLG', value: rate(xs?.slg) },
@@ -649,6 +661,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
       { label: 'BB%', value: pct(adv?.walksPerPlateAppearance) },
       { label: 'Whiff%', value: adv?.totalSwings ? pct(n0(adv.swingAndMisses) / n0(adv.totalSwings)) : '—' },
     ]
+    return cols.map(c => ({ ...c, league: lgOf(r, c.label) }))
   }
 
   /** The row's label: the year, or what the slice is when it is not a plain season. */

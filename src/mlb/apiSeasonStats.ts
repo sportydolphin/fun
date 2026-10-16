@@ -134,3 +134,27 @@ export function fetchParkFactors(season: number): Promise<Map<number, number>> {
   }
   return parkFactorCache.get(season)!
 }
+
+// The league's swings and misses for a season, for Whiff% in the player card's league row. One read
+// of StatsAPI's `seasonAdvanced` for every player, summed; the player card reads the same report for
+// one player, so the league's figure and the player's are the same arithmetic. Not kept on failure.
+const swingsCache = new Map<string, Promise<{ misses: number; swings: number }>>()
+
+export function fetchSeasonSwings(group: 'hitting' | 'pitching', season: number, gameType: 'R' | 'P' = 'R'): Promise<{ misses: number; swings: number }> {
+  const key = `${group}-${season}-${gameType}`
+  if (!swingsCache.has(key)) {
+    swingsCache.set(key,
+      fetch(`https://statsapi.mlb.com/api/v1/stats?stats=seasonAdvanced&group=${group}&season=${season}&sportId=1&limit=2000&playerPool=All${gameType === 'P' ? '&gameType=P' : ''}`)
+        .then(r => r.json())
+        .then((d: any) => {
+          let misses = 0, swings = 0
+          for (const s of d.stats?.[0]?.splits ?? []) {
+            misses += Number(s.stat?.swingAndMisses) || 0
+            swings += Number(s.stat?.totalSwings) || 0
+          }
+          return { misses, swings }
+        })
+        .catch(() => { swingsCache.delete(key); return { misses: 0, swings: 0 } }))
+  }
+  return swingsCache.get(key)!
+}
