@@ -4,6 +4,8 @@
  *   npm run wbsc -- <event-key> [...]   import those events
  *   npm run wbsc -- --all               every event in EVENTS
  *   npm run wbsc -- --list              the known events
+ *   npm run wbsc -- --propose           candidate WPBL matches, into the review file
+ *   npm run wbsc -- --confirm           move the reviewed ones into the crosswalk
  *   flags: --refresh (refetch cached games), --offline (cache only, no network),
  *          --check (compare with the files on disk, write nothing)
  *
@@ -22,9 +24,11 @@
  * looks complete, which is worse than no file.
  */
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { gunzipSync, gzipSync } from 'node:zlib'
+import { applyDecisions, EMPTY_CROSSWALK, propose } from '../src/intl/wbsc/crosswalk'
+import type { Crosswalk, CrosswalkWpblPlayer, Review } from '../src/intl/wbsc/crosswalk'
 import { inertiaFromHtml } from '../src/intl/wbsc/page'
 import { transformGame, validateGame } from '../src/intl/wbsc/game'
 import type { WbscPlayer } from '../src/intl/wbsc/game'
@@ -234,9 +238,81 @@ async function importEvent(event: WbscEvent): Promise<boolean> {
   return true
 }
 
+// ── The crosswalk (src/intl/wbsc/crosswalk.ts) ──────────────────────────────────
+//
+// Both files sit in archive/wbsc/, so both are gitignored with the rest of WBSC's data: a link
+// names a WBSC player, which is WBSC's data too.
+
+const CROSSWALK = join(OUT_DIR, 'crosswalk.json')
+const REVIEW = join(OUT_DIR, 'crosswalk-review.json')
+const ROSTER = 'archive/wpbl/wpbl_players.json'
+
+const readJson = <T>(path: string, fallback: T): T => (existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) as T : fallback)
+const writeJson = (path: string, value: unknown) => writeFileSync(path, JSON.stringify(value, null, 2) + '\n')
+
+/** Every player of every event imported so far. */
+function importedPlayers(): WbscPlayer[] {
+  if (!existsSync(OUT_DIR)) return []
+  return readdirSync(OUT_DIR, { withFileTypes: true })
+    .filter(d => d.isDirectory() && existsSync(join(OUT_DIR, d.name, 'players.json')))
+    .flatMap(d => readJson<WbscPlayer[]>(join(OUT_DIR, d.name, 'players.json'), []))
+}
+
+function proposeLinks(): boolean {
+  // Never overwrite a review in progress: a decision typed into the file and not yet confirmed
+  // would be lost without a word.
+  const open = readJson<Review | null>(REVIEW, null)
+  if (open?.candidates.some(c => c.decision !== '')) {
+    console.log(`${REVIEW} holds decisions not yet confirmed. Run --confirm first.`)
+    return false
+  }
+  const players = importedPlayers()
+  if (!players.length) { console.log(`No imported events in ${OUT_DIR}. Import one first.`); return false }
+  const roster = readJson<CrosswalkWpblPlayer[]>(ROSTER, [])
+  const crosswalk = readJson<Crosswalk>(CROSSWALK, EMPTY_CROSSWALK)
+  const candidates = propose(players, roster, crosswalk)
+  writeJson(REVIEW, { checked_by: open?.checked_by ?? '', candidates } satisfies Review)
+
+  for (const c of candidates) {
+    const flags = [c.match === 'initial' ? 'INITIAL ONLY' : '', c.ambiguous ? 'AMBIGUOUS' : ''].filter(Boolean).join(', ')
+    console.log(`  ${c.wbsc_team ?? '   '}  ${c.wbsc_name.padEnd(36)} → ${c.wpbl_name.padEnd(24)} ${c.wpbl_hometown ?? ''}${flags ? `  [${flags}]` : ''}`)
+  }
+  const n = (f: (c: typeof candidates[number]) => boolean) => candidates.filter(f).length
+  console.log(`\n${candidates.length} candidates from ${players.length} WBSC players against ${roster.length} WPBL players`
+    + ` (${n(c => c.match === 'name')} by name, ${n(c => c.match === 'initial')} by surname and initial,`
+    + ` ${n(c => c.ambiguous)} ambiguous); ${crosswalk.links.length} already linked, ${crosswalk.rejected.length} ruled out.`)
+  console.log(`Review: set "checked_by", mark each "decision" yes or no in ${REVIEW}, then run --confirm.`)
+  return true
+}
+
+function confirmLinks(): boolean {
+  const review = readJson<Review | null>(REVIEW, null)
+  if (!review) { console.log(`No ${REVIEW}. Run --propose first.`); return false }
+  const known = {
+    wbsc: new Set(importedPlayers().map(p => p.id)),
+    wpbl: new Set(readJson<CrosswalkWpblPlayer[]>(ROSTER, []).map(p => p.id)),
+  }
+  const now = new Date()
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const before = readJson<Crosswalk>(CROSSWALK, EMPTY_CROSSWALK)
+  const result = applyDecisions(before, review, known, today)
+  if (result.errors.length) {
+    console.log('Nothing confirmed:')
+    for (const e of result.errors) console.log(`  ${e}`)
+    return false
+  }
+  writeJson(CROSSWALK, result.crosswalk)
+  writeJson(REVIEW, { checked_by: review.checked_by, candidates: result.remaining } satisfies Review)
+  console.log(`${result.crosswalk.links.length - before.links.length} linked, ${result.crosswalk.rejected.length - before.rejected.length} ruled out, `
+    + `${result.remaining.length} still to review. ${CROSSWALK} now holds ${result.crosswalk.links.length} links.`)
+  return true
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
+  if (flag('propose')) { if (!proposeLinks()) process.exitCode = 1; return }
+  if (flag('confirm')) { if (!confirmLinks()) process.exitCode = 1; return }
   const keys = args.filter(a => !a.startsWith('--'))
   if (flag('list') || (!keys.length && !flag('all'))) {
     for (const e of EVENTS) console.log(`${e.key}  (${e.name})`)

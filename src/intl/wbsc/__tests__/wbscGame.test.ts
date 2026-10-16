@@ -39,6 +39,7 @@ describe('small readers', () => {
     expect(surnameCase("O'SULLIVAN")).toBe("O'Sullivan")
     expect(surnameCase('DAY-BÉDARD')).toBe('Day-Bédard')
     expect(surnameCase('DE LEIJA')).toBe('De Leija')
+    expect(surnameCase('O ` SULLIVAN')).toBe("O'Sullivan")
   })
 })
 

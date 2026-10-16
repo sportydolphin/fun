@@ -84,11 +84,15 @@ export function inningsToOuts(ip: string | number | null | undefined): number | 
   return m ? Number(m[1]) * 3 + Number(m[2]) : null
 }
 
+/** Any apostrophe, with any space a scorer typed around it: WBSC writes one O'Sullivan as
+ *  "O ` SULLIVAN", a backtick between two spaces. */
+export const APOSTROPHE = /\s*['’`´ʼ]\s*/g
+
 /** 'MARCANO  VIZCARRONDO' → 'Marcano Vizcarrondo', "O'SULLIVAN" → "O'Sullivan", 'DAY-BÉDARD' →
  *  'Day-Bédard'. WBSC writes every surname in capitals. A Mc or Mac loses its inner capital; the
  *  crosswalk records the name each side writes, so nothing is matched on this. */
 export function surnameCase(raw: string): string {
-  return raw.trim().split(/\s+/)
+  return raw.replace(APOSTROPHE, "'").trim().split(/\s+/)
     .map(word => word.toLowerCase().replace(/(^|[-'’])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase()))
     .join(' ')
 }
