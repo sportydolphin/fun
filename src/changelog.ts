@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.170.0',
+    date:    '2026-10-16',
+    changes: [
+      {
+        short: 'Player pages lead with a stat table',
+        full:  "Every player page, WPBL and MLB, now opens each role on one stat table, the line other stat sites print: G, PA, HR, AVG, OBP, SLG, OPS, wOBA, wRC+ and WAR for a hitter, and G, GS, IP, W-L, ERA, WHIP, SO, BB, FIP and WAR for a pitcher, with the league average underneath. All stats opens the full standard line and the advanced figures (OPS+, ISO, BABIP, K%, BB%, wins added, baserunning and more) as tables in the same style, and the page remembers whether you left it open. On a phone the table scrolls sideways with the season pinned. A two-way player's WAR is split by role. Spacing between sections is the same everywhere on the page.",
+      },
+    ],
+  },
+  {
     version: '1.169.0',
     date:    '2026-10-16',
     changes: [

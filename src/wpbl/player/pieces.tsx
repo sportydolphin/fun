@@ -8,7 +8,7 @@ import type { EraBasis } from '../stats'
 import { TapTip, chromePx, hoverOnly } from '../ui'
 import { SectionHead } from '../cardParts'
 import {
-  isZeroStat, ZERO_SX, bleedSx,
+  isZeroStat, ZERO_SX, bleedSx, BLOCK_GAP,
   useCollapsibleTable, ExpandToggle, thSx, tdSx, LOG_MAX_H, LOG_MAX_H_XS, TIP_Z,
 } from '../../ui/playerCard'
 import { STAT_TERMS, statFull, statPlain } from '../glossary'
@@ -17,7 +17,6 @@ import { type WpblMatchupLine } from '../derive/matchups'
 import { CompareArrows } from '@mui/icons-material'
 import { HeaderChipLabel, HEADER_ICON_SX, headerChipSx } from '../../ui/headerBar'
 import { linkTo } from '../../nav'
-import { playerPartAnchor, type PlayerPart } from '../../lib/playerParts'
 import { track, EVENTS } from '../../lib/analytics'
 import type { WpblPlayer } from '../types'
 import { typePx } from '../../ui/scale'
@@ -71,7 +70,7 @@ export const gamePosition = (raw: string | null | undefined): string => {
 export type Role = 'batting' | 'pitching'
 
 // ─── pieces ──────────────────────────────────────────────────────────────────
-// The season line, the rate strip, the game log, the form strip and the band are shared with
+// The season tables, the game log, the role heading and the band are shared with
 // MLB's player page (src/ui/playerCard.tsx). What is WPBL's own is below.
 
 /**
@@ -176,7 +175,7 @@ export function FieldingLine({ ft, positions, bare = false }: {
   // five numbers spread across 1000px would put a hand's span between each one and its neighbour.
   const cellSx = { minWidth: '3.25rem' }
   return (
-    <Box sx={{ mt: bare ? 0 : 2 }}>
+    <Box sx={{ mt: bare ? 0 : BLOCK_GAP }}>
       {!bare && <SectionHead title="Fielding" part="fielding" caption={positions && positions.length > 0 ? positions.join(', ').toUpperCase() : undefined} />}
       <Box sx={{ overflowX: 'auto' }}>
         <Box component="table" sx={{ borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
@@ -236,7 +235,7 @@ export function MatchupTable({ player, side, lines, players, scope, accent }: {
   // pitch profile uses for its own coverage line directly above.
   const slice = scope === 'postseason' ? ' in the playoffs' : scope === 'all' ? ', playoffs included' : ''
   return (
-    <Box ref={sectionRef} sx={{ mt: 2 }}>
+    <Box ref={sectionRef} sx={{ mt: BLOCK_GAP }}>
       <SectionHead
         title={side === 'batting' ? 'Vs pitchers' : 'Vs batters'} part="matchups"
         caption={`${lines.length} ${lines.length === 1 ? noun : `${noun}s`}${slice} · tap a name for the matchup`}
@@ -366,65 +365,6 @@ export function CompareChip({ player, roster }: { player: WpblPlayer; roster: Wp
 export const BAND_WASH: Record<string, number> = { BOS: 0x7a, LA: 0x98, NY: 0x61, SF: 0x8f }
 /** For a club not in the table: the tightest of the four, which is safe for any secondary. */
 export const BAND_WASH_FLOOR = 0x61
-
-/**
- * A top-level section of the desktop page: Batting, Pitching, Fielding.
- *
- * THE SECOND LEVEL THE CARD WAS MISSING. Every heading on it was the same small uppercase label,
- * so "PITCHING", which holds six blocks, was the same size as "FIELDING" inside it, and the page
- * read as one long list. A real heading over a rule says where a role starts; the labels under it
- * stay what they were, the names of the blocks inside.
- */
-export function RoleHeading({ title, caption, part, first = false }: {
-  title: string
-  /** On the right: the sample the section's numbers come from ("64 PA"). */
-  caption?: React.ReactNode
-  /** The part of the card this heads, so the search can open the card scrolled to it. */
-  part?: PlayerPart
-  /** The first section has no rule above it: the summary is right there. */
-  first?: boolean
-}) {
-  return (
-    <Box id={part ? playerPartAnchor(part) : undefined} sx={{
-      display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', columnGap: 1.5,
-      mb: 1.5, ...(first ? { mt: 1 } : { mt: 4, pt: 2.5, borderTop: '1px solid', borderColor: 'divider' }),
-      scrollMarginTop: 'calc(var(--app-header-h, 0px) + 0.75rem)',
-    }}>
-      <Typography component="h2" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, m: 0 }}>{title}</Typography>
-      {caption != null && caption !== '' && (
-        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>{caption}</Typography>
-      )}
-    </Box>
-  )
-}
-
-/**
- * The headline four for one role, in an outlined box, at the top of the desktop page.
- *
- * What a reader came for, before any table: AVG, HR, RBI and OPS, or the pitching four, with wins
- * added under them. A two-way player gets two, side by side, so the two halves of the season are
- * read together instead of four sections apart. The outline is the theme's `outline` token, which
- * clears 3:1 in both themes (see "Borders" in src/CLAUDE.md).
- */
-export function SummaryCard({ label, caption, children }: {
-  /** The role, on a two-way card. A one-role card says nothing: the section below names it. */
-  label?: string
-  /** The sample, on the right. */
-  caption?: React.ReactNode
-  children: React.ReactNode
-}) {
-  return (
-    <Box sx={{ border: '1px solid', borderColor: 'outline', borderRadius: 2, px: 1.5, pt: 1.25, pb: 1.5, minWidth: 0 }}>
-      {/* Always drawn, a blank line when it has nothing to say, so the card is the same height
-          while the sample is still loading as once it has landed. */}
-      <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', columnGap: 1.5, mb: 1 }}>
-        <Typography sx={{ ...sectionSx, mb: 0 }}>{label ?? ' '}</Typography>
-        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>{caption || ' '}</Typography>
-      </Box>
-      {children}
-    </Box>
-  )
-}
 
 /**
  * The place a league rank has to reach to be printed anywhere on the player card: top three.

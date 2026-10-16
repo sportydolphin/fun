@@ -1,7 +1,7 @@
 import { useDark } from '../ui/useDark'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, Skeleton, useMediaQuery } from '@mui/material'
-import { plateAppearances, fmtRate, fmtTwo } from './stats'
+import { plateAppearances, fmtRate } from './stats'
 import { scopedLines, inSeason, seasonsPlayed, latestSeason, gamesInSeason, type SeasonScope } from './season'
 import { COUNT_RANK_MIN_FIELD, type WpblStatRank } from './percentiles'
 import { useEraBasis } from './EraBasisContext'
@@ -13,7 +13,7 @@ import { WpblVisuallyHiddenH1 } from './PageHeading'
 import { PLAYER_PAGE_W } from './layoutWidths'
 import { SectionHead, useRankInk } from './cardParts'
 import {
-  StatCardContext, SeasonPicker, LineCaption, SeasonLine, RateStrip, ValueStrip, CameoBlock, StatLogTable,
+  StatCardContext, SeasonPicker, LineCaption, StatSummary, RoleHeading, CameoBlock, StatLogTable, BLOCK_GAP,
   PlayerBand, BandBadge, BandChips, BAND_CHIP_SX, type BandFact, BATTING_BEST, PITCHING_BEST, LOG_PREVIEW, CARD_SECTION_SX, type StatCardEnv,
 } from '../ui/playerCard'
 import SwipeableViews from './SwipeableViews'
@@ -34,14 +34,14 @@ import { linkTo } from '../nav'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
 import { useSectionScroll } from '../lib/sectionScroll'
-import { type BoardPlace } from './derive/seasonValue'
-import { fmtRunValue } from '../league/runExpectancy'
+import { leagueLine } from './statColumns'
+import { wpblRoleTables, seasonLead, row as statRow, type RankFor } from './player/statTables'
 import {
   statTip, gamePosition, type Role, RankProgress, FieldingLine, MatchupTable, CompareChip,
-  BAND_WASH, BAND_WASH_FLOOR, SENTENCE_W, CARD_RANK_BAR, RoleHeading, SummaryCard,
+  BAND_WASH, BAND_WASH_FLOOR, SENTENCE_W, CARD_RANK_BAR,
 } from './player/pieces'
 import { createBandStore, BandAwareEyebrow, useBandObserver } from './player/bandStore'
-import { usePlayerAwards, usePlayerLines, usePlayerMatchupPlays, useLeagueReads } from './player/usePlayerReads'
+import { usePlayerAwards, usePlayerLines, usePlayerMatchupPlays, useLeagueReads, usePlayerBoard } from './player/usePlayerReads'
 import { usePlayerSeason } from './player/usePlayerSeason'
 import { ICON_SIZE, TYPE_SCALE } from '../ui/card'
 import { shortDate } from '../lib/format'
@@ -64,10 +64,6 @@ import { shortDate } from '../lib/format'
 //
 // The card's parts, its reads and its season arithmetic live in ./player/; this file holds its
 // state and draws it.
-
-/** Which part of a role's season line to draw: all of it (the phone), the headline four and the
- *  value strip (the desktop's summary card), or the standard line alone (the desktop's section). */
-type LinePart = 'all' | 'summary' | 'table'
 
 // ─── the modal ───────────────────────────────────────────────────────────────
 
@@ -253,8 +249,8 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   }, [player.id])
 
   const {
-    bt, pt, ft, battingLog, pitchingLog, hasPostseason, hasBatting, hasPitching, hasSeasonBatting, hasSeasonPitching,
-    hasFielding, fieldedPositions, ranks, valueOn, myValue, ranksPending,
+    bt, pt, ft, battingLog, pitchingLog, hasPostseason, hasBatting, hasPitching,
+    hasFielding, fieldedPositions, ranks, valueOn, myValue,
     pitcherFirst, battingCameo, pitchingCameo, twoWay, battingMeta, pitchingMeta,
   } = usePlayerSeason({ player, players, teams, games, seasonGames, season, career, scope, batting, pitching, fielding, leagueLines, eraBasis, thisSeason })
   const ink = useRankInk()
@@ -384,7 +380,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
    * The bar is `bestCountingRanks`' own, kept deliberately: top 5, against a field of at least
    * ten, and never a "1st" that is really a tie on zero. What is dropped is that helper's
    * two-row CAP, which was rationing vertical space that a rank sitting inside a cell does not
-   * spend. See SeasonLine.
+   * spend. See StatTable.
    */
   const countRank = (rs: WpblStatRank[] | undefined, key: string): WpblStatRank | null => {
     const r = rs?.find(x => x.key === key)
@@ -397,55 +393,61 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   }
 
   /**
-   * A printed rank opens the league table it was taken from, sorted by that stat, with this player
-   * picked out: MLB's stat card did this first. A rate rank is against the QUALIFIED field and a
-   * counting rank against everyone who recorded the stat, so the board opens on the same population
-   * the rank was counted in, or the row it scrolls to would sit at a different place than "3rd".
-   * The counting keys carry a `c_` prefix and two of them are spelled differently on the table.
+   * A printed rank, and the league table it was taken from: pressing it opens the table sorted by
+   * that stat with this player picked out (MLB's stat card did this first). A rate rank is against
+   * the QUALIFIED field and a counting rank against everyone who recorded the stat, so the board
+   * opens on the same population the rank was counted in, or the row it scrolls to would sit at a
+   * different place than "3rd". Wins added and the runs on the bases are places on Run value's
+   * boards, which open nothing from here.
    */
-  const linkRanks = <C extends object>(r: Role, cells: C[]): (C & { onRank?: () => void })[] =>
-    !onOpenBoard ? cells : cells.map(c => {
-      const key = (c as { rank?: { key: string } | null }).rank?.key
-      if (!key) return c
-      const counting = key.startsWith('c_')
-      const col = !counting ? key : key === 'c_outs' ? 'ip' : key === 'c_s' ? 'sv' : key.slice(2)
-      const group = r === 'pitching' ? 'pitching' : 'hitting'
-      return { ...c, onRank: () => onOpenBoard(group, col, { qualified: !counting, playerId: player.id }) }
-    })
-
-  /**
-   * THE HEADLINE: the four numbers every stat site leads a player with. AVG, HR, RBI and OPS for a
-   * hitter; W-L (or saves, for a reliever), ERA, strikeouts and WHIP for a pitcher, which is ESPN's
-   * player header and MLB.com's, so a reader arriving from either finds them where they look. Drawn
-   * at every width, over the standard line, with each rank's field ("2nd of 21").
-   */
-  const leadsWithSaves = pt.gs === 0 && pt.s > 0
-  const headline = (r: Role) => {
-    // A count's place in the whole field, as a rate's is in the qualified one. Nothing for a zero,
-    // which is not a place.
-    const countCell = (label: string, value: number, rs: WpblStatRank[] | undefined, key: string) =>
-      ({ label, value: String(value), rank: countRank(rs, key) })
-    return r === 'pitching' ? [
-      leadsWithSaves ? countCell('SV', pt.s, ranks?.pitchingCounts, 'c_s') : { label: 'W-L', value: `${pt.w}-${pt.l}` },
-      { label: 'ERA', value: fmtEra(pt.era), rank: rateRank(ranks?.pitching, 'era') },
-      countCell('SO', pt.so, ranks?.pitchingCounts, 'c_so'),
-      { label: 'WHIP', value: fmtTwo(pt.whip), rank: rateRank(ranks?.pitching, 'whip') },
-    ] : [
-      { label: 'AVG', value: fmtRate(bt.avg), rank: rateRank(ranks?.batting, 'avg') },
-      countCell('HR', bt.hr, ranks?.battingCounts, 'c_hr'),
-      countCell('RBI', bt.rbi, ranks?.battingCounts, 'c_rbi'),
-      { label: 'OPS', value: fmtRate(bt.ops), rank: rateRank(ranks?.batting, 'ops') },
-    ]
+  const RATE_KEYS: Record<Role, Record<string, string>> = {
+    batting: { AVG: 'avg', OBP: 'obp', SLG: 'slg', OPS: 'ops' },
+    pitching: { ERA: 'era', WHIP: 'whip', 'K/BB': 'kbb' },
   }
-  /** A rate in the standard line, ranked only at the card's bar: "1st" under OBP, never "9th". */
-  const lineRate = (label: string, value: string, rs: WpblStatRank[] | undefined, key: string) =>
-    ({ label, value, rank: rateRank(rs, key) })
+  const COUNT_KEYS: Record<Role, Record<string, string>> = {
+    batting: { HR: 'c_hr', RBI: 'c_rbi', H: 'c_h', R: 'c_r', SB: 'c_sb', '2B': 'c_2b', '3B': 'c_3b', BB: 'c_bb' },
+    pitching: { SO: 'c_so', IP: 'c_outs', W: 'c_w', SV: 'c_s' },
+  }
+  const rankFor: RankFor = (r, label) => {
+    if (label === 'WPA' || label === 'BsR') {
+      const p = label === 'BsR' ? myValue?.bases : r === 'pitching' ? myValue?.wpaPitching : myValue?.wpaHitting
+      return p && p.rank <= CARD_RANK_BAR ? { rank: p } : null
+    }
+    const group = r === 'pitching' ? 'pitching' : 'hitting'
+    const rateKey = RATE_KEYS[r][label]
+    const countKey = COUNT_KEYS[r][label]
+    const rank = rateKey ? rateRank(r === 'pitching' ? ranks?.pitching : ranks?.batting, rateKey)
+      : countKey ? countRank(r === 'pitching' ? ranks?.pitchingCounts : ranks?.battingCounts, countKey)
+        : null
+    if (!rank) return null
+    const key = (rateKey ?? countKey)!
+    // The counting keys carry a `c_` prefix, and two of them are spelled differently on the table.
+    const col = rateKey ? key : key === 'c_outs' ? 'ip' : key === 'c_s' ? 'sv' : key.slice(2)
+    return { rank, onRank: onOpenBoard ? () => onOpenBoard(group, col, { qualified: !!rateKey, playerId: player.id }) : undefined }
+  }
 
-  const rateHead = (r: Role) => (
-    <Box sx={{ mb: 1.5 }}>
-      <RateStrip cells={linkRanks(r, headline(r))} />
-    </Box>
-  )
+  // The Stats table's board for the span on screen, for wOBA, wRC+, FIP and WAR (see usePlayerBoard),
+  // and the league's line over the same slice, for the League avg row and the league-relative columns.
+  const board = usePlayerBoard(season == null && !career ? null : {
+    season: career ? null : season, schedule: games, players, teams, fmtEra, eraBasis,
+  })
+  const sliceLeague = useMemo(
+    () => (leagueLines ? leagueLine(thisSeason(leagueLines.batting), thisSeason(leagueLines.pitching), games, scope) : null),
+    [leagueLines, games, season, career, scope]) // eslint-disable-line react-hooks/exhaustive-deps
+  const leadsWithSaves = pt.gs === 0 && pt.s > 0
+  const tables = (r: Role) => wpblRoleTables(r, {
+    bt, pt, league: sliceLeague, board, playerId: player.id, scope, twoWay, value: myValue, valueOn,
+    leadsWithSaves, rankFor, fmtEra, eraBasis,
+  })
+  const lead = seasonLead(season, career, scope)
+  /** A role's numbers: the summary table and, behind All stats, the standard and advanced lines. */
+  const statSummary = (r: Role, placeholder = false) => {
+    const t = tables(r)
+    return (
+      <StatSummary accent={color} league reserveRanks={scope === 'regular' && !career} placeholder={placeholder}
+        summary={statRow(lead, t.summary)} standard={statRow(lead, t.standard)} advanced={statRow(lead, t.advanced)} />
+    )
+  }
 
   /** How much of a season these numbers are, in the units the qualifying bar is set in.
    *
@@ -494,26 +496,6 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   // Each pane in two halves, because a desktop dialog puts them side by side: `season` is what
   // is true about her year, `log` is the record of the games it came out of. On anything
   // narrower they simply stack in this order and nothing about the reading changes.
-  /** Under the season line: the side's wins added, and a hitter's runs on the bases. A dash for a
-   *  player the board does not list, which is a season with no plate appearance on that side. */
-  const valueStrip = (r: Role) => {
-    if (!valueOn) return null
-    const cell = (label: string, p: BoardPlace | null | undefined, digits: 1 | 2, sample: string, term: string) => ({
-      label, term, value: myValue ? (p ? fmtRunValue(p.value, digits) : '—') : sample,
-      rank: p && p.rank <= CARD_RANK_BAR ? p : null,
-    })
-    // IN WORDS, NOT "Pit WPA" AND "BsR". These are the site's own reads of the play log, the two
-    // figures on the card a reader is least likely to know, and a pair of abbreviations under the
-    // table read as more numbers rather than as a claim. The tooltip still carries the term.
-    // ONE SIDE, SAID SO WHEN THERE ARE TWO: the Stats table's WPA is both sides added, so for a
-    // player with a line on each side this figure is not that one. From the lines, so the label is
-    // right on first paint.
-    const split = hasSeasonBatting && hasSeasonPitching
-    const cells = r === 'pitching'
-      ? [cell(split ? 'Wins added pitching' : 'Wins added', myValue?.wpaPitching, 2, '+0.00', 'WPA')]
-      : [cell(split ? 'Wins added batting' : 'Wins added', myValue?.wpaHitting, 2, '+0.00', 'WPA'), cell('Baserunning runs', myValue?.bases, 1, '+0.0', 'BsR')]
-    return <ValueStrip cells={cells} placeholder={!myValue} />
-  }
 
   const battingPane = {
     hasLog: battingLog.length > 0,
@@ -521,44 +503,10 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     profile: <PitchProfileBlock player={player} side="batting" players={players} teams={teams} games={games} season={career ? null : season} scope={scope} accent={color} />,
     /** Under the profile: her line against every pitcher she has faced. */
     matchups: <MatchupTable player={player} side="batting" lines={matchups?.vsPitchers ?? []} players={players} scope={scope} accent={color} />,
-    line: (scopeControl?: React.ReactNode, part: LinePart = 'all') => (
+    line: (scopeControl?: React.ReactNode, caption = true) => (
       <>
-        {part === 'all' && lineCaption('batting', scopeControl)}
-        {part !== 'table' && rateHead('batting')}
-        {/* THE STANDARD LINE, in MLB.com's column order with the rates at the end, which is how
-            every stat site's table reads, so the header row is a thing a reader checks rather than
-            reads. Every column is always drawn: 3B and CS sit where a reader expects them even at
-            zero. The less-read columns follow the rates once they have happened, in
-            Baseball-Reference's order. NO TOTAL BASES: SLG is it divided by at-bats, and it is still
-            ranked, so a total-bases lead still reaches the card through the counting ranks.
-            A stat in the headline is drawn there and SeasonLine leaves it out here, at every width.
-            SO carries no rank, ever: second in the league in strikeouts is not an achievement. */}
-        {part !== 'summary' && <SeasonLine ranksPending={ranksPending} reserveRanks headline={headline('batting').map(c => c.label)} cols={linkRanks('batting', [
-          { label: 'G', value: bt.g },
-          { label: 'AB', value: bt.ab },
-          { label: 'R', value: bt.r, rank: countRank(ranks?.battingCounts, 'c_r') },
-          { label: 'H', value: bt.h, rank: countRank(ranks?.battingCounts, 'c_h') },
-          { label: '2B', value: bt.doubles, rank: countRank(ranks?.battingCounts, 'c_2b') },
-          { label: '3B', value: bt.triples, rank: countRank(ranks?.battingCounts, 'c_3b') },
-          { label: 'HR', value: bt.hr },
-          { label: 'RBI', value: bt.rbi },
-          { label: 'BB', value: bt.bb, rank: countRank(ranks?.battingCounts, 'c_bb') },
-          { label: 'SO', value: bt.so },
-          { label: 'SB', value: bt.sb, rank: countRank(ranks?.battingCounts, 'c_sb') },
-          { label: 'CS', value: bt.cs },
-          { label: 'AVG', value: fmtRate(bt.avg), breakBefore: true },
-          lineRate('OBP', fmtRate(bt.obp), ranks?.batting, 'obp'),
-          lineRate('SLG', fmtRate(bt.slg), ranks?.batting, 'slg'),
-          { label: 'OPS', value: fmtRate(bt.ops) },
-          // The extras start a row of their own when the line folds, whichever of them is first.
-          ...[
-            ...(bt.gdp ? [{ label: 'GDP', value: bt.gdp }] : []),
-            ...(bt.hbp ? [{ label: 'HBP', value: bt.hbp }] : []),
-            ...(bt.sh ? [{ label: 'SH', value: bt.sh }] : []),
-            ...(bt.sf ? [{ label: 'SF', value: bt.sf }] : []),
-          ].map((c, i) => (i === 0 ? { ...c, breakBefore: true } : c)),
-        ])} />}
-        {part !== 'table' && valueStrip('batting')}
+        {caption && lineCaption('batting', scopeControl)}
+        {statSummary('batting')}
       </>
     ),
     season: (
@@ -594,7 +542,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     /** What follows the pitch profile. */
     extras: myBattedBalls.length > 0
       ? (
-        <Box sx={{ mt: 2.5 }}>
+        <Box sx={{ mt: BLOCK_GAP }}>
           <SectionHead title="Hit locations" part="spray" />
           <SprayChart plays={myBattedBalls} bats={player.bats} />
         </Box>
@@ -608,36 +556,10 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     profile: <PitchProfileBlock player={player} side="pitching" players={players} teams={teams} games={games} season={career ? null : season} scope={scope} accent={color} />,
     /** Under the profile: what every batter she has faced did against her. */
     matchups: <MatchupTable player={player} side="pitching" lines={matchups?.vsBatters ?? []} players={players} scope={scope} accent={color} />,
-    line: (scopeControl?: React.ReactNode, part: LinePart = 'all') => (
+    line: (scopeControl?: React.ReactNode, caption = true) => (
       <>
-        {part === 'all' && lineCaption('pitching', scopeControl)}
-        {part !== 'table' && rateHead('pitching')}
-        {/* MLB.com's pitching order, the rates where it puts them. The rarer columns follow WHIP once
-            they have happened, and the pitch count closes the line: it is the only figure on the card
-            saying how hard the innings were, which the counting stats cannot (they say what was given
-            up). Batters faced is not a column, being very nearly innings times three plus the
-            baserunners already itemised; `pt.bf` is still read, by the role rule in positions.ts. */}
-        {part !== 'summary' && <SeasonLine ranksPending={ranksPending} reserveRanks headline={headline('pitching').map(c => c.label)} cols={linkRanks('pitching', [
-          { label: 'W', value: pt.w, rank: countRank(ranks?.pitchingCounts, 'c_w') },
-          { label: 'L', value: pt.l },
-          { label: 'ERA', value: fmtEra(pt.era) },
-          { label: 'G', value: pt.g },
-          { label: 'GS', value: pt.gs },
-          { label: 'SV', value: pt.s, rank: leadsWithSaves ? null : countRank(ranks?.pitchingCounts, 'c_s') },
-          { label: 'IP', value: outsToIp(pt.outs), rank: countRank(ranks?.pitchingCounts, 'c_outs') },
-          { label: 'H', value: pt.h },
-          { label: 'R', value: pt.r },
-          { label: 'ER', value: pt.er },
-          { label: 'HR', value: pt.hr },
-          { label: 'BB', value: pt.bb },
-          { label: 'SO', value: pt.so },
-          { label: 'WHIP', value: fmtTwo(pt.whip) },
-          ...(pt.hbp ? [{ label: 'HBP', value: pt.hbp }] : []),
-          ...(pt.wp ? [{ label: 'WP', value: pt.wp }] : []),
-          ...(pt.bk ? [{ label: 'BK', value: pt.bk }] : []),
-          { label: 'P', value: pt.pitches },
-        ])} />}
-        {part !== 'table' && valueStrip('pitching')}
+        {caption && lineCaption('pitching', scopeControl)}
+        {statSummary('pitching')}
       </>
     ),
     season: (
@@ -677,7 +599,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     // pitches from one outing (13 pitches, 1 of 9 games), collapsed because it could not be
     // trusted and still taking a row to say so. The pitch profile above reads every game.
     extras: trackedPitchGames > 0 && pt.g > 0 && trackedPitchGames * 2 >= pt.g
-      ? <Box sx={{ mt: 2 }}><PitchLocationCard rows={seasonPitchLocs} accent={color} gamesPitched={pt.g} /></Box>
+      ? <Box sx={{ mt: BLOCK_GAP }}><PitchLocationCard rows={seasonPitchLocs} accent={color} gamesPitched={pt.g} /></Box>
       : null,
   }
 
@@ -697,17 +619,6 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
    * does not have; and a game log long enough for its Show more control.
    */
   const skeletonPane = (r: Role) => {
-    // A rank on every sample holds a rank row open under each row of the line, which the loaded
-    // card nearly always has: every hitter measured led the league in something worth printing.
-    const sample = (labels: [string, string][]) => labels.map(([label, value]) => ({ label, value, rank: { rank: 1, of: 1 } }))
-    const lineCols = r === 'pitching'
-      ? sample([['W', '2'], ['L', '2'], ['ERA', '4.50'], ['G', '6'], ['GS', '5'], ['SV', '0'], ['IP', '20.0'], ['H', '20'],
-        ['R', '10'], ['ER', '10'], ['HR', '2'], ['BB', '10'], ['SO', '15'], ['WHIP', '1.50'], ['HBP', '1'], ['WP', '2'], ['P', '350']])
-      : sample([['G', '15'], ['AB', '50'], ['R', '10'], ['H', '15'], ['2B', '3'], ['3B', '1'], ['HR', '3'], ['RBI', '10'], ['BB', '6'],
-        ['SO', '8'], ['SB', '3'], ['CS', '1'], ['AVG', '.250'], ['OBP', '.350'], ['SLG', '.400'], ['OPS', '.750'], ['HBP', '1'], ['SF', '1']])
-    const head = r === 'pitching'
-      ? sample([['W-L', '2-2'], ['ERA', '4.50'], ['SO', '15'], ['WHIP', '1.50']])
-      : sample([['AVG', '.250'], ['HR', '3'], ['RBI', '10'], ['OPS', '.750']])
     const logHeaders = r === 'pitching'
       ? ['DEC', 'IP', 'H', 'R', 'ER', 'HR', 'BB', 'SO', 'P']
       : ['POS', 'AB', 'R', 'H', '2B', '3B', 'HR', 'RBI', 'SB', 'BB', 'SO', 'TB']
@@ -718,14 +629,14 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
       matchups: null,
       extras: null,
       season: null,
-      line: (_scopeControl?: React.ReactNode, part: LinePart = 'all') => (
+      // The loaded summary over the totals so far, every figure a bar: the same columns, the same
+      // rank line and league row, so the tables are the height they will be.
+      line: (_scopeControl?: React.ReactNode, caption = true) => (
         <>
-          {part === 'all' && lineCaption(r,
+          {caption && lineCaption(r,
             <Box aria-hidden sx={{ visibility: 'hidden' }}>{scopeNav}</Box>,
             r === 'pitching' ? '' : <Skeleton variant="text" sx={{ display: 'inline-block', width: '3.5em' }} />)}
-          {part !== 'table' && <Box sx={{ mb: 1.5 }}><RateStrip cells={head} placeholder /></Box>}
-          {part !== 'summary' && <SeasonLine cols={lineCols} headline={head.map(c => c.label)} placeholder reserveRanks />}
-          {part !== 'table' && valueStrip(r)}
+          {statSummary(r, true)}
         </>
       ),
       log: (
@@ -781,50 +692,41 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   // would hide a catcher's fielding line behind a tab.
   //
   /**
-   * THE DESKTOP PAGE, in three tiers: the summary, the clips, then a titled section per role.
+   * THE DESKTOP PAGE: the season, then a titled section per role.
    *
    * IT WAS ONE STACK OF SAME-SIZED LABELS. Every block had the same small uppercase heading, so
    * "PITCHING" (six blocks) read at the size of "FIELDING", a two-way player's batting started four
    * sections below the fold, and the clips, the most human thing on the page, were last. Now:
    *
-   *   1. THE SUMMARY. The season (picker and Regular / Playoffs / Both, page-level because they
-   *      re-slice every number below), then each role's headline four in an outlined card, side by
-   *      side for a two-way player.
-   *   2. THE CLIPS, when there are any, right under what they illustrate.
-   *   3. A SECTION PER ROLE under a real heading (RoleHeading): the rest of the standard line, the
-   *      game log, the matchups, the pitch profile and the charts. Then Fielding as a section of its
-   *      own, then the photos and the reading.
+   *   1. THE SEASON: the picker and Regular / Playoffs / Both, page-level because they re-slice
+   *      every number below.
+   *   2. A SECTION PER ROLE under a real heading (RoleHeading) carrying the sample: the season as a
+   *      stat table with All stats under it, the clips after the first role's table (right under
+   *      what they illustrate), then the game log, the matchups, the pitch profile and the charts.
+   *      Then Fielding as a section of its own, then the photos and the reading.
    *
-   * NOT A RAIL OF RATES BESIDE THE TABLES, still: a rail has nothing substantial to hold, and the
-   * shorter the log the wider its void. Every block spans.
+   * THE SAME ORDER AS A PHONE'S PANE, block for block, so the card is one card at two widths.
    *
    * NO TABS ON A DESKTOP: a desktop dialog is not short of height, and a two-way player is exactly
    * who a stat site puts two tables on one page for. The phone keeps the pager and the pills.
    */
   const roleName = (r: Role) => (r === 'pitching' ? 'Pitching' : 'Batting')
   const roleMeta = (r: Role) => (deskSkeleton ? '' : r === 'pitching' ? pitchingMeta : battingMeta)
-  const desktopSummary = (
-    <>
-      <LineCaption picker={seasonPickerNode()} control={hasPostseason || deskSkeleton
-        ? <Box sx={deskSkeleton ? { visibility: 'hidden' } : undefined} aria-hidden={deskSkeleton || undefined}>{scopeNav}</Box>
-        : undefined} />
-      <Box sx={{ display: 'grid', gridTemplateColumns: roles.length > 1 ? '1fr 1fr' : '1fr', gap: 2, mt: 0.5 }}>
-        {roles.map(r => (
-          <SummaryCard key={r} label={twoWay ? roleName(r) : undefined} caption={roleMeta(r)}>
-            {paneFor(r).line(undefined, 'summary')}
-          </SummaryCard>
-        ))}
-      </Box>
-    </>
+  const desktopCaption = (
+    <LineCaption picker={seasonPickerNode()} control={hasPostseason || deskSkeleton
+      ? <Box sx={deskSkeleton ? { visibility: 'hidden' } : undefined} aria-hidden={deskSkeleton || undefined}>{scopeNav}</Box>
+      : undefined} />
   )
   const desktopRoleBlock = (r: Role, first: boolean) => {
     const pane = paneFor(r)
     return (
       <Box key={r}>
-        {/* No sample on the heading: the summary card above already says it. */}
-        <RoleHeading title={roleName(r)} first={first} />
-        {/* The rest of the standard line: the headline four are in the summary above it. */}
-        {pane.line(undefined, 'table')}
+        <RoleHeading title={roleName(r)} caption={roleMeta(r)} first={first} />
+        {pane.line(undefined, false)}
+        {/* The clips under the first role's season, which is what they illustrate. Drawn only once
+            the page knows whether there are any (see deskSkeleton): a row of posters arriving late
+            here would push every section under it down by its own height. */}
+        {first && !deskSkeleton && hasClips && <PlayerClips playerId={player.id} />}
         {/* THE CAMEO AND THE QUALIFYING METER: without them a desktop reader of a below-the-bar
             player meets four unranked rates and no word about why, and a two-way cameo loses the
             one line saying the player also pitched. Capped to a reading measure, because both are
@@ -1076,11 +978,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
                holding one of them. See desktopRoleBlock for what each role is made of and why
                the tabs come off up here. */
             <Box sx={{ minHeight: 0, overflowY: 'auto', px: 2, pt: 2, pb: 2 }}>
-              {desktopSummary}
-              {/* The clips under the summary, which is what they illustrate. Drawn only once the
-                  page knows whether there are any (see deskSkeleton): a row of posters arriving
-                  late here would push every section under it down by its own height. */}
-              {!deskSkeleton && hasClips && <PlayerClips playerId={player.id} />}
+              {desktopCaption}
               {roles.map((r, i) => desktopRoleBlock(r, i === 0))}
               {/* Fielding belongs to the PLAYER, not to a role, so it is its own section, once. On
                   a two-way card its totals are the mound work and the outfield work added

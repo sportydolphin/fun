@@ -79,6 +79,10 @@ vi.mock('../api', async (importOriginal) => {
     getCachedWpblAllRunValuePlays: () => null,
     fetchWpblArticles: () => Promise.resolve([]),
     getCachedWpblArticles: () => [],
+    // The season tables' board (wOBA, wRC+, FIP, WAR). Off the network for the same reason: no stored
+    // seasons and no priced row, so it builds from the lines above, as it does when both are stale.
+    fetchWpblPlayerSeasons: () => Promise.reject(new Error('not in tests')),
+    fetchWpblRunEnvironment: () => Promise.resolve(null),
   }
 })
 
@@ -322,30 +326,56 @@ describe('PlayerDetail: fielding', () => {
 })
 
 describe('PlayerDetail: league ranks', () => {
-  /** The season line's table: the one whose header row does not begin with Date. */
-  const lineTable = () => Array.from(document.querySelectorAll('table'))
-    .find(t => !(t.querySelector('thead')?.textContent ?? '').startsWith('Date'))
-  /** Its rank row, cell by cell, or [] when the row was not drawn at all. */
-  const rankRow = (): string[] => {
-    const rows = Array.from(lineTable()?.querySelectorAll('tbody tr') ?? [])
-    return rows.length < 2 ? [] : Array.from(rows[1].querySelectorAll('td')).map(td => td.textContent ?? '')
+  /** The summary table: the first whose header row begins with Season. */
+  const lineTable = (n = 0) => Array.from(document.querySelectorAll('table'))
+    .filter(t => (t.querySelector('thead')?.textContent ?? '').startsWith('Season'))[n]
+  /** The rank under each figure of the player's row, cell by cell (the lead cell has none), or []
+   *  when no rank line was drawn at all. */
+  const rankRow = (n = 0): string[] => {
+    const row = lineTable(n)?.querySelector('tbody tr')
+    const cells = Array.from(row?.querySelectorAll('td') ?? [])
+    if (!cells.some(td => td.querySelector('div'))) return []
+    return cells.map(td => td.querySelector('div')?.textContent ?? '')
   }
+  const headsOf = (n = 0) => Array.from(lineTable(n)?.querySelectorAll('th') ?? []).map(th => th.textContent)
 
   it('puts every rate rank under the rate it belongs to', async () => {
     lines.batting = [bat({ ab: 30, h: 12, tb: 18 })]
     show(player())
     // A field of one, so she is 1st in every rate. Every rank is the bare place with its field in
-    // the tooltip: AVG and OPS in the headline, OBP and SLG under their own columns of the standard
-    // line, and BsR in the strip under it. Waiting for all five is waiting for the card to load.
-    await waitFor(() => expect(screen.getAllByTitle('1st of 1')).toHaveLength(5))
+    // the tooltip, under its own figure in the summary. Waiting for all four is waiting for the
+    // card to load.
+    await waitFor(() => expect(screen.getAllByTitle('1st of 1')).toHaveLength(4))
     expect(screen.queryByText(/ of \d+$/)).not.toBeInTheDocument()
-    const heads = Array.from(lineTable()?.querySelectorAll('th') ?? []).map(th => th.textContent)
+    const heads = headsOf()
     const ranksBy = Object.fromEntries(heads.map((h, i) => [h, rankRow()[i] ?? '']))
-    expect(ranksBy.OBP).toBe('1st')
-    expect(ranksBy.SLG).toBe('1st')
-    // In the headline, so not printed again in the line under it.
-    expect(heads).not.toContain('AVG')
-    expect(heads).not.toContain('OPS')
+    for (const k of ['AVG', 'OBP', 'SLG', 'OPS']) expect(ranksBy[k]).toBe('1st')
+  })
+
+  it('draws the season as the line a reader expects, with the league under it', async () => {
+    lines.batting = [bat({ ab: 30, h: 12, tb: 18 })]
+    show(player())
+    await waitFor(() => expect(battingShown()).toBe(true))
+    expect(headsOf()).toEqual(['Season', 'G', 'PA', 'HR', 'AVG', 'OBP', 'SLG', 'OPS', 'wOBA', 'wRC+', 'WAR'])
+    const rows = Array.from(lineTable()?.querySelectorAll('tbody tr') ?? [])
+    expect(rows[0].querySelector('td')?.textContent).toBe('2026')
+    expect(rows[1].querySelector('td')?.textContent).toBe('League avg')
+  })
+
+  // The rest of the line is one tap away, and the choice is the reader's: kept for the next card.
+  it('opens the standard and advanced lines behind All stats', async () => {
+    lines.batting = [bat({ ab: 30, h: 12, tb: 18 })]
+    show(player())
+    await waitFor(() => expect(battingShown()).toBe(true))
+    expect(screen.queryByText('Standard')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'All stats' }))
+    expect(screen.getByText('Standard')).toBeInTheDocument()
+    expect(screen.getByText('Advanced')).toBeInTheDocument()
+    expect(headsOf(1)).toContain('AB')
+    expect(headsOf(2)).toContain('OPS+')
+    expect(localStorage.getItem('sd.playerCard.allStats')).toBe('1')
+    fireEvent.click(screen.getByRole('button', { name: 'Fewer stats' }))
+    expect(screen.queryByText('Standard')).not.toBeInTheDocument()
   })
 
   // Ranking someone with four trips to the plate would claim she is bad rather than that we do
@@ -374,12 +404,15 @@ describe('PlayerDetail: league ranks', () => {
     showInLeague(player(), [bat({ ab: 4, h: 2, tb: 3, sb: 3 })])
     await waitFor(() => expect(battingShown()).toBe(true))
     expect(screen.getByText(/Toward qualifying/i)).toBeInTheDocument()
-    expect(rankRow()).toContain('1st')
+    // Steals are in the standard line, behind All stats.
+    fireEvent.click(screen.getByRole('button', { name: 'All stats' }))
+    expect(rankRow(1)).toContain('1st')
+    fireEvent.click(screen.getByRole('button', { name: 'Fewer stats' }))
   })
 
   // Most of the roster leads nothing. Anything below the card's top-three bar leaves its cell
   // empty; the row itself is held open, blank, so the card is the height its loading state was
-  // and does not shrink when the ranks land (see SeasonLine's `reserveRanks`).
+  // and does not shrink when the ranks land (see StatTable's `reserveRanks`).
   it('leaves the rank row blank for a player who leads nothing', async () => {
     showInLeague(player(), [bat({ ab: 4, h: 1, tb: 1 })])
     await waitFor(() => expect(battingShown()).toBe(true))
@@ -393,10 +426,11 @@ describe('PlayerDetail: league ranks', () => {
   it('never ranks strikeouts', async () => {
     showInLeague(player(), [bat({ ab: 4, h: 1, tb: 1, so: 4, sb: 3 })])
     await waitFor(() => expect(battingShown()).toBe(true))
-    const heads = Array.from(lineTable()?.querySelectorAll('th') ?? []).map(th => th.textContent)
-    const soAt = heads.indexOf('SO')
+    fireEvent.click(screen.getByRole('button', { name: 'All stats' }))
+    const soAt = headsOf(1).indexOf('SO')
     expect(soAt).toBeGreaterThan(-1)
-    expect(rankRow()[soAt] ?? '').toBe('')
+    expect((rankRow(1)[soAt] ?? '').trim()).toBe('')
+    fireEvent.click(screen.getByRole('button', { name: 'Fewer stats' }))
   })
 
   // The retraction has to reach the reader who only looks at the big number, so the sample

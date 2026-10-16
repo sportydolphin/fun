@@ -19,9 +19,9 @@ import React, { lazy, startTransition, Suspense, useEffect, useMemo, useRef, use
 import { Box, Typography, CircularProgress, useMediaQuery, useTheme } from '@mui/material'
 import { CompareArrows, EmojiEvents, Star, StarBorder } from '@mui/icons-material'
 import {
-  CARD_TYPE as TYPE, StatCardContext, SeasonPicker, LineCaption, SeasonLine, RateStrip, CameoBlock, StatLogTable,
-  PlayerBand, BandBadge, BandChips, BAND_CHIP_SX, SectionHead, BATTING_BEST, PITCHING_BEST,
-  StatTip, CARD_SECTION_SX, type LineCol, type StatCardEnv,
+  CARD_TYPE as TYPE, StatCardContext, SeasonPicker, LineCaption, StatSummary, RoleHeading, CameoBlock, StatLogTable,
+  PlayerBand, BandBadge, BandChips, BAND_CHIP_SX, SectionHead, BATTING_BEST, PITCHING_BEST, BLOCK_GAP,
+  StatTip, type StatCol, type StatRank, type StatCardEnv,
 } from '../../ui/playerCard'
 import { DetailPageBar } from '../../ui/DetailPageBar'
 import { ModalShell } from '../../ui/ModalShell'
@@ -51,7 +51,9 @@ import {
   type Role, type CardScope, type MlbBio, type Career, type SeasonBundle, type LogGame, type SeasonRanks,
   type PitchUsage, type AwardTally, type FieldingLine,
 } from '../playerProfile'
-import type { Player, PlayerContract } from '../types'
+import type { LeaderboardEntry, Player, PlayerContract } from '../types'
+import { leagueLine } from '../lib/statsBoard'
+import { fetchLeagueStatsBySeason } from '../components/trendChartUtils'
 import type { PlayerSeason } from '../state/useMlbState'
 import { combineStatLines } from '../lib/gameScope'
 import { useSectionScroll } from '../../lib/sectionScroll'
@@ -107,8 +109,6 @@ const r3 = (v: any): string => {
 /** A postseason round, for marking October games when the log shows both. */
 const ROUND: Record<string, string> = { F: 'WC', D: 'DS', L: 'CS', W: 'WS' }
 
-const sectionSx = CARD_SECTION_SX
-
 /** Ten games before "Show more", where WPBL's card opens on five: five is under a week of a
  *  162-game schedule, and the jump from there to "Show 124 more" was most of a season. */
 const MLB_LOG_PREVIEW = 10
@@ -143,7 +143,7 @@ function PitchMix({ pitches }: { pitches: PitchUsage[] }) {
   // column instead of using two fifths of it.
   const top = Math.max(...pitches.map(p => p.share), 0.01)
   return (
-    <Box sx={{ mt: 2.5 }}>
+    <Box sx={{ mt: BLOCK_GAP }}>
       <SectionHead title="Pitch mix" part="pitches" caption={`${total.toLocaleString()} pitches`} />
       <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 8.5rem) 1fr 3rem 3.75rem', columnGap: 1, rowGap: 0.6, alignItems: 'center' }}>
         {pitches.map(p => (
@@ -177,7 +177,7 @@ function Fielding({ lines, season, onOpen }: {
   if (lines.length === 0) return null
   const join = (parts: (string | null)[]) => parts.filter(Boolean).join(' · ')
   return (
-    <Box sx={{ mt: 2.5 }}>
+    <Box sx={{ mt: BLOCK_GAP }}>
       <SectionHead title="Fielding" part="fielding" />
       {lines.slice(0, 4).map(f => {
         const s = f.stat
@@ -379,19 +379,24 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
 
   // ── per role ──────────────────────────────────────────────────────────────
 
-  const rankCell = (r: Role, label: string, value: number | null, rate = false): LineCol['rank'] => {
+  /** A counting rank worth printing: top ten, in a field big enough to mean it, and never a zero. */
+  const rankCell = (r: Role, label: string, value: number | null): StatRank | null => {
     const rk = ranksFor(r)?.ranks[label]
-    if (!rk) return null
-    if (rate) return rk
-    return rk.of >= MIN_FIELD && rk.rank <= MLB_RANK_BAR && (value ?? 0) > 0 ? rk : null
+    return rk && rk.of >= MIN_FIELD && rk.rank <= MLB_RANK_BAR && (value ?? 0) > 0 ? rk : null
   }
   const boardLink = (r: Role, label: string) => {
     const k = BOARD_KEY[r][label]
     return k && (scope === 'regular' || !hasPost) ? () => onOpenBoard(k, r) : undefined
   }
-  const col = (r: Role, label: string, value: string | number, rankValue?: number | null): LineCol => ({
-    label, value, rank: rankValue !== undefined ? rankCell(r, label, rankValue) : null, onRank: boardLink(r, label),
+  /** A count, ranked at the counting bar unless `ranked` is false. */
+  const countCol = (r: Role, label: string, value: number, ranked = true): StatCol => ({
+    label, value, rank: ranked ? rankCell(r, label, value) : null, onRank: boardLink(r, label),
   })
+  /** A rate, with the league's figure where the League avg row has one. Ranked at the same bar. */
+  const rateCol = (r: Role, label: string, value: string, league?: string | null): StatCol => {
+    const rk = ranksFor(r)?.ranks[label]
+    return { label, value, rank: rk && rk.rank <= MLB_RANK_BAR ? rk : null, onRank: boardLink(r, label), league }
+  }
 
   /** A reliever's line leads with the reliever's own count where a starter's leads with the record,
    *  as it does on every stat site: 2-3 says nothing about a closer, 31 SV says what the season was.
@@ -405,114 +410,132 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
   }
   const isReliever = (s: any) => n0(s.gamesStarted) === 0 && n0(s.gamesPlayed ?? s.gamesPitched) > 0
 
-  /**
-   * THE HEADLINE: the four numbers every stat site leads a player with. AVG, HR, RBI and OPS for a
-   * hitter; W-L (or saves), ERA, strikeouts and WHIP for a pitcher. ESPN's player header and
-   * MLB.com's are these same four, so a reader arriving from either finds them where they look.
-   * They carry their league rank with its field ("36th of 135"), which the line below does not.
-   */
-  const headline = (r: Role) => {
-    const s = lines[r] ?? {}
-    const rateCell = (label: string, value: string) => ({ label, value, rank: rankCell(r, label, null, true), onRank: boardLink(r, label) })
-    // A count's place in the whole field, not gated to the top five as the line's are: here it is
-    // the headline's own figure, as a rate's is. Nothing for a zero, which is not a place.
-    const countCell = (label: string, value: number) => {
-      const rk = ranksFor(r)?.ranks[label]
-      return { label, value: String(value), rank: rk && value > 0 ? rk : null, onRank: boardLink(r, label) }
-    }
-    if (r === 'pitching') {
-      return [
-        relieverLead(s) === 'SV' ? countCell('SV', n0(s.saves))
-          : relieverLead(s) === 'HLD' ? countCell('HLD', n0(s.holds))
-            : { label: 'W-L', value: `${n0(s.wins)}-${n0(s.losses)}` },
-        rateCell('ERA', rate(s.era)),
-        countCell('SO', n0(s.strikeOuts)),
-        rateCell('WHIP', rate(s.whip)),
-      ]
-    }
-    return [rateCell('AVG', rate(s.avg)), countCell('HR', n0(s.homeRuns)), countCell('RBI', n0(s.rbi)), rateCell('OPS', rate(s.ops))]
-  }
+  // THE LEAGUE ROW, from every player's season, which the trend chart already reads (cached), summed
+  // as the Stats table sums its own league line. The regular season only, since that is what the
+  // read holds, and no row on the career, which has no one league to stand beside.
+  const leagueOn = !careerView && season != null && (scope === 'regular' || !hasPost)
+  const leagueHit = useLoaded<any[]>(leagueOn ? `lg-h-${season}` : null, () => fetchLeagueStatsBySeason(season!, 'hitting'))
+  const leaguePit = useLoaded<any[]>(leagueOn ? `lg-p-${season}` : null, () => fetchLeagueStatsBySeason(season!, 'pitching'))
+  const lg: Record<Role, Record<string, string> | null> = useMemo(() => ({
+    hitting: leagueHit ? leagueLine(leagueHit.map(stat => ({ stat })) as LeaderboardEntry[], 'hitting') : null,
+    pitching: leaguePit ? leagueLine(leaguePit.map(stat => ({ stat })) as LeaderboardEntry[], 'pitching') : null,
+  }), [leagueHit, leaguePit])
+  // StatsAPI's sabermetrics are the regular season's, and a season's: none for a career or October.
+  const saberOn = !careerView && (scope === 'regular' || !hasPost)
+  const twoWay = plan.roles.length > 1
 
   /**
-   * THE STANDARD LINE, in MLB.com's own column order: counting stats, then the rates at the end, as
-   * every stat site's table has them. Every column always drawn, so 3B and CS sit where a reader
-   * expects them even at zero. The less-read columns (HBP, SH, SF, GDP; HBP, WP, BK) follow the rates
-   * only once they have happened, in Baseball-Reference's order (GDP, HBP, SH, SF), and the pitch count
-   * closes a pitching line as the one figure saying how hard the innings were.
+   * THE SUMMARY: the line a reader expects, as every stat site prints a player's season. G, PA and
+   * home runs, the slash line, then what the slash line cannot say (wOBA, wRC+, WAR). For a pitcher
+   * the workload, the record (or saves, or holds), the rates, FIP and WAR.
    *
-   * A stat in the headline keeps its rank there and not here, so no figure is ranked twice.
+   * WAR IS THE ROLE'S OWN on a two-way season, said in the label, since a table of hitting with the
+   * player's whole WAR in it would credit the bat with the arm's work.
    */
-  const seasonCols = (r: Role): LineCol[] => {
+  const summaryCols = (r: Role): StatCol[] => {
     const s = lines[r] ?? {}
-    const inHead = new Set(headline(r).map(c => c.label))
-    // A rate in the line is ranked only at the counting bar: "1st" under OBP, never "36th".
-    const rateCol = (label: string, value: string): LineCol => {
-      const rk = ranksFor(r)?.ranks[label]
-      return { label, value, rank: !inHead.has(label) && rk && rk.rank <= MLB_RANK_BAR ? rk : null, onRank: boardLink(r, label) }
-    }
-    const countCol = (label: string, value: number, ranked = true) =>
-      col(r, label, value, ranked && !inHead.has(label) ? value : undefined)
+    const sab = saberOn ? bundle?.saber[r] : null
+    const L = lg[r]
+    const war: StatCol = { label: twoWay ? (r === 'pitching' ? 'Pit WAR' : 'Pos WAR') : 'WAR', term: 'WAR', value: dec(sab?.war, 1) }
     if (r === 'pitching') {
+      const lead = relieverLead(s)
       return [
-        countCol('W', n0(s.wins)),
-        countCol('L', n0(s.losses), false),
-        rateCol('ERA', rate(s.era)),
-        countCol('G', n0(s.gamesPlayed ?? s.gamesPitched), false),
-        countCol('GS', n0(s.gamesStarted), false),
-        countCol('SV', n0(s.saves)),
-        // Holds beside saves, where a reliever's line keeps them, and only once there are any: a
-        // starter's line has no use for the column. It used to be a stray "18 HLD" in the caption.
-        ...(n0(s.holds) ? [countCol('HLD', n0(s.holds), false)] : []),
-        { ...col(r, 'IP', s.inningsPitched ?? '0.0', ipToOuts(s.inningsPitched)) },
-        countCol('H', n0(s.hits), false),
-        countCol('R', n0(s.runs), false),
-        countCol('ER', n0(s.earnedRuns), false),
-        countCol('HR', n0(s.homeRuns), false),
-        countCol('BB', n0(s.baseOnBalls), false),
-        countCol('SO', n0(s.strikeOuts)),
-        rateCol('WHIP', rate(s.whip)),
-        ...(n0(s.hitBatsmen) ? [countCol('HBP', n0(s.hitBatsmen), false)] : []),
-        ...(n0(s.wildPitches) ? [countCol('WP', n0(s.wildPitches), false)] : []),
-        ...(n0(s.balks) ? [countCol('BK', n0(s.balks), false)] : []),
-        countCol('P', n0(s.numberOfPitches), false),
+        countCol(r, 'G', n0(s.gamesPlayed ?? s.gamesPitched), false),
+        countCol(r, 'GS', n0(s.gamesStarted), false),
+        { ...countCol(r, 'IP', ipToOuts(s.inningsPitched)), value: s.inningsPitched ?? '0.0' },
+        lead === 'SV' ? countCol(r, 'SV', n0(s.saves)) : lead === 'HLD' ? countCol(r, 'HLD', n0(s.holds), false)
+          : { label: 'W-L', value: `${n0(s.wins)}-${n0(s.losses)}` },
+        rateCol(r, 'ERA', rate(s.era), L?.era),
+        rateCol(r, 'WHIP', rate(s.whip), L?.whip),
+        countCol(r, 'SO', n0(s.strikeOuts)),
+        countCol(r, 'BB', n0(s.baseOnBalls), false),
+        { label: 'FIP', value: dec(sab?.fip, 2) },
+        war,
       ]
     }
     return [
-      countCol('G', n0(s.gamesPlayed), false),
-      countCol('AB', n0(s.atBats), false),
-      countCol('R', n0(s.runs)),
-      countCol('H', n0(s.hits)),
-      countCol('2B', n0(s.doubles)),
-      countCol('3B', n0(s.triples)),
-      countCol('HR', n0(s.homeRuns)),
-      countCol('RBI', n0(s.rbi)),
-      countCol('BB', n0(s.baseOnBalls)),
-      // Never ranked: second in the league in strikeouts is not an achievement.
-      countCol('SO', n0(s.strikeOuts), false),
-      countCol('SB', n0(s.stolenBases)),
-      countCol('CS', n0(s.caughtStealing), false),
-      { ...rateCol('AVG', rate(s.avg)), breakBefore: true },
-      rateCol('OBP', rate(s.obp)),
-      rateCol('SLG', rate(s.slg)),
-      rateCol('OPS', rate(s.ops)),
-      // The extras start a row of their own when the line folds, whichever of them is first.
-      ...[
-        ...(n0(s.groundIntoDoublePlay) ? [countCol('GDP', n0(s.groundIntoDoublePlay), false)] : []),
-        ...(n0(s.hitByPitch) ? [countCol('HBP', n0(s.hitByPitch), false)] : []),
-        ...(n0(s.sacBunts) ? [countCol('SH', n0(s.sacBunts), false)] : []),
-        ...(n0(s.sacFlies) ? [countCol('SF', n0(s.sacFlies), false)] : []),
-      ].map((c, i) => (i === 0 ? { ...c, breakBefore: true } : c)),
+      countCol(r, 'G', n0(s.gamesPlayed), false),
+      countCol(r, 'PA', n0(s.plateAppearances), false),
+      countCol(r, 'HR', n0(s.homeRuns)),
+      rateCol(r, 'AVG', rate(s.avg), L?.avg),
+      rateCol(r, 'OBP', rate(s.obp), L?.obp),
+      rateCol(r, 'SLG', rate(s.slg), L?.slg),
+      rateCol(r, 'OPS', rate(s.ops), L?.ops),
+      { label: 'wOBA', value: r3(sab?.woba) },
+      // 100 is the league by definition, so the row needs no read for it.
+      { label: 'wRC+', value: sab?.wRcPlus != null ? Math.round(sab.wRcPlus) : '—', league: leagueOn ? 100 : null },
+      war,
     ]
   }
 
-  /** The season line's caption: which season (and the picker), how much of one, the scope toggle. */
-  const lineCaption = (r: Role, withScope: boolean) => {
+  /**
+   * THE STANDARD LINE, behind All stats, in MLB.com's own column order: counting stats, then the
+   * rates at the end, as every stat site's table has them. Every column always drawn, so 3B and CS
+   * sit where a reader expects them even at zero. The less-read columns (HBP, SH, SF, GDP; HBP, WP,
+   * BK) follow the rates only once they have happened, in Baseball-Reference's order, and the pitch
+   * count closes a pitching line as the one figure saying how hard the innings were.
+   */
+  const standardCols = (r: Role): StatCol[] => {
+    const s = lines[r] ?? {}
+    const L = lg[r]
+    if (r === 'pitching') {
+      return [
+        countCol(r, 'W', n0(s.wins)),
+        countCol(r, 'L', n0(s.losses), false),
+        rateCol(r, 'ERA', rate(s.era), L?.era),
+        countCol(r, 'G', n0(s.gamesPlayed ?? s.gamesPitched), false),
+        countCol(r, 'GS', n0(s.gamesStarted), false),
+        countCol(r, 'SV', n0(s.saves)),
+        // Holds beside saves, where a reliever's line keeps them, and only once there are any.
+        ...(n0(s.holds) ? [countCol(r, 'HLD', n0(s.holds), false)] : []),
+        { ...countCol(r, 'IP', ipToOuts(s.inningsPitched)), value: s.inningsPitched ?? '0.0' },
+        countCol(r, 'H', n0(s.hits), false),
+        countCol(r, 'R', n0(s.runs), false),
+        countCol(r, 'ER', n0(s.earnedRuns), false),
+        countCol(r, 'HR', n0(s.homeRuns), false),
+        countCol(r, 'BB', n0(s.baseOnBalls), false),
+        countCol(r, 'SO', n0(s.strikeOuts)),
+        rateCol(r, 'WHIP', rate(s.whip), L?.whip),
+        ...(n0(s.hitBatsmen) ? [countCol(r, 'HBP', n0(s.hitBatsmen), false)] : []),
+        ...(n0(s.wildPitches) ? [countCol(r, 'WP', n0(s.wildPitches), false)] : []),
+        ...(n0(s.balks) ? [countCol(r, 'BK', n0(s.balks), false)] : []),
+        countCol(r, 'P', n0(s.numberOfPitches), false),
+      ]
+    }
+    return [
+      countCol(r, 'G', n0(s.gamesPlayed), false),
+      countCol(r, 'PA', n0(s.plateAppearances), false),
+      countCol(r, 'AB', n0(s.atBats), false),
+      countCol(r, 'R', n0(s.runs)),
+      countCol(r, 'H', n0(s.hits)),
+      countCol(r, '2B', n0(s.doubles)),
+      countCol(r, '3B', n0(s.triples)),
+      countCol(r, 'HR', n0(s.homeRuns)),
+      countCol(r, 'RBI', n0(s.rbi)),
+      countCol(r, 'BB', n0(s.baseOnBalls)),
+      // Never ranked: second in the league in strikeouts is not an achievement.
+      countCol(r, 'SO', n0(s.strikeOuts), false),
+      countCol(r, 'SB', n0(s.stolenBases)),
+      countCol(r, 'CS', n0(s.caughtStealing), false),
+      rateCol(r, 'AVG', rate(s.avg), L?.avg),
+      rateCol(r, 'OBP', rate(s.obp), L?.obp),
+      rateCol(r, 'SLG', rate(s.slg), L?.slg),
+      rateCol(r, 'OPS', rate(s.ops), L?.ops),
+      ...(n0(s.groundIntoDoublePlay) ? [countCol(r, 'GDP', n0(s.groundIntoDoublePlay), false)] : []),
+      ...(n0(s.hitByPitch) ? [countCol(r, 'HBP', n0(s.hitByPitch), false)] : []),
+      ...(n0(s.sacBunts) ? [countCol(r, 'SH', n0(s.sacBunts), false)] : []),
+      ...(n0(s.sacFlies) ? [countCol(r, 'SF', n0(s.sacFlies), false)] : []),
+    ]
+  }
+
+  /** How much of a season the role's numbers are: plate appearances, and how far a live season
+   *  is from qualifying. On the season caption on a phone, on the role's heading on a desktop. */
+  const sampleMeta = (r: Role): string => {
     const s = lines[r] ?? {}
     const rk = ranksFor(r)
     // The shortfall is a distance still to cover, so only for a season still being played: on a
     // finished one "496 PA from qualifying" reads as a target for a year that is over.
     const live = !careerView && season === CURRENT_SEASON
-    const noun = hasPost && scope === 'post' ? 'postseason' : 'season'
     // How many seasons the career line covers, for this role: a pitcher's two years at the plate in
     // an NL park are not nine seasons of batting.
     const span = careerView ? career?.[r].length ?? 0 : 0
@@ -531,11 +554,17 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
       parts.push(`${pa} PA`)
       if (live && rk && short > 0 && !rk.ranks.AVG) parts.push(`${short} PA from qualifying`)
     }
+    return parts.join(' · ')
+  }
+
+  /** The season's caption: which season (and the picker), how much of one, the scope toggle. */
+  const lineCaption = (r: Role | null, withScope: boolean) => {
+    const noun = hasPost && scope === 'post' ? 'postseason' : 'season'
     return (
       <LineCaption
         picker={<SeasonPicker career label={careerView ? 'Career' : `${season} ${noun}`} season={careerView ? 'career' : season!}
           seasons={seasons} onChange={pickSeason} />}
-        meta={parts.join(' · ')}
+        meta={r ? sampleMeta(r) : undefined}
         control={withScope && hasPost ? (
           <PillGroup
             options={[{ value: 'regular', label: 'Regular' }, { value: 'post', label: 'Playoffs' }, { value: 'all', label: 'Both' }]}
@@ -586,17 +615,20 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
     )
   }
 
-  /** The metrics only StatsAPI's sabermetric and Statcast reads carry. Regular season only, since
-   *  that is all StatsAPI computes them for. */
-  const advanced = (r: Role) => {
-    if (!bundle || (hasPost && scope !== 'regular')) return null
+  /** The metrics only StatsAPI's sabermetric and Statcast reads carry, behind All stats. Regular
+   *  season only, since that is all StatsAPI computes them for. WAR and wRC+ are FanGraphs' method,
+   *  the x-stats Statcast's (the glossary says which, on each header's tooltip). */
+  const advancedCols = (r: Role): StatCol[] | null => {
+    if (!bundle || !saberOn) return null
     const sab = bundle.saber[r], adv = bundle.advanced[r], xs = bundle.expected[r]
     if (!sab && !adv && !xs) return null
-    const cells: LineCol[] = r === 'pitching' ? [
-      { label: 'WAR', value: dec(sab?.war, 1) },
+    const war: StatCol = { label: twoWay ? (r === 'pitching' ? 'Pit WAR' : 'Pos WAR') : 'WAR', term: 'WAR', value: dec(sab?.war, 1) }
+    // ERA- and wRC+ are 100 at the league by definition; nothing else here has a league figure on hand.
+    return r === 'pitching' ? [
+      war,
       { label: 'FIP', value: dec(sab?.fip, 2) },
       { label: 'xFIP', value: dec(sab?.xfip, 2) },
-      { label: 'ERA-', value: sab?.eraMinus != null ? Math.round(sab.eraMinus) : '—' },
+      { label: 'ERA-', value: sab?.eraMinus != null ? Math.round(sab.eraMinus) : '—', league: leagueOn ? 100 : null },
       { label: 'K%', value: pct(adv?.strikeoutsPerPlateAppearance) },
       { label: 'BB%', value: pct(adv?.walksPerPlateAppearance) },
       { label: 'K-BB%', value: pct(adv?.strikeoutsMinusWalksPercentage) },
@@ -605,8 +637,8 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
       { label: 'xBA', value: rate(xs?.avg) },
       { label: 'xwOBA', value: rate(xs?.woba) },
     ] : [
-      { label: 'WAR', value: dec(sab?.war, 1) },
-      { label: 'wRC+', value: sab?.wRcPlus != null ? Math.round(sab.wRcPlus) : '—' },
+      war,
+      { label: 'wRC+', value: sab?.wRcPlus != null ? Math.round(sab.wRcPlus) : '—', league: leagueOn ? 100 : null },
       { label: 'wOBA', value: r3(sab?.woba) },
       { label: 'xBA', value: rate(xs?.avg) },
       { label: 'xSLG', value: rate(xs?.slg) },
@@ -617,11 +649,19 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
       { label: 'BB%', value: pct(adv?.walksPerPlateAppearance) },
       { label: 'Whiff%', value: adv?.totalSwings ? pct(n0(adv.swingAndMisses) / n0(adv.totalSwings)) : '—' },
     ]
+  }
+
+  /** The row's label: the year, or what the slice is when it is not a plain season. */
+  const lead = careerView ? 'Career' : hasPost && scope === 'post' ? 'Playoffs' : hasPost && scope === 'all' ? 'Total' : String(season ?? '')
+  /** A role's numbers: the summary table and, behind All stats, the standard and advanced lines. */
+  const statSummary = (r: Role) => {
+    const adv = advancedCols(r)
     return (
-      <Box sx={{ mt: 2.5 }}>
-        <SectionHead title="Advanced" part="advanced" caption="WAR and wRC+ by FanGraphs' method · x-stats from Statcast" />
-        <SeasonLine cols={cells} />
-      </Box>
+      <StatSummary accent={ACCENT_TEXT} league={leagueOn}
+        reserveRanks={!careerView && (scope === 'regular' || !hasPost)}
+        summary={{ lead, cols: summaryCols(r) }}
+        standard={{ lead, cols: standardCols(r) }}
+        advanced={adv ? { lead, cols: adv } : null} />
     )
   }
 
@@ -689,21 +729,23 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
   // The trend follows the page's own year menu: a season draws its rolling line, the career a point
   // a year. It had a "2026 / Career" switch of its own, which was the menu above it again.
   const trend = career ? (
-    <Box sx={{ mt: 2.5 }}>
+    <Box sx={{ mt: BLOCK_GAP }}>
       <TrendSection career={career} log={log ?? []} roles={plan.roles} season={season!}
         mode={careerView ? 'career' : 'rolling'} official={bundle ?? null} onYear={pickSeason} />
     </Box>
   ) : null
 
-  /** One role in full. `first` carries the scope toggle, so a two-way page has one of them. */
+  /**
+   * One role in full, in WPBL's order: on a desktop a real heading carrying the sample (the season's
+   * picker and scope sit once above every role), on a phone the season caption; then the season as a
+   * stat table with All stats under it.
+   */
   const roleBlock = (r: Role, first: boolean) => (
-    <Box key={r} sx={{ mb: 3.5, '&:last-of-type': { mb: 0 } }}>
-      {wide && plan.roles.length > 1 && (
-        <Typography sx={{ ...sectionSx, color: ACCENT_TEXT, mb: 1 }}>{r === 'pitching' ? 'Pitching' : 'Batting'}</Typography>
-      )}
-      {lineCaption(r, first || !wide)}
-      <Box sx={{ mb: 1.5 }}><RateStrip cells={headline(r)} /></Box>
-      <SeasonLine cols={seasonCols(r)} headline={headline(r).map(c => c.label)} />
+    <Box key={r}>
+      {wide
+        ? <RoleHeading title={r === 'pitching' ? 'Pitching' : 'Batting'} caption={sampleMeta(r)} first={first} />
+        : lineCaption(r, true)}
+      {statSummary(r)}
       {cameo(r)}
       {/* On the career, the year-by-year IS the log: it is what the line above adds up.
           THE TREND SITS UNDER THE LOG, once a page. It is the one picture on the card and the shape
@@ -716,7 +758,6 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
         {logTable(r)}
         {first && trend}
         {splitsTable(r)}
-        {advanced(r)}
         {r === 'pitching' && (scope === 'regular' || !hasPost) && <PitchMix pitches={pitchMix ?? []} />}
         {careerTable(r)}
       </>}
@@ -812,6 +853,8 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
               />
             </Box>
           )}
+          {/* The season, once, over every role: its picker and scope re-slice all of them. */}
+          {wide && lineCaption(null, true)}
           {wide || plan.roles.length < 2 ? shownRoles.map((r, i) => roleBlock(r, i === 0)) : (
             // The two roles page under a finger, as on WPBL's card. Bled to the card's edges with the
             // gutter handed back per pane, so a pane slides off the screen rather than clipping at the
@@ -831,12 +874,12 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
         </>
       )}
       {contract && (
-        <Box sx={{ mt: 3 }}>
+        <Box sx={{ mt: BLOCK_GAP }}>
           <SectionHead title="Contract" part="contract" />
           <ContractPanel contract={contract} currentSeason={CURRENT_SEASON} />
         </Box>
       )}
-      <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap', mt: 3 }}>
+      <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap', mt: BLOCK_GAP }}>
         <Box component="a" href={`https://www.baseball-reference.com/search/search.fcgi?search=${encodeURIComponent(name)}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Reference ↗</Box>
         <Box component="a" href={`https://baseballsavant.mlb.com/savant-player/${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${playerId}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Savant ↗</Box>
       </Box>
