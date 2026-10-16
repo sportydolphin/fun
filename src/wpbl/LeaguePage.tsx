@@ -29,9 +29,7 @@ import { wpblPlayerPath, wpblTeamPath, WPBL_GLOSSARY_PAGE, wpblSeasonPath } from
 import WpblPage, { SectionHeading } from './WpblPage'
 import type { WpblPlayer, WpblTeam, WpblGame } from './types'
 import { track, EVENTS } from '../lib/analytics'
-
-const isModified = (e: React.MouseEvent) =>
-  e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
+import { isModified } from '../nav'
 
 export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string) => void }) {
   const dark = useDark()

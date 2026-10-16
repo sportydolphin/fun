@@ -3,6 +3,7 @@ import {
   wpblPlayerPath, wpblGamePath, wpblTeamPath,
   type WpblSluggable, type WpblSluggableGame, type WpblSluggableTeam,
 } from './routes'
+import { isModified } from '../nav'
 
 // Turns any Box/Typography that opens a player or a game into a real <a href>.
 //
@@ -72,7 +73,7 @@ export function WpblLinkProvider({ roster, schedule, teams, children }: {
         // history entries, one of them a dead Back) and a cmd-click opens a new tab AND the
         // modal in the tab you were reading.
         e.stopPropagation()
-        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+        if (isModified(e)) return
         e.preventDefault()
         open?.(subject)
       },

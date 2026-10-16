@@ -6,6 +6,7 @@ import { SegNav } from './SegNav'
 import { pressable, FOCUS_RING, TAPPABLE } from './interaction'
 import { typePx } from './scale'
 import { useDark } from './useDark'
+import { ordinal } from '../lib/format'
 
 // The game preview, for both sections: the two clubs' season numbers set against each other as
 // diverging bars, the frame around them, and the matchup line on top. Each section drew all of this
@@ -39,13 +40,6 @@ export interface PreviewSide {
   onOpen?: () => void
   /** The chip's accessible name when it opens something, e.g. "Boston Red Sox team page". */
   openLabel?: string
-}
-
-function ordinal(n: number): string {
-  // 11th/12th/13th are the exceptions to the 1st/2nd/3rd pattern.
-  const suffix = n % 100 >= 11 && n % 100 <= 13 ? 'th'
-    : n % 10 === 1 ? 'st' : n % 10 === 2 ? 'nd' : n % 10 === 3 ? 'rd' : 'th'
-  return `${n}${suffix}`
 }
 
 export const PREVIEW_SHIMMER = {

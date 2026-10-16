@@ -289,16 +289,6 @@ export function MatchupTable({ player, side, lines, players, scope, accent }: {
  *  one above the other open to the same height. */
 const MATCHUP_PREVIEW = 5
 
-/** "Aug 21" for a game date. One formatter for the module: `toLocaleDateString` builds a new one
- *  per call, and at one per game-log row it was 40ms of every render on a mid-range phone. */
-const SHORT_DATE = new Intl.DateTimeFormat([], { month: 'short', day: 'numeric' })
-const shortDateCache = new Map<string, string>()
-export function shortDate(gameDate: string): string {
-  let s = shortDateCache.get(gameDate)
-  if (s == null) { s = SHORT_DATE.format(new Date(`${gameDate}T00:00:00`)); shortDateCache.set(gameDate, s) }
-  return s
-}
-
 /**
  * "Compare" in the modal's header bar, beside Copy link.
  *

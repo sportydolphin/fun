@@ -416,13 +416,3 @@ function rankOne<T extends { player: WpblPlayer; totals: unknown }>(
 
 /** "2nd" / "3rd" / "11th". Used beside the headline stat, where "rank 2 of 47" reads as a
  *  database row and "2nd in the WPBL" reads as a fact about a season. */
-export function ordinal(n: number): string {
-  const mod100 = n % 100
-  if (mod100 >= 11 && mod100 <= 13) return `${n}th`
-  switch (n % 10) {
-    case 1: return `${n}st`
-    case 2: return `${n}nd`
-    case 3: return `${n}rd`
-    default: return `${n}th`
-  }
-}

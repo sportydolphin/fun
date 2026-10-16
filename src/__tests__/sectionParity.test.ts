@@ -2,8 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { readdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 
-// A component FILE NAME that exists in both src/wpbl and src/mlb is usually the same thing drawn
-// twice, and two copies of one thing drift one fix at a time. That is how the second alignment pass
+// A FILE NAME that exists in both src/wpbl and src/mlb is usually the same thing written twice,
+// and two copies of one thing drift one fix at a time. Modules count as well as components: until
+// Oct 15, 2026 this read `.tsx` only, and the two recent-searches stores sat side by side unread. That is how the second alignment pass
 // (ROADMAP.md) came to spend October merging chips, pills, info tips, headings and game rows that
 // each section had built for itself. Neither section may import the other, so the shared half
 // belongs in src/ui/ (or src/league/ for an engine), and the section file binds its own parts to it.
@@ -22,19 +23,33 @@ const ALLOWED: Record<string, string> = {
   // Still two drawings. Each is a candidate for a shared frame, and taking it off this list is how
   // that is recorded.
   'PlayoffBracket.tsx': "not yet shared; MLB's retires with the postseason on Nov 1",
+
+  // Modules. Each section's data comes from a different place (WPBL: our own Supabase mirror of the
+  // league feed; MLB: StatsAPI), so the reads, the row shapes and the rules over them are per league.
+  'api.ts': "the section's reads: WPBL's Supabase tables, MLB's StatsAPI",
+  'types.ts': "the section's row shapes: WPBL's tables, MLB's StatsAPI payloads",
+  'constants.ts': "each league's clubs, logos, colours and stat definitions",
+  'routes.ts': "each section's URL map; the shell and the edge functions read both",
+  'league.ts': "binds each league's innings, pitch letters and run counting to the engines in src/league",
+  'finderLink.ts': "binds each league's clubs and Find address to src/league/finder.ts",
+  'recentSearches.ts': "binds each section's key, column and item shape to src/lib/recentSearches.ts",
+  'gameStart.ts': "each league's 'game is starting' source over the one builder in shared/notifications.js",
+  'compare.ts': "each league's comparison rules: WPBL's from our own lines and plays, MLB's from StatsAPI with WAR and the head-to-head",
+  'searchAnswers.ts': "each league's stat answers in the search box, read through its own stats table; the parsing is src/league/finderParse.ts",
+  'ogCard.ts': "the words on each league's link preview, from its own data; both run in a Pages function",
 }
 
-const componentFiles = (dir: string): string[] => readdirSync(join(process.cwd(), dir), { withFileTypes: true })
+const sourceFiles = (dir: string): string[] => readdirSync(join(process.cwd(), dir), { withFileTypes: true })
   .flatMap(e => e.isDirectory()
-    ? (e.name === '__tests__' || e.name === 'dev' ? [] : componentFiles(join(dir, e.name)))
-    : e.name.endsWith('.tsx') ? [e.name] : [])
+    ? (e.name === '__tests__' || e.name === 'dev' ? [] : sourceFiles(join(dir, e.name)))
+    : /\.tsx?$/.test(e.name) && !e.name.endsWith('.d.ts') ? [e.name] : [])
 
 describe('one drawing per thing across the two sections', () => {
-  const wpbl = new Set(componentFiles('src/wpbl'))
-  const mlb = new Set(componentFiles('src/mlb'))
+  const wpbl = new Set(sourceFiles('src/wpbl'))
+  const mlb = new Set(sourceFiles('src/mlb'))
   const both = [...wpbl].filter(f => mlb.has(f)).sort()
 
-  it('has no component file in both sections without a written reason', () => {
+  it('has no file in both sections without a written reason', () => {
     expect(both.filter(f => !(f in ALLOWED))).toEqual([])
   })
 

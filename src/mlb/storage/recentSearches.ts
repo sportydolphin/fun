@@ -1,6 +1,8 @@
-// Recent searches: the players and teams a user has opened, most-recent first.
-// Stored in localStorage (works logged-out / offline) and, when signed in, mirrored
-// to the user_preferences.recent_searches column so they sync across devices.
+// Recent MLB searches: MLB's binding of the shared store in src/lib/recentSearches.ts, synced to
+// `user_preferences.recent_searches`. Its items carry what MLB's rows draw from (the club for a
+// player's logo tint, the position for the subtitle), so they are not WPBL's.
+
+import { useRecents, type RecentStore } from '../../lib/recentSearches'
 
 export interface RecentSearchItem {
   type:      'player' | 'team'
@@ -10,28 +12,13 @@ export interface RecentSearchItem {
   position?: string   // player position abbreviation, for the row subtitle
 }
 
-const KEY = 'mlb_recent_searches'
-export const RECENT_MAX = 12
-
-function isValid(x: any): x is RecentSearchItem {
-  return x && (x.type === 'player' || x.type === 'team') && typeof x.id === 'number' && typeof x.name === 'string'
+function isValid(x: unknown): x is RecentSearchItem {
+  const r = x as RecentSearchItem
+  return !!r && (r.type === 'player' || r.type === 'team') && typeof r.id === 'number' && typeof r.name === 'string'
 }
 
-export function getLocalRecentSearches(): RecentSearchItem[] {
-  try {
-    const raw = localStorage.getItem(KEY)
-    const arr = raw ? JSON.parse(raw) : []
-    return Array.isArray(arr) ? arr.filter(isValid).slice(0, RECENT_MAX) : []
-  } catch { return [] }
+const MLB_RECENTS: RecentStore<RecentSearchItem> = {
+  key: 'mlb_recent_searches', column: 'recent_searches', max: 12, isValid,
 }
 
-export function setLocalRecentSearches(items: RecentSearchItem[]): void {
-  try { localStorage.setItem(KEY, JSON.stringify(items.slice(0, RECENT_MAX))) } catch {}
-}
-
-// Move `item` to the front, dedup by type+id, cap the list.
-export function mergeRecent(list: RecentSearchItem[], item: RecentSearchItem): RecentSearchItem[] {
-  if (!isValid(item)) return list
-  const deduped = list.filter(x => !(x.type === item.type && x.id === item.id))
-  return [item, ...deduped].slice(0, RECENT_MAX)
-}
+export const useMlbRecents = (userId: string | null) => useRecents(MLB_RECENTS, userId)

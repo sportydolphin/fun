@@ -30,9 +30,8 @@ import WpblPage from './WpblPage'
 import type { WpblGame, WpblTeam } from './types'
 import { track, EVENTS } from '../lib/analytics'
 import { TYPE_SCALE } from '../ui/card'
-
-const isModified = (e: React.MouseEvent) =>
-  e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
+import { isModified } from '../nav'
+import { shortDate } from '../lib/format'
 
 // The replay spreads a fixed length across however many finals there are, so it stays watchable as
 // the seasons stack (about 190ms a game across 2026's finals), inside bounds that keep one step
@@ -75,9 +74,6 @@ const readClubColors = (): boolean => {
 const writeClubColors = (on: boolean) => {
   try { localStorage.setItem(CLUB_COLORS_KEY, on ? '1' : '0') } catch { /* private mode / quota */ }
 }
-
-const shortDate = (iso: string | null | undefined): string =>
-  iso ? new Date(`${iso}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''
 
 export default function WpblScorigami({ onOpenGame }: {
   // Opens a game as a modal hovering over this page, rather than navigating to it (which would

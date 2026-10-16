@@ -556,7 +556,8 @@ will actually see all winter. The functional items do not wait.
    predictions (wait for October's numbers in "MLB: what gets used"), the charts (SVG labels),
    `GamePreview` (shared with WPBL in v1.167.0, and off the list since), Standings and the player card's `cards.tsx` (after
    Nov 1, when the bracket mode retires), and `SeriesSheet`'s 1.9 to 2.4rem score, which needs a
-   step above `page` shared with WPBL's series page (2 to 3rem) rather than a guess in one file.
+   step above `page` shared with WPBL's series page (2 to 3rem) rather than a guess in one file
+   (✅ Oct 15, v1.167.3: `TYPE_SCALE.hero`, item 2 below).
 
 **From the Oct 15 audit, in order** (none waits on Nov 1):
 
@@ -594,13 +595,23 @@ will actually see all winter. The functional items do not wait.
    `playerProfile.ts`, `views/MlbPlayerDetail.tsx`, `wpbl/ogCard.ts`). The modified-click test
    (`isModified`) is copied ten times while `src/nav.ts` holds the same test inline; export it from
    there. `shortDate` is copied six times across both sections.
+   ✅ *Oct 15:* `ordinal` and `shortDate` live in `src/lib/format.ts` (no imports, since the Deno
+   ingest loads it through `derive/predictions.ts`), the innings pair in `league/innings.ts` (its
+   `ipToOuts` now takes StatsAPI's numbers too), and `isModified` is exported from `src/nav.ts`,
+   which also took the toolbar's, More's and seven inline copies. `shortDate` reads the digits
+   rather than a locale, so every copy now says "Aug 5". *Kept:* Home's player cards' "Thu, Oct 16",
+   a different format.
 4. **One recent-searches store.** WPBL's `recentSearches.ts` (145 lines, synced across devices)
    and MLB's `storage/recentSearches.ts` (37 lines) keep the same list two ways. One store in
    `src/lib/`, each section binding its own column.
+   ✅ *Oct 15:* `src/lib/recentSearches.ts` (`useRecents`), bound by `wpbl/recentSearches.ts` and
+   `mlb/storage/recentSearches.ts`. MLB gains what WPBL's copy had learned: a pick made while the
+   stored list loads is kept, and one made just before leaving the section still saves.
 5. **The parity test reads `.ts` too.** `sectionParity.test.ts` checks `.tsx` names only, so 11
    `.ts` names in both sections pass unread (`compare`, `searchAnswers`, `recentSearches`,
    `ogCard`, `finderLink`, `gameStart` among them). Extend it, with a written reason for each pair
    that is rightly per league (`api`, `types`, `routes`, `league`).
+   ✅ *Oct 15:* it reads every `.ts` and `.tsx` name; twelve module pairs, each with its reason.
 6. **Split WPBL's largest files into folders,** as #103 did for Home and Game Center:
    `StatsView.tsx` (191 KB), `WpblApp.tsx` (151 KB), `PlayerDetail.tsx` (116 KB), `FanVote.tsx`
    (111 KB), `SeasonPage.tsx` (91 KB). ✅ *Stats, the shell and the player card done Oct 15*
@@ -609,6 +620,9 @@ will actually see all winter. The functional items do not wait.
 7. **What's new loads every release ever written.** `ChangelogDialogs` is the third-largest chunk,
    80 KB gzipped, because `changelog.ts` imports every archive back to v1.000. Load the archives
    only when a reader scrolls past the newest releases.
+   ✅ *Oct 15:* the two oldest archives load on "Show earlier updates"; the dialog's chunk is
+   17.5 KB gzipped. 1.100 to 1.149 stays with it, since the dialog opens on five days and the
+   newest file holds four.
 
 Checked and fine: knip finds one unused exported type (`FinderSide` in `wpbl/derive/finder.ts`);
 the 368 preload links in the built `index.html` are by design, the MLB ones inert inside

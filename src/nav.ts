@@ -69,6 +69,13 @@ export function navBack(fallback: string) {
   else navigate(fallback)
 }
 
+/** A click the browser should keep: cmd, ctrl, shift or alt held, or any button but the main one
+ *  (a new tab, a new window, a download). Every in-app link lets these through, and it takes the
+ *  DOM's event as well as React's, so the toolbar's native listeners share it. */
+export function isModified(e: { metaKey: boolean; ctrlKey: boolean; shiftKey: boolean; altKey: boolean; button: number }): boolean {
+  return e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
+}
+
 // Props that turn any Box/Typography into a real in-app link.
 //
 // Every internal navigation MUST render an <a href>. Googlebot does not fire onClick
@@ -90,7 +97,7 @@ export function linkTo(to: string, onOpen?: (plain: boolean) => void) {
     component: 'a' as const,
     href: to,
     onClick: (e: React.MouseEvent) => {
-      const plain = !(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)
+      const plain = !isModified(e)
       onOpen?.(plain)
       if (!plain) return
       e.preventDefault()

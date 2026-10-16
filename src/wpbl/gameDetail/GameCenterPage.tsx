@@ -16,6 +16,7 @@ import { DetailPageBar } from '../DetailPageBar'
 import type { WpblTeam, WpblGame, WpblPlayer, WpblVideo } from '../types'
 import { type Tab, EmptyBody } from './shared'
 import { TYPE_SCALE } from '../../ui/card'
+import { isModified } from '../../nav'
 
 /**
  * Game Center as a desktop page: every board at once, no tabs.
@@ -150,7 +151,7 @@ export function GameCenterPage({
   useEffect(() => () => stopPinning.current?.(), [])
 
   const jump = (v: Tab) => (e: React.MouseEvent) => {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+    if (isModified(e)) return
     e.preventDefault()
     document.getElementById(sectionId(v))?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' })
   }

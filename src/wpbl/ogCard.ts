@@ -10,6 +10,9 @@
 import { sumBatting, sumPitching, plateAppearances, fmtRate, fmtTwo } from './stats'
 import { currentSeasonOnly, cardSeason, type WpblDatedSeasonGame } from './season'
 import { slugifyName } from './slug'
+// From src/league, not constants.ts, which the Pages function must never import: it pulls in
+// the team logos through import.meta.glob, which only Vite understands.
+import { outsToIp } from '../league/innings'
 import { displayPosition, leadsWithPitching } from './positions'
 import type { WpblBattingLine, WpblPitchingLine, WpblLiveState } from './types'
 
@@ -182,10 +185,6 @@ export function wpblCompareCard(a: WpblCompareSide, b: WpblCompareSide, games: W
     cardPath: compareCardPath(a.teamId, b.teamId),
   }
 }
-// Innings pitched read as outs: 16 outs = "5.1". The same arithmetic as `outsToIp` in
-// innings.ts, kept local. constants.ts is the module the Pages function must never import:
-// it pulls in the team logos through import.meta.glob, which only Vite understands.
-const outsToIp = (outs: number): string => `${Math.floor(outs / 3)}.${outs % 3}`
 
 // ─── Game cards ────────────────────────────────────────────────────────────────
 //

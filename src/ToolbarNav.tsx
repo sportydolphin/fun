@@ -12,7 +12,7 @@
 import { startTransition, useEffect, useState, type MouseEvent } from 'react'
 import { Box } from '@mui/material'
 import { useSectionNav, type NavSection, type SectionNavTab } from './sectionNav'
-import { navigate } from './nav'
+import { navigate, isModified } from './nav'
 import { WPBL_NAV, wpblPathFor, wpblViewFromPath } from './wpbl/routes'
 import { WPBL_MORE_PAGES } from './wpbl/morePages'
 import { MLB_NAV, MLB_VIEW_PATHS, MLB_MORE, mlbNavKeyFromPath } from './mlb/routes'
@@ -31,8 +31,6 @@ const STATIC_TABS: Record<NavSection, SectionNavTab[]> = {
 
 const staticActive = (section: NavSection, path: string): string | null =>
   section === 'wpbl' ? wpblViewFromPath(path) : mlbNavKeyFromPath(path)
-
-const modifiedClick = (e: MouseEvent) => e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
 
 // The lit tab's stripe. The accent, not the brand rainbow: a rainbow line under one tab read as a
 // decoration competing with the league switch beside it rather than as "you are here".
@@ -117,7 +115,7 @@ export function ToolbarNav({ section, path, sx }: { section: NavSection; path: s
             href={t.href}
             aria-current={on ? 'page' : undefined}
             onClick={(e: MouseEvent<HTMLAnchorElement>) => {
-              if (modifiedClick(e)) return
+              if (isModified(e)) return
               e.preventDefault()
               if (live) {
                 setPending(t.key)

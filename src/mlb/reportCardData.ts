@@ -6,6 +6,7 @@ import { TEAM_ABBR } from './constants'
 import { seasonIsOver } from './seasonPhase'
 import { supabase } from '../lib/supabase'
 import { fetchSeasonPlayerStats } from './apiSeasonStats'
+import { ipToOuts } from '../league/innings'
 
 // ─── Active streak leaders (computed from game logs) ─────────────────────────
 // MLB StatsAPI has no streak stat type, so we derive current streaks from each
@@ -40,12 +41,6 @@ export interface StreakLeaders {
   scoreless: StreakRow[]
   /** Optional: rows precomputed before this board existed won't carry it. */
   gamesPlayed?: StreakRow[]
-}
-
-// "5.1" innings → 16 outs. StatsAPI encodes thirds of an inning as .1 / .2.
-function ipToOuts(ip: string | number | undefined): number {
-  const [whole, frac] = String(ip ?? '0').split('.')
-  return (Number(whole) || 0) * 3 + (Number(frac) || 0)
 }
 
 function fetchGameLog(id: number, group: 'hitting' | 'pitching', season: number): Promise<any[]> {

@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, Dialog, DialogTitle, DialogContent, DialogActions, Button, useMediaQuery } from '@mui/material'
 import { APP_VERSION } from './version'
 import type { ChangelogChange, ChangelogEntry } from './version'
-import { CHANGELOG } from './changelog'
+import { CHANGELOG, loadOlderChangelog } from './changelog'
 import { ACCENT } from './mlb/constants'
 import { useIsAdmin } from './lib/admin'
 import { TYPE_SCALE } from './ui/card'
@@ -125,9 +125,24 @@ export default function ChangelogDialogs({ open, onClose }: { open: boolean; onC
   const isDesktop = useMediaQuery('(min-width:900px)')
   const isAdmin = useIsAdmin()
 
-  const days = useMemo(() => groupByDay(CHANGELOG), [])
+  // The older archives, fetched the first time a reader asks for earlier updates (see changelog.ts).
+  // Kept once loaded, so closing and reopening the dialog does not fetch them again.
+  const [older, setOlder] = useState<ChangelogEntry[] | null>(null)
+  const [olderFailed, setOlderFailed] = useState(false)
+  useEffect(() => {
+    if (!showAll || older || olderFailed) return
+    let cancelled = false
+    loadOlderChangelog().then(
+      entries => { if (!cancelled) setOlder(entries) },
+      () => { if (!cancelled) setOlderFailed(true) },
+    )
+    return () => { cancelled = true }
+  }, [showAll, older, olderFailed])
+
+  const days = useMemo(() => groupByDay(older ? [...CHANGELOG, ...older] : CHANGELOG), [older])
   const shown = showAll ? days : days.slice(0, INITIAL_DAYS)
   const hiddenDays = days.length - shown.length
+  const loadingOlder = showAll && !older && !olderFailed
   const openDay = days.find(d => d.date === viewAllDate) ?? null
 
   // Closing the dialog puts it back to the top of the list. A reader who expanded three months
@@ -181,10 +196,16 @@ export default function ChangelogDialogs({ open, onClose }: { open: boolean; onC
               </Box>
             )
           })}
-          {hiddenDays > 0 && (
+          {(hiddenDays > 0 || !older) && (
             <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
-              <Button size="small" onClick={() => setShowAll(true)}>
-                Show earlier updates
+              {/* Retrying after a failed fetch is the same button: un-setting showAll would
+                  collapse the days already open, so the failure flag is what re-arms it. */}
+              <Button
+                size="small"
+                disabled={loadingOlder}
+                onClick={() => { if (olderFailed) setOlderFailed(false); setShowAll(true) }}
+              >
+                {loadingOlder ? 'Loading earlier updates' : olderFailed ? 'Could not load. Try again' : 'Show earlier updates'}
               </Button>
             </Box>
           )}

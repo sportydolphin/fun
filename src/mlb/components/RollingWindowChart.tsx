@@ -6,7 +6,7 @@ import { fmtR, parseIP } from '../lib/utils'
 import { fetchLeagueStatsBySeason, tooltipAnchorSx, useChartViewWidth, useTouchScrub } from './trendChartUtils'
 import { chromePx, typePx } from '../../ui/scale'
 import { useSeasonPhase, isSeasonOver } from '../seasonPhase'
-import { ipToOuts } from '../playerProfile'
+import { ipToOuts } from '../../league/innings'
 
 /** "73.2" from 221 outs, the box score's own spelling of innings. */
 const outsIp = (outs: number) => `${Math.floor(outs / 3)}.${outs % 3}`

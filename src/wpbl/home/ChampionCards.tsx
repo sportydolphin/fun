@@ -16,8 +16,8 @@ import { track, trackImpression, EVENTS } from '../../lib/analytics'
 import type { WpblTeam, WpblPlayer, WpblGame } from '../types'
 import { typePx } from '../../ui/scale'
 import { latestSeason } from '../season'
-import { ordinal } from '../percentiles'
 import { trackedLinkTo } from './shared'
+import { ordinal } from '../../lib/format'
 
 /**
  * Next game, when the only games left are ones the league has dated and not yet published.

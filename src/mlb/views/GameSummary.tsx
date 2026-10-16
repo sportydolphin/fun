@@ -19,6 +19,7 @@ import type { PsSeries } from '../postseason'
 import { mlbSeriesPath } from '../routes'
 import { GC_CAPS, GC_META, GC_BODY } from './gameType'
 import { TYPE_SCALE, ICON_SIZE } from '../../ui/card'
+import { ordinal } from '../../lib/format'
 
 const POSTSEASON_TYPES = new Set(['F', 'D', 'L', 'W'])
 
@@ -178,11 +179,6 @@ export function biggestSwings<P extends { atBatIndex: number; inning: number; ha
     })
   }
   return out.sort((a, b) => b.delta - a.delta).slice(0, count)
-}
-
-const ordinal = (n: number) => {
-  const s = ['th', 'st', 'nd', 'rd'], v = n % 100
-  return n + (s[(v - 20) % 10] || s[v] || s[0])
 }
 
 /** Coloured as the chart colours each club, so a numbered dot here matches the one on the line. */

@@ -12,6 +12,7 @@ import {
   fetchPitchesPerPa, PitchPaLeaders,
   fetchTopSalaries, SalaryRow,
 } from '../api'
+import { ordinal } from '../../lib/format'
 // ~1,400-line schedule module, lazy so the League tab doesn't pull it in.
 const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ default: m.TeamScheduleStrip })))
 import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
@@ -53,12 +54,6 @@ import { useMlbHeadingTag } from '../components/PageHeading'
  * themselves, the gaps above "Playoff series" and the cards read as 40px against WPBL's 29.
  */
 const HOME_GAP = 1.5
-
-function ordinal(n: number): string {
-  const s = ['th','st','nd','rd']
-  const v = n % 100
-  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0])
-}
 
 async function fetchLiveTeamIds(): Promise<Set<number>> {
   try {

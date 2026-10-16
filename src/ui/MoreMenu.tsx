@@ -13,7 +13,7 @@
 
 import type { MouseEvent, ReactNode } from 'react'
 import { Box, Popover, SwipeableDrawer, Typography } from '@mui/material'
-import { navigate } from '../nav'
+import { navigate, isModified } from '../nav'
 import { track } from '../lib/analytics'
 import { SectionLabel, TYPE_SCALE } from './card'
 import { hoverOnly, FOCUS_RING } from './interaction'
@@ -45,8 +45,6 @@ export function groupMoreRows<T extends { group: string }>(rows: readonly T[]): 
   return out
 }
 
-const modifiedClick = (e: MouseEvent) => e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
-
 function RowLink({ row, close, size }: { row: MoreRow; close: () => void; size: 'panel' | 'sheet' }) {
   const sheet = size === 'sheet'
   return (
@@ -55,7 +53,7 @@ function RowLink({ row, close, size }: { row: MoreRow; close: () => void; size: 
       href={row.href}
       aria-current={row.current ? 'page' : undefined}
       onClick={(e: MouseEvent<HTMLAnchorElement>) => {
-        if (modifiedClick(e)) return
+        if (isModified(e)) return
         e.preventDefault()
         if (row.event) track(row.event, row.eventProps ?? {})
         close()

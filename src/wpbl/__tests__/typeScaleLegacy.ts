@@ -32,5 +32,4 @@ export const TYPE_SCALE_LEGACY: readonly string[] = [
   'src/wpbl/Live.tsx',
   'src/wpbl/LiveGameView.tsx',
   'src/wpbl/PhotoCropper.tsx',
-  // Moved out of PlayerDetail.tsx on Oct 15, 2026, sizes and all: a pure move, converted with it.
 ]

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  computeWpblPlayerRanks, ordinal, bestCountingRanks,
+  computeWpblPlayerRanks, bestCountingRanks,
   COUNT_RANK_BAR, COUNT_RANK_ROWS, COUNT_RANK_MIN_FIELD, WPBL_PIT_COUNT_RANK_DEFS,
   type WpblStatRank,
 } from '../percentiles'
@@ -363,12 +363,5 @@ describe('bestCountingRanks', () => {
     const small = { ...rank('H', 1, 4), of: COUNT_RANK_MIN_FIELD - 1 }
     expect(bestCountingRanks([small])).toEqual([])
     expect(bestCountingRanks([{ ...small, of: COUNT_RANK_MIN_FIELD }])).toHaveLength(1)
-  })
-})
-
-describe('ordinal', () => {
-  it('handles the ones that break naive rules', () => {
-    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 101, 111].map(ordinal))
-      .toEqual(['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '23rd', '101st', '111th'])
   })
 })

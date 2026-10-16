@@ -1,6 +1,5 @@
 import { supabase } from '../../lib/supabase'
 import { ensureActiveUser } from '../../lib/userActive'
-import type { RecentSearchItem } from './recentSearches'
 import { DEFAULT_GAME_START_LEAD_MIN } from '../../../shared/notifications'
 
 // ─── Followed-team / followed-player preference helpers ───────────────────────
@@ -32,31 +31,6 @@ export async function savePrefsToSupabase(
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' })
   if (error) console.warn('[prefs] save error:', error.message)
-}
-
-// ─── Recent searches (cross-device) ──────────────────────────────────────────
-// Kept separate from the followed-team/players helpers above so that a missing
-// `recent_searches` column (migration not run yet) degrades gracefully: recents
-// fall back to localStorage while everything else keeps syncing.
-
-export async function loadRecentSearchesFromSupabase(userId: string): Promise<RecentSearchItem[] | null> {
-  const { data, error } = await supabase
-    .from('user_preferences')
-    .select('recent_searches')
-    .eq('user_id', userId)
-    .maybeSingle()
-  if (error) return null   // column may not exist yet, so the caller keeps localStorage
-  const arr = (data as any)?.recent_searches
-  return Array.isArray(arr) ? (arr as RecentSearchItem[]) : null
-}
-
-export async function saveRecentSearchesToSupabase(userId: string, items: RecentSearchItem[]): Promise<void> {
-  if (!(await ensureActiveUser(userId))) return
-  // Upserts only recent_searches; other columns on the row are left untouched.
-  const { error } = await supabase
-    .from('user_preferences')
-    .upsert({ user_id: userId, recent_searches: items, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
-  if (error) { /* column may not exist yet, and localStorage still holds them */ }
 }
 
 export function getLocalFollowedTeamId(): number | null {

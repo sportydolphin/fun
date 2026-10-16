@@ -26,6 +26,7 @@ import type { WpblTeam, WpblPlayer } from './types'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
 import { typePx } from '../ui/scale'
 import { TYPE_SCALE } from '../ui/card'
+import { isModified } from '../nav'
 
 type SortKey = 'club' | 'name' | 'number'
 
@@ -334,6 +335,3 @@ function PlayerCellSkeleton() {
 }
 
 /** Let the browser handle cmd/ctrl/shift/middle clicks so open-in-new-tab still works. */
-function isModified(e: React.MouseEvent) {
-  return e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
-}

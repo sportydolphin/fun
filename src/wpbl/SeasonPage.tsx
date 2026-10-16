@@ -68,14 +68,13 @@ import { localIsoDate } from './derive/homePlayers'
 import { compareRows } from './leaderOrder'
 import { printedRanks } from '../ui/leaders'
 import { ICON_SIZE, TYPE_SCALE } from '../ui/card'
+import { isModified } from '../nav'
+import { shortDate } from '../lib/format'
 
 /** A batter's side of the plate, from the roster's `bats`, normalised to one letter. Switch
  *  hitters ('S') and unknowns fall outside the two toggle states and simply are not counted in
  *  either, the same way the per-batter spray chart leaves a switch hitter out of its pull rate. */
 const batSide = (bats: string | null | undefined): string => (bats ?? '').trim().toUpperCase()[0] ?? ''
-
-const isModified = (e: React.MouseEvent) =>
-  e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
 
 // ─── Leader boards ──────────────────────────────────────────────────────────────
 // One accessor per category. `null` from the accessor drops the row (no denominator), which is
@@ -1057,14 +1056,6 @@ function SeasonChampionBlock({ champ }: {
       </Box>
     </Box>
   )
-}
-
-/** "Sep 16" off a plain `game_date`. Parsed by hand rather than through Date, which reads a bare
- *  date as UTC midnight and names the day before anywhere west of Greenwich (see wpblCardDate). */
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-const shortDate = (date: string) => {
-  const m = /^\d{4}-(\d{2})-(\d{2})/.exec(date)
-  return m ? `${MONTHS[Number(m[1]) - 1] ?? ''} ${Number(m[2])}` : ''
 }
 
 // The final, one small card per game, under the banner that names who won it. The banner is the

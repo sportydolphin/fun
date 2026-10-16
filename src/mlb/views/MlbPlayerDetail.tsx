@@ -47,7 +47,7 @@ import { mlbStatFull, mlbStatPlain } from '../statGlossary'
 import {
   fetchMlbBio, fetchCareer, fetchSeasonBundle, fetchPostseasonLines, fetchSeasonLog, fetchSeasonRanks,
   fetchPitchMix, fetchAwards, careerTrendSplits, planRoles, scopedLine, scopedLog, cameToPlate, decision,
-  ipToOuts, birthplace, draftLine,
+  birthplace, draftLine,
   type Role, type CardScope, type MlbBio, type Career, type SeasonBundle, type LogGame, type SeasonRanks,
   type PitchUsage, type AwardTally, type FieldingLine,
 } from '../playerProfile'
@@ -56,6 +56,8 @@ import type { PlayerSeason } from '../state/useMlbState'
 import { combineStatLines } from '../lib/gameScope'
 import { useSectionScroll } from '../../lib/sectionScroll'
 import { TYPE_SCALE, ICON_SIZE } from '../../ui/card'
+import { ipToOuts, outsToIp } from '../../league/innings'
+import { shortDate } from '../../lib/format'
 
 // ~640-line chart module, lazy so it loads with the trend section rather than the page.
 const PlayerTrendsChart = lazy(() => import('../components/PlayerTrendsChart').then(m => ({ default: m.PlayerTrendsChart })))
@@ -101,13 +103,7 @@ const r3 = (v: any): string => {
   const s = Number(v).toFixed(3)
   return s.startsWith('0.') ? s.slice(1) : s
 }
-const outsToIp = (outs: number): string => `${Math.floor(outs / 3)}.${outs % 3}`
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-const shortDate = (iso: string): string => {
-  const [, m, d] = iso.split('-').map(Number)
-  return m && d ? `${MONTHS[m - 1]} ${d}` : '—'
-}
 /** A postseason round, for marking October games when the log shows both. */
 const ROUND: Record<string, string> = { F: 'WC', D: 'DS', L: 'CS', W: 'WS' }
 
@@ -563,7 +559,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
     const totalsLabel = scope === 'post' ? 'Postseason' : 'Total'
     const s = lines[r] ?? {}
     const lead = (g: LogGame) => [
-      ROUND[g.gameType] ? `${shortDate(g.date)} ${ROUND[g.gameType]}` : shortDate(g.date),
+      ROUND[g.gameType] ? `${(shortDate(g.date) || '—')} ${ROUND[g.gameType]}` : (shortDate(g.date) || '—'),
       `${g.isHome ? 'vs' : '@'} ${g.opponentAbbr}`,
     ]
     if (r === 'pitching') {

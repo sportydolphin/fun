@@ -27,6 +27,7 @@ import { InfoDot } from '../ui/InfoDot'
 import { useWpblSeason } from './SeasonContext'
 import { PillGroup } from '../ui/PillGroup'
 import { TYPE_SCALE } from '../ui/card'
+import { ordinal } from '../lib/format'
 
 // The run-value board: what each situation in a game is worth, and who has added the most runs
 // moving between them.
@@ -379,10 +380,6 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
 }
 
 /** "6th", for an inning in a sentence. Innings only, so the teens never come up. */
-function ordinal(n: number): string {
-  return `${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'}`
-}
-
 export default function WpblRunValueView({ side, teams, games, battingLines, onOpenPlayer }: {
   side: 'hitting' | 'pitching'
   teams: WpblTeam[]

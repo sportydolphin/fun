@@ -11,6 +11,7 @@ import { wpblAccent } from './constants'
 import { WinProbChart, WinProbFrame, type Readout } from '../ui/winProbChart'
 import { WIN_PROB_INFO } from './winProbInfo'
 import type { WpblGame, WpblGamePlay, WpblRunValuePlay, WpblTeam } from './types'
+import { ordinal } from '../lib/format'
 
 export type { Readout }
 
@@ -237,6 +238,3 @@ export function restingReadout(
 }
 
 /** "6th". Innings only, so the teens never come up. */
-function ordinal(n: number): string {
-  return `${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'}`
-}

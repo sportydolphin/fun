@@ -12,7 +12,8 @@
  * specifiers literally. Nothing here may reach constants.ts, which pulls in the team logos as
  * Vite assets.
  */
-import { optionLabel, ordinal, type BoardRow, type PredictOption } from './derive/predictions.ts'
+import { optionLabel, type BoardRow, type PredictOption } from './derive/predictions.ts'
+import { ordinal } from '../lib/format.ts'
 
 /** 64 = ephemeral, visible only to whoever pressed the button. */
 export const EPHEMERAL = 64

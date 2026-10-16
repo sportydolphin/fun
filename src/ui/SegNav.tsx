@@ -4,6 +4,7 @@ import type { Theme, SxProps } from '@mui/material'
 import { scrollBehavior } from '../lib/motion'
 import { pressable, FOCUS_RING } from './interaction'
 import { TYPE_SCALE } from './card'
+import { isModified } from '../nav'
 
 /** A "there is something new here" dot.
  *
@@ -117,7 +118,7 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
                   href: opt.href,
                   'aria-current': value === opt.value ? ('page' as const) : undefined,
                   onClick: (e: React.MouseEvent) => {
-                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+                    if (isModified(e)) return
                     e.preventDefault()
                     onChange(opt.value)
                   },
