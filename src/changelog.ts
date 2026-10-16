@@ -3,10 +3,22 @@
 // Only the newest releases live here; older ones are archived under ./changelog/ by minor-version
 // range and appended below, so a new entry is a small edit at the top of a small file. When this
 // list passes 1.199.x, move 1.150 to 1.199 into its own archive file the same way.
+//
+// ONLY THE NEWEST ARCHIVE COMES WITH THE DIALOG. The dialog opens on five days, and this file
+// alone holds four, so 1.100 to 1.149 rides along to fill it; the two older archives (about 230 KB
+// of prose, most of the dialog's chunk) load when a reader asks for earlier updates. Until
+// Oct 15, 2026 every archive was a static import here, and the dialog's chunk was 80 KB gzipped.
 import type { ChangelogEntry } from './version'
 import { ENTRIES as v1_100 } from './changelog/v1.100-1.149'
-import { ENTRIES as v1_050 } from './changelog/v1.050-1.099'
-import { ENTRIES as v1_000 } from './changelog/v1.000-1.049'
+
+/** Every release older than CHANGELOG holds, newest first. */
+export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
+  const [v1_050, v1_000] = await Promise.all([
+    import('./changelog/v1.050-1.099'),
+    import('./changelog/v1.000-1.049'),
+  ])
+  return [...v1_050.ENTRIES, ...v1_000.ENTRIES]
+}
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
@@ -320,6 +332,4 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   ...v1_100,
-  ...v1_050,
-  ...v1_000,
 ]

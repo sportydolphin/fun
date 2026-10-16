@@ -611,6 +611,7 @@ will actually see all winter. The functional items do not wait.
    `.ts` names in both sections pass unread (`compare`, `searchAnswers`, `recentSearches`,
    `ogCard`, `finderLink`, `gameStart` among them). Extend it, with a written reason for each pair
    that is rightly per league (`api`, `types`, `routes`, `league`).
+   ✅ *Oct 15:* it reads every `.ts` and `.tsx` name; twelve module pairs, each with its reason.
 6. **Split WPBL's largest files into folders,** as #103 did for Home and Game Center:
    `StatsView.tsx` (191 KB), `WpblApp.tsx` (151 KB), `PlayerDetail.tsx` (116 KB), `FanVote.tsx`
    (111 KB), `SeasonPage.tsx` (91 KB). ✅ *Stats, the shell and the player card done Oct 15*
@@ -619,6 +620,9 @@ will actually see all winter. The functional items do not wait.
 7. **What's new loads every release ever written.** `ChangelogDialogs` is the third-largest chunk,
    80 KB gzipped, because `changelog.ts` imports every archive back to v1.000. Load the archives
    only when a reader scrolls past the newest releases.
+   ✅ *Oct 15:* the two oldest archives load on "Show earlier updates"; the dialog's chunk is
+   17.5 KB gzipped. 1.100 to 1.149 stays with it, since the dialog opens on five days and the
+   newest file holds four.
 
 Checked and fine: knip finds one unused exported type (`FinderSide` in `wpbl/derive/finder.ts`);
 the 368 preload links in the built `index.html` are by design, the MLB ones inert inside
