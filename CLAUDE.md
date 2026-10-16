@@ -156,6 +156,8 @@ pg_cron) · GitHub Actions for cron · installable PWA · Cloudflare Pages at
 - [ARCHITECTURE.md](ARCHITECTURE.md) is the real map: routes, DB tables, the ingest, every cron
   job, edge functions, integrations, config and secrets. **Keep it current** when you add a table,
   workflow, or integration. It is large: find the section with Grep, then read that part.
+- [ROADMAP-WOMENS-BASEBALL.md](ROADMAP-WOMENS-BASEBALL.md) for the slow move to women's baseball beyond the WPBL
+  (the World Cup first).
 - [ROADMAP-WPBL.md](ROADMAP-WPBL.md) for anything under `/wpbl` (the clock and the priority list);
   its dated shipped log is under [`docs/roadmap-log/`](docs/roadmap-log/), one file per month.
   [ROADMAP.md](ROADMAP.md) is the MLB equivalent. [ROADMAP-UI.md](ROADMAP-UI.md) is the visual
@@ -163,7 +165,7 @@ pg_cron) · GitHub Actions for cron · installable PWA · Cloudflare Pages at
 - [docs/](docs/). Read the named one BEFORE touching what it guards: `CI.md` (`ci.yml`, test
   config, lint rules, the layout sweep), `ADMIN_ANALYTICS.md` (the `events` table, `admin_*` RPCs;
   its security section is what keeps analytics private), `WAR.md` (`derive/war.ts`,
-  `derive/fielding.ts`), `COMMONS_PHOTOS.md` (approving an archive photo), `ANDROID.md`
+  `derive/fielding.ts`), `COMMONS_PHOTOS.md` (approving an archive photo), `WBSC_INGEST.md` (`scripts/import-wbsc.ts` and `src/intl/`, the World Cup import, and why its data stays out of git), `ANDROID.md`
   (`manifest.webmanifest`, `sw.js`, `assetlinks.json`), `IOS.md`
   (`public/.well-known/apple-app-site-association` and its `_headers` rule), `PLAY_VALIDATION.md`.
   The rest are reference: `DISCORD.md`, `PUSH_NOTIFICATIONS.md`, `READING.md`, `RECAPS.md`,
