@@ -23,7 +23,7 @@ import { FanPhotoPlayerStrip } from './FanPhotoViews'
 import { PlayerClips, usePlayerHasClips } from './Watch'
 import { PitchLocationCard } from './PitchLocation'
 import SprayChart from './SprayChart'
-import PitchProfileBlock from './PitchProfile'
+import PitchProfileBlock, { usePitchProfiles } from './PitchProfile'
 import { isBattedBall } from './api'
 import { displayPosition, positionName } from './positions'
 import { wpblPlayerShortPath, WPBL_AWARDS_PATH } from './routes'
@@ -35,7 +35,7 @@ import { track, EVENTS } from '../lib/analytics'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
 import { useSectionScroll } from '../lib/sectionScroll'
 import { leagueLine } from './statColumns'
-import { wpblRoleTables, seasonLead, row as statRow, type RankFor } from './player/statTables'
+import { wpblRoleTables, wpblDisciplineCols, seasonLead, row as statRow, type RankFor } from './player/statTables'
 import {
   statTip, gamePosition, type Role, RankProgress, FieldingLine, MatchupTable, CompareChip,
   BAND_WASH, BAND_WASH_FLOOR, SENTENCE_W, CARD_RANK_BAR,
@@ -439,13 +439,17 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     bt, pt, league: sliceLeague, board, playerId: player.id, scope, twoWay, value: myValue, valueOn,
     leadsWithSaves, rankFor, fmtEra, eraBasis,
   })
+  // Every pitch the player saw or threw, for the plate discipline table and the pitch mix.
+  const pitchProfiles = usePitchProfiles({ player, players, teams, games, season: career ? null : season, scope })
   const lead = seasonLead(season, career, scope)
   /** A role's numbers: the summary table and, behind All stats, the standard and advanced lines. */
   const statSummary = (r: Role, placeholder = false) => {
     const t = tables(r)
+    const discipline = wpblDisciplineCols(r, pitchProfiles)
     return (
       <StatSummary accent={color} league reserveRanks={scope === 'regular' && !career} placeholder={placeholder}
-        summary={statRow(lead, t.summary)} standard={statRow(lead, t.standard)} advanced={statRow(lead, t.advanced)} />
+        summary={statRow(lead, t.summary)} standard={statRow(lead, t.standard)} advanced={statRow(lead, t.advanced)}
+        discipline={discipline ? statRow(lead, discipline) : null} />
     )
   }
 
@@ -500,7 +504,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   const battingPane = {
     hasLog: battingLog.length > 0,
     /** Between the season line and the log: how the season was hit, from every pitch seen. */
-    profile: <PitchProfileBlock player={player} side="batting" players={players} teams={teams} games={games} season={career ? null : season} scope={scope} accent={color} />,
+    profile: <PitchProfileBlock side="batting" profile={pitchProfiles?.batting} />,
     /** Under the profile: her line against every pitcher she has faced. */
     matchups: <MatchupTable player={player} side="batting" lines={matchups?.vsPitchers ?? []} players={players} scope={scope} accent={color} />,
     line: (scopeControl?: React.ReactNode, caption = true) => (
@@ -553,7 +557,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   const pitchingPane = {
     hasLog: pitchingLog.length > 0 || seasonPitchLocs.length > 0,
     /** Between the season line and the log: how the season was pitched, from every pitch thrown. */
-    profile: <PitchProfileBlock player={player} side="pitching" players={players} teams={teams} games={games} season={career ? null : season} scope={scope} accent={color} />,
+    profile: <PitchProfileBlock side="pitching" profile={pitchProfiles?.pitching} />,
     /** Under the profile: what every batter she has faced did against her. */
     matchups: <MatchupTable player={player} side="pitching" lines={matchups?.vsBatters ?? []} players={players} scope={scope} accent={color} />,
     line: (scopeControl?: React.ReactNode, caption = true) => (

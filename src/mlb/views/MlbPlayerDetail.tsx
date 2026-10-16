@@ -419,18 +419,19 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
   const leagueType = hasPost && scope === 'post' ? 'P' : 'R'
   const leagueOn = !careerView && season != null && (scope !== 'all' || !hasPost)
   const lgRead = useLoaded<Record<Role, Record<string, string>>>(leagueOn ? `lg-${season}-${leagueType}` : null, async () => {
-    const [hit, pit, saber, hitSwings, pitSwings] = await Promise.all([
+    // The pitches, swings and misses from the hitting side's report alone: every pitch has a batter,
+    // so they are the league's for a pitcher too, and the pitching report carries no pitch count.
+    const [hit, pit, saber, swings] = await Promise.all([
       fetchSeasonPlayerStats('hitting', season!, leagueType),
       fetchSeasonPlayerStats('pitching', season!, leagueType),
       leagueType === 'R' ? fetchSeasonSabermetrics(season!) : Promise.resolve(null),
       fetchSeasonSwings('hitting', season!, leagueType),
-      fetchSeasonSwings('pitching', season!, leagueType),
     ])
     const entries = (rows: any[]) => rows.map(r => ({ playerId: Number(r.player?.id), stat: r.stat })) as LeaderboardEntry[]
     const h = entries(hit), p = entries(pit)
     return {
-      hitting: cardLeagueFigures(h, 'hitting', leagueLine(h, 'hitting'), saber, hitSwings),
-      pitching: cardLeagueFigures(p, 'pitching', leagueLine(p, 'pitching'), null, pitSwings),
+      hitting: cardLeagueFigures(h, 'hitting', leagueLine(h, 'hitting'), saber, swings),
+      pitching: cardLeagueFigures(p, 'pitching', leagueLine(p, 'pitching'), null, swings),
     }
   })
   /** The league's figure for a column, or null where it has none (a count, a Statcast estimate). */
@@ -644,7 +645,6 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
       { label: 'K%', value: pct(adv?.strikeoutsPerPlateAppearance) },
       { label: 'BB%', value: pct(adv?.walksPerPlateAppearance) },
       { label: 'K-BB%', value: pct(adv?.strikeoutsMinusWalksPercentage) },
-      { label: 'Whiff%', value: pct(adv?.whiffPercentage) },
       { label: 'BABIP', value: rate(adv?.babip) },
       { label: 'xBA', value: rate(xs?.avg) },
       { label: 'xwOBA', value: rate(xs?.woba) },
@@ -659,7 +659,31 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
       { label: 'ISO', value: rate(adv?.iso) },
       { label: 'K%', value: pct(adv?.strikeoutsPerPlateAppearance) },
       { label: 'BB%', value: pct(adv?.walksPerPlateAppearance) },
-      { label: 'Whiff%', value: adv?.totalSwings ? pct(n0(adv.swingAndMisses) / n0(adv.totalSwings)) : '—' },
+    ]
+    return cols.map(c => ({ ...c, league: lgOf(r, c.label) }))
+  }
+
+  /**
+   * PLATE DISCIPLINE, behind All stats: how the player met the pitches, from StatsAPI's
+   * `seasonAdvanced` (pitches, swings, misses), with the league's under it. The regular season only,
+   * as the report is. WPBL's table has called and first-pitch strikes and the putaway rate as well,
+   * from its own pitch log; StatsAPI's season report carries none of the three.
+   */
+  const disciplineCols = (r: Role): StatCol[] | null => {
+    if (!bundle || !saberOn) return null
+    const adv = bundle.advanced[r]
+    if (!adv?.totalSwings) return null
+    const swings = n0(adv.totalSwings), misses = n0(adv.swingAndMisses)
+    // A pitcher's report has no pitch count; the season line does.
+    const pitches = n0(adv.numberOfPitches) || n0(lines[r]?.numberOfPitches)
+    const share = (a: number, b: number) => (b > 0 ? pct(a / b) : '—')
+    const cols: StatCol[] = [
+      { label: 'P/PA', value: dec(adv.pitchesPerPlateAppearance, 2) },
+      ...(r === 'pitching' ? [{ label: 'Strike%', value: pct(adv.strikePercentage) }] : []),
+      { label: 'Swing%', value: share(swings, pitches) },
+      ...(r === 'hitting' ? [{ label: 'Contact%', value: share(swings - misses, swings) }] : []),
+      { label: 'Whiff%', value: share(misses, swings) },
+      { label: 'SwStr%', value: share(misses, pitches) },
     ]
     return cols.map(c => ({ ...c, league: lgOf(r, c.label) }))
   }
@@ -669,12 +693,14 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
   /** A role's numbers: the summary table and, behind All stats, the standard and advanced lines. */
   const statSummary = (r: Role) => {
     const adv = advancedCols(r)
+    const disc = disciplineCols(r)
     return (
       <StatSummary accent={ACCENT_TEXT} league={leagueOn}
         reserveRanks={!careerView && (scope === 'regular' || !hasPost)}
         summary={{ lead, cols: summaryCols(r) }}
         standard={{ lead, cols: standardCols(r) }}
-        advanced={adv ? { lead, cols: adv } : null} />
+        advanced={adv ? { lead, cols: adv } : null}
+        discipline={disc ? { lead, cols: disc } : null} />
     )
   }
 

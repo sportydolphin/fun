@@ -132,8 +132,10 @@ export function GlossaryTerms({ groups, term, accent }: {
             // while column one has a rule under its heading.
             '@media (min-width: 600px)': { '&:nth-of-type(2)': { borderTop: 0 } },
           }}>
+            {/* Room for the longest term ("F-Strike%", "Contact%"), in rem since it holds a word: at
+                3.25rem the plate discipline terms ran into their definitions. */}
             <Typography component="dt" sx={{
-              flexShrink: 0, width: '3.25rem', fontSize: TYPE_SCALE.meta, fontWeight: 800,
+              flexShrink: 0, width: '4.25rem', fontSize: TYPE_SCALE.meta, fontWeight: 800,
               fontVariantNumeric: 'tabular-nums', color: accent, lineHeight: 1.4,
             }}>
               {t.k}

@@ -88,6 +88,15 @@ export const STAT_TERMS: GlossaryTerms = {
   Rep: { full: 'Replacement runs', plain: 'The runs a freely available player would have cost over the same playing time. It is what turns runs above average into runs above replacement, and it is why playing at all is worth something.' },
   'C Arm': { full: 'Catcher arm runs', plain: 'Runs a catcher saved, or cost, on steal attempts, against an average catcher facing the same runners: each steal and caught stealing priced on the situation it changed. Zero is an average arm, however often a catcher is run on. Pickoffs are the pitcher’s and are left out.' },
   'C Blk': { full: 'Catcher blocking runs', plain: 'Runs a catcher saved, or cost, on wild pitches and passed balls, against the league’s rate per pitch caught. Both count against the catcher here, since the pitching side of WAR (FIP) charges the pitcher with neither.' },
+  'P/PA': { full: 'Pitches per plate appearance', plain: 'How long a trip to the plate lasts. A hitter who sees more pitches tires a pitcher and gets more looks; for a pitcher, fewer is more efficient.' },
+  'Swing%': { full: 'Swing rate', plain: 'Share of all pitches swung at. A style rather than a skill on its own: read it beside Contact%.' },
+  'Contact%': { full: 'Contact rate', plain: 'Share of swings that hit the ball, foul or fair.' },
+  'Whiff%': { full: 'Whiff rate', plain: 'Share of swings that miss. For a pitcher, higher is better.' },
+  'SwStr%': { full: 'Swinging strike rate', plain: 'Swings and misses over every pitch, not just the swings: a pitcher’s raw ability to miss bats, whoever is batting.' },
+  'CStr%': { full: 'Called strike rate', plain: 'Strikes taken without a swing, over every pitch. For a hitter, a high one means watching hittable pitches go by.' },
+  'Strike%': { full: 'Strike rate', plain: 'Every pitch that was not a ball, fouls and balls in play included.' },
+  'F-Strike%': { full: 'First-pitch strike rate', plain: 'Batters whose first pitch was a strike. The count the whole at-bat is played from.' },
+  'Putaway%': { full: 'Two-strike putaway rate', plain: 'Strikeouts over the plate appearances that reached two strikes: how often a pitcher finishes the batter once ahead.' },
   FIP: { full: 'Fielding independent pitching', plain: 'An ERA rebuilt from strikeouts, walks, hit batters and home runs, the outcomes no fielder touches, each weighted by what it is worth in this league. Scaled so the league average matches league ERA; a FIP well below a pitcher’s ERA suggests bad luck or poor defence behind them.' },
 }
 

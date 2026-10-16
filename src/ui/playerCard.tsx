@@ -472,12 +472,16 @@ const useAllStatsOpen = () => useSyncExternalStore(subscribeAllStats, readAllSta
  * THE SUMMARY IS THE LINE A READER EXPECTS, ten columns, not every figure the feed has. Everything
  * else is one tap away rather than gone: the full line as every stat site prints it, and the
  * advanced figures, which used to be a strip under the line (wins added, runs on the bases) or a
- * section of their own further down (MLB's Advanced).
+ * section of their own further down (MLB's Advanced), and plate discipline, which on WPBL was a row
+ * of large tiles in the pitch profile, in a type of its own.
  */
-export function StatSummary({ summary, standard, advanced, league, reserveRanks, placeholder, accent }: {
+export function StatSummary({ summary, standard, advanced, discipline, league, reserveRanks, placeholder, accent }: {
   summary: StatRow
   standard?: StatRow | null
   advanced?: StatRow | null
+  /** How the player met the pitches: swings, misses, pitches per trip. Null where the pitch record
+   *  is too thin to say anything (a handful of pitches is noise wearing a percentage sign). */
+  discipline?: StatRow | null
   /** Draw the League avg row on every table. */
   league?: boolean
   reserveRanks?: boolean
@@ -485,7 +489,7 @@ export function StatSummary({ summary, standard, advanced, league, reserveRanks,
   accent: string
 }) {
   const open = useAllStatsOpen()
-  const more = !!standard || !!advanced
+  const more = !!standard || !!advanced || !!discipline
   return (
     <>
       <StatTable row={summary} league={league} reserveRanks={reserveRanks} placeholder={placeholder} />
@@ -493,6 +497,7 @@ export function StatSummary({ summary, standard, advanced, league, reserveRanks,
         <>
           {standard && <StatTable title="Standard" row={standard} league={league} reserveRanks={reserveRanks} placeholder={placeholder} />}
           {advanced && <StatTable title="Advanced" part="advanced" row={advanced} league={league} placeholder={placeholder} />}
+          {discipline && <StatTable title="Plate discipline" row={discipline} league={league} placeholder={placeholder} />}
         </>
       )}
       {more && (

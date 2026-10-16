@@ -135,26 +135,31 @@ export function fetchParkFactors(season: number): Promise<Map<number, number>> {
   return parkFactorCache.get(season)!
 }
 
-// The league's swings and misses for a season, for Whiff% in the player card's league row. One read
-// of StatsAPI's `seasonAdvanced` for every player, summed; the player card reads the same report for
-// one player, so the league's figure and the player's are the same arithmetic. Not kept on failure.
-const swingsCache = new Map<string, Promise<{ misses: number; swings: number }>>()
+// The league's pitches, swings and misses for a season, for the plate discipline columns in the
+// player card's league row. One read of StatsAPI's `seasonAdvanced` for every player, summed; the
+// card reads the same report for one player, so the league's figure and the player's are the same
+// arithmetic. Every pitch has a batter and a pitcher, so the hitting side's totals are the league's
+// for both. Not kept on failure.
+export interface SeasonSwings { misses: number; swings: number; pitches: number; pa: number }
+const swingsCache = new Map<string, Promise<SeasonSwings>>()
 
-export function fetchSeasonSwings(group: 'hitting' | 'pitching', season: number, gameType: 'R' | 'P' = 'R'): Promise<{ misses: number; swings: number }> {
+export function fetchSeasonSwings(group: 'hitting' | 'pitching', season: number, gameType: 'R' | 'P' = 'R'): Promise<SeasonSwings> {
   const key = `${group}-${season}-${gameType}`
   if (!swingsCache.has(key)) {
     swingsCache.set(key,
       fetch(`https://statsapi.mlb.com/api/v1/stats?stats=seasonAdvanced&group=${group}&season=${season}&sportId=1&limit=2000&playerPool=All${gameType === 'P' ? '&gameType=P' : ''}`)
         .then(r => r.json())
         .then((d: any) => {
-          let misses = 0, swings = 0
+          let misses = 0, swings = 0, pitches = 0, pa = 0
           for (const s of d.stats?.[0]?.splits ?? []) {
             misses += Number(s.stat?.swingAndMisses) || 0
             swings += Number(s.stat?.totalSwings) || 0
+            pitches += Number(s.stat?.numberOfPitches) || 0
+            pa += Number(s.stat?.plateAppearances) || 0
           }
-          return { misses, swings }
+          return { misses, swings, pitches, pa }
         })
-        .catch(() => { swingsCache.delete(key); return { misses: 0, swings: 0 } }))
+        .catch(() => { swingsCache.delete(key); return { misses: 0, swings: 0, pitches: 0, pa: 0 } }))
   }
   return swingsCache.get(key)!
 }
