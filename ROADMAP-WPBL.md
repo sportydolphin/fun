@@ -1467,6 +1467,14 @@ post to the site page it comes from, which is also the backlink work in docs/BAC
 - 🖼️ **The season calendar**, a heatmap of every game day.
 - 🖼️ **Home was not an advantage.** One ballpark all season, so "home" only meant batting last.
 
+## Far off: women's baseball beyond the WPBL 🔬⚙️
+
+Moved to its own document on Oct 15, 2026: **[ROADMAP-WOMENS-BASEBALL.md](ROADMAP-WOMENS-BASEBALL.md)**.
+The first step touches this section: a WPBL player's page shows their World Cup lines (32 of 118
+players were in the 2026 group stage).
+
+---
+
 ## Parked, with reasons
 
 - **Game predictions / pick'em (+ bots)** 🎮: *demoted from "the marquee open item",

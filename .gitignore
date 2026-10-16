@@ -43,3 +43,8 @@ sweep-shots/
 
 # tsc --build output; generated, never committed
 *.tsbuildinfo
+
+# WBSC World Cup import (docs/WBSC_INGEST.md). The repository is public, so committing these
+# publishes WBSC's data, and WBSC has not yet said yes. Remove the second line only when it has.
+.wbsc-cache/
+archive/wbsc/

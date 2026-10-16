@@ -168,7 +168,7 @@ export interface PitchBars {
  * MLB game. Nothing would report it. A constant that has to be passed in cannot be forgotten.
  */
 export interface League {
-  id: 'wpbl' | 'mlb'
+  id: 'wpbl' | 'mlb' | 'wbsc'
   /** Innings in a regulation game: 7 or 9. Anything past it is extras. */
   regulationInnings: number
   /** Every letter `pitch_sequence` can hold, and what it means. A letter missing from here is
