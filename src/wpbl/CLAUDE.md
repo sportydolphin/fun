@@ -132,7 +132,9 @@ Loaded when you read anything under `src/wpbl/`. The feed and ingest traps (ids,
   paint, for the whole game, with no error. The bulk line reads have the same shape
   (`BATTING_LINE_COLUMNS`, `PITCHING_LINE_COLUMNS`, which are "the type, minus `created_at`"),
   where a missed column means the season aggregates silently cannot see it. `tsc` catches
-  none of this.
+  none of this; `__tests__/columnPartition.test.ts` does, by replaying the CREATE and ALTER
+  statements in `scripts/*.sql` and `scripts/migrations/` and requiring the lists to cover each
+  table exactly. A column only the ingest reads goes in `INGEST_ONLY_GAME_COLUMN_NAMES`.
 
 - **The rate-title bar is PLATE APPEARANCES, and a new leaderboard that gates on `ab`
   will look completely right.** `wpblQualifiers` returns `minPa` (MLB's 3.1 per team game

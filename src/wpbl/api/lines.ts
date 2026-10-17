@@ -25,19 +25,22 @@ export function getCachedWpblAllLines(): WpblLinesResult | null { seedLines(); r
 // per-game reads still take `select('*')`: they are one game's worth of rows and the saving
 // there is noise.
 //
-// Read these as "the type, minus created_at". If you add a column to either table, add it
+// Read these as "the table, minus created_at". If you add a column to either table, add it
 // here too, or the season aggregates simply will not see it. tsc will not catch the omission,
-// because a missing column arrives as `undefined` and both types allow that for new fields.
-const PITCHING_LINE_COLUMNS = [
+// because a missing column arrives as `undefined` and both types allow that for new fields;
+// __tests__/columnPartition.test.ts does, against the columns the migrations create.
+export const PITCHING_LINE_COLUMN_NAMES = [
   'id', 'game_id', 'player_id', 'team_id', 'outs', 'bf', 'h', 'r', 'er', 'bb', 'so', 'hr',
   'pitches', 'decision', 'gs', 'hbp', 'ibb', 'wp', 'bk', 'strikes', 'doubles', 'triples',
-].join(',')
+] as const
+const PITCHING_LINE_COLUMNS = PITCHING_LINE_COLUMN_NAMES.join(',')
 
-const BATTING_LINE_COLUMNS = [
+export const BATTING_LINE_COLUMN_NAMES = [
   'id', 'game_id', 'player_id', 'team_id', 'batting_order', 'position',
   'ab', 'r', 'h', 'doubles', 'triples', 'hr', 'rbi', 'bb', 'so', 'hbp',
   'sb', 'cs', 'sf', 'sh', 'ibb', 'gdp', 'tb', 'lob', 'sub_out',
-].join(',')
+] as const
+const BATTING_LINE_COLUMNS = BATTING_LINE_COLUMN_NAMES.join(',')
 
 /**
  * Merge a fresh pair of line reads over the last-good pair, ARRAY BY ARRAY.

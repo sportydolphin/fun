@@ -121,10 +121,11 @@ export const LIVE_POLL_MS = 15000
 // the two lists. The saving is real but modest (0.94 KB against 1.2 KB, 22%), so if this list
 // ever becomes hard to keep honest, going back to `select('*')` is the right call.
 //
-// The compiler now holds the two halves to the WpblGame type: a field added there and to
-// neither list fails `npm run typecheck` on WpblGameColumnsPartition below, naming the field. It
-// cannot see a column added to the table and not to the type, so add it to the type first.
-const LIVE_GAME_COLUMN_NAMES = [
+// The compiler holds the two halves to the WpblGame type: a field added there and to neither
+// list fails `npm run typecheck` on WpblGameColumnsPartition below, naming the field. The other
+// direction, a column added to the TABLE and to neither list, is __tests__/columnPartition.test.ts,
+// which reads the columns out of the migrations.
+export const LIVE_GAME_COLUMN_NAMES = [
   'id', 'status', 'status_detail', 'notes', 'updated_at', 'source_updated_at',
   'home_score', 'away_score', 'innings',
   'home_hits', 'away_hits', 'home_errors', 'away_errors', 'home_lob', 'away_lob',
@@ -137,10 +138,15 @@ const LIVE_GAME_COLUMN_NAMES = [
 const LIVE_GAME_COLUMNS = LIVE_GAME_COLUMN_NAMES.join(',')
 
 /** The immutable half: fixed the moment a game is scheduled. Listed only to be checked. */
-const _FIXED_GAME_COLUMN_NAMES = [
+export const FIXED_GAME_COLUMN_NAMES = [
   'game_date', 'start_time', 'home_team_id', 'away_team_id', 'venue', 'created_at',
   'api_game_id', 'season_id', 'game_type', 'counts_in_standings',
 ] as const satisfies readonly (keyof WpblGame)[]
+
+/** Columns only the ingest reads, so in neither half and not on the type. `tracking_checked_at`
+ *  changes mid-game, but it is the ingest's own note of when it last looked for TrackMan, and no
+ *  page has a use for it. Listed so the partition test can tell it from a forgotten column. */
+export const INGEST_ONLY_GAME_COLUMN_NAMES = ['tracking_checked_at'] as const
 
 type AssertNever<T extends never> = T
 /** Fails to compile, naming the field, when a WpblGame field is in neither list.
@@ -148,7 +154,7 @@ type AssertNever<T extends never> = T
  *  is not an error, so nothing imports it.
  *  @public */
 export type WpblGameColumnsPartition = AssertNever<Exclude<keyof WpblGame,
-  (typeof LIVE_GAME_COLUMN_NAMES)[number] | (typeof _FIXED_GAME_COLUMN_NAMES)[number] | 'final_by_rule'>>
+  (typeof LIVE_GAME_COLUMN_NAMES)[number] | (typeof FIXED_GAME_COLUMN_NAMES)[number] | 'final_by_rule'>>
 
 /** The volatile half of one game's row, for the live poll. Merge it over the game you already
  *  have (`{ ...prev, ...delta }`); every column it omits is immutable, so the merge is

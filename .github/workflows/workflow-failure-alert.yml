@@ -94,6 +94,7 @@ jobs:
           VAPID_PUBLIC_KEY:          ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY:         ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT:             ${{ secrets.VAPID_SUBJECT }}
+          DISCORD_ALERTS_WEBHOOK_URL: ${{ secrets.DISCORD_ALERTS_WEBHOOK_URL }}
           FAILED_WORKFLOW:           ${{ github.event.workflow_run.name }}
           FAILED_RUN_URL:            ${{ github.event.workflow_run.html_url }}
         run: node scripts/check-admin-health.mjs

@@ -187,16 +187,24 @@ export function healthAlerts(rows, nowMs = Date.now()) {
 
   if (ingest) {
     if (!ingest.ok) {
-      // A run that failed outright. Signature is stable across a run of failures so the streak
-      // pages once; the sender's reminder cadence handles "still down".
+      // A failed run. Since Oct 2026 that includes a pass that finished with per-game errors or a
+      // feed contract break (wpbl-ingest now sets ok:false on any), so the page carries the
+      // first errors: "failing" alone would send the owner to the SQL editor to learn which.
+      // The detail is the signature, as below: a streak of the same failure pages once, and the
+      // sender's reminder cadence handles "still down", while a new kind of failure re-pages.
+      const detail = (ingest.errors ?? []).slice(0, 3).join('; ')
+      const more = (ingest.error_count ?? 0) > 3 ? ` (+${ingest.error_count - 3} more)` : ''
       out.push({
         key: 'ingest-down',
-        signature: 'down',
+        signature: `down:${detail}`,
         title: 'WPBL ingest is failing',
-        body: `The feed mirror's last run (${ingest.ran_at}) failed outright. The site is drifting from the official feed.`,
+        body: detail
+          ? `The feed mirror's last run (${ingest.ran_at}) failed: ${detail}${more}.`
+          : `The feed mirror's last run (${ingest.ran_at}) failed outright. The site is drifting from the official feed.`,
       })
     } else if ((ingest.error_count ?? 0) > 0) {
-      // ok:true with per-game errors — the postseason "unmapped team" trap. The detail rides in
+      // ok:true with per-game errors: the postseason "unmapped team" trap, from an ingest older
+      // than the one that fails on them. Kept so a stale deploy still pages. The detail rides in
       // the signature so a NEW kind of error re-pages while the same recurring ones stay quiet.
       const detail = (ingest.errors ?? []).slice(0, 3).join('; ')
       out.push({

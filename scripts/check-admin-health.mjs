@@ -28,6 +28,7 @@
  *   node scripts/check-admin-health.mjs --test      # send one sample alert to the owner
  *
  * Required env vars: same as scripts/send-wpbl-game-start.mjs.
+ * Optional: DISCORD_ALERTS_WEBHOOK_URL, the second channel (see postToDiscord).
  * Prerequisite (run once): scripts/migrations/…_add_admin_alert_state.sql (npm run migrate).
  */
 
@@ -62,6 +63,13 @@ const TEST    = process.argv.includes('--test')
 // workflow keeps ONE dedupe table and one push path; and it pages at once, year-round, where the
 // scheduled check above only runs in season.
 const FAILED_WORKFLOW = process.env.FAILED_WORKFLOW ?? ''
+
+// THE SECOND CHANNEL: the ops webhook watch-wpbl-tracking.mjs already posts to, never a fan
+// channel. Push alone reaches only the devices the owner has subscribed, and a page about a game
+// that never started (gameAlerts in shared/adminHealth.js, the freshness alarm) is worth nothing
+// if the one subscribed phone has notifications off. Optional: unset, nothing changes.
+const DISCORD_WEBHOOK = (process.env.DISCORD_ALERTS_WEBHOOK_URL ?? '').trim()
+const SITE = 'https://sportydolphin.fun'
 
 if (!SUPABASE_URL || !SERVICE_KEY) {
   console.error('❌  Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY before running')
@@ -114,6 +122,29 @@ async function sendToOwner(subs, payload) {
     }
   }
   return sent
+}
+
+/** Post one alert to the ops channel. Best-effort: a Discord outage must never cost the push,
+ *  nor stop the dedupe row being written, or the next run would page the phone again. */
+async function postToDiscord(n) {
+  if (!DISCORD_WEBHOOK) return false
+  // Discord caps a message at 2000 characters; the body carries up to three ingest errors.
+  const content = `${n.icon} **${n.title}**
+${n.body}
+<${SITE}${n.url}>`.slice(0, 1990)
+  try {
+    const res = await fetch(DISCORD_WEBHOOK, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      // No pings parsed out of an error string the feed wrote.
+      body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
+    })
+    if (!res.ok) { console.warn(`  ⚠️  Discord post failed (${res.status})`); return false }
+    return true
+  } catch (err) {
+    console.warn(`  ⚠️  Discord post failed: ${err?.message ?? err}`)
+    return false
+  }
 }
 
 // ─── Reads ──────────────────────────────────────────────────────────────────────
@@ -171,11 +202,13 @@ async function recentGames() {
 
 async function runTest() {
   const subs = await ownerSubscriptions()
-  if (subs.length === 0) { console.log('No owner subscriptions found. Enable notifications in the app first.'); return }
-  const sent = await sendToOwner(subs, toPushPayload(buildAdminHealthAlert({
+  if (subs.length === 0) console.log('No owner subscriptions found. Enable notifications in the app first.')
+  const n = buildAdminHealthAlert({
     key: 'test', title: 'Health alert test', body: 'This is a test of the admin health alert. If you can read it, paging works.',
-  })))
-  console.log(`✅ Test health alert sent to ${sent}/${subs.length} device(s).`)
+  })
+  const sent = await sendToOwner(subs, toPushPayload(n))
+  const posted = await postToDiscord(n)
+  console.log(`✅ Test health alert sent to ${sent}/${subs.length} device(s)${posted ? ' and Discord' : ''}.`)
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -229,12 +262,14 @@ async function main() {
 
     if (DRY_RUN) { console.log(`🔔 Would page: ${a.title} — ${a.body}`); continue }
 
-    const sent = await sendToOwner(subs, toPushPayload(buildAdminHealthAlert(a)))
+    const n = buildAdminHealthAlert(a)
+    const sent = await sendToOwner(subs, toPushPayload(n))
+    const posted = await postToDiscord(n)
     const iso = new Date().toISOString()
     const { error: upErr } = await supabase.from('admin_alert_state')
       .upsert({ key: a.key, signature: a.signature, last_alerted: iso, updated_at: iso })
     if (upErr) console.warn(`  ⚠️  Could not record alert state for ${a.key}: ${upErr.message}`)
-    console.log(`🔔 Paged (${sent}/${subs.length}): ${a.title}`)
+    console.log(`🔔 Paged (${sent}/${subs.length}${posted ? ', Discord' : ''}): ${a.title}`)
     paged++
   }
 

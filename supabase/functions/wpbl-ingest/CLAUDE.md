@@ -19,8 +19,10 @@ What the league feed does that it never says, and what the ingest does about it.
   season and `rknw1oz8pl20apx4` in the bracket, same name, same club, both live in `/games` at
   once. `wpbl_teams.api_id` held one id, so `wpbl-ingest` could map neither postseason club and
   pushed `unmapped team in <game>` into `summary.errors` for all four bracket games, every pass,
-  for two days. **`summary.errors` does not set `ok: false`**, so the run logged `ok: true` and the
-  only surface that noticed was an amber chip on `/admin` that nobody was looking at. Game 1 was
+  for two days. **`summary.errors` did not then set `ok: false`**, so the run logged `ok: true` and
+  the only surface that noticed was an amber chip on `/admin` that nobody was looking at. Since
+  Oct 2026 any entry there makes the run `ok: false`, which pages with the first errors named;
+  do not add an expected, routine error to it, or the alarm learns to be ignored. Game 1 was
   played on Sep 9, 2026 with no row on the site: no scoreboard line, no Game Center, no push, no
   Discord recap. `wpbl_teams.api_ids` now holds every id a club has held and the ingest matches on
   any of them; it also ADOPTS an unseen id whose feed name matches a club exactly, and persists it,
@@ -97,3 +99,15 @@ What the league feed does that it never says, and what the ingest does about it.
   the row every pass: the scoreboard moves and the box score under it does not, so the game page
   contradicts itself rather than simply going stale.
   [`scripts/check-wpbl-drift.mjs`](../../../scripts/check-wpbl-drift.mjs) is what closes this, nightly.
+
+- **The feed has a contract, [`feed-contract.ts`](feed-contract.ts), and it reports rather than
+  refuses.** Every `/games` row and box score is checked with valibot against the shape the 2026
+  feed actually sent (all 71 box scores and the list passed; fixtures in
+  `src/wpbl/__tests__/fixtures/feed-2026/`). A broken row lands in `summary.errors`, grouped with a
+  count, and is ingested anyway, because a renamed `game_type` breaks every row at once and
+  dropping them would blank the site. Only a list envelope with no numeric `count` stops the pass,
+  because the truncation guard needs it. Two facts the contract had to learn from the real feed:
+  `completed_at` is ABSENT, not `''`, until a game ends (so a final without it is the check), and an
+  undecided bracket game's box score has `''` for both club ids. **The import is a bare
+  `'valibot'`**, mapped in this folder's `deno.json`; a test fails if its version leaves
+  `package.json`'s, and `denoGraph.test.ts` fails on any bare import the map lacks.

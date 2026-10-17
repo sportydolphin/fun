@@ -52,6 +52,7 @@ jobs:
           VAPID_PUBLIC_KEY:          ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY:         ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT:             ${{ secrets.VAPID_SUBJECT }}
+          DISCORD_ALERTS_WEBHOOK_URL: ${{ secrets.DISCORD_ALERTS_WEBHOOK_URL }}
           MODE:                      ${{ inputs.mode }}
         run: |
           if [ "$MODE" = "test" ]; then

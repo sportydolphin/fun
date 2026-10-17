@@ -247,13 +247,21 @@ this section as it stood that day plus the engineering backlog below. This secti
 and the reasoning; where the two disagree, `/admin` is the order.
 
 **Engineering backlog (added Oct 13, 2026).** Tiered on `/admin`; the reasons in brief:
-- *P2, spring readiness.* A feed contract in `wpbl-ingest` (valibot or zod), so a renamed
+- *P2, spring readiness.* ~~A feed contract in `wpbl-ingest` (valibot or zod), so a renamed
   `game_type`, a missing `completed_at` or a short `/games` list throws instead of logging
   `ok: true`. `summary.errors` meaning failure, plus a freshness alarm that DMs the owner on
   Discord for a scheduled game past first pitch with no live row (`admin-health-alert` already
   pushes on both, so this is the second channel). A column-partition test from
   `supabase gen types` asserting `LIVE_GAME_COLUMNS` and the immutable list cover exactly
-  `wpbl_games`, and the same for the line column lists, which turns that trap into a CI failure.
+  `wpbl_games`, and the same for the line column lists, which turns that trap into a CI failure.~~
+  ✅ **done Oct 17, 2026**, three ways different from the plan. The contract (`feed-contract.ts`)
+  reports a break into `summary.errors` and keeps ingesting rather than throwing, because a renamed
+  `game_type` breaks every row and throwing would stop the mirror; only a list with no `count`
+  stops the pass. The Discord channel is the ops webhook (`DISCORD_ALERTS_WEBHOOK_URL`), not a DM,
+  since no owner DM plumbing exists; it carries every health page, the never-started alarm
+  included. The partition test replays the migrations rather than `supabase gen types`, so CI needs
+  no database; it found `tracking_checked_at` in neither list (ingest-only, now named as such).
+  Takes effect on the next `supabase functions deploy wpbl-ingest`.
 - *P2, cheap now.* Freeze past seasons as static JSON (R2 or `/data/2026/*.json`, immutable
   cache), which also becomes the open-data download. A `size-limit` bundle budget in CI. `knip`
   for dead exports and files.

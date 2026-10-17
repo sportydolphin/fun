@@ -26,6 +26,7 @@ import { normName, editDistance, isDamaged, replacementMatch, tradeMatch, teamMo
 import { bestTwin } from './games.ts'
 import { announceFinal } from './announce-final.ts'
 import { crownPredictions, settlePredictions } from './settle-predictions.ts'
+import { checkBoxscore, checkGameList } from './feed-contract.ts'
 
 const FEED = 'https://stats.womensprobaseballleague.com/v1'
 const CORS = {
@@ -583,11 +584,14 @@ async function ingestBoxscore(
   /** The list row's `completed_at`. See the note on `complete` below: the boxscore has no
    *  equivalent field and its own `status.complete` cannot be trusted to stay true. */
   completedAt: string,
-): Promise<{ status: 'scheduled' | 'live' | 'final'; batting: number; pitching: number; fielding: number; plays: number; tracking: number }> {
+): Promise<{ status: 'scheduled' | 'live' | 'final'; batting: number; pitching: number; fielding: number; plays: number; tracking: number; breaks: string[] }> {
   const res = await fetch(`${FEED}/games/${apiGameId}/boxscore`)
   if (!res.ok) throw new Error(`boxscore ${apiGameId} → ${res.status}`)
-  const box = (await res.json()).boxscore
+  const body = await res.json()
+  const box = body.boxscore
   if (!box) throw new Error(`boxscore ${apiGameId} empty`)
+  // Reported, not refused: see feed-contract.ts for why a broken box score is still ingested.
+  const breaks = checkBoxscore(body, apiGameId)
 
   const slugOf = (apiTeamId: string) => teamSlug.get(apiTeamId) ?? null
   // Names this box score puts on both sides: contradictory evidence about a club, and the
@@ -750,7 +754,7 @@ async function ingestBoxscore(
 
   if (tracking.length) await db.from('wpbl_pitch_tracking').upsert(tracking, { onConflict: 'activity_id' })
 
-  return { status: derivedStatus, batting: batting.length, pitching: pitching.length, fielding: fielding.length, plays: plays.length, tracking: tracking.length }
+  return { status: derivedStatus, batting: batting.length, pitching: pitching.length, fielding: fielding.length, plays: plays.length, tracking: tracking.length, breaks }
 }
 
 // ─── handler ──────────────────────────────────────────────────────────────────
@@ -790,8 +794,8 @@ Deno.serve(async (req) => {
     // new one per context and nothing in the payload says the two are the same team. Boston is
     // 9f08or2mffx81409 all regular season and rknw1oz8pl20apx4 in the postseason, both live in
     // /games at once. Reading the scalar `api_id` alone left every bracket game unmapped, so
-    // the loop below skipped all four, into `summary.errors`, which does
-    // not set `ok: false`. Game 1 was played on Sep 9, 2026 with no row on the site at all.
+    // the loop below skipped all four, into `summary.errors`, which did not then set
+    // `ok: false`. Game 1 was played on Sep 9, 2026 with no row on the site at all.
     // So match on ANY id the club has held; api_ids is the same shape as wpbl_players.api_ids.
     const { data: teams } = await db.from('wpbl_teams').select('id, city, name, abbr, api_id, api_ids')
     const teamSlug = new Map<string, string>()
@@ -903,12 +907,20 @@ Deno.serve(async (req) => {
       await logRun(false, 0, 0, [`feed /games → ${listRes.status}`])
       return json({ error: `feed /games → ${listRes.status}` }, 502)
     }
-    const listJson = await listRes.json()
-    const feedGames: any[] = listJson.games ?? []
+    // The contract (feed-contract.ts). An envelope without `count` stops the pass here, because
+    // the guard below used to skip itself on a missing count (`Number.isFinite(NaN)` is false)
+    // and let the dedupe run over a list nothing had proved whole.
+    const list = checkGameList(await listRes.json())
+    if (list.fatal) {
+      console.error(`[wpbl-ingest] ${list.fatal}`)
+      await logRun(false, 0, 0, [list.fatal])
+      return json({ error: list.fatal }, 502)
+    }
+    const feedGames: any[] = list.games
     // `count` is the feed's own total. Trust it over our row count, and stop if they disagree:
     // continuing would run the delete-happy dedupe over a schedule we know is incomplete.
-    const feedCount = Number(listJson.count)
-    if (Number.isFinite(feedCount) && feedGames.length < feedCount) {
+    const feedCount = list.count
+    if (feedGames.length < feedCount) {
       const msg = `feed /games truncated: ${feedGames.length} of ${feedCount} (limit ${LIST_LIMIT})`
       console.error(`[wpbl-ingest] ${msg}`)
       await logRun(false, 0, 0, [msg])
@@ -971,7 +983,14 @@ Deno.serve(async (req) => {
       for (const fg of group) if (s(fg.game_id) !== keep?.gameId) phantomIds.add(s(fg.game_id))
     }
 
-    const summary = { games: 0, boxscores: 0, phantomsRemoved: 0, errors: [] as string[] }
+    // Rows that break the contract are ingested anyway and reported here first, so they lead
+    // the 25 errors the run log keeps. A one-game pass reports only its own row's: the drift
+    // check repairs one game at a time and fails the repair on `ok: false`, so another row's
+    // break would fail every repair for a reason that has nothing to do with the game.
+    const listBreaks = oneGame
+      ? checkGameList({ count: list.count, games: feedGames.filter(fg => s(fg?.game_id) === oneGame) }).breaks
+      : list.breaks
+    const summary = { games: 0, boxscores: 0, phantomsRemoved: 0, errors: [...listBreaks] }
 
     for (const fg of feedGames) {
       const apiGameId = s(fg.game_id)
@@ -1054,6 +1073,7 @@ Deno.serve(async (req) => {
       try {
         const box = await ingestBoxscore(db, up.id, apiGameId, gameRow.game_date, teamSlug, resolver, s(fg.completed_at))
         summary.boxscores++
+        summary.errors.push(...box.breaks)
         // A game we were already tracking has just finished — announce it to Discord now,
         // rather than leaving it for the scheduled poster's next quarter-hour. Deliberately
         // requires a `prior` row: a game first SEEN as final (a backfill, `mode: "all"`, a
@@ -1075,8 +1095,15 @@ Deno.serve(async (req) => {
     // Every open Discord prediction round, settled against the plays this pass just wrote. It
     // owns its own errors: a Discord outage is not an ingest failure.
     await settlePredictions()
-    await logRun(true, summary.games, summary.boxscores, summary.errors)
-    return json({ ok: true, mode, ...summary })
+    // ANY ERROR IS A FAILED RUN. This said `ok: true` whatever `summary.errors` held, and the
+    // postseason proved what that costs: four bracket games unmapped on every pass for two days,
+    // logged `ok: true`, seen only as an amber chip on /admin, while Game 1 was played with no row
+    // on the site. An error here is a game we did not mirror or a feed that no longer matches its
+    // contract, and either is the owner's to know about. The pass still writes everything it
+    // could; `ok` says whether that was everything.
+    const ok = summary.errors.length === 0
+    await logRun(ok, summary.games, summary.boxscores, summary.errors)
+    return json({ ok, mode, ...summary })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     await logRun(false, 0, 0, [msg])

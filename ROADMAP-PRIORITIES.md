@@ -60,9 +60,11 @@
     - the feed rehearsal: replay the archived 2026 feed into a scratch schema and diff it (also the
       real test of multiple seasons);
     - `wpbl-postseason-check` failing on missing secrets;
-    - a feed contract in `wpbl-ingest` (valibot or zod), `summary.errors` meaning failure, and a
-      Discord freshness alarm;
-    - the column-partition test for `LIVE_GAME_COLUMNS` and the line column lists;
+    - ~~a feed contract in `wpbl-ingest` (valibot or zod), `summary.errors` meaning failure, and a
+      Discord freshness alarm~~ ✅ done Oct 17 (valibot; the alarm is every health page posted to
+      the ops channel, `DISCORD_ALERTS_WEBHOOK_URL`); live once `wpbl-ingest` is redeployed;
+    - ~~the column-partition test for `LIVE_GAME_COLUMNS` and the line column lists~~ ✅ done Oct 17,
+      read from the migrations rather than `supabase gen types`;
     - every Trap in CLAUDE.md re-verified against the 2027 feed once it speaks.
     *ROADMAP-WPBL, ops item 7, Priorities P0 and P2, engineering backlog.*
 12. **iOS.** A much bigger build than Play, done before the season. *docs/IOS.md.*
