@@ -9,6 +9,7 @@ import { MLB_MORE_PAGES } from './mlb/routes'
 import { TYPE_SCALE } from './ui/card'
 
 const KOFI_URL = 'https://ko-fi.com/sportydolphin'
+const BLUESKY_URL = 'https://bsky.app/profile/sportydolphin.fun'
 
 // Shared style for the footer's clickable text bits (buttons + links). Muted by
 // default, brand accent on hover. Works in both themes via text.* tokens.
@@ -93,11 +94,6 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
         ))}
 
         <FooterColumn title="Connect">
-          {/* The other section, with its name spelled out. The header's league switch is a
-              toggle rather than a pair of links, so before this the only crawlable door to
-              a section was whichever one you happened to land on. Keep the wording
-              keyword-shaped: anchor text is most of what tells a search engine what a page is. */}
-          {pageLink(isWpbl ? '/mlb' : '/wpbl', isWpbl ? 'MLB stats' : 'WPBL stats')}
           {isWpbl && (
             // The fan Discord's only remaining door, after its promo card on the WPBL home screen
             // was retired. Still tracked as a join, so that number survives the card.
@@ -107,13 +103,21 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
               sx={linkSx}
             >Fan Discord</Box>
           )}
+          <Box component="a" href={BLUESKY_URL} target="_blank" rel="noopener noreferrer" sx={linkSx}>Bluesky</Box>
           <Box component="span" {...pressable(onOpenFeedback)} sx={linkSx}>Feedback</Box>
           {/* "Support" stays in front of Ko-fi: the verb is the information, and Ko-fi is a name
               a general sports reader may not know before following an external link. */}
           <Box component="a" href={KOFI_URL} target="_blank" rel="noopener noreferrer" sx={linkSx}>Support on Ko-fi &hearts;</Box>
         </FooterColumn>
 
-        <FooterColumn title="About">
+        {/* The section switch sits here rather than under Connect, which Bluesky filled to five:
+            four links a column keeps the columns level on WPBL, and the switch is about the site. */}
+        <FooterColumn title="Site">
+          {/* The other section, with its name spelled out. The header's league switch is a
+              toggle rather than a pair of links, so before this the only crawlable door to
+              a section was whichever one you happened to land on. Keep the wording
+              keyword-shaped: anchor text is most of what tells a search engine what a page is. */}
+          {pageLink(isWpbl ? '/mlb' : '/wpbl', isWpbl ? 'MLB stats' : 'WPBL stats')}
           <Box component="span" {...pressable(onOpenChangelog)} sx={linkSx}>What's new</Box>
           {pageLink('/privacy', 'Privacy')}
           {pageLink('/terms', 'Terms')}
