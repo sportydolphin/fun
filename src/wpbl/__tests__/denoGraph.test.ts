@@ -25,18 +25,24 @@ import { dirname, join, normalize, relative, sep } from 'node:path'
 
 const ENTRY = 'supabase/functions/wpbl-ingest/index.ts'
 const SPECIFIER = /^\s*(?:import|export)\s+(type\s+)?(?:[^'"]*?\sfrom\s+)?['"](\.[^'"]+)['"]/gm
+// A bare specifier ('valibot') resolves only through the function's import map, deno.json, where
+// Vite and tsc find it in node_modules. URL, `npm:`, `jsr:` and `node:` specifiers need no map.
+const BARE = /^\s*(?:import|export)\s+(type\s+)?(?:[^'"]*?\sfrom\s+)?['"]([^.'"/][^'"]*)['"]/gm
+const NEEDS_NO_MAP = /^(https?:|npm:|jsr:|node:)/
 
 const toPosix = (p: string) => p.split(sep).join('/')
 
-function walk(entry: string): { files: string[]; extensionless: string[] } {
+function walk(entry: string): { files: string[]; extensionless: string[]; bare: string[] } {
   const seen = new Set<string>()
   const extensionless: string[] = []
+  const bare = new Set<string>()
   const queue = [normalize(entry)]
   while (queue.length) {
     const file = queue.pop()!
     if (seen.has(file) || !existsSync(file)) continue
     seen.add(file)
     const src = readFileSync(file, 'utf8')
+    for (const [, isType, spec] of src.matchAll(BARE)) if (!isType && !NEEDS_NO_MAP.test(spec)) bare.add(spec)
     for (const m of src.matchAll(SPECIFIER)) {
       const [, isType, spec] = m
       if (!spec.endsWith('.ts') && !spec.endsWith('.js')) {
@@ -46,7 +52,7 @@ function walk(entry: string): { files: string[]; extensionless: string[] } {
       queue.push(normalize(join(dirname(file), spec)))
     }
   }
-  return { files: [...seen].map(toPosix), extensionless }
+  return { files: [...seen].map(toPosix), extensionless, bare: [...bare].sort() }
 }
 
 describe('the wpbl-ingest import graph', () => {
@@ -66,5 +72,12 @@ describe('the wpbl-ingest import graph', () => {
 
   it('carries a .ts on every runtime import, because Deno will not add one', () => {
     expect(graph.extensionless).toEqual([])
+  })
+
+  it('maps every bare import in deno.json, because Deno has no node_modules to look in', () => {
+    // Fails the same silent way as the extension: green here, a deploy that dies at import.
+    const deno = JSON.parse(readFileSync('supabase/functions/wpbl-ingest/deno.json', 'utf8'))
+    expect(graph.bare).toContain('valibot')
+    expect(graph.bare.filter(spec => !(spec in deno.imports))).toEqual([])
   })
 })

@@ -25,6 +25,19 @@ describe('healthAlerts — ingest', () => {
     expect(keys({ ingest: freshIngest({ ok: false }) })).toContain('ingest-down')
   })
 
+  it('names the errors when a run failed on them (contract breaks, unmapped clubs)', () => {
+    // The ingest sets ok:false on any summary error since Oct 2026, so a failed run is no longer
+    // only an outage, and the page has to say which.
+    const [alert] = healthAlerts({ ingest: freshIngest({
+      ok: false, error_count: 4,
+      errors: ['contract /games game_type: Invalid option', 'unmapped team in g1', 'box g2: 502', 'box g3: 502'],
+    }) }, NOW)
+    expect(alert.key).toBe('ingest-down')
+    expect(alert.body).toContain('contract /games game_type')
+    expect(alert.body).toContain('(+1 more)')
+    expect(alert.signature).toContain('contract /games game_type')
+  })
+
   it('pages on ok:true with per-game errors (the unmapped-team trap) and carries the detail', () => {
     const [alert] = healthAlerts({ ingest: freshIngest({
       error_count: 2, errors: ['unmapped team in g1', 'unmapped team in g2'],
