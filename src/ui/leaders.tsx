@@ -119,7 +119,9 @@ export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKe
             const dimmed = hoverKey != null && !lit
             return (
               <Box key={it.key} {...it.linkProps}
-                onMouseEnter={onHover ? () => onHover(it.key) : undefined}
+                // A pointer event, gated on the mouse: a tap also fires a compatibility mouseenter,
+                // which lit the row and dimmed the board on a phone before the player's page opened.
+                onPointerEnter={onHover ? e => { if (e.pointerType === 'mouse') onHover(it.key) } : undefined}
                 sx={{
                   ...ROW_SX, ...rule(i), ...FOCUS_RING,
                   ...splitRule(splitWhen, i, half),
