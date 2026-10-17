@@ -230,7 +230,7 @@ export function ActivityChart({ series, tz }: { series: DayPoint[]; tz: string }
         {formatCount(data[0].events)} events · {formatCount(data[0].browsers)} browsers
       </Typography>
       <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', mt: 0.3 }}>
-        {shortDate(data[0].date)} — a trend needs at least two days
+        {shortDate(data[0].date)}: a trend needs at least two days
       </Typography>
     </Box>
   }
@@ -650,7 +650,7 @@ export default function AdminPage() {
 
       {shortHistory && firstEvent && (
         <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mb: 1.5 }}>
-          Events only go back to {shortDate(firstEvent)} — the chart starts where the data does,
+          Events only go back to {shortDate(firstEvent)}. The chart starts where the data does,
           and the previous-window deltas have nothing to compare against yet.
         </Typography>
       )}
@@ -1277,7 +1277,7 @@ export default function AdminPage() {
       </Fold>
 
       <Typography sx={{ fontSize: '0.64rem', color: 'text.disabled', mt: 2 }}>
-        "Browsers" counts distinct localStorage ids, not people — one person on a phone and a
+        "Browsers" counts distinct localStorage ids, not people: one person on a phone and a
         laptop is two, and clearing site data starts a new one. Day buckets are in {overview.tz || tz}.
         An event's count can also jump on the day it was instrumented rather than on the day
         behaviour changed: search, team opens and the Game Center tabs all start Aug 25, 2026,

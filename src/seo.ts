@@ -30,7 +30,7 @@ interface Seo {
 }
 
 const DEFAULT: Seo = {
-  title: 'sportydolphin.fun — MLB & WPBL baseball stats',
+  title: 'sportydolphin.fun: MLB & WPBL baseball stats',
   description:
     "A free baseball stats site for Major League Baseball and the Women's Pro Baseball League. Live scores, player and team stats, standings, and a predictions game. No sign-in required to browse.",
 }
@@ -39,7 +39,7 @@ const DEFAULT: Seo = {
 // "WPBL stats" / "Women's Pro Baseball League" — a new-in-2026, low-competition term.
 const ROUTES: Record<string, Seo> = {
   '/wpbl': {
-    title: "WPBL Stats — Women's Pro Baseball League | sportydolphin.fun",
+    title: "WPBL Stats: Women's Pro Baseball League | sportydolphin.fun",
     description:
       "Live WPBL scores, standings, and player and team stats for the Women's Pro Baseball League. Free and no sign-in required to browse.",
   },
@@ -240,7 +240,7 @@ const ROUTES: Record<string, Seo> = {
       "Put any two Women's Pro Baseball League players side by side: batting, pitching, playing time, and what happened the times they faced each other.",
   },
   '/wpbl/api': {
-    title: "WPBL API — Women's Pro Baseball League data feed | sportydolphin.fun",
+    title: "WPBL API: Women's Pro Baseball League data feed | sportydolphin.fun",
     description:
       "A reference for reading the Women's Pro Baseball League (WPBL) data feed: games, boxscores, and live game activity.",
   },
@@ -260,7 +260,7 @@ const ROUTES: Record<string, Seo> = {
       'The results of the inaugural Women\'s Pro Baseball League fan awards, as voted by the fans: MVP, Pitcher of the Year, Manager of the Year, Defensive Wizard and Most Aura.',
   },
   '/mlb': {
-    title: 'MLB Stats — Live scores, player & team stats | sportydolphin.fun',
+    title: 'MLB Stats: Live scores, player & team stats | sportydolphin.fun',
     description:
       'Free MLB stats: live scores, player and team statistics, standings, and a daily predictions game. No sign-in required to browse.',
   },
@@ -358,7 +358,7 @@ const ROUTES: Record<string, Seo> = {
   // fetch the URL, this tells one that fetched it anyway not to index it. Neither is a
   // security control — the RPC guards are (see docs/ADMIN_ANALYTICS.md).
   '/admin': {
-    title: 'Admin — sportydolphin.fun',
+    title: 'Admin | sportydolphin.fun',
     description: 'Site analytics and admin tools.',
     noindex: true,
   },

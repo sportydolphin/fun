@@ -321,7 +321,7 @@ export function PitchData({ tracking, boxPitchers, firstHit = null, live = false
           </Box>
           {unattributed > 0 && (
             <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', mb: 2.5 }}>
-              Avg / Top / Spin come from TrackMan. {unattributed} tracked pitches (the feed left them unnamed — usually a starter) couldn't be matched to a pitcher.
+              Avg / Top / Spin come from TrackMan. {unattributed} tracked pitches (the feed left them unnamed, usually a starter) couldn't be matched to a pitcher.
             </Typography>
           )}
         </>

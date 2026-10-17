@@ -63,7 +63,7 @@ export function buildLiveBoxReply(
   // The leading side gets the accent stripe; a tie takes the home club's colour rather than none.
   const leader = awayScore > homeScore ? away : home
 
-  const scoreLine = `**${away.abbr || away.id} ${awayScore} — ${homeScore} ${home.abbr || home.id}**`
+  const scoreLine = `**${away.abbr || away.id} ${awayScore}–${homeScore} ${home.abbr || home.id}**`
   // Between half-innings the count, outs and batter all describe an at-bat that has finished
   // (see betweenInnings in liveSituation.ts), so the line collapses to the break itself.
   const inningLine = s

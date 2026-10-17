@@ -7,6 +7,7 @@ import { fetchLeagueStatsBySeason, tooltipAnchorSx, useChartViewWidth, useTouchS
 import { chromePx, typePx } from '../../ui/scale'
 import { useSeasonPhase, isSeasonOver } from '../seasonPhase'
 import { ipToOuts } from '../../league/innings'
+import { TYPE_SCALE } from '../../ui/card'
 
 /** "73.2" from 221 outs, the box score's own spelling of innings. */
 const outsIp = (outs: number) => `${Math.floor(outs / 3)}.${outs % 3}`
@@ -178,7 +179,7 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
   if (pts.length < 3) {
     return (
       <Box sx={{ py: 3, textAlign: 'center' }}>
-        <Typography color="text.secondary" sx={{ fontSize: '0.85rem' }}>
+        <Typography color="text.secondary" sx={{ fontSize: TYPE_SCALE.body }}>
           Not enough games yet to show a trend
         </Typography>
       </Box>
@@ -308,10 +309,10 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
     <Box>
       {/* Chart title */}
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 1.25 }}>
-        <Typography sx={{ fontWeight: 800, fontSize: '1.5rem', letterSpacing: '-0.02em' }}>
+        <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.page, letterSpacing: '-0.02em' }}>
           {label}
         </Typography>
-        <Typography sx={{ fontSize: '1.5rem', color: 'text.secondary', fontWeight: 800, letterSpacing: '-0.02em' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.page, color: 'text.secondary', fontWeight: 800, letterSpacing: '-0.02em' }}>
           {season}
         </Typography>
       </Box>
@@ -320,30 +321,30 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
       <Box sx={{ display: 'flex', gap: 3, mb: 1.5, flexWrap: 'wrap' }}>
         {!seasonComplete && (
           <Box>
-            <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>
               {isPitcher && !isStarter ? `Last ${currentPt.ip != null ? currentPt.ip.toFixed(1) : '—'} IP` : `Last ${currentPt.size} ${isPitcher ? 'starts' : 'games'}`}
             </Typography>
-            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT_TEXT, lineHeight: 1.2 }}>
+            <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.display, color: ACCENT_TEXT, lineHeight: 1.2 }}>
               {fmt(currentPt.value)}
             </Typography>
           </Box>
         )}
         {seasonStat.stat != null && (
           <Box>
-            <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>
               Season {label}
             </Typography>
-            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2, color: seasonComplete ? ACCENT_TEXT : 'text.primary' }}>
+            <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.display, lineHeight: 1.2, color: seasonComplete ? ACCENT_TEXT : 'text.primary' }}>
               {fmt(seasonStat.stat)}
             </Typography>
           </Box>
         )}
         {/* Labelled as the two tiles beside it are, so the row reads as three of one thing. */}
         <Box>
-          <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>
             {seasonStat.volumeLabel}
           </Typography>
-          <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>
+          <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.display, lineHeight: 1.2 }}>
             {seasonStat.volume}
           </Typography>
         </Box>
@@ -443,14 +444,14 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
               borderRadius: 2, px: 1.5, py: 1, boxShadow: '0 4px 18px rgba(0,0,0,0.13)',
               minWidth: chromePx(90), zIndex: 10,
             }}>
-              <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1 }}>{fmtDate(hov.date)}</Typography>
-              <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', mt: 0.2 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.body, lineHeight: 1 }}>{fmtDate(hov.date)}</Typography>
+              <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 0.2 }}>
                 {hov.isHome ? 'vs' : '@'} {hov.opp}
               </Typography>
-              <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: ACCENT_TEXT, mt: 0.3, lineHeight: 1 }}>
+              <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.heading, color: ACCENT_TEXT, mt: 0.3, lineHeight: 1 }}>
                 {fmt(hov.value)}
               </Typography>
-              <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', mt: 0.2 }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 0.2 }}>
                 {isPitcher && !isStarter
                   ? `last ${hov.size} apps · ${hov.ip != null ? hov.ip.toFixed(1) : '?'} IP`
                   : `last ${hov.size} ${isPitcher ? 'starts' : 'games'}`}
@@ -459,7 +460,7 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
         )}
       </Box>
 
-      <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.75 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mt: 0.75 }}>
         {isPitcher && !isStarter
           ? `${season} rolling ERA · each point = last ~${RP_IP_TARGET} innings (${currentPt.size} apps)`
           : `${season} rolling ${label} · each point = last ${isPitcher ? `${SP_WINDOW} starts` : `${HIT_WINDOW} games`}`}

@@ -115,13 +115,13 @@ export function buildRecapMessage(game: WpblGame, recap: GameRecap, teams: Map<s
   if (recap.stars.length) {
     fields.push({
       name: 'Stars of the game',
-      value: recap.stars.map((s, i) => `${MEDALS[i] ?? '⭐'} **${s.name}** — ${s.statline}`).join('\n'),
+      value: recap.stars.map((s, i) => `${MEDALS[i] ?? '⭐'} **${s.name}** · ${s.statline}`).join('\n'),
     })
   }
   if (recap.decisions.length) {
     fields.push({
       name: 'Decisions',
-      value: recap.decisions.map(d => `\`${d.key}\` **${d.name}** — ${d.statline}`).join('\n'),
+      value: recap.decisions.map(d => `\`${d.key}\` **${d.name}** · ${d.statline}`).join('\n'),
     })
   }
   if (recap.feats.length) {

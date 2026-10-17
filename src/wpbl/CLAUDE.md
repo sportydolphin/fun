@@ -187,8 +187,8 @@ Loaded when you read anything under `src/wpbl/`. The feed and ingest traps (ids,
   `drawable` asks only whether there are questions worth drawing, never who is asking. `/wpbl/awards`
   is a normal public route: indexed in [`seo.ts`](../seo.ts), listed in `sitemap.xml`, and not
   disallowed in `robots.txt`. **Nothing may quietly add a gate back**: `routes.test.ts` asserts that
-  neither file contains `useIsAdmin` or `useHasRole` and that `drawable` stays exactly
-  `fanVoteIsWorthDrawing(entries)`, because a single `&&` here would hide the ballot from every fan
+  neither file (nor anything in [`fanVote/`](fanVote/)) contains `useIsAdmin` or `useHasRole` and
+  that `drawable` stays exactly `fanVoteIsWorthDrawing(entries)`, because a single `&&` here would hide the ballot from every fan
   while the sitemap kept sending them to it. Votes go through `wpbl_cast_award_vote`, callable by
   anyone; the close date is enforced in the UI only (see `AWARDS_CLOSE_AT` in
   [`awards.ts`](awards.ts)), so the RPC itself takes a vote regardless of the clock.

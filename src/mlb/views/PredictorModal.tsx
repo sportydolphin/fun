@@ -4,7 +4,7 @@
 import { useDark } from '../../ui/useDark'
 import { TeamLogo } from '../components/TeamLogo'
 import { pressable } from '../../ui/interaction'
-import { edge } from '../../ui/card'
+import { edge, TYPE_SCALE } from '../../ui/card'
 import React, { useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TONE, FILL } from '../constants'
@@ -54,7 +54,7 @@ function PredTeamSide({ side, game, prediction, locked, onPick }: {
           width: chromePx(17), height: chromePx(17), borderRadius: '50%',
           bgcolor: correct ? FILL.green : FILL.red,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '0.62rem', color: '#fff', fontWeight: 900, lineHeight: 1,
+          fontSize: TYPE_SCALE.caption, color: '#fff', fontWeight: 900, lineHeight: 1,
           userSelect: 'none',
         }}>
           {correct ? '✓' : '✗'}
@@ -71,7 +71,7 @@ function PredTeamSide({ side, game, prediction, locked, onPick }: {
       {/* Team nickname */}
       <Typography
         sx={{
-          fontWeight: 700, fontSize: { xs: '0.75rem', sm: '0.88rem' }, lineHeight: 1.2, textAlign: 'center',
+          fontWeight: 700, fontSize: { xs: TYPE_SCALE.meta, sm: TYPE_SCALE.title }, lineHeight: 1.2, textAlign: 'center',
         }}
       >
         {nickname}
@@ -80,19 +80,19 @@ function PredTeamSide({ side, game, prediction, locked, onPick }: {
       {/* Pitcher: display only, the whole card half is the pick target */}
       {team.pitcher ? (
         <Box sx={{ textAlign: 'center' }}>
-          <Typography sx={{ fontSize: { xs: '0.66rem', sm: '0.78rem' }, color: 'text.secondary', lineHeight: 1.3 }}>
+          <Typography sx={{ fontSize: { xs: TYPE_SCALE.meta, sm: TYPE_SCALE.body }, color: 'text.secondary', lineHeight: 1.3 }}>
             {team.pitcher.name.split(' ').slice(-1)[0]}
             {' '}
             <Box component="span" sx={{ color: 'text.disabled' }}>
               {team.pitcher.hand === 'R' ? 'RHP' : team.pitcher.hand === 'L' ? 'LHP' : '—'}
             </Box>
           </Typography>
-          <Typography sx={{ fontSize: { xs: '0.6rem', sm: '0.72rem' }, color: 'text.secondary', lineHeight: 1, mt: chromePx(2) }}>
+          <Typography sx={{ fontSize: { xs: TYPE_SCALE.caption, sm: TYPE_SCALE.meta }, color: 'text.secondary', lineHeight: 1, mt: chromePx(2) }}>
             {team.pitcher.era} ERA
           </Typography>
         </Box>
       ) : (
-        <Typography sx={{ fontSize: { xs: '0.6rem', sm: '0.72rem' }, color: 'text.disabled', lineHeight: 1 }}>TBD</Typography>
+        <Typography sx={{ fontSize: { xs: TYPE_SCALE.caption, sm: TYPE_SCALE.meta }, color: 'text.disabled', lineHeight: 1 }}>TBD</Typography>
       )}
     </Box>
   )
@@ -125,21 +125,21 @@ function PredictionCard({ game, prediction, onPick, gameVotes }: {
           <Box sx={{ width: chromePx(5), height: chromePx(5), borderRadius: '50%', bgcolor: '#ef4444', flexShrink: 0 }} />
         )}
         <Typography sx={{
-          fontSize: { xs: '0.62rem', sm: '0.74rem' }, fontWeight: 700, letterSpacing: typePx(0.5), lineHeight: 1,
+          fontSize: { xs: TYPE_SCALE.caption, sm: TYPE_SCALE.meta }, fontWeight: 700, letterSpacing: typePx(0.5), lineHeight: 1,
           color: game.state === 'live' ? TONE.red : game.state === 'postponed' ? TONE.amber : 'text.secondary',
           textTransform: 'uppercase',
         }}>
           {game.state === 'live' ? 'Live' : game.state === 'final' ? 'Final' : game.state === 'postponed' ? 'PPD' : game.note ? `${game.note} · ${game.gameTime}` : game.gameTime}
         </Typography>
         {game.state === 'live' && (
-          <Typography sx={{ fontSize: '0.56rem', color: 'text.disabled' }}>🔒</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled' }}>🔒</Typography>
         )}
       </Box>
 
       <Box sx={{ p: 1, display: 'flex', gap: 0.5, alignItems: 'stretch' }}>
         <PredTeamSide side="away" game={game} prediction={prediction} locked={locked} onPick={onPick} />
         <Box sx={{ display: 'flex', alignItems: 'center', px: 0.25 }}>
-          <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', lineHeight: 1 }}>@</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled', lineHeight: 1 }}>@</Typography>
         </Box>
         <PredTeamSide side="home" game={game} prediction={prediction} locked={locked} onPick={onPick} />
       </Box>
@@ -148,18 +148,18 @@ function PredictionCard({ game, prediction, onPick, gameVotes }: {
       {awayPct !== null && homePct !== null && (
         <Box sx={{ px: 1.25, pb: 1.25 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', minWidth: '1.375rem', textAlign: 'right', lineHeight: 1 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', minWidth: '1.375rem', textAlign: 'right', lineHeight: 1 }}>
               {awayPct}%
             </Typography>
             <Box sx={{ flex: 1, display: 'flex', borderRadius: 999, overflow: 'hidden', height: chromePx(5) }}>
               <Box sx={{ width: `${awayPct}%`, bgcolor: awayCol, opacity: 0.65, transition: 'width 0.4s ease' }} />
               <Box sx={{ flex: 1, bgcolor: homeCol, opacity: 0.65 }} />
             </Box>
-            <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', minWidth: '1.375rem', lineHeight: 1 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', minWidth: '1.375rem', lineHeight: 1 }}>
               {homePct}%
             </Typography>
           </Box>
-          <Typography sx={{ fontSize: '0.58rem', color: 'text.disabled', textAlign: 'center', mt: 0.4, lineHeight: 1 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', textAlign: 'center', mt: 0.4, lineHeight: 1 }}>
             {totalVotes} {totalVotes === 1 ? 'pick' : 'picks'}
           </Typography>
         </Box>
@@ -203,7 +203,7 @@ export function PredictorModal({ open, slateDate, games, predictions, allVotes, 
 
   return (
     <MlbSheet onClose={onClose} maxWidth={chromePx(500)} sheet sheetFill eyebrow={`🎯 ${dateLabel} matchups`}>
-        <Typography sx={{ px: 2, pt: 1.25, fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.4, flexShrink: 0 }}>
+        <Typography sx={{ px: 2, pt: 1.25, fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.4, flexShrink: 0 }}>
           {pickedCount}/{games.length} picked
           {pct !== null && ` · ${correctCount}/${finalized.length} correct (${pct}%)`}
           {!isSignedIn && ' · Sign in to save picks'}
@@ -212,7 +212,7 @@ export function PredictorModal({ open, slateDate, games, predictions, allVotes, 
         <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
           {games.length === 0 ? (
             <Box sx={{ py: 5, textAlign: 'center' }}>
-              <Typography sx={{ color: 'text.disabled', fontSize: '0.85rem' }}>No games scheduled</Typography>
+              <Typography sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.body }}>No games scheduled</Typography>
             </Box>
           ) : games.map(game => (
             <PredictionCard

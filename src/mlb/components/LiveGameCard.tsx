@@ -3,7 +3,7 @@ import { NameText } from '../../ui/NameText'
 import { TeamLogo } from './TeamLogo'
 import React, { useState, useEffect, useRef } from 'react'
 import { pressable } from '../../ui/interaction'
-import { edge, ACCENT_EDGE } from '../../ui/card'
+import { edge, ACCENT_EDGE, TYPE_SCALE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { TEAM_ABBR, ACCENT, ACCENT_TEXT, TONE, FILL } from '../constants'
 import { ringColor } from '../lib/colorUtils'
@@ -116,7 +116,7 @@ function LiveCelebration({ type, teamColor }: { type: 'hit' | 'run'; teamColor: 
         animation: `celebPop ${isRun ? 2.4 : 1.5}s cubic-bezier(0.34, 1.56, 0.64, 1) forwards`,
       }}>
         <Typography sx={{
-          fontSize: isRun ? '1.15rem' : '0.82rem', fontWeight: 900,
+          fontSize: isRun ? TYPE_SCALE.display : TYPE_SCALE.body, fontWeight: 900,
           letterSpacing: isRun ? typePx(1) : typePx(0.5), color: '#fff', lineHeight: 1,
           textTransform: 'uppercase', whiteSpace: 'nowrap',
           textShadow: isRun ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
@@ -199,15 +199,15 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
       {/* Score row: [away logo] AWAY  X–Y  HOME [home logo]   ● LIVE Game Center */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
         {logo(awayTeamId)}
-        <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: 'text.secondary', minWidth: '1.875rem', textAlign: 'center' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.secondary', minWidth: '1.875rem', textAlign: 'center' }}>
           {awayAbbr}
         </Typography>
-        <Typography sx={{ fontSize: '1.75rem', fontWeight: 900, lineHeight: 1, color: TONE.red, mx: 0.5, whiteSpace: 'nowrap', flexShrink: 0 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.page, fontWeight: 900, lineHeight: 1, color: TONE.red, mx: 0.5, whiteSpace: 'nowrap', flexShrink: 0 }}>
           {awayRuns}
           <Box component="span" sx={{ mx: 0.3, color: 'text.disabled', fontWeight: 400 }}>–</Box>
           {homeRuns}
         </Typography>
-        <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: 'text.secondary', minWidth: '1.875rem', textAlign: 'center' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.secondary', minWidth: '1.875rem', textAlign: 'center' }}>
           {homeAbbr}
         </Typography>
         {logo(homeTeamId)}
@@ -217,7 +217,7 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
             sx={{
               ml: 'auto', flexShrink: 0,
               display: 'inline-flex', alignItems: 'center', gap: 0.5,
-              fontSize: '0.55rem', fontWeight: 800, letterSpacing: typePx(0.3), color: '#fff',
+              fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.3), color: '#fff',
               cursor: 'pointer', px: 1, py: 0.4,
               borderRadius: 999, bgcolor: FILL.red,
               whiteSpace: 'nowrap',
@@ -238,7 +238,7 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
 
       {/* Game state: inning · outs · count · diamond */}
       {loading ? (
-        <Typography sx={{ fontSize: '0.64rem', color: 'text.disabled', lineHeight: 1 }}>Loading…</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1 }}>Loading…</Typography>
       ) : liveData ? (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
           {/* Left column: pitcher/batter, one per line, vertically centered */}
@@ -250,13 +250,13 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
                     {...playerLink(liveData.pitcher.id, liveData.pitcher.name, onPlayerClick)}
                     sx={{ ...LINK_SX, display: 'block', minWidth: 0, cursor: onPlayerClick ? 'pointer' : 'default', '&:hover .lpn': onPlayerClick ? { color: ACCENT_TEXT } : {} }}
                   >
-                    <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', lineHeight: 1 }}>
+                    <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', lineHeight: 1 }}>
                       {betweenInnings ? 'On the Mound' : 'Pitching'}
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6, mt: 0.2, minWidth: 0 }}>
-                      <NameText name={liveData.pitcher.name} className="lpn" sx={{ fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.3, transition: 'color 0.12s', minWidth: 0 }} />
+                      <NameText name={liveData.pitcher.name} className="lpn" sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.3, transition: 'color 0.12s', minWidth: 0 }} />
                       {liveData.pitcher.line && (
-                        <Typography sx={{ fontSize: '0.62rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 10 }}>
+                        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 600, color: 'text.secondary', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 10 }}>
                           {liveData.pitcher.line}
                         </Typography>
                       )}
@@ -268,13 +268,13 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
                     {...playerLink(liveData.batter.id, liveData.batter.name, onPlayerClick)}
                     sx={{ ...LINK_SX, display: 'block', minWidth: 0, cursor: onPlayerClick ? 'pointer' : 'default', '&:hover .lpn': onPlayerClick ? { color: ACCENT_TEXT } : {} }}
                   >
-                    <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', lineHeight: 1 }}>
+                    <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', lineHeight: 1 }}>
                       {betweenInnings ? 'Leading Off' : 'At Bat'}
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6, mt: 0.2, minWidth: 0 }}>
-                      <NameText name={liveData.batter.name} className="lpn" sx={{ fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.3, transition: 'color 0.12s', minWidth: 0 }} />
+                      <NameText name={liveData.batter.name} className="lpn" sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.3, transition: 'color 0.12s', minWidth: 0 }} />
                       {liveData.batter.line && (
-                        <Typography sx={{ fontSize: '0.62rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 10 }}>
+                        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 600, color: 'text.secondary', lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flexShrink: 10 }}>
                           {liveData.batter.line}
                         </Typography>
                       )}
@@ -289,7 +289,7 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
               Between innings none of those apply, so just show "End of the 4th". */}
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1.1, flexShrink: 0 }}>
             {betweenInnings ? (
-              <Typography sx={{ fontSize: '0.78rem', fontWeight: 800, lineHeight: 1.2, color: 'text.secondary', textAlign: 'center' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, lineHeight: 1.2, color: 'text.secondary', textAlign: 'center' }}>
                 {liveData.inningState} of the {liveData.currentInningOrdinal ?? liveData.currentInning}
               </Typography>
             ) : (
@@ -298,11 +298,11 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
                     absolutely positioned to its left so it doesn't shift the centering. */}
                 <Box sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
                   {(liveData.inningHalf === 'top' || liveData.inningHalf === 'bottom') && (
-                    <Typography component="span" sx={{ position: 'absolute', right: '100%', mr: 0.2, fontSize: '0.6rem', fontWeight: 800, lineHeight: 1 }}>
+                    <Typography component="span" sx={{ position: 'absolute', right: '100%', mr: 0.2, fontSize: TYPE_SCALE.caption, fontWeight: 800, lineHeight: 1 }}>
                       {liveData.inningHalf === 'top' ? '▲' : '▼'}
                     </Typography>
                   )}
-                  <Typography component="span" sx={{ fontSize: '0.78rem', fontWeight: 800, lineHeight: 1 }}>
+                  <Typography component="span" sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, lineHeight: 1 }}>
                     {liveData.currentInningOrdinal ?? liveData.currentInning}
                   </Typography>
                 </Box>
@@ -314,13 +314,13 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
                 />
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   {liveData.outs !== null && (
-                    <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', lineHeight: 1 }}>
+                    <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1 }}>
                       {liveData.outs} out{liveData.outs !== 1 ? 's' : ''}
                     </Typography>
                   )}
                   {liveData.balls !== null && liveData.strikes !== null && (
                     <Box sx={{ px: 0.7, py: chromePx(2), borderRadius: 0.5, bgcolor: 'action.hover' }}>
-                      <Typography sx={{ fontSize: '0.66rem', fontWeight: 700, lineHeight: 1, letterSpacing: typePx(0.2) }}>
+                      <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: 1, letterSpacing: typePx(0.2) }}>
                         {liveData.balls}–{liveData.strikes}
                       </Typography>
                     </Box>
@@ -331,7 +331,7 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
           </Box>
         </Box>
       ) : (
-        <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: TONE.red, lineHeight: 1 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: TONE.red, lineHeight: 1 }}>
           IN PROGRESS
         </Typography>
       )}
