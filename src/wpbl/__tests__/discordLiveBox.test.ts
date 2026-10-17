@@ -66,7 +66,7 @@ describe('the /score box score', () => {
 
   it('carries the score and inning, and no line score', () => {
     const d = desc(game())
-    expect(d).toContain('BOS 3 — 2 SF')
+    expect(d).toContain('BOS 3–2 SF')
     expect(d).toContain('Bottom 4th')
     expect(d).not.toContain('```') // no monospace line-score fence
   })

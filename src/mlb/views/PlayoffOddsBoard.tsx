@@ -1,12 +1,14 @@
 import { useDark } from '../../ui/useDark'
 import React, { useState, useEffect } from 'react'
-import { Box, Typography, CircularProgress } from '@mui/material'
-import { ACCENT_TEXT, TEAM_NICKNAME } from '../constants'
+import { Box, Typography } from '@mui/material'
+import { TEAM_NICKNAME } from '../constants'
 import { highlightColor } from '../lib/colorUtils'
 import { fetchPlayoffOdds, PlayoffOddsRow } from '../api'
 import { TeamLogo } from '../components/TeamLogo'
 import { chromePx, typePx } from '../../ui/scale'
 import { teamLink, LINK_SX } from '../lib/links'
+import { TYPE_SCALE } from '../../ui/card'
+import { bracketLikely } from '../postseason'
 
 // Percent shown to one significant "feel": near-locks read as >99% rather than a
 // misleadingly exact 100%, and live-but-tiny chances read as <1% rather than 0%.
@@ -55,17 +57,17 @@ function OddsRow({ row, isLast, onTeamClick, highlightTeamId }: {
     >
       <TeamLogo teamId={row.teamId} abbr={row.abbr} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.84rem', fontWeight: isMine ? 800 : 700, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: isMine ? 800 : 700, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {TEAM_NICKNAME[row.teamId] ?? row.abbr}
         </Typography>
-        <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', lineHeight: 1.2, mt: '1px' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.2, mt: '1px' }}>
           proj {row.projWins}–{row.projLosses}
         </Typography>
       </Box>
 
       {/* Make playoffs: the headline number, with a slim meter under it */}
       <Box sx={{ minWidth: chromePx(60), textAlign: 'right' }}>
-        <Typography sx={{ fontSize: '0.86rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: pctColor(row.makePlayoffs), lineHeight: 1.2 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: pctColor(row.makePlayoffs), lineHeight: 1.2 }}>
           {fmtPct(row.makePlayoffs)}
         </Typography>
         <Box sx={{ mt: chromePx(3), height: chromePx(3), borderRadius: 2, bgcolor: 'action.hover', overflow: 'hidden' }}>
@@ -75,9 +77,35 @@ function OddsRow({ row, isLast, onTeamClick, highlightTeamId }: {
 
       {/* Win the division: secondary, hidden on the narrowest screens */}
       <Box sx={{ minWidth: chromePx(42), textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
-        <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: row.winDivision > 0 ? 'text.secondary' : 'text.disabled' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: row.winDivision > 0 ? 'text.secondary' : 'text.disabled' }}>
           {fmtPct(row.winDivision)}
         </Typography>
+      </Box>
+    </Box>
+  )
+}
+
+// The loading row: OddsRow's own box with nothing in it. Each line holds a non-breaking space in the
+// loaded row's Typography so it takes the same line box, and the badge slot is TeamLogo's 28px,
+// because a row drawn from guessed heights is what made the old spinner-then-board jump.
+function BlankOddsRow({ isLast }: { isLast: boolean }) {
+  return (
+    <Box sx={{
+      display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: chromePx(9),
+      borderBottom: isLast ? 'none' : '1px solid', borderColor: 'divider',
+      borderLeft: '3px solid', borderLeftColor: 'action.hover',
+    }}>
+      <Box sx={{ width: chromePx(28), height: chromePx(28), borderRadius: '50%', bgcolor: 'action.hover', flexShrink: 0 }} />
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.2 }}>{' '}</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, lineHeight: 1.2, mt: '1px' }}>{' '}</Typography>
+      </Box>
+      <Box sx={{ minWidth: chromePx(60), textAlign: 'right' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, lineHeight: 1.2 }}>{' '}</Typography>
+        <Box sx={{ mt: chromePx(3), height: chromePx(3), borderRadius: 2, bgcolor: 'action.hover' }} />
+      </Box>
+      <Box sx={{ minWidth: chromePx(42), display: { xs: 'none', sm: 'block' } }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700 }}>{' '}</Typography>
       </Box>
     </Box>
   )
@@ -88,42 +116,48 @@ function OddsRow({ row, isLast, onTeamClick, highlightTeamId }: {
 function LeagueOddsCard({ label, leagueId, rows, onTeamClick, highlightTeamId }: {
   label: string
   leagueId: number
-  rows: PlayoffOddsRow[]
+  /** null while loading: the card draws its header and fifteen blank rows, a league's full field. */
+  rows: PlayoffOddsRow[] | null
   onTeamClick?: (teamId: number) => void
   highlightTeamId?: number | null
 }) {
   const teams = rows
-    .filter(r => r.leagueId === leagueId)
-    .sort((a, b) => b.makePlayoffs - a.makePlayoffs || b.winDivision - a.winDivision)
-  if (!teams.length) return null
+    ? rows.filter(r => r.leagueId === leagueId)
+      .sort((a, b) => b.makePlayoffs - a.makePlayoffs || b.winDivision - a.winDivision)
+    : null
+  if (teams && !teams.length) return null
 
   return (
     <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', overflow: 'hidden' }}>
       {/* League header + column labels */}
       <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-        <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: 'text.primary' }}>{label}</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.primary' }}>{label}</Typography>
         <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-          <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', minWidth: '3.75rem', textAlign: 'right' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', minWidth: '3.75rem', textAlign: 'right' }}>
             Playoffs
           </Typography>
-          <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', minWidth: '2.625rem', textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', minWidth: '2.625rem', textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
             Div
           </Typography>
         </Box>
       </Box>
 
-      {teams.map((row, i) => (
-        <OddsRow
-          key={row.teamId}
-          row={row}
-          isLast={i === teams.length - 1}
-          onTeamClick={onTeamClick}
-          highlightTeamId={highlightTeamId}
-        />
-      ))}
+      {teams
+        ? teams.map((row, i) => (
+          <OddsRow
+            key={row.teamId}
+            row={row}
+            isLast={i === teams.length - 1}
+            onTeamClick={onTeamClick}
+            highlightTeamId={highlightTeamId}
+          />
+        ))
+        : Array.from({ length: TEAMS_PER_LEAGUE }, (_, i) => <BlankOddsRow key={i} isLast={i === TEAMS_PER_LEAGUE - 1} />)}
     </Box>
   )
 }
+
+const TEAMS_PER_LEAGUE = 15
 
 // ─── Board ────────────────────────────────────────────────────────────────────
 
@@ -133,7 +167,7 @@ export function PlayoffOddsBoard({ season, onTeamClick, highlightTeamId }: {
   highlightTeamId?: number | null
 }) {
   const [rows, setRows] = useState<PlayoffOddsRow[] | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let cancelled = false
@@ -145,23 +179,33 @@ export function PlayoffOddsBoard({ season, onTeamClick, highlightTeamId }: {
     return () => { cancelled = true }
   }, [season])
 
-  if (loading) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress size={36} sx={{ color: ACCENT_TEXT }} /></Box>
-  }
+  // WHILE LOADING, DRAW WHAT WILL ARRIVE. A spinner here was replaced by either a full board or a
+  // one-line message, so the page jumped whichever came back. The odds go stale and hide a few days
+  // after the regular season ends, which is the same window the bracket is up for, so the calendar
+  // picks the likely answer: the message from late September to spring, the blank board otherwise.
+  if (loading && !bracketLikely()) return <OddsBoardFrame rows={null} />
 
-  if (!rows || !rows.length) {
+  if (loading || !rows || !rows.length) {
     return (
       <Box sx={{ textAlign: 'center', py: 8, px: 2 }}>
-        <Typography sx={{ color: 'text.secondary', fontSize: '0.9rem' }}>
-          Playoff odds aren't up yet. They post once the season's underway and refresh every night.
+        <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.title }}>
+          Playoff odds run during the regular season and refresh every night.
         </Typography>
       </Box>
     )
   }
 
+  return <OddsBoardFrame rows={rows} onTeamClick={onTeamClick} highlightTeamId={highlightTeamId} />
+}
+
+function OddsBoardFrame({ rows, onTeamClick, highlightTeamId }: {
+  rows: PlayoffOddsRow[] | null
+  onTeamClick?: (teamId: number) => void
+  highlightTeamId?: number | null
+}) {
   return (
     <Box>
-      <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mb: 2 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mb: 2 }}>
         Chance of reaching the postseason, from a nightly simulation of every remaining game. Updated each morning.
       </Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>

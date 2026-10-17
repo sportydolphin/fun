@@ -2,7 +2,7 @@ import { useDark } from '../../ui/useDark'
 import { TeamLogo } from '../components/TeamLogo'
 import React, { useState, useEffect } from 'react'
 import { pressable } from '../../ui/interaction'
-import { ACCENT_EDGE } from '../../ui/card'
+import { ACCENT_EDGE, TYPE_SCALE, ICON_SIZE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { TEAM_ABBR, ACCENT, ACCENT_TEXT, PREDICTION_HEATER_MIN, TONE } from '../constants'
 import { ringColor, useTextTone } from '../lib/colorUtils'
@@ -318,13 +318,13 @@ function StatPill({ label, value, accent }: { label: string; value: string | num
       bgcolor:     accent ? `${ACCENT}08` : 'action.hover',
     }}>
       <Typography sx={{
-        fontSize: { xs: '1.35rem', sm: '1.65rem' }, fontWeight: 800, lineHeight: 1,
+        fontSize: { xs: TYPE_SCALE.page, sm: TYPE_SCALE.page }, fontWeight: 800, lineHeight: 1,
         color: accent ? ACCENT_TEXT : 'text.primary',
       }}>
         {value}
       </Typography>
       <Typography sx={{
-        fontSize: { xs: '0.58rem', sm: '0.66rem' }, color: 'text.secondary',
+        fontSize: { xs: TYPE_SCALE.caption, sm: TYPE_SCALE.micro }, color: 'text.secondary',
         lineHeight: 1, mt: 0.5, textTransform: 'uppercase', letterSpacing: typePx(0.5),
       }}>
         {label}
@@ -370,25 +370,25 @@ function TeamLogoCard({ teamId, teamAbbr, rank, mainLabel, subLabel }: {
           border: '1.5px solid', borderColor: 'background.paper',
         }}>
           {/* Near-black, not white: white on the gold medal is 2.2:1, this is 6.6 to 9.7 on all three. */}
-          <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: '#111827', lineHeight: 1 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: '#111827', lineHeight: 1 }}>
             {rank + 1}
           </Typography>
         </Box>
       </Box>
 
       {/* Team abbr */}
-      <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: 'text.secondary', lineHeight: 1 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'text.secondary', lineHeight: 1 }}>
         {teamAbbr}
       </Typography>
 
       {/* Main stat */}
-      <Typography sx={{ fontSize: rank === 0 ? '1.05rem' : '0.92rem', fontWeight: 800, color: tone(col), lineHeight: 1 }}>
+      <Typography sx={{ fontSize: rank === 0 ? TYPE_SCALE.heading : TYPE_SCALE.title, fontWeight: 800, color: tone(col), lineHeight: 1 }}>
         {mainLabel}
       </Typography>
 
       {/* Sub label (e.g. "8/10") */}
       {subLabel && (
-        <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', lineHeight: 1 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', lineHeight: 1 }}>
           {subLabel}
         </Typography>
       )}
@@ -408,7 +408,7 @@ function TeamPodium({ title, teams, getMain, getSub }: {
   return (
     <Box>
       <Typography sx={{
-        fontWeight: 800, fontSize: '0.62rem',
+        fontWeight: 800, fontSize: TYPE_SCALE.caption,
         textTransform: 'uppercase', letterSpacing: typePx(1.2),
         color: ACCENT_TEXT, mb: 1.25,
       }}>
@@ -443,12 +443,12 @@ function MyStatsContent({ stats }: { stats: PersonalStats }) {
           display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1,
           borderRadius: 2, bgcolor: '#f9731614', border: '1px solid #f9731640',
         }}>
-          <Typography sx={{ fontSize: '1.35rem', lineHeight: 1 }}>🔥</Typography>
+          <Typography sx={{ fontSize: ICON_SIZE.lg, lineHeight: 1 }}>🔥</Typography>
           <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontSize: '0.82rem', fontWeight: 800, color: TONE.orange, lineHeight: 1.2 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, color: TONE.orange, lineHeight: 1.2 }}>
               You're on a {stats.currentStreak}-game heater
             </Typography>
-            <Typography sx={{ fontSize: '0.66rem', color: 'text.secondary', lineHeight: 1.2 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.2 }}>
               {stats.currentStreak === stats.bestStreak
                 ? 'Your best run yet. Keep it going.'
                 : `${stats.bestStreak} is your best. Keep it going.`}
@@ -512,10 +512,10 @@ function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; windo
         display: 'flex', gap: 1, pb: 0.75,
         borderBottom: '1px solid', borderColor: 'divider', mb: 0.5,
       }}>
-        <Typography sx={{ fontSize: '0.58rem', color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.5), width: '1.75rem', textAlign: 'center', flexShrink: 0 }}>#</Typography>
-        <Typography sx={{ fontSize: '0.58rem', color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.5), flex: 1 }}>User</Typography>
-        <Typography sx={{ fontSize: '0.58rem', color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.5), minWidth: '3.25rem', textAlign: 'right' }}>W/L</Typography>
-        <Typography sx={{ fontSize: '0.58rem', color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.5), minWidth: '2.5rem', textAlign: 'right' }}>Acc.</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.5), width: '1.75rem', textAlign: 'center', flexShrink: 0 }}>#</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.5), flex: 1 }}>User</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.5), minWidth: '3.25rem', textAlign: 'right' }}>W/L</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.5), minWidth: '2.5rem', textAlign: 'right' }}>Acc.</Typography>
       </Box>
 
       {leaders.map((entry, i) => {
@@ -524,7 +524,7 @@ function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; windo
         return (
         <React.Fragment key={entry.userId}>
         {gap && (
-          <Typography sx={{ textAlign: 'center', color: 'text.disabled', fontSize: '0.85rem', lineHeight: 1, py: 0.4 }}>
+          <Typography sx={{ textAlign: 'center', color: 'text.disabled', fontSize: TYPE_SCALE.body, lineHeight: 1, py: 0.4 }}>
             ···
           </Typography>
         )}
@@ -539,7 +539,7 @@ function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; windo
           }}
         >
           <Typography sx={{
-            fontSize: entry.rank <= 3 ? '0.88rem' : '0.7rem',
+            fontSize: entry.rank <= 3 ? TYPE_SCALE.title : TYPE_SCALE.meta,
             fontWeight: 800, width: '1.75rem', textAlign: 'center', flexShrink: 0,
             color: entry.rank <= 3 ? 'text.primary' : 'text.disabled',
             lineHeight: 1,
@@ -548,7 +548,7 @@ function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; windo
           </Typography>
           <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Typography sx={{
-              fontSize: '0.78rem', fontWeight: entry.isMe ? 800 : 500,
+              fontSize: TYPE_SCALE.body, fontWeight: entry.isMe ? 800 : 500,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               color: entry.isMe ? ACCENT_TEXT : 'text.primary', minWidth: 0,
             }}>
@@ -558,18 +558,18 @@ function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; windo
               <Box component="span" sx={{
                 flexShrink: 0, px: 0.5, py: '1px', borderRadius: 999,
                 bgcolor: '#f9731618', border: '1px solid #f9731655',
-                fontSize: '0.58rem', fontWeight: 800, color: TONE.orange, lineHeight: 1.4,
+                fontSize: TYPE_SCALE.caption, fontWeight: 800, color: TONE.orange, lineHeight: 1.4,
                 whiteSpace: 'nowrap',
               }}>
                 🔥 {entry.currentStreak}
               </Box>
             )}
           </Box>
-          <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', minWidth: '3.25rem', textAlign: 'right' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', minWidth: '3.25rem', textAlign: 'right' }}>
             {entry.correct}/{entry.total}
           </Typography>
           <Typography sx={{
-            fontSize: '0.78rem', fontWeight: 700, minWidth: '2.5rem', textAlign: 'right',
+            fontSize: TYPE_SCALE.body, fontWeight: 700, minWidth: '2.5rem', textAlign: 'right',
             color: entry.isMe ? ACCENT_TEXT : 'text.primary',
           }}>
             {Math.round(entry.accuracy)}%
@@ -580,7 +580,7 @@ function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; windo
       })}
 
       {leaders.length > 0 && (
-        <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', textAlign: 'center', mt: 1.5 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', textAlign: 'center', mt: 1.5 }}>
           Ranked by accuracy &amp; volume · {window === 'all'
             ? 'All-time · Updated nightly'
             : `${window === 'week' ? 'Last 7 days' : 'Last 30 days'} · Updated nightly`}
@@ -648,7 +648,7 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
                 {...pressable(() => setTab(t))}
                 sx={{
                   px: 1.5, py: 0.6, borderRadius: 999, cursor: 'pointer',
-                  fontSize: '0.72rem', fontWeight: 700,
+                  fontSize: TYPE_SCALE.meta, fontWeight: 700,
                   bgcolor: tab === t ? ACCENT     : 'transparent',
                   color:   tab === t ? '#fff'     : 'text.secondary',
                   border: '1px solid',
@@ -666,18 +666,18 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
         <Box sx={{ p: 2 }}>
           {!userId ? (
             <Box sx={{ py: 5, textAlign: 'center' }}>
-              <Typography sx={{ color: 'text.disabled', fontSize: '0.85rem' }}>
+              <Typography sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.body }}>
                 Sign in to view your prediction stats
               </Typography>
             </Box>
           ) : tab === 'my' ? (
             loading ? (
-              <Typography sx={{ color: 'text.disabled', fontSize: '0.78rem' }}>
+              <Typography sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.body }}>
                 Loading stats…
               </Typography>
             ) : !stats ? (
               <Box sx={{ py: 5, textAlign: 'center' }}>
-                <Typography sx={{ color: 'text.disabled', fontSize: '0.85rem' }}>
+                <Typography sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.body }}>
                   No predictions yet. Make some picks first!
                 </Typography>
               </Box>
@@ -694,7 +694,7 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
                     {...pressable(() => setBoardWindow(w))}
                     sx={{
                       flex: 1, textAlign: 'center', px: 1, py: 0.5, borderRadius: 999,
-                      cursor: 'pointer', fontSize: '0.68rem', fontWeight: 700, userSelect: 'none',
+                      cursor: 'pointer', fontSize: TYPE_SCALE.meta, fontWeight: 700, userSelect: 'none',
                       border: '1px solid',
                       borderColor: boardWindow === w ? ACCENT_EDGE : 'outline',
                       bgcolor:     boardWindow === w ? `${ACCENT}14` : 'transparent',
@@ -708,15 +708,15 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
               </Box>
 
               {lbLoading ? (
-                <Typography sx={{ color: 'text.disabled', fontSize: '0.78rem' }}>
+                <Typography sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.body }}>
                   Loading leaderboard…
                 </Typography>
               ) : leaders.length === 0 ? (
                 <Box sx={{ py: 5, textAlign: 'center' }}>
-                  <Typography sx={{ color: 'text.disabled', fontSize: '0.85rem' }}>
+                  <Typography sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.body }}>
                     {boardWindow === 'all' ? 'Leaderboard coming soon' : 'No graded picks in this window yet'}
                   </Typography>
-                  <Typography sx={{ color: 'text.disabled', fontSize: '0.72rem', mt: 0.75, lineHeight: 1.4 }}>
+                  <Typography sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.meta, mt: 0.75, lineHeight: 1.4 }}>
                     {boardWindow === 'all'
                       ? <>View "My Stats" first to register your score,<br />then check back after others do too.</>
                       : 'The weekly and monthly boards refresh overnight.'}

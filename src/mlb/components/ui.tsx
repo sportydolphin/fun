@@ -1,6 +1,6 @@
 // ─── UI primitives ────────────────────────────────────────────────────────────
 
-import { ACCENT_EDGE } from '../../ui/card'
+import { ACCENT_EDGE, TYPE_SCALE } from '../../ui/card'
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { RankMode, Palette, StatDef } from '../types'
@@ -17,7 +17,7 @@ export const linkPillSx = {
   border: '1.5px solid',
   borderColor: 'outline',
   color: 'text.secondary',
-  fontSize: '0.75rem',
+  fontSize: TYPE_SCALE.meta,
   fontWeight: 600,
   textDecoration: 'none',
   transition: 'all 0.15s',
@@ -67,14 +67,14 @@ export function StatItem({ label, value, playerId, leaderCategory, leaders, pale
         // The palette's own secondary tone, which is tuned per card colour (teamPalette); a flat
         // 0.85 opacity over white measured 3.4:1 on the Orioles' orange.
         color: palette.sub, fontWeight: 700,
-        fontSize: large ? { xs: '0.82rem', sm: '0.92rem' } : { xs: '0.74rem', sm: '0.82rem' },
+        fontSize: large ? { xs: TYPE_SCALE.body, sm: TYPE_SCALE.title } : { xs: TYPE_SCALE.meta, sm: TYPE_SCALE.body },
         letterSpacing: typePx(0.3), mb: 0.4,
       }}>
         {label}
       </Typography>
       <Typography sx={{
         color: palette.text, fontWeight: 700,
-        fontSize: large ? { xs: '2rem', sm: '2.4rem' } : { xs: '1.75rem', sm: '2.1rem' },
+        fontSize: large ? TYPE_SCALE.hero : { xs: TYPE_SCALE.page, sm: TYPE_SCALE.hero },
         lineHeight: 1, letterSpacing: typePx(-0.5),
       }}>
         {value}
@@ -87,11 +87,11 @@ export function StatItem({ label, value, playerId, leaderCategory, leaders, pale
             px: 0.75, py: 0.15,
           }}>
             {emoji && (
-              <Typography component="span" sx={{ fontSize: '0.82rem', lineHeight: 1.4, opacity: 1 }}>
+              <Typography component="span" sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1.4, opacity: 1 }}>
                 {emoji}
               </Typography>
             )}
-            <Typography component="span" sx={{ color: palette.rank, fontSize: '0.8rem', fontWeight: 800, letterSpacing: typePx(0.4), lineHeight: 1.4 }}>
+            <Typography component="span" sx={{ color: palette.rank, fontSize: TYPE_SCALE.body, fontWeight: 800, letterSpacing: typePx(0.4), lineHeight: 1.4 }}>
               #{rankNum}
             </Typography>
           </Box>
@@ -128,18 +128,18 @@ export function StatGrid({ defs, stats, selected, palette, rankMode, playerId, l
   return (
     <Box sx={{ borderTop: `1px solid ${palette.divider}`, pt: 2.5, mt: mt ?? 0 }}>
       {showHeader && (sectionLabel ? (
-        <Typography sx={{ textAlign: 'center', color: palette.rank, fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(2.5), mb: 2 }}>
+        <Typography sx={{ textAlign: 'center', color: palette.rank, fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(2.5), mb: 2 }}>
           {sectionLabel}
         </Typography>
       ) : bigYear ? (
         <Typography sx={{
           textAlign: 'center', color: palette.text, fontWeight: 800,
-          fontSize: large ? '1.5rem' : '1.2rem', letterSpacing: typePx(-0.3), lineHeight: 1, mb: 2,
+          fontSize: large ? TYPE_SCALE.page : TYPE_SCALE.display, letterSpacing: typePx(-0.3), lineHeight: 1, mb: 2,
         }}>
           {season}
         </Typography>
       ) : (
-        <Typography sx={{ textAlign: 'center', color: palette.rank, fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(2.5), mb: 2 }}>
+        <Typography sx={{ textAlign: 'center', color: palette.rank, fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(2.5), mb: 2 }}>
           {season} {label}
         </Typography>
       ))}

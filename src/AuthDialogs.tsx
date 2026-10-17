@@ -110,7 +110,7 @@ export default function AuthDialogs({
               <Box sx={{ py: 2, textAlign: 'center' }}>
                 <Typography sx={{ fontSize: ICON_SIZE.xl, mb: 1.5, lineHeight: 1 }}>{mode === 'reset' ? '🔑' : '📬'}</Typography>
                 <Typography sx={{ fontWeight: 700, mb: 0.75 }}>
-                  {mode === 'reset' ? 'Check your inbox' : 'Almost there!'}
+                  {mode === 'reset' ? 'Check your inbox' : 'Confirm your email'}
                 </Typography>
                 <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.6 }}>
                   {successMsg}

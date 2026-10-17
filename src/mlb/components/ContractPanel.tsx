@@ -16,6 +16,7 @@ import { Box, Typography, Tooltip } from '@mui/material'
 import { PlayerContract, ContractYear } from '../types'
 import { defaultBorder } from '../lib/colorUtils'
 import { chromePx, typePx } from '../../ui/scale'
+import { TYPE_SCALE } from '../../ui/card'
 
 // One colour per control state. Deliberately not team-coloured: these encode
 // contract *status*, and the legend has to mean the same thing on every page.
@@ -68,12 +69,12 @@ export function ContractPanel({ contract, currentSeason }: {
   const summaryChip = (label: string, value: string) => (
     <Box key={label} sx={{ minWidth: 0 }}>
       <Typography sx={{
-        fontSize: '0.56rem', fontWeight: 800, letterSpacing: typePx(0.8),
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.8),
         textTransform: 'uppercase', color: 'text.disabled', lineHeight: 1,
       }}>
         {label}
       </Typography>
-      <Typography sx={{ fontSize: '0.92rem', fontWeight: 800, mt: 0.35, lineHeight: 1.1 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, mt: 0.35, lineHeight: 1.1 }}>
         {value}
       </Typography>
     </Box>
@@ -89,11 +90,11 @@ export function ContractPanel({ contract, currentSeason }: {
           out after 2030"). */}
       {contract.description && (
         <Box sx={{ px: 2, pt: 1.5, pb: 1.25 }}>
-          <Typography sx={{ fontSize: '0.86rem', fontWeight: 700, lineHeight: 1.35 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.35 }}>
             {contract.description}
           </Typography>
           {contract.contractType && (
-            <Typography sx={{ fontSize: '0.66rem', color: 'text.secondary', mt: 0.35 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 0.35 }}>
               {contract.contractType}
             </Typography>
           )}
@@ -141,7 +142,7 @@ export function ContractPanel({ contract, currentSeason }: {
                     alignItems: 'center', gap: 0.4, cursor: 'default',
                   }}>
                     <Typography sx={{
-                      fontSize: '0.55rem', fontWeight: 800, lineHeight: 1,
+                      fontSize: TYPE_SCALE.caption, fontWeight: 800, lineHeight: 1,
                       // A paid-out season recedes by its colour, not by opacity: 0.42 over the whole
                       // column took the figure and the year to 1.8:1.
                       color: y.salary > 0 ? (isPast ? 'text.disabled' : 'text.secondary') : 'transparent',
@@ -161,7 +162,7 @@ export function ContractPanel({ contract, currentSeason }: {
                       }} />
                     </Box>
                     <Typography sx={{
-                      fontSize: '0.58rem', lineHeight: 1, whiteSpace: 'nowrap',
+                      fontSize: TYPE_SCALE.caption, lineHeight: 1, whiteSpace: 'nowrap',
                       fontWeight: isNow ? 900 : 600,
                       color: isNow ? 'text.primary' : 'text.disabled',
                     }}>
@@ -180,7 +181,7 @@ export function ContractPanel({ contract, currentSeason }: {
               return (
                 <Box key={kind} sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
                   <Box sx={{ width: chromePx(8), height: chromePx(8), borderRadius: 0.5, bgcolor: style.color, flexShrink: 0 }} />
-                  <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', fontWeight: 600 }}>
+                  <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary', fontWeight: 600 }}>
                     {style.label}
                   </Typography>
                 </Box>
@@ -193,7 +194,7 @@ export function ContractPanel({ contract, currentSeason }: {
       {/* Provenance. Contract data isn't in StatsAPI like everything else here,
           so it's worth being explicit about where it came from. */}
       <Box sx={{ px: 2, pb: 1.25 }}>
-        <Typography sx={{ fontSize: '0.58rem', color: 'text.disabled' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled' }}>
           Contract data via FanGraphs Roster Resource
         </Typography>
       </Box>
