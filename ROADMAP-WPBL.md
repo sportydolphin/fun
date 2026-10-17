@@ -1,6 +1,8 @@
 # WPBL Roadmap
 
 > Living document: a menu of ideas, not a contract. Reorder/drop freely.
+> **The order across every roadmap is [ROADMAP-PRIORITIES.md](ROADMAP-PRIORITIES.md)** (Oct 16, 2026).
+> This file is the detail and the reasoning behind its items.
 > Companion doc: **[ROADMAP.md](ROADMAP.md)**: the MLB section, which runs on its own
 > calendar and its own priorities. Nothing here blocks anything there.
 > Tags: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra
@@ -233,6 +235,9 @@ item 2 describes, which is why that item comes first.
 
 ## Priorities (set Oct 12, 2026)
 
+*Superseded Oct 16, 2026 by [ROADMAP-PRIORITIES.md](ROADMAP-PRIORITIES.md), which merges this
+list with MLB, the World Cup, the UI overhaul and photo tagging. Kept for the reasoning.*
+
 Site-wide, both sections. ROADMAP.md points here. Everything in P0 to P2 lands well before the 2027
 WPBL season.
 
@@ -259,7 +264,7 @@ and the reasoning; where the two disagree, `/admin` is the order.
   transitions). A DuckDB-WASM SQL sandbox on the open-data page, over the frozen season files.
 
 **P0**
-- **Multiple seasons** (in progress from Oct 13). Every WPBL surface assumes one season: year menus, career totals,
+- **Multiple seasons** (✅ built Oct 13; the spring leftovers are below). Every WPBL surface assumes one season: year menus, career totals,
   standings, the boards, slugs, the archive. 2027 breaks all of them on its first game. Build it
   this winter with the spring rehearsal (ops item 7) as its test.
   **Built Oct 13** (see the trap in CLAUDE.md): the season on screen (`SeasonContext.tsx`, the
@@ -310,11 +315,8 @@ inaugural season" (Aug 2027), rolling form, WPBL streaks and milestones.
 
 ## Next: in priority order
 
-**Nothing in progress (Oct 11, 2026).** The Oct 10 audit's ops items 1 to 5 have shipped. MLB's
-Hot Stove card shipped Oct 11 (ROADMAP.md), and so did the wildest games (item 2) and the Compare
-unfurl (item 6), wins added and baserunning on Run value (item 7), and the six season-series pages
-(item 3). Next here is the same two numbers on the player card and Compare (item 8).
-Call the Play has been moved to the end of the list. The crash triage (ops item 2) and the
+**The winter order below is finished (Oct 16, 2026).** Items 2, 3, 6, 7 and 8 shipped by Oct 15;
+Call the Play is parked. What comes next is in [ROADMAP-PRIORITIES.md](ROADMAP-PRIORITIES.md). The crash triage (ops item 2) and the
 layout-shift fixes (ops item 3) wait for about a week of reports, around Oct 18.
 
 **The winter order, set Sep 27, 2026.** Every season-locked item below has shipped or missed its
@@ -1484,8 +1486,7 @@ players were in the 2026 group stage).
   cost for *this* season. Revisit for **2027 Opening Day**, when it gets a full season to
   accumulate against. Or ship a stripped "pick today's winner + running record, no
   leaderboard" if the appetite is for something now.
-- **Multi-season support**: deferred since Phase 3; folds naturally into the archive (#2)
-  rather than being its own project.
+- ~~**Multi-season support**~~: ✅ *unparked and built Oct 13, 2026* (Priorities P0).
 - **Followed players / teams + notifications**: dropped as low-value for a four-team
   league. The per-game and all-games push reminders already cover the real need.
 - **Favourite team + team colour theming** ⚙️🎯: *built Aug 17, 2026, parked the same day

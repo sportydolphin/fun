@@ -3,7 +3,8 @@
 > The slow move from "the WPBL and MLB" toward **women's baseball, all of it**. Scoped Oct 15, 2026;
 > last updated **Oct 16, 2026**. Companion docs: [ROADMAP-WPBL.md](ROADMAP-WPBL.md) (the league this
 > grows out of), [ROADMAP.md](ROADMAP.md) (MLB), and [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md) (how
-> the World Cup import works). Nothing here outranks the 2027 WPBL work.
+> the World Cup import works). Nothing here outranks the 2027 WPBL work; where each step sits
+> against the rest is [ROADMAP-PRIORITIES.md](ROADMAP-PRIORITIES.md).
 
 ## Where it stands (Oct 16, 2026)
 
@@ -177,7 +178,7 @@ Three stages, each earned by the one before. Nothing in the first two changes th
    answers well: "women's baseball world cup stats" has no good result today.
 3. **Only if earned: the site becomes "women's baseball".** WPBL and the World Cup as siblings in
    the shell, MLB moved aside (kept, spun off to its own domain, or frozen; a separate decision).
-   Designed alongside the UI overhaul in flight (the `ui-roadmap` branch), not before it.
+   Designed alongside the UI overhaul ([ROADMAP-UI.md](ROADMAP-UI.md)), not before it.
 
 ---
 

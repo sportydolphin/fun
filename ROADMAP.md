@@ -1,6 +1,8 @@
 # MLB App Roadmap
 
 > Living document: a menu of ideas, not a contract. Reorder/drop freely.
+> **The order across every roadmap is [ROADMAP-PRIORITIES.md](ROADMAP-PRIORITIES.md)** (Oct 16, 2026).
+> This file is the detail and the reasoning behind its items.
 > Scope: the **MLB section** (`/mlb`) only. The WPBL section has its own plan and its own
 > calendar: see **[ROADMAP-WPBL.md](ROADMAP-WPBL.md)**. (The two lived in this file until
 > Aug 16, 2026; the WPBL section had outgrown being an appendix.)
@@ -21,9 +23,10 @@
 ## Handoff: where MLB stands (Oct 9, 2026)
 
 **State.** The September alignment plan (items 0 to 7) is done, and so is every item in the list
-that follows. Open work is the **second alignment pass** below this handoff (Oct 9; its Oct 15
-audit list is the next thing to pick up), plus a
-decision after October (the note under item 12). The section now has
+that follows. Open work is what is left of the **second alignment pass** below this handoff (Oct 9; its
+Oct 15 audit list is done but for splitting `FanVote` and `SeasonPage`), the plays mirror, and a
+decision after October (the note under item 12). Where these sit against the rest of the site is
+[ROADMAP-PRIORITIES.md](ROADMAP-PRIORITIES.md). The section now has
 WPBL's phone shell, history-backed sheets, a real path for every tab, club, player and game, a
 postseason bracket, an offseason-aware Home, the desktop scale with no `zoom`, and a chunk per
 view. The postseason runs to Oct 31, and the offseason shape

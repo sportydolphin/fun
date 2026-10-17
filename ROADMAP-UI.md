@@ -2,7 +2,9 @@
 
 > Living document: a direction and a sequence, not a contract.
 > Companions: **[ROADMAP-WPBL.md](ROADMAP-WPBL.md)** and **[ROADMAP.md](ROADMAP.md)**. Nothing
-> here blocks feature work in either section.
+> here blocks feature work in either section. Where each phase sits against the rest is
+> [ROADMAP-PRIORITIES.md](ROADMAP-PRIORITIES.md): phase 1 now, phases 2 and 3 over the winter,
+> settled by March so the sweep baselines are stable for the 2027 WPBL season.
 > Started: **Oct 15, 2026**. Design happens in Figma first; no code until a direction is picked.
 
 ---
