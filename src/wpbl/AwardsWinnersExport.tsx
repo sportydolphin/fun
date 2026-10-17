@@ -1,6 +1,6 @@
 // Owner and testers: export every fan-award winner as one shareable poster.
 //
-// WHY IT IS ITS OWN FILE. The gate is a role check, and FanVote.tsx (which renders this) must
+// WHY IT IS ITS OWN FILE. The gate is a role check, and the ballot (FanVote.tsx and fanVote/, which render this) must
 // stay free of `useIsAdmin`/`useHasRole`: routes.test.ts pins that, because a role check that
 // crept into the ballot would hide the whole poll from every fan while the sitemap kept sending
 // them to it. Keeping the gate here means FanVote imports a component, not a hook, and the ballot
