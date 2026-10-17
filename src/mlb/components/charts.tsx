@@ -4,6 +4,7 @@ import { TeamSummary } from '../types'
 import { TEAM_BG } from '../constants'
 import { niceTicks, fmtR } from '../lib/utils'
 import { chromePx } from '../../ui/scale'
+import { TYPE_SCALE } from '../../ui/card'
 
 // ─── Shared chart helpers ─────────────────────────────────────────────────────
 
@@ -152,10 +153,10 @@ export function TeamEraOpsPlot({ data, nameMap, highlightTeamId, onSelectTeam, o
         <ChartTooltip tipPos={tipPos}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
             <Box sx={{ width: chromePx(10), height: chromePx(10), borderRadius: '50%', bgcolor: TEAM_BG[hovered.id] ?? 'grey.500', flexShrink: 0 }} />
-            <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2 }}>{hovered.name}</Typography>
+            <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.body, lineHeight: 1.2 }}>{hovered.name}</Typography>
           </Box>
-          <Typography sx={{ fontSize: '0.73rem', color: 'text.secondary' }}>OPS <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.ops.toFixed(3)}</Box></Typography>
-          <Typography sx={{ fontSize: '0.73rem', color: 'text.secondary' }}>ERA <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.era.toFixed(2)}</Box></Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>OPS <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.ops.toFixed(3)}</Box></Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>ERA <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.era.toFixed(2)}</Box></Typography>
         </ChartTooltip>
       )}
     </Box>
@@ -278,14 +279,14 @@ export function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam, on
         <ChartTooltip tipPos={tipPos}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
             <Box sx={{ width: chromePx(10), height: chromePx(10), borderRadius: '50%', bgcolor: TEAM_BG[hovered.id] ?? 'grey.500', flexShrink: 0 }} />
-            <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2 }}>{hovered.name}</Typography>
+            <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.body, lineHeight: 1.2 }}>{hovered.name}</Typography>
           </Box>
-          <Typography sx={{ fontSize: '0.73rem', color: 'text.secondary' }}>Actual <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.wins}–{hovered.losses}</Box></Typography>
-          <Typography sx={{ fontSize: '0.73rem', color: 'text.secondary' }}>Exp. W-L <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.pythWins}–{hovered.pythLosses}</Box></Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Actual <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.wins}–{hovered.losses}</Box></Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Exp. W-L <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.pythWins}–{hovered.pythLosses}</Box></Typography>
           {(() => {
             const diff = hovered.wins - hovered.pythWins
             return (
-              <Typography sx={{ fontSize: '0.73rem', color: diff >= 0 ? 'success.main' : 'error.main', fontWeight: 700 }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.meta, color: diff >= 0 ? 'success.main' : 'error.main', fontWeight: 700 }}>
                 {diff >= 0 ? '+' : ''}{diff} wins vs expected
               </Typography>
             )
@@ -456,11 +457,11 @@ export function PayrollWinsPlot({
         <ChartTooltip tipPos={tipPos}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
             <Box sx={{ width: chromePx(10), height: chromePx(10), borderRadius: '50%', bgcolor: TEAM_BG[hovered.id] ?? 'grey.500', flexShrink: 0 }} />
-            <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2 }}>{hovered.name}</Typography>
+            <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.body, lineHeight: 1.2 }}>{hovered.name}</Typography>
           </Box>
-          <Typography sx={{ fontSize: '0.73rem', color: 'text.secondary' }}>Record <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.wins}–{hovered.losses}</Box></Typography>
-          <Typography sx={{ fontSize: '0.73rem', color: 'text.secondary' }}>Win% <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{('.' + Math.round(hovered.winPct * 1000).toString().padStart(3, '0'))}</Box></Typography>
-          <Typography sx={{ fontSize: '0.73rem', color: 'text.secondary' }}>Payroll <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>${Math.round(hovered.payroll)}M</Box></Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Record <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.wins}–{hovered.losses}</Box></Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Win% <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{('.' + Math.round(hovered.winPct * 1000).toString().padStart(3, '0'))}</Box></Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Payroll <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>${Math.round(hovered.payroll)}M</Box></Typography>
         </ChartTooltip>
       )}
     </Box>

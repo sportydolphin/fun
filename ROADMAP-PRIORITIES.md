@@ -46,7 +46,7 @@
    `/admin` and decide what moves into More; take Standings and the player card's `cards.tsx` off the
    type-scale legacy list once the bracket mode retires. *ROADMAP.md, "Handoff" and item 7 of the
    second pass.*
-8. **Finish splitting the largest WPBL files**: `FanVote.tsx` and `SeasonPage.tsx`. *ROADMAP.md,
+8. ✅ **Finish splitting the largest WPBL files** (Oct 17): `FanVote.tsx` and `SeasonPage.tsx`. *ROADMAP.md,
    "From the Oct 15 audit" item 6.*
 9. **UI overhaul, phase 1 (Figma only).** Mood board, tokens in both themes, four screens on a phone
    and a desktop, the open questions decided. Owner; no code until a direction is picked.

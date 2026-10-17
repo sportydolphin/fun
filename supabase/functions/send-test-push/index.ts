@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
 
   const payload = JSON.stringify({
     title: '⚾ Test notification',
-    body:  'Push is working — you’re all set!',
+    body:  'Push notifications are working.',
     url:   '/mlb?view=home',
     tag:   'mlb-test',
   })

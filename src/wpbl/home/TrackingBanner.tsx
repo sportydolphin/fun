@@ -70,7 +70,7 @@ export function NewTrackingBanner({ count, onView, onDismiss }: { count: number;
           New pitch-tracking data just landed
         </Typography>
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 0.2 }}>
-          Velocity, spin &amp; exit velo for {count} new game{count === 1 ? '' : 's'} — tap to explore Ballpark Tracking.
+          Velocity, spin &amp; exit velo for {count} new game{count === 1 ? '' : 's'}. Tap to explore Ballpark Tracking.
         </Typography>
       </Box>
       <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)', flexShrink: 0, whiteSpace: 'nowrap' }}>

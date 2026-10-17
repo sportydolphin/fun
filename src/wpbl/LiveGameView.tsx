@@ -15,6 +15,7 @@ import type {
 } from './types'
 import { typePx } from '../ui/scale'
 import { ordinal } from '../lib/format'
+import { TYPE_SCALE } from '../ui/card'
 
 /**
  * The Live tab: what is happening right now, then the shape of how it got here.
@@ -130,12 +131,12 @@ function ScoreHeader({ away, home, game, divider }: {
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       <TeamBadge team={team} size={24} />
       <Typography sx={{
-        flex: 1, minWidth: 0, fontSize: '1rem', fontWeight: lead ? 800 : 600,
+        flex: 1, minWidth: 0, fontSize: TYPE_SCALE.heading, fontWeight: lead ? 800 : 600,
         color: lead ? 'text.primary' : 'text.secondary',
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }}>{isMobile ? team.name : wpblFullName(team)}</Typography>
       <Typography sx={{
-        fontSize: '1.4rem', fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+        fontSize: TYPE_SCALE.page, fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
         color: lead ? 'text.primary' : 'text.secondary',
       }}>{score}</Typography>
     </Box>
@@ -223,7 +224,7 @@ function SituationPanel({ game, s, away, home, last, teams, batting, pitching, n
         {score}
         <Box sx={{ px: 1.5, py: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
           <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: 'text.disabled', flexShrink: 0 }} />
-          <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, color: 'text.secondary' }}>{s.breakLabel}</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, color: 'text.secondary' }}>{s.breakLabel}</Typography>
         </Box>
         {last && <LastPlay play={last} teams={teams} names={names} onOpenPlayer={onOpenPlayer} />}
       </Panel>
@@ -331,7 +332,7 @@ function CountBand({ s, accent, dark }: { s: Situation; accent: string; dark: bo
       justifyItems: { xs: 'center', sm: 'stretch' },
     }}>
       <Typography sx={{
-        fontSize: '0.85rem', fontWeight: 800, color: accent, whiteSpace: 'nowrap',
+        fontSize: TYPE_SCALE.body, fontWeight: 800, color: accent, whiteSpace: 'nowrap',
         textAlign: { xs: 'center', sm: 'left' },
       }}>
         {s.half === 'top' ? '▲' : '▼'} {s.half === 'top' ? 'Top' : 'Bot'} {ordinal(s.inning)}
@@ -379,7 +380,7 @@ function Pips({ label, filled, of, unit, tint }: {
       aria-label={filled === 0 ? `No ${unit}s` : `${filled} ${unit}${filled === 1 ? '' : 's'}`}
     >
       <Typography aria-hidden sx={{
-        fontSize: '0.62rem', fontWeight: 800, letterSpacing: typePx(0.8), textTransform: 'uppercase',
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.8), textTransform: 'uppercase',
         color: 'text.disabled',
       }}>{label}</Typography>
       <Box aria-hidden sx={{ display: 'flex', gap: chromePx(4) }}>
@@ -497,7 +498,7 @@ function Runners({ s, accent, names }: { s: Situation; accent: string; names: Ma
       alignItems: 'flex-start', justifyContent: 'center', gap: 0.2, overflow: 'hidden',
     }}>
       {on.length === 0 ? (
-        <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: 'text.disabled' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.disabled' }}>
           Bases empty
         </Typography>
       ) : on.map(r => (
@@ -506,11 +507,11 @@ function Runners({ s, accent, names }: { s: Situation; accent: string; names: Ma
               clips the moment the reader turns Large text on. */}
           <Typography sx={{
             width: '1.5rem', flexShrink: 0, textAlign: 'right',
-            fontSize: '0.66rem', fontWeight: 800, color: accent,
+            fontSize: TYPE_SCALE.meta, fontWeight: 800, color: accent,
           }}>{r.base}</Typography>
           {r.name
-            ? <NameText name={r.name} sx={{ fontSize: '0.84rem', fontWeight: 600, minWidth: 0 }} />
-            : <Typography sx={{ fontSize: '0.84rem', fontWeight: 600, minWidth: 0, whiteSpace: 'nowrap' }}>Runner on</Typography>}
+            ? <NameText name={r.name} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, minWidth: 0 }} />
+            : <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, minWidth: 0, whiteSpace: 'nowrap' }}>Runner on</Typography>}
         </Box>
       ))}
     </Box>
@@ -563,7 +564,7 @@ function PersonCard({ label, name, team, accent, line, onOpenPlayer, mirror }: {
       <PlayerPortrait name={shown} teamId={team.id} size={72} />
       <Box sx={{ minWidth: 0, textAlign: 'left', [WIDE_CARD]: { textAlign: mirror ? 'right' : 'left' } }}>
         <Typography sx={{
-          fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.8), textTransform: 'uppercase',
+          fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.8), textTransform: 'uppercase',
           color: 'text.disabled',
         }}>{label} · {team.abbr}</Typography>
         {/* A real <a> when the name resolved to somebody, so this is a crawlable link to her
@@ -573,7 +574,7 @@ function PersonCard({ label, name, team, accent, line, onOpenPlayer, mirror }: {
           component="span"
           {...(props.style ? linkColor(props, accent ?? 'inherit') : props)}
           sx={{
-            display: 'block', fontSize: '1.05rem', fontWeight: 700, minWidth: 0, lineHeight: 1.3,
+            display: 'block', fontSize: TYPE_SCALE.heading, fontWeight: 700, minWidth: 0, lineHeight: 1.3,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             color: accent ?? 'text.primary',
             cursor: line.player ? 'pointer' : 'default',
@@ -584,7 +585,7 @@ function PersonCard({ label, name, team, accent, line, onOpenPlayer, mirror }: {
             which is a statement about a player rather than the absence of one. */}
         {line.statline && (
           <Typography sx={{
-            fontSize: '0.82rem', color: 'text.secondary', fontVariantNumeric: 'tabular-nums',
+            fontSize: TYPE_SCALE.body, color: 'text.secondary', fontVariantNumeric: 'tabular-nums',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>{line.statline}</Typography>
         )}
@@ -657,7 +658,7 @@ function LastPlay({ play, teams, names, onOpenPlayer }: {
       display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 1.25,
     }}>
       <Typography sx={{
-        fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.8), textTransform: 'uppercase',
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.8), textTransform: 'uppercase',
         color: 'text.disabled', whiteSpace: 'nowrap', flexShrink: 0,
         // A box reserving room for a label, so it is in REM. Aligned to the first line of the
         // sentence beside it rather than to the top of the block.
@@ -669,11 +670,11 @@ function LastPlay({ play, teams, names, onOpenPlayer }: {
       <Box sx={{ flexShrink: 1, minWidth: 0 }}>
         {parsed.kind === 'substitution' ? (
           <Typography sx={{
-            fontSize: '0.82rem', fontStyle: 'italic', color: 'text.disabled', lineHeight: 1.45,
+            fontSize: TYPE_SCALE.body, fontStyle: 'italic', color: 'text.disabled', lineHeight: 1.45,
           }}>{parsed.what}</Typography>
         ) : (
           <>
-            <Typography sx={{ fontSize: '0.88rem', lineHeight: 1.45 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.title, lineHeight: 1.45 }}>
               {parsed.who && (
                 <Box component="span" {...('href' in link ? link : pressable(openPlayer))} sx={{
                   fontWeight: 700,
@@ -686,7 +687,7 @@ function LastPlay({ play, teams, names, onOpenPlayer }: {
               {parsed.who && ' '}
               {parsed.what}
               {runs > 0 && (
-                <Box component="span" sx={{ ml: 0.5, fontSize: '0.7rem', fontWeight: 800, color: 'var(--wpbl-pos)' }}>
+                <Box component="span" sx={{ ml: 0.5, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-pos)' }}>
                   +{runs}
                 </Box>
               )}
@@ -695,7 +696,7 @@ function LastPlay({ play, teams, names, onOpenPlayer }: {
                 and no longer competing with the batter for the line. */}
             {parsed.detail && (
               <Typography sx={{
-                fontSize: '0.76rem', lineHeight: 1.4, color: 'text.secondary', mt: 0.15,
+                fontSize: TYPE_SCALE.meta, lineHeight: 1.4, color: 'text.secondary', mt: 0.15,
               }}>{parsed.detail}</Typography>
             )}
           </>
@@ -707,7 +708,7 @@ function LastPlay({ play, teams, names, onOpenPlayer }: {
           reader might want to line up against the pips at the top of the card. */}
       {parsed.count && (
         <Typography sx={{
-          flexShrink: 0, fontSize: '0.72rem', fontWeight: 700, color: 'text.disabled',
+          flexShrink: 0, fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.disabled',
           fontVariantNumeric: 'tabular-nums', lineHeight: 1.75,
         }}>{parsed.count}</Typography>
       )}

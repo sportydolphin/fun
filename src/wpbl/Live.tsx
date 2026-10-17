@@ -2,7 +2,7 @@ import { useDark } from '../ui/useDark'
 import { NameLine } from '../ui/NameText'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { pressable } from '../ui/interaction'
-import { edge } from '../ui/card'
+import { edge, TYPE_SCALE } from '../ui/card'
 import { Box, Typography } from '@mui/material'
 import { supabase } from '../lib/supabase'
 import { fetchWpblGameLive, LIVE_POLL_MS } from './api'
@@ -95,21 +95,21 @@ export function SituationStrip({ s }: { s: Situation }) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
         <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'text.disabled', flexShrink: 0 }} />
-        <Typography sx={{ fontSize: '0.78rem', fontWeight: 800, color: 'text.secondary', lineHeight: 1.2 }}>{s.breakLabel}</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'text.secondary', lineHeight: 1.2 }}>{s.breakLabel}</Typography>
       </Box>
     )
   }
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
-        <Typography sx={{ fontSize: '0.7rem', fontWeight: 900 }}>{s.half === 'top' ? '▲' : '▼'}</Typography>
-        <Typography sx={{ fontSize: '0.8rem', fontWeight: 800 }}>{s.inning}</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 900 }}>{s.half === 'top' ? '▲' : '▼'}</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800 }}>{s.inning}</Typography>
       </Box>
       <MiniDiamond first={s.first} second={s.second} third={s.third} />
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.2 }}>
-        <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', lineHeight: 1 }}>{s.outs} out{s.outs !== 1 ? 's' : ''}</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1 }}>{s.outs} out{s.outs !== 1 ? 's' : ''}</Typography>
         <Box sx={{ px: 0.7, py: '2px', borderRadius: 0.5, bgcolor: 'action.hover' }}>
-          <Typography sx={{ fontSize: '0.66rem', fontWeight: 700, lineHeight: 1 }}>{s.balls}–{s.strikes}</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: 1 }}>{s.balls}–{s.strikes}</Typography>
         </Box>
       </Box>
     </Box>
@@ -147,7 +147,7 @@ export function FeedAge({ at }: { at?: string | null }) {
   const clock = new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
   return (
     <Typography sx={{
-      fontSize: '0.62rem', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0,
+      fontSize: TYPE_SCALE.caption, fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0,
       color: stale ? 'var(--wpbl-medal-1)' : 'text.disabled',
     }}>
       {/* The wording carries the whole point: it is the LEAGUE that is behind, and this line is
@@ -180,8 +180,8 @@ export function LiveBanner({ state, away, home, lines, players, sourceUpdatedAt 
           certainly wrong. */}
       {!s.between && (
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          {s.batterName && <NameLine names={[canonicalFeedName(s.batterName, players)]} sx={{ fontSize: '0.76rem', lineHeight: 1.3 }} render={n => <><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>AB </Box><Box component="span" sx={{ fontWeight: 700, color: wpblAccent(s.battingTeam.id, isDark) }}>{n(canonicalFeedName(s.batterName, players))}</Box></>} />}
-          {s.pitcherName && <NameLine names={[canonicalFeedName(s.pitcherName, players)]} sx={{ fontSize: '0.76rem', lineHeight: 1.3 }} render={n => <><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>P </Box><Box component="span" sx={{ fontWeight: 700 }}>{n(canonicalFeedName(s.pitcherName, players))}</Box></>} />}
+          {s.batterName && <NameLine names={[canonicalFeedName(s.batterName, players)]} sx={{ fontSize: TYPE_SCALE.meta, lineHeight: 1.3 }} render={n => <><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>AB </Box><Box component="span" sx={{ fontWeight: 700, color: wpblAccent(s.battingTeam.id, isDark) }}>{n(canonicalFeedName(s.batterName, players))}</Box></>} />}
+          {s.pitcherName && <NameLine names={[canonicalFeedName(s.pitcherName, players)]} sx={{ fontSize: TYPE_SCALE.meta, lineHeight: 1.3 }} render={n => <><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>P </Box><Box component="span" sx={{ fontWeight: 700 }}>{n(canonicalFeedName(s.pitcherName, players))}</Box></>} />}
         </Box>
       )}
       {/* Last, and pushed to the end of the row: it is a caveat on everything to its left, and
@@ -209,9 +209,9 @@ export function LiveHero({ game: seed, teams, players, onOpen }: {
   const scoreRow = (t: WpblTeam, runs: number, batting: boolean) => (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       <TeamBadge team={t} size={26} />
-      <Typography sx={{ flex: 1, fontSize: '0.92rem', fontWeight: 700 }}>{wpblFullName(t)}</Typography>
+      <Typography sx={{ flex: 1, fontSize: TYPE_SCALE.title, fontWeight: 700 }}>{wpblFullName(t)}</Typography>
       {batting && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: LIVE_RED, mr: 0.5, animation: 'wpblpulse 1.5s ease-in-out infinite' }} />}
-      <Typography sx={{ fontSize: '1.4rem', fontWeight: 900, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{runs}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.page, fontWeight: 900, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{runs}</Typography>
     </Box>
   )
 
@@ -224,11 +224,11 @@ export function LiveHero({ game: seed, teams, players, onOpen }: {
     }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 2, py: 0.75, bgcolor: `${LIVE_RED}14`, borderBottom: '1px solid', borderColor: 'divider' }}>
         <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: LIVE_RED, animation: 'wpblpulse 1.5s ease-in-out infinite' }} />
-        <Typography sx={{ fontSize: '0.66rem', fontWeight: 900, letterSpacing: typePx(1), color: LIVE_RED, textTransform: 'uppercase' }}>Live Now</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 900, letterSpacing: typePx(1), color: LIVE_RED, textTransform: 'uppercase' }}>Live Now</Typography>
         <Box sx={{ flex: 1 }} />
         <Box {...pressable(onOpen)} sx={{
           display: 'inline-flex', alignItems: 'center', gap: 0.4, cursor: 'pointer',
-          fontSize: '0.66rem', fontWeight: 800, color: '#fff', px: 1.1, py: 0.35, borderRadius: 999, bgcolor: LIVE_RED,
+          fontSize: TYPE_SCALE.meta, fontWeight: 800, color: '#fff', px: 1.1, py: 0.35, borderRadius: 999, bgcolor: LIVE_RED,
           ...hoverOnly({ bgcolor: '#dc2626' }),
         }}>Game Center →</Box>
       </Box>
@@ -246,8 +246,8 @@ export function LiveHero({ game: seed, teams, players, onOpen }: {
             {/* Dropped for the length of the break, for the reason given in LiveBanner. */}
             {!s.between && (
               <Box sx={{ textAlign: { sm: 'right' } }}>
-                {s.batterName && <NameLine names={[canonicalFeedName(s.batterName, players)]} sx={{ fontSize: '0.74rem' }} render={n => <><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>AB </Box><Box component="span" sx={{ fontWeight: 700, color: wpblAccent(s.battingTeam.id, isDark) }}>{n(canonicalFeedName(s.batterName, players))}</Box></>} />}
-                {s.pitcherName && <NameLine names={[canonicalFeedName(s.pitcherName, players)]} sx={{ fontSize: '0.74rem' }} render={n => <><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>P </Box><Box component="span" sx={{ fontWeight: 700 }}>{n(canonicalFeedName(s.pitcherName, players))}</Box></>} />}
+                {s.batterName && <NameLine names={[canonicalFeedName(s.batterName, players)]} sx={{ fontSize: TYPE_SCALE.meta }} render={n => <><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>AB </Box><Box component="span" sx={{ fontWeight: 700, color: wpblAccent(s.battingTeam.id, isDark) }}>{n(canonicalFeedName(s.batterName, players))}</Box></>} />}
+                {s.pitcherName && <NameLine names={[canonicalFeedName(s.pitcherName, players)]} sx={{ fontSize: TYPE_SCALE.meta }} render={n => <><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>P </Box><Box component="span" sx={{ fontWeight: 700 }}>{n(canonicalFeedName(s.pitcherName, players))}</Box></>} />}
               </Box>
             )}
           </Box>
