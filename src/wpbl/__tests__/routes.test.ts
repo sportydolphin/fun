@@ -27,6 +27,8 @@ import sitemap from '../../../public/sitemap.xml?raw'
 import playersIndexSource from '../PlayersIndex.tsx?raw'
 import seoSource from '../../seo.ts?raw'
 import fanVoteSource from '../FanVote.tsx?raw'
+// The ballot's pieces, split out of FanVote.tsx: a gate added in any of them hides it just the same.
+const fanVoteFiles = [fanVoteSource, ...Object.values(import.meta.glob<string>('../fanVote/*.{ts,tsx}', { query: '?raw', import: 'default', eager: true }))]
 import homeSource from '../home/WpblHome.tsx?raw'
 // Every file Home draws from, for the checks that must hold wherever on Home the code lands.
 const homeFiles = Object.values(import.meta.glob<string>('../home/*.tsx', { query: '?raw', import: 'default', eager: true }))
@@ -683,8 +685,11 @@ describe('/wpbl/awards, the fan ballot', () => {
   // Home page with no ballot on it.
   it('is gated by nothing', () => {
     for (const src of homeFiles) expect(src).not.toContain('useIsAdmin')
-    expect(fanVoteSource).not.toContain('useIsAdmin')
-    expect(fanVoteSource).not.toContain('useHasRole')
+    expect(fanVoteFiles.length).toBeGreaterThan(1)
+    for (const src of fanVoteFiles) {
+      expect(src).not.toContain('useIsAdmin')
+      expect(src).not.toContain('useHasRole')
+    }
   })
 
   // The offseason Home draws its own rows (Player of the day, the season card, the gallery...), so
