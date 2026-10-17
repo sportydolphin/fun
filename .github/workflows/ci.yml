@@ -75,11 +75,18 @@ jobs:
       # deploy, and nothing else here runs Deno. This resolves each function's whole module graph.
       # It is not `deno check`: the supabase-js types disagree with the ingest's row shapes in ten
       # places Deno's strict mode reports, and that is a separate piece of work.
+      # A function with its own deno.json resolves through it, as `supabase functions deploy` does:
+      # wpbl-ingest maps the bare 'valibot' there, and `--no-config` alone would call that missing.
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.9.x
       - name: Edge functions resolve
-        run: deno cache --no-config --no-lock supabase/functions/*/index.ts
+        run: |
+          for entry in supabase/functions/*/index.ts; do
+            config="$(dirname "$entry")/deno.json"
+            if [ -f "$config" ]; then deno cache --config "$config" --no-lock "$entry"
+            else deno cache --no-config --no-lock "$entry"; fi
+          done
 
       # DEAD CODE: unused files, exports and dependencies across src/, functions/, scripts/ and the
       # edge functions (knip.jsonc). REPORTED, NEVER BLOCKING, on purpose: an export a change has
