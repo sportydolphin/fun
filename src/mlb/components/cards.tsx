@@ -3,7 +3,7 @@
 import { useDark } from '../../ui/useDark'
 import { TeamLogo } from './TeamLogo'
 import { pressable } from '../../ui/interaction'
-import { edge, ACCENT_EDGE } from '../../ui/card'
+import { edge, ACCENT_EDGE, TYPE_SCALE } from '../../ui/card'
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { RankMode, Palette, StatDef, Team, TeamPlayerStat, TeamStandingInfo, StandingsDivision } from '../types'
@@ -72,17 +72,17 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
           <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2.5 }}>{logoEl}</Box>
           <Typography sx={{
             textAlign: 'center', color: palette.text, fontWeight: 800,
-            fontSize: { xs: '1.8rem', sm: '2.2rem' },
+            fontSize: { xs: TYPE_SCALE.page, sm: TYPE_SCALE.hero },
             lineHeight: 1.1, letterSpacing: typePx(-0.3), mb: 0.5,
           }}>
             {team.name}
           </Typography>
           {standingLine ? (
-            <Typography sx={{ textAlign: 'center', color: palette.rank, fontSize: '0.82rem', fontWeight: 700, mb: 2.5 }}>
+            <Typography sx={{ textAlign: 'center', color: palette.rank, fontSize: TYPE_SCALE.body, fontWeight: 700, mb: 2.5 }}>
               {standingLine}
             </Typography>
           ) : subtitle ? (
-            <Typography sx={{ textAlign: 'center', color: palette.sub, fontSize: '1rem', fontWeight: 500, mb: 2.5 }}>
+            <Typography sx={{ textAlign: 'center', color: palette.sub, fontSize: TYPE_SCALE.heading, fontWeight: 500, mb: 2.5 }}>
               {subtitle}
             </Typography>
           ) : null}
@@ -90,8 +90,8 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
             <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4, mb: 2.5 }}>
               {[['W', wins], ['L', losses], ...(pct ? [['PCT', pct]] : [])].map(([lbl, val]) => (
                 <Box key={lbl as string} sx={{ textAlign: 'center' }}>
-                  <Typography sx={{ color: palette.rank, fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(2), mb: 0.5 }}>{lbl}</Typography>
-                  <Typography sx={{ color: palette.text, fontWeight: 800, fontSize: '2.2rem', lineHeight: 1 }}>{val}</Typography>
+                  <Typography sx={{ color: palette.rank, fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(2), mb: 0.5 }}>{lbl}</Typography>
+                  <Typography sx={{ color: palette.text, fontWeight: 800, fontSize: TYPE_SCALE.hero, lineHeight: 1 }}>{val}</Typography>
                 </Box>
               ))}
             </Box>
@@ -104,17 +104,17 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography sx={{
               color: palette.text, fontWeight: 800,
-              fontSize: { xs: '1.2rem', sm: '1.5rem' },
+              fontSize: { xs: TYPE_SCALE.display, sm: TYPE_SCALE.page },
               lineHeight: 1.1, letterSpacing: typePx(-0.3), mb: 0.25,
             }}>
               {team.name}
             </Typography>
             {standingLine ? (
-              <Typography sx={{ color: palette.rank, fontSize: '0.75rem', fontWeight: 700, mb: wins != null ? 0.75 : 0 }}>
+              <Typography sx={{ color: palette.rank, fontSize: TYPE_SCALE.meta, fontWeight: 700, mb: wins != null ? 0.75 : 0 }}>
                 {standingLine}
               </Typography>
             ) : subtitle ? (
-              <Typography sx={{ color: palette.sub, fontSize: '0.82rem', fontWeight: 500, mb: wins != null ? 1 : 0 }}>
+              <Typography sx={{ color: palette.sub, fontSize: TYPE_SCALE.body, fontWeight: 500, mb: wins != null ? 1 : 0 }}>
                 {subtitle}
               </Typography>
             ) : null}
@@ -122,8 +122,8 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
               <Box sx={{ display: 'flex', gap: 2.5 }}>
                 {[['W', wins], ['L', losses], ...(pct ? [['PCT', pct]] : [])].map(([lbl, val]) => (
                   <Box key={lbl as string}>
-                    <Typography sx={{ color: palette.rank, fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.5), mb: 0.25 }}>{lbl}</Typography>
-                    <Typography sx={{ color: palette.text, fontWeight: 800, fontSize: '1.35rem', lineHeight: 1 }}>{val}</Typography>
+                    <Typography sx={{ color: palette.rank, fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.5), mb: 0.25 }}>{lbl}</Typography>
+                    <Typography sx={{ color: palette.text, fontWeight: 800, fontSize: TYPE_SCALE.page, lineHeight: 1 }}>{val}</Typography>
                   </Box>
                 ))}
               </Box>
@@ -210,7 +210,7 @@ export function FeaturedMiniCard({
         px: 1, py: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <Typography sx={{
-          fontSize: '0.58rem', fontWeight: 800, textTransform: 'uppercase',
+          fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase',
           letterSpacing: typePx(0.8), color: tone(accent, undefined, 5.6), lineHeight: 1,
         }}>
           {awardLabel}
@@ -234,7 +234,7 @@ export function FeaturedMiniCard({
 
         {/* Full name */}
         <Typography sx={{
-          fontWeight: 700, fontSize: '0.74rem', lineHeight: 1.2,
+          fontWeight: 700, fontSize: TYPE_SCALE.meta, lineHeight: 1.2,
           textAlign: 'center', mb: 0.25, px: 0.5,
           display: '-webkit-box', WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical', overflow: 'hidden',
@@ -248,7 +248,7 @@ export function FeaturedMiniCard({
           alignItems: 'center', justifyContent: 'center',
           bgcolor: `${teamColor}22`, mb: 1.25,
         }}>
-          <Typography sx={{ fontSize: '0.54rem', fontWeight: 800, color: tone(accent, undefined, 5.6), letterSpacing: typePx(0.5) }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(accent, undefined, 5.6), letterSpacing: typePx(0.5) }}>
             {posLabel}
           </Typography>
         </Box>
@@ -269,21 +269,21 @@ export function FeaturedMiniCard({
                 px: 0.25,
               }}>
                 <Typography sx={{
-                  fontSize: '0.52rem', fontWeight: 700, textTransform: 'uppercase',
+                  fontSize: TYPE_SCALE.nano, fontWeight: 700, textTransform: 'uppercase',
                   letterSpacing: typePx(0.6), color: isAward ? accent : 'text.disabled',
                   lineHeight: 1, mb: 0.4,
                 }}>
                   {def.label}
                 </Typography>
                 <Typography sx={{
-                  fontSize: isAward ? '1.05rem' : '0.9rem',
+                  fontSize: isAward ? TYPE_SCALE.heading : TYPE_SCALE.title,
                   fontWeight: 800, lineHeight: 1,
                   color: isElite ? ACCENT_TEXT : isAward ? 'text.primary' : 'text.secondary',
                 }}>
                   {value}
                 </Typography>
                 {isElite && (
-                  <Typography sx={{ fontSize: '0.5rem', color: ACCENT_TEXT, fontWeight: 700, mt: 0.3, lineHeight: 1 }}>
+                  <Typography sx={{ fontSize: TYPE_SCALE.nano, color: ACCENT_TEXT, fontWeight: 700, mt: 0.3, lineHeight: 1 }}>
                     #{rank + 1}
                   </Typography>
                 )}
@@ -314,10 +314,10 @@ export function DivisionStandingsCard({
   const accent2Text = textTone(accent2, isDark2, undefined, 5.6)
 
   const hdrSx = {
-    fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase' as const,
+    fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase' as const,
     letterSpacing: typePx(0.5), color: 'text.disabled', lineHeight: 1,
   }
-  const cellSx = { fontSize: '0.75rem', fontWeight: 600, lineHeight: 1 }
+  const cellSx = { fontSize: TYPE_SCALE.meta, fontWeight: 600, lineHeight: 1 }
 
   return (
     <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', overflow: 'hidden' }}>
@@ -328,10 +328,10 @@ export function DivisionStandingsCard({
         borderBottom: '1px solid', borderColor: 'divider',
         display: 'flex', alignItems: 'baseline', gap: 1,
       }}>
-        <Typography sx={{ fontWeight: 800, fontSize: '0.82rem', letterSpacing: typePx(-0.2) }}>
+        <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.body, letterSpacing: typePx(-0.2) }}>
           {division.divisionName}
         </Typography>
-        <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', fontWeight: 600 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', fontWeight: 600 }}>
           {season}
         </Typography>
       </Box>

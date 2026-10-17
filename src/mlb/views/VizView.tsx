@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { pressable } from '../../ui/interaction'
-import { ACCENT_EDGE } from '../../ui/card'
+import { ACCENT_EDGE, TYPE_SCALE } from '../../ui/card'
 import {
   Box, Typography, Paper, List, ListItemButton, Divider,
   ClickAwayListener, Skeleton,
@@ -291,17 +291,17 @@ export function VizView({
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
           {!cards && <>
-          <Typography sx={{ fontWeight: 700, fontSize: '0.85rem', color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>
+          <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.body, color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>
             All 30 teams · click to focus · hover to inspect
           </Typography>
 
           {vizHighlightId != null ? (
             <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.5, py: 0.55, borderRadius: 999, bgcolor: TEAM_BG[vizHighlightId] ?? 'grey.700' }}>
-              <Typography sx={{ color: '#fff', fontSize: '0.78rem', fontWeight: 700, lineHeight: 1 }}>
+              <Typography sx={{ color: '#fff', fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1 }}>
                 {nameMap.get(vizHighlightId) ?? teamSummaries.find(t => t.id === vizHighlightId)?.abbr}
               </Typography>
               <Box {...pressable(() => { setVizHighlightId(null); setVizSearch('') })}
-                sx={{ color: 'rgba(255,255,255,0.75)', fontSize: '1rem', lineHeight: 1, cursor: 'pointer', ml: 0.25, '&:hover': { color: '#fff' } }}>×</Box>
+                sx={{ color: 'rgba(255,255,255,0.75)', fontSize: TYPE_SCALE.heading, lineHeight: 1, cursor: 'pointer', ml: 0.25, '&:hover': { color: '#fff' } }}>×</Box>
             </Box>
           ) : (
             <ClickAwayListener onClickAway={() => setVizSearchOpen(false)}>
@@ -311,12 +311,12 @@ export function VizView({
                   border: '1.5px solid', borderColor: 'outline', bgcolor: 'background.paper',
                   transition: 'border-color 0.15s', '&:focus-within': { borderColor: ACCENT_EDGE },
                 }}>
-                  <Search sx={{ fontSize: '0.85rem', color: 'text.disabled', flexShrink: 0 }} />
+                  <Search sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', flexShrink: 0 }} />
                   <Box component="input" value={vizSearch}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setVizSearch(e.target.value); setVizSearchOpen(true) }}
                     onFocus={() => setVizSearchOpen(true)}
                     placeholder="Highlight a team…"
-                    sx={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', bgcolor: 'transparent', fontSize: '0.8rem', color: 'text.primary', p: 0, fontFamily: 'inherit', '&::placeholder': { color: 'text.disabled' } }}
+                    sx={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', bgcolor: 'transparent', fontSize: TYPE_SCALE.body, color: 'text.primary', p: 0, fontFamily: 'inherit', '&::placeholder': { color: 'text.disabled' } }}
                   />
                 </Box>
                 {vizSearchOpen && (() => {
@@ -333,9 +333,9 @@ export function VizView({
                             {i > 0 && <Divider />}
                             <ListItemButton onClick={() => { setVizHighlightId(t.id); setVizSearch(''); setVizSearchOpen(false) }} sx={{ gap: 1.25, py: 0.6 }}>
                               <Box sx={{ width: chromePx(26), height: chromePx(26), borderRadius: '50%', bgcolor: TEAM_BG[t.id] ?? 'grey.700', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: t.abbr.length > 2 ? '0.52rem' : '0.62rem', lineHeight: 1 }}>{t.abbr}</Typography>
+                                <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: t.abbr.length > 2 ? TYPE_SCALE.nano : TYPE_SCALE.caption, lineHeight: 1 }}>{t.abbr}</Typography>
                               </Box>
-                              <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>{nameMap.get(t.id) ?? t.abbr}</Typography>
+                              <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600 }}>{nameMap.get(t.id) ?? t.abbr}</Typography>
                             </ListItemButton>
                           </React.Fragment>
                         ))}
@@ -392,20 +392,20 @@ export function VizView({
           {/* ERA vs OPS */}
           <Box sx={{ pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-              <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>Pitching vs Hitting</Typography>
+              <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.heading, letterSpacing: typePx(-0.3) }}>Pitching vs Hitting</Typography>
               <InfoDot label="What this shows" text="Each bubble is a team plotted by their pitching quality (ERA, vertical) vs their hitting power (OPS, horizontal). Lower ERA = better pitching, so the top of the chart is elite pitching. Higher OPS = better hitting, so the right side is elite offense. The quadrants label each team style, so top-right teams have both elite pitching and elite hitting." />
             </Box>
-            <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>How good a team's pitching and hitting are · top-right = best of both</Typography>
+            <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.meta, mb: 1.5 }}>How good a team's pitching and hitting are · top-right = best of both</Typography>
             {teamSummaries.length ? <TeamEraOpsPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
           </Box>
 
           {/* Wins vs Run Margin */}
           <Box sx={{ pt: { xs: 3, md: 0 }, pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-              <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>Wins vs Run Margin</Typography>
+              <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.heading, letterSpacing: typePx(-0.3) }}>Wins vs Run Margin</Typography>
               <InfoDot label="What this shows" text="Each bubble is a team's actual win% plotted against their run margin (runs scored minus runs allowed). The blue dashed curve is the expected win rate. Teams above the curve are winning more than their scoring predicts. Teams below are underperforming. Hover a team to see their actual record vs expected W-L." />
             </Box>
-            <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>Actual record vs expected W-L based on scoring · above the curve = outperforming</Typography>
+            <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.meta, mb: 1.5 }}>Actual record vs expected W-L based on scoring · above the curve = outperforming</Typography>
             {teamSummaries.length ? <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
           </Box>
 
@@ -413,10 +413,10 @@ export function VizView({
           {current && (
             <Box sx={{ pt: { xs: 3, md: 0 }, pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-                  <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: typePx(-0.3) }}>Payroll vs Performance</Typography>
+                  <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.heading, letterSpacing: typePx(-0.3) }}>Payroll vs Performance</Typography>
                   <InfoDot label="What this shows" text="Each bubble is a team's estimated payroll plotted against their current win percentage. The purple dashed line is the league's average efficiency. Teams above the line are outperforming their payroll. The quadrants show Moneyball (low spend, winning), All-In (high spend, winning), Rebuilding (low spend, losing), and Burning $$$ (high spend, losing)." />
                 </Box>
-                <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>{vizSeason} estimated payroll vs current win% · above the dashed line = best value</Typography>
+                <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.meta, mb: 1.5 }}>{vizSeason} estimated payroll vs current win% · above the dashed line = best value</Typography>
                 {teamSummaries.length ? <PayrollWinsPlot data={teamSummaries} payrolls={payrolls} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
               </Box>
           )}

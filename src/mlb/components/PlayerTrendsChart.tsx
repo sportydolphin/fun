@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { pressable } from '../../ui/interaction'
-import { ACCENT_EDGE } from '../../ui/card'
+import { ACCENT_EDGE, TYPE_SCALE } from '../../ui/card'
 import { Box, Typography, useTheme, useMediaQuery } from '@mui/material'
 import { CareerStatSplit, RecentGameEntry } from '../types'
 import { ACCENT, ACCENT_TEXT, CURRENT_SEASON, TEAM_BG } from '../constants'
@@ -19,7 +19,7 @@ export { TREND_HIT_DEFS, TREND_PIT_DEFS } from '../trendDefs'
 // Shared native-select style used in PlayerTrendsChart range pickers (module-scope, stable reference)
 const trendSelSx: React.CSSProperties = {
   border: 'none', outline: 'none', background: 'transparent',
-  fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
+  fontSize: TYPE_SCALE.body, fontWeight: 600, cursor: 'pointer',
   color: 'inherit', padding: `${chromePx(4)} ${chromePx(10)}`, borderRadius: 999, fontFamily: 'inherit',
 }
 
@@ -162,7 +162,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   if (pts.length < 2) {
     return (
       <Box sx={{ py: 3, textAlign: 'center' }}>
-        <Typography color="text.secondary" sx={{ fontSize: '0.85rem' }}>Not enough seasons to show a trend</Typography>
+        <Typography color="text.secondary" sx={{ fontSize: TYPE_SCALE.body }}>Not enough seasons to show a trend</Typography>
       </Box>
     )
   }
@@ -350,14 +350,14 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
 
         {/* Season range */}
         {pts.length >= 3 && (<>
-          <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', fontWeight: 600 }}>·</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', fontWeight: 600 }}>·</Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Box sx={{ border: '1.5px solid', borderColor: 'outline', borderRadius: 999, '&:hover': { borderColor: ACCENT_EDGE } }}>
               <select aria-label="From season" value={effStart} onChange={e => { setRangeStart(Number(e.target.value)); setHovIdx(null) }} style={trendSelSx}>
                 {allSeasonsList.filter(y => y <= effEnd).map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </Box>
-            <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled' }}>–</Typography>
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>–</Typography>
             <Box sx={{ border: '1.5px solid', borderColor: 'outline', borderRadius: 999, '&:hover': { borderColor: ACCENT_EDGE } }}>
               <select aria-label="To season" value={effEnd} onChange={e => { setRangeEnd(Number(e.target.value)); setHovIdx(null) }} style={trendSelSx}>
                 {allSeasonsList.filter(y => y >= effStart).map(y => <option key={y} value={y}>{y}</option>)}
@@ -366,7 +366,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
           </Box>
           {isRangeModified && (
             <Box {...pressable(() => { setRangeStart(null); setRangeEnd(null); setHovIdx(null) })}
-              sx={{ fontSize: '0.72rem', color: ACCENT_TEXT, fontWeight: 600, cursor: 'pointer', '&:hover': { opacity: 0.7 } }}>
+              sx={{ fontSize: TYPE_SCALE.meta, color: ACCENT_TEXT, fontWeight: 600, cursor: 'pointer', '&:hover': { opacity: 0.7 } }}>
               Reset
             </Box>
           )}
@@ -394,22 +394,22 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
       <Box sx={{ display: 'flex', gap: 3, mb: 1.5, flexWrap: 'wrap' }}>
         {avg != null && (
           <Box>
-            <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>
               {currentDef.counting ? `Avg / yr` : `Career ${currentDef.label}`}
             </Typography>
-            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT_TEXT, lineHeight: 1.2 }}>{currentDef.fmt(avg)}</Typography>
+            <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.display, color: ACCENT_TEXT, lineHeight: 1.2 }}>{currentDef.fmt(avg)}</Typography>
           </Box>
         )}
         <Box>
-          <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>Best season</Typography>
-          <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>Best season</Typography>
+          <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.display, lineHeight: 1.2 }}>
             {currentDef.fmt(fpts[bestIdx].isPace ? fpts[bestIdx].actual! : fpts[bestIdx].value)}
-            <Typography component="span" sx={{ fontSize: '0.72rem', color: 'text.secondary', fontWeight: 600, ml: 0.75 }}>({fpts[bestIdx].season})</Typography>
+            <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', fontWeight: 600, ml: 0.75 }}>({fpts[bestIdx].season})</Typography>
           </Typography>
         </Box>
         <Box>
-          <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>Seasons</Typography>
-          <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>{n}</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>Seasons</Typography>
+          <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.display, lineHeight: 1.2 }}>{n}</Typography>
         </Box>
       </Box>
 
@@ -573,7 +573,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
               minWidth: chromePx(90),
               zIndex: 10,
             }}>
-              <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1 }}>{hov.season}</Typography>
+              <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.body, lineHeight: 1 }}>{hov.season}</Typography>
               {hov.teamAbbr && (() => {
                 const traded = hov.teamAbbr.includes('/')
                 return (
@@ -581,7 +581,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
                     {!traded && hov.teamId && (
                       <Box sx={{ width: chromePx(7), height: chromePx(7), borderRadius: '50%', bgcolor: TEAM_BG[hov.teamId] ?? 'grey.500', flexShrink: 0 }} />
                     )}
-                    <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', fontStyle: traded ? 'italic' : 'normal' }}>
+                    <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', fontStyle: traded ? 'italic' : 'normal' }}>
                       {hov.teamAbbr}
                     </Typography>
                   </Box>
@@ -589,30 +589,30 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
               })()}
               {hov.isPace ? (
                 <>
-                  <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: ACCENT_TEXT, mt: 0.25, lineHeight: 1 }}>
-                    {currentDef.fmt(hov.value)} <Typography component="span" sx={{ fontSize: '0.65rem', color: 'text.disabled', fontWeight: 600 }}>pace</Typography>
+                  <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.heading, color: ACCENT_TEXT, mt: 0.25, lineHeight: 1 }}>
+                    {currentDef.fmt(hov.value)} <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', fontWeight: 600 }}>pace</Typography>
                   </Typography>
-                  <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: 0.2 }}>
+                  <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 0.2 }}>
                     {currentDef.fmt(hov.actual!)} actual ({Math.round((hov.actual! / hov.value) * 162)}g played)
                   </Typography>
                 </>
               ) : (
-                <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: ACCENT_TEXT, mt: 0.25, lineHeight: 1 }}>
+                <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.heading, color: ACCENT_TEXT, mt: 0.25, lineHeight: 1 }}>
                   {currentDef.fmt(hov.value)}
                 </Typography>
               )}
               {showLeagueAvgLine && leagueAvgPts.has(hov.season) && (
-                <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.3 }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mt: 0.3 }}>
                   lg avg {currentDef.fmt(leagueAvgPts.get(hov.season)!)}
                 </Typography>
               )}
               {hov.vol != null && (
-                <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.15 }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mt: 0.15 }}>
                   {group === 'hitting' ? Math.round(hov.vol) : hov.vol.toFixed(1)} {volLabel}
                 </Typography>
               )}
               {isShort(hov) && (
-                <Typography sx={{ fontSize: '0.65rem', color: 'warning.main', mt: 0.25, fontWeight: 600 }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'warning.main', mt: 0.25, fontWeight: 600 }}>
                   limited sample
                 </Typography>
               )}

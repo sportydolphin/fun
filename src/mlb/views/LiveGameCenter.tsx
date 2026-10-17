@@ -1,7 +1,7 @@
 import { useDark } from '../../ui/useDark'
 import { TeamLogo } from '../components/TeamLogo'
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { edge } from '../../ui/card'
+import { edge, TYPE_SCALE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, TEAM_NICKNAME, HEADSHOT, TONE } from '../constants'
 import { accentColor, chartPairColors, inkOn, textTone, useTextTone } from '../lib/colorUtils'
@@ -350,19 +350,19 @@ function MatchupCard({ label, player, teamId, onSelect }: {
         )}
       </Box>
       <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.54rem', fontWeight: 800, color: tone(accent), textTransform: 'uppercase', letterSpacing: typePx(0.8), lineHeight: 1 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(accent), textTransform: 'uppercase', letterSpacing: typePx(0.8), lineHeight: 1 }}>
           {label}
         </Typography>
-        <Typography sx={{ fontSize: '0.76rem', fontWeight: 800, lineHeight: 1.2, mt: 0.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, lineHeight: 1.2, mt: 0.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {player?.name ?? 'TBD'}
         </Typography>
         {player && (
           <>
-            <Typography sx={{ fontSize: '0.64rem', fontWeight: 700, color: 'text.primary', lineHeight: 1.2, mt: 0.2 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.primary', lineHeight: 1.2, mt: 0.2 }}>
               {player.line1}
             </Typography>
             {player.line2 && (
-              <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', lineHeight: 1.2 }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary', lineHeight: 1.2 }}>
                 {player.line2}
               </Typography>
             )}
@@ -383,7 +383,7 @@ function SituationPanel({ sit, onPlayerClick }: {
         // Between innings there's no live count/outs/bases, so just flag who's due up.
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mb: 1.25 }}>
           <Box sx={{ width: chromePx(6), height: chromePx(6), borderRadius: '50%', bgcolor: 'text.disabled', flexShrink: 0 }} />
-          <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: typePx(0.8) }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: typePx(0.8) }}>
             Due up next inning
           </Typography>
         </Box>
@@ -561,7 +561,7 @@ function PlayCard({ p, onPlayerClick }: { p: GcPlay; onPlayerClick?: (id: number
           {head.slice(p.batter.length)}
         </> : head}
         {p.runs > 0 && (
-          <Box component="span" sx={{ ml: 0.5, fontSize: '0.66rem', fontWeight: 800, color: RUN_GREEN }}>+{p.runs}</Box>
+          <Box component="span" sx={{ ml: 0.5, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: RUN_GREEN }}>+{p.runs}</Box>
         )}
       </Typography>
       {detail && <Typography sx={PLAY_DETAIL_SX}>{detail}</Typography>}
@@ -612,7 +612,7 @@ function PlaysList({ plays, away, home, scoringOnly, expanded, onToggle, onPlaye
               {showHeader && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, pt: 1.25, pb: 0.5 }}>
                   <TeamLogo teamId={p.battingTeamId} abbr={TEAM_ABBR[p.battingTeamId] ?? ''} size={18} />
-                  <Typography noWrap sx={{ minWidth: 0, fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary' }}>
+                  <Typography noWrap sx={{ minWidth: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary' }}>
                     {label(p)}
                   </Typography>
                 </Box>
@@ -742,7 +742,7 @@ function Scoreboard({ box, decided, onTeam, blank = false }: {
               // TeamLogo's box: exactly its size, ring included.
               ? <Box sx={{ width: chromePx(24), height: chromePx(24), borderRadius: '50%', bgcolor: 'action.hover', border: '1.5px solid transparent', flexShrink: 0 }} />
               : <TeamLogo teamId={t.teamId} abbr={t.abbr} size={24} />}
-            <Typography sx={{ fontSize: { xs: '0.84rem', sm: '0.92rem' }, fontWeight: won ? 800 : 600, lineHeight: 1.15, whiteSpace: 'nowrap', color: muted ? 'text.secondary' : 'text.primary' }}>
+            <Typography sx={{ fontSize: { xs: TYPE_SCALE.body, sm: TYPE_SCALE.title }, fontWeight: won ? 800 : 600, lineHeight: 1.15, whiteSpace: 'nowrap', color: muted ? 'text.secondary' : 'text.primary' }}>
               <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{t.abbr}</Box>
               <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{TEAM_NICKNAME[t.teamId] ?? t.name}</Box>
             </Typography>
@@ -757,15 +757,15 @@ function Scoreboard({ box, decided, onTeam, blank = false }: {
           const text = !i ? '' : v != null ? v : !decided ? '' : k === 'home' ? 'X' : '-'
           return (
             <Box component="td" key={num} sx={{
-              fontSize: { xs: '0.8rem', sm: '0.88rem' }, fontWeight: v ? 800 : 500, color: v ? 'text.primary' : 'text.secondary',
+              fontSize: { xs: TYPE_SCALE.body, sm: TYPE_SCALE.title }, fontWeight: v ? 800 : 500, color: v ? 'text.primary' : 'text.secondary',
               textAlign: 'center', px: { xs: 0.2, sm: 0.4 }, fontVariantNumeric: 'tabular-nums',
             }}>{text}</Box>
           )
         })}
         <Box component="td" sx={{ width: chromePx(4) }} />
-        <Box component="td" sx={{ textAlign: 'center', px: { xs: 0.2, sm: 0.4 }, fontSize: { xs: '0.95rem', sm: '1.05rem' }, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: won ? accent : muted ? 'text.secondary' : 'text.primary' }}>{t.runs}</Box>
-        <Box component="td" sx={{ textAlign: 'center', px: { xs: 0.2, sm: 0.4 }, fontSize: { xs: '0.78rem', sm: '0.84rem' }, fontWeight: 600, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{t.hits}</Box>
-        <Box component="td" sx={{ textAlign: 'center', px: { xs: 0.2, sm: 0.4 }, fontSize: { xs: '0.78rem', sm: '0.84rem' }, fontWeight: 600, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{t.errors}</Box>
+        <Box component="td" sx={{ textAlign: 'center', px: { xs: 0.2, sm: 0.4 }, fontSize: { xs: TYPE_SCALE.title, sm: TYPE_SCALE.heading }, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: won ? accent : muted ? 'text.secondary' : 'text.primary' }}>{t.runs}</Box>
+        <Box component="td" sx={{ textAlign: 'center', px: { xs: 0.2, sm: 0.4 }, fontSize: { xs: TYPE_SCALE.body, sm: TYPE_SCALE.body }, fontWeight: 600, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{t.hits}</Box>
+        <Box component="td" sx={{ textAlign: 'center', px: { xs: 0.2, sm: 0.4 }, fontSize: { xs: TYPE_SCALE.body, sm: TYPE_SCALE.body }, fontWeight: 600, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{t.errors}</Box>
       </Box>
     )
   }
@@ -1000,7 +1000,7 @@ function GameCenterView({ game, onClose, onPlayerClick, onTeamClick, initialTab,
             color: 'text.secondary', ...hoverOnly({ color: 'text.primary' }),
           }}
         >
-          <Box component="span" aria-hidden sx={{ fontSize: '0.58rem', transition: 'transform 0.15s', transform: allOpen ? 'rotate(90deg)' : 'none' }}>▶</Box>
+          <Box component="span" aria-hidden sx={{ fontSize: TYPE_SCALE.caption, transition: 'transform 0.15s', transform: allOpen ? 'rotate(90deg)' : 'none' }}>▶</Box>
           {allOpen ? 'Collapse all' : 'Expand all'}
         </Box>
       )}

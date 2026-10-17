@@ -416,7 +416,7 @@ function FeedbackModal({ open, onClose, onChanged }: {
             {visible.length === 0 ? (
               <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
                 <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled' }}>
-                  All caught up — nothing new.
+                  Nothing new.
                 </Typography>
               </Box>
             ) : visible.map((r, i) => (
