@@ -156,6 +156,8 @@ pg_cron) · GitHub Actions for cron · installable PWA · Cloudflare Pages at
 - [ARCHITECTURE.md](ARCHITECTURE.md) is the real map: routes, DB tables, the ingest, every cron
   job, edge functions, integrations, config and secrets. **Keep it current** when you add a table,
   workflow, or integration. It is large: find the section with Grep, then read that part.
+- [ROADMAP-PRIORITIES.md](ROADMAP-PRIORITIES.md) is the one order across every roadmap below;
+  start there when picking what to work on next.
 - [ROADMAP-WOMENS-BASEBALL.md](ROADMAP-WOMENS-BASEBALL.md) for the slow move to women's baseball beyond the WPBL
   (the World Cup first).
 - [ROADMAP-WPBL.md](ROADMAP-WPBL.md) for anything under `/wpbl` (the clock and the priority list);
