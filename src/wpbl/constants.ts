@@ -12,7 +12,7 @@ import sfLogo from './logos/sf.webp'
 export const WPBL_ACCENT = '#60a5fa'
 
 // The same accent made safe for FOREGROUND use, mirroring what wpblAccent() does for team
-// colours. #60a5fa is a light blue: measured against this app's light-mode surfaces it comes
+// colors. #60a5fa is a light blue: measured against this app's light-mode surfaces it comes
 // out at 2.2–2.5:1, so every place it is used as TEXT on a light background (the active nav
 // pill's label, the sorted stat column, "View all" links) fails AA by a wide margin. It is
 // perfectly fine in dark mode, and fine in both modes as a FILL behind white text, which is

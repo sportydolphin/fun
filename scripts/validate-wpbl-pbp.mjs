@@ -103,7 +103,7 @@ const sql = {
   // ─── 2. Batting order continuity ──────────────────────────────────────────────
   //
   // Consecutive plate appearances for one side must advance exactly one slot, 9 wrapping to 1.
-  // A mis-attributed batter breaks that, and the break is localised to the half-inning.
+  // A mis-attributed batter breaks that, and the break is localized to the half-inning.
   //
   // Two benign cases are excluded rather than reported, because both are legal baseball and
   // reporting them buries the real signal:
@@ -432,6 +432,6 @@ main().catch(async err => {
 //
 // Closing that needs a second, independently produced transcription of the same game.
 // github.com/exu6jh/RetroWPBL is one: hand-written Retrosheet .EVW files with a batter id on
-// every plate appearance. It carries NO LICENCE, so it is all rights reserved by default and
+// every plate appearance. It carries NO LICENSE, so it is all rights reserved by default and
 // must not be ingested or republished. Reading it to check our own rows is a different act
 // from redistributing it, but the clean move is to ask the author first.

@@ -2,7 +2,7 @@ import type { RunValueGame } from './runExpectancy'
 import { buildRunExpectancy, playRunValues } from './runExpectancy'
 import { winProbModel, wpaLeaders, type WpaLine } from './winProbability'
 import { baserunningEvents, baserunningLeaders, runnerIds, type BaserunningLine, type BaserunningRuns } from './baserunning'
-import { centredBaserunning, doublePlayRuns } from './war'
+import { centeredBaserunning, doublePlayRuns } from './war'
 import type { WpblBattingLine, WpblGame, WpblPlayer, WpblRunValuePlay } from '../types'
 
 /**
@@ -16,7 +16,7 @@ import type { WpblBattingLine, WpblGame, WpblPlayer, WpblRunValuePlay } from '..
  * wrong outright: a runner's extra bases are on OTHER batters' plays, and the average runner it
  * is priced against is the whole league's.
  *
- * BsR IS WAR'S OWN (`centredBaserunning`), so the bases board, the Stats table's BsR column, the
+ * BsR IS WAR'S OWN (`centeredBaserunning`), so the bases board, the Stats table's BsR column, the
  * card and Compare are one number. The stored WAR rows' `wpa` is still a different one: both sides
  * summed, where the board and the card keep them apart.
  *
@@ -44,7 +44,7 @@ export function seasonValueBoards(
   return {
     wpaHitting: wpaLeaders(model, plays, rv, players, 'hitting', idOf),
     wpaPitching: wpaLeaders(model, plays, rv, players, 'pitching'),
-    bases: centredBaserunning(
+    bases: centeredBaserunning(
       baserunningLeaders(baserunningEvents(plays, rv, table, idOf), players), players, batting, games,
       doublePlayRuns(playRunValues(plays, rv, table), table)),
   }

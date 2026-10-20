@@ -91,7 +91,7 @@ describe('runsByInning', () => {
     expect(row(grid, 'LA').scored[EXTRAS_COLUMN - 1]).toMatchObject({ runs: 1, halves: 2 })
   })
 
-  it('draws no extras column when nothing went long, and leaves extras out of the colour scale', () => {
+  it('draws no extras column when nothing went long, and leaves extras out of the color scale', () => {
     expect(runsByInning([game([1, 0, 0, 0, 0, 0, 0], [2, 0, 0, 0, 0, 0, 0])], TEAMS, 'regular').columns).toHaveLength(7)
     const long = runsByInning([
       game([1, 0, 0, 0, 0, 0, 0, 9], [0, 0, 0, 0, 0, 0, 1, 0]),

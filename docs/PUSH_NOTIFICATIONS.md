@@ -131,7 +131,7 @@ Other ways to test the real reminder:
 A second reminder, reusing the same subscription plumbing: the **bell on the WPBL
 Home next-game card** ("Reminders for every game"). It is one standing preference,
 `user_preferences.notify_wpbl_all_games`. It used to be a per-game opt-in, and the
-sender still honours any `wpbl_game_reminders` rows left from that, but nothing
+sender still honors any `wpbl_game_reminders` rows left from that, but nothing
 creates new ones.
 
 | Piece | File | Role |

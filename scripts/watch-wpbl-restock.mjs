@@ -4,7 +4,7 @@
  *
  * WHY THIS EXISTS. It started as one question: the giveaway winner chose a cap that was out of
  * stock and the shop has no back-in-stock notification of its own. Asking that about the whole
- * catalogue is the same question 271 times, so it now mirrors the store and reports what
+ * catalog is the same question 271 times, so it now mirrors the store and reports what
  * changed.
  *
  * TWO AUDIENCES, TWO VOLUMES. 241 of 271 variants are sold out at the time of writing, so a
@@ -22,7 +22,7 @@
  * to the quiet feed and nobody's phone. A drop is exactly the case where an hour late is too
  * late, so it gets the interruption, batched into one message however many arrive at once.
  *
- * HOW IT KNOWS. Shopify serves /products.json on every storefront: the published catalogue,
+ * HOW IT KNOWS. Shopify serves /products.json on every storefront: the published catalog,
  * 78 products in one page here, with an explicit `available` per variant. robots.txt permits
  * it (only /cart.js and the checkout paths are disallowed) and sets no Crawl-delay. The
  * snapshot in wpbl_shop_products / wpbl_shop_variants is what last run saw, and the diff
@@ -33,7 +33,7 @@
  * variant going false to true is a restock; a product id never seen before is new merch.
  *
  * THE FIRST RUN ANNOUNCES NOTHING. An empty snapshot would otherwise read as 78 brand-new
- * products and one enormous message. Seeding records the catalogue and stays quiet, the same
+ * products and one enormous message. Seeding records the catalog and stays quiet, the same
  * way post-wpbl-discord-highlights.mjs seeds. The one exception is the shortlist: a watched
  * item that is available during seeding is still shouted about, because missing that is the
  * failure this whole thing exists to prevent.
@@ -63,7 +63,7 @@
  *   npm run restock-watch -- --dry-run    # check and render; writes nothing, posts nothing
  *   npm run restock-watch -- --status     # what the snapshot holds, check nothing
  *   npm run restock-watch -- --test-post  # post a sample to both webhooks, to prove they work
- *   npm run restock-watch -- --reseed     # re-record both catalogues silently, announce nothing
+ *   npm run restock-watch -- --reseed     # re-record both catalogs silently, announce nothing
  *   npm run restock-watch -- --auction-now  # check the auction house regardless of the gate
  *
  * Required env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
@@ -192,14 +192,14 @@ const money = (cents) => (cents == null ? null : `$${(Number(cents) / 100).toFix
 // ─── The store ──────────────────────────────────────────────────────────────
 
 /**
- * The published catalogue, flattened to what the diff needs.
+ * The published catalog, flattened to what the diff needs.
  *
  * Keyed on Shopify's numeric ids rather than handles: a handle is the URL segment and changes
  * when a product is renamed, which would read as the old one vanishing and a new one arriving.
  */
 export function normaliseCatalog(payload, shopDomain = SHOP_DOMAIN) {
   const products = Array.isArray(payload?.products) ? payload.products : []
-  if (products.length === 0) throw new Error('Catalogue came back with no products at all, which is never right for this store')
+  if (products.length === 0) throw new Error('Catalog came back with no products at all, which is never right for this store')
   return products.map(p => ({
     product_id: Number(p.id),
     handle: p.handle,
@@ -221,7 +221,7 @@ export function normaliseCatalog(payload, shopDomain = SHOP_DOMAIN) {
 
 export async function fetchCatalog(shopDomain = SHOP_DOMAIN, fetchImpl = fetch) {
   // limit=250 is Shopify's maximum and covers this store in one page; the loop is here so a
-  // growing catalogue does not silently truncate to its first page.
+  // growing catalog does not silently truncate to its first page.
   const all = []
   for (let page = 1; page <= 10; page++) {
     const url = `https://${shopDomain}/products.json?limit=250&page=${page}`
@@ -241,7 +241,7 @@ export async function fetchCatalog(shopDomain = SHOP_DOMAIN, fetchImpl = fetch) 
 // ─── The diff, which is the whole job ───────────────────────────────────────
 
 /**
- * What changed between the stored snapshot and the live catalogue.
+ * What changed between the stored snapshot and the live catalog.
  *
  * Pure, and tested, because every failure mode here is expensive and invisible: miss a
  * transition and the restock passes unnoticed; invent one and the channel gets noise it will
@@ -502,7 +502,7 @@ export async function fetchLots(fetchImpl = fetch, { partner = REALEST_PARTNER, 
  *
  * Pure and tested, same as diffCatalog and for the same reason. Note there is no restock half:
  * a sold lot is gone for good, so the only false positive available here is announcing the
- * whole catalogue twice, which is what announced_new_at exists to prevent.
+ * whole catalog twice, which is what announced_new_at exists to prevent.
  */
 export function diffLots(live, known, { seeding = false } = {}) {
   const seen = new Map((known ?? []).map(l => [String(l.lot_id), l]))
@@ -680,7 +680,7 @@ async function loadSnapshot() {
   }
   for (const [name, r] of [['products', products], ['variants', variants]]) {
     if ((r.data ?? []).length >= SNAPSHOT_LIMIT) {
-      throw new Error(`The ${name} snapshot hit the ${SNAPSHOT_LIMIT}-row read cap, so it is a prefix rather than the whole thing. Diffing against a prefix would announce most of the catalogue as new. Page this read before letting the job run again.`)
+      throw new Error(`The ${name} snapshot hit the ${SNAPSHOT_LIMIT}-row read cap, so it is a prefix rather than the whole thing. Diffing against a prefix would announce most of the catalog as new. Page this read before letting the job run again.`)
     }
   }
   return { products: products.data ?? [], variants: variants.data ?? [], watches: watches.data ?? [] }
@@ -713,7 +713,7 @@ async function saveSnapshot(live, { announcedNewIds }) {
 
 // 190 lots today. Same read cap and same reasoning as SNAPSHOT_LIMIT: a truncated snapshot here
 // cannot invent a restock, but it would re-announce every lot it forgot, which is one message
-// containing the entire catalogue.
+// containing the entire catalog.
 const LOTS_LIMIT = 5000
 
 async function loadLots() {
@@ -721,7 +721,7 @@ async function loadLots() {
   if (r.error) throw new Error(`Could not read the auction snapshot: ${r.error.message}`)
   const rows = r.data ?? []
   if (rows.length >= LOTS_LIMIT) {
-    throw new Error(`The auction snapshot hit the ${LOTS_LIMIT}-row read cap, so it is a prefix rather than the whole thing. Diffing against a prefix would announce most of the catalogue as new. Page this read before letting the job run again.`)
+    throw new Error(`The auction snapshot hit the ${LOTS_LIMIT}-row read cap, so it is a prefix rather than the whole thing. Diffing against a prefix would announce most of the catalog as new. Page this read before letting the job run again.`)
   }
   return rows
 }
@@ -730,7 +730,7 @@ async function saveLots(live, known) {
   const now = new Date().toISOString()
   const alreadyAnnounced = new Map((known ?? []).map(l => [String(l.lot_id), l.announced_new_at]))
   // Everything present is marked announced once it has been through a real run, seeding
-  // included: that is what stops the seeded catalogue reading as 190 new lots next time. A lot
+  // included: that is what stops the seeded catalog reading as 190 new lots next time. A lot
   // that already carries a stamp keeps its original one, so the column goes on meaning "when we
   // announced this" rather than "when we last looked". The field is on EVERY row rather than
   // conditionally spread, because PostgREST rejects a bulk upsert whose objects do not all
@@ -847,10 +847,10 @@ async function runShopWatch(snapshot) {
 
   const { newProducts, restocked, delisted } = diffCatalog(live, snapshot, { seeding })
 
-  console.log(`Catalogue: ${live.length} products, ${live.reduce((n, p) => n + p.variants.length, 0)} variants.`)
+  console.log(`Catalog: ${live.length} products, ${live.reduce((n, p) => n + p.variants.length, 0)} variants.`)
   if (seeding) {
     console.log(RESEED
-      ? 'Reseeding: recording the catalogue, announcing nothing.'
+      ? 'Reseeding: recording the catalog, announcing nothing.'
       : `First run: recording ${live.length} products and announcing nothing. Real changes are announced from the next run.`)
   } else {
     console.log(`New: ${newProducts.length}  Restocked: ${restocked.length}  Delisted: ${delisted.length}`)
@@ -866,7 +866,7 @@ async function runShopWatch(snapshot) {
   for (const watch of snapshot.watches) {
     const product = byHandle.get(watch.product_handle)
     if (!product) {
-      console.warn(`⚠️   Shortlisted product "${watch.product_handle}" is not in the catalogue. Update wpbl_restock_watch.`)
+      console.warn(`⚠️   Shortlisted product "${watch.product_handle}" is not in the catalog. Update wpbl_restock_watch.`)
       continue
     }
     const wanted = watch.variant_id != null
@@ -920,7 +920,7 @@ async function runShopWatch(snapshot) {
 
   await saveSnapshot(live, {
     // Everything present is marked announced once it has been through a real run, seeding
-    // included: that is what stops the seeded catalogue reading as 78 new products next time.
+    // included: that is what stops the seeded catalog reading as 78 new products next time.
     announcedNewIds: new Set(live.map(p => p.product_id)),
   })
   if (delisted.length) {

@@ -44,7 +44,7 @@ Two reasons the gate is not optional:
    filed there. `Category:Women's baseball` currently reaches 67 photos of one Japanese high
    school exhibition game and 27 Victorian cigarette cards. All legitimately in the category;
    none of them belong on a rail on the WPBL home screen.
-2. **A photograph of a person is not automatically ours to publish.** A free licence covers
+2. **A photograph of a person is not automatically ours to publish.** A free license covers
    copyright. It says nothing about whether the subject expected to appear on a sports site.
 
 ### The review query
@@ -73,22 +73,22 @@ can be slotted between two without renumbering the set.
 `description` is derived from Commons and `caption` overrides it. Set `caption` whenever the
 derived line is wrong or reads badly; it is expected, not a failure.
 
-The sync already unpicks library cataloguing, which is what most of this pool has instead of a
+The sync already unpicks library cataloging, which is what most of this pool has instead of a
 caption. A Florida Memory record arrives as:
 
 > Local call number: c009836 Title: [Fort Wayne Daisies player, Marie Wegman, of the All
 > American Girls Professional Baseball League arguing with umpire Norris Ward : Opalocka,
 > Florida] Date: Photographed on April 22, 1948. Physical descrip: 1 photoprint …
 
-and `deriveCaption()` reduces it to the title, unbracketed, with the cataloguer's " : " turned
+and `deriveCaption()` reduces it to the title, unbracketed, with the cataloger's " : " turned
 into a comma. It prefers a `Description` field over a `Title` field where a record has both,
-because a cataloguer's title is an identifier and the description is the sentence a reader
+because a cataloger's title is an identifier and the description is the sentence a reader
 wants. What it cannot do is invent a caption for a record that has no usable field in it.
 
 ## Attribution is not a footer
 
 Most of the pool is public domain, but a real share is CC BY or CC BY-SA, which oblige us to
-name the creator and the licence and to point at the source. So the credit line is on **every
+name the creator and the license and to point at the source. So the credit line is on **every
 card, in every surface**, not tucked behind a click: a CC BY-SA photograph is published the
 moment the rail paints, whether or not anyone opens it.
 
@@ -102,10 +102,10 @@ credit.
   column that is not in the payload is untouched on update. That is what stops a weekly
   re-sync from discarding a curated caption or resurrecting a rejected photo. **If you add a
   column, decide which side of that line it is on before adding it to the payload.**
-- **Keep anything that is not clearly free.** The licence allow-list tests extmetadata's
+- **Keep anything that is not clearly free.** The license allow-list tests extmetadata's
   machine-readable `License` slug: public domain, CC0, CC BY and CC BY-SA only. Commons is not
   uniformly free; it hosts non-free logos and fair-use claims. GFDL-only files are excluded
-  deliberately, because that licence wants its full text reproduced beside the image.
+  deliberately, because that license wants its full text reproduced beside the image.
 - **Store anything as HTML.** Commons serves descriptions and attribution as markup written by
   whoever uploaded the file. The sync strips it to plain text, and
   [`src/wpbl/Photos.tsx`](../src/wpbl/Photos.tsx) only ever puts those strings in a text node.
@@ -171,7 +171,7 @@ address.
 node scripts/sync-wpbl-commons.mjs --dry-run
 ```
 
-Reads Commons and prints the caption, creator, licence and file name of everything it would
+Reads Commons and prints the caption, creator, license and file name of everything it would
 write. Needs no credentials, so it is the way to check a seed-list or caption change.
 
 ```bash

@@ -23,7 +23,7 @@ import { track, EVENTS } from './analytics'
 const KEY = 'sd_stale_build_reload_at'
 const WINDOW_MS = 10_000
 /** How the page got onto a new build, carried across the reload so it can be reported after it:
- *  an event sent in the moment before a reload is usually cancelled with the page. */
+ *  an event sent in the moment before a reload is usually canceled with the page. */
 const UPDATED_KEY = 'sd_updated_via'
 
 type UpdatedVia = 'chunk_reload' | 'navigation'
@@ -128,12 +128,12 @@ function watchForNewBuild(): void {
   setInterval(check, CHECK_EVERY_MS)
 }
 
-/** Vite fires `vite:preloadError` when a dynamic import or its preloaded CSS fails. Cancelling it
+/** Vite fires `vite:preloadError` when a dynamic import or its preloaded CSS fails. Canceling it
  *  stops the chunk error reaching React. Left alone when no reload happens, so the error still
  *  reaches the boundary.
  *
- *  CANCELLING IT DOES NOT STOP THE CRASH, IT CHANGES IT. Vite's helper is
- *  `baseModule().catch(handlePreloadError)`, so a cancelled failure RESOLVES the import with
+ *  CANCELING IT DOES NOT STOP THE CRASH, IT CHANGES IT. Vite's helper is
+ *  `baseModule().catch(handlePreloadError)`, so a canceled failure RESOLVES the import with
  *  `undefined`, and `lazy()` then throws reading `.default` of it ("_result is undefined") in the
  *  second or two before the reload lands. Every reader crash from Oct 13 to 15, 2026 was this one,
  *  each followed by a clean `chunk_reload`. The boundary checks `reloadUnderway()` and draws

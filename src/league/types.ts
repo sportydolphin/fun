@@ -112,7 +112,7 @@ export interface FieldingGameLine {
  *
  * `pitch_sequence` is ONE CHARACTER PER PITCH, in the league's own alphabet (`League.pitchCodes`).
  * `event_type` is the snake_case vocabulary WPBL's feed uses ('home_run', 'strikeout', 'walk',
- * 'groundout', 'stolen_base', ...); the MLB mirror normalises StatsAPI's `eventType` onto it at
+ * 'groundout', 'stolen_base', ...); the MLB mirror normalizes StatsAPI's `eventType` onto it at
  * ingest, so no engine has to know two vocabularies.
  */
 export interface PitchPlay {

@@ -12,7 +12,7 @@
  *
  * UPSERTS ONLY, NEVER DELETES, for the same reason the site-calendar job does. Their feed is a
  * 50-item window that ignores every paging parameter, so it will one day stop carrying August;
- * a sync that reconciled by deleting what it could no longer see would take the back catalogue
+ * a sync that reconciled by deleting what it could no longer see would take the back catalog
  * with it on that day, silently. A row that stops appearing simply stops being updated.
  *
  * Usage:

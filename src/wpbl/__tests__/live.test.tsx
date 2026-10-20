@@ -114,7 +114,7 @@ describe('the break label looks one half-inning back', () => {
     }
   })
 
-  it('leaves a live at-bat unlabelled', () => {
+  it('leaves a live at-bat unlabeled', () => {
     const s = deriveSituation(LIVE, AWAY, HOME, LINES)
     expect(s.breakLabel).toBeNull()
     expect(s.battingTeam.id).toBe('ny')

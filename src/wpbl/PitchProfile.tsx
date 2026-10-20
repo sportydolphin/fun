@@ -34,12 +34,12 @@ import { TYPE_SCALE } from '../ui/card'
 // of their own; they are the Plate discipline table now, in the same cells as every other rate on
 // the card, and this file reads the pitches for both (usePitchProfiles).
 //
-// ONE MEANING PER COLOUR. A row notably better than the league is the section's own blue, worse is
-// amber, and an outcome with no better direction (a foul, a ball in play) is never coloured at all.
+// ONE MEANING PER COLOR. A row notably better than the league is the section's own blue, worse is
+// amber, and an outcome with no better direction (a foul, a ball in play) is never colored at all.
 // An early version lit a hitter's high whiff rate green, which read as an achievement.
 //
-// NOTHING HERE USES THE CLUB'S COLOUR, because "better" cannot depend on which club you play
-// for: the Firebells' colour is red, and a pitcher's good walk rate drawn in red read as a warning.
+// NOTHING HERE USES THE CLUB'S COLOR, because "better" cannot depend on which club you play
+// for: the Firebells' color is red, and a pitcher's good walk rate drawn in red read as a warning.
 
 type Side = 'pitching' | 'batting'
 type Better = 'high' | 'low' | null
@@ -59,7 +59,7 @@ const MIX: { key: keyof PitchCounts; label: string; swung: boolean; batting: Bet
  *  difference stops being rounding and one short season's sample. */
 const NOTABLE_POINTS = 0.03
 
-/** Worse than the league: amber, the one warning colour this section uses, in the shade that
+/** Worse than the league: amber, the one warning color this section uses, in the shade that
  *  clears contrast on each theme (the light one is text on white). */
 const amberFor = (dark: boolean) => (dark ? '#f59e0b' : '#b45309')
 
@@ -105,7 +105,7 @@ function MixRows({ me, league, side, better, amber }: {
             <Box sx={{ position: 'relative', height: '2px', bgcolor: 'divider' }}>
               {/* The league, as a tick the dot can sit on. */}
               <Box sx={{ position: 'absolute', top: '50%', left: `${(lg / max) * 100}%`, width: '2px', height: 12, bgcolor: 'text.disabled', transform: 'translate(-50%, -50%)' }} />
-              {/* Worse than the league is a RING, not only a colour, so the verdict survives a
+              {/* Worse than the league is a RING, not only a color, so the verdict survives a
                   reader who cannot tell amber from the club's green. */}
               <Box sx={{
                 position: 'absolute', top: '50%', left: `${(v / max) * 100}%`, width: 10, height: 10, borderRadius: '50%',

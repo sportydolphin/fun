@@ -4,7 +4,7 @@ import type { WpblGamePlay, WpblGame, WpblPlayer } from '../types'
 // Matchup derivations: batter-vs-pitcher lines and team-vs-team head-to-head. Pure:
 // arrays in, plain shapes out (no supabase / React), mirroring stats.ts.
 //
-// The one judgement call, "what counts as a plate appearance", lives in classifyPa() so
+// The one judgment call, "what counts as a plate appearance", lives in classifyPa() so
 // every consumer (and any future producer: RISP, two-strike, player-of-the-game) agrees on
 // it instead of re-deriving it. It reads only a play's event_type + narrative, exactly the
 // fields `WpblMatchupPlay` below names.

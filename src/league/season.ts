@@ -29,7 +29,7 @@ export interface GameKeyed { game_id: string }
 /** Whether a game counts toward the regular-season record.
  *
  *  DELIBERATELY FAILS OPEN. It excludes a game only on positive evidence that it is a playoff
- *  game, and counts anything it does not recognise. The alternative, counting only what it can
+ *  game, and counts anything it does not recognize. The alternative, counting only what it can
  *  positively identify as regular season, breaks catastrophically and silently the day the feed
  *  renames its game types: every game drops out and the standings render four clubs at 0-0
  *  rather than showing an obviously wrong number. Wrong-by-a-few is recoverable; blank is not.
@@ -115,7 +115,7 @@ export function postseasonGameIds(games: SeasonGame[]): Set<string> {
  * totals are wrong by a few games rather than blank.
  *
  * `postseason` fails CLOSED, and it has to. "Everything that does not look regular" is not a
- * definition of the playoffs, it is a definition of "unrecognised", so on that same rename it
+ * definition of the playoffs, it is a definition of "unrecognized", so on that same rename it
  * would relabel all 30 regular-season games as the postseason and publish them under a
  * heading that says Playoffs. An empty playoff board is visibly broken and gets fixed; a full
  * one made of the wrong games is invisible and does not. This is the one place in this module

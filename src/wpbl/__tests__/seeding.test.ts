@@ -153,7 +153,7 @@ describe('seedingRace', () => {
   })
 
   // A club already in the best seat it can reach has nothing to climb to, and printing a
-  // climb number beside a defence number would put two answers in one cell.
+  // climb number beside a defense number would put two answers in one cell.
   it('has no climb number for a club that cannot move up', () => {
     const rows = race(MID)
     // The top seed, which has nowhere to go.

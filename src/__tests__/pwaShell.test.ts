@@ -280,7 +280,7 @@ describe('digital asset links', () => {
   //   2. Play's CLASSICAL app signing key, enforced on Android 13 to 16.
   //   3. Play's POST-QUANTUM hybrid key (ML-DSA-65), enforced on Android 17 and above.
   // Play App Signing now issues 2 and 3 as a pair, and Play Console lists them separately,
-  // which is the trap: pasting only the one labelled "classical" verifies fine on every
+  // which is the trap: pasting only the one labeled "classical" verifies fine on every
   // phone in the room today and puts a URL bar on Android 17, months later, reported by a
   // stranger. Neither can exist before the first bundle upload, so both are pasted in after
   // the fact from Protected with Play > Play Store protection > Manage Play app signing.

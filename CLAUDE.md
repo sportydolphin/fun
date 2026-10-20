@@ -25,6 +25,9 @@ Violating these creates real problems. Treat them as hard constraints.
   always reads better. En dashes stay where they are correct: ranges and scores, `5–2`.
   The one allowed `—` is the glyph meaning "no value" in tables and stat lines, which is a
   symbol rather than punctuation.
+- **American English, never British:** color, center, favorite, recognize, canceled, labeled,
+  license (the noun too), behavior. In UI copy, comments, commit messages, docs and the changelog.
+  Identifiers and data values stay as they are: MLB's `'Cancelled'` status, `aria-labelledby`.
 - **WPBL is baseball, not softball.** ⚾ never 🥎. It is the *Women's Pro Baseball League*,
   a full pro league. No gender stereotypes, no softball framing, anywhere.
 - **A name that does not fit shortens to "F. Last"; it is never cut off mid-name.** "K. Whitmore",
@@ -52,7 +55,7 @@ Violating these creates real problems. Treat them as hard constraints.
   never re-run.
 - **UI work has three more hard rules**, each in full in [`src/CLAUDE.md`](src/CLAUDE.md): a
   loading state is the loaded page drawn empty, measured rather than
-  eyeballed (`npm run sweep -- --shift`); every outline is at least 3:1 in both themes, never an alpha-faded colour; and
+  eyeballed (`npm run sweep -- --shift`); every outline is at least 3:1 in both themes, never an alpha-faded color; and
   accessibility is checked by the lint and by axe in the sweep, never fading text with `opacity`.
 - **A lockfile written on Windows can fail `npm ci` on Linux.** npm on Windows left
   `@napi-rs/wasm-runtime`'s optional `@emnapi/*` peers out of the lockfile's top level, CI's Linux
@@ -107,7 +110,7 @@ first when you are working on what the line describes, even from somewhere else 
 - `--app-header-h` is the pinned chrome's height from the rect; 0 on a phone.
 - Inside the desktop side panel the viewport lies: ask `usePhoneLayout()`.
 - No `passive: false` touch listener inside a sheet.
-- `staleBuild.ts` patches `history.pushState` after a deploy, on purpose; a cancelled `vite:preloadError` resolves the import to `undefined`.
+- `staleBuild.ts` patches `history.pushState` after a deploy, on purpose; a canceled `vite:preloadError` resolves the import to `undefined`.
 - Internal links are real `<a href>` through `linkTo()`.
 
 [`scripts/migrations/CLAUDE.md`](scripts/migrations/CLAUDE.md), the database:

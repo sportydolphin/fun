@@ -34,7 +34,7 @@ export default function SourcesPage({ onNavigate }: { onNavigate: (to: string) =
   // reporting" is both true and a terrible thing to say to a reader: this is the page handed to
   // somebody deciding whether to trust or link to the site, and it would open by talking it down.
   // The heading names the page and each group's own line says what that group is; a paragraph
-  // apologising for the whole thing helps nobody.
+  // apologizing for the whole thing helps nobody.
   return (
     <WpblPage title="Data sources">
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -74,7 +74,7 @@ export default function SourcesPage({ onNavigate }: { onNavigate: (to: string) =
                   </Typography>
                   {/* What was taken and where it shows, as a definition list rather than prose:
                       somebody checking a specific claim is scanning for their own name and then
-                      for the scope, and three labelled lines is faster to scan than a paragraph
+                      for the scope, and three labeled lines is faster to scan than a paragraph
                       that says the same thing. */}
                   <Box component="dl" sx={{ m: 0, mt: 1, display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 1.25, rowGap: 0.5 }}>
                     <Detail label="Used for">{s.uses}</Detail>
@@ -127,7 +127,7 @@ export default function SourcesPage({ onNavigate }: { onNavigate: (to: string) =
   )
 }
 
-/** One labelled line of a source's entry. The label is a real `<dt>`, since this whole block is
+/** One labeled line of a source's entry. The label is a real `<dt>`, since this whole block is
  *  a definition list and a screen reader should meet it as one. */
 function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (

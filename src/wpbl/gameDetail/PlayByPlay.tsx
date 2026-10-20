@@ -702,10 +702,10 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                           grew with the reader's Large text setting would tower over the 0.82rem
                           sentence it belongs to.
 
-                          TOP-ALIGNED, NOT CENTRED, and no nudge either way. The glyphs follow
+                          TOP-ALIGNED, NOT CENTERED, and no nudge either way. The glyphs follow
                           --app-chrome and the count beside them follows the reader's text scale,
                           so the two can never be locked level by a fixed offset; what they can
-                          share is an edge. Centred, they drift down the row as the runners' line
+                          share is an edge. Centered, they drift down the row as the runners' line
                           wraps, which on a three-line play put them a clear line below the count
                           and broke the column they sit at the end of to make. */}
                       {after && (

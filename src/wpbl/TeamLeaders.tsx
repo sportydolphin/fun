@@ -156,7 +156,7 @@ export function LeaderTable({ away, home, awayLeaders, homeLeaders, onOpenPlayer
         ? <NameText name={l.player.name} sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 600, textAlign: align, color: 'text.primary' }} />
         : <Typography sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 600, textAlign: align, color: 'text.disabled' }}>—</Typography>}
       {/* 800, matching the team comparison directly above, and for the reason given there: a
-          tabular figure at 900 in a colour picked to be read closes its own counters up, and
+          tabular figure at 900 in a color picked to be read closes its own counters up, and
           these are the same numbers in the same accent inches below that block. */}
       <Typography sx={{
         flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 800,
@@ -180,10 +180,10 @@ export function LeaderTable({ away, home, awayLeaders, homeLeaders, onOpenPlayer
   )
 
   return (
-    /* CAPPED AND CENTRED, AND THE CAP IS MEASURED. Each side's leader hugs the category down
+    /* CAPPED AND CENTERED, AND THE CAP IS MEASURED. Each side's leader hugs the category down
     the middle, so at the sheet's full width the rules run the whole card while the text sits
     in the middle third. The cap, 520 real pixels at the desktop chrome scale, puts each side
-    at a readable measure; what is left goes outside as margin, where it reads as a centred
+    at a readable measure; what is left goes outside as margin, where it reads as a centered
     comparison rather than a row with a hole at each end. `chromePx` because a cap on a block is
     a structural length and not room reserved for a string, so it follows the desktop chrome
     scale and not the reader's text size. */
@@ -217,7 +217,7 @@ export function LeaderTable({ away, home, awayLeaders, homeLeaders, onOpenPlayer
 /**
  * The wide leaders board: a headshot and a stacked name-over-value for each club's leader in each
  * category, the categories grouped into Offense and Pitching the way the team comparison is. The
- * portrait and the club colour turn a table into two lineups facing off, which is what the extra
+ * portrait and the club color turn a table into two lineups facing off, which is what the extra
  * room in the matchup preview is worth spending on.
  */
 function RichLeaders({ away, home, A, H, onOpenPlayer }: {

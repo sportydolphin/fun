@@ -851,7 +851,7 @@ function managerSlate({ teams, games }: AwardBallotInput): AwardCandidate[] {
  * puts something, and a hole reads as a card that failed to load rather than as a question with no
  * arithmetic in it. The team is the one fact left that is worth stating and cannot be argued
  * with, and it is otherwise absent: a player tile draws a portrait where a club tile would draw
- * the badge, so only the accent colour would name the player's side on this question. Labelled
+ * the badge, so only the accent color would name the player's side on this question. Labeled
  * TEAM rather than CLUB, which is the word this file's prose uses but not the one on any surface
  * a reader sees.
  *

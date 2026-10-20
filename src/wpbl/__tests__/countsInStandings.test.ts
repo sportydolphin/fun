@@ -9,7 +9,7 @@ import type { WpblGame, WpblTeam } from '../types'
 //
 // These pin the fail-open contract as much as the filtering. The feed has not sent a postseason
 // row yet, so which signal it will use is a guess: the tests cover both, AND cover the case
-// where it uses neither recognisable value, because that one must keep counting rather than
+// where it uses neither recognizable value, because that one must keep counting rather than
 // empty the table.
 
 const game = (over: Partial<WpblGame> = {}): WpblGame => ({
@@ -41,7 +41,7 @@ describe('countsInStandings', () => {
   // The important one. A game type nobody anticipated must COUNT, not vanish: being wrong by a
   // couple of games is visible and recoverable, while a filter that silently excludes
   // everything renders four clubs at 0-0 and looks like a data outage.
-  it('counts a game whose type it does not recognise', () => {
+  it('counts a game whose type it does not recognize', () => {
     expect(countsInStandings(game({ game_type: 'exhibition-ish', counts_in_standings: null }))).toBe(true)
   })
 

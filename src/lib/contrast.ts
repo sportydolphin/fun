@@ -1,14 +1,14 @@
-// Pure colour arithmetic, no imports, so constants.ts can use it without a cycle through
+// Pure color arithmetic, no imports, so constants.ts can use it without a cycle through
 // colorUtils (which imports constants).
 
 // ─── Readable text tones ──────────────────────────────────────────────────────
 //
-// The section's status colours (green for a win, orange for a streak, yellow for a payroll, red for
+// The section's status colors (green for a win, orange for a streak, yellow for a payroll, red for
 // a loss) are Tailwind 400/500s chosen on the dark theme, where they read at 5 to 8:1. On the light
 // theme the same hex is 1.9 to 3.8:1 on white: "IRON MAN" in yellow, a win's "W" in green, a
 // streak's length in orange were all close to invisible. textTone keeps the HUE and moves only the
 // lightness, toward black on a light surface and toward white on a dark one, by the least that
-// reaches AA (4.5:1), so a colour that already passes comes back untouched. Fills, bars, borders
+// reaches AA (4.5:1), so a color that already passes comes back untouched. Fills, bars, borders
 // and tints keep the raw hex: they are not read, and darkening them would muddy the dark theme.
 
 type Rgb = [number, number, number]
@@ -30,7 +30,7 @@ const luminance = ([r, g, b]: Rgb) => {
   const f = (v: number) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4) }
   return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
 }
-/** WCAG contrast ratio between two opaque colours. */
+/** WCAG contrast ratio between two opaque colors. */
 export function contrastRatio(a: Rgb, b: Rgb): number {
   const x = luminance(a), y = luminance(b)
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)
@@ -40,7 +40,7 @@ const toneCache = new Map<string, string>()
 
 /** `hex` moved toward black (light theme) or white (dark theme) by the least that makes it read at
  *  `target`:1 on `bg`. Anything that is not a 6-digit hex (a CSS var, a theme key) is returned as
- *  is, so callers can pass whatever colour they hold. */
+ *  is, so callers can pass whatever color they hold. */
 export function textTone(hex: string, isDark: boolean, bg?: string, target = 4.5): string {
   const fg = hexRgb(hex)
   if (!fg) return hex
@@ -59,7 +59,7 @@ export function textTone(hex: string, isDark: boolean, bg?: string, target = 4.5
 }
 
 /** The lowest white alpha, at least `min`, that reads at `target`:1 on `bg` (a hex or hsl() card
- *  colour); 1 when even solid white cannot. For the team-coloured cards, whose secondary text was a
+ *  color); 1 when even solid white cannot. For the team-colored cards, whose secondary text was a
  *  fixed 0.42 or 0.62 white: fine on navy, 2.1:1 on Boston red. */
 export function whiteAlphaOn(bg: string, min: number, target = 4.5): number {
   const b = hexRgb(bg) ?? hslRgb(bg)
@@ -86,8 +86,8 @@ function hslRgb(c: string): Rgb | null {
 }
 
 /** `hex` darkened by the least that lets solid white read at `target`:1 on it. For a card painted in
- *  a club colour: Baltimore's #DF4601 and Philadelphia's #E81828 carry white at 4.2 and 4.6, so
- *  their small print failed even at full white. Every darker club colour comes back unchanged. */
+ *  a club color: Baltimore's #DF4601 and Philadelphia's #E81828 carry white at 4.2 and 4.6, so
+ *  their small print failed even at full white. Every darker club color comes back unchanged. */
 export function cardBgForWhite(hex: string, target = 4.5): string {
   const b = hexRgb(hex)
   if (!b) return hex
@@ -100,13 +100,13 @@ export function cardBgForWhite(hex: string, target = 4.5): string {
 }
 
 /**
- * A colour as the EDGE of something (a card, a ring, a chip): the same hue, moved toward white on
+ * A color as the EDGE of something (a card, a ring, a chip): the same hue, moved toward white on
  * the dark theme or black on the light one by the least that reaches 3:1 on the page and on a card,
- * so most colours come back untouched. CLAUDE.md, "Borders".
+ * so most colors come back untouched. CLAUDE.md, "Borders".
  *
- * WHY NOT AN ALPHA. Card borders used to be the team colour at 80% (dark) or 27% (light), and
+ * WHY NOT AN ALPHA. Card borders used to be the team color at 80% (dark) or 27% (light), and
  * most clubs' primaries are navy, brown or deep red: on the dark page a decided bracket series or
- * a Home game card measured 1.2:1, an edge nobody could see. Fading a colour can only lower its
+ * a Home game card measured 1.2:1, an edge nobody could see. Fading a color can only lower its
  * contrast; this is the one direction that raises it. Opaque, so it composes the same over any
  * surface.
  */

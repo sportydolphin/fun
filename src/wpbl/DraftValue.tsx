@@ -20,7 +20,7 @@ import { TYPE_SCALE } from '../ui/card'
 // "5th rounders rake" trend that is really one hot bat:
 //
 //   • dot area scales with playing time, so a 2-PA cameo can't look like a regular's season
-//   • every round-average marker is labelled with the n behind it, and goes hollow and
+//   • every round-average marker is labeled with the n behind it, and goes hollow and
 //     faint below MIN_SOLID_N, so a point resting on one player never reads as a finding
 //   • the correlation is computed live and the headline is its verdict IN WORDS ("earlier picks
 //     hit a little better"), including when it is nothing. The coefficient itself sits under it
@@ -245,7 +245,7 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
                 fill={solid ? LINE : surface} stroke={LINE} strokeWidth={2}
                 opacity={solid ? 1 : 0.75} />
               {/* n is a direct label, always: it is the difference between a trend and a fluke.
-              Painted with a surface-coloured halo (stroke first, then fill) because it
+              Painted with a surface-colored halo (stroke first, then fill) because it
               lands wherever the round average lands, which in the busy early rounds is
               right on top of a cluster of player dots. */}
               <text x={px(rd.meanX)} y={py(rd.meanY) - 11} textAnchor="middle"

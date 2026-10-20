@@ -107,7 +107,7 @@ export function BoardPane({ source, side, boardSide, findSide, teams, players, l
     // the stored seasons answer has not read yet; Find on Fielding the fielding lines too.
     <SubViewFallback />
   ) : source === 'bests' ? (
-    // FULL BLEED for the same reason Run value is, and the board caps and centres inside
+    // FULL BLEED for the same reason Run value is, and the board caps and centers inside
     // it: below `sm` the bleed is `calc(100vw - 24px)`, which is WIDER than the page
     // column, and those 8px are the difference between a name fitting and being clipped at
     // the reader's Large text setting. The cap simply never binds on a phone.
@@ -137,7 +137,7 @@ export function BoardPane({ source, side, boardSide, findSide, teams, players, l
         pitching={lines.pitching} games={games} onOpenPlayer={onOpenPlayer} />
     </Suspense>
   ) : source === 'runs' ? (
-    // STILL FULL-BLEED, with the content inside capped and centred, even though the board is one
+    // STILL FULL-BLEED, with the content inside capped and centered, even though the board is one
     // sentence, one list and one collapsed explainer with nothing to spend width on.
     //
     // Dropping the bleed looks identical on a desktop and is wrong on a PHONE: `FULL_BLEED_W` is
@@ -146,7 +146,7 @@ export function BoardPane({ source, side, boardSide, findSide, teams, players, l
     // setting, losing them clips names off the leaderboard.
     //
     // So the box keeps the width at every size and `RunValueView` decides what to do with it:
-    // nothing on a phone, where the cap never binds, and a centred column on a desktop.
+    // nothing on a phone, where the cap never binds, and a centered column on a desktop.
     <Box sx={fullBleedSx}>
       <Suspense fallback={<SubViewFallback />}>
         <WpblRunValueView side={boardSide} teams={teams} games={games} battingLines={lines.batting}

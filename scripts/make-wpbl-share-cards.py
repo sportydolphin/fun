@@ -13,7 +13,7 @@ WHY THIS EXISTS. og:image used to be the bundled headshot, which is 512x512, and
 functions/wpbl/index.ts asked for it to be shown as a small square thumbnail by setting
 twitter:card to "summary". That works on the platforms that read twitter: tags. Bluesky
 reads og: only, and drops whatever it is given into one banner slot at roughly 1.91:1, so
-a square headshot arrived centre-cropped to the middle 52% of itself: cap clipped, chest
+a square headshot arrived center-cropped to the middle 52% of itself: cap clipped, chest
 gone. Handing every unfurler an image already at 1200x630 removes the decision from the
 platform, which is the only way to fix it for the ones that never asked us.
 
@@ -22,8 +22,8 @@ og:description, rewritten per request at the edge from live data. Painting ".400
 into the art would freeze a number that changes every night and go stale within a day.
 The art carries only what is true for as long as the player is on that roster.
 
-SOURCE OF TRUTH. Team colours are read out of src/wpbl/constants.ts rather than copied
-here, because a colour that disagrees with the site is worse than no card. The roster
+SOURCE OF TRUTH. Team colors are read out of src/wpbl/constants.ts rather than copied
+here, because a color that disagrees with the site is worse than no card. The roster
 comes from the same Supabase the site reads, using the anon key from .env.
 """
 
@@ -86,7 +86,7 @@ def supabase(query: str) -> list:
 
 
 def team_meta() -> dict:
-    """Colours and names, parsed out of the WPBL_TEAMS block in constants.ts.
+    """Colors and names, parsed out of the WPBL_TEAMS block in constants.ts.
 
     Parsed rather than duplicated. The alternative is a second copy of four hex values
     that nothing keeps in step with the site, so the day a club restyles, every share
@@ -117,7 +117,7 @@ def team_meta() -> dict:
     if len(out) < 4:
         raise SystemExit(
             f"Only parsed {len(out)} teams out of constants.ts. The WPBL_TEAMS block "
-            "changed shape; fix the pattern above rather than hardcoding colours."
+            "changed shape; fix the pattern above rather than hardcoding colors."
         )
     return out
 
@@ -147,7 +147,7 @@ def font_faces():
     return face
 
 
-# ─── Colour ─────────────────────────────────────────────────────────────────
+# ─── Color ─────────────────────────────────────────────────────────────────
 
 
 def rgb(hex_value: str) -> tuple:
@@ -164,7 +164,7 @@ def luminance(c: tuple) -> float:
 
 
 def plate(color: tuple, secondary: tuple) -> Image.Image:
-    """The background: the club's colour, lifted enough to read as a colour.
+    """The background: the club's color, lifted enough to read as a color.
 
     Los Angeles is #000000. Painted literally, its card is a black rectangle that reads
     as a broken image rather than as a design, so every plate is floored at a luminance
@@ -199,9 +199,9 @@ def plate(color: tuple, secondary: tuple) -> Image.Image:
 def watermark(im: Image.Image, team: dict, secondary: tuple) -> None:
     """The club mark, ghosted behind the player.
 
-    The logos are transparent knockouts (see constants.ts), so they are recoloured to the
+    The logos are transparent knockouts (see constants.ts), so they are recolored to the
     club's secondary and dropped to a tenth opacity: at full strength the mark competes
-    with the face, which is the one thing on the card a reader is meant to recognise.
+    with the face, which is the one thing on the card a reader is meant to recognize.
     """
     logo_path = LOGOS / team["logo_file"]
     if team["logo_fill"] or not team["logo_file"] or not logo_path.exists():
@@ -307,7 +307,7 @@ def card(player: dict, team: dict, face, out_path: Path) -> None:
         y -= round(name_face.size * 1.16)
         draw.text((PAD * SS, y), line, font=name_face, fill=(255, 255, 255))
 
-    # The club's colour as a rule above the name, which is the only place the secondary
+    # The club's color as a rule above the name, which is the only place the secondary
     # is used at full strength: as text it fails contrast on two of the four plates.
     y -= round(30 * SS)
     draw.rectangle([PAD * SS, y - round(8 * SS), PAD * SS + round(72 * SS), y], fill=secondary)
@@ -328,11 +328,11 @@ def card(player: dict, team: dict, face, out_path: Path) -> None:
 
 
 def logo_tile(team: dict, size: int) -> Image.Image:
-    """The club mark on a rounded tile of the club's own colour, ringed in its secondary.
+    """The club mark on a rounded tile of the club's own color, ringed in its secondary.
 
-    The club colour, not white, because two of the four marks (New York, San Francisco) are
+    The club color, not white, because two of the four marks (New York, San Francisco) are
     white knockouts drawn for a dark ground and vanish on white; it is the ground the site puts
-    them on too. The ring is what lifts the tile off a plate of the same colour. Boston's mark is
+    them on too. The ring is what lifts the tile off a plate of the same color. Boston's mark is
     a finished lockup with its own background (`logoFill`), so it fills the tile.
     """
     ring = round(5 * SS)

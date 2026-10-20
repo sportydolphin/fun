@@ -465,7 +465,7 @@ export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonO
         // The sheet holds every chase and the season's reached marks; the card shows a few.
         action={total > featured.length ? <CardLink label={`All ${total}`} onClick={() => setModalOpen(true)} /> : undefined}
       >
-        {/* Run to the card's edges, as they always were: each row's coloured left rule is the
+        {/* Run to the card's edges, as they always were: each row's colored left rule is the
             card's edge, and inset by the body padding it would float. */}
         <Box sx={{ mx: -2, mb: -1.5 }}>
         {featured.map((it, i) => (

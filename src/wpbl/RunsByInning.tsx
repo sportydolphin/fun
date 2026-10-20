@@ -3,9 +3,9 @@
 // One row per club and one for the league, one column per inning, and each square is runs per
 // half-inning batted. See derive/runsByInning.ts for why that denominator and not games.
 //
-// IT IS A REAL <table>, not a grid of coloured boxes. The numbers are printed in every square and the
+// IT IS A REAL <table>, not a grid of colored boxes. The numbers are printed in every square and the
 // clubs and innings are row and column headers, so a screen reader walks it as the table it is and
-// nobody needs the colour to read a value. The colour is for seeing the SHAPE: which clubs come out
+// nobody needs the color to read a value. The color is for seeing the SHAPE: which clubs come out
 // swinging, which ones fade.
 //
 // DIVERGING AROUND THE LEAGUE AVERAGE, NOT A RAMP FROM ZERO. This league averages over a run a
@@ -15,7 +15,7 @@
 // whole scale on the differences. Red is more runs than the league average, blue fewer, grey about
 // average, and the meaning is the same on Scored and Allowed: it is always a statement about runs,
 // never about whether that was good. Blue and red with a grey midpoint because that pair stays
-// apart for colour-blind readers and the grey reads as "nothing", which a hue in the middle would not.
+// apart for color-blind readers and the grey reads as "nothing", which a hue in the middle would not.
 import { useMemo, useState } from 'react'
 import { track, EVENTS } from '../lib/analytics'
 import { Box, Typography, useTheme } from '@mui/material'
@@ -214,7 +214,7 @@ export default function RunsByInning({ games, teams }: { games: readonly WpblGam
         </tbody>
       </Box>
 
-      {/* The scale legend: both poles and the midpoint, labelled in words, with the midpoint's value. */}
+      {/* The scale legend: both poles and the midpoint, labeled in words, with the midpoint's value. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 1.25 }}>
         <Typography sx={legendLabel}>Fewer runs</Typography>
         <Box aria-hidden sx={{

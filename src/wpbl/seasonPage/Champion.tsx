@@ -13,7 +13,7 @@ import { shortDate } from '../../lib/format'
 // ─── Champion ────────────────────────────────────────────────────────────────────
 // The inaugural title, at the top of the recap. A gold hero rather than a stat line: the champion
 // is the one thing on this page that a stat cannot carry, and the block the reader who came for
-// "who won" is looking for. Full width, its own colour, and no link, because it is the answer
+// "who won" is looking for. Full width, its own color, and no link, because it is the answer
 // rather than a route to one; the games that decided it are the cards directly under it.
 export function SeasonChampionBlock({ champ }: {
   /** Null draws the banner empty, for the page's skeleton. */

@@ -10,7 +10,7 @@ import { TAPPABLE, FOCUS_RING, pressable, linkPress } from './interaction'
 import { typePx } from './scale'
 import { edgeTone } from '../lib/contrast'
 
-// A card's outline, which in dark mode is the whole of the card: cards there are the page colour
+// A card's outline, which in dark mode is the whole of the card: cards there are the page color
 // (see Surfaces in src/ThemeContext.tsx), so this edge is the only thing drawing one. The weight
 // is a setting, published by ThemeContext as `--sd-card-border`, so DevSettings can move every card
 // on the site at once. Keep `divider` for the thin rules inside a card. It is the theme's
@@ -18,9 +18,9 @@ import { edgeTone } from '../lib/contrast'
 export const CARD_BORDER = (t: Theme) => t.palette.outline
   ?? (t.palette.mode === 'dark' ? 'rgba(255,255,255,0.36)' : 'rgba(0,0,0,0.44)')
 
-/** A colour as an outline, in any sx: `borderColor: edge(teamColor)`. The colour lifted toward white
+/** A color as an outline, in any sx: `borderColor: edge(teamColor)`. The color lifted toward white
  *  on the dark theme or black on the light one by the least that reaches 3:1 (edgeTone), read off
- *  the theme so a call site needs no `isDark`. For a club's or a status's own colour; a plain box
+ *  the theme so a call site needs no `isDark`. For a club's or a status's own color; a plain box
  *  takes `'outline'`. CLAUDE.md, "Borders". */
 export const edge = (hex: string) => (t: Theme) => edgeTone(hex, t.palette.mode === 'dark')
 
@@ -34,12 +34,12 @@ export const ACCENT_EDGE = 'var(--wpbl-accent-fg)'
  *  2:1 (CLAUDE.md, "Borders"). The nesting reads from the inset and the padding instead. */
 export const INNER_BORDER = (t: Theme) => CARD_BORDER(t)
 
-/** A card's fill: `background.paper`, which is the page colour on a dark page and the raised tone
+/** A card's fill: `background.paper`, which is the page color on a dark page and the raised tone
  *  inside anything floating (ModalShell re-points it), so a card always sits flush on whatever it
  *  is drawn on. A function rather than the bare token so call sites read as "the card's fill". */
 export const CARD_FILL = (t: Theme) => t.palette.background.paper
 
-/** The solid colour directly behind a card's content, for the things that must PAINT it rather
+/** The solid color directly behind a card's content, for the things that must PAINT it rather
  *  than show through: the 2px ring that separates overlapping portraits. Same as the fill. */
 export const CARD_INK = (t: Theme) => t.palette.background.paper
 
@@ -226,7 +226,7 @@ export function SectionCard({ id, icon, title, titleAdornment, subtitle, action,
           ...(collapsible ? { cursor: 'pointer', userSelect: 'none', ...TAPPABLE } : {}),
         }}
       >
-        {/* 1em wide with the glyph centred and let overflow. An emoji font draws each emoji well inside
+        {/* 1em wide with the glyph centered and let overflow. An emoji font draws each emoji well inside
             its advance (Segoe UI Emoji: 31.6px of box for 23.6px of ink at 23px), so a box sized by
             the glyph added about 4px of blank either side: the gap to the title read 14px for a 10px
             gap, and the emoji sat 4px in from the card's edge. */}

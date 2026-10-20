@@ -139,7 +139,7 @@ describe('findCalendarDrift', () => {
   })
 
   // The mirror is filled by its own cron job. "The sync has not run yet" must not read as the
-  // league having cancelled the postseason.
+  // league having canceled the postseason.
   it('says nothing at all when the mirror is empty', () => {
     expect(findCalendarDrift([], SCHEDULE)).toEqual([])
   })

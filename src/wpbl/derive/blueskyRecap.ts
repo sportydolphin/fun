@@ -178,7 +178,7 @@ export function cardDate(value: string): string {
 const esc = (s: string) => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
-/** A team's brand colour when it is a usable hex, and the neutral otherwise. Straight from the
+/** A team's brand color when it is a usable hex, and the neutral otherwise. Straight from the
  *  feed, so it is checked rather than trusted. */
 export function accentOf(team: WpblTeam | undefined): string {
   const hex = (team?.color ?? '').replace('#', '').trim()
@@ -193,7 +193,7 @@ export function accentOf(team: WpblTeam | undefined): string {
  * The rasteriser is the sender's problem.
  *
  * The columns are placed by ARITHMETIC, not by padding, which is the whole reason this exists
- * rather than a text post. Every cell is centred in its own fixed-width column, so the grid
+ * rather than a text post. Every cell is centered in its own fixed-width column, so the grid
  * lines up no matter what the glyphs are.
  */
 export function boxScoreCard(game: WpblGame, recap: GameRecap, teams: Map<string, WpblTeam>): string {
@@ -273,7 +273,7 @@ export function cardCharset(svg: string): string {
  *   1. GitHub does not run the workflow when it is asked to. Over the thirty scheduled runs
  *      before Sep 3, 2026, gaps against a cron asking for every 15 minutes ran from 130 to 452
  *      minutes, and the repo's DAILY jobs landed four to eleven hours late as well, so this is
- *      the whole repository's scheduling being deprioritised rather than anything about this
+ *      the whole repository's scheduling being deprioritized rather than anything about this
  *      job. "When we first saw it" therefore means "whenever a runner happened to wake up".
  *
  *   2. A run that first sees a game can never also publish it, because it writes
@@ -282,7 +282,7 @@ export function cardCharset(svg: string): string {
  *      9.8 and 12.2 hours, for a window that says 45 minutes.
  *
  * `source_updated_at` is when the FEED last touched the game, so on a final it is when the
- * league finalised it or last corrected it, which is the exact event the window exists to wait
+ * league finalized it or last corrected it, which is the exact event the window exists to wait
  * out. One run can both see a game and publish it, and a late correction pushes the post back
  * rather than racing it.
  *

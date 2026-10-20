@@ -3,7 +3,7 @@
  * send-wpbl-game-start.mjs — "the WPBL game you flagged is about to start" Web Push.
  *
  * The push side of the reminder bell on the WPBL Home next-game card
- * Two ways to opt in, both honoured here: a standing
+ * Two ways to opt in, both honored here: a standing
  * user_preferences.notify_wpbl_all_games ("before every game"), and legacy per-game
  * wpbl_game_reminders rows. The standing opt-in is expanded into one reminder per scheduled
  * game for today, so everything downstream treats them identically.

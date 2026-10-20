@@ -22,7 +22,7 @@ import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer } from '..
  *   baserunning  steals against the league's rate per time on first (wSB), extra bases and
  *                tag-ups (baserunning.ts), and double plays hit into against the league's rate
  *   fielding     range, errors, double plays, outfield arms, the catcher's arm and blocking
- *                (fielding.ts, catching.ts), each centred on the average at the position per out
+ *                (fielding.ts, catching.ts), each centered on the average at the position per out
  *   positional   FanGraphs' scale, per out at each position, resized to this run environment
  *   league       whatever makes the four above sum to zero across the league, per PA
  *   replacement  the runs a freely available player would have cost, per PA
@@ -76,7 +76,7 @@ export interface WarLine {
   /** Steals, extra bases and tag-ups, and `gdp` inside it. */
   bsr: number
   gdp: number
-  /** The glove, each part centred on the average at the position. `fld` is their sum. */
+  /** The glove, each part centered on the average at the position. `fld` is their sum. */
   rng: number
   err: number
   dp: number
@@ -113,7 +113,7 @@ export interface WarInput {
   players: WpblPlayer[]
   batting: WpblBattingLine[]
   pitching: WpblPitchingLine[]
-  /** The runners, from `baserunningLeaders`, raw: `centredBaserunning` centres the steals. */
+  /** The runners, from `baserunningLeaders`, raw: `centeredBaserunning` centers the steals. */
   baserunning: readonly BaserunningLine<WpblPlayer>[]
   ledger: FieldingLedger
   arm: readonly CatcherArmLine<unknown>[]
@@ -122,7 +122,7 @@ export interface WarInput {
 /** BsR for a season: `baserunningRuns` over the season's hitters. `batting` is the season's
  *  lines; the schedule keeps the postseason out, as in every aggregate. `gdp` is
  *  `doublePlayRuns`; WAR leaves it out here and adds it to every line it keys, the roster's or not. */
-export function centredBaserunning(
+export function centeredBaserunning(
   runners: readonly BaserunningLine<WpblPlayer>[],
   players: WpblPlayer[],
   batting: WpblBattingLine[],
@@ -206,10 +206,10 @@ export function warSeason(input: WarInput): WarSeason | null {
   }
 
   // ── Baserunning, and double plays hit into ────────────────────────────────────
-  // BsR, from `baserunningRuns` (baserunning.ts), which says why the steals are centred, then the
+  // BsR, from `baserunningRuns` (baserunning.ts), which says why the steals are centered, then the
   // double plays. The same two calls Run value's bases board makes, so the column and the board
   // are one number.
-  for (const b of centredBaserunning(baserunning, players, batting, games)) {
+  for (const b of centeredBaserunning(baserunning, players, batting, games)) {
     if (b.player) line(b.player.id).bsr += b.bsr
   }
   for (const [id, g] of doublePlayRuns(values, table)) {
@@ -218,9 +218,9 @@ export function warSeason(input: WarInput): WarSeason | null {
     l.bsr += g
   }
 
-  // ── Fielding, centred per position per out ────────────────────────────────────
+  // ── Fielding, centered per position per out ────────────────────────────────────
   // Errors and double plays per out at the position; outfield arms per runner chance, since a
-  // corner outfielder sees fewer runners going first to third than a centre fielder does.
+  // corner outfielder sees fewer runners going first to third than a center fielder does.
   const perPos = new Map<FieldPosition, { outs: number; err: number; dp: number; arm: number; chances: number }>()
   let pitches = 0, blockRuns = 0
   for (const c of ledger.cells) {

@@ -266,7 +266,7 @@ function priority(item) {
   return 2
 }
 
-// Chase ranking (lower = higher on the card). Distance is normalised by the stat's
+// Chase ranking (lower = higher on the card). Distance is normalized by the stat's
 // watch window — remaining/window ∈ (0,1], 0 at the line — so how *imminent* a chase is
 // drives the order, not raw counts: "1 hit from 1000" (accrues fast, small window)
 // outranks "12 saves from 500" (weeks away). Records and marquee milestones get a

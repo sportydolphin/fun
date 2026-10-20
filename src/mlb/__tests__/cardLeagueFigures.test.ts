@@ -38,7 +38,7 @@ describe('cardLeagueFigures', () => {
     expect(p['Strike%']).toBe('65.5%')
   })
 
-  it('centres FIP and xFIP on the league ERA, and ERA- on 100', () => {
+  it('centers FIP and xFIP on the league ERA, and ERA- on 100', () => {
     const p = cardLeagueFigures(pitchers, 'pitching', { era: '3.50', whip: '1.17' }, null, null)
     expect(p.FIP).toBe('3.50')
     expect(p.xFIP).toBe('3.50')

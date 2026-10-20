@@ -276,7 +276,7 @@ describe('the standings chart', () => {
   // for a couple of seconds after a release: its readout sits on the chart, under the hand that
   // was pointing at it, so lifting a finger is how you uncover the answer rather than a
   // statement that you are done. This chart answers in the table ABOVE, which nothing is
-  // covering, so the same behaviour is just August left on screen after the reader moved on.
+  // covering, so the same behavior is just August left on screen after the reader moved on.
   // Releasing puts it back, which is what the mouse already did on its way off the chart.
 
   /** A touch event jsdom will dispatch: the hook reads only the coordinates. */

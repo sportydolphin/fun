@@ -61,7 +61,7 @@ describe('the abbreviation lists', () => {
 })
 
 describe('/mlb/glossary as a page', () => {
-  it('is recognised as an MLB page the section itself does not render', () => {
+  it('is recognized as an MLB page the section itself does not render', () => {
     expect(isMlbGlossaryPage(MLB_GLOSSARY_PAGE)).toBe(true)
     expect(isMlbGlossaryPage(`${MLB_GLOSSARY_PAGE}/`)).toBe(true)
     expect(isMlbGlossaryPage('/mlb/glossary/extra')).toBe(false)

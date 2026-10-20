@@ -40,7 +40,7 @@ import { prefersReducedMotion } from '../lib/motion'
 //    row caught halfway between second and third starts its next move from halfway. Without
 //    it, every re-target snaps the row to its old slot for one frame and the whole table
 //    strobes under a moving finger.
-// 3. THE OLD ANIMATION IS CANCELLED, and only after its value has been read. Two animations on
+// 3. THE OLD ANIMATION IS CANCELED, and only after its value has been read. Two animations on
 //    one element compose, so leaving the first running makes the second one land somewhere
 //    neither of them meant.
 //
@@ -145,8 +145,8 @@ export function useRowFlip(order: string[], durationMs?: number) {
       // A ROW WHOSE SLOT DID NOT MOVE IS ALREADY GOING WHERE IT SHOULD. Leave it alone.
       //
       // Without this, playback looks broken, in the opposite way from how it looks. During playback
-      // a new day can land while a row is still travelling. On a day that did not reorder anything
-      // the layout delta is zero, but reading the in-flight offset, cancelling the animation and
+      // a new day can land while a row is still traveling. On a day that did not reorder anything
+      // the layout delta is zero, but reading the in-flight offset, canceling the animation and
       // starting a fresh FULL-LENGTH one from wherever the row has got to, on every tick, halves the
       // remaining distance forever: the row never arrives, the table permanently trails the cursor
       // and nothing ever settles.
@@ -183,7 +183,7 @@ export function useRowFlip(order: string[], durationMs?: number) {
         // exactly where a cheap phone starts dropping the frames that make a swap legible.
         { duration: Math.max(MIN_MOVE_MS, Math.min(MOVE_MS, duration.current ?? MOVE_MS)), easing: EASE },
       )
-      // `finished` rejects when the animation is cancelled, which is the ordinary case here:
+      // `finished` rejects when the animation is canceled, which is the ordinary case here:
       // the next hop of a drag cancels this one and sets the attribute again itself.
       anim.finished.then(() => { delete el.dataset.moving }, () => {})
     }

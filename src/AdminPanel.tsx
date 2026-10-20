@@ -41,7 +41,7 @@ function timeAgoMin(iso: string): string {
 // ─── Status pills ─────────────────────────────────────────────────────────────
 //
 // Four pipelines report health here and each used to rebuild the same pill markup with its
-// own colour literals, which is how three of them ended up with subtly different padding.
+// own color literals, which is how three of them ended up with subtly different padding.
 // One primitive renders the pill; each pipeline contributes a pure `Status`. Pure because
 // the thresholds ARE the feature: a job that quietly stopped still looking healthy is the
 // failure mode, so they are unit-tested rather than eyeballed.
@@ -477,7 +477,7 @@ export interface OpsHealth {
  * One read of every operational table, shared by the header strip and the Health group.
  *
  * Lifted out of the old panel component so the strip can render without the group it
- * summarises being mounted: the whole point is that it shows on the Audience tab too.
+ * summarizes being mounted: the whole point is that it shows on the Audience tab too.
  */
 export function useOpsHealth(): OpsHealth {
   const [state, setState] = useState<Omit<OpsHealth, 'loading' | 'reload'>>({

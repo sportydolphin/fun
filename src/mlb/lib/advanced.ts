@@ -227,7 +227,7 @@ export function cardLeagueFigures(
     return out
   }
   for (const [label, key] of [['ERA', 'era'], ['WHIP', 'whip']] as const) if (base?.[key]) out[label] = base[key]
-  // FanGraphs centres FIP and xFIP on the league's ERA, and ERA- on 100.
+  // FanGraphs centers FIP and xFIP on the league's ERA, and ERA- on 100.
   put('FIP', adv.fip, two)
   put('xFIP', adv.fip, two)
   put('ERA-', 100, v => String(v))

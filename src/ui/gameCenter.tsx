@@ -7,7 +7,7 @@ import { TYPE_SCALE } from './card'
 
 // GAME CENTER'S DRAWING, SHARED (Oct 2026). Both sections already shared the panel and page frames,
 // but the box score and the play log inside them were two products: MLB's tables right-aligned in
-// small type under a grey club band, WPBL's centred with muted zeros, a pinned name column and a
+// small type under a grey club band, WPBL's centered with muted zeros, a pinned name column and a
 // totals row; MLB's plays as tinted cards, WPBL's as a ruled column with the bases and outs at the
 // end of each row. These are WPBL's, moved here, and each section feeds them its own data. What a
 // row SAYS stays with the section (WPBL parses the league's sentences, MLB reads StatsAPI's), so
@@ -130,7 +130,7 @@ function BoxNameCell({ r, dense, hoverColor }: { r: BoxRow; dense: boolean; hove
 
 /**
  * One table of a box score: a club's batters or its pitchers, with a totals row under a rule in
- * the club's colour. Every column is the caller's; this only draws them.
+ * the club's color. Every column is the caller's; this only draws them.
  */
 export function BoxTable({ head, cols, rows, totals, rule, dense, hoverColor }: {
   /** The name column's heading: "Batting", "Pitching". */
@@ -139,7 +139,7 @@ export function BoxTable({ head, cols, rows, totals, rule, dense, hoverColor }: 
   rows: BoxRow[]
   /** The totals row, one per column, or none. */
   totals?: (number | string | null)[]
-  /** The club's colour, for the rule over the totals. */
+  /** The club's color, for the rule over the totals. */
   rule: string
   /** The phone's fitted table. */
   dense: boolean
@@ -198,7 +198,7 @@ export interface BoxSwitchTeam {
   color: string
 }
 
-/** Which club's box score, below the width that draws both: underline tabs in each club's colour,
+/** Which club's box score, below the width that draws both: underline tabs in each club's color,
  *  deliberately not the pill the page's own tabs are. */
 export function BoxTeamSwitch({ away, home, value, onChange, dense }: {
   away: BoxSwitchTeam; home: BoxSwitchTeam

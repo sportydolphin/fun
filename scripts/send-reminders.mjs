@@ -89,7 +89,7 @@ async function fetchPreviewGamePks(date) {
  * Turn a shared-catalog notification into a Web Push wire payload.
  *
  * `id` doubles as the push `tag`, so a resend replaces the previous banner and
- * the in-site bell recognises it as the same notification. The catalog's emoji
+ * the in-site bell recognizes it as the same notification. The catalog's emoji
  * travels as `emoji` — `icon` is reserved for the OS notification image, which
  * sw.js defaults to /icon-192.png.
  */

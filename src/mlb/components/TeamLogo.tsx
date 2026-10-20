@@ -8,12 +8,12 @@ import { ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUt
 //
 // THE ONE MLB CLUB BADGE. `LogoBubble` and the leaderboard's own `TeamLogo` folded into this in
 // Oct 2026, along with a dozen circles written inline; the drawing is src/ui/ClubBadge.tsx, shared
-// with WPBL's TeamBadge. This only says which art and colours a club gets in each theme:
-//   • Light mode: full-colour primary logo on a white centre.
+// with WPBL's TeamBadge. This only says which art and colors a club gets in each theme:
+//   • Light mode: full-color primary logo on a white center.
 //   • Dark mode: per-team locked-in bg / ring / logo (TEAM_ICON_STYLE).
-// The team-colour ring carries the club's identity in both.
+// The team-color ring carries the club's identity in both.
 
-/** `size` is the badge's outer width in chrome px. `ring` overrides the club's ring colour (a W/L
+/** `size` is the badge's outer width in chrome px. `ring` overrides the club's ring color (a W/L
  *  result, a hero card's ink); pass it already at 3:1, through `edge()`. */
 export function TeamLogo({ teamId, abbr, size = 28, ring, ...rest }: {
   teamId: number; abbr: string

@@ -106,6 +106,6 @@ export function linkTo(to: string, onOpen?: (plain: boolean) => void) {
   }
 }
 
-/** Anchors carry a browser default underline and link colour; the site's controls set their
+/** Anchors carry a browser default underline and link color; the site's controls set their
  *  own. Spread alongside `linkTo()` on anything that should not look like body text. */
 export const UNSTYLED_LINK = { textDecoration: 'none', color: 'inherit' } as const

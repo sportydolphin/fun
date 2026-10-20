@@ -9,8 +9,8 @@
 //
 // EVERY FILE HERE IS A CUT-OUT, and a new one that is not has to be made into one:
 // `python scripts/cut-out-wpbl-portraits.py`. PlayerPortrait fills its circle with the club's
-// primary colour and draws the photo over it, so a headshot that kept its white studio
-// background renders sharp, correct and colourless, the only face on the page not wearing a
+// primary color and draws the photo over it, so a headshot that kept its white studio
+// background renders sharp, correct and colorless, the only face on the page not wearing a
 // club. Nothing about that is visible to tsc, and the page looks fine unless you know what the
 // other faces look like, so `portraitAlpha.test.ts` is what notices.
 
@@ -105,7 +105,7 @@ export function wpblPortraitSet(name: string | null | undefined): WpblPortraitSe
 // transparency and frames them on the roster art's own measurements. Both halves of that
 // matter: the circle fills with the club's primary behind whatever it is given, so an
 // untouched photograph puts a square of somebody else's grass and sky in a row of
-// club-coloured portraits, and a face cropped by eye sits at a different size from every
+// club-colored portraits, and a face cropped by eye sits at a different size from every
 // player beside it. See WPBL_MANAGERS in awards.ts for the two posts these came off.
 const managerModules = import.meta.glob('./managers/*.webp', {
   eager: true,

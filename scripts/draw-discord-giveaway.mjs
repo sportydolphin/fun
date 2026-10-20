@@ -95,7 +95,7 @@ if (!BOT_TOKEN) {
 /**
  * One GET, with the one retry that actually matters here: 429. Walking a few hundred
  * reactors is enough calls to hit the bucket limit, and Discord tells us exactly how long
- * to wait, so honour it rather than failing the freeze halfway through.
+ * to wait, so honor it rather than failing the freeze halfway through.
  */
 async function discord(path, { allow404 = false } = {}) {
   for (;;) {

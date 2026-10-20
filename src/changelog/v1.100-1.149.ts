@@ -40,7 +40,7 @@ export const ENTRIES: ChangelogEntry[] = [
     changes: [
       {
         short: 'One Game Center for both leagues',
-        full:  "MLB's Game Center now draws its box score and play-by-play the way WPBL's does: centred columns, totals under the club's colour, and each play ending in the bases and outs it left.",
+        full:  "MLB's Game Center now draws its box score and play-by-play the way WPBL's does: centered columns, totals under the club's color, and each play ending in the bases and outs it left.",
       },
       {
         short: 'MLB: OPS+ and ERA+ adjust for the park',
@@ -158,7 +158,7 @@ export const ENTRIES: ChangelogEntry[] = [
     changes: [
       {
         short: 'MLB: a tidier Home',
-        full:  "Text on MLB Home now follows one set of sizes and weights, the same set WPBL uses: names, numbers, labels and dates look the same from card to card. Labels and dates that were greyed out like switched-off buttons are easier to read, a few colours that were hard to read in light mode are fixed, the scoreboard no longer wraps a game's time onto two lines at Large text, and the page opens with a \"Major League Baseball\" title the way WPBL's opens with its league's name.",
+        full:  "Text on MLB Home now follows one set of sizes and weights, the same set WPBL uses: names, numbers, labels and dates look the same from card to card. Labels and dates that were greyed out like switched-off buttons are easier to read, a few colors that were hard to read in light mode are fixed, the scoreboard no longer wraps a game's time onto two lines at Large text, and the page opens with a \"Major League Baseball\" title the way WPBL's opens with its league's name.",
       },
     ],
   },
@@ -302,7 +302,7 @@ export const ENTRIES: ChangelogEntry[] = [
       },
       {
         short: 'Tidier player headers',
-        full:  'Back, the team name, Follow, Compare and Copy link now share one style across player and game pages, awards sit on a single row with a +N for the rest, and several clubs use their right colours in the header, including the Dodgers in blue and white.',
+        full:  'Back, the team name, Follow, Compare and Copy link now share one style across player and game pages, awards sit on a single row with a +N for the rest, and several clubs use their right colors in the header, including the Dodgers in blue and white.',
       },
       {
         short: 'Players and games open beside the page',
@@ -490,7 +490,7 @@ export const ENTRIES: ChangelogEntry[] = [
     changes: [
       {
         short: 'MLB easier to read in light mode',
-        full:  'Blue, green, red, orange and team-coloured text across MLB was hard to read on a light background. Every label, number and badge now meets the standard contrast for readability in both light and dark mode, including the team-coloured player and team cards.',
+        full:  'Blue, green, red, orange and team-colored text across MLB was hard to read on a light background. Every label, number and badge now meets the standard contrast for readability in both light and dark mode, including the team-colored player and team cards.',
       },
       {
         short: 'From Leaders to the full ranking',
@@ -622,7 +622,7 @@ export const ENTRIES: ChangelogEntry[] = [
       },
       {
         short: 'Yesterday\'s finals on a quiet day',
-        full:  'When today has only a game or two, the MLB scores strip on Home follows them with the previous day\'s results, labelled with their date.',
+        full:  'When today has only a game or two, the MLB scores strip on Home follows them with the previous day\'s results, labeled with their date.',
       },
       {
         short: 'Names fit on the leaderboard cards',
@@ -732,7 +732,7 @@ export const ENTRIES: ChangelogEntry[] = [
       },
       {
         short: 'Clips on player pages',
-        full:  'A player\'s page shows the clips they are in, each labelled with the game and inning where we could tell.',
+        full:  'A player\'s page shows the clips they are in, each labeled with the game and inning where we could tell.',
       },
       {
         short: 'Filter clips by club',
@@ -910,7 +910,7 @@ export const ENTRIES: ChangelogEntry[] = [
         full:  'A game whose matchup is not decided yet shows both possible teams and cannot be picked until it is. A start time the league has not set shows as TBD instead of a made-up time, and a game the series may never reach is marked if necessary.',
       },
       {
-        short: 'A cancelled MLB game no longer shows as a 0-0 final',
+        short: 'A canceled MLB game no longer shows as a 0-0 final',
         full:  'A game called off for good, like a rainout that is never made up, now reads Cancelled on the scoreboard and your team card instead of Final 0-0.',
       },
       {

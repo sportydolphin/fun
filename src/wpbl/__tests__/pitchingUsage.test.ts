@@ -29,7 +29,7 @@ describe('buildUsageGrid', () => {
 
   // Chronological across (oldest left), but the window is still the most recent N: sorting
   // ascending before slicing would silently show the oldest games instead.
-  it('orders games oldest first and honours the window', () => {
+  it('orders games oldest first and honors the window', () => {
     expect(buildUsageGrid(rows, 6).games.map(g => g.id)).toEqual(['g1', 'g2', 'g3'])
     expect(buildUsageGrid(rows, 2).games.map(g => g.id)).toEqual(['g2', 'g3'])
   })

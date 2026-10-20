@@ -35,7 +35,7 @@
 //
 // 6. THE PREVIEW CARD. A shared player or game link unfurls as that player or game rather than as
 //    the site's one generic card: the title, the season line or the score, and for a player the
-//    headshot on the club's colour. Unfurlers never run JS, so src/seo.ts cannot do this. The
+//    headshot on the club's color. Unfurlers never run JS, so src/seo.ts cannot do this. The
 //    wording is src/mlb/ogCard.ts (tested); the tag rewrite is src/lib/ogTags.ts, shared with WPBL.
 //    The reads that prove a player or game exists are the reads that carry its card, so a card
 //    costs no extra request.

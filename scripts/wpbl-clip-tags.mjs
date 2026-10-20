@@ -20,8 +20,8 @@
  * first trial, and a clip on the wrong game is worse than a clip on none.
  *
  * NAMES. A player is found by full name, then by a surname or first name that belongs to exactly
- * one player on the roster. A single-word match must be capitalised in the title (every Short
- * title capitalises names, and "out of the park" must not find Jua Park), and must not be a word
+ * one player on the roster. A single-word match must be capitalized in the title (every Short
+ * title capitalizes names, and "out of the park" must not find Jua Park), and must not be a word
  * on NAME_STOPWORDS. A surname two players share ("Kim", "Hastings") is kept only if exactly one
  * of them played in the game the clip is pinned to.
  *
@@ -76,7 +76,7 @@ export function gameStartMs(gameDate, startTime) {
 const fold = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[’‘`]/g, "'")
 const lower = (s) => fold(s).toLowerCase()
 
-// The words of a title, each with whether it was written capitalised. A possessive is stripped
+// The words of a title, each with whether it was written capitalized. A possessive is stripped
 // ("Mackay's", "BENITES'") and an inner apostrophe kept ("O'Sullivan", "Mo'ne").
 function titleWords(title) {
   return (fold(title).match(/[A-Za-z][A-Za-z'-]*/g) ?? []).map(raw => {

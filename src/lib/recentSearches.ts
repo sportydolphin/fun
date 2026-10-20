@@ -4,7 +4,7 @@
 //
 // One store and two lists. Each section binds its own key, column, cap and item shape
 // (mlb/storage/recentSearches.ts, wpbl/recentSearches.ts), because the items cannot mix: MLB's
-// ids are StatsAPI numbers drawn from MLB's colour map and headshots, WPBL's are uuids drawn from
+// ids are StatsAPI numbers drawn from MLB's color map and headshots, WPBL's are uuids drawn from
 // its own roster, so a shared list would render one section's rows blank in the other. Until
 // Oct 15, 2026 the two sections also kept two copies of this code, and MLB's lacked what WPBL's
 // had learned: a pick made while the stored list was loading was lost, and a pick made just

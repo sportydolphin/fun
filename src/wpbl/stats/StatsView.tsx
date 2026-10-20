@@ -885,7 +885,7 @@ export default function WpblStatsView({
   const capped = (listView || tableCapped) && !expanded && rows.length > listCap
   const visibleRows = capped ? rows.slice(0, listCap) : rows
   const pickedRef = useRef<HTMLElement | null>(null)
-  // Centred, after the pane has had a frame to become the visible one. Keyed on the request too,
+  // Centered, after the pane has had a frame to become the visible one. Keyed on the request too,
   // so pressing the same rank a second time scrolls back to the row.
   useEffect(() => {
     if (pickedIdx < 0) return

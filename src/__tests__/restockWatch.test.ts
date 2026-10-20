@@ -118,7 +118,7 @@ describe('diffCatalog: seeding', () => {
 })
 
 describe('diffCatalog: delisting', () => {
-  it('notices a product that has left the catalogue', () => {
+  it('notices a product that has left the catalog', () => {
     const d = diffCatalog([product(1, [variant(10, true)])],
       snapshotOf([product(1, [variant(10, true)]), product(2, [variant(20, true)])]))
     expect(d.delisted.map((p: { product_id: number }) => p.product_id)).toEqual([2])
@@ -132,7 +132,7 @@ describe('diffCatalog: delisting', () => {
 
   it('does not announce a returning product as new merch', () => {
     // It was delisted, not forgotten: announced_new_at survives, so its return is a restock at
-    // most. Otherwise a product going in and out of the catalogue is "new" every time.
+    // most. Otherwise a product going in and out of the catalog is "new" every time.
     const snap = snapshotOf([product(2, [variant(20, false)])])
     snap.products[0].delisted_at = '2026-08-17T00:00:00Z'
     const d = diffCatalog([product(2, [variant(20, true)])], snap)
@@ -153,7 +153,7 @@ describe('normaliseCatalog', () => {
     expect(p.variants[1].price_cents).toBe(4000)
   })
 
-  it('throws on an empty catalogue rather than reading it as a mass delisting', () => {
+  it('throws on an empty catalog rather than reading it as a mass delisting', () => {
     // A 200 with no products is the store having a bad day, not 78 items being withdrawn.
     // Accepting it would delist the entire snapshot and then announce it all back as new.
     expect(() => normaliseCatalog({ products: [] })).toThrow(/no products/i)
@@ -189,7 +189,7 @@ describe('fetchCatalog', () => {
     expect(out).toHaveLength(254)
   })
 
-  it('throws on a store error rather than reporting an empty catalogue', async () => {
+  it('throws on a store error rather than reporting an empty catalog', async () => {
     await expect(fetchCatalog('shop.example.com', vi.fn(async () => ({ ok: false, status: 503 }))))
       .rejects.toThrow(/503/)
   })
@@ -336,8 +336,8 @@ describe('hoursSince', () => {
 // ─── The Realest ────────────────────────────────────────────────────────────
 //
 // The second source, and a different shape of thing: 190 one-of-one memorabilia lots rather
-// than a catalogue with stock levels. There is no restock to miss here, so the failures worth
-// pinning are the other two: announcing the whole catalogue (the seeding run, or a snapshot
+// than a catalog with stock levels. There is no restock to miss here, so the failures worth
+// pinning are the other two: announcing the whole catalog (the seeding run, or a snapshot
 // that came back short) and announcing nothing at all (a truncated read, which the API makes
 // look exactly like a complete one).
 
@@ -436,7 +436,7 @@ describe('fetchLots', () => {
       .rejects.toThrow(/pagination\.total/)
   })
 
-  it('throws on an empty catalogue rather than reporting the shelf as bare', async () => {
+  it('throws on an empty catalog rather than reporting the shelf as bare', async () => {
     const empty = { ok: true, status: 200, json: async () => ({ results: [], pagination: { total: 0 } }) }
     await expect(fetchLots(vi.fn(async () => empty) as never)).rejects.toThrow(/never right/)
   })
@@ -471,7 +471,7 @@ describe('diffLots', () => {
     expect(diffLots(live, [knownLot('a'), knownLot('b')]).newLots.map(l => l.lot_id)).toEqual(['c'])
   })
 
-  it('says nothing when the catalogue has not moved', () => {
+  it('says nothing when the catalog has not moved', () => {
     expect(diffLots(live, live.map(l => knownLot(l.lot_id))).newLots).toEqual([])
   })
 

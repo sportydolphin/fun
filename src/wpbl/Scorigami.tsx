@@ -44,14 +44,14 @@ const MAX_STEP_MS = 400
 // constants.ts is tuned for. The accents are tuned to be read as text, and Hunters green and
 // Heights blue sit at almost the same lightness there (ΔL* 5 dark, 0.3 light). They differ mostly
 // on the blue-yellow axis, which is the first thing the eye stops resolving on a small patch, so
-// at half a 28px square they read as one colour. Same hues here, with green taken darker and blue
+// at half a 28px square they read as one color. Same hues here, with green taken darker and blue
 // lighter until the two are about 27 L* apart in both themes. Checked with CIEDE2000, normal and
 // simulated protan, deutan and tritan vision.
 //
-// NOT solved, and not solvable with these four hues: for red-green colour blindness, Firebells red,
-// Hunters green and Queens gold still sit close, because separating them costs a club its colour
+// NOT solved, and not solvable with these four hues: for red-green color blindness, Firebells red,
+// Hunters green and Queens gold still sit close, because separating them costs a club its color
 // (the best-scoring palette turned Firebells pink). The legend and each square's label, which
-// names both clubs, carry what the colour cannot.
+// names both clubs, carry what the color cannot.
 const SQUARE_COLORS: Record<string, { light: string; dark: string }> = {
   BOS: { light: '#135f34', dark: '#288f55' },
   LA:  { light: '#a8761d', dark: '#e0b54f' },
@@ -64,8 +64,8 @@ const squareColor = (teamId: string | null | undefined, dark: boolean): string =
   return dark ? c.dark : c.light
 }
 
-// Whether the reader wants the club split or the plain single-colour grid. Per reader and per
-// browser, on by default; the plain grid is for anyone who finds four colours busier than it is
+// Whether the reader wants the club split or the plain single-color grid. Per reader and per
+// browser, on by default; the plain grid is for anyone who finds four colors busier than it is
 // useful, and a choice like that should not have to be made again on every visit.
 const CLUB_COLORS_KEY = 'wpbl_scorigami_club_colors'
 const readClubColors = (): boolean => {
@@ -351,8 +351,8 @@ export default function WpblScorigami({ onOpenGame }: {
                   // facing its own axis: the winner lower left toward the winning-score labels, the
                   // loser upper right toward the losing-score labels, so the square says who won as
                   // well as who played. See SQUARE_COLORS for why these are not the club accents. A
-                  // repeated score keeps its FIRST game's colours, which is also the game that lit it
-                  // in the replay, so it never recolours.
+                  // repeated score keeps its FIRST game's colors, which is also the game that lit it
+                  // in the replay, so it never recolors.
                   const { winId, loseId } = sides(cell.first)
                   const winC = squareColor(winId, dark)
                   const loseC = squareColor(loseId, dark)
@@ -374,14 +374,14 @@ export default function WpblScorigami({ onOpenGame }: {
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         textDecoration: 'none', color: '#fff', cursor: 'pointer',
                         // A thin neutral seam between the halves: at this size an edge does more to
-                        // tell two colours apart than the colours do. Stops at fractional px, or the
+                        // tell two colors apart than the colors do. Stops at fractional px, or the
                         // diagonal renders stepped.
                         background: clubColors
                           ? `linear-gradient(45deg, ${winC} calc(50% - 0.75px), ${seam} calc(50% - 0.25px), ${seam} calc(50% + 0.25px), ${loseC} calc(50% + 0.75px))`
                           : 'var(--wpbl-accent-solid)',
                         // Not TAPPABLE: that paints the row-hover grey over the fill, which on a solid
                         // square reads as the square going blank. A lift and a slight brighten keep
-                        // both clubs' colours visible under the pointer.
+                        // both clubs' colors visible under the pointer.
                         ...hoverOnly({ transform: 'scale(1.12)', filter: 'brightness(1.12)', zIndex: 1, position: 'relative' }),
                         transition: 'transform 80ms ease, filter 80ms ease',
                         ...(landing && !reduce && {
@@ -391,7 +391,7 @@ export default function WpblScorigami({ onOpenGame }: {
                       }}
                     >
                       {/* The repeat count only on the plain grid: on the split squares it is a third
-                          thing competing with two colours, and it made the grid too busy to read.
+                          thing competing with two colors, and it made the grid too busy to read.
                           The square's label still says how many games ended on it. */}
                       {count > 1 && !clubColors && (
                         <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, lineHeight: 1, color: '#fff' }}>

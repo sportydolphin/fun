@@ -44,9 +44,9 @@ const EVENT_KEY: Record<string, keyof Omit<WobaWeights, 'n'>> = {
  *  under it: the 2026 season had two. */
 export const WOBA_MIN_EVENTS = 20
 
-/** A ball in play for FIP's purposes: anything the defence had a chance to field. Sacrifices
+/** A ball in play for FIP's purposes: anything the defense had a chance to field. Sacrifices
  *  are in, unlike the wOBA out pool above: whatever the batter meant by it, a sacrifice is a
- *  ball the defence fielded, and that is all FIP's baseline asks. Home runs are out, as one of
+ *  ball the defense fielded, and that is all FIP's baseline asks. Home runs are out, as one of
  *  the three outcomes FIP isolates, and `unknown` is out because it is not known to be in play. */
 const BIP_EVENTS = new Set([
   'single', 'double', 'triple', 'groundout', 'flyout', 'popup', 'lineout', 'foul_out', 'out',
@@ -102,7 +102,7 @@ export function wobaWeights(values: PlayRunValue[]): WobaWeights | null {
   for (const v of values) {
     // Plate appearances only. A stolen base or a wild pitch carries the batter's name too but is
     // not something the batter did, and a single "event" row without a pitch sequence is a
-    // runner advance the feed labelled after the play it happened on.
+    // runner advance the feed labeled after the play it happened on.
     if (!v.play.pitch_sequence) continue
     const e = v.play.event_type
     if (!e) continue
@@ -127,7 +127,7 @@ export function wobaWeights(values: PlayRunValue[]): WobaWeights | null {
 }
 
 /** The numerator and denominator, unscaled. Intentional walks come out of both: a walk the
- *  defence chose to give says nothing about the batter, which is the standard definition. */
+ *  defense chose to give says nothing about the batter, which is the standard definition. */
 function wobaParts(t: WpblBattingTotals, w: WobaWeights): { num: number; den: number } {
   const singles = t.h - t.doubles - t.triples - t.hr
   const ubb = t.bb - t.ibb
@@ -137,7 +137,7 @@ function wobaParts(t: WpblBattingTotals, w: WobaWeights): { num: number; den: nu
 }
 
 /** What the league baseline needs, built from the SAME slice as the rows it is applied to, the
- *  rule OPS+ and FIP follow, so a playoff wRC+ is not centred on a season it is not part of. */
+ *  rule OPS+ and FIP follow, so a playoff wRC+ is not centered on a season it is not part of. */
 export interface WobaContext {
   /** Multiplier from runs above an out to the OBP-like scale. */
   scale: number

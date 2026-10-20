@@ -3,7 +3,7 @@
  *
  * There are two callers: `scripts/sync-wpbl-substack.ts` (Node, for a run by hand) and the
  * `wpbl-substack-sync` edge function (Deno, hourly on pg_cron). The orchestration lives here
- * rather than in either of them because it is the part with the judgement in it, and two
+ * rather than in either of them because it is the part with the judgment in it, and two
  * copies of "which post counts, what it is about, what we keep when we cannot read it" would
  * drift the first time one was fixed and the other was not.
  *
@@ -191,7 +191,7 @@ async function fetchPostBody(src: SubstackSource, slug: string, log: (s: string)
 }
 
 /** How many never-read posts one run may fetch a body for, one request each. The first run of a
- *  new publication reads its back catalogue a slice at a time rather than in one burst at
+ *  new publication reads its back catalog a slice at a time rather than in one burst at
  *  somebody's personal Substack; every later run has nothing new to fetch. */
 const BODY_FETCHES_PER_RUN = 30
 

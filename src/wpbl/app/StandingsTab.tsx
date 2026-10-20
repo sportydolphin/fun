@@ -62,7 +62,7 @@ export function StandingsView({ teams, games: allGames, onOpenTeam }: {
   // Labels the FIGURES, because that is what a reader is reading. The sort may still be a
   // fraction of a second behind it.
   // THREE STATES, NOT TWO. The opening column is a real place on the chart and its date is
-  // null, so "is there a date" read it as "the reader is not pointing at anything" and labelled
+  // null, so "is there a date" read it as "the reader is not pointing at anything" and labeled
   // four clubs at 0-0 as the current standings. Null here means the present; anything else is
   // the words for the day being shown.
   const asOf = (() => {
@@ -115,7 +115,7 @@ export function StandingsView({ teams, games: allGames, onOpenTeam }: {
         note that appears when you point at the chart would move the table down 20px under the
         finger doing the pointing, on every scrub, which is worse than the note is good. So the
         line is always there, says "Current standings" at rest, and changes its words and its
-        colour when the chart is showing an earlier day. A reader who never touches the chart
+        color when the chart is showing an earlier day. A reader who never touches the chart
         reads it once as a statement of fact and never again.
 
         It also has to be honest by construction rather than by care: `asOf` is null whenever
@@ -167,8 +167,8 @@ export function StandingsView({ teams, games: allGames, onOpenTeam }: {
                   cursor: clickable ? 'pointer' : 'default', ...tappableIf(clickable),
                   // ONLY WHILE IT IS MOVING. A row has no background of its own, so two clubs
                   // swapping print through each other at the crossing; this gives the pair an
-                  // opaque page-coloured backing and a stacking order for exactly as long as
-                  // the move lasts. `background.default` and not a hardcoded colour because it
+                  // opaque page-colored backing and a stacking order for exactly as long as
+                  // the move lasts. `background.default` and not a hardcoded color because it
                   // has to be the page's own, in both themes. See rowFlip.ts.
                   '&[data-moving]': { position: 'relative', bgcolor: 'background.default' },
                   '&[data-moving="up"]': { zIndex: 2 },

@@ -75,7 +75,7 @@ export function buildPlayerReply(
   // summed THROUGH the schedule, so a game lands in exactly one, and neither double-counts the
   // other. `sumBatting`/`sumPitching` default to 'regular'; the postseason call is the same
   // one the Stats tab and the season page's Runs-by-inning make. It fails CLOSED, so with no
-  // postseason game recognised the postseason totals are zero and their fields never draw:
+  // postseason game recognized the postseason totals are zero and their fields never draw:
   // that is what keeps this line off every card in the league until a player actually appears
   // in the bracket.
   const bt = sumBatting(batted, games)

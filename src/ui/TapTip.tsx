@@ -14,14 +14,14 @@ import { useShellZ } from './ModalShell'
  * on the element, and on a player page that is a column of stat abbreviations you scroll
  * straight through, so scrolling pops definitions open under your thumb, one after another, for
  * something nobody asked to read. Raising the delay is not the fix either: MUI's touch timer is
- * not cancelled by the finger moving, so a slow scroll still opens it, just later.
+ * not canceled by the finger moving, so a slow scroll still opens it, just later.
  *
  * SO TOUCH GETS AN EXPLICIT GESTURE. On a device with no hover, the tooltip is controlled and
  * opens on tap alone. It closes on a second tap, on a tap anywhere else, on the next scroll,
  * and on a timer, because a tooltip nobody can dismiss is worse than one that never opened.
  * Closing on scroll matters most: scrolling is the gesture that would otherwise open these.
  *
- * Hover devices keep ordinary hover behaviour, with the touch listener off so a hybrid laptop
+ * Hover devices keep ordinary hover behavior, with the touch listener off so a hybrid laptop
  * cannot get both.
  *
  * Renders its own element rather than wrapping a child, because the touch path needs a ref to

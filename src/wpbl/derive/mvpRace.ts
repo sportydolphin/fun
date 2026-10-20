@@ -17,7 +17,7 @@ import type { WpblGame, WpblPlayer } from '../types'
  * is worth a deferred fetch to avoid.
  *
  * WHAT IT IS NOT. There is no replacement level, no positional adjustment and no fielding in
- * here, so this is not WAR and must never be labelled as such. It is runs added at the plate
+ * here, so this is not WAR and must never be labeled as such. It is runs added at the plate
  * plus runs saved on the mound, which is a narrower and more literal claim, and the card says
  * so in as many words. Baserunning is out too. It was out by necessity until Oct 11, 2026, when
  * the runner could first be read off the play (derive/baserunning.ts), and it stays out by
@@ -138,7 +138,7 @@ export function mvpRace(
       r.perDate.set(date, (r.perDate.get(date) ?? 0) + v.value)
     }
     if (v.play.pitcher_name) {
-      // Negated: the play that added half a run to the offence took half a run off the
+      // Negated: the play that added half a run to the offense took half a run off the
       // pitcher who allowed it. Ranked on the batting side's sign, the board would open with
       // the worst arms in the league.
       const r = reach(v.play.pitcher_id, v.play.pitcher_name, v.fieldingTeamId)

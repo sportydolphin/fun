@@ -46,7 +46,7 @@ export interface ShareCardData {
 export const SHARE_W = 540
 export const SHARE_H = 540
 
-/** PORTRAIT FRAMING. The face is a plain <img> that fills a circular, club-coloured, ringed frame,
+/** PORTRAIT FRAMING. The face is a plain <img> that fills a circular, club-colored, ringed frame,
  *  the same shape PlayerPortrait draws everywhere else on the site, which is what the section asked
  *  these to match.
  *
@@ -61,7 +61,7 @@ export const SHARE_H = 540
  *  ring over it, so the frame needs no canvas work at all.
  *
  *  NO object-fit. The cut-out headshots are 512 squares and the frame is square, so the image fills
- *  it exactly with nothing to fit: the transparent margin above a cap lands on the club-colour fill,
+ *  it exactly with nothing to fit: the transparent margin above a cap lands on the club-color fill,
  *  and the whole head is in frame (a tight crop used to push a light cap panel up against the ring
  *  and read as a white band). object-fit is also one of the properties html2canvas mishandles, so
  *  leaving it off is both correct and safer. */
@@ -79,12 +79,12 @@ export function WinnerShareCard({ data, hideBrand = false }: {
   hideBrand?: boolean
 }) {
   const { category, name, detail, stats, pct, portraitSrc, teamId, initials } = data
-  // The club's colours: primary behind the photo, secondary as the portrait ring (the one place
-  // the second colour appears now that the background is a plain dark ground).
+  // The club's colors: primary behind the photo, secondary as the portrait ring (the one place
+  // the second color appears now that the background is a plain dark ground).
   const primary = wpblColor(teamId)
   const secondary = wpblSecondary(teamId)
-  // The poster cards (no eyebrow, no footer) are centre-ALIGNED to match the title tile in the
-  // grid's empty cell: portrait on top, everything stacked and centred. The standalone Share card
+  // The poster cards (no eyebrow, no footer) are center-ALIGNED to match the title tile in the
+  // grid's empty cell: portrait on top, everything stacked and centered. The standalone Share card
   // keeps the portrait beside a left-aligned name, which reads better as a lone square.
   const centered = hideBrand
   return (
@@ -95,7 +95,7 @@ export function WinnerShareCard({ data, hideBrand = false }: {
         width: SHARE_W, height: centered ? POSTER_CARD_H : SHARE_H, boxSizing: 'border-box', p: '34px',
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
         fontFamily: '"Inter", system-ui, sans-serif', color: '#f4f6f8',
-        // The whole card in the club's primary (a near-black team colour), with the secondary as
+        // The whole card in the club's primary (a near-black team color), with the secondary as
         // the portrait ring. Square corners, so the exported PNG is a full square rather than one
         // with transparent rounded corners.
         backgroundColor: primary,
@@ -113,23 +113,23 @@ export function WinnerShareCard({ data, hideBrand = false }: {
         </Box>
       )}
 
-      {/* THE MIDDLE, VERTICALLY CENTRED. Category, then the winner, then the big share, as one block
-          in the middle of the card. On the poster it is also centre-ALIGNED across the card. */}
+      {/* THE MIDDLE, VERTICALLY CENTERED. Category, then the winner, then the big share, as one block
+          in the middle of the card. On the poster it is also center-ALIGNED across the card. */}
       <Box sx={{
         flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '22px', minWidth: 0,
         alignItems: centered ? 'center' : 'stretch', textAlign: centered ? 'center' : 'left',
       }}>
         <Box component="div" sx={{
-          // The club's SECONDARY colour, not the accent: on a card washed in the primary, the
+          // The club's SECONDARY color, not the accent: on a card washed in the primary, the
           // accent can be the same hue (Boston green on green) and vanish. The secondary is the
-          // contrasting brand colour (Boston orange), which is also the ring and the pop here.
+          // contrasting brand color (Boston orange), which is also the ring and the pop here.
           // data-caption + pre-uppercased: captureNode repaints this line with the Canvas API, since
           // html2canvas drops leading words from it on some browsers (see captureNode).
           fontSize: centered ? 36 : 32, fontWeight: 900, letterSpacing: 1,
           color: secondary, lineHeight: 1.1,
         }} data-caption="1">{category.toUpperCase()}</Box>
 
-        {/* The winner. The face is a plain <img> filling a circular, club-coloured, ringed frame:
+        {/* The winner. The face is a plain <img> filling a circular, club-colored, ringed frame:
             see PORTRAIT FRAMING for why an <img> and not a background image or a canvas composite. */}
         <Box sx={{
           display: 'flex', alignItems: 'center', minWidth: 0,
@@ -171,8 +171,8 @@ export function WinnerShareCard({ data, hideBrand = false }: {
         </Box>
 
         {/* The winning share, big, in the club's secondary so it pops off the primary ground. On the
-            poster the caption stacks UNDER the percent so the big number sits on the card's centre
-            line; beside it (baseline row) it would pull the number left of centre. */}
+            poster the caption stacks UNDER the percent so the big number sits on the card's center
+            line; beside it (baseline row) it would pull the number left of center. */}
         <Box sx={{
           display: 'flex', justifyContent: centered ? 'center' : 'flex-start',
           flexDirection: centered ? 'column' : 'row',
@@ -199,7 +199,7 @@ export function WinnerShareCard({ data, hideBrand = false }: {
   )
 }
 
-/** One winner as a wide, short ROW, for the all-winners story poster: the club-coloured band, the
+/** One winner as a wide, short ROW, for the all-winners story poster: the club-colored band, the
  *  face on the left, the category / name / detail / stats stacked in the middle, and the vote share
  *  large on the right. A row per winner reads down a single column, which is what makes the poster a
  *  phone-shaped one-pager rather than a tiny two-up grid. Fixed px, `--app-chrome:1` inherited from
@@ -218,7 +218,7 @@ export function WinnerShareRow({ data }: { data: ShareCardData }) {
       gap: '30px', p: '30px', borderRadius: '26px', backgroundColor: primary, color: '#f4f6f8',
       fontFamily: '"Inter", system-ui, sans-serif',
     }}>
-      {/* The face is a plain <img> in a circular, club-coloured, ringed frame. See PORTRAIT FRAMING. */}
+      {/* The face is a plain <img> in a circular, club-colored, ringed frame. See PORTRAIT FRAMING. */}
       <Box sx={{
         width: 148, height: 148, borderRadius: '50%', flexShrink: 0, boxSizing: 'border-box',
         border: `4px solid ${secondary}`, backgroundColor: primary, overflow: 'hidden',
@@ -369,7 +369,7 @@ export async function captureNode(node: HTMLElement, scale = 3): Promise<Blob | 
       ctx.fillStyle = bg || '#0b0f14'
       ctx.fillRect(left - 2, top - 2, w + 4, h + 4)
       // Draw glyph by glyph with the loaded font for both measure and paint: deterministic, and it
-      // honours letter-spacing without html2canvas's buggy per-character path.
+      // honors letter-spacing without html2canvas's buggy per-character path.
       ctx.font = `${st.fontStyle} ${st.fontWeight} ${parseFloat(st.fontSize) * s}px ${st.fontFamily}`
       ctx.fillStyle = st.color
       ctx.textBaseline = 'middle'

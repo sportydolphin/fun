@@ -174,7 +174,7 @@ export interface SosEntry {
 /** One season of a contract, or of team control beyond it (arb years, free agency). */
 export interface ContractYear {
   season: number
-  /** Normalised at scrape time; see normaliseYearType in scripts/update-payrolls.mjs. */
+  /** Normalized at scrape time; see normaliseYearType in scripts/update-payrolls.mjs. */
   kind:   'guaranteed' | 'arb' | 'pre-arb' | 'option' | 'free-agent' | 'other'
   /** FanGraphs' own label, e.g. "CLUB OPTION", shown on hover. */
   label:  string

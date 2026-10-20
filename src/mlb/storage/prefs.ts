@@ -99,7 +99,7 @@ export async function savePickReminderPrefToSupabase(userId: string, enabled: bo
 // how many minutes before first pitch to fire. Mirrored to localStorage so the
 // in-site notification source can read it synchronously, and upserted to
 // user_preferences so the server-side push sender (scripts/send-game-start.mjs)
-// can honour it. Both columns degrade gracefully if the migration hasn't run.
+// can honor it. Both columns degrade gracefully if the migration hasn't run.
 
 export interface GameStartPref { enabled: boolean; leadMin: number }
 

@@ -93,7 +93,7 @@ describe('rows changing places', () => {
     const { rerender, getByTestId } = render(<List order={['SF', 'NY', 'LA', 'BOS']} />)
     layout(['SF', 'LA', 'NY', 'BOS'])
     rerender(<List order={['SF', 'LA', 'NY', 'BOS']} />)
-    // LA travelled up the table, NY down. The row moving up is the one drawn over the other.
+    // LA traveled up the table, NY down. The row moving up is the one drawn over the other.
     expect(getByTestId('LA').dataset.moving).toBe('up')
     expect(getByTestId('NY').dataset.moving).toBe('down')
     expect(getByTestId('SF').dataset.moving).toBeUndefined()
@@ -175,8 +175,8 @@ describe('rows changing places', () => {
   // reconciled or the table can never land. Both halves of that are pinned here, and the first
   // is the one that would make playback look broken.
 
-  it('leaves a row alone when its slot did not move and it is already travelling', () => {
-    // The bug: a day that reorders nothing still saw an in-flight transform, cancelled the
+  it('leaves a row alone when its slot did not move and it is already traveling', () => {
+    // The bug: a day that reorders nothing still saw an in-flight transform, canceled the
     // animation and started a fresh full-length one from wherever the row had reached. Every
     // day did it again, so the row halved its remaining distance forever and never arrived.
     layout(['SF', 'NY', 'LA', 'BOS'])
@@ -236,7 +236,7 @@ describe('rows changing places', () => {
 
 // ── The lines between the clubs ─────────────────────────────────────────────────
 //
-// A divider drawn by the row it belongs to goes travelling the moment the clubs change places,
+// A divider drawn by the row it belongs to goes traveling the moment the clubs change places,
 // and because the table is `border-collapse: collapse` it is painted UNDER the opaque backing a
 // moving row needs, so it does not merely move, it disappears: on the page the clubs appear to
 // pass over the divider lines and the lines vanish while they do. The lines are their own

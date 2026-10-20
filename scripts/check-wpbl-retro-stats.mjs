@@ -25,7 +25,7 @@
  *
  * THE STAT SET IS DELIBERATELY NARROW. Plate appearances, at-bats, hits, doubles, triples, home
  * runs, walks, strikeouts and hit-by-pitch: everything whose Retrosheet event maps to it without
- * a judgement call. RBI is derived too but reported separately, because it depends on the
+ * a judgment call. RBI is derived too but reported separately, because it depends on the
  * transcriber's `(RBI)` annotation rather than on the event code, and an annotation is a thing a
  * human can forget in a way that a `D7` is not.
  *
@@ -80,8 +80,8 @@ const NOT_A_PA = /^(NP|SB[23H]|CS[23H]|PO[123]|POCS[23H]|WP|PB|BK|OA|DI|FLE)/
  * One Retrosheet event to the batting counters it is worth. Null when the record is not a
  * plate appearance at all.
  *
- * Returns `unknown: true` rather than guessing when the primary token is not one we recognise.
- * An unrecognised event silently scored as an out would make this whole check quietly wrong in
+ * Returns `unknown: true` rather than guessing when the primary token is not one we recognize.
+ * An unrecognized event silently scored as an out would make this whole check quietly wrong in
  * the direction of agreeing with us, which is the direction that teaches nobody anything.
  */
 export function batting(eventRaw) {

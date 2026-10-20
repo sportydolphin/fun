@@ -167,7 +167,7 @@ describe('PlayoffBracket', () => {
 
   // Opening a team or player page is the section's retention event, and Home is the surface the
   // traffic says has no route to one. That route now runs through the series overview rather
-  // than off the club row: the box is one target, and the club is a labelled link inside it.
+  // than off the club row: the box is one target, and the club is a labeled link inside it.
   it('opens a series overview from its box', async () => {
     draw(season(), vi.fn())
     fireEvent.click(screen.getByRole('button', { name: 'Semifinal A overview' }))

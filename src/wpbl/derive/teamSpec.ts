@@ -8,7 +8,7 @@ import { readSequence } from './pitches'
 // WHAT THIS IS FOR, AND WHAT IT IS NOT. It answers "what KIND of team is this", which nothing
 // else in the section does: the standings say who is winning, the team-stats card says how much
 // of each thing they did, and neither tells you that New York run on a quarter of their times on
-// first while San Francisco almost never do. It is a shape to recognise a club by, not a rating,
+// first while San Francisco almost never do. It is a shape to recognize a club by, not a rating,
 // and deliberately does not add up to one number.
 //
 // ─── Why these six, and not the obvious ones ────────────────────────────────
@@ -76,11 +76,11 @@ export interface TeamSpecAxis {
  *
  * FOR THE ACCESSIBLE NAME ONLY, never drawn on screen. The chart says which way is better by
  * being a chart, the spoke is longer and the fill is bigger, and three words of hedging under
- * every second axis would be a caption apologising for a drawing that does not need it. A screen
+ * every second axis would be a caption apologizing for a drawing that does not need it. A screen
  * reader has no polygon to read that off, which is the one place the words earn their room.
  *
  * Empty for a `high` axis rather than "higher is better": four of the six axes are the obvious
- * direction, and labelling all of them would bury the two that are not.
+ * direction, and labeling all of them would bury the two that are not.
  */
 export const specDirectionHint = (axis: TeamSpecAxis): string =>
   axis.better === 'low' ? 'lower is better' : ''
@@ -144,7 +144,7 @@ export interface TeamSpecs {
  */
 const WINDOW = 0.5
 
-/** No spoke ever reaches the centre. A zero-length one reads as missing data rather than as a
+/** No spoke ever reaches the center. A zero-length one reads as missing data rather than as a
  *  club that is bad at something, and the polygon degenerates into a shape with a corner
  *  missing. */
 const FLOOR = 5
@@ -215,7 +215,7 @@ export function teamSpecs(
   //
   // Through `regularSeasonLines` and `readSequence` rather than counting letters here, so this
   // axis cannot drift from the Pitch by pitch boards: one postseason filter, one decoder. The
-  // decoder matters more than it looks. Two of the six codes are mislabelled in the feed's own
+  // decoder matters more than it looks. Two of the six codes are mislabeled in the feed's own
   // `type` field, and they are 39% of all pitches.
   const swingsOf = new Map<string, { swings: number; whiffs: number }>()
   for (const id of teamIds) swingsOf.set(id, { swings: 0, whiffs: 0 })

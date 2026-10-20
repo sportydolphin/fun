@@ -18,7 +18,7 @@ export const fullBleedSx = {
   transform: 'translateX(-50%)',
 } as const
 
-// The sticky control bar, which is wider than everything else on purpose. Centred with a
+// The sticky control bar, which is wider than everything else on purpose. Centered with a
 // margin rather than left + transform: the bar is the one full-bleed block here that also has
 // to stick, and those two can't share a box, since sticky spends `left` on its own threshold
 // and a transformed ancestor becomes the containing block for anything positioned inside it.
@@ -73,7 +73,7 @@ export const BOARD_TAIL_BARE_PX = 20
  *  about 636px tall. */
 export const MIN_BOARD_PX = 240
 
-/** Full-bleed for a box that ALSO has to stick. Centred with a margin rather than
+/** Full-bleed for a box that ALSO has to stick. Centered with a margin rather than
  *  `left: 50%` + a transform, because sticky spends `left` on its own threshold: given the
  *  centring rule, the board would try to stick sideways. Same reason the bar has its own. */
 export const fullBleedStickyCardSx = {

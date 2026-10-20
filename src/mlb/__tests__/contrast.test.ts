@@ -3,10 +3,10 @@ import { readFileSync } from 'node:fs'
 import { textTone, contrastRatio, whiteAlphaOn, cardBgForWhite } from '../lib/contrast'
 import { TEAM_BG, teamPalette, TONE, FILL } from '../constants'
 
-// MLB's colours were picked on the dark theme. On the light one a win's green, a streak's orange
+// MLB's colors were picked on the dark theme. On the light one a win's green, a streak's orange
 // and the section's own blue measured 1.9 to 3.8:1 as text, and the team cards' secondary white
 // was 2.1:1 on the red clubs. These pin the arithmetic that fixed it and the values it produced,
-// so a new colour cannot quietly reintroduce the problem.
+// so a new color cannot quietly reintroduce the problem.
 
 const rgb = (c: string): [number, number, number] => {
   const h = /^#([0-9a-f]{6})$/i.exec(c)
@@ -21,7 +21,7 @@ const over = (fg: string, bg: string): [number, number, number] => {
 const WHITE = '#ffffff', PAGE_LIGHT = '#f6f7f9', PAPER_DARK = '#181b22', PAGE_DARK = '#0f1115'
 
 describe('textTone', () => {
-  it('brings every status colour to AA on the light page, and leaves a passing one alone', () => {
+  it('brings every status color to AA on the light page, and leaves a passing one alone', () => {
     for (const hex of ['#ef4444', '#22c55e', '#f97316', '#eab308', '#38bdf8', '#a78bfa', '#60a5fa']) {
       expect(contrastRatio(rgb(textTone(hex, false)), rgb(WHITE))).toBeGreaterThanOrEqual(4.5)
     }
@@ -56,7 +56,7 @@ describe('the published tones', () => {
   })
 })
 
-describe('team-coloured cards', () => {
+describe('team-colored cards', () => {
   it('keeps every club card\'s white and secondary text at AA', () => {
     for (const id of Object.keys(TEAM_BG).map(Number)) {
       const p = teamPalette(id)
@@ -66,7 +66,7 @@ describe('team-coloured cards', () => {
     }
   })
 
-  it('only deepens a club colour that white cannot already read on', () => {
+  it('only deepens a club color that white cannot already read on', () => {
     expect(cardBgForWhite('#002D62')).toBe('#002D62')
     expect(cardBgForWhite('#DF4601')).not.toBe('#DF4601')
     expect(whiteAlphaOn('#002D62', 0.62)).toBe(0.62)

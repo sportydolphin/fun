@@ -18,7 +18,7 @@ THE FRAMING RULE IS THE POINT. Cropping each face to "looks about right" is what
 the first version of these, and against a grid of roster headshots they were plainly wrong:
 a manager's head filled his circle while the players beside him sat back in theirs. So the
 frame is placed by measurement instead. Across 32 bundled roster portraits the league's own
-art puts the eyes at .40 of the frame and the chin at .62, head centred, and this reproduces
+art puts the eyes at .40 of the frame and the chin at .62, head centered, and this reproduces
 that: EYE_Y, CHIN_Y and a scale factor per face. Nothing about the source crop matters
 beyond containing the whole subject, because the matte makes everything outside them
 transparent and the frame is composed afterwards.
@@ -60,7 +60,7 @@ FOUNDING = ("https://www.womensprobaseballleague.com/wp-content/uploads/2026/07/
 BOSTON = ("https://www.womensprobaseballleague.com/wp-content/uploads/2026/08/260809-cover.jpg",
           "Boston names Jemile Weeks, Aug 9 2026")
 
-# slug, source, region to matte, (eye y, chin y, head centre x) in SOURCE pixels, models.
+# slug, source, region to matte, (eye y, chin y, head center x) in SOURCE pixels, models.
 #
 # THE REGION HAS TO HOLD THE WHOLE PERSON, TOP AND SIDES, and that is the one part of this
 # table that is easy to get wrong quietly. Everything outside it is cut away by definition, so
@@ -116,7 +116,7 @@ def matte(im: Image.Image, models: list[str]) -> np.ndarray:
         if stats[k, cv2.CC_STAT_AREA] > 0.01 * hard.size:
             keep[labels == k] = 1
     # One pixel of feather. The models hand back a hard edge, which against a flat club
-    # colour reads as a sticker.
+    # color reads as a sticker.
     return cv2.GaussianBlur((alpha * keep).astype("uint8"), (3, 3), 0)
 
 
@@ -125,7 +125,7 @@ def extend_bottom(rgba: Image.Image) -> Image.Image:
 
     A manager whose chest is behind the graphic's title ends at the region's bottom edge in a
     straight horizontal line. Framed to the roster's rule that edge lands ABOVE the frame's own
-    bottom, so she reads as a bust sawn off in mid-air, with club colour under her. The roster
+    bottom, so she reads as a bust sawn off in mid-air, with club color under her. The roster
     headshots all run off the bottom of their frame, which is what this reproduces: the pixels
     added are the shirt she is already wearing, and the circle the portrait is drawn in crops
     most of them anyway.

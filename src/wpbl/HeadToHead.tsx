@@ -9,7 +9,7 @@ import type { WpblTeam, WpblGame, WpblStandingRow } from './types'
 import { typePx } from '../ui/scale'
 import { TYPE_SCALE } from '../ui/card'
 
-// Washes behind a cell rather than coloured text. The record is spelled out in the cell
+// Washes behind a cell rather than colored text. The record is spelled out in the cell
 // already, so the tint is pure reinforcement, which is what lets it be this quiet, and what
 // keeps the grid readable for anyone who can't separate the two hues.
 const CELL_WIN = 'rgba(34,197,94,0.15)'
@@ -52,7 +52,7 @@ export default function HeadToHead({ rows, games, onSelect, title = 'Head to hea
 
   return (
     <SectionCard title={title} subtitle="Each row's record against the columns">
-      {/* Capped on a wide screen, and LEFT-aligned rather than centred. The grid is sized by
+      {/* Capped on a wide screen, and LEFT-aligned rather than centered. The grid is sized by
       what a phone can hold, and the matrix reads as a block so it should stay block-shaped.
       Centring the capped block is worse than either: it splits the leftover space either
       side and reads as a mistake. Aligned left, it shares a margin with the card's own title

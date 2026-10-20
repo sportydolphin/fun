@@ -139,7 +139,7 @@ interface Interaction {
   data?: { name?: string; options?: InteractionOption[]; custom_id?: string }
   message?: { id?: string }
   // `member` in a guild, `user` in a DM. This game is guild-only, so `member` is what it
-  // reads, and its absence is how a DM is recognised.
+  // reads, and its absence is how a DM is recognized.
   member?: { user?: InteractionUser; nick?: string; permissions?: string }
   user?: InteractionUser
 }
@@ -697,7 +697,7 @@ async function closeRound(
 
   return message(ephemeral(action === 'lock'
     ? 'Picks are closed. The feed settles it from here.'
-    : 'Round cancelled. Nobody gains or loses anything on it.'))
+    : 'Round canceled. Nobody gains or loses anything on it.'))
 }
 
 /** The game a bare subcommand is about: whatever this channel last ran a round on. */

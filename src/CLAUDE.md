@@ -31,9 +31,9 @@ Loaded when you read anything under `src/`. The section-specific traps are in `s
   floor for the edge of a component, and it covers anything bordered on all four sides: a card, a
   chip, a button, a box nested in a card, a club's ring. Three tokens, in
   [`src/ui/card.tsx`](ui/card.tsx): `borderColor: 'outline'` (the theme's `palette.outline`,
-  which `CARD_BORDER` and `INNER_BORDER` also return) for a plain box, `edge(colour)` for a club's
-  or a status's own colour, which lifts it just far enough, and `ACCENT_EDGE` for the site blue.
-  **Never fade a colour with an alpha suffix to make a border** (`${teamColor}55`): fading can only
+  which `CARD_BORDER` and `INNER_BORDER` also return) for a plain box, `edge(color)` for a club's
+  or a status's own color, which lifts it just far enough, and `ACCENT_EDGE` for the site blue.
+  **Never fade a color with an alpha suffix to make a border** (`${teamColor}55`): fading can only
   lower contrast, and most clubs' primaries are navy or brown, which is how the MLB bracket's
   decided series came out at 1.2:1 on the dark page. `divider` is for the rule BETWEEN rows, one
   side only, and stays lighter on purpose. The layout sweep measures every outline on every page
@@ -125,12 +125,12 @@ Loaded when you read anything under `src/`. The section-specific traps are in `s
   own opener (`openPlayerFromGame`, `openGameFromPlayer`, `fromCard` in App.tsx) or Back stops
   returning to the card. See #9 in ROADMAP-WPBL.md.
 
-- **A cancellable touch listener over scrolling content makes the scroll wait for JavaScript.**
+- **A cancelable touch listener over scrolling content makes the scroll wait for JavaScript.**
   A `touchmove` listener with `passive: false` forces the browser to ask the page before it
   scrolls anything under it, so on a busy page the content trails the finger, and nothing errors.
   The player sheet felt like this until Oct 7, 2026 with two such listeners (the sheet's
   drag-to-dismiss and the role pager), while Home felt fine. In [`ModalShell.tsx`](ui/ModalShell.tsx)
-  the drag logic is passive and its one cancelling listener (`claimer`) is attached only while every
+  the drag logic is passive and its one canceling listener (`claimer`) is attached only while every
   scroller in the sheet is at its top; the pager in [`SwipeableViews.tsx`](ui/SwipeableViews.tsx)
   is passive in pane mode, where each pane's `touch-action: pan-y` does the job `preventDefault`
   did, and attaches nothing at all for a single pane. Do not add a `passive: false` touch listener
@@ -146,7 +146,7 @@ Loaded when you read anything under `src/`. The section-specific traps are in `s
   load. If you are ever debugging a pushState that reloads the page, that is why. A chunk that
   fails anyway reloads once (`vite:preloadError`, 10s loop guard), and `AppErrorBoundary` catches
   the rest at three layers (app, page area, each WPBL tab), reporting `app_error` / `app_updated`
-  to `/admin` under "Site health". **Cancelling `vite:preloadError` does not cancel the failure:**
+  to `/admin` under "Site health". **Canceling `vite:preloadError` does not cancel the failure:**
   Vite then resolves the import with `undefined`, and `lazy()` throws on `.default` in the second
   before the reload lands. Every reader crash of Oct 13 to 15, 2026 was this; the boundary asks
   `reloadUnderway()` and shows "Loading the latest version" instead of reporting it.

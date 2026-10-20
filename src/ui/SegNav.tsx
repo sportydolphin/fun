@@ -61,11 +61,11 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
   const sm = size === 'sm'
   // When the strip is wider than the screen (many tabs on mobile), keep the selected
   // pill in view: on every selection change (a tap or a swipe between tabs) scroll it
-  // to the container's centre, clamped at the ends. We nudge only the strip's own
+  // to the container's center, clamped at the ends. We nudge only the strip's own
   // scrollLeft, never the page, so a swipe can't jog the vertical scroll.
-  // The active pill is a SURFACE-coloured chip with accent TEXT on it (see below), so the
+  // The active pill is a SURFACE-colored chip with accent TEXT on it (see below), so the
   // accent here has to be the foreground-safe variant, since the raw #60a5fa reads at 2.2:1 on a
-  // white chip. Callers passing their own accent are already handing us a team colour from
+  // white chip. Callers passing their own accent are already handing us a team color from
   // wpblAccent(), which is foreground-safe by construction.
   // The var rather than wpblAccentFg(useDark()): it is the same pair of blues keyed on the
   // theme, and it needs nothing from WPBL, so MLB can draw this.
@@ -86,7 +86,7 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
       display: 'flex',
       // `safe center` rather than plain centring, because this strip scrolls when it has more
       // tabs than fit. Centring overflowing content in a scroll container pushes the first item
-      // off the left edge and makes it unreachable. `safe` centres when it fits and falls back to
+      // off the left edge and makes it unreachable. `safe` centers when it fits and falls back to
       // flex-start when it does not. A browser that does not know the keyword drops the
       // declaration and lands on flex-start.
       justifyContent: fill ? 'flex-start' : sm ? 'flex-end' : { xs: 'safe center', sm: 'center' },

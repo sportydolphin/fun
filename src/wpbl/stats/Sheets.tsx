@@ -87,7 +87,7 @@ function OptionRow({ label, hint, icon, on, onClick }: {
       </Box>
       {/* A tick as well as the fill, never the fill alone: a tinted border is the sort of
           difference that disappears in sunlight, and about one man in twelve cannot use
-          colour to tell two states apart at all. */}
+          color to tell two states apart at all. */}
       <Box aria-hidden sx={{
         flexShrink: 0, fontSize: TYPE_SCALE.title, fontWeight: 800,
         color: 'var(--wpbl-accent-fg)', opacity: on ? 1 : 0,

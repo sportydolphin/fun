@@ -136,7 +136,7 @@ describe('when a series can still be picked', () => {
     expect(seriesPickOpen(series({ status: 'upcoming' }), AFTER)).toBe(false)
   })
 
-  // Fails open, on purpose: see the header. An unrecognised round is unpickable forever
+  // Fails open, on purpose: see the header. An unrecognized round is unpickable forever
   // otherwise, and a working ingest still shuts it at first pitch.
   it('falls back to the status alone for a round with no published schedule', () => {
     expect(seriesPickOpen(series({ status: 'upcoming', key: 'Z' }), AFTER)).toBe(true)
@@ -222,7 +222,7 @@ describe('the crowd’s share', () => {
   })
 
   // THE FINAL IS EVERY READER ANSWERING ONE QUESTION ABOUT A DIFFERENT PAIR OF CLUBS, so the two
-  // it offers are a slice of the field and the shares must not be renormalised onto that slice.
+  // it offers are a slice of the field and the shares must not be renormalized onto that slice.
   // Divided by the slice, a matchup two people out of twenty had would read 50/50 and look
   // exactly like a semifinal split down the middle.
   it('divides the championship by everyone who called it, not by the matchup on screen', () => {

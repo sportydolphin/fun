@@ -5,10 +5,10 @@ import { describe, it, expect } from 'vitest'
 /**
  * Every bundled headshot has to be a CUT-OUT, and nothing else can tell you when one is not.
  *
- * `PlayerPortrait` fills its circle with the club's primary colour and draws the portrait over
- * it, so a file that kept its white studio background lands as a white disc in a club-coloured
+ * `PlayerPortrait` fills its circle with the club's primary color and draws the portrait over
+ * it, so a file that kept its white studio background lands as a white disc in a club-colored
  * ring. It renders, it is the right player, it is sharp, and it is the only face on the page
- * wearing no colour. 65 of the 118 shipped that way for months.
+ * wearing no color. 65 of the 118 shipped that way for months.
  *
  * Read out of the WebP header rather than by decoding, the same trick ogCard.test.ts uses for
  * the card dimensions: an alpha channel is a flag in the container, and pulling an image

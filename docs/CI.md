@@ -169,7 +169,7 @@ default text size only, since Large text breaks overflow and almost never a skel
 every outline under 3:1 against what is behind it (the borders rule), and the axe-core rules in
 `AXE_RULES`: text contrast, and a name on every control, link, image and input (the
 accessibility rule). The last two run in the light theme and then the dark one on the same load.
-A border finding prints its ratio, the colour and the start of the box's text; an axe finding
+A border finding prints its ratio, the color and the start of the box's text; an axe finding
 prints the rule, the element's HTML and axe's own explanation, which is usually enough to find
 the component. A rule goes into `AXE_RULES` only once it reads clean on every page.
 

@@ -72,7 +72,7 @@ type Club = 'all' | string // a lowercased club abbreviation, as the address bar
  * A ROW OPENS THE PAIR'S COMPARISON AS A NEW PAGE, so Back remounts this one. Held only in
  * component state, the board came back as "Batter edge" with the scroll restored to where the
  * reader had been on "Pitcher edge": the right depth of the wrong list. Anything the URL does not
- * recognise falls back to the default, so a stale or hand-typed link still opens a board.
+ * recognize falls back to the default, so a stale or hand-typed link still opens a board.
  */
 export interface MatchupsUrlState { view: MatchupBoardView; club: Club; scope: SeasonScope; expanded: boolean }
 
@@ -175,7 +175,7 @@ export default function WpblMatchupsPage({ onNavigate }: {
   const clubs = useMemo(() => [...(teams.length > 0 ? teams : Object.values(WPBL_TEAMS))]
     .sort((a, b) => a.sort_order - b.sort_order), [teams])
   // LOADING IS THE BOARD DRAWN EMPTY: the toolbar, the caption, a full first page of rows and the
-  // notes under them, all where they will be. It was a centred spinner, which left the footer
+  // notes under them, all where they will be. It was a centered spinner, which left the footer
   // 500px up the screen and threw it 1,100 to 1,600px down when the table landed.
   const skeleton = loading && !plays
 
@@ -219,7 +219,7 @@ export default function WpblMatchupsPage({ onNavigate }: {
       </>}
     >
       <>
-        {/* ONE TOOLBAR, NOT THREE FLOATING PILLS. The board used to sit centred on its own line,
+        {/* ONE TOOLBAR, NOT THREE FLOATING PILLS. The board used to sit centered on its own line,
             with the club and season filters pinned to opposite edges below it, so the three
             controls shared no edge with each other or with the title. Now: on a phone, one
             column of full-width controls (`fill`), which also puts the board choice under the
@@ -400,7 +400,7 @@ export default function WpblMatchupsPage({ onNavigate }: {
                           <Box component="td" key={HEADS[j]} sx={{
                             ...tdSx,
                             ...statColSx(HEADS[j]),
-                            // Right-aligned, so the decimal points stack: centred, "1.000" sat
+                            // Right-aligned, so the decimal points stack: centered, "1.000" sat
                             // half a digit left of the ".800" under it.
                             ...(isAvg ? { textAlign: 'right' } : {}),
                             ...(c === 0 ? { color: 'text.disabled' } : {}),
@@ -468,7 +468,7 @@ const pairGridSx = { gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', colum
 /**
  * A fixed width for each figure on desktop, sized to its widest value plus air, so the name columns
  * take the slack. Left to the table's auto layout, the spare width of a 900px table was shared
- * evenly and a one-digit count sat centred in a 100px column, far from the names it belongs to.
+ * evenly and a one-digit count sat centered in a 100px column, far from the names it belongs to.
  * `rem`, because each box reserves room for a number (see "A fixed px size" in CLAUDE.md).
  */
 const statColSx = (h: string) =>

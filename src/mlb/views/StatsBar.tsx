@@ -39,7 +39,7 @@ export function StatsBar({ tabs, isDesktop, onHeld, children }: {
   const barRef = useRef<HTMLDivElement>(null)
   const markRef = useRef<HTMLDivElement>(null)
   // An edge once the bar is holding something under it, and none at rest, as WPBL's: without one,
-  // rows slide up and vanish into a band of page colour, which reads as the table being eaten.
+  // rows slide up and vanish into a band of page color, which reads as the table being eaten.
   const [stuck, setStuck] = useState(false)
   const onHeldRef = useRef(onHeld)
   onHeldRef.current = onHeld

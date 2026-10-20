@@ -33,7 +33,7 @@ export interface BottomNavItem {
 }
 
 // Filled icon when active, outlined when not: the standard tab-bar cue, and it means the
-// bar still reads correctly for anyone who can't distinguish the accent colour.
+// bar still reads correctly for anyone who can't distinguish the accent color.
 const ICONS: Record<string, { on: typeof Home; off: typeof HomeOutlined }> = {
   home:      { on: Home,                off: HomeOutlined },
   schedule:  { on: Scoreboard,          off: ScoreboardOutlined },  // WPBL's Scores tab, MLB's icon
@@ -42,7 +42,7 @@ const ICONS: Record<string, { on: typeof Home; off: typeof HomeOutlined }> = {
   teams:     { on: Groups,              off: GroupsOutlined },
   scores:    { on: Scoreboard,          off: ScoreboardOutlined },
   // Not a destination but a menu trigger, so there is no filled/outlined pair to swap: three dots
-  // are three dots. It rides the same slot machinery as the tabs and just changes colour when its
+  // are three dots. It rides the same slot machinery as the tabs and just changes color when its
   // sheet is open. See the MORE_KEY handling below and WpblMoreSheet.
   more:      { on: MoreHoriz,           off: MoreHoriz },
 }
@@ -52,7 +52,7 @@ const ICONS: Record<string, { on: typeof Home; off: typeof HomeOutlined }> = {
 export const MORE_KEY = 'more'
 
 // The bar's vertical geometry, in px and in one place, because the pieces have to agree:
-// the selection bubble is centred on the icon, and the label has to clear the bubble's
+// the selection bubble is centered on the icon, and the label has to clear the bubble's
 // bottom edge. Deriving the bubble's offset from these (rather than hand-tuning each) is
 // what stops the three from drifting apart the next time one of them is nudged.
 const TAB_PAD_Y = 7        // breathing room above the icon and below the label
@@ -69,7 +69,7 @@ const FLOAT_GAP = 10       // how far the bar hovers above the bottom edge
 // How long the optimistic selection may outlive reality before the bar gives up on it.
 const PENDING_STALL_MS = 2000
 
-// The inactive tab colour, and it is OPAQUE ON PURPOSE. MUI's dark `text.secondary` is white at
+// The inactive tab color, and it is OPAQUE ON PURPOSE. MUI's dark `text.secondary` is white at
 // 0.7 alpha (the theme does not override it), and animating THAT to the opaque accent on tap raises
 // the alpha toward 1 while the hue is still white, so the icon flashes white before it turns blue.
 // An opaque grey of about the same weight interpolates straight to the accent with nothing white in
@@ -77,8 +77,8 @@ const PENDING_STALL_MS = 2000
 const INACTIVE_TAB = { dark: '#a7adb7', light: '#5f6570' } as const
 
 // ONE DURATION AND CURVE FOR EVERY PART OF A SELECTION. A tap changes three things (the indicator
-// bubble slides to the tab, the icon fills in, the icon and label recolour), and if any of them runs
-// on its own timing the tap reads as disjoint: the glyph snapping first and the colour catching up
+// bubble slides to the tab, the icon fills in, the icon and label recolor), and if any of them runs
+// on its own timing the tap reads as disjoint: the glyph snapping first and the color catching up
 // as the bubble arrives. Sharing the duration and easing makes them start and finish together. The
 // same 300ms and curve as the pager's tap slide (SLIDE_EASE / TAP_MS in SwipeableViews), so the
 // whole screen moves as a unit.
@@ -109,7 +109,7 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
   onMore?: () => void
   /** Whether the More sheet is open, so its slot can read as active while it is. */
   moreOpen?: boolean
-  /** The section's accent: the active tab's colour. */
+  /** The section's accent: the active tab's color. */
   accent: string
   /** The "new" dot. Defaults to the accent; WPBL passes its skin-aware solid accent. */
   badgeColor?: string
@@ -121,7 +121,7 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
   // Optimistic selection. The tap and the new panel's render land in the same paint, so a bar
   // driven only by `value` cannot light up until the tab's content has rendered. The bar moves on
   // its own state immediately and hands the real navigation to the next frame, so the indicator is
-  // already travelling while the panel renders. `pending` clears as soon as the parent confirms
+  // already traveling while the panel renders. `pending` clears as soon as the parent confirms
   // the new value.
   const [pending, setPending] = useState<string | null>(null)
   const stall = useRef<number | undefined>(undefined)
@@ -137,7 +137,7 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
 
   const select = (key: string) => {
     // `shown`, not `value`: while a selection is pending, tapping the tab we are already
-    // travelling to is a no-op rather than a second navigation.
+    // traveling to is a no-op rather than a second navigation.
     if (key === shown) return
     setPending(key)
     // Recovery for a navigation that never lands. If `pending` were cleared only by the parent
@@ -201,9 +201,9 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
           position: 'absolute', top: 0, bottom: 0, left: 0,
           width: `${100 / count}%`,
           display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
-          // Centred on the icon: start at the icon's top, then lift by the bubble's overhang.
+          // Centered on the icon: start at the icon's top, then lift by the bubble's overhang.
           pt: `${TAB_PAD_Y - (BUBBLE_H - ICON_PX) / 2}px`,
-          // Shared timing (see SELECT_MS/SELECT_EASE): the bubble, the icon fill and the recolour
+          // Shared timing (see SELECT_MS/SELECT_EASE): the bubble, the icon fill and the recolor
           // all run this, and it matches the page pager's tap slide, so a tap moves as one unit.
           transform: `translateX(${index * 100}%)`,
           transition: `transform ${SELECT_MS}ms ${SELECT_EASE}`,
@@ -261,16 +261,16 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
                 WebkitTapHighlightColor: 'transparent',
                 color: t => active ? accent : (t.palette.mode === 'dark' ? INACTIVE_TAB.dark : INACTIVE_TAB.light),
                 // Drives the icon and the label (both inherit currentColor), on the shared timing
-                // so the recolour finishes with the fill and the bubble rather than ahead of them.
+                // so the recolor finishes with the fill and the bubble rather than ahead of them.
                 transition: `color ${SELECT_MS}ms ${SELECT_EASE}`,
               }}
             >
               {/* THE OUTLINE IS ALWAYS DRAWN; selection only fades the FILLED glyph in over it.
-                  The two glyphs share a silhouette and a colour, so with the outline permanently at
+                  The two glyphs share a silhouette and a color, so with the outline permanently at
                   full opacity the icon can never leave the tab, and two half-lit glyphs can never
                   double into a dark pulse: both happen when the two glyphs are animated AGAINST each
                   other. Here only the fill moves, so the icon fills in and empties out and the
-                  parent's colour shift rides along. Filled is second in the DOM, so it sits ON TOP
+                  parent's color shift rides along. Filled is second in the DOM, so it sits ON TOP
                   and covers the outline cleanly when lit. No scale on the swap: a tab bar changes
                   often enough that a zoom on it is noise. */}
               <Box sx={{ position: 'relative', width: ICON_PX, height: ICON_PX, flexShrink: 0 }}>
@@ -281,7 +281,7 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
                     position: 'absolute', top: -1, right: -3, zIndex: 1,
                     width: 6, height: 6, borderRadius: '50%',
                     bgcolor: badgeColor,
-                    // A ring in the bar's own colour, so the dot stays legible where it
+                    // A ring in the bar's own color, so the dot stays legible where it
                     // would otherwise sit directly on a stroke of the icon.
                     boxShadow: theme => `0 0 0 1.5px ${theme.palette.background.raised}`,
                   }} />
@@ -289,7 +289,7 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
                 {set && (
                   <>
                     <set.off sx={{ position: 'absolute', inset: 0, fontSize: `${ICON_PX}px` }} />
-                    {/* Matches the parent's colour transition, so the fill and the tint settle
+                    {/* Matches the parent's color transition, so the fill and the tint settle
                         together rather than one chasing the other. */}
                     <set.on sx={{
                       position: 'absolute', inset: 0, fontSize: `${ICON_PX}px`,
@@ -300,7 +300,7 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
               </Box>
               {/* Fixed weight on purpose. Going 600 → 800 on selection changed the label's
                   width and nudged the row, which is the jolt that made the change feel janky;
-                  colour alone carries the state and costs no layout. */}
+                  color alone carries the state and costs no layout. */}
               <Typography sx={{
                 fontSize: `${LABEL_REM}rem`,
                 fontWeight: 700,
@@ -308,7 +308,7 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
                 letterSpacing: typePx(0.1),
                 maxWidth: '100%',
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                // The label inherits the item's colour, so it already follows that transition; this
+                // The label inherits the item's color, so it already follows that transition; this
                 // just keeps the declared timing consistent rather than leaving a stale 200ms here.
                 transition: `color ${SELECT_MS}ms ${SELECT_EASE}`,
               }}>

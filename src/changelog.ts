@@ -57,7 +57,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'Calmer WPBL player pages',
-        full:  "A player page no longer prints the same figures twice: the four big numbers at the top are left out of the stat line under them, at every width. A league rank now shows only for a top-three place, written as \"2nd\" with the size of the field on hover, and the pitch profile shows each rate against the league without a rank. Blue means a league rank and nothing else; a player's own best game in the log is bold with a dot under it. The header says the facts in words (\"Center field / Pitcher · Bats R, throws R · Age 28\") with the hometown and draft slot labelled, and the strip of the last five games, which repeated the top of the game log, is gone. Fielding is a small table, wins added and baserunning are named in words, and the spray chart drops the list that repeated its percentages.",
+        full:  "A player page no longer prints the same figures twice: the four big numbers at the top are left out of the stat line under them, at every width. A league rank now shows only for a top-three place, written as \"2nd\" with the size of the field on hover, and the pitch profile shows each rate against the league without a rank. Blue means a league rank and nothing else; a player's own best game in the log is bold with a dot under it. The header says the facts in words (\"Center field / Pitcher · Bats R, throws R · Age 28\") with the hometown and draft slot labeled, and the strip of the last five games, which repeated the top of the game log, is gone. Fielding is a small table, wins added and baserunning are named in words, and the spray chart drops the list that repeated its percentages.",
       },
     ],
   },
@@ -329,7 +329,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'WPBL: shared Compare links show the pair',
-        full:  "A shared link to a WPBL comparison now previews as the two players, with each one's club and season line and a card in the two clubs' colours, instead of the site's general card.",
+        full:  "A shared link to a WPBL comparison now previews as the two players, with each one's club and season line and a card in the two clubs' colors, instead of the site's general card.",
       },
       {
         short: 'MLB: the Hot Stove for the winter',

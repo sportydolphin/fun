@@ -72,7 +72,7 @@ export default function LineupHistory({
             ? `${lastName(g.starter)}${g.hand ? ` ${g.hand}` : ''}`
             : g.hand ? `${g.hand}HP` : undefined,
           // A lefty start is the usual reason a card looks different, so it's the one
-          // header worth colouring.
+          // header worth coloring.
           sub2Color: g.hand === 'L' ? GRID_FLAG : undefined,
         }))}
         rows={players.map(pid => {
@@ -92,7 +92,7 @@ export default function LineupHistory({
               fontSize: TYPE_SCALE.micro, lineHeight: 1.2, textAlign: 'center',
               fontVariantNumeric: 'tabular-nums',
               // A start is stated plainly; a substitute appearance is lighter and italic, so
-              // scanning a row shows regular usage at a glance. PLAIN TEXT COLOURS, not the club
+              // scanning a row shows regular usage at a glance. PLAIN TEXT COLORS, not the club
               // accent: a dense grid of red on a dark card read as a warning and was the lowest-
               // contrast thing on the page. Weight and italic already carry start against sub.
               fontWeight: c.started ? 800 : 500,

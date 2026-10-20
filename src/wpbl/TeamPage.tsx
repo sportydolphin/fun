@@ -243,7 +243,7 @@ function TeamRail({ teams, current, record, onSelect, onBack, onAllTeams }: {
                 display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0,
                 pl: 0.5, pr: 1, py: 0.4, borderRadius: 999,
                 border: '1px solid', borderColor: edge(accent),
-                // A wash of the club's colour rather than the colour itself: a solid fill
+                // A wash of the club's color rather than the color itself: a solid fill
                 // needs a per-team contrast check for the text on top of it (seven of the
                 // eight team/theme pairs fail AA against white), and the border already
                 // carries the identity.
@@ -634,7 +634,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
       <Box
         sx={{
           bgcolor: 'background.default',
-          // Full-bleed to the screen edge on mobile (cancelling the swipe pane's 16px inset,
+          // Full-bleed to the screen edge on mobile (canceling the swipe pane's 16px inset,
           // then handing it back inside) so the bar spans the width rather than showing through
           // a gutter either side of it.
           mx: { xs: -2, sm: 0 },
@@ -659,7 +659,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
       </Box>
 
       {/* Identity on the left, spec chart on the right. On a wide screen the right of this block
-          is otherwise the widest empty run on the section, and too short for six labelled
+          is otherwise the widest empty run on the section, and too short for six labeled
           spokes, so the row grows into it rather than squeezing the chart into the exact gap:
           the cards below move down a little and the space stops being a hole. On a phone there
           is no gap to fill and it stacks under the chips. */}
@@ -1026,7 +1026,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
                 {playedGames.map(g => (
                   <ScheduleRow
                     key={g.id} game={g} teamId={team.id} teamById={teamById}
-                    // Close first: leaving the modal stacked over the game centre would
+                    // Close first: leaving the modal stacked over the game center would
                     // trap the reader behind two layers of back.
                     onOpenGame={g2 => { setScheduleOpen(false); onOpenGame(g2) }}
                   />

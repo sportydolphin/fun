@@ -25,7 +25,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * answers in a panel on the chart itself, which your own hand is covering while you read it, so
  * holding the answer after release is the whole point. The standings chart answers in the TABLE
  * ABOVE, which nothing is covering: there, a lingering answer is just a table showing August
- * after the reader has let go and moved on, and the honest behaviour is the one the mouse
+ * after the reader has let go and moved on, and the honest behavior is the one the mouse
  * already has, which is that leaving puts it back.
  *
  * A linger of zero also turns OFF tap-to-read, deliberately. With nothing to hold the answer

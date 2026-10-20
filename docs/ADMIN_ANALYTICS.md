@@ -96,7 +96,7 @@ above it, `EVENT_INFO` in `analyticsAdmin.ts` labels every event name, files it 
 marks it an action, an impression or retired. Impressions are read in "Home cards: seen, then
 used" as the first half of a pair (`HOME_FUNNELS`, browsers on both sides), actions in "What
 people do", and retired names only in the raw list. **Add a new event to `EVENT_INFO` when you add
-it to `EVENTS`**: an unlabelled one still shows under "Other" with its raw name, and
+it to `EVENTS`**: an unlabeled one still shows under "Other" with its raw name, and
 `analyticsAdmin.test.ts` fails until it has a label. "Offseason pages" reads the three
 `wpbl_page_*` events through `admin_wpbl_page_usage`. "MLB: what gets used" reads the five `mlb_*`
 events through `admin_mlb_usage` (Sep 28, 2026): each Home card as used over seen, how tabs are
@@ -179,7 +179,7 @@ last two rows, which say what they take instead.
 | `admin_growth(days_back, tz)` | signups per day, user totals, push subscribers, reminder opt-ins |
 | `admin_mlb_usage(days_back, tz)` | MLB Home cards (`props->>'card'`, seen and used in browsers), tabs (`view` × `via`), and player / team opens by `from` |
 | `admin_web_vitals(days_back, tz)` | real page loads: p75 LCP / INP / CLS / FCP / TTFB and the share under Google's "good" line, by device and section with rollups (null = all); and `shifts`, the elements that were the largest layout shift of loads over CLS 0.1, by route, ranked by how many such loads each one was |
-| `admin_user_roster(days_back, tz)` | one row per account: identity + auth.users email/provider/last sign-in, windowed activity and its WPBL/MLB split, favourite club, notification opt-ins, push devices, game reminders, series picks, feedback count, roles, MLB pick record |
+| `admin_user_roster(days_back, tz)` | one row per account: identity + auth.users email/provider/last sign-in, windowed activity and its WPBL/MLB split, favorite club, notification opt-ins, push devices, game reminders, series picks, feedback count, roles, MLB pick record |
 | `admin_set_user_role(target, want, granted, why)` | grant or revoke a `user_roles` row |
 | `admin_wpbl_award_votes()` | one row per fan-award and pick'em vote: category, choice, a stable HASH of the voter key, and when it was cast. **Takes no arguments and returns rows rather than `jsonb`**, unlike everything above it: it is a poll, not a window, and the table is one row per person per question. **It never returns the voter key.** Since Sep 10, 2026 a key is a user id, and knowing one is the whole of what lets a caller rewrite that person's ballot through `wpbl_cast_award_vote`, so a panel holding them would make every screenshot a set of credentials |
 | `admin_user_detail(target, days_back, tz, lim)` | one account: gap-filled daily series, browsers, first/last seen and lifetime total, then what they do (event names), where they go (WPBL tabs + routes), who they look at (players, clubs), what they searched for and did not find, their feedback, their series picks and their live game reminders |
@@ -194,7 +194,7 @@ they read (`wpbl_team_opened`, `wpbl_searched`, `wpbl_search_picked`, `wpbl_game
 them are load-bearing:
 
 - **`admin_wpbl_entry_points` filters `game_center_opened` on `props->>'league' = 'wpbl'`.**
-  That event is shared with `/mlb`, which has its own entry points and none of this labelling;
+  That event is shared with `/mlb`, which has its own entry points and none of this labeling;
   without the filter the card would mix two sections' surfaces under one set of names.
 - **The search became one box on Oct 14, 2026, and three things changed with it.** The toolbar
   field turned into a button that opens the palette (`src/CommandPalette.tsx`), as do its icon,
@@ -233,7 +233,7 @@ it is one card and one question.
 
 - **`web_vitals` is one row per production page LOAD, sent as the page is hidden or left**
   (Sep 27, 2026). It is written by `trackOnExit`, a `keepalive` fetch with `user_id` null,
-  because an ordinary request is cancelled with the page and there is no time to read the
+  because an ordinary request is canceled with the page and there is no time to read the
   session. So it never carries a user, and it is read only as percentiles through
   `admin_web_vitals`, never counted as activity (`EVENT_INFO` files it as an impression). A load
   that never painted (opened in a background tab) sends nothing, and INP is absent from a load
@@ -269,7 +269,7 @@ Break one of these and the dashboard keeps rendering. It just lies.
   roughly 3× a session. Raw `joined / shown` read ~3%; the honest sessions-that-joined ÷
   sessions-that-saw-it number was **8.3%**. The card is retired but the rule is not: any new
   funnel counts distinct sessions, or it reports a third of the truth.
-- **An event's count jumps on the day it was INSTRUMENTED, not on the day behaviour
+- **An event's count jumps on the day it was INSTRUMENTED, not on the day behavior
   changed.** Search, team opens and the Game Center tabs all begin Aug 25, 2026, so any window
   spanning that date compares a surface against its own silence. The page's footnote says so;
   the trap is reading a 30d delta on a young event as growth.
@@ -285,7 +285,7 @@ Break one of these and the dashboard keeps rendering. It just lies.
   know) rather than being folded into whichever surface looks likeliest.
 - **League comes from `props->>'league'`, falling back to `path`.** Most events carry the
   prop; the WPBL-only and cross-cutting ones (tab views, player opens, Discord, login)
-  don't, and `path` resolves 100% of those. Don't reintroduce an "unlabelled means WPBL"
+  don't, and `path` resolves 100% of those. Don't reintroduce an "unlabeled means WPBL"
   assumption: it's true of today's traffic mix, not of the data.
 - **Inside the Stats tab, `open` and `return` are per page-load, not per browser.** The tab
   pager unmounts a pane when the reader leaves it, so the flag behind those two names lives at
@@ -295,7 +295,7 @@ Break one of these and the dashboard keeps rendering. It just lies.
   it. Board counts are therefore arrivals plus deliberate switches, and only the switches say
   what someone chose.
 - **Day buckets are timezone-dependent.** The client passes its own IANA zone and the page
-  labels the axis with it; an unrecognised zone falls back to UTC rather than raising.
+  labels the axis with it; an unrecognized zone falls back to UTC rather than raising.
 - **`noindex` is written on every route change, never conditionally.** See
   [`src/seo.ts`](../src/seo.ts). In a SPA a tag set for `/admin` persists in `<head>`, so a
   conditional write would leave `noindex` on whatever public page the user visited next.

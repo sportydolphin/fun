@@ -85,7 +85,7 @@ async function readTodayGames(dateStr: string): Promise<TodayGame[]> {
         const at      = g.teams?.away
         const rawSt   = g.status?.abstractGameState ?? 'Preview'
         const detSt   = g.status?.detailedState ?? ''
-        // Postponed and cancelled games report abstractGameState "Final": catch them first so
+        // Postponed and canceled games report abstractGameState "Final": catch them first so
         // they aren't scored as a real (winner-less) final that dings everyone's record.
         // Warmup reports "Live" ~20 min early; keep it pickable until first pitch.
         const state   = isUnplayed(g.status) ? 'postponed'
@@ -272,7 +272,7 @@ function QuickPickTeam({ team, side, picked, dimmed, onPick }: {
   )
 
   return (
-    // Hug content (no flex:1) so the row is a tight, centred matchup cluster
+    // Hug content (no flex:1) so the row is a tight, centered matchup cluster
     // rather than two half-width halves with empty outer margins.
     <Box
       {...pressable(onPick)}
@@ -342,7 +342,7 @@ function QuickPickRow({ game, prediction, gameVotes, onPick }: {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-      {/* 5-column grid: vote% · away (hugs centre) · @ · home (hugs centre) · vote%. */}
+      {/* 5-column grid: vote% · away (hugs center) · @ · home (hugs center) · vote%. */}
       <Box sx={{
         display: 'grid',
         gridTemplateColumns: `minmax(${chromePx(26)},auto) minmax(0,1fr) auto minmax(0,1fr) minmax(${chromePx(26)},auto)`,

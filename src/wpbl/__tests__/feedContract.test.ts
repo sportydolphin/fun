@@ -34,7 +34,7 @@ describe('the contract catches what the ingest would mirror quietly', () => {
     expect(fatal).toBeNull()
     expect(breaks).toHaveLength(1)
     expect(breaks[0]).toMatch(/^contract \/games game_type: .*"playoffs".*\(10 rows, e\.g\. /)
-    // Reported, not dropped: blanking the bracket would be worse than mislabelling it.
+    // Reported, not dropped: blanking the bracket would be worse than mislabeling it.
     expect(games).toHaveLength(body.games.length)
   })
 

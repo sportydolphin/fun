@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { wpblFeatureName, wpblNameStages } from '../ui'
 
-// The featured-row name rule (stat-leader cards + Hall of Firsts). Its interesting behaviour
+// The featured-row name rule (stat-leader cards + Hall of Firsts). Its interesting behavior
 // is the part that CAN'T be seen on the site today: every current WPBL name fits inside the
 // budget and passes through untouched, so the shortening stages only ever run for a future
 // signing. That's exactly what's worth pinning down here.

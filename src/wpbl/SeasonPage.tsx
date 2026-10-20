@@ -64,7 +64,7 @@ import {
 } from './seasonPage/pieces'
 // The page's reads, its arithmetic and its smaller pieces live in seasonPage/; this file is the page.
 
-/** A batter's side of the plate, from the roster's `bats`, normalised to one letter. Switch
+/** A batter's side of the plate, from the roster's `bats`, normalized to one letter. Switch
  *  hitters ('S') and unknowns fall outside the two toggle states and simply are not counted in
  *  either, the same way the per-batter spray chart leaves a switch hitter out of its pull rate. */
 const batSide = (bats: string | null | undefined): string => (bats ?? '').trim().toUpperCase()[0] ?? ''
@@ -512,7 +512,7 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
                 Every batted ball the league placed, by the hitter&rsquo;s side of the plate.
                 Right-handers pull to left field; the left-handed view is the mirror of it.
               </Typography>
-              {/* Right and left, not a single mixed chart: pull, centre and oppo are defined by
+              {/* Right and left, not a single mixed chart: pull, center and oppo are defined by
                   which box the batter stood in, so a league-wide chart is only readable one side
                   at a time. The toggle is the whole point of the visual. */}
               <Box sx={{ display: 'flex', gap: 0.5, mb: 1.5 }}>

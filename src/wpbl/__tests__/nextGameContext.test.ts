@@ -53,7 +53,7 @@ describe('Next game, in the regular season', () => {
   })
 
   // The guard the whole module leans on. `countsInStandings` counts anything it does not
-  // recognise, so a feed that renames its game types must leave this card exactly as it is
+  // recognize, so a feed that renames its game types must leave this card exactly as it is
   // rather than blanking the line or inventing a series.
   it('stays on the season series when nothing is marked postseason', () => {
     const g = { ...regular('2026-09-10', 'SF', 'LA'), status: 'scheduled', home_score: null, away_score: null } as WpblGame
@@ -97,7 +97,7 @@ describe('Next game, in the postseason', () => {
     expect(line).toBe('Series tied 1-1 · Winner takes the series')
   })
 
-  // A real four-club bracket, because the round is inferred rather than labelled: the
+  // A real four-club bracket, because the round is inferred rather than labeled: the
   // championship is the one pairing whose BOTH clubs appear in another pairing. A fixture
   // that puts one club in both semifinals collapses to two pairings and no championship,
   // which is a bug in the fixture and not in the reading.

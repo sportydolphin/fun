@@ -4,7 +4,7 @@
 // request on the same Supabase connection as the reads the page is waiting on, and each a separate
 // RLS-checked insert on the server. Held for a second, they go as one array insert.
 //
-// THE COST IS THE PAGE BEING LEFT INSIDE THAT SECOND, when an ordinary request is cancelled with
+// THE COST IS THE PAGE BEING LEFT INSIDE THAT SECOND, when an ordinary request is canceled with
 // it. So a hidden page or a `pagehide` flushes at once through `sendOnExit`, which must be a
 // request the browser lets outlive the page (a keepalive fetch, see analytics.ts). Kept free of
 // the supabase client so the timing can be tested: `track` itself returns early under Vitest.

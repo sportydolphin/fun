@@ -64,7 +64,7 @@ describe('paDecomposition', () => {
     ['KBSP', 'a mixed at-bat'],
     ['H', 'a hit by pitch'],
     ['BSFB', 'a sequence with no terminal pitch'],
-    ['BXP', 'an unrecognised letter'],
+    ['BXP', 'an unrecognized letter'],
   ])('sums to the plate appearance minus 0-0: %s (%s)', seq => {
     const paValue = 0.42
     const parts = paDecomposition(seq, paValue, at)
@@ -80,7 +80,7 @@ describe('paDecomposition', () => {
     expect(k[2].terminal).toBe(true)
   })
 
-  it('does not advance the count on an unrecognised letter', () => {
+  it('does not advance the count on an unrecognized letter', () => {
     const parts = paDecomposition('XBP', 0.1, at)
     // X is skipped entirely rather than priced, so the ball is still thrown in 0-0.
     expect(parts.map(p => p.kind)).toEqual(['ball', 'inplay'])

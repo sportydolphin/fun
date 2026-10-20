@@ -7,7 +7,7 @@
 // matching rules further down are shared, because a player named in a post is named the same
 // way whoever wrote it.
 //
-// Pure and testable on purpose. Everything here is a judgement call about someone else's
+// Pure and testable on purpose. Everything here is a judgment call about someone else's
 // prose, and every one of those calls is wrong occasionally: a name that is also a common
 // word, a city that is a tournament venue rather than a club, a headline score that belongs
 // to a different game. The bias throughout is towards saying nothing. A post that fails to
@@ -20,7 +20,7 @@ import type { WpblGame, WpblPlayer, WpblTeam } from '../types.ts'
 
 /** Substack rejects a `limit` above 50, so both endpoints below are read a page at a time.
  *  She is under fifty posts today, but the job should not quietly start losing her back
- *  catalogue on the day she passes it. */
+ *  catalog on the day she passes it. */
 export const ARCHIVE_PAGE_SIZE = 50
 
 // ─── Publications ───────────────────────────────────────────────────────────────
@@ -74,7 +74,7 @@ export const SOURCES: readonly SubstackSource[] = [
     authorUserId: 318677984,
     authorName: 'D.A. Espinoza',
     publicationName: 'The Rising Fastball',
-    // The byline bio is third person and carries an em dash, so it is summarised here rather
+    // The byline bio is third person and carries an em dash, so it is summarized here rather
     // than quoted: no "I" to misattribute, and our copy keeps to the house punctuation.
     bio: "Covers women's baseball worldwide: the WPBL, Japan's Venus League and beyond.",
     bioIsQuote: false,
@@ -171,7 +171,7 @@ const WORLD_CUP_TAG = "women's baseball world cup"
  * ("The Women's Baseball World Cup Group Stages are set") and it is a World Cup post that
  * happens to mention the league, so the inclusive reading of the WPBL tag lets exactly the
  * wrong thing through. Untagged posts are excluded too: every post in the archive carries
- * at least one tag today, so an untagged one is new behaviour worth a look rather than a
+ * at least one tag today, so an untagged one is new behavior worth a look rather than a
  * guess.
  */
 export function isWpblPost(tags: readonly string[]): boolean {
@@ -364,7 +364,7 @@ export function parseFeed(xml: string): FeedPost[] {
 // ─── Entity matching ────────────────────────────────────────────────────────────
 
 // Curly apostrophes, accents and casing all differ between her prose and our roster rows,
-// and any one of them silently costs a match. Normalise both sides the same way once.
+// and any one of them silently costs a match. Normalize both sides the same way once.
 function normalize(s: string): string {
   return s
     // Decompose, then drop the combining marks, so "Geldenhuís" and "Geldenhuis" agree.

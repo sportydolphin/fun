@@ -15,7 +15,7 @@ export interface RankMark { n: number; tied: boolean }
  *  it runs left into the name cell's padding rather than widening the rank column, which would take
  *  the room from the names on a phone. */
 export function RankText({ rank }: { rank: RankMark }) {
-  // Centred on the number rather than sitting on its baseline: the smaller "T-" set on the same
+  // Centered on the number rather than sitting on its baseline: the smaller "T-" set on the same
   // line hangs at the top of it in a flex parent and reads as a superscript.
   return (
     <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center' }}>

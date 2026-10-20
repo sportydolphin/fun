@@ -58,7 +58,7 @@ describe('WpblBottomNav optimistic selection', () => {
     expect(onChange).toHaveBeenCalledTimes(2)
   })
 
-  it('ignores a tap on the tab already being travelled to', () => {
+  it('ignores a tap on the tab already being traveled to', () => {
     const onChange = vi.fn()
     render(<WpblBottomNav items={ITEMS} value="home" onChange={onChange} />)
 

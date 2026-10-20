@@ -180,7 +180,7 @@ export function PlayValueCard({ rows, accent, onSeeMethod }: {
             }}>
               {/* THE BAR GETS THE WHOLE ROW, and that is a phone measurement rather than a
               taste. Beside a reserved 88px number column the track is 213px of a 309px card,
-              and a bar drawn from the centre spends half of whatever it is given, so the entire
+              and a bar drawn from the center spends half of whatever it is given, so the entire
               chart lives in 106px on a 375px screen: sixteen plays separated by a few pixels
               each, which is a decoration rather than a reading. Full width is 309px of track and
               154px of swing, and the same change is worth 380px on the desktop card. The number
@@ -195,7 +195,7 @@ export function PlayValueCard({ rows, accent, onSeeMethod }: {
                   {fmtRunValue(r.per, 2)}
                 </Typography>
               </Box>
-              {/* The bar is the reading, the number is the check. Drawn from the centre so
+              {/* The bar is the reading, the number is the check. Drawn from the center so
                   the sign is a direction rather than a minus sign to notice. */}
               <Box sx={{ position: 'relative', height: 6, bgcolor: 'action.hover', borderRadius: 3 }}>
                 <Box sx={{
@@ -204,11 +204,11 @@ export function PlayValueCard({ rows, accent, onSeeMethod }: {
                   width: `${Math.abs(r.per) / widest * 50}%`,
                   bgcolor: good ? accent : 'text.disabled',
                 }} />
-                {/* NO ZERO LINE. Every bar in the list starts at the centre, so the shared edge
+                {/* NO ZERO LINE. Every bar in the list starts at the center, so the shared edge
                 running down all fifteen rows already IS the axis, and a tick drawn on top of it
-                either cuts the fill in half or paints in the card's own colour and disappears.
+                either cuts the fill in half or paints in the card's own color and disappears.
                 Which side of zero a row sits on is said three ways over: the direction it grows,
-                its colour, and its number. */}
+                its color, and its number. */}
               </Box>
             </Box>
           )

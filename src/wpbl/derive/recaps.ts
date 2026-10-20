@@ -4,7 +4,7 @@
  * They write one recap per WPBL game and gave us explicit permission to link to them. What this
  * module does is the only hard part of that: their posts carry no game id, no date field beyond
  * a publication timestamp, and a headline written for a reader rather than for us. Deciding
- * which of our games a given headline is about is a judgement call, and this is where every
+ * which of our games a given headline is about is a judgment call, and this is where every
  * one of those calls lives, pure and testable.
  *
  * WHAT WE KEEP IS A LINK. A headline, their picture, the date, their name. The feed offers the
@@ -26,7 +26,7 @@ export const FEED_URL = 'https://thisiswomensbaseball.com/f.rss'
  * The feed stops at 50 items and ignores `?page=`, `?limit=` and `?offset=` alike, so it is a
  * window rather than an archive: it covers a season's recaps only until fifty newer posts push
  * them out. Nothing reads this yet, and it is here so that the day the window closes over the
- * back catalogue, the fix is known.
+ * back catalog, the fix is known.
  * @public kept unread on purpose, for the reason above.
  */
 export const SITEMAP_URL = 'https://thisiswomensbaseball.com/sitemap.blog.xml'
@@ -176,7 +176,7 @@ export function scoreNamed(title: string): [number, number] | null {
 const sameScore = (a: [number, number] | null, b: [number, number] | null): boolean =>
   !!a && !!b && a[0] === b[0] && a[1] === b[1]
 
-/** How a recap was placed. Stored, because these are judgement calls about someone else's
+/** How a recap was placed. Stored, because these are judgment calls about someone else's
  *  headline and the day one is wrong the first question is which rule made it. */
 export type RecapMatchKind =
   | 'both clubs' | 'clubs+score' | 'club played once' | 'one club+score'

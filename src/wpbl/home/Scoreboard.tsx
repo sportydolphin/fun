@@ -195,7 +195,7 @@ type StripItem =
   | { kind: 'post'; id: string; row: PostseasonScheduleRow }
 
 /** Exported for `scoreboardStrip.test.tsx`, which pins which fixtures reach the strip. Same
- *  reason `NextPostseasonCard` is: what these two choose to show is a judgement about what is
+ *  reason `NextPostseasonCard` is: what these two choose to show is a judgment about what is
  *  true, and neither failure is visible from a render that happens to look fine. */
 export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>
@@ -405,7 +405,7 @@ export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup
           Home that is not a SectionCard, so without it a screen reader could not jump here.
 
           READ BUT NOT DRAWN ON A PHONE, for the reason the page's `h1` is (see the note there): a
-          row of tiles, each with a date, two clubs and their scores, is already recognisably a
+          row of tiles, each with a date, two clubs and their scores, is already recognizably a
           scoreboard, and the word costs room above the first card. It stays in the DOM and the
           accessibility tree, which is what the heading is for. Drawn from `sm` up, where the page
           is a grid rather than a scroll and section headings tell the two columns apart. */}

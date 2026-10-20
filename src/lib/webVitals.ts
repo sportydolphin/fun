@@ -11,7 +11,7 @@ import type { CLSMetricWithAttribution, MetricWithAttribution } from 'web-vitals
 //
 // ONE EVENT, SENT AS THE PAGE IS LEFT OR HIDDEN. That is when largest paint, layout shift and
 // responsiveness are final, and one row per load (not five) keeps the table's growth to a single
-// extra row per visit. Sent with `trackOnExit`, since a normal request is cancelled with the page.
+// extra row per visit. Sent with `trackOnExit`, since a normal request is canceled with the page.
 //
 // OFF THE CRITICAL PATH. The library is imported after the page's `load` event. It reads the
 // browser's buffered performance entries, so registering late still sees first paint, largest

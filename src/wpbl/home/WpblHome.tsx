@@ -438,7 +438,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           </Typography>
         </Box>
         {/* Team chips: badge + abbreviation in a tappable pill so they read as controls (not
-            decoration) on touch, where there's no hover. Ring adopts the club colour on hover,
+            decoration) on touch, where there's no hover. Ring adopts the club color on hover,
             and a press-scale gives tactile feedback. Each jumps to that team's page. Hidden on
             mobile: the chips are redundant there with the full Teams tab a swipe away. */}
         <Box sx={{ display: { xs: 'none', sm: 'flex' }, flexWrap: 'wrap', gap: 0.75, flexShrink: 0 }}>
@@ -483,7 +483,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
         <NewTrackingBanner count={newTrackingCount} onView={viewTracking} onDismiss={ackTracking} />
       )}
 
-      {/* Live game hero: the one in-progress game, front and centre */}
+      {/* Live game hero: the one in-progress game, front and center */}
       {liveGame && <LiveHero game={liveGame} teams={teams} players={players} onOpen={() => onOpenGame(liveGame)} />}
 
       {/* Scoreboard. The postseason rows come from the calendar the league published, and each

@@ -21,7 +21,7 @@ describe('createEventQueue', () => {
     expect(send).toHaveBeenCalledTimes(2)
   })
 
-  // A page left inside the hold would lose the burst to a cancelled request.
+  // A page left inside the hold would lose the burst to a canceled request.
   it('sends what it holds on exit, with the exit row, and nothing twice', () => {
     vi.useFakeTimers()
     const send = vi.fn(), exit = vi.fn()

@@ -47,7 +47,7 @@ describe('who owns the page heading', () => {
 
 // A tab title is the only thing at the top of a phone saying which page this is: the section nav
 // there is the bottom bar. Hiding it on a phone (as every title once did, while the phone's tabs
-// were a pill row at the top naming the page) leaves the phone opening onto unlabelled content,
+// were a pill row at the top naming the page) leaves the phone opening onto unlabeled content,
 // and it renders fine on a desktop, so only this catches it coming back.
 describe('every tab title is drawn on a phone', () => {
   const TAB_TITLE_FILES = [
@@ -68,7 +68,7 @@ describe('every tab title is drawn on a phone', () => {
   })
 
   it("Home's title, which is not a TabTitle, spreads nothing that hides it either", () => {
-    // Line endings normalised, so a Windows checkout (CRLF) reads the file the way the search expects.
+    // Line endings normalized, so a Windows checkout (CRLF) reads the file the way the search expects.
     const src = readFileSync('src/wpbl/home/WpblHome.tsx', 'utf8').replace(/\r\n/g, '\n')
     const at = src.indexOf("Women's Pro Baseball League\n          </Typography>")
     expect(at).toBeGreaterThan(-1)

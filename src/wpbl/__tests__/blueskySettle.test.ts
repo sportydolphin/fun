@@ -15,7 +15,7 @@ describe('isSettled', () => {
     expect(isSettled({ source_updated_at: minsAgo(46) }, null, SETTLE, NOW)).toBe(true)
   })
 
-  it('holds a game the league only just finalised', () => {
+  it('holds a game the league only just finalized', () => {
     expect(isSettled({ source_updated_at: minsAgo(44) }, null, SETTLE, NOW)).toBe(false)
   })
 

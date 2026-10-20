@@ -62,12 +62,12 @@ describe('a shared MLB player link', () => {
     expect(card.description).toBe('Stats, game log, splits and career for the Seattle Mariners on sportydolphin.fun.')
   })
 
-  it('points og:image at a 1200x630 headshot on the club colour', () => {
+  it('points og:image at a 1200x630 headshot on the club color', () => {
     const url = mlbPlayerImage(663728, 136)
     expect(url).toContain('w_1200,h_630,c_pad')
     expect(url).toMatch(/b_rgb:[0-9a-f]{6},/i)
     expect(url).toContain('/people/663728/headshot/silo/current')
-    // No club (a free agent): a fixed navy rather than an invalid colour, which the CDN would refuse.
+    // No club (a free agent): a fixed navy rather than an invalid color, which the CDN would refuse.
     expect(mlbPlayerImage(1, undefined)).toContain('b_rgb:0E2340,')
   })
 })

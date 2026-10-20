@@ -23,7 +23,7 @@ const AXIS_SX = {
 // one piece of structure the audience arrives with. Balls down, strikes across: 3-0 is bottom
 // left, 0-2 is top right, and the diagonal between them reads as the thing it actually is.
 //
-// THE COLOUR IS THE VALUE AND SO IS THE NUMBER. This has to survive being read by someone who
+// THE COLOR IS THE VALUE AND SO IS THE NUMBER. This has to survive being read by someone who
 // cannot separate red from green and by someone printing it in grey, and a hot-cold grid with
 // the figures taken out is exactly the chart that does not. Hue carries the sign, opacity
 // carries the size, and the figure under them carries both.
@@ -106,7 +106,7 @@ export default function CountBoard({ counts, fullCount, accent }: {
                 }
                 // THE FILL FADES, NOT THE CELL. This was `opacity` on the whole cell, which faded the
                 // white figures with it: the palest cells measured 1.4:1. Mixed into the card's own
-                // colour instead, and inked white or near-black by what that fill actually is.
+                // color instead, and inked white or near-black by what that fill actually is.
                 const { fill, ink } = heatCell(mixHex(c.per >= 0 ? accent : neg, card, 0.25 + 0.75 * (Math.abs(c.per) / span)))
                 return (
                   <Box key={st} sx={{

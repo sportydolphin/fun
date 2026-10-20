@@ -4,7 +4,7 @@ import { canonicalFeedName, matchFeedName } from '../feedNames'
 // The seven the league's play log and live situation spell differently from the roster, read
 // off wpbl_game_plays on Sep 10, 2026. Every one is a real player, and every one lost her
 // headshot, her statline and her link for as long as the match was exact-only: the portrait
-// lookup is BY NAME, so an unmatched spelling draws initials on a coloured circle, which is
+// lookup is BY NAME, so an unmatched spelling draws initials on a colored circle, which is
 // indistinguishable from a player the site has no photo of.
 const FEED_SPELLINGS: ReadonlyArray<readonly [string, string]> = [
   ['Val Perez', 'Valerie Perez'],

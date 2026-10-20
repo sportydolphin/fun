@@ -115,7 +115,7 @@ export function ComparePreviewCard({ batSeasons, qual, teams, players, loading }
   const statRow = (label: string, aText: string, bText: string, leadA: boolean, leadB: boolean) => {
     // Each value cell GROWS to a full column (Stathead shades the whole column, not a chip round
     // the glyph), so the two numbers use the card's width instead of huddling in a capped strip
-    // with margins either side. The label sits at its natural width between them, centred.
+    // with margins either side. The label sits at its natural width between them, centered.
     const valCell = (text: string, lead: boolean) => (
       <Box sx={{
         flex: 1, minWidth: 0, alignSelf: 'stretch', borderRadius: 1,

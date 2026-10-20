@@ -34,7 +34,7 @@ export interface WpblPlayerLinkProps {
   component?: 'a'
   href?: string
   onClick?: (e: React.MouseEvent) => void
-  /** Anchors carry a default underline and link colour; every call site here paints its own.
+  /** Anchors carry a default underline and link color; every call site here paints its own.
    *  Inline rather than in `sx`, so a call site's own `sx` cannot silently drop it. */
   style?: React.CSSProperties
 }
@@ -116,20 +116,20 @@ function useLinkFor<T>(pick: (v: LinkContextValue) => LinkFor<T>): LinkFor<T> {
 }
 
 /**
- * Recolour a spread from `gameLink` / `playerLink` / `teamLink`.
+ * Recolor a spread from `gameLink` / `playerLink` / `teamLink`.
  *
  * WHY THIS EXISTS AND `sx` DOES NOT WORK. `build` hands back an inline `style` carrying
  * `color: 'inherit'`, and it has to: the props make a real `<a>`, and the UA stylesheet's
- * link colour beats an inherited one, so without it every crawlable link in the section
+ * link color beats an inherited one, so without it every crawlable link in the section
  * would come out browser-blue. But an inline style also beats the class `sx` compiles to,
- * so a call site that spreads the link props and then asks for a colour in `sx` is silently
+ * so a call site that spreads the link props and then asks for a color in `sx` is silently
  * overruled. Last Game's "Full recap" did exactly that for as long as it has been an anchor:
  * it rendered in body text beside "Full board" and "View all" in the accent, same header
  * slot, same size, same weight. Nothing warns, and the `sx` reads as if it worked.
  *
  * Props with no `style` are the pre-data case, where the element is a plain onClick and not
- * a link at all. Those are returned untouched so the call site's own `sx` colour still
- * applies, which is why every caller should keep it as well as passing a colour here.
+ * a link at all. Those are returned untouched so the call site's own `sx` color still
+ * applies, which is why every caller should keep it as well as passing a color here.
  */
 export function linkColor(props: WpblPlayerLinkProps, color: string): WpblPlayerLinkProps {
   return props.style ? { ...props, style: { ...props.style, color } } : props

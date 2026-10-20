@@ -91,7 +91,7 @@ function FixtureLine({ fixture }: { fixture: Fixture }) {
       </Typography>
       <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', flexShrink: 0 }}>{home ? 'vs' : '@'}</Typography>
       {opp && <TeamBadge team={opp} size={16} />}
-      {/* The abbreviation as well as the badge. A 16px logo is a colour, not an identifier:
+      {/* The abbreviation as well as the badge. A 16px logo is a color, not an identifier:
           two of the four crests are a dark disc with a monogram at that size. */}
       {opp && (
         <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.2), color: 'text.secondary', flexShrink: 0 }}>
@@ -139,14 +139,14 @@ function TeamCard({ row, rank, ranked, fixture, onOpen }: {
       display: 'flex', flexDirection: 'column', gap: 0.9,
       p: 1.5, pl: 1.25, cursor: 'pointer',
       borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
-      // The club's colour, permanently, rather than only on hover. Four cards of identical
+      // The club's color, permanently, rather than only on hover. Four cards of identical
       // chrome is what made the old grid read as a list of links. Hover still lifts the whole
-      // hairline to the same colour, so the two states are one idea at two strengths.
+      // hairline to the same color, so the two states are one idea at two strengths.
       borderLeft: '3px solid', borderLeftColor: accent,
       bgcolor: CARD_FILL,
       transition: 'border-color 0.15s',
       // On a phone a bare :hover latches on tap, so the card a reader opened stayed ringed in
-      // its club colour behind them, reading as selected rather than as opened.
+      // its club color behind them, reading as selected rather than as opened.
       ...hoverOnly({ borderColor: edge(accent) }),
     }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>

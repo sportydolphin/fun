@@ -121,7 +121,7 @@ describe('reporting an error screen', () => {
     expect(track).toHaveBeenCalledWith('app_error', { kind: 'crash', where: 'tab', message: 'bad /api/x here', build: null })
   })
 
-  // Every reader crash Oct 13 to 15, 2026: the preloadError listener cancelled the chunk error and
+  // Every reader crash Oct 13 to 15, 2026: the preloadError listener canceled the chunk error and
   // started the reload, so Vite resolved the import with undefined and lazy() threw on `.default`.
   it('waits out a reload already under way instead of reporting what lazy() throws meanwhile', () => {
     installStaleBuildRecovery()
