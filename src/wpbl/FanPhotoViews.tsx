@@ -5,7 +5,8 @@ import { fanPhotoTeamName, type FanPhotoWithSubjects, type FanPhotoIndex } from 
 import { SectionHead } from './cardParts'
 import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers, getCachedWpblFanPhotoIndex, getCachedWpblAllPlayers, FAN_PHOTOS_CHANGED_EVENT } from './api'
 import type { WpblPlayer } from './types'
-import { WPBL_PHOTOS_PAGE } from './routes'
+import { WPBL_PHOTOS_PAGE, WPBL_PHOTO_TAG_PAGE } from './routes'
+import { photoTagQueueOpen } from './api/photoTagging'
 import { useCanEditFanPhotos } from './fanPhotoGate'
 import { linkTo } from '../nav'
 import { devFanPhotosOn, DEV_FAN_PHOTOS_EVENT, mockFanPhotos } from './dev/devFanPhotos'
@@ -126,6 +127,34 @@ export function FanPhotoSubmitNote({ variant }: { variant: 'line' | 'block' }) {
       <Typography sx={{ fontSize: TYPE_SCALE.body, mt: 0.75, lineHeight: 1.5 }}>
         {link(`Email ${CONTACT_EMAIL}`)}
       </Typography>
+    </Box>
+  )
+}
+
+/**
+ * The way into naming who is in the photos (/wpbl/photos/tag), drawn only while the public queue
+ * holds something. It sits at the foot of the gallery, under the grid, so arriving late moves
+ * nothing anyone is looking at; and with nothing open (every day until the owner opens a batch) it
+ * draws nothing at all. See docs/PHOTO_TAGGING.md.
+ */
+export function FanPhotoTagInvite() {
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    let live = true
+    photoTagQueueOpen().then(v => { if (live) setOpen(v) })
+    return () => { live = false }
+  }, [])
+  if (!open) return null
+  return (
+    <Box sx={{ mt: 3, p: { xs: 1.75, sm: 2 }, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800 }}>Who's in these photos?</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 0.5, lineHeight: 1.5 }}>
+        Fans sent in more photos than we can name ourselves. If you know the players, help put names to
+        them. No account needed.
+      </Typography>
+      <Box component="a" {...linkTo(WPBL_PHOTO_TAG_PAGE)} sx={{ ...CARD_LINK_SX, display: 'inline-block', mt: 0.75, fontSize: TYPE_SCALE.body }}>
+        Help name the photos
+      </Box>
     </Box>
   )
 }

@@ -1,8 +1,60 @@
 # Public photo tagging: anyone names who is in a fan photo
 
-**A plan, not built** (Oct 16, 2026). Written as a plan of record first, like
-[`FAN_PHOTOS.md`](FAN_PHOTOS.md), so the reasoning reads as a design argued through. Read that file
-first: this one extends its tables and inherits its traps.
+**Built Oct 20, 2026, not launched.** The plan below is from Oct 16; "As built" says where the
+build differs and what launching takes. Read [`FAN_PHOTOS.md`](FAN_PHOTOS.md) first: this extends
+its tables and inherits its traps.
+
+## As built
+
+- **The migration** is
+  [`20261020200000_public_photo_tagging.sql`](../scripts/migrations/20261020200000_public_photo_tagging.sql).
+  It was verified against the live database inside a transaction that was rolled back (44 checks
+  as `anon`, nothing persisted); it is **not applied**. The functions return a word (`ok`,
+  `closed`, `invalid`, `limited`) rather than a boolean, so the page can say what happened.
+- **Limits key on the caller's address as well as the key.** A per-browser key is free to mint
+  again, so the plan's "each key is capped" stops nobody determined. Each request's address
+  (`cf-connecting-ip`, set by Cloudflare in front of Supabase, so a client cannot claim one) is
+  stored only as a salted SHA-256 (`wpbl_photo_tag_secret`, readable by nothing but the definer
+  functions). The limits: 10 suggestions per photo per key and 20 per photo per address; 300 an
+  hour per key and 600 per address; 5,000 an hour across the whole site; 10 reports a day per key
+  and per address. Over a limit nothing is recorded and the page says so.
+- **Agreement counts distinct addresses**, so a private window adds no vote. The owner sees
+  "×2" only when two connections agree.
+- **Blocks** (`wpbl_photo_tag_blocks`, by key or by address hash), from the owner's suggester
+  table. A blocked caller is told the call worked and nothing is stored, so there is nothing to
+  rotate on. Blocking also rejects whatever that caller had waiting.
+- **The picker is a search box over the closed list, not MUI Autocomplete**, on the fan-award
+  ballot's pattern (`searchPlayers`, which also answers a jersey number: "#7"), with club chips that
+  list a roster, a "whole club" option for team photos and the reader's recent picks. The actions
+  sit above the list so a long roster never pushes them away.
+- **The owner's side** is [`AdminPhotoTagging.tsx`](../src/wpbl/AdminPhotoTagging.tsx), mounted in
+  `AdminPhotos.tsx`: an Open toggle on every photo (behind a confirm, since opening is publishing
+  the image), "Open shown for tagging" over the current filters, suggestions as dashed chips with
+  ✓ and ✕, a reported banner with Resolve, the filters Open / Has suggestions / Reported, the sort
+  "most agreed", "Accept all with 2+ agreeing", and a table of browsers with their accept rate.
+  Accepting tags the subject FIRST and marks the suggestions after, so a failed write never reads
+  as accepted. Its reads fail soft to empty, so `/admin` works before the migration is applied.
+- **The way in** is a card at the foot of `/wpbl/photos`, drawn only while the queue holds a photo
+  (`FanPhotoTagInvite`). It draws nothing today, and nothing before the migration either.
+- **Seen and swept without the database:** `?devTagQueue` (dev only,
+  [`devPhotoTagging.ts`](../src/wpbl/dev/devPhotoTagging.ts)) serves the published photos as a
+  fake queue, `?devTagQueue=limited` answers every send "limited". The layout sweep runs the page
+  that way, and pins the browser key (it rides in the queue call's body, which is part of a
+  recorded request's key).
+- **Privacy and terms** each gained a paragraph (what is stored, that a suggestion is not a tag,
+  how to report), dated Oct 20, 2026.
+
+### Launching
+
+1. `npm run migrate` (applies the migration; nothing reads the new functions until a photo is open).
+2. After the first real suggestion, check that addresses are being hashed:
+   `select count(*), count(distinct ip_hash), count(ip_hash) from wpbl_photo_tag_suggestions`.
+   A null `ip_hash` on rows that came through the site means the header assumption is wrong and
+   the address limits are not running; the key limits and the global ceiling still are.
+3. Merge the branch (CI's `check` and `layout`).
+4. Answer the open question on 1221 Photography's permission, screen the batch, then open it from
+   `/admin` (filters: To review, Untagged, the photographer; then "Open shown for tagging").
+5. A changelog entry, the ROADMAP-WPBL entry, and the promotion (Discord, Bluesky).
 
 ## What the queue actually is
 
@@ -178,7 +230,8 @@ Analytics events: page opened, picks submitted, skipped, reported, queue finishe
 
 Nothing goes public without the owner. There is no free text. Each key is capped and repeats are
 ignored. A report pulls a photo at once. Junk clears in one action per key. The realistic worst
-case is noise in a review queue.
+case is noise in a review queue. (As built, the caps also key on a salted hash of the caller's
+address, with a site-wide ceiling and blocks: see "As built".)
 
 Terms and `/wpbl/sources` need a line on fan-suggested tags and how to report a photo, which also
 closes the takedown gap FAN_PHOTOS.md lists under "The two parts that are not code".

@@ -8,8 +8,9 @@ import {
   fetchWpblFanPhotoQueue, fetchWpblAllPlayers, fetchWpblTeams, invalidateWpblFanPhotos,
   setFanPhotoApproved, updateFanPhoto, addFanPhotoSubject, removeFanPhotoSubject, upsertFanPhotoFigure, upsertFanPhotoCategory,
   fetchFanPhotoContributors, createFanPhotoContributor, updateFanPhotoContributor, findFanPhotoBySha, insertFanPhoto,
-  type WpblFanPhotoRow,
+  setOpenForTagging, type WpblFanPhotoRow,
 } from './api'
+import { TagReviewProvider, useTagReview, useTagReviewContext, SuggestionChips, PhotoTaggingSection } from './AdminPhotoTagging'
 import { prepareForUpload, uploadPreparedPhoto } from './fanPhotoUpload'
 
 // The crop library and its stylesheet load only when Crop is pressed.
@@ -382,6 +383,7 @@ function TagFields({ photo, subjects, lookups, runner, recent, onPicked }: {
 
   return (
     <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.8 }}>
+      <SuggestionChips photoId={photo.id} subjects={subjects} players={players} figures={figures} teams={teams} busy={busy} run={run} />
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
         {subjects.length === 0 && (
           <Typography sx={{ fontSize: '0.7rem', color: 'warning.main', fontWeight: 700 }}>
@@ -442,6 +444,29 @@ function TagFields({ photo, subjects, lookups, runner, recent, onPicked }: {
         onSave={v => run(() => updateFanPhoto(photo.id, { caption: v }))} />
 
       <PhotographerField photo={photo} lookups={lookups} runner={runner} />
+
+      <OpenForTaggingToggle photo={photo} runner={runner} />
+    </Box>
+  )
+}
+
+// Whether strangers can see this photo at /wpbl/photos/tag and suggest who is in it. Opening is, in
+// effect, publishing the image (the queue hands its URL to anyone), so the label says so; the screen
+// before it is the screen before Publish (docs/FAN_PHOTOS.md: crowds, children, the photographer's
+// permission). A photo leaves the public queue by itself once it has a subject or a category.
+const OPEN_WARNING = 'Anyone can then see it (unpublished) and suggest names. Screen it first: no clear foreground strangers or children, and the photographer agreed to it.'
+
+function OpenForTaggingToggle({ photo, runner }: { photo: WpblFanPhotoRow; runner: Runner }) {
+  const { review, reload } = useTagReviewContext()
+  const open = review.open.has(photo.id)
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexWrap: 'wrap' }}>
+      <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.secondary', mr: 0.2 }}>Public tagging</Typography>
+      <Chip label={open ? 'Open to anyone' : 'Closed'} active={open} onClick={() => {
+        if (runner.busy) return
+        if (!open && !window.confirm(`Open this photo for public tagging? ${OPEN_WARNING}`)) return
+        runner.run(async () => { await setOpenForTagging([photo.id], !open); await reload() })
+      }} />
     </Box>
   )
 }
@@ -886,7 +911,10 @@ export function FanPhotoEditor({ photoId, onClose }: { photoId: string; onClose:
     photos: WpblFanPhotoRow[]; subjects: WpblPhotoSubject[]; figures: WpblPhotoFigure[]
     categories: WpblPhotoCategory[]; players: WpblPlayer[]; teams: WpblTeam[]; contributors: WpblPhotoContributor[]
   } | null>(null)
+  const [version, setVersion] = useState(0)
+  const tagReview = useTagReview(version)
   const load = useCallback(() => {
+    setVersion(v => v + 1)
     Promise.all([fetchWpblFanPhotoQueue(), fetchWpblAllPlayers(), fetchWpblTeams(), fetchFanPhotoContributors()])
       .then(([q, players, teams, contributors]) => setData({ ...q, players, teams, contributors }))
   }, [])
@@ -917,8 +945,10 @@ export function FanPhotoEditor({ photoId, onClose }: { photoId: string; onClose:
     )
   }
   return (
-    <TagMode ids={[photoId]} start={0} photos={data.photos} subjectsByPhoto={subjectsByPhoto}
-      lookups={lookups} onChange={load} onClose={close} />
+    <TagReviewProvider value={tagReview}>
+      <TagMode ids={[photoId]} start={0} photos={data.photos} subjectsByPhoto={subjectsByPhoto}
+        lookups={lookups} onChange={load} onClose={close} />
+    </TagReviewProvider>
   )
 }
 
@@ -949,10 +979,14 @@ export default function AdminPhotos() {
   // '*' is every photographer; '' is photos with no contributor record.
   const [photographerFilter, setPhotographerFilter] = useState<string>('*')
   const [tagFilter, setTagFilter] = useState<'any' | 'untagged' | 'tagged'>('any')
-  const [sort, setSort] = useState<'queue' | 'newest' | 'oldest' | 'photographer' | 'least-tagged'>('queue')
+  const [sort, setSort] = useState<'queue' | 'newest' | 'oldest' | 'photographer' | 'least-tagged' | 'most-agreed'>('queue')
   const [tagging, setTagging] = useState<{ ids: string[]; start: number } | null>(null)
+  const [reviewFilter, setReviewFilter] = useState<'any' | 'open' | 'suggested' | 'reported'>('any')
+  const [version, setVersion] = useState(0)
+  const tagReview = useTagReview(version)
 
   const load = useCallback(() => {
+    setVersion(v => v + 1)
     setLoading(true)
     Promise.all([fetchWpblFanPhotoQueue(), fetchWpblAllPlayers(), fetchWpblTeams(), fetchFanPhotoContributors()]).then(([q, pl, tm, cs]) => {
       setPhotos(q.photos); setSubjects(q.subjects); setFigures(q.figures); setCategories(q.categories); setPlayers(pl); setTeams(tm)
@@ -985,6 +1019,7 @@ export default function AdminPhotos() {
     && (categoryFilter === '*' || (p.category_key ?? '') === categoryFilter))
   // Untagged means nothing says what the photo is: no subject and no category. A fan sign in the
   // Fan Sign category has nobody to tag and is done.
+  const mostAgreed = (p: WpblFanPhotoRow) => tagReview.groups.get(p.id)?.[0]?.agree ?? 0
   const isTagged = (p: WpblFanPhotoRow) => (subjectsByPhoto.get(p.id)?.length ?? 0) > 0 || p.category_key != null
   const byPhotographer = new Map<string, number>()
   for (const p of inPlay) byPhotographer.set(p.contributor_id ?? '', (byPhotographer.get(p.contributor_id ?? '') ?? 0) + 1)
@@ -992,20 +1027,37 @@ export default function AdminPhotos() {
   // No credit sorts after every name, rather than first as an empty string would.
   const byCredit = (a: WpblFanPhotoRow, b: WpblFanPhotoRow) =>
     !a.credit || !b.credit ? Number(!a.credit) - Number(!b.credit) : a.credit.localeCompare(b.credit)
+  const inReview = (p: WpblFanPhotoRow) =>
+    reviewFilter === 'any' ? true
+    : reviewFilter === 'open' ? tagReview.review.open.has(p.id)
+    : reviewFilter === 'suggested' ? (tagReview.groups.get(p.id)?.length ?? 0) > 0
+    : tagReview.openReports.has(p.id)
   const shown = inPlay
     .filter(p => (photographerFilter === '*' || (p.contributor_id ?? '') === photographerFilter)
-      && (tagFilter === 'any' || (tagFilter === 'tagged') === isTagged(p)))
+      && (tagFilter === 'any' || (tagFilter === 'tagged') === isTagged(p))
+      && inReview(p))
     .sort((a, b) =>
       sort === 'newest' ? b.created_at.localeCompare(a.created_at)
       : sort === 'oldest' ? a.created_at.localeCompare(b.created_at)
       : sort === 'photographer' ? byCredit(a, b) || b.created_at.localeCompare(a.created_at)
       : sort === 'least-tagged' ? (subjectsByPhoto.get(a.id)?.length ?? 0) - (subjectsByPhoto.get(b.id)?.length ?? 0)
+      : sort === 'most-agreed' ? mostAgreed(b) - mostAgreed(a)
       : 0)
+  // Bulk open or close over exactly what the filters show, so a screened set (To review, Untagged,
+  // one photographer) opens in one action.
+  const bulkOpen = async (open: boolean) => {
+    const ids = shown.map(p => p.id)
+    if (ids.length === 0) return
+    if (open && !window.confirm(`Open ${ids.length} photos for public tagging? ${OPEN_WARNING}`)) return
+    await setOpenForTagging(ids, open)
+    load()
+  }
   const lookups = useMemo<Lookups>(() => ({ players: playersById, figures: figuresByKey, teams, categories, contributors }),
     [playersById, figuresByKey, teams, categories, contributors])
   const openTagMode = (start: number) => setTagging({ ids: shown.map(p => p.id), start })
 
   return (
+    <TagReviewProvider value={tagReview}>
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mb: 1.5, flexWrap: 'wrap' }}>
         {FILTERS.map(f => (
@@ -1040,11 +1092,24 @@ export default function AdminPhotos() {
           { value: 'oldest', label: 'Sort: oldest added' },
           { value: 'photographer', label: 'Sort: photographer' },
           { value: 'least-tagged', label: 'Sort: fewest tags' },
+          { value: 'most-agreed', label: 'Sort: most agreed suggestion' },
+        ]} />
+        <FilterSelect value={reviewFilter} onChange={v => setReviewFilter(v as typeof reviewFilter)} options={[
+          { value: 'any', label: 'Public tagging: any' },
+          { value: 'open', label: `Open for tagging (${tagReview.review.open.size})` },
+          { value: 'suggested', label: `Has suggestions (${tagReview.groups.size})` },
+          { value: 'reported', label: `Reported (${tagReview.openReports.size})` },
         ]} />
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {loading && <CircularProgress size={14} />}
           {shown.length > 0 && (
             <Chip label={`Tag mode (${shown.length})`} active={false} onClick={() => openTagMode(0)} />
+          )}
+          {shown.length > 0 && (
+            <Chip label={`Open shown for tagging (${shown.length})`} active={false} onClick={() => bulkOpen(true)} />
+          )}
+          {shown.some(p => tagReview.review.open.has(p.id)) && (
+            <Chip label="Close shown" active={false} onClick={() => bulkOpen(false)} />
           )}
           <IconButton size="small" onClick={load} sx={{ color: 'text.secondary' }} aria-label="Refresh">
             <Refresh sx={{ fontSize: '1.05rem' }} />
@@ -1056,6 +1121,8 @@ export default function AdminPhotos() {
         onContributorsChanged={reloadContributors} onUploaded={load} />
 
       <PhotographersSection contributors={contributors} photos={photos} onChange={load} />
+
+      <PhotoTaggingSection subjectsByPhoto={subjectsByPhoto} onChange={load} />
 
       <Section title="Categories">
         <CategoryAdder count={categories.length} onAdded={load} />
@@ -1113,5 +1180,6 @@ export default function AdminPhotos() {
         members of the public, especially children, does not go up.
       </Typography>
     </Box>
+    </TagReviewProvider>
   )
 }

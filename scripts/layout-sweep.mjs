@@ -139,6 +139,10 @@ const DEFAULT_ROUTES = [
   // A season series that went on to meet in the final, the longest shape the page takes.
   '/wpbl/series/firebells-vs-queens',
   '/wpbl/reading', '/wpbl/watch', '/wpbl/glossary', ...samplePages(),
+  // Naming who is in a photo, on the dev queue (src/wpbl/dev/devPhotoTagging.ts): the real queue is
+  // unpublished photos, which a recorded snapshot must never hold, so the page is swept on the
+  // published ones the gallery already shows.
+  '/wpbl/photos/tag?devTagQueue=1',
   '/mlb', '/mlb/scores', '/mlb/standings', '/mlb/leaders', '/mlb/stats', '/mlb/team-stats', '/mlb/fielding', '/mlb/bests', '/mlb/find', '/mlb/teams/mariners', '/mlb/glossary', '/mlb/compare',
   '/mlb/charts', '/mlb/report-cards', '/mlb/leaders?lb=fielding', '/mlb/team-stats?lb=fielding',
   // Find with a question asked, in both sections: the rail, the table and the tally only exist once
@@ -542,6 +546,9 @@ async function runCase(browser, route, width, text, { warm = false } = {}) {
     try {
       localStorage.setItem('a11yTextScale', scale)
       if (experiments) localStorage.setItem('experimentalFeatures', '1')
+      // The photo-tagging key is random per browser and rides in the queue call's POST body, which
+      // is part of a recorded request's key: unpinned, every run asks a question the fixture lacks.
+      localStorage.setItem('sd_photo_tag_key', 'layout-sweep-fixed-photo-tag-key')
     } catch { /* private mode */ }
   }, [text === 'large' ? 'large' : 'default', EXPERIMENTS])
   const page = await ctx.newPage()

@@ -49,6 +49,13 @@ export const EVENTS = {
   WPBL_PHOTOS_SHOWN:      'wpbl_photos_shown',      // retired
   WPBL_PHOTOS_GALLERY:    'wpbl_photos_gallery',    // retired
   WPBL_FAN_PHOTO_OPENED:  'wpbl_fan_photo_opened',  // opened a FAN photo (not the Commons archive), props {photoId, from}
+  // Naming who is in a photo (/wpbl/photos/tag, docs/PHOTO_TAGGING.md). No photo or player ids:
+  // what a reader suggests is the database's to keep, not the analytics table's.
+  WPBL_PHOTO_TAG_OPENED:    'wpbl_photo_tag_opened',    // opened the tagging page with photos waiting, props {from}
+  WPBL_PHOTO_TAG_SUBMITTED: 'wpbl_photo_tag_submitted', // sent names for one photo, props {count, answer: ok|closed|limited|invalid|error}
+  WPBL_PHOTO_TAG_SKIPPED:   'wpbl_photo_tag_skipped',   // moved on without naming, props {why: skip|unknown}
+  WPBL_PHOTO_TAG_REPORTED:  'wpbl_photo_tag_reported',  // reported a photo, props {reason, answer}
+  WPBL_PHOTO_TAG_FINISHED:  'wpbl_photo_tag_finished',  // reached the end of the queue this visit, props {named}
   // Home's media shelf: Reading, Highlights and Archive share one card behind a segmented
   // control, so only the active segment is ever seen. The *_SHOWN events above now fire on
   // segment ACTIVATION rather than on render, which makes them a true impression for the first

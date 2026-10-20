@@ -8,7 +8,7 @@ import { TYPE_SCALE } from './ui/card'
 // to match how the site actually works (Supabase auth, a predictions game, feedback),
 // not boilerplate. Plain language, no legalese theater.
 
-const LAST_UPDATED = 'August 5, 2026'
+const LAST_UPDATED = 'October 20, 2026'
 const SITE = 'sportydolphin.fun'
 
 // Underlined, because these links sit inside sentences: the site blue measures 2.5:1 against the
@@ -80,6 +80,7 @@ export function PrivacyPolicy() {
         <><b>When you sign in with Google.</b> The site uses Google sign-in (through Supabase Auth) to create your account. From Google it receives your email address and basic profile information (such as your name and profile image). It does not receive your Google password.</>,
         <><b>When you use your account.</b> If you set a username or display name, make picks in the predictions game, or follow players and teams, that information is stored and tied to your account so the site can show it back to you.</>,
         <><b>When you send feedback.</b> If you use the feedback form, the message you write is stored, along with your account email if you are signed in, so the operator can read and respond.</>,
+        <><b>When you help name who is in a fan photo.</b> No account is needed. The site stores the names you pick for a photo, a random identifier kept in your browser, and a scrambled (salted and hashed) form of your connection's IP address, never the address itself. These are used only to review the suggestions and to stop spam and abuse, and are never shown to other visitors. If you are signed in, your account is noted beside your suggestions.</>,
         <><b>Basic technical data.</b> Like most websites, the hosting and database providers may process standard technical information (such as IP address and browser type) to run and secure the service.</>,
       ]} />
       <P>
@@ -296,6 +297,16 @@ export function TermsOfService() {
         'Scrape or bulk-download the site in a way that harms its operation.',
         'Submit abusive, hateful, or unlawful content through the feedback form.',
       ]} />
+
+      <H>Naming who is in fan photos</H>
+      <P>
+        Anyone can suggest who is in a fan photo that has not been published yet. A suggestion is
+        not a tag: nothing appears on the site until the operator has checked it, and the operator
+        may reject any suggestion or stop accepting them from anyone. Please suggest only people you
+        actually recognise. If a photo should not be on the site at all (for example it shows a
+        child or a member of the public as its subject), use its Report button or email{' '}
+        {CONTACT_EMAIL}, and it is taken out of view until it has been reviewed.
+      </P>
 
       <H>Names and logos</H>
       <P>
