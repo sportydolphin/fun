@@ -193,10 +193,10 @@ next.
   the fold on a phone.
 - "Who's in this photo?": MUI Autocomplete rather than admin's `SubjectPicker`, which is not a
   real combobox and would fail axe on a public page. Each option shows the portrait, jersey number
-  and club, because a number and a cap are how a fan recognises a player in a photo. Names go
+  and club, because a number and a cap are how a fan recognizes a player in a photo. Names go
   through `NameText`, so a long one shortens to "F. Last", never cut mid-name.
 - Club chips to narrow the list, and the reader's recent picks as one-tap chips.
-- **Submit & next**, **Skip**, **I don't recognise anyone** (a skip, recorded only as an event),
+- **Submit & next**, **Skip**, **I don't recognize anyone** (a skip, recorded only as an event),
   and **Report** behind a menu.
 - A progress line ("38 of 115 photos have a name") and a finished state pointing to the gallery.
 - A loading state that is the loaded page drawn empty, measured with `npm run sweep -- --shift`.

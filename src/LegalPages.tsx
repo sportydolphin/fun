@@ -303,7 +303,7 @@ export function TermsOfService() {
         Anyone can suggest who is in a fan photo that has not been published yet. A suggestion is
         not a tag: nothing appears on the site until the operator has checked it, and the operator
         may reject any suggestion or stop accepting them from anyone. Please suggest only people you
-        actually recognise. If a photo should not be on the site at all (for example it shows a
+        actually recognize. If a photo should not be on the site at all (for example it shows a
         child or a member of the public as its subject), use its Report button or email{' '}
         {CONTACT_EMAIL}, and it is taken out of view until it has been reviewed.
       </P>

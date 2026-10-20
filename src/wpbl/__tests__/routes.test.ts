@@ -108,7 +108,7 @@ describe('legacy views', () => {
     expect(normalizeWpblView('tracking')).toEqual({ view: 'stats', wasTracking: true })
   })
 
-  it('falls back to Home for anything unrecognised', () => {
+  it('falls back to Home for anything unrecognized', () => {
     expect(normalizeWpblView('nonsense')).toEqual({ view: 'home', wasTracking: false })
     expect(normalizeWpblView(undefined)).toEqual({ view: 'home', wasTracking: false })
   })
@@ -595,7 +595,7 @@ describe('/wpbl/league, a page without a tab', () => {
   // The predicate the shell renders on, and the one the tab router must NOT claim: reading it
   // as a view would send /wpbl/league to the pager, which would land on Home and leave the
   // address bar saying otherwise.
-  it('is recognised as itself and not as a tab', () => {
+  it('is recognized as itself and not as a tab', () => {
     expect(isWpblLeaguePage('/wpbl/league')).toBe(true)
     expect(isWpblLeaguePage('/wpbl/league/')).toBe(true)
     expect(isWpblLeaguePage('/wpbl/leagues')).toBe(false)
@@ -714,7 +714,7 @@ describe('/wpbl/glossary, the rules page', () => {
     expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/glossary</loc>')
   })
 
-  it('is recognised as itself and not as a tab', () => {
+  it('is recognized as itself and not as a tab', () => {
     expect(isWpblGlossaryPage('/wpbl/glossary')).toBe(true)
     expect(isWpblGlossaryPage('/wpbl/glossary/')).toBe(true)
     expect(isWpblGlossaryPage('/wpbl/glossaries')).toBe(false)
@@ -754,7 +754,7 @@ describe('/wpbl/sources, the provenance page', () => {
     expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/sources</loc>')
   })
 
-  it('is recognised as itself and not as a tab', () => {
+  it('is recognized as itself and not as a tab', () => {
     expect(isWpblSourcesPage('/wpbl/sources')).toBe(true)
     expect(isWpblSourcesPage('/wpbl/sources/')).toBe(true)
     expect(isWpblSourcesPage('/wpbl/source')).toBe(false)
@@ -804,7 +804,7 @@ describe('/wpbl/season, the season recap', () => {
     expect(seoSource).toMatch(/'\/wpbl\/season':\s*\{[^}]*canonical: '\/wpbl\/season\/\d{4}'/)
   })
 
-  it('is recognised as itself and not as a tab', () => {
+  it('is recognized as itself and not as a tab', () => {
     expect(isWpblSeasonPage('/wpbl/season')).toBe(true)
     expect(isWpblSeasonPage('/wpbl/season/')).toBe(true)
     expect(isWpblSeasonPage('/wpbl/season/2026')).toBe(true)
@@ -840,7 +840,7 @@ describe('/wpbl/scorigami, the final-scores grid', () => {
     expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/scorigami</loc>')
   })
 
-  it('is recognised as itself and not as a tab', () => {
+  it('is recognized as itself and not as a tab', () => {
     expect(isWpblScorigamiPage('/wpbl/scorigami')).toBe(true)
     expect(isWpblScorigamiPage('/wpbl/scorigami/')).toBe(true)
     expect(isWpblScorigamiPage('/wpbl/scorigamis')).toBe(false)
@@ -870,7 +870,7 @@ describe('/wpbl/matchups, the batter-vs-pitcher board', () => {
     expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/matchups</loc>')
   })
 
-  it('is recognised as itself and not as a tab', () => {
+  it('is recognized as itself and not as a tab', () => {
     expect(isWpblMatchupsPage('/wpbl/matchups')).toBe(true)
     expect(isWpblMatchupsPage('/wpbl/matchups/')).toBe(true)
     expect(isWpblMatchupsPage('/wpbl/matchup')).toBe(false)
@@ -898,7 +898,7 @@ describe('/wpbl/reading, the writing', () => {
     expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/reading</loc>')
   })
 
-  it('is recognised as itself and not as a tab', () => {
+  it('is recognized as itself and not as a tab', () => {
     expect(isWpblReadingPage('/wpbl/reading')).toBe(true)
     expect(isWpblReadingPage('/wpbl/reading/')).toBe(true)
     expect(isWpblReadingPage('/wpbl/readings')).toBe(false)
@@ -926,7 +926,7 @@ describe('/wpbl/watch, the videos', () => {
   })
 
   // The shelf is a hash, so the path alone is the page: #clips must not read as another route.
-  it('is recognised as itself and not as a tab', () => {
+  it('is recognized as itself and not as a tab', () => {
     expect(isWpblWatchPage('/wpbl/watch')).toBe(true)
     expect(isWpblWatchPage('/wpbl/watch/')).toBe(true)
     expect(isWpblWatchPage('/wpbl/watching')).toBe(false)
@@ -956,7 +956,7 @@ describe('/wpbl/photos, the fan photos gallery', () => {
     expect(seoSource).not.toMatch(/'\/wpbl\/photos':\s*\{[^}]*noindex/)
   })
 
-  it('is recognised as itself and not as a tab', () => {
+  it('is recognized as itself and not as a tab', () => {
     expect(isWpblPhotosPage('/wpbl/photos')).toBe(true)
     expect(isWpblPhotosPage('/wpbl/photos/')).toBe(true)
     expect(isWpblPhotosPage('/wpbl/photographs')).toBe(false)
@@ -984,7 +984,7 @@ describe('/wpbl/photos/tag, naming who is in a photo', () => {
     expect(sitemap).not.toContain('/wpbl/photos/tag')
   })
 
-  it('is recognised as itself, apart from the gallery, and not as a tab', () => {
+  it('is recognized as itself, apart from the gallery, and not as a tab', () => {
     expect(isWpblPhotoTagPage('/wpbl/photos/tag')).toBe(true)
     expect(isWpblPhotoTagPage('/wpbl/photos/tag/')).toBe(true)
     expect(isWpblPhotoTagPage('/wpbl/photos')).toBe(false)

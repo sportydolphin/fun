@@ -177,7 +177,7 @@ export default function PhotoTagPage() {
   const pickedKeys = useMemo(() => new Set(picked.map(o => o.key)), [picked])
 
   // What the list under the search shows. A name or a number searches everyone (a number is how a
-  // fan recognises a player in a photo); with nothing typed, a club chip lists that club, and with
+  // fan recognizes a player in a photo); with nothing typed, a club chip lists that club, and with
   // neither, nothing, so the page does not open on a wall of 118 names.
   const matches = useMemo<Option[]>(() => {
     const q = query.trim()
@@ -265,7 +265,7 @@ export default function PhotoTagPage() {
 
   return (
     <WpblPage title="Who's in this photo?"
-      standfirst="Fans sent in photos from the first season. Pick everyone you recognise; every name is checked before it goes up.">
+      standfirst="Fans sent in photos from the first season. Pick everyone you recognize; every name is checked before it goes up.">
       {loading ? <TagSkeleton /> : failed ? (
         <EndNote title="Couldn't load the photos" body="Check your connection and try again in a moment." />
       ) : finished || !photo ? (
@@ -315,7 +315,7 @@ export default function PhotoTagPage() {
               {busy ? 'Sending…' : picked.length > 1 ? `Send ${picked.length} names` : 'Send and next'}
             </Pill>
             <Pill onClick={() => skip('skip')} disabled={busy}>Skip</Pill>
-            <Pill onClick={() => skip('unknown')} disabled={busy}>I don't recognise anyone</Pill>
+            <Pill onClick={() => skip('unknown')} disabled={busy}>I don't recognize anyone</Pill>
           </Box>
 
           {notice && (
@@ -431,7 +431,7 @@ function TagSkeleton() {
         <Typography sx={{ fontSize: TYPE_SCALE.body, alignSelf: 'center' }}><TextGhost>No one picked yet.</TextGhost></Typography>
       </Box>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1.5 }}>
-        {['Send and next', 'Skip', "I don't recognise anyone"].map(l => (
+        {['Send and next', 'Skip', "I don't recognize anyone"].map(l => (
           <Box key={l} sx={{ px: 2, py: 1.1, minHeight: chromePx(44), borderRadius: 999, border: '1px solid', borderColor: 'outline',
             fontSize: TYPE_SCALE.body, fontWeight: 800, lineHeight: 1.2, boxSizing: 'border-box' }}><TextGhost>{l}</TextGhost></Box>
         ))}
