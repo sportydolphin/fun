@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
-import type { WpblFanPhotoRow } from '../api'
+import type { WpblFanPhotoRow, PhotoTagReview, PhotoTagSuggestion } from '../api'
 import type { WpblPlayer, WpblPhotoSubject, WpblTeam, WpblPhotoContributor } from '../types'
 
 // The curation tool is the only surface that writes these tables from the browser, so the thing
@@ -27,6 +27,17 @@ const updateFanPhoto = vi.fn(async (..._a: unknown[]) => true)
 const upsertFanPhotoFigure = vi.fn(async (..._a: unknown[]) => true)
 const upsertFanPhotoCategory = vi.fn(async (..._a: unknown[]) => true)
 const updateFanPhotoContributor = vi.fn(async (..._a: unknown[]) => true)
+// Public tagging's review state (AdminPhotoTagging.tsx): what strangers suggested, and what was reported.
+const suggestion = (id: string, key: string, ip: string | null, player = 'plW'): PhotoTagSuggestion => ({
+  id, photo_id: 'ph1', player_id: player, figure_key: null, team_id: null, suggester_key: key, ip_hash: ip,
+  status: 'pending', created_at: '2026-10-20T00:00:00Z',
+})
+let review: PhotoTagReview = { open: new Set(), suggestions: [], reports: [], blocks: [] }
+const setOpenForTagging = vi.fn(async (..._a: unknown[]) => true)
+const decideSuggestions = vi.fn(async (..._a: unknown[]) => true)
+const discardSuggester = vi.fn(async (..._a: unknown[]) => true)
+const blockSuggester = vi.fn(async (..._a: unknown[]) => true)
+const resolvePhotoReports = vi.fn(async (..._a: unknown[]) => true)
 const contributors: WpblPhotoContributor[] = [
   { id: 'con1', display_name: 'Jamie Fan', contact: null, permission_granted_on: null, permission_evidence: 'DM Sep 1', permission_scope: 'site display', withdrawn_on: null },
   { id: 'con2', display_name: 'Alex', contact: null, permission_granted_on: null, permission_evidence: 'email', permission_scope: null, withdrawn_on: null },
@@ -44,6 +55,13 @@ vi.mock('../api', () => ({
   updateFanPhoto: (...a: unknown[]) => updateFanPhoto(...a),
   upsertFanPhotoFigure: (...a: unknown[]) => upsertFanPhotoFigure(...a),
   upsertFanPhotoCategory: (...a: unknown[]) => upsertFanPhotoCategory(...a),
+  fetchPhotoTagReview: vi.fn(async () => review),
+  setOpenForTagging: (...a: unknown[]) => setOpenForTagging(...a),
+  decideSuggestions: (...a: unknown[]) => decideSuggestions(...a),
+  discardSuggester: (...a: unknown[]) => discardSuggester(...a),
+  blockSuggester: (...a: unknown[]) => blockSuggester(...a),
+  unblockSuggester: vi.fn(async () => true),
+  resolvePhotoReports: (...a: unknown[]) => resolvePhotoReports(...a),
 }))
 vi.mock('../../lib/supabase', () => ({ supabase: { auth: { getSession: async () => ({ data: { session: null } }) } } }))
 vi.mock('../fanPhotoUpload', () => ({ prepareForUpload: vi.fn(), uploadPreparedPhoto: vi.fn() }))
@@ -51,7 +69,11 @@ vi.mock('../fanPhotoUpload', () => ({ prepareForUpload: vi.fn(), uploadPreparedP
 import AdminPhotos from '../AdminPhotos'
 
 describe('AdminPhotos curation', () => {
-  beforeEach(() => { subjects = []; vi.clearAllMocks() })
+  beforeEach(() => {
+    subjects = []
+    review = { open: new Set(), suggestions: [], reports: [], blocks: [] }
+    vi.clearAllMocks()
+  })
 
   it('defaults to the review queue and counts each bucket', async () => {
     render(<AdminPhotos />)
@@ -161,5 +183,79 @@ describe('AdminPhotos curation', () => {
     fireEvent.click(screen.getByText('Add category'))
     await waitFor(() => expect(upsertFanPhotoCategory).toHaveBeenCalledWith(
       { key: 'fan-signs', name: 'Fan signs', blurb: null, sort_order: 0 }))
+  })
+
+  // ─── Public tagging ────────────────────────────────────────────────────────
+
+  it('counts agreement by address, not by browser', async () => {
+    // Three browsers, two of them from one address: two people agree, not three.
+    review = { ...review, suggestions: [suggestion('a', 'k1'.repeat(10), 'ip1'), suggestion('b', 'k2'.repeat(10), 'ip1'), suggestion('c', 'k3'.repeat(10), 'ip2')] }
+    render(<AdminPhotos />)
+    expect(await screen.findByText('Kelsie Whitmore ×2')).toBeTruthy()
+  })
+
+  it('accepting a suggestion tags the subject first, then marks every copy of it accepted', async () => {
+    review = { ...review, suggestions: [suggestion('a', 'k1'.repeat(10), 'ip1'), suggestion('b', 'k2'.repeat(10), 'ip2')] }
+    render(<AdminPhotos />)
+    fireEvent.click(await screen.findByLabelText('Accept Kelsie Whitmore'))
+    await waitFor(() => expect(decideSuggestions).toHaveBeenCalledWith(['a', 'b'], 'accepted'))
+    expect(addFanPhotoSubject).toHaveBeenCalledWith('ph1', { playerId: 'plW' })
+    expect(addFanPhotoSubject.mock.invocationCallOrder[0]).toBeLessThan(decideSuggestions.mock.invocationCallOrder[0])
+  })
+
+  it('a failed tag leaves the suggestion pending', async () => {
+    review = { ...review, suggestions: [suggestion('a', 'k1'.repeat(10), 'ip1')] }
+    addFanPhotoSubject.mockImplementationOnce(async () => null as never)
+    render(<AdminPhotos />)
+    fireEvent.click(await screen.findByLabelText('Accept Kelsie Whitmore'))
+    await waitFor(() => expect(addFanPhotoSubject).toHaveBeenCalled())
+    expect(decideSuggestions).not.toHaveBeenCalled()
+  })
+
+  it('rejects a suggestion without tagging anything', async () => {
+    review = { ...review, suggestions: [suggestion('a', 'k1'.repeat(10), 'ip1')] }
+    render(<AdminPhotos />)
+    fireEvent.click(await screen.findByLabelText('Reject Kelsie Whitmore'))
+    await waitFor(() => expect(decideSuggestions).toHaveBeenCalledWith(['a'], 'rejected'))
+    expect(addFanPhotoSubject).not.toHaveBeenCalled()
+  })
+
+  it('opening a photo for tagging asks first, and does nothing on a no', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true)
+    render(<AdminPhotos />)
+    fireEvent.click(await screen.findByText('Closed'))
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(setOpenForTagging).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText('Closed'))
+    await waitFor(() => expect(setOpenForTagging).toHaveBeenCalledWith(['ph1'], true))
+    confirm.mockRestore()
+  })
+
+  it('shows a reported photo and resolves its reports', async () => {
+    review = { ...review, open: new Set(['ph1']), reports: [{ id: 'r1', photo_id: 'ph1', suggester_key: 'k'.repeat(20), ip_hash: 'ip9', reason: 'child', resolved_at: null, created_at: '2026-10-20T00:00:00Z' }] }
+    render(<AdminPhotos />)
+    expect(await screen.findByText('Reported ×1: child')).toBeTruthy()
+    fireEvent.click(screen.getByText('Resolve (back in queue)'))
+    await waitFor(() => expect(resolvePhotoReports).toHaveBeenCalledWith('ph1'))
+  })
+
+  it('blocking a browser rejects what it has waiting first', async () => {
+    review = { ...review, suggestions: [suggestion('a', 'junkjunkjunkjunk', 'ip1')] }
+    render(<AdminPhotos />)
+    fireEvent.click(await screen.findByText('Block browser'))
+    await waitFor(() => expect(blockSuggester).toHaveBeenCalledWith('key', 'junkjunkjunkjunk'))
+    expect(discardSuggester).toHaveBeenCalledWith('key', 'junkjunkjunkjunk')
+    expect(discardSuggester.mock.invocationCallOrder[0]).toBeLessThan(blockSuggester.mock.invocationCallOrder[0])
+  })
+
+  it('accepts every suggestion two or more addresses agree on in one action', async () => {
+    review = { ...review, suggestions: [
+      suggestion('a', 'k1'.repeat(10), 'ip1'), suggestion('b', 'k2'.repeat(10), 'ip2'),
+      suggestion('c', 'k3'.repeat(10), 'ip3', 'plX'),
+    ] }
+    render(<AdminPhotos />)
+    fireEvent.click(await screen.findByText('Accept all with 2+ agreeing (1)'))
+    await waitFor(() => expect(decideSuggestions).toHaveBeenCalledWith(['a', 'b'], 'accepted'))
+    expect(decideSuggestions).not.toHaveBeenCalledWith(['c'], 'accepted')
   })
 })

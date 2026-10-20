@@ -321,10 +321,10 @@ and OR together, which is what lets the owner read the unapproved queue the publ
 
 It never touches R2. Bytes arrive by CLI; the UI only tags, captions and approves.
 
-**Tagging is the one job here that genuinely wants delegating**, and `SITE_ROLES` already exists,
-so a `curator` role for a fan who knows the faces better than the owner does is a row rather than
-a deploy. Worth keeping in mind while writing the policies, even if the first version is
-owner-only.
+**Tagging is the one job here that genuinely wants delegating.** This said a signed-in `curator`
+role would do it. What was built instead (Oct 20, 2026) is public tagging with no account at all:
+anyone suggests who is in a photo the owner has opened, and the owner accepts or rejects each
+suggestion here. See [`PHOTO_TAGGING.md`](PHOTO_TAGGING.md).
 
 ## Deliberately not building
 

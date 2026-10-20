@@ -552,6 +552,18 @@ supply the gallery's subject and category filters). This is fan photography of t
 shown on player pages, and is NOT the Commons archive above. See
 [`docs/FAN_PHOTOS.md`](docs/FAN_PHOTOS.md).
 
+**Public photo tagging rides beside it without touching that gate** (built Oct 20, 2026, migration
+`20261020200000_public_photo_tagging.sql`, not yet applied). `wpbl_fan_photos.open_for_tagging` is
+the owner's switch; the unpublished photos it opens are readable only through the definer function
+`wpbl_photos_to_tag(p_key, p_limit, p_skip)`, which returns a narrow column list, never through the
+table's policy (widening `using (approved)` would publish them in the gallery). Strangers write
+through `wpbl_suggest_photo_tags` and `wpbl_report_photo` into `wpbl_photo_tag_suggestions` and
+`wpbl_photo_reports`, which have an owner policy and none for anon, the same footing as the award
+votes, so not a fourth write path. The limits key on a salted hash of the caller's address
+(`wpbl_photo_tag_secret`, no policy at all) as well as the browser key, and `wpbl_photo_tag_blocks`
+silently drops a blocked caller. `wpbl_merge_players` repoints the suggestions. None of it is on the
+edge-cache list. See [`docs/PHOTO_TAGGING.md`](docs/PHOTO_TAGGING.md).
+
 **Reserved, unread column:** `user_preferences.wpbl_favorite_team_id` (text) exists in
 production but nothing reads it, because the favorite-team feature it belongs to is parked on the
 `wpbl-favorite-team` branch (see ROADMAP-WPBL.md, "Parked, with reasons"). It shipped

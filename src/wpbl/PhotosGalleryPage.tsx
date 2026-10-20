@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import WpblPage from './WpblPage'
 import { ChipRow, FilterChip } from '../ui/FilterChip'
-import { FanPhotoGrid, FanPhotoGridSkeleton, FanPhotoSubmitNote, useFanPhotosVersion } from './FanPhotoViews'
+import { FanPhotoGrid, FanPhotoGridSkeleton, FanPhotoSubmitNote, FanPhotoTagInvite, useFanPhotosVersion } from './FanPhotoViews'
 import { TextGhost } from './ui'
 import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers, fetchWpblPhotos, getCachedWpblPhotos } from './api'
 import { ArchiveGrid } from './Photos'
@@ -157,6 +157,7 @@ export default function PhotosGalleryPage() {
           {showingArchive
             ? <Box sx={{ mt: 1 }}><ArchiveGrid photos={archive} /></Box>
             : <FanPhotoGrid photos={shown} resolveNames={resolveNames} from="gallery" />}
+          <FanPhotoTagInvite />
           <FanPhotoSubmitNote variant="block" />
         </>
       )}

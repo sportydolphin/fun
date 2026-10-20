@@ -44,7 +44,7 @@ import {
   isWpblMatchupsPage,
   isWpblReadingPage,
   isWpblWatchPage,
-  isWpblPhotosPage,
+  isWpblPhotosPage, isWpblPhotoTagPage, WPBL_PHOTO_TAG_PAGE,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug, teamSlug,
   wpblSeriesPath, wpblSeriesPaths, wpblSeriesSlugFromPath, findWpblSeriesPair, isWpblSeriesPage,
   WPBL_AWARDS_PATH, isWpblAwardsPage,
@@ -967,6 +967,30 @@ describe('/wpbl/photos, the fan photos gallery', () => {
 
   it('is linked from the site footer', () => {
     expectInFooter('WPBL_PHOTOS_PAGE')
+  })
+})
+
+// The public tagging queue (docs/PHOTO_TAGGING.md): a work queue of unpublished photos, so it is a
+// real page for the people sent to it and invisible to search, never content.
+describe('/wpbl/photos/tag, naming who is in a photo', () => {
+  it('has a 200 rewrite and a trailing-slash 301 in public/_redirects', () => {
+    expect(WPBL_PHOTO_TAG_PAGE).toBe('/wpbl/photos/tag')
+    expect(redirects).toMatch(/^\/wpbl\/photos\/tag\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/wpbl\/photos\/tag\/\s+\/wpbl\/photos\/tag\s+301\s*$/m)
+  })
+
+  it('is noindexed and out of the sitemap', () => {
+    expect(seoSource).toMatch(/'\/wpbl\/photos\/tag':\s*\{[^}]*noindex: true/)
+    expect(sitemap).not.toContain('/wpbl/photos/tag')
+  })
+
+  it('is recognized as itself, apart from the gallery, and not as a tab', () => {
+    expect(isWpblPhotoTagPage('/wpbl/photos/tag')).toBe(true)
+    expect(isWpblPhotoTagPage('/wpbl/photos/tag/')).toBe(true)
+    expect(isWpblPhotoTagPage('/wpbl/photos')).toBe(false)
+    expect(isWpblPhotosPage('/wpbl/photos/tag')).toBe(false)
+    expect(wpblViewFromPath('/wpbl/photos/tag')).toBeNull()
+    expect(wpblAppOwnsPath('/wpbl/photos/tag')).toBe(false)
   })
 })
 

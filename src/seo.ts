@@ -198,6 +198,15 @@ const ROUTES: Record<string, Seo> = {
     description:
       "Photographs from the Women's Pro Baseball League's first season, the players, the fans and their signs, plus freely licensed photos of women's baseball history. Every one credited.",
   },
+  // The public tagging queue (docs/PHOTO_TAGGING.md). A work queue of unpublished photos, not
+  // content: noindex and out of the sitemap, so search never sends anyone to an empty to-do list.
+  '/wpbl/photos/tag': {
+    title: "Who's in this photo? Help name the WPBL fan photos | sportydolphin.fun",
+    description:
+      "Help put names to fan photographs from the Women's Pro Baseball League's first season. Pick who is in each photo; every name is checked before it goes up.",
+    noindex: true,
+  },
+
   // One independent writer's coverage of the league, every post. Titled for the writer and the
   // league together, since a reader searching for either should land here, and plain that the
   // writing is theirs: the posts open on their Substack, not here.

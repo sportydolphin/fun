@@ -39,6 +39,7 @@
 /wpbl/scorigami/ /wpbl/scorigami  301
 /wpbl/matchups/  /wpbl/matchups   301
 /wpbl/photos/    /wpbl/photos     301
+/wpbl/photos/tag/  /wpbl/photos/tag  301
 /wpbl/reading/   /wpbl/reading    301
 /wpbl/watch/     /wpbl/watch      301
 /wpbl/compare/   /wpbl/compare    301
@@ -149,6 +150,8 @@
 /wpbl/matchups   /  200
 # The fan photos gallery. Not a tab: see WPBL_PHOTOS_PAGE in src/wpbl/routes.ts.
 /wpbl/photos     /  200
+# Naming who is in a fan photo. Not a tab: see WPBL_PHOTO_TAG_PAGE in src/wpbl/routes.ts.
+/wpbl/photos/tag  /  200
 # One writer's coverage of the league. Not a tab: see WPBL_READING_PAGE in src/wpbl/routes.ts.
 /wpbl/reading    /  200
 # Every video of the league. Not a tab: see WPBL_WATCH_PAGE in src/wpbl/routes.ts.

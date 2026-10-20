@@ -693,6 +693,16 @@ export const WPBL_PHOTOS_PAGE = `${WPBL_BASE}/photos`
 export const isWpblPhotosPage = (pathname: string) =>
   pathname.replace(/\/+$/, '') === WPBL_PHOTOS_PAGE
 
+// ─── Naming who is in a photo ───────────────────────────────────────────────────
+//
+// The public tagging queue (docs/PHOTO_TAGGING.md): unpublished fan photos the owner has opened, one
+// at a time, for anyone to say who is in them. A work queue, not content: noindex, out of the
+// sitemap, reached from the gallery while the queue holds anything.
+export const WPBL_PHOTO_TAG_PAGE = `${WPBL_PHOTOS_PAGE}/tag`
+
+export const isWpblPhotoTagPage = (pathname: string) =>
+  pathname.replace(/\/+$/, '') === WPBL_PHOTO_TAG_PAGE
+
 // ─── The Reading page ──────────────────────────────────────────────────────────
 //
 // A seventh sibling: one writer's coverage of the league, every post, with a club filter. Its own
