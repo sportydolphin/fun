@@ -194,7 +194,9 @@ October is over; it is the first real measurement of which Home cards are used.
 
 **From the Oct 10 audit** (the site-wide half is in ROADMAP-WPBL.md):
 
-- **Layout shift is worst here.** The field p75 is 0.270 on an MLB desktop and 0.182 on a phone,
+- ✅ **Layout shift is worst here** (read and fixed Oct 20: the attributed reports named one page,
+  the player page from a cold address, 0.39 on a phone and 0.31 on a desktop, now about 0.03 and
+  in the sweep; see ROADMAP-WPBL, Priorities P1). The field p75 is 0.270 on an MLB desktop and 0.182 on a phone,
   against WPBL's 0.15; Google calls anything over 0.25 poor. The sweep passes because it measures
   the load, so the shifts come after it. The attribution shipped Oct 11 (the audit's ops item 3):
   Page speed on `/admin` now ranks the elements that moved. Read it around Oct 18, once a week of

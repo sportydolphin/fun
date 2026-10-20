@@ -426,6 +426,9 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   const panelOpen = useSidePanelOpen()
   const shift = panelShiftSx(panelOpen, gamePageOpen ? GAME_PAGE_W : onHome ? HOME_W : onStatsBoard ? STATS_W : `${PAGE_W}px`)
   const onSearch = state.view === 'search'
+  // The player on screen: the one an address has just named (read, but not yet in `player`) first,
+  // so a Back to another player does not show the last one meanwhile.
+  const shownPlayerId = state.pendingPlayerId ?? state.player?.id ?? null
   // A page that is no tab, drawn over the pager as a player page is.
   const offPager = onSearch || onReportCards
   const tabIndex = NAV.findIndex(n => n.key === activeTab)
@@ -781,29 +784,28 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       {/* A PLAYER'S PAGE: the card fetches its own data (views/MlbPlayerDetail), the section only
           says which player and which season. Keyed by player, so the next one starts at its own top
           rather than inheriting the last one's role tab and scope. */}
-      {onSearch && state.player && !gamePageOpen && withFooter(
+      {onSearch && shownPlayerId != null && !gamePageOpen && withFooter(
         <AppErrorBoundary inline where="tab">
           <MlbPlayerDetail
-            key={state.player.id}
-            playerId={state.player.id}
-            player={state.player}
+            key={shownPlayerId}
+            playerId={shownPlayerId}
+            player={state.player?.id === shownPlayerId ? state.player : null}
             season={state.playerSeason}
             onSeasonChange={state.setPlayerSeason}
             onBack={playerBack}
             onOpenBoard={(key, group) => state.handleStatCardClick(key, group)}
-            onOpenFielding={(pos, season) => state.openGridBoard({ view: 'fielding', pos, season, highlight: state.player?.id ?? null })}
+            onOpenFielding={(pos, season) => state.openGridBoard({ view: 'fielding', pos, season, highlight: shownPlayerId })}
             onOpenGame={pk => requestDeepLink({ kind: 'game', gamePk: pk })}
-            followed={state.followedPlayerIds.includes(state.player.id)}
+            followed={state.followedPlayerIds.includes(shownPlayerId)}
             onToggleFollow={() => {
-              const id = state.player!.id
-              if (state.followedPlayerIds.includes(id)) state.unfollowPlayer(id)
-              else state.followPlayer(id)
+              if (state.followedPlayerIds.includes(shownPlayerId)) state.unfollowPlayer(shownPlayerId)
+              else state.followPlayer(shownPlayerId)
             }}
           />
         </AppErrorBoundary>,
       )}
 
-      {onSearch && !state.player && !gamePageOpen && withFooter(
+      {onSearch && shownPlayerId == null && !gamePageOpen && withFooter(
         <SearchView
           query={state.query}
           setQuery={state.setQuery}

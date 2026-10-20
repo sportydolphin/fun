@@ -306,8 +306,12 @@ and the reasoning; where the two disagree, `/admin` is the order.
   screen; the honours row grew the band late; the season line dropped its rank row between two
   reads; the win probability chart had a `null` fallback; MLB's bracket skeleton held four series
   in the LCS. Cold player pages went from 0.10 to 0.23 down to about 0.02, game pages 0.09 to
-  0.01, the phone switch to MLB 0.11 to 0.03. **Open:** `/wpbl/stats` on a desktop and MLB Home on
-  a desktop reproduce clean locally (under 0.04), so they wait on the attributed reports.
+  0.01, the phone switch to MLB 0.11 to 0.03. **Read Oct 20** (a quiet week: 32 reports): WPBL's
+  p75 is 0.013 on a phone and on a desktop, and no WPBL load passed 0.1, so `/wpbl/stats` needs
+  nothing. The one offender was the MLB player page: a cold address drew the empty search view,
+  then a spinner the contract and links drew under, then the card landed above them (0.39 on a
+  phone, 0.31 on a desktop). **Fixed Oct 20:** the card draws from the address's id at once, its
+  loading state is the card drawn empty, and the player pages are in the sweep (about 0.03 now).
 - **Google Play release** (ops item 9). Close; only Play's process is left.
 - ~~Wins added and baserunning on the player card and Compare (item 8 below)~~ ✅ done Oct 15, v1.165.0.
 - ~~Dependencies (ops item 6)~~ ✅ done Oct 13, patch, minor and every major.
