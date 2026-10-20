@@ -87,7 +87,7 @@ function fetchSeasonSchedule(season: number): Promise<Map<number, number[]>> {
         )
         const d = await r.json()
         // `dates` come back in calendar order, so pushing as we go keeps each
-        // team's list chronological. Postponed and cancelled games never count.
+        // team's list chronological. Postponed and canceled games never count.
         //
         // A suspended game is listed twice, once on the date it started and again
         // on the date it was finished, but a player's game log only ever records
@@ -410,7 +410,7 @@ export interface PitchPaLeaders {
   most:   PitchPaRow[]   // grinders, longest at-bats first
   fewest: PitchPaRow[]   // free swingers, shortest at-bats first
   min:    number         // league-wide qualified range, so both boards can share
-  max:    number         // one bar scale instead of each normalising to itself
+  max:    number         // one bar scale instead of each normalizing to itself
 }
 
 const EMPTY_PITCH_PA: PitchPaLeaders = { most: [], fewest: [], min: 0, max: 0 }

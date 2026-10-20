@@ -106,7 +106,7 @@ def mark() -> Image.Image:
 def detail(size: int = 48, zoom: float = 0.88) -> Image.Image:
     """A square tile zoomed into the dolphin, for icon slots too small for the lockup.
 
-    The plate's black is recoloured to the shell navy rather than left at #000, which
+    The plate's black is recolored to the shell navy rather than left at #000, which
     makes the tile continuous with the rest of the icon set and lets the crop run wider
     than the plate: anything past its edge is the same navy, so the seam does not show.
     """
@@ -114,13 +114,13 @@ def detail(size: int = 48, zoom: float = 0.88) -> Image.Image:
     x0, y0, x1, y1 = silhouette(im).getbbox()
     ink = flatten(im).convert("L")
     navy = Image.new("RGB", im.size, NAVY[:3])
-    recoloured = Image.composite(Image.new("RGB", im.size, (255, 255, 255)), navy, ink)
+    recolored = Image.composite(Image.new("RGB", im.size, (255, 255, 255)), navy, ink)
 
     half = round((y1 - y0) / 2 / zoom)
     cx, cy = (x0 + x1) // 2 + round((x1 - x0) * 0.03), (y0 + y1) // 2
     square = Image.new("RGB", (half * 2, half * 2), NAVY[:3])
     box = (max(cx - half, x0), max(cy - half, y0), min(cx + half, x1), min(cy + half, y1))
-    square.paste(recoloured.crop(box), (box[0] - (cx - half), box[1] - (cy - half)))
+    square.paste(recolored.crop(box), (box[0] - (cx - half), box[1] - (cy - half)))
     return square.resize((size, size), Image.LANCZOS)
 
 
@@ -185,10 +185,10 @@ def main() -> None:
     # JPEG or 24-bit PNG with NO alpha, which is why this one is flattened to RGB rather
     # than saved like the tiles. It is wider than the social card (2.05:1 against 1.90:1),
     # so the lockup is held to 64% of the width: Play crops this asset differently across
-    # surfaces and overlays a play button on its centre wherever a promo video exists, and
+    # surfaces and overlays a play button on its center wherever a promo video exists, and
     # anything run to the edges is what gets eaten. The ground is black rather than the
     # shell navy because this one is never seen next to the app: it sits in Play's own
-    # chrome, where the navy reads as a washed-out rectangle rather than as our colour.
+    # chrome, where the navy reads as a washed-out rectangle rather than as our color.
     feature = Image.new("RGBA", (1024, 500), BLACK)
     w = round(1024 * 0.64)
     h = round(w * art.height / art.width)
@@ -196,7 +196,7 @@ def main() -> None:
     feature.convert("RGB").save(f"{OUT}play-feature-graphic.png")
 
     # The notification badge is flattened to a stencil by the OS, which reads the alpha
-    # channel and throws the colours away, so the plate has to drop out and leave only
+    # channel and throws the colors away, so the plate has to drop out and leave only
     # the dolphin. In the original art the dolphin is the white ink, so luminance is the
     # alpha we want. The silhouette is eroded first: the plate's antialiased rim runs
     # from black to white, and left in, that gradient traces a bright outline of the

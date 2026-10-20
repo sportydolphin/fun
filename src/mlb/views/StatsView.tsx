@@ -435,7 +435,7 @@ export function StatsView({
       )}
 
       {/* LOADING IS THE BOARD DRAWN EMPTY: its real title and subtitle, which need no data, over
-          empty rows. It was a centred spinner, which left the footer in view on a phone. */}
+          empty rows. It was a centered spinner, which left the footer in view on a phone. */}
       {loadingLb && listView && (
         <Box aria-hidden>
           <StatsRankedList skeleton rows={[]} def={activeDef} statDefs={allDefs} group={lbGroup} asc={effectiveAsc}

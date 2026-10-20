@@ -53,7 +53,7 @@ export function CopyLinkButton({ url, title = 'Copy link', onCopy, copiedColor =
         // An icon at rest (see headerIconChipSx); the outcome is spelled out while it shows, since
         // a tick alone is easy to miss and "Couldn't copy" is the one result that must be read.
         ...(state === 'idle' ? headerIconChipSx : headerChipSx),
-        // Confirmation is the accent and failure the theme's error colour; idle is every other
+        // Confirmation is the accent and failure the theme's error color; idle is every other
         // control in the bar (see headerBar).
         ...(state === 'copied' ? { color: copiedColor } : state === 'failed' ? { color: 'error.main' } : {}),
       }}

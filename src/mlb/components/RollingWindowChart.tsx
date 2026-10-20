@@ -339,7 +339,7 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
             </Typography>
           </Box>
         )}
-        {/* Labelled as the two tiles beside it are, so the row reads as three of one thing. */}
+        {/* Labeled as the two tiles beside it are, so the row reads as three of one thing. */}
         <Box>
           <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, letterSpacing: typePx(0.2), color: 'text.disabled' }}>
             {seasonStat.volumeLabel}

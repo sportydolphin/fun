@@ -9,7 +9,7 @@ import { typePx } from './scale'
 // The shell every STANDALONE page wears: in WPBL the league, the season recap, scorigami, the
 // players index, the glossary, the data sources; in MLB the glossary. They are sibling routes to
 // the section's app, each drawn on its own, and before this each rolled its own header: some had a Back pill and some did not,
-// some centred a 56.25rem column and some ran full-bleed, and the title ranged from a bold 1.5rem
+// some centered a 56.25rem column and some ran full-bleed, and the title ranged from a bold 1.5rem
 // down to a 1.05rem barely above body text. That is five near-copies drifting apart, and it read
 // as five different sites. This is the one header, so they cannot.
 //

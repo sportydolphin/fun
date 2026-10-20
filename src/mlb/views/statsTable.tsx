@@ -51,7 +51,7 @@ export const FROZEN_EDGE = {
 } as const
 
 /** A tied rank, "T-12", with the "T-" a size down, as the list draws it, so a two-digit tie fits the
- *  rank column; centred on the number rather than on its baseline, where it reads as a superscript. */
+ *  rank column; centered on the number rather than on its baseline, where it reads as a superscript. */
 export function RankMarkText({ rank }: { rank: { rank: number; tied: boolean } }) {
   return (
     <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center' }}>

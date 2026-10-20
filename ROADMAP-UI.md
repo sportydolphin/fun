@@ -11,7 +11,7 @@
 
 ## The direction: smooth, modern, Apple Sports
 
-Glanceable, dark-first and calm. Team colour does the decorating, so nothing else has to. One
+Glanceable, dark-first and calm. Team color does the decorating, so nothing else has to. One
 number dominates each card, detail lives one tap deeper, and motion explains where things went.
 
 ### Why not a new component library
@@ -31,18 +31,18 @@ scale system, the sweep) stay; no library ships them.
 |---|---|
 | Canvas | True black or near-black, dark-first. Light mode is a translation, not the source. No visible page chrome. |
 | Cards | Large radius with continuous (squircle) corners. Separated by fill, not lines. Edge to edge on a phone with a 16px gutter. |
-| Team colour | Each game card carries a soft gradient or tint of both clubs' primaries. Tints are contrast-checked, never guessed. |
+| Team color | Each game card carries a soft gradient or tint of both clubs' primaries. Tints are contrast-checked, never guessed. |
 | Type | Heavy weights for scores, regular for labels, tabular figures everywhere. Two or three sizes per screen. Scores huge, everything else quiet. |
 | Hierarchy | Per card: score, then status (inning, Final), then team names. Stats only on tap. |
 | Density | Low on lists, rich on detail. Box score and plays sit one level down, never on the scoreboard. |
-| Chrome | A league chip row, favourites pinned first, a floating bottom bar. Nothing else. |
+| Chrome | A league chip row, favorites pinned first, a floating bottom bar. Nothing else. |
 | Materials | Glass: translucent, blurred bars and segment pickers floating over content, compacting on scroll. |
 | Motion | Springs, not ease curves. Scores roll digit by digit. Cards expand into their detail view rather than cutting to a new page. |
 | Live state | A small pulsing dot, the inning, and `BaseDiamond` with outs as one compact glyph. |
 
 ### Web translation
 
-- **Font:** SF Pro's licence forbids self-hosting on the web. Stack `-apple-system` first so Apple
+- **Font:** SF Pro's license forbids self-hosting on the web. Stack `-apple-system` first so Apple
   devices get SF, then **Inter Display** (Inter already ships, subset by `npm run subset-font`),
   with `font-variant-numeric: tabular-nums`.
 - **Glass:** `backdrop-filter: blur() saturate()` over a translucent fill, on the bottom bar and
@@ -63,14 +63,14 @@ scale system, the sweep) stay; no library ships them.
 - **WWDC25, "Meet Liquid Glass"** and **"Get to know the new design system"**: the material language.
 - **Apple Design Resources**: the official iOS Figma kit, on Figma Community. Start every frame from it.
 - **Live Activities and Dynamic Island scores**: the most compressed score layout Apple ships.
-- **Apple TV's MLS and Friday Night Baseball score bugs**: team colour first, broadcast form.
+- **Apple TV's MLS and Friday Night Baseball score bugs**: team color first, broadcast form.
 
 ### Other sports apps in a modern style
 
 - **FotMob**: dense match data kept calm; good for how a deep Game Center stays readable.
 - **Sofascore**: live momentum graphs and player ratings, a reference for `winProbChart`.
 - **The Athletic**: editorial type and story-led game pages, for recaps and Reading.
-- **F1 TV and the F1 app**: live timing and team-colour systems across ten teams.
+- **F1 TV and the F1 app**: live timing and team-color systems across ten teams.
 - **Strava**: activity cards and the stat-forward detail view.
 
 ### Non-sports apps with the same feel
@@ -80,7 +80,7 @@ scale system, the sweep) stay; no library ships them.
 - **Robinhood**: one hero number and one chart per screen, with scrubbing.
 - **Linear**: restraint, dark surfaces, precise type, fast motion.
 - **Things 3**: whitespace, springy interactions, nothing extra.
-- **Arc and Arc Search**: playful motion and colour on a calm base.
+- **Arc and Arc Search**: playful motion and color on a calm base.
 - **Family (wallet)**: fluid sheets and morphing transitions, the best reference for `ModalShell`.
 - **Material 3 Expressive** (Google, 2025): spring motion and shape morphing from the other platform.
 
@@ -102,10 +102,10 @@ scale system, the sweep) stay; no library ships them.
 
 ## Figma setup
 
-- **Variables first, mirroring code.** Colour roles (canvas, raised, text primary, secondary,
+- **Variables first, mirroring code.** Color roles (canvas, raised, text primary, secondary,
   tertiary, separator, accent, live) in Dark and Light modes; spacing; radius; type sizes. Name them
   as the CSS variables will be named, so handoff is a copy.
-- **Team colour as a variable collection**, one mode per club (WPBL's six, then MLB's 30), so one
+- **Team color as a variable collection**, one mode per club (WPBL's six, then MLB's 30), so one
   card component previews every club.
 - **Frames:** phone 375 wide, desktop at the desktop scale (`--app-chrome`). Design both; the
   desktop side panel is its own case (`usePhoneLayout()`).
@@ -128,7 +128,7 @@ scale system, the sweep) stay; no library ships them.
 
 - [ ] Token layer as CSS variables in `styles.css`, wired into `createAppTheme` in `ThemeContext.tsx`.
 - [ ] New type ramp on the existing `--app-type` scale; Inter Display subset; tabular figures.
-- [ ] Move hard-coded `sx` colours and spacing onto tokens (lint rule to stop new ones).
+- [ ] Move hard-coded `sx` colors and spacing onto tokens (lint rule to stop new ones).
 - [ ] Re-measure name fits after the font change (`npm run sweep -- --ellipsis`).
 
 ### 3. House components in `src/ui/`
@@ -159,7 +159,7 @@ scale system, the sweep) stay; no library ships them.
 - **Borderless cards against the 3:1 outline rule** (`src/CLAUDE.md`). Does fill contrast count as
   the boundary, and at what ratio?
 - **Two-club gradients and text contrast.** Pick a tint recipe that passes axe on every pairing,
-  or fall back to a neutral card with colour only in the edges.
+  or fall back to a neutral card with color only in the edges.
 - **Light mode.** A true equal, or a faithful translation of dark?
 - **Glass on low-end Android.** `backdrop-filter` costs; measure it on a mid-range phone before
   committing.

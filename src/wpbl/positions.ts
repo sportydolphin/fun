@@ -63,7 +63,7 @@ export interface PositionedLine { position?: string | null }
  *
  * THE `game_id` IS THE WHOLE POINT. These answer "where does this player play THIS SEASON", and
  * one postseason game is enough to move the answer: a single playoff start on the mound breaks
- * Kelsie Whitmore's strict majority in centre field, `primaryPosition` returns null, and the
+ * Kelsie Whitmore's strict majority in center field, `primaryPosition` returns null, and the
  * label falls back to the roster listing this module exists to override. It does not add a
  * position, it destroys one, and it does it to the two-way player the file's own comments are
  * written around. A line carries no other clue about its game, so the caller has to hand over
@@ -117,14 +117,14 @@ export function primaryPosition(lines: readonly PositionedLine[]): PrimaryPositi
  * asks "what position is this player", so it takes only the FIRST token of "p/cf" and counts one
  * game once, or a utility player who moves around a lot would out-vote a regular. This asks
  * "where have these fielding numbers come from", and the answer to that is BOTH: the player
- * pitched and played centre field in the same game, and both are in the totals.
+ * pitched and played center field in the same game, and both are in the totals.
  *
  * IT EXISTS BECAUSE A FIELDING LINE CARRIES NO POSITION. The feed's fielding row is
  * `game_id, po, a, e, dp, pb, sba` and nothing else, so a season's fielding cannot be split by
  * position at all, by us or by anyone. On a card with role tabs that silence reads as a claim:
  * a pitching pane showing Kelsie Whitmore's "1.000 FPCT · 21 PO · 0 A · 0 E" under the heading
  * "Fielding" describes a pitcher with 21 putouts in five appearances, which does not happen.
- * They are catches in centre field. The numbers are right and the pane makes them mean
+ * They are catches in center field. The numbers are right and the pane makes them mean
  * something false, so the answer is to name the positions rather than to divide numbers we
  * cannot divide.
  */
@@ -240,7 +240,7 @@ export function displayPositionFromIndex(
 /**
  * How far ahead the mound has to be before the box score is allowed to outvote the roster.
  *
- * The roster is full of players near parity: a catcher at 1.45, a centre fielder at 1.05, a
+ * The roster is full of players near parity: a catcher at 1.45, a center fielder at 1.05, a
  * shortstop at 1.00. At a bare majority every one of those would flip their card's lead role
  * on a single appearance and flip it back the following week, which is worse than being
  * consistently wrong about one of them. At half again, the only players who move are the two
@@ -275,7 +275,7 @@ const PITCHER_LEAD_EDGE = 1.5
  *
  * AND THE OTHER WAY ROUND. A filed pitcher whose season the box score has moved to a place in the
  * field (`played`, the `displayPosition` override) is a position player who also pitches, and
- * leads with the bat. Kelsie Whitmore is filed RHP, made six starts, and played centre field in
+ * leads with the bat. Kelsie Whitmore is filed RHP, made six starts, and played center field in
  * most of her other games while leading the league in home runs; by the filing alone her page
  * opened on a 5.25 ERA and put the best bat in the league behind a tab. The override already
  * needs four fielded games and a strict majority (see `primaryPosition`), so a pitcher's odd day

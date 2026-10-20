@@ -23,7 +23,7 @@ const HOME_RAIL_MAX = 12
 
 // The reader-facing fan-photo UI: the strip on a player page, the grid on /wpbl/photos, and the
 // lightbox both open. This is NOT Photos.tsx: that renders the Commons archive (wpbl_photos), a
-// different table and a different licence story. These are this season's photographs, sent by
+// different table and a different license story. These are this season's photographs, sent by
 // fans with permission, tagged by who is in them. See docs/FAN_PHOTOS.md.
 //
 // THE CREDIT IS ON EVERY CARD, NOT BEHIND A CLICK, exactly as it is for the archive: the moment
@@ -216,7 +216,7 @@ function PhotoCard({ photo, names, onOpen, frame, focusable = true, subject, pri
     ? { width: '100%', height: { xs: chromePx(RAIL_TILE_H.xs), sm: chromePx(RAIL_TILE_H.sm) } }
     : { width: '100%', aspectRatio: photo.width && photo.height ? `${photo.width} / ${photo.height}` : '4 / 3' }
   // A lazy tile was a flat grey box until its photo arrived, which on a slow phone read as a broken
-  // gallery rather than one still loading. The index carries no colour or preview to paint
+  // gallery rather than one still loading. The index carries no color or preview to paint
   // instead, so the box shows the site's loading wave and the photo fades in over it. A photo
   // already in the cache is complete before React can hear its load event, hence the ref.
   const [loaded, setLoaded] = useState(false)

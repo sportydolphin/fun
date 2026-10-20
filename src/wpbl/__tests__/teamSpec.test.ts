@@ -7,7 +7,7 @@ import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPitchPlay } from 
 
 // The six numbers behind the team spec chart. Every score is a RATIO TO THE LEAGUE AVERAGE, and
 // almost everything that can go wrong here goes wrong quietly: an inverted axis draws a bad
-// defence as a good one, a postseason game folded in moves the whole league, and a caller handed
+// defense as a good one, a postseason game folded in moves the whole league, and a caller handed
 // one club's lines gets a perfectly plausible chart of four 50s.
 
 const TEAMS = ['SF', 'LA', 'NY', 'BOS']
@@ -146,7 +146,7 @@ describe('teamSpecs', () => {
   })
 
   // The bug that would be invisible on screen: a low-is-good axis drawn as if high were good
-  // gives the worst defence in the league the biggest spoke, and it looks completely fine.
+  // gives the worst defense in the league the biggest spoke, and it looks completely fine.
   it('inverts the axes where low is good', () => {
     const { games, ids } = season()
     const { batting, pitching } = flatLines(ids)
@@ -194,7 +194,7 @@ describe('teamSpecs', () => {
     // A caller who filtered the PLAYS to one club as well gets nothing at all, which is the
     // point of the swings gate: three clubs with no swings would each score a whiff rate of
     // zero, and zero on an axis where lower is better is the OUTERMOST spoke on the chart. The
-    // failure would not look like missing data, it would look like three untouchable offences.
+    // failure would not look like missing data, it would look like three untouchable offenses.
     expect(teamSpecs(TEAMS,
       batting.filter(l => l.team_id === 'SF'), pitching.filter(l => l.team_id === 'SF'),
       games, flatPlays(ids).filter(p => p.team_id === 'SF'))).toBeNull()
@@ -313,7 +313,7 @@ describe('specRank and specHighlights', () => {
   // Ranked on the SCORE, not the raw stat, which is the whole reason one function covers all six
   // axes: direction is already applied, so 1st is the FEWEST unearned runs on Glove and the
   // highest steal rate on Speed. Ranking the raw numbers would silently invert the two
-  // low-is-good axes and hand the worst defence in the league a "1st of 4".
+  // low-is-good axes and hand the worst defense in the league a "1st of 4".
   it('ranks a low-is-good axis the right way up', () => {
     const { games, ids } = season()
     const { batting, pitching } = flatLines(ids)

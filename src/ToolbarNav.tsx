@@ -84,13 +84,13 @@ export function ToolbarNav({ section, path, sx }: { section: NavSection; path: s
     border: 'none', bgcolor: 'transparent', cursor: 'pointer', fontFamily: 'inherit',
     textDecoration: 'none', whiteSpace: 'nowrap', userSelect: 'none',
     // ONE WEIGHT, lit or not. A bolder lit label is a wider one, so every tab switch nudged the
-    // tabs after it sideways by a couple of pixels; the colour and the stripe say which is lit.
+    // tabs after it sideways by a couple of pixels; the color and the stripe say which is lit.
     fontSize: TYPE_SCALE.body, fontWeight: 600,
     color: on ? 'text.primary' : 'text.secondary',
     transition: 'color 0.15s',
     ...hoverOnly({ color: 'text.primary' }),
     // The indicator sits on the toolbar's bottom hairline, the way a tab strip's does, and grows
-    // from the centre rather than snapping in. Inset by the tab's own padding, so it is exactly as
+    // from the center rather than snapping in. Inset by the tab's own padding, so it is exactly as
     // wide as the label at every scale; a fixed 8px overhung it by 4.5px on a desktop. Its 3px
     // thickness is ornament and stays raw.
     '&::after': {

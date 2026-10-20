@@ -13,7 +13,7 @@ import { TYPE_SCALE } from './ui/card'
 // Settings and easy to reason about in a bug report ("experimental on/off"). If two
 // experiments ever need to run independently, split it then.
 //
-// Anything gated here must degrade to the shipped behaviour when it's off — the flag hides
+// Anything gated here must degrade to the shipped behavior when it's off — the flag hides
 // a feature, it never changes data.
 
 const STORAGE_KEY = 'experimentalFeatures'

@@ -60,7 +60,7 @@ export function buildLiveBoxReply(
 
   const state = game.live_state
   const s = state ? deriveSituation(state, away, home, { away: game.away_line, home: game.home_line }) : null
-  // The leading side gets the accent stripe; a tie takes the home club's colour rather than none.
+  // The leading side gets the accent stripe; a tie takes the home club's color rather than none.
   const leader = awayScore > homeScore ? away : home
 
   const scoreLine = `**${away.abbr || away.id} ${awayScore}–${homeScore} ${home.abbr || home.id}**`

@@ -11,7 +11,7 @@ export const ACCENT = '#60a5fa'
  *  tints and dots stay on ACCENT, where they are decoration rather than something to read. */
 export const ACCENT_TEXT = 'var(--wpbl-accent-fg)'
 
-/** Status colours for TEXT, keyed by the raw hex's hue name, each a 4.5:1 value in its own theme
+/** Status colors for TEXT, keyed by the raw hex's hue name, each a 4.5:1 value in its own theme
  *  (styles.css, --mlb-tone-*). Use the raw hex for a fill, a bar or a tint; use this to print. */
 export const TONE = {
   red: 'var(--mlb-tone-red)', green: 'var(--mlb-tone-green)', orange: 'var(--mlb-tone-orange)',
@@ -21,7 +21,7 @@ export const TONE = {
   gray: 'var(--mlb-tone-gray)',
 } as const
 
-/** Status colours as a FILL under white text (a LIVE pill, a right/wrong pick dot). White on the raw
+/** Status colors as a FILL under white text (a LIVE pill, a right/wrong pick dot). White on the raw
  *  #ef4444 is 3.8:1 and on #22c55e 2.3:1, in either theme, since the pill carries its own
  *  background; these are the nearest shades that clear 4.5:1 under white. */
 export const FILL = { red: '#dc2626', green: '#15803d' } as const
@@ -232,7 +232,7 @@ export const TEAM_ABBR: Record<number, string> = {
 // ─── Placeholder clubs ────────────────────────────────────────────────────────
 //
 // Before a postseason series is decided, StatsAPI publishes its games with a stand-in team
-// ("HOU/CWS", id 5528) that exists nowhere else: no logo, no colours, no standings row. It is
+// ("HOU/CWS", id 5528) that exists nowhere else: no logo, no colors, no standings row. It is
 // fine to SHOW (it says exactly what is known), and wrong to let anyone PICK: the pick is stored
 // against the stand-in's id, the winner is recorded against a real club's, and the two never
 // match, so the pick can never resolve.
@@ -309,12 +309,12 @@ export const TEAM_BG: Record<number, string> = {
 }
 
 // Secondary / accent colors, used as the contrasting foreground on team-color backgrounds. Read by
-// the player card's band (its bottom stripe and the portrait's ring), so each is a colour the club
-// actually wears as its second colour, not merely one on file somewhere: the Dodgers' red is real
+// the player card's band (its bottom stripe and the portrait's ring), so each is a color the club
+// actually wears as its second color, not merely one on file somewhere: the Dodgers' red is real
 // (the front numbers) but nobody calls them blue and red, and they read as a different club in it.
 // Audited against the clubs' current palettes, Oct 2026.
 export const TEAM_SECONDARY: Record<number, string> = {
-  [LAA]: '#003263',  // navy (red, navy and silver; the light blue here was no Angels colour)
+  [LAA]: '#003263',  // navy (red, navy and silver; the light blue here was no Angels color)
   [ARI]: '#E3D4AD',  // sand
   [BAL]: '#000000',  // black
   [BOS]: '#0C2340',  // navy
@@ -493,7 +493,7 @@ export const TEAM_ICON_STYLE_LIGHT: Record<number, TeamIconStyle> = {
 
 // A card's secondary text ("3rd in AL East", a jersey number, the W / L / PCT heads) was a fixed
 // 0.62 and 0.42 white, picked on navy. On the red clubs that is 2.1 to 3:1, so each palette now
-// takes the faintest white that still reads at 4.5:1 on ITS colour, keeping the 0.62 / 0.42 floor
+// takes the faintest white that still reads at 4.5:1 on ITS color, keeping the 0.62 / 0.42 floor
 // wherever that already passes so the hierarchy survives on the dark cards. On the brightest reds
 // (Baltimore, Philadelphia) both collapse to solid white, and size and weight carry the hierarchy.
 const whiteOn = (bg: string, min: number) => `rgba(255,255,255,${whiteAlphaOn(bg, min)})`
@@ -507,7 +507,7 @@ export const DEFAULT_PALETTE: Palette = {
 }
 
 export function teamPalette(teamId?: number): Palette {
-  // A shade deeper only where white cannot read on the club colour itself (cardBgForWhite).
+  // A shade deeper only where white cannot read on the club color itself (cardBgForWhite).
   const bg = cardBgForWhite((teamId != null && TEAM_BG[teamId]) || DEFAULT_PALETTE.bg)
   return { bg, text: '#ffffff', sub: whiteOn(bg, 0.62), rank: whiteOn(bg, 0.42), divider: 'rgba(255,255,255,0.16)' }
 }
@@ -558,7 +558,7 @@ export function randomPalette(): Palette {
     bg,
     text: dark ? '#ffffff' : '#0a0a0a',
     // A light random card is near-white under black text, where 0.52 / 0.32 black already reads;
-    // the dark ones get the same per-colour floor as a club's card.
+    // the dark ones get the same per-color floor as a club's card.
     sub: dark ? whiteOn(bg, 0.58) : 'rgba(0,0,0,0.66)',
     rank: dark ? whiteOn(bg, 0.42) : 'rgba(0,0,0,0.58)',
     divider: dark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.1)',

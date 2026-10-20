@@ -74,7 +74,7 @@ export function paDecomposition(
 
   for (const ch of sequence) {
     const kind = PITCH_CODES[ch]
-    // An unrecognised letter advances nothing, exactly as in `countsThrough`: guessing at it
+    // An unrecognized letter advances nothing, exactly as in `countsThrough`: guessing at it
     // would misprice every pitch after it in the same at-bat.
     if (!kind) continue
     const from: Count = { balls, strikes }

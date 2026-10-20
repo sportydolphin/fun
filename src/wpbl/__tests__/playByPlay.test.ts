@@ -71,7 +71,7 @@ describe('parsePlay', () => {
 
   // Roster bookkeeping in a play's clothes, 138 rows of it. A defensive move with nobody
   // leaving carries no "for", and the feed's orphan lost the incoming player's name entirely.
-  it('recognises a substitution that names no outgoing player', () => {
+  it('recognizes a substitution that names no outgoing player', () => {
     const p = parsePlay('Jamie Mackay to lf.', 'Ashton Lansdell', shorten)
     expect(p.kind).toBe('substitution')
     expect(p.what).toBe('Jamie Mackay to lf')

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { catcherIndex, catcherArmLeaders, type CatcherAt } from '../derive/catching'
 import type { RunnerEvent } from '../derive/baserunning'
 
-// Catcher arm runs: the runner's steal price turned around and centred on the league's mean
+// Catcher arm runs: the runner's steal price turned around and centered on the league's mean
 // attempt. The traps pinned here: a club that changed catchers credits each steal to whoever the
 // play log's "to c" row had put behind the plate by then, a throw "to c" is not such a row, a
 // pickoff is the pitcher's, and an average arm is worth zero however often it is run on.
@@ -34,7 +34,7 @@ describe('catcherIndex', () => {
     const at = catcherIndex(lines, [], PLAYERS)
     expect(at('g1', 'SF', 5)).toBe('cSF')
     expect(at('g1', 'BOS', 5)).toBe('cB1')
-    // Centre field is not catcher.
+    // Center field is not catcher.
     expect(at('g2', 'SF', 5)).toBe(null)
   })
 
@@ -59,7 +59,7 @@ describe('catcherArmLeaders', () => {
   const at: CatcherAt = (g, t) => map.get(`${g}|${t}`) ?? null
   const players = [{ id: 'cSF' }, { id: 'cB' }]
 
-  it('credits the fielding side, centres on the mean attempt and skips pickoffs and the postseason', () => {
+  it('credits the fielding side, centers on the mean attempt and skips pickoffs and the postseason', () => {
     const rows = catcherArmLeaders([
       // Boston runs on SF's catcher: one steal, one caught.
       ev('g1', 'BOS', 'sb', 0.2), ev('g1', 'BOS', 'cs', -0.6),

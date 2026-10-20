@@ -105,7 +105,7 @@ const SKIP_CATEGORIES = new Set([
 const DEPTH = Number(process.env.WPBL_COMMONS_DEPTH || '1')
 
 /**
- * The licence allow-list, tested against extmetadata's machine-readable `License` slug rather
+ * The license allow-list, tested against extmetadata's machine-readable `License` slug rather
  * than the human-readable name, which is free text and inconsistent.
  *
  * Commons is NOT uniformly free: it hosts non-free logos, fair-use claims and files whose
@@ -113,7 +113,7 @@ const DEPTH = Number(process.env.WPBL_COMMONS_DEPTH || '1')
  * written, so an unreviewed row can never be a licensing problem, only a taste one.
  *
  * `pd*` covers pd, pd-us, pd-old-70 and the rest of the public-domain family. GFDL-only files
- * are excluded on purpose: free, but the licence obliges us to reproduce its full text beside
+ * are excluded on purpose: free, but the license obliges us to reproduce its full text beside
  * the image, and no photograph here is worth that.
  */
 const ALLOWED_LICENCE = /^(pd(-|$)|cc0(-|$)|cc-by-\d|cc-by-sa-\d)/i
@@ -265,8 +265,8 @@ function meta(em, key) {
  * Commons markup to plain text.
  *
  * Artist, Credit and ImageDescription all come back as HTML written by whoever uploaded the
- * file. We keep the words and throw the markup away rather than sanitising it, because there
- * is nothing in the markup we want: the attribution these licences require is a name plus a
+ * file. We keep the words and throw the markup away rather than sanitizing it, because there
+ * is nothing in the markup we want: the attribution these licenses require is a name plus a
  * link to the file page, and the file page is already its own column.
  */
 /** Trim to a length a card can hold, on a whole character rather than mid-entity. */
@@ -289,9 +289,9 @@ function plain(html, limit = 600) {
 }
 
 /**
- * The archive-catalogue field labels that show up inside Commons descriptions.
+ * The archive-catalog field labels that show up inside Commons descriptions.
  *
- * Photographs digitised by an institution keep the institution's catalogue record as their
+ * Photographs digitized by an institution keep the institution's catalog record as their
  * description, so the "description" of a 1948 press photo is genuinely this:
  *
  *   Local call number: c009836 Title: [Fort Wayne Daisies player, Marie Wegman … arguing
@@ -313,11 +313,11 @@ const FIELD_SPLIT = new RegExp(`\\b(${CATALOGUE_FIELDS.join('|')})\\s*:\\s*`, 'g
 /**
  * The one sentence worth putting under a photograph.
  *
- * Pulls the caption out of a catalogue record when the text is one, and otherwise returns the
+ * Pulls the caption out of a catalog record when the text is one, and otherwise returns the
  * description untouched: plenty of Commons descriptions are already a plain sentence
  * ("Betsy Jochum during the 1947 Season") and reformatting those would only damage them.
  *
- * `Description` is preferred over `Title` where a record carries both, because a cataloguer's
+ * `Description` is preferred over `Title` where a record carries both, because a cataloger's
  * Title is an identifier and the Description is the thing a reader wants ("Tiby Eisen swings
  * a baseball bat" beats "Thelma 'Tiby' Eisen").
  *
@@ -326,10 +326,10 @@ const FIELD_SPLIT = new RegExp(`\\b(${CATALOGUE_FIELDS.join('|')})\\s*:\\s*`, 'g
  * sign this failed.
  */
 /**
- * A cataloguer's title, in the shape a reader expects.
+ * A cataloger's title, in the shape a reader expects.
  *
- * Library cataloguing has conventions that are load-bearing in a catalogue and noise under a
- * photograph. Square brackets mark a title the cataloguer supplied rather than transcribed
+ * Library cataloging has conventions that are load-bearing in a catalog and noise under a
+ * photograph. Square brackets mark a title the cataloger supplied rather than transcribed
  * from the object; " : " separates the title proper from what the rules call other title
  * information; and a trailing "[graphic]" is the general material designation, which is to
  * say "this is a picture", which the reader can see.
@@ -354,7 +354,7 @@ function deriveCaption(description) {
   description = description.replace(/^From source:\s*/i, '').trim()
   if (!description) return null
   const parts = description.split(FIELD_SPLIT)
-  // A split with no delimiters returns one element: not a catalogue record, leave it alone.
+  // A split with no delimiters returns one element: not a catalog record, leave it alone.
   if (parts.length < 3) return description
   const fields = new Map()
   for (let i = 1; i < parts.length; i += 2) {
@@ -393,7 +393,7 @@ function buildRow(page, sourceCategory) {
 
   const em = ii.extmetadata ?? {}
   const slug = meta(em, 'License').toLowerCase()
-  if (!ALLOWED_LICENCE.test(slug)) return { skip: `licence ${slug || '(none)'}` }
+  if (!ALLOWED_LICENCE.test(slug)) return { skip: `license ${slug || '(none)'}` }
 
   // A TIFF's own URL is a .tif no browser will paint, so it may only be used through its
   // JPEG render. Web-native formats can fall back to the original, which is what happens for
@@ -405,7 +405,7 @@ function buildRow(page, sourceCategory) {
     row: {
       page_id: page.pageid,
       title: page.title,
-      // Clipped AFTER the caption is derived, not before: a catalogue record runs to well
+      // Clipped AFTER the caption is derived, not before: a catalog record runs to well
       // over a card's worth of text, and truncating first can cut the Title field in half
       // before deriveCaption ever sees it.
       description: clip(deriveCaption(plain(meta(em, 'ImageDescription'), 4000)), 600),

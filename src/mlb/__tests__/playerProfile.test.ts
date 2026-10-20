@@ -36,7 +36,7 @@ describe('careerRows', () => {
 })
 
 describe('tallyAwards', () => {
-  it('keeps the honours worth a ribbon, folds AL and NL together, and drops the rest', () => {
+  it('keeps the honors worth a ribbon, folds AL and NL together, and drops the rest', () => {
     const t = tallyAwards([
       { id: 'ALMVP', season: '2021' }, { id: 'NLMVP', season: '2024' },
       { id: 'ALAS', season: '2021' }, { id: 'NLAS', season: '2024' }, { id: 'NLAS', season: '2024' },

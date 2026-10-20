@@ -345,7 +345,7 @@ function SeriesBody({ A, B, clubs, teams, games: allGames, players, lines: allLi
       <Typography sx={{ ...SECTION_CAPTION_SX, mb: 1 }}>
         The most lopsided matchups between these clubs in {scopeNote}, three plate appearances or more.{' '}
         <Box component="a" {...linkTo(WPBL_MATCHUPS_PAGE)} sx={{
-          // UNDERLINED: it is the colour of the sentence it ends, so the line is the only thing
+          // UNDERLINED: it is the color of the sentence it ends, so the line is the only thing
           // that says it is a link (1.02:1 against the text around it in light mode).
           ...UNSTYLED_LINK, color: ink, fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: '2px', ...FOCUS_RING,
         }}>

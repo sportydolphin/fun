@@ -97,7 +97,7 @@ export function useLeagueReads() {
     fetchWpblAllLines()
       .then(l => {
         if (cancelled) return
-        // Usually the very arrays the initialiser was seeded with, in which case this is no change.
+        // Usually the very arrays the initializer was seeded with, in which case this is no change.
         lateUpdate(() => setLeagueLines(prev => (prev && prev.batting === l.batting && prev.pitching === l.pitching ? prev : { batting: l.batting, pitching: l.pitching })))
       })
       .catch(() => { /* no ranks; the totals stand on their own */ })
@@ -113,7 +113,7 @@ export function usePlayerLines(player: WpblPlayer, onSwap: () => void) {
   //
   // This card is a modal: closing it UNMOUNTS it, so reopening the same player is a fresh
   // mount and not a prop change. An initial value of `[]` with `loading: true` would therefore
-  // spin again on every open, however recently the same season had been read. Lazy initialisers,
+  // spin again on every open, however recently the same season had been read. Lazy initializers,
   // because `player` is a prop and is available before the first paint; the effect below still
   // runs and revalidates behind whatever this put on screen.
   const seeded = getSeedWpblPlayerLines(player.id)
@@ -144,7 +144,7 @@ export function usePlayerLines(player: WpblPlayer, onSwap: () => void) {
   // opened.
   const [shownPlayer, setShownPlayer] = useState(player.id)
   if (shownPlayer === player.id && pitchLocs.length === 0) {
-    // Seeded here rather than in the initialiser above because it is keyed on `feedKey`, which
+    // Seeded here rather than in the initializer above because it is keyed on `feedKey`, which
     // is derived a few lines further down and cannot be read before it exists.
     const locs = getCachedWpblPitcherLocations(feedKey)
     if (locs && locs.length > 0) setPitchLocs(locs)

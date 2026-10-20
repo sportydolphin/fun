@@ -59,7 +59,7 @@ function downloadIcs(filename: string, ics: string) {
 // Opt-in row under the matchup: a Web Push reminder before every WPBL game's first pitch. A
 // standing preference (user_preferences.notify_wpbl_all_games) that the server cron
 // (scripts/send-wpbl-game-start.mjs) expands into a reminder for each scheduled game; that
-// sender still honours legacy per-game wpbl_game_reminders rows.
+// sender still honors legacy per-game wpbl_game_reminders rows.
 //
 // Signed out, the whole row prompts sign-in: Web Push is user-scoped, so there's no anonymous
 // reminder to store.
@@ -258,7 +258,7 @@ function recentForm(games: WpblGame[], teamId: string, beforeMs: number, n = FOR
  *
  * It fails toward the regular season by construction: `seriesContext` returns null for
  * anything `countsInStandings` accepts, and that helper counts everything it does not
- * recognise, so a feed that renames its game types gives this card the regular-season reading
+ * recognize, so a feed that renames its game types gives this card the regular-season reading
  * rather than a blank one.
  *
  * A PURE FUNCTION AND EXPORTED, so it can be tested without rendering Home: the postseason branch
@@ -424,15 +424,15 @@ export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, p
   const teamRow = (t: WpblTeam | undefined) => {
     const record = t ? recordOf(t.id) : null
     return (
-      // THE ROW WEARS THE CLUB'S COLOUR, so four clubs with real identities are told apart by more
+      // THE ROW WEARS THE CLUB'S COLOR, so four clubs with real identities are told apart by more
       // than a badge the size of a fingernail.
       //
       // BOTH ROWS, EVEN THOUGH ONE CLUB IS AT HOME. This card is a fixture and the two clubs are
       // equals in it; Last Game tints the winner alone, because that card is a result and there the
-      // colour is carrying which way it went. Same device, two meanings.
+      // color is carrying which way it went. Same device, two meanings.
       //
       // NO RADIUS AND NO MARGIN OF ITS OWN: the two rows are cut out of one band (below), so the shape
-      // belongs to the band and each row is just a field of colour inside it. Two separately shaped
+      // belongs to the band and each row is just a field of color inside it. Two separately shaped
       // pills with a gap between them read as unrelated chips that happen to be stacked, the opposite
       // of what a fixture is.
       <Box sx={{
@@ -510,7 +510,7 @@ export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, p
           then a rule and the row you can act on. Everything inside the clickable block is a
           fact about THIS game, so it all opens the game, the way the team rows already did.
 
-          `flex: 1` + centred absorbs whatever height the card beside it forces on this one,
+          `flex: 1` + centered absorbs whatever height the card beside it forces on this one,
           splitting it above and below rather than dropping it in one hole, so the card stays
           even when the series line drops out, which it does the first time two clubs meet. */}
       <Box {...gameLink(g, onOpenGame)} sx={{ cursor: 'pointer', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', borderRadius: 1, p: 0.5, mx: -0.5, ...TAPPABLE }}>
@@ -520,16 +520,16 @@ export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, p
         {/* ONE BAND, EDGE TO EDGE, TWO FIELDS AND A ONE-PIXEL SEAM.
 
             The seam is the card showing through a `gap`, not a border: two saturated tints
-            meeting edge to edge blend into a third colour along the join (Firebells red into
+            meeting edge to edge blend into a third color along the join (Firebells red into
             Heights blue reads purple for a pixel), and a `divider` rule there would be a third
-            colour drawn on purpose. The card's own paper between them says "two clubs" without
+            color drawn on purpose. The card's own paper between them says "two clubs" without
             adding any ink.
 
             FULL BLEED, because a tinted rectangle inset a few pixels inside a card is the one
             shape that reads as an accident: against the card's edge, a thin margin of paper just
             looks like the tint failed to fill. Run to the edge it is a band, which is what a
             broadcast graphic does with a fixture. `mx: -2` is SectionCard's body padding
-            cancelled through the clickable block's own `p: 0.5, mx: -0.5`, so it lands exactly
+            canceled through the clickable block's own `p: 0.5, mx: -0.5`, so it lands exactly
             on the card's inner edge and the card's `overflow: hidden` takes care of the corners.
 
             The rows get that padding back as `px: 2` so the club names stay on the text
@@ -562,7 +562,7 @@ export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, p
 
             A regular-season line ("Season series tied 2–2 · Firebells have won 4") is true,
             quiet, and the same shape every night, sitting between the two loudest things on
-            the card, and the colour band above already says this is a fixture with a story.
+            the card, and the color band above already says this is a fixture with a story.
             In the postseason the same slot carries "Firebells lead 1-0 · Firebells can clinch",
             which is the stakes, and the postseason branch of `nextGameContext` is what makes
             the two different. */}

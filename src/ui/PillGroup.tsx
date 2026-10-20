@@ -9,13 +9,13 @@ import { TYPE_SCALE } from './card'
 // The two looked identical on MLB's Stats page, three rows of the same pill for two different jobs.
 //
 // Compact segmented pills. The in-card sibling of SegNav: SegNav is the page-level tab bar
-// and centres itself across the full width, this one is inline and sized to sit inside a
+// and centers itself across the full width, this one is inline and sized to sit inside a
 // SectionCard, either in the body beside a leaderboard or in the header's `action` slot.
 //
 // Solid accent fill rather than SegNav's raised surface chip, because at this size the chip's
 // shadow-on-paper trick disappears against the card it is sitting on: inside a card the only
-// thing that reads as "selected" at 0.68rem is colour. Use `--wpbl-accent-solid`, never
-// WPBL_ACCENT. White on #60a5fa measures 2.37:1, and colour contrast is absolute, so the raw
+// thing that reads as "selected" at 0.68rem is color. Use `--wpbl-accent-solid`, never
+// WPBL_ACCENT. White on #60a5fa measures 2.37:1, and color contrast is absolute, so the raw
 // accent fails in dark mode too.
 export function PillGroup({ options, value, onChange, mb }: {
   /** `disabled` keeps an option DRAWN and unpressable, for a choice the page in front of the reader

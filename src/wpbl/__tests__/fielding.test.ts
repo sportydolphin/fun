@@ -143,7 +143,7 @@ describe('fieldingLedger', () => {
       value('B flied out to lf (0-0).', 0, 0, 1, 0, 'flyout', 'P'),
       value('C singled to left field (0-0).', 0, 0, 0, 1, 'single', 'P'),
       value('D singled to left field (0-0).', 0, 0, 0, 1, 'single', 'P'),
-      // A gap: half of it is centre field's.
+      // A gap: half of it is center field's.
       value('E doubled to left center (0-0).', 0, 0, 0, 2, 'double', 'P'),
       value('F flied out to left center (0-0).', 0, 0, 1, 0, 'flyout', 'P'),
     ]

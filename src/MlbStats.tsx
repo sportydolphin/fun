@@ -409,10 +409,10 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // (search/stats/leaderboard/viz) use the full width for side-by-side columns.
   // HOME IS SIZED, NOT CAPPED: its width is WPBL Home's, which is wider than the shell's padding
   // leaves below about 1300px, so a maxWidth would stop short and the two Homes would not line up.
-  // Centred with a margin rather than WPBL's transform, which would also move the sticky bars and
+  // Centered with a margin rather than WPBL's transform, which would also move the sticky bars and
   // the fixed-position sheets inside it.
   const onHome = state.view === 'home'
-  // The Stats boards take WPBL Stats' width from `sm` up, centred the same way as Home. Below `sm`
+  // The Stats boards take WPBL Stats' width from `sm` up, centered the same way as Home. Below `sm`
   // the pager's full-bleed panes need the phone column as it is.
   const onStatsBoard = isMlbStatsBoard(state.view)
   const columnSx = onHome

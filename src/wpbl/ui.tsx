@@ -173,9 +173,9 @@ const RING = 2
  * A run of results as dots, oldest first: the same left-to-right order a schedule reads, and
  * the same order every form guide in sport uses.
  *
- * A win is SOLID GREEN and a loss is a RED RING. Colour alone would have been the only thing
+ * A win is SOLID GREEN and a loss is a RED RING. Color alone would have been the only thing
  * telling the two apart, and red/green is precisely the pair that around one man in twelve
- * cannot separate. Everywhere else in the section the colour is redundant ("+26", "W4", "4–3"
+ * cannot separate. Everywhere else in the section the color is redundant ("+26", "W4", "4–3"
  * all say it in text as well), and this strip must not be the exception. Filled-versus-hollow
  * survives greyscale, deuteranopia and a glance from arm's length.
  *
@@ -185,7 +185,7 @@ const RING = 2
  * Only as many dots as there are games: five grey placeholders on opening week would suggest
  * a team had lost five, which is the one thing the strip must never imply.
  *
- * ONE STRIP FOR THE SECTION, so a result is never a green tick on one page and a team-coloured
+ * ONE STRIP FOR THE SECTION, so a result is never a green tick on one page and a team-colored
  * pip on another. `gap` is the only thing a caller tunes, because a longer run needs a tighter
  * rhythm and nothing else about a result changes with where it is drawn.
  */
@@ -272,7 +272,7 @@ export { ICON_SIZE } from '../ui/card'
 
 /** The club rows, run to the card's edges. Rows inside take `px: 2` to land back on the text
  *  column, and the 1px `gap` is the card's own paper showing through: two saturated tints
- *  meeting edge to edge blend into a third colour along the join. */
+ *  meeting edge to edge blend into a third color along the join. */
 export const CLUB_BAND = { mx: -2, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '1px' } as const
 
 /** The card's last row: the one thing you can DO, on a recessed field with the card's radius
@@ -287,7 +287,7 @@ export const cardFooterBand = (isDark: boolean) => ({
 /** A card header's "All 41 posts ›" link, in SectionCard's `action`. One style for every Home card
  *  that points at a hub, because the offseason page stacks five of them and each drew its own:
  *  grey with an arrow on the gallery, accent with a chevron on Reading, in two accent tokens.
- *  `--wpbl-accent-fg` rather than `-solid`, which is a fill colour and fails as text in dark mode. */
+ *  `--wpbl-accent-fg` rather than `-solid`, which is a fill color and fails as text in dark mode. */
 export const CARD_LINK_SX = {
   flexShrink: 0, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
   textDecoration: 'none', ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
@@ -298,11 +298,11 @@ export const CARD_LINK_SX = {
 // near-black or page-matching primaries stay defined), with the bundled logo on top:
 // full-bleed for finished lockups (Boston), centered for transparent knockouts, or
 // the abbreviation when no logo exists. The drawing is src/ui/ClubBadge.tsx, shared with MLB's
-// TeamLogo; this says which colours and art a WPBL club gets.
+// TeamLogo; this says which colors and art a WPBL club gets.
 export function TeamBadge({ team, size = 34, ring }: {
   team: Pick<WpblTeam, 'id' | 'abbr'>; size?: number
-  /** Override the ring colour, which defaults to the club's secondary. For a surface that keys a
-   *  whole card on one team colour and needs the badge ring to match it rather than compete. */
+  /** Override the ring color, which defaults to the club's secondary. For a surface that keys a
+   *  whole card on one team color and needs the badge ring to match it rather than compete. */
   ring?: string
 }) {
   return (
@@ -326,16 +326,16 @@ export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ri
   name: string; teamId: string | null; size?: number
   /** Told once the frame has its final look: the face has loaded (or failed), or there is no
    *  face and the initials are it. For a caller that holds a placeholder over the frame until
-   *  then, since the bare club-coloured disc in between reads as a blink. */
+   *  then, since the bare club-colored disc in between reads as a blink. */
   onReady?: () => void
   /** The face a card is ABOUT, drawn on arrival: the player card's band. Loads eagerly at high
    *  priority, and shows the 128 copy (almost always already cached, by the list row the card was
    *  opened from) until the full-size one has loaded. Without that the band rose into view with an
-   *  empty club-coloured square where the face would arrive a beat later, and a lazy image that
+   *  empty club-colored square where the face would arrive a beat later, and a lazy image that
    *  remounts paints blank for a frame before it finds its cached copy. */
   priority?: boolean
-  /** Override the ring colour, which defaults to the club's secondary. See TeamBadge's `ring`:
-   *  for a card keyed on one team colour, so the portrait ring matches it instead of stacking a
+  /** Override the ring color, which defaults to the club's secondary. See TeamBadge's `ring`:
+   *  for a card keyed on one team color, so the portrait ring matches it instead of stacking a
    *  second hue outside it. */
   ring?: string
   /** Load the image eagerly instead of lazily. Needed for an OFF-SCREEN capture (the share card):
@@ -640,7 +640,7 @@ export function CopyLinkButton(props: { url: string; title?: string; onCopy?: ()
 // ModalShell lives in src/ui/ModalShell.tsx (shared with MLB); re-exported above.
 
 /**
- * The player card's secondary block: a rule of the club's colour, a label, a line of summary,
+ * The player card's secondary block: a rule of the club's color, a label, a line of summary,
  * and optionally something that opens.
  *
  * ONE COMPONENT for every such block on the card (`CameoBlock`, `FieldingLine`,
@@ -691,7 +691,7 @@ export function AccentPanel({ label, summary, meta, accent, defaultOpen = false,
           display: 'flex', alignItems: 'baseline', gap: 1, px: 1.5, py: 1,
           // ORDER MATTERS AND IT IS NOT OBVIOUS. A shorthand `borderColor` would repaint the left edge
           // too, turning the club's rule the divider's grey and losing the only thing tying the panel to
-          // the team. The long-hand bottom colour leaves the left edge alone. Check the computed style
+          // the team. The long-hand bottom color leaves the left edge alone. Check the computed style
           // after touching this rather than the look: at a glance a 3px grey rule still reads as a
           // deliberate border.
           borderBottom: open ? '1px solid' : 'none',
@@ -732,7 +732,7 @@ export function AccentPanel({ label, summary, meta, accent, defaultOpen = false,
         {canOpen && (
           /* Alignment is the reason this is a box and not a glyph: the row is baseline-aligned
              so the label and the summary sit on one line, and a triangle has no baseline to
-             align to. `alignSelf: center` takes it out of that and centres it on the row. */
+             align to. `alignSelf: center` takes it out of that and centers it on the row. */
           <Box sx={{
             flexShrink: 0, width: 0, height: 0, alignSelf: 'center',
             ...(meta == null ? { ml: 'auto' } : { ml: 1 }),

@@ -40,7 +40,7 @@ export function writeFullTable(on: boolean): void {
 
 
 function RankText({ rank }: { rank: RankMark }) {
-  // Centred on the number rather than on its baseline: a smaller "T-" on the same baseline hangs at
+  // Centered on the number rather than on its baseline: a smaller "T-" on the same baseline hangs at
   // the top of it in a flex parent and reads as a superscript.
   return (
     <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center' }}>

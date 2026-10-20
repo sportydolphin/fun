@@ -22,7 +22,7 @@ export const DISCORD_DEV_SHOW_EVENT = 'sd:dev-show-discord'
  * for is also the one where clearing site data is most annoying.
  *
  * An EVENT as well as the storage write, because Home reads the flag once in a `useState`
- * initialiser: clearing the key alone would do nothing visible until the next reload, which is
+ * initializer: clearing the key alone would do nothing visible until the next reload, which is
  * the failure a dev tool can least afford, since it reads as a broken card rather than a
  * button that has not landed yet.
  */

@@ -22,9 +22,9 @@ const STORAGE_KEY = 'wpblEraBasis'
 /**
  * Read the reader's choice, accepting EITHER basis by name.
  *
- * Recognising only the non-default value (`=== '7' ? 7 : CANONICAL`) works only until the
+ * Recognizing only the non-default value (`=== '7' ? 7 : CANONICAL`) works only until the
  * canonical basis moves. Then the remaining choice becomes unstorable: a reader picking the
- * other basis writes a value `readStored` does not recognise, and the setting silently snaps
+ * other basis writes a value `readStored` does not recognize, and the setting silently snaps
  * back on the next load. Nothing throws, and the pill even looks right until a reload.
  *
  * Naming both values keeps it right in whichever direction the league goes next.

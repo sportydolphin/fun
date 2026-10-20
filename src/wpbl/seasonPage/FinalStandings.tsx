@@ -85,9 +85,9 @@ export function FinalStandings({ rows, orderIds, cadence, teamHref, onNavigate }
               bgcolor: leader ? 'var(--wpbl-compare-lead)' : 'transparent',
               fontVariantNumeric: 'tabular-nums',
               // ONLY WHILE MOVING. A row has no background of its own, so two clubs crossing print
-              // through each other; this gives the moving pair an opaque page-coloured backing and
+              // through each other; this gives the moving pair an opaque page-colored backing and
               // a stacking order for exactly as long as the move lasts. `background.default`, the
-              // PAGE's colour, because the card has no fill of its own: `background.paper` here
+              // PAGE's color, because the card has no fill of its own: `background.paper` here
               // would flash a lighter band across the table on every move. The leader keeps its
               // tint, composited over the opaque backing. See rowFlip.ts.
               '&[data-moving]': {

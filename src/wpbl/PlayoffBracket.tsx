@@ -54,12 +54,12 @@ const BRACKET_OPEN_KEY = 'wpbl:bracketOpen'
  * The probability is drawn as a fill BEHIND the club's own name, in that club's own tint, and
  * the number sits at the end of its own row. The alternatives each fail a different way: plain
  * names no bigger or bolder than anything else make the bracket look like a footnote beside Next
- * game's 24px club names; a thin separate odds bar is the only colour on the card, so four clubs
+ * game's 24px club names; a thin separate odds bar is the only color on the card, so four clubs
  * with four strong identities render as white text; and a bar running red at one end and green
  * at the other reads as good-against-bad rather than as San Francisco against Boston, which is
  * what it actually is.
  *
- * Same information, no legend, no extra height, and the colour says whose it is. `wpblSurface`
+ * Same information, no legend, no extra height, and the color says whose it is. `wpblSurface`
  * and not `wpblAccent`: this is a field with text on it, which is the whole reason that third
  * role exists (see constants.ts).
  */
@@ -152,10 +152,10 @@ function SeriesTeamRow({ entrant, series, leading, winP, wide, placeholder }: {
         <Typography sx={{
           position: 'relative', fontSize: TYPE_SCALE.title, fontWeight: 900, flexShrink: 0,
           minWidth: '2.5rem', textAlign: 'right', fontVariantNumeric: 'tabular-nums',
-          // ALWAYS THE CLUB'S OWN COLOUR, not "the favourite's". It is that club's number, on
+          // ALWAYS THE CLUB'S OWN COLOR, not "the favorite's". It is that club's number, on
           // that club's row, over that club's tint, so anything else would be the card picking a
           // side before a ball is thrown. `leading` is about a series lead and there is none before a
-          // game is played, which is why keying the colour on it would leave both numbers grey.
+          // game is played, which is why keying the color on it would leave both numbers grey.
           color: wpblAccent(team.id, dark),
         }}>{fmtOdds(winP)}</Typography>
       )}
@@ -245,7 +245,7 @@ function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, bare, chi
         to make. At 8px, 900, uppercase and letter-spaced, in a saturated red inside a red
         border a hair away from it, every emphasis available is applied at once to a word
         that comes out a smear, on the most dramatic label the bracket has. The badge still
-        shouts, through the colour and the border. */}
+        shouts, through the color and the border. */}
         {elim && (
           <Typography sx={{
             fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase',
@@ -331,10 +331,10 @@ function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, bare, chi
  *  boxes are stretched to a quarter of the column each, and that stretch leaves a band of empty
  *  card under both semifinals. At their natural height fixed quarters point at nothing, so each
  *  stub lives in the same grid row as the box it comes out of and sits at 50% of THAT row, which
- *  is that box's centre whatever it measures.
+ *  is that box's center whatever it measures.
  *
  *  The championship's stub is at 50% of the middle row, and lands on the box because the
- *  right-hand column centres it over the same three rows. That also makes the middle row the
+ *  right-hand column centers it over the same three rows. That also makes the middle row the
  *  only place the two halves have to agree, rather than four percentages that all have to. */
 function ConnectorPiece({ row }: { row: 1 | 2 | 3 }) {
   const line = { borderColor: 'divider' } as const
@@ -343,11 +343,11 @@ function ConnectorPiece({ row }: { row: 1 | 2 | 3 }) {
       display: { xs: 'none', sm: 'block' }, position: 'relative',
       gridColumn: 2, gridRow: row,
     }}>
-      {/* Stub out of the semifinal in this row, at that box's vertical centre. */}
+      {/* Stub out of the semifinal in this row, at that box's vertical center. */}
       {row !== 2 && (
         <Box sx={{ position: 'absolute', left: 0, width: '50%', top: '50%', borderTop: '1px solid', ...line }} />
       )}
-      {/* The spine, in the piece of it this row owns: from the box's centre to the edge facing
+      {/* The spine, in the piece of it this row owns: from the box's center to the edge facing
           the middle, and straight through in the middle row. */}
       <Box sx={{
         position: 'absolute', left: '50%', borderLeft: '1px solid', ...line,
@@ -398,7 +398,7 @@ export function BracketDiagram({ bracket, odds, onOpenSeries, onOpenTeam, picks,
   return (
     /* ONE GRID AT sm+, NOT A ROW OF COLUMNS, AND THE MIDDLE ROW TAKES THE SLACK.
     The two halves of this diagram are different heights: the semifinals stack to their own
-    content while the right-hand column is a centred championship with the title odds under
+    content while the right-hand column is a centered championship with the title odds under
     it, which is always the taller of the two. As a flex row that difference is paid by the
     semifinal boxes, which stretch to fill the column and end up with 40-odd px of blank
     card below their last line each. Rows of `auto 1fr auto` pay it out of the GAP between
@@ -447,12 +447,12 @@ export function BracketDiagram({ bracket, odds, onOpenSeries, onOpenTeam, picks,
       the box that asks it splits one question in two.
 
       The elbow still lands, and needs no arithmetic to: a box that fills the column has its
-      centre at the column's centre, which is what the connector points at.
+      center at the column's center, which is what the connector points at.
 
       ONCE THERE IS A CHAMPION THE ODDS GO, and so does the stretch. A decided title is one bar
       at 100% and three at 0%, which restates the banner at the top of Home as a chart. Without
       the strip a stretched box is a tall frame around empty space, so the box takes its own
-      height and is centred instead, which keeps its centre on the connector all the same. */}
+      height and is centered instead, which keeps its center on the connector all the same. */}
       <Box sx={{
         minWidth: 0, gridColumn: 3, gridRow: '1 / 4', display: 'flex', minHeight: 0,
         alignItems: showTitleOdds ? 'stretch' : 'center',
@@ -700,11 +700,11 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, onOpenPlayer, 
 
   // NO SUBTITLE, like every other card on Home: a line describing the picture under the title made
   // this the one card on the page with a two-line header. The exception is a shut phone card while
-  // a title is still open, where the favourite and its number are the whole of what the card says
+  // a title is still open, where the favorite and its number are the whole of what the card says
   // until someone opens it. A crowned champion is in the championship box, so nothing replaces it.
-  const favourite = odds?.title[0]
-  const shutSubtitle = bracket.champion || !favourite ? undefined
-    : `${favourite.team.name} ${fmtOdds(favourite.p)} to win it all`
+  const favorite = odds?.title[0]
+  const shutSubtitle = bracket.champion || !favorite ? undefined
+    : `${favorite.team.name} ${fmtOdds(favorite.p)} to win it all`
 
   const collapsed = isPhone && !open
 

@@ -28,7 +28,7 @@ export type { Situation, LineScores }
 // see it within a few seconds.
 
 /** The section's live red. Home's scoreboard chip and the LIVE hero already use it; exported so
- *  Game Center's header can say the same thing in the same colour. */
+ *  Game Center's header can say the same thing in the same color. */
 export const LIVE_RED = '#ef4444'
 
 // Poll + realtime-subscribe one game's row while it is live, so score + situation stay
@@ -51,7 +51,7 @@ export function useLiveGame(seed: WpblGame): WpblGame {
   // game, so everything it omits is already correct in the row we hold.
   //
   // AND ONLY ONTO THE GAME IT WAS ASKED ABOUT. A read still in flight when the observed game
-  // changes used to be dropped by the enclosing effect's `cancelled` flag; a callback that
+  // changes used to be dropped by the enclosing effect's `canceled` flag; a callback that
   // outlives its effect has to check for itself. Comparing against the row in state rather
   // than a ref makes it exact: the delta is only the volatile half of a row, so landing one
   // game's score on another is silent and looks entirely plausible.
@@ -173,7 +173,7 @@ export function LiveBanner({ state, away, home, lines, players, sourceUpdatedAt 
   return (
     <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
       <SituationStrip s={s} />
-      {/* The matchup is dropped for the length of the break rather than relabelled. The feed
+      {/* The matchup is dropped for the length of the break rather than relabeled. The feed
           holds `batter_name` and `pitcher_name` across the gap without saying whether they are
           the pair that just finished or the pair due up next, so any label put on them here
           would be a guess, and "AB" on a player who is not batting is the one reading that is

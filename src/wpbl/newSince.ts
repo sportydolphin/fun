@@ -21,7 +21,7 @@ import { useCallback, useEffect, useState } from 'react'
 //
 // NOTHING FROM BEFORE THE FEATURE SHIPPED IS EVER NEW (`FLOOR`). The first-visit rule already
 // implies it for a fresh browser; the floor makes it a guarantee rather than a consequence, so no
-// stale or hand-set watermark can light up the back catalogue the day this goes out.
+// stale or hand-set watermark can light up the back catalog the day this goes out.
 //
 // Times compare as instants, not strings: the feed writes `+00:00` and a Date writes `Z` with
 // milliseconds, and a string comparison between the two is wrong within the same second.

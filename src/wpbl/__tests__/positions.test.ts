@@ -3,7 +3,7 @@ import { displayPosition, primaryPosition, positionsPlayed, buildPositionIndex, 
 import type { WpblSeasonGame } from '../season'
 
 // The roster files a position once and the season then disagrees with it. This decides when the
-// season wins. It has two ways to be wrong: leave a player labelled at a position she has not
+// season wins. It has two ways to be wrong: leave a player labeled at a position she has not
 // played all year, or relabel someone off a handful of games and lose what she is actually for.
 
 /** n games at one position. Each line names its own game, because the three season-scoped
@@ -12,7 +12,7 @@ let gameSeq = 0
 const at = (position: string, n: number) =>
   Array.from({ length: n }, () => ({ position, game_id: `g${gameSeq++}` }))
 
-/** An empty schedule excludes nothing, which is the fail-open behaviour season.ts guarantees
+/** An empty schedule excludes nothing, which is the fail-open behavior season.ts guarantees
  *  and the right baseline for every test below that is not about the postseason. */
 const ALL: WpblSeasonGame[] = []
 
@@ -68,7 +68,7 @@ describe('primaryPosition', () => {
     expect(primaryPosition(lines)).toEqual({ position: 'lf', games: 3, fielded: 4 })
   })
 
-  it('ignores a position the feed does not recognise', () => {
+  it('ignores a position the feed does not recognize', () => {
     expect(primaryPosition([...at('1b', 4), ...at('xx', 5)]))
       .toEqual({ position: '1b', games: 4, fielded: 4 })
   })
@@ -150,7 +150,7 @@ describe('positionsPlayed', () => {
   })
 
   // Kelsie Whitmore's real season, which is what found the bug: her pitching pane presented
-  // 21 putouts as a pitcher's fielding line, and they are catches in centre field.
+  // 21 putouts as a pitcher's fielding line, and they are catches in center field.
   it('puts the most-played position first', () => {
     const lines = [...at('cf', 6), ...at('p/cf', 4)]
     expect(positionsPlayed(lines, ALL)).toEqual(['cf', 'p'])
@@ -192,7 +192,7 @@ describe('leadsWithPitching', () => {
     expect(who({ position: 'LHP' })).toBe(true)
   })
 
-  // Kelsie Whitmore, filed RHP: six starts, and centre field in most of her other games while
+  // Kelsie Whitmore, filed RHP: six starts, and center field in most of her other games while
   // leading the league in home runs. The season moved her off the mound, so the bat leads.
   it('lets the box score move a filed pitcher to the field', () => {
     expect(who({ position: 'RHP', played: 'CF', gs: 6, bf: 116, pa: 64 })).toBe(false)
@@ -212,7 +212,7 @@ describe('leadsWithPitching', () => {
     expect(who({ gs: 0, bf: 20, pa: 6 })).toBe(false)
   })
 
-  // Jamie Mackay (a catcher, 68 BF against 47 PA) and Claire Eccles (a centre fielder, 45
+  // Jamie Mackay (a catcher, 68 BF against 47 PA) and Claire Eccles (a center fielder, 45
   // against 43) both start the odd game. Near parity the lead role would flip on one
   // appearance and flip back the next week, which is worse than being steadily wrong.
   it('needs a clear margin, not a majority', () => {
@@ -230,12 +230,12 @@ describe('leadsWithPitching', () => {
 })
 
 // The whole reason these three take a schedule. Kelsie Whitmore's real September: a season
-// spent mostly in centre field, then one start on the mound in game 1 of the semifinal.
+// spent mostly in center field, then one start on the mound in game 1 of the semifinal.
 // Counting that game does not add a position, it destroys the majority she had, and the label
 // falls back to the roster listing this module exists to override.
 describe('the postseason, which none of this is about', () => {
   const PLAYOFF: WpblSeasonGame[] = [{ id: 'post1', game_type: 'postSeason', counts_in_standings: true }]
-  // Three in centre, two on the mound: a majority in centre, and a narrow one, which is what
+  // Three in center, two on the mound: a majority in center, and a narrow one, which is what
   // every two-way player's is.
   const season = [...at('cf', 3), ...at('p', 2)]
   const playoffStart = [{ position: 'p', game_id: 'post1' }]

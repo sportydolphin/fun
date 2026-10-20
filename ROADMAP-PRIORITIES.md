@@ -112,7 +112,7 @@
 ## Parked, and why
 
 - **Call the Play**: the owner does not rate it; stashed. Ask before picking it up.
-- **Favourite-team theming**: colour alone did not justify the ask (branch `wpbl-favorite-team`).
+- **Favorite-team theming**: color alone did not justify the ask (branch `wpbl-favorite-team`).
 - **"This day in the inaugural season"**: nothing to replay until August 2027.
 - **Rolling form, WPBL streaks and milestones**: need games, and more than one season of them.
 - **Road to Springfield**: dropped for good; do not rebuild.

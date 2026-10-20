@@ -8,7 +8,7 @@
  * (see CLAUDE.md), so the ingest fell back to matching on (club, name), "Catherine O'Sullivan"
  * matched nobody, and it inserted a new player. Her game went under the new row: three at-bats,
  * a walk and an RBI, missing from the player the site knows, plus a second player page under a
- * name no fan recognises. Nothing went red. A READER told us.
+ * name no fan recognizes. Nothing went red. A READER told us.
  *
  * THE FIX IS NOT A LOOSER MATCHER, which is the thing to understand before touching this.
  * `matchFeedName` in src/wpbl/feedNames.ts already handles a feed that spells a name

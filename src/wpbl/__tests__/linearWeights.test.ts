@@ -5,7 +5,7 @@ import type { PlayRunValue } from '../derive/runExpectancy'
 import type { WpblBattingLine, WpblGame } from '../types'
 
 // wOBA prices each event by its run value above an out, then stretches the scale so the league
-// reads like OBP. The two properties that make it trustworthy are that the league centres on its
+// reads like OBP. The two properties that make it trustworthy are that the league centers on its
 // own OBP (wOBA) and on 100 (wRC+), and that an event too rare to measure gets a sane price.
 
 const rv = (event_type: string, value: number, pitch_sequence: string | null = 'BCX'): PlayRunValue =>
@@ -65,7 +65,7 @@ describe('the league baseline', () => {
     expect(woba(lg, w, ctx)).toBeCloseTo(lg.obp!, 6)
   })
 
-  it('centres wRC+ on 100 and ranks the slugger above it', () => {
+  it('centers wRC+ on 100 and ranks the slugger above it', () => {
     expect(wrcPlus(lg, w, ctx)).toBeCloseTo(100, 6)
     expect(wrcPlus(sumBatting([slugger], games), w, ctx)!).toBeGreaterThan(100)
     expect(wrcPlus(sumBatting([slap], games), w, ctx)!).toBeLessThan(100)

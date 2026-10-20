@@ -77,7 +77,7 @@ const open = () => render(
 )
 
 describe('the scoring changelog', () => {
-  it('summarises without expanding, and expands on a tap', async () => {
+  it('summarizes without expanding, and expands on a tap', async () => {
     revisions = [revision()]
     open()
     await screen.findByText('Scoring changes')

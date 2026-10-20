@@ -5,12 +5,12 @@
     python scripts/cut-out-wpbl-portraits.py --check    # name them, change nothing
     python scripts/cut-out-wpbl-portraits.py hastings   # one, by substring
 
-WHY THIS EXISTS. `PlayerPortrait` fills its circle with the club's primary colour and draws
+WHY THIS EXISTS. `PlayerPortrait` fills its circle with the club's primary color and draws
 the headshot over it, which is the whole design: a roster reads as four clubs rather than as
 118 photographs. 53 of the bundled portraits are the league's own cut-outs and get that. The
 other 65 are the same photograph with the studio's white left opaque, so they landed as a
-white disc inside a club-coloured ring, and a player whose club had never published a cut-out
-of her was the only one on the page wearing no colour. Nothing about that is visible to a
+white disc inside a club-colored ring, and a player whose club had never published a cut-out
+of her was the only one on the page wearing no color. Nothing about that is visible to a
 type checker or a test that only counts files, which is why it sat there for months.
 
 IN PLACE, AND THE FILE IS ITS OWN SOURCE. This is the opposite of make-wpbl-manager-portraits,
@@ -74,14 +74,14 @@ def alpha(im: Image.Image) -> np.ndarray:
     # jersey is cotton catching the light and must stay solid; the same value one pixel outside
     # the subject's outline is paper bleeding through the anti-aliasing and must not. Dilating
     # the background by three pixels is what tells those two apart, and it also eats into the
-    # white fringe the original encoder left, which against a club colour would otherwise read
+    # white fringe the original encoder left, which against a club color would otherwise read
     # as a sticker cut out with scissors.
     band = cv2.dilate(bg.astype(np.uint8), np.ones((7, 7), np.uint8)) > 0
     ramp = np.clip((v - LO) / (HI - LO), 0, 1)
     a = np.where(bg, 0.0, np.where(band, 1 - ramp, 1.0))
 
     # One pixel of feather, for the reason the manager script gives: a hard edge on a flat
-    # colour reads as a cut-out and not as a photograph.
+    # color reads as a cut-out and not as a photograph.
     return (cv2.GaussianBlur(a.astype(np.float32), (3, 3), 0) * 255).astype(np.uint8)
 
 

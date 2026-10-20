@@ -171,7 +171,7 @@ function friendlyError(raw: string): string {
     return 'That is already your password. Pick a different one.'
   if (m.includes('email link') || m.includes('otp'))
     return 'That link has expired or already been used. Please try signing in again.'
-  // Fall back to the raw message if we don't recognise it, but capitalise it properly
+  // Fall back to the raw message if we don't recognize it, but capitalize it properly
   return raw.charAt(0).toUpperCase() + raw.slice(1)
 }
 
@@ -252,7 +252,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (readSimulatedSession()) { setLoading(false); return }
 
     // Tracks the user ID we knew about before the current auth event fires.
-    // undefined = not yet initialised (getSession / INITIAL_SESSION hasn't run)
+    // undefined = not yet initialized (getSession / INITIAL_SESSION hasn't run)
     // null      = confirmed signed-out state
     // string    = confirmed signed-in user id
     // We use this to gate the reload: only reload on SIGNED_IN when we were

@@ -32,7 +32,7 @@ const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ defau
 // ─── One postseason series ────────────────────────────────────────────────────
 //
 // Opened from a series card on Home or Standings. It used to be the two clubs and a list of games
-// reading "NYY 0, TB 1 · Final", centred in a 480px dialog: everything it said was already on the
+// reading "NYY 0, TB 1 · Final", centered in a 480px dialog: everything it said was already on the
 // card, so the only reason to open it was to reach a game. It now answers what a fan opening a
 // series wants next: who won and lost each game, who starts the next one and where it is on TV, who
 // has carried the series, how the clubs met over the summer, and who the winner plays. Below `md`
@@ -99,7 +99,7 @@ function Club({ t, wins, need, won, lost, record, align, toTeam }: {
 }) {
   const sub = [t.seed != null ? `${t.seed} seed` : null, record ? `${record.wins}-${record.losses}` : null].filter(Boolean).join(' · ')
   return (
-    // Stacked and centred on a phone, where a logo, a nickname and a record beside it left the
+    // Stacked and centered on a phone, where a logo, a nickname and a record beside it left the
     // series score no room between the two clubs.
     <Box sx={{
       display: 'flex', alignItems: 'center', gap: { xs: 0.75, sm: 1.25 }, minWidth: 0, opacity: lost ? 0.5 : 1,
@@ -127,7 +127,7 @@ function Club({ t, wins, need, won, lost, record, align, toTeam }: {
 
 /** The two clubs facing each other, the lower seed on the left as the visitor in game 1, with the
  *  series score between them. In the card this is pips only, because a pair of numbers under the
- *  scoreboard read as a game score; here it is the whole subject of the sheet, and labelled. */
+ *  scoreboard read as a game score; here it is the whole subject of the sheet, and labeled. */
 function Matchup({ s, bracket, records, toTeam }: {
   s: PsSeries; bracket: Bracket; records: Map<number, ClubRecord> | null; toTeam?: (id: number) => void
 }) {
@@ -486,7 +486,7 @@ export default function SeriesSheet({ s, bracket, onClose, onTeamClick, onPlayer
   const toTeam = onTeamClick ? (id: number) => { onClose(); onTeamClick(id) } : undefined
   const toPlayer = onPlayerClick ? (id: number) => { onClose(); onPlayerClick(id) } : undefined
 
-  // A game the series never reached is not a game: cancelled, or an "if necessary" left unplayed.
+  // A game the series never reached is not a game: canceled, or an "if necessary" left unplayed.
   const games = s.games.filter(g => !(s.winnerId != null && (g.state === 'postponed' || g.state === 'preview')))
   const pks = s.games.map(g => g.gamePk).join(',')
   const finals = s.games.filter(g => g.state === 'final').map(g => g.gamePk)

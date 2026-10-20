@@ -34,7 +34,7 @@ export function basesPhrase(first: boolean, second: boolean, third: boolean): st
  * NO HOME PLATE, deliberately. Nobody stands on it, so drawing it adds a fourth mark that is
  * never filled and makes the three that matter harder to count at 20px.
  *
- * IT CARRIES ITS OWN NAME, AND IT WRITES IT ITSELF. Three unlabelled squares are invisible to a
+ * IT CARRIES ITS OWN NAME, AND IT WRITES IT ITSELF. Three unlabeled squares are invisible to a
  * screen reader and to anyone who cannot see the fill, so the glyph is a `role="img"` and its
  * name is derived from the same three flags it draws. Derived rather than passed because a
  * required prop is a prop a new call site can get wrong or paste from its neighbour, and a

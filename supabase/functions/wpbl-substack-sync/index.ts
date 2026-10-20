@@ -25,7 +25,7 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
 /** The `role` claim out of a bearer token, or null. Signature is not checked here: Supabase
  *  verifies it before the handler runs, and re-verifying without the project secret would be
- *  theatre. Anything malformed returns null and is refused. */
+ *  theater. Anything malformed returns null and is refused. */
 function jwtRole(authHeader: string): string | null {
   const token = authHeader.replace(/^Bearer\s+/i, '').trim()
   const payload = token.split('.')[1]
@@ -45,7 +45,7 @@ Deno.serve(async (req: Request) => {
   // left to check is which key it was. That matters because the anon key is also a perfectly
   // valid project JWT, and it ships inside the browser bundle: platform verification alone
   // (which is all wpbl-ingest relies on) would let any visitor trigger a sync. Reading the
-  // `role` claim is the actual authorisation check.
+  // `role` claim is the actual authorization check.
   //
   // Deliberately NOT a string comparison against SUPABASE_SERVICE_ROLE_KEY. The cron job
   // sends the key stashed in Vault, and a rotated or re-issued key leaves those two valid but

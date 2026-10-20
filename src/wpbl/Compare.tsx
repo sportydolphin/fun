@@ -61,7 +61,7 @@ import { TYPE_SCALE } from '../ui/card'
  * `roster` is the WHOLE roster, because uniqueness cannot be judged from one row: a name two
  * players share takes the id-suffixed slug, and a one-element roster would happily mint the bare
  * one and link to nobody. `position` is where the player has actually taken the field, which is not
- * always what the roster filed (positions.ts: Kelsie Whitmore is listed RHP and plays centre field).
+ * always what the roster filed (positions.ts: Kelsie Whitmore is listed RHP and plays center field).
  *
  * THE NICKNAME, NOT THE FULL CLUB NAME, and the badge is why it can be. "San Francisco Firebells
  * · C" wraps onto two lines in a half-width column on any phone, which leaves the two heads
@@ -103,7 +103,7 @@ function CompareGroupCard({ group }: { group: WpblCompareGroup }) {
  * THIS LEAGUE IN PARTICULAR. Four clubs means a hitter sees the same pitcher again and again, a
  * sample a thirty-club league never produces. The playoffs are their own line and NEVER summed
  * into the season: a reader who set the player card to "Both" can add them, and one who did not
- * is not handed a total the standings would not recognise.
+ * is not handed a total the standings would not recognize.
  */
 function MatchupCard({ comparison, a, b }: {
   comparison: ReturnType<typeof buildWpblComparison>
@@ -318,7 +318,7 @@ function ComparePageBody({ path, onNavigate }: {
 
   // LOADING IS THE PAGE THE URL WILL OPEN, drawn empty: the picker, one head and the picker, or two
   // heads and a comparison. Which one is readable off the slug before the roster can resolve it,
-  // since a pair is the only spelling with the join in it. It was a centred spinner, which left
+  // since a pair is the only spelling with the join in it. It was a centered spinner, which left
   // the footer 300px down the screen and threw it 500px further when the picker landed.
   const skeleton = loading && players.length === 0
   const shape = !slug ? 'none' : slug.toLowerCase().includes(WPBL_COMPARE_JOIN) ? 'pair' : 'single'

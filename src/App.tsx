@@ -125,7 +125,7 @@ const DeleteAccount = lazy(() => import('./LegalPages').then(m => ({ default: m.
 
 // Dialogs. Each is mounted only after it has been opened once (see `useOpenedOnce`), so its
 // chunk is fetched on the click that needs it. SettingsDialog is the expensive one: it pulls
-// in MLB's api + constants + colour utilities, ~90 KB of source that has no business loading
+// in MLB's api + constants + color utilities, ~90 KB of source that has no business loading
 // for someone reading WPBL box scores.
 const SettingsDialog = lazy(() => import('./SettingsDialog').then(m => ({ default: m.SettingsDialog })))
 const FeedbackDialog = lazy(() => import('./FeedbackDialog').then(m => ({ default: m.FeedbackDialog })))
@@ -227,7 +227,7 @@ const BRAND_WORDMARK_MIN_SCALED = Math.ceil(BRAND_WORDMARK_MIN * DESKTOP_SCALE)
 // events: none` so it never blocks a tap, and it unmounts itself once the animation ends.
 // Re-triggered by remounting with a fresh `key`, which reseeds the random spread.
 //
-// Portaled to <body> at fixed viewport coords (x/y = the WPBL segment's centre): the AppBar
+// Portaled to <body> at fixed viewport coords (x/y = the WPBL segment's center): the AppBar
 // is `position: static` on mobile, so confetti left inside it renders *under* the section's
 // sticky tab nav. A body-level portal with a very high z-index floats it above everything.
 const CONFETTI_COLORS = ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#007aff', '#5856d6', '#af52de']
@@ -395,7 +395,7 @@ function AppInner() {
   // The onNavigate handed to the standalone WPBL pages (and the game overlay's own player links): a
   // link to a player or game page opens it as an overlay OVER the current page instead of routing to
   // WpblApp and seating Home beneath it. Every other destination navigates normally. This is the one
-  // choke point, so a page added later gets the behaviour by taking this as its `onNavigate` rather
+  // choke point, so a page added later gets the behavior by taking this as its `onNavigate` rather
   // than by re-wiring anything here.
   const navigateFromStandalone = useCallback((to: string) => {
     if (overlayTargetFromUrl(to)) openOverlayUrl(to)
@@ -1161,7 +1161,7 @@ function AppInner() {
                 width: `calc(${hasToolbarNav ? 220 : 260}px * var(--app-chrome, 1))`,
                 mx: 1.5,
                 // Beside the tabs, one group gap to the first icon: 2.5 plus that button's 5px of
-                // padding. Elsewhere the field is centred and keeps 1.5 both sides.
+                // padding. Elsewhere the field is centered and keeps 1.5 both sides.
                 ...(hasToolbarNav && { mr: 2.5 }),
                 display: 'flex', alignItems: 'center', gap: 0.75,
                 px: 1.5, py: 0.55,

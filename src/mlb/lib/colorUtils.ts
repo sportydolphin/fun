@@ -19,7 +19,7 @@ export { textTone, edgeTone } from './contrast'
 import { textTone, contrastRatio, edgeTone } from './contrast'
 
 /** textTone bound to the current theme and its card surface. */
-/** `target` above 4.5 for text on a tint of its own colour (a "Signed" chip on 11% green), which
+/** `target` above 4.5 for text on a tint of its own color (a "Signed" chip on 11% green), which
  *  sits a little closer to the text than the plain card does. */
 export function useTextTone(): (hex: string, bg?: string, target?: number) => string {
   const theme = useTheme()
@@ -35,7 +35,7 @@ export function useTextTone(): (hex: string, bg?: string, target?: number) => st
 
 // Team color appropriate for text/icons in the current theme.
 // Then held to AA on the theme's page: a club's raw primary is 4.2:1 on white for Baltimore, and
-// the brightened one can fall short on a dark card the same way. A colour that passes is untouched.
+// the brightened one can fall short on a dark card the same way. A color that passes is untouched.
 export function accentColor(hex: string, isDark: boolean): string {
   return textTone(isDark ? brightColor(hex) : hex, isDark, isDark ? undefined : '#f6f7f9')
 }
@@ -105,11 +105,11 @@ export function cardGradient135(hex: string, isDark: boolean): string {
 
 // ─── Two clubs on one chart ───────────────────────────────────────────────────
 //
-// The win probability chart fills each club's share of the game in its colour, and a club's
-// PRIMARY is the wrong colour for that about half the time. Eleven primaries are near-black navy
+// The win probability chart fills each club's share of the game in its color, and a club's
+// PRIMARY is the wrong color for that about half the time. Eleven primaries are near-black navy
 // or brown (SD #2F241D, MIL #12284B, PIT, CWS, SF, DET, ...), and at the 30% a fill is drawn at
 // they all come out the same grey: Padres at Brewers was two shades of mud with nothing to tell
-// the halves apart. So each club gets its most vivid BRAND colour instead (the Padres' gold, the
+// the halves apart. So each club gets its most vivid BRAND color instead (the Padres' gold, the
 // Giants' orange), the pair is chosen so the two hues are clearly different (the Padres and the
 // Brewers both own a gold, so one of them has to give it up), and both are evened out to one
 // saturation and lightness so no matchup draws one club loud and the other faint.
@@ -134,30 +134,30 @@ function hslHex(h: number, s: number, l: number): string {
   return '#' + [r, g, b].map(v => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join('')
 }
 
-/** A colour with a hue worth naming: not black, white, grey or silver. Chroma, not HSL
+/** A color with a hue worth naming: not black, white, grey or silver. Chroma, not HSL
  *  saturation, which calls a navy nearly black "saturated". */
 const isChromatic = (hex: string) => { const [r, g, b] = rgbOf(hex); return Math.max(r, g, b) - Math.min(r, g, b) >= 0.15 }
 
 const hueGap = (a: number, b: number) => { const d = Math.abs(a - b); return Math.min(d, 360 - d) }
 
-/** [away, home]: one fill colour per club, distinct from each other, readable on the theme. */
+/** [away, home]: one fill color per club, distinct from each other, readable on the theme. */
 export function chartPairColors(awayId: number, homeId: number, isDark: boolean): [string, string] {
   const vivid = (id: number) => (TEAM_COLOR_PALETTE[id] ?? [TEAM_BG[id] ?? '#888888']).filter(isChromatic)
   const even = (hex: string) => {
     const [h, s] = hslOf(hex)
     return hslHex(h, Math.min(0.7, Math.max(0.55, s)), isDark ? 0.62 : 0.46)
   }
-  // A club with no colour at all (the White Sox are black and silver) takes a slate, which
+  // A club with no color at all (the White Sox are black and silver) takes a slate, which
   // clashes with nobody.
   const slate = isDark ? '#9aa4b2' : '#64707f'
   const a = vivid(awayId), h = vivid(homeId)
   if (!a.length || !h.length) return [a.length ? even(a[0]) : slate, h.length ? even(h[0]) : slate]
-  // Every pairing of the two palettes, each club's earlier colours first (a palette lists the
+  // Every pairing of the two palettes, each club's earlier colors first (a palette lists the
   // club's primary first), and the first whose hues sit clearly apart.
   const pairs = a.flatMap((ac, i) => h.map((hc, j) => ({ ac, hc, rank: i + j, worst: Math.max(i, j) })))
     .sort((p, q) => p.rank - q.rank || p.worst - q.worst)
   const hit = pairs.find(p => hueGap(hslOf(p.ac)[0], hslOf(p.hc)[0]) >= 40)
-  // Nothing apart (every colour either club owns is the same red): the colourblind-safe pair.
+  // Nothing apart (every color either club owns is the same red): the colorblind-safe pair.
   if (!hit) return [hslHex(217, 0.7, isDark ? 0.62 : 0.48), hslHex(25, 0.85, isDark ? 0.62 : 0.48)]
   return [even(hit.ac), even(hit.hc)]
 }

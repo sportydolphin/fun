@@ -48,7 +48,7 @@ describe('readSequence', () => {
     expect(PITCH_CODES.P).toBe('inplay')
   })
 
-  it('counts an unrecognised code separately rather than guessing', () => {
+  it('counts an unrecognized code separately rather than guessing', () => {
     const r = readSequence('BXB')
     expect(r.counts.unknown).toBe(1)
     expect(r.counts.ball).toBe(2)

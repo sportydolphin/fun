@@ -16,7 +16,7 @@
 // LAZY ON THE WAY IN, so a visit that never draws a stat line never parses half a megabyte of
 // them; DEFERRED AND THROTTLED on the way out, so a live poll is not a storage write every tick.
 // Best effort throughout: storage may be off, full, or cleared, and every failure means only
-// "no seed", which is exactly the behaviour before this file existed. Never under Vitest, where
+// "no seed", which is exactly the behavior before this file existed. Never under Vitest, where
 // one test's seed would quietly become the next test's starting state.
 
 const VERSION = 1

@@ -11,8 +11,8 @@
 // supabase, no clock except the injected `nowMs` — so the thresholds can be unit-tested rather
 // than eyeballed, which is the same reason AdminPanel's status functions are pure.
 //
-// WHAT PAGES AND WHAT DOES NOT is the whole judgement here, and it is deliberately narrower
-// than the panel's four-colour chips. An alert the owner learns to ignore is worse than no
+// WHAT PAGES AND WHAT DOES NOT is the whole judgment here, and it is deliberately narrower
+// than the panel's four-color chips. An alert the owner learns to ignore is worse than no
 // alert, so this fires only on states that are both actionable and unexpected:
 //
 //   * INGEST is the every-two-minutes mirror, so it is the one whose failure is urgent. It

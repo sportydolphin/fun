@@ -42,7 +42,7 @@ const R_BACKSTOP = 48           // how far behind the plate the catcher's ground
 const R_LABEL = R_OUT + 13
 const SPAN = 45                 // foul line to foul line, degrees either side of straight away
 
-/** Screen point for a polar coordinate measured from home plate, 0 = straight to centre. */
+/** Screen point for a polar coordinate measured from home plate, 0 = straight to center. */
 function polar(r: number, deg: number): [number, number] {
   const rad = (deg * Math.PI) / 180
   return [CX + r * Math.sin(rad), CY - r * Math.cos(rad)]
@@ -67,8 +67,8 @@ function sector(a1: number, a2: number, r0: number, r1: number): string {
  *
  * THE INFIELD IS FOUR WEDGES AND THE OUTFIELD IS FIVE, and the boundaries deliberately do not
  * line up. Four fielders stand across the dirt, while the scorer describes the outfield in
- * fifths ("left", "left centre", "centre"...), so forcing one onto the other would either
- * invent a fifth infielder or throw away the centre-field splits the narrative actually makes.
+ * fifths ("left", "left center", "center"...), so forcing one onto the other would either
+ * invent a fifth infielder or throw away the center-field splits the narrative actually makes.
  * Two rings divided differently is how a real spray chart reads anyway.
  *
  * THE CATCHER IS BEHIND THE PLATE, in foul ground, which is the one region here outside the
@@ -95,7 +95,7 @@ const ALL_ZONES = Object.keys(ZONE_SHAPE) as SprayZone[]
 const NAMED_INSIDE: readonly SprayZone[] = ['3B', 'SS', '2B', '1B', 'P', 'C']
 
 /** Where a zone's figure sits: the middle of its arc, at the middle of its band. */
-function centreOf(zone: SprayZone): [number, number] {
+function centerOf(zone: SprayZone): [number, number] {
   const [a1, a2, r0, r1] = ZONE_SHAPE[zone]
   // FURTHER OUT IN THE INFIELD THAN THE MIDDLE OF ITS BAND. A wedge gets wider the further
   // from home it goes, and at the midpoint a 22.5-degree infield slice is about 45px across,
@@ -198,7 +198,7 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
   }
 
   /**
-   * The heat colour, and it is deliberately NOT the section accent.
+   * The heat color, and it is deliberately NOT the section accent.
    *
    * Every other chart in this section is drawn in the WPBL blue, which is exactly the problem:
    * on a player page the accent is already carrying the club, the header band and half the
@@ -235,7 +235,7 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
         ))}
       </Box>
 
-      {/* THE PICTURE, AND BESIDE IT ON A DESKTOP WHAT THE PICTURE CANNOT SAY: pull / centre /
+      {/* THE PICTURE, AND BESIDE IT ON A DESKTOP WHAT THE PICTURE CANNOT SAY: pull / center /
       oppo and how many balls it is made of. There used to be a bar per zone here too, which put
       every zone's share on the page twice, a few inches apart, beside the wedges already printing
       it; the field is the one place those figures are read.
@@ -299,12 +299,12 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
         {/* Figures last, so nothing can be painted over a number. */}
         {ALL_ZONES.map(z => {
           const n = valueOf(byZone.get(z), mode)
-          const [x, y] = centreOf(z)
+          const [x, y] = centerOf(z)
           const named = NAMED_INSIDE.includes(z)
           // AN EMPTY POSITION IS THE HARDEST THING ON THE CHART TO READ. In the faintest ink the
-          // theme has, at 9px, over ground that is nearly the page colour, it cannot be read, and in
+          // theme has, at 9px, over ground that is nearly the page color, it cannot be read, and in
           // Hits mode most of the infield is empty, so most of the labels are that case.
-          // `text.secondary` is the quietest colour that is still meant to be read, which is what a
+          // `text.secondary` is the quietest color that is still meant to be read, which is what a
           // label is.
           const ink = n === 0 ? theme.palette.text.secondary : inkFor(n)
           return (
@@ -344,7 +344,7 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
         )}
         {pull.pullPct != null && (
           <Box sx={{ display: 'flex', gap: 1.5, mb: 1 }}>
-            {([['Pull', pull.pull], ['Centre', pull.center], ['Oppo', pull.oppo]] as const).map(([label, n]) => (
+            {([['Pull', pull.pull], ['Center', pull.center], ['Oppo', pull.oppo]] as const).map(([label, n]) => (
               <Box key={label} sx={{ minWidth: 0 }}>
                 <Typography sx={{ fontSize: TYPE_SCALE.nano, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.disabled' }}>
                   {label}

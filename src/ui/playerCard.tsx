@@ -7,7 +7,7 @@
 // They were written for WPBL's card first (src/wpbl/PlayerDetail.tsx, whose comments still carry
 // most of the reasoning for each choice) and lifted out when the MLB player page was rebuilt on
 // them, so a box score line reads the same way on both sides of the site. What differs between
-// the leagues comes in through `StatCardContext`: what a header's tooltip says, the colour a good
+// the leagues comes in through `StatCardContext`: what a header's tooltip says, the color a good
 // number is drawn in, and how high a rank has to be before it is printed.
 
 import React, { createContext, useContext, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
@@ -25,7 +25,7 @@ import { ordinal } from '../lib/format'
 export interface StatCardEnv {
   /** The tooltip for a column header, or null for none. */
   tip: (label: string) => React.ReactNode
-  /** The colour of a good number: a lit rank, a best game. Never the club's colour (see WPBL's
+  /** The color of a good number: a lit rank, a best game. Never the club's color (see WPBL's
    *  `useRankInk` for why). */
   ink: string
   /** A rank at or above this is printed in a counting column and lit wherever it appears. */
@@ -74,9 +74,9 @@ export const TIP_Z = 1700
 // ─── Section heading and show-more ───────────────────────────────────────────────
 //
 // ONE DEFINITION EACH, because the card grew them one block at a time. By Sep 28, 2026 it had
-// five heading styles (three sizes, two weights, two greys), two show-more buttons (a centred
-// uppercase one in the club's colour under the tables, a left-aligned grey sentence under the
-// reading list), and a good rank drawn in the club's colour a few pixels above bars where blue
+// five heading styles (three sizes, two weights, two greys), two show-more buttons (a centered
+// uppercase one in the club's color under the tables, a left-aligned grey sentence under the
+// reading list), and a good rank drawn in the club's color a few pixels above bars where blue
 // meant "better than the league". Each was reasonable on its own; together they made a card of
 // correct numbers read as confused.
 
@@ -121,8 +121,8 @@ export function SectionHead({ title, caption, sx, part }: {
 }
 
 /**
- * Show more / show fewer (or any disclosure) under a block. Centred, uppercase, full width, in
- * the colour the caller's controls use. The ONE such control on the card, so a reader learns it
+ * Show more / show fewer (or any disclosure) under a block. Centered, uppercase, full width, in
+ * the color the caller's controls use. The ONE such control on the card, so a reader learns it
  * once: the reading list used to have its own, left-aligned and grey, which read as a different
  * kind of thing.
  */
@@ -175,7 +175,7 @@ export function ShowMoreButton({ expanded, onClick, accent, children }: {
  * WEIGHT IS PART OF THE STEP and not a free parameter. Anything uppercase is 800, because at
  * these sizes uppercase needs the weight to hold its counters; the player's season row is 700;
  * a game's cells and running text are 600. There is no 400 on this card, and nothing is 800 for
- * emphasis except a lit rank: emphasis here is the rank colour, and the best-game mark in the log.
+ * emphasis except a lit rank: emphasis here is the rank color, and the best-game mark in the log.
  */
 export const CARD_TYPE = {
   body: { fontSize: { xs: TYPE_SCALE.meta, sm: TYPE_SCALE.body }, fontWeight: 600 },
@@ -244,7 +244,7 @@ const PILL_TRACK_H = `calc(${chromePx(28)} + 6px)`
  * The season line's caption: the season (the picker), how much of one, and the scope control.
  *
  * ONE ROW OF CONTROLS ON A PHONE, the facts under it. The sample used to sit under the picker in a
- * column of its own while the scope pills were centred against that whole column, so the two
+ * column of its own while the scope pills were centered against that whole column, so the two
  * controls missed each other by half a line and read as misaligned. Now the picker and the pills
  * share a row and a height, and the sample takes the full width beneath. On a desktop there is room
  * for all three on one line, the sample beside the season it describes.
@@ -299,7 +299,7 @@ function FigureBar({ sample }: { sample: string | number }) {
  * A STEP BELOW `text.disabled`, not at it. That grey is also the game log's date column and every
  * header on the card, so a zero drawn in it read as furniture of the same weight as "Sep 13", and
  * on a phone the dimming simply did not register: an 0-for-3 and a two-hit night looked equally
- * busy. Opacity over the theme's grey rather than a colour of its own, so it follows light mode's
+ * busy. Opacity over the theme's grey rather than a color of its own, so it follows light mode's
  * stronger grey (see ThemeContext) instead of undoing it.
  */
 export const ZERO_SX = { color: 'text.disabled', opacity: 0.6 } as const
@@ -429,7 +429,7 @@ export function StatTable({ title, caption, part, row, league, reserveRanks, pla
 }
 
 /** ONE LINE OF FIGURES, ranked or not. The rank line under a figure makes its cell a line taller,
- *  and a table cell centres its content, so a ranked figure sat half a line above its neighbours.
+ *  and a table cell centers its content, so a ranked figure sat half a line above its neighbours.
  *  Every cell starts at the top, and the rank line is a non-breaking space where there is no rank:
  *  a plain space collapses to nothing, which is how the two came apart. */
 const ROW_TOP_SX = { verticalAlign: 'top' } as const
@@ -610,7 +610,7 @@ const FORM_INK = { label: 'rgba(255,255,255,0.72)', opp: 'rgba(255,255,255,0.75)
 export function FormStrip({ title, games, ink = FORM_INK }: {
   title: string
   games: { opp: string; value: string }[]
-  /** The band's text colours. WPBL's defaults are measured against its wash (see BAND_WASH in
+  /** The band's text colors. WPBL's defaults are measured against its wash (see BAND_WASH in
    *  PlayerDetail); MLB passes the per-club whites `teamPalette` already solved for contrast. */
   ink?: { label: string; opp: string; value: string }
 }) {
@@ -655,7 +655,7 @@ export function FormStrip({ title, games, ink = FORM_INK }: {
  *
  * A SECTION LIKE EVERY OTHER, a heading over one line, and deliberately the same shape as the
  * fielding section: both are one honest line about a part of the season the headline is not
- * describing. It used to be a bordered panel with a rule in the club's colour, which made it the
+ * describing. It used to be a bordered panel with a rule in the club's color, which made it the
  * loudest frame on the card for its smallest fact.
  */
 export function CameoBlock({ label, text }: { label: string; text: string }) {
@@ -672,15 +672,15 @@ export function CameoBlock({ label, text }: { label: string; text: string }) {
  *
  * Deliberately short of the full line, on two rules. A column has to be one where MORE IS
  * BETTER, which drops SO from the batting log outright (marking a hitter's worst game in the
- * same colour as their best is the sort of thing nobody notices until it is pointed at) and
+ * same color as their best is the sort of thing nobody notices until it is pointed at) and
  * drops H, R, ER, BB and HR from the pitching log for the same reason, since those are what the
  * pitcher gave up. And it has to be an ACHIEVEMENT rather than an opportunity or a workload: AB
  * is how often a hitter came up, not how they did, and a pitcher's P is how long they were left
  * in.
  *
- * BB is left out of the batting list on a softer judgement. A walk is a good outcome and it is
+ * BB is left out of the batting list on a softer judgment. A walk is a good outcome and it is
  * still in the line, but "most walks in a game" is not a thing anyone scans a game log for, and
- * every mark spent on it is one more piece of colour competing with the four-hit night.
+ * every mark spent on it is one more piece of color competing with the four-hit night.
  */
 export const BATTING_BEST = new Set(['R', 'H', '2B', '3B', 'HR', 'RBI', 'SB', 'TB'])
 // Not BF or P: facing more batters is not a better outing, it is a longer one, and marking a
@@ -690,12 +690,12 @@ export const PITCHING_BEST = new Set(['IP', 'SO'])
 /**
  * The best value in a column, if marking it would actually say something.
  *
- * Three ways a column declines to have a best, and all three are about not spending colour on
+ * Three ways a column declines to have a best, and all three are about not spending color on
  * nothing. A max of zero is a stat the player has not recorded all season, and marking ten zeros
  * as ten best games is absurd. A single game cannot have a best game. And a max held by more
  * than a third of the rows is not a standout: a hitter with 1 HR in five of ten games would get
  * five marks that pick out nothing, which is worse than no marks at all, because it teaches a
- * reader the colour means nothing and they stop seeing it on the games where it does.
+ * reader the color means nothing and they stop seeing it on the games where it does.
  *
  * Values are read through `Number` rather than assumed numeric: IP arrives as "5.2" from
  * outsToIp, and its ordering survives the coercion because the fraction digit is only ever
@@ -928,9 +928,9 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
                   } : {}),
                 }}
               >
-                {/* The opponent is plain, deliberately. The opponent's own club colour would give the log a spine to scan
+                {/* The opponent is plain, deliberately. The opponent's own club color would give the log a spine to scan
                     by and cost more than it buys: a reader looking at a player's card does not need other
-                    clubs competing for attention with that player's numbers, and the colour would land on
+                    clubs competing for attention with that player's numbers, and the color would land on
                     the one column nobody came here to read. Emphasis on this card is for the figures. See
                     the best-game marks below and the ranks in the season line. */}
                 {r.lead.map((c, k) => (
@@ -971,7 +971,7 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
             // to scroll forty rows to reach is a total nobody reads.
             <Box component="tfoot">
               <Box component="tr">
-                {/* A label, so the card's label grey rather than the club's colour: red "SEASON" on the
+                {/* A label, so the card's label grey rather than the club's color: red "SEASON" on the
                     Firebells sat in the same row as blue best-game marks and read as a third kind of
                     emphasis. The rule above the row is what sets it apart. */}
                 <Box component="td" sx={{ ...totalTdSx, textAlign: 'left', fontSize: TYPE_SCALE.caption, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.secondary' }}>
@@ -993,7 +993,7 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
   )
 }
 
-/** A best game's cell: heavier, with a dot centred under the figure. A background rather than a
+/** A best game's cell: heavier, with a dot centered under the figure. A background rather than a
  *  pseudo-element or a border, so it takes no room and the row's height cannot move. */
 const BEST_GAME_SX = {
   fontWeight: 800, color: 'text.primary',
@@ -1014,7 +1014,7 @@ const STAT_COL_MIN = '1.3rem'
  *  able to reach it, which is what the control is for. It folds back up: see useCollapsibleTable. */
 export const LOG_PREVIEW = 5
 
-/** The log's season row. The rule above it is the club's colour and the row's own background
+/** The log's season row. The rule above it is the club's color and the row's own background
  *  is the paper, because it has to stay legible over whichever game row it comes to rest on
  *  while the log scrolls under it. */
 export const totalTdSx = {
@@ -1065,13 +1065,13 @@ export const tdSx = { ...TYPE.body, py: 0.55, px: { xs: 0.22, sm: 0.85 }, textAl
 const BAND_INK = { name: '#fff', meta: 'rgba(255,255,255,0.88)', line: 'rgba(255,255,255,0.75)' }
 
 /**
- * Identity, on the club's own colours: portrait, name, the facts about the player, and room on the
+ * Identity, on the club's own colors: portrait, name, the facts about the player, and room on the
  * right for the form strip. Who the player is rather than how a role went, so it carries no rates.
  *
- * THE COLOURS ARE THE CALLER'S, because each league solved them its own way. WPBL's four primaries
+ * THE COLORS ARE THE CALLER'S, because each league solved them its own way. WPBL's four primaries
  * are all near-black and take a wash of the secondary across the right (PlayerDetail's BAND_WASH);
- * MLB's thirty are not, so it sits on the flat card colour `teamPalette` already deepened for white
- * text and says the club's second colour in the stripe alone.
+ * MLB's thirty are not, so it sits on the flat card color `teamPalette` already deepened for white
+ * text and says the club's second color in the stripe alone.
  *
  * `data-sheet-drag` makes this the phone sheet's grab surface: the card is taller than the sheet,
  * so its body is a scroller, and a scroller takes ownership of a touch before the drag handler can.
@@ -1091,7 +1091,7 @@ export function PlayerBand({ bandRef, background, stripe, portrait, name, nameAs
   grab?: boolean
   /** `backgroundColor` and, optionally, `backgroundImage`. */
   background: { color: string; image?: string }
-  /** The 2px rule along the bottom, in the club's second colour. */
+  /** The 2px rule along the bottom, in the club's second color. */
   stripe: string
   portrait: React.ReactNode
   name: string
@@ -1105,7 +1105,7 @@ export function PlayerBand({ bandRef, background, stripe, portrait, name, nameAs
   lines?: string[]
   /**
    * Facts with a label (Hometown, Drafted). Below `md` they are lines like `lines`, as `inline`
-   * says them; from `md` they move to the band's right as labelled columns, which is the band's
+   * says them; from `md` they move to the band's right as labeled columns, which is the band's
    * one large empty area on a wide card and the place the eye goes after the name.
    */
   facts?: BandFact[]
@@ -1166,7 +1166,7 @@ export function PlayerBand({ bandRef, background, stripe, portrait, name, nameAs
   )
 }
 
-/** One labelled fact on the band. */
+/** One labeled fact on the band. */
 export interface BandFact {
   label: string
   value: string
@@ -1175,7 +1175,7 @@ export interface BandFact {
 }
 
 /** A small uppercase tag beside the name. White on a translucent white wash rather than a club
- *  colour, which on some clubs' primaries measures under 4.5:1. */
+ *  color, which on some clubs' primaries measures under 4.5:1. */
 export function BandBadge({ children }: { children: React.ReactNode }) {
   return (
     <Box sx={{ flexShrink: 0, px: 0.85, py: 0.2, borderRadius: 1, bgcolor: 'rgba(255,255,255,0.22)', color: '#fff', fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5) }}>
@@ -1185,7 +1185,7 @@ export function BandBadge({ children }: { children: React.ReactNode }) {
 }
 
 /** A chip on the band (an award): a light wash with a hairline, which reads over both a dark band
- *  and a bright club colour. `href` makes it a link. */
+ *  and a bright club color. `href` makes it a link. */
 export const BAND_CHIP_SX = {
   display: 'inline-flex', alignItems: 'center', gap: 0.4, textDecoration: 'none',
   px: 0.9, py: 0.3, borderRadius: 999, color: '#fff', whiteSpace: 'nowrap', flexShrink: 0,
@@ -1196,7 +1196,7 @@ export const BAND_CHIP_SX = {
 /**
  * The band's chips, on ONE ROW: as many as fit, most important first, then "+N" for the rest.
  *
- * A decorated player's honours used to wrap into as many rows as they took, and on a phone
+ * A decorated player's honors used to wrap into as many rows as they took, and on a phone
  * Ohtani's ran to three, pushing the season a third of a screen down to say what his career was.
  * The caller passes them ranked (MVP before All-Star), so the row always keeps the biggest, and
  * "+N" opens the rest in place for a reader who wants them, with "Less" to fold them back.
@@ -1210,7 +1210,7 @@ export function BandChips({ children, noun = ['award', 'awards'], edge }: {
   /** The chips, most important first, each with its own key. */
   children: React.ReactElement[]
   noun?: [singular: string, plural: string]
-  /** An opaque outline for the "+N" chip, where the band is a flat colour: BAND_CHIP_SX's faded
+  /** An opaque outline for the "+N" chip, where the band is a flat color: BAND_CHIP_SX's faded
    *  white is under 3:1 on it (MLB's clubs measured 2.0 to 2.6). Left alone on a photo. */
   edge?: string
 }) {
@@ -1233,7 +1233,7 @@ export function BandChips({ children, noun = ['award', 'awards'], edge }: {
       if (chips.length && right(chips[chips.length - 1]) <= room) { setFit(chips.length); return }
       let k = 0
       while (k < chips.length && right(chips[k]) + gap + more.offsetWidth <= room) k++
-      // Always at least the top honour, even if "+N" then has to sit on the edge of the row.
+      // Always at least the top honor, even if "+N" then has to sit on the edge of the row.
       setFit(Math.max(1, k))
     }
     measure()

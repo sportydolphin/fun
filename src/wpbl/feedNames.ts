@@ -12,13 +12,13 @@
 // on it: `wpblPortraitSet` looks a headshot up BY NAME, `lineFor` finds the batting line by
 // name, and the link to the player's page comes from the player that lookup returned. So the
 // seven lose their picture, their statline and their page all at once and fall back to
-// initials on a coloured circle, which reads as a player the site has never heard of rather
+// initials on a colored circle, which reads as a player the site has never heard of rather
 // than as a spelling we failed to match: in the Sep 10 postseason game the pitcher of record
 // was "Emi Saki" on the card and Emi Saiki in the box score beneath it.
 //
 // WHY THIS IS NOT A TABLE OF THE SEVEN. A hardcoded map is right until the feed produces the
 // eighth, and nothing here could notice: the failure is a missing picture, which is exactly
-// what a player with no portrait bundled looks like. The rule below generalises instead, and
+// what a player with no portrait bundled looks like. The rule below generalizes instead, and
 // it is the same rule the Hall of Firsts needs, for the same reason and against four of the
 // same names.
 //
@@ -39,7 +39,7 @@ const near = (a: string, b: string): boolean =>
 /**
  * Every roster player the feed's spelling could mean.
  *
- * Exact wins outright: when a normalised name matches, the forgiving pass never runs, so a
+ * Exact wins outright: when a normalized name matches, the forgiving pass never runs, so a
  * player whose real name is one edit from somebody else's is never dragged into a choice.
  * `normalizeName` is what folds the accents, and it already handles four more of these on its
  * own ("Andreanne Leblanc" for "Andréanne", "Samaria Benitez" for "Benítez").

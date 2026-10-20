@@ -99,7 +99,7 @@ function ExternalMark() {
  * On the photo size, which is still larger than a 3-line block wants: the Substack profile photo
  * is a wide shot on a ballfield rather than a head-and-shoulders portrait, and the source is
  * already square, so there is no crop available that finds a face: Substack's CDN has
- * Cloudinary's face gravity disabled (`g_face` 404s), leaving only a centred fill of the whole
+ * Cloudinary's face gravity disabled (`g_face` 404s), leaving only a centered fill of the whole
  * frame. A portrait would let this go smaller and read better for it.
  */
 export function AuthorByline({ source, compact, from }: { source: SubstackSource; compact?: boolean; from: ReadingSource }) {
@@ -508,7 +508,7 @@ export function WrittenAbout({ articles, title, limit = 8, from = 'player', acce
   /** Accepted and ignored: the list is one column at every width now. Kept so a caller from the
    *  two-across card layout does not have to change in the same commit. */
   wide?: boolean
-  /** The page's control colour, for "Show more". Omitted, the section blue. */
+  /** The page's control color, for "Show more". Omitted, the section blue. */
   accent?: string
 }) {
   const ink = useRankInk()

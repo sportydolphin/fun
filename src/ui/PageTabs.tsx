@@ -4,7 +4,7 @@ import { linkPress, pressable, FOCUS_RING } from './interaction'
 import { TYPE_SCALE } from './card'
 
 // THE ROW THAT PICKS A PAGE WITHIN A TAB: WPBL Stats' boards, MLB Stats' boards, MLB Standings'
-// modes. Moved out of WPBL's StatsView in Oct 2026, when MLB's equivalents were still a centred
+// modes. Moved out of WPBL's StatsView in Oct 2026, when MLB's equivalents were still a centered
 // segmented pill, the same control MLB used for a setting, so a page and a filter on that page
 // looked alike. Underline tabs because that is what they are: tapping one replaces what is under
 // it. Three visual languages, one per job, in both sections: these for pages, PillGroup for a

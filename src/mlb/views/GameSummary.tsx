@@ -181,7 +181,7 @@ export function biggestSwings<P extends { atBatIndex: number; inning: number; ha
   return out.sort((a, b) => b.delta - a.delta).slice(0, count)
 }
 
-/** Coloured as the chart colours each club, so a numbered dot here matches the one on the line. */
+/** Colored as the chart colors each club, so a numbered dot here matches the one on the line. */
 export function BiggestSwings({ swings, away, home }: { swings: Swing[]; away: number; home: number }) {
   const isDark = useDark()
   const [awayCol, homeCol] = chartPairColors(away, home, isDark)

@@ -11,7 +11,7 @@
 // for the derived-vs-event distinction.
 //
 // Scope is the *followed team's* next game only (no followed team, no reminder),
-// matching how the rest of the app personalises. Opt-in + lead time live in
+// matching how the rest of the app personalizes. Opt-in + lead time live in
 // Settings (src/mlb/prefs.ts).
 
 import { buildGameStart } from '../../../shared/notifications'

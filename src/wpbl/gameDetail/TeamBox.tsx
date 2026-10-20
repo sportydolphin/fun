@@ -72,7 +72,7 @@ export function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
         </Box>
       )}
 
-      {/* Its totals are drawn exactly like the batting totals: the same rule in the club's colour,
+      {/* Its totals are drawn exactly like the batting totals: the same rule in the club's color,
           the same label, because they are the same thing and a reader who has learned to look for
           one at the bottom of a table should find the other. */}
       {pitching.length > 0 && (

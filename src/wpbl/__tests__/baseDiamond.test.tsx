@@ -29,7 +29,7 @@ describe('who is on base, in words', () => {
 })
 
 describe('the diamond', () => {
-  it('names itself, so three unlabelled squares are not the whole of it', () => {
+  it('names itself, so three unlabeled squares are not the whole of it', () => {
     render(<BaseDiamond first second={false} third scale="chrome" />)
     expect(screen.getByRole('img', { name: 'runners on 1st and 3rd' })).toBeTruthy()
   })

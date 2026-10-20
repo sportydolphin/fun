@@ -81,7 +81,7 @@ const LABELS: Record<string, string> = {
  * one member of each of these may appear in a question, the answer included.
  *
  * `hit` is deliberately NOT in here. Single against double against home run is exactly the
- * judgement the game is asking for.
+ * judgment the game is asking for.
  */
 const NEAR_SYNONYM_FAMILY: Record<string, string> = {
   groundout: 'out', flyout: 'out', popup: 'out', lineout: 'out', foul_out: 'out', out: 'out',

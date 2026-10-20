@@ -121,7 +121,7 @@ export type WbscPlayLog = Record<string, { top?: WbscPlayRow[]; bot?: WbscPlayRo
 export interface WbscGamePage {
   gameData: WbscGameData
   /** Per team id, then per batting spot ('1'..'9', '90'), the rows of everyone who held it. A
-   *  player who changed role mid-game (centre field to the mound, losing the DH) has a row in
+   *  player who changed role mid-game (center field to the mound, losing the DH) has a row in
    *  each, every count split between them: see `playerLines` in game.ts. */
   boxScore: Record<string, Record<string, WbscBoxRow[]> | unknown>
   gamePlays: { all: WbscPlayLog }

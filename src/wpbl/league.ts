@@ -7,7 +7,7 @@ import { runsOnPlay } from './derive/playByPlay'
 
 // ── The six codes ────────────────────────────────────────────────────────────────
 // Verified against the whole league play log: B, K, P, F, S, H and nothing else. An
-// unrecognised letter is counted separately rather than guessed at, so the day the feed adds
+// unrecognized letter is counted separately rather than guessed at, so the day the feed adds
 // a seventh (a pitchout or an intentional ball would be the obvious ones) it shows up as a
 // number on the coverage line instead of quietly inflating "ball".
 //
@@ -32,7 +32,7 @@ export const PITCH_CODES: Readonly<Record<string, PitchKind>> = {
   K: 'called',    // taken for a strike. The feed labels this one "unknown"
   S: 'swinging',  // swung through
   F: 'foul',      // swung, contacted, foul
-  P: 'inplay',    // put in play; always the last pitch of the sequence. Labelled "pitchout"
+  P: 'inplay',    // put in play; always the last pitch of the sequence. Labeled "pitchout"
   H: 'hbp',       // hit by pitch; also terminal
 }
 

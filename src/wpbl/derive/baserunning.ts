@@ -37,7 +37,7 @@ import type { WpblRunValuePlay } from '../types'
  *   - An extra base: the runner on the base they reached, against the base a runner usually
  *     takes on that hit (first to second on a single, first to third on a double), with the
  *     batter where the hit put them. Thrown out trying is the same comparison with an out.
- *     Each chance is then measured against the league's average in the same spot (see `centre`).
+ *     Each chance is then measured against the league's average in the same spot (see `center`).
  *   - A tag-up on a caught fly with fewer than two out: a runner on second or third who
  *     advanced, against staying put.
  *
@@ -196,8 +196,8 @@ export function baserunningEvents(
 ): RunnerEvent[] {
   const skip = new Set(games.filter(g => !countsInStandings(g)).map(g => g.id))
   const out: RunnerEvent[] = []
-  // Extra-base chances, priced against the usual base first and centred on their spot's average
-  // at the end: see `centre`.
+  // Extra-base chances, priced against the usual base first and centered on their spot's average
+  // at the end: see `center`.
   const chances: { e: RunnerEvent; spot: string }[] = []
 
   for (const p of plays) {
@@ -268,7 +268,7 @@ export function baserunningEvents(
       }
     }
   }
-  centre(chances)
+  center(chances)
   return out
 }
 
@@ -284,7 +284,7 @@ export function baserunningEvents(
  * take is worth about nothing; holding where most go costs a little; and each spot sums to zero
  * across the league, so the board ranks runners against each other rather than paying them all.
  */
-function centre(chances: { e: RunnerEvent; spot: string }[]): void {
+function center(chances: { e: RunnerEvent; spot: string }[]): void {
   const sum = new Map<string, { n: number; v: number }>()
   for (const { e, spot } of chances) {
     const s = sum.get(spot) ?? { n: 0, v: 0 }
@@ -362,7 +362,7 @@ export interface BaserunningRuns<P> extends BaserunningLine<P> {
   /** Runs on double plays hit into against the league's rate (war.ts, `doublePlayRuns`). */
   gdp: number
   /** BsR: steal runs less the league's steal runs per time on first times the player's own
-   *  (FanGraphs' wSB), plus the extra-base runs, which are centred already, plus `gdp`. Zero is
+   *  (FanGraphs' wSB), plus the extra-base runs, which are centered already, plus `gdp`. Zero is
    *  an average runner on every part. */
   bsr: number
 }
@@ -371,7 +371,7 @@ export interface BaserunningRuns<P> extends BaserunningLine<P> {
  * BsR per player, the site's one baserunning number: WAR's baserunning component, Run value's
  * "Best on the bases" board, the player card and Compare all read it.
  *
- * WHY THE STEALS ARE CENTRED. `baserunningLeaders` prices a steal attempt against not running,
+ * WHY THE STEALS ARE CENTERED. `baserunningLeaders` prices a steal attempt against not running,
  * so its zero is a player who never ran, while its extra bases are priced against the league's
  * average runner. Two baselines in one total. This league ran below its break-even, so its
  * average runner LOST runs stealing; charged that rate per time on first, a hitter who reached

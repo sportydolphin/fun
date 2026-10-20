@@ -45,7 +45,7 @@ export function GameLineFrame({
 }: {
   /** The row's place in the list. Omitted draws no number at all. */
   rank?: number
-  /** Colour the top three ranks in the accent. Off where `rank` is just a list position (Find)
+  /** Color the top three ranks in the accent. Off where `rank` is just a list position (Find)
    *  rather than a real standing (Bests), where the accent would assert a ranking that is not one. */
   emphasizeRank?: boolean
   /** The section's face for the player, or a spacer of the same width. */

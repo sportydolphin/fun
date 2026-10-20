@@ -34,7 +34,7 @@ const NODE_BUILTINS = new Set([
 const fileName = (key: string) => key.replace('../../.github/workflows/', '')
 const STATIC_IMPORT = /^\s*(?:import|export)\s+(?!type\b)(?:[^'"`;]*?\sfrom\s+)?['"]([^'"]+)['"]/gm
 
-/** Normalise a path like '../../scripts/../shared/x.js' against the glob's key space. */
+/** Normalize a path like '../../scripts/../shared/x.js' against the glob's key space. */
 function join(fromKey: string, spec: string): string {
   const parts = fromKey.split('/').slice(0, -1)
   for (const seg of spec.split('/')) {

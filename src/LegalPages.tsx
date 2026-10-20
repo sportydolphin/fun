@@ -12,7 +12,7 @@ const LAST_UPDATED = 'August 5, 2026'
 const SITE = 'sportydolphin.fun'
 
 // Underlined, because these links sit inside sentences: the site blue measures 2.5:1 against the
-// dark theme's body text, under the 3:1 a colour alone needs to mark a link (axe's
+// dark theme's body text, under the 3:1 a color alone needs to mark a link (axe's
 // link-in-text-block, which the layout sweep runs).
 const INLINE_LINK_SX = { color: 'primary.main', textDecoration: 'underline', textUnderlineOffset: '2px' } as const
 

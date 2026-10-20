@@ -144,16 +144,16 @@ describe('the card', () => {
 
   it('formats the date without going through Date', () => {
     // A bare date parsed as a Date is midnight UTC printed in local time, which in every
-    // American zone is the evening before. A Saturday game labelled Friday is wrong in a way
+    // American zone is the evening before. A Saturday game labeled Friday is wrong in a way
     // nobody reports.
     expect(cardDate('2026-08-23')).toBe('Aug 23, 2026')
     expect(cardDate('')).toBe('')
   })
 
-  it('takes the winner brand colour only when it is real hex', () => {
+  it('takes the winner brand color only when it is real hex', () => {
     expect(accentOf(BOS)).toBe('#12ab34')
     expect(accentOf(LA)).toBe('#e8412c')
-    expect(accentOf(team('t3', 'X', 'X', 'not-a-colour'))).toBe('#e8412c')
+    expect(accentOf(team('t3', 'X', 'X', 'not-a-color'))).toBe('#e8412c')
   })
 
   it('escapes text into the SVG rather than letting it close a tag', () => {

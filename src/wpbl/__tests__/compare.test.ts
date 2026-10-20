@@ -80,7 +80,7 @@ describe('who leads a row', () => {
   })
 
   // THE ONE THAT WOULD SHIP. `(a ?? 0) > (b ?? 0)` reads as the obvious version and hands a
-  // centre fielder who has never pitched the ERA row against an actual pitcher, on the
+  // center fielder who has never pitched the ERA row against an actual pitcher, on the
   // strength of having no ERA at all.
   it('names nobody when one side has no number', () => {
     const c = build({

@@ -52,7 +52,7 @@ const unplayed = st => {
   return coded === 'D' || coded === 'C' || detailed === 'Postponed' || detailed === 'Cancelled'
 }
 
-/** Whether a schedule response still holds a game to be played. Postponed and cancelled never count. */
+/** Whether a schedule response still holds a game to be played. Postponed and canceled never count. */
 export function hasGamesLeft(schedule) {
   for (const d of schedule?.dates ?? []) {
     for (const g of d.games ?? []) {

@@ -1,7 +1,7 @@
 // The matchups board keeps its board, club and slice in the address bar so Back from a pair's
 // compare page (a new page, which remounts the board) lands on the list the reader left, not on
 // "Batter edge" at the scroll depth of a different list. These pin the round trip and the
-// fallbacks for links the page cannot honour.
+// fallbacks for links the page cannot honor.
 import { describe, it, expect } from 'vitest'
 import { readMatchupsUrlState, matchupsSearch } from '../MatchupsPage'
 

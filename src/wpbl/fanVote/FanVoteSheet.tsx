@@ -185,7 +185,7 @@ export function FanVoteSheet({ entries, players, teams, state, closed, testerPre
           {WPBL_AWARDS_CREDIT.prefix}{' '}
           {/* THE NAME CARRIES THE ACCENT, which is the only thing that says this is a link.
               Underlining the whole line would put a rule under four words of ordinary prose;
-              colouring the name is how the rest of the section marks somewhere to go, and it is
+              coloring the name is how the rest of the section marks somewhere to go, and it is
               the half a reader would actually be looking for. */}
           <Box component="span" sx={{
             fontWeight: 800, color: 'var(--wpbl-accent-fg)',

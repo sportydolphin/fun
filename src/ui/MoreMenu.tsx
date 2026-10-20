@@ -143,7 +143,7 @@ export function MoreSheet({ open, onClose, rows }: { open: boolean; onClose: () 
       // opened by the bar's More slot, never by an edge swipe.
       onOpen={() => {}}
       disableSwipeToOpen
-      // Capped and centred to the bar's own width, with rounded top corners and clearance for the
+      // Capped and centered to the bar's own width, with rounded top corners and clearance for the
       // iOS home indicator, so it reads as a sheet the bar raised rather than a full-bleed slab.
       slotProps={{ paper: { sx: {
         maxWidth: chromePx(460), mx: 'auto', left: 0, right: 0,

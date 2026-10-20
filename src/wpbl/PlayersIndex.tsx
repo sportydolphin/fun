@@ -241,7 +241,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
       )}
 
       {/* LOADING IS THE CLUB SORT DRAWN EMPTY, the view first paint always lands on. It was a
-          centred spinner, which left the footer 300px down the screen and then threw it 500px to
+          centered spinner, which left the footer 300px down the screen and then threw it 500px to
           14,000px when the roster arrived. Four clubs of an even share of the roster each. */}
       {loading && Array.from({ length: 4 }, (_, i) => (
         <Box key={i} aria-hidden sx={{ mb: 4 }}>

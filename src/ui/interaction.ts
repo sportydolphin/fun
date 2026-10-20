@@ -73,7 +73,7 @@ export function pressable(onClick: ((e: React.SyntheticEvent<HTMLElement>) => vo
  * by Google for months for exactly this reason.
  *
  * So spread this onto a `component="a"` instead: the href is real, an unmodified click is
- * cancelled and handed to the SPA, and a ctrl/cmd/shift/middle click is left entirely alone so
+ * canceled and handed to the SPA, and a ctrl/cmd/shift/middle click is left entirely alone so
  * the browser opens it in a tab the way the reader asked. Returns nothing when there is no
  * handler, so a caller can pass `undefined` and get a plain link.
  */

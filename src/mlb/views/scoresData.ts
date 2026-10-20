@@ -147,7 +147,7 @@ function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
     if (!SCORED_GAME_TYPES.has(game.gameType)) continue
     const abs      = game.status?.abstractGameState
     const detState = game.status?.detailedState ?? ''
-    // Postponed and cancelled games report abstractGameState "Final" though they never
+    // Postponed and canceled games report abstractGameState "Final" though they never
     // happened: check them first or they'd show as a 0-0 Final (see gameStatus.ts).
     // "Live" during Warmup (~20 min pre-first-pitch) isn't really live yet.
     const state: GameState = isUnplayed(game.status) ? 'postponed'

@@ -24,7 +24,7 @@ import { StatTip, CARD_SECTION_SX } from '../../ui/playerCard'
 import { TYPE_SCALE } from '../../ui/card'
 
 // The parts of WPBL's player card that hold no state of the card's own: the stat tooltip, the
-// qualifying meter, the fielding line, the matchup table, the Compare chip and the band's colours.
+// qualifying meter, the fielding line, the matchup table, the Compare chip and the band's colors.
 // PlayerDetail.tsx composes them.
 
 // The stat definitions live in glossary.ts, so every surface that draws an abbreviation (Home,
@@ -241,7 +241,7 @@ export function MatchupTable({ player, side, lines, players, scope, accent }: {
         caption={`${lines.length} ${lines.length === 1 ? noun : `${noun}s`}${slice} · tap a name for the matchup`}
       />
       {/* Capped once expanded, with the header pinned, for the reason written on the game log:
-          past the fifth row of a 36-row list the columns are otherwise unlabelled, and PA and SO
+          past the fifth row of a 36-row list the columns are otherwise unlabeled, and PA and SO
           read the same. Same caps as the log, so the two stacked tables behave as one kind. */}
       <Box ref={scrollerRef} sx={{
         ...bleedSx(0.85),
@@ -340,7 +340,7 @@ export function CompareChip({ player, roster }: { player: WpblPlayer; roster: Wp
  *
  * PER CLUB, because one number gives four different results: the four secondaries have nothing
  * like the same luminance, so the same alpha over four different near-black primaries is four
- * different amounts of visible colour (a single 40% looks right on New York's pale sky blue and
+ * different amounts of visible color (a single 40% looks right on New York's pale sky blue and
  * leaves Boston's orange barely there).
  *
  * WHAT SETS EACH NUMBER. White text has to clear 4.5:1 against the strongest point of the wash,
@@ -358,7 +358,7 @@ export function CompareChip({ player, roster }: { player: WpblPlayer; roster: Wp
  * The ceilings before headroom are 51 / 62 / 41 / 61 percent, so there is not much left in any
  * of them. LA sits within three points of failing: 0xa0 (63%) measures 4.50 and does not clear.
  *
- * Change a club's colours in constants.ts, lift the wash, or move a block along the band, and
+ * Change a club's colors in constants.ts, lift the wash, or move a block along the band, and
  * these have to be re-solved against every text opacity sitting in it, or the smallest lines on
  * the card quietly stop being readable on one club and nobody reports it.
  */

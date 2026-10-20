@@ -128,7 +128,7 @@ async function gamePage(event: WbscEvent, id: number, version: string | null): P
 
 // ── Files ───────────────────────────────────────────────────────────────────────
 
-/** Keys sorted, so the same rows always serialise to the same bytes and the same digest. */
+/** Keys sorted, so the same rows always serialize to the same bytes and the same digest. */
 function stable(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(stable)
   if (value && typeof value === 'object') {

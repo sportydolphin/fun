@@ -29,7 +29,7 @@ export const NON_PITCH_RESULT1 = new Set([1])
 
 /**
  * `result2`, how a plate appearance ended, as the `event_type` the engines already read (WPBL's
- * vocabulary, which the MLB mirror also normalises onto).
+ * vocabulary, which the MLB mirror also normalizes onto).
  *
  * A function rather than a map only because 4 is every air out, and which kind it was is only in
  * the scorer's notation (see `airOut`).
@@ -107,7 +107,7 @@ export const ADVANCE_REASON: Readonly<Record<number, string>> = {
  * pitch can carry two (a runner steals second and takes third on the catcher's throw). An out
  * outranks an advance, since the out is what changes the state most.
  *
- * Returns 'unknown_advance' / 'unknown_out' for a movement whose reason is not recognised, which
+ * Returns 'unknown_advance' / 'unknown_out' for a movement whose reason is not recognized, which
  * the validation turns into a failure; it never reaches a file.
  */
 export function baserunningEvent(row: WbscPlayRow): string | null {

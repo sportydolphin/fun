@@ -297,7 +297,7 @@ async function savePost(row) {
 async function main() {
   const cutoff = new Date(Date.now() - WINDOW_DAYS * 86_400_000).toISOString()
 
-  // --seed deliberately ignores the window: its whole job is to mark the back catalogue
+  // --seed deliberately ignores the window: its whole job is to mark the back catalog
   // handled, and anything it leaves out would post on the next real run.
   let query = supabase
     .from('wpbl_videos')

@@ -64,7 +64,7 @@ export function StatItem({ label, value, playerId, leaderCategory, leaders, pale
   return (
     <Box sx={{ textAlign: 'center' }}>
       <Typography sx={{
-        // The palette's own secondary tone, which is tuned per card colour (teamPalette); a flat
+        // The palette's own secondary tone, which is tuned per card color (teamPalette); a flat
         // 0.85 opacity over white measured 3.4:1 on the Orioles' orange.
         color: palette.sub, fontWeight: 700,
         fontSize: large ? { xs: TYPE_SCALE.body, sm: TYPE_SCALE.title } : { xs: TYPE_SCALE.meta, sm: TYPE_SCALE.body },

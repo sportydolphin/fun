@@ -107,7 +107,7 @@ const BASE_NAMES: [RegExp, string][] = [
   [/\bat third\b/g, 'at 3rd'],
 ]
 
-// A substitution, not a play. Three shapes, and all three have to be recognised:
+// A substitution, not a play. Three shapes, and all three have to be recognized:
 //
 //   "Raine Padgham to p for Paloma Benach"  a swap
 //   "Jamie Mackay to lf"                    a defensive move with nobody leaving, 109 of them
@@ -129,7 +129,7 @@ const PINCH_SUB_RE = /^(.+?) pinch (?:hit|ran) for (.+)$/i
  * A name and nothing else, which is what separates "Jamie Mackay to lf" from "Molly Paddison
  * singled to 2b".
  *
- * Every word capitalised, allowing the lowercase particles real names on this roster carry
+ * Every word capitalized, allowing the lowercase particles real names on this roster carry
  * (Rosi del Castillo). A play always has a lowercase verb in it, so this one test does the
  * whole job, where matching the position alone would file every ground ball to second as a
  * defensive change the moment the feed omitted the count.
@@ -431,7 +431,7 @@ export function parsePlay(
         // A clause with no verb in it says nothing about anybody. The feed produced exactly one,
         // "Samaria Benitez Samaria Benitez", on a two-RBI double where it lost the second
         // runner's verb, and it renders as a name printed twice, which reads as a fault. Every
-        // real clause has a lowercase verb, so a run of capitalised words is the whole test.
+        // real clause has a lowercase verb, so a run of capitalized words is the whole test.
         .filter(c => c && !NAME_ONLY.test(c))
         .join(' · ')
     : null

@@ -80,7 +80,7 @@ describe('tradeMatch', () => {
   // which is the whole basis of this rule; see `anonymous`.
   const NEW_ID = '27svefz41ds4k58k'
 
-  it('recognises a player who turns up in another club’s box score', () => {
+  it('recognizes a player who turns up in another club’s box score', () => {
     expect(tradeMatch(normName('Diana Ibarra'), 'LA', roster, NEW_ID)).toBe('ibarra')
   })
 

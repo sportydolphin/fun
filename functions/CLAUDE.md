@@ -99,10 +99,10 @@
   of the build's hashed-asset map. MLB player and game links get theirs from
   [`functions/mlb/`](mlb/index.ts) out of the same StatsAPI read that proves the page
   exists, worded by [`src/mlb/ogCard.ts`](../src/mlb/ogCard.ts); the player image is MLB's own
-  headshot padded to shape on the club colour by MLB's image CDN, so there is no MLB art to
+  headshot padded to shape on the club color by MLB's image CDN, so there is no MLB art to
   generate. Both sections rewrite through one helper, [`src/lib/ogTags.ts`](../src/lib/ogTags.ts).
   **og:image must stay 1200x630**: Bluesky reads `og:`
-  only, ignores the `twitter:card` hint asking for a square thumbnail, and centre-crops
+  only, ignores the `twitter:card` hint asking for a square thumbnail, and center-crops
   whatever it gets to one 1.91:1 band. **Search Console is verified**, and Googlebot renders the JS completely,
   so pre-rendering is settled as not needed. The remaining constraint is not code: near-zero
   inbound links, worked from [`docs/BACKLINKS.md`](../docs/BACKLINKS.md).

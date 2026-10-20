@@ -8,7 +8,7 @@ import { TYPE_SCALE } from '../../ui/card'
 
 // One compact block instead of a tall full-name score header stacked on a separate line
 // score that repeated the same teams and totals. The team name/logo lead each row; the R
-// column IS the final/running score (large + winner-emphasised), so no vertical space is
+// column IS the final/running score (large + winner-emphasized), so no vertical space is
 // spent restating it. Team column shows the full "City Nickname" on desktop, the nickname
 // alone on a phone, and the innings + R/H/E scroll horizontally if they overrun the width.
 export function Scoreboard({ away, home, game, awayWon, homeWon, onOpenTeam }: {
@@ -38,12 +38,12 @@ export function Scoreboard({ away, home, game, awayWon, homeWon, onOpenTeam }: {
     && runsThrough(game.home_line, lastInning - 1) > runsThrough(game.away_line, lastInning)
   const row = (team: WpblTeam, line: WpblGame['away_line'], runs: number | null, hits: number | null | undefined, errs: number | null | undefined, won: boolean, isHome = false) => {
     const accent = wpblAccent(team.id, isDark)
-    // THE WINNING ROW IS TINTED IN THE CLUB'S OWN COLOUR, which is what carries the result now
+    // THE WINNING ROW IS TINTED IN THE CLUB'S OWN COLOR, which is what carries the result now
     // that every number in the row is the same size. A line score is twelve numbers and the one
     // a reader came for is the R: making that bigger was one way to say so and this is the
     // quieter one, since the tint marks the whole row rather than competing with the innings
     // beside it. Same surface Home's club bands use, so a reader arriving from the scoreboard
-    // meets the colour they tapped.
+    // meets the color they tapped.
     return (
       <Box component="tr" sx={{
         borderTop: '1px solid', borderColor: 'divider',
@@ -62,8 +62,8 @@ export function Scoreboard({ away, home, game, awayWon, homeWon, onOpenTeam }: {
               // `flex` + `fit-content`, NOT `inline-flex`. Both shrink-wrap, which is what
               // keeps the tap target off the rest of the cell, but an inline-level box sits on
               // the row's text baseline: it picks up the line box's descender space and the
-              // badge rides high of the cell's centre. A block-level flex box has no baseline
-              // to sit on and centres properly.
+              // badge rides high of the cell's center. A block-level flex box has no baseline
+              // to sit on and centers properly.
               display: 'flex', width: 'fit-content', alignItems: 'center', gap: 0.75, minWidth: 0,
               ...(onOpenTeam ? {
                 cursor: 'pointer', borderRadius: 1, mx: -0.5, px: 0.5,

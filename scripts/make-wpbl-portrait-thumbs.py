@@ -53,7 +53,7 @@ def main() -> None:
                 continue
             im = Image.open(src).convert("RGBA")
             # LANCZOS and the alpha kept: these are cut-outs, and a thumb that lost its
-            # transparency would draw a white square inside the club-coloured ring, which is
+            # transparency would draw a white square inside the club-colored ring, which is
             # the exact bug the cut-out pass exists to fix.
             im.resize((SIZE, SIZE), Image.LANCZOS).save(dest, "WEBP", quality=82, method=6)
             built += 1

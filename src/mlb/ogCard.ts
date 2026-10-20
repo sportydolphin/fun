@@ -69,9 +69,9 @@ function pitchingLine(s: Stat): string | null {
 }
 
 /**
- * The headshot on the club's colour, at the 1200x630 every unfurler crops to (CLAUDE.md, og:image).
+ * The headshot on the club's color, at the 1200x630 every unfurler crops to (CLAUDE.md, og:image).
  * MLB's image CDN pads it to shape itself, so there is no art to generate and keep current for
- * fifteen hundred players; it is the same headshot the section already shows. The colour is the
+ * fifteen hundred players; it is the same headshot the section already shows. The color is the
  * one the team card is drawn in, already deepened wherever white text would not read on it.
  */
 export function mlbPlayerImage(id: number, teamId: number | undefined): string {

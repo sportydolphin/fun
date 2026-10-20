@@ -16,7 +16,7 @@ import { TYPE_SCALE } from '../ui/card'
 // Sep 6; this one does not know the difference.
 //
 // ATTRIBUTION IS THE FEATURE, NOT THE FOOTER. Most of these photographs are public domain,
-// but a real share are CC BY or CC BY-SA, which oblige us to name the creator and the licence
+// but a real share are CC BY or CC BY-SA, which oblige us to name the creator and the license
 // and to point at the source. There is no version of this design that hides that, so the
 // credit line is on every card and every lightbox rather than tucked behind a click. If a
 // layout change ever makes the credit hard to place, the photo comes out, not the credit.
@@ -31,7 +31,7 @@ const linkProps = { target: '_blank', rel: 'noopener noreferrer' } as const
 
 
 /** "File:Betsy Jochum Headshot.jpg" → "Betsy Jochum Headshot". The last-resort label when a
- *  file has no description at all, which happens: Commons requires a licence, not a caption. */
+ *  file has no description at all, which happens: Commons requires a license, not a caption. */
 function titleLabel(photo: WpblPhoto): string {
   return photo.title.replace(/^File:/, '').replace(/\.[a-z0-9]+$/i, '')
 }
@@ -51,15 +51,15 @@ const altFor = (photo: WpblPhoto) => photoCaption(photo)
 // ─── Attribution ─────────────────────────────────────────────────────────────────
 
 /**
- * The credit line. Creator, licence, and a link to the file page on Commons.
+ * The credit line. Creator, license, and a link to the file page on Commons.
  *
  * The whole line is one link to `description_url`, which is doing two jobs: it is the
  * "indicate the source" half of what CC BY asks for, and it is where a reader goes for the
  * provenance we deliberately do not copy into our own database (the full description, the
  * upload history, the other resolutions).
  *
- * `compact` is the card variant. It drops nothing that the licence requires; it only stops
- * setting the creator and the licence on separate lines.
+ * `compact` is the card variant. It drops nothing that the license requires; it only stops
+ * setting the creator and the license on separate lines.
  */
 function Credit({ photo, compact }: { photo: WpblPhoto; compact?: boolean }) {
   const creator = photo.artist ?? 'Unknown photographer'
@@ -140,7 +140,7 @@ export function ArchiveGrid({ photos }: { photos: WpblPhoto[] }) {
     <>
       {/* Said once, at the top, rather than repeated on every tile: what this collection is and
           why the site can show it. The per-photo credit below still carries the creator and the
-          licence, which is what the licences actually require. */}
+          license, which is what the licenses actually require. */}
       <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.5, mb: 1.75 }}>
         Freely licensed photographs of women's baseball, from the All-American Girls Professional
         Baseball League through to the present day, held by Wikimedia Commons. Every image links

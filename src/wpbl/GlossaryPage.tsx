@@ -25,7 +25,7 @@ import { TYPE_SCALE } from './ui'
 import WpblPage from './WpblPage'
 import { GlossaryRules, GlossaryTerms } from '../ui/Glossary'
 
-/** How a source is labelled on screen. `league` gets no badge: it is the default a reader
+/** How a source is labeled on screen. `league` gets no badge: it is the default a reader
  *  assumes, and badging all five would make the two that matter invisible among them. */
 const SOURCE_BADGE: Record<RuleSource, string | null> = {
   league: null,

@@ -3,7 +3,7 @@ import { hasDot, dotNote, visit, readReached, type Feature } from '../lib/seen'
 
 // A dot is derived from the registry at every level on the way to a feature, and gated on a date
 // as well as a visit. The date half is the part nobody will notice breaking: if the expiry stops
-// being honoured, a dot advertising an August release is still in the nav at Christmas. The depth
+// being honored, a dot advertising an August release is still in the nav at Christmas. The depth
 // half is what lets one entry light both a nav pill and a chip and put them out separately.
 // A registry of its own, so these test the mechanism and outlive whatever is registered today.
 

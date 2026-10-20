@@ -89,7 +89,7 @@ const dayjsIsh = (a, b) =>
 /**
  * What the alert says. Pure, so the interesting part is testable without a database.
  *
- * Exported for the same reason the restock watcher exports its diff: the judgement about what
+ * Exported for the same reason the restock watcher exports its diff: the judgment about what
  * counts as news is the part worth pinning down, and it should not need a webhook to check.
  */
 export function describeChange(before, now) {

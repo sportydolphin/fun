@@ -483,7 +483,7 @@ describe('the ballot closes at first pitch of the final', () => {
 describe('every manager on the ballot has a face', () => {
   // The four are hand-cropped out of the league's announcement graphics, so nothing regenerates
   // them and nothing else notices when one is missing: a manager whose art was never cut simply
-  // renders as two initials on a club colour, on a tile that looks otherwise finished. That is
+  // renders as two initials on a club color, on a tile that looks otherwise finished. That is
   // the whole failure this pins. Keyed on `key` rather than on the name for the same reason the
   // vote is: the league can respell "Rachelle" and neither the stored vote nor the portrait
   // should move.
@@ -600,7 +600,7 @@ describe('what a catcher is carded on', () => {
   const her = roster[2]
   const clubs: WpblTeam[] = [...teams, { id: her.team_id, name: her.team_id } as WpblTeam]
   // Enough games behind the plate for the position index to rule at all: it needs a strict
-  // majority over MIN_FIELDED_GAMES, which is the guard that stops one appearance relabelling
+  // majority over MIN_FIELDED_GAMES, which is the guard that stops one appearance relabeling
   // anybody. The caught stealing all happens in the first of them.
   const ids = Array.from({ length: MIN_FIELDED_GAMES + 1 }, (_, i) => `g${i + 9}`)
   const schedule = ids.map(id => game({ id, home_team_id: her.team_id, away_team_id: 'LA' }))

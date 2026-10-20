@@ -51,7 +51,7 @@ function StarRow({ star, medal, name, teamId, portraitSize = 30, medalSize = 20,
             once the width is settled. */}
         <Box sx={{ width: 0, minWidth: '100%' }}>
           {/* Never truncated. The stat line is the thing a reader opened the card for: a
-          name cut short is still recognisable, "3-for-4, 2B, 2 R" is just wrong. It
+          name cut short is still recognizable, "3-for-4, 2B, 2 R" is just wrong. It
           wraps to a second line instead, which costs a few pixels of height in a card
           that has them to spare. Widening the column instead wouldn't work: the modal
           is capped at 520px and the row doesn't wrap, so three columns competing for
@@ -309,13 +309,13 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
   const away = teams.get(game.away_team_id), home = teams.get(game.home_team_id)
   const dateLabel = relativeDayLabel(game.game_date)
 
-  // THE WINNER'S ROW WEARS ITS CLUB'S COLOUR AND THE LOSER'S DOES NOT.
+  // THE WINNER'S ROW WEARS ITS CLUB'S COLOR AND THE LOSER'S DOES NOT.
   //
   // Home's Next game card tints both of its rows, because a fixture has two equals in it.
   // This card is a result, so the same device is spent on saying which way it went: the band
   // is the loudest thing on the row and it is under the club that won. The weight and the ink
   // already carry that on their own, which is exactly why this is safe to add: a reader who
-  // cannot see colour loses nothing that is not already said twice.
+  // cannot see color loses nothing that is not already said twice.
   //
   // THE SHAPE AND THE SCALE ARE NEXT GAME'S, and only the tinting rule differs. `CLUB_BAND` and
   // the sizes here are the same ones that card uses (see the note on the shared shapes in
@@ -328,7 +328,7 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
       // The loser gets a neutral field rather than nothing. `transparent` would leave the band as
       // one tinted row with a plain row under it, which reads as a highlight that stopped halfway
       // rather than as a two-row block, and would make this card's band a different object from
-      // Next game's. Colour is still the winner's alone, which is the whole of the rule; this only
+      // Next game's. Color is still the winner's alone, which is the whole of the rule; this only
       // says the loser's row is part of the same band.
       bgcolor: won ? wpblSurface(team.id, isDark) : (isDark ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.022)'),
     }}>

@@ -1,6 +1,6 @@
 // The MLB player page, rebuilt in Oct 2026 on WPBL's card (src/ui/playerCard.tsx).
 //
-// It replaces a customizable "share card" (four auto-picked stats on a club-coloured tile, a
+// It replaces a customizable "share card" (four auto-picked stats on a club-colored tile, a
 // palette shuffle, a PNG export) with a stat page: the club band, the whole season line with its
 // league ranks, the game log, and what only MLB's feed can say (advanced metrics, splits, the
 // pitch mix, a career, a contract). The card was a picture of a player; a reader who wanted an
@@ -216,7 +216,7 @@ function Fielding({ lines, season, onOpen }: {
  * came to 24px wider than a 375px phone and squeezed the club's name out of the bar entirely. The
  * icon stays and the chip keeps its label for a screen reader (`aria-label` on each). Not inside
  * HeaderChipLabel's Typography: a hidden word there would still be a flex item, and its gap would
- * leave the icon off-centre in its pill.
+ * leave the icon off-center in its pill.
  */
 function ChipWord({ children, compact }: { children: React.ReactNode; compact?: boolean }) {
   // `compact` for the side panel, a 525px column whose header is the shell's chrome and so sees the
@@ -364,7 +364,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
   const pitchMix = useLoaded<PitchUsage[]>(key && plan.roles.includes('pitching') ? `${key}-mix` : null, () => fetchPitchMix(playerId, season!))
 
   // The club the season was played for: the band wears it, so a 2019 page of a player since traded
-  // is in that year's colours. A traded season ends with the last club.
+  // is in that year's colors. A traded season ends with the last club.
   const seasonTeamId = useMemo(() => {
     if (!career || season == null) return null
     const row = [...career.hitting, ...career.pitching].find(r => r.season === season)
@@ -832,9 +832,9 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
       background={{ color: palette.bg }}
       stripe={stripe}
       portrait={
-        // No fill of its own: the photo is MLB's cut-out on a transparent ground, so the band's colour
+        // No fill of its own: the photo is MLB's cut-out on a transparent ground, so the band's color
         // shows straight through. It sat on a 16% white wash, which read as a near miss of the band's
-        // own colour rather than as a frame.
+        // own color rather than as a frame.
         <Box role="img" aria-label={name} sx={{
           width: chromePx(84), height: chromePx(84), flexShrink: 0, borderRadius: 2,
           border: `2px solid ${stripe}`,
@@ -846,10 +846,10 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
       meta={meta || undefined}
       lines={bandLines}
       // `teamPalette` solved these whites per club, so the smallest text on the band clears 4.5:1 on
-      // all thirty colours (the reason MLB's band is flat where WPBL's washes).
+      // all thirty colors (the reason MLB's band is flat where WPBL's washes).
       ink={{ name: palette.text, meta: palette.text, line: palette.sub }}
       chips={awards.length > 0 ? (
-        // One row, the biggest honours first (AWARD_RULES' order), the rest behind "+N".
+        // One row, the biggest honors first (AWARD_RULES' order), the rest behind "+N".
         // Outlined in the band's own line ink, which is solid and solved per club, rather than the
         // shared chip's faded white (see BandChips' `edge`).
         <BandChips edge={palette.sub}>
@@ -869,7 +869,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
   const loading = !career || (!careerView && season != null && (!bundle || !log))
 
   /**
-   * THE CARD DRAWN EMPTY, while the career, the season and the game log come in. It was a centred
+   * THE CARD DRAWN EMPTY, while the career, the season and the game log come in. It was a centered
    * spinner, and the contract and the reference links (which need only the id) drew under it a
    * second or two before the stats: then the season line and a game log landed ABOVE them and pushed
    * everything off the screen. One shift of 0.38 on a phone, in two field reports out of four MLB

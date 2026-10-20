@@ -54,7 +54,7 @@ export interface ScheduleGame {
   opponentId:    number
   opponentAbbr:  string
   state:         'final' | 'live' | 'preview' | 'postponed'
-  /** Why a 'postponed' game was not played: postponed (to be made up) or cancelled for good. */
+  /** Why a 'postponed' game was not played: postponed (to be made up) or canceled for good. */
   unplayed?:     'Postponed' | 'Cancelled'
   teamScore:     number | null
   opponentScore: number | null

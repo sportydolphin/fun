@@ -130,7 +130,7 @@ describe("a pick'em id, read back", () => {
 
   // The ids are permanent because renaming one orphans every answer stored under it, so this
   // has to survive meeting a shape it was not written for rather than rendering an empty cell.
-  it('prints an id it does not recognise rather than nothing', () => {
+  it('prints an id it does not recognize rather than nothing', () => {
     expect(prettyPick('nonsense')).toBe('Nonsense')
     expect(prettyPick('')).toBe('')
   })

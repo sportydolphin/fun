@@ -51,7 +51,7 @@ export function BestsBoards<R extends { display: string }>({
   const gap = { xs: 1.5, sm: 2 }
 
   return (
-    // CAPPED AND CENTRED: a list has nothing to spend width on, but six lists queued in one column
+    // CAPPED AND CENTERED: a list has nothing to spend width on, but six lists queued in one column
     // on a wide screen is half a screen of nothing down each side. One list measure below `lg`, two
     // and the gap between them from there (layoutWidths.ts).
     <Box sx={{ display: 'flex', flexDirection: 'column', gap, maxWidth: { xs: BOARD_COLUMN, lg: BOARD_COLUMN_WIDE }, mx: 'auto', width: '100%' }}>

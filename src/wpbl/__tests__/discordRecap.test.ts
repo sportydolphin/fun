@@ -118,7 +118,7 @@ describe('buildRecapMessage', () => {
       .toBe(GAME_URL)
   })
 
-  it('takes its accent colour from the winner', () => {
+  it('takes its accent color from the winner', () => {
     expect(buildRecapMessage(game(), recap(), TEAMS, GAME_URL).embeds[0].color).toBe(0x2e5f3a)
   })
 
@@ -134,8 +134,8 @@ describe('buildRecapMessage', () => {
 })
 
 describe('embedColor', () => {
-  it('reads a hex team colour', () => expect(embedColor(TEAMS.get('NY'))).toBe(0x1b4f9c))
-  it('is undefined for a team with no usable colour', () => {
+  it('reads a hex team color', () => expect(embedColor(TEAMS.get('NY'))).toBe(0x1b4f9c))
+  it('is undefined for a team with no usable color', () => {
     expect(embedColor(team('X', 'X', 'X', 'X', null))).toBeUndefined()
     expect(embedColor(team('X', 'X', 'X', 'X', 'rebeccapurple'))).toBeUndefined()
   })

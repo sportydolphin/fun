@@ -15,7 +15,7 @@
  *    same people out twice, as a zodiac grid (name, date) and an age-ordered list (name,
  *    age, date), so most players appear two or more times. That redundancy is what lets a
  *    sheet-only player be checked against themselves: where the two halves disagree the
- *    zodiac grid wins (it is the half organised *by* date, so a wrong date sits visibly in
+ *    zodiac grid wins (it is the half organized *by* date, so a wrong date sits visibly in
  *    the wrong block, while the age list is a flat column where a slip goes unnoticed) and
  *    the row is flagged rather than quietly settled.
  *
@@ -40,8 +40,8 @@
  * sheet. A silent fallback would rewrite every 'doc' row back to whatever the sheet says,
  * which is the one outcome worse than not running at all.
  *
- * KNOWN LIMIT (sheet only): the sheet colour-codes "Unconfirmed Dates", "Needs 2nd Source"
- * and "Conflicting Date". Cell colour does not survive CSV export, so those marks are
+ * KNOWN LIMIT (sheet only): the sheet color-codes "Unconfirmed Dates", "Needs 2nd Source"
+ * and "Conflicting Date". Cell color does not survive CSV export, so those marks are
  * invisible here. Sheet-only players are checked by comparing the sheet's two halves, which
  * catches a contradiction but not a date that is merely unconfirmed and consistently typed.
  *
@@ -98,7 +98,7 @@ const DOC_NAME_RE = /^([\p{L}'’.-]+(?: [\p{L}'’.-]+){0,2}), ([\p{L}'’.-]+(
 const DOC_DATE_RE = /^([A-Z][a-z]+) (\d{1,2}), (\d{4})$/
 
 /**
- * The doc's entries, keyed by normalised name.
+ * The doc's entries, keyed by normalized name.
  *
  * Shape: `{ name, iso, raw, sources[] }`, where `iso` is null for an entry the doc marks as
  * unknown. Those are worth keeping rather than skipping: an entry saying "? (2003/04)" is

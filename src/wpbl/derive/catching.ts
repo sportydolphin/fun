@@ -10,10 +10,10 @@ import { countsInStandings, type SeasonGame } from '../../league/season.ts'
  * narrative: two parsers of "caught stealing" would disagree the first time one was fixed.
  *
  * AGAINST THE AVERAGE CATCHER, NOT AGAINST NOBODY RUNNING. This league steals most innings and,
- * as a league, at a rate below its own break-even, so the defence comes out ahead on steals
- * overall. Left uncentred, every regular catcher would read as several runs saved for having
+ * as a league, at a rate below its own break-even, so the defense comes out ahead on steals
+ * overall. Left uncentered, every regular catcher would read as several runs saved for having
  * been run on often, which is a fact about the opposing runners. So each attempt is measured
- * against the league's mean attempt, the way `centre` measures a runner's extra-base chance: a
+ * against the league's mean attempt, the way `center` measures a runner's extra-base chance: a
  * catcher who throws out runners at the league's rate is worth zero, whatever the volume.
  *
  * PICKOFFS ARE LEFT OUT. A pickoff throw is the pitcher's, and a runner caught leaning is not a

@@ -37,7 +37,7 @@ export const ASSUMED_COUNTRY = 'US'
 /**
  * Can a reader in `country` play this video? From the restriction the sync stores
  * (refreshRegions in scripts/sync-wpbl-youtube.mjs). A video never checked has neither list and
- * plays everywhere, so a missing API key shows the catalogue rather than hiding it.
+ * plays everywhere, so a missing API key shows the catalog rather than hiding it.
  */
 export function playableIn(v: Pick<WpblVideo, 'region_allowed' | 'region_blocked'>, country: string | null): boolean {
   const c = country ?? ASSUMED_COUNTRY

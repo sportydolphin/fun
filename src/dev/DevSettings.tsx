@@ -303,7 +303,7 @@ function DiscordInviteControl() {
  * time anyone is working on them. This shows them on demand. STARTED is the moment the final goes
  * live: the recap card takes the Next-game slot, with no champion yet. FINISHED is the moment it
  * ends: a random club that could win becomes the champion on every one of those surfaces at once,
- * off a shared seed so they agree. Re-roll asks for a fresh club. Off is the real behaviour, and
+ * off a shared seed so they agree. Re-roll asks for a fresh club. Off is the real behavior, and
  * a genuine champion always wins over this.
  */
 function ChampionBannerControls() {
@@ -535,7 +535,7 @@ function SurfaceControls() {
         <>
           {row('Page', pick('darkPage', Object.keys(DARK_PAGES) as DarkPage[], v => DARK_PAGES[v].label))}
           {row('Cards', pick('darkCards', ['flat', 'raised'] as const, v => (v === 'flat' ? 'Flat' : 'Raised')),
-            'Flat: the page colour and an outline. Raised: the floating tone.')}
+            'Flat: the page color and an outline. Raised: the floating tone.')}
           {row('Card outline', pick('darkOutline', SURFACE_CHOICES.darkOutline, pct), 'Row rules stay at 22%.')}
           {row('Floating lift', pick('darkLift', SURFACE_CHOICES.darkLift, pct), 'Sheets, menus, the bottom bar.')}
           {row('Hover and stripes', pick('darkFill', SURFACE_CHOICES.darkFill, pct))}

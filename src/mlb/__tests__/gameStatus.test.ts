@@ -10,7 +10,7 @@ describe('unplayed games', () => {
   const postponed = { abstractGameState: 'Final', codedGameState: 'D', detailedState: 'Postponed' }
   const final = { abstractGameState: 'Final', codedGameState: 'F', detailedState: 'Final' }
 
-  it('treats a cancelled game as never played, not as a 0-0 final', () => {
+  it('treats a canceled game as never played, not as a 0-0 final', () => {
     expect(isUnplayed(cancelled)).toBe(true)
     expect(unplayedLabel(cancelled)).toBe('Cancelled')
   })

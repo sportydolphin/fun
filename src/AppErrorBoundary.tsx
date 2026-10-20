@@ -47,7 +47,7 @@ export class AppErrorBoundary extends React.Component<Props, State> {
   componentDidCatch(error: unknown) {
     const stale = isChunkLoadError(error)
     if (stale && reloadForNewBuild()) { this.setState({ reloading: true }); return }
-    // A reload already started elsewhere (a cancelled `vite:preloadError`) leaves the lazy import
+    // A reload already started elsewhere (a canceled `vite:preloadError`) leaves the lazy import
     // resolved to undefined, and the page is going away anyway; see installStaleBuildRecovery.
     if (reloadUnderway()) { this.setState({ reloading: true }); return }
     console.error(error)

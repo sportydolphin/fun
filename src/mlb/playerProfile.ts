@@ -200,7 +200,7 @@ const arsenalCache = new Map<string, Promise<PitchUsage[]>>()
 
 /** A pitcher's mix: share of pitches and average velocity per pitch type, most-thrown first.
  *  Its own request with `group=pitching` named: asked alongside a hitting group, StatsAPI returns a
- *  second, unlabelled arsenal of the pitches the player SAW at the plate. */
+ *  second, unlabeled arsenal of the pitches the player SAW at the plate. */
 export function fetchPitchMix(id: number, season: number): Promise<PitchUsage[]> {
   return cached(arsenalCache, `${id}-${season}`, season, async () => {
     const d = await getJson(`${API}/people/${id}/stats?stats=pitchArsenal&group=pitching&season=${season}`)
@@ -306,7 +306,7 @@ export interface CareerRow {
   season: number
   /** Every club that season, in the order the player played for them: "DET/LAD". */
   teams: string
-  /** The club the season ended with, for the band's colours. */
+  /** The club the season ended with, for the band's colors. */
   lastTeamId: number | null
   stat: any
 }
@@ -396,7 +396,7 @@ export function careerTrendSplits(c: Career): CareerStatSplit[] {
 export interface AwardTally { key: string; label: string; seasons: number[] }
 
 /**
- * The honours worth a ribbon, in the order a reader ranks them.
+ * The honors worth a ribbon, in the order a reader ranks them.
  *
  * A WHITELIST, because the feed's list is everything: every Player of the Week, every minor-league
  * mid-season All-Star team, Baseball America's lists. A ribbon for each would bury the MVP under

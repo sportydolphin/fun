@@ -90,7 +90,7 @@ describe('toDetails', () => {
     expect(bare.temp_f).toBeNull()
   })
 
-  // A club code we do not recognise must not fall through to a default: the sync skips an
+  // A club code we do not recognize must not fall through to a default: the sync skips an
   // unmatched game, and silently attaching one game's crew to another is the failure to avoid.
   it('refuses to guess at an unknown club code', () => {
     expect(toDetails({ id: 'X', info: { hometeam: 'XXX', date: '2026/08/12' } }).homeTeamId).toBeNull()

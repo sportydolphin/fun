@@ -1,4 +1,4 @@
-// ─── Type and colour for the whole sheet ──────────────────────────────────────
+// ─── Type and color for the whole sheet ──────────────────────────────────────
 //
 // One ramp for Game Center, the series sheet's three steps (SeriesSheet.tsx) plus a caps size.
 // The audit that set it found sixteen sizes from 0.54rem to 0.95rem across this sheet, with the

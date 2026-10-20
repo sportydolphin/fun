@@ -259,7 +259,7 @@ async function fetchGameCenter(gamePk: number): Promise<GameCenterData | null> {
 
     // The feed picks these itself (by game score), which is the same three a broadcast would name.
     // The club comes from which side's box lists the player, not `parentTeamId`, which is the
-    // organisation and so is wrong for nobody here but is the wrong question.
+    // organization and so is wrong for nobody here but is the wrong question.
     const awayIds = ld.boxscore?.teams?.away?.players ?? {}
     const performers: Performer[] = (ld.boxscore?.topPerformers ?? [])
       .filter((t: any) => t?.player?.person?.id)
@@ -460,7 +460,7 @@ function WinProbChart({ pts, plays, away, home, live, marks = [] }: {
       info={WP_INFO}
       now={now}
       accent="primary.main"
-      // Each swing in the colour of the club it favoured, numbered to match the list under the chart.
+      // Each swing in the color of the club it favoured, numbered to match the list under the chart.
       marks={marks.filter(i => pts[i]).map((i, k) => {
         const col = pts[i].wp >= pts[i].before ? homeCol : awayCol
         return { index: i, color: col, ink: inkOn(col), label: String(k + 1) }
@@ -525,7 +525,7 @@ function halfInnings(plays: GcPlay[]): HalfInning[] {
  * One play, on WPBL's row (src/ui/gameCenter.tsx): the batter in weight with the rest of the first
  * sentence beside them, the runners' sentences quieter underneath, and the count and the bases and
  * outs the play left in a column at the right. A run is the shared green rail, as on WPBL, rather
- * than the club's colour this used to take: the half-inning heading already names the club.
+ * than the club's color this used to take: the half-inning heading already names the club.
  */
 function PlayCard({ p, onPlayerClick }: { p: GcPlay; onPlayerClick?: (id: number) => void }) {
   // StatsAPI writes one sentence for the batter and one per runner. The first is the play; the
@@ -702,7 +702,7 @@ function TeamBoxColumns({ box, onPlayerClick, stacked = false }: {
 // ─── The scoreboard ───────────────────────────────────────────────────────────
 //
 // The header is the line score itself, as on WPBL's game page: club, innings, R H E in one table,
-// the winning row tinted in its club's colour. It used to be two 48px logos and two 2.2rem scores
+// the winning row tinted in its club's color. It used to be two 48px logos and two 2.2rem scores
 // stacked over a separate line score saying the same runs again, which spent the first 330px of
 // the sheet on one number per club.
 
@@ -1067,7 +1067,7 @@ function GameCenterView({ game, onClose, onPlayerClick, onTeamClick, initialTab,
   )
 
   // The shared sheet (src/ui/ModalShell): a bottom sheet on a phone that drags down to close, a
-  // centred card above that. Laid out as WPBL's game page is (gameDetail/GameCenterPage.tsx): the line score as the
+  // centered card above that. Laid out as WPBL's game page is (gameDetail/GameCenterPage.tsx): the line score as the
   // header, then tabs, and from `lg` a sheet wide enough to use: the win probability across its
   // full width, and both clubs' box scores at once. It was 560px at every
   // width, so a desktop reader scrolled one long column with most of the window empty beside it.
@@ -1095,7 +1095,7 @@ function GameCenterView({ game, onClose, onPlayerClick, onTeamClick, initialTab,
       {data && (
         <>
           {/* Tabs, WPBL's three in WPBL's control: the story of the game, the tables, every play.
-              Alone on their row and centred. The Plays controls shared it until Oct 2026, and on a
+              Alone on their row and centered. The Plays controls shared it until Oct 2026, and on a
               phone the five did not fit: "Box Score" and "Expand all" wrapped onto two lines and the
               All chip ran off the edge of the sheet. */}
           <Box sx={{

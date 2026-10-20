@@ -64,11 +64,11 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
         },
       }}
     >
-      {/* COLUMNS UNDER HEADINGS, NOT CENTRED ROWS OF DOTTED WORDS. Three centred rows wrapped
+      {/* COLUMNS UNDER HEADINGS, NOT CENTERED ROWS OF DOTTED WORDS. Three centered rows wrapped
           differently at every width, so the same link sat in a new place on each page size and
           nothing lined up with anything. A column per kind of link gives every item a fixed
           place, and it let the page links come out of the `More pages` expander they were folded
-          into: a labelled column is as quiet as a closed disclosure and costs a reader no tap.
+          into: a labeled column is as quiet as a closed disclosure and costs a reader no tap.
 
           NOTHING HERE CAN BE DELETED, and the audit that showed it is worth keeping. The glossary
           and the players index have no other internal link anywhere on the site, and the players
@@ -124,7 +124,7 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
         </FooterColumn>
       </Box>
 
-      {/* The fine print, last and centred under the columns, where a reader stops looking. The
+      {/* The fine print, last and centered under the columns, where a reader stops looking. The
           data credit lives on the sources page; the disclaimer is a different claim and stays. */}
       <Box sx={{
         maxWidth: 1100, mx: 'auto', mt: 2.5, pt: 2,
@@ -145,7 +145,7 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
   )
 }
 
-/** One labelled column of footer links, stacked and left-aligned so every column starts on the
+/** One labeled column of footer links, stacked and left-aligned so every column starts on the
  *  same line whatever its length. */
 function FooterColumn({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -156,7 +156,7 @@ function FooterColumn({ title, children }: { title: string; children: React.Reac
   )
 }
 
-/** One row of the footer: centred, dot-separated, wrapping only when it has to. */
+/** One row of the footer: centered, dot-separated, wrapping only when it has to. */
 function FooterRow({ children }: { children: React.ReactNode }) {
   return (
     <Box sx={{

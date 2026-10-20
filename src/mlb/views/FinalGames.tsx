@@ -610,7 +610,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
               ))}
               {earlier && (
                 <>
-                  {/* The previous game day, labelled, so its finals are never read as today's. */}
+                  {/* The previous game day, labeled, so its finals are never read as today's. */}
                   <Box sx={{
                     flexShrink: 0, alignSelf: 'stretch', display: 'flex', alignItems: 'center',
                     pl: 0.5, pr: 0.25, borderLeft: '1px solid', borderColor: 'divider', ml: 0.5,

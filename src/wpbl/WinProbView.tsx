@@ -77,7 +77,7 @@ export default function WinProbView({ game, teams, plays, games }: Props) {
 
 /** Split out so the model work above stays in one place and this stays drawing. */
 function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, WpblTeam>; wp: GameWinProb }) {
-  // The curated foreground colours, not the primaries. Every club in this league is
+  // The curated foreground colors, not the primaries. Every club in this league is
   // near-black (BOS #00281e, LA #000000, NY #091b47, SF #2d1747), which is fine behind a logo
   // and useless for two areas that have to be told apart: the primaries draw Los Angeles in
   // pure black at 30% over a dark card. See the note on wpblAccent.

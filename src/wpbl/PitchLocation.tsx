@@ -120,7 +120,7 @@ export function PitchLocationCard({ rows, accent, gamesPitched }: { rows: WpblPi
     // answers to one question. It used to draw its own: a 0.76rem label against their 0.72, a
     // 0.68rem summary against their 0.8, right-aligned where theirs sat beside the label. Two
     // of them are on screen at once, one per column, and the differences read as meaning
-    // something. `defaultOpen` is the one behaviour that stays its own: tracking that reaches
+    // something. `defaultOpen` is the one behavior that stays its own: tracking that reaches
     // every game she has pitched is worth opening, and a sample of one game in five is not.
     <AccentPanel
       label="Pitch locations"

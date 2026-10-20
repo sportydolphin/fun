@@ -244,7 +244,7 @@ values ('<game uuid>', 214, 'batter_name', 'Wrong Name', 'Right Name',
 
 ## 7. The admin indicator
 
-`/admin` shows the check's health next to the feed mirror's own freshness, modelled on
+`/admin` shows the check's health next to the feed mirror's own freshness, modeled on
 `WpblFreshnessChip`.
 
 | State | Meaning |
@@ -281,7 +281,7 @@ game is the first it found: a strikeout we charged to Amira Hondras and they cha
 Davis, with the plate appearance moving the same way.
 
 It is partial on purpose. It compares the counting stats whose Retrosheet event maps to them
-without a judgement call, so it can see a plate appearance credited to the wrong batter but not
+without a judgment call, so it can see a plate appearance credited to the wrong batter but not
 a fielding play credited to the wrong glove, and it says nothing about pitching. 18 disagreements
 across 24 games are accepted in `scripts/wpbl-retro-stats-baseline.json`; the job reports only
 what is new.
@@ -296,7 +296,7 @@ downstream of it.
 
 **The terms it runs under have not changed, and they are the reason it reads rather than
 mirrors.** `github.com/exu6jh/RetroWPBL` is hand-written Retrosheet `.EVW` files with a batter id
-on every plate appearance. **It carries no licence, so it is all rights reserved by default and
+on every plate appearance. **It carries no license, so it is all rights reserved by default and
 must not be ingested or republished.** Reading it to check our own rows is a different act from
 redistributing it; the author granted permission for our use on Aug 21, 2026 (ARCHITECTURE §10),
 and `sync-wpbl-retro` mirrors only the `info` records. The play records stay unmirrored on
@@ -389,7 +389,7 @@ one somebody watched. The rule this follows is the one in §6: a correction is a
 backed by evidence, and "the structured field disagrees with the prose" is a reason to prefer the
 field at read time rather than to assert a fact about a game nobody checked.
 
-**The first measurement of this was wrong and the reason generalises.** It was taken with SQL
+**The first measurement of this was wrong and the reason generalizes.** It was taken with SQL
 matching `to p for`, which misses the bare `X to p` form, and reported 39 changes as never
 announced. Re-run with the predicate the application actually applies, all 125 are announced and
 the finding is the ten wrong names instead, which is nearly the opposite story. A check written
@@ -415,7 +415,7 @@ count says two. The next row's bases agree with the transcription and not with t
 number: Benitez is gone from third.
 
 RetroWPBL scores the same plate appearance `D7/L.3-H(RBI);2-H(RBI);1-3`. Two runners home, which
-is the missing run, and it is a text-generation fault rather than a scoring judgement.
+is the missing run, and it is a text-generation fault rather than a scoring judgment.
 
 **Corrected on Sep 2, 2026**, and it is the first correction this project has written: two rows
 in `wpbl_play_corrections` for `(game_id, sequence 10)`, one moving `runs_scored` from 1 to 2 and
@@ -425,10 +425,10 @@ the game reconciles exactly, LA reading 10 in the play log against 10 on the boa
 The row was re-read against the live feed immediately before writing, five days after the game,
 per the standing lesson above: Aug 15 fixed itself within the hour and a correction written
 against the old reading would have survived the rewrite and doubled the run. This one had not
-moved, and a duplicated name is a text-generation fault rather than a scoring judgement anyone
+moved, and a duplicated name is a text-generation fault rather than a scoring judgment anyone
 is going to revisit.
 
 It does not quiet the validator, which reads `wpbl_game_plays` directly with no overlay, so the
-finding stays in the baseline. That is the right behaviour: the mirror still carries the feed's
+finding stays in the baseline. That is the right behavior: the mirror still carries the feed's
 version, and the day the league fixes it at source is the day the finding should disappear on
 its own.

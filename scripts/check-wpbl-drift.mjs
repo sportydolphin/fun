@@ -94,7 +94,7 @@ const instant = (v) => {
  *  OURS, not the feed's: the feed sends its own ids and names and the ingest resolves them
  *  against the roster, so comparing them would report a player merge as league drift. Names are
  *  compared instead, which is what the feed actually publishes. `pitch_events` is left out too:
- *  it is a nested array whose contents are already summarised by `pitch_sequence`, `balls`,
+ *  it is a nested array whose contents are already summarized by `pitch_sequence`, `balls`,
  *  `strikes` and `fouls`, all four of which are here.
  *
  *  \u0001 as the separator because no narrative contains it, and the same string is built in SQL

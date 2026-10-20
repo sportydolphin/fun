@@ -13,7 +13,7 @@ import type { RefObject } from 'react'
 // and stops it moving. It is released when the fling that follows the finger has settled
 // (`scrollend`, with a timeout where the browser has none), or at the next touch.
 //
-// PASSIVE LISTENERS ONLY, deliberately. A cancellable touch listener makes every scroll under it
+// PASSIVE LISTENERS ONLY, deliberately. A cancelable touch listener makes every scroll under it
 // wait for JavaScript (see CLAUDE.md), which is the jank this exists to remove, not to add. The
 // lock is applied from the first touchmove, before the browser's touch slop has started a scroll,
 // so the browser latches the gesture onto an element that can only move one way.

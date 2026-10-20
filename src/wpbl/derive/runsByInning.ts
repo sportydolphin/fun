@@ -56,11 +56,11 @@ export interface RunsByInning {
   league: RunsByInningRow
   /** Finals counted. 0 is the empty state. */
   games: number
-  /** The league's runs per half-inning over regulation innings: the colour scale's grey midpoint.
+  /** The league's runs per half-inning over regulation innings: the color scale's grey midpoint.
    *  The same number scored or allowed, since every run is both. */
   mean: number
   /** How far the furthest club square sits from `mean`, over regulation innings, scored and
-   *  allowed both, so flipping between the two does not rescale the colours under the reader.
+   *  allowed both, so flipping between the two does not rescale the colors under the reader.
    *  Extras are left out: a four-game column would otherwise set the scale for the whole grid. */
   spread: number
 }

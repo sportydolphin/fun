@@ -237,7 +237,7 @@ export function PlayerOfTheDayCard({ players, teams, games, onOpenPlayer }: {
           borderRadius: 2, p: 0.5, mx: -0.5, ...(player ? { ...TAPPABLE, ...FOCUS_RING } : null),
         }}>
           {/* The skeleton circle stays over the portrait until its face has loaded, and the face
-              fades in under it. Swapped straight in, the frame painted as a bare club-coloured disc
+              fades in under it. Swapped straight in, the frame painted as a bare club-colored disc
               for the beat before the photo arrived: grey, then navy, then a face, a blink. */}
           <Box sx={{ position: 'relative', flexShrink: 0 }}>
             {player

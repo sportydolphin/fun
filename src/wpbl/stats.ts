@@ -216,7 +216,7 @@ export interface WpblPitchingTotals {
   k9: number | null
   /** Strikeout-to-walk ratio. Null when nobody has walked, since the ratio has no value. */
   kbb: number | null
-  /** Per batter faced, not per inning: a pitcher behind a poor defence faces more batters per
+  /** Per batter faced, not per inning: a pitcher behind a poor defense faces more batters per
    *  inning, which inflates K/7 without the pitcher doing anything better. */
   kPct: number | null
   bbPct: number | null
@@ -278,7 +278,7 @@ export function pitchingFromCounts(c: WpblPitchingCounts): WpblPitchingTotals {
 
 // ─── FIP ───────────────────────────────────────────────────────────────────────
 // Fielding independent pitching: ERA rebuilt from the three outcomes no fielder touches, so it
-// separates a pitcher from the defence and the luck behind them.
+// separates a pitcher from the defense and the luck behind them.
 
 /** Runs each fielding-independent outcome is worth against an average ball in play. Weighted
  *  in RUNS PER EVENT, not the familiar 13/3/2: those are MLB's run values multiplied by nine
@@ -296,14 +296,14 @@ function fipCore(t: Pick<WpblPitchingTotals, 'hr' | 'bb' | 'hbp' | 'so' | 'outs'
 }
 
 /** The constant that makes the league's FIP equal the league's ERA. Built from the same slice
- *  as the rows it is applied to, or a playoff FIP is centred on a regular season it is not
+ *  as the rows it is applied to, or a playoff FIP is centered on a regular season it is not
  *  being compared with. Null before an inning is pitched or before the weights exist. */
 export function fipConstant(league: WpblPitchingTotals, w: FipWeights | null): number | null {
   const core = w ? fipCore(league, w) : null
   return core != null && league.era != null ? league.era - core : null
 }
 
-/** FIP on the canonical basis. Null without innings, weights, or a league to centre it on. */
+/** FIP on the canonical basis. Null without innings, weights, or a league to center it on. */
 export function fip(t: WpblPitchingTotals, w: FipWeights | null, constant: number | null): number | null {
   const core = w ? fipCore(t, w) : null
   return core != null && constant != null ? core + constant : null
@@ -421,7 +421,7 @@ export const fmtPct = (v: number | null): string =>
 /** A signed run differential: "+26", "\u221217", "0".
  *
  *  The sign is a true minus (U+2212), not a hyphen. Measured, the two have the identical
- *  advance here. The difference is the GLYPH inside it: a hyphen is a short dash centred in
+ *  advance here. The difference is the GLYPH inside it: a hyphen is a short dash centered in
  *  a digit-width slot, so it leaves air on both sides and reads as "- 17" where the plus,
  *  drawn to fill its slot, reads as "+26". U+2212 is the minus built to match the plus. */
 export const fmtSigned = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `\u2212${Math.abs(n)}` : '0')

@@ -7,7 +7,7 @@ import type { WpblSeasonGame } from '../season'
 // The two slices fail in OPPOSITE directions and both are correct. That asymmetry is the whole
 // point of this file: `regular` drops a game only on positive evidence so a feed rename costs
 // a few games, while `postseason` keeps a game only on positive evidence so the same rename
-// empties the playoff board instead of relabelling the whole regular season as the playoffs.
+// empties the playoff board instead of relabeling the whole regular season as the playoffs.
 
 const g = (id: string, o: Partial<WpblSeasonGame> = {}): WpblSeasonGame =>
   ({ id, game_type: 'regular', counts_in_standings: true, ...o })
@@ -79,7 +79,7 @@ describe('slicing lines', () => {
   })
 
   // The rename scenario in full: the feed starts calling the playoffs something this build
-  // does not recognise. Regular over-counts by the bracket, which is visibly wrong on a
+  // does not recognize. Regular over-counts by the bracket, which is visibly wrong on a
   // standings page. Postseason goes empty, which is visibly broken. Neither silently
   // republishes 30 regular-season games under a heading that says Playoffs.
   it('survives the feed renaming its game types', () => {

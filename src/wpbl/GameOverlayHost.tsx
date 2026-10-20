@@ -15,7 +15,7 @@ import type { WpblGame, WpblTeam, WpblPlayer } from './types'
 // routes to WpblApp, not tabs inside it, so their game links used to `navigate('/wpbl/games/<slug>')`:
 // that unmounts the page the reader was on and mounts WpblApp, which seats Home under the game modal.
 // The page they opened the game FROM vanished, replaced by Home. Inside WpblApp opening a game keeps
-// the current tab beneath it; this gives the standalone pages the same behaviour, by keeping them
+// the current tab beneath it; this gives the standalone pages the same behavior, by keeping them
 // mounted and drawing the modal on top from the shell. App.tsx owns the history entry (it seats the
 // game URL, storing the page beneath it, so Back and Forward rebuild the overlay) and the dismissal;
 // this is only the modal plus the context the section's crawlable links need.

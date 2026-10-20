@@ -243,7 +243,7 @@ export function batterText(event, batter, count = null) {
   else if (/^W$/.test(p))      { text = 'walked'; lands = 1 }
   else if (/^HP$/.test(p))     { text = 'hit by pitch'; lands = 1 }
   else if (/^C$/.test(p))      { text = 'reached on catcher’s interference'; lands = 1 }
-  else if (/^E\d/.test(p))     { text = `reached first on an error by ${OUT_PLACE[Number(p[1])] ?? 'the defence'}`; lands = 1 }
+  else if (/^E\d/.test(p))     { text = `reached first on an error by ${OUT_PLACE[Number(p[1])] ?? 'the defense'}`; lands = 1 }
   else if (/^FC\d*/.test(p))   { text = 'reached on a fielder’s choice'; lands = 1 }
   else if (/^\d/.test(p)) {
     if (sacFly) text = `${outText(p, mods, false)}, sacrifice fly`

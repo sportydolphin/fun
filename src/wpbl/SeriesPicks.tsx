@@ -242,7 +242,7 @@ export function SeriesPickLine({ series, bracket, state }: {
   const right = !!result && result === picked
   const accentId = parsePickChoice(picked ?? '')?.teamId ?? null
 
-  // The colour the row is drawn in, which is the club's while the pick is live and stops being
+  // The color the row is drawn in, which is the club's while the pick is live and stops being
   // the club's the moment the pick is settled or dead: a bust pick names a club that is not in
   // the series any more, and a wrong pick should not still be wearing the shirt it got wrong.
   const accent = accentId ? wpblAccent(accentId, dark) : null
@@ -258,8 +258,8 @@ export function SeriesPickLine({ series, bracket, state }: {
     // the smallest size on the card, under two club names set at `heading`, every fact the league
     // supplied would outrank the one fact the reader supplied. This is the only line in the bracket
     // that belongs to the person looking at it, and the whole reason the button above is worth
-    // pressing, so it gets three things. A tint in the club's own colour, which is also what the
-    // selected tile in the sheet looks like, so a pick is recognisable in both places. A rail down
+    // pressing, so it gets three things. A tint in the club's own color, which is also what the
+    // selected tile in the sheet looks like, so a pick is recognizable in both places. A rail down
     // the left edge, which is what actually separates it from the meta line above without spending
     // any height. And the sentence itself at `body`, one step up, which makes it the second-loudest
     // thing in the box after the two clubs rather than the quietest.
@@ -267,11 +267,11 @@ export function SeriesPickLine({ series, bracket, state }: {
       px: 1.25, py: 0.6, borderTop: '1px solid', borderColor: 'divider',
       display: 'flex', alignItems: 'baseline', gap: 0.75, minWidth: 0,
       position: 'relative', overflow: 'hidden',
-      // `alpha` on the theme's own success colour rather than a literal green, so a right call
+      // `alpha` on the theme's own success color rather than a literal green, so a right call
       // stays the same green as every other right thing on the site if the palette ever moves.
       bgcolor: tone === 'success' ? (t => alpha(t.palette.success.main, 0.13)) : tone ? `${tone}1f` : 'transparent',
       // A settled pick keeps the rail so the row still reads as the reader's, and takes its
-      // colour from the outcome rather than from the club.
+      // color from the outcome rather than from the club.
       borderLeft: '3px solid',
       borderLeftColor: tone === 'success' ? 'success.main' : tone ? tone : 'transparent',
     }}>
@@ -449,7 +449,7 @@ function PickTile({ label, on, accent, share, showShare, onClick, badge, ariaLab
    * up under two.
    *
    * So a length sizes to its own label instead of claiming a column, and it carries the chosen
-   * club's colour whether or not it is the selected one. Two chips cannot line up cell for cell
+   * club's color whether or not it is the selected one. Two chips cannot line up cell for cell
    * under two stretched tiles, and the hue says whose they are without the label repeating the
    * club four tiles running.
    *
@@ -487,7 +487,7 @@ function PickTile({ label, on, accent, share, showShare, onClick, badge, ariaLab
         // this ring and the tick below are solving. A 1px accent border and a 12%-alpha wash are the
         // club's accent turned up a bit, and the crowd's share is ALSO drawn in that accent, behind
         // the label, at 14%. So an unpicked club that two thirds of voters chose would be a bigger
-        // block of its own colour than the picked club beside it, and the one thing on screen that
+        // block of its own color than the picked club beside it, and the one thing on screen that
         // is supposed to say "this is your answer" would be the quieter of the two. Turning the wash
         // up further only makes a louder version of the same collision.
         //
@@ -512,11 +512,11 @@ function PickTile({ label, on, accent, share, showShare, onClick, badge, ariaLab
         fontSize: TYPE_SCALE.body, fontWeight: on ? 900 : 700, lineHeight: 1.2,
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         // Accent whether or not it is selected: the selected tile already wins on its border,
-        // its fill and its weight, and leaving it the only white label in a coloured row made the
+        // its fill and its weight, and leaving it the only white label in a colored row made the
         // unpicked one look like the live option.
         color: follows ? accent : 'text.primary',
       }}>{label}</Typography>
-      {/* THE ONE SIGNAL THAT IS NOT A COLOUR, which is why it is here rather than a third shade
+      {/* THE ONE SIGNAL THAT IS NOT A COLOR, which is why it is here rather than a third shade
       of the club's accent. Everything else marking a selection on this tile is that accent
       at some strength, and the accent is already spoken for by the share bar behind it; a
       reader who cannot separate two strengths of the same hue, for whatever reason, would
@@ -544,7 +544,7 @@ function PickTile({ label, on, accent, share, showShare, onClick, badge, ariaLab
  *
  * THE SECOND STEP APPEARS WITH THE FIRST ANSWER, which is what turns one question of four or six
  * options into two questions of two or three. It also means a length is always read in the
- * chosen club's own colour, directly under its name, so "in 3" never has to say whose.
+ * chosen club's own color, directly under its name, so "in 3" never has to say whose.
  *
  * A HALF-ANSWER IS NOT STORED. Choosing a club sets local state only; the row is written when
  * the length is chosen. The database holds sentences, not drafts, and a "Firebells in ?" in the
@@ -656,7 +656,7 @@ function SeriesQuestion({ series, bracket, state }: {
       {/* WHAT TO DO NEXT, AND ONLY WHEN THERE IS SOMETHING TO SAY.
       A finished answer says nothing at all. A "Called." here would repeat the one state the
       tiles already draw: the chosen club and the chosen length are both ringed, filled in
-      the club's colour and ticked. A caption repeating that is a line of text under every
+      the club's color and ticked. A caption repeating that is a line of text under every
       answered question saying what the reader can see, and three of them is a third of the
       sheet.
 
@@ -748,7 +748,7 @@ function PickemSheet({ bracket, state, onClose }: {
       sheet
       eyebrow="Call the postseason"
       // A PHONE SHEET'S WIDTH IS NOT A DESKTOP DIALOG'S. Above `sm` this stops being a sheet and
-      // becomes a centred card, and a raw 460px cap there holds type scaled up for the desktop:
+      // becomes a centered card, and a raw 460px cap there holds type scaled up for the desktop:
       // three questions in a column narrower than the bracket card's own middle third, with club
       // names ellipsing inside tiles that have room to spare on either side of the dialog.
       // `chromePx` because a dialog's cap is structure, so it rides the desktop chrome scale and

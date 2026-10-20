@@ -118,7 +118,7 @@ export const WPBL_SOURCES: readonly WpblSource[] = [
     who: 'An independent, hand-written transcription of the season into Retrosheet format.',
     uses: 'First pitch, length of game, the umpiring crew and the weather, none of which the league publishes. Plus, for a handful of at-bats the league published blank, their account of what happened.',
     seenOn: 'Under the Game Center scoreboard, and marked with a dagger on the few plays it filled in.',
-    basis: 'Used with the transcriber’s explicit permission, granted August 21, 2026. The repository carries no licence, so that permission is the whole basis for it.',
+    basis: 'Used with the transcriber’s explicit permission, granted August 21, 2026. The repository carries no license, so that permission is the whole basis for it.',
   },
   {
     // THE ONE ENTRY THAT SUPPLIES NO DATA, and it belongs here anyway: this page answers "what
@@ -139,9 +139,9 @@ export const WPBL_SOURCES: readonly WpblSource[] = [
     url: 'https://commons.wikimedia.org',
     kind: 'photography',
     who: 'The free media repository behind Wikipedia.',
-    uses: 'Photographs of women’s baseball, with the photographer and the licence carried on every one.',
+    uses: 'Photographs of women’s baseball, with the photographer and the license carried on every one.',
     seenOn: 'The Archive shelf on the league page, and the photo gallery.',
-    basis: 'Freely licensed images only, each shown with its author and licence as those licences require.',
+    basis: 'Freely licensed images only, each shown with its author and license as those licenses require.',
   },
 ]
 
@@ -165,7 +165,7 @@ export const SOURCE_GROUPS: readonly { kind: SourceKind; label: string; blurb: s
   {
     kind: 'photography',
     label: 'Photography',
-    blurb: 'Freely licensed images, shown with the credit their licences require.',
+    blurb: 'Freely licensed images, shown with the credit their licenses require.',
   },
   {
     kind: 'collaboration',

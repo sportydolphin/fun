@@ -4,7 +4,7 @@
  * WHY THIS EXISTS. Every season total on the site rides on one fact nobody can check until
  * Sep 9, 2026: whether the league's feed flags a postseason game through `game_type` or
  * `counts_in_standings`. `countsInStandings()` in src/wpbl/season.ts deliberately FAILS OPEN,
- * excluding a game only on positive evidence and counting everything it does not recognise,
+ * excluding a game only on positive evidence and counting everything it does not recognize,
  * because the alternative renders four clubs at 0-0 the day the feed renames its game types.
  * That is the right failure direction and it has a price: if the feed marks a semifinal as
  * nothing in particular, the site silently folds 7 to 11 postseason games into every
@@ -252,7 +252,7 @@ async function main(): Promise<void> {
       console.log(`
 What to do, for the 'counted-postseason' rows:
 
-  The feed is not marking the postseason in a way season.ts recognises, so every season
+  The feed is not marking the postseason in a way season.ts recognizes, so every season
   aggregate on the site is currently including these games. Look at what game_type actually
   holds above, then widen the regex in countsInStandings() in src/wpbl/season.ts to match it.
   That one function is the only place that decides, so the standings, every leaderboard, the

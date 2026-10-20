@@ -18,7 +18,7 @@
  * THE ENDPOINT is the calendar behind womensprobaseballleague.com/schedule/, a WordPress REST
  * route. It takes `start` and `end` and, as of Sep 2026, IGNORES BOTH: the same 41 rows come
  * back either way, which is the whole season plus the postseason. They are passed anyway, wide,
- * so the day it starts honouring them is not the day this quietly mirrors a fortnight.
+ * so the day it starts honoring them is not the day this quietly mirrors a fortnight.
  *
  * NO DELETES, EVER. A short or empty read is the failure this has to survive (see the `/games`
  * truncation trap in CLAUDE.md, which cost the site a real game). Rows are upserted and
@@ -79,7 +79,7 @@ const leagueDate = (iso) => DATE_FMT.format(new Date(iso))
  *
  * Derived from the instant rather than taken from the payload's own `time`, which is lowercase
  * ("6:00 pm") and would hand the app two spellings of one clock. The narrow no-break space some
- * ICU builds put before the meridiem is normalised out for the same reason: it is invisible and
+ * ICU builds put before the meridiem is normalized out for the same reason: it is invisible and
  * it breaks every string comparison it touches.
  */
 const leagueTime = (iso) => TIME_FMT.format(new Date(iso)).replace(/\u202f/g, ' ')
@@ -95,7 +95,7 @@ const CHAMPIONSHIP_SLUG = /championship-game-(\d+)/i
  *
  * NOTHING ELSE IN THE PAYLOAD SAYS. A semifinal's title is "Boston @ San Francisco", the same
  * shape as a regular-season game's, and the postseason marking the stats feed has is not
- * published here at all. An unrecognised slug returns nulls rather than a guess: the app then
+ * published here at all. An unrecognized slug returns nulls rather than a guess: the app then
  * falls back to its own published calendar, which is what it did before this table existed.
  */
 function parseSeries(url) {

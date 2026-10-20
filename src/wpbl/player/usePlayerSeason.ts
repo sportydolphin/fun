@@ -50,7 +50,7 @@ export function usePlayerSeason({ player, players, teams, games, seasonGames, se
     [battingReal, pitching, fielding, games])
   const hasBatting = battingReal.length > 0
   const hasPitching = pitching.length > 0
-  // WHETHER THERE IS ANYTHING TO SUMMARISE, in the SAME scope the summary shows. `hasBatting`
+  // WHETHER THERE IS ANYTHING TO SUMMARIZE, in the SAME scope the summary shows. `hasBatting`
   // and `hasPitching` above count every line the player has, postseason included, because the
   // game log lists those. `bt` and `pt` are summed through the schedule, which drops the
   // postseason, so the hero and the cameos below must gate on the regular-season sum having

@@ -45,7 +45,7 @@ function ymd(d) {
 }
 
 // Wilson score lower bound (95%) — identical to the client's ranking key so every board
-// orders picks the same way, small samples penalised until the volume backs them up.
+// orders picks the same way, small samples penalized until the volume backs them up.
 function wilsonLowerBound(correct, total) {
   if (total === 0) return 0
   const z = 1.96, z2 = z * z
