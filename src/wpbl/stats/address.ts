@@ -23,7 +23,7 @@ import { sideOn, sideOfSort } from './axes'
  * sees one tab called Teams, where the code sees `source: 'season'` plus `mode: 'teams'`. The
  * URL is read by people, so it spells the thing on screen.
  */
-type BoardParam = 'leaders' | 'players' | 'teams' | 'fielding' | 'bests' | 'find' | 'pitches' | 'runs' | 'tracked' | 'draft'
+type BoardParam = 'leaders' | 'players' | 'teams' | 'fielding' | 'bests' | 'find' | 'pitches' | 'runs' | 'tracked' | 'draft' | 'charts'
 
 export const STATS_PATH = '/wpbl/stats'
 
@@ -77,6 +77,7 @@ function boardAxes(board: string | null): { source: Source; mode: Mode; side?: S
     case 'pitches': return { source: 'pitches', mode: 'players' }
     case 'runs':    return { source: 'runs', mode: 'players' }
     case 'draft':   return { source: 'draft', mode: 'players' }
+    case 'charts':  return { source: 'charts', mode: 'players' }
     case 'tracked': return { source: 'tracked', mode: 'players' }
     // Anything else is a hand-edited or stale link, and the honest answer to one of those is
     // the default board rather than a blank screen.

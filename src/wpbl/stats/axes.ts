@@ -37,7 +37,7 @@ export type Side = 'overall' | 'hitting' | 'pitching' | 'fielding'
 /** The side every board other than the season tables speaks. */
 export type BallSide = 'hitting' | 'pitching'
 export type Totals = WpblBattingTotals | WpblPitchingTotals | WpblFieldingTotals | WpblValueTotals
-export type Source = 'leaders' | 'season' | 'bests' | 'find' | 'tracked' | 'pitches' | 'runs' | 'draft'
+export type Source = 'leaders' | 'season' | 'bests' | 'find' | 'tracked' | 'pitches' | 'runs' | 'draft' | 'charts'
 
 export type Mode = 'players' | 'teams'
 
@@ -119,11 +119,13 @@ export const SIDES: { value: Side; label: string }[] = [
  *  club's wins added is just its record. */
 export function sideOn(side: Side, source: Source, mode: Mode = 'players'): boolean {
   if (side === 'fielding') return source === 'season' || source === 'leaders' || source === 'find'
-  if (side === 'overall') return source === 'leaders' || (source === 'season' && mode === 'players')
+  if (side === 'overall') return source === 'leaders' || (source === 'season' && mode === 'players') || source === 'charts'
   return true
 }
-/** Where a board opens, and what an address with no `side` means on it. */
-export const defaultSide = (source: Source, mode: Mode = 'players'): Side => (sideOn('overall', source, mode) ? 'overall' : 'hitting')
+/** Where a board opens, and what an address with no `side` means on it. Charts answers Overall (the
+ *  two-way chart) but opens on Hitting, whose on-base-and-power plot is the one every fan can read. */
+export const defaultSide = (source: Source, mode: Mode = 'players'): Side =>
+  (source !== 'charts' && sideOn('overall', source, mode) ? 'overall' : 'hitting')
 /** The side a linked column belongs to, for an address that names a column and no side: every link
  *  written before Overall existed, when a missing side meant Hitting. */
 export function sideOfSort(key: string): Side | undefined {

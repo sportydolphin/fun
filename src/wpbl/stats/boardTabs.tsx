@@ -26,12 +26,15 @@ export const ANALYSIS_TABS: { key: Source; label: string }[] = [
   // misread should not be shown only to the readers least likely to misread it. What it needs is
   // the sentence above the table saying what a "run" means here.
   { key: 'runs', label: 'Run value' },
+  // Every player on two stats at once: the season tables drawn, so it sits next to the boards that
+  // explain the numbers it plots.
+  { key: 'charts', label: 'Charts' },
   { key: 'pitches', label: 'Pitch by pitch' },
   // One question about one season's draft, answered once.
   { key: 'draft', label: 'Draft' },
 ]
 /** The boards behind the Analysis tab: ANALYSIS_TABS, and Tracked when it is offered. */
-export const ANALYSIS_SOURCES = new Set<Source>(['runs', 'pitches', 'draft', 'tracked'])
+export const ANALYSIS_SOURCES = new Set<Source>(['runs', 'charts', 'pitches', 'draft', 'tracked'])
 /** The board row as PageTabs draws it, with the "new here" dot on the boards that wear one. */
 export const boardTabOptions = (newBoards?: ReadonlySet<string>) => BOARD_TABS.map(b => {
   const badge = newBoards?.has(b.key)
