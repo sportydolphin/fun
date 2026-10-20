@@ -103,7 +103,7 @@ async function fetchTeamPage(teamId, slug) {
  *
  * The raw vocabulary is inconsistent and sometimes truncated at the source —
  * "PRE-ARB" vs "Pre-ARB", "FREE AGENT (DISPLAYED)", "CLUB OPTION (NON-GUARANT" —
- * so this normalises once here rather than making every consumer re-learn it.
+ * so this normalizes once here rather than making every consumer re-learn it.
  * The original string is kept alongside for tooltips.
  */
 function normaliseYearType(raw) {

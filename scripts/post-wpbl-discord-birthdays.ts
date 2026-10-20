@@ -54,7 +54,7 @@ const SUPABASE_KEY = SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY || proces
 const WEBHOOK_URL = (process.env.DISCORD_BIRTHDAY_WEBHOOK_URL ?? '').trim()
 
 // The league plays out of a single Central-time hub and the server's readers follow it, so
-// "today" is a Central day. Left as a knob because the answer is a judgement call, not a
+// "today" is a Central day. Left as a knob because the answer is a judgment call, not a
 // fact: whoever reads the channel from Tokyo would say the day turned hours ago.
 const TIME_ZONE = process.env.WPBL_BIRTHDAY_TZ ?? 'America/Chicago'
 

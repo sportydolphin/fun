@@ -272,7 +272,7 @@ describe("the roster spelling, not the feed's", () => {
     expect(screen.getByText('Emi Saiki')).toBeTruthy()
     expect(screen.queryByText('Emi Saki')).toBeNull()
     // The portrait is looked up by name, so the alt text is the proof the lookup got a name it
-    // can find rather than falling back to initials on a coloured circle.
+    // can find rather than falling back to initials on a colored circle.
     expect(screen.getByAltText('Emi Saiki')).toBeTruthy()
   })
 

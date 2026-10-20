@@ -398,7 +398,7 @@ async function redditToken(fetchImpl = fetch) {
   })
   if (!res.ok) {
     const said = await res.text().catch(() => '')
-    throw new Error(`Reddit refused the token request (${res.status}) ${said.slice(0, 200)}. Check REDDIT_CLIENT_ID (the unlabelled string under the app name, not the app name) and REDDIT_CLIENT_SECRET.`)
+    throw new Error(`Reddit refused the token request (${res.status}) ${said.slice(0, 200)}. Check REDDIT_CLIENT_ID (the unlabeled string under the app name, not the app name) and REDDIT_CLIENT_SECRET.`)
   }
   const body = await res.json()
   if (!body?.access_token) throw new Error('Reddit returned no access_token')
@@ -409,7 +409,7 @@ async function redditToken(fetchImpl = fetch) {
  * THERE IS NO ANONYMOUS MODE, and an earlier draft of this file wrongly had one.
  * www.reddit.com/search.json, old.reddit.com and even /r/<sub>/new.json all answer 403 now, to
  * an honest user-agent, from a residential IP: this is Reddit's 2023 API policy rather than a
- * datacentre-IP block, so there is nothing to fall back TO. The token above is required, and a
+ * datacenter-IP block, so there is nothing to fall back TO. The token above is required, and a
  * run without it skips Reddit rather than pretending. Verified by hand Aug 24, 2026.
  */
 export async function searchReddit(queries = QUERIES, fetchImpl = fetch) {
@@ -528,7 +528,7 @@ export async function searchRedditComments(subs = COMMENT_SUBREDDITS, fetchImpl 
         if (!res.ok) throw new Error(`Reddit returned ${res.status} for r/${sub}`)
         const payload = await res.json()
         const batch = normaliseRedditComments(payload)
-        // No new ids means the cursor was not honoured; paging on would fetch the same page
+        // No new ids means the cursor was not honored; paging on would fetch the same page
         // until the budget ran out.
         const before = rows.length
         const seen = new Set(rows.map(r => r.external_id))

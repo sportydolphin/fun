@@ -12,7 +12,7 @@ import type { WpblGame, WpblPlayer } from './types'
 // nothing at all when clicked. Only a modified click still works, which is the one path nobody
 // tests.
 
-/** How the game a line came from is labelled: "Aug 12 vs LA", or "8/12 vs LA" when compact. */
+/** How the game a line came from is labeled: "Aug 12 vs LA", or "8/12 vs LA" when compact. */
 export function gameLineLabel(game: WpblGame | null, teamId: string | null, compactDate = false): string | null {
   if (!game) return null
   const home = teamId != null && game.home_team_id === teamId
@@ -45,7 +45,7 @@ export default function GameLineRow({
   nameOpens?: 'player' | 'game'
   /** Draw the game date numerically ("8/12") rather than "Aug 12", where the row is tight. */
   compactDate?: boolean
-  /** Colour the top three ranks in the accent. Off where `rank` is just a list position (Find)
+  /** Color the top three ranks in the accent. Off where `rank` is just a list position (Find)
    *  rather than a real standing (Bests), where the accent would assert a ranking that is not one. */
   emphasizeRank?: boolean
 }) {

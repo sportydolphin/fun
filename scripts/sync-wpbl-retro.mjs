@@ -128,7 +128,7 @@ export function parseEventFile(text) {
  * One parsed game into the row shape wpbl_game_details holds, minus the game_id, which only
  * a lookup against our schedule can supply.
  *
- * `date` comes back as their `info,date` (2026/08/01) normalised to ISO, and `homeCode` as
+ * `date` comes back as their `info,date` (2026/08/01) normalized to ISO, and `homeCode` as
  * OUR club id, because those two are the match key and the caller should not have to know
  * their vocabulary to use it.
  */

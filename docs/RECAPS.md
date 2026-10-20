@@ -75,7 +75,7 @@ will not, once they have published fifty more. `sitemap.blog.xml` lists all of t
 is the backstop for that day. Nothing reads it yet.
 
 **The sync upserts and never deletes**, which is the other half of the same problem: a job that
-reconciled by removing what it could no longer see would take the back catalogue with it the
+reconciled by removing what it could no longer see would take the back catalog with it the
 day that window closed over August, silently.
 
 ---
@@ -118,7 +118,7 @@ Two of these were found by a rule failing:
 - **`no club, sole game` exists for Aug 5**, where the headline is about a player's grand slam
   and names nobody's club.
 
-`matched_by` is stored on every row. These are judgement calls about someone else's headline,
+`matched_by` is stored on every row. These are judgment calls about someone else's headline,
 and the day one is wrong the first question is which rule made it.
 
 ### The bias is towards saying nothing
@@ -134,7 +134,7 @@ The sync reports unmatched games by date and matchup and never guesses at them.
 ## 4. What has not been built
 
 - **Nothing reads `sitemap.blog.xml`.** It is the answer for the day the 50-item window closes
-  over the back catalogue, and it is written down rather than built because that day has not
+  over the back catalog, and it is written down rather than built because that day has not
   come and the shape of the fix may want to change when it does.
 - **Their player profiles and "Inside the Lines" posts are ignored.** 17 of the 50 posts in the
   feed are not game recaps. The matcher simply never places them, which is the correct outcome

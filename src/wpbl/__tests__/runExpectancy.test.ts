@@ -342,7 +342,7 @@ describe('what a play was worth', () => {
     expect(runValueLeaders(values, [], 'hitting').some(r => r.name === 'Standing There')).toBe(false)
   })
 
-  // The same play that adds half a run to an offence took half a run off the pitcher who
+  // The same play that adds half a run to an offense took half a run off the pitcher who
   // allowed it. Ranking pitchers on the batting side's sign would put the worst on top.
   it('flips the sign for the pitching side', () => {
     const plays = scoringSeason()

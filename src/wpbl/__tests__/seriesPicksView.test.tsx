@@ -186,7 +186,7 @@ describe('picking a series', () => {
 
   // THE FINAL'S PERCENTAGES ARE NOT OUT OF THE FINAL. Every reader answers one championship
   // question about whichever two clubs their own semifinal calls sent through, so the two on
-  // screen are a slice of the field. Renormalised onto that slice they added to 100 no matter
+  // screen are a slice of the field. Renormalized onto that slice they added to 100 no matter
   // how few people had either club winning it all, which is a number with no stated meaning.
   it('divides the championship by everyone who called it, not by the matchup on screen', async () => {
     ballot = {
@@ -240,7 +240,7 @@ describe('picking a series', () => {
   })
 
   // AN ANSWERED QUESTION SAYS NOTHING. The chosen club and the chosen length are both ringed,
-  // filled in the club's colour and ticked, so a caption reading "Called." under each of them is
+  // filled in the club's color and ticked, so a caption reading "Called." under each of them is
   // a third of the sheet spent telling the reader what they can see.
   it('says nothing under a question that has been answered', async () => {
     ballot = { 'pickem:2026:semifinal:A': 'SF:2-0' }

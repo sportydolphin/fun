@@ -70,7 +70,7 @@ const ACTIONS_PER_GROUP = 3
 const BOARD_HEAD = 10
 
 // `days_back` in every RPC means "this many calendar days back, ending now", so 1 is
-// midnight-to-now in the reader's own timezone. It is labelled "Today" rather than "24h"
+// midnight-to-now in the reader's own timezone. It is labeled "Today" rather than "24h"
 // because that is what the number is: at 9am it covers nine hours, not twenty-four. A true
 // rolling 24h window would mean an hours parameter on all nine RPCs and an hour-bucketed
 // series behind the chart, which is a different feature, not a different label.
@@ -198,7 +198,7 @@ function pointAt(points: string, i: number): [number, number] | null {
  * Events and unique browsers per day.
  *
  * Two series on one plot with wildly different magnitudes (~2,000 events vs ~400 browsers),
- * so each is scaled to its OWN peak and both peaks are labelled. A shared axis would flatten
+ * so each is scaled to its OWN peak and both peaks are labeled. A shared axis would flatten
  * the browsers line into the baseline and make the panel useless for the number that
  * matters more.
  */
@@ -241,10 +241,10 @@ export function ActivityChart({ series, tz }: { series: DayPoint[]; tz: string }
   return (
     <Box sx={{ px: 1.5, py: 1.5 }}>
       <Box sx={{ display: 'flex', gap: 2, mb: 1, flexWrap: 'wrap' }}>
-        {/* THE NUMBER SITS NEXT TO ITS OWN COLOUR, which is why the readout is here rather
+        {/* THE NUMBER SITS NEXT TO ITS OWN COLOR, which is why the readout is here rather
             than in a floating tooltip: the two series are scaled to their own peaks, so the
             only thing tying a value to a line is the swatch beside it. At rest each shows its
-            peak; under the cursor each shows that day, in the series' own colour so it is
+            peak; under the cursor each shows that day, in the series' own color so it is
             obvious which line moved. */}
         {[
           { c: '#60a5fa', label: 'Events',   peak: ev.max, value: day?.events },
@@ -286,7 +286,7 @@ export function ActivityChart({ series, tz }: { series: DayPoint[]; tz: string }
       }}>
       <Box component="svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"
         sx={{ width: '100%', height: 150, display: 'block', color: 'text.disabled' }}>
-        {/* Quarter gridlines, unlabelled — they give the eye a reference without implying
+        {/* Quarter gridlines, unlabeled — they give the eye a reference without implying
             a shared scale the two series don't have. */}
         {[0.25, 0.5, 0.75].map(f => (
           <line key={f} x1={0} x2={W} y1={PAD + (H - PAD * 2) * f} y2={PAD + (H - PAD * 2) * f}
@@ -346,7 +346,7 @@ export function ActivityChart({ series, tz }: { series: DayPoint[]; tz: string }
 // Real readers' page loads (src/lib/webVitals.ts, admin_web_vitals), graded on Google's own lines
 // at the 75th percentile, the way Search Console grades them. Led by the phone, because that is
 // where the site is slow when it is slow and where three quarters of the traffic is; the desktop
-// and tablet rows follow, then each section. LCP carries the colour because it is the one that
+// and tablet rows follow, then each section. LCP carries the color because it is the one that
 // moved the most in every lab run; the rest are the line under it.
 
 const RATING_COLOR: Record<VitalRating, string> = { good: '#22c55e', 'needs work': '#f59e0b', poor: '#ef4444' }
@@ -513,7 +513,7 @@ export default function AdminPage() {
   const [allEvents, setAllEvents] = useState(false)
   const [allBoards, setAllBoards] = useState(false)
   const tz = useMemo(() => localTz(), [])
-  // Read once for the whole page, not per group: the header strip summarises it from
+  // Read once for the whole page, not per group: the header strip summarizes it from
   // wherever you are, so it cannot wait for the Health group to mount.
   const health = useOpsHealth()
 
@@ -1280,7 +1280,7 @@ export default function AdminPage() {
         "Browsers" counts distinct localStorage ids, not people: one person on a phone and a
         laptop is two, and clearing site data starts a new one. Day buckets are in {overview.tz || tz}.
         An event's count can also jump on the day it was instrumented rather than on the day
-        behaviour changed: search, team opens and the Game Center tabs all start Aug 25, 2026,
+        behavior changed: search, team opens and the Game Center tabs all start Aug 25, 2026,
         and a window spanning that date is comparing a surface against its own silence.
       </Typography>
       </>)}

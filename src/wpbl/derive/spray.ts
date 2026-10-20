@@ -129,7 +129,7 @@ export function sprayZone(narrative: string | null | undefined): SprayZone | nul
   // batted ball is described with one of these verbs, so a clause without one is not a batted
   // ball this can place; scanning it anyway only exposes the batter's name to the one-letter
   // fielder codes, and a player whose name begins "Cf" would have every plate appearance
-  // filed in centre field.
+  // filed in center field.
   const verb = clause.search(VERB)
   if (verb >= 0) {
     const tail = clause.slice(verb)
@@ -149,7 +149,7 @@ export function sprayZone(narrative: string | null | undefined): SprayZone | nul
   // "Val Perez reached on a fielder's choice (2-0 BB); Alyssa Zettlemoyer out at second cf to
   // 2b" says nothing about the batted ball before the semicolon, because on a fielder's
   // choice the interesting event IS the runner being retired. But the fielder who started
-  // that throw is the fielder who picked the ball up, so "cf to 2b" places the ball in centre
+  // that throw is the fielder who picked the ball up, so "cf to 2b" places the ball in center
   // field as surely as "flied out to cf" would. 31 of the season's 76 fielder's choices are
   // written this way, and without this rule they are the last real gap in the coverage.
   //
@@ -229,7 +229,7 @@ const RIGHTY_SIDE: Record<SprayZone, SpraySide> = {
 const MIRROR: Record<SpraySide, SpraySide> = { pull: 'oppo', center: 'center', oppo: 'pull' }
 
 /**
- * Pull, centre or opposite field for this batter, or null when it cannot be said.
+ * Pull, center or opposite field for this batter, or null when it cannot be said.
  *
  * NULL FOR A SWITCH HITTER, AND THAT IS NOT LAZINESS. "Pull" is defined by which box the batter
  * stood in, and the feed records a switch hitter's handedness as `S` on the roster while
@@ -246,7 +246,7 @@ export function spraySide(zone: SprayZone, bats: string | null | undefined): Spr
 
 export interface PullProfile { pull: number; center: number; oppo: number; total: number; pullPct: number | null }
 
-/** Pull / centre / oppo counts for one batter. `total` is only the balls that could be sided. */
+/** Pull / center / oppo counts for one batter. `total` is only the balls that could be sided. */
 export function pullProfile(plays: readonly WpblSprayPlay[], bats: string | null | undefined): PullProfile {
   let pull = 0, center = 0, oppo = 0
   for (const p of plays) {

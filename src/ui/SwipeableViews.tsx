@@ -24,7 +24,7 @@ const LOCK_PX = 10          // movement before we decide horizontal-swipe vs ver
 const COMMIT_FRACTION = 0.28 // fraction of the width a slow drag must pass to switch tabs
 const FLICK_VELOCITY = 0.3  // px/ms: a release faster than this commits the swipe even when it
                             // never crossed COMMIT_FRACTION, so a quick little flick pages the tab
-const FLICK_MIN_PX = 12     // but the flick must have travelled at least this far, so a stationary
+const FLICK_MIN_PX = 12     // but the flick must have traveled at least this far, so a stationary
                             // finger-jitter on release is never mistaken for a flick
 const SCROLLER_FLICK_VELOCITY = 0.5 // px/ms: a horizontal flick faster than this pages the tab even
                             // when it starts inside a sideways scroller (the stats table): a hard
@@ -389,7 +389,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
 
   // NO GESTURE AT ALL WITH NOTHING TO SWIPE TO. A one-pane pager (a player who only hits) has no
   // neighbour, so all a drag could ever do is rubber-band, and the price of offering that was a
-  // cancellable touchmove listener over the whole pane, which makes the browser consult the page
+  // cancelable touchmove listener over the whole pane, which makes the browser consult the page
   // before every scroll of it. See the claimer in ModalShell's useSheetDrag.
   const gestures = pagerOn && panels.length > 1
   useEffect(() => {
@@ -521,11 +521,11 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
 
     el.addEventListener('touchstart', onStart, { passive: true })
     // PASSIVE IN PANE MODE, which is a pager inside a sheet (a two-way player's roles, Game
-    // Center's tabs). A cancellable touchmove makes the browser consult the page before every
+    // Center's tabs). A cancelable touchmove makes the browser consult the page before every
     // scroll of everything under it, and inside a sheet that is the content the reader is scrolling.
     // It is not needed there: each pane is a scroll container with `touch-action: pan-y`, so the
     // browser pans a drag that starts vertical and leaves one that starts horizontal entirely to
-    // this handler, without a preventDefault. The window-mode pager keeps its cancellable listener
+    // this handler, without a preventDefault. The window-mode pager keeps its cancelable listener
     // because the page it sits in is the window's scroll, whose touch-action it does not set.
     el.addEventListener('touchmove', onMove, { passive: paneMode })
     el.addEventListener('touchend', onEnd, { passive: true })

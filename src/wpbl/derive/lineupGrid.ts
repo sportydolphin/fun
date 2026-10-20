@@ -6,7 +6,7 @@ import type { WpblLineupHistoryRow } from '../types'
  * down the side, one cell each.
  *
  * Pure and separate from the component because the ordering rules are the part with
- * actual judgement in them — see `rankPlayer`.
+ * actual judgment in them — see `rankPlayer`.
  */
 
 export type LineupCell = { position: string | null; spot: number; started: boolean }

@@ -102,7 +102,7 @@ export function sunSign(iso: string): StarSign {
   return SIGNS.slice(1).find(s => md >= s.from && md <= s.to) ?? SIGNS[0]
 }
 
-/** A sign's glyph by name, for a player row. Empty for a name we do not recognise. */
+/** A sign's glyph by name, for a player row. Empty for a name we do not recognize. */
 export function signGlyph(name: string | null | undefined): string {
   return SIGNS.find(s => s.name === name)?.glyph ?? ''
 }

@@ -133,8 +133,8 @@ export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
       {fanActive && <HighlightLightbox video={fanActive} onClose={() => setFanActive(null)} />}
     </>
   )
-  // Titled like every other card on Home (SectionCard), which is where the labelled card is drawn.
-  // Unlabelled, under a section heading that already says Watch, it keeps a one-line summary
+  // Titled like every other card on Home (SectionCard), which is where the labeled card is drawn.
+  // Unlabeled, under a section heading that already says Watch, it keeps a one-line summary
   // header of its own, since a second "Watch" title there would only repeat the heading.
   if (eyebrow) {
     return (
@@ -358,7 +358,7 @@ export function GameClips({ gameId }: { gameId: string }) {
     labelFor={v => clipLabel(tags.get(v.video_id), none.games, none.teams, false)} />
 }
 
-/** A player's clips, newest first, each labelled with the game it is from where it has one. */
+/** A player's clips, newest first, each labeled with the game it is from where it has one. */
 export function PlayerClips({ playerId }: { playerId: string }) {
   const { videos, tags } = useClipTags()
   const [games, setGames] = useState<WpblGame[]>(() => getCachedWpblSchedule() ?? [])

@@ -534,11 +534,11 @@ export const ENTRIES: ChangelogEntry[] = [
       },
       {
         short: 'Claire O’Sullivan’s postseason opener is back under the right name',
-        full:  'The league published New York’s Sep 10 box score with the first name as Catherine, under a player id it had never used for O’Sullivan before, so the game was filed under a second player nobody recognises and O’Sullivan’s own page was missing it. Both are one person again, and the three at-bats, the walk and the RBI are theirs. Reported by a reader. A check now runs twice a day for the same shape of mistake anywhere on the roster, since the only thing that caught this one was somebody noticing.',
+        full:  'The league published New York’s Sep 10 box score with the first name as Catherine, under a player id it had never used for O’Sullivan before, so the game was filed under a second player nobody recognizes and O’Sullivan’s own page was missing it. Both are one person again, and the three at-bats, the walk and the RBI are theirs. Reported by a reader. A check now runs twice a day for the same shape of mistake anywhere on the roster, since the only thing that caught this one was somebody noticing.',
       },
       {
         short: 'The run expectancy table draws each situation instead of spelling it',
-        full:  'Every row of it now carries the same base diamond the live scoreboard draws at the top of a game page, so “runners on 1st and 3rd” is a shape you recognise rather than a label you read. On a phone the written labels step aside and the diamond stands alone, which is what finally lets all 24 numbers fit on the screen at once: the words were the widest thing in that column and the table used to scroll sideways away from them. The diamond carries the full phrase for a screen reader either way.',
+        full:  'Every row of it now carries the same base diamond the live scoreboard draws at the top of a game page, so “runners on 1st and 3rd” is a shape you recognize rather than a label you read. On a phone the written labels step aside and the diamond stands alone, which is what finally lets all 24 numbers fit on the screen at once: the words were the widest thing in that column and the table used to scroll sideways away from them. The diamond carries the full phrase for a screen reader either way.',
       },
       {
         short: 'The Stats boards fit a phone screen without scrolling sideways',
@@ -553,7 +553,7 @@ export const ENTRIES: ChangelogEntry[] = [
     changes: [
       {
         short: 'Emi Saiki, Valerie Perez and five others get their face and their page back in a live game',
-        full:  'The league writes the play log and the live situation as prose, with names and no ids, and it does not spell seven of them the way its own roster does: Emi Saki for Emi Saiki, Val Perez for Valerie Perez, and the same for Isabella Villarreal, Maggie Foxx, Alexia Jorge, Gabrielle Haas and Suzu Narasaki. Everything hanging off a live name is keyed on it, so all seven lost their headshot, their line in the game and the link to their page at once, and showed as initials on a coloured circle, which reads as somebody the site has never heard of. Reported by a reader watching the postseason opener, where the pitcher of record was “Emi Saki” on the card and Emi Saiki in the box score one tab across. Names now match on a rule rather than letter for letter, and the play-by-play prints the roster’s spelling too. It still refuses to choose when two players fit, because a wrong match would put somebody else’s season under this batter’s face.',
+        full:  'The league writes the play log and the live situation as prose, with names and no ids, and it does not spell seven of them the way its own roster does: Emi Saki for Emi Saiki, Val Perez for Valerie Perez, and the same for Isabella Villarreal, Maggie Foxx, Alexia Jorge, Gabrielle Haas and Suzu Narasaki. Everything hanging off a live name is keyed on it, so all seven lost their headshot, their line in the game and the link to their page at once, and showed as initials on a colored circle, which reads as somebody the site has never heard of. Reported by a reader watching the postseason opener, where the pitcher of record was “Emi Saki” on the card and Emi Saiki in the box score one tab across. Names now match on a rule rather than letter for letter, and the play-by-play prints the roster’s spelling too. It still refuses to choose when two players fit, because a wrong match would put somebody else’s season under this batter’s face.',
       },
     ],
   },
@@ -598,7 +598,7 @@ export const ENTRIES: ChangelogEntry[] = [
       },
       {
         short: 'Every regular-season meeting, as it was played, and each one opens',
-        full:  'The five games the two clubs played each other, each as away at home with both scores and the winner in their own colour, and each a tap through to that game’s box score. It used to print the date on the left and “SF 13-7” on the right with a hand’s width of nothing between, which never said where the game was and, in a series one club swept, printed that club’s name five times.',
+        full:  'The five games the two clubs played each other, each as away at home with both scores and the winner in their own color, and each a tap through to that game’s box score. It used to print the date on the left and “SF 13-7” on the right with a hand’s width of nothing between, which never said where the game was and, in a series one club swept, printed that club’s name five times.',
       },
       {
         short: 'Away club first, everywhere in the overview',
@@ -629,7 +629,7 @@ export const ENTRIES: ChangelogEntry[] = [
     changes: [
       {
         short: 'Each club’s chance to win its series is now the row it is written on',
-        full:  'The odds used to be a six-pixel bar under both clubs with a percentage at each end, which meant a bar running red at one end and green at the other: that reads as good-against-bad rather than as San Francisco against Boston. Each club’s chance is now drawn as a field behind its own name, in its own colour, with its own number at the end of its own row. Same information, no legend, and the colour finally says whose it is.',
+        full:  'The odds used to be a six-pixel bar under both clubs with a percentage at each end, which meant a bar running red at one end and green at the other: that reads as good-against-bad rather than as San Francisco against Boston. Each club’s chance is now drawn as a field behind its own name, in its own color, with its own number at the end of its own row. Same information, no legend, and the color finally says whose it is.',
       },
       {
         short: 'Clubs go by their full names where the column can hold one',
@@ -656,7 +656,7 @@ export const ENTRIES: ChangelogEntry[] = [
       },
       {
         short: 'Two taps per series: the club, then how long',
-        full:  'Pick a club and the lengths appear underneath it in that club’s colour: in 2 or in 3 for a semifinal, in 3, 4 or 5 for the final. Asking both halves at once meant four options of equal weight with nothing saying which half you were answering. This says it in the order people say it, and the second question only ever has two or three answers.',
+        full:  'Pick a club and the lengths appear underneath it in that club’s color: in 2 or in 3 for a semifinal, in 3, 4 or 5 for the final. Asking both halves at once meant four options of equal weight with nothing saying which half you were answering. This says it in the order people say it, and the second question only ever has two or three answers.',
       },
       {
         short: 'Your semifinal calls decide the final you are asked about',
@@ -754,8 +754,8 @@ export const ENTRIES: ChangelogEntry[] = [
         full:  'Opening a finished game gave you, before anything else: a ten-column grid, how long the game took, the weather, the umpires’ names, a transcription credit and a revision date. That was 268 pixels of a phone screen, about 43% of the sheet, and none of it is why anyone opens a game. The score is now the biggest thing on the sheet and the story is above the fold.',
       },
       {
-        short: 'The winning club’s row is tinted in its own colour',
-        full:  'A line score is twelve numbers and nothing in it said who won except a thin stripe and the colour of one figure. The winner’s row now carries a wash of the club’s colour, the same one the scoreboard on the home page uses, so the result reads at a glance without any number having to grow. Runs, hits and errors all stay, at the size they were.',
+        short: 'The winning club’s row is tinted in its own color',
+        full:  'A line score is twelve numbers and nothing in it said who won except a thin stripe and the color of one figure. The winner’s row now carries a wash of the club’s color, the same one the scoreboard on the home page uses, so the result reads at a glance without any number having to grow. Runs, hits and errors all stay, at the size they were.',
       },
       {
         short: 'Length, weather, umpires and the rest are one list at the foot of the recap',
@@ -902,7 +902,7 @@ export const ENTRIES: ChangelogEntry[] = [
     changes: [
       {
         short: 'A pitcher who has never played for Los Angeles was listed on their roster',
-        full:  'Emi Saiki was showing as a Queen, a club they have never played a game for: all six batting lines and both pitching lines are New York, and on Sep 4 Saiki threw six innings and won the Heights’ 14-2 over San Francisco. It was not a trade, it was flapping between the two clubs, once each way per game, eleven times. The league lists a second, unidentified "Emi Saiki" in Los Angeles box scores, and the part of the ingest that recognises a trade took the matching name as one. It now wants the league’s own player id before it will move anybody between clubs, which a real trade always carries, and the roster row is back on New York.',
+        full:  'Emi Saiki was showing as a Queen, a club they have never played a game for: all six batting lines and both pitching lines are New York, and on Sep 4 Saiki threw six innings and won the Heights’ 14-2 over San Francisco. It was not a trade, it was flapping between the two clubs, once each way per game, eleven times. The league lists a second, unidentified "Emi Saiki" in Los Angeles box scores, and the part of the ingest that recognizes a trade took the matching name as one. It now wants the league’s own player id before it will move anybody between clubs, which a real trade always carries, and the roster row is back on New York.',
       },
       {
         short: 'Suzu Narasaki was on the wrong club too, from the same night',
@@ -936,7 +936,7 @@ export const ENTRIES: ChangelogEntry[] = [
       },
       {
         short: 'Balls, strikes and outs read like a scoreboard',
-        full:  'They sit across the top of the card in the order every ballpark stacks them, in the colours every ballpark uses: green for balls, yellow for strikes, red for outs. Big enough to read at a glance rather than counted. An unlit bulb keeps its own colour faintly rather than going grey, so at 0-0 you can still tell the three groups apart.',
+        full:  'They sit across the top of the card in the order every ballpark stacks them, in the colors every ballpark uses: green for balls, yellow for strikes, red for outs. Big enough to read at a glance rather than counted. An unlit bulb keeps its own color faintly rather than going grey, so at 0-0 you can still tell the three groups apart.',
       },
       {
         short: 'The last play is broken into its parts instead of printed as one sentence',
@@ -982,7 +982,7 @@ export const ENTRIES: ChangelogEntry[] = [
       },
       {
         short: 'The club profile chart now moves from one club to the next',
-        full:  'The six-sided shape on a team page used to cut straight from one club to another. It now slides between them over about a third of a second. This is not decoration: the whole claim of that chart is that a club has a recognisable silhouette, and cutting between two of them gives you two pictures to remember and compare, where sliding shows you the difference itself. Watching the Speed spoke collapse as you go from New York to San Francisco says more than either shape does standing still. Turned off automatically if your device asks for reduced motion.',
+        full:  'The six-sided shape on a team page used to cut straight from one club to another. It now slides between them over about a third of a second. This is not decoration: the whole claim of that chart is that a club has a recognizable silhouette, and cutting between two of them gives you two pictures to remember and compare, where sliding shows you the difference itself. Watching the Speed spoke collapse as you go from New York to San Francisco says more than either shape does standing still. Turned off automatically if your device asks for reduced motion.',
       },
       {
         short: 'The live scoreboard is deliberately left out of all this',
@@ -1036,7 +1036,7 @@ export const ENTRIES: ChangelogEntry[] = [
       },
       {
         short: 'Both game cards are drawn as one thing now',
-        full:  'They sit one above the other and were drawing the same two parts three different ways between them: club rows as a colour band on one card and as small tinted pills on the other, and a last row as a shaded footer on one and a hairline plus a link on the other. Both now use one shape. What stays different is the half that means something: the next game tints both clubs because a fixture has two equals in it, and the last game tints only the winner.',
+        full:  'They sit one above the other and were drawing the same two parts three different ways between them: club rows as a color band on one card and as small tinted pills on the other, and a last row as a shaded footer on one and a hairline plus a link on the other. Both now use one shape. What stays different is the half that means something: the next game tints both clubs because a fixture has two equals in it, and the last game tints only the winner.',
       },
       {
         short: 'On a phone, every page opens on the page instead of three headings saying the same thing',
@@ -1059,7 +1059,7 @@ export const ENTRIES: ChangelogEntry[] = [
       },
       {
         short: 'The ERA setting still has both, with the two options swapped round',
-        full:  'Settings still lets you choose, and the choice now means the opposite of what it did. Per 7 is the default and matches the official WPBL site. Per 9 is there for anyone who wants to compare a WPBL pitcher against a major league one on the same footing, and is now the setting that disagrees with the league. If you had previously chosen per 7 because you preferred it, you were early, and nothing changes for you. One bug came with the swap and was caught before release: choosing per 9 would not have stuck across a reload, because the code that remembered the choice had only ever been taught to recognise the non-default answer.',
+        full:  'Settings still lets you choose, and the choice now means the opposite of what it did. Per 7 is the default and matches the official WPBL site. Per 9 is there for anyone who wants to compare a WPBL pitcher against a major league one on the same footing, and is now the setting that disagrees with the league. If you had previously chosen per 7 because you preferred it, you were early, and nothing changes for you. One bug came with the swap and was caught before release: choosing per 9 would not have stuck across a reload, because the code that remembered the choice had only ever been taught to recognize the non-default answer.',
       },
       {
         short: 'Where this could go wrong again',
@@ -1094,7 +1094,7 @@ export const ENTRIES: ChangelogEntry[] = [
       },
       {
         short: 'Game recaps reach Bluesky in an hour instead of overnight',
-        full:  'Recaps of a finished game were arriving five to twelve hours late. Two reasons, and neither was the writing. The scheduled job that posts them was being run by GitHub hours after it asked to be, and the wait that lets a scoring correction land before a permanent public post was being measured from when that job happened to look at the game rather than from when the league finalised it. The wait now runs from the league’s own clock, and the site’s own database asks for the job as soon as a game has settled, instead of waiting to be noticed.',
+        full:  'Recaps of a finished game were arriving five to twelve hours late. Two reasons, and neither was the writing. The scheduled job that posts them was being run by GitHub hours after it asked to be, and the wait that lets a scoring correction land before a permanent public post was being measured from when that job happened to look at the game rather than from when the league finalized it. The wait now runs from the league’s own clock, and the site’s own database asks for the job as soon as a game has settled, instead of waiting to be noticed.',
       },
     ],
   },
@@ -1109,7 +1109,7 @@ export const ENTRIES: ChangelogEntry[] = [
       },
       {
         short: 'Its leaderboard is a list again, not two columns with a gap',
-        full:  'That board sits in a wide frame because the board beside it in the tabs is a stats table that needs every pixel. Its own content is one leaderboard, and it was being stretched to fill all of it: a player’s name sat at one end and their number at the other, about 1,200 pixels apart, which reads as two columns that happen to share a border rather than as a row. The list now keeps a sensible column width, the same one the schedule and standings pages use, and the board is centred on the page instead of pinned to its left edge with a third of the width empty beside it. Nothing changes on a phone, which was never wide enough for this to happen.',
+        full:  'That board sits in a wide frame because the board beside it in the tabs is a stats table that needs every pixel. Its own content is one leaderboard, and it was being stretched to fill all of it: a player’s name sat at one end and their number at the other, about 1,200 pixels apart, which reads as two columns that happen to share a border rather than as a row. The list now keeps a sensible column width, the same one the schedule and standings pages use, and the board is centered on the page instead of pinned to its left edge with a third of the width empty beside it. Nothing changes on a phone, which was never wide enough for this to happen.',
       },
     ],
   },
@@ -1167,7 +1167,7 @@ export const ENTRIES: ChangelogEntry[] = [
       },
       {
         short: 'Fielding stats say which positions they cover',
-        full:  'A fielding line covers every position a player has taken, and there is no way to split it: the league’s data does not record which position each play came at. On a two-way player that made the pitching tab misleading, since Whitmore’s 21 putouts are catches in centre field and a pitcher does not make 21 putouts in five relief appearances. The line now ends with the positions those numbers came from.',
+        full:  'A fielding line covers every position a player has taken, and there is no way to split it: the league’s data does not record which position each play came at. On a two-way player that made the pitching tab misleading, since Whitmore’s 21 putouts are catches in center field and a pitcher does not make 21 putouts in five relief appearances. The line now ends with the positions those numbers came from.',
       },
       {
         short: 'How close a player is to qualifying, rather than the bar itself',
@@ -1264,7 +1264,7 @@ export const ENTRIES: ChangelogEntry[] = [
       },
       {
         short: 'The postseason odds moved into the empty half of the bracket',
-        full:  'The two semifinal boxes stack to about twice the height of the single championship box, so the right-hand half of that card was blank above and below it while the title odds sat in a band of their own underneath the whole thing. They now sit beside the championship, which fills the gap and takes about 120 pixels off the card. The championship box stays exactly on centre, so the line joining it to the semifinals still points where it should.',
+        full:  'The two semifinal boxes stack to about twice the height of the single championship box, so the right-hand half of that card was blank above and below it while the title odds sat in a band of their own underneath the whole thing. They now sit beside the championship, which fills the gap and takes about 120 pixels off the card. The championship box stays exactly on center, so the line joining it to the semifinals still points where it should.',
       },
     ],
   },

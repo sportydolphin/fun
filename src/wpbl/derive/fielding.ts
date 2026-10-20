@@ -7,9 +7,9 @@ import type { WpblRunValuePlay } from '../types'
 
 /**
  * The defensive half of WAR, as a ledger: every player's season at every position, in raw runs.
- * `derive/war.ts` centres each figure against the average at the position and adds it up.
+ * `derive/war.ts` centers each figure against the average at the position and adds it up.
  *
- * PLAYING TIME IS OUTS, COUNTED PLAY BY PLAY. Every out the defence records is credited to the
+ * PLAYING TIME IS OUTS, COUNTED PLAY BY PLAY. Every out the defense records is credited to the
  * nine players standing there at the time, so a rate per position is per out actually played
  * there, not per game a player's line says they appeared in.
  *
@@ -26,7 +26,7 @@ import type { WpblRunValuePlay } from '../types'
  * says should have happened. Any other error (a throw that got away, a runner taking an extra base
  * on a bobble) is priced against the league's average for the same event in the same base-out
  * state without an error, since the play around the error is real and only the error is the
- * fielder's. A play the error made no worse for the defence costs nothing: the fielder is never
+ * fielder's. A play the error made no worse for the defense costs nothing: the fielder is never
  * paid for erring. Two fielders named on one play share it. A reach on an error is left out of
  * range, or it would be charged twice.
  *
@@ -77,7 +77,7 @@ type Play = Pick<WpblRunValuePlay, 'game_id' | 'sequence' | 'narrative'>
  * claiming one position leave it unknown until a row settles it.
  *
  * Every "X to POS" row after that puts X at POS from the next play on, and takes X off wherever
- * they were. The row sits in the other club's half (a club changes its defence while the other
+ * they were. The row sits in the other club's half (a club changes its defense while the other
  * one bats), so it is matched to a club by the name being on that club's sheet that game.
  */
 export function defenseIndex(
@@ -122,7 +122,7 @@ export function defenseIndex(
     }
   }
 
-  // The starting defence per club-game.
+  // The starting defense per club-game.
   const start = new Map<string, Map<FieldPosition, string | null>>()
   for (const [gameId, m] of sheet) {
     for (const who of m.values()) {
@@ -198,7 +198,7 @@ export function readDoublePlay(narrative: string): DoublePlayRead | null {
 
 // ── The season ──────────────────────────────────────────────────────────────────
 
-/** What one double play was worth to the defence: the second out, against the single out the play
+/** What one double play was worth to the defense: the second out, against the single out the play
  *  would otherwise have been. A ground ball's single out is the force (the batter on first, the
  *  rest where the play put them); a line drive's or a fly's is the catch, with the runners where
  *  they stood. Shared by the fielders who turned it and the batter who hit into it. */
@@ -214,17 +214,17 @@ const ZONE_FIELDERS: Record<SprayZone, readonly FieldPosition[]> = {
   P: ['p'], C: ['c'], '1B': ['1b'], '2B': ['2b'], '3B': ['3b'], SS: ['ss'],
   LF: ['lf'], LCF: ['lf', 'cf'], CF: ['cf'], RCF: ['cf', 'rf'], RF: ['rf'],
 }
-/** A ball in play the defence turned into an out, and one it did not. A home run is neither: no
+/** A ball in play the defense turned into an out, and one it did not. A home run is neither: no
  *  fielder had a chance at it. A reach on an error is neither either, since the error runs
  *  already price it, and counting it here as a hit would charge the fielder twice. */
 const BIP_OUT = new Set(['groundout', 'flyout', 'lineout', 'popup', 'foul_out', 'out', 'fielders_choice', 'sacrifice'])
 const BIP_HIT = new Set(['single', 'double', 'triple'])
 
-/** One player's season at one position. Every figure is raw: `warComponents` centres them. */
+/** One player's season at one position. Every figure is raw: `warComponents` centers them. */
 export interface FieldingCell {
   playerId: string
   pos: FieldPosition
-  /** Outs the defence recorded while they stood there: the playing time every rate is per. */
+  /** Outs the defense recorded while they stood there: the playing time every rate is per. */
   outs: number
   errors: number
   /** Runs given away on errors. Never positive. */
@@ -236,11 +236,11 @@ export interface FieldingCell {
    *  gap ball counts as that share). */
   bip: number
   playsAbove: number
-  /** `playsAbove` priced: each one is a hit in that zone turned into an out. Centred already. */
+  /** `playsAbove` priced: each one is a hit in that zone turned into an out. Centered already. */
   rangeRuns: number
   /** Outfield arms: runs the runners did NOT take on balls hit to them, and the runner chances
-   *  they came from. Raw: a runner's chance is centred on every chance in its spot, infield hits
-   *  included, so balls to the outfield run above that mean and `warSeason` centres again here. */
+   *  they came from. Raw: a runner's chance is centered on every chance in its spot, infield hits
+   *  included, so balls to the outfield run above that mean and `warSeason` centers again here. */
   armRuns: number
   armChances: number
   /** Catching: pitches received, and the wild pitches and passed balls among them, with what

@@ -972,7 +972,7 @@ export default function AdminPhotos() {
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [categories, setCategories] = useState<WpblPhotoCategory[]>([])
   const [contributors, setContributors] = useState<WpblPhotoContributor[]>([])
-  // '*' is every category; '' is the uncategorised fan photos.
+  // '*' is every category; '' is the uncategorized fan photos.
   const [categoryFilter, setCategoryFilter] = useState<string>('*')
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<Filter>('unapproved')

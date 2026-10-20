@@ -59,7 +59,7 @@ export default function PhotosGalleryPage() {
   }, [nameById, index])
 
   // Categories that actually hold a published photo, in the curator's order. '*' is all of them.
-  // NO CHIP FOR THE UNCATEGORISED FAN PHOTOS: they are what the gallery IS, and "All" already
+  // NO CHIP FOR THE UNCATEGORIZED FAN PHOTOS: they are what the gallery IS, and "All" already
   // shows them, so a "Fan photos" chip beside it offered the same thing minus the few special sets,
   // which nobody reaches for. With no categories in use the row does not draw.
   const categoryChips = useMemo(() => {
@@ -169,7 +169,7 @@ export default function PhotosGalleryPage() {
  * The gallery before the index lands, drawn as the loaded page (CLAUDE.md, loading states): the
  * category row, the subject row and the grid. The subject row WRAPS from `sm` up, to seven or nine
  * lines, so its chips are held open at the lengths the 2026 labels run to ("Name Surname (6)"),
- * which wraps to the same number of lines and keeps the grid where it will be. It was a centred
+ * which wraps to the same number of lines and keeps the grid where it will be. It was a centered
  * spinner, which left the footer near the top of the screen.
  */
 const SUBJECT_LABEL_LENGTHS = [14, 14, 16, 18, 22, 21, 17, 21, 19, 15, 17, 18, 17, 21, 17, 17, 19, 23, 13, 16, 12, 14, 15, 19, 23, 15, 16, 17, 12, 21, 18, 15, 20, 20, 21, 19, 27, 17, 17]

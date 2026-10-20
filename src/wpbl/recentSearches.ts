@@ -2,7 +2,7 @@
 // `user_preferences.wpbl_recent_searches`.
 //
 // Deliberately NOT MLB's list (`user_preferences.recent_searches`): that one is keyed on numeric
-// StatsAPI ids and rendered from MLB's team colours and headshots. WPBL ids are string uuids and
+// StatsAPI ids and rendered from MLB's team colors and headshots. WPBL ids are string uuids and
 // its avatars are its own, so a shared list would either corrupt MLB recents or render WPBL rows
 // blank. Each row's avatar and subtitle are rebuilt from the live roster at render time (so a
 // traded player's tint and club follow them), which is why only the id, type and name are stored.

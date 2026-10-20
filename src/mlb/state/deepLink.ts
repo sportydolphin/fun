@@ -2,7 +2,7 @@
 //
 // A notification is only useful if clicking it lands somewhere that lets you act.
 // Every notification payload therefore carries an `?open=…` query in its `url`,
-// and this module turns that query into an intent some component can honour.
+// and this module turns that query into an intent some component can honor.
 //
 // Why the action lives in the URL rather than in a field of its own: `url` is the
 // only channel Web Push has. An OS notification click can do nothing but open a
@@ -11,7 +11,7 @@
 //
 // Two arrival paths, one parser:
 //   cold: a push (or a shared link) opens /mlb?…&open=predictor. Parsed at module
-//          load, below, and picked up by whichever component mounts to honour it.
+//          load, below, and picked up by whichever component mounts to honor it.
 //   warm: the bell is clicked while the app is already running. The bell parses
 //          the same url and publishes the intent; subscribers react immediately.
 //
@@ -62,7 +62,7 @@ export function parseDeepLink(url: string): DeepLink | null {
   } catch { return null }
 }
 
-// Seeded from the launch URL so a cold start from a push is honoured. The MLB
+// Seeded from the launch URL so a cold start from a push is honored. The MLB
 // view's URL-sync effect rewrites the address bar moments after boot and drops
 // the `open` param. Reading it once here, at module load, gets in ahead of that.
 let pending: DeepLink | null =

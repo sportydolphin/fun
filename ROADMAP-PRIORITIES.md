@@ -66,7 +66,7 @@
     - `wpbl-postseason-check` failing on missing secrets;
     - ~~a feed contract in `wpbl-ingest` (valibot or zod), `summary.errors` meaning failure, and a
       Discord freshness alarm~~ ✅ done Oct 17 (valibot; the alarm is every health page posted to
-      the ops channel, `DISCORD_ALERTS_WEBHOOK_URL`); live once `wpbl-ingest` is redeployed;
+      the ops channel, `DISCORD_ALERTS_WEBHOOK_URL`); deployed Oct 20, first run clean;
     - ~~the column-partition test for `LIVE_GAME_COLUMNS` and the line column lists~~ ✅ done Oct 17,
       read from the migrations rather than `supabase gen types`;
     - every Trap in CLAUDE.md re-verified against the 2027 feed once it speaks.
@@ -115,7 +115,7 @@
 ## Parked, and why
 
 - **Call the Play**: the owner does not rate it; stashed. Ask before picking it up.
-- **Favourite-team theming**: colour alone did not justify the ask (branch `wpbl-favorite-team`).
+- **Favorite-team theming**: color alone did not justify the ask (branch `wpbl-favorite-team`).
 - **"This day in the inaugural season"**: nothing to replay until August 2027.
 - **Rolling form, WPBL streaks and milestones**: need games, and more than one season of them.
 - **Road to Springfield**: dropped for good; do not rebuild.

@@ -56,7 +56,7 @@ function ago(iso: string | null): string {
  *
  * DISPLAY ONLY, and it must stay that way. The ids in wpbl_award_votes are PERMANENT (renaming
  * one orphans every answer stored under it), so this reads them and never writes them, and an
- * id it does not recognise falls back to printing itself rather than to an empty cell.
+ * id it does not recognize falls back to printing itself rather than to an empty cell.
  */
 export function prettyPick(category: string): string {
   const parts = category.split(':')            // pickem:2026:semifinal:A

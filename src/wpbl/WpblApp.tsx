@@ -272,7 +272,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
 
   // ── History-driven navigation ────────────────────────────────────────────────
   const apply = useCallback((s: WpblSnap) => {
-    // Normalise on the way in too: history entries pushed before Tracking folded into Stats
+    // Normalize on the way in too: history entries pushed before Tracking folded into Stats
     // are still in the reader's back stack, and Back must not land on a tab that's gone.
     const { view: v, wasTracking } = normalizeView(s.view)
     if (wasTracking) setStatsFocus(f => ({ group: 'tracking', token: f.token + 1 }))

@@ -245,7 +245,7 @@ export function PlayerHeadshot({ playerId, name, size = 36, accent, highlighted,
   const isDark = useDark()
 
   // WPBL's PlayerPortrait, for the two Stats boards it shares a frame with: a round face inside a
-  // 2px ring of the club's second colour, so a row on /mlb/leaders and one on /wpbl/stats are the
+  // 2px ring of the club's second color, so a row on /mlb/leaders and one on /wpbl/stats are the
   // same object. The headshot box is the size given, ring included, as WPBL's is. No alt: the
   // name is printed beside it in every row that draws one.
   if (variant === 'ring') {

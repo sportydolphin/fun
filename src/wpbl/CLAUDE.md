@@ -31,7 +31,7 @@ Loaded when you read anything under `src/wpbl/`. The feed and ingest traps (ids,
   parameter would make forgetting it silent. Filtering is by the EXCLUDED game ids, never the
   included ones, so a caller holding a partial schedule over-counts instead of rendering an
   empty season. It excludes a game only on positive evidence (`counts_in_standings === false`, or a
-  postseason-looking `game_type`) and counts everything it does not recognise. Do not invert it
+  postseason-looking `game_type`) and counts everything it does not recognize. Do not invert it
   into "count only what looks regular": the day the feed renames its game types, that version
   drops every game and renders four clubs at 0-0, which reads as an outage rather than as a
   bug. Wrong by a couple of games is visible and recoverable. Blank is neither.
@@ -43,7 +43,7 @@ Loaded when you read anything under `src/wpbl/`. The feed and ingest traps (ids,
   computeStandings" in its own comment while applying only the decisive-final half of it, and
   drew San Francisco 6-0 over Boston one row above a standings table reading 10-5. The position
   one is the subtle shape: counting a playoff start did not ADD a position, it broke the strict
-  majority Kelsie Whitmore held in centre field, so `primaryPosition` returned null and her
+  majority Kelsie Whitmore held in center field, so `primaryPosition` returned null and her
   label fell back to the roster listing that module exists to override.
 
 - **A player's feed id is not the player, and a player's team is a fact about a DATE.** The

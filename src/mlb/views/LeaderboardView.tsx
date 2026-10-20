@@ -197,7 +197,7 @@ export function LeaderboardView({
       </Popover>
 
       {/* LOADING IS THE BOARD DRAWN EMPTY: the same cards under their real titles, which need no
-          data, each holding its rows open. It was a centred spinner, which left the footer in view
+          data, each holding its rows open. It was a centered spinner, which left the footer in view
           on a phone and threw it 500px down when the cards landed. */}
       {fielding && (
         <FieldingLeaders season={vizSeason} gameScope={gameScope} canHover={canHover}

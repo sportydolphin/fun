@@ -71,7 +71,7 @@ export function GlossaryTerms({ groups, term, accent }: {
   groups: GlossaryGroup[]
   /** The definition of an abbreviation, or null when there is none. */
   term: (k: string) => GlossaryEntry | null
-  /** The abbreviation's colour: the section's text-safe accent. */
+  /** The abbreviation's color: the section's text-safe accent. */
   accent: string
 }) {
   // "what is FIP" from the search opens the page at the term, which first needs its group on

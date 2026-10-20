@@ -24,7 +24,7 @@ const ADOPTED = [
   'src/wpbl/PlayoffBracket.tsx',
   // Written against the scale from its first line rather than converted to it, which is what
   // adoption should look like from here: a new file has no legacy sizes to argue with, so the
-  // only reason not to enrol it is forgetting to.
+  // only reason not to enroll it is forgetting to.
   'src/wpbl/BestsView.tsx',
   'src/wpbl/GameLineRow.tsx',
   'src/wpbl/FindView.tsx',
@@ -100,7 +100,7 @@ describe('the WPBL type scale', () => {
   })
 
   // THE RATCHET (Oct 12, 2026). ADOPTED above is opt-in, so a new file escaped it unless somebody
-  // remembered to enrol it, and MLB alone had grown 45 distinct sizes that way. Every source file
+  // remembered to enroll it, and MLB alone had grown 45 distinct sizes that way. Every source file
   // under src/ is now held to the looser of the rules (no typed-in rem, no bare px) unless it is on
   // the frozen legacy list, and that list can only get shorter.
   const sources = (dir: string): string[] => readdirSync(join(process.cwd(), dir), { withFileTypes: true })

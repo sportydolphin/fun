@@ -249,13 +249,13 @@ function probeOverflow(includeEllipsis) {
  * a button, a series box) whose edge comes out under `floor` against what is behind it.
  * CLAUDE.md's "Borders" rule, at WCAG's 3:1 for the edge of a component.
  *
- * WHAT COUNTS AS THE EDGE. The border against the first opaque colour behind the box, after
+ * WHAT COUNTS AS THE EDGE. The border against the first opaque color behind the box, after
  * compositing every translucent layer between them, with the box's own opacity (and its
  * ancestors') applied. If the box's FILL already stands out from what is behind it, the fill is
  * the edge and the border is decoration, so the better of the two is what is measured: a team-
- * coloured chip needs no outline. A row rule (one side only) is not an outline and is not checked,
+ * colored chip needs no outline. A row rule (one side only) is not an outline and is not checked,
  * nor is anything disabled, which WCAG exempts. Anything over a background image or gradient is
- * skipped, since there is no single colour to measure against.
+ * skipped, since there is no single color to measure against.
  */
 function probeBorders(floor) {
   const parse = c => {
@@ -271,7 +271,7 @@ function probeBorders(floor) {
   }
   const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05) }
   const pageBg = parse(getComputedStyle(document.body).backgroundColor) ?? [255, 255, 255, 1]
-  /** The solid colour behind `el`, or null over an image or a gradient. */
+  /** The solid color behind `el`, or null over an image or a gradient. */
   const behind = el => {
     const layers = []
     for (let n = el.parentElement; n; n = n.parentElement) {
@@ -299,7 +299,7 @@ function probeBorders(floor) {
     const bg = behind(el)
     if (!bg) continue
     // OVER A PICTURE, NOT A PAGE: a rail's arrow or a play badge sits on a photo, which the
-    // ancestors' backgrounds know nothing about, so there is no one colour to measure against.
+    // ancestors' backgrounds know nothing about, so there is no one color to measure against.
     const cx = r.left + r.width / 2, cy = r.top + r.height / 2
     if (document.elementsFromPoint(cx, cy).some(n => !el.contains(n) && !n.contains(el) && /^(IMG|VIDEO|CANVAS|PICTURE)$/.test(n.tagName))) continue
     let opacity = 1
@@ -602,11 +602,11 @@ async function runCase(browser, route, width, text, { warm = false } = {}) {
     result.issues = o.issues
     // Both themes, on the same load: the theme follows the device until a reader picks one, so
     // flipping the emulated scheme re-renders the page in the other one without a second visit.
-    // ON THE DEFAULT TEXT SIZE ONLY. A colour, a contrast ratio or a control's name is the same at
+    // ON THE DEFAULT TEXT SIZE ONLY. A color, a contrast ratio or a control's name is the same at
     // Large text, and these two passes are the slowest part of a case, so running them at both
     // sizes doubled their cost in every CI slice and could never find anything new.
     if (text === 'default') {
-      // Transitions off first: a border-color easing toward the new theme measures as a colour that
+      // Transitions off first: a border-color easing toward the new theme measures as a color that
       // is neither, and a probe that runs mid-fade reports outlines that do not exist.
       await page.addStyleTag({ content: '*, *::before, *::after { transition: none !important; animation: none !important; }' })
       for (const scheme of ['light', 'dark']) {

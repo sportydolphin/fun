@@ -14,7 +14,7 @@ export type ThemePref = 'light' | 'dark' | 'system';
 //   - A LIGHTER DARK SURFACE MEANS "CLOSER". Apple calls it elevated and gives it to sheets and
 //     popovers; Material 3 lifts a surface to say it overlaps. A page whose every card is lifted says
 //     nothing with it, and reads as grey boxes holding grey boxes. So in dark mode a card is the page
-//     colour and its outline alone draws it (`flat`), and the lifted tone is spent only on what
+//     color and its outline alone draws it (`flat`), and the lifted tone is spent only on what
 //     actually floats: sheets, the side panel, menus, popovers, the bottom bar. That is `raised`,
 //     reached as `background.raised`, and every ModalShell re-points `background.paper` at it for
 //     everything inside, so a sticky header in a sheet still matches the sheet.
@@ -39,7 +39,7 @@ export const DARK_PAGES: Record<DarkPage, { label: string; hex: string }> = {
 
 export interface SurfacePrefs {
   darkPage: DarkPage;
-  /** `flat`: a card is the page colour and its outline. `raised`: a card is the lifted tone. */
+  /** `flat`: a card is the page color and its outline. `raised`: a card is the lifted tone. */
   darkCards: 'flat' | 'raised';
   /** How far a floating surface lifts off the dark page, as white mixed into it. */
   darkLift: number;
@@ -93,7 +93,7 @@ function rgba(hex: string, a: number): string {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
-/** The resolved colours for one mode. Exposed so App.tsx can tint the header to the page. */
+/** The resolved colors for one mode. Exposed so App.tsx can tint the header to the page. */
 export interface Surfaces {
   page: string;
   card: string;
@@ -220,7 +220,7 @@ const createAppTheme = (mode: ThemeMode, prefs: SurfacePrefs): Theme => {
       // MUI's stock `text.disabled` is rgba(0,0,0,0.38) in light mode, which measures 2.65:1
       // against this app's page background, well under the 4.5:1 AA needs. It would be
       // exempt if it were only doing what its name says (a disabled control is exempt from
-      // the contrast rules), but across this app it is the de-facto TERTIARY text colour:
+      // the contrast rules), but across this app it is the de-facto TERTIARY text color:
       // measured on the stats tab alone it carries the table's column headings, the position
       // codes, the rank numbers, the "33 players · 2026 season" caption and every footer
       // link. All of that is content, and content has to be readable.

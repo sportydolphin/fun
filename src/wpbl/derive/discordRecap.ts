@@ -59,7 +59,7 @@ export interface LineScoreGrid { innings: number; rows: [LineScoreRow, LineScore
  * The line score as data, shared by every renderer of it.
  *
  * Separate from `lineScoreBlock` because the Bluesky card draws the same grid, and the X rule
- * below is a real baseball judgement that two copies would drift on: one renderer would start
+ * below is a real baseball judgment that two copies would drift on: one renderer would start
  * claiming a scoreless bottom of the 7th that nobody batted, and nothing about that looks wrong
  * until somebody who reads box scores notices.
  */
@@ -157,7 +157,7 @@ export function buildRecapMessage(game: WpblGame, recap: GameRecap, teams: Map<s
 
 /**
  * A stable fingerprint of a rendered message, used to decide whether an already-posted
- * recap needs editing. Serialising the message itself (rather than hashing the stats) is
+ * recap needs editing. Serializing the message itself (rather than hashing the stats) is
  * deliberate: it means the job re-sends exactly when the reader would see something
  * different, and stays silent for a correction that doesn't change a single character.
  */

@@ -29,14 +29,14 @@ import { TYPE_SCALE } from '../ui/card'
 // ── Pitch outcomes ───────────────────────────────────────────────────────────────
 //
 // A ranked bar per outcome, under the one split that explains all six: the batter either
-// offered or did not. A six-colour stacked bar would ask the reader to hold a colour key in
+// offered or did not. A six-color stacked bar would ask the reader to hold a color key in
 // their head and then read six widths off one line, one slice of which is 1%. Here the label
-// sits on its own row, the length is the value, and colour carries a single fact (take or
+// sits on its own row, the length is the value, and color carries a single fact (take or
 // swing) rather than six arbitrary ones.
 //
 // ORDERING. Two descending runs, one per group, under a heading that says which group and how
 // big it is. Sorting all six by size instead would put "In play" between "Hit by pitch" and
-// "Foul" and break the colour grouping for nothing; leaving them ungrouped and unsorted makes
+// "Foul" and break the color grouping for nothing; leaving them ungrouped and unsorted makes
 // the run of bars look arbitrary (long, medium, tiny, medium) because nothing marks where one
 // group ends.
 //
@@ -58,7 +58,7 @@ const GROUPS: { offer: Offer; label: string }[] = [
   { offer: 'swing', label: 'Swung at' },
 ]
 
-// Two colours, each meaning one thing, and both dark enough to clear 3:1 against the surface
+// Two colors, each meaning one thing, and both dark enough to clear 3:1 against the surface
 // they sit on. The light-mode pair is not the dark pair: #60a5fa measures 2.3:1 on this app's
 // light surfaces (see wpblAccentFg in constants.ts), which is fine for a fill behind white
 // text and not fine for a bar whose length IS the information.
@@ -155,7 +155,7 @@ function StatStrip({ items }: { items: { label: string; value: string; sub: stri
       {items.map((t, i) => (
         <Box key={t.label} sx={{
           px: 1.25, py: 1.1, minWidth: 0,
-          // Centred so the slack from the stretch above is split above and below each tile,
+          // Centered so the slack from the stretch above is split above and below each tile,
           // instead of collecting under the text and against the hairline.
           display: 'flex', flexDirection: 'column', justifyContent: 'center',
           // Interior hairlines only: a left edge for the right-hand column, a top edge for
@@ -391,7 +391,7 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
         Counted from the play-by-play, one code per pitch: what each pitch did, not how fast it
         was.{trackedVisible ? ' Velocity and spin are on Tracked.' : ''}
         {' '}Postseason games are left out, like every other season number here.
-        {league.counts.unknown > 0 && ` ${league.counts.unknown} pitches carried a code we don't recognise and are left out of the rates.`}
+        {league.counts.unknown > 0 && ` ${league.counts.unknown} pitches carried a code we don't recognize and are left out of the rates.`}
       </Typography>
     </Box>
   )

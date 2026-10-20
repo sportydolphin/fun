@@ -149,7 +149,7 @@ export function AwardsPanel({ open, onClose }: { open: boolean; onClose: () => v
             )}
 
             {/* GROUPED, BECAUSE TWO FEATURES SHARE THIS TABLE. The ballot's five come first and
-                unlabelled, since the panel is about them; the pick'em is named and carries its
+                unlabeled, since the panel is about them; the pick'em is named and carries its
                 own count, so its traffic can be read without ever being added to the ballot's. */}
             {report.groups.map(g => (
               <Box key={g.key} sx={{ mb: 1 }}>

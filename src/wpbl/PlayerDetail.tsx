@@ -87,7 +87,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   /** Open the Stats table sorted by a stat with this player picked out, from a rank on the card.
    *  Without it the ranks are plain text. */
   onOpenBoard?: (group: 'hitting' | 'pitching', sortKey: string, opts: { qualified: boolean; playerId: string }) => void
-  /** Open as the desktop side panel rather than a centred dialog. See ModalShell's `panel`. */
+  /** Open as the desktop side panel rather than a centered dialog. See ModalShell's `panel`. */
   panel?: boolean
   /** A back control in the panel's header, for a player opened from the Game Center panel. */
   onBack?: () => void
@@ -187,7 +187,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
 
 
   // The club that season was played for, off the lines, which carry the club of each game: the band
-  // wears it, so a past year reads in that year's colours. The newest season keeps the roster's club,
+  // wears it, so a past year reads in that year's colors. The newest season keeps the roster's club,
   // which is "now" and is right for a player traded since their last game. A season with no line
   // naming a club falls back to it too.
   const clubId = useMemo(() => {
@@ -199,12 +199,12 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   }, [season, career, games, batting, pitching, gameById, player.team_id])
   const team = useMemo(() => teams.find(t => t.id === clubId), [teams, clubId])
   const color = team ? wpblAccent(team.id, isDark) : '#888'
-  // The RAW club colours, for the header band only. Everywhere else on this page uses
+  // The RAW club colors, for the header band only. Everywhere else on this page uses
   // `color` above, which is the foreground-safe accent.
   const teamPrimary = wpblColor(clubId)
   const teamSecondary = wpblSecondary(clubId)
   // The wash this club can carry, and its mid-ramp at 60% of it so the gradient keeps its shape
-  // whatever the end is. Hex pairs because the colour is a hex string and this is appended to it.
+  // whatever the end is. Hex pairs because the color is a hex string and this is appended to it.
   const wash = BAND_WASH[clubId ?? ''] ?? BAND_WASH_FLOOR
   const washEnd = wash.toString(16).padStart(2, '0')
   const washMid = Math.round(wash * 0.6).toString(16).padStart(2, '0')
@@ -760,13 +760,13 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
       // See PlayerBand.
       grab={!ref}
       // The secondary washes OVER an opaque primary rather than being the last stop of a gradient
-      // that runs out of colour. As a plain gradient the right-hand end would be `secondary` at low
+      // that runs out of color. As a plain gradient the right-hand end would be `secondary` at low
       // alpha over whatever sits behind the card, which in light mode is white, so the band would
       // fade to near-white exactly where text sits. Washing over the primary keeps every point on the
       // band dark enough for white text, and the club's actual hue stays visible in light mode.
       //
       // MORE OF THE CLUB, LESS OF THE BLACK: the wash starts early and ramps to whatever each club can
-      // carry, so the band reads as the club's colours rather than as black with a hint of something
+      // carry, so the band reads as the club's colors rather than as black with a hint of something
       // in one corner. See BAND_WASH for what sets the number.
       background={{
         color: teamPrimary,
@@ -775,7 +775,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
       stripe={teamSecondary}
       // A rounded square rather than a circle, and bigger. A circle crops a head-and-shoulders
       // portrait to the face; at this size there is room for the shoulders and the uniform, which
-      // is most of what makes a player recognisable. One size at every width, deliberately: a JS
+      // is most of what makes a player recognizable. One size at every width, deliberately: a JS
       // media query picking a size does not re-render on a live window resize the way the band's
       // CSS breakpoints do.
       portrait={<PlayerPortrait key={player.id} name={player.name} teamId={clubId} square size={84} priority />}
@@ -905,7 +905,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
         flex: { xs: '1 1 0%', sm: '0 1 auto' },
         maxHeight: { xs: 'none', sm: '100%' },
       }}>
-      {/* Identity, on the club's own colours.
+      {/* Identity, on the club's own colors.
           The band takes the club's PRIMARY as its background: all four WPBL primaries are
           near-black (BOS #00281e, LA #000000, NY #091b47, SF #2d1747), so white text clears 12:1
           on every one of them and the wash of secondary across the right stays well under the
@@ -915,7 +915,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
           the band reads as one object drawn in one weight rather than as a photo with a heavier
           rule under it.
           Deliberately NOT `wpblAccent`: that is the foreground-safe variant, built to be read
-          as text on the page background. Here the colour IS the background. */}
+          as text on the page background. Here the color IS the background. */}
       {/* `data-sheet-drag` makes this band the sheet's grab surface on a phone, and it is not
           decoration: this page is taller than the sheet, so its body is a real scroller, and a
           scroller takes ownership of a touch before the drag handler can. That would leave the
@@ -1055,7 +1055,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
       // A sheet on a phone, like Game Center: this opens from a roster row, a leaderboard, a Home
       // chip and a shared link, and a close button in the far top corner is the furthest point on a
       // phone from the thumb holding it. So it comes up from the bottom edge with a handle and
-      // swipes back down. Above sm a centred dialog is right.
+      // swipes back down. Above sm a centered dialog is right.
       sheet
       // Constant height while it is a sheet, so it does not leap up the screen when the season
       // totals and game logs finish loading under the reader's thumb. Same reason as the game

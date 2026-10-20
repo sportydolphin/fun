@@ -118,7 +118,7 @@ describe('seriesPoints', () => {
     expect(points).not.toContain('NaN')
   })
 
-  it('centres a single point rather than collapsing it onto the y-axis', () => {
+  it('centers a single point rather than collapsing it onto the y-axis', () => {
     expect(seriesPoints([4], 100, 50).points).toBe('50.0,0.0')
   })
 

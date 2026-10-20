@@ -24,7 +24,7 @@ import { typePx } from '../../ui/scale'
  *
  * ON THE PORTRAIT RATHER THAN IN A CORNER OF THE TILE, because the tile's corners are taken.
  * Top right is the link out to the player's page, and the bottom edge is the stats row on a
- * phone, where the tile is a centred column and there is no free margin either side of it. The
+ * phone, where the tile is a centered column and there is no free margin either side of it. The
  * portrait is in the same place at both breakpoints and is the one element every tile has.
  *
  * AND IT COSTS NO LAYOUT. `showShare` is `!!picked || closed`, so it flips for a whole question
@@ -33,7 +33,7 @@ import { typePx } from '../../ui/scale'
  * so nothing has to be reserved.
  *
  * The tick stays, and stays inside the pill: `aria-checked` has already said this is your
- * answer to a screen reader, and the ring and the tint say it in colour. The tick is the one
+ * answer to a screen reader, and the ring and the tint say it in color. The tick is the one
  * signal that is neither.
  */
 function ShareBadge({ share, on, accent, dark }: {
@@ -41,7 +41,7 @@ function ShareBadge({ share, on, accent, dark }: {
 }) {
   return (
     <Box sx={{
-      // Centred ON the portrait's bottom edge, rather than hung off its corner or sat under
+      // Centered ON the portrait's bottom edge, rather than hung off its corner or sat under
       // its chin. Two things this is dodging, both only visible at a text scale nobody
       // developing it is using: the corner put the pill in the gap between the portrait and
       // the text column, inches from the first stat value, and that gap is chrome, which does
@@ -120,7 +120,7 @@ export function CandidateTile({ candidate, award, team, player, on, share, showS
       sx={{
         position: 'relative', overflow: 'hidden',
         // STACKED ON A PHONE, ACROSS THE CARD FROM `sm`, and the width is the whole reason.
-        // Two columns of a 720px sheet is 340px a card. A centred column inside 340px is a 46px
+        // Two columns of a 720px sheet is 340px a card. A centered column inside 340px is a 46px
         // portrait with 140px of nothing either side of it. Laid across, the portrait sits left and
         // the name and figures use the rest, which is what a player card looks like.
         //
@@ -218,10 +218,10 @@ export function CandidateTile({ candidate, award, team, player, on, share, showS
               not do. The diagonal is the mark for leaving, and this leaves: it puts a whole
               other page over the ballot.
 
-              DRAWN, NOT TYPESET, which is what centres it. A glyph ('›', '↗') is not centred in
+              DRAWN, NOT TYPESET, which is what centers it. A glyph ('›', '↗') is not centered in
               its own box in any font and carries a text node's line-height besides, so it lands
               high and right in the circle and no nudge holds at every text scale. This path is
-              symmetric about (12, 12) in its own viewBox, so it is centred by construction, at
+              symmetric about (12, 12) in its own viewBox, so it is centered by construction, at
               any size and in any font the reader has. */}
           <Box component="svg" aria-hidden viewBox="0 0 24 24" sx={{
             width: chromePx(13), height: chromePx(13), display: 'block',

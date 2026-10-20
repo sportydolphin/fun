@@ -3,7 +3,7 @@
 Six things **post** to the WPBL fan server, all through **webhooks**: send-only HTTP, no bot
 token, no gateway, nothing to keep running:
 
-| What | Channel | Written by | Behaviour |
+| What | Channel | Written by | Behavior |
 |---|---|---|---|
 | **Watch-party board** | wherever you point its webhook | [`scripts/update-wpbl-discord-board.mjs`](../scripts/update-wpbl-discord-board.mjs) | One message, edited forever. Always shows the next few games with live countdowns. |
 | **Box scores** | a different channel | [`supabase/functions/wpbl-ingest/announce-final.ts`](../supabase/functions/wpbl-ingest/announce-final.ts) and [`scripts/post-wpbl-discord-recaps.ts`](../scripts/post-wpbl-discord-recaps.ts) | One message per finished game, edited in place if the stats are corrected later. |
@@ -17,7 +17,7 @@ A webhook is bound to one channel, so each of these needs its **own** webhook UR
 
 There are also two things that **answer** in the server, which webhooks cannot do:
 
-| What | Written by | Behaviour |
+| What | Written by | Behavior |
 |---|---|---|
 | **`/player` slash command** | [`functions/discord/wpbl.ts`](../functions/discord/wpbl.ts) | Looks up any WPBL player by name and replies with their season. Suggests names as you type. |
 | **`/score` slash command** | the same function | Posts the state of a game happening right now: score, inning and count, who is at bat, who is pitching, and who is on base. Names the game to pick between two live at once. |
@@ -306,7 +306,7 @@ restock; a product id never seen before is new merch. When something sells out a
 re-arms, so the next restock is announced like the first.
 
 **The first run announces nothing.** An empty snapshot would otherwise read as 78 brand-new
-products in one enormous message. Seeding records the catalogue and stays quiet; real changes
+products in one enormous message. Seeding records the catalog and stays quiet; real changes
 are announced from the second run. The one exception is the shortlist: a shortlisted item that
 is available during seeding is still shouted about, because missing that is the failure the
 job exists to prevent.
@@ -315,7 +315,7 @@ job exists to prevent.
 `robots.txt` asks that checkout stay human, and buying on someone's behalf the instant a page
 changes is not a thing to automate.
 
-**How it asks.** Shopify serves `/products.json` on every storefront: the published catalogue,
+**How it asks.** Shopify serves `/products.json` on every storefront: the published catalog,
 78 products in one page here, with an explicit `available` per variant. `robots.txt` permits it
 (only `/cart.js` and the checkout paths are disallowed) and sets no `Crawl-delay`. The watcher
 sends an honest `User-Agent` naming the site rather than impersonating a browser, so the store
@@ -385,7 +385,7 @@ values ('some-product-handle', null, 'Friendly name', 'Why we care');
 ```
 
 `variant_id` null means "shout when any variant is available", which is what you want for a
-product with sizes. Pin it when the product has one variant, or when a future second colourway
+product with sizes. Pin it when the product has one variant, or when a future second colorway
 should not read as this one coming back. Everything else in the store is covered by the shop
 feed without needing a row at all.
 
@@ -441,7 +441,7 @@ then, and a backlog that drips for a fortnight is a muted channel.
 **Both sources need a credential, and neither of them looks like it does.** This is worth
 writing down because both were verified by hand on Aug 24, 2026 and both surprised us:
 
-- **Reddit** answers 403 to every anonymous read now. Not just from datacentre IPs:
+- **Reddit** answers 403 to every anonymous read now. Not just from datacenter IPs:
   `search.json`, `old.reddit.com` and even `/r/<sub>/new.json` all refuse a residential IP with
   an honest `User-Agent`. There is nothing to fall back to, so the app-only OAuth token is
   required.
@@ -814,7 +814,7 @@ It is independent of everything above: its own channel, its own webhook, its own
    private channel and `merch bot shop feed test` to the shop channel, and checks no stock.
    It carries **no mention**, so it proves the URL reaches the channel but not that a ping
    gets through; a channel that blocks webhook mentions still looks fine here.
-6. Then let it run once normally. That first real run **seeds** the catalogue and announces
+6. Then let it run once normally. That first real run **seeds** the catalog and announces
    nothing; changes are announced from the run after.
 
 Until `DISCORD_RESTOCK_WEBHOOK_URL` is set the scheduled job prints a line saying it has
@@ -825,14 +825,14 @@ has learned to ignore by the time it matters.
 ```bash
 npm run restock-watch -- --status     # snapshot size, the shortlist, last successful run
 npm run restock-watch -- --dry-run    # check the store now; writes nothing, posts nothing
-npm run restock-watch -- --reseed     # re-record the catalogue silently, announce nothing
+npm run restock-watch -- --reseed     # re-record the catalog silently, announce nothing
 ```
 
 All of these need `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, since the shop tables are
 RLS'd with no policies and no other key can see them at all.
 
 Use `--reseed` after a deliberate change that would otherwise produce a flood: if the store
-rebuilds its catalogue and every product gets a new id, a normal run would announce all 78 as
+rebuilds its catalog and every product gets a new id, a normal run would announce all 78 as
 new merch. Reseed, confirm `--status` looks right, and let the schedule resume.
 
 ### 6. The mention watcher, if you want one
@@ -1141,11 +1141,11 @@ which bundles each function exactly as Cloudflare will and fails loudly instead 
 - **A restock is announced, not secured.** Ten-minute polling plus GitHub's best-effort cron
   means the message can arrive twenty minutes after the item returns. For a popular drop that
   may be too late, and nothing here changes that: buying is a human step, on purpose.
-- **A shortlisted product that leaves the catalogue is logged, not announced.** The run prints
+- **A shortlisted product that leaves the catalog is logged, not announced.** The run prints
   a warning and carries on rather than throwing, since one stale shortlist row should not stop
   the whole store being watched. Check the run log if a shortlisted item goes quiet for a
   suspiciously long time, and update `wpbl_restock_watch`.
-- **An empty catalogue is treated as an error, not a mass delisting.** A 200 with no products
+- **An empty catalog is treated as an error, not a mass delisting.** A 200 with no products
   is the store having a bad day. Accepting it would mark all 78 products delisted and then
   announce them all back as new the moment it recovered.
 - **A drop-day message is truncated at 12 items per section**, with a count of the rest, since
@@ -1175,7 +1175,7 @@ which bundles each function exactly as Cloudflare will and fails loudly instead 
   the top of the 1st before first pitch. With two it refuses and lists them, because a round
   pointed at the wrong game is graded against somebody else's half-inning and nothing in the
   message would reveal that. `team:` matches a slug, an abbreviation or any part of a name.
-- **A cancelled round is voided, not deleted.** Its picks stay and simply never grade, so the
+- **A canceled round is voided, not deleted.** Its picks stay and simply never grade, so the
   question remains in the channel's history where a mod who mis-clicked can still see it.
 - **The winner is crowned by whichever gets there first, and only once.** The ingest crowns a
   game on the same not-final to final transition that posts the box score; a mod running

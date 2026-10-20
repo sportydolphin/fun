@@ -116,7 +116,7 @@ self.addEventListener('push', (event) => {
     // Both of these are rasters on purpose. Notification images are drawn by the OS, not
     // the page, and Android will not render an SVG in either slot. The badge is also a
     // different picture rather than a small icon: the OS keeps only its alpha and stamps
-    // the result in one flat colour, so it has to be the dolphin cut out on transparency.
+    // the result in one flat color, so it has to be the dolphin cut out on transparency.
     // Pointing it at a full tile would put a solid navy square in the status bar.
     icon:    payload.icon || '/icon-192.png',
     badge:   payload.badge || '/badge-96.png',

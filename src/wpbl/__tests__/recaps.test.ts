@@ -4,7 +4,7 @@ import {
   type FeedRecap, type RecapGame,
 } from '../derive/recaps'
 
-// Placing someone else's headline on one of our games is a judgement call, and this is where
+// Placing someone else's headline on one of our games is a judgment call, and this is where
 // every one of those calls is pinned. The numbers quoted are from the real feed, measured
 // Sep 12, 2026: 33 games, 33 recaps, everything placed, nothing ambiguous.
 

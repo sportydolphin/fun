@@ -28,7 +28,7 @@ import { BOARD_COLUMN } from './layoutWidths'
 // section is where the lines come from, its controls bar, and its own row and face parts.
 //
 // THE LAYOUT IS DECIDED BY CONTAINER QUERIES, NOT BREAKPOINTS. Until Oct 2026 the whole board was
-// one 720px column centred in a 1540px page: a form over two cards with a gutter either side, and
+// one 720px column centered in a 1540px page: a form over two cards with a gutter either side, and
 // the tally squeezed into a third of the column. Three things now switch on, each only once the
 // board's own width has room for it: the question moves into a rail on the left that stays pinned
 // while the answers scroll; the list becomes a table with the line's columns; and the tally moves
@@ -150,7 +150,7 @@ function ConditionRow({ side, per, n, condition, onChange, onRemove }: {
   onChange: (c: FinderCondition) => void
   onRemove: () => void
 }) {
-  // WHAT THE READER TYPED, UNTIL THEY LEAVE THE BOX. The stored value is normalised (innings are
+  // WHAT THE READER TYPED, UNTIL THEY LEAVE THE BOX. The stored value is normalized (innings are
   // outs), so a purely controlled input rewrites itself under the cursor: type "4" in the innings
   // field and it becomes "4.0", and the next keystroke lands after the zero. Backspacing to empty is
   // the other half, where the parse floors at 0 and the box refills with "0". The query itself
@@ -757,7 +757,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
 
   return (
     /* LEFT-ALIGNED WITH THE PAGE. The board starts where the tabs and the controls bar above it
-       start; centred, it sat 300px in from them on a desktop and read as a different page. Below
+       start; centered, it sat 300px in from them on a desktop and read as a different page. Below
        `md` it keeps the ordinary board column's cap, so a tablet's form does not stretch across. */
     <Box sx={{ containerType: 'inline-size', containerName: 'finder', width: '100%' }}>
       <Box sx={{

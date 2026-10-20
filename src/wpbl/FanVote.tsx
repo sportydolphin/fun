@@ -289,7 +289,7 @@ export default function FanVoteCard({
     // EVERY READ, NOT THE FIRST CATEGORY. `drawable` turns true as soon as any one category has
     // nominees, and Defensive Wizard and Most Aura get theirs before the stat lines and the play
     // log land, so on a slow phone the results went from five skeleton categories to two real
-    // ones, then back to five: the dialog halved and re-centred, then grew again. Found by the
+    // ones, then back to five: the dialog halved and re-centered, then grew again. Found by the
     // layout sweep on CI's runner, never on a desktop.
     const pending = !drawable || !state.loaded || !settled || !fieldingSettled
     if (pending && !closed) return null
@@ -336,7 +336,7 @@ export default function FanVoteCard({
             borderRadius: 999, px: { xs: 1.25, sm: 1.75 }, py: { xs: 0.5, sm: 0.65 },
             cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', flexShrink: 0,
             textDecoration: 'none',
-            // LIFT AND BRIGHTEN, NOT A SECOND COLOUR. The unanswered state is already the accent
+            // LIFT AND BRIGHTEN, NOT A SECOND COLOR. The unanswered state is already the accent
             // at full strength, so there is no darker version of it to hover to that does not
             // read as disabled, and the answered state is a quiet outline that should stay
             // quiet. `hoverOnly` guards both, so a phone does not keep the hover state painted
@@ -351,7 +351,7 @@ export default function FanVoteCard({
               : {
                 bgcolor: 'var(--wpbl-accent-solid)', color: '#fff',
                 // A shadow in the button's own hue rather than a grey one, so it reads as the
-                // colour glowing rather than as a piece of paper lifting off the card.
+                // color glowing rather than as a piece of paper lifting off the card.
                 boxShadow: '0 1px 6px -1px color-mix(in srgb, var(--wpbl-accent-solid) 55%, transparent)',
                 ...hoverOnly({ filter: 'brightness(1.08)', transform: 'translateY(-1px)' }),
               }),
@@ -382,7 +382,7 @@ export default function FanVoteCard({
       {/* FILLS THE CARD, on the desktop pairing where it is stretched to match the taller card
           beside it (Next game, with its season stats). Rather than let 70-odd pixels pool as a
           gap under the last row, the rows GROW EQUALLY into it (`flex: 1 0 auto` each), so every
-          row gains the same few pixels with its faces centred and the dividers stay snug between
+          row gains the same few pixels with its faces centered and the dividers stay snug between
           them. Spreading with a gap instead opens canyons between rows, which reads as a list
           coming apart. Below md there is no stretch, so the rows sit at their content height. */}
       <Box sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
@@ -427,12 +427,12 @@ export default function FanVoteCard({
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               }}>{e.award.title}</Typography>
               <Box sx={{ flex: 1, minWidth: chromePx(8) }} />
-              {/* Overlapped, with a ring in the card's own colour so the edges stay separate against a
+              {/* Overlapped, with a ring in the card's own color so the edges stay separate against a
                   portrait behind them. `chromePx` on the overlap because it is structure: left raw it
                   would not shrink with the art it is overlapping.
 
                   `isolation` IS LOAD-BEARING: WITHOUT IT THE PILE DRAWS OVER THE TOOLBAR. The faces
-                  below order themselves with `zIndex`, and a FLEX ITEM honours z-index with no
+                  below order themselves with `zIndex`, and a FLEX ITEM honors z-index with no
                   `position` at all, which is the part that surprises: each face becomes a stacking
                   context in the page's own order rather than in this pile's. Their nearest such
                   ancestor is then the swipe pager, three components up, whose `transform` makes one.

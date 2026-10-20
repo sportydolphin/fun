@@ -16,7 +16,7 @@
 const REDUCE_MOTION_KEY = 'a11yReduceMotion'
 
 export function prefersReducedMotion(): boolean {
-  // The explicit override wins first: someone who set it wants it honoured even on a device
+  // The explicit override wins first: someone who set it wants it honored even on a device
   // whose OS never asks the question.
   try {
     if (typeof localStorage !== 'undefined' && localStorage.getItem(REDUCE_MOTION_KEY) === '1') return true

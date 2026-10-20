@@ -189,7 +189,7 @@ export function pitchingColumns(ctx: WpblColumnContext): Col<WpblPitchingTotals>
     display: t => fmtTwo(scaleToBasis(t.k9, eraBasis)),
     rate: true,
   }, {
-    // Same arrangement as the K rate: stored on the canonical basis, labelled and scaled for
+    // Same arrangement as the K rate: stored on the canonical basis, labeled and scaled for
     // the reader's.
     key: 'hr9', label: `HR/${eraBasis}`,
     value: t => t.hr9,
@@ -203,7 +203,7 @@ export function pitchingColumns(ctx: WpblColumnContext): Col<WpblPitchingTotals>
     rate: true,
   }, {
     // Beside ERA+ so the gap between what a pitcher allowed and what they controlled reads in
-    // one glance. Centred on the same slice's ERA, so the league line reads the same in both.
+    // one glance. Centered on the same slice's ERA, so the league line reads the same in both.
     // `fmtEra` rescales it with ERA, which is correct because FIP is linear in the basis.
     key: 'fip', label: 'FIP',
     value: t => fip(t, fWeights, fipC),

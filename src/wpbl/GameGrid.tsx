@@ -28,7 +28,7 @@ export function useGridGames(): number {
   return Number.POSITIVE_INFINITY
 }
 
-/** The one colour either grid uses to flag something the reader should not skim past: a
+/** The one color either grid uses to flag something the reader should not skim past: a
  *  left-handed start in the lineup grid, an outing on short rest in the pitching grid.
  *  Shared so a flag always looks like a flag, and so nothing else in these cards is orange. */
 export const GRID_FLAG = 'var(--wpbl-flag)'
@@ -167,9 +167,9 @@ export default function GameGrid({ columns, rows, renderCell, colWidthRem, nameW
     position: 'absolute' as const, top: 0, bottom: 10, width: side === 'left' ? 22 : 26,
     pointerEvents: 'none' as const, zIndex: 3,
     ...(side === 'left' ? { left: NAME_W_CSS } : { right: 0 }),
-    // CARD_INK, not `background.paper`: the colour actually behind the card, which on a flat page
+    // CARD_INK, not `background.paper`: the color actually behind the card, which on a flat page
     // is the page itself, and a paper-grey fade there reads as a grey smear at the edge.
-    // `transparent` rather than the colour plus `00`, since the colour may be a var().
+    // `transparent` rather than the color plus `00`, since the color may be a var().
     background: (t: Theme) =>
       `linear-gradient(to ${side === 'left' ? 'right' : 'left'}, ${CARD_INK(t)}, transparent)`,
   })
@@ -337,7 +337,7 @@ function GridName({ name, fitKey }: { name: string; fitKey: number }) {
 
 /** "2026-08-15" → "Sa 8/15".
  *
- *  Both grids use this one function, so a column is labelled the same way wherever you meet
+ *  Both grids use this one function, so a column is labeled the same way wherever you meet
  *  it. The weekday is two letters rather than three because of the pitching grid: measured
  *  at 16px Inter, "Wed 8/15" is 44px against a 38px column, so three letters do not fit and
  *  the alternative is dropping the weekday from that grid altogether. Two letters is 32–38px

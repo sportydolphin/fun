@@ -731,7 +731,7 @@ describe('/wpbl/glossary, the rules page', () => {
   })
 
   // The rich-result claim. FAQPage markup that does not match the page under it is the kind
-  // of thing Google penalises rather than ignores, so the schema is built from WPBL_RULES
+  // of thing Google penalizes rather than ignores, so the schema is built from WPBL_RULES
   // rather than written out, and this pins that it stays that way.
   it('declares FAQPage structured data built from the rules themselves', () => {
     expect(seoSource).toContain("'@type': 'FAQPage'")

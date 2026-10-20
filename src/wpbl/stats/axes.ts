@@ -18,7 +18,7 @@ import { FLD_COLS } from './columns'
 //
 // Ordered by how much of the season each one can speak for: Season (every game), Pitch by
 // pitch (every game, one row deeper), Tracked (a handful of games, and hidden until that
-// changes; see trackingWorthShowing). The pitch board is labelled "Pitch by pitch", not
+// changes; see trackingWorthShowing). The pitch board is labeled "Pitch by pitch", not
 // "Pitches", which beside the side named Pitching reads as "you are about to leave the
 // hitters". The internal value stays 'pitches' so the board-usage analytics keep one name.
 //

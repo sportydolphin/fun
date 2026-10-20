@@ -64,7 +64,7 @@ function Row({ row, rank, accent, onOpen }: {
       fontSize: TYPE_SCALE.body, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
       // The sign is printed on every figure, so hue is a second copy of it rather than the
       // only carrier: this reads correctly in greyscale and to anyone who cannot separate the
-      // two colours. Same rule as the count grid.
+      // two colors. Same rule as the count grid.
       color: v >= 0 ? accent : 'error.main',
     }}>{fmtRunValue(v, 1)}</Typography>
   )

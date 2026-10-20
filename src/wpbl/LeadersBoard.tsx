@@ -133,7 +133,7 @@ export function LeadersBoard<T extends LeaderTotals>({ side, cols, seasons, qual
             hoverKey={hover} onHover={setHover}
             items={leadersFor(seasons, col, side, qual).map(r => ({
               key: r.player.id, rank: r.rank, tied: r.tied, name: r.player.name, value: r.text,
-              // No club badge beside the name: the portrait's ring is already the club's colour, and in
+              // No club badge beside the name: the portrait's ring is already the club's color, and in
               // a league of four the badge said it twice on every row of every card.
               portrait: <PlayerPortrait name={r.player.name} teamId={r.player.team_id} size={PORTRAIT_PX} />,
               linkProps: playerLink(r.player, onOpenPlayer),

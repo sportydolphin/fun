@@ -326,7 +326,7 @@ export function trackImpression(event: EventName, props: Record<string, unknown>
 }
 
 /**
- * `track` for the moment a page is being left, when an ordinary request is cancelled with it.
+ * `track` for the moment a page is being left, when an ordinary request is canceled with it.
  *
  * A `keepalive` fetch straight to the REST endpoint (postOnExit), because that is the one kind the
  * browser lets outlive the page and supabase-js has no way to ask for it per call. This row is

@@ -45,7 +45,7 @@ export interface FanPhotoIndex {
   figures: Map<string, WpblPhotoFigure>
   /** The clubs, for turning a tagged `team_id` into a name. */
   teams: Map<string, WpblTeam>
-  /** Every photo filed under a category, keyed on its `key`. Uncategorised photos are in no bucket. */
+  /** Every photo filed under a category, keyed on its `key`. Uncategorized photos are in no bucket. */
   byCategory: Map<string, FanPhotoWithSubjects[]>
   /** The categories in the curator's order, for the gallery's chips. */
   categories: WpblPhotoCategory[]
@@ -62,7 +62,7 @@ function push<K>(map: Map<K, FanPhotoWithSubjects[]>, key: K, photo: FanPhotoWit
  *
  * Order is carried straight through from `photos`: the buckets are filled by walking that array
  * once, so every list stays in the curator's sequence rather than in tag-insertion order. A tag
- * whose `photo_id` names no photo in `photos` is dropped rather than materialising an empty entry:
+ * whose `photo_id` names no photo in `photos` is dropped rather than materializing an empty entry:
  * with RLS gating a tag's visibility on its photo being approved, that only happens on a partial
  * read, and a phantom subject is worse than a missing one.
  */

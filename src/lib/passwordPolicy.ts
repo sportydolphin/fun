@@ -1,6 +1,6 @@
 // What we require of a NEW password, in one place.
 //
-// WHY THESE RULES AND NOT THE FAMILIAR ONES. The rules everybody recognises, one uppercase,
+// WHY THESE RULES AND NOT THE FAMILIAR ONES. The rules everybody recognizes, one uppercase,
 // one number, one symbol, are the ones current guidance explicitly tells you not to impose
 // (NIST SP 800-63B: verifiers "SHALL NOT impose other composition rules"). They were dropped
 // because they measurably backfire: told to add a digit and a capital, people produce
@@ -31,7 +31,7 @@ export const PASSWORD_MIN = 8
  *
  * Supabase hashes with bcrypt, which reads at most 72 bytes of input. Anything past that is
  * either silently ignored (so a 100-character password is really its first 72, and the
- * remainder is security theatre) or rejected outright, depending on the version. Refusing it
+ * remainder is security theater) or rejected outright, depending on the version. Refusing it
  * here means the reader is told, rather than discovering later that a chunk of what they typed
  * was never part of their password. Counted in BYTES because it is a byte limit: an emoji or
  * an accented character costs more than one.

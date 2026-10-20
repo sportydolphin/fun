@@ -57,7 +57,7 @@ export function WpblGamePreview({ away, home, teams, games: allGames, onOpenTeam
    *  already titled this block and supplied the surround. The series overview has: it sits
    *  under a "Tale of the tape" label, inside a sheet whose eyebrow already names both clubs,
    *  so the heading was the third time in four inches that the same thing was said. The
-   *  club legend STAYS, because it is the key to which colour is whose and the bars are
+   *  club legend STAYS, because it is the key to which color is whose and the bars are
    *  unreadable without it. */
   bare?: boolean
   /** With `rosters`, hand the three boards to the caller to lay out instead of drawing the toggle
@@ -137,7 +137,7 @@ export function WpblGamePreview({ away, home, teams, games: allGames, onOpenTeam
     return <PreviewEmpty />
   }
 
-  // Bar colours come from the shared team accent palette (`wpblAccent`), which exists for exactly
+  // Bar colors come from the shared team accent palette (`wpblAccent`), which exists for exactly
   // this reason: the raw primaries are all near-black and unusable as foreground.
   const side = (team: WpblTeam): PreviewSide => ({
     abbr: team.abbr,
@@ -214,7 +214,7 @@ export function WpblGamePreview({ away, home, teams, games: allGames, onOpenTeam
     )
   }
 
-  // The two roster columns. Capped and centred on a desktop: at full page width each column ran
+  // The two roster columns. Capped and centered on a desktop: at full page width each column ran
   // the length of the sheet and threw its position label to the far edge.
   const rostersView = (
     <Box sx={{

@@ -11,11 +11,11 @@ import { chromePx } from './scale'
  * `TeamLogo`, and a dozen circles written inline (the schedule strip, the predictor, the live card,
  * the settings picker), each with its own ring width, its own logo inset, its own idea of whether
  * a faint alpha halo counts as an edge, and two with no ring at all. Side by side on Home they
- * read as three different sets of logos. The section supplies the colours and the art; the shape
+ * read as three different sets of logos. The section supplies the colors and the art; the shape
  * is decided here once.
  *
  * THE RING IS THE BADGE'S EDGE, so it obeys the outline rule (CLAUDE.md, "Borders"): the caller
- * passes a colour already lifted to 3:1 (MLB's `ringColor`, `edge()`), and nothing here fades it.
+ * passes a color already lifted to 3:1 (MLB's `ringColor`, `edge()`), and nothing here fades it.
  * Its width follows the size, so a 16px badge in a table row and a 48px one in a game header are
  * the same drawing at two sizes rather than two drawings.
  *
@@ -42,7 +42,7 @@ export function ClubBadge({
   /** A per-club crop (MLB's `teamLogoCrop`). */
   logoTransform?: string
   fallbackInk?: string
-  /** A selection ring outside the edge, in this colour. */
+  /** A selection ring outside the edge, in this color. */
   highlight?: string
   /** The club is already named in text beside the badge, so a screen reader should not hear it
    *  twice. */

@@ -146,7 +146,7 @@ export function CompareHeadSkeleton({ withChange }: { withChange?: boolean }) {
 // ─── The cards ────────────────────────────────────────────────────────────────
 
 /**
- * A comparison table with its heading centred over it, in a recessed band: the body is a
+ * A comparison table with its heading centered over it, in a recessed band: the body is a
  * symmetrical three-column table, so a left-aligned SectionCard title would be the one thing on
  * the card off its own axis.
  */
@@ -209,7 +209,7 @@ function CompareStamp() {
 }
 
 /**
- * The geometry every row shares. Capped and centred: left to fill a desktop card, the two numbers
+ * The geometry every row shares. Capped and centered: left to fill a desktop card, the two numbers
  * sat in a huddle in the middle of a long rule. `chromePx` because it is structure; the value
  * columns are `rem` because they reserve room for a number and must grow with the text.
  */
@@ -269,7 +269,7 @@ export function StatRowFrame({ a, label, b, leader }: {
 
 /**
  * One group's table, in blocks: playing time, the counting line, the rates, and whatever else the
- * league adds. The rule between blocks is the only labelling they need. Each block is wrapped so
+ * league adds. The rule between blocks is the only labeling they need. Each block is wrapped so
  * `:last-of-type` means the last row of THAT block; flat, every block but the last met the next
  * one's rule with a doubled hairline.
  */
@@ -306,7 +306,7 @@ export function CompareBlocksSkeleton({ title, blocks }: { title: string; blocks
 export interface HeadToHeadView {
   key: string
   heading: string
-  /** Each slice labelled ABOVE its line: inline, a long label pushed a phone's line past the width. */
+  /** Each slice labeled ABOVE its line: inline, a long label pushed a phone's line past the width. */
   slices: { label: string; line: string }[]
 }
 
@@ -500,7 +500,7 @@ export function ComparePicker({ candidates, onPick, skeleton, limit, limitNote, 
   )
 }
 
-/** A way to another comparison that is not the Back button. Centred like everything on the page. */
+/** A way to another comparison that is not the Back button. Centered like everything on the page. */
 export function CompareAgainLink({ href, onNavigate }: { href: string; onNavigate: (to: string) => void }) {
   return (
     <Box

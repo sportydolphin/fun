@@ -47,7 +47,7 @@ const PLAY_LABELS: Record<string, string> = {
   // NOT the batter, and the label has to say so or this reads as a wrong number. The feed's
   // `runs_scored` counts the runners who crossed, so a solo home run stores 0 and a grand slam
   // 3. Every reader of that column so far has been caught by it, a validator and two badges
-  // included, which is why it is spelled out here rather than labelled "Runs".
+  // included, which is why it is spelled out here rather than labeled "Runs".
   runs_scored: 'Runners scoring (not the batter)',
 }
 

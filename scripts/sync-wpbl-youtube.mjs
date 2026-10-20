@@ -24,7 +24,7 @@
  *   "WPBL Highlights: Los Angeles Queens @ New York Heights | August 1st, 2026"
  * i.e. `<away> @ <home> | <Month Day[, ordinal], Year>`. The away/home segments may or may
  * not include the club nickname, and the date may carry an ordinal suffix — the parser
- * tolerates both. Anything that isn't a recognisable "<team> @ <team>" highlight is stored
+ * tolerates both. Anything that isn't a recognizable "<team> @ <team>" highlight is stored
  * with game_id null (podcasts, league features) so the rail can still show it if we want.
  *
  * Usage (local):
@@ -217,7 +217,7 @@ export function isFullGameTitle(title) {
  * highlights and a condensed game recap"), whether or not the title says "Highlights", and the
  * postseason ones do not. A matchup counts only with a readable date beside it: without one
  * there is no game to match, and a guess would put their video on the wrong night.
- * Anything unrecognised is 'other', never a guess at a game.
+ * Anything unrecognized is 'other', never a guess at a game.
  */
 export function classifyFan(title) {
   if (/\btop\s+\d+\b/i.test(title)) return 'compilation'
@@ -372,7 +372,7 @@ export const CHANNELS = [
 ]
 
 // ─── Upload sources ─────────────────────────────────────────────────────────
-// Both sources return the same normalised entry shape: { videoId, title, published,
+// Both sources return the same normalized entry shape: { videoId, title, published,
 // thumbnail }. The Data API is preferred when a key is present (reliable from CI); the
 // RSS feed is the keyless fallback.
 
@@ -651,7 +651,7 @@ const REGION_RECHECK_MS = 24 * 3600 * 1000
  * Shorts are skipped: the league's are its own posts, not broadcast rights, and at 300 of them
  * they would be most of the quota for none of the answers. Without a Data API key there is no way
  * to ask, and the columns are left as they are: null reads as "plays everywhere", which shows the
- * catalogue rather than hiding it on a missing secret.
+ * catalog rather than hiding it on a missing secret.
  */
 async function refreshRegions() {
   if (!YT_API_KEY) { console.log('No YOUTUBE_API_KEY, skipping.'); return }

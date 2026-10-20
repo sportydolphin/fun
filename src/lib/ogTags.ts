@@ -36,7 +36,7 @@ export function rewriteOgTags(page: Response, tags: OgTags): Response {
 
   // The image must already be 1200x630, the shape of the default cover, so the size tags carry
   // over untouched. That shape is the only instruction an unfurler that asks us nothing can
-  // follow: Bluesky reads og: alone, never sees twitter:card, and centre-crops whatever it gets to
+  // follow: Bluesky reads og: alone, never sees twitter:card, and center-crops whatever it gets to
   // one 1.91:1 band, which is how a square headshot once arrived as a strip across a face.
   if (tags.image) {
     replacements['og:image'] = tags.image

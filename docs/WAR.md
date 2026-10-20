@@ -59,7 +59,7 @@ wRC+ on the Hitting side, so the three cannot disagree.
 
 This league ran below its own break-even, so the league's rate is negative and a runner who reached
 first and stayed there earns back what an average runner there lost. Until Oct 2026 the steal runs
-were left uncentred and the league adjustment spread them over every plate appearance instead,
+were left uncentered and the league adjustment spread them over every plate appearance instead,
 which credited a player for trips that ended in an out. A pinch runner has no times on first and
 keeps the raw figure, as in FanGraphs. Pickoffs stay in, where FanGraphs' wSB has only steals and
 caught stealing: a pickoff here is a runner's decision priced on the same table, and this league
@@ -72,7 +72,7 @@ stood where. [`defenseIndex`](../src/wpbl/derive/fielding.ts) tracks every posit
 game from the box score's starting positions and the play log's substitution rows ("Keira Izumi to
 3b for Alyssa Zettlemoyer"); the pitcher is on the play itself, and the catcher comes from
 [`catcherIndex`](../src/wpbl/derive/catching.ts), which follows the "to c" rows. Every out the
-defence records is credited to the nine players standing there, so **playing time is outs
+defense records is credited to the nine players standing there, so **playing time is outs
 actually played at each position**, and every rate below is per out at the position.
 
 | Part | What it measures | Measured against |
@@ -91,7 +91,7 @@ dribbler to the same spot count alike. Over a season that mostly evens out; over
 noisiest part of the model.
 
 **A reach on an error is in Errors, not Range**, or the fielder would pay for it twice. A play the
-error made no worse for the defence costs nothing: nobody is paid for erring.
+error made no worse for the defense costs nothing: nobody is paid for erring.
 
 **Wild pitches and passed balls are both the catcher's.** FIP charges the pitcher with neither, so
 nothing is counted twice; MLB's catcher blocking models do the same.
@@ -115,7 +115,7 @@ per 100 PA below average (shortstops) to 10.3 above (catchers), but every row is
 players' seasons over about 240 PA, with an error of about six runs either way: the catchers top it
 because Denae Benites had the league's best bat, not because catching is easy. A 15-game season has
 too few position switchers for Tango's method either. And dropping the adjustment is the one answer
-known to be wrong, since fielding is centred on each position's own average: without it an average
+known to be wrong, since fielding is centered on each position's own average: without it an average
 first baseman and an average shortstop are worth the same. Its effect is small (at most about 0.15
 WAR, Benites's) and does not reorder the top of the 2026 board.
 
@@ -128,19 +128,19 @@ tie half its board at one.
 ## League adjustment
 
 Whatever makes batting, baserunning, fielding and positional runs sum to zero across the league,
-spread by plate appearances. It absorbs the part that is not centred on its own, the positional
+spread by plate appearances. It absorbs the part that is not centered on its own, the positional
 scale, and the hundredths the other parts miss by, so that an average position player is exactly
 average.
 
 ## Pitching
 
 ifFIP, FanGraphs' WAR version of FIP, on this league's own weights, against the league ERA it is
-centred on: `(league ERA - ifFIP) * IP / 7`, plus pitching's share of replacement. ifFIP counts an
+centered on: `(league ERA - ifFIP) * IP / 7`, plus pitching's share of replacement. ifFIP counts an
 infield fly as a strikeout, since it is an out nearly every time and moves nobody. The feed has no
 batted-ball type, so an infield fly is a pop-up, fly out or foul out to an infielder by the
 scorer's words (about 170 in 2026); the strikeout weight is measured on the two pooled. The FIP
 column on the Pitching side stays plain FIP, as FanGraphs' does. FIP leaves balls in play to
-the fielders, whose half of WAR already prices them, so the defence is never in both. Per seven
+the fielders, whose half of WAR already prices them, so the defense is never in both. Per seven
 innings, the league's own basis; see `ERA_BASIS_CANONICAL`.
 
 ## WAR and wins added
@@ -171,7 +171,7 @@ total rather than a different question.
 - The league's WAR must sum to `0.206 * team-games`, split 57/43. In 2026: 12.32, 7.00 and 5.26.
 - Errors credited per player should match the box score's E: 114 against 117 in 2026. Double plays
   should match DP: 110 against 114.
-- Batting, centred fielding and pitching runs each sum to about zero. A part that drifts far from
-  zero across the league is a part that is not centred.
+- Batting, centered fielding and pitching runs each sum to about zero. A part that drifts far from
+  zero across the league is a part that is not centered.
 
 `src/wpbl/__tests__/war.test.ts` pins the constants, and `fielding.test.ts` the pricing.

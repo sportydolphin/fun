@@ -23,8 +23,8 @@ export const SCORED_GAME_TYPES = new Set(SCHEDULE_GAME_TYPES.split(','))
 
 // ─── Games that never happened ────────────────────────────────────────────────
 //
-// A postponed game and a cancelled one both report abstractGameState "Final", with no winner
-// and no score. Only the postponement was recognised, so Sep 27, 2026's rained-out, never to be
+// A postponed game and a canceled one both report abstractGameState "Final", with no winner
+// and no score. Only the postponement was recognized, so Sep 27, 2026's rained-out, never to be
 // made up BAL@NYY (codedGameState "C") rendered as a 0–0 final on the scoreboard, the team card
 // and in Game Center. Check this BEFORE reading abstractGameState.
 
@@ -34,7 +34,7 @@ interface StatusLike {
   startTimeTBD?: boolean
 }
 
-/** Postponed (to be made up) or cancelled (never will be): either way, not a game that was played. */
+/** Postponed (to be made up) or canceled (never will be): either way, not a game that was played. */
 export function isUnplayed(status: StatusLike | null | undefined): boolean {
   const coded = status?.codedGameState
   const detailed = status?.detailedState ?? ''

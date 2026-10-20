@@ -284,7 +284,7 @@ function Identity({ u, dense }: { u: AdminUser; dense?: boolean }) {
  * The club they picked, if they picked one.
  *
  * EMPTY FOR EVERY ACCOUNT TODAY, AND THAT IS NOT A BUG IN THE QUERY. `wpbl_favorite_team_id`
- * is reserved: the favourite-team picker that would write it is parked on the
+ * is reserved: the favorite-team picker that would write it is parked on the
  * `wpbl-favorite-team` branch (see the column's own migration, and "Parked, with reasons" in
  * ROADMAP-WPBL.md). The column stays because it costs 64px and lights up the day that ships,
  * but it is not evidence that nobody has a club: nobody has been asked. Do not go looking for
@@ -690,7 +690,7 @@ export function UsersPanel({ open, onClose, onChanged }: {
               <Tile label="Read WPBL" value={String(summary.wpbl)} sub={`${live.filter(u => userLeague(u) === 'mlb').length} MLB only`} />
               <Tile label="Reachable" value={String(summary.reachable)} sub="push on, with a toggle set" />
               {/* NOT "picked a club", which reads 0 on every roster until the parked
-                  favourite-team picker ships. A headline tile that can only say zero teaches
+                  favorite-team picker ships. A headline tile that can only say zero teaches
                   you to stop reading the row. The dormant cohort is the number actually worth
                   a tile: it is the one that says how much of the roster is nominal. */}
               <Tile label="Never active" value={String(summary.dormant)}

@@ -6,7 +6,7 @@ import type { WpblLineupHistoryRow, WpblPitchingUsageRow } from '../types'
 
 /** The two team-page grids sit one above the other and are meant to be read against each
  *  other, so what they share has to actually stay shared. These are the two things that
- *  used to drift: how a column is labelled, and what order the columns come in. */
+ *  used to drift: how a column is labeled, and what order the columns come in. */
 
 describe('formatGameColumn', () => {
   it('labels a date the same way for both grids', () => {

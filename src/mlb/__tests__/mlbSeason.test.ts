@@ -22,10 +22,10 @@ describe('season phase', () => {
     expect(isSeasonOver(phaseOn(D2026, '2026-09-28', true))).toBe(false)
   })
 
-  it('counts a game still to come, but never a postponed or cancelled one', () => {
+  it('counts a game still to come, but never a postponed or canceled one', () => {
     const day = (...states: object[]) => ({ dates: [{ games: states.map(status => ({ status })) }] })
     expect(hasGamesLeft(day({ abstractGameState: 'Final' }))).toBe(false)
-    // Sep 27, 2026's rained-out game was cancelled, not rescheduled, and must not hold October back.
+    // Sep 27, 2026's rained-out game was canceled, not rescheduled, and must not hold October back.
     expect(hasGamesLeft(day({ abstractGameState: 'Final', codedGameState: 'C', detailedState: 'Cancelled' }))).toBe(false)
     expect(hasGamesLeft(day({ abstractGameState: 'Final', codedGameState: 'D', detailedState: 'Postponed' }))).toBe(false)
     expect(hasGamesLeft(day({ abstractGameState: 'Preview', detailedState: 'Scheduled' }))).toBe(true)

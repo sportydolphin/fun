@@ -5,7 +5,7 @@ import type { WpblPitchingUsageRow } from '../types'
  * the top in chronological order (oldest left, newest right), pitchers down the side, pitch
  * count in each cell.
  *
- * Pure and separate from the component so the ordering rule, the part with judgement in
+ * Pure and separate from the component so the ordering rule, the part with judgment in
  * it, can be tested.
  */
 

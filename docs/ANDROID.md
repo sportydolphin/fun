@@ -141,7 +141,7 @@ Automatic protection, which is an unrelated feature.)
 **Two traps, one behind the other.** With only the upload key listed, the sideloaded
 `app-release-signed.apk` verifies fine, because that is the key it was signed with, while the
 build Play serves is re-signed and shows the URL bar. So testing the APK on a device proves
-nothing about the version users get. Then, having fixed that, taking only the key labelled
+nothing about the version users get. Then, having fixed that, taking only the key labeled
 "classical" reproduces the same failure one Android version further out: correct on every
 phone anyone is holding today, wrong on Android 17, and surfacing months later as a
 stranger's bug report. Google's own guidance is that all of the hybrid signing fingerprints
@@ -319,7 +319,7 @@ emits is apex already: canonical, `og:url`, sitemap, JSON-LD.
   after Nov 13, 2023 must run a closed test with **at least 12 testers opted in continuously
   for 14 days** before it can even apply for production access. That is a two week wall with
   twelve real Google accounts behind it, and it is the reason this has a lead time rather than
-  an afternoon. Organisation accounts are exempt but need a D-U-N-S number.
+  an afternoon. Organization accounts are exempt but need a D-U-N-S number.
 - **Listing assets needed:** feature graphic 1024x500, at least two phone screenshots, short
   and full description, an app icon at 512x512 (`public/icon-512.png` already qualifies), and
   a privacy policy URL, which `/privacy` satisfies.

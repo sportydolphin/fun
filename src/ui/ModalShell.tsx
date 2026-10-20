@@ -10,10 +10,10 @@ import { pressable } from './interaction'
 import { chromePx } from './scale'
 import { useScrollLock } from './scrollLock'
 
-// The modal shell both league sections open their detail views in: a portalled overlay, a centred
+// The modal shell both league sections open their detail views in: a portalled overlay, a centered
 // card on a desktop and, with `sheet`, a bottom sheet on a phone that can be dragged down to close.
 // Built for WPBL and moved here on Sep 28, 2026 so MLB's Game Center could stop hand-rolling its
-// own overlay (no portal, a background blur, a centred dialog on a phone). WPBL re-exports it from
+// own overlay (no portal, a background blur, a centered dialog on a phone). WPBL re-exports it from
 // src/wpbl/ui.tsx, so its imports did not change.
 
 // Shared modal shell. Mirrors the MLB modal chrome: dimmed + blurred overlay, a
@@ -39,7 +39,7 @@ import { useScrollLock } from './scrollLock'
  * title bar has no other possible intent. That half alone is most of the value, because the
  * close button is top-right, which is the hardest place on a phone to reach one-handed.
  *
- * OFF WHEN SWIPE NAVIGATION IS OFF, the same accessibility switch the tab pager honours, and
+ * OFF WHEN SWIPE NAVIGATION IS OFF, the same accessibility switch the tab pager honors, and
  * the close button never goes anywhere: a gesture is an extra way out, never the only one.
  */
 /**
@@ -99,15 +99,15 @@ const DRAG_ANIM_MS = 220
  *
  * THE HORIZONTAL TEST IS WHAT PICKS THE RIGHT PANE. A tab pager keeps its neighbours mounted
  * and translated off to the sides, so several panes match "overflows vertically" at once.
- * Only the one the card's centre line passes through is on screen.
+ * Only the one the card's center line passes through is on screen.
  */
 function visibleScroller(card: HTMLElement): HTMLElement | null {
   const box = card.getBoundingClientRect()
   const cx = box.left + box.width / 2
-  let onCentre: HTMLElement | null = null, onCentreH = 0
+  let onCenter: HTMLElement | null = null, onCenterH = 0
   let tallest: HTMLElement | null = null, tallestH = 0
   for (const el of Array.from(card.querySelectorAll<HTMLElement>('*'))) {
-    // THE CHEAP TEST FIRST, and it is not a micro-optimisation. This runs at touchstart, and
+    // THE CHEAP TEST FIRST, and it is not a micro-optimization. This runs at touchstart, and
     // `getComputedStyle` on every node of a card that can hold a thousand of them is tens of
     // milliseconds on a mid-range phone: paid at the exact moment the reader expects the sheet
     // to start moving, which is the one place in a gesture that lag is felt as a broken
@@ -118,16 +118,16 @@ function visibleScroller(card: HTMLElement): HTMLElement | null {
     if (el.clientHeight > tallestH) { tallest = el; tallestH = el.clientHeight }
     const r = el.getBoundingClientRect()
     if (r.width <= 0 || r.height <= 0 || cx < r.left || cx > r.right) continue
-    if (r.height > onCentreH) { onCentre = el; onCentreH = r.height }
+    if (r.height > onCenterH) { onCenter = el; onCenterH = r.height }
   }
-  // THE CENTRE-LINE TEST IS A PREFERENCE, NOT A REQUIREMENT, and that distinction is the
+  // THE CENTER-LINE TEST IS A PREFERENCE, NOT A REQUIREMENT, and that distinction is the
   // difference between this working and dismissing the card by mistake. It exists to pick the
   // on-screen pane out of a pager that keeps its neighbours mounted and translated aside, and
   // it is right whenever it matches. But rects are measured mid-gesture and mid-animation, and
   // any layout this has not met that puts them somewhere unexpected would return null here.
   // Null then reads as "there is nothing to scroll, so a drag must be a dismissal", which is
   // exactly the wrong answer to guess on a card that plainly does scroll.
-  return onCentre ?? tallest
+  return onCenter ?? tallest
 }
 
 /** Every scrollable box the finger is inside, innermost first, stopping at the sheet itself. */
@@ -177,7 +177,7 @@ function useSheetDrag(
 
     const onStart = (e: TouchEvent) => {
       if (e.touches.length !== 1) return
-      // Live, not cached: above this width the card is an ordinary centred dialog and there is
+      // Live, not cached: above this width the card is an ordinary centered dialog and there is
       // nothing to push down. See SHEET_MQ.
       if (!window.matchMedia(SHEET_MQ).matches) return
       const t = e.touches[0]
@@ -344,7 +344,7 @@ function useSheetDrag(
      * before it moves the content, every gesture, because it cannot know the listener will not
      * cancel. Spread over a whole sheet of content that is exactly "the page lags behind my finger",
      * and it only shows on a page as busy as the player card. So the logic above is PASSIVE, and
-     * the one thing it ever needs from a cancellable listener, taking a downward pull away from the
+     * the one thing it ever needs from a cancelable listener, taking a downward pull away from the
      * browser, comes from `claimer`, which is attached only while every scroller in the sheet is at
      * its top. That is the one state in which a pull down on the content is the sheet's: anywhere
      * else the content simply scrolls, with nothing of ours in its way. The chrome needs no claimer
@@ -467,10 +467,10 @@ type ModalShellProps = {
   fillHeight?: boolean        // pin the card to full height (content controls its own scroll)
   /** Come up from the bottom edge on a phone instead of sitting in the middle of the screen,
    *  with a grab handle and square bottom corners. For a modal that is a CONTROL rather than
-   *  a document: a centred dialog puts its options where a thumb has to reach across the
+   *  a document: a centered dialog puts its options where a thumb has to reach across the
    *  screen, and leaves page visible above and below it, so it reads as floating over the
    *  thing you were doing rather than as the thing you are doing now. Above sm it is an
-   *  ordinary centred card, which is why this is opt-in and changes nothing for the modals
+   *  ordinary centered card, which is why this is opt-in and changes nothing for the modals
    *  that do not pass it. */
   sheet?: boolean
   /**
@@ -479,7 +479,7 @@ type ModalShellProps = {
    *
    * A bottom sheet is anchored by its BOTTOM edge, so every pixel its content gains moves its
    * top edge up the screen: a sheet that opens on a line score and a spinner and then receives a
-   * box score finishes sliding up and then leaps most of a phone's height. A centred dialog hides
+   * box score finishes sliding up and then leaps most of a phone's height. A centered dialog hides
    * this, because growth there is split between two edges and reads as settling rather than as
    * jumping.
    *
@@ -491,7 +491,7 @@ type ModalShellProps = {
    */
   sheetFill?: boolean
   /**
-   * The same held height between a phone and a desktop, where the shell is a centred dialog: full
+   * The same held height between a phone and a desktop, where the shell is a centered dialog: full
    * height from the first frame instead of starting short and re-centring as content lands. The
    * note above calls that growth "settling" and it is fine for a short dialog; for Game Center,
    * which opens on a line score and grows by a whole box score, it moved the card about 300px. Opt
@@ -499,7 +499,7 @@ type ModalShellProps = {
    */
   dialogFill?: boolean
   /**
-   * On a desktop, open as a side panel down the right edge instead of a centred dialog. Phones are
+   * On a desktop, open as a side panel down the right edge instead of a centered dialog. Phones are
    * unaffected and still get the sheet. See SidePanelShell for what the panel does differently.
    */
   panel?: boolean
@@ -527,7 +527,7 @@ export function ModalShell(props: ModalShellProps) {
 
 /**
  * Whether a shell given `panel` opens as the side panel here, by ModalShell's own test, for a caller
- * whose behaviour depends on it (MLB's sheet history swaps panels and stacks dialogs).
+ * whose behavior depends on it (MLB's sheet history swaps panels and stacks dialogs).
  *
  * MUI's `md`, read off the OUTER theme, because the panel's own content is rendered under
  * PANEL_THEME and asking there would always say "phone". Material's `useTheme`, which falls back to
@@ -650,7 +650,7 @@ function ShellHeader({ eyebrow, actions, onClose, labelId, onBack, backLabel }: 
  * `theme.breakpoints.up('md')` gets the same answer, which is how a card picks which layout to
  * BUILD (see PlayerDetail's `wide`). A raw query string like `useMediaQuery('(max-width:600px)')`
  * does not go through the theme and still sees the desktop; those decide touch and swipe
- * behaviour, which a mouse on a desktop should keep.
+ * behavior, which a mouse on a desktop should keep.
  */
 const PANEL_BREAKPOINTS = createTheme({
   breakpoints: { values: { xs: 0, sm: 1e6, md: 1e6, lg: 1e6, xl: 1e6 } },
@@ -661,7 +661,7 @@ const PANEL_THEME = (outer: Theme): Theme => ({ ...outer, breakpoints: PANEL_BRE
  * The desktop side panel: a card down the right edge, under the toolbar, that leaves the page
  * usable.
  *
- * WHAT IT DOES NOT DO, AND WHY, since each omission is the point. A centred dialog is a poor fit
+ * WHAT IT DOES NOT DO, AND WHY, since each omission is the point. A centered dialog is a poor fit
  * for something a reader opens over and over from a list (a leaderboard, a roster): it dims the
  * list, covers it, and has to be closed before the next row can be opened. So this has no scrim
  * and no click-outside dismissal, it does not lock the page's scroll, and it does not trap focus.
@@ -707,7 +707,7 @@ export function useSidePanelOpen(): boolean {
 }
 
 /**
- * Slide a centred page column left to clear the side panel: as far as it needs to, and never further
+ * Slide a centered page column left to clear the side panel: as far as it needs to, and never further
  * than the room on its left allows. The page keeps its width, so nothing in it reflows.
  *
  * WHY THIS AND NOT A NARROWER PAGE. The panel covers the right of whatever the reader came from,
@@ -910,7 +910,7 @@ function DialogShell({ eyebrow, onClose, maxWidth = 720, zIndex: ownZ = 1500, ac
   }, [])
 
   // A sheet on a phone can be pushed back down. See useSheetDrag for what that has to avoid
-  // colliding with; above sm this is an ordinary centred dialog and none of it is bound.
+  // colliding with; above sm this is an ordinary centered dialog and none of it is bound.
   const overlayRef = useRef<HTMLDivElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
@@ -1011,7 +1011,7 @@ function DialogShell({ eyebrow, onClose, maxWidth = 720, zIndex: ownZ = 1500, ac
         //
         // It also buys time. Game Center opens on the recap, whose win-probability card needs
         // the league's whole play log before it can draw; 260ms of movement is 260ms in which
-        // that arrives, and content that settles while the sheet is still travelling settles
+        // that arrives, and content that settles while the sheet is still traveling settles
         // invisibly. styles.css collapses this to nothing under prefers-reduced-motion, along
         // with every other animation on the page, so it needs no guard of its own.
         ...(sheet ? {

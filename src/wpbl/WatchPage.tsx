@@ -30,7 +30,7 @@ import { isModified } from '../nav'
 // CLIPS ARE NOT FILED BY GAME, and that was measured rather than assumed. Not one of the 291
 // Shorts names its game. Matching the player a title names against the play-by-play pins about
 // 70 of them to a game and an at-bat; the rest are features, hype and moments with no name in the
-// title. A shelf organised by game would hide three quarters of it, so the shelf is a feed by date,
+// title. A shelf organized by game would hide three quarters of it, so the shelf is a feed by date,
 // and pinning a clip to its game is a later phase that adds a badge rather than a structure.
 //
 // THE SHELF IS THE HASH (#games, #clips, #more) so the Home card can link straight to the clips
@@ -170,7 +170,7 @@ function GamesShelf({ videos, gameIds, games, teams, onOpenGame, fresh }: {
 
   // The postseason first, under its own heading, then the regular season by month. The same
   // positive-evidence rule as the standings (countsInStandings), so a game the feed has not
-  // labelled stays with the regular season rather than vanishing.
+  // labeled stays with the regular season rather than vanishing.
   const groups = useMemo(() => {
     const out: { key: string; label: string; items: GameEntry[] }[] = []
     const post = rows.filter(e => !countsInStandings(e.game))
@@ -267,7 +267,7 @@ const GAME_PILL = {
  * The page before the videos land: the loaded page drawn empty (CLAUDE.md, loading states). The
  * shelf bar and the club chips with their counts held open, then the Games shelf's first group,
  * the postseason, as cards in the most common shape: the league's reel and the fan's condensed
- * game, with the fan's credit under them. It was a centred spinner, which left the footer half a
+ * game, with the fan's credit under them. It was a centered spinner, which left the footer half a
  * screen down and threw it 6,000 to 9,000px when the shelf landed.
  */
 function WatchSkeleton({ shelf }: { shelf: Shelf }) {

@@ -5,7 +5,7 @@ import type { WpblFanPhoto, WpblPhotoSubject, WpblPhotoFigure } from '../types'
 // buildFanPhotoIndex joins the three flat fan-photo reads into per-subject and per-game lookups.
 // The two things worth pinning: every bucket stays in the curated order of `photos` (not in
 // tag-insertion order), and a tag whose photo is absent from a partial read is dropped rather
-// than materialising a phantom entry.
+// than materializing a phantom entry.
 
 const photo = (o: Partial<WpblFanPhoto> & { id: string }): WpblFanPhoto => ({
   card_url: `card/${o.id}`, full_url: `full/${o.id}`, width: 1200, height: 800,
@@ -67,7 +67,7 @@ describe('buildFanPhotoIndex', () => {
     expect(idx.figures.size).toBe(0)
   })
 
-  it('files categorised photos by category and leaves ordinary ones out of every bucket', () => {
+  it('files categorized photos by category and leaves ordinary ones out of every bucket', () => {
     const signs = { key: 'fan-signs', name: 'Fan signs', blurb: null, sort_order: 0 }
     const idx = buildFanPhotoIndex(
       [photo({ id: 'a' }), photo({ id: 'b', category_key: 'fan-signs' }), photo({ id: 'c', category_key: 'fan-signs' })],

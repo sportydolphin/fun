@@ -50,7 +50,7 @@ interface GamePreviewData {
 export interface PreviewGame {
   gamePk:     number
   statusText: string
-  reason?:    string          // why it was not played ("Rain"/...) when statusText is "Postponed" or "Cancelled"
+  reason?:    string          // why it was not played ("Rain"/...) when statusText is "Postponed" or "Canceled"
   away: { teamId: number; abbr: string }
   home: { teamId: number; abbr: string }
 }
@@ -133,7 +133,7 @@ function comparisonColors(awayId: number, homeId: number, isDark: boolean): [str
   const h = accentColor(TEAM_BG[homeId] ?? '#444', isDark)
   const gap = Math.abs(hexHue(a) - hexHue(h))
   const hueGap = Math.min(gap, 360 - gap)
-  // Held to AA like the club colours above them (accentColor): these are printed as the numbers.
+  // Held to AA like the club colors above them (accentColor): these are printed as the numbers.
   return hueGap < MIN_HUE_GAP ? [textTone(FALLBACK_AWAY, isDark, isDark ? undefined : '#f6f7f9'), textTone(FALLBACK_HOME, isDark, isDark ? undefined : '#f6f7f9')] : [a, h]
 }
 

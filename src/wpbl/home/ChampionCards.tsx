@@ -141,7 +141,7 @@ export function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame, 
     <SectionCard title={`${yearWord}Season`} fill action={headerLink}>
       {/* The whole body is the link, the way the league card's is: a card whose one job is to send
           a reader to the recap should open it from anywhere on the card, not just a trailing word.
-          `flex: 1` + centred so it absorbs whatever height the card beside it (Last game) forces,
+          `flex: 1` + centered so it absorbs whatever height the card beside it (Last game) forces,
           the same trick the real Next-game card uses in this slot. */}
       <Box
         {...(split ? {} : recap)}
@@ -150,7 +150,7 @@ export function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame, 
           // TOP-ALIGNED WHENEVER THERE ARE BLOCKS, and the slack falls under the last one. This card is
           // stretched to the height of Player of the day beside it; `space-between` used to spread
           // that slack between the champion and its own result, so the gaps on the card were sized
-          // by a different card's content. Centred only for the off-season line or two.
+          // by a different card's content. Centered only for the off-season line or two.
           justifyContent: split ? 'flex-start' : 'center',
           textDecoration: 'none', color: 'inherit', borderRadius: 1, p: 0.5, mx: -0.5,
           ...(split ? null : TAPPABLE),
@@ -282,12 +282,12 @@ function RecapButton({ children }: { children: React.ReactNode }) {
 /** The championship series, game by game, each one a way into its Game Center.
  *
  *  ONE ROW OF EQUAL TILES, each a small box score: the game and its date, then both clubs with
- *  their runs, the winner in its colour and the loser in secondary ink. It was two columns of
+ *  their runs, the winner in its color and the loser in secondary ink. It was two columns of
  *  "GAME 1  LA 7 @ SF 6  ›" chips, which left a five-game final with an orphan in the last row and
  *  most of every chip blank between the score and its chevron. A row of five spends the width;
  *  stacking the two clubs spends height the card has spare beside Player of the day, and keeps
- *  the batting order (away over home, as a line score reads). The winner's colour runs along the
- *  tile's top, so the series reads left to right as a run of colours before any number is read.
+ *  the batting order (away over home, as a line score reads). The winner's color runs along the
+ *  tile's top, so the series reads left to right as a run of colors before any number is read.
  *  One still to come shows the clubs with no runs.
  *
  *  Badges and dates only from `lg` up: five tiles in the half-width card at 960px are about 80px,
@@ -329,7 +329,7 @@ function SeriesGameLog({ log, teams, onOpenGame }: {
             display: 'flex', flexDirection: 'column', gap: 0.4, minWidth: 0,
             px: { xs: 0.6, lg: 1 }, pt: 0.6, pb: 0.75,
             border: '1px solid', borderColor: INNER_BORDER, borderRadius: 1.5,
-            // The winner's colour along the top, lifted to the border floor like any club edge.
+            // The winner's color along the top, lifted to the border floor like any club edge.
             ...(winner ? { borderTop: '3px solid', borderTopColor: edge(wpblColor(winner.id)) } : null),
             textDecoration: 'none', color: 'inherit', cursor: 'pointer',
             transition: 'background 0.12s, border-color 0.12s',
@@ -637,9 +637,9 @@ export function ChampionBanner({ champion, season, runnerUp, champWins, rivalWin
     : undefined
   const showSeries = !dev && champWins != null && rivalWins != null && runnerUp
 
-  // One shared trophy gold for every club, no club colour in the field. The title is a league
+  // One shared trophy gold for every club, no club color in the field. The title is a league
   // award, so every champion banner reads as the same trophy, and the club lives in the badge and
-  // the name. This replaced a gold-into-club-colour gradient that turned to mud for the two warm
+  // the name. This replaced a gold-into-club-color gradient that turned to mud for the two warm
   // clubs (SF red went rust, LA gold went flat brown) and needed a per-club special case to hide it.
   const gold = dark ? '#ffce55' : '#e8a900'
   const goldSoft = dark ? '#f2c04a' : '#3d2905' // strip text: bright on dark, deep espresso on the gold ribbon (small uppercase, needs AA on the bright gold)
@@ -649,7 +649,7 @@ export function ChampionBanner({ champion, season, runnerUp, champWins, rivalWin
   // The field goes DARK under the name and keeps the gold on the far edge, like an engraved plaque:
   // the name sits over the left half, and a flat gold field left every bright club name short of AA
   // there (SF was 2.67:1). Dark is espresso warming to a gold edge; light stays bright under the
-  // name and deepens to gold. Do not flatten this to an even gold and do not put the club colour
+  // name and deepens to gold. Do not flatten this to an even gold and do not put the club color
   // back in the field: both drop the name below 4.5:1. Measured worst point under the name clears
   // 4.5:1 for all four in both themes, SF the floor at 4.72 dark / 5.39 light.
   const cardBg = dark
@@ -671,15 +671,15 @@ export function ChampionBanner({ champion, season, runnerUp, champWins, rivalWin
         cursor: open ? 'pointer' : 'default',
         border: '1.5px solid', borderColor: alpha(gold, dark ? 0.55 : 0.7),
         boxShadow: `0 2px 14px -6px ${alpha(gold, dark ? 0.5 : 0.55)}`,
-        // A warm gold trophy card warming to a hint of the club's own colour, so the title reads
-        // as the one biggest thing on the page without a flat colour block fighting the cards
+        // A warm gold trophy card warming to a hint of the club's own color, so the title reads
+        // as the one biggest thing on the page without a flat color block fighting the cards
         // under it.
         backgroundImage: cardBg,
         ...FOCUS_RING,
       }}
     >
       {/* Gold ribbon, the champion equivalent of LiveHero's red one. A real gold fill with
-          high-contrast text rather than a faint wash of the muddy medal colour. */}
+          high-contrast text rather than a faint wash of the muddy medal color. */}
       <Box sx={{
         display: 'flex', alignItems: 'center', gap: 0.75, px: 2, py: 0.75,
         background: stripBg,

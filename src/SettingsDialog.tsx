@@ -61,7 +61,7 @@ interface Props {
 
 function SettingsLabel({ children, icon, danger, sx }: {
   children: React.ReactNode
-  /** A small leading glyph so each section is recognisable at a glance, which earns its keep once
+  /** A small leading glyph so each section is recognizable at a glance, which earns its keep once
    *  the desktop layout puts two columns of these on screen at once. Muted to match the label. */
   icon?: React.ReactNode
   /** The danger zone's header, tinted to match its card so the warning reads before the words. */
@@ -148,7 +148,7 @@ function Row({ title, hint, control, onClick, chevron, first, children }: {
  *
  *  Without it, "Pick reminders" is a dead end for the majority of readers, who arrive from
  *  the WPBL section and have never seen the MLB predictions game. The row named a feature
- *  they had no way to recognise, in a block whose only clue was a three-letter pill. */
+ *  they had no way to recognize, in a block whose only clue was a three-letter pill. */
 const LEAGUE_BLURB: Record<'wpbl' | 'mlb', string> = {
   wpbl: 'Reminders for Women’s Pro Baseball League games.',
   mlb:  'Your club, plus reminders for MLB Predictions, the daily pick-the-winners game.',
@@ -650,7 +650,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
 
   return (
     // ModalShell, not MUI's Dialog: it is what every other modal on the site uses, so Settings
-    // now shares their card, hairline, backdrop and Esc/click-away behaviour instead of
+    // now shares their card, hairline, backdrop and Esc/click-away behavior instead of
     // landing as a flat grey slab. It also drops the DialogActions bar and its "DONE" button
     // button, because every control here writes the moment you touch it and a commit-shaped button was
     // promising a step that does not exist. The ✕ in the header is the way out.
@@ -806,7 +806,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
 
         {/* Accessibility. Swipe and text size exist because the browser has no way to ask the
             question for us; reduce motion is an explicit override of the OS `prefers-reduced-
-            motion` query, which the site still honours as the baseline (see src/styles.css). */}
+            motion` query, which the site still honors as the baseline (see src/styles.css). */}
         <Box>
           <SettingsLabel icon={<AccessibilityNewOutlined />}>Accessibility</SettingsLabel>
           <SettingsCard>

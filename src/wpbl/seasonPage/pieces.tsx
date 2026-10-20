@@ -271,8 +271,8 @@ export function LeaderRow({ rank, wide = false, name, teamId, value, href, onNav
       <Typography sx={{ flexShrink: 0, width: wide ? '1.75rem' : '1rem', fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.disabled', whiteSpace: 'nowrap' }}>
         {rank}
       </Typography>
-      {/* The player's face, not a bare team-colour dot: the portrait keeps the club signal (it
-          falls back to initials on the team colour with a team-secondary ring) while turning an
+      {/* The player's face, not a bare team-color dot: the portrait keeps the club signal (it
+          falls back to initials on the team color with a team-secondary ring) while turning an
           anonymous leaderboard into a row of people, which is what a season recap is about. */}
       <PlayerPortrait name={name} teamId={teamId} size={28} />
       <NameText name={name} sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.title, fontWeight: 600 }} />

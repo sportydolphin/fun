@@ -21,7 +21,7 @@ import { WinnerShareRow, captureNode, downloadBlob, type ShareCardData } from '.
 import { FOCUS_RING, TAPPABLE, TYPE_SCALE, chromePx, hoverOnly } from './ui'
 
 /** The reader picks the ground the poster sits on when they export. Only the ground and the text
- *  ON it (masthead, footer) change; the winner rows carry their own club colours and read on either.
+ *  ON it (masthead, footer) change; the winner rows carry their own club colors and read on either.
  *  The footer's dolphin mark is a black frame with a white dolphin, so it needs a chip of the
  *  OPPOSITE tone to stay visible: a white chip on the dark ground, a dark chip on the light one. */
 export type PosterMode = 'light' | 'dark'
@@ -33,7 +33,7 @@ const POSTER_THEME: Record<PosterMode, { bg: string; text: string; subtext: stri
 }
 
 const POSTER_FILENAME = (mode: PosterMode) => `wpbl-fan-awards-2026-winners-${mode}.png`
-/** Instagram-story proportions: 1080 wide, a 16:9-tall frame the content is centred inside so a
+/** Instagram-story proportions: 1080 wide, a 16:9-tall frame the content is centered inside so a
  *  short slate reads as a poster rather than floating at the top, while a long one grows past it and
  *  still shares fine. Fixed px so the export is identical for every reader regardless of text scale. */
 const POSTER_W = 1080
@@ -43,7 +43,7 @@ const POSTER_PAD = 48
 const ROW_GAP = 20
 const BLOCK_GAP = 52
 
-/** The masthead: trophy, the awards line in gold, the year line large. Centred at the top of the
+/** The masthead: trophy, the awards line in gold, the year line large. Centered at the top of the
  *  page above the rows. The gold stays gold on either ground; the year line takes the theme text. */
 function PosterHeader({ theme }: { theme: typeof POSTER_THEME[PosterMode] }) {
   return (
@@ -64,7 +64,7 @@ function PosterHeader({ theme }: { theme: typeof POSTER_THEME[PosterMode] }) {
   )
 }
 
-/** The footer wordmark, centred under the rows. The mark's chip flips with the ground so the black
+/** The footer wordmark, centered under the rows. The mark's chip flips with the ground so the black
  *  frame and white dolphin always sit on a contrasting tile. */
 function PosterFooter({ theme }: { theme: typeof POSTER_THEME[PosterMode] }) {
   return (
@@ -80,7 +80,7 @@ function PosterFooter({ theme }: { theme: typeof POSTER_THEME[PosterMode] }) {
 }
 
 /** The off-screen poster. Story proportions, the masthead and footer bracketing one column of winner
- *  rows, on the ground the reader chose. Centred in a 16:9-tall frame so a short slate sits as a
+ *  rows, on the ground the reader chose. Centered in a 16:9-tall frame so a short slate sits as a
  *  poster and a long one grows past it. `--app-chrome:1` for the same reason the rows force it:
  *  portraits must render at exactly their px. */
 export function WinnersPoster({ winners, nodeRef, mode = 'dark' }: { winners: ShareCardData[]; nodeRef: Ref<HTMLDivElement>; mode?: PosterMode }) {

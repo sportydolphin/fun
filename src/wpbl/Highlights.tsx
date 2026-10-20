@@ -29,7 +29,7 @@ export function PlayBadge({ size = 44 }: { size?: number }) {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         transition: 'transform 0.12s, background 0.15s',
       }}>
-        {/* Simple play triangle, nudged right to sit optically centred in the disc. */}
+        {/* Simple play triangle, nudged right to sit optically centered in the disc. */}
         <Box sx={{
           width: 0, height: 0, ml: '3px',
           borderStyle: 'solid', borderWidth: `${size * 0.18}px 0 ${size * 0.18}px ${size * 0.28}px`,
@@ -84,7 +84,7 @@ export function VideoThumb({ video, vertical, badge = 44, radius = 0, sizes }: {
   )
 }
 
-// A recognisable friendly label for a video's date. Game videos carry the game date parsed from
+// A recognizable friendly label for a video's date. Game videos carry the game date parsed from
 // the title (game_date_hint); everything else falls back to the upload time.
 export function videoDateLabel(v: WpblVideo): string {
   const iso = v.game_date_hint ? `${v.game_date_hint}T00:00:00` : v.published_at

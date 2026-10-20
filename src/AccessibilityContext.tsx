@@ -15,13 +15,13 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 //     stats and lineup grids into something quite different from what the reader had. This
 //     scales the TYPE and leaves the layout alone.
 //
-//   • Reduce motion. The OS `prefers-reduced-motion` query is still the BASELINE, honoured
+//   • Reduce motion. The OS `prefers-reduced-motion` query is still the BASELINE, honored
 //     site-wide in src/styles.css, and nobody who set it there has to touch this. This is the
 //     explicit override for the reader who wants motion off regardless — a device that never
 //     asks, a shared computer they can't change, or simply a preference the OS setting is too
 //     blunt to hold. On, it forces the exact same collapse the OS query does (via the
 //     `data-reduce-motion` attribute below and a mirrored rule in styles.css), so there is one
-//     behaviour, reachable two ways.
+//     behavior, reachable two ways.
 //
 // All three live in localStorage, like the units and experiments preferences: no account
 // needed, so they work for the signed-out majority.

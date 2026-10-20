@@ -116,7 +116,7 @@ export function seedingRace(rows: WpblStandingRow[], games: WpblGame[]): WpblSee
     const bestPossible = 1 + others.filter(o => o.row.wins >= me.maxWins).length
     const worstPossible = 1 + others.filter(o => o.maxWins >= me.row.wins).length
 
-    // The climb is priced with the same function as the defence, deliberately: two formulas for
+    // The climb is priced with the same function as the defense, deliberately: two formulas for
     // "what does this club still need" would eventually disagree in front of a reader, and the
     // question is the same one asked about a different seed.
     const climbMagic = bestPossible < me.seed ? magicFor(bestPossible) : null

@@ -222,7 +222,7 @@ function halfInningEndings(
       }
 
       // Positive evidence only. No score published (an older row, or a caller holding a slice
-      // of the season) leaves this false, and the game keeps the old behaviour of losing just
+      // of the season) leaves this false, and the game keeps the old behavior of losing just
       // its last half-inning. Wrong in the safe direction: a smaller table, not a biased one.
       if (score != null) unplaced[half] = score - inLog - missing > 0
     }
@@ -542,7 +542,7 @@ export interface RunValueLine<P extends LeaguePlayer = LeaguePlayer, T extends R
  * Roll play values up per player, in whichever direction is good news for the side asked for.
  *
  * A pitcher's number is the batting side's swing NEGATED: the same play that adds half a run
- * to an offence took half a run away from the pitcher who allowed it, and a board that
+ * to an offense took half a run away from the pitcher who allowed it, and a board that
  * ranked pitchers by the batting side's sign would put the worst of them on top.
  */
 export function runValueLeaders<P extends LeaguePlayer, T extends RunValuePlay>(

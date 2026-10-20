@@ -107,7 +107,7 @@ with no posts about it, the club filter falls back to all clubs rather than leav
 own one-line description of herself, and a link to the publication. It is the only link here
 that goes somewhere other than a single article. There is deliberately no "opens in her
 site" note anywhere: every card already carries a ↗, and saying it in words as well read as
-apologising for the feature rather than crediting her.
+apologizing for the feature rather than crediting her.
 
 The game surface is the one that justifies the feature. *"Queens Topple Heights, 10-8, In
 Just Another Ballgame"* now sits in the same modal as that game's box score, play-by-play
@@ -127,7 +127,7 @@ The filter is her own tags, because a human's filing beats anything we would inf
   WPBL tag inclusively let exactly the wrong thing through;
 - otherwise a `WPBL` or `Women's Pro Baseball League` tag includes;
 - untagged posts are excluded. Every post in her archive carries a tag today, so an
-  untagged one is new behaviour worth looking at rather than guessing about.
+  untagged one is new behavior worth looking at rather than guessing about.
 
 Today that is 11 of 23 posts.
 
@@ -300,7 +300,7 @@ Hourly rather than every two minutes like `wpbl-ingest`: she publishes about twi
 what matters is the ceiling on staleness, and an essay is no less good on the site an hour
 after it lands. It runs at 17 past to stay clear of the jobs that fire on the hour.
 
-The function authorises on the JWT's `role` claim rather than string-matching the service-role
+The function authorizes on the JWT's `role` claim rather than string-matching the service-role
 key. Supabase verifies the signature before the handler runs, so what is left to establish is
 WHICH key it was, and that matters because the anon key is also a valid project JWT and it
 ships in the browser bundle. Platform verification alone (which is all `wpbl-ingest` relies on)
@@ -331,7 +331,7 @@ Rejected alternatives, for the record:
   that photo is a wide shot of her on a ballfield rather than a head-and-shoulders portrait.
   There is no crop that rescues it: the source is already square, and Substack's CDN has
   Cloudinary's face gravity turned off (`g_face` returns 404), so the only option is a
-  centred fill of the whole frame. It reads as a small figure rather than a face. Worth
+  centered fill of the whole frame. It reads as a small figure rather than a face. Worth
   asking for a portrait in the same note that asks permission at all.
 - **Paywalled posts.** All 23 are `audience: everyone` today. When one isn't, the card
   should say so rather than sending a reader into a wall unannounced.
@@ -358,7 +358,7 @@ That was 34 of 151 posts on Sep 25, 2026, checked by hand. See `isRisingFastball
 
 **Translations are dropped** (`dropTranslations`). Some posts are published two or three times.
 A Japanese edition goes on its Japanese title. A Spanish one can share the English title exactly
-("Rosi Del Castillo: La Nena", both labelled `es` by Substack), so among posts with one title the
+("Rosi Del Castillo: La Nena", both labeled `es` by Substack), so among posts with one title the
 one with the English dek is kept.
 
 **Recaps without a score** link to their game by a second route in `matchGame`. The headlines
@@ -379,6 +379,6 @@ are matched on the text, not just the headline. The body is used for matching an
 everywhere else here.
 
 **The credit.** Every card names the writer. The byline bio for this writer is third person, so
-it is summarised in our words rather than quoted (`bioIsQuote: false`): the quotation marks on
+it is summarized in our words rather than quoted (`bioIsQuote: false`): the quotation marks on
 mary's exist to keep a first-person "I" from reading as ours, and there is no "I" here.
 

@@ -66,7 +66,7 @@
 /* These defaults are what the page shows BEFORE React mounts and pushes the active
    surfaces into --bg-color/--card-bg/--sd-card-border. Kept in sync with DEFAULT_SURFACES in
    ThemeContext so a hard refresh doesn't flash a different shade before hydration. In dark mode a
-   card is the page colour (flat), so --card-bg matches --bg-color there. The index.html head
+   card is the page color (flat), so --card-bg matches --bg-color there. The index.html head
    script sets [data-theme] pre-paint. */
 :root {
   color-scheme: light;
@@ -92,11 +92,11 @@
 :root {
   --wpbl-accent-fg: #1565c0;
   /* Accent used as a FILL with white text on it. #60a5fa measures 2.37:1 against white, and
-     colour contrast is absolute, so that fails in dark mode exactly as hard as in light, which
+     color contrast is absolute, so that fails in dark mode exactly as hard as in light, which
      is why this one value serves both themes rather than splitting. */
   --wpbl-accent-solid: #1565c0;
   /* The winner's cell wash on the compare page. A FULL-CELL shade (Stathead marks a leader by
-     the whole column, not a ring round the glyph), so it is tuned lighter than any text colour:
+     the whole column, not a ring round the glyph), so it is tuned lighter than any text color:
      it sits behind a full-strength number and a bold weight, which are what actually name the
      winner, and must not fight them. Light surfaces need less of it than dark. */
   --wpbl-compare-lead: rgba(21, 101, 192, 0.13);
@@ -119,12 +119,12 @@
      AA as text in its own theme. NOT prefixed --wpbl-: the experiments flag is app-wide and
      the MLB section can mark a feature with the same chip. */
   --experimental-fg: #8a6200;
-  /* MLB's status colours AS TEXT: a win, a loss, a streak, a payroll, a move type. The dark values
+  /* MLB's status colors AS TEXT: a win, a loss, a streak, a payroll, a move type. The dark values
      are the section's Tailwind 400/500 originals (nudged lighter only where they missed 4.5:1);
      the light ones are the same hues darkened by the least that reaches 4.5:1 on white, the page
      and the zinc page, since the originals measure 1.9 to 3.8 there. Fills, bars and tints keep
      the raw hex. Mirrored by TONE in src/mlb/constants.ts; textTone() in src/mlb/lib/contrast.ts
-     does the same arithmetic for a colour only known at runtime. */
+     does the same arithmetic for a color only known at runtime. */
   --mlb-tone-red: #c93939;
   --mlb-tone-green: #167e3c;
   --mlb-tone-orange: #b35310;
@@ -192,7 +192,7 @@ h1 { margin: 0 0 8px 0; }
 
 
 /* ─── Reduced motion ──────────────────────────────────────────────────────────
-   Honour the reader's OS-level "reduce motion" preference across the whole site.
+   Honor the reader's OS-level "reduce motion" preference across the whole site.
    This is a baseline, not a setting: someone who has asked their operating system for
    less motion has already answered the question, and shouldn't have to find a toggle
    in an app to be taken at their word.
@@ -249,7 +249,7 @@ h1 { margin: 0 0 8px 0; }
    only while the finger is down and follows the element's own rounded corners.
 
    `transparent` and not `rgba(0,0,0,0)`: some older Android WebViews treat a fully transparent
-   colour as "unset" and paint the default anyway, and the keyword is the spelling they honour. */
+   color as "unset" and paint the default anyway, and the keyword is the spelling they honor. */
 html {
   -webkit-tap-highlight-color: transparent;
 }

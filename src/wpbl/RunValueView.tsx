@@ -88,7 +88,7 @@ import { ordinal } from '../lib/format'
 // across one.
 //
 // EACH ROW IS DRAWN, NOT ONLY SPELLED. "1st & 3rd" has to be read; a diamond with two corners
-// filled is recognised, because it is the same shape the scoreboard has been showing all game
+// filled is recognized, because it is the same shape the scoreboard has been showing all game
 // and the same one the live strip draws at the top of a game page. Eight rows of that is the
 // difference between a spreadsheet and a table you can find your way around, on the most
 // expert-looking thing in the section.
@@ -223,7 +223,7 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
   )
 }
 
-/** Prose inside the explanation. One size, one colour, so a step reads as a paragraph and not
+/** Prose inside the explanation. One size, one color, so a step reads as a paragraph and not
  *  as four competing weights. */
 function Say({ children }: { children: React.ReactNode }) {
   return (
@@ -545,17 +545,17 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
   const loaded = reOf(table, 0, 7)
 
   return (
-    /* CAPPED AND CENTRED inside the full-bleed box StatsView puts this board in.
+    /* CAPPED AND CENTERED inside the full-bleed box StatsView puts this board in.
 
     A list has nothing to spend width on: stretched to the whole 1416px, a player's name sits
     at x=126 and their number at x=1309, which is not a row, it is two columns that happen to
     share a border. So below `lg` the cap is `BOARD_COLUMN`, the section's own list measure
     (the same one Schedule, Standings, Teams and the game card's play-by-play use), and from
-    `lg` up it is `BOARD_COLUMN_WIDE`, the room the two columns below need. Centred rather
+    `lg` up it is `BOARD_COLUMN_WIDE`, the room the two columns below need. Centered rather
     than left, because a left-aligned board hangs off the left edge of the page with a third
     of the width empty beside it.
 
-    Centred at the list measure lands on exactly the page column's edges, since that column
+    Centered at the list measure lands on exactly the page column's edges, since that column
     is the same measure. That is not a reason to drop the bleed and use the column instead:
     the bleed is `calc(100vw - 24px)` below `sm`, which is WIDER than the column there, and
     giving those 8px back clips two leaderboard names at the Large text setting. The cap

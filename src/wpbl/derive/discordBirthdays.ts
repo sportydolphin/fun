@@ -5,7 +5,7 @@
 // unit testing, and the sender (scripts/post-wpbl-discord-birthdays.ts) exits on missing
 // env at import time, so a test cannot load it.
 //
-// Two judgement calls live here rather than in the job, because both are about what the
+// Two judgment calls live here rather than in the job, because both are about what the
 // channel is told:
 //
 //   1. Only a settled date is greeted. The birthdays doc and the BDay sheet both admit to

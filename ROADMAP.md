@@ -58,11 +58,11 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
    the view in place. Leaders on a phone takes the Table's controls (Hitting / Pitching, a Stats
    pill, a Filters sheet without All-Time), and ranks ties the way the Table does: "T-1", with a
    medal only for a place nobody shares. Pinned in `__tests__/leadersBoard.test.tsx`.
-4. ✅ **Readable colour in both themes** (Oct 2, v1.118.0). MLB's colours were picked on dark, so on light
-   the section blue, the status colours and team colours as text measured 1.9 to 3.8:1, and the
+4. ✅ **Readable color in both themes** (Oct 2, v1.118.0). MLB's colors were picked on dark, so on light
+   the section blue, the status colors and team colors as text measured 1.9 to 3.8:1, and the
    team cards' secondary white 2.1:1 on the red clubs. Text now goes through `ACCENT_TEXT`,
    `TONE` (theme-keyed `--mlb-tone-*` in styles.css) or `textTone()` / `useTextTone()` for a
-   colour known only at runtime; white sits on `FILL` or the solid accent; `teamPalette` sizes
+   color known only at runtime; white sits on `FILL` or the solid accent; `teamPalette` sizes
    its secondary white per club and deepens Baltimore and Philadelphia's card a shade. Raw hexes
    stay for fills, bars and tints. A page-by-page audit (every MLB tab, team, player and game
    page, light and dark, phone and desktop) found nothing under 4.5:1 afterwards. Pinned in
@@ -185,7 +185,7 @@ switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
    HLD / ERA / SO / WHIP, then MLB.com's standard line with the rates last, folding into even rows
    on a phone); the header bar in one type style (`src/ui/headerBar.tsx`); the trend chart drawn at
    the card's width on a desktop instead of blown up to it, scrubbed sideways and scrolled
-   vertically on a phone (`touch-action: pan-y`, only a tap selects); honours on one row with
+   vertically on a phone (`touch-action: pan-y`, only a tap selects); honors on one row with
    "+N"; club stripes audited (Dodgers white, Angels navy, Brewers yellow, Guardians red). The same
    year menu is on WPBL's card, showing a plain label until a player has a second season.
 
@@ -236,7 +236,7 @@ will actually see all winter. The functional items do not wait.
 
 1. ✅ **Share cards for MLB links** (Oct 9). Only `functions/wpbl/` rewrote `og:` tags, so a shared
    MLB player or game link unfurled as the generic site card. A player now unfurls with club,
-   season line and the headshot on the club colour; a game with the score, status and series.
+   season line and the headshot on the club color; a game with the score, status and series.
    See "Link previews, MLB" in ARCHITECTURE.md.
 2. ✅ **Short links for MLB players, games and series** were already there (`/m/<code>`,
    `functions/m/`), and every MLB copy-link button uses them. Listed so nobody builds them twice.
@@ -404,7 +404,7 @@ will actually see all winter. The functional items do not wait.
    `defaultBorder` now returns `CARD_BORDER`'s values, so the cards not converted draw the same
    outline. The board rows take `TYPE_SCALE`, and `leaderboards.tsx` is the first MLB file on the
    type-scale test's adopted list. Pinned in `__tests__/boardCard.test.tsx`.
-   *Kept as they are:* Standouts and On Fire / Ice Cold, whose frames are the club's colour and
+   *Kept as they are:* Standouts and On Fire / Ice Cold, whose frames are the club's color and
    gradient (a hero card, like WPBL's Last game, not a list card); and the scoreboard, bracket
    and live cards, which retire on Nov 1. `TabTitle` goes with item 2, which is what it is for.
    `TeamBadge` and `LeaderRow` stay in WPBL: both read WPBL's own logos, portraits and player
@@ -422,7 +422,7 @@ will actually see all winter. The functional items do not wait.
    fourteen Home files and `src/ui/card.tsx` are on the type-scale test's adopted list. Two layout
    fixes came out of it: the scoreboard chip is `7.75rem` rather than `chromePx(124)`, since it
    reserves room for text, and the standings snapshot's header labels share the rem widths of the
-   cells under them. And `SectionCard`'s icon is a 1em box with the emoji centred in it: an emoji font draws
+   cells under them. And `SectionCard`'s icon is a 1em box with the emoji centered in it: an emoji font draws
    well inside its advance, so the 10px gap to the title read as 14px. Spacing to match: one gap on Home,
    `HOME_GAP` (1.5, WPBL's), under the title, the scoreboard and the bracket and between cards both
    ways, where it was 2 and 2.5; and the score strip's padding is 0.5, room for the hover lift.
@@ -430,7 +430,7 @@ will actually see all winter. The functional items do not wait.
    ✅ *One Home width, Oct 9 (v1.136.0):* MLB Home was 1372px (980 under the old zoom) and WPBL's
    1260, so a section switch moved the cards 56px each side; below `md` the columns were 640 and 720.
    Both read `HOME_W` and `PHONE_COLUMN_W` from `src/ui/layoutWidths.ts` now. MLB's Home is SIZED
-   to it and centred with a margin rather than capped, since WPBL's breaks out of the shell's 20px
+   to it and centered with a margin rather than capped, since WPBL's breaks out of the shell's 20px
    padding and a cap stops short of it below about 1300px. Measured edge to edge at 1440, 1100, 960
    and 760: the two match.
    ✅ *Sections kept alive, Oct 9 (v1.137.0):* a section switch tore the section down and rebuilt
@@ -454,11 +454,11 @@ will actually see all winter. The functional items do not wait.
    Teams lost their two private title sizes. Measured at 1440: 30px, 800, top 81 on every MLB tab
    and on `/wpbl/standings`.
 3. **One sub-navigation pattern.** WPBL: a left-aligned row of text tabs over filter chips. MLB: a
-   centred pill row, sometimes with a second segmented control on the right. Use WPBL's.
+   centered pill row, sometimes with a second segmented control on the right. Use WPBL's.
    ✅ *Oct 9:* WPBL Stats' board row is `src/ui/PageTabs.tsx`, and MLB's page-level rows are on
    it: the Stats boards (Leaders / Table / Charts, real links) and Standings' modes (Bracket /
-   Divisions / Playoff Picture / Odds), left-aligned where they were a centred `SegControl`. Charts'
-   Report Card / Graphs was a second, centred underline row; it is a switch on one address, so it
+   Divisions / Playoff Picture / Odds), left-aligned where they were a centered `SegControl`. Charts'
+   Report Card / Graphs was a second, centered underline row; it is a switch on one address, so it
    is a `PillGroup` at the head of the board's controls. The rule in both sections now: underline
    tabs are pages, `PillGroup` is a switch, chips are filters. Measured at 1000px: the row sits at
    y=136 on every MLB tab and on `/wpbl/stats`. ✅ *The player card's Batting / Pitching, Oct 10:*
@@ -475,10 +475,10 @@ will actually see all winter. The functional items do not wait.
    match the 30 clubs' totals exactly; none on a career board). Every row is drawn, in the capped
    scroll box, where "Load 50 more" paged it. The qualifying bar and the regular / playoffs / all
    choice are WPBL's chips (`src/ui/FilterChip.tsx`, moved out of WPBL's StatsView). The phone's
-   ranked list is unchanged. Still MLB's own: the medals, the headshots and the sort colours.
+   ranked list is unchanged. Still MLB's own: the medals, the headshots and the sort colors.
 5. ✅ **One box score and one play row** inside Game Center (Oct 10). The drawing is
-   `src/ui/gameCenter.tsx`, WPBL's, and each section feeds it: `BoxTable` (centred cells, muted
-   zeros, the pinned name column, a totals row under the club's colour, fitted on a phone),
+   `src/ui/gameCenter.tsx`, WPBL's, and each section feeds it: `BoxTable` (centered cells, muted
+   zeros, the pinned name column, a totals row under the club's color, fitted on a phone),
    `BoxTeamHeading` and `BoxTeamSwitch` (underline tabs, where MLB had pills), `HalfHeading`
    ("Top 6th · CLE · vs A. Kay", then +N and the score after) and `PlayRow` (the green rail, the
    batter in weight, the runners underneath, the count and the bases and outs the play left at
@@ -486,7 +486,7 @@ will actually see all winter. The functional items do not wait.
    WPBL's columns (HR, 2B and SB added; IP totalled as outs), keeps the season AVG and ERA off a
    phone, and prints "(W)" there. Kept apart: MLB's latest-first order and its Scoring / All
    chips, WPBL's pitch sequences, clips and play links, which StatsAPI has no match for here.
-   The sheet's tabs are `SegControl`, centred on their own row, with the Plays controls moved
+   The sheet's tabs are `SegControl`, centered on their own row, with the Plays controls moved
    under them: the five shared one row and wrapped on a phone. A live game's unplayed home half
    no longer prints the X a finished game does.
 
@@ -500,7 +500,7 @@ will actually see all winter. The functional items do not wait.
    lit across every card. MLB's default cards are WPBL's eight in WPBL's order (Walks for Runs, and
    seven on pitching, since FIP is no StatsAPI leader category); the table's default sort moved to
    `TABLE_DEFAULT_SORT` so it no longer rides on that list. MLB's Players grid takes WPBL's row: a
-   20px club logo where the 35px headshot was (rows 42px, were 56), centred cells in WPBL's sizes and
+   20px club logo where the 35px headshot was (rows 42px, were 56), centered cells in WPBL's sizes and
    tint, and competition ranks on the sorted column. Kept apart: MLB's season and stat pickers,
    WPBL's Advanced view and club chips. The predictions and Survivor boards keep their medals:
    those are games, not stats.
@@ -526,8 +526,8 @@ will actually see all winter. The functional items do not wait.
    - The bar pins on every MLB board (`src/mlb/views/StatsBar.tsx`), and the table pins under it.
    - The desktop table stops at 25 rows in both sections (`TABLE_CAP`) with "Show all N players".
    - MLB's columns are WPBL's, in WPBL's (Baseball-Reference's) order: G, PA, R and the TB to IBB
-     tail added, K labelled SO, 1B gone. Cells, header and padding are WPBL's; the line under a name
-     is the position (SP / RP for pitchers), and portraits wear the club's second colour.
+     tail added, K labeled SO, 1B gone. Cells, header and padding are WPBL's; the line under a name
+     is the position (SP / RP for pitchers), and portraits wear the club's second color.
    - MLB has Advanced (`src/mlb/lib/advanced.ts`): WPBL's columns, computed from the season line
      except wOBA and wRC+, which come from StatsAPI's sabermetrics and only for a regular season.
    - Both headers are two rows, the labels and then a pinned "League avg" row
@@ -635,7 +635,7 @@ the 368 preload links in the built `index.html` are by design, the MLB ones iner
 
 **Stays different, on purpose:** predictions, Milestones, Roster Moves, Live Drama and follow a
 team only make sense with thirty clubs (follow a team was dropped for WPBL's four), and each
-league keeps its own colour on the section switch.
+league keeps its own color on the section switch.
 
 ## Aligning with WPBL (Sep 27, 2026) 🎯⚙️
 
@@ -653,7 +653,7 @@ goes first and the rest is winter work.
 | Area | `/mlb` | WPBL pattern to copy |
 |---|---|---|
 | Phone nav | ✅ *Fixed Sep 28 (item 3).* Was 6 pills in a sideways scroller; at 375px Stats and Search are off screen, no swipe, and the player page lights no tab | Bottom bar + More sheet, swipe pager, visited tabs kept mounted |
-| Overlays | ✅ *Fixed Sep 28 to 30 (item 4).* Were 10 hand-rolled `position: fixed` boxes: centred, 26px close, `backdropFilter` blur (the cost WPBL removed), not portalled | `ModalShell`: portalled, a bottom sheet on a phone with drag to dismiss |
+| Overlays | ✅ *Fixed Sep 28 to 30 (item 4).* Were 10 hand-rolled `position: fixed` boxes: centered, 26px close, `backdropFilter` blur (the cost WPBL removed), not portalled | `ModalShell`: portalled, a bottom sheet on a phone with drag to dismiss |
 | Back | ✅ *Fixed Sep 28 (item 4).* Back with Game Center open leaves the section entirely (lands on `/wpbl`), because no MLB modal is a history entry | Every modal is a history entry; Back closes it |
 | URLs, SEO | ✅ *Paths done Oct 2 (item 4), hrefs and headings Oct 2 (item 7), the address driving the state Oct 3.* Was one URL, `/mlb?view=&pid=`, so one title and nothing indexable; 8 `href`s against 201 `onClick`s (the scoreboard's "Box →" is a plain div); no `<h1>` | A path per tab, player, game and team; `linkTo()`; `PageHeading` |
 | Requests | ✅ *Fixed Sep 28 (item 5).* Was **107 on Home mount**, 60 of them per-team stats (`fetchTeamRankings`, 30 clubs x 2 groups) that `/teams/stats?sportIds=1` answers in 2 | 24 on Home |
@@ -674,8 +674,8 @@ goes first and the rest is winter work.
    season totals (streaks, leaderboards, playoff odds, report cards) stay `R`, and
    `__tests__/gameStatus.test.ts` fails on any new schedule read that filters to `R` without a
    listed reason. Four postseason shapes came with it:
-   - **Cancelled is not final.** Sep 27's BAL@NYY (rain, `codedGameState` "C") rendered as
-     "FINAL 0–0"; only a postponement was recognised.
+   - **Canceled is not final.** Sep 27's BAL@NYY (rain, `codedGameState` "C") rendered as
+     "FINAL 0–0"; only a postponement was recognized.
    - **Stand-in clubs** ("HOU/CWS", id 5528) are shown but cannot be picked, by people or bots,
      since a pick against the stand-in's id can never resolve.
    - **Placeholder start times** (`startTimeTBD`, published as 07:33Z) print "TBD" and are never
@@ -811,7 +811,7 @@ goes first and the rest is winter work.
    into their gap at Large text. MUI's Switch and the native select arrow stay at their fixed
    size, as on WPBL.
    *Done Oct 2 (v1.115.0), the nav row and its controls.* The desktop tab bar sits in WPBL's 720
-   column with the pills centred and More pinned right as WPBL's bordered ▾ chip, so a section
+   column with the pills centered and More pinned right as WPBL's bordered ▾ chip, so a section
    switch moves nothing at the top. `SegControl` takes WPBL's raised chip for its active option:
    the old white-on-#60a5fa fill measured about 2.5:1, under AA in both themes, and its options were
    click-only boxes a keyboard could not reach. Settings on the data (Hitting / Pitching, Regular /
@@ -823,7 +823,7 @@ goes first and the rest is winter work.
 ### What MLB does better, and keeps
 
 - **Follow a team and players**, synced to `user_preferences` across devices, with Home built
-  around it. WPBL's favourite team is still parked.
+  around it. WPBL's favorite team is still parked.
 - **Recent searches synced across devices**, and toolbar suggestions (Recent, Your Team,
   Trending). WPBL's recents are localStorage only.
 - **Stat card to leaderboard with the player highlighted** (`handleStatCardClick`). *Ported to
@@ -834,7 +834,7 @@ goes first and the rest is winter work.
 - The predictions engine (bots, Wilson-ranked board) and the MLB-only content: Milestones,
   Roster Moves, contracts, payroll.
 - **Back restores the exact screen you left** (self-describing history snapshots). WPBL does
-  the same thing another way; keep the behaviour, the implementation can change.
+  the same thing another way; keep the behavior, the implementation can change.
 
 ## Where the app stands (as of Aug 10, 2026)
 

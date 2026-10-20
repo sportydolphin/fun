@@ -13,7 +13,7 @@ import { JumpRow } from './pieces'
  * the five games of the final under it, the phone's jump row, then the bracket. Below that it is
  * one reserve the height the rest of the page measured at in October 2026, under the next heading
  * in its place, so the footer stays out of view rather than sitting 300px down the screen and
- * being thrown 6,000px when the page lands, which is what the centred spinner did.
+ * being thrown 6,000px when the page lands, which is what the centered spinner did.
  *
  * The bracket and the rest are data-dependent shapes, so those two reserves are measurements of
  * the loaded page divided by its root size at each breakpoint (16px to `sm`, 20px from `md`), the

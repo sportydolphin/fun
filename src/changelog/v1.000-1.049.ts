@@ -11,7 +11,7 @@ export const ENTRIES: ChangelogEntry[] = [
     changes: [
       {
         short: 'A player page uses the whole screen on a desktop',
-        full:  'The player page was built for a phone and a desktop got that same narrow column: about a third of it visible at a time in a 640px panel, with most of a screen empty either side. On a wide screen it now opens wider and reads as two columns, the season on the left and the games it came out of on the right, with the headline pair moved onto the band that carries the player’s name and club colours. Same numbers, roughly half the scrolling, and nothing about the phone layout changed.',
+        full:  'The player page was built for a phone and a desktop got that same narrow column: about a third of it visible at a time in a 640px panel, with most of a screen empty either side. On a wide screen it now opens wider and reads as two columns, the season on the left and the games it came out of on the right, with the headline pair moved onto the band that carries the player’s name and club colors. Same numbers, roughly half the scrolling, and nothing about the phone layout changed.',
       },
       {
         short: 'Any game in a player\u2019s log opens from the log',
@@ -19,7 +19,7 @@ export const ENTRIES: ChangelogEntry[] = [
       },
       {
         short: 'The game log says where each game was played in the field, and marks the best game in each column',
-        full:  'A new POS column gives the position actually played that day, taken from that game\u2019s box score rather than from the roster listing. Kylee Lahners is filed at third base and the column is what shows six games at DH, two at first, and a move from one to the other in the opener. The best value in each column is picked out in the club\u2019s colour, for the columns where more is genuinely better: runs, hits, doubles, triples, home runs, RBI, steals and total bases, or innings and strikeouts for a pitcher. Strikeouts at the plate and the hits a pitcher gave up are never marked, and neither is a column where nothing stands out.',
+        full:  'A new POS column gives the position actually played that day, taken from that game\u2019s box score rather than from the roster listing. Kylee Lahners is filed at third base and the column is what shows six games at DH, two at first, and a move from one to the other in the opener. The best value in each column is picked out in the club\u2019s color, for the columns where more is genuinely better: runs, hits, doubles, triples, home runs, RBI, steals and total bases, or innings and strikeouts for a pitcher. Strikeouts at the plate and the hits a pitcher gave up are never marked, and neither is a column where nothing stands out.',
       },
       {
         short: 'Team names open the club, everywhere a game is shown',
@@ -30,8 +30,8 @@ export const ENTRIES: ChangelogEntry[] = [
         full:  'The articles on Home are written by mary mustard for their own Substack, towards a more perfect game, and this site only links to them. That was not saying itself clearly enough: the card carried the masthead as though it were ours and printed the bio in the first person with nothing in front of it, and readers were coming away thinking mary mustard writes this site. The credit now says "Written by" before the name, keeps the description in quotation marks as the writer’s own words, and names the Substack as theirs. The full credit stays; it just says whose it is.',
       },
       {
-        short: 'Club colours carry further across a player\u2019s name band',
-        full:  'The colour band behind a player\u2019s name held its club\u2019s near-black primary for most of its width and reached only a hint of the club\u2019s actual hue at one corner, which on Los Angeles and New York left it reading as black. Each club now carries as much of its own colour as its text can stand: Boston\u2019s orange and San Francisco\u2019s red much further across, Los Angeles gold rather than black. The smallest lines on the band were lifted to match, so every one of them still reads on every club.',
+        short: 'Club colors carry further across a player\u2019s name band',
+        full:  'The color band behind a player\u2019s name held its club\u2019s near-black primary for most of its width and reached only a hint of the club\u2019s actual hue at one corner, which on Los Angeles and New York left it reading as black. Each club now carries as much of its own color as its text can stand: Boston\u2019s orange and San Francisco\u2019s red much further across, Los Angeles gold rather than black. The smallest lines on the band were lifted to match, so every one of them still reads on every club.',
       },
     ],
   },
@@ -88,7 +88,7 @@ export const ENTRIES: ChangelogEntry[] = [
     changes: [
       {
         short: 'A traded player keeps one page, one season and one set of numbers',
-        full:  'The league’s stats feed gives a player a brand new id on changing clubs, and says nothing that connects it to the old one. When Diana Ibarra moved from New York to Los Angeles, the move arrived here as a second, separate player: eight games under one name and one game under the other, neither of them the real season, and Ibarra’s own page answering “not found” because two people appeared to be claiming it. Ibarra is one player again, with all nine games, and the site now recognises a trade for what it is instead of meeting a stranger.',
+        full:  'The league’s stats feed gives a player a brand new id on changing clubs, and says nothing that connects it to the old one. When Diana Ibarra moved from New York to Los Angeles, the move arrived here as a second, separate player: eight games under one name and one game under the other, neither of them the real season, and Ibarra’s own page answering “not found” because two people appeared to be claiming it. Ibarra is one player again, with all nine games, and the site now recognizes a trade for what it is instead of meeting a stranger.',
       },
       {
         short: 'A traded player’s old club keeps their games there',
@@ -103,7 +103,7 @@ export const ENTRIES: ChangelogEntry[] = [
     changes: [
       {
         short: 'Losing your connection now shows the site instead of a browser error',
-        full:  'Opening a page with no connection used to hand you whatever your browser shows when it cannot reach a site, which on a phone is usually a dinosaur. There is a proper page for it now, in the site’s own colours and following your dark or light setting, which says you are offline and reloads itself the moment a connection comes back. It keeps the address you were opening, so trying again takes you to that page rather than dropping you at the home screen. Nothing about the site itself is stored on your device to make this work: pages are still fetched fresh every time, so you will never be handed yesterday’s scores as though they were today’s.',
+        full:  'Opening a page with no connection used to hand you whatever your browser shows when it cannot reach a site, which on a phone is usually a dinosaur. There is a proper page for it now, in the site’s own colors and following your dark or light setting, which says you are offline and reloads itself the moment a connection comes back. It keeps the address you were opening, so trying again takes you to that page rather than dropping you at the home screen. Nothing about the site itself is stored on your device to make this work: pages are still fetched fresh every time, so you will never be handed yesterday’s scores as though they were today’s.',
       },
     ],
   },
@@ -133,7 +133,7 @@ export const ENTRIES: ChangelogEntry[] = [
     changes: [
       {
         short: 'A break between innings now looks like a break',
-        full:  'While a WPBL game is on, the live card on the home page and the banner at the top of the Game Center show the inning, the bases, the outs and the count. Between innings none of that is happening. The league’s feed does not have a way of saying so: the moment a side is retired it puts the next half-inning on the board and leaves it empty until the first pitch, which on Wednesday night was a wait of two minutes and forty-two seconds. Drawn literally that read as a game in play, with a batter standing in and a count on them, for the whole of every pitching change. The card now recognises an empty half-inning for what it is and says which break it is instead, like “End of the 4th”, putting the diamond, the outs, the count and the at-bat away until somebody is actually batting. The pulsing dot that marks the side at bat goes out with them, because between innings neither side is.',
+        full:  'While a WPBL game is on, the live card on the home page and the banner at the top of the Game Center show the inning, the bases, the outs and the count. Between innings none of that is happening. The league’s feed does not have a way of saying so: the moment a side is retired it puts the next half-inning on the board and leaves it empty until the first pitch, which on Wednesday night was a wait of two minutes and forty-two seconds. Drawn literally that read as a game in play, with a batter standing in and a count on them, for the whole of every pitching change. The card now recognizes an empty half-inning for what it is and says which break it is instead, like “End of the 4th”, putting the diamond, the outs, the count and the at-bat away until somebody is actually batting. The pulsing dot that marks the side at bat goes out with them, because between innings neither side is.',
       },
       {
         short: 'A playoff bracket on the home page, if you turn experimental features on',
@@ -190,7 +190,7 @@ export const ENTRIES: ChangelogEntry[] = [
     changes: [
       {
         short: 'From the archive: freely licensed women’s baseball photography',
-        full:  'A new archive of photographs of women’s baseball, drawn from Wikimedia Commons and refreshed weekly. It reaches back well before this league: the All-American Girls Professional Baseball League, the World Cup, and the players who came first. Every photograph names its creator and its licence and links back to the source, because a good share of them are licensed on the condition that you do. Each one has been looked at by a person before it appears here, since the categories they come from are maintained by the public and return whatever somebody happened to file.',
+        full:  'A new archive of photographs of women’s baseball, drawn from Wikimedia Commons and refreshed weekly. It reaches back well before this league: the All-American Girls Professional Baseball League, the World Cup, and the players who came first. Every photograph names its creator and its license and links back to the source, because a good share of them are licensed on the condition that you do. Each one has been looked at by a person before it appears here, since the categories they come from are maintained by the public and return whatever somebody happened to file.',
       },
       {
         short: 'Reading, highlights and the archive are one card now',
@@ -243,7 +243,7 @@ export const ENTRIES: ChangelogEntry[] = [
     changes: [
       {
         short: 'The Teams tab shows records, form and the next game',
-        full:  'The Teams tab used to be four cards carrying a badge and a name, which told you nothing you could not get from the home page. Each club now shows its record and win percentage, a five dot strip of its last five results, its run differential, and who it plays next and when. The four are listed in standings order. A win is a solid dot and a loss is a hollow ring, so the strip reads the same way whether or not you can tell the two colours apart.',
+        full:  'The Teams tab used to be four cards carrying a badge and a name, which told you nothing you could not get from the home page. Each club now shows its record and win percentage, a five dot strip of its last five results, its run differential, and who it plays next and when. The four are listed in standings order. A win is a solid dot and a loss is a hollow ring, so the strip reads the same way whether or not you can tell the two colors apart.',
       },
       {
         short: 'A head to head grid on the Teams tab',
@@ -262,8 +262,8 @@ export const ENTRIES: ChangelogEntry[] = [
         full:  'A new accessibility section can make the type larger without reflowing the layout the way browser zoom does, and can turn off swiping between tabs, which is worth having if a stray drag keeps moving you off the page you were reading. Separately, the whole site now respects the reduce motion setting in your operating system, so animations and smooth scrolling stop without your having to find a switch here.',
       },
       {
-        short: 'Colours that were too faint to read have been fixed',
-        full:  'Several colours were measured against the background they actually sit on and failed the contrast standard, almost all of them in light mode. Muted text used for table headings, position codes and captions was the worst of them, along with the blue used for links and the active tab, the medal colours on the leaderboards, the green and red on run differentials, and three of the four team colours where they appear as small text. All have been darkened enough to pass while keeping the same hue.',
+        short: 'Colors that were too faint to read have been fixed',
+        full:  'Several colors were measured against the background they actually sit on and failed the contrast standard, almost all of them in light mode. Muted text used for table headings, position codes and captions was the worst of them, along with the blue used for links and the active tab, the medal colors on the leaderboards, the green and red on run differentials, and three of the four team colors where they appear as small text. All have been darkened enough to pass while keeping the same hue.',
       },
     ],
   },
@@ -393,7 +393,7 @@ export const ENTRIES: ChangelogEntry[] = [
     changes: [
       {
         short: 'See whether early draft picks are actually doing better',
-        full:  'A new Draft tab under WPBL stats plots every drafted player\'s season against where they were taken, with each round\'s average drawn over the top. So far there is no real pattern either way. Each round average is labelled with how many players it covers, because the later rounds rest on one or two players and move a long way on a single good night.',
+        full:  'A new Draft tab under WPBL stats plots every drafted player\'s season against where they were taken, with each round\'s average drawn over the top. So far there is no real pattern either way. Each round average is labeled with how many players it covers, because the later rounds rest on one or two players and move a long way on a single good night.',
       },
       {
         short: 'Copy a link to a WPBL player',

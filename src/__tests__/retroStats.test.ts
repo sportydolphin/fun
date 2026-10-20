@@ -72,7 +72,7 @@ describe('batting', () => {
 
   // An event this grammar has never seen must SAY so. Scored silently as an out it would push
   // the check toward agreeing with us, which is the direction that teaches nobody anything.
-  it('flags an event it does not recognise instead of guessing', () => {
+  it('flags an event it does not recognize instead of guessing', () => {
     expect(batting('ZZ9/WHAT')).toMatchObject({ unknown: true })
   })
 })

@@ -151,7 +151,7 @@ type TileState = 'final' | 'live' | 'upcoming' | 'unneeded'
  *  WHY TILES AND NOT ROWS. Home's scoreboard is gone for the offseason, so this sheet is now the
  *  route from the bracket to a postseason box score, and a hairline row with a hover tint did not
  *  read as something to press: it looked like a table. A bordered tile with the two clubs stacked
- *  the way every scoreboard stacks them, and a "Box score ›" in the link colour at its foot, says
+ *  the way every scoreboard stacks them, and a "Box score ›" in the link color at its foot, says
  *  what it does before anybody hovers. A game still to come gets the same frame with no link, so
  *  the difference between the two is the link and nothing else.
  *

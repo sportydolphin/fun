@@ -28,7 +28,7 @@ const ALLOWED: Record<string, string> = {
   // league feed; MLB: StatsAPI), so the reads, the row shapes and the rules over them are per league.
   'api.ts': "the section's reads: WPBL's Supabase tables, MLB's StatsAPI",
   'types.ts': "the section's row shapes: WPBL's tables, MLB's StatsAPI payloads",
-  'constants.ts': "each league's clubs, logos, colours and stat definitions",
+  'constants.ts': "each league's clubs, logos, colors and stat definitions",
   'routes.ts': "each section's URL map; the shell and the edge functions read both",
   'league.ts': "binds each league's innings, pitch letters and run counting to the engines in src/league",
   'finderLink.ts': "binds each league's clubs and Find address to src/league/finder.ts",

@@ -110,7 +110,7 @@ function mapStatus(text: string, complete?: boolean): 'scheduled' | 'live' | 'fi
   const t = text.toLowerCase().trim()
   if (t.startsWith('final') || t.includes('complete') || t.includes('game over') || t.includes('walk-off')) return 'final'
   // Positive live signals only — everything else (incl. "Not Started", "Scheduled",
-  // "TBA", "Postponed", "Cancelled", or an unknown string) is treated as scheduled, so
+  // "TBA", "Postponed", "Canceled", or an unknown string) is treated as scheduled, so
   // future games never show as live by accident.
   if (t.includes('progress') || t.includes('inning') || t.includes('delay') || /\b(top|bottom|mid|end)\b/.test(t)) return 'live'
   return 'scheduled'
@@ -384,7 +384,7 @@ class PlayerResolver {
     }
 
     // 4) insert a new feed-only player — but never under a name we know is damaged. An
-    // unmatched damaged name is either a roster player this run couldn't recognise or a
+    // unmatched damaged name is either a roster player this run couldn't recognize or a
     // genuinely new one whose name we can't spell; inserting it is wrong in both cases and
     // permanent, while skipping costs only this player's lines for this run. The ingest is
     // idempotent and re-runs every couple of minutes, so a clean payload backfills them.
@@ -1025,7 +1025,7 @@ Deno.serve(async (req) => {
       // Upsert the game row (on api_game_id).
       //
       // THE LIST SCORE IS NOT WRITTEN WHILE LIVE, and this is a correctness fix, not an
-      // optimisation. The list's `presto_data.score` runs a run ahead of the game mid-inning:
+      // optimization. The list's `presto_data.score` runs a run ahead of the game mid-inning:
       // watched on Sep 16, 2026 it published away 6 for LA against the boxscore's away 5 in the
       // same second, and the boxscore's line totals (5) agreed with the boxscore. The boxscore
       // path below owns the score for a live game (it says so itself, and `wantBox` is always

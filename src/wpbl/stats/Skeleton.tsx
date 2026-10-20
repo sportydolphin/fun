@@ -16,7 +16,7 @@ const DESKTOP_BOARD_SKELETON = `calc(${TABLE_CAP} * (1.56rem + ${chromePx(8.06)}
   + ` + 0.64rem + ${chromePx(28.36)} + 48px + 0.99rem + ${chromePx(16.8)} + 2px)`
 
 // Placeholder while a sub-tab's chunk arrives. These views render in place under the group
-// bar, so a centred spinner in the content area is what the reader already sees while their
+// bar, so a centered spinner in the content area is what the reader already sees while their
 // data loads, and the switch reads as slow rather than broken.
 export function SubViewFallback() {
   return (

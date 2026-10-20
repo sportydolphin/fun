@@ -19,7 +19,7 @@ import { TYPE_SCALE } from '../ui/card'
 //
 // ONE FEED WITH A WRITER FILTER, not a section per writer. A reader comes here for the league, and
 // the newest post is the answer to "anything new" whoever wrote it; the writer chips are for the
-// reader who has a favourite. Every card names its writer (ReadingCard), so the merge never blurs
+// reader who has a favorite. Every card names its writer (ReadingCard), so the merge never blurs
 // whose words are whose.
 //
 // WHY A PAGE AND NOT A SHELF. The writing used to be one of three segments in a collapsible card
@@ -174,7 +174,7 @@ const GRID_SX = {
 /**
  * The page before the posts land, drawn with the loaded page's own parts (CLAUDE.md, loading
  * states): both writers' credits, which need nothing from the read; the writer and club chips with
- * their counts held open; the lead; and a month of cards. It was a centred spinner, which left the
+ * their counts held open; the lead; and a month of cards. It was a centered spinner, which left the
  * footer half a screen down and threw it 7,000 to 14,000px when the list landed.
  */
 function ReadingSkeleton() {

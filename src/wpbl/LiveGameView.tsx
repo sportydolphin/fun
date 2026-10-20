@@ -167,7 +167,7 @@ function ScoreHeader({ away, home, game, divider }: {
  * diamond in 8px grey dots. Balls, strikes and outs are the thing a person glances at a live
  * game to read, and they were the least visible thing on the card.
  *
- * So the count is now a band of its own at the top, in the order and the colours every
+ * So the count is now a band of its own at the top, in the order and the colors every
  * ballpark scoreboard uses, and the middle column is just the bases. That also balances the
  * card: the middle was 180px tall against 114px sides, and taking the label and the count out
  * of it brings the three within about 40px of each other.
@@ -266,7 +266,7 @@ function SituationPanel({ game, s, away, home, last, teams, batting, pitching, n
  * The situation card's three-across layout (batter, bases, pitcher), keyed on the CARD's width.
  *
  * A CONTAINER QUERY, NOT A BREAKPOINT, because the viewport does not say how wide the card is: a
- * phone sheet, the 525px side panel, the centred dialog (650px between `md` and `lg`, 1050 above),
+ * phone sheet, the 525px side panel, the centered dialog (650px between `md` and `lg`, 1050 above),
  * and the left column of the full-page Game Center, about 690px however wide the screen. Keyed on
  * `sm` it went three-across in that page column and the narrow dialog, where each player got 141px
  * beside a 362px diamond: a 90px portrait, its padding, and a name column 6px wide that clipped
@@ -281,7 +281,7 @@ function Panel({ children }: { children: React.ReactNode }) {
   // On a phone the whole tab is already a bottom sheet, so a bordered rounded card inset inside
   // it is a box within a box; the line score directly below is full-bleed and borderless for the
   // same reason. So drop the outline here too and let it span the sheet, its own tinted count and
-  // last-play bands carrying the structure the border used to. Desktop is a centred dialog, not a
+  // last-play bands carrying the structure the border used to. Desktop is a centered dialog, not a
   // sheet, so the card still earns its edges there.
   const isMobile = usePhoneLayout()
   return (
@@ -299,21 +299,21 @@ function Panel({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * BALLS, STRIKES, OUTS, in that order and in those colours.
+ * BALLS, STRIKES, OUTS, in that order and in those colors.
  *
  * THE ORDER IS THE SCOREBOARD'S, not ours to arrange. Every park in the world stacks B over S
  * over O, every broadcast graphic reads the same way, and a fan reads the three without looking
  * at the labels because they know where each one lives. The first cut led with outs, which is
  * the same three facts in an order nobody has ever seen them in.
  *
- * THE COLOURS ARE THE SCOREBOARD'S TOO: green for balls, yellow for strikes, red for outs. That
+ * THE COLORS ARE THE SCOREBOARD'S TOO: green for balls, yellow for strikes, red for outs. That
  * is worth more than decoration here, because it is the thing that lets the band be read at a
  * glance rather than counted. Both halves of each pair are defined per theme rather than once,
- * for the usual reason: a colour dark enough to carry 3:1 on white is dim on this section's
+ * for the usual reason: a color dark enough to carry 3:1 on white is dim on this section's
  * near-black, and vice versa.
  *
  * The inning sits on the left of the same band because it is the fourth number in that glance,
- * and because a band with one thing centred in it and nothing else looks like a mistake.
+ * and because a band with one thing centered in it and nothing else looks like a mistake.
  */
 function CountBand({ s, accent, dark }: { s: Situation; accent: string; dark: boolean }) {
   return (
@@ -326,7 +326,7 @@ function CountBand({ s, accent, dark }: { s: Situation; accent: string; dark: bo
       // shaded head and foot say "this is chrome, that is content" without drawing anything.
       bgcolor: 'action.hover',
       display: 'grid', alignItems: 'center', rowGap: 1,
-      // Three tracks on a desktop so the count is centred in the CARD rather than in whatever
+      // Three tracks on a desktop so the count is centered in the CARD rather than in whatever
       // is left over beside the inning. One track on a phone, where it wraps underneath.
       gridTemplateColumns: { xs: '1fr', sm: '1fr auto 1fr' },
       justifyItems: { xs: 'center', sm: 'stretch' },
@@ -389,7 +389,7 @@ function Pips({ label, filled, of, unit, tint }: {
             width: chromePx(13), height: chromePx(13), borderRadius: '50%', flexShrink: 0,
             bgcolor: i < filled ? tint : 'transparent',
             border: '1.5px solid',
-            // An unlit bulb keeps its OWN colour at a whisper rather than going grey. It says
+            // An unlit bulb keeps its OWN color at a whisper rather than going grey. It says
             // what it would be, which is how a scoreboard reads, and it keeps the three groups
             // telling themselves apart on the count every plate appearance opens with, where
             // all seven bulbs are dark and a grey outline says nothing at all.
@@ -544,7 +544,7 @@ function PersonCard({ label, name, team, accent, line, onOpenPlayer, mirror }: {
   if (!name) return <Box />
   // HER NAME, not the feed's spelling of it, once the match has found her. The headshot is
   // looked up BY NAME (`wpblPortraitSet`), so this is not cosmetic: printing "Emi Saki" here
-  // draws initials on a coloured circle beside a statline that is provably hers.
+  // draws initials on a colored circle beside a statline that is provably hers.
   const shown = line.player?.name ?? name
   const props = line.player ? playerLink(line.player, onOpenPlayer) : {}
   return (
@@ -569,7 +569,7 @@ function PersonCard({ label, name, team, accent, line, onOpenPlayer, mirror }: {
         }}>{label} · {team.abbr}</Typography>
         {/* A real <a> when the name resolved to somebody, so this is a crawlable link to her
             page and not a Box with a click handler (see linkTo() in CLAUDE.md). `linkColor` is
-            how the accent survives: the link props carry an inline colour that beats `sx`. */}
+            how the accent survives: the link props carry an inline color that beats `sx`. */}
         <Typography
           component="span"
           {...(props.style ? linkColor(props, accent ?? 'inherit') : props)}

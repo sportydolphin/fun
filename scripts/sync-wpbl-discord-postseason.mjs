@@ -168,7 +168,7 @@ export function planPostseasonSync({ events = [], games = [], cities = new Map()
 
   /**
    * Postseason on POSITIVE evidence only, the same reasoning as countsInStandings(): a
-   * game the feed labels in some way we do not recognise stays a regular-season game,
+   * game the feed labels in some way we do not recognize stays a regular-season game,
    * which is visibly wrong rather than invisibly wrong. The date window is positive
    * evidence too: it comes from the bracket's own events, and no regular-season game is
    * played inside it.
@@ -277,7 +277,7 @@ export function planPostseasonSync({ events = [], games = [], cities = new Map()
     const game = s?.games[slot.game - 1] ?? null
 
     if (slot.ev.status !== EVENT_STATUS_SCHEDULED) {
-      notes.push(`${label}: event is ${slot.ev.status === 2 ? 'live' : 'over or cancelled'}. Skipped.`)
+      notes.push(`${label}: event is ${slot.ev.status === 2 ? 'live' : 'over or canceled'}. Skipped.`)
       continue
     }
 

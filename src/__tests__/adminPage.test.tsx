@@ -108,7 +108,7 @@ describe('AdminPage events list', () => {
   }))
 
   // The raw list lives in the closed "All events" card at the foot of the page; the cards above
-  // it read the same rows through the catalog. Scoped to that card, since an unlabelled name also
+  // it read the same rows through the catalog. Scoped to that card, since an unlabeled name also
   // appears under "Other" in What people do.
   it('keeps the raw list folded, with a head of the long tail and the rest one tap away', async () => {
     fetchAnalytics.mockResolvedValueOnce(bundle({ events: manyEvents }))

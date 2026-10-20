@@ -85,7 +85,7 @@ describe('the finder', () => {
     expect(r.rows[0].headlineDisplay).toBe('4.1')
   })
 
-  it('matches nothing on a field it does not recognise', () => {
+  it('matches nothing on a field it does not recognize', () => {
     // A hand-edited link naming a stat that does not exist must not quietly drop the condition:
     // that answers a WIDER question than the URL asks, and the reader has no way to see it. An
     // empty result is visibly the wrong shape and gets looked at.
@@ -283,7 +283,7 @@ describe('the query in the address bar', () => {
   })
 
   it('counts each player\'s appearances in the games searched, for "2 of 3"', () => {
-    // The denominator honours the club, venue and opponent filters: appearances in games the
+    // The denominator honors the club, venue and opponent filters: appearances in games the
     // question did not look at would make every rate look rarer than it is.
     const games = [game({ id: 'g1' }), game({ id: 'g2' }), game({ id: 'g3', home_team_id: 'LA', away_team_id: 'NY' })]
     const lines = [

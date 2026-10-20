@@ -9,7 +9,7 @@ import { chromePx } from './scale'
 // a cap on a wide layout rather than structure inside it, so not chromePx. The 24px of slack stops
 // `100vw` (which counts a classic scrollbar) from giving the site a horizontal scrollbar, and it is
 // LESS than the shell's own padding on purpose: a Home this wide breaks out of that padding, so
-// the column is centred on its parent (a transform on WPBL, a margin on MLB) rather than capped.
+// the column is centered on its parent (a transform on WPBL, a margin on MLB) rather than capped.
 
 /** Home's column above a phone: the scoreboard, the cards and everything between. */
 export const HOME_W = 'min(1260px, calc(100vw - 24px))'

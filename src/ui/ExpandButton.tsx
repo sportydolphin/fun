@@ -1,6 +1,6 @@
 // The side panel's way up to a full page, for a sheet header's `actions` slot beside Copy link.
 //
-// Drawn as Copy link's twin (same chip, same size, same receding idle colour) because the two sit
+// Drawn as Copy link's twin (same chip, same size, same receding idle color) because the two sit
 // side by side and do the same kind of thing: neither changes what is shown, both change where it
 // lives. Shared rather than WPBL's own for the same reason that control is: MLB's Game Center is
 // meant to follow.

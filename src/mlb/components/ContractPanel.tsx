@@ -18,7 +18,7 @@ import { defaultBorder } from '../lib/colorUtils'
 import { chromePx, typePx } from '../../ui/scale'
 import { TYPE_SCALE } from '../../ui/card'
 
-// One colour per control state. Deliberately not team-coloured: these encode
+// One color per control state. Deliberately not team-colored: these encode
 // contract *status*, and the legend has to mean the same thing on every page.
 const KIND_STYLE: Record<ContractYear['kind'], { color: string; label: string }> = {
   guaranteed:   { color: '#22c55e', label: 'Guaranteed' },
@@ -143,7 +143,7 @@ export function ContractPanel({ contract, currentSeason }: {
                   }}>
                     <Typography sx={{
                       fontSize: TYPE_SCALE.caption, fontWeight: 800, lineHeight: 1,
-                      // A paid-out season recedes by its colour, not by opacity: 0.42 over the whole
+                      // A paid-out season recedes by its color, not by opacity: 0.42 over the whole
                       // column took the figure and the year to 1.8:1.
                       color: y.salary > 0 ? (isPast ? 'text.disabled' : 'text.secondary') : 'transparent',
                       whiteSpace: 'nowrap',

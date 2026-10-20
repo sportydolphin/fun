@@ -5,8 +5,8 @@ import {
 import type { AdminAwardVote } from '../lib/adminAwards'
 import type { WpblPlayer } from '../wpbl/types'
 
-// The labelling is the half that rots: four different key shapes share one column, and a
-// mislabelled row here is a number the owner reads as the wrong question.
+// The labeling is the half that rots: four different key shapes share one column, and a
+// mislabeled row here is a number the owner reads as the wrong question.
 
 const players = [{ id: 'p-1', name: 'Kelsie Whitmore', team_id: 'SF' }] as WpblPlayer[]
 const vote = (o: Partial<AdminAwardVote>): AdminAwardVote =>
@@ -21,7 +21,7 @@ describe('reading a stored choice', () => {
 
   // An answer this build cannot read is still an answer somebody gave, and hiding it would put
   // the panel out of step with its own totals.
-  it('prints an unrecognised key rather than dropping it', () => {
+  it('prints an unrecognized key rather than dropping it', () => {
     expect(awardChoiceLabel('g-77:412', players)).toBe('g-77:412')
   })
 

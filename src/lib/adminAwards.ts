@@ -15,7 +15,7 @@ import type { WpblPlayer } from '../wpbl/types'
  * without the voter keys: see the migration for why a panel must never hold those.
  *
  * PURE BELOW THE FETCH. Everything that turns rows into a report takes its inputs and returns
- * plain shapes, so the labelling rules (which are the part that rots, since a choice is a uuid
+ * plain shapes, so the labeling rules (which are the part that rots, since a choice is a uuid
  * or a `mgr:` key or a `TEAM:2-1`) are testable without a database or a screen.
  */
 
@@ -42,7 +42,7 @@ export async function fetchAdminAwardVotes(): Promise<AdminAwardVote[]> {
  * manager's permanent `mgr:<slug>`, a pick'em's `TEAM:wins-losses`, and a play's
  * `<gameId>:<sequence>`. Nothing in the row says which, so this asks in the order that cannot
  * collide: the two prefixed forms first, then the roster, and whatever is left is printed raw
- * rather than guessed at. An unrecognised key is a real answer somebody gave and belongs on
+ * rather than guessed at. An unrecognized key is a real answer somebody gave and belongs on
  * screen: hiding it would make the panel disagree with its own totals.
  */
 export function awardChoiceLabel(choice: string, players: readonly WpblPlayer[]): string {

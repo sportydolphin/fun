@@ -129,7 +129,7 @@ function SeriesCard({ s, season, onOpen, compact = false }: {
       ...LINK_SX, display: 'block',
       borderRadius: 2.5, border: '1px solid',
       // The site's card outline, not `divider`, which left an undecided series barely separated
-      // from the page. A winner's colour goes through the theme's readable tone first: most clubs'
+      // from the page. A winner's color goes through the theme's readable tone first: most clubs'
       // primaries are navy or brown, and drawn raw on the dark page a decided series had no edge.
       borderColor: winnerCol ? tone(winnerCol) : CARD_BORDER,
       bgcolor: 'background.paper', px: 1.5, py: 1, cursor: 'pointer',
@@ -180,9 +180,9 @@ function seriesGrid(n: number, compact: boolean) {
  *  header's height, with the strip's padding under it, so "Playoff series" sits exactly as far above
  *  its cards as "Scores" does above its chips. The round pills cannot share that box: they do not
  *  scale with the chrome the way Scores' buttons do, and a phone draws them touch-sized (41px against
- *  26), so a margin tuned at one width was 4px off at another and a centred row overlapped the cards.
+ *  26), so a margin tuned at one width was 4px off at another and a centered row overlapped the cards.
  *  So the row aligns to its bottom and the pills rise above the label rather than reaching down past
- *  it. The full card keeps its centred row and its own gap, since the round's name sits under it. */
+ *  it. The full card keeps its centered row and its own gap, since the round's name sits under it. */
 const headerSx = (compact: boolean) => compact
   ? { alignItems: 'flex-end', mb: STRIP_PY }
   : { alignItems: 'center', mb: 1.25 }
@@ -232,7 +232,7 @@ const TREE_ONLY = { display: { xs: 'none', lg: 'block' } } as const
 const TREE_ROWS: [SeriesId, SeriesId][] = [['F_2', 'D_1'], ['F_1', 'D_2'], ['F_4', 'D_3'], ['F_3', 'D_4']]
 const TREE_COLS = `minmax(0, 1fr) ${chromePx(20)} minmax(0, 1fr) ${chromePx(20)} minmax(0, 1fr) ${chromePx(20)} minmax(0, 1fr)`
 const ROW_GAP = chromePx(10)
-// The connectors take the cards' outline colour, so the tree reads as one drawing.
+// The connectors take the cards' outline color, so the tree reads as one drawing.
 const LINE = { position: 'absolute', borderColor: CARD_BORDER, borderStyle: 'solid', borderWidth: 0 } as const
 
 /** Two cards joining into one, as an elbow from the middle of each to the middle of the next.

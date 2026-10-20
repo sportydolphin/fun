@@ -100,7 +100,7 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
         pt: { xs: 0.5, sm: 1 },
         transition: 'box-shadow 0.2s',
         // An EDGE once it is holding something under it, and NOTHING before that. Without any
-        // edge, rows slide up and vanish into an unexplained band of page colour below the
+        // edge, rows slide up and vanish into an unexplained band of page color below the
         // pills, which reads as the table being eaten rather than as a bar it is passing
         // behind. A shadow, not a hairline: a rule would sit directly under the Hitting/Pitching
         // pills and, on boards that lead with prose, across the page above the first sentence,

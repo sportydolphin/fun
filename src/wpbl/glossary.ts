@@ -97,14 +97,14 @@ export const STAT_TERMS: GlossaryTerms = {
   'Strike%': { full: 'Strike rate', plain: 'Every pitch that was not a ball, fouls and balls in play included.' },
   'F-Strike%': { full: 'First-pitch strike rate', plain: 'Batters whose first pitch was a strike. The count the whole at-bat is played from.' },
   'Putaway%': { full: 'Two-strike putaway rate', plain: 'Strikeouts over the plate appearances that reached two strikes: how often a pitcher finishes the batter once ahead.' },
-  FIP: { full: 'Fielding independent pitching', plain: 'An ERA rebuilt from strikeouts, walks, hit batters and home runs, the outcomes no fielder touches, each weighted by what it is worth in this league. Scaled so the league average matches league ERA; a FIP well below a pitcher’s ERA suggests bad luck or poor defence behind them.' },
+  FIP: { full: 'Fielding independent pitching', plain: 'An ERA rebuilt from strikeouts, walks, hit batters and home runs, the outcomes no fielder touches, each weighted by what it is worth in this league. Scaled so the league average matches league ERA; a FIP well below a pitcher’s ERA suggests bad luck or poor defense behind them.' },
 }
 
 /**
  * Where a rule came from, and it is carried on the data because the site must not sound
  * equally certain about all three.
  *
- * `league` is published by the WPBL. `site` is our own convention, and labelling it is the
+ * `league` is published by the WPBL. `site` is our own convention, and labeling it is the
  * difference between a definition and a claim about somebody else's league. `observed` is
  * derived from the league's own scoring because nothing published answers it: a real finding,
  * and also the one most likely to need correcting later.

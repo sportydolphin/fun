@@ -78,7 +78,7 @@ describe('FIP', () => {
   const lg = sumPitching(lines, games)
   const c = fipConstant(lg, w)
 
-  it('centres the league on its own ERA', () => {
+  it('centers the league on its own ERA', () => {
     expect(fip(lg, w, c)).toBeCloseTo(lg.era!, 6)
   })
 

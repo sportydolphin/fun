@@ -16,7 +16,7 @@ import type { WpblPlayer } from '../types'
 
 export interface HomeCountry {
   country: string
-  /** Flag emoji, or '' where the country is not a two-letter-code country we recognise. */
+  /** Flag emoji, or '' where the country is not a two-letter-code country we recognize. */
   flag: string
   players: WpblPlayer[]
 }

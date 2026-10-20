@@ -123,7 +123,7 @@ export function edgeFades(b: Box, edges: ('l' | 'r' | 't' | 'b')[], size = 70): 
   return `<defs>${edges.map(grad).join('')}</defs>${edges.map(rect).join('')}`
 }
 
-/** Fit something `w`x`h` inside a box, centred. Returns the scale and the top-left corner. */
+/** Fit something `w`x`h` inside a box, centered. Returns the scale and the top-left corner. */
 export function fit(w: number, h: number, b: Box): { s: number; x: number; y: number } {
   const s = Math.min(b.w / w, b.h / h)
   return { s, x: b.x + (b.w - w * s) / 2, y: b.y + (b.h - h * s) / 2 }

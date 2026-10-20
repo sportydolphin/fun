@@ -37,7 +37,7 @@ import { TYPE_SCALE } from '../ui/card'
 // STRING and are in rem so they grow with the type; the value that rides the bar tip is type too.
 
 /** Game-cadence playback: the floor where a day stops being a movement, and the whole-run guard so
- *  a far longer season than this one cannot crawl (generous, so the slow speed is honoured). */
+ *  a far longer season than this one cannot crawl (generous, so the slow speed is honored). */
 const MIN_STEP_MS = 150
 const MAX_PLAY_MS = 30000
 /** Play-cadence playback: the whole race targets this long at 1×, spread over however many plays
@@ -280,7 +280,7 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
     [regGames],
   )
 
-  // Colour by the club a player LAST appeared for in a regular final, not the roster's current flag:
+  // Color by the club a player LAST appeared for in a regular final, not the roster's current flag:
   // a traded player wears the club she played the season's end with, matching the standings race.
   const teamOf = useMemo(() => {
     const bestCol = new Map<string, number>()
@@ -504,7 +504,7 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
               transition: glide, willChange: 'transform',
             }}>
               {/* Just the name. The placement number and the club dot are both gone: the row's
-                  POSITION already ranks it and the bar already carries the club colour, so both were
+                  POSITION already ranks it and the bar already carries the club color, so both were
                   redundant, and dropping them keeps the row clean and hands their width to the bar.
                   RESERVES ROOM FOR A STRING, so it is sized in rem and packed LEFT. The width blends
                   vw (so it tracks screen width) with a rem term and rem bounds, so it GROWS with the

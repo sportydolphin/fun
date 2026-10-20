@@ -88,7 +88,7 @@ interface Table { name: string; order: string; perSeason: boolean }
  *   wpbl_*_state          carries which recap. Meaningless without the servers they name.
  *   wpbl_ingest_runs,     operational health. Interesting for a week, not for a decade, and
  *   wpbl_*_watch*,        it is the one set of tables here that keeps growing forever.
- *   wpbl_shop_*,          merchandise and auction listings. Someone else's catalogue.
+ *   wpbl_shop_*,          merchandise and auction listings. Someone else's catalog.
  *   wpbl_auction_lots
  */
 const TABLES: Table[] = [

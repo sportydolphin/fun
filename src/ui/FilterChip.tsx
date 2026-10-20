@@ -54,7 +54,7 @@ export function FilterChip({ active, onClick, children, dot }: { active: boolean
  *  Wrapped at 375px the gallery's subject row was twenty-odd pills stacked eleven lines deep, a full
  *  screen of names in front of the first photo, on the page whose whole point is the photos. One
  *  swipeable line costs one line, and the chip cut off at the right edge is what says there is more.
- *  Full-bleed on a phone (cancelling the page's gutter and handing it back as padding) so a chip
+ *  Full-bleed on a phone (canceling the page's gutter and handing it back as padding) so a chip
  *  scrolls out under the screen edge rather than being clipped at an invisible margin. From sm up
  *  there is room for a few rows and wrapping shows every name at once. */
 export function ChipRow({ mb, children }: { mb: number; children: React.ReactNode }) {

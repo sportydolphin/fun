@@ -82,7 +82,7 @@ export function countsThrough(sequence: string | null | undefined): Count[] {
   for (const ch of sequence ?? '') {
     const effect = PITCH_EFFECT[ch]
     // An unknown code is skipped rather than guessed at: advancing the count on a character
-    // this does not recognise would misprice every count after it in the same at-bat.
+    // this does not recognize would misprice every count after it in the same at-bat.
     if (effect === 'ball') balls = Math.min(3, balls + 1)
     else if (effect === 'strike') strikes = Math.min(2, strikes + 1)
     else if (effect === 'foul') { if (strikes < 2) strikes++ }

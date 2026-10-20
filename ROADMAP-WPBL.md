@@ -23,7 +23,7 @@
 > Run value, and the mobile bottom nav (the Findings board was folded into Run value on Sep 10,
 > v1.80.0, and the steal card went with it).
 > Before that Aug 17, 2026. Teams tab, Settings and an accessibility pass shipped
-> as v1.45.0 (see the shipped log); favourite-team + theming remains built and parked (see
+> as v1.45.0 (see the shipped log); favorite-team + theming remains built and parked (see
 > "Parked, with reasons"); before that, split out of `ROADMAP.md` and reprioritized around
 > the season clock (see the realignment log at the end).
 
@@ -110,7 +110,7 @@ the offseason, and both change only when somebody else publishes.
 ## What the traffic says (Aug 20, 2026)
 
 Read from `events` over the 14 days to Aug 19, which is the first time this list has been
-prioritized against measurement rather than judgement. Counting rules in
+prioritized against measurement rather than judgment. Counting rules in
 [`docs/ADMIN_ANALYTICS.md`](docs/ADMIN_ANALYTICS.md): "browsers" are localStorage ids, not people.
 
 - **The section is the site.** 18,213 WPBL events across 2,036 browsers, against 768 MLB
@@ -184,7 +184,7 @@ item 2 describes, which is why that item comes first.
    is not a function`, `onPage is not a function`, and a temporal-dead-zone read of `desktopNow`.
    **Triaged Oct 20:** a week of tagged rows held 5 reader crashes in 5 sessions, every one the lazy
    import resolving to `undefined`, and the other four suspects never appeared (they were dev). It
-   was our own `vite:preloadError` listener: cancelling the event makes Vite resolve the import
+   was our own `vite:preloadError` listener: canceling the event makes Vite resolve the import
    with `undefined`, so `lazy()` threw in the second before the reload landed (each session then
    logged a clean `chunk_reload`). The boundary now asks `reloadUnderway()` and shows "Loading the
    latest version" instead of reporting a crash.
@@ -248,7 +248,7 @@ Site-wide, both sections. ROADMAP.md points here. Everything in P0 to P2 lands w
 WPBL season.
 
 **The live order is on `/admin` → Roadmap** (the `roadmap_items` table, owner only), from Oct 13,
-2026: add, reprioritise, reorder, mark done and delete there, without a commit. It was seeded with
+2026: add, reprioritize, reorder, mark done and delete there, without a commit. It was seeded with
 this section as it stood that day plus the engineering backlog below. This section is the snapshot
 and the reasoning; where the two disagree, `/admin` is the order.
 
@@ -267,7 +267,7 @@ and the reasoning; where the two disagree, `/admin` is the order.
   since no owner DM plumbing exists; it carries every health page, the never-started alarm
   included. The partition test replays the migrations rather than `supabase gen types`, so CI needs
   no database; it found `tracking_checked_at` in neither list (ingest-only, now named as such).
-  Takes effect on the next `supabase functions deploy wpbl-ingest`.
+  Deployed Oct 20, 2026; the first run under it was clean (`ok: true`, 40 games, no errors).
 - *P2, cheap now.* Freeze past seasons as static JSON (R2 or `/data/2026/*.json`, immutable
   cache), which also becomes the open-data download. A `size-limit` bundle budget in CI. `knip`
   for dead exports and files.
@@ -303,7 +303,7 @@ and the reasoning; where the two disagree, `/admin` is the order.
   what the sweep does not do. **Fixed Oct 12:** a cold WPBL player or game address drew Home's
   skeleton, then the page at another width (now the page's own frame from the first frame); the
   photo, clip and reading blocks under a player landed before the stats and were pushed off the
-  screen; the honours row grew the band late; the season line dropped its rank row between two
+  screen; the honors row grew the band late; the season line dropped its rank row between two
   reads; the win probability chart had a `null` fallback; MLB's bracket skeleton held four series
   in the LCS. Cold player pages went from 0.10 to 0.23 down to about 0.02, game pages 0.09 to
   0.01, the phone switch to MLB 0.11 to 0.03. **Read Oct 20** (a quiet week: 32 reports): WPBL's
@@ -328,7 +328,7 @@ and the reasoning; where the two disagree, `/admin` is the order.
   only, 2000 to 2026, about 196 MB of a 344 MB database. Mirror 2026 and measure before any backfill.
 - MLB Draft board, the Visuals list, the data-mining list, portrait rights.
 
-**Parked:** Call the Play, pick'em (2027 Opening Day), favourite-team theming, "This day in the
+**Parked:** Call the Play, pick'em (2027 Opening Day), favorite-team theming, "This day in the
 inaugural season" (Aug 2027), rolling form, WPBL streaks and milestones.
 
 ## Next: in priority order
@@ -656,7 +656,7 @@ A screenshot pass over the five tabs plus the four detail screens, at 640, 1024 
 both themes. Plus three measured invariants checked in a real browser, all three being known
 regressions: the header and nav sticky offsets meeting with no crack, the scoreboard anchor
 landing on a chip boundary at max scroll, and the bracket connector's stubs hitting the box
-centres.
+centers.
 
 **On the timing.** This was scoped for after Sep 22, when the feed stops and the data freezes,
 because phase 2's whole safety net is "the rendering did not change" and that net is weaker
@@ -845,8 +845,8 @@ them partial and all of them owned by somebody else:
 - **TrackMan: 2 of 25 finals.** 766 pitch rows, from a batch the league published once and
   stopped. Not a coverage gap we can close, and `wpbl-tracking-watch` runs daily **year-round**
   (checked: no season window), so a resumption in November is still caught. Nothing to do.
-- **RetroWPBL: 20 of 25 finals**, a stranger's hand transcription, incomplete, and **no licence,
-  so all rights reserved by default**. `wpbl-retro-sync` is also year-round. The licence is the
+- **RetroWPBL: 20 of 25 finals**, a stranger's hand transcription, incomplete, and **no license,
+  so all rights reserved by default**. `wpbl-retro-sync` is also year-round. The license is the
   problem, not the clock: it can be read to check our own rows and cannot be republished, which
   bars it from an archive that is meant to be the public record. Asking the author is the only
   path and it is not a September job.
@@ -892,7 +892,7 @@ either list that gives `/wpbl` a reason to exist in November.
 instead. That instinct is imported from a 162-game league and it is wrong here. **If 15 games is
 the length of every WPBL season, then a season rate line is the league's native scale**: .450 in
 2026 and .450 in 2027 are the same achievement measured the same way, comparable forever, and
-apologising for the sample would mean this league never gets to have batting champions. Build
+apologizing for the sample would mean this league never gets to have batting champions. Build
 the standard leaders and give them the standard billing. `wpblQualifiers` already sets the bar
 in plate appearances (2.4 per team game, floor 6, so 36 PA at 15 games); it needs nothing.
 
@@ -903,7 +903,7 @@ in plate appearances (2.4 per team game, floor 6, so 36 PA at 15 games); it need
 - **Best at each position, drawn on a diamond.** Nine positions laid out as a field rather than
   as a table, each one carrying the player who owned it, and each one a tap through to her page.
   `position` is on every batting line, so the pick is derivable; the diamond is the part that has
-  to be drawn. This is the page's centrepiece and the thing most likely to be shared.
+  to be drawn. This is the page's centerpiece and the thing most likely to be shared.
 - **Performance of the season, batting and pitching.** The single best game line of each kind,
   named, with a route into that game's box score.
 - **The most improbable win.** Lowest win probability a club held at any point in a game it went
@@ -956,7 +956,7 @@ October has missed the only week anybody was looking.
 2026, and both were wrong). The plumbing is all built and shipped: robots, a sitemap on a daily
 cron, per-route meta and JSON-LD, real `<a href>` links, one path per tab, a page per player,
 and real 404s for everything else (see the Aug 21 entries in the log). **Pre-rendering was
-cancelled rather than built**: URL Inspection confirmed Googlebot renders the JS completely, so
+canceled rather than built**: URL Inspection confirmed Googlebot renders the JS completely, so
 it would have bought nothing.
 
 **What is actually left is not code.** As of Aug 21 the site had 3 indexed pages against ~128
@@ -1038,7 +1038,7 @@ MLB section).
 
 ### 9. Desktop detail views: the side panel and the full page 🎯⚙️: ✅ **shipped in both sections by Oct 7, 2026** (MLB as v1.128.0)
 
-**Why.** On a desktop a player or a game opened as a centred dialog over a dimmed page. It was
+**Why.** On a desktop a player or a game opened as a centered dialog over a dimmed page. It was
 about as wide as the 900px section column, so the gutters either side sat dimmed and unused, the
 list the reader came from was covered, and Game Center kept its phone tabs on a screen with room
 for every board at once. MLB opened players as a full page, so the two sections disagreed too.
@@ -1053,7 +1053,7 @@ layouts, NN/g on modal and nonmodal dialogs and on tabs, Notion's side peek and 
   It reuses the most-tested layout, so each card still has two layouts, not three.
 - **No tabs on the full page.** Tabs fail when the reader needs two panels at once, and a recap
   read against its box score is that case.
-- **The dimmed centred dialog stays for short pickers** (Sort, Filter): a quick choice to make
+- **The dimmed centered dialog stays for short pickers** (Sort, Filter): a quick choice to make
   before carrying on, which is the job it suits.
 
 **The plan and where it stands.**
@@ -1395,20 +1395,20 @@ both are cheap, survive Sep 22 and make a share image.
   *Dropped Sep 30, 2026: illustrative map art and motion pieces are an artist's work, not
   something to generate. See the winter order.*
 - **The count as a subway map** 🔬🎯. The 12 counts as stations, edge thickness for how many
-  plate appearances travelled it, colour for on-base rate from there. Draws "What a single pitch is
+  plate appearances traveled it, color for on-base rate from there. Draws "What a single pitch is
   worth" above: the 1-0 against 0-1 split (48.4% vs 37.2%) becomes a visible fork.
 - **Umpire zone personalities** 🔬. Called-strike rate per plate umpire, `K` against `B` from
   `pitch_sequence`, keyed on `umpire_crew`. Only as wide as RetroWPBL's coverage (20 of 25 finals
   on Sep 1), and it must read the STARTING plate umpire per inning, not the crew list, since one
   game swapped the plate umpire in the 6th.
-- **Pitcher barcodes** 🎯🔬. A pitcher's season as a strip of coloured ticks, one per pitch (ball,
+- **Pitcher barcodes** 🎯🔬. A pitcher's season as a strip of colored ticks, one per pitch (ball,
   called strike, whiff, foul, in play). An attacker and a nibbler look different before a number is
   read. Doubles as share-card art.
 - **Game quilt** 🎯. Every game's win-probability line as a small tile, ordered by `excitement`.
   Tap a tile to open the game. *The top six of it shipped Oct 11 as "The wildest games" on
   `/wpbl/season`, each with its line; the full grid of all 40 is what is left.*
 - **Who owns whom, as a web** 🔬. Batters and pitchers as nodes, edges weighted by plate
-  appearances and coloured by who won the matchup. A drawn form of the league-wide board still
+  appearances and colored by who won the matchup. A drawn form of the league-wide board still
   open under "Who owns whom" above; four clubs make the web dense enough to read.
 
 **Postseason, while games are still being played**
@@ -1507,23 +1507,23 @@ players were in the 2026 group stage).
 - ~~**Multi-season support**~~: ✅ *unparked and built Oct 13, 2026* (Priorities P0).
 - **Followed players / teams + notifications**: dropped as low-value for a four-team
   league. The per-game and all-games push reminders already cover the real need.
-- **Favourite team + team colour theming** ⚙️🎯: *built Aug 17, 2026, parked the same day
+- **Favorite team + team color theming** ⚙️🎯: *built Aug 17, 2026, parked the same day
   on branch `wpbl-favorite-team`.* Working end to end, not shipped: the theming isn't
   settled. What's on the branch: a one-shot Home prompt that never shares a screen with
-  the Discord card, a ★ toggle on each team page, "no favourite" as a real answer that
-  never re-prompts, and a section that takes the team's colour (solid nav chip, radial
+  the Discord card, a ★ toggle on each team page, "no favorite" as a real answer that
+  never re-prompts, and a section that takes the team's color (solid nav chip, radial
   masthead, ~4% card wash, tinted card hairline, and `theme-color` for the phone's browser
   chrome). Contrast is measured per team rather than assumed, since a fixed white nav label
   fails WCAG AA on **seven of the eight** team/theme pairs.
   **Why it's parked, and the thing to solve first:** in a 30-game season, anything that
-  prioritises your club takes more away than it gives, because every game is a big slice of the
-  whole. That is why the pick only ever *adds* colour and never hides, reorders, or
-  demotes the other three. That constraint leaves colour doing all the work, and colour
+  prioritizes your club takes more away than it gives, because every game is a big slice of the
+  whole. That is why the pick only ever *adds* color and never hides, reorders, or
+  demotes the other three. That constraint leaves color doing all the work, and color
   alone didn't feel like enough to justify the ask. Two concrete problems to fix before
   unparking: **Heights blue (`#5bb2ec`) is nearly the league default (`#60a5fa`)**, so a
   quarter of the audience picks a team and sees almost nothing change; and a team page
-  still shows its *own* club's colours in the body while only the chrome follows your
-  favourite, which is defensible but was never actually decided.
+  still shows its *own* club's colors in the body while only the chrome follows your
+  favorite, which is defensible but was never actually decided.
   The DB column (`user_preferences.wpbl_favorite_team_id`) **is already on main and applied
   to production**: it shipped alone because it had been applied before the feature was
   parked. It is nullable and nothing reads it.
@@ -1586,7 +1586,7 @@ players were in the 2026 group stage).
   the biofile against production the case had evaporated anyway: our own coverage is 106 of 118
   now, not 65, the biofile agrees on 104 of them, and it fills **zero** gaps, because the 12
   players we have no date for it has no date for either. One row disagrees (Luciana Moreno: we
-  hold 2006-09-09 marked `doc-unsettled`, they hold 2006-09-06), which is a judgement call
+  hold 2006-09-09 marked `doc-unsettled`, they hold 2006-09-06), which is a judgment call
   about two weak sources rather than a reason to ingest anything.
 
 ---

@@ -5,7 +5,7 @@
  * The sync itself lives in src/wpbl/substackSync.ts, shared with the `wpbl-substack-sync`
  * edge function that runs it hourly on pg_cron. This file is the Node door onto it: read
  * env, adapt a supabase-js client to the small SyncDb interface, print progress, set an exit
- * code. Anything with a judgement in it belongs in the shared module, not here.
+ * code. Anything with a judgment in it belongs in the shared module, not here.
  *
  * The scheduled copy runs on Supabase because Substack serves Cloudflare's JavaScript
  * challenge to datacenter address space and GitHub Actions cannot get through it. A laptop

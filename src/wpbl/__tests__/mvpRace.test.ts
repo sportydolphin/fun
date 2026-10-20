@@ -36,7 +36,7 @@ const GAMES = [game('g1', '2026-08-01'), game('g2', '2026-08-02'), game('g3', '2
 
 describe('the two sides of the ball', () => {
   it('adds runs created at the plate to runs saved on the mound, for one player', () => {
-    // She batted for +2 and, in the same season, pitched a play that cost the offence 1.5,
+    // She batted for +2 and, in the same season, pitched a play that cost the offense 1.5,
     // which is +1.5 to her. One row, +3.5.
     const values = [
       priced(2, { batter_id: 'p1', batter_name: 'Two Way', pitcher_id: 'other', pitcher_name: 'Someone Else' }),
@@ -51,7 +51,7 @@ describe('the two sides of the ball', () => {
     expect(her.bf).toBe(1)
   })
 
-  // THE SIGN IS THE WHOLE THING. A play that adds half a run to the offence took half a run
+  // THE SIGN IS THE WHOLE THING. A play that adds half a run to the offense took half a run
   // off the pitcher who allowed it. Summed without the negation, the board opens with the
   // worst arms in the league and looks entirely plausible while doing it.
   it('negates the pitching side, so a pitcher who gives up runs is not rewarded for it', () => {

@@ -8,7 +8,7 @@ import { nameAtStage, useLineNameFit } from './names'
 
 /**
  * The win probability chart both sections draw in Game Center: each club's share of the game as its
- * territory in its own colour (the away club above the line, the home club below), a readout box
+ * territory in its own color (the away club above the line, the home club below), a readout box
  * ABOVE the plot, and the plot read by hovering, holding or arrowing along it.
  *
  * ONE COPY BECAUSE THERE WERE TWO. MLB's was a port of WPBL's, line for line, and from the day it
@@ -16,7 +16,7 @@ import { nameAtStage, useLineNameFit } from './names'
  * scale, and an off-by-one in WPBL's x axis that stacked the last play's before and after on the
  * right edge. A reader moving between the sections is reading one chart, so it is drawn once. The
  * sections differ only in where the numbers come from (WPBL's own model, StatsAPI's) and in the
- * words, so those are the props: points, two clubs' colours, and a readout for any moment.
+ * words, so those are the props: points, two clubs' colors, and a readout for any moment.
  *
  * Everything here is a fixed height, so the card does not move as the model lands or as a finger
  * moves along it. `WinProbFrame` is the same card with no data, for the loading state.
@@ -29,7 +29,7 @@ export interface WinProbPlotPoint {
   inning: number
 }
 
-/** A club: its abbreviation, the colour of its territory, and (optionally) a text-safe ink for its
+/** A club: its abbreviation, the color of its territory, and (optionally) a text-safe ink for its
  *  label on the plot. Without one the label is the secondary ink. */
 export interface WinProbSide {
   abbr: string
@@ -44,7 +44,7 @@ export interface WinProbSide {
 export interface WinProbMark {
   index: number
   color: string
-  /** Text colour on `color`, for a numbered mark. */
+  /** Text color on `color`, for a numbered mark. */
   ink?: string
   label?: string
 }
@@ -272,7 +272,7 @@ export function WinProbChart({ points, away, home, info, now, accent, marks = []
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             } : {
               width: chromePx(10), height: chromePx(10),
-              // A soft halo of its own colour, so it reads as the point of the chart.
+              // A soft halo of its own color, so it reads as the point of the chart.
               boxShadow: `0 0 0 5px color-mix(in srgb, ${m.color} 22%, transparent)`,
             }),
           }}>{m.label}</Box>
@@ -290,7 +290,7 @@ export function WinProbChart({ points, away, home, info, now, accent, marks = []
         )}
 
         {/* The clubs on their own halves rather than in a legend, so the chart needs no key. The
-            midline is labelled once, on the right, where the line has almost always left it. */}
+            midline is labeled once, on the right, where the line has almost always left it. */}
         <Label sx={{ top: 4, left: 6, color: away.ink ?? 'text.secondary' }}>{away.abbr}</Label>
         <Label sx={{ bottom: 4, left: 6, color: home.ink ?? 'text.secondary' }}>{home.abbr}</Label>
         <Label sx={{ top: '50%', right: 6, transform: 'translateY(-50%)' }}>50%</Label>

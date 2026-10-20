@@ -8,7 +8,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 're
 
 // Surname particles that belong to the name that follows them. "Rosi del Castillo" must
 // never shorten to "R. Castillo": the particle is part of the surname, not a separate word.
-// Lowercased for comparison; a capitalised "Del" is matched too.
+// Lowercased for comparison; a capitalized "Del" is matched too.
 const NAME_PARTICLES = new Set([
   'de', 'del', 'de la', 'della', 'di', 'da', 'das', 'dos', 'do',
   'la', 'le', 'los', 'san', 'santa', 'van', 'von', 'der', 'den', 'ter', 'bin', 'ibn', 'al', 'mc', 'mac', "o'",

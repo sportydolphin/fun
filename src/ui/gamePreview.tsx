@@ -12,7 +12,7 @@ import { ordinal } from '../lib/format'
 // diverging bars, the frame around them, and the matchup line on top. Each section drew all of this
 // for itself until Oct 2026 and the two had drifted (MLB's dot legend, its 900-weight numbers, its
 // own sizes); WPBL's version is the one kept. Each section's GamePreview.tsx feeds its own numbers,
-// colours, club marks and links, and anything only one league has (StatsAPI's probable starters,
+// colors, club marks and links, and anything only one league has (StatsAPI's probable starters,
 // WPBL's leaders and rosters) comes in as a slot rather than being drawn here.
 
 /** One stat row, whatever the league's own definition type. */
@@ -109,11 +109,11 @@ export function ComparisonBars({ away, home, defs, awayStats, homeStats, loading
         <>
           {/* THE COMPACT CUT IS A FOOTER AND IS TYPED LIKE ONE. At full size these were the
               heaviest ink in WPBL's Next game card, ahead of the club names the card is about.
-              The winner keeps its colour at both sizes: that is the comparison.
+              The winner keeps its color at both sizes: that is the comparison.
 
               800 AND NOT 900 AT FULL SIZE. Weight and a saturated accent are two emphases on
               one short string, and at 900 the strokes of a tabular figure close up their counters
-              and the number reads as a blob. 200 weights and the whole colour on the losing side
+              and the number reads as a blob. 200 weights and the whole color on the losing side
               is more than enough to say which one won. */}
           <Typography sx={{
             fontSize: compact ? TYPE_SCALE.meta : TYPE_SCALE.body,
@@ -209,7 +209,7 @@ export function ComparisonBars({ away, home, defs, awayStats, homeStats, loading
     </Box>
   )
 
-  // The club's mark plus its abbr in the bar colour, so side, club and colour tie together
+  // The club's mark plus its abbr in the bar color, so side, club and color tie together
   // without decoding a legend. It opens the club where the section has somewhere to send it:
   // a wall of a club's season numbers makes "how are they doing" the obvious next question.
   const teamChip = (side: PreviewSide, align: 'right' | 'left') => (

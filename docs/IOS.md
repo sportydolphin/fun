@@ -34,7 +34,7 @@ Android have to be rebuilt:
 | Toolchain | Bubblewrap on Windows | Xcode, macOS only |
 
 The parts that DO carry over: `manifest.webmanifest` (Capacitor reads nothing from it, but
-the icons and colours are the same art), `offline.html` (still the right failure page, for
+the icons and colors are the same art), `offline.html` (still the right failure page, for
 the same reason: no browser chrome means Safari's own error screen would render full-screen
 under our icon), and the whole idea of pointing the shell at the live site so a push to
 `main` is still the app deploy.

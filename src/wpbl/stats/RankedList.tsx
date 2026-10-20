@@ -40,7 +40,7 @@ export function StatList({ listRef, mode, activeCol, leagueCell, sortAsc, visibl
       ...fullBleedSx,
     }}>
       {/* A one-line header, the way the grid has one. Without it the big number on the right
-          would be the only unlabelled figure on the row. Labelled here rather than on each row,
+          would be the only unlabeled figure on the row. Labeled here rather than on each row,
           because ten greyed "AVG"s down a column is the same word ten times, and it gives the
           list the direction arrow the grid gets: on the ERA board, ranked best first, the
           numbers ascend and nothing else says so. */}
@@ -121,7 +121,7 @@ function StatListRow({ row, rank, value, context, isTeam, first, total, faded, p
   // stand out FROM. On the teams board (four clubs), lighting 1, 2 and 3 and leaving 4 grey does
   // not read as "these three lead": it reads as the fourth club's number having failed to render.
   // Nothing is marked when the marked group would not be a clear minority, so the four clubs get
-  // one colour and the ranking is carried by the order and the number on the right, which is all
+  // one color and the ranking is carried by the order and the number on the right, which is all
   // it was ever carried by on a board this short.
   const marked = rank.n <= 3 && total > 6
   return (

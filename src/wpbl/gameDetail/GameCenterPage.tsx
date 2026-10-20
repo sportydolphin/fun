@@ -161,7 +161,7 @@ export function GameCenterPage({
   } as const
 
   return (
-    // Wider than the section's 720px column, centred on it with a margin rather than a transform,
+    // Wider than the section's 720px column, centered on it with a margin rather than a transform,
     // so the jump bar below can still stick (see StatsView's FULL_BLEED_W for the same choice).
     <Box component="article" ref={articleRef} sx={{ width: PAGE_W, ml: `calc((100% - ${PAGE_W}) / 2)`, pb: 4 }}>
       {/* The page's <h1>, for the same reason the modal carries one. */}
@@ -272,7 +272,7 @@ export function GameCenterPage({
  *
  * Drawn to match the ACTIVE `TeamSwitch` tab exactly: same badge, same 0.94rem at weight 800,
  * same 2px rule in the club's accent. They are the same object at two widths, one of which
- * happens also to be a control, and a reader who widens the window should recognise what they
+ * happens also to be a control, and a reader who widens the window should recognize what they
  * were tapping a moment ago rather than meet a new thing.
  */
 export function TeamHeading({ team }: { team: WpblTeam }) {

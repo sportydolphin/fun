@@ -75,7 +75,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
   /** Open a club's page from a team name here. Same shape as `onOpenPlayer`: the section
    *  closes this modal as it goes, so Back walks off the team page and lands on the game. */
   onOpenTeam?: (t: WpblTeam) => void
-  /** Open as the desktop side panel rather than a centred dialog. See ModalShell's `panel`. Its
+  /** Open as the desktop side panel rather than a centered dialog. See ModalShell's `panel`. Its
    *  content is the phone layout there, which is why every width question in this file goes
    *  through `usePhoneLayout` rather than a raw media query. */
   panel?: boolean
@@ -680,7 +680,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
       // A sheet on a phone: this is the most-opened surface in the section, every game row on
       // Home and Schedule leads here, and a close button in the top right corner is the furthest
       // point on a phone from the thumb holding it. So it comes up from the bottom edge with a
-      // handle and goes back down the same way. Above sm a centred dialog is right and there is
+      // handle and goes back down the same way. Above sm a centered dialog is right and there is
       // no thumb to accommodate.
       sheet
       // And a constant height while it is one, so the sheet does not grow 419px under the

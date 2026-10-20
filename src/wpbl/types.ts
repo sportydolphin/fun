@@ -233,7 +233,7 @@ export interface WpblSiteGame {
   home_score: number | null
   away_score: number | null
   /** Parsed from the event slug, and null for a regular-season game or a slug the parser did
-   *  not recognise. The only field that says which series a postseason row belongs to. */
+   *  not recognize. The only field that says which series a postseason row belongs to. */
   round: 'semifinal' | 'championship' | null
   series_key: 'A' | 'B' | null
   game_number: number | null
@@ -289,7 +289,7 @@ export interface WpblPhoto {
   thumb_url: string          // 500px render, for cards
   width: number | null       // the ORIGINAL's dimensions, for aspect ratio
   height: number | null
-  description_url: string    // the Commons file page; the licences require pointing at it
+  description_url: string    // the Commons file page; the licenses require pointing at it
   artist: string | null      // who took it, where Commons knows
   license_short: string      // "Public domain", "CC BY-SA 4.0"
   license_url: string | null

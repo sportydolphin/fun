@@ -37,7 +37,7 @@ import type { FanVoteState } from './useFanVote'
  * cosmetic, `pointer-events: none`, radial because a portrait has room on every side, and it
  * animates once on mount: each winner row remounts every time the sheet opens.
  *
- * HONOURS reduced motion: a reader who has asked the OS for less movement gets the trophy and the
+ * HONORS reduced motion: a reader who has asked the OS for less movement gets the trophy and the
  * result and no burst.
  */
 const WINNER_CONFETTI_COLORS = ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#007aff', '#5856d6', '#af52de']
@@ -45,7 +45,7 @@ const WINNER_CONFETTI_COLORS = ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00
 function WinnerConfetti({ x, y, r }: { x: number; y: number; r: number }) {
   // The Settings toggle as well as the OS: the media query alone ignored a reader who asked here.
   const reduce = useReducedMotion()
-  // Each piece LAUNCHES FROM THE RIM (radius `r`, the measured portrait) rather than the centre,
+  // Each piece LAUNCHES FROM THE RIM (radius `r`, the measured portrait) rather than the center,
   // so the burst reads as coming off the edge of the circle.
   const pieces = useMemo(() => Array.from({ length: 26 }, (_, i) => {
     // Radial: a portrait has space all around it, unlike the switcher at the top of the page.
@@ -69,7 +69,7 @@ function WinnerConfetti({ x, y, r }: { x: number; y: number; r: number }) {
   if (reduce) return null
   return (
     <Box aria-hidden sx={{
-      // Placed on the portrait's centre within the un-clipped outer box; pieces start at the rim.
+      // Placed on the portrait's center within the un-clipped outer box; pieces start at the rim.
       position: 'absolute', left: x, top: y, width: 0, height: 0, pointerEvents: 'none', zIndex: 3,
       '@keyframes winnerConfetti': {
         '0%':   { transform: 'translate(calc(-50% + var(--sx)), calc(-50% + var(--sy))) rotate(0deg)', opacity: 1 },
@@ -257,7 +257,7 @@ export function AwardResult({ entry, index, players, teams, state, onOpenPlayer,
       ? teamLink(winnerTeam, () => onOpenTeam(winnerTeam))
       : null
 
-  // Every portrait rings in its OWN club's accent, so a card reads as one colour per row: the
+  // Every portrait rings in its OWN club's accent, so a card reads as one color per row: the
   // hero in the winner's, each runner-up in theirs. Overriding the default secondary ring is what
   // stops the accent from stacking outside it as a second hue (see the ring note on the hero).
   const portrait = (c: AwardCandidate, size: number) => {
@@ -399,7 +399,7 @@ export function AwardResult({ entry, index, players, teams, state, onOpenPlayer,
         // start at different x's and run to different maxes (the hero's flush to the card, each
         // runner's inset under its name), so two lengths a reader is meant to compare could not be.
         // Now 41% and 38% are 41% and 38% of the same line, and the winner is set apart by size,
-        // weight and a colour wash instead of by a bar that did not line up.
+        // weight and a color wash instead of by a bar that did not line up.
         <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'outline', overflow: 'hidden' }}>
           {[winner, ...runnersUp].map((c, idx) => {
             const isWinner = idx === 0
@@ -424,7 +424,7 @@ export function AwardResult({ entry, index, players, teams, state, onOpenPlayer,
                   px: chromePx(14),
                   pt: chromePx(isWinner ? 12 : 9),
                   pb: chromePx(isWinner ? 16 : 13),
-                  // The winner alone gets the colour wash; the runners-up stay plain so the hero
+                  // The winner alone gets the color wash; the runners-up stay plain so the hero
                   // reads as the answer and they read as the field.
                   bgcolor: isWinner && !skeleton ? `${rowAccent}1f` : 'transparent',
                   textDecoration: 'none', color: 'text.primary',
@@ -442,7 +442,7 @@ export function AwardResult({ entry, index, players, teams, state, onOpenPlayer,
                 {/* One ring, in the row's own club accent (see the portrait helper): the hero and
                     each runner are keyed to their own club rather than stacking a second hue. The
                     winner's portrait is measured (ref) so the confetti above can fire from its
-                    exact centre and rim. */}
+                    exact center and rim. */}
                 <Box ref={isWinner ? portraitRef : undefined} sx={{ flexShrink: 0, display: 'flex' }}>
                   {skeleton
                     ? <Skeleton variant="circular" sx={{ width: chromePx(isWinner ? 56 : 30), height: chromePx(isWinner ? 56 : 30) }} />
@@ -464,7 +464,7 @@ export function AwardResult({ entry, index, players, teams, state, onOpenPlayer,
                       // The one place the section spends a trophy: it marks the winner and nothing
                       // else on the sheet competes for the mark. After the name so it reads as a
                       // seal on it. Gold rather than the club accent, because a trophy reads as
-                      // first place in a colour a green or blue one would not; sized off the name.
+                      // first place in a color a green or blue one would not; sized off the name.
                       <EmojiEvents titleAccess="Winner" sx={{
                         fontSize: { xs: TYPE_SCALE.title, md: TYPE_SCALE.heading }, color: '#eab308', flexShrink: 0,
                       }} />
