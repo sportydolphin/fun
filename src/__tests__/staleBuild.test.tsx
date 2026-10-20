@@ -121,6 +121,18 @@ describe('reporting an error screen', () => {
     expect(track).toHaveBeenCalledWith('app_error', { kind: 'crash', where: 'tab', message: 'bad /api/x here', build: null })
   })
 
+  // Every reader crash Oct 13 to 15, 2026: the preloadError listener cancelled the chunk error and
+  // started the reload, so Vite resolved the import with undefined and lazy() threw on `.default`.
+  it('waits out a reload already under way instead of reporting what lazy() throws meanwhile', () => {
+    installStaleBuildRecovery()
+    const e = new Event('vite:preloadError', { cancelable: true })
+    window.dispatchEvent(e)
+    expect(e.defaultPrevented).toBe(true)
+    render(<AppErrorBoundary where="page"><Throws error={new TypeError("can't access property \"default\", e._result is undefined")} /></AppErrorBoundary>)
+    expect(track).not.toHaveBeenCalledWith('app_error', expect.anything())
+    expect(screen.getByRole('alert').textContent).toContain('Loading the latest version')
+  })
+
   it('does not report a stale chunk it could reload', () => {
     render(<AppErrorBoundary><Throws error={new TypeError('Failed to fetch dynamically imported module: /assets/x.js')} /></AppErrorBoundary>)
     expect(track).not.toHaveBeenCalledWith('app_error', expect.anything())

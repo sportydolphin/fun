@@ -1,6 +1,6 @@
 import React from 'react'
 import { Box, Typography } from '@mui/material'
-import { isChunkLoadError, reloadForNewBuild, runningBuild } from './lib/staleBuild'
+import { isChunkLoadError, reloadForNewBuild, reloadUnderway, runningBuild } from './lib/staleBuild'
 import { track, EVENTS } from './lib/analytics'
 import { TYPE_SCALE } from './ui/card'
 
@@ -47,6 +47,9 @@ export class AppErrorBoundary extends React.Component<Props, State> {
   componentDidCatch(error: unknown) {
     const stale = isChunkLoadError(error)
     if (stale && reloadForNewBuild()) { this.setState({ reloading: true }); return }
+    // A reload already started elsewhere (a cancelled `vite:preloadError`) leaves the lazy import
+    // resolved to undefined, and the page is going away anyway; see installStaleBuildRecovery.
+    if (reloadUnderway()) { this.setState({ reloading: true }); return }
     console.error(error)
     // REPORTED, because otherwise nobody would know: the screen is drawn on a reader's device and
     // nowhere else. It lands on /admin under "Site health". The message is the error's own text,
