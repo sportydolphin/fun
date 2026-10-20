@@ -25,7 +25,8 @@
 
 ## Now: the week of Oct 16 to 25
 
-1. **Crash triage** from the build-tagged `app_error` rows, around Oct 18. Five suspects listed.
+1. ✅ **Crash triage** (Oct 20): all five reader crashes were one bug, the stale-build reload's
+   own `vite:preloadError` cancel; the other suspects were dev-only.
    *ROADMAP-WPBL, Oct 10 audit, ops item 2.*
 2. **The worst layout shifts** from the attributed field reports, around Oct 18: `/wpbl/stats` and
    MLB Home on a desktop, which reproduce clean locally. *ROADMAP-WPBL, Priorities P1; ROADMAP.md,

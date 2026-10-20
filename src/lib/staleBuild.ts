@@ -38,13 +38,24 @@ export function isChunkLoadError(err: unknown): boolean {
   return /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Unable to preload CSS/i.test(msg)
 }
 
+/** When THIS page started its reload, matched against the stored mark so that a mark left by the
+ *  page before it (the one that reloaded into this one) does not count. */
+let reloadStartedAt = ''
+
+/** Has this page already started a reload onto the current build? See `installStaleBuildRecovery`
+ *  for why the error boundary must ask. */
+export function reloadUnderway(): boolean {
+  try { return reloadStartedAt !== '' && sessionStorage.getItem(KEY) === reloadStartedAt } catch { return false }
+}
+
 /** Reload to pick up the current build, unless that was already tried moments ago.
  *  True when a reload is under way. */
 export function reloadForNewBuild(): boolean {
   try {
     const last = Number(sessionStorage.getItem(KEY) || 0)
     if (Date.now() - last < WINDOW_MS) return false
-    sessionStorage.setItem(KEY, String(Date.now()))
+    reloadStartedAt = String(Date.now())
+    sessionStorage.setItem(KEY, reloadStartedAt)
   } catch {
     return false
   }
@@ -118,9 +129,15 @@ function watchForNewBuild(): void {
 }
 
 /** Vite fires `vite:preloadError` when a dynamic import or its preloaded CSS fails. Cancelling it
- *  stops the error reaching React, which matters: the page is about to reload anyway, and letting
- *  it through would flash the error screen first. Left alone when no reload happens, so the error
- *  still reaches the boundary. */
+ *  stops the chunk error reaching React. Left alone when no reload happens, so the error still
+ *  reaches the boundary.
+ *
+ *  CANCELLING IT DOES NOT STOP THE CRASH, IT CHANGES IT. Vite's helper is
+ *  `baseModule().catch(handlePreloadError)`, so a cancelled failure RESOLVES the import with
+ *  `undefined`, and `lazy()` then throws reading `.default` of it ("_result is undefined") in the
+ *  second or two before the reload lands. Every reader crash from Oct 13 to 15, 2026 was this one,
+ *  each followed by a clean `chunk_reload`. The boundary checks `reloadUnderway()` and draws
+ *  "Loading the latest version" for any error in that window instead of reporting a crash. */
 export function installStaleBuildRecovery(): void {
   window.addEventListener('vite:preloadError', e => {
     if (reloadForNewBuild()) e.preventDefault()

@@ -182,6 +182,12 @@ item 2 describes, which is why that item comes first.
    "Rendered more hooks than during the previous render" (`where: app`, a conditional hook), a
    lazy import resolving to `undefined` (`$._result is undefined`, 8 rows), `seasonStat.volume.toFixed
    is not a function`, `onPage is not a function`, and a temporal-dead-zone read of `desktopNow`.
+   **Triaged Oct 20:** a week of tagged rows held 5 reader crashes in 5 sessions, every one the lazy
+   import resolving to `undefined`, and the other four suspects never appeared (they were dev). It
+   was our own `vite:preloadError` listener: cancelling the event makes Vite resolve the import
+   with `undefined`, so `lazy()` threw in the second before the reload landed (each session then
+   logged a clean `chunk_reload`). The boundary now asks `reloadUnderway()` and shows "Loading the
+   latest version" instead of reporting a crash.
 3. ✅ **Field layout shift is poor on MLB desktop and middling everywhere else** (the attribution
    shipped Oct 11; the fixes are open). `web_vitals` p75 over the 14 days (production builds only,
    so this one is not polluted): WPBL 0.149 on a phone and 0.154 on a desktop, MLB 0.182 and
