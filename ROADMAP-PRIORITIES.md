@@ -63,7 +63,7 @@
     - `wpbl-postseason-check` failing on missing secrets;
     - ~~a feed contract in `wpbl-ingest` (valibot or zod), `summary.errors` meaning failure, and a
       Discord freshness alarm~~ ✅ done Oct 17 (valibot; the alarm is every health page posted to
-      the ops channel, `DISCORD_ALERTS_WEBHOOK_URL`); live once `wpbl-ingest` is redeployed;
+      the ops channel, `DISCORD_ALERTS_WEBHOOK_URL`); deployed Oct 20, first run clean;
     - ~~the column-partition test for `LIVE_GAME_COLUMNS` and the line column lists~~ ✅ done Oct 17,
       read from the migrations rather than `supabase gen types`;
     - every Trap in CLAUDE.md re-verified against the 2027 feed once it speaks.

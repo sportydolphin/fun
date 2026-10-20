@@ -267,7 +267,7 @@ and the reasoning; where the two disagree, `/admin` is the order.
   since no owner DM plumbing exists; it carries every health page, the never-started alarm
   included. The partition test replays the migrations rather than `supabase gen types`, so CI needs
   no database; it found `tracking_checked_at` in neither list (ingest-only, now named as such).
-  Takes effect on the next `supabase functions deploy wpbl-ingest`.
+  Deployed Oct 20, 2026; the first run under it was clean (`ok: true`, 40 games, no errors).
 - *P2, cheap now.* Freeze past seasons as static JSON (R2 or `/data/2026/*.json`, immutable
   cache), which also becomes the open-data download. A `size-limit` bundle budget in CI. `knip`
   for dead exports and files.

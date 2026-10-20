@@ -146,7 +146,10 @@ Loaded when you read anything under `src/`. The section-specific traps are in `s
   load. If you are ever debugging a pushState that reloads the page, that is why. A chunk that
   fails anyway reloads once (`vite:preloadError`, 10s loop guard), and `AppErrorBoundary` catches
   the rest at three layers (app, page area, each WPBL tab), reporting `app_error` / `app_updated`
-  to `/admin` under "Site health".
+  to `/admin` under "Site health". **Cancelling `vite:preloadError` does not cancel the failure:**
+  Vite then resolves the import with `undefined`, and `lazy()` throws on `.default` in the second
+  before the reload lands. Every reader crash of Oct 13 to 15, 2026 was this; the boundary asks
+  `reloadUnderway()` and shows "Loading the latest version" instead of reporting it.
 
 - **Internal links must be real `<a href>`, never a `Box` with only an `onClick`.** Googlebot
   does not fire click handlers, so an onClick-only control is invisible to it. `/mlb` sat

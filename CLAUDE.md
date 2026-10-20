@@ -107,7 +107,7 @@ first when you are working on what the line describes, even from somewhere else 
 - `--app-header-h` is the pinned chrome's height from the rect; 0 on a phone.
 - Inside the desktop side panel the viewport lies: ask `usePhoneLayout()`.
 - No `passive: false` touch listener inside a sheet.
-- `staleBuild.ts` patches `history.pushState` after a deploy, on purpose.
+- `staleBuild.ts` patches `history.pushState` after a deploy, on purpose; a cancelled `vite:preloadError` resolves the import to `undefined`.
 - Internal links are real `<a href>` through `linkTo()`.
 
 [`scripts/migrations/CLAUDE.md`](scripts/migrations/CLAUDE.md), the database:
