@@ -28,8 +28,8 @@
 1. ✅ **Crash triage** (Oct 20): all five reader crashes were one bug, the stale-build reload's
    own `vite:preloadError` cancel; the other suspects were dev-only.
    *ROADMAP-WPBL, Oct 10 audit, ops item 2.*
-2. **The worst layout shifts** from the attributed field reports, around Oct 18: `/wpbl/stats` and
-   MLB Home on a desktop, which reproduce clean locally. *ROADMAP-WPBL, Priorities P1; ROADMAP.md,
+2. ✅ **The worst layout shifts** (Oct 20): the reports named only the MLB player page (0.39 on
+   a phone), now about 0.03 and swept; WPBL's p75 is 0.013. *ROADMAP-WPBL, Priorities P1; ROADMAP.md,
    "From the Oct 10 audit".*
 3. **Google Play release.** Only Play's own process is left. Owner. *ROADMAP-WPBL ops item 9;
    docs/ANDROID.md.*

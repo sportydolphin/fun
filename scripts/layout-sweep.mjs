@@ -147,6 +147,9 @@ const DEFAULT_ROUTES = [
   '/wpbl/stats?board=find&q=season~avg.gte.300', '/mlb/find?q=season~hr.gte.30',
   // One slot filled, and a pair: two hitters, the shape the pair's skeleton reserves.
   '/mlb/compare/zack-wheeler-554430', '/mlb/compare/bobby-witt-jr-677951-vs-julio-rodriguez-677594',
+  // A player page, one of each role. None was swept until Oct 20, 2026, when the field reports found
+  // the page's spinner letting the contract draw first and then jump a screen down (0.39 on a phone).
+  '/mlb/players/francisco-lindor-596019', '/mlb/players/tarik-skubal-669373',
 ]
 // The leading slash is optional because Git Bash rewrites an argument that starts with one into a
 // Windows path (/wpbl becomes C:/Program Files/Git/wpbl) before node ever sees it.
