@@ -16,7 +16,7 @@
 // contract and the outside links, which belong to the player rather than to a role.
 
 import React, { lazy, startTransition, Suspense, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography, CircularProgress, useMediaQuery, useTheme } from '@mui/material'
+import { Box, Typography, CircularProgress, Skeleton, useMediaQuery, useTheme } from '@mui/material'
 import { CompareArrows, EmojiEvents, Star, StarBorder } from '@mui/icons-material'
 import {
   CARD_TYPE as TYPE, StatCardContext, SeasonPicker, LineCaption, StatSummary, RoleHeading, CameoBlock, StatLogTable,
@@ -251,7 +251,14 @@ function FollowChip({ followed, onToggle, name, compact }: { followed: boolean; 
  * no season to compare, and takes the current one.
  */
 function CompareChip({ id, name, season, compact }: { id: number; name: string | null; season: number; compact?: boolean }) {
-  if (!name) return null
+  // Its room is held until the name lands (the link's address needs it), so the chips beside it
+  // do not slide over when it appears: a page opened from an address draws before the name is in.
+  if (!name) return (
+    <Box aria-hidden sx={{ ...headerChipSx, visibility: 'hidden' }}>
+      <CompareArrows sx={HEADER_ICON_SX} />
+      <ChipWord compact={compact}>Compare</ChipWord>
+    </Box>
+  )
   return (
     <Box {...linkTo(withMlbCompareSeason(mlbCompareStartPath({ id, fullName: name }), season, CURRENT_SEASON))}
       onClickCapture={() => track(EVENTS.MLB_COMPARE_OPENED, { from: 'player', playerId: id })}
@@ -691,11 +698,13 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
   /** The row's label: the year, or what the slice is when it is not a plain season. */
   const lead = careerView ? 'Career' : hasPost && scope === 'post' ? 'Playoffs' : hasPost && scope === 'all' ? 'Total' : String(season ?? '')
   /** A role's numbers: the summary table and, behind All stats, the standard and advanced lines. */
-  const statSummary = (r: Role) => {
+  const statSummary = (r: Role, placeholder = false) => {
     const adv = advancedCols(r)
     const disc = disciplineCols(r)
     return (
-      <StatSummary accent={ACCENT_TEXT} league={leagueOn}
+      <StatSummary accent={ACCENT_TEXT} placeholder={placeholder}
+        // The skeleton draws before the career names a season, which `leagueOn` waits for.
+        league={placeholder ? !careerView : leagueOn}
         reserveRanks={!careerView && (scope === 'regular' || !hasPost)}
         summary={{ lead, cols: summaryCols(r) }}
         standard={{ lead, cols: standardCols(r) }}
@@ -841,9 +850,11 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
       ink={{ name: palette.text, meta: palette.text, line: palette.sub }}
       chips={awards.length > 0 ? (
         // One row, the biggest honours first (AWARD_RULES' order), the rest behind "+N".
-        <BandChips>
+        // Outlined in the band's own line ink, which is solid and solved per club, rather than the
+        // shared chip's faded white (see BandChips' `edge`).
+        <BandChips edge={palette.sub}>
           {awards.map(a => (
-            <Box key={a.key} title={`${a.label}: ${a.seasons.join(', ')}`} sx={BAND_CHIP_SX}>
+            <Box key={a.key} title={`${a.label}: ${a.seasons.join(', ')}`} sx={{ ...BAND_CHIP_SX, borderColor: palette.sub }}>
               <EmojiEvents aria-hidden sx={{ fontSize: ICON_SIZE.sm, color: '#eab308' }} />
               {a.seasons.length > 1 ? `${a.seasons.length}× ${a.label}` : `${a.label} ${a.seasons[0]}`}
             </Box>
@@ -856,6 +867,38 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
   // ── the page ──────────────────────────────────────────────────────────────
 
   const loading = !career || (!careerView && season != null && (!bundle || !log))
+
+  /**
+   * THE CARD DRAWN EMPTY, while the career, the season and the game log come in. It was a centred
+   * spinner, and the contract and the reference links (which need only the id) drew under it a
+   * second or two before the stats: then the season line and a game log landed ABOVE them and pushed
+   * everything off the screen. One shift of 0.38 on a phone, in two field reports out of four MLB
+   * phone loads in the week to Oct 20, 2026; reproduced at 0.39. Now the summary and the log are
+   * the real tables holding samples, so the page has its shape and what loads first stays below it.
+   *
+   * THE MOST LIKELY SHAPE: one role, guessed off the listed position (a two-way player gains the
+   * role strip when the lines say so), and a log long enough for its Show more control.
+   *
+   * AND AT LEAST A SCREEN TALL. Under the log the loaded card goes on with the trend, the splits and
+   * the career table, none of which can be guessed to the pixel; holding a screen keeps the contract,
+   * the links and the footer below the fold until the card is there to push them, where moving them
+   * costs nothing. Only a player with no major league line ends shorter than this.
+   */
+  const skeletonRole: Role = positionCode === '1' ? 'pitching' : 'hitting'
+  const skeleton = (
+    <Box aria-hidden sx={{ minHeight: '100vh' }}>
+      <LineCaption picker={<SeasonPicker label={`${season ?? CURRENT_SEASON} season`} season={season ?? CURRENT_SEASON} seasons={[]} onChange={() => {}} />}
+        meta={wide ? undefined : <Skeleton variant="text" sx={{ display: 'inline-block', width: '6em' }} />} />
+      {wide && <RoleHeading title={skeletonRole === 'pitching' ? 'Pitching' : 'Batting'} first />}
+      {statSummary(skeletonRole, true)}
+      <StatLogTable title="Game log" part="log" accent={ACCENT_TEXT} preview={MLB_LOG_PREVIEW} placeholder
+        statHeaders={skeletonRole === 'pitching' ? ['DEC', 'IP', 'H', 'R', 'ER', 'HR', 'BB', 'SO', 'P'] : ['POS', 'AB', 'R', 'H', '2B', '3B', 'HR', 'RBI', 'SB', 'BB', 'SO', 'TB']}
+        rows={Array.from({ length: MLB_LOG_PREVIEW + 3 }, () => ({
+          lead: ['Sep 00', '@ BOS'],
+          cells: skeletonRole === 'pitching' ? ['W', '6.0', '5', '2', '2', '1', '2', '6', '95'] : ['CF', '4', '1', '1', '1', '0', '1', '1', '0', '1', '1', '2'],
+        }))} />
+    </Box>
+  )
   const noStats = !!career && seasons.length === 0
   const shownRoles = wide ? plan.roles : [activeRole]
   // The device, not the layout: the pager only tracks a finger on a phone-width screen, and the
@@ -864,9 +907,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
 
   const body = (
     <Box sx={{ px: 2, pt: 2, pb: 2.5 }}>
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
-      ) : noStats || (!lines.hitting && !lines.pitching) ? (
+      {loading ? skeleton : noStats || (!lines.hitting && !lines.pitching) ? (
         <Box sx={{ textAlign: 'center', py: 5, color: 'text.secondary' }}>
           <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, mb: 0.5 }}>No major league stats {noStats || careerView ? 'yet' : `in ${season}`}</Typography>
           <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>Season totals appear here once this player appears in a game.</Typography>
@@ -939,7 +980,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
         // stick to it rather than to the page.
         bgcolor: 'background.paper', overflow: 'clip', scrollMarginTop: 0,
         // Edge to edge on a phone, where the page's gutter would cost the tables two columns.
-        ...(panel ? {} : { mx: { xs: -2, sm: 0 }, borderRadius: { xs: 0, sm: 3 }, border: { xs: 'none', sm: '1px solid' }, borderColor: { sm: 'divider' } }),
+        ...(panel ? {} : { mx: { xs: -2, sm: 0 }, borderRadius: { xs: 0, sm: 3 }, border: { xs: 'none', sm: '1px solid' }, borderColor: { sm: 'outline' } }),
       }}>
         {band}
         {body}

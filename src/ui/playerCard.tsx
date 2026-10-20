@@ -1206,10 +1206,13 @@ export const BAND_CHIP_SX = {
  * copy of the whole row is laid out beside the real one and read before paint, so the first frame
  * already has the right number in it and nothing reflows when the measurement lands.
  */
-export function BandChips({ children, noun = ['award', 'awards'] }: {
+export function BandChips({ children, noun = ['award', 'awards'], edge }: {
   /** The chips, most important first, each with its own key. */
   children: React.ReactElement[]
   noun?: [singular: string, plural: string]
+  /** An opaque outline for the "+N" chip, where the band is a flat colour: BAND_CHIP_SX's faded
+   *  white is under 3:1 on it (MLB's clubs measured 2.0 to 2.6). Left alone on a photo. */
+  edge?: string
 }) {
   const boxRef = useRef<HTMLDivElement>(null)
   const ghostRef = useRef<HTMLDivElement>(null)
@@ -1240,8 +1243,9 @@ export function BandChips({ children, noun = ['award', 'awards'] }: {
   }, [n])
   if (n === 0) return null
   const hidden = expanded ? 0 : n - Math.min(fit, n)
+  const chipSx = edge ? { ...BAND_CHIP_SX, borderColor: edge } : BAND_CHIP_SX
   const toggleSx = {
-    ...BAND_CHIP_SX, cursor: 'pointer', font: 'inherit', fontSize: BAND_CHIP_SX.fontSize, fontWeight: 800,
+    ...chipSx, cursor: 'pointer', font: 'inherit', fontSize: BAND_CHIP_SX.fontSize, fontWeight: 800,
     ...hoverOnly({ bgcolor: 'rgba(255,255,255,0.26)' }),
     '&:focus-visible': { outline: '2px solid #fff', outlineOffset: 2 },
   }
@@ -1252,7 +1256,7 @@ export function BandChips({ children, noun = ['award', 'awards'] }: {
       <Box aria-hidden sx={{ position: 'absolute', inset: 0, overflow: 'hidden', visibility: 'hidden', pointerEvents: 'none' }}>
         <Box ref={ghostRef} sx={{ position: 'absolute', left: 0, top: 0, display: 'flex', gap: 0.5, flexWrap: 'nowrap', width: 'max-content' }}>
           {children}
-          <Box sx={BAND_CHIP_SX}>+{n}</Box>
+          <Box sx={chipSx}>+{n}</Box>
         </Box>
       </Box>
       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: expanded ? 'wrap' : 'nowrap', overflow: 'hidden' }}>

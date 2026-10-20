@@ -285,6 +285,11 @@ export function useMlbState() {
   // Home for an address that names nothing, since a no-team visitor still gets the league feed
   // and the team picker there.
   const [view, setView] = useState<MlbView>(landing?.view ?? 'home')
+  // The player an address names, from the moment it is read until `player` holds them (or the read
+  // fails). The page draws from the id alone, since the card fetches everything else itself.
+  // Without it a cold /mlb/players/... drew the empty search view ("Search for a player or team")
+  // through two player reads, then swapped in the card: a whole screen of shift on every share link.
+  const [pendingPlayerId, setPendingPlayerId] = useState<number | null>(landing?.playerId ?? null)
   const [vizSeason, setVizSeason] = useState(landing?.season ?? CURRENT_SEASON)
 
   const [teamSummaries, setTeamSummaries] = useState<TeamSummary[]>([])
@@ -547,6 +552,7 @@ export function useMlbState() {
       teamId: resolved.currentTeam?.id, position: resolved.primaryPosition?.abbreviation,
     })
     setPlayer(resolved)
+    setPendingPlayerId(null)
     setPlayerSeason(opts?.season ?? null)
     setTeam(null)
     setTeamStanding(null)
@@ -561,6 +567,7 @@ export function useMlbState() {
     setPalette(teamPalette(t.id))
     setTeam(t)
     setPlayer(null)
+    setPendingPlayerId(null)
     setSeason(CURRENT_SEASON)
     await loadTeamStats(t, CURRENT_SEASON)
   }, [loadTeamStats, addRecentSearch])
@@ -704,6 +711,7 @@ export function useMlbState() {
     // The player stays on the entry behind this one, not in state: left set, they would hold the
     // Stats board's address on the player page (see the URL sync).
     setPlayer(null)
+    setPendingPlayerId(null)
     setTeam(null)
   }, [player, playerSeason, stampCurrentEntry])
 
@@ -760,6 +768,7 @@ export function useMlbState() {
     setLbGameScope(games)
     setGridHighlightId(to.highlight ?? null)
     setPlayer(null)
+    setPendingPlayerId(null)
     setTeam(null)
     setView(to.view)
     requestAnimationFrame(() => window.scrollTo({ top: 0 }))
@@ -769,6 +778,7 @@ export function useMlbState() {
    *  tab, and the address and the history entry go on naming them rather than the tab on screen. */
   const clearSelection = useCallback(() => {
     setPlayer(null)
+    setPendingPlayerId(null)
     setTeam(null)
   }, [])
 
@@ -853,13 +863,15 @@ export function useMlbState() {
         setStatsHighlightPlayerId(null)
         setStatsHighlightStatKey(null)
         setView('search')
+        setPendingPlayerId(snap.playerId)
         fetchPlayerDetails(snap.playerId).then(async p => {
-          if (!p) return
+          if (!p) { setPendingPlayerId(null); return }
           await selectPlayer(p, { season: target.statsView === 'career' ? 'career' : target.playerSeason })
           if (typeof savedY === 'number') restoreScroll(savedY)
-        }).catch(() => {})
+        }).catch(() => setPendingPlayerId(null))
         return
       }
+      setPendingPlayerId(null)
       if (snap.teamId) {
         const t = allTeams.find(t => t.id === snap.teamId)
         if (!t) return
@@ -871,6 +883,7 @@ export function useMlbState() {
       }
       setView(snap.view)
       setPlayer(null)
+      setPendingPlayerId(null)
       setTeam(null)
       if (snap.view === 'scores') setScoresDate(snap.date ?? null)
       if (!isMlbSeasonView(snap.view)) return
@@ -907,7 +920,9 @@ export function useMlbState() {
     if (autoLoadedRef.current) return
     if (landing?.playerId) {
       autoLoadedRef.current = true
-      fetchPlayerDetails(landing.playerId).then(p => { if (p) selectPlayer(p) }).catch(() => {})
+      fetchPlayerDetails(landing.playerId)
+        .then(p => { if (p) selectPlayer(p); else setPendingPlayerId(null) })
+        .catch(() => setPendingPlayerId(null))
     } else if (landing?.teamId) {
       // Wait for the team list before resolving a team page: this effect re-runs once
       // allTeams arrives. Until then, leave autoLoadedRef false so the URL-sync effect
@@ -989,7 +1004,7 @@ export function useMlbState() {
     selectPlayer, selectTeam,
 
     // Player state
-    player, playerSeason, setPlayerSeason,
+    player, pendingPlayerId, playerSeason, setPlayerSeason,
     handleStatCardClick,
 
     // Team state
