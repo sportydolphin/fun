@@ -9,7 +9,7 @@ its tables and inherits its traps.
 - **The migration** is
   [`20261020200000_public_photo_tagging.sql`](../scripts/migrations/20261020200000_public_photo_tagging.sql).
   It was verified against the live database inside a transaction that was rolled back (44 checks
-  as `anon`, nothing persisted); it is **not applied**. The functions return a word (`ok`,
+  as `anon`, nothing persisted); it was **applied Oct 20, 2026**. The functions return a word (`ok`,
   `closed`, `invalid`, `limited`) rather than a boolean, so the page can say what happened.
 - **Limits key on the caller's address as well as the key.** A per-browser key is free to mint
   again, so the plan's "each key is capped" stops nobody determined. Each request's address
@@ -46,7 +46,7 @@ its tables and inherits its traps.
 
 ### Launching
 
-1. `npm run migrate` (applies the migration; nothing reads the new functions until a photo is open).
+1. ~~`npm run migrate`~~ Done Oct 20, 2026 (nothing reads the new functions until a photo is open).
 2. After the first real suggestion, check that addresses are being hashed:
    `select count(*), count(distinct ip_hash), count(ip_hash) from wpbl_photo_tag_suggestions`.
    A null `ip_hash` on rows that came through the site means the header assumption is wrong and
