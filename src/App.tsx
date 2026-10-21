@@ -29,6 +29,8 @@ import { SiteFooter } from './SiteFooter'
 import { pressable, FOCUS_RING } from './wpbl/ui'
 import { NotificationBell } from './NotificationBell'
 import { ToolbarNav } from './ToolbarNav'
+import StandaloneBottomNav, { STANDALONE_NAV_QUERY } from './StandaloneBottomNav'
+import { BOTTOM_NAV_SPACE } from './ui/BottomNav'
 import { supabase } from './lib/supabase'
 import { useSeo } from './seo'
 // Import-free by design, so naming it here does not drag the lazy WPBL chunk into the
@@ -452,6 +454,9 @@ function AppInner() {
   // so the 1.25 desktop scale is already inside the number.
   const navSection = isWpblSection(path) ? 'wpbl' as const : isMlbSection(path) ? 'mlb' as const : null
   const hasToolbarNav = isDesktop && navSection !== null
+  // A section's page that the section does not draw (the gallery, Reading, MLB's glossary): the shell
+  // gives it the section's bottom bar on a phone, so no page of a section is without its tabs.
+  const standaloneNav = navSection && !rendersWpblApp(path) && !isMlbPath(path) ? navSection : null
   const roomForSearch = useMediaQuery(`(min-width: ${TOOLBAR_SEARCH_INLINE_MIN}px)`)
   const roomForUsername = useMediaQuery(`(min-width: ${TOOLBAR_USERNAME_MIN}px)`)
   const searchCollapsed = !isDesktop || (hasToolbarNav && !roomForSearch)
@@ -1366,7 +1371,9 @@ function AppInner() {
       {/* This box held MLB's `zoom: 1.4` until Oct 2026, the last `zoom` on the site. Both
           sections now scale from the root (styles.css), toolbar and portaled sheets included,
           which the zoom never reached. */}
-      <Box>
+      {/* On a phone, room under the page and the footer for the bottom bar a standalone page wears
+          (StandaloneBottomNav). The sections reserve their own. */}
+      <Box sx={standaloneNav ? { [STANDALONE_NAV_QUERY]: { pb: `calc(${BOTTOM_NAV_SPACE} + env(safe-area-inset-bottom, 0px))` } } : undefined}>
         {/* p: 2 is 20px at the desktop scale on both sections, so the tab bar under the toolbar
             sits at the same height on each and a section switch moves nothing.
             A SCREEN TALL, so the shared footer below starts under the fold on every route. The
@@ -1577,6 +1584,8 @@ function AppInner() {
           />
         )}
       </Box>
+
+      {standaloneNav && <StandaloneBottomNav section={standaloneNav} />}
 
       {/* A game opened from a standalone page, hovering over it. Kept here at the shell level so
           the page below (season, scorigami) stays mounted and visible behind it, rather than
