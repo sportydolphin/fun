@@ -4,6 +4,7 @@ import { TEAM_ABBR, CURRENT_SEASON } from './constants'
 import { supabase } from '../lib/supabase'
 import { fetchSeasonPlayerStats } from './apiSeasonStats'
 import { seasonIsOver } from './seasonPhase'
+import { isUnplayed } from './gameStatus'
 import { combineEntries, CAREER_POST_MIN_PA, CAREER_POST_MIN_IP } from './lib/gameScope'
 import type { GameScope } from './lib/gameScope'
 import { cachedJson, cachedRead, FRESH_LONG_MS } from './lib/readCache'
@@ -608,20 +609,26 @@ export async function fetchDivisionForTeam(teamId: number, season: number): Prom
 //
 // Fetch all remaining regular-season games, cross-reference each opponent's
 // current win%, and return 30 SosEntry objects sorted hardest → easiest.
+//
+// ONCE THE REGULAR SEASON IS OVER there is nothing remaining, and the remaining read came back
+// empty: every club at .000 with 0 games left, from Sep 28 to the next opening day. So `final`
+// turns it around: every game each club actually played, at the opponents' final records. The
+// caller passes its phase rather than this reading one, so the board's words and its numbers
+// come from the same answer (the dev phase override included).
 
-const sosCache = new Map<number, Promise<SosEntry[]>>()
+const sosCache = new Map<string, Promise<SosEntry[]>>()
 
-export function fetchStrengthOfSchedule(season: number): Promise<SosEntry[]> {
-  if (!sosCache.has(season)) {
-    sosCache.set(season, _buildSosEntries(season).catch(() => []))
+export function fetchStrengthOfSchedule(season: number, final = false): Promise<SosEntry[]> {
+  const key = `${season}:${final}`
+  if (!sosCache.has(key)) {
+    sosCache.set(key, (final ? _buildPlayedSosEntries(season) : _buildSosEntries(season)).catch(() => []))
   }
-  return sosCache.get(season)!
+  return sosCache.get(key)!
 }
 
-async function _buildSosEntries(season: number): Promise<SosEntry[]> {
+/** Win% and record per club from the standings, the shared half of both schedule boards. */
+async function _sosStandings(season: number) {
   const standings = await fetchStandingsCached(season)
-
-  // Build lookup maps from standings
   const winPctMap = new Map<number, number>()
   const teamInfoMap = new Map<number, { abbr: string; teamName: string; wins: number; losses: number }>()
   for (const div of standings) {
@@ -630,6 +637,84 @@ async function _buildSosEntries(season: number): Promise<SosEntry[]> {
       teamInfoMap.set(t.teamId, { abbr: t.abbr, teamName: t.teamName, wins: t.wins, losses: t.losses })
     }
   }
+  return { winPctMap, teamInfoMap }
+}
+
+function _sosEntries(
+  teamInfoMap: Map<number, { abbr: string; teamName: string; wins: number; losses: number }>,
+  oppPcts: Map<number, number[]>,
+): SosEntry[] {
+  const entries: SosEntry[] = []
+  for (const [teamId, info] of teamInfoMap) {
+    const pcts = oppPcts.get(teamId) ?? []
+    const avg = pcts.length > 0 ? pcts.reduce((s, p) => s + p, 0) / pcts.length : 0
+    entries.push({
+      teamId,
+      abbr: info.abbr,
+      teamName: info.teamName,
+      games: pcts.length,
+      oppWinPct: avg,
+      wins: info.wins,
+      losses: info.losses,
+    })
+  }
+  return entries.sort((a, b) => b.oppWinPct - a.oppWinPct)
+}
+
+// Each opponent's record here leaves out its games against the club being ranked. With every result
+// in hand that costs nothing, and without it the board ranks badness: the worst club's opponents
+// all padded their records beating it, which put a 58–104 club at the top of 2026's hardest.
+async function _buildPlayedSosEntries(season: number): Promise<SosEntry[]> {
+  const { teamInfoMap } = await _sosStandings(season)
+  const r = await fetch(
+    `https://statsapi.mlb.com/api/v1/schedule?sportId=1&season=${season}&gameType=R` +
+    `&fields=dates,games,gamePk,status,abstractGameState,codedGameState,detailedState,teams,home,away,team,id,isWinner`
+  )
+  const d = await r.json()
+  // A rainout is listed twice under one gamePk (the postponed date and the makeup) and a suspended
+  // game on both of its days, so each game counts once and an unplayed one never: without both,
+  // a club with a few rainouts would carry those opponents into its average two and three times.
+  const seen = new Set<number>()
+  const games: { home: number; away: number; homeWon: boolean }[] = []
+  for (const dateObj of d.dates ?? []) {
+    for (const game of dateObj.games ?? []) {
+      if (isUnplayed(game.status) || game.status?.abstractGameState !== 'Final' || seen.has(game.gamePk)) continue
+      seen.add(game.gamePk)
+      const home = Number(game.teams?.home?.team?.id)
+      const away = Number(game.teams?.away?.team?.id)
+      if (home && away) games.push({ home, away, homeWon: game.teams?.home?.isWinner === true })
+    }
+  }
+
+  const wins = new Map<number, number>(), played = new Map<number, number>()
+  const h2hWins = new Map<string, number>(), h2hGames = new Map<string, number>()   // `${team}:${opp}`
+  const bump = (m: Map<any, number>, k: number | string, by = 1) => m.set(k, (m.get(k) ?? 0) + by)
+  for (const g of games) {
+    for (const [t, o, won] of [[g.home, g.away, g.homeWon], [g.away, g.home, !g.homeWon]] as const) {
+      bump(played, t); bump(h2hGames, `${t}:${o}`)
+      if (won) { bump(wins, t); bump(h2hWins, `${t}:${o}`) }
+    }
+  }
+  const oppPctWithout = (opp: number, team: number) => {
+    const n = (played.get(opp) ?? 0) - (h2hGames.get(`${opp}:${team}`) ?? 0)
+    return n > 0 ? ((wins.get(opp) ?? 0) - (h2hWins.get(`${opp}:${team}`) ?? 0)) / n : 0.5
+  }
+
+  const oppPcts = new Map<number, number[]>()
+  for (const g of games) {
+    bumpList(oppPcts, g.home, oppPctWithout(g.away, g.home))
+    bumpList(oppPcts, g.away, oppPctWithout(g.home, g.away))
+  }
+  return _sosEntries(teamInfoMap, oppPcts)
+}
+
+function bumpList(m: Map<number, number[]>, k: number, v: number) {
+  const list = m.get(k)
+  if (list) list.push(v); else m.set(k, [v])
+}
+
+async function _buildSosEntries(season: number): Promise<SosEntry[]> {
+  const { winPctMap, teamInfoMap } = await _sosStandings(season)
 
   // Fetch remaining schedule (only the fields we need to keep response small)
   const today = new Date().toISOString().split('T')[0]
@@ -659,23 +744,7 @@ async function _buildSosEntries(season: number): Promise<SosEntry[]> {
     }
   }
 
-  // Build entries
-  const entries: SosEntry[] = []
-  for (const [teamId, info] of teamInfoMap) {
-    const pcts = oppPcts.get(teamId) ?? []
-    const avg = pcts.length > 0 ? pcts.reduce((s, p) => s + p, 0) / pcts.length : 0
-    entries.push({
-      teamId,
-      abbr: info.abbr,
-      teamName: info.teamName,
-      remainingGames: pcts.length,
-      oppWinPct: avg,
-      wins: info.wins,
-      losses: info.losses,
-    })
-  }
-
-  return entries.sort((a, b) => b.oppWinPct - a.oppWinPct)
+  return _sosEntries(teamInfoMap, oppPcts)
 }
 
 // The standings endpoint returns division objects with only {id, link} and no name field.
@@ -724,14 +793,48 @@ export async function fetchStandings(season: number): Promise<StandingsDivision[
 }
 
 // ─── Team average ages ────────────────────────────────────────────────────────
+//
+// In season this is today's roster: every player's current club and current age. Once the regular
+// season is over that stops describing the season, since free agency empties the rosters a week
+// after the World Series and everyone left gets a year older on their birthday. So `final` reads
+// who actually played instead: each club's own split of every player it used (a traded player
+// counts for both clubs), at their age for the season, weighted by playing time (plate appearances
+// and batters faced) so a September call-up with ten trips to the plate barely moves it.
 
-const teamAgeCache = new Map<number, Promise<Record<number, number>>>()
+const teamAgeCache = new Map<string, Promise<Record<number, number>>>()
 
-export function fetchTeamAverageAges(season: number): Promise<Record<number, number>> {
-  if (!teamAgeCache.has(season)) {
-    teamAgeCache.set(season, _buildTeamAges(season).catch(() => ({})))
+export function fetchTeamAverageAges(season: number, final = false): Promise<Record<number, number>> {
+  const key = `${season}:${final}`
+  if (!teamAgeCache.has(key)) {
+    teamAgeCache.set(key, (final ? _buildPlayedTeamAges(season) : _buildTeamAges(season)).catch(() => ({})))
   }
-  return teamAgeCache.get(season)!
+  return teamAgeCache.get(key)!
+}
+
+async function _buildPlayedTeamAges(season: number): Promise<Record<number, number>> {
+  // One read per club: the league-wide read carries a traded player as one row, on their last club.
+  const out: Record<number, number> = {}
+  await Promise.all(Object.keys(TEAM_ABBR).map(async id => {
+    const r = await fetch(
+      `https://statsapi.mlb.com/api/v1/stats?stats=season&group=hitting,pitching&season=${season}` +
+      `&sportId=1&playerPool=ALL&limit=500&teamId=${id}` +
+      `&fields=stats,group,displayName,splits,stat,age,plateAppearances,battersFaced`
+    )
+    const d = await r.json()
+    let ageSum = 0, weight = 0
+    for (const group of d.stats ?? []) {
+      const pitching = group.group?.displayName === 'pitching'
+      for (const s of group.splits ?? []) {
+        const age = Number(s.stat?.age)
+        const w = Number((pitching ? s.stat?.battersFaced : s.stat?.plateAppearances) ?? 0)
+        if (!(age >= 17 && age <= 55) || !(w > 0)) continue
+        ageSum += age * w
+        weight += w
+      }
+    }
+    if (weight > 0) out[Number(id)] = ageSum / weight
+  }))
+  return out
 }
 
 async function _buildTeamAges(season: number): Promise<Record<number, number>> {

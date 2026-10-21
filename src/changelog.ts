@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.173.0',
+    date:    '2026-10-21',
+    changes: [
+      {
+        short: 'Report cards look back on the season',
+        full:  "Once the regular season ends, MLB's schedule boards rank every game each club played, against its opponents' final records (each leaving out its games against that club), instead of going blank with no games left. Oldest and Youngest Rosters count the players who played for each club that season, at their age for it and weighted by playing time, so winter moves do not change them. Every report card row now draws its bar the full width under the name, and on the Report cards page the season picker sits beside the title instead of pinned in a band of its own.",
+      },
+    ],
+  },
+  {
     version: '1.172.0',
     date:    '2026-10-21',
     changes: [

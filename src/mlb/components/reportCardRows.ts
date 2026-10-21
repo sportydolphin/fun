@@ -143,7 +143,8 @@ export function buildPayrollRows(payrolls: Record<number, number>, nameMap: Map<
   }))
 }
 
-export function buildSosRows(entries: SosEntry[], direction: 'hardest' | 'easiest'): LbRow[] {
+/** `final`: the entries are the whole season played (fetchStrengthOfSchedule's `final`). */
+export function buildSosRows(entries: SosEntry[], direction: 'hardest' | 'easiest', final = false): LbRow[] {
   if (!entries.length) return []
   const isHardest = direction === 'hardest'
   const sorted = isHardest ? entries : [...entries].reverse()
@@ -158,7 +159,8 @@ export function buildSosRows(entries: SosEntry[], direction: 'hardest' | 'easies
       teamId: e.teamId,
       abbr: e.abbr,
       name: e.teamName,
-      sub: `${e.wins}–${e.losses} · ${e.remainingGames}G left`,
+      // Every club played 162 (161 after a cancellation), so a season's count says nothing.
+      sub: final ? `${e.wins}–${e.losses}` : `${e.wins}–${e.losses} · ${e.games}G left`,
       value: pctStr,
       barFraction: isHardest ? norm : 1 - norm,
     }
