@@ -8,8 +8,8 @@ import type { WpblPlayer, WpblTeam } from '../types'
 // the closed list, says honestly what the database answered, and never moves a reader past a photo
 // whose names were not recorded.
 
-const photo = (id: string): PhotoToTag => ({
-  id, card_url: `c-${id}`, full_url: `f-${id}`, width: 800, height: 600, credit: 'Jamie Fan', open_count: 115, named_count: 38,
+const photo = (id: string, tagged: PhotoToTag['tagged'] = []): PhotoToTag => ({
+  id, card_url: `c-${id}`, full_url: `f-${id}`, width: 800, height: 600, credit: 'Jamie Fan', open_count: 115, named_count: 38, tagged,
 })
 const players = [
   { id: 'kw', name: 'Kelsie Whitmore', team_id: 'SF', jersey_number: '7', position: 'CF', active: true },
@@ -61,6 +61,20 @@ describe('PhotoTagPage', () => {
     await waitFor(() => expect(suggestPhotoTags).toHaveBeenCalledWith('p1', [{ player: 'kw' }]))
     await waitFor(() => expect(shownPhoto()).toBe('f-p2'))
     expect(screen.getByText(/you've named 1/)).toBeTruthy()
+  })
+
+  it('shows who the owner already tagged and never offers them again', async () => {
+    batches = [[photo('p1', [{ player: 'kw' }]), photo('p2')]]
+    render(<PhotoTagPage />)
+    await screen.findByText('Already named')
+    expect(screen.getByText('Kelsie Whitmore')).toBeTruthy()
+    expect(screen.getByRole('img', { name: /named so far: Kelsie Whitmore/ })).toBeTruthy()
+    search('#7')
+    expect(await screen.findByText(/No one on our list matches that/)).toBeTruthy()
+    search('Diana')
+    fireEvent.click(await screen.findByText('Diana Ibarra'))
+    fireEvent.click(screen.getByText('Send and next'))
+    await waitFor(() => expect(suggestPhotoTags).toHaveBeenCalledWith('p1', [{ player: 'dI' }]))
   })
 
   it('sends nothing until someone is picked, and offers nothing off the list', async () => {

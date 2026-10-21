@@ -40,8 +40,11 @@ export function photoTagKey(): string {
 
 // ─── The public side ────────────────────────────────────────────────────────────
 
-/** One photo waiting for a name, as the queue hands it out: the renders and the credit, nothing
- *  else on the row, and the queue's progress (how many are open, how many already named). */
+export type TagSubject = { player: string } | { figure: string } | { team: string }
+
+/** One photo in review, as the queue hands it out: the renders and the credit, who the owner has
+ *  already tagged (tagging is shared, so a tagged photo stays in the queue until it is published),
+ *  and the queue's progress (how many are open, how many already have a name). */
 export interface PhotoToTag {
   id: string
   card_url: string
@@ -51,9 +54,8 @@ export interface PhotoToTag {
   credit: string | null
   open_count: number
   named_count: number
+  tagged: TagSubject[]
 }
-
-export type TagSubject = { player: string } | { figure: string } | { team: string }
 
 /** What a write said: recorded; the photo left the queue meanwhile; refused as malformed; over a
  *  limit. `error` is the network or an unknown answer, which the page treats as "try again". */

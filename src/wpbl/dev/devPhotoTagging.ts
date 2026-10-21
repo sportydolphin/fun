@@ -31,7 +31,7 @@ export async function devPhotosToTag(skip: string[], limit: number): Promise<Pho
     .slice(0, limit)
     .map(p => ({
       id: p.id, card_url: p.card_url, full_url: p.full_url, width: p.width, height: p.height,
-      credit: p.credit, open_count: pool.length, named_count: named,
+      credit: p.credit, open_count: pool.length, named_count: named, tagged: [],
     }))
 }
 
