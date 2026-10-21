@@ -205,3 +205,17 @@ export function currentSeasonOnly<T extends GameKeyed>(lines: T[], games: WpblDa
 export function cardSeason(games: WpblDatedSeasonGame[]): number | null {
   return currentSeason(games.filter((g): g is WpblDatedGame & Pick<WpblGame, 'status'> => !!g.game_date && !!g.status))
 }
+
+/**
+ * Whether one season's regular season has been played out: it has games that count in the
+ * standings, and none of them is still live or scheduled. Pass ONE season's games (the provider's
+ * `seasonGames`). What turns "Current standings" into "Final standings" the morning after the last
+ * regular-season game, with no date in the code to update each year (Oct 21, 2026: the table read
+ * "Current" a month into the offseason). A game still scheduled from `today` on keeps it open; one
+ * left "scheduled" on a past date was never played and will not be, the same reading as
+ * `completedSeason`.
+ */
+export function regularSeasonOver(games: (WpblSeasonGame & Pick<WpblGame, 'status' | 'game_date'>)[], today: string): boolean {
+  const regular = games.filter(countsInStandings)
+  return regular.length > 0 && !regular.some(g => g.status === 'live' || (g.status === 'scheduled' && g.game_date >= today))
+}

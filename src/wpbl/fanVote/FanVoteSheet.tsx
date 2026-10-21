@@ -79,7 +79,7 @@ export function FanVoteSheet({ entries, players, teams, state, closed, testerPre
             // enough down that the sheet opens on a paragraph. The date says what a sentence about
             // first pitch of the final would, to anyone holding the bracket, and the ballot's own
             // header carries the rest.
-            ? 'Voting is closed. Here is how it finished.'
+            ? 'Final results'
             : `Change your votes until ${AWARDS_CLOSE_LABEL}.`}
         </Typography>
         {/* THE ONE HONEST HEADCOUNT. A per-category tally counts answers, so summing it double-

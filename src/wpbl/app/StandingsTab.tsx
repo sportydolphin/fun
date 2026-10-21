@@ -8,6 +8,8 @@ import SeasonShapeCard from '../SeasonShapeCard'
 import { seasonShape, standingsAt, type SeasonPreview } from '../derive/seasonShape'
 import { useRowFlip, useRowDividers } from '../rowFlip'
 import { useWpblSeason } from '../SeasonContext'
+import { regularSeasonOver } from '../season'
+import { localIsoDate } from '../derive/homePlayers'
 import { SeasonMenu } from '../SeasonMenu'
 import { TabTitle } from '../PageHeading'
 import { typePx } from '../../ui/scale'
@@ -21,6 +23,8 @@ export function StandingsView({ teams, games: allGames, onOpenTeam }: {
   // summed across two of them are a record no club ever had.
   const { season, current, seasonGames: games } = useWpblSeason(allGames)
   const pastSeason = season != null && season !== current
+  // The table stops being "current" the day the regular season is played out, not on a date.
+  const final = pastSeason || regularSeasonOver(games, localIsoDate())
   // ONE READ OF THE SEASON FOR BOTH SURFACES. The chart under the table is drawn from this, and
   // so is the table: `standingsAt(shape, last)` is `computeStandings(teams, games)` by
   // construction (see derive/seasonShape.ts), so there is no version of this page where the two
@@ -132,7 +136,7 @@ export function StandingsView({ teams, games: allGames, onOpenTeam }: {
       color: asOf ? 'text.primary' : 'text.disabled',
       fontVariantNumeric: 'tabular-nums',
     }}>
-      {asOf ?? (pastSeason ? `Final ${season} standings` : 'Current standings')}
+      {asOf ?? (pastSeason ? `Final ${season} standings` : final ? 'Final standings' : 'Current standings')}
     </Typography>
     {/* `position: relative` is load-bearing twice over: it is what the divider overlay is
         placed against, and it is what makes the rows' `offsetTop` resolve to this box rather
@@ -225,7 +229,7 @@ export function StandingsView({ teams, games: allGames, onOpenTeam }: {
           table is what somebody came to /wpbl/standings for, and a chart above it would make
           them scroll to reach the thing they asked for. It renders nothing until a game has
           been played, so it cannot be an empty box on opening day. */}
-      <SeasonShapeCard shape={shape} onPreview={onPreview} page="standings" />
+      <SeasonShapeCard shape={shape} final={final} onPreview={onPreview} page="standings" />
 
       {/* NO SEEDING CARD once the regular season is over. It existed to say what the
           remaining games were FOR, since all four clubs qualify and the order was the whole

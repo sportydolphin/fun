@@ -87,3 +87,16 @@ export function canonicalFeedName<T extends { name: string }>(
   const hits = matchFeedName(raw, players)
   return hits.length === 1 ? hits[0].name : raw
 }
+
+/**
+ * A play's prose with every name in it in the roster's spelling, for surfaces that print a
+ * narrative without the play log around it to build a name map from (the season recap's Biggest
+ * plays). "Isabella Villareal doubled" read one way there and Isabella Villarreal on her page
+ * until Oct 21, 2026. Runs of capitalized words are the candidates, and each goes through
+ * `canonicalFeedName`, so a run that is not a player ("Center Field" never is, the feed writes
+ * positions in lowercase) comes back exactly as it went in.
+ */
+export function rosterSpellingsIn<T extends { name: string }>(text: string, players: Iterable<T>): string {
+  const roster = [...players]
+  return text.replace(/\p{Lu}[\p{L}'’.-]*(?:\s+\p{Lu}[\p{L}'’.-]*)+/gu, run => canonicalFeedName(run, roster))
+}

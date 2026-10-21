@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.180.0',
+    date:    '2026-10-21',
+    changes: [
+      {
+        short: 'Final standings, one position per player',
+        full:  "The standings say Final standings once the regular season is played out, and the chart's last day says final standings too, with no date to change each year. Wins Above Expected and Wins Below Expected rank by the number on the row, so the Reds' +10 is above the Rays' +8. The players list and the star sign card show the position each player has been playing, the same one as the team page and Compare. The season recap's Biggest plays spell names the way the roster does. A player whose photo fails to load shows initials instead of an empty circle. MLB's player header reads like WPBL's: #12 · Shortstop · Bats S, throws R · Age 32, and Drafted round 1, pick 8 (2011). The fan awards say Final results.",
+      },
+    ],
+  },
+  {
     version: '1.179.0',
     date:    '2026-10-21',
     changes: [

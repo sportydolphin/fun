@@ -188,8 +188,8 @@ export function VizView({
 
   const AGE_TIP = 'Every player who played for the club this season, at their age for the season, counted by their plate appearances and batters faced, so a September call-up barely moves it. A traded player counts for both clubs.'
   const SOS_TIP = 'Average final win% of every opponent a club played, once per game. Each opponent\'s record leaves out its games against that club.'
-  const fraudTooltip = 'Wins above the Pythagorean record: the wins a team\'s runs scored and allowed predict. Ranked by that gap times win%, so a contender ranks above a last-place team with the same gap.'
-  const cursedTooltip = 'Wins below the Pythagorean record: the wins a team\'s runs scored and allowed predict. Ranked by that gap times losing %, so a last-place team ranks above a contender with the same gap.'
+  const fraudTooltip = 'Wins above the Pythagorean record: the wins a team\'s runs scored and allowed predict. Ties go to the better record.'
+  const cursedTooltip = 'Wins below the Pythagorean record: the wins a team\'s runs scored and allowed predict. Ties go to the worse record.'
 
   // ─── Report Card boards: every leaderboard follows the same shape ────────
   const boards: Board[] = [

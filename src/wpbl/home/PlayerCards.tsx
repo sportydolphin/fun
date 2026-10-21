@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Skeleton, Typography } from '@mui/material'
 import type { WpblGame, WpblPlayer, WpblTeam, WpblBattingLine, WpblPitchingLine } from '../types'
-import { fetchWpblPlayerLines } from '../api'
+import { fetchWpblPlayerLines, fetchWpblPlayerSeasons } from '../api'
+import { currentSeason } from '../season'
 import { useWpblPlayerLink } from '../LinkContext'
 import { SectionCard, TeamBadge, PlayerPortrait, FittedName, TYPE_SCALE, TAPPABLE, FOCUS_RING, hoverOnly } from '../ui'
 import { sumBatting, sumPitching, plateAppearances, fmtRate } from '../stats'
 import { useEraBasis } from '../EraBasisContext'
 import { outsToIp } from '../innings'
-import { displayPosition, leadsWithPitching, playedPosition } from '../positions'
+import { displayPosition, displayPositionFromIndex, leadsWithPitching, playedPosition, type PrimaryPosition } from '../positions'
 import { wpblFullName } from '../constants'
 import { UNSTYLED_LINK } from '../../nav'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
@@ -108,9 +109,33 @@ function RowSkeleton({ size = 32, gap = 1 }: { size?: number; gap?: number }) {
   )
 }
 
-function clubMeta(p: WpblPlayer, teams: Map<string, WpblTeam>): string {
+function clubMeta(p: WpblPlayer, teams: Map<string, WpblTeam>, positions: Map<string, PrimaryPosition>): string {
   const team = p.team_id ? teams.get(p.team_id) : undefined
-  return [team?.abbr, p.position].filter(Boolean).join(' · ')
+  return [team?.abbr, displayPositionFromIndex(p, positions).label].filter(Boolean).join(' · ')
+}
+
+/**
+ * The position each player has been playing this season, from the stored season rows
+ * (derive/playerSeasons.ts), so a list of names on Home prints the same position as the player
+ * page one tap away. Not the box-score lines: Home stopped reading the season's lines in the
+ * offseason, and these rows are one small cached read. Empty until it lands, or when the rows
+ * are stale (`current` false), which leaves the roster's own label: the answer before Oct 21, 2026.
+ */
+function useStoredPositions(games: WpblGame[]): Map<string, PrimaryPosition> {
+  const year = currentSeason(games)
+  const [index, setIndex] = useState<Map<string, PrimaryPosition>>(() => new Map())
+  useEffect(() => {
+    if (year == null) return
+    let live = true
+    fetchWpblPlayerSeasons(year)
+      .then(r => {
+        if (!live || !r.current) return
+        setIndex(new Map(r.rows.flatMap(row => (row.scope === 'regular' && row.position ? [[row.player_id, row.position] as const] : []))))
+      })
+      .catch(() => { /* the roster's labels stand */ })
+    return () => { live = false }
+  }, [year])
+  return index
 }
 
 // ─── Player of the day ──────────────────────────────────────────────────────────
@@ -308,9 +333,10 @@ function birthdayLabel(b: SignBirthday): string {
   return b.date ? shortMonthDay(b.date.slice(5)) : ''
 }
 
-export function StarSignCard({ players, teams, onOpenPlayer }: {
-  players: WpblPlayer[]; teams: Map<string, WpblTeam>; onOpenPlayer: OpenPlayer
+export function StarSignCard({ players, teams, games, onOpenPlayer }: {
+  players: WpblPlayer[]; teams: Map<string, WpblTeam>; games: WpblGame[]; onOpenPlayer: OpenPlayer
 }) {
+  const positions = useStoredPositions(games)
   const today = localIsoDate()
   const { sign, players: born } = useMemo(() => signSeason(players, today), [players, today])
   const link = useTrackedPlayerLink('sign', onOpenPlayer)
@@ -329,7 +355,7 @@ export function StarSignCard({ players, teams, onOpenPlayer }: {
           // An empty slot keeps the row a sign with few players would otherwise give back, so
           // the card is one height whichever sign's season it is.
           if (!b) return <Box key={i} aria-hidden />
-          const club = clubMeta(b.player, teams)
+          const club = clubMeta(b.player, teams, positions)
           return (
             <PlayerRow key={b.player.id} player={b.player} link={link(b.player)} size={SIGN_FACE} gap={SIGN_GAP}
               meta={<>

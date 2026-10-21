@@ -814,14 +814,19 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
 
   // ── the band ──────────────────────────────────────────────────────────────
 
-  const pos = bio?.primaryPosition?.abbreviation ?? player?.primaryPosition?.abbreviation
-  const bt = bio?.batSide?.code || bio?.pitchHand?.code ? `B/T ${bio?.batSide?.code ?? '-'}/${bio?.pitchHand?.code ?? '-'}` : null
+  // IN WORDS, THE WAY WPBL'S BAND READS (Oct 21, 2026): "#12 · Shortstop · Bats S, throws R ·
+  // Age 32" on both sections, where this one was "#12 · SS · B/T S/R · 32 yrs" a section switch away.
+  const position = bio?.primaryPosition ?? player?.primaryPosition
+  const pos = position?.abbreviation === 'TWP' ? 'Two-way player' : position?.name ?? position?.abbreviation
+  const bt = [bio?.batSide?.code ? `Bats ${bio.batSide.code}` : null, bio?.pitchHand?.code ? `throws ${bio.pitchHand.code}` : null]
+    .filter(Boolean).join(', ')
+  const age = bio?.currentAge ?? player?.currentAge
   const meta = [
     (bio?.primaryNumber ?? player?.primaryNumber) ? `#${bio?.primaryNumber ?? player?.primaryNumber}` : null,
-    pos === 'TWP' ? 'Two-way' : pos,
-    bt,
+    pos,
+    bt ? bt.charAt(0).toUpperCase() + bt.slice(1) : null,
     bio?.height && bio?.weight ? `${bio.height}, ${bio.weight} lb` : null,
-    (bio?.currentAge ?? player?.currentAge) != null && bio?.active !== false ? `${bio?.currentAge ?? player?.currentAge} yrs` : null,
+    age != null && bio?.active !== false ? `Age ${age}` : null,
   ].filter(Boolean).join(' · ')
   const span = bio && !bio.active ? careerSpan(bio) : null
   const bandLines = bio ? [birthplace(bio), draftLine(bio), span ? `MLB ${span}` : null].filter((l): l is string => !!l) : []

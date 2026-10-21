@@ -352,8 +352,12 @@ export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ri
    *  rendition choice a player does; a bare string still works and simply has one. */
   src?: string | WpblPortraitSet | null
 }) {
-  const art: WpblPortraitSet | null =
+  const found: WpblPortraitSet | null =
     typeof given === 'string' ? { src: given } : (given ?? wpblPortraitSet(name))
+  // A face that fails to load falls back to the initials, the same as one never bundled. Until
+  // Oct 21, 2026 a failed load left the club-colored disc empty, which reads as a broken image.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null)
+  const art = found && found.src !== failedSrc ? found : null
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
   // With a srcset the `src` is the 128 copy (see wpblPortraitSet). Cleared once the chosen
   // rendition has loaded, because these are cut-outs: left underneath, the soft copy would show
@@ -391,7 +395,7 @@ export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ri
               }
               onReady?.()
             }}
-            onError={onReady}
+            onError={() => { setFailedSrc(art.src); onReady?.() }}
             sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         : <Typography sx={{ fontSize: size * 0.36, fontWeight: 800, color: '#fff' }}>{initials}</Typography>}

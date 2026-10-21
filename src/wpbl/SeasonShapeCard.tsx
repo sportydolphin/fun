@@ -102,11 +102,13 @@ function useSettled<T>(value: T, delayMs: number): T {
   return delayMs <= 0 ? value : settled
 }
 
-export default function SeasonShapeCard({ shape, onPreview, page }: {
+export default function SeasonShapeCard({ shape, final = false, onPreview, page }: {
   /** Built by the page, not here, because the standings table above is drawn from the same
    *  object: one `seasonShape` call feeds both, so the table a reader scrubs to and the chart
    *  they scrubbed cannot come from two different reads of the season. */
   shape: SeasonShape
+  /** The regular season is played out, so the last column is the final table, not today's. */
+  final?: boolean
   /** What the reader is pointing at, in the two speeds `SeasonPreview` describes: the figures
    *  follow the cursor exactly, the row order waits for them to hold still. Null on both means
    *  they are not pointing at anything and the table is the present. */
@@ -315,7 +317,7 @@ export default function SeasonShapeCard({ shape, onPreview, page }: {
         userSelect: 'none', WebkitTapHighlightColor: 'transparent',
       }}>
         Through {dateLabel}
-        {col === last && shown.date ? ' · current standings' : ''}
+        {col === last && shown.date ? (final ? ' · final standings' : ' · current standings') : ''}
       </Typography>
 
       {/* THE FINDINGS, RACE FIRST. The climb alone is one club measured against its own past:
@@ -370,6 +372,8 @@ export default function SeasonShapeCard({ shape, onPreview, page }: {
 // pointer events by `pointerType` for exactly that.
 function Chart({ shape, col, scrub, colX, overY, dark }: {
   shape: SeasonShape
+  /** The regular season is played out, so the last column is the final table, not today's. */
+  final?: boolean
   col: number
   scrub: ReturnType<typeof useChartScrub>
   colX: (i: number) => number

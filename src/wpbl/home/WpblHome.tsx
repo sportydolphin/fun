@@ -522,7 +522,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
               that does what a birthdays card and a star sign card did apart. Full width, so the
               names sit four abreast on a desktop rather than in a narrow column. */}
           <Box sx={{ mt: 1.5 }}>
-            <StarSignCard players={players} teams={teamMap} onOpenPlayer={onOpenPlayer} />
+            <StarSignCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} />
           </Box>
 
           {/* Reading and Watch share a row: each was a full-width block for three posts or six
