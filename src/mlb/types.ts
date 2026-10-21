@@ -163,8 +163,8 @@ export interface SosEntry {
   teamId: number
   abbr: string
   teamName: string
-  remainingGames: number
-  oppWinPct: number    // average opponent win% across remaining games
+  games: number        // games left, or once the season is over, games played
+  oppWinPct: number    // average opponent win% across those games
   wins: number
   losses: number
 }

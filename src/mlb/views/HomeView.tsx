@@ -271,15 +271,20 @@ function HomeViewInner({
   // Once the season is over a streak is not "active", it is whatever was still alive on the last day
   // (and it carries into next season, which is the league's rule for hitting streaks too).
   const streakSub = (active: string) => (seasonOver ? 'At season end' : active)
-  const FULL_POOL: BoardMeta[] = [
+  // The schedule and age boards read the season played once it is over (the `final` of
+  // fetchStrengthOfSchedule and fetchTeamAverageAges).
+  const final = seasonOver === true
+  const AGE_TIP = 'Every player who played for the club this season, at their age for the season, counted by their plate appearances and batters faced, so a September call-up barely moves it. A traded player counts for both clubs.'
+  const SOS_TIP = 'Average final win% of every opponent a club played, once per game. Each opponent\'s record leaves out its games against that club.'
+  const BOARD_POOL: BoardMeta[] = [
     { id: 'fraud',           kind: 'team',   icon: '📈', title: 'Wins Above Expected',        subtitle: 'vs Pythagorean record', accent: '#f97316', dep: 'summaries' },
     { id: 'cursed',          kind: 'team',   icon: '📉', title: 'Wins Below Expected',       subtitle: 'vs Pythagorean record',  accent: '#818cf8', dep: 'summaries' },
     { id: 'highest-payroll', kind: 'team',   icon: '💰', title: 'Highest Payrolls',  subtitle: `${CURRENT_SEASON} est. payroll`, accent: '#eab308', dep: 'payroll' },
     { id: 'lowest-payroll',  kind: 'team',   icon: '🪙', title: 'Lowest Payrolls',   subtitle: `${CURRENT_SEASON} est. payroll`, accent: '#22c55e', dep: 'payroll' },
-    { id: 'oldest',          kind: 'team',   icon: '👴', title: 'Oldest Rosters',    subtitle: 'Avg age',                   accent: '#f97316', dep: 'ages' },
-    { id: 'youngest',        kind: 'team',   icon: '🌱', title: 'Youngest Rosters',  subtitle: 'Avg age',                    accent: '#22c55e', dep: 'ages' },
-    { id: 'hardest',         kind: 'team',   icon: '⚔️', title: 'Hardest Schedules', subtitle: 'Remaining opp. win%',             accent: '#ef4444', dep: 'sos' },
-    { id: 'easiest',         kind: 'team',   icon: '🏖️', title: 'Easiest Schedules', subtitle: 'Remaining opp. win%',              accent: '#22c55e', dep: 'sos' },
+    { id: 'oldest',          kind: 'team',   icon: '👴', title: 'Oldest Rosters',    subtitle: final ? 'Avg age, by playing time' : 'Avg age', accent: '#f97316', dep: 'ages', tooltipText: final ? AGE_TIP : undefined },
+    { id: 'youngest',        kind: 'team',   icon: '🌱', title: 'Youngest Rosters',  subtitle: final ? 'Avg age, by playing time' : 'Avg age', accent: '#22c55e', dep: 'ages', tooltipText: final ? AGE_TIP : undefined },
+    { id: 'hardest',         kind: 'team',   icon: '⚔️', title: 'Hardest Schedules', subtitle: final ? 'Opp. win%' : 'Remaining opp. win%', accent: '#ef4444', dep: 'sos', tooltipText: final ? SOS_TIP : undefined },
+    { id: 'easiest',         kind: 'team',   icon: '🏖️', title: 'Easiest Schedules', subtitle: final ? 'Opp. win%' : 'Remaining opp. win%', accent: '#22c55e', dep: 'sos', tooltipText: final ? SOS_TIP : undefined },
     { id: 'hit-streak',      kind: 'player', icon: '🔥', title: 'Hitting Streaks',   subtitle: streakSub('Active'),           accent: '#f97316', dep: 'streaks', tooltipText: 'Games in a row with at least one hit. A game with no official at-bat (all walks or hit by pitches) doesn\'t break the streak.' },
     { id: 'scoreless',       kind: 'player', icon: '🧊', title: 'Scoreless Streaks', subtitle: streakSub('Active'),     accent: '#38bdf8', dep: 'streaks', tooltipText: 'Innings a pitcher has thrown since the last run they gave up. Counted in whole outings, so the streak starts at their first clean appearance after it.' },
     { id: 'hitless',         kind: 'player', icon: '🥶', title: 'Hitless Streaks',   subtitle: streakSub('Active'),          accent: '#a78bfa', dep: 'streaks', tooltipText: 'Trips to the plate a hitter has gone without a hit. Games with no official at-bat are skipped.' },
@@ -288,25 +293,23 @@ function HomeViewInner({
     { id: 'pitches-fewest',  kind: 'player', icon: '⚡', title: 'Fewest Pitches per PA',     subtitle: 'Qualified', accent: '#f43f5e', dep: 'pitchPa', tooltipText: `Pitches a hitter sees per trip to the plate, lowest first. ${QUALIFIED_NOTE}` },
     { id: 'top-salary',      kind: 'player', icon: '🤑', title: 'Highest Salaries',       subtitle: `${CURRENT_SEASON}`,       accent: '#10b981', dep: 'salaries', tooltipText: `Each player's salary for the ${CURRENT_SEASON} season, straight from their contract. This is the money paid this year, so a backloaded or deferred deal can rank differently than its headline average annual value.` },
   ]
-  // "Toughest remaining opponents" has no remaining opponents to rank once the season is over.
-  const BOARD_POOL = seasonOver ? FULL_POOL.filter(m => m.dep !== 'sos') : FULL_POOL
 
   const boardPairs: Array<[number, number]> = []
   for (let i = 0; i < BOARD_POOL.length; i++)
     for (let j = i + 1; j < BOARD_POOL.length; j++)
       boardPairs.push([i, j])
   const dayNum       = Math.floor(Date.now() / 86400000)
-  // Walk the pair list with a stride coprime to its length (105 = 3·5·7 in season,
-  // 78 = 2·3·13 once the two schedule boards drop out) rather than stepping +1 a
-  // day: consecutive pairs in the list share a board, so a plain step would leave
-  // the same card camped for up to a dozen days. 47 is prime and divides neither,
-  // so it hits every pair once across the cycle.
+  // Walk the pair list with a stride coprime to its length (105 = 3·5·7) rather
+  // than stepping +1 a day: consecutive pairs in the list share a board, so a plain
+  // step would leave the same card camped for up to a dozen days. 47 is prime and
+  // does not divide it, so it hits every pair once across the cycle. A board added
+  // or removed changes the length: keep the stride coprime to the new one.
   const [aIdx, bIdx] = boardPairs[(dayNum * 47) % boardPairs.length]
   // Alternate which of the pair sits on top so the ordering feels fresh too.
   const selectedMetas = dayNum % 2 === 0
     ? [BOARD_POOL[aIdx], BOARD_POOL[bIdx]]
     : [BOARD_POOL[bIdx], BOARD_POOL[aIdx]]
-  // Nothing is fetched until the phase is known, since it decides which boards are in the pool.
+  // Nothing is fetched until the phase is known, since it decides what the schedule boards read.
   const neededDeps = new Set<DataDep>(seasonOver == null ? [] : selectedMetas.map(m => m.dep))
 
   // Rows + loading for one board, built from whatever dataset backs it.
@@ -318,8 +321,8 @@ function HomeViewInner({
       case 'lowest-payroll':  return { rows: buildPayrollRows(TEAM_PAYROLLS_2026, nameMap, 'lowest'),  loading: false }
       case 'oldest':          return { rows: buildAgeRows(ages, nameMap, 'oldest'),   loading: loadingAges }
       case 'youngest':        return { rows: buildAgeRows(ages, nameMap, 'youngest'), loading: loadingAges }
-      case 'hardest':         return { rows: buildSosRows(sosData, 'hardest'), loading: loadingSos }
-      case 'easiest':         return { rows: buildSosRows(sosData, 'easiest'), loading: loadingSos }
+      case 'hardest':         return { rows: buildSosRows(sosData, 'hardest', final), loading: loadingSos }
+      case 'easiest':         return { rows: buildSosRows(sosData, 'easiest', final), loading: loadingSos }
       case 'hit-streak':      return { rows: buildStreakRows(streaks?.hitting ?? [], 'hitting'),         loading: loadingStreaks }
       case 'scoreless':       return { rows: buildStreakRows(streaks?.scoreless ?? [], 'scoreless'),     loading: loadingStreaks }
       case 'hitless':         return { rows: buildStreakRows(streaks?.hitless ?? [], 'hitless'),         loading: loadingStreaks }
@@ -339,10 +342,10 @@ function HomeViewInner({
   const needSalaries = neededDeps.has('salaries')
 
   useEffect(() => {
-    if (!needAges || ages.length) return
+    if (!needAges) return
     let cancelled = false
     setLoadingAges(true)
-    fetchTeamAverageAges(CURRENT_SEASON)
+    fetchTeamAverageAges(CURRENT_SEASON, final)
       .then(map => {
         if (cancelled) return
         setAges(Object.entries(map)
@@ -353,18 +356,21 @@ function HomeViewInner({
       .catch(() => { if (!cancelled) setAges([]) })
       .finally(() => { if (!cancelled) setLoadingAges(false) })
     return () => { cancelled = true }
-  }, [needAges])   // eslint-disable-line react-hooks/exhaustive-deps
+    // Like the schedule read below: re-runs if the phase changes under it, from the cache.
+  }, [needAges, final])
 
   useEffect(() => {
-    if (!needSos || sosData.length) return
+    if (!needSos) return
     let cancelled = false
     setLoadingSos(true)
-    fetchStrengthOfSchedule(CURRENT_SEASON)
+    fetchStrengthOfSchedule(CURRENT_SEASON, final)
       .then(d => { if (!cancelled) setSosData(d) })
       .catch(() => { if (!cancelled) setSosData([]) })
       .finally(() => { if (!cancelled) setLoadingSos(false) })
     return () => { cancelled = true }
-  }, [needSos])   // eslint-disable-line react-hooks/exhaustive-deps
+    // Re-runs when the network phase overturns the remembered one, so the rows match the words.
+    // The read is cached per season and phase, so a re-run costs nothing.
+  }, [needSos, final])
 
   useEffect(() => {
     if (!needStreaks || streaks) return

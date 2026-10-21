@@ -764,9 +764,9 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           Home links to most. */}
       {onReportCards && !gamePageOpen && withFooter(
         <AppErrorBoundary inline where="tab">
-          <MlbTabTitle sx={{ mb: 2 }}>MLB Report Cards</MlbTabTitle>
           <VizView
             show="report-card"
+            heading={<MlbTabTitle sx={{ mb: 0 }}>MLB Report Cards</MlbTabTitle>}
             boardTabs={null}
             isDesktop={isDesktop}
             vizSeason={state.vizSeason}

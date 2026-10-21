@@ -324,7 +324,7 @@ const ROUTES: Record<string, Seo> = {
   [MLB_VIEW_PATHS.reportCards]: {
     title: 'MLB Report Cards: streaks, wins above expected and roster ages | sportydolphin.fun',
     description:
-      'MLB report cards: the longest active hitting and scoreless streaks, the clubs winning more than their scoring says, the hardest schedules left, the oldest rosters and the biggest payrolls.',
+      'MLB report cards: the longest active hitting and scoreless streaks, the clubs winning more than their scoring says, the hardest schedules, the oldest rosters and the biggest payrolls.',
   },
   [MLB_VIEW_PATHS.teams]: {
     title: 'MLB Teams: all 30 clubs, rosters and stats | sportydolphin.fun',

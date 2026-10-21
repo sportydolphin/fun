@@ -33,15 +33,24 @@ export interface Board {
   loading: boolean
 }
 
-// The bar column is fixed so the bars line up row to row. At 124px it left a phone about 40px for
-// the name (beside a verdict column that is gone since Oct 21, 2026), which read "Joey …" and
-// "Los A…": narrower on a phone, the bar still compares the three rows and the name fits.
-//
-// THE NAME HAS A FLOOR AND THE BAR GIVES WAY TO IT. Fixed bars left the name whatever was over,
-// and in the narrow right column of Home at 1024 with Large text that was 18px, a name drawn
-// across the bar beside it. Every row carries the same floor, so the bars still shrink together
-// and still line up.
-const BAR_W   = { xs: chromePx(64), sm: chromePx(124) }
+// THE BAR RUNS UNDER THE NAME, the full width of the row's middle. It was a column of its own
+// beside the name, and the two split one width: 64px of bar on a phone, a sliver for a scale
+// meant to be the card's picture, and every pixel given to it came off the name ("Joey …",
+// "Los A…", and in Home's narrow column at Large text a name drawn across the bar). Stacked, the
+// name gets the whole line, the bar gets the whole line under it, and every row's middle is the
+// same width, so the bars still start and end together and compare row to row.
+
+/** A row's bar: the stat against the board's range, across the whole middle of the row. */
+function ScaleBar({ fraction, accent, ghost }: { fraction: number; accent: string; ghost?: boolean }) {
+  return (
+    <Box sx={{ height: chromePx(8), bgcolor: 'action.hover', borderRadius: 1, overflow: 'hidden', mt: 0.6 }}>
+      {!ghost && <Box sx={{ height: '100%', width: `${Math.max(fraction, 0) * 100}%`, bgcolor: accent, borderRadius: 1, opacity: 0.85, transition: 'width 0.3s' }} />}
+    </Box>
+  )
+}
+
+/** The value, at the right end of the line under the name: just above where its bar ends. */
+const VALUE_SX = { fontSize: TYPE_SCALE.meta, fontWeight: 800, textAlign: 'right', lineHeight: 1, flexShrink: 0, ml: 'auto', pl: 1 } as const
 
 export function LeaderboardRowItem({ row, rank, accent, compact, onSelect, ghost }: {
   row: LbRow; rank: number; accent: string; compact: boolean; onSelect?: (id: number) => void
@@ -76,20 +85,15 @@ export function LeaderboardRowItem({ row, rank, accent, compact, onSelect, ghost
           <Box component="span" sx={{ display: compact ? 'inline' : { xs: 'inline', sm: 'none' } }}>{g(TEAM_NICKNAME[row.teamId] ?? row.name)}</Box>
           {!compact && <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{g(row.name)}</Box>}
         </Typography>
-        {row.sub && (
-          <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.secondary', fontWeight: 500, mt: 0.1 }}>
-            {g(row.sub)}
-          </Typography>
-        )}
-      </Box>
-
-      <Box sx={{ flexBasis: BAR_W, flexShrink: 1, flexGrow: 0, minWidth: '3.5rem' }}>
-        <Box sx={{ height: chromePx(7), bgcolor: 'action.hover', borderRadius: 1, overflow: 'hidden', mb: 0.5 }}>
-          {!ghost && <Box sx={{ height: '100%', width: `${Math.max(row.barFraction, 0) * 100}%`, bgcolor: accent, borderRadius: 1, opacity: 0.85, transition: 'width 0.3s' }} />}
+        <Box sx={{ display: 'flex', alignItems: 'baseline', mt: 0.3 }}>
+          {row.sub && (
+            <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.secondary', fontWeight: 500, lineHeight: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {g(row.sub)}
+            </Typography>
+          )}
+          <Typography sx={{ ...VALUE_SX, color: tone(accent) }}>{g(row.value)}</Typography>
         </Box>
-        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: tone(accent), textAlign: 'right', lineHeight: 1 }}>
-          {g(row.value)}
-        </Typography>
+        <ScaleBar fraction={row.barFraction} accent={accent} ghost={ghost} />
       </Box>
 
     </Box>
@@ -318,7 +322,7 @@ export function PlayerLeaderboardRowItem({ row, rank, accent, onSelect, ghost }:
         <Typography ref={fit.ref} sx={{ fontWeight: 700, fontSize: TYPE_SCALE.body, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {g(nameAtStage(row.playerName, fit.stage))}
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.15 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.3 }}>
           {ghost && <Box sx={{ width: chromePx(14), height: chromePx(14), borderRadius: '50%', bgcolor: 'action.hover', flexShrink: 0 }} />}
           {!ghost && row.teamId > 0 && (
             <TeamLogo teamId={row.teamId} abbr={row.teamAbbr} size={14} />
@@ -326,16 +330,9 @@ export function PlayerLeaderboardRowItem({ row, rank, accent, onSelect, ghost }:
           <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary', fontWeight: 600, lineHeight: 1 }}>
             {g(row.teamAbbr)}
           </Typography>
+          <Typography sx={{ ...VALUE_SX, color: tone(accent) }}>{g(row.value)}</Typography>
         </Box>
-      </Box>
-
-      <Box sx={{ flexBasis: BAR_W, flexShrink: 1, flexGrow: 0, minWidth: '3.5rem' }}>
-        <Box sx={{ height: chromePx(7), bgcolor: 'action.hover', borderRadius: 1, overflow: 'hidden', mb: 0.5 }}>
-          {!ghost && <Box sx={{ height: '100%', width: `${Math.max(row.barFraction, 0) * 100}%`, bgcolor: accent, borderRadius: 1, opacity: 0.85, transition: 'width 0.3s' }} />}
-        </Box>
-        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: tone(accent), textAlign: 'right', lineHeight: 1 }}>
-          {g(row.value)}
-        </Typography>
+        <ScaleBar fraction={row.barFraction} accent={accent} ghost={ghost} />
       </Box>
 
     </Box>

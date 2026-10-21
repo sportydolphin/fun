@@ -14,6 +14,7 @@ import { Board, PlayerBoard, LeaderboardCard, LeaderboardModal, PlayerLeaderboar
 import { AgeEntry, buildFraudRows, buildAgeRows, buildSosRows, buildPayrollRows, buildStreakRows, buildPitchPaRows, buildSalaryRows } from '../components/reportCardRows'
 import { fetchStrengthOfSchedule, fetchTeamPayrolls, fetchTeamAverageAges, fetchStreakLeaders, StreakLeaders, fetchPitchesPerPa, PitchPaLeaders, fetchTopSalaries, SalaryRow } from '../api'
 import { chromePx, typePx } from '../../ui/scale'
+import { useSeasonPhase, isSeasonOver } from '../seasonPhase'
 import { FilterSelect } from '../../ui/FilterChip'
 import { StatsBar, STATS_BOARD_ROOT_SX } from './StatsBar'
 
@@ -32,6 +33,8 @@ export interface VizViewProps {
   show: VizShow
   /** The Stats tab's board row, which the pinned bar carries (StatsBar). */
   boardTabs: React.ReactNode
+  /** The report cards' page title, which shares its row with the season chip. */
+  heading?: React.ReactNode
   isDesktop: boolean
   vizSeason: number
   setVizSeason: (s: number) => void
@@ -50,7 +53,7 @@ function PlotSkeleton() {
 }
 
 export function VizView({
-  boardTabs, isDesktop, vizSeason, setVizSeason, teamSummaries, loadingViz,
+  boardTabs, heading, isDesktop, vizSeason, setVizSeason, teamSummaries, loadingViz,
   nameMap, handleVizNavigate, handleLbPlayerClick, canHover, show,
 }: VizViewProps) {
   const [vizHighlightId, setVizHighlightId] = useState<number | null>(null)
@@ -63,6 +66,13 @@ export function VizView({
   // Each page reads only what it draws: the payrolls are the graphs', everything else the cards'.
   const cards = show === 'report-card'
   const showSos = cards && current
+  // Once the regular season is over the boards look back on it: the schedules become the games
+  // played, the ages the players who played, and no streak is "active" any more. Null while the
+  // phase is read, which holds the schedule and age reads (it decides which one).
+  // `final` is the reads' own flag (fetchStrengthOfSchedule, fetchTeamAverageAges).
+  const phase = useSeasonPhase(CURRENT_SEASON)
+  const seasonOver = current && phase != null && isSeasonOver(phase)
+  const final = current ? (phase == null ? null : isSeasonOver(phase)) : false
 
   // Each `loading` below starts as "will this read run", never a bare false. The effects that set
   // it can run after the first paint (they do when the view mounts out of a cold lazy chunk, as on
@@ -106,25 +116,26 @@ export function VizView({
 
   useEffect(() => {
     if (!showSos) { setSosData([]); setExpandedBoard(null); return }
-    if (sosData.length > 0) return
+    // Waits on the phase with the skeleton up, rather than drawing the remaining-games board first.
+    if (final == null) return
     let cancelled = false
     setLoadingSos(true)
-    fetchStrengthOfSchedule(vizSeason)
+    // No "already have it" guard: the read is cached per season and phase, and the phase can
+    // change under the page (the network overturning the remembered one).
+    fetchStrengthOfSchedule(vizSeason, final)
       .then(d => { if (!cancelled) setSosData(d) })
       .catch(() => { if (!cancelled) setSosData([]) })
       .finally(() => { if (!cancelled) setLoadingSos(false) })
     return () => { cancelled = true }
-    // NOT sosData.length: it is the "already have it" guard, and a failed read leaves it at 0,
-    // so watching it would refetch for ever against a source that is down.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vizSeason, showSos])
+  }, [vizSeason, showSos, final])
 
   useEffect(() => {
     if (!showSos) { setAgeEntries([]); return }
-    if (ageEntries.length > 0) return
+    if (final == null) return
     let cancelled = false
     setLoadingAges(true)
-    fetchTeamAverageAges(vizSeason)
+    // Cached per season and phase, so no "already have it" guard (the schedule read's reason).
+    fetchTeamAverageAges(vizSeason, final)
       .then(ages => {
         if (cancelled) return
         const entries: AgeEntry[] = Object.entries(ages)
@@ -136,9 +147,7 @@ export function VizView({
       .catch(() => { if (!cancelled) setAgeEntries([]) })
       .finally(() => { if (!cancelled) setLoadingAges(false) })
     return () => { cancelled = true }
-    // NOT ageEntries.length, for the same reason as the read above.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vizSeason, showSos])
+  }, [vizSeason, showSos, final])
 
   // Active streaks only make sense for the live season. Past seasons are over,
   // so their "current" streak is just wherever the player finished the year.
@@ -177,6 +186,8 @@ export function VizView({
     return () => { cancelled = true }
   }, [vizSeason, showSos])
 
+  const AGE_TIP = 'Every player who played for the club this season, at their age for the season, counted by their plate appearances and batters faced, so a September call-up barely moves it. A traded player counts for both clubs.'
+  const SOS_TIP = 'Average final win% of every opponent a club played, once per game. Each opponent\'s record leaves out its games against that club.'
   const fraudTooltip = 'Wins above the Pythagorean record: the wins a team\'s runs scored and allowed predict. Ranked by that gap times win%, so a contender ranks above a last-place team with the same gap.'
   const cursedTooltip = 'Wins below the Pythagorean record: the wins a team\'s runs scored and allowed predict. Ranked by that gap times losing %, so a last-place team ranks above a contender with the same gap.'
 
@@ -195,23 +206,27 @@ export function VizView({
     ...(showSos ? [
       {
         id: 'oldest', icon: '👴', title: 'Oldest Rosters', accent: '#f97316',
-        subtitle: 'Avg age',
+        subtitle: final ? 'Avg age, by playing time' : 'Avg age',
+        tooltipText: final ? AGE_TIP : undefined,
         rows: buildAgeRows(ageEntries, nameMap, 'oldest'), loading: loadingAges,
       },
       {
         id: 'youngest', icon: '🌱', title: 'Youngest Rosters', accent: '#22c55e',
-        subtitle: 'Avg age',
+        subtitle: final ? 'Avg age, by playing time' : 'Avg age',
+        tooltipText: final ? AGE_TIP : undefined,
         rows: buildAgeRows(ageEntries, nameMap, 'youngest'), loading: loadingAges,
       },
       {
         id: 'hardest', icon: '⚔️', title: 'Hardest Schedules', accent: '#ef4444',
-        subtitle: 'Remaining opp. win%',
-        rows: buildSosRows(sosData, 'hardest'), loading: loadingSos,
+        subtitle: final ? 'Opp. win%' : 'Remaining opp. win%',
+        tooltipText: final ? SOS_TIP : undefined,
+        rows: buildSosRows(sosData, 'hardest', final === true), loading: loadingSos,
       },
       {
         id: 'easiest', icon: '🏖️', title: 'Easiest Schedules', accent: '#22c55e',
-        subtitle: 'Remaining opp. win%',
-        rows: buildSosRows(sosData, 'easiest'), loading: loadingSos,
+        subtitle: final ? 'Opp. win%' : 'Remaining opp. win%',
+        tooltipText: final ? SOS_TIP : undefined,
+        rows: buildSosRows(sosData, 'easiest', final === true), loading: loadingSos,
       },
     ] : []),
     // Payroll boards only for the current season. We don't have historical payroll
@@ -235,29 +250,31 @@ export function VizView({
   // ─── Player report cards: active streaks (current season only) ────────────
   // Both pitch boards share the "who counts as qualified" line
   const QUALIFIED_NOTE = 'Qualified hitters only.'
+  // Home's words for the same boards (HomeView's streakSub): a streak the season ended is not active.
+  const streakSub = (active: string) => (seasonOver ? 'At season end' : active)
 
   const playerBoards: PlayerBoard[] = [
     ...(showSos ? [{
       id: 'hit-streak', icon: '🔥', title: 'Hitting Streaks', accent: '#f97316',
-      subtitle: 'Active',
+      subtitle: streakSub('Active'),
       tooltipText: 'Games in a row with at least one hit. A game with no official at-bat (all walks or hit by pitches) doesn\'t break the streak.',
       rows: buildStreakRows(streaks?.hitting ?? [], 'hitting'), loading: loadingStreaks,
     },
     {
       id: 'scoreless', icon: '🧊', title: 'Scoreless Streaks', accent: '#38bdf8',
-      subtitle: 'Active',
+      subtitle: streakSub('Active'),
       tooltipText: 'Innings a pitcher has thrown since the last run they gave up. Counted in whole outings, so the streak starts at their first clean appearance after it.',
       rows: buildStreakRows(streaks?.scoreless ?? [], 'scoreless'), loading: loadingStreaks,
     },
     {
       id: 'hitless', icon: '🥶', title: 'Hitless Streaks', accent: '#a78bfa',
-      subtitle: 'Active',
+      subtitle: streakSub('Active'),
       tooltipText: 'Trips to the plate a hitter has gone without a hit. Games with no official at-bat are skipped.',
       rows: buildStreakRows(streaks?.hitless ?? [], 'hitless'), loading: loadingStreaks,
     },
     {
       id: 'games-played', icon: '🦾', title: 'Games-Played Streaks', accent: '#eab308',
-      subtitle: 'Active',
+      subtitle: streakSub('Active'),
       tooltipText: 'Games a player has appeared in without ever sitting one out, carried across seasons. A trade doesn\'t break it. A "+" means the streak reaches back past the seasons searched, so the real streak is longer.',
       rows: buildStreakRows(streaks?.gamesPlayed ?? [], 'gamesPlayed'), loading: loadingStreaks,
     },
@@ -284,13 +301,34 @@ export function VizView({
 
   const activePlayerBoard = playerBoards.find(b => b.id === expandedPlayerBoard) ?? null
 
+  // The other two boards' season chip (src/ui/FilterChip).
+  const seasonChip = (
+    <FilterSelect
+      ariaLabel="Season"
+      value={String(vizSeason)}
+      options={TEAM_SEASONS.map(y => ({ value: String(y), label: String(y) }))}
+      onChange={v => setVizSeason(Number(v))}
+      active={vizSeason !== CURRENT_SEASON}
+    />
+  )
+
   return (
     <Box sx={STATS_BOARD_ROOT_SX}>
+      {/* THE REPORT CARDS PIN NOTHING, and their chip rides the title's row. In the pinned bar the
+          chip was alone on a row of its own under the title, and once the page scrolled that row
+          stayed: a 49px band of page color across the top of a phone holding one chip, cutting
+          each card off at its edge. The bar pins for a table's column headings and the charts'
+          team search; a stack of cards has neither, and a season is picked once, at the top. */}
+      {cards ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, mb: 2 }}>
+          {heading}
+          {seasonChip}
+        </Box>
+      ) : (
       <StatsBar tabs={boardTabs} isDesktop={isDesktop}>
       {/* ── Top controls: season picker + team search ─────────────────────── */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
-          {!cards && <>
           <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.body, color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>
             All 30 teams
           </Typography>
@@ -346,19 +384,12 @@ export function VizView({
               </Box>
             </ClickAwayListener>
           )}
-          </>}
         </Box>
 
-        {/* The other two boards' season chip (src/ui/FilterChip). */}
-        <FilterSelect
-          ariaLabel="Season"
-          value={String(vizSeason)}
-          options={TEAM_SEASONS.map(y => ({ value: String(y), label: String(y) }))}
-          onChange={v => setVizSeason(Number(v))}
-          active={vizSeason !== CURRENT_SEASON}
-        />
+        {seasonChip}
       </Box>
       </StatsBar>
+      )}
 
       {/* DRAWN WHILE LOADING TOO: every card holds its own rows' room while its read is out
           (`loading` on each board), so the page is its loaded height from the first frame. It was a
