@@ -210,7 +210,9 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
         borderRadius: 999,
         border: '1px solid', borderColor: 'outline',
         // Floats over the page, so it takes the raised tone (see Surfaces in ThemeContext), as glass.
-        bgcolor: t => alpha(t.palette.background.raised, g.alpha[t.palette.mode]),
+        // `raised` is the app theme's own key: under a bare MUI theme it is undefined and alpha()
+        // throws, taking the whole bar down, so fall back to paper.
+        bgcolor: t => alpha(t.palette.background.raised ?? t.palette.background.paper, g.alpha[t.palette.mode]),
         backdropFilter: g.blur,
         WebkitBackdropFilter: g.blur,
         // Softer than the opaque bar's shadow: the blur now does part of the separating.
