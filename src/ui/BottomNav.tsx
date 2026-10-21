@@ -52,7 +52,8 @@ const ICONS: Record<string, { on: typeof Home; off: typeof HomeOutlined }> = {
 }
 
 // The sixth slot. It is a menu opener, not a view, so it is kept out of the selection machinery
-// (`shown`/`pending`/the sliding indicator never land on it) and calls `onMore` instead.
+// (`shown`/`pending` never land on it, and the sliding indicator only on a More page, see
+// `moreCurrent`) and calls `onMore` instead.
 export const MORE_KEY = 'more'
 
 // The bar's vertical geometry, in px and in one place, because the pieces have to agree:
@@ -121,7 +122,7 @@ const BAR_PX = TAB_PAD_Y * 2 + ICON_PX + ICON_LABEL_GAP + 2
  *  callers can compose it with their own terms. */
 export const BOTTOM_NAV_SPACE = `${BAR_PX + FLOAT_GAP + 10}px + ${(LABEL_REM * LABEL_LINE_HEIGHT).toFixed(3)}rem`
 
-export default function BottomNav({ items, value, onChange, onMore, moreOpen = false, accent, badgeColor = accent, label, moreLabel }: {
+export default function BottomNav({ items, value, onChange, onMore, moreOpen = false, moreCurrent = false, accent, badgeColor = accent, label, moreLabel }: {
   items: BottomNavItem[]
   value: string
   onChange: (key: string) => void
@@ -130,6 +131,9 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
   onMore?: () => void
   /** Whether the More sheet is open, so its slot can read as active while it is. */
   moreOpen?: boolean
+  /** The page on screen is one of More's (src/StandaloneBottomNav.tsx), so More is lit and holds
+   *  the bubble, as the toolbar lights More on those pages above a phone. */
+  moreCurrent?: boolean
   /** The section's accent: the active tab's color. */
   accent: string
   /** The "new" dot. Defaults to the accent; WPBL passes its skin-aware solid accent. */
@@ -156,7 +160,7 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
   const g = glass(tuned ?? GLASS_DEFAULT)
 
   const count = Math.max(1, items.length)
-  const index = Math.max(0, items.findIndex(i => i.key === shown))
+  const index = Math.max(0, items.findIndex(i => i.key === (moreCurrent && !pending ? MORE_KEY : shown)))
 
   const select = (key: string) => {
     // `shown`, not `value`: while a selection is pending, tapping the tab we are already
@@ -253,8 +257,8 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
         {items.map(item => {
           const isMore = item.key === MORE_KEY
           // More is a menu opener, not a view: it reads active while its sheet is open, and it is
-          // never the `shown` tab, so the sliding bubble never travels to it.
-          const active = isMore ? moreOpen : item.key === shown
+          // never the `shown` tab, so the sliding bubble travels to it only on a More page.
+          const active = isMore ? moreOpen || (moreCurrent && !pending) : item.key === shown
           const set = ICONS[item.key]
           return (
             // Every item is a tab that is an anchor, or More, a button with its own key handling;

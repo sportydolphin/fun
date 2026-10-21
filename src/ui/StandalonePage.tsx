@@ -51,9 +51,9 @@ export default function StandalonePage({ title, standfirst, maxWidth = '56.25rem
 
           PHONES ONLY. Above 600px the toolbar carries the section's tabs on these pages too
           (ToolbarNav), so a pill saying "back to the section" sat directly under the section's
-          own nav. On a phone the tabs are the bottom bar, which is the section's and absent here, so
-          this is still the way back, and an installed app has no browser Back button to fall
-          back on. */}
+          own nav. On a phone the section's bottom bar is here too (src/StandaloneBottomNav.tsx), but
+          it goes to a tab, not back to where the reader was, and an installed app has no browser
+          Back button to fall back on. */}
       <Box
         component="a"
         href={back.href}

@@ -758,11 +758,26 @@ export default function WpblStatsView({
     return m
   }, [games])
 
-  const rows = useMemo<Row[]>(() => buildRows({
+  // THE PHONE READS A LIST, NOT A GRID. Sixteen columns behind a 150px frozen name column show
+  // four stats at a time on a 375px screen, so the one thing anyone comes here to do (rank the
+  // league by a stat) would mean scrolling sideways to hunt for the column and tapping its header.
+  // The list ranks by one stat, chosen from a control that says which, and carries three more
+  // under each name for context; everything else about a player is one tap away on their card,
+  // where it is better presented. Desktop keeps the table: there the grid fits, and comparing
+  // across columns is the thing a grid is for.
+  const listView = isNarrow && source === 'season' && !fullTable
+
+  const builtRows = useMemo<Row[]>(() => buildRows({
     mode, side, players, lines, fielding, valueSeasons, batSeasons, pitSeasons, teams, teamById, teamId,
     qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope,
     positionIndex, pos,
   }), [mode, side, players, lines, fielding, valueSeasons, batSeasons, pitSeasons, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope, positionIndex, pos])
+  // THE LIST DROPS A ROW WITH NO NUMBER FOR ITS ONE STAT. It shows that stat alone, so a pitcher
+  // with no WAR was a name beside a dash, and with ten of them the board's tail was a column of
+  // dashes. The table keeps them: there the row has fifteen other columns to read.
+  const rows = useMemo(
+    () => listView ? builtRows.filter(r => cellText(activeCol, r.totals) !== '—') : builtRows,
+    [listView, builtRows, activeCol])
 
   // Standard competition ranking (1, 2, T-3, T-3, 5), judged on the number AS SHOWN. Three hitters
   // printed at .400 and numbered 8, 9 and 10 claims an order the reader cannot see, which is
@@ -868,15 +883,6 @@ export default function WpblStatsView({
   // chips below) once there is a postseason.
   const canFilter = (source === 'season' && mode === 'players') || multiSeason
     || ((source === 'leaders' || source === 'season' || source === 'bests' || source === 'find') && hasPostseason && !overall)
-
-  // THE PHONE READS A LIST, NOT A GRID. Sixteen columns behind a 150px frozen name column show
-  // four stats at a time on a 375px screen, so the one thing anyone comes here to do (rank the
-  // league by a stat) would mean scrolling sideways to hunt for the column and tapping its header.
-  // The list ranks by one stat, chosen from a control that says which, and carries three more
-  // under each name for context; everything else about a player is one tap away on their card,
-  // where it is better presented. Desktop keeps the table: there the grid fits, and comparing
-  // across columns is the thing a grid is for.
-  const listView = isNarrow && source === 'season' && !fullTable
 
   // The three context stats: the preference list minus whatever is already the big number.
   const contextCols = useMemo(() => (

@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.176.0',
+    date:    '2026-10-21',
+    changes: [
+      {
+        short: 'Tab bar on every page',
+        full:  "On a phone, the tab bar now stays at the bottom of every page in both sections, including the photo gallery, Reading, Watch, the glossary and Compare, with More lit. On the stats list, a player with no number for the stat being ranked is left off the list; the full table still shows everyone.",
+      },
+    ],
+  },
+  {
     version: '1.175.0',
     date:    '2026-10-21',
     changes: [
