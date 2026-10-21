@@ -961,7 +961,10 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
                   const stats = pitcher ? pitcherStats(pit, fmtEra) : batterStats(bat)
                   return (
                     <Box key={p.id} {...playerLink(p, onOpenPlayer)} sx={{
-                      display: 'flex', alignItems: 'center', gap: 1.25, py: 0.9, cursor: 'pointer',
+                      // Tighter on a phone, where a surname like Greenwood was still cut off at its
+                      // last stage ("B. Greenw…"), 16px short. The room comes out of the gaps, not
+                      // the name: a name that does not fit as "F. Last" has nowhere left to go.
+                      display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.25 }, py: 0.9, cursor: 'pointer',
                       borderTop: '1px solid', borderColor: 'divider',
                       borderRadius: 1, ...TAPPABLE, ...FOCUS_RING,
                     }}>
@@ -972,7 +975,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
                       </Typography>
                       <PlayerPortrait name={p.name} teamId={p.team_id} size={34} />
                       <FittedName name={p.name} wrapperSx={{ flex: 1, minWidth: 0 }} sx={{ fontSize: TYPE_SCALE.title, fontWeight: 600 }} />
-                      <Box sx={{ display: 'flex', gap: 1.5, flexShrink: 0 }}>
+                      <Box sx={{ display: 'flex', gap: { xs: 0.75, sm: 1.5 }, flexShrink: 0 }}>
                         {stats.map(s => (
                           <Box key={s.label} sx={{ textAlign: 'right', minWidth: '2.125rem' }}>
                             <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{s.value}</Typography>

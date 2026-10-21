@@ -257,13 +257,16 @@ function QuickPickTeam({ team, side, picked, dimmed, onPick }: {
   const logo = (
     <TeamLogo teamId={team.teamId} abbr={team.abbr} size={30} sx={{
       boxShadow: picked ? `0 0 0 2px ${col}40` : 'none',
-      transition: 'box-shadow 0.15s',
+      // The side not picked recedes by its logo and its ink, never by fading the name: the whole
+      // button at 0.45 put the club's name under 4.5:1.
+      opacity: dimmed ? 0.45 : 1,
+      transition: 'box-shadow 0.15s, opacity 0.15s',
     }} />
   )
   const name = (
     <Typography sx={{
       minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: picked ? 800 : 600, lineHeight: 1.1,
-      color: picked ? col : 'text.primary',
+      color: picked ? col : dimmed ? 'text.secondary' : 'text.primary',
       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       textAlign: away ? 'right' : 'left',
     }}>
@@ -282,7 +285,6 @@ function QuickPickTeam({ team, side, picked, dimmed, onPick }: {
         px: 0.85, py: 0.55, borderRadius: 1.5, cursor: 'pointer',
         border: '1.5px solid', borderColor: picked ? edge(col) : 'transparent',
         bgcolor: picked ? `${col}14` : 'transparent',
-        opacity: dimmed ? 0.45 : 1,
         transition: 'all 0.15s',
         '&:hover': { bgcolor: `${col}0e`, borderColor: edge(col) },
       }}

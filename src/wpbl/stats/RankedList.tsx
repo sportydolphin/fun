@@ -13,7 +13,7 @@ import { RankText, FADED } from './shared'
 
 /** The phone's ranked list: one stat, the top LIST_CAP, and the rest behind Show all. */
 export function StatList({ listRef, mode, activeCol, leagueCell, sortAsc, visibleRows, ranks, pickedId, pickedRef,
-  pickedTint, contextCols, rows, listCap, capped, noun, setExpanded, collapse, boardFooter }: {
+  pickedTint, contextCols, contextCap = 3, rows, listCap, capped, noun, setExpanded, collapse, boardFooter }: {
   listRef: React.RefObject<HTMLDivElement | null>
   mode: Mode
   activeCol: Col<Totals>
@@ -25,6 +25,10 @@ export function StatList({ listRef, mode, activeCol, leagueCell, sortAsc, visibl
   pickedRef: React.RefObject<HTMLElement | null>
   pickedTint: string
   contextCols: Col<Totals>[]
+  /** How many of them a row prints once its dashes are dropped. Three fit a 375px row, except on
+   *  Overall, where "1.49 Pos WAR · 0.31 Pit WAR · +3.1 Fld" ran a few px past it on every two-way
+   *  player; a one-way player has a dash to drop and still shows two. */
+  contextCap?: number
   rows: Row[]
   listCap: number
   capped: boolean
@@ -80,7 +84,7 @@ export function StatList({ listRef, mode, activeCol, leagueCell, sortAsc, visibl
           // A dash is a half of the game the player never played, which is noise in one line;
           // on Overall it is most rows, since most players only bat or only pitch.
           context={contextCols.map(c => [cellText(c, r.totals), c.label] as const)
-            .filter(([v]) => v !== '—').map(([v, l]) => `${v} ${l}`).join(' · ')} />
+            .filter(([v]) => v !== '—').slice(0, contextCap).map(([v, l]) => `${v} ${l}`).join(' · ')} />
       ))}
       {rows.length > listCap && (
         <ExpandRow expanded={!capped} moreLabel={`Show all ${rows.length} ${noun}`}

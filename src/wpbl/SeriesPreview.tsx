@@ -199,8 +199,9 @@ function GameTile({ n, date, time, state, away, home, onOpen, ariaLabel }: {
         minWidth: 0, borderRadius: 2, p: 1.25, display: 'flex', flexDirection: 'column', gap: 1,
         border: '1px solid', borderColor: 'outline',
         // Hidden on a phone, where the grid is two across and a swept best-of-3's third tile
-        // would take a row of its own to say nothing was played.
-        ...(state === 'unneeded' ? { borderStyle: 'dashed', opacity: 0.55, display: { xs: 'none', sm: 'flex' } } : null),
+        // would take a row of its own to say nothing was played. Recessed by its dashed edge and
+        // its grey words, not by opacity: a 0.55 fade put "Not needed" well under 4.5:1.
+        ...(state === 'unneeded' ? { borderStyle: 'dashed', display: { xs: 'none', sm: 'flex' } } : null),
         ...(onOpen ? {
           cursor: 'pointer', transition: 'background 0.12s, border-color 0.12s',
           ...hoverOnly({ bgcolor: 'action.hover', borderColor: 'text.disabled' }),
@@ -208,7 +209,7 @@ function GameTile({ n, date, time, state, away, home, onOpen, ariaLabel }: {
         ...FOCUS_RING,
       }}>
       <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, minWidth: 0 }}>
-        <Typography sx={{ ...micro, color: 'text.secondary' }}>{`Game ${n}`}</Typography>
+        <Typography sx={{ ...micro, color: state === 'unneeded' ? 'text.disabled' : 'text.secondary' }}>{`Game ${n}`}</Typography>
         {date && (
           <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {dayOf(date)}

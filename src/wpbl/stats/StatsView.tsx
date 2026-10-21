@@ -1075,7 +1075,7 @@ export default function WpblStatsView({
         // meant. The control bar above is sticky, so the sort control stays reachable anyway.
         <StatList listRef={listRef} mode={mode} activeCol={activeCol} leagueCell={leagueCell} sortAsc={sortAsc}
           visibleRows={visibleRows} ranks={ranks} pickedId={pickedId} pickedRef={pickedRef} pickedTint={pickedTint}
-          contextCols={contextCols} rows={rows} listCap={listCap} capped={capped} noun={noun}
+          contextCols={contextCols} contextCap={side === 'overall' ? 2 : 3} rows={rows} listCap={listCap} capped={capped} noun={noun}
           setExpanded={setExpanded} collapse={collapse} boardFooter={boardFooter} />
       ) : (
         <SeasonTable listRef={listRef} pinActive={pinActive} scrollRef={scrollRef} boardPinned={boardPinned}
