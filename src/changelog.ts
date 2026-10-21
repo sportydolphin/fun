@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.177.0',
+    date:    '2026-10-21',
+    changes: [
+      {
+        short: 'Display fixes',
+        full:  "Zeros in game logs, unplayed playoff games, the fan-awards deadline and the unpicked side in Predictions are easier to read. Long names on the star sign card and club rosters now fit on a phone, and the Overall stats list shows two stats under each name so the line is no longer cut off. A switch hitter's spray chart shows Pull as a dash, with the reason behind the i.",
+      },
+    ],
+  },
+  {
     version: '1.176.0',
     date:    '2026-10-21',
     changes: [

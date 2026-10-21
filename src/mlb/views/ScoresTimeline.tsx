@@ -219,12 +219,13 @@ export function ScoresTimeline({ followedTeamId, date, onDateChange, onGameClick
         .map(el => ({ day: el.dataset.day!, top: el.getBoundingClientRect().top }))
       const day = activeDay(tops, line)
       if (!day) return
-      setCurrent(prev => {
-        if (prev === day) return prev
-        const value = day === days[home] ? null : day
-        if (value !== wroteRef.current) { wroteRef.current = value; onDateChange?.(value) }
-        return day
-      })
+      // The parent's address write OUTSIDE the updater. Updaters run while this component renders,
+      // so calling onDateChange in one updated the parent mid-render, which React reports as
+      // "Cannot update a component while rendering a different component" on a scroll that
+      // crossed a day. `wroteRef` already dedupes, so nothing here needs `prev`.
+      setCurrent(day)
+      const value = day === days[home] ? null : day
+      if (value !== wroteRef.current) { wroteRef.current = value; onDateChange?.(value) }
     }
     target.addEventListener('scroll', onScroll, { passive: true })
     return () => target.removeEventListener('scroll', onScroll)

@@ -296,13 +296,13 @@ function FigureBar({ sample }: { sample: string | number }) {
  * of figures with greyed holes in it read as a broken table, where down a forty-row log the same
  * dimming is what lets a quiet week look quiet.
  *
- * A STEP BELOW `text.disabled`, not at it. That grey is also the game log's date column and every
- * header on the card, so a zero drawn in it read as furniture of the same weight as "Sep 13", and
- * on a phone the dimming simply did not register: an 0-for-3 and a two-hit night looked equally
- * busy. Opacity over the theme's grey rather than a color of its own, so it follows light mode's
- * stronger grey (see ThemeContext) instead of undoing it.
+ * `text.disabled` at the body weight. That grey is also the game log's date column and every header
+ * on the card, but those are bold, so a zero in a regular weight still reads as the quieter of the
+ * two. It was a step below the grey (`opacity: 0.6`) until Oct 21, 2026, which put every zero at
+ * about 2.5:1, under AA in both themes: the house rule is never to fade text with opacity. The
+ * grey alone is already tuned to clear 4.5:1 (see ThemeContext).
  */
-export const ZERO_SX = { color: 'text.disabled', opacity: 0.6 } as const
+export const ZERO_SX = { color: 'text.disabled', fontWeight: 400 } as const
 
 /**
  * THE SPACE BETWEEN TWO BLOCKS of a role: the summary and the game log, the log and the matchups,

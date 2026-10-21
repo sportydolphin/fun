@@ -24,7 +24,9 @@ export function TeamLogo({ teamId, abbr, size = 28, ring, ...rest }: {
   const isDark = useDark()
   return (
     <ClubBadge {...rest} size={size} alt={abbr}
-      src={teamLogoSrc(teamId, isDark)} bg={teamLogoBg(teamId, isDark)}
+      // No club (id 0, as the leaderboards' loading rows carry) asks for no image: mlbstatic has
+      // no 0.svg, and every load of /mlb logged a 404 for it.
+      src={teamId > 0 ? teamLogoSrc(teamId, isDark) : undefined} bg={teamLogoBg(teamId, isDark)}
       ring={ring ?? ringColor(teamId, isDark)} logoTransform={teamLogoCrop(teamId, isDark)}
       fallbackInk={isDark ? '#fff' : ringColor(teamId, isDark)} />
   )

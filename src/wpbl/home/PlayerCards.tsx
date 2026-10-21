@@ -27,6 +27,11 @@ type OpenPlayer = (p: WpblPlayer) => void
 const SIGN_CAP = 12
 /** Its columns, which with SIGN_CAP set its rows: six on a phone, three on a desktop. */
 const SIGN_COLUMNS = { xs: 2, sm: 3, md: 4 } as const
+/** Its rows' face and gaps. Two across a phone leaves a name about 113px, and "B. Espinoza-Molina",
+ *  already at its last stage, needs 120: a smaller face and tighter gaps give it the room, since a
+ *  name that does not fit as "F. Last" has no shorter form to fall back on. */
+const SIGN_FACE = 24
+const SIGN_GAP = 0.75
 
 /** The player-link props for a row, with the card's own tap recorded first. */
 function useTrackedPlayerLink(card: string, onOpenPlayer: OpenPlayer) {
@@ -69,13 +74,15 @@ function shortDate(iso: string, withYear = false): string {
 
 /** Portrait, name and one quiet line under it, with an optional right-hand end. The row height
  *  is fixed by its two lines of type, which is what the skeleton reserves. */
-function PlayerRow({ player, meta, end, link, size = 32 }: {
+function PlayerRow({ player, meta, end, link, size = 32, gap = 1 }: {
   player: WpblPlayer; meta: React.ReactNode; end?: React.ReactNode
   link: ReturnType<ReturnType<typeof useTrackedPlayerLink>>; size?: number
+  /** Between the face and the name. The two-across star sign grid passes less. */
+  gap?: number
 }) {
   return (
     <Box {...link} sx={{
-      ...UNSTYLED_LINK, display: 'flex', alignItems: 'center', gap: 1, minWidth: 0,
+      ...UNSTYLED_LINK, display: 'flex', alignItems: 'center', gap, minWidth: 0,
       borderRadius: 1.5, px: 0.75, mx: -0.75, py: 0.5, ...TAPPABLE, ...FOCUS_RING,
     }}>
       <PlayerPortrait name={player.name} teamId={player.team_id} size={size} />
@@ -89,9 +96,9 @@ function PlayerRow({ player, meta, end, link, size = 32 }: {
 }
 
 /** A row that is not here yet, the same two lines tall. */
-function RowSkeleton({ size = 32 }: { size?: number }) {
+function RowSkeleton({ size = 32, gap = 1 }: { size?: number; gap?: number }) {
   return (
-    <Box aria-hidden sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5 }}>
+    <Box aria-hidden sx={{ display: 'flex', alignItems: 'center', gap, py: 0.5 }}>
       <Skeleton variant="circular" sx={{ flexShrink: 0, width: `calc(${size}px * var(--app-chrome, 1))`, height: `calc(${size}px * var(--app-chrome, 1))` }} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Skeleton variant="text" width="60%" sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1.3 }} />
@@ -315,16 +322,16 @@ export function StarSignCard({ players, teams, onOpenPlayer }: {
     <SectionCard title={`${sign.name} season`} action={
       <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{range}</Typography>
     }>
-      <Box sx={{ display: 'grid', gridTemplateColumns: columns, columnGap: 1.5 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: columns, columnGap: 1 }}>
         {Array.from({ length: SIGN_CAP }, (_, i) => {
-          if (players.length === 0) return <RowSkeleton key={i} size={28} />
+          if (players.length === 0) return <RowSkeleton key={i} size={SIGN_FACE} gap={SIGN_GAP} />
           const b = shown[i]
           // An empty slot keeps the row a sign with few players would otherwise give back, so
           // the card is one height whichever sign's season it is.
           if (!b) return <Box key={i} aria-hidden />
           const club = clubMeta(b.player, teams)
           return (
-            <PlayerRow key={b.player.id} player={b.player} link={link(b.player)} size={28}
+            <PlayerRow key={b.player.id} player={b.player} link={link(b.player)} size={SIGN_FACE} gap={SIGN_GAP}
               meta={<>
                 {b.date && (
                   <Box component="span" sx={{ fontWeight: b.offset === 0 ? 800 : 600, color: b.offset === 0 ? 'var(--wpbl-accent-fg)' : 'text.primary' }}>
