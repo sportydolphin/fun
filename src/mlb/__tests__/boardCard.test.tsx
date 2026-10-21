@@ -13,7 +13,7 @@ const rows: LbRow[] = [
   { teamId: 117, abbr: 'HOU', name: 'Houston Astros', sub: '85–77', value: '.525', barFraction: 0.8 },
   { teamId: 140, abbr: 'TEX', name: 'Texas Rangers', sub: '80–82', value: '.494', barFraction: 0.6 },
 ]
-const board = { icon: '📊', title: 'Wins Above Expected', subtitle: 'vs Pythagorean record', accent: '#60a5fa' }
+const board = { title: 'Wins Above Expected', subtitle: 'vs Pythagorean record', accent: '#60a5fa' }
 
 describe('Report Card boards', () => {
   it('titles the card with an h2 and shows the top three, by nickname', () => {

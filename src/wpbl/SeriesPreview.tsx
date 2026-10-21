@@ -357,7 +357,7 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
   const away = series.away.team
   const recordOf = (id: string | undefined) => {
     const r = rows.find(x => x.team.id === id)
-    return r ? `${r.wins}-${r.losses}` : null
+    return r ? `${r.wins}–${r.losses}` : null
   }
 
   const played = useMemo(

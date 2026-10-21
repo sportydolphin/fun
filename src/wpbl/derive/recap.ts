@@ -383,14 +383,14 @@ export function buildRecap(
       ], game.id, 'flow')
   } else if (margin <= ctx.closeMargin) {
     flow = pick([
-      `${W} held on for ${article(winnerScore)} ${winnerScore}-${loserScore} win.`,
-      `${W} hung on for ${article(winnerScore)} ${winnerScore}-${loserScore} win.`,
+      `${W} held on for ${article(winnerScore)} ${winnerScore}–${loserScore} win.`,
+      `${W} hung on for ${article(winnerScore)} ${winnerScore}–${loserScore} win.`,
     ], game.id, 'flow')
   } else {
     flow = pick([
-      `${W} pulled away for ${article(winnerScore)} ${winnerScore}-${loserScore} win.`,
-      `${W} cruised to ${article(winnerScore)} ${winnerScore}-${loserScore} win.`,
-      `${W} controlled it, ${winnerScore}-${loserScore}.`,
+      `${W} pulled away for ${article(winnerScore)} ${winnerScore}–${loserScore} win.`,
+      `${W} cruised to ${article(winnerScore)} ${winnerScore}–${loserScore} win.`,
+      `${W} controlled it, ${winnerScore}–${loserScore}.`,
     ], game.id, 'flow')
   }
   const top = stars[0]
@@ -448,8 +448,8 @@ export function buildRecap(
   // the most important thing that happened in the league.
   if (series?.clinched && series.seriesWinner) {
     feats.unshift(series.round === 'championship'
-      ? `🏆 ${series.seriesWinner.name} win the WPBL championship!`
-      : `${series.seriesWinner.name} win the semifinal ${Math.max(series.homeWins, series.awayWins)}-${Math.min(series.homeWins, series.awayWins)}`)
+      ? `${series.seriesWinner.name} win the WPBL championship ${Math.max(series.homeWins, series.awayWins)}–${Math.min(series.homeWins, series.awayWins)}`
+      : `${series.seriesWinner.name} win the semifinal ${Math.max(series.homeWins, series.awayWins)}–${Math.min(series.homeWins, series.awayWins)}`)
   }
 
   return { winner, loser, winnerScore, loserScore, margin, innings, headline, blurb, stars, decisions, teamLine, feats: feats.slice(0, 5), flags, series }

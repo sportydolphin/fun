@@ -113,7 +113,7 @@ export function buildPlayerReply(
   const pitchingField = (t: WpblPitchingTotals, label: string) => ({
     name: `${label} · ${t.g} G`,
     value: [
-      `**${fmtTwo(t.era)}** ERA · **${fmtTwo(t.whip)}** WHIP · **${t.w}-${t.l}**${t.s > 0 ? ` · **${t.s}** SV` : ''}`,
+      `**${fmtTwo(t.era)}** ERA · **${fmtTwo(t.whip)}** WHIP · **${t.w}–${t.l}**${t.s > 0 ? ` · **${t.s}** SV` : ''}`,
       `${outsToIp(t.outs)} IP, ${t.h} H, ${t.er} ER, ${t.bb} BB, ${t.so} SO`,
     ].join('\n'),
   })

@@ -168,7 +168,7 @@ export default function WpblScorigami({ onOpenGame }: {
     const winName = teamById.get(winId)?.name ?? winId
     const loseName = teamById.get(loseId)?.name ?? loseId
     const more = cell.count > 1 ? ` (+${cell.count - 1} more)` : ''
-    return `${winName} ${cell.win}–${cell.lose} ${loseName}, ${g.game_date}${more}`
+    return `${winName} ${cell.win}–${cell.lose} ${loseName}, ${shortDate(g.game_date)}${more}`
   }
 
   const gameHref = (g: WpblGame) => wpblGamePath(g, teams, games)

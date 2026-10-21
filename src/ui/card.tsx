@@ -151,10 +151,9 @@ export function Chevron({ open }: { open: boolean }) {
   )
 }
 
-export function SectionCard({ id, icon, title, titleAdornment, subtitle, action, actionWraps, collapsed, onToggleCollapse, fill, bare, frameless, children }: {
+export function SectionCard({ id, title, titleAdornment, subtitle, action, actionWraps, collapsed, onToggleCollapse, fill, bare, frameless, children }: {
   /** An anchor a page can be asked to scroll to (lib/sectionScroll.ts). */
   id?: string
-  icon?: React.ReactNode
   title: string
   /** Something small on the title's own line, after it: an info tip. Outside the `h2`, so a
    *  screen reader skimming headings hears the title and nothing else. */
@@ -226,13 +225,6 @@ export function SectionCard({ id, icon, title, titleAdornment, subtitle, action,
           ...(collapsible ? { cursor: 'pointer', userSelect: 'none', ...TAPPABLE } : {}),
         }}
       >
-        {/* 1em wide with the glyph centered and let overflow. An emoji font draws each emoji well inside
-            its advance (Segoe UI Emoji: 31.6px of box for 23.6px of ink at 23px), so a box sized by
-            the glyph added about 4px of blank either side: the gap to the title read 14px for a 10px
-            gap, and the emoji sat 4px in from the card's edge. */}
-        {icon != null && (
-          <Box sx={{ fontSize: ICON_SIZE.md, lineHeight: 1, flexShrink: 0, width: '1em', display: 'flex', justifyContent: 'center', overflow: 'visible' }}>{icon}</Box>
-        )}
         <Box sx={actionWraps ? { flexShrink: 0 } : { flex: 1, minWidth: 0 }}>
           {/* A REAL `h2`. Every card title on every WPBL page comes through here, and as plain text
               a screen reader would land on the `h1` and then have no way to skim the page, since

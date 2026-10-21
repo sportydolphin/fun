@@ -233,7 +233,7 @@ export function PlayerOfTheDayCard({ players, teams, games, onOpenPlayer }: {
       // A birthday says so here rather than as a line over the name, which would make the header a
       // line taller on the days it applies and move the card under a reader as the roster lands.
       pick?.reason === 'birthday'
-        ? <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)' }}>🎂 Birthday today</Typography>
+        ? <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)' }}>Birthday today</Typography>
         : <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{shortDate(today)}</Typography>
     }>
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 1.5 }}>
@@ -302,7 +302,7 @@ export function PlayerOfTheDayCard({ players, teams, games, onOpenPlayer }: {
 
 /** "Oct 16", or how near it is when that says more. */
 function birthdayLabel(b: SignBirthday): string {
-  if (b.offset === 0) return '🎂 Today'
+  if (b.offset === 0) return 'Today'
   if (b.offset === 1) return 'Tomorrow'
   if (b.offset === -1) return 'Yesterday'
   return b.date ? shortMonthDay(b.date.slice(5)) : ''

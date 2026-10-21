@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.178.0',
+    date:    '2026-10-21',
+    changes: [
+      {
+        short: 'No emoji, one date format',
+        full:  "The emoji beside MLB's report cards, Milestone Watch, Roster moves, Predictions and Streak Survivor are gone, as are the fire and poop badges on a player's stat ranks, the medals on leaderboards and recaps, and the trophies on the champion cards. Every game date reads Aug 12, including Bests, Find and the season recap, which showed 8/12 and 2026-08-30. Scores, records and series lines use an en dash (3–2), and negative numbers a true minus. Player of the day only features a player who has played.",
+      },
+    ],
+  },
+  {
     version: '1.177.0',
     date:    '2026-10-21',
     changes: [

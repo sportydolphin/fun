@@ -132,7 +132,7 @@ function PredictionCard({ game, prediction, onPick, gameVotes }: {
           {game.state === 'live' ? 'Live' : game.state === 'final' ? 'Final' : game.state === 'postponed' ? 'PPD' : game.note ? `${game.note} · ${game.gameTime}` : game.gameTime}
         </Typography>
         {game.state === 'live' && (
-          <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled' }}>🔒</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary' }}>Locked</Typography>
         )}
       </Box>
 
@@ -202,7 +202,7 @@ export function PredictorModal({ open, slateDate, games, predictions, allVotes, 
   const dateLabel    = new Date(sy, sm - 1, sd).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
 
   return (
-    <MlbSheet onClose={onClose} maxWidth={chromePx(500)} sheet sheetFill eyebrow={`🎯 ${dateLabel} matchups`}>
+    <MlbSheet onClose={onClose} maxWidth={chromePx(500)} sheet sheetFill eyebrow={`${dateLabel} matchups`}>
         <Typography sx={{ px: 2, pt: 1.25, fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.4, flexShrink: 0 }}>
           {pickedCount}/{games.length} picked
           {pct !== null && ` · ${correctCount}/${finalized.length} correct (${pct}%)`}

@@ -218,7 +218,7 @@ export function boxScoreCard(game: WpblGame, recap: GameRecap, teams: Map<string
     `<rect x="0" y="0" width="${CARD.w}" height="10" fill="${accent}"/>`,
     t(CARD.pad, 108, `WPBL · ${cardDate(game.game_date)}`, { size: 30, fill: INK.dim, weight: 600 }),
     t(CARD.pad, 186, recap.headline, { size: 62, weight: 700 }),
-    t(CARD.pad, 240, `${recap.winnerScore}-${recap.loserScore}${recap.innings === 7 ? '' : ` · ${recap.innings} innings`}`,
+    t(CARD.pad, 240, `${recap.winnerScore}–${recap.loserScore}${recap.innings === 7 ? '' : ` · ${recap.innings} innings`}`,
       { size: 34, fill: INK.dim, weight: 600 }),
     `<rect x="${CARD.pad}" y="${headY - 44}" width="${CARD.w - CARD.pad * 2}" height="${58 * rows.length + 74}" rx="18" fill="${INK.panel}"/>`,
   ]

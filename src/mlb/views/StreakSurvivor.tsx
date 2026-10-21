@@ -48,7 +48,7 @@ function StreakBadge({ current, longest }: { current: number; longest: number })
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
       <Box sx={{ textAlign: 'right' }}>
         <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1, color: current > 0 ? TONE.orange : 'text.primary' }}>
-          {current > 0 ? `🔥 ${current}` : '0'}
+          {current}
         </Typography>
         <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', mt: chromePx(2) }}>
           Current
@@ -100,7 +100,6 @@ function HitterRow({ name, teamId, subtitle, disabled, onPick }: {
 // ─── Leaderboard modal ──────────────────────────────────────────────────────
 
 function LeaderRow({ entry }: { entry: SurvivorLeaderRow }) {
-  const medal = entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : entry.rank === 3 ? '🥉' : null
   return (
     <Box sx={{
       display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: chromePx(9),
@@ -108,14 +107,14 @@ function LeaderRow({ entry }: { entry: SurvivorLeaderRow }) {
       bgcolor: entry.isMe ? `${ACCENT}18` : undefined,
     }}>
       <Typography sx={{ minWidth: '1.625rem', textAlign: 'center', fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'text.secondary' }}>
-        {medal ?? entry.rank}
+        {entry.rank}
       </Typography>
       <Typography sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: entry.isMe ? 800 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {entry.displayName}{entry.isMe ? ' (you)' : ''}
       </Typography>
       {entry.currentStreak > 0 && (
         <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: TONE.orange, whiteSpace: 'nowrap' }}>
-          🔥 {entry.currentStreak}
+          {entry.currentStreak} now
         </Typography>
       )}
       <Typography sx={{ minWidth: '2.125rem', textAlign: 'right', fontSize: TYPE_SCALE.title, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
@@ -283,7 +282,6 @@ export function StreakSurvivorWidget() {
   // ── Card shell ──
   const Shell = (children: React.ReactNode) => (
     <SectionCard
-      icon="🎯"
       title="Streak Survivor"
       subtitle="Pick a hitter. Keep the streak alive."
       titleAdornment={isTomorrow ? (

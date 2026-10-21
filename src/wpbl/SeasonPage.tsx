@@ -47,6 +47,7 @@ import { wpblColor } from './constants'
 import { TAPPABLE, FOCUS_RING, CARD_BORDER, pressable, TextGhost } from './ui'
 import WpblPage, { SectionHeading } from './WpblPage'
 import { track, EVENTS } from '../lib/analytics'
+import { shortDate } from '../lib/format'
 import type { WpblPlayer, WpblTeam, WpblGame } from './types'
 import { setDynamicSeo } from '../seo'
 import { wpblSeasonPath } from './routes'
@@ -670,7 +671,7 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
                 </Typography>
                 <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
                   {teamName(comeback.game.away_team_id)} {comeback.game.away_score} at{' '}
-                  {teamName(comeback.game.home_team_id)} {comeback.game.home_score} · {comeback.game.game_date}
+                  {teamName(comeback.game.home_team_id)} {comeback.game.home_score} · {shortDate(comeback.game.game_date)}
                 </Typography>
               </Box>
             </>
@@ -700,7 +701,7 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
                         {bp.narrative}
                       </Typography>
                       <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.35 }}>
-                        {teamName(bp.game.away_team_id)} at {teamName(bp.game.home_team_id)} · {bp.game.game_date}
+                        {teamName(bp.game.away_team_id)} at {teamName(bp.game.home_team_id)} · {shortDate(bp.game.game_date)}
                       </Typography>
                     </Box>
                     <Typography sx={{ flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'var(--wpbl-accent-fg)' }}>

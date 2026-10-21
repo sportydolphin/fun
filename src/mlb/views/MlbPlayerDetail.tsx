@@ -466,7 +466,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
         countCol(r, 'GS', n0(s.gamesStarted), false),
         { ...countCol(r, 'IP', ipToOuts(s.inningsPitched)), value: s.inningsPitched ?? '0.0' },
         lead === 'SV' ? countCol(r, 'SV', n0(s.saves)) : lead === 'HLD' ? countCol(r, 'HLD', n0(s.holds), false)
-          : { label: 'W-L', value: `${n0(s.wins)}-${n0(s.losses)}` },
+          : { label: 'W-L', value: `${n0(s.wins)}–${n0(s.losses)}` },
         rateCol(r, 'ERA', rate(s.era), lgOf(r, 'ERA')),
         rateCol(r, 'WHIP', rate(s.whip), lgOf(r, 'WHIP')),
         countCol(r, 'SO', n0(s.strikeOuts)),
@@ -615,7 +615,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
       return (
         <StatLogTable title="Game log" part="log" accent={ACCENT_TEXT} best={PITCHING_BEST} totalsLabel={totalsLabel} preview={MLB_LOG_PREVIEW}
           statHeaders={['DEC', 'IP', 'H', 'R', 'ER', 'HR', 'BB', 'SO', 'P']}
-          totals={!withTotals ? undefined : [`${n0(s.wins)}-${n0(s.losses)}`, s.inningsPitched ?? '0.0', n0(s.hits), n0(s.runs), n0(s.earnedRuns), n0(s.homeRuns), n0(s.baseOnBalls), n0(s.strikeOuts), n0(s.numberOfPitches)]}
+          totals={!withTotals ? undefined : [`${n0(s.wins)}–${n0(s.losses)}`, s.inningsPitched ?? '0.0', n0(s.hits), n0(s.runs), n0(s.earnedRuns), n0(s.homeRuns), n0(s.baseOnBalls), n0(s.strikeOuts), n0(s.numberOfPitches)]}
           rows={games.map(g => {
             const p = g.pitching
             return { lead: lead(g), onOpen: () => onOpenGame(g.gamePk), cells: [decision(p), p.inningsPitched ?? '0.0', n0(p.hits), n0(p.runs), n0(p.earnedRuns), n0(p.homeRuns), n0(p.baseOnBalls), n0(p.strikeOuts), p.numberOfPitches ?? '—'] }
@@ -738,7 +738,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
     // No Career row on the career view: the line above it is that row.
     const tot = careerView ? null : career?.totals[r]
     if (r === 'pitching') {
-      const cells = (s: any) => [`${n0(s.wins)}-${n0(s.losses)}`, rate(s.era), n0(s.gamesPlayed ?? s.gamesPitched), n0(s.gamesStarted), n0(s.saves), s.inningsPitched ?? '0.0', n0(s.hits), n0(s.earnedRuns), n0(s.homeRuns), n0(s.baseOnBalls), n0(s.strikeOuts), rate(s.whip)]
+      const cells = (s: any) => [`${n0(s.wins)}–${n0(s.losses)}`, rate(s.era), n0(s.gamesPlayed ?? s.gamesPitched), n0(s.gamesStarted), n0(s.saves), s.inningsPitched ?? '0.0', n0(s.hits), n0(s.earnedRuns), n0(s.homeRuns), n0(s.baseOnBalls), n0(s.strikeOuts), rate(s.whip)]
       return (
         <StatLogTable title="Career" caption="Regular season · tap a year to open it" accent={ACCENT_TEXT}
           leadHeaders={['Year', 'Team']} preview={10} noun={['season', 'seasons']} totalsLabel="Career"

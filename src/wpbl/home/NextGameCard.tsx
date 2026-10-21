@@ -545,7 +545,7 @@ export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, p
             describing one series two ways is worse than either wording is good.
 
             "of 3" is the one addition, and this is the card with room for it. A bare "Game 2"
-            leaves "Firebells lead 1-0" underneath meaning nothing in particular; against a
+            leaves "Firebells lead 1–0" underneath meaning nothing in particular; against a
             best-of-three it means the Firebells win tonight or play a decider, which is why
             anyone is reading this card in the postseason. `gameNumber` is deliberately
             un-clamped upstream, so "Game 4 of 3" can appear and is a real signal (a doubled
@@ -563,7 +563,7 @@ export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, p
             A regular-season line ("Season series tied 2–2 · Firebells have won 4") is true,
             quiet, and the same shape every night, sitting between the two loudest things on
             the card, and the color band above already says this is a fixture with a story.
-            In the postseason the same slot carries "Firebells lead 1-0 · Firebells can clinch",
+            In the postseason the same slot carries "Firebells lead 1–0 · Firebells can clinch",
             which is the stakes, and the postseason branch of `nextGameContext` is what makes
             the two different. */}
         {postseason && contextLine && (

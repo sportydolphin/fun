@@ -575,7 +575,7 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
       { label: 'WHIP', value: data.stats.whip ?? '—',                                          hero: false                },
       { label: 'K',    value: String(data.stats.k ?? 0),                                       hero: false                },
       ...(data.isStarter
-        ? [{ label: 'W-L', value: `${data.stats.wins ?? 0}-${data.stats.losses ?? 0}`,         hero: false }]
+        ? [{ label: 'W-L', value: `${data.stats.wins ?? 0}–${data.stats.losses ?? 0}`,         hero: false }]
         : data.stats.saves ? [{ label: 'SV', value: String(data.stats.saves),                  hero: heroStat === 'saves' }] : []
       ),
     ] as StatItem[]).sort((a, b) => (b.hero ? 1 : 0) - (a.hero ? 1 : 0))
@@ -606,7 +606,7 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
           fontWeight: 800, fontSize: TYPE_SCALE.micro, textTransform: 'uppercase',
           letterSpacing: typePx(1), color: (labelColor && tone(labelColor)), flex: 1, lineHeight: 1,
         }}>
-          {mode === 'hot' ? '🔥 On Fire' : '🥶 Ice Cold'}
+          {mode === 'hot' ? 'Hot' : 'Cold'}
         </Typography>
         <Box sx={{
           px: 1, py: chromePx(3), borderRadius: 999,

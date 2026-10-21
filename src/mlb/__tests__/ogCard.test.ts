@@ -38,7 +38,7 @@ describe('a shared MLB player link', () => {
         pitching([{ stat: { gamesPlayed: 26, gamesStarted: 26, wins: 12, losses: 7, era: '2.72', strikeOuts: 186, inningsPitched: '158.2', saves: 0 } }]),
       ],
     }, 2026)
-    expect(starter.description).toBe('2026: 12-7, 2.72 ERA, 186 K in 158.2 IP. Game log, splits and career on sportydolphin.fun.')
+    expect(starter.description).toBe('2026: 12–7, 2.72 ERA, 186 K in 158.2 IP. Game log, splits and career on sportydolphin.fun.')
 
     const closer = mlbPlayerCard({
       id: 1, fullName: 'A Closer', primaryPosition: { abbreviation: 'P' },
@@ -54,7 +54,7 @@ describe('a shared MLB player link', () => {
       ],
     }, 2026)
     expect(twoWay.ogTitle).toBe('Shohei Ohtani, Two-way player · Los Angeles Dodgers')
-    expect(twoWay.description).toBe('2026: .275/.377/.512, 30 HR, 81 RBI in 139 games; 8-2, 1.79 ERA, 95 K in 85.2 IP. Game log, splits and career on sportydolphin.fun.')
+    expect(twoWay.description).toBe('2026: .275/.377/.512, 30 HR, 81 RBI in 139 games; 8–2, 1.79 ERA, 95 K in 85.2 IP. Game log, splits and career on sportydolphin.fun.')
   })
 
   it('still says something useful before a season has any stats', () => {

@@ -348,7 +348,7 @@ function RosterMovesModal({ open, onClose, moves, hotStove, followedTeamId, onPl
   })
 
   return (
-    <MlbSheet onClose={onClose} maxWidth={chromePx(540)} sheet sheetFill eyebrow={hotStove ? '🔄 Hot stove' : '🔄 Roster moves'}>
+    <MlbSheet onClose={onClose} maxWidth={chromePx(540)} sheet sheetFill eyebrow={hotStove ? 'Hot stove' : 'Roster moves'}>
         <Typography sx={{ px: 2, pt: 1.25, pb: 0.5, fontSize: TYPE_SCALE.meta, color: 'text.secondary', flexShrink: 0 }}>
           {hotStove ? 'Signings, trades, free agents and claims' : 'Trades, DFAs, claims and signings'} · last {days} days
         </Typography>
@@ -492,7 +492,6 @@ export function RosterMovesCard({ hotStove, followedTeamId, onPlayerClick, onTea
 
   return (
     <SectionCard
-      icon="🔄"
       title={winter ? 'Hot Stove' : 'Roster Moves'}
       subtitle={winter ? 'Signings, trades and free agents' : 'Trades, DFAs, claims and signings'}
       titleAdornment={deadline ? (
@@ -505,7 +504,7 @@ export function RosterMovesCard({ hotStove, followedTeamId, onPlayerClick, onTea
             fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), lineHeight: 1.3,
             color: deadline.hot ? TONE.red : TONE.orange,
           }}>
-            ⏳ {deadline.label}
+            {deadline.label}
           </Typography>
         </Box>
       ) : undefined}

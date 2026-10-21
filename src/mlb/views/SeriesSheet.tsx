@@ -97,7 +97,7 @@ function Club({ t, wins, need, won, lost, record, align, toTeam }: {
   t: PsTeam; wins: number; need: number; won: boolean; lost: boolean
   record: ClubRecord | undefined; align: 'left' | 'right'; toTeam?: (id: number) => void
 }) {
-  const sub = [t.seed != null ? `${t.seed} seed` : null, record ? `${record.wins}-${record.losses}` : null].filter(Boolean).join(' · ')
+  const sub = [t.seed != null ? `${t.seed} seed` : null, record ? `${record.wins}–${record.losses}` : null].filter(Boolean).join(' · ')
   return (
     // Stacked and centered on a phone, where a logo, a nickname and a record beside it left the
     // series score no room between the two clubs.
@@ -239,7 +239,7 @@ function GameRow({ g, d, onOpen }: { g: PsGame; d: SeriesGameDetail | undefined;
       <Box>
         <Typography sx={{ fontSize: BODY, fontWeight: 800, lineHeight: 1.2 }}>Game {g.number}</Typography>
         <Typography sx={{ fontSize: META, color: 'text.secondary', lineHeight: 1.3 }}>
-          {isToday(g.startMs) ? 'Today' : new Date(g.startMs).toLocaleDateString([], { weekday: 'short', month: 'numeric', day: 'numeric' })}
+          {isToday(g.startMs) ? 'Today' : new Date(g.startMs).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.4, minWidth: 0 }}>
@@ -269,7 +269,7 @@ function Starter({ p, line, teamId, teamAbbr, align, toPlayer }: {
 }) {
   const isDark = useDark()
   const sub = !p ? 'Not announced'
-    : line ? [line.hand ? `${line.hand}HP` : null, `${line.wins}-${line.losses}`, line.era ? `${line.era} ERA` : null].filter(Boolean).join(' · ')
+    : line ? [line.hand ? `${line.hand}HP` : null, `${line.wins}–${line.losses}`, line.era ? `${line.era} ERA` : null].filter(Boolean).join(' · ')
     : ' '
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flexDirection: align === 'left' ? 'row' : 'row-reverse', textAlign: align }}>
@@ -415,9 +415,9 @@ function Leaders({ s, leaders, loading, toPlayer }: {
 function meetingLine(m: Meeting | null, left: PsTeam, right: PsTeam, season: number): string {
   if (!m) return `They did not meet in the ${season} regular season.`
   const a = m.wins[left.id] ?? 0, b = m.wins[right.id] ?? 0
-  if (a === b) return `They split ${m.games} regular-season games, ${a}-${b}.`
+  if (a === b) return `They split ${m.games} regular-season games, ${a}–${b}.`
   const w = a > b ? left : right
-  return `The ${clubName(w)} won the regular-season series ${Math.max(a, b)}-${Math.min(a, b)}.`
+  return `The ${clubName(w)} won the regular-season series ${Math.max(a, b)}–${Math.min(a, b)}.`
 }
 
 function RegularSeason({ s, bracket, meeting, records }: {
@@ -426,7 +426,7 @@ function RegularSeason({ s, bracket, meeting, records }: {
   const left = s.bottom, right = s.top
   const rd = (id: number) => {
     const r = records?.get(id)
-    return r ? `${r.runDiff > 0 ? '+' : ''}${r.runDiff}` : null
+    return r ? `${r.runDiff > 0 ? '+' : r.runDiff < 0 ? '−' : ''}${Math.abs(r.runDiff)}` : null
   }
   return (
     <Box>

@@ -64,7 +64,6 @@ export function NewTrackingBanner({ count, onView, onDismiss }: { count: number;
         ...hoverOnly({ bgcolor: 'action.hover' }),
       }}
     >
-      <Box sx={{ fontSize: ICON_SIZE.lg, lineHeight: 1, flexShrink: 0 }}>📡</Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1.2 }}>
           New pitch-tracking data just landed

@@ -127,7 +127,7 @@ export function MlbFindView({
             renderRow={(r, i, unit) => (
               <GameLineRow key={r.key} rank={i + 1} name={r.name} player={r.player} teamId={r.teamId}
                 game={r.game} detail={r.detail} value={r.headlineDisplay} unit={unit} divider={i > 0}
-                nameOpens="game" compactDate emphasizeRank={false} onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
+                nameOpens="game" emphasizeRank={false} onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
             )}
             rowParts={r => {
               const club = r.teamId ? Number(r.teamId) : 0

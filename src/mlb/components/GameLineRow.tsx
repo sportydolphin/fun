@@ -13,15 +13,15 @@ import type { MlbLineGame, MlbLinePlayer } from '../seasonLines'
 // club ring, the club's logo, and the section's player and game links.
 
 /** "Jun 12 vs SEA", or "6/12 vs SEA" when compact. Home or away is read off the LINE's club. */
-export function mlbGameLineLabel(game: MlbLineGame | null, teamId: string | null, compactDate = false): string | null {
+export function mlbGameLineLabel(game: MlbLineGame | null, teamId: string | null): string | null {
   if (!game) return null
   const home = teamId != null && game.home_team_id === teamId
-  return formatGameLineLabel(game.game_date, home, TEAM_ABBR[home ? game.awayId : game.homeId], compactDate)
+  return formatGameLineLabel(game.game_date, home, TEAM_ABBR[home ? game.awayId : game.homeId])
 }
 
 export default function GameLineRow({
   rank, name, player, teamId, game, detail, value, unit, divider, onOpenPlayer, onOpenGame,
-  nameOpens = 'player', compactDate = false, emphasizeRank = true,
+  nameOpens = 'player', emphasizeRank = true,
 }: {
   rank?: number
   name: string
@@ -38,7 +38,6 @@ export default function GameLineRow({
   /** Bests is a records board, so the name opens the player; Find lists GAMES, so the whole row
    *  opens the night. */
   nameOpens?: 'player' | 'game'
-  compactDate?: boolean
   /** The accent on the top three, where `rank` is a real standing rather than a list position. */
   emphasizeRank?: boolean
 }) {
@@ -48,7 +47,7 @@ export default function GameLineRow({
   return (
     <GameLineFrame
       rank={rank} emphasizeRank={emphasizeRank} name={name} detail={detail} value={value} unit={unit} divider={divider}
-      label={mlbGameLineLabel(game, teamId, compactDate)}
+      label={mlbGameLineLabel(game, teamId)}
       portrait={player
         ? <PlayerHeadshot variant="ring" playerId={player.playerId} name={name} teamId={club || undefined} size={PORTRAIT_PX} />
         : <Box sx={{ width: PORTRAIT_PX, flexShrink: 0 }} />}

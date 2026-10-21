@@ -23,7 +23,7 @@ const ST_COLS = '1.25rem minmax(0, 1fr) 1.75rem 1.75rem 2.75rem 2.25rem 2.75rem'
 const ST_COLS_XS = '1.1rem minmax(0, 1fr) 1.5rem 1.5rem 2.6rem 2.7rem'
 
 const fmtGb = (gb: number) => (gb === 0 ? '—' : Number.isInteger(gb) ? String(gb) : gb.toFixed(1))
-const fmtDiff = (d: number) => (d > 0 ? `+${d}` : String(d))
+const fmtDiff = (d: number) => (d > 0 ? `+${d}` : d < 0 ? `−${-d}` : '0')
 
 export function FinalStandings({ rows, orderIds, cadence, teamHref, onNavigate }: {
   rows: WpblStandingRow[]

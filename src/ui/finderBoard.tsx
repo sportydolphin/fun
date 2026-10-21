@@ -8,6 +8,7 @@ import {
   type FinderBoardSide, type FinderSort, type FinderTally, type FinderVenue,
 } from '../league/finder'
 import { GameLineFrame } from './gameLine'
+import { shortDate } from '../lib/format'
 import type { LeagueGame, LeaguePlayer } from '../league/types'
 import { SectionCard, SectionLabel, TYPE_SCALE, CARD_BORDER, ACCENT_EDGE } from './card'
 import { ExpandRow } from './ExpandRow'
@@ -337,10 +338,10 @@ function gameResult(game: LeagueGame | null, teamId: string | null): string {
   return `${us > them ? 'W' : us < them ? 'L' : 'T'} ${us}–${them}`
 }
 
-/** "8/2 at BOS", the game a line came from, with home or away off the line's own club. */
+/** "Aug 2 at BOS", the game a line came from, with home or away off the line's own club. */
 function gameLabel(game: LeagueGame | null, teamId: string | null, clubAbbr: (id: string) => string): string {
   if (!game) return ''
-  const date = new Date(`${game.game_date}T00:00:00`).toLocaleDateString([], { month: 'numeric', day: 'numeric' })
+  const date = shortDate(game.game_date)
   const home = teamId != null && game.home_team_id === teamId
   return `${date} ${home ? 'vs' : 'at'} ${clubAbbr(home ? game.away_team_id : game.home_team_id)}`
 }

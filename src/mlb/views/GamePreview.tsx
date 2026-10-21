@@ -310,7 +310,7 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
         ) : pitcher ? (
           <Box sx={{ display: 'flex', gap: 1.25, flexWrap: 'wrap', justifyContent: 'center' }}>
             {[
-              { label: 'W-L',  value: pitcher.era !== null ? `${pitcher.wins}-${pitcher.losses}` : '—' },
+              { label: 'W-L',  value: pitcher.era !== null ? `${pitcher.wins}–${pitcher.losses}` : '—' },
               { label: 'ERA',  value: pitcher.era  ?? '—' },
               { label: 'WHIP', value: pitcher.whip ?? '—' },
               { label: 'K',    value: String(pitcher.k) },

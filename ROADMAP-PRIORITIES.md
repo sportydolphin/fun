@@ -38,11 +38,9 @@
 
 ## Next: Oct 25 to the end of November
 
-5. **Photo tagging, first version.** 115 fan photos sit unpublished for want of a name, so this
-   turns into gallery content directly. Built Oct 20 on branch `photo-tagging`, not launched: the
-   migration, the public page at `/wpbl/photos/tag`, the owner's review and the abuse guards.
-   Launching is five steps, the first an owner's answer on the photographer's permission.
-   *docs/PHOTO_TAGGING.md, "Launching".*
+5. ✅ **Photo tagging, first version** (launched Oct 21): `/wpbl/photos/tag`, the owner's review
+   and the abuse guards, with a way in from the gallery. Left: confirm `ip_hash` is filling on the
+   first real suggestions. *docs/PHOTO_TAGGING.md, "Launching".*
 6. **The World Cup back catalog and `international.json`.** 2024, 2023, 2018, 2016 imported and
    validated, the provisional pitch-board bars re-measured, the per-player file built and tested, all
    still gitignored. *ROADMAP-WOMENS-BASEBALL, steps 3 to 5.*

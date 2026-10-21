@@ -64,7 +64,7 @@ describe('wpblPlayerCard', () => {
     // 1 ER in 7.0 IP. The figure here was 1.29 until Sep 3, 2026, when the league switched from
     // per 9 to per 7 and this test did its job: it went red on a change nothing else on the site
     // could see, which is the whole reason a published string is pinned literally.
-    expect(card.description).toBe('1-0, 1.00 ERA and 0.86 WHIP with 10 K in 7.0 IP over 2 games. Full stat line, game log, and fielding.')
+    expect(card.description).toBe('1–0, 1.00 ERA and 0.86 WHIP with 10 K in 7.0 IP over 2 games. Full stat line, game log, and fielding.')
   })
 
   it('still leads with pitching when a pitcher has also taken at-bats', () => {
@@ -156,7 +156,7 @@ describe('wpblCompareCard', () => {
     )
     expect(card.ogTitle).toBe('Denae Benites vs Jill Albayati')
     expect(card.title).toBe('Denae Benites vs Jill Albayati: 2026 WPBL stats compared | sportydolphin.fun')
-    expect(card.description).toMatch(/^Denae Benites \(New York\): \.400\/\.500\/\.700, 1 HR\. Jill Albayati \(San Francisco\): 1-0, /)
+    expect(card.description).toMatch(/^Denae Benites \(New York\): \.400\/\.500\/\.700, 1 HR\. Jill Albayati \(San Francisco\): 1–0, /)
     expect(card.description).toContain(' ERA, 9 K. ')
     expect(card.cardPath).toBe('/cards/compare-ny-sf.webp')
   })

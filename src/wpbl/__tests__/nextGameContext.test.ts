@@ -76,7 +76,7 @@ describe('Next game, in the postseason', () => {
     expect(postseason!.label).toBe('Semifinal')
     expect(postseason!.gameNumber).toBe(2)
     expect(postseason!.bestOf).toBe(3)
-    expect(line).toBe('Firebells lead 1-0 · Firebells can clinch')
+    expect(line).toBe('Firebells lead 1–0 · Firebells can clinch')
     expect(line).not.toContain('season series')
   })
 
@@ -94,7 +94,7 @@ describe('Next game, in the postseason', () => {
     const g3 = post('2026-09-13', 'SF', 'LA')
     const { postseason, line } = ctx(g3, [g1, g2, g3])
     expect(postseason!.gameNumber).toBe(3)
-    expect(line).toBe('Series tied 1-1 · Winner takes the series')
+    expect(line).toBe('Series tied 1–1 · Winner takes the series')
   })
 
   // A real four-club bracket, because the round is inferred rather than labeled: the

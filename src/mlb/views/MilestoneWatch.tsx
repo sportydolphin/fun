@@ -234,8 +234,8 @@ type ModalTab = 'chasing' | 'reached'
 type GroupFilter = 'all' | 'hitting' | 'pitching'
 const GROUP_FILTERS: { key: GroupFilter; label: string }[] = [
   { key: 'all',      label: 'All' },
-  { key: 'hitting',  label: '⚾ Hitting' },
-  { key: 'pitching', label: '⚾ Pitching' },
+  { key: 'hitting',  label: 'Hitting' },
+  { key: 'pitching', label: 'Pitching' },
 ]
 
 // One tab of the Chasing / Reached segmented control.
@@ -281,7 +281,7 @@ function MilestoneModal({ items, reached, liveTeamIds, seasonOver, season, onClo
   const reachedFiltered = reached.filter(matchesGroup)
 
   return (
-    <MlbSheet onClose={onClose} maxWidth={chromePx(460)} sheet eyebrow="🏆 Milestone Watch">
+    <MlbSheet onClose={onClose} maxWidth={chromePx(460)} sheet eyebrow="Milestone Watch">
         {/* The tabs stay put while the list under them scrolls. */}
         <Box sx={{ px: 2, pt: 1, pb: 1.5, borderBottom: '1px solid', borderColor: 'divider', position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1, flexShrink: 0 }}>
           {/* Chasing or Reached: the reached side is the whole season's archive */}
@@ -423,7 +423,7 @@ export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonO
   if (loading) {
     if (!lastRows.length) return null
     return (
-      <SectionCard icon="🏆" title="Milestone Watch" subtitle={<Box component="span" sx={{ visibility: 'hidden' }}>Closest first.</Box>}>
+      <SectionCard title="Milestone Watch" subtitle={<Box component="span" sx={{ visibility: 'hidden' }}>Closest first.</Box>}>
         <Box aria-hidden sx={{ mx: -2, mb: -1.5, visibility: 'hidden' }}>
           {lastRows.map((tagged, i) => (
             <Box key={i} sx={{ borderBottom: i < lastRows.length - 1 ? '1px solid' : 'none', borderColor: 'divider' }}>
@@ -454,7 +454,6 @@ export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonO
   return (
     <>
       <SectionCard
-        icon="🏆"
         title="Milestone Watch"
         subtitle={subtitle}
         // The sheet holds every chase and the season's reached marks; the card shows a few.

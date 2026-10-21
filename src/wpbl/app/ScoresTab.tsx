@@ -119,8 +119,8 @@ export function ScoresSkeleton() {
       ) : (
         // The list's strip: the label and the series line in two type sizes on one
         // baseline-aligned row, which stands a fraction of a pixel taller than either size alone.
-        // On a phone a long series line ("Queens win the championship 3-2") wraps under its label
-        // where a short one ("Series tied 2-2") does not, so it comes in both heights.
+        // On a phone a long series line ("Queens win the championship 3–2") wraps under its label
+        // where a short one ("Series tied 2–2") does not, so it comes in both heights.
         <Box sx={{
           display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.75,
           pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
@@ -186,7 +186,7 @@ export function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenT
   const standings = useMemo(() => computeStandings(teams, games), [teams, games])
   const recordById = useMemo(() => {
     const m = new Map<string, string>()
-    for (const r of standings) m.set(r.team.id, `${r.wins}-${r.losses}`)
+    for (const r of standings) m.set(r.team.id, `${r.wins}–${r.losses}`)
     return m
   }, [standings])
   // The postseason, from the calendar the league published, for as long as the feed has no rows

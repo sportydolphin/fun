@@ -12,16 +12,16 @@ import type { WpblGame, WpblPlayer } from './types'
 // nothing at all when clicked. Only a modified click still works, which is the one path nobody
 // tests.
 
-/** How the game a line came from is labeled: "Aug 12 vs LA", or "8/12 vs LA" when compact. */
-export function gameLineLabel(game: WpblGame | null, teamId: string | null, compactDate = false): string | null {
+/** How the game a line came from is labeled: "Aug 12 vs LA". */
+export function gameLineLabel(game: WpblGame | null, teamId: string | null): string | null {
   if (!game) return null
   const home = teamId != null && game.home_team_id === teamId
-  return formatGameLineLabel(game.game_date, home, home ? game.away_team_id : game.home_team_id, compactDate)
+  return formatGameLineLabel(game.game_date, home, home ? game.away_team_id : game.home_team_id)
 }
 
 export default function GameLineRow({
   rank, name, player, teamId, game, detail, value, unit, accent, divider, onOpenPlayer, onOpenGame,
-  nameOpens = 'player', compactDate = false, emphasizeRank = true,
+  nameOpens = 'player', emphasizeRank = true,
 }: {
   /** The row's place in the list. Omitted draws no number at all. */
   rank?: number
@@ -43,8 +43,6 @@ export default function GameLineRow({
   /** What the player's NAME opens. Bests is a records board, so its name opens the player;
    *  Find lists matching GAMES, so there the name (and the row's whole point) opens the night. */
   nameOpens?: 'player' | 'game'
-  /** Draw the game date numerically ("8/12") rather than "Aug 12", where the row is tight. */
-  compactDate?: boolean
   /** Color the top three ranks in the accent. Off where `rank` is just a list position (Find)
    *  rather than a real standing (Bests), where the accent would assert a ranking that is not one. */
   emphasizeRank?: boolean
@@ -56,7 +54,7 @@ export default function GameLineRow({
     <GameLineFrame
       rank={rank} emphasizeRank={emphasizeRank} name={name} detail={detail} value={value} unit={unit} divider={divider}
       accent={accent}
-      label={gameLineLabel(game, teamId, compactDate)}
+      label={gameLineLabel(game, teamId)}
       portrait={<PlayerPortrait name={name} teamId={teamId} size={32} />}
       club={teamId ? <TeamBadge team={{ id: teamId, abbr: teamId }} size={16} /> : undefined}
       rowLink={nameOpens === 'game' ? link : undefined}

@@ -263,7 +263,7 @@ function HomeViewInner({
   type BoardKind = 'team' | 'player'
   type DataDep = 'summaries' | 'payroll' | 'ages' | 'sos' | 'streaks' | 'pitchPa' | 'salaries'
   interface BoardMeta {
-    id: string; kind: BoardKind; icon: string; title: string
+    id: string; kind: BoardKind; title: string
     subtitle: string; accent: string; dep: DataDep; tooltipText?: string
   }
 
@@ -277,21 +277,21 @@ function HomeViewInner({
   const AGE_TIP = 'Every player who played for the club this season, at their age for the season, counted by their plate appearances and batters faced, so a September call-up barely moves it. A traded player counts for both clubs.'
   const SOS_TIP = 'Average final win% of every opponent a club played, once per game. Each opponent\'s record leaves out its games against that club.'
   const BOARD_POOL: BoardMeta[] = [
-    { id: 'fraud',           kind: 'team',   icon: '📈', title: 'Wins Above Expected',        subtitle: 'vs Pythagorean record', accent: '#f97316', dep: 'summaries' },
-    { id: 'cursed',          kind: 'team',   icon: '📉', title: 'Wins Below Expected',       subtitle: 'vs Pythagorean record',  accent: '#818cf8', dep: 'summaries' },
-    { id: 'highest-payroll', kind: 'team',   icon: '💰', title: 'Highest Payrolls',  subtitle: `${CURRENT_SEASON} est. payroll`, accent: '#eab308', dep: 'payroll' },
-    { id: 'lowest-payroll',  kind: 'team',   icon: '🪙', title: 'Lowest Payrolls',   subtitle: `${CURRENT_SEASON} est. payroll`, accent: '#22c55e', dep: 'payroll' },
-    { id: 'oldest',          kind: 'team',   icon: '👴', title: 'Oldest Rosters',    subtitle: final ? 'Avg age, by playing time' : 'Avg age', accent: '#f97316', dep: 'ages', tooltipText: final ? AGE_TIP : undefined },
-    { id: 'youngest',        kind: 'team',   icon: '🌱', title: 'Youngest Rosters',  subtitle: final ? 'Avg age, by playing time' : 'Avg age', accent: '#22c55e', dep: 'ages', tooltipText: final ? AGE_TIP : undefined },
-    { id: 'hardest',         kind: 'team',   icon: '⚔️', title: 'Hardest Schedules', subtitle: final ? 'Opp. win%' : 'Remaining opp. win%', accent: '#ef4444', dep: 'sos', tooltipText: final ? SOS_TIP : undefined },
-    { id: 'easiest',         kind: 'team',   icon: '🏖️', title: 'Easiest Schedules', subtitle: final ? 'Opp. win%' : 'Remaining opp. win%', accent: '#22c55e', dep: 'sos', tooltipText: final ? SOS_TIP : undefined },
-    { id: 'hit-streak',      kind: 'player', icon: '🔥', title: 'Hitting Streaks',   subtitle: streakSub('Active'),           accent: '#f97316', dep: 'streaks', tooltipText: 'Games in a row with at least one hit. A game with no official at-bat (all walks or hit by pitches) doesn\'t break the streak.' },
-    { id: 'scoreless',       kind: 'player', icon: '🧊', title: 'Scoreless Streaks', subtitle: streakSub('Active'),     accent: '#38bdf8', dep: 'streaks', tooltipText: 'Innings a pitcher has thrown since the last run they gave up. Counted in whole outings, so the streak starts at their first clean appearance after it.' },
-    { id: 'hitless',         kind: 'player', icon: '🥶', title: 'Hitless Streaks',   subtitle: streakSub('Active'),          accent: '#a78bfa', dep: 'streaks', tooltipText: 'Trips to the plate a hitter has gone without a hit. Games with no official at-bat are skipped.' },
-    { id: 'games-played',    kind: 'player', icon: '🦾', title: 'Games-Played Streaks',          subtitle: streakSub('Active'),      accent: '#eab308', dep: 'streaks', tooltipText: 'Games a player has appeared in without ever sitting one out, carried across seasons. A trade doesn\'t break it. A "+" means the streak reaches back past the seasons searched, so the real streak is longer.' },
-    { id: 'pitches-most',    kind: 'player', icon: '⏳', title: 'Most Pitches per PA',          subtitle: 'Qualified',   accent: '#14b8a6', dep: 'pitchPa', tooltipText: `Pitches a hitter sees per trip to the plate. ${QUALIFIED_NOTE}` },
-    { id: 'pitches-fewest',  kind: 'player', icon: '⚡', title: 'Fewest Pitches per PA',     subtitle: 'Qualified', accent: '#f43f5e', dep: 'pitchPa', tooltipText: `Pitches a hitter sees per trip to the plate, lowest first. ${QUALIFIED_NOTE}` },
-    { id: 'top-salary',      kind: 'player', icon: '🤑', title: 'Highest Salaries',       subtitle: `${CURRENT_SEASON}`,       accent: '#10b981', dep: 'salaries', tooltipText: `Each player's salary for the ${CURRENT_SEASON} season, straight from their contract. This is the money paid this year, so a backloaded or deferred deal can rank differently than its headline average annual value.` },
+    { id: 'fraud',           kind: 'team',   title: 'Wins Above Expected',        subtitle: 'vs Pythagorean record', accent: '#f97316', dep: 'summaries' },
+    { id: 'cursed',          kind: 'team',   title: 'Wins Below Expected',       subtitle: 'vs Pythagorean record',  accent: '#818cf8', dep: 'summaries' },
+    { id: 'highest-payroll', kind: 'team',   title: 'Highest Payrolls',  subtitle: `${CURRENT_SEASON} est. payroll`, accent: '#eab308', dep: 'payroll' },
+    { id: 'lowest-payroll',  kind: 'team',   title: 'Lowest Payrolls',   subtitle: `${CURRENT_SEASON} est. payroll`, accent: '#22c55e', dep: 'payroll' },
+    { id: 'oldest',          kind: 'team',   title: 'Oldest Rosters',    subtitle: final ? 'Avg age, by playing time' : 'Avg age', accent: '#f97316', dep: 'ages', tooltipText: final ? AGE_TIP : undefined },
+    { id: 'youngest',        kind: 'team',   title: 'Youngest Rosters',  subtitle: final ? 'Avg age, by playing time' : 'Avg age', accent: '#22c55e', dep: 'ages', tooltipText: final ? AGE_TIP : undefined },
+    { id: 'hardest',         kind: 'team',   title: 'Hardest Schedules', subtitle: final ? 'Opp. win%' : 'Remaining opp. win%', accent: '#ef4444', dep: 'sos', tooltipText: final ? SOS_TIP : undefined },
+    { id: 'easiest',         kind: 'team',   title: 'Easiest Schedules', subtitle: final ? 'Opp. win%' : 'Remaining opp. win%', accent: '#22c55e', dep: 'sos', tooltipText: final ? SOS_TIP : undefined },
+    { id: 'hit-streak',      kind: 'player', title: 'Hitting Streaks',   subtitle: streakSub('Active'),           accent: '#f97316', dep: 'streaks', tooltipText: 'Games in a row with at least one hit. A game with no official at-bat (all walks or hit by pitches) doesn\'t break the streak.' },
+    { id: 'scoreless',       kind: 'player', title: 'Scoreless Streaks', subtitle: streakSub('Active'),     accent: '#38bdf8', dep: 'streaks', tooltipText: 'Innings a pitcher has thrown since the last run they gave up. Counted in whole outings, so the streak starts at their first clean appearance after it.' },
+    { id: 'hitless',         kind: 'player', title: 'Hitless Streaks',   subtitle: streakSub('Active'),          accent: '#a78bfa', dep: 'streaks', tooltipText: 'Trips to the plate a hitter has gone without a hit. Games with no official at-bat are skipped.' },
+    { id: 'games-played',    kind: 'player', title: 'Games-Played Streaks',          subtitle: streakSub('Active'),      accent: '#eab308', dep: 'streaks', tooltipText: 'Games a player has appeared in without ever sitting one out, carried across seasons. A trade doesn\'t break it. A "+" means the streak reaches back past the seasons searched, so the real streak is longer.' },
+    { id: 'pitches-most',    kind: 'player', title: 'Most Pitches per PA',          subtitle: 'Qualified',   accent: '#14b8a6', dep: 'pitchPa', tooltipText: `Pitches a hitter sees per trip to the plate. ${QUALIFIED_NOTE}` },
+    { id: 'pitches-fewest',  kind: 'player', title: 'Fewest Pitches per PA',     subtitle: 'Qualified', accent: '#f43f5e', dep: 'pitchPa', tooltipText: `Pitches a hitter sees per trip to the plate, lowest first. ${QUALIFIED_NOTE}` },
+    { id: 'top-salary',      kind: 'player', title: 'Highest Salaries',       subtitle: `${CURRENT_SEASON}`,       accent: '#10b981', dep: 'salaries', tooltipText: `Each player's salary for the ${CURRENT_SEASON} season, straight from their contract. This is the money paid this year, so a backloaded or deferred deal can rank differently than its headline average annual value.` },
   ]
 
   const boardPairs: Array<[number, number]> = []
@@ -527,7 +527,6 @@ function HomeViewInner({
                             color: october?.kind === 'champion' ? TONE.yellow : 'text.secondary',
                             fontWeight: october?.kind === 'champion' ? 800 : undefined,
                           }}>
-                            {october?.kind === 'champion' && '🏆 '}
                             {standingParts.map((p, i) => {
                               // The October line alone can outgrow a phone's card at Large text
                               // ("Out in the AL Wild Card Series, 0-2 vs CWS" spilled 72px), so its
@@ -724,7 +723,7 @@ function HomeViewInner({
               <TrackedCard key={m.id} card={`report_${m.id.replace(/-/g, '_')}`}>
                 {m.kind === 'player' ? (
                   <PlayerLeaderboardCard
-                    icon={m.icon} title={m.title} subtitle={m.subtitle} accent={m.accent}
+                    title={m.title} subtitle={m.subtitle} accent={m.accent}
                     tooltipText={m.tooltipText}
                     rows={rows as PlayerLbRow[]}
                     loading={loading}
@@ -734,7 +733,7 @@ function HomeViewInner({
                   />
                 ) : (
                   <LeaderboardCard
-                    icon={m.icon} title={m.title} subtitle={m.subtitle} accent={m.accent}
+                    title={m.title} subtitle={m.subtitle} accent={m.accent}
                     rows={rows as LbRow[]}
                     loading={loading}
                     onExpand={onViz ?? (() => {})}

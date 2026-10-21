@@ -170,7 +170,7 @@ function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
         hits:     lst.hits   ?? 0,
         errors:   lst.errors ?? 0,
         isWinner: Boolean(t?.isWinner),
-        record:   rec && rec.wins != null && rec.losses != null ? `${rec.wins}-${rec.losses}` : undefined,
+        record:   rec && rec.wins != null && rec.losses != null ? `${rec.wins}–${rec.losses}` : undefined,
       }
     }
 

@@ -65,7 +65,7 @@ describe('a series-aware recap', () => {
   it('closes the blurb with where the series stands', () => {
     const all = [post('2026-09-09', 'SF', 'BOS', 5, 2)]
     const r = recapFor(all[0], all)
-    expect(r.blurb).toContain('Firebells lead the semifinal 1-0.')
+    expect(r.blurb).toContain('Firebells lead the semifinal 1–0.')
   })
 
   it('says a championship was won, in the blurb and at the top of the feats', () => {
@@ -80,8 +80,8 @@ describe('a series-aware recap', () => {
     ]
     const all = [...semiA, ...semiB, ...final]
     const r = recapFor(final[2], all)
-    expect(r.blurb).toContain('Firebells are WPBL champions, taking the final 3-0.')
-    expect(r.feats[0]).toBe('🏆 Firebells win the WPBL championship!')
+    expect(r.blurb).toContain('Firebells are WPBL champions, taking the final 3–0.')
+    expect(r.feats[0]).toBe('Firebells win the WPBL championship 3–0')
   })
 
   it('puts the clincher ahead of a three-homer game, which is the only night it outranks one', () => {
@@ -91,7 +91,7 @@ describe('a series-aware recap', () => {
     ]
     const r = buildRecap(all[1], TEAMS, bigDay, pitching, [] as WpblRecapPlay[], nameOf, undefined,
       seriesContext(all[1], all, TEAMS))!
-    expect(r.feats[0]).toBe('Firebells win the semifinal 2-0')
+    expect(r.feats[0]).toBe('Firebells win the semifinal 2–0')
     expect(r.feats.some(f => f.includes('3 HR'))).toBe(true)
   })
 

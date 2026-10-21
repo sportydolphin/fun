@@ -2,7 +2,7 @@ import { useDark } from '../../ui/useDark'
 import { TeamLogo } from '../components/TeamLogo'
 import React, { useState, useEffect } from 'react'
 import { pressable } from '../../ui/interaction'
-import { ACCENT_EDGE, TYPE_SCALE, ICON_SIZE } from '../../ui/card'
+import { ACCENT_EDGE, TYPE_SCALE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { TEAM_ABBR, ACCENT, ACCENT_TEXT, PREDICTION_HEATER_MIN, TONE } from '../constants'
 import { ringColor, useTextTone } from '../lib/colorUtils'
@@ -443,7 +443,6 @@ function MyStatsContent({ stats }: { stats: PersonalStats }) {
           display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1,
           borderRadius: 2, bgcolor: '#f9731614', border: '1px solid #f9731640',
         }}>
-          <Typography sx={{ fontSize: ICON_SIZE.lg, lineHeight: 1 }}>🔥</Typography>
           <Box sx={{ minWidth: 0 }}>
             <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, color: TONE.orange, lineHeight: 1.2 }}>
               You're on a {stats.currentStreak}-game heater
@@ -469,7 +468,7 @@ function MyStatsContent({ stats }: { stats: PersonalStats }) {
           value={`${stats.correctPredictions}/${stats.finalizedCount}`}
         />
         <StatPill
-          label="🔥 Streak"
+          label="Streak"
           value={stats.currentStreak}
         />
       </Box>
@@ -501,8 +500,6 @@ function MyStatsContent({ stats }: { stats: PersonalStats }) {
 }
 
 // ─── LeaderboardContent ───────────────────────────────────────────────────────
-
-const MEDALS = ['🥇', '🥈', '🥉']
 
 function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; window: 'all' | 'month' | 'week' }) {
   return (
@@ -544,7 +541,7 @@ function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; windo
             color: entry.rank <= 3 ? 'text.primary' : 'text.disabled',
             lineHeight: 1,
           }}>
-            {entry.rank <= 3 ? MEDALS[entry.rank - 1] : entry.rank}
+            {entry.rank}
           </Typography>
           <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Typography sx={{
@@ -561,7 +558,7 @@ function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; windo
                 fontSize: TYPE_SCALE.caption, fontWeight: 800, color: TONE.orange, lineHeight: 1.4,
                 whiteSpace: 'nowrap',
               }}>
-                🔥 {entry.currentStreak}
+                W{entry.currentStreak}
               </Box>
             )}
           </Box>
@@ -635,7 +632,7 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
   if (!open) return null
 
   return (
-    <MlbSheet onClose={onClose} maxWidth={chromePx(460)} sheet sheetFill eyebrow="📊 Prediction stats">
+    <MlbSheet onClose={onClose} maxWidth={chromePx(460)} sheet sheetFill eyebrow="Prediction stats">
         {/* Sub-tabs, pinned while the content under them scrolls */}
         <Box sx={{
           px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0,
@@ -657,7 +654,7 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
                   '&:hover': tab === t ? {} : { borderColor: ACCENT_EDGE, color: 'text.primary' },
                 }}
               >
-                {t === 'my' ? '📈 My Stats' : '🏆 Leaderboard'}
+                {t === 'my' ? 'My stats' : 'Leaderboard'}
               </Box>
             ))}
           </Box>

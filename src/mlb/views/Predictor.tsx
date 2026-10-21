@@ -17,7 +17,7 @@ import { SCHEDULE_GAME_TYPES, isUnplayed, hasStartTime } from '../gameStatus'
 import { fetchSeasonPhase, fetchSeasonDates } from '../seasonPhase'
 import { useDevSeasonPhase } from '../dev/devSeasonPhase'
 import { chromePx, typePx } from '../../ui/scale'
-import { SectionCard, CardLink, TYPE_SCALE, ICON_SIZE, edge } from '../../ui/card'
+import { SectionCard, CardLink, TYPE_SCALE, edge } from '../../ui/card'
 
 // Both open on a tap from the widget, so neither rides in the Home landing (see PredictorModal.tsx).
 const PredictorModal = lazy(() => import('./PredictorModal').then(m => ({ default: m.PredictorModal })))
@@ -615,7 +615,6 @@ export function PredictorWidget({ onPicksSettled }: {
   return (
     <>
       <SectionCard
-        icon="🎯"
         title="Predictions"
         titleAdornment={(!loading && remainingCount > 0) || ((isTomorrow || isLater) && !idle) ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
@@ -658,7 +657,6 @@ export function PredictorWidget({ onPicksSettled }: {
             display: 'flex', alignItems: 'center', gap: 0.75, px: 2, py: 0.9,
             bgcolor: '#f9731612', borderBottom: '1px solid', borderColor: 'divider',
           }}>
-            <Typography sx={{ fontSize: ICON_SIZE.sm, lineHeight: 1 }}>🔥</Typography>
             <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: TONE.orange, lineHeight: 1.2 }}>
               You're on a {heaterStreak}-game heater, keep it rolling
             </Typography>

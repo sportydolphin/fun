@@ -24,7 +24,6 @@ export interface LbRow {
 
 export interface Board {
   id: string
-  icon: string
   title: string
   subtitle: string
   accent: string
@@ -111,12 +110,12 @@ const GHOST_PLAYER_ROW: PlayerLbRow = { playerId: 0, playerName: 'Bobby Witt Jr.
 
 /**
  * The frame every Report Card board draws in, on Home and on the Charts tab: WPBL's SectionCard,
- * with the board's emoji in its icon slot and a link in the header. Until Oct 9, 2026 each board
+ * with a link in the header and no icon: the emoji that sat beside each title came out on Oct 21,
+ * 2026, because a column of fire, ice and beach emoji read as a toy rather than a stats site. Until Oct 9, 2026 each board
  * hand-rolled its own box with a ruled header, a 1rem title and a bordered pill or an expand
  * icon, which read as a second design system one card below WPBL's.
  */
-function BoardCard({ icon, title, subtitle, tooltipText, actionLabel, actionHref, onExpand, children }: {
-  icon: string
+function BoardCard({ title, subtitle, tooltipText, actionLabel, actionHref, onExpand, children }: {
   title: string
   subtitle: string
   tooltipText?: string
@@ -127,7 +126,6 @@ function BoardCard({ icon, title, subtitle, tooltipText, actionLabel, actionHref
 }) {
   return (
     <SectionCard
-      icon={icon}
       title={title}
       subtitle={subtitle}
       titleAdornment={tooltipText ? (
@@ -149,11 +147,11 @@ interface BoardAction {
   actionHref?: string
 }
 
-export function LeaderboardCard({ icon, title, subtitle, accent, tooltipText, rows, loading, onExpand, onSelectTeam, actionLabel, actionHref }: Omit<Board, 'id'> & BoardAction & {
+export function LeaderboardCard({ title, subtitle, accent, tooltipText, rows, loading, onExpand, onSelectTeam, actionLabel, actionHref }: Omit<Board, 'id'> & BoardAction & {
   onSelectTeam?: (id: number) => void
 }) {
   return (
-    <BoardCard icon={icon} title={title} subtitle={subtitle} tooltipText={tooltipText}
+    <BoardCard title={title} subtitle={subtitle} tooltipText={tooltipText}
       actionLabel={actionLabel ?? `All ${rows.length || 30}`} actionHref={actionHref} onExpand={onExpand}>
       {loading
         ? [1, 2, 3].map(r => <LeaderboardRowItem key={r} row={GHOST_TEAM_ROW} rank={r} accent={accent} compact ghost />)
@@ -167,15 +165,14 @@ export function LeaderboardCard({ icon, title, subtitle, accent, tooltipText, ro
 // ─── Fullscreen modal: full scrollable ranking ─────────────
 
 /** The sheet both fullscreen boards open in. */
-function BoardSheet({ onClose, icon, title, subtitle, children }: {
+function BoardSheet({ onClose, title, subtitle, children }: {
   onClose: () => void
-  icon?: string
   title?: string
   subtitle?: string
   children: React.ReactNode
 }) {
   return (
-    <MlbSheet onClose={onClose} maxWidth={chromePx(540)} sheet eyebrow={[icon, title].filter(Boolean).join(' ')}>
+    <MlbSheet onClose={onClose} maxWidth={chromePx(540)} sheet eyebrow={title}>
       {subtitle && (
         <Typography sx={{ px: 2, pt: 1.25, fontSize: TYPE_SCALE.meta, color: 'text.secondary', flexShrink: 0 }}>{subtitle}</Typography>
       )}
@@ -184,10 +181,9 @@ function BoardSheet({ onClose, icon, title, subtitle, children }: {
   )
 }
 
-export function LeaderboardModal({ open, onClose, icon, title, subtitle, accent, rows, onSelectTeam }: {
+export function LeaderboardModal({ open, onClose, title, subtitle, accent, rows, onSelectTeam }: {
   open: boolean
   onClose: () => void
-  icon?: string
   title?: string
   subtitle?: string
   accent?: string
@@ -196,7 +192,7 @@ export function LeaderboardModal({ open, onClose, icon, title, subtitle, accent,
 }) {
   if (!open) return null
   return (
-    <BoardSheet onClose={onClose} icon={icon} title={title} subtitle={subtitle}>
+    <BoardSheet onClose={onClose} title={title} subtitle={subtitle}>
       {/* All teams */}
       {rows.map((row, idx) => (
         <LeaderboardRowItem key={row.teamId} row={row} rank={idx + 1} accent={accent ?? ACCENT} compact={false} onSelect={onSelectTeam} />
@@ -218,7 +214,6 @@ export interface PlayerLbRow {
 
 export interface PlayerBoard {
   id: string
-  icon: string
   title: string
   subtitle: string
   accent: string
@@ -339,11 +334,11 @@ export function PlayerLeaderboardRowItem({ row, rank, accent, onSelect, ghost }:
   )
 }
 
-export function PlayerLeaderboardCard({ icon, title, subtitle, accent, tooltipText, rows, loading, onExpand, onSelectPlayer, actionLabel, actionHref }: Omit<PlayerBoard, 'id'> & BoardAction & {
+export function PlayerLeaderboardCard({ title, subtitle, accent, tooltipText, rows, loading, onExpand, onSelectPlayer, actionLabel, actionHref }: Omit<PlayerBoard, 'id'> & BoardAction & {
   onSelectPlayer?: (id: number) => void
 }) {
   return (
-    <BoardCard icon={icon} title={title} subtitle={subtitle} tooltipText={tooltipText}
+    <BoardCard title={title} subtitle={subtitle} tooltipText={tooltipText}
       actionLabel={actionLabel ?? (rows.length > 3 ? `All ${rows.length}` : 'All')} actionHref={actionHref} onExpand={onExpand}>
       {loading
         ? [1, 2, 3].map(r => <PlayerLeaderboardRowItem key={r} row={GHOST_PLAYER_ROW} rank={r} accent={accent} ghost />)
@@ -360,10 +355,9 @@ export function PlayerLeaderboardCard({ icon, title, subtitle, accent, tooltipTe
   )
 }
 
-export function PlayerLeaderboardModal({ open, onClose, icon, title, subtitle, accent, rows, onSelectPlayer }: {
+export function PlayerLeaderboardModal({ open, onClose, title, subtitle, accent, rows, onSelectPlayer }: {
   open: boolean
   onClose: () => void
-  icon?: string
   title?: string
   subtitle?: string
   accent?: string
@@ -372,7 +366,7 @@ export function PlayerLeaderboardModal({ open, onClose, icon, title, subtitle, a
 }) {
   if (!open) return null
   return (
-    <BoardSheet onClose={onClose} icon={icon} title={title} subtitle={subtitle}>
+    <BoardSheet onClose={onClose} title={title} subtitle={subtitle}>
       {rows.map((row, idx) => (
         <PlayerLeaderboardRowItem key={row.playerId} row={row} rank={idx + 1} accent={accent ?? ACCENT} onSelect={onSelectPlayer} />
       ))}

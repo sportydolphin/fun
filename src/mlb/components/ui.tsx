@@ -38,26 +38,22 @@ export interface StatItemProps {
   palette: Palette
   rankMode: RankMode
   large?: boolean
-  poop?: boolean
 }
 
-export function StatItem({ label, value, playerId, leaderCategory, leaders, palette, rankMode, large, poop }: StatItemProps) {
+export function StatItem({ label, value, playerId, leaderCategory, leaders, palette, rankMode, large }: StatItemProps) {
   const ids = leaderCategory ? (leaders.get(leaderCategory) ?? []) : []
   const rank = ids.indexOf(playerId)
   const inTop5 = rank !== -1 && rank < 5
   const bottomN = ids.length > 0 && ids.length <= 30 ? 5 : 20
   const inBottom = rank !== -1 && ids.length > 0 && rank >= ids.length - bottomN
 
-  // Emoji + rank number are rendered separately so the emoji stays fully opaque
-  // (the translucent rank color would otherwise dim it).
-  let emoji = ''
+  // The rank alone. A 🔥 or 💩 sat in front of it until Oct 21, 2026; a leaderboard rank needs no
+  // mood beside it, and the pair was the loudest thing on the card.
   let rankNum = 0
   if (rankMode !== 'none' && rank !== -1) {
     const showBadge = rankMode === 'all' || (rankMode === 'top5' && (inTop5 || inBottom))
     if (showBadge) {
       rankNum = rank + 1
-      if (inTop5) emoji = poop ? '💩' : '🔥'
-      else if (inBottom) emoji = poop ? '🔥' : '💩'
     }
   }
 
@@ -86,11 +82,6 @@ export function StatItem({ label, value, playerId, leaderCategory, leaders, pale
             bgcolor: `${palette.rank}22`, borderRadius: 0.75,
             px: 0.75, py: 0.15,
           }}>
-            {emoji && (
-              <Typography component="span" sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1.4, opacity: 1 }}>
-                {emoji}
-              </Typography>
-            )}
             <Typography component="span" sx={{ color: palette.rank, fontSize: TYPE_SCALE.body, fontWeight: 800, letterSpacing: typePx(0.4), lineHeight: 1.4 }}>
               #{rankNum}
             </Typography>
@@ -167,7 +158,6 @@ export function StatGrid({ defs, stats, selected, palette, rankMode, playerId, l
               palette={palette}
               rankMode={rankMode}
               large={large}
-              poop={def.poop}
             />
           </Box>
         ))}

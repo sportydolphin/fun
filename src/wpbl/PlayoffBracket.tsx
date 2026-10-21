@@ -163,7 +163,7 @@ function SeriesTeamRow({ entrant, series, leading, winP, wide, placeholder }: {
   )
 }
 
-/** The season series between these two clubs, as a fan would say it ("SF 5-0"). Its own line
+/** The season series between these two clubs, as a fan would say it ("SF 5–0"). Its own line
  *  because the odds are built on it, so it is the one number that explains the fill above. */
 function seasonSeriesLine(series: BracketSeries, odds?: SeriesOdds): string | null {
   const h = odds?.h2h
@@ -172,7 +172,7 @@ function seasonSeriesLine(series: BracketSeries, odds?: SeriesOdds): string | nu
   const [leadAbbr, hi, lo] = h.homeWins >= h.awayWins
     ? [series.home.team.abbr, h.homeWins, h.awayWins]
     : [series.away.team.abbr, h.awayWins, h.homeWins]
-  return hi === lo ? `Season series ${hi}-${lo}` : `Season series ${leadAbbr} ${hi}-${lo}`
+  return hi === lo ? `Season series ${hi}–${lo}` : `Season series ${leadAbbr} ${hi}–${lo}`
 }
 
 /**

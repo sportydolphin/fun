@@ -60,10 +60,10 @@ export function SeriesBand({ s, gamePk, season, onOpen }: {
   const lead = wTop > wBot ? s.top : wBot > wTop ? s.bottom : null
   const hi = Math.max(wTop, wBot), lo = Math.min(wTop, wBot)
   const done = g.state === 'final'
-  const line = hi === need ? `The ${name(lead!)} win the series ${hi}-${lo}`
-    : lead ? `The ${name(lead)} lead ${hi}-${lo}${done ? '' : ' going in'}`
+  const line = hi === need ? `The ${name(lead!)} win the series ${hi}–${lo}`
+    : lead ? `The ${name(lead)} lead ${hi}–${lo}${done ? '' : ' going in'}`
     : hi + lo === 0 ? (done ? '' : 'Game 1')
-    : `Series tied ${hi}-${lo}${done ? '' : ' going in'}`
+    : `Series tied ${hi}–${lo}${done ? '' : ' going in'}`
   return (
     <Box sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', borderTop: '1px solid', borderColor: 'divider' }}>
       <Box sx={{ minWidth: 0, flex: 1 }}>

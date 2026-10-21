@@ -108,7 +108,6 @@ export default function AuthDialogs({
             {/* ── Success state (email confirmation sent) ── */}
             {successMsg ? (
               <Box sx={{ py: 2, textAlign: 'center' }}>
-                <Typography sx={{ fontSize: ICON_SIZE.xl, mb: 1.5, lineHeight: 1 }}>{mode === 'reset' ? '🔑' : '📬'}</Typography>
                 <Typography sx={{ fontWeight: 700, mb: 0.75 }}>
                   {mode === 'reset' ? 'Check your inbox' : 'Confirm your email'}
                 </Typography>
@@ -231,7 +230,6 @@ export default function AuthDialogs({
 
                 {error && (
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, mt: 1, color: 'error.main' }}>
-                    <Box component="span" sx={{ flexShrink: 0, mt: '1px' }}>⚠️</Box>
                     <Typography sx={{ fontSize: TYPE_SCALE.body }}>{error}</Typography>
                   </Box>
                 )}
@@ -280,7 +278,6 @@ export default function AuthDialogs({
         <Dialog open={confirmed} onClose={closeConfirmed} maxWidth="xs" fullWidth>
           <DialogContent sx={{ pt: '24px !important' }}>
             <Box sx={{ py: 1, textAlign: 'center' }}>
-              <Typography sx={{ fontSize: ICON_SIZE.xl, mb: 1, lineHeight: 1 }}>✅</Typography>
               <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.heading, mb: 0.75 }}>Email confirmed</Typography>
               <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.6 }}>
                 Your account is active and you're signed in on this device.
@@ -308,7 +305,6 @@ export default function AuthDialogs({
           <DialogContent sx={{ pt: '8px !important' }}>
             {recoveryDone ? (
               <Box sx={{ py: 2, textAlign: 'center' }}>
-                <Typography sx={{ fontSize: ICON_SIZE.xl, mb: 1.5, lineHeight: 1 }}>✅</Typography>
                 <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.6 }}>
                   You're signed in on this device, and that's the password to use from now on.
                 </Typography>
@@ -343,7 +339,6 @@ export default function AuthDialogs({
                 />
                 {recoveryErr && (
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, mt: 1, color: 'error.main' }}>
-                    <Box component="span" sx={{ flexShrink: 0, mt: '1px' }}>⚠️</Box>
                     <Typography sx={{ fontSize: TYPE_SCALE.body }}>{recoveryErr}</Typography>
                   </Box>
                 )}

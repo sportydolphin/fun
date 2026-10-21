@@ -822,13 +822,13 @@ function managerSlate({ teams, games }: AwardBallotInput): AwardCandidate[] {
         // `playerId` draws a club badge instead when it is null, and nothing links through to a
         // player page for a vote that was never about one.
         playerId: null,
-        line: `${t.name} · ${r.w}-${r.l}`,
+        line: `${t.name} · ${r.w}–${r.l}`,
         // The club, on every card rather than only on Boston's. Manager of the Year is the one
         // award where the badge alone is not enough context: a reader who could name all four
         // benches would not need the shortlist.
         sub: t.name,
         stats: [
-          { label: 'Record', value: `${r.w}-${r.l}` },
+          { label: 'Record', value: `${r.w}–${r.l}` },
           { label: 'Run diff', value: diff > 0 ? `+${diff}` : String(diff) },
         ],
       }

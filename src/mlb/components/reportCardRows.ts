@@ -101,7 +101,7 @@ export function buildFraudRows(data: TeamSummary[], nameMap: Map<number, string>
       abbr: t.abbr,
       name: nameMap.get(t.id) ?? t.abbr,
       sub: `${t.wins}–${t.losses}`,
-      value: `${t.delta > 0 ? '+' : ''}${t.delta} wins`,
+      value: `${t.delta > 0 ? '+' : t.delta < 0 ? '−' : ''}${Math.abs(t.delta)} wins`,
       barFraction: score / maxScore,
     }
   })

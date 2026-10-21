@@ -193,7 +193,7 @@ export function StandingsView({ teams, games: allGames, onOpenTeam }: {
                   return <Box component="td" sx={{ ...td, color: diffColor, fontWeight: 600, ...dropNarrow }}>{gp === 0 ? '—' : fmtSigned(diff)}</Box>
                 })()}
                 <Box component="td" sx={{ ...td, display: { xs: 'none', sm: 'table-cell' }, color: gp === 0 ? 'text.disabled' : l10Color, fontWeight: 600 }}>
-                  {gp === 0 ? '—' : `${l10.wins}-${l10.losses}`}
+                  {gp === 0 ? '—' : `${l10.wins}–${l10.losses}`}
                 </Box>
                 <Box component="td" sx={{ ...td, pr: 1.25, fontWeight: 700, color: r.streak ? (r.streak.type === 'W' ? 'var(--wpbl-pos)' : 'var(--wpbl-neg)') : 'text.disabled' }}>
                   {r.streak ? `${r.streak.type}${r.streak.count}` : '—'}

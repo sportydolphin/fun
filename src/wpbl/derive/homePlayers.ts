@@ -60,18 +60,19 @@ export interface PlayerOfTheDay {
 /**
  * Today's player. The pool is everyone with a box-score line (a feed id is the marker: the 49
  * players without one have none), since the card's season line is half of what it shows. A
- * settled birthday today wins over the rotation, from the whole roster, because a birthday is
- * news about anyone who has a page.
+ * settled birthday today wins over the rotation, but only from that same pool: until Oct 21, 2026
+ * it reached the whole roster, and the site's front page led with a player whose card read "No
+ * 2026 games" and a dash for a number. A birthday off the pool still gets its "Today" in the star
+ * sign card.
  */
 export function playerOfTheDay(players: WpblPlayer[], today: string): PlayerOfTheDay | null {
-  const active = players.filter(p => p.active)
-  const birthdays = active.filter(p => birthDateSettled(p) && monthDay(p.birth_date!) === monthDay(today))
+  const pool = players.filter(p => p.active && p.api_ids.length > 0)
+  const birthdays = pool.filter(p => birthDateSettled(p) && monthDay(p.birth_date!) === monthDay(today))
   const day = dayNumber(today)
   if (birthdays.length) {
     const order = rotation(birthdays, p => p.id)
     return { player: order[day % order.length], reason: 'birthday' }
   }
-  const pool = active.filter(p => p.api_ids.length > 0)
   if (!pool.length) return null
   const order = rotation(pool, p => p.id)
   return { player: order[day % order.length], reason: 'rotation' }
