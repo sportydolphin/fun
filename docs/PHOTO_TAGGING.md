@@ -1,8 +1,23 @@
 # Public photo tagging: anyone names who is in a fan photo
 
-**Built Oct 20, 2026, not launched.** The plan below is from Oct 16; "As built" says where the
-build differs and what launching takes. Read [`FAN_PHOTOS.md`](FAN_PHOTOS.md) first: this extends
-its tables and inherits its traps.
+**Built Oct 20, 2026, live Oct 21.** The plan below is from Oct 16; "As built" says where the
+build differs. Read [`FAN_PHOTOS.md`](FAN_PHOTOS.md) first: this extends its tables and inherits
+its traps.
+
+## Open by default (Oct 21, 2026)
+
+The owner's call, reversing two decisions below ("an owner gate", and a photo leaving the queue at
+its first tag). [`20261021000000_photo_tagging_open_by_default.sql`](../scripts/migrations/20261021000000_photo_tagging_open_by_default.sql):
+
+- **Every photo in review is open.** `open_for_tagging` defaults to true, so a photo is open from
+  the moment it is uploaded, by the `/admin` uploader or the ingest script alike, and every
+  unpublished photo was opened. The per-photo toggle in `/admin` still closes one.
+- **Tagging is shared.** The queue is open, unpublished, uncategorized and unreported; the owner's
+  tags no longer take a photo out. The queue hands each photo's tags out as `tagged`, the page shows
+  them as "Already named" and leaves them out of the picker, and the suggest function drops a
+  subject the photo already has. Untagged photos come first. Publishing takes a photo out.
+- So the screen before opening (crowds, children, scope, 1221 Photography's permission) now happens
+  before upload, not before opening. The report button is the net after it.
 
 ## As built
 

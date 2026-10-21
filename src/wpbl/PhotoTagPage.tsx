@@ -174,7 +174,13 @@ export default function PhotoTagPage() {
     ...teams.map(t => ({ kind: 'team' as const, key: `t:${t.id}`, subject: { team: t.id }, label: fanPhotoTeamName(t), team: t })),
   ], [players, figures, teams])
   const optionByKey = useMemo(() => new Map(options.map(o => [o.key, o])), [options])
-  const pickedKeys = useMemo(() => new Set(picked.map(o => o.key)), [picked])
+  // Who the owner has already tagged on this photo. Tagging is shared, so a tagged photo stays in the
+  // queue until it is published; these are shown as named and are never offered again, and the
+  // database drops one that slips through.
+  const taggedOptions = useMemo(() => (photo?.tagged ?? [])
+    .map(s => optionByKey.get('player' in s ? `p:${s.player}` : 'team' in s ? `t:${s.team}` : `f:${s.figure}`))
+    .filter((o): o is Option => !!o), [photo, optionByKey])
+  const pickedKeys = useMemo(() => new Set([...picked, ...taggedOptions].map(o => o.key)), [picked, taggedOptions])
 
   // What the list under the search shows. A name or a number searches everyone (a number is how a
   // fan recognizes a player in a photo); with nothing typed, a club chip lists that club, and with
@@ -271,7 +277,7 @@ export default function PhotoTagPage() {
       ) : finished || !photo ? (
         thanks > 0
           ? <EndNote title="That's every photo for now" body={`Thank you: you named who is in ${thanks} ${thanks === 1 ? 'photo' : 'photos'}. They go up once they're checked.`} />
-          : <EndNote title="Nothing to name right now" body="Every photo waiting has a name, or is being checked. More arrive after games." />
+          : <EndNote title="Nothing to name right now" body="You've been through every photo waiting. More arrive after games." />
       ) : (
         <>
           <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mb: 1, fontVariantNumeric: 'tabular-nums' }}>
@@ -280,20 +286,34 @@ export default function PhotoTagPage() {
           </Typography>
 
           <Box sx={FRAME_SX}>
-            <Box component="img" key={photo.id} src={photo.full_url} alt={`A fan's shot from the 2026 season${photo.credit ? `, by ${photo.credit}` : ''}; who is in it is not yet known`}
+            <Box component="img" key={photo.id} src={photo.full_url} alt={`A fan's shot from the 2026 season${photo.credit ? `, by ${photo.credit}` : ''}; ${taggedOptions.length ? `named so far: ${taggedOptions.map(o => o.label).join(', ')}` : 'who is in it is not yet known'}`}
               sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }} />
           </Box>
           <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 0.5, minHeight: '1.4em' }}>
             {photo.credit ? `Photo: ${photo.credit}` : ' '}
           </Typography>
 
-          {/* What is picked so far, removable. Held open at one row so the first pick moves nothing. */}
+          {/* Who is already named (fixed), then what is picked so far (removable). Held open at one row
+              so the first pick, or a photo that arrives already tagged, moves nothing. */}
           <Box aria-live="polite" sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1.5, minHeight: chromePx(36) }}>
-            {picked.length === 0 ? (
+            {taggedOptions.length > 0 && (
+              <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary', alignSelf: 'center' }}>
+                Already named
+              </Typography>
+            )}
+            {taggedOptions.map(o => (
+              <Box key={o.key} sx={{
+                display: 'inline-flex', alignItems: 'center', maxWidth: '100%', px: 1.25, py: 0.5, borderRadius: 999,
+                border: '1px solid', borderColor: 'outline', bgcolor: 'action.hover', color: 'text.primary',
+              }}>
+                <NameText component="span" name={o.label} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, minWidth: 0 }} />
+              </Box>
+            ))}
+            {picked.length === 0 ? (taggedOptions.length > 0 ? null : (
               <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', alignSelf: 'center' }}>
                 No one picked yet.
               </Typography>
-            ) : picked.map(o => (
+            )) : picked.map(o => (
               <Box key={o.key} component="button" type="button" onClick={() => unpick(o.key)}
                 aria-label={`Remove ${o.label}`}
                 sx={{
