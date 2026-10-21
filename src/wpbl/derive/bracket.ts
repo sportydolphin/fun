@@ -224,14 +224,14 @@ function summarise(series: Omit<BracketSeries, 'summary'>): string {
   if (winner) {
     const w = winner.id === home.team?.id ? home : away
     const l = winner.id === home.team?.id ? away : home
-    return `${winner.name} win ${w.wins}-${l.wins}`
+    return `${winner.name} win ${w.wins}–${l.wins}`
   }
   // Under way with nothing decided yet, which is game 1 in progress. "Tied 0-0" is what the
   // score line says and not what a fan would: nobody is tied, the series has just begun.
   if (series.played === 0) return 'Game 1 under way'
-  if (home.wins === away.wins) return `Tied ${home.wins}-${away.wins}`
+  if (home.wins === away.wins) return `Tied ${home.wins}–${away.wins}`
   const [lead, trail] = home.wins > away.wins ? [home, away] : [away, home]
-  return `${lead.team?.name} lead ${lead.wins}-${trail.wins}`
+  return `${lead.team?.name} lead ${lead.wins}–${trail.wins}`
 }
 
 function buildSeries(

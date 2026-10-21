@@ -103,7 +103,6 @@ export function GlossaryTerms({ groups, term, accent }: {
   return (
     <SectionCard
       title="What the abbreviations mean"
-      subtitle="The same definitions the tooltips show, in one place"
       frameless
       bare
     >

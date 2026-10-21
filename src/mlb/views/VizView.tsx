@@ -188,42 +188,42 @@ export function VizView({
 
   const AGE_TIP = 'Every player who played for the club this season, at their age for the season, counted by their plate appearances and batters faced, so a September call-up barely moves it. A traded player counts for both clubs.'
   const SOS_TIP = 'Average final win% of every opponent a club played, once per game. Each opponent\'s record leaves out its games against that club.'
-  const fraudTooltip = 'Wins above the Pythagorean record: the wins a team\'s runs scored and allowed predict. Ranked by that gap times win%, so a contender ranks above a last-place team with the same gap.'
-  const cursedTooltip = 'Wins below the Pythagorean record: the wins a team\'s runs scored and allowed predict. Ranked by that gap times losing %, so a last-place team ranks above a contender with the same gap.'
+  const fraudTooltip = 'Wins above the Pythagorean record: the wins a team\'s runs scored and allowed predict. Ties go to the better record.'
+  const cursedTooltip = 'Wins below the Pythagorean record: the wins a team\'s runs scored and allowed predict. Ties go to the worse record.'
 
   // ─── Report Card boards: every leaderboard follows the same shape ────────
   const boards: Board[] = [
     {
-      id: 'fraud', icon: '📈', title: 'Wins Above Expected', accent: '#f97316',
+      id: 'fraud', title: 'Wins Above Expected', accent: '#f97316',
       subtitle: 'vs Pythagorean record', tooltipText: fraudTooltip,
       rows: buildFraudRows(teamSummaries, nameMap, 'fraud'), loading: loadingViz,
     },
     {
-      id: 'cursed', icon: '📉', title: 'Wins Below Expected', accent: '#818cf8',
+      id: 'cursed', title: 'Wins Below Expected', accent: '#818cf8',
       subtitle: 'vs Pythagorean record', tooltipText: cursedTooltip,
       rows: buildFraudRows(teamSummaries, nameMap, 'cursed'), loading: loadingViz,
     },
     ...(showSos ? [
       {
-        id: 'oldest', icon: '👴', title: 'Oldest Rosters', accent: '#f97316',
+        id: 'oldest', title: 'Oldest Rosters', accent: '#f97316',
         subtitle: final ? 'Avg age, by playing time' : 'Avg age',
         tooltipText: final ? AGE_TIP : undefined,
         rows: buildAgeRows(ageEntries, nameMap, 'oldest'), loading: loadingAges,
       },
       {
-        id: 'youngest', icon: '🌱', title: 'Youngest Rosters', accent: '#22c55e',
+        id: 'youngest', title: 'Youngest Rosters', accent: '#22c55e',
         subtitle: final ? 'Avg age, by playing time' : 'Avg age',
         tooltipText: final ? AGE_TIP : undefined,
         rows: buildAgeRows(ageEntries, nameMap, 'youngest'), loading: loadingAges,
       },
       {
-        id: 'hardest', icon: '⚔️', title: 'Hardest Schedules', accent: '#ef4444',
+        id: 'hardest', title: 'Hardest Schedules', accent: '#ef4444',
         subtitle: final ? 'Opp. win%' : 'Remaining opp. win%',
         tooltipText: final ? SOS_TIP : undefined,
         rows: buildSosRows(sosData, 'hardest', final === true), loading: loadingSos,
       },
       {
-        id: 'easiest', icon: '🏖️', title: 'Easiest Schedules', accent: '#22c55e',
+        id: 'easiest', title: 'Easiest Schedules', accent: '#22c55e',
         subtitle: final ? 'Opp. win%' : 'Remaining opp. win%',
         tooltipText: final ? SOS_TIP : undefined,
         rows: buildSosRows(sosData, 'easiest', final === true), loading: loadingSos,
@@ -233,12 +233,12 @@ export function VizView({
     // data, so a past year would otherwise show today's numbers.
     ...(showSos ? [
       {
-        id: 'highest-payroll', icon: '💰', title: 'Highest Payrolls', accent: '#eab308',
+        id: 'highest-payroll', title: 'Highest Payrolls', accent: '#eab308',
         subtitle: '2026 est. payroll',
         rows: buildPayrollRows(TEAM_PAYROLLS_2026, nameMap, 'highest'), loading: false,
       },
       {
-        id: 'lowest-payroll', icon: '🪙', title: 'Lowest Payrolls', accent: '#22c55e',
+        id: 'lowest-payroll', title: 'Lowest Payrolls', accent: '#22c55e',
         subtitle: '2026 est. payroll',
         rows: buildPayrollRows(TEAM_PAYROLLS_2026, nameMap, 'lowest'), loading: false,
       },
@@ -255,44 +255,44 @@ export function VizView({
 
   const playerBoards: PlayerBoard[] = [
     ...(showSos ? [{
-      id: 'hit-streak', icon: '🔥', title: 'Hitting Streaks', accent: '#f97316',
+      id: 'hit-streak', title: 'Hitting Streaks', accent: '#f97316',
       subtitle: streakSub('Active'),
       tooltipText: 'Games in a row with at least one hit. A game with no official at-bat (all walks or hit by pitches) doesn\'t break the streak.',
       rows: buildStreakRows(streaks?.hitting ?? [], 'hitting'), loading: loadingStreaks,
     },
     {
-      id: 'scoreless', icon: '🧊', title: 'Scoreless Streaks', accent: '#38bdf8',
+      id: 'scoreless', title: 'Scoreless Streaks', accent: '#38bdf8',
       subtitle: streakSub('Active'),
       tooltipText: 'Innings a pitcher has thrown since the last run they gave up. Counted in whole outings, so the streak starts at their first clean appearance after it.',
       rows: buildStreakRows(streaks?.scoreless ?? [], 'scoreless'), loading: loadingStreaks,
     },
     {
-      id: 'hitless', icon: '🥶', title: 'Hitless Streaks', accent: '#a78bfa',
+      id: 'hitless', title: 'Hitless Streaks', accent: '#a78bfa',
       subtitle: streakSub('Active'),
       tooltipText: 'Trips to the plate a hitter has gone without a hit. Games with no official at-bat are skipped.',
       rows: buildStreakRows(streaks?.hitless ?? [], 'hitless'), loading: loadingStreaks,
     },
     {
-      id: 'games-played', icon: '🦾', title: 'Games-Played Streaks', accent: '#eab308',
+      id: 'games-played', title: 'Games-Played Streaks', accent: '#eab308',
       subtitle: streakSub('Active'),
       tooltipText: 'Games a player has appeared in without ever sitting one out, carried across seasons. A trade doesn\'t break it. A "+" means the streak reaches back past the seasons searched, so the real streak is longer.',
       rows: buildStreakRows(streaks?.gamesPlayed ?? [], 'gamesPlayed'), loading: loadingStreaks,
     },
     {
-      id: 'top-salary', icon: '🤑', title: 'Highest Salaries', accent: '#10b981',
+      id: 'top-salary', title: 'Highest Salaries', accent: '#10b981',
       subtitle: `${vizSeason}`,
       tooltipText: `Each player's salary for the ${vizSeason} season, straight from their contract. This is the money paid this year, so a backloaded or deferred deal can rank differently than its headline average annual value.`,
       rows: buildSalaryRows(salaries), loading: loadingSalaries,
     }] : []),
     // Plain season rates, so unlike the streak boards these render for past seasons too
     {
-      id: 'pitches-most', icon: '⏳', title: 'Most Pitches per PA', accent: '#14b8a6',
+      id: 'pitches-most', title: 'Most Pitches per PA', accent: '#14b8a6',
       subtitle: 'Qualified',
       tooltipText: `Pitches a hitter sees per trip to the plate. ${QUALIFIED_NOTE}`,
       rows: buildPitchPaRows(pitchPa, 'most'), loading: loadingPitchPa,
     },
     {
-      id: 'pitches-fewest', icon: '⚡', title: 'Fewest Pitches per PA', accent: '#f43f5e',
+      id: 'pitches-fewest', title: 'Fewest Pitches per PA', accent: '#f43f5e',
       subtitle: 'Qualified',
       tooltipText: `Pitches a hitter sees per trip to the plate, lowest first. ${QUALIFIED_NOTE}`,
       rows: buildPitchPaRows(pitchPa, 'fewest'), loading: loadingPitchPa,
@@ -459,7 +459,6 @@ export function VizView({
       <LeaderboardModal
         open={activeBoard != null}
         onClose={() => setExpandedBoard(null)}
-        icon={activeBoard?.icon}
         title={activeBoard ? `${activeBoard.title}: All ${activeBoard.rows.length} Teams` : undefined}
         subtitle={activeBoard?.subtitle}
         accent={activeBoard?.accent}
@@ -471,7 +470,6 @@ export function VizView({
       <PlayerLeaderboardModal
         open={activePlayerBoard != null}
         onClose={() => setExpandedPlayerBoard(null)}
-        icon={activePlayerBoard?.icon}
         title={activePlayerBoard ? `${activePlayerBoard.title}: Top ${activePlayerBoard.rows.length}` : undefined}
         subtitle={activePlayerBoard?.subtitle}
         accent={activePlayerBoard?.accent}

@@ -10,6 +10,7 @@ import { SeasonMenu } from '../SeasonMenu'
 import { TabTitle } from '../PageHeading'
 import { ScoresSkeleton } from './ScoresTab'
 import { TYPE_SCALE } from '../../ui/card'
+import { offseasonByCalendar } from '../offseasonCalendar'
 
 // Shown while a modal's chunk loads. A tap should visibly do something immediately, so this
 // paints the scrim the modal itself is about to paint, and the panel then fills in over it
@@ -84,7 +85,7 @@ export function TabSkeleton({ view }: { view: WpblView }) {
           <SeasonMenu label="season" sx={{ mb: -0.5 }} />
           {/* The table's caption, which says this before any data has arrived too. */}
           <Typography sx={{ mb: -1.25, fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.disabled' }}>
-            Current standings
+            {offseasonByCalendar() ? 'Final standings' : 'Current standings'}
           </Typography>
           {block(chromePx(193))}
           {/* The chart card wraps its subtitle and summary lines on a phone, so it is taller there. */}

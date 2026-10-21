@@ -196,10 +196,10 @@ export function PitchData({ tracking, boxPitchers, firstHit = null, live = false
     <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary', mb: 1 }}>{t}</Typography>
   )
   // Standout game-highlights tile for the summary strip: bigger value + who did it.
-  const hl = (emoji: string, label: string, value: string, sub: string, first: boolean, nameIn?: 'v' | 's') => (
+  const hl = (label: string, value: string, sub: string, first: boolean, nameIn?: 'v' | 's') => (
     <Box sx={{ flex: 1, minWidth: 0, textAlign: 'center', px: 0.75, ...(first ? {} : { borderLeft: '1px solid', borderColor: 'divider' }) }}>
       {/* 700 under 9px: see the weight ceiling under TYPE_SCALE in ui.tsx. */}
-      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled', whiteSpace: 'nowrap' }}>{emoji} {label}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled', whiteSpace: 'nowrap' }}>{label}</Typography>
       {nameIn === 'v'
         ? <NameText name={value} sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, lineHeight: 1.25 }} />
         : <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, lineHeight: 1.25, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</Typography>}
@@ -209,17 +209,17 @@ export function PitchData({ tracking, boxPitchers, firstHit = null, live = false
     </Box>
   )
   const highlights = [
-    hardestPitch && { e: '⚡', l: 'Hardest pitch', v: `${fmtSpeed(hardestPitch.release_speed, units)} ${unit}`, s: labelFor(hardestPitch), n: 's' as const },
-    hardestHit   && { e: '💥', l: 'Hardest hit',   v: `${fmtSpeed(hardestHit.exit, units)} ${unit}`,          s: hardestHit.batter ?? '—', n: hardestHit.batter ? 's' as const : undefined },
-    firstHit     && { e: '🥇', l: 'First hit',      v: firstHit.batter ?? '—',     s: `${firstHit.half === 'top' ? 'Top' : 'Bot'} ${firstHit.inning}`, n: firstHit.batter ? 'v' as const : undefined },
-  ].filter(Boolean) as { e: string; l: string; v: string; s: string; n?: 'v' | 's' }[]
+    hardestPitch && { l: 'Hardest pitch', v: `${fmtSpeed(hardestPitch.release_speed, units)} ${unit}`, s: labelFor(hardestPitch), n: 's' as const },
+    hardestHit   && { l: 'Hardest hit',   v: `${fmtSpeed(hardestHit.exit, units)} ${unit}`,          s: hardestHit.batter ?? '—', n: hardestHit.batter ? 's' as const : undefined },
+    firstHit     && { l: 'First hit',      v: firstHit.batter ?? '—',     s: `${firstHit.half === 'top' ? 'Top' : 'Bot'} ${firstHit.inning}`, n: firstHit.batter ? 'v' as const : undefined },
+  ].filter(Boolean) as { l: string; v: string; s: string; n?: 'v' | 's' }[]
 
   return (
     <Box sx={{ p: 2 }}>
       {/* Standout game highlights: the marquee of this game's TrackMan moments. */}
       {highlights.length > 0 && (
         <Box sx={{ display: 'flex', alignItems: 'stretch', mb: 2, py: 1.25, borderRadius: 2, border: '1px solid', borderColor: 'outline', bgcolor: 'action.hover' }}>
-          {highlights.map((h, i) => <Fragment key={h.l}>{hl(h.e, h.l, h.v, h.s, i === 0, h.n)}</Fragment>)}
+          {highlights.map((h, i) => <Fragment key={h.l}>{hl(h.l, h.v, h.s, i === 0, h.n)}</Fragment>)}
         </Box>
       )}
       <Box sx={{ display: 'flex', gap: 1.5, mb: 2.5, flexWrap: 'wrap' }}>

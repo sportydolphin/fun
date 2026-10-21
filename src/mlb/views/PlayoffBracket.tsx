@@ -357,13 +357,13 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
       {/* The tree always shows the World Series, so it always carries the champion. */}
       {champ && !compact && (
         <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, mb: 1, ...TREE_ONLY }}>
-          🏆 The {TEAM_NICKNAME[champ.id] ?? champ.abbr} win the {bracket.season} World Series
+          The {TEAM_NICKNAME[champ.id] ?? champ.abbr} win the {bracket.season} World Series
         </Typography>
       )}
       <Box sx={compact ? {} : ROUNDS_ONLY}>
         {champ && shown === 'ws' && (
           <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, mb: 1 }}>
-            🏆 The {TEAM_NICKNAME[champ.id] ?? champ.abbr} win the {bracket.season} World Series
+            The {TEAM_NICKNAME[champ.id] ?? champ.abbr} win the {bracket.season} World Series
           </Typography>
         )}
         {!compact && (

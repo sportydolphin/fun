@@ -23,7 +23,7 @@ import type { WpblTeam, WpblPlayer } from './types'
 import { typePx } from '../ui/scale'
 import { InfoDot } from '../ui/InfoDot'
 import { useWpblSeason } from './SeasonContext'
-import { ICON_SIZE, TYPE_SCALE } from '../ui/card'
+import { TYPE_SCALE } from '../ui/card'
 
 // The section's TrackMan showcase: season-wide velocity, spin, and batted-ball leaderboards
 // derived from the feed's pitch tracking (the distinctive data the WPBL feed carries that
@@ -138,7 +138,6 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
         border: '1px solid', borderColor: edge(accent),
         background: `linear-gradient(135deg, ${accent}26 0%, ${accent}0d 70%)`,
       }}>
-        <Box aria-hidden sx={{ fontSize: ICON_SIZE.md, lineHeight: 1, flexShrink: 0 }}>⚠️</Box>
         <Box sx={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
           <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: accent }}>
             Partial tracking data

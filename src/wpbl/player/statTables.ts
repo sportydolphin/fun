@@ -106,7 +106,7 @@ export function wpblRoleTables(role: Role, i: WpblTablesInput): RoleTables {
     return {
       summary: [
         count('G', pt.g), count('GS', pt.gs), p('ip'),
-        i.leadsWithSaves ? p('sv') : { label: 'W-L', value: `${pt.w}-${pt.l}` },
+        i.leadsWithSaves ? p('sv') : { label: 'W-L', value: `${pt.w}–${pt.l}` },
         p('era'), p('whip'), p('so'), p('bb'),
         p('fip', weightsPending), sideWar,
       ],

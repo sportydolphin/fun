@@ -180,9 +180,9 @@ describe('the standings chart', () => {
     render(<SeasonShapeCard shape={shapeOf(race)} onPreview={vi.fn()} />)
     // The label is its own bold span, so the sentence is the paragraph around it.
     const line = screen.getByText(/Days in first/).closest('p')?.textContent ?? ''
-    expect(line).toMatch(/San Francisco 2, Los Angeles 1\./)
-    // Singular, because "changed hands 1 times" is the shape this kind of line fails in.
-    expect(line).toMatch(/changed hands once\./)
+    expect(line).toMatch(/San Francisco 2 · Los Angeles 1/)
+    // Singular, because "1 lead changes" is the shape this kind of line fails in.
+    expect(line).toMatch(/1 lead change$/)
   })
 
   it('calls a season nobody ever led back wire to wire', () => {
@@ -192,7 +192,7 @@ describe('the standings chart', () => {
     ]
     render(<SeasonShapeCard shape={shapeOf(runaway)} onPreview={vi.fn()} />)
     expect(screen.getByText(/Days in first/).closest('p')?.textContent)
-      .toMatch(/San Francisco, all 4\. Wire to wire\./)
+      .toMatch(/San Francisco, all 4 · wire to wire/)
   })
 
   // A climb out of opening day is the club's own standings row read back to it, and the card

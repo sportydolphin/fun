@@ -486,7 +486,7 @@ const hitSeasonDetail = (l: SeasonBatting): string => [
 const pitSeasonDetail = (era: Field<SeasonPitching>) => (l: SeasonPitching): string =>
   [
     plural(l.g, 'G', 'G'),
-    (l.w > 0 || l.l > 0) && `${l.w}-${l.l}`,
+    (l.w > 0 || l.l > 0) && `${l.w}–${l.l}`,
     l.sv > 0 && plural(l.sv, 'SV', 'SV'),
     `${outsToIp(l.outs)} IP`, `${showHundredths(era.value(l))} ERA`, `${l.so} K`,
   ].filter(Boolean).join(', ')

@@ -64,7 +64,7 @@ function hittingLine(s: Stat): string | null {
 function pitchingLine(s: Stat): string | null {
   if (!(num(s.gamesPlayed) > 0)) return null
   // A closer leads with saves, a starter with the record. Both carry ERA and strikeouts.
-  const lead = num(s.saves) > 0 && num(s.gamesStarted) === 0 ? `${s.saves} SV` : `${s.wins ?? 0}-${s.losses ?? 0}`
+  const lead = num(s.saves) > 0 && num(s.gamesStarted) === 0 ? `${s.saves} SV` : `${s.wins ?? 0}–${s.losses ?? 0}`
   return `${lead}, ${s.era} ERA, ${s.strikeOuts ?? 0} K in ${s.inningsPitched} IP`
 }
 

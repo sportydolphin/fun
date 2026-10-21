@@ -110,7 +110,7 @@ export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKe
 }) {
   const half = Math.ceil(items.length / 2)
   return (
-    <SectionCard bare title={title} action={seeAll && <CardLink label="See all ›" href={seeAll.href} onClick={seeAll.onClick} />}>
+    <SectionCard bare title={title} action={seeAll && <CardLink label="See all" href={seeAll.href} onClick={seeAll.onClick} />}>
       {items.length === 0
         ? <Typography sx={{ py: 1.5, color: 'text.secondary', fontSize: TYPE_SCALE.meta }}>{empty}</Typography>
         : <Box sx={splitSx(splitWhen, half)}>
@@ -175,7 +175,7 @@ export function LeaderCardSkeleton({ title, rows = LEADERS_SHOWN, seeAll = true,
 }) {
   const half = Math.ceil(rows / 2)
   return (
-    <SectionCard bare title={title} action={seeAll ? <CardLink label="See all ›" onClick={() => {}} /> : undefined}>
+    <SectionCard bare title={title} action={seeAll ? <CardLink label="See all" onClick={() => {}} /> : undefined}>
       <Box sx={splitSx(splitWhen, half)}>
         {Array.from({ length: rows }, (_, i) => (
           <Box key={i} sx={{ ...ROW_SX, ...rule(i), ...splitRule(splitWhen, i, half) }}>

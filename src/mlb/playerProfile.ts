@@ -91,7 +91,8 @@ export function draftLine(b: MlbBio): string | null {
   const d = [...(b.drafts ?? [])].sort((x, y) => Number(y.year) - Number(x.year))[0]
   if (!d?.pickRound) return null
   const round = /^\d+$/.test(d.pickRound) ? `Round ${d.pickRound}` : d.pickRound
-  return `${round}, Pick ${d.pickNumber} · ${d.year} draft`
+  // Worded the way WPBL's player card words it (Oct 21, 2026), so the two sections' bands read alike.
+  return `Drafted ${round.charAt(0).toLowerCase()}${round.slice(1)}, pick ${d.pickNumber} (${d.year})`
 }
 
 // ─── One season ─────────────────────────────────────────────────────────────────

@@ -318,10 +318,10 @@ export default function FanVoteCard({
       // A tester sees the locked rendering before the deadline, so the subtitle says so plainly:
       // without it a tester reads the closed ballot as voting having shut early and files a bug.
       subtitle={testerPreview ? 'Tester preview of the locked ballot. Voting is still open.'
-        : closed ? 'Voting is closed. See where it finished.'
+        : closed ? 'Final results'
           : answered === 0 ? undefined
-            : answered < entries.length ? `${answered} of ${entries.length} answered.`
-              : 'All five in. Change them any time.'}
+            : answered < entries.length ? `${answered} of ${entries.length} answered`
+              : 'All answered'}
       fill={fill}
       action={
         <Box

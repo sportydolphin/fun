@@ -230,7 +230,7 @@ export function LiveHero({ game: seed, teams, players, onOpen }: {
           display: 'inline-flex', alignItems: 'center', gap: 0.4, cursor: 'pointer',
           fontSize: TYPE_SCALE.meta, fontWeight: 800, color: '#fff', px: 1.1, py: 0.35, borderRadius: 999, bgcolor: LIVE_RED,
           ...hoverOnly({ bgcolor: '#dc2626' }),
-        }}>Game Center →</Box>
+        }}>Game Center ›</Box>
       </Box>
 
       <Box sx={{ p: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, alignItems: { sm: 'center' } }}>

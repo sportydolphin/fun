@@ -219,10 +219,10 @@ function contextIn(
   const clinched = decided && isPlayed(game)
 
   let line: string | null = null
-  if (clinched && lead) line = `${lead.name} win ${roundNoun(round)} ${leadWins}-${trailWins}`
+  if (clinched && lead) line = `${lead.name} win ${roundNoun(round)} ${leadWins}–${trailWins}`
   else if (leadWins === 0 && trailWins === 0) line = null
-  else if (homeWins === awayWins) line = `Series tied ${homeWins}-${awayWins}`
-  else if (lead) line = `${lead.name} lead ${leadWins}-${trailWins}`
+  else if (homeWins === awayWins) line = `Series tied ${homeWins}–${awayWins}`
+  else if (lead) line = `${lead.name} lead ${leadWins}–${trailWins}`
 
   // What a win tonight would settle. Both clubs can be one win away at once (a deciding game),
   // and saying it once from the series' point of view beats saying it twice from each club's.
@@ -246,14 +246,14 @@ function contextIn(
   const round_ = roundLabel(round).toLowerCase()
   if (clinched && lead) {
     sentence = round === 'championship'
-      ? `${lead.name} are WPBL champions, taking the final ${leadWins}-${trailWins}.`
-      : `${lead.name} take the semifinal ${leadWins}-${trailWins} and go to the championship.`
+      ? `${lead.name} are WPBL champions, taking the final ${leadWins}–${trailWins}.`
+      : `${lead.name} take the semifinal ${leadWins}–${trailWins} and go to the championship.`
   } else if (leadWins === 0 && trailWins === 0) {
     sentence = null
   } else if (homeWins === awayWins) {
-    sentence = `The ${round_} is tied ${homeWins}-${awayWins}.`
+    sentence = `The ${round_} is tied ${homeWins}–${awayWins}.`
   } else if (lead) {
-    sentence = `${lead.name} lead the ${round_} ${leadWins}-${trailWins}.`
+    sentence = `${lead.name} lead the ${round_} ${leadWins}–${trailWins}.`
   }
 
   return {

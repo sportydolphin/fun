@@ -6,7 +6,7 @@ import { wpblAccent, wpblFullName } from '../constants'
 import { TAPPABLE, FOCUS_RING, CARD_BORDER, TeamBadge, TextGhost, chromePx } from '../ui'
 import type { WpblTeam, WpblGame } from '../types'
 import { typePx } from '../../ui/scale'
-import { ICON_SIZE, TYPE_SCALE } from '../../ui/card'
+import { TYPE_SCALE } from '../../ui/card'
 import { isModified } from '../../nav'
 import { shortDate } from '../../lib/format'
 
@@ -33,7 +33,6 @@ export function SeasonChampionBlock({ champ }: {
         bgcolor: 'color-mix(in srgb, var(--wpbl-medal-1) 16%, transparent)',
         borderBottom: '1px solid', borderColor: 'divider',
       }}>
-        <Box aria-hidden sx={{ fontSize: ICON_SIZE.sm, lineHeight: 1 }}>🏆</Box>
         <Typography sx={{
           fontSize: TYPE_SCALE.micro, fontWeight: 900, letterSpacing: typePx(1), textTransform: 'uppercase',
           color: 'var(--wpbl-medal-1)',

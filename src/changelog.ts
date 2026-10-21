@@ -22,6 +22,36 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.180.0',
+    date:    '2026-10-21',
+    changes: [
+      {
+        short: 'Final standings, one position per player',
+        full:  "The standings say Final standings once the regular season is played out, and the chart's last day says final standings too, with no date to change each year. Wins Above Expected and Wins Below Expected rank by the number on the row, so the Reds' +10 is above the Rays' +8. The players list and the star sign card show the position each player has been playing, the same one as the team page and Compare. The season recap's Biggest plays spell names the way the roster does. A player whose photo fails to load shows initials instead of an empty circle. MLB's player header reads like WPBL's: #12 · Shortstop · Bats S, throws R · Age 32, and Drafted round 1, pick 8 (2011). The fan awards say Final results.",
+      },
+    ],
+  },
+  {
+    version: '1.179.0',
+    date:    '2026-10-21',
+    changes: [
+      {
+        short: 'Title Case, one link style, fewer instructions',
+        full:  "Card and section titles are Title Case on both sections. Every header link is blue and ends in ›, and every Back uses the same chevron. Instructions and sentences that explained a card are gone: Find's intro and its \"Add a condition\" line, the standings chart's \"Drag the chart, or press play\", the club profiles caption, Streak Survivor's pitch, the More menu's descriptions, the tap hints on player and league pages, and the glossary's subtitle. The standings chart's findings read as stats: San Francisco 20 · Los Angeles 7 · 5 lead changes.",
+      },
+    ],
+  },
+  {
+    version: '1.178.0',
+    date:    '2026-10-21',
+    changes: [
+      {
+        short: 'No emoji, one date format',
+        full:  "The emoji beside MLB's report cards, Milestone Watch, Roster moves, Predictions and Streak Survivor are gone, as are the fire and poop badges on a player's stat ranks, the medals on leaderboards and recaps, and the trophies on the champion cards. Every game date reads Aug 12, including Bests, Find and the season recap, which showed 8/12 and 2026-08-30. Scores, records and series lines use an en dash (3–2), and negative numbers a true minus. Player of the day only features a player who has played.",
+      },
+    ],
+  },
+  {
     version: '1.177.0',
     date:    '2026-10-21',
     changes: [

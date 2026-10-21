@@ -92,7 +92,7 @@ function describeSeason(
 
   const tail = 'Full stat line, game log, and fielding.'
   if (pitcherFirst) {
-    const record = pt.w || pt.l ? `${pt.w}-${pt.l}, ` : ''
+    const record = pt.w || pt.l ? `${pt.w}–${pt.l}, ` : ''
     const saves = pt.s ? `, ${pt.s} SV` : ''
     return `${record}${fmtTwo(pt.era)} ERA and ${fmtTwo(pt.whip)} WHIP with ${pt.so} K in ${outsToIp(pt.outs)} IP over ${plural(pt.g, 'game')}${saves}. ${tail}`
   }
@@ -161,7 +161,7 @@ export function seasonHeadline(
     position: player.position, played: playedPosition(player.position, batting, games), hasBatting, hasPitching,
     gs: pt.gs, bf: pt.bf, pa: plateAppearances(bt),
   })) {
-    const record = pt.w || pt.l ? `${pt.w}-${pt.l}, ` : ''
+    const record = pt.w || pt.l ? `${pt.w}–${pt.l}, ` : ''
     return `${record}${fmtTwo(pt.era)} ERA, ${pt.so} K`
   }
   if (!hasBatting) return null

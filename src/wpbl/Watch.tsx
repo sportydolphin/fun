@@ -56,7 +56,6 @@ export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
   const [fanActive, setFanActive] = useState<WpblVideo | null>(null)
   // Only where the reader can play one: the broadcasts are blocked in the US, and the list here
   // has already had what this reader cannot play taken out (fetchWpblVideos).
-  const hasBroadcasts = useMemo(() => videos.some(v => v.kind === 'full_game'), [videos])
   const [active, setActive] = useState<number | null>(null)
   // Reads the Watch page's watermark and never moves it: four posters are not the shelf.
   const stamped = useMemo(() => loaded?.map(v => ({ id: v.video_id, at: v.published_at })) ?? null, [loaded])
@@ -119,7 +118,7 @@ export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
       )}
       {eyebrow && (
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mt: compact ? 'auto' : undefined }}>
-          {hasBroadcasts ? 'Highlights, condensed games and full broadcasts' : 'Highlights and condensed games'} of {gameIds.length} games, and {clips.length} clips.
+          {gameIds.length} games · {clips.length} clips
         </Typography>
       )}
       {active != null && (

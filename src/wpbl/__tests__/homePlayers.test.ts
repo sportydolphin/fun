@@ -30,10 +30,16 @@ describe('playerOfTheDay', () => {
   })
 
   it('lets a settled birthday outrank the rotation, and an unsettled one does not', () => {
-    const withBirthday = [...roster, player('bd', { birth_date: '2001-11-05', api_ids: [] })]
+    const withBirthday = [...roster, player('bd', { birth_date: '2001-11-05' })]
     expect(playerOfTheDay(withBirthday, '2026-11-05')).toMatchObject({ player: { id: 'bd' }, reason: 'birthday' })
     const unsettled = [...roster, player('bd', { birth_date: '2001-11-05', birth_date_source: 'doc-unsettled' })]
     expect(playerOfTheDay(unsettled, '2026-11-05')?.reason).toBe('rotation')
+  })
+
+  it('passes over a birthday with no games, which would lead the page with an empty season line', () => {
+    const noGames = [...roster, player('bd', { birth_date: '2001-11-05', api_ids: [] })]
+    expect(playerOfTheDay(noGames, '2026-11-05')).toMatchObject({ reason: 'rotation' })
+    expect(playerOfTheDay(noGames, '2026-11-05')?.player.id).not.toBe('bd')
   })
 })
 

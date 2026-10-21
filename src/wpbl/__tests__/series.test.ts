@@ -76,7 +76,7 @@ describe('seriesContext', () => {
     const g1 = post('2026-09-09', 'SF', 'BOS', 4, 2)
     const all = [g1]
     const c = ctx(g1, all)!
-    expect(c.line).toBe('Firebells lead 1-0')
+    expect(c.line).toBe('Firebells lead 1–0')
     expect(c.homeWins).toBe(1)
     expect(c.awayWins).toBe(0)
   })
@@ -89,13 +89,13 @@ describe('seriesContext', () => {
     // g2's home club is BOS, so the wins are reported from BOS's side of the row.
     expect(c.homeWins).toBe(0)
     expect(c.awayWins).toBe(1)
-    expect(c.line).toBe('Firebells lead 1-0')
+    expect(c.line).toBe('Firebells lead 1–0')
     expect(c.clinched).toBe(false)
   })
 
   it('calls a tied series tied', () => {
     const all = [post('2026-09-09', 'SF', 'BOS', 4, 2), post('2026-09-11', 'BOS', 'SF', 5, 1)]
-    expect(ctx(all[1], all)!.line).toBe('Series tied 1-1')
+    expect(ctx(all[1], all)!.line).toBe('Series tied 1–1')
   })
 
   it('has nothing to say about the record before game 1', () => {
@@ -109,7 +109,7 @@ describe('seriesContext', () => {
     const c = ctx(all[1], all)!
     expect(c.clinched).toBe(true)
     expect(c.seriesWinner?.id).toBe('SF')
-    expect(c.line).toBe('Firebells win the series 2-0')
+    expect(c.line).toBe('Firebells win the series 2–0')
   })
 
   it('does not call the game BEFORE the clincher a clincher', () => {
@@ -199,7 +199,7 @@ describe('the round a series belongs to', () => {
     const c = ctx(clincher, all)!
     expect(c.clinched).toBe(true)
     expect(c.seriesWinner?.id).toBe('SF')
-    expect(c.line).toBe('Firebells win the championship 3-1')
+    expect(c.line).toBe('Firebells win the championship 3–1')
   })
 
   it('puts the championship at stake in its own words', () => {

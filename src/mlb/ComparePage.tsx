@@ -318,7 +318,7 @@ export default function MlbComparePage({ path, onNavigate }: { path: string; onN
     else onNavigate(inSeason(mlbCompareStartPath(chosen)))
   }
 
-  const standfirstNone = `Pick two players · ${season}`
+  const standfirstNone = `${season}`
   // A pair names its season only when it is not this one, which every other page takes as read.
   const pairStandfirst = current ? undefined : `${season} regular season`
   const back = { href: '/mlb', label: 'Back to MLB' }

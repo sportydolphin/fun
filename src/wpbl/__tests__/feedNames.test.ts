@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { canonicalFeedName, matchFeedName } from '../feedNames'
+import { canonicalFeedName, matchFeedName, rosterSpellingsIn } from '../feedNames'
 
 // The seven the league's play log and live situation spell differently from the roster, read
 // off wpbl_game_plays on Sep 10, 2026. Every one is a real player, and every one lost her
@@ -73,5 +73,15 @@ describe('the feed spelling of a name', () => {
     // those match half the league.
     expect(matchFeedName('Whitmore', ROSTER)).toEqual([])
     expect(matchFeedName('', ROSTER)).toEqual([])
+  })
+})
+
+describe('rosterSpellingsIn', () => {
+  it('respells every player in a narrative and leaves the rest of the sentence alone', () => {
+    expect(rosterSpellingsIn('Isabella Villareal doubled to center field, 2 RBI; Andreanne Leblanc scored.', ROSTER))
+      .toBe('Isabella Villarreal doubled to center field, 2 RBI; Andréanne Leblanc scored.')
+  })
+  it('keeps a run of capitals that is nobody on the roster', () => {
+    expect(rosterSpellingsIn('Somebody Unknown walked.', ROSTER)).toBe('Somebody Unknown walked.')
   })
 })

@@ -263,11 +263,11 @@ export function seriesLine(s: PsSeries): string | null {
   if (a + b === 0) return null
   if (s.winnerId != null) {
     const w = s.winnerId === s.top.id ? s.top : s.bottom
-    return `${w.abbr} wins ${Math.max(a, b)}-${Math.min(a, b)}`
+    return `${w.abbr} wins ${Math.max(a, b)}–${Math.min(a, b)}`
   }
-  if (a === b) return `Series tied ${a}-${b}`
+  if (a === b) return `Series tied ${a}–${b}`
   const lead = a > b ? s.top : s.bottom
-  return `${lead.abbr} leads ${Math.max(a, b)}-${Math.min(a, b)}`
+  return `${lead.abbr} leads ${Math.max(a, b)}–${Math.min(a, b)}`
 }
 
 // ─── One club's October, from the bracket ─────────────────────────────────────
@@ -321,7 +321,7 @@ export function teamOctoberLine(o: TeamOctober): string {
   if (o.kind === 'missed') return 'Missed the postseason'
   const name = seriesName(o.series)
   const vs = o.opp.real ? ` vs ${o.opp.abbr}` : ''
-  const rec = `${o.wins}-${o.losses}`
+  const rec = `${o.wins}–${o.losses}`
   switch (o.kind) {
     case 'champion':   return `World Series champions, ${rec}${vs}`
     case 'advanced':   return `Won the ${name} ${rec}${vs}`

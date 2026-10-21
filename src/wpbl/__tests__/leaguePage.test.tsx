@@ -46,7 +46,7 @@ beforeEach(() => { vi.clearAllMocks() })
 describe('About the league: where the players are from', () => {
   it('is titled About the league', async () => {
     show()
-    expect(await screen.findByRole('heading', { name: 'About the league' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'About the League' })).toBeTruthy()
   })
 
   it('keeps every player link in the document before any country is picked', async () => {

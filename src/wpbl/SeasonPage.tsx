@@ -39,7 +39,7 @@ import { eraFipGaps } from './derive/eraFip'
 import {
   aggregateBatting, aggregatePitching, wpblQualifiers, sumBatting, sumPitching, fmtRate, fmtTwo, ERA_BASIS_CANONICAL,
 } from './stats'
-import { countsInStandings } from './season'
+import { countsInStandings, regularSeasonOver } from './season'
 import { fmtWinPct } from './derive/winProbability'
 import { wpblPlayerPath, wpblGamePath, wpblTeamPath, wpblComparePath, WPBL_MATCHUPS_PAGE } from './routes'
 import { batterPitcherMatchups, matchupBoard, type WpblMatchupLine } from './derive/matchups'
@@ -47,6 +47,9 @@ import { wpblColor } from './constants'
 import { TAPPABLE, FOCUS_RING, CARD_BORDER, pressable, TextGhost } from './ui'
 import WpblPage, { SectionHeading } from './WpblPage'
 import { track, EVENTS } from '../lib/analytics'
+import { shortDate } from '../lib/format'
+import { rosterSpellingsIn } from './feedNames'
+import { localIsoDate } from './derive/homePlayers'
 import type { WpblPlayer, WpblTeam, WpblGame } from './types'
 import { setDynamicSeo } from '../seo'
 import { wpblSeasonPath } from './routes'
@@ -420,7 +423,7 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
               <FinalStandings rows={standingRows} orderIds={stOrderIds} cadence={preview.cadenceMs} teamHref={teamHref}
                 onNavigate={href => { opened('standings', 'team'); onNavigate(href) }} />
               <Box sx={{ mt: 1.5 }}>
-                <SeasonShapeCard shape={shape} onPreview={onPreview} page="season" />
+                <SeasonShapeCard shape={shape} final={regularSeasonOver(games, localIsoDate())} onPreview={onPreview} page="season" />
               </Box>
             </>
           )}
@@ -670,7 +673,7 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
                 </Typography>
                 <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
                   {teamName(comeback.game.away_team_id)} {comeback.game.away_score} at{' '}
-                  {teamName(comeback.game.home_team_id)} {comeback.game.home_score} · {comeback.game.game_date}
+                  {teamName(comeback.game.home_team_id)} {comeback.game.home_score} · {shortDate(comeback.game.game_date)}
                 </Typography>
               </Box>
             </>
@@ -697,10 +700,10 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
                     <Box sx={{ flexShrink: 0, width: 4, alignSelf: 'stretch', borderRadius: 2, bgcolor: wpblColor(bp.teamId) }} />
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 600, lineHeight: 1.35 }}>
-                        {bp.narrative}
+                        {rosterSpellingsIn(bp.narrative, players)}
                       </Typography>
                       <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.35 }}>
-                        {teamName(bp.game.away_team_id)} at {teamName(bp.game.home_team_id)} · {bp.game.game_date}
+                        {teamName(bp.game.away_team_id)} at {teamName(bp.game.home_team_id)} · {shortDate(bp.game.game_date)}
                       </Typography>
                     </Box>
                     <Typography sx={{ flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'var(--wpbl-accent-fg)' }}>

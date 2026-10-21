@@ -111,7 +111,7 @@ describe('series state, reconstructed without a series id', () => {
     expect([a.home.team!.id, a.away.team!.id]).toEqual(['SF', 'BOS'])
     expect([a.home.wins, a.away.wins]).toEqual([1, 1])
     expect(a.status).toBe('live')
-    expect(a.summary).toBe('Tied 1-1')
+    expect(a.summary).toBe('Tied 1–1')
     expect(b.started).toBe(true)
   })
 
@@ -119,7 +119,7 @@ describe('series state, reconstructed without a series id', () => {
     const b = bracketOf([...seededSeason(),
       post('SF', 'BOS', '2026-09-09'),
     ])
-    expect(b.semifinals[0].summary).toBe('SF lead 1-0')
+    expect(b.semifinals[0].summary).toBe('SF lead 1–0')
     expect(b.semifinals[0].winner).toBeNull()
   })
 
@@ -131,7 +131,7 @@ describe('series state, reconstructed without a series id', () => {
     const a = b.semifinals[0]
     expect(a.winner!.id).toBe('SF')
     expect(a.status).toBe('done')
-    expect(a.summary).toBe('SF win 2-0')
+    expect(a.summary).toBe('SF win 2–0')
   })
 
   it('keeps two series apart even though both are postseason games', () => {
@@ -142,8 +142,8 @@ describe('series state, reconstructed without a series id', () => {
       post('LA', 'NY', '2026-09-09'),
       post('LA', 'NY', '2026-09-10'),
     ])
-    expect(b.semifinals[0].summary).toBe('SF lead 1-0')
-    expect(b.semifinals[1].summary).toBe('LA win 2-0')
+    expect(b.semifinals[0].summary).toBe('SF lead 1–0')
+    expect(b.semifinals[1].summary).toBe('LA win 2–0')
   })
 })
 
@@ -187,7 +187,7 @@ describe('the championship slot', () => {
       post('SF', 'LA', '2026-09-14'), post('SF', 'LA', '2026-09-15'), post('SF', 'LA', '2026-09-16'),
     ])
     expect(b.champion!.id).toBe('SF')
-    expect(b.championship.summary).toBe('SF win 3-0')
+    expect(b.championship.summary).toBe('SF win 3–0')
   })
 })
 

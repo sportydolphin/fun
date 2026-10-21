@@ -238,7 +238,7 @@ export function MatchupTable({ player, side, lines, players, scope, accent }: {
     <Box ref={sectionRef} sx={{ mt: BLOCK_GAP }}>
       <SectionHead
         title={side === 'batting' ? 'Vs pitchers' : 'Vs batters'} part="matchups"
-        caption={`${lines.length} ${lines.length === 1 ? noun : `${noun}s`}${slice} · tap a name for the matchup`}
+        caption={`${lines.length} ${lines.length === 1 ? noun : `${noun}s`}${slice}`}
       />
       {/* Capped once expanded, with the header pinned, for the reason written on the game log:
           past the fifth row of a 36-row list the columns are otherwise unlabeled, and PA and SO

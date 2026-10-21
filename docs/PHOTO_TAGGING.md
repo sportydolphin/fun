@@ -66,9 +66,9 @@ its first tag). [`20261021000000_photo_tagging_open_by_default.sql`](../scripts/
    `select count(*), count(distinct ip_hash), count(ip_hash) from wpbl_photo_tag_suggestions`.
    A null `ip_hash` on rows that came through the site means the header assumption is wrong and
    the address limits are not running; the key limits and the global ceiling still are.
-3. Merge the branch (CI's `check` and `layout`).
-4. Answer the open question on 1221 Photography's permission, screen the batch, then open it from
-   `/admin` (filters: To review, Untagged, the photographer; then "Open shown for tagging").
+3. ~~Merge the branch~~ Done Oct 20 and 21 (#140, #141, #146).
+4. ~~Answer the open question on 1221 Photography's permission, screen the batch, then open it from
+   `/admin` (filters: To review, Untagged, the photographer; then "Open shown for tagging")~~ Launched Oct 21, 2026.
 5. A changelog entry, the ROADMAP-WPBL entry, and the promotion (Discord, Bluesky).
 
 ## What the queue actually is

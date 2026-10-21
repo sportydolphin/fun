@@ -190,7 +190,7 @@ export function MlbBestsView({
             renderRow={(r, i, b) => (
               <GameLineRow key={r.key} rank={r.rank} name={r.name} player={r.player} teamId={r.teamId}
                 game={r.game} detail={r.detail} value={r.display} unit={b.unit} divider={i > 0}
-                compactDate onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
+                onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
             )} />
         </Box>
       )}

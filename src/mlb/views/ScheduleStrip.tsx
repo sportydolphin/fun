@@ -868,7 +868,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
           myTeamId={teamId}
           label={isFinal ? 'FINAL' : undefined}
           labelColor={isFinal ? (g.isWin === true ? '#22c55e' : g.isWin === false ? '#ef4444' : undefined) : undefined}
-          actionLabel={isPreview ? 'Preview →' : isFinal ? 'Recap →' : undefined}
+          actionLabel={isPreview ? 'Preview ›' : isFinal ? 'Recap ›' : undefined}
           onAction={open}
           onTeamClick={onTeamClick}
           gmLabel={gmLabel(day, g)}
@@ -925,7 +925,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
                 myTeamId={teamId}
                 label="FINAL"
                 labelColor={g.isWin === true ? '#22c55e' : g.isWin === false ? '#ef4444' : undefined}
-                actionLabel="Recap →"
+                actionLabel="Recap ›"
                 onAction={() => setBoxScoreGame(gameToFinalSummary(g, teamId))}
                 onTeamClick={onTeamClick}
                 gmLabel={gmLabel(slots.primary, g)}

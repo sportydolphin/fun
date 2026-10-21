@@ -14,10 +14,12 @@
 // The names shown are still real <a> elements, present in the DOM on first paint (Club sort,
 // nothing typed): the search box and the Name/Number sorts only reorder or hide anchors that first
 // render already held, so a crawler, which does not type or click, is served the grouped roster.
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography, Skeleton, Collapse } from '@mui/material'
 import { ExpandMore } from '@mui/icons-material'
-import { fetchWpblTeams, fetchWpblAllPlayers, fetchWpblAllLines } from './api'
+import { fetchWpblTeams, fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblSchedule } from './api'
+import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from './positions'
+import { currentSeason, inSeason } from './season'
 import { wpblFullName } from './constants'
 import { TeamBadge, PlayerPortrait, SegNav, CARD_BORDER, TAPPABLE, FOCUS_RING, hoverOnly, chromePx, TextGhost } from './ui'
 import { wpblPlayerPath, WPBL_COMPARE_BASE } from './routes'
@@ -45,6 +47,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
   // The ids that show up in a box-score line: who actually played. A line's player_id is the
   // internal id, so this is a direct set membership against player.id.
   const [appearedIds, setAppearedIds] = useState<Set<string>>(new Set())
+  const [positions, setPositions] = useState<Map<string, PrimaryPosition>>(new Map())
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<SortKey>('club')
@@ -65,11 +68,17 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
     let cancelled = false
     // Lines are gated in with teams and players (not fetched after) so the page never paints the
     // full roster for a beat and then drops the non-appearing half: it opens on the filtered list.
-    Promise.all([fetchWpblTeams(), fetchWpblAllPlayers(), fetchWpblAllLines()])
-      .then(([t, p, lines]) => {
+    Promise.all([fetchWpblTeams(), fetchWpblAllPlayers(), fetchWpblAllLines(), fetchWpblSchedule()])
+      .then(([t, p, lines, games]) => {
         if (cancelled) return
         setTeams(t); setPlayers(p)
         setAppearedIds(new Set([...lines.batting, ...lines.pitching].map(l => l.player_id)))
+        // The position each player has been PLAYING, the same label the team page, Compare and the
+        // player page print (positions.ts). Until Oct 21, 2026 this page alone printed the roster's
+        // filing, so Lexi Hastings was LF here and CF one tap away. Cut to the current season
+        // against the whole schedule, or a second year would blend two seasons of starts.
+        const year = currentSeason(games)
+        setPositions(year == null ? new Map() : buildPositionIndex(inSeason(lines.batting, games, year), games))
       })
       .catch(() => { /* the empty state below is the whole error path */ })
       .finally(() => { if (!cancelled) setLoading(false) })
@@ -77,6 +86,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
   }, [])
 
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+  const positionOf = useCallback((p: WpblPlayer) => displayPositionFromIndex(p, positions).label, [positions])
 
   // Only players who appeared. `players` stays the whole league for slug building; this is the
   // display set everything below (groups, search, the count) is drawn from.
@@ -89,10 +99,10 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
     if (!q) return appeared
     return appeared.filter(p =>
       p.name.toLowerCase().includes(q)
-      || (p.position?.toLowerCase().includes(q) ?? false)
+      || (positionOf(p)?.toLowerCase().includes(q) ?? false)
       || (p.jersey_number?.toLowerCase().includes(q) ?? false),
     )
-  }, [appeared, q])
+  }, [appeared, q, positionOf])
 
   // Grouped by club, alphabetical within it. Free agents and anyone the feed has not assigned a
   // team land in a trailing group rather than being dropped: a player with no page is exactly the
@@ -147,7 +157,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
           </Box>
           <Box sx={{ ...CELL_META, display: 'flex', alignItems: 'center', gap: 0.75, color: 'text.disabled' }}>
             {p.jersey_number && <Box component="span">#{p.jersey_number}</Box>}
-            {p.position && <Box component="span">{p.position}</Box>}
+            {positionOf(p) && <Box component="span">{positionOf(p)}</Box>}
             {showTeam && team && <Box component="span" sx={{ textTransform: 'uppercase', letterSpacing: typePx(0.3) }}>{team.abbr}</Box>}
           </Box>
         </Box>
@@ -186,7 +196,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
           color: 'primary.main', textDecoration: 'none',
           ...hoverOnly({ textDecoration: 'underline' }),
         }}
-      >Compare two players →</Box>
+      >Compare players ›</Box>
 
       {/* Search + sort. The input filters every mode; the pills reorder the results (Club keeps the
           grouped view, Name and Number flatten to one list). Both are pure reader convenience: the

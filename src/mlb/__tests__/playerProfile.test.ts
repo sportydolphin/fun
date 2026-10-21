@@ -181,7 +181,7 @@ describe('the small formatters', () => {
     const bio = { id: 1, fullName: 'X', active: true, primaryPosition: { code: '2', name: 'Catcher', type: 'Catcher' },
       birthCity: 'Harrisonburg', birthStateProvince: 'VA', birthCountry: 'USA',
       drafts: [{ year: '2015', pickRound: '20', pickNumber: 600 }, { year: '2018', pickRound: '3', pickNumber: 90 }] }
-    expect(draftLine(bio)).toBe('Round 3, Pick 90 · 2018 draft')
+    expect(draftLine(bio)).toBe('Drafted round 3, pick 90 (2018)')
     expect(birthplace(bio)).toBe('Harrisonburg, VA')
     expect(birthplace({ ...bio, birthCity: 'Oshu', birthStateProvince: undefined, birthCountry: 'Japan' })).toBe('Oshu, Japan')
   })

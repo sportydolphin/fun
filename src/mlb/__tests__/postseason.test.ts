@@ -19,7 +19,7 @@ describe('a finished postseason (2025)', () => {
   it('names the champion from the games themselves', () => {
     const ws = b.series.W_1
     expect(ws.winnerId).toBe(119)             // Dodgers
-    expect(seriesLine(ws)).toBe('LAD wins 4-3')
+    expect(seriesLine(ws)).toBe('LAD wins 4–3')
   })
 
   it('carries each club’s seed forward from the round it entered', () => {
@@ -120,14 +120,14 @@ describe('one club’s October', () => {
 
   it('crowns the champion and names the loser of the World Series', () => {
     expect(teamOctober(done, 119)?.kind).toBe('champion')
-    expect(line(done, 119)).toBe('World Series champions, 4-3 vs TOR')
-    expect(line(done, 141)).toBe('Lost the World Series 3-4 vs LAD')
+    expect(line(done, 119)).toBe('World Series champions, 4–3 vs TOR')
+    expect(line(done, 141)).toBe('Lost the World Series 3–4 vs LAD')
   })
 
   it('reads a series from the club’s own side, wherever it was seeded', () => {
-    expect(line(done, 135)).toBe('Out in the NL Wild Card Series, 1-2 vs CHC')   // the bottom seed
-    expect(line(done, 143)).toBe('Out in the NLDS, 1-3 vs LAD')                  // the top seed
-    expect(line(done, 158)).toBe('Out in the NLCS, 0-4 vs LAD')
+    expect(line(done, 135)).toBe('Out in the NL Wild Card Series, 1–2 vs CHC')   // the bottom seed
+    expect(line(done, 143)).toBe('Out in the NLDS, 1–3 vs LAD')                  // the top seed
+    expect(line(done, 158)).toBe('Out in the NLCS, 0–4 vs LAD')
   })
 
   it('says a club outside the field missed it, and keeps only the clubs still playing at full size', () => {

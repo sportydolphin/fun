@@ -5,6 +5,7 @@ import { TYPE_SCALE } from './ui'
 import StandalonePage from '../ui/StandalonePage'
 import { InfoDot } from '../ui/InfoDot'
 import { trackImpression, EVENTS } from '../lib/analytics'
+import { titleCaseNode } from '../lib/format'
 
 // The standalone-page frame lives in src/ui/StandalonePage.tsx since Oct 9, 2026, shared with MLB's
 // glossary. This is WPBL's binding of it: Back to /wpbl, and the heading rule the section's tabs use.
@@ -58,7 +59,7 @@ export function SectionHeading({ children, seen, id, info }: {
       fontSize: TYPE_SCALE.heading, fontWeight: 800, mt: 4, mb: 1.5, scrollMarginTop: 12,
       ...(info ? { display: 'flex', alignItems: 'center', gap: 0.75 } : {}),
     }}>
-      <span ref={textRef}>{children}</span>
+      <span ref={textRef}>{titleCaseNode(children)}</span>
       {info && <Box component="span" sx={{ display: 'inline-flex', fontWeight: 400 }}><InfoDot text={info} /></Box>}
     </Typography>
   )

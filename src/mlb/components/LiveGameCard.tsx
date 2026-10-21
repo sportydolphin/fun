@@ -121,7 +121,7 @@ function LiveCelebration({ type, teamColor }: { type: 'hit' | 'run'; teamColor: 
           textTransform: 'uppercase', whiteSpace: 'nowrap',
           textShadow: isRun ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
         }}>
-          {isRun ? '🎉 Run Scored!' : '⚾ Base Hit!'}
+          {isRun ? 'Run scores' : 'Base hit'}
         </Typography>
       </Box>
     </Box>
@@ -231,7 +231,7 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
               '@keyframes livepulse': { '0%': { opacity: 1 }, '50%': { opacity: 0.25 }, '100%': { opacity: 1 } },
               animation: 'livepulse 1.5s ease-in-out infinite',
             }} />
-            Game Center →
+            Game Center ›
           </Box>
         )}
       </Box>

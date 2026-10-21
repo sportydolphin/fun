@@ -479,7 +479,7 @@ export function SearchView({
                 {...pressable(e => { e.stopPropagation(); setShowFullSchedule(true) })}
                 sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
               >
-                Full schedule →
+                Full schedule ›
               </Box>
             </Box>
             <Box className="sc-chevron" sx={{

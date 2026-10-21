@@ -466,7 +466,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
         countCol(r, 'GS', n0(s.gamesStarted), false),
         { ...countCol(r, 'IP', ipToOuts(s.inningsPitched)), value: s.inningsPitched ?? '0.0' },
         lead === 'SV' ? countCol(r, 'SV', n0(s.saves)) : lead === 'HLD' ? countCol(r, 'HLD', n0(s.holds), false)
-          : { label: 'W-L', value: `${n0(s.wins)}-${n0(s.losses)}` },
+          : { label: 'W-L', value: `${n0(s.wins)}–${n0(s.losses)}` },
         rateCol(r, 'ERA', rate(s.era), lgOf(r, 'ERA')),
         rateCol(r, 'WHIP', rate(s.whip), lgOf(r, 'WHIP')),
         countCol(r, 'SO', n0(s.strikeOuts)),
@@ -615,7 +615,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
       return (
         <StatLogTable title="Game log" part="log" accent={ACCENT_TEXT} best={PITCHING_BEST} totalsLabel={totalsLabel} preview={MLB_LOG_PREVIEW}
           statHeaders={['DEC', 'IP', 'H', 'R', 'ER', 'HR', 'BB', 'SO', 'P']}
-          totals={!withTotals ? undefined : [`${n0(s.wins)}-${n0(s.losses)}`, s.inningsPitched ?? '0.0', n0(s.hits), n0(s.runs), n0(s.earnedRuns), n0(s.homeRuns), n0(s.baseOnBalls), n0(s.strikeOuts), n0(s.numberOfPitches)]}
+          totals={!withTotals ? undefined : [`${n0(s.wins)}–${n0(s.losses)}`, s.inningsPitched ?? '0.0', n0(s.hits), n0(s.runs), n0(s.earnedRuns), n0(s.homeRuns), n0(s.baseOnBalls), n0(s.strikeOuts), n0(s.numberOfPitches)]}
           rows={games.map(g => {
             const p = g.pitching
             return { lead: lead(g), onOpen: () => onOpenGame(g.gamePk), cells: [decision(p), p.inningsPitched ?? '0.0', n0(p.hits), n0(p.runs), n0(p.earnedRuns), n0(p.homeRuns), n0(p.baseOnBalls), n0(p.strikeOuts), p.numberOfPitches ?? '—'] }
@@ -738,9 +738,9 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
     // No Career row on the career view: the line above it is that row.
     const tot = careerView ? null : career?.totals[r]
     if (r === 'pitching') {
-      const cells = (s: any) => [`${n0(s.wins)}-${n0(s.losses)}`, rate(s.era), n0(s.gamesPlayed ?? s.gamesPitched), n0(s.gamesStarted), n0(s.saves), s.inningsPitched ?? '0.0', n0(s.hits), n0(s.earnedRuns), n0(s.homeRuns), n0(s.baseOnBalls), n0(s.strikeOuts), rate(s.whip)]
+      const cells = (s: any) => [`${n0(s.wins)}–${n0(s.losses)}`, rate(s.era), n0(s.gamesPlayed ?? s.gamesPitched), n0(s.gamesStarted), n0(s.saves), s.inningsPitched ?? '0.0', n0(s.hits), n0(s.earnedRuns), n0(s.homeRuns), n0(s.baseOnBalls), n0(s.strikeOuts), rate(s.whip)]
       return (
-        <StatLogTable title="Career" caption="Regular season · tap a year to open it" accent={ACCENT_TEXT}
+        <StatLogTable title="Career" caption="Regular season" accent={ACCENT_TEXT}
           leadHeaders={['Year', 'Team']} preview={10} noun={['season', 'seasons']} totalsLabel="Career"
           leadSx={[{ color: 'text.primary', fontWeight: 700 }, { fontWeight: 600, color: 'text.secondary' }]}
           statHeaders={['W-L', 'ERA', 'G', 'GS', 'SV', 'IP', 'H', 'ER', 'HR', 'BB', 'SO', 'WHIP']}
@@ -751,7 +751,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
     }
     const cells = (s: any) => [n0(s.gamesPlayed), n0(s.plateAppearances), n0(s.atBats), n0(s.runs), n0(s.hits), n0(s.doubles), n0(s.triples), n0(s.homeRuns), n0(s.rbi), n0(s.stolenBases), n0(s.baseOnBalls), n0(s.strikeOuts), rate(s.avg), rate(s.obp), rate(s.slg), rate(s.ops)]
     return (
-      <StatLogTable title="Career" caption="Regular season · tap a year to open it" accent={ACCENT_TEXT}
+      <StatLogTable title="Career" caption="Regular season" accent={ACCENT_TEXT}
         leadHeaders={['Year', 'Team']} preview={10} noun={['season', 'seasons']} totalsLabel="Career"
         leadSx={[{ color: 'text.primary', fontWeight: 700 }, { fontWeight: 600, color: 'text.secondary' }]}
         statHeaders={['G', 'PA', 'AB', 'R', 'H', '2B', '3B', 'HR', 'RBI', 'SB', 'BB', 'SO', 'AVG', 'OBP', 'SLG', 'OPS']}
@@ -814,14 +814,19 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
 
   // ── the band ──────────────────────────────────────────────────────────────
 
-  const pos = bio?.primaryPosition?.abbreviation ?? player?.primaryPosition?.abbreviation
-  const bt = bio?.batSide?.code || bio?.pitchHand?.code ? `B/T ${bio?.batSide?.code ?? '-'}/${bio?.pitchHand?.code ?? '-'}` : null
+  // IN WORDS, THE WAY WPBL'S BAND READS (Oct 21, 2026): "#12 · Shortstop · Bats S, throws R ·
+  // Age 32" on both sections, where this one was "#12 · SS · B/T S/R · 32 yrs" a section switch away.
+  const position = bio?.primaryPosition ?? player?.primaryPosition
+  const pos = position?.abbreviation === 'TWP' ? 'Two-way player' : position?.name ?? position?.abbreviation
+  const bt = [bio?.batSide?.code ? `Bats ${bio.batSide.code}` : null, bio?.pitchHand?.code ? `throws ${bio.pitchHand.code}` : null]
+    .filter(Boolean).join(', ')
+  const age = bio?.currentAge ?? player?.currentAge
   const meta = [
     (bio?.primaryNumber ?? player?.primaryNumber) ? `#${bio?.primaryNumber ?? player?.primaryNumber}` : null,
-    pos === 'TWP' ? 'Two-way' : pos,
-    bt,
+    pos,
+    bt ? bt.charAt(0).toUpperCase() + bt.slice(1) : null,
     bio?.height && bio?.weight ? `${bio.height}, ${bio.weight} lb` : null,
-    (bio?.currentAge ?? player?.currentAge) != null && bio?.active !== false ? `${bio?.currentAge ?? player?.currentAge} yrs` : null,
+    age != null && bio?.active !== false ? `Age ${age}` : null,
   ].filter(Boolean).join(' · ')
   const span = bio && !bio.active ? careerSpan(bio) : null
   const bandLines = bio ? [birthplace(bio), draftLine(bio), span ? `MLB ${span}` : null].filter((l): l is string => !!l) : []

@@ -17,7 +17,7 @@ import { SCHEDULE_GAME_TYPES, isUnplayed, hasStartTime } from '../gameStatus'
 import { fetchSeasonPhase, fetchSeasonDates } from '../seasonPhase'
 import { useDevSeasonPhase } from '../dev/devSeasonPhase'
 import { chromePx, typePx } from '../../ui/scale'
-import { SectionCard, CardLink, TYPE_SCALE, ICON_SIZE, edge } from '../../ui/card'
+import { SectionCard, CardLink, TYPE_SCALE, edge } from '../../ui/card'
 
 // Both open on a tap from the widget, so neither rides in the Home landing (see PredictorModal.tsx).
 const PredictorModal = lazy(() => import('./PredictorModal').then(m => ({ default: m.PredictorModal })))
@@ -315,7 +315,7 @@ const GHOST_GAME: TodayGame = {
   home: { teamId: 0, abbr: '', name: 'Guardians', pitcher: null },
 }
 
-/** The "Make predictions →" link under the quick picks, shared with the loading state's copy. */
+/** The "Make predictions ›" link under the quick picks, shared with the loading state's copy. */
 const MORE_LINK_SX = {
   alignSelf: 'center', mt: 0.4, px: 1, py: 0.3,
   fontSize: TYPE_SCALE.meta, fontWeight: 700, color: ACCENT_TEXT, borderRadius: 999,
@@ -615,7 +615,6 @@ export function PredictorWidget({ onPicksSettled }: {
   return (
     <>
       <SectionCard
-        icon="🎯"
         title="Predictions"
         titleAdornment={(!loading && remainingCount > 0) || ((isTomorrow || isLater) && !idle) ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
@@ -638,11 +637,11 @@ export function PredictorWidget({ onPicksSettled }: {
         ) : undefined}
         action={
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            {user && <CardLink label="Stats" color="text.secondary" onClick={() => setStatsOpen(true)} />}
+            {user && <CardLink label="Stats" onClick={() => setStatsOpen(true)} />}
             {!idle && (
               <CardLink
                 label={loading ? '…' : pickedCount === 0 ? 'Make picks' : 'View picks'}
-                color={canOpen ? undefined : 'text.disabled'}
+                disabled={!canOpen}
                 onClick={() => { if (canOpen) setModalOpen(true) }}
               />
             )}
@@ -658,9 +657,8 @@ export function PredictorWidget({ onPicksSettled }: {
             display: 'flex', alignItems: 'center', gap: 0.75, px: 2, py: 0.9,
             bgcolor: '#f9731612', borderBottom: '1px solid', borderColor: 'divider',
           }}>
-            <Typography sx={{ fontSize: ICON_SIZE.sm, lineHeight: 1 }}>🔥</Typography>
             <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: TONE.orange, lineHeight: 1.2 }}>
-              You're on a {heaterStreak}-game heater, keep it rolling
+              {heaterStreak}-game streak
             </Typography>
           </Box>
         )}
@@ -754,7 +752,7 @@ export function PredictorWidget({ onPicksSettled }: {
                 <Skeleton variant="rounded" sx={{ position: 'absolute', inset: 0, height: 'auto', borderRadius: 2 }} />
               </Box>
             ))}
-            {lastShape.more && <Box sx={{ ...MORE_LINK_SX, visibility: 'hidden' }}>Make predictions →</Box>}
+            {lastShape.more && <Box sx={{ ...MORE_LINK_SX, visibility: 'hidden' }}>Make predictions ›</Box>}
           </Box>
         )}
 
@@ -775,7 +773,7 @@ export function PredictorWidget({ onPicksSettled }: {
                 {...pressable(() => canOpen && setModalOpen(true))}
                 sx={{ ...MORE_LINK_SX, cursor: 'pointer', '&:hover': { bgcolor: `${ACCENT}12` } }}
               >
-                Make predictions →
+                Make predictions ›
               </Box>
             )}
           </Box>

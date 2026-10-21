@@ -85,26 +85,25 @@ export function buildFraudRows(data: TeamSummary[], nameMap: Map<number, string>
       const pythWins = Math.round(pythPct * games)
       const delta = d.wins - pythWins
       const winPct = d.wins / games
-      const fraudScore = delta > 0 ? delta * winPct : 0
-      const cursedScore = delta < 0 ? (-delta) * (1 - winPct) : 0
-      return { ...d, delta, winPct, fraudScore, cursedScore }
+      return { ...d, delta, winPct }
     })
     .filter(t => isFraud ? t.delta > 0 : t.delta < 0)
-    .sort((a, b) => isFraud ? b.fraudScore - a.fraudScore : b.cursedScore - a.cursedScore)
+    // RANKED BY THE NUMBER ON THE ROW. Until Oct 21, 2026 this sorted on the gap times win%, so a
+    // contender ranked above a worse club with a bigger gap, and the board read Rays +8 over Reds
+    // +10: a list that looks unsorted to anyone who cannot see the hidden score. Win% now only
+    // breaks a tie, the contender first above and the worse club first below.
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta) || (isFraud ? b.winPct - a.winPct : a.winPct - b.winPct))
 
-  const maxScore = Math.max(...withScores.map(t => isFraud ? t.fraudScore : t.cursedScore), 1)
+  const maxGap = Math.max(...withScores.map(t => Math.abs(t.delta)), 1)
 
-  return withScores.map(t => {
-    const score = isFraud ? t.fraudScore : t.cursedScore
-    return {
-      teamId: t.id,
-      abbr: t.abbr,
-      name: nameMap.get(t.id) ?? t.abbr,
-      sub: `${t.wins}–${t.losses}`,
-      value: `${t.delta > 0 ? '+' : ''}${t.delta} wins`,
-      barFraction: score / maxScore,
-    }
-  })
+  return withScores.map(t => ({
+    teamId: t.id,
+    abbr: t.abbr,
+    name: nameMap.get(t.id) ?? t.abbr,
+    sub: `${t.wins}–${t.losses}`,
+    value: `${t.delta > 0 ? '+' : t.delta < 0 ? '−' : ''}${Math.abs(t.delta)} wins`,
+    barFraction: Math.abs(t.delta) / maxGap,
+  }))
 }
 
 export function buildAgeRows(entries: AgeEntry[], nameMap: Map<number, string>, type: 'oldest' | 'youngest'): LbRow[] {

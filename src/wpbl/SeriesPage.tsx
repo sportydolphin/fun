@@ -332,7 +332,7 @@ function SeriesBody({ A, B, clubs, teams, games: allGames, players, lines: allLi
               <LeaderRow
                 key={p.season.player.id} {...leaderPlaces(top.map(x => fmtEra(x.season.totals.era)))[i]} player={p.season.player} name={p.season.player.name}
                 teamId={p.teamId} value={fmtEra(t.era)} unit="ERA" accent={ink} onOpen={openPlayer}
-                sub={`${outsToIp(t.outs)} IP, ${t.so} SO, ${t.bb} BB${t.w ? `, ${t.w}-${t.l}` : ''}`}
+                sub={`${outsToIp(t.outs)} IP, ${t.so} SO, ${t.bb} BB${t.w ? `, ${t.w}–${t.l}` : ''}`}
               />
             )
           })}

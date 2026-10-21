@@ -613,7 +613,7 @@ export function devChampionPick(bracket: WpblBracket | null, teams: WpblTeam[], 
  *
  * Fed the champion and, for the real one, the series line off the same record the bracket draws,
  * rather than recomputing either. The dev preview carries no score line: a random club is not
- * the one that actually leads the final, so a real "won 3-1" beside it would be a lie.
+ * the one that actually leads the final, so a real "won 3–1" beside it would be a lie.
  */
 export function ChampionBanner({ champion, season, runnerUp, champWins, rivalWins, dev, onOpenTeam }: {
   champion: WpblTeam
@@ -681,7 +681,6 @@ export function ChampionBanner({ champion, season, runnerUp, champWins, rivalWin
         background: stripBg,
         borderBottom: '1px solid', borderColor: alpha(gold, dark ? 0.28 : 0.4),
       }}>
-        <Box aria-hidden sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1 }}>🏆</Box>
         <Typography sx={{
           fontSize: TYPE_SCALE.meta, fontWeight: 900, letterSpacing: typePx(1), textTransform: 'uppercase',
           color: goldSoft,
@@ -706,7 +705,7 @@ export function ChampionBanner({ champion, season, runnerUp, champWins, rivalWin
           </Typography>
           {showSeries && (
             <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary', mt: 0.15 }}>
-              Won the final {champWins}-{rivalWins} over {runnerUp!.name}
+              Won the final {champWins}–{rivalWins} over {runnerUp!.name}
             </Typography>
           )}
         </Box>

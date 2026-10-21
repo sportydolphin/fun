@@ -142,7 +142,7 @@ describe('PlayoffBracket', () => {
   it('shows the running series score once a game has been played', () => {
     draw([...season(), post('SF', 'BOS', '2026-09-09')], vi.fn())
     expect(rowsOf('Semifinal A')).toEqual(['1SF1', '4BOS0'])
-    expect(screen.getByText('SF lead 1-0')).toBeTruthy()
+    expect(screen.getByText('SF lead 1–0')).toBeTruthy()
   })
 
   it('holds the championship box open while the semifinals are undecided', () => {

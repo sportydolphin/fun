@@ -763,7 +763,7 @@ export async function fetchStandings(season: number): Promise<StandingsDivision[
     const teams = (rec.teamRecords ?? []).map((t: any) => {
       const splitRecords: any[] = t.records?.splitRecords ?? []
       const lastTenRec = splitRecords.find((s: any) => s.type === 'lastTen')
-      const lastTen = lastTenRec ? `${lastTenRec.wins}-${lastTenRec.losses}` : '—'
+      const lastTen = lastTenRec ? `${lastTenRec.wins}–${lastTenRec.losses}` : '—'
       return {
         teamId: Number(t.team?.id),
         teamName: t.team?.name ?? '—',

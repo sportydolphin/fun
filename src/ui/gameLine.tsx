@@ -1,6 +1,7 @@
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { TYPE_SCALE } from './card'
+import { shortDate } from '../lib/format'
 import { TAPPABLE } from './interaction'
 import { nameAtStage, useLineNameFit } from './names'
 
@@ -26,12 +27,12 @@ import { nameAtStage, useLineNameFit } from './names'
 // disappears: with the detail first, the LINK is what a 375px screen at the Large text setting
 // eats. Put the destination where it survives and let the supporting detail be the part that goes.
 
-/** "Aug 12 vs LA", or "8/12 vs LA" when compact. `home` must come off the LINE's club, the club
+/** "Aug 12 vs LA". There was a compact "8/12" for Bests and Find until Oct 21, 2026: one date
+ *  format across the site outranks the four characters it saved. `home` must come off the LINE's club, the club
  *  played for that day: the roster's means "now", and would put a traded player on the wrong side
  *  of "vs". */
-export function formatGameLineLabel(gameDate: string, home: boolean, opp: string | null | undefined, compactDate = false): string {
-  const date = new Date(`${gameDate}T00:00:00`).toLocaleDateString([],
-    compactDate ? { month: 'numeric', day: 'numeric' } : { month: 'short', day: 'numeric' })
+export function formatGameLineLabel(gameDate: string, home: boolean, opp: string | null | undefined): string {
+  const date = shortDate(gameDate)
   return opp ? `${date} ${home ? 'vs' : 'at'} ${opp}` : date
 }
 

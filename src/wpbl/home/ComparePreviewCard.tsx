@@ -146,7 +146,7 @@ export function ComparePreviewCard({ batSeasons, qual, teams, players, loading }
       ...UNSTYLED_LINK, fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'var(--wpbl-accent-fg)',
       flexShrink: 0, ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
     }}>
-      Try it →
+      Compare ›
     </Box>
   )
 

@@ -591,7 +591,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
           statHeaders={['DEC', 'IP', 'H', 'R', 'ER', 'HR', 'BB', 'SO', 'P']}
           // The record stands in for the decision column, which is the only cell here whose
           // season form is a different thing from the sum of the games above it.
-          totals={!logTotals ? undefined : [`${pt.w}-${pt.l}`, outsToIp(pt.outs), pt.h, pt.r, pt.er, pt.hr, pt.bb, pt.so, pt.pitches]}
+          totals={!logTotals ? undefined : [`${pt.w}–${pt.l}`, outsToIp(pt.outs), pt.h, pt.r, pt.er, pt.hr, pt.bb, pt.so, pt.pitches]}
           best={PITCHING_BEST}
           accent={color}
           rows={newestFirst(pitchingLog).map(l => ({ ...logRow(l.game_id, l.team_id), cells: [l.decision ?? '—', outsToIp(l.outs), l.h, l.r, l.er, l.hr, l.bb, l.so, l.pitches ?? '—'] }))}

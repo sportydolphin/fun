@@ -121,13 +121,12 @@ export function MlbFindView({
         <Box sx={{ pt: { xs: 1.5, sm: 2 } }}>
           <FinderBoard side={side} query={query} onQuery={onQuery} result={result} clubs={CLUBS} loading={loading}
             clubAbbr={id => TEAM_ABBR[Number(id)] ?? id}
-            intro="Search every box-score line of the season for the games that match."
             sort={sort} onSort={setSort} examples={EXAMPLES[side]} stickyTop={STATS_BOARD_TOP}
             parse={text => parseFinderText(text, MLB_FINDER_CLUBS)} onAsk={onAsk}
             renderRow={(r, i, unit) => (
               <GameLineRow key={r.key} rank={i + 1} name={r.name} player={r.player} teamId={r.teamId}
                 game={r.game} detail={r.detail} value={r.headlineDisplay} unit={unit} divider={i > 0}
-                nameOpens="game" compactDate emphasizeRank={false} onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
+                nameOpens="game" emphasizeRank={false} onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
             )}
             rowParts={r => {
               const club = r.teamId ? Number(r.teamId) : 0

@@ -129,11 +129,11 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
         {/* Stacked, one link a line: side by side they wrapped mid-link on a phone. */}
         <Box sx={{ mt: 1.25, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.5 }}>
           <Typography sx={{ fontSize: TYPE_SCALE.body }}>
-            <Box {...link(WPBL_GLOSSARY_PAGE)} sx={inlineLink}>The full rules, and what every stat means ›</Box>
+            <Box {...link(WPBL_GLOSSARY_PAGE)} sx={inlineLink}>Rules & glossary ›</Box>
           </Typography>
           {(champ || loading) && (
             <Typography sx={{ fontSize: TYPE_SCALE.body }}>
-              <Box {...link(wpblSeasonPath(2026))} sx={inlineLink}>The 2026 season recap ›</Box>
+              <Box {...link(wpblSeasonPath(2026))} sx={inlineLink}>2026 season recap ›</Box>
             </Typography>
           )}
         </Box>
@@ -154,9 +154,6 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
               ))}
             </Box>
             <SectionHeading>Where the players are from</SectionHeading>
-            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mb: 1.25 }}>
-              Pick a country to see who is from there.
-            </Typography>
             <Box aria-hidden sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
               {/* Eleven chips at the lengths of the 2026 roster's country names. */}
               {[3, 6, 9, 5, 6, 11, 7, 6, 11, 14, 9].map((n, i) => (
@@ -208,9 +205,6 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
                 which put 64 American names between the top of the page and the ten other countries,
                 a wall nobody scrolled past. The chips are the summary (every country and its count,
                 on one screen) and a tap shows that country's players. */}
-            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mb: 1.25 }}>
-              Pick a country to see who is from there.
-            </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
               {countries.map(c => {
                 const active = country === c.country

@@ -437,9 +437,6 @@ export function TeamSpecDetail({ specs, teamId, selected, kLabel, scaleK, onClea
       ) : (
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Even</Typography>
       )}
-      {/* Says the chart is tappable, which nothing else on it does. Drops away the moment a
-          reader has tapped once, because by then they know. */}
-      <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', ml: 'auto' }}>Tap a trait</Typography>
     </Box>
   )
 }

@@ -14,8 +14,6 @@ import { typePx } from '../ui/scale'
 import { WinProbFrame } from '../ui/winProbChart'
 import { WIN_PROB_INFO } from './winProbInfo'
 
-const MEDAL = ['🥇', '🥈', '🥉']
-
 /** Whether the reader has opened Last Game on a phone. Same spelling as the bracket's key, and
  *  the same reasoning: the choice persists, so opening it once is not a decision to re-make on
  *  every visit. */
@@ -23,9 +21,9 @@ const LAST_GAME_OPEN_KEY = 'wpbl:lastGameOpen'
 
 // ── Shared bits ─────────────────────────────────────────────────────────────────
 
-function StarRow({ star, medal, name, teamId, portraitSize = 30, medalSize = 20, fitKey, link }: {
-  star: RecapStar; medal: string; name: string; teamId: string | null
-  portraitSize?: number; medalSize?: number; fitKey?: number
+function StarRow({ star, rank, name, teamId, portraitSize = 30, rankSize = 20, fitKey, link }: {
+  star: RecapStar; rank: number; name: string; teamId: string | null
+  portraitSize?: number; rankSize?: number; fitKey?: number
   /** Spread from `playerLink(player, onOpenPlayer)`, so the row is a real
    *  <a href="/wpbl/players/…> rather than a Box with a click handler. Googlebot does not
    *  fire click handlers, and these are the only player names on the section's landing page:
@@ -40,7 +38,9 @@ function StarRow({ star, medal, name, teamId, portraitSize = 30, medalSize = 20,
     <Box {...link}
       sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.6, cursor: tappable ? 'pointer' : 'default',
         '&:hover': tappable ? { '& .starname': { textDecoration: 'underline' } } : undefined }}>
-      <Box sx={{ fontSize: medalSize * 0.05 + 'rem', width: medalSize / 16 + 'rem', textAlign: 'center', flexShrink: 0 }}>{medal}</Box>
+      {/* The star's number, not a medal emoji (gone Oct 21, 2026): the same column, so the
+          portraits and names stay where they were. */}
+      <Box sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'text.secondary', width: rankSize / 16 + 'rem', textAlign: 'center', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{rank}</Box>
       <PlayerPortrait name={name} teamId={teamId} size={portraitSize} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <FittedName name={name} className="starname" fitKey={fitKey} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700 }} />
@@ -202,7 +202,7 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
               const p = names.get(s.playerId)
               return (
                 <Box key={s.playerId} data-star-col="" sx={{ minWidth: 0, flex: { xs: '0 1 auto', sm: '1 1 auto' } }}>
-                  <StarRow star={s} medal={MEDAL[i] ?? '⭐'} name={s.name} teamId={s.teamId} fitKey={starsWidth}
+                  <StarRow star={s} rank={i + 1} name={s.name} teamId={s.teamId} fitKey={starsWidth}
                     link={playerLink(p, onOpenPlayer)} />
                 </Box>
               )
@@ -441,7 +441,7 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
             76.5%, against 7.8% for one that opens neither that nor Game Center; see the traffic
             notes in ROADMAP-WPBL.md). It is also a real anchor, so it is a crawl path from the
             landing page to a player page rather than a click handler Googlebot cannot see. */}
-            <StarRow star={recap.stars[0]} medal="🥇" name={recap.stars[0].name} teamId={recap.stars[0].teamId} portraitSize={44} medalSize={30} fitKey={starWidth}
+            <StarRow star={recap.stars[0]} rank={1} name={recap.stars[0].name} teamId={recap.stars[0].teamId} portraitSize={44} rankSize={30} fitKey={starWidth}
               link={playerLink(byPlayerId.get(recap.stars[0].playerId), onOpenPlayer)} />
           </Box>
         </Box>
