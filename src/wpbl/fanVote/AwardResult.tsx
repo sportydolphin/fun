@@ -390,7 +390,7 @@ export function AwardResult({ entry, index, players, teams, state, onOpenPlayer,
       {!winner ? (
         // No votes at all. A hero row here would crown a zero, so say the true thing instead.
         <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', lineHeight: 1.4 }}>
-          No votes in this category yet.
+          No votes
         </Typography>
       ) : (
         // ONE BAR SCALE FOR THE WHOLE CARD. The winner and the runners-up are the SAME row shape,

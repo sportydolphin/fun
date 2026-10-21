@@ -222,7 +222,6 @@ function SeriesBody({ A, B, clubs, teams, games: allGames, players, lines: allLi
   return (
     <WpblPage
       title={`${A.name} vs ${B.name}`}
-      standfirst={`The ${wpblFullName(A)} and the ${wpblFullName(B)}: every meeting, the leaders in those games, and which batters had the better of which pitchers.`}
     >
       <SeasonMenu label="season" sx={{ mb: 1.5 }} />
       {/* ── The record ─────────────────────────────────────────────────── */}
@@ -276,7 +275,7 @@ function SeriesBody({ A, B, clubs, teams, games: allGames, players, lines: allLi
       </Box>
       {!skeleton && series.meetings.length === 0 && (
         <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.body, py: 2 }}>
-          These two clubs have no games on the schedule yet.
+          No games scheduled
         </Typography>
       )}
 
@@ -314,7 +313,7 @@ function SeriesBody({ A, B, clubs, teams, games: allGames, players, lines: allLi
       </Typography>
       </Box>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: 4, rowGap: 2 }}>
-        <Board title="At the plate" empty="Nobody has enough plate appearances in these games yet." skeleton={!leaders}>
+        <Board title="At the plate" empty="No qualified batters" skeleton={!leaders}>
           {leaders?.batters.slice(0, ROWS).map((b, i, top) => {
             const t = b.season.totals
             return (
@@ -326,7 +325,7 @@ function SeriesBody({ A, B, clubs, teams, games: allGames, players, lines: allLi
             )
           })}
         </Board>
-        <Board title="On the mound" empty="Nobody has enough innings in these games yet." skeleton={!leaders}>
+        <Board title="On the mound" empty="No qualified pitchers" skeleton={!leaders}>
           {leaders?.pitchers.slice(0, ROWS).map((p, i, top) => {
             const t = p.season.totals
             return (
@@ -731,7 +730,7 @@ function NotASeries({ clubs }: { clubs: Club[] }) {
     }
   }
   return (
-    <WpblPage title="No such series" standfirst="That address does not name two clubs. These are the six season series.">
+    <WpblPage title="No such series">
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         {all.map(o => (
           <Box key={o.href} {...linkTo(o.href)} sx={{ ...UNSTYLED_LINK, fontSize: TYPE_SCALE.body, fontWeight: 700, ...FOCUS_RING }}>{o.label}</Box>

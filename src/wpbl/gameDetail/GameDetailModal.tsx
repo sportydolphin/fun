@@ -805,10 +805,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
           </>
         ) : final ? (
           <Box sx={{ flex: 1, p: 2 }}>
-            <EmptyBody
-              title="Box score not available yet"
-              hint="The feed has not posted a box score for this game."
-            />
+            <EmptyBody title="No box score" />
             {/* No lines means no tabs, so there is no Recap tab holding the reel. A game with
                 video and no box score is exactly the game somebody wants the video from. */}
             {videos.length > 0 && <Box sx={{ mt: 2 }}><GameHighlightCards videos={videos} /></Box>}
@@ -822,7 +819,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
           </Box>
         ) : (
           <Box sx={{ flex: 1, p: 2 }}>
-            <EmptyBody title="This game has not been played yet" hint="Check back after first pitch." />
+            <EmptyBody title="Not played" />
           </Box>
         )}
       </Box>

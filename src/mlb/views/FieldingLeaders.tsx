@@ -101,7 +101,7 @@ export function FieldingLeaders({ season, gameScope, canHover, onOpenPlayer, onS
           }}
           hoverKey={hover}
           onHover={canHover ? setHover : undefined}
-          empty={gameScope === 'post' ? 'No playoff games yet' : 'Nobody yet'}
+          empty={gameScope === 'post' ? 'No playoff games' : 'Nobody yet'}
           items={items.map(it => ({
             // The row's own id: a player can lead one card at two positions.
             key: it.row.id, rank: it.rank, tied: it.tied, name: it.row.name, value: it.text,

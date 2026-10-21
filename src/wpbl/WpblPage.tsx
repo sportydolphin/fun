@@ -1,8 +1,9 @@
 import React, { useEffect, useRef } from 'react'
-import { Typography } from '@mui/material'
+import { Box, Typography } from '@mui/material'
 import { useWpblHeadingTag } from './PageHeading'
 import { TYPE_SCALE } from './ui'
 import StandalonePage from '../ui/StandalonePage'
+import { InfoDot } from '../ui/InfoDot'
 import { trackImpression, EVENTS } from '../lib/analytics'
 
 // The standalone-page frame lives in src/ui/StandalonePage.tsx since Oct 9, 2026, shared with MLB's
@@ -22,8 +23,11 @@ export default function WpblPage(props: {
  * league works" and the rest read the same everywhere; it snaps to TYPE_SCALE.heading, which is
  * what that token names. Was a local copy in SeasonPage set a step too large by hand.
  */
-export function SectionHeading({ children, seen, id }: {
+export function SectionHeading({ children, seen, id, info }: {
   children: React.ReactNode
+  /** A definition behind an info dot beside the heading, which is where an explanation goes rather
+   *  than a paragraph under it (house rule, Oct 21, 2026: labels, not narration). */
+  info?: React.ComponentProps<typeof InfoDot>['text']
   /** An anchor for in-page jump links. The heading keeps a small margin above it when scrolled
    *  to, so it does not land flush against the top edge. */
   id?: string
@@ -34,12 +38,15 @@ export function SectionHeading({ children, seen, id }: {
   seen?: string
 }) {
   const ref = useRef<HTMLHeadingElement>(null)
+  // The section's name is the heading's own words, read off this span so the info dot's glyph
+  // never joins it.
+  const textRef = useRef<HTMLSpanElement>(null)
   useEffect(() => {
     const el = ref.current
     if (!seen || !el || typeof IntersectionObserver === 'undefined') return
     const io = new IntersectionObserver(entries => {
       if (!entries.some(e => e.isIntersecting)) return
-      const section = (el.textContent ?? '').trim().slice(0, 60)
+      const section = (textRef.current?.textContent ?? '').trim().slice(0, 60)
       trackImpression(EVENTS.WPBL_PAGE_SECTION_SEEN, { page: seen, section }, `${seen}|${section}`)
       io.disconnect()
     })
@@ -47,8 +54,12 @@ export function SectionHeading({ children, seen, id }: {
     return () => io.disconnect()
   }, [seen])
   return (
-    <Typography ref={ref} id={id} component="h2" sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, mt: 4, mb: 1.5, scrollMarginTop: 12 }}>
-      {children}
+    <Typography ref={ref} id={id} component="h2" sx={{
+      fontSize: TYPE_SCALE.heading, fontWeight: 800, mt: 4, mb: 1.5, scrollMarginTop: 12,
+      ...(info ? { display: 'flex', alignItems: 'center', gap: 0.75 } : {}),
+    }}>
+      <span ref={textRef}>{children}</span>
+      {info && <Box component="span" sx={{ display: 'inline-flex', fontWeight: 400 }}><InfoDot text={info} /></Box>}
     </Typography>
   )
 }

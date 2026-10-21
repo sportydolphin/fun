@@ -65,11 +65,7 @@ export default function WpblGlossaryPage() {
   return (
     <WpblPage
       title="WPBL rules & glossary"
-      standfirst={<>
-        How the Women&rsquo;s Pro Baseball League works, and what the numbers on a box score mean.
-        New to baseball? Start with the rules; the abbreviations underneath are the ones you will
-        meet on every page here.
-      </>}
+
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <GlossaryRules title="How the league works" rules={WPBL_RULES} badge={s => SOURCE_BADGE[s as RuleSource]} />

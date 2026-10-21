@@ -8,19 +8,19 @@ import { LeaderboardCard, PlayerLeaderboardCard, type LbRow } from '../component
 // is the three rows ghosted rather than a spinner in a box of some other height.
 
 const rows: LbRow[] = [
-  { teamId: 111, abbr: 'BOS', name: 'Boston Red Sox', sub: '90–72', value: '.556', barFraction: 1, label: 'Legit' },
-  { teamId: 136, abbr: 'SEA', name: 'Seattle Mariners', sub: '88–74', value: '.543', barFraction: 0.9, label: 'Legit' },
-  { teamId: 117, abbr: 'HOU', name: 'Houston Astros', sub: '85–77', value: '.525', barFraction: 0.8, label: 'Fine' },
-  { teamId: 140, abbr: 'TEX', name: 'Texas Rangers', sub: '80–82', value: '.494', barFraction: 0.6, label: 'Meh' },
+  { teamId: 111, abbr: 'BOS', name: 'Boston Red Sox', sub: '90–72', value: '.556', barFraction: 1 },
+  { teamId: 136, abbr: 'SEA', name: 'Seattle Mariners', sub: '88–74', value: '.543', barFraction: 0.9 },
+  { teamId: 117, abbr: 'HOU', name: 'Houston Astros', sub: '85–77', value: '.525', barFraction: 0.8 },
+  { teamId: 140, abbr: 'TEX', name: 'Texas Rangers', sub: '80–82', value: '.494', barFraction: 0.6 },
 ]
-const board = { icon: '📊', title: 'Fraud Watch', subtitle: 'Run differential against record', accent: '#60a5fa' }
+const board = { icon: '📊', title: 'Wins Above Expected', subtitle: 'vs Pythagorean record', accent: '#60a5fa' }
 
 describe('Report Card boards', () => {
   it('titles the card with an h2 and shows the top three, by nickname', () => {
     render(<LeaderboardCard {...board} rows={rows} loading={false} onExpand={() => {}} />)
-    expect(screen.getByRole('heading', { level: 2, name: 'Fraud Watch' })).toBeTruthy()
-    // The nickname at every width: beside the verdict column the full name was cut in Home's
-    // narrow column ("St. Louis Ca…"), and the logo already says the city.
+    expect(screen.getByRole('heading', { level: 2, name: 'Wins Above Expected' })).toBeTruthy()
+    // The nickname at every width: the full name was cut in Home's narrow column
+    // ("St. Louis Ca…"), and the logo already says the city.
     expect(screen.getByText('Red Sox')).toBeTruthy()
     expect(screen.queryByText('Boston Red Sox')).toBeNull()
     expect(screen.queryByText('Rangers')).toBeNull()

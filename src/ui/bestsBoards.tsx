@@ -55,22 +55,21 @@ export function BestsBoards<R extends { display: string }>({
     // on a wide screen is half a screen of nothing down each side. One list measure below `lg`, two
     // and the gap between them from there (layoutWidths.ts).
     <Box sx={{ display: 'flex', flexDirection: 'column', gap, maxWidth: { xs: BOARD_COLUMN, lg: BOARD_COLUMN_WIDE }, mx: 'auto', width: '100%' }}>
-      {/* ONE SENTENCE, NO HEADING, AND NO PER-CARD SUBTITLE. The board tab already says "Bests" and
+      {/* ONE LABEL, NO HEADING, AND NO PER-CARD SUBTITLE. The board tab already says "Bests" and
           each card title says what it measures. The one thing none of those carry is that these are
           single GAMES on a tab of season totals; the game count is the other half, since a record
-          out of 30 games is a different thing from one out of 3,000. */}
+          out of 30 games is a different thing from one out of 3,000. A label, not a sentence
+          (house rule, Oct 21, 2026). */}
       <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.5, maxWidth: '70ch' }}>
-        Single-game totals, not season totals
-        {/* Reserved, invisibly, while the lines load: on a phone it is what wraps the sentence to a
-            second line, and the cards would drop by that line when it landed. */}
+        Single game
+        {/* Reserved, invisibly, while the lines load, so the count landing moves nothing. */}
         {loading
-          ? <Box component="span" sx={{ visibility: 'hidden' }}>, from 2,430 {gamesWord}</Box>
-          : finals > 0 ? `, from ${finals.toLocaleString()} ${gamesWord}` : ''}.
+          ? <Box component="span" sx={{ visibility: 'hidden' }}> · 2,430 {gamesWord}</Box>
+          : finals > 0 ? ` · ${finals.toLocaleString()} ${gamesWord}` : ''}
       </Typography>
       {!loading && !anyRows ? (
         <Box sx={{ textAlign: 'center', py: 5, px: 2, color: 'text.secondary' }}>
-          <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, mb: 0.5 }}>No games in this slice yet</Typography>
-          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>Records fill in as games go final.</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700 }}>No games</Typography>
         </Box>
       ) : (
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap }}>
@@ -84,11 +83,11 @@ export function BestsBoards<R extends { display: string }>({
                   <Box key={b.key} id={sectionAnchorId(`best-${b.key}`)} sx={{ scrollMarginTop: 'calc(var(--app-header-h, 0px) + 8px)' }}>
                   <SectionCard title={b.label}>
                     {b.rows.length === 0
-                      ? <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>Nothing here yet.</Typography>
+                      ? <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>No data</Typography>
                       : b.rows.map((r, i) => renderRow(r, i, b))}
                     {b.more > 0 && (
                       <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', textAlign: 'center', pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
-                        And {b.more} more with {b.rows[b.rows.length - 1].display} {b.unit}
+                        +{b.more} more at {b.rows[b.rows.length - 1].display} {b.unit}
                       </Typography>
                     )}
                   </SectionCard>

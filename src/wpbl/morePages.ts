@@ -32,26 +32,26 @@ export interface MorePage {
 }
 
 export const WPBL_MORE_PAGES: MorePage[] = [
-  { group: 'Season',    href: WPBL_SEASON_PAGE,    label: 'Season recap', hint: 'The latest season and its postseason, read back', footerLabel: 'Season recap' },
-  { group: 'Season',    href: WPBL_WATCH_PAGE,     label: 'Watch',             hint: 'Highlights, condensed games and clips', footerLabel: 'WPBL video' },
-  { group: 'Season',    href: WPBL_PHOTOS_PAGE,    label: 'Photos',            hint: "Fans' photos from 2026, and women's baseball history", footerLabel: 'WPBL photos' },
-  { group: 'Season',    href: WPBL_READING_PAGE,   label: 'Reading',           hint: 'Two writers on the league: mary mustard and D.A. Espinoza', footerLabel: 'WPBL reading' },
+  { group: 'Season',    href: WPBL_SEASON_PAGE,    label: 'Season recap', hint: 'Regular season and postseason', footerLabel: 'Season recap' },
+  { group: 'Season',    href: WPBL_WATCH_PAGE,     label: 'Watch',             hint: 'Highlights, condensed games, clips', footerLabel: 'WPBL video' },
+  { group: 'Season',    href: WPBL_PHOTOS_PAGE,    label: 'Photos',            hint: "Fan photos, women's baseball archive", footerLabel: 'WPBL photos' },
+  { group: 'Season',    href: WPBL_READING_PAGE,   label: 'Reading',           hint: 'mary mustard, D.A. Espinoza', footerLabel: 'WPBL reading' },
   // The picker with nobody chosen. `from: 'more'` joins the same funnel the Home card and the
   // player-modal chip report into (WPBL_COMPARE_OPENED).
-  { group: 'Tools',     href: WPBL_COMPARE_BASE,   label: 'Compare players',   hint: 'Any two players, side by side',
+  { group: 'Tools',     href: WPBL_COMPARE_BASE,   label: 'Compare players',   hint: 'Two players, side by side',
     event: EVENTS.WPBL_COMPARE_OPENED, eventProps: { from: 'more', pair: false } },
-  { group: 'Tools',     href: WPBL_MATCHUPS_PAGE,  label: 'Batter vs pitcher', hint: "Every batter's record against every pitcher", footerLabel: 'WPBL batter vs pitcher' },
-  { group: 'Tools',     href: WPBL_SCORIGAMI_PAGE, label: 'Scorigami',         hint: 'Every final score the league has produced' },
+  { group: 'Tools',     href: WPBL_MATCHUPS_PAGE,  label: 'Batter vs pitcher', hint: 'Batter vs pitcher records', footerLabel: 'WPBL batter vs pitcher' },
+  { group: 'Tools',     href: WPBL_SCORIGAMI_PAGE, label: 'Scorigami',         hint: 'Every final score' },
   // The players index is the one page carrying a real <a href> to each player page, so it must
   // stay in the footer even though a reader mostly reaches players through a club.
-  { group: 'Reference', href: WPBL_PLAYERS_INDEX,  label: 'All players',       hint: 'Every roster, by club', footerLabel: 'WPBL players' },
-  { group: 'Reference', href: WPBL_LEAGUE_PAGE,    label: 'About the league',  hint: 'How it works, the four clubs, and where the players are from' },
-  { group: 'Reference', href: WPBL_GLOSSARY_PAGE,  label: 'Rules & glossary',  hint: 'The rules, and what each stat means' },
+  { group: 'Reference', href: WPBL_PLAYERS_INDEX,  label: 'All players',       hint: 'Rosters by club', footerLabel: 'WPBL players' },
+  { group: 'Reference', href: WPBL_LEAGUE_PAGE,    label: 'About the league',  hint: 'Format, clubs, countries' },
+  { group: 'Reference', href: WPBL_GLOSSARY_PAGE,  label: 'Rules & glossary',  hint: 'Rules, stat definitions' },
 ]
 
 /** The footer's list: the menu's pages plus Data sources, which a reader rarely wants and a
  *  crawler must still reach (the API docs hang off it). Not in the menu for that reason. */
 export const WPBL_FOOTER_PAGES: MorePage[] = [
   ...WPBL_MORE_PAGES,
-  { group: 'Reference', href: WPBL_SOURCES_PAGE, label: 'Data sources', hint: 'Where this site’s data comes from' },
+  { group: 'Reference', href: WPBL_SOURCES_PAGE, label: 'Data sources', hint: 'Feeds and APIs' },
 ]

@@ -295,22 +295,16 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
   return (
     <WpblPage
       title={year != null ? `The ${year} season` : 'The season'}
-      standfirst={<>
-        {year != null && firstSeason != null && year !== firstSeason
-          ? <>The Women&rsquo;s Pro Baseball League&rsquo;s {year} season</>
-          : <>The Women&rsquo;s Pro Baseball League&rsquo;s first season</>}, read back through its own
-        numbers: the final table and the race to it, the leaders, the things that
-        make it its own league, and the plays its games turned on.{loading
-          ? <> <TextGhost>Regular season, 30 games.</TextGhost></>
-          : gameCount > 0 && ` Regular season, ${gameCount} games.`}
-      </>}
+      // A LABEL, NOT A SUMMARY OF THE PAGE (house rule, Oct 21, 2026: labels, not narration). The
+      // page's own headings say what is on it; what they cannot say is the sample.
+      standfirst={loading
+        ? <TextGhost>Regular season · 30 games</TextGhost>
+        : gameCount > 0 ? `Regular season · ${gameCount} games` : undefined}
     >
       {loading && <SeasonSkeleton isPhone={isPhone} />}
 
       {!loading && !hasData && (
-        <Typography sx={{ color: 'text.secondary' }}>
-          The season fills in here once the league feed has been ingested.
-        </Typography>
+        <Typography sx={{ color: 'text.secondary' }}>No data</Typography>
       )}
 
       {/* Flat cards in dark mode, the same surface Home uses: every card here is already an outline
@@ -445,18 +439,18 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
             display: 'grid', gap: 1,
             gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 1fr', md: 'repeat(4, 1fr)' },
           }}>
-            <StatTile value={runsPerGame.toFixed(1)} label="Runs per game" sub="both clubs combined" />
+            <StatTile value={runsPerGame.toFixed(1)} label="Runs per game" sub="Both clubs" />
             <StatTile value={fmtRate(leagueBat.avg)} label="League average" sub={`${fmtRate(leagueBat.obp)} on-base`} />
             <StatTile
               value={`${leagueBat.bb}–${leagueBat.so}`}
-              label="Walks vs strikeouts"
+              label="BB–K"
               sub={leagueBat.bb === leagueBat.so
-                ? 'dead even'
-                : `${Math.abs(leagueBat.bb - leagueBat.so)} more ${leagueBat.bb > leagueBat.so ? 'walks' : 'strikeouts'}`}
+                ? 'Even'
+                : `+${Math.abs(leagueBat.bb - leagueBat.so)} ${leagueBat.bb > leagueBat.so ? 'BB' : 'K'}`}
             />
             <StatTile value={String(leagueBat.hr)} label="Home runs" sub={`${leagueBat.doubles} doubles`} />
             {leagueBat.triples === 0
-              ? <StatTile value="0" label="Triples" sub="none, all season" highlight />
+              ? <StatTile value="0" label="Triples" highlight />
               : <StatTile value={String(leagueBat.triples)} label="Triples" />}
             <StatTile
               value={String(leagueBat.sb)}
@@ -468,7 +462,7 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
             <StatTile
               value={`${homeRecord.w}–${homeRecord.l}`}
               label="Home record"
-              sub="batting last, one venue"
+              sub="One venue"
             />
           </Box>
 
@@ -478,16 +472,12 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
               board is the part of the season no one else covering the league can show. */}
           {topMatchups && (
             <>
-              <SectionHeading seen="season">Lopsided matchups</SectionHeading>
-              <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.body, mt: -0.75, mb: 1.5 }}>
-                With four clubs, the same batters and pitchers meet all season. The most lopsided
-                matchups of the regular season:
-              </Typography>
+              <SectionHeading seen="season" info="The most one-sided batter vs pitcher records of the regular season, one each way.">Lopsided matchups</SectionHeading>
               <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
                 {/* BATTER FIRST ON BOTH, because the big number is always the batter's line: led by
                     the pitcher, "0-for-5" above "Jaida Lee vs ..." read as the pitcher going hitless. */}
-                {topMatchups.batter && <StatTile value={matchupLine(topMatchups.batter)} label={`${topMatchups.batter.batterName} against ${topMatchups.batter.pitcherName}`} sub={`${matchupExtra(topMatchups.batter)}batter's edge`} href={matchupHref(topMatchups.batter)} onNavigate={onNavigate} />}
-                {topMatchups.pitcher && <StatTile value={matchupLine(topMatchups.pitcher)} label={`${topMatchups.pitcher.batterName} against ${topMatchups.pitcher.pitcherName}`} sub={`${matchupExtra(topMatchups.pitcher)}pitcher's edge`} href={matchupHref(topMatchups.pitcher)} onNavigate={onNavigate} />}
+                {topMatchups.batter && <StatTile value={matchupLine(topMatchups.batter)} label={`${topMatchups.batter.batterName} vs ${topMatchups.batter.pitcherName}`} sub={`${matchupExtra(topMatchups.batter)}batter's edge`} href={matchupHref(topMatchups.batter)} onNavigate={onNavigate} />}
+                {topMatchups.pitcher && <StatTile value={matchupLine(topMatchups.pitcher)} label={`${topMatchups.pitcher.batterName} vs ${topMatchups.pitcher.pitcherName}`} sub={`${matchupExtra(topMatchups.pitcher)}pitcher's edge`} href={matchupHref(topMatchups.pitcher)} onNavigate={onNavigate} />}
               </Box>
               <Box
                 component="a"
@@ -507,11 +497,10 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
           {/* ── Spray chart ──────────────────────────────────────────────────── */}
           {battedBalls.length > 0 && (
             <>
-              <SectionHeading seen="season">Where the ball goes</SectionHeading>
-              <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.body, mt: -0.75, mb: 1.5 }}>
-                Every batted ball the league placed, by the hitter&rsquo;s side of the plate.
-                Right-handers pull to left field; the left-handed view is the mirror of it.
-              </Typography>
+              <SectionHeading seen="season" info={[
+                'Every batted ball the league placed, by the side of the plate the hitter batted from.',
+                'Right-handers pull to left field; the left-handed view is the mirror of it.',
+              ]}>Spray chart</SectionHeading>
               {/* Right and left, not a single mixed chart: pull, center and oppo are defined by
                   which box the batter stood in, so a league-wide chart is only readable one side
                   at a time. The toggle is the whole point of the visual. */}
@@ -533,9 +522,7 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
               {battedByHand.length > 0 ? (
                 <SprayChart plays={battedByHand} bats={hand} />
               ) : (
-                <Typography sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.body }}>
-                  No batted balls placed for this side yet.
-                </Typography>
+                <Typography sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.body }}>No data</Typography>
               )}
             </>
           )}
@@ -604,12 +591,11 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
               the row says which number moved rather than calling it luck. */}
           {eraFip && (eraFip.eraLower.length > 0 || eraFip.eraHigher.length > 0) && (
             <>
-              <SectionHeading seen="season">ERA vs FIP</SectionHeading>
-              <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mb: 1.25, maxWidth: '44rem' }}>
-                FIP is an ERA built only from strikeouts, walks, hit batters and home runs, the
-                outcomes no fielder touches. Qualified pitchers, regular season, per {ERA_BASIS_CANONICAL} innings.
-                {leaguePit.babip != null && ` League average on balls in play: ${fmtRate(leaguePit.babip)}.`}
-              </Typography>
+              <SectionHeading seen="season" info={[
+                'FIP: an ERA built only from strikeouts, walks, hit batters and home runs, the outcomes no fielder touches.',
+                `Qualified pitchers, regular season, per ${ERA_BASIS_CANONICAL} innings.`,
+                ...(leaguePit.babip != null ? [`League BABIP: ${fmtRate(leaguePit.babip)}.`] : []),
+              ]}>ERA vs FIP</SectionHeading>
               <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))' } }}>
                 {([['ERA lower than FIP', eraFip.eraLower], ['ERA higher than FIP', eraFip.eraHigher]] as const)
                   .filter(([, rows]) => rows.length > 0)
@@ -640,11 +626,10 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
           {/* ── The wildest games ────────────────────────────────────────────── */}
           {wildest.length > 0 && (
             <>
-              <SectionHeading seen="season" id="season-wildest">The wildest games</SectionHeading>
-              <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mb: 1.25, lineHeight: 1.45 }}>
-                Every swing in win probability over a game, added up. The line is the winner&rsquo;s
-                chance, play by play.
-              </Typography>
+              <SectionHeading seen="season" id="season-wildest" info={[
+                'Ranked by every swing in win probability over a game, added up.',
+                'The line is the winner’s win probability, play by play.',
+              ]}>Wildest games</SectionHeading>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {(isPhone && !allWild ? wildest.slice(0, PHONE_PLAYS) : wildest).map((w, i) => (
                   <WildGameRow
@@ -669,7 +654,7 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
           {/* ── The most improbable win ──────────────────────────────────────── */}
           {comeback && (
             <>
-              <SectionHeading seen="season">The most improbable win</SectionHeading>
+              <SectionHeading seen="season" info="The lowest win probability any winner had at some point in a game.">Most improbable win</SectionHeading>
               <Box
                 component="a"
                 href={gameHref(comeback.game)}
@@ -684,10 +669,8 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
                   {teamName(comeback.winnerId)} won from {fmtWinPct(comeback.low)}
                 </Typography>
                 <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
-                  At its lowest point {teamName(comeback.winnerId)} had a {fmtWinPct(comeback.low)} chance
-                  of winning, and won anyway: {teamName(comeback.game.away_team_id)}{' '}
-                  {comeback.game.away_score} at {teamName(comeback.game.home_team_id)}{' '}
-                  {comeback.game.home_score}, {comeback.game.game_date}.
+                  {teamName(comeback.game.away_team_id)} {comeback.game.away_score} at{' '}
+                  {teamName(comeback.game.home_team_id)} {comeback.game.home_score} · {comeback.game.game_date}
                 </Typography>
               </Box>
             </>
@@ -696,7 +679,7 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
           {/* ── Biggest plays ────────────────────────────────────────────────── */}
           {bigPlays.length > 0 && (
             <>
-              <SectionHeading seen="season" id="season-plays">The plays that turned a game</SectionHeading>
+              <SectionHeading seen="season" id="season-plays" info="The plays that moved the eventual winner’s win probability the most, one per game: before and after.">Biggest plays</SectionHeading>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {(isPhone && !allPlays ? bigPlays.slice(0, PHONE_PLAYS) : bigPlays).map(bp => (
                   <Box

@@ -107,10 +107,9 @@ export default function ReadingPage() {
     // Wider than the section's reading column: the posts lay out as a grid of cards on a
     // desktop, and at 56rem that grid is two narrow columns with the covers shrunk to stamps.
     <WpblPage title="Reading" maxWidth="72rem" standfirst={<>
-      Everything two independent writers have written about the league, newest first:{' '}
       {SOURCES.map((src, i) => (
-        <span key={src.key}>{i > 0 && ' and '}{src.authorName}&rsquo;s <em>{src.publicationName}</em></span>
-      ))}. Each post opens on the writer&rsquo;s own Substack.
+        <span key={src.key}>{i > 0 && ' · '}{src.authorName}, <em>{src.publicationName}</em></span>
+      ))}
     </>}>
       <Box>
         {articles == null ? (

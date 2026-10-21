@@ -341,13 +341,8 @@ function MilestoneModal({ items, reached, liveTeamIds, seasonOver, season, onClo
         ) : (
           <Box sx={{ px: 2, py: 4, textAlign: 'center' }}>
             <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
-              {seasonOver ? `No milestones reached in ${season}.` : 'No milestones reached yet this season.'}
+              {`No milestones reached in ${season}`}
             </Typography>
-            {!seasonOver && (
-              <Typography sx={{ mt: 0.5, fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>
-                Check back as the chases above cross the line.
-              </Typography>
-            )}
           </Box>
         )}
     </MlbSheet>
@@ -447,14 +442,14 @@ export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonO
   const anyLiveFeatured = featured.some(isLive)
 
   const subtitle = seasonOver
-    ? leading.length && orderedChases.length ? `Reached in ${season}, and next up.`
-      : leading.length ? `Reached in ${season}.`
-      : 'Next up, when play resumes.'
+    ? leading.length && orderedChases.length ? `Reached in ${season} · Next up`
+      : leading.length ? `Reached in ${season}`
+      : 'Next up'
     : anyLiveFeatured
-      ? 'Playing now, and closing in.'
+      ? 'Live · Closest first'
       : recent.length
-        ? 'Just reached, and closing in.'
-        : 'Closest first.'
+        ? 'Just reached · Closest first'
+        : 'Closest first'
 
   return (
     <>

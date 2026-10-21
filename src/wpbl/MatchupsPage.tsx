@@ -40,11 +40,12 @@ import { isModified } from '../nav'
 // (never "duel" or "pair"), "edge" for who has had the better of it, "lopsided" for how much. The
 // first cut mixed all of them and called the boards "Hitters own" / "Pitchers own", which read as
 // slang on a tab. Short labels still: three full-size pills have to fit a 375px phone, and
-// "Batter's edge / Pitcher's edge / Most faced" did not. The line under the control says the rest.
+// "Batter's edge / Pitcher's edge / Most faced" did not. The line under the control says the
+// order, as a label; what an edge is lives in the definitions at the foot of the page.
 const VIEWS: { value: MatchupBoardView; label: string; blurb: string }[] = [
-  { value: 'batter', label: 'Batter edge', blurb: 'Batters who have had the better of a pitcher, most lopsided first.' },
-  { value: 'pitcher', label: 'Pitcher edge', blurb: 'Pitchers who have had the better of a batter, most lopsided first.' },
-  { value: 'faced', label: 'Most faced', blurb: 'Every matchup of three or more plate appearances, most first.' },
+  { value: 'batter', label: 'Batter edge', blurb: 'Most lopsided first' },
+  { value: 'pitcher', label: 'Pitcher edge', blurb: 'Most lopsided first' },
+  { value: 'faced', label: 'Most faced', blurb: 'Most PA first' },
 ]
 
 /** Rows before "Show more". A board is a list to scan, and past a couple of dozen rows the reader
@@ -212,11 +213,9 @@ export default function WpblMatchupsPage({ onNavigate }: {
   return (
     <WpblPage
       title="Batter vs pitcher"
-      // One sentence. The long version (four clubs, the biggest sample, what the boards are) pushed the
-      // boards below the fold on a phone; the detail is in the footnote under the table.
-      standfirst={<>
-        Every batter's record against each pitcher faced at least three times.
-      </>}
+      // The sample floor, as a label (house rule, Oct 21, 2026: labels, not narration). A sentence
+      // about the page pushed the boards below the fold on a phone.
+      standfirst="3+ PA"
     >
       <>
         {/* ONE TOOLBAR, NOT THREE FLOATING PILLS. The board used to sit centered on its own line,
@@ -267,9 +266,7 @@ export default function WpblMatchupsPage({ onNavigate }: {
         </Typography>
 
         {!skeleton && board.length === 0 ? (
-          <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.body, py: 3 }}>
-            No matchups qualify for this board yet.
-          </Typography>
+          <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.body, py: 3 }}>No matchups</Typography>
         ) : (
           // Edge to edge on a phone, with the first and last cells taking the gutter back, as the
           // player card's tables do (see bleedSx in PlayerDetail.tsx). `-2` is the shell's px:
@@ -435,18 +432,17 @@ export default function WpblMatchupsPage({ onNavigate }: {
           '& dd': { m: 0 },
         }}>
           <dt>Sample</dt>
-          <dd>At least three plate appearances{skeleton
-            ? <TextGhost>; the most any batter and pitcher met is 9</TextGhost>
-            : mostMet > 0 ? `; the most any batter and pitcher met is ${mostMet}` : ''}.</dd>
+          <dd>3+ PA{skeleton
+            ? <TextGhost> · Most met: 9</TextGhost>
+            : mostMet > 0 ? ` · Most met: ${mostMet}` : ''}</dd>
           <dt>Batter edge</dt>
           <dd>.500 or better over three or more at-bats, two home runs, or a home run with a .333 average.</dd>
           <dt>Pitcher edge</dt>
           <dd>.150 or lower over three or more at-bats, with no home runs.</dd>
           <dt>Order</dt>
           <dd>
-            Most lopsided first: hits against what a league-average batter would have had in the same
-            at-bats, so a longer run of success ranks higher. Club logos show the team each player
-            was on for these at-bats.
+            Hits above what a league-average batter would have had in the same at-bats, most first.
+            Logos: the club each player was on for these at-bats.
           </dd>
         </Box>
       </>

@@ -101,7 +101,7 @@ export function RankProgress({ reason, have, need, unit, fmt, noun, color }: {
 }) {
   if (reason === 'ok' || reason === 'no-data') return null
   if (reason === 'season-young') {
-    return <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', mt: 1.75 }}>League ranks appear once the season is a few games old.</Typography>
+    return <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', mt: 1.75 }}>No league ranks</Typography>
   }
   if (need <= 0) return null
   const pct = Math.max(0, Math.min(1, have / need))

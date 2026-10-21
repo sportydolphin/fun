@@ -156,7 +156,7 @@ describe('the stats view in the address bar', () => {
   it('opens on the board a pasted link names', async () => {
     at('/wpbl/stats?board=bests')
     draw()
-    expect(await screen.findByText('No games in this slice yet')).toBeTruthy()
+    expect(await screen.findByText('No games')).toBeTruthy()
     expect(url()).toBe('/wpbl/stats?board=bests')
   })
 })

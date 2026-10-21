@@ -152,7 +152,7 @@ function PostseasonChip({ row, onOpenMatchup }: {
 
   return (
     <Box
-      title={row.ifNecessary ? 'Played only if the series is still alive' : undefined}
+      title={row.ifNecessary ? 'If needed' : undefined}
       {...(preview ? pressable(() => onOpenMatchup!(preview)) : {})}
       aria-label={preview ? `Preview ${preview.away.abbr} at ${preview.home.abbr}` : undefined}
       sx={{

@@ -370,11 +370,10 @@ const SITUATION_VALUE = "Every situation in an inning, meaning where the runners
  *  fits beside everything else on the screen. */
 const LIST_CAP = 5
 
-function EmptyState({ title, hint }: { title: string; hint?: string }) {
+function EmptyState({ title }: { title: string }) {
   return (
     <Box sx={{ textAlign: 'center', py: 5, px: 2, color: 'text.secondary' }}>
-      <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 700, mb: 0.5 }}>{title}</Typography>
-      {hint && <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>{hint}</Typography>}
+      <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 700 }}>{title}</Typography>
     </Box>
   )
 }
@@ -522,7 +521,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
   }
   if (!table || table.pa === 0) {
-    return <EmptyState title="Nothing to price yet" hint="This board fills in from the play-by-play as games are played." />
+    return <EmptyState title="No plays" />
   }
 
   const pitching = side === 'pitching'
@@ -564,17 +563,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
       display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 },
       maxWidth: { xs: BOARD_COLUMN, lg: BOARD_COLUMN_WIDE }, mx: 'auto',
     }}>
-      {/* ONE SENTENCE, AND NO HEADING. The board tab directly above already says "Run value",
-      so a title under it would name the same board twice in two sets of words. What has to
-      stay is the unit: every figure below is "runs" in a sense nobody uses at the ballpark,
-      and a reader who takes +19.0 for runs scored has been misled by us rather than confused
-      by the stat. This line is what makes the board safe to show without a warning flag. */}
-      <Box sx={{ maxWidth: '70ch' }}>
-        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.5 }}>
-          Run value is how much better or worse off a play left a team, counted in runs,
-          from this league's own {table.games} games.
-        </Typography>
-      </Box>
+
 
       {/* TWO COLUMNS ON A LARGE DESKTOP, ONE EVERYWHERE ELSE.
 
@@ -618,8 +607,13 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
           columns are runs too, priced without the situation: the same hitter came out +19.7 here
           and +14.5 there under two names that both meant "the runs this player produced". The title
           is the board's own unit, and the note says how it differs from the other two. */}
+      {/* NO INTRO LINE ABOVE THIS CARD (house rule, Oct 21, 2026: labels, not narration). The
+          unit is what has to reach the reader, since every figure here is "runs" in a sense nobody
+          uses at the ballpark and +19.0 is easy to take for runs scored, so the definition opens
+          this card's info dot instead. */}
       <SectionCard title="Best run value"
         titleAdornment={<InfoDot text={[
+          `Run value: how much better or worse off a play left a team, in runs, from this league's own ${table.games} games.`,
           SITUATION_VALUE,
           'A plate appearance is worth the runs that scored on it, plus the value of the situation it left, minus the value of the one it started in.',
           pitching
@@ -630,7 +624,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
             : 'Not the same as Bat on the Stats tab, which values a hit the same whatever the situation. This counts the runners on and the outs, so a single with the bases loaded is worth more here than one with them empty.',
         ]} />}>
         {leaders.length === 0
-          ? <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
+          ? <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>No plays</Typography>
           : shownLeaders.map((r, i) => (
               <LeaderRow key={r.player?.id ?? r.name} {...leaderPlaces(shownLeaders.map(x => fmtRunValue(x.value)))[i]} player={r.player} name={r.player?.name ?? r.name}
                 teamId={r.teamId} value={fmtRunValue(r.value)} unit="runs" accent={accent}
@@ -658,7 +652,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
           'Both ways adds a player’s batting and pitching together. It is not WAR: WAR, on the Stats tab’s Overall side, ignores the score, and this is the record of who swung close games.',
         ]} />}>
         {wpa.length === 0
-          ? <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
+          ? <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>No plays</Typography>
           : shownWpa.map((r, i) => (
               <LeaderRow key={r.player?.id ?? r.name} {...leaderPlaces(shownWpa.map(x => fmtRunValue(x.wpa, 2)))[i]} player={r.player} name={r.player?.name ?? r.name}
                 teamId={r.teamId} value={fmtRunValue(r.wpa, 2)} unit="wins" accent={accent}
@@ -685,7 +679,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
             'Under each name: steals, and how many of those chances the runner took the extra base. The total is BsR, the same number as the Stats tab’s BsR column and the baserunning part of WAR.',
           ]} />}>
           {bases.length === 0
-            ? <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
+            ? <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>No plays</Typography>
             : shownBases.map((r, i) => (
                 <LeaderRow key={r.player?.id ?? r.name} {...leaderPlaces(shownBases.map(x => fmtRunValue(x.bsr)))[i]} player={r.player} name={r.player?.name ?? r.name}
                   teamId={r.teamId} value={fmtRunValue(r.bsr)} unit="runs" accent={accent}

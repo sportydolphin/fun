@@ -165,19 +165,15 @@ export function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame, 
         ) : (
           <>
             <Typography sx={{ fontSize: TYPE_SCALE.display, fontWeight: 800, lineHeight: 1.15 }}>
-              The season, in full
+              Season recap
             </Typography>
 
             {/* One line of fact so the card is not a bare link: the club that led the regular season. */}
             {leader ? (
               <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
-                {wpblFullName(leader.team)} finished on top at {leader.wins}–{leader.losses}.
+                1st: {wpblFullName(leader.team)} {leader.wins}–{leader.losses}
               </Typography>
             ) : null}
-
-            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
-              The final table and the race to it, the leaders, and the plays the season turned on.
-            </Typography>
 
             <RecapButton>{`Read the ${yearWord}recap`}</RecapButton>
           </>

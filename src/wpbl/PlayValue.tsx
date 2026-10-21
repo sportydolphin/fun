@@ -3,6 +3,7 @@ import { fmtRunValue, type EventValue, type StealEconomy } from './derive/runExp
 import { SectionCard, pressable, FOCUS_RING, TAPPABLE } from './ui'
 import { ExperimentalChip } from '../ExperimentsContext'
 import { TYPE_SCALE } from '../ui/card'
+import { InfoDot } from '../ui/InfoDot'
 
 // The two cards that say what a play is WORTH, as opposed to how often it happened.
 //
@@ -72,13 +73,19 @@ export function StealCard({ econ, accent }: {
   const x = (v: number) => `${Math.min(100, Math.max(0, (v - LOW) / (1 - LOW) * 100))}%`
 
   return (
-    <SectionCard title="They run constantly. Is it working?">
+    <SectionCard title="Stolen bases"
+      titleAdornment={<InfoDot text={[
+        'SB and CS: the run value of an average steal and an average caught stealing.',
+        'Break-even: the success rate at which the two cancel out, so stealing adds runs above it and costs them below it.',
+        'Net: every attempt this season, added up.',
+      ]} />}>
       <ExperimentalChip sx={{ mb: 1.25 }} />
-      <Typography sx={{ fontSize: TYPE_SCALE.title, lineHeight: 1.6, color: 'text.secondary' }}>
-        A stolen base moves a team about {Math.abs(econ.perSteal).toFixed(2)} of a run closer to
-        scoring. Getting thrown out costs about {Math.abs(econ.perCaught).toFixed(2)}, because
-        outs are the thing a team runs out of. In a league that scores this much, running has to
-        work <strong>{rate(breakEven)}</strong> of the time to be worth doing at all.
+      {/* LABELED FIGURES, NOT A PARAGRAPH (house rule, Oct 21, 2026). This card was a short
+          essay ("They run constantly. Is it working?") until then; the figures are the same. */}
+      <Typography sx={{ fontSize: TYPE_SCALE.title, lineHeight: 1.6, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+        SB <strong>{fmtRunValue(econ.perSteal, 2)}</strong>
+        {' · '}CS <strong>{fmtRunValue(econ.perCaught, 2)}</strong>
+        {' · '}Break-even <strong>{rate(breakEven)}</strong>
       </Typography>
 
       <Box sx={{ mt: 2.5, mb: 1 }}>
@@ -107,25 +114,21 @@ export function StealCard({ econ, accent }: {
         and inheriting it would leave those numbers describing a value set elsewhere. */}
         <Box sx={{ position: 'relative', height: `${(0.78 + 0.72) * 1.5}rem`, mt: 0.75 }}>
           <Typography sx={{ position: 'absolute', left: 0, fontSize: TYPE_SCALE.body, lineHeight: 1.5, fontWeight: 800, color: worthIt ? accent : 'text.primary' }}>
-            {rate(successRate)} of the time it works
+            Success {rate(successRate)}
           </Typography>
           <Typography sx={{
             position: 'absolute', left: x(breakEven), transform: 'translateX(-50%)', top: `${0.78 * 1.5}rem`,
             fontSize: TYPE_SCALE.meta, lineHeight: 1.5, color: 'text.disabled', whiteSpace: 'nowrap',
           }}>
-            needs {rate(breakEven)}
+            Break-even {rate(breakEven)}
           </Typography>
         </Box>
       </Box>
 
-      <Typography sx={{ fontSize: TYPE_SCALE.title, lineHeight: 1.6, color: 'text.secondary' }}>
-        {worthIt
-          ? `Which it does. The season's ${econ.steals + econ.caught} attempts have been worth
-             ${fmtRunValue(econ.net)} runs.`
-          : `Which it does not, quite. The ${econ.steals} that worked earned
-             ${fmtRunValue(econ.gained)} runs and the ${econ.caught} that did not cost
-             ${fmtRunValue(econ.lost)}, so the running game has been worth
-             ${fmtRunValue(econ.net)} runs to the league this season.`}
+      <Typography sx={{ fontSize: TYPE_SCALE.title, lineHeight: 1.6, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+        {econ.steals} SB {fmtRunValue(econ.gained)}
+        {' · '}{econ.caught} CS {fmtRunValue(econ.lost)}
+        {' · '}Net <strong>{fmtRunValue(econ.net)}</strong> runs
       </Typography>
 
     </SectionCard>
@@ -136,11 +139,9 @@ export function StealCard({ econ, accent }: {
  * What each kind of play is worth, which is the table every other number on this board is
  * priced off.
  *
- * THE LEAD SENTENCE IS COMPUTED, NOT WRITTEN. Two of these rows carry the whole point (a
- * strikeout costs more than a groundout, and the sacrifice is worth nothing at all) and both
- * are facts about a season in progress, so a hardcoded sentence is a sentence that goes wrong
- * in September without anyone noticing. It is assembled from the same rows the list draws, or
- * omitted if the season has not produced them yet.
+ * NO LEAD SENTENCE. It used to draw a moral from two rows ("a strikeout costs more than a
+ * groundout, which is the case for putting the ball in play"); the rows say it, and copy on this
+ * site is a label, not narration (house rule, Oct 21, 2026).
  *
  * IT DOES NOT EXPLAIN ITSELF, AND THAT IS THE POINT. The whole run-value explanation lives
  * further down the Run value board, in the order the idea is built, and this card carries a
@@ -156,21 +157,12 @@ export function PlayValueCard({ rows, accent, onSeeMethod }: {
   onSeeMethod?: () => void
 }) {
   if (rows.length < 4) return null
-  const find = (e: string) => rows.find(r => r.event === e)
-  const k = find('strikeout'), g = find('groundout'), sac = find('sacrifice')
   const widest = Math.max(...rows.map(r => Math.abs(r.per))) || 1
 
   return (
-    <SectionCard title="What every kind of play is worth">
-      <Typography sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1.6, color: 'text.secondary' }}>
-        Every play leaves a team a little better or worse off.
-        {k && g && k.per < g.per && ` A strikeout costs ${(g.per - k.per).toFixed(2)} of a run
-          more than a groundout does, which is the case for putting the ball in play.`}
-        {sac && Math.abs(sac.total) < 1 && ` The sacrifice, across ${sac.n} of them, has been
-          worth almost exactly nothing: ${fmtRunValue(sac.total)} runs all season.`}
-      </Typography>
-
-      <Box sx={{ mt: 2 }}>
+    <SectionCard title="Run value by play"
+      titleAdornment={<InfoDot text="Runs gained or lost on an average one, this season, in this league. The small number is how many there have been." />}>
+      <Box>
         {rows.map(r => {
           const good = r.per >= 0
           return (
@@ -214,10 +206,7 @@ export function PlayValueCard({ rows, accent, onSeeMethod }: {
           )
         })}
       </Box>
-      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mt: 1.5, lineHeight: 1.5 }}>
-        Runs gained or lost on an average one, this season, in this league. The small number is
-        how many there have been.
-      </Typography>
+
 
       {/* THE METHOD IS FURTHER DOWN THIS BOARD, AND THIS IS THE WAY TO IT.
 

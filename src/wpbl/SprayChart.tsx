@@ -161,7 +161,7 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
   if (profile.placed === 0) {
     return (
       <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled' }}>
-        No batted balls with a direction yet.
+        No data
       </Typography>
     )
   }
@@ -339,7 +339,7 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
         position, and a blank explained a paragraph away from it is not explained. */}
         {pull.pullPct == null && profile.placed > 0 && (
           <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mb: 1, lineHeight: 1.45 }}>
-            No pull rate: the feed records a switch hitter only on the roster.
+            Pull: — (switch hitter, not recorded per plate appearance)
           </Typography>
         )}
         {pull.pullPct != null && (
@@ -372,8 +372,8 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
       stays, because a chart quietly dropping what it cannot read claims a completeness it
       does not have. */}
       <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 0.5, lineHeight: 1.5 }}>
-        Read from each play's description, not measured locations.
-        {profile.unplaced > 0 && ` ${profile.unplaced} not placed.`}
+        Source: play descriptions, not measured locations
+        {profile.unplaced > 0 && ` · ${profile.unplaced} not placed`}
       </Typography>
     </Box>
   )

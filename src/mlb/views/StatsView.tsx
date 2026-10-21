@@ -334,7 +334,6 @@ export function StatsView({
   const footText = (n: number | null, shown?: number) =>
     [n == null ? null : shown != null && shown < n ? `${shown} of ${n} players` : `${n} players`, whoWord, scopeWord]
       .filter(Boolean).join(' · ')
-    + (listView ? '' : ' · sort by any column heading')
   // THE BOARD'S LAST ROW, inside its frame, as WPBL's boardFooter is: what the board is counted from,
   // and on a phone the way between the list and the grid. The words were a caption above the list
   // and the switch a pill under the frame.
@@ -456,7 +455,7 @@ export function StatsView({
 
       {!loadingLb && lbData && lbData.length === 0 && shownScope === 'post' && (
         <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: TYPE_SCALE.body }}>
-          No playoff games in {vizSeason}{vizSeason >= CURRENT_SEASON ? ' yet' : ''}.
+          No {vizSeason} playoff games
         </Typography>
       )}
 
@@ -464,10 +463,7 @@ export function StatsView({
         <>
           {rankedAll.length === 0 ? (
             <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: TYPE_SCALE.body }}>
-              {/* Only point at Everyone where the sheet offers it: a rate stat on a season board. */}
-              {activeDef.isRate && !allTime && lbQualified
-                ? 'Nobody has qualified yet. Filters → Everyone shows the whole roster.'
-                : 'Nobody on this board yet.'}
+              {activeDef.isRate && !allTime && lbQualified ? 'No qualified players' : 'No players'}
             </Typography>
           ) : (
             // Keyed on everything that reorders or repopulates the board, so "Show all" closes

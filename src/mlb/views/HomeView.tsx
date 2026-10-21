@@ -267,26 +267,26 @@ function HomeViewInner({
     subtitle: string; accent: string; dep: DataDep; tooltipText?: string
   }
 
-  const QUALIFIED_NOTE = 'Only counts regulars with enough playing time to qualify for a league leaderboard.'
+  const QUALIFIED_NOTE = 'Qualified hitters only.'
   // Once the season is over a streak is not "active", it is whatever was still alive on the last day
   // (and it carries into next season, which is the league's rule for hitting streaks too).
-  const streakSub = (active: string) => (seasonOver ? 'Longest still alive when the season ended' : active)
+  const streakSub = (active: string) => (seasonOver ? 'At season end' : active)
   const FULL_POOL: BoardMeta[] = [
-    { id: 'fraud',           kind: 'team',   icon: '🚨', title: 'Top Frauds',        subtitle: 'Winning more than their scoring predicts', accent: '#f97316', dep: 'summaries' },
-    { id: 'cursed',          kind: 'team',   icon: '💀', title: 'Most Cursed',       subtitle: 'Losing more than their scoring predicts',  accent: '#818cf8', dep: 'summaries' },
-    { id: 'highest-payroll', kind: 'team',   icon: '💰', title: 'Highest Payrolls',  subtitle: `${CURRENT_SEASON} estimated payroll spend`, accent: '#eab308', dep: 'payroll' },
-    { id: 'lowest-payroll',  kind: 'team',   icon: '🪙', title: 'Lowest Payrolls',   subtitle: `${CURRENT_SEASON} estimated payroll spend`, accent: '#22c55e', dep: 'payroll' },
-    { id: 'oldest',          kind: 'team',   icon: '👴', title: 'Oldest Rosters',    subtitle: 'Highest avg roster age',                   accent: '#f97316', dep: 'ages' },
-    { id: 'youngest',        kind: 'team',   icon: '🌱', title: 'Youngest Rosters',  subtitle: 'Lowest avg roster age',                    accent: '#22c55e', dep: 'ages' },
-    { id: 'hardest',         kind: 'team',   icon: '⚔️', title: 'Hardest Schedules', subtitle: 'Toughest remaining opponents',             accent: '#ef4444', dep: 'sos' },
-    { id: 'easiest',         kind: 'team',   icon: '🏖️', title: 'Easiest Schedules', subtitle: 'Softest remaining opponents',              accent: '#22c55e', dep: 'sos' },
-    { id: 'hit-streak',      kind: 'player', icon: '🔥', title: 'Hitting Streaks',   subtitle: streakSub('Longest active hitting streaks'),           accent: '#f97316', dep: 'streaks', tooltipText: 'Games in a row with at least one hit. A game with no official at-bat (all walks or hit by pitches) doesn\'t break the streak.' },
-    { id: 'scoreless',       kind: 'player', icon: '🧊', title: 'Scoreless Streaks', subtitle: streakSub('Longest active scoreless-inning runs'),     accent: '#38bdf8', dep: 'streaks', tooltipText: 'Innings a pitcher has thrown since the last run they gave up. Counted in whole outings, so the streak starts at their first clean appearance after it.' },
-    { id: 'hitless',         kind: 'player', icon: '🥶', title: 'Hitless Streaks',   subtitle: streakSub('Longest active hitless droughts'),          accent: '#a78bfa', dep: 'streaks', tooltipText: 'Trips to the plate a hitter has gone without a hit. The cold flip side of the hitting streaks board. Games with no official at-bat are skipped.' },
-    { id: 'games-played',    kind: 'player', icon: '🦾', title: 'Iron Men',          subtitle: streakSub('Longest active games-played streaks'),      accent: '#eab308', dep: 'streaks', tooltipText: 'Games a player has appeared in without ever sitting one out, carried across seasons. A trade doesn\'t break it. A "+" means the run reaches back further than we searched, so it\'s even longer than shown.' },
-    { id: 'pitches-most',    kind: 'player', icon: '⏳', title: 'Grinders',          subtitle: 'Most pitches seen per plate appearance',   accent: '#14b8a6', dep: 'pitchPa', tooltipText: `Pitches a hitter sees per trip to the plate. The hitters who foul balls off and work deep counts, wearing pitchers down. ${QUALIFIED_NOTE}` },
-    { id: 'pitches-fewest',  kind: 'player', icon: '⚡', title: 'Free Swingers',     subtitle: 'Fewest pitches seen per plate appearance', accent: '#f43f5e', dep: 'pitchPa', tooltipText: `Pitches a hitter sees per trip to the plate, lowest in the league. These hitters jump on an early strike instead of working the count. ${QUALIFIED_NOTE}` },
-    { id: 'top-salary',      kind: 'player', icon: '🤑', title: 'Top Earners',       subtitle: `Highest ${CURRENT_SEASON} salaries`,       accent: '#10b981', dep: 'salaries', tooltipText: `Each player's salary for the ${CURRENT_SEASON} season, straight from their contract. This is the money paid this year, so a backloaded or deferred deal can rank differently than its headline average annual value.` },
+    { id: 'fraud',           kind: 'team',   icon: '📈', title: 'Wins Above Expected',        subtitle: 'vs Pythagorean record', accent: '#f97316', dep: 'summaries' },
+    { id: 'cursed',          kind: 'team',   icon: '📉', title: 'Wins Below Expected',       subtitle: 'vs Pythagorean record',  accent: '#818cf8', dep: 'summaries' },
+    { id: 'highest-payroll', kind: 'team',   icon: '💰', title: 'Highest Payrolls',  subtitle: `${CURRENT_SEASON} est. payroll`, accent: '#eab308', dep: 'payroll' },
+    { id: 'lowest-payroll',  kind: 'team',   icon: '🪙', title: 'Lowest Payrolls',   subtitle: `${CURRENT_SEASON} est. payroll`, accent: '#22c55e', dep: 'payroll' },
+    { id: 'oldest',          kind: 'team',   icon: '👴', title: 'Oldest Rosters',    subtitle: 'Avg age',                   accent: '#f97316', dep: 'ages' },
+    { id: 'youngest',        kind: 'team',   icon: '🌱', title: 'Youngest Rosters',  subtitle: 'Avg age',                    accent: '#22c55e', dep: 'ages' },
+    { id: 'hardest',         kind: 'team',   icon: '⚔️', title: 'Hardest Schedules', subtitle: 'Remaining opp. win%',             accent: '#ef4444', dep: 'sos' },
+    { id: 'easiest',         kind: 'team',   icon: '🏖️', title: 'Easiest Schedules', subtitle: 'Remaining opp. win%',              accent: '#22c55e', dep: 'sos' },
+    { id: 'hit-streak',      kind: 'player', icon: '🔥', title: 'Hitting Streaks',   subtitle: streakSub('Active'),           accent: '#f97316', dep: 'streaks', tooltipText: 'Games in a row with at least one hit. A game with no official at-bat (all walks or hit by pitches) doesn\'t break the streak.' },
+    { id: 'scoreless',       kind: 'player', icon: '🧊', title: 'Scoreless Streaks', subtitle: streakSub('Active'),     accent: '#38bdf8', dep: 'streaks', tooltipText: 'Innings a pitcher has thrown since the last run they gave up. Counted in whole outings, so the streak starts at their first clean appearance after it.' },
+    { id: 'hitless',         kind: 'player', icon: '🥶', title: 'Hitless Streaks',   subtitle: streakSub('Active'),          accent: '#a78bfa', dep: 'streaks', tooltipText: 'Trips to the plate a hitter has gone without a hit. Games with no official at-bat are skipped.' },
+    { id: 'games-played',    kind: 'player', icon: '🦾', title: 'Games-Played Streaks',          subtitle: streakSub('Active'),      accent: '#eab308', dep: 'streaks', tooltipText: 'Games a player has appeared in without ever sitting one out, carried across seasons. A trade doesn\'t break it. A "+" means the streak reaches back past the seasons searched, so the real streak is longer.' },
+    { id: 'pitches-most',    kind: 'player', icon: '⏳', title: 'Most Pitches per PA',          subtitle: 'Qualified',   accent: '#14b8a6', dep: 'pitchPa', tooltipText: `Pitches a hitter sees per trip to the plate. ${QUALIFIED_NOTE}` },
+    { id: 'pitches-fewest',  kind: 'player', icon: '⚡', title: 'Fewest Pitches per PA',     subtitle: 'Qualified', accent: '#f43f5e', dep: 'pitchPa', tooltipText: `Pitches a hitter sees per trip to the plate, lowest first. ${QUALIFIED_NOTE}` },
+    { id: 'top-salary',      kind: 'player', icon: '🤑', title: 'Highest Salaries',       subtitle: `${CURRENT_SEASON}`,       accent: '#10b981', dep: 'salaries', tooltipText: `Each player's salary for the ${CURRENT_SEASON} season, straight from their contract. This is the money paid this year, so a backloaded or deferred deal can rank differently than its headline average annual value.` },
   ]
   // "Toughest remaining opponents" has no remaining opponents to rank once the season is over.
   const BOARD_POOL = seasonOver ? FULL_POOL.filter(m => m.dep !== 'sos') : FULL_POOL

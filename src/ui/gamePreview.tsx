@@ -60,14 +60,11 @@ export function PreviewHeading({ children }: { children: React.ReactNode }) {
   )
 }
 
-/** "This game hasn't been played yet", for a pane whose only content was the comparison. */
+/** "Not played", for a pane whose only content was the comparison. */
 export function PreviewEmpty() {
   return (
     <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
-      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, mb: 0.5 }}>This game hasn't been played yet</Typography>
-      <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>
-        Season stats to compare appear once both clubs have played.
-      </Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700 }}>Not played</Typography>
     </Box>
   )
 }

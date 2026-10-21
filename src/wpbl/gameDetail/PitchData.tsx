@@ -182,7 +182,7 @@ export function PitchData({ tracking, boxPitchers, firstHit = null, live = false
   const labelFor = (t: WpblPitchTracking) => pitcherFor(t) ?? resolvedName ?? 'Unattributed'
 
   if (pitches.length === 0) {
-    return <EmptyBody title="No pitch tracking" hint="TrackMan velocity & spin data appears here when available." />
+    return <EmptyBody title="No pitch tracking" />
   }
   const speeds = pitches.map(p => p.release_speed!).filter(v => v > 0)
   const spins = pitches.map(p => p.spin_rate_rpm).filter((v): v is number => v != null && v > 0)

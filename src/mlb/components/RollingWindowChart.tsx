@@ -180,7 +180,7 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
     return (
       <Box sx={{ py: 3, textAlign: 'center' }}>
         <Typography color="text.secondary" sx={{ fontSize: TYPE_SCALE.body }}>
-          Not enough games yet to show a trend
+          No data
         </Typography>
       </Box>
     )
@@ -462,8 +462,8 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
 
       <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mt: 0.75 }}>
         {isPitcher && !isStarter
-          ? `${season} rolling ERA · each point = last ~${RP_IP_TARGET} innings (${currentPt.size} apps)`
-          : `${season} rolling ${label} · each point = last ${isPitcher ? `${SP_WINDOW} starts` : `${HIT_WINDOW} games`}`}
+          ? `${season} rolling ERA · last ~${RP_IP_TARGET} IP (${currentPt.size} apps)`
+          : `${season} rolling ${label} · last ${isPitcher ? `${SP_WINDOW} starts` : `${HIT_WINDOW} games`}`}
       </Typography>
     </Box>
   )

@@ -183,11 +183,10 @@ function StatStrip({ items }: { items: { label: string; value: string; sub: stri
   )
 }
 
-function EmptyState({ title, hint }: { title: string; hint?: string }) {
+function EmptyState({ title }: { title: string }) {
   return (
     <Box sx={{ textAlign: 'center', py: 5, px: 2, color: 'text.secondary' }}>
-      <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 700, mb: 0.5 }}>{title}</Typography>
-      {hint && <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>{hint}</Typography>}
+      <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 700 }}>{title}</Typography>
     </Box>
   )
 }
@@ -216,7 +215,7 @@ function RateBoard({ title, explain, qualifier, rows, valueOf, subOf, league, ac
     <SectionCard bare title={title}
       titleAdornment={<InfoDot text={[explain, `League average: ${league}.`, qualifier]} />}>
       {rows.length === 0
-        ? <EmptyState title="Not enough pitches yet" />
+        ? <EmptyState title="No data" />
         : rows.slice(0, 10).map((p, i, top) => (
             <LeaderRow key={p.player?.id ?? p.name} {...leaderPlaces(top.map(valueOf))[i]} player={p.player} name={p.name} teamId={p.teamId}
               value={valueOf(p)} sub={subOf(p)} accent={accent} onOpen={onOpenPlayer} />
@@ -286,15 +285,16 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
   }
   if (!board || board.pitches === 0 || !league) {
-    return <EmptyState title="No pitch data yet" hint="These boards fill in from the play-by-play as games are played." />
+    return <EmptyState title="No pitch data" />
   }
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 } }}>
       {/* THE STAT TILES AND THE OUTCOME CHART ARE THE WHOLE HEADER. A tinted coverage callout
       and a titled card around the bar come to about 300px on a phone, which puts the first
-      leaderboard row below the fold on a board whose entire purpose is leaderboards. "What
-      each pitch did, not how fast" is in the footnote at the bottom instead. */}
+      leaderboard row below the fold on a board whose entire purpose is leaderboards. Where the
+      counts come from is behind the info dot on Pitch outcomes: a footnote here was prose about
+      the board, which the house rule of Oct 21, 2026 (labels, not narration) took out. */}
       {/* Two columns from md up, one on a phone. Stacked full-width, the four tiles and the
       outcome chart would each run the width of the page for a line and a half of content
       apiece, which on a desktop is a lot of empty measure and a first leaderboard pushed down
@@ -313,21 +313,28 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
         }}>
           <StatStrip items={[
             { label: 'Pitches', value: board.pitches.toLocaleString(),
-              sub: `across all ${board.gameCount} ${board.gameCount === 1 ? 'game' : 'games'}` },
+              sub: `${board.gameCount} ${board.gameCount === 1 ? 'game' : 'games'}` },
             // "Per PA" was an abbreviation the reader had to already know; the subtitle under
             // it says plate appearances anyway, so the label can just say who it is per.
             { label: 'Per batter', value: (league.pitchesPerPa ?? 0).toFixed(2),
               sub: `${board.pa.toLocaleString()} plate appearances` },
             { label: 'Strikes', value: fmtPct(league.strikePct, 0),
-              sub: `${fmtPct(league.firstStrikePct, 0)} on the first pitch` },
+              sub: `${fmtPct(league.firstStrikePct, 0)} first pitch` },
             { label: 'Swung at', value: fmtPct(league.swingPct, 0),
-              sub: `${fmtPct(league.contactPct, 0)} made contact` },
+              sub: `${fmtPct(league.contactPct, 0)} contact` },
           ]} />
 
           <Box>
-            <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: 'text.secondary', mb: 0.75 }}>
-              Pitch outcomes
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.75 }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: 'text.secondary' }}>
+                Pitch outcomes
+              </Typography>
+              <InfoDot text={[
+                `Counted from the play-by-play, one code per pitch: what each pitch did, not how fast it was.${trackedVisible ? ' Velocity and spin are on Tracked.' : ''}`,
+                'Regular season only.',
+                ...(league.counts.unknown > 0 ? [`${league.counts.unknown} pitches with an unrecognized code are left out of the rates.`] : []),
+              ]} />
+            </Box>
             <PitchMix counts={league.counts} total={board.pitches} />
           </Box>
         </Box>
@@ -386,13 +393,6 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
           />
         </>
       )}
-
-      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.5 }}>
-        Counted from the play-by-play, one code per pitch: what each pitch did, not how fast it
-        was.{trackedVisible ? ' Velocity and spin are on Tracked.' : ''}
-        {' '}Postseason games are left out, like every other season number here.
-        {league.counts.unknown > 0 && ` ${league.counts.unknown} pitches carried a code we don't recognize and are left out of the rates.`}
-      </Typography>
     </Box>
   )
 }

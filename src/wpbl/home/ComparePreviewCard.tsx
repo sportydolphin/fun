@@ -154,7 +154,7 @@ export function ComparePreviewCard({ batSeasons, qual, teams, players, loading }
     <SectionCard title="Compare tool" fill action={cta}>
       {loading || !pair ? (
         <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', py: 1 }}>
-          Two players to put side by side, once games are played.
+          No data
         </Typography>
       ) : (() => {
         const [a, b] = pair

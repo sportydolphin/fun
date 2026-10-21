@@ -53,8 +53,8 @@ export function SeasonChampionBlock({ champ }: {
           {(!champ || champ.runnerUp) && (
             <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 500, color: 'text.secondary', mt: 0.25 }}>
               {champ?.runnerUp
-                ? <>Beat {wpblFullName(champ.runnerUp)} {champ.champWins}-{champ.rivalWins} in the championship series.</>
-                : <TextGhost>Beat Runners-up Clubname 3-2 in the championship series.</TextGhost>}
+                ? <>Championship series: {champ.champWins}–{champ.rivalWins} over {wpblFullName(champ.runnerUp)}</>
+                : <TextGhost>Championship series: 3–2 over Runners-up Clubname</TextGhost>}
             </Typography>
           )}
         </Box>

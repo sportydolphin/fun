@@ -90,7 +90,7 @@ const ELLIPSIS = flag('ellipsis')
 const JSON_OUT = opt('json', '')
 const CONCURRENCY = Number(opt('concurrency', '4'))
 // Long enough that every skeleton is still up when the first snapshot is taken, short of the 8s
-// that trips the request timeout and renders "No teams yet" (CLAUDE.md, loading states).
+// that trips the request timeout and renders "No teams" (CLAUDE.md, loading states).
 const SLOW_MS = Number(opt('slow', '2500'))
 const EXPERIMENTS = flag('experiments')
 // CPU slowdown (Chrome's own throttling). A shift that depends on what is still loading when the

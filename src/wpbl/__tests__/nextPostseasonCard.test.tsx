@@ -60,12 +60,12 @@ describe('the next game when the feed has none', () => {
   // the card looks as settled as the other semifinal and the order it prints is a guess.
   it('says so when the pairing is settled and the seeding is not', () => {
     draw([row({ seedOrderTbd: true })])
-    expect(screen.getByText(/higher seed is still to be settled/)).toBeTruthy()
+    expect(screen.getByText(/^Seeding TBD$/)).toBeTruthy()
   })
 
   it('says nothing about seeding when there is nothing to say', () => {
     draw([row()])
-    expect(screen.queryByText(/higher seed is still to be settled/)).toBeNull()
+    expect(screen.queryByText(/^Seeding TBD$/)).toBeNull()
   })
 })
 
@@ -91,13 +91,13 @@ describe('which game it calls next', () => {
       row({ id: 'b2', date: '2026-09-14', gameNumber: 2, label: 'Semifinal B', key: 'B' }),
     ])
     expect(screen.getByText(/Semifinal A · Game 3 of 3/)).toBeTruthy()
-    expect(screen.getByText(/Only played if the series is still alive/)).toBeTruthy()
+    expect(screen.getByText(/^If needed$/)).toBeTruthy()
   })
 
   it('draws a conditional game with its caveat rather than nothing', () => {
     draw([row({ ifNecessary: true })])
     expect(screen.getByText(/Semifinal A · Game 1 of 3/)).toBeTruthy()
-    expect(screen.getByText(/Only played if the series is still alive/)).toBeTruthy()
+    expect(screen.getByText(/^If needed$/)).toBeTruthy()
   })
 
   it('renders nothing during the regular season, when there are no rows', () => {

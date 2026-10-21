@@ -125,11 +125,8 @@ export function LinesBoardControls({ isDesktop, sideSwitch, gameScope, setGameSc
 export function NotMirrored({ season }: { season: number }) {
   return (
     <Box sx={{ textAlign: 'center', py: 5, px: 2 }}>
-      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, mb: 0.5 }}>
-        Game-by-game lines start in {Math.min(...MLB_LINES_SEASONS)}
-      </Typography>
-      <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>
-        This board reads every box score of a season, and {season} is not stored yet.
+      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700 }}>
+        No {season} box scores · Lines start in {Math.min(...MLB_LINES_SEASONS)}
       </Typography>
     </Box>
   )

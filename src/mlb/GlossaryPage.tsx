@@ -18,10 +18,7 @@ export default function MlbGlossaryPage() {
   return (
     <StandalonePage
       title="MLB rules & stats glossary"
-      standfirst={<>
-        How a pitcher earns a win or a save, who qualifies for a batting title, and what every
-        abbreviation in the MLB section means, from AVG to xwOBA.
-      </>}
+
       back={{ href: '/mlb', label: 'Back to MLB' }}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

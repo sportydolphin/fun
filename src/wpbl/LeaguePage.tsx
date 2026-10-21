@@ -111,11 +111,12 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
   return (
     <WpblPage
       title="About the league"
+      // Labeled counts, not a sentence about the page (house rule, Oct 21, 2026).
       standfirst={<>
-        The Women&rsquo;s Pro Baseball League played its first season in 2026: four clubs
-        {loading && <> <TextGhost>and 118 players from 11 countries</TextGhost></>}
-        {players.length > 0 && ` and ${players.length} players`}
-        {countries.length > 1 && ` from ${countries.length} countries`}.
+        Since 2026 · 4 clubs
+        {loading && <> <TextGhost>· 118 players · 11 countries</TextGhost></>}
+        {players.length > 0 && ` · ${players.length} players`}
+        {countries.length > 1 && ` · ${countries.length} countries`}
       </>}
     >
       <Box>

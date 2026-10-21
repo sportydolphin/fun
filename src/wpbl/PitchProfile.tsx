@@ -215,9 +215,9 @@ export default function PitchProfileBlock({ side, profile }: {
       <SectionHead title="Pitch mix" part="pitches" caption={coverage} />
       <MixRows me={me.counts} league={league.counts} side={side} better={better} amber={amber} />
       <Typography sx={{ mt: 0.5, fontSize: TYPE_SCALE.caption, color: 'text.disabled' }}>
-        Share of every pitch {side === 'pitching' ? 'thrown' : 'seen'}; the tick is the league.
-        {' '}<Box component="span" sx={{ color: better, fontWeight: 700 }}>Blue</Box> is better than the league,
-        {' '}<Box component="span" sx={{ color: amber, fontWeight: 700 }}>amber</Box> is worse.
+        Share of pitches {side === 'pitching' ? 'thrown' : 'seen'} · Tick: league ·{' '}
+        <Box component="span" sx={{ color: better, fontWeight: 700 }}>Blue</Box>: better ·{' '}
+        <Box component="span" sx={{ color: amber, fontWeight: 700 }}>Amber</Box>: worse
       </Typography>
       {/* OUTS IN PLAY, AND IT SAYS SO. A hit in the play text reads "singled to center field"
           whatever it was, so only the outs can be sorted into ground and air. See battedOutKind. */}

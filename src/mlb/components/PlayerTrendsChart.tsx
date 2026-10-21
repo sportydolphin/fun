@@ -162,7 +162,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   if (pts.length < 2) {
     return (
       <Box sx={{ py: 3, textAlign: 'center' }}>
-        <Typography color="text.secondary" sx={{ fontSize: TYPE_SCALE.body }}>Not enough seasons to show a trend</Typography>
+        <Typography color="text.secondary" sx={{ fontSize: TYPE_SCALE.body }}>No data</Typography>
       </Box>
     )
   }

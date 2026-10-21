@@ -856,7 +856,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
                 )}
               </>
             ) : (
-              <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>Team stats appear once games are played.</Typography>
+              <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>No team stats</Typography>
             )}
           </SectionCard>
 

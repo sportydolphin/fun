@@ -26,6 +26,7 @@ import {
 import { TeamBadge, FOCUS_RING, pressable } from './ui'
 import type { WpblGame, WpblTeam } from './types'
 import { TYPE_SCALE } from '../ui/card'
+import { InfoDot } from '../ui/InfoDot'
 import { ordinal } from '../lib/format'
 
 type Side = 'scored' | 'allowed'
@@ -165,12 +166,10 @@ export default function RunsByInning({ games, teams }: { games: readonly WpblGam
   const legendLabel = { fontSize: TYPE_SCALE.meta, color: 'text.secondary', whiteSpace: 'nowrap' as const }
 
   return (
+    // NO INTRO LINE (house rule, Oct 21, 2026: labels, not narration). The heading above names the
+    // grid; what each square is, the league's extremes and the postseason sample are behind the
+    // info dot on the legend.
     <Box>
-      <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.body, mt: -0.75, mb: 1.5 }}>
-        Runs per half-inning, club by club.
-        {ext && ` League-wide the ${ordinal(ext.high.inning)} is the big inning at ${fmt(perHalf(ext.high)!)} runs, and the ${ordinal(ext.low.inning)} the quietest at ${fmt(perHalf(ext.low)!)}.`}
-        {scope === 'postseason' && ` Postseason samples are small: ${minG === maxG ? minG : `${minG} to ${maxG}`} games a club.`}
-      </Typography>
 
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mb: 1.5 }}>
         <Box sx={{ display: 'flex', gap: 0.5 }}>
@@ -215,21 +214,21 @@ export default function RunsByInning({ games, teams }: { games: readonly WpblGam
       </Box>
 
       {/* The scale legend: both poles and the midpoint, labeled in words, with the midpoint's value. */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 1.25 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75, mt: 1.25 }}>
         <Typography sx={legendLabel}>Fewer runs</Typography>
         <Box aria-hidden sx={{
           width: '6rem', height: 8, borderRadius: 999, flexShrink: 0,
           background: `linear-gradient(to right, ${css(FEWER[mode])}, ${css(NEUTRAL[mode])}, ${css(MORE[mode])})`,
         }} />
         <Typography sx={legendLabel}>More runs</Typography>
+        <Typography sx={legendLabel}>· Avg {fmt(grid.mean)}</Typography>
+        <InfoDot text={[
+          `Each square is a club's runs ${verb} in that inning, per half-inning. Grey is the league's average half-inning this ${scopeWord}, ${fmt(grid.mean)} runs; red is more, blue fewer.`,
+          `A bottom half the home side never needed to bat is left out rather than counted as a scoreless inning${grid.columns.includes(EXTRAS_COLUMN) ? ', and every extra inning shares the last column' : ''}.`,
+          ...(ext ? [`High: ${ordinal(ext.high.inning)}, ${fmt(perHalf(ext.high)!)}. Low: ${ordinal(ext.low.inning)}, ${fmt(perHalf(ext.low)!)}.`] : []),
+          ...(scope === 'postseason' ? [`Postseason: ${minG === maxG ? minG : `${minG} to ${maxG}`} games a club.`] : []),
+        ]} />
       </Box>
-
-      <Typography sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.body, mt: 1 }}>
-        Grey is the league&rsquo;s average half-inning this {scopeWord}, {fmt(grid.mean)} runs; red is more,
-        blue fewer. Each square is a club&rsquo;s runs in that inning divided by the times it batted in it.
-        A bottom half the home side never needed to bat is left out rather than counted as a scoreless
-        inning{grid.columns.includes(EXTRAS_COLUMN) ? ', and every extra inning shares the last column' : ''}.
-      </Typography>
     </Box>
   )
 }

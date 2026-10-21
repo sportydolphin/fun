@@ -328,8 +328,8 @@ function ComparePageBody({ path, onNavigate }: {
         maxWidth={chromePx(560)}
         title={shape === 'pair' ? <TextGhost>{GHOST_HEAD_NAME} vs {GHOST_HEAD_NAME}</TextGhost> : 'Compare players'}
         standfirst={shape === 'pair' ? undefined
-          : shape === 'single' ? <>Pick somebody to put next to <TextGhost>{GHOST_HEAD_NAME}</TextGhost>.</>
-          : 'Pick two players to put their seasons side by side.'}
+          : shape === 'single' ? <>Pick a player to compare with <TextGhost>{GHOST_HEAD_NAME}</TextGhost></>
+          : 'Pick two players'}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
           {shape === 'pair' && <SeasonMenu label="season" />}
@@ -368,7 +368,7 @@ function ComparePageBody({ path, onNavigate }: {
       maxWidth={chromePx(560)}
       title={pair ? `${pair[0].name} vs ${pair[1].name}` : 'Compare players'}
       standfirst={!pair
-        ? (single ? `Pick somebody to put next to ${single.name}.` : 'Pick two players to put their seasons side by side.')
+        ? (single ? `Pick a player to compare with ${single.name}` : 'Pick two players')
         : undefined}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
@@ -426,7 +426,7 @@ function ComparePageBody({ path, onNavigate }: {
           ))}
           {comparison.groups.length === 0 && (
             <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>
-              Neither has a box-score line this season, so there is nothing to compare yet.
+              No data
             </Typography>
           )}
           {/* A WAY OUT THAT IS NOT THE BACK BUTTON. Somebody who has just read one comparison
