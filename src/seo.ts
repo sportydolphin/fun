@@ -201,7 +201,7 @@ const ROUTES: Record<string, Seo> = {
   // The public tagging queue (docs/PHOTO_TAGGING.md). A work queue of unpublished photos, not
   // content: noindex and out of the sitemap, so search never sends anyone to an empty to-do list.
   '/wpbl/photos/tag': {
-    title: "Who's in this photo? Help name the WPBL fan photos | sportydolphin.fun",
+    title: "Who's in this photo? Help tag the WPBL fan photos | sportydolphin.fun",
     description:
       "Help put names to fan photographs from the Women's Pro Baseball League's first season. Pick who is in each photo; every name is checked before it goes up.",
     noindex: true,

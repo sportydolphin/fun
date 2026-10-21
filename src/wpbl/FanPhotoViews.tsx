@@ -6,7 +6,6 @@ import { SectionHead } from './cardParts'
 import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers, getCachedWpblFanPhotoIndex, getCachedWpblAllPlayers, FAN_PHOTOS_CHANGED_EVENT } from './api'
 import type { WpblPlayer } from './types'
 import { WPBL_PHOTOS_PAGE, WPBL_PHOTO_TAG_PAGE } from './routes'
-import { photoTagQueueOpen } from './api/photoTagging'
 import { useCanEditFanPhotos } from './fanPhotoGate'
 import { linkTo } from '../nav'
 import { devFanPhotosOn, DEV_FAN_PHOTOS_EVENT, mockFanPhotos } from './dev/devFanPhotos'
@@ -132,28 +131,22 @@ export function FanPhotoSubmitNote({ variant }: { variant: 'line' | 'block' }) {
 }
 
 /**
- * The way into naming who is in the photos (/wpbl/photos/tag), drawn only while the public queue
- * holds something. It sits at the foot of the gallery, under the grid, so arriving late moves
- * nothing anyone is looking at; and with nothing open (every day until the owner opens a batch) it
- * draws nothing at all. See docs/PHOTO_TAGGING.md.
+ * The way into naming who is in the photos (/wpbl/photos/tag), at the TOP of the gallery. It sat at
+ * the foot, under every photo, and drew only once a queue check came back; at 131 photos nobody
+ * scrolled that far, and the owner could not find it. Every photo in review is open now (the
+ * 20261021 migration), so the queue is almost never empty and the card is drawn unconditionally:
+ * no fetch, so it never arrives late and moves nothing. On the rare empty queue the page itself
+ * says "Nothing to tag right now". The skeleton draws the same card. See docs/PHOTO_TAGGING.md.
  */
 export function FanPhotoTagInvite() {
-  const [open, setOpen] = useState(false)
-  useEffect(() => {
-    let live = true
-    photoTagQueueOpen().then(v => { if (live) setOpen(v) })
-    return () => { live = false }
-  }, [])
-  if (!open) return null
   return (
-    <Box sx={{ mt: 3, p: { xs: 1.75, sm: 2 }, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL }}>
-      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800 }}>Who's in these photos?</Typography>
-      <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 0.5, lineHeight: 1.5 }}>
-        Fans sent in more photos than we can name ourselves. If you know the players, help put names to
-        them. No account needed.
-      </Typography>
-      <Box component="a" {...linkTo(WPBL_PHOTO_TAG_PAGE)} sx={{ ...CARD_LINK_SX, display: 'inline-block', mt: 0.75, fontSize: TYPE_SCALE.body }}>
-        Help name the photos
+    <Box sx={{
+      mb: 1.5, px: { xs: 1.5, sm: 2 }, py: 1.25, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL,
+      display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 1.5, rowGap: 0.25,
+    }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700 }}>Know who's in these photos?</Typography>
+      <Box component="a" {...linkTo(WPBL_PHOTO_TAG_PAGE)} sx={{ ...CARD_LINK_SX, fontSize: TYPE_SCALE.body }}>
+        Help us tag them, no account needed
       </Box>
     </Box>
   )

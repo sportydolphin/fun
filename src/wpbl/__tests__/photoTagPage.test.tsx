@@ -47,28 +47,28 @@ describe('PhotoTagPage', () => {
 
   it('shows the first photo, its credit and the queue progress', async () => {
     render(<PhotoTagPage />)
-    await screen.findByText('38 of 115 photos have a name')
+    await screen.findByText('38 of 115 tagged')
     expect(shownPhoto()).toBe('f-p1')
     expect(screen.getByText('Photo: Jamie Fan')).toBeTruthy()
   })
 
   it('finds a player by number, sends exactly the picked ids, and moves on', async () => {
     render(<PhotoTagPage />)
-    await screen.findByText('38 of 115 photos have a name')
+    await screen.findByText('38 of 115 tagged')
     search('#7')
     fireEvent.click(await screen.findByText('Kelsie Whitmore'))
     fireEvent.click(screen.getByText('Send and next'))
     await waitFor(() => expect(suggestPhotoTags).toHaveBeenCalledWith('p1', [{ player: 'kw' }]))
     await waitFor(() => expect(shownPhoto()).toBe('f-p2'))
-    expect(screen.getByText(/you've named 1/)).toBeTruthy()
+    expect(screen.getByText(/you've tagged 1/)).toBeTruthy()
   })
 
   it('shows who the owner already tagged and never offers them again', async () => {
     batches = [[photo('p1', [{ player: 'kw' }]), photo('p2')]]
     render(<PhotoTagPage />)
-    await screen.findByText('Already named')
+    await screen.findByText('Already tagged')
     expect(screen.getByText('Kelsie Whitmore')).toBeTruthy()
-    expect(screen.getByRole('img', { name: /named so far: Kelsie Whitmore/ })).toBeTruthy()
+    expect(screen.getByRole('img', { name: /tagged so far: Kelsie Whitmore/ })).toBeTruthy()
     search('#7')
     expect(await screen.findByText(/No one on our list matches that/)).toBeTruthy()
     search('Diana')
@@ -79,7 +79,7 @@ describe('PhotoTagPage', () => {
 
   it('sends nothing until someone is picked, and offers nothing off the list', async () => {
     render(<PhotoTagPage />)
-    await screen.findByText('38 of 115 photos have a name')
+    await screen.findByText('38 of 115 tagged')
     expect((screen.getByText('Send and next') as HTMLButtonElement).disabled).toBe(true)
     search('Someone Not In The League')
     expect(await screen.findByText(/No one on our list matches that/)).toBeTruthy()
@@ -89,7 +89,7 @@ describe('PhotoTagPage', () => {
   it('stays on the photo, keeps the picks and says so when the database refuses', async () => {
     suggestPhotoTags.mockImplementation(async () => 'limited')
     render(<PhotoTagPage />)
-    await screen.findByText('38 of 115 photos have a name')
+    await screen.findByText('38 of 115 tagged')
     search('Diana')
     fireEvent.click(await screen.findByText('Diana Ibarra'))
     fireEvent.click(screen.getByText('Send and next'))
@@ -100,7 +100,7 @@ describe('PhotoTagPage', () => {
 
   it('a team photo is the whole club, picked from the club chip', async () => {
     render(<PhotoTagPage />)
-    await screen.findByText('38 of 115 photos have a name')
+    await screen.findByText('38 of 115 tagged')
     fireEvent.click(screen.getAllByText('San Francisco Firebells')[0])
     fireEvent.click(await screen.findByText('Team photo: the whole club'))
     fireEvent.click(screen.getByText('Send and next'))
@@ -110,7 +110,7 @@ describe('PhotoTagPage', () => {
   it('skipping sends nothing, and the skipped photo is left out of the next batch', async () => {
     batches = [[photo('p1'), photo('p2')], [photo('p3')]]
     render(<PhotoTagPage />)
-    await screen.findByText('38 of 115 photos have a name')
+    await screen.findByText('38 of 115 tagged')
     fireEvent.click(screen.getByText('Skip'))
     await waitFor(() => expect(shownPhoto()).toBe('f-p2'))
     expect(suggestPhotoTags).not.toHaveBeenCalled()
@@ -121,7 +121,7 @@ describe('PhotoTagPage', () => {
 
   it('reports a photo with a reason from the closed list and moves on', async () => {
     render(<PhotoTagPage />)
-    await screen.findByText('38 of 115 photos have a name')
+    await screen.findByText('38 of 115 tagged')
     fireEvent.click(screen.getByText('Report this photo'))
     fireEvent.click(screen.getByText('It shows a child'))
     await waitFor(() => expect(reportPhoto).toHaveBeenCalledWith('p1', 'child'))
@@ -132,7 +132,7 @@ describe('PhotoTagPage', () => {
   it('says when there is nothing to name, and when the queue could not be read', async () => {
     batches = [[]]
     const { unmount } = render(<PhotoTagPage />)
-    expect(await screen.findByText('Nothing to name right now')).toBeTruthy()
+    expect(await screen.findByText('Nothing to tag right now')).toBeTruthy()
     unmount()
     batches = [null]
     render(<PhotoTagPage />)

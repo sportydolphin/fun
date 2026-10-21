@@ -84,12 +84,6 @@ export async function fetchPhotosToTag(skip: string[], limit = 10): Promise<Phot
   }
 }
 
-/** Whether anything is waiting, for the gallery's way in. False on any failure, so a missing
- *  function (before the migration) simply draws no entry point. */
-export async function photoTagQueueOpen(): Promise<boolean> {
-  const rows = await fetchPhotosToTag([], 1)
-  return !!rows && rows.length > 0
-}
 
 export async function suggestPhotoTags(photoId: string, subjects: TagSubject[]): Promise<TagAnswer> {
   if (subjects.length === 0 || subjects.length > 10) return 'invalid'

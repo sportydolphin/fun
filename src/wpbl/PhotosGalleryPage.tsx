@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Box, Typography } from '@mui/material'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Box, Typography, Popover } from '@mui/material'
 import WpblPage from './WpblPage'
-import { ChipRow, FilterChip } from '../ui/FilterChip'
+import { ChipRow, FilterChip, filterChipSx } from '../ui/FilterChip'
+import { pressable, hoverOnly, FOCUS_RING } from '../ui/interaction'
+import { NameText } from '../ui/NameText'
+import { chromePx } from '../ui/scale'
 import { FanPhotoGrid, FanPhotoGridSkeleton, FanPhotoSubmitNote, FanPhotoTagInvite, useFanPhotosVersion } from './FanPhotoViews'
 import { TextGhost } from './ui'
 import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers, fetchWpblPhotos, getCachedWpblPhotos } from './api'
@@ -128,6 +131,7 @@ export default function PhotosGalleryPage() {
         </Box>
       ) : (
         <>
+          <FanPhotoTagInvite />
           {/* Category first (Fan signs, the archive), then who is in them within it. "This season"
               is every photo from 2026, which is what the gallery opens on. */}
           {(categoryChips.length > 0 || archive.length > 0) && (
@@ -143,21 +147,17 @@ export default function PhotosGalleryPage() {
               )}
             </ChipRow>
           )}
-          {/* Filter by subject. "Everyone" plus one chip per person who appears in a photo; the
-              count rides on each so the reader can see who has the most before tapping. */}
+          {/* Filter by subject: ONE chip that opens the list. It was a chip per person, which by
+              October was forty chips wrapping to five lines above the photos on a desktop and a
+              long sideways scroll on a phone, before a single photo. */}
           {!showingArchive && subjects.length > 1 && (
-            <ChipRow mb={2}>
-              <FilterChip active={selected === 'all'} onClick={() => pickSubject('all')}>{`Everyone (${inCategory.length})`}</FilterChip>
-              {subjects.map(s => (
-                <FilterChip key={s.key}
-                  active={selected === s.key} onClick={() => pickSubject(s.key)}>{`${s.label} (${s.photos.length})`}</FilterChip>
-              ))}
-            </ChipRow>
+            <Box sx={{ mb: 2 }}>
+              <SubjectPicker subjects={subjects} total={inCategory.length} selected={selected} onPick={pickSubject} />
+            </Box>
           )}
           {showingArchive
             ? <Box sx={{ mt: 1 }}><ArchiveGrid photos={archive} /></Box>
             : <FanPhotoGrid photos={shown} resolveNames={resolveNames} from="gallery" />}
-          <FanPhotoTagInvite />
           <FanPhotoSubmitNote variant="block" />
         </>
       )}
@@ -167,13 +167,9 @@ export default function PhotosGalleryPage() {
 
 /**
  * The gallery before the index lands, drawn as the loaded page (CLAUDE.md, loading states): the
- * category row, the subject row and the grid. The subject row WRAPS from `sm` up, to seven or nine
- * lines, so its chips are held open at the lengths the 2026 labels run to ("Name Surname (6)"),
- * which wraps to the same number of lines and keeps the grid where it will be. It was a centered
- * spinner, which left the footer near the top of the screen.
+ * invite, the category row, the one "who" chip and the grid. It was a centered spinner, which left
+ * the footer near the top of the screen.
  */
-const SUBJECT_LABEL_LENGTHS = [14, 14, 16, 18, 22, 21, 17, 21, 19, 15, 17, 18, 17, 21, 17, 17, 19, 23, 13, 16, 12, 14, 15, 19, 23, 15, 16, 17, 12, 21, 18, 15, 20, 20, 21, 19, 27, 17, 17]
-const FILLER = 'Firstname Lastname Middleton Surname'
 
 function GallerySkeleton() {
   const chip = (label: string, active = false) => (
@@ -181,16 +177,96 @@ function GallerySkeleton() {
   )
   return (
     <Box aria-hidden>
+      <FanPhotoTagInvite />
       <ChipRow mb={1}>
         {['This season (000)', 'Fan Sign (0)', 'Fans (0)', 'From the archive (00)'].map((l, i) => chip(l, i === 0))}
       </ChipRow>
-      <ChipRow mb={2}>
-        {chip('Everyone (000)', true)}
-        {SUBJECT_LABEL_LENGTHS.map((n, i) => (
-          <FilterChip key={i} active={false} onClick={() => {}}><TextGhost>{`${FILLER.slice(0, n - 4).trimEnd()} (0)`}</TextGhost></FilterChip>
-        ))}
-      </ChipRow>
+      <Box sx={{ mb: 2 }}>
+        <Box sx={{ ...filterChipSx(false), gap: 0.4, display: 'inline-flex' }}>
+          <TextGhost>Who's in it: Everyone (000)</TextGhost>
+          <Box component="span" sx={{ fontSize: TYPE_SCALE.caption }}>▾</Box>
+        </Box>
+      </Box>
       <FanPhotoGridSkeleton />
     </Box>
+  )
+}
+
+const GROUPS: Array<{ prefix: string; label: string }> = [
+  { prefix: 't:', label: 'Clubs' },
+  { prefix: 'p:', label: 'Players' },
+  { prefix: 'f:', label: 'Others' },
+]
+
+/** "Who's in it": one chip, and the list behind it grouped (clubs, players, the figures), each with
+ *  its count, and a search box once the list is long. */
+function SubjectPicker({ subjects, total, selected, onPick }: {
+  subjects: SubjectFilter[]; total: number; selected: string; onPick: (key: string) => void
+}) {
+  const anchor = useRef<HTMLDivElement>(null)
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const current = subjects.find(s => s.key === selected)
+  const q = query.trim().toLowerCase()
+  const groups = GROUPS
+    .map(g => ({ ...g, rows: subjects.filter(s => s.key.startsWith(g.prefix) && (!q || s.label.toLowerCase().includes(q))) }))
+    .filter(g => g.rows.length > 0)
+  const close = () => { setOpen(false); setQuery('') }
+  const choose = (key: string) => { onPick(key); close() }
+
+  const row = (key: string, label: string, count: number) => (
+    <Box key={key} {...pressable(() => choose(key))} aria-pressed={selected === key}
+      sx={{
+        display: 'flex', alignItems: 'center', gap: 1, px: 1, py: 0.6, minHeight: chromePx(36), borderRadius: 1.5,
+        cursor: 'pointer', ...FOCUS_RING,
+        fontWeight: selected === key ? 800 : 500,
+        color: selected === key ? 'var(--wpbl-accent-fg)' : 'text.primary',
+        ...hoverOnly({ bgcolor: 'action.hover' }),
+      }}>
+      <NameText component="span" name={label} sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 'inherit' }} />
+      <Box component="span" sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.meta, fontVariantNumeric: 'tabular-nums' }}>{count}</Box>
+    </Box>
+  )
+
+  return (
+    <>
+      <Box ref={anchor} {...pressable(() => setOpen(true))} aria-haspopup="dialog" aria-expanded={open}
+        sx={{ ...filterChipSx(open || !!current), gap: 0.4, display: 'inline-flex' }}>
+        {current ? `Who's in it: ${current.label} (${current.photos.length})` : `Who's in it: Everyone (${total})`}
+        <Box component="span" sx={{ fontSize: TYPE_SCALE.caption }}>▾</Box>
+      </Box>
+      <Popover open={open} anchorEl={anchor.current} onClose={close}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }} transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        slotProps={{ paper: { sx: {
+          borderRadius: 2.5, mt: 0.75, width: chromePx(300), maxWidth: 'calc(100vw - 32px)', maxHeight: '60vh',
+          display: 'flex', flexDirection: 'column', border: '1px solid', borderColor: 'outline',
+        } } }}>
+        {subjects.length > 8 && (
+          <Box sx={{ p: 1, pb: 0.5 }}>
+            <Box component="input" autoFocus value={query} aria-label="Search people and clubs" placeholder="Search"
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
+              sx={{
+                width: '100%', boxSizing: 'border-box', fontSize: TYPE_SCALE.body, fontFamily: 'inherit',
+                borderRadius: 2, border: '1px solid', borderColor: 'outline', bgcolor: 'transparent', color: 'text.primary',
+                px: 1.25, py: 0.75, outline: 'none', '&:focus': { borderColor: 'var(--wpbl-accent-fg)' },
+              }} />
+          </Box>
+        )}
+        <Box sx={{ overflowY: 'auto', p: 0.75 }}>
+          {!q && row('all', 'Everyone', total)}
+          {groups.map(g => (
+            <Box key={g.prefix} role="group" aria-label={g.label}>
+              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.secondary', px: 1, pt: 1, pb: 0.25 }}>
+                {g.label}
+              </Typography>
+              {g.rows.map(s => row(s.key, s.label, s.photos.length))}
+            </Box>
+          ))}
+          {q && groups.length === 0 && (
+            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', px: 1, py: 1 }}>No one by that name.</Typography>
+          )}
+        </Box>
+      </Popover>
+    </>
   )
 }
