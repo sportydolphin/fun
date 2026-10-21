@@ -318,9 +318,9 @@ export default function MlbComparePage({ path, onNavigate }: { path: string; onN
     else onNavigate(inSeason(mlbCompareStartPath(chosen)))
   }
 
-  const standfirstNone = `Pick two players to put their ${season} seasons side by side.`
+  const standfirstNone = `Pick two players · ${season}`
   // A pair names its season only when it is not this one, which every other page takes as read.
-  const pairStandfirst = current ? undefined : `The ${season} regular season.`
+  const pairStandfirst = current ? undefined : `${season} regular season`
   const back = { href: '/mlb', label: 'Back to MLB' }
 
   // LOADING IS THE PAGE THE URL WILL OPEN, drawn empty, as WPBL's is: which of the three shapes is
@@ -332,7 +332,7 @@ export default function MlbComparePage({ path, onNavigate }: { path: string; onN
         maxWidth={chromePx(560)}
         back={back}
         title={target.kind === 'pair' ? <TextGhost>{GHOST_HEAD_NAME} vs {GHOST_HEAD_NAME}</TextGhost> : 'Compare players'}
-        standfirst={target.kind === 'pair' ? pairStandfirst : <>Pick somebody to put next to <TextGhost>{GHOST_HEAD_NAME}</TextGhost>.</>}
+        standfirst={target.kind === 'pair' ? pairStandfirst : <>Pick a player to compare with <TextGhost>{GHOST_HEAD_NAME}</TextGhost></>}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
           <Box sx={HEAD_CARD}>
@@ -358,7 +358,7 @@ export default function MlbComparePage({ path, onNavigate }: { path: string; onN
   const [a, b] = list
   const title = target.kind === 'pair' ? `${aName ?? 'Unknown player'} vs ${bName ?? 'Unknown player'}` : 'Compare players'
   const standfirst = target.kind === 'pair' ? pairStandfirst
-    : target.kind === 'single' ? `Pick somebody to put next to ${aName ?? 'this player'}.` : standfirstNone
+    : target.kind === 'single' ? `Pick a player to compare with ${aName ?? 'this player'}` : standfirstNone
 
   return (
     <StandalonePage maxWidth={chromePx(560)} back={back} title={title} standfirst={standfirst}>
@@ -391,7 +391,7 @@ export default function MlbComparePage({ path, onNavigate }: { path: string; onN
             {groups.map(g => <CompareBlocksCard key={g.key} title={g.label} blocks={g.blocks} />)}
             {groups.length === 0 && (
               <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>
-                Neither has a regular-season line in {season}, so there is nothing to compare yet.
+                No {season} regular-season data
               </Typography>
             )}
             <CompareAgainLink href={inSeason(MLB_COMPARE_BASE)} onNavigate={onNavigate} />

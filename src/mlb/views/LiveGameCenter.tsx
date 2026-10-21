@@ -582,7 +582,7 @@ function PlaysList({ plays, away, home, scoringOnly, expanded, onToggle, onPlaye
     return (
       <Box sx={{ py: 3, textAlign: 'center' }}>
         <Typography sx={{ fontSize: GC_META, color: 'text.secondary' }}>
-          {scoringOnly ? 'No scoring plays yet' : 'No plays yet'}
+          {scoringOnly ? 'No scoring plays' : 'No plays yet'}
         </Typography>
       </Box>
     )

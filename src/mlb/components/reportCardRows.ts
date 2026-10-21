@@ -12,19 +12,10 @@ export interface AgeEntry { teamId: number; abbr: string; avgAge: number }
 
 // ─── Streak row builder: StreakRow[] (from the API) → display PlayerLbRow[] ───
 
-const HIT_STREAK_LABELS = ['ON FIRE', 'LOCKED IN', 'HEATING UP']
-const HITLESS_LABELS    = ['ICE COLD', 'LOST IT', 'IN A FUNK']
-const SCORELESS_LABELS  = ['NASTY', 'DEALING', 'FILTHY']
-const IRONMAN_LABELS    = ['IRON MAN', 'NEVER SITS', 'ALWAYS IN']
-
 export function buildStreakRows(rows: StreakRow[], kind: 'hitting' | 'hitless' | 'scoreless' | 'gamesPlayed'): PlayerLbRow[] {
   if (!rows.length) return []
   const max = rows[0].value || 1   // API returns each board pre-sorted desc by value
-  const labels = kind === 'hitting' ? HIT_STREAK_LABELS
-    : kind === 'hitless' ? HITLESS_LABELS
-    : kind === 'scoreless' ? SCORELESS_LABELS
-    : IRONMAN_LABELS
-  return rows.map((r, idx) => ({
+  return rows.map(r => ({
     playerId: r.playerId,
     playerName: r.playerName,
     teamId: r.teamId,
@@ -36,22 +27,17 @@ export function buildStreakRows(rows: StreakRow[], kind: 'hitting' | 'hitless' |
       : kind === 'gamesPlayed' ? `${r.value}${r.capped ? '+' : ''} G`
       : `${r.value} G`,
     barFraction: r.value / max,
-    label: idx < labels.length ? labels[idx] : undefined,
   }))
 }
 
 // ─── Pitches-per-PA row builder ───────────────────────────────────────────────
 
-const GRINDER_LABELS = ['GRINDER', 'PEST', 'PATIENT']
-const HACKER_LABELS  = ['FREE SWINGER', 'HACKER', 'FIRST PITCH']
-
 export function buildPitchPaRows(data: PitchPaLeaders | null, kind: 'most' | 'fewest'): PlayerLbRow[] {
   const rows = kind === 'most' ? data?.most : data?.fewest
   if (!data || !rows?.length) return []
   const spread = (data.max - data.min) || 1
-  const labels = kind === 'most' ? GRINDER_LABELS : HACKER_LABELS
 
-  return rows.map((r, idx) => ({
+  return rows.map(r => ({
     playerId: r.playerId,
     playerName: r.playerName,
     teamId: r.teamId,
@@ -62,13 +48,10 @@ export function buildPitchPaRows(data: PitchPaLeaders | null, kind: 'most' | 'fe
     // bars would be indistinguishable. Each board's leader fills its bar, and the
     // far end of the league sits near empty.
     barFraction: 0.12 + 0.88 * ((kind === 'most' ? r.value - data.min : data.max - r.value) / spread),
-    label: idx < labels.length ? labels[idx] : undefined,
   }))
 }
 
 // ─── Salary row builder ───────────────────────────────────────────────────────
-
-const SALARY_LABELS = ['STUPID RICH', 'THE BAG', 'CHA-CHING']
 
 function fmtSalary(dollars: number): string {
   return dollars >= 1_000_000
@@ -79,14 +62,13 @@ function fmtSalary(dollars: number): string {
 export function buildSalaryRows(rows: SalaryRow[]): PlayerLbRow[] {
   if (!rows.length) return []
   const max = rows[0].salary || 1   // fetchTopSalaries returns rows pre-sorted desc
-  return rows.map((r, idx) => ({
+  return rows.map(r => ({
     playerId: r.playerId,
     playerName: r.playerName,
     teamId: r.teamId,
     teamAbbr: r.teamAbbr,
     value: fmtSalary(r.salary),
     barFraction: r.salary / max,
-    label: idx < SALARY_LABELS.length ? SALARY_LABELS[idx] : undefined,
   }))
 }
 
@@ -112,10 +94,6 @@ export function buildFraudRows(data: TeamSummary[], nameMap: Map<number, string>
 
   const maxScore = Math.max(...withScores.map(t => isFraud ? t.fraudScore : t.cursedScore), 1)
 
-  const getLabel = (score: number) => isFraud
-    ? score >= 4.0 ? 'CONFIRMED FRAUD' : score >= 2.5 ? 'FRAUD ALERT' : score >= 1.5 ? 'SUS' : 'A LIL SUS'
-    : score >= 4.0 ? 'TRULY CURSED' : score >= 2.5 ? 'BIG MAD' : score >= 1.5 ? 'ROBBED' : 'UNLUCKY'
-
   return withScores.map(t => {
     const score = isFraud ? t.fraudScore : t.cursedScore
     return {
@@ -125,13 +103,9 @@ export function buildFraudRows(data: TeamSummary[], nameMap: Map<number, string>
       sub: `${t.wins}–${t.losses}`,
       value: `${t.delta > 0 ? '+' : ''}${t.delta} wins`,
       barFraction: score / maxScore,
-      label: getLabel(score),
     }
   })
 }
-
-const OLDEST_LABELS   = ['ULTRA UNC', 'GRAMPS', 'SENIOR DISCOUNT']
-const YOUNGEST_LABELS = ['LITERAL TODDLERS', 'BABY-FACED', 'YOUNG GUNS']
 
 export function buildAgeRows(entries: AgeEntry[], nameMap: Map<number, string>, type: 'oldest' | 'youngest'): LbRow[] {
   if (!entries.length) return []
@@ -140,9 +114,8 @@ export function buildAgeRows(entries: AgeEntry[], nameMap: Map<number, string>, 
   const minAge = entries[entries.length - 1].avgAge
   const maxAge = entries[0].avgAge
   const range = maxAge - minAge || 0.1
-  const labels = isOldest ? OLDEST_LABELS : YOUNGEST_LABELS
 
-  return sorted.map((t, idx) => {
+  return sorted.map(t => {
     const norm = (t.avgAge - minAge) / range
     return {
       teamId: t.teamId,
@@ -150,13 +123,9 @@ export function buildAgeRows(entries: AgeEntry[], nameMap: Map<number, string>, 
       name: nameMap.get(t.teamId) ?? t.abbr,
       value: `${t.avgAge.toFixed(1)} yrs`,
       barFraction: isOldest ? norm : 1 - norm,
-      label: idx < labels.length ? labels[idx] : undefined,
     }
   })
 }
-
-const HIGHEST_PAYROLL_LABELS = ['GOING ALL IN', 'SPENDING UP', 'BIG DOLLARS']
-const LOWEST_PAYROLL_LABELS  = ['BUDGET SQUAD', 'POCKET CHANGE', 'WHO TF R U']
 
 export function buildPayrollRows(payrolls: Record<number, number>, nameMap: Map<number, string>, direction: 'highest' | 'lowest'): LbRow[] {
   const entries = Object.entries(payrolls).map(([idStr, amount]) => {
@@ -167,17 +136,12 @@ export function buildPayrollRows(payrolls: Record<number, number>, nameMap: Map<
   const max = sorted[0]?.amount ?? 1
   const min = sorted[sorted.length - 1]?.amount ?? 0
   const range = max - min || 1
-  const labels = direction === 'highest' ? HIGHEST_PAYROLL_LABELS : LOWEST_PAYROLL_LABELS
-  return sorted.map((e, idx) => ({
+  return sorted.map(e => ({
     teamId: e.teamId, abbr: e.abbr, name: e.name,
     value: `$${e.amount}M`,
     barFraction: direction === 'highest' ? (e.amount - min) / range : (max - e.amount) / range,
-    label: idx < labels.length ? labels[idx] : undefined,
   }))
 }
-
-const HARDEST_LABELS = ['GOOD LUCK LOL', 'UPHILL BATTLE', 'ROUGH PATCH']
-const EASIEST_LABELS = ['VACATION MODE', 'EASY STREET', 'BIG CHILLING']
 
 export function buildSosRows(entries: SosEntry[], direction: 'hardest' | 'easiest'): LbRow[] {
   if (!entries.length) return []
@@ -186,9 +150,8 @@ export function buildSosRows(entries: SosEntry[], direction: 'hardest' | 'easies
   const minPct = Math.min(...entries.map(e => e.oppWinPct))
   const maxPct = Math.max(...entries.map(e => e.oppWinPct))
   const range = maxPct - minPct || 0.001
-  const labels = isHardest ? HARDEST_LABELS : EASIEST_LABELS
 
-  return sorted.map((e, idx) => {
+  return sorted.map(e => {
     const norm = (e.oppWinPct - minPct) / range
     const pctStr = '.' + Math.round(e.oppWinPct * 1000).toString().padStart(3, '0')
     return {
@@ -198,7 +161,6 @@ export function buildSosRows(entries: SosEntry[], direction: 'hardest' | 'easies
       sub: `${e.wins}–${e.losses} · ${e.remainingGames}G left`,
       value: pctStr,
       barFraction: isHardest ? norm : 1 - norm,
-      label: idx < labels.length ? labels[idx] : undefined,
     }
   })
 }

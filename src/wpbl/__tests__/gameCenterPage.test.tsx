@@ -140,6 +140,6 @@ describe('the full-page Game Center before a game', () => {
     expect(screen.getAllByText('Leaders')).toHaveLength(1)
     // The jump bar names the boards of a PLAYED game, none of which exist yet.
     expect(screen.queryByRole('navigation', { name: 'Game Center sections' })).toBeNull()
-    expect(screen.queryByText('This game has not been played yet')).toBeNull()
+    expect(screen.queryByText('Not played')).toBeNull()
   })
 })

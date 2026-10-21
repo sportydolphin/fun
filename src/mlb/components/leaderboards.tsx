@@ -7,7 +7,7 @@ import { ACCENT, TEAM_BG, TEAM_SECONDARY, HEADSHOT, HEADSHOT_THUMB, TEAM_NICKNAM
 import { useTextTone, edgeTone } from '../lib/colorUtils'
 import { MlbSheet } from './MlbSheet'
 import { TeamLogo } from './TeamLogo'
-import { chromePx, typePx } from '../../ui/scale'
+import { chromePx } from '../../ui/scale'
 import { nameAtStage, useLineNameFit } from '../../ui/names'
 import { playerLink, teamLink, LINK_SX } from '../lib/links'
 
@@ -20,7 +20,6 @@ export interface LbRow {
   sub?: string
   value: string
   barFraction: number   // 0..1
-  label?: string        // snarky verdict, only shown in the 3-row mini card
 }
 
 export interface Board {
@@ -34,21 +33,18 @@ export interface Board {
   loading: boolean
 }
 
-// The bar and verdict columns are fixed so the bars line up row to row. At 124 + 54 they left a
-// phone about 40px for the name, which read "Joey …" and "Los A…": narrower on a phone, the bar
-// still compares the three rows and the name fits.
+// The bar column is fixed so the bars line up row to row. At 124px it left a phone about 40px for
+// the name (beside a verdict column that is gone since Oct 21, 2026), which read "Joey …" and
+// "Los A…": narrower on a phone, the bar still compares the three rows and the name fits.
 //
 // THE NAME HAS A FLOOR AND THE BAR GIVES WAY TO IT. Fixed bars left the name whatever was over,
 // and in the narrow right column of Home at 1024 with Large text that was 18px, a name drawn
 // across the bar beside it. Every row carries the same floor, so the bars still shrink together
 // and still line up.
 const BAR_W   = { xs: chromePx(64), sm: chromePx(124) }
-// The verdict column holds a word ("CONFIRMED FRAUD"), so it is sized in rem and grows with the text.
-// 4rem since the verdict moved to TYPE_SCALE.caption: at 3.5 "CONFIRMED" ran 7px past it.
-const LABEL_W = '4rem'
 
-export function LeaderboardRowItem({ row, rank, accent, showLabel, onSelect, ghost }: {
-  row: LbRow; rank: number; accent: string; showLabel: boolean; onSelect?: (id: number) => void
+export function LeaderboardRowItem({ row, rank, accent, compact, onSelect, ghost }: {
+  row: LbRow; rank: number; accent: string; compact: boolean; onSelect?: (id: number) => void
   /** Draw the row's exact box with nothing in it, for the card's loading state. */
   ghost?: boolean
 }) {
@@ -75,10 +71,10 @@ export function LeaderboardRowItem({ row, rank, accent, showLabel, onSelect, gho
       <Box sx={{ flex: 1, minWidth: '4rem' }}>
         <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.body, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {/* The nickname beside a logo that already says the city: "Dodgers" rather than "Los Angeles
-              Do…". Always on the three-row card, whose verdict column leaves the name the least room
-              (in Home's narrow column it cut "St. Louis Ca…"); on a phone in the full sheet too. */}
-          <Box component="span" sx={{ display: showLabel ? 'inline' : { xs: 'inline', sm: 'none' } }}>{g(TEAM_NICKNAME[row.teamId] ?? row.name)}</Box>
-          {!showLabel && <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{g(row.name)}</Box>}
+              Do…". Always on the three-row card, which leaves the name the least room (in Home's narrow
+              column it cut "St. Louis Ca…"); on a phone in the full sheet too. */}
+          <Box component="span" sx={{ display: compact ? 'inline' : { xs: 'inline', sm: 'none' } }}>{g(TEAM_NICKNAME[row.teamId] ?? row.name)}</Box>
+          {!compact && <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{g(row.name)}</Box>}
         </Typography>
         {row.sub && (
           <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.secondary', fontWeight: 500, mt: 0.1 }}>
@@ -96,28 +92,18 @@ export function LeaderboardRowItem({ row, rank, accent, showLabel, onSelect, gho
         </Typography>
       </Box>
 
-      {showLabel && (
-        <Typography sx={{
-          fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(accent),
-          width: LABEL_W, flexShrink: 0, textAlign: 'right',
-          letterSpacing: typePx(0.5), lineHeight: 1.25,
-          textTransform: 'uppercase',
-        }}>
-          {g(row.label ?? '')}
-        </Typography>
-      )}
     </Box>
   )
 }
 
-// ─── Mini card: top 3 rows + snarky labels ───────────────────────────────────
+// ─── Mini card: top 3 rows ───────────────────────────────────
 
 /** What a board's three rows look like before they land: the row component itself, ghosted, so
  *  the card holds the room it will take (CLAUDE.md, loading states). The strings are only there
  *  to be measured; they are drawn as bars. The team rows reserve the record line that most of
  *  the team boards carry. */
-const GHOST_TEAM_ROW: LbRow = { teamId: 0, abbr: 'MLB', name: 'Baltimore Orioles', sub: '81–81', value: '.500', barFraction: 0, label: 'Fine' }
-const GHOST_PLAYER_ROW: PlayerLbRow = { playerId: 0, playerName: 'Bobby Witt Jr.', teamId: 0, teamAbbr: 'KC', value: '20', barFraction: 0, label: 'Hot' }
+const GHOST_TEAM_ROW: LbRow = { teamId: 0, abbr: 'MLB', name: 'Baltimore Orioles', sub: '81–81', value: '.500', barFraction: 0 }
+const GHOST_PLAYER_ROW: PlayerLbRow = { playerId: 0, playerName: 'Bobby Witt Jr.', teamId: 0, teamAbbr: 'KC', value: '20', barFraction: 0 }
 
 /**
  * The frame every Report Card board draws in, on Home and on the Charts tab: WPBL's SectionCard,
@@ -166,15 +152,15 @@ export function LeaderboardCard({ icon, title, subtitle, accent, tooltipText, ro
     <BoardCard icon={icon} title={title} subtitle={subtitle} tooltipText={tooltipText}
       actionLabel={actionLabel ?? `All ${rows.length || 30}`} actionHref={actionHref} onExpand={onExpand}>
       {loading
-        ? [1, 2, 3].map(r => <LeaderboardRowItem key={r} row={GHOST_TEAM_ROW} rank={r} accent={accent} showLabel ghost />)
+        ? [1, 2, 3].map(r => <LeaderboardRowItem key={r} row={GHOST_TEAM_ROW} rank={r} accent={accent} compact ghost />)
         : rows.slice(0, 3).map((row, idx) => (
-          <LeaderboardRowItem key={row.teamId} row={row} rank={idx + 1} accent={accent} showLabel onSelect={onSelectTeam} />
+          <LeaderboardRowItem key={row.teamId} row={row} rank={idx + 1} accent={accent} compact onSelect={onSelectTeam} />
         ))}
     </BoardCard>
   )
 }
 
-// ─── Fullscreen modal: full scrollable ranking, no snarky labels ─────────────
+// ─── Fullscreen modal: full scrollable ranking ─────────────
 
 /** The sheet both fullscreen boards open in. */
 function BoardSheet({ onClose, icon, title, subtitle, children }: {
@@ -207,9 +193,9 @@ export function LeaderboardModal({ open, onClose, icon, title, subtitle, accent,
   if (!open) return null
   return (
     <BoardSheet onClose={onClose} icon={icon} title={title} subtitle={subtitle}>
-      {/* All teams, no verdict labels */}
+      {/* All teams */}
       {rows.map((row, idx) => (
-        <LeaderboardRowItem key={row.teamId} row={row} rank={idx + 1} accent={accent ?? ACCENT} showLabel={false} onSelect={onSelectTeam} />
+        <LeaderboardRowItem key={row.teamId} row={row} rank={idx + 1} accent={accent ?? ACCENT} compact={false} onSelect={onSelectTeam} />
       ))}
     </BoardSheet>
   )
@@ -224,7 +210,6 @@ export interface PlayerLbRow {
   teamAbbr: string
   value: string
   barFraction: number   // 0..1
-  label?: string        // snarky verdict, only shown in the 3-row mini card
 }
 
 export interface PlayerBoard {
@@ -299,15 +284,15 @@ export function PlayerHeadshot({ playerId, name, size = 36, accent, highlighted,
   )
 }
 
-export function PlayerLeaderboardRowItem({ row, rank, accent, showLabel, onSelect, ghost }: {
-  row: PlayerLbRow; rank: number; accent: string; showLabel: boolean; onSelect?: (id: number) => void
+export function PlayerLeaderboardRowItem({ row, rank, accent, onSelect, ghost }: {
+  row: PlayerLbRow; rank: number; accent: string; onSelect?: (id: number) => void
   /** Draw the row's exact box with nothing in it, for the card's loading state. */
   ghost?: boolean
 }) {
   const tone = useTextTone()
   const g = (text: React.ReactNode) => ghost ? <TextGhost>{text}</TextGhost> : text
-  // "F. Last" before an ellipsis, measured against the room the verdict column leaves (CLAUDE.md):
-  // at 375px the card cut "Nolan Aren…" and "Yordan Alva…".
+  // "F. Last" before an ellipsis, measured against the room the row leaves (CLAUDE.md): at 375px
+  // the card cut "Nolan Aren…" and "Yordan Alva…".
   const fit = useLineNameFit<HTMLElement>([row.playerName])
   return (
     <Box
@@ -353,16 +338,6 @@ export function PlayerLeaderboardRowItem({ row, rank, accent, showLabel, onSelec
         </Typography>
       </Box>
 
-      {showLabel && (
-        <Typography sx={{
-          fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(accent),
-          width: LABEL_W, flexShrink: 0, textAlign: 'right',
-          letterSpacing: typePx(0.5), lineHeight: 1.25,
-          textTransform: 'uppercase',
-        }}>
-          {g(row.label ?? '')}
-        </Typography>
-      )}
     </Box>
   )
 }
@@ -374,7 +349,7 @@ export function PlayerLeaderboardCard({ icon, title, subtitle, accent, tooltipTe
     <BoardCard icon={icon} title={title} subtitle={subtitle} tooltipText={tooltipText}
       actionLabel={actionLabel ?? (rows.length > 3 ? `All ${rows.length}` : 'All')} actionHref={actionHref} onExpand={onExpand}>
       {loading
-        ? [1, 2, 3].map(r => <PlayerLeaderboardRowItem key={r} row={GHOST_PLAYER_ROW} rank={r} accent={accent} showLabel ghost />)
+        ? [1, 2, 3].map(r => <PlayerLeaderboardRowItem key={r} row={GHOST_PLAYER_ROW} rank={r} accent={accent} ghost />)
         : rows.length === 0
           ? (
             <Typography sx={{ textAlign: 'center', py: 2.5, fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>
@@ -382,7 +357,7 @@ export function PlayerLeaderboardCard({ icon, title, subtitle, accent, tooltipTe
             </Typography>
           )
           : rows.slice(0, 3).map((row, idx) => (
-            <PlayerLeaderboardRowItem key={row.playerId} row={row} rank={idx + 1} accent={accent} showLabel onSelect={onSelectPlayer} />
+            <PlayerLeaderboardRowItem key={row.playerId} row={row} rank={idx + 1} accent={accent} onSelect={onSelectPlayer} />
           ))}
     </BoardCard>
   )
@@ -402,7 +377,7 @@ export function PlayerLeaderboardModal({ open, onClose, icon, title, subtitle, a
   return (
     <BoardSheet onClose={onClose} icon={icon} title={title} subtitle={subtitle}>
       {rows.map((row, idx) => (
-        <PlayerLeaderboardRowItem key={row.playerId} row={row} rank={idx + 1} accent={accent ?? ACCENT} showLabel={false} onSelect={onSelectPlayer} />
+        <PlayerLeaderboardRowItem key={row.playerId} row={row} rank={idx + 1} accent={accent ?? ACCENT} onSelect={onSelectPlayer} />
       ))}
     </BoardSheet>
   )

@@ -214,7 +214,7 @@ export function LeaderboardView({
 
       {!fielding && !loadingLb && lbData && lbData.length === 0 && gameScope === 'post' && (
         <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: TYPE_SCALE.body }}>
-          No playoff games in {vizSeason}{vizSeason >= CURRENT_SEASON ? ' yet' : ''}.
+          No {vizSeason} playoff games
         </Typography>
       )}
 

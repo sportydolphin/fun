@@ -909,8 +909,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
     <Box sx={{ px: 2, pt: 2, pb: 2.5 }}>
       {loading ? skeleton : noStats || (!lines.hitting && !lines.pitching) ? (
         <Box sx={{ textAlign: 'center', py: 5, color: 'text.secondary' }}>
-          <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, mb: 0.5 }}>No major league stats {noStats || careerView ? 'yet' : `in ${season}`}</Typography>
-          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>Season totals appear here once this player appears in a game.</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700 }}>{noStats || careerView ? 'No MLB stats' : `No ${season} MLB stats`}</Typography>
         </Box>
       ) : (
         <>

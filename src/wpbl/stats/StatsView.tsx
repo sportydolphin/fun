@@ -953,8 +953,9 @@ export default function WpblStatsView({
         scope !== 'regular' && !overall ? scopeWord : null, eraWord]
     : [capped ? `${visibleRows.length} of ${rows.length} ${noun}` : `${rows.length} ${noun}`,
         teamWord, qualWord, fadedWord, scopeWord, eraWord]
+  // Labels only: "sort by any column heading" closed this line until Oct 21, 2026, an instruction
+  // where every other word is a label (house rule: labels, not narration).
   const footText = (footWords.filter(Boolean) as string[]).join(' · ')
-    + (!listView && !phoneTable ? ' · sort by any column heading' : '')
   const boardFooter = (
     <BoardFooter footText={footText} phoneTable={phoneTable} hasViews={hasViews} view={view}
       switchView={switchView} isNarrow={isNarrow} source={source} toggleFullTable={toggleFullTable}
@@ -1047,14 +1048,7 @@ export default function WpblStatsView({
         <SubViewFallback />
       ) : rows.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
-          <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, mb: 0.5 }}>No stats yet</Typography>
-          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>
-            {qualified
-              ? (isNarrow
-                  ? 'Nobody has qualified yet. Sort, then Filter → Everyone, shows the whole roster.'
-                  : 'Nobody has qualified yet. Turn off Qualified to show the whole roster.')
-              : 'Stats fill in as games are played.'}
-          </Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700 }}>{qualified ? 'No qualified players' : 'No stats'}</Typography>
         </Box>
       ) : listView ? (
         // No inner scroller here, unlike the table: a vertical list inside a vertical page is

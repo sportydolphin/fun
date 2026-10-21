@@ -404,7 +404,7 @@ function Leaders({ s, leaders, loading, toPlayer }: {
           </Box>
         </Box>
       ) : (
-        <Typography sx={{ fontSize: META, color: 'text.secondary' }}>Box scores are not in yet.</Typography>
+        <Typography sx={{ fontSize: META, color: 'text.secondary' }}>No box scores</Typography>
       )}
     </Box>
   )

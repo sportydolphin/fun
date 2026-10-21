@@ -233,7 +233,7 @@ export function WpblGamePreview({ away, home, teams, games: allGames, onOpenTeam
     <LeaderTable away={away} home={home} awayLeaders={leaders.away} homeLeaders={leaders.home} onOpenPlayer={onOpenPlayer} rich />
   ) : (
     <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', textAlign: 'center', py: 2 }}>
-      Leaders appear once both clubs have played.
+      No data
     </Typography>
   )
 

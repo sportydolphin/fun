@@ -168,7 +168,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
   return (
     <WpblPage
       title="WPBL Players"
-      standfirst={<>Everyone who has played in the Women&rsquo;s Pro Baseball League, by club. {loading ? <TextGhost hidden>{LIKELY_APPEARED}</TextGhost> : appeared.length} in all.</>}
+      standfirst={<>{loading ? <TextGhost hidden>{LIKELY_APPEARED}</TextGhost> : appeared.length} players</>}
     >
       {/* THE ONE LINK ON THE SECTION TO THE COMPARISON PAGES, alongside the chip on a player's
           own card. They are deliberately out of the sitemap (see WPBL_COMPARE_BASE), so being

@@ -55,7 +55,7 @@ describe('the postseason on the scoreboard strip', () => {
     // An asterisk with no key beside it explains nothing, and the chip is too narrow to spell
     // it out. The words are in the markup and in a tooltip instead.
     expect(screen.getByText(/, if necessary/)).toBeTruthy()
-    expect(screen.getByTitle('Played only if the series is still alive')).toBeTruthy()
+    expect(screen.getByTitle('If needed')).toBeTruthy()
   })
 
   it('leaves the asterisk off a game that is certain', () => {

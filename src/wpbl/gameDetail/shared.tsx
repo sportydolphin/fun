@@ -125,11 +125,10 @@ export function StatCell({ children, bold = false, dense = false }: { children: 
   )
 }
 
-export function EmptyBody({ title, hint }: { title: string; hint: string }) {
+export function EmptyBody({ title }: { title: string }) {
   return (
     <Box sx={{ textAlign: 'center', py: 5, px: 2, color: 'text.secondary' }}>
-      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, mb: 0.5 }}>{title}</Typography>
-      <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>{hint}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700 }}>{title}</Typography>
     </Box>
   )
 }

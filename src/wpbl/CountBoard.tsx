@@ -55,29 +55,25 @@ export default function CountBoard({ counts, fullCount, accent }: {
   // leaderboard beside it did not.
   return (
     <Box sx={{ minWidth: 0 }}>
-      <SectionCard title="What every count is worth"
+      <SectionCard title="Run value by count"
         titleAdornment={<InfoDot text={[
           "Every plate appearance passes through a run of counts on its way to an outcome, starting at 0-0. A count's number is the average run value of every plate appearance that reached it, however it ended.",
           "So 0-0 is this league's average plate appearance, and every other count reads against it.",
           'The small number is how many plate appearances reached that count. Counts reached fewer than 25 times are left blank.',
+          'First pitch: the gap between 1-0 and 0-1. 3-2: the gap between ball four and strike three.',
         ]} />}>
-        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mb: 1.25, lineHeight: 1.6 }}>
-          {/* A GAP, SO NO SIGN. These two used to print "+0.13" and "+1.05" beside a grid whose
-              3-2 cell reads +0.14, and a signed number in that sentence reads as another cell. */}
-          {first != null && (
-            <>Ball or strike on the first pitch is a swing of <strong>{Math.abs(first).toFixed(2)}</strong>{' '}
-              runs, the gap between 1-0 and 0-1.</>
-          )}
-          {/* THE RANGE, WHICH IS THE POINT OF THE CARD. One pitch being worth a tenth of a run
-              reads as small until it is set beside the same pitch on 3-2, where the two
-              outcomes are a walk and a strikeout and it is worth eight times as much. That
-              cell cannot say so itself: 4-2 and 3-3 are not counts, so the grid stops one
-              pitch short of its own most interesting number. */}
-          {fullCount != null && (
-            <> On 3-2, where it is ball four or strike three, the swing is{' '}
-              <strong>{Math.abs(fullCount).toFixed(2)}</strong>.</>
-          )}
-        </Typography>
+        {/* THE TWO SWINGS, AS LABELED FIGURES (house rule, Oct 21, 2026: labels, not narration).
+            3-2 is the point of the card: one pitch is worth a tenth of a run until it is set
+            beside the same pitch on 3-2, where the outcomes are a walk and a strikeout. That cell
+            cannot say so itself, since 4-2 and 3-3 are not counts. NO SIGN on either: they are
+            gaps, and a signed number beside the grid reads as another cell. */}
+        {(first != null || fullCount != null) && (
+          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mb: 1.25, lineHeight: 1.6 }}>
+            {first != null && <>First pitch <strong>{Math.abs(first).toFixed(2)}</strong></>}
+            {first != null && fullCount != null && ' · '}
+            {fullCount != null && <>3-2 <strong>{Math.abs(fullCount).toFixed(2)}</strong></>}
+          </Typography>
+        )}
 
         <Box sx={{ display: 'grid', gridTemplateColumns: 'auto repeat(3, 1fr)', gap: 0.5 }}>
           <Box />
@@ -133,12 +129,11 @@ export default function CountBoard({ counts, fullCount, accent }: {
           ))}
         </Box>
 
-        {/* The two ends of the grid in words, because the one thing a reader should take from
-            this card is the size of the gap rather than any single cell. */}
+        {/* The two ends of the grid, because the one thing a reader should take from this card
+            is the size of the gap rather than any single cell. */}
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 1.25, lineHeight: 1.55 }}>
-          Best count for a hitter: <strong>{best.key}</strong> ({fmtRunValue(best.per, 2)}
-          {', '}{Math.round(best.walk * 100)}% walked). Worst: <strong>{worst.key}</strong>
-          {' '}({fmtRunValue(worst.per, 2)}, {Math.round(worst.strikeout * 100)}% struck out).
+          Best <strong>{best.key}</strong> {fmtRunValue(best.per, 2)}, {Math.round(best.walk * 100)}% BB
+          {' · '}Worst <strong>{worst.key}</strong> {fmtRunValue(worst.per, 2)}, {Math.round(worst.strikeout * 100)}% K
         </Typography>
       </SectionCard>
     </Box>

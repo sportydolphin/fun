@@ -189,7 +189,7 @@ export function PlayoffOddsBoard({ season, onTeamClick, highlightTeamId }: {
     return (
       <Box sx={{ textAlign: 'center', py: 8, px: 2 }}>
         <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.title }}>
-          Playoff odds run during the regular season and refresh every night.
+          Regular season only
         </Typography>
       </Box>
     )
@@ -206,7 +206,7 @@ function OddsBoardFrame({ rows, onTeamClick, highlightTeamId }: {
   return (
     <Box>
       <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mb: 2 }}>
-        Chance of reaching the postseason, from a nightly simulation of every remaining game. Updated each morning.
+        Postseason % · simulated nightly
       </Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
         <LeagueOddsCard label="American League" leagueId={103} rows={rows} onTeamClick={onTeamClick} highlightTeamId={highlightTeamId} />

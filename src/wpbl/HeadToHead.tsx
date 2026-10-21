@@ -51,7 +51,7 @@ export default function HeadToHead({ rows, games, onSelect, title = 'Head to hea
   }
 
   return (
-    <SectionCard title={title} subtitle="Each row's record against the columns">
+    <SectionCard title={title} subtitle="Row vs column">
       {/* Capped on a wide screen, and LEFT-aligned rather than centered. The grid is sized by
       what a phone can hold, and the matrix reads as a block so it should stay block-shaped.
       Centring the capped block is worse than either: it splits the leftover space either

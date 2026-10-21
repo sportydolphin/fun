@@ -72,7 +72,7 @@ export function eraFipContext(r: EraFipRow): string {
   const reason = r.reason.kind === 'unearned'
     ? `${r.reason.unearned} of ${r.reason.runs} runs unearned`
     : r.reason.kind === 'babip'
-      ? `${fmtRate(r.reason.babip)} on balls in play`
+      ? `BABIP ${fmtRate(r.reason.babip)}`
       // Label then value, like "FIP 5.20" beside it. Written out ("16.1% strikeouts, 12.5% walks")
       // it ran past a phone's row and cut the walk rate off mid-word.
       : `K ${fmtPct(r.reason.kPct)} · BB ${fmtPct(r.reason.bbPct)}`

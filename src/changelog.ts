@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.172.0',
+    date:    '2026-10-21',
+    changes: [
+      {
+        short: 'Labels, not explanations',
+        full:  "Boards, charts and empty states on both sections now name what they show. The intro lines and subtitles on Run value, Pitch by pitch, Tracked, Bests, Draft, the season recap and the standalone pages are gone; what a number means is behind the i beside its title. Draft's filters are All and 20+ PA, and its headline is the correlation, r. MLB's report cards are named by their stat (Wins Above Expected, Most Pitches per PA, Highest Salaries) without the tag beside each row, and the chart corners read LOW ERA · HIGH OPS and HIGH PAYROLL · .500+. An empty board says No data, No plays or No games.",
+      },
+    ],
+  },
+  {
     version: '1.171.0',
     date:    '2026-10-16',
     changes: [

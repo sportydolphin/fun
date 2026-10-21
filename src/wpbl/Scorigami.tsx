@@ -203,15 +203,11 @@ export default function WpblScorigami({ onOpenGame }: {
   return (
     <WpblPage
       title="WPBL Scorigami"
-      standfirst={<>
-        Every final score in the Women&rsquo;s Pro Baseball League, postseason included: winning
-        score down the side, losing score across the top. Tap a square to open the game.
-      </>}
+      // The axes as a legend, not a sentence about the page (house rule, Oct 21, 2026).
+      standfirst="Rows: winning score · Columns: losing score · Postseason included"
     >
       {!hasData && (
-        <Typography sx={{ color: 'text.secondary' }}>
-          The grid fills in here once games go final.
-        </Typography>
+        <Typography sx={{ color: 'text.secondary' }}>No games</Typography>
       )}
 
       {hasData && (
@@ -424,7 +420,7 @@ export default function WpblScorigami({ onOpenGame }: {
             </Box>
           ))}
           <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.3 }}>
-            {clubColors ? 'Winner lower left.' : 'A number means the score happened more than once.'}
+            {clubColors ? 'Lower left: winner' : 'Number: times the score happened'}
           </Typography>
         </Box>
       )}

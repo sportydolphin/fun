@@ -13,7 +13,7 @@ export function TeamsView({ teams, games, selected, onSelect, onOpenGame, onOpen
                 opts?: Pick<WpblStatsFocus, 'mode' | 'teamId' | 'qualified'>) => void
 }) {
   if (teams.length === 0) {
-    return <EmptyState title="No teams yet" hint="The four inaugural teams appear here once added." />
+    return <EmptyState title="No teams" />
   }
 
   // Full team page (results, totals, leaders, roster with inline stats).

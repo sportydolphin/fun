@@ -28,6 +28,11 @@ Violating these creates real problems. Treat them as hard constraints.
 - **American English, never British:** color, center, favorite, recognize, canceled, labeled,
   license (the noun too), behavior. In UI copy, comments, commit messages, docs and the changelog.
   Identifiers and data values stay as they are: MLB's `'Cancelled'` status, `aria-labelledby`.
+- **Copy is matter of fact: labels, not narration.** Name a stat, chart or filter the way a stat
+  table does ("Qualified", "OBP vs SLG", "No data"); never describe it in prose ("Regulars only",
+  "Everyone who played", "On base and power"). No subtitles or intro sentences explaining a page,
+  board or chart. A definition, when needed, goes in an `InfoDot` (`SectionHeading`'s `info` on a
+  WPBL page) and reads as a definition. UI copy, empty states, tooltips and the changelog (Oct 21, 2026).
 - **WPBL is baseball, not softball.** ⚾ never 🥎. It is the *Women's Pro Baseball League*,
   a full pro league. No gender stereotypes, no softball framing, anywhere.
 - **A name that does not fit shortens to "F. Last"; it is never cut off mid-name.** "K. Whitmore",

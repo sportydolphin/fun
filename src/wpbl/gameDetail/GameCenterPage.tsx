@@ -237,7 +237,7 @@ export function GameCenterPage({
         />
       ) : final ? (
         <Box sx={{ ...cardSx, p: 2 }}>
-          <EmptyBody title="Box score not available yet" hint="The feed has not posted a box score for this game." />
+          <EmptyBody title="No box score" />
           {videos.length > 0 && <Box sx={{ mt: 2 }}><GameHighlightCards videos={videos} /></Box>}
           <GameClips gameId={game.id} />
         </Box>
@@ -260,7 +260,7 @@ export function GameCenterPage({
         />
       ) : (
         <Box sx={{ ...cardSx, p: 2 }}>
-          <EmptyBody title="This game has not been played yet" hint="Check back after first pitch." />
+          <EmptyBody title="Not played" />
         </Box>
       )}
     </Box>

@@ -41,7 +41,7 @@ export default function PitchingUsage({
     return (
       <SectionCard collapsed={collapsed} onToggleCollapse={onToggleCollapse} title="Pitching usage" subtitle="Every game">
         <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>
-          No pitching recorded yet.
+          No pitching
         </Typography>
       </SectionCard>
     )

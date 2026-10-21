@@ -117,7 +117,7 @@ export default function TakeSwingBoard({ rows, side, accent, isNarrow, expanded,
     <Box sx={{ minWidth: 0 }}>
       <SectionCard title="Taking and swinging"
         titleAdornment={<InfoDot text={[
-          'Every pitch is worth what it did to the count: a ball that turns 1-1 into 2-1 is worth the 2-1 value minus the 1-1 value, from What every count is worth. The last pitch is worth however the plate appearance ended, minus the count it was thrown in.',
+          'Every pitch is worth what it did to the count: a ball that turns 1-1 into 2-1 is worth the 2-1 value minus the 1-1 value, from Run value by count. The last pitch is worth however the plate appearance ended, minus the count it was thrown in.',
           pitching
             ? 'Took adds up every pitch the batter did not swing at, hit by pitch included, and Swung adds up the rest. The signs are flipped for a pitcher, so bigger is better in both, and the two add up to the season total on Best run value.'
             : 'Took adds up every pitch the hitter did not swing at, hit by pitch included, and Swung adds up the rest. The two add up to the season total on Best run value.',

@@ -48,11 +48,10 @@ function BestTile({ label, value, unit, name, accent }: {
   )
 }
 
-function EmptyState({ title, hint }: { title: string; hint?: string }) {
+function EmptyState({ title }: { title: string }) {
   return (
     <Box sx={{ textAlign: 'center', py: 5, px: 2, color: 'text.secondary' }}>
-      <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 700, mb: 0.5 }}>{title}</Typography>
-      {hint && <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>{hint}</Typography>}
+      <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 700 }}>{title}</Typography>
     </Box>
   )
 }
@@ -126,25 +125,32 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
   }
   if (!board || board.pitchCount === 0) {
-    return <EmptyState title="No tracking data yet" hint="Velocity, spin, and exit-velocity leaders appear here once games are played." />
+    return <EmptyState title="No tracking data" />
   }
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {/* Coverage disclaimer: pinned to the top, restated whenever the tracked-game count changes */}
+      {/* Coverage disclaimer: pinned to the top, restated whenever the tracked-game count changes.
+          A label and a count, with the why behind the info dot (house rule, Oct 21, 2026: labels,
+          not narration). It was a paragraph in first person until then. */}
       <Box sx={{
-        display: 'flex', alignItems: 'flex-start', gap: 1.25, p: 1.5, borderRadius: 2,
+        display: 'flex', alignItems: 'center', gap: 1.25, p: 1.5, borderRadius: 2,
         border: '1px solid', borderColor: edge(accent),
         background: `linear-gradient(135deg, ${accent}26 0%, ${accent}0d 70%)`,
       }}>
-        <Box sx={{ fontSize: ICON_SIZE.md, lineHeight: 1, flexShrink: 0, mt: '1px' }}>⚠️</Box>
-        <Box sx={{ minWidth: 0 }}>
+        <Box aria-hidden sx={{ fontSize: ICON_SIZE.md, lineHeight: 1, flexShrink: 0 }}>⚠️</Box>
+        <Box sx={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
           <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: accent }}>
             Partial tracking data
           </Typography>
-          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.45, mt: 0.25 }}>
-            We only have tracking data for the first {board.gameCount} {board.gameCount === 1 ? 'game' : 'games'} of the season, and even those are incomplete. The in-park radar can't reliably track balls hit out of the field, so home runs often show up with no distance or exit velocity and won't rank on these boards. We'll add more as the league posts it.
+          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
+            {board.gameCount} {board.gameCount === 1 ? 'game' : 'games'}
           </Typography>
+          <InfoDot text={[
+            `Tracking from the league's in-park radar, for the first ${board.gameCount} ${board.gameCount === 1 ? 'game' : 'games'} of the season only, and incomplete within those.`,
+            'The radar cannot follow a ball out of the field, so home runs often have no distance or exit velocity and do not rank here.',
+            'Some pitches carry no pitcher when the feed omits the name.',
+          ]} />
         </Box>
       </Box>
 
@@ -162,7 +168,7 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
             'Only the games the league has published radar readings for are counted.',
           ]} />}>
             {board.veloLeaders.length === 0
-              ? <EmptyState title="No velocity data yet" />
+              ? <EmptyState title="No velocity data" />
               : board.veloLeaders.slice(0, 10).map((l: VeloLeader, i, top) => (
                   <LeaderRow key={l.player?.id ?? l.name} {...leaderPlaces(top.map(x => fmtSpeed(x.maxVelo, units)))[i]} player={l.player} name={l.name} teamId={l.teamId}
                     value={fmtSpeed(l.maxVelo, units)} unit={speedUnit(units)} sub={`avg ${fmtSpeed(l.avgVelo, units)} · ${l.count} pitches`} accent={accent} onOpen={onOpenPlayer} />
@@ -184,7 +190,7 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
       ) : (
         <>
           {board.hitCount === 0 ? (
-            <EmptyState title="No batted-ball data yet" hint="Exit velocity and distance leaders appear once balls are put in play." />
+            <EmptyState title="No batted-ball data" />
           ) : (
             <>
               <SectionCard bare title="Hardest-hit balls" titleAdornment={<InfoDot text={[
@@ -214,10 +220,6 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
           )}
         </>
       )}
-
-      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', textAlign: 'center', px: 2 }}>
-        Pitch and batted-ball tracking from the official league feed. Some pitches are not attributed to a pitcher when the feed omits the name.
-      </Typography>
     </Box>
   )
 }

@@ -935,8 +935,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
       {noStats ? (
         <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2 }}>
           <Box sx={{ textAlign: 'center', py: 5, color: 'text.secondary' }}>
-            <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, mb: 0.5 }}>No stats yet</Typography>
-            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>Season totals appear here once this player logs a game.</Typography>
+            <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700 }}>No stats</Typography>
           </Box>
           <FanPhotoPlayerStrip playerId={player.id} players={players} />
           <PlayerClips playerId={player.id} />

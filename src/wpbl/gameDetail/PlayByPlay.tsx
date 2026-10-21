@@ -366,7 +366,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
   }, [groups, linkHash])
 
   if (plays.length === 0) {
-    return <EmptyBody title="No play-by-play yet" hint="The feed's play log appears here once the game begins." />
+    return <EmptyBody title="No play-by-play" />
   }
   return (
     /* A MEASURE, because this is a list and a list has nothing to spend extra width on.

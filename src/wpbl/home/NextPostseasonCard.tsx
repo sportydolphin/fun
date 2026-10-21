@@ -125,7 +125,7 @@ export function NextPostseasonCard({ rows, teams, games }: {
             true (see the note on `next`). Say so plainly so "Next game" is not read as a promise. */}
         {r.ifNecessary && (
           <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, color: 'text.secondary', lineHeight: 1.4, mt: 0.4 }}>
-            Only played if the series is still alive.
+            If needed
           </Typography>
         )}
 
@@ -135,7 +135,7 @@ export function NextPostseasonCard({ rows, teams, games }: {
             it prints them in is a guess. */}
         {r.seedOrderTbd && (
           <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, color: 'text.secondary', lineHeight: 1.4, mt: 0.4 }}>
-            These two play each other. Which of them is the higher seed is still to be settled.
+            Seeding TBD
           </Typography>
         )}
 

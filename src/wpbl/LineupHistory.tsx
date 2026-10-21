@@ -40,7 +40,7 @@ export default function LineupHistory({
     return (
       <SectionCard collapsed={collapsed} onToggleCollapse={onToggleCollapse} title="Lineup history" subtitle="Every game">
         <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>
-          No lineups recorded yet.
+          No lineups
         </Typography>
       </SectionCard>
     )

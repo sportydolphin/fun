@@ -51,7 +51,7 @@ export function LeagueCard() {
           About the league
         </Typography>
         <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 0.25 }}>
-          How it works, the four clubs, and where the players are from.
+          Format, clubs, countries
         </Typography>
       </Box>
       <Box aria-hidden sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.display, flexShrink: 0 }}>›</Box>

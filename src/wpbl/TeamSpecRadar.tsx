@@ -435,7 +435,7 @@ export function TeamSpecDetail({ specs, teamId, selected, kLabel, scaleK, onClea
           <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'text.secondary' }}>{high.worst.label}</Typography>
         </>
       ) : (
-        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Even across all six.</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Even</Typography>
       )}
       {/* Says the chart is tappable, which nothing else on it does. Drops away the moment a
           reader has tapped once, because by then they know. */}
@@ -506,8 +506,8 @@ export function TeamSpecPlaceholder({ minGames, ready = true }: { minGames: numb
         {waiting
           ? 'Loading.'
           : minGames == null
-            ? `Appears once every club has played ${TEAM_SPEC_MIN_GAMES} games.`
-            : `Appears once every club has played ${TEAM_SPEC_MIN_GAMES} games. The league is on ${minGames}.`}
+            ? `Min. ${TEAM_SPEC_MIN_GAMES} G per club`
+            : `Min. ${TEAM_SPEC_MIN_GAMES} G per club · League: ${minGames}`}
       </Typography>
     </Box>
   )

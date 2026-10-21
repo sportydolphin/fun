@@ -665,19 +665,19 @@ export interface MlbMoreRow {
  * of their own: each is a sheet over a tab, and a path would make it a page.
  */
 export const MLB_MORE: readonly MlbMoreRow[] = [
-  { key: 'predictions', group: 'Play',      href: `${MLB_BASE}?open=predictor`,   label: 'Predictions',      hint: 'Pick the winners, against the bots' },
-  { key: 'survivor',    group: 'Play',      href: `${MLB_BASE}?open=survivor`,    label: 'Streak Survivor',  hint: 'One hitter a day: the leaderboard' },
-  { key: 'report-cards', group: 'Trackers', href: MLB_VIEW_PATHS.reportCards,     label: 'Report cards',     hint: 'Hot streaks, frauds, the oldest rosters and more', page: true },
-  { key: 'milestones',  group: 'Trackers',  href: `${MLB_BASE}?open=milestones`,  label: 'Milestone Watch',  hint: 'Who is closing in on a round number' },
+  { key: 'predictions', group: 'Play',      href: `${MLB_BASE}?open=predictor`,   label: 'Predictions',      hint: 'Pick winners vs bots' },
+  { key: 'survivor',    group: 'Play',      href: `${MLB_BASE}?open=survivor`,    label: 'Streak Survivor',  hint: 'One hitter a day' },
+  { key: 'report-cards', group: 'Trackers', href: MLB_VIEW_PATHS.reportCards,     label: 'Report cards',     hint: 'Streaks, Pythagorean record, roster age', page: true },
+  { key: 'milestones',  group: 'Trackers',  href: `${MLB_BASE}?open=milestones`,  label: 'Milestone Watch',  hint: 'Career milestones in reach' },
   { key: 'moves',       group: 'Trackers',  href: `${MLB_BASE}?open=rosterMoves`, label: 'Roster moves',     hint: 'Trades, signings, call-ups and DFAs' },
   { key: 'bracket',     group: 'Standings', href: `${MLB_VIEW_PATHS.standings}?open=bracket`, label: 'Postseason bracket', hint: 'Every series, game by game' },
   { key: 'odds',        group: 'Standings', href: `${MLB_VIEW_PATHS.standings}?open=odds`,    label: 'Playoff odds',       hint: 'Every club, simulated nightly' },
-  { key: 'charts',      group: 'Standings', href: MLB_VIEW_PATHS.viz,             label: 'Charts & payroll', hint: 'Run differential, ERA vs OPS, payroll vs wins', page: true },
+  { key: 'charts',      group: 'Standings', href: MLB_VIEW_PATHS.viz,             label: 'Charts & payroll', hint: 'Run differential, ERA vs OPS, payroll vs win%', page: true },
   // The event's name restated rather than imported, since this file imports nothing (EVENTS in
   // lib/analytics.ts has it as MLB_COMPARE_OPENED).
-  { key: 'compare',     group: 'Tools',     href: MLB_COMPARE_BASE,               label: 'Compare players',  hint: 'Two players side by side, and how they did against each other', page: true,
+  { key: 'compare',     group: 'Tools',     href: MLB_COMPARE_BASE,               label: 'Compare players',  hint: 'Two players, side by side, head to head', page: true,
     event: 'mlb_compare_opened', eventProps: { from: 'more' } },
-  { key: 'glossary',    group: 'Tools',     href: MLB_GLOSSARY_PAGE,              label: 'Rules & glossary', hint: 'The rules, and what each stat means', page: true },
+  { key: 'glossary',    group: 'Tools',     href: MLB_GLOSSARY_PAGE,              label: 'Rules & glossary', hint: 'Rules, stat definitions', page: true },
 ]
 
 /** The More rows that are pages, for the site footer, which must link only to real pages. */

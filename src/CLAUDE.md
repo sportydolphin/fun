@@ -11,7 +11,7 @@ Loaded when you read anything under `src/`. The section-specific traps are in `s
   chart is a jump. Where the shape depends on data nothing has yet, reserve the most likely
   shape; the calendar alone can tell the offseason (`offseasonByCalendar`). **Measure it; don't
   judge it by eye.** Load with `?devSlowMount=3000` (the static bar) or `?devSlow=2500` (the
-  skeletons; 8s trips the request timeout and shows "No teams yet"), see
+  skeletons; 8s trips the request timeout and shows "No teams"), see
   [`src/dev/slowLoad.ts`](dev/slowLoad.ts), and compare element rects against the loaded
   page at 375, 760, 960 and 1440. A hidden browser pane records no layout-shift entries, so
   compare rects rather than trusting CLS. It also fires no `requestAnimationFrame`, even while it

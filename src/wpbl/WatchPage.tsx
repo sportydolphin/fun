@@ -103,12 +103,12 @@ export default function WatchPage({ onOpenGame }: {
 
   return (
     // Wide, like Reading: game cards lay out three across on a desktop and clips six.
-    // The standfirst is kept to what a phone can take in three lines: it sits between the reader
-    // and the first video, and at four lines it was pushing the first poster below the fold.
+    // The standfirst is the credit and nothing else (house rule, Oct 21, 2026: labels, not
+    // narration): it sits between the reader and the first video.
     <WpblPage title="Watch" maxWidth="72rem" standfirst={<>
-      Every game on video, and every clip the league has posted. Condensed games by{' '}
+      Condensed games:{' '}
       <Box component="a" href="https://www.youtube.com/@wpblfanrecaps" target="_blank" rel="noopener noreferrer"
-        sx={{ color: 'inherit', fontWeight: 700 }}>WPBL from Day 1</Box>, with permission.
+        sx={{ color: 'inherit', fontWeight: 700 }}>WPBL from Day 1</Box>, with permission
     </>}>
       <Box>
         {videos == null ? (

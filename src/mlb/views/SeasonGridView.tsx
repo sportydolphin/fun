@@ -317,7 +317,6 @@ export function SeasonGridView({
           club != null ? (TEAM_NICKNAME[club] ?? null) : null,
           gameScope === 'post' ? `${vizSeason} playoffs` : gameScope === 'all' ? `${vizSeason} season + playoffs` : `${vizSeason} season`,
         ].filter(Boolean).join(' · ')}
-        {isDesktop ? ' · sort by any column heading' : ''}
       </Typography>
       {/* The way between the list and the grid on a phone, Players' switch. */}
       {!isDesktop && (
@@ -428,9 +427,9 @@ export function SeasonGridView({
           </Box>
         ) : ranked.length === 0 ? (
           <Typography sx={{ textAlign: 'center', py: 6, color: 'text.secondary', fontSize: TYPE_SCALE.body }}>
-            {canQualify && qualified ? 'Nobody has qualified here yet. Sort, then Filter → Everyone, shows everyone.'
-              : gameScope === 'post' ? `No playoff games in ${vizSeason}${vizSeason >= CURRENT_SEASON ? ' yet' : ''}.`
-              : 'No games in this season yet.'}
+            {canQualify && qualified ? 'No qualified players'
+              : gameScope === 'post' ? `No ${vizSeason} playoff games`
+              : 'No games'}
           </Typography>
         ) : (
           // Keyed on everything that reorders or repopulates it, so "Show all" closes again.
@@ -518,9 +517,9 @@ export function SeasonGridView({
           </Box>
           {!loading && ranked.length === 0 && (
             <Typography sx={{ textAlign: 'center', py: 4, color: 'text.secondary', fontSize: TYPE_SCALE.body }}>
-              {canQualify && qualified ? 'Nobody has qualified here yet. Turn off Qualified to see everyone.'
-                : gameScope === 'post' ? `No playoff games in ${vizSeason}${vizSeason >= CURRENT_SEASON ? ' yet' : ''}.`
-                : 'No games in this season yet.'}
+              {canQualify && qualified ? 'No qualified players'
+                : gameScope === 'post' ? `No ${vizSeason} playoff games`
+                : 'No games'}
             </Typography>
           )}
           {(loading ? !teams : canCap) && (

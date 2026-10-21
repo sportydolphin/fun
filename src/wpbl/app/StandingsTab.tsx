@@ -73,7 +73,7 @@ export function StandingsView({ teams, games: allGames, onOpenTeam }: {
       : 'Before opening day'
   })()
   if (teams.length === 0) {
-    return <EmptyState title="No teams yet" hint="Standings appear once teams and results are added." />
+    return <EmptyState title="No teams" />
   }
   const played = games.some(g => g.status === 'final')
   const clickable = !!onOpenTeam
@@ -205,7 +205,7 @@ export function StandingsView({ teams, games: allGames, onOpenTeam }: {
       </Box>
       {!played && (
         <Box sx={{ px: 1.5, py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>No games played yet. Records update as results are added.</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>No games</Typography>
         </Box>
       )}
       {/* THE DIVIDERS, over the rows rather than on them. One line at the top of each slot, so

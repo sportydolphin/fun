@@ -322,7 +322,7 @@ const ROUTES: Record<string, Seo> = {
       'MLB in charts: every club\'s run differential against its record, ERA against OPS, and payroll against wins.',
   },
   [MLB_VIEW_PATHS.reportCards]: {
-    title: 'MLB Report Cards: hot streaks, frauds and the oldest rosters | sportydolphin.fun',
+    title: 'MLB Report Cards: streaks, wins above expected and roster ages | sportydolphin.fun',
     description:
       'MLB report cards: the longest active hitting and scoreless streaks, the clubs winning more than their scoring says, the hardest schedules left, the oldest rosters and the biggest payrolls.',
   },

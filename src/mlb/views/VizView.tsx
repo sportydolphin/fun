@@ -177,40 +177,40 @@ export function VizView({
     return () => { cancelled = true }
   }, [vizSeason, showSos])
 
-  const fraudTooltip = 'How many more games a team has won than its scoring says it should. The bar weighs the standings in too, so a contender getting lucky ranks above a last-place team with the same gap. They\'re fooling more people.'
-  const cursedTooltip = 'How many fewer games a team has won than its scoring says it should. The bar weighs the standings in too, so a last-place team getting robbed ranks above a contender with the same gap. A contender is still fine.'
+  const fraudTooltip = 'Wins above the Pythagorean record: the wins a team\'s runs scored and allowed predict. Ranked by that gap times win%, so a contender ranks above a last-place team with the same gap.'
+  const cursedTooltip = 'Wins below the Pythagorean record: the wins a team\'s runs scored and allowed predict. Ranked by that gap times losing %, so a last-place team ranks above a contender with the same gap.'
 
   // ─── Report Card boards: every leaderboard follows the same shape ────────
   const boards: Board[] = [
     {
-      id: 'fraud', icon: '🚨', title: 'Top Frauds', accent: '#f97316',
-      subtitle: 'Winning more than their scoring predicts', tooltipText: fraudTooltip,
+      id: 'fraud', icon: '📈', title: 'Wins Above Expected', accent: '#f97316',
+      subtitle: 'vs Pythagorean record', tooltipText: fraudTooltip,
       rows: buildFraudRows(teamSummaries, nameMap, 'fraud'), loading: loadingViz,
     },
     {
-      id: 'cursed', icon: '💀', title: 'Most Cursed', accent: '#818cf8',
-      subtitle: 'Losing more than their scoring predicts', tooltipText: cursedTooltip,
+      id: 'cursed', icon: '📉', title: 'Wins Below Expected', accent: '#818cf8',
+      subtitle: 'vs Pythagorean record', tooltipText: cursedTooltip,
       rows: buildFraudRows(teamSummaries, nameMap, 'cursed'), loading: loadingViz,
     },
     ...(showSos ? [
       {
         id: 'oldest', icon: '👴', title: 'Oldest Rosters', accent: '#f97316',
-        subtitle: 'Highest avg roster age',
+        subtitle: 'Avg age',
         rows: buildAgeRows(ageEntries, nameMap, 'oldest'), loading: loadingAges,
       },
       {
         id: 'youngest', icon: '🌱', title: 'Youngest Rosters', accent: '#22c55e',
-        subtitle: 'Lowest avg roster age',
+        subtitle: 'Avg age',
         rows: buildAgeRows(ageEntries, nameMap, 'youngest'), loading: loadingAges,
       },
       {
         id: 'hardest', icon: '⚔️', title: 'Hardest Schedules', accent: '#ef4444',
-        subtitle: 'Toughest remaining opponents',
+        subtitle: 'Remaining opp. win%',
         rows: buildSosRows(sosData, 'hardest'), loading: loadingSos,
       },
       {
         id: 'easiest', icon: '🏖️', title: 'Easiest Schedules', accent: '#22c55e',
-        subtitle: 'Softest remaining opponents',
+        subtitle: 'Remaining opp. win%',
         rows: buildSosRows(sosData, 'easiest'), loading: loadingSos,
       },
     ] : []),
@@ -219,12 +219,12 @@ export function VizView({
     ...(showSos ? [
       {
         id: 'highest-payroll', icon: '💰', title: 'Highest Payrolls', accent: '#eab308',
-        subtitle: '2026 estimated payroll spend',
+        subtitle: '2026 est. payroll',
         rows: buildPayrollRows(TEAM_PAYROLLS_2026, nameMap, 'highest'), loading: false,
       },
       {
         id: 'lowest-payroll', icon: '🪙', title: 'Lowest Payrolls', accent: '#22c55e',
-        subtitle: '2026 estimated payroll spend',
+        subtitle: '2026 est. payroll',
         rows: buildPayrollRows(TEAM_PAYROLLS_2026, nameMap, 'lowest'), loading: false,
       },
     ] : []),
@@ -234,50 +234,50 @@ export function VizView({
 
   // ─── Player report cards: active streaks (current season only) ────────────
   // Both pitch boards share the "who counts as qualified" line
-  const QUALIFIED_NOTE = 'Only counts regulars with enough playing time to qualify for a league leaderboard.'
+  const QUALIFIED_NOTE = 'Qualified hitters only.'
 
   const playerBoards: PlayerBoard[] = [
     ...(showSos ? [{
       id: 'hit-streak', icon: '🔥', title: 'Hitting Streaks', accent: '#f97316',
-      subtitle: 'Longest active hitting streaks',
+      subtitle: 'Active',
       tooltipText: 'Games in a row with at least one hit. A game with no official at-bat (all walks or hit by pitches) doesn\'t break the streak.',
       rows: buildStreakRows(streaks?.hitting ?? [], 'hitting'), loading: loadingStreaks,
     },
     {
       id: 'scoreless', icon: '🧊', title: 'Scoreless Streaks', accent: '#38bdf8',
-      subtitle: 'Longest active scoreless-inning runs',
+      subtitle: 'Active',
       tooltipText: 'Innings a pitcher has thrown since the last run they gave up. Counted in whole outings, so the streak starts at their first clean appearance after it.',
       rows: buildStreakRows(streaks?.scoreless ?? [], 'scoreless'), loading: loadingStreaks,
     },
     {
       id: 'hitless', icon: '🥶', title: 'Hitless Streaks', accent: '#a78bfa',
-      subtitle: 'Longest active hitless droughts',
-      tooltipText: 'Trips to the plate a hitter has gone without a hit. The cold flip side of the hitting streaks board. Games with no official at-bat are skipped.',
+      subtitle: 'Active',
+      tooltipText: 'Trips to the plate a hitter has gone without a hit. Games with no official at-bat are skipped.',
       rows: buildStreakRows(streaks?.hitless ?? [], 'hitless'), loading: loadingStreaks,
     },
     {
-      id: 'games-played', icon: '🦾', title: 'Iron Men', accent: '#eab308',
-      subtitle: 'Longest active games-played streaks',
-      tooltipText: 'Games a player has appeared in without ever sitting one out, carried across seasons. A trade doesn\'t break it. A "+" means the run reaches back further than we searched, so it\'s even longer than shown.',
+      id: 'games-played', icon: '🦾', title: 'Games-Played Streaks', accent: '#eab308',
+      subtitle: 'Active',
+      tooltipText: 'Games a player has appeared in without ever sitting one out, carried across seasons. A trade doesn\'t break it. A "+" means the streak reaches back past the seasons searched, so the real streak is longer.',
       rows: buildStreakRows(streaks?.gamesPlayed ?? [], 'gamesPlayed'), loading: loadingStreaks,
     },
     {
-      id: 'top-salary', icon: '🤑', title: 'Top Earners', accent: '#10b981',
-      subtitle: `Highest ${vizSeason} salaries`,
+      id: 'top-salary', icon: '🤑', title: 'Highest Salaries', accent: '#10b981',
+      subtitle: `${vizSeason}`,
       tooltipText: `Each player's salary for the ${vizSeason} season, straight from their contract. This is the money paid this year, so a backloaded or deferred deal can rank differently than its headline average annual value.`,
       rows: buildSalaryRows(salaries), loading: loadingSalaries,
     }] : []),
     // Plain season rates, so unlike the streak boards these render for past seasons too
     {
-      id: 'pitches-most', icon: '⏳', title: 'Grinders', accent: '#14b8a6',
-      subtitle: 'Most pitches seen per plate appearance',
-      tooltipText: `Pitches a hitter sees per trip to the plate. The hitters who foul balls off and work deep counts, wearing pitchers down. ${QUALIFIED_NOTE}`,
+      id: 'pitches-most', icon: '⏳', title: 'Most Pitches per PA', accent: '#14b8a6',
+      subtitle: 'Qualified',
+      tooltipText: `Pitches a hitter sees per trip to the plate. ${QUALIFIED_NOTE}`,
       rows: buildPitchPaRows(pitchPa, 'most'), loading: loadingPitchPa,
     },
     {
-      id: 'pitches-fewest', icon: '⚡', title: 'Free Swingers', accent: '#f43f5e',
-      subtitle: 'Fewest pitches seen per plate appearance',
-      tooltipText: `Pitches a hitter sees per trip to the plate, lowest in the league. These hitters jump on an early strike instead of working the count. ${QUALIFIED_NOTE}`,
+      id: 'pitches-fewest', icon: '⚡', title: 'Fewest Pitches per PA', accent: '#f43f5e',
+      subtitle: 'Qualified',
+      tooltipText: `Pitches a hitter sees per trip to the plate, lowest first. ${QUALIFIED_NOTE}`,
       rows: buildPitchPaRows(pitchPa, 'fewest'), loading: loadingPitchPa,
     },
   ]
@@ -292,7 +292,7 @@ export function VizView({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
           {!cards && <>
           <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.body, color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>
-            All 30 teams · click to focus · hover to inspect
+            All 30 teams
           </Typography>
 
           {vizHighlightId != null ? (
@@ -391,32 +391,29 @@ export function VizView({
 
           {/* ERA vs OPS */}
           <Box sx={{ pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-              <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.heading, letterSpacing: typePx(-0.3) }}>Pitching vs Hitting</Typography>
-              <InfoDot label="What this shows" text="Each bubble is a team plotted by their pitching quality (ERA, vertical) vs their hitting power (OPS, horizontal). Lower ERA = better pitching, so the top of the chart is elite pitching. Higher OPS = better hitting, so the right side is elite offense. The quadrants label each team style, so top-right teams have both elite pitching and elite hitting." />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5 }}>
+              <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.heading, letterSpacing: typePx(-0.3) }}>ERA vs OPS</Typography>
+              <InfoDot label="What this shows" text="One bubble per team: team ERA up the side, inverted so lower is higher, and team OPS across. The dashed lines are the league averages, so top right is better than average at both." />
             </Box>
-            <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.meta, mb: 1.5 }}>How good a team's pitching and hitting are · top-right = best of both</Typography>
             {teamSummaries.length ? <TeamEraOpsPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
           </Box>
 
           {/* Wins vs Run Margin */}
           <Box sx={{ pt: { xs: 3, md: 0 }, pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-              <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.heading, letterSpacing: typePx(-0.3) }}>Wins vs Run Margin</Typography>
-              <InfoDot label="What this shows" text="Each bubble is a team's actual win% plotted against their run margin (runs scored minus runs allowed). The blue dashed curve is the expected win rate. Teams above the curve are winning more than their scoring predicts. Teams below are underperforming. Hover a team to see their actual record vs expected W-L." />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5 }}>
+              <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.heading, letterSpacing: typePx(-0.3) }}>Win% vs Run Differential</Typography>
+              <InfoDot label="What this shows" text="One bubble per team: win% up the side, run differential (runs scored minus runs allowed) across. The blue dashed curve is the Pythagorean win%, the record that run differential predicts; above it is more wins than predicted." />
             </Box>
-            <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.meta, mb: 1.5 }}>Actual record vs expected W-L based on scoring · above the curve = outperforming</Typography>
             {teamSummaries.length ? <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
           </Box>
 
           {/* Payroll vs Performance, current season only */}
           {current && (
             <Box sx={{ pt: { xs: 3, md: 0 }, pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-                  <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.heading, letterSpacing: typePx(-0.3) }}>Payroll vs Performance</Typography>
-                  <InfoDot label="What this shows" text="Each bubble is a team's estimated payroll plotted against their current win percentage. The purple dashed line is the league's average efficiency. Teams above the line are outperforming their payroll. The quadrants show Moneyball (low spend, winning), All-In (high spend, winning), Rebuilding (low spend, losing), and Burning $$$ (high spend, losing)." />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5 }}>
+                  <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.heading, letterSpacing: typePx(-0.3) }}>Payroll vs Win%</Typography>
+                  <InfoDot label="What this shows" text="One bubble per team: win% up the side, estimated payroll across. The dashed lines are the median payroll and .500; the purple line is the league's trend, the win% a payroll predicts, so above it is more wins than the payroll predicts." />
                 </Box>
-                <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.meta, mb: 1.5 }}>{vizSeason} estimated payroll vs current win% · above the dashed line = best value</Typography>
                 {teamSummaries.length ? <PayrollWinsPlot data={teamSummaries} payrolls={payrolls} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
               </Box>
           )}
@@ -424,7 +421,7 @@ export function VizView({
       ))}
 
       {!loadingViz && teamSummaries.length === 0 && (
-        <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>No team stats available for {vizSeason}.</Typography>
+        <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>No data</Typography>
       )}
 
       {/* ── Report Card fullscreen modal, shared by every board ──────────── */}

@@ -209,7 +209,7 @@ export function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenT
     return next?.game_date ?? games[games.length - 1]?.game_date ?? null
   }, [games])
   if (games.length === 0) {
-    return <EmptyState title="No games scheduled yet" hint="The 2026 schedule loads here once it is added." />
+    return <EmptyState title="No games" />
   }
   const byDate = new Map<string, WpblGame[]>()
   for (const g of games) {

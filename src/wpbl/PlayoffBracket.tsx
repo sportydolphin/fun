@@ -753,11 +753,9 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, onOpenPlayer, 
           because it explains something already on screen, where the sentence after it explains a
           number. The glyph is the literal '*' seriesDateLine writes and not a lookalike: a key set
           in a different character from the mark it explains is a key for something else. */}
-          {showAsterisk && '* Played only if the series needs it. '}
-          {odds && !bracket.champion && (
-            <>Odds blend each club’s run differential with its head-to-head results, then
-            play the bracket out to a champion.</>
-          )}
+          {showAsterisk && '* If needed'}
+          {showAsterisk && odds && !bracket.champion && ' · '}
+          {odds && !bracket.champion && 'Odds: run differential and head-to-head, bracket simulated'}
         </Typography>
       )}
     </SectionCard>

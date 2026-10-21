@@ -155,7 +155,7 @@ function SeasonStrip({ player, lines, games }: { player: WpblPlayer; lines: Line
         // Two lines tall, the strip's own height, so a birthday pick who never played does not
         // shorten the card under the reader.
         <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.3, minHeight: '2.6em', display: 'flex', alignItems: 'center' }}>
-          {season != null ? `Did not appear in a ${season} game.` : 'Did not appear in a game.'}
+          {season != null ? `No ${season} games` : 'No games'}
         </Typography>
       ) : (
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: 0.5 }}>

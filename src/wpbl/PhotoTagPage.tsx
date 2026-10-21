@@ -271,7 +271,7 @@ export default function PhotoTagPage() {
 
   return (
     <WpblPage title="Who's in this photo?"
-      standfirst="Fans sent in photos from the first season. Pick everyone you recognize; every name is checked before it goes up.">
+      standfirst="Pick everyone you recognize. Every name is checked before it goes up.">
       {loading ? <TagSkeleton /> : failed ? (
         <EndNote title="Couldn't load the photos" body="Check your connection and try again in a moment." />
       ) : finished || !photo ? (
