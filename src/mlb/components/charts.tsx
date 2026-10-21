@@ -1,43 +1,12 @@
-import React, { useState, useRef } from 'react'
+import React, { useRef } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TeamSummary } from '../types'
 import { TEAM_BG } from '../constants'
-import { niceTicks, fmtR } from '../lib/utils'
+import { fmtR } from '../lib/utils'
+import { niceTicks } from '../../ui/charts/scale'
+import { useChartTooltip, ChartTooltip } from '../../ui/charts/ChartTooltip'
 import { chromePx } from '../../ui/scale'
 import { TYPE_SCALE } from '../../ui/card'
-
-// ─── Shared chart helpers ─────────────────────────────────────────────────────
-
-export function useChartTooltip<T>(boxRef: React.RefObject<HTMLDivElement>) {
-  const [hovered, setHovered] = useState<T | null>(null)
-  const [tipPos, setTipPos] = useState({ x: 0, y: 0, flip: false })
-  const onEnter = (item: T, e: React.MouseEvent) => {
-    const rect = boxRef.current!.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    setTipPos({ x, y: e.clientY - rect.top, flip: x > rect.width * 0.58 })
-    setHovered(item)
-  }
-  return { hovered, setHovered, tipPos, onEnter }
-}
-
-export function ChartTooltip({ tipPos, children }: { tipPos: { x: number; y: number; flip: boolean }; children: React.ReactNode }) {
-  return (
-    <Box sx={{
-      position: 'absolute',
-      left: tipPos.flip ? undefined : tipPos.x + 14,
-      right: tipPos.flip ? `calc(100% - ${tipPos.x}px + 14px)` : undefined,
-      top: tipPos.y - 36,
-      bgcolor: 'background.paper',
-      border: '1px solid', borderColor: 'outline',
-      borderRadius: 2, px: 1.5, py: 1,
-      pointerEvents: 'none',
-      boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
-      zIndex: 10, minWidth: chromePx(148),
-    }}>
-      {children}
-    </Box>
-  )
-}
 
 export function TeamDot({ team, x, y, hovered, dimmed, highlighted, onEnter, onLeave, onSelect }: {
   team: TeamSummary; x: number; y: number; hovered: boolean

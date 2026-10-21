@@ -4,7 +4,7 @@ import type { PlayerValueSeason } from '../derive/playerValue'
 import {
   aggregateBatting, aggregatePitching, aggregateFielding,
   wpblQualifiers,
-  type WpblBattingTotals, type WpblPitchingTotals,
+  type WpblBattingTotals, type WpblPitchingTotals, type WpblBatSeason, type WpblPitSeason, type FipWeights,
 } from '../stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine } from '../types'
 import type { SeasonScope } from '../season'
@@ -30,6 +30,18 @@ const WpblFindView = lazy(() => import('../FindView'))
 // The draft-class model. On Stats since it left the league page: it is a question about how players
 // performed, asked of the draft, and this is where a reader looks for how players performed.
 const WpblDraftValue = lazy(() => import('../DraftValue'))
+const WpblChartsView = lazy(() => import('../ChartsView'))
+
+/** What the Charts board plots: the regular season's totals for the year on screen, whichever slice
+ *  the tables are showing, and the value figures for the two-way chart. Null while neither the
+ *  stored seasons nor the box-score lines have answered. */
+export interface ChartInputs {
+  batting: WpblBatSeason[]
+  pitching: WpblPitSeason[]
+  league: { batting: WpblBattingTotals; pitching: WpblPitchingTotals }
+  valueSeasons: PlayerValueSeason<WpblPlayer>[] | null
+  fWeights: FipWeights | null
+}
 
 /** The Leaders board on whichever side is showing, or that side's skeleton until its read lands. */
 export function LeadersPane({ side, valueSeasons, fielding, linesIn, leaderSeasons, hitCols, pitCols, qual,
@@ -79,7 +91,7 @@ export function LeadersPane({ side, valueSeasons, fielding, linesIn, leaderSeaso
 /** Every board past the season tables and Leaders: Bests, Find and the Analysis boards, each behind its
  *  own chunk. */
 export function BoardPane({ source, side, boardSide, findSide, teams, players, lines, fielding, linesIn, games,
-  scope, findQuery, setFindQuery, trackedOffered, onOpenPlayer, onOpenGame }: {
+  scope, findQuery, setFindQuery, trackedOffered, charts, onOpenPlayer, onOpenGame }: {
   source: Source
   side: Side
   boardSide: BallSide
@@ -94,6 +106,7 @@ export function BoardPane({ source, side, boardSide, findSide, teams, players, l
   findQuery: Omit<FinderQuery, 'scope'>
   setFindQuery: (q: Omit<FinderQuery, 'scope'>) => void
   trackedOffered: boolean
+  charts: ChartInputs | null
   onOpenPlayer: (p: WpblPlayer) => void
   onOpenGame?: (g: WpblGame) => void
 }) {
@@ -131,6 +144,14 @@ export function BoardPane({ source, side, boardSide, findSide, teams, players, l
     <Suspense fallback={<SubViewFallback />}>
       <WpblPitchView side={boardSide} teams={teams} games={games} trackedVisible={trackedOffered} onOpenPlayer={onOpenPlayer} />
     </Suspense>
+  ) : source === 'charts' ? (
+    charts == null ? <SubViewFallback /> : (
+      <Suspense fallback={<SubViewFallback />}>
+        <WpblChartsView side={side === 'overall' ? 'overall' : boardSide} teams={teams} players={players} games={games}
+          batting={charts.batting} pitching={charts.pitching} league={charts.league}
+          valueSeasons={charts.valueSeasons} fWeights={charts.fWeights} onOpenPlayer={onOpenPlayer} />
+      </Suspense>
+    )
   ) : source === 'draft' ? (
     <Suspense fallback={<SubViewFallback />}>
       <WpblDraftValue side={boardSide} players={players} batting={lines.batting}

@@ -135,6 +135,8 @@ const DEFAULT_ROUTES = [
   '/wpbl', '/wpbl/schedule', '/wpbl/standings', '/wpbl/stats', '/wpbl/stats?board=fielding', '/wpbl/stats?board=runs', '/wpbl/teams', '/wpbl/teams/hunters',
   // Fielding as a side of Leaders and Teams, and an Analysis board other than Run value (Oct 2026).
   '/wpbl/stats?side=fielding', '/wpbl/stats?board=teams&side=fielding', '/wpbl/stats?board=pitches',
+  // The scatter plots, on the side that reads the play log and the one that reads WAR (Oct 2026).
+  '/wpbl/stats?board=charts', '/wpbl/stats?board=charts&side=overall',
   '/wpbl/players', '/wpbl/league', '/wpbl/season', '/wpbl/matchups', '/wpbl/awards', '/wpbl/compare',
   // A season series that went on to meet in the final, the longest shape the page takes.
   '/wpbl/series/firebells-vs-queens',

@@ -50,7 +50,7 @@ import { StatsSheet, SortBody, FilterBody } from './Sheets'
 import { StatList } from './RankedList'
 import { SeasonTable } from './SeasonTable'
 import { ControlBar } from './ControlBar'
-import { LeadersPane, BoardPane } from './Boards'
+import { LeadersPane, BoardPane, type ChartInputs } from './Boards'
 import { buildRows } from './rows'
 import { useBoardLayout } from './useBoardLayout'
 
@@ -439,7 +439,7 @@ export default function WpblStatsView({
   // THE BOX-SCORE LINES, ONLY WHEN SOMETHING NEEDS THEM: a board the stored seasons do not cover
   // (Teams, Fielding, Bests, Find, the Analysis boards), or stored seasons that are not current.
   const boardNeedsLines = side === 'fielding' || (source === 'season' && mode === 'teams')
-    || (source !== 'season' && source !== 'leaders')
+    || (source !== 'season' && source !== 'leaders' && source !== 'charts')
   const wantLines = boardNeedsLines || (storedSettled && !storedCurrent)
   useEffect(() => {
     if (!wantLines) return
@@ -527,6 +527,19 @@ export default function WpblStatsView({
   const league = useMemo(
     () => (stored ? stored.league(scope) : leagueLine(lines.batting, lines.pitching, games, scope)),
     [stored, lines.batting, lines.pitching, games, scope])
+  // The Charts board plots the regular season whatever slice the tables show: a dot's place is a
+  // season rate, and a playoff series is four clubs' best arms against each other. From the stored
+  // rows when current, like everything above, so the board reads nothing the tables have not.
+  const chartInputs = useMemo<ChartInputs | null>(() => {
+    if (source !== 'charts' || (!stored && !linesIn)) return null
+    return {
+      batting: stored ? stored.batting('regular') : aggregateBatting(players, lines.batting, games, 'regular'),
+      pitching: stored ? stored.pitching('regular') : aggregatePitching(players, lines.pitching, games, 'regular'),
+      league: stored ? stored.league('regular') : leagueLine(lines.batting, lines.pitching, games, 'regular'),
+      valueSeasons,
+      fWeights,
+    }
+  }, [source, stored, linesIn, players, lines, games, valueSeasons, fWeights])
 
   // The hitting and pitching columns, the league-relative ones included (OPS+, wOBA, wRC+, ERA+,
   // FIP and the reader's K and HR rates), are built in statColumns.ts, where the search box builds
@@ -1040,7 +1053,7 @@ export default function WpblStatsView({
       ) : source !== 'season' ? (
         <BoardPane source={source} side={side} boardSide={boardSide} findSide={findSide} teams={teams}
           players={players} lines={lines} fielding={fielding} linesIn={linesIn} games={games} scope={scope}
-          findQuery={findQuery} setFindQuery={setFindQuery} trackedOffered={trackedOffered}
+          findQuery={findQuery} setFindQuery={setFindQuery} trackedOffered={trackedOffered} charts={chartInputs}
           onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
       ) : (side === 'fielding' && fielding == null) || (side === 'overall' && valueSeasons == null) || (boardNeedsLines && !linesIn) ? (
         // Only if the side is picked before its read (started on mount) has landed, or the box-score

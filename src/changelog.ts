@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.174.0',
+    date:    '2026-10-21',
+    changes: [
+      {
+        short: 'WPBL Charts board',
+        full:  "New board: WPBL Stats > Analysis > Charts. Hitting: OBP vs SLG, Swing% vs Contact%. Pitching: ERA vs FIP, F-Strike% vs BB%. Overall: Pos WAR vs Pit WAR. Regular season. Qualified players by default.",
+      },
+    ],
+  },
+  {
     version: '1.173.0',
     date:    '2026-10-21',
     changes: [

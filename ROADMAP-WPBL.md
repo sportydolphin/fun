@@ -1427,6 +1427,43 @@ both are cheap, survive Sep 22 and make a share image.
   after final, from `wpbl_game_revisions`. Read-only by nature, and the only record of those edits.
 - **Hear the game** 🎮. A game's win probability as a rising and falling tone, a click on each run.
 
+## Player charts (Oct 20, 2026) 🎯🔬
+
+Every player on two stats at once, the shape a table sorted by one column cannot show. MLB's
+`/mlb/charts` plots the 30 clubs; four clubs make a thin plot, so WPBL's dots are players. The
+frame is shared: [`src/ui/charts/`](src/ui/charts/) holds `ScatterPlot` (every dot a real link, a
+tap pins the card before a second tap opens the player, a viewBox about the width it is drawn at so
+the type stays readable on a phone), MLB's tooltip and `niceTicks` moved there from `src/mlb/`, and
+`scale.ts`, the axis and guide arithmetic with no React in it, so `scripts/visuals/` can draw the
+same axes for a share image.
+
+**Shipped (v1.174.0):** Stats › Analysis › **Charts** (`/wpbl/stats?board=charts`, a query param,
+so no new route), [`ChartsView.tsx`](src/wpbl/ChartsView.tsx) over
+[`derive/charts.ts`](src/wpbl/derive/charts.ts). The side switch picks the charts: Hitting is
+OBP vs SLG (OPS lines across it) and Swing% vs Contact%; Pitching is ERA vs FIP (with the ERA =
+FIP diagonal) and F-Strike% vs BB%; Overall is Pos WAR vs Pit WAR for two-way players, the one this
+league can ask and MLB barely can. Regular season only, qualified players by default (the Players
+table's bars), from the stored seasons and the Pitch by pitch board's play log, so the board reads
+nothing new. Labels only, no subtitles (the copy rule in CLAUDE.md, Oct 21, 2026).
+
+**Next, in order:**
+
+- **A player's dot on their own page.** The OBP-SLG or ERA-FIP chart with that player highlighted
+  and everyone else gray, under the stat table.
+- **One headline chart on `/wpbl/season`**, OBP against SLG, linking to the board.
+- **Share images.** Two-way players first (Kelsie Whitmore sits alone in the top right), through
+  `npm run visual` using `scale.ts`. Recheck every number against the full season first.
+- **More pairs, each a chip on the board once there are more than two a side:** K% against BB%
+  (hitters); pitches per PA against OBP; wOBA against RE24 (who did more with men on); RE24 against
+  WPA (when it mattered); OPS against left-handers and right-handers (platoon); batting runs against
+  baserunning and fielding runs; whiff rate against strike rate (pitchers). Groundball against
+  flyball pitchers and the age curve on the visuals menu below are the same frame.
+- **MLB's three team plots onto `ScatterPlot`**, which brings them the tap-to-pin and real links,
+  and DraftValue's hand-drawn scatter with them.
+- **Not planned:** a club highlight. A season total carries no club, and a traded player's club is a
+  fact about a date (`src/wpbl/CLAUDE.md`), so coloring by `team_id` would put a traded player's whole
+  season on the club they finished with.
+
 ## Offseason visuals (Sep 24, 2026)
 
 A share series for Bluesky and Reddit, posted as "Offseason Visual #N" once or twice a week

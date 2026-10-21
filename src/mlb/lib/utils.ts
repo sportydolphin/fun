@@ -100,32 +100,3 @@ export function statCols(n: number): number {
   }
   return 3
 }
-
-/**
- * Generate ≈target human-friendly tick values that span [dataMin, dataMax].
- * Steps are always "nice" numbers: 1, 2, 2.5, 5, or 10 × a power of 10.
- */
-export function niceTicks(dataMin: number, dataMax: number, target = 5): number[] {
-  if (!isFinite(dataMin) || !isFinite(dataMax) || dataMin >= dataMax) {
-    return isFinite(dataMin) ? [dataMin] : []
-  }
-  const range = dataMax - dataMin
-  const roughStep = range / Math.max(2, target - 1)
-  const mag = Math.pow(10, Math.floor(Math.log10(roughStep)))
-  const norm = roughStep / mag
-  let step: number
-  if      (norm <= 1)   step = mag
-  else if (norm <= 2)   step = 2 * mag
-  else if (norm <= 2.5) step = 2.5 * mag
-  else if (norm <= 5)   step = 5 * mag
-  else                  step = 10 * mag
-
-  const lo = Math.ceil(dataMin  / step - 1e-9) * step
-  const hi = Math.floor(dataMax / step + 1e-9) * step
-  const count = Math.round((hi - lo) / step)
-  const ticks: number[] = []
-  for (let i = 0; i <= count; i++) {
-    ticks.push(parseFloat((lo + i * step).toPrecision(12)))
-  }
-  return ticks.length ? ticks : [dataMin, dataMax]
-}
