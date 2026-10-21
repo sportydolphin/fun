@@ -126,7 +126,6 @@ export default function WpblFindView({
   return (
     <FinderBoard side={side} query={query} onQuery={onQuery} result={result} clubs={clubs}
       clubAbbr={id => teams.find(t => t.id === id)?.abbr ?? id}
-      intro="Search every box-score line for the games that match."
       sort={sort} onSort={setSort} examples={EXAMPLES[side]} stickyTop={STICKY_TOP} accent={accent}
       parse={text => parseFinderText(text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES)} onAsk={onAsk}
       renderRow={(r, i, unit) => (

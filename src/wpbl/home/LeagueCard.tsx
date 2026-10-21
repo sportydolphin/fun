@@ -48,10 +48,7 @@ export function LeagueCard() {
     >
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, color: 'text.primary' }}>
-          About the league
-        </Typography>
-        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 0.25 }}>
-          Format, clubs, countries
+          About the League
         </Typography>
       </Box>
       <Box aria-hidden sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.display, flexShrink: 0 }}>›</Box>

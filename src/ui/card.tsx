@@ -9,6 +9,7 @@ import type { Theme } from '@mui/material'
 import { TAPPABLE, FOCUS_RING, pressable, linkPress } from './interaction'
 import { typePx } from './scale'
 import { edgeTone } from '../lib/contrast'
+import { titleCase } from '../lib/format'
 
 // A card's outline, which in dark mode is the whole of the card: cards there are the page color
 // (see Surfaces in src/ThemeContext.tsx), so this edge is the only thing drawing one. The weight
@@ -235,11 +236,11 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
               prop for it would only invite a card to lie. */}
           {titleAdornment != null ? (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-              <Typography component="h2" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2, minWidth: 0 }}>{title}</Typography>
+              <Typography component="h2" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2, minWidth: 0 }}>{titleCase(title)}</Typography>
               {titleAdornment}
             </Box>
           ) : (
-            <Typography component="h2" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2 }}>{title}</Typography>
+            <Typography component="h2" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2 }}>{titleCase(title)}</Typography>
           )}
           {subtitle && <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>{subtitle}</Typography>}
         </Box>
@@ -320,23 +321,26 @@ export function SectionLabel({ children, strong }: { children: React.ReactNode; 
  * follow it and a reader can open it in a new tab. A link that opens a sheet has no address and
  * stays a button.
  */
-export function CardLink({ label, onClick, href, color = 'var(--wpbl-accent-fg)' }: {
+export function CardLink({ label, onClick, href, disabled }: {
   label: string
   onClick: () => void
   href?: string
-  color?: string
+  /** Drawn in the secondary ink while there is nothing to open yet (Predictions before its games load). */
+  disabled?: boolean
 }) {
   return (
     <Typography
       {...(href ? linkPress(href, onClick) : pressable(onClick))}
       sx={{
         ...FOCUS_RING,
-        fontSize: TYPE_SCALE.meta, fontWeight: 700, color, cursor: 'pointer',
+        fontSize: TYPE_SCALE.meta, fontWeight: 700, color: disabled ? 'text.secondary' : 'var(--wpbl-accent-fg)', cursor: disabled ? 'default' : 'pointer',
         py: 0.5, px: 0.5, whiteSpace: 'nowrap', borderRadius: 1, textDecoration: 'none',
         '&:hover': { textDecoration: 'underline' },
       }}
     >
-      {label}
+      {/* One look for every header link on the site (Oct 21, 2026): the site blue and a ›, added
+          here so no caller can leave it off or pick a club color instead. */}
+      {label.replace(/\s*[›→]$/, '')}<span aria-hidden> ›</span>
     </Typography>
   )
 }

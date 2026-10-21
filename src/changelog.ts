@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.179.0',
+    date:    '2026-10-21',
+    changes: [
+      {
+        short: 'Title Case, one link style, fewer instructions',
+        full:  "Card and section titles are Title Case on both sections. Every header link is blue and ends in ›, and every Back uses the same chevron. Instructions and sentences that explained a card are gone: Find's intro and its \"Add a condition\" line, the standings chart's \"Drag the chart, or press play\", the club profiles caption, Streak Survivor's pitch, the More menu's descriptions, the tap hints on player and league pages, and the glossary's subtitle. The standings chart's findings read as stats: San Francisco 20 · Los Angeles 7 · 5 lead changes.",
+      },
+    ],
+  },
+  {
     version: '1.178.0',
     date:    '2026-10-21',
     changes: [

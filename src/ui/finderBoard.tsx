@@ -63,8 +63,6 @@ const RAIL_REM = 24
 const TALLY_REM = 17
 const PANE_GAP_REM = 1.25
 /** What a season question searches, the same in both sections. */
-const SEASON_INTRO = 'Each player’s box-score lines added up over the season, for the seasons that match.'
-
 // A FIELD IS SQUARE-CORNERED AND ONLY A FIELD IS. The grain switch is a pill toggle and the examples
 // are links; when all three were the same rounded outline, the form read as a heap of identical
 // chips with no telling which one was the question.
@@ -243,7 +241,7 @@ function AskBox({ side, parse, onAsk, clubAbbr }: {
   const scope = best ? scopeWords(best, clubAbbr) : ''
   return (
     <Box>
-      <Box component="input" type="search" aria-label="Ask in words" placeholder="Ask in words: 3 hits at home, 5 HR on the season"
+      <Box component="input" type="search" aria-label="Ask in words" placeholder="3 hits at home, 5 HR on the season"
         value={text} enterKeyHint="search"
         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setText(e.target.value)}
         onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); ask() } }}
@@ -508,7 +506,7 @@ function SeasonRow<P extends LeaguePlayer, G extends LeagueGame>({ row, i, unit,
 }
 
 export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
-  side, query, onQuery, result, clubs, clubAbbr, intro, loading = false, renderRow, rowParts, tallyParts,
+  side, query, onQuery, result, clubs, clubAbbr, loading = false, renderRow, rowParts, tallyParts,
   sort, onSort, examples, stickyTop, parse, onAsk, accent,
 }: {
   side: FinderBoardSide
@@ -520,7 +518,6 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   clubs: { value: string; label: string }[]
   clubAbbr: (id: string) => string
   /** The line under the question's title: what the board searches. */
-  intro: string
   /** While the lines are still coming (MLB reads them; WPBL already holds them). */
   loading?: boolean
   /** A matching game line in the section's own parts (GameLineFrame, in game mode), for the list.
@@ -584,8 +581,8 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   const summary = hasConditions
     ? `${total} ${games_} where ${describeFinderQuery(side, query)}${scopeText ? `, ${scopeText}` : ''}`
     : scopeText
-      ? `${total} ${games_} ${scopeText}. Add a condition to narrow it.`
-      : `Every ${season ? who[0] : 'line'}: ${total} ${games_}. Add a condition to narrow it.`
+      ? `${total} ${games_} ${scopeText}`
+      : `${total} ${games_}`
   const questionText = `${season ? 'Season: ' : ''}${describeFinderQuery(side, query)}${scopeText ? `, ${scopeText}` : ''}`
   // SAID, because a bar the reader did not set is a filter they cannot see. The way past it is part
   // of the sentence, since "where is the 2-for-4 hitter" has an answer and it is one condition away.
@@ -636,7 +633,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   const tableOnly = { display: 'none', [tableOn]: { display: 'block' } }
 
   const question = (
-    <SectionCard title="The question" subtitle={season ? SEASON_INTRO : intro} action={<CopyLink />}>
+    <SectionCard title="Search" action={<CopyLink />}>
       {/* Folded: the question in one line, which is also the way back in. */}
       {hasConditions && (
         <Box {...pressable(() => setFolded(false))} aria-expanded={false} sx={{

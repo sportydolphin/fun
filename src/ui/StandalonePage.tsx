@@ -5,6 +5,7 @@ import { TYPE_SCALE } from './card'
 import { hoverOnly, FOCUS_RING } from './interaction'
 import { panelShiftSx, useSidePanelOpen } from './ModalShell'
 import { typePx } from './scale'
+import { titleCaseNode } from '../lib/format'
 
 // The shell every STANDALONE page wears: in WPBL the league, the season recap, scorigami, the
 // players index, the glossary, the data sources; in MLB the glossary. They are sibling routes to
@@ -65,13 +66,13 @@ export default function StandalonePage({ title, standfirst, maxWidth = '56.25rem
           bgcolor: 'background.paper',
           ...hoverOnly({ color: 'text.primary', borderColor: 'text.secondary' }), ...FOCUS_RING,
         }}
-      >← {back.label}</Box>
+      >‹ {back.label}</Box>
 
       <Typography component={headingTag} sx={{
         fontSize: TYPE_SCALE.page, fontWeight: 800, letterSpacing: typePx(-0.3), lineHeight: 1.2,
         mb: standfirst ? 0.5 : 3,
       }}>
-        {title}
+        {titleCaseNode(title)}
       </Typography>
       {standfirst && (
         <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.body, lineHeight: 1.5, mb: 3 }}>

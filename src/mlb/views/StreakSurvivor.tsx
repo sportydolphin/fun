@@ -283,7 +283,6 @@ export function StreakSurvivorWidget() {
   const Shell = (children: React.ReactNode) => (
     <SectionCard
       title="Streak Survivor"
-      subtitle="Pick a hitter. Keep the streak alive."
       titleAdornment={isTomorrow ? (
         <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', border: '1px solid', borderColor: 'outline', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
           Tomorrow
@@ -383,7 +382,7 @@ export function StreakSurvivorWidget() {
     body = (
       <Box sx={{ px: 2, pt: 0.5, pb: 1.75 }}>
         <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mb: 1.25, lineHeight: 1.4 }}>
-          Pick one hitter a day. A hit keeps your streak going, an 0-fer starts you over. How long can you last?
+          One hitter a day. A hit extends the streak; an 0-fer resets it.
         </Typography>
         <Box
           {...pressable(() => openAuthDialog('signin'))}

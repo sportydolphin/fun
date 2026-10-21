@@ -445,7 +445,7 @@ function MyStatsContent({ stats }: { stats: PersonalStats }) {
         }}>
           <Box sx={{ minWidth: 0 }}>
             <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, color: TONE.orange, lineHeight: 1.2 }}>
-              You're on a {stats.currentStreak}-game heater
+              {stats.currentStreak}-game streak
             </Typography>
             <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.2 }}>
               {stats.currentStreak === stats.bestStreak

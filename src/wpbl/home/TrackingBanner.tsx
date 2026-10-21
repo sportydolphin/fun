@@ -66,14 +66,14 @@ export function NewTrackingBanner({ count, onView, onDismiss }: { count: number;
     >
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1.2 }}>
-          New pitch-tracking data just landed
+          New pitch-tracking data
         </Typography>
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 0.2 }}>
-          Velocity, spin &amp; exit velo for {count} new game{count === 1 ? '' : 's'}. Tap to explore Ballpark Tracking.
+          {count} game{count === 1 ? '' : 's'} · velocity, spin, exit velocity
         </Typography>
       </Box>
       <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)', flexShrink: 0, whiteSpace: 'nowrap' }}>
-        View →
+        View ›
       </Typography>
       <Box
         {...pressable(e => { e.stopPropagation(); onDismiss() })}

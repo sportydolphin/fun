@@ -558,7 +558,7 @@ function HomeViewInner({
                             '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
                           }}
                         >
-                          Schedule →
+                          Schedule ›
                         </Box>
                         <Box
                           {...pressable(onUnfollowTeam)}

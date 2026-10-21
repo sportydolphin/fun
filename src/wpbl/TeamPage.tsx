@@ -2,7 +2,7 @@ import { useDark } from '../ui/useDark'
 import { useEffect, useMemo, useState } from 'react'
 import { edge } from '../ui/card'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
-import { ArrowBackRounded, GridViewRounded } from '@mui/icons-material'
+import { ChevronLeft, GridViewRounded } from '@mui/icons-material'
 import { fetchWpblRoster, fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblLineupHistory, fetchWpblPitchingUsage, fetchWpblAllPitchPlays, computeStandings, getCachedWpblRoster, getCachedWpblLineupHistory, getCachedWpblPitchingUsage } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
@@ -231,7 +231,7 @@ function TeamRail({ teams, current, record, onSelect, onBack, onAllTeams }: {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
       <Box {...pressable(onBack)} aria-label="Back" sx={iconBtn}>
-        <ArrowBackRounded sx={{ fontSize: ICON_SIZE.md}} />
+        <ChevronLeft sx={{ fontSize: ICON_SIZE.md}} />
       </Box>
 
       <Box role="group" aria-label="Teams" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
@@ -799,7 +799,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
               // Opens the full season in a modal. Expanding in place pushed everything below
               // it down by nine rows, so the card you were reading jumped out from under you
               // and you had to find your way back up to collapse it again.
-              <CardLink label={`All ${schedule.length}`} color={accent}
+              <CardLink label={`All ${schedule.length}`}
                 onClick={() => setScheduleOpen(true)} />
             ) : undefined}
           >
@@ -818,7 +818,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
             action={onOpenStats ? (
               // Lands on the Teams board, which is where these totals become meaningful: a .355 team
               // average says nothing until you can see the other three.
-              <CardLink label="Compare teams" color={accent}
+              <CardLink label="Compare teams"
                 onClick={() => onOpenStats('hitting', undefined, { mode: 'teams' })} />
             ) : undefined}
           >
@@ -918,7 +918,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
               // too. Landing on the qualified board would answer a question nobody asked here: most of the
               // names the reader had just scrolled past would be gone, with only a lit chip above the table
               // as a clue.
-              <CardLink label="Full stats" color={accent}
+              <CardLink label="Full stats"
                 onClick={() => onOpenStats('hitting', undefined, { mode: 'players', teamId: team.id, qualified: false })} />
             ) : undefined}
           >

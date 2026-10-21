@@ -345,7 +345,7 @@ export function StarSignCard({ players, teams, onOpenPlayer }: {
       </Box>
       <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 1, minHeight: '1.4em' }}>
         {players.length === 0 ? ' '
-          : `${sign.glyph} ${born.length} ${born.length === 1 ? sign.name : `${sign.name}s`} on the roster${born.length > shown.length ? `, the first ${shown.length} shown` : ''}.`}
+          : `${sign.glyph} ${born.length} ${born.length === 1 ? sign.name : `${sign.name}s`}${born.length > shown.length ? ` · ${shown.length} shown` : ''}`}
       </Typography>
     </SectionCard>
   )

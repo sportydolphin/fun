@@ -37,7 +37,7 @@ afterEach(() => { vi.useRealTimers() })
 describe('the next game when the feed has none', () => {
   it('names the round, the game and the series length', () => {
     draw([row()])
-    expect(screen.getByText('Next game')).toBeTruthy()
+    expect(screen.getByText('Next Game')).toBeTruthy()
     expect(screen.getByText(/Semifinal A · Game 1 of 3/)).toBeTruthy()
   })
 

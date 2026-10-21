@@ -110,7 +110,7 @@ export function FanPhotoSubmitNote({ variant }: { variant: 'line' | 'block' }) {
   if (variant === 'line') {
     return (
       <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 1 }}>
-        Took photos at a game? {link('Send them in to be featured')}.
+        {link('Submit photos ›')}
       </Typography>
     )
   }
@@ -144,9 +144,9 @@ export function FanPhotoTagInvite() {
       mb: 1.5, px: { xs: 1.5, sm: 2 }, py: 1.25, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL,
       display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 1.5, rowGap: 0.25,
     }}>
-      <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700 }}>Know who's in these photos?</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700 }}>Photo tagging</Typography>
       <Box component="a" {...linkTo(WPBL_PHOTO_TAG_PAGE)} sx={{ ...CARD_LINK_SX, fontSize: TYPE_SCALE.body }}>
-        Help us tag them, no account needed
+        Tag players ›
       </Box>
     </Box>
   )

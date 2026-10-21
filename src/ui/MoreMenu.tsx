@@ -77,9 +77,6 @@ function RowLink({ row, close, size }: { row: MoreRow; close: () => void; size: 
       }}>
         {row.label}
       </Typography>
-      <Typography sx={{ fontSize: sheet ? TYPE_SCALE.body : TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.35 }}>
-        {row.hint}
-      </Typography>
     </Box>
   )
 }

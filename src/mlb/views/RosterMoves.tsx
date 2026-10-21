@@ -350,7 +350,7 @@ function RosterMovesModal({ open, onClose, moves, hotStove, followedTeamId, onPl
   return (
     <MlbSheet onClose={onClose} maxWidth={chromePx(540)} sheet sheetFill eyebrow={hotStove ? 'Hot stove' : 'Roster moves'}>
         <Typography sx={{ px: 2, pt: 1.25, pb: 0.5, fontSize: TYPE_SCALE.meta, color: 'text.secondary', flexShrink: 0 }}>
-          {hotStove ? 'Signings, trades, free agents and claims' : 'Trades, DFAs, claims and signings'} · last {days} days
+          Last {days} days
         </Typography>
 
         {/* Team filter: every club in the window; tap to isolate, tap again to clear. Pinned while
@@ -493,7 +493,6 @@ export function RosterMovesCard({ hotStove, followedTeamId, onPlayerClick, onTea
   return (
     <SectionCard
       title={winter ? 'Hot Stove' : 'Roster Moves'}
-      subtitle={winter ? 'Signings, trades and free agents' : 'Trades, DFAs, claims and signings'}
       titleAdornment={deadline ? (
         <Box sx={{
           px: 0.75, py: chromePx(2), borderRadius: 999, flexShrink: 0,

@@ -427,13 +427,14 @@ export function BracketDiagram({ bracket, odds, onOpenSeries, onOpenTeam, picks,
       <ConnectorPiece row={1} />
       <ConnectorPiece row={2} />
       <ConnectorPiece row={3} />
-      {/* On a phone the championship follows the two semifinals in a column, so it gets a word
-          instead of a line: without one it reads as a third semifinal. */}
+      {/* On a phone the championship follows the two semifinals in a column, so it gets a label
+          instead of a line: without one it reads as a third semifinal. A label, not the sentence
+          "The winners meet in the" it was until Oct 21, 2026. */}
       <Typography sx={{
         display: { xs: 'block', sm: 'none' },
         fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase',
         color: 'text.disabled', textAlign: 'center', mt: 0.25,
-      }}>The winners meet in the</Typography>
+      }}>Final</Typography>
       {/* THE CHAMPIONSHIP TAKES THE WHOLE COLUMN, AND THE TITLE ODDS ARE INSIDE IT.
       A `1fr auto 1fr` column with a small box floating in the middle and the odds strip
       pinned to the bottom leaves a hole in the top right doing nothing at all, with matching

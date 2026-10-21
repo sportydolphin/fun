@@ -740,7 +740,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
     if (r === 'pitching') {
       const cells = (s: any) => [`${n0(s.wins)}–${n0(s.losses)}`, rate(s.era), n0(s.gamesPlayed ?? s.gamesPitched), n0(s.gamesStarted), n0(s.saves), s.inningsPitched ?? '0.0', n0(s.hits), n0(s.earnedRuns), n0(s.homeRuns), n0(s.baseOnBalls), n0(s.strikeOuts), rate(s.whip)]
       return (
-        <StatLogTable title="Career" caption="Regular season · tap a year to open it" accent={ACCENT_TEXT}
+        <StatLogTable title="Career" caption="Regular season" accent={ACCENT_TEXT}
           leadHeaders={['Year', 'Team']} preview={10} noun={['season', 'seasons']} totalsLabel="Career"
           leadSx={[{ color: 'text.primary', fontWeight: 700 }, { fontWeight: 600, color: 'text.secondary' }]}
           statHeaders={['W-L', 'ERA', 'G', 'GS', 'SV', 'IP', 'H', 'ER', 'HR', 'BB', 'SO', 'WHIP']}
@@ -751,7 +751,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
     }
     const cells = (s: any) => [n0(s.gamesPlayed), n0(s.plateAppearances), n0(s.atBats), n0(s.runs), n0(s.hits), n0(s.doubles), n0(s.triples), n0(s.homeRuns), n0(s.rbi), n0(s.stolenBases), n0(s.baseOnBalls), n0(s.strikeOuts), rate(s.avg), rate(s.obp), rate(s.slg), rate(s.ops)]
     return (
-      <StatLogTable title="Career" caption="Regular season · tap a year to open it" accent={ACCENT_TEXT}
+      <StatLogTable title="Career" caption="Regular season" accent={ACCENT_TEXT}
         leadHeaders={['Year', 'Team']} preview={10} noun={['season', 'seasons']} totalsLabel="Career"
         leadSx={[{ color: 'text.primary', fontWeight: 700 }, { fontWeight: 600, color: 'text.secondary' }]}
         statHeaders={['G', 'PA', 'AB', 'R', 'H', '2B', '3B', 'HR', 'RBI', 'SB', 'BB', 'SO', 'AVG', 'OBP', 'SLG', 'OPS']}

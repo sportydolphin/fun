@@ -327,9 +327,7 @@ function ComparePageBody({ path, onNavigate }: {
       <WpblPage
         maxWidth={chromePx(560)}
         title={shape === 'pair' ? <TextGhost>{GHOST_HEAD_NAME} vs {GHOST_HEAD_NAME}</TextGhost> : 'Compare players'}
-        standfirst={shape === 'pair' ? undefined
-          : shape === 'single' ? <>Pick a player to compare with <TextGhost>{GHOST_HEAD_NAME}</TextGhost></>
-          : 'Pick two players'}
+        standfirst={shape === 'single' ? <>vs <TextGhost>{GHOST_HEAD_NAME}</TextGhost></> : undefined}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
           {shape === 'pair' && <SeasonMenu label="season" />}
@@ -367,9 +365,7 @@ function ComparePageBody({ path, onNavigate }: {
       // and at the full width the portraits sat a third of a screen apart and read as two cards.
       maxWidth={chromePx(560)}
       title={pair ? `${pair[0].name} vs ${pair[1].name}` : 'Compare players'}
-      standfirst={!pair
-        ? (single ? `Pick a player to compare with ${single.name}` : 'Pick two players')
-        : undefined}
+      standfirst={!pair && single ? `vs ${single.name}` : undefined}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
       {pair && <SeasonMenu label="season" />}

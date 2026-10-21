@@ -231,7 +231,7 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
               '@keyframes livepulse': { '0%': { opacity: 1 }, '50%': { opacity: 0.25 }, '100%': { opacity: 1 } },
               animation: 'livepulse 1.5s ease-in-out infinite',
             }} />
-            Game Center →
+            Game Center ›
           </Box>
         )}
       </Box>

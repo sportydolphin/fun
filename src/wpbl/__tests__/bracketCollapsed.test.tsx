@@ -90,7 +90,7 @@ describe('a bracket card that is shut', () => {
     draw()
     fireEvent.click(await screen.findByText('Make your picks'))
     await screen.findByText('Call the postseason')
-    const header = screen.getByRole('button', { name: /Road to the title/ })
+    const header = screen.getByRole('button', { name: /Road to the title/i })
     expect(header.getAttribute('aria-expanded')).toBe('false')
   })
 })

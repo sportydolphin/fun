@@ -7,6 +7,8 @@ import { track, trackImpression, EVENTS } from '../lib/analytics'
 import { wpblAccent, wpblFullName } from './constants'
 import { SectionCard, chromePx, pressable, FOCUS_RING, CARD_BORDER } from './ui'
 import { TYPE_SCALE } from '../ui/card'
+import { InfoDot } from '../ui/InfoDot'
+import { shortDate } from '../lib/format'
 
 // The standings plotted against the calendar.
 //
@@ -257,9 +259,10 @@ export default function SeasonShapeCard({ shape, onPreview, page }: {
       // and it sits directly under a table headed "WPBL Standings". A card on a reference page
       // is named the way a column is named. This one plots the standings against the calendar,
       // so that is what it is called, and the line under it says what the axis is and what the
-      // chart does. Nothing here is an invitation.
+      // chart does. Nothing here is an invitation. The axis is a definition, so it is behind the
+      // i; "Drag the chart, or press play" came out on Oct 21, 2026 (the Play button says so).
       title="Standings by date"
-      subtitle="Games above .500 after every day of the season. Drag the chart, or press play."
+      titleAdornment={<InfoDot text="Games above .500 after each day of the season." label="What this shows" />}
       // SAME SURFACE AS THE TABLE IT SITS UNDER. `background.paper` is a LIFTED GREY in dark
       // mode, and the standings table directly above is a bordered box with no fill at all, so
       // a raised card reads as a second surface arriving under the first: two panels on a tab
@@ -331,19 +334,16 @@ export default function SeasonShapeCard({ shape, onPreview, page }: {
               Los Angeles Queens 7" is three lines on a phone to carry two numbers; the climb
               below names one club in a sentence, which is where a club gets its whole name. */}
           {lead.changes === 0
-            ? `${lead.days[0].team.city}, all ${lead.dates}. Wire to wire.`
-            : `${lead.days.map(d => `${d.team.city} ${d.days}`).join(', ')}. The lead changed hands ${
-                lead.changes === 1 ? 'once' : `${lead.changes} times`}.`}
+            ? `${lead.days[0].team.city}, all ${lead.dates} · wire to wire`
+            : `${lead.days.map(d => `${d.team.city} ${d.days}`).join(' · ')} · ${lead.changes} lead change${lead.changes === 1 ? '' : 's'}`}
         </Typography>
       )}
 
       {run && (
         <Typography sx={{ mt: 0.75, fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.5 }}>
           <Box component="span" sx={{ fontWeight: 800, color: 'text.primary' }}>Biggest climb</Box>
-          {': '}{wpblFullName(run.team)}, up {run.swing} games since{' '}
-          {shape.columns[run.from].date
-            ? new Date(`${shape.columns[run.from].date}T00:00:00`).toLocaleDateString([], { month: 'long', day: 'numeric' })
-            : 'opening day'}.
+          {': '}{wpblFullName(run.team)}, +{run.swing} games since{' '}
+          {shape.columns[run.from].date ? shortDate(shape.columns[run.from].date) : 'Opening Day'}
         </Typography>
       )}
 

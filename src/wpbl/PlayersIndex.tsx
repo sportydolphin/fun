@@ -186,7 +186,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
           color: 'primary.main', textDecoration: 'none',
           ...hoverOnly({ textDecoration: 'underline' }),
         }}
-      >Compare two players →</Box>
+      >Compare players ›</Box>
 
       {/* Search + sort. The input filters every mode; the pills reorder the results (Club keeps the
           grouped view, Name and Number flatten to one list). Both are pure reader convenience: the

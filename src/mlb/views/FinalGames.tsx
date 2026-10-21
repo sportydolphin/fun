@@ -148,7 +148,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
         </Typography>
         {onClick && (
           <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary', ml: 'auto', lineHeight: 1, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
-            {noScore ? 'Preview →' : isLive ? 'Live →' : 'Box →'}
+            {noScore ? 'Preview ›' : isLive ? 'Live ›' : 'Box score ›'}
           </Typography>
         )}
       </Box>

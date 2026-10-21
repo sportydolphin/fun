@@ -349,7 +349,7 @@ export function TopPerformers({
                 '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
               }}
             >
-              {boxScoreLoadingId === entry.playerId ? 'Loading…' : 'Box Score →'}
+              {boxScoreLoadingId === entry.playerId ? 'Loading…' : 'Box score ›'}
             </Box>
           </Box>
         </Box>

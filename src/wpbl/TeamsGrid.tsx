@@ -291,9 +291,7 @@ export default function TeamsGrid({ teams, games: allGames, onSelect }: {
         <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, p: 1.5 }}>
           <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, mb: 0.25 }}>Club profiles</Typography>
           <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', mb: 1 }}>
-            {specs || chartPending
-              ? `Each trait against the league average, through ${specs?.minGames ?? specGames} games. The middle ring is average.`
-              : 'How each club scores on six traits.'}
+            {specs || chartPending ? `vs league average · ${specs?.minGames ?? specGames} games` : 'Six traits'}
           </Typography>
           {specs || chartPending ? (
             <>

@@ -2,6 +2,7 @@ import React from 'react'
 import { Typography } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material'
 import { TAB_TITLE_SX } from './card'
+import { titleCaseNode } from '../lib/format'
 
 // The drawing half of a page's heading, for both sections. WHO owns the page's one <h1> is each
 // section's own question and stays there (a context in WPBL's PageHeading.tsx, the address in
@@ -35,7 +36,7 @@ export function VisuallyHiddenH1({ children }: { children: React.ReactNode }) {
 export function TabTitleText({ tag, children, sx }: { tag: 'h1' | 'div'; children: React.ReactNode; sx?: SxProps<Theme> }) {
   return (
     <Typography component={tag} sx={[TAB_TITLE_SX, ...(Array.isArray(sx) ? sx : [sx])]}>
-      {children}
+      {titleCaseNode(children)}
     </Typography>
   )
 }
