@@ -1437,7 +1437,7 @@ the type stays readable on a phone), MLB's tooltip and `niceTicks` moved there f
 `scale.ts`, the axis and guide arithmetic with no React in it, so `scripts/visuals/` can draw the
 same axes for a share image.
 
-**Shipped (v1.172.0):** Stats › Analysis › **Charts** (`/wpbl/stats?board=charts`, a query param,
+**Shipped (v1.174.0):** Stats › Analysis › **Charts** (`/wpbl/stats?board=charts`, a query param,
 so no new route), [`ChartsView.tsx`](src/wpbl/ChartsView.tsx) over
 [`derive/charts.ts`](src/wpbl/derive/charts.ts). The side switch picks the charts: Hitting is
 OBP vs SLG (OPS lines across it) and Swing% vs Contact%; Pitching is ERA vs FIP (with the ERA =
