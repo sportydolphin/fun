@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box, Typography, alpha } from '@mui/material'
 import {
   HomeOutlined, Home,
   FormatListNumberedOutlined, FormatListNumbered,
@@ -10,6 +10,7 @@ import {
   ScoreboardOutlined, Scoreboard,
 } from '@mui/icons-material'
 import { typePx } from './scale'
+import { useGlassLevel, GLASS_DEFAULT } from './glassLevel'
 
 // Floating bottom tab bar for a league section, phones only. Shared by /wpbl and /mlb (moved out of
 // src/wpbl on Sep 28, 2026, when MLB took the same shell): the section passes its own accent. It
@@ -17,10 +18,13 @@ import { typePx } from './scale'
 // least reachable place to put the section's destinations. Above a phone the tabs are in the
 // toolbar (src/ToolbarNav.tsx).
 //
-// DELIBERATELY NOT GLASS. A backdrop-filter over a long scrolling stats table costs a compositing
-// layer (the classic source of scroll jank on mid-range Android) to buy a slightly translucent
-// bar on a page of dark cards with little worth blurring. The floating pill shape carries the
-// app-like feel, and the shadow does the separating.
+// GLASS, since Oct 17, 2026, as the first piece of the Apple-style overhaul (ROADMAP-UI.md). It was
+// opaque until then because a backdrop-filter costs a compositing layer over every scroll, the
+// classic jank source on mid-range Android. The bar is small and fixed, so that layer is one pill,
+// not the page; if scrolling under it stutters on a phone, the blur radius is the first thing to cut.
+// The fill stays mostly opaque so the labels hold their contrast over whatever scrolls beneath, and
+// a reader who asks for less transparency, or a browser without backdrop-filter, gets the old
+// solid bar (GLASS_FALLBACK).
 
 export interface BottomNavItem {
   key: string
@@ -85,6 +89,23 @@ const INACTIVE_TAB = { dark: '#a7adb7', light: '#5f6570' } as const
 const SELECT_MS = 300
 const SELECT_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)'
 
+// The glass, as a function of one level (0 nearly solid, 1 clear; see glassLevel.ts). At the
+// default 0.5 the fill is the raised tone at 72%: low enough that colour from the page shows
+// through the blur, high enough that a white headline sliding under a label cannot drag it below
+// AA. Saturate is what makes it read as glass rather than frosted plastic: the blurred colour comes
+// through richer instead of washed out. The lit top rim and faint inner glow are the two cues that
+// make a translucent pill read as a lens with thickness; inset shadows, so they cost no layout.
+const glass = (level: number) => ({
+  alpha: { dark: 0.96 - 0.48 * level, light: 0.98 - 0.48 * level },
+  blur: `blur(${Math.round(8 + 24 * level)}px) saturate(${Math.round(120 + 120 * level)}%)`,
+  rim: {
+    dark: `inset 0 1px 0 rgba(255,255,255,${(0.06 + 0.16 * level).toFixed(3)}), inset 0 0 0 1px rgba(255,255,255,${(0.08 * level).toFixed(3)})`,
+    light: `inset 0 1px 0 rgba(255,255,255,0.9), inset 0 0 0 1px rgba(255,255,255,${(0.7 * level).toFixed(3)})`,
+  },
+})
+const GLASS_FALLBACK = '@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)))'
+const LESS_TRANSPARENCY = '@media (prefers-reduced-transparency: reduce)'
+
 // What the bar actually measures: the px pieces above plus its 1px border top and bottom,
 // and then the label, which is the one part measured in rem.
 const BAR_PX = TAB_PAD_Y * 2 + ICON_PX + ICON_LABEL_GAP + 2
@@ -131,6 +152,8 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
   useEffect(() => { setPending(null); clearStall() }, [value])
   useEffect(() => clearStall, [])
   const shown = pending ?? value
+  const tuned = useGlassLevel()
+  const g = glass(tuned ?? GLASS_DEFAULT)
 
   const count = Math.max(1, items.length)
   const index = Math.max(0, items.findIndex(i => i.key === shown))
@@ -186,12 +209,15 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
         width: '100%', maxWidth: 460,
         borderRadius: 999,
         border: '1px solid', borderColor: 'outline',
-        // Floats over the page, so it takes the raised tone (see Surfaces in ThemeContext).
-        bgcolor: 'background.raised',
-        // A real shadow is what separates the bar from the page: it does the job a blur would
-        // otherwise do, at no runtime cost.
-        boxShadow: '0 6px 24px rgba(0,0,0,0.38), 0 2px 6px rgba(0,0,0,0.28)',
+        // Floats over the page, so it takes the raised tone (see Surfaces in ThemeContext), as glass.
+        bgcolor: t => alpha(t.palette.background.raised, g.alpha[t.palette.mode]),
+        backdropFilter: g.blur,
+        WebkitBackdropFilter: g.blur,
+        // Softer than the opaque bar's shadow: the blur now does part of the separating.
+        boxShadow: t => `0 8px 28px rgba(0,0,0,${t.palette.mode === 'dark' ? 0.34 : 0.14}), 0 1px 4px rgba(0,0,0,${t.palette.mode === 'dark' ? 0.22 : 0.08}), ${g.rim[t.palette.mode]}`,
         overflow: 'hidden',
+        [GLASS_FALLBACK]: { bgcolor: 'background.raised' },
+        ...(tuned == null && { [LESS_TRANSPARENCY]: { bgcolor: 'background.raised', backdropFilter: 'none', WebkitBackdropFilter: 'none' } }),
       }}>
         {/* One indicator that slides between slots, rather than each tab animating its own
             background. Items are equal-width flex children, so its position is pure
@@ -216,6 +242,9 @@ export default function BottomNav({ items, value, onChange, onMore, moreOpen = f
           <Box sx={{
             width: BUBBLE_W, height: BUBBLE_H, borderRadius: 999,
             bgcolor: 'action.selected',
+            // A small lens inside the big one: the same lit rim, so the selection reads as a
+            // droplet sitting on the glass rather than a flat tint.
+            boxShadow: t => g.rim[t.palette.mode],
           }} />
         </Box>
 

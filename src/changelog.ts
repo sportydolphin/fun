@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.175.0',
+    date:    '2026-10-21',
+    changes: [
+      {
+        short: 'Glass tab bar on phones',
+        full:  "The tab bar at the bottom of the screen on a phone is now frosted glass: the page shows through it, blurred, as it scrolls underneath, and the selected tab sits in a lit bubble. If your phone is set to reduce transparency, the bar stays solid.",
+      },
+    ],
+  },
+  {
     version: '1.174.0',
     date:    '2026-10-21',
     changes: [
