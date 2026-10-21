@@ -47,7 +47,7 @@ export {
   fetchFanPhotoContributors, createFanPhotoContributor, updateFanPhotoContributor
 } from './api/photos'
 export {
-  photoTagKey, fetchPhotosToTag, photoTagQueueOpen, suggestPhotoTags, reportPhoto,
+  photoTagKey, fetchPhotosToTag, suggestPhotoTags, reportPhoto,
   fetchPhotoTagReview, setOpenForTagging, decideSuggestions, discardSuggester, blockSuggester,
   unblockSuggester, resolvePhotoReports,
   type PhotoToTag, type TagSubject, type TagAnswer, type ReportReason,

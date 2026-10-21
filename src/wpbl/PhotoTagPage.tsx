@@ -53,7 +53,7 @@ function writeRecent(keys: string[]) {
  *  contained inside it, so moving to the next photo (portrait or landscape) moves nothing under it,
  *  and the controls start above the fold on a phone. */
 const FRAME_SX = {
-  height: { xs: '42vh', sm: '50vh' }, maxHeight: chromePx(560), minHeight: chromePx(220),
+  height: { xs: '34vh', sm: '50vh' }, maxHeight: chromePx(560), minHeight: chromePx(200),
   borderRadius: 2, bgcolor: '#000', overflow: 'hidden', position: 'relative',
   display: 'flex', alignItems: 'center', justifyContent: 'center',
 } as const
@@ -239,9 +239,9 @@ export default function PhotoTagPage() {
     }
   }
 
-  const skip = (why: 'skip' | 'unknown') => {
+  const skip = () => {
     if (!photo || busy) return
-    track(EVENTS.WPBL_PHOTO_TAG_SKIPPED, { why })
+    track(EVENTS.WPBL_PHOTO_TAG_SKIPPED, { why: 'skip' })
     skipped.current = [...skipped.current, photo.id]
     setNotice(null)
     advance(queue!.slice(1))
@@ -270,97 +270,68 @@ export default function PhotoTagPage() {
   const loading = queue == null || players == null
 
   return (
-    <WpblPage title="Who's in this photo?"
-      standfirst="Pick everyone you recognize. Every name is checked before it goes up.">
+    <WpblPage title="Who's in this photo?">
       {loading ? <TagSkeleton /> : failed ? (
         <EndNote title="Couldn't load the photos" body="Check your connection and try again in a moment." />
       ) : finished || !photo ? (
         thanks > 0
-          ? <EndNote title="That's every photo for now" body={`Thank you: you named who is in ${thanks} ${thanks === 1 ? 'photo' : 'photos'}. They go up once they're checked.`} />
-          : <EndNote title="Nothing to name right now" body="You've been through every photo waiting. More arrive after games." />
+          ? <EndNote title="That's every photo for now" body={`Thank you: you tagged ${thanks} ${thanks === 1 ? 'photo' : 'photos'}. They go up once they're checked.`} />
+          : <EndNote title="Nothing to tag right now" body="You've been through every photo waiting. More arrive after games." />
       ) : (
-        <>
-          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mb: 1, fontVariantNumeric: 'tabular-nums' }}>
-            {progress ? `${progress.named} of ${progress.open} photos have a name` : ' '}
-            {thanks > 0 ? ` · you've named ${thanks}` : ''}
-          </Typography>
+        <Box sx={COLUMN_SX}>
+          <ProgressLine text={`${progress ? `${progress.named} of ${progress.open} tagged` : ' '}${thanks > 0 ? ` · you've tagged ${thanks}` : ''}`} />
 
+          {/* The credit rides on the photo, so the frame and the picks below it are one block. */}
           <Box sx={FRAME_SX}>
-            <Box component="img" key={photo.id} src={photo.full_url} alt={`A fan's shot from the 2026 season${photo.credit ? `, by ${photo.credit}` : ''}; ${taggedOptions.length ? `named so far: ${taggedOptions.map(o => o.label).join(', ')}` : 'who is in it is not yet known'}`}
+            <Box component="img" key={photo.id} src={photo.full_url} alt={`A fan's shot from the 2026 season${photo.credit ? `, by ${photo.credit}` : ''}; ${taggedOptions.length ? `tagged so far: ${taggedOptions.map(o => o.label).join(', ')}` : 'who is in it is not yet known'}`}
               sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }} />
+            {photo.credit && <Credit text={`Photo: ${photo.credit}`} />}
           </Box>
-          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 0.5, minHeight: '1.4em' }}>
-            {photo.credit ? `Photo: ${photo.credit}` : ' '}
-          </Typography>
 
-          {/* Who is already named (fixed), then what is picked so far (removable). Held open at one row
-              so the first pick, or a photo that arrives already tagged, moves nothing. */}
-          <Box aria-live="polite" sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1.5, minHeight: chromePx(36) }}>
+          {/* Who is already tagged (fixed), then what is picked (removable). Held open at one row so
+              the first pick, or a photo that arrives already tagged, moves nothing. */}
+          <Box aria-live="polite" sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.75, mt: 1.25, minHeight: chromePx(36) }}>
             {taggedOptions.length > 0 && (
-              <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary', alignSelf: 'center' }}>
-                Already named
-              </Typography>
+              <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary' }}>Already tagged</Typography>
             )}
             {taggedOptions.map(o => (
-              <Box key={o.key} sx={{
-                display: 'inline-flex', alignItems: 'center', maxWidth: '100%', px: 1.25, py: 0.5, borderRadius: 999,
-                border: '1px solid', borderColor: 'outline', bgcolor: 'action.hover', color: 'text.primary',
-              }}>
-                <NameText component="span" name={o.label} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, minWidth: 0 }} />
+              <Box key={o.key} sx={{ ...TAG_SX, borderColor: 'outline', bgcolor: 'action.hover' }}>
+                <NameText component="span" name={o.label} sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, minWidth: 0 }} />
               </Box>
             ))}
-            {picked.length === 0 ? (taggedOptions.length > 0 ? null : (
-              <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', alignSelf: 'center' }}>
-                No one picked yet.
-              </Typography>
-            )) : picked.map(o => (
-              <Box key={o.key} component="button" type="button" onClick={() => unpick(o.key)}
-                aria-label={`Remove ${o.label}`}
-                sx={{
-                  font: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 0.5, maxWidth: '100%',
-                  pl: 1.25, pr: 1, py: 0.5, borderRadius: 999, cursor: 'pointer',
-                  border: '1px solid', borderColor: 'var(--wpbl-accent-fg)', bgcolor: 'background.paper', color: 'text.primary',
-                  ...FOCUS_RING,
-                }}>
-                <NameText component="span" name={o.label} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, minWidth: 0 }} />
-                <Box component="span" aria-hidden sx={{ fontWeight: 800, color: 'text.secondary' }}>×</Box>
+            {picked.map(o => (
+              <Box key={o.key} component="button" type="button" onClick={() => unpick(o.key)} aria-label={`Remove ${o.label}`}
+                sx={{ ...TAG_SX, font: 'inherit', pr: 0.75, cursor: 'pointer', borderColor: 'var(--wpbl-accent-fg)', ...FOCUS_RING }}>
+                <NameText component="span" name={o.label} sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, minWidth: 0 }} />
+                <Box component="span" aria-hidden sx={{ fontWeight: 800, color: 'text.secondary', ml: 0.25 }}>×</Box>
               </Box>
             ))}
+            {picked.length === 0 && taggedOptions.length === 0 && (
+              <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Search below, or pick a club, to tag someone.</Typography>
+            )}
           </Box>
 
-          {/* The actions sit under the picks, above the search, so a long roster list never pushes
-              them off the screen and they never move as the list grows. */}
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1.5 }}>
+          {/* Two actions, one row, always the same place: under the picks and above the search, so
+              a long roster list never pushes them away. Skip is narrow, Send takes the rest. */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 2fr)', gap: 1, mt: 1 }}>
+            <Pill onClick={skip} disabled={busy}>Skip</Pill>
             <Pill primary onClick={submit} disabled={picked.length === 0 || busy}>
-              {busy ? 'Sending…' : picked.length > 1 ? `Send ${picked.length} names` : 'Send and next'}
+              {busy ? 'Sending…' : picked.length > 1 ? `Send ${picked.length} tags` : 'Send and next'}
             </Pill>
-            <Pill onClick={() => skip('skip')} disabled={busy}>Skip</Pill>
-            <Pill onClick={() => skip('unknown')} disabled={busy}>I don't recognize anyone</Pill>
           </Box>
 
           {notice && (
-            <Typography role="status" sx={{ fontSize: TYPE_SCALE.body, mt: 1.5, color: 'text.primary', fontWeight: 600 }}>{notice}</Typography>
+            <Typography role="status" sx={{ fontSize: TYPE_SCALE.body, mt: 1.25, color: 'text.primary', fontWeight: 600 }}>{notice}</Typography>
           )}
 
-          <Box sx={{ mt: 1.5 }}>
-            <Box component="label" htmlFor="photo-tag-search"
-              sx={{ display: 'block', fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary', mb: 0.5 }}>
-              Search by name or number
-            </Box>
-            <Box component="input" id="photo-tag-search" ref={searchRef} value={query} autoComplete="off"
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
-              onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter' && matches[0]) { e.preventDefault(); pick(matches[0]) } }}
-              placeholder="Kelsie, or #7"
-              disabled={picked.length >= MAX_PICKS}
-              sx={{
-                width: '100%', boxSizing: 'border-box', fontSize: TYPE_SCALE.body, fontFamily: 'inherit',
-                borderRadius: 2, border: '1px solid', borderColor: 'outline', bgcolor: 'transparent', color: 'text.primary',
-                px: 1.25, py: 0.85, outline: 'none',
-                '&:focus': { borderColor: 'var(--wpbl-accent-fg)' }, '&::placeholder': { color: 'text.disabled' },
-              }} />
+          <Box sx={{ mt: 2 }}>
+            <SearchBox inputRef={searchRef} value={query} disabled={picked.length >= MAX_PICKS}
+              onChange={setQuery}
+              onEnter={() => { if (matches[0]) pick(matches[0]) }} />
           </Box>
 
-          {/* Narrow by club, for a fan who knows the cap before the face. */}
+          {/* Narrow by club, for a fan who knows the cap before the face. One row, scrolling sideways
+              on a phone rather than wrapping into a block. */}
           <Box sx={{ mt: 1 }}>
             <ChipRow mb={0}>
               {teams.map(t => (
@@ -371,16 +342,17 @@ export default function PhotoTagPage() {
           </Box>
 
           {recentOptions.length > 0 && !query && !club && (
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.75, mt: 1 }}>
-              <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary' }}>Recent</Typography>
-              {recentOptions.map(o => (
-                <FilterChip key={o.key} active={false} onClick={() => pick(o)}>{`+ ${o.label}`}</FilterChip>
-              ))}
+            <Box sx={{ mt: 1 }}>
+              <ChipRow mb={0}>
+                {recentOptions.map(o => (
+                  <FilterChip key={o.key} active={false} onClick={() => pick(o)}>{`+ ${o.label}`}</FilterChip>
+                ))}
+              </ChipRow>
             </Box>
           )}
 
           {matches.length > 0 && (
-            <Box role="list" aria-label="Names to pick" sx={{ display: 'grid', gap: 0.75, mt: 1, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' } }}>
+            <Box role="list" aria-label="People to tag" sx={{ display: 'grid', gap: 0.75, mt: 1.25, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' } }}>
               {matches.map(o => (
                 <Box role="listitem" key={o.key} sx={{ minWidth: 0 }}>
                   <OptionRow option={o} teams={teamById} onPick={() => pick(o)} disabled={picked.length >= MAX_PICKS} />
@@ -389,16 +361,16 @@ export default function PhotoTagPage() {
             </Box>
           )}
           {query.trim() && matches.length === 0 && (
-            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 1 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 1.25 }}>
               No one on our list matches that. Names come from the league's rosters only.
             </Typography>
           )}
 
-          <Box sx={{ mt: 2.5 }}>
+          <Box sx={{ mt: 3, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
             {!reporting ? (
               <Box component="button" type="button" onClick={() => setReporting(true)}
                 sx={{ font: 'inherit', fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary', bgcolor: 'transparent',
-                      border: 0, p: 0.5, cursor: 'pointer', textDecoration: 'underline', ...FOCUS_RING }}>
+                      border: 0, p: 0, cursor: 'pointer', textDecoration: 'underline', ...FOCUS_RING }}>
                 Report this photo
               </Box>
             ) : (
@@ -413,15 +385,54 @@ export default function PhotoTagPage() {
               </Box>
             )}
           </Box>
-
-          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 3, lineHeight: 1.5 }}>
-            No account needed. What you pick is a suggestion: nothing appears on the site until we have checked it.
-            We keep a random id for this browser and a scrambled form of your connection's address to stop spam,
-            never your name or the address itself.
-          </Typography>
-        </>
+        </Box>
       )}
     </WpblPage>
+  )
+}
+
+/** One reading column. Full width the two buttons and the search ran a desktop's whole page wide,
+ *  a long way from the photo they act on. */
+const COLUMN_SX = { maxWidth: chromePx(720) } as const
+
+/** A tag in the picks row: picked, or already on the photo. */
+const TAG_SX = {
+  display: 'inline-flex', alignItems: 'center', maxWidth: '100%', px: 1.1, py: 0.4, borderRadius: 999,
+  border: '1px solid', bgcolor: 'background.paper', color: 'text.primary',
+} as const
+
+function ProgressLine({ text }: { text: React.ReactNode }) {
+  return (
+    <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mb: 1, fontVariantNumeric: 'tabular-nums' }}>{text}</Typography>
+  )
+}
+
+/** The photographer, on the photo's bottom edge over a dark fade, so it reads on any image. */
+function Credit({ text }: { text: React.ReactNode }) {
+  return (
+    <Typography sx={{
+      position: 'absolute', left: 0, right: 0, bottom: 0, px: 1.25, pt: 2.5, pb: 0.75,
+      fontSize: TYPE_SCALE.meta, fontWeight: 600, color: '#fff',
+      background: 'linear-gradient(to top, rgba(0,0,0,0.75), rgba(0,0,0,0))',
+    }} noWrap>{text}</Typography>
+  )
+}
+
+function SearchBox({ inputRef, value, onChange, onEnter, disabled }: {
+  inputRef?: React.Ref<HTMLInputElement>; value: string; onChange?: (v: string) => void; onEnter?: () => void; disabled?: boolean
+}) {
+  return (
+    <Box component="input" id="photo-tag-search" ref={inputRef} value={value} autoComplete="off" type="search"
+      aria-label="Search by name or number" placeholder="Search a name, or #7"
+      onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange?.(e.target.value)}
+      onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); onEnter?.() } }}
+      disabled={disabled} readOnly={!onChange}
+      sx={{
+        width: '100%', boxSizing: 'border-box', fontSize: TYPE_SCALE.body, fontFamily: 'inherit',
+        minHeight: chromePx(44), borderRadius: 999, border: '1px solid', borderColor: 'outline', bgcolor: 'transparent', color: 'text.primary',
+        px: 1.75, outline: 'none',
+        '&:focus': { borderColor: 'var(--wpbl-accent-fg)' }, '&::placeholder': { color: 'text.disabled' },
+      }} />
   )
 }
 
@@ -438,33 +449,25 @@ function EndNote({ title, body }: { title: string; body: string }) {
   )
 }
 
-/** The page before the queue lands, drawn as the loaded page (src/CLAUDE.md): the progress line, the
- *  frame at its fixed height, the credit, the picked row, the search, the club chips and the
- *  buttons, each in the box the loaded one takes. */
+/** The page before the queue lands, drawn as the loaded page (src/CLAUDE.md) from the same pieces:
+ *  the progress line, the frame at its fixed height, the picks row, the two actions, the search and
+ *  the club chips, each in the box the loaded one takes. */
 function TagSkeleton() {
   return (
-    <Box aria-hidden>
-      <Typography sx={{ fontSize: TYPE_SCALE.meta, mb: 1 }}><TextGhost>00 of 000 photos have a name</TextGhost></Typography>
+    <Box aria-hidden sx={COLUMN_SX}>
+      <ProgressLine text={<TextGhost>00 of 000 tagged</TextGhost>} />
       <Box sx={FRAME_SX}><Skeleton variant="rectangular" sx={{ position: 'absolute', inset: 0, height: '100%', bgcolor: 'grey.900' }} /></Box>
-      <Typography sx={{ fontSize: TYPE_SCALE.meta, mt: 0.5, minHeight: '1.4em' }}><TextGhost>Photo: Photographer Name</TextGhost></Typography>
-      <Box sx={{ display: 'flex', mt: 1.5, minHeight: chromePx(36) }}>
-        <Typography sx={{ fontSize: TYPE_SCALE.body, alignSelf: 'center' }}><TextGhost>No one picked yet.</TextGhost></Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', mt: 1.25, minHeight: chromePx(36) }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta }}><TextGhost>Search below, or pick a club, to tag someone.</TextGhost></Typography>
       </Box>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1.5 }}>
-        {['Send and next', 'Skip', "I don't recognize anyone"].map(l => (
-          <Box key={l} sx={{ px: 2, py: 1.1, minHeight: chromePx(44), borderRadius: 999, border: '1px solid', borderColor: 'outline',
-            fontSize: TYPE_SCALE.body, fontWeight: 800, lineHeight: 1.2, boxSizing: 'border-box' }}><TextGhost>{l}</TextGhost></Box>
-        ))}
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 2fr)', gap: 1, mt: 1 }}>
+        <Pill onClick={() => {}} disabled>Skip</Pill>
+        <Pill onClick={() => {}} disabled>Send and next</Pill>
       </Box>
-      <Box sx={{ mt: 1.5 }}>
-        <Typography sx={{ fontSize: TYPE_SCALE.meta, mb: 0.5 }}><TextGhost>Search by name or number</TextGhost></Typography>
-        <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'outline', px: 1.25, py: 0.85, fontSize: TYPE_SCALE.body }}>
-          <TextGhost>Kelsie, or #7</TextGhost>
-        </Box>
-      </Box>
+      <Box sx={{ mt: 2 }}><SearchBox value="" disabled /></Box>
       <Box sx={{ mt: 1 }}>
         <ChipRow mb={0}>
-          {['Boston Hunters', 'Los Angeles Queens', 'New York Heights', 'San Francisco Fog'].map(n => (
+          {['Boston Hunters', 'Los Angeles Queens', 'New York Heights', 'San Francisco Firebells'].map(n => (
             <FilterChip key={n} active={false} onClick={() => {}}><TextGhost>{n}</TextGhost></FilterChip>
           ))}
         </ChipRow>
