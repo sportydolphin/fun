@@ -17,7 +17,7 @@
 
 import { pressable } from '../ui/interaction'
 import React, { lazy, Suspense, useSyncExternalStore } from 'react'
-import { Box, Typography, Popover, Tooltip, Divider, Button } from '@mui/material'
+import { Box, Typography, Popover, Tooltip, Divider, Button, Slider } from '@mui/material'
 import { Settings } from '@mui/icons-material'
 import { useAuth, simulateDevLogin } from '../AuthContext'
 import { useTheme, DARK_PAGES, SURFACE_CHOICES, DEFAULT_SURFACES, type DarkPage, type SurfacePrefs } from '../ThemeContext'
@@ -44,6 +44,7 @@ import { useNotifications, addEventNotification, refreshNotifications, clearNoti
 import { sampleNotifications } from '../../shared/notifications'
 import type { NotificationPayload } from '../../shared/notifications'
 import { typePx } from '../ui/scale'
+import { useGlassLevel, setGlassLevel, glassLevel, GLASS_DEFAULT } from '../ui/glassLevel'
 
 const MobilePreview = import.meta.env.DEV ? lazy(() => import('../mlb/dev/MobilePreview')) : null
 
@@ -84,6 +85,7 @@ function activeOverrides(): Override[] {
   if (devFanPhotosOn()) out.push({ label: 'WPBL mock fan photos', reset: () => setDevFanPhotos(false) })
   if (devLiveSnapshot().enabled) out.push({ label: 'WPBL live replay', reset: () => setDevLiveEnabled(false) })
   if (readFlag(FORCE_TESTER_KEY) === '1') out.push({ label: 'Tester role', reset: () => writeFlag(FORCE_TESTER_KEY, null), reload: true })
+  if (glassLevel() != null) out.push({ label: 'Bottom bar glass', reset: () => setGlassLevel(null) })
   if (readFlag('sdSurfaces') != null) out.push({ label: 'Surface settings', reset: () => writeFlag('sdSurfaces', null), reload: true })
   if (Number(readFlag(FAKE_USERS_KEY) ?? 0) > 0) out.push({ label: 'Fake /admin roster', reset: () => writeFlag(FAKE_USERS_KEY, null), reload: true })
   return out
@@ -170,6 +172,8 @@ export function DevSettings({ showMlbTools, showWpblTools }: { showMlbTools: boo
 
         <Typography sx={group}>Look</Typography>
         <SurfaceControls />
+        <Divider sx={{ my: 1.75 }} />
+        <GlassControls />
         <Divider sx={{ my: 1.75 }} />
         <DeviceModeControls />
 
@@ -546,6 +550,37 @@ function SurfaceControls() {
       {changed && (
         <Button fullWidth size="small" variant="outlined" onClick={() => setSurfacePrefs(null)} sx={{ mt: 0.5, textTransform: 'none' }}>
           Back to the shipped settings
+        </Button>
+      )}
+    </>
+  )
+}
+
+/**
+ * The phone bottom bar's glass, as one dial from nearly solid to clear (see ui/glassLevel.ts), for
+ * finding the level by eye before it is baked in as GLASS_DEFAULT. The bar is phones only, so look
+ * at it with Device set to Mobile or on a phone against the LAN dev server. Setting a level also
+ * ignores a reduced-transparency preference, which Windows reports when its transparency effects
+ * are off.
+ */
+function GlassControls() {
+  const tuned = useGlassLevel()
+  const value = Math.round((tuned ?? GLASS_DEFAULT) * 100)
+  return (
+    <>
+      <Typography sx={heading}>Bottom bar glass: {value}%{tuned == null ? ' (shipped)' : ''}</Typography>
+      <Box sx={{ px: 1 }}>
+        <Slider
+          size="small" min={0} max={100} step={5} value={value}
+          onChange={(_, v) => setGlassLevel((v as number) / 100)}
+          aria-label="Bottom bar glass"
+          marks={[{ value: GLASS_DEFAULT * 100 }]}
+        />
+      </Box>
+      <Typography sx={note}>0 is nearly solid, 100 is the most see-through. Phones only: switch Device to Mobile.</Typography>
+      {tuned != null && (
+        <Button fullWidth size="small" variant="outlined" onClick={() => setGlassLevel(null)} sx={{ ...btn, mt: 0.75 }}>
+          Back to the shipped level
         </Button>
       )}
     </>
