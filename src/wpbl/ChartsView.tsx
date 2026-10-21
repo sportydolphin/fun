@@ -36,8 +36,6 @@ const war = (v: number) => (v < 0 ? `−${Math.abs(v).toFixed(1)}` : v.toFixed(1
 interface ChartSpec {
   key: string
   title: string
-  /** One line under the title saying how to read it. */
-  howTo: string
   info: string
   data: ChartData | null
   x: { label: string; name: string; fmt: (v: number) => string; tick: (v: number) => string; floor?: number; invert?: boolean }
@@ -45,7 +43,7 @@ interface ChartSpec {
   guides: (x: ScatterAxis, y: ScatterAxis, avg: ChartData['avg']) => ScatterGuides
   /** Both axes on one scale, for a chart whose diagonal means "equal". */
   shared?: boolean
-  /** Why there is nothing to draw, when there is nothing. */
+  /** Shown in the frame when there is nothing to draw. */
   empty: string
 }
 
@@ -95,89 +93,68 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
   const firstStrike = useMemo(() => (pitchBoard ? firstStrikeWalkChart(pitchBoard.pitchers, pitchBoard.league, pitchMins.minPitcher) : null), [pitchBoard, pitchMins.minPitcher])
   const twoWay = useMemo(() => (valueSeasons ? twoWayChart(valueSeasons, qual.minPa, qual.minOuts) : null), [valueSeasons, qual.minPa, qual.minOuts])
 
-  const eraName = `ERA (earned runs per ${basis === 7 ? 'seven' : 'nine'} innings)`
   const specs: ChartSpec[] = side === 'hitting' ? [
     {
-      key: 'obp-slg', title: 'On base and power',
-      howTo: 'Further right gets on base more, higher hits for more power. Dotted lines are OPS.',
-      info: 'Each dot is a hitter’s regular season: on-base percentage across, slugging up, sized by plate appearances. OPS is the two added together, so every point on one dotted line has the same OPS. The dashed lines are the league average, which split the hitters into four kinds.',
+      key: 'obp-slg', title: 'OBP vs SLG',
+      info: 'One dot per hitter, sized by PA. Dotted lines: OPS. Dashed lines: league average.',
       data: obpSlg,
-      x: { label: 'On-base percentage →', name: 'OBP', fmt: fmtRate, tick: fmtRate, floor: 0 },
-      y: { label: 'Slugging →', name: 'SLG', fmt: fmtRate, tick: fmtRate, floor: 0 },
+      x: { label: 'OBP', name: 'OBP', fmt: fmtRate, tick: fmtRate, floor: 0 },
+      y: { label: 'SLG', name: 'SLG', fmt: fmtRate, tick: fmtRate, floor: 0 },
       guides: (x, y, avg) => ({
         avg: avg ? { ...avg, label: 'League avg' } : undefined,
         sums: sumLevels(x, y, 5).map(v => ({ value: v, label: `${fmtRate(v)} OPS` })),
-        corners: { tl: 'Power, few walks', tr: 'Both', bl: 'Neither yet', br: 'On base, little power' },
       }),
-      empty: 'No hitter has a plate appearance yet.',
+      empty: 'No data',
     },
     {
-      key: 'swing-contact', title: 'Swing and contact',
-      howTo: 'Further right swings more often, higher misses less when they do.',
-      info: 'Each dot is a hitter: the share of pitches they swung at across, and the share of those swings that made contact (a foul or a ball in play) up, sized by pitches seen. Counted from every pitch in the play-by-play, not from tracking. The dashed lines are the league average.',
+      key: 'swing-contact', title: 'Swing% vs Contact%',
+      info: 'One dot per hitter, sized by pitches seen. Swing%: swings over pitches. Contact%: fouls and balls in play over swings. From the play-by-play. Dashed lines: league average.',
       data: swingContact,
-      x: { label: 'Swing rate →', name: 'Swing', fmt: pct1, tick: pct, floor: 0 },
-      y: { label: 'Contact when swinging →', name: 'Contact', fmt: pct1, tick: pct, floor: 0 },
-      guides: (_x, _y, avg) => ({
-        avg: avg ? { ...avg, label: 'League avg' } : undefined,
-        corners: { tl: 'Picky, rarely misses', tr: 'Swings and connects', bl: 'Picky, misses', br: 'Swings and misses' },
-      }),
-      empty: 'No pitches have been logged yet.',
+      x: { label: 'Swing%', name: 'Swing%', fmt: pct1, tick: pct, floor: 0 },
+      y: { label: 'Contact%', name: 'Contact%', fmt: pct1, tick: pct, floor: 0 },
+      guides: (_x, _y, avg) => ({ avg: avg ? { ...avg, label: 'League avg' } : undefined }),
+      empty: 'No data',
     },
   ] : side === 'pitching' ? [
     {
-      key: 'era-fip', title: 'ERA against FIP',
-      howTo: 'Lower is better on both. Above the line, more runs scored than the pitching deserved.',
-      info: `Each dot is a pitcher's regular season: FIP across and ${eraName} up, both on the setting you have chosen, sized by innings. FIP counts only what a pitcher controls (strikeouts, walks, hit batters and home runs), weighted by this league's own run values, so a pitcher above the dashed line gave up more runs than those say they should have: the defense behind them, or the order the hits came in. Over a short season the gap is mostly luck.`,
+      key: 'era-fip', title: 'ERA vs FIP',
+      info: `One dot per pitcher, sized by IP. ERA and FIP per ${basis} innings. FIP uses this league's run values. Dashed line: ERA = FIP.`,
       data: eraFip,
-      x: { label: '← FIP (lower is better)', name: 'FIP', fmt: fmtTwo, tick: fmtTwo, floor: 0 },
-      y: { label: '← ERA (lower is better)', name: 'ERA', fmt: fmtTwo, tick: fmtTwo, floor: 0 },
+      x: { label: 'FIP', name: 'FIP', fmt: fmtTwo, tick: fmtTwo, floor: 0 },
+      y: { label: 'ERA', name: 'ERA', fmt: fmtTwo, tick: fmtTwo, floor: 0 },
       shared: true,
-      guides: () => ({ diagonal: { above: 'Unlucky: ERA above FIP', below: 'Lucky: ERA below FIP' } }),
-      empty: fWeights ? 'No pitcher has recorded an out yet.' : 'FIP needs this season’s run values, which are still being worked out.',
+      guides: () => ({ diagonal: { above: 'ERA > FIP', below: 'ERA < FIP' } }),
+      empty: 'No data',
     },
     {
-      key: 'first-strike-walks', title: 'Getting ahead',
-      howTo: 'Further right throws more first-pitch strikes, higher walks fewer batters.',
-      info: 'Each dot is a pitcher: the share of batters whose first pitch was a strike across, and the share of batters walked up, drawn upside down so fewer walks is higher. Sized by pitches thrown. Counted from every pitch in the play-by-play. The dashed lines are the league average.',
+      key: 'first-strike-walks', title: 'F-Strike% vs BB%',
+      info: 'One dot per pitcher, sized by pitches. F-Strike%: batters whose first pitch was a strike. BB%: walks over batters faced, axis inverted. From the play-by-play. Dashed lines: league average.',
       data: firstStrike,
-      x: { label: 'First-pitch strikes →', name: 'First-pitch strike', fmt: pct1, tick: pct, floor: 0 },
-      y: { label: 'Fewer walks →', name: 'Walk rate', fmt: pct1, tick: pct, floor: 0, invert: true },
-      guides: (_x, _y, avg) => ({
-        avg: avg ? { ...avg, label: 'League avg' } : undefined,
-        corners: { tl: 'Behind, but no walks', tr: 'Attackers', bl: 'Nibblers', br: 'Ahead, then walks' },
-      }),
-      empty: 'No pitches have been logged yet.',
+      x: { label: 'F-Strike%', name: 'F-Strike%', fmt: pct1, tick: pct, floor: 0 },
+      y: { label: 'BB% (inverted)', name: 'BB%', fmt: pct1, tick: pct, floor: 0, invert: true },
+      guides: (_x, _y, avg) => ({ avg: avg ? { ...avg, label: 'League avg' } : undefined }),
+      empty: 'No data',
     },
   ] : [
     {
-      key: 'two-way', title: 'Two-way players',
-      howTo: 'Wins added at the plate and in the field across, on the mound up.',
-      info: 'Each dot is a player who both batted and pitched this regular season: wins above replacement as a position player (hitting, running and fielding) across and as a pitcher up, sized by plate appearances and outs together. The two add up to the WAR on the Overall table. The solid lines are zero, a replacement-level player.',
+      key: 'two-way', title: 'Pos WAR vs Pit WAR',
+      info: 'Players with at least one PA and one out recorded, sized by PA plus outs. Pos WAR: batting, baserunning and fielding. Pit WAR: pitching. The two sum to WAR. Solid lines: zero.',
       data: twoWay,
-      x: { label: 'WAR as a position player →', name: 'Batting WAR', fmt: war, tick: war },
-      y: { label: 'WAR as a pitcher →', name: 'Pitching WAR', fmt: war, tick: war },
+      x: { label: 'Pos WAR', name: 'Pos WAR', fmt: war, tick: war },
+      y: { label: 'Pit WAR', name: 'Pit WAR', fmt: war, tick: war },
       guides: (x, y) => ({
         zero: true,
         sums: sumLevels(x, y, 3).filter(v => v > 0).map(v => ({ value: v, label: `${war(v)} WAR` })),
-        corners: { tr: 'Both ways' },
       }),
-      empty: 'Nobody both batted and pitched this season.',
+      empty: 'No data',
     },
   ]
 
-  const floor = side === 'hitting' ? ` (${qual.minPa}+ PA)` : side === 'pitching' ? ` (${Math.round(qual.minOuts / 3)}+ IP)` : ''
-
   return (
     <Box>
-      <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mb: 1.5, lineHeight: 1.5 }}>
-        Every player on two stats at once, this regular season. Tap a dot for the numbers, or tap it
-        again to open the player.
-      </Typography>
       {qual.active && (
         <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-          <FilterChip active={!everyone} onClick={() => setEveryone(false)}>Regulars only{floor}</FilterChip>
-          <FilterChip active={everyone} onClick={() => setEveryone(true)}>Everyone who played</FilterChip>
+          <FilterChip active={!everyone} onClick={() => setEveryone(e => !e)}>Qualified</FilterChip>
         </Box>
       )}
       <Box sx={{ display: 'grid', gap: { xs: 3.5, md: 4 }, gridTemplateColumns: { xs: '1fr', md: specs.length > 1 ? '1fr 1fr' : '1fr' } }}>
@@ -241,11 +218,10 @@ function ChartPanel({ spec, everyone, onOpenPlayer, narrowSingle }: {
 
   return (
     <Box sx={{ minWidth: 0, ...(narrowSingle ? { maxWidth: { md: '34rem' } } : {}) }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1 }}>
         <Typography component="h3" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, letterSpacing: typePx(-0.2) }}>{spec.title}</Typography>
-        <InfoDot label="How to read this chart" text={spec.info} />
+        <InfoDot label={`About ${spec.title}`} text={spec.info} />
       </Box>
-      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mb: 1.25, lineHeight: 1.45 }}>{spec.howTo}</Typography>
       {data == null ? <ScatterFrame /> : axes == null ? (
         <Box sx={{ position: 'relative' }}>
           <ScatterFrame />
@@ -255,7 +231,7 @@ function ChartPanel({ spec, everyone, onOpenPlayer, narrowSingle }: {
         </Box>
       ) : (
         <ScatterPlot points={points} x={axes.x} y={axes.y} guides={axes.guides}
-          labeled={data.notable} title={`${spec.title}: ${spec.y.name} against ${spec.x.name}, one dot per player`} />
+          labeled={data.notable} title={spec.title} />
       )}
     </Box>
   )

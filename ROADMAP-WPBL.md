@@ -1439,12 +1439,12 @@ same axes for a share image.
 
 **Shipped (v1.172.0):** Stats › Analysis › **Charts** (`/wpbl/stats?board=charts`, a query param,
 so no new route), [`ChartsView.tsx`](src/wpbl/ChartsView.tsx) over
-[`derive/charts.ts`](src/wpbl/derive/charts.ts). The side switch picks the charts: Hitting is on
-base against power (OPS lines across it) and swing rate against contact; Pitching is ERA against
-FIP (the "lucky / unlucky" diagonal) and first-pitch strikes against walks; Overall is two-way
-players, WAR as a position player against WAR as a pitcher, the one this league can ask and MLB
-barely can. Regular season only, regulars by default (the Players table's bars), from the stored
-seasons and the Pitch by pitch board's play log, so the board reads nothing new.
+[`derive/charts.ts`](src/wpbl/derive/charts.ts). The side switch picks the charts: Hitting is
+OBP vs SLG (OPS lines across it) and Swing% vs Contact%; Pitching is ERA vs FIP (with the ERA =
+FIP diagonal) and F-Strike% vs BB%; Overall is Pos WAR vs Pit WAR for two-way players, the one this
+league can ask and MLB barely can. Regular season only, qualified players by default (the Players
+table's bars), from the stored seasons and the Pitch by pitch board's play log, so the board reads
+nothing new. Labels only, no subtitles (the copy rule in CLAUDE.md, Oct 21, 2026).
 
 **Next, in order:**
 
