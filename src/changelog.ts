@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.184.0',
+    date:    '2026-10-22',
+    changes: [
+      {
+        short: 'Charts readable on a phone',
+        full:  "Every chart's labels print at a readable size on a phone. MLB's player trend chart fits the screen instead of shrinking a desktop drawing into it, and a long career's years thin out rather than overlap. WPBL's Draft chart is taller, has an axis title, and works like the Charts board: tap a player to see their numbers, tap again to open them. On MLB's team charts a phone labels the clubs beside their dots, and the average and trend line labels no longer print over the corner labels. The spray chart's position names are larger.",
+      },
+    ],
+  },
+  {
     version: '1.182.0',
     date:    '2026-10-21',
     changes: [

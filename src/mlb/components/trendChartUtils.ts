@@ -1,7 +1,6 @@
 import type React from 'react'
-import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { useRef } from 'react'
 import { fetchSeasonPlayerStats } from '../api'
-import { chromeScale } from '../../ui/scale'
 
 // Helpers shared by RollingWindowChart and PlayerTrendsChart. Split out of
 // PlayerTrendsChart.tsx (July 2026) so the rolling chart can live in its own file
@@ -30,43 +29,8 @@ export function fetchLeagueStatsBySeason(season: number, group: 'hitting' | 'pit
   return leagueStatsCache.get(key)!
 }
 
-// ─── How wide the drawing is ─────────────────────────────────────────────────
-//
-// Both charts draw into a viewBox and let the SVG stretch to the box, which is right on a phone:
-// a 343px box shows a 560-unit drawing a little under its written size. On a desktop it went the
-// other way and kept going. The player page's card is 880 chrome px, over 1,000 screen px at the
-// desktop scale, so the drawing was blown up close to 2x: a rolling chart 420px tall with 19px axis
-// labels. It went unnoticed under the old `zoom: 1.4`, whose card was narrower.
-//
-// So above the base width the drawing is laid out at the box's own width, in chrome px: its labels
-// stay the size the card's type is, its height stays what it was written as (times the desktop
-// scale, like everything else), and the extra room becomes more x-axis rather than bigger letters.
-// Below the base nothing changes, so a phone draws exactly what it always has.
-export function useChartViewWidth(ref: RefObject<HTMLElement | null>, base: number): number {
-  const [w, setW] = useState(base)
-  // The box the ref points at can come and go (each chart has a "not enough games" branch with no
-  // chart in it), so the observer follows whichever element is there after each render.
-  const watched = useRef<{ el: Element; ro: ResizeObserver } | null>(null)
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (watched.current?.el === el) return
-    watched.current?.ro.disconnect()
-    watched.current = null
-    if (!el) return
-    const read = () => {
-      const px = el.getBoundingClientRect().width
-      if (px > 0) setW(Math.max(base, Math.round(px / chromeScale())))
-    }
-    const ro = new ResizeObserver(read)
-    ro.observe(el)
-    watched.current = { el, ro }
-    read()
-  })
-  // Forgotten as well as disconnected, or a remount (React's dev double-mount, a Suspense retry)
-  // finds the same element "already watched" and never observes it again.
-  useLayoutEffect(() => () => { watched.current?.ro.disconnect(); watched.current = null }, [])
-  return w
-}
+// The width hook moved to src/ui/charts so WPBL's charts can lay out the same way.
+export { useChartViewWidth } from '../../ui/charts/useViewWidth'
 
 // ─── Touch: scrub sideways, scroll up and down ───────────────────────────────
 //

@@ -34,6 +34,9 @@ import { InfoDot } from '../ui/InfoDot'
 // home plate: the box has to be wider than it is tall, and R_OUT plus the label ring has to
 // fit inside half its width or the corner zones clip.
 const VW = 440, VH = 430
+// The position names, in viewBox units. The 440 box is drawn at about 0.78 of its size in a phone's
+// 343px, so 11 printed at 8.6px; 13 is the smallest that clears the sweep's 10px floor for chart text.
+const ZONE_FONT = 13
 const CX = 220, CY = 360        // home plate
 const BASE = 100                // home to first, along the foul line
 const R_MOUND = 64              // the pitcher's circle
@@ -312,7 +315,7 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
             <g key={`f-${z}`}>
               {named && (
                 <text x={x} y={y - (n === 0 ? 0 : 10)} textAnchor="middle" dominantBaseline="central"
-                  fontSize={11} fontWeight={800} fill={ink}>{z}</text>
+                  fontSize={ZONE_FONT} fontWeight={800} fill={ink}>{z}</text>
               )}
               {n > 0 && (
                 <text x={x} y={named ? y + 6 : y} textAnchor="middle" dominantBaseline="central"
@@ -328,7 +331,7 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
           const [x, y] = polar(R_LABEL, (a1 + a2) / 2)
           return (
             <text key={`n-${z}`} x={x} y={y} textAnchor="middle" dominantBaseline="central"
-              fontSize={11} fontWeight={800} fill={theme.palette.text.secondary}>{z}</text>
+              fontSize={ZONE_FONT} fontWeight={800} fill={theme.palette.text.secondary}>{z}</text>
           )
         })}
       </Box>

@@ -179,9 +179,10 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
 
   // SVG layout: tight gutters (just enough for the axis labels) with a taller
   // body so the plot fills more of the card.
-  // Laid out at the box's width on a desktop rather than blown up to it (see useChartViewWidth).
-  // Not in fullscreen, whose whole point is the bigger drawing.
-  const W = isFullscreen ? 560 : fitW, H = 272
+  // Laid out at the box's width (see useChartViewWidth), so its type prints at its written size.
+  // Fullscreen keeps the 560 drawing blown up, which is its whole point, except where the screen is
+  // narrower than that: on a phone, 560 squeezed into the screen is the small chart it was opened to escape.
+  const W = isFullscreen ? Math.min(560, fitW) : fitW, H = 272
   const m = { t: 20, r: 16, b: 30, l: 42 }
   const iW = W - m.l - m.r, iH = H - m.t - m.b
   const n = fpts.length
@@ -219,6 +220,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   // are skipped below so nothing sits on top of the axis / y-axis numbers.
   const sx = (i: number) => m.l + (n === 1 ? iW / 2 : (i / (n - 1)) * iW)
   const sy = (v: number) => m.t + ((yMax - v) / (yMax - yMin)) * iH
+  const yearStep = n > 1 ? Math.max(1, Math.ceil(26 / (iW / (n - 1)))) : 1
 
   // Short-season detection: career-median volume × 0.4, with an absolute floor.
   // Pitchers with very few IP (injury/TJ) and hitters with few AB should look visually distinct.
@@ -547,13 +549,17 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
             </g>
           ))}
 
-          {/* X ticks: always show every year as 2-digit label ('24) */}
+          {/* X ticks: a tick for every year, a 2-digit label ('24) for as many as fit. Laid out at
+              a phone's width, a long career has a year every 14 units and "'24" needs about 22, so
+              the labels thin to every other (or third) year, counted back from the latest. */}
           {fpts.map((p, i) => (
             <g key={p.season}>
               <line x1={sx(i)} y1={m.t + iH} x2={sx(i)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1} />
-              <text x={sx(i)} y={m.t + iH + 19} textAnchor="middle" fill={theme.palette.text.primary} fontSize={12.5} fontWeight={600}>
-                '{String(p.season).slice(2)}
-              </text>
+              {(n - 1 - i) % yearStep === 0 && (
+                <text x={sx(i)} y={m.t + iH + 19} textAnchor="middle" fill={theme.palette.text.primary} fontSize={12.5} fontWeight={600}>
+                  '{String(p.season).slice(2)}
+                </text>
+              )}
             </g>
           ))}
         </svg>

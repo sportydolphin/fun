@@ -13,6 +13,11 @@
  *    And every outline (a box bordered on all four sides) at under 3:1 against what is behind it,
  *    in both themes (probeBorders, CLAUDE.md "Borders").
  *
+ *    And, below 768px, any chart text (SVG text in a chart-sized drawing) printed under 10px
+ *    (probeChartText). A chart drawn into a fixed viewBox prints its type at the box's width over
+ *    the viewBox's, so one laid out for a desktop column reads at 6px on a phone, and nothing but a
+ *    rendered page can see it: the Oct 2026 chart audit found four charts doing it.
+ *
  * 2. LOADING SHIFT (--shift), at the default text size only. Loads each page with ?devSlow,
  *    records where every piece of text sits while the skeleton is up, then again once the content
  *    lands, and reports what moved.
@@ -137,6 +142,8 @@ const DEFAULT_ROUTES = [
   '/wpbl/stats?side=fielding', '/wpbl/stats?board=teams&side=fielding', '/wpbl/stats?board=pitches',
   // The scatter plots, on the side that reads the play log and the one that reads WAR (Oct 2026).
   '/wpbl/stats?board=charts', '/wpbl/stats?board=charts&side=overall',
+  // The draft-pick scatter, which printed every label at 6px on a phone until Oct 2026.
+  '/wpbl/stats?board=draft',
   '/wpbl/players', '/wpbl/league', '/wpbl/season', '/wpbl/matchups', '/wpbl/awards', '/wpbl/compare',
   // A season series that went on to meet in the final, the longest shape the page takes.
   '/wpbl/series/firebells-vs-queens',
@@ -172,6 +179,8 @@ if (!SHARD || +SHARD[1] < 1 || +SHARD[1] > +SHARD[2]) {
 }
 // WCAG 1.4.11's floor for the edge of a component, and CLAUDE.md's "Borders" rule.
 const BORDER_FLOOR = 3
+// The smallest chart text a phone may print, in CSS px. Below it an axis number is guesswork.
+const CHART_TEXT_FLOOR = 10
 // axe-core, the accessibility engine behind Lighthouse and most browser audits, injected into each
 // page after it settles. Its rules cover what only a rendered page can show: text
 // contrast against what is really behind it, a control with no name, an image with no alt, an
@@ -186,6 +195,40 @@ const AXE_RULES = ['color-contrast', 'link-in-text-block', 'button-name', 'aria-
 const ROUTES = ALL_ROUTES.filter((_, k) => k % +SHARD[2] === +SHARD[1] - 1)
 
 // ─── In-page probes (run inside the browser, so plain DOM only) ──────────────
+
+/**
+ * Every piece of chart text printed smaller than `floor` px. The printed size is the font size in
+ * the drawing's units times the drawing's scale on screen (its CTM), which is what a fixed viewBox
+ * squeezed into a phone gets wrong. Only drawings at least 120px wide count: an icon is not a chart.
+ */
+function probeChartText(floor) {
+  const out = []
+  const seen = new Set()
+  for (const el of document.querySelectorAll('svg text')) {
+    const svg = el.ownerSVGElement
+    if (!svg || svg.getBoundingClientRect().width < 120) continue
+    const r = el.getBoundingClientRect()
+    if (r.width === 0 || r.height === 0 || !el.textContent.trim()) continue
+    let opacity = 1
+    for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+      const cs = getComputedStyle(n)
+      if (cs.display === 'none' || cs.visibility === 'hidden') { opacity = 0; break }
+      opacity *= parseFloat(cs.opacity)
+    }
+    if (opacity === 0) continue
+    const m = el.getScreenCTM()
+    if (!m) continue
+    const px = parseFloat(getComputedStyle(el).fontSize) * Math.hypot(m.a, m.b)
+    if (!(px < floor)) continue
+    const text = el.textContent.trim().replace(/\s+/g, ' ').slice(0, 40)
+    const where = svg.getAttribute('aria-label') || svg.closest('[aria-label]')?.getAttribute('aria-label') || 'svg'
+    const key = `${where}|${Math.round(px * 10)}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push({ kind: 'chart-text', px: Number(px.toFixed(1)), text, where: `svg[${where.slice(0, 50)}]` })
+  }
+  return out
+}
 
 /** Every visible element that holds text of its own, with what the checks need to know. */
 function probeOverflow(includeEllipsis) {
@@ -624,6 +667,10 @@ async function runCase(browser, route, width, text, { warm = false } = {}) {
           result.issues.push({ kind: 'a11y', px: 0, text: `${scheme}: ${v.id} ${n.html}`, where: n.summary ?? n.target })
         }
       }
+      // Chart text, on a phone only (Large text only makes it bigger). Last, after the passes above
+      // have taken their seconds: a chart draws when its data lands, which on a slow read comes after
+      // the network first goes quiet, and probed at the first settle it is not on the page yet.
+      if (width < 768) result.issues.push(...await page.evaluate(probeChartText, CHART_TEXT_FLOOR))
     }
   } catch (err) {
     result.error = String(err?.message ?? err).split('\n')[0]

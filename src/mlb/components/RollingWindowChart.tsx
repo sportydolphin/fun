@@ -196,7 +196,7 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
   const seasonComplete = season < CURRENT_SEASON || (phase != null && isSeasonOver(phase))
 
   // SVG layout matches the career chart's tight gutters + taller body
-  // Laid out at the box's width on a desktop rather than blown up to it (see useChartViewWidth).
+  // Laid out at the box's width, phone or desktop, so its type prints at its written size (see useChartViewWidth).
   const W = fitW, H = 224
   const m = { t: 18, r: 16, b: 30, l: 42 }
   const iW = W - m.l - m.r, iH = H - m.t - m.b

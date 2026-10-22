@@ -3,7 +3,7 @@ import { Box, Typography, useTheme } from '@mui/material'
 import { usePhoneLayout } from '../ModalShell'
 import { TYPE_SCALE } from '../card'
 import { ChartTooltip } from './ChartTooltip'
-import { placeLabels, sumSegment, type Domain, type LabelBox } from './scale'
+import { boxesMeet, placeLabels, sumSegment, type Domain, type LabelBox } from './scale'
 
 /**
  * A scatter of every player (or club) on two stats, shared by both sections. Grown out of MLB's team
@@ -82,19 +82,29 @@ export interface ScatterGuides {
 }
 
 const BOX = {
-  phone: { w: 360, h: 330, m: { t: 12, r: 12, b: 38, l: 42 } },
+  phone: { w: 360, h: 330, m: { t: 12, r: 12, b: 40, l: 46 } },
   // Sized for the half-column each chart gets beside another (about 420px), so its type prints
   // at about the size it is set at rather than three-quarters of it.
-  wide: { w: 440, h: 360, m: { t: 14, r: 14, b: 42, l: 48 } },
+  wide: { w: 440, h: 360, m: { t: 14, r: 14, b: 44, l: 50 } },
 }
+// Type sizes in viewBox units. The phone box is drawn about 0.95 of its size at 375px, so nothing
+// here is under 10.5: the layout sweep fails any chart text printed under 10px on a phone. These
+// were 8.5 to 10 until Oct 2026, which printed the axis numbers at 8px.
+const FONT = { tick: 11, guide: 11, axis: 12, label: 11 }
 // Categorical slot 1 (blue), light and dark steps. Validated against both surfaces for the
 // lightness band, chroma floor and contrast; the same pair DraftValue's dots use.
 const DOT = { light: '#2a78d6', dark: '#3987e5' }
-// The fixed radius of a badge dot, sized for a three-letter abbreviation at a readable size.
-const BADGE_R = { phone: 10.5, wide: 11.5 }
+// The fixed radius of a badge dot, sized for a three-letter abbreviation. A phone has no room for
+// letters big enough to read inside a dot (they printed at 5.7px), so there the dot is smaller and
+// plain, and the abbreviation becomes a direct label beside it, placed like a player's name.
+const BADGE_R = { phone: 7, wide: 11.5 }
 // Characters to px at the label size, for collision only: an estimate errs toward dropping a label.
-const LABEL_CHAR_W = 5.6
-const LABEL_FONT = 10
+const LABEL_CHAR_W = FONT.label * 0.6
+const LABEL_FONT = FONT.label
+// The same for the corner words, which are bold capitals with tracking.
+const CORNER_CHAR_W = FONT.guide * 0.68
+// A guide's own label ("League avg", "Pythagorean"): bold, mixed case.
+const GUIDE_CHAR_W = FONT.guide * 0.6
 
 function useBoxWidth(ref: React.RefObject<HTMLDivElement | null>): number {
   const [w, setW] = useState(0)
@@ -180,12 +190,23 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
   const order = useMemo(() => [...points].sort((a, b) =>
     (a.muted ? 0 : 1) - (b.muted ? 0 : 1) || b.weight - a.weight), [points])
 
+  // Which dots get a direct label. On a phone a badge plot labels its clubs instead of printing in
+  // the dots: the one in focus first, then the farthest from the middle of the cloud, since those
+  // are the clubs a reader is looking for and the ones with room around them.
+  const labelIds = useMemo(() => {
+    if (labeled) return labeled
+    if (!phone || !points.some(p => p.badge)) return undefined
+    const cx = (x.lo + x.hi) / 2, cy = (y.lo + y.hi) / 2
+    const far = (p: ScatterPoint) => Math.hypot((p.x - cx) / (x.hi - x.lo), (p.y - cy) / (y.hi - y.lo))
+    return [...points].sort((a, b) => (a.muted ? 1 : 0) - (b.muted ? 1 : 0) || far(b) - far(a)).map(p => p.id)
+  }, [labeled, phone, points, x, y])
+
   const shownLabels = useMemo(() => {
     const placed = new Map<string, { tx: number; ty: number; anchor: 'start' | 'end' }>()
-    if (!labeled?.length) return placed
+    if (!labelIds?.length) return placed
     const byId = new Map(points.map(p => [p.id, p]))
     const candidates: { item: string; spots: LabelBox[]; own: LabelBox }[] = []
-    for (const id of labeled) {
+    for (const id of labelIds) {
       const p = byId.get(id)
       if (!p) continue
       const cx = sx(p.x), cy = sy(p.y), r = radius(p)
@@ -198,7 +219,7 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
       candidates.push({ item: id, spots, own: { x: cx - r, y: cy - r, w: 2 * r, h: 2 * r } })
     }
     // The corner words are fixed, so a name moves off them rather than over them.
-    const cw = (t?: string) => (t ? t.length * (phone ? 5.6 : 6.3) : 0)
+    const cw = (t?: string) => (t ? t.length * CORNER_CHAR_W : 0)
     const words = guides.corners ?? {}
     const tl = guides.diagonal?.above ?? words.tl, br = guides.diagonal?.below ?? words.br
     const corners: LabelBox[] = [
@@ -216,7 +237,7 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
     return placed
     // sx, sy and radius are pure functions of the props listed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [labeled, points, x, y, g.w, maxWeight, guides])
+  }, [labelIds, points, x, y, g.w, maxWeight, guides])
 
   const activePoint = active ? points.find(p => p.id === active.id) ?? null : null
   const tip = activePoint && boxW > 0 ? (() => {
@@ -228,13 +249,44 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
   const L = g.m.l, R = g.m.l + g.iw, T = g.m.t, B = g.m.t + g.ih
   const avg = guides.avg
   const corner = guides.corners ?? {}
+
+  // Where the guides' own labels go. The average's label at the top of its line and a curve's at
+  // its right end both land in the top band where the corner words sit, and on MLB's plots all
+  // three printed over each other ("League avg" through "LOW ERA · HIGH OPS"). Each steps down a
+  // line until it clears what is already placed: the corner words, then the average's label.
+  const guideLabels = (() => {
+    const lineH = FONT.guide + 4
+    const placed: LabelBox[] = []
+    const cornerBox = (text: string | undefined, left: boolean) => {
+      if (!text) return
+      const w = text.length * CORNER_CHAR_W
+      placed.push({ x: left ? L + 6 : R - 6 - w, y: T + 2, w, h: lineH })
+    }
+    cornerBox(guides.diagonal?.above ?? corner.tl, true)
+    cornerBox(corner.tr, false)
+    const settle = (box: LabelBox) => {
+      for (let i = 0; i < 4 && placed.some(b => boxesMeet(b, box)); i++) box = { ...box, y: box.y + lineH }
+      placed.push(box)
+      return box.y + FONT.guide
+    }
+    const avgY = avg?.label
+      ? settle({ x: sx(avg.x) + 4, y: (avg.labelAt === 'top' ? T + 11 : sy(avg.y) - 5) - FONT.guide, w: avg.label.length * GUIDE_CHAR_W, h: lineH })
+      : 0
+    const curveY = (guides.curves ?? []).map(c => {
+      if (!c.label || c.points.length < 2) return 0
+      const last = c.points[c.points.length - 1]
+      const w = c.label.length * GUIDE_CHAR_W
+      return settle({ x: sx(last.x) - 4 - w, y: Math.max(T + 11, sy(last.y) - 6) - FONT.guide, w, h: lineH })
+    })
+    return { avgY, curveY }
+  })()
   const cornerText = (text: string | undefined, where: 'tl' | 'tr' | 'bl' | 'br') => {
     if (!text) return null
     const left = where[1] === 'l'
     const top = where[0] === 't'
     return (
       <text x={left ? L + 6 : R - 6} y={top ? T + 13 : B - 7} textAnchor={left ? 'start' : 'end'}
-        fill={soft} fontSize={phone ? 8.5 : 9.5} fontWeight={800} letterSpacing="0.06em">
+        fill={soft} fontSize={FONT.guide} fontWeight={800} letterSpacing="0.03em">
         {text.toUpperCase()}
       </text>
     )
@@ -268,7 +320,7 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
               <line x1={sx(seg.x1)} y1={sy(seg.y1)} x2={sx(seg.x2)} y2={sy(seg.y2)}
                 stroke={soft} strokeWidth={1} strokeDasharray="2 3" />
               {right && right.y > T + 18 && (
-                <text x={right.x} y={right.y} textAnchor="end" fill={soft} fontSize={phone ? 8.5 : 9.5} fontWeight={700}
+                <text x={right.x} y={right.y} textAnchor="end" fill={soft} fontSize={FONT.guide} fontWeight={700}
                   stroke={surface} strokeWidth={3} strokeLinejoin="round" paintOrder="stroke">{s.label}</text>
               )}
             </g>
@@ -289,7 +341,7 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
               <polyline points={c.points.map(q => `${sx(q.x).toFixed(1)},${sy(q.y).toFixed(1)}`).join(' ')}
                 fill="none" stroke={soft} strokeWidth={1.5} strokeDasharray="6 3" strokeLinejoin="round" />
               {c.label && (
-                <text x={sx(last.x) - 4} y={Math.max(T + 11, sy(last.y) - 6)} textAnchor="end" fill={soft} fontSize={phone ? 8.5 : 9.5} fontWeight={700}
+                <text x={sx(last.x) - 4} y={guideLabels.curveY[i]} textAnchor="end" fill={soft} fontSize={FONT.guide} fontWeight={700}
                   stroke={surface} strokeWidth={3} strokeLinejoin="round" paintOrder="stroke">{c.label}</text>
               )}
             </g>
@@ -301,7 +353,7 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
             <line x1={sx(avg.x)} y1={T} x2={sx(avg.x)} y2={B} stroke={soft} strokeWidth={1} strokeDasharray="5 4" />
             <line x1={L} y1={sy(avg.y)} x2={R} y2={sy(avg.y)} stroke={soft} strokeWidth={1} strokeDasharray="5 4" />
             {avg.label && (
-              <text x={sx(avg.x) + 4} y={avg.labelAt === 'top' ? T + 11 : sy(avg.y) - 5} fill={soft} fontSize={phone ? 8.5 : 9.5} fontWeight={700}
+              <text x={sx(avg.x) + 4} y={guideLabels.avgY} fill={soft} fontSize={FONT.guide} fontWeight={700}
                 stroke={surface} strokeWidth={3} strokeLinejoin="round" paintOrder="stroke">{avg.label}</text>
             )}
           </g>
@@ -316,14 +368,14 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
         <line x1={L} y1={T} x2={L} y2={B} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1.25} />
         <line x1={L} y1={B} x2={R} y2={B} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1.25} />
         {x.ticks.map(t => (
-          <text key={`tx${t}`} x={sx(t)} y={B + 14} textAnchor="middle" fill={soft} fontSize={phone ? 9 : 10}>{x.fmt(t)}</text>
+          <text key={`tx${t}`} x={sx(t)} y={B + 15} textAnchor="middle" fill={soft} fontSize={FONT.tick}>{x.fmt(t)}</text>
         ))}
         {y.ticks.map(t => (
-          <text key={`ty${t}`} x={L - 6} y={sy(t) + 3.5} textAnchor="end" fill={soft} fontSize={phone ? 9 : 10}>{y.fmt(t)}</text>
+          <text key={`ty${t}`} x={L - 6} y={sy(t) + 3.5} textAnchor="end" fill={soft} fontSize={FONT.tick}>{y.fmt(t)}</text>
         ))}
-        <text x={L + g.iw / 2} y={g.h - 4} textAnchor="middle" fill={ink} fontSize={phone ? 10 : 11} fontWeight={700}>{x.label}</text>
-        <text transform={`translate(${phone ? 10 : 12},${T + g.ih / 2}) rotate(-90)`} textAnchor="middle"
-          fill={ink} fontSize={phone ? 10 : 11} fontWeight={700}>{y.label}</text>
+        <text x={L + g.iw / 2} y={g.h - 4} textAnchor="middle" fill={ink} fontSize={FONT.axis} fontWeight={700}>{x.label}</text>
+        <text transform={`translate(${phone ? 11 : 13},${T + g.ih / 2}) rotate(-90)`} textAnchor="middle"
+          fill={ink} fontSize={FONT.axis} fontWeight={700}>{y.label}</text>
 
         {order.map(p => {
           const cx = sx(p.x), cy = sy(p.y), r = radius(p)
@@ -337,8 +389,10 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
               <circle cx={cx} cy={cy} r={Math.max(r, phone ? 10 : 7)} fill="transparent" />
               <circle cx={cx} cy={cy} r={on ? r + 2 : r} fill={p.color ?? dot}
                 stroke={on ? ink : surface} strokeWidth={on ? 2 : 1.25} />
-              <text x={cx} y={cy + 3} textAnchor="middle" fill="#fff" pointerEvents="none" fontWeight={800}
-                fontSize={p.badge.length > 2 ? (phone ? 6 : 6.5) : (phone ? 7 : 7.5)}>{p.badge}</text>
+              {!phone && (
+                <text x={cx} y={cy + 3} textAnchor="middle" fill="#fff" pointerEvents="none" fontWeight={800}
+                  fontSize={p.badge.length > 2 ? 6.5 : 7.5}>{p.badge}</text>
+              )}
             </g>
           ) : (
             <>

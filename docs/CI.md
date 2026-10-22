@@ -177,13 +177,18 @@ gap: a module whose only importer is its own test is dead code knip will call al
 
 ## The layout sweep
 
-`scripts/layout-sweep.mjs` drives Chrome against the dev server and checks four things at four
+`scripts/layout-sweep.mjs` drives Chrome against the dev server and checks five things at four
 widths (375, 760, 960, 1440) and both text sizes: text that overflows its box, anything that
 moves when a page's skeleton is replaced by its content (the loading-states rule in src/CLAUDE.md;
 default text size only, since Large text breaks overflow and almost never a skeleton's size),
 every outline under 3:1 against what is behind it (the borders rule), and the axe-core rules in
 `AXE_RULES`: text contrast, and a name on every control, link, image and input (the
 accessibility rule). The last two run in the light theme and then the dark one on the same load.
+The fifth is chart text: below 768px, any SVG label in a drawing 120px or wider that prints under
+10px (`probeChartText`), measured as its font size times the drawing's scale on screen. It runs
+last on each load, because a chart draws when its data lands and is not on the page at the first
+settle. Fix a finding by laying the chart out at its box's width (`useChartViewWidth` in
+`src/ui/charts/useViewWidth.ts`) or by raising the size in viewBox units.
 A border finding prints its ratio, the color and the start of the box's text; an axe finding
 prints the rule, the element's HTML and axe's own explanation, which is usually enough to find
 the component. A rule goes into `AXE_RULES` only once it reads clean on every page.
