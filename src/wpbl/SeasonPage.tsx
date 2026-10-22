@@ -48,7 +48,6 @@ import { TAPPABLE, FOCUS_RING, CARD_BORDER, pressable, TextGhost } from './ui'
 import WpblPage, { SectionHeading } from './WpblPage'
 import { track, EVENTS } from '../lib/analytics'
 import { shortDate } from '../lib/format'
-import { rosterSpellingsIn } from './feedNames'
 import { localIsoDate } from './derive/homePlayers'
 import type { WpblPlayer, WpblTeam, WpblGame } from './types'
 import { setDynamicSeo } from '../seo'
@@ -700,7 +699,7 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
                     <Box sx={{ flexShrink: 0, width: 4, alignSelf: 'stretch', borderRadius: 2, bgcolor: wpblColor(bp.teamId) }} />
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 600, lineHeight: 1.35 }}>
-                        {rosterSpellingsIn(bp.narrative, players)}
+                        {bp.narrative}
                       </Typography>
                       <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.35 }}>
                         {teamName(bp.game.away_team_id)} at {teamName(bp.game.home_team_id)} · {shortDate(bp.game.game_date)}

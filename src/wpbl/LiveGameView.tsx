@@ -623,25 +623,7 @@ function LastPlay({ play, teams, names, onOpenPlayer }: {
 }) {
   const playerLink = useWpblPlayerLink()
   const text = play.narrative?.trim()
-  // Only the two names this play carries, longest first so "Elodie Ciamarro" is replaced before
-  // a bare "Ciamarro" could match part of it. The play-by-play builds the same shortener from
-  // every play in the game; one play is all this line has and all it needs.
-  // Replaced with the ROSTER's spelling and then shortened, so the sentence names her the same
-  // way the card above it does. The feed writes "Isabella Villareal" in the prose and the box
-  // score calls her Villarreal; one card printing both is the version a reader notices.
-  const shorten = useMemo(() => {
-    const pool = [play.batter_name, play.pitcher_name].filter(Boolean) as string[]
-    if (pool.length === 0) return (t: string) => t
-    const canon = new Map(pool.map(n => [n, canonicalFeedName(n, names.values())]))
-    const re = new RegExp(pool
-      .sort((a, b) => b.length - a.length)
-      .map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g')
-    return (t: string) => t.replace(re, m => canon.get(m) ?? m)
-  }, [play.batter_name, play.pitcher_name, names])
-
-  const parsed = useMemo(
-    () => parsePlay(text ?? '', play.batter_name, shorten),
-    [text, play.batter_name, shorten])
+  const parsed = useMemo(() => parsePlay(text ?? '', play.batter_name), [text, play.batter_name])
 
   if (!text) return null
   const team = play.team_id ? teams.get(play.team_id) : undefined
@@ -682,7 +664,7 @@ function LastPlay({ play, teams, names, onOpenPlayer }: {
                     ...FOCUS_RING, cursor: 'pointer', borderRadius: 0.5,
                     '@media (hover: hover)': { '&:hover': { textDecoration: 'underline' } },
                   } : {}),
-                }}>{batter?.name ?? canonicalFeedName(parsed.who, names.values())}</Box>
+                }}>{batter?.name ?? parsed.who}</Box>
               )}
               {parsed.who && ' '}
               {parsed.what}

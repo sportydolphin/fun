@@ -632,7 +632,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
                 })() : v === 'plays' ? (
                   <PlayByPlay plays={plays} teams={byId} game={game} names={names} swing={swing} onOpenPlayer={onOpenPlayer} />
                 ) : v === 'pitch' ? (
-                  <PitchData tracking={tracking} boxPitchers={boxPitchers} firstHit={firstHit} live={live} names={names} />
+                  <PitchData tracking={tracking} boxPitchers={boxPitchers} firstHit={firstHit} live={live} />
                 ) : null
   )
 

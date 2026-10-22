@@ -276,20 +276,8 @@ describe("the roster spelling, not the feed's", () => {
     expect(screen.getByAltText('Emi Saiki')).toBeTruthy()
   })
 
-  it('corrects the sentence the feed wrote, so one card does not print both', () => {
-    render(
-      <LiveGameView
-        game={game(LIVE)} teams={TEAMS} away={AWAY} home={HOME}
-        plays={[play({
-          sequence: 3, batter_name: 'Emi Saki', batter_id: 'nobody',
-          narrative: 'Emi Saki singled to left field.',
-        })]}
-        batting={[]} pitching={[]} names={SAIKI} games={[]}
-      />,
-    )
-    expect(screen.getByText('Emi Saiki')).toBeTruthy()
-    expect(screen.queryByText(/Emi Saki\b/)).toBeNull()
-  })
+  // The last play's sentence is not corrected here: plays arrive in the roster's spelling from the
+  // read (rosterSpelling.test.ts). The live situation above is the game row, which they do not.
 })
 
 describe('the last play', () => {
