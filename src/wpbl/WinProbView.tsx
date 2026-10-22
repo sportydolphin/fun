@@ -1,12 +1,11 @@
 import { useDark } from '../ui/useDark'
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays, getCachedWpblAllPlayers } from './api'
+import { useEffect, useMemo, useState } from 'react'
+import { fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays } from './api'
 import {
   gameWinProb, fmtWinPct, winProbModel, swingLabel,
   type GameWinProb, type WinProbPoint,
 } from './derive/winProbability'
 import { parsePlay } from './derive/playByPlay'
-import { canonicalFeedName } from './feedNames'
 import { wpblAccent } from './constants'
 import { WinProbChart, WinProbFrame, type Readout } from '../ui/winProbChart'
 import { WIN_PROB_INFO } from './winProbInfo'
@@ -92,16 +91,6 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
   const resting = wp.decisive ?? wp.biggest
   const restIdx = resting ? pts.indexOf(resting) : -1
 
-  // The readout names the batter of each play from the feed's prose (`batter_name`), which is
-  // wrong for the seven players in feedNames.ts. Correct it to the roster spelling before
-  // shortening, the same fix the play-by-play and the live panel make. The roster is the
-  // app-wide cache, already warm by the time Game Center opens this chart; absent, the name is
-  // left as the feed sent it rather than blocking on a fetch this card does not otherwise need.
-  const roster = getCachedWpblAllPlayers()
-  const short = useCallback(
-    (name: string) => (roster ? canonicalFeedName(name, roster) : name),
-    [roster],
-  )
   // Only while it is being played. On a final game "SF 100%" is not a forecast, it is the
   // scoreboard three inches up the sheet with a percent sign on it.
   const now = game.status === 'live' ? { text: nowLine(wp.final, game, teams), color: 'var(--wpbl-accent-fg)' } : null
@@ -115,8 +104,8 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
       now={now}
       accent="var(--wpbl-accent-fg)"
       marks={restIdx >= 0 ? [{ index: restIdx, color: 'var(--wpbl-accent-solid)' }] : []}
-      readout={(i, canHover) => i != null ? scrubReadout(pts[i], game, teams, short)
-        : resting ? restingReadout(resting, game, teams, short, canHover, resting === wp.decisive)
+      readout={(i, canHover) => i != null ? scrubReadout(pts[i], game, teams)
+        : resting ? restingReadout(resting, game, teams, canHover, resting === wp.decisive)
         : null}
     />
   )
@@ -163,10 +152,10 @@ export function nowLine(p: number, game: WpblGame, teams: Map<string, WpblTeam>)
 
 /** The play, without the runner movements the feed hangs off the end of it: the box has two
  *  lines, and "Benitez advanced to third" is the part a reader can see on the chart anyway. */
-function playText(pt: WinProbPoint, short: (name: string) => string): { who: string; what: string } {
-  const parsed = parsePlay(pt.play.narrative ?? '', pt.play.batter_name, x => x)
+function playText(pt: WinProbPoint): { who: string; what: string } {
+  const parsed = parsePlay(pt.play.narrative ?? '', pt.play.batter_name)
   return {
-    who: parsed.who ? short(parsed.who) : '',
+    who: parsed.who ?? '',
     what: parsed.what || pt.play.narrative?.trim() || 'No play recorded',
   }
 }
@@ -180,12 +169,11 @@ export function scrubReadout(
   pt: WinProbPoint,
   game: WpblGame,
   teams: Map<string, WpblTeam>,
-  short: (name: string) => string,
 ): Readout {
   const p = pt.play
   const away = teams.get(game.away_team_id)?.abbr ?? 'AWAY'
   const home = teams.get(game.home_team_id)?.abbr ?? 'HOME'
-  const play = playLine(playText(pt, short))
+  const play = playLine(playText(pt))
   return {
     label: `${p.half === 'bottom' ? 'Bot' : 'Top'} ${ordinal(p.inning)} · ${p.outs ?? 0} out`,
     pct: pctLine(pt, game, teams),
@@ -214,7 +202,6 @@ export function restingReadout(
   pt: WinProbPoint,
   game: WpblGame,
   teams: Map<string, WpblTeam>,
-  short: (name: string) => string,
   canHover: boolean,
   /** Is this the play that WON it, as opposed to merely the largest swing in it? False for a
    *  game still being played and for a tie, neither of which has a winner to have swung to. */
@@ -223,7 +210,7 @@ export function restingReadout(
   // The words come from derive/winProbability, which is also what the play-by-play's badge
   // reads: one definition, so the chart and the list cannot call the same play two things.
   const label = swingLabel(pt.swing, decided, game.status)
-  const play = playLine(playText(pt, short))
+  const play = playLine(playText(pt))
   return {
     // The inning goes where a scrubbed play keeps it, at the end of the label, and not on the
     // sentence: the feed's narratives already end in their own clause ("singled to left field,

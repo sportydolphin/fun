@@ -376,7 +376,7 @@ export function pitchingChanges(plays: readonly PlayPitcher[]): PitchingChange[]
 export function parsePlay(
   narrative: string,
   batterName: string | null,
-  shorten: (text: string) => string,
+  shorten: (text: string) => string = t => t,
 ): ParsedPlay {
   const clean = (narrative ?? '').trim().replace(/\.$/, '')
   // The feed sends 16 plays with no narrative at all, half of them with no batter either. They

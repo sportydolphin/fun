@@ -3,10 +3,6 @@ import { nowLine, restingReadout, scrubReadout } from '../WinProbView'
 import type { WinProbPoint } from '../derive/winProbability'
 import type { WpblGame, WpblRunValuePlay, WpblTeam } from '../types'
 
-// The readouts take the card's name corrector (the feed's spellings to the roster's). `full`
-// leaves a name as it is.
-const full = (n: string) => n
-
 // The readout, which is the only part of this card that is a decision rather than a gesture:
 // which club the two percentages are about, when they are worth printing twice, and what the
 // card claims about the play it rests on.
@@ -35,25 +31,25 @@ function point(over: Partial<WinProbPoint> = {}, play: Partial<WpblRunValuePlay>
 describe('scrubReadout', () => {
   it('reads the percentages for the club the play left in front', () => {
     // A play that hands the game to the home team is the home team's line...
-    expect(scrubReadout(point({ before: 0.4, after: 0.7 }), game, teams, full).pct).toBe('SF 40% → 70%')
+    expect(scrubReadout(point({ before: 0.4, after: 0.7 }), game, teams).pct).toBe('SF 40% → 70%')
     // ...and one that leaves the visitors in front is told from theirs, rather than as San
     // Francisco falling away.
-    expect(scrubReadout(point({ before: 0.45, after: 0.2 }), game, teams, full).pct).toBe('LA 55% → 80%')
+    expect(scrubReadout(point({ before: 0.45, after: 0.2 }), game, teams).pct).toBe('LA 55% → 80%')
   })
 
   it('prints one percentage when rounding makes the two the same', () => {
-    expect(scrubReadout(point({ before: 0.702, after: 0.704 }), game, teams, full).pct).toBe('SF 70%')
+    expect(scrubReadout(point({ before: 0.702, after: 0.704 }), game, teams).pct).toBe('SF 70%')
   })
 
   it('says where in the game it was, what happened, and the score it left', () => {
-    const r = scrubReadout(point(), game, teams, full)
+    const r = scrubReadout(point(), game, teams)
     expect(r.label).toBe('Top 6th · 2 out')
     expect(r.text).toBe('Jamie Mackay singled up the middle.')   // runner movements dropped
     expect(r.note).toBe('LA 4, SF 3')                            // visitors first, as a line score reads
   })
 
   it('still reads a play the feed left no narrative for', () => {
-    const r = scrubReadout(point({}, { narrative: null, half: 'bottom', inning: 1, outs: 0 }), game, teams, full)
+    const r = scrubReadout(point({}, { narrative: null, half: 'bottom', inning: 1, outs: 0 }), game, teams)
     expect(r.label).toBe('Bot 1st · 0 out')
     expect(r.text).toBe('No play recorded.')
   })
@@ -61,7 +57,7 @@ describe('scrubReadout', () => {
 
 describe('restingReadout', () => {
   it('calls a big swing the swing of the game, and names the inning', () => {
-    const r = restingReadout(point({ swing: 0.3 }), game, teams, full, false, true)
+    const r = restingReadout(point({ swing: 0.3 }), game, teams, false, true)
     expect(r.label).toBe('Swing of the game · 6th')
     expect(r.text).toBe('Jamie Mackay singled up the middle.')
   })
@@ -69,7 +65,7 @@ describe('restingReadout', () => {
   // The point of the floor: a rout has no swing, so the card must not claim one. It still
   // shows the play, which is the part that used to go missing.
   it('will not call the biggest play of a rout the swing of the game, but still shows it', () => {
-    const r = restingReadout(point({ swing: 0.08 }), game, teams, full, false, true)
+    const r = restingReadout(point({ swing: 0.08 }), game, teams, false, true)
     expect(r.label).toBe('Biggest moment · 6th')
     expect(r.text).toContain('Jamie Mackay singled up the middle')
   })
@@ -77,16 +73,16 @@ describe('restingReadout', () => {
   // A tie and a game in progress share the problem: no winner, so nothing has swung to one.
   it('says "so far" while the game is still being played', () => {
     const live = { ...game, status: 'live' } as WpblGame
-    expect(restingReadout(point({ swing: 0.3 }), live, teams, full, false, false).label).toBe('Biggest moment so far · 6th')
+    expect(restingReadout(point({ swing: 0.3 }), live, teams, false, false).label).toBe('Biggest moment so far · 6th')
   })
 
   it('will not call anything the swing of a game that has no winner yet', () => {
-    expect(restingReadout(point({ swing: 0.3 }), game, teams, full, false, false).label).toBe('Biggest moment · 6th')
+    expect(restingReadout(point({ swing: 0.3 }), game, teams, false, false).label).toBe('Biggest moment · 6th')
   })
 
   it('spends its third line telling the reader the chart can be read', () => {
-    expect(restingReadout(point(), game, teams, full, false, true).note).toBe('Hold the chart for any play')
-    expect(restingReadout(point(), game, teams, full, true, true).note).toBe('Hover the chart for any play')
+    expect(restingReadout(point(), game, teams, false, true).note).toBe('Hold the chart for any play')
+    expect(restingReadout(point(), game, teams, true, true).note).toBe('Hover the chart for any play')
   })
 })
 
@@ -114,12 +110,12 @@ describe('one line', () => {
   // the name down to "F. Last" only if it does not fit. A character count cannot know the room.
   it('names the batter at the front of the sentence, in full', () => {
     const p = point({}, { batter_name: 'Tháima Maximiliana', narrative: 'Tháima Maximiliana struck out looking.' })
-    const r = scrubReadout(p, game, teams, full)
+    const r = scrubReadout(p, game, teams)
     expect(r.text).toBe('Tháima Maximiliana struck out looking.')
     expect(r.who).toBe('Tháima Maximiliana')
   })
 
   it('names nobody when the feed gave no batter', () => {
-    expect(scrubReadout(point({}, { narrative: null }), game, teams, full).who).toBeUndefined()
+    expect(scrubReadout(point({}, { narrative: null }), game, teams).who).toBeUndefined()
   })
 })
