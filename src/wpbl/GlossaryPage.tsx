@@ -10,8 +10,8 @@
 // the column a reader is already squinting at, which is why glossary.ts is a data module with
 // this page as one consumer rather than the other way round. A reference section on this site
 // has a measured track record: 575 browsers saw the Reading shelf, 39 clicked it, 3 opened a
-// photo. This page is the crawlable, linkable copy — the thing a search result and a Discord
-// answer can point at — and it is built to be worth landing on cold, not to be browsed.
+// photo. This page is the crawlable, linkable copy (the thing a search result and a Discord
+// answer can point at), and it is built to be worth landing on cold, not to be browsed.
 //
 // EVERY RULE CARRIES ITS SOURCE. Two of the five are not the league's: the qualifying bar is
 // our own convention and the win rule is inferred from the league's own scoring. Saying so is

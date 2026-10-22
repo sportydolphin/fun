@@ -201,7 +201,7 @@ const BAR_PAD_Y = 0.75
  * Order is the league's, NOT the standings'. A control that reshuffles itself as results
  * land is a mis-tap generator: the club that was third from the left this morning is third
  * from the left tonight, whatever happened last night. (The active pill is wider than a bare
- * badge, so its neighbours do shift a little as you move along the rail. But the sequence
+ * badge, so its neighbors do shift a little as you move along the rail. But the sequence
  * never changes, which is the half that matters for finding a club without looking.)
  *
  * The active club is the only one that spells itself out (badge, abbreviation and record)
@@ -945,7 +945,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
                 // media block on purpose. Writing `gridTemplateColumns: { xs, md }` next to a
                 // literal '@media (min-width:900px)' key silently drops the md value: MUI
                 // expands the responsive object into a media block with the same key, the two
-                // collide on merge, and the literal one wins — leaving a one-column grid with
+                // collide on merge, and the literal one wins, leaving a one-column grid with
                 // no error anywhere.
                 '@media (min-width:900px)': {
                   // minmax(0, 1fr), not 1fr: a bare 1fr floors at the track's min-content

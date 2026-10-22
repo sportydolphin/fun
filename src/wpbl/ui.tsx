@@ -47,7 +47,7 @@ export { ModalShell, usePhoneLayout, AfterShellEnters } from '../ui/ModalShell'
 // deterministic and costs no layout measurement, and callers size it from a measured box with
 // headroom to spare.
 //
-// IT CANNOT SEE A NEIGHBOUR OR THE READER'S TEXT SCALE, and that is the whole risk. A budget
+// IT CANNOT SEE A NEIGHBOR OR THE READER'S TEXT SCALE, and that is the whole risk. A budget
 // counts glyphs against a box whose width is decided by everything ELSE on the row: "Kelsie
 // Whitmore" passes a budget of 18 and still clips to "Kelsie Whit…" on a row that also carries a
 // TWO-WAY badge, or on any row once a reader turns Large text on. Use `FittedName` wherever the
@@ -182,7 +182,7 @@ const RING = 2
  * No opacity ramp for recency, either: it competes with the fill/ring distinction for the same
  * few pixels and leaves the older rings too faint to read as rings at all.
  *
- * Only as many dots as there are games: five grey placeholders on opening week would suggest
+ * Only as many dots as there are games: five gray placeholders on opening week would suggest
  * a team had lost five, which is the one thing the strip must never imply.
  *
  * ONE STRIP FOR THE SECTION, so a result is never a green tick on one page and a team-colored
@@ -228,7 +228,7 @@ export { TAB_TITLE_SX } from '../ui/card'
  * counters (the holes in a, e, o, and the gaps inside an uppercase B or R) stay the same size,
  * so they close up and the word turns into a shape you match rather than letters you read. It
  * is worst on exactly what these sizes are used for, which is uppercase set with letter-spacing
- * in a saturated accent or a dimmed grey, where a second and third emphasis are already doing
+ * in a saturated accent or a dimmed gray, where a second and third emphasis are already doing
  * the work weight was being asked to do.
  *
  * So, on a phone at the default text scale, where 1rem is 16px:
@@ -286,7 +286,7 @@ export const cardFooterBand = (isDark: boolean) => ({
 
 /** A card header's "All 41 posts ›" link, in SectionCard's `action`. One style for every Home card
  *  that points at a hub, because the offseason page stacks five of them and each drew its own:
- *  grey with an arrow on the gallery, accent with a chevron on Reading, in two accent tokens.
+ *  gray with an arrow on the gallery, accent with a chevron on Reading, in two accent tokens.
  *  `--wpbl-accent-fg` rather than `-solid`, which is a fill color and fails as text in dark mode. */
 export const CARD_LINK_SX = {
   flexShrink: 0, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
@@ -694,9 +694,9 @@ export function AccentPanel({ label, summary, meta, accent, defaultOpen = false,
         sx={{
           display: 'flex', alignItems: 'baseline', gap: 1, px: 1.5, py: 1,
           // ORDER MATTERS AND IT IS NOT OBVIOUS. A shorthand `borderColor` would repaint the left edge
-          // too, turning the club's rule the divider's grey and losing the only thing tying the panel to
+          // too, turning the club's rule the divider's gray and losing the only thing tying the panel to
           // the team. The long-hand bottom color leaves the left edge alone. Check the computed style
-          // after touching this rather than the look: at a glance a 3px grey rule still reads as a
+          // after touching this rather than the look: at a glance a 3px gray rule still reads as a
           // deliberate border.
           borderBottom: open ? '1px solid' : 'none',
           borderBottomColor: 'divider',

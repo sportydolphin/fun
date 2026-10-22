@@ -1,5 +1,5 @@
 import React, { useRef } from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box, Typography, useTheme } from '@mui/material'
 import { TeamSummary } from '../types'
 import { TEAM_BG } from '../constants'
 import { fmtR } from '../lib/utils'
@@ -40,6 +40,7 @@ export function TeamDot({ team, x, y, hovered, dimmed, highlighted, onEnter, onL
 
 export function TeamEraOpsPlot({ data, nameMap, highlightTeamId, onSelectTeam, onHoverTeam }: { data: TeamSummary[]; nameMap: Map<number, string>; highlightTeamId: number | null; onSelectTeam?: (id: number) => void; onHoverTeam?: (id: number | null) => void }) {
   const boxRef = useRef<HTMLDivElement>(null)
+  const theme = useTheme()
   const { hovered, setHovered, tipPos, onEnter } = useChartTooltip<TeamSummary & { name: string }>(boxRef as React.RefObject<HTMLDivElement>)
 
   const pts = data.filter(d => !isNaN(d.ops) && !isNaN(d.era))
@@ -80,13 +81,13 @@ export function TeamEraOpsPlot({ data, nameMap, highlightTeamId, onSelectTeam, o
 
         <line x1={ax} y1={m.t} x2={ax} y2={m.t + iH} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="6 4" strokeOpacity={0.7} />
         <line x1={m.l} y1={ay} x2={m.l + iW} y2={ay} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="6 4" strokeOpacity={0.7} />
-        <text x={ax + 4} y={m.t + 11} fill="#60a5fa" fillOpacity={0.82} fontSize={8.5} fontWeight={700}>avg OPS</text>
-        <text x={m.l + iW - 4} y={ay - 5} fill="#60a5fa" fillOpacity={0.82} fontSize={8.5} fontWeight={700} textAnchor="end">avg ERA</text>
+        <text x={ax + 4} y={m.t + 11} fill="#60a5fa" fontSize={8.5} fontWeight={700}>avg OPS</text>
+        <text x={m.l + iW - 4} y={ay - 5} fill="#60a5fa" fontSize={8.5} fontWeight={700} textAnchor="end">avg ERA</text>
 
-        <text x={m.l + 7} y={m.t + 17} fill="#3b82f6" fillOpacity={0.55} fontSize={9.5} fontWeight={800}>LOW ERA · LOW OPS</text>
-        <text x={m.l + iW - 7} y={m.t + 17} fill="#22c55e" fillOpacity={0.65} fontSize={9.5} fontWeight={800} textAnchor="end">LOW ERA · HIGH OPS</text>
-        <text x={m.l + 7} y={m.t + iH - 9} fill="#ef4444" fillOpacity={0.55} fontSize={9.5} fontWeight={800}>HIGH ERA · LOW OPS</text>
-        <text x={m.l + iW - 7} y={m.t + iH - 9} fill="#f59e0b" fillOpacity={0.6} fontSize={9.5} fontWeight={800} textAnchor="end">HIGH ERA · HIGH OPS</text>
+        <text x={m.l + 7} y={m.t + 17} fill="#3b82f6" fontSize={9.5} fontWeight={800}>LOW ERA · LOW OPS</text>
+        <text x={m.l + iW - 7} y={m.t + 17} fill="#22c55e" fontSize={9.5} fontWeight={800} textAnchor="end">LOW ERA · HIGH OPS</text>
+        <text x={m.l + 7} y={m.t + iH - 9} fill="#ef4444" fontSize={9.5} fontWeight={800}>HIGH ERA · LOW OPS</text>
+        <text x={m.l + iW - 7} y={m.t + iH - 9} fill="#f59e0b" fontSize={9.5} fontWeight={800} textAnchor="end">HIGH ERA · HIGH OPS</text>
 
         <line x1={m.l} y1={m.t} x2={m.l} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.3} strokeWidth={1.5} />
         <line x1={m.l} y1={m.t + iH} x2={m.l + iW} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.3} strokeWidth={1.5} />
@@ -94,18 +95,18 @@ export function TeamEraOpsPlot({ data, nameMap, highlightTeamId, onSelectTeam, o
         {xTicks.map((v, i) => (
           <g key={i}>
             <line x1={sx(v)} y1={m.t + iH} x2={sx(v)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
-            <text x={sx(v)} y={m.t + iH + 16} textAnchor="middle" fill="currentColor" fillOpacity={0.72} fontSize={10}>{fmtR(v, 3)}</text>
+            <text x={sx(v)} y={m.t + iH + 16} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={10}>{fmtR(v, 3)}</text>
           </g>
         ))}
         {yTicks.map((v, i) => (
           <g key={i}>
             <line x1={m.l - 5} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
-            <text x={m.l - 8} y={sy(v) + 3.5} textAnchor="end" fill="currentColor" fillOpacity={0.72} fontSize={10}>{v.toFixed(2)}</text>
+            <text x={m.l - 8} y={sy(v) + 3.5} textAnchor="end" fill={theme.palette.text.secondary} fontSize={10}>{v.toFixed(2)}</text>
           </g>
         ))}
 
-        <text x={m.l + iW / 2} y={H - 4} textAnchor="middle" fill="currentColor" fillOpacity={0.78} fontSize={11} fontWeight={700} letterSpacing="0.8">OPS →</text>
-        <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle" fill="currentColor" fillOpacity={0.78} fontSize={11} fontWeight={700} letterSpacing="0.8">ERA (inverted) →</text>
+        <text x={m.l + iW / 2} y={H - 4} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={11} fontWeight={700} letterSpacing="0.8">OPS →</text>
+        <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={11} fontWeight={700} letterSpacing="0.8">ERA (inverted) →</text>
 
         {[...pts].sort((a, b) => (a.id === highlightTeamId ? 1 : 0) - (b.id === highlightTeamId ? 1 : 0)).map(team => (
           <TeamDot key={team.id} team={team} x={sx(team.ops)} y={sy(team.era)}
@@ -136,6 +137,7 @@ export function TeamEraOpsPlot({ data, nameMap, highlightTeamId, onSelectTeam, o
 
 export function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam, onHoverTeam }: { data: TeamSummary[]; nameMap: Map<number, string>; highlightTeamId: number | null; onSelectTeam?: (id: number) => void; onHoverTeam?: (id: number | null) => void }) {
   const boxRef = useRef<HTMLDivElement>(null)
+  const theme = useTheme()
   const { hovered, setHovered, tipPos, onEnter } = useChartTooltip<TeamSummary & { name: string; winPct: number; rd: number; pythPct: number; pythWins: number; pythLosses: number }>(boxRef as React.RefObject<HTMLDivElement>)
 
   const pts = data.filter(d => !isNaN(d.rs) && !isNaN(d.ra) && !isNaN(d.wins) && !isNaN(d.losses) && d.wins + d.losses > 0)
@@ -201,8 +203,8 @@ export function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam, on
         {/* RD=0 and W%=.500 references */}
         <line x1={x0} y1={m.t} x2={x0} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="5 3" />
         <line x1={m.l} y1={y500} x2={m.l + iW} y2={y500} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="5 3" />
-        <text x={x0 + 4} y={m.t + 11} fill="currentColor" fillOpacity={0.6} fontSize={8.5} fontWeight={700}>Break-even</text>
-        <text x={m.l + iW - 4} y={y500 - 5} fill="currentColor" fillOpacity={0.6} fontSize={8.5} fontWeight={700} textAnchor="end">.500</text>
+        <text x={x0 + 4} y={m.t + 11} fill={theme.palette.text.secondary} fontSize={8.5} fontWeight={700}>Break-even</text>
+        <text x={m.l + iW - 4} y={y500 - 5} fill={theme.palette.text.secondary} fontSize={8.5} fontWeight={700} textAnchor="end">.500</text>
 
         {/* Pythagorean expectation curve */}
         <polyline points={curvePts} fill="none" stroke="#60a5fa" strokeWidth={2} strokeDasharray="6 3" strokeOpacity={0.85} strokeLinejoin="round" />
@@ -210,7 +212,7 @@ export function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam, on
           const labelRD = xMax * 0.72
           const labelWP = pyth(labelRD)
           if (labelWP < yMin || labelWP > yMax) return null
-          return <text x={sx(labelRD)} y={sy(labelWP) - 7} fill="#60a5fa" fillOpacity={0.9} fontSize={8.5} fontWeight={700} textAnchor="middle">Pythagorean win%</text>
+          return <text x={sx(labelRD)} y={sy(labelWP) - 7} fill="#60a5fa" fontSize={8.5} fontWeight={700} textAnchor="middle">Pythagorean win%</text>
         })()}
 
         {/* Axes */}
@@ -220,18 +222,18 @@ export function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam, on
         {xTicks.map((v, i) => (
           <g key={i}>
             <line x1={sx(v)} y1={m.t + iH} x2={sx(v)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
-            <text x={sx(v)} y={m.t + iH + 16} textAnchor="middle" fill="currentColor" fillOpacity={0.72} fontSize={10}>{v > 0 ? `+${Math.round(v)}` : Math.round(v)}</text>
+            <text x={sx(v)} y={m.t + iH + 16} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={10}>{v > 0 ? `+${Math.round(v)}` : Math.round(v)}</text>
           </g>
         ))}
         {yTicks.map((v, i) => (
           <g key={i}>
             <line x1={m.l - 5} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
-            <text x={m.l - 8} y={sy(v) + 3.5} textAnchor="end" fill="currentColor" fillOpacity={0.72} fontSize={10}>{fmtR(v, 3)}</text>
+            <text x={m.l - 8} y={sy(v) + 3.5} textAnchor="end" fill={theme.palette.text.secondary} fontSize={10}>{fmtR(v, 3)}</text>
           </g>
         ))}
 
-        <text x={m.l + iW / 2} y={H - 4} textAnchor="middle" fill="currentColor" fillOpacity={0.78} fontSize={11} fontWeight={700} letterSpacing="0.8">Run differential →</text>
-        <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle" fill="currentColor" fillOpacity={0.78} fontSize={11} fontWeight={700} letterSpacing="0.8">Win %</text>
+        <text x={m.l + iW / 2} y={H - 4} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={11} fontWeight={700} letterSpacing="0.8">Run differential →</text>
+        <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={11} fontWeight={700} letterSpacing="0.8">Win %</text>
 
         {[...withPyth].sort((a, b) => (a.id === highlightTeamId ? 1 : 0) - (b.id === highlightTeamId ? 1 : 0)).map(team => (
           <TeamDot key={team.id} team={team} x={sx(team.rd)} y={sy(team.winPct)}
@@ -279,6 +281,7 @@ export function PayrollWinsPlot({
   onHoverTeam?: (id: number | null) => void
 }) {
   const boxRef = useRef<HTMLDivElement>(null)
+  const theme = useTheme()
   type Pt = TeamSummary & { name: string; winPct: number; payroll: number }
   const { hovered, setHovered, tipPos, onEnter } = useChartTooltip<Pt>(boxRef as React.RefObject<HTMLDivElement>)
 
@@ -355,23 +358,23 @@ export function PayrollWinsPlot({
           x1={sx(rx1)} y1={sy(ry1)} x2={sx(rx2)} y2={sy(ry2)}
           stroke="#a78bfa" strokeWidth={1.5} strokeDasharray="5 4" strokeOpacity={0.55} />
         <text x={sx(rx2) - 5} y={sy(ry2) - 6}
-          fill="#a78bfa" fillOpacity={0.75} fontSize={8} fontWeight={700} textAnchor="end">
+          fill="#a78bfa" fontSize={8} fontWeight={700} textAnchor="end">
           Trend
         </text>
 
         {/* Quadrant divider lines */}
         <line x1={mx} y1={m.t} x2={mx} y2={m.t + iH} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="6 4" strokeOpacity={0.6} />
         <line x1={m.l} y1={my} x2={m.l + iW} y2={my} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="6 4" strokeOpacity={0.6} />
-        <text x={mx + 4} y={m.t + 11} fill="#60a5fa" fillOpacity={0.78} fontSize={8.5} fontWeight={700}>
+        <text x={mx + 4} y={m.t + 11} fill="#60a5fa" fontSize={8.5} fontWeight={700}>
           med. ${Math.round(medPay)}M
         </text>
-        <text x={m.l + iW - 5} y={my - 5} fill="#60a5fa" fillOpacity={0.78} fontSize={8.5} fontWeight={700} textAnchor="end">.500</text>
+        <text x={m.l + iW - 5} y={my - 5} fill="#60a5fa" fontSize={8.5} fontWeight={700} textAnchor="end">.500</text>
 
         {/* Quadrant labels */}
-        <text x={m.l + 7} y={m.t + 19} fill="#22c55e" fillOpacity={0.7} fontSize={9.5} fontWeight={800}>LOW PAYROLL · .500+</text>
-        <text x={m.l + iW - 7} y={m.t + 19} fill="#60a5fa" fillOpacity={0.7} fontSize={9.5} fontWeight={800} textAnchor="end">HIGH PAYROLL · .500+</text>
-        <text x={m.l + 7} y={m.t + iH - 9} fill="#94a3b8" fillOpacity={0.65} fontSize={9.5} fontWeight={800}>LOW PAYROLL · SUB-.500</text>
-        <text x={m.l + iW - 7} y={m.t + iH - 9} fill="#ef4444" fillOpacity={0.7} fontSize={9.5} fontWeight={800} textAnchor="end">HIGH PAYROLL · SUB-.500</text>
+        <text x={m.l + 7} y={m.t + 19} fill="#22c55e" fontSize={9.5} fontWeight={800}>LOW PAYROLL · .500+</text>
+        <text x={m.l + iW - 7} y={m.t + 19} fill="#60a5fa" fontSize={9.5} fontWeight={800} textAnchor="end">HIGH PAYROLL · .500+</text>
+        <text x={m.l + 7} y={m.t + iH - 9} fill="#94a3b8" fontSize={9.5} fontWeight={800}>LOW PAYROLL · SUB-.500</text>
+        <text x={m.l + iW - 7} y={m.t + iH - 9} fill="#ef4444" fontSize={9.5} fontWeight={800} textAnchor="end">HIGH PAYROLL · SUB-.500</text>
 
         {/* Axes */}
         <line x1={m.l} y1={m.t} x2={m.l} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.3} strokeWidth={1.5} />
@@ -381,7 +384,7 @@ export function PayrollWinsPlot({
         {xTicks.map((v, i) => (
           <g key={i}>
             <line x1={sx(v)} y1={m.t + iH} x2={sx(v)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
-            <text x={sx(v)} y={m.t + iH + 16} textAnchor="middle" fill="currentColor" fillOpacity={0.72} fontSize={10}>${v}M</text>
+            <text x={sx(v)} y={m.t + iH + 16} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={10}>${v}M</text>
           </g>
         ))}
 
@@ -389,17 +392,17 @@ export function PayrollWinsPlot({
         {yTicks.map((v, i) => (
           <g key={i}>
             <line x1={m.l - 5} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
-            <text x={m.l - 8} y={sy(v) + 3.5} textAnchor="end" fill="currentColor" fillOpacity={0.72} fontSize={10}>
+            <text x={m.l - 8} y={sy(v) + 3.5} textAnchor="end" fill={theme.palette.text.secondary} fontSize={10}>
               {('.' + Math.round(v * 1000).toString().padStart(3, '0'))}
             </text>
           </g>
         ))}
 
         {/* Axis labels */}
-        <text x={m.l + iW / 2} y={H - 4} textAnchor="middle" fill="currentColor" fillOpacity={0.78} fontSize={11} fontWeight={700} letterSpacing="0.8">
+        <text x={m.l + iW / 2} y={H - 4} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={11} fontWeight={700} letterSpacing="0.8">
           2026 Payroll →
         </text>
-        <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle" fill="currentColor" fillOpacity={0.78} fontSize={11} fontWeight={700} letterSpacing="0.8">
+        <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={11} fontWeight={700} letterSpacing="0.8">
           Win % ↑
         </text>
 

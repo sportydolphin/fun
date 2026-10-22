@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * sync-wpbl-discord-postseason.mjs — keep the postseason watch-party events honest.
+ * sync-wpbl-discord-postseason.mjs: keep the postseason watch-party events honest.
  *
  * The bracket's watch parties have to be created BEFORE anyone knows who is in them: the
  * semifinals start three days after the last regular-season game, and a Discord scheduled
@@ -8,15 +8,15 @@
  * So they go up as placeholders ("Semifinal A Game 1", "Championship Game 5") and this
  * script does the three things that placeholder then needs, every few hours:
  *
- *   1. NAMES  — rewrites each one to "<round> Game N: Away vs Home" once the clubs are
+ *   1. NAMES:   rewrites each one to "<round> Game N: Away vs Home" once the clubs are
  *               known, matching the "Los Angeles vs New York" shape of the regular-season
  *               events. Home/away comes from the published game row; between the last
  *               semifinal out and the league publishing the final's schedule it falls back
  *               to the two winners, and corrects itself when the real row lands.
- *   2. TIMES  — moves an event whose game has been rescheduled, which the postseason does
+ *   2. TIMES:   moves an event whose game has been rescheduled, which the postseason does
  *               far more than the regular season. This also keeps the board's event map
  *               matchable, since that matches on start time.
- *   3. DELETE — removes the games a clinched series will never play. A best-of-3 that goes
+ *   3. DELETE:  removes the games a clinched series will never play. A best-of-3 that goes
  *               2-0 otherwise leaves a Game 3 event sitting in the server with an RSVP
  *               list, above the games that ARE happening, and Discord will happily remind
  *               everyone about it.
@@ -39,7 +39,7 @@
  *   npm run discord-postseason -- --apply    # actually writes to Discord
  *
  * Required env: DISCORD_BOT_TOKEN (the app must be IN the guild, with Manage Events),
- * DISCORD_GUILD_ID, SUPABASE_URL, and a Supabase key (anon is enough — reads only).
+ * DISCORD_GUILD_ID, SUPABASE_URL, and a Supabase key (anon is enough: reads only).
  *
  * planPostseasonSync() below is pure and exported: every decision this script makes is
  * decided there and covered by src/wpbl/__tests__/postseasonEvents.test.ts, because the

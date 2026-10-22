@@ -155,7 +155,7 @@ function SeriesTeamRow({ entrant, series, leading, winP, wide, placeholder }: {
           // ALWAYS THE CLUB'S OWN COLOR, not "the favorite's". It is that club's number, on
           // that club's row, over that club's tint, so anything else would be the card picking a
           // side before a ball is thrown. `leading` is about a series lead and there is none before a
-          // game is played, which is why keying the color on it would leave both numbers grey.
+          // game is played, which is why keying the color on it would leave both numbers gray.
           color: wpblAccent(team.id, dark),
         }}>{fmtOdds(winP)}</Typography>
       )}
@@ -381,7 +381,7 @@ export function BracketDiagram({ bracket, odds, onOpenSeries, onOpenTeam, picks,
    *
    * THE QUERY IS ABOUT THE COLUMN, NOT THE SCREEN. A series box is half the card minus the
    * connector, so between 600 and 899 it is nearer 250px with the type scale still at 1, and
-   * "San Francisco Firebells" would ellipsise to "San Francisco Fireb…", which is a worse answer
+   * "San Francisco Firebells" would ellipsize to "San Francisco Fireb…", which is a worse answer
    * than the nickname.
    *
    * 1000 AND NOT 900, WHICH IS THE MEASUREMENT AND NOT A ROUND NUMBER. At 920px the longest name

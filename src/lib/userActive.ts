@@ -20,12 +20,12 @@ export function setDeactivationHandler(fn: Handler | null) { onDeactivated = fn 
 const TTL_MS = 30_000
 const cache = new Map<string, { active: boolean; ts: number }>()
 
-// Clears the cache — call on sign-out so a different account can't inherit a result.
+// Clears the cache: call on sign-out so a different account can't inherit a result.
 export function resetActiveCache() { cache.clear() }
 
 // Gate for a user-initiated DB write. Returns true if the write may proceed. For a
 // deactivated account it fires the app's deactivation flow and returns false so the
-// caller aborts. Anonymous / no-user callers pass through — there's no account to gate.
+// caller aborts. Anonymous / no-user callers pass through: there's no account to gate.
 export async function ensureActiveUser(userId: string | null | undefined): Promise<boolean> {
   if (!userId) return true
 

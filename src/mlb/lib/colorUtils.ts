@@ -108,7 +108,7 @@ export function cardGradient135(hex: string, isDark: boolean): string {
 // The win probability chart fills each club's share of the game in its color, and a club's
 // PRIMARY is the wrong color for that about half the time. Eleven primaries are near-black navy
 // or brown (SD #2F241D, MIL #12284B, PIT, CWS, SF, DET, ...), and at the 30% a fill is drawn at
-// they all come out the same grey: Padres at Brewers was two shades of mud with nothing to tell
+// they all come out the same gray: Padres at Brewers was two shades of mud with nothing to tell
 // the halves apart. So each club gets its most vivid BRAND color instead (the Padres' gold, the
 // Giants' orange), the pair is chosen so the two hues are clearly different (the Padres and the
 // Brewers both own a gold, so one of them has to give it up), and both are evened out to one
@@ -134,7 +134,7 @@ function hslHex(h: number, s: number, l: number): string {
   return '#' + [r, g, b].map(v => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join('')
 }
 
-/** A color with a hue worth naming: not black, white, grey or silver. Chroma, not HSL
+/** A color with a hue worth naming: not black, white, gray or silver. Chroma, not HSL
  *  saturation, which calls a navy nearly black "saturated". */
 const isChromatic = (hex: string) => { const [r, g, b] = rgbOf(hex); return Math.max(r, g, b) - Math.min(r, g, b) >= 0.15 }
 

@@ -188,7 +188,7 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
             <line x1={PAD.l} y1={py(t)} x2={VB.w - PAD.r} y2={py(t)}
               stroke="currentColor" strokeOpacity={0.14} strokeWidth={1} />
             <text x={PAD.l - 7} y={py(t) + 3.5} textAnchor="end"
-              fill="currentColor" fillOpacity={0.75} fontSize={10}>
+              fill={theme.palette.text.secondary} fontSize={10}>
               {spec.fmt(t)}
             </text>
           </g>
@@ -197,12 +197,12 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
         {/* x axis: one tick per round boundary */}
         {rounds.map(rd => (
           <text key={rd.round} x={px(rd.meanX)} y={VB.h - PAD.b + 15} textAnchor="middle"
-            fill="currentColor" fillOpacity={0.75} fontSize={10}>
+            fill={theme.palette.text.secondary} fontSize={10}>
             R{rd.round}
           </text>
         ))}
         <text x={PAD.l + plotW / 2} y={VB.h - 3} textAnchor="middle"
-          fill="currentColor" fillOpacity={0.6} fontSize={10}>
+          fill={theme.palette.text.secondary} fontSize={10}>
           Round drafted
         </text>
 
@@ -246,7 +246,7 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
               lands wherever the round average lands, which in the busy early rounds is
               right on top of a cluster of player dots. */}
               <text x={px(rd.meanX)} y={py(rd.meanY) - 11} textAnchor="middle"
-                fill="currentColor" fillOpacity={solid ? 0.85 : 0.55}
+                fill={solid ? theme.palette.text.primary : theme.palette.text.secondary}
                 stroke={surface} strokeWidth={3} strokeLinejoin="round" paintOrder="stroke"
                 fontSize={9.5}>
                 n={rd.n}

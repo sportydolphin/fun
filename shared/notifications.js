@@ -1,4 +1,4 @@
-// ─── Notification catalog — shared by the web app and the push sender ─────────
+// ─── Notification catalog: shared by the web app and the push sender ─────────
 //
 // One definition, two transports. The in-site bell (src/lib/notifications.ts)
 // and the Web Push job (scripts/send-reminders.mjs) both build their content
@@ -9,12 +9,12 @@
 // the hand-written notifications.d.ts sidecar next door.
 //
 // A payload is transport-agnostic:
-//   id     — stable identity. Dedupe key in the bell, `tag` for Web Push, so a
+//   id:      stable identity. Dedupe key in the bell, `tag` for Web Push, so a
 //            re-send replaces the old one instead of stacking up.
-//   type   — which catalog entry produced it; groups notifications for
+//   type:    which catalog entry produced it; groups notifications for
 //            per-category preferences later.
-//   icon   — emoji shown in the bell.
-//   title / body / url — the content, and where a click lands.
+//   icon:    emoji shown in the bell.
+//   title / body / url: the content, and where a click lands.
 //
 // ── Adding a new notification type ──
 //   1. Add an id to NOTIFICATION_TYPES and an entry to NOTIFICATION_META.
@@ -22,10 +22,10 @@
 //   3. Give it a click action: an `open=` query on the url, handled by a matching
 //      DeepLink kind in src/mlb/state/deepLink.ts and claimed by whichever
 //      component owns that surface. A notification the user can't act on is a
-//      dead end — every type gets one.
+//      dead end: every type gets one.
 //   4. In-site: register a source in src/mlb/notifications/ that calls it.
 //   5. Push: call it from a sender script.
-// Either step 4 or 5 alone is fine — a type can be bell-only or push-only.
+// Either step 4 or 5 alone is fine: a type can be bell-only or push-only.
 
 export const NOTIFICATION_TYPES = {
   PICKS_READY:     'picks-ready',
@@ -33,7 +33,7 @@ export const NOTIFICATION_TYPES = {
   MILESTONE:       'milestone',
   WPBL_GAME_START: 'wpbl-game-start',
   // Owner-only: a background pipeline broke. Push-only, sent by scripts/check-admin-health.mjs
-  // so a red state reaches the owner without them opening /admin — the failure mode the Health
+  // so a red state reaches the owner without them opening /admin, the failure mode the Health
   // group's amber chip could not escape on its own.
   ADMIN_HEALTH:    'admin-health',
 }
@@ -42,7 +42,7 @@ export const NOTIFICATION_TYPES = {
 // is where a click lands unless a builder overrides it.
 //
 // Every url carries an `open=` action, because a notification that just drops you
-// on Home is a dead end — the user still has to find the thing it told them about.
+// on Home is a dead end: the user still has to find the thing it told them about.
 // The app turns `open=` into an "open this" intent (src/mlb/state/deepLink.ts).
 // A url is the only thing a Web Push click can carry, so putting the action there
 // makes the bell and the lock screen behave identically for free.
@@ -53,7 +53,7 @@ export const NOTIFICATION_META = {
   [NOTIFICATION_TYPES.PICKS_READY]: {
     label:      'Prediction reminders',
     icon:       '⚾',
-    // Straight into the full predictions board — the picks are the whole point.
+    // Straight into the full predictions board: the picks are the whole point.
     defaultUrl: '/mlb?view=home&open=predictor',
   },
   [NOTIFICATION_TYPES.GAME_START]: {
@@ -72,7 +72,7 @@ export const NOTIFICATION_META = {
     label:      'WPBL game reminders',
     icon:       '⚾',
     // The WPBL section isn't wired into the MLB deep-link router, so a click lands
-    // on the WPBL home where the next game is featured up top — the honest fallback.
+    // on the WPBL home where the next game is featured up top, the honest fallback.
     defaultUrl: '/wpbl',
   },
   [NOTIFICATION_TYPES.ADMIN_HEALTH]: {
@@ -94,9 +94,9 @@ export const DEFAULT_GAME_START_LEAD_MIN = 5
  * Today's slate is open and the user still has games to call.
  *
  * @param {{ date: string, remaining: number, total: number }} args
- *   date      — YYYY-MM-DD, scopes the id so each day gets its own notification
- *   remaining — open games the user hasn't picked
- *   total     — open games on the slate
+ *   date:       YYYY-MM-DD, scopes the id so each day gets its own notification
+ *   remaining:  open games the user hasn't picked
+ *   total:      open games on the slate
  */
 /** Today as YYYY-MM-DD, local time. */
 export function todayISO() {
@@ -123,10 +123,10 @@ export function buildPicksReady({ date, remaining, total }) {
  * A followed team's game is about to start.
  *
  * @param {{ gamePk: number, teamName: string, matchup: string, minutesToStart: number }} args
- *   gamePk         — scopes the id so each game gets its own notification
- *   teamName       — the followed team, e.g. "Reds" (drives the title)
- *   matchup        — display line, e.g. "Cubs @ Reds"
- *   minutesToStart — whole minutes until first pitch (0/negative → "now")
+ *   gamePk:          scopes the id so each game gets its own notification
+ *   teamName:        the followed team, e.g. "Reds" (drives the title)
+ *   matchup:         display line, e.g. "Cubs @ Reds"
+ *   minutesToStart:  whole minutes until first pitch (0/negative → "now")
  */
 export function buildGameStart({ gamePk, teamName, matchup, minutesToStart }) {
   const meta = NOTIFICATION_META[NOTIFICATION_TYPES.GAME_START]
@@ -153,9 +153,9 @@ export function buildGameStart({ gamePk, teamName, matchup, minutesToStart }) {
  * notification store, so this is delivered purely by scripts/send-wpbl-game-start.mjs.
  *
  * @param {{ gameId: string, matchup: string, minutesToStart: number }} args
- *   gameId         — WPBL game uuid; scopes the id so each game gets its own notification
- *   matchup        — display line, e.g. "Boston Hunters @ New York Heights"
- *   minutesToStart — whole minutes until first pitch (0/negative → "now")
+ *   gameId:          WPBL game uuid; scopes the id so each game gets its own notification
+ *   matchup:         display line, e.g. "Boston Hunters @ New York Heights"
+ *   minutesToStart:  whole minutes until first pitch (0/negative → "now")
  */
 export function buildWpblGameStart({ gameId, matchup, minutesToStart }) {
   const meta = NOTIFICATION_META[NOTIFICATION_TYPES.WPBL_GAME_START]
@@ -173,16 +173,16 @@ export function buildWpblGameStart({ gameId, matchup, minutesToStart }) {
 }
 
 /**
- * A background pipeline broke — pushed to the owner only.
+ * A background pipeline broke, pushed to the owner only.
  *
  * One payload per problem `key`, so the push `tag` (id) is stable per problem: a re-page for a
  * still-broken pipeline REPLACES the old one on the lock screen rather than stacking a second
  * copy. The detail the owner would otherwise open the SQL editor for rides in the body.
  *
  * @param {{ key: string, title: string, body: string }} args
- *   key   — the HealthAlert.key from shared/adminHealth.js; scopes the id.
- *   title — one-line headline.
- *   body  — the detail (e.g. the ingest error strings).
+ *   key:    the HealthAlert.key from shared/adminHealth.js; scopes the id.
+ *   title:  one-line headline.
+ *   body:   the detail (e.g. the ingest error strings).
  */
 export function buildAdminHealthAlert({ key, title, body }) {
   const meta = NOTIFICATION_META[NOTIFICATION_TYPES.ADMIN_HEALTH]
@@ -200,11 +200,11 @@ export function buildAdminHealthAlert({ key, title, body }) {
  * A followed player is closing in on a milestone.
  *
  * @param {{ playerId: number, playerName: string, statLabel: string, remaining: number, target: number, kind: string }} args
- *   playerId  — scopes the id together with the target so each chase is distinct
- *   statLabel — the noun, e.g. "HR", "strikeouts"
- *   remaining — how many to go
- *   target    — the milestone value
- *   kind      — 'career' | 'season' | 'record' (records get louder wording)
+ *   playerId:   scopes the id together with the target so each chase is distinct
+ *   statLabel:  the noun, e.g. "HR", "strikeouts"
+ *   remaining:  how many to go
+ *   target:     the milestone value
+ *   kind:       'career' | 'season' | 'record' (records get louder wording)
  */
 export function buildMilestoneNear({ playerId, playerName, statLabel, remaining, target, kind }) {
   const meta = NOTIFICATION_META[NOTIFICATION_TYPES.MILESTONE]
@@ -228,8 +228,8 @@ export function buildMilestoneNear({ playerId, playerName, statLabel, remaining,
 // `send-reminders.mjs --test` both stay in step with the catalog automatically:
 // add a type here and a test button appears without touching any UI code.
 //
-// Ids are suffixed `:sample` so a test can never collide with — or worse,
-// overwrite the read state of — a real notification of the same type.
+// Ids are suffixed `:sample` so a test can never collide with (or worse,
+// overwrite the read state of) a real notification of the same type.
 
 export const SAMPLE_BUILDERS = {
   [NOTIFICATION_TYPES.PICKS_READY]: () => ({

@@ -24,7 +24,7 @@ const AXIS_SX = {
 // left, 0-2 is top right, and the diagonal between them reads as the thing it actually is.
 //
 // THE COLOR IS THE VALUE AND SO IS THE NUMBER. This has to survive being read by someone who
-// cannot separate red from green and by someone printing it in grey, and a hot-cold grid with
+// cannot separate red from green and by someone printing it in gray, and a hot-cold grid with
 // the figures taken out is exactly the chart that does not. Hue carries the sign, opacity
 // carries the size, and the figure under them carries both.
 

@@ -100,7 +100,7 @@ export function useDeepLink<K extends DeepLink['kind']>(
   kind: K,
   handler: (link: Extract<DeepLink, { kind: K }>) => void,
 ): void {
-  // Held in a ref so callers don't have to memoise the handler to avoid
+  // Held in a ref so callers don't have to memoize the handler to avoid
   // resubscribing (and re-checking) on every render.
   const ref = useRef(handler)
   ref.current = handler

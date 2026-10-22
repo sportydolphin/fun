@@ -18,7 +18,7 @@
           var r = document.documentElement;
           r.setAttribute('data-theme', t);
           r.style.colorScheme = t; // native form controls + scrollbars match too
-        } catch (e) { /* storage off — fall through to CSS defaults */ }
+        } catch (e) { /* storage off: fall through to CSS defaults */ }
         // The section's desktop scale, for the same reason: App.tsx sets this attribute in a layout
         // effect, which is too late for the toolbar placeholder below, so on a refresh the bar
         // painted at 1 and then grew by a quarter when React took over. 1.25 is DESKTOP_SCALE in
@@ -115,11 +115,11 @@
          so a canonical written here is a canonical claimed by /mlb, /privacy, /wpbl/stats and
          all 118 player pages alike. It said `/wpbl`, and on Aug 23, 2026 Search Console
          reported the consequence: "Alternate page with proper canonical tag", which is Google
-         believing us and dropping every one of those URLs in favour of /wpbl.
+         believing us and dropping every one of those URLs in favor of /wpbl.
 
          src/seo.ts sets the right per-route canonical once React mounts, and Google renders
          the JS, but the initial HTML is the first pass and a canonical is among the signals it
-         is least willing to overrule. With no tag at all, a page canonicalises to itself,
+         is least willing to overrule. With no tag at all, a page canonicalizes to itself,
          which is the correct answer for every URL this site serves. Pinned in
          src/wpbl/__tests__/routes.test.ts. -->
 
@@ -201,7 +201,7 @@
   <body>
     <!-- Static fallback shown before the app's JavaScript loads. It gives crawlers
          (and users on a slow connection) a real, public description of the site and
-         its name, with no login required — this is what Google's OAuth homepage
+         its name, with no login required. This is what Google's OAuth homepage
          verification reads. React replaces this content once it mounts. -->
     <div id="app">
       <div class="sd-bar" aria-hidden="true"><div class="sd-shell"><img src="/logo-mark.png" alt="" /><span class="sd-wm">sportydolphin</span></div></div>

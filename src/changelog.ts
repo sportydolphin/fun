@@ -377,7 +377,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'Dark mode: one calmer surface everywhere',
-        full:  "In dark mode every card now sits flush on the page with an outline, on WPBL and MLB alike, instead of some pages using grey panels. The lighter grey is kept for things that float over the page: player and game sheets, menus and the bottom bar.",
+        full:  "In dark mode every card now sits flush on the page with an outline, on WPBL and MLB alike, instead of some pages using gray panels. The lighter gray is kept for things that float over the page: player and game sheets, menus and the bottom bar.",
       },
     ],
   },

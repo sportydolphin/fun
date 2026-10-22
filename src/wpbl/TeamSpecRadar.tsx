@@ -192,7 +192,7 @@ const CAP = 4
 const HIT_W = 76
 const HIT_H = 44
 
-/** The box the chart draws in. One function because the grey block that stands in for the chart
+/** The box the chart draws in. One function because the gray block that stands in for the chart
  *  while its data loads has to be this box exactly, or the card resizes when the chart arrives. */
 function radarBox(radius: number, showLabels: boolean, withValues: boolean) {
   const padL = showLabels ? HPAD_L : 8
@@ -203,7 +203,7 @@ function radarBox(radius: number, showLabels: boolean, withValues: boolean) {
   }
 }
 
-/** The chart while its data is in flight: the same box, grey, at the same width rule, so the card
+/** The chart while its data is in flight: the same box, gray, at the same width rule, so the card
  *  around it is already the height it will be. */
 export function TeamSpecRadarSkeleton({ radius = 96, showLabels = true }: { radius?: number; showLabels?: boolean }) {
   const { w, h } = radarBox(radius, showLabels, false)

@@ -186,7 +186,7 @@ export function accentOf(team: WpblTeam | undefined): string {
 }
 
 /**
- * The box score as an SVG, which the sender rasterises.
+ * The box score as an SVG, which the sender rasterizes.
  *
  * SVG rather than a drawing API because it is a string: it is pure, it diffs, and it can be
  * asserted on in a test without a native renderer or a font on the machine running the test.

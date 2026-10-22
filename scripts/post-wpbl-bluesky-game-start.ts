@@ -127,7 +127,7 @@ function gameStartMs(gameDate: string, startTime: string | null): number | null 
 
 /** Central yesterday, today and tomorrow, as the YYYY-MM-DD dates game_date holds. A late-night
  *  game is still in the lingering half of the window after Central midnight, and an early one is
- *  in the lead window the evening before, so both neighbours are in range. */
+ *  in the lead window the evening before, so both neighbors are in range. */
 function scheduleDays(): string[] {
   const day = (offset: number) =>
     new Date(Date.now() + offset * 86_400_000).toLocaleDateString('en-CA', { timeZone: WPBL_TZ })

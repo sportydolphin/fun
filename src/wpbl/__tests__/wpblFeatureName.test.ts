@@ -9,7 +9,7 @@ import { wpblFeatureName, wpblNameStages } from '../ui'
 const MAX = 26 // FEATURE_NAME_MAX in Home.tsx
 
 describe('wpblFeatureName', () => {
-  describe('stage 1 — fits, untouched', () => {
+  describe('stage 1: fits, untouched', () => {
     // Every name currently on a WPBL roster should render in full at the real budget.
     it.each([
       'Kelsie Whitmore',
@@ -25,7 +25,7 @@ describe('wpblFeatureName', () => {
     })
   })
 
-  describe('stage 2 — first initial, rest intact', () => {
+  describe('stage 2: first initial, rest intact', () => {
     it('abbreviates only the given name when that is enough', () => {
       expect(wpblFeatureName('Alexandria Featherstone', 20)).toBe('A. Featherstone')
     })
@@ -35,13 +35,13 @@ describe('wpblFeatureName', () => {
     })
   })
 
-  describe('stage 3 — first initial + surname only', () => {
+  describe('stage 3: first initial + surname only', () => {
     it('drops middle names once "F. Rest" is still too long', () => {
       expect(wpblFeatureName('Flor Elena Valerio Montoya', 20)).toBe('F. Montoya')
     })
 
     it('keeps a lowercase particle attached to the surname', () => {
-      // "R. Castillo" would be wrong — the particle is part of the surname.
+      // "R. Castillo" would be wrong: the particle is part of the surname.
       expect(wpblFeatureName('Rosalinda Margarita del Castillo', 20)).toBe('R. del Castillo')
     })
 
@@ -63,7 +63,7 @@ describe('wpblFeatureName', () => {
 
   describe('stage precedence', () => {
     // Each stage is tried in order and the FIRST that fits wins, so the most informative
-    // form that still fits is the one shown — a budget of exactly the stage-2 length keeps
+    // form that still fits is the one shown: a budget of exactly the stage-2 length keeps
     // the middle names rather than falling through to surname-only.
     it('prefers stage 2 when it lands exactly on the budget', () => {
       expect(wpblFeatureName('Rosalinda Margarita del Castillo', 25)).toBe('R. Margarita del Castillo')
@@ -75,7 +75,7 @@ describe('wpblFeatureName', () => {
   })
 
   describe('edge cases', () => {
-    it('never abbreviates a single-token name — there is nothing to abbreviate to', () => {
+    it('never abbreviates a single-token name: there is nothing to abbreviate to', () => {
       expect(wpblFeatureName('Ichiro', 3)).toBe('Ichiro')
     })
 

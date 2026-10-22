@@ -656,7 +656,7 @@ async function blueskyToken(fetchImpl = fetch) {
 
 /**
  * POST SEARCH IS THE ONE PUBLIC-APPVIEW ENDPOINT THAT NEEDS A TOKEN, which is easy to get
- * wrong because its neighbours do not: public.api.bsky.app answers app.bsky.actor.getProfile
+ * wrong because its neighbors do not: public.api.bsky.app answers app.bsky.actor.getProfile
  * and app.bsky.actor.searchActors with no credential at all, and app.bsky.feed.searchPosts
  * with a 403 (a CDN error page, not an XRPC error body, so it does not even read as an auth
  * failure). Authenticated calls go to the PDS, which proxies app.bsky.* through to the

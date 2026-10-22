@@ -7,7 +7,7 @@ import { chromePx, AccentPanel } from './ui'
 import { TYPE_SCALE } from '../ui/card'
 
 // Pitch-location plots for a pitcher: one combined strike zone (all pitches, colored by
-// pitch type) plus small multiples — a mini zone per pitch type. Locations come from the
+// pitch type) plus small multiples: a mini zone per pitch type. Locations come from the
 // in-park radar's plate_location_side/height (feet), present for 100% of tracked pitches,
 // so this is the most complete tracking we have. Not a smoothed kernel heatmap: at a few
 // dozen pitches per arm, translucent dots (overlaps darken into clusters) read more
@@ -72,7 +72,7 @@ function Zone({ points, size }: { points: Pt[]; size: number }) {
   )
 }
 
-// `gamesPitched` (the pitcher's season game count) lets the card show tracking coverage —
+// `gamesPitched` (the pitcher's season game count) lets the card show tracking coverage:
 // e.g. "2 of 6 games". Tracking is a stalled batch publish that only reached the first
 // couple of games, so for most pitchers this plot is a partial, early-season sample. The
 // card therefore stays COLLAPSED by default (it's big, and honest brevity beats a stale

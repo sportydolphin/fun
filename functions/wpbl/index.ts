@@ -9,14 +9,14 @@
 // generic card. Nothing about the page looked wrong; only the unfurl did.
 //
 // Why this can't live in the app: unfurlers (iMessage, Slack, Discord, X) fetch the HTML
-// and never run JS, so src/seo.ts — which sets its tags after React mounts — is invisible
+// and never run JS, so src/seo.ts, which sets its tags after React mounts, is invisible
 // to them. Every URL on the site therefore serves the single static card baked into
 // index.html. This fills in the player's name, team, and season line at the edge, before
 // the HTML leaves Cloudflare.
 //
 // It is deliberately unable to break the page: missing env, a slow database, or an
 // unexpected shape all return the untouched asset response. The SPA boots and opens the
-// player modal exactly as before either way — this only changes what a crawler reads.
+// player modal exactly as before either way. This only changes what a crawler reads.
 // The card's wording lives in src/wpbl/ogCard.ts, where it is unit-tested.
 import { wpblPlayerCard, type WpblCardBatting, type WpblCardPitching, type WpblPlayerCard } from '../../src/wpbl/ogCard'
 import type { WpblDatedSeasonGame } from '../../src/wpbl/season'
@@ -434,7 +434,7 @@ async function resolvePlayer(playerId: string, env: Env, url: URL): Promise<Reso
 // a page of HTML is worse than shipping no image at all. The check is answered by
 // Cloudflare's own asset store, not the network.
 async function cardUrl(path: string, env: Env, url: URL): Promise<string | null> {
-  // No binding to check against (a local runner, a future platform change) — point at it
+  // No binding to check against (a local runner, a future platform change): point at it
   // anyway rather than drop the image for every player.
   if (env.ASSETS) {
     try {

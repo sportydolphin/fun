@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * simulate-playoff-odds.mjs — Nightly Monte Carlo of the remaining schedule to
+ * simulate-playoff-odds.mjs: Nightly Monte Carlo of the remaining schedule to
  * estimate each team's playoff / division odds.
  *
  * Model (deliberately simple but credible):
@@ -229,7 +229,7 @@ function simulate(teams, games) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log(`\n📊 Playoff Odds — ${SEASON} · ${N_SIMS.toLocaleString()} sims${DRY_RUN ? ' (dry run)' : ''}\n`)
+  console.log(`\n📊 Playoff Odds: ${SEASON} · ${N_SIMS.toLocaleString()} sims${DRY_RUN ? ' (dry run)' : ''}\n`)
 
   const [teams, games] = await Promise.all([fetchStandings(SEASON), fetchRemainingGames(SEASON)])
   if (teams.length < 30) throw new Error(`Expected 30 teams, got ${teams.length}`)
@@ -253,9 +253,9 @@ async function main() {
   }
 
   const anyOdds = rows.some(r => r.makePlayoffs > 0)
-  if (!anyOdds) { console.error('❌  All odds zero — aborting'); process.exit(1) }
+  if (!anyOdds) { console.error('❌  All odds zero, aborting'); process.exit(1) }
 
-  if (DRY_RUN) { console.log('✅  Dry run complete — nothing written\n'); return }
+  if (DRY_RUN) { console.log('✅  Dry run complete, nothing written\n'); return }
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },

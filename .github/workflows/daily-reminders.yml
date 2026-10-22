@@ -2,7 +2,7 @@ name: Daily Pick Reminders
 
 on:
   schedule:
-    # 4:00 PM UTC = 12:00 PM ET — after the day's schedule is set, before most
+    # 4:00 PM UTC = 12:00 PM ET, after the day's schedule is set, before most
     # first pitches. Adjust to taste; day games (~1 PM ET) get the shortest heads-up.
     - cron: '0 16 * * *'
   workflow_dispatch:   # also triggerable manually from the GitHub Actions UI
@@ -37,7 +37,7 @@ jobs:
         if: github.event_name != 'workflow_dispatch'
         run: node scripts/mlb-job-due.mjs games
 
-      # Only the three packages the sender imports — see the note in
+      # Only the three packages the sender imports. See the note in
       # game-start-reminders.yml.
       - name: Install sender dependencies
         if: github.event_name == 'workflow_dispatch' || steps.due.outputs.due == 'true'

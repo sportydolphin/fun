@@ -31,7 +31,7 @@ describe('formatGameColumn', () => {
 
 describe('doubleheader column order', () => {
   // Both games carry the same date and the views expose no start time, so the order is
-  // arbitrary — but it must be the SAME arbitrary order in both cards, or the two grids
+  // arbitrary, but it must be the SAME arbitrary order in both cards, or the two grids
   // would show one afternoon's games flipped relative to each other.
   const DATE = '2026-08-12'
 

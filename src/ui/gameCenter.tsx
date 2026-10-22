@@ -7,7 +7,7 @@ import { TYPE_SCALE } from './card'
 
 // GAME CENTER'S DRAWING, SHARED (Oct 2026). Both sections already shared the panel and page frames,
 // but the box score and the play log inside them were two products: MLB's tables right-aligned in
-// small type under a grey club band, WPBL's centered with muted zeros, a pinned name column and a
+// small type under a gray club band, WPBL's centered with muted zeros, a pinned name column and a
 // totals row; MLB's plays as tinted cards, WPBL's as a ruled column with the bases and outs at the
 // end of each row. These are WPBL's, moved here, and each section feeds them its own data. What a
 // row SAYS stays with the section (WPBL parses the league's sentences, MLB reads StatsAPI's), so

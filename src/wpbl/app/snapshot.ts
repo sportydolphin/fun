@@ -106,7 +106,7 @@ export function snapFromLocation(): WpblSnap {
  * The tab is the PATH (/wpbl/standings); the open modal stays a query param on top of it.
  * The two are different kinds of thing: a tab is a page worth indexing under its own
  * title, a modal is a state laid over whichever page you were on. Keeping the modal in
- * the query is also what lets seo.ts canonicalise it back to the tab underneath, so a
+ * the query is also what lets seo.ts canonicalize it back to the tab underneath, so a
  * hundred shared game links do not read as a hundred near-duplicate pages.
  */
 export function wpblUrlFor(s: WpblSnap, { players, games, teams, pickedSeason }: {
@@ -120,7 +120,7 @@ export function wpblUrlFor(s: WpblSnap, { players, games, teams, pickedSeason }:
   if (s.game) q.set('game', s.game.id) // deep-linkable game center
 
   // A game with nothing open on top of it owns the path, for the same reasons a player
-  // does: `?game=<uuid>` is one URL as far as seo.ts is concerned (it canonicalises a
+  // does: `?game=<uuid>` is one URL as far as seo.ts is concerned (it canonicalizes a
   // query back to the tab underneath, so a hundred shared game links do not read as a
   // hundred near-duplicates of Schedule), which would make every recap unindexable by
   // design. It also gives the schedule cards an href, which is what makes them links a

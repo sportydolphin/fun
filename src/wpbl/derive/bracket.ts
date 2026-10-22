@@ -399,7 +399,7 @@ export interface PostseasonSlot {
   label: string
   /** The same thing for a card with no room for it: "1 seed", "Semi A". Spelled here rather
    *  than truncated at the call site, because the scoreboard chip is 8.5rem wide and
-   *  "Semifinal A winner" ellipsises to "Semifinal A w…", which names the wrong thing. */
+   *  "Semifinal A winner" ellipsizes to "Semifinal A w…", which names the wrong thing. */
   shortLabel: string
   /** The seed this slot is reserved for, so a card can show the number without parsing the
    *  label. Null on the championship, whose slots are winners rather than seeds. */

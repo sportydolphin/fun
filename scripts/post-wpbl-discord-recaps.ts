@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * post-wpbl-discord-recaps.ts — posts a box score to Discord when a WPBL game goes final,
+ * post-wpbl-discord-recaps.ts: posts a box score to Discord when a WPBL game goes final,
  * then keeps that message current if the stats change.
  *
  * One message per game, posted once and edited in place afterwards. The edit matters: the
- * league's feed revises box scores after the final — a scoring change, a late correction —
+ * league's feed revises box scores after the final (a scoring change, a late correction),
  * and wpbl-ingest re-fetches finals, so a post-and-forget recap would sit in the channel
  * with numbers the site no longer agrees with. Every run re-renders each recent final and
  * PATCHes only the ones whose rendered message actually changed, so a quiet run costs
@@ -14,8 +14,8 @@
  * Same reasoning as scripts/update-wpbl-discord-board.mjs, which also owns its messages by
  * id and edits them.
  *
- * Why TypeScript: the recap itself comes from src/wpbl/derive/recap.ts — the same engine
- * behind the site's Recap tab — so the headline, the narrative, the decisions, and the
+ * Why TypeScript: the recap itself comes from src/wpbl/derive/recap.ts (the same engine
+ * behind the site's Recap tab), so the headline, the narrative, the decisions, and the
  * stars read identically in Discord and in the app. That module is pure TS, so this script
  * is bundled with esbuild before it runs (see the npm script / the workflow).
  *
@@ -31,12 +31,12 @@
  *
  * Required env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DISCORD_RECAP_WEBHOOK_URL. The
  * service-role key is required to post: the box scores it reads are public, but
- * wpbl_discord_recap_posts is service-role only, and any other key reads it as empty —
+ * wpbl_discord_recap_posts is service-role only, and any other key reads it as empty,
  * which this job would take to mean "nothing posted yet". --dry-run sends nothing, so it
  * runs on the anon key and says what it cannot see.
  */
 import { createClient } from '@supabase/supabase-js'
-// @ts-expect-error — no types installed for `ws`; it is only handed to supabase-js below.
+// @ts-expect-error: no types installed for `ws`; it is only handed to supabase-js below.
 import ws from 'ws'
 import { buildRecap, leagueRecapContext } from '../src/wpbl/derive/recap'
 import { seriesContexts } from '../src/wpbl/derive/series'
@@ -61,7 +61,7 @@ const SEED = args.has('--seed')
 // old game can never resurface in the channel.
 const WINDOW_DAYS = 3
 
-// Discord allows a burst, but there is no reason to spend it — a normal run posts one or
+// Discord allows a burst, but there is no reason to spend it: a normal run posts one or
 // two games.
 const SEND_GAP_MS = 400
 
@@ -73,8 +73,8 @@ if (!WEBHOOK_URL && !DRY_RUN && !SEED) {
   console.error('❌  Set DISCORD_RECAP_WEBHOOK_URL (the full https://discord.com/api/webhooks/<id>/<token>)')
   process.exit(1)
 }
-// The posts table has RLS on and no policies, so the anon key doesn't get an error from it
-// — it gets an empty result, which is indistinguishable from "nothing has been posted yet".
+// The posts table has RLS on and no policies, so the anon key doesn't get an error from it:
+// it gets an empty result, which is indistinguishable from "nothing has been posted yet".
 // A real run on that reading would repost every game it has already posted, so posting
 // requires the service role outright. A dry run is welcome to the anon key; it just has to
 // say what it can't see.
@@ -83,7 +83,7 @@ if (!SERVICE_KEY && !DRY_RUN) {
   process.exit(1)
 }
 if (!SERVICE_KEY) {
-  console.warn('⚠️  No service-role key — wpbl_discord_recap_posts is invisible to this key, so every game below will read as new regardless of what has actually been posted.')
+  console.warn('⚠️  No service-role key: wpbl_discord_recap_posts is invisible to this key, so every game below will read as new regardless of what has actually been posted.')
 }
 
 // Matches the other Discord/reminder scripts: no session handling in CI, and `ws` for
@@ -94,7 +94,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   realtime: { transport: ws },
 })
 
-// What the message looks like — and therefore when it needs re-sending — lives in
+// What the message looks like, and therefore when it needs re-sending, lives in
 // src/wpbl/derive/discordRecap.ts, next to the recap engine and under test. The edge
 // function that announces a final immediately renders and hashes through the same module,
 // so the two posters never disagree about whether a message is current.
@@ -143,7 +143,7 @@ const dateStr = (offsetDays: number): string =>
 
 /** "4:30 PM" → 990, for ordering two games played on the same date. Stored start times are
  *  free-form wall clock at the league's single hub, so a string sort would put "11:00 AM"
- *  after "4:30 PM" — which on a doubleheader day is the difference between posting the
+ *  after "4:30 PM", which on a doubleheader day is the difference between posting the
  *  right game and the wrong one. Unparseable times sort first. */
 function startMinutes(startTime: string | null): number {
   const m = /^\s*(\d{1,2}):(\d{2})\s*([AP])M/i.exec(startTime ?? '')
@@ -168,11 +168,11 @@ async function loadPosts(gameIds: string[]): Promise<Map<string, PostRow>> {
     .select('game_id, message_id, content_hash')
     .in('game_id', gameIds)
   if (error) {
-    // A dry run is the thing you want to be able to do BEFORE applying the migration —
+    // A dry run is the thing you want to be able to do BEFORE applying the migration:
     // it sends nothing, so it can just report every game as new. A real run cannot: with
     // no memory of what it posted it would repost every game, every pass.
     if (DRY_RUN) {
-      console.warn(`⚠️  No wpbl_discord_recap_posts yet (${error.message}) — treating every game as new.`)
+      console.warn(`⚠️  No wpbl_discord_recap_posts yet (${error.message}), so treating every game as new.`)
       return new Map()
     }
     throw new Error(`Reading wpbl_discord_recap_posts failed (has the migration run?): ${error.message}`)
@@ -201,12 +201,12 @@ async function main(): Promise<void> {
   if (teamsErr) throw new Error(`Loading teams failed: ${teamsErr.message}`)
   const teams = new Map(((teamRows ?? []) as WpblTeam[]).map(t => [t.id, t]))
 
-  // Decided finals only — buildRecap returns null for a tie or a missing score, and a game
+  // Decided finals only. buildRecap returns null for a tie or a missing score, and a game
   // still being ingested has no business in the channel.
   const decided = games.filter(g =>
     g.status === 'final' && g.home_score != null && g.away_score != null && g.home_score !== g.away_score)
   const eligible = SEED ? decided : decided.filter(g => g.game_date >= dateStr(-WINDOW_DAYS))
-  if (!eligible.length) { console.log('Nothing final in the window — nothing to do.'); return }
+  if (!eligible.length) { console.log('Nothing final in the window, nothing to do.'); return }
 
   const posts = await loadPosts(eligible.map(g => g.id))
 
@@ -237,7 +237,7 @@ async function main(): Promise<void> {
   // run after this one can trust the table: an unposted final is simply new.
   const firstRun = !(await hasAnyPost())
   const newestId = eligible[eligible.length - 1]?.id
-  if (firstRun) console.log(`First run — posting only the most recent final, recording ${eligible.length - 1} older one(s) as handled.`)
+  if (firstRun) console.log(`First run: posting only the most recent final, recording ${eligible.length - 1} older one(s) as handled.`)
 
   // One pass over the postseason for the whole run, rather than regrouping the schedule per
   // game. Empty all regular season, so nothing about an ordinary run changes.
@@ -255,7 +255,7 @@ async function main(): Promise<void> {
     const hash = await recapMessageHash(payload)
     const existing = posts.get(game.id)
 
-    // message_id null = "handled, deliberately never posted" — what a first run writes for
+    // message_id null = "handled, deliberately never posted": what a first run writes for
     // everything older than the newest final, and what --seed writes for everything.
     const holdBack = SEED || (firstRun && game.id !== newestId)
 
@@ -275,7 +275,7 @@ async function main(): Promise<void> {
 
     // A row with no message id means one of two things, told apart by the hash: a real hash
     // is a game deliberately held back (a first run's older games, or --seed), while an
-    // EMPTY hash is a claim the edge function staked and never completed — it deletes its
+    // EMPTY hash is a claim the edge function staked and never completed. It deletes its
     // own claim when a post fails, so this only survives if that function died mid-flight.
     // The first is left alone; the second is ours to finish.
     if (existing != null && existing.message_id == null && existing.content_hash !== '') { unchanged++; continue }
@@ -286,21 +286,21 @@ async function main(): Promise<void> {
       if (!gone) {
         await savePost({ game_id: game.id, message_id: existing.message_id, content_hash: hash })
         updated++
-        console.log(`✏️  Updated ${game.game_date} — ${recap.headline}`)
+        console.log(`✏️  Updated ${game.game_date}: ${recap.headline}`)
         await sleep(SEND_GAP_MS)
         continue
       }
-      console.warn(`⚠️  Message for ${game.game_date} was deleted in Discord — posting a fresh one.`)
+      console.warn(`⚠️  Message for ${game.game_date} was deleted in Discord, so posting a fresh one.`)
     }
 
     const msg = await createMessage(payload)
     await savePost({ game_id: game.id, message_id: msg.id, content_hash: hash })
     posted++
-    console.log(`✅ Posted ${game.game_date} — ${recap.headline}`)
+    console.log(`✅ Posted ${game.game_date}: ${recap.headline}`)
     await sleep(SEND_GAP_MS)
   }
 
-  if (DRY_RUN) console.log('\n(dry run — nothing was sent)')
+  if (DRY_RUN) console.log('\n(dry run, nothing was sent)')
   else console.log(`Done: ${posted} posted, ${updated} updated, ${unchanged} unchanged${seeded ? `, ${seeded} recorded without posting` : ''}.`)
 }
 

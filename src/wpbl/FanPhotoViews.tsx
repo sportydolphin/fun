@@ -237,7 +237,7 @@ function PhotoCard({ photo, names, onOpen, frame, focusable = true, subject, pri
   const size = frame === 'rail'
     ? { width: '100%', height: { xs: chromePx(RAIL_TILE_H.xs), sm: chromePx(RAIL_TILE_H.sm) } }
     : { width: '100%', aspectRatio: photo.width && photo.height ? `${photo.width} / ${photo.height}` : '4 / 3' }
-  // A lazy tile was a flat grey box until its photo arrived, which on a slow phone read as a broken
+  // A lazy tile was a flat gray box until its photo arrived, which on a slow phone read as a broken
   // gallery rather than one still loading. The index carries no color or preview to paint
   // instead, so the box shows the site's loading wave and the photo fades in over it. A photo
   // already in the cache is complete before React can hear its load event, hence the ref.

@@ -50,7 +50,7 @@ describe('the standings chart', () => {
     expect(line.closest('[data-swipe-lock]')).toBe(plot)
   })
 
-  // THE SAME SURFACE AS THE TABLE IT SITS UNDER. `background.paper` is a lifted grey in dark
+  // THE SAME SURFACE AS THE TABLE IT SITS UNDER. `background.paper` is a lifted gray in dark
   // mode and the standings table above is a bordered box with no fill, so the default raised
   // card read as a second panel arriving under the first. Nothing about this fails loudly: the
   // page renders perfectly, it just has two surfaces on a tab that holds one subject.
@@ -76,7 +76,7 @@ describe('the standings chart', () => {
   })
 
   // The keyboard is the route a pointer-only build excludes, and it is also the only one a test
-  // can drive without synthesising touches.
+  // can drive without synthesizing touches.
   it('reports the date the reader moves to, so the table can follow', () => {
     vi.useFakeTimers()
     try {

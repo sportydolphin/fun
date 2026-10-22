@@ -4,9 +4,9 @@
 //
 // ONE SIZE, ONE WEIGHT, ONE CASE, AND COLOR FOR THE HIERARCHY. These grew up separately: Back in
 // sentence case at 0.8rem, the label at 0.72rem with wide tracking, the chips at 0.62rem in the
-// faintest grey with emoji for icons, so a bar of four things read as three typefaces. Now every
+// faintest gray with emoji for icons, so a bar of four things read as three typefaces. Now every
 // word in the bar is set the same, the label that names the page is the one thing in full ink, the
-// controls around it are the secondary grey, and the icons are all from the same set.
+// controls around it are the secondary gray, and the icons are all from the same set.
 import type React from 'react'
 import { Box, Typography } from '@mui/material'
 import { ChevronLeft } from '@mui/icons-material'

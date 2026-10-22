@@ -7,7 +7,7 @@ import type { WpblTrackRow, WpblPlayer, WpblPitchingLine } from './types'
 // first, then by a forgiving name match, and the per-game "unnamed starter" pitches are
 // rescued when exactly one box pitcher in that game has no tracking of their own.
 
-// ── name helpers (local copies, same shape as GameDetail / firsts — kept inline so this
+// ── name helpers (local copies, same shape as GameDetail / firsts, kept inline so this
 //    stays a self-contained WPBL module) ──
 const normName = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim()
 const within1 = (a: string, b: string): boolean => {
@@ -199,7 +199,7 @@ export function aggregateTracking(
     })
 
   // ── Batted balls, attributed to the batter. Exit velocity and distance are independent
-  //    feed fields — a tracked ball may carry one without the other — so the two boards are
+  //    feed fields (a tracked ball may carry one without the other), so the two boards are
   //    gated separately: hardest-hit needs an exit-velo reading, longest needs a distance.
   //    (A HR with a distance but no exit velo must still rank on the longest board.) ──
   const toBall = (r: WpblTrackRow): BattedBall => {
@@ -223,7 +223,7 @@ export function aggregateTracking(
   // A batted ball is any row carrying an exit-velo or a distance reading.
   const hitCount = rows.filter(r => (r.exit_speed != null && r.exit_speed > 0) || (r.distance != null && r.distance > 0)).length
 
-  // Distinct games represented across the tracked pitches and batted balls — the coverage
+  // Distinct games represented across the tracked pitches and batted balls: the coverage
   // note counts these so it stays honest as the feed adds games.
   const gameCount = new Set([...pitchRows, ...hardestHits, ...longestHits].map(r => 'gameId' in r ? r.gameId : r.game_id)).size
 

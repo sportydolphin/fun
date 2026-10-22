@@ -1,10 +1,10 @@
 // Posts a game's box score to Discord the moment the ingest sees it go final.
 //
 // The scheduled job (scripts/post-wpbl-discord-recaps.ts) can post finals too, but it runs
-// hourly — it is the backstop and the corrections pass. This is the fast path: a game that
+// hourly: it is the backstop and the corrections pass. This is the fast path: a game that
 // ends is in the channel on the ingest's own next pass, while people are still watching.
 // Both write the same row in wpbl_discord_recap_posts and render through the same module,
-// so whichever gets there first owns the message and the other leaves it alone — the hash
+// so whichever gets there first owns the message and the other leaves it alone: the hash
 // they store is identical by construction (see recapMessageHash).
 //
 // Three properties this file is built around, in order:
@@ -29,7 +29,7 @@ export async function announceFinal(db: SupabaseClient, gameUuid: string): Promi
 
   try {
     // Claim the game first. An insert (not an upsert) against the primary key is what makes
-    // this safe to race: if the scheduled job — or a previous pass — already has this game,
+    // this safe to race: if the scheduled job (or a previous pass) already has this game,
     // the insert conflicts, we stop, and nothing is double-posted. The empty hash is
     // corrected a few lines down, once there is a message to hash.
     const claim = await db.from('wpbl_discord_recap_posts')
@@ -62,8 +62,8 @@ export async function announceFinal(db: SupabaseClient, gameUuid: string): Promi
       leagueRecapContext((allGames ?? []) as any),
       seriesContext(game as any, (allGames ?? []) as any, teams as any),
     )
-    // A tie, or a score the feed hasn't settled yet: release the claim so a later pass —
-    // by either poster — can take it once the game is properly resolved.
+    // A tie, or a score the feed hasn't settled yet: release the claim so a later pass
+    // by either poster can take it once the game is properly resolved.
     if (!recap) {
       await db.from('wpbl_discord_recap_posts').delete().eq('game_id', gameUuid)
       return

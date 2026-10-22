@@ -94,7 +94,7 @@ const textButtonSx = {
  * filter chip (34px against 25) because this is a form a thumb fills in, not a row it glances at.
  *
  * Painted to match the chips around it rather than left at the UA default, which on Windows is a
- * grey 3D box that looks like a bug next to the rest of the bar.
+ * gray 3D box that looks like a bug next to the rest of the bar.
  */
 function Picker({ value, onChange, options, groups, label, title, sx }: {
   value: string

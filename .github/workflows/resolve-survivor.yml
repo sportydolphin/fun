@@ -2,11 +2,11 @@ name: Resolve Streak Survivor
 
 # Grades yesterday's Streak Survivor picks (hit / miss / void) and updates each
 # player's running streak in survivor_stats. Runs after every game is final so a
-# pick is never graded off an unfinished box score — same reasoning as the streak
+# pick is never graded off an unfinished box score, the same reasoning as the streak
 # boards. One pass a day is enough: a pick's day only needs grading once it's over.
 on:
   schedule:
-    # 06:30 UTC / 2:30am ET — every west-coast final is in. Sits just after the
+    # 06:30 UTC / 2:30am ET, when every west-coast final is in. Sits just after the
     # streak-board refresh so the two nightly jobs don't overlap their API load.
     - cron: '30 6 * * *'
   workflow_dispatch:   # also triggerable manually from the GitHub Actions UI
@@ -34,7 +34,7 @@ jobs:
         if: github.event_name != 'workflow_dispatch'
         run: node scripts/mlb-job-due.mjs games
 
-      # resolve-survivor.mjs imports exactly two packages — no need for `npm ci`
+      # resolve-survivor.mjs imports exactly two packages, so no need for `npm ci`
       # and the whole frontend toolchain.
       - name: Install script dependencies
         if: github.event_name == 'workflow_dispatch' || steps.due.outputs.due == 'true'

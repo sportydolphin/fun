@@ -1,4 +1,4 @@
-// Every player's season, totalled once on a schedule and stored in `wpbl_player_seasons`, so the
+// Every player's season, totaled once on a schedule and stored in `wpbl_player_seasons`, so the
 // Stats tab's Players and Overall boards and the search box's answers stop downloading every
 // box-score line and the play log, and stop running the WAR engine, in each reader's browser.
 // The migration says why and how a reader decides the stored rows are current.

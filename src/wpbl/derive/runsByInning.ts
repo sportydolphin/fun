@@ -56,7 +56,7 @@ export interface RunsByInning {
   league: RunsByInningRow
   /** Finals counted. 0 is the empty state. */
   games: number
-  /** The league's runs per half-inning over regulation innings: the color scale's grey midpoint.
+  /** The league's runs per half-inning over regulation innings: the color scale's gray midpoint.
    *  The same number scored or allowed, since every run is both. */
   mean: number
   /** How far the furthest club square sits from `mean`, over regulation innings, scored and

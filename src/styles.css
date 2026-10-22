@@ -237,7 +237,7 @@ h1 { margin: 0 0 8px 0; }
   scroll-behavior: auto !important;
 }
 
-/* ── The grey box a phone draws on every tap ────────────────────────────────────
+/* ── The gray box a phone draws on every tap ────────────────────────────────────
    WebKit and Blink paint a translucent rectangle over whatever you touch, and on this app it
    is wrong twice: it is a RECTANGLE over cards with a 12px radius, so it corners them, and it
    fires on the card headers people tap most (Last Game, Road to the title), where the thing

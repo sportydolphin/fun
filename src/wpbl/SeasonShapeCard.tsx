@@ -265,7 +265,7 @@ export default function SeasonShapeCard({ shape, final = false, onPreview, page 
       // i; "Drag the chart, or press play" came out on Oct 21, 2026 (the Play button says so).
       title="Standings by date"
       titleAdornment={<InfoDot text="Games above .500 after each day of the season." label="What this shows" />}
-      // SAME SURFACE AS THE TABLE IT SITS UNDER. `background.paper` is a LIFTED GREY in dark
+      // SAME SURFACE AS THE TABLE IT SITS UNDER. `background.paper` is a LIFTED GRAY in dark
       // mode, and the standings table directly above is a bordered box with no fill at all, so
       // a raised card reads as a second surface arriving under the first: two panels on a tab
       // that holds one subject. This is the case `bare` exists for.

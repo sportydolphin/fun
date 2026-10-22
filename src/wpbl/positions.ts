@@ -267,7 +267,7 @@ const PITCHER_LEAD_EDGE = 1.5
  *
  *   A START. A club gives a position player mop-up innings in a blowout; it does not give that
  *   player the first inning. Of the nineteen non-'P' players who have pitched this season, the
- *   ones who are plainly hitters doing a favour have zero starts between them.
+ *   ones who are plainly hitters doing a favor have zero starts between them.
  *
  *   MORE CONFRONTATIONS ON THE MOUND THAN AT THE PLATE, by `PITCHER_LEAD_EDGE`. Batters faced
  *   against plate appearances is one unit measured twice, so it says which half of the season

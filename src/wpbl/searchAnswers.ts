@@ -9,7 +9,7 @@
 // none on Overall, as there), nulls sink and ties go to the bigger sample. The leader a row names is
 // the first row of the board its link opens, or the row is wrong in a way nobody would report.
 //
-// WHAT IS READ FOLLOWS WHAT IS STORED. Every player's season is totalled by a job into
+// WHAT IS READ FOLLOWS WHAT IS STORED. Every player's season is totaled by a job into
 // `wpbl_player_seasons` (derive/playerSeasons.ts), WAR and the season's weights included, so when
 // those rows describe the inputs as they stand the answer costs one small read and no engine. Only
 // when they do not (a game went final, or a play was corrected, since the job last ran) does it read

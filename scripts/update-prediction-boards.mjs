@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * update-prediction-boards.mjs — Nightly prediction leaderboards (all-time + windows).
+ * update-prediction-boards.mjs: Nightly prediction leaderboards (all-time + windows).
  *
  * The board can't be a plain SQL read of prediction_stats: that table only gets a row
  * when a user opens My Stats (or nightly for bots), so anyone who predicted but never
- * viewed their stats is missing. And correctness isn't stored per pick anyway — it's
+ * viewed their stats is missing. And correctness isn't stored per pick anyway: it's
  * derived from the StatsAPI schedule. So this job grades every pick against results and
  * writes one jsonb row per window (all / week / month) covering every predictor. The
  * client reads a single row, falling back to the live prediction_stats read only if the
@@ -44,7 +44,7 @@ function ymd(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// Wilson score lower bound (95%) — identical to the client's ranking key so every board
+// Wilson score lower bound (95%), identical to the client's ranking key so every board
 // orders picks the same way, small samples penalized until the volume backs them up.
 function wilsonLowerBound(correct, total) {
   if (total === 0) return 0
@@ -90,7 +90,7 @@ async function fetchResults(startDate, endDate) {
   return out
 }
 
-// Every pick, all users, all time. Paginated — a season easily clears Supabase's
+// Every pick, all users, all time. Paginated: a season easily clears Supabase's
 // 1000-row default, and a missed page would drop a whole user from the board.
 async function fetchAllPredictions(supabase) {
   const rows = []
@@ -114,7 +114,7 @@ async function fetchNames(supabase, userIds) {
   if (userIds.length === 0) return names
   const want = new Set(userIds)
 
-  // Auth metadata — the fallback for predictors with no stats row yet.
+  // Auth metadata: the fallback for predictors with no stats row yet.
   try {
     const { data } = await supabase.auth.admin.listUsers({ perPage: 1000 })
     for (const u of data?.users ?? []) {
@@ -164,7 +164,7 @@ async function main() {
   const today = ymd(now)
 
   const preds = await fetchAllPredictions(supabase)
-  if (preds.length === 0) { console.log('  No predictions yet — nothing to do\n'); return }
+  if (preds.length === 0) { console.log('  No predictions yet, nothing to do\n'); return }
 
   // Grade every pick, then bucket by user in chronological order (for streaks).
   const minDate = preds.reduce((m, p) => (p.game_date < m ? p.game_date : m), preds[0].game_date)
@@ -231,7 +231,7 @@ async function main() {
     }
   }
 
-  if (DRY_RUN) { console.log('\n✅  Dry run complete — nothing written\n'); return }
+  if (DRY_RUN) { console.log('\n✅  Dry run complete, nothing written\n'); return }
 
   for (const b of boards) {
     const { error } = await supabase

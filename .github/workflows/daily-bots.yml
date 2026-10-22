@@ -2,10 +2,10 @@ name: Daily Bot Predictions
 
 on:
   schedule:
-    # 2:00 PM UTC = 10:00 AM ET — comfortably before the earliest day games
+    # 2:00 PM UTC = 10:00 AM ET, comfortably before the earliest day games
     - cron: '0 14 * * *'
     # Back-up attempt 90 min later. GitHub-hosted runners are best-effort and a
-    # scheduled run is sometimes dropped or cancelled at provisioning (never runs a
+    # scheduled run is sometimes dropped or canceled at provisioning (never runs a
     # step). The bots are idempotent (ignoreDuplicates), so a second run is a safe
     # retry, and 11:30 AM ET is still before most day games.
     - cron: '30 15 * * *'
@@ -67,5 +67,5 @@ jobs:
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
-      # Streak leaders moved to .github/workflows/update-streaks.yml — this slot
+      # Streak leaders moved to .github/workflows/update-streaks.yml. This slot
       # runs before first pitch, which is exactly when the boards are staleest.

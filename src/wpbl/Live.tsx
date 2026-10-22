@@ -23,7 +23,7 @@ export { betweenInnings, deriveSituation }
 export type { Situation, LineScores }
 
 // Feed-driven live views. The official feed's boxscore `status` is mirrored onto the game
-// row as `live_state` by wpbl-ingest; these components render it. No hand-scoring — the
+// row as `live_state` by wpbl-ingest; these components render it. No hand-scoring. The
 // data updates itself as the cron re-ingests, and these hooks poll + subscribe so viewers
 // see it within a few seconds.
 

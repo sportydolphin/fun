@@ -2,7 +2,7 @@ name: WPBL Discord Board
 
 on:
   schedule:
-    # Every 15 minutes during WPBL waking hours (Central-time hub — see the reminder
+    # Every 15 minutes during WPBL waking hours (Central-time hub; see the reminder
     # workflow for the same reasoning). The board only needs refreshing often enough
     # that the live countdown and "in progress" flip stay roughly current; the actual
     # <t:...> timestamps count down on their own between runs, so this cadence is plenty.

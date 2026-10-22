@@ -22,13 +22,13 @@ import type { LayoutShifts, VitalKey, VitalRating, WebVitalsRow } from './lib/an
 import type { AnalyticsBundle, LeagueFilter, DayPoint, PaletteStats } from './lib/analyticsAdmin'
 import { typePx } from './ui/scale'
 
-/** "1 browser" / "2 browsers" — the counts here are small enough that "1 browsers" shows. */
+/** "1 browser" / "2 browsers": the counts here are small enough that "1 browsers" shows. */
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`
 // The search box's totals across both sections, for the card's one-line summary.
 const paletteOpened = (p: PaletteStats) => p.sections.reduce((n, s) => n + s.opened, 0)
 const palettePicked = (p: PaletteStats) => p.sections.reduce((n, s) => n + s.picked, 0)
 
-// The owner's dashboard for what people actually do on the site — the thing that used to
+// The owner's dashboard for what people actually do on the site: the thing that used to
 // mean opening the Supabase SQL editor.
 //
 // Every number is a `security definer` RPC away (see src/lib/analyticsAdmin.ts); nothing
@@ -37,7 +37,7 @@ const palettePicked = (p: PaletteStats) => p.sections.reduce((n, s) => n + s.pic
 // RPC would still refuse them.
 //
 // Charts are hand-rolled inline SVG. There is no chart library in package.json and this
-// doesn't justify adding one — PitchLocation.tsx already sets the precedent that a plot
+// doesn't justify adding one: PitchLocation.tsx already sets the precedent that a plot
 // here is a viewBox and some polylines.
 
 // The page has three jobs that were previously one 17-card scroll: what the audience did,
@@ -81,7 +81,7 @@ const RANGES: Array<{ days: number; label: string }> = [
   { days: 90, label: '90d' },
 ]
 
-/** "in 30 days" / "today" — the range as it reads inside a tile's sub-line. */
+/** "in 30 days" / "today": the range as it reads inside a tile's sub-line. */
 const rangeLabel = (days: number) => (days === 1 ? 'today so far' : `in ${days} days`)
 const LEAGUES: Array<{ value: LeagueFilter; label: string }> = [
   { value: 'all',  label: 'All' },
@@ -536,7 +536,7 @@ export default function AdminPage() {
     ? (Date.now() - new Date(`${firstEvent}T00:00:00`).getTime()) / 86_400_000 < days
     : false
 
-  // Whether the previous-window deltas are worth drawing at all — see the note beside the
+  // Whether the previous-window deltas are worth drawing at all. See the note beside the
   // tiles. Only the Today range is partial enough for them to mislead.
   const comparable = days > 1
 

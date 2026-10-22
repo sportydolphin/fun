@@ -1,7 +1,7 @@
 // Subset the Inter variable font to the characters this site can actually render.
 //
 // The upstream file (scripts/fonts/InterVariable-full.woff2) carries every script Inter
-// supports — Cyrillic, Greek, Vietnamese, the full symbol set — about 344 KB that is
+// supports (Cyrillic, Greek, Vietnamese, the full symbol set), about 344 KB that is
 // preloaded at the highest priority on every cold load and, being woff2, is already
 // compressed so the CDN's brotli does nothing for it. It was the single largest asset on
 // the page and it competed for bandwidth with the entry chunk.
@@ -9,7 +9,7 @@
 // The subset below keeps Latin (through Extended-A, so future roster names with Central
 // and Eastern European diacritics still hit the real font), the punctuation and math the
 // UI actually uses, and the geometric shapes/arrows that appear as literal glyphs in the
-// components. Emoji are deliberately excluded — Inter has no emoji glyphs, so those
+// components. Emoji are deliberately excluded: Inter has no emoji glyphs, so those
 // already render from the platform emoji font.
 //
 // Anything outside the subset is not tofu: browsers fall back per character to the next
@@ -36,9 +36,9 @@ const KEEP = [
   // Only the non-Latin glyphs the UI actually renders, enumerated rather than taken as
   // whole Unicode blocks: the arrow/math/shape blocks cost ~35 KB for ~600 code points of
   // which the components use about 30. Combining diacritics (U+0300–036F) are deliberately
-  // absent too — they add 15 KB of mark-attachment data, and every accented string in the
+  // absent too: they add 15 KB of mark-attachment data, and every accented string in the
   // feed and the roster arrives precomposed (NFC), so nothing decomposed reaches the font.
-  '‐‑–—‘’“”†•…‹›⁄',        // punctuation
+  '‐‑–\u2014‘’“”†•…‹›⁄',        // punctuation
   '€™⅓⅔½¼¾°±×÷·',            // currency, fractions, math punctuation
   '→↗↔↑↓←↳↻⇆↩⇄⟳',         // arrows used as literal glyphs in components
   '≈≥≤−∞√⊂∝⋮⊙',              // math

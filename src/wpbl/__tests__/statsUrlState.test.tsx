@@ -9,7 +9,7 @@ import type { WpblTeam } from '../types'
 // WHY THE QUERY AND NOT THE PATH: `urlFor` in WpblApp sets the section's rule, that the tab is
 // the path because it is a page worth indexing and anything laid over it is a param. It also
 // costs nothing in the three places a new route would: /wpbl/stats is already in _redirects,
-// the sitemap is unchanged, and seo.ts canonicalises the query away, so no permutation of these
+// the sitemap is unchanged, and seo.ts canonicalizes the query away, so no permutation of these
 // params can reach the index as a near-duplicate of the board.
 
 vi.mock('@mui/material', async (importOriginal) => ({

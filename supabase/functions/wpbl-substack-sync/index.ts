@@ -1,5 +1,5 @@
 /**
- * wpbl-substack-sync — the Substack mirror, on Supabase, hourly.
+ * wpbl-substack-sync: the Substack mirror, on Supabase, hourly.
  *
  * WHY THIS EXISTS AS AN EDGE FUNCTION. Substack serves Cloudflare's JavaScript interstitial
  * ("Just a moment...") to datacenter address space, and it covers every host it owns: her

@@ -249,7 +249,7 @@ describe('parseFeed', () => {
     expect(parseFeed(xml)[0].videos).toBe(1)
   })
 
-  // Markup between the two halves of a name is normal in her posts (an italicised first
+  // Markup between the two halves of a name is normal in her posts (an italicized first
   // name, a line break mid-sentence). Stripping tags to a space and collapsing runs is what
   // keeps that a match rather than a miss.
   it('finds a name that markup had split in two', () => {

@@ -145,7 +145,7 @@ async function main() {
   }
   console.log(`\nwrote ${rows.length} row(s)`)
   // Failure-only heartbeat (see HEARTBEAT_CHECKS): ok=true on a finished run, ok=false in the
-  // catch. Only when we have write access (SERVICE_KEY, i.e. CI) and are not dry-running — a
+  // catch. Only when we have write access (SERVICE_KEY, i.e. CI) and are not dry-running: a
   // by-hand read or a DB_URL-only write is not the scheduled job whose health this tracks.
   if (!DRY_RUN && SERVICE_KEY) await recordHeartbeat(db, 'wpbl-recaps-sync', true, `${rows.length} rows`)
 }

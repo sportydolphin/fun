@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * listen-wpbl-tracking.mjs — hold the league's live socket open and catch TrackMan if it returns.
+ * listen-wpbl-tracking.mjs: hold the league's live socket open and catch TrackMan if it returns.
  *
  * WHY A SOCKET, WHEN EVERYTHING ELSE HERE POLLS. The REST route that carried tracking,
  * `/v1/games/{id}/activity`, has answered `401 missing api key` since Sep 1, 2026, and the

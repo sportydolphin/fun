@@ -10,8 +10,8 @@ import type { WpblGame, WpblTeam } from '../types'
 // standing between "Home is series-aware" and finding out on Sep 9 that it is not.
 //
 // The bug being pinned: `seasonSeries` counts only games `countsInStandings` accepts, so
-// during a semifinal the loudest card on the page read "Season series tied 2-2" — the August
-// head-to-head — while `RecapCard` 200px below it said "Semifinal · Game 1 of 3".
+// during a semifinal the loudest card on the page read "Season series tied 2-2" (the August
+// head-to-head) while `RecapCard` 200px below it said "Semifinal · Game 1 of 3".
 
 const team = (id: string, city: string, name: string): WpblTeam =>
   ({ id, city, name, abbr: id, color: '#000000' } as WpblTeam)

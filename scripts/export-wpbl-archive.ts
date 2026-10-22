@@ -278,7 +278,7 @@ async function exportAll(): Promise<void> {
 /**
  * Verify what is on disk against the live database.
  *
- * An untested backup is a rumour, and the cheap half of testing one is proving the copy still
+ * An untested backup is a rumor, and the cheap half of testing one is proving the copy still
  * matches the original. This re-reads every table, files it the way the export would, and
  * compares each file against both its manifest digest and the live slice, so it catches a
  * truncated file, a hand-edit, a table that has moved on since the last export, and a season the

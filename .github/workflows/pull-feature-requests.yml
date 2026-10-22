@@ -45,7 +45,7 @@ jobs:
 
       - name: Skip when not configured
         if: env.GOOGLE_REFRESH_TOKEN == ''
-        run: echo "Google Tasks secrets not set — skipping. Add GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN to enable."
+        run: echo "Google Tasks secrets not set, so skipping. Add GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN to enable."
 
       # pull-tasks.mjs uses only Node built-ins + fetch, so no dependency install
       # is needed. It reads the Google creds straight from the env above.

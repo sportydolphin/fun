@@ -411,7 +411,7 @@ function WinProbChart({ pts, plays, away, home, live, marks = [] }: {
   marks?: number[]
 }) {
   const isDark = useDark()
-  // Not the club primaries: half of them are near-black and two of them at 30% are one grey.
+  // Not the club primaries: half of them are near-black and two of them at 30% are one gray.
   // See chartPairColors.
   const [awayCol, homeCol] = chartPairColors(away.teamId, home.teamId, isDark)
   // StatsAPI speaks in percent, the chart in 0..1.
@@ -460,7 +460,7 @@ function WinProbChart({ pts, plays, away, home, live, marks = [] }: {
       info={WP_INFO}
       now={now}
       accent="primary.main"
-      // Each swing in the color of the club it favoured, numbered to match the list under the chart.
+      // Each swing in the color of the club it favored, numbered to match the list under the chart.
       marks={marks.filter(i => pts[i]).map((i, k) => {
         const col = pts[i].wp >= pts[i].before ? homeCol : awayCol
         return { index: i, color: col, ink: inkOn(col), label: String(k + 1) }

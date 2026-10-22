@@ -5,7 +5,7 @@ import { typePx } from './ui/scale'
 import { TYPE_SCALE } from './ui/card'
 
 // Opt-in flag for unfinished features. Mirrors UnitsContext: localStorage, no account
-// needed, so anyone can turn it on and try a work-in-progress on their own device — which
+// needed, so anyone can turn it on and try a work-in-progress on their own device, which
 // is the point, since the things behind it need testing across real phones and browsers
 // rather than only whatever the developer happens to own.
 //
@@ -13,7 +13,7 @@ import { TYPE_SCALE } from './ui/card'
 // Settings and easy to reason about in a bug report ("experimental on/off"). If two
 // experiments ever need to run independently, split it then.
 //
-// Anything gated here must degrade to the shipped behavior when it's off — the flag hides
+// Anything gated here must degrade to the shipped behavior when it's off: the flag hides
 // a feature, it never changes data.
 
 const STORAGE_KEY = 'experimentalFeatures'

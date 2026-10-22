@@ -483,7 +483,7 @@ will actually see all winter. The functional items do not wait.
    ("Top 6th · CLE · vs A. Kay", then +N and the score after) and `PlayRow` (the green rail, the
    batter in weight, the runners underneath, the count and the bases and outs the play left at
    the right). `BaseDiamond` and the out lamps moved to `src/ui/BaseDiamond.tsx`. MLB's box takes
-   WPBL's columns (HR, 2B and SB added; IP totalled as outs), keeps the season AVG and ERA off a
+   WPBL's columns (HR, 2B and SB added; IP totaled as outs), keeps the season AVG and ERA off a
    phone, and prints "(W)" there. Kept apart: MLB's latest-first order and its Scoring / All
    chips, WPBL's pitch sequences, clips and play links, which StatsAPI has no match for here.
    The sheet's tabs are `SegControl`, centered on their own row, with the Plays controls moved

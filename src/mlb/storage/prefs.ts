@@ -163,7 +163,7 @@ export async function saveGameStartPrefToSupabase(userId: string, pref: GameStar
 // silently was not.
 //
 // localStorage only, deliberately: milestones are bell-only, with no push twin and no sender
-// script, so nothing server-side ever reads this. The neighbouring prefs are mirrored to
+// script, so nothing server-side ever reads this. The neighboring prefs are mirrored to
 // user_preferences precisely because a cron job needs them. Give this one a column the day it
 // grows a push sender, not before.
 

@@ -73,7 +73,7 @@ export const MICRO_TEXT = '0.68rem'
  * `micro` is MICRO_TEXT and is only 0.04rem from `meta` on purpose. It is the ALL-CAPS step,
  * and caps set at 0.68 read larger than lowercase at 0.72 because they have no descenders and
  * fill the em: the pair is a label and its value, which is a real distinction rather than two
- * neighbouring sizes.
+ * neighboring sizes.
  *
  * `src/wpbl/__tests__/typeScale.test.ts` fails on a raw rem literal in an adopted file, so the
  * next size added has to be a decision about the scale rather than a number typed into an `sx`.
@@ -187,7 +187,7 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
   fill?: boolean
   /** Drop the raised paper fill and let the card sit straight on the page, keeping only the
    *  border and the radius. For a card that IS a table: Standings and the season stats table
-   *  are both drawn that way already, and in dark mode `background.paper` is a lifted grey, so
+   *  are both drawn that way already, and in dark mode `background.paper` is a lifted gray, so
    *  a leaderboard using it reads as a different surface from the tables beside it on the very
    *  same tab. Off by default, because a card that holds prose or mixed content wants the
    *  raised fill that separates it from the page. */

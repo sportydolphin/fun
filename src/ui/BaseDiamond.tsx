@@ -37,7 +37,7 @@ export function basesPhrase(first: boolean, second: boolean, third: boolean): st
  * IT CARRIES ITS OWN NAME, AND IT WRITES IT ITSELF. Three unlabeled squares are invisible to a
  * screen reader and to anyone who cannot see the fill, so the glyph is a `role="img"` and its
  * name is derived from the same three flags it draws. Derived rather than passed because a
- * required prop is a prop a new call site can get wrong or paste from its neighbour, and a
+ * required prop is a prop a new call site can get wrong or paste from its neighbor, and a
  * diamond captioned with the wrong bases is worse than one captioned generically. On the
  * run-value table the name is also what lets the written label be dropped on a phone, which is
  * what stops that table scrolling sideways.

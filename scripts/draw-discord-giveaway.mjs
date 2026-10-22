@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * draw-discord-giveaway.mjs — freeze a giveaway entry list, then draw (and re-draw) from it.
+ * draw-discord-giveaway.mjs: freeze a giveaway entry list, then draw (and re-draw) from it.
  *
  * Two steps, deliberately separate:
  *
- *   1. FREEZE — the moment you hit the member count, snapshot everyone who reacted with the
+ *   1. FREEZE: the moment you hit the member count, snapshot everyone who reacted with the
  *      entry emoji to a local file. That file is the entry list. Reactions added after this
  *      never count, and reactions removed after this don't take anyone out.
- *   2. DRAW — pick a winner from the frozen file. Run it again and it draws a *replacement*:
+ *   2. DRAW: pick a winner from the frozen file. Run it again and it draws a *replacement*:
  *      anyone already drawn is excluded automatically, so an unresponsive winner just means
  *      running the same command again. Every draw is appended to the file's history.
  *
- * It only READS Discord. Nothing is posted, no reaction is touched — winners are printed
+ * It only READS Discord. Nothing is posted, no reaction is touched: winners are printed
  * here for you to announce yourself.
  *
  * Usage:
@@ -24,7 +24,7 @@
  *   # Draw a winner from the frozen list
  *   npm run giveaway -- --draw
  *
- *   # Winner never replied? Same command again — they're excluded, someone else is drawn
+ *   # Winner never replied? Same command again: they're excluded, someone else is drawn
  *   npm run giveaway -- --draw
  *
  *   # See the frozen list and every draw so far
@@ -46,7 +46,7 @@
  * Required env: DISCORD_BOT_TOKEN. Optional: DISCORD_GUILD_ID (used to drop reactors who
  * already left; also read out of the message link when you pass one).
  *
- * The bot must be IN the server and able to see the channel — "View Channel" plus "Read
+ * The bot must be IN the server and able to see the channel: "View Channel" plus "Read
  * Message History". No privileged intents, no gateway, just REST.
  *
  * The pool file holds hundreds of real usernames and user ids, so it is written to
@@ -70,7 +70,7 @@ const flag = (name, fallback = '') => {
 const has = (name) => argv.includes(`--${name}`)
 
 const link = argv.find((a) => a.startsWith('http'))
-// .../channels/<guild>/<channel>/<message> — the guild slot is "@me" in a DM, hence [^/]+.
+// .../channels/<guild>/<channel>/<message>. The guild slot is "@me" in a DM, hence [^/]+.
 const parts = link?.match(/channels\/([^/]+)\/(\d+)\/(\d+)/)
 
 const GUILD_ID   = (flag('guild')   || parts?.[1] || process.env.DISCORD_GUILD_ID || '').trim()
@@ -170,8 +170,8 @@ async function listReactions() {
 
 async function freeze() {
   if (existsSync(POOL_FILE) && !has('refreeze')) {
-    // Silently overwriting would destroy the frozen list — the one thing this file exists
-    // to protect — and take the draw history with it.
+    // Silently overwriting would destroy the frozen list (the one thing this file exists
+    // to protect) and take the draw history with it.
     const old = JSON.parse(readFileSync(POOL_FILE, 'utf8'))
     console.error(`❌  ${POOL_FILE} already holds a pool frozen at ${old.frozenAt}`)
     console.error(`    (${old.entrants.length} entrants, ${old.draws.length} draw(s) so far).`)
@@ -199,7 +199,7 @@ async function freeze() {
     ? await discord(`/guilds/${GUILD_ID}?with_counts=true`, { allow404: true })
     : null
   if (GUILD_ID && !guild) {
-    console.log(`  ⚠️  can't read guild ${GUILD_ID} — is the bot actually in the server?`)
+    console.log(`  ⚠️  can't read guild ${GUILD_ID}. Is the bot actually in the server?`)
     console.log('      Skipping the "still a member" check; entrants kept as-is.')
   }
 
@@ -216,10 +216,10 @@ async function freeze() {
     entrants = here
     console.log(' done')
   } else if (!GUILD_ID) {
-    console.log('  ⚠️  no DISCORD_GUILD_ID — skipping the "still a member" check')
+    console.log('  ⚠️  no DISCORD_GUILD_ID, so skipping the "still a member" check')
   }
 
-  for (const r of rejected) console.log(`  – ${label(r)} — ${r.why}`)
+  for (const r of rejected) console.log(`  – ${label(r)}: ${r.why}`)
   if (!entrants.length) { console.error('\n❌  Nobody eligible. Nothing frozen.'); process.exit(1) }
 
   writePool({
@@ -267,7 +267,7 @@ async function draw() {
 
   const winners = pick(remaining, WINNERS)
 
-  // The pool is frozen by design, so leaving isn't a disqualification — but you want to
+  // The pool is frozen by design, so leaving isn't a disqualification, but you want to
   // know before you spend a day waiting on a DM to an account that's gone.
   if (GUILD_ID && await discord(`/guilds/${GUILD_ID}`, { allow404: true })) {
     for (const w of winners) {
@@ -284,9 +284,9 @@ async function draw() {
   writePool(pool)
 
   const n = pool.draws.length
-  console.log(`\n🎉  Draw #${n}${n > 1 ? ' (replacement)' : ''} — from ${remaining.length} eligible:\n`)
+  console.log(`\n🎉  Draw #${n}${n > 1 ? ' (replacement)' : ''}, from ${remaining.length} eligible:\n`)
   for (const w of winners) console.log(`    ${label(w)}   <@${w.id}>`)
-  console.log('\n    Nothing was posted to Discord — announce it yourself.')
+  console.log('\n    Nothing was posted to Discord. Announce it yourself.')
   console.log('    No reply? Run the same command again for a replacement.\n')
 }
 

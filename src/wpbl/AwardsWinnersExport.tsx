@@ -9,7 +9,7 @@
 // A ONE-PAGE STORY, one winner per row. The per-result Share button draws a square card; this draws
 // a phone-shaped poster (1080 wide, story proportions) with each winner as a wide, short row so the
 // whole slate reads down one column. Same `ShareCardData` and the same `captureNode` (which loads
-// the font before rasterising and composites every face at full resolution), so the two surfaces
+// the font before rasterizing and composites every face at full resolution), so the two surfaces
 // cannot drift on who won or on how a face is drawn.
 import { useEffect, useRef, useState, type CSSProperties, type Ref } from 'react'
 import { createPortal } from 'react-dom'

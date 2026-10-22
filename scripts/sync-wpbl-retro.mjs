@@ -114,7 +114,7 @@ export function parseEventFile(text) {
       continue
     }
     if (!line.startsWith('info,')) continue
-    // info,key,value — and a value may itself contain commas, so split on the first two only.
+    // info,key,value, and a value may itself contain commas, so split on the first two only.
     const rest = line.slice(5)
     const comma = rest.indexOf(',')
     if (comma < 0) continue

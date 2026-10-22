@@ -7,7 +7,7 @@ name: WPBL roster fork check
 # postseason box score with Claire O'Sullivan's first name as CATHERINE, under a feed player id
 # nobody had seen before; postseason ids are minted fresh, so the (club, name) fallback matched
 # nobody and the ingest inserted a second player. Her game went under the new row, the site grew
-# a player page under a name no fan recognises, and nothing anywhere went red. A reader told us.
+# a player page under a name no fan recognizes, and nothing anywhere went red. A reader told us.
 #
 # THIS JOB IS MEANT TO FAIL LOUDLY, like the postseason marking check beside it and unlike the
 # play-by-play validator, which reports dozens of known findings nightly and always exits 0. The

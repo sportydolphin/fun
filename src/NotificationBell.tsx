@@ -2,7 +2,7 @@
 //
 // Reads the store in src/lib/notifications.ts and drives the refresh loop that
 // re-evaluates the registered sources. Adding a notification type never means
-// touching this file — register a source and it shows up here.
+// touching this file: register a source and it shows up here.
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Badge, Box, ClickAwayListener, IconButton, Paper, Tooltip, Typography } from '@mui/material'
@@ -49,7 +49,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
   const [open, setOpen] = useState(false)
 
   // Where the panel hangs from on a phone. The dropdown is anchored to the bell, which sits
-  // in the middle of the toolbar — fine on desktop, but a fixed 300px panel whose right edge
+  // in the middle of the toolbar: fine on desktop, but a fixed 300px panel whose right edge
   // is the bell's right edge starts 39px off the left of a 375px screen, which is why the
   // header used to read "FICATIONS". On a phone it becomes a viewport-width sheet instead,
   // and a fixed sheet needs a real y in viewport coordinates. Measured rather than hardcoded
@@ -102,7 +102,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
   const handleClick = (n: AppNotification) => {
     markRead(n.id)
     setOpen(false)
-    // The url's `open=` action is what makes the click useful — without it we'd
+    // The url's `open=` action is what makes the click useful: without it we'd
     // just drop the user on Home. Publish it before navigating so a component
     // that's already mounted (the common case: the bell is clicked from Home)
     // reacts; a cold start instead picks it up from the url at module load.

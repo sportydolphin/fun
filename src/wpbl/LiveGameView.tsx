@@ -64,7 +64,7 @@ export default function LiveGameView({
   names: Map<string, WpblPlayer>
   games: WpblGame[]
   onOpenPlayer?: (p: WpblPlayer) => void
-  /** The line score, dropped in between the situation and the win-probability graph — the
+  /** The line score, dropped in between the situation and the win-probability graph: the
    *  order Game Center's Live tab reads. Full-bleed (mx:-2) so its own px:2 lands flush with
    *  the column edge rather than doubling this column's padding. Omitted when this view is used
    *  on its own (Home's LiveHero has no room for it). */
@@ -164,7 +164,7 @@ function ScoreHeader({ away, home, game, divider }: {
  * pixels from the count it belongs with, so the two read as unrelated facts.
  *
  * The second made it three columns, which fixed the width and left the count buried under the
- * diamond in 8px grey dots. Balls, strikes and outs are the thing a person glances at a live
+ * diamond in 8px gray dots. Balls, strikes and outs are the thing a person glances at a live
  * game to read, and they were the least visible thing on the card.
  *
  * So the count is now a band of its own at the top, in the order and the colors every
@@ -389,10 +389,10 @@ function Pips({ label, filled, of, unit, tint }: {
             width: chromePx(13), height: chromePx(13), borderRadius: '50%', flexShrink: 0,
             bgcolor: i < filled ? tint : 'transparent',
             border: '1.5px solid',
-            // An unlit bulb keeps its OWN color at a whisper rather than going grey. It says
+            // An unlit bulb keeps its OWN color at a whisper rather than going gray. It says
             // what it would be, which is how a scoreboard reads, and it keeps the three groups
             // telling themselves apart on the count every plate appearance opens with, where
-            // all seven bulbs are dark and a grey outline says nothing at all.
+            // all seven bulbs are dark and a gray outline says nothing at all.
             borderColor: tint,
             opacity: i < filled ? 1 : 0.4,
           }} />
@@ -469,7 +469,7 @@ function Diamond({ first, second, third }: { first: boolean; second: boolean; th
  * Who is on, named.
  *
  * Third down to first, the order they would score in, and only the bases that are occupied: an
- * empty base is already drawn as an empty base an inch to the left, and three rows of "2B —"
+ * empty base is already drawn as an empty base an inch to the left, and three rows of `2B —`
  * spend this column's best lines saying nothing. A base the feed marks occupied without naming
  * the runner falls back to the base alone, because the flag and the name come from the same
  * field and there is no reason to assume they move together.

@@ -12,7 +12,7 @@ export type Tab = 'recap' | 'live' | 'box' | 'plays' | 'pitch'
 // every one of them lands the reader on whichever board this modal picks by default, so "look
 // at the seventh" is not a thing anyone could send. The board is a state laid over the game's
 // page rather than a page of its own, which is the section's rule for what belongs in a query
-// param (see `urlFor` in WpblApp); seo.ts canonicalises the query away, so none of the five
+// param (see `urlFor` in WpblApp); seo.ts canonicalizes the query away, so none of the five
 // spellings can reach the index as a near-duplicate of the game.
 const TABS: readonly Tab[] = ['recap', 'live', 'box', 'plays', 'pitch']
 

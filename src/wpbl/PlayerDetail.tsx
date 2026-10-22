@@ -680,7 +680,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   const showTabs = twoWay
   // The pager's index space, primary role first. A two-way player gets both panes; everyone
   // else gets exactly one, which is what keeps a lone unswitchable pill off the page. A
-  // one-panel pager is not a special case: it simply has no neighbour to reach, so a sideways
+  // one-panel pager is not a special case: it simply has no neighbor to reach, so a sideways
   // drag rubber-bands and lets go, which is the same answer the tab bar gives.
   //
   // While loading, the one role the filed position points to: see skeletonPane.
@@ -863,13 +863,13 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
 
   // Full club name where it fits, the nickname on a phone. The header row also carries the
   // Compare and Copy-link chips and the close button, and "New York Heights" plus those two
-  // chips overran a 360px header and ellipsised the club to "New York Heig…". The nickname
+  // chips overran a 360px header and ellipsized the club to "New York Heig…". The nickname
   // ("Heights") is the same fact, shorter, and clears the row; both are the club, so this
   // reads as a compact label rather than a truncation.
   const clubEyebrow = team ? (
     // The side panel's header is as narrow as a phone's and carries the same two chips, but it
     // renders outside the panel's phone theme (it is the shell's chrome, not the card), so its
-    // breakpoints see a desktop. It is told instead, or "San Francisco Firebells" ellipsises.
+    // breakpoints see a desktop. It is told instead, or "San Francisco Firebells" ellipsizes.
     mdUp && panel ? team.name : (
       <>
         <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{wpblFullName(team)}</Box>

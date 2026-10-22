@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * sync-wpbl-substack.ts — run the Substack mirror by hand.
+ * sync-wpbl-substack.ts: run the Substack mirror by hand.
  *
  * The sync itself lives in src/wpbl/substackSync.ts, shared with the `wpbl-substack-sync`
  * edge function that runs it hourly on pg_cron. This file is the Node door onto it: read

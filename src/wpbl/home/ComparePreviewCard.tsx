@@ -65,7 +65,7 @@ export function ComparePreviewCard({ batSeasons, qual, teams, players, loading }
       .sort((a, b) => (b.totals.ops ?? 0) - (a.totals.ops ?? 0)),
     [batSeasons, qual])
 
-  // WHICH TWO is memoised on the eligible id list, not on the pool array: the score poll rebuilds
+  // WHICH TWO is memoized on the eligible id list, not on the pool array: the score poll rebuilds
   // `batSeasons` (and so `pool`) every two minutes with the same players, and re-picking there
   // would swap the pair under the reader. Their LIVE seasons are then looked up by id below, so
   // the numbers stay current even though the choice does not move.

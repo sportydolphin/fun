@@ -46,9 +46,9 @@ export default tseslint.config(
         handlers: ['onClick', 'onMouseDown', 'onMouseUp', 'onKeyPress', 'onKeyDown', 'onKeyUp'],
       }]])),
       // OFF: every autoFocus here is a dialog putting the cursor in its first field, which is the
-      // behaviour a dialog is expected to have.
+      // behavior a dialog is expected to have.
       'jsx-a11y/no-autofocus': 'off',
-      // OFF: deprecated by the plugin itself in favour of label-has-associated-control.
+      // OFF: deprecated by the plugin itself in favor of label-has-associated-control.
       'jsx-a11y/label-has-for': 'off',
       // A `tabIndex={collapsible ? 0 : undefined}` beside a role that is set on the same condition.
       'jsx-a11y/no-noninteractive-tabindex': ['error', { allowExpressionValues: true }],
@@ -65,7 +65,7 @@ export default tseslint.config(
       // As a warning it sat at 45 in every run's output, where a new one was invisible, and two of
       // the 45 were real: Draft value and the TrackingView board each built season totals from the
       // schedule they saw first, so a schedule that arrived later never reached them. A missing
-      // dependency is still a judgement per hook, which is exactly why it has to stop CI.
+      // dependency is still a judgment per hook, which is exactly why it has to stop CI.
       'react-hooks/exhaustive-deps': 'error',
 
       // An unused import is removed by `npm run lint -- --fix`; an unused variable is reported and
@@ -102,13 +102,21 @@ export default tseslint.config(
             `Property[key.name='letterSpacing']${path} > Literal[value=/^-?[0-9.]+px$/]`,
           ])
           .map(selector => ({ selector, message: 'letterSpacing in px does not scale with the type. Use typePx(n) from src/ui/scale (or em).' })),
-        // A cancellable touch listener makes the browser wait for JavaScript before it scrolls
+        // A cancelable touch listener makes the browser wait for JavaScript before it scrolls
         // anything under it, so the content trails the finger (the player sheet until Oct 7, 2026).
         // The two that exist are deliberate and say so beside them.
         {
           selector: "Property[key.name='passive'] > Literal[value=false]",
           message: 'A passive:false touch listener makes scrolling wait on JavaScript. See the ModalShell trap in src/CLAUDE.md; if it is truly needed, disable this line with the reason.',
         },
+        // Faded chart text. axe in the layout sweep measures HTML text, not SVG <text>, so an
+        // opacity on a label passes CI while taking it under 4.5:1: MLB's charts drew every axis
+        // and quadrant label that way until v1.181.0. The rule in src/CLAUDE.md: use the
+        // secondary ink (theme.palette.text.secondary) and fade only marks, never words.
+        ...[
+          "JSXOpeningElement[name.name=/^(text|tspan)$/] > JSXAttribute[name.name=/^(fillOpacity|opacity)$/]",
+          "JSXOpeningElement[name.name=/^(text|tspan)$/] > JSXAttribute[name.name='style'] Property[key.name=/^(fillOpacity|opacity)$/]",
+        ].map(selector => ({ selector, message: 'Faded SVG text falls under 4.5:1 and axe cannot see it. Use theme.palette.text.secondary (or another full-strength ink) instead of fillOpacity/opacity on <text>.' })),
       ],
     },
   },

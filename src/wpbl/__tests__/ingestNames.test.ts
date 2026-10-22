@@ -3,7 +3,7 @@ import { normName, isDamaged, replacementMatch, editDistance, tradeMatch, teamMo
 
 // Player-name reconciliation for the WPBL ingest. The module under test lives with the
 // Supabase edge function (which only Deno can load, so it can't be imported here), but the
-// matching rules themselves are plain string logic — and they have already cost real data:
+// matching rules themselves are plain string logic, and they have already cost real data:
 // in August 2026 a bad decode upstream forked duplicate roster rows for the two players
 // whose names carry an accent.
 
@@ -35,7 +35,7 @@ describe('replacementMatch', () => {
   })
 
   it('will not match two different players', () => {
-    // Same team, same first letter, one damaged character — still clearly not them.
+    // Same team, same first letter, one damaged character: still clearly not them.
     expect(replacementMatch(normName(damage('Maïka Dumais', 'ï')), normName('Maika Dumont'))).toBe(false)
     expect(replacementMatch('ka�e blunt', 'kate bluntson')).toBe(false)
   })
@@ -88,7 +88,7 @@ describe('tradeMatch', () => {
     expect(tradeMatch(normName('Maika Dumais'), 'LA', roster, NEW_ID)).toBe('dumais')
   })
 
-  it('says nothing about a player already on that club — the same-team matchers own that', () => {
+  it('says nothing about a player already on that club: the same-team matchers own that', () => {
     expect(tradeMatch(normName('Diana Ibarra'), 'NY', roster, NEW_ID)).toBeNull()
   })
 

@@ -28,7 +28,7 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d ago`
 }
 
-// Minute-precision relative time — the WPBL feed cron runs every ~2 min, so hour-grained
+// Minute-precision relative time: the WPBL feed cron runs every ~2 min, so hour-grained
 // timeAgo would read "just now" almost always and hide whether the mirror is actually live.
 function timeAgoMin(iso: string): string {
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000)
@@ -141,7 +141,7 @@ export function WpblValidationChip({ run }: { run: WpblValidationRow }) {
 }
 
 // A generic cron_heartbeats-backed job (the drift checker today; the push and recap senders
-// next). Takes a PRESENT beat — a missing row is the caller's IDLE, exactly as the pipelines
+// next). Takes a PRESENT beat: a missing row is the caller's IDLE, exactly as the pipelines
 // above do it. `maxAgeMs` null means the job's cadence is not predictable enough to call stale,
 // so only an outright failure shows red (see HEARTBEAT_CHECKS in shared/adminHealth.js).
 export function heartbeatStatus(beat: Heartbeat, check: HeartbeatCheck): Status {

@@ -322,7 +322,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
     () => postseasonScheduleRows(standingsRows, seasonGames, siteGames), [standingsRows, seasonGames, siteGames])
 
   // The MVP race. Two passes over the play log (the run-expectancy table, then every play
-  // priced against it), memoised on the three arrays they read, because this is the most
+  // priced against it), memoized on the three arrays they read, because this is the most
   // arithmetic any card on Home does and none of it is cheap enough to redo on a repaint.
   //
   // The postseason is already out: both functions run their input through `regularSeasonLines`
@@ -591,7 +591,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
         gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
         gridTemplateRows: { md: 'auto auto' },
         // Its OWN top margin, rather than living off the scoreboard's bottom one. Every block in this
-        // stack brings its own margin, and a block that depends on its neighbour for its spacing breaks
+        // stack brings its own margin, and a block that depends on its neighbor for its spacing breaks
         // the next time something (the Discord invite) is inserted between them. Margins collapse, so a
         // dismissed invite still leaves 12px here rather than 24.
         mt: 1.5,

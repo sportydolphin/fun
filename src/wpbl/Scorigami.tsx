@@ -375,7 +375,7 @@ export default function WpblScorigami({ onOpenGame }: {
                         background: clubColors
                           ? `linear-gradient(45deg, ${winC} calc(50% - 0.75px), ${seam} calc(50% - 0.25px), ${seam} calc(50% + 0.25px), ${loseC} calc(50% + 0.75px))`
                           : 'var(--wpbl-accent-solid)',
-                        // Not TAPPABLE: that paints the row-hover grey over the fill, which on a solid
+                        // Not TAPPABLE: that paints the row-hover gray over the fill, which on a solid
                         // square reads as the square going blank. A lift and a slight brighten keep
                         // both clubs' colors visible under the pointer.
                         ...hoverOnly({ transform: 'scale(1.12)', filter: 'brightness(1.12)', zIndex: 1, position: 'relative' }),

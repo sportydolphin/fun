@@ -118,7 +118,7 @@ export function usePlayerSeason({ player, players, teams, games, seasonGames, se
   //
   // THE RETRACTION SITS WITH THE CLAIM. This line runs directly under the headline rates, the
   // largest type on the card: a 6 AB player's `1.292` is set large, and a caveat a column away
-  // in small grey type is not one a reader meets before believing the number. Naming the actual
+  // in small gray type is not one a reader meets before believing the number. Naming the actual
   // bar here also says how far off the player is and what they are off from, in the same glance
   // as the figure it qualifies.
   //

@@ -77,7 +77,7 @@ export function UsernameDialog({ open, onClose, userId, currentUsername, onSaved
     setSaving(false)
 
     if (error) {
-      // Unique violation — race condition where someone grabbed it just before us
+      // Unique violation: race condition where someone grabbed it just before us
       if (error.code === '23505') {
         setStatus('taken')
       } else {

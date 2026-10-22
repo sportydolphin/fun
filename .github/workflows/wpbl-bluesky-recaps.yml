@@ -18,7 +18,7 @@ name: WPBL Bluesky Recaps
 # IT NEVER BACKFILLS. The first run against an empty table records every existing final as
 # handled and posts nothing, so switching this on does not put a season on the timeline.
 #
-# WHAT ACTUALLY STARTS THIS IS THE DATABASE, not the cron line below. GitHub does not honour
+# WHAT ACTUALLY STARTS THIS IS THE DATABASE, not the cron line below. GitHub does not honor
 # `schedule` in this repo: measured over the thirty scheduled runs before Sep 3, 2026 the gaps
 # ran 130 to 452 minutes against `*/15`, and the DAILY workflows here landed four to eleven
 # hours late in the same week. Every run went green, so nothing ever flagged it. Combined with a
@@ -67,7 +67,7 @@ jobs:
           node-version: '24'
 
       # Unlike the sibling cron jobs this one cannot install a hand-picked subset: it bundles
-      # TypeScript out of src/ with esbuild and rasterises a card, so it needs the real tree.
+      # TypeScript out of src/ with esbuild and rasterizes a card, so it needs the real tree.
       - name: Install
         run: npm ci --no-audit --no-fund
 

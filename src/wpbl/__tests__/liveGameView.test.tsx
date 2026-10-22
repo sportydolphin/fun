@@ -356,8 +356,8 @@ describe('the pitcher the feed will not name', () => {
   it('names the current pitcher from the box score when the feed sends none', () => {
     // Watched in the top of the 7th on 2026-09-17 (postseason, LA at SF): the feed dropped the
     // pitcher from BOTH the situation and every play, leaving the box score as the only source
-    // that named her. The current pitcher is the fielding club's latest-APPEARING line — upserted,
-    // so created_at is her first appearance — which is the reliever, never the starter she relieved.
+    // that named her. The current pitcher is the fielding club's latest-APPEARING line (upserted,
+    // so created_at is her first appearance), which is the reliever, never the starter she relieved.
     render0({ ...LIVE, pitcher_name: '' }, [
       pitch('p6', { created_at: '2026-09-05T19:00:00Z' }),
       pitch('p7', { created_at: '2026-09-05T20:30:00Z', outs: 2, so: 0 }),

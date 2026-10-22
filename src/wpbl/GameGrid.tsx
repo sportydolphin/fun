@@ -168,7 +168,7 @@ export default function GameGrid({ columns, rows, renderCell, colWidthRem, nameW
     pointerEvents: 'none' as const, zIndex: 3,
     ...(side === 'left' ? { left: NAME_W_CSS } : { right: 0 }),
     // CARD_INK, not `background.paper`: the color actually behind the card, which on a flat page
-    // is the page itself, and a paper-grey fade there reads as a grey smear at the edge.
+    // is the page itself, and a paper-gray fade there reads as a gray smear at the edge.
     // `transparent` rather than the color plus `00`, since the color may be a var().
     background: (t: Theme) =>
       `linear-gradient(to ${side === 'left' ? 'right' : 'left'}, ${CARD_INK(t)}, transparent)`,
@@ -197,7 +197,7 @@ export default function GameGrid({ columns, rows, renderCell, colWidthRem, nameW
           <Box sx={{
             width: NAME_W_CSS, flexShrink: 0, position: 'sticky', left: 0, zIndex: 2,
             // Solid, to mask the columns scrolling under it, in the card's own backdrop (CARD_INK),
-            // so on a flat page the pinned column is not a grey strip.
+            // so on a flat page the pinned column is not a gray strip.
             bgcolor: CARD_INK, alignSelf: 'stretch',
             borderRight: '1px solid', borderColor: 'divider',
           }} />

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * google-auth.mjs — One-time helper to mint a Google Tasks refresh token.
+ * google-auth.mjs: One-time helper to mint a Google Tasks refresh token.
  *
  * You only run this once. It opens a local consent flow, you approve read-only
  * access to your Google Tasks, and it prints a refresh token to paste into .env
@@ -8,7 +8,7 @@
  *
  * Prereqs (see docs/GOOGLE_TASKS.md):
  *   • A Google Cloud project with the Tasks API enabled.
- *   • An OAuth client of type "Desktop app" — its client id + secret in .env as
+ *   • An OAuth client of type "Desktop app", with its client id + secret in .env as
  *     GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.
  *
  * Usage:
@@ -73,7 +73,7 @@ const server = http.createServer(async (req, res) => {
   if (url.searchParams.get('state') !== state) {
     res.writeHead(400, { 'Content-Type': 'text/plain' })
     res.end('State mismatch. You can close this tab and re-run.')
-    console.error('\n❌  State mismatch — possible CSRF, aborting. Re-run the script.\n')
+    console.error('\n❌  State mismatch, possibly CSRF, aborting. Re-run the script.\n')
     server.close(); process.exit(1)
   }
 
@@ -81,7 +81,7 @@ const server = http.createServer(async (req, res) => {
   if (!tokens.refresh_token) {
     res.writeHead(500, { 'Content-Type': 'text/plain' })
     res.end('No refresh token returned. Close this tab and re-run.')
-    console.error('\n❌  No refresh_token in the response. Google only returns one on first consent —')
+    console.error('\n❌  No refresh_token in the response. Google only returns one on first consent:')
     console.error('    remove this app under myaccount.google.com/permissions, then re-run.\n')
     console.error('    Raw response:', JSON.stringify(tokens, null, 2))
     server.close(); process.exit(1)

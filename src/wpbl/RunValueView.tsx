@@ -484,7 +484,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
 
   // The per-event averages, which the play-value card draws and the worked example has to land
   // on. One memo for both, which is the point of them being on one board: they are pure and
-  // memoised on the same arrays the boards above already walk, so this costs a pass over the
+  // memoized on the same arrays the boards above already walk, so this costs a pass over the
   // season and no request.
   const rows = useMemo(() => eventValues(values), [values])
   // Free: the same `values` pass the boards above already walk, with no extra request.

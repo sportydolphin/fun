@@ -4,8 +4,8 @@ import { loadRoster, __resetRosterCache } from '../../../functions/discord/wpbl'
 // The Discord bot's roster cache. This exists for one reason: Discord fires an autocomplete
 // interaction per keystroke, and each one needs the whole roster to match against, so the
 // uncached version re-read every player and team several times per search. These tests
-// assert the thing that actually saves — that repeat loads inside the window issue no
-// further database reads — because it isn't observable from outside the function without a
+// assert the thing that actually saves (that repeat loads inside the window issue no
+// further database reads) because it isn't observable from outside the function without a
 // signed interaction from Discord.
 
 const env = { VITE_SUPABASE_URL: 'https://db.test', VITE_SUPABASE_ANON_KEY: 'anon' }

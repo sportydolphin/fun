@@ -191,7 +191,7 @@ export default function AdminRoadmap() {
     return ok
   }, [items])
 
-  // Swap with the neighbour in the tier AS DRAWN, so a move under an area filter steps past the
+  // Swap with the neighbor in the tier AS DRAWN, so a move under an area filter steps past the
   // hidden rows rather than appearing to do nothing.
   const move = useCallback(async (row: RoadmapItem, dir: -1 | 1) => {
     const list = tiers.find(t => t.tier === row.priority)?.rows ?? []

@@ -158,7 +158,7 @@ export const ENTRIES: ChangelogEntry[] = [
     changes: [
       {
         short: 'MLB: a tidier Home',
-        full:  "Text on MLB Home now follows one set of sizes and weights, the same set WPBL uses: names, numbers, labels and dates look the same from card to card. Labels and dates that were greyed out like switched-off buttons are easier to read, a few colors that were hard to read in light mode are fixed, the scoreboard no longer wraps a game's time onto two lines at Large text, and the page opens with a \"Major League Baseball\" title the way WPBL's opens with its league's name.",
+        full:  "Text on MLB Home now follows one set of sizes and weights, the same set WPBL uses: names, numbers, labels and dates look the same from card to card. Labels and dates that were grayed out like switched-off buttons are easier to read, a few colors that were hard to read in light mode are fixed, the scoreboard no longer wraps a game's time onto two lines at Large text, and the page opens with a \"Major League Baseball\" title the way WPBL's opens with its league's name.",
       },
     ],
   },

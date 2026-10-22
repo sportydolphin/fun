@@ -24,7 +24,7 @@ export function InfoDot({ text, label = 'How this is worked out' }: {
     <TapTip
       ariaLabel={label}
       closeAfterMs={20000}
-      // OPAQUE. MUI's tooltip is a translucent grey, which is fine over a word or two and not over
+      // OPAQUE. MUI's tooltip is a translucent gray, which is fine over a word or two and not over
       // a paragraph: on the draft chart the dots and the headline showed through the text.
       tipSx={{ bgcolor: '#2a2e35', color: '#fff', px: 1.25, py: 1, '& .MuiTooltip-arrow': { color: '#2a2e35' } }}
       title={

@@ -96,7 +96,7 @@ export async function disablePush(userId: string): Promise<string | null> {
     await sub.unsubscribe().catch(() => { /* best effort */ })
     await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint)
   } else {
-    // No local subscription to key off — clear any rows we have for this user.
+    // No local subscription to key off: clear any rows we have for this user.
     await supabase.from('push_subscriptions').delete().eq('user_id', userId)
   }
   return null

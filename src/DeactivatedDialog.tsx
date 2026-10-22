@@ -5,7 +5,7 @@ import { ICON_SIZE, TYPE_SCALE } from './ui/card'
 
 // Shown when a signed-in account has been deactivated by the site owner (the
 // is_deleted flag on their usernames row). The session has already been signed out
-// by the caller; this just explains why. Not dismissable to a working app — the only
+// by the caller; this just explains why. Not dismissable to a working app: the only
 // action is to acknowledge.
 
 export function DeactivatedDialog({ open, onClose }: { open: boolean; onClose: () => void }) {

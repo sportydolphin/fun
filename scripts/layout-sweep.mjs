@@ -331,7 +331,7 @@ function probeBorders(floor) {
 /** Where every piece of text sits: for each tag and text, the boxes of every copy of it. */
 function probeAnchors() {
   const out = {}
-  // Whether an element rides in a fixed box (a dialog, the bottom bar), memoised up the tree.
+  // Whether an element rides in a fixed box (a dialog, the bottom bar), memoized up the tree.
   const fixed = new Map()
   const isFixed = el => {
     if (!el || el === document.body) return false

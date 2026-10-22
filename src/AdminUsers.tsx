@@ -613,7 +613,7 @@ export function UsersPanel({ open, onClose, onChanged }: {
     const test = FILTERS.find(f => f.key === filter)?.test ?? (() => true)
     const rows = (users ?? [])
       // Deactivated accounts are out of every view except their own filter. They are a
-      // handful of rows that would otherwise sit greyed out in the middle of every sort.
+      // handful of rows that would otherwise sit grayed out in the middle of every sort.
       .filter(u => (filter === 'deleted' ? u.is_deleted : !u.is_deleted))
       .filter(test)
       .filter(u => !q

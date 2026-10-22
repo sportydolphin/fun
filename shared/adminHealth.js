@@ -1,4 +1,4 @@
-// ─── Admin health alerting — which pipeline states are worth paging the owner ─────
+// ─── Admin health alerting: which pipeline states are worth paging the owner ─────
 //
 // The /admin Health group answers "is anything broken" only for someone who has opened
 // the page, and the one ingest break that ever reached production was invisible for two
@@ -7,8 +7,8 @@
 // same tables, and calls `healthAlerts` to decide what, if anything, should push to the owner.
 //
 // Plain ESM .js on purpose, exactly like notifications.js: the Node cron imports it directly,
-// and TS consumes it through the adminHealth.d.ts sidecar next door. Keep it pure — no
-// supabase, no clock except the injected `nowMs` — so the thresholds can be unit-tested rather
+// and TS consumes it through the adminHealth.d.ts sidecar next door. Keep it pure (no
+// supabase, no clock except the injected `nowMs`) so the thresholds can be unit-tested rather
 // than eyeballed, which is the same reason AdminPanel's status functions are pure.
 //
 // WHAT PAGES AND WHAT DOES NOT is the whole judgment here, and it is deliberately narrower
@@ -54,7 +54,7 @@ export const VALIDATION_STALE_MS = 30 * 60 * 60_000
  * staleness alarm on a job that only runs when there is a game to act on would false-fire every
  * quiet night, so those are added as failure-only (a null maxAgeMs) when their turn comes.
  *
- * A job with no heartbeat row at all is treated as never-run (idle), never as failed — absence
+ * A job with no heartbeat row at all is treated as never-run (idle), never as failed: absence
  * is not evidence of a stall, only staleness is, exactly as an empty ingest/validation table is.
  */
 export const HEARTBEAT_CHECKS = [
@@ -66,7 +66,7 @@ export const HEARTBEAT_CHECKS = [
   // game-hours / window cadence, not daily, so a flat staleness alarm would false-fire every
   // quiet night. This catches a run that ran and errored; a hard crash (which writes no
   // heartbeat) is not caught here and waits on a future "a game started N hours ago but the
-  // sender never beat for it" gate. The push sender is the more user-facing of the two — a silent
+  // sender never beat for it" gate. The push sender is the more user-facing of the two: a silent
   // death there is missed game reminders.
   { job: 'wpbl-game-start', label: 'Game-start push', maxAgeMs: null },
   { job: 'wpbl-recaps-sync', label: 'Recap sync', maxAgeMs: null },

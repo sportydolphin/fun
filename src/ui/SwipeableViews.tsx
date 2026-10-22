@@ -5,13 +5,13 @@ import { useSwipeNav } from '../AccessibilityContext'
 import { anyShellOpen } from './ModalShell'
 
 // Finger-tracking tab pager for touch devices. The active view and, during a drag, the
-// one neighbour in the drag direction translate 1:1 with the finger; releasing past a
-// threshold commits to that neighbour (animating the rest of the way), otherwise it
+// one neighbor in the drag direction translate 1:1 with the finger; releasing past a
+// threshold commits to that neighbor (animating the rest of the way), otherwise it
 // springs back. Desktop is untouched: it renders the active panel as-is.
 //
-// Why the fuss with keys + a stable track: the neighbour view is a heavy tab (it fetches
+// Why the fuss with keys + a stable track: the neighbor view is a heavy tab (it fetches
 // its own data). It's mounted once when the drag starts, and on commit the same keyed cell
-// simply switches from "neighbour" to "active", so React reuses its DOM and it is never
+// simply switches from "neighbor" to "active", so React reuses its DOM and it is never
 // remounted and never refetches mid-swipe.
 //
 // Scroll model: the app scrolls the window (no inner scroll container). Each tab keeps its
@@ -177,7 +177,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   // and again, nested in the commit, to swap in the new one. Set during render, React reruns only
   // this component before its children, so they render once.
   if (!pagerOn && activeIndex !== index) setActiveIndex(index)
-  // The pane sliding in: a swipe's neighbour (activeIndex ± 1) or a tap's target (any index,
+  // The pane sliding in: a swipe's neighbor (activeIndex ± 1) or a tap's target (any index,
   // still shown one screen over so a far jump travels the same short distance as a near one).
   const [incoming, setIncoming] = useState(-1)
   const slideTimer = useRef<number | null>(null)
@@ -388,7 +388,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   })
 
   // NO GESTURE AT ALL WITH NOTHING TO SWIPE TO. A one-pane pager (a player who only hits) has no
-  // neighbour, so all a drag could ever do is rubber-band, and the price of offering that was a
+  // neighbor, so all a drag could ever do is rubber-band, and the price of offering that was a
   // cancelable touchmove listener over the whole pane, which makes the browser consult the page
   // before every scroll of it. See the claimer in ModalShell's useSheetDrag.
   const gestures = pagerOn && panels.length > 1
@@ -503,7 +503,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
       setAnim(true)
       setOffset(commit ? -d * (s.width + GAP) : 0)
       window.setTimeout(() => {
-        // Committing swaps activeIndex to the neighbour; the layout effect above restores that
+        // Committing swaps activeIndex to the neighbor; the layout effect above restores that
         // tab's remembered scroll, matching the pinned pane's position (jump-free). commitTo
         // snapshots the pre-swap scroll depth first (viaSwipe), so the restore keeps the
         // toolbar-hidden state even when the incoming pane is shorter and the browser would
@@ -583,7 +583,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
     )
   }
 
-  // The panes riding the track besides the active one: a swipe's single neighbour, or, for a
+  // The panes riding the track besides the active one: a swipe's single neighbor, or, for a
   // multi-tab nav tap, every pane from the active one to the target so the slide travels past
   // the tabs in between rather than teleporting one screen.
   const engagedExtras: number[] = []
@@ -607,7 +607,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
       ref={containerRef}
       style={{
         position: 'relative',
-        // `clip` hides the off-screen neighbour without becoming a scroll container the way
+        // `clip` hides the off-screen neighbor without becoming a scroll container the way
         // `hidden` would (which would break the page's window scroll). Only while swiping.
         // Pane mode clips always: the panes scroll themselves, so nothing should ever spill
         // out of the fixed-height slot the pager occupies.
@@ -634,13 +634,13 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
           if (i === activeIndex) {
             return <div key={i} style={{ position: 'relative', width: '100%', ...paneInset, ...paneScroll }}><Hold hidden={false}>{panel}</Hold></div>
           }
-          // A pane on the track (a swipe neighbour or a tap's destination): absolutely placed one
+          // A pane on the track (a swipe neighbor or a tap's destination): absolutely placed one
           // screen over and pinned to the viewport, so the track's translate slides it through the
           // viewport.
           if (engagedExtras.includes(i)) {
             // On-track position is the DIRECTION, not the index delta: a tap target rides in from
             // one screen over on the tapped side whatever its true distance (single-screen slide),
-            // and a swipe neighbour is one away regardless. So both park at ±1 screen.
+            // and a swipe neighbor is one away regardless. So both park at ±1 screen.
             const step = slideTarget != null ? (slideTarget > activeIndex ? 1 : -1) : (i - activeIndex)
             return (
               <div

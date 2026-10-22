@@ -122,7 +122,7 @@ function StatListRow({ row, rank, value, context, isTeam, first, total, faded, p
   total: number
 }) {
   // A top-three mark is a claim that three rows stand out from the rest, so it needs a rest to
-  // stand out FROM. On the teams board (four clubs), lighting 1, 2 and 3 and leaving 4 grey does
+  // stand out FROM. On the teams board (four clubs), lighting 1, 2 and 3 and leaving 4 gray does
   // not read as "these three lead": it reads as the fourth club's number having failed to render.
   // Nothing is marked when the marked group would not be a clear minority, so the four clubs get
   // one color and the ranking is carried by the order and the number on the right, which is all

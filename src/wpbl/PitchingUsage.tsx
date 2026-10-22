@@ -7,14 +7,14 @@ import type { WpblPitchingUsageRow, WpblPlayer } from './types'
 import { TYPE_SCALE } from '../ui/card'
 
 /**
- * Bullpen usage — who has been worked, and who should be available tonight.
+ * Bullpen usage: who has been worked, and who should be available tonight.
  *
  * The companion to the lineup grid. One row per pitcher, one column per game, each cell
  * showing the pitch count over the innings thrown. Pitches rather than innings is the
  * headline number on purpose: a one-inning outing can be twelve pitches or thirty-five,
  * and it's the pitch count that decides whether they can go again tomorrow.
  *
- * Rows read rotation-first, then bullpen by workload — see rankPitcher.
+ * Rows read rotation-first, then bullpen by workload. See rankPitcher.
  *
  * Back-to-back outings are flagged, because that's the one thing in here a manager
  * genuinely can't do twice more without consequence.
@@ -81,7 +81,7 @@ export default function PitchingUsage({
           const total = windowPitches.get(pid) ?? 0
           return {
             id: pid,
-            // Full name — GameGrid fits it to the column itself (see GridName).
+            // Full name: GameGrid fits it to the column itself (see GridName).
             label: player ? player.name : '—',
             // Her total across the window, pinned beside the name so it stays visible while
             // the game columns scroll.

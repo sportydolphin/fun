@@ -26,7 +26,7 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
   const timeText = formatGameTime(game.game_date, game.start_time)
   // A final carries WHEN it was played. The status leads and the date follows, the reverse of an
   // upcoming game, because each puts its own headline first, and because if the line ever has to
-  // ellipsise it should lose the date rather than the result. A live game is by definition today,
+  // ellipsize it should lose the date rather than the result. A live game is by definition today,
   // so a date there would be noise.
   const statusText = final
     ? `Final${game.innings && game.innings !== 7 ? `/${game.innings}` : ''} · ${dateText}`
@@ -95,7 +95,7 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
  * DELIBERATELY NOT A GameChip, AND NOT A LINK. There is no game to open, no score column and no
  * away-at-home, so it is dashed rather than solid and it does not respond to a click. What it
  * does keep is the outer box: same width, same one-line eyebrow, same two rows, because the
- * strip's whole rhythm is that every chip's badges sit level with its neighbours'.
+ * strip's whole rhythm is that every chip's badges sit level with its neighbors'.
  */
 /** What a seeded postseason chip hands up to open its matchup preview. */
 export type MatchupPreviewArg = { away: WpblTeam; home: WpblTeam; eyebrow: string }
@@ -118,7 +118,7 @@ function PostseasonChip({ row, onOpenMatchup }: {
   // screen reader and as a tooltip, since an asterisk with no key beside it explains nothing.
   const eyebrow = `${round} G${row.gameNumber}${row.ifNecessary ? '*' : ''} · ${relativeDayShort(row.date)}`
   // Away over home once the league has designated one, and the ROW ORDER carries that on its own:
-  // no "@" marker, the same call the neighbouring GameChip makes, where the home club is simply the
+  // no "@" marker, the same call the neighboring GameChip makes, where the home club is simply the
   // bottom row.
   const { slots } = postseasonSlots(row)
   // Both clubs seeded: there is a matchup to preview even without a feed game, so the chip goes

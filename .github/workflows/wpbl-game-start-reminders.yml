@@ -10,10 +10,10 @@ on:
     types: [wpbl-game-start]
   schedule:
     # Every 10 minutes during the hours a WPBL game can start. The league plays at
-    # a single Central-time hub, so nothing starts overnight Central — restricting
+    # a single Central-time hub, so nothing starts overnight Central, and restricting
     # the hours cuts the run count sharply versus a blanket */10.
     #
-    #   hours 15-23,0-2 UTC — ~10am Central (early day games) through late-evening
+    #   hours 15-23,0-2 UTC: ~10am Central (early day games) through late-evening
     #                         first pitches (~9pm Central = 02:00 UTC next day),
     #                         with margin for the 30-min pre-game window and DST.
     #

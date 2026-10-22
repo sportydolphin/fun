@@ -31,7 +31,7 @@ beforeEach(() => {
 })
 
 describe('AdminRoadmap', () => {
-  it('swaps positions with the neighbour when a row moves down', async () => {
+  it('swaps positions with the neighbor when a row moves down', async () => {
     const { default: AdminRoadmap } = await import('../AdminRoadmap')
     render(<AdminRoadmap />)
     fireEvent.click(await screen.findByRole('button', { name: 'Move Item a down' }))

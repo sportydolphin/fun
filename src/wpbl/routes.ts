@@ -183,7 +183,7 @@ export const wpblAppOwnsPath = (pathname: string): boolean =>
 
 // ─── Game pages ───────────────────────────────────────────────────────────────
 //
-// A `?game=<uuid>` deep link is not the same thing as having a page. seo.ts canonicalises a query
+// A `?game=<uuid>` deep link is not the same thing as having a page. seo.ts canonicalizes a query
 // string back to the tab underneath on purpose (a hundred shared game links must not read as a
 // hundred near-duplicates of Schedule), so a game reachable only by query would be unindexable
 // and would give the schedule cards no href.

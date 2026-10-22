@@ -7,7 +7,7 @@ import { track, trackImpression, EVENTS } from '../../lib/analytics'
 // the undo without dragging this file into the main bundle. See discordInvite.ts.
 import { DISCORD_DISMISS_KEY } from '../discordInvite'
 
-// Community invite — links out to the WPBL fan Discord. Styled in Discord's blurple
+// Community invite: links out to the WPBL fan Discord. Styled in Discord's blurple
 // so it reads as "join the chat" at a glance, but kept to one slim row so it sits
 // under the scoreboard without crowding the actual content.
 //

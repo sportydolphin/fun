@@ -7,7 +7,7 @@ import { ERA_BASIS_CANONICAL, QUALIFY_PA_PER_GAME, QUALIFY_FLOOR_PA, type EraBas
  * WHY IT IS A MODULE AND NOT A PAGE. A glossary nobody opens is worth nothing, and this site
  * has measured that exact failure once already: 575 browsers saw the Reading shelf, 39 clicked
  * through and 3 opened a photo. A reference section would land the same way. So the data lives
- * here and the surfaces read it — a tooltip on the column a reader is already squinting at, a
+ * here and the surfaces read it: a tooltip on the column a reader is already squinting at, a
  * card, and a page if one is ever built. That page would be the crawlable, linkable copy of
  * this, never the way anyone is expected to learn a term.
  *

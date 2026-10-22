@@ -200,7 +200,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
   // from a view whose entire job is not to miss a run.
   //
   // IT HIDES ROWS RATHER THAN REMOVING THEM, and that is the whole of the implementation note.
-  // Every derived thing in this list reads a play's NEIGHBOURS (the base-out state comes off
+  // Every derived thing in this list reads a play's NEIGHBORS (the base-out state comes off
   // the next row, a pitching change off the previous one), so a filtered array would quietly
   // re-point all of it at the wrong play and draw a diamond for a moment three batters later.
   // The half-inning keeps all of its plays and carries a set of the ones not to draw.
@@ -516,7 +516,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
             {open && (
               <Box sx={{ mt: 0.75 }}>
                 {g.plays.map((p, i) => {
-                  // Hidden, not absent: `shown` keeps every play of the half so the neighbour
+                  // Hidden, not absent: `shown` keeps every play of the half so the neighbor
                   // reads below still land on the right row. See the note on that memo.
                   if (g.hidden?.has(i)) return null
                   const parsed = parsePlay(p.narrative, p.batter_name, shortenNames)

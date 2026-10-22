@@ -66,7 +66,7 @@ const BUBBLE_W = 44        // wide enough to read as a pill, narrow enough to be
 const BUBBLE_H = 28        // 3px of air above and below a 22px icon
 const ICON_LABEL_GAP = 5   // ≥ the bubble's overhang, so the pill never touches the label
 const LABEL_REM = 0.62
-// Descenders live below the baseline, and the label clips its own overflow to ellipsise a
+// Descenders live below the baseline, and the label clips its own overflow to ellipsize a
 // long name: at line-height 1 that clipping cuts the tail off the "g" in "Standings".
 const LABEL_LINE_HEIGHT = 1.3
 const FLOAT_GAP = 10       // how far the bar hovers above the bottom edge
@@ -77,7 +77,7 @@ const PENDING_STALL_MS = 2000
 // The inactive tab color, and it is OPAQUE ON PURPOSE. MUI's dark `text.secondary` is white at
 // 0.7 alpha (the theme does not override it), and animating THAT to the opaque accent on tap raises
 // the alpha toward 1 while the hue is still white, so the icon flashes white before it turns blue.
-// An opaque grey of about the same weight interpolates straight to the accent with nothing white in
+// An opaque gray of about the same weight interpolates straight to the accent with nothing white in
 // between. Two values because the resting shade differs by mode; both clear AA on every skin's paper.
 const INACTIVE_TAB = { dark: '#a7adb7', light: '#5f6570' } as const
 
@@ -91,9 +91,9 @@ const SELECT_MS = 300
 const SELECT_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)'
 
 // The glass, as a function of one level (0 nearly solid, 1 clear; see glassLevel.ts). At the
-// default 0.5 the fill is the raised tone at 72%: low enough that colour from the page shows
+// default 0.5 the fill is the raised tone at 72%: low enough that color from the page shows
 // through the blur, high enough that a white headline sliding under a label cannot drag it below
-// AA. Saturate is what makes it read as glass rather than frosted plastic: the blurred colour comes
+// AA. Saturate is what makes it read as glass rather than frosted plastic: the blurred color comes
 // through richer instead of washed out. The lit top rim and faint inner glow are the two cues that
 // make a translucent pill read as a lens with thickness; inset shadows, so they cost no layout.
 const glass = (level: number) => ({

@@ -150,7 +150,7 @@ describe('heartbeatStatus', () => {
 
 describe('HealthStrip', () => {
   it('renders nothing while the read is in flight, rather than four idle pills', () => {
-    // Four grey "Not yet run" pills on every page load would be a lie that resolves itself,
+    // Four gray "Not yet run" pills on every page load would be a lie that resolves itself,
     // and the eye would learn to skip the strip before it ever said anything true.
     const { container } = render(<HealthStrip health={{ ...EMPTY, loading: true }} onOpen={() => {}} />)
     expect(container).toBeEmptyDOMElement()

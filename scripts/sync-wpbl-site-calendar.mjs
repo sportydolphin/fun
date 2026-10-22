@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * sync-wpbl-site-calendar.mjs — mirror the league's WEBSITE calendar into wpbl_site_games.
+ * sync-wpbl-site-calendar.mjs: mirror the league's WEBSITE calendar into wpbl_site_games.
  *
  * A SECOND SOURCE, AND THE ONLY ONE THAT KNOWS SOME THINGS. Everything else in this section
  * mirrors the stats feed (stats.womensprobaseballleague.com/v1), which will not carry a game

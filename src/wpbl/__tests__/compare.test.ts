@@ -121,7 +121,7 @@ describe('who leads a row', () => {
 })
 
 // A 'low' counting stat rewards not pitching (three innings and one walk over sixty and
-// fifteen), so it is kept out of the card — with ONE deliberate exception, BB, which earns the
+// fifteen), so it is kept out of the card, with ONE deliberate exception: BB, which earns the
 // tick because IP is shown right above it for context (see compare.ts). Pinned because the
 // failure is invisible: a hits- or earned-runs-allowed row would render perfectly and hand the
 // tick to whoever pitched less. BB is the only key allowed through.

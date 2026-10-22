@@ -529,7 +529,7 @@ async function recordRevisions(url, drift) {
 // Record a heartbeat so /admin and the health-alert cron can tell this ran, and how it went.
 // ok=true even when drift was found: drift is this job WORKING, not failing; a real failure is
 // a crash, which writes nothing and is caught as staleness (see shared/adminHealth.js). Uses the
-// same direct pg connection everything else here does, and never throws — a heartbeat that fails
+// same direct pg connection everything else here does, and never throws: a heartbeat that fails
 // to record must not turn a clean run into a red one.
 async function recordHeartbeat(url, ok, detail) {
   const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } })
