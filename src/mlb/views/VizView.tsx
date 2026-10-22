@@ -3,13 +3,14 @@ import { pressable } from '../../ui/interaction'
 import { ACCENT_EDGE, TYPE_SCALE } from '../../ui/card'
 import {
   Box, Typography, Paper, List, ListItemButton, Divider,
-  ClickAwayListener, Skeleton,
+  ClickAwayListener,
 } from '@mui/material'
 import { Search } from '@mui/icons-material'
 import { TeamSummary, SosEntry } from '../types'
 import { TEAM_BG, TEAM_ABBR, TEAM_SEASONS, CURRENT_SEASON, TEAM_PAYROLLS_2026 } from '../constants'
 import { InfoDot } from '../../ui/InfoDot'
 import { TeamEraOpsPlot, TeamWinRDPlot, PayrollWinsPlot } from '../components/charts'
+import { ScatterFrame } from '../../ui/charts/ScatterPlot'
 import { Board, PlayerBoard, LeaderboardCard, LeaderboardModal, PlayerLeaderboardCard, PlayerLeaderboardModal } from '../components/leaderboards'
 import { AgeEntry, buildFraudRows, buildAgeRows, buildSosRows, buildPayrollRows, buildStreakRows, buildPitchPaRows, buildSalaryRows } from '../components/reportCardRows'
 import { fetchStrengthOfSchedule, fetchTeamPayrolls, fetchTeamAverageAges, fetchStreakLeaders, StreakLeaders, fetchPitchesPerPa, PitchPaLeaders, fetchTopSalaries, SalaryRow } from '../api'
@@ -43,18 +44,11 @@ export interface VizViewProps {
   nameMap: Map<number, string>
   handleVizNavigate: (id: number) => void
   handleLbPlayerClick: (id: number) => void
-  canHover: boolean
-}
-
-/** A plot before its clubs land: the plots' own 560:400 box (charts.tsx), so the panel is its loaded
- *  height from the first frame. A plot drawn over no data divides by an empty range. */
-function PlotSkeleton() {
-  return <Skeleton variant="rounded" sx={{ width: '100%', height: 'auto', aspectRatio: '560 / 400' }} />
 }
 
 export function VizView({
   boardTabs, heading, isDesktop, vizSeason, setVizSeason, teamSummaries, loadingViz,
-  nameMap, handleVizNavigate, handleLbPlayerClick, canHover, show,
+  nameMap, handleVizNavigate, handleLbPlayerClick, show,
 }: VizViewProps) {
   const [vizHighlightId, setVizHighlightId] = useState<number | null>(null)
   const [vizHoverId, setVizHoverId]   = useState<number | null>(null)
@@ -426,7 +420,7 @@ export function VizView({
               <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.heading, letterSpacing: typePx(-0.3) }}>ERA vs OPS</Typography>
               <InfoDot label="What this shows" text="One bubble per team: team ERA up the side, inverted so lower is higher, and team OPS across. The dashed lines are the league averages, so top right is better than average at both." />
             </Box>
-            {teamSummaries.length ? <TeamEraOpsPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
+            {teamSummaries.length ? <TeamEraOpsPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={handleVizNavigate} onHoverTeam={setVizHoverId} /> : <ScatterFrame />}
           </Box>
 
           {/* Wins vs Run Margin */}
@@ -435,7 +429,7 @@ export function VizView({
               <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.heading, letterSpacing: typePx(-0.3) }}>Win% vs Run Differential</Typography>
               <InfoDot label="What this shows" text="One bubble per team: win% up the side, run differential (runs scored minus runs allowed) across. The blue dashed curve is the Pythagorean win%, the record that run differential predicts; above it is more wins than predicted." />
             </Box>
-            {teamSummaries.length ? <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
+            {teamSummaries.length ? <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={handleVizNavigate} onHoverTeam={setVizHoverId} /> : <ScatterFrame />}
           </Box>
 
           {/* Payroll vs Performance, current season only */}
@@ -445,7 +439,7 @@ export function VizView({
                   <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.heading, letterSpacing: typePx(-0.3) }}>Payroll vs Win%</Typography>
                   <InfoDot label="What this shows" text="One bubble per team: win% up the side, estimated payroll across. The dashed lines are the median payroll and .500; the purple line is the league's trend, the win% a payroll predicts, so above it is more wins than the payroll predicts." />
                 </Box>
-                {teamSummaries.length ? <PayrollWinsPlot data={teamSummaries} payrolls={payrolls} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} /> : <PlotSkeleton />}
+                {teamSummaries.length ? <PayrollWinsPlot data={teamSummaries} payrolls={payrolls} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={handleVizNavigate} onHoverTeam={setVizHoverId} /> : <ScatterFrame />}
               </Box>
           )}
         </Box>

@@ -564,7 +564,6 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
                 nameMap={state.nameMap}
                 handleVizNavigate={state.handleVizNavigate}
                 handleLbPlayerClick={state.handleLbPlayerClick}
-                canHover={canHover}
               />
             ) : null} />
         </>
@@ -776,7 +775,6 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
             nameMap={state.nameMap}
             handleVizNavigate={state.handleVizNavigate}
             handleLbPlayerClick={state.handleLbPlayerClick}
-            canHover={canHover}
           />
         </AppErrorBoundary>,
       )}

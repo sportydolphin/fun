@@ -244,9 +244,9 @@ export function PlayerOfTheDayCard({ players, teams, games, onOpenPlayer }: {
   const faceReady = !!player && faceFor === player.id
 
   const team = player?.team_id ? teams.get(player.team_id) : undefined
-  const position = player
-    ? (own ? displayPosition(player.position, own.batting, games).label : player.position)
-    : null
+  // Nothing until the player's own lines land, never the roster's label first: the roster can
+  // list a shortstop who has been playing second, and the line read the card as SS, then 2B.
+  const position = player && own ? displayPosition(player.position, own.batting, games).label : null
   const settled = player ? birthDateSettled(player) : false
   const glyph = signGlyph(player?.zodiac_sign)
   const draft = player?.draft_round != null

@@ -87,11 +87,11 @@ export function ContractPanel({ contract, currentSeason }: {
     }}>
       {/* Deal summary: FanGraphs' own sentence, which already reads better than
           anything we'd assemble from the parts ("6 yr, $170M (2026-31); can opt
-          out after 2030"). */}
+          out after 2030"), with its year range given the en dash every other range on the site has. */}
       {contract.description && (
         <Box sx={{ px: 2, pt: 1.5, pb: 1.25 }}>
           <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.35 }}>
-            {contract.description}
+            {contract.description.replace(/\b(\d{4})-(\d{2,4})\b/g,'$1–$2')}
           </Typography>
           {contract.contractType && (
             <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 0.35 }}>

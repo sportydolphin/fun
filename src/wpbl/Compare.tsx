@@ -347,7 +347,7 @@ function ComparePageBody({ path, onNavigate }: {
               <CompareBlocksSkeleton title="Batting" blocks={[2, 9, 5, 2]} />
             </>
           ) : (
-            <SectionCard title={shape === 'single' ? 'And who else' : 'Choose a player'}>
+            <SectionCard title={shape === 'single' ? 'Second Player' : 'Choose a player'}>
               <PlayerPicker candidates={[]} teams={[]} positionOf={() => null} onPick={() => {}} skeleton />
             </SectionCard>
           )}
@@ -402,7 +402,7 @@ function ComparePageBody({ path, onNavigate }: {
       )}
 
       {!pair && (
-        <SectionCard title={single ? 'And who else' : 'Choose a player'}>
+        <SectionCard title={single ? 'Second Player' : 'Choose a player'}>
           <PlayerPicker candidates={candidates} teams={teams} positionOf={positionOf} onPick={pick} />
         </SectionCard>
       )}

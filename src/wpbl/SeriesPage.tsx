@@ -166,8 +166,8 @@ function SeriesBody({ A, B, clubs, teams, games: allGames, players, lines: allLi
   const matchupLines = useMemo(() => {
     if (!plays) return null
     const ids = new Set(seriesGames(games, A.id, B.id).map(g => g.id))
-    return batterPitcherMatchups(plays.filter(p => ids.has(p.game_id)), games, { scope: effScope })
-  }, [plays, games, A.id, B.id, effScope])
+    return batterPitcherMatchups(plays.filter(p => ids.has(p.game_id)), games, { scope: effScope, roster: players })
+  }, [plays, games, A.id, B.id, effScope, players])
   const batterEdge = useMemo(() => (matchupLines ? matchupBoard(matchupLines, 'batter').slice(0, ROWS) : []), [matchupLines])
   const pitcherEdge = useMemo(() => (matchupLines ? matchupBoard(matchupLines, 'pitcher').slice(0, ROWS) : []), [matchupLines])
 
@@ -313,7 +313,7 @@ function SeriesBody({ A, B, clubs, teams, games: allGames, players, lines: allLi
       </Typography>
       </Box>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: 4, rowGap: 2 }}>
-        <Board title="At the plate" empty="No qualified batters" skeleton={!leaders}>
+        <Board title="Batting" empty="No qualified batters" skeleton={!leaders}>
           {leaders?.batters.slice(0, ROWS).map((b, i, top) => {
             const t = b.season.totals
             return (
@@ -325,14 +325,14 @@ function SeriesBody({ A, B, clubs, teams, games: allGames, players, lines: allLi
             )
           })}
         </Board>
-        <Board title="On the mound" empty="No qualified pitchers" skeleton={!leaders}>
+        <Board title="Pitching" empty="No qualified pitchers" skeleton={!leaders}>
           {leaders?.pitchers.slice(0, ROWS).map((p, i, top) => {
             const t = p.season.totals
             return (
               <LeaderRow
                 key={p.season.player.id} {...leaderPlaces(top.map(x => fmtEra(x.season.totals.era)))[i]} player={p.season.player} name={p.season.player.name}
                 teamId={p.teamId} value={fmtEra(t.era)} unit="ERA" accent={ink} onOpen={openPlayer}
-                sub={`${outsToIp(t.outs)} IP, ${t.so} SO, ${t.bb} BB${t.w ? `, ${t.w}–${t.l}` : ''}`}
+                sub={`${outsToIp(t.outs)} IP, ${t.so} K, ${t.bb} BB${t.w ? `, ${t.w}–${t.l}` : ''}`}
               />
             )
           })}
@@ -352,13 +352,13 @@ function SeriesBody({ A, B, clubs, teams, games: allGames, players, lines: allLi
         </Box>
       </Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: 4, rowGap: 2 }}>
-        <Board title="Batter edge" empty="No batter has a clear edge over a pitcher in these games." skeleton={!matchupLines}>
+        <Board title="Batter Edge" empty="No clear edge" skeleton={!matchupLines}>
           {batterEdge.map(l => (
             <MatchupRow key={`${l.batterId}|${l.pitcherId}`} l={l} lead="batter" clubs={clubs} ink={ink}
               href={pairHref(l, 'batter', playerById, players)} onNavigate={onNavigate} />
           ))}
         </Board>
-        <Board title="Pitcher edge" empty="No pitcher has a clear edge over a batter in these games." skeleton={!matchupLines}>
+        <Board title="Pitcher Edge" empty="No clear edge" skeleton={!matchupLines}>
           {pitcherEdge.map(l => (
             <MatchupRow key={`${l.batterId}|${l.pitcherId}`} l={l} lead="pitcher" clubs={clubs} ink={ink}
               href={pairHref(l, 'pitcher', playerById, players)} onNavigate={onNavigate} />
@@ -713,7 +713,7 @@ function MatchupRow({ l, lead, clubs, ink, href, onNavigate }: {
           {l.h}-for-{l.ab}
         </Typography>
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
-          {[l.hr ? `${l.hr} HR` : null, l.bb ? `${l.bb} BB` : null, `${l.so} SO`].filter(Boolean).join(', ')}
+          {[l.hr ? `${l.hr} HR` : null, l.bb ? `${l.bb} BB` : null, `${l.so} K`].filter(Boolean).join(', ')}
         </Typography>
       </Box>
     </Box>

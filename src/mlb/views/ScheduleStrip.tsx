@@ -477,11 +477,7 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
             </Box>
           </Box>
 
-          <Box sx={{ px: 3, pb: 2.5 }}>
-            <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', textAlign: 'center' }}>
-              Tap any game to see matchup details & probable starters
-            </Typography>
-          </Box>
+          <Box sx={{ pb: 2.5 }} />
       </MlbSheet>
 
       {selectedGame && (

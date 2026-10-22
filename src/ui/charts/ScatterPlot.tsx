@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
 import { usePhoneLayout } from '../ModalShell'
 import { TYPE_SCALE } from '../card'
@@ -21,6 +21,10 @@ import { placeLabels, sumSegment, type Domain, type LabelBox } from './scale'
  *
  * The box is a fixed aspect ratio, so `ScatterFrame` (the same box with no points) is the loading
  * state, and nothing below the chart moves when the points land.
+ *
+ * MLB's team plots came back onto this in Oct 2026 (`badge`, `curves`, `onActive`). Until then they
+ * were a second copy of the same chart in src/mlb/components/charts.tsx, and every fix had to land
+ * twice: the house rule against faded text did not, and their labels sat under 4.5:1 for months.
  */
 
 export interface ScatterPoint {
@@ -39,6 +43,11 @@ export interface ScatterPoint {
   tip: React.ReactNode
   /** Drawn faint, behind the rest: a club not highlighted. */
   muted?: boolean
+  /** A club's own color for the dot. Default: the chart's one blue. */
+  color?: string
+  /** A few letters printed in the dot (a club's abbreviation), for a plot of thirty clubs where
+   *  every dot is worth naming. The dot is solid and one fixed size: a club is not a sample. */
+  badge?: string
   href?: string
   /** The link's click, as `linkTo` / `playerLink` hand it back: it cancels the browser's own
    *  navigation and opens the page in the app. */
@@ -55,8 +64,10 @@ export interface ScatterAxis extends Domain {
 }
 
 export interface ScatterGuides {
-  /** A dashed crosshair at the league's line, which splits the plot into four quadrants. */
-  avg?: { x: number; y: number; label?: string }
+  /** A dashed crosshair at the league's line, which splits the plot into four quadrants. The label
+   *  sits at the crossing, or at the top of the vertical line where thirty clubs bunch at the
+   *  crossing and would bury it. */
+  avg?: { x: number; y: number; label?: string; labelAt?: 'center' | 'top' }
   /** Words in the four corners, read in SCREEN terms (after any inversion). */
   corners?: { tl?: string; tr?: string; bl?: string; br?: string }
   /** The y = x line, for two stats on one scale (ERA against FIP), with what each side means. */
@@ -65,6 +76,9 @@ export interface ScatterGuides {
   sums?: { value: number; label: string }[]
   /** Solid zero lines, for two stats that can go negative (wins above replacement). */
   zero?: boolean
+  /** Dashed reference curves in data terms (a Pythagorean expectation, a league trend line), each
+   *  labeled at its right end. Points outside the plot are the caller's to leave out. */
+  curves?: { points: readonly { x: number; y: number }[]; label?: string }[]
 }
 
 const BOX = {
@@ -76,6 +90,8 @@ const BOX = {
 // Categorical slot 1 (blue), light and dark steps. Validated against both surfaces for the
 // lightness band, chroma floor and contrast; the same pair DraftValue's dots use.
 const DOT = { light: '#2a78d6', dark: '#3987e5' }
+// The fixed radius of a badge dot, sized for a three-letter abbreviation at a readable size.
+const BADGE_R = { phone: 10.5, wide: 11.5 }
 // Characters to px at the label size, for collision only: an estimate errs toward dropping a label.
 const LABEL_CHAR_W = 5.6
 const LABEL_FONT = 10
@@ -114,7 +130,7 @@ export function ScatterFrame() {
   )
 }
 
-export function ScatterPlot({ points, x, y, guides = {}, labeled, title }: {
+export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActive }: {
   points: ScatterPoint[]
   x: ScatterAxis
   y: ScatterAxis
@@ -123,6 +139,8 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title }: {
   labeled?: readonly string[]
   /** The chart's accessible name. */
   title: string
+  /** Told which dot is showing its card, or null: lets a page light the same club on its other charts. */
+  onActive?: (id: string | null) => void
 }) {
   const theme = useTheme()
   const dark = theme.palette.mode === 'dark'
@@ -138,6 +156,10 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title }: {
   // leaving, and a second tap on the same dot opens it).
   const [active, setActive] = useState<{ id: string; pinned: boolean } | null>(null)
   const pointerType = useRef<string>('mouse')
+  const activeId = active?.id ?? null
+  const onActiveRef = useRef(onActive)
+  useLayoutEffect(() => { onActiveRef.current = onActive })
+  useEffect(() => { onActiveRef.current?.(activeId) }, [activeId])
 
   const sx = (v: number) => {
     const t = (v - x.lo) / (x.hi - x.lo)
@@ -151,7 +173,8 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title }: {
   const maxWeight = Math.max(1, ...points.map(p => p.weight))
   const phone = g.w === BOX.phone.w
   // Area ∝ weight, so the radius is a square root. The floor keeps a cameo visible as a point.
-  const radius = (w: number) => (phone ? 2.5 : 3) + (phone ? 5 : 6.5) * Math.sqrt(Math.max(0, w) / maxWeight)
+  const radius = (p: ScatterPoint) => (p.badge ? (phone ? BADGE_R.phone : BADGE_R.wide)
+    : (phone ? 2.5 : 3) + (phone ? 5 : 6.5) * Math.sqrt(Math.max(0, p.weight) / maxWeight))
 
   // Muted first, then the biggest, so a small dot is never hidden under a big one.
   const order = useMemo(() => [...points].sort((a, b) =>
@@ -165,7 +188,7 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title }: {
     for (const id of labeled) {
       const p = byId.get(id)
       if (!p) continue
-      const cx = sx(p.x), cy = sy(p.y), r = radius(p.weight)
+      const cx = sx(p.x), cy = sy(p.y), r = radius(p)
       const w = p.label.length * LABEL_CHAR_W
       const y0 = cy + 3.5 - LABEL_FONT
       const right = { x: cx + r + 3, y: y0, w, h: LABEL_FONT + 2 }
@@ -258,12 +281,27 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title }: {
           return <line x1={sx(lo)} y1={sy(lo)} x2={sx(hi)} y2={sy(hi)} stroke={soft} strokeWidth={1.25} strokeDasharray="6 4" />
         })()}
 
+        {guides.curves?.map((c, i) => {
+          if (c.points.length < 2) return null
+          const last = c.points[c.points.length - 1]
+          return (
+            <g key={`c${i}`}>
+              <polyline points={c.points.map(q => `${sx(q.x).toFixed(1)},${sy(q.y).toFixed(1)}`).join(' ')}
+                fill="none" stroke={soft} strokeWidth={1.5} strokeDasharray="6 3" strokeLinejoin="round" />
+              {c.label && (
+                <text x={sx(last.x) - 4} y={Math.max(T + 11, sy(last.y) - 6)} textAnchor="end" fill={soft} fontSize={phone ? 8.5 : 9.5} fontWeight={700}
+                  stroke={surface} strokeWidth={3} strokeLinejoin="round" paintOrder="stroke">{c.label}</text>
+              )}
+            </g>
+          )
+        })}
+
         {avg && (
           <g>
             <line x1={sx(avg.x)} y1={T} x2={sx(avg.x)} y2={B} stroke={soft} strokeWidth={1} strokeDasharray="5 4" />
             <line x1={L} y1={sy(avg.y)} x2={R} y2={sy(avg.y)} stroke={soft} strokeWidth={1} strokeDasharray="5 4" />
             {avg.label && (
-              <text x={sx(avg.x) + 4} y={sy(avg.y) - 5} fill={soft} fontSize={phone ? 8.5 : 9.5} fontWeight={700}
+              <text x={sx(avg.x) + 4} y={avg.labelAt === 'top' ? T + 11 : sy(avg.y) - 5} fill={soft} fontSize={phone ? 8.5 : 9.5} fontWeight={700}
                 stroke={surface} strokeWidth={3} strokeLinejoin="round" paintOrder="stroke">{avg.label}</text>
             )}
           </g>
@@ -288,15 +326,25 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title }: {
           fill={ink} fontSize={phone ? 10 : 11} fontWeight={700}>{y.label}</text>
 
         {order.map(p => {
-          const cx = sx(p.x), cy = sy(p.y), r = radius(p.weight)
+          const cx = sx(p.x), cy = sy(p.y), r = radius(p)
           const on = active?.id === p.id
           const faded = p.muted || (active != null && !on)
           const show = () => setActive(a => (a?.pinned && a.id !== p.id ? a : { id: p.id, pinned: false }))
-          const body = (
+          const body = p.badge ? (
+            // A badge is solid in its club's color, so the fade is the whole mark's, letters
+            // included: the deliberately faded case the contrast rules exempt (a club not in focus).
+            <g opacity={on ? 1 : faded ? (p.muted ? 0.18 : 0.35) : 1}>
+              <circle cx={cx} cy={cy} r={Math.max(r, phone ? 10 : 7)} fill="transparent" />
+              <circle cx={cx} cy={cy} r={on ? r + 2 : r} fill={p.color ?? dot}
+                stroke={on ? ink : surface} strokeWidth={on ? 2 : 1.25} />
+              <text x={cx} y={cy + 3} textAnchor="middle" fill="#fff" pointerEvents="none" fontWeight={800}
+                fontSize={p.badge.length > 2 ? (phone ? 6 : 6.5) : (phone ? 7 : 7.5)}>{p.badge}</text>
+            </g>
+          ) : (
             <>
               {/* A hit target bigger than the mark: a cameo's 3px dot is not something a thumb can find. */}
               <circle cx={cx} cy={cy} r={Math.max(r, phone ? 10 : 7)} fill="transparent" />
-              <circle cx={cx} cy={cy} r={r} fill={dot}
+              <circle cx={cx} cy={cy} r={r} fill={p.color ?? dot}
                 fillOpacity={on ? 1 : faded ? (p.muted ? 0.16 : 0.3) : 0.6}
                 stroke={on ? ink : surface} strokeWidth={on ? 2 : 1.5} />
             </>

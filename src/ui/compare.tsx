@@ -373,7 +373,7 @@ export function duelLine(m: { pa: number; ab: number; h: number; hr: number; bb:
     `${m.pa} PA`,
     m.hr > 0 ? `${m.hr} HR` : null,
     m.bb > 0 ? `${m.bb} BB` : null,
-    m.so > 0 ? `${m.so} SO` : null,
+    m.so > 0 ? `${m.so} K` : null,
   ].filter(Boolean).join(' · ')
 }
 

@@ -139,7 +139,7 @@ export const WPBL_RULES: WpblRule[] = [
     id: 'era-basis',
     question: 'Is the ERA calculated differently?',
     answer: `ERA and strikeout rates are per ${ERA_BASIS_CANONICAL} innings, matching what the league publishes, `
-      + 'because seven innings is a full game here. Other leagues that play 9 inning games use nine.',
+      + 'because seven innings is a full game here; nine-inning leagues use nine.',
     source: 'league',
     note: 'Settings can show them per 9 instead. Nothing is recomputed: it is one performance on two scales, '
       + 'so no ranking moves either way.',

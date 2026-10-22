@@ -720,7 +720,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
     const hand = r === 'pitching' ? 'B' : 'P'
     const name: Record<string, string> = { vl: `vs LH${hand}`, vr: `vs RH${hand}`, h: 'Home', a: 'Away', risp: 'RISP' }
     return (
-      <StatLogTable title="Splits" part="splits" caption={r === 'pitching' ? 'What batters hit against this pitcher' : undefined}
+      <StatLogTable title="Splits" part="splits" caption={r === 'pitching' ? 'Opposing batters' : undefined}
         accent={ACCENT_TEXT} leadHeaders={['Split']} preview={10}
         leadSx={[{ color: 'text.primary', fontWeight: 700 }]}
         statHeaders={[r === 'pitching' ? 'BF' : 'PA', 'AVG', 'OBP', 'SLG', 'OPS', 'HR', 'BB', 'SO']}
