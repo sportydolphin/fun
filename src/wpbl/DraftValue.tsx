@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
 import { aggregateBatting, aggregatePitching, fmtRate, fmtTwo, plateAppearances, scaleToBasis } from './stats'
 import { useEraBasis } from './EraBasisContext'
@@ -8,6 +8,8 @@ import { InfoDot } from '../ui/InfoDot'
 import type { WpblPlayer, WpblBattingLine, WpblPitchingLine } from './types'
 import { regularSeasonLines, type WpblSeasonGame } from './season'
 import { TYPE_SCALE } from '../ui/card'
+import { useChartViewWidth } from '../ui/charts/useViewWidth'
+import { useWpblPlayerLink } from './LinkContext'
 
 // "Do earlier draft picks actually produce better players?": a scatter of every drafted
 // player's season rate stat against where they were taken, with the per-round average drawn
@@ -87,8 +89,12 @@ function niceStep(raw: number): number {
 
 // ─── One panel ────────────────────────────────────────────────────────────────
 
-const PAD = { l: 46, r: 14, t: 14, b: 34 }
-const VB = { w: 560, h: 250 }
+const PAD = { l: 54, r: 14, t: 14, b: 36 }
+// Laid out at the panel's own width (useChartViewWidth), so the type below prints at the size it is
+// written at. It was a fixed 560-wide box until Oct 2026, which a phone squeezed into 343px: every
+// label on the chart printed at 6px.
+const VB_H = 250
+const TICK_FONT = 11
 
 function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: WpblPlayer) => void }) {
   const theme = useTheme()
@@ -99,11 +105,18 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
   const LINE = dark ? '#d95926' : '#eb6834'
   const surface = theme.palette.background.paper
 
-  const [hover, setHover] = useState<Pt | null>(null)
+  // Which dot the card is showing, and whether a tap pinned it. The same rule as the shared
+  // ScatterPlot: a phone has no hover, so the first tap on a dot shows its numbers and a second
+  // opens the player; a mouse has already shown them, so its click opens straight away.
+  const [hover, setHover] = useState<{ pt: Pt; pinned: boolean } | null>(null)
+  const pointerType = useRef('mouse')
+  const playerLink = useWpblPlayerLink()
+  const boxRef = useRef<HTMLDivElement>(null)
+  const vbW = useChartViewWidth(boxRef, 560)
 
   const { points } = spec
-  const plotW = VB.w - PAD.l - PAD.r
-  const plotH = VB.h - PAD.t - PAD.b
+  const plotW = vbW - PAD.l - PAD.r
+  const plotH = VB_H - PAD.t - PAD.b
 
   const geom = useMemo(() => {
     if (!points.length) return null
@@ -160,7 +173,7 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
   const r = pearson(points)
 
   return (
-    <Box sx={{ position: 'relative' }}>
+    <Box ref={boxRef} sx={{ position: 'relative' }}>
       {/* The stat's definition and what r means live in the info dot. The line under the title
           is the coefficient as a stat, the way a table would print it. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
@@ -178,17 +191,22 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
 
       <Box
         component="svg"
-        viewBox={`0 0 ${VB.w} ${VB.h}`}
-        sx={{ width: '100%', height: 'auto', display: 'block', color: 'text.secondary', overflow: 'visible' }}
-        onMouseLeave={() => setHover(null)}
+        viewBox={`0 0 ${vbW} ${VB_H}`}
+        role="group" aria-label={`${spec.title}: ${spec.yLabel} by draft pick`}
+        sx={{ width: '100%', height: 'auto', display: 'block', color: 'text.secondary', overflow: 'visible', userSelect: 'none' }}
+        onClick={(e: React.MouseEvent) => {
+          // A tap on the plot itself, not on a dot: put the pinned card away.
+          if (!(e.target as Element).closest('a, [data-dot]')) setHover(null)
+        }}
+        onMouseLeave={() => setHover(h => (h?.pinned ? h : null))}
       >
         {/* y grid: hairline, solid, recessive */}
         {yTicks.map((t, i) => (
           <g key={i}>
-            <line x1={PAD.l} y1={py(t)} x2={VB.w - PAD.r} y2={py(t)}
+            <line x1={PAD.l} y1={py(t)} x2={vbW - PAD.r} y2={py(t)}
               stroke="currentColor" strokeOpacity={0.14} strokeWidth={1} />
-            <text x={PAD.l - 7} y={py(t) + 3.5} textAnchor="end"
-              fill={theme.palette.text.secondary} fontSize={10}>
+            <text x={PAD.l - 7} y={py(t) + 4} textAnchor="end"
+              fill={theme.palette.text.secondary} fontSize={TICK_FONT}>
               {spec.fmt(t)}
             </text>
           </g>
@@ -196,28 +214,55 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
 
         {/* x axis: one tick per round boundary */}
         {rounds.map(rd => (
-          <text key={rd.round} x={px(rd.meanX)} y={VB.h - PAD.b + 15} textAnchor="middle"
-            fill={theme.palette.text.secondary} fontSize={10}>
+          <text key={rd.round} x={px(rd.meanX)} y={VB_H - PAD.b + 16} textAnchor="middle"
+            fill={theme.palette.text.secondary} fontSize={TICK_FONT}>
             R{rd.round}
           </text>
         ))}
-        <text x={PAD.l + plotW / 2} y={VB.h - 3} textAnchor="middle"
-          fill={theme.palette.text.secondary} fontSize={10}>
+        <text x={PAD.l + plotW / 2} y={VB_H - 3} textAnchor="middle"
+          fill={theme.palette.text.primary} fontSize={TICK_FONT} fontWeight={700}>
           Round drafted
         </text>
+        <text transform={`translate(12,${PAD.t + plotH / 2}) rotate(-90)`} textAnchor="middle"
+          fill={theme.palette.text.primary} fontSize={TICK_FONT} fontWeight={700}>
+          {spec.yLabel}
+        </text>
 
-        {/* every drafted player */}
-        {points.map(p => (
-          <circle
-            key={p.player.id}
-            cx={px(p.x)} cy={py(p.y)} r={radius(p.weight)}
-            fill={DOT} fillOpacity={hover && hover.player.id !== p.player.id ? 0.22 : 0.55}
-            stroke={surface} strokeWidth={2}
-            style={{ cursor: onOpenPlayer ? 'pointer' : 'default' }}
-            onMouseEnter={() => setHover(p)}
-            onClick={() => onOpenPlayer?.(p.player)}
-          />
-        ))}
+        {/* every drafted player, each a real link to the player */}
+        {points.map(p => {
+          const on = hover?.pt.player.id === p.player.id
+          const link = playerLink(p.player, onOpenPlayer) as { href?: string; onClick?: (e: React.MouseEvent) => void }
+          const handlers = {
+            onPointerDown: (e: React.PointerEvent) => { pointerType.current = e.pointerType },
+            onMouseEnter: () => { if (pointerType.current === 'mouse') setHover(h => (h?.pinned ? h : { pt: p, pinned: false })) },
+            onFocus: () => setHover({ pt: p, pinned: false }),
+            onBlur: () => setHover(h => (h?.pinned ? h : null)),
+            onClick: (e: React.MouseEvent) => {
+              if (pointerType.current !== 'mouse' && !(on && hover?.pinned)) {
+                e.preventDefault()
+                setHover({ pt: p, pinned: true })
+                return
+              }
+              if (link.onClick) link.onClick(e)
+              else onOpenPlayer?.(p.player)
+            },
+          }
+          const label = `${p.name}: round ${p.round}, ${spec.yLabel} ${spec.fmt(p.y)}, ${p.sample}`
+          const body = (
+            <>
+              {/* A hit target bigger than the mark: a cameo's 3-unit dot is not something a thumb can find. */}
+              <circle cx={px(p.x)} cy={py(p.y)} r={Math.max(radius(p.weight), 11)} fill="transparent" />
+              <circle cx={px(p.x)} cy={py(p.y)} r={radius(p.weight)}
+                fill={DOT} fillOpacity={on ? 1 : hover ? 0.22 : 0.55}
+                stroke={on ? theme.palette.text.primary : surface} strokeWidth={2} />
+            </>
+          )
+          return link.href ? (
+            <a key={p.player.id} href={link.href} aria-label={label} style={{ cursor: 'pointer', outline: 'none' }} {...handlers}>{body}</a>
+          ) : (
+            <g key={p.player.id} data-dot role="img" aria-label={label} {...handlers}>{body}</g>
+          )
+        })}
 
         {/* The round-average line: what "do earlier picks do better" actually looks like.
         Drawn as separate segments between CONSECUTIVE rounds rather than one polyline
@@ -248,7 +293,7 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
               <text x={px(rd.meanX)} y={py(rd.meanY) - 11} textAnchor="middle"
                 fill={solid ? theme.palette.text.primary : theme.palette.text.secondary}
                 stroke={surface} strokeWidth={3} strokeLinejoin="round" paintOrder="stroke"
-                fontSize={9.5}>
+                fontSize={10.5} pointerEvents="none">
                 n={rd.n}
               </text>
             </g>
@@ -271,10 +316,13 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
           bgcolor: 'background.paper', border: '1px solid', borderColor: CARD_BORDER,
           boxShadow: 2, pointerEvents: 'none', maxWidth: '15rem',
         }}>
-          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800 }}>{hover.name}</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800 }}>{hover.pt.name}</Typography>
           <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
-            Round {hover.round} · {spec.yLabel} {spec.fmt(hover.y)} · {hover.sample}
+            Round {hover.pt.round} · {spec.yLabel} {spec.fmt(hover.pt.y)} · {hover.pt.sample}
           </Typography>
+          {hover.pinned && (
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 0.25 }}>Tap again to open</Typography>
+          )}
         </Box>
       )}
     </Box>
