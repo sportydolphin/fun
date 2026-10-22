@@ -1,5 +1,6 @@
 import { countsInStandings, scopedLines, type SeasonScope, type WpblSeasonGame } from '../season.ts'
 import type { WpblGamePlay, WpblGame, WpblPlayer } from '../types'
+import { canonicalFeedName } from '../feedNames.ts'
 
 // Matchup derivations: batter-vs-pitcher lines and team-vs-team head-to-head. Pure:
 // arrays in, plain shapes out (no supabase / React), mirroring stats.ts.
@@ -103,9 +104,13 @@ export interface WpblMatchupLine {
 //
 // minPa is 3, not 4, on purpose: at 4+ the pool collapses to the one or two pitchers with the
 // most innings, so the board reads as "everyone vs Pitcher X." Three widens it to ~10 pitchers.
+//
+// `roster` puts the names in the roster's spelling. The play log spells them the feed's way, and
+// the board read "Andreanne Leblanc" and "Samaria Benitez" one tap from pages that say Andréanne
+// and Benítez (feedNames.ts).
 export function batterPitcherMatchups(
   plays: WpblMatchupPlay[], games: WpblMatchupGame[],
-  { minPa = 3, scope = 'regular' }: { minPa?: number; scope?: SeasonScope } = {},
+  { minPa = 3, scope = 'regular', roster }: { minPa?: number; scope?: SeasonScope; roster?: readonly { name: string }[] } = {},
 ): WpblMatchupLine[] {
   const acc = new Map<string, WpblMatchupLine>()
   const gameById = new Map(games.map(g => [g.id, g]))
@@ -135,6 +140,10 @@ export function batterPitcherMatchups(
   const out: WpblMatchupLine[] = []
   for (const r of acc.values()) {
     if (r.pa < minPa) continue
+    if (roster?.length) {
+      r.batterName = canonicalFeedName(r.batterName, roster)
+      r.pitcherName = canonicalFeedName(r.pitcherName, roster)
+    }
     r.avg = r.ab > 0 ? r.h / r.ab : null
     r.edge = edgeOf(r)
     // Interestingness: lopsided edge + homers + how far the average strays from league-ish
@@ -213,11 +222,11 @@ export interface WpblPlayerMatchups {
 
 export function playerMatchups(
   playerIds: ReadonlySet<string>, plays: WpblMatchupPlay[], games: WpblSeasonGame[],
-  scope: SeasonScope = 'regular',
+  scope: SeasonScope = 'regular', roster?: readonly { name: string }[],
 ): WpblPlayerMatchups {
   const mine = plays.filter(p =>
     (p.batter_id != null && playerIds.has(p.batter_id)) || (p.pitcher_id != null && playerIds.has(p.pitcher_id)))
-  const all = batterPitcherMatchups(mine, games, { minPa: 1, scope })
+  const all = batterPitcherMatchups(mine, games, { minPa: 1, scope, roster })
   const byEvidence = (a: WpblMatchupLine, b: WpblMatchupLine) =>
     b.pa - a.pa || b.h - a.h || b.hr - a.hr || a.batterName.localeCompare(b.batterName) || a.pitcherName.localeCompare(b.pitcherName)
   return {

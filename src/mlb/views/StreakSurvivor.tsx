@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { pressable } from '../../ui/interaction'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { SectionCard, TYPE_SCALE, ACCENT_EDGE } from '../../ui/card'
+import { InfoDot } from '../../ui/InfoDot'
 import { ACCENT, ACCENT_TEXT, TEAM_ABBR, TEAM_NICKNAME, TONE } from '../constants'
 import { useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
@@ -283,11 +284,14 @@ export function StreakSurvivorWidget() {
   const Shell = (children: React.ReactNode) => (
     <SectionCard
       title="Streak Survivor"
-      titleAdornment={isTomorrow ? (
-        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', border: '1px solid', borderColor: 'outline', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
-          Tomorrow
-        </Typography>
-      ) : undefined}
+      titleAdornment={<>
+        <InfoDot label="Rules" text="One hitter a day. A hit extends the streak; an 0-fer resets it." />
+        {isTomorrow && (
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', border: '1px solid', borderColor: 'outline', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
+            Tomorrow
+          </Typography>
+        )}
+      </>}
       action={user ? <StreakBadge current={stats.currentStreak} longest={stats.longestStreak} /> : undefined}
     >
       {/* The body runs to the card's edges, as it did under the old header: the pick, the form row
@@ -352,7 +356,7 @@ export function StreakSurvivorWidget() {
       ))}
       {!results.length && !(hotHitters ?? []).length && (
         <Typography sx={EMPTY_SX}>
-          Search for a hitter to make your pick.
+          No hitters
         </Typography>
       )}
     </Box>
@@ -373,7 +377,7 @@ export function StreakSurvivorWidget() {
               ? Array.from({ length: ghost.hitters }, (_, i) => (
                   <HitterRow key={i} name={GHOST_PICK.playerName} teamId={GHOST_PICK.teamId} subtitle="10-game hit streak" onPick={() => {}} />
                 ))
-              : <Typography sx={EMPTY_SX}>Search for a hitter to make your pick.</Typography>}
+              : <Typography sx={EMPTY_SX}>No hitters</Typography>}
           </Box>,
         )}
       </Box>
@@ -381,9 +385,6 @@ export function StreakSurvivorWidget() {
   } else if (!user) {
     body = (
       <Box sx={{ px: 2, pt: 0.5, pb: 1.75 }}>
-        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mb: 1.25, lineHeight: 1.4 }}>
-          One hitter a day. A hit extends the streak; an 0-fer resets it.
-        </Typography>
         <Box
           {...pressable(() => openAuthDialog('signin'))}
           sx={{ px: 1.5, py: chromePx(9), borderRadius: 2, bgcolor: 'var(--wpbl-accent-solid)', color: '#fff', textAlign: 'center', cursor: 'pointer', fontWeight: 800, fontSize: TYPE_SCALE.body, '&:hover': { opacity: 0.9 } }}

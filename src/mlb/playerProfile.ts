@@ -164,7 +164,15 @@ export function parseSeasonBundle(d: any): SeasonBundle {
     else if (type === 'statSplits') {
       // In SPLIT_CODES order (handedness first), not the feed's, which leads with home and away.
       const rank = (c: string) => { const i = (SPLIT_CODES as readonly string[]).indexOf(c); return i < 0 ? 99 : i }
-      out.splits[group] = splits.map(s => ({ code: s.split?.code ?? '', stat: s.stat })).filter(s => s.code)
+      // A traded season has the same shape as the fielding above: a row per club per split, then
+      // a total with no team, so a pitcher dealt in July drew "vs LHB" three times with nothing to
+      // tell the rows apart. One row a split: the total where there is one.
+      const byCode = new Map<string, any>()
+      for (const s of splits) {
+        const code: string = s.split?.code ?? ''
+        if (code && (!byCode.has(code) || !s.team?.id)) byCode.set(code, s.stat)
+      }
+      out.splits[group] = [...byCode].map(([code, stat]) => ({ code, stat }))
         .sort((x, y) => rank(x.code) - rank(y.code))
     }
   }

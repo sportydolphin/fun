@@ -91,9 +91,11 @@ export function cardGradient(hex: string, isDark: boolean): string {
   return `linear-gradient(155deg, ${hex}${isDark ? '28' : '18'} 0%, ${hex}${isDark ? '10' : '08'} 55%, transparent 80%)`
 }
 
-// Format a games-back string to always show one decimal place ("1" → "1.0", "0.5" → "0.5", "-" → "-").
+// Format a games-back string to always show one decimal place ("1" → "1.0", "0.5" → "0.5").
+// StatsAPI marks a leader with a hyphen; it draws as the site's no-value glyph, as every other
+// empty cell does.
 export function fmtGB(gb: string): string {
-  if (!gb || gb === '-') return gb
+  if (!gb || gb === '-') return '—'
   const n = parseFloat(gb)
   return isNaN(n) ? gb : n.toFixed(1)
 }

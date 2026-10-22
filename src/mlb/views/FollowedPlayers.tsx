@@ -685,7 +685,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
           }}>
             {editMode
               ? (selected.size > 0 ? `${selected.size} selected` : 'Tap to select')
-              : (compact ? 'Players' : 'Your players')}
+              : (compact ? 'Players' : 'Your Players')}
           </Typography>
         )}
 
@@ -859,7 +859,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
         {followedPlayerIds.length === 0 ? (
           <Box sx={{ py: compact ? 2.5 : 3.5, textAlign: 'center' }}>
             <Typography sx={{ color: 'text.disabled', fontSize: compact ? TYPE_SCALE.meta : TYPE_SCALE.body, mb: 0.5, lineHeight: 1.4 }}>
-              {compact ? 'No players yet' : 'No players followed yet'}
+              {compact ? 'No players' : 'No players followed'}
             </Typography>
           </Box>
         ) : (

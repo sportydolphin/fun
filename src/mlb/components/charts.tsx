@@ -1,441 +1,151 @@
-import React, { useRef } from 'react'
-import { Box, Typography, useTheme } from '@mui/material'
+import React from 'react'
+import { Box, Typography } from '@mui/material'
 import { TeamSummary } from '../types'
 import { TEAM_BG } from '../constants'
 import { fmtR } from '../lib/utils'
-import { niceTicks } from '../../ui/charts/scale'
-import { useChartTooltip, ChartTooltip } from '../../ui/charts/ChartTooltip'
+import { mlbTeamPath } from '../routes'
+import { isModified } from '../../nav'
+import { niceDomain } from '../../ui/charts/scale'
+import { ScatterPlot, type ScatterPoint } from '../../ui/charts/ScatterPlot'
 import { chromePx } from '../../ui/scale'
 import { TYPE_SCALE } from '../../ui/card'
 
-export function TeamDot({ team, x, y, hovered, dimmed, highlighted, onEnter, onLeave, onSelect }: {
-  team: TeamSummary; x: number; y: number; hovered: boolean
-  dimmed?: boolean; highlighted?: boolean
-  onEnter: (t: TeamSummary, e: React.MouseEvent) => void
-  onLeave: () => void
-  onSelect?: (id: number) => void
-}) {
-  const color = TEAM_BG[team.id] ?? '#555'
-  const r = hovered ? 20 : highlighted ? 17 : 14
-  return (
-    <g transform={`translate(${x},${y})`}
-      style={{ cursor: 'pointer', opacity: dimmed ? 0.14 : 1, transition: 'opacity 0.25s' }}
-      onMouseEnter={e => onEnter(team, e)} onMouseLeave={onLeave}
-      onClick={() => onSelect?.(team.id)}>
-      {highlighted && !hovered && (
-        <circle r={r + 5} fill={color} fillOpacity={0.18} />
-      )}
-      <circle r={r} fill={color}
-        stroke={hovered || highlighted ? '#fff' : 'rgba(255,255,255,0.7)'}
-        strokeWidth={hovered ? 2.5 : highlighted ? 2 : 1.5}
-        style={{ transition: 'r 0.12s' }} />
-      <text textAnchor="middle" dy="3.5" fill="#fff"
-        fontSize={team.abbr.length > 2 ? 6.5 : 7.5} fontWeight={800}
-        style={{ pointerEvents: 'none' }}>{team.abbr}</text>
-    </g>
-  )
+// The Charts page's three team plots, drawn by the shared ScatterPlot that WPBL's Charts board uses.
+// These were a hand-rolled copy of it until Oct 2026, and drifted: their own type sizes, quadrant
+// fills, a hover-only dot a phone could not open, and axis text faded under 4.5:1. What is left here
+// is only what makes each one MLB's: the clubs, their colors and the reference lines.
+
+interface PlotProps {
+  data: TeamSummary[]
+  nameMap: Map<number, string>
+  highlightTeamId: number | null
+  onSelectTeam?: (id: number) => void
+  onHoverTeam?: (id: number | null) => void
 }
 
-// ─── ERA vs OPS Scatter Plot ─────────────────────────────────────────────────
+const pct = (v: number) => fmtR(v, 3)
+const signed = (v: number) => (v > 0 ? `+${Math.round(v)}` : v < 0 ? `−${Math.abs(Math.round(v))}` : '0')
 
-export function TeamEraOpsPlot({ data, nameMap, highlightTeamId, onSelectTeam, onHoverTeam }: { data: TeamSummary[]; nameMap: Map<number, string>; highlightTeamId: number | null; onSelectTeam?: (id: number) => void; onHoverTeam?: (id: number | null) => void }) {
-  const boxRef = useRef<HTMLDivElement>(null)
-  const theme = useTheme()
-  const { hovered, setHovered, tipPos, onEnter } = useChartTooltip<TeamSummary & { name: string }>(boxRef as React.RefObject<HTMLDivElement>)
+/** One club's dot: its color, its abbreviation, and a real link to its page. */
+function teamPoint(t: TeamSummary, x: number, y: number, name: string, facts: [string, string][],
+  { highlightTeamId, onSelectTeam }: PlotProps): ScatterPoint {
+  return {
+    id: String(t.id), x, y, weight: 1, label: t.abbr, badge: t.abbr,
+    color: TEAM_BG[t.id] ?? '#555',
+    muted: highlightTeamId != null && t.id !== highlightTeamId,
+    ariaLabel: `${name}: ${facts.map(([k, v]) => `${k} ${v}`).join(', ')}`,
+    href: mlbTeamPath(t.id),
+    onOpen: (e: React.MouseEvent) => {
+      if (!onSelectTeam || isModified(e)) return
+      e.preventDefault()
+      onSelectTeam(t.id)
+    },
+    tip: (
+      <>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+          <Box sx={{ width: chromePx(10), height: chromePx(10), borderRadius: '50%', bgcolor: TEAM_BG[t.id] ?? 'grey.500', flexShrink: 0 }} />
+          <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.body, lineHeight: 1.2 }}>{name}</Typography>
+        </Box>
+        {facts.map(([k, v]) => (
+          <Typography key={k} sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
+            {k} <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{v}</Box>
+          </Typography>
+        ))}
+      </>
+    ),
+  }
+}
 
+const hoverOf = (onHoverTeam: PlotProps['onHoverTeam']) =>
+  onHoverTeam ? (id: string | null) => onHoverTeam(id == null ? null : Number(id)) : undefined
+
+const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length
+
+// ─── ERA vs OPS ───────────────────────────────────────────────────────────────
+
+export function TeamEraOpsPlot(props: PlotProps) {
+  const { data, nameMap, onHoverTeam } = props
   const pts = data.filter(d => !isNaN(d.ops) && !isNaN(d.era))
   if (pts.length === 0) return null
-
-  const W = 560, H = 400
-  const m = { t: 32, r: 24, b: 52, l: 54 }
-  const iW = W - m.l - m.r, iH = H - m.t - m.b
-
-  const opsVals = pts.map(d => d.ops), eraVals = pts.map(d => d.era)
-  const opsPad = (Math.max(...opsVals) - Math.min(...opsVals)) * 0.16
-  const eraPad = (Math.max(...eraVals) - Math.min(...eraVals)) * 0.16
-  const xMin = Math.min(...opsVals) - opsPad, xMax = Math.max(...opsVals) + opsPad
-  const yMin = Math.min(...eraVals) - eraPad, yMax = Math.max(...eraVals) + eraPad
-  const avgOps = opsVals.reduce((a, b) => a + b, 0) / opsVals.length
-  const avgEra = eraVals.reduce((a, b) => a + b, 0) / eraVals.length
-
-  // Lower ERA → lower y value → higher on screen (correct: good pitching at top)
-  const sx = (v: number) => m.l + ((v - xMin) / (xMax - xMin)) * iW
-  const sy = (v: number) => m.t + ((v - yMin) / (yMax - yMin)) * iH
-  const ax = sx(avgOps), ay = sy(avgEra)
-
-  const xTicks = niceTicks(xMin, xMax, 6)
-  const yTicks = niceTicks(yMin, yMax, 6)
-
+  const avgOps = mean(pts.map(d => d.ops)), avgEra = mean(pts.map(d => d.era))
+  const x = { ...niceDomain(pts.map(d => d.ops), { include: [avgOps] }), label: 'OPS', fmt: pct }
+  // Lower is better, so the axis runs down: good pitching at the top, good hitting to the right.
+  const y = { ...niceDomain(pts.map(d => d.era), { include: [avgEra] }), label: 'ERA (inverted)', fmt: (v: number) => v.toFixed(2), invert: true }
+  const points = pts.map(t => teamPoint(t, t.ops, t.era, nameMap.get(t.id) ?? t.abbr,
+    [['OPS', t.ops.toFixed(3).replace(/^0/, '')], ['ERA', t.era.toFixed(2)]], props))
   return (
-    <Box ref={boxRef} sx={{ position: 'relative', userSelect: 'none' }}>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}
-        onMouseLeave={() => { setHovered(null); onHoverTeam?.(null) }}>
-        {/* Quadrant fills: top = low ERA = good pitching */}
-        <rect x={m.l} y={m.t} width={ax - m.l} height={ay - m.t} fill="#3b82f6" fillOpacity={0.05} />
-        <rect x={ax} y={m.t} width={m.l + iW - ax} height={ay - m.t} fill="#22c55e" fillOpacity={0.07} />
-        <rect x={m.l} y={ay} width={ax - m.l} height={m.t + iH - ay} fill="#ef4444" fillOpacity={0.05} />
-        <rect x={ax} y={ay} width={m.l + iW - ax} height={m.t + iH - ay} fill="#f59e0b" fillOpacity={0.05} />
-
-        {xTicks.map((v, i) => <line key={i} x1={sx(v)} y1={m.t} x2={sx(v)} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.1} strokeWidth={1} />)}
-        {yTicks.map((v, i) => <line key={i} x1={m.l} y1={sy(v)} x2={m.l + iW} y2={sy(v)} stroke="currentColor" strokeOpacity={0.1} strokeWidth={1} />)}
-
-        <line x1={ax} y1={m.t} x2={ax} y2={m.t + iH} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="6 4" strokeOpacity={0.7} />
-        <line x1={m.l} y1={ay} x2={m.l + iW} y2={ay} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="6 4" strokeOpacity={0.7} />
-        <text x={ax + 4} y={m.t + 11} fill="#60a5fa" fontSize={8.5} fontWeight={700}>avg OPS</text>
-        <text x={m.l + iW - 4} y={ay - 5} fill="#60a5fa" fontSize={8.5} fontWeight={700} textAnchor="end">avg ERA</text>
-
-        <text x={m.l + 7} y={m.t + 17} fill="#3b82f6" fontSize={9.5} fontWeight={800}>LOW ERA · LOW OPS</text>
-        <text x={m.l + iW - 7} y={m.t + 17} fill="#22c55e" fontSize={9.5} fontWeight={800} textAnchor="end">LOW ERA · HIGH OPS</text>
-        <text x={m.l + 7} y={m.t + iH - 9} fill="#ef4444" fontSize={9.5} fontWeight={800}>HIGH ERA · LOW OPS</text>
-        <text x={m.l + iW - 7} y={m.t + iH - 9} fill="#f59e0b" fontSize={9.5} fontWeight={800} textAnchor="end">HIGH ERA · HIGH OPS</text>
-
-        <line x1={m.l} y1={m.t} x2={m.l} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.3} strokeWidth={1.5} />
-        <line x1={m.l} y1={m.t + iH} x2={m.l + iW} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.3} strokeWidth={1.5} />
-
-        {xTicks.map((v, i) => (
-          <g key={i}>
-            <line x1={sx(v)} y1={m.t + iH} x2={sx(v)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
-            <text x={sx(v)} y={m.t + iH + 16} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={10}>{fmtR(v, 3)}</text>
-          </g>
-        ))}
-        {yTicks.map((v, i) => (
-          <g key={i}>
-            <line x1={m.l - 5} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
-            <text x={m.l - 8} y={sy(v) + 3.5} textAnchor="end" fill={theme.palette.text.secondary} fontSize={10}>{v.toFixed(2)}</text>
-          </g>
-        ))}
-
-        <text x={m.l + iW / 2} y={H - 4} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={11} fontWeight={700} letterSpacing="0.8">OPS →</text>
-        <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={11} fontWeight={700} letterSpacing="0.8">ERA (inverted) →</text>
-
-        {[...pts].sort((a, b) => (a.id === highlightTeamId ? 1 : 0) - (b.id === highlightTeamId ? 1 : 0)).map(team => (
-          <TeamDot key={team.id} team={team} x={sx(team.ops)} y={sy(team.era)}
-            hovered={hovered?.id === team.id}
-            dimmed={highlightTeamId != null && team.id !== highlightTeamId}
-            highlighted={highlightTeamId === team.id}
-            onEnter={(t, e) => { onEnter({ ...t, name: nameMap.get(t.id) ?? t.abbr }, e); onHoverTeam?.(t.id) }}
-            onLeave={() => setHovered(null)}
-            onSelect={onSelectTeam} />
-        ))}
-      </svg>
-
-      {hovered && (
-        <ChartTooltip tipPos={tipPos}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-            <Box sx={{ width: chromePx(10), height: chromePx(10), borderRadius: '50%', bgcolor: TEAM_BG[hovered.id] ?? 'grey.500', flexShrink: 0 }} />
-            <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.body, lineHeight: 1.2 }}>{hovered.name}</Typography>
-          </Box>
-          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>OPS <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.ops.toFixed(3)}</Box></Typography>
-          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>ERA <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.era.toFixed(2)}</Box></Typography>
-        </ChartTooltip>
-      )}
-    </Box>
+    <ScatterPlot title="ERA vs OPS" points={points} x={x} y={y} onActive={hoverOf(onHoverTeam)}
+      guides={{
+        avg: { x: avgOps, y: avgEra, label: 'League avg', labelAt: 'top' },
+        corners: { tl: 'Low ERA · Low OPS', tr: 'Low ERA · High OPS', bl: 'High ERA · Low OPS', br: 'High ERA · High OPS' },
+      }} />
   )
 }
 
 // ─── Win% vs Run Differential (Pythagorean) ───────────────────────────────────
 
-export function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam, onHoverTeam }: { data: TeamSummary[]; nameMap: Map<number, string>; highlightTeamId: number | null; onSelectTeam?: (id: number) => void; onHoverTeam?: (id: number | null) => void }) {
-  const boxRef = useRef<HTMLDivElement>(null)
-  const theme = useTheme()
-  const { hovered, setHovered, tipPos, onEnter } = useChartTooltip<TeamSummary & { name: string; winPct: number; rd: number; pythPct: number; pythWins: number; pythLosses: number }>(boxRef as React.RefObject<HTMLDivElement>)
+// Bill James's Pythagorean expectation, with the 1.83 exponent Baseball-Reference uses.
+const PYTH_EXP = 1.83
+const pythPct = (rs: number, ra: number) => (ra <= 0 ? 0.99 : rs ** PYTH_EXP / (rs ** PYTH_EXP + ra ** PYTH_EXP))
 
+export function TeamWinRDPlot(props: PlotProps) {
+  const { data, nameMap, onHoverTeam } = props
   const pts = data.filter(d => !isNaN(d.rs) && !isNaN(d.ra) && !isNaN(d.wins) && !isNaN(d.losses) && d.wins + d.losses > 0)
     .map(d => ({ ...d, rd: d.rs - d.ra, winPct: d.wins / (d.wins + d.losses) }))
   if (pts.length === 0) return null
-
-  const W = 560, H = 400
-  const m = { t: 32, r: 24, b: 52, l: 54 }
-  const iW = W - m.l - m.r, iH = H - m.t - m.b
-
-  const rdVals = pts.map(d => d.rd), wpVals = pts.map(d => d.winPct)
-  const rdPad = (Math.max(...rdVals) - Math.min(...rdVals)) * 0.14
-  const wpPad = (Math.max(...wpVals) - Math.min(...wpVals)) * 0.14
-  const xMin = Math.min(...rdVals) - rdPad, xMax = Math.max(...rdVals) + rdPad
-  const yMin = Math.max(0.25, Math.min(...wpVals) - wpPad)
-  const yMax = Math.min(0.75, Math.max(...wpVals) + wpPad)
-
-  // Lower win% → lower on screen (conventional orientation)
-  const sx = (v: number) => m.l + ((v - xMin) / (xMax - xMin)) * iW
-  const sy = (v: number) => m.t + ((yMax - v) / (yMax - yMin)) * iH
-  const x0 = sx(0), y500 = sy(0.5)
-
-  // Pythagorean expected W% curve: W% = RS^1.83 / (RS^1.83 + RA^1.83)
-  // Use average RS as the baseline, vary RA = avgRS - RD
-  const avgRS = pts.reduce((s, d) => s + d.rs, 0) / pts.length
-  const pyth = (rd: number) => {
-    const ra = avgRS - rd
-    if (ra <= 0) return 0.99
-    const e = 1.83
-    return Math.pow(avgRS, e) / (Math.pow(avgRS, e) + Math.pow(ra, e))
-  }
-  const curvePts = Array.from({ length: 61 }, (_, i) => {
-    const rd = xMin + (i / 60) * (xMax - xMin)
-    const wp = pyth(rd)
-    return wp >= yMin && wp <= yMax ? `${sx(rd).toFixed(1)},${sy(wp).toFixed(1)}` : null
-  }).filter(Boolean).join(' ')
-
-  // Per-team Pythagorean expected W% (using their actual RS)
-  const withPyth = pts.map(d => {
-    const ra = d.rs - d.rd
-    const e = 1.83
-    const pythPct = ra > 0 ? Math.pow(d.rs, e) / (Math.pow(d.rs, e) + Math.pow(ra, e)) : 0.99
-    const games = d.wins + d.losses
-    const pythWins = Math.round(pythPct * games)
-    const pythLosses = games - pythWins
-    return { ...d, pythPct, pythWins, pythLosses, name: nameMap.get(d.id) ?? d.abbr }
+  const x = { ...niceDomain(pts.map(d => d.rd), { include: [0] }), label: 'Run differential', fmt: signed }
+  const y = { ...niceDomain(pts.map(d => d.winPct), { include: [0.5] }), label: 'Win%', fmt: pct }
+  // The curve holds runs scored at the league average and moves runs allowed, so it reads as "the
+  // record this run differential predicts" for a typical offense.
+  const avgRS = mean(pts.map(d => d.rs))
+  const curve = Array.from({ length: 61 }, (_, i) => {
+    const rd = x.lo + (i / 60) * (x.hi - x.lo)
+    return { x: rd, y: pythPct(avgRS, avgRS - rd) }
+  }).filter(q => q.y >= y.lo && q.y <= y.hi)
+  const points = pts.map(t => {
+    const games = t.wins + t.losses
+    const pythWins = Math.round(pythPct(t.rs, t.ra) * games)
+    const diff = t.wins - pythWins
+    return teamPoint(t, t.rd, t.winPct, nameMap.get(t.id) ?? t.abbr, [
+      ['Record', `${t.wins}–${t.losses}`],
+      ['Run diff.', signed(t.rd)],
+      ['Expected', `${pythWins}–${games - pythWins}`],
+      ['vs expected', diff === 0 ? '0' : signed(diff)],
+    ], props)
   })
-
-  const xTicks = niceTicks(xMin, xMax, 7)
-  const yTicks = niceTicks(yMin, yMax, 6)
-
   return (
-    <Box ref={boxRef} sx={{ position: 'relative', userSelect: 'none' }}>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}
-        onMouseLeave={() => { setHovered(null); onHoverTeam?.(null) }}>
-        {/* Half shading: above .500 vs below */}
-        <rect x={x0} y={m.t} width={m.l + iW - x0} height={m.t + iH - m.t} fill="#22c55e" fillOpacity={0.04} />
-        <rect x={m.l} y={m.t} width={x0 - m.l} height={m.t + iH - m.t} fill="#ef4444" fillOpacity={0.04} />
-
-        {xTicks.map((v, i) => <line key={i} x1={sx(v)} y1={m.t} x2={sx(v)} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.1} strokeWidth={1} />)}
-        {yTicks.map((v, i) => <line key={i} x1={m.l} y1={sy(v)} x2={m.l + iW} y2={sy(v)} stroke="currentColor" strokeOpacity={0.1} strokeWidth={1} />)}
-
-        {/* RD=0 and W%=.500 references */}
-        <line x1={x0} y1={m.t} x2={x0} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="5 3" />
-        <line x1={m.l} y1={y500} x2={m.l + iW} y2={y500} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="5 3" />
-        <text x={x0 + 4} y={m.t + 11} fill={theme.palette.text.secondary} fontSize={8.5} fontWeight={700}>Break-even</text>
-        <text x={m.l + iW - 4} y={y500 - 5} fill={theme.palette.text.secondary} fontSize={8.5} fontWeight={700} textAnchor="end">.500</text>
-
-        {/* Pythagorean expectation curve */}
-        <polyline points={curvePts} fill="none" stroke="#60a5fa" strokeWidth={2} strokeDasharray="6 3" strokeOpacity={0.85} strokeLinejoin="round" />
-        {(() => {
-          const labelRD = xMax * 0.72
-          const labelWP = pyth(labelRD)
-          if (labelWP < yMin || labelWP > yMax) return null
-          return <text x={sx(labelRD)} y={sy(labelWP) - 7} fill="#60a5fa" fontSize={8.5} fontWeight={700} textAnchor="middle">Pythagorean win%</text>
-        })()}
-
-        {/* Axes */}
-        <line x1={m.l} y1={m.t} x2={m.l} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.3} strokeWidth={1.5} />
-        <line x1={m.l} y1={m.t + iH} x2={m.l + iW} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.3} strokeWidth={1.5} />
-
-        {xTicks.map((v, i) => (
-          <g key={i}>
-            <line x1={sx(v)} y1={m.t + iH} x2={sx(v)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
-            <text x={sx(v)} y={m.t + iH + 16} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={10}>{v > 0 ? `+${Math.round(v)}` : Math.round(v)}</text>
-          </g>
-        ))}
-        {yTicks.map((v, i) => (
-          <g key={i}>
-            <line x1={m.l - 5} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
-            <text x={m.l - 8} y={sy(v) + 3.5} textAnchor="end" fill={theme.palette.text.secondary} fontSize={10}>{fmtR(v, 3)}</text>
-          </g>
-        ))}
-
-        <text x={m.l + iW / 2} y={H - 4} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={11} fontWeight={700} letterSpacing="0.8">Run differential →</text>
-        <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={11} fontWeight={700} letterSpacing="0.8">Win %</text>
-
-        {[...withPyth].sort((a, b) => (a.id === highlightTeamId ? 1 : 0) - (b.id === highlightTeamId ? 1 : 0)).map(team => (
-          <TeamDot key={team.id} team={team} x={sx(team.rd)} y={sy(team.winPct)}
-            hovered={hovered?.id === team.id}
-            dimmed={highlightTeamId != null && team.id !== highlightTeamId}
-            highlighted={highlightTeamId === team.id}
-            onEnter={(t, e) => { onEnter(withPyth.find(w => w.id === t.id)!, e); onHoverTeam?.(t.id) }}
-            onLeave={() => setHovered(null)}
-            onSelect={onSelectTeam} />
-        ))}
-      </svg>
-
-      {hovered && (
-        <ChartTooltip tipPos={tipPos}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-            <Box sx={{ width: chromePx(10), height: chromePx(10), borderRadius: '50%', bgcolor: TEAM_BG[hovered.id] ?? 'grey.500', flexShrink: 0 }} />
-            <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.body, lineHeight: 1.2 }}>{hovered.name}</Typography>
-          </Box>
-          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Actual <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.wins}–{hovered.losses}</Box></Typography>
-          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Exp. W-L <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.pythWins}–{hovered.pythLosses}</Box></Typography>
-          {(() => {
-            const diff = hovered.wins - hovered.pythWins
-            return (
-              <Typography sx={{ fontSize: TYPE_SCALE.meta, color: diff >= 0 ? 'success.main' : 'error.main', fontWeight: 700 }}>
-                {diff >= 0 ? '+' : ''}{diff} wins vs expected
-              </Typography>
-            )
-          })()}
-        </ChartTooltip>
-      )}
-    </Box>
+    <ScatterPlot title="Win% vs Run Differential" points={points} x={x} y={y} onActive={hoverOf(onHoverTeam)}
+      guides={{ avg: { x: 0, y: 0.5, label: 'Break-even', labelAt: 'top' }, curves: [{ points: curve, label: 'Pythagorean' }] }} />
   )
 }
 
-// ─── Payroll vs Win% scatter ──────────────────────────────────────────────────
+// ─── Payroll vs Win% ──────────────────────────────────────────────────────────
 
-export function PayrollWinsPlot({
-  data, payrolls, nameMap, highlightTeamId, onSelectTeam, onHoverTeam,
-}: {
-  data: TeamSummary[]
-  payrolls: Record<number, number>
-  nameMap: Map<number, string>
-  highlightTeamId: number | null
-  onSelectTeam?: (id: number) => void
-  onHoverTeam?: (id: number | null) => void
-}) {
-  const boxRef = useRef<HTMLDivElement>(null)
-  const theme = useTheme()
-  type Pt = TeamSummary & { name: string; winPct: number; payroll: number }
-  const { hovered, setHovered, tipPos, onEnter } = useChartTooltip<Pt>(boxRef as React.RefObject<HTMLDivElement>)
-
-  const pts = data
-    .filter(d => payrolls[d.id] != null && d.wins + d.losses > 0)
-    .map(d => ({
-      ...d,
-      name: nameMap.get(d.id) ?? d.abbr,
-      winPct: d.wins / (d.wins + d.losses),
-      payroll: payrolls[d.id],
-    }))
-
+export function PayrollWinsPlot({ payrolls, ...props }: PlotProps & { payrolls: Record<number, number> }) {
+  const { data, nameMap, onHoverTeam } = props
+  const pts = data.filter(d => payrolls[d.id] != null && d.wins + d.losses > 0)
+    .map(d => ({ ...d, winPct: d.wins / (d.wins + d.losses), payroll: payrolls[d.id] }))
   if (pts.length === 0) return null
-
-  const W = 560, H = 400
-  const m = { t: 36, r: 24, b: 52, l: 52 }
-  const iW = W - m.l - m.r, iH = H - m.t - m.b
-
-  const payVals = pts.map(p => p.payroll)
-  const wpVals  = pts.map(p => p.winPct)
-
-  const payPad = (Math.max(...payVals) - Math.min(...payVals)) * 0.08
-  const wpPad  = (Math.max(...wpVals)  - Math.min(...wpVals))  * 0.16
-  const xMin = Math.min(...payVals) - payPad,  xMax = Math.max(...payVals) + payPad
-  const yMin = Math.min(...wpVals)  - wpPad,   yMax = Math.max(...wpVals)  + wpPad
-
-  // SVG helpers: win% higher = higher on chart (flip y)
-  const sx = (v: number) => m.l + ((v - xMin) / (xMax - xMin)) * iW
-  const sy = (v: number) => m.t + ((yMax - v) / (yMax - yMin)) * iH
-
-  // Quadrant dividers: median payroll + .500 win%
-  const sortedPay = [...payVals].sort((a, b) => a - b)
-  const medPay = sortedPay[Math.floor(sortedPay.length / 2)]
-  const mx = sx(medPay), my = sy(0.5)
-
-  // Regression line for "avg efficiency"
+  const pay = pts.map(p => p.payroll)
+  const medPay = [...pay].sort((a, b) => a - b)[Math.floor(pay.length / 2)]
+  const x = { ...niceDomain(pay, { include: [medPay] }), label: 'Payroll', fmt: (v: number) => `$${Math.round(v)}M` }
+  const y = { ...niceDomain(pts.map(p => p.winPct), { include: [0.5] }), label: 'Win%', fmt: pct }
+  // Least squares: the win% a payroll predicts, so a club above the line wins more than it pays for.
   const n = pts.length
-  const sumX  = pts.reduce((s, p) => s + p.payroll, 0)
-  const sumY  = pts.reduce((s, p) => s + p.winPct, 0)
-  const sumXY = pts.reduce((s, p) => s + p.payroll * p.winPct, 0)
-  const sumX2 = pts.reduce((s, p) => s + p.payroll * p.payroll, 0)
-  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX)
-  const intercept = (sumY - slope * sumX) / n
-  const rx1 = xMin, ry1 = intercept + slope * xMin
-  const rx2 = xMax, ry2 = intercept + slope * xMax
-
-  // X ticks: $50M steps
-  const xStep = 50
-  const xTicks: number[] = []
-  for (let v = Math.ceil(xMin / xStep) * xStep; v <= xMax; v += xStep) xTicks.push(v)
-
-  // Y ticks: .05 win% steps
-  const yStep = 0.05
-  const yTicks: number[] = []
-  for (let v = Math.ceil(yMin / yStep) * yStep; v <= yMax + 0.001; v += yStep) yTicks.push(parseFloat(v.toFixed(3)))
-
+  const sx = pay.reduce((a, b) => a + b, 0), sy = pts.reduce((a, p) => a + p.winPct, 0)
+  const sxy = pts.reduce((a, p) => a + p.payroll * p.winPct, 0), sxx = pts.reduce((a, p) => a + p.payroll ** 2, 0)
+  const slope = (n * sxy - sx * sy) / (n * sxx - sx * sx)
+  const icept = (sy - slope * sx) / n
+  const trend = [x.lo, x.hi].map(v => ({ x: v, y: icept + slope * v })).filter(q => q.y >= y.lo && q.y <= y.hi)
+  const points = pts.map(t => teamPoint(t, t.payroll, t.winPct, nameMap.get(t.id) ?? t.abbr, [
+    ['Record', `${t.wins}–${t.losses}`], ['Win%', pct(t.winPct)], ['Payroll', `$${Math.round(t.payroll)}M`],
+  ], props))
   return (
-    <Box ref={boxRef} sx={{ position: 'relative', userSelect: 'none' }}>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}
-        onMouseLeave={() => { setHovered(null); onHoverTeam?.(null) }}>
-
-        {/* Quadrant fills */}
-        <rect x={m.l}  y={m.t}  width={mx - m.l}       height={my - m.t}       fill="#22c55e" fillOpacity={0.06} />
-        <rect x={mx}   y={m.t}  width={m.l + iW - mx}   height={my - m.t}       fill="#60a5fa" fillOpacity={0.06} />
-        <rect x={m.l}  y={my}   width={mx - m.l}         height={m.t + iH - my} fill="#94a3b8" fillOpacity={0.05} />
-        <rect x={mx}   y={my}   width={m.l + iW - mx}    height={m.t + iH - my} fill="#ef4444" fillOpacity={0.06} />
-
-        {/* Grid lines */}
-        {xTicks.map((v, i) => <line key={i} x1={sx(v)} y1={m.t} x2={sx(v)} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.07} strokeWidth={1} />)}
-        {yTicks.map((v, i) => <line key={i} x1={m.l} y1={sy(v)} x2={m.l + iW} y2={sy(v)} stroke="currentColor" strokeOpacity={0.07} strokeWidth={1} />)}
-
-        {/* Regression "avg efficiency" line */}
-        <line
-          x1={sx(rx1)} y1={sy(ry1)} x2={sx(rx2)} y2={sy(ry2)}
-          stroke="#a78bfa" strokeWidth={1.5} strokeDasharray="5 4" strokeOpacity={0.55} />
-        <text x={sx(rx2) - 5} y={sy(ry2) - 6}
-          fill="#a78bfa" fontSize={8} fontWeight={700} textAnchor="end">
-          Trend
-        </text>
-
-        {/* Quadrant divider lines */}
-        <line x1={mx} y1={m.t} x2={mx} y2={m.t + iH} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="6 4" strokeOpacity={0.6} />
-        <line x1={m.l} y1={my} x2={m.l + iW} y2={my} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="6 4" strokeOpacity={0.6} />
-        <text x={mx + 4} y={m.t + 11} fill="#60a5fa" fontSize={8.5} fontWeight={700}>
-          med. ${Math.round(medPay)}M
-        </text>
-        <text x={m.l + iW - 5} y={my - 5} fill="#60a5fa" fontSize={8.5} fontWeight={700} textAnchor="end">.500</text>
-
-        {/* Quadrant labels */}
-        <text x={m.l + 7} y={m.t + 19} fill="#22c55e" fontSize={9.5} fontWeight={800}>LOW PAYROLL · .500+</text>
-        <text x={m.l + iW - 7} y={m.t + 19} fill="#60a5fa" fontSize={9.5} fontWeight={800} textAnchor="end">HIGH PAYROLL · .500+</text>
-        <text x={m.l + 7} y={m.t + iH - 9} fill="#94a3b8" fontSize={9.5} fontWeight={800}>LOW PAYROLL · SUB-.500</text>
-        <text x={m.l + iW - 7} y={m.t + iH - 9} fill="#ef4444" fontSize={9.5} fontWeight={800} textAnchor="end">HIGH PAYROLL · SUB-.500</text>
-
-        {/* Axes */}
-        <line x1={m.l} y1={m.t} x2={m.l} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.3} strokeWidth={1.5} />
-        <line x1={m.l} y1={m.t + iH} x2={m.l + iW} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.3} strokeWidth={1.5} />
-
-        {/* X-axis ticks */}
-        {xTicks.map((v, i) => (
-          <g key={i}>
-            <line x1={sx(v)} y1={m.t + iH} x2={sx(v)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
-            <text x={sx(v)} y={m.t + iH + 16} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={10}>${v}M</text>
-          </g>
-        ))}
-
-        {/* Y-axis ticks (win% as .NNN) */}
-        {yTicks.map((v, i) => (
-          <g key={i}>
-            <line x1={m.l - 5} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
-            <text x={m.l - 8} y={sy(v) + 3.5} textAnchor="end" fill={theme.palette.text.secondary} fontSize={10}>
-              {('.' + Math.round(v * 1000).toString().padStart(3, '0'))}
-            </text>
-          </g>
-        ))}
-
-        {/* Axis labels */}
-        <text x={m.l + iW / 2} y={H - 4} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={11} fontWeight={700} letterSpacing="0.8">
-          2026 Payroll →
-        </text>
-        <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle" fill={theme.palette.text.secondary} fontSize={11} fontWeight={700} letterSpacing="0.8">
-          Win % ↑
-        </text>
-
-        {/* Team bubbles, highlighted on top */}
-        {[...pts]
-          .sort((a, b) => (a.id === highlightTeamId ? 1 : 0) - (b.id === highlightTeamId ? 1 : 0))
-          .map(team => (
-            <TeamDot key={team.id} team={team}
-              x={sx(team.payroll)} y={sy(team.winPct)}
-              hovered={hovered?.id === team.id}
-              dimmed={highlightTeamId != null && team.id !== highlightTeamId}
-              highlighted={highlightTeamId === team.id}
-              onEnter={(t, e) => {
-                onEnter({ ...t, name: nameMap.get(t.id) ?? t.abbr, winPct: team.winPct, payroll: team.payroll }, e)
-                onHoverTeam?.(t.id)
-              }}
-              onLeave={() => setHovered(null)}
-              onSelect={onSelectTeam}
-            />
-          ))}
-      </svg>
-
-      {hovered && (
-        <ChartTooltip tipPos={tipPos}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-            <Box sx={{ width: chromePx(10), height: chromePx(10), borderRadius: '50%', bgcolor: TEAM_BG[hovered.id] ?? 'grey.500', flexShrink: 0 }} />
-            <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.body, lineHeight: 1.2 }}>{hovered.name}</Typography>
-          </Box>
-          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Record <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.wins}–{hovered.losses}</Box></Typography>
-          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Win% <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{('.' + Math.round(hovered.winPct * 1000).toString().padStart(3, '0'))}</Box></Typography>
-          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Payroll <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>${Math.round(hovered.payroll)}M</Box></Typography>
-        </ChartTooltip>
-      )}
-    </Box>
+    <ScatterPlot title="Payroll vs Win%" points={points} x={x} y={y} onActive={hoverOf(onHoverTeam)}
+      guides={{
+        avg: { x: medPay, y: 0.5, label: 'Median', labelAt: 'top' },
+        curves: trend.length === 2 ? [{ points: trend, label: 'Trend' }] : undefined,
+        corners: { tl: 'Low payroll · .500+', tr: 'High payroll · .500+', bl: 'Low payroll · sub-.500', br: 'High payroll · sub-.500' },
+      }} />
   )
 }

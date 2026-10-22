@@ -22,6 +22,26 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.182.0',
+    date:    '2026-10-21',
+    changes: [
+      {
+        short: 'MLB charts work on a phone',
+        full:  "MLB's ERA vs OPS, Win% vs Run Differential and Payroll vs Win% charts are now drawn the same way as WPBL's Charts board. On a phone, tap a club to see its numbers and tap again to open its page; before, a phone could not open a club from the chart at all. The type is sized for the screen it is on, every club is a real link, and the axis and line labels are easier to read in both themes. Win% vs Run Differential shows each club's expected record and how far it is above or below it.",
+      },
+    ],
+  },
+  {
+    version: '1.181.0',
+    date:    '2026-10-21',
+    changes: [
+      {
+        short: 'Names spelled one way, splits one row each',
+        full:  "Batter vs pitcher, the series pages and the season recap's Lopsided Matchups spell names the way the roster does (Andréanne Leblanc, Samaria Benítez), as do Game Center's First hit and Run value's worked play. A pitcher traded mid-season shows one row per split on MLB, not one per club with the total underneath. Player of the day no longer shows a roster position and then switches to the one played. Wildest Games lists the road club first with \"at\", strikeouts read K in every stat line, MLB's chart labels and axes are easier to read, negative run differentials take a true minus, a division leader's games back is a dash, and contract years take an en dash (2022–31). Instructions on MLB Home, Streak Survivor and the schedule sheet are gone or behind the i, and Compare's second slot is titled Second Player.",
+      },
+    ],
+  },
+  {
     version: '1.180.0',
     date:    '2026-10-21',
     changes: [

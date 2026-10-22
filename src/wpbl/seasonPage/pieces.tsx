@@ -31,7 +31,7 @@ import { winnerProb } from './moments'
 export const matchupLine = (l: WpblMatchupLine) => `${l.h}-for-${l.ab}`
 /** What else the counts say, ahead of the verdict: home runs, walks and strikeouts that happened. */
 export const matchupExtra = (l: WpblMatchupLine) =>
-  [l.hr ? `${l.hr} HR` : null, l.bb ? `${l.bb} BB` : null, l.so ? `${l.so} SO` : null]
+  [l.hr ? `${l.hr} HR` : null, l.bb ? `${l.bb} BB` : null, l.so ? `${l.so} K` : null]
     .filter(Boolean).map(x => `${x} · `).join('')
 
 export function StatTile({ value, label, sub, highlight, href, onNavigate }: {
@@ -143,7 +143,7 @@ export function WildGameRow({ rank, wild, teamName, href, onOpen, phone }: {
       {!phone && <Box sx={{ color: 'text.secondary' }}><WildLine wild={wild} /></Box>}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.35 }}>
-          {teamName(g.away_team_id)} {g.away_score}, {teamName(g.home_team_id)} {g.home_score}
+          {teamName(g.away_team_id)} {g.away_score} at {teamName(g.home_team_id)} {g.home_score}
         </Typography>
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.35 }}>
           {shortDate(g.game_date)}{isPostseasonGame(g) ? ' · Playoffs' : ''} · {wildContext(wild)}

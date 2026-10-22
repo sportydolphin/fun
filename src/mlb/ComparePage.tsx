@@ -172,7 +172,7 @@ function Picker({ candidates, season, onPick, skeleton }: {
       candidates={picks}
       skeleton={skeleton}
       limit={PICK_LIMIT}
-      limitNote={`The first ${PICK_LIMIT} by playing time. Search to find anyone else with a ${season} line.`}
+      limitNote={`First ${PICK_LIMIT} by playing time`}
       emptyText={`Nobody by that name with a ${season} line.`}
       onPick={key => { const c = byId.get(key); if (c) onPick(c) }}
     />
@@ -346,7 +346,7 @@ export default function MlbComparePage({ path, onNavigate }: { path: string; onN
                 {shape.groups.map(g => <CompareBlocksSkeleton key={g} title={SKELETON_TITLES[g]} blocks={[...SKELETON_BLOCKS[g]]} />)}
               </>
             : (
-              <SectionCard title="And who else">
+              <SectionCard title="Second Player">
                 <Picker candidates={[]} season={season} onPick={() => {}} skeleton />
               </SectionCard>
             )}
@@ -376,7 +376,7 @@ export default function MlbComparePage({ path, onNavigate }: { path: string; onN
         )}
 
         {picking && (
-          <SectionCard title={target.kind === 'single' ? 'And who else' : 'Choose a player'}>
+          <SectionCard title={target.kind === 'single' ? 'Second Player' : 'Choose a player'}>
             <Picker candidates={candidates} season={season} onPick={pick} skeleton={!poolsReady} />
           </SectionCard>
         )}

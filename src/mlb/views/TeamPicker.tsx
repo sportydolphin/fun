@@ -42,7 +42,7 @@ export function FollowTeamPrompt({ onFollow, playing }: {
     <>
       <SectionCard title="Your team" action={<CardLink label="Choose a team" onClick={() => setOpen(true)} />}>
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.35 }}>
-          Follow a club to put its games, standing and players at the top of this page.
+          No team followed
         </Typography>
       </SectionCard>
       {open && (

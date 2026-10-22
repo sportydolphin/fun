@@ -141,6 +141,22 @@ describe('parseSeasonBundle', () => {
     ] })
     expect(b.fielding).toEqual([{ position: 'P', stat: { gamesPlayed: 26 } }])
   })
+
+  it('draws a traded season as one row a split, the total', () => {
+    // Skubal's 2026 splits as StatsAPI sends them: each club, then the total with no team.
+    const b = parseSeasonBundle({ stats: [
+      { type: { displayName: 'statSplits' }, group: { displayName: 'pitching' }, splits: [
+        { split: { code: 'vl' }, team: { id: 119 }, stat: { battersFaced: 52 } },
+        { split: { code: 'vl' }, team: { id: 116 }, stat: { battersFaced: 92 } },
+        { split: { code: 'vl' }, stat: { battersFaced: 144 } },
+        { split: { code: 'h' }, team: { id: 116 }, stat: { battersFaced: 153 } },
+      ] },
+    ] })
+    expect(b.splits.pitching).toEqual([
+      { code: 'vl', stat: { battersFaced: 144 } },
+      { code: 'h', stat: { battersFaced: 153 } },
+    ])
+  })
 })
 
 describe('parseGameLog', () => {
