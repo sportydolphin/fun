@@ -1,7 +1,7 @@
 // ─── WPBL game-start reminder opt-in ──────────────────────────────────────────
 //
 // The client side of the reminder switch on the WPBL Home next-game card. It is a single
-// standing preference — "before every game" — rather than a row per game, which is what it
+// standing preference ("before every game") rather than a row per game, which is what it
 // used to be; see the note on the pref below.
 //
 // The per-game helpers that wrote wpbl_game_reminders rows are gone with that change.
@@ -22,7 +22,7 @@ import { enablePush, isSubscribed } from '../lib/push'
 // flicking on after a round trip.
 //
 // Sending still needs a push subscription, so turning this on runs the same enablePush()
-// flow the per-game bell used to — that is what prompts for permission on a device that has
+// flow the per-game bell used to: that is what prompts for permission on a device that has
 // never granted it.
 
 const ALL_GAMES_KEY = 'wpbl_notify_all_games'

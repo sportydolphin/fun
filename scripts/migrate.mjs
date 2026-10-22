@@ -4,13 +4,13 @@
 // order, recording each one in a `schema_migrations` table so it never runs twice.
 // This replaces the old "paste it into the Supabase SQL editor by hand" flow.
 //
-// The 33 legacy scripts/*.sql files are the pre-runner BASELINE — they were already
+// The 33 legacy scripts/*.sql files are the pre-runner BASELINE. They were already
 // applied to the live DB by hand, so the runner does not touch them. Everything from
 // now on goes in scripts/migrations/ and flows through here.
 //
 // Connection: reads SUPABASE_DB_URL (a postgres://... string). Get it from Supabase →
 // Connect → Connection string → *Session pooler* (port 5432). Prefer the session pooler
-// over "Direct connection" — direct is IPv6-only unless you buy the IPv4 add-on, so it
+// over "Direct connection": direct is IPv6-only unless you buy the IPv4 add-on, so it
 // won't reach from most home networks or GitHub Actions. Avoid the *transaction* pooler
 // (6543); it lacks the session-level support migrations need. Keep the string in .env
 // locally and in GitHub Actions secrets for CI. The password is the database password
@@ -23,8 +23,8 @@
 //   npm run migrate -- new "add foo table"   # scaffold a timestamped migration file
 //
 // A migration normally runs inside a transaction (all-or-nothing). If a file needs to
-// run without one — e.g. CREATE INDEX CONCURRENTLY, which Postgres forbids in a
-// transaction — put this on its own line near the top of the file:
+// run without one (e.g. CREATE INDEX CONCURRENTLY, which Postgres forbids in a
+// transaction), put this on its own line near the top of the file:
 //   -- migrate:no-transaction
 
 import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
@@ -102,7 +102,7 @@ async function cmdStatus() {
       const mark = applied.has(m.version) ? '✓ applied' : '· pending';
       console.log(`  ${mark}  ${m.file}`);
     }
-    // Applied rows with no matching file (deleted/renamed) — worth flagging.
+    // Applied rows with no matching file (deleted/renamed) are worth flagging.
     const orphans = [...applied].filter((v) => !files.some((m) => m.version === v));
     if (orphans.length) {
       console.log('\n⚠ recorded as applied but no file present:');
@@ -124,14 +124,14 @@ async function cmdUp({ dryRun }) {
     const pending = files.filter((m) => !applied.has(m.version));
 
     if (!pending.length) {
-      console.log('\n✓ Up to date — no pending migrations.\n');
+      console.log('\n✓ Up to date, no pending migrations.\n');
       return;
     }
 
     console.log(`\n${pending.length} pending migration(s):`);
     for (const m of pending) console.log(`  · ${m.file}`);
     if (dryRun) {
-      console.log('\n(dry run — nothing applied)\n');
+      console.log('\n(dry run, nothing applied)\n');
       return;
     }
     console.log('');

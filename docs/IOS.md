@@ -69,7 +69,7 @@ three are load-bearing:
   `application/json`, silently. The rule in `public/_headers` is the only thing arranging
   that, and it is the reason a `_headers` entry is pinned by a test.
 - **Apple's CDN fetches it and does not follow redirects.** That is the same shape of trap
-  that emptied the offline precache when Pages canonicalised `/offline.html` to `/offline`
+  that emptied the offline precache when Pages canonicalized `/offline.html` to `/offline`
   (see ANDROID.md §2). Verify against the deployed URL, never `npm run dev`.
 - **The Team ID does not exist yet.** `appIDs` is `TEAMID.fun.sportydolphin.app`, and the
   real prefix is the ten character Apple Developer Team ID from enrollment. Exactly like

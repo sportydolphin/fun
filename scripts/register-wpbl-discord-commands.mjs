@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * register-wpbl-discord-commands.mjs — tell Discord which slash commands the bot has.
+ * register-wpbl-discord-commands.mjs: tell Discord which slash commands the bot has.
  *
  * Commands are registered with Discord, not served from the app: the endpoint in
  * functions/discord/wpbl.ts only ever ANSWERS an interaction, it can't declare one. So this
@@ -131,7 +131,7 @@ async function main() {
   if (LIST) {
     const current = await discord('GET')
     if (!current?.length) { console.log('No commands registered.'); return }
-    for (const c of current) console.log(`  /${c.name} — ${c.description}`)
+    for (const c of current) console.log(`  /${c.name}: ${c.description}`)
     return
   }
 
@@ -147,8 +147,8 @@ async function main() {
   const result = await discord('PUT', COMMANDS)
   for (const c of result ?? []) console.log(`✅  /${c.name}`)
   console.log(GUILD_ID
-    ? 'Registered to the guild — it should appear in Discord immediately.'
-    : 'Registered globally — Discord can take up to an hour to show it everywhere.')
+    ? 'Registered to the guild. It should appear in Discord immediately.'
+    : 'Registered globally. Discord can take up to an hour to show it everywhere.')
 }
 
 main().catch(err => { console.error('❌ ', err.message); process.exit(1) })

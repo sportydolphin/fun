@@ -22,7 +22,7 @@ import { winnerProb } from './moments'
 
 // ─── Small presentational bits ────────────────────────────────────────────────────
 // EVERY CARD ON THIS PAGE IS AN OUTLINE WITH NO FILL, the surface the leaderboard race and the
-// standings chart already use (SectionCard's `bare`). `background.paper` is a lifted grey in dark
+// standings chart already use (SectionCard's `bare`). `background.paper` is a lifted gray in dark
 // mode, and a page of them reads as a stack of panels rather than one document; with the fill off,
 // the stronger CARD_BORDER is what draws each card. The champion banner is the one exception: it
 // is the headline, and its tint is the point of it.

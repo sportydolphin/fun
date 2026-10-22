@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * run-survivor-bots.mjs — Daily Streak Survivor bot picks.
+ * run-survivor-bots.mjs: Daily Streak Survivor bot picks.
  *
  * Each bot picks one hitter for today whose team hasn't played yet, so the
  * leaderboard has rivals from day one. Picks are written as `pending`; the nightly
@@ -8,9 +8,9 @@
  * does for human players.
  *
  * Bots (all prefixed with a robot emoji, all named "… Bot"):
- *   🤖 Streak Bot    — the hitter on the longest active hitting streak today
- *   🤖 Chalk Bot     — the highest batting-average qualified hitter today
- *   🤖 Coin Flip Bot — a random qualified hitter playing today
+ *   🤖 Streak Bot:     the hitter on the longest active hitting streak today
+ *   🤖 Chalk Bot:      the highest batting-average qualified hitter today
+ *   🤖 Coin Flip Bot:  a random qualified hitter playing today
  *
  * Bot users are the same kind of real Supabase auth accounts the prediction bots
  * use (is_bot metadata, looked up by email key). Reuses that plumbing.
@@ -78,7 +78,7 @@ async function getOrCreateBotUser(email, displayName) {
 // import the TypeScript).
 const SCHEDULE_GAME_TYPES = 'R,F,D,L,W'
 
-// Teams whose game today hasn't started yet — the only valid teams to pick from.
+// Teams whose game today hasn't started yet: the only valid teams to pick from.
 async function fetchPreviewTeams(date) {
   const res = await fetch(
     `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&gameType=${SCHEDULE_GAME_TYPES}` +
@@ -149,7 +149,7 @@ function pickCoin(previewTeams, avgPool) {
 // ─── Writes ─────────────────────────────────────────────────────────────────
 
 async function savePick(userId, displayName, date, pick, label) {
-  if (!pick) { console.log(`  ${label}: no eligible hitter today — skipped`); return }
+  if (!pick) { console.log(`  ${label}: no eligible hitter today, skipped`); return }
 
   // ignoreDuplicates → the first pick of the day wins; a re-run never overwrites.
   const { error: pErr } = await supabase.from('survivor_picks').upsert({
@@ -175,7 +175,7 @@ async function savePick(userId, displayName, date, pick, label) {
 
 async function main() {
   const date = todayStr()
-  console.log(`\n🎯 Streak Survivor bots — ${date}\n`)
+  console.log(`\n🎯 Streak Survivor bots: ${date}\n`)
 
   console.log('👤 Resolving bot users…')
   const [streakId, chalkId, coinId] = await Promise.all([
@@ -190,7 +190,7 @@ async function main() {
   ])
   console.log(`  ${previewTeams.size} team(s) not yet started · ${avgPool.length} qualified hitters · ${streakBoard.length} on the streak board`)
 
-  if (previewTeams.size === 0) { console.log('\n  No upcoming games — nothing to pick.\n'); return }
+  if (previewTeams.size === 0) { console.log('\n  No upcoming games, nothing to pick.\n'); return }
 
   console.log('\n🤖 Making picks…')
   await savePick(streakId, BOTS.streak.displayName, date, pickStreak(previewTeams, streakBoard, avgPool), '🤖 Streak Bot')

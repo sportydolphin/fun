@@ -6,7 +6,7 @@ import type { WpblLineupHistoryRow } from '../types'
  * down the side, one cell each.
  *
  * Pure and separate from the component because the ordering rules are the part with
- * actual judgment in them — see `rankPlayer`.
+ * actual judgment in them. See `rankPlayer`.
  */
 
 export type LineupCell = { position: string | null; spot: number; started: boolean }
@@ -22,7 +22,7 @@ export interface LineupGrid {
  * Where a player sorts. Managers think in lineup slots, so rows read like a lineup card:
  * the usual leadoff hitter on top, the usual #9 near the bottom.
  *
- * `key` is the slot a player most often starts in — modal, not mean, because an average is
+ * `key` is the slot a player most often starts in: modal, not mean, because an average is
  * meaningless for someone who hits 2nd against righties and 7th against lefties (it would
  * invent a 4.5 they have never occupied). Ties go to the earlier slot.
  *

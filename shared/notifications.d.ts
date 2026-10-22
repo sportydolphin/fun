@@ -1,7 +1,7 @@
 // Types for shared/notifications.js. Hand-written because the catalog is plain
 // ESM .js (so Node can run it directly) and the project doesn't enable allowJs.
 
-/** Transport-agnostic notification content — rendered by the bell and by Web Push. */
+/** Transport-agnostic notification content, rendered by the bell and by Web Push. */
 export interface NotificationPayload {
   /** Stable identity: dedupe key in the bell, `tag` for Web Push. */
   id:    string

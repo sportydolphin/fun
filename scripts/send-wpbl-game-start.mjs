@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * send-wpbl-game-start.mjs — "the WPBL game you flagged is about to start" Web Push.
+ * send-wpbl-game-start.mjs: "the WPBL game you flagged is about to start" Web Push.
  *
  * The push side of the reminder bell on the WPBL Home next-game card
  * Two ways to opt in, both honored here: a standing
@@ -200,7 +200,7 @@ async function main() {
     .select('user_id, game_id, lead_min')
     .gte('game_date', date)
   if (remErr) {
-    console.error('  ❌  Could not read wpbl_game_reminders — run scripts/create_wpbl_game_reminders.sql first.')
+    console.error('  ❌  Could not read wpbl_game_reminders. Run scripts/create_wpbl_game_reminders.sql first.')
     throw new Error(remErr.message)
   }
   // 1b. Standing opt-ins: users who asked for a reminder before EVERY game rather than
@@ -214,7 +214,7 @@ async function main() {
   const allGamesUsers = (allGamesRows ?? []).map(r => r.user_id)
 
   if ((!reminders || reminders.length === 0) && allGamesUsers.length === 0) {
-    console.log('  No reminders opted in — exiting.')
+    console.log('  No reminders opted in, exiting.')
     return
   }
 
@@ -279,7 +279,7 @@ async function main() {
   if (allGamesUsers.length) {
     console.log(`  ${allGamesUsers.length} user(s) on the every-game opt-in`)
   }
-  if (reminders.length === 0) { console.log('  Nothing to send today — exiting.'); return }
+  if (reminders.length === 0) { console.log('  Nothing to send today, exiting.'); return }
 
   // 3. Which reminders already went out, so we send each exactly once.
   const { data: sentRows, error: sentErr } = await supabase
@@ -287,7 +287,7 @@ async function main() {
     .select('user_id, game_id')
     .eq('game_date', date)
   if (sentErr) {
-    console.error('  ❌  Could not read wpbl_game_start_sent — run scripts/create_wpbl_game_reminders.sql first.')
+    console.error('  ❌  Could not read wpbl_game_start_sent. Run scripts/create_wpbl_game_reminders.sql first.')
     throw new Error(sentErr.message)
   }
   const alreadySent = new Set((sentRows ?? []).map(r => `${r.user_id}:${r.game_id}`))

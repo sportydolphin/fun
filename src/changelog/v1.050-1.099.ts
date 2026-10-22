@@ -251,7 +251,7 @@ export const ENTRIES: ChangelogEntry[] = [
       },
       {
         short: 'Flatter cards in dark mode',
-        full:  'Home, the season recap, the Teams tab and every team page draw their cards as outlines with no grey fill in dark mode, so a page reads as one document rather than a stack of panels. Light mode is unchanged.',
+        full:  'Home, the season recap, the Teams tab and every team page draw their cards as outlines with no gray fill in dark mode, so a page reads as one document rather than a stack of panels. Light mode is unchanged.',
       },
       {
         short: 'The season recap tells the postseason',
@@ -396,7 +396,7 @@ export const ENTRIES: ChangelogEntry[] = [
     changes: [
       {
         short: 'Runs by inning: a heatmap of when each club scores, on the season page',
-        full:  'One row for every club and one for the league, one column for every inning, and each square is the runs that club put up in that inning, per time it batted in it. Red squares are more runs than the league’s average inning, blue fewer and grey about average, and the number is printed in every square too. Flip it to Allowed to see when a club gives them up instead, and to Postseason to see the bracket on its own, kept apart from the regular season. A bottom of the 7th the home side never needed to bat is left out rather than counted as a scoreless inning, which is how the league’s own line score records it and would otherwise make every club look quiet late.',
+        full:  'One row for every club and one for the league, one column for every inning, and each square is the runs that club put up in that inning, per time it batted in it. Red squares are more runs than the league’s average inning, blue fewer and gray about average, and the number is printed in every square too. Flip it to Allowed to see when a club gives them up instead, and to Postseason to see the bracket on its own, kept apart from the regular season. A bottom of the 7th the home side never needed to bat is left out rather than counted as a scoreless inning, which is how the league’s own line score records it and would otherwise make every club look quiet late.',
       },
     ],
   },
@@ -522,7 +522,7 @@ export const ENTRIES: ChangelogEntry[] = [
       },
       {
         short: 'Clubs slide past each other when the standings reorder',
-        full:  'Scrubbing the chart or pressing play reorders the table above it, and a table that reorders in one frame is a flicker: you see that something changed without seeing what. The rows travel to their new places instead, so you watch New York pass Los Angeles rather than finding them already swapped. The records themselves keep up with your cursor exactly; it is only the ORDER that waits for you to hold still for a moment, because digits ticking in place are easy to read and four rows changing places a dozen times during one sweep is not. A row on the move gets an opaque backing while it moves, since two clubs crossing would otherwise print through each other. The light grey lines between the clubs stay where they are throughout, so a club slides under its divider instead of taking it along. Under play the moves are cut to the speed the season is running at, so every club lands as the next day arrives. Off entirely if you have asked for reduced motion.',
+        full:  'Scrubbing the chart or pressing play reorders the table above it, and a table that reorders in one frame is a flicker: you see that something changed without seeing what. The rows travel to their new places instead, so you watch New York pass Los Angeles rather than finding them already swapped. The records themselves keep up with your cursor exactly; it is only the ORDER that waits for you to hold still for a moment, because digits ticking in place are easy to read and four rows changing places a dozen times during one sweep is not. A row on the move gets an opaque backing while it moves, since two clubs crossing would otherwise print through each other. The light gray lines between the clubs stay where they are throughout, so a club slides under its divider instead of taking it along. Under play the moves are cut to the speed the season is running at, so every club lands as the next day arrives. Off entirely if you have asked for reduced motion.',
       },
       {
         short: 'Findings has folded into Run value, so the prices and the players are on one board',
@@ -633,7 +633,7 @@ export const ENTRIES: ChangelogEntry[] = [
       },
       {
         short: 'Clubs go by their full names where the column can hold one',
-        full:  'San Francisco Firebells rather than Firebells, on a wide enough screen. The cut-off is measured rather than picked: below about a thousand pixels each series box is narrow enough that the longest name would ellipsise to “San Francisco Fireb…”, which is worse than the nickname, and the cut-off allows for the Large text setting too, since that grows the name and narrows its column at the same time. The Chance to win it all list keeps nicknames on purpose: the bars are the point of that list, and a city takes a third of the length out of every one of them.',
+        full:  'San Francisco Firebells rather than Firebells, on a wide enough screen. The cut-off is measured rather than picked: below about a thousand pixels each series box is narrow enough that the longest name would ellipsize to “San Francisco Fireb…”, which is worse than the nickname, and the cut-off allows for the Large text setting too, since that grows the name and narrows its column at the same time. The Chance to win it all list keeps nicknames on purpose: the bars are the point of that list, and a city takes a third of the length out of every one of them.',
       },
       {
         short: 'Club names are half again bigger, and the card is a quarter shorter',
@@ -830,7 +830,7 @@ export const ENTRIES: ChangelogEntry[] = [
     title:   'The pitching line adds itself up',
     changes: [
       {
-        short: 'A box score now totals its pitching, the way it has always totalled its batting',
+        short: 'A box score now totals its pitching, the way it has always totaled its batting',
         full:  'The batting half of a box score ends in a Totals row and the pitching half stopped at the last reliever, so the club’s own line, the hits and runs it gave up and how many pitches it took, was left to be added up by eye. There is a Totals row under the pitchers now, in the same place and the same weight as the batting one. Innings are added as outs rather than as the decimals they print in, so three and a third plus two thirds comes out as the four innings it is instead of 3.3. A column the league has left a gap in shows a dash rather than a total that quietly leaves somebody out.',
       },
     ],
@@ -936,7 +936,7 @@ export const ENTRIES: ChangelogEntry[] = [
       },
       {
         short: 'Balls, strikes and outs read like a scoreboard',
-        full:  'They sit across the top of the card in the order every ballpark stacks them, in the colors every ballpark uses: green for balls, yellow for strikes, red for outs. Big enough to read at a glance rather than counted. An unlit bulb keeps its own color faintly rather than going grey, so at 0-0 you can still tell the three groups apart.',
+        full:  'They sit across the top of the card in the order every ballpark stacks them, in the colors every ballpark uses: green for balls, yellow for strikes, red for outs. Big enough to read at a glance rather than counted. An unlit bulb keeps its own color faintly rather than going gray, so at 0-0 you can still tell the three groups apart.',
       },
       {
         short: 'The last play is broken into its parts instead of printed as one sentence',

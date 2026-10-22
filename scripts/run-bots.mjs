@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * run-bots.mjs — Daily MLB prediction bot runner
+ * run-bots.mjs: Daily MLB prediction bot runner
  *
  * Bots:
- *   🤖 Coin Flip       — randomly picks home or away for each game
- *   🚂 Bandwagon Bot   — picks the team with the better win% (home team breaks ties)
- *   🤖 Homer Bot       — always picks the home team
- *   🧠 Sabermetric Bot — Pythagorean expectation (runs scored/allowed) resolved by
+ *   🤖 Coin Flip:        randomly picks home or away for each game
+ *   🚂 Bandwagon Bot:    picks the team with the better win% (home team breaks ties)
+ *   🤖 Homer Bot:        always picks the home team
+ *   🧠 Sabermetric Bot:  Pythagorean expectation (runs scored/allowed) resolved by
  *                        log5 with a home-field edge; the one that's hard to beat
  *
  * Bot users are created as real Supabase auth accounts on first run so they
  * satisfy FK constraints and appear on the leaderboard like any other user.
- * Their UUIDs are logged and stored — subsequent runs look them up by email.
+ * Their UUIDs are logged and stored: subsequent runs look them up by email.
  *
  * Usage (local):
  *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node scripts/run-bots.mjs
@@ -20,8 +20,8 @@
  *   npm run bots
  *
  * Required env vars:
- *   SUPABASE_URL               — your project URL (or VITE_SUPABASE_URL as fallback)
- *   SUPABASE_SERVICE_ROLE_KEY  — service role key (NEVER the anon key)
+ *   SUPABASE_URL:                your project URL (or VITE_SUPABASE_URL as fallback)
+ *   SUPABASE_SERVICE_ROLE_KEY:   service role key (NEVER the anon key)
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -44,7 +44,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
 
 const CURRENT_SEASON = new Date().getFullYear()
 
-/** Bot definitions — emails are never used for real login, just as unique keys */
+/** Bot definitions: emails are never used for real login, just as unique keys */
 const BOTS = [
   { email: 'bot-coinflip@mlbpicks.internal',    displayName: '🤖 Coin Flip' },
   { email: 'bot-betterrecord@mlbpicks.internal', displayName: '🚂 Bandwagon Bot' },
@@ -63,7 +63,7 @@ function todayStr() {
 
 /**
  * Returns the existing user ID for the bot email, or creates a new auth user
- * and returns its UUID. The password is random and never used — bots only write
+ * and returns its UUID. The password is random and never used: bots only write
  * through the service role key.
  */
 async function getOrCreateBotUser(email, displayName) {
@@ -152,7 +152,7 @@ function homeTeamPick(game) {
   return game.homeId   // bet on home-field advantage, every time
 }
 
-// Pythagorean win expectation — a team's "deserved" win rate from runs scored/allowed,
+// Pythagorean win expectation: a team's "deserved" win rate from runs scored/allowed,
 // which sees through a lucky or unlucky W-L record. Exponent 1.83 is the classic MLB fit.
 function pythagExpectation(t) {
   const rs = t?.rs ?? 0, ra = t?.ra ?? 0
@@ -250,7 +250,7 @@ async function computeAndUpsertStats(userId, displayName) {
   }, { onConflict: 'user_id' })
 
   if (error) {
-    console.warn(`  ⚠️  Stats upsert skipped (${error.message}) — run the prediction_stats SQL migrations first`)
+    console.warn(`  ⚠️  Stats upsert skipped (${error.message}). Run the prediction_stats SQL migrations first`)
   } else {
     const heat = currentStreak >= 3 ? ` 🔥${currentStreak}` : ''
     console.log(`  📊 ${displayName}: ${correctPredictions}/${finalizedCount} correct (${accuracyPct}%)${heat}`)
@@ -261,7 +261,7 @@ async function computeAndUpsertStats(userId, displayName) {
 
 async function main() {
   const date = todayStr()
-  console.log(`\n🤖 MLB Bot Runner — ${date}\n`)
+  console.log(`\n🤖 MLB Bot Runner: ${date}\n`)
 
   // ── 1. Get or create bot auth users ────────────────────────────────────────
   console.log('👤 Resolving bot users…')
@@ -344,7 +344,7 @@ async function main() {
     if (pyErr) console.error(`  ❌ Sabermetric Bot insert failed: ${pyErr.message}`)
     else console.log(`  🧠 Sabermetric Bot: ${pythagRows.length} picks saved`)
   } else {
-    console.log('  No upcoming games — skipping picks')
+    console.log('  No upcoming games, skipping picks')
   }
 
   // ── 4. Recompute and upsert all-time stats ─────────────────────────────────

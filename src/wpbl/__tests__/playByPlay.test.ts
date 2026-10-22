@@ -167,7 +167,7 @@ describe('parsePlay', () => {
       .toBe('reached first on a fielding error by ss')
   })
 
-  it('keeps "out to ss" in the outcome — that is not a fielding sequence', () => {
+  it('keeps "out to ss" in the outcome: that is not a fielding sequence', () => {
     expect(parsePlay('Claire Eccles lined out to ss (1-2 KFB).', 'Claire Eccles', shorten).what)
       .toBe('lined out to ss')
   })

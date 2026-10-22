@@ -1,18 +1,18 @@
-// wpbl-ingest — pulls the WPBL official public feed and mirrors it into Supabase.
+// wpbl-ingest: pulls the WPBL official public feed and mirrors it into Supabase.
 //
 // The league publishes a JSON API at https://stats.womensprobaseballleague.com/v1 with
 // no auth. This function reconciles it against our tables (readable team slugs + player
 // uuids, keyed to the feed by api_id) and upserts games, box-score lines, fielding,
-// play-by-play, and TrackMan pitch tracking. It is idempotent — safe to run on a cron.
+// play-by-play, and TrackMan pitch tracking. It is idempotent: safe to run on a cron.
 //
 // Invoke (POST, JSON body, all fields optional):
 //   { "mode": "all" | "active", "gameId": "<api id>", "force": false }
-//   • mode "all"    — (re)ingest every game's boxscore. Use for the initial backfill.
-//   • mode "active" — DEFAULT. Only fetch boxscores for games that aren't already
+//   • mode "all":     (re)ingest every game's boxscore. Use for the initial backfill.
+//   • mode "active":  DEFAULT. Only fetch boxscores for games that aren't already
 //                     'final' in our DB (i.e. scheduled→live→final transitions). Cheap
 //                     enough to run every couple minutes.
-//   • gameId        — ingest just this one game (implies its boxscore, ignores mode).
-//   • force         — with mode "active", also re-fetch games already final (corrections).
+//   • gameId:         ingest just this one game (implies its boxscore, ignores mode).
+//   • force:          with mode "active", also re-fetch games already final (corrections).
 //
 // Deploy:
 //   supabase functions deploy wpbl-ingest
@@ -65,11 +65,11 @@ function chicagoTime(iso: string): string {
 }
 
 // The feed appends a literal "Z" to a naive wall-clock string (presto_data.startDateTime)
-// that actually belongs to the zone in presto_data.timeZone — so scheduled_start is wrong
+// that actually belongs to the zone in presto_data.timeZone, so scheduled_start is wrong
 // by that zone's UTC offset. Every WPBL game runs on Central time, so we re-home each game
 // from its tagged zone onto Central: shift the instant by (taggedZoneOffset − centralOffset).
 //   • Eastern-tagged rows (the legacy encoding: feed said 5:30 PM, true pitch 6:30 PM CT) get
-//     +1h — matching the old flat fix.
+//     +1h, matching the old flat fix.
 //   • Central-tagged rows (a newer encoding the feed now also emits for the same games) are
 //     already the true instant and get +0. The old flat +1h pushed THESE an hour late, which
 //     is the bug this replaces.
@@ -109,7 +109,7 @@ function mapStatus(text: string, complete?: boolean): 'scheduled' | 'live' | 'fi
   if (complete) return 'final'
   const t = text.toLowerCase().trim()
   if (t.startsWith('final') || t.includes('complete') || t.includes('game over') || t.includes('walk-off')) return 'final'
-  // Positive live signals only — everything else (incl. "Not Started", "Scheduled",
+  // Positive live signals only: everything else (incl. "Not Started", "Scheduled",
   // "TBA", "Postponed", "Canceled", or an unknown string) is treated as scheduled, so
   // future games never show as live by accident.
   if (t.includes('progress') || t.includes('inning') || t.includes('delay') || /\b(top|bottom|mid|end)\b/.test(t)) return 'live'
@@ -122,7 +122,7 @@ function mapStatus(text: string, complete?: boolean): 'scheduled' | 'live' | 'fi
 // insert a new roster row. Backfills feed ids / uniform / bats / throws on the way, and moves
 // a player's club forward when a box score puts them somewhere new.
 //
-// TRADES. The feed mints a NEW player_id per club — Diana Ibarra is moizfkn9dtrm4vno on New
+// TRADES. The feed mints a NEW player_id per club: Diana Ibarra is moizfkn9dtrm4vno on New
 // York and 27svefz41ds4k58k on Los Angeles, both ACTIVE, career_id empty on both, so nothing
 // in the payload says they are one person. Every match below except `traded` is scoped to a
 // single team, which is right for spelling variants and fatal for a trade: the new id matched
@@ -204,7 +204,7 @@ class PlayerResolver {
   // prefix of the other (Val↔Valerie, Alex↔Alexandra, Sam↔Samuel). This is where feed
   // nicknames that editDistance can't reach actually live. Deliberately narrow: it fires
   // ONLY on the prefix pattern, requires the surname to match exactly and both given names
-  // to be ≥3 chars, and bails on any ambiguity (two teammates sharing a surname) — so it
+  // to be ≥3 chars, and bails on any ambiguity (two teammates sharing a surname), so it
   // never merges two distinct players. Non-prefix nicknames (Gabby↔Gabriella) stay manual.
   private nickname(teamSlug: string, nm: string): string | null {
     const parts = nm.split(' ')
@@ -243,7 +243,7 @@ class PlayerResolver {
     if (!apiId || p.apiIds.has(apiId)) return
     p.apiIds.add(apiId)
     this.byApi.set(apiId, id)
-    // api_id stays "the current one" — plenty of code reads it as a scalar — while api_ids
+    // api_id stays "the current one" (plenty of code reads it as a scalar) while api_ids
     // keeps every id the player has ever had, because wpbl_pitch_tracking is keyed on the
     // FEED id and a traded player's older pitches are only reachable through the older one.
     this.patch(id, { api_id: apiId, api_ids: [...p.apiIds] })
@@ -271,7 +271,7 @@ class PlayerResolver {
     if (ctx.contested) return false
     if (p.teamId === teamSlug) {
       // Same club, but a newer game: raise the floor so a later re-read of an older game
-      // cannot move them. Cheap — in steady state this is only the games ingested for the
+      // cannot move them. Cheap: in steady state this is only the games ingested for the
       // first time, and a re-poll of the same live game writes nothing.
       if (p.teamAsOf == null || ctx.date > p.teamAsOf) {
         p.teamAsOf = ctx.date
@@ -343,7 +343,7 @@ class PlayerResolver {
     const apiId = s(feed.id)
     const nm = normName(name)
 
-    // 1) a feed id we have seen before — including one this player picked up in an earlier trade
+    // 1) a feed id we have seen before, including one this player picked up in an earlier trade
     let id = apiId ? this.byApi.get(apiId) ?? null : null
     let reason = 'feed-id'
 
@@ -366,7 +366,7 @@ class PlayerResolver {
     // 3.5) nickname-shortening hit within the same team
     if (!id) id = this.nickname(teamSlug, nm)
 
-    // 3.75) exact name, different club — she was traded, not born. PLAYED GAMES ONLY: this is
+    // 3.75) exact name, different club: she was traded, not born. PLAYED GAMES ONLY: this is
     // the one matcher that reaches across clubs, so it is the one a staged lineup can turn into
     // a mass trade, and on Sep 3, 2026 it did. Seventeen Hunters read as Queens off a copy of
     // that night's Los Angeles game that was never played, which left Boston's roster page
@@ -383,7 +383,7 @@ class PlayerResolver {
       return id
     }
 
-    // 4) insert a new feed-only player — but never under a name we know is damaged. An
+    // 4) insert a new feed-only player, but never under a name we know is damaged. An
     // unmatched damaged name is either a roster player this run couldn't recognize or a
     // genuinely new one whose name we can't spell; inserting it is wrong in both cases and
     // permanent, while skipping costs only this player's lines for this run. The ingest is
@@ -517,11 +517,11 @@ interface GameCtx {
 }
 
 // Write one game's child rows with minimal churn. The old delete-then-insert rewrote every
-// row on every ingest — brutal under the every-2-min live re-ingest, which bloats the table
+// row on every ingest, brutal under the every-2-min live re-ingest, which bloats the table
 // and its indexes. Instead upsert on the natural key: rows that already exist are updated in
 // place (a HOT update, since the indexed columns game_id/player_id/sequence don't change and
 // the stat columns aren't indexed), so the indexes stay stable and dead tuples drop sharply.
-// Then prune any rows for this game the feed no longer reports — in steady state this matches
+// Then prune any rows for this game the feed no longer reports: in steady state this matches
 // nothing (box scores only grow), so it deletes zero rows and costs zero churn; it only fires
 // on a genuine correction, keeping the stored set exactly equal to the feed.
 async function syncGameRows(
@@ -542,13 +542,13 @@ async function syncGameRows(
 }
 
 // ─── tracking (TrackMan) source ───────────────────────────────────────────────
-// The boxscore embeds `tracking_activity`, but it's server-capped at 200 events — a
+// The boxscore embeds `tracking_activity`, but it's server-capped at 200 events: a
 // full game is ~380. The dedicated /games/{id}/activity endpoint is the uncapped,
 // paginated source (and adds `distance` on hit events), so we page through it and
 // merge over whatever the boxscore carried, keyed by activity_id. Merging (rather than
 // replacing) means we never lose the boxscore's set if /activity ever regresses, and
 // the endpoint's richer copy wins on overlap. Games the league hasn't published
-// tracking for return an empty page — nothing to do, and they light up automatically
+// tracking for return an empty page: nothing to do, and they light up automatically
 // once it appears. (Complements the late-backfill gate below, which re-fetches recent
 // finals whose tracking posts after the game goes Final.)
 async function fetchTracking(apiGameId: string, fromBox: any[]): Promise<any[]> {
@@ -715,7 +715,7 @@ async function ingestBoxscore(
     }
   }
 
-  // Play-by-play — delete + reinsert (immutable per game, keeps sequence clean).
+  // Play-by-play: delete + reinsert (immutable per game, keeps sequence clean).
   const plays = (box.plays ?? []).map((p: any) => ({
     game_id: gameUuid, sequence: n(p.sequence), inning: n(p.inning),
     half: s(p.half) === 'bottom' ? 'bottom' : 'top', team_id: slugOf(s(p.team_id)),
@@ -729,7 +729,7 @@ async function ingestBoxscore(
     fouls: n(p.fouls), pitch_events: p.pitch_events ?? null,
   }))
 
-  // TrackMan — sourced from the uncapped /activity endpoint (merged over the boxscore's
+  // TrackMan: sourced from the uncapped /activity endpoint (merged over the boxscore's
   // capped copy), upsert on activity_id (stable per event).
   const tracking = (await fetchTracking(apiGameId, box.tracking_activity ?? []))
     .filter((t: any) => t.activity_id)
@@ -773,7 +773,7 @@ Deno.serve(async (req) => {
     if (body.gameId) oneGame = String(body.gameId)
   } catch { /* defaults */ }
 
-  // Health log — one row per run (success or failure) so the app can show a freshness
+  // Health log: one row per run (success or failure) so the app can show a freshness
   // indicator. Best-effort: a logging failure must never break the ingest response.
   const startedAt = Date.now()
   const logRun = async (ok: boolean, games: number, boxscores: number, errors: string[]) => {
@@ -803,8 +803,8 @@ Deno.serve(async (req) => {
       for (const a of [...(t.api_ids ?? []), t.api_id]) if (a) teamSlug.set(a as string, t.id)
     }
     if (teamSlug.size === 0) {
-      await logRun(false, 0, 0, ['No wpbl_teams.api_id mappings — run scripts/add_wpbl_api_ingest.sql first'])
-      return json({ error: 'No wpbl_teams.api_id mappings — run scripts/add_wpbl_api_ingest.sql first' }, 400)
+      await logRun(false, 0, 0, ['No wpbl_teams.api_id mappings. Run scripts/add_wpbl_api_ingest.sql first'])
+      return json({ error: 'No wpbl_teams.api_id mappings. Run scripts/add_wpbl_api_ingest.sql first' }, 400)
     }
 
     // And LEARN the next one, because the postseason ids will not be the last set the feed
@@ -841,13 +841,13 @@ Deno.serve(async (req) => {
     for (const g of ourGames ?? []) if (g.api_game_id) byApi.set(g.api_game_id, { id: g.id, status: g.status })
 
     // Late TrackMan backfill. The league reconciles tracking (event_type
-    // 'rest_reconciliation') in batches that land DAYS after a game goes Final — the two
+    // 'rest_reconciliation') in batches that land DAYS after a game goes Final. The two
     // Aug 1–2 games were both published in a single batch on Aug 3, and later games can lag
     // further and arrive in bulk. The "active" gate below skips games already stored final,
     // so without this those late batches would be lost forever. Re-fetch recently-final
     // games that still have zero tracking rows; once the feed posts the data (or the window
     // lapses) this stops. The window must comfortably exceed the observed publish lag, so it
-    // is generous — the cost is only a boxscore+activity fetch per still-untracked final,
+    // is generous: the cost is only a boxscore+activity fetch per still-untracked final,
     // and the set shrinks to nothing as games fill in. Empty on the initial `all` backfill
     // (which fetches everything anyway).
     //
@@ -931,12 +931,12 @@ Deno.serve(async (req) => {
     // grouping keys below use the CORRECTED first pitch (correctedStart) so the timezone-tag
     // twins collapse onto one instant before we compare. Two shapes of duplicate:
     //
-    //   (A) A stale, never-played copy beside the real one — same date + matchup, different
+    //   (A) A stale, never-played copy beside the real one: same date + matchup, different
     //       game_id (e.g. a weather delay left an extra "Not Started" slot next to a completed
     //       game). Group by (Chicago date, matchup) ignoring time; if the group has a played
     //       copy (final/live/completed), any still-unplayed copy is a phantom.
-    //   (B) The feed emits each upcoming game two-or-three times — once tagged Central, once
-    //       tagged Eastern — for the SAME date, matchup, and (after correction) first pitch.
+    //   (B) The feed emits each upcoming game two-or-three times (once tagged Central, once
+    //       tagged Eastern) for the SAME date, matchup, and (after correction) first pitch.
     //       Collapse each (date, matchup, corrected pitch) bucket to a single best copy,
     //       keeping whichever is most real: played over scheduled, has team ids over blank,
     //       then lowest game_id for stability. Including the time preserves real doubleheaders.
@@ -997,7 +997,7 @@ Deno.serve(async (req) => {
       if (!apiGameId) continue
       if (oneGame && apiGameId !== oneGame) continue
 
-      // Phantom copy of an already-played game — skip it, and delete any row we ingested on
+      // Phantom copy of an already-played game: skip it, and delete any row we ingested on
       // an earlier run (cascades its lines/plays). It re-appears only if it truly starts.
       if (phantomIds.has(apiGameId)) {
         if (byApi.has(apiGameId)) {
@@ -1007,7 +1007,7 @@ Deno.serve(async (req) => {
         continue
       }
 
-      // TBD placeholder games have empty team ids — skip them silently.
+      // TBD placeholder games have empty team ids: skip them silently.
       if (!s(fg.home_team_id) || !s(fg.away_team_id)) continue
       const homeSlug = teamSlug.get(s(fg.home_team_id))
         ?? await adoptTeam(s(fg.home_team_id), s(fg.home_team_name))
@@ -1058,7 +1058,7 @@ Deno.serve(async (req) => {
 
       // Decide whether to pull the boxscore. Besides explicit/live cases, also fetch once
       // a game's scheduled start has passed (its list-status may still read "Not Started"
-      // even though it's underway) — the boxscore itself then decides live vs final.
+      // even though it's underway); the boxscore itself then decides live vs final.
       const prior = byApi.get(apiGameId)
       const started = startIso ? Date.parse(startIso) <= Date.now() : false
       const notFinalHere = !prior || prior.status !== 'final'
@@ -1074,7 +1074,7 @@ Deno.serve(async (req) => {
         const box = await ingestBoxscore(db, up.id, apiGameId, gameRow.game_date, teamSlug, resolver, s(fg.completed_at))
         summary.boxscores++
         summary.errors.push(...box.breaks)
-        // A game we were already tracking has just finished — announce it to Discord now,
+        // A game we were already tracking has just finished: announce it to Discord now,
         // rather than leaving it for the scheduled poster's next quarter-hour. Deliberately
         // requires a `prior` row: a game first SEEN as final (a backfill, `mode: "all"`, a
         // season imported at once) was never watched finishing here and stays quiet.

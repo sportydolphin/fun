@@ -1,10 +1,10 @@
-// Cloudflare Pages function for /discord/wpbl — the Discord bot's inbound endpoint.
+// Cloudflare Pages function for /discord/wpbl: the Discord bot's inbound endpoint.
 //
 // Discord offers two ways to run a bot. A gateway bot holds a websocket open and needs a
 // process running somewhere forever, which this project has nowhere to put. The other is an
 // HTTP interactions endpoint: Discord POSTs each slash command to a URL and takes the reply
-// from the response body. That is what this is, and it costs nothing when nobody is asking
-// — it deploys with the site and there is no bot to keep alive.
+// from the response body. That is what this is, and it costs nothing when nobody is asking:
+// it deploys with the site and there is no bot to keep alive.
 //
 // It answers /player <name>, resolving whatever was typed against the roster
 // (src/wpbl/playerSearch.ts) and replying with that player's season
@@ -155,7 +155,7 @@ function typed(interaction: Interaction): string {
 
 // Allocated through an explicit ArrayBuffer rather than `new Uint8Array(n)`. Both are the
 // same at runtime, but TypeScript types the shorthand as Uint8Array<ArrayBufferLike>, and
-// WebCrypto's BufferSource will only accept a view backed by a plain ArrayBuffer — a
+// WebCrypto's BufferSource will only accept a view backed by a plain ArrayBuffer. A
 // SharedArrayBuffer-backed view is not transferable to it.
 function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
   const clean = hex.trim()
@@ -215,7 +215,7 @@ function reader(env: Env, signal: AbortSignal) {
 //
 // Autocomplete is what makes this worth having. Discord fires an autocomplete interaction
 // as the reader types, several per search, and each one needs the whole roster to match
-// against — so the uncached version re-read all ~120 players and every team for each
+// against, so the uncached version re-read all ~120 players and every team for each
 // keystroke, to answer from data that changes when someone is signed or traded.
 //
 // Two layers, because they fail differently. The module-scope memo is free and instant but
@@ -390,7 +390,7 @@ const LIVE_BOX_COLUMNS =
 /**
  * Reply with the current box score of a live game. Public, so it can be shared.
  *
- * With two games live at once the reader has to say which — the `team` option filters, and
+ * With two games live at once the reader has to say which: the `team` option filters, and
  * without it the two are listed rather than guessed at. Never throws: every failure is a
  * message, so an unreachable database reads as a sentence rather than "the application did not
  * respond".

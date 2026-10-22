@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * send-reminders.mjs — Daily "make your picks" Web Push reminder.
+ * send-reminders.mjs: Daily "make your picks" Web Push reminder.
  *
  * Finds users who have EXPLICITLY opted into pick reminders
  * (user_preferences.notify_pick_reminders) and haven't finished predicting today's games,
  * and sends each of their devices a nudge.
  *
  * The opt-in is a preference, never the mere existence of a push_subscriptions row: a
- * subscription is a device registration that anything needing to send a push will create —
- * including the WPBL game-start bell — so treating it as consent signed WPBL fans up for
+ * subscription is a device registration that anything needing to send a push will create,
+ * including the WPBL game-start bell, so treating it as consent signed WPBL fans up for
  * daily MLB predictions prompts they never asked for.
  * Meant to run once a day from a GitHub Action, comfortably before first pitch.
  *
@@ -21,11 +21,11 @@
  *   node scripts/send-reminders.mjs --test <user-id>
  *
  * Required env vars:
- *   SUPABASE_URL               — project URL (or VITE_SUPABASE_URL as fallback)
- *   SUPABASE_SERVICE_ROLE_KEY  — service role key (NEVER the anon key)
- *   VAPID_PUBLIC_KEY           — VAPID public key (same one shipped as VITE_VAPID_PUBLIC_KEY)
- *   VAPID_PRIVATE_KEY          — VAPID private key (keep secret)
- *   VAPID_SUBJECT              — a mailto: or https: contact URL (optional; defaults to a mailto)
+ *   SUPABASE_URL:                project URL (or VITE_SUPABASE_URL as fallback)
+ *   SUPABASE_SERVICE_ROLE_KEY:   service role key (NEVER the anon key)
+ *   VAPID_PUBLIC_KEY:            VAPID public key (same one shipped as VITE_VAPID_PUBLIC_KEY)
+ *   VAPID_PRIVATE_KEY:           VAPID private key (keep secret)
+ *   VAPID_SUBJECT:               a mailto: or https: contact URL (optional; defaults to a mailto)
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -90,7 +90,7 @@ async function fetchPreviewGamePks(date) {
  *
  * `id` doubles as the push `tag`, so a resend replaces the previous banner and
  * the in-site bell recognizes it as the same notification. The catalog's emoji
- * travels as `emoji` — `icon` is reserved for the OS notification image, which
+ * travels as `emoji`: `icon` is reserved for the OS notification image, which
  * sw.js defaults to /icon-192.png.
  */
 function toPushPayload(n) {
@@ -170,13 +170,13 @@ async function main() {
   }
 
   const date = todayStr()
-  console.log(`\n🔔 Pick reminders — ${date}\n`)
+  console.log(`\n🔔 Pick reminders: ${date}\n`)
 
   // 1. Which of today's games are still pickable?
   const previewPks = await fetchPreviewGamePks(date)
   console.log(`  ${previewPks.length} game(s) still open for picks`)
   if (previewPks.length === 0) {
-    console.log('  Nothing to remind about today — exiting.')
+    console.log('  Nothing to remind about today, exiting.')
     return
   }
   const previewSet = new Set(previewPks)
@@ -187,7 +187,7 @@ async function main() {
     .select('user_id, endpoint, p256dh, auth')
   if (subsErr) throw new Error(`Loading subscriptions failed: ${subsErr.message}`)
   if (!subsRows || subsRows.length === 0) {
-    console.log('  No push subscriptions yet — exiting.')
+    console.log('  No push subscriptions yet, exiting.')
     return
   }
   const subsByUser = new Map()
@@ -198,7 +198,7 @@ async function main() {
   console.log(`  ${subsByUser.size} subscribed user(s), ${subsRows.length} device(s)`)
 
   // 2b. Consent. A push subscription is a device registration, not a request to hear about
-  // predictions — anything that needs to deliver a push creates one, including the WPBL
+  // predictions: anything that needs to deliver a push creates one, including the WPBL
   // game-start bell, which is how fans who have never made a pick ended up being nudged
   // daily to make them. Only users who explicitly turned pick reminders on are eligible.
   const { data: prefRows, error: prefErr } = await supabase
@@ -213,7 +213,7 @@ async function main() {
   }
   console.log(`  ${subsByUser.size} opted into pick reminders`)
   if (subsByUser.size === 0) {
-    console.log('  Nobody opted in — exiting.')
+    console.log('  Nobody opted in, exiting.')
     return
   }
 

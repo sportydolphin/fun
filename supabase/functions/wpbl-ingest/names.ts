@@ -1,5 +1,5 @@
 // Name matching for player reconciliation. Its own module so it can be unit-tested from
-// the app's test runner (see src/wpbl/__tests__/ingestNames.test.ts) — index.ts imports
+// the app's test runner (see src/wpbl/__tests__/ingestNames.test.ts); index.ts imports
 // the Supabase client over HTTPS and only Deno can load it, but nothing here has any
 // dependencies at all. Getting these rules wrong forks a second roster row for a player
 // who already exists, which is a permanent, visible data error, so they are worth pinning
@@ -8,7 +8,7 @@
 // Strip accents + case/space for name matching ("Maïka Dumais" ↔ "maika dumais").
 //
 // A run of U+FFFD collapses to one. That character is what a UTF-8 decoder emits for
-// bytes it can't read, so it stands for one letter the feed lost in transit — but a
+// bytes it can't read, so it stands for one letter the feed lost in transit, but a
 // single lost letter usually produces two of them (a two-byte sequence like the 0xC3 0xAF
 // of "ï" fails twice), and how many appear says nothing about how many letters went
 // missing. Collapsing makes "one damaged letter" a single wildcard, which is what
@@ -26,7 +26,7 @@ export const normName = (name: string): string =>
 /** Does this normalized name carry damage from a bad decode? */
 export const isDamaged = (norm: string): boolean => norm.includes(REPLACEMENT)
 
-// Two normalized names that agree everywhere except where one of them is damaged —
+// Two normalized names that agree everywhere except where one of them is damaged:
 // "ma<?>ka dumais" against "maika dumais". Deliberately stricter than the fuzzy pass:
 // lengths must match exactly and every surviving character must be identical, so this
 // recovers a mangled name without ever bringing two genuinely different players together.
@@ -41,7 +41,7 @@ export function replacementMatch(a: string, b: string): boolean {
   return true
 }
 
-// Levenshtein edit distance, capped at `max` (returns max+1 once exceeded) — used for a
+// Levenshtein edit distance, capped at `max` (returns max+1 once exceeded), used for a
 // last-ditch fuzzy roster match so feed spelling variants (Villareal↔Villarreal,
 // Foxx↔Fox, Gabriella↔Gabrielle) resolve to the seeded player instead of a duplicate.
 // Nickname SHORTENINGS (Val↔Valerie, Alex↔Alexandra) are too far for this, but the
@@ -69,7 +69,7 @@ export function editDistance(a: string, b: string, max = 1): number {
 // moizfkn9dtrm4vno on New York and 27svefz41ds4k58k on Los Angeles, both flagged ACTIVE,
 // career_id empty on both: nothing in the payload says they are one person. Every other
 // matcher in this file is scoped to a single team, which is right for spelling variants and
-// fatal here, so the two rules a trade needs live below — pure, and therefore testable from
+// fatal here, so the two rules a trade needs live below: pure, and therefore testable from
 // the app's runner, which is the whole reason this module exists.
 
 export interface RosterEntry { id: string; norm: string; teamId: string }
@@ -107,7 +107,7 @@ export const anonymous = (apiId: string): boolean => !apiId.trim()
  * genuinely different people, and it asks for more than the others: an id the feed actually
  * gave the entry, the full name, at least two parts, spelled exactly after accent folding, and
  * unique league-wide. Two players who
- * really do share a name fail the uniqueness test and neither is touched — the same "don't
+ * really do share a name fail the uniqueness test and neither is touched, the same "don't
  * guess" rule the same-team matchers use. A wrong merge is silent and permanent; a missed one
  * shows up as a duplicate in the next roster listing.
  */

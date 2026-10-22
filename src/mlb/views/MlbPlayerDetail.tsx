@@ -1026,7 +1026,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
       <MlbPageH1>{`${name}: MLB stats`}</MlbPageH1>
       <DetailPageBar
         onBack={onBack}
-        // The nickname on a phone, where "Pittsburgh Pirates" beside Follow and Copy link ellipsises.
+        // The nickname on a phone, where "Pittsburgh Pirates" beside Follow and Copy link ellipsizes.
         eyebrow={club ? (<>
           <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{club.name}</Box>
           <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{TEAM_NICKNAME[club.id] ?? club.name}</Box>

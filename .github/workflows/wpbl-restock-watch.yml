@@ -3,7 +3,7 @@ name: WPBL Shop Restock Watch
 # Watches the league's whole shop and announces new merch and restocks in Discord.
 #
 # It began as one question (the giveaway winner picked a cap that was out of stock, and the
-# shop has no back-in-stock notification of its own) and grew to the catalogue, because asking
+# shop has no back-in-stock notification of its own) and grew to the catalog, because asking
 # that about 271 variants is the same job with a snapshot behind it.
 #
 # TWO VOLUMES, ON PURPOSE. 241 of 271 variants are sold out, so a restock day could move a lot
@@ -42,7 +42,7 @@ name: WPBL Shop Restock Watch
 # recorded in wpbl_shop_watch_runs so a dead watcher can be told from a quiet store.
 #
 # THE FIRST RUN ANNOUNCES NOTHING. An empty snapshot would read as 78 brand-new products. It
-# records the catalogue and stays quiet; real changes are announced from the second run.
+# records the catalog and stays quiet; real changes are announced from the second run.
 
 on:
   # PG_CRON DRIVES THIS, NOT THE SCHEDULE BELOW. Measured Sep 7, 2026: this repo's
@@ -61,7 +61,7 @@ on:
         type: boolean
         default: false
       reseed:
-        description: 'Re-record both catalogues silently (announce nothing). Use after a deliberate change.'
+        description: 'Re-record both catalogs silently (announce nothing). Use after a deliberate change.'
         type: boolean
         default: false
       auction_now:

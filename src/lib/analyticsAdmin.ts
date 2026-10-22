@@ -26,7 +26,7 @@ export interface Overview {
   tz: string
   days_back: number
   league: LeagueFilter
-  /** First event ever recorded — lets the UI admit a range reaches back before the data. */
+  /** First event ever recorded: lets the UI admit a range reaches back before the data. */
   first_event: string | null
   series: DayPoint[]
   totals: WindowTotals
@@ -56,7 +56,7 @@ export interface GameTabStat { tab: string; via: string; status: string; events:
 export interface EntryPoints { sources: EntrySource[]; game_tabs: GameTabStat[] }
 
 // The header search. `empty` is the searches that matched nothing, and `missed` is what those
-// readers actually typed — the only place any typed text is stored (see analytics.ts).
+// readers actually typed: the only place any typed text is stored (see analytics.ts).
 export interface SearchTotals { searched: number; searched_browsers: number; empty: number; picked: number; picked_browsers: number }
 export interface SearchPick   { type: string; source: string; events: number; browsers: number }
 export interface SearchMiss   { q: string; events: number; browsers: number }
@@ -390,7 +390,7 @@ export function formatShare(part: number, whole: number): string {
  * Trim leading all-zero days off a series.
  *
  * The events table starts 2026-08-05, so a 90-day range would otherwise render two and a
- * half months of flat line before the data begins — a chart that says "we were quiet"
+ * half months of flat line before the data begins, a chart that says "we were quiet"
  * where the truth is "we weren't measuring". Only *leading* zeros go: a zero day inside
  * the data is real and must stay (that's the whole reason the SQL gap-fills).
  */
@@ -412,7 +412,7 @@ export function prettyEvent(name: string): string {
  * Map a series onto an SVG polyline, given the drawing box.
  *
  * Returns the point list plus the peak, so the caller can label the y-axis with a real
- * number. A flat or empty series would divide by zero on the y scale — it pins to the
+ * number. A flat or empty series would divide by zero on the y scale: it pins to the
  * bottom of the box instead of producing NaN coordinates that silently erase the path.
  */
 export function seriesPoints(

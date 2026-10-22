@@ -7,7 +7,7 @@ import { passwordProblem } from './lib/passwordPolicy'
 const AuthDialogs = lazy(() => import('./AuthDialogs'))
 
 // Key prefix for stashing a chosen-at-signup username until the account has a
-// real session to write it under (email confirmation may gate that) — picked
+// real session to write it under (email confirmation may gate that), picked
 // up by App.tsx's username-assignment effect once the user is actually signed in.
 export const PENDING_USERNAME_PREFIX = 'sdPendingUsername:'
 
@@ -247,7 +247,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // ── Auth session ───────────────────────────────────────────────────────────
   useEffect(() => {
-    // Dev-only simulated login is active — keep the fake session and never wire up
+    // Dev-only simulated login is active: keep the fake session and never wire up
     // the real Supabase listener (which would immediately overwrite it with null).
     if (readSimulatedSession()) { setLoading(false); return }
 
@@ -279,7 +279,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (wasSignedOut) {
           // Genuine transition from signed-out → signed-in. Reload to a clean URL
           // so any OAuth callback params (?code= / #access_token=) are stripped and
-          // won't cause Supabase to re-fire SIGNED_IN on the next load — landing back
+          // won't cause Supabase to re-fire SIGNED_IN on the next load, landing back
           // on the page the user started from (stashed pre-auth), not a hardcoded home.
           sessionStorage.setItem('sdAuthToast', 'in')
           window.location.replace(takeAuthReturn() ?? cleanPathAndQuery(window.location.href))
@@ -390,7 +390,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       provider: 'google',
       options: { redirectTo: `${window.location.origin}${cleanPathAndQuery(window.location.href)}` },
     })
-    // Page will redirect to Google — nothing to handle here
+    // Page will redirect to Google, nothing to handle here
   }, [])
 
   // A dead recovery link would otherwise land as an ordinary signed-out page load, with the
@@ -534,12 +534,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
       // Stash the chosen username (if any) so it can be applied once the
-      // account has a real session — App.tsx's assignment effect picks this
+      // account has a real session. App.tsx's assignment effect picks this
       // up immediately (auto-confirm) or after the user confirms their email.
       const desired = username.trim()
       if (desired) localStorage.setItem(`${PENDING_USERNAME_PREFIX}${em.toLowerCase()}`, desired)
       if (!data.session) {
-        // Email confirmation required — session is null until they click the link
+        // Email confirmation required: session is null until they click the link
         setSuccessMsg(`Check your inbox! We sent a confirmation link to ${em}.`)
       }
       // If session exists (auto-confirm enabled), onAuthStateChange reloads the page

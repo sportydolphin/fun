@@ -5,10 +5,10 @@ import { createEventQueue, type EventRow } from './eventQueue'
 // (scripts/create_events.sql), readable only by the site owner and never shared
 // with a third party. This complements Cloudflare Web Analytics: Cloudflare answers
 // "how much traffic, to which pages" (cookielessly, at the edge); these events
-// answer "what did people actually do" — made a pick, signed in — joined to our own
+// answer "what did people actually do" (made a pick, signed in), joined to our own
 // user ids. Page views are already covered by Cloudflare, so DON'T log them here.
-// (`wpbl_tab_viewed` is not an exception: it records HOW a tab was reached — pill tap
-// vs. swipe vs. card link — which is a user action Cloudflare's path counts can't
+// (`wpbl_tab_viewed` is not an exception: it records HOW a tab was reached, pill tap
+// vs. swipe vs. card link, which is a user action Cloudflare's path counts can't
 // distinguish. Don't add a plain view counter beside it.)
 
 export const EVENTS = {
@@ -190,7 +190,7 @@ export const EVENTS = {
   WPBL_COMPARE_VIEWED: 'wpbl_compare_viewed', // a pair page rendered, props {a, b, season}
   WPBL_COMPARE_OPENED: 'wpbl_compare_opened', // opened the compare tool, props {from, playerId?, pair?}
   // Home's Compare card, which took the Leaders board's quadrant and shipped with no telemetry
-  // at all — the only card in the feed that could not report whether it was seen or used, the
+  // at all: the only card in the feed that could not report whether it was seen or used, the
   // exact silence every other card here carries an impression to avoid. SHOWN is the
   // denominator; the click-throughs go through WPBL_COMPARE_OPENED with `from: 'home'`.
   WPBL_COMPARE_SHOWN:  'wpbl_compare_shown',  // Home compare card rendered, props {hasPair}
@@ -255,7 +255,7 @@ const SID_KEY = 'sd_analytics_sid'
 
 // A random per-browser id kept in localStorage. It lets us count unique visitors
 // and stitch a visitor's events together before they sign in. It is NOT a
-// cross-site tracker and is never shared — it's local to this browser and cleared
+// cross-site tracker and is never shared: it's local to this browser and cleared
 // when the user clears site data. Falls back to a throwaway value if storage is off.
 //
 // Exported because the fan awards ballot keys a vote on it (src/wpbl/awardVotes.ts): one

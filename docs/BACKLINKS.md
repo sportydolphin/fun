@@ -41,7 +41,7 @@ The single best target. It is the WPBL writing that already exists, it is alread
 on the site's Home tab, and a link from it is exactly on-topic. Mary Mustard writes it.
 
 The site already sends her traffic by mirroring her headlines. That is a genuine reason to
-be in touch, and it is not a favour being asked for nothing.
+be in touch, and it is not a favor being asked for nothing.
 
 > Hi Mary,
 >

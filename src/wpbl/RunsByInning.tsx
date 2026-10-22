@@ -12,10 +12,10 @@
 // half-inning and almost no square sits near zero, so a zero-based ramp spends most of its range
 // where no square is and every square comes out a similar shade. Centring on the league's own
 // half-inning (`mean`) and stretching each arm to the furthest club square (`spread`) spends the
-// whole scale on the differences. Red is more runs than the league average, blue fewer, grey about
+// whole scale on the differences. Red is more runs than the league average, blue fewer, gray about
 // average, and the meaning is the same on Scored and Allowed: it is always a statement about runs,
-// never about whether that was good. Blue and red with a grey midpoint because that pair stays
-// apart for color-blind readers and the grey reads as "nothing", which a hue in the middle would not.
+// never about whether that was good. Blue and red with a gray midpoint because that pair stays
+// apart for color-blind readers and the gray reads as "nothing", which a hue in the middle would not.
 import { useMemo, useState } from 'react'
 import { track, EVENTS } from '../lib/analytics'
 import { Box, Typography, useTheme } from '@mui/material'
@@ -150,7 +150,7 @@ export default function RunsByInning({ games, teams }: { games: readonly WpblGam
                 bgcolor: fill,
                 color: ink ?? 'text.disabled',
                 // A column this club never batted in: outlined so the grid keeps its shape, with no
-                // fill, because grey would claim "about average" for something that did not happen.
+                // fill, because gray would claim "about average" for something that did not happen.
                 // An inset shadow, so it costs no layout.
                 boxShadow: v == null ? `inset 0 0 0 1px ${theme.palette.divider}` : 'none',
               }}
@@ -223,7 +223,7 @@ export default function RunsByInning({ games, teams }: { games: readonly WpblGam
         <Typography sx={legendLabel}>More runs</Typography>
         <Typography sx={legendLabel}>· Avg {fmt(grid.mean)}</Typography>
         <InfoDot text={[
-          `Each square is a club's runs ${verb} in that inning, per half-inning. Grey is the league's average half-inning this ${scopeWord}, ${fmt(grid.mean)} runs; red is more, blue fewer.`,
+          `Each square is a club's runs ${verb} in that inning, per half-inning. Gray is the league's average half-inning this ${scopeWord}, ${fmt(grid.mean)} runs; red is more, blue fewer.`,
           `A bottom half the home side never needed to bat is left out rather than counted as a scoreless inning${grid.columns.includes(EXTRAS_COLUMN) ? ', and every extra inning shares the last column' : ''}.`,
           ...(ext ? [`High: ${ordinal(ext.high.inning)}, ${fmt(perHalf(ext.high)!)}. Low: ${ordinal(ext.low.inning)}, ${fmt(perHalf(ext.low)!)}.`] : []),
           ...(scope === 'postseason' ? [`Postseason: ${minG === maxG ? minG : `${minG} to ${maxG}`} games a club.`] : []),

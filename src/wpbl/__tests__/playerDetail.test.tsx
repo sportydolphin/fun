@@ -22,7 +22,7 @@ const TEAMS: WpblTeam[] = (['SF', 'LA', 'NY', 'BOS'] as const).map((id, i) => ({
 
 // All four clubs play every round. The qualifying bar scales off the LEAST-played club, so a
 // fixture where two of them never take the field leaves it switched off and every rank comes
-// back 'season-young' — which looks like a component bug and is a fixture bug.
+// back 'season-young', which looks like a component bug and is a fixture bug.
 const GAMES: WpblGame[] = Array.from({ length: 10 }, (_, i) => ({
   id: `g${i}`, game_date: `2026-08-${String(i + 1).padStart(2, '0')}`, start_time: '6:30 PM',
   home_team_id: i % 2 ? 'BOS' : 'SF', away_team_id: i % 2 ? 'LA' : 'NY', venue: null, status: 'final',
@@ -586,8 +586,8 @@ describe('PlayerDetail: the game log', () => {
     expect(onOpenGame.mock.calls[0][0].id).toBe('g3')
   })
 
-  // Enter and Space, because the row is not a `role="button"` — that would take it out of the
-  // table for a screen reader — so it carries the keyboard half itself.
+  // Enter and Space, because the row is not a `role="button"` (that would take it out of the
+  // table for a screen reader), so it carries the keyboard half itself.
   it('opens the game from the keyboard', async () => {
     lines.batting = [bat({ game_id: 'g3', ab: 4, h: 2, tb: 3 })]
     const onOpenGame = vi.fn()

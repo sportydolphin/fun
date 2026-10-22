@@ -97,7 +97,7 @@ const DRAG_ANIM_MS = 220
  * `scrollerUnder` correctly returns null for it. This finds the pane the band is pinned over,
  * so a drag there can scroll it.
  *
- * THE HORIZONTAL TEST IS WHAT PICKS THE RIGHT PANE. A tab pager keeps its neighbours mounted
+ * THE HORIZONTAL TEST IS WHAT PICKS THE RIGHT PANE. A tab pager keeps its neighbors mounted
  * and translated off to the sides, so several panes match "overflows vertically" at once.
  * Only the one the card's center line passes through is on screen.
  */
@@ -122,7 +122,7 @@ function visibleScroller(card: HTMLElement): HTMLElement | null {
   }
   // THE CENTER-LINE TEST IS A PREFERENCE, NOT A REQUIREMENT, and that distinction is the
   // difference between this working and dismissing the card by mistake. It exists to pick the
-  // on-screen pane out of a pager that keeps its neighbours mounted and translated aside, and
+  // on-screen pane out of a pager that keeps its neighbors mounted and translated aside, and
   // it is right whenever it matches. But rects are measured mid-gesture and mid-animation, and
   // any layout this has not met that puts them somewhere unexpected would return null here.
   // Null then reads as "there is nothing to scroll, so a drag must be a dismissal", which is

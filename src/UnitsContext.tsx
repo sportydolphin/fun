@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react'
 
 // Site-wide measurement-unit preference. Stored in localStorage so it works for
-// everyone — signed in or not — with no account required. Read through useUnits()
+// everyone, signed in or not, with no account required. Read through useUnits()
 // wherever a value is rendered (velocities, distances, heights, weights) so the whole
 // site can flip between imperial and metric from one setting. Defaults to imperial
 // (US baseball audience). Kept deliberately tiny; conversions live at the call sites.

@@ -1,4 +1,4 @@
-// send-test-push — sends a one-off test Web Push to the CALLING user's own
+// send-test-push: sends a one-off test Web Push to the CALLING user's own
 // devices, regardless of whether there are games today. Backs the Admin panel's
 // "Send test notification" button.
 //
@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     return json({ error: 'VAPID keys are not set for this function. Run: supabase secrets set VAPID_PUBLIC_KEY=… VAPID_PRIVATE_KEY=… VAPID_SUBJECT=…' }, 500)
   }
 
-  // Verify who's calling — we only ever push to this verified user's own rows.
+  // Verify who's calling: we only ever push to this verified user's own rows.
   const callerClient = createClient(supabaseUrl, serviceRoleKey, {
     global: { headers: { Authorization: authHeader } },
   })

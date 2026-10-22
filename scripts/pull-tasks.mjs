@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * pull-tasks.mjs — Pull open Google Tasks into docs/feature-requests.md.
+ * pull-tasks.mjs: Pull open Google Tasks into docs/feature-requests.md.
  *
  * The site's feature backlog is kept in Google Tasks; this reads those lists
  * (read-only) and writes them into a tracked markdown file so the current wish
@@ -31,7 +31,7 @@ const PRINT         = process.argv.includes('--print')
 
 if (!CLIENT_ID || !CLIENT_SECRET || !REFRESH_TOKEN) {
   console.error('❌  Missing Google credentials. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and')
-  console.error('    GOOGLE_REFRESH_TOKEN in .env — run scripts/google-auth.mjs for the last one.')
+  console.error('    GOOGLE_REFRESH_TOKEN in .env. Run scripts/google-auth.mjs for the last one.')
   console.error('    See docs/GOOGLE_TASKS.md.')
   process.exit(1)
 }
@@ -109,7 +109,7 @@ function render(listsWithTasks) {
     '# Feature requests',
     '',
     '> Generated from Google Tasks by `npm run tasks` (scripts/pull-tasks.mjs). Do not',
-    '> edit by hand — edit the tasks in Google Tasks and re-run.',
+    '> edit by hand. Edit the tasks in Google Tasks and re-run.',
     `> Last pulled: ${stamp} UTC · ${total} open item${total === 1 ? '' : 's'}.`,
     '',
   ]

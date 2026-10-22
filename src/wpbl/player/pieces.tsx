@@ -172,7 +172,7 @@ export function FieldingLine({ ft, positions, bare = false }: {
     ...(ft.sba ? [['SBA', ft.sba] as [string, number]] : []),
   ]
   // Wide enough to read as columns rather than as figures run together, never the card's width:
-  // five numbers spread across 1000px would put a hand's span between each one and its neighbour.
+  // five numbers spread across 1000px would put a hand's span between each one and its neighbor.
   const cellSx = { minWidth: '3.25rem' }
   return (
     <Box sx={{ mt: bare ? 0 : BLOCK_GAP }}>

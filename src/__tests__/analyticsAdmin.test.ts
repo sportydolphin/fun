@@ -76,7 +76,7 @@ describe('trimLeadingEmpty', () => {
       .toEqual([d('c', 5), d('d', 7)])
   })
 
-  it('keeps a zero day inside the data — a quiet day is a real reading', () => {
+  it('keeps a zero day inside the data: a quiet day is a real reading', () => {
     expect(trimLeadingEmpty([d('a', 5), d('b', 0), d('c', 7)]))
       .toEqual([d('a', 5), d('b', 0), d('c', 7)])
   })
@@ -98,7 +98,7 @@ describe('prettyEvent', () => {
 describe('shortDate', () => {
   it('reads the date as written, with no timezone shift', () => {
     // Parsing '2026-08-05' via `new Date(iso)` treats it as UTC midnight, which renders as
-    // Aug 4 anywhere west of Greenwich — the off-by-one that makes a chart axis lie.
+    // Aug 4 anywhere west of Greenwich: the off-by-one that makes a chart axis lie.
     expect(shortDate('2026-08-05')).toBe('Aug 5')
     expect(shortDate('2026-12-31T00:00:00Z')).toBe('Dec 31')
   })

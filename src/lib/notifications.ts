@@ -6,11 +6,11 @@
 //
 // Two kinds of notification, and the distinction is the heart of the design:
 //
-//   Derived  — a *state* the app can recompute at any time ("you have 7 picks
+//   Derived:   a *state* the app can recompute at any time ("you have 7 picks
 //              left today"). Produced by a registered source; every refresh
 //              reconciles that source's output, so a notification that no
 //              longer applies disappears on its own. No cleanup logic needed.
-//   Event    — a *thing that happened*, delivered from outside (a Web Push
+//   Event:     a *thing that happened*, delivered from outside (a Web Push
 //              landing while the tab is open). Nothing can recompute it, so it
 //              sticks until the user dismisses it.
 //
@@ -109,7 +109,7 @@ let state: State = load()
 const listeners = new Set<() => void>()
 
 function commit(items: AppNotification[], dismissed = state.dismissed) {
-  // Newest first, capped — the bell is a recent-activity list, not an archive.
+  // Newest first, capped: the bell is a recent-activity list, not an archive.
   const next = [...items].sort((a, b) => b.createdAt - a.createdAt).slice(0, MAX_ITEMS)
   state = { items: next, dismissed }
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)) } catch { /* quota — ignore */ }
@@ -121,7 +121,7 @@ function commit(items: AppNotification[], dismissed = state.dismissed) {
 /**
  * Replace everything `sourceId` previously produced with `payloads`.
  *
- * Anything that source produced before and didn't produce now is dropped — that
+ * Anything that source produced before and didn't produce now is dropped: that
  * is how a derived notification retracts itself once it stops being true. Items
  * from other sources are untouched.
  */
@@ -192,7 +192,7 @@ export interface NotificationSource {
   id: string
   /**
    * Everything this source currently wants shown. Return [] to retract.
-   * Throwing is fine — a failing source leaves its previous output in place
+   * Throwing is fine: a failing source leaves its previous output in place
    * rather than wrongly clearing it.
    */
   evaluate: (ctx: NotificationContext) => Promise<NotificationPayload[]>
@@ -210,7 +210,7 @@ export async function refreshNotifications(ctx: NotificationContext) {
     try {
       reconcileSource(source.id, await source.evaluate(ctx))
     } catch {
-      // Network hiccup — keep whatever that source produced last time.
+      // Network hiccup: keep whatever that source produced last time.
     }
   }))
 }

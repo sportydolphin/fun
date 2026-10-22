@@ -504,7 +504,7 @@ export const WPBL_AWARDS_CREDIT = {
   /** The words before the name, which carry the sheet's voice. */
   prefix: 'In collaboration with',
   /** Set apart from the prefix on the sheet, because the name IS the link and a line of even
-   *  grey read as a footnote nobody would think to press. */
+   *  gray read as a footnote nobody would think to press. */
   name: 'Ghost Baseboo',
   url: 'https://www.youtube.com/@Ghostbaseboo',
 } as const

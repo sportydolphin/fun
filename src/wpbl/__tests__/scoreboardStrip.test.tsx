@@ -12,7 +12,7 @@ import type { WpblGame, WpblTeam } from '../types'
 // rows are date-sorted, so the slots already go to the nearest fixtures and the conditional
 // games being dropped were the NEAR ones. On Sep 12, 2026 the strip ran that evening's
 // semifinal game 2 and then jumped to the championship on Sep 16, with the possible game 3 on
-// Sep 14 — the game that evening was about to decide the existence of — nowhere on the page.
+// Sep 14 (the game that evening was about to decide the existence of) nowhere on the page.
 //
 // The other half of the rule is that `postseasonScheduleRows` drops a conditional game outright
 // once its series is won, so nothing here can show a game that will not be played. That is

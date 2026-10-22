@@ -67,7 +67,7 @@ export function wpblSecondary(teamId: string | null | undefined): string {
 //
 // We deliberately do NOT derive these from the raw team colors. Every WPBL primary is
 // near-black (BOS #00281e, LA #000000, NY #091b47, SF #2d1747), so mixing the primary toward
-// white for dark mode collapses all four to low-chroma greys (LA's becomes literally #8c8c8c).
+// white for dark mode collapses all four to low-chroma grays (LA's becomes literally #8c8c8c).
 // That inverts the visual hierarchy where the accent marks the *winner*: a winning SF's score
 // renders a washed lavender against the loser's near-white, so the loser reads as more
 // important.
@@ -79,7 +79,7 @@ export function wpblSecondary(teamId: string | null | undefined): string {
 // both text and a bar fill on that background.
 //
 // The light variants are all >= 4.6:1 on every light surface they are drawn on, measured: white,
-// the page, the grey of a selected row, and the club's own 12% tint behind its name. They are
+// the page, the gray of a selected row, and the club's own 12% tint behind its name. They are
 // small TEXT (the leader triangles, rank numbers, card links), where a value that is fine as a
 // badge fill can still fail AA, and axe in the layout sweep checks them on every page. Until Oct
 // 2026 they were tuned on white alone and came out at 3.97 to 4.4:1 on the tints. When one needs adjusting, take it down a step of the same hue
@@ -107,7 +107,7 @@ export function wpblAccent(teamId: string | null | undefined, isDark: boolean): 
 //
 // `wpblColor` is the primary and every one of the four is near-black (BOS #00281e, LA #000000,
 // NY #091b47, SF #2d1747), which is the point when it is a badge fill and useless as a tint:
-// at the alpha a tint needs, three of them are grey and Los Angeles is literally nothing.
+// at the alpha a tint needs, three of them are gray and Los Angeles is literally nothing.
 // `wpblAccent` is the opposite problem. It is tuned to be READ, so every value clears 4.5:1 as
 // small text, which is exactly what you do not want behind text: a tint of it is either too
 // weak to see or too strong to write on.

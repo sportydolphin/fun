@@ -6,7 +6,7 @@
  * a swept series loses its unplayed game, a series that goes the distance keeps it.
  */
 import { describe, it, expect } from 'vitest'
-// A plain .mjs cron script, externalised by the vitest config so its shebang survives.
+// A plain .mjs cron script, externalized by the vitest config so its shebang survives.
 import { planPostseasonSync, parseSlot } from '../../../scripts/sync-wpbl-discord-postseason.mjs'
 
 const CITIES = new Map([['BOS', 'Boston'], ['LA', 'Los Angeles'], ['NY', 'New York'], ['SF', 'San Francisco']])

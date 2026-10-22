@@ -8,7 +8,7 @@ import { titleCaseNode } from '../lib/format'
 // section's own question and stays there (a context in WPBL's PageHeading.tsx, the address in
 // MLB's), because their overlays are built differently; what a title looks like, and how a heading
 // is read but not drawn, is the same answer in both. Until Oct 2026 the hidden style alone had four
-// copies across the site, one of them missing the margin that keeps it from nudging its neighbours.
+// copies across the site, one of them missing the margin that keeps it from nudging its neighbors.
 
 /**
  * Read but not drawn. `clipPath` rather than `display: none`, which would take the element out

@@ -3,7 +3,7 @@ import { buildRecapMessage, lineScoreBlock, embedColor, recapMessageFingerprint,
 import type { GameRecap } from '../derive/recap'
 import type { WpblGame, WpblTeam } from '../types'
 
-// What the Discord recap job posts to a public channel, and — through the fingerprint —
+// What the Discord recap job posts to a public channel, and (through the fingerprint)
 // when it decides an already-posted message needs editing. Both are worth pinning: nobody
 // sees this output in the app, and getting the second one wrong means either a stale box
 // score sitting in the channel or the job re-editing the same message on every pass.
@@ -160,7 +160,7 @@ describe('recapMessageFingerprint', () => {
 })
 
 describe('recapMessageHash', () => {
-  it('is the fingerprint, hashed — the same message hashes the same every time', async () => {
+  it('is the fingerprint, hashed: the same message hashes the same every time', async () => {
     const a = await recapMessageHash(buildRecapMessage(game(), recap(), TEAMS, GAME_URL))
     const b = await recapMessageHash(buildRecapMessage(game(), recap(), TEAMS, GAME_URL))
     expect(a).toBe(b)

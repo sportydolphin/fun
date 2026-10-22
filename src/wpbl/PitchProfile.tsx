@@ -86,7 +86,7 @@ function MixRows({ me, league, side, better, amber }: {
   const tMe = total(me), tLg = total(league)
   if (tMe === 0 || tLg === 0) return null
   // One scale for every row, set by the largest share on either side, so a row's position means
-  // the same thing as its neighbour's. A little headroom keeps the biggest dot off the track's end.
+  // the same thing as its neighbor's. A little headroom keeps the biggest dot off the track's end.
   const max = Math.max(...MIX.flatMap(m => [me[m.key] / tMe, league[m.key] / tLg])) * 1.1
   const group = (swung: boolean) => (
     <Box sx={{ minWidth: 0 }}>

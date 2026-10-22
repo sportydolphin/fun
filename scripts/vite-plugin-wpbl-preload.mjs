@@ -3,8 +3,8 @@
 //
 // WpblApp is loaded with React.lazy, so the browser cannot discover it from the HTML: it
 // only learns the URL once the entry chunk has downloaded AND executed far enough to hit
-// the dynamic import. Measured on production that was a hard two-stage waterfall — the
-// entry chunk finished at 317 ms and the WPBL chunk did not even start until 362 ms — and
+// the dynamic import. Measured on production that was a hard two-stage waterfall (the
+// entry chunk finished at 317 ms and the WPBL chunk did not even start until 362 ms), and
 // on a phone, where both the download and the parse are several times slower, the gap is
 // proportionally worse. A modulepreload link moves the request up beside the entry chunk
 // so the two download together.
@@ -63,7 +63,7 @@ export function wpblPreload() {
         // facadeModuleId is only set while a chunk is a thin re-export of one module, and it
         // silently became null the moment WpblApp itself grew dynamic imports: the section
         // still had its own chunk, but a facadeModuleId lookup stopped finding it. moduleIds
-        // is the structural fact — which modules actually ended up in this chunk.
+        // is the structural fact: which modules actually ended up in this chunk.
         const entry = Object.values(bundle).find(
           c => c.type === 'chunk' && !c.isEntry &&
             (c.moduleIds ?? []).some(id => id.replace(/\\/g, '/').endsWith(WPBL_ENTRY)),
@@ -75,14 +75,14 @@ export function wpblPreload() {
         if (!entry) {
           throw new Error(
             `[wpbl-preload] no chunk contains ${WPBL_ENTRY}. The section's code-splitting ` +
-            `changed shape — update this plugin's lookup, or the site loses its WPBL preload.`,
+            `changed shape, update this plugin's lookup, or the site loses its WPBL preload.`,
           )
         }
 
         // The section's own chunk plus everything it pulls in synchronously (today that is
         // the shared team-constants chunk). Preloading only the section chunk would just
         // move the waterfall one level down. The app's entry chunk is among those static
-        // imports and is dropped here — it already has a <script> tag in this same <head>.
+        // imports and is dropped here: it already has a <script> tag in this same <head>.
         const files = [entry.fileName, ...(entry.imports ?? [])].filter(
           f => !(bundle[f]?.type === 'chunk' && bundle[f].isEntry),
         )

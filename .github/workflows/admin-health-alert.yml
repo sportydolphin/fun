@@ -21,7 +21,7 @@ on:
         required: false
         default: ''
 
-# A run that overruns the tick should skip, not stack — the state table would otherwise be
+# A run that overruns the tick should skip, not stack: the state table would otherwise be
 # written by two copies racing.
 concurrency:
   group: admin-health-alert

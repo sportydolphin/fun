@@ -135,6 +135,21 @@ bugs. A dependency left out on purpose gets
 dependency list at all, the directive goes above the hook call, not above its closing brace.
 `npm run lint -- --fix` removes unused imports; an unused variable is left for a person.
 
+**Faded SVG text is a lint error** (`fillOpacity` or `opacity` on `<text>` or `<tspan>`, in
+`no-restricted-syntax`). axe in the layout sweep measures HTML text and never an SVG label, so a
+chart could fade every axis label under 4.5:1 and pass both checks, which MLB's charts did until
+v1.181.0. Use `theme.palette.text.secondary` for a recessive label.
+
+**Em dashes and British spelling fail a test**, `src/__tests__/houseRules.test.ts`, run with the
+others. It reads every tracked file, so it covers what the lint never opens: `scripts/`,
+`supabase/`, the workflows and the docs. In code it reads prose only (comments, strings with a
+space, JSX text) through TypeScript's parser, so `let cancelled` and MLB's `'Cancelled'` stay
+legal while the same word in a sentence fails. Inline code in backticks is skipped. The one `—`
+allowed is the "no value" glyph: a whole string, `>—<`, or a whole table cell. Migrations applied
+before Oct 22, 2026 and the legacy `scripts/*.sql` are history and are left out. The scanner and
+its word lists are in `src/test/houseRules.ts`; an English word wrongly caught by the `-ise`
+ending goes on its allow list there.
+
 ## Dead code
 
 `npm run knip` lists unused files, exports and dependencies across `src/`, `functions/`,

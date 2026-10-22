@@ -140,7 +140,7 @@ function GameReminderRow({ game, away, home, startMs }: {
   // at the reader's Large text setting minus the bell, the switch and two gaps. Every string below
   // is measured against it, which is why they are as short as they are: the switch is the verb,
   // and the line only says what it turns on. Leave headroom, because a string that fits a mock-up
-  // exactly wraps on a real handset. Anything over budget ellipsises rather than wrapping, so it
+  // exactly wraps on a real handset. Anything over budget ellipsizes rather than wrapping, so it
   // cannot silently grow a second line, and `title` carries the full sentence.
   //
   // The status REPLACES the offer instead of stacking under it. A reader whose browser has blocked

@@ -3,7 +3,7 @@ name: WPBL Discord Recaps
 on:
   schedule:
     # Hourly across the window a WPBL game can finish and be corrected in. It used to run
-    # every 15 minutes, back when this job was how a final reached Discord at all —
+    # every 15 minutes, back when this job was how a final reached Discord at all.
     # wpbl-ingest announces that itself now, within its own pass, so what is left here is
     # the backstop (a final the ingest didn't witness, e.g. because the webhook was
     # unreachable) and the corrections pass. Neither is urgent: a box-score revision that
@@ -14,7 +14,7 @@ on:
     # from ~11am to ~4:30pm Central, and a seven-inning game runs ~2.5h, so finals land
     # roughly 18:00–00:00 UTC, with the tail hours there for late corrections.
     #
-    # Runs are cheap when nothing has changed — the job re-renders the last few days of
+    # Runs are cheap when nothing has changed: the job re-renders the last few days of
     # finals, compares a hash of each rendered message, and calls Discord only on a real
     # difference.
     # Season window, matching the MLB workflows' `3-10`. The 2026 feed runs Aug 1 to Sep 22
@@ -28,7 +28,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'How to run. "dry-run" prints what it would send. "post" is the normal run — the first one posts only the most recent final. "seed" is an escape hatch that records every final as handled without posting any.'
+        description: 'How to run. "dry-run" prints what it would send. "post" is the normal run: the first one posts only the most recent final. "seed" is an escape hatch that records every final as handled without posting any.'
         required: true
         default: 'dry-run'
         type: choice
@@ -52,7 +52,7 @@ jobs:
 
       # Same trick as the board/reminder workflows: install only what this script needs, at
       # the versions pinned in package-lock.json, rather than the whole frontend toolchain.
-      # esbuild is one of them here — the script is TypeScript so that it can share the
+      # esbuild is one of them here: the script is TypeScript so that it can share the
       # site's recap engine (src/wpbl/derive/recap.ts) instead of restating it.
       - name: Install dependencies
         uses: ./.github/actions/script-deps

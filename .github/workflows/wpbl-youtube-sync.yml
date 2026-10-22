@@ -2,7 +2,7 @@ name: WPBL YouTube Sync
 
 on:
   schedule:
-    # Twice an hour during WPBL waking hours (Central-time hub — see the reminder/board
+    # Twice an hour during WPBL waking hours (Central-time hub; see the reminder/board
     # workflows for the same window). Highlights land within an hour or two of a game
     # going final, so this cadence surfaces a fresh recap promptly without hammering the
     # feed. The feed itself only carries the latest ~15 uploads, so there's nothing to
@@ -17,7 +17,7 @@ on:
   workflow_dispatch:   # run on demand from the Actions tab (use for the first, seeding run)
     inputs:
       highlights_mode:
-        description: 'What the Discord highlights step does. "post" is the normal run — the first one posts only the newest reel. "dry-run" prints what it would send. "seed" records every reel as handled without posting any. "skip" syncs only.'
+        description: 'What the Discord highlights step does. "post" is the normal run: the first one posts only the newest reel. "dry-run" prints what it would send. "seed" records every reel as handled without posting any. "skip" syncs only.'
         required: true
         default: 'dry-run'
         type: choice
@@ -47,8 +47,8 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     # 5 for the schedule. An all_uploads run reads every upload and asks YouTube once per unknown
-    # one whether it is a Short, which on the league's 408-upload catalogue took 4m53s of the 5
-    # and was cancelled seconds after its last write.
+    # one whether it is a Short, which on the league's 408-upload catalog took 4m53s of the 5
+    # and was canceled seconds after its last write.
     timeout-minutes: ${{ inputs.all_uploads && 20 || 5 }}
     steps:
       - uses: actions/checkout@v7
@@ -80,7 +80,7 @@ jobs:
 
       # Straight after the sync, in the same pass, so a reel reaches the Discord highlights
       # channel the moment we learn about it rather than waiting on a second schedule.
-      # This posts to its own channel via DISCORD_HIGHLIGHTS_WEBHOOK_URL — not the recap
+      # This posts to its own channel via DISCORD_HIGHLIGHTS_WEBHOOK_URL, not the recap
       # channel's webhook. Without that secret set the step no-ops rather than failing, so
       # the sync above keeps working whether or not the Discord side is configured.
       #
@@ -96,7 +96,7 @@ jobs:
           MODE:                           ${{ inputs.highlights_mode }}
         run: |
           if [ -z "$DISCORD_HIGHLIGHTS_WEBHOOK_URL" ]; then
-            echo "DISCORD_HIGHLIGHTS_WEBHOOK_URL not set — skipping the Discord post."
+            echo "DISCORD_HIGHLIGHTS_WEBHOOK_URL not set, so skipping the Discord post."
             exit 0
           fi
           case "$MODE" in

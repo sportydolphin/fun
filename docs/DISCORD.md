@@ -525,7 +525,7 @@ the prose. A blank line is the only spacing control an embed description has. Ch
 every recap's fingerprint, so the next scheduled run re-edits the recent finals in place, which
 is exactly what that job is for; Bluesky has no monospace and no fences, so the same string is ragged nonsense there. The
 card is drawn as SVG ([`src/wpbl/derive/blueskyRecap.ts`](../src/wpbl/derive/blueskyRecap.ts),
-pure and tested) and rasterised at send time.
+pure and tested) and rasterized at send time.
 
 It shares the mention watcher's credential, because both are the sportydolphin account. **That
 does not soften the watcher's rule**: it finds threads and never replies to them, and nothing in

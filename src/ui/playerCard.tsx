@@ -74,8 +74,8 @@ export const TIP_Z = 1700
 // ─── Section heading and show-more ───────────────────────────────────────────────
 //
 // ONE DEFINITION EACH, because the card grew them one block at a time. By Sep 28, 2026 it had
-// five heading styles (three sizes, two weights, two greys), two show-more buttons (a centered
-// uppercase one in the club's color under the tables, a left-aligned grey sentence under the
+// five heading styles (three sizes, two weights, two grays), two show-more buttons (a centered
+// uppercase one in the club's color under the tables, a left-aligned gray sentence under the
 // reading list), and a good rank drawn in the club's color a few pixels above bars where blue
 // meant "better than the league". Each was reasonable on its own; together they made a card of
 // correct numbers read as confused.
@@ -95,7 +95,7 @@ export const SECTION_CAPTION_SX = {
  * A section heading: the label on the left and, optionally, a caption on the right.
  *
  * The caption wraps under the label rather than squeezing it when a phone has no room for both,
- * which is what `flexWrap` buys; a label is never ellipsised, since it is the only thing saying
+ * which is what `flexWrap` buys; a label is never ellipsized, since it is the only thing saying
  * what the numbers under it are.
  */
 /** Where a part the search scrolls to stops: clear of the pinned toolbar on a page, and a little
@@ -123,7 +123,7 @@ export function SectionHead({ title, caption, sx, part }: {
 /**
  * Show more / show fewer (or any disclosure) under a block. Centered, uppercase, full width, in
  * the color the caller's controls use. The ONE such control on the card, so a reader learns it
- * once: the reading list used to have its own, left-aligned and grey, which read as a different
+ * once: the reading list used to have its own, left-aligned and gray, which read as a different
  * kind of thing.
  */
 export function ShowMoreButton({ expanded, onClick, accent, children }: {
@@ -293,14 +293,14 @@ function FigureBar({ sample }: { sample: string | number }) {
 
 /**
  * How a zero is drawn in a row table (the game log, the matchups). NOT in the season tables: one row
- * of figures with greyed holes in it read as a broken table, where down a forty-row log the same
+ * of figures with grayed holes in it read as a broken table, where down a forty-row log the same
  * dimming is what lets a quiet week look quiet.
  *
- * `text.disabled` at the body weight. That grey is also the game log's date column and every header
+ * `text.disabled` at the body weight. That gray is also the game log's date column and every header
  * on the card, but those are bold, so a zero in a regular weight still reads as the quieter of the
- * two. It was a step below the grey (`opacity: 0.6`) until Oct 21, 2026, which put every zero at
+ * two. It was a step below the gray (`opacity: 0.6`) until Oct 21, 2026, which put every zero at
  * about 2.5:1, under AA in both themes: the house rule is never to fade text with opacity. The
- * grey alone is already tuned to clear 4.5:1 (see ThemeContext).
+ * gray alone is already tuned to clear 4.5:1 (see ThemeContext).
  */
 export const ZERO_SX = { color: 'text.disabled', fontWeight: 400 } as const
 
@@ -429,7 +429,7 @@ export function StatTable({ title, caption, part, row, league, reserveRanks, pla
 }
 
 /** ONE LINE OF FIGURES, ranked or not. The rank line under a figure makes its cell a line taller,
- *  and a table cell centers its content, so a ranked figure sat half a line above its neighbours.
+ *  and a table cell centers its content, so a ranked figure sat half a line above its neighbors.
  *  Every cell starts at the top, and the rank line is a non-breaking space where there is no rank:
  *  a plain space collapses to nothing, which is how the two came apart. */
 const ROW_TOP_SX = { verticalAlign: 'top' } as const
@@ -891,7 +891,7 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
                  NOT an anchor, which is the one place this section departs from the house rule
                  about real hrefs, and it departs from it for the rule's own reason. A game is
                  `?game=<id>` query state on whichever tab is underneath, and seo.ts deliberately
-                 canonicalises those back to the tab so that a hundred shared game links do not
+                 canonicalizes those back to the tab so that a hundred shared game links do not
                  read as a hundred near-duplicate pages. The rule exists to make routes findable;
                  these are the one thing here that is meant NOT to be indexed separately, and
                  every other game card in the section (GameGrid, the Home rail, the schedule) is

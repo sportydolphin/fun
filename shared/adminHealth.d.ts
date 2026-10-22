@@ -4,7 +4,7 @@
 
 /** One actionable pipeline problem, ready to page the owner. */
 export interface HealthAlert {
-  /** Stable id for the kind of problem — the dedupe scope. */
+  /** Stable id for the kind of problem: the dedupe scope. */
   key:       string
   /** Changes only when the problem itself changes; the sender pages on a new (key, signature). */
   signature: string

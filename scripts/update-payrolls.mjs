@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * update-payrolls.mjs — Fetches team payroll estimates *and* player contracts
+ * update-payrolls.mjs: Fetches team payroll estimates *and* player contracts
  * from FanGraphs Roster Resource, upserting them into the Supabase
  * `team_payrolls` and `player_contracts` tables.
  *
- * FanGraphs uses Next.js SSR — the full data is embedded in __NEXT_DATA__ JSON
+ * FanGraphs uses Next.js SSR: the full data is embedded in __NEXT_DATA__ JSON
  * in the initial HTML response, so no headless browser is needed.
  * We extract dataOverall[season].estPayroll for the current season.
  *
  * ── Why contracts live in this script rather than their own ──
  * Both datasets arrive in the *same* HTTP response: `dataContract` sits right
  * beside `dataOverall` in that blob. A separate script would double our request
- * volume against FanGraphs for data we already have in hand — and FanGraphs
+ * volume against FanGraphs for data we already have in hand, and FanGraphs
  * answering with a 403 is this scraper's known failure mode, so halving the
  * exposure matters more than the tidiness of one job per table.
  *
@@ -67,7 +67,7 @@ async function fetchTeamPage(teamId, slug) {
 
   const html = await res.text()
 
-  // FanGraphs is Next.js SSR — full data is in __NEXT_DATA__ JSON
+  // FanGraphs is Next.js SSR: full data is in __NEXT_DATA__ JSON
   const match = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)
   if (!match) throw new Error('No __NEXT_DATA__ found in HTML')
 
@@ -101,8 +101,8 @@ async function fetchTeamPage(teamId, slug) {
 /**
  * Collapse FanGraphs' free-text year label into a small enum the UI can style.
  *
- * The raw vocabulary is inconsistent and sometimes truncated at the source —
- * "PRE-ARB" vs "Pre-ARB", "FREE AGENT (DISPLAYED)", "CLUB OPTION (NON-GUARANT" —
+ * The raw vocabulary is inconsistent and sometimes truncated at the source
+ * ("PRE-ARB" vs "Pre-ARB", "FREE AGENT (DISPLAYED)", "CLUB OPTION (NON-GUARANT"),
  * so this normalizes once here rather than making every consumer re-learn it.
  * The original string is kept alongside for tooltips.
  */
@@ -122,7 +122,7 @@ function normaliseYearType(raw) {
  *
  * `contractYears` is the valuable part and runs past the guaranteed money: for a
  * pre-arb player it still lists the ARB 1/2/3 seasons and the FREE AGENT season
- * beyond them. That's what lets the app show team control, not just salary — the
+ * beyond them. That's what lets the app show team control, not just salary: the
  * thing a fan actually wants to know about a minimum-salary player.
  */
 function parseContracts(queryData, teamId) {
@@ -130,7 +130,7 @@ function parseContracts(queryData, teamId) {
   for (const c of queryData?.dataContract ?? []) {
     const s = c?.contractSummary
     const mlbamId = Number(s?.MLBAMID)
-    // No MLBAM id means we could never join it to a player page — skip rather
+    // No MLBAM id means we could never join it to a player page, so skip rather
     // than fall back to name matching.
     if (!mlbamId || !s?.playerName) continue
 
@@ -155,7 +155,7 @@ function parseContracts(queryData, teamId) {
       start_season:      Number(s.startSeason) || null,
       end_season:        Number(s.endSeason) || null,
       service_time:      s.servicetime ?? null,
-      // Null when the deal ends on an option year — the market date then depends
+      // Null when the deal ends on an option year: the market date then depends
       // on whether the option is picked up, so there is no honest answer to show.
       free_agent_season: years.find(y => y.kind === 'free-agent')?.season ?? null,
       description:       c.description ?? null,
@@ -169,7 +169,7 @@ function parseContracts(queryData, teamId) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log(`\n💰 Payroll Updater — ${SEASON} season\n`)
+  console.log(`\n💰 Payroll Updater: ${SEASON} season\n`)
 
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -200,14 +200,14 @@ async function main() {
       failed.push(slug)
     }
 
-    // Small delay — polite to FanGraphs
+    // Small delay, polite to FanGraphs
     await new Promise(r => setTimeout(r, 200))
   }
 
   console.log(`\n  Parsed ${rows.length}/30 teams  (${failed.length} failed)`)
 
   if (rows.length < 20) {
-    console.error('\n❌  Too many failures — aborting upsert')
+    console.error('\n❌  Too many failures, aborting upsert')
     process.exit(1)
   }
 
@@ -230,7 +230,7 @@ async function main() {
   const contracts = [...contractsById.values()]
   if (contracts.length < 500) {
     // 30 teams × ~30 players ≈ 900. Well under that means the shape changed.
-    console.warn(`\n⚠️   Only ${contracts.length} contracts parsed — skipping upsert (expected ~900)`)
+    console.warn(`\n⚠️   Only ${contracts.length} contracts parsed, skipping upsert (expected ~900)`)
   } else {
     const { error: cErr } = await supabase
       .from('player_contracts')

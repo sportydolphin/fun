@@ -56,7 +56,7 @@ function ClubChip({ team, seed, record, winP, wins, won, onOpenTeam }: {
   team: WpblTeam; seed: number | null; record: string | null; winP: number | null
   /** Series wins, shown in the percentage's slot once the odds are gone (a decided series). */
   wins: number | null
-  /** Whether this club took the series; the loser's count goes grey. */
+  /** Whether this club took the series; the loser's count goes gray. */
   won: boolean
   onOpenTeam?: (t: WpblTeam) => void
 }) {
@@ -200,7 +200,7 @@ function GameTile({ n, date, time, state, away, home, onOpen, ariaLabel }: {
         border: '1px solid', borderColor: 'outline',
         // Hidden on a phone, where the grid is two across and a swept best-of-3's third tile
         // would take a row of its own to say nothing was played. Recessed by its dashed edge and
-        // its grey words, not by opacity: a 0.55 fade put "Not needed" well under 4.5:1.
+        // its gray words, not by opacity: a 0.55 fade put "Not needed" well under 4.5:1.
         ...(state === 'unneeded' ? { borderStyle: 'dashed', display: { xs: 'none', sm: 'flex' } } : null),
         ...(onOpen ? {
           cursor: 'pointer', transition: 'background 0.12s, border-color 0.12s',

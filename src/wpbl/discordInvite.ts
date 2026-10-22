@@ -16,7 +16,7 @@ export const DISCORD_DEV_SHOW_EVENT = 'sd:dev-show-discord'
 /**
  * Dev only: forget the dismissal, so the invite comes back.
  *
- * There is deliberately no reader-facing way to undo an ✕ — an invite you can re-summon has
+ * There is deliberately no reader-facing way to undo an ✕: an invite you can re-summon has
  * not really been dismissed. That leaves anyone working on the card with one look at it per
  * browser profile, and since the card renders at phone widths only, the device it is designed
  * for is also the one where clearing site data is most annoying.

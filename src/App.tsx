@@ -45,7 +45,7 @@ import { usernameValidationMsg, isUsernameTaken, generateUniqueUsername } from '
 import { setDeactivationHandler, resetActiveCache } from './lib/userActive'
 
 // Cosmetic gate only: decides whether the ⚡ Admin button renders. It grants NO
-// privilege — every admin action is enforced server-side by RLS (public.is_site_owner(),
+// privilege: every admin action is enforced server-side by RLS (public.is_site_owner(),
 // see scripts/harden_admin_gate.sql), which reads the confirmed email from auth.users by
 // the verified auth.uid() and can't be spoofed by faking this client value. Shared with
 // the WPBL feature-flagged sections via src/lib/admin.ts.
@@ -55,7 +55,7 @@ import { SectionActiveContext, SectionSearchContext } from './lib/panelActive'
 import { otherSectionPath } from './sectionSwitch'
 import { ICON_SIZE, TYPE_SCALE } from './ui/card'
 
-// The MLB feature is by far the largest part of the app — code-split it so the
+// The MLB feature is by far the largest part of the app. Code-split it so the
 // landing page and other projects don't ship its ~entire view tree up front.
 // The view the address opens is fetched BESIDE the section, not after it: each MLB view is its
 // own chunk (mlb/views/lazyViews.ts), and waiting for MlbStats to ask for it would put a second
@@ -65,7 +65,7 @@ const loadMlb = (path = window.location.pathname, search = window.location.searc
   return import('./MlbStats')
 }
 const MlbStats = lazy(() => loadMlb())
-// WPBL — a separate top-level league section (its own data + views). Lazy so it
+// WPBL: a separate top-level league section (its own data + views). Lazy so it
 // stays out of the MLB and landing bundles.
 const loadWpbl = () => import('./wpbl/WpblApp')
 const WpblApp = lazy(loadWpbl)
@@ -140,7 +140,7 @@ const CommandPalette = lazy(() => import('./CommandPalette'))
 // Latch a dialog's "has ever been open" flag.
 //
 // Gating a lazy dialog on `open` alone would unmount it the instant it closes, which throws
-// away MUI's close transition — the panel would vanish instead of fading. Latching means the
+// away MUI's close transition: the panel would vanish instead of fading. Latching means the
 // chunk still isn't fetched until the first open, and after that the dialog stays mounted and
 // animates normally.
 function useOpenedOnce(open: boolean): boolean {
@@ -210,7 +210,7 @@ const TOOLBAR_USERNAME_MIN = 1680
 // test is met at 960. On a route running the desktop scale the same lockup is that much wider
 // in those pixels, so the second threshold is simply the first times the scale: DERIVED rather
 // than written down, because the two would otherwise drift the first time the scale moves, and
-// the symptom would be a wordmark ellipsising into the search box at one narrow band of widths
+// the symptom would be a wordmark ellipsizing into the search box at one narrow band of widths
 // that nobody thinks to check. Both are raw px queries rather than theme breakpoints for the
 // original reason: theme breakpoints match the real viewport, and what is being asked about
 // here is the toolbar's own width.
@@ -225,7 +225,7 @@ export const DESKTOP_SCALE = 1.25
 const BRAND_WORDMARK_MIN_SCALED = Math.ceil(BRAND_WORDMARK_MIN * DESKTOP_SCALE)
 
 
-// A one-shot confetti pop, fired when you flip the league switch to WPBL — a small nod to
+// A one-shot confetti pop, fired when you flip the league switch to WPBL, a small nod to
 // the section's playful side. Purely cosmetic: self-contained CSS, no library, `pointer-
 // events: none` so it never blocks a tap, and it unmounts itself once the animation ends.
 // Re-triggered by remounting with a fresh `key`, which reseeds the random spread.
@@ -748,7 +748,7 @@ function AppInner() {
     }
   }, [])
 
-  // Fetch username whenever the logged-in user changes — if the account doesn't
+  // Fetch username whenever the logged-in user changes. If the account doesn't
   // have one yet, assign one now: whatever they chose at signup (stashed in
   // localStorage since email confirmation may have gated having a session then),
   // or otherwise a random baseball-themed name. Covers Google sign-ins too,
@@ -782,7 +782,7 @@ function AppInner() {
 
         let { error } = await supabase.from('usernames').upsert({ user_id: user.id, username: final }, { onConflict: 'user_id' })
         if (error?.code === '23505') {
-          // Race — someone grabbed it between our check and the insert. Fall back to a fresh random one.
+          // Race. Someone grabbed it between our check and the insert. Fall back to a fresh random one.
           final = await generateUniqueUsername()
           ;({ error } = await supabase.from('usernames').upsert({ user_id: user.id, username: final }, { onConflict: 'user_id' }))
         }
@@ -823,7 +823,7 @@ function AppInner() {
       // A standalone-page overlay is rebuilt from the entry we landed on, so Back and Forward walk a
       // stack of cards over the page one at a time. An entry carries `wpblOverlayBase` (the page the
       // stack hovers over) only while it was seated by an overlay open, which was a silent
-      // push/replaceState (no popstate), so this only runs on the way back through — Back, the X
+      // push/replaceState (no popstate), so this only runs on the way back through: Back, the X
       // (history.back), Forward, or a normal navigation off the stack.
       const p = readPath()
       const base = (window.history.state?.wpblOverlayBase as string | undefined) ?? null
@@ -859,7 +859,7 @@ function AppInner() {
   // Bounce everyone but the owner off /admin. Gated on auth having RESOLVED, not merely on
   // `user` being absent: a hard refresh restores the session asynchronously, so redirecting
   // on the first render would eject the owner from their own dashboard before they arrived.
-  // Cosmetic, like every other isAdmin check — the analytics RPCs behind the page reject a
+  // Cosmetic, like every other isAdmin check: the analytics RPCs behind the page reject a
   // non-owner on the server whether or not this runs.
   useEffect(() => {
     if (path === '/admin' && !authLoading && !isAdmin) navigate('/wpbl')
@@ -895,7 +895,7 @@ function AppInner() {
     <Box>
       <AppBar
         ref={headerRef}
-        // On mobile the top bar scrolls away (static) rather than sticking — the MLB/WPBL
+        // On mobile the top bar scrolls away (static) rather than sticking. The MLB/WPBL
         // toggle + search are rarely needed mid-scroll, and a single sticky bar (the WPBL
         // tab menu, pinned below) avoids the two-bar gap collapsing as you scroll.
         position={!isDesktop ? 'static' : 'sticky'}
@@ -909,7 +909,7 @@ function AppInner() {
           backgroundImage: 'none',
           // Blur only on desktop, where the header is sticky and content actually passes
           // under it. On mobile the bar scrolls away with the page, so the blur is purely
-          // decorative — and backdrop-filter makes the AppBar a stacking context that traps
+          // decorative, and backdrop-filter makes the AppBar a stacking context that traps
           // the account dropdown (z-index 1400) below page content like the sticky tab bar
           // (z-index 3). Dropping it on mobile lets the dropdown render in front of the page.
           ...(isDesktop && { backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }),
@@ -1005,7 +1005,7 @@ function AppInner() {
                 [`@media (min-width:${BRAND_WORDMARK_MIN}px)`]: { display: 'block' },
                 // Take it back off between the two thresholds wherever the bar is scaled:
                 // there the lockup is that much wider in the pixels the query counts, and it
-                // would ellipsise into the search box instead.
+                // would ellipsize into the search box instead.
                 [`@media (max-width:${BRAND_WORDMARK_MIN_SCALED - 0.05}px)`]: {
                   'html[data-app-scale] &': { display: 'none' },
                 },
@@ -1066,7 +1066,7 @@ function AppInner() {
               {[{ label: 'MLB', to: '/mlb' }, { label: 'WPBL', to: '/wpbl' }].map(seg => {
                 // The SAME test the thumb above uses, which is the whole point: an exact path
                 // match here meant that the day the WPBL tabs became real paths, /wpbl/stats
-                // slid the rainbow across and left the label in unselected grey on top of it.
+                // slid the rainbow across and left the label in unselected gray on top of it.
                 // Every WPBL tab counts, and /wpbl/api too, so the switch stays "on WPBL" in
                 // the docs.
                 const toWpbl = seg.to === '/wpbl'
@@ -1251,7 +1251,7 @@ function AppInner() {
                     <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, color: 'text.secondary', whiteSpace: 'nowrap' }}>
                       {username ? (
                         // The Roboto/Arial "@" dips toward the baseline and reads as sitting
-                        // low next to the lowercase handle — nudge it up a hair to optically center.
+                        // low next to the lowercase handle. Nudge it up a hair to optically center.
                         <>
                           <Box component="span" sx={{ position: 'relative', top: '-0.01em' }}>@</Box>{username}
                         </>

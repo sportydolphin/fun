@@ -59,7 +59,7 @@ describe('seriesOdds math', () => {
     expect(pythagenpat(0, 0, 0)).toBe(0.5)
   })
 
-  it('log5 is a coin flip between equals and favours the stronger club', () => {
+  it('log5 is a coin flip between equals and favors the stronger club', () => {
     expect(log5(0.6, 0.6)).toBeCloseTo(0.5, 6)
     expect(log5(0.7, 0.4)).toBeGreaterThan(0.5)
     expect(log5(0.4, 0.7)).toBeLessThan(0.5)
@@ -83,7 +83,7 @@ describe('seriesOdds math', () => {
     const model = matchupProb(A, B, even, new Map())
     expect(model).toBeCloseTo(0.5, 6)  // no games → pure model
 
-    // A swept B 8-0: the blend favours A, but not all the way, and 8 games weigh n/(n+10).
+    // A swept B 8-0: the blend favors A, but not all the way, and 8 games weigh n/(n+10).
     const swept = new Map([[[A.id, B.id].sort().join('|'), new Map([[A.id, 8], [B.id, 0]])]])
     const p = matchupProb(A, B, even, swept)
     const w = 8 / (8 + REGRESSION_GAMES)

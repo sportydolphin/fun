@@ -16,7 +16,7 @@ const freshValidation = (over: Record<string, unknown> = {}) => ({
   ran_at: ago(6 * 60 * 60_000), ok: true, new_findings: 0, ...over,
 })
 
-describe('healthAlerts — ingest', () => {
+describe('healthAlerts: ingest', () => {
   it('is silent on a fresh, clean run', () => {
     expect(healthAlerts({ ingest: freshIngest() }, NOW)).toEqual([])
   })
@@ -75,9 +75,9 @@ describe('healthAlerts — ingest', () => {
   })
 })
 
-describe('healthAlerts — scoring', () => {
+describe('healthAlerts: scoring', () => {
   it('is silent on a fresh run, even with new findings', () => {
-    // Findings are expected and mostly known — the panel shows them, a phone must not buzz for them.
+    // Findings are expected and mostly known: the panel shows them, a phone must not buzz for them.
     expect(healthAlerts({ validation: freshValidation({ new_findings: 9 }) }, NOW)).toEqual([])
   })
 
@@ -91,7 +91,7 @@ describe('healthAlerts — scoring', () => {
   })
 })
 
-describe('healthAlerts — heartbeat jobs', () => {
+describe('healthAlerts: heartbeat jobs', () => {
   const job = HEARTBEAT_CHECKS[0].job          // wpbl-drift-check, a nightly (staleable) job
   const beat = (over: Record<string, unknown> = {}) => ({ job, ran_at: ago(60 * 60_000), ok: true, ...over })
 
@@ -142,7 +142,7 @@ describe('healthAlerts: failed workflows', () => {
   })
 })
 
-describe('healthAlerts — nothing to say', () => {
+describe('healthAlerts: nothing to say', () => {
   it('returns no alerts when a table has no row yet', () => {
     expect(healthAlerts({}, NOW)).toEqual([])
     expect(healthAlerts({ ingest: null, validation: null }, NOW)).toEqual([])

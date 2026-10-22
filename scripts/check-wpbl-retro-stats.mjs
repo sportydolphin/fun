@@ -174,7 +174,7 @@ export function parseGames(text) {
       const name = (cells[2] ?? '').replace(/^"|"$/g, '').trim()
       if (id && name) g.names.set(id, name)
     } else if (line.startsWith('play,')) {
-      // play,inning,half,batterId,count,pitches,event  — the event may itself contain commas
+      // play,inning,half,batterId,count,pitches,event. The event may itself contain commas
       // inside parentheses, so take everything from the 7th field on.
       //
       // `inning` and `side` are carried even though this audit adds up a whole game and never

@@ -23,7 +23,7 @@ function allowance(len: number): number {
 }
 
 /** Optimal string alignment distance: insertions, deletions, substitutions and one swap of
- *  neighbours, which is the commonest slip ("Ohatni"). Gives up past `max`. */
+ *  neighbors, which is the commonest slip ("Ohatni"). Gives up past `max`. */
 export function editDistance(a: string, b: string, max: number): number {
   if (Math.abs(a.length - b.length) > max) return max + 1
   const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)])

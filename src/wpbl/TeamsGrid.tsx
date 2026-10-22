@@ -259,7 +259,7 @@ export default function TeamsGrid({ teams, games: allGames, onSelect }: {
   const specGames = useMemo(() => specLeagueGames(teamIds, games), [teamIds, games])
   // WHETHER THE CHART IS COMING, decided from the schedule alone, which is here before either
   // fetch. `teamSpecs` draws nothing until every club has TEAM_SPEC_MIN_GAMES, and that count is
-  // `specGames`, so a qualifying league means the chart will land and its box is drawn now, grey,
+  // `specGames`, so a qualifying league means the chart will land and its box is drawn now, gray,
   // at the chart's own size. The card used to hold a one-line "Loading." here and then grow 210px
   // under the reader when the chart arrived.
   const chartComing = specGames >= TEAM_SPEC_MIN_GAMES

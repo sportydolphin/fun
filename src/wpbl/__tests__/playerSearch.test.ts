@@ -118,7 +118,7 @@ describe('searchPlayers', () => {
   })
 
   it('does not answer confidently on a weak substring', () => {
-    // "ross" appears inside "Schroder"? No — but a two-letter fragment should never be
+    // "ross" appears inside "Schroder"? No. But a two-letter fragment should never be
     // treated as a decision, whatever it touches.
     expect(confident('el')).toBe(false)
   })

@@ -117,7 +117,7 @@ export function fetchWpblAllPlayers(): Promise<WpblPlayer[]> {
   })
 }
 
-// Every player's season, totalled by scripts/compute-wpbl-player-seasons.ts (derive/playerSeasons.ts):
+// Every player's season, totaled by scripts/compute-wpbl-player-seasons.ts (derive/playerSeasons.ts):
 // the Stats tab's boards and the search box's answers read these in place of every box-score line
 // and the play log. ONE SEASON PER READ, keyed on the year, like the play log: the table holds every
 // year and a board shows one. The rows are trusted only when they describe the inputs as they

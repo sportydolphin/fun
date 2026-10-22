@@ -41,7 +41,8 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   const [statKey, setStatKey] = useState(initGroup === 'pitching' ? 'era' : 'ops')
   // Background-colored halo behind on-chart text labels so they stay legible even
   // where the trendline passes through them.
-  const labelHalo = { stroke: useTheme().palette.background.paper, strokeWidth: 3.5, strokeLinejoin: 'round', paintOrder: 'stroke' } as const
+  const theme = useTheme()
+  const labelHalo = { stroke: theme.palette.background.paper, strokeWidth: 3.5, strokeLinejoin: 'round', paintOrder: 'stroke' } as const
   const boxRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const rafRef = useRef<number | null>(null)
@@ -500,7 +501,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
           {/* Avg / league-avg labels are drawn here (after the trendline) so their
               halo sits on top of the line and stays legible. */}
           {showHorizAvg && (
-            <text x={m.l + 4} y={avgY - 6} fill="#f59e0b" fillOpacity={1} fontSize={10.5} fontWeight={700} {...labelHalo}>avg {currentDef.fmt(avg!)}</text>
+            <text x={m.l + 4} y={avgY - 6} fill="#f59e0b" fontSize={10.5} fontWeight={700} {...labelHalo}>avg {currentDef.fmt(avg!)}</text>
           )}
           {showLeagueAvgLine && (() => {
             const lastPt = [...fpts].reverse().find(p => leagueAvgPts.has(p.season))
@@ -508,7 +509,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
             if (!lastPt || lastIdx < 0) return null
             return (
               <text x={sx(lastIdx) - 4} y={sy(leagueAvgPts.get(lastPt.season)!) - 6}
-                textAnchor="end" fill="#f59e0b" fillOpacity={1} fontSize={10} fontWeight={700} {...labelHalo}>lg avg</text>
+                textAnchor="end" fill="#f59e0b" fontSize={10} fontWeight={700} {...labelHalo}>lg avg</text>
             )
           })()}
 
@@ -516,7 +517,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
               runs past the y-axis when the best year is the first/last point */}
           {!hov && (
             <text x={sx(bestIdx)} y={sy(fpts[bestIdx].value) - 14}
-              fill="currentColor" fillOpacity={0.6} fontSize={11.5} fontWeight={600}
+              fill={theme.palette.text.secondary} fontSize={11.5} fontWeight={600}
               textAnchor={bestIdx === 0 ? 'start' : bestIdx === n - 1 ? 'end' : 'middle'}>★ {fpts[bestIdx].season}</text>
           )}
 
@@ -527,7 +528,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
             const pp = fpts[paceIdx]
             return (
               <text x={sx(paceIdx)} y={sy(pp.value) - 14}
-                fill={ACCENT} fillOpacity={0.85} fontSize={10.5} fontWeight={700}
+                fill={ACCENT} fontSize={10.5} fontWeight={700}
                 textAnchor={paceIdx === n - 1 ? 'end' : paceIdx === 0 ? 'start' : 'middle'}>
                 ~{currentDef.fmt(pp.value)} pace
               </text>
@@ -542,7 +543,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
           {yTicks.map((v, i) => (
             <g key={i}>
               <line x1={m.l - 5} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
-              <text x={m.l - 8} y={sy(v) + 4} textAnchor="end" fill="currentColor" fillOpacity={0.9} fontSize={12.5} fontWeight={600}>{currentDef.fmt(v)}</text>
+              <text x={m.l - 8} y={sy(v) + 4} textAnchor="end" fill={theme.palette.text.primary} fontSize={12.5} fontWeight={600}>{currentDef.fmt(v)}</text>
             </g>
           ))}
 
@@ -550,7 +551,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
           {fpts.map((p, i) => (
             <g key={p.season}>
               <line x1={sx(i)} y1={m.t + iH} x2={sx(i)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1} />
-              <text x={sx(i)} y={m.t + iH + 19} textAnchor="middle" fill="currentColor" fillOpacity={0.9} fontSize={12.5} fontWeight={600}>
+              <text x={sx(i)} y={m.t + iH + 19} textAnchor="middle" fill={theme.palette.text.primary} fontSize={12.5} fontWeight={600}>
                 '{String(p.season).slice(2)}
               </text>
             </g>

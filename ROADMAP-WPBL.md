@@ -354,7 +354,7 @@ reason to come back more than once a month until spring. So the order is by that
 2. ✅ **The wildest games of 2026** (shipped Oct 11 as a section of `/wpbl/season`: the six games
    whose win probability moved most, each with its line from the winner's side, its lead changes,
    ties and extra innings, and a link into Game Center. Postseason included, since it ranks games
-   rather than totalling a season; a game whose play log stops before the seventh is left out
+   rather than totaling a season; a game whose play log stops before the seventh is left out
    rather than ranked low. `wildestGames` in `derive/winProbability.ts`. The top game, Aug 9 at
    Boston, never changed leader, which is why ties are counted beside lead changes.) The original
    item: **The wildest games of 2026** (#6's open half, and the Game quilt under Visuals). `excitement`
@@ -624,7 +624,7 @@ holding type follow it.
    `--app-scale-desktop`. CSS keeps the breakpoint, because a media query is the one thing JS
    should not be deciding. The toolbar's second wordmark threshold is DERIVED from it rather
    than written down, since a hardcoded pair would drift the first time the scale moved and the
-   symptom would be a wordmark ellipsising into the search box in one narrow band of widths
+   symptom would be a wordmark ellipsizing into the search box in one narrow band of widths
    nobody thinks to check.
 
 3b. **The shared toolbar, scaled on both sections.** ✅ *Done Aug 31.* Until this, switching

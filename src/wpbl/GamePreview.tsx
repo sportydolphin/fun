@@ -241,7 +241,7 @@ export function WpblGamePreview({ away, home, teams, games: allGames, onOpenTeam
     return <>{renderBoards({ matchup: comparisonView, leaders: leadersView, rosters: rostersView })}</>
   }
 
-  // With rosters offered, the frame's toggle chooses the board, matchup first: "who is favoured" is
+  // With rosters offered, the frame's toggle chooses the board, matchup first: "who is favored" is
   // the first thing a reader asks, then "who is worth watching", then "who is on this team".
   return (
     <PreviewFrame bare={bare} boards={rosters

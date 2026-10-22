@@ -19,7 +19,7 @@ describe('rankPlayer', () => {
   })
 
   it('uses the modal slot, not the mean, so it never invents a slot never occupied', () => {
-    // 2nd against righties, 8th against lefties. The mean would be 5 — a slot they have
+    // 2nd against righties, 8th against lefties. The mean would be 5, a slot they have
     // never hit in, and one that would sort them between two genuine #5 hitters.
     const r = rankPlayer([
       { position: 'lf', spot: 2, started: true },
@@ -85,7 +85,7 @@ describe('buildLineupGrid', () => {
   })
 
   it('prefers the start when a player holds two rows in one game', () => {
-    // She began at short, then moved to left — two rows, same game.
+    // She began at short, then moved to left: two rows, same game.
     const moved = [
       row({ game_id: 'g1', player_id: 'x', game_date: '2026-08-12', lineup_spot: 5, position: 'lf', started: false }),
       row({ game_id: 'g1', player_id: 'x', game_date: '2026-08-12', lineup_spot: 2, position: 'ss', started: true }),

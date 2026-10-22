@@ -396,7 +396,7 @@ flowchart TB
         t_rev["wpbl_game_revisions<br/>(what the league changed after final; append-only)"]
         t_moves["wpbl_player_team_changes<br/>(trades the ingest spotted)"]
         t_restock["wpbl_restock_watch<br/>(shortlist: shout about these)"]
-        t_shopp["wpbl_shop_products<br/>+ wpbl_shop_variants<br/>(catalogue snapshot)"]
+        t_shopp["wpbl_shop_products<br/>+ wpbl_shop_variants<br/>(catalog snapshot)"]
         t_shopr["wpbl_shop_watch_runs<br/>(watcher health, per source)"]
         t_lots["wpbl_auction_lots<br/>(The Realest: memorabilia lot snapshot)"]
         t_ment["wpbl_mention_hits<br/>+ wpbl_mention_watch_runs<br/>(mention watcher queue + health)"]

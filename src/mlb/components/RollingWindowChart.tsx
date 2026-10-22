@@ -40,7 +40,8 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
   const hovIdxRef = useRef<number | null>(null)
   // Background-colored halo behind on-chart text labels so they stay legible even
   // where the trendline passes through them.
-  const labelHalo = { stroke: useTheme().palette.background.paper, strokeWidth: 3.5, strokeLinejoin: 'round', paintOrder: 'stroke' } as const
+  const theme = useTheme()
+  const labelHalo = { stroke: theme.palette.background.paper, strokeWidth: 3.5, strokeLinejoin: 'round', paintOrder: 'stroke' } as const
 
   // Fetch league-average OPS (hitters) or ERA (pitchers) for this season
   useEffect(() => {
@@ -401,7 +402,7 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
 
           {/* League-avg label, drawn after the trendline so its halo sits on top */}
           {leagueAvg != null && (
-            <text x={m.l + 5} y={sy(leagueAvg) - 5} fill="#f59e0b" fillOpacity={1} fontSize={10} fontWeight={700} {...labelHalo}>
+            <text x={m.l + 5} y={sy(leagueAvg) - 5} fill="#f59e0b" fontSize={10} fontWeight={700} {...labelHalo}>
               lg avg {fmt(leagueAvg)}
             </text>
           )}
@@ -414,7 +415,7 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
           {yTicks.map((v, i) => (
             <g key={i}>
               <line x1={m.l - 5} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
-              <text x={m.l - 8} y={sy(v) + 4} textAnchor="end" fill="currentColor" fillOpacity={0.9} fontSize={12.5} fontWeight={600}>
+              <text x={m.l - 8} y={sy(v) + 4} textAnchor="end" fill={theme.palette.text.primary} fontSize={12.5} fontWeight={600}>
                 {fmt(v)}
               </text>
             </g>
@@ -426,7 +427,7 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
             return (
               <g key={idx}>
                 <line x1={sx(idx)} y1={m.t + iH} x2={sx(idx)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1} />
-                <text x={sx(idx)} y={m.t + iH + 18} textAnchor={anchor} fill="currentColor" fillOpacity={0.9} fontSize={12.5} fontWeight={600}>
+                <text x={sx(idx)} y={m.t + iH + 18} textAnchor={anchor} fill={theme.palette.text.primary} fontSize={12.5} fontWeight={600}>
                   {label}
                 </text>
               </g>

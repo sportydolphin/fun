@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * update-milestones.mjs — Nightly precompute of Milestone Watch: active players
+ * update-milestones.mjs: Nightly precompute of Milestone Watch: active players
  * closing in on career round numbers, single-season marks, and all-time records.
  *
  * Career/season totals barely move day to day, so this runs once a night and the
@@ -61,7 +61,7 @@ const TEAM_ABBR = {
 const TEAM_IDS = Object.keys(TEAM_ABBR).map(Number)
 
 // ─── Milestone catalog ────────────────────────────────────────────────────────
-// Each stat lists round-number thresholds and a "watch window" — how close a
+// Each stat lists round-number thresholds and a "watch window": how close a
 // player must be for it to count as a live chase. `label` is the noun shown in the
 // card ("12 HR from 500"). Windows scale with how fast the stat accrues.
 
@@ -96,7 +96,7 @@ const SEASON_PITCHING = {
   saves:      { label: 'saves',      thresholds: [30, 40, 50],   window: 8 },
 }
 
-// Career values that are the actual all-time record — flagged as a record chase.
+// Career values that are the actual all-time record: flagged as a record chase.
 const RECORDS = {
   homeRuns: 762, hits: 4256, rbi: 2297, runs: 2295,
   stolenBases: 1406, wins: 511, strikeOuts: 5714, saves: 652,
@@ -211,7 +211,7 @@ function collectItems(player, playerId, stat, catalog, kind) {
   return items
 }
 
-// True if `current` sits within `window` of any threshold, on either side — the player
+// True if `current` sits within `window` of any threshold, on either side: the player
 // is either chasing a milestone or has just passed one. We snapshot these totals each
 // run so the next run can tell a fresh crossing from an old one, without storing a value
 // for every player (only the few in contention).
@@ -267,11 +267,11 @@ function priority(item) {
 }
 
 // Chase ranking (lower = higher on the card). Distance is normalized by the stat's
-// watch window — remaining/window ∈ (0,1], 0 at the line — so how *imminent* a chase is
+// watch window (remaining/window ∈ (0,1], 0 at the line), so how *imminent* a chase is
 // drives the order, not raw counts: "1 hit from 1000" (accrues fast, small window)
 // outranks "12 saves from 500" (weeks away). Records and marquee milestones get a
 // multiplicative head start so they climb as the player closes in, but a far-off marquee
-// no longer sits above someone on the doorstep — it earns the top spot only near the line.
+// no longer sits above someone on the doorstep: it earns the top spot only near the line.
 const RANK_FACTOR = { record: 0.5, marquee: 0.7 }
 function rankScore(item) {
   const w = item.window > 0 ? item.window : 40
@@ -284,7 +284,7 @@ function rankScore(item) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log(`\n🏆 Milestone Watch — ${SEASON}${DRY_RUN ? ' (dry run)' : ''}\n`)
+  console.log(`\n🏆 Milestone Watch: ${SEASON}${DRY_RUN ? ' (dry run)' : ''}\n`)
 
   // Reuse one client for the read-before / write-after. Created up front (when creds
   // exist) so even a dry run can preview crossings against the last snapshot.
@@ -309,7 +309,7 @@ async function main() {
 
   const players = await fetchActivePlayers()
   console.log(`  ${players.size} active players`)
-  if (players.size < 100) throw new Error(`Only ${players.size} players — roster fetch likely failed`)
+  if (players.size < 100) throw new Error(`Only ${players.size} players, roster fetch likely failed`)
 
   const hitterIds  = [...players].filter(([, p]) => !p.isPitcher).map(([id]) => id)
   const pitcherIds = [...players].filter(([, p]) =>  p.isPitcher).map(([id]) => id)
@@ -339,7 +339,7 @@ async function main() {
 
   // Season-long archive: fold new crossings into the ones already stored and dedupe.
   // A crossing is only ever detected once (prev < t ≤ current), so this simply
-  // accumulates every milestone reached this season, newest-first — the fullscreen
+  // accumulates every milestone reached this season, newest-first. The fullscreen
   // "Reached" list reads it whole. The 7-day `recent` slice the card leads with is
   // just the tail end of the same archive, so the two can never disagree.
   const seen = new Set()
@@ -362,8 +362,8 @@ async function main() {
   }
   console.log('')
 
-  if (DRY_RUN) { console.log('✅  Dry run complete — nothing written\n'); return }
-  if (!supabase) { console.error('❌  No Supabase client — set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY'); process.exit(1) }
+  if (DRY_RUN) { console.log('✅  Dry run complete, nothing written\n'); return }
+  if (!supabase) { console.error('❌  No Supabase client. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY'); process.exit(1) }
 
   const { error } = await supabase
     .from('milestone_watch')

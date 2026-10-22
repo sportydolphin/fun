@@ -1,4 +1,4 @@
-// Write a job heartbeat to cron_heartbeats — the supabase-js path, shared by the service-role
+// Write a job heartbeat to cron_heartbeats: the supabase-js path, shared by the service-role
 // cron scripts (the push sender, the recap sync). One row per job: when it last ran and whether
 // it succeeded, read by the /admin Health group and the health-alert cron (shared/adminHealth.js).
 //

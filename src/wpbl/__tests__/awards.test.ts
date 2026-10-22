@@ -704,7 +704,7 @@ describe('Most Aura, which no column holds', () => {
       .toEqual([{ label: 'Team', value: WPBL_AURA_SHORTLIST[0].teamId }])
   })
 
-  // The neighbouring questions are unaffected: bare is this award's decision, not the sheet's.
+  // The neighboring questions are unaffected: bare is this award's decision, not the sheet's.
   it('does not take the figures off the other player awards', () => {
     const wheels = buildAwardBallot(input()).find(e => e.award.id === 'wheels')
     expect(wheels?.candidates.length ?? 0).toBeGreaterThan(0)

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * send-game-start.mjs — "your team's game is about to start" Web Push.
+ * send-game-start.mjs: "your team's game is about to start" Web Push.
  *
  * The push twin of the in-site game-start source (src/mlb/notifications/
  * gameStart.ts): same catalog builder, same id, so a user who gets the push and
@@ -176,14 +176,14 @@ async function main() {
   }
 
   const date = todayStr()
-  console.log(`\n⏰ Game-start reminders — ${date}\n`)
+  console.log(`\n⏰ Game-start reminders: ${date}\n`)
 
   // 1. All opted-in subscriptions, grouped by user.
   const { data: subsRows, error: subsErr } = await supabase
     .from('push_subscriptions')
     .select('user_id, endpoint, p256dh, auth')
   if (subsErr) throw new Error(`Loading subscriptions failed: ${subsErr.message}`)
-  if (!subsRows || subsRows.length === 0) { console.log('  No push subscriptions yet — exiting.'); return }
+  if (!subsRows || subsRows.length === 0) { console.log('  No push subscriptions yet, exiting.'); return }
 
   const subsByUser = new Map()
   for (const row of subsRows) {
@@ -191,7 +191,7 @@ async function main() {
     subsByUser.get(row.user_id).push(row)
   }
 
-  // 2. Preferences for those users — who opted in, their team, their lead time.
+  // 2. Preferences for those users: who opted in, their team, their lead time.
   const userIds = [...subsByUser.keys()]
   const { data: prefRows, error: prefErr } = await supabase
     .from('user_preferences')
@@ -200,7 +200,7 @@ async function main() {
   if (prefErr) throw new Error(`Loading preferences failed: ${prefErr.message}`)
 
   const candidates = (prefRows ?? []).filter(p => p.notify_game_start && p.followed_team_id != null)
-  if (candidates.length === 0) { console.log('  No users opted into game-start reminders — exiting.'); return }
+  if (candidates.length === 0) { console.log('  No users opted into game-start reminders, exiting.'); return }
 
   // 3. Which reminders already went out today, so we send each exactly once.
   const { data: sentRows, error: sentErr } = await supabase
@@ -208,7 +208,7 @@ async function main() {
     .select('user_id, game_pk')
     .eq('game_date', date)
   if (sentErr) {
-    console.error('  ❌  Could not read game_start_sent — run scripts/create_game_start_sent.sql first.')
+    console.error('  ❌  Could not read game_start_sent. Run scripts/create_game_start_sent.sql first.')
     throw new Error(sentErr.message)
   }
   const alreadySent = new Set((sentRows ?? []).map(r => `${r.user_id}:${r.game_pk}`))

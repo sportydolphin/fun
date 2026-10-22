@@ -350,7 +350,7 @@ export default function FanVoteCard({
               }
               : {
                 bgcolor: 'var(--wpbl-accent-solid)', color: '#fff',
-                // A shadow in the button's own hue rather than a grey one, so it reads as the
+                // A shadow in the button's own hue rather than a gray one, so it reads as the
                 // color glowing rather than as a piece of paper lifting off the card.
                 boxShadow: '0 1px 6px -1px color-mix(in srgb, var(--wpbl-accent-solid) 55%, transparent)',
                 ...hoverOnly({ filter: 'brightness(1.08)', transform: 'translateY(-1px)' }),

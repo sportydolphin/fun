@@ -66,7 +66,7 @@ audited alongside the new events and two things came off it:
   adding seven event names on Aug 25 lifts it about a fifth with nothing changing in what
   anyone did, and the number was already on the page twice (the chart plots it per day, the
   Events card breaks it down). "Active today" and "Active 30d" were two tiles carrying three
-  numbers, and unlike their neighbours they ignore the range chips entirely. They are now one
+  numbers, and unlike their neighbors they ignore the range chips entirely. They are now one
   tile whose sub-line names all three windows, so the fixed-window group cannot be mistaken for
   something the filter moved.
 

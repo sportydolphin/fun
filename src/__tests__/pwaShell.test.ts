@@ -310,7 +310,7 @@ describe('the service worker precache', () => {
   // redirected response, so storing `res` directly throws, and cache.addAll would have
   // taken the other three assets down with it. Verified against the live site: the deploy
   // on Aug 21, 2026 cached nothing at all.
-  it('survives Cloudflare canonicalising /offline.html to /offline', async () => {
+  it('survives Cloudflare canonicalizing /offline.html to /offline', async () => {
     const sw = loadServiceWorker()
     sw.fetch.mockImplementation(async () => {
       const res = okResponse()
@@ -405,7 +405,7 @@ describe('universal links', () => {
   it('is served as JSON, which only _headers can arrange', () => {
     // _headers is a flat file: a path line in column 0, then its headers indented under
     // it until the next unindented line. Parsed rather than regexed so an added rule for a
-    // neighbouring path cannot be mistaken for this one.
+    // neighboring path cannot be mistaken for this one.
     const lines = headersSource.split(/\r?\n/)
     const at = lines.indexOf('/.well-known/apple-app-site-association')
     expect(at, 'no _headers rule for /.well-known/apple-app-site-association')

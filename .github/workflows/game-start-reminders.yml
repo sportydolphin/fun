@@ -5,7 +5,7 @@ on:
     # Every 5 minutes, but only when MLB games can actually start, which cuts the
     # run count roughly in half versus a blanket */5.
     #
-    #   hours 15-23,0-4 UTC — 11am ET (earliest getaway/holiday games) through
+    #   hours 15-23,0-4 UTC: 11am ET (earliest getaway/holiday games) through
     #                         ~8pm PT first pitches. Nothing starts 05:00-15:00
     #                         UTC (1am-11am ET).
     #   months 3-10         the season, postseason included. Nov-Feb runs

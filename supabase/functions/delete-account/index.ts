@@ -1,10 +1,10 @@
-// Deno Edge Function — deletes the calling user's own account (auth user +
+// Deno Edge Function: deletes the calling user's own account (auth user +
 // their rows in app tables). Deploy with:
 //   supabase functions deploy delete-account
 // See supabase/functions/README.md for the full setup walkthrough.
 //
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are injected automatically by
-// the Supabase platform for every Edge Function in this project — no need
+// the Supabase platform for every Edge Function in this project, no need
 // to set them as secrets yourself.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-  // Client scoped to the caller's own JWT — used only to verify who's asking.
+  // Client scoped to the caller's own JWT: used only to verify who's asking.
   const callerClient = createClient(supabaseUrl, serviceRoleKey, {
     global: { headers: { Authorization: authHeader } },
   })
@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     })
   }
 
-  // Admin client (service role) — only ever acts on the verified caller's own id.
+  // Admin client (service role): only ever acts on the verified caller's own id.
   const admin = createClient(supabaseUrl, serviceRoleKey)
 
   // Clean up app tables first. Most of these are set up with
@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
     admin.from('game_predictions').delete().eq('user_id', user.id),
     admin.from('push_subscriptions').delete().eq('user_id', user.id),
 
-    // ANONYMISED, NOT DELETED, and these two are the reason this list is not just the
+    // ANONYMIZED, NOT DELETED, and these two are the reason this list is not just the
     // cascade. `events.user_id` and `feedback.user_id` are plain uuid columns with NO foreign
     // key to auth.users (see scripts/create_events.sql, scripts/create_feedback.sql), so
     // deleting the auth user does not touch them: before this, every deleted account left its

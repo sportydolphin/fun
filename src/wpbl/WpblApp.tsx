@@ -282,7 +282,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     setPlayerPage(!!s.playerPage)
     if (s.season !== undefined) setPickedSeason(s.season)
   }, [])
-  // Memoised on `players` and threaded through push's deps below: it reads the roster now,
+  // Memoized on `players` and threaded through push's deps below: it reads the roster now,
   // so leaving it out would freeze `push` around the empty roster of the first render and
   // every player URL would come out in the legacy query form.
   const urlFor = useCallback((s: WpblSnap) =>
@@ -587,7 +587,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   }, [detailPlayer, playerAsPanel])
   usePreloadGameDetail()
 
-  // Full roster of every player, loaded once — the pool the header search filters over.
+  // Full roster of every player, loaded once: the pool the header search filters over.
   useEffect(() => { fetchWpblAllPlayers().then(setPlayers).catch(() => {}) }, [])
 
   // Warm the datasets the landing view will ask for, in parallel with the teams/schedule

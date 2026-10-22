@@ -1,7 +1,7 @@
 // Per-route <title>, meta description, canonical, and Open Graph/Twitter tags.
 //
 // The app is client-rendered, so without this every route would inherit the single
-// static <title>/description baked into index.html — meaning Google could never rank a
+// static <title>/description baked into index.html, meaning Google could never rank a
 // distinct "WPBL stats" page because, as far as the markup was concerned, one didn't
 // exist. Googlebot renders JS and reads what this hook sets on route change; index.html
 // still carries sensible defaults for non-JS crawlers and social unfurlers.
@@ -36,7 +36,7 @@ const DEFAULT: Seo = {
 }
 
 // Keyword-forward titles: the primary term leads, the brand trails. /wpbl targets
-// "WPBL stats" / "Women's Pro Baseball League" — a new-in-2026, low-competition term.
+// "WPBL stats" / "Women's Pro Baseball League", a new-in-2026, low-competition term.
 const ROUTES: Record<string, Seo> = {
   '/wpbl': {
     title: "WPBL Stats: Women's Pro Baseball League | sportydolphin.fun",
@@ -145,7 +145,7 @@ const ROUTES: Record<string, Seo> = {
   },
   // The rules, and the only page in the section written for a question the WPBL itself does
   // not answer anywhere public: how a pitcher earns a win. Searched for, and currently
-  // unanswerable — the title leads with "rules" rather than "glossary" because that is the
+  // unanswerable: the title leads with "rules" rather than "glossary" because that is the
   // half people type. Durable, too: it is as true in February as in September.
   // Provenance, and the one page here whose job is to be LINKED rather than found: it is what
   // an independent writer or transcriber is handed when asked to link back. Indexable all the
@@ -365,7 +365,7 @@ const ROUTES: Record<string, Seo> = {
   }])),
   // Owner-only. `noindex` is belt to robots.txt's braces: robots.txt asks a crawler not to
   // fetch the URL, this tells one that fetched it anyway not to index it. Neither is a
-  // security control — the RPC guards are (see docs/ADMIN_ANALYTICS.md).
+  // security control; the RPC guards are (see docs/ADMIN_ANALYTICS.md).
   '/admin': {
     title: 'Admin | sportydolphin.fun',
     description: 'Site analytics and admin tools.',
@@ -396,7 +396,7 @@ export const WPBL_ROUTES_SEASON = 2026
 /**
  * A season-summing WPBL page's tags for the year on screen: the entry above with its year swapped,
  * and, for a past year, `?season=` kept in the canonical. A past season is its own page (its own
- * table, its own leaders), and canonicalised back to the bare tab it would be folded into the
+ * table, its own leaders), and canonicalized back to the bare tab it would be folded into the
  * current year's and never found. Null for a path with no entry.
  */
 export function wpblSeasonSeo(path: string, season: number, current: boolean): Seo | null {

@@ -103,7 +103,7 @@ describe('player links', () => {
 
 // ─── Game links ────────────────────────────────────────────────────────────────
 //
-// Game Center was deep-linkable as ?game=<uuid> from the start, which seo.ts canonicalises
+// Game Center was deep-linkable as ?game=<uuid> from the start, which seo.ts canonicalizes
 // back to the tab underneath: every recap the section rendered was unindexable by design,
 // and the schedule cards were bare onClick divs because there was no href to give them.
 

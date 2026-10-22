@@ -62,7 +62,7 @@ export const HIDE_ON_PHONE = { '@media (max-width:599.95px)': VISUALLY_HIDDEN } 
 /**
  * A tab's title, as the tab draws it AND as its loading state draws it. One component so the two
  * cannot disagree: the title needs no data, so the skeleton shows the real words in the real place
- * and the only thing that changes when the tab arrives is the grey blocks under it. `sx` is the
+ * and the only thing that changes when the tab arrives is the gray blocks under it. `sx` is the
  * tab's own spacing. Drawn at every width; see HIDE_ON_PHONE for why it once was not.
  */
 export function TabTitle({ children, sx }: { children: React.ReactNode; sx?: SxProps<Theme> }) {

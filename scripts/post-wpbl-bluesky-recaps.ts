@@ -21,7 +21,7 @@
  *
  * 3. THE BOX SCORE HAS TO BE AN IMAGE. Discord's version is a space-padded table inside a code
  *    fence; Bluesky has no monospace and no fences, so the same string is ragged nonsense. The
- *    card is drawn as SVG by `boxScoreCard` (pure, tested) and rasterised here.
+ *    card is drawn as SVG by `boxScoreCard` (pure, tested) and rasterized here.
  *
  * IT NEVER BACKFILLS. The first run against an empty table records every existing final as
  * handled and publishes nothing, so switching it on does not put a season on the timeline. Only

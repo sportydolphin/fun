@@ -39,7 +39,7 @@ export async function fetchDeactivatedUserIds(userIds?: string[]): Promise<Set<s
   return new Set((data ?? []).map(r => r.user_id as string))
 }
 
-// Whether one specific user is deactivated — used to block them at sign-in.
+// Whether one specific user is deactivated, used to block them at sign-in.
 export async function isUserDeactivated(userId: string): Promise<boolean> {
   const { data, error } = await supabase
     .from('usernames').select('is_deleted').eq('user_id', userId).maybeSingle()
@@ -48,7 +48,7 @@ export async function isUserDeactivated(userId: string): Promise<boolean> {
 }
 
 // ─── Random baseball-themed username generator ─────────────────────────────────
-// Used when a new account doesn't pick a username — combines two baseball
+// Used when a new account doesn't pick a username: combines two baseball
 // words + a number, e.g. "SluggerRocket482".
 
 const WORDS_A = [
@@ -80,6 +80,6 @@ export async function generateUniqueUsername(maxAttempts = 12): Promise<string> 
     if (containsProfanity(name)) continue
     if (!(await isUsernameTaken(name))) return name
   }
-  // Astronomically unlikely fallback — a timestamp suffix guarantees uniqueness
+  // Astronomically unlikely fallback: a timestamp suffix guarantees uniqueness
   return `${randomFrom(WORDS_A)}${randomFrom(WORDS_B)}${Date.now() % 100000}`
 }

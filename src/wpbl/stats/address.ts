@@ -13,7 +13,7 @@ import { sideOn, sideOfSort } from './axes'
  * OVER that page is a query param. A sorted column is the second kind. It also means this costs
  * nothing in the three places a new route would: `/wpbl/stats` is already in `_redirects`, the
  * sitemap is unchanged, and `seo.ts` builds its canonical from `path.split('?')[0]`, so every
- * permutation of these four params canonicalises back to `/wpbl/stats` and none of them can
+ * permutation of these four params canonicalizes back to `/wpbl/stats` and none of them can
  * reach the index as a near-duplicate.
  *
  * ONLY NON-DEFAULTS ARE WRITTEN, so the ordinary reader who never touches a control keeps a

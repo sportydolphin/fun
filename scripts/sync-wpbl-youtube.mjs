@@ -8,7 +8,7 @@
  * reach the Discord poster. Everything below describing the league's title contract is about
  * the league channel; the fan channel's contract is at `classifyFan`.
  *
- * Reads the channel's PUBLIC RSS feed (no API key, no OAuth, no quota — YouTube exposes
+ * Reads the channel's PUBLIC RSS feed (no API key, no OAuth, no quota: YouTube exposes
  * the latest ~15 uploads at feeds/videos.xml), classifies each upload, parses the game
  * highlights' titles into the WPBL game they recap, and upserts everything into the
  * `wpbl_videos` table. The browser reads that table directly (public RLS), so no viewer
@@ -23,7 +23,7 @@
  *   "WPBL Highlights: San Francisco @ Los Angeles | August 7, 2026"
  *   "WPBL Highlights: Los Angeles Queens @ New York Heights | August 1st, 2026"
  * i.e. `<away> @ <home> | <Month Day[, ordinal], Year>`. The away/home segments may or may
- * not include the club nickname, and the date may carry an ordinal suffix — the parser
+ * not include the club nickname, and the date may carry an ordinal suffix: the parser
  * tolerates both. Anything that isn't a recognizable "<team> @ <team>" highlight is stored
  * with game_id null (podcasts, league features) so the rail can still show it if we want.
  *
@@ -36,7 +36,7 @@
  *
  * Source: prefers the YouTube Data API v3 when YOUTUBE_API_KEY is set (reliable from CI
  * datacenter IPs), otherwise falls back to the public RSS feed (keyless, but YouTube
- * 404s it intermittently from GitHub runners — hence the API-key path and RSS retries).
+ * 404s it intermittently from GitHub runners, hence the API-key path and RSS retries).
  *
  * Required env: SUPABASE_URL (or VITE_SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY.
  * Optional env: YOUTUBE_API_KEY (preferred source), WPBL_YT_CHANNEL_ID (defaults to
@@ -75,7 +75,7 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 const SUPABASE_KEY = SERVICE_KEY || (DRY_RUN ? process.env.VITE_SUPABASE_ANON_KEY ?? '' : '')
 // Official WPBL channel (youtube.com/@wpbl_official). Overridable via the WPBL_YT_CHANNEL_ID
 // repo variable. NOTE: GitHub passes an *unset* `vars.X` as an empty string (""), and `??`
-// only falls back on null/undefined — so use `|| default` (and trim) to treat "" as unset.
+// only falls back on null/undefined, so use `|| default` (and trim) to treat "" as unset.
 export const LEAGUE_CHANNEL_ID = (process.env.WPBL_YT_CHANNEL_ID || '').trim() || 'UCtd3k09dk2H6UjU7skfmemQ'
 // "WPBL from Day 1" (youtube.com/@wpblfanrecaps): a fan's condensed games and season
 // compilations, embedded with the owner's explicit permission (Sep 28, 2026). Mirrored beside
@@ -150,7 +150,7 @@ function parseEntries(xml) {
 
 // The matchup separator the league actually uses varies: mostly "@", but some uploads say
 // "vs." ("WPBL Highlights: Boston Hunters vs. New York Heights | August 9, 2026"). Accept
-// both, matching what parseMatchup already splits on — otherwise a "vs." reel lands as
+// both, matching what parseMatchup already splits on; otherwise a "vs." reel lands as
 // 'other', drops out of the rail, and never reaches the Discord highlights channel.
 const MATCHUP_SEP = /\s@\s|\svs\.?\s/
 
@@ -383,13 +383,13 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 async function fetchViaApi(channelId) {
   // A real API key is ~39 chars and starts with "AIza". If it doesn't, the most likely
   // mistake is pasting an OAuth client ID / client secret (or a truncated value) instead
-  // of an API key — flag that up front rather than letting YouTube's terse 400 mislead.
+  // of an API key. Flag that up front rather than letting YouTube's terse 400 mislead.
   if (!/^AIza[\w-]{35}$/.test(YT_API_KEY)) {
     console.warn(`⚠️   YOUTUBE_API_KEY doesn't look like an API key (got ${YT_API_KEY.length} chars, ` +
       `starts "${YT_API_KEY.slice(0, 4)}"). It should be ~39 chars starting "AIza". ` +
       `Create one under APIs & Services → Credentials → Create credentials → API key.`)
   }
-  // Redacted fingerprint of the key the runner actually received — enough to spot a
+  // Redacted fingerprint of the key the runner actually received: enough to spot a
   // truncated/padded/whitespaced secret without exposing the key (and it's the user's
   // own private log). If len != 39 or the prefix isn't "AIzaSy", the secret value is wrong.
   const k = YT_API_KEY
@@ -466,7 +466,7 @@ async function fetchEntries(channelId) {
     console.log(`📺  ${e.length} videos via Data API`)
     return e
   }
-  console.warn('⚠️   No YOUTUBE_API_KEY set — trying the public RSS feed, which YouTube 404s ' +
+  console.warn('⚠️   No YOUTUBE_API_KEY set, trying the public RSS feed, which YouTube 404s ' +
     'intermittently from CI. Set YOUTUBE_API_KEY for a reliable source.')
   const e = await fetchViaRss(channelId)
   console.log(`📺  ${e.length} videos via RSS`)

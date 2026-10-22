@@ -87,8 +87,8 @@ export function useChartViewWidth(ref: RefObject<HTMLElement | null>, base: numb
 // happened to end on, so looking at 2021 on the way to 2023 took the reader to 2023's page. A slide
 // now just lets go; a tap (a touch that stayed within a few px) still opens what is under it.
 //
-// The click the browser synthesises after a tap is swallowed, or a tap would select twice, and so
-// is the mousemove it synthesises, which would otherwise leave a hover tip pinned on a screen with
+// The click the browser synthesizes after a tap is swallowed, or a tap would select twice, and so
+// is the mousemove it synthesizes, which would otherwise leave a hover tip pinned on a screen with
 // no hover.
 export interface TouchScrubHandlers {
   /** The finger is at this point: draw the tip there. */

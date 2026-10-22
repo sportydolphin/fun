@@ -240,7 +240,7 @@ describe('postseasonScheduleRows', () => {
     expect(rowsFor(split).find(r => r.date === '2026-09-14')!.ifNecessary).toBe(true)
   })
 
-  // The chip on the Home scoreboard is 8.5rem wide, where "Semifinal A winner" ellipsises to
+  // The chip on the Home scoreboard is 8.5rem wide, where "Semifinal A winner" ellipsizes to
   // "Semifinal A w…" and names the wrong thing.
   it('carries a short label for a slot with no room for the long one', () => {
     const champ = bySeries(finished(), 'Championship')[0]

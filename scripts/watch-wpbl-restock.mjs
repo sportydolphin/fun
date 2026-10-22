@@ -409,7 +409,7 @@ export function mentionParse(mention) {
 
 // ─── The auction house ──────────────────────────────────────────────────────
 //
-// A different kind of source, so a separate path rather than a second flavour of the Shopify
+// A different kind of source, so a separate path rather than a second flavor of the Shopify
 // one. There are no variants and no `available`: every lot is one of one, so the only thing
 // that can happen to a lot after it is listed is that somebody buys it, and the only event
 // worth a message is a lot id nobody has seen before.

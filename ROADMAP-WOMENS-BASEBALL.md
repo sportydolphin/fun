@@ -17,7 +17,7 @@ Phase 0 is mostly done: the back end is built and waiting on WBSC's permission.
 | Oct 16 | The crosswalk proposer: 39 candidate WBSC-to-WPBL matches for a person to confirm | [sportydolphin/fun#123](https://github.com/sportydolphin/fun/pull/123) |
 
 **Waiting on:** replies to the owner's outreach (WBSC for permission; Baseball Prospectus and
-RetroWPBL as neighbours, see [Neighbours](#neighbours)). Record each reply here, with its date.
+RetroWPBL as neighbors, see [Neighbors](#neighbors)). Record each reply here, with its date.
 
 **Nothing is on the site, and no WBSC data is in git.** The repository is public, so committing
 the data would publish it. Everything WBSC-derived lives in two gitignored folders on the machine
@@ -144,7 +144,7 @@ Rules for the audit, enforced rather than remembered:
 
 ---
 
-## Neighbours
+## Neighbors
 
 Almost nobody covers these stats, and the few who do are partners, not rivals. The one that
 matters is the data's owner.

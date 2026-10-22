@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * map-wpbl-discord-events.mjs — build the game→event-URL map, once, automatically.
+ * map-wpbl-discord-events.mjs: build the game→event-URL map, once, automatically.
  *
  * Reads scripts/wpbl-discord-events.txt (one watch-party event link per line), resolves
  * each event's name + scheduled start time, matches it to the wpbl_games row whose first
@@ -46,7 +46,7 @@ import ws from 'ws'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
-// Only public reads (wpbl_games/wpbl_teams), so the anon key is enough — no need for the
+// Only public reads (wpbl_games/wpbl_teams), so the anon key is enough, with no need for the
 // service-role secret. Prefer service-role if present, else the anon key from .env.
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
   ?? process.env.VITE_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY ?? ''

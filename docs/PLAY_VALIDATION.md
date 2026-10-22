@@ -308,7 +308,7 @@ truth.
 ## 9. What the RetroWPBL check has found (Aug 27, re-run Sep 1, 2026)
 
 Run as a check rather than a mirror, on the two games whose play-log runs disagree with their
-own box score. Both were found by totalling the log per side and comparing it with the published
+own box score. Both were found by totaling the log per side and comparing it with the published
 score, which is a stronger check than anything in §3 because it needs no rule about baseball at
 all, and both were then explained line by line against RetroWPBL.
 

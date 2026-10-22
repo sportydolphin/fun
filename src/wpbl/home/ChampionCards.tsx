@@ -405,7 +405,7 @@ function titlePath(champion: WpblTeam, standings: ReturnType<typeof computeStand
 /** The finished-season body: the champion crowned with its final, the road there, and the final
  *  game by game.
  *
- *  THE SERIES SCORE LIVES IN THE HERO. It used to be its own line under it, small grey text with
+ *  THE SERIES SCORE LIVES IN THE HERO. It used to be its own line under it, small gray text with
  *  the RUNNER-UP's badge leading "def. San Francisco Firebells", which read at a glance as the
  *  Firebells having beaten someone, while the right half of the hero band sat empty. Now the band
  *  says the whole result: who won, what, and 3–2 over whom.
@@ -567,7 +567,7 @@ function linkWithEvent(link: object, playerId: string) {
 /**
  * Home, before its first read lands.
  *
- * IT IS A COPY OF HOME'S LAYOUT, NOT A STACK OF GREY BARS, and it lives beside the page it
+ * IT IS A COPY OF HOME'S LAYOUT, NOT A STACK OF GRAY BARS, and it lives beside the page it
  * mirrors so the two are edited together. Home is the one view that breaks out of the 720px page
  * column (see homeWideSx), so a generic section skeleton paints at the wrong width and a fraction
  * of the height: the whole page would jump sideways and drop its footer on every cold load. Every

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * resolve-survivor.mjs — Nightly grader for the Streak Survivor game.
+ * resolve-survivor.mjs: Nightly grader for the Streak Survivor game.
  *
  * Streak Survivor: each player picks one hitter a day. A hit that day extends
  * their streak; an 0-fer resets it to 0; a day the player didn't bat is voided
@@ -40,7 +40,7 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
 const FETCH_CONCURRENCY = 6   // polite parallelism for the game-log fetches
 
 // Today in UTC as YYYY-MM-DD. A pick's day counts as over once the calendar has
-// rolled past it everywhere — the 06:00 UTC run is already ~1am ET, so the prior
+// rolled past it everywhere: the 06:00 UTC run is already ~1am ET, so the prior
 // ET day's west-coast finals are long in.
 function utcToday() {
   return new Date().toISOString().slice(0, 10)
@@ -104,7 +104,7 @@ function walkStreak(resultsOldestFirst) {
   for (const res of resultsOldestFirst) {
     if (res === 'hit') { current++; hits++; graded++; if (current > longest) longest = current }
     else if (res === 'miss') { current = 0; graded++ }
-    // 'void' / 'pending' — no effect
+    // 'void' / 'pending': no effect
   }
   return { current, longest, totalHits: hits, totalPicks: graded }
 }
@@ -118,7 +118,7 @@ async function main() {
   })
 
   const today = utcToday()
-  console.log(`\n🎯 Streak Survivor resolver — grading picks before ${today}${DRY_RUN ? ' (dry run)' : ''}\n`)
+  console.log(`\n🎯 Streak Survivor resolver: grading picks before ${today}${DRY_RUN ? ' (dry run)' : ''}\n`)
 
   // 1. Pending picks whose day is over.
   const { data: pending, error: pErr } = await supabase
@@ -214,7 +214,7 @@ async function main() {
     }
   }
 
-  console.log(DRY_RUN ? '✅  Dry run complete — nothing written\n' : '✅  Resolve complete\n')
+  console.log(DRY_RUN ? '✅  Dry run complete, nothing written\n' : '✅  Resolve complete\n')
 }
 
 main().catch(err => { console.error('Fatal:', err); process.exit(1) })

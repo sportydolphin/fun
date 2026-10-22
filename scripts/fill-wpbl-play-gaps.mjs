@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * fill-wpbl-play-gaps.mjs — write the plays the league published EMPTY, from RetroWPBL.
+ * fill-wpbl-play-gaps.mjs: write the plays the league published EMPTY, from RetroWPBL.
  *
  * WHAT THIS IS ALLOWED TO TOUCH, AND WHY THE LINE IS EXACTLY THERE. `sync-wpbl-retro` mirrors
  * only their `info` records, deliberately: a second copy of the play-by-play would be a second

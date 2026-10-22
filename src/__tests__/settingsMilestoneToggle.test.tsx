@@ -8,10 +8,10 @@
 // so gating them behind a granted Notification permission (the way the two push-backed rows
 // are) would leave anyone who denied the browser prompt unable to turn them back on.
 //
-// Finding it by label is itself load-bearing. MUI v7 dropped `inputProps` on Switch in favour
+// Finding it by label is itself load-bearing. MUI v7 dropped `inputProps` on Switch in favor
 // of `slotProps.input`, and the other switches in this dialog still pass the old prop, so they
 // render with no accessible name: invisible to a screen reader, and unfindable here. This test
-// fails if the milestone row is ever "tidied" back to the neighbouring style.
+// fails if the milestone row is ever "tidied" back to the neighboring style.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, cleanup } from '@testing-library/react'

@@ -24,7 +24,7 @@ const CREATE = new RegExp(String.raw`create\s+table\s+(?:if\s+not\s+exists\s+)?$
 const ALTER = new RegExp(String.raw`alter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?${ident}\s+([^;]*)`, 'gi')
 const CONSTRAINT = /^(constraint|primary|unique|check|foreign|exclude)\b/i
 
-/** The body of a parenthesised list starting at `open`, split on its top-level commas. */
+/** The body of a parenthesized list starting at `open`, split on its top-level commas. */
 function topLevelItems(sql: string, open: number): string[] {
   const items: string[] = []
   let depth = 0, start = open + 1

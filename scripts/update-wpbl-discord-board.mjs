@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * update-wpbl-discord-board.mjs — a single self-editing "next games" board in Discord.
+ * update-wpbl-discord-board.mjs: a single self-editing "next games" board in Discord.
  *
  * Posts (or, on later runs, edits) ONE webhook message in a channel that always shows
  * the next few WPBL watch parties, soonest at the top, each with a live countdown and a
  * masked link that opens the native Discord event RSVP. Because it edits the same message
- * every run, the channel stays exactly one message tall — the "next game" is line one and
+ * every run, the channel stays exactly one message tall: the "next game" is line one and
  * nobody has to scroll.
  *
- * Why a webhook (not a bot): a webhook is send-only HTTP — no token, no gateway, nothing
+ * Why a webhook (not a bot): a webhook is send-only HTTP: no token, no gateway, nothing
  * to keep running. The schedule it renders comes from our own Supabase mirror (wpbl_games
  * + wpbl_teams), the same source scripts/send-wpbl-game-start.mjs reads.
  *
@@ -27,7 +27,7 @@
  *   node scripts/update-wpbl-discord-board.mjs
  *
  * Required env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DISCORD_BOARD_WEBHOOK_URL.
- * Optional env: DISCORD_BOARD_MESSAGE_ID (one-time seed only — see above),
+ * Optional env: DISCORD_BOARD_MESSAGE_ID (one-time seed only; see above),
  *               DISCORD_EVENTS_URL (fallback link when a game has no mapped event URL;
  *               it must be a link that WORKS on its own, since it is used verbatim. An
  *               invite ending in a bare '?event=' resolves to the invite and no event).
@@ -134,7 +134,7 @@ function todayStr(offsetDays = 0) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-/** True UTC instant (epoch ms) of first pitch — treats the "H:MM AM/PM" wall clock as Central, DST-safe. */
+/** True UTC instant (epoch ms) of first pitch: treats the "H:MM AM/PM" wall clock as Central, DST-safe. */
 function gameStartMs(gameDate, startTime) {
   if (!startTime) return null
   const m = String(startTime).trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
@@ -223,7 +223,7 @@ async function fetchPostseasonRows() {
   if (error) {
     // Not fatal. A board that loses the postseason is worse than one that loses it silently
     // is worse than no board at all, so this degrades to the feed's own rows and says so.
-    console.warn(`⚠️  Loading the site calendar failed (${error.message}) — postseason fixtures omitted.`)
+    console.warn(`⚠️  Loading the site calendar failed (${error.message}), postseason fixtures omitted.`)
     return []
   }
   return (data ?? []).map(siteRowToGame)
@@ -346,12 +346,12 @@ async function editMessage(id, payload) {
 // ─── Message-id persistence (Supabase) ──────────────────────────────────────
 // The board owns exactly one Discord message; its id lives in wpbl_discord_board_state
 // so every run edits that message instead of posting a new one. Read/written with the
-// service role in CI (bypasses RLS). Read/write failures degrade gracefully — worst case
-// the board posts a fresh message — rather than aborting the run.
+// service role in CI (bypasses RLS). Read/write failures degrade gracefully (worst case,
+// the board posts a fresh message) rather than aborting the run.
 
 // Returns { ok, id }: ok=false means the store is unreadable (e.g. the table hasn't been
 // created), which the caller treats as "persistence is broken" and refuses to create a new
-// message — otherwise it would post an un-rememberable board on every 15-minute run.
+// message. Otherwise it would post an un-rememberable board on every 15-minute run.
 async function loadStoredMessageId() {
   const { data, error } = await db()
     .from('wpbl_discord_board_state')
@@ -434,7 +434,7 @@ async function main() {
     // Keep the webhook from pinging anyone when it edits.
     allowed_mentions: { parse: [] },
     // Clear any author embed from earlier versions. (This does NOT remove the event-card
-    // unfurls — those are what we want here — it only drops embeds we set ourselves.)
+    // unfurls, which are what we want here; it only drops embeds we set ourselves.)
     embeds: [],
     content: upcoming.length
       ? buildBoardContent(upcoming, teamNames, now)
@@ -462,19 +462,19 @@ ${payload.content}
     const { gone } = await editMessage(messageId, payload)
     if (!gone) {
       if (adopting) await storeMessageId(messageId)   // adopt the seeded id into the DB
-      console.log(`✅ Edited board message ${messageId} — showing ${upcoming.length} game(s).`)
+      console.log(`✅ Edited board message ${messageId}, showing ${upcoming.length} game(s).`)
       return
     }
-    console.warn(`⚠️  Board message ${messageId} no longer exists — creating a fresh one.`)
+    console.warn(`⚠️  Board message ${messageId} no longer exists, creating a fresh one.`)
   }
 
   // Guard: never post a message we can't remember. If the store is unreadable (missing
-  // table, bad creds), creating here would spawn a brand-new board on every 15-minute run —
+  // table, bad creds), creating here would spawn a brand-new board on every 15-minute run,
   // exactly the duplicate-spam this persistence was added to stop. Fail loudly instead so
   // the workflow goes red and nothing is posted until wpbl_discord_board_state exists.
   if (!stored.ok) {
     throw new Error(
-      'wpbl_discord_board_state is unreadable (has scripts/create_wpbl_discord_board_state.sql been run?) — ' +
+      'wpbl_discord_board_state is unreadable (has scripts/create_wpbl_discord_board_state.sql been run?), so ' +
       'refusing to CREATE a board we cannot persist, which would duplicate every run.'
     )
   }
@@ -492,8 +492,8 @@ ${payload.content}
 
   const msg = await createMessage(payload)
   const persisted = await storeMessageId(msg.id)
-  if (!persisted) throw new Error(`Created board message ${msg.id} but FAILED to persist its id — aborting so the next run doesn't duplicate. Fix wpbl_discord_board_state writes.`)
-  console.log(`✅ Created board message ${msg.id} — showing ${upcoming.length} game(s). Persisted for future edits.`)
+  if (!persisted) throw new Error(`Created board message ${msg.id} but FAILED to persist its id. Aborting so the next run doesn't duplicate. Fix wpbl_discord_board_state writes.`)
+  console.log(`✅ Created board message ${msg.id}, showing ${upcoming.length} game(s). Persisted for future edits.`)
 }
 
 // Guarded, like the two Discord scripts beside it, so the pure helpers above can be imported

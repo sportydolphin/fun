@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * update-streaks.mjs — Nightly precompute of the active-streak leader boards
+ * update-streaks.mjs: Nightly precompute of the active-streak leader boards
  * (hitting streaks, hitless slumps, scoreless-inning streaks, games-played
  * streaks) behind the player report cards in Visualize.
  *
@@ -12,7 +12,7 @@
  *
  * The one deliberate difference is STREAK_CANDIDATES: generous here (CI, once a
  * night), much smaller in the browser fallback. This board is the authoritative
- * one — the client's live fallback is a best-effort approximation.
+ * one: the client's live fallback is a best-effort approximation.
  *
  * Usage (local):
  *   node scripts/update-streaks.mjs --dry-run        # compute + print, no Supabase needed
@@ -38,7 +38,7 @@ if (!DRY_RUN && (!SUPABASE_URL || !SERVICE_KEY)) {
 
 const SEASON = new Date().getFullYear()
 
-// Eligibility thresholds — see the long note in src/mlb/api.ts. Ranking by raw
+// Eligibility thresholds. See the long note in src/mlb/api.ts. Ranking by raw
 // volume (the old "top 50 by games played / innings pitched") silently excluded
 // catchers, platoon bats, IL returnees and *every* reliever. These scale with
 // season progress instead.
@@ -88,7 +88,7 @@ function ipToOuts(ip) {
   return (Number(whole) || 0) * 3 + (Number(frac) || 0)
 }
 
-// ─── Games-played (iron man) streaks — see the long note in src/mlb/api.ts ────
+// ─── Games-played (iron man) streaks: see the long note in src/mlb/api.ts ────
 // A consecutive-games-played streak is broken by a game the player *isn't* in,
 // which his own game log can't show, so the team's schedule is the spine and his
 // appearances are mapped to positions in it. Seasons concatenate per team, so a
@@ -322,7 +322,7 @@ async function computeStreakLeaders(season) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log(`\n🔥 Streak Leaders — ${SEASON} season${DRY_RUN ? ' (dry run)' : ''}\n`)
+  console.log(`\n🔥 Streak Leaders: ${SEASON} season${DRY_RUN ? ' (dry run)' : ''}\n`)
 
   const data = await computeStreakLeaders(SEASON)
 
@@ -340,12 +340,12 @@ async function main() {
 
   // Never overwrite a good row with an empty one on a bad StatsAPI day
   if (data.hitting.length + data.hitless.length + data.scoreless.length === 0) {
-    console.error('\n❌  All boards empty — aborting upsert')
+    console.error('\n❌  All boards empty, aborting upsert')
     process.exit(1)
   }
 
   if (DRY_RUN) {
-    console.log('\n✅  Dry run complete — nothing written\n')
+    console.log('\n✅  Dry run complete, nothing written\n')
     return
   }
 

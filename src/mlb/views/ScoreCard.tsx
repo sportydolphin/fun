@@ -42,7 +42,7 @@ const SEP_W  = 0.5
 /** The width of an inning column, in rem, or null when the innings do not fit beside the club
  *  column. Measured rather than set by breakpoint: the card's width depends on the grid, not on the
  *  screen. An extra-inning game narrows its columns to keep its line score (a ten-inning card read
- *  R H E alone beside nine-inning neighbours that had theirs); past INN_MIN it gives up and keeps
+ *  R H E alone beside nine-inning neighbors that had theirs); past INN_MIN it gives up and keeps
  *  R H E alone, as a phone's card does. */
 function useInningWidth(innings: number) {
   const ref = useRef<HTMLDivElement>(null)

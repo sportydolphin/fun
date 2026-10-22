@@ -24,10 +24,11 @@ Violating these creates real problems. Treat them as hard constraints.
   sentence rather than swapping the character; a colon, a full stop or a comma pair almost
   always reads better. En dashes stay where they are correct: ranges and scores, `5–2`.
   The one allowed `—` is the glyph meaning "no value" in tables and stat lines, which is a
-  symbol rather than punctuation.
+  symbol rather than punctuation. `src/__tests__/houseRules.test.ts` fails on any other.
 - **American English, never British:** color, center, favorite, recognize, canceled, labeled,
   license (the noun too), behavior. In UI copy, comments, commit messages, docs and the changelog.
   Identifiers and data values stay as they are: MLB's `'Cancelled'` status, `aria-labelledby`.
+  The same test fails on British spelling in prose.
 - **Copy is matter of fact: labels, not narration.** Name a stat, chart or filter the way a stat
   table does ("Qualified", "OBP vs SLG", "No data"); never describe it in prose ("Regulars only",
   "Everyone who played", "On base and power"). No subtitles or intro sentences explaining a page,

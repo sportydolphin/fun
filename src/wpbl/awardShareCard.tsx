@@ -282,7 +282,7 @@ export const canNativeShareFiles = (): boolean => {
 }
 
 /**
- * Rasterise a mounted share node (one card, or a poster of many) to a PNG blob.
+ * Rasterize a mounted share node (one card, or a poster of many) to a PNG blob.
  *
  * html2canvas draws the whole node, faces included: every portrait is a plain <img> (see PORTRAIT
  * FRAMING), which is the one image form it renders dependably, so there is no hand-compositing pass

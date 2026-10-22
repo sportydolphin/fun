@@ -35,7 +35,7 @@ export function setDevFanPhotos(next: boolean): void {
   window.dispatchEvent(new CustomEvent<boolean>(DEV_FAN_PHOTOS_EVENT, { detail: next }))
 }
 
-// A grey placeholder, used only when there is not one real photo to cycle. Inline so the module
+// A gray placeholder, used only when there is not one real photo to cycle. Inline so the module
 // pulls in no asset.
 const PLACEHOLDER =
   'data:image/svg+xml;utf8,' +

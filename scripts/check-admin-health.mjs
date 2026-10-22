@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * check-admin-health.mjs — page the owner when a background pipeline breaks.
+ * check-admin-health.mjs: page the owner when a background pipeline breaks.
  *
  * The /admin Health group answers "is anything broken" only for someone who has opened the
  * page, and the one ingest outage that ever reached production sat unseen for two days because
  * it was an amber chip nobody was looking at. This is the server-side other half: on a schedule
  * it reads the same health tables, asks shared/adminHealth.js what is actionable, and pushes the
- * owner's own devices when something is wrong — so a red state reaches them without anyone
+ * owner's own devices when something is wrong, so a red state reaches them without anyone
  * opening the dashboard. The dashboard becomes where you DIAGNOSE, not where you DISCOVER.
  *
  * WHAT IT PAGES ON is decided in shared/adminHealth.js (and unit-tested there): a failed or
@@ -97,7 +97,7 @@ async function ownerSubscriptions() {
   const { data, error } = await supabase.auth.admin.listUsers({ perPage: 1000 })
   if (error) throw new Error(`listUsers failed: ${error.message}`)
   const owner = data?.users?.find(u => (u.email ?? '').toLowerCase() === OWNER_EMAIL.toLowerCase())
-  if (!owner) { console.warn(`⚠️  No account for owner ${OWNER_EMAIL} — nothing to notify.`); return [] }
+  if (!owner) { console.warn(`⚠️  No account for owner ${OWNER_EMAIL}, so nothing to notify.`); return [] }
   const { data: subs, error: subErr } = await supabase
     .from('push_subscriptions').select('endpoint, p256dh, auth').eq('user_id', owner.id)
   if (subErr) throw new Error(`Loading owner subscriptions failed: ${subErr.message}`)
@@ -231,8 +231,8 @@ async function main() {
   const alerts = healthAlerts({ ingest, validation, heartbeats, nearGame: near, games })
 
   // Prior dedupe state. If the table is missing (migration not applied) we alert WITHOUT
-  // dedupe rather than going silent — a noisy alert is recoverable, a missed outage is the
-  // whole failure this replaces — and say so loudly.
+  // dedupe rather than going silent (a noisy alert is recoverable, a missed outage is the
+  // whole failure this replaces) and say so loudly.
   const { data: stateRows, error: stateErr } = await supabase
     .from('admin_alert_state').select('key, signature, last_alerted')
   if (stateErr) console.warn(`⚠️  admin_alert_state unavailable (alerting without dedupe): ${stateErr.message}`)
@@ -248,7 +248,7 @@ async function main() {
     if (!DRY_RUN) await supabase.from('admin_alert_state').delete().eq('key', key)
   }
 
-  if (alerts.length === 0) { console.log('✅ All pipelines healthy — nothing to page.'); return }
+  if (alerts.length === 0) { console.log('✅ All pipelines healthy, nothing to page.'); return }
 
   const subs = DRY_RUN ? [] : await ownerSubscriptions()
   const now = Date.now()
@@ -258,9 +258,9 @@ async function main() {
     const prior = priorByKey.get(a.key)
     const changed = !prior || prior.signature !== a.signature
     const overdue = prior && now - Date.parse(prior.last_alerted) > REMINDER_MS
-    if (!changed && !overdue) { console.log(`⏸️  Holding (already paged): ${a.key} — ${a.title}`); continue }
+    if (!changed && !overdue) { console.log(`⏸️  Holding (already paged): ${a.key}: ${a.title}`); continue }
 
-    if (DRY_RUN) { console.log(`🔔 Would page: ${a.title} — ${a.body}`); continue }
+    if (DRY_RUN) { console.log(`🔔 Would page: ${a.title}: ${a.body}`); continue }
 
     const n = buildAdminHealthAlert(a)
     const sent = await sendToOwner(subs, toPushPayload(n))
@@ -273,7 +273,7 @@ async function main() {
     paged++
   }
 
-  console.log(DRY_RUN ? 'Dry run complete.' : `Done — ${paged} alert(s) pushed.`)
+  console.log(DRY_RUN ? 'Dry run complete.' : `Done: ${paged} alert(s) pushed.`)
 }
 
 main().catch(err => { console.error('❌  check-admin-health failed:', err?.message ?? err); process.exit(1) })

@@ -63,7 +63,7 @@ const GRID_STRIP_SX = {
   pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
 } as const
 
-// THE DATE IS THE PAGE'S INDEX, so it is drawn in ink rather than as a grey caption: a reader
+// THE DATE IS THE PAGE'S INDEX, so it is drawn in ink rather than as a gray caption: a reader
 // scrolling for "the game on the 14th" scans dates, not matchups, and a tracked-out disabled label
 // at caption size was the faintest thing on the card. The Postseason and Earlier dividers keep
 // the caption style, so the two kinds of label read apart.
@@ -367,7 +367,7 @@ export function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenT
         display: 'flex', flexDirection: 'column', gap: 0.5, p: 1.25, cursor: 'pointer',
         // In light mode a final gets a muted fill, so the past reads as settled against crisp
         // upcoming cards. In dark mode every card is flat (see Surfaces in ThemeContext), and a final
-        // keeps that: a grey fill here was the one lifted card on a flat page.
+        // keeps that: a gray fill here was the one lifted card on a flat page.
         borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
         bgcolor: final && !isDark ? 'action.hover' : CARD_FILL,
         transition: 'border-color 0.15s', ...hoverOnly({ borderColor: 'text.disabled' }),

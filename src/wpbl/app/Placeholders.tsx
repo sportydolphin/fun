@@ -62,8 +62,8 @@ export function DetailPageSkeleton({ width }: { width: string }) {
 }
 
 // SHOWN WHILE THE FIRST TEAMS/SCHEDULE READ IS IN FLIGHT, ONE PER TAB, and each is its tab drawn
-// empty: the real title (TabTitle, which needs no data) over grey blocks the size of what replaces
-// them, so the only change when the tab lands is grey turning into content. Home has its own
+// empty: the real title (TabTitle, which needs no data) over gray blocks the size of what replaces
+// them, so the only change when the tab lands is gray turning into content. Home has its own
 // (WpblHomeSkeleton) and so does Stats (StatsSkeleton, beside the full-bleed rule it shares).
 //
 // One generic dashboard shape served all four until Oct 2026 and matched none of them: no title,

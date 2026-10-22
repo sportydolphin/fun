@@ -72,7 +72,7 @@ if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
 // makes it look like a rendering bug rather than a missing global.
 //
 // A no-op is the honest stub: with no layout there are no size changes to report, and a
-// version that synthesised callbacks would feed the app numbers jsdom never actually computed.
+// version that synthesized callbacks would feed the app numbers jsdom never actually computed.
 // Anything asserting on real geometry belongs in a browser, not here.
 if (typeof globalThis.ResizeObserver === 'undefined') {
   class NoopResizeObserver implements ResizeObserver {

@@ -91,12 +91,12 @@ The service worker still does **not** cache the app shell, and must not start. O
 `offline.html` and the three static files it draws are precached. Navigations are network
 first with nothing written back, so there is no way to serve a stale app.
 
-**The trap this hit on the first deploy, Aug 21, 2026:** Cloudflare Pages canonicalises
+**The trap this hit on the first deploy, Aug 21, 2026:** Cloudflare Pages canonicalizes
 `/offline.html` to `/offline` with a 308. `Cache.put` rejects a redirected response, and
 `cache.addAll` is atomic, so that one redirect threw away the entire precache. Nothing
 errored: the worker installed, push kept working, and the only symptom would have been an
 offline fallback that never appeared on a phone. `npm run dev` cannot show this, because
-Vite serves the file at its real path with no canonicalisation. The precache now fetches
+Vite serves the file at its real path with no canonicalization. The precache now fetches
 each asset separately and rebuilds the body into a clean 200 keyed on the original URL.
 Pinned in `pwaShell.test.ts`.
 
@@ -336,7 +336,7 @@ emits is apex already: canonical, `og:url`, sitemap, JSON-LD.
   **It is a factual claim about personal data, on a URL an app store is checking.** Everything
   it lists comes from [`supabase/functions/delete-account/index.ts`](../supabase/functions/delete-account/index.ts)
   table by table. If that function grows a table or stops clearing one, the page becomes false.
-  Change them together. Note that `events` and `feedback` are *anonymised* there rather than
+  Change them together. Note that `events` and `feedback` are *anonymized* there rather than
   deleted, because neither has a foreign key to `auth.users` and so neither cascades: before
   Aug 27, 2026 a deleted account left its id in the analytics log and on any note it had sent.
 

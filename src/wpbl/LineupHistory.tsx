@@ -7,15 +7,15 @@ import type { WpblLineupHistoryRow, WpblPlayer } from './types'
 import { TYPE_SCALE } from '../ui/card'
 
 /**
- * "Last N lineups" — the grid Fangraphs' Roster Resource keeps on the right of a depth
+ * "Last N lineups": the grid Fangraphs' Roster Resource keeps on the right of a depth
  * chart, built from our own data instead of by hand.
  *
  * One row per player, one column per game (most recent first), each cell reading
  * POSITION (lineup spot). Read down a column and you get that night's card; read across a
- * row and you get how a manager actually feels about a player — which is the thing a
+ * row and you get how a manager actually feels about a player, which is the thing a
  * season-totals table can never show.
  *
- * Column headers match the pitching-usage grid line for line — date, then opponent — with a
+ * Column headers match the pitching-usage grid line for line (date, then opponent) with a
  * third line here for the opposing starter and their throwing hand, because that's usually
  * the reason a lineup changed shape. Without it the grid looks like random shuffling.
  */
@@ -65,7 +65,7 @@ export default function LineupHistory({
           // question. It used to hold the pitcher here, which meant this card was the one
           // place on the team page that never told you who they played.
           sub: g.opp ? `vs ${g.opp}` : undefined,
-          // The starter, by name and hand together on one line — a bare "vs L" reads as if
+          // The starter, by name and hand together on one line: a bare "vs L" reads as if
           // it might describe the whole staff, and a name can only be one person, which is
           // the whole point of the column.
           sub2: g.starter
@@ -79,7 +79,7 @@ export default function LineupHistory({
           const player = playerById.get(pid)
           return {
             id: pid,
-            // Full name — GameGrid fits it to the column itself (see GridName).
+            // Full name: GameGrid fits it to the column itself (see GridName).
             label: player ? player.name : '—',
             onClick: player ? () => onOpenPlayer(player) : undefined,
           }
@@ -116,7 +116,7 @@ export default function LineupHistory({
 
 /** "Rosi del Castillo" → "Castillo". The column is 58px and the surname shares its line with
  *  the throwing hand, so the surname alone is all that fits; "Castillo L" measures 38px at the
- *  header's 8px type, and anything longer ellipsises rather than pushing the column wider. */
+ *  header's 8px type, and anything longer ellipsizes rather than pushing the column wider. */
 function lastName(full: string): string {
   return full.trim().split(/\s+/).slice(-1)[0]
 }

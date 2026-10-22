@@ -35,7 +35,7 @@ jobs:
         if: github.event_name != 'workflow_dispatch'
         run: node scripts/mlb-job-due.mjs regular
 
-      # update-milestones.mjs imports exactly two packages — no need for `npm ci`
+      # update-milestones.mjs imports exactly two packages, so no need for `npm ci`
       # and the whole frontend toolchain.
       - name: Install script dependencies
         if: github.event_name == 'workflow_dispatch' || steps.due.outputs.due == 'true'

@@ -184,7 +184,7 @@ describe('player slugs', () => {
     expect(findWpblPlayerBySlug(wpblPlayerSlugFromPath(path)!, roster)).toEqual(roster[0])
   })
 
-  it('is not fooled by neighbouring routes', () => {
+  it('is not fooled by neighboring routes', () => {
     expect(wpblPlayerSlugFromPath('/wpbl/players')).toBeNull()   // the index, not a player
     expect(wpblPlayerSlugFromPath('/wpbl/stats')).toBeNull()
     expect(wpblPlayerSlugFromPath('/wpbl/players/a/b')).toBeNull()
@@ -257,7 +257,7 @@ describe('game slugs', () => {
     expect(findWpblGameBySlug(wpblGameSlugFromPath(path)!, schedule, teams)).toEqual(schedule[0])
   })
 
-  it('is not fooled by neighbouring routes', () => {
+  it('is not fooled by neighboring routes', () => {
     expect(wpblGameSlugFromPath('/wpbl/games')).toBeNull()   // no index lives there
     expect(wpblGameSlugFromPath('/wpbl/schedule')).toBeNull()
     expect(wpblGameSlugFromPath('/wpbl/players/denae-benites')).toBeNull()
@@ -382,7 +382,7 @@ describe('comparison pages', () => {
     expect(findWpblComparePair('sam-rivers-vs-denae-benites', roster)).toBeNull()
   })
 
-  it('is not fooled by neighbouring routes', () => {
+  it('is not fooled by neighboring routes', () => {
     expect(wpblCompareSlugFromPath('/wpbl/compare')).toBeNull()
     expect(wpblCompareSlugFromPath('/wpbl/players/denae-benites')).toBeNull()
     // One segment only. Cloudflare's `*` matches across slashes, so this is what stops
@@ -1060,9 +1060,9 @@ describe('the shell claims no canonical of its own', () => {
   // index.html is served verbatim for every route (see the _redirects rewrites), so any
   // canonical written into it is claimed by every URL on the site. One pointing at /wpbl gets
   // reported by Search Console as "Alternate page with proper canonical tag", which is Google
-  // dropping /mlb, /privacy, every WPBL tab and every player page in favour of the section
+  // dropping /mlb, /privacy, every WPBL tab and every player page in favor of the section
   // root. seo.ts sets the right one per route after mount, and a page with no canonical at all
-  // canonicalises to itself, which is what every URL here wants. This is the guard against
+  // canonicalizes to itself, which is what every URL here wants. This is the guard against
   // someone helpfully adding one.
   it('has no static rel=canonical', () => {
     // Comments stripped first: the note in index.html explaining why there is no canonical

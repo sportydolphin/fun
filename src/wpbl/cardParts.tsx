@@ -8,8 +8,8 @@ export { SectionHead, ShowMoreButton, SECTION_CAPTION_SX } from '../ui/playerCar
 // and the color a good number is drawn in.
 //
 // ONE DEFINITION EACH, because the card grew them one block at a time. By Sep 28, 2026 it had
-// five heading styles (three sizes, two weights, two greys), two show-more buttons (a centered
-// uppercase one in the club's color under the tables, a left-aligned grey sentence under the
+// five heading styles (three sizes, two weights, two grays), two show-more buttons (a centered
+// uppercase one in the club's color under the tables, a left-aligned gray sentence under the
 // reading list), and a good rank drawn in the club's color a few pixels above bars where blue
 // meant "better than the league". Each was reasonable on its own; together they made a card of
 // correct numbers read as confused. Separate files draw parts of the card (the pitch profile,

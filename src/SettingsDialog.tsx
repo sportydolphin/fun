@@ -41,7 +41,7 @@ import { ICON_SIZE, TYPE_SCALE } from './ui/card'
 interface Props {
   open:             boolean
   onClose:          () => void
-  // Account fields are absent for signed-out users — the dialog then shows only the
+  // Account fields are absent for signed-out users: the dialog then shows only the
   // universal (account-independent) settings.
   userId?:          string | null
   email?:           string
@@ -56,7 +56,7 @@ interface Props {
 //
 // The dialog used to be stock MUI (Dialog/DialogActions/Select/Button defaults) inside an
 // app that has its own design language everywhere else, which is most of why it read as a
-// grey slab dropped on top of the page. These four primitives are that language: the same
+// gray slab dropped on top of the page. These four primitives are that language: the same
 // bordered card, hairline divider and pill control the rest of the site uses.
 
 function SettingsLabel({ children, icon, danger, sx }: {
@@ -527,7 +527,7 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
                 setLocalMilestonePref(e.target.checked)
               }}
               // slotProps.input, not inputProps: MUI v7 dropped the latter on Switch, so the
-              // neighbouring rows here render with no accessible name at all. See the note in
+              // neighboring rows here render with no accessible name at all. See the note in
               // the settings-toggle test.
               slotProps={{ input: { 'aria-label': 'MLB milestone alerts' } }}
             />
@@ -651,7 +651,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
   return (
     // ModalShell, not MUI's Dialog: it is what every other modal on the site uses, so Settings
     // now shares their card, hairline, backdrop and Esc/click-away behavior instead of
-    // landing as a flat grey slab. It also drops the DialogActions bar and its "DONE" button
+    // landing as a flat gray slab. It also drops the DialogActions bar and its "DONE" button
     // button, because every control here writes the moment you touch it and a commit-shaped button was
     // promising a step that does not exist. The ✕ in the header is the way out.
     <ModalShell eyebrow="Settings" onClose={onClose} maxWidth={signedIn ? { xs: 460, md: 780 } : 460}>

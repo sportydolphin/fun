@@ -69,7 +69,7 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
 }) {
   // Seed from the shared session cache so swiping back to this tab (SwipeableViews
   // unmounts it on the way out) repaints instantly instead of re-running the whole
-  // fetch — including the paginated tracking scan — behind the spinner.
+  // fetch (including the paginated tracking scan) behind the spinner.
   //
   // THE ROWS ARE STATE AND THE BOARD IS DERIVED, so it follows the schedule. It used to be built
   // once, with whatever `games` held at mount, and the schedule is what keeps postseason pitches

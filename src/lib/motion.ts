@@ -21,7 +21,7 @@ export function prefersReducedMotion(): boolean {
   try {
     if (typeof localStorage !== 'undefined' && localStorage.getItem(REDUCE_MOTION_KEY) === '1') return true
   } catch {
-    /* storage blocked (private mode) — fall through to the OS query */
+    /* storage blocked (private mode): fall through to the OS query */
   }
   try {
     return typeof window !== 'undefined'

@@ -22,17 +22,17 @@ describe('playedInnings', () => {
   })
 
   it('drops an eighth the feed invented from a substitution', () => {
-    // SF 11 @ NY 6 — the "8th" was one line: "Rakyung Kim to cf."
+    // SF 11 @ NY 6. The "8th" was one line: "Rakyung Kim to cf."
     expect(playedInnings(line([0, 1, 3, 2, 3, 0, 2, 0]), line([1, 0, 0, 2, 0, 2, 1, 0]))).toBe(7)
   })
 
   it('drops an eighth with no plays behind it at all', () => {
-    // BOS 6 @ NY 1 — line arrays ran to 8, the play log stopped at 7.
+    // BOS 6 @ NY 1: line arrays ran to 8, the play log stopped at 7.
     expect(playedInnings(line([2, 0, 0, 1, 3, 0, 0, 0]), line([0, 0, 0, 1, 0, 0, 0, 0]))).toBe(7)
   })
 
   it('keeps a real extra inning, which can only follow a tie', () => {
-    // NY 7 @ BOS 6 — 5-5 after seven, then both sides scored in the 8th.
+    // NY 7 @ BOS 6: 5-5 after seven, then both sides scored in the 8th.
     expect(playedInnings(line([1, 0, 2, 2, 0, 0, 0, 2]), line([1, 0, 0, 1, 3, 0, 0, 1]))).toBe(8)
   })
 

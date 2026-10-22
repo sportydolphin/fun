@@ -439,7 +439,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
     if (urlTabChecked.current || !urlTab || loading || tabs.length === 0) return
     urlTabChecked.current = true
     if (!tabs.some(t => t.value === urlTab)) setTab(landingTab)
-    // `tabs` is rebuilt every render; the ref makes the extra runs no-ops, and memoising the list
+    // `tabs` is rebuilt every render; the ref makes the extra runs no-ops, and memoizing the list
     // would mean restating everything it is built from.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlTab, loading, landingTab])
@@ -708,7 +708,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
 
         {live && away && home ? (
           /* Live game: the pill menu (Live / Box Score / Play-by-Play) is the very top of the
-             modal. There is no fixed score header here — the line score rides inside the Live
+             modal. There is no fixed score header here: the line score rides inside the Live
              tab (below the situation) and atop the Box Score tab, so the situation is the first
              thing under the tabs. The old FeedDelayNote and live banner are gone from the chrome
              with it: the Live tab carries the whole situation. */

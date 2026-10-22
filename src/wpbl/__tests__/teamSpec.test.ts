@@ -92,7 +92,7 @@ const richLeague = (ids: string[]) => ({
 /** How to make Boston BETTER at one axis, leaving the other five alone. */
 const improve: Record<TeamSpecKey, (l: ReturnType<typeof richLeague>) => ReturnType<typeof richLeague>> = {
   // An extra double. NOT the line's own `tb` column, which `teamSpecs` deliberately ignores in
-  // favour of recomputing total bases from the hit types: setting `tb` alone moves nothing, so a
+  // favor of recomputing total bases from the hit types: setting `tb` alone moves nothing, so a
   // test that only sets it passes for that reason and proves nothing.
   power:   l => ({ ...l, batting: l.batting.map(x => x.team_id === 'BOS' ? { ...x, h: 3, doubles: 2, tb: 5 } : x) }),
   // The same three swings, none of them missed.
