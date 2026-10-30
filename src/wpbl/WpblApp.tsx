@@ -924,6 +924,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
             // each card redrew from its skeleton. A hidden tab neither polls nor holds the <h1>
             // (PanelActiveContext below, lib/panelActive.ts).
             keepAlive
+            warmNeighborsFirst
             panels={NAV.map(n => {
               // EACH TAB HOLDS ITS OWN ERRORS. The pager keeps every visited tab mounted, so without
               // this a crash in one board took the bottom nav and the other four tabs down with it.

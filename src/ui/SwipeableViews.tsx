@@ -120,6 +120,11 @@ interface Props {
    *  panel alone. For tabs that fetch on mount (MLB's), which would otherwise refetch on every tab
    *  change. Window mode only. */
   keepAlive?: boolean
+  /**
+   * Warm only the two tabs beside this one until the reader has changed tabs at all, then the rest.
+   * For a section whose tabs read data its landing page does not: see the warm-up below.
+   */
+  warmNeighborsFirst?: boolean
 }
 
 /**
@@ -140,7 +145,7 @@ const Hold = memo(function Hold({ children }: { hidden: boolean; children: React
   return <>{children}</>
 }, (prev, next) => prev.hidden && next.hidden)
 
-export default function SwipeableViews({ index, panels, onIndexChange, minHeight, padX = 0, mode = 'window', keepAlive = false }: Props) {
+export default function SwipeableViews({ index, panels, onIndexChange, minHeight, padX = 0, mode = 'window', keepAlive = false, warmNeighborsFirst = false }: Props) {
   const paneMode = mode === 'pane'
   const isMobile = useMediaQuery('(max-width:600px)')
   // Accessibility opt-out. With swiping off, the pager takes exactly the same path desktop
@@ -304,6 +309,8 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   const [, bumpWarm] = useState(0)               // re-render trigger when a neighbour is pre-warmed
   // Set by the reader's first touch, scroll or key, once the page has loaded. See the warm-up below.
   const [warmUnlocked, setWarmUnlocked] = useState(false)
+  const landedOn = useRef(activeIndex)
+  const changedTabs = useRef(false)
   useEffect(() => {
     if (!pagerOn || warmUnlocked) return
     const evs = ['pointerdown', 'touchstart', 'scroll', 'wheel', 'keydown'] as const
@@ -329,9 +336,13 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   // for a far tab (Home → Stats): the destination pane is already mounted, so the engaged render
   // is a reposition rather than a mount. It also keeps a swipe from stuttering on its first frame
   // (worst on Stats). One per tick spreads the cost so warming never itself janks; nearest-first
-  // means the likeliest next tab is ready first. Cheap on the network: Home preloads the shared
-  // caches every tab reads, so a warmed tab's fetch-on-mount finds a fresh cache and no-ops.
-  // Only ever grows `visited`.
+  // means the likeliest next tab is ready first. Only ever grows `visited`.
+  //
+  // NOT FREE ON THE NETWORK, WHICH IS WHAT `warmNeighborsFirst` IS FOR. A warmed tab's fetch-on-mount
+  // only no-ops if the landing page already read the same thing, and WPBL's offseason Home does not
+  // (it dropped the box-score lines and the play log on purpose). The first scroll on a phone then
+  // built 2,700 hidden elements and spent 12 reads, four pages of the play log among them, on a
+  // reader who may never leave Home. Changing tabs is the signal that they will.
   //
   // NOT UNTIL THE READER HAS DONE SOMETHING, and never before the page has finished loading.
   // Started on the first idle tick, this built four hidden tabs (2,000+ elements, and the Teams
@@ -343,8 +354,9 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   useEffect(() => {
     if (!pagerOn || !warmUnlocked) return
     let cancelled = false
+    if (activeIndex !== landedOn.current) changedTabs.current = true
     const order = Array.from({ length: panels.length }, (_, i) => i)
-      .filter(j => j !== activeIndex)
+      .filter(j => j !== activeIndex && (!warmNeighborsFirst || changedTabs.current || Math.abs(j - activeIndex) === 1))
       .sort((a, b) => Math.abs(a - activeIndex) - Math.abs(b - activeIndex))
     let k = 0
     const hasRIC = typeof window.requestIdleCallback === 'function'
@@ -369,7 +381,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
     }
     id = hasRIC ? window.requestIdleCallback(step, { timeout: 4000 }) : window.setTimeout(step, 500) as unknown as number
     return () => { cancelled = true; window.clearTimeout(wait); if (hasRIC) window.cancelIdleCallback(id); else window.clearTimeout(id) }
-  }, [activeIndex, pagerOn, panels.length, warmUnlocked, paneMode])
+  }, [activeIndex, pagerOn, panels.length, warmUnlocked, paneMode, warmNeighborsFirst])
 
   // Mirrors for the native (non-React) touch handlers, which close over stale state otherwise.
   const animRef = useRef(false); animRef.current = anim

@@ -122,12 +122,6 @@ export function WpblHomeSkeleton() {
         </Box>
       </Box>
 
-      {!discordDismissed && (
-        <Box sx={{ display: { xs: 'block', md: 'none' }, mt: 1.5 }}>
-          <CardSkeleton minHeight="3.55rem" titleWidth="6rem" lines={0} />
-        </Box>
-      )}
-
       {/* The two card columns. Same grid, same 1fr 1fr, same single 1.5 gap and the same
           subgrid rows as the loaded page. The ratio here was 1.4fr 1fr with two different
           gaps, which is a layout Home has not had for some time. */}
@@ -159,6 +153,12 @@ export function WpblHomeSkeleton() {
           <CardSkeleton minHeight={{ xs: '19rem', md: '19rem' }} titleWidth="4.5rem" lines={4} />
         </Box>
       </Box>
+
+      {!discordDismissed && (
+        <Box sx={{ display: { xs: 'block', md: 'none' }, mt: 1.5 }}>
+          <CardSkeleton minHeight="3.55rem" titleWidth="6rem" lines={0} />
+        </Box>
+      )}
 
       <Box sx={{ mt: 1.5 }}>
         <CardSkeleton minHeight={{ xs: '3.45rem', md: '24rem' }} titleWidth="8rem" lines={0} />
