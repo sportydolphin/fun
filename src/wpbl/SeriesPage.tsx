@@ -166,8 +166,8 @@ function SeriesBody({ A, B, clubs, teams, games: allGames, players, lines: allLi
   const matchupLines = useMemo(() => {
     if (!plays) return null
     const ids = new Set(seriesGames(games, A.id, B.id).map(g => g.id))
-    return batterPitcherMatchups(plays.filter(p => ids.has(p.game_id)), games, { scope: effScope, roster: players })
-  }, [plays, games, A.id, B.id, effScope, players])
+    return batterPitcherMatchups(plays.filter(p => ids.has(p.game_id)), games, { scope: effScope })
+  }, [plays, games, A.id, B.id, effScope])
   const batterEdge = useMemo(() => (matchupLines ? matchupBoard(matchupLines, 'batter').slice(0, ROWS) : []), [matchupLines])
   const pitcherEdge = useMemo(() => (matchupLines ? matchupBoard(matchupLines, 'pitcher').slice(0, ROWS) : []), [matchupLines])
 

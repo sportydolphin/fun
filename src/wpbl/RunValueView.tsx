@@ -1,5 +1,4 @@
 import { useDark } from '../ui/useDark'
-import { rosterSpellingsIn } from './feedNames'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import {
@@ -298,8 +297,8 @@ function Ledger({ label, detail, amount }: { label: string; detail: string; amou
  *  matching the table the rest of the card is drawn from and nothing anywhere would report it.
  *  It picks the play nearest its own event's average, so the sum lands on a number the reader
  *  can go and check against the play-value card at the head of this column. */
-function WorkedPlay({ worked, date, accent, players }: {
-  worked: WorkedExample; date: string | null; accent: string; players: WpblPlayer[]
+function WorkedPlay({ worked, date, accent }: {
+  worked: WorkedExample; date: string | null; accent: string
 }) {
   const v = worked.value
 
@@ -328,9 +327,9 @@ function WorkedPlay({ worked, date, accent, players }: {
         {date && ` · ${date}`}
       </Typography>
       {/* The feed's own sentence for the play, which is the one thing on this card nobody has
-          to be taught to read, with the names in the roster's spelling (feedNames.ts). */}
+          to be taught to read (names spelled at the read, api/plays.ts). */}
       <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.primary', mb: 1, lineHeight: 1.45 }}>
-        {rosterSpellingsIn(v.play.narrative || `${v.play.batter_name}, ${worked.event.label.toLowerCase()}`, players)}
+        {v.play.narrative || `${v.play.batter_name}, ${worked.event.label.toLowerCase()}`}
       </Typography>
 
       <Ledger label={TERMS.runs}
@@ -766,7 +765,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
           <Step n={3} title="One real play, from this season">
             {worked ? (
               <>
-                <WorkedPlay worked={worked} date={workedDate} accent={accent} players={players} />
+                <WorkedPlay worked={worked} date={workedDate} accent={accent} />
                 <Typography sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1.65, color: 'text.secondary', mt: 1.25 }}>
                   That is every run-value number on the site. Do the same for all{' '}
                   {worked.event.n} {worked.event.label.toLowerCase()}s this season and the average

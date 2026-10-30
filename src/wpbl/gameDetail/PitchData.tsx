@@ -199,9 +199,7 @@ export function PitchData({ tracking, boxPitchers, firstHit = null, live = false
   const highlights = [
     hardestPitch && { l: 'Hardest pitch', v: `${fmtSpeed(hardestPitch.release_speed, units)} ${unit}`, s: labelFor(hardestPitch), n: 's' as const },
     hardestHit   && { l: 'Hardest hit',   v: `${fmtSpeed(hardestHit.exit, units)} ${unit}`,          s: hardestHit.batter ?? '—', n: hardestHit.batter ? 's' as const : undefined },
-    // The play log spells names its own way too ("Maggie Fox" for Maggie Foxx), so this one goes
-    // through the roster like the rest.
-    firstHit     && { l: 'First hit',      v: canonName(firstHit.batter) ?? '—', s: `${firstHit.half === 'top' ? 'Top' : 'Bottom'} ${ordinal(firstHit.inning)}`, n: firstHit.batter ? 'v' as const : undefined },
+    firstHit     && { l: 'First hit',      v: firstHit.batter ?? '—', s: `${firstHit.half === 'top' ? 'Top' : 'Bottom'} ${ordinal(firstHit.inning)}`, n: firstHit.batter ? 'v' as const : undefined },
   ].filter(Boolean) as { l: string; v: string; s: string; n?: 'v' | 's' }[]
 
   return (

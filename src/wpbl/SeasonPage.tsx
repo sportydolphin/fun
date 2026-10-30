@@ -225,11 +225,11 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
   // so the tile and the top row of /wpbl/matchups are the same matchup.
   const topMatchups = useMemo(() => {
     if (plays.length === 0) return null
-    const lines = batterPitcherMatchups(plays, games, { roster: players })
+    const lines = batterPitcherMatchups(plays, games)
     const batter = matchupBoard(lines, 'batter')[0] ?? null
     const pitcher = matchupBoard(lines, 'pitcher')[0] ?? null
     return batter || pitcher ? { batter, pitcher } : null
-  }, [plays, games, players])
+  }, [plays, games])
   const leaguePit = useMemo(() => sumPitching(pitching, games), [pitching, games])
   /** The pair's compare page, batter first as the tile reads, or nothing until the roster can
    *  spell both slugs. The same page a row on /wpbl/matchups opens. */

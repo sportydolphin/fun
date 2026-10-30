@@ -218,7 +218,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   const matchupPlays = usePlayerMatchupPlays(player)
   // Follows the scope toggle like every other number on the card.
   const matchups = useMemo(
-    () => (matchupPlays ? playerMatchups(new Set(playerPlayIds(player)), thisSeason(matchupPlays), games, scope, players) : null),
+    () => (matchupPlays ? playerMatchups(new Set(playerPlayIds(player)), thisSeason(matchupPlays), games, scope) : null),
     [matchupPlays, player, games, season, career, scope, players]) // eslint-disable-line react-hooks/exhaustive-deps
   // Her balls in play, for the spray chart, off the same plays: every one she hit is a plate
   // appearance she took part in. It used to be a read of the whole league's batted balls, which a
