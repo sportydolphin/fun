@@ -82,6 +82,26 @@ export function stepDecimals(step: number): number {
 /** The tick step of a domain, or 0 for a domain with a single tick. */
 export const tickStep = (d: Domain): number => (d.ticks.length > 1 ? d.ticks[1] - d.ticks[0] : 0)
 
+/**
+ * The values an axis should be drawn to hold. Every value marked `keep` (a regular's season), and
+ * any other within `k` interquartile ranges of the kept ones' middle half. With everyone drawn,
+ * one cameo's 27.00 ERA stretched ERA vs FIP to 30 and pressed every regular into a corner; that
+ * dot now sits on the edge with an arrow. A kept value is never cut, however far out: the
+ * league's best slugger is the dot the chart is for. Under eight kept values there is no middle
+ * half worth the name, and every value is held.
+ */
+export function axisValues(values: readonly { v: number; keep: boolean }[], k = 1.5): number[] {
+  const all = values.filter(x => Number.isFinite(x.v))
+  const ref = all.filter(x => x.keep).map(x => x.v).sort((a, b) => a - b)
+  if (ref.length < 8) return all.map(x => x.v)
+  const q = (f: number) => {
+    const i = (ref.length - 1) * f, lo = Math.floor(i)
+    return ref[lo] + (ref[Math.min(lo + 1, ref.length - 1)] - ref[lo]) * (i - lo)
+  }
+  const q1 = q(0.25), q3 = q(0.75), iqr = q3 - q1
+  return all.filter(x => x.keep || (x.v >= q1 - k * iqr && x.v <= q3 + k * iqr)).map(x => x.v)
+}
+
 /** One domain for both axes, for a plot whose diagonal means "the two are equal" (ERA against
  *  FIP). Two separate domains would tilt the y = x line off 45° and move it with the data. */
 export function sharedDomain(xs: readonly number[], ys: readonly number[], opts: { pad?: number; floor?: number; ceil?: number; target?: number } = {}): Domain {
