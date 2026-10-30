@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.188.0',
+    date:    '2026-10-29',
+    changes: [
+      {
+        short: 'Chart colors match the clubs',
+        full:  "On WPBL's Charts board the Firebells are purple, the Queens gold, the Heights blue and the Hunters green. OBP vs SLG drops its OPS lines, which read like a second set of averages; each dot's card still shows its OPS.",
+      },
+    ],
+  },
+  {
     version: '1.187.0',
     date:    '2026-10-29',
     changes: [
