@@ -4,8 +4,7 @@
 //
 // EACH CHART IS A QUESTION A FAN ALREADY ASKS, and its two axes are the two halves of the answer:
 // on base against power, the swing decision against the contact, ERA against what the pitcher
-// controlled (FIP), getting ahead against walking people, and a two-way player's value on each
-// side. Every one of them is a season figure the Stats tab already prints; nothing here invents a
+// controlled (FIP). Every one of them is a season figure the Stats tab already prints; nothing here invents a
 // stat, so a dot can always be checked against the table one tab over.
 //
 // REGULAR SEASON ONLY, like the Run value and Draft boards: a playoff series is four clubs' best
@@ -13,7 +12,6 @@
 // The callers hand in seasons already cut to the regular season and the year on screen.
 
 import type { PitchProfile } from './pitches'
-import type { PlayerValueSeason } from './playerValue'
 import {
   fip, fipConstant, plateAppearances, scaleToBasis,
   type EraBasis, type FipWeights, type WpblBatSeason, type WpblPitSeason, type WpblPitchingTotals,
@@ -144,49 +142,6 @@ export function swingContactChart(batters: PitchProfile[], league: PitchProfile 
       { score: p => p.x, n: 1 },
       { score: p => -p.x, n: 1 },
     ]),
-  }
-}
-
-/** How often a pitcher's first pitch is a strike (x) against how often they walk a batter (y,
- *  drawn upside down so fewer walks is higher). Getting ahead is the cause, the walks the effect. */
-export function firstStrikeWalkChart(pitchers: PitchProfile[], league: PitchProfile | null, minPitches: number): ChartData {
-  const points: ChartDatum[] = []
-  for (const p of pitchers) {
-    if (!p.player || p.firstStrikePct == null || p.bbPct == null) continue
-    points.push({
-      player: p.player, x: p.firstStrikePct, y: p.bbPct, weight: p.pitches,
-      sample: `${p.pitches} pitches`, qualified: p.pitches >= minPitches,
-    })
-  }
-  return {
-    points,
-    avg: league?.firstStrikePct != null && league.bbPct != null ? { x: league.firstStrikePct, y: league.bbPct } : null,
-    notable: notableFrom(points, [
-      { score: p => p.x - p.y, n: 2 },
-      { score: p => p.y - p.x, n: 2 },
-    ]),
-  }
-}
-
-/**
- * Wins above replacement as a hitter (x, the glove and the bases included) against as a pitcher
- * (y), for everyone who did both. The question this league can ask and MLB barely can. A regular
- * is a regular on EITHER side: a starting pitcher who hit twice a week is the point of the chart.
- */
-export function twoWayChart(seasons: PlayerValueSeason<WpblPlayer>[], minPa: number, minOuts: number): ChartData {
-  const points: ChartDatum[] = []
-  for (const s of seasons) {
-    const { pa, outs } = s.totals
-    if (pa === 0 || outs === 0) continue
-    points.push({
-      player: s.player, x: s.totals.batWar, y: s.totals.pitWar, weight: pa + outs,
-      sample: `${pa} PA · ${ipText(outs)}`, qualified: pa >= minPa || outs >= minOuts,
-    })
-  }
-  return {
-    points,
-    avg: null,
-    notable: notableFrom(points, [{ score: p => p.x + p.y, n: 5 }]),
   }
 }
 

@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.191.0',
+    date:    '2026-10-29',
+    changes: [
+      {
+        short: 'Charts: Overall and F-Strike% vs BB% removed',
+        full:  "WPBL's Charts board has Hitting and Pitching only, and opens on Hitting. Removed: Pos WAR vs Pit WAR and F-Strike% vs BB%.",
+      },
+    ],
+  },
+  {
     version: '1.190.0',
     date:    '2026-10-29',
     changes: [
