@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { sumBatting, sumPitching, type WpblBatSeason, type WpblPitSeason } from '../stats'
-import { eraFipChart, obpSlgChart, twoWayChart } from '../derive/charts'
+import { averagePowerChart, eraFipChart, obpSlgChart, pitcherStrikeoutWalkChart, twoWayChart, walkStrikeoutChart } from '../derive/charts'
 import type { PlayerValueSeason, WpblValueTotals } from '../derive/playerValue'
 import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer } from '../types'
 
@@ -102,5 +102,41 @@ describe('twoWayChart', () => {
   it('counts a regular on either side as a regular', () => {
     const chart = twoWayChart([value('ace', { pa: 6, outs: 90 })], 30, 45)
     expect(chart.points[0].qualified).toBe(true)
+  })
+})
+
+describe('walkStrikeoutChart and averagePowerChart', () => {
+  // Ten trips with eight walks: four at-bats, so an at-bat bar would wrongly leave them out.
+  const walker = bat('walker', { ab: 4, h: 1, bb: 8, so: 1 })
+  const slugger = bat('slugger', { ab: 12, h: 5, hr: 3, so: 4 })
+  const benched = bat('benched', {})
+
+  it('places a hitter at BB% and K% per plate appearance, gated on plate appearances', () => {
+    const c = walkStrikeoutChart([walker, slugger, benched], { bbPct: 0.1, kPct: 0.2 }, 10)
+    expect(c.points.map(p => p.player.id)).toEqual(['walker', 'slugger'])
+    expect(c.points[0]).toMatchObject({ x: 8 / 12, y: 1 / 12, qualified: true })
+  })
+
+  it('places a hitter at AVG and ISO', () => {
+    const c = averagePowerChart([slugger], { avg: 0.25, iso: 0.1 }, 10)
+    expect(c.points[0].x).toBeCloseTo(5 / 12)
+    expect(c.points[0].y).toBeCloseTo((5 + 3 * 3) / 12 - 5 / 12)
+  })
+})
+
+describe('pitcherStrikeoutWalkChart', () => {
+  const line = (id: string, o: Partial<WpblPitchingLine>): WpblPitSeason => ({
+    player: player(id),
+    totals: sumPitching([{
+      id, game_id: G, player_id: id, team_id: 'SF',
+      outs: 30, bf: 50, h: 10, r: 5, er: 5, bb: 5, so: 10, hr: 1, hbp: 0, pitches: 200, decision: null, ...o,
+    } as WpblPitchingLine], games),
+  })
+
+  it('places a pitcher per batter faced and leaves out one who faced nobody', () => {
+    const lines = [line('a', {}), line('b', { outs: 0, bf: 0, so: 0, bb: 0, h: 0, r: 0, er: 0, hr: 0 })]
+    const c = pitcherStrikeoutWalkChart(lines, lines[0].totals, 9)
+    expect(c.points.map(p => p.player.id)).toEqual(['a'])
+    expect(c.points[0]).toMatchObject({ x: 0.2, y: 0.1, qualified: true })
   })
 })

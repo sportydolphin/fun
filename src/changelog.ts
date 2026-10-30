@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.187.0',
+    date:    '2026-10-29',
+    changes: [
+      {
+        short: 'Three new charts and a Clubs view',
+        full:  "WPBL's Charts board adds AVG vs ISO and BB% vs K% for hitters, and K% vs BB% for pitchers. A Clubs chip draws each club's season on the same axes over its players, counted by the club each game was played for. Tap a club to open its page.",
+      },
+    ],
+  },
+  {
     version: '1.186.0',
     date:    '2026-10-29',
     changes: [

@@ -410,6 +410,7 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
   return (
     <Box ref={boxRef} sx={{ position: 'relative', userSelect: 'none' }}>
       <Box component="svg" ref={svgRef} viewBox={`0 0 ${g.w} ${g.h}`} role="group" aria-label={title} onKeyDown={onKeyDown}
+        data-scatter="" data-names={labelIds?.length ? '' : undefined}
         sx={{ width: '100%', height: 'auto', display: 'block', color: 'text.secondary', overflow: 'visible' }}
         onClick={(e: React.MouseEvent) => {
           // A tap on the plot itself, not on a dot: put the pinned card away.
@@ -555,7 +556,7 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
           ...points.flatMap(p => { const l = shownLabels.get(p.id); return l ? [{ p, l }] : [] }),
           ...(litLabel && litPoint ? [{ p: litPoint, l: litLabel }] : []),
         ].map(({ p, l }) => (
-          <g key={`l${p.id}`} pointerEvents="none" aria-hidden>
+          <g key={`l${p.id}`} data-name-label="" pointerEvents="none" aria-hidden>
             {l.leader && <line {...l.leader} stroke={soft} strokeWidth={1} />}
             <text x={l.tx} y={l.ty} textAnchor={l.anchor} fill={ink} fontSize={LABEL_FONT}
               fontWeight={700} stroke={surface} strokeWidth={3} strokeLinejoin="round" paintOrder="stroke">{p.label}</text>
