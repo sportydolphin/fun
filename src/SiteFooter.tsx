@@ -135,8 +135,10 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
           <Box component="span" sx={{ fontWeight: 700 }}>sportydolphin.fun</Box>
           <Dot />
           <Box component="span">v{APP_VERSION}</Box>
-          <Dot />
-          <Box component="span">
+          {/* Its own line on a phone. Left to wrap, this row stranded a dot at the end of the line
+              above, since a flex row cannot tell a separator it has become one. */}
+          <Dot sx={{ display: { xs: 'none', sm: 'inline' } }} />
+          <Box component="span" sx={{ flexBasis: { xs: '100%', sm: 'auto' }, textAlign: 'center' }}>
             {isWpbl ? 'Not affiliated with the WPBL.' : 'Not affiliated with MLB.'}
           </Box>
         </FooterRow>
@@ -167,6 +169,6 @@ function FooterRow({ children }: { children: React.ReactNode }) {
 }
 
 // Faint dot divider between footer items.
-function Dot() {
-  return <Box component="span" sx={{ color: 'text.disabled', opacity: 0.5, userSelect: 'none' }}>·</Box>
+function Dot({ sx }: { sx?: { display: { xs: string; sm: string } } }) {
+  return <Box component="span" sx={{ color: 'text.disabled', opacity: 0.5, userSelect: 'none', ...sx }}>·</Box>
 }

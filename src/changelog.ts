@@ -22,6 +22,24 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.192.0',
+    date:    '2026-10-30',
+    changes: [
+      {
+        short: 'WPBL Home: games first during the season',
+        full:  "During the regular season, Next Game and Last Game sit above the playoff bracket, and on a phone above the Discord invite. The bracket leads once the regular season ends, until the first postseason final.",
+      },
+      {
+        short: 'WPBL Home: club chips are links',
+        full:  "The four club chips at the top of WPBL Home can open in a new tab.",
+      },
+      {
+        short: 'WPBL Home: less loading on a phone',
+        full:  "On a phone, other WPBL tabs load ahead of time only after a tab change, apart from the ones beside the current tab.",
+      },
+    ],
+  },
+  {
     version: '1.191.0',
     date:    '2026-10-29',
     changes: [

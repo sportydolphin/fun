@@ -8,7 +8,9 @@ import {
 } from '../api'
 import { wpblColor } from '../constants'
 import { useWpblHeadingTag } from '../PageHeading'
-import { TeamBadge, CARD_BORDER, CARD_FILL, hoverOnly, pressable, TYPE_SCALE, TAB_TITLE_SX } from '../ui'
+import { TeamBadge, CARD_BORDER, CARD_FILL, hoverOnly, FOCUS_RING, TYPE_SCALE, TAB_TITLE_SX } from '../ui'
+import { useWpblTeamLink } from '../LinkContext'
+import { UNSTYLED_LINK } from '../../nav'
 import { LiveHero } from '../Live'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import PlayoffBracket from '../PlayoffBracket'
@@ -37,6 +39,8 @@ import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame, WpblBattingLine, Wpb
 import { typePx } from '../../ui/scale'
 import { useWpblSeason } from '../SeasonContext'
 import { offseasonByCalendar, nextOpeningDay, rememberNextOpeningDay } from '../offseasonCalendar'
+import { regularSeasonOver } from '../season'
+import { localIsoDate } from '../derive/homePlayers'
 import { HEADER_GAP, homeWideSx } from './shared'
 import { type MatchupPreviewArg, Scoreboard } from './Scoreboard'
 import { NextGameCard } from './NextGameCard'
@@ -104,6 +108,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // is no feed game to address, so this is a plain modal that closes on X/Escape.
   const [matchup, setMatchup] = useState<MatchupPreviewArg | null>(null)
   const headingTag = useWpblHeadingTag()
+  const teamLink = useWpblTeamLink()
 
   // Leaders + tracking data, fetched here so only the home view pays for it. Seeded from the
   // shared session cache so swiping back to Home (the default tab, so the most re-entered)
@@ -301,6 +306,10 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
    * `LastGameCard` is showing it and this stops leading. Keyed on the game rather than on the
    * calendar so a rain-out carries the same answer.
    *
+   * THE FIRST HALF NEEDS regularSeasonOver. With only the postseason test, this was true from
+   * Opening Day: a desktop reader spent the whole regular season under a bracket of early odds,
+   * with Next game pushed to the fold.
+   *
    * Built once and rendered in one of two places, never both: the same card in the page twice
    * is two impression events, two sets of controls, and both of them found by anything that
    * walks the text.
@@ -313,7 +322,8 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
       </Box>
     )
     : null
-  const bracketLeads = !seasonGames.some(g => g.status === 'final' && !countsInStandings(g))
+  const bracketLeads = regularSeasonOver(seasonGames, localIsoDate())
+    && !seasonGames.some(g => g.status === 'final' && !countsInStandings(g))
 
   // The postseason as dated-but-undrawn rows, for the scoreboard strip. The same function the
   // Schedule tab reads, so the two cannot disagree about who plays whom or about which
@@ -445,8 +455,9 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           {teams.map(t => (
             <Box
               key={t.id}
-              {...pressable(() => onOpenTeam(t))}
+              {...teamLink(t, onOpenTeam)}
               sx={{
+                ...UNSTYLED_LINK, ...FOCUS_RING,
                 display: 'flex', alignItems: 'center', gap: 0.6,
                 pl: '3px', pr: 0.9, py: '3px', borderRadius: 999,
                 cursor: 'pointer', userSelect: 'none',
@@ -532,15 +543,6 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
             <WatchCard from="home" compact placeholder={<CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />} />
           </Box>
         </>
-      )}
-
-      {/* Discord invite, mobile only. Sits between the scoreboard and the feed. Hidden at md+
-          because the desktop feed is a two-column subgrid with shared row boundaries that a
-          loose card would break; a desktop home for it is a later job. */}
-      {!discordDismissed && (
-        <Box sx={{ display: { xs: 'block', md: 'none' }, mt: 1.5 }}>
-          <DiscordCard onDismiss={() => setDiscordDismissed(true)} />
-        </Box>
       )}
 
       {!seasonDone && bracketLeads && bracketCard}
@@ -633,6 +635,16 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           {seasonCards}
         </Box>
       </Box>}
+
+      {/* Discord invite, mobile only, and under the games: above them it pushed Next game down a
+          phone's first screen for a promo. Hidden at md+ because the desktop feed is a two-column
+          subgrid with shared row boundaries that a loose card would break; a desktop home for it
+          is a later job. */}
+      {!discordDismissed && (
+        <Box sx={{ display: { xs: 'block', md: 'none' }, mt: 1.5 }}>
+          <DiscordCard onDismiss={() => setDiscordDismissed(true)} />
+        </Box>
+      )}
 
       {/* Its ordinary home, under the season's numbers. See bracketLeads. */}
       {/* Not in the offseason: the season card carries the final's games and the recap carries the
