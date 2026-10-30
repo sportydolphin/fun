@@ -32,6 +32,16 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
+    version: '1.194.0',
+    date:    '2026-10-30',
+    changes: [
+      {
+        short: 'MLB Home: awards card',
+        full:  "MVP, Cy Young, Rookie of the Year, Manager of the Year, Gold Glove and Silver Slugger winners appear on MLB Home as the league announces them, with a sheet listing every winner. A followed club's Gold Gloves and Silver Sluggers show on the card.",
+      },
+    ],
+  },
+  {
     version: '1.193.0',
     date:    '2026-10-30',
     changes: [
