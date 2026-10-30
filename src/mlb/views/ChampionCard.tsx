@@ -1,0 +1,123 @@
+import { useEffect, useState, lazy, Suspense } from 'react'
+import { Box, Skeleton, Typography } from '@mui/material'
+import { TYPE_SCALE, edge } from '../../ui/card'
+import { linkPress, FOCUS_RING } from '../../ui/interaction'
+import { NameText } from '../../ui/NameText'
+import { trophyPalette } from '../../ui/trophy'
+import { useDark } from '../../ui/useDark'
+import { chromePx, typePx } from '../../ui/scale'
+import { TeamLogo } from '../components/TeamLogo'
+import { HEADSHOT, TEAM_NICKNAME } from '../constants'
+import { LINK_SX, playerLink, teamLink } from '../lib/links'
+import { fetchWorldSeriesMvp } from '../postseason'
+import type { Bracket, SeriesMvp } from '../postseason'
+import { mlbSeriesPath } from '../routes'
+
+const SeriesSheet = lazy(() => import('./SeriesSheet'))
+
+/**
+ * The new champion, leading Home for the week after the final out (see `homeStageOn`). The bracket
+ * under it is the record of the whole October; this is the one fact a reader came to see, which until
+ * Oct 29, 2026 was a single line of text above a card one quarter of the page wide.
+ *
+ * The MVP is the one thing here that needs a read, and it is published with the final out, so its row
+ * holds its room until the read returns rather than arriving under the name.
+ */
+export function ChampionCard({ bracket, onTeamClick, onPlayerClick }: {
+  bracket: Bracket
+  onTeamClick?: (id: number) => void
+  onPlayerClick?: (id: number) => void
+}) {
+  const dark = useDark()
+  const { gold, goldSoft, stripBg, cardBg } = trophyPalette(dark)
+  const [mvp, setMvp] = useState<SeriesMvp | null | undefined>(undefined)
+  const [sheetOpen, setSheetOpen] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchWorldSeriesMvp(bracket.season).then(m => { if (!cancelled) setMvp(m) })
+    return () => { cancelled = true }
+  }, [bracket.season])
+
+  const ws = bracket.series.W_1
+  if (ws.winnerId == null) return null
+  const topWon = ws.winnerId === ws.top.id
+  const champ = topWon ? ws.top : ws.bottom
+  const runnerUp = topWon ? ws.bottom : ws.top
+
+  return (
+    <Box sx={{
+      borderRadius: 3, overflow: 'hidden', border: '1px solid', borderColor: edge(gold),
+      backgroundImage: cardBg,
+    }}>
+      <Box sx={{
+        display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 0.75,
+        background: stripBg, borderBottom: '1px solid', borderColor: 'divider',
+      }}>
+        <Typography sx={{
+          flex: 1, minWidth: 0, fontSize: TYPE_SCALE.meta, fontWeight: 900, letterSpacing: typePx(1),
+          textTransform: 'uppercase', color: goldSoft,
+        }}>
+          {bracket.season} World Series champions
+        </Typography>
+        <Box {...linkPress(mlbSeriesPath(bracket.season, ws.id), () => setSheetOpen(true))} sx={{
+          ...LINK_SX, flexShrink: 0, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: goldSoft,
+          whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' }, ...FOCUS_RING,
+        }}>
+          Series ›
+        </Box>
+      </Box>
+
+      <Box sx={{
+        p: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
+        alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between', gap: { xs: 1.5, sm: 3 },
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.75, minWidth: 0 }}>
+          <TeamLogo teamId={champ.id} abbr={champ.abbr} size={52} decorative />
+          <Box sx={{ minWidth: 0 }}>
+            <Typography {...teamLink(champ.id, onTeamClick)} sx={{
+              ...LINK_SX, display: 'block', fontSize: TYPE_SCALE.display, fontWeight: 900, lineHeight: 1.15,
+              color: 'text.primary', '&:hover': { textDecoration: 'underline' }, ...FOCUS_RING,
+            }}>
+              {champ.name}
+            </Typography>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.primary', mt: 0.35 }}>
+              Beat {TEAM_NICKNAME[runnerUp.id] ?? runnerUp.abbr} {Math.max(ws.winsTop, ws.winsBottom)}–{Math.min(ws.winsTop, ws.winsBottom)}
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Null is a feed that has not published one: no row at all rather than an empty label. */}
+        {mvp !== null && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, flexShrink: 0 }}>
+            <Box sx={{ width: chromePx(40), borderRadius: 1.5, overflow: 'hidden', flexShrink: 0, bgcolor: 'action.hover' }}>
+              {mvp
+                ? <Box component="img" src={HEADSHOT(mvp.id)} alt="" sx={{ width: '100%', height: 'auto', aspectRatio: '2 / 3', objectFit: 'cover', display: 'block' }} />
+                : <Box sx={{ width: '100%', aspectRatio: '2 / 3' }} />}
+            </Box>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.primary' }}>
+                World Series MVP
+              </Typography>
+              {mvp ? (
+                <NameText
+                  name={mvp.name}
+                  linkProps={playerLink(mvp.id, mvp.name, onPlayerClick)}
+                  sx={{ ...LINK_SX, display: 'block', fontSize: TYPE_SCALE.title, fontWeight: 800, color: 'text.primary', '&:hover': { textDecoration: 'underline' }, ...FOCUS_RING }}
+                />
+              ) : (
+                <Typography sx={{ fontSize: TYPE_SCALE.title }}><Skeleton width="8rem" /></Typography>
+              )}
+            </Box>
+          </Box>
+        )}
+      </Box>
+
+      {sheetOpen && (
+        <Suspense fallback={null}>
+          <SeriesSheet s={ws} bracket={bracket} onClose={() => setSheetOpen(false)} onTeamClick={onTeamClick} onPlayerClick={onPlayerClick} />
+        </Suspense>
+      )}
+    </Box>
+  )
+}

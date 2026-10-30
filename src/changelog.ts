@@ -22,6 +22,28 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.193.0',
+    date:    '2026-10-30',
+    changes: [
+      {
+        short: 'MLB Home: champion card',
+        full:  "For a week after the World Series, MLB Home leads with the champion, the series result and the World Series MVP.",
+      },
+      {
+        short: 'MLB Home: offseason starts with the last out',
+        full:  "The scoreboard retires and Roster Moves becomes the Hot Stove when the World Series ends, not on Nov 1. Free agents from a followed club show on the card from the day they declare.",
+      },
+      {
+        short: 'MLB Home: Predictions and Streak Survivor in the offseason',
+        full:  "Both cards show the Opening Day date once there are no games left to pick.",
+      },
+      {
+        short: 'MLB Home: payroll label',
+        full:  "The payroll boards are labeled with the year of their figures.",
+      },
+    ],
+  },
+  {
     version: '1.192.0',
     date:    '2026-10-30',
     changes: [

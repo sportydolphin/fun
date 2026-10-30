@@ -14,7 +14,8 @@ import { useDeepLink } from '../state/deepLink'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { useLastShape, useRememberShape } from '../../lib/lastShape'
 import { SCHEDULE_GAME_TYPES, isUnplayed, hasStartTime } from '../gameStatus'
-import { fetchSeasonPhase, fetchSeasonDates } from '../seasonPhase'
+import { fetchSeasonPhase, fetchNextOpeningDay, longDay } from '../seasonPhase'
+import { fetchBracket } from '../postseason'
 import { useDevSeasonPhase } from '../dev/devSeasonPhase'
 import { chromePx, typePx } from '../../ui/scale'
 import { SectionCard, CardLink, TYPE_SCALE, edge } from '../../ui/card'
@@ -176,7 +177,6 @@ const predKey = (date: string) => `mlb_preds_${date}`
 
 // YYYY-MM-DD shifted by n local days (handles month/year rollover via Date math).
 const shortDay = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-const longDay  = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
 
 // How far ahead the widget looks for the next day with a game to pick. The longest gap inside a
 // season is the All-Star break (four days) and inside a postseason the wait before the World Series
@@ -461,7 +461,7 @@ export function PredictorWidget({ onPicksSettled }: {
     ;(async () => {
       setIdle(null)
       if (devWinter) {
-        const opening = (await fetchSeasonDates(CURRENT_SEASON + 1))?.regularSeasonStart ?? null
+        const opening = await fetchNextOpeningDay(CURRENT_SEASON)
         if (!cancelled) { setSlateDate(addDays(today, 1)); setGames([]); setIdle({ kind: 'offseason', opening }) }
         return
       }
@@ -487,15 +487,14 @@ export function PredictorWidget({ onPicksSettled }: {
         if (!cancelled) { setSlateDate(next); setGames(nextGames) }
         return
       }
+      // Between rounds only while there IS a next round. The calendar says "postseason" to Oct 31, so
+      // on its own it promised "the next games" for the days after the World Series ended.
       const phase = await fetchSeasonPhase(CURRENT_SEASON)
-      // The next opening day belongs to the season after the one shown (CURRENT_SEASON stays last
-      // season until the new one opens, so in January this is still +1, not the calendar year +1).
-      const opening = phase === 'offseason' || phase === 'preseason'
-        ? (await fetchSeasonDates(CURRENT_SEASON + (phase === 'offseason' ? 1 : 0)))?.regularSeasonStart ?? null
-        : null
+      const betweenRounds = phase === 'postseason' && !(await fetchBracket(CURRENT_SEASON))?.over
+      const opening = betweenRounds ? null : await fetchNextOpeningDay(CURRENT_SEASON)
       if (!cancelled) {
         setSlateDate(tmr); setGames([])
-        setIdle(phase === 'postseason' ? { kind: 'between-rounds' } : { kind: 'offseason', opening })
+        setIdle(betweenRounds ? { kind: 'between-rounds' } : { kind: 'offseason', opening })
       }
     })().finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }

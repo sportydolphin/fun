@@ -36,7 +36,8 @@ import { SCHEDULE_GAME_TYPES } from '../gameStatus'
 import { TrackedCard } from '../components/TrackedCard'
 import { PlayoffBracketCard } from './PlayoffBracket'
 import { FollowTeamPrompt } from './TeamPicker'
-import { useSeasonPhase, isSeasonOver } from '../seasonPhase'
+import { ChampionCard } from './ChampionCard'
+import { useSeasonPhase, useHomeStage, isSeasonOver } from '../seasonPhase'
 import { useDevNoTeam } from '../dev/devSeasonPhase'
 import { fetchBracket, seededBracket, teamOctober, teamOctoberLine, stillPlaying, SERIES_ORDER, Bracket } from '../postseason'
 import { chromePx, typePx } from '../../ui/scale'
@@ -144,19 +145,10 @@ function HomeViewInner({
   const headingTag = useMlbHeadingTag()
   const phase      = useSeasonPhase(CURRENT_SEASON)
   const seasonOver = phase == null ? null : isSeasonOver(phase)
-  const hotStove   = phase == null ? null : phase === 'offseason' || phase === 'preseason'
-
-  // NO SCOREBOARD IN THE WINTER, for WPBL's reason: with no games left the strip sits frozen on the
-  // World Series' last night until spring, at the top of the page. The bracket under it says the
-  // same thing and names the champion. In the months that can be winter (November to March) the
-  // strip waits for the phase rather than drawing and then vanishing; the rest of the year it never
-  // waits, because there is always a game on it.
-  const winterMonth = [10, 11, 0, 1, 2].includes(new Date().getMonth())
-  const showScores = phase === 'offseason' ? false : phase != null || !winterMonth
 
   // The bracket, once the regular season is over: it says whether the followed club is still
-  // playing. Shared with the bracket card's own read (fetchBracket caches), so it costs nothing.
-  // `undefined` is "not read yet", which the team card waits on; null is "no bracket".
+  // playing, and whether anyone is. Shared with the bracket card's own read (fetchBracket caches), so
+  // it costs nothing. `undefined` is "not read yet", which the team card waits on; null is "no bracket".
   const [bracket, setBracket] = useState<Bracket | null | undefined>(() => seededBracket(CURRENT_SEASON) ?? undefined)
   useEffect(() => {
     if (seasonOver !== true) return
@@ -164,6 +156,19 @@ function HomeViewInner({
     fetchBracket(CURRENT_SEASON).then(b => { if (!cancelled) setBracket(b) })
     return () => { cancelled = true }
   }, [seasonOver])
+
+  // Where Home is, by the last out rather than the calendar (see homeStageOn).
+  const stage    = useHomeStage(phase, bracket)
+  const noGames  = stage === 'champion' || stage === 'winter'
+  const hotStove = stage == null ? null : noGames
+
+  // NO SCOREBOARD ONCE THE WORLD SERIES IS OVER, for WPBL's reason: with no games left the strip sits
+  // frozen on its last night until spring, at the top of the page. The bracket under it says the same
+  // thing and names the champion. In the months that can be winter (November to March) the strip waits
+  // for the phase rather than drawing and then vanishing. In the postseason it draws while the bracket
+  // is read: a game may be on, and only a device with no bracket remembered waits on that read at all.
+  const winterMonth = [10, 11, 0, 1, 2].includes(new Date().getMonth())
+  const showScores = stage != null ? !noGames : phase == null ? !winterMonth : phase === 'postseason'
 
   // ── Data ─────────────────────────────────────────────────────────────────────
   const [standing,         setStanding]         = useState<StandingSummary | null>(null)
@@ -279,8 +284,10 @@ function HomeViewInner({
   const BOARD_POOL: BoardMeta[] = [
     { id: 'fraud',           kind: 'team',   title: 'Wins Above Expected',        subtitle: 'vs Pythagorean record', accent: '#f97316', dep: 'summaries' },
     { id: 'cursed',          kind: 'team',   title: 'Wins Below Expected',       subtitle: 'vs Pythagorean record',  accent: '#818cf8', dep: 'summaries' },
-    { id: 'highest-payroll', kind: 'team',   title: 'Highest Payrolls',  subtitle: `${CURRENT_SEASON} est. payroll`, accent: '#eab308', dep: 'payroll' },
-    { id: 'lowest-payroll',  kind: 'team',   title: 'Lowest Payrolls',   subtitle: `${CURRENT_SEASON} est. payroll`, accent: '#22c55e', dep: 'payroll' },
+    // The year of the figures (TEAM_PAYROLLS_2026), not the season shown: on Opening Day that turns to
+    // 2027 over the same numbers.
+    { id: 'highest-payroll', kind: 'team',   title: 'Highest Payrolls',  subtitle: '2026 est. payroll', accent: '#eab308', dep: 'payroll' },
+    { id: 'lowest-payroll',  kind: 'team',   title: 'Lowest Payrolls',   subtitle: '2026 est. payroll', accent: '#22c55e', dep: 'payroll' },
     { id: 'oldest',          kind: 'team',   title: 'Oldest Rosters',    subtitle: final ? 'Avg age, by playing time' : 'Avg age', accent: '#f97316', dep: 'ages', tooltipText: final ? AGE_TIP : undefined },
     { id: 'youngest',        kind: 'team',   title: 'Youngest Rosters',  subtitle: final ? 'Avg age, by playing time' : 'Avg age', accent: '#22c55e', dep: 'ages', tooltipText: final ? AGE_TIP : undefined },
     { id: 'hardest',         kind: 'team',   title: 'Hardest Schedules', subtitle: final ? 'Opp. win%' : 'Remaining opp. win%', accent: '#ef4444', dep: 'sos', tooltipText: final ? SOS_TIP : undefined },
@@ -469,10 +476,16 @@ function HomeViewInner({
         </TrackedCard>
       )}
 
+      {stage === 'champion' && bracket?.over && (
+        <TrackedCard card="champion" sx={{ mb: HOME_GAP }}>
+          <ChampionCard bracket={bracket} onTeamClick={onTeamClick} onPlayerClick={onPlayerClick} />
+        </TrackedCard>
+      )}
+
       {/* The postseason bracket, straight under the scores while one is being played. It draws
           nothing outside a postseason, and TrackedCard hides its own box when it is empty. */}
       <TrackedCard card="bracket" sx={{ mb: HOME_GAP }}>
-        <PlayoffBracketCard compact onTeamClick={onTeamClick} onPlayerClick={onPlayerClick} />
+        <PlayoffBracketCard compact noChampionLine={stage === 'champion'} onTeamClick={onTeamClick} onPlayerClick={onPlayerClick} />
       </TrackedCard>
 
       {/* ── Happening Now: only renders while live drama is brewing ───────────── */}
@@ -625,7 +638,7 @@ function HomeViewInner({
 
               {/* Streak Survivor: daily hitter-streak game */}
               <TrackedCard card="survivor" sx={{ order: ORDER.survivor, minWidth: 0 }}>
-                <StreakSurvivorWidget />
+                <StreakSurvivorWidget winter={noGames} />
               </TrackedCard>
             </>
           ) : (
@@ -659,7 +672,7 @@ function HomeViewInner({
 
               {/* Streak Survivor: daily hitter-streak game */}
               <TrackedCard card="survivor" sx={{ order: ORDER.survivor, minWidth: 0 }}>
-                <StreakSurvivorWidget />
+                <StreakSurvivorWidget winter={noGames} />
               </TrackedCard>
             </>
           )}

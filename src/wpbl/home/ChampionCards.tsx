@@ -18,6 +18,7 @@ import { typePx } from '../../ui/scale'
 import { latestSeason } from '../season'
 import { trackedLinkTo } from './shared'
 import { ordinal } from '../../lib/format'
+import { trophyPalette } from '../../ui/trophy'
 
 /**
  * Next game, when the only games left are ones the league has dated and not yet published.
@@ -633,24 +634,9 @@ export function ChampionBanner({ champion, season, runnerUp, champWins, rivalWin
     : undefined
   const showSeries = !dev && champWins != null && rivalWins != null && runnerUp
 
-  // One shared trophy gold for every club, no club color in the field. The title is a league
-  // award, so every champion banner reads as the same trophy, and the club lives in the badge and
-  // the name. This replaced a gold-into-club-color gradient that turned to mud for the two warm
-  // clubs (SF red went rust, LA gold went flat brown) and needed a per-club special case to hide it.
-  const gold = dark ? '#ffce55' : '#e8a900'
-  const goldSoft = dark ? '#f2c04a' : '#3d2905' // strip text: bright on dark, deep espresso on the gold ribbon (small uppercase, needs AA on the bright gold)
-  const stripBg = dark
-    ? `linear-gradient(90deg, ${alpha(gold, 0.32)}, ${alpha(gold, 0.15)})`
-    : `linear-gradient(90deg, #ffd766, #f0b200)`
-  // The field goes DARK under the name and keeps the gold on the far edge, like an engraved plaque:
-  // the name sits over the left half, and a flat gold field left every bright club name short of AA
-  // there (SF was 2.67:1). Dark is espresso warming to a gold edge; light stays bright under the
-  // name and deepens to gold. Do not flatten this to an even gold and do not put the club color
-  // back in the field: both drop the name below 4.5:1. Measured worst point under the name clears
-  // 4.5:1 for all four in both themes, SF the floor at 4.72 dark / 5.39 light.
-  const cardBg = dark
-    ? 'linear-gradient(115deg, #241906 0%, #2e2109 52%, #463610 100%)'
-    : 'linear-gradient(115deg, #fff0c2 0%, #ffe19a 55%, #f3c257 100%)'
+  // Measured worst point under the name clears 4.5:1 for all four clubs in both themes, SF the floor
+  // at 4.72 dark / 5.39 light (a flat gold field had it at 2.67:1).
+  const { gold, goldSoft, stripBg, cardBg } = trophyPalette(dark)
   // The name carries the club: its accent on the dark field, a deeper club/near-black mix on the
   // bright one. Los Angeles' accent is itself a gold and would sit gold-on-gold in dark, so it
   // takes a cream-gold there; light mode's deep mix reads on gold for every club, LA included.

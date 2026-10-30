@@ -3,7 +3,8 @@ import { pressable } from '../../ui/interaction'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { SectionCard, TYPE_SCALE, ACCENT_EDGE } from '../../ui/card'
 import { InfoDot } from '../../ui/InfoDot'
-import { ACCENT, ACCENT_TEXT, TEAM_ABBR, TEAM_NICKNAME, TONE } from '../constants'
+import { ACCENT, ACCENT_TEXT, CURRENT_SEASON, TEAM_ABBR, TEAM_NICKNAME, TONE } from '../constants'
+import { fetchNextOpeningDay, longDay } from '../seasonPhase'
 import { useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
 import { useAuth } from '../../AuthContext'
@@ -170,10 +171,22 @@ interface SurvivorShape { pick: boolean; change: boolean; hitters: number; recen
 /** Only measured, never read: the pick a loading card ghosts. */
 const GHOST_PICK: SurvivorPick = { gameDate: '', playerId: 0, playerName: 'Bobby Witt Jr.', teamId: 118, result: 'pending' }
 
-export function StreakSurvivorWidget() {
+export function StreakSurvivorWidget({ winter = false }: {
+  /** No games until spring: nothing to pick, so the card says when it is back. Without it the slate
+   *  rolled to a "Tomorrow" that held no games, every day from November to Opening Day. */
+  winter?: boolean
+}) {
   const { user, loading: authLoading, openAuthDialog } = useAuth()
   const today = survivorToday()
-  const season = new Date().getFullYear()
+  // The season shown, not the calendar year: from January to Opening Day that year has no streaks yet.
+  const season = CURRENT_SEASON
+  const [opening, setOpening] = useState<string | null>(null)
+  useEffect(() => {
+    if (!winter) return
+    let cancelled = false
+    fetchNextOpeningDay(CURRENT_SEASON).then(d => { if (!cancelled) setOpening(d) })
+    return () => { cancelled = true }
+  }, [winter])
 
   // The day being picked. Normally today, but once today has no team left to pick
   // (every game started or final), it rolls to tomorrow so a pick can be made
@@ -274,11 +287,11 @@ export function StreakSurvivorWidget() {
   const userReady = !!user && !loading && userFor === `${user.id}:${slateDate}` && hotHitters !== null
   const showsPick = !!myPick && !changing
   const lastShape = useLastShape<SurvivorShape | null>('mlb.survivor', null)
-  useRememberShape('mlb.survivor', userReady ? {
+  useRememberShape('mlb.survivor', userReady && !winter ? {
     pick: showsPick, change: showsPick && !pickLocked && myPick!.result === 'pending',
     hitters: (hotHitters ?? []).length, recent: recentForm.length > 0,
   } satisfies SurvivorShape : undefined)
-  const ghost = user && !userReady ? lastShape : null
+  const ghost = user && !userReady && !winter ? lastShape : null
 
   // ── Card shell ──
   const Shell = (children: React.ReactNode) => (
@@ -286,7 +299,7 @@ export function StreakSurvivorWidget() {
       title="Streak Survivor"
       titleAdornment={<>
         <InfoDot label="Rules" text="One hitter a day. A hit extends the streak; an 0-fer resets it." />
-        {isTomorrow && (
+        {isTomorrow && !winter && (
           <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', border: '1px solid', borderColor: 'outline', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
             Tomorrow
           </Typography>
@@ -365,7 +378,17 @@ export function StreakSurvivorWidget() {
   // ── Body states ──
   let body: React.ReactNode
 
-  if (authLoading || (user && !userReady && !ghost)) {
+  if (winter) {
+    body = (
+      <Box sx={{ px: 2, pt: 0.5, pb: 1.5 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.45 }}>
+          {opening
+            ? <>Back on Opening Day, <Box component="span" sx={{ fontWeight: 800, color: 'text.primary' }}>{longDay(opening)}</Box>.</>
+            : 'Back on Opening Day.'}
+        </Typography>
+      </Box>
+    )
+  } else if (authLoading || (user && !userReady && !ghost)) {
     body = <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={26} sx={{ color: ACCENT_TEXT }} /></Box>
   } else if (ghost) {
     body = (
