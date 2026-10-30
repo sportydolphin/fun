@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { track, EVENTS } from '../../lib/analytics'
 import { playedInnings } from '../constants'
-import { canonicalFeedName } from '../feedNames'
 import { HighlightLightbox } from '../Highlights'
 import { useClipTags } from '../Watch'
 import { useWpblPlayerLink } from '../LinkContext'
@@ -116,23 +115,6 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
   // off the plays: a half-inning has one batting club and the score has two.
   const awayTeam = teams.get(game.away_team_id)
   const homeTeam = teams.get(game.home_team_id)
-  // Every name the feed uses in this game, mapped to the roster's own spelling of it. The two
-  // disagree on seven players (see feedNames.ts), and the play log is where a reader meets the
-  // feed's version: the same at-bat reads "Emi Saki" in the sentence and Emi Saiki in the box
-  // score one tab across. Built from the plays rather than the roster, so a name only shortens
-  // when it is genuinely a player in this game.
-  const canon = useMemo(() => {
-    const feed = [...new Set(plays.flatMap(p => [p.batter_name, p.pitcher_name]).filter(Boolean) as string[])]
-    return new Map(feed.map(n => [n, canonicalFeedName(n, names.values())]))
-  }, [plays, names])
-  // Longest first so "Elodie Ciamarro" is replaced before a bare "Ciamarro" could match part
-  // of it.
-  const shortenNames = useMemo(() => {
-    const feed = [...canon.keys()].sort((a, b) => b.length - a.length)
-    if (!feed.length) return (t: string) => t
-    const re = new RegExp(feed.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g')
-    return (t: string) => t.replace(re, m => canon.get(m) ?? m)
-  }, [canon])
   // Group consecutive plays into half-innings, in order.
   //
   // The half-inning's run count comes from the line score rather than from summing the plays,
@@ -486,7 +468,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                     The pitcher this half OPENED with, which is not always the only one: plenty of
                     half-innings use two or more, and those changes are their own lines in the list
                     rather than a second name crowding this one. */}
-                {g.pitcher ? ` · vs ${shortenNames(g.pitcher)}` : ''}
+                {g.pitcher ? ` · vs ${g.pitcher}` : ''}
               </Typography>
               {/* THE SCORE AFTER THIS HALF, and the runs that made it: the runs alone are the delta and
                   never the state, so a reader scrolling to the 6th would see that two scored there and
@@ -519,7 +501,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                   // Hidden, not absent: `shown` keeps every play of the half so the neighbor
                   // reads below still land on the right row. See the note on that memo.
                   if (g.hidden?.has(i)) return null
-                  const parsed = parsePlay(p.narrative, p.batter_name, shortenNames)
+                  const parsed = parsePlay(p.narrative, p.batter_name)
                   // THE PITCHING CHANGE WE WORKED OUT OURSELVES, drawn where the league wrote one and REPLACING
                   // its sentence rather than sitting beside it. Two lines disagreeing about one change is worse
                   // than either alone, and they would disagree: the league often announces a change as a bare
@@ -534,12 +516,9 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                       <Typography sx={{
                         fontSize: TYPE_SCALE.meta, fontStyle: 'italic', color: 'text.disabled', lineHeight: 1.35,
                       }}>
-                        {/* Corrected to the roster spelling through the same `canon` map the
-                            play-by-play name uses: `change.to`/`from` come from `pitcher_name`,
-                            which is the feed's prose and wrong for the same seven players. */}
                         {change.announcedAt != null
-                          ? `${shortenNames(canon.get(change.to) ?? change.to)} to p for ${shortenNames(canon.get(change.from) ?? change.from)}`
-                          : `Now pitching: ${shortenNames(canon.get(change.to) ?? change.to)}`}
+                          ? `${change.to} to p for ${change.from}`
+                          : `Now pitching: ${change.to}`}
                         {/* THE DAGGER RIDES THE ROW, NOT THE SENTENCE. This line is drawn from `pitcher_name` and
                             needs no correction to be right, but the row underneath it is the one the overlay
                             corrected and the one the footnote counts, and a footnote must never count a dagger
@@ -619,7 +598,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                                   ...FOCUS_RING, cursor: 'pointer', borderRadius: 0.5,
                                   '@media (hover: hover)': { '&:hover': { textDecoration: 'underline' } },
                                 } : {}),
-                              }}>{batter?.name ?? canon.get(parsed.who) ?? parsed.who}</Box>
+                              }}>{batter?.name ?? parsed.who}</Box>
                             )
                           })()}
                           {parsed.who && ' '}

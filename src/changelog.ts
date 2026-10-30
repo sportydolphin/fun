@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.195.0',
+    date:    '2026-10-30',
+    changes: [
+      {
+        short: 'Every play spells names the roster way',
+        full:  "Play-by-play, Batter vs Pitcher, the season recap, Run value, the win probability chart and Game Center's TrackMan tab all spell players the way the roster does (Emi Saiki, Isabella Villarreal, Maggie Foxx), including the runners named in a play.",
+      },
+    ],
+  },
+  {
     version: '1.194.0',
     date:    '2026-10-30',
     changes: [

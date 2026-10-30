@@ -161,8 +161,8 @@ export default function WpblMatchupsPage({ onNavigate }: {
   }, [view, club, scope, expanded])
 
   const lines = useMemo(
-    () => (plays ? batterPitcherMatchups(plays, games, { scope: effScope, roster: players }) : []),
-    [plays, games, effScope, players])
+    () => (plays ? batterPitcherMatchups(plays, games, { scope: effScope }) : []),
+    [plays, games, effScope])
   const board = useMemo(() => {
     const all = matchupBoard(lines, view)
     return clubId == null ? all : all.filter(l => l.batterTeamIds.includes(clubId) || l.pitcherTeamIds.includes(clubId))
