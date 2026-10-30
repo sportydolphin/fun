@@ -33,13 +33,11 @@ const WpblDraftValue = lazy(() => import('../DraftValue'))
 const WpblChartsView = lazy(() => import('../ChartsView'))
 
 /** What the Charts board plots: the regular season's totals for the year on screen, whichever slice
- *  the tables are showing, and the value figures for the two-way chart. Null while neither the
- *  stored seasons nor the box-score lines have answered. */
+ *  the tables are showing. Null while neither the stored seasons nor the box-score lines have answered. */
 export interface ChartInputs {
   batting: WpblBatSeason[]
   pitching: WpblPitSeason[]
   league: { batting: WpblBattingTotals; pitching: WpblPitchingTotals }
-  valueSeasons: PlayerValueSeason<WpblPlayer>[] | null
   fWeights: FipWeights | null
 }
 
@@ -151,9 +149,9 @@ export function BoardPane({ source, side, boardSide, findSide, teams, players, l
       // beside a band of empty page on either side.
       <Box sx={fullBleedSx}>
       <Suspense fallback={<SubViewFallback />}>
-        <WpblChartsView side={side === 'overall' ? 'overall' : boardSide} teams={teams} players={players} games={games}
+        <WpblChartsView side={boardSide} teams={teams} players={players} games={games}
           batting={charts.batting} pitching={charts.pitching} league={charts.league}
-          valueSeasons={charts.valueSeasons} fWeights={charts.fWeights} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} />
+          fWeights={charts.fWeights} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} />
       </Suspense>
       </Box>
     )

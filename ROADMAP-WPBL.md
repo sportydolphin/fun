@@ -1444,7 +1444,8 @@ OBP vs SLG (OPS lines across it) and Swing% vs Contact%; Pitching is ERA vs FIP 
 FIP diagonal) and F-Strike% vs BB%; Overall is Pos WAR vs Pit WAR for two-way players, the one this
 league can ask and MLB barely can. Regular season only, qualified players by default (the Players
 table's bars), from the stored seasons and the Pitch by pitch board's play log, so the board reads
-nothing new. Labels only, no subtitles (the copy rule in CLAUDE.md, Oct 21, 2026).
+nothing new. Labels only, no subtitles (the copy rule in CLAUDE.md, Oct 21, 2026). F-Strike% vs BB%
+and the Overall side came off the board in v1.191.0 (Oct 29, 2026); Hitting is the only default.
 
 **Next, in order:**
 

@@ -536,10 +536,9 @@ export default function WpblStatsView({
       batting: stored ? stored.batting('regular') : aggregateBatting(players, lines.batting, games, 'regular'),
       pitching: stored ? stored.pitching('regular') : aggregatePitching(players, lines.pitching, games, 'regular'),
       league: stored ? stored.league('regular') : leagueLine(lines.batting, lines.pitching, games, 'regular'),
-      valueSeasons,
       fWeights,
     }
-  }, [source, stored, linesIn, players, lines, games, valueSeasons, fWeights])
+  }, [source, stored, linesIn, players, lines, games, fWeights])
 
   // The hitting and pitching columns, the league-relative ones included (OPS+, wOBA, wRC+, ERA+,
   // FIP and the reader's K and HR rates), are built in statColumns.ts, where the search box builds

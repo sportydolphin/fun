@@ -142,8 +142,8 @@ const DEFAULT_ROUTES = [
   '/wpbl', '/wpbl/schedule', '/wpbl/standings', '/wpbl/stats', '/wpbl/stats?board=fielding', '/wpbl/stats?board=runs', '/wpbl/teams', '/wpbl/teams/hunters',
   // Fielding as a side of Leaders and Teams, and an Analysis board other than Run value (Oct 2026).
   '/wpbl/stats?side=fielding', '/wpbl/stats?board=teams&side=fielding', '/wpbl/stats?board=pitches',
-  // The scatter plots, on the side that reads the play log and the one that reads WAR (Oct 2026).
-  '/wpbl/stats?board=charts', '/wpbl/stats?board=charts&side=overall',
+  // The scatter plots, on the side that reads the play log and the one that reads FIP (Oct 2026).
+  '/wpbl/stats?board=charts', '/wpbl/stats?board=charts&side=pitching',
   // The draft-pick scatter, which printed every label at 6px on a phone until Oct 2026.
   '/wpbl/stats?board=draft',
   '/wpbl/players', '/wpbl/league', '/wpbl/season', '/wpbl/matchups', '/wpbl/awards', '/wpbl/compare',

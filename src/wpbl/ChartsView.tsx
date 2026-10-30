@@ -3,17 +3,15 @@ import { Box, Typography, useMediaQuery, useTheme, type Theme } from '@mui/mater
 import { fetchWpblAllLines, fetchWpblAllPitchPlays, getCachedWpblAllLines, getCachedWpblAllPitchPlays } from './api'
 import { aggregatePitchCodes, pitchQualifiers } from './derive/pitches'
 import {
-  averagePowerChart, eraFipChart, firstStrikeWalkChart, obpSlgChart, pitcherStrikeoutWalkChart, swingContactChart, twoWayChart,
-  walkStrikeoutChart, type ChartData,
+  averagePowerChart, eraFipChart, obpSlgChart, pitcherStrikeoutWalkChart, swingContactChart, walkStrikeoutChart, type ChartData,
 } from './derive/charts'
-import type { PlayerValueSeason } from './derive/playerValue'
 import { fip, fipConstant, fmtRate, fmtTwo, scaleToBasis, sumBatting, sumPitching, wpblQualifiers, type FipWeights, type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals } from './stats'
 import { useEraBasis } from './EraBasisContext'
 import { useWpblSeason } from './SeasonContext'
 import { useWpblPlayerLink, useWpblTeamLink } from './LinkContext'
 import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 import { ScatterFrame, ScatterPlot, type ScatterAxis, type ScatterGuides, type ScatterPoint } from '../ui/charts/ScatterPlot'
-import { niceDomain, sharedDomain, stepDecimals, sumLevels, tickStep, axisValues } from '../ui/charts/scale'
+import { niceDomain, sharedDomain, stepDecimals, tickStep, axisValues } from '../ui/charts/scale'
 import { nameStages } from '../ui/names'
 import { FilterChip, filterChipSx } from '../ui/FilterChip'
 import { wpblAccent, wpblFullName } from './constants'
@@ -24,20 +22,18 @@ import { typePx } from '../ui/scale'
 
 // THE CHARTS BOARD: every player on two stats at once (derive/charts.ts says what each chart asks).
 // The section's take on MLB's Charts page, which plots the 30 clubs; four clubs make a thin plot, so
-// here the dots are players. Hitting shows the two hitter charts, Pitching the two pitcher charts and
-// Overall the two-way chart, so the side switch above means what it means on every other board.
+// here the dots are players. Hitting shows the hitter charts and Pitching the pitcher charts, so the
+// side switch above means what it means on every other board. Overall has no chart: Pos WAR vs Pit
+// WAR held only the handful who did both, and plotted a thin corner of the league.
 //
-// Two of the five need nothing new: the season totals are the ones the Players table is built from
-// (the stored seasons when they are current). The swing and first-pitch charts count every pitch,
-// so they read the play log the Pitch by pitch board reads, from the same cache.
+// Most need nothing new: the season totals are the ones the Players table is built from (the stored
+// seasons when they are current). The swing chart counts every pitch, so it reads the play log the
+// Pitch by pitch board reads, from the same cache.
 
-// Tick formatters take the axis's step, so a tick prints as many decimals as the step needs: a WAR
-// axis stepping by 0.25 read "0.3, 0.5, 0.8" at a fixed one decimal, and an ERA axis "10.00".
+// Tick formatters take the axis's step, so a tick prints as many decimals as the step needs: an ERA
+// axis read "10.00" at a fixed two decimals.
 const pct1 = (v: number) => `${(v * 100).toFixed(1)}%`
 const pctTick = (v: number, step: number) => `${(v * 100).toFixed(stepDecimals(step * 100))}%`
-const signed = (v: number, d: number) => (v < 0 ? `−${Math.abs(v).toFixed(d)}` : v.toFixed(d))
-const war = (v: number) => signed(v, 1)
-const warTick = (v: number, step: number) => signed(v, Math.max(1, stepDecimals(step)))
 const runsTick = (v: number, step: number) => v.toFixed(stepDecimals(step))
 
 interface AxisSpec {
@@ -70,7 +66,7 @@ interface ChartSpec {
   /** A third figure the two axes make together, for the card (OPS on OBP vs SLG). */
   extra?: { name: string; value: (x: number, y: number) => string }
   /** A club's place on the chart from its season totals, for the Clubs overlay. Absent on the
-   *  pitch-by-pitch charts and the two-way chart, which have no club line to read it from. */
+   *  pitch-by-pitch chart, which has no club line to read it from. */
   club?: (t: ClubTotals) => { x: number; y: number } | null
 }
 
@@ -78,8 +74,8 @@ interface ClubTotals { batting: WpblBattingTotals; pitching: WpblPitchingTotals 
 
 const both = (x: number | null, y: number | null) => (x != null && y != null ? { x, y } : null)
 
-export default function WpblChartsView({ side, teams, players, games, batting, pitching, league, valueSeasons, fWeights, onOpenPlayer, onOpenTeam }: {
-  side: 'hitting' | 'pitching' | 'overall'
+export default function WpblChartsView({ side, teams, players, games, batting, pitching, league, fWeights, onOpenPlayer, onOpenTeam }: {
+  side: 'hitting' | 'pitching'
   teams: WpblTeam[]
   /** Every player, for naming the play log's batters and pitchers (traded players included). */
   players: WpblPlayer[]
@@ -88,8 +84,6 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
   batting: WpblBatSeason[]
   pitching: WpblPitSeason[]
   league: { batting: WpblBattingTotals; pitching: WpblPitchingTotals }
-  /** Null until the play log or the stored seasons have answered. */
-  valueSeasons: PlayerValueSeason<WpblPlayer>[] | null
   fWeights: FipWeights | null
   onOpenPlayer: (p: WpblPlayer) => void
   onOpenTeam?: (t: WpblTeam) => void
@@ -99,10 +93,10 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
   const qual = useMemo(() => wpblQualifiers(teams, games), [teams, games])
   const pitchMins = useMemo(() => pitchQualifiers(qual.active ? qual.teamGames : 0), [qual])
 
-  // The play log, only for the two pitch-by-pitch charts. Same read and cache as Pitch by pitch,
-  // held with the season it was read for so a year picked from the menu reads afresh.
+  // The play log, only for the pitch-by-pitch chart on Hitting. Same read and cache as Pitch by
+  // pitch, held with the season it was read for so a year picked from the menu reads afresh.
   const { season, cut } = useWpblSeason()
-  const wantPitches = side !== 'overall'
+  const wantPitches = side === 'hitting'
   const [read, setRead] = useState(() => ({ season, plays: getCachedWpblAllPitchPlays(season) }))
   const allPlays = read.season === season ? read.plays : null
   useEffect(() => {
@@ -122,12 +116,10 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
   const obpSlg = useMemo(() => obpSlgChart(batting, league.batting, qual.minPa), [batting, league.batting, qual.minPa])
   const eraFip = useMemo(() => eraFipChart(pitching, league.pitching, fWeights, qual.minOuts, basis), [pitching, league.pitching, fWeights, qual.minOuts, basis])
   const swingContact = useMemo(() => (pitchBoard ? swingContactChart(pitchBoard.batters, pitchBoard.league, pitchMins.minBatter) : null), [pitchBoard, pitchMins.minBatter])
-  const firstStrike = useMemo(() => (pitchBoard ? firstStrikeWalkChart(pitchBoard.pitchers, pitchBoard.league, pitchMins.minPitcher) : null), [pitchBoard, pitchMins.minPitcher])
   const walkK = useMemo(() => walkStrikeoutChart(batting, league.batting, qual.minPa), [batting, league.batting, qual.minPa])
   const avgIso = useMemo(() => averagePowerChart(batting, league.batting, qual.minPa), [batting, league.batting, qual.minPa])
   const pitKbb = useMemo(() => pitcherStrikeoutWalkChart(pitching, league.pitching, qual.minOuts), [pitching, league.pitching, qual.minOuts])
   const fipC = useMemo(() => fipConstant(league.pitching, fWeights), [league.pitching, fWeights])
-  const twoWay = useMemo(() => (valueSeasons ? twoWayChart(valueSeasons, qual.minPa, qual.minOuts) : null), [valueSeasons, qual.minPa, qual.minOuts])
 
   const specs: ChartSpec[] = side === 'hitting' ? [
     {
@@ -177,7 +169,7 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
       empty: 'No data',
       size: 'Pitches',
     },
-  ] : side === 'pitching' ? [
+  ] : [
     {
       key: 'era-fip', title: 'ERA vs FIP',
       info: `One dot per pitcher, sized by IP. ERA and FIP per ${basis} innings. FIP uses this league's run values. Dashed line: ERA = FIP.`,
@@ -205,31 +197,6 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
       size: 'BF',
       extra: { name: 'K−BB%', value: (x, y) => (x - y < 0 ? '−' : '') + pct1(Math.abs(x - y)) },
       club: t => both(t.pitching.kPct, t.pitching.bbPct),
-    },
-    {
-      key: 'first-strike-walks', title: 'F-Strike% vs BB%',
-      info: 'One dot per pitcher, sized by pitches. F-Strike%: batters whose first pitch was a strike. BB%: walks over batters faced, axis inverted. From the play-by-play. Dashed lines: league average.',
-      data: firstStrike,
-      x: { label: 'F-Strike%', name: 'F-Strike%', fmt: pct1, tick: pctTick, floor: 0, ceil: 1 },
-      y: { label: 'BB% (inverted)', name: 'BB%', fmt: pct1, tick: pctTick, floor: 0, ceil: 1, invert: true },
-      guides: (_x, _y, avg) => ({ avg: avg ? { ...avg, label: 'League avg' } : undefined }),
-      empty: 'No data',
-      size: 'Pitches',
-    },
-  ] : [
-    {
-      key: 'two-way', title: 'Pos WAR vs Pit WAR',
-      info: 'Players with at least one PA and one out recorded, sized by PA plus outs. Pos WAR: batting, baserunning and fielding. Pit WAR: pitching. The two sum to WAR. Solid lines: zero.',
-      data: twoWay,
-      x: { label: 'Pos WAR', name: 'Pos WAR', fmt: war, tick: warTick },
-      y: { label: 'Pit WAR', name: 'Pit WAR', fmt: war, tick: warTick },
-      guides: (x, y) => ({
-        zero: true,
-        sums: sumLevels(x, y, 3).filter(v => v > 0).map(v => ({ value: v, label: `${warTick(v, v)} WAR` })),
-      }),
-      empty: 'No data',
-      size: 'PA + outs',
-      extra: { name: 'WAR', value: (x, y) => war(x + y) },
     },
   ]
 

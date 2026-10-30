@@ -1,12 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { sumBatting, sumPitching, type WpblBatSeason, type WpblPitSeason } from '../stats'
-import { averagePowerChart, eraFipChart, obpSlgChart, pitcherStrikeoutWalkChart, twoWayChart, walkStrikeoutChart } from '../derive/charts'
-import type { PlayerValueSeason, WpblValueTotals } from '../derive/playerValue'
+import { averagePowerChart, eraFipChart, obpSlgChart, pitcherStrikeoutWalkChart, walkStrikeoutChart } from '../derive/charts'
 import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer } from '../types'
 
 // The Charts board's points. What they must get right: the playing-time bar is plate appearances
-// (never at-bats), nobody without a sample is drawn, ERA and FIP move together with the reader's
-// basis, and the two-way chart holds only players who did both.
+// (never at-bats), nobody without a sample is drawn, and ERA and FIP move together with the reader's
+// basis.
 
 const G = 'g1'
 const games: WpblGame[] = [{ id: G, game_type: 'regular', counts_in_standings: true } as WpblGame]
@@ -82,26 +81,6 @@ describe('eraFipChart', () => {
       expect(nine[i].x / seven[i].x).toBeCloseTo(9 / 7)
       expect(nine[i].y / seven[i].y).toBeCloseTo(9 / 7)
     }
-  })
-})
-
-describe('twoWayChart', () => {
-  const value = (id: string, t: Partial<WpblValueTotals>): PlayerValueSeason<WpblPlayer> =>
-    ({ player: player(id), totals: { pa: 0, outs: 0, batWar: 0, pitWar: 0, ...t } as WpblValueTotals })
-
-  it('holds only players who both batted and pitched', () => {
-    const chart = twoWayChart([
-      value('both', { pa: 40, outs: 60, batWar: 0.8, pitWar: 1.1 }),
-      value('hitter', { pa: 120, batWar: 2 }),
-      value('pitcher', { outs: 90, pitWar: 1.5 }),
-    ], 30, 45)
-    expect(chart.points.map(p => p.player.id)).toEqual(['both'])
-    expect(chart.points[0]).toMatchObject({ x: 0.8, y: 1.1, qualified: true })
-  })
-
-  it('counts a regular on either side as a regular', () => {
-    const chart = twoWayChart([value('ace', { pa: 6, outs: 90 })], 30, 45)
-    expect(chart.points[0].qualified).toBe(true)
   })
 })
 
