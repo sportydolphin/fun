@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.186.0',
+    date:    '2026-10-29',
+    changes: [
+      {
+        short: 'Charts by club, with a player search',
+        full:  "WPBL's Charts board colors each dot by club, and a club chip fades the other three. A search box finds a player on every chart at once. Point at a player and the chart beside it lights the same player. Each card shows the club and the figure the two axes make together: OPS, ERA minus FIP, or WAR. A key beside each title says what a dot's size counts. With Qualified off, a player with a tiny sample far outside the rest sits on the edge with an arrow instead of stretching the axes. The Overall chart is drawn at the same size as the others, and the arrow keys move between nearby dots.",
+      },
+    ],
+  },
+  {
     version: '1.185.0',
     date:    '2026-10-29',
     changes: [

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Box, Typography } from '@mui/material'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Box, Typography, useTheme } from '@mui/material'
 import { fetchWpblAllPitchPlays, getCachedWpblAllPitchPlays } from './api'
 import { aggregatePitchCodes, pitchQualifiers } from './derive/pitches'
 import {
@@ -13,9 +13,11 @@ import { useWpblSeason } from './SeasonContext'
 import { useWpblPlayerLink } from './LinkContext'
 import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 import { ScatterFrame, ScatterPlot, type ScatterAxis, type ScatterGuides, type ScatterPoint } from '../ui/charts/ScatterPlot'
-import { niceDomain, sharedDomain, stepDecimals, sumLevels, tickStep } from '../ui/charts/scale'
+import { niceDomain, sharedDomain, stepDecimals, sumLevels, tickStep, axisValues } from '../ui/charts/scale'
 import { nameStages } from '../ui/names'
-import { FilterChip } from '../ui/FilterChip'
+import { FilterChip, filterChipSx } from '../ui/FilterChip'
+import { edgeTone } from '../lib/contrast'
+import { wpblFullName } from './constants'
 import { InfoDot } from '../ui/InfoDot'
 import { TYPE_SCALE } from '../ui/card'
 import { typePx } from '../ui/scale'
@@ -63,6 +65,10 @@ interface ChartSpec {
   shared?: boolean
   /** Shown in the frame when there is nothing to draw. */
   empty: string
+  /** What a dot's size counts, for the key beside the title. */
+  size: string
+  /** A third figure the two axes make together, for the card (OPS on OBP vs SLG). */
+  extra?: { name: string; value: (x: number, y: number) => string }
 }
 
 export default function WpblChartsView({ side, teams, players, games, batting, pitching, league, valueSeasons, fWeights, onOpenPlayer }: {
@@ -123,6 +129,8 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
         sums: sumLevels(x, y, 5).map(v => ({ value: v, label: `${fmtRate(v)} OPS` })),
       }),
       empty: 'No data',
+      size: 'PA',
+      extra: { name: 'OPS', value: (x, y) => fmtRate(x + y) },
     },
     {
       key: 'swing-contact', title: 'Swing% vs Contact%',
@@ -132,6 +140,7 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
       y: { label: 'Contact%', name: 'Contact%', fmt: pct1, tick: pctTick, floor: 0, ceil: 1 },
       guides: (_x, _y, avg) => ({ avg: avg ? { ...avg, label: 'League avg' } : undefined }),
       empty: 'No data',
+      size: 'Pitches',
     },
   ] : side === 'pitching' ? [
     {
@@ -143,6 +152,8 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
       shared: true,
       guides: () => ({ diagonal: { above: 'ERA > FIP', below: 'ERA < FIP' } }),
       empty: 'No data',
+      size: 'IP',
+      extra: { name: 'ERA − FIP', value: (x, y) => (y - x >= 0 ? '+' : '−') + Math.abs(y - x).toFixed(2) },
     },
     {
       key: 'first-strike-walks', title: 'F-Strike% vs BB%',
@@ -152,6 +163,7 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
       y: { label: 'BB% (inverted)', name: 'BB%', fmt: pct1, tick: pctTick, floor: 0, ceil: 1, invert: true },
       guides: (_x, _y, avg) => ({ avg: avg ? { ...avg, label: 'League avg' } : undefined }),
       empty: 'No data',
+      size: 'Pitches',
     },
   ] : [
     {
@@ -165,31 +177,76 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
         sums: sumLevels(x, y, 3).filter(v => v > 0).map(v => ({ value: v, label: `${warTick(v, v)} WAR` })),
       }),
       empty: 'No data',
+      size: 'PA + outs',
+      extra: { name: 'WAR', value: (x, y) => war(x + y) },
     },
   ]
 
+  // What the reader has narrowed the dots to: one club, a name typed into the search, or both.
+  // Everything else stays drawn, faded, so a player is still seen against the league.
+  const [club, setClub] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const focus = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!club && !q) return null
+    return new Set(players
+      .filter(p => (!club || p.team_id === club) && (!q || p.name.toLowerCase().includes(q)))
+      .map(p => p.id))
+  }, [players, club, query])
+  // The player lit on one chart, ringed and named on the other: the same hitter's power on one
+  // and their swing decisions on the next, without hunting for the dot twice.
+  const [lit, setLit] = useState<string | null>(null)
+  const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+  const dark = useTheme().palette.mode === 'dark'
+  // A club's own color, lifted until it stands off the page (most primaries are navy, which a dark
+  // page swallows). The same lift a club's outline gets.
+  const clubColor = useCallback((id: string | null | undefined) => {
+    const c = id ? teamById.get(id)?.color : null
+    return c ? edgeTone(c, dark) : undefined
+  }, [teamById, dark])
+  const clubAbbr = useCallback((id: string | null) => (id ? teamById.get(id)?.abbr ?? null : null), [teamById])
+
   return (
     <Box>
-      {qual.active && (
-        <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-          <FilterChip active={!everyone} onClick={() => setEveryone(e => !e)}>Qualified</FilterChip>
-        </Box>
-      )}
-      <Box sx={{ display: 'grid', gap: { xs: 3.5, md: 4 }, gridTemplateColumns: { xs: '1fr', md: specs.length > 1 ? '1fr 1fr' : '1fr' } }}>
+      <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+        {qual.active && <FilterChip active={!everyone} onClick={() => setEveryone(e => !e)}>Qualified</FilterChip>}
+        {[...teams].sort((a, b) => a.sort_order - b.sort_order).map(t => (
+          <FilterChip key={t.id} active={club === t.id} onClick={() => setClub(c => (c === t.id ? null : t.id))}>
+            <Box component="span" aria-hidden sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: clubColor(t.id), mr: 0.6, flexShrink: 0 }} />
+            <Box component="span" title={wpblFullName(t)}>{t.abbr}</Box>
+          </FilterChip>
+        ))}
+        <Box component="input" type="search" value={query} placeholder="Find player" aria-label="Find player"
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
+          sx={{
+            ...filterChipSx(query.trim() !== ''), cursor: 'text', userSelect: 'text', fontFamily: 'inherit', lineHeight: 'inherit',
+            fontSize: TYPE_SCALE.meta, fontWeight: 700, width: '9rem', outline: 'none', bgcolor: 'transparent',
+            color: 'text.primary', '&::placeholder': { color: 'text.secondary', opacity: 1 },
+          }} />
+      </Box>
+      {/* Two columns on a wide screen even for one chart, so a lone chart is drawn at the size of
+          a pair's and not as a 1,000px plot of a dozen dots. */}
+      <Box sx={{ display: 'grid', gap: { xs: 3.5, md: 4 }, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
         {specs.map(s => (
-          <ChartPanel key={s.key} spec={s} everyone={everyone || !qual.active} onOpenPlayer={onOpenPlayer} narrowSingle={specs.length === 1} />
+          <ChartPanel key={s.key} spec={s} everyone={everyone || !qual.active} onOpenPlayer={onOpenPlayer}
+            focus={focus} lit={lit} onLit={setLit} clubOf={clubAbbr} colorOf={clubColor} />
         ))}
       </Box>
     </Box>
   )
 }
 
-function ChartPanel({ spec, everyone, onOpenPlayer, narrowSingle }: {
+function ChartPanel({ spec, everyone, onOpenPlayer, focus, lit, onLit, clubOf, colorOf }: {
   spec: ChartSpec
   everyone: boolean
   onOpenPlayer: (p: WpblPlayer) => void
-  /** A lone chart on a wide screen is capped, so it is not a 1,000px-wide plot of twelve dots. */
-  narrowSingle: boolean
+  /** The players the reader has narrowed to, or null for everyone. */
+  focus: ReadonlySet<string> | null
+  lit: string | null
+  onLit: (id: string | null) => void
+  /** A club's abbreviation and its dot color. The roster club, as on the Players table. */
+  clubOf: (teamId: string | null) => string | null
+  colorOf: (teamId: string | null) => string | undefined
 }) {
   const playerLink = useWpblPlayerLink()
   const { data } = spec
@@ -197,7 +254,8 @@ function ChartPanel({ spec, everyone, onOpenPlayer, narrowSingle }: {
 
   const axes = useMemo(() => {
     if (!data || shown.length === 0) return null
-    const xs = shown.map(p => p.x), ys = shown.map(p => p.y)
+    // Regulars set the axes; a cameo past their spread sits on the edge (axisValues).
+    const xs = axisValues(shown.map(p => ({ v: p.x, keep: p.qualified }))), ys = axisValues(shown.map(p => ({ v: p.y, keep: p.qualified })))
     const avg = data.avg
     const dx = spec.shared ? sharedDomain(xs, ys, { floor: spec.x.floor, ceil: spec.x.ceil })
       : niceDomain(xs, { floor: spec.x.floor, ceil: spec.x.ceil, include: avg ? [avg.x] : [] })
@@ -213,12 +271,16 @@ function ChartPanel({ spec, everyone, onOpenPlayer, narrowSingle }: {
   const points = useMemo<ScatterPoint[]>(() => shown.map(p => {
     const link = playerLink(p.player, onOpenPlayer) as { href?: string; onClick?: (e: React.MouseEvent) => void }
     const stages = nameStages(p.player.name)
+    const club = clubOf(p.player.team_id)
+    const extra = spec.extra ? { name: spec.extra.name, value: spec.extra.value(p.x, p.y) } : null
     return {
       id: p.player.id, x: p.x, y: p.y, weight: p.weight,
       label: stages[stages.length - 1],
-      ariaLabel: `${p.player.name}: ${spec.x.name} ${spec.x.fmt(p.x)}, ${spec.y.name} ${spec.y.fmt(p.y)}, ${p.sample}`,
+      ariaLabel: `${p.player.name}${club ? `, ${club}` : ''}: ${spec.x.name} ${spec.x.fmt(p.x)}, ${spec.y.name} ${spec.y.fmt(p.y)}${extra ? `, ${extra.name} ${extra.value}` : ''}, ${p.sample}`,
       href: link.href,
       onOpen: link.onClick,
+      color: colorOf(p.player.team_id),
+      muted: focus != null && !focus.has(p.player.id),
       tip: (
         <>
           <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.body, lineHeight: 1.25, mb: 0.25 }}>{p.player.name}</Typography>
@@ -228,19 +290,39 @@ function ChartPanel({ spec, everyone, onOpenPlayer, narrowSingle }: {
           <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
             {spec.y.name} <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{spec.y.fmt(p.y)}</Box>
           </Typography>
-          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{p.sample}</Typography>
+          {extra && (
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
+              {extra.name} <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{extra.value}</Box>
+            </Typography>
+          )}
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{club ? `${club} · ${p.sample}` : p.sample}</Typography>
         </>
       ),
     }
     // spec's formatters are rebuilt every render; they change only with the chart.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [shown, playerLink, onOpenPlayer, spec.key])
+  }), [shown, playerLink, onOpenPlayer, spec.key, focus, clubOf, colorOf])
+
+  // Narrowed to a club or a name, the names go to the players in focus: the notable ones among
+  // them first, then the rest by playing time.
+  const labeled = useMemo(() => {
+    if (!data) return undefined
+    if (!focus) return data.notable
+    const inFocus = shown.filter(p => focus.has(p.player.id)).sort((a, b) => b.weight - a.weight).map(p => p.player.id)
+    return [...data.notable.filter(id => focus.has(id)), ...inFocus.filter(id => !data.notable.includes(id))]
+  }, [data, focus, shown])
 
   return (
-    <Box sx={{ minWidth: 0, ...(narrowSingle ? { maxWidth: { md: '34rem' } } : {}) }}>
+    <Box sx={{ minWidth: 0 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1 }}>
         <Typography component="h3" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, letterSpacing: typePx(-0.2) }}>{spec.title}</Typography>
         <InfoDot label={`About ${spec.title}`} text={spec.info} />
+        {/* The size key: a small dot and a big one, and what the size counts. */}
+        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary', flexShrink: 0 }}>
+          <Box component="span" aria-hidden sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: 'currentColor' }} />
+          <Box component="span" aria-hidden sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'currentColor' }} />
+          <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700 }}>Size: {spec.size}</Typography>
+        </Box>
       </Box>
       {data == null ? <ScatterFrame /> : axes == null ? (
         <Box sx={{ position: 'relative' }}>
@@ -251,7 +333,7 @@ function ChartPanel({ spec, everyone, onOpenPlayer, narrowSingle }: {
         </Box>
       ) : (
         <ScatterPlot points={points} x={axes.x} y={axes.y} guides={axes.guides}
-          labeled={data.notable} title={spec.title} />
+          labeled={labeled} title={spec.title} onActive={onLit} echo={lit} />
       )}
     </Box>
   )

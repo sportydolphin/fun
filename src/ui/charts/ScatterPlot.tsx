@@ -150,7 +150,7 @@ export function ScatterFrame() {
   )
 }
 
-export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActive }: {
+export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActive, echo }: {
   points: ScatterPoint[]
   x: ScatterAxis
   y: ScatterAxis
@@ -161,6 +161,9 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
   title: string
   /** Told which dot is showing its card, or null: lets a page light the same club on its other charts. */
   onActive?: (id: string | null) => void
+  /** A dot lit from outside, the player in focus on the chart beside this one: ringed and named
+   *  as if pointed at, with no card. The reader's own pointer wins over it. */
+  echo?: string | null
 }) {
   const theme = useTheme()
   const dark = theme.palette.mode === 'dark'
@@ -188,6 +191,20 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
   const sy = (v: number) => {
     const t = (v - y.lo) / (y.hi - y.lo)
     return g.m.t + (y.invert ? t : 1 - t) * g.ih
+  }
+  // A dot's place, held inside the plot. A caller may draw its axes short of an outlier (a cameo's
+  // 27.00 ERA would squeeze every regular into one corner), and that dot sits on the edge with an
+  // arrow pointing the way it went off; its card still gives the real numbers.
+  const clampTo = (v: number, a: number, b: number) => Math.min(Math.max(v, a), b)
+  const pxOf = (p: ScatterPoint) => clampTo(sx(p.x), g.m.l, g.m.l + g.iw)
+  const pyOf = (p: ScatterPoint) => clampTo(sy(p.y), g.m.t, g.m.t + g.ih)
+  /** Which way, on screen, a dot ran off the plot: -1, 0 or 1 on each axis. */
+  const offEdge = (p: ScatterPoint) => {
+    const ex = sx(p.x), ey = sy(p.y)
+    return {
+      dx: ex < g.m.l - 0.5 ? -1 : ex > g.m.l + g.iw + 0.5 ? 1 : 0,
+      dy: ey < g.m.t - 0.5 ? -1 : ey > g.m.t + g.ih + 0.5 ? 1 : 0,
+    }
   }
 
   const maxWeight = Math.max(1, ...points.map(p => p.weight))
@@ -220,7 +237,7 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
   // a dot whose center is under a word is a dot nobody can see.
   const dotCores = useMemo(() => points.map(p => {
     const r = radius(p), k = Math.max(2, r * 0.6)
-    return { id: p.id, box: { x: sx(p.x) - k, y: sy(p.y) - k, w: 2 * k, h: 2 * k } }
+    return { id: p.id, box: { x: pxOf(p) - k, y: pyOf(p) - k, w: 2 * k, h: 2 * k } }
     // sx, sy and radius are pure functions of the props listed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [points, x, y, g.w, maxWeight])
@@ -296,7 +313,7 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
   const placedLabel = (spot: LabelSpot, p: ScatterPoint): PlacedLabel => {
     const b = spot.box
     const tx = spot.anchor === 'start' ? b.x : spot.anchor === 'end' ? b.x + b.w : b.x + b.w / 2
-    return { tx, ty: b.y + LABEL_FONT, anchor: spot.anchor, leader: spot.leader ? leaderLine(sx(p.x), sy(p.y), radius(p), b) : null }
+    return { tx, ty: b.y + LABEL_FONT, anchor: spot.anchor, leader: spot.leader ? leaderLine(pxOf(p), pyOf(p), radius(p), b) : null }
   }
 
   // Which names are drawn, and where. Each tries every spot `labelSpots` offers, in order, and
@@ -313,7 +330,7 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
       const p = byId.get(id)
       const own = cores.get(id)
       if (!p || !own) continue
-      const spots = labelSpots(sx(p.x), sy(p.y), radius(p), p.label.length * LABEL_CHAR_W, LABEL_FONT).filter(sp => inPlot(sp.box))
+      const spots = labelSpots(pxOf(p), pyOf(p), radius(p), p.label.length * LABEL_CHAR_W, LABEL_FONT).filter(sp => inPlot(sp.box))
       candidates.push({ item: id, spots, own })
     }
     const kept = placeLabels(
@@ -332,21 +349,51 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
   const activePoint = active ? points.find(p => p.id === active.id) ?? null : null
   const tip = activePoint && boxW > 0 ? (() => {
     const k = boxW / g.w
-    const px = sx(activePoint.x) * k
-    return { x: px, y: Math.max(sy(activePoint.y) * k, 36), flip: px > boxW * 0.55 }
+    const px = pxOf(activePoint) * k
+    return { x: px, y: Math.max(pyOf(activePoint) * k, 36), flip: px > boxW * 0.55 }
   })() : null
 
-  // The dot showing its card is always named, even one the crowd left unlabeled: a reader who
-  // found a dot by pointing at it should not have to read the card to learn whose it is. Its name
-  // takes the first spot clear of the other dots and the guides, or the first spot at all.
-  const activeLabel = (() => {
-    if (!activePoint || !labelIds || shownLabels.has(activePoint.id)) return null
-    const spots = labelSpots(sx(activePoint.x), sy(activePoint.y), radius(activePoint), activePoint.label.length * LABEL_CHAR_W, LABEL_FONT)
+  // The lit dot: the one showing its card, else the one lit from the chart beside this one.
+  const litPoint = activePoint ?? (echo ? points.find(p => p.id === echo) ?? null : null)
+
+  // The lit dot is always named, even one the crowd left unlabeled: a reader who found a dot by
+  // pointing at it should not have to read the card to learn whose it is. Its name takes the first
+  // spot clear of the other dots and the guides, or the first spot at all.
+  const litLabel = (() => {
+    if (!litPoint || !labelIds || shownLabels.has(litPoint.id)) return null
+    const spots = labelSpots(pxOf(litPoint), pyOf(litPoint), radius(litPoint), litPoint.label.length * LABEL_CHAR_W, LABEL_FONT)
       .filter(sp => inPlot(sp.box))
     if (!spots.length) return null
-    const blocked = [...dotCores.filter(d => d.id !== activePoint.id).map(d => d.box), ...guideLabels.boxes]
-    return placedLabel(spots.find(sp => !blocked.some(o => boxesMeet(o, sp.box))) ?? spots[0], activePoint)
+    const blocked = [...dotCores.filter(d => d.id !== litPoint.id).map(d => d.box), ...guideLabels.boxes]
+    return placedLabel(spots.find(sp => !blocked.some(o => boxesMeet(o, sp.box))) ?? spots[0], litPoint)
   })()
+
+  // Arrow keys step from the focused dot to its nearest neighbor that way, so a keyboard reaches
+  // a dot by where it sits on the plot. Tab alone walks the dots biggest first, which is no order
+  // a reader can see.
+  const svgRef = useRef<SVGSVGElement>(null)
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const dir = { ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key]
+    const from = (e.target as Element).closest?.('[data-pid]')?.getAttribute('data-pid')
+    const here = from ? points.find(p => p.id === from) : null
+    if (!dir || !here) return
+    const hx = pxOf(here), hy = pyOf(here)
+    let best: { id: string; score: number } | null = null
+    for (const p of points) {
+      if (p.id === here.id || !p.href) continue
+      const vx = pxOf(p) - hx, vy = pyOf(p) - hy
+      const along = vx * dir[0] + vy * dir[1]
+      if (along <= 0.5) continue
+      const across = Math.abs(vx * dir[1] - vy * dir[0])
+      // Mostly along the arrow, a little across it: a neighbor straight ahead beats a nearer one
+      // off to the side.
+      const score = along + 2 * across
+      if (!best || score < best.score) best = { id: p.id, score }
+    }
+    if (!best) return
+    e.preventDefault()
+    svgRef.current?.querySelector<SVGElement>(`[data-pid="${CSS.escape(best.id)}"]`)?.focus()
+  }
 
   const cornerText = (text: string | undefined, where: 'tl' | 'tr' | 'bl' | 'br') => {
     if (!text) return null
@@ -362,7 +409,7 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
 
   return (
     <Box ref={boxRef} sx={{ position: 'relative', userSelect: 'none' }}>
-      <Box component="svg" viewBox={`0 0 ${g.w} ${g.h}`} role="group" aria-label={title}
+      <Box component="svg" ref={svgRef} viewBox={`0 0 ${g.w} ${g.h}`} role="group" aria-label={title} onKeyDown={onKeyDown}
         sx={{ width: '100%', height: 'auto', display: 'block', color: 'text.secondary', overflow: 'visible' }}
         onClick={(e: React.MouseEvent) => {
           // A tap on the plot itself, not on a dot: put the pinned card away.
@@ -443,9 +490,10 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
           fill={ink} fontSize={FONT.axis} fontWeight={700}>{y.label}</text>
 
         {order.map(p => {
-          const cx = sx(p.x), cy = sy(p.y), r = radius(p)
-          const on = active?.id === p.id
-          const faded = p.muted || (active != null && !on)
+          const cx = pxOf(p), cy = pyOf(p), r = radius(p)
+          const on = litPoint?.id === p.id
+          const faded = p.muted || (litPoint != null && !on)
+          const off = offEdge(p)
           const show = () => setActive(a => (a?.pinned && a.id !== p.id ? a : { id: p.id, pinned: false }))
           const body = p.badge ? (
             // A badge is solid in its club's color, so the fade is the whole mark's, letters
@@ -466,6 +514,14 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
               <circle cx={cx} cy={cy} r={r} fill={p.color ?? dot}
                 fillOpacity={on ? 1 : faded ? (p.muted ? 0.16 : 0.3) : 0.6}
                 stroke={on ? ink : surface} strokeWidth={on ? 2 : 1.5} />
+              {(off.dx !== 0 || off.dy !== 0) && (() => {
+                // A chevron just past the dot, pointing the way it left the plot.
+                const len = Math.hypot(off.dx, off.dy)
+                const ux = off.dx / len, uy = off.dy / len
+                const tx = cx + ux * (r + 7), ty = cy + uy * (r + 7)
+                const bx = cx + ux * (r + 2), by = cy + uy * (r + 2)
+                return <polygon points={`${tx},${ty} ${bx - uy * 3.5},${by + ux * 3.5} ${bx + uy * 3.5},${by - ux * 3.5}`} fill={ink} />
+              })()}
             </>
           )
           const handlers = {
@@ -485,7 +541,7 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
             },
           }
           return p.href ? (
-            <a key={p.id} href={p.href} aria-label={p.ariaLabel} style={{ cursor: 'pointer', outline: 'none' }} {...handlers}>{body}</a>
+            <a key={p.id} data-pid={p.id} href={p.href} aria-label={p.ariaLabel} style={{ cursor: 'pointer', outline: 'none' }} {...handlers}>{body}</a>
           ) : (
             // No address to open (rendered outside the section's link provider): the dot still
             // shows its card under a pointer, and is named for a screen reader.
@@ -494,10 +550,10 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
         })}
 
         {/* Labels last, over every dot, haloed in the surface color so a label crossing a dot reads.
-            The active dot's name, when the crowd had left it out, goes on top of the rest. */}
+            The lit dot's name, when the crowd had left it out, goes on top of the rest. */}
         {[
           ...points.flatMap(p => { const l = shownLabels.get(p.id); return l ? [{ p, l }] : [] }),
-          ...(activeLabel && activePoint ? [{ p: activePoint, l: activeLabel }] : []),
+          ...(litLabel && litPoint ? [{ p: litPoint, l: litLabel }] : []),
         ].map(({ p, l }) => (
           <g key={`l${p.id}`} pointerEvents="none" aria-hidden>
             {l.leader && <line {...l.leader} stroke={soft} strokeWidth={1} />}

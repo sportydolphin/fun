@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { labelSpots, leaderLine, niceDomain, niceTicks, placeLabels, sharedDomain, stepDecimals, sumLevels, sumSegment } from '../charts/scale'
+import { axisValues, labelSpots, leaderLine, niceDomain, niceTicks, placeLabels, sharedDomain, stepDecimals, sumLevels, sumSegment } from '../charts/scale'
 
 describe('niceTicks', () => {
   it('steps on round numbers', () => {
@@ -48,6 +48,26 @@ describe('niceDomain', () => {
     const d = sharedDomain([3, 4], [2, 6])
     expect(d.lo).toBeLessThanOrEqual(2)
     expect(d.hi).toBeGreaterThanOrEqual(6)
+  })
+})
+
+describe('axisValues', () => {
+  const regulars = [3.1, 3.4, 3.8, 4.0, 4.2, 4.5, 4.9, 5.3, 9.6].map(v => ({ v, keep: true }))
+
+  it('leaves out a cameo far past the regulars', () => {
+    expect(axisValues([...regulars, { v: 27, keep: false }])).not.toContain(27)
+  })
+
+  it('keeps a cameo inside the regulars’ spread', () => {
+    expect(axisValues([...regulars, { v: 5, keep: false }])).toContain(5)
+  })
+
+  it('never cuts a regular, however far out', () => {
+    expect(axisValues(regulars)).toContain(9.6)
+  })
+
+  it('holds everything when too few are regulars to judge', () => {
+    expect(axisValues([{ v: 1, keep: true }, { v: 40, keep: false }])).toEqual([1, 40])
   })
 })
 
