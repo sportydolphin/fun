@@ -16,8 +16,7 @@ import { ScatterFrame, ScatterPlot, type ScatterAxis, type ScatterGuides, type S
 import { niceDomain, sharedDomain, stepDecimals, sumLevels, tickStep, axisValues } from '../ui/charts/scale'
 import { nameStages } from '../ui/names'
 import { FilterChip, filterChipSx } from '../ui/FilterChip'
-import { edgeTone } from '../lib/contrast'
-import { wpblFullName } from './constants'
+import { wpblAccent, wpblFullName } from './constants'
 import { InfoDot } from '../ui/InfoDot'
 import { usePhoneLayout } from '../ui/ModalShell'
 import { TYPE_SCALE } from '../ui/card'
@@ -133,14 +132,13 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
   const specs: ChartSpec[] = side === 'hitting' ? [
     {
       key: 'obp-slg', title: 'OBP vs SLG',
-      info: 'One dot per hitter, sized by PA. Dotted lines: OPS. Dashed lines: league average.',
+      info: 'One dot per hitter, sized by PA. Dashed lines: league average.',
       data: obpSlg,
       x: { label: 'OBP', name: 'OBP', fmt: fmtRate, tick: fmtRate, floor: 0, ceil: 1 },
       y: { label: 'SLG', name: 'SLG', fmt: fmtRate, tick: fmtRate, floor: 0, ceil: 4 },
-      guides: (x, y, avg) => ({
-        avg: avg ? { ...avg, label: 'League avg' } : undefined,
-        sums: sumLevels(x, y, 5).map(v => ({ value: v, label: `${fmtRate(v)} OPS` })),
-      }),
+      // No OPS lines: drawn diagonally across the league average's crosshair they read as a second
+      // set of averages. OPS is on each dot's card instead.
+      guides: (_x, _y, avg) => ({ avg: avg ? { ...avg, label: 'League avg' } : undefined }),
       empty: 'No data',
       size: 'PA',
       extra: { name: 'OPS', value: (x, y) => fmtRate(x + y) },
@@ -251,11 +249,14 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
   const [lit, setLit] = useState<string | null>(null)
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const dark = useTheme().palette.mode === 'dark'
-  // A club's own color, lifted until it stands off the page (most primaries are navy, which a dark
-  // page swallows). The same lift a club's outline gets.
+  // A club's color is its accent, the hand-picked hue it wears on every board (constants.ts says
+  // why none is derived from the primaries). The primaries lifted off the page came out as slate,
+  // a gray-blue and a dull red, and New York's dots read as faded rather than as a club. San
+  // Francisco is its Firebells purple here, ahead of the accent table itself.
   const clubColor = useCallback((id: string | null | undefined) => {
-    const c = id ? teamById.get(id)?.color : null
-    return c ? edgeTone(c, dark) : undefined
+    if (!id || !teamById.has(id)) return undefined
+    if (id === 'SF') return dark ? '#b48af0' : '#7a3fb8'
+    return wpblAccent(id, dark)
   }, [teamById, dark])
   // THE CLUBS OVERLAY: each club's season on the same axes, drawn over its players. A club's
   // totals come from the box-score lines, which carry the club that game was played for, so a
