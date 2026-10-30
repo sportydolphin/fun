@@ -13,7 +13,7 @@ import { useWpblSeason } from './SeasonContext'
 import { useWpblPlayerLink } from './LinkContext'
 import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 import { ScatterFrame, ScatterPlot, type ScatterAxis, type ScatterGuides, type ScatterPoint } from '../ui/charts/ScatterPlot'
-import { niceDomain, sharedDomain, sumLevels } from '../ui/charts/scale'
+import { niceDomain, sharedDomain, stepDecimals, sumLevels, tickStep } from '../ui/charts/scale'
 import { nameStages } from '../ui/names'
 import { FilterChip } from '../ui/FilterChip'
 import { InfoDot } from '../ui/InfoDot'
@@ -29,17 +29,35 @@ import { typePx } from '../ui/scale'
 // (the stored seasons when they are current). The swing and first-pitch charts count every pitch,
 // so they read the play log the Pitch by pitch board reads, from the same cache.
 
-const pct = (v: number) => `${Math.round(v * 100)}%`
+// Tick formatters take the axis's step, so a tick prints as many decimals as the step needs: a WAR
+// axis stepping by 0.25 read "0.3, 0.5, 0.8" at a fixed one decimal, and an ERA axis "10.00".
 const pct1 = (v: number) => `${(v * 100).toFixed(1)}%`
-const war = (v: number) => (v < 0 ? `−${Math.abs(v).toFixed(1)}` : v.toFixed(1))
+const pctTick = (v: number, step: number) => `${(v * 100).toFixed(stepDecimals(step * 100))}%`
+const signed = (v: number, d: number) => (v < 0 ? `−${Math.abs(v).toFixed(d)}` : v.toFixed(d))
+const war = (v: number) => signed(v, 1)
+const warTick = (v: number, step: number) => signed(v, Math.max(1, stepDecimals(step)))
+const runsTick = (v: number, step: number) => v.toFixed(stepDecimals(step))
+
+interface AxisSpec {
+  label: string
+  name: string
+  fmt: (v: number) => string
+  /** A gridline's label, given the step between gridlines. */
+  tick: (v: number, step: number) => string
+  /** The stat's natural bounds, so padding never draws a gridline at a value nobody can reach
+   *  (a negative rate, a Contact% over 100%). */
+  floor?: number
+  ceil?: number
+  invert?: boolean
+}
 
 interface ChartSpec {
   key: string
   title: string
   info: string
   data: ChartData | null
-  x: { label: string; name: string; fmt: (v: number) => string; tick: (v: number) => string; floor?: number; invert?: boolean }
-  y: { label: string; name: string; fmt: (v: number) => string; tick: (v: number) => string; floor?: number; invert?: boolean }
+  x: AxisSpec
+  y: AxisSpec
   guides: (x: ScatterAxis, y: ScatterAxis, avg: ChartData['avg']) => ScatterGuides
   /** Both axes on one scale, for a chart whose diagonal means "equal". */
   shared?: boolean
@@ -98,8 +116,8 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
       key: 'obp-slg', title: 'OBP vs SLG',
       info: 'One dot per hitter, sized by PA. Dotted lines: OPS. Dashed lines: league average.',
       data: obpSlg,
-      x: { label: 'OBP', name: 'OBP', fmt: fmtRate, tick: fmtRate, floor: 0 },
-      y: { label: 'SLG', name: 'SLG', fmt: fmtRate, tick: fmtRate, floor: 0 },
+      x: { label: 'OBP', name: 'OBP', fmt: fmtRate, tick: fmtRate, floor: 0, ceil: 1 },
+      y: { label: 'SLG', name: 'SLG', fmt: fmtRate, tick: fmtRate, floor: 0, ceil: 4 },
       guides: (x, y, avg) => ({
         avg: avg ? { ...avg, label: 'League avg' } : undefined,
         sums: sumLevels(x, y, 5).map(v => ({ value: v, label: `${fmtRate(v)} OPS` })),
@@ -110,8 +128,8 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
       key: 'swing-contact', title: 'Swing% vs Contact%',
       info: 'One dot per hitter, sized by pitches seen. Swing%: swings over pitches. Contact%: fouls and balls in play over swings. From the play-by-play. Dashed lines: league average.',
       data: swingContact,
-      x: { label: 'Swing%', name: 'Swing%', fmt: pct1, tick: pct, floor: 0 },
-      y: { label: 'Contact%', name: 'Contact%', fmt: pct1, tick: pct, floor: 0 },
+      x: { label: 'Swing%', name: 'Swing%', fmt: pct1, tick: pctTick, floor: 0, ceil: 1 },
+      y: { label: 'Contact%', name: 'Contact%', fmt: pct1, tick: pctTick, floor: 0, ceil: 1 },
       guides: (_x, _y, avg) => ({ avg: avg ? { ...avg, label: 'League avg' } : undefined }),
       empty: 'No data',
     },
@@ -120,8 +138,8 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
       key: 'era-fip', title: 'ERA vs FIP',
       info: `One dot per pitcher, sized by IP. ERA and FIP per ${basis} innings. FIP uses this league's run values. Dashed line: ERA = FIP.`,
       data: eraFip,
-      x: { label: 'FIP', name: 'FIP', fmt: fmtTwo, tick: fmtTwo, floor: 0 },
-      y: { label: 'ERA', name: 'ERA', fmt: fmtTwo, tick: fmtTwo, floor: 0 },
+      x: { label: 'FIP', name: 'FIP', fmt: fmtTwo, tick: runsTick, floor: 0 },
+      y: { label: 'ERA', name: 'ERA', fmt: fmtTwo, tick: runsTick, floor: 0 },
       shared: true,
       guides: () => ({ diagonal: { above: 'ERA > FIP', below: 'ERA < FIP' } }),
       empty: 'No data',
@@ -130,8 +148,8 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
       key: 'first-strike-walks', title: 'F-Strike% vs BB%',
       info: 'One dot per pitcher, sized by pitches. F-Strike%: batters whose first pitch was a strike. BB%: walks over batters faced, axis inverted. From the play-by-play. Dashed lines: league average.',
       data: firstStrike,
-      x: { label: 'F-Strike%', name: 'F-Strike%', fmt: pct1, tick: pct, floor: 0 },
-      y: { label: 'BB% (inverted)', name: 'BB%', fmt: pct1, tick: pct, floor: 0, invert: true },
+      x: { label: 'F-Strike%', name: 'F-Strike%', fmt: pct1, tick: pctTick, floor: 0, ceil: 1 },
+      y: { label: 'BB% (inverted)', name: 'BB%', fmt: pct1, tick: pctTick, floor: 0, ceil: 1, invert: true },
       guides: (_x, _y, avg) => ({ avg: avg ? { ...avg, label: 'League avg' } : undefined }),
       empty: 'No data',
     },
@@ -140,11 +158,11 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
       key: 'two-way', title: 'Pos WAR vs Pit WAR',
       info: 'Players with at least one PA and one out recorded, sized by PA plus outs. Pos WAR: batting, baserunning and fielding. Pit WAR: pitching. The two sum to WAR. Solid lines: zero.',
       data: twoWay,
-      x: { label: 'Pos WAR', name: 'Pos WAR', fmt: war, tick: war },
-      y: { label: 'Pit WAR', name: 'Pit WAR', fmt: war, tick: war },
+      x: { label: 'Pos WAR', name: 'Pos WAR', fmt: war, tick: warTick },
+      y: { label: 'Pit WAR', name: 'Pit WAR', fmt: war, tick: warTick },
       guides: (x, y) => ({
         zero: true,
-        sums: sumLevels(x, y, 3).filter(v => v > 0).map(v => ({ value: v, label: `${war(v)} WAR` })),
+        sums: sumLevels(x, y, 3).filter(v => v > 0).map(v => ({ value: v, label: `${warTick(v, v)} WAR` })),
       }),
       empty: 'No data',
     },
@@ -181,10 +199,12 @@ function ChartPanel({ spec, everyone, onOpenPlayer, narrowSingle }: {
     if (!data || shown.length === 0) return null
     const xs = shown.map(p => p.x), ys = shown.map(p => p.y)
     const avg = data.avg
-    const dx = spec.shared ? sharedDomain(xs, ys, { floor: spec.x.floor }) : niceDomain(xs, { floor: spec.x.floor, include: avg ? [avg.x] : [] })
-    const dy = spec.shared ? dx : niceDomain(ys, { floor: spec.y.floor, include: avg ? [avg.y] : [] })
-    const x: ScatterAxis = { ...dx, label: spec.x.label, fmt: spec.x.tick, invert: spec.x.invert }
-    const y: ScatterAxis = { ...dy, label: spec.y.label, fmt: spec.y.tick, invert: spec.y.invert }
+    const dx = spec.shared ? sharedDomain(xs, ys, { floor: spec.x.floor, ceil: spec.x.ceil })
+      : niceDomain(xs, { floor: spec.x.floor, ceil: spec.x.ceil, include: avg ? [avg.x] : [] })
+    const dy = spec.shared ? dx : niceDomain(ys, { floor: spec.y.floor, ceil: spec.y.ceil, include: avg ? [avg.y] : [] })
+    const sx = tickStep(dx), sy = tickStep(dy)
+    const x: ScatterAxis = { ...dx, label: spec.x.label, fmt: v => spec.x.tick(v, sx), invert: spec.x.invert }
+    const y: ScatterAxis = { ...dy, label: spec.y.label, fmt: v => spec.y.tick(v, sy), invert: spec.y.invert }
     return { x, y, guides: spec.guides(x, y, avg) }
     // spec's functions are rebuilt every render; what they draw depends on these.
     // eslint-disable-next-line react-hooks/exhaustive-deps

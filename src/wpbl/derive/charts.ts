@@ -46,13 +46,32 @@ const ipText = (outs: number) => `${Math.floor(outs / 3)}.${outs % 3} IP`
 function topBy(points: ChartDatum[], score: (p: ChartDatum) => number, n: number): string[] {
   return [...points].sort((a, b) => score(b) - score(a)).slice(0, n).map(p => p.player.id)
 }
-/** Notable from several orderings, each taking its top `n` in turn, without repeats. Regulars
- *  only, even with everyone drawn: a 1.000 OPS in three trips is the extreme of every ordering
- *  and the least worth naming. Before the bar is in force (minimum 0) everyone is a regular. */
+// How many names a chart offers. The plot draws as many as fit, up to its own cap (five on a
+// phone, nine beside another chart), so this is the pool it chooses from, most notable first.
+const NOTABLE_POOL = 12
+
+/** Notable from several orderings, each taking its top `n` in turn, without repeats, then the
+ *  rest by how far each dot sits from the middle of the cloud. The leaders alone named four or
+ *  five dots and left the odd ones out (the hitter who never swings, the pitcher far off the
+ *  diagonal), which are the dots a reader is asking about. Distance is in standard deviations on
+ *  each axis, so neither stat's units decide it. Regulars only, even with everyone drawn: a 1.000
+ *  OPS in three trips is the extreme of every ordering and the least worth naming. Before the bar
+ *  is in force (minimum 0) everyone is a regular. */
 function notableFrom(points: ChartDatum[], orders: { score: (p: ChartDatum) => number; n: number }[]): string[] {
   const pool = points.filter(p => p.qualified)
   const out: string[] = []
   for (const o of orders) for (const id of topBy(pool, o.score, o.n)) if (!out.includes(id)) out.push(id)
+  if (pool.length < 2) return out
+  const spread = (vs: number[]) => {
+    const m = vs.reduce((a, v) => a + v, 0) / vs.length
+    return { m, sd: Math.sqrt(vs.reduce((a, v) => a + (v - m) ** 2, 0) / vs.length) || 1 }
+  }
+  const sx = spread(pool.map(p => p.x)), sy = spread(pool.map(p => p.y))
+  const far = (p: ChartDatum) => Math.hypot((p.x - sx.m) / sx.sd, (p.y - sy.m) / sy.sd)
+  for (const id of topBy(pool, far, NOTABLE_POOL)) {
+    if (out.length >= NOTABLE_POOL) break
+    if (!out.includes(id)) out.push(id)
+  }
   return out
 }
 

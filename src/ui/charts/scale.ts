@@ -37,9 +37,11 @@ export interface Domain { lo: number; hi: number; ticks: number[] }
  * An axis that holds every value with a margin, widened out to whole ticks so the first and last
  * gridlines close the plot. `floor` stops the margin opening a stretch below a stat's natural
  * minimum: a gridline at "-.050 OBP" reads as data, not as padding. `include` pulls in a value the
- * points may not reach (the league average a crosshair is drawn at, a zero line).
+ * points may not reach (the league average a crosshair is drawn at, a zero line). `ceil` is the
+ * same stop at the top: Contact% padded and rounded out to whole ticks printed a 110% gridline,
+ * which reads as a value nobody can reach.
  */
-export function niceDomain(values: readonly number[], opts: { pad?: number; floor?: number; include?: readonly number[]; target?: number } = {}): Domain {
+export function niceDomain(values: readonly number[], opts: { pad?: number; floor?: number; ceil?: number; include?: readonly number[]; target?: number } = {}): Domain {
   const all = [...values, ...(opts.include ?? [])].filter(Number.isFinite)
   if (all.length === 0) return { lo: 0, hi: 1, ticks: [0, 1] }
   let lo = Math.min(...all), hi = Math.max(...all)
@@ -48,6 +50,7 @@ export function niceDomain(values: readonly number[], opts: { pad?: number; floo
   const pad = (hi - lo) * (opts.pad ?? 0.08)
   lo -= pad; hi += pad
   if (opts.floor != null) lo = Math.max(opts.floor, lo)
+  if (opts.ceil != null) hi = Math.min(opts.ceil, hi)
   // Six by default: at five, a slugging axis from .100 to 1.200 steps by .500 and reads as three lines.
   const first = niceTicks(lo, hi, opts.target ?? 6)
   if (first.length < 2) return { lo, hi, ticks: first }
@@ -55,14 +58,33 @@ export function niceDomain(values: readonly number[], opts: { pad?: number; floo
   lo = Math.floor(lo / step + 1e-9) * step
   hi = Math.ceil(hi / step - 1e-9) * step
   if (opts.floor != null) lo = Math.max(opts.floor, lo)
+  if (opts.ceil != null) hi = Math.min(opts.ceil, hi)
   const ticks: number[] = []
-  for (let t = lo; t <= hi + step / 2; t += step) ticks.push(parseFloat(t.toPrecision(12)))
-  return { lo: ticks[0], hi: ticks[ticks.length - 1], ticks }
+  for (let t = lo; t <= hi + step / 2; t += step) {
+    const v = parseFloat(t.toPrecision(12))
+    if (opts.ceil != null && v > opts.ceil + 1e-9) break
+    ticks.push(v)
+  }
+  // A ceiling off the tick grid still holds every value: the plot ends at it, past the last line.
+  return { lo: ticks[0], hi: Math.max(ticks[ticks.length - 1], hi), ticks }
 }
+
+/** How many decimals a tick step needs to print each tick as itself. A WAR axis stepping by 0.25
+ *  printed at one decimal read "0.3, 0.5, 0.8", three labels for values the gridlines are not at. */
+export function stepDecimals(step: number): number {
+  for (let d = 0; d < 6; d++) {
+    const v = step * 10 ** d
+    if (Math.abs(v - Math.round(v)) < 1e-6) return d
+  }
+  return 6
+}
+
+/** The tick step of a domain, or 0 for a domain with a single tick. */
+export const tickStep = (d: Domain): number => (d.ticks.length > 1 ? d.ticks[1] - d.ticks[0] : 0)
 
 /** One domain for both axes, for a plot whose diagonal means "the two are equal" (ERA against
  *  FIP). Two separate domains would tilt the y = x line off 45° and move it with the data. */
-export function sharedDomain(xs: readonly number[], ys: readonly number[], opts: { pad?: number; floor?: number; target?: number } = {}): Domain {
+export function sharedDomain(xs: readonly number[], ys: readonly number[], opts: { pad?: number; floor?: number; ceil?: number; target?: number } = {}): Domain {
   return niceDomain([...xs, ...ys], opts)
 }
 
@@ -123,4 +145,47 @@ export function placeLabels<T>(candidates: readonly { item: T; spots: readonly L
     out.push({ item: c.item, spot })
   }
   return out
+}
+
+export interface LabelSpot {
+  box: LabelBox
+  anchor: 'start' | 'middle' | 'end'
+  /** Set off from the dot, so it carries a thin line back to it. */
+  leader: boolean
+}
+
+/**
+ * Where a label may sit around a dot at (cx, cy) of radius r, in the order worth trying: beside it,
+ * then above and below, then the four diagonals, then the same again a step farther out with a
+ * leader line. Right and left alone dropped the league's best OPS, the top dot on the plot, because
+ * one side ran off the edge and the other crossed the next dot. `font` is the label's size; the
+ * box runs from the baseline minus `font` to two below it.
+ */
+export function labelSpots(cx: number, cy: number, r: number, w: number, font: number): LabelSpot[] {
+  const h = font + 2
+  const at = (x: number, baseline: number, anchor: LabelSpot['anchor'], leader = false): LabelSpot => {
+    const left = anchor === 'start' ? x : anchor === 'end' ? x - w : x - w / 2
+    return { box: { x: left, y: baseline - font, w, h }, anchor, leader }
+  }
+  const mid = cy + font * 0.32
+  const d = r * 0.71
+  const ring = (gap: number, leader: boolean): LabelSpot[] => [
+    at(cx + r + gap, mid, 'start', leader),
+    at(cx - r - gap, mid, 'end', leader),
+    at(cx, cy - r - gap, 'middle', leader),
+    at(cx, cy + r + gap + font - 2, 'middle', leader),
+    at(cx + d + gap - 1, cy - d - gap + 2, 'start', leader),
+    at(cx - d - gap + 1, cy - d - gap + 2, 'end', leader),
+    at(cx + d + gap - 1, cy + d + gap + font - 4, 'start', leader),
+    at(cx - d - gap + 1, cy + d + gap + font - 4, 'end', leader),
+  ]
+  return [...ring(3, false), ...ring(16, true)]
+}
+
+/** The end of a leader line: the point of `box` nearest the dot, and the dot's edge facing it. */
+export function leaderLine(cx: number, cy: number, r: number, box: LabelBox): { x1: number; y1: number; x2: number; y2: number } {
+  const x2 = Math.min(Math.max(cx, box.x), box.x + box.w)
+  const y2 = Math.min(Math.max(cy, box.y), box.y + box.h)
+  const len = Math.hypot(x2 - cx, y2 - cy) || 1
+  return { x1: cx + ((x2 - cx) / len) * (r + 1), y1: cy + ((y2 - cy) / len) * (r + 1), x2, y2 }
 }

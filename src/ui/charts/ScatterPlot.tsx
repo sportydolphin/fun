@@ -3,7 +3,7 @@ import { Box, Typography, useTheme } from '@mui/material'
 import { usePhoneLayout } from '../ModalShell'
 import { TYPE_SCALE } from '../card'
 import { ChartTooltip } from './ChartTooltip'
-import { boxesMeet, placeLabels, sumSegment, type Domain, type LabelBox } from './scale'
+import { boxesMeet, labelSpots, leaderLine, placeLabels, sumSegment, type Domain, type LabelBox, type LabelSpot } from './scale'
 
 /**
  * A scatter of every player (or club) on two stats, shared by both sections. Grown out of MLB's team
@@ -101,10 +101,20 @@ const BADGE_R = { phone: 7, wide: 11.5 }
 // Characters to px at the label size, for collision only: an estimate errs toward dropping a label.
 const LABEL_CHAR_W = FONT.label * 0.6
 const LABEL_FONT = FONT.label
+// The most names a caller's `labeled` list may put on one plot. Past this a plot of a hundred
+// players reads as a wall of words, and a phone has half the room.
+const LABEL_CAP = { phone: 5, wide: 9 }
 // The same for the corner words, which are bold capitals with tracking.
 const CORNER_CHAR_W = FONT.guide * 0.68
 // A guide's own label ("League avg", "Pythagorean"): bold, mixed case.
 const GUIDE_CHAR_W = FONT.guide * 0.6
+
+interface PlacedLabel {
+  tx: number
+  ty: number
+  anchor: 'start' | 'middle' | 'end'
+  leader: { x1: number; y1: number; x2: number; y2: number } | null
+}
 
 function useBoxWidth(ref: React.RefObject<HTMLDivElement | null>): number {
   const [w, setW] = useState(0)
@@ -201,43 +211,123 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
     return [...points].sort((a, b) => (a.muted ? 1 : 0) - (b.muted ? 1 : 0) || far(b) - far(a)).map(p => p.id)
   }, [labeled, phone, points, x, y])
 
-  const shownLabels = useMemo(() => {
-    const placed = new Map<string, { tx: number; ty: number; anchor: 'start' | 'end' }>()
-    if (!labelIds?.length) return placed
-    const byId = new Map(points.map(p => [p.id, p]))
-    const candidates: { item: string; spots: LabelBox[]; own: LabelBox }[] = []
-    for (const id of labelIds) {
-      const p = byId.get(id)
-      if (!p) continue
-      const cx = sx(p.x), cy = sy(p.y), r = radius(p)
-      const w = p.label.length * LABEL_CHAR_W
-      const y0 = cy + 3.5 - LABEL_FONT
-      const right = { x: cx + r + 3, y: y0, w, h: LABEL_FONT + 2 }
-      const left = { x: cx - r - 3 - w, y: y0, w, h: LABEL_FONT + 2 }
-      // Right of the dot first, then left; a side that runs off the plot is not offered.
-      const spots = [right, left].filter(b => b.x >= g.m.l && b.x + b.w <= g.m.l + g.iw)
-      candidates.push({ item: id, spots, own: { x: cx - r, y: cy - r, w: 2 * r, h: 2 * r } })
-    }
-    // The corner words are fixed, so a name moves off them rather than over them.
-    const cw = (t?: string) => (t ? t.length * CORNER_CHAR_W : 0)
-    const words = guides.corners ?? {}
-    const tl = guides.diagonal?.above ?? words.tl, br = guides.diagonal?.below ?? words.br
-    const corners: LabelBox[] = [
-      { x: g.m.l, y: g.m.t, w: cw(tl) + 8, h: 18 },
-      { x: g.m.l + g.iw - cw(words.tr) - 8, y: g.m.t, w: cw(words.tr) + 8, h: 18 },
-      { x: g.m.l, y: g.m.t + g.ih - 18, w: cw(words.bl) + 8, h: 18 },
-      { x: g.m.l + g.iw - cw(br) - 8, y: g.m.t + g.ih - 18, w: cw(br) + 8, h: 18 },
-    ].filter(b => b.w > 8)
-    for (const { item, spot } of placeLabels(candidates, [...candidates.map(c => c.own), ...corners])) {
-      const c = candidates.find(k => k.item === item)!
-      const b = c.spots[spot]
-      const onRight = b.x > c.own.x
-      placed.set(item, { tx: onRight ? b.x : b.x + b.w, ty: b.y + LABEL_FONT, anchor: onRight ? 'start' : 'end' })
-    }
-    return placed
+  const L = g.m.l, R = g.m.l + g.iw, T = g.m.t, B = g.m.t + g.ih
+  const avg = guides.avg
+  const corner = guides.corners ?? {}
+  const inPlot = (b: LabelBox) => b.x >= L && b.x + b.w <= R && b.y >= T && b.y + b.h <= B
+
+  // The middle of every dot, which no label may cover: a name may graze a dot's edge, haloed, but
+  // a dot whose center is under a word is a dot nobody can see.
+  const dotCores = useMemo(() => points.map(p => {
+    const r = radius(p), k = Math.max(2, r * 0.6)
+    return { id: p.id, box: { x: sx(p.x) - k, y: sy(p.y) - k, w: 2 * k, h: 2 * k } }
     // sx, sy and radius are pure functions of the props listed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [labelIds, points, x, y, g.w, maxWeight, guides])
+  }), [points, x, y, g.w, maxWeight])
+
+  // Where the guides' own labels go, placed before any name so the names move off them. The
+  // average's label used to sit at the crossing, which is the middle of the cloud: on three of
+  // WPBL's charts it printed over the dots. It now takes the first of several spots along its two
+  // lines that clears the corner words and every dot, and only then falls back to where it was.
+  const guideLabels = useMemo(() => {
+    const lineH = FONT.guide + 4
+    const placed: LabelBox[] = []
+    const cornerBox = (text: string | undefined, left: boolean, top: boolean) => {
+      if (!text) return
+      const w = text.length * CORNER_CHAR_W
+      placed.push({ x: left ? L + 6 : R - 6 - w, y: top ? T + 2 : B - 18, w, h: lineH })
+    }
+    cornerBox(guides.diagonal?.above ?? corner.tl, true, true)
+    cornerBox(corner.tr, false, true)
+    cornerBox(corner.bl, true, false)
+    cornerBox(guides.diagonal?.below ?? corner.br, false, false)
+    const clearOfDots = (b: LabelBox) => !dotCores.some(d => boxesMeet(d.box, b))
+    const clearOfLabels = (b: LabelBox) => !placed.some(k => boxesMeet(k, b))
+    const settle = (box: LabelBox) => {
+      for (let i = 0; i < 4 && !clearOfLabels(box); i++) box = { ...box, y: box.y + lineH }
+      placed.push(box)
+      return box
+    }
+    let avgLabel: { x: number; y: number; anchor: 'start' | 'end' } | null = null
+    if (avg?.label) {
+      const w = avg.label.length * GUIDE_CHAR_W
+      const vx = sx(avg.x), hy = sy(avg.y)
+      const spot = (x0: number, baseline: number, anchor: 'start' | 'end') =>
+        ({ box: { x: anchor === 'start' ? x0 : x0 - w, y: baseline - FONT.guide, w, h: lineH }, anchor })
+      const crossing = spot(vx + 4, hy - 5, 'start')
+      const spots = [
+        spot(vx + 4, T + 13, 'start'), spot(vx - 4, T + 13, 'end'),
+        spot(R - 4, hy - 5, 'end'), spot(L + 4, hy - 5, 'start'),
+        spot(R - 4, hy + FONT.guide + 3, 'end'), spot(L + 4, hy + FONT.guide + 3, 'start'),
+        spot(vx + 4, B - 6, 'start'), spot(vx - 4, B - 6, 'end'),
+      ]
+      if (avg.labelAt === 'center') spots.unshift(crossing)
+      let pick = spots.find(c => inPlot(c.box) && clearOfLabels(c.box) && clearOfDots(c.box))
+      if (pick) placed.push(pick.box)
+      else pick = { ...spots[0], box: settle(spots[0].box) }
+      avgLabel = { x: pick.anchor === 'start' ? pick.box.x : pick.box.x + w, y: pick.box.y + FONT.guide, anchor: pick.anchor }
+    }
+    const curveY = (guides.curves ?? []).map(c => {
+      if (!c.label || c.points.length < 2) return 0
+      const last = c.points[c.points.length - 1]
+      const w = c.label.length * GUIDE_CHAR_W
+      return settle({ x: sx(last.x) - 4 - w, y: Math.max(T + 11, sy(last.y) - 6) - FONT.guide, w, h: lineH }).y + FONT.guide
+    })
+    // A sum line is labeled where it leaves the RIGHT edge, inside it: the left end is where the
+    // corner words sit, and the middle is the cloud of dots. A line that leaves by the bottom, or
+    // whose label would cover a dot, goes unlabeled; its neighbors say what the lines are.
+    const sumLabels = new Map<number, { x: number; y: number }>()
+    for (const sm of guides.sums ?? []) {
+      const seg = sumSegment(sm.value, x, y)
+      if (!seg || Math.abs(sx(seg.x2) - R) >= 0.5) continue
+      const by = sy(seg.y2) - 5
+      if (by <= T + 18) continue
+      const w = sm.label.length * GUIDE_CHAR_W
+      const box = { x: R - 4 - w, y: by - FONT.guide, w, h: lineH }
+      if (!clearOfDots(box) || !clearOfLabels(box)) continue
+      placed.push(box)
+      sumLabels.set(sm.value, { x: R - 4, y: by })
+    }
+    return { avgLabel, curveY, sumLabels, boxes: placed }
+    // sx and sy are pure functions of the props listed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guides, x, y, g.w, dotCores])
+
+  const placedLabel = (spot: LabelSpot, p: ScatterPoint): PlacedLabel => {
+    const b = spot.box
+    const tx = spot.anchor === 'start' ? b.x : spot.anchor === 'end' ? b.x + b.w : b.x + b.w / 2
+    return { tx, ty: b.y + LABEL_FONT, anchor: spot.anchor, leader: spot.leader ? leaderLine(sx(p.x), sy(p.y), radius(p), b) : null }
+  }
+
+  // Which names are drawn, and where. Each tries every spot `labelSpots` offers, in order, and
+  // takes the first that stays inside the plot and clears the guide labels, the names already
+  // placed and the middle of every other dot. A crowd drops the lesser name, never the first.
+  const labelCap = labeled ? (phone ? LABEL_CAP.phone : LABEL_CAP.wide) : Infinity
+  const shownLabels = useMemo(() => {
+    const placed = new Map<string, PlacedLabel>()
+    if (!labelIds?.length) return placed
+    const byId = new Map(points.map(p => [p.id, p]))
+    const cores = new Map(dotCores.map(d => [d.id, d.box]))
+    const candidates: { item: string; spots: LabelSpot[]; own: LabelBox }[] = []
+    for (const id of labelIds) {
+      const p = byId.get(id)
+      const own = cores.get(id)
+      if (!p || !own) continue
+      const spots = labelSpots(sx(p.x), sy(p.y), radius(p), p.label.length * LABEL_CHAR_W, LABEL_FONT).filter(sp => inPlot(sp.box))
+      candidates.push({ item: id, spots, own })
+    }
+    const kept = placeLabels(
+      candidates.map(c => ({ item: c.item, own: c.own, spots: c.spots.map(sp => sp.box) })),
+      [...dotCores.map(d => d.box), ...guideLabels.boxes],
+    )
+    for (const { item, spot } of kept.slice(0, labelCap)) {
+      const c = candidates.find(k => k.item === item)!
+      placed.set(item, placedLabel(c.spots[spot], byId.get(item)!))
+    }
+    return placed
+    // sx, sy, radius and placedLabel are pure functions of the props listed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [labelIds, points, x, y, g.w, maxWeight, guideLabels, dotCores, labelCap])
 
   const activePoint = active ? points.find(p => p.id === active.id) ?? null : null
   const tip = activePoint && boxW > 0 ? (() => {
@@ -246,40 +336,18 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
     return { x: px, y: Math.max(sy(activePoint.y) * k, 36), flip: px > boxW * 0.55 }
   })() : null
 
-  const L = g.m.l, R = g.m.l + g.iw, T = g.m.t, B = g.m.t + g.ih
-  const avg = guides.avg
-  const corner = guides.corners ?? {}
-
-  // Where the guides' own labels go. The average's label at the top of its line and a curve's at
-  // its right end both land in the top band where the corner words sit, and on MLB's plots all
-  // three printed over each other ("League avg" through "LOW ERA · HIGH OPS"). Each steps down a
-  // line until it clears what is already placed: the corner words, then the average's label.
-  const guideLabels = (() => {
-    const lineH = FONT.guide + 4
-    const placed: LabelBox[] = []
-    const cornerBox = (text: string | undefined, left: boolean) => {
-      if (!text) return
-      const w = text.length * CORNER_CHAR_W
-      placed.push({ x: left ? L + 6 : R - 6 - w, y: T + 2, w, h: lineH })
-    }
-    cornerBox(guides.diagonal?.above ?? corner.tl, true)
-    cornerBox(corner.tr, false)
-    const settle = (box: LabelBox) => {
-      for (let i = 0; i < 4 && placed.some(b => boxesMeet(b, box)); i++) box = { ...box, y: box.y + lineH }
-      placed.push(box)
-      return box.y + FONT.guide
-    }
-    const avgY = avg?.label
-      ? settle({ x: sx(avg.x) + 4, y: (avg.labelAt === 'top' ? T + 11 : sy(avg.y) - 5) - FONT.guide, w: avg.label.length * GUIDE_CHAR_W, h: lineH })
-      : 0
-    const curveY = (guides.curves ?? []).map(c => {
-      if (!c.label || c.points.length < 2) return 0
-      const last = c.points[c.points.length - 1]
-      const w = c.label.length * GUIDE_CHAR_W
-      return settle({ x: sx(last.x) - 4 - w, y: Math.max(T + 11, sy(last.y) - 6) - FONT.guide, w, h: lineH })
-    })
-    return { avgY, curveY }
+  // The dot showing its card is always named, even one the crowd left unlabeled: a reader who
+  // found a dot by pointing at it should not have to read the card to learn whose it is. Its name
+  // takes the first spot clear of the other dots and the guides, or the first spot at all.
+  const activeLabel = (() => {
+    if (!activePoint || !labelIds || shownLabels.has(activePoint.id)) return null
+    const spots = labelSpots(sx(activePoint.x), sy(activePoint.y), radius(activePoint), activePoint.label.length * LABEL_CHAR_W, LABEL_FONT)
+      .filter(sp => inPlot(sp.box))
+    if (!spots.length) return null
+    const blocked = [...dotCores.filter(d => d.id !== activePoint.id).map(d => d.box), ...guideLabels.boxes]
+    return placedLabel(spots.find(sp => !blocked.some(o => boxesMeet(o, sp.box))) ?? spots[0], activePoint)
   })()
+
   const cornerText = (text: string | undefined, where: 'tl' | 'tr' | 'bl' | 'br') => {
     if (!text) return null
     const left = where[1] === 'l'
@@ -311,15 +379,12 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
         {guides.sums?.map(s => {
           const seg = sumSegment(s.value, x, y)
           if (!seg) return null
-          // Labeled where the line leaves the RIGHT edge, inside it: the left end is where the
-          // corner words sit, and the middle is the cloud of dots. A line that leaves by the
-          // bottom instead goes unlabeled; its neighbors say what the lines are.
-          const right = Math.abs(sx(seg.x2) - R) < 0.5 ? { x: R - 4, y: sy(seg.y2) - 5 } : null
+          const right = guideLabels.sumLabels.get(s.value)
           return (
             <g key={`s${s.value}`}>
               <line x1={sx(seg.x1)} y1={sy(seg.y1)} x2={sx(seg.x2)} y2={sy(seg.y2)}
                 stroke={soft} strokeWidth={1} strokeDasharray="2 3" />
-              {right && right.y > T + 18 && (
+              {right && (
                 <text x={right.x} y={right.y} textAnchor="end" fill={soft} fontSize={FONT.guide} fontWeight={700}
                   stroke={surface} strokeWidth={3} strokeLinejoin="round" paintOrder="stroke">{s.label}</text>
               )}
@@ -352,8 +417,8 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
           <g>
             <line x1={sx(avg.x)} y1={T} x2={sx(avg.x)} y2={B} stroke={soft} strokeWidth={1} strokeDasharray="5 4" />
             <line x1={L} y1={sy(avg.y)} x2={R} y2={sy(avg.y)} stroke={soft} strokeWidth={1} strokeDasharray="5 4" />
-            {avg.label && (
-              <text x={sx(avg.x) + 4} y={guideLabels.avgY} fill={soft} fontSize={FONT.guide} fontWeight={700}
+            {avg.label && guideLabels.avgLabel && (
+              <text x={guideLabels.avgLabel.x} y={guideLabels.avgLabel.y} textAnchor={guideLabels.avgLabel.anchor} fill={soft} fontSize={FONT.guide} fontWeight={700}
                 stroke={surface} strokeWidth={3} strokeLinejoin="round" paintOrder="stroke">{avg.label}</text>
             )}
           </g>
@@ -428,16 +493,18 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
           )
         })}
 
-        {/* Labels last, over every dot, haloed in the surface color so a label crossing a dot reads. */}
-        {points.map(p => {
-          const l = shownLabels.get(p.id)
-          if (!l) return null
-          return (
-            <text key={`l${p.id}`} x={l.tx} y={l.ty} textAnchor={l.anchor} fill={ink} fontSize={LABEL_FONT}
-              fontWeight={700} stroke={surface} strokeWidth={3} strokeLinejoin="round" paintOrder="stroke"
-              pointerEvents="none" aria-hidden>{p.label}</text>
-          )
-        })}
+        {/* Labels last, over every dot, haloed in the surface color so a label crossing a dot reads.
+            The active dot's name, when the crowd had left it out, goes on top of the rest. */}
+        {[
+          ...points.flatMap(p => { const l = shownLabels.get(p.id); return l ? [{ p, l }] : [] }),
+          ...(activeLabel && activePoint ? [{ p: activePoint, l: activeLabel }] : []),
+        ].map(({ p, l }) => (
+          <g key={`l${p.id}`} pointerEvents="none" aria-hidden>
+            {l.leader && <line {...l.leader} stroke={soft} strokeWidth={1} />}
+            <text x={l.tx} y={l.ty} textAnchor={l.anchor} fill={ink} fontSize={LABEL_FONT}
+              fontWeight={700} stroke={surface} strokeWidth={3} strokeLinejoin="round" paintOrder="stroke">{p.label}</text>
+          </g>
+        ))}
       </Box>
 
       {activePoint && tip && (
