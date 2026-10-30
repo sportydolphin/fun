@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Box, Typography, useTheme } from '@mui/material'
+import { Box, Typography, useMediaQuery, useTheme, type Theme } from '@mui/material'
 import { fetchWpblAllLines, fetchWpblAllPitchPlays, getCachedWpblAllLines, getCachedWpblAllPitchPlays } from './api'
 import { aggregatePitchCodes, pitchQualifiers } from './derive/pitches'
 import {
@@ -249,6 +249,10 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
   const [lit, setLit] = useState<string | null>(null)
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const dark = useTheme().palette.mode === 'dark'
+  // Two charts across a full desktop row: each draws in the plot's large box. Through the theme, so
+  // inside the desktop side panel this reads as the phone it is laid out as. `noSsr` so the first
+  // paint already has the right box, rather than the wide one and then a jump.
+  const large = useMediaQuery((t: Theme) => t.breakpoints.up('lg'), { noSsr: true })
   // A club's color is its accent, the hand-picked hue it wears on every board (constants.ts says
   // why none is derived from the primaries). The primaries lifted off the page came out as slate,
   // a gray-blue and a dull red, and New York's dots read as faded rather than as a club.
@@ -331,17 +335,17 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
       </Box>
       {/* Two columns on a wide screen even for one chart, so a lone chart is drawn at the size of
           a pair's and not as a 1,000px plot of a dozen dots. */}
-      <Box sx={{ display: 'grid', gap: { xs: 3.5, md: 4 }, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+      <Box sx={{ display: 'grid', gap: { xs: 3.5, md: 4, lg: 6 }, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
         {specs.map(s => (
           <ChartPanel key={s.key} spec={s} everyone={everyone || !qual.active} onOpenPlayer={onOpenPlayer}
-            focus={focus} lit={lit} onLit={setLit} clubOf={clubAbbr} colorOf={clubColor} clubPoints={clubPointsFor(s)} />
+            focus={focus} lit={lit} onLit={setLit} clubOf={clubAbbr} colorOf={clubColor} clubPoints={clubPointsFor(s)} large={large} />
         ))}
       </Box>
     </Box>
   )
 }
 
-function ChartPanel({ spec, everyone, onOpenPlayer, focus, lit, onLit, clubOf, colorOf, clubPoints }: {
+function ChartPanel({ spec, everyone, onOpenPlayer, focus, lit, onLit, clubOf, colorOf, clubPoints, large }: {
   spec: ChartSpec
   everyone: boolean
   onOpenPlayer: (p: WpblPlayer) => void
@@ -354,6 +358,8 @@ function ChartPanel({ spec, everyone, onOpenPlayer, focus, lit, onLit, clubOf, c
   colorOf: (teamId: string | null) => string | undefined
   /** The clubs, drawn over the players when the overlay is on; null when it is off. */
   clubPoints: ScatterPoint[] | null
+  /** Each chart has half a full-width desktop row, so it draws in the plot's large box. */
+  large: boolean
 }) {
   const playerLink = useWpblPlayerLink()
   const { data } = spec
@@ -439,16 +445,16 @@ function ChartPanel({ spec, everyone, onOpenPlayer, focus, lit, onLit, clubOf, c
           <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700 }}>Size: {spec.size}</Typography>
         </Box>
       </Box>
-      {data == null ? <ScatterFrame /> : axes == null ? (
+      {data == null ? <ScatterFrame large={large} /> : axes == null ? (
         <Box sx={{ position: 'relative' }}>
-          <ScatterFrame />
+          <ScatterFrame large={large} />
           <Typography sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', px: 3, textAlign: 'center', fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
             {spec.empty}
           </Typography>
         </Box>
       ) : (
         <ScatterPlot points={drawn} x={axes.x} y={axes.y} guides={axes.guides}
-          labeled={labeled} title={spec.title} onActive={onLit} echo={lit} />
+          labeled={labeled} title={spec.title} onActive={onLit} echo={lit} large={large} />
       )}
     </Box>
   )

@@ -147,11 +147,15 @@ export function BoardPane({ source, side, boardSide, findSide, teams, players, l
     </Suspense>
   ) : source === 'charts' ? (
     charts == null ? <SubViewFallback /> : (
+      // Full-bleed like the table: in the 720px page column two charts side by side were 340px each
+      // beside a band of empty page on either side.
+      <Box sx={fullBleedSx}>
       <Suspense fallback={<SubViewFallback />}>
         <WpblChartsView side={side === 'overall' ? 'overall' : boardSide} teams={teams} players={players} games={games}
           batting={charts.batting} pitching={charts.pitching} league={charts.league}
           valueSeasons={charts.valueSeasons} fWeights={charts.fWeights} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} />
       </Suspense>
+      </Box>
     )
   ) : source === 'draft' ? (
     <Suspense fallback={<SubViewFallback />}>

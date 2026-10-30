@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.190.0',
+    date:    '2026-10-29',
+    changes: [
+      {
+        short: 'Charts use the full width',
+        full:  "WPBL's Charts board spans the page on a desktop like the stats table, so each chart is about twice as wide, with room to name up to twelve players.",
+      },
+    ],
+  },
+  {
     version: '1.189.0',
     date:    '2026-10-29',
     changes: [
