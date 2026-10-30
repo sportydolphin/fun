@@ -189,3 +189,62 @@ export function twoWayChart(seasons: PlayerValueSeason<WpblPlayer>[], minPa: num
     notable: notableFrom(points, [{ score: p => p.x + p.y, n: 5 }]),
   }
 }
+
+/** How often a hitter walks (x) against how often they strike out (y, drawn upside down so fewer
+ *  strikeouts is higher). The plate discipline the OBP chart only shows the result of. */
+export function walkStrikeoutChart(seasons: WpblBatSeason[], league: { bbPct: number | null; kPct: number | null }, minPa: number): ChartData {
+  const points: ChartDatum[] = []
+  for (const { player, totals: t } of seasons) {
+    const pa = plateAppearances(t)
+    if (pa === 0 || t.bbPct == null || t.kPct == null) continue
+    points.push({ player, x: t.bbPct, y: t.kPct, weight: pa, sample: `${pa} PA`, qualified: pa >= minPa })
+  }
+  return {
+    points,
+    avg: league.bbPct != null && league.kPct != null ? { x: league.bbPct, y: league.kPct } : null,
+    notable: notableFrom(points, [
+      { score: p => p.x - p.y, n: 2 },
+      { score: p => p.y - p.x, n: 2 },
+    ]),
+  }
+}
+
+/** Batting average (x) against isolated power (y): how often a hitter gets a hit, and how many
+ *  extra bases the hits carry. Two hitters with one OPS can sit at opposite corners. */
+export function averagePowerChart(seasons: WpblBatSeason[], league: { avg: number | null; iso: number | null }, minPa: number): ChartData {
+  const points: ChartDatum[] = []
+  for (const { player, totals: t } of seasons) {
+    const pa = plateAppearances(t)
+    if (pa === 0 || t.avg == null || t.iso == null) continue
+    points.push({ player, x: t.avg, y: t.iso, weight: pa, sample: `${pa} PA`, qualified: pa >= minPa })
+  }
+  return {
+    points,
+    avg: league.avg != null && league.iso != null ? { x: league.avg, y: league.iso } : null,
+    notable: notableFrom(points, [
+      { score: p => p.y, n: 2 },
+      { score: p => p.x, n: 2 },
+    ]),
+  }
+}
+
+/** A pitcher's strikeouts (x) against walks (y, upside down so fewer walks is higher), both per
+ *  batter faced. The two things a pitcher controls most, without the defense behind them. */
+export function pitcherStrikeoutWalkChart(seasons: WpblPitSeason[], league: WpblPitchingTotals, minOuts: number): ChartData {
+  const points: ChartDatum[] = []
+  for (const { player, totals: t } of seasons) {
+    if (t.bf === 0 || t.kPct == null || t.bbPct == null) continue
+    points.push({
+      player, x: t.kPct, y: t.bbPct, weight: t.bf,
+      sample: `${t.bf} BF · ${ipText(t.outs)}`, qualified: t.outs >= minOuts,
+    })
+  }
+  return {
+    points,
+    avg: league.kPct != null && league.bbPct != null ? { x: league.kPct, y: league.bbPct } : null,
+    notable: notableFrom(points, [
+      { score: p => p.x - p.y, n: 3 },
+      { score: p => p.y - p.x, n: 1 },
+    ]),
+  }
+}

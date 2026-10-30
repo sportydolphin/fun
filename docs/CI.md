@@ -188,7 +188,10 @@ The fifth is chart text: below 768px, any SVG label in a drawing 120px or wider 
 10px (`probeChartText`), measured as its font size times the drawing's scale on screen. It runs
 last on each load, because a chart draws when its data lands and is not on the page at the first
 settle. Fix a finding by laying the chart out at its box's width (`useChartViewWidth` in
-`src/ui/charts/useViewWidth.ts`) or by raising the size in viewBox units.
+`src/ui/charts/useViewWidth.ts`) or by raising the size in viewBox units. Beside it, at every
+width, `probeChartNames` fails a scatter plot of six or more dots that was given names to draw and
+drew none: the placement in `ScatterPlot` drops a name it has no room for, and dropping all of them
+is a bug no other check sees.
 A border finding prints its ratio, the color and the start of the box's text; an axe finding
 prints the rule, the element's HTML and axe's own explanation, which is usually enough to find
 the component. A rule goes into `AXE_RULES` only once it reads clean on every page.

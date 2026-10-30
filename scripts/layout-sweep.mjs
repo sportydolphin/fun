@@ -25,6 +25,8 @@
  *    the real places, so a title that moves is a skeleton the wrong size. Compares rects rather
  *    than reading CLS, because a hidden or headless browser records no layout-shift entries.
  *
+ *    And, at every width, a scatter plot given names to draw that drew none (probeChartNames).
+ *
  * Every session that did this by hand rebuilt the same throwaway script, three times in one day
  * on Oct 7, 2026, which is why it lives here now.
  *
@@ -226,6 +228,24 @@ function probeChartText(floor) {
     if (seen.has(key)) continue
     seen.add(key)
     out.push({ kind: 'chart-text', px: Number(px.toFixed(1)), text, where: `svg[${where.slice(0, 50)}]` })
+  }
+  return out
+}
+
+/**
+ * Every scatter plot that was handed names to draw and drew none. A plot of players names its
+ * standouts beside their dots; until Oct 2026 the only places offered were right and left of a dot,
+ * and the league's best OPS, the top dot on the plot, went unnamed with nothing failing. A plot
+ * marks itself (`data-scatter`, with `data-names` when it was given any) and each name it draws
+ * (`data-name-label`), so this reads what the reader sees rather than re-deriving the placement.
+ */
+function probeChartNames() {
+  const out = []
+  for (const svg of document.querySelectorAll('svg[data-scatter][data-names]')) {
+    if (svg.getBoundingClientRect().width < 120) continue
+    if (svg.querySelectorAll('[data-pid]').length < 6) continue
+    if (svg.querySelector('[data-name-label]')) continue
+    out.push({ kind: 'chart-names', px: 0, text: 'no names drawn', where: `svg[${(svg.getAttribute('aria-label') || 'svg').slice(0, 50)}]` })
   }
   return out
 }
@@ -671,6 +691,9 @@ async function runCase(browser, route, width, text, { warm = false } = {}) {
       // have taken their seconds: a chart draws when its data lands, which on a slow read comes after
       // the network first goes quiet, and probed at the first settle it is not on the page yet.
       if (width < 768) result.issues.push(...await page.evaluate(probeChartText, CHART_TEXT_FLOOR))
+      // A scatter plot's names, at every width: a desktop's half column drops names as readily as a
+      // phone does. After the chart text for the same reason.
+      result.issues.push(...await page.evaluate(probeChartNames))
     }
   } catch (err) {
     result.error = String(err?.message ?? err).split('\n')[0]
