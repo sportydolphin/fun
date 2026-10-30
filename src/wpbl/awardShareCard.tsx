@@ -120,9 +120,9 @@ export function WinnerShareCard({ data, hideBrand = false }: {
         alignItems: centered ? 'center' : 'stretch', textAlign: centered ? 'center' : 'left',
       }}>
         <Box component="div" sx={{
-          // The club's SECONDARY color, not the accent: on a card washed in the primary, the
-          // accent can be the same hue (Boston green on green) and vanish. The secondary is the
-          // contrasting brand color (Boston orange), which is also the ring and the pop here.
+          // The club's SECONDARY color, its identity hue lifted for this dark ground: Boston's
+          // green measures 5.9:1 on its near-black green primary, San Francisco's purple 4.3:1 on
+          // its own, which is large text here. Also the ring and the pop.
           // data-caption + pre-uppercased: captureNode repaints this line with the Canvas API, since
           // html2canvas drops leading words from it on some browsers (see captureNode).
           fontSize: centered ? 36 : 32, fontWeight: 900, letterSpacing: 1,

@@ -29,8 +29,11 @@ export function wpblAccentFg(isDark: boolean): string {
 // setting a value once applies across the whole section (badges, accents, ordering).
 // This is also the static fallback used before the Supabase `wpbl_teams` rows load.
 //   color     : primary; badge fill + team accent
-//   secondary : accent hue; used as the badge ring so team badges stay defined even
-//               when the primary is near-black (e.g. LA) or matches the page bg
+//   secondary : the badge ring, so a badge stays defined when the primary is near-black
+//               (e.g. LA) or matches the page. It is the club's identity hue, the same green /
+//               gold / blue / purple as the accents below, not the brand sheet's secondary:
+//               Boston's orange and San Francisco's red ringed every badge in a color the rest of
+//               the site does not use for them (Oct 2026).
 //   logo      : bundled asset (imported → hashed URL at build)
 //   logoFill  : the logo image already includes its own background and should fill the
 //               badge edge-to-edge (Boston's is a finished green lockup); others are
@@ -43,10 +46,10 @@ export interface WpblTeamMeta {
 }
 
 export const WPBL_TEAMS: Record<string, WpblTeamMeta> = {
-  BOS: { id: 'BOS', city: 'Boston',        name: 'Hunters',   abbr: 'BOS', color: '#00281e', secondary: '#f3801b', logo: bostonLogo, logoFill: true, sort_order: 1 },
+  BOS: { id: 'BOS', city: 'Boston',        name: 'Hunters',   abbr: 'BOS', color: '#00281e', secondary: '#3bb270', logo: bostonLogo, logoFill: true, sort_order: 1 },
   LA:  { id: 'LA',  city: 'Los Angeles',   name: 'Queens',    abbr: 'LA',  color: '#000000', secondary: '#b58f5f', logo: laLogo,     sort_order: 2 },
   NY:  { id: 'NY',  city: 'New York',      name: 'Heights',   abbr: 'NY',  color: '#091b47', secondary: '#67c3e9', logo: nyLogo,     sort_order: 3 },
-  SF:  { id: 'SF',  city: 'San Francisco', name: 'Firebells', abbr: 'SF',  color: '#2d1747', secondary: '#fe2100', logo: sfLogo,     sort_order: 4 },
+  SF:  { id: 'SF',  city: 'San Francisco', name: 'Firebells', abbr: 'SF',  color: '#2d1747', secondary: '#9b6fe0', logo: sfLogo,     sort_order: 4 },
 }
 
 // Team color lookup, mirroring the MLB app's TEAM_BG convention. Falls back to a
@@ -72,24 +75,25 @@ export function wpblSecondary(teamId: string | null | undefined): string {
 // renders a washed lavender against the loser's near-white, so the loser reads as more
 // important.
 //
-// Nor can we just use `secondary`: three of the four are warm hues (BOS orange, LA gold,
-// SF red) that blur into each other. So Boston takes its Hunters *green* instead of its
-// orange accent, which breaks the warm cluster and leaves four distinct hues:
-// green / gold / blue / red. Each has a light- and dark-mode variant tuned to read as
-// both text and a bar fill on that background.
+// Nor can we just use the brand sheet's secondaries: three of the four are warm hues (BOS
+// orange, LA gold, SF red) that blur into each other. So Boston takes its Hunters *green* and
+// San Francisco its Firebells *purple* (its primary's hue, and the color fans know the club by;
+// it was red until Oct 2026), which leaves four distinct hues: green / gold / blue / purple.
+// Each has a light- and dark-mode variant tuned to read as both text and a bar fill on that
+// background.
 //
 // The light variants are all >= 4.6:1 on every light surface they are drawn on, measured: white,
 // the page, the gray of a selected row, and the club's own 12% tint behind its name. They are
 // small TEXT (the leader triangles, rank numbers, card links), where a value that is fine as a
 // badge fill can still fail AA, and axe in the layout sweep checks them on every page. Until Oct
 // 2026 they were tuned on white alone and came out at 3.97 to 4.4:1 on the tints. When one needs adjusting, take it down a step of the same hue
-// rather than re-picking, so the four still read as green / gold / blue / red at a glance. Dark
+// rather than re-picking, so the four still read as green / gold / blue / purple at a glance. Dark
 // variants sit on a near-black page and measure well clear there.
 const WPBL_ACCENTS: Record<string, { light: string; dark: string }> = {
   BOS: { light: '#19723f', dark: '#3bb270' }, // Hunters green
   LA:  { light: '#835c17', dark: '#d9ad4a' }, // Queens gold
   NY:  { light: '#19699e', dark: '#5bb2ec' }, // Heights blue
-  SF:  { light: '#ba2d2a', dark: '#f26f6f' }, // Firebells red
+  SF:  { light: '#7a3fb8', dark: '#b48af0' }, // Firebells purple
 }
 const NEUTRAL_ACCENT = { light: '#6b7280', dark: '#9ca3af' }
 
@@ -115,20 +119,20 @@ export function wpblAccent(teamId: string | null | undefined, isDark: boolean): 
 // So these are hand-picked like the accents above and for the same stated reason: every
 // attempt to derive one role from another collapses the four clubs together. Each is the club's
 // true hue taken to a surface lightness (Boston's Hunters green rather than its orange
-// secondary, Los Angeles' gold, New York's blue, San Francisco's Firebells red rather than its
-// purple primary), so a reader who has learned the accent on a leaderboard meets the same four
+// secondary, Los Angeles' gold, New York's blue, San Francisco's Firebells purple), so a reader who has learned the accent on a leaderboard meets the same four
 // hues here. Light variants sit at roughly 95% lightness so 24px/800 text on them stays well
 // clear of AA; dark variants are deep fields for a near-black page rather than tints of it,
 // because a 9% wash of anything on #121212 is invisible.
 //
 // PAIRWISE DISTINCT IS THE BAR, not "looks nice alone": these are drawn one above the other on
-// Home's Next game card, so green/gold/blue/red have to be told apart at a glance in a 44px
-// band, in both themes.
+// Home's Next game card, so green/gold/blue/purple have to be told apart at a glance in a 44px
+// band, in both themes. Purple sits furthest from blue in the dark theme by lightness as well as
+// hue, so the two never read as one band.
 const WPBL_SURFACES: Record<string, { light: string; dark: string }> = {
   BOS: { light: '#e7f3ec', dark: '#12301f' }, // Hunters green
   LA:  { light: '#f6efdf', dark: '#33280f' }, // Queens gold
   NY:  { light: '#e6eff9', dark: '#102639' }, // Heights blue
-  SF:  { light: '#fbeae8', dark: '#3a1614' }, // Firebells red
+  SF:  { light: '#f1e9fa', dark: '#2c1840' }, // Firebells purple
 }
 const NEUTRAL_SURFACE = { light: '#f1f2f4', dark: '#26282c' }
 

@@ -39,7 +39,7 @@ export const CLUBS = [
   { id: 'BOS', name: 'Hunters', color: '#37b06d' },
   { id: 'LA', name: 'Queens', color: '#d9ad4a' },
   { id: 'NY', name: 'Heights', color: '#5bb2ec' },
-  { id: 'SF', name: 'Firebells', color: '#f05a5a' },
+  { id: 'SF', name: 'Firebells', color: '#b48af0' },
 ] as const
 export const FAMILY = 'Inter'
 export const FPS = 30

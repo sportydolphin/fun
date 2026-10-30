@@ -520,8 +520,8 @@ export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, p
         {/* ONE BAND, EDGE TO EDGE, TWO FIELDS AND A ONE-PIXEL SEAM.
 
             The seam is the card showing through a `gap`, not a border: two saturated tints
-            meeting edge to edge blend into a third color along the join (Firebells red into
-            Heights blue reads purple for a pixel), and a `divider` rule there would be a third
+            meeting edge to edge blend into a third color along the join (Queens gold into
+            Heights blue reads green for a pixel), and a `divider` rule there would be a third
             color drawn on purpose. The card's own paper between them says "two clubs" without
             adding any ink.
 

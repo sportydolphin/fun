@@ -251,13 +251,8 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
   const dark = useTheme().palette.mode === 'dark'
   // A club's color is its accent, the hand-picked hue it wears on every board (constants.ts says
   // why none is derived from the primaries). The primaries lifted off the page came out as slate,
-  // a gray-blue and a dull red, and New York's dots read as faded rather than as a club. San
-  // Francisco is its Firebells purple here, ahead of the accent table itself.
-  const clubColor = useCallback((id: string | null | undefined) => {
-    if (!id || !teamById.has(id)) return undefined
-    if (id === 'SF') return dark ? '#b48af0' : '#7a3fb8'
-    return wpblAccent(id, dark)
-  }, [teamById, dark])
+  // a gray-blue and a dull red, and New York's dots read as faded rather than as a club.
+  const clubColor = useCallback((id: string | null | undefined) => (id && teamById.has(id) ? wpblAccent(id, dark) : undefined), [teamById, dark])
   // THE CLUBS OVERLAY: each club's season on the same axes, drawn over its players. A club's
   // totals come from the box-score lines, which carry the club that game was played for, so a
   // traded player's months count for the club they were played for (summing the players by

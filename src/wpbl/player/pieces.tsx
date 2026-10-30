@@ -348,21 +348,22 @@ export function CompareChip({ player, roster }: { player: WpblPlayer; roster: Wp
  * the largest that clears that with a step of headroom. Against the hometown and draft lines at
  * 0.75 they measure:
  *
- *   BOS 0x7a (48%) 4.80:1 · LA 0x98 (60%) 4.78:1 · NY 0x61 (38%) 4.84:1 · SF 0x8f (56%) 4.89:1
+ *   BOS 0x6e (43%) 4.83:1 · LA 0x98 (60%) 4.78:1 · NY 0x61 (38%) 4.84:1 · SF 0x89 (54%) 4.84:1
  *
  * THE FORM STRIP IS THE BINDING CASE: it sits at the strong end of the band, 74% to 96% along,
  * and its label is the dimmest thing on the band at 0.72. There it clears 4.72 / 4.77 / 4.74 /
- * 4.77 on BOS / LA / NY / SF, so all four values hold with very little to spare: anything dimmer
+ * 4.73 on BOS / LA / NY / SF, so all four values hold with very little to spare: anything dimmer
  * than 0.72 at that end of the band fails.
  *
- * The ceilings before headroom are 51 / 62 / 41 / 61 percent, so there is not much left in any
+ * The ceilings before headroom are 46 / 62 / 41 / 58 percent, so there is not much left in any
  * of them. LA sits within three points of failing: 0xa0 (63%) measures 4.50 and does not clear.
  *
  * Change a club's colors in constants.ts, lift the wash, or move a block along the band, and
  * these have to be re-solved against every text opacity sitting in it, or the smallest lines on
  * the card quietly stop being readable on one club and nobody reports it.
  */
-export const BAND_WASH: Record<string, number> = { BOS: 0x7a, LA: 0x98, NY: 0x61, SF: 0x8f }
+// BOS and SF re-solved in Oct 2026, when their rings went from orange and red to green and purple.
+export const BAND_WASH: Record<string, number> = { BOS: 0x6e, LA: 0x98, NY: 0x61, SF: 0x89 }
 /** For a club not in the table: the tightest of the four, which is safe for any secondary. */
 export const BAND_WASH_FLOOR = 0x61
 
