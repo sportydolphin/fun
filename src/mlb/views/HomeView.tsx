@@ -37,6 +37,7 @@ import { TrackedCard } from '../components/TrackedCard'
 import { PlayoffBracketCard } from './PlayoffBracket'
 import { FollowTeamPrompt } from './TeamPicker'
 import { ChampionCard } from './ChampionCard'
+import { AwardsCard } from './AwardsCard'
 import { useSeasonPhase, useHomeStage, isSeasonOver } from '../seasonPhase'
 import { useDevNoTeam } from '../dev/devSeasonPhase'
 import { fetchBracket, seededBracket, teamOctober, teamOctoberLine, stillPlaying, SERIES_ORDER, Bracket } from '../postseason'
@@ -680,6 +681,14 @@ function HomeViewInner({
 
         {/* ═══ Discovery column: Around the League ════════════════════════════ */}
         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: HOME_GAP }}>
+
+          {/* The season's awards, from the end of the World Series to Opening Day. Draws nothing until
+              the league has given one, and TrackedCard hides its own box when it is empty. */}
+          {noGames && (
+            <TrackedCard card="awards">
+              <AwardsCard season={CURRENT_SEASON} followedTeamId={followedTeamId} withSeriesMvp={stage === 'winter'} onPlayerClick={onPlayerClick} />
+            </TrackedCard>
+          )}
 
           {/* Standout performances: the postseason's once the regular season is over */}
           {seasonOver != null && (
