@@ -22,6 +22,26 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.190.0',
+    date:    '2026-10-29',
+    changes: [
+      {
+        short: 'Charts use the full width',
+        full:  "WPBL's Charts board spans the page on a desktop like the stats table, so each chart is about twice as wide, with room to name up to twelve players.",
+      },
+    ],
+  },
+  {
+    version: '1.189.0',
+    date:    '2026-10-29',
+    changes: [
+      {
+        short: 'Firebells purple everywhere',
+        full:  "The San Francisco Firebells are purple across WPBL: leaderboards, scores, standings, the standings race, the player and team pages, Scorigami, the next game card and share images. Club badges are ringed in each club's own color, so Boston's ring is Hunters green rather than orange and San Francisco's is purple rather than red.",
+      },
+    ],
+  },
+  {
     version: '1.188.0',
     date:    '2026-10-29',
     changes: [

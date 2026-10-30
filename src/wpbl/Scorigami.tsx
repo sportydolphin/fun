@@ -48,15 +48,15 @@ const MAX_STEP_MS = 400
 // lighter until the two are about 27 L* apart in both themes. Checked with CIEDE2000, normal and
 // simulated protan, deutan and tritan vision.
 //
-// NOT solved, and not solvable with these four hues: for red-green color blindness, Firebells red,
-// Hunters green and Queens gold still sit close, because separating them costs a club its color
-// (the best-scoring palette turned Firebells pink). The legend and each square's label, which
-// names both clubs, carry what the color cannot.
+// Firebells purple (red until Oct 2026) is dark in the light theme and mid in the dark one, so it
+// sits apart from Heights blue on lightness as well as hue. Under red-green color blindness green
+// and gold still sit close; the legend and each square's label, which names both clubs, carry what
+// the color cannot.
 const SQUARE_COLORS: Record<string, { light: string; dark: string }> = {
   BOS: { light: '#135f34', dark: '#288f55' },
   LA:  { light: '#a8761d', dark: '#e0b54f' },
   NY:  { light: '#3a9ae0', dark: '#8fd0fa' },
-  SF:  { light: '#d1332f', dark: '#f05a5a' },
+  SF:  { light: '#7a3fb8', dark: '#a77ce8' },
 }
 const SQUARE_NEUTRAL = { light: '#6b7280', dark: '#9ca3af' }
 const squareColor = (teamId: string | null | undefined, dark: boolean): string => {

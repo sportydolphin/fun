@@ -86,6 +86,10 @@ const BOX = {
   // Sized for the half-column each chart gets beside another (about 420px), so its type prints
   // at about the size it is set at rather than three-quarters of it.
   wide: { w: 440, h: 360, m: { t: 14, r: 14, b: 44, l: 50 } },
+  // For a caller laying two charts across a full desktop width (WPBL's Charts board, each about
+  // 560 to 760px). The wide box drawn there printed its 11-unit type at 17px; this one keeps it
+  // near the size it is set at, and spends the room on the plot instead.
+  large: { w: 600, h: 450, m: { t: 16, r: 16, b: 46, l: 54 } },
 }
 // Type sizes in viewBox units. The phone box is drawn about 0.95 of its size at 375px, so nothing
 // here is under 10.5: the layout sweep fails any chart text printed under 10px on a phone. These
@@ -103,7 +107,7 @@ const LABEL_CHAR_W = FONT.label * 0.6
 const LABEL_FONT = FONT.label
 // The most names a caller's `labeled` list may put on one plot. Past this a plot of a hundred
 // players reads as a wall of words, and a phone has half the room.
-const LABEL_CAP = { phone: 5, wide: 9 }
+const LABEL_CAP = { phone: 5, wide: 9, large: 12 }
 // The same for the corner words, which are bold capitals with tracking.
 const CORNER_CHAR_W = FONT.guide * 0.68
 // A guide's own label ("League avg", "Pythagorean"): bold, mixed case.
@@ -131,16 +135,16 @@ function useBoxWidth(ref: React.RefObject<HTMLDivElement | null>): number {
 }
 
 /** The geometry both the chart and its empty frame are drawn from. */
-function useGeometry() {
-  const box = usePhoneLayout() ? BOX.phone : BOX.wide
+function useGeometry(large = false) {
+  const box = usePhoneLayout() ? BOX.phone : large ? BOX.large : BOX.wide
   const iw = box.w - box.m.l - box.m.r
   const ih = box.h - box.m.t - box.m.b
   return { ...box, iw, ih }
 }
 
 /** The chart's box with nothing in it, for the loading state. Same aspect ratio, same height. */
-export function ScatterFrame() {
-  const g = useGeometry()
+export function ScatterFrame({ large }: { large?: boolean } = {}) {
+  const g = useGeometry(large)
   return (
     <Box component="svg" viewBox={`0 0 ${g.w} ${g.h}`} aria-hidden
       sx={{ width: '100%', height: 'auto', display: 'block', color: 'text.secondary' }}>
@@ -150,7 +154,7 @@ export function ScatterFrame() {
   )
 }
 
-export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActive, echo }: {
+export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActive, echo, large }: {
   points: ScatterPoint[]
   x: ScatterAxis
   y: ScatterAxis
@@ -164,6 +168,9 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
   /** A dot lit from outside, the player in focus on the chart beside this one: ringed and named
    *  as if pointed at, with no card. The reader's own pointer wins over it. */
   echo?: string | null
+  /** Drawn in the large box (the caller is a full-width desktop layout); ignored on a phone.
+   *  Pass the same to the `ScatterFrame` that stands in for it while loading. */
+  large?: boolean
 }) {
   const theme = useTheme()
   const dark = theme.palette.mode === 'dark'
@@ -171,7 +178,7 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
   const surface = theme.palette.background.default
   const ink = theme.palette.text.primary
   const soft = theme.palette.text.secondary
-  const g = useGeometry()
+  const g = useGeometry(large)
   const boxRef = useRef<HTMLDivElement>(null)
   const boxW = useBoxWidth(boxRef)
 
@@ -319,7 +326,7 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
   // Which names are drawn, and where. Each tries every spot `labelSpots` offers, in order, and
   // takes the first that stays inside the plot and clears the guide labels, the names already
   // placed and the middle of every other dot. A crowd drops the lesser name, never the first.
-  const labelCap = labeled ? (phone ? LABEL_CAP.phone : LABEL_CAP.wide) : Infinity
+  const labelCap = labeled ? (phone ? LABEL_CAP.phone : g.w === BOX.large.w ? LABEL_CAP.large : LABEL_CAP.wide) : Infinity
   const shownLabels = useMemo(() => {
     const placed = new Map<string, PlacedLabel>()
     if (!labelIds?.length) return placed

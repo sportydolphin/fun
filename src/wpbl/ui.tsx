@@ -308,8 +308,8 @@ export function TeamBadge({ team, size = 34, ring }: {
   return (
     <ClubBadge size={size} alt={team.abbr} src={wpblLogo(team.id) ?? undefined}
       bg={wpblColor(team.id)}
-      // Through edge(): a club's secondary can sit close to the page (Firebells red on the dark
-      // page measured 1.8:1), and the ring is the badge's edge. CLAUDE.md, "Borders".
+      // Through edge(): a club's secondary can sit close to the page (a club's near-black
+      // primary on the dark page is under 1.5:1), and the ring is the badge's edge. CLAUDE.md, "Borders".
       ring={edge(ring ?? wpblSecondary(team.id))}
       fit={wpblLogoFill(team.id) ? 'cover' : 'contain'} logoScale={0.65} />
   )
