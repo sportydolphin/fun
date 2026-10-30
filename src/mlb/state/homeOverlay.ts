@@ -23,6 +23,7 @@ export type HomeOverlay =
   | { kind: 'teamRecap';    game: FinalGameSummary }   // team card → Game Center recap
   | { kind: 'standoutBox';  game: FinalGameSummary }   // standout performance → Game Center box
   | { kind: 'rosterMoves' }                            // roster moves card → full move list
+  | { kind: 'awards' }                                 // awards card → every winner
 
 let current: HomeOverlay | null = null
 
