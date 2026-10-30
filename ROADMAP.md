@@ -29,9 +29,9 @@ decision after October (the note under item 12). Where these sit against the res
 [ROADMAP-PRIORITIES.md](ROADMAP-PRIORITIES.md). The section now has
 WPBL's phone shell, history-backed sheets, a real path for every tab, club, player and game, a
 postseason bracket, an offseason-aware Home, the desktop scale with no `zoom`, and a chunk per
-view. The postseason runs to Oct 31, and the offseason shape
-switches itself on from the league's own calendar on Nov 1 (`seasonPhase.ts`,
-`shared/mlbSeason.js`): nothing needs doing on that date.
+view. The offseason shape switches itself on at the last out of the World Series, not on the
+league's calendar (`homeStageOn` in `seasonPhase.ts`; the cron jobs keep `shared/mlbSeason.js`), and a
+champion card leads Home for the week after it: nothing needs doing on the date.
 
 **Next, in order** (why, in each item below):
 

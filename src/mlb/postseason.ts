@@ -1,5 +1,6 @@
 import { TEAM_ABBR, isRealClub } from './constants'
 import { isUnplayed, hasStartTime } from './gameStatus'
+import { cachedJson, FRESH_LONG_MS } from './lib/readCache'
 
 // ─── The MLB postseason bracket, as data ──────────────────────────────────────
 //
@@ -242,6 +243,29 @@ export function likelySeriesInRound(now = new Date()): 1 | 2 | 4 {
  *  says nothing, so no surface draws one before this. */
 export function fieldIsSet(b: Bracket): boolean {
   return (['F_1', 'F_2', 'F_3', 'F_4'] as const).every(id => b.series[id].top.real && b.series[id].bottom.real)
+}
+
+/** The game that decided a series: its last final, since no game follows the clinching one. */
+export function clinchGame(s: PsSeries): PsGame | null {
+  if (s.winnerId == null) return null
+  const finals = s.games.filter(g => g.state === 'final')
+  return finals[finals.length - 1] ?? null
+}
+
+export interface SeriesMvp { id: number; name: string; position: string | null }
+
+/** Pure, for the test. The feed's award list, one recipient for a series MVP. */
+export function parseSeriesMvp(raw: any): SeriesMvp | null {
+  const p = raw?.awards?.[0]?.player
+  if (!p?.id || !p.nameFirstLast) return null
+  return { id: Number(p.id), name: String(p.nameFirstLast), position: p.primaryPosition?.abbreviation ?? null }
+}
+
+/** The World Series MVP, published with the final out. Null until then, or if it cannot be read. */
+export function fetchWorldSeriesMvp(season: number): Promise<SeriesMvp | null> {
+  return cachedJson<any>(`https://statsapi.mlb.com/api/v1/awards/WSMVP/recipients?season=${season}&sportId=1`, FRESH_LONG_MS)
+    .then(parseSeriesMvp)
+    .catch(() => null)
 }
 
 /** Wins needed to take the series: 2 of 3, 3 of 5, 4 of 7. */

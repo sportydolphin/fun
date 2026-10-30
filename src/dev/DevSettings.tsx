@@ -620,7 +620,7 @@ function DeviceModeControls() {
 
 // ─── MLB ───────────────────────────────────────────────────────────────────────
 
-// Auto reads the league calendar. Season / October / Winter pin it, so every Home can be reviewed
+// Auto reads the league calendar. Season / October / Champion / Winter pin it, so every Home can be reviewed
 // on any date: see seasonPhase.ts.
 function SeasonPhaseControls() {
   const phase = useDevSeasonPhase()
@@ -628,7 +628,7 @@ function SeasonPhaseControls() {
   return (
     <>
       <PillGroup
-        options={[{ value: 'auto', label: 'Auto' }, { value: 'regular', label: 'Season' }, { value: 'over', label: 'October' }, { value: 'offseason', label: 'Winter' }]}
+        options={[{ value: 'auto', label: 'Auto' }, { value: 'regular', label: 'Season' }, { value: 'over', label: 'October' }, { value: 'champion', label: 'Champion' }, { value: 'offseason', label: 'Winter' }]}
         value={phase}
         onChange={v => setDevSeasonPhase(v as DevSeasonPhase)}
       />

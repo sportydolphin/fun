@@ -289,10 +289,12 @@ const SERIES_CARD_H = {
  * The bracket card. Draws nothing until the league has published a postseason (or if the feed is
  * not the shape postseason.ts expects), so it can sit on Home all year.
  */
-export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Playoff series', compact = false }: {
+export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Playoff series', compact = false, noChampionLine = false }: {
   onTeamClick?: (id: number) => void
   onPlayerClick?: (id: number) => void
   heading?: string
+  /** The champion card sits right above this one and says it already. */
+  noChampionLine?: boolean
   /** Home's version: two series abreast even on a phone, clubs by abbreviation, one status line.
    *  Four full-width Wild Card series were a screen of Home on their own. */
   compact?: boolean
@@ -361,7 +363,7 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
         </Typography>
       )}
       <Box sx={compact ? {} : ROUNDS_ONLY}>
-        {champ && shown === 'ws' && (
+        {champ && shown === 'ws' && !noChampionLine && (
           <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, mb: 1 }}>
             The {TEAM_NICKNAME[champ.id] ?? champ.abbr} win the {bracket.season} World Series
           </Typography>

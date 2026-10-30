@@ -3,6 +3,8 @@ import { fetchSeasonDates as fetchDates, phaseOn, regularGamesLeft } from '../..
 import type { SeasonDates, SeasonPhase } from '../../shared/mlbSeason.js'
 import { useDevSeasonPhase } from './dev/devSeasonPhase'
 import { OPENING_DAY_KEY } from './constants'
+import { clinchGame } from './postseason'
+import type { Bracket } from './postseason'
 
 export { phaseOn }
 export type { SeasonDates, SeasonPhase }
@@ -107,6 +109,61 @@ export function useSeasonPhase(season: number): SeasonPhase | null {
     fetchSeasonPhase(season).then(p => { if (!cancelled) setPhase(p) })
     return () => { cancelled = true }
   }, [season])
-  if (import.meta.env.DEV && dev !== 'auto') return dev === 'over' ? 'postseason' : dev === 'offseason' ? 'offseason' : 'regular'
+  if (import.meta.env.DEV && dev !== 'auto') return dev === 'over' || dev === 'champion' ? 'postseason' : dev === 'offseason' ? 'offseason' : 'regular'
   return phase
+}
+
+/** "March 25", for a date the winter cards name. */
+export const longDay = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+
+/** The opening day still ahead of `now`: the season shown's in the spring before it opens (the season
+ *  shown stays last year's until then), otherwise the next one's. Null if the calendar cannot be read. */
+export async function fetchNextOpeningDay(season: number, now = new Date()): Promise<string | null> {
+  const shown = await fetchSeasonDates(season)
+  if (shown && shown.regularSeasonStart > localISO(now)) return shown.regularSeasonStart
+  return (await fetchSeasonDates(season + 1))?.regularSeasonStart ?? null
+}
+
+// ─── Which Home to draw ───────────────────────────────────────────────────────
+//
+// THE LAST OUT, NOT THE CALENDAR, ENDS OCTOBER. The phase above is the league's calendar, and it says
+// "postseason" through Oct 31 whenever the World Series actually ended. In 2026 that ended on Oct 28,
+// and for three days Home led with a scoreboard frozen on the last game, promised "the next games"
+// to pick, and hid the free-agent class, which declares the day after. So Home asks the bracket
+// whether a champion exists. The phase stays what it was: the cron jobs share its definition (see
+// shared/mlbSeason.js), and they need the days after the last game to grade the picks.
+
+export type HomeStage = 'regular' | 'postseason' | 'champion' | 'winter'
+
+/** How long a new champion leads Home: long enough to be seen by a reader who checks weekly. */
+export const CHAMPION_DAYS = 7
+
+/**
+ * Pure, for the test. Null while the bracket is still being read past the regular season: `undefined`
+ * is "not read yet", null is "no bracket", where the calendar decides alone (fails toward what Home
+ * drew before, as the phase does).
+ */
+export function homeStageOn(
+  phase: SeasonPhase | null,
+  bracket: Bracket | null | undefined,
+  now = Date.now(),
+): HomeStage | null {
+  if (phase == null) return null
+  if (phase === 'regular') return 'regular'
+  if (phase === 'preseason') return 'winter'
+  if (bracket === undefined) return null
+  if (!bracket?.over) return phase === 'postseason' ? 'postseason' : 'winter'
+  const clinched = clinchGame(bracket.series.W_1)
+  // Over with no final to date it cannot happen from a real feed; the winter is the safe reading.
+  if (!clinched) return 'winter'
+  return now < clinched.startMs + CHAMPION_DAYS * 86_400_000 ? 'champion' : 'winter'
+}
+
+/** The stage for Home, with the dev menu's pin over it. */
+export function useHomeStage(phase: SeasonPhase | null, bracket: Bracket | null | undefined): HomeStage | null {
+  const dev = useDevSeasonPhase()
+  if (import.meta.env.DEV && dev !== 'auto') {
+    return dev === 'over' ? 'postseason' : dev === 'champion' ? 'champion' : dev === 'offseason' ? 'winter' : 'regular'
+  }
+  return homeStageOn(phase, bracket)
 }
