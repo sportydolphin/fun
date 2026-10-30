@@ -22,6 +22,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.185.0',
+    date:    '2026-10-29',
+    changes: [
+      {
+        short: 'Charts name more players',
+        full:  "WPBL's Charts board names more players: the leaders and the players farthest from the pack, up to nine beside another chart and five on a phone. A name moves above, below or to a diagonal of its dot before it is dropped, so the league's best OPS is no longer the one dot left unnamed. The dot you point at or tap is always named. Percent axes stop at 100%, the WAR chart's gridlines read 0.25 and 0.75 rather than 0.3 and 0.8, ERA and FIP gridlines drop the trailing zeros, and the league average label moves off the dots to the edge of the plot.",
+      },
+    ],
+  },
+  {
     version: '1.184.0',
     date:    '2026-10-22',
     changes: [

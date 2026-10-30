@@ -48,6 +48,16 @@ describe('obpSlgChart', () => {
     expect(chart.notable[0]).toBe('slugger')
     expect(chart.notable).not.toContain('cameo')
   })
+
+  it('names the odd dot out as well as the leaders', () => {
+    // Eight hitters bunched around .330 / .400 and one who walks and never hits for power: no
+    // leader ordering reaches the ninth first, but it is the dot a reader asks about.
+    const bunch = Array.from({ length: 8 }, (_, i) => bat(`b${i}`, { ab: 30, h: 9 + (i % 3), doubles: 2, bb: 3 + (i % 2) }))
+    const odd = bat('odd', { ab: 20, h: 2, bb: 14 })
+    const c = obpSlgChart([...bunch, odd], { obp: 0.35, slg: 0.4 }, 10)
+    expect(c.notable).toContain('odd')
+    expect(c.notable.length).toBeLessThanOrEqual(12)
+  })
 })
 
 describe('eraFipChart', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { niceDomain, niceTicks, placeLabels, sharedDomain, sumLevels, sumSegment } from '../charts/scale'
+import { labelSpots, leaderLine, niceDomain, niceTicks, placeLabels, sharedDomain, stepDecimals, sumLevels, sumSegment } from '../charts/scale'
 
 describe('niceTicks', () => {
   it('steps on round numbers', () => {
@@ -21,6 +21,19 @@ describe('niceDomain', () => {
     expect(niceDomain([0.01, 0.3], { floor: 0 }).lo).toBe(0)
   })
 
+  it('never draws a gridline past the ceiling', () => {
+    // Contact% padded and rounded out to whole ticks used to print a 110% line.
+    const d = niceDomain([0.62, 0.985], { floor: 0, ceil: 1 })
+    expect(d.hi).toBe(1)
+    expect(Math.max(...d.ticks)).toBeLessThanOrEqual(1)
+  })
+
+  it('still holds every value under a ceiling off the tick grid', () => {
+    const d = niceDomain([0.1, 0.93], { ceil: 0.95 })
+    expect(d.hi).toBeGreaterThanOrEqual(0.93)
+    expect(Math.max(...d.ticks)).toBeLessThanOrEqual(0.95)
+  })
+
   it('reaches a value the points do not, for a crosshair', () => {
     expect(niceDomain([0.3, 0.4], { include: [0.1] }).lo).toBeLessThanOrEqual(0.1)
   })
@@ -35,6 +48,16 @@ describe('niceDomain', () => {
     const d = sharedDomain([3, 4], [2, 6])
     expect(d.lo).toBeLessThanOrEqual(2)
     expect(d.hi).toBeGreaterThanOrEqual(6)
+  })
+})
+
+describe('stepDecimals', () => {
+  it('prints each tick as itself', () => {
+    expect(stepDecimals(0.25)).toBe(2)
+    expect(stepDecimals(0.5)).toBe(1)
+    expect(stepDecimals(2)).toBe(0)
+    expect(stepDecimals(0.025)).toBe(3)
+    expect(stepDecimals(0.1 + 0.2 - 0.2)).toBe(1)
   })
 })
 
@@ -90,5 +113,32 @@ describe('placeLabels', () => {
     const other = { x: 50, y: 0, w: 8, h: 8 }
     const kept = placeLabels([{ item: 'a', spots: [{ x: 4, y: 0, w: 60, h: 10 }, { x: -70, y: 0, w: 60, h: 10 }], own }], [own, other])
     expect(kept).toEqual([{ item: 'a', spot: 1 }])
+  })
+})
+
+describe('labelSpots', () => {
+  const spots = labelSpots(100, 100, 6, 40, 11)
+
+  it('tries beside the dot first, then above and below, then farther out with a leader', () => {
+    expect(spots[0].anchor).toBe('start')
+    expect(spots[0].box.x).toBeGreaterThan(106)
+    expect(spots[1].anchor).toBe('end')
+    expect(spots[1].box.x + spots[1].box.w).toBeLessThan(94)
+    expect(spots[2].box.y + spots[2].box.h).toBeLessThanOrEqual(100)
+    expect(spots[3].box.y).toBeGreaterThanOrEqual(100)
+    expect(spots.slice(0, 8).every(s => !s.leader)).toBe(true)
+    expect(spots.slice(8).every(s => s.leader)).toBe(true)
+  })
+
+  it("never covers its own dot's center", () => {
+    const core = { x: 97, y: 97, w: 6, h: 6 }
+    for (const s of spots) expect(s.box.x < core.x + core.w && core.x < s.box.x + s.box.w && s.box.y < core.y + core.h && core.y < s.box.y + s.box.h).toBe(false)
+  })
+
+  it("runs a leader from the dot's edge to the label", () => {
+    const l = leaderLine(0, 0, 5, { x: 20, y: -5, w: 30, h: 10 })
+    expect(l.x1).toBeCloseTo(6)
+    expect(l.x2).toBe(20)
+    expect(l.y2).toBe(0)
   })
 })
