@@ -7,11 +7,12 @@ import { track, trackImpression, EVENTS } from '../lib/analytics'
 import {
   fetchWpblVideos, getCachedWpblVideos, fetchWpblVideoTags, getCachedWpblVideoTags,
   fetchWpblSchedule, getCachedWpblSchedule, fetchWpblTeams, getCachedWpblTeams,
+  fetchWpblAllPlayers, getCachedWpblAllPlayers,
 } from './api'
-import { WPBL_WATCH_PAGE } from './routes'
+import { WPBL_WATCH_PAGE, wpblPlayerSlug } from './routes'
 import { watchShelves, videoCredit, videoKindName } from './videoChannels'
 import { HighlightLightbox, VideoThumb, VideoCreditLine, PLAYABLE_HOVER } from './Highlights'
-import type { WpblGame, WpblTeam, WpblVideo, WpblVideoTag } from './types'
+import type { WpblGame, WpblPlayer, WpblTeam, WpblVideo, WpblVideoTag } from './types'
 import { useNewSince } from './newSince'
 
 /**
@@ -254,13 +255,15 @@ export function ClipContextLine({ text, action }: { text: string | null; action?
  * game" and the player page's clips. Renders nothing without a clip, which is most games and
  * most players, so it costs a page nothing to include.
  */
-export function ClipStrip({ clips, labelFor, from, title = 'Clips' }: {
+export function ClipStrip({ clips, labelFor, from, title = 'Clips', all }: {
   clips: WpblVideo[]
   /** The line under each poster and in the lightbox, or null. */
   labelFor: (v: WpblVideo) => string | null
   /** For WPBL_HIGHLIGHT_PLAYED: 'game' or 'player'. */
   from: string
   title?: string
+  /** The whole list, on the Watch page. */
+  all?: { href: string; label: string }
 }) {
   const [active, setActive] = useState<number | null>(null)
   const { scrollRef, canPrev, canNext, syncEdges, page } = useRailPaging(clips.length)
@@ -299,6 +302,7 @@ export function ClipStrip({ clips, labelFor, from, title = 'Clips' }: {
         <RailArrow dir="left" show={canPrev} onClick={() => page(-1)} label="clips" />
         <RailArrow dir="right" show={canNext} onClick={() => page(1)} label="clips" />
       </Box>
+      {all && <Box {...linkTo(all.href)} sx={{ ...CARD_LINK_SX, display: 'inline-block', mt: 0.5 }}>{all.label}</Box>}
       {active != null && clips[active] && (
         <HighlightLightbox
           video={clips[active]}
@@ -371,5 +375,13 @@ export function PlayerClips({ playerId }: { playerId: string }) {
   const gameById = useMemo(() => new Map(games.map(g => [g.id, g])), [games])
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const mine = useMemo(() => videos.filter(v => isPlayerClip(v, tags, playerId)), [videos, tags, playerId])
-  return <ClipStrip clips={mine} from="player" labelFor={v => clipLabel(tags.get(v.video_id), gameById, teamById)} />
+  const [roster, setRoster] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
+  useEffect(() => {
+    let live = true
+    fetchWpblAllPlayers().then(r => { if (live) setRoster(r) }).catch(() => { /* no link to the shelf */ })
+    return () => { live = false }
+  }, [])
+  const me = roster.find(p => p.id === playerId)
+  return <ClipStrip clips={mine} from="player" labelFor={v => clipLabel(tags.get(v.video_id), gameById, teamById)}
+    all={me ? { href: `${WPBL_WATCH_PAGE}#players/${wpblPlayerSlug(me, roster)}`, label: 'All clips ›' } : undefined} />
 }

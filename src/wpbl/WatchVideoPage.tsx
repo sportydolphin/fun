@@ -15,6 +15,7 @@ import { clipLabel, useClipTags } from './Watch'
 import { YouTubePlayer } from './watch/YouTubePlayer'
 import { resolveQueue } from './watch/queue'
 import { eventLabel } from './watch/shelves'
+import { useHideScores } from './watch/hideScores'
 import type { WpblGame, WpblPlayer, WpblTeam, WpblVideo } from './types'
 
 // /wpbl/watch/<YouTube id>: one video, its context and what plays next.
@@ -391,6 +392,7 @@ function ActionButton({ children, onClick, pressed }: { children: React.ReactNod
 function GameLine({ game, teamById, roundLabel, href, onOpen }: {
   game: WpblGame; teamById: Map<string, WpblTeam>; roundLabel: string | null; href: string; onOpen: () => void
 }) {
+  const hideScores = useHideScores()
   const side = (id: string, score: number | null, won: boolean) => {
     const team = teamById.get(id)
     return (
@@ -401,12 +403,12 @@ function GameLine({ game, teamById, roundLabel, href, onOpen }: {
       </Box>
     )
   }
-  const scored = game.away_score != null && game.home_score != null
+  const scored = !hideScores && game.away_score != null && game.home_score != null
   return (
     <Box sx={{ mt: 0.75, display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 1 }}>
-      {side(game.away_team_id, game.away_score, scored && game.away_score! > game.home_score!)}
+      {side(game.away_team_id, scored ? game.away_score : null, scored && game.away_score! > game.home_score!)}
       <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary' }}>@</Typography>
-      {side(game.home_team_id, game.home_score, scored && game.home_score! > game.away_score!)}
+      {side(game.home_team_id, scored ? game.home_score : null, scored && game.home_score! > game.away_score!)}
       {roundLabel && <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{roundLabel}</Typography>}
       <Box component="a" href={href}
         onClick={(e: React.MouseEvent) => { if (!isModified(e)) { e.preventDefault(); onOpen() } }}

@@ -4,12 +4,12 @@ import { ChipRow, FilterChip } from '../ui/FilterChip'
 import { ModalShell, CARD_BORDER, CARD_FILL, TYPE_SCALE, TeamBadge, FOCUS_RING, hoverOnly } from './ui'
 import {
   fetchWpblVideos, fetchWpblVideoTags, fetchWpblSchedule, fetchWpblTeams, fetchWpblAllPlayers,
-  fetchWpblGamePlays, fetchWpblGameLines, saveWpblVideoTag, deleteWpblVideoTag,
+  fetchWpblGamePlays, fetchWpblGameLines, saveWpblVideoTag, deleteWpblVideoTag, fetchWpblAllRunValuePlays,
 } from './api'
 import { gameStartMs } from './constants'
 import { clipLabel, ClipCaption, inningLabel } from './Watch'
 import { HighlightLightbox, VideoThumb, PLAYABLE_HOVER } from './Highlights'
-import type { WpblGame, WpblGamePlay, WpblPlayer, WpblTeam, WpblVideo, WpblVideoTag } from './types'
+import type { WpblGame, WpblGamePlay, WpblPlayer, WpblRunValuePlay, WpblTeam, WpblVideo, WpblVideoTag } from './types'
 import { typePx } from '../ui/scale'
 
 // /admin → Clips: correct what the clip matcher (scripts/wpbl-clip-tags.mjs) got wrong or could not
@@ -25,7 +25,38 @@ import { typePx } from '../ui/scale'
 // "FROM NO GAME" IS A TAG TOO. Saving with nothing chosen stores an empty manual row, which is what
 // stops the matcher putting a wrong tag back. Deleting a tag hands the clip back to the matcher.
 
-type Filter = 'needs' | 'auto' | 'manual' | 'all'
+// TWO MORE QUEUES SINCE THE WATCH PAGE RANKED BY THEM (Oct 30, 2026). "Untagged" is every Short with
+// no row at all, in or out of season, with a one-press "From no game" to clear the social posts. "Home
+// runs" is the other way round: the plays with no clip, each with the clips posted soon after its game,
+// because the Home runs row can only show what has been pinned.
+
+type Filter = 'needs' | 'untagged' | 'homers' | 'auto' | 'manual' | 'all'
+
+/** How long after a game's first pitch the league has posted a clip of it. */
+const CLIP_AFTER_GAME_MS = 3 * 86400e3
+
+/**
+ * Home runs no clip is pinned to, with the Shorts that could show each: posted from first pitch to
+ * three days on, and not pinned to a play themselves. Newest game first.
+ */
+export function homersWithoutClips(plays: readonly WpblRunValuePlay[], games: readonly WpblGame[],
+  shorts: readonly WpblVideo[], tags: ReadonlyMap<string, WpblVideoTag>) {
+  const pinned = new Set([...tags.values()].filter(t => t.play_sequence != null).map(t => `${t.game_id}:${t.play_sequence}`))
+  const gameById = new Map(games.map(g => [g.id, g]))
+  const free = shorts.filter(v => tags.get(v.video_id)?.play_sequence == null)
+  return plays
+    .filter(p => p.event_type === 'home_run' && !pinned.has(`${p.game_id}:${p.sequence}`) && gameById.has(p.game_id))
+    .map(play => {
+      const game = gameById.get(play.game_id)!
+      const start = gameStartMs(game.game_date, game.start_time) ?? Date.parse(`${game.game_date}T17:00:00Z`)
+      const candidates = free.filter(v => {
+        const at = Date.parse(v.published_at)
+        return at >= start && at <= start + CLIP_AFTER_GAME_MS
+      })
+      return { play, game, candidates }
+    })
+    .sort((a, b) => b.game.game_date.localeCompare(a.game.game_date) || a.play.sequence - b.play.sequence)
+}
 
 const METHOD_LABEL: Record<string, string> = {
   play: 'At-bat', game: 'Game', player: 'Player', team: 'Club', manual: 'Manual',
@@ -45,6 +76,14 @@ export default function AdminClips() {
   const [filter, setFilter] = useState<Filter>('needs')
   const [editing, setEditing] = useState<WpblVideo | null>(null)
   const [playing, setPlaying] = useState<WpblVideo | null>(null)
+  const [preset, setPreset] = useState<WpblVideoTag | undefined>(undefined)
+  const [plays, setPlays] = useState<WpblRunValuePlay[]>([])
+  useEffect(() => {
+    if (filter !== 'homers' || plays.length) return
+    let live = true
+    fetchWpblAllRunValuePlays(null).then(p => { if (live) setPlays(p) }).catch(() => { /* the queue stays empty */ })
+    return () => { live = false }
+  }, [filter, plays.length])
 
   const load = useCallback(() => {
     Promise.all([fetchWpblVideos(), fetchWpblVideoTags(true), fetchWpblSchedule(), fetchWpblTeams(), fetchWpblAllPlayers()])
@@ -70,11 +109,20 @@ export default function AdminClips() {
   const inSeason = useCallback((v: WpblVideo) => !season || (v.published_at >= season.from && v.published_at <= season.to), [season])
   const test: Record<Filter, (v: WpblVideo) => boolean> = useMemo(() => ({
     needs: v => inSeason(v) && !tags.get(v.video_id)?.game_id && tags.get(v.video_id)?.method !== 'manual',
+    untagged: v => !tags.has(v.video_id),
+    homers: () => false,
     auto: v => { const m = tags.get(v.video_id)?.method; return !!m && m !== 'manual' },
     manual: v => tags.get(v.video_id)?.method === 'manual',
     all: () => true,
   }), [tags, inSeason])
   const list = shorts.filter(test[filter])
+  const homers = useMemo(() => homersWithoutClips(plays, games, shorts, tags), [plays, games, shorts, tags])
+  // "From no game" in one press: most untagged Shorts are social posts, and an editor per post is
+  // what kept this queue from being worked. Saved like any other, so a --relink cannot undo it.
+  const markNoGame = async (v: WpblVideo) => {
+    const next = { video_id: v.video_id, game_id: null, play_sequence: null, inning: null, half: null, event_type: null, team_id: null, player_ids: [] }
+    if (await saveWpblVideoTag(next)) setTags(prev => new Map(prev).set(v.video_id, { ...next, method: 'manual' }))
+  }
 
   const summary = (v: WpblVideo) => {
     const t = tags.get(v.video_id)
@@ -96,11 +144,39 @@ export default function AdminClips() {
         is kept through every re-tag.
       </Typography>
       <ChipRow mb={1.5}>
-        {(['needs', 'auto', 'manual', 'all'] as Filter[]).map(f => (
-          <FilterChip key={f} active={filter === f} onClick={() => setFilter(f)}>{`${{ needs: 'Needs a game', auto: 'Matched', manual: 'Set by hand', all: 'All Shorts' }[f]} (${shorts.filter(test[f]).length})`}</FilterChip>
+        {(['needs', 'untagged', 'homers', 'auto', 'manual', 'all'] as Filter[]).map(f => (
+          <FilterChip key={f} active={filter === f} onClick={() => setFilter(f)}>{`${{ needs: 'Needs a game', untagged: 'Untagged', homers: 'Home runs', auto: 'Matched', manual: 'Set by hand', all: 'All Shorts' }[f]} (${shorts.filter(test[f]).length})`}</FilterChip>
         ))}
       </ChipRow>
-      {list.length === 0 ? (
+      {filter === 'homers' ? (
+        <Box sx={{ display: 'grid', gap: 1 }}>
+          {homers.length === 0 && <Typography sx={{ color: 'text.secondary', py: 3 }}>{plays.length ? 'Nothing here.' : 'Loading.'}</Typography>}
+          {homers.map(({ play, game, candidates }) => (
+            <Box key={`${play.game_id}:${play.sequence}`} sx={{ p: 1, border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, bgcolor: CARD_FILL }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.3 }}>{play.narrative ?? `${play.batter_name} homered`}</Typography>
+              <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mb: 0.75 }}>
+                {clipLabel({ video_id: '', game_id: game.id, play_sequence: null, inning: play.inning, half: play.half, team_id: null, player_ids: [], method: 'manual' }, gameById, teamById)}
+              </Typography>
+              {candidates.length === 0
+                ? <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>No clip posted after this game</Typography>
+                : (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                    {candidates.map(v => (
+                      <SmallButton key={v.video_id} onClick={() => {
+                        setPreset({
+                          video_id: v.video_id, game_id: game.id, play_sequence: play.sequence, inning: play.inning, half: play.half,
+                          event_type: play.event_type, team_id: play.team_id ?? null,
+                          player_ids: play.batter_id ? [play.batter_id] : [], method: 'manual',
+                        })
+                        setEditing(v)
+                      }}>{v.title}</SmallButton>
+                    ))}
+                  </Box>
+                )}
+            </Box>
+          ))}
+        </Box>
+      ) : list.length === 0 ? (
         <Typography sx={{ color: 'text.secondary', py: 3 }}>Nothing here.</Typography>
       ) : (
         <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' } }}>
@@ -125,7 +201,8 @@ export default function AdminClips() {
                     <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{summary(v)}</Typography>
                   </Box>
                   <Box sx={{ mt: 'auto', pt: 0.5 }}>
-                    <SmallButton onClick={() => setEditing(v)}>Edit tag</SmallButton>
+                    <SmallButton onClick={() => { setPreset(undefined); setEditing(v) }}>Edit tag</SmallButton>
+                    {filter === 'untagged' && <SmallButton onClick={() => { void markNoGame(v) }}>From no game</SmallButton>}
                   </Box>
                 </Box>
               </Box>
@@ -136,7 +213,7 @@ export default function AdminClips() {
       {playing && <HighlightLightbox video={playing} onClose={() => setPlaying(null)} />}
       {editing && (
         <ClipTagEditor
-          video={editing} tag={tags.get(editing.video_id)} games={games} teams={teams} players={players}
+          video={editing} tag={preset ?? tags.get(editing.video_id)} games={games} teams={teams} players={players}
           onClose={() => setEditing(null)}
           onSaved={next => {
             setTags(prev => { const m = new Map(prev); if (next) m.set(next.video_id, next); else m.delete(editing.video_id); return m })

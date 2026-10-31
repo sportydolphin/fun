@@ -103,6 +103,7 @@
   generate. Both sections rewrite through one helper, [`src/lib/ogTags.ts`](../src/lib/ogTags.ts).
   **og:image must stay 1200x630**: Bluesky reads `og:`
   only, ignores the `twitter:card` hint asking for a square thumbnail, and center-crops
-  whatever it gets to one 1.91:1 band. **Search Console is verified**, and Googlebot renders the JS completely,
+  whatever it gets to one 1.91:1 band. A video's card is the one exception: its own 1280x720 YouTube
+  poster, which that crop barely touches (`wpblVideoCard`). **Search Console is verified**, and Googlebot renders the JS completely,
   so pre-rendering is settled as not needed. The remaining constraint is not code: near-zero
   inbound links, worked from [`docs/BACKLINKS.md`](../docs/BACKLINKS.md).

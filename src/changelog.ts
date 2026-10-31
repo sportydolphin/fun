@@ -23,6 +23,24 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.202.0',
+    date:    '2026-10-30',
+    changes: [
+      {
+        short: 'WPBL Watch: Hide scores',
+        full:  "Hide scores on the Games shelf keeps results off the game cards and video pages, and is remembered on this browser.",
+      },
+      {
+        short: 'WPBL: Watch this game and All clips',
+        full:  "Game Center has Watch this game: the game's videos, then its clips in the order of the plays. Player pages link to All clips, and a video playing over a page links to its Video page.",
+      },
+      {
+        short: 'WPBL: video links show the poster',
+        full:  "A shared link to a WPBL video shows its title and poster.",
+      },
+    ],
+  },
+  {
     version: '1.201.0',
     date:    '2026-10-30',
     changes: [

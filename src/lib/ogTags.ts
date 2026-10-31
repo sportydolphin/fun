@@ -11,6 +11,8 @@ export interface OgTags {
   url: string
   /** Absolute, 1200x630, or null to keep index.html's default cover. */
   image: string | null
+  /** Its real size, for an image that cannot be 1200x630: someone else's poster, close to the shape. */
+  imageSize?: { width: number; height: number }
   imageAlt: string | null
   ogType: string
 }
@@ -43,6 +45,10 @@ export function rewriteOgTags(page: Response, tags: OgTags): Response {
     if (tags.imageAlt) replacements['og:image:alt'] = tags.imageAlt
     replacements['twitter:image'] = tags.image
     replacements['twitter:card'] = 'summary_large_image'
+    if (tags.imageSize) {
+      replacements['og:image:width'] = String(tags.imageSize.width)
+      replacements['og:image:height'] = String(tags.imageSize.height)
+    }
   }
 
   return new HTMLRewriter()

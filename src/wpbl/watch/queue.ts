@@ -1,5 +1,5 @@
 import { gameVideos, MORE_GROUPS, watchShelves } from '../videoChannels'
-import type { WpblVideo } from '../types'
+import type { WpblVideo, WpblVideoTag } from '../types'
 
 // What plays after this video, with no imports that touch the page so it can be tested alone.
 
@@ -28,6 +28,19 @@ export function defaultQueue(video: WpblVideo, videos: readonly WpblVideo[]): st
   }
   const group = MORE_GROUPS.find(g => g.test(video))
   return group ? more.filter(group.test).map(v => v.video_id) : [video.video_id]
+}
+
+/**
+ * A whole game, for "Watch this game": its videos, shortest first, then its clips in the order the
+ * plays happened. A clip placed in the game but not an at-bat follows those, by upload.
+ */
+export function gameQueue(gameId: string, videos: readonly WpblVideo[], tags: ReadonlyMap<string, WpblVideoTag>): string[] {
+  const clips = videos
+    .filter(v => v.is_short === true && tags.get(v.video_id)?.game_id === gameId)
+    .sort((a, b) => (tags.get(a.video_id)?.play_sequence ?? Infinity) - (tags.get(b.video_id)?.play_sequence ?? Infinity)
+      || a.published_at.localeCompare(b.published_at))
+  const long = gameVideos(videos, gameId).filter(v => v.is_short !== true)
+  return [...long, ...clips].map(v => v.video_id)
 }
 
 /**
