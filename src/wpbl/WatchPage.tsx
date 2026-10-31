@@ -13,6 +13,7 @@ import { VideoThumb, VideoCreditLine, PLAYABLE_HOVER, videoDateLabel } from './H
 import { ClipCaption, useClipTags } from './Watch'
 import WatchVideoPage from './WatchVideoPage'
 import WatchFront from './watch/WatchFront'
+import { setHideScores, useHideScores } from './watch/hideScores'
 import { CARD_LINK, GroupHeading, PlayerTile, videoLink } from './watch/parts'
 import { clipEvents, clipsOfEvent, clipsOfPlayer, eventLabel, playersWithClips, splitClips } from './watch/shelves'
 import { track, EVENTS } from '../lib/analytics'
@@ -277,6 +278,7 @@ function GamesShelf({ videos, gameIds, games, teams, onOpenGame, fresh, club }: 
 
   return (
     <>
+      <HideScoresRow />
       {groups.map((grp, gi) => (
         <Box component="section" key={grp.key} sx={{ mt: gi === 0 ? 0 : 2.5 }}>
           <GroupHeading>{grp.label}</GroupHeading>
@@ -290,6 +292,19 @@ function GamesShelf({ videos, gameIds, games, teams, onOpenGame, fresh, club }: 
         </Box>
       ))}
     </>
+  )
+}
+
+/** Keeps results off the cards, so a game can be watched not knowing how it went. */
+function HideScoresRow() {
+  const hide = useHideScores()
+  return (
+    <Box sx={{ display: 'flex', mb: 1.25 }}>
+      <FilterChip active={hide} onClick={() => {
+        setHideScores(!hide)
+        track(EVENTS.WPBL_PAGE_CONTROL, { page: 'watch', control: 'hide_scores', value: hide ? 'off' : 'on' })
+      }}>Hide scores</FilterChip>
+    </Box>
   )
 }
 
@@ -380,6 +395,7 @@ function WatchSkeleton({ shelf }: { shelf: Shelf }) {
   )
   return (
     <Box aria-hidden>
+      <HideScoresRow />
       <GroupHeading><TextGhost>Postseason</TextGhost></GroupHeading>
       <Box sx={GAME_GRID}>
         {Array.from({ length: 9 }, (_, i) => (
@@ -429,7 +445,9 @@ function GameWatchCard({ entry, teamById, roundLabel, href, onOpenGame, fresh, q
   const anyNew = videos.some(fresh.isNew)
   const away = teamById.get(game.away_team_id)
   const home = teamById.get(game.home_team_id)
-  const scored = game.away_score != null && game.home_score != null
+  const hideScores = useHideScores()
+  // The winner's bold says the result as plainly as the number does, so it goes with it.
+  const scored = !hideScores && game.away_score != null && game.home_score != null
   const awayWon = scored && game.away_score! > game.home_score!
   const homeWon = scored && game.home_score! > game.away_score!
   const credited = videos.find(v => videoCredit(v))
@@ -472,9 +490,9 @@ function GameWatchCard({ entry, teamById, roundLabel, href, onOpenGame, fresh, q
       </Box>
       <Box sx={GAME_INFO}>
         <Box sx={GAME_SCORE}>
-          {side(away, game.away_team_id, game.away_score, awayWon)}
+          {side(away, game.away_team_id, scored ? game.away_score : null, awayWon)}
           <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.disabled' }}>@</Typography>
-          {side(home, game.home_team_id, game.home_score, homeWon)}
+          {side(home, game.home_team_id, scored ? game.home_score : null, homeWon)}
         </Box>
         <Typography sx={{ gridArea: 'meta', fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>
           {[date, roundLabel].filter(Boolean).join(' · ')}

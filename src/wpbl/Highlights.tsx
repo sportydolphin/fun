@@ -8,6 +8,10 @@ import { typePx } from '../ui/scale'
 import { ICON_SIZE, TYPE_SCALE } from '../ui/card'
 import { YouTubePlayer } from './watch/YouTubePlayer'
 import { useWatchedShare } from './watch/progress'
+import { gameQueue } from './watch/queue'
+import { getCachedWpblVideos, getCachedWpblVideoTags } from './api'
+import { wpblWatchVideoPath } from './routes'
+import { isModified, navigate } from '../nav'
 
 // The pieces every video surface shares: the thumbnail facade, the play badge, the credit line and
 // the lightbox. Three consumers: the Watch page and its Home card (Watch.tsx, WatchPage.tsx), and
@@ -162,6 +166,18 @@ export function HighlightLightbox({ video, onClose, onPrev, onNext, context }: {
           >
             Watch on YouTube ↗
           </Box>
+          {/* Leaves the card or page this opened over, so it closes first: the section is kept
+              mounted behind the new page, and an open lightbox would stay on top of it. */}
+          <Box component="a" href={wpblWatchVideoPath(video.video_id)}
+            onClick={(e: React.MouseEvent) => {
+              if (isModified(e)) return
+              e.preventDefault()
+              onClose()
+              navigate(wpblWatchVideoPath(video.video_id), { watchFrom: 'lightbox' })
+            }}
+            sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
+            Video page ›
+          </Box>
           {(onPrev || onNext) && (
             <>
               <PagerButton label="Previous" glyph="‹" onClick={onPrev} />
@@ -227,7 +243,31 @@ export function GameHighlightCards({ videos }: { videos: WpblVideo[] }) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       {videos.map(v => <GameHighlightCard key={v.video_id} video={v} />)}
+      {videos[0].game_id && <WatchGameLink video={videos[0]} gameId={videos[0].game_id} />}
     </Box>
+  )
+}
+
+/**
+ * The whole game on the Watch page: every video of it, then its clips in the order of the plays.
+ * The list is read at the click rather than held here: a recap draws this before the tags have landed,
+ * and they are in the app-wide cache by the time anybody presses it.
+ */
+function WatchGameLink({ video, gameId }: { video: WpblVideo; gameId: string }) {
+  const to = wpblWatchVideoPath(video.video_id)
+  return (
+    <Box component="a" href={to}
+      onClick={(e: React.MouseEvent) => {
+        track(EVENTS.WPBL_PAGE_OPEN, { page: 'game', section: 'videos', kind: 'watch', value: gameId })
+        if (isModified(e)) return
+        e.preventDefault()
+        const queue = gameQueue(gameId, getCachedWpblVideos() ?? [video], getCachedWpblVideoTags() ?? new Map())
+        navigate(to, { watchFrom: 'game', watchQueue: queue })
+      }}
+      sx={{
+        alignSelf: 'flex-start', fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)', textDecoration: 'none',
+        ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
+      }}>Watch this game ›</Box>
   )
 }
 

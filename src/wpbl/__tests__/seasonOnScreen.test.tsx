@@ -84,6 +84,7 @@ const EXEMPT: Record<string, string> = {
   'src/wpbl/WinProbView.tsx': 'the win model is how games go, and a new year has too few plays to train one',
   'src/wpbl/gameDetail/GameDetailModal.tsx': 'the same win model, for the swing of the game',
   'src/wpbl/ScoreCardNotes.tsx': 'grouped by game for each card, never summed across games',
+  'src/wpbl/AdminClips.tsx': 'lists single home runs with no clip, for the owner, and sums nothing',
   'src/wpbl/watch/useWatchRankings.ts': 'ranks single games and plays across a catalog with no season on screen, and sums nothing',
   'src/wpbl/WpblApp.tsx': 'warms the reads Home makes, into the cache, and sums nothing',
   'src/wpbl/player/usePlayerReads.ts': 'reads the league lines for the card, which PlayerDetail.tsx cuts to the season before they are summed',

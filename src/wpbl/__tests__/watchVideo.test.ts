@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
-import { defaultQueue, resolveQueue } from '../watch/queue'
+import { defaultQueue, gameQueue, resolveQueue } from '../watch/queue'
+import { resetHideScores, setHideScores } from '../watch/hideScores'
+import { wpblVideoCard } from '../ogCard'
+import { homersWithoutClips } from '../AdminClips'
 import { markWatched, resetProgressCache, resumeAt, saveProgress, watchedShare } from '../watch/progress'
 import { formatDuration, formatViews, MORE_GROUPS, watchShelves } from '../videoChannels'
 import { clipEvents, clipsOfEvent, clipsOfPlayer, continueWatching, eventLabel, featuredVideo, FEATURED_VIDEO_ID, playersWithClips, splitClips } from '../watch/shelves'
@@ -287,5 +290,65 @@ describe('the ranked rows', () => {
     expect(playersWithClips(clips, tags, roster).map(p => [p.player.name, p.count])).toEqual([['Ann', 2], ['Bo', 1], ['Cam', 1]])
     expect(eventLabel('home_run')).toBe('Home run')
     expect(eventLabel(null)).toBeNull()
+  })
+})
+
+describe('phase 4', () => {
+  const tag = (video_id: string, over: Partial<WpblVideoTag>): WpblVideoTag => ({
+    video_id, game_id: null, play_sequence: null, inning: null, half: null, team_id: null, player_ids: [], method: 'game', ...over,
+  })
+
+  it('queues a game\'s videos, then its clips in the order of the plays', () => {
+    const list = [
+      video('late', { is_short: true, published_at: '2026-09-02T00:00:00Z' }),
+      video('early', { is_short: true, published_at: '2026-09-02T01:00:00Z' }),
+      video('nopin', { is_short: true, published_at: '2026-09-01T00:00:00Z' }),
+      video('other', { is_short: true }),
+      video('cond', { kind: 'condensed', game_id: 'g' }),
+      video('reel', { kind: 'highlight', game_id: 'g' }),
+    ]
+    const tags = new Map([
+      ['late', tag('late', { game_id: 'g', play_sequence: 50 })],
+      ['early', tag('early', { game_id: 'g', play_sequence: 5 })],
+      ['nopin', tag('nopin', { game_id: 'g' })],
+      ['other', tag('other', { game_id: 'h', play_sequence: 1 })],
+    ])
+    expect(gameQueue('g', list, tags)).toEqual(['reel', 'cond', 'early', 'late', 'nopin'])
+  })
+
+  it('keeps the hide-scores choice, and shows scores when the store cannot say', () => {
+    localStorage.clear()
+    resetHideScores()
+    setHideScores(true)
+    expect(localStorage.getItem('sdWatchHideScores')).toBe('1')
+    setHideScores(false)
+    expect(localStorage.getItem('sdWatchHideScores')).toBe('0')
+  })
+
+  it('cards a video with its own poster only where the sync stored the large one', () => {
+    const base = { video_id: 'abc', title: 'All 7 Grand Slams', kind: 'compilation', is_short: false }
+    const card = wpblVideoCard({ ...base, thumbnail_url: 'https://i.ytimg.com/vi/abc/maxresdefault.jpg' })
+    expect(card.image).toContain('maxresdefault')
+    expect(card.imageSize).toEqual({ width: 1280, height: 720 })
+    expect(card.description).toContain('A compilation')
+    const small = wpblVideoCard({ ...base, thumbnail_url: 'https://i.ytimg.com/vi/abc/hqdefault.jpg' })
+    expect(small.image).toBeNull()
+    expect(small.imageSize).toBeUndefined()
+    expect(wpblVideoCard({ ...base, is_short: true, thumbnail_url: null }).description).toContain('A clip')
+  })
+
+  it('lists a home run with no clip, and the free clips posted after its game', () => {
+    const game = { id: 'g', game_date: '2026-09-01', start_time: null, status: 'final' } as unknown as WpblGame
+    const play = (sequence: number, event_type: string) => ({ game_id: 'g', sequence, event_type, inning: 1, half: 'top' }) as unknown as WpblRunValuePlay
+    const shorts = [
+      video('after', { is_short: true, published_at: '2026-09-02T00:00:00Z' }),
+      video('before', { is_short: true, published_at: '2026-08-01T00:00:00Z' }),
+      video('pinned', { is_short: true, published_at: '2026-09-02T00:00:00Z' }),
+      video('weeks', { is_short: true, published_at: '2026-09-20T00:00:00Z' }),
+    ]
+    const tags = new Map([['pinned', tag('pinned', { game_id: 'g', play_sequence: 3 })]])
+    const out = homersWithoutClips([play(3, 'home_run'), play(4, 'home_run'), play(5, 'single')], [game], shorts, tags)
+    expect(out.map(h => h.play.sequence)).toEqual([4])
+    expect(out[0].candidates.map(v => v.video_id)).toEqual(['after'])
   })
 })

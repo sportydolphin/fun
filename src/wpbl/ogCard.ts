@@ -274,3 +274,45 @@ export function wpblGameCard(game: WpblCardGame, teams: readonly WpblCardTeam[])
         + 'Full box score, play-by-play and win probability.',
   }
 }
+
+// ─── A video ──────────────────────────────────────────────────────────────────
+
+export interface WpblCardVideo {
+  video_id: string
+  title: string
+  kind: string
+  is_short: boolean | null
+  thumbnail_url: string | null
+}
+
+const VIDEO_KIND_WORD: Record<string, string> = {
+  highlight: 'Highlights', condensed: 'A condensed game', full_game: 'A full game', compilation: 'A compilation',
+  press: 'A press conference', podcast: 'A podcast episode',
+}
+
+/**
+ * A shared video's card: its title, and its own poster.
+ *
+ * YOUTUBE'S POSTER RATHER THAN 1200x630 ART, the one exception to the rule in functions/CLAUDE.md, for
+ * the reason that rule exists. Bluesky center-crops to 1.91:1, which ruined a square headshot; the same
+ * crop takes 6% off the top and bottom of a 16:9 poster, and a Short's poster is the vertical frame
+ * centered in 16:9, so its face survives. Generating art for 470 videos, posted several a week, would
+ * be a job and a store for a picture YouTube already serves.
+ *
+ * Only the 1280x720 poster the sync stores, because the size tags must tell the truth: without one the
+ * site's default cover stands, which is still a correct image.
+ */
+export function wpblVideoCard(video: WpblCardVideo): {
+  title: string; ogTitle: string; description: string; image: string | null; imageSize?: { width: number; height: number }; imageAlt: string
+} {
+  const what = video.is_short === true ? 'A clip' : VIDEO_KIND_WORD[video.kind] ?? 'A video'
+  const large = video.thumbnail_url?.includes('maxresdefault') ? video.thumbnail_url : null
+  return {
+    title: `${video.title} | WPBL video | sportydolphin.fun`,
+    ogTitle: video.title,
+    description: `${what} from the Women's Pro Baseball League: ${video.title}`,
+    image: large,
+    ...(large ? { imageSize: { width: 1280, height: 720 } } : null),
+    imageAlt: video.title,
+  }
+}
