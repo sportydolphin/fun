@@ -23,6 +23,24 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.201.0',
+    date:    '2026-10-30',
+    changes: [
+      {
+        short: 'WPBL Watch: Best games',
+        full:  "Best games ranks every game by its swings in win probability and opens the condensed game. Lead changes, ties and extra innings are listed. Scores stay off the row.",
+      },
+      {
+        short: 'WPBL Watch: Biggest plays and Home runs',
+        full:  "Biggest plays ranks clips by how far the play moved win probability. Home runs has its own row, and Plays filters by kind of play and by player.",
+      },
+      {
+        short: 'WPBL Watch: Players',
+        full:  "A Players shelf lists everyone in a clip. Each player has their own view of their clips, with an address to share.",
+      },
+    ],
+  },
+  {
     version: '1.200.0',
     date:    '2026-10-30',
     changes: [

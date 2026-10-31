@@ -34,6 +34,44 @@ export function splitClips(clips: readonly WpblVideo[], tags: ReadonlyMap<string
   return { plays, rest }
 }
 
+/** "Home run" from `home_run`, or null. */
+export const eventLabel = (e: string | null | undefined): string | null =>
+  (e ? e.charAt(0).toUpperCase() + e.slice(1).replace(/_/g, ' ') : null)
+
+/** The Shorts that show this kind of play, newest first. */
+export const clipsOfEvent = (clips: readonly WpblVideo[], tags: ReadonlyMap<string, WpblVideoTag>, event: string): WpblVideo[] =>
+  clips.filter(v => tags.get(v.video_id)?.event_type === event)
+
+/** Every kind of play the clips show, the most common first. */
+export function clipEvents(clips: readonly WpblVideo[], tags: ReadonlyMap<string, WpblVideoTag>): { event: string; count: number }[] {
+  const counts = new Map<string, number>()
+  for (const v of clips) {
+    const e = tags.get(v.video_id)?.event_type
+    if (e) counts.set(e, (counts.get(e) ?? 0) + 1)
+  }
+  return [...counts].map(([event, count]) => ({ event, count })).sort((a, b) => b.count - a.count || a.event.localeCompare(b.event))
+}
+
+/** The Shorts a tag says this player is in. */
+export const clipsOfPlayer = (clips: readonly WpblVideo[], tags: ReadonlyMap<string, WpblVideoTag>, playerId: string): WpblVideo[] =>
+  clips.filter(v => tags.get(v.video_id)?.player_ids.includes(playerId))
+
+/** Every player in a clip, with how many, most first. Ties by name, so the order holds still. */
+export function playersWithClips<P extends { id: string; name: string }>(
+  clips: readonly WpblVideo[], tags: ReadonlyMap<string, WpblVideoTag>, players: readonly P[],
+): { player: P; count: number }[] {
+  const counts = new Map<string, number>()
+  for (const v of clips) {
+    for (const id of tags.get(v.video_id)?.player_ids ?? []) counts.set(id, (counts.get(id) ?? 0) + 1)
+  }
+  const out: { player: P; count: number }[] = []
+  for (const player of players) {
+    const count = counts.get(player.id)
+    if (count) out.push({ player, count })
+  }
+  return out.sort((a, b) => b.count - a.count || a.player.name.localeCompare(b.player.name))
+}
+
 /** The videos to pick up again, in the order the reader last watched them. */
 export function continueWatching(videos: readonly WpblVideo[], ids: readonly string[]): WpblVideo[] {
   const byId = new Map(videos.map(v => [v.video_id, v]))

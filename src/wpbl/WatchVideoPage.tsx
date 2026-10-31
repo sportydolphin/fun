@@ -14,6 +14,7 @@ import { VideoThumb, VideoCreditLine, PagerButton, videoDateLabel } from './High
 import { clipLabel, useClipTags } from './Watch'
 import { YouTubePlayer } from './watch/YouTubePlayer'
 import { resolveQueue } from './watch/queue'
+import { eventLabel } from './watch/shelves'
 import type { WpblGame, WpblPlayer, WpblTeam, WpblVideo } from './types'
 
 // /wpbl/watch/<YouTube id>: one video, its context and what plays next.
@@ -39,9 +40,6 @@ const SWIPE_PX = 50
 function readAutoplay(): boolean {
   try { return localStorage.getItem(AUTOPLAY_KEY) !== '0' } catch { return true }
 }
-
-/** "Home run" from `home_run`. */
-const eventLabel = (e: string | null | undefined) => (e ? e.charAt(0).toUpperCase() + e.slice(1).replace(/_/g, ' ') : null)
 
 function moveTo(video: WpblVideo, queue: WpblVideo[]) {
   // The list goes with the move even when it was only a default: a default is worked out from the

@@ -1019,6 +1019,8 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
   with a real 404 from [`functions/wpbl/index.ts`](functions/wpbl/index.ts). Every surface plays through
   [`src/wpbl/watch/YouTubePlayer.tsx`](src/wpbl/watch/YouTubePlayer.tsx), on the IFrame API, which records
   progress per browser ([`watch/progress.ts`](src/wpbl/watch/progress.ts)) and reports the end of a video.
+  Best games and Biggest plays ([`watch/rankings.ts`](src/wpbl/watch/rankings.ts)) rank by the win model, and
+  read the play log only once a reader comes near them ([`watch/useWatchRankings.ts`](src/wpbl/watch/useWatchRankings.ts)).
   The old league-page "media shelf" hid all three behind a collapsible segmented card.
 - The WPBL pages that are not tabs, in order, for the More menu, its phone sheet and the footer →
   [`src/wpbl/morePages.ts`](src/wpbl/morePages.ts). One list, so the three cannot drift
