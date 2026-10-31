@@ -29,6 +29,7 @@ on:
       - Admin Health Alert
       - Daily Bot Predictions
       - Daily Pick Reminders
+      - Database Backup
       - Game Start Reminders
       - MLB Lines Mirror
       - Pull feature requests

@@ -56,6 +56,9 @@
 10. **Search examples from use**, once "Offered nothing for" has a few weeks in it (early November).
     *ROADMAP-WPBL, "Search: what's next" item 13.*
 
+- ✅ **Database backup outside Supabase** (Oct 31): nightly, encrypted, restored and compared on every
+  run. Left, for the owner: put the private key in a password manager. *docs/BACKUPS.md.*
+
 ## Winter: December to March, all of it before the 2027 season
 
 11. **Spring readiness**, the one block that cannot slip past March:
