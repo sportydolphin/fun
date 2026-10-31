@@ -13,7 +13,7 @@ import seoSource from '../../seo.ts?raw'
 import { TEAM_ABBR } from '../constants'
 import {
   MLB_VIEW_PATHS, MLB_CLUBS, MLB_STATIC_PATHS, mlbTeamPath, mlbPlayerPath, mlbPlayerIdFromPath,
-  mlbTargetFromPath, mlbTargetFromUrl, mlbLegacyTarget, mlbUrlFor, isMlbPath,
+  mlbTargetFromPath, mlbTargetFromUrl, mlbLegacyTarget, mlbUrlFor, isMlbPath, isMlbSection, mlbPostseasonSeasonFromPath, mlbPostseasonPath,
   mlbGamePath, mlbGamePkFromPath, mlbLegacyGamePk, mlbSeriesPath, mlbSeriesFromPath, isMlbSheetPath, MLB_SERIES_SLUGS,
 } from '../routes'
 import { SERIES_ORDER } from '../postseason'
@@ -158,7 +158,7 @@ describe('every page is discoverable and distinct', () => {
   it('lists only real series addresses', () => {
     const series = [...sitemap.matchAll(/<loc>https:\/\/sportydolphin\.fun(\/mlb\/postseason\/[^<]*)<\/loc>/g)].map(m => m[1])
     expect(series.length).toBeGreaterThan(0)
-    for (const p of series) expect(mlbSeriesFromPath(p), p).not.toBeNull()
+    for (const p of series) expect(mlbSeriesFromPath(p) ?? mlbPostseasonSeasonFromPath(p), p).not.toBeNull()
   })
 
   it('has tags of its own in seo.ts', () => {
@@ -247,16 +247,35 @@ describe('the edge function', () => {
     expect((await onRequestGet(ctx('https://sportydolphin.fun/mlb/games/2'))).status).toBe(404)
   })
 
+  it("reads a season's recap address, and never as a series", () => {
+    expect(mlbPostseasonPath(2026)).toBe('/mlb/postseason/2026')
+    expect(mlbPostseasonSeasonFromPath('/mlb/postseason/2026/')).toBe(2026)
+    for (const p of ['/mlb/postseason', '/mlb/postseason/2021', '/mlb/postseason/26', '/mlb/postseason/2026/alcs']) {
+      expect(mlbPostseasonSeasonFromPath(p), p).toBeNull()
+    }
+  })
+
   it('serves a series slot, and 404s one that names no series', async () => {
     const c = ctx('https://sportydolphin.fun/mlb/postseason/2026/alds-1')
     await onRequestGet(c)
     expect(c.next).toHaveBeenCalled()
-    for (const p of ['2026/alds-3', '2021/alds-1', '2026', `${new Date().getUTCFullYear() + 2}/alcs`]) {
+    for (const p of ['2026/alds-3', '2021/alds-1', '2021', '26', `${new Date().getUTCFullYear() + 2}`, `${new Date().getUTCFullYear() + 2}/alcs`]) {
       expect((await onRequestGet(ctx(`https://sportydolphin.fun/mlb/postseason/${p}`))).status, p).toBe(404)
     }
     const res = await onRequestGet(ctx('https://sportydolphin.fun/mlb/postseason/2026/alcs/'))
     expect(res.status).toBe(301)
     expect(res.headers.get('location')).toBe('https://sportydolphin.fun/mlb/postseason/2026/alcs')
+  })
+
+  it("serves a season's recap and folds its trailing slash", async () => {
+    const c = ctx('https://sportydolphin.fun/mlb/postseason/2026')
+    await onRequestGet(c)
+    expect(c.next).toHaveBeenCalled()
+    const res = await onRequestGet(ctx('https://sportydolphin.fun/mlb/postseason/2026/'))
+    expect(res.status).toBe(301)
+    expect(res.headers.get('location')).toBe('https://sportydolphin.fun/mlb/postseason/2026')
+    expect(isMlbSection('/mlb/postseason/2026')).toBe(true)
+    expect(isMlbPath('/mlb/postseason/2026')).toBe(false)
   })
 
   // /mlb/compare/*, every player squared, with the same three jobs as a player path.

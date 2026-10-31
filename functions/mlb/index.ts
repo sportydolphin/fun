@@ -20,7 +20,7 @@
 //    not show (spring training, an exhibition, another sport's) is a 404 too, since the page
 //    would open nothing. And the game-start push's old `/mlb?open=game&gamePk=…` folds onto it.
 //
-// 4. THE SAME FOR /mlb/postseason/*, a bracket slot in a season. No StatsAPI read: the slots are a
+// 4. THE SAME FOR /mlb/postseason/*, a season's recap or a bracket slot in it. No StatsAPI read: the slots are a
 //    fixed list and the season is checked against the calendar, which is all the evidence a 404
 //    needs. A season whose bracket is not out yet is let through, and the page steps off it.
 //
@@ -51,7 +51,7 @@
 import {
   mlbCompareTargetFromPath, mlbComparePath, mlbCompareStartPath, mlbCompareSeasonFromSearch, MLB_COMPARE_BASE,
   mlbLandingChunks, mlbLegacyGamePk, mlbLegacyTarget, mlbGamePath, mlbGamePkFromPath, mlbPlayerIdFromPath, mlbPlayerPath,
-  mlbUrlFor, mlbSeriesFromPath, mlbSeriesPath, MLB_GAMES_BASE, MLB_LEGACY_GAME_PARAMS, MLB_LEGACY_PARAMS,
+  mlbUrlFor, mlbSeriesFromPath, mlbSeriesPath, mlbPostseasonPath, mlbPostseasonSeasonFromPath, MLB_GAMES_BASE, MLB_LEGACY_GAME_PARAMS, MLB_LEGACY_PARAMS,
   MLB_PLAYERS_BASE, MLB_POSTSEASON_BASE,
 } from '../../src/mlb/routes'
 import { SCORED_GAME_TYPES } from '../../src/mlb/gameStatus'
@@ -160,10 +160,12 @@ async function game(context: Ctx, url: URL, path: string): Promise<Response> {
 
 function series(context: Ctx, url: URL, path: string): Promise<Response> | Response {
   const ref = mlbSeriesFromPath(path)
+  const recap = mlbPostseasonSeasonFromPath(path)
+  const season = ref?.season ?? recap
   // A season that has not started cannot have a bracket. Next year is allowed for the few hours
   // around New Year where the edge's clock and a reader's disagree.
-  if (!ref || ref.season > new Date().getUTCFullYear() + 1) return notFound(context)
-  const canonical = mlbSeriesPath(ref.season, ref.id)
+  if (season == null || season > new Date().getUTCFullYear() + 1) return notFound(context)
+  const canonical = ref ? mlbSeriesPath(ref.season, ref.id) : mlbPostseasonPath(season)
   if (url.pathname !== canonical) {
     const to = new URL(url)
     to.pathname = canonical

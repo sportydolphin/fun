@@ -37,6 +37,8 @@ import { TrackedCard } from '../components/TrackedCard'
 import { PlayoffBracketCard } from './PlayoffBracket'
 import { FollowTeamPrompt } from './TeamPicker'
 import { ChampionCard } from './ChampionCard'
+import { linkTo } from '../../nav'
+import { mlbPostseasonPath } from '../routes'
 import { AwardsCard } from './AwardsCard'
 import { useSeasonPhase, useHomeStage, isSeasonOver } from '../seasonPhase'
 import { useDevNoTeam } from '../dev/devSeasonPhase'
@@ -479,7 +481,8 @@ function HomeViewInner({
 
       {stage === 'champion' && bracket?.over && (
         <TrackedCard card="champion" sx={{ mb: HOME_GAP }}>
-          <ChampionCard bracket={bracket} onTeamClick={onTeamClick} onPlayerClick={onPlayerClick} />
+          <ChampionCard bracket={bracket} linkLabel="Recap" linkProps={linkTo(mlbPostseasonPath(bracket.season))}
+            onTeamClick={onTeamClick} onPlayerClick={onPlayerClick} />
         </TrackedCard>
       )}
 

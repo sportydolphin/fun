@@ -7,7 +7,7 @@ import { Box, Skeleton, Typography } from '@mui/material'
 import { accentColor, edgeTone, cardGradient } from '../lib/colorUtils'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
-import { fetchRecentGamePerformers, fetchPostseasonGamePerformers } from './Spotlight'
+import { fetchRecentGamePerformers, fetchPostseasonGamePerformers, fetchWorldSeriesPerformers } from './Spotlight'
 import type { HotGuyData } from './Spotlight'
 import { fetchFinalGames } from './FinalGames'
 import type { FinalGameSummary } from './FinalGames'
@@ -62,11 +62,18 @@ export function TopPerformers({
   onPlayerClick,
   onTeamClick,
   postseason = false,
+  worldSeriesOf,
+  onOpenGame,
 }: {
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
   /** The regular season is over: build the card from postseason box scores (see Spotlight.tsx). */
   postseason?:    boolean
+  /** This season's World Series, for its recap page, whatever today's date. */
+  worldSeriesOf?: number
+  /** Leave for the game's address. For a page outside the section, where Game Center's sheet would
+   *  move the address onto the game and take the page out from under itself. */
+  onOpenGame?:    (gamePk: number) => void
 }) {
   const [performers, setPerformers] = useState<PerformerEntry[]>([])
   const [loading,    setLoading]    = useState(true)
@@ -100,10 +107,12 @@ export function TopPerformers({
     // there is nothing to build it from, and the last regular-season days stand in, for as long as the
     // regular-season lookback still reaches them: that is the day or two between the two, when they
     // are still the news.
-    const load = postseason
-      ? fetchPostseasonGamePerformers().then(ps => ps.length
-          ? ps.map(p => ({ ...p, role: p.isPitcher ? 'pitcher' as const : 'hitter' as const }))
-          : regular())
+    const withRole = (ps: HotGuyData[]): PerformerEntry[] =>
+      ps.map(p => ({ ...p, role: p.isPitcher ? 'pitcher' as const : 'hitter' as const }))
+    const load = worldSeriesOf != null
+      ? fetchWorldSeriesPerformers(worldSeriesOf).then(withRole)
+      : postseason
+      ? fetchPostseasonGamePerformers().then(ps => ps.length ? withRole(ps) : regular())
       : regular()
     load.then(list => {
       if (cancelled) return
@@ -112,7 +121,7 @@ export function TopPerformers({
       setLoading(false)
     })
     return () => { cancelled = true }
-  }, [postseason])
+  }, [postseason, worldSeriesOf])
 
   // Back-from-Search restore: reopen the box score the user cross-linked from.
   useEffect(() => {
@@ -181,6 +190,7 @@ export function TopPerformers({
   // Resolves the specific game this performance came from (via the league-wide,
   // per-date cache in FinalGames) and opens it in the existing recap viewer.
   const viewBoxScore = async (entry: PerformerEntry) => {
+    if (onOpenGame && entry.gamePk) { onOpenGame(entry.gamePk); return }
     if (!entry.date || boxScoreLoadingId) return
     setBoxScoreLoadingId(entry.playerId)
     try {
@@ -207,7 +217,7 @@ export function TopPerformers({
             flex: 1, fontWeight: 800, fontSize: TYPE_SCALE.micro, textTransform: 'uppercase',
             letterSpacing: typePx(1), color: 'text.secondary', lineHeight: 1, whiteSpace: 'nowrap',
           }}>
-            {postseason ? 'Postseason Standout' : 'Single-Game Standout'}
+            {postseason || worldSeriesOf != null ? 'Postseason Standout' : 'Single-Game Standout'}
           </Typography>
           <Box sx={{ height: ICON_SIZE.md, width: '4.5rem', display: 'flex', alignItems: 'center' }}>
             <Skeleton variant="text" sx={{ width: '100%', fontSize: TYPE_SCALE.caption }} />

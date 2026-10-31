@@ -22,6 +22,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.197.0',
+    date:    '2026-10-30',
+    changes: [
+      {
+        short: 'MLB: a postseason page for each season',
+        full:  "Each MLB postseason since 2022 has a page: the champion, the World Series MVP, the path to the title, standouts, the bracket and the leaders in HR, RBI, AVG, K, ERA and SV. Home's champion card and bracket link to it.",
+      },
+      {
+        short: 'MLB Home: World Series standouts all winter',
+        full:  "The Postseason Standout card on MLB Home now shows the World Series through the offseason.",
+      },
+    ],
+  },
+  {
     version: '1.196.0',
     date:    '2026-10-30',
     changes: [

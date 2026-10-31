@@ -268,6 +268,30 @@ export function fetchWorldSeriesMvp(season: number): Promise<SeriesMvp | null> {
     .catch(() => null)
 }
 
+/** Whether a season's World Series has most likely been decided, for reserving a champion's room
+ *  before the bracket is read. The last days of October onward, or any earlier season. */
+export function postseasonLikelyOver(season: number, currentSeason: number, now = new Date()): boolean {
+  if (season !== currentSeason) return season < currentSeason
+  const m = now.getMonth()
+  return m >= 10 || m <= 2 || (m === 9 && now.getDate() >= 29)
+}
+
+export interface PathStep { series: PsSeries; opp: PsTeam; wins: number; losses: number }
+
+/** Every series the champion played, first round first. Empty until there is one. */
+export function championPath(b: Bracket): PathStep[] {
+  const champ = b.series.W_1.winnerId
+  if (champ == null) return []
+  return SERIES_ORDER
+    .map(id => b.series[id])
+    .filter(s => s.winnerId === champ)
+    .sort((x, y) => ROUND_ORDER.indexOf(x.round) - ROUND_ORDER.indexOf(y.round))
+    .map(s => {
+      const isTop = s.top.id === champ
+      return { series: s, opp: isTop ? s.bottom : s.top, wins: isTop ? s.winsTop : s.winsBottom, losses: isTop ? s.winsBottom : s.winsTop }
+    })
+}
+
 /** Wins needed to take the series: 2 of 3, 3 of 5, 4 of 7. */
 export const winsNeeded = (s: Pick<PsSeries, 'bestOf'>): number => Math.floor(s.bestOf / 2) + 1
 

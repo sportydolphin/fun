@@ -1,7 +1,7 @@
-import { useEffect, useState, lazy, Suspense } from 'react'
+import { useEffect, useState } from 'react'
 import { Box, Skeleton, Typography } from '@mui/material'
 import { TYPE_SCALE, edge } from '../../ui/card'
-import { linkPress, FOCUS_RING } from '../../ui/interaction'
+import { FOCUS_RING } from '../../ui/interaction'
 import { NameText } from '../../ui/NameText'
 import { trophyPalette } from '../../ui/trophy'
 import { useDark } from '../../ui/useDark'
@@ -11,9 +11,6 @@ import { HEADSHOT, TEAM_NICKNAME } from '../constants'
 import { LINK_SX, playerLink, teamLink } from '../lib/links'
 import { fetchWorldSeriesMvp } from '../postseason'
 import type { Bracket, SeriesMvp } from '../postseason'
-import { mlbSeriesPath } from '../routes'
-
-const SeriesSheet = lazy(() => import('./SeriesSheet'))
 
 /**
  * The new champion, leading Home for the week after the final out (see `homeStageOn`). The bracket
@@ -23,15 +20,17 @@ const SeriesSheet = lazy(() => import('./SeriesSheet'))
  * The MVP is the one thing here that needs a read, and it is published with the final out, so its row
  * holds its room until the read returns rather than arriving under the name.
  */
-export function ChampionCard({ bracket, onTeamClick, onPlayerClick }: {
+export function ChampionCard({ bracket, linkLabel, linkProps, onTeamClick, onPlayerClick }: {
   bracket: Bracket
+  /** The strip's one link: the recap on Home, the series on the recap. */
+  linkLabel: string
+  linkProps: Record<string, unknown>
   onTeamClick?: (id: number) => void
   onPlayerClick?: (id: number) => void
 }) {
   const dark = useDark()
   const { gold, goldSoft, stripBg, cardBg } = trophyPalette(dark)
   const [mvp, setMvp] = useState<SeriesMvp | null | undefined>(undefined)
-  const [sheetOpen, setSheetOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -60,11 +59,11 @@ export function ChampionCard({ bracket, onTeamClick, onPlayerClick }: {
         }}>
           {bracket.season} World Series champions
         </Typography>
-        <Box {...linkPress(mlbSeriesPath(bracket.season, ws.id), () => setSheetOpen(true))} sx={{
+        <Box {...linkProps} sx={{
           ...LINK_SX, flexShrink: 0, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: goldSoft,
           whiteSpace: 'nowrap', '&:hover': { textDecoration: 'underline' }, ...FOCUS_RING,
         }}>
-          Series ›
+          {linkLabel} ›
         </Box>
       </Box>
 
@@ -112,12 +111,42 @@ export function ChampionCard({ bracket, onTeamClick, onPlayerClick }: {
           </Box>
         )}
       </Box>
+    </Box>
+  )
+}
 
-      {sheetOpen && (
-        <Suspense fallback={null}>
-          <SeriesSheet s={ws} bracket={bracket} onClose={() => setSheetOpen(false)} onTeamClick={onTeamClick} onPlayerClick={onPlayerClick} />
-        </Suspense>
-      )}
+/** The card drawn empty, for the recap page before its bracket is read (src/CLAUDE.md). */
+export function ChampionCardSkeleton({ season }: { season: number }) {
+  const dark = useDark()
+  const { gold, goldSoft, stripBg, cardBg } = trophyPalette(dark)
+  return (
+    <Box aria-hidden sx={{ borderRadius: 3, overflow: 'hidden', border: '1px solid', borderColor: edge(gold), backgroundImage: cardBg }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 0.75, background: stripBg, borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Typography sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.meta, fontWeight: 900, letterSpacing: typePx(1), textTransform: 'uppercase', color: goldSoft }}>
+          {season} World Series champions
+        </Typography>
+      </Box>
+      <Box sx={{
+        p: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
+        alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between', gap: { xs: 1.5, sm: 3 },
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.75, minWidth: 0 }}>
+          <Box sx={{ width: chromePx(52), height: chromePx(52), flexShrink: 0 }} />
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.display, lineHeight: 1.15 }}><Skeleton width="12rem" /></Typography>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, mt: 0.35 }}><Skeleton width="7rem" /></Typography>
+          </Box>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, flexShrink: 0 }}>
+          <Box sx={{ width: chromePx(40), aspectRatio: '2 / 3', borderRadius: 1.5, flexShrink: 0, bgcolor: 'action.hover' }} />
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.primary' }}>
+              World Series MVP
+            </Typography>
+            <Typography sx={{ fontSize: TYPE_SCALE.title }}><Skeleton width="8rem" /></Typography>
+          </Box>
+        </Box>
+      </Box>
     </Box>
   )
 }

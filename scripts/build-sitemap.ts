@@ -23,7 +23,7 @@ import {
   WPBL_TEAMS_BASE, teamSlug, wpblSeriesPaths, WPBL_RECAP_YEARS, wpblSeasonPath,
 } from '../src/wpbl/routes'
 import { slugifyName } from '../src/wpbl/slug'
-import { MLB_VIEW_PATHS, MLB_CLUBS, MLB_TEAMS_BASE, MLB_GLOSSARY_PAGE, MLB_COMPARE_BASE, MLB_SERIES_SLUGS, MLB_FIRST_BRACKET_SEASON, MLB_POSTSEASON_BASE, mlbSeriesPath, type MlbSeriesId } from '../src/mlb/routes'
+import { MLB_VIEW_PATHS, MLB_CLUBS, MLB_TEAMS_BASE, MLB_GLOSSARY_PAGE, MLB_COMPARE_BASE, MLB_SERIES_SLUGS, MLB_FIRST_BRACKET_SEASON, MLB_POSTSEASON_BASE, mlbSeriesPath, mlbPostseasonPath, type MlbSeriesId } from '../src/mlb/routes'
 
 const SITE = 'https://sportydolphin.fun'
 // Relative to the repo root, NOT to this file: `npm run sitemap` bundles it into
@@ -249,9 +249,11 @@ async function readMlbSeries(existingXml: string): Promise<Entry[]> {
         .filter(s => (s.games ?? []).some(g => g.status?.abstractGameState === 'Final'))
         .map(s => s.series?.id))
       for (const id of Object.keys(MLB_SERIES_SLUGS) as MlbSeriesId[]) if (played.has(id)) out.push(entry(id))
+      // The season's recap, once the first of those is in.
+      if (played.size) out.push({ ...entry('W_1'), loc: mlbPostseasonPath(season) })
     } catch (e) {
-      const prefix = `${SITE}${MLB_POSTSEASON_BASE}/${season}/`
-      const kept = [...existingXml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]).filter(l => l.startsWith(prefix))
+      const prefix = `${SITE}${MLB_POSTSEASON_BASE}/${season}`
+      const kept = [...existingXml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]).filter(l => l === prefix || l.startsWith(`${prefix}/`))
       console.warn(`sitemap: could not read the ${season} postseason (${(e as Error).message}); keeping ${kept.length} listed series`)
       out.push(...kept.map(l => ({ ...entry('W_1'), loc: l.slice(SITE.length) })))
     }
