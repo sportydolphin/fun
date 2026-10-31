@@ -1,6 +1,22 @@
 import { describe, it, expect } from 'vitest'
 import type { WpblPlayer } from '../types'
-import { playerOfTheDay, sunSign, signSeason } from '../derive/homePlayers'
+import { awardWinner, playerOfTheDay, sunSign, signSeason } from '../derive/homePlayers'
+
+describe('awardWinner', () => {
+  const roster = [playerAt('a'), playerAt('b')]
+  function playerAt(id: string) { return { id, name: id } as WpblPlayer }
+
+  it('takes the most votes, and the key on a tie, as the results sheet ranks them', () => {
+    expect(awardWinner({ mvp: { a: 3, b: 5 } }, 'mvp', roster)?.id).toBe('b')
+    expect(awardWinner({ mvp: { b: 4, a: 4 } }, 'mvp', roster)?.id).toBe('a')
+  })
+
+  it('skips a key that names nobody on the roster, and names no one with no votes', () => {
+    expect(awardWinner({ mvp: { 'name:gone': 9, a: 1 } }, 'mvp', roster)?.id).toBe('a')
+    expect(awardWinner({ mvp: { a: 0 } }, 'mvp', roster)).toBeNull()
+    expect(awardWinner({}, 'mvp', roster)).toBeNull()
+  })
+})
 
 function player(id: string, over: Partial<WpblPlayer> = {}): WpblPlayer {
   return {
@@ -53,7 +69,7 @@ describe('sunSign', () => {
   })
 
 
-  it('lists that sign\'s players in birthday order, dated only where the date is settled', () => {
+  it('lists that sign\'s players, dated only where the date is settled', () => {
     const roster = [
       player('a', { name: 'Ada', zodiac_sign: 'Libra', birth_date: '2001-10-16', age: 24 }),
       player('b', { name: 'Bea', zodiac_sign: 'Libra', birth_date: '2003-09-25' }),
@@ -62,11 +78,21 @@ describe('sunSign', () => {
     ]
     const got = signSeason(roster, '2026-10-10').players
     expect(got.map(b => [b.player.name, b.date, b.offset])).toEqual([
-      ['Bea', '2026-09-25', -15],
       ['Ada', '2026-10-16', 6],
+      ['Bea', '2026-09-25', -15],
       ['Cy', null, null],
     ])
-    expect(got[1].age).toBe(25)
+    expect(got[0].age).toBe(25)
+  })
+
+  it('leads with today, then the days ahead, then the most recent past', () => {
+    const roster = [
+      player('a', { name: 'Ada', zodiac_sign: 'Libra', birth_date: '2001-09-24' }),
+      player('b', { name: 'Bea', zodiac_sign: 'Libra', birth_date: '2003-10-05' }),
+      player('c', { name: 'Cy', zodiac_sign: 'Libra', birth_date: '2002-10-10' }),
+      player('d', { name: 'Di', zodiac_sign: 'Libra', birth_date: '2002-10-20' }),
+    ]
+    expect(signSeason(roster, '2026-10-10').players.map(b => b.player.name)).toEqual(['Cy', 'Di', 'Bea', 'Ada'])
   })
 
   it('dates a January Capricorn as next year when the season starts in December', () => {

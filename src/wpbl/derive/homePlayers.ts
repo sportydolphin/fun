@@ -1,14 +1,11 @@
 import type { WpblPlayer } from '../types'
+import type { AwardResults } from '../awardVotes'
 import { birthDateSettled, statedAge } from './discordBirthdays'
 
-// The offseason Home's player cards: one player a day, and the players whose star sign's season it
-// is, with their birthdays. Both are pure selection over the roster the page already holds, so
-// neither costs a read.
-//
-// WHY THESE AND NOT LEADERS. A player page is what readers open most, and the offseason Home had
-// no link to one. Leaderboards would need every box-score line back on Home, the heaviest read in
-// the section, which it stopped making in the offseason on purpose (homeLandingReadsLines). The
-// roster's own columns (birth date, sign) are complete enough to carry a card and cost nothing.
+// The offseason Home's player cards: one player a day, the players whose star sign's season it is
+// with their birthdays, and the fan award winners. All three are pure selection over what the page
+// already holds or one small read, never the box-score lines (homeLandingReadsLines). A player page
+// is what readers open most, and the offseason Home had no link to one.
 //
 // EVERY PICK IS KEYED ON THE READER'S DATE, NEVER ON A RANDOM DRAW. Everyone sees the same player
 // all day, so a link shared at lunch still shows the card it was shared about, and a reader who
@@ -120,10 +117,12 @@ export interface SignBirthday {
 }
 
 /**
- * The players born under the sign whose season it is, each with their birthday, in the order the
- * birthdays fall through the season. Read off `zodiac_sign`, which the database derives from the
- * birth date and keeps for unsettled dates too: a date good enough to place a sign is not always
- * good enough to print, so those players are listed without one, after the dated ones.
+ * The players born under the sign whose season it is, each with their birthday: today and the days
+ * ahead first, then the ones already gone, most recent first. In plain date order the card's cap
+ * filled up with last month by the end of a season, and a birthday today fell off it. Read off
+ * `zodiac_sign`, which the database derives from the birth date and keeps for unsettled dates too:
+ * a date good enough to place a sign is not always good enough to print, so those players are
+ * listed without one, after the dated ones.
  */
 export function signSeason(players: WpblPlayer[], today: string): { sign: StarSign; players: SignBirthday[] } {
   const sign = sunSign(today)
@@ -140,9 +139,24 @@ export function signSeason(players: WpblPlayer[], today: string): { sign: StarSi
         .reduce((best, d) => Math.abs(dayNumber(d) - base) < Math.abs(dayNumber(best) - base) ? d : best)
       return { player: p, date, offset: dayNumber(date) - base, age: statedAge(p, date) }
     })
+  const group = (b: SignBirthday) => (b.offset == null ? 2 : b.offset < 0 ? 1 : 0)
   born.sort((a, b) =>
-    (a.offset == null ? 1 : 0) - (b.offset == null ? 1 : 0)
-    || (a.offset ?? 0) - (b.offset ?? 0)
+    group(a) - group(b)
+    || (group(a) === 1 ? (b.offset ?? 0) - (a.offset ?? 0) : (a.offset ?? 0) - (b.offset ?? 0))
     || a.player.name.localeCompare(b.player.name))
   return { sign, players: born }
+}
+
+/**
+ * Who won a closed fan award, or null with no votes for anyone on the roster. Most votes, then the
+ * key, the order the results sheet ranks by (withWriteIns), so the two name the same winner. Read
+ * off the tally alone: a player award's choice IS the player id, and building the sheet's shortlists
+ * would bring back the box-score lines and the play log.
+ */
+export function awardWinner(results: AwardResults, awardId: string, players: WpblPlayer[]): WpblPlayer | null {
+  const byId = new Map(players.map(p => [p.id, p]))
+  const [top] = Object.entries(results[awardId] ?? {})
+    .filter(([key, votes]) => votes > 0 && byId.has(key))
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  return top ? byId.get(top[0])! : null
 }

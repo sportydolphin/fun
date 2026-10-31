@@ -37,7 +37,7 @@ export interface LeaderCol<T> {
 export interface LeaderSeason<T> { player: WpblPlayer; totals: T }
 
 export type LeaderSide = 'overall' | 'hitting' | 'pitching' | 'fielding'
-type LeaderTotals = WpblBattingTotals | WpblPitchingTotals | WpblFieldingTotals | WpblValueTotals
+export type LeaderTotals = WpblBattingTotals | WpblPitchingTotals | WpblFieldingTotals | WpblValueTotals
 /** The qualifiers this board reads, in each side's unit (stats.ts, `wpblQualifiers`). */
 export interface LeaderQual { active: boolean; minPa: number; minOuts: number; minG: number }
 

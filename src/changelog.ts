@@ -22,6 +22,24 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.196.0',
+    date:    '2026-10-30',
+    changes: [
+      {
+        short: 'WPBL Home: 2026 Leaders and Fan Award Winners',
+        full:  "WPBL Home adds the 2026 leaders in AVG, HR, ERA and strikeouts, and the player winners of the fan awards. Every name opens the player page.",
+      },
+      {
+        short: 'WPBL Home: Player Spotlight',
+        full:  "Player of the day is now Player Spotlight. On a phone it shows the player and their season line, with the bio on the player page.",
+      },
+      {
+        short: 'WPBL Home: birthdays ahead first',
+        full:  "The star sign card lists today's birthday and the days ahead first, then the ones already past.",
+      },
+    ],
+  },
+  {
     version: '1.194.0',
     date:    '2026-10-30',
     changes: [
