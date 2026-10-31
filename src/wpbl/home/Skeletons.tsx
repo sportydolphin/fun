@@ -5,7 +5,7 @@ import { chromePx, CARD_BORDER, CARD_FILL, TYPE_SCALE } from '../ui'
 import { DISCORD_DISMISS_KEY } from '../discordInvite'
 import { awardsResultsShowOnHome } from '../awards'
 import { FanPhotoHomeCardSkeleton } from '../FanPhotoViews'
-import { PlayerOfTheDayCard, StarSignCard } from './PlayerCards'
+import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard } from './PlayerCards'
 import type { WpblTeam } from '../types'
 import { offseasonByCalendar } from '../offseasonCalendar'
 import { SECTION_GAP, HEADER_GAP, homeWideSx } from './shared'
@@ -186,8 +186,8 @@ const EMPTY_TEAMS = new Map<string, WpblTeam>()
 const NO_OPEN = () => {}
 
 /** The offseason Home with nothing in it, mirroring the loaded page block for block (see
- *  WpblHome's render): the header, Player of the day beside the season card, the award results while
- *  they are up, the gallery, the star sign card, Reading beside Watch, the Discord invite on a
+ *  WpblHome's render): the header, Player Spotlight beside the season card, the award results while
+ *  they are up, the leaders beside the fan award winners, the gallery, the star sign card, Reading beside Watch, the Discord invite on a
  *  phone, and the league line. Heights measured off the real page. */
 function OffseasonHomeSkeleton() {
   let discordDismissed = false
@@ -215,17 +215,23 @@ function OffseasonHomeSkeleton() {
       {/* The player cards draw their own empty state (no players yet), so the placeholder is the
           real card rather than a guess at its height. */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
-        <PlayerOfTheDayCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
+        <PlayerSpotlightCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
         {/* The champion card's own height, measured at 375, 760, 960 and 1440 (Oct 15, 2026): one
             number at every width, since its rows stack the same way everywhere. Taller here than
-            the card puts the row out of step with Player of the day, which then moves on load. */}
-        <CardSkeleton minHeight={{ xs: '23.95rem', md: '23.9rem' }} titleWidth="6rem" lines={5} />
+            the card puts the row out of step with Player Spotlight, which then moves on load. Taller
+            at phone width, where the champion's name takes two lines. */}
+        <CardSkeleton minHeight={{ xs: '24.5rem', sm: '23.95rem', md: '23.9rem' }} titleWidth="6rem" lines={5} />
       </Box>
       {awards && (
         <Box sx={{ mt: 1.5 }}>
           <CardSkeleton minHeight={{ xs: '16.7rem', md: '21.6rem' }} titleWidth="5.5rem" lines={4} />
         </Box>
       )}
+
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
+        <SeasonLeadersCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
+        <FanAwardWinnersCard players={[]} onOpenPlayer={NO_OPEN} />
+      </Box>
 
       <FanPhotoHomeCardSkeleton />
 

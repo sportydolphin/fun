@@ -33,7 +33,7 @@ import { FanPhotoHomeCard } from '../FanPhotoViews'
 import { buildRunExpectancy, playRunValues } from '../derive/runExpectancy'
 import { mvpRace } from '../derive/mvpRace'
 import { WatchCard } from '../Watch'
-import { PlayerOfTheDayCard, StarSignCard } from './PlayerCards'
+import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard } from './PlayerCards'
 import type { WpblRunValuePlay } from '../types'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame, WpblBattingLine, WpblPitchingLine } from '../types'
 import { typePx } from '../../ui/scale'
@@ -510,20 +510,26 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
 
       {/* THE OFFSEASON HOME LEADS WITH A PLAYER. A player page is what readers open most, and until
           Oct 2026 this page had no link to one: the gallery, Reading and Watch each point at a hub,
-          the season card at the recap and its games. Player of the day sits beside the season card
-          so a player is above the fold at every width, and the star sign card under the gallery
-          (the players whose sign's season it is, with their birthdays) puts a dozen more names on
-          the page, every one a real link. None of them costs a box-score read: they select from the
-          roster the page already holds, and Player of the day reads its one player's lines. */}
+          the season card at the recap and its games. Player Spotlight sits beside the season card
+          so a player is above the fold at every width, the leaders and the fan award winners answer
+          who stood out, and the star sign card under the gallery (the players whose sign's season it
+          is, with their birthdays) puts a dozen more names on the page, every one a real link. None
+          of them costs a box-score read: they select from the roster the page already holds, the
+          stored season rows and the award tally, and Player Spotlight reads its one player's lines. */}
       {seasonDone && (
         <>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
-            <PlayerOfTheDayCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} />
+            <PlayerSpotlightCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} />
             <NextGameCard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} players={players} onOpenPlayer={onOpenPlayer}
               devForceRecap={devForceRecap} devChampion={devChampTeam} />
           </Box>
           {/* The award results, for the days they stay up after the final (AWARDS_RESULTS_UNTIL). */}
           {seasonCards.length > 0 && <Box sx={{ mt: 1.5 }}>{seasonCards}</Box>}
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
+            <SeasonLeadersCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} />
+            <FanAwardWinnersCard players={players} onOpenPlayer={onOpenPlayer} onOpenAwards={onOpenAwards} />
+          </Box>
 
           {/* Fan photos: with no games left, the one block besides the player cards that changes
               from one visit to the next, and the rail reshuffles every load. */}

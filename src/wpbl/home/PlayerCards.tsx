@@ -2,19 +2,28 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Skeleton, Typography } from '@mui/material'
 import type { WpblGame, WpblPlayer, WpblTeam, WpblBattingLine, WpblPitchingLine } from '../types'
 import { fetchWpblPlayerLines, fetchWpblPlayerSeasons } from '../api'
+import type { WpblPlayerSeasonsRead } from '../api/players'
 import { currentSeason } from '../season'
 import { useWpblPlayerLink } from '../LinkContext'
 import { SectionCard, TeamBadge, PlayerPortrait, FittedName, TYPE_SCALE, TAPPABLE, FOCUS_RING, hoverOnly } from '../ui'
-import { sumBatting, sumPitching, plateAppearances, fmtRate } from '../stats'
+import { sumBatting, sumPitching, plateAppearances, fmtRate, wpblQualifiers } from '../stats'
+import { viewPlayerSeasons } from '../derive/playerSeasons'
+import { hittingColumns, pitchingColumns } from '../statColumns'
+import { LEADER_CARDS, leadersFor, type LeaderCol, type LeaderSeason, type LeaderSide, type LeaderTotals } from '../LeadersBoard'
+import { STATS_PATH } from '../stats/address'
+import { fetchWpblAwardResults, getCachedWpblAwardResults, type AwardResults } from '../awardVotes'
+import { AWARDS_SEASON, fanVoteAwards } from '../awards'
+import { WPBL_AWARDS_PATH } from '../routes'
 import { useEraBasis } from '../EraBasisContext'
 import { outsToIp } from '../innings'
 import { displayPosition, displayPositionFromIndex, leadsWithPitching, playedPosition, type PrimaryPosition } from '../positions'
 import { wpblFullName } from '../constants'
-import { UNSTYLED_LINK } from '../../nav'
+import { UNSTYLED_LINK, linkTo } from '../../nav'
+import { linkPress } from '../../ui/interaction'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
 import { typePx } from '../../ui/scale'
 import { birthDateSettled } from '../derive/discordBirthdays'
-import { localIsoDate, playerOfTheDay, signSeason, signGlyph, type SignBirthday } from '../derive/homePlayers'
+import { awardWinner, localIsoDate, playerOfTheDay, signSeason, signGlyph, type SignBirthday } from '../derive/homePlayers'
 import { useWpblSeason } from '../SeasonContext'
 
 // The offseason Home's player cards. See derive/homePlayers.ts for why these and how each picks; this file only draws them. Every player in them is a real <a href> to the player page
@@ -138,7 +147,7 @@ function useStoredPositions(games: WpblGame[]): Map<string, PrimaryPosition> {
   return index
 }
 
-// ─── Player of the day ──────────────────────────────────────────────────────────
+// ─── Player spotlight ───────────────────────────────────────────────────────────
 
 interface Lines { batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }
 
@@ -215,7 +224,7 @@ function Fact({ label, wide, children }: { label: string; wide?: boolean; childr
   )
 }
 
-export function PlayerOfTheDayCard({ players, teams, games, onOpenPlayer }: {
+export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer }: {
   players: WpblPlayer[]; teams: Map<string, WpblTeam>; games: WpblGame[]; onOpenPlayer: OpenPlayer
 }) {
   const today = localIsoDate()
@@ -254,7 +263,7 @@ export function PlayerOfTheDayCard({ players, teams, games, onOpenPlayer }: {
     : '—'
 
   return (
-    <SectionCard title="Player of the day" fill action={
+    <SectionCard title="Player Spotlight" fill action={
       // A birthday says so here rather than as a line over the name, which would make the header a
       // line taller on the days it applies and move the card under a reader as the roster lands.
       pick?.reason === 'birthday'
@@ -295,8 +304,12 @@ export function PlayerOfTheDayCard({ players, teams, games, onOpenPlayer }: {
         </Box>
 
         {/* Hometown takes a row of its own: "Town, State, Country" wraps in half a phone's width,
-            and a value that wraps only for some players would move everything under it. */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', columnGap: 2, rowGap: 1 }}>
+            and a value that wraps only for some players would move everything under it.
+
+            Not on a phone, where this grid made the card a full screen before the season card. The
+            desktop keeps it because the season card beside it sets the row's height, and without
+            the bio this card would stretch around empty space. The profile carries it either way. */}
+        <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', columnGap: 2, rowGap: 1 }}>
           <Fact label="Hometown" wide>{player ? (player.hometown ?? '—') : <Skeleton width="50%" />}</Fact>
           <Fact label="Born">{player ? (settled ? shortDate(player.birth_date!, true) : '—') : <Skeleton width="60%" />}</Fact>
           <Fact label="Star sign">{player ? (player.zodiac_sign ? `${glyph} ${player.zodiac_sign}` : '—') : <Skeleton width="50%" />}</Fact>
@@ -319,6 +332,133 @@ export function PlayerOfTheDayCard({ players, teams, games, onOpenPlayer }: {
           )}
         </Box>
       </Box>
+    </SectionCard>
+  )
+}
+
+// ─── The season's leaders and award winners ─────────────────────────────────────
+
+/** Both cards' rows, fixed so neither moves when its read lands. */
+const SEASON_ROWS = 4
+
+/** The Stats tab's own cards, one stat each: rates gated and figures printed as that board does. */
+const LEADER_STATS: { side: LeaderSide; key: string }[] = [
+  { side: 'hitting', key: 'avg' }, { side: 'hitting', key: 'hr' },
+  { side: 'pitching', key: 'era' }, { side: 'pitching', key: 'so' },
+]
+
+/** The ballot's player awards, the ones a tally can name without building its shortlists. */
+const WINNER_AWARDS = ['mvp', 'pitcher', 'glove', 'aura']
+
+function CardLink({ link, label }: { link: { component: 'a'; href: string; onClick: (e: React.MouseEvent) => void }; label: string }) {
+  return (
+    <Box {...link} sx={{
+      ...UNSTYLED_LINK, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+      ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
+    }}>
+      {label}
+    </Box>
+  )
+}
+
+const ROW_VALUE_SX = { fontSize: TYPE_SCALE.body, fontWeight: 800, fontVariantNumeric: 'tabular-nums' } as const
+
+/**
+ * One leader per headline stat, off the stored season rows: the one small read that can rank the
+ * league, so the offseason Home still never touches the box-score lines. Rows that have gone stale
+ * read "No data" rather than bringing those lines back; a correction leaves them stale only until
+ * the job's next run, and the Stats tab one tap away has its own fallback.
+ */
+export function SeasonLeadersCard({ players, teams, games, onOpenPlayer }: {
+  players: WpblPlayer[]; teams: Map<string, WpblTeam>; games: WpblGame[]; onOpenPlayer: OpenPlayer
+}) {
+  const { basis: eraBasis, fmtEra } = useEraBasis()
+  const { season, seasonGames } = useWpblSeason(games, { current: true })
+  const link = useTrackedPlayerLink('leaders', onOpenPlayer)
+  const [read, setRead] = useState<WpblPlayerSeasonsRead | null>(null)
+  useEffect(() => {
+    if (season == null) return
+    let live = true
+    fetchWpblPlayerSeasons(season)
+      .then(r => { if (live) setRead(r) })
+      .catch(() => { if (live) setRead({ rows: [], current: false }) })
+    return () => { live = false }
+  }, [season])
+
+  const rows = useMemo(() => {
+    if (!read?.current || players.length === 0 || teams.size === 0) return null
+    const view = viewPlayerSeasons(read.rows, players)
+    const ctx = { league: view.league('regular'), wWeights: view.weights.woba, fWeights: view.weights.fip, fmtEra, eraBasis }
+    const qual = wpblQualifiers([...teams.values()], seasonGames)
+    const batting = view.batting('regular'), pitching = view.pitching('regular')
+    const hit = hittingColumns(ctx), pit = pitchingColumns(ctx)
+    const leader = <T extends LeaderTotals>(seasons: LeaderSeason<T>[], cols: LeaderCol<T>[], side: LeaderSide, key: string) => {
+      const col = cols.find(c => c.key === key)
+      return col ? leadersFor(seasons, col, side, qual)[0] : undefined
+    }
+    return LEADER_STATS.flatMap(({ side, key }) => {
+      const title = LEADER_CARDS[side].find(c => c.key === key)?.title ?? key
+      const top = side === 'hitting' ? leader(batting, hit, side, key) : leader(pitching, pit, side, key)
+      return top ? [{ key, title, ...top }] : []
+    })
+  }, [read, players, teams, seasonGames, fmtEra, eraBasis])
+  useShown('leaders', !!rows?.length)
+
+  const failed = read != null && !read.current
+  return (
+    // The year before the schedule lands too: a title needs no data, and the only season this card
+    // can be drawn for until 2027 is the ballot's.
+    <SectionCard title={`${season ?? AWARDS_SEASON} Leaders`} fill action={<CardLink link={linkTo(STATS_PATH)} label="All leaders ›" />}>
+      {failed
+        ? <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>No data</Typography>
+        : Array.from({ length: SEASON_ROWS }, (_, i) => {
+            const r = rows?.[i]
+            if (!rows) return <RowSkeleton key={i} />
+            if (!r) return <Box key={i} aria-hidden sx={{ visibility: 'hidden' }}><RowSkeleton /></Box>
+            return (
+              <PlayerRow key={r.key} player={r.player} link={link(r.player)}
+                meta={r.tied ? `${r.title} · Tied` : r.title}
+                end={<Typography sx={ROW_VALUE_SX}>{r.text}</Typography>} />
+            )
+          })}
+    </SectionCard>
+  )
+}
+
+/** The closed ballot's player awards, each a link to its winner, read off the tally alone. */
+export function FanAwardWinnersCard({ players, onOpenPlayer, onOpenAwards }: {
+  players: WpblPlayer[]; onOpenPlayer: OpenPlayer
+  /** Through WpblApp, which owns the results sheet: going to the address alone opens nothing. */
+  onOpenAwards?: () => void
+}) {
+  const link = useTrackedPlayerLink('winners', onOpenPlayer)
+  const [results, setResults] = useState<AwardResults | null>(() => getCachedWpblAwardResults())
+  const ready = players.length > 0
+  useEffect(() => {
+    if (!ready) return
+    let live = true
+    fetchWpblAwardResults().then(r => { if (live) setResults(r) })
+    return () => { live = false }
+  }, [ready])
+
+  const rows = useMemo(() => {
+    if (!results || !ready) return null
+    const titles = new Map(fanVoteAwards().map(a => [a.id, a.title]))
+    return WINNER_AWARDS.flatMap(id => {
+      const player = awardWinner(results, id, players)
+      return player && titles.has(id) ? [{ id, title: titles.get(id)!, player }] : []
+    })
+  }, [results, ready, players])
+  useShown('winners', !!rows?.length)
+
+  return (
+    <SectionCard title={`${AWARDS_SEASON} Fan Award Winners`} fill action={<CardLink link={linkPress(WPBL_AWARDS_PATH, onOpenAwards)} label="All results ›" />}>
+      {Array.from({ length: SEASON_ROWS }, (_, i) => {
+        const r = rows?.[i]
+        if (!rows) return <RowSkeleton key={i} />
+        if (!r) return <Box key={i} aria-hidden sx={{ visibility: 'hidden' }}><RowSkeleton /></Box>
+        return <PlayerRow key={r.id} player={r.player} link={link(r.player)} meta={r.title} />
+      })}
     </SectionCard>
   )
 }
@@ -346,7 +486,7 @@ export function StarSignCard({ players, teams, games, onOpenPlayer }: {
   const columns = Object.fromEntries(Object.entries(SIGN_COLUMNS).map(([bp, n]) => [bp, `repeat(${n}, minmax(0, 1fr))`]))
   return (
     <SectionCard title={`${sign.name} season`} action={
-      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{range}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{sign.glyph} {range}</Typography>
     }>
       <Box sx={{ display: 'grid', gridTemplateColumns: columns, columnGap: 1 }}>
         {Array.from({ length: SIGN_CAP }, (_, i) => {
@@ -369,10 +509,6 @@ export function StarSignCard({ players, teams, games, onOpenPlayer }: {
           )
         })}
       </Box>
-      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 1, minHeight: '1.4em' }}>
-        {players.length === 0 ? ' '
-          : `${sign.glyph} ${born.length} ${born.length === 1 ? sign.name : `${sign.name}s`}${born.length > shown.length ? ` · ${shown.length} shown` : ''}`}
-      </Typography>
     </SectionCard>
   )
 }
