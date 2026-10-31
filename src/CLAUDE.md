@@ -150,6 +150,11 @@ Loaded when you read anything under `src/`. The section-specific traps are in `s
   Vite then resolves the import with `undefined`, and `lazy()` throws on `.default` in the second
   before the reload lands. Every reader crash of Oct 13 to 15, 2026 was this; the boundary asks
   `reloadUnderway()` and shows "Loading the latest version" instead of reporting it.
+  **All of that needs the entry script to have run.** It takes dozens of chunks and one failure runs
+  none of them, so a home-screen open right after a deploy could sit on "Loading the app…" for good,
+  with no error and no report (Oct 31, 2026). The inline script in `index.html` covers it: one reload
+  a minute, then a button, shown at 15s for a load that never ends. A section chunk that hangs goes
+  through `withLoadTimeout`.
 
 - **Internal links must be real `<a href>`, never a `Box` with only an `onClick`.** Googlebot
   does not fire click handlers, so an onClick-only control is invisible to it. `/mlb` sat

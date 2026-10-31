@@ -37,6 +37,53 @@
         } catch (e) { /* default size */ }
       })();
     </script>
+    <script>
+      // THE ONE FAILURE lib/staleBuild.ts CANNOT CATCH: THE ENTRY SCRIPT NEVER RUNS. It takes dozens
+      // of chunks, and if any one fails the browser runs none of them, so nothing else in the app
+      // exists to notice. A deploy is when this happens: every changed file has to come from the
+      // network at once, on a phone whose connection may still be waking up, and a shell from before
+      // the deploy names files that are gone. It left "Loading the app…" on screen for good, with no
+      // error and no report. So this is inline, and runs before the entry does.
+      //
+      // A failed entry reloads once a minute at most, since a broken connection fails again and must
+      // not loop. Past that, and for a load still not done after 15s, the reader gets a button. Slow
+      // is not failed, so a timeout never reloads by itself. React clears #app when it mounts, so
+      // none of this can draw over a page that arrived late. The `sd_updated_via` mark is reported
+      // as `app_updated` by the load that works (UPDATED_KEY in lib/staleBuild.ts).
+      (function () {
+        function reload(via) {
+          try { sessionStorage.setItem('sd_updated_via', via); } catch (e) { /* the report is lost, the reload is not */ }
+          location.reload();
+        }
+        function offerReload() {
+          var line = document.getElementById('sd-boot-status');
+          if (!line || line.querySelector('button')) return;
+          line.textContent = 'Could not load ';
+          line.setAttribute('role', 'alert');
+          line.style.opacity = '1';
+          line.parentNode.style.cssText += ';animation:none;opacity:1';
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = 'Reload';
+          b.style.cssText = 'margin-left:8px;padding:8px 20px;border:0;border-radius:999px;cursor:pointer;font:inherit;font-weight:800;background:#1565c0;color:#fff';
+          b.onclick = function () { reload('boot_button'); };
+          line.appendChild(b);
+        }
+        window.addEventListener('error', function (e) {
+          var t = e.target;
+          if (!t || t.tagName !== 'SCRIPT' || t.type !== 'module') return;
+          try {
+            if (Date.now() - Number(sessionStorage.getItem('sd_boot_reload_at') || 0) >= 60000) {
+              sessionStorage.setItem('sd_boot_reload_at', String(Date.now()));
+              reload('boot_reload');
+              return;
+            }
+          } catch (err) { /* cannot guard a reload without storage: fall through to the button */ }
+          offerReload();
+        }, true);
+        setTimeout(offerReload, 15000);
+      })();
+    </script>
     <style>
       /* The static #app fallback below exists for crawlers, Google's OAuth homepage
          verification, and no-JS / slow loads. On a normal load React mounts within a
@@ -238,7 +285,7 @@
           game. No sign-in is required to look around; signing in with Google is optional and
           only used to save your predictions and preferences.
         </p>
-        <p style="font-size:0.9rem;color:var(--text-color,#6b7280);opacity:0.6;margin:0 0 16px;">Loading the app…</p>
+        <p id="sd-boot-status" style="font-size:0.9rem;color:var(--text-color,#6b7280);opacity:0.6;margin:0 0 16px;">Loading the app…</p>
         <p style="font-size:0.9rem;margin:0;">
           <a href="/privacy" style="color:var(--link-color,#2563eb);text-decoration:none;">Privacy Policy</a>
           &nbsp;·&nbsp;

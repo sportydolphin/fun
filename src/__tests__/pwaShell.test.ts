@@ -19,6 +19,7 @@ import aasaSource from '../../public/.well-known/apple-app-site-association?raw'
 import headersSource from '../../public/_headers?raw'
 import indexHtml from '../../index.html?raw'
 import appSource from '../App.tsx?raw'
+import staleBuildSource from '../lib/staleBuild.ts?raw'
 import { WPBL_NAV } from '../wpbl/routes'
 import { MLB_NAV } from '../mlb/routes'
 
@@ -413,6 +414,19 @@ describe('universal links', () => {
     const rule = []
     for (let i = at + 1; i < lines.length && /^\s+\S/.test(lines[i]); i++) rule.push(lines[i].trim())
     expect(rule).toContain('Content-Type: application/json')
+  })
+})
+
+// The entry failing means no module ran, so index.html's inline script is all there is. These names
+// are the only link between it and the rest of the app, and nothing fails if they drift apart.
+describe('the boot guard in index.html', () => {
+  it('reports through the mark lib/staleBuild.ts reads', () => {
+    expect(staleBuildSource).toContain("UPDATED_KEY = 'sd_updated_via'")
+    expect(indexHtml).toContain("sessionStorage.setItem('sd_updated_via', via)")
+  })
+  it('has the status line it writes to', () => {
+    expect(indexHtml).toContain('<p id="sd-boot-status"')
+    expect(indexHtml).toContain("getElementById('sd-boot-status')")
   })
 })
 

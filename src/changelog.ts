@@ -23,6 +23,26 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.202.2',
+    date:    '2026-10-31',
+    changes: [
+      {
+        short: 'Opening after an update',
+        full:  "If the app's files fail to load after an update, it reloads once by itself and then shows a Reload button, instead of staying on the loading screen.",
+      },
+    ],
+  },
+  {
+    version: '1.202.1',
+    date:    '2026-10-30',
+    changes: [
+      {
+        short: 'Pages open at the top',
+        full:  "A page opened from a link, such as Watch or the season recap, starts at its top instead of at the depth of the page before it.",
+      },
+    ],
+  },
+  {
     version: '1.202.0',
     date:    '2026-10-30',
     changes: [
