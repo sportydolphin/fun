@@ -22,7 +22,7 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '1.198.0',
+    version: '1.199.0',
     date:    '2026-10-30',
     changes: [
       {
@@ -40,6 +40,16 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         short: 'WPBL Watch: lengths and season reels',
         full:  "Posters show a video's length and video pages show its views. Every season reel moved into Season compilations, and two game reels that were missing from their games are back.",
+      },
+    ],
+  },
+  {
+    version: '1.198.0',
+    date:    '2026-10-30',
+    changes: [
+      {
+        short: 'WPBL Home: a new champion card',
+        full:  "The 2026 Season card on WPBL Home now leads with the champion on a field in the club's color, then the season, semifinal and final records, each game of the final, and the Star of the final.",
       },
     ],
   },
