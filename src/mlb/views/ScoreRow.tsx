@@ -14,10 +14,11 @@ import type { FinalGameSummary, FinalTeam } from './scoresData'
 // them. MLB's holds fifteen, and a card each was 2,400px of scrolling for one day: a phone cannot show
 // a line score beside the club anyway, so it spent its height on a status row, a header of inning
 // numbers and a footer. Here the status sits beside the clubs and each detail on its club's own line,
-// about 900px for the same day. The line score, hits, errors, records, TV and saves are one tap away
-// in the game. A desktop keeps ScoreCard, which has the room to draw them.
+// about 1,000px for the same day. The line score, hits, errors, records and saves are one tap away in
+// the game. A desktop keeps ScoreCard, which has the room to draw them.
 //
-// Every row is the same height in every state, so the skeleton below reserves a day exactly.
+// Played rows are all one height, which the skeleton below reserves: the page opens on a day with
+// games under way or done. An upcoming game adds a line for where to watch it.
 
 const ROW_H = `max(${chromePx(26)}, 1.6rem)`
 const LINE_H = `max(${chromePx(16)}, 1.15rem)`
@@ -30,7 +31,8 @@ const ROW_FRAME = {
 } as const
 
 const detailSx = { fontSize: TYPE_SCALE.meta, lineHeight: 1.2, color: 'text.secondary', minWidth: 0 } as const
-const tag = (s: string) => <Box component="span" sx={{ fontWeight: 800, color: 'text.primary', flexShrink: 0 }}>{s}</Box>
+// A fixed column, so "W" and "L" (narrower) start their names on one edge down the page.
+const tag = (s: string) => <Box component="span" sx={{ fontWeight: 800, color: 'text.primary', flexShrink: 0, minWidth: '1.1rem' }}>{s}</Box>
 
 function Line({ label, name }: { label?: string; name?: string | null }) {
   return (
@@ -56,7 +58,7 @@ function details(g: FinalGameSummary): [React.ReactNode, React.ReactNode] {
     const l = g.live
     return [
       <Box key="count" sx={{ display: 'flex', alignItems: 'center', gap: 0.75, ...detailSx, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
-        <BaseDiamond onFirst={l.onFirst} onSecond={l.onSecond} onThird={l.onThird} size={6} />
+        <BaseDiamond onFirst={l.onFirst} onSecond={l.onSecond} onThird={l.onThird} size={7} />
         {!l.between && <span>{tag(`${l.outs} out${l.outs === 1 ? '' : 's'}`)} {l.balls}–{l.strikes}</span>}
       </Box>,
       <Line key="batter" label={l.between ? 'Due' : 'AB'} name={l.batter?.name} />,
@@ -114,7 +116,13 @@ export function ScoreRow({ game, accent, onClick }: { game: FinalGameSummary; ac
           </Typography>
         </Box>
         {club(game.away, game.home, awayDetail)}
-        <Box sx={{ gridColumn: 2, display: 'contents' }}>{club(game.home, game.away, homeDetail)}</Box>
+        {club(game.home, game.away, homeDetail)}
+        {game.state === 'preview' && game.tv && (
+          <Typography noWrap sx={{ gridColumn: 4, ...detailSx, pl: 1.25, height: LINE_H, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            {tag('TV')}
+            <Box component="span" sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>{game.tv}</Box>
+          </Typography>
+        )}
       </Box>
       {game.series && (
         <Typography noWrap sx={{ height: LINE_H, display: 'flex', alignItems: 'center', fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: 1, color: game.series.decider ? TONE.amber : 'text.primary' }}>

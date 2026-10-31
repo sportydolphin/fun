@@ -53,6 +53,7 @@ export function ChampionCard({ bracket, compact, linkLabel, linkProps, onTeamCli
   if (compact) return (
     <CompactRow
       season={bracket.season}
+      result={`Beat ${TEAM_NICKNAME[runnerUp.id] ?? runnerUp.abbr} ${Math.max(ws.winsTop, ws.winsBottom)}–${Math.min(ws.winsTop, ws.winsBottom)}`}
       logo={<TeamLogo teamId={champ.id} abbr={champ.abbr} size={36} decorative />}
       name={
         <Typography {...teamLink(champ.id, onTeamClick)} sx={{
@@ -70,7 +71,6 @@ export function ChampionCard({ bracket, compact, linkLabel, linkProps, onTeamCli
           {linkLabel} ›
         </Box>
       }
-      result={result}
     />
   )
 
@@ -161,16 +161,16 @@ function CompactRow({ season, logo, name, link, result }: {
       <Box sx={{ width: chromePx(36), height: chromePx(36), flexShrink: 0 }}>{logo}</Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 900, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: goldSoft, lineHeight: 1.3 }}>
-          {season} champions
+          {season} World Series champions
         </Typography>
-        {name}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 1 }}>
+          {name}
+          <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.primary', whiteSpace: 'nowrap', lineHeight: 1.3 }}>
+            {result}
+          </Typography>
+        </Box>
       </Box>
-      <Box sx={{ flexShrink: 0, textAlign: 'right' }}>
-        {link}
-        <Typography component="div" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.primary', whiteSpace: 'nowrap', lineHeight: 1.3 }}>
-          {result}
-        </Typography>
-      </Box>
+      <Box sx={{ flexShrink: 0 }}>{link}</Box>
     </Box>
   )
 }
@@ -186,7 +186,7 @@ export function ChampionCardSkeleton({ season, compact }: { season: number; comp
         logo={null}
         name={<Typography sx={{ fontSize: TYPE_SCALE.title, lineHeight: 1.2 }}><Skeleton width="9rem" /></Typography>}
         link={<Box sx={{ fontSize: TYPE_SCALE.meta, visibility: 'hidden' }}>Recap ›</Box>}
-        result={<Skeleton width="5.5rem" />}
+        result={<Skeleton width="5.5rem" sx={{ display: 'inline-block' }} />}
       />
     </Box>
   )

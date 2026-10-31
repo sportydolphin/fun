@@ -47,6 +47,13 @@ describe('ScoreRow', () => {
     expect(screen.queryByText('0')).toBeNull()
   })
 
+  it('says where to watch a game still to come, and only then', () => {
+    const { rerender } = render(<ScoreRow game={base({ state: 'preview', statusText: '7:05 PM', tv: 'FS1' })} />)
+    expect(screen.getByText('FS1')).toBeTruthy()
+    rerender(<ScoreRow game={base({ tv: 'FS1' })} />)
+    expect(screen.queryByText('FS1')).toBeNull()
+  })
+
   it('shortens postponed for the status column and keeps the reason', () => {
     render(<ScoreRow game={base({ state: 'postponed', statusText: 'Postponed', reason: 'Rain' })} />)
     expect(screen.getByText('PPD')).toBeTruthy()

@@ -34,10 +34,13 @@ function GameCell({ game, onOpen }: { game: ScheduleGame; onOpen: () => void }) 
   const cell = calendarCell(game)
   return (
     <Box {...gameLink(game.gamePk, onOpen)} aria-label={`${longDate(game.date)}, ${game.isHome ? 'vs' : 'at'} ${game.opponentAbbr}, ${cell.label}`} sx={{
-      ...LINK_SX, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.25, cursor: 'pointer', minWidth: 0, width: '100%',
+      ...LINK_SX, flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 0.25,
+      cursor: 'pointer', minWidth: 0, width: '100%', borderRadius: 1, '&:hover': { bgcolor: 'action.hover' },
     }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1px', minWidth: 0 }}>
-        {!game.isHome && <Typography component="span" sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', lineHeight: 1 }}>@</Typography>}
+      <Box sx={{ position: 'relative', display: 'flex' }}>
+        {!game.isHome && (
+          <Typography component="span" sx={{ position: 'absolute', right: '100%', top: '50%', transform: 'translateY(-50%)', pr: '1px', fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', lineHeight: 1 }}>@</Typography>
+        )}
         <TeamLogo teamId={game.opponentId} abbr={game.opponentAbbr} size={22} decorative />
       </Box>
       <Typography component="span" sx={{
@@ -112,9 +115,8 @@ export function FullScheduleModal({ games, myTeamId, today, onPlayerClick, onTea
               const isToday = iso === today
               return (
                 <Box key={iso ?? `blank-${i}`} sx={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, minWidth: 0, p: 0.5, borderRadius: 1.5,
-                  ...(iso ? { border: '1px solid', borderColor: isToday ? ACCENT_EDGE : day.length ? 'outline' : 'transparent' } : null),
-                  ...(day.length ? { bgcolor: 'background.paper', '&:hover': { bgcolor: 'action.hover' } } : null),
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.25, minWidth: 0, pt: 0.5, pb: 0.25,
+                  borderRadius: 1.5, ...(isToday ? { border: '1px solid', borderColor: ACCENT_EDGE } : null),
                 }}>
                   {iso && (
                     <Typography component="span" sx={{ fontSize: TYPE_SCALE.caption, fontWeight: isToday ? 800 : 600, color: isToday ? 'text.primary' : 'text.secondary', lineHeight: 1 }}>
