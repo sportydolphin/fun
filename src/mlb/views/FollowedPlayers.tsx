@@ -283,7 +283,7 @@ function PlayerSparkline({ id, isPitcher }: { id: number; isPitcher: boolean }) 
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
 
-async function fetchFollowedPlayerData(id: number, fresh = false): Promise<FollowedPlayerInfo | null> {
+async function fetchFollowedPlayerData(id: number, fresh = false, noGames = false): Promise<FollowedPlayerInfo | null> {
   try {
     const season = CURRENT_SEASON
     // `fresh` is the live poll asking: it always reads, and what it reads is what the next mount
@@ -317,7 +317,8 @@ async function fetchFollowedPlayerData(id: number, fresh = false): Promise<Follo
 
     // If they've played today, that line is the more interesting number, so it takes
     // over the stat cells and the season totals step aside until tomorrow.
-    const today = todayStatCells(await loadGameLog(id, isPitcher, fresh), isPitcher)
+    // With no games on the calendar there is no today, and the log is a read per player for nothing.
+    const today = noGames ? null : todayStatCells(await loadGameLog(id, isPitcher, fresh), isPitcher)
     if (today) stats = today
 
     return {
@@ -343,10 +344,11 @@ function abbreviateFirstName(name: string): string {
 
 // ─── FollowedPlayerRow ────────────────────────────────────────────────────────
 
-function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onToggleSelect, onClick }: {
+function FollowedPlayerRow({ id, data, isLive, showForm, move, editMode, isSelected, onToggleSelect, onClick }: {
   id:             number
   data:           FollowedPlayerInfo | null
   isLive:         boolean
+  showForm:       boolean
   move:           RosterMove | null
   editMode:       boolean
   isSelected:     boolean
@@ -500,9 +502,11 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
       ) : (<>
       {/* Recent-form sparkline: fixed narrow width so the trend's slope reads clearly.
           Extra right margin sets it apart from the stat columns. */}
-      <Box sx={{ flexShrink: 0, width: { xs: chromePx(46), sm: chromePx(62) }, mr: { xs: 1, sm: 1.5 }, display: 'flex', alignItems: 'center' }}>
-        {data && <PlayerSparkline id={id} isPitcher={data.isPitcher} />}
-      </Box>
+      {showForm && (
+        <Box sx={{ flexShrink: 0, width: { xs: chromePx(46), sm: chromePx(62) }, mr: { xs: 1, sm: 1.5 }, display: 'flex', alignItems: 'center' }}>
+          {data && <PlayerSparkline id={id} isPitcher={data.isPitcher} />}
+        </Box>
+      )}
 
       {/* Stat cells */}
       {statCells.map((s, idx) => (
@@ -538,8 +542,10 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
   liveTeamIds?:  Set<number>
   compact?:      boolean
   teamId?:       number
-  /** The Roster Moves card's winter mode, so a followed player who became a free agent says so. */
-  hotStove?:     boolean
+  /** The Roster Moves card's winter mode, so a followed player who became a free agent says so. It
+   *  also retires the form line, whose "heating up" is a claim about now, and names the season the
+   *  lines are from. Null while the phase is read, and nothing is fetched. */
+  hotStove?:     boolean | null
 }) {
   const [playerData, setPlayerData]     = useState<Record<number, FollowedPlayerInfo>>({})
   const [adding, setAdding]             = useState(false)
@@ -554,6 +560,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
   // older move surface in their place.
   const [playerMoves, setPlayerMoves] = useState<Map<number, RosterMove>>(new Map())
   useEffect(() => {
+    if (hotStove == null) return
     fetchRosterMoves(hotStove).then(async moves => {
       const served = await fetchServedSuspensionIds(moves)
       const byPlayer = new Map<number, RosterMove>()
@@ -585,13 +592,14 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
   const atLimit     = followedPlayerIds.length >= MAX_FOLLOWED_PLAYERS
 
   useEffect(() => {
+    if (hotStove == null) return
     for (const id of followedPlayerIds) {
       if (playerData[id]) continue
-      fetchFollowedPlayerData(id).then(data => {
+      fetchFollowedPlayerData(id, false, hotStove).then(data => {
         if (data) setPlayerData(prev => ({ ...prev, [id]: data }))
       }).catch(() => {})
     }
-  }, [followedPlayerIds]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [followedPlayerIds, hotStove]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // While a followed player's team is playing, their line is today's box score, so
   // refresh just those players on a slow poll. The hook re-reads the callback every render,
@@ -685,7 +693,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
           }}>
             {editMode
               ? (selected.size > 0 ? `${selected.size} selected` : 'Tap to select')
-              : (compact ? 'Players' : 'Your Players')}
+              : hotStove ? `${CURRENT_SEASON} Players` : (compact ? 'Players' : 'Your Players')}
           </Typography>
         )}
 
@@ -890,6 +898,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                     id={id}
                     data={data}
                     isLive={isLive}
+                    showForm={!hotStove}
                     move={playerMoves.get(id) ?? null}
                     editMode={editMode}
                     isSelected={selected.has(id)}

@@ -80,7 +80,10 @@ export function fetchSeasonPhase(season: number, now = new Date()): Promise<Seas
   p = fetchSeasonDates(season).then(async dates => {
     if (!dates) return 'regular' as const
     const byDate = phaseOn(dates, today)
-    if (byDate !== 'postseason' && byDate !== 'offseason') return byDate
+    // Only the postseason's days can hold a makeup game. Past them this read asked, on every winter
+    // visit, about a window that closed, and one game the league never marked canceled would have
+    // called it the regular season until spring.
+    if (byDate !== 'postseason') return byDate
     return phaseOn(dates, today, await regularGamesLeft(dates))
   })
   // The calendar year's own dates too, when the season shown is last year's (January to opening

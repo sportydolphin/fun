@@ -589,13 +589,14 @@ function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; windo
 
 // ─── PredictionStatsModal ─────────────────────────────────────────────────────
 
-export function PredictionStatsModal({ open, userId, displayName, onClose }: {
+export function PredictionStatsModal({ open, userId, displayName, initialTab = 'my', onClose }: {
   open:        boolean
   userId:      string | undefined
   displayName: string
+  initialTab?: 'my' | 'board'
   onClose:     () => void
 }) {
-  const [tab,         setTab]         = useState<'my' | 'board'>('my')
+  const [tab,         setTab]         = useState<'my' | 'board'>(initialTab)
   const [boardWindow, setBoardWindow] = useState<'all' | 'month' | 'week'>('all')
   const [stats,       setStats]       = useState<PersonalStats | null>(null)
   const [leaders,     setLeaders]     = useState<LeaderEntry[]>([])
@@ -618,14 +619,16 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
   // Load leaderboard when switching to that tab or window. All-time is a live read of
   // prediction_stats; the windowed cuts read their precomputed board.
   useEffect(() => {
-    if (!open || tab !== 'board' || !userId) return
+    // The board is public, and in the winter it is what the card links to, signed in or not.
+    if (!open || tab !== 'board') return
+    const me = userId ?? ''
     setLbLoading(true)
     setLeaders([])
     // All-time prefers the precomputed board (covers every predictor, not just those who
     // opened My Stats); if it hasn't been computed yet, fall back to the live read.
     const load = boardWindow === 'all'
-      ? fetchWindowBoard('all', userId).then(b => (b.length ? b : fetchLeaderboard(userId)))
-      : fetchWindowBoard(boardWindow, userId)
+      ? fetchWindowBoard('all', me).then(b => (b.length ? b : fetchLeaderboard(me)))
+      : fetchWindowBoard(boardWindow, me)
     load.then(setLeaders).finally(() => setLbLoading(false))
   }, [open, tab, userId, boardWindow])
 
@@ -661,7 +664,7 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
         </Box>
 
         <Box sx={{ p: 2 }}>
-          {!userId ? (
+          {!userId && tab === 'my' ? (
             <Box sx={{ py: 5, textAlign: 'center' }}>
               <Typography sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.body }}>
                 Sign in to view your prediction stats

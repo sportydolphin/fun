@@ -23,6 +23,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.203.0',
+    date:    '2026-10-31',
+    changes: [
+      {
+        short: 'MLB Home for the offseason',
+        full:  'With no games left, MLB Home leads with the champion, your club and the Hot Stove. The bracket moves to the recap, and Predictions and Streak Survivor share one card with your record, the leaderboards and the date of Opening Day.',
+      },
+      {
+        short: 'Full schedule, all season',
+        full:  'Schedule on the MLB team card opens the whole season. It did nothing for a club with no game in the last two weeks.',
+      },
+    ],
+  },
+  {
     version: '1.202.2',
     date:    '2026-10-31',
     changes: [

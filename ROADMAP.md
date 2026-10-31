@@ -213,6 +213,13 @@ October is over; it is the first real measurement of which Home cards are used.
   in `__tests__/rosterMoves.test.ts`. *Not built:* a page of its own, and tracking the free-agent
   class to where each player signs. Read "MLB: what gets used" on `/admin` in December before
   building either.
+- ✅ **Home's winter order** (Oct 31, v1.203.0). From the audit that day: a phone led with two cards
+  saying "back on Opening Day" and the bracket sat on top until March. With no games the champion is a
+  row, the bracket, Standouts and Happening Now leave, the two pick games share `WinterGames.tsx`,
+  and the cards are ordered by `WINTER_ORDER` (`display: contents` on a phone). A winter load went from
+  36 data requests and a poll a minute to 25 and none. *Still open from the audit:* final standings,
+  a winter pool of report boards, the followed club's moves on its card, Hot Stove ranked by kind of
+  move, Milestone Watch leading with 2027's chases. Read "MLB: what gets used" first.
 - **The plays mirror (second pass, item 6, step 4) is unblocked, with a budget.** Ops item 4
   shipped Oct 11 and took the database to 305 MB, but the 2000 to 2025 backfill means the MLB line
   tables are now most of it (about 137 MB of the two). Plays and pitches are roughly 1M rows a
