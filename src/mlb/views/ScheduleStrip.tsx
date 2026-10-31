@@ -4,23 +4,20 @@ import { TeamLogo } from '../components/TeamLogo'
 import React, { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect, lazy, Suspense } from 'react'
 import { pressable } from '../../ui/interaction'
 import { TYPE_SCALE, edge } from '../../ui/card'
-import { Box, Typography, useTheme } from '@mui/material'
-import { TEAM_ABBR, ACCENT, ACCENT_TEXT, TONE, FILL, CURRENT_SEASON } from '../constants'
+import { Box, Typography } from '@mui/material'
+import { TEAM_ABBR, ACCENT, ACCENT_TEXT, TONE, CURRENT_SEASON } from '../constants'
 import { ringColor, useTextTone } from '../lib/colorUtils'
-import { MlbSheet } from '../components/MlbSheet'
 import { FinalGameSummary } from './FinalGames'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
 import { LiveGameCard } from '../components/LiveGameCard'
-import {
-  chipDate, relativeChipDate, formatIP, COMPACT_ROW_MAX,
+import { FullScheduleModal } from './FullSchedule'
+import { relativeChipDate, formatIP, COMPACT_ROW_MAX,
   scheduleGameToPreview, gamesOnDate, gmLabel,
-  fetchTeamSchedule, fetchTeamSeasonSchedule, chipBadge, fetchGamePreview, fetchGameFinalDetails, fetchLiveGameData,
+  fetchTeamSchedule, fetchTeamSeasonSchedule, fetchGamePreview, fetchGameFinalDetails, fetchLiveGameData,
   ScheduleGame, ProbablePitcher, GamePreviewData, GameFinalDetails, LiveGameData,
 } from './scheduleData'
-import { scrollBehavior } from '../../lib/motion'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
-import { chromePx, chromeScale, typePx } from '../../ui/scale'
-import { gameLink, LINK_SX } from '../lib/links'
+import { chromePx, typePx } from '../../ui/scale'
 
 // Lazy, as in FinalGames and GameRoute: Game Center opens on a tap, and a static import put all
 // of it in the Home landing for a reader who may never open a game.
@@ -29,106 +26,6 @@ const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ defau
 const GamePreviewModal = lazy(() => import('./GamePreview').then(m => ({ default: m.GamePreviewModal })))
 
 // ─── GameChip ─────────────────────────────────────────────────────────────────
-
-function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick }: {
-  game:          ScheduleGame
-  teamColor:     string
-  highlight:     boolean
-  isActualToday: boolean
-  innerRef?:     React.RefObject<HTMLDivElement>
-  onClick?:      () => void
-}) {
-  const isFinal     = game.state === 'final'
-  const isLive      = game.state === 'live'
-  const isPostponed = game.state === 'postponed'
-  const isWin       = game.isWin === true
-  const badge       = highlight ? chipBadge(game, isActualToday) : null
-
-  return (
-    <Box
-      ref={innerRef}
-      {...gameLink(game.gamePk, onClick)}
-      sx={{
-        ...LINK_SX, flexShrink: 0, width: chromePx(70),
-        borderRadius: 2,
-        border: `1.5px solid`,
-        borderColor: highlight ? edge(teamColor) : 'outline',
-        bgcolor: highlight ? `${teamColor}14` : `${teamColor}06`,
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        py: 1.25, px: 0.75, gap: 0.5,
-        position: 'relative', overflow: 'hidden',
-        cursor: onClick ? 'pointer' : 'default',
-        transition: 'border-color 0.12s, background-color 0.12s',
-        '&:hover': onClick ? {
-          borderColor: edge(teamColor),
-          bgcolor: highlight ? `${teamColor}22` : `${teamColor}12`,
-        } : {},
-      }}
-    >
-      {badge && (
-        <Box sx={{
-          position: 'absolute', top: 0, left: 0, right: 0,
-          bgcolor: isLive       ? FILL.red
-                 : isPostponed  ? 'rgba(128,128,128,0.5)'
-                 : isActualToday ? teamColor
-                 : `${teamColor}90`,
-          py: chromePx(2.5),
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Typography sx={{
-            fontSize: TYPE_SCALE.nano, fontWeight: 800, letterSpacing: typePx(0.5),
-            color: '#fff', textTransform: 'uppercase', lineHeight: 1,
-          }}>
-            {badge}
-          </Typography>
-        </Box>
-      )}
-
-      <Typography sx={{
-        fontSize: TYPE_SCALE.caption, fontWeight: 600,
-        color: 'text.secondary', lineHeight: 1,
-        mt: badge ? 1.4 : 0, letterSpacing: typePx(0.5),
-      }}>
-        {chipDate(game.date)}{game.gameNumber > 1 ? ' · G2' : ''}
-      </Typography>
-
-      <Typography sx={{ fontSize: TYPE_SCALE.nano, fontWeight: 800, color: 'text.disabled', lineHeight: 1, letterSpacing: typePx(0.5) }}>
-        {game.isHome ? 'VS' : '@'}
-      </Typography>
-
-      <TeamLogo teamId={game.opponentId} abbr={game.opponentAbbr} size={28} decorative />
-
-      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.primary', lineHeight: 1 }}>
-        {game.opponentAbbr}
-      </Typography>
-
-      {isFinal ? (
-        <>
-          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.primary', lineHeight: 1 }}>
-            {game.teamScore}–{game.opponentScore}
-          </Typography>
-          <Box sx={{ px: 0.75, py: chromePx(2), borderRadius: 0.75, bgcolor: isWin ? '#22c55e22' : '#ef444422' }}>
-            <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, lineHeight: 1, color: isWin ? TONE.green : TONE.red }}>
-              {isWin ? 'W' : 'L'}
-            </Typography>
-          </Box>
-        </>
-      ) : isLive ? (
-        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: TONE.red, lineHeight: 1 }}>
-          {game.teamScore}–{game.opponentScore}
-        </Typography>
-      ) : isPostponed ? (
-        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled', lineHeight: 1, letterSpacing: typePx(0.5) }}>
-          {chipBadge(game, false)}
-        </Typography>
-      ) : (
-        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 600, color: 'text.secondary', lineHeight: 1, textAlign: 'center' }}>
-          {game.gameTime}
-        </Typography>
-      )}
-    </Box>
-  )
-}
 
 // ─── Countdown ────────────────────────────────────────────────────────────────
 
@@ -353,149 +250,6 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
   )
 }
 
-// ─── FullScheduleModal ────────────────────────────────────────────────────────
-
-function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, onTeamClick, onClose }: {
-  games:          ScheduleGame[]
-  myTeamId:       number
-  teamColor:      string
-  today:          string
-  onPlayerClick?: (id: number) => void
-  onTeamClick?:   (id: number) => void
-  onClose:        () => void
-}) {
-  const theme   = useTheme()
-  const paperBg = theme.palette.background.paper
-
-  const chipRef      = useRef<HTMLDivElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  const [selectedGame,   setSelectedGame]   = useState<ScheduleGame | null>(null)
-  const [canScrollLeft,  setCanScrollLeft]   = useState(false)
-  const [canScrollRight, setCanScrollRight]  = useState(true)
-
-  // The chip to highlight: the next game still to be played. On a doubleheader day
-  // whose opener is already final, that's the nightcap, not the finished game.
-  const nextGame = games.find(g => g.date >= today && g.state !== 'final')
-    ?? games.find(g => g.date >= today)
-    ?? games[games.length - 1]
-
-  useEffect(() => {
-    const c = containerRef.current, el = chipRef.current
-    if (!c || !el) return
-    const t = setTimeout(() => {
-      c.scrollTo({ left: Math.max(0, el.offsetLeft - c.clientWidth / 2 + el.offsetWidth / 2), behavior: scrollBehavior() })
-    }, 80)
-    return () => clearTimeout(t)
-  }, [games])
-
-  const handleScroll = useCallback(() => {
-    const c = containerRef.current
-    if (!c) return
-    setCanScrollLeft(c.scrollLeft > 8)
-    setCanScrollRight(c.scrollLeft < c.scrollWidth - c.clientWidth - 8)
-  }, [])
-
-  const scrollStrip = useCallback((dir: 'left' | 'right') => {
-    containerRef.current?.scrollBy({ left: (dir === 'right' ? 280 : -280) * chromeScale(), behavior: scrollBehavior() })
-  }, [])
-
-  // The shared preview modal fetches its own probable-starter data by gamePk, so opening
-  // a game is just selecting it.
-  const handleChipClick = useCallback((g: ScheduleGame) => { setSelectedGame(g) }, [])
-
-  const handleClosePreview = useCallback(() => { setSelectedGame(null) }, [])
-
-  // Index of the open game in the schedule, so the preview's ‹ › arrows can step to the
-  // adjacent (previous / next) scheduled game.
-  const selectedIdx = selectedGame ? games.findIndex(g => g.gamePk === selectedGame.gamePk) : -1
-
-  // Arrow button style shared by both sides
-  const arrowBtn = (visible: boolean) => ({
-    position: 'absolute' as const, top: '50%', transform: 'translateY(-50%)',
-    zIndex: 3, width: chromePx(30), height: chromePx(30), borderRadius: '50%',
-    bgcolor: 'background.paper', border: '1px solid', borderColor: 'outline',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-    opacity: visible ? 1 : 0, pointerEvents: visible ? 'auto' : 'none',
-    transition: 'opacity 0.15s, background-color 0.12s',
-    '&:hover': { bgcolor: 'action.hover' },
-    // only show on pointer:fine (mouse) devices
-    '@media (pointer: coarse)': { display: 'none' },
-  } as const)
-
-  return (
-    <>
-      <MlbSheet onClose={onClose} maxWidth={chromePx(560)} sheet eyebrow="Full schedule">
-          {/* Chip strip with desktop scroll arrows */}
-          <Box sx={{ py: 2.5, position: 'relative' }}>
-            {/* Fade gradients */}
-            <Box sx={{
-              position: 'absolute', left: 0, top: 0, bottom: chromePx(8), width: chromePx(40), zIndex: 2,
-              background: `linear-gradient(to right, ${paperBg} 40%, transparent)`, pointerEvents: 'none',
-            }} />
-            <Box sx={{
-              position: 'absolute', right: 0, top: 0, bottom: chromePx(8), width: chromePx(40), zIndex: 2,
-              background: `linear-gradient(to left, ${paperBg} 40%, transparent)`, pointerEvents: 'none',
-            }} />
-
-            {/* ◀ scroll button */}
-            <Box {...pressable(() => scrollStrip('left'))} aria-label="Earlier games" sx={{ ...arrowBtn(canScrollLeft), left: chromePx(6) }}>
-              <Typography sx={{ fontSize: TYPE_SCALE.meta, lineHeight: 1, color: 'text.secondary', mt: '-1px' }}>◀</Typography>
-            </Box>
-            {/* ▶ scroll button */}
-            <Box {...pressable(() => scrollStrip('right'))} aria-label="Later games" sx={{ ...arrowBtn(canScrollRight), right: chromePx(6) }}>
-              <Typography sx={{ fontSize: TYPE_SCALE.meta, lineHeight: 1, color: 'text.secondary', mt: '-1px' }}>▶</Typography>
-            </Box>
-
-            <Box
-              ref={containerRef}
-              onScroll={handleScroll}
-              sx={{
-                display: 'flex', gap: 1, overflowX: 'auto', px: 5, pb: 1,
-                '&::-webkit-scrollbar': { height: chromePx(3) },
-                '&::-webkit-scrollbar-thumb': { bgcolor: `${teamColor}30`, borderRadius: 2 },
-                scrollbarWidth: 'thin', scrollbarColor: `${teamColor}30 transparent`,
-              }}
-            >
-              {games.map(g => {
-                const isHL = g.gamePk === nextGame.gamePk
-                return (
-                  <GameChip
-                    // A postponed game keeps its original date *and* the makeup date's
-                    // gamePk, so the pk alone isn't unique across the strip.
-                    key={`${g.date}-${g.gamePk}`}
-                    game={g}
-                    teamColor={teamColor}
-                    highlight={isHL}
-                    isActualToday={isHL && nextGame.date === today}
-                    innerRef={isHL ? chipRef : undefined}
-                    onClick={() => handleChipClick(g)}
-                  />
-                )
-              })}
-            </Box>
-          </Box>
-
-          <Box sx={{ pb: 2.5 }} />
-      </MlbSheet>
-
-      {selectedGame && (
-        <Suspense fallback={null}>
-          <GamePreviewModal
-            game={scheduleGameToPreview(selectedGame, myTeamId)}
-            onClose={handleClosePreview}
-            onPlayerClick={id => { onClose(); onPlayerClick?.(id) }}
-            onTeamClick={id => { onClose(); onTeamClick?.(id) }}
-            onPrev={selectedIdx > 0 ? () => handleChipClick(games[selectedIdx - 1]) : undefined}
-            onNext={selectedIdx >= 0 && selectedIdx < games.length - 1 ? () => handleChipClick(games[selectedIdx + 1]) : undefined}
-          />
-        </Suspense>
-      )}
-    </>
-  )
-}
-
 // ─── CompactPitcherRow ────────────────────────────────────────────────────────
 // Two-pitcher inline bar for the home card, much smaller than PitcherPanel
 
@@ -640,9 +394,8 @@ function gameToFinalSummary(game: ScheduleGame, myTeamId: number): FinalGameSumm
 
 // ─── TeamScheduleStrip ────────────────────────────────────────────────────────
 
-export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleClose, onPlayerClick, onTeamClick, collapsed }: {
+export function TeamScheduleStrip({ teamId, showSchedule, onScheduleClose, onPlayerClick, onTeamClick, collapsed }: {
   teamId:           number
-  teamColor:        string
   showSchedule?:    boolean
   /** Draw no strip, only the sheets it opens: the full schedule, a preview, a box score. For a club
    *  whose season is over, whose card is one line but whose "Season" link still opens all of it. */
@@ -988,7 +741,6 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
         <FullScheduleModal
           games={sheetGames}
           myTeamId={teamId}
-          teamColor={teamColor}
           today={today}
           onPlayerClick={stampOverlay({ kind: 'teamSchedule' }, onPlayerClick)}
           onTeamClick={stampOverlay({ kind: 'teamSchedule' }, onTeamClick)}

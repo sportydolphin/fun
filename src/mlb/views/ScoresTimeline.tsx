@@ -13,6 +13,8 @@ import { TeamLogo } from '../components/TeamLogo'
 import { anchorIndex, indexOnOrAfter, nextChunk, prevChunk, activeDay, CHUNK } from '../scoresTimeline'
 import { fetchTeamSchedule, type ScheduleGame } from './scheduleData'
 import { ScoreCard, ScoreCardSkeleton } from './ScoreCard'
+import { ScoreRow, ScoreRowList, ScoreRowSkeleton } from './ScoreRow'
+import { usePhoneLayout } from '../../ui/ModalShell'
 import {
   fetchSeasonGameDates, fetchGameDays, fetchFinalGames, fetchGameSummary,
   type FinalGameSummary,
@@ -90,6 +92,12 @@ export function ScoresTimeline({ followedTeamId, date, onDateChange, onGameClick
   // not taken for Back and a jump.
   const wroteRef = useRef<string | null | undefined>(undefined)
   const scroller = useCallback(() => scrollParentOf(rootRef.current), [])
+  // A day is fifteen games: rows on a phone, where a card each was three screens of it (ScoreRow.tsx).
+  const phone = usePhoneLayout()
+  const post = bracketLikely()
+  const skeletons = (n: number) => phone
+    ? <ScoreRowList>{Array.from({ length: n }, (_, i) => <ScoreRowSkeleton key={i} postseason={post} />)}</ScoreRowList>
+    : <Box sx={GRID_SX}>{Array.from({ length: n }, (_, i) => <ScoreCardSkeleton key={i} postseason={post} />)}</Box>
 
   const load = useCallback(async (from: number, to: number, list: string[]) => {
     const got = await fetchGameDays(list.slice(from, to + 1))
@@ -253,7 +261,6 @@ export function ScoresTimeline({ followedTeamId, date, onDateChange, onGameClick
   }, [days, lo, hi, data, isMine])
   const slate = useMemo(() => shown.flatMap(d => d.games), [shown])
 
-  const post = bracketLikely()
   const atEnd = !!days && hi >= days.length - 1
 
   return (
@@ -285,9 +292,7 @@ export function ScoresTimeline({ followedTeamId, date, onDateChange, onGameClick
       {!ready ? (
         <Box aria-hidden>
           <DayHead day={null} />
-          <Box sx={GRID_SX}>
-            {Array.from({ length: post ? 4 : 15 }, (_, i) => <ScoreCardSkeleton key={i} postseason={post} />)}
-          </Box>
+          {skeletons(post ? 4 : 15)}
         </Box>
       ) : !days || days.length === 0 ? (
         <Box sx={{ py: 6, textAlign: 'center' }}>
@@ -298,11 +303,19 @@ export function ScoresTimeline({ followedTeamId, date, onDateChange, onGameClick
           {shown.map(({ day, games }) => (
             <Box key={day} component="section" data-day={day} aria-label={fromISO(day).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}>
               <DayHead day={day} />
-              <Box sx={GRID_SX}>
-                {games.map(g => (
-                  <ScoreCard key={g.gamePk} game={g} accent={isMine(g) ? accent : undefined} onClick={() => onGameClick(g, slate)} />
-                ))}
-              </Box>
+              {phone ? (
+                <ScoreRowList>
+                  {games.map(g => (
+                    <ScoreRow key={g.gamePk} game={g} accent={isMine(g) ? accent : undefined} onClick={() => onGameClick(g, slate)} />
+                  ))}
+                </ScoreRowList>
+              ) : (
+                <Box sx={GRID_SX}>
+                  {games.map(g => (
+                    <ScoreCard key={g.gamePk} game={g} accent={isMine(g) ? accent : undefined} onClick={() => onGameClick(g, slate)} />
+                  ))}
+                </Box>
+              )}
             </Box>
           ))}
         </Box>
@@ -313,9 +326,7 @@ export function ScoresTimeline({ followedTeamId, date, onDateChange, onGameClick
         {ready && !atEnd && days && days.length > 0 && (
           <Box aria-hidden>
             <DayHead day={null} />
-            <Box sx={GRID_SX}>
-              {Array.from({ length: post ? 2 : 6 }, (_, i) => <ScoreCardSkeleton key={i} postseason={post} />)}
-            </Box>
+            {skeletons(post ? 2 : 6)}
           </Box>
         )}
         {ready && atEnd && days && days.length > 0 && (

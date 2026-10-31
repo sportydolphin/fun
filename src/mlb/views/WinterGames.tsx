@@ -2,7 +2,8 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { useAuth } from '../../AuthContext'
 import { supabase } from '../../lib/supabase'
-import { CardLink, SectionCard, TYPE_SCALE } from '../../ui/card'
+import { SectionCard, TYPE_SCALE } from '../../ui/card'
+import { pressable } from '../../ui/interaction'
 import { CURRENT_SEASON } from '../constants'
 import { fetchNextOpeningDay, longDay } from '../seasonPhase'
 import { useDeepLink } from '../state/deepLink'
@@ -11,16 +12,17 @@ import { fetchMyStats } from './survivorData'
 
 const PredictionStatsModal = lazy(() => import('./PredictionStats').then(m => ({ default: m.PredictionStatsModal })))
 
+// The counted row the awards card draws: a label, what it holds, and the whole row is the way in.
 function GameRow({ label, value, onOpen }: { label: string; value: string | null; onOpen: () => void }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
-      <Typography sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 700 }}>{label}</Typography>
-      {value && (
-        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
-          {value}
-        </Typography>
-      )}
-      <CardLink label="Leaderboard" onClick={onOpen} />
+    <Box {...pressable(onOpen)} sx={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 1, py: 0.75,
+      cursor: 'pointer', borderTop: '1px solid', borderColor: 'divider',
+    }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700 }}>{label}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+        {value ?? 'Leaderboard'} ›
+      </Typography>
     </Box>
   )
 }
@@ -69,12 +71,8 @@ export function WinterGamesCard() {
 
   return (
     <SectionCard
-      title="Opening Day"
-      action={
-        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, whiteSpace: 'nowrap', visibility: opening ? undefined : 'hidden' }}>
-          {opening ? longDay(opening) : 'March 25'}
-        </Typography>
-      }
+      title="Games"
+      subtitle={<Box component="span" sx={{ visibility: opening ? undefined : 'hidden' }}>Opening Day · {opening ? longDay(opening) : 'March 25'}</Box>}
     >
       <GameRow label="Predictions" value={predictions} onOpen={() => setOpen('predictions')} />
       <GameRow label="Streak Survivor" value={survivor} onOpen={() => setOpen('survivor')} />

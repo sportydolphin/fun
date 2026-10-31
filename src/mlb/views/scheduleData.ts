@@ -150,14 +150,6 @@ export async function fetchTeamSeasonSchedule(teamId: number, season: number): P
   return parseTeamSchedule(d, teamId)
 }
 
-/** The badge on a schedule chip. A season's last game is the chip the sheet opens on, and it is not "next". */
-export function chipBadge(game: Pick<ScheduleGame, 'state' | 'unplayed'>, isToday: boolean): string | null {
-  if (game.state === 'live') return '● LIVE'
-  if (game.state === 'postponed') return game.unplayed === 'Cancelled' ? 'CNCL' : 'PPD'
-  if (isToday) return 'TODAY'
-  return game.state === 'final' ? null : 'NEXT'
-}
-
 /** Pure, for the test. */
 export function parseTeamSchedule(d: any, teamId: number): ScheduleGame[] {
   const games: ScheduleGame[] = []
@@ -197,6 +189,57 @@ export function parseTeamSchedule(d: any, teamId: number): ScheduleGame[] {
   // Doubleheaders share a date, so game number breaks the tie: the strip and the
   // team card both rely on this list being in true chronological order.
   return games.sort((a, b) => a.date.localeCompare(b.date) || a.gameNumber - b.gameNumber)
+}
+
+// ─── The season as a calendar (FullSchedule.tsx) ──────────────────────────────
+
+/** Every month with a game, as YYYY-MM, in order. */
+export function scheduleMonths(games: Pick<ScheduleGame, 'date'>[]): string[] {
+  return [...new Set(games.map(g => g.date.slice(0, 7)))].sort()
+}
+
+export function gamesInMonth<T extends Pick<ScheduleGame, 'date'>>(games: T[], month: string): T[] {
+  return games.filter(g => g.date.startsWith(month))
+}
+
+/** The month the sheet opens on: the next game's, or the last one's once the season is over. */
+export function openingMonth(games: Pick<ScheduleGame, 'date' | 'state'>[], today: string): string {
+  const next = games.find(g => g.date >= today && g.state !== 'final') ?? games.find(g => g.date >= today) ?? games[games.length - 1]
+  return next ? next.date.slice(0, 7) : today.slice(0, 7)
+}
+
+/** Six weeks of a month from its first Sunday: the day, or null outside the month. Always 42. */
+export function monthWeeks(month: string): (string | null)[] {
+  const [y, m] = month.split('-').map(Number)
+  const lead = new Date(y, m - 1, 1).getDay()
+  const length = new Date(y, m, 0).getDate()
+  return Array.from({ length: 42 }, (_, i) => {
+    const d = i - lead + 1
+    return d >= 1 && d <= length ? `${month}-${String(d).padStart(2, '0')}` : null
+  })
+}
+
+/** "14–13", the month's record, or null before a game in it has been decided. */
+export function monthRecord(games: Pick<ScheduleGame, 'state' | 'isWin'>[]): string | null {
+  const finals = games.filter(g => g.state === 'final')
+  if (!finals.length) return null
+  const wins = finals.filter(g => g.isWin).length
+  return `${wins}–${finals.length - wins}`
+}
+
+/** What a day's cell prints, in the room of a seventh of a phone: no meridiem, no W or L but the color,
+ *  and `label` for a screen reader, which gets no color. */
+export function calendarCell(g: Pick<ScheduleGame, 'state' | 'unplayed' | 'gameTime' | 'teamScore' | 'opponentScore' | 'isWin'>): {
+  text: string; label: string; tone: 'win' | 'loss' | 'live' | 'quiet'
+} {
+  if (g.state === 'postponed') {
+    const canceled = g.unplayed === 'Cancelled'
+    return { text: canceled ? 'CNCL' : 'PPD', label: canceled ? 'canceled' : 'postponed', tone: 'quiet' }
+  }
+  if (g.state === 'preview') return { text: g.gameTime.replace(/\s*[AP]M$/i, ''), label: g.gameTime, tone: 'quiet' }
+  const score = `${g.teamScore}–${g.opponentScore}`
+  if (g.state === 'live') return { text: score, label: `live, ${score}`, tone: 'live' }
+  return { text: score, label: `${g.isWin ? 'won' : 'lost'} ${score}`, tone: g.isWin ? 'win' : 'loss' }
 }
 
 // ─── Doubleheader helpers ─────────────────────────────────────────────────────
