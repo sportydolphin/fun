@@ -6,14 +6,14 @@ import {
   ClickAwayListener,
 } from '@mui/material'
 import { Search } from '@mui/icons-material'
-import { TeamSummary, SosEntry } from '../types'
+import { TeamSummary, SosEntry, StandingsDivision } from '../types'
 import { TEAM_BG, TEAM_ABBR, TEAM_SEASONS, CURRENT_SEASON, TEAM_PAYROLLS_2026 } from '../constants'
 import { InfoDot } from '../../ui/InfoDot'
 import { TeamEraOpsPlot, TeamWinRDPlot, PayrollWinsPlot } from '../components/charts'
 import { ScatterFrame } from '../../ui/charts/ScatterPlot'
 import { Board, PlayerBoard, LeaderboardCard, LeaderboardModal, PlayerLeaderboardCard, PlayerLeaderboardModal } from '../components/leaderboards'
-import { AgeEntry, buildFraudRows, buildAgeRows, buildSosRows, buildPayrollRows, buildStreakRows, buildPitchPaRows, buildSalaryRows } from '../components/reportCardRows'
-import { fetchStrengthOfSchedule, fetchTeamPayrolls, fetchTeamAverageAges, fetchStreakLeaders, StreakLeaders, fetchPitchesPerPa, PitchPaLeaders, fetchTopSalaries, SalaryRow } from '../api'
+import { AgeEntry, buildCostPerWinRows, buildWinChangeRows, buildFraudRows, buildAgeRows, buildSosRows, buildPayrollRows, buildStreakRows, buildPitchPaRows, buildSalaryRows } from '../components/reportCardRows'
+import { fetchStrengthOfSchedule, fetchTeamPayrolls, fetchTeamAverageAges, fetchStreakLeaders, StreakLeaders, fetchPitchesPerPa, PitchPaLeaders, fetchTopSalaries, SalaryRow, fetchStandingsCached } from '../api'
 import { chromePx, typePx } from '../../ui/scale'
 import { useSeasonPhase, isSeasonOver } from '../seasonPhase'
 import { FilterSelect } from '../../ui/FilterChip'
@@ -77,6 +77,16 @@ export function VizView({
   // ─── SOS state ────────────────────────────────────────────────────────────
   const [sosData, setSosData]       = useState<SosEntry[]>([])
   const [loadingSos, setLoadingSos] = useState(showSos)
+
+  // ─── The finished season's standings, and the one before, for the boards that compare them ──
+  const [standings, setStandings] = useState<[StandingsDivision[], StandingsDivision[]] | null>(null)
+  useEffect(() => {
+    if (!showSos || !final) return
+    let cancelled = false
+    Promise.all([fetchStandingsCached(vizSeason), fetchStandingsCached(vizSeason - 1)])
+      .then(s => { if (!cancelled) setStandings(s) })
+    return () => { cancelled = true }
+  }, [showSos, final, vizSeason])
 
   // ─── Report Card fullscreen state: one board open at a time ─────────────
   const [expandedBoard, setExpandedBoard] = useState<string | null>(null)
@@ -235,6 +245,28 @@ export function VizView({
         id: 'lowest-payroll', title: 'Lowest Payrolls', accent: '#22c55e',
         subtitle: '2026 est. payroll',
         rows: buildPayrollRows(TEAM_PAYROLLS_2026, nameMap, 'lowest'), loading: false,
+      },
+    ] : []),
+    ...(showSos && final ? [
+      {
+        id: 'most-improved', title: 'Most Improved', accent: '#22c55e',
+        subtitle: `Wins vs ${vizSeason - 1}`,
+        rows: standings ? buildWinChangeRows(standings[0], standings[1], nameMap, 'up') : [], loading: !standings,
+      },
+      {
+        id: 'biggest-drops', title: 'Biggest Drops', accent: '#ef4444',
+        subtitle: `Wins vs ${vizSeason - 1}`,
+        rows: standings ? buildWinChangeRows(standings[0], standings[1], nameMap, 'down') : [], loading: !standings,
+      },
+      {
+        id: 'cheapest-wins', title: 'Cheapest Wins', accent: '#14b8a6',
+        subtitle: 'Est. payroll per win',
+        rows: standings ? buildCostPerWinRows(standings[0], TEAM_PAYROLLS_2026, nameMap, 'cheapest') : [], loading: !standings,
+      },
+      {
+        id: 'priciest-wins', title: 'Priciest Wins', accent: '#eab308',
+        subtitle: 'Est. payroll per win',
+        rows: standings ? buildCostPerWinRows(standings[0], TEAM_PAYROLLS_2026, nameMap, 'priciest') : [], loading: !standings,
       },
     ] : []),
   ]

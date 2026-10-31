@@ -1,7 +1,7 @@
 import { useDark } from '../../ui/useDark'
 import { NameText } from '../../ui/NameText'
 import { TeamLogo } from '../components/TeamLogo'
-import React, { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect, lazy, Suspense } from 'react'
+import React, { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react'
 import { pressable } from '../../ui/interaction'
 import { TYPE_SCALE, edge } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
@@ -90,7 +90,7 @@ function GameCountdown({ iso }: { iso: string }) {
 // ─── CompactGameCard ──────────────────────────────────────────────────────────
 // Compact single-game summary (last game OR next game header)
 
-function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAction, onTeamClick, rightSlot, scoreRef, scoreMinWidth, gmLabel, hideDate }: {
+function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAction, onTeamClick, gmLabel, hideDate }: {
   game:         ScheduleGame
   myTeamId?:    number
   label?:       string
@@ -98,9 +98,6 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
   actionLabel?: string
   onAction?:    () => void
   onTeamClick?: (id: number) => void
-  rightSlot?:   React.ReactNode                 // mobile-only: fills the empty space right of the score
-  scoreRef?:    React.Ref<HTMLDivElement>        // measure the score/time block for cross-card alignment
-  scoreMinWidth?: number                         // mobile: min width so stacked cards' rightSlots line up
   gmLabel?:     string                           // "GM 1"/"GM 2" badge for doubleheader days
   hideDate?:    boolean                          // 2nd+ game of a doubleheader, whose date is already above
 }) {
@@ -171,10 +168,9 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
         )}
       </Box>
 
-      {/* Score / time row: fixed minHeight so both FINAL and NEXT GAME rows are the same height.
-          On mobile, rightSlot (the pitcher lines) sits just to the right of the score. */}
+      {/* Score / time row: fixed minHeight so both FINAL and NEXT GAME rows are the same height. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: { xs: 0, sm: 0.25 }, minHeight: { xs: chromePx(26), sm: chromePx(32) } }}>
-        <Box ref={scoreRef} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, maxWidth: chromePx(COMPACT_ROW_MAX), flexShrink: 0, minWidth: scoreMinWidth ? { xs: `${scoreMinWidth}px`, sm: 0 } : 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, maxWidth: chromePx(COMPACT_ROW_MAX), flexShrink: 0 }}>
         {(isFinal || isLive) && myTeamId ? (
           // Scoreboard-style, mirrored around the dash: away team → score – score ← home team,
           // so the two scores sit adjacent to the dash instead of a logo sitting next to it.
@@ -239,11 +235,6 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
           </Box>
         )}
         </Box>
-        {rightSlot && (
-          <Box sx={{ display: { xs: 'flex', sm: 'none' }, minWidth: 0, flexShrink: 1, overflow: 'hidden' }}>
-            {rightSlot}
-          </Box>
-        )}
       </Box>
 
     </Box>
@@ -253,14 +244,13 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
 // ─── CompactPitcherRow ────────────────────────────────────────────────────────
 // Two-pitcher inline bar for the home card, much smaller than PitcherPanel
 
-function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, loading, onPlayerClick, inline }: {
+function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, loading, onPlayerClick }: {
   awayPitcher:   ProbablePitcher | null
   homePitcher:   ProbablePitcher | null
   awayTeamId:    number
   homeTeamId:    number
   loading:       boolean
   onPlayerClick?: (id: number) => void
-  inline?:       boolean   // sit inline to the right of the time (no top margin / width cap)
 }) {
 
   if (loading) return (
@@ -276,14 +266,14 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
       <Box
         {...pressable(e => { e.stopPropagation(); if (pitcher) onPlayerClick?.(pitcher.id) })}
         sx={{
-          minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75,
+          minWidth: 0, flex: { xs: '1 1 0', sm: '0 1 auto' }, display: 'flex', alignItems: 'center', gap: 0.75,
           cursor: pitcher && onPlayerClick ? 'pointer' : 'default',
           '&:hover .pmn': pitcher && onPlayerClick ? { color: ACCENT_TEXT } : {},
         }}
       >
         <TeamLogo teamId={teamId} abbr={TEAM_ABBR[teamId] ?? ''} size={22} decorative
           sx={{ display: { xs: 'none', sm: 'flex' } }} />
-        <Box sx={{ minWidth: 0, maxWidth: chromePx(96) }}>
+        <Box sx={{ minWidth: 0, maxWidth: { xs: 'none', sm: chromePx(96) } }}>
           {pitcher
             ? <NameText name={pitcher.name} className="pmn" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: 1.2, transition: 'color 0.12s' }} />
             : <Typography className="pmn" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap' }}>TBD</Typography>}
@@ -300,8 +290,8 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
   return (
     <Box sx={{
       display: 'flex', alignItems: 'center', gap: 1, minWidth: 0,
-      mt: inline ? 0 : { xs: 0.4, sm: 0.75 },
-      maxWidth: inline ? 'none' : chromePx(COMPACT_ROW_MAX),
+      mt: { xs: 0.5, sm: 0.75 },
+      maxWidth: { xs: 'none', sm: chromePx(COMPACT_ROW_MAX) },
     }}>
       {pitcherChip({ pitcher: awayPitcher, teamId: awayTeamId })}
       <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>vs</Typography>
@@ -313,11 +303,10 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
 // ─── CompactPerformerRow ──────────────────────────────────────────────────────
 // Featured performers from a completed game, mirroring CompactPitcherRow layout
 
-function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick, inline }: {
+function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick }: {
   finalDetails:   GameFinalDetails
   awayTeamId?:    number   // when set, order pitchers away → home so logos align with the score row above
   onPlayerClick?: (id: number) => void
-  inline?:        boolean  // sit inline to the right of the score (no top margin / width cap)
 }) {
   let first  = finalDetails.winnerPitcher
   let second = finalDetails.loserPitcher
@@ -332,7 +321,7 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick, inline }
       <Box
         {...pressable(e => { e.stopPropagation(); onPlayerClick?.(player.id) })}
         sx={{
-          minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75,
+          minWidth: 0, flex: { xs: '1 1 0', sm: '0 1 auto' }, display: 'flex', alignItems: 'center', gap: 0.75,
           cursor: onPlayerClick ? 'pointer' : 'default',
           '&:hover .pmn': onPlayerClick ? { color: ACCENT_TEXT } : {},
         }}
@@ -344,7 +333,7 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick, inline }
         }}>
           <TeamLogo teamId={player.teamId} abbr={TEAM_ABBR[player.teamId] ?? ''} size={22} decorative />
         </Box>
-        <Box sx={{ minWidth: 0, maxWidth: chromePx(96) }}>
+        <Box sx={{ minWidth: 0, maxWidth: { xs: 'none', sm: chromePx(96) } }}>
           <NameText name={player.name} className="pmn" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: 1.2, transition: 'color 0.12s' }} />
           <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary', lineHeight: 1, whiteSpace: 'nowrap' }}>
             {formatIP(player.ip)} IP · {player.er}ER
@@ -357,8 +346,8 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick, inline }
   return (
     <Box sx={{
       display: 'flex', alignItems: 'center', gap: 1, minWidth: 0,
-      mt: inline ? 0 : { xs: 0.4, sm: 0.75 },
-      maxWidth: inline ? 'none' : chromePx(COMPACT_ROW_MAX),
+      mt: { xs: 0.5, sm: 0.75 },
+      maxWidth: { xs: 'none', sm: chromePx(COMPACT_ROW_MAX) },
     }}>
       {first && playerCard({ player: first })}
       {first && second && (
@@ -422,25 +411,6 @@ export function TeamScheduleStrip({ teamId, showSchedule, onScheduleClose, onPla
   // can re-run freely (on poll, on new schedule) without refiring requests. State is
   // part of the key so a game flipping preview → final refetches as a recap.
   const requestedPks = useRef<Set<string>>(new Set())
-
-  // Cross-card alignment (mobile): the primary and upcoming game cards stack, and their
-  // inline pitcher matchups should start at the same x. Measure both score/time blocks
-  // and give both a min width equal to the wider one so the pitchers line up.
-  const primaryScoreRef  = useRef<HTMLDivElement>(null)
-  const upcomingScoreRef = useRef<HTMLDivElement>(null)
-  const [scoreAlignW, setScoreAlignW] = useState(0)
-  useLayoutEffect(() => {
-    const els = [primaryScoreRef.current, upcomingScoreRef.current].filter(Boolean) as HTMLDivElement[]
-    if (els.length < 2) { setScoreAlignW(0); return }   // only align when both cards are present
-    const measure = () => {
-      const max = Math.max(...els.map(el => el.scrollWidth))
-      setScoreAlignW(prev => (max > 0 && max !== prev ? max : prev))
-    }
-    measure()
-    const ro = new ResizeObserver(measure)
-    els.forEach(el => ro.observe(el))
-    return () => ro.disconnect()
-  }, [games])
 
   const now   = new Date()
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -572,16 +542,13 @@ export function TeamScheduleStrip({ teamId, showSchedule, onScheduleClose, onPla
 
   const showLast     = slots.last.length > 0
   const showUpcoming = slots.upcoming.length > 0
-  // The primary day is "done" whenever there's an upcoming day beside it. That's
-  // the same condition, and it drives the mobile score alignment between the two.
-  const alignScores  = showUpcoming
 
   // One game inside a day column. `first` owns the date chip and the alignment ref;
   // the rest sit under it with just a GM badge, so a doubleheader reads as one day.
   const renderGameRow = (
     g:    ScheduleGame,
     day:  ScheduleGame[],
-    opts: { first: boolean; scoreRef?: React.Ref<HTMLDivElement>; scoreMinWidth?: number },
+    opts: { first: boolean },
   ) => {
     const isFinal   = g.state === 'final'
     const isPreview = g.state === 'preview'
@@ -594,14 +561,13 @@ export function TeamScheduleStrip({ teamId, showSchedule, onScheduleClose, onPla
     const awayId    = preview?.away.teamId ?? (g.isHome ? g.opponentId : teamId)
     const homeId    = preview?.home.teamId ?? (g.isHome ? teamId : g.opponentId)
 
-    // Recap performers (final) or probable starters (preview). Rendered twice:
-    // inline beside the score on mobile, on its own line from sm up.
-    const detailRow = (inline: boolean) => isFinal && details ? (
+    // Recap performers (final) or probable starters (preview), on their own line. On a phone they sat
+    // beside the score until Oct 31, 2026, in about 90px each, which cut the names mid-word.
+    const detailRow = () => isFinal && details ? (
       <CompactPerformerRow
         finalDetails={details}
         awayTeamId={g.isHome ? g.opponentId : teamId}
         onPlayerClick={onPlayerClick}
-        inline={inline}
       />
     ) : isPreview ? (
       <CompactPitcherRow
@@ -611,7 +577,6 @@ export function TeamScheduleStrip({ teamId, showSchedule, onScheduleClose, onPla
         homeTeamId={homeId}
         loading={pending}
         onPlayerClick={onPlayerClick}
-        inline={inline}
       />
     ) : null
     const hasDetail = (isFinal && details) || isPreview
@@ -636,11 +601,8 @@ export function TeamScheduleStrip({ teamId, showSchedule, onScheduleClose, onPla
           onTeamClick={onTeamClick}
           gmLabel={gmLabel(day, g)}
           hideDate={!opts.first}
-          rightSlot={hasDetail ? detailRow(true) : undefined}
-          scoreRef={opts.scoreRef}
-          scoreMinWidth={opts.scoreMinWidth}
         />
-        {hasDetail && <Box sx={{ display: { xs: 'none', sm: 'block' } }}>{detailRow(false)}</Box>}
+        {hasDetail && detailRow()}
       </Box>
     )
   }
@@ -648,7 +610,7 @@ export function TeamScheduleStrip({ teamId, showSchedule, onScheduleClose, onPla
   // A whole day as one column: date chip once at the top, then its games stacked.
   const renderDayColumn = (
     day:  ScheduleGame[],
-    opts: { padLeft: boolean; padRight: boolean; scoreRef?: React.Ref<HTMLDivElement>; scoreMinWidth?: number },
+    opts: { padLeft: boolean; padRight: boolean },
   ) => (
     <Box sx={{
       flex: 1, minWidth: 0,
@@ -661,8 +623,6 @@ export function TeamScheduleStrip({ teamId, showSchedule, onScheduleClose, onPla
     }}>
       {day.map((g, i) => renderGameRow(g, day, {
         first: i === 0,
-        scoreRef: i === 0 ? opts.scoreRef : undefined,   // one row per column is enough to measure
-        scoreMinWidth: opts.scoreMinWidth,
       }))}
     </Box>
   )
@@ -719,8 +679,6 @@ export function TeamScheduleStrip({ teamId, showSchedule, onScheduleClose, onPla
           {renderDayColumn(slots.primary, {
             padLeft:  !showLast,
             padRight: !showUpcoming,
-            scoreRef: primaryScoreRef,
-            scoreMinWidth: alignScores ? scoreAlignW : undefined,
           })}
 
           {/* When the current day is done, show the next day's games on the right */}
@@ -729,8 +687,6 @@ export function TeamScheduleStrip({ teamId, showSchedule, onScheduleClose, onPla
               {columnDivider}
               {renderDayColumn(slots.upcoming, {
                 padLeft: false, padRight: true,
-                scoreRef: upcomingScoreRef,
-                scoreMinWidth: scoreAlignW,
               })}
             </>
           )}

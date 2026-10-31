@@ -23,6 +23,28 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.205.0',
+    date:    '2026-10-31',
+    changes: [
+      {
+        short: 'MLB team card',
+        full:  'The MLB team card is redrawn. The club name opens the club, and in the offseason the card counts its moves and opens them.',
+      },
+      {
+        short: 'MLB division winners',
+        full:  'MLB Home lists the division winners through the offseason.',
+      },
+      {
+        short: 'Offseason report boards',
+        full:  'Most Improved, Biggest Drops, Cheapest Wins and Priciest Wins join the MLB report boards once the regular season is over.',
+      },
+      {
+        short: 'Hot Stove order',
+        full:  "The Hot Stove card leads with the week's signings and trades, and Milestone Watch leads with the next marks.",
+      },
+    ],
+  },
+  {
     version: '1.204.0',
     date:    '2026-10-31',
     changes: [

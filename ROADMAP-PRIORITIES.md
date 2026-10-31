@@ -44,10 +44,10 @@
 6. **The World Cup back catalog and `international.json`.** 2024, 2023, 2018, 2016 imported and
    validated, the provisional pitch-board bars re-measured, the per-player file built and tested, all
    still gitignored. *ROADMAP-WOMENS-BASEBALL, steps 3 to 5.*
-7. **MLB after Nov 1.** The offseason Home switches itself on. Then: read "MLB: what gets used" on
-   `/admin` and decide what moves into More; take Standings and the player card's `cards.tsx` off the
-   type-scale legacy list once the bracket mode retires. *ROADMAP.md, "Handoff" and item 7 of the
-   second pass.*
+7. **MLB after Nov 1.** ✅ The offseason Home, division winners, winter boards and the Hot Stove order
+   (v1.203.0 to v1.205.0), and Standings and `cards.tsx` are off the type-scale legacy list. Left: read
+   "MLB: what gets used" on `/admin` and decide what moves into More. *ROADMAP.md, "Handoff" and item 7
+   of the second pass.*
 8. ✅ **Finish splitting the largest WPBL files** (Oct 17): `FanVote.tsx` and `SeasonPage.tsx`. *ROADMAP.md,
    "From the Oct 15 audit" item 6.*
 9. **UI overhaul, phase 1 (Figma only).** Mood board, tokens in both themes, four screens on a phone

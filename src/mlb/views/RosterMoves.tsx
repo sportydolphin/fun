@@ -295,8 +295,9 @@ function TradeGroupItem({ group, showDescription, onPlayerClick, onTeamClick }: 
 
 // ─── Fullscreen modal: every move in the window, grouped by day ──────────────
 
-function RosterMovesModal({ open, onClose, moves, hotStove, followedTeamId, onPlayerClick, onTeamClick }: {
+function RosterMovesModal({ open, onClose, moves, hotStove, followedTeamId, focus, onPlayerClick, onTeamClick }: {
   open: boolean
+  focus?: { teamId: number } | null
   onClose: () => void
   moves: RosterMove[]
   hotStove: boolean
@@ -309,6 +310,7 @@ function RosterMovesModal({ open, onClose, moves, hotStove, followedTeamId, onPl
   // reopen within a visit. The selected chip and chevrons make the state visible.
   const [filterTeam, setFilterTeam]       = useState<number | null>(null)
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set())
+  useEffect(() => { if (focus) setFilterTeam(focus.teamId) }, [focus])
 
   if (!open) return null
   const days = moveWindowDays(hotStove)
@@ -455,7 +457,9 @@ function NoMoves({ hidden }: { hidden?: boolean }) {
   )
 }
 
-export function RosterMovesCard({ hotStove, followedTeamId, onPlayerClick, onTeamClick }: {
+export function RosterMovesCard({ hotStove, followedTeamId, focus, onPlayerClick, onTeamClick }: {
+  /** Open the full list on one club, from its team card. A new object each time it is asked. */
+  focus?: { teamId: number } | null
   /** Winter mode, from the season phase; null while the phase is read, and nothing is fetched. */
   hotStove: boolean | null
   followedTeamId?: number | null
@@ -480,6 +484,7 @@ export function RosterMovesCard({ hotStove, followedTeamId, onPlayerClick, onTea
   }, [])
   // The More sheet's Roster moves row.
   useDeepLink('rosterMoves', () => setShowAll(true))
+  useEffect(() => { if (focus) setShowAll(true) }, [focus])
 
   const deadline = winter ? null : deadlineInfo()
   // Group trades first, then take the top units, so a two-player swap counts as one
@@ -531,6 +536,7 @@ export function RosterMovesCard({ hotStove, followedTeamId, onPlayerClick, onTea
         moves={moves ?? []}
         hotStove={winter}
         followedTeamId={followedTeamId}
+        focus={focus}
         onPlayerClick={onPlayerClick}
         onTeamClick={onTeamClick}
       />
