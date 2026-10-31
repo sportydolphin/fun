@@ -1,0 +1,92 @@
+name: Database Backup
+
+# A copy of the database that does not depend on Supabase, restored and checked every night.
+#
+# WHY, WHEN SUPABASE HAS BACKUPS. The Pro plan keeps seven daily ones, and they are the first thing to
+# reach for. They also live in the same account as the database and restore over it: they are no help
+# if the project or the account is lost, or if something goes wrong and is noticed on day eight.
+# Accounts, predictions, analytics and push subscriptions exist nowhere else; wpbl-archive holds only
+# what the site already serves in public.
+#
+# ENCRYPTED TO A PUBLIC KEY, AND THE REPO IS PUBLIC. Anyone signed in to GitHub can download an artifact
+# from a public repo, so an unencrypted one would publish every account. Only the public half is here.
+# The private half is with the owner, so a leak of this repo's secrets cannot open a past backup.
+# docs/BACKUPS.md has the restore, and what happens if that key is lost.
+#
+# 09:41 UTC is the quiet end of the night in the US, clear of Supabase's own backup at 04:00 and of
+# the drift check and validator at 07:30 and 08:00.
+
+on:
+  schedule:
+    - cron: '41 9 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      restore:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: scratch
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v7
+
+      # pg_dump refuses a server newer than itself, and the runner ships an older client.
+      - name: Install the Postgres 17 client
+        run: |
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y > /dev/null
+          sudo apt-get install -y -qq postgresql-client-17 > /dev/null
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+
+      # public and auth are what cannot be rebuilt; storage holds the bucket settings. cron.job goes
+      # beside the dump because pg_cron owns it, so a schema-selected dump leaves it out. The rest of
+      # Supabase's schemas come with any new project.
+      - name: Dump the database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          pg_dump "$SUPABASE_DB_URL" --format=custom --no-owner \
+            --schema=public --schema=auth --schema=storage --file=db.dump
+          psql "$SUPABASE_DB_URL" -c "\copy (select jobname, schedule, command, active from cron.job order by jobname) to 'cron-jobs.csv' csv header"
+          du -h db.dump | cut -f1
+
+      # Before the check below, so a failed check still leaves tonight's copy to look at.
+      - name: Encrypt
+        run: |
+          tar -cf backup.tar db.dump cron-jobs.csv
+          gpg --batch --yes --trust-model always --compress-algo none \
+            --recipient-file scripts/backup/public-key.asc \
+            --output "db-backup-$(date -u +%F).tar.gpg" --encrypt backup.tar
+          rm backup.tar
+
+      # The path matches only the .gpg file: db.dump sits beside it unencrypted for the check below.
+      - name: Store it
+        uses: actions/upload-artifact@v7
+        with:
+          name: db-backup
+          path: db-backup-*.tar.gpg
+          retention-days: 90
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Restore it and compare with live
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          RESTORE_URL: postgresql://postgres:scratch@localhost:5432/postgres
+        run: bash scripts/backup/verify-restore.sh db.dump

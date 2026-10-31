@@ -181,7 +181,7 @@ pg_cron) · GitHub Actions for cron · installable PWA · Cloudflare Pages at
   `derive/fielding.ts`), `COMMONS_PHOTOS.md` (approving an archive photo), `WBSC_INGEST.md` (`scripts/import-wbsc.ts` and `src/intl/`, the World Cup import, and why its data stays out of git), `ANDROID.md`
   (`manifest.webmanifest`, `sw.js`, `assetlinks.json`), `IOS.md`
   (`public/.well-known/apple-app-site-association` and its `_headers` rule), `PLAY_VALIDATION.md`.
-  The rest are reference: `DISCORD.md`, `PUSH_NOTIFICATIONS.md`, `READING.md`, `RECAPS.md`,
+  The rest are reference: `BACKUPS.md` (restoring the database), `DISCORD.md`, `PUSH_NOTIFICATIONS.md`, `READING.md`, `RECAPS.md`,
   `FAN_PHOTOS.md`, `GOOGLE_TASKS.md` (paused), `BACKLINKS.md`.
 - The changelog is [`src/changelog.ts`](src/changelog.ts) (newest releases only; older ones are
   archived under `src/changelog/`). Add new entries at its top.
