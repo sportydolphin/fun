@@ -7,7 +7,7 @@ import {
 } from '@mui/material'
 import { Search, Shuffle, FileDownload, OpenInFull, Tune, MoreVert } from '@mui/icons-material'
 import { Player, Team, Palette, RankMode, TeamPlayerStat, RosterEntry, StandingsDivision } from '../types'
-import { ACCENT, ACCENT_TEXT, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, TEAM_BG, BBREF_ABBR, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette, CURRENT_SEASON } from '../constants'
+import { ACCENT_TEXT, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, BBREF_ABBR, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette, CURRENT_SEASON } from '../constants'
 import { linkPillSx, SectionLabel } from '../components/ui'
 import { sectionAnchorId, useSectionScroll } from '../../lib/sectionScroll'
 
@@ -493,7 +493,6 @@ export function SearchView({
               <Suspense fallback={<Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', px: 1.5, py: 1 }}>Loading schedule…</Typography>}>
                 <TeamScheduleStrip
                   teamId={team.id}
-                  teamColor={TEAM_BG[team.id] ?? ACCENT}
                   showSchedule={showFullSchedule}
                   onScheduleClose={() => setShowFullSchedule(false)}
                   onPlayerClick={openPlayerFromTeam}

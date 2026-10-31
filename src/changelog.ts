@@ -23,6 +23,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.204.0',
+    date:    '2026-10-31',
+    changes: [
+      {
+        short: 'MLB Scores on a phone',
+        full:  'On a phone each MLB game on Scores is one row: status, clubs, runs, and the decisions or probable starters. A full day takes about a third of the scrolling. Line scores are in the game.',
+      },
+      {
+        short: 'MLB schedule by month',
+        full:  'Full schedule on the MLB team card is a calendar, one month at a time, with the record for the month.',
+      },
+    ],
+  },
+  {
     version: '1.203.0',
     date:    '2026-10-31',
     changes: [

@@ -646,7 +646,6 @@ function HomeViewInner({
                     <Suspense fallback={teamQuiet ? null : <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', px: 1.5, py: 1 }}>Loading schedule…</Typography>}>
                       <TeamScheduleStrip
                         teamId={followedTeamId}
-                        teamColor={bg}
                         showSchedule={showTeamSchedule}
                         onScheduleClose={() => { setShowTeamSchedule(false); clearOverlayIf('teamSchedule') }}
                         onPlayerClick={onPlayerClick}
