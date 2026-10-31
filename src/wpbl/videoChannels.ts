@@ -36,7 +36,7 @@ export const ASSUMED_COUNTRY = 'US'
 
 /**
  * Can a reader in `country` play this video? From the restriction the sync stores
- * (refreshRegions in scripts/sync-wpbl-youtube.mjs). A video never checked has neither list and
+ * (refreshVideoDetails in scripts/sync-wpbl-youtube.mjs). A video never checked has neither list and
  * plays everywhere, so a missing API key shows the catalog rather than hiding it.
  */
 export function playableIn(v: Pick<WpblVideo, 'region_allowed' | 'region_blocked'>, country: string | null): boolean {
@@ -63,6 +63,23 @@ export function videoKindName(v: WpblVideo): string {
     case 'podcast': return 'Podcast'
     default: return 'Video'
   }
+}
+
+/** "8:42" or "2:10:05", or null for a length not read yet. */
+export function formatDuration(seconds: number | null | undefined): string | null {
+  if (seconds == null || seconds <= 0) return null
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = String(Math.floor(seconds % 60)).padStart(2, '0')
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`
+}
+
+/** "12.3K views", or null for a count not read yet. */
+export function formatViews(views: number | null | undefined): string | null {
+  if (views == null) return null
+  if (views < 1000) return `${views} ${views === 1 ? 'view' : 'views'}`
+  const short = views < 1_000_000 ? `${(views / 1000).toFixed(views < 10_000 ? 1 : 0)}K` : `${(views / 1_000_000).toFixed(1)}M`
+  return `${short.replace('.0', '')} views`
 }
 
 // Shortest watch first: the reel is a few minutes, the condensed game a quarter of an hour, the
@@ -106,13 +123,15 @@ export function watchShelves(videos: readonly WpblVideo[]): {
   return { gameIds, clips, more }
 }
 
-// More's groups, in page order. The fan's compilations lead: they are the best single watch on
-// the shelf and the only thing on it about the season as a whole. The podcast follows, because it
-// is most of the shelf (a weekly episode since March, each a player's own hour), and Features is
-// whatever is left.
+// More's groups, in page order. The compilations lead: they are the best single watches on the shelf
+// and the only things on it about the season as a whole. The podcast follows, because it is most of
+// the shelf (a weekly episode since March, each a player's own hour).
+//
+// FEATURES IS EVERYTHING ELSE, not `kind === 'other'`. A list of kinds left a game reel with no game
+// on no group at all, so the chip counted it and the shelf never drew it.
 export const MORE_GROUPS: { key: string; label: string; test: (v: WpblVideo) => boolean }[] = [
   { key: 'compilation', label: 'Season compilations', test: v => v.kind === 'compilation' },
   { key: 'podcast', label: 'Podcast', test: v => v.kind === 'podcast' },
   { key: 'press', label: 'Press conferences', test: v => v.kind === 'press' },
-  { key: 'features', label: 'Features', test: v => v.kind === 'other' },
+  { key: 'features', label: 'Features', test: v => !['compilation', 'podcast', 'press'].includes(v.kind) },
 ]

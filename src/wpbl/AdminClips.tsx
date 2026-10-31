@@ -237,8 +237,8 @@ function ClipTagEditor({ video, tag, games, teams, players, onClose, onSaved }: 
   // The stored at-bat, for the moment before this game's plays have loaded. Saving then must keep
   // the pin, not drop it because the list it would be looked up in is still empty.
   const storedPin = tag && sequence !== '' && tag.game_id === gameId && tag.play_sequence === sequence
-    ? { sequence: tag.play_sequence, inning: tag.inning, half: tag.half } : null
-  const pin = chosenPlay ? { sequence: chosenPlay.sequence, inning: chosenPlay.inning, half: chosenPlay.half } : storedPin
+    ? { sequence: tag.play_sequence, inning: tag.inning, half: tag.half, event_type: tag.event_type } : null
+  const pin = chosenPlay ? { sequence: chosenPlay.sequence, inning: chosenPlay.inning, half: chosenPlay.half, event_type: chosenPlay.event_type } : storedPin
 
   const togglePlayer = (id: string) => setPlayerIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id])
   const pickPlay = (seq: number | '') => {
@@ -266,6 +266,7 @@ function ClipTagEditor({ video, tag, games, teams, players, onClose, onSaved }: 
           play_sequence: gameId && pin ? pin.sequence : null,
           inning: gameId && pin ? pin.inning : null,
           half: gameId && pin ? pin.half : null,
+          event_type: gameId && pin ? pin.event_type ?? null : null,
           team_id: teamId || null, player_ids: playerIds,
         }
     const ok = await saveWpblVideoTag(next)

@@ -3,9 +3,11 @@ import { Box, Typography } from '@mui/material'
 import { ModalShell, CARD_BORDER, CARD_FILL, chromePx, hoverOnly, FOCUS_RING } from './ui'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblVideo } from './types'
-import { videoCredit, videoLabel, videoKindName } from './videoChannels'
+import { formatDuration, videoCredit, videoLabel, videoKindName } from './videoChannels'
 import { typePx } from '../ui/scale'
 import { ICON_SIZE, TYPE_SCALE } from '../ui/card'
+import { YouTubePlayer } from './watch/YouTubePlayer'
+import { useWatchedShare } from './watch/progress'
 
 // The pieces every video surface shares: the thumbnail facade, the play badge, the credit line and
 // the lightbox. Three consumers: the Watch page and its Home card (Watch.tsx, WatchPage.tsx), and
@@ -71,6 +73,8 @@ export function VideoThumb({ video, vertical, badge = 44, radius = 0, sizes }: {
   const small = `https://i.ytimg.com/vi/${video.video_id}/hqdefault.jpg`
   const large = video.thumbnail_url && video.thumbnail_url !== small ? video.thumbnail_url : null
   const useSet = !vertical && sizes && large
+  const duration = formatDuration(video.duration_seconds)
+  const watched = useWatchedShare(video.video_id)
   return (
     <Box sx={{
       position: 'relative', width: '100%', aspectRatio: vertical ? '9 / 16' : '16 / 9',
@@ -80,6 +84,19 @@ export function VideoThumb({ video, vertical, badge = 44, radius = 0, sizes }: {
         {...(useSet ? { srcSet: `${small} 480w, ${large} 1280w`, sizes } : {})}
         sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
       <Box className="play-badge" sx={{ position: 'absolute', inset: 0 }}><PlayBadge size={badge} /></Box>
+      {/* Not on a Short: a clip is under a minute by nature, and its caption has the foot of the poster. */}
+      {!vertical && duration && (
+        <Box component="span" sx={{
+          position: 'absolute', right: 4, bottom: 6, px: 0.5, borderRadius: 0.5, pointerEvents: 'none',
+          bgcolor: 'rgba(0,0,0,0.8)', color: '#fff', fontSize: TYPE_SCALE.micro, fontWeight: 700, lineHeight: 1.5,
+          fontVariantNumeric: 'tabular-nums',
+        }}>{duration}</Box>
+      )}
+      {watched > 0 && (
+        <Box aria-hidden sx={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, bgcolor: 'rgba(255,255,255,0.35)', pointerEvents: 'none' }}>
+          <Box sx={{ width: `${Math.round(watched * 100)}%`, height: '100%', bgcolor: 'var(--wpbl-accent-solid)' }} />
+        </Box>
+      )}
     </Box>
   )
 }
@@ -94,23 +111,19 @@ export function videoDateLabel(v: WpblVideo): string {
 }
 
 /**
- * The click-to-play lightbox. Rendered only while a video is selected, so the YouTube embed
- * (privacy-enhanced youtube-nocookie host) mounts on demand and autoplays: no network to YouTube
- * happens from any list view.
+ * The click-to-play lightbox, for a video played where the reader already is: Home's card, Game
+ * Center, a player page. Rendered only while a video is selected, so the player mounts on demand and
+ * nothing reaches YouTube from any list view.
  *
  * A Short plays in a 9:16 frame capped by the screen's height, since a vertical video sized to the
- * dialog's width runs off the bottom of a laptop. `onPrev` / `onNext` turn it into a pager (the
- * clips shelf), on buttons and the arrow keys; the embed remounts per video, which is what stops
- * the previous one playing on underneath. `context` is a line under the title saying what the
- * clip is from (its game and inning), when the clip has been tagged.
+ * dialog's width runs off the bottom of a laptop. `onPrev` / `onNext` turn it into a pager, on buttons
+ * and the arrow keys, and the end of a video goes to the next. `context` is a line under the title
+ * saying what the clip is from (its game and inning), when the clip has been tagged.
  */
 export function HighlightLightbox({ video, onClose, onPrev, onNext, context }: {
   video: WpblVideo; onClose: () => void; onPrev?: () => void; onNext?: () => void
   context?: ReactNode
 }) {
-  // playsinline: without it iOS Safari takes the video to its own fullscreen player on play, which
-  // for a Short means leaving the page, the next/previous buttons and the title all at once.
-  const src = `https://www.youtube-nocookie.com/embed/${video.video_id}?autoplay=1&rel=0&modestbranding=1&playsinline=1`
   const credit = videoCredit(video)
   const vertical = video.is_short === true
   useEffect(() => {
@@ -133,15 +146,7 @@ export function HighlightLightbox({ video, onClose, onPrev, onNext, context }: {
             ? { aspectRatio: '9 / 16', height: 'min(70vh, 44rem)', maxWidth: '100%' }
             : { aspectRatio: '16 / 9', width: '100%' }),
         }}>
-          <Box
-            key={video.video_id}
-            component="iframe"
-            src={src}
-            title={video.title}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
-          />
+          <YouTubePlayer video={video} onEnded={onNext} />
         </Box>
         <Typography sx={{ mt: 1.25, fontSize: TYPE_SCALE.title, fontWeight: 600, lineHeight: 1.3 }}>{video.title}</Typography>
         {context && <Box sx={{ mt: 0.5 }}>{context}</Box>}
@@ -169,7 +174,7 @@ export function HighlightLightbox({ video, onClose, onPrev, onNext, context }: {
   )
 }
 
-function PagerButton({ label, glyph, onClick }: { label: string; glyph: string; onClick?: () => void }) {
+export function PagerButton({ label, glyph, onClick }: { label: string; glyph: string; onClick?: () => void }) {
   return (
     <Box component="button" type="button" onClick={onClick} disabled={!onClick} aria-label={label}
       sx={{

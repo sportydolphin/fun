@@ -36,7 +36,7 @@ export {
 } from './api/plays'
 export {
   getCachedWpblVideos, getCachedWpblVideoTags, getCachedWpblRecaps, getCachedWpblArticles,
-  fetchWpblRecaps, fetchWpblVideos, fetchWpblVideoTags, fetchWpblArticles, saveWpblVideoTag,
+  fetchWpblRecaps, fetchWpblVideos, fetchWpblVideoRow, fetchWpblVideoTags, fetchWpblArticles, saveWpblVideoTag,
   deleteWpblVideoTag
 } from './api/media'
 export {

@@ -103,7 +103,7 @@ flowchart LR
         wplayers["/wpbl/players<br/>+ /wpbl/players/&lt;slug&gt;"]
         wleague["/wpbl/league<br/>LeaguePage.tsx (About the league)"]
         wreading["/wpbl/reading<br/>ReadingPage.tsx + Reading.tsx"]
-        wwatch["/wpbl/watch<br/>WatchPage.tsx + Watch.tsx"]
+        wwatch["/wpbl/watch, /wpbl/watch/&lt;id&gt;<br/>WatchPage.tsx + WatchVideoPage.tsx + Watch.tsx"]
         wphotos["/wpbl/photos<br/>PhotosGalleryPage.tsx + Photos.tsx (archive)"]
         wgloss["/wpbl/glossary<br/>GlossaryPage.tsx + glossary.ts"]
         mgloss["/mlb/glossary<br/>mlb/GlossaryPage.tsx + statGlossary.ts"]
@@ -379,7 +379,7 @@ flowchart TB
         t_alert["admin_alert_state<br/>(health-alert dedupe)"]
         t_rem["wpbl_game_reminders"]
         t_wsent["wpbl_game_start_sent"]
-        t_vid["wpbl_videos<br/>(YouTube uploads; is_short from a probe)"]
+        t_vid["wpbl_videos<br/>(YouTube uploads; is_short from a probe or the length; length and views from the Data API)"]
         t_vtag["wpbl_video_tags<br/>(each Short's game, play, players, club)"]
         t_hipost["wpbl_discord_highlight_posts<br/>(one post per reel)"]
         t_bpost["wpbl_discord_birthday_posts<br/>(one greeting per person per year)"]
@@ -1015,6 +1015,10 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
   writing on its own page (`/wpbl/reading`, [`src/wpbl/ReadingPage.tsx`](src/wpbl/ReadingPage.tsx)),
   the Commons archive as a category of the photo gallery, and the video on its own page
   (`/wpbl/watch`, [`src/wpbl/WatchPage.tsx`](src/wpbl/WatchPage.tsx)) and on each game and player.
+  Each video has its own page at `/wpbl/watch/<YouTube id>` ([`src/wpbl/WatchVideoPage.tsx`](src/wpbl/WatchVideoPage.tsx)),
+  with a real 404 from [`functions/wpbl/index.ts`](functions/wpbl/index.ts). Every surface plays through
+  [`src/wpbl/watch/YouTubePlayer.tsx`](src/wpbl/watch/YouTubePlayer.tsx), on the IFrame API, which records
+  progress per browser ([`watch/progress.ts`](src/wpbl/watch/progress.ts)) and reports the end of a video.
   The old league-page "media shelf" hid all three behind a collapsible segmented card.
 - The WPBL pages that are not tabs, in order, for the More menu, its phone sheet and the footer →
   [`src/wpbl/morePages.ts`](src/wpbl/morePages.ts). One list, so the three cannot drift

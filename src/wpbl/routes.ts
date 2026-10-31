@@ -725,6 +725,25 @@ export const WPBL_WATCH_PAGE = `${WPBL_BASE}/watch`
 export const isWpblWatchPage = (pathname: string) =>
   pathname.replace(/\/+$/, '') === WPBL_WATCH_PAGE
 
+// One video, at /wpbl/watch/<YouTube id>. Before this, playing a video left the address where it was,
+// so no video on the site could be sent to anyone or found in a search. The id rather than a slug of
+// the title, because the league renames uploads and a clip's title is often only "Keep flying".
+// A wildcard in _redirects, so functions/wpbl/index.ts stands in front and 404s an id naming nothing.
+const WATCH_VIDEO_ID = /^[\w-]{11}$/
+
+export const wpblWatchVideoPath = (videoId: string) => `${WPBL_WATCH_PAGE}/${videoId}`
+
+/** The video a pathname names, or null. One segment of the id's exact shape, so /wpbl/watch/a/b and
+ *  every typo are not a video. */
+export function wpblWatchVideoIdFromPath(pathname: string): string | null {
+  const p = pathname.replace(/\/+$/, '')
+  if (!p.startsWith(`${WPBL_WATCH_PAGE}/`)) return null
+  const rest = p.slice(WPBL_WATCH_PAGE.length + 1)
+  return WATCH_VIDEO_ID.test(rest) ? rest : null
+}
+
+export const isWpblWatchVideoPage = (pathname: string) => wpblWatchVideoIdFromPath(pathname) !== null
+
 /**
  * Fired by WpblApp after it pushes a history entry, so the shell can re-read the path.
  *

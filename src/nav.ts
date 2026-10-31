@@ -20,13 +20,13 @@ const isComparePath = (p: string) => p === '/wpbl/compare' || p.startsWith('/wpb
  *  on purpose, so the browser's own Back steps through them; `navBack` reads this depth to leave
  *  the whole tool in one step instead. On the history ENTRY, not a module counter, so it stays
  *  correct across the browser's Back and Forward. */
-export function navigate(to: string) {
+export function navigate(to: string, extraState?: Record<string, unknown>) {
   const toPath = to.split(/[?#]/)[0]
-  let state: Record<string, unknown> = {}
+  let state: Record<string, unknown> = { ...extraState }
   if (typeof window !== 'undefined' && isComparePath(toPath)) {
     const fromCompare = isComparePath(window.location.pathname)
     const prev = fromCompare ? (Number(window.history.state?.compareDepth) || 1) : 0
-    state = { compareDepth: prev + 1 }
+    state = { ...state, compareDepth: prev + 1 }
   }
   window.history.pushState(state, '', to)
   window.dispatchEvent(new PopStateEvent('popstate'))

@@ -150,6 +150,8 @@ const DEFAULT_ROUTES = [
   // A season series that went on to meet in the final, the longest shape the page takes.
   '/wpbl/series/firebells-vs-queens',
   '/wpbl/reading', '/wpbl/watch', '/wpbl/glossary', ...samplePages(),
+  // A video page in both shapes: a game's reel and a Short, which is its own viewer on a phone.
+  '/wpbl/watch/m4GsxVjMhEY', '/wpbl/watch/dmPLhFEquWQ',
   // Naming who is in a photo, on the dev queue (src/wpbl/dev/devPhotoTagging.ts): the real queue is
   // unpublished photos, which a recorded snapshot must never hold, so the page is swept on the
   // published ones the gallery already shows.
@@ -560,6 +562,9 @@ async function wireContext(ctx, route) {
   }
   await ctx.route(url => !isApp(url.href), async handle => {
     const req = handle.request()
+    // The player's script and its embed: a frame the page reserves whatever loads in it, and not
+    // ours to record. Refused, the player takes its plain-embed path, and the box does not move.
+    if (/(^|\.)(youtube|youtube-nocookie)\.com$/.test(new URL(req.url()).hostname)) return handle.abort()
     if (req.resourceType() === 'image') {
       const [w, h] = fixture.images[imageKey(req.url())] ?? [1, 1]
       return handle.fulfill({ status: 200, contentType: 'image/svg+xml',

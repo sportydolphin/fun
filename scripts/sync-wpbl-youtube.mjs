@@ -164,6 +164,16 @@ export function classify(title) {
 }
 
 /**
+ * A reel of a whole season: "Top 10 Plays of the WPBL Season!", "All 7 Grand Slams from the WPBL
+ * Season!", "The Entire WPBL Season in 19 Minutes". Only "Top N" was read until Oct 30, 2026, so the
+ * rest sat in Features under 32 podcast episodes: the best single watches on the page, and the
+ * hardest to find.
+ */
+function isCompilationTitle(title) {
+  return /\btop\s+\d+\b|^\s*(?:all \d+|the only \d+|the entire)\b/i.test(title)
+}
+
+/**
  * The league's podcast episodes, which the title classifier cannot see and so filed as 'other':
  *
  *   "Skylar Kaplan | Expert Hitter, Pro Ball Player, San Francisco Firebell"
@@ -180,6 +190,8 @@ export function classify(title) {
 export function refineKind(kind, title, isShort) {
   if (kind !== 'other' || isShort !== false) return kind
   if (/\bgroup chat\b/i.test(title)) return 'podcast'
+  // Landscape only, for the reason above: the league's Shorts use the same words.
+  if (isCompilationTitle(title)) return 'compilation'
   const guest = /^\s*[^|]{3,60}\s\|\s*\S/.test(title) && !MATCHUP_SEP.test(title) && !parseTitleDate(title)
   const onTopic = /^[A-Z][\p{L}'’.-]+(?: [A-Z][\p{L}'’.-]+){1,2} on [A-Z]/u.test(title)
   return guest || onTopic ? 'podcast' : kind
@@ -220,7 +232,7 @@ export function isFullGameTitle(title) {
  * Anything unrecognized is 'other', never a guess at a game.
  */
 export function classifyFan(title) {
-  if (/\btop\s+\d+\b/i.test(title)) return 'compilation'
+  if (isCompilationTitle(title)) return 'compilation'
   if (MATCHUP_SEP.test(title) && parseTitleDate(title)) return 'condensed'
   return 'other'
 }
@@ -360,7 +372,17 @@ function splitMatchup(matchupPart, title, resolveTeam) {
 // title is the thing that is wrong. Without it the video matches no game (or, worse, the wrong
 // one), and a hand fix in the table lasts only until the next --all run re-reads the title.
 export const CHANNELS = [
-  { id: LEAGUE_CHANNEL_ID, label: 'league', classify, parse: parseMatchup, gameKinds: ['highlight', 'full_game'], probeShorts: true },
+  {
+    id: LEAGUE_CHANNEL_ID, label: 'league', classify, parse: parseMatchup, gameKinds: ['highlight', 'full_game'], probeShorts: true,
+    dateOverrides: {
+      // "WPBL Highlights: Boston Hunters @ San Francisco Firebells" with no date at all. Uploaded the
+      // night of Aug 28, and that game has no other reel.
+      HccwYeRm0GA: '2026-08-28',
+      // "Semifinal B - Game 2 | New York Heights @ Los Angeles Queens | Sept. 10": the title kept
+      // Game 1's date, so it matched Game 1 (a flip of the same clubs) and Game 2 had no reel.
+      'vVlCL0H-7no': '2026-09-12',
+    },
+  },
   {
     id: FAN_RECAPS_CHANNEL_ID, label: 'WPBL from Day 1', classify: classifyFan, parse: parseFanMatchup, gameKinds: ['condensed'], probeShorts: false,
     dateOverrides: {
@@ -531,12 +553,12 @@ async function main() {
       failures.push(channel.label)
     }
   }
-  console.log('\n── region restrictions')
+  console.log('\n── video details')
   try {
-    await refreshRegions()
+    await refreshVideoDetails()
   } catch (err) {
-    console.error(`❌  region restrictions: ${err.message}`)
-    failures.push('region restrictions')
+    console.error(`❌  video details: ${err.message}`)
+    failures.push('video details')
   }
   console.log('\n── clip tags')
   try {
@@ -635,69 +657,93 @@ async function tagClips({ all }) {
   console.log(`✅  ${shorts.length} Shorts: ${summary}; dropped ${drops.length}`)
 }
 
-// A restriction is re-read at least this often even when nothing else about the row changes,
-// because the league's blocks are rights windows and end without the video being touched.
-const REGION_RECHECK_MS = 24 * 3600 * 1000
+// A row is rewritten at least this often even when nothing else about it changes, because the
+// league's blocks are rights windows that end without the video being touched, and the view count
+// moves every day. Without the floor every run would write every row for a view count nobody needs
+// to the minute.
+const DETAILS_RECHECK_MS = 24 * 3600 * 1000
+// YouTube's longest Short. Anything longer is landscape, whatever the probe could not say.
+const LONGEST_SHORT_SECONDS = 180
+
+/** "PT1H2M3S" as seconds, or null for anything else (a live stream reads "P0D" until it ends). */
+export function parseIsoDuration(iso) {
+  const m = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/.exec(iso ?? '')
+  if (!m || (!m[1] && !m[2] && !m[3])) return null
+  return Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0)
+}
 
 /**
- * Which countries each long-form upload plays in, from the Data API's
- * contentDetails.regionRestriction, onto region_allowed / region_blocked.
+ * Is this upload a Short, now its length is known? Only ever settles an unknown (null) answer: a
+ * probe's answer stands. Longer than a Short can be is a free "no", which is what clears the 48
+ * uploads no probe ever answered: the fan channel is never probed, and the rest were gated.
+ */
+export function settleIsShort(isShort, durationSeconds) {
+  if (isShort != null) return isShort
+  return durationSeconds != null && durationSeconds > LONGEST_SHORT_SECONDS ? false : null
+}
+
+/**
+ * Length, view count and where each upload plays, from one Data API read.
  *
- * WHY. The league's full-game broadcasts are blocked in the United States, and an embed of a
- * blocked video is a black box reading "Video unavailable". The site hides a video the viewer's
+ * WHY THE REGIONS. The league's full-game broadcasts are blocked in the United States, and an embed
+ * of a blocked video is a black box reading "Video unavailable". The site hides a video the viewer's
  * country cannot play (playableIn in src/wpbl/videoChannels.ts), and this is the only source for
  * that: nothing in a title says it.
  *
- * Shorts are skipped: the league's are its own posts, not broadcast rights, and at 300 of them
- * they would be most of the quota for none of the answers. Without a Data API key there is no way
- * to ask, and the columns are left as they are: null reads as "plays everywhere", which shows the
- * catalog rather than hiding it on a missing secret.
+ * Every upload, Shorts included: videos.list costs one quota unit per 50 ids however many parts it
+ * asks for, so the whole catalog is about 10 units a run against a daily 10,000. Without a Data API
+ * key there is no way to ask, and the columns are left as they are: a null region reads as "plays
+ * everywhere", which shows the catalog rather than hiding it on a missing secret.
  */
-async function refreshRegions() {
+async function refreshVideoDetails() {
   if (!YT_API_KEY) { console.log('No YOUTUBE_API_KEY, skipping.'); return }
-  const rows = []
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await supabase.from('wpbl_videos')
-      .select('video_id, is_short, region_allowed, region_blocked, region_checked_at')
-      .order('video_id').range(from, from + 999)
-    if (error) throw new Error(`Loading stored videos failed: ${error.message}`)
-    rows.push(...(data ?? []))
-    if ((data ?? []).length < 1000) break
-  }
-  const due = rows.filter(r => r.is_short !== true)
+  const rows = await readAll('Loading stored videos', () => supabase.from('wpbl_videos')
+    .select('video_id, channel_id, title, kind, is_short, duration_seconds, region_allowed, region_blocked, region_checked_at')
+    .order('video_id'))
   const sameList = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
-  let changed = 0, blocked = 0, missing = 0
-  for (let i = 0; i < due.length; i += 50) {
-    const batch = due.slice(i, i + 50)
-    const url = 'https://www.googleapis.com/youtube/v3/videos?part=contentDetails' +
+  let changed = 0, blocked = 0, missing = 0, settled = 0
+  for (let i = 0; i < rows.length; i += 50) {
+    const batch = rows.slice(i, i + 50)
+    const url = 'https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics' +
       `&id=${batch.map(r => r.video_id).join(',')}&key=${encodeURIComponent(YT_API_KEY)}`
     const res = await fetch(url)
     const json = await res.json().catch(() => null)
     if (!res.ok) throw new Error(`Data API HTTP ${res.status}: ${json?.error?.message ?? res.statusText}`)
-    const byId = new Map((json?.items ?? []).map(it => [it.id, it.contentDetails?.regionRestriction ?? null]))
+    const byId = new Map((json?.items ?? []).map(it => [it.id, it]))
     for (const r of batch) {
       // A video the API does not return is private or deleted, not unrestricted: leave its row.
-      if (!byId.has(r.video_id)) { missing++; continue }
-      const rr = byId.get(r.video_id)
+      const item = byId.get(r.video_id)
+      if (!item) { missing++; continue }
+      const rr = item.contentDetails?.regionRestriction ?? null
       // Sorted, so the same restriction in a different order is not a change.
       const allowed = rr?.allowed?.length ? [...rr.allowed].sort() : null
       const blockedIn = rr?.blocked?.length ? [...rr.blocked].sort() : null
       if (allowed || blockedIn) blocked++
-      const stale = !r.region_checked_at || Date.now() - Date.parse(r.region_checked_at) > REGION_RECHECK_MS
+      const duration = parseIsoDuration(item.contentDetails?.duration) ?? r.duration_seconds ?? null
+      const views = item.statistics?.viewCount != null ? Number(item.statistics.viewCount) : null
+      const isShort = settleIsShort(r.is_short, duration)
+      // The kind a settled answer unlocks: see refineKind, which waits for a known "not a Short".
+      const kind = r.channel_id === LEAGUE_CHANNEL_ID ? refineKind(r.kind, r.title, isShort) : r.kind
+      const stale = !r.region_checked_at || Date.now() - Date.parse(r.region_checked_at) > DETAILS_RECHECK_MS
       const differs = !sameList(r.region_allowed, allowed) || !sameList(r.region_blocked, blockedIn)
+        || (r.duration_seconds ?? null) !== duration || (r.is_short ?? null) !== isShort || r.kind !== kind
       if (!differs && !stale) continue
-      if (differs) {
-        changed++
+      if (differs) changed++
+      if ((r.is_short ?? null) !== isShort) settled++
+      if (!sameList(r.region_allowed, allowed) || !sameList(r.region_blocked, blockedIn)) {
         console.log(`  • ${r.video_id}  ${allowed ? `only ${allowed.join(' ')}` : blockedIn ? `blocked in ${blockedIn.length} (${blockedIn.includes('US') ? 'incl. US' : 'not US'})` : 'everywhere'}`)
       }
       if (DRY_RUN) continue
       const { error } = await supabase.from('wpbl_videos')
-        .update({ region_allowed: allowed, region_blocked: blockedIn, region_checked_at: new Date().toISOString() })
+        .update({
+          region_allowed: allowed, region_blocked: blockedIn, region_checked_at: new Date().toISOString(),
+          duration_seconds: duration, view_count: views, is_short: isShort, kind,
+        })
         .eq('video_id', r.video_id)
       if (error) throw new Error(`Update of ${r.video_id} failed: ${error.message}`)
     }
   }
-  console.log(`${DRY_RUN ? '🧪  Dry run: ' : '✅  '}${due.length} checked, ${blocked} restricted somewhere, ${changed} changed, ${missing} not returned`)
+  console.log(`${DRY_RUN ? '🧪  Dry run: ' : '✅  '}${rows.length} checked, ${blocked} restricted somewhere, ${changed} changed, ${settled} settled as landscape, ${missing} not returned`)
 }
 
 async function syncChannel(channel, resolveTeam, gameByKey) {
@@ -756,8 +802,9 @@ async function syncChannel(channel, resolveTeam, gameByKey) {
   console.log(`✅  Upserted ${rows.length} videos (${matched} matched to a game)`)
 }
 
-// Kinds whose answer to "is this a Short" is known from the title.
-const NEVER_SHORT = new Set(['highlight', 'full_game', 'press', 'podcast'])
+// Kinds whose answer to "is this a Short" is known from the title. The fan channel posts no Shorts
+// at all, so its two kinds are on the list; 'other' from it stays unknown, as from any channel.
+const NEVER_SHORT = new Set(['highlight', 'full_game', 'press', 'podcast', 'condensed', 'compilation'])
 
 // --reclassify: see RECLASSIFY. Writes only the columns the title decides, and only on rows whose
 // answer changed, so a run with nothing to do writes nothing. `is_short` is written only where the
