@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TextGhost, TeamBadge, TYPE_SCALE, FOCUS_RING, chromePx, hoverOnly } from './ui'
 import { panelShiftSx, useSidePanelOpen, usePhoneLayout } from '../ui/ModalShell'
@@ -21,7 +21,7 @@ import type { WpblGame, WpblPlayer, WpblTeam, WpblVideo } from './types'
 // ONE TREE IN EVERY SHAPE, restyled rather than swapped, because the player must never remount: a
 // remount loses the gesture that lets the next video start with sound (see YouTubePlayer), and moving
 // from a reel to a Short happens inside one player. So a phone's Short is the same elements as a
-// desktop's reel, with the root made a fixed full-screen viewer.
+// desktop's reel, with its main column made a fixed full-screen viewer.
 //
 // THE STAGE IS THE SAME BOX FOR A REEL AND A SHORT ON A DESKTOP. A shared link does not know which it
 // is until the row lands, and a stage that changed height then would shove the page. The Short sits
@@ -112,8 +112,17 @@ export default function WatchVideoPage({ videoId, videos, games, teams, onOpenGa
   }
 
   const touch = useRef<{ x: number; y: number } | null>(null)
+  const mainBox = useRef<HTMLDivElement>(null)
+  const heldBox = useRef<HTMLDivElement>(null)
+  const inFlowHeight = useRef(0)
   const vertical = video?.is_short === true
   const viewer = phone && vertical
+  // Measured on every render out of the viewer, and written straight to the element on the way in, so
+  // nothing renders twice for it.
+  useLayoutEffect(() => {
+    if (viewer) { if (heldBox.current) heldBox.current.style.height = `${inFlowHeight.current}px` }
+    else if (mainBox.current) inFlowHeight.current = mainBox.current.getBoundingClientRect().height
+  })
   // A fixed viewer over a page that can still scroll underneath it drags the page along with a swipe.
   useEffect(() => {
     if (!viewer) return
@@ -233,15 +242,15 @@ export default function WatchVideoPage({ videoId, videos, games, teams, onOpenGa
   const eyebrow = video ? [videoKindName(video), eventLabel(tag?.event_type)].filter(Boolean).join(' · ') : null
 
   return (
-    <Box sx={viewer
-      ? { position: 'fixed', inset: 0, zIndex: 1200, bgcolor: 'background.default', display: 'flex', flexDirection: 'column', overscrollBehavior: 'contain' }
-      : { maxWidth: '90rem', mx: 'auto', px: { xs: 0, sm: 3 }, pb: 6, ...panelShiftSx(panelOpen, '90rem') }}>
-      <BackLink viewer={viewer} />
-      <Box sx={viewer ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } : {
+    <Box sx={{ maxWidth: '90rem', mx: 'auto', px: { xs: 0, sm: 3 }, pb: 6, ...panelShiftSx(panelOpen, '90rem') }}>
+      <Box sx={{
         display: 'grid', columnGap: 3, alignItems: 'start',
         gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: `minmax(0, 1fr) ${chromePx(340)}` },
       }}>
-        <Box sx={viewer ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } : { minWidth: 0 }}>
+        <Box ref={mainBox} sx={viewer
+          ? { position: 'fixed', inset: 0, zIndex: 1200, bgcolor: 'background.default', display: 'flex', flexDirection: 'column', overscrollBehavior: 'contain' }
+          : { minWidth: 0 }}>
+          <BackLink viewer={viewer} shown={!!video} />
           <Box sx={viewer ? { flex: 1, minHeight: 0, bgcolor: '#000', display: 'flex', justifyContent: 'center' } : {
             // Pinned on a phone so the queue scrolls under a video still playing, and full-bleed
             // against the shell's 16px gutter.
@@ -266,7 +275,11 @@ export default function WatchVideoPage({ videoId, videos, games, teams, onOpenGa
             </Typography>
             <Typography component={headingTag} sx={{
               mt: 0.25, fontSize: viewer ? TYPE_SCALE.body : TYPE_SCALE.heading, fontWeight: 800, lineHeight: 1.25,
-              ...(viewer ? { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' } : null),
+              // Two lines, always, with room held for them: the title is the one string a shared link
+              // cannot know until the row lands, and the league's run to three lines on a phone. The
+              // date it would lose is in the line under it.
+              minHeight: viewer ? undefined : '2.5em',
+              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
             }}>
               {video?.title ?? <TextGhost>WPBL Highlights: Championship, Game 5</TextGhost>}
             </Typography>
@@ -274,6 +287,11 @@ export default function WatchVideoPage({ videoId, videos, games, teams, onOpenGa
               {video ? facts : <TextGhost>Sep 22 · 8:42 · 1K views</TextGhost>}
             </Typography>
 
+            {/* Room for the usual two rows (the game and the credit, or a clip's source and players),
+                in rem because they are type. Held while the row loads, so the buttons and the queue
+                below stay put. flow-root so a first row's margin stays inside the room: collapsed out
+                through it, that margin is 6px the empty box did not have. */}
+            <Box sx={viewer ? undefined : { minHeight: '3.5rem', display: 'flow-root' }}>
             {!viewer && game && video?.is_short !== true && (
               <GameLine game={game} teamById={teamById} roundLabel={roundLabel}
                 href={wpblGamePath(game, teams, games)} onOpen={() => onOpenGame(game, { teams, games })} />
@@ -301,8 +319,11 @@ export default function WatchVideoPage({ videoId, videos, games, teams, onOpenGa
               </Box>
             )}
             {credit && <Box sx={{ mt: 0.5 }}><VideoCreditLine credit={credit} what={video ? videoKindName(video) : 'Video'} /></Box>}
+            </Box>
 
-            <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+            {/* Hidden, not absent, until the row lands: a phone does not know yet whether this is a
+                Short, whose buttons sit somewhere else entirely, and the room is the same either way. */}
+            <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, visibility: video ? 'visible' : 'hidden' }}>
               <PagerButton label="Previous" glyph="‹" onClick={prev ? () => advance(prev, 'pager') : undefined} />
               <PagerButton label="Next" glyph="›" onClick={next ? () => advance(next, 'pager') : undefined} />
               <ActionButton onClick={toggleAutoplay} pressed={autoplay}>{`Autoplay: ${autoplay ? 'On' : 'Off'}`}</ActionButton>
@@ -319,18 +340,19 @@ export default function WatchVideoPage({ videoId, videos, games, teams, onOpenGa
           </Box>
         </Box>
 
-        {!viewer && (
-          <Box component="section" aria-label="Up next" sx={{ mt: { xs: 2.5, md: 0 }, minWidth: 0 }}>
-            <Typography component="h2" sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', color: 'text.secondary', mb: 1 }}>
-              Up next
-            </Typography>
-            <Box sx={{ display: 'grid', gap: 1 }}>
-              {video
-                ? queue.slice(at + 1, at + 1 + QUEUE_SHOWN).map(v => <QueueRow key={v.video_id} video={v} onPick={() => advance(v, 'queue')} />)
-                : Array.from({ length: 6 }, (_, i) => <QueueRow key={i} />)}
-            </Box>
+        {/* The viewer is out of the flow, so what it took from the page is held here: without it the
+            footer under the viewer jumps up the moment a shared link turns out to be a Short. */}
+        {viewer && <Box ref={heldBox} aria-hidden />}
+        <Box component="section" aria-label="Up next" sx={{ mt: { xs: 2.5, md: 0 }, minWidth: 0, visibility: viewer ? 'hidden' : 'visible' }}>
+          <Typography component="h2" sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', color: 'text.secondary', mb: 1 }}>
+            Up next
+          </Typography>
+          <Box sx={{ display: 'grid', gap: 1 }}>
+            {video
+              ? queue.slice(at + 1, at + 1 + QUEUE_SHOWN).map(v => <QueueRow key={v.video_id} video={v} onPick={() => advance(v, 'queue')} />)
+              : Array.from({ length: QUEUE_SHOWN }, (_, i) => <QueueRow key={i} />)}
           </Box>
-        )}
+        </Box>
       </Box>
     </Box>
   )
@@ -342,12 +364,13 @@ const LINK_SX = {
 } as const
 
 /** Back to where the reader came from, or to the shelf from a link opened cold. */
-function BackLink({ viewer }: { viewer?: boolean }) {
+function BackLink({ viewer, shown = true }: { viewer?: boolean; shown?: boolean }) {
   return (
     <Box component="a" href={WPBL_WATCH_PAGE}
       onClick={(e: React.MouseEvent) => { if (!isModified(e)) { e.preventDefault(); navBack(WPBL_WATCH_PAGE) } }}
       sx={{
         display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start', minHeight: 40,
+        visibility: shown ? 'visible' : 'hidden',
         color: 'text.secondary', fontSize: TYPE_SCALE.body, fontWeight: 700, textDecoration: 'none',
         ...(viewer ? { px: 1.5, pt: 'env(safe-area-inset-top, 0px)' } : { mb: { xs: 0.5, sm: 1 } }),
         ...hoverOnly({ color: 'text.primary' }), ...FOCUS_RING,
