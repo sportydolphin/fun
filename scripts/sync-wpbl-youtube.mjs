@@ -164,6 +164,16 @@ export function classify(title) {
 }
 
 /**
+ * A reel of a whole season: "Top 10 Plays of the WPBL Season!", "All 7 Grand Slams from the WPBL
+ * Season!", "The Entire WPBL Season in 19 Minutes". Only "Top N" was read until Oct 30, 2026, so the
+ * rest sat in Features under 32 podcast episodes: the best single watches on the page, and the
+ * hardest to find.
+ */
+function isCompilationTitle(title) {
+  return /\btop\s+\d+\b|^\s*(?:all \d+|the only \d+|the entire)\b/i.test(title)
+}
+
+/**
  * The league's podcast episodes, which the title classifier cannot see and so filed as 'other':
  *
  *   "Skylar Kaplan | Expert Hitter, Pro Ball Player, San Francisco Firebell"
@@ -180,10 +190,8 @@ export function classify(title) {
 export function refineKind(kind, title, isShort) {
   if (kind !== 'other' || isShort !== false) return kind
   if (/\bgroup chat\b/i.test(title)) return 'podcast'
-  // The league's own season reels ("All 7 Grand Slams from the WPBL Season!"), which sat in Features
-  // under 32 podcast episodes, the best single watches on the page and the hardest to find. Landscape
-  // only, for the reason above: the league's Shorts use the same words.
-  if (/^\s*(?:all \d+|the only \d+|top \d+|the entire)\b/i.test(title)) return 'compilation'
+  // Landscape only, for the reason above: the league's Shorts use the same words.
+  if (isCompilationTitle(title)) return 'compilation'
   const guest = /^\s*[^|]{3,60}\s\|\s*\S/.test(title) && !MATCHUP_SEP.test(title) && !parseTitleDate(title)
   const onTopic = /^[A-Z][\p{L}'’.-]+(?: [A-Z][\p{L}'’.-]+){1,2} on [A-Z]/u.test(title)
   return guest || onTopic ? 'podcast' : kind
@@ -224,7 +232,7 @@ export function isFullGameTitle(title) {
  * Anything unrecognized is 'other', never a guess at a game.
  */
 export function classifyFan(title) {
-  if (/\btop\s+\d+\b/i.test(title)) return 'compilation'
+  if (isCompilationTitle(title)) return 'compilation'
   if (MATCHUP_SEP.test(title) && parseTitleDate(title)) return 'condensed'
   return 'other'
 }
@@ -794,8 +802,9 @@ async function syncChannel(channel, resolveTeam, gameByKey) {
   console.log(`✅  Upserted ${rows.length} videos (${matched} matched to a game)`)
 }
 
-// Kinds whose answer to "is this a Short" is known from the title.
-const NEVER_SHORT = new Set(['highlight', 'full_game', 'press', 'podcast'])
+// Kinds whose answer to "is this a Short" is known from the title. The fan channel posts no Shorts
+// at all, so its two kinds are on the list; 'other' from it stays unknown, as from any channel.
+const NEVER_SHORT = new Set(['highlight', 'full_game', 'press', 'podcast', 'condensed', 'compilation'])
 
 // --reclassify: see RECLASSIFY. Writes only the columns the title decides, and only on rows whose
 // answer changed, so a run with nothing to do writes nothing. `is_short` is written only where the

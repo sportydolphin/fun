@@ -43,10 +43,13 @@ function readAutoplay(): boolean {
 /** "Home run" from `home_run`. */
 const eventLabel = (e: string | null | undefined) => (e ? e.charAt(0).toUpperCase() + e.slice(1).replace(/_/g, ' ') : null)
 
-function moveTo(video: WpblVideo) {
-  // Keeps the stored queue, so the next hop reads the same list. A popstate, as `navigate` sends,
-  // because that is what tells the shell the path moved.
-  window.history.replaceState(window.history.state, '', wpblWatchVideoPath(video.video_id))
+function moveTo(video: WpblVideo, queue: WpblVideo[]) {
+  // The list goes with the move even when it was only a default: a default is worked out from the
+  // video on screen, so recomputing it after each hop would make Previous lead somewhere other than
+  // where the reader just was. A popstate, as `navigate` sends, because that is what tells the shell
+  // the path moved.
+  const state = { ...window.history.state, watchQueue: queue.map(v => v.video_id) }
+  window.history.replaceState(state, '', wpblWatchVideoPath(video.video_id))
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
@@ -105,7 +108,7 @@ export default function WatchVideoPage({ videoId, videos, games, teams, onOpenGa
   const advance = (v: WpblVideo | null, why: string) => {
     if (!v) return
     how.current = why
-    moveTo(v)
+    moveTo(v, queue)
   }
 
   const touch = useRef<{ x: number; y: number } | null>(null)
@@ -123,12 +126,15 @@ export default function WatchVideoPage({ videoId, videos, games, teams, onOpenGa
     const onKey = (e: KeyboardEvent) => {
       // The box score or a player panel opened over this page has the keys while it is up.
       if (panelOpen) return
-      if (e.key === 'ArrowLeft' && prev) { e.preventDefault(); advance(prev, 'pager') }
-      if (e.key === 'ArrowRight' && next) { e.preventDefault(); advance(next, 'pager') }
+      const to = e.key === 'ArrowLeft' ? prev : e.key === 'ArrowRight' ? next : null
+      if (!to) return
+      e.preventDefault()
+      how.current = 'pager'
+      moveTo(to, queue)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [prev, next, panelOpen])
+  }, [prev, next, queue, panelOpen])
 
   const tag = video ? tags.get(video.video_id) : undefined
   const gameId = video?.game_id ?? tag?.game_id ?? null

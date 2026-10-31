@@ -5,7 +5,7 @@ import { defaultQueue, resolveQueue } from '../watch/queue'
 import { markWatched, resetProgressCache, resumeAt, saveProgress, watchedShare } from '../watch/progress'
 import { formatDuration, formatViews, MORE_GROUPS, watchShelves } from '../videoChannels'
 import { wpblAppOwnsPath, wpblViewFromPath, wpblWatchVideoIdFromPath, wpblWatchVideoPath, isWpblWatchPage } from '../routes'
-import { parseIsoDuration, refineKind, settleIsShort } from '../../../scripts/sync-wpbl-youtube.mjs'
+import { classifyFan, parseIsoDuration, refineKind, settleIsShort } from '../../../scripts/sync-wpbl-youtube.mjs'
 import type { WpblVideo } from '../types'
 
 const video = (video_id: string, over: Partial<WpblVideo> = {}): WpblVideo => ({
@@ -159,6 +159,13 @@ describe('the sync', () => {
     expect(settleIsShort(null, null)).toBeNull()
     expect(settleIsShort(true, 900)).toBe(true)
     expect(settleIsShort(false, 30)).toBe(false)
+  })
+
+  it('files the fan channel\'s season reels as compilations', () => {
+    for (const t of ['Top 10 Plays of the WPBL Season!', 'All 7 Grand Slams from the WPBL Season!', 'The Only 2 Triples from the WPBL Season', 'The Entire WPBL Season in 19 Minutes', 'All 13 Home Runs by Denae Benites This Season']) {
+      expect(classifyFan(t)).toBe('compilation')
+    }
+    expect(classifyFan("WPBL Players' Weirdest Superstitions")).toBe('other')
   })
 
   it('files the league\'s season reels as compilations, landscape only', () => {

@@ -218,6 +218,7 @@ export const EVENT_INFO: Record<string, EventInfo> = {
   wpbl_photo_opened:      A('Opened an archive photo', 'Reading & photos'),
   wpbl_photo_source:      A("Opened a photo's source", 'Reading & photos'),
   wpbl_highlight_played:  A('Played a highlight', 'Reading & photos'),
+  wpbl_video_ended:       A('Watched a video to its end', 'Reading & photos'),
   wpbl_highlight_youtube: A('Opened a highlight on YouTube', 'Reading & photos'),
   wpbl_watch_shown:       I('Watch card shown', 'Reading & photos'),
   wpbl_watch_open:        A('Used the Watch card', 'Reading & photos'),

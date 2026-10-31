@@ -22,6 +22,28 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.198.0',
+    date:    '2026-10-30',
+    changes: [
+      {
+        short: 'WPBL Watch: a page and a link for every video',
+        full:  "Every WPBL video has its own page and address: the player, the game or play it shows, the players in it, Up next and Share.",
+      },
+      {
+        short: 'WPBL Watch: Autoplay and resume',
+        full:  "Videos play on to the next one in the list, with an Autoplay switch. Longer videos resume where you stopped, and posters mark what you have watched.",
+      },
+      {
+        short: 'WPBL Watch: phone viewer for clips',
+        full:  "On a phone a clip fills the screen, with Next and Previous buttons and a swipe along the bar under the video.",
+      },
+      {
+        short: 'WPBL Watch: lengths and season reels',
+        full:  "Posters show a video's length and video pages show its views. Every season reel moved into Season compilations, and two game reels that were missing from their games are back.",
+      },
+    ],
+  },
+  {
     version: '1.197.0',
     date:    '2026-10-30',
     changes: [

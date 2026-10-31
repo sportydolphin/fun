@@ -172,6 +172,11 @@ Loaded when you read anything under `src/wpbl/`. The feed and ingest traps (ids,
   the filtered list, so none of them needs to ask; do not add a second read of `wpbl_videos` that
   skips `playableIn`, or it will offer a player that says "Video unavailable".
 
+- **A video's path is the one path on the site that is case-sensitive.** `/wpbl/watch/<YouTube id>`
+  skips `readPath`'s lowercasing in `App.tsx`: folded, `m4GsxVjMhEY` names no video and the page reads
+  "No video". The same early return leaves the history entry alone, which is where the video's queue
+  rides. Anything that builds or compares these paths must keep the id's case.
+
 - **Modules shared with Deno carry `.ts` on their imports.** The recap engine
   ([`recap.ts`](derive/recap.ts), [`discordRecap.ts`](derive/discordRecap.ts))
   is loaded by three builds: Vite, the esbuild bundle behind `npm run discord-recaps`, and

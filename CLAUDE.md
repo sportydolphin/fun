@@ -97,6 +97,7 @@ first when you are working on what the line describes, even from somewhere else 
 - Rate-title gates are plate appearances (`plateAppearances()`), never `ab`.
 - `era` / `k9` follow `ERA_BASIS_CANONICAL`; never a literal 7 or 9.
 - Missing videos may be region-blocked on purpose (`playableIn`).
+- A video's path (`/wpbl/watch/<id>`) is case-sensitive; `readPath` skips its lowercasing.
 - Modules shared with Deno carry `.ts` on runtime imports and never import `constants.ts`.
 - The fan-awards ballot has no audience gate, and nothing may add one.
 
