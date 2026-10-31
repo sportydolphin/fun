@@ -1,42 +1,44 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import WpblPage from './WpblPage'
-import { ChipRow, FilterChip } from '../ui/FilterChip'
+import { FilterChip, FilterSelect } from '../ui/FilterChip'
 import { CARD_BORDER, CARD_FILL, FOCUS_RING, TYPE_SCALE, TeamBadge, hoverOnly, NewTag, TextGhost, chromePx } from './ui'
 import { WPBL_TEAMS } from './constants'
 import { fetchWpblSchedule, fetchWpblTeams, fetchWpblVideos, getCachedWpblSchedule, getCachedWpblTeams, getCachedWpblVideos } from './api'
 import { countsInStandings } from './season'
 import { seriesContexts } from './derive/series'
-import { wpblGamePath, wpblWatchVideoIdFromPath, wpblWatchVideoPath } from './routes'
+import { WPBL_WATCH_PAGE, wpblGamePath, wpblWatchVideoIdFromPath } from './routes'
 import { gameVideos, watchShelves, videoCredit, videoKindName, MORE_GROUPS } from './videoChannels'
 import { VideoThumb, VideoCreditLine, PLAYABLE_HOVER, videoDateLabel } from './Highlights'
 import { ClipCaption, useClipTags } from './Watch'
 import WatchVideoPage from './WatchVideoPage'
+import WatchFront from './watch/WatchFront'
+import { CARD_LINK, GroupHeading, videoLink } from './watch/parts'
+import { splitClips } from './watch/shelves'
 import { track, EVENTS } from '../lib/analytics'
-import type { WpblGame, WpblTeam, WpblVideo } from './types'
+import type { WpblGame, WpblTeam, WpblVideo, WpblVideoTag } from './types'
 import { useNewSince } from './newSince'
-import { typePx } from '../ui/scale'
-import { isModified, navigate } from '../nav'
+import { isModified } from '../nav'
 
-// /wpbl/watch: every video the site mirrors, from the league's channel and from WPBL from Day 1,
-// on three shelves.
+// /wpbl/watch: every video the site mirrors, from the league's channel and from WPBL from Day 1.
 //
-//   Games  one card per game, with a button for each video of it: the league's reel, the fan's
-//          condensed game and the league's full broadcast, whichever exist and this reader's
-//          country can play (the broadcasts are blocked in the US; see playableIn).
-//   Clips  the league's Shorts, newest first, played vertically.
-//   More   everything that belongs to no game: the fan's compilations, features, press
-//          conferences, the podcast.
+//   Featured  the front page (watch/WatchFront.tsx): one video, then a row of each kind.
+//   Games     one card per game, with a button for each video of it: the league's reel, the fan's
+//             condensed game and the league's full broadcast, whichever exist and this reader's
+//             country can play (the broadcasts are blocked in the US; see playableIn).
+//   Plays     the Shorts from a game, newest first, played vertically.
+//   Clips     the other Shorts: the draft, features, the offseason's social posts.
+//   Features  season compilations, press conferences and everything else with no game.
+//   Podcast   the league's weekly episodes.
 //
-// CLIPS ARE NOT FILED BY GAME, and that was measured rather than assumed. Not one of the 291
-// Shorts names its game. Matching the player a title names against the play-by-play pins about
-// 70 of them to a game and an at-bat; the rest are features, hype and moments with no name in the
-// title. A shelf organized by game would hide three quarters of it, so the shelf is a feed by date,
-// and pinning a clip to its game is a later phase that adds a badge rather than a structure.
+// PLAYS AND CLIPS ARE SPLIT BY THE TAGS, not by anything in the title. No Short names its game, so the
+// matcher (scripts/wpbl-clip-tags.mjs) places about a third of them. The split was one feed until
+// Oct 30, 2026, which in the offseason meant ten screens of social posts over the season's home runs.
 //
-// THE SHELF IS THE HASH (#games, #clips, #more) so the Home card can link straight to the clips
-// and a shared link keeps its shelf, without a second route and a second rewrite. It is written
-// with replaceState: switching shelves is not somewhere Back should step through.
+// THE SHELF IS THE HASH (#games, #plays, #clips, #features, #podcast) so a link keeps its shelf,
+// without a second route and a second rewrite. #more was the old name for Features, and a link
+// carrying it still lands there. It is written with replaceState: switching shelves is not somewhere
+// Back should step through.
 //
 // NOTHING LOADS FROM YOUTUBE until a play: every card is a poster and the player mounts on the video's
 // own page. WPBL from Day 1's videos are embedded with their permission and credited on every card
@@ -47,37 +49,28 @@ import { isModified, navigate } from '../nav'
 // more" and the same scroll, and all of that is state here. A reader who lands on a video cold has no
 // shelf to come back to, so it is not drawn until they ask for it.
 
-type Shelf = 'games' | 'clips' | 'more'
+type Shelf = 'featured' | 'games' | 'plays' | 'clips' | 'features' | 'podcast'
 
 /** Whether a video is new to this reader. */
 interface Fresh { isNew: (v: WpblVideo) => boolean }
-const SHELVES: Shelf[] = ['games', 'clips', 'more']
+const SHELVES: { key: Shelf; label: string }[] = [
+  { key: 'featured', label: 'Featured' },
+  { key: 'games', label: 'Games' },
+  { key: 'plays', label: 'Plays' },
+  { key: 'clips', label: 'Clips' },
+  { key: 'features', label: 'Features' },
+  { key: 'podcast', label: 'Podcast' },
+]
+/** The shelves a club can narrow, which are the ones whose videos carry one. */
+const CLUB_SHELVES: Shelf[] = ['games', 'plays', 'clips']
 const CLIPS_PAGE = 30
+const shelfHash = (s: Shelf) => (s === 'featured' ? '' : `#${s}`)
 
 function shelfFromHash(): Shelf {
   const h = typeof window === 'undefined' ? '' : window.location.hash.slice(1)
-  return (SHELVES as string[]).includes(h) ? h as Shelf : 'games'
+  if (h === 'more') return 'features'
+  return SHELVES.some(x => x.key === h) ? h as Shelf : 'featured'
 }
-
-/**
- * A real link to a video's page. `queue` is what plays after it when the shelf is showing a chosen
- * list; it rides on the history entry rather than the URL, so the address stays the one to share and
- * a reload or a Back keeps the list.
- */
-function videoLink(v: WpblVideo, queue?: string[]) {
-  const to = wpblWatchVideoPath(v.video_id)
-  return {
-    component: 'a' as const,
-    href: to,
-    onClick: (e: React.MouseEvent) => {
-      if (isModified(e)) return
-      e.preventDefault()
-      navigate(to, { watchFrom: 'shelf', ...(queue ? { watchQueue: queue } : null) })
-    },
-  }
-}
-
-const CARD_LINK = { display: 'block', color: 'inherit', textDecoration: 'none' } as const
 
 export default function WatchPage({ path, onNavigate, onOpenGame }: {
   path: string
@@ -93,6 +86,10 @@ export default function WatchPage({ path, onNavigate, onOpenGame }: {
   const [games, setGames] = useState<WpblGame[]>(() => getCachedWpblSchedule() ?? [])
   const [teams, setTeams] = useState<WpblTeam[]>(() => getCachedWpblTeams() ?? [])
   const [shelf, setShelf] = useState<Shelf>(shelfFromHash)
+  // One club for every shelf that can narrow by one, so a Hunters fan stays a Hunters fan moving
+  // from Games to Plays.
+  const [club, setClub] = useState('all')
+  const { tags, ready: tagsReady } = useClipTags()
 
   useEffect(() => {
     let live = true
@@ -134,11 +131,11 @@ export default function WatchPage({ path, onNavigate, onOpenGame }: {
       window.scrollTo({ top: Math.max(0, pinned - parseFloat(getComputedStyle(bar).top)) })
     }
     track(EVENTS.WPBL_PAGE_CONTROL, { page: 'watch', control: 'shelf', value: s })
-    window.history.replaceState(window.history.state, '', `${window.location.pathname}${s === 'games' ? '' : `#${s}`}`)
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${shelfHash(s)}`)
   }
 
   const shelves = useMemo(() => watchShelves(videos ?? []), [videos])
-  const moreCount = shelves.more.length
+  const { plays, rest } = useMemo(() => splitClips(shelves.clips, tags), [shelves.clips, tags])
   const stamped = useMemo(() => videos?.map(v => ({ id: v.video_id, at: v.published_at })) ?? null, [videos])
   // The watermark moves only once the shelf has been shown: a video opened from a link is not the
   // reader having seen what is new.
@@ -149,6 +146,32 @@ export default function WatchPage({ path, onNavigate, onOpenGame }: {
     const ids = new Set(shelves.gameIds)
     return (videos ?? []).some(v => !!v.game_id && ids.has(v.game_id) && fresh.isNew(v))
   }, [videos, shelves.gameIds, fresh])
+  const dots: Partial<Record<Shelf, boolean>> = {
+    games: gamesNew,
+    plays: plays.some(fresh.isNew),
+    clips: rest.some(fresh.isNew),
+    features: shelves.more.some(v => v.kind !== 'podcast' && fresh.isNew(v)),
+    podcast: shelves.more.some(v => v.kind === 'podcast' && fresh.isNew(v)),
+  }
+  const pickClub = (id: string) => {
+    setClub(id)
+    track(EVENTS.WPBL_PAGE_CONTROL, { page: 'watch', control: 'club', value: id })
+  }
+  // Drawn while the videos load too, from the same element: the bar needs no data, and the page under
+  // it holds its place with what it will draw (CLAUDE.md, loading states).
+  const bar = (
+    <Box ref={shelfBar} sx={SHELF_BAR}>
+      <Box sx={SHELF_CHIPS}>
+        {SHELVES.map(x => <FilterChip key={x.key} active={shelf === x.key} onClick={() => pickShelf(x.key)} dot={dots[x.key]}>{x.label}</FilterChip>)}
+      </Box>
+      {CLUB_SHELVES.includes(shelf) && (
+        <Box sx={{ flexShrink: 0 }}>
+          <FilterSelect ariaLabel="Club" value={club} active={club !== 'all'} onChange={pickClub}
+            options={[{ value: 'all', label: 'All clubs' }, ...(teams.length ? teams : Object.values(WPBL_TEAMS)).map(t => ({ value: t.id, label: t.name }))]} />
+        </Box>
+      )}
+    </Box>
+  )
 
   return (
     <>
@@ -158,39 +181,29 @@ export default function WatchPage({ path, onNavigate, onOpenGame }: {
     )}
     {shelfDrawn && (
     <Box sx={videoId ? { display: 'none' } : undefined}>
-    {/* Wide, like Reading: game cards lay out three across on a desktop and clips six.
-        The standfirst is the credit and nothing else (house rule, Oct 21, 2026: labels, not
-        narration): it sits between the reader and the first video. */}
-    <WpblPage title="Watch" maxWidth="72rem" standfirst={<>
-      Condensed games:{' '}
-      <Box component="a" href="https://www.youtube.com/@wpblfanrecaps" target="_blank" rel="noopener noreferrer"
-        sx={{ color: 'inherit', fontWeight: 700 }}>WPBL from Day 1</Box>, with permission
-    </>}>
-      <Box>
-        {videos == null ? (
-          <WatchSkeleton shelf={shelf} />
-        ) : videos.length === 0 ? (
-          <Typography sx={{ color: 'text.secondary', py: 4 }}>No videos yet.</Typography>
-        ) : (
-          <>
-            {/* PINNED, because the Games shelf is forty games long and the Clips shelf ten screens:
-                without it, trying another shelf meant scrolling all the way back up. Full-bleed on
-                a phone with its own background, so the list scrolls cleanly underneath; ChipRow's
-                own bleed then resolves to nothing, since its 50% is already the screen. Sits under
-                whatever chrome is pinned above it, which on a phone is none (see PINNED_CHROME). */}
-            <Box ref={shelfBar} sx={SHELF_BAR}>
-              <ChipRow mb={0}>
-                <FilterChip active={shelf === 'games'} onClick={() => pickShelf('games')} dot={gamesNew}>{`Games (${shelves.gameIds.length})`}</FilterChip>
-                <FilterChip active={shelf === 'clips'} onClick={() => pickShelf('clips')} dot={shelves.clips.some(fresh.isNew)}>{`Clips (${shelves.clips.length})`}</FilterChip>
-                {moreCount > 0 && <FilterChip active={shelf === 'more'} onClick={() => pickShelf('more')} dot={shelves.more.some(fresh.isNew)}>{`More (${moreCount})`}</FilterChip>}
-              </ChipRow>
-            </Box>
-            {shelf === 'games' && <GamesShelf videos={videos} gameIds={shelves.gameIds} games={games} teams={teams} onOpenGame={onOpenGame} fresh={fresh} />}
-            {shelf === 'clips' && <ClipsShelf clips={shelves.clips} teams={teams} games={games} fresh={fresh} />}
-            {shelf === 'more' && <MoreShelf videos={shelves.more} fresh={fresh} />}
-          </>
-        )}
-      </Box>
+    {/* Wide, like Reading: game cards lay out three across on a desktop and clips six. */}
+    <WpblPage title="Watch" maxWidth="72rem">
+      {/* PINNED, because the Games shelf is forty games long and the Clips shelf ten screens: without
+          it, trying another shelf meant scrolling all the way back up. Full-bleed on a phone with its
+          own background, so the list scrolls cleanly underneath. Sits under whatever chrome is pinned
+          above it, which on a phone is none (see PINNED_CHROME). */}
+      {bar}
+      {videos != null && videos.length === 0 ? (
+        <Typography sx={{ color: 'text.secondary', py: 4 }}>No videos yet</Typography>
+      ) : shelf === 'featured' ? (
+        <WatchFront videos={videos} games={games} teams={teams} tags={tags} tagsReady={tagsReady}
+          isNew={fresh.isNew} onPickShelf={pickShelf} shelfHref={s => `${WPBL_WATCH_PAGE}${shelfHash(s)}`} />
+      ) : videos == null ? (
+        <WatchSkeleton shelf={shelf} />
+      ) : (
+        <>
+          {shelf === 'games' && <GamesShelf videos={videos} gameIds={shelves.gameIds} games={games} teams={teams} onOpenGame={onOpenGame} fresh={fresh} club={club} />}
+          {shelf === 'plays' && <ClipsShelf key={`plays-${club}`} clips={plays} tags={tags} teams={teams} games={games} fresh={fresh} club={club} />}
+          {shelf === 'clips' && <ClipsShelf key={`clips-${club}`} clips={rest} tags={tags} teams={teams} games={games} fresh={fresh} club={club} />}
+          {shelf === 'features' && <MoreShelf videos={shelves.more.filter(v => v.kind !== 'podcast')} fresh={fresh} />}
+          {shelf === 'podcast' && <MoreShelf videos={shelves.more.filter(v => v.kind === 'podcast')} fresh={fresh} />}
+        </>
+      )}
     </WpblPage>
     </Box>
     )}
@@ -202,12 +215,11 @@ export default function WatchPage({ path, onNavigate, onOpenGame }: {
 
 interface GameEntry { game: WpblGame; videos: WpblVideo[] }
 
-function GamesShelf({ videos, gameIds, games, teams, onOpenGame, fresh }: {
+function GamesShelf({ videos, gameIds, games, teams, onOpenGame, fresh, club }: {
   videos: WpblVideo[]; gameIds: string[]; games: WpblGame[]; teams: WpblTeam[]
   onOpenGame: (g: WpblGame, ctx: { teams: WpblTeam[]; games: WpblGame[] }) => void
-  fresh: Fresh
+  fresh: Fresh; club: string
 }) {
-  const [club, setClub] = useState('all')
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const series = useMemo(() => seriesContexts(games, teamById), [games, teamById])
 
@@ -222,9 +234,6 @@ function GamesShelf({ videos, gameIds, games, teams, onOpenGame, fresh }: {
       .map(game => ({ game, videos: gameVideos(videos, game.id) }))
   }, [videos, gameIds, games])
 
-  const clubChips = useMemo(() => teams
-    .map(t => ({ team: t, count: entries.filter(e => e.game.home_team_id === t.id || e.game.away_team_id === t.id).length }))
-    .filter(c => c.count > 0), [teams, entries])
   const rows = club === 'all' ? entries : entries.filter(e => e.game.home_team_id === club || e.game.away_team_id === club)
   // With a club picked, the queue is that club's games in the order shown. Otherwise the video's own
   // default, which keeps to one kind rather than running a reel into its three-hour broadcast.
@@ -248,15 +257,6 @@ function GamesShelf({ videos, gameIds, games, teams, onOpenGame, fresh }: {
 
   return (
     <>
-      {clubChips.length > 1 && (
-        <ChipRow mb={1.75}>
-          <FilterChip active={club === 'all'} onClick={() => setClub('all')}>{`All clubs (${entries.length})`}</FilterChip>
-          {clubChips.map(c => (
-            <FilterChip key={c.team.id} active={club === c.team.id}
-              onClick={() => { setClub(c.team.id); track(EVENTS.WPBL_PAGE_CONTROL, { page: 'watch', control: 'club', value: c.team.id }) }}>{`${c.team.name} (${c.count})`}</FilterChip>
-          ))}
-        </ChipRow>
-      )}
       {groups.map((grp, gi) => (
         <Box component="section" key={grp.key} sx={{ mt: gi === 0 ? 0 : 2.5 }}>
           <GroupHeading>{grp.label}</GroupHeading>
@@ -273,20 +273,19 @@ function GamesShelf({ videos, gameIds, games, teams, onOpenGame, fresh }: {
   )
 }
 
-function GroupHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <Typography component="h2" sx={{
-      fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
-      color: 'text.secondary', mb: 1,
-    }}>{children}</Typography>
-  )
-}
-
 // The game card's parts, one definition for the loaded card and its skeleton.
 const SHELF_BAR = {
   position: 'sticky', top: 'var(--app-header-h, 0px)', zIndex: 5,
   bgcolor: 'background.default', py: 1, mb: 1, mt: -1,
   mx: { xs: 'calc(50% - 50vw)', sm: 0 }, px: { xs: 'calc(50vw - 50%)', sm: 0 },
+  display: 'flex', alignItems: 'center', gap: 0.75,
+} as const
+// The shelves scroll sideways on a phone and stop at the Club menu, which stays in reach: at the end
+// of the row it would be the one control off the screen.
+const SHELF_CHIPS = {
+  flex: 1, minWidth: 0, display: 'flex', gap: 0.75,
+  flexWrap: { xs: 'nowrap', sm: 'wrap' }, overflowX: { xs: 'auto', sm: 'visible' },
+  scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' },
 } as const
 const GAME_GRID = {
   display: 'grid', gap: { xs: 1, sm: 1.5 },
@@ -326,14 +325,25 @@ const GAME_PILL = {
 } as const
 
 /**
- * The page before the videos land: the loaded page drawn empty (CLAUDE.md, loading states). The
- * shelf bar and the club chips with their counts held open, then the Games shelf's first group,
- * the postseason, as cards in the most common shape: the league's reel and the fan's condensed
- * game, with the fan's credit under them. It was a centered spinner, which left the footer half a
- * screen down and threw it 6,000 to 9,000px when the shelf landed.
+ * A shelf before the videos land: the loaded shelf drawn empty (CLAUDE.md, loading states). The games
+ * as cards in the most common shape (the league's reel and the fan's condensed game, with the fan's
+ * credit under them), the Shorts as tall posters, the rest as 16:9. The front page draws its own.
  */
 function WatchSkeleton({ shelf }: { shelf: Shelf }) {
-  const count = <TextGhost>(00)</TextGhost>
+  if (shelf === 'plays' || shelf === 'clips') {
+    return (
+      <Box aria-hidden sx={CLIP_GRID}>
+        {Array.from({ length: CLIPS_PAGE }, (_, i) => <Box key={i} sx={{ aspectRatio: '9 / 16', borderRadius: 2, bgcolor: 'action.hover' }} />)}
+      </Box>
+    )
+  }
+  if (shelf !== 'games') {
+    return (
+      <Box aria-hidden sx={MORE_GRID}>
+        {Array.from({ length: 8 }, (_, i) => <Box key={i} sx={{ aspectRatio: '16 / 9', borderRadius: 2, bgcolor: 'action.hover' }} />)}
+      </Box>
+    )
+  }
   const side = (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
       <Skeleton variant="circular" width={chromePx(22)} height={chromePx(22)} sx={{ flexShrink: 0 }} />
@@ -343,17 +353,6 @@ function WatchSkeleton({ shelf }: { shelf: Shelf }) {
   )
   return (
     <Box aria-hidden>
-      <Box sx={SHELF_BAR}>
-        <ChipRow mb={0}>
-          <FilterChip active={shelf === 'games'} onClick={() => {}}>Games {count}</FilterChip>
-          <FilterChip active={shelf === 'clips'} onClick={() => {}}>Clips {count}</FilterChip>
-          <FilterChip active={shelf === 'more'} onClick={() => {}}>More {count}</FilterChip>
-        </ChipRow>
-      </Box>
-      <ChipRow mb={1.75}>
-        <FilterChip active onClick={() => {}}>All clubs {count}</FilterChip>
-        {Object.values(WPBL_TEAMS).map(t => <FilterChip key={t.id} active={false} onClick={() => {}}>{t.name} {count}</FilterChip>)}
-      </ChipRow>
       <GroupHeading><TextGhost>Postseason</TextGhost></GroupHeading>
       <Box sx={GAME_GRID}>
         {Array.from({ length: 9 }, (_, i) => (
@@ -483,94 +482,77 @@ function GameWatchCard({ entry, teamById, roundLabel, href, onOpenGame, fresh, q
 
 // ─── Clips ───────────────────────────────────────────────────────────────────
 
+const CLIP_GRID = {
+  display: 'grid', gap: { xs: 0.75, sm: 1 },
+  gridTemplateColumns: { xs: 'repeat(3, minmax(0, 1fr))', sm: 'repeat(4, minmax(0, 1fr))', md: 'repeat(5, minmax(0, 1fr))', lg: 'repeat(6, minmax(0, 1fr))' },
+} as const
+
 /**
- * The Shorts, newest first, in pages of thirty.
+ * Shorts, newest first, in pages of thirty.
  *
  * Split at opening day, because the channel's Shorts are two different things either side of it:
  * before, the draft, tryouts and the build-up; from it, the season itself. Opening day is the
  * schedule's first game, not a date written here, so next season moves the line on its own.
  *
- * The club filter and the poster's club badge come from the clip tags (wpbl_video_tags), which
- * name a club for about half the Shorts. A clip with no club is under "All clubs" only: it is not
- * evidence of being about nobody, just of a title that did not say.
+ * The club comes from the clip tags (wpbl_video_tags), which name one for about half the Shorts. A
+ * clip with no club is under "All clubs" only: it is not evidence of being about nobody, just of a
+ * title that did not say.
  */
-function ClipsShelf({ clips, games, teams, fresh }: {
-  clips: WpblVideo[]; games: WpblGame[]; teams: WpblTeam[]
-  fresh: Fresh
+function ClipsShelf({ clips, tags, games, teams, fresh, club }: {
+  clips: WpblVideo[]; tags: Map<string, WpblVideoTag>; games: WpblGame[]; teams: WpblTeam[]; fresh: Fresh; club: string
 }) {
-  const { tags } = useClipTags()
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const opening = useMemo(() => games.reduce<string | null>((min, g) => (!min || g.game_date < min ? g.game_date : min), null), [games])
   // Midnight Pacific on opening day, as UTC: the league's earliest time zone, so nothing posted on
   // opening day anywhere in the country falls before the line.
   const openingAt = opening ? `${opening}T07:00:00Z` : null
-  const season = openingAt ? clips.filter(c => c.published_at >= openingAt) : clips
-  const before = openingAt ? clips.filter(c => c.published_at < openingAt) : []
-  const [phase, setPhase] = useState<'season' | 'before' | 'all'>('all')
-  const [club, setClub] = useState('all')
   const [limit, setLimit] = useState(CLIPS_PAGE)
-  const byPhase = phase === 'season' ? season : phase === 'before' ? before : clips
   const clubOf = (v: WpblVideo) => tags.get(v.video_id)?.team_id ?? null
-  const clubChips = teams
-    .map(t => ({ team: t, count: byPhase.filter(v => clubOf(v) === t.id).length }))
-    .filter(c => c.count > 0)
-  // A club picked under one phase may have nothing under the next: fall back to every club
-  // rather than show an empty grid with no chip explaining it.
-  const activeClub = club !== 'all' && clubChips.some(c => c.team.id === club) ? club : 'all'
-  const list = activeClub === 'all' ? byPhase : byPhase.filter(v => clubOf(v) === activeClub)
-  const year = opening?.slice(0, 4) ?? ''
-  const pick = (p: typeof phase) => { setPhase(p); setLimit(CLIPS_PAGE); track(EVENTS.WPBL_PAGE_CONTROL, { page: 'watch', control: 'clips', value: p }) }
-  const pickClub = (id: string) => { setClub(id); setLimit(CLIPS_PAGE); track(EVENTS.WPBL_PAGE_CONTROL, { page: 'watch', control: 'clip_club', value: id }) }
+  const list = club === 'all' ? clips : clips.filter(v => clubOf(v) === club)
   // The whole filtered list, not the page of it on screen, so next runs past the "Show more".
   const queue = list.map(v => v.video_id)
+  const shown = list.slice(0, limit)
+  const groups = [
+    { key: 'season', label: `${opening?.slice(0, 4) ?? ''} season`, items: openingAt ? shown.filter(v => v.published_at >= openingAt) : shown },
+    { key: 'before', label: 'Before the season', items: openingAt ? shown.filter(v => v.published_at < openingAt) : [] },
+  ].filter(g => g.items.length > 0)
 
+  if (list.length === 0) return <Typography sx={{ color: 'text.secondary', py: 4 }}>No videos</Typography>
   return (
     <>
-      {before.length > 0 && season.length > 0 && (
-        <ChipRow mb={1}>
-          <FilterChip active={phase === 'all'} onClick={() => pick('all')}>{`All clips (${clips.length})`}</FilterChip>
-          <FilterChip active={phase === 'season'} onClick={() => pick('season')}>{`${year} season (${season.length})`}</FilterChip>
-          <FilterChip active={phase === 'before'} onClick={() => pick('before')}>{`Before the season (${before.length})`}</FilterChip>
-        </ChipRow>
-      )}
-      {clubChips.length > 1 && (
-        <ChipRow mb={1.75}>
-          <FilterChip active={activeClub === 'all'} onClick={() => pickClub('all')}>All clubs</FilterChip>
-          {clubChips.map(c => (
-            <FilterChip key={c.team.id} active={activeClub === c.team.id} onClick={() => pickClub(c.team.id)}>{`${c.team.name} (${c.count})`}</FilterChip>
-          ))}
-        </ChipRow>
-      )}
-      <Box sx={{
-        display: 'grid', gap: { xs: 0.75, sm: 1 },
-        gridTemplateColumns: { xs: 'repeat(3, minmax(0, 1fr))', sm: 'repeat(4, minmax(0, 1fr))', md: 'repeat(5, minmax(0, 1fr))', lg: 'repeat(6, minmax(0, 1fr))' },
-      }}>
-        {list.slice(0, limit).map(v => {
-          const team = teamById.get(clubOf(v) ?? '')
-          const isNew = fresh.isNew(v)
-          return (
-            <Box key={v.video_id} {...videoLink(v, queue)}
-              aria-label={`Play${isNew ? ' new' : ''} clip: ${v.title}`}
-              sx={{ ...CARD_LINK, position: 'relative', borderRadius: 2, overflow: 'hidden', ...PLAYABLE_HOVER, ...FOCUS_RING }}
-            >
-              <VideoThumb video={v} vertical badge={34} />
-              <ClipCaption title={v.title} lines={3} />
-              {/* The date chip carries the marker rather than a second tag beside it: a clip
-                  poster is ~110px wide on a phone, with a club badge in the other corner. */}
-              <Typography sx={{
-                position: 'absolute', top: 6, left: 6, px: 0.6, borderRadius: 1,
-                bgcolor: isNew ? 'var(--wpbl-accent-solid)' : 'rgba(0,0,0,0.55)',
-                color: '#fff', fontSize: TYPE_SCALE.micro, fontWeight: isNew ? 800 : 700, lineHeight: 1.6, pointerEvents: 'none',
-              }}>{isNew ? `New · ${videoDateLabel(v)}` : videoDateLabel(v)}</Typography>
-              {team && (
-                <Box sx={{ position: 'absolute', top: 5, right: 5, pointerEvents: 'none', lineHeight: 0 }}>
-                  <TeamBadge team={team} size={20} />
+      {groups.map((grp, gi) => (
+        <Box component="section" key={grp.key} sx={{ mt: gi === 0 ? 0 : 2.5 }}>
+          {/* A heading only where it divides something: on the Plays shelf every clip is the season. */}
+          {(groups.length > 1 || grp.key === 'before') && <GroupHeading>{grp.label}</GroupHeading>}
+          <Box sx={CLIP_GRID}>
+            {grp.items.map(v => {
+              const team = teamById.get(clubOf(v) ?? '')
+              const isNew = fresh.isNew(v)
+              return (
+                <Box key={v.video_id} {...videoLink(v, queue)}
+                  aria-label={`Play${isNew ? ' new' : ''} clip: ${v.title}`}
+                  sx={{ ...CARD_LINK, position: 'relative', borderRadius: 2, overflow: 'hidden', ...PLAYABLE_HOVER, ...FOCUS_RING }}
+                >
+                  <VideoThumb video={v} vertical badge={34} />
+                  <ClipCaption title={v.title} lines={3} />
+                  {/* The date chip carries the marker rather than a second tag beside it: a clip
+                      poster is ~110px wide on a phone, with a club badge in the other corner. */}
+                  <Typography sx={{
+                    position: 'absolute', top: 6, left: 6, px: 0.6, borderRadius: 1,
+                    bgcolor: isNew ? 'var(--wpbl-accent-solid)' : 'rgba(0,0,0,0.55)',
+                    color: '#fff', fontSize: TYPE_SCALE.micro, fontWeight: isNew ? 800 : 700, lineHeight: 1.6, pointerEvents: 'none',
+                  }}>{isNew ? `New · ${videoDateLabel(v)}` : videoDateLabel(v)}</Typography>
+                  {team && (
+                    <Box sx={{ position: 'absolute', top: 5, right: 5, pointerEvents: 'none', lineHeight: 0 }}>
+                      <TeamBadge team={team} size={20} />
+                    </Box>
+                  )}
                 </Box>
-              )}
-            </Box>
-          )
-        })}
-      </Box>
+              )
+            })}
+          </Box>
+        </Box>
+      ))}
       {list.length > limit && (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
           <Box component="button" type="button" onClick={() => setLimit(l => l + CLIPS_PAGE)} sx={{
@@ -586,6 +568,11 @@ function ClipsShelf({ clips, games, teams, fresh }: {
 
 // ─── More ────────────────────────────────────────────────────────────────────
 
+const MORE_GRID = {
+  display: 'grid', gap: { xs: 1, sm: 1.5 },
+  gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))', lg: 'repeat(4, minmax(0, 1fr))' },
+} as const
+
 function MoreShelf({ videos, fresh }: { videos: WpblVideo[]; fresh: Fresh }) {
   const groups = MORE_GROUPS.map(g => ({ ...g, items: videos.filter(g.test) })).filter(g => g.items.length > 0)
   return (
@@ -593,10 +580,7 @@ function MoreShelf({ videos, fresh }: { videos: WpblVideo[]; fresh: Fresh }) {
       {groups.map((grp, gi) => (
         <Box component="section" key={grp.key} sx={{ mt: gi === 0 ? 0 : 2.5 }}>
           <GroupHeading>{grp.label}</GroupHeading>
-          <Box sx={{
-            display: 'grid', gap: { xs: 1, sm: 1.5 },
-            gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))', lg: 'repeat(4, minmax(0, 1fr))' },
-          }}>
+          <Box sx={MORE_GRID}>
             {grp.items.map(v => {
               const credit = videoCredit(v)
               return (

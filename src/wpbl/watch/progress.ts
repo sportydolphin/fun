@@ -80,5 +80,25 @@ export function useWatchedShare(id: string): number {
   return useSyncExternalStore(subscribe, () => watchedShare(id), () => 0)
 }
 
+const NO_IDS: string[] = []
+let startedCache: { from: Record<string, Entry>; ids: string[] } | null = null
+
+/** Every video started and not finished, most recently watched first. Held per version of the store,
+ *  because a store snapshot must be the same array until something actually changes. */
+function started(): string[] {
+  const store = all()
+  if (startedCache?.from === store) return startedCache.ids
+  const ids = Object.keys(store)
+    .filter(id => resumeAt(id) > 0)
+    .sort((a, b) => store[b].at - store[a].at)
+  startedCache = { from: store, ids }
+  return ids
+}
+
+/** The list a Continue watching row draws, kept current. */
+export function useStartedVideos(): string[] {
+  return useSyncExternalStore(subscribe, started, () => NO_IDS)
+}
+
 /** Forget the cached read, for a test that resets localStorage. */
 export function resetProgressCache(): void { cache = null }
