@@ -216,11 +216,10 @@ function OffseasonHomeSkeleton() {
           real card rather than a guess at its height. */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
         <PlayerSpotlightCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
-        {/* The champion card's own height, measured at 375, 760, 960 and 1440 (Oct 15, 2026): one
-            number at every width, since its rows stack the same way everywhere. Taller here than
-            the card puts the row out of step with Player Spotlight, which then moves on load. Taller
-            at phone width, where the champion's name takes two lines. */}
-        <CardSkeleton minHeight={{ xs: '24.5rem', sm: '23.95rem', md: '23.9rem' }} titleWidth="6rem" lines={5} />
+        {/* The champion card's own height, measured at 375, 760, 960 and 1440 (Oct 30, 2026): one
+            number per scale, since its rows stack the same way at every width. Taller here than the
+            card puts the row out of step with Player Spotlight, which then moves on load. */}
+        <CardSkeleton minHeight={{ xs: '24.5rem', md: '24.4rem' }} titleWidth="6rem" lines={5} />
       </Box>
       {awards && (
         <Box sx={{ mt: 1.5 }}>
