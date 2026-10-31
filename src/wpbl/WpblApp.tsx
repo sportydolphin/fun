@@ -14,6 +14,8 @@ import { HOME_WIDE_W, STATS_FULL_BLEED_W, GAME_PAGE_W, PLAYER_PAGE_W } from './l
 import { PHONE_COLUMN_W } from '../ui/layoutWidths'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame } from './types'
 import { track, EVENTS } from '../lib/analytics'
+import { NAVIGATED_EVENT } from '../nav'
+import { useSwipeNav } from '../AccessibilityContext'
 import { useFeatureDots } from '../lib/seen'
 import WpblHome, { homeLandingReadsLines } from './home/WpblHome'
 import { WpblHomeSkeleton } from './home/Skeletons'
@@ -24,7 +26,7 @@ import { StatsSkeleton } from './stats/Skeleton'
 import SwipeableViews from './SwipeableViews'
 import WpblBottomNav, { BOTTOM_NAV_SPACE, MORE_KEY } from './BottomNav'
 import {
-  WPBL_NAV, wpblPathFor, WPBL_PATH_EVENT, wpblPlayerSlugFromPath, findWpblPlayerBySlug, wpblAppOwnsPath, wpblGameSlugFromPath, findWpblGameBySlug,
+  WPBL_NAV, wpblPathFor, wpblViewFromPath, WPBL_PATH_EVENT, wpblPlayerSlugFromPath, findWpblPlayerBySlug, wpblAppOwnsPath, wpblGameSlugFromPath, findWpblGameBySlug,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug,
   WPBL_SHORT_REF_PARAM, WPBL_SHORT_REF_VALUE,
   type WpblView,
@@ -258,6 +260,14 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // Bottom tab bar, phones only. Above a phone the tabs are in the shell's toolbar instead (see
   // the publish below selectTab), because a bottom bar is wrong at 1280px.
   const bottomNav = isMobileView
+  // On a phone the pager returns each tab to where the reader left it. Everywhere else nothing does,
+  // so a move to another tab or team page starts at its top, as MLB's do; left alone, Schedule opened
+  // at the depth Home was read to.
+  const swipeNav = useSwipeNav()
+  const pagerOn = isMobileView && swipeNav
+  const toPageTop = useCallback(() => {
+    if (!pagerOn) requestAnimationFrame(() => window.scrollTo({ top: 0 }))
+  }, [pagerOn])
   // The bottom bar's More sheet (the mobile way into the non-tab pages). Owned here, not in the
   // bar, because the sheet renders above the bar and outlives a tab swipe.
   const [moreSheetOpen, setMoreSheetOpen] = useState(false)
@@ -414,7 +424,8 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     // just re-open the same team.
     const backToRoot = v === view && via === 'pill'
     push({ view: v, team: backToRoot ? null : selectedTeam, game: null, player: null })
-  }, [push, selectedTeam, view])
+    toPageTop()
+  }, [push, selectedTeam, toPageTop, view])
   // THE TOOLBAR'S TABS ABOVE A PHONE. The shell draws them (src/sectionNav.ts); this says which is
   // lit, carries the Stats dot, and routes a tap through selectTab so it is tracked as a pill and
   // a second tap on Teams still returns to the grid. The handler goes through a ref so the publish
@@ -446,8 +457,9 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     (t: WpblTeam | null, from = 'unknown') => {
       if (t) track(EVENTS.WPBL_TEAM_OPENED, { teamId: t.id, from })
       push({ view: 'teams', team: t, game: null, player: null })
+      toPageTop()
     },
-    [push],
+    [push, toPageTop],
   )
   // Bound per surface rather than as an inline arrow at each render site: StatsView takes
   // `onOpenTeam` into a useMemo dependency list, and a fresh identity on every render would
@@ -751,6 +763,9 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // Apply snapshots as the user moves through history. Pops that land outside /wpbl are the
   // App router swapping sections (MLB|WPBL): ignore them here.
   useEffect(() => {
+    // A link to a tab inside the section (a Home card's), which arrives as a popstate like Back does.
+    const onNavigated = () => { if (wpblViewFromPath(window.location.pathname)) toPageTop() }
+    window.addEventListener(NAVIGATED_EVENT, onNavigated)
     const onPop = (e: PopStateEvent) => {
       // Any path the section renders, which is every tab AND a player page. Comparing
       // against '/wpbl' alone would ignore every Back/Forward taken from /wpbl/standings and
@@ -771,8 +786,11 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       apply((e.state?.wpbl as WpblSnap | undefined) ?? snapFromLocation())
     }
     window.addEventListener('popstate', onPop)
-    return () => window.removeEventListener('popstate', onPop)
-  }, [apply])
+    return () => {
+      window.removeEventListener(NAVIGATED_EVENT, onNavigated)
+      window.removeEventListener('popstate', onPop)
+    }
+  }, [apply, toPageTop])
 
   // The single in-progress game (there is only ever one at a time). The Game Center
   // (GameDetail) handles live + final alike, so opening any game routes there.

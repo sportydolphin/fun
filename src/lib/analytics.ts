@@ -241,7 +241,7 @@ export const EVENTS = {
   // The site's own health, which nothing else here can see: an error screen is drawn only on
   // someone else's device. See lib/staleBuild.ts and AppErrorBoundary.tsx.
   APP_ERROR:           'app_error',           // an error screen was drawn, props {kind: stale|crash, where: app|page|tab, message, build}
-  APP_UPDATED:         'app_updated',         // the page moved itself onto a new deploy, props {via: chunk_reload|navigation}
+  APP_UPDATED:         'app_updated',         // the page moved itself onto a new deploy, props {via: chunk_reload|navigation|boot_reload|boot_button}
   // What a real reader's page load felt like, once per load, sent as the page is left or hidden.
   // See lib/webVitals.ts.
   // The cls_* props name the largest shift: element, heading, its own score, load state, route.

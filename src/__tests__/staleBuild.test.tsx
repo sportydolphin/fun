@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { isChunkLoadError, reloadForNewBuild, entryScriptIn, loadFullyOnNextNavigation, installStaleBuildRecovery, runningBuild } from '../lib/staleBuild'
+import { isChunkLoadError, reloadForNewBuild, entryScriptIn, loadFullyOnNextNavigation, installStaleBuildRecovery, runningBuild, withLoadTimeout } from '../lib/staleBuild'
 import { AppErrorBoundary } from '../AppErrorBoundary'
 
 const track = vi.hoisted(() => vi.fn())
@@ -136,6 +136,41 @@ describe('reporting an error screen', () => {
   it('does not report a stale chunk it could reload', () => {
     render(<AppErrorBoundary><Throws error={new TypeError('Failed to fetch dynamically imported module: /assets/x.js')} /></AppErrorBoundary>)
     expect(track).not.toHaveBeenCalledWith('app_error', expect.anything())
+  })
+})
+
+// A chunk caught by the phone suspending the app can hang with no error, and lazy() waits forever.
+describe('withLoadTimeout', () => {
+  beforeEach(() => { vi.useFakeTimers() })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('fails a load that never answers', async () => {
+    const load = withLoadTimeout(() => new Promise(() => {}), 3000)
+    const failed = expect(load).rejects.toThrow('Timed out')
+    await vi.advanceTimersByTimeAsync(3000)
+    await failed
+  })
+
+  // It must stay out of the automatic reload, or a slow connection times out and reloads forever.
+  it('is not treated as a stale chunk', () => {
+    expect(isChunkLoadError(new Error('Timed out loading a section'))).toBe(false)
+  })
+
+  it('does not count time the page is hidden', async () => {
+    const hidden = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+    let settled = false
+    void withLoadTimeout(() => new Promise(() => {}), 1000).catch(() => { settled = true })
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(settled).toBe(false)
+    hidden.mockReturnValue('visible')
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(settled).toBe(true)
+    hidden.mockRestore()
+  })
+
+  it('passes through a load that answers', async () => {
+    await expect(withLoadTimeout(() => Promise.resolve('chunk'))).resolves.toBe('chunk')
+    expect(vi.getTimerCount()).toBe(0)
   })
 })
 

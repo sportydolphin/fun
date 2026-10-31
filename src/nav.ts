@@ -29,8 +29,15 @@ export function navigate(to: string, extraState?: Record<string, unknown>) {
     state = { ...state, compareDepth: prev + 1 }
   }
   window.history.pushState(state, '', to)
+  window.dispatchEvent(new Event(NAVIGATED_EVENT))
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
+
+/** Fired by `navigate` alone, ahead of its popstate, while the shell still holds the page being left.
+ *  The popstate cannot say this: Back and Forward send one too, and there the browser puts the
+ *  scroll back, and so do the video queue's and MLB's game page's own synthetic ones. After the push,
+ *  so the scroll the shell resets has already been saved on the entry Back returns to. */
+export const NAVIGATED_EVENT = 'sd:navigated'
 
 // The tab's history length the moment the app booted. Every in-app `navigate` pushes an entry,
 // so a length greater than this means we have somewhere of our own to go back to; equal to it

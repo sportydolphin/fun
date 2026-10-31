@@ -38,6 +38,29 @@ export function isChunkLoadError(err: unknown): boolean {
   return /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Unable to preload CSS/i.test(msg)
 }
 
+/** How long a section's chunk may take, counting only time the page is in front. */
+export const CHUNK_TIMEOUT_MS = 20_000
+
+/** Fail a chunk that never answers. A request caught by the phone suspending the app can hang with
+ *  no error, and `lazy()` then waits forever: the toolbar over a blank page, nothing to tap. This
+ *  hands it to AppErrorBoundary, which offers a reload and reports it. It stays out of
+ *  `isChunkLoadError` so it never reloads by itself: a slow connection would time out again and
+ *  loop. Hidden time does not count, or returning to the app would fail a load that is only paused;
+ *  a frozen page runs no timers, so an interval counts that time correctly too. */
+export function withLoadTimeout<T>(load: () => Promise<T>, ms = CHUNK_TIMEOUT_MS): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let waited = 0
+    const tick = setInterval(() => {
+      if (document.visibilityState === 'visible') waited += 1000
+      if (waited >= ms) { clearInterval(tick); reject(new Error('Timed out loading a section')) }
+    }, 1000)
+    load().then(
+      v => { clearInterval(tick); resolve(v) },
+      (e: unknown) => { clearInterval(tick); reject(e instanceof Error ? e : new Error(String(e))) },
+    )
+  })
+}
+
 /** When THIS page started its reload, matched against the stored mark so that a mark left by the
  *  page before it (the one that reloaded into this one) does not count. */
 let reloadStartedAt = ''

@@ -21,7 +21,9 @@ import { saveDataOn } from './lib/saveData'
 import { AuthProvider, useAuth } from './AuthContext'
 import { UnitsProvider } from './UnitsContext'
 import { EraBasisProvider } from './wpbl/EraBasisContext'
-import { navigate, linkTo, UNSTYLED_LINK, isModified } from './nav'
+import { navigate, linkTo, NAVIGATED_EVENT, UNSTYLED_LINK, isModified } from './nav'
+import { landsAtTop } from './lib/pageScroll'
+import { withLoadTimeout } from './lib/staleBuild'
 import { ExperimentsProvider } from './ExperimentsContext'
 import { AccessibilityProvider } from './AccessibilityContext'
 import { PENDING_USERNAME_PREFIX } from './AuthContext'
@@ -64,11 +66,11 @@ const loadMlb = (path = window.location.pathname, search = window.location.searc
   preloadMlbViewFor(path, search)
   return import('./MlbStats')
 }
-const MlbStats = lazy(() => loadMlb())
+const MlbStats = lazy(() => withLoadTimeout(() => loadMlb()))
 // WPBL: a separate top-level league section (its own data + views). Lazy so it
 // stays out of the MLB and landing bundles.
 const loadWpbl = () => import('./wpbl/WpblApp')
-const WpblApp = lazy(loadWpbl)
+const WpblApp = lazy(() => withLoadTimeout(loadWpbl))
 
 /** Pull the OTHER section's chunk in before it is asked for.
  *
@@ -340,6 +342,8 @@ function AppInner() {
     if (p === '/') { const dest = defaultSectionPath(); window.history.replaceState({}, '', dest); return dest }
     return p as Route
   })
+  const pathRef = useRef(path)
+  pathRef.current = path
   // Keep <title>, meta description, canonical, and OG tags in sync with the route.
   useSeo(path)
   // A game or player opened from a STANDALONE page (/wpbl/season, /wpbl/compare, /wpbl/players, …),
@@ -846,6 +850,9 @@ function AppInner() {
       if (p === '/') { const dest = defaultSectionPath(); window.history.replaceState({}, '', dest); setPath(dest); return }
       setPath(p as Route)
     }
+    // Ahead of the render, so the new page never paints at the old one's depth.
+    const onNavigated = () => { if (landsAtTop(pathRef.current, readPath())) window.scrollTo(0, 0) }
+    window.addEventListener(NAVIGATED_EVENT, onNavigated)
     window.addEventListener('popstate', onPop)
     // WPBL pushes its own history entries (see WPBL_PATH_EVENT), so a tab switch there moves
     // the address bar without a popstate. Without this the shell's `path` would lag and
@@ -854,6 +861,7 @@ function AppInner() {
     // MLB the same, since its tabs and pages became paths (Oct 2026).
     window.addEventListener(MLB_PATH_EVENT, onPop)
     return () => {
+      window.removeEventListener(NAVIGATED_EVENT, onNavigated)
       window.removeEventListener('popstate', onPop)
       window.removeEventListener(WPBL_PATH_EVENT, onPop)
       window.removeEventListener(MLB_PATH_EVENT, onPop)
