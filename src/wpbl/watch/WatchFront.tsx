@@ -2,12 +2,14 @@ import { useMemo } from 'react'
 import { Box, Typography } from '@mui/material'
 import { CARD_BORDER, CARD_FILL, FOCUS_RING, NewTag, TeamBadge, TextGhost, TYPE_SCALE, chromePx, hoverOnly } from '../ui'
 import { VideoCreditLine, VideoThumb, PLAYABLE_HOVER, videoDateLabel } from '../Highlights'
-import { formatDuration, formatViews, gameVideos, videoCredit, videoKindName, watchShelves } from '../videoChannels'
+import { formatDuration, formatViews, videoCredit, videoKindName, watchShelves } from '../videoChannels'
 import { seriesContexts } from '../derive/series'
-import { CARD_LINK, GroupHeading, PosterTile, Rail, videoLink } from './parts'
-import { continueWatching, featuredVideo, splitClips } from './shelves'
+import { CARD_LINK, GroupHeading, PlayerTile, PosterTile, Rail, videoLink } from './parts'
+import { clipsOfEvent, continueWatching, featuredVideo, playersWithClips } from './shelves'
+import { useWatchRankings } from './useWatchRankings'
+import type { BestGame } from './rankings'
 import { useStartedVideos } from './progress'
-import type { WpblGame, WpblTeam, WpblVideo, WpblVideoTag } from '../types'
+import type { WpblGame, WpblPlayer, WpblTeam, WpblVideo, WpblVideoTag } from '../types'
 
 // The top of /wpbl/watch: one video to press play on, then a row of each kind of thing to watch, each
 // a taste of its own shelf. It is the first thing a reader sees here, and until Oct 30, 2026 that was
@@ -16,21 +18,29 @@ import type { WpblGame, WpblTeam, WpblVideo, WpblVideoTag } from '../types'
 // DRAWN EMPTY FROM THE SAME COMPONENTS while the videos load, rather than from a skeleton of its own:
 // `videos` null is every tile in its empty shape (CLAUDE.md, loading states). Continue watching is
 // known before the read, from this browser's own store, so it holds its row from the first frame.
+//
+// BEST GAMES AND BIGGEST PLAYS ARE WHAT NO VIDEO SITE CAN SHOW: what a game or a play did to win
+// probability, from this league's own play log. They load when a reader comes near (useWatchRankings).
 
 const RAIL_LENGTH = 12
 const GHOST_TILES = 8
+const HOME_RUN = 'home_run'
 
-export type WatchFrontShelf = 'games' | 'plays' | 'clips' | 'features' | 'podcast'
+export type WatchFrontShelf = 'games' | 'plays' | 'clips' | 'players' | 'features' | 'podcast'
 
-export default function WatchFront({ videos, games, teams, tags, tagsReady, isNew, shelfHref, onPickShelf }: {
+export default function WatchFront({ videos, games, teams, players, tags, tagsReady, isNew, shelfHref, onPickShelf, playerHref, onPickPlayer }: {
   videos: WpblVideo[] | null
   games: WpblGame[]
   teams: WpblTeam[]
+  players: WpblPlayer[]
   tags: Map<string, WpblVideoTag>
   tagsReady: boolean
   isNew: (v: WpblVideo) => boolean
-  shelfHref: (s: WatchFrontShelf) => string
-  onPickShelf: (s: WatchFrontShelf) => void
+  /** `sub` narrows the shelf: a kind of play on Plays. */
+  shelfHref: (s: WatchFrontShelf, sub?: string) => string
+  onPickShelf: (s: WatchFrontShelf, sub?: string) => void
+  playerHref: (p: WpblPlayer) => string
+  onPickPlayer: (p: WpblPlayer) => void
 }) {
   const all = useMemo(() => videos ?? [], [videos])
   const started = useStartedVideos()
@@ -38,27 +48,26 @@ export default function WatchFront({ videos, games, teams, tags, tagsReady, isNe
   // Read once per list: the page does not need the clock to move under a reader looking at it.
   const featured = useMemo(() => (videos ? featuredVideo(videos, Date.now()) : null), [videos])
   const resume = useMemo(() => (videos ? continueWatching(videos, started) : null), [videos, started])
-  const { plays } = useMemo(() => splitClips(shelves.clips, tags), [shelves.clips, tags])
+  const homeRuns = useMemo(() => clipsOfEvent(shelves.clips, tags, HOME_RUN), [shelves.clips, tags])
+  const inClips = useMemo(() => playersWithClips(shelves.clips, tags, players), [shelves.clips, tags, players])
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const series = useMemo(() => seriesContexts(games, teamById), [games, teamById])
-  const recentGames = useMemo(() => {
-    const byId = new Map(games.map(g => [g.id, g]))
-    return shelves.gameIds
-      .map(id => byId.get(id))
-      .filter((g): g is WpblGame => !!g)
-      .sort((a, b) => b.game_date.localeCompare(a.game_date) || b.id.localeCompare(a.id))
-      .slice(0, RAIL_LENGTH)
-  }, [shelves.gameIds, games])
   const compilations = useMemo(() => shelves.more.filter(v => v.kind === 'compilation'), [shelves.more])
   const podcast = useMemo(() => shelves.more.filter(v => v.kind === 'podcast'), [shelves.more])
+  const { sentinel, rankings, failed } = useWatchRankings(videos, shelves.clips, games, tags, tagsReady)
 
-  const ghosts = (vertical?: boolean) => Array.from({ length: GHOST_TILES }, (_, i) => <PosterTile key={i} vertical={vertical} />)
-  const all_ = (s: WatchFrontShelf) => ({ href: shelfHref(s), go: () => onPickShelf(s) })
+  const ghosts = (vertical?: boolean, footerRoom?: boolean) =>
+    Array.from({ length: GHOST_TILES }, (_, i) => <PosterTile key={i} vertical={vertical} footerRoom={footerRoom} />)
+  const onAll = (s: WatchFrontShelf, sub?: string) => ({ href: shelfHref(s, sub), go: () => onPickShelf(s, sub) })
   const tiles = (list: WpblVideo[]) => {
     const ids = list.map(v => v.video_id)
     return list.slice(0, RAIL_LENGTH).map(v => <PosterTile key={v.video_id} video={v} queue={ids} isNew={isNew(v)} />)
   }
   const loading = videos == null
+  const clubBadge = (v: WpblVideo) => {
+    const team = teamById.get(tags.get(v.video_id)?.team_id ?? '')
+    return team && <TeamBadge team={team} size={20} />
+  }
 
   return (
     <>
@@ -74,30 +83,54 @@ export default function WatchFront({ videos, games, teams, tags, tagsReady, isNe
         {/* Tall ghosts: the league posts Shorts most, so one is always in the row and sets its height. */}
         {loading ? ghosts(true) : all.slice(0, RAIL_LENGTH).map(v => <PosterTile key={v.video_id} video={v} isNew={isNew(v)} />)}
       </Rail>
-      <Rail title="Games" label="games" count={recentGames.length} onAll={all_('games')}>
-        {loading ? ghosts(false) : recentGames.map(g => (
-          <GameTile key={g.id} game={g} videos={all} teamById={teamById} isNew={isNew}
-            roundLabel={series.get(g.id) ? `${series.get(g.id)!.label}, Game ${series.get(g.id)!.gameNumber}` : null} />
-        ))}
-      </Rail>
-      {(loading || !tagsReady || plays.length > 0) && (
-        <Rail title="Plays" label="plays" count={plays.length} onAll={all_('plays')}>
-          {loading || !tagsReady ? ghosts(true) : (
-            plays.slice(0, RAIL_LENGTH).map(v => {
-              const team = teamById.get(tags.get(v.video_id)?.team_id ?? '')
-              return <PosterTile key={v.video_id} video={v} isNew={isNew(v)} queue={plays.map(p => p.video_id)}
-                badge={team && <TeamBadge team={team} size={20} />} />
-            })
-          )}
+      <div ref={sentinel} />
+      {/* Both ranked rows hold their room until the model answers, and go if it never does. */}
+      {!failed && (!rankings || rankings.bestGames.length > 0) && (
+        <Rail title="Best games" info="Games ranked by every swing in win probability, added up. Scores stay off this row."
+          label="best games" count={rankings?.bestGames.length ?? 0} onAll={onAll('games')}>
+          {rankings
+            ? rankings.bestGames.slice(0, RAIL_LENGTH).map(b => (
+              <BestGameTile key={b.game.id} best={b} teamById={teamById} queue={rankings.bestGames.map(x => x.video.video_id)} isNew={isNew(b.video)}
+                roundLabel={series.get(b.game.id) ? `${series.get(b.game.id)!.label}, Game ${series.get(b.game.id)!.gameNumber}` : null} />
+            ))
+            : Array.from({ length: GHOST_TILES }, (_, i) => <BestGameTile key={i} />)}
+        </Rail>
+      )}
+      {(loading || !tagsReady || homeRuns.length > 0) && (
+        <Rail title="Home runs" label="home runs" count={homeRuns.length} onAll={onAll('plays', HOME_RUN)}>
+          {loading || !tagsReady ? ghosts(true) : homeRuns.slice(0, RAIL_LENGTH).map(v => (
+            <PosterTile key={v.video_id} video={v} isNew={isNew(v)} queue={homeRuns.map(h => h.video_id)} badge={clubBadge(v)} />
+          ))}
+        </Rail>
+      )}
+      {!failed && (!rankings || rankings.biggestPlays.length > 0) && (
+        <Rail title="Biggest plays" info="Clips of a single play, ranked by how far that play moved win probability."
+          label="biggest plays" count={rankings?.biggestPlays.length ?? 0} onAll={onAll('plays')}>
+          {rankings
+            ? rankings.biggestPlays.slice(0, RAIL_LENGTH).map(c => (
+              <PosterTile key={c.video.video_id} video={c.video} isNew={isNew(c.video)} footerRoom badge={clubBadge(c.video)}
+                queue={rankings.biggestPlays.map(x => x.video.video_id)}
+                footer={c.label ? `${c.points}-point swing. ${c.label}` : `${c.points}-point swing`} />
+            ))
+            : ghosts(true, true)}
         </Rail>
       )}
       {(loading || compilations.length > 0) && (
-        <Rail title="Season compilations" label="compilations" count={compilations.length} onAll={all_('features')}>
+        <Rail title="Season compilations" label="compilations" count={compilations.length} onAll={onAll('features')}>
           {loading ? ghosts(false) : tiles(compilations)}
         </Rail>
       )}
+      {(loading || !tagsReady || players.length === 0 || inClips.length > 0) && (
+        <Rail title="Players" label="players" count={inClips.length} onAll={onAll('players')}>
+          {loading || !tagsReady || players.length === 0
+            ? Array.from({ length: GHOST_TILES }, (_, i) => <PlayerTile key={i} />)
+            : inClips.slice(0, RAIL_LENGTH).map(({ player, count }) => (
+              <PlayerTile key={player.id} player={player} count={count} href={playerHref(player)} onPick={() => onPickPlayer(player)} />
+            ))}
+        </Rail>
+      )}
       {(loading || podcast.length > 0) && (
-        <Rail title="Podcast" label="podcast episodes" count={podcast.length} onAll={all_('podcast')}>
+        <Rail title="Podcast" label="podcast episodes" count={podcast.length} onAll={onAll('podcast')}>
           {loading ? ghosts(false) : tiles(podcast)}
         </Rail>
       )}
@@ -149,46 +182,57 @@ function Featured({ video, isNew }: { video: WpblVideo | null; isNew: boolean })
   )
 }
 
-/** A game in the rail: its first video's poster, and the score under it. */
-function GameTile({ game, videos, teamById, roundLabel, isNew }: {
-  game: WpblGame; videos: WpblVideo[]; teamById: Map<string, WpblTeam>; roundLabel: string | null; isNew: (v: WpblVideo) => boolean
+/** A game worth watching: the poster, who played and when, and what kind of game it was. No score. */
+function BestGameTile({ best, teamById, roundLabel, queue, isNew }: {
+  best?: BestGame; teamById?: Map<string, WpblTeam>; roundLabel?: string | null; queue?: string[]; isNew?: boolean
 }) {
-  const list = gameVideos(videos, game.id).filter(v => v.is_short !== true)
-  const first = list[0]
-  const credit = first ? videoCredit(first) : null
-  const scored = game.away_score != null && game.home_score != null
-  const date = new Date(`${game.game_date}T12:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })
-  const side = (id: string, score: number | null, won: boolean) => {
-    const team = teamById.get(id)
-    const ink = won ? 'text.primary' : 'text.secondary'
+  const outer = {
+    flexShrink: 0, width: chromePx(280), minWidth: 0, scrollSnapAlign: 'start', borderRadius: 2,
+    border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL, overflow: 'hidden', ...PLAYABLE_HOVER,
+  } as const
+  const lines = { px: 1, pt: 0.75, pb: 0.75 } as const
+  const factsSx = { mt: 0.25, minHeight: '1.1rem', fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.secondary' } as const
+  const dateSx = { mt: 0.25, fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.secondary' } as const
+  const row = { display: 'flex', alignItems: 'center', gap: 0.5, minHeight: chromePx(20) } as const
+  if (!best) {
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        {team && <TeamBadge team={team} size={20} />}
-        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: won ? 800 : 600, color: ink }}>{team?.abbr ?? id}</Typography>
-        {score != null && <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, color: ink, fontVariantNumeric: 'tabular-nums' }}>{score}</Typography>}
+      <Box sx={outer}>
+        <Box sx={{ width: '100%', aspectRatio: '16 / 9', bgcolor: 'action.hover' }} />
+        <Box sx={lines}>
+          <Box sx={row}><Typography sx={{ fontSize: TYPE_SCALE.meta }}><TextGhost>LA @ SF</TextGhost></Typography></Box>
+          <Typography sx={dateSx}><TextGhost>Sep 22 · Championship, Game 5</TextGhost></Typography>
+          <Typography sx={factsSx}><TextGhost>3 lead changes</TextGhost></Typography>
+        </Box>
       </Box>
     )
   }
-  if (!first) return null
+  const { game, video, facts } = best
+  const date = new Date(`${game.game_date}T12:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })
+  const side = (id: string) => {
+    const team = teamById?.get(id)
+    return (
+      <>
+        {team && <TeamBadge team={team} size={20} />}
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800 }}>{team?.abbr ?? id}</Typography>
+      </>
+    )
+  }
+  const credit = videoCredit(video)
   return (
-    <Box sx={{
-      flexShrink: 0, width: chromePx(280), minWidth: 0, scrollSnapAlign: 'start', borderRadius: 2,
-      border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL, overflow: 'hidden', ...PLAYABLE_HOVER,
-    }}>
-      <Box {...videoLink(first)} aria-label={`Play ${videoKindName(first).toLowerCase()}: ${first.title}`} sx={{ ...CARD_LINK, ...FOCUS_RING }}>
+    <Box sx={outer}>
+      <Box {...videoLink(video, queue)} aria-label={`Play ${videoKindName(video).toLowerCase()}: ${video.title}`} sx={{ ...CARD_LINK, ...FOCUS_RING }}>
         <Box sx={{ position: 'relative' }}>
-          <VideoThumb video={first} badge={34} />
-          {list.some(isNew) && <NewTag />}
+          <VideoThumb video={video} badge={34} />
+          {isNew && <NewTag />}
         </Box>
-        <Box sx={{ px: 1, pt: 0.75, pb: credit ? 0 : 0.75 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            {side(game.away_team_id, game.away_score, scored && game.away_score! > game.home_score!)}
-            <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary' }}>@</Typography>
-            {side(game.home_team_id, game.home_score, scored && game.home_score! > game.away_score!)}
+        <Box sx={{ ...lines, pb: credit ? 0 : 0.75 }}>
+          <Box sx={row}>
+            {side(game.away_team_id)}
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary', mx: 0.25 }}>@</Typography>
+            {side(game.home_team_id)}
           </Box>
-          <Typography sx={{ mt: 0.25, fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.secondary' }}>
-            {roundLabel ? `${date} · ${roundLabel}` : date}
-          </Typography>
+          <Typography sx={dateSx}>{roundLabel ? `${date} · ${roundLabel}` : date}</Typography>
+          <Typography sx={factsSx}>{facts}</Typography>
         </Box>
       </Box>
       {credit && <Box sx={{ px: 1, pb: 0.75 }}><VideoCreditLine credit={credit} /></Box>}

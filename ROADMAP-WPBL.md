@@ -84,7 +84,8 @@ overlay over whatever page they were tapped on · standalone pages off the More 
 the standings race, runs by inning, the postseason and its best performances, a Watch card),
 `/wpbl/reading` (both writers' posts, see [docs/READING.md](docs/READING.md)), `/wpbl/watch`
 (a front page, every game's highlights, condensed game and broadcast, the league's Shorts split into
-plays and clips, the podcast, and a page for each video at `/wpbl/watch/<id>` with Up next and resume),
+plays and clips, the podcast, best games and biggest plays ranked by win probability, each player's clips, and a page
+for each video at `/wpbl/watch/<id>` with Up next and resume),
 `/wpbl/photos`
 (fans' photos and the Commons archive), `/wpbl/league` (the primer only), Scorigami, Compare, the
 players index, the glossary, and Data sources · search · short share links (`/p`, `/g`) · push

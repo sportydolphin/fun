@@ -4,10 +4,11 @@ import { readFileSync } from 'node:fs'
 import { defaultQueue, resolveQueue } from '../watch/queue'
 import { markWatched, resetProgressCache, resumeAt, saveProgress, watchedShare } from '../watch/progress'
 import { formatDuration, formatViews, MORE_GROUPS, watchShelves } from '../videoChannels'
-import { continueWatching, featuredVideo, FEATURED_VIDEO_ID, splitClips } from '../watch/shelves'
+import { clipEvents, clipsOfEvent, clipsOfPlayer, continueWatching, eventLabel, featuredVideo, FEATURED_VIDEO_ID, playersWithClips, splitClips } from '../watch/shelves'
+import { bestGameFacts, bestGames, biggestPlays } from '../watch/rankings'
 import { wpblAppOwnsPath, wpblViewFromPath, wpblWatchVideoIdFromPath, wpblWatchVideoPath, isWpblWatchPage } from '../routes'
 import { classifyFan, parseIsoDuration, refineKind, settleIsShort } from '../../../scripts/sync-wpbl-youtube.mjs'
-import type { WpblVideo } from '../types'
+import type { WpblGame, WpblRunValuePlay, WpblVideo, WpblVideoTag } from '../types'
 
 const video = (video_id: string, over: Partial<WpblVideo> = {}): WpblVideo => ({
   video_id, channel_id: 'x', title: video_id, published_at: '2026-09-01T00:00:00Z', thumbnail_url: null,
@@ -209,5 +210,82 @@ describe('the front page', () => {
   it('offers only what this reader can still play, in the order they watched it, and no Shorts', () => {
     const list = [video('a'), video('b'), video('s', { is_short: true })]
     expect(continueWatching(list, ['b', 'gone', 's', 'a']).map(v => v.video_id)).toEqual(['b', 'a'])
+  })
+})
+
+describe('the ranked rows', () => {
+  const tag = (video_id: string, over: Partial<WpblVideoTag>): WpblVideoTag => ({
+    video_id, game_id: null, play_sequence: null, inning: null, half: null, team_id: null, player_ids: [], method: 'game', ...over,
+  })
+  const game = (id: string, away: number, home: number): WpblGame => ({
+    id, game_date: '2026-09-01', status: 'final', away_team_id: 'LA', home_team_id: 'SF', away_score: away, home_score: home,
+    game_type: 'regular', counts_in_standings: true,
+  } as unknown as WpblGame)
+  // A seven-inning game, one play a half: home scores in the seventh to win it 1-0.
+  const log = (gameId: string): WpblRunValuePlay[] => {
+    const out: WpblRunValuePlay[] = []
+    let sequence = 1
+    for (let inning = 1; inning <= 7; inning++) {
+      for (const half of ['top', 'bottom'] as const) {
+        const hit = inning === 7 && half === 'bottom'
+        out.push({
+          game_id: gameId, sequence: sequence++, inning, half, team_id: half === 'top' ? 'LA' : 'SF', outs: 0,
+          batter_id: 'b', batter_name: 'B', pitcher_id: 'p', pitcher_name: 'P', first_base: null, second_base: null, third_base: null,
+          event_type: hit ? 'home_run' : 'strikeout', runs_scored: 0, narrative: hit ? 'B homers to left field.' : 'B struck out.', pitch_sequence: null,
+        } as unknown as WpblRunValuePlay)
+      }
+    }
+    return out
+  }
+
+  it('says what kind of game it was and never the score', () => {
+    expect(bestGameFacts({ leadChanges: 3, ties: 1, innings: 9 })).toBe('Extra innings · 3 lead changes · 1 tie')
+    expect(bestGameFacts({ leadChanges: 1, ties: 0, innings: 7 })).toBe('1 lead change')
+    expect(bestGameFacts({ leadChanges: 0, ties: 0, innings: 7 })).toBe('')
+  })
+
+  it('picks the condensed game over the reel, and leaves out a game with no video', () => {
+    const games = [game('g1', 0, 1), game('g2', 0, 1)]
+    const plays = [...log('g1'), ...log('g2')]
+    const videos = [video('r', { kind: 'highlight', game_id: 'g1' }), video('c', { kind: 'condensed', game_id: 'g1' })]
+    const best = bestGames(plays, games, videos)
+    expect(best.map(b => b.game.id)).toEqual(['g1'])
+    expect(best[0].video.video_id).toBe('c')
+  })
+
+  it('prices only clips pinned to a play, and names only the play the game turned on', () => {
+    const games = [game('g1', 0, 1)]
+    const clips = [video('winner', { is_short: true }), video('k', { is_short: true }), video('placed', { is_short: true })]
+    const tags = new Map([
+      ['winner', tag('winner', { game_id: 'g1', play_sequence: 14 })],
+      ['k', tag('k', { game_id: 'g1', play_sequence: 1 })],
+      ['placed', tag('placed', { game_id: 'g1' })],
+    ])
+    const big = biggestPlays(log('g1'), games, clips, tags)
+    expect(big.map(b => b.video.video_id)).toEqual(['winner', 'k'])
+    expect(big[0].points).toBeGreaterThan(big[1].points)
+    expect(big[0].label).toBe('Swing of the game')
+    expect(big[1].label).toBeNull()
+  })
+
+  it('has nothing to say before the plays land', () => {
+    expect(bestGames([], [game('g1', 0, 1)], [])).toEqual([])
+    expect(biggestPlays([], [game('g1', 0, 1)], [], new Map())).toEqual([])
+  })
+
+  it('files clips by play and by player', () => {
+    const clips = [video('a', { is_short: true }), video('b', { is_short: true }), video('c', { is_short: true })]
+    const tags = new Map([
+      ['a', tag('a', { event_type: 'home_run', player_ids: ['p1', 'p2'] })],
+      ['b', tag('b', { event_type: 'home_run', player_ids: ['p1'] })],
+      ['c', tag('c', { event_type: 'double', player_ids: ['p3'] })],
+    ])
+    expect(clipsOfEvent(clips, tags, 'home_run').map(v => v.video_id)).toEqual(['a', 'b'])
+    expect(clipEvents(clips, tags)).toEqual([{ event: 'home_run', count: 2 }, { event: 'double', count: 1 }])
+    expect(clipsOfPlayer(clips, tags, 'p1').map(v => v.video_id)).toEqual(['a', 'b'])
+    const roster = [{ id: 'p3', name: 'Cam' }, { id: 'p2', name: 'Bo' }, { id: 'p1', name: 'Ann' }, { id: 'p9', name: 'None' }]
+    expect(playersWithClips(clips, tags, roster).map(p => [p.player.name, p.count])).toEqual([['Ann', 2], ['Bo', 1], ['Cam', 1]])
+    expect(eventLabel('home_run')).toBe('Home run')
+    expect(eventLabel(null)).toBeNull()
   })
 })
