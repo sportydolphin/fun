@@ -3,7 +3,7 @@ import { TeamLogo } from '../components/TeamLogo'
 import React from 'react'
 import { TYPE_SCALE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
-import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
+import { CURRENT_SEASON, TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { postseasonGameLabel } from '../postseason'
 import { accentColor, edgeTone, cardGradient, useTextTone } from '../lib/colorUtils'
 import { chromePx, typePx } from '../../ui/scale'
@@ -435,9 +435,32 @@ const POSTSEASON_TYPES = 'F,D,L,W'
 const BOX_FIELDS = 'teams,away,home,team,id,players,person,fullName,position,abbreviation,stats,batting,pitching,' +
   'hits,atBats,homeRuns,rbi,stolenBases,doubles,triples,strikeOuts,inningsPitched,earnedRuns,wins,saves,holds,gamesStarted'
 
+const SCHEDULE_FIELDS = 'dates,date,games,gamePk,gameType,description,seriesGameNumber,status,abstractGameState,detailedState,codedGameState'
+
+/** The final games of a schedule read, by day, newest day first. */
+function finalDays(sched: any): Array<{ date: string; games: any[] }> {
+  const days: Array<{ date: string; games: any[] }> = []
+  for (const d of [...(sched?.dates ?? [])].reverse()) {
+    const finals = (d.games ?? []).filter((g: any) =>
+      g.status?.abstractGameState === 'Final' && g.status?.detailedState !== 'Postponed' && g.status?.codedGameState !== 'C')
+    if (finals.length) days.push({ date: d.date, games: finals })
+  }
+  return days
+}
+
+/** One season's World Series, by day. At most seven box scores, however late in the winter. */
+const worldSeriesDays = (season: number) => fetch(
+  `https://statsapi.mlb.com/api/v1/schedule?sportId=1&season=${season}&gameType=W&fields=${SCHEDULE_FIELDS}`
+).then(r => r.json()).catch(() => null).then(finalDays)
+
 let _postseasonCache: Promise<HotGuyData[]> | null = null
 
-/** The best single-game lines of the last few postseason days, newest day first. Empty outside October. */
+/**
+ * The best single-game lines of the last few postseason days, newest day first. Past the lookback it
+ * reads the World Series instead: a week after the final out the lookback finds nothing, and until
+ * Nov 2026 that took the card off Home for the whole winter, with the World Series still the last
+ * thing that happened. CURRENT_SEASON holds until Opening Day, so this keeps answering all winter.
+ */
 export function fetchPostseasonGamePerformers(): Promise<HotGuyData[]> {
   if (_postseasonCache) return _postseasonCache
   _postseasonCache = (async () => {
@@ -446,74 +469,83 @@ export function fetchPostseasonGamePerformers(): Promise<HotGuyData[]> {
     const lookback = localDate(new Date(now.getTime() - 7 * 86400000))
     const sched = await fetch(
       `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${lookback}&endDate=${today}&gameType=${POSTSEASON_TYPES}` +
-      `&fields=dates,date,games,gamePk,gameType,description,seriesGameNumber,status,abstractGameState,detailedState,codedGameState`
+      `&fields=${SCHEDULE_FIELDS}`
     ).then(r => r.json()).catch(() => null)
+    const recent = finalDays(sched).slice(0, 3)
+    return performersFrom(recent.length ? recent : await worldSeriesDays(CURRENT_SEASON), now)
+  })().catch(() => [])
+  return _postseasonCache
+}
 
-    const days: Array<{ date: string; games: any[] }> = []
-    for (const d of [...(sched?.dates ?? [])].reverse()) {
-      const finals = (d.games ?? []).filter((g: any) =>
-        g.status?.abstractGameState === 'Final' && g.status?.detailedState !== 'Postponed' && g.status?.codedGameState !== 'C')
-      if (finals.length) days.push({ date: d.date, games: finals })
-      if (days.length >= 3) break
-    }
-    if (!days.length) return []
+const _worldSeriesCache = new Map<number, Promise<HotGuyData[]>>()
 
-    type Candidate = { score: number; data: HotGuyData }
-    const pool: Candidate[] = []
-    await Promise.all(days.flatMap(({ date, games }) => games.map(async (g: any) => {
-      const box = await fetch(`https://statsapi.mlb.com/api/v1/game/${g.gamePk}/boxscore?fields=${BOX_FIELDS}`)
-        .then(r => r.json()).catch(() => null)
-      const period  = gameDateLabel(date, now)
-      const context = postseasonGameLabel(g)
-      for (const side of ['away', 'home'] as const) {
-        const team = box?.teams?.[side]
-        const teamId = Number(team?.team?.id ?? 0)
-        for (const p of Object.values<any>(team?.players ?? {})) {
-          const base = {
-            playerId: Number(p.person?.id), playerName: p.person?.fullName ?? '—',
-            teamId, teamName: '', period, date, gamePk: Number(g.gamePk), context,
-          }
-          const bat = p.stats?.batting
-          if (bat && Object.keys(bat).length) {
-            const score = scoreHitterGame(bat)
-            if (score > 0 && isStandoutHitterGame(bat)) pool.push({ score, data: {
-              ...base, position: p.position?.abbreviation ?? '', isPitcher: false, isStarter: false,
+/** The best single-game lines of one season's World Series, for that season's recap page. */
+export function fetchWorldSeriesPerformers(season: number): Promise<HotGuyData[]> {
+  let p = _worldSeriesCache.get(season)
+  if (!p) {
+    p = worldSeriesDays(season).then(days => performersFrom(days, new Date())).catch(() => [])
+    _worldSeriesCache.set(season, p)
+  }
+  return p
+}
+
+async function performersFrom(days: Array<{ date: string; games: any[] }>, now: Date): Promise<HotGuyData[]> {
+  if (!days.length) return []
+
+  type Candidate = { score: number; data: HotGuyData }
+  const pool: Candidate[] = []
+  await Promise.all(days.flatMap(({ date, games }) => games.map(async (g: any) => {
+    const box = await fetch(`https://statsapi.mlb.com/api/v1/game/${g.gamePk}/boxscore?fields=${BOX_FIELDS}`)
+      .then(r => r.json()).catch(() => null)
+    const period  = gameDateLabel(date, now)
+    const context = postseasonGameLabel(g)
+    for (const side of ['away', 'home'] as const) {
+      const team = box?.teams?.[side]
+      const teamId = Number(team?.team?.id ?? 0)
+      for (const p of Object.values<any>(team?.players ?? {})) {
+        const base = {
+          playerId: Number(p.person?.id), playerName: p.person?.fullName ?? '—',
+          teamId, teamName: '', period, date, gamePk: Number(g.gamePk), context,
+        }
+        const bat = p.stats?.batting
+        if (bat && Object.keys(bat).length) {
+          const score = scoreHitterGame(bat)
+          if (score > 0 && isStandoutHitterGame(bat)) pool.push({ score, data: {
+            ...base, position: p.position?.abbreviation ?? '', isPitcher: false, isStarter: false,
+            stats: {
+              hits: Number(bat.hits ?? 0), ab: Number(bat.atBats ?? 0), hr: Number(bat.homeRuns ?? 0),
+              rbi: Number(bat.rbi ?? 0), sb: Number(bat.stolenBases ?? 0),
+            },
+          }})
+        }
+        const pit = p.stats?.pitching
+        if (pit && pit.inningsPitched != null) {
+          const score = scorePitcherGame(pit)
+          if (score > 0 && isStandoutPitcherGame(pit)) {
+            const gs = Number(pit.gamesStarted ?? 0)
+            pool.push({ score, data: {
+              ...base, position: gs >= 1 ? 'SP' : 'RP', isPitcher: true, isStarter: gs >= 1,
               stats: {
-                hits: Number(bat.hits ?? 0), ab: Number(bat.atBats ?? 0), hr: Number(bat.homeRuns ?? 0),
-                rbi: Number(bat.rbi ?? 0), sb: Number(bat.stolenBases ?? 0),
+                k: Number(pit.strikeOuts ?? 0), ip: pit.inningsPitched, er: Number(pit.earnedRuns ?? 0),
+                wins: Number(pit.wins ?? 0), saves: Number(pit.saves ?? 0), holds: Number(pit.holds ?? 0), gs,
               },
             }})
           }
-          const pit = p.stats?.pitching
-          if (pit && pit.inningsPitched != null) {
-            const score = scorePitcherGame(pit)
-            if (score > 0 && isStandoutPitcherGame(pit)) {
-              const gs = Number(pit.gamesStarted ?? 0)
-              pool.push({ score, data: {
-                ...base, position: gs >= 1 ? 'SP' : 'RP', isPitcher: true, isStarter: gs >= 1,
-                stats: {
-                  k: Number(pit.strikeOuts ?? 0), ip: pit.inningsPitched, er: Number(pit.earnedRuns ?? 0),
-                  wins: Number(pit.wins ?? 0), saves: Number(pit.saves ?? 0), holds: Number(pit.holds ?? 0), gs,
-                },
-              }})
-            }
-          }
         }
       }
-    })))
+    }
+  })))
 
-    // One entry per player: a two-way player can clear both bars in one game, and the carousel keys
-    // its panes by player.
-    pool.sort((a, b) => (b.data.date ?? '').localeCompare(a.data.date ?? '') || b.score - a.score)
-    const seen = new Set<number>()
-    const best = pool.filter(c => !seen.has(c.data.playerId) && seen.add(c.data.playerId))
-    // Same cap as the regular-season card: four of each, newest day first.
-    return [
-      ...best.filter(c => !c.data.isPitcher).slice(0, 4),
-      ...best.filter(c =>  c.data.isPitcher).slice(0, 4),
-    ].sort((a, b) => (b.data.date ?? '').localeCompare(a.data.date ?? '') || b.score - a.score).map(c => c.data)
-  })().catch(() => [])
-  return _postseasonCache
+  // One entry per player: a two-way player can clear both bars in one game, and the carousel keys
+  // its panes by player.
+  pool.sort((a, b) => (b.data.date ?? '').localeCompare(a.data.date ?? '') || b.score - a.score)
+  const seen = new Set<number>()
+  const best = pool.filter(c => !seen.has(c.data.playerId) && seen.add(c.data.playerId))
+  // Same cap as the regular-season card: four of each, newest day first.
+  return [
+    ...best.filter(c => !c.data.isPitcher).slice(0, 4),
+    ...best.filter(c =>  c.data.isPitcher).slice(0, 4),
+  ].sort((a, b) => (b.data.date ?? '').localeCompare(a.data.date ?? '') || b.score - a.score).map(c => c.data)
 }
 
 // ─── SpotlightCard ────────────────────────────────────────────────────────────

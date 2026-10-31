@@ -256,6 +256,24 @@ export function mlbSeriesFromPath(pathname: string): MlbSeriesRef | null {
   return id && season >= MLB_FIRST_BRACKET_SEASON ? { season, id } : null
 }
 
+// /mlb/postseason/<season>: that October's recap, one page per season. STANDALONE, like the glossary
+// and Compare, so not an `isMlbPath`, and its series and games leave for their own addresses.
+
+export function mlbPostseasonPath(season: number): string {
+  return `${MLB_POSTSEASON_BASE}/${season}`
+}
+
+/** The season a recap path names, or null. Not checked against the calendar: the edge does that. */
+export function mlbPostseasonSeasonFromPath(pathname: string): number | null {
+  const p = pathname.replace(/\/+$/, '')
+  if (!p.startsWith(`${MLB_POSTSEASON_BASE}/`)) return null
+  const m = /^\d{4}$/.exec(p.slice(MLB_POSTSEASON_BASE.length + 1))
+  const season = m ? Number(m[0]) : NaN
+  return season >= MLB_FIRST_BRACKET_SEASON ? season : null
+}
+
+export const isMlbPostseasonPage = (pathname: string): boolean => mlbPostseasonSeasonFromPath(pathname) !== null
+
 /** A sheet with an address of its own (a game, a series) is on top, rather than a page. */
 export const isMlbSheetPath = (pathname: string): boolean =>
   mlbGamePkFromPath(pathname) != null || mlbSeriesFromPath(pathname) != null
@@ -686,7 +704,7 @@ export const MLB_MORE_PAGES: readonly MlbMoreRow[] = MLB_MORE.filter(r => r.page
 /** Anything that should read as "the reader is in the MLB section": the section's own paths and
  *  the standalone pages beside it. */
 export const isMlbSection = (pathname: string): boolean =>
-  isMlbPath(pathname) || isMlbGlossaryPage(pathname) || isMlbComparePage(pathname)
+  isMlbPath(pathname) || isMlbGlossaryPage(pathname) || isMlbComparePage(pathname) || isMlbPostseasonPage(pathname)
 
 /** Every page with a fixed address, for the sitemap and the tests that pin it to the redirects. */
 export const MLB_STATIC_PATHS: readonly string[] = [

@@ -107,6 +107,7 @@ flowchart LR
         wphotos["/wpbl/photos<br/>PhotosGalleryPage.tsx + Photos.tsx (archive)"]
         wgloss["/wpbl/glossary<br/>GlossaryPage.tsx + glossary.ts"]
         mgloss["/mlb/glossary<br/>mlb/GlossaryPage.tsx + statGlossary.ts"]
+        mpost["/mlb/postseason/&lt;season&gt;<br/>mlb/PostseasonPage.tsx + postseasonLeaders.ts"]
         mcmp["/mlb/compare<br/>+ /mlb/compare/&lt;name&gt;-&lt;id&gt;-vs-&lt;name&gt;-&lt;id&gt;<br/>mlb/ComparePage.tsx + compare.ts"]
         wsrc["/wpbl/sources<br/>SourcesPage.tsx + sources.ts"]
         wseason["/wpbl/season, /wpbl/season/2026<br/>SeasonPage.tsx (recap per year)"]
@@ -268,6 +269,11 @@ flowchart LR
   picker with one slot filled (`noindex`, a state rather than a page), and the pair. Reuses
   every read the section already caches, so it costs a reader arriving from anywhere in the
   section nothing
+- **MLB's postseason recap** (`/mlb/postseason/<season>`, [`src/mlb/PostseasonPage.tsx`](src/mlb/PostseasonPage.tsx)
+  + [`src/mlb/postseasonLeaders.ts`](src/mlb/postseasonLeaders.ts)), since Oct 30, 2026: one standalone
+  page a season from 2022, linked from Home's champion card and the finished bracket. It reads the
+  bracket, the World Series box scores and two `/stats?gameType=P` reads, and its series and games
+  leave for their own addresses, since a sheet opened on it would move the address and unmount it.
 - **MLB's comparison pages** (`/mlb/compare`, [`src/mlb/ComparePage.tsx`](src/mlb/ComparePage.tsx)
   + [`src/mlb/compare.ts`](src/mlb/compare.ts)), since Oct 9, 2026: WPBL's three states on MLB's
   player slugs, `/mlb/compare/<name>-<id>-vs-<name>-<id>`, resolved on the ids. Standalone like the

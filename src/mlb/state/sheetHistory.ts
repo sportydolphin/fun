@@ -81,6 +81,19 @@ const SWAP_MS = 50
 let stackUntil = 0
 export function stackNextPanel(): void { stackUntil = performance.now() + 5000 }
 
+/**
+ * The next series address opens over the page it was followed from, for a link on a page outside the
+ * section (the postseason recap), so Back returns there rather than through the Standings that
+ * SeriesRoute seats under a shared link. Short-lived for stackNextPanel's reason.
+ */
+let overPageUntil = 0
+export function seatNextSeriesOverPage(): void { overPageUntil = performance.now() + 5000 }
+export function takeSeriesOverPage(): boolean {
+  const over = performance.now() < overPageUntil
+  overPageUntil = 0
+  return over
+}
+
 /** Close every side panel without touching history. For a navigation from the page beside them,
  *  which replaces the panel's entry rather than stacking on it (see pushEntry). */
 export function dismissPanels(): void {

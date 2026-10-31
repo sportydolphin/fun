@@ -8,7 +8,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { fetchBracket } from '../postseason'
 import type { Bracket } from '../postseason'
-import { openSheetCount, sheetOpenAt } from '../state/sheetHistory'
+import { openSheetCount, sheetOpenAt, takeSeriesOverPage } from '../state/sheetHistory'
 import { mlbSeriesFromPath, mlbSeriesPath, MLB_VIEW_PATHS } from '../routes'
 import type { MlbSeriesRef } from '../routes'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
@@ -27,8 +27,13 @@ export function SeriesRoute({ onPlayerClick, onTeamClick }: {
     if (pending.current === url || sheetOpenAt(url)) return
     const st = window.history.state as Record<string, unknown> | null
     if (window.location.pathname === url && !(st?.mlbSheet != null && st.mlbSheetUrl === url)) {
-      window.history.replaceState({ view: 'standings' }, '', MLB_VIEW_PATHS.standings)
-      window.history.pushState({ view: 'standings', mlbSheet: openSheetCount() + 1, mlbSheetUrl: url }, '', url)
+      const sheet = { view: 'standings', mlbSheet: openSheetCount() + 1, mlbSheetUrl: url }
+      // Followed from the recap, whose entry is right behind this one: Back belongs there.
+      if (takeSeriesOverPage()) window.history.replaceState(sheet, '', url)
+      else {
+        window.history.replaceState({ view: 'standings' }, '', MLB_VIEW_PATHS.standings)
+        window.history.pushState(sheet, '', url)
+      }
     }
     pending.current = url
     fetchBracket(ref.season).then(b => {

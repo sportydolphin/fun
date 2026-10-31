@@ -7,7 +7,7 @@
 // still carries sensible defaults for non-JS crawlers and social unfurlers.
 import { useEffect, useState } from 'react'
 import { WPBL_RULES } from './wpbl/glossary'
-import { MLB_CLUBS, MLB_TEAMS_BASE, MLB_VIEW_PATHS, MLB_GLOSSARY_PAGE, MLB_COMPARE_BASE, mlbGamePkFromPath, mlbSeriesFromPath } from './mlb/routes'
+import { MLB_CLUBS, MLB_TEAMS_BASE, MLB_VIEW_PATHS, MLB_GLOSSARY_PAGE, MLB_COMPARE_BASE, mlbGamePkFromPath, mlbSeriesFromPath, mlbPostseasonSeasonFromPath } from './mlb/routes'
 import { MLB_RULES } from './mlb/statGlossary'
 
 const SITE = 'https://sportydolphin.fun'
@@ -451,6 +451,14 @@ const MLB_SERIES_SEO: Seo = {
   description: 'An MLB postseason series: every game, the next starters, the series leaders and how the two clubs compare.',
 }
 
+// One page a season, so the season is the title: "2025 MLB postseason" is what a reader searches.
+function mlbPostseasonSeo(season: number): Seo {
+  return {
+    title: `${season} MLB postseason: bracket, every series and leaders | sportydolphin.fun`,
+    description: `The ${season} MLB postseason: the champion, the World Series MVP, the bracket, every series and the postseason leaders.`,
+  }
+}
+
 function upsertMeta(attr: 'name' | 'property', key: string, content: string) {
   let el = document.head.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`)
   if (!el) {
@@ -484,8 +492,10 @@ export function useSeo(path: string) {
 
   useEffect(() => {
     const base = path.split('?')[0].replace(/\/+$/, '') || '/'
+    const recapSeason = mlbPostseasonSeasonFromPath(base)
     const seo = (dynamicSeo?.path === base ? dynamicSeo.seo : null) ?? ROUTES[base]
-      ?? (mlbGamePkFromPath(base) ? MLB_GAME_SEO : null) ?? (mlbSeriesFromPath(base) ? MLB_SERIES_SEO : null) ?? DEFAULT
+      ?? (mlbGamePkFromPath(base) ? MLB_GAME_SEO : null) ?? (mlbSeriesFromPath(base) ? MLB_SERIES_SEO : null)
+      ?? (recapSeason ? mlbPostseasonSeo(recapSeason) : null) ?? DEFAULT
     const url = `${SITE}${base === '/' ? '/wpbl' : base}`
     // The canonical is the route's own URL unless it names another to consolidate onto (the
     // comparison's alphabetical spelling). og:url follows the canonical, which is the whole point

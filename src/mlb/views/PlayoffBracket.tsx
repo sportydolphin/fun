@@ -13,7 +13,8 @@ import { chromePx, typePx } from '../../ui/scale'
 import { SCORES_HEADER_H, STRIP_PY } from './FinalGames'
 import { PillGroup } from '../../ui/PillGroup'
 import { LINK_SX } from '../lib/links'
-import { mlbSeriesPath } from '../routes'
+import { mlbPostseasonPath, mlbSeriesPath } from '../routes'
+import { linkTo } from '../../nav'
 
 // The sheet is a few kB that only a tap needs, so it is not part of Home's first load; it is fetched
 // once the card has drawn, so that tap does not wait on it.
@@ -289,10 +290,16 @@ const SERIES_CARD_H = {
  * The bracket card. Draws nothing until the league has published a postseason (or if the feed is
  * not the shape postseason.ts expects), so it can sit on Home all year.
  */
-export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Playoff series', compact = false, noChampionLine = false }: {
+export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Playoff series', compact = false, noChampionLine = false, season = CURRENT_SEASON, title, onOpenSeries }: {
   onTeamClick?: (id: number) => void
   onPlayerClick?: (id: number) => void
   heading?: string
+  season?: number
+  /** The label whatever the bracket's state, on the recap page, which is already the link's target. */
+  title?: string
+  /** Leave for the series' address. For a page outside the section, where the sheet would move the
+   *  address onto the series and take the page out from under itself. */
+  onOpenSeries?: (id: SeriesId) => void
   /** The champion card sits right above this one and says it already. */
   noChampionLine?: boolean
   /** Home's version: two series abreast even on a phone, clubs by abbreviation, one status line.
@@ -300,7 +307,7 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
   compact?: boolean
 }) {
   // Drawn from the last read on this device first (see seededBracket), then from the network.
-  const [bracket, setBracket] = useState<Bracket | null>(() => seededBracket(CURRENT_SEASON))
+  const [bracket, setBracket] = useState<Bracket | null>(() => seededBracket(season))
   const [loaded, setLoaded] = useState(false)
   const [round, setRound] = useState<Round | null>(null)
   const [openId, setOpenId] = useState<PsSeries['id'] | null>(null)
@@ -311,16 +318,16 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
   }, [])
   useEffect(() => {
     let alive = true
-    fetchBracket(CURRENT_SEASON).then(b => { if (alive) { setBracket(b); setLoaded(true) } })
+    fetchBracket(season).then(b => { if (alive) { setBracket(b); setLoaded(true) } })
     return () => { alive = false }
-  }, [])
+  }, [season])
   // Fresh while a game is on, and every few minutes on a day with games still to come; a quiet day
   // and a finished postseason do not poll at all.
   const anyLive = !!bracket && Object.values(bracket.series).some(s => s.live)
   const today = new Date().toDateString()
   const gamesToday = !!bracket && Object.values(bracket.series).some(s => s.next && new Date(s.next.startMs).toDateString() === today)
   useForegroundInterval(() => {
-    fetchBracket(CURRENT_SEASON, true).then(b => { if (b) setBracket(b) })
+    fetchBracket(season, true).then(b => { if (b) setBracket(b) })
   }, anyLive ? 30_000 : gamesToday ? 180_000 : null)
 
   // No seed on this device yet: hold the room a bracket takes while one is likely, so its arrival
@@ -329,6 +336,7 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
   // Not before the field is set; see fieldIsSet.
   if (!bracket || !fieldIsSet(bracket)) return null
   const shown: Round = round ?? bracket.current
+  const openSeriesAt = (id: SeriesId) => { if (onOpenSeries) onOpenSeries(id); else setOpenId(id) }
   // On Home, the series still being played come first: by the last day of a round three of the four
   // were decided and the one with a game tonight sat in the bottom corner. Stable otherwise, so AL
   // stays above NL within each group. The full bracket keeps its fixed order, where position means
@@ -342,11 +350,20 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
   return (
     <Box>
       <Box sx={{ display: 'flex', gap: 1, ...headerSx(compact), flexWrap: 'wrap' }}>
-        <Box sx={labelBoxSx(compact)}>
+        <Box sx={{ ...labelBoxSx(compact), display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.micro, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary', lineHeight: 1 }}>
             {/* Once it is over it is a record of a season, read all winter: say which. */}
-            {bracket.over ? `${bracket.season} postseason` : heading}
+            {title ?? (bracket.over ? `${bracket.season} postseason` : heading)}
           </Typography>
+          {/* The champion card carries this link for its week at the top of Home. */}
+          {bracket.over && !title && !noChampionLine && (
+            <Box {...linkTo(mlbPostseasonPath(bracket.season))} sx={{
+              ...LINK_SX, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'text.secondary', whiteSpace: 'nowrap',
+              ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
+            }}>
+              Recap ›
+            </Box>
+          )}
         </Box>
         <Box sx={{ ml: 'auto', ...(compact ? {} : ROUNDS_ONLY) }}>
           <PillGroup
@@ -357,7 +374,7 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
         </Box>
       </Box>
       {/* The tree always shows the World Series, so it always carries the champion. */}
-      {champ && !compact && (
+      {champ && !compact && !noChampionLine && (
         <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, mb: 1, ...TREE_ONLY }}>
           The {TEAM_NICKNAME[champ.id] ?? champ.abbr} win the {bracket.season} World Series
         </Typography>
@@ -375,12 +392,12 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
         )}
         <Box sx={{ display: 'grid', gridTemplateColumns: seriesGrid(inRound.length, compact), gap: 1 }}>
           {inRound.map(s => (
-            <SeriesCard key={s.id} s={s} season={bracket.season} compact={compact} onOpen={() => setOpenId(s.id)} />
+            <SeriesCard key={s.id} s={s} season={bracket.season} compact={compact} onOpen={() => openSeriesAt(s.id)} />
           ))}
         </Box>
       </Box>
       {!compact && (
-        <BracketTree cell={id => <SeriesCard s={bracket.series[id]} season={bracket.season} onOpen={() => setOpenId(id)} />} />
+        <BracketTree cell={id => <SeriesCard s={bracket.series[id]} season={bracket.season} onOpen={() => openSeriesAt(id)} />} />
       )}
       {openSeries && (
         <Suspense fallback={null}>

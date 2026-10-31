@@ -154,7 +154,7 @@ const DEFAULT_ROUTES = [
   // unpublished photos, which a recorded snapshot must never hold, so the page is swept on the
   // published ones the gallery already shows.
   '/wpbl/photos/tag?devTagQueue=1',
-  '/mlb', '/mlb/scores', '/mlb/standings', '/mlb/leaders', '/mlb/stats', '/mlb/team-stats', '/mlb/fielding', '/mlb/bests', '/mlb/find', '/mlb/teams/mariners', '/mlb/glossary', '/mlb/compare',
+  '/mlb', '/mlb/scores', '/mlb/standings', '/mlb/leaders', '/mlb/stats', '/mlb/team-stats', '/mlb/fielding', '/mlb/bests', '/mlb/find', '/mlb/teams/mariners', '/mlb/glossary', '/mlb/compare', '/mlb/postseason/2026',
   '/mlb/charts', '/mlb/report-cards', '/mlb/leaders?lb=fielding', '/mlb/team-stats?lb=fielding',
   // Find with a question asked, in both sections: the rail, the table and the tally only exist once
   // there are matches, and the board switches between its layouts on its own width (Oct 2026).
