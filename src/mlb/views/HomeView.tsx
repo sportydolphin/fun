@@ -23,6 +23,7 @@ import { LiveDramaCard } from './LiveDrama'
 import { FollowedPlayersSection } from './FollowedPlayers'
 import { PredictorWidget } from './Predictor'
 import { StreakSurvivorWidget } from './StreakSurvivor'
+import { WinterGamesCard } from './WinterGames'
 import { MilestoneWatchCard } from './MilestoneWatch'
 import { StandingsSnapshot } from './StandingsSnapshot'
 import { FinalGamesSection } from './FinalGames'
@@ -36,7 +37,7 @@ import { SCHEDULE_GAME_TYPES } from '../gameStatus'
 import { TrackedCard } from '../components/TrackedCard'
 import { PlayoffBracketCard } from './PlayoffBracket'
 import { FollowTeamPrompt } from './TeamPicker'
-import { ChampionCard } from './ChampionCard'
+import { ChampionCard, ChampionCardSkeleton } from './ChampionCard'
 import { linkTo } from '../../nav'
 import { mlbPostseasonPath } from '../routes'
 import { AwardsCard } from './AwardsCard'
@@ -123,6 +124,21 @@ const ORDER = {
   survivor:        6,
 } as const
 
+// WITH NO GAMES ON THE CALENDAR THE PAGE IS A DIFFERENT PAGE. The personal column led a phone with two
+// cards saying "back on Opening Day" and the only news of the winter sat a screen and a half under
+// them, so the columns dissolve on a phone (`display: contents`, in HomeView's render) and these place
+// every card in one list, news first. A desktop keeps its two columns, each in the `md` order.
+const WINTER_ORDER = {
+  team:       { xs: 0, md: 0 },
+  hotStove:   { xs: 1, md: 1 },
+  awards:     { xs: 2, md: 0 },
+  players:    { xs: 3, md: 1 },
+  standouts:  { xs: 4, md: 2 },
+  milestones: { xs: 5, md: 3 },
+  boards:     { xs: 6, md: 4 },
+  games:      { xs: 7, md: 2 },
+} as const
+
 // ─── HomeView ─────────────────────────────────────────────────────────────────
 
 // MEMOIZED. The whole MLB section's state lives in one hook above this (useMlbState), so every
@@ -171,7 +187,15 @@ function HomeViewInner({
   // for the phase rather than drawing and then vanishing. In the postseason it draws while the bracket
   // is read: a game may be on, and only a device with no bracket remembered waits on that read at all.
   const winterMonth = [10, 11, 0, 1, 2].includes(new Date().getMonth())
-  const showScores = stage != null ? !noGames : phase == null ? !winterMonth : phase === 'postseason'
+  // The same reading of "no games" that everything playing-shaped follows: the bracket, Happening Now
+  // and the two pick games are all gone with it, and with them the reads and the polling they did for
+  // a slate that does not exist (36 requests on a winter load, one more every minute).
+  const noGamesNow = stage != null ? noGames : phase == null ? winterMonth : phase === 'offseason'
+  const showScores = !noGamesNow
+  const winterSlot = (card: keyof typeof WINTER_ORDER) => (noGamesNow ? { order: WINTER_ORDER[card], minWidth: 0 } : {})
+  // A week of October's standouts under the champion, then they live on the recap: an auto-advancing
+  // card of games from October is not what a reader wants at the top of the news in January.
+  const showStandouts = seasonOver != null && stage !== 'winter' && !(stage == null && phase === 'offseason')
 
   // ── Data ─────────────────────────────────────────────────────────────────────
   const [standing,         setStanding]         = useState<StandingSummary | null>(null)
@@ -226,16 +250,11 @@ function HomeViewInner({
       .finally(() => setLoadingSpotlight(false))
   }, [seasonOver])
 
-  useEffect(() => {
-    fetchTeamSummaryData(CURRENT_SEASON)
-      .then(setTeamSummaries)
-      .finally(() => setLoadingBoard(false))
-  }, [])
-
   // Fetch which teams are currently in live games
   useEffect(() => {
+    if (!showScores) return
     fetchLiveTeamIds().then(setLiveTeamIds)
-  }, [])
+  }, [showScores])
 
   // Back-from-Search restore: reopen the full-schedule subwindow the user
   // cross-linked from (the actual FullScheduleModal lives in the team card's
@@ -345,11 +364,19 @@ function HomeViewInner({
   }
 
   // ── Lazy dataset fetches: each fires only on a day whose pair needs it ────────
+  const needSummaries = neededDeps.has('summaries')
   const needAges     = neededDeps.has('ages')
   const needSos      = neededDeps.has('sos')
   const needStreaks  = neededDeps.has('streaks')
   const needPitchPa  = neededDeps.has('pitchPa')
   const needSalaries = neededDeps.has('salaries')
+
+  useEffect(() => {
+    if (!needSummaries) return
+    fetchTeamSummaryData(CURRENT_SEASON)
+      .then(setTeamSummaries)
+      .finally(() => setLoadingBoard(false))
+  }, [needSummaries])
 
   useEffect(() => {
     if (!needAges) return
@@ -428,7 +455,9 @@ function HomeViewInner({
   // season, and null when the bracket cannot say, which keeps the regular-season card (fails open).
   const october = seasonOver && followedTeamId && bracket ? teamOctober(bracket, followedTeamId) : null
   // Out of it: missed the postseason, or eliminated. The card shrinks to one line under the picks.
-  const teamQuiet = october != null && !stillPlaying(october)
+  // And everyone once the champion's week is over: a champion's last game is no fresher than anyone
+  // else's by January, and its strip goes empty two weeks after that game anyway.
+  const teamQuiet = stage === 'winter' || (october != null && !stillPlaying(october))
   // The card waits on the phase, and past the season on the bracket too, so it draws once at the
   // right size instead of drawing full and then collapsing.
   const teamCardReady = seasonOver === false || (seasonOver === true && bracket !== undefined)
@@ -461,6 +490,8 @@ function HomeViewInner({
 
   // ─────────────────────────────────────────────────────────────────────────────
 
+  const columnDisplay = noGamesNow ? { xs: 'contents', md: 'flex' } : 'flex'
+
   return (
     <Box>
       {/* The page's one h1, drawn, as WPBL's Home draws "Women's Pro Baseball League": the league's
@@ -486,16 +517,31 @@ function HomeViewInner({
         </TrackedCard>
       )}
 
+      {/* After its week the champion is a row, and the only thing October leaves on Home. */}
+      {stage === 'winter' && bracket?.over && (
+        <TrackedCard card="champion" sx={{ mb: HOME_GAP }}>
+          <ChampionCard compact bracket={bracket} linkLabel="Recap" linkProps={linkTo(mlbPostseasonPath(bracket.season))} onTeamClick={onTeamClick} />
+        </TrackedCard>
+      )}
+      {stage == null && phase === 'offseason' && (
+        <Box sx={{ mb: HOME_GAP }}><ChampionCardSkeleton compact season={CURRENT_SEASON} /></Box>
+      )}
+
       {/* The postseason bracket, straight under the scores while one is being played. It draws
-          nothing outside a postseason, and TrackedCard hides its own box when it is empty. */}
-      <TrackedCard card="bracket" sx={{ mb: HOME_GAP }}>
-        <PlayoffBracketCard compact noChampionLine={stage === 'champion'} onTeamClick={onTeamClick} onPlayerClick={onPlayerClick} />
-      </TrackedCard>
+          nothing outside a postseason, and once there is a champion the recap has it: on Home it
+          repeated the card above it and then sat on top of the page until March. */}
+      {showScores && (
+        <TrackedCard card="bracket" sx={{ mb: HOME_GAP }}>
+          <PlayoffBracketCard compact onTeamClick={onTeamClick} onPlayerClick={onPlayerClick} />
+        </TrackedCard>
+      )}
 
       {/* ── Happening Now: only renders while live drama is brewing ───────────── */}
-      <TrackedCard card="live_drama">
-        <LiveDramaCard onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
-      </TrackedCard>
+      {showScores && (
+        <TrackedCard card="live_drama">
+          <LiveDramaCard onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+        </TrackedCard>
+      )}
 
       {/* ── Merged feed ────────────────────────────────────────────────────────
           One scroll: "My Feed" (personal, wider) then "Around the League".
@@ -510,14 +556,14 @@ function HomeViewInner({
       }}>
 
         {/* ═══ Personal column: My Feed ═══════════════════════════════════════ */}
-        <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: HOME_GAP }}>
+        <Box sx={{ minWidth: 0, display: columnDisplay, flexDirection: 'column', gap: HOME_GAP }}>
 
           {followedTeamId ? (
             <>
               {/* Team card. Full size while its club is playing; one line, under the picks, once its
                   season is over (see `teamQuiet`). Not drawn until it knows which. */}
               {teamCardReady && (
-              <TrackedCard card="team_card" sx={{ order: teamQuiet ? ORDER.teamCardQuiet : ORDER.teamCard, minWidth: 0 }}>
+              <TrackedCard card="team_card" sx={{ order: teamQuiet ? ORDER.teamCardQuiet : ORDER.teamCard, minWidth: 0, ...winterSlot('team') }}>
                 <Box sx={{
                   borderRadius: 3, overflow: 'hidden',
                   border: '1px solid', borderColor: edgeTone(bg, isDark),
@@ -614,9 +660,9 @@ function HomeViewInner({
               )}
 
               {/* Your players, capped so a long list doesn't dominate; scrolls internally */}
-              <TrackedCard card="followed_players" sx={{ order: ORDER.followedPlayers, display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: { xs: 'none', md: chromePx(460) } }}>
+              <TrackedCard card="followed_players" sx={{ order: ORDER.followedPlayers, display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: { xs: 'none', md: chromePx(460) }, ...winterSlot('players') }}>
                 <FollowedPlayersSection
-                  hotStove={hotStove ?? false}
+                  hotStove={hotStove}
                   followedPlayerIds={followedPlayerIds}
                   onUnfollow={onUnfollowPlayer}
                   onPlayerClick={onPlayerClick}
@@ -628,9 +674,11 @@ function HomeViewInner({
               </TrackedCard>
 
               {/* Predictor: under the team card while picks are open, else last */}
-              <TrackedCard card="predictions" sx={{ order: predictorOrder, minWidth: 0 }}>
-                <PredictorWidget onPicksSettled={handlePicksSettled} />
-              </TrackedCard>
+              {!noGamesNow && (
+                <TrackedCard card="predictions" sx={{ order: predictorOrder, minWidth: 0 }}>
+                  <PredictorWidget onPicksSettled={handlePicksSettled} />
+                </TrackedCard>
+              )}
 
               {/* Standings snapshot: division race if in the hunt, else the wild card. Regular season
                   only: once it is over every row reads 0% or 100%, and the bracket says it better. */}
@@ -641,21 +689,30 @@ function HomeViewInner({
               )}
 
               {/* Streak Survivor: daily hitter-streak game */}
-              <TrackedCard card="survivor" sx={{ order: ORDER.survivor, minWidth: 0 }}>
-                <StreakSurvivorWidget winter={noGames} />
-              </TrackedCard>
+              {!noGamesNow && (
+                <TrackedCard card="survivor" sx={{ order: ORDER.survivor, minWidth: 0 }}>
+                  <StreakSurvivorWidget />
+                </TrackedCard>
+              )}
+
+              {/* Both games in one row until they are back: what each holds is a leaderboard. */}
+              {noGamesNow && (
+                <TrackedCard card="games_winter" sx={winterSlot('games')}>
+                  <WinterGamesCard />
+                </TrackedCard>
+              )}
             </>
           ) : (
             /* No team followed: a one-line invitation under the picks (see TeamPicker.tsx for why it
                is no longer the whole grid). Same card id as the grid it replaced, so the admin
                series runs straight through the change and shows what it did to follows. */
             <>
-              <TrackedCard card="team_picker" sx={{ order: ORDER.teamCardQuiet, minWidth: 0 }}>
+              <TrackedCard card="team_picker" sx={{ order: ORDER.teamCardQuiet, minWidth: 0, ...winterSlot('team') }}>
                 <FollowTeamPrompt onFollow={onFollowTeam} playing={playingIds} />
               </TrackedCard>
-              <TrackedCard card="followed_players" sx={{ order: ORDER.followedPlayers, minWidth: 0 }}>
+              <TrackedCard card="followed_players" sx={{ order: ORDER.followedPlayers, minWidth: 0, ...winterSlot('players') }}>
                 <FollowedPlayersSection
-                  hotStove={hotStove ?? false}
+                  hotStove={hotStove}
                   followedPlayerIds={followedPlayerIds}
                   onUnfollow={onUnfollowPlayer}
                   onPlayerClick={onPlayerClick}
@@ -663,9 +720,11 @@ function HomeViewInner({
                   liveTeamIds={liveTeamIds}
                 />
               </TrackedCard>
-              <TrackedCard card="predictions" sx={{ order: predictorOrder, minWidth: 0 }}>
-                <PredictorWidget onPicksSettled={handlePicksSettled} />
-              </TrackedCard>
+              {!noGamesNow && (
+                <TrackedCard card="predictions" sx={{ order: predictorOrder, minWidth: 0 }}>
+                  <PredictorWidget onPicksSettled={handlePicksSettled} />
+                </TrackedCard>
+              )}
 
               {/* Standings snapshot: no team followed, so a rotating division. Regular season only. */}
               {seasonOver === false && (
@@ -675,41 +734,48 @@ function HomeViewInner({
               )}
 
               {/* Streak Survivor: daily hitter-streak game */}
-              <TrackedCard card="survivor" sx={{ order: ORDER.survivor, minWidth: 0 }}>
-                <StreakSurvivorWidget winter={noGames} />
-              </TrackedCard>
+              {!noGamesNow && (
+                <TrackedCard card="survivor" sx={{ order: ORDER.survivor, minWidth: 0 }}>
+                  <StreakSurvivorWidget />
+                </TrackedCard>
+              )}
+              {noGamesNow && (
+                <TrackedCard card="games_winter" sx={winterSlot('games')}>
+                  <WinterGamesCard />
+                </TrackedCard>
+              )}
             </>
           )}
         </Box>
 
         {/* ═══ Discovery column: Around the League ════════════════════════════ */}
-        <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: HOME_GAP }}>
+        <Box sx={{ minWidth: 0, display: columnDisplay, flexDirection: 'column', gap: HOME_GAP }}>
 
           {/* The season's awards, from the end of the World Series to Opening Day. Draws nothing until
               the league has given one, and TrackedCard hides its own box when it is empty. */}
           {noGames && (
-            <TrackedCard card="awards">
+            <TrackedCard card="awards" sx={winterSlot('awards')}>
               <AwardsCard season={CURRENT_SEASON} followedTeamId={followedTeamId} withSeriesMvp={stage === 'winter'} onPlayerClick={onPlayerClick} />
             </TrackedCard>
           )}
 
           {/* Standout performances: the postseason's once the regular season is over */}
-          {seasonOver != null && (
-            <TrackedCard card="standouts">
+          {showStandouts && (
+            <TrackedCard card="standouts" sx={winterSlot('standouts')}>
               <TopPerformers postseason={seasonOver} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
             </TrackedCard>
           )}
 
           {/* Roster moves: trades, DFAs, claims, signings; deadline countdown in July; the Hot Stove
               from the end of the World Series to opening day */}
-          <TrackedCard card="roster_moves">
+          <TrackedCard card="roster_moves" sx={winterSlot('hotStove')}>
             <RosterMovesCard hotStove={hotStove} followedTeamId={followedTeamId} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
           </TrackedCard>
 
           {/* Milestone Watch: players closing in on career/season/record marks, and once the season
               is over, what was reached in it */}
           {seasonOver != null && (
-            <TrackedCard card="milestones">
+            <TrackedCard card="milestones" sx={winterSlot('milestones')}>
               <MilestoneWatchCard season={CURRENT_SEASON} liveTeamIds={liveTeamIds} seasonOver={seasonOver} onPlayerClick={onPlayerClick} />
             </TrackedCard>
           )}
@@ -745,7 +811,7 @@ function HomeViewInner({
             // Keyed by board, not by slot: the two slots rotate through fifteen boards day to
             // day, and "does anyone open the payroll board" is the question, not "the top slot".
             return (
-              <TrackedCard key={m.id} card={`report_${m.id.replace(/-/g, '_')}`}>
+              <TrackedCard key={m.id} card={`report_${m.id.replace(/-/g, '_')}`} sx={winterSlot('boards')}>
                 {m.kind === 'player' ? (
                   <PlayerLeaderboardCard
                     title={m.title} subtitle={m.subtitle} accent={m.accent}

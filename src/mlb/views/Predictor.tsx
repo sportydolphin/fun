@@ -16,7 +16,6 @@ import { useLastShape, useRememberShape } from '../../lib/lastShape'
 import { SCHEDULE_GAME_TYPES, isUnplayed, hasStartTime } from '../gameStatus'
 import { fetchSeasonPhase, fetchNextOpeningDay, longDay } from '../seasonPhase'
 import { fetchBracket } from '../postseason'
-import { useDevSeasonPhase } from '../dev/devSeasonPhase'
 import { chromePx, typePx } from '../../ui/scale'
 import { SectionCard, CardLink, TYPE_SCALE, edge } from '../../ui/card'
 
@@ -450,9 +449,6 @@ export function PredictorWidget({ onPicksSettled }: {
   // `import.meta.env.DEV` is false there, so this collapses to the real fetch.
   const devSim    = useDevSim()
   const simActive = import.meta.env.DEV && devSim.enabled
-  // Dev only: the gear's Winter phase shows the offseason card on any date (see devSeasonPhase.ts).
-  const devPhase  = useDevSeasonPhase()
-  const devWinter = import.meta.env.DEV && devPhase === 'offseason'
 
   useEffect(() => {
     if (simActive) { setSlateDate(today); setGames(devSim.games); setLoading(false); return }
@@ -460,11 +456,6 @@ export function PredictorWidget({ onPicksSettled }: {
     let cancelled = false
     ;(async () => {
       setIdle(null)
-      if (devWinter) {
-        const opening = await fetchNextOpeningDay(CURRENT_SEASON)
-        if (!cancelled) { setSlateDate(addDays(today, 1)); setGames([]); setIdle({ kind: 'offseason', opening }) }
-        return
-      }
       const todays = await fetchTodayGames(today)
       // Still something to pick today → show today. Otherwise roll to tomorrow.
       if (todays.some(g => g.state === 'preview')) {
@@ -498,7 +489,7 @@ export function PredictorWidget({ onPicksSettled }: {
       }
     })().finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [today, simActive, devSim.games, devWinter])
+  }, [today, simActive, devSim.games])
 
   // Load crowd-vote splits up front so the inline quick picks can show
   // percentages (not just when the modal opens). Sim mode uses devSim.votes.

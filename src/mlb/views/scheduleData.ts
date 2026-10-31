@@ -119,6 +119,8 @@ export function scheduleGameToPreview(g: ScheduleGame, myTeamId: number): Previe
 
 // ─── Schedule fetch ───────────────────────────────────────────────────────────
 
+const SCHEDULE_FIELDS = 'dates,date,games,gamePk,gameDate,gameNumber,status,abstractGameState,codedGameState,detailedState,startTimeTBD,teams,home,away,team,id,name,score,isWinner'
+
 export async function fetchTeamSchedule(teamId: number): Promise<ScheduleGame[]> {
   const today = new Date()
   const start = new Date(today); start.setDate(start.getDate() - 14)
@@ -128,11 +130,36 @@ export async function fetchTeamSchedule(teamId: number): Promise<ScheduleGame[]>
   // A minute, under the 90s the strip polls at during a live game (see readCache.ts).
   const d = await cachedJson<any>(
     `https://statsapi.mlb.com/api/v1/schedule?teamId=${teamId}&sportId=1` +
-    `&startDate=${toISO(start)}&endDate=${toISO(end)}&gameType=${SCHEDULE_GAME_TYPES}` +
-    `&fields=dates,date,games,gamePk,gameDate,gameNumber,status,abstractGameState,codedGameState,detailedState,startTimeTBD,teams,home,away,team,id,name,score,isWinner`,
+    `&startDate=${toISO(start)}&endDate=${toISO(end)}&gameType=${SCHEDULE_GAME_TYPES}&fields=${SCHEDULE_FIELDS}`,
     FRESH_SHORT_MS,
   )
+  return parseTeamSchedule(d, teamId)
+}
 
+/**
+ * A club's whole season, for the Full schedule sheet. The strip's five weeks around today hold no
+ * games at all from two weeks after a club's last one until spring, which left the sheet nothing to
+ * open: until Nov 1, 2026 the Schedule button on the card did nothing all winter.
+ */
+export async function fetchTeamSeasonSchedule(teamId: number, season: number): Promise<ScheduleGame[]> {
+  const d = await cachedJson<any>(
+    `https://statsapi.mlb.com/api/v1/schedule?teamId=${teamId}&sportId=1` +
+    `&season=${season}&gameType=${SCHEDULE_GAME_TYPES}&fields=${SCHEDULE_FIELDS}`,
+    FRESH_SHORT_MS,
+  )
+  return parseTeamSchedule(d, teamId)
+}
+
+/** The badge on a schedule chip. A season's last game is the chip the sheet opens on, and it is not "next". */
+export function chipBadge(game: Pick<ScheduleGame, 'state' | 'unplayed'>, isToday: boolean): string | null {
+  if (game.state === 'live') return '● LIVE'
+  if (game.state === 'postponed') return game.unplayed === 'Cancelled' ? 'CNCL' : 'PPD'
+  if (isToday) return 'TODAY'
+  return game.state === 'final' ? null : 'NEXT'
+}
+
+/** Pure, for the test. */
+export function parseTeamSchedule(d: any, teamId: number): ScheduleGame[] {
   const games: ScheduleGame[] = []
   for (const dateObj of d.dates ?? []) {
     for (const game of dateObj.games ?? []) {

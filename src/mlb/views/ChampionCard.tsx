@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Box, Skeleton, Typography } from '@mui/material'
 import { TYPE_SCALE, edge } from '../../ui/card'
 import { FOCUS_RING } from '../../ui/interaction'
@@ -19,9 +19,13 @@ import type { Bracket, SeriesMvp } from '../postseason'
  *
  * The MVP is the one thing here that needs a read, and it is published with the final out, so its row
  * holds its room until the read returns rather than arriving under the name.
+ *
+ * `compact` is the row it shrinks to after that week, on top of Home until Opening Day. It needs no
+ * MVP: the awards card carries the MVP once this one stops naming it.
  */
-export function ChampionCard({ bracket, linkLabel, linkProps, onTeamClick, onPlayerClick }: {
+export function ChampionCard({ bracket, compact, linkLabel, linkProps, onTeamClick, onPlayerClick }: {
   bracket: Bracket
+  compact?: boolean
   /** The strip's one link: the recap on Home, the series on the recap. */
   linkLabel: string
   linkProps: Record<string, unknown>
@@ -33,16 +37,42 @@ export function ChampionCard({ bracket, linkLabel, linkProps, onTeamClick, onPla
   const [mvp, setMvp] = useState<SeriesMvp | null | undefined>(undefined)
 
   useEffect(() => {
+    if (compact) return
     let cancelled = false
     fetchWorldSeriesMvp(bracket.season).then(m => { if (!cancelled) setMvp(m) })
     return () => { cancelled = true }
-  }, [bracket.season])
+  }, [bracket.season, compact])
 
   const ws = bracket.series.W_1
   if (ws.winnerId == null) return null
   const topWon = ws.winnerId === ws.top.id
   const champ = topWon ? ws.top : ws.bottom
   const runnerUp = topWon ? ws.bottom : ws.top
+  const result = `Beat ${TEAM_NICKNAME[runnerUp.id] ?? runnerUp.abbr} ${Math.max(ws.winsTop, ws.winsBottom)}–${Math.min(ws.winsTop, ws.winsBottom)}`
+
+  if (compact) return (
+    <CompactRow
+      season={bracket.season}
+      logo={<TeamLogo teamId={champ.id} abbr={champ.abbr} size={36} decorative />}
+      name={
+        <Typography {...teamLink(champ.id, onTeamClick)} sx={{
+          ...LINK_SX, display: 'block', fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1.2,
+          color: 'text.primary', '&:hover': { textDecoration: 'underline' }, ...FOCUS_RING,
+        }}>
+          {champ.name}
+        </Typography>
+      }
+      link={
+        <Box {...linkProps} sx={{
+          ...LINK_SX, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: goldSoft, whiteSpace: 'nowrap',
+          '&:hover': { textDecoration: 'underline' }, ...FOCUS_RING,
+        }}>
+          {linkLabel} ›
+        </Box>
+      }
+      result={result}
+    />
+  )
 
   return (
     <Box sx={{
@@ -81,7 +111,7 @@ export function ChampionCard({ bracket, linkLabel, linkProps, onTeamClick, onPla
               {champ.name}
             </Typography>
             <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.primary', mt: 0.35 }}>
-              Beat {TEAM_NICKNAME[runnerUp.id] ?? runnerUp.abbr} {Math.max(ws.winsTop, ws.winsBottom)}–{Math.min(ws.winsTop, ws.winsBottom)}
+              {result}
             </Typography>
           </Box>
         </Box>
@@ -115,10 +145,51 @@ export function ChampionCard({ bracket, linkLabel, linkProps, onTeamClick, onPla
   )
 }
 
+function CompactRow({ season, logo, name, link, result }: {
+  season: number
+  logo: React.ReactNode
+  name: React.ReactNode
+  link: React.ReactNode
+  result: React.ReactNode
+}) {
+  const { gold, goldSoft, cardBg } = trophyPalette(useDark())
+  return (
+    <Box sx={{
+      display: 'flex', alignItems: 'center', gap: 1.25, px: 2, py: 1,
+      borderRadius: 3, border: '1px solid', borderColor: edge(gold), backgroundImage: cardBg,
+    }}>
+      <Box sx={{ width: chromePx(36), height: chromePx(36), flexShrink: 0 }}>{logo}</Box>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 900, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: goldSoft, lineHeight: 1.3 }}>
+          {season} champions
+        </Typography>
+        {name}
+      </Box>
+      <Box sx={{ flexShrink: 0, textAlign: 'right' }}>
+        {link}
+        <Typography component="div" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.primary', whiteSpace: 'nowrap', lineHeight: 1.3 }}>
+          {result}
+        </Typography>
+      </Box>
+    </Box>
+  )
+}
+
 /** The card drawn empty, for the recap page before its bracket is read (src/CLAUDE.md). */
-export function ChampionCardSkeleton({ season }: { season: number }) {
+export function ChampionCardSkeleton({ season, compact }: { season: number; compact?: boolean }) {
   const dark = useDark()
   const { gold, goldSoft, stripBg, cardBg } = trophyPalette(dark)
+  if (compact) return (
+    <Box aria-hidden>
+      <CompactRow
+        season={season}
+        logo={null}
+        name={<Typography sx={{ fontSize: TYPE_SCALE.title, lineHeight: 1.2 }}><Skeleton width="9rem" /></Typography>}
+        link={<Box sx={{ fontSize: TYPE_SCALE.meta, visibility: 'hidden' }}>Recap ›</Box>}
+        result={<Skeleton width="5.5rem" />}
+      />
+    </Box>
+  )
   return (
     <Box aria-hidden sx={{ borderRadius: 3, overflow: 'hidden', border: '1px solid', borderColor: edge(gold), backgroundImage: cardBg }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 0.75, background: stripBg, borderBottom: '1px solid', borderColor: 'divider' }}>

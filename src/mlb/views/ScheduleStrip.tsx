@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffe
 import { pressable } from '../../ui/interaction'
 import { TYPE_SCALE, edge } from '../../ui/card'
 import { Box, Typography, useTheme } from '@mui/material'
-import { TEAM_ABBR, ACCENT, ACCENT_TEXT, TONE, FILL } from '../constants'
+import { TEAM_ABBR, ACCENT, ACCENT_TEXT, TONE, FILL, CURRENT_SEASON } from '../constants'
 import { ringColor, useTextTone } from '../lib/colorUtils'
 import { MlbSheet } from '../components/MlbSheet'
 import { FinalGameSummary } from './FinalGames'
@@ -14,7 +14,7 @@ import { LiveGameCard } from '../components/LiveGameCard'
 import {
   chipDate, relativeChipDate, formatIP, COMPACT_ROW_MAX,
   scheduleGameToPreview, gamesOnDate, gmLabel,
-  fetchTeamSchedule, fetchGamePreview, fetchGameFinalDetails, fetchLiveGameData,
+  fetchTeamSchedule, fetchTeamSeasonSchedule, chipBadge, fetchGamePreview, fetchGameFinalDetails, fetchLiveGameData,
   ScheduleGame, ProbablePitcher, GamePreviewData, GameFinalDetails, LiveGameData,
 } from './scheduleData'
 import { scrollBehavior } from '../../lib/motion'
@@ -41,8 +41,8 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
   const isFinal     = game.state === 'final'
   const isLive      = game.state === 'live'
   const isPostponed = game.state === 'postponed'
-  const unplayedTag = game.unplayed === 'Cancelled' ? 'CNCL' : 'PPD'
   const isWin       = game.isWin === true
+  const badge       = highlight ? chipBadge(game, isActualToday) : null
 
   return (
     <Box
@@ -65,7 +65,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
         } : {},
       }}
     >
-      {highlight && (
+      {badge && (
         <Box sx={{
           position: 'absolute', top: 0, left: 0, right: 0,
           bgcolor: isLive       ? FILL.red
@@ -79,7 +79,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
             fontSize: TYPE_SCALE.nano, fontWeight: 800, letterSpacing: typePx(0.5),
             color: '#fff', textTransform: 'uppercase', lineHeight: 1,
           }}>
-            {isLive ? '● LIVE' : isPostponed ? unplayedTag : isActualToday ? 'TODAY' : 'NEXT'}
+            {badge}
           </Typography>
         </Box>
       )}
@@ -87,7 +87,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
       <Typography sx={{
         fontSize: TYPE_SCALE.caption, fontWeight: 600,
         color: 'text.secondary', lineHeight: 1,
-        mt: highlight ? 1.4 : 0, letterSpacing: typePx(0.5),
+        mt: badge ? 1.4 : 0, letterSpacing: typePx(0.5),
       }}>
         {chipDate(game.date)}{game.gameNumber > 1 ? ' · G2' : ''}
       </Typography>
@@ -119,7 +119,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
         </Typography>
       ) : isPostponed ? (
         <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled', lineHeight: 1, letterSpacing: typePx(0.5) }}>
-          {unplayedTag}
+          {chipBadge(game, false)}
         </Typography>
       ) : (
         <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 600, color: 'text.secondary', lineHeight: 1, textAlign: 'center' }}>
@@ -721,6 +721,19 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
       .finally(() => setLoading(false))
   }, [teamId])
 
+  // The sheet is the whole season, read when it opens rather than for every card that never opens it.
+  const [seasonGames, setSeasonGames] = useState<ScheduleGame[] | null>(null)
+  useEffect(() => {
+    if (!showSchedule) return
+    let cancelled = false
+    setSeasonGames(null)
+    fetchTeamSeasonSchedule(teamId, CURRENT_SEASON)
+      .then(g => { if (!cancelled) setSeasonGames(g) })
+      .catch(() => { if (!cancelled) setSeasonGames([]) })
+    return () => { cancelled = true }
+  }, [showSchedule, teamId])
+  const sheetGames = seasonGames?.length ? seasonGames : games
+
   // ── Slot selection ────────────────────────────────────────────────────────
   // Three slots, each holding a whole day so doubleheaders stay intact:
   //   primary:   the current day (first date on/after today, else the last played)
@@ -801,7 +814,8 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
       <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>Loading schedule…</Typography>
     </Box>
   )
-  if (!games.length) return null
+  // Not with the sheet open: this was the sheet's parent, and an empty strip took the sheet with it.
+  if (!games.length && !showSchedule) return null
 
   const showLast     = slots.last.length > 0
   const showUpcoming = slots.upcoming.length > 0
@@ -907,7 +921,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
   return (
     <>
       {/* ── Game section: live = full-width card; else last + next ──────── */}
-      {collapsed ? null : isLive && liveGame ? (
+      {collapsed || !games.length ? null : isLive && liveGame ? (
         <Box sx={{ px: 2.5, pt: 1.25, pb: 1.5 }}>
           {/* Doubleheader: the completed opener sits above the live nightcap. */}
           {slots.primary.filter(g => g.state === 'final').map(g => (
@@ -970,9 +984,9 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
         </Box>
       )}
 
-      {showSchedule && (
+      {showSchedule && sheetGames.length > 0 && (
         <FullScheduleModal
-          games={games}
+          games={sheetGames}
           myTeamId={teamId}
           teamColor={teamColor}
           today={today}
