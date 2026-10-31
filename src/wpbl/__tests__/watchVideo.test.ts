@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { defaultQueue, resolveQueue } from '../watch/queue'
 import { markWatched, resetProgressCache, resumeAt, saveProgress, watchedShare } from '../watch/progress'
 import { formatDuration, formatViews, MORE_GROUPS, watchShelves } from '../videoChannels'
+import { continueWatching, featuredVideo, FEATURED_VIDEO_ID, splitClips } from '../watch/shelves'
 import { wpblAppOwnsPath, wpblViewFromPath, wpblWatchVideoIdFromPath, wpblWatchVideoPath, isWpblWatchPage } from '../routes'
 import { classifyFan, parseIsoDuration, refineKind, settleIsShort } from '../../../scripts/sync-wpbl-youtube.mjs'
 import type { WpblVideo } from '../types'
@@ -175,5 +176,38 @@ describe('the sync', () => {
       expect(refineKind('other', t, null)).toBe('other')
     }
     expect(refineKind('other', "Ashton Lansdell's first WPBL home run!", false)).toBe('other')
+  })
+})
+
+describe('the front page', () => {
+  const NOW = Date.parse('2026-11-01T00:00:00Z')
+  const pinned = video(FEATURED_VIDEO_ID, { kind: 'compilation', published_at: '2026-10-06T00:00:00Z' })
+  const oldReel = video('reel', { kind: 'highlight', game_id: 'g', published_at: '2026-09-23T00:00:00Z' })
+
+  it('features the season reel, and last night\'s reel while there is one', () => {
+    expect(featuredVideo([oldReel, pinned], NOW)?.video_id).toBe(FEATURED_VIDEO_ID)
+    const fresh = video('fresh', { kind: 'highlight', game_id: 'g', published_at: '2026-10-31T00:00:00Z' })
+    expect(featuredVideo([fresh, oldReel, pinned], NOW)?.video_id).toBe('fresh')
+  })
+
+  it('falls down the chain when the pinned video is not in this reader\'s list', () => {
+    const other = video('top', { kind: 'compilation' })
+    expect(featuredVideo([oldReel, other], NOW)?.video_id).toBe('top')
+    expect(featuredVideo([oldReel], NOW)?.video_id).toBe('reel')
+    expect(featuredVideo([video('s', { is_short: true })], NOW)).toBeNull()
+    expect(featuredVideo([], NOW)).toBeNull()
+  })
+
+  it('splits every Short onto exactly one side, by whether a tag places it in a game', () => {
+    const clips = [video('a', { is_short: true }), video('b', { is_short: true }), video('c', { is_short: true })]
+    const tag = (video_id: string, game_id: string | null) => ({ video_id, game_id, play_sequence: null, inning: null, half: null, team_id: null, player_ids: [], method: 'game' as const })
+    const { plays, rest } = splitClips(clips, new Map([['a', tag('a', 'g')], ['b', tag('b', null)]]))
+    expect(plays.map(v => v.video_id)).toEqual(['a'])
+    expect(rest.map(v => v.video_id)).toEqual(['b', 'c'])
+  })
+
+  it('offers only what this reader can still play, in the order they watched it, and no Shorts', () => {
+    const list = [video('a'), video('b'), video('s', { is_short: true })]
+    expect(continueWatching(list, ['b', 'gone', 's', 'a']).map(v => v.video_id)).toEqual(['b', 'a'])
   })
 })
