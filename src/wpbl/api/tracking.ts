@@ -1,5 +1,7 @@
 import { supabase } from '../../lib/supabase'
 import { writeSeed } from '../seed'
+import { rosterSpeller } from '../feedNames'
+import { fetchWpblAllPlayers } from './players'
 import type { WpblPitchTracking, WpblTrackRow } from '../types'
 import {
   safe, once, overlayKeyed, isList, seeded, isFreshSlow, keyedCache, emptyList, fetchAllPaged,
@@ -7,6 +9,23 @@ import {
 } from './core'
 
 // TrackMan: the league's tracked pitches, which games carry them, one game's and one pitcher's.
+
+/**
+ * The roster's spelling of a TrackMan name, the way the play log leaves api/plays.ts. TrackMan
+ * writes "Saki, Emi"; a name the roster knows comes back as the roster writes it ("Emi Saiki"),
+ * anything else exactly as the feed sent it. Every reader flips a name with `fmtFeedName`, which
+ * leaves a name with no comma alone, so both shapes print right.
+ */
+async function trackSpeller(): Promise<(raw: string | null) => string | null> {
+  const spell = rosterSpeller(await fetchWpblAllPlayers())
+  return raw => {
+    if (!raw) return raw
+    const [last, first] = raw.split(',').map(s => s.trim())
+    const flat = first ? `${first} ${last}` : raw
+    const name = spell(flat)
+    return name === flat ? raw : name
+  }
+}
 
 export let allTrackingCache: { data: WpblTrackRow[]; at: number } | null = null
 // Just the distinct game ids that carry tracking, for Home's "new tracking batch" banner. See
@@ -59,6 +78,7 @@ const TRACK_SELECT =
 export function fetchWpblAllTracking(): Promise<WpblTrackRow[]> {
   if (isFreshSlow(allTrackingCache)) return Promise.resolve(allTrackingCache!.data)
   return once('allTracking', async () => {
+  const speller = trackSpeller()
   const PAGE = 1000
   const out: WpblTrackRow[] = []
   for (let from = 0; ; from += PAGE) {
@@ -94,7 +114,8 @@ export function fetchWpblAllTracking(): Promise<WpblTrackRow[]> {
   // Cache last-good so the Tracking tab can repaint from it on a swipe-back without
   // re-running this paginated scan (see the cache block above). A transient empty
   // doesn't clobber a previously good result.
-  const rows = overlayKeyed(out)
+  const spell = await speller
+  const rows = overlayKeyed(out).map(r => ({ ...r, pitcher_name: spell(r.pitcher_name), batter_name: spell(r.batter_name) }))
   if (rows.length > 0 || allTrackingCache == null) allTrackingCache = { data: rows, at: Date.now() }
   return rows
   })
@@ -131,10 +152,21 @@ export function fetchWpblTrackedGameIds(): Promise<string[]> {
 }
 
 // TrackMan pitch/hit tracking for one game (chronological).
-export function fetchWpblGameTracking(gameId: string): Promise<WpblPitchTracking[]> {
-  return safe('fetchWpblGameTracking', () =>
-    supabase.from('wpbl_pitch_tracking').select('*').eq('game_id', gameId).order('occurred_at', { ascending: true }),
-    [] as WpblPitchTracking[])
+// The names live in `raw`, so that is where they are spelled.
+export async function fetchWpblGameTracking(gameId: string): Promise<WpblPitchTracking[]> {
+  const [rows, spell] = await Promise.all([
+    safe('fetchWpblGameTracking', () =>
+      supabase.from('wpbl_pitch_tracking').select('*').eq('game_id', gameId).order('occurred_at', { ascending: true }),
+      [] as WpblPitchTracking[]),
+    trackSpeller(),
+  ])
+  return rows.map(t => {
+    const raw = t.raw as { batter_name?: string | null; pitcher_name?: string | null } | null
+    if (!raw || typeof raw !== 'object') return t
+    const batter_name = spell(raw.batter_name ?? null), pitcher_name = spell(raw.pitcher_name ?? null)
+    if (batter_name === (raw.batter_name ?? null) && pitcher_name === (raw.pitcher_name ?? null)) return t
+    return { ...t, raw: { ...raw, batter_name, pitcher_name } }
+  })
 }
 
 // One tracked pitch's plate location + label, for a pitcher's location map. Coordinates

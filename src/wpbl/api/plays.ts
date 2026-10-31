@@ -9,9 +9,16 @@ import type {
 } from '../types'
 import { safe, once, inflight, readOverlay, overlayGameId, asGame, isFresh, fetchAllPaged } from './core'
 import { lastGoodSchedule, fetchWpblSchedule } from './games'
+import { fetchWpblAllPlayers } from './players'
+import { inRosterSpelling } from '../feedNames'
 
 // The play-by-play: the season's play log and its filtered views, one player's at-bats, one game's plays,
 // and the corrections laid over all of them.
+//
+// EVERY PLAY LEAVES THIS FILE IN THE ROSTER'S SPELLING (`inRosterSpelling`, feedNames.ts), names
+// and prose alike, so no surface has to remember to ask. The roster read is the app-wide cache and
+// goes out beside the plays, so it adds no round trip; a failed one leaves the feed's spelling,
+// which is what every surface printed before.
 
 // The season's priced run environment (derive/runEnvironment.ts): one row, read in place of the
 // whole play log by the surfaces that only want its weights. Null when the row is missing or the
@@ -148,6 +155,7 @@ export function fetchWpblPlayLog(season: WpblPlayScope = null): Promise<WpblLogP
     // A dev overlay's made-up season has no rows in the database: read the real season it copies,
     // let the overlay add its copies (fetchAllPaged does), then cut back to the season asked for.
     const read = season == null ? null : readOverlay?.sourceSeason?.(season) ?? season
+    const roster = fetchWpblAllPlayers()
     // The corrections read runs BESIDE the pages, not after them: it is independent of them and
     // used to add a whole round trip to the end of the section's slowest read.
     const [out, corrections] = await Promise.all([
@@ -166,6 +174,7 @@ export function fetchWpblPlayLog(season: WpblPlayScope = null): Promise<WpblLogP
     ])
     let corrected = applyPlayCorrections(out, corrections)
     if (season != null && read !== season) corrected = inSeason(corrected, lastGoodSchedule ?? await fetchWpblSchedule(), season)
+    corrected = inRosterSpelling(corrected, await roster)
     // A short read keeps the last good log, and leaves its clock alone so the next caller retries.
     if (corrected.length > 0 || !playLogCache.has(key)) playLogCache.set(key, { data: corrected, at: Date.now() })
     return corrected
@@ -301,6 +310,7 @@ export function fetchWpblPlayerMatchupPlays(
   const list = idList.filter(id => UUID.test(id)).join(',')
   if (!list) return Promise.resolve([])
   return once(`playerMatchupPlays:${player.id}`, async () => {
+    const roster = fetchWpblAllPlayers()
     const [mine, corrections] = await Promise.all([
       fetchAllPaged<WpblPlayerMatchupPlay>('fetchWpblPlayerMatchupPlays', (from, to) =>
         supabase.from('wpbl_game_plays')
@@ -321,7 +331,7 @@ export function fetchWpblPlayerMatchupPlays(
       if (seqs) seqs.push(c.sequence); else movedOn.set(c.game_id, [c.sequence])
     }
     const extra = await fetchMatchupPlaysByKey(movedOn)
-    const corrected = applyPlayCorrections([...mine, ...extra], corrections).filter(involves(ids))
+    const corrected = inRosterSpelling(applyPlayCorrections([...mine, ...extra], corrections).filter(involves(ids)), await roster)
     if (corrected.length > 0 || !playerMatchupCache.has(player.id)) {
       playerMatchupCache.set(player.id, { data: corrected, at: Date.now() })
     }
@@ -368,6 +378,7 @@ export async function fetchWpblGamePlays(gameId: string): Promise<WpblGamePlay[]
   const id = overlayGameId(gameId)
   // Both reads go out together: the corrections table is tiny and usually empty, so making it
   // wait on the plays would add a round trip to every game anyone opens.
+  const roster = fetchWpblAllPlayers()
   const [plays, corrections] = await Promise.all([
     safe('fetchWpblGamePlays', () =>
       supabase.from('wpbl_game_plays').select('*').eq('game_id', id).order('sequence', { ascending: true }),
@@ -375,7 +386,7 @@ export async function fetchWpblGamePlays(gameId: string): Promise<WpblGamePlay[]
     fetchPlayCorrections(id),
   ])
   const corrected = asGame(applyPlayCorrections(plays, corrections), id, gameId)
-  return readOverlay ? readOverlay.plays(gameId, corrected) : corrected
+  return inRosterSpelling(readOverlay ? readOverlay.plays(gameId, corrected) : corrected, await roster)
 }
 
 // The same game's plays, projected to what buildRecap reads (see WpblRecapPlay), so Home's
@@ -383,6 +394,7 @@ export async function fetchWpblGamePlays(gameId: string): Promise<WpblGamePlay[]
 // whether anyone hit back-to-back home runs. Game Center still takes the full rows when a
 // reader actually opens a game.
 export async function fetchWpblGameRecapPlays(gameId: string): Promise<WpblRecapPlay[]> {
+  const roster = fetchWpblAllPlayers()
   const [plays, corrections] = await Promise.all([
     safe<WpblRecapPlay[]>('fetchWpblGameRecapPlays', () =>
       supabase.from('wpbl_game_plays')
@@ -393,5 +405,5 @@ export async function fetchWpblGameRecapPlays(gameId: string): Promise<WpblRecap
       []),
     fetchPlayCorrections(gameId),
   ])
-  return applyPlayCorrections(plays, corrections)
+  return inRosterSpelling(applyPlayCorrections(plays, corrections), await roster)
 }

@@ -48,7 +48,6 @@ import { TAPPABLE, FOCUS_RING, CARD_BORDER, pressable, TextGhost } from './ui'
 import WpblPage, { SectionHeading } from './WpblPage'
 import { track, EVENTS } from '../lib/analytics'
 import { shortDate } from '../lib/format'
-import { rosterSpellingsIn } from './feedNames'
 import { localIsoDate } from './derive/homePlayers'
 import type { WpblPlayer, WpblTeam, WpblGame } from './types'
 import { setDynamicSeo } from '../seo'
@@ -226,11 +225,11 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
   // so the tile and the top row of /wpbl/matchups are the same matchup.
   const topMatchups = useMemo(() => {
     if (plays.length === 0) return null
-    const lines = batterPitcherMatchups(plays, games, { roster: players })
+    const lines = batterPitcherMatchups(plays, games)
     const batter = matchupBoard(lines, 'batter')[0] ?? null
     const pitcher = matchupBoard(lines, 'pitcher')[0] ?? null
     return batter || pitcher ? { batter, pitcher } : null
-  }, [plays, games, players])
+  }, [plays, games])
   const leaguePit = useMemo(() => sumPitching(pitching, games), [pitching, games])
   /** The pair's compare page, batter first as the tile reads, or nothing until the roster can
    *  spell both slugs. The same page a row on /wpbl/matchups opens. */
@@ -700,7 +699,7 @@ export default function WpblSeasonPage({ path, onNavigate, onOpenGame }: {
                     <Box sx={{ flexShrink: 0, width: 4, alignSelf: 'stretch', borderRadius: 2, bgcolor: wpblColor(bp.teamId) }} />
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 600, lineHeight: 1.35 }}>
-                        {rosterSpellingsIn(bp.narrative, players)}
+                        {bp.narrative}
                       </Typography>
                       <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.35 }}>
                         {teamName(bp.game.away_team_id)} at {teamName(bp.game.home_team_id)} · {shortDate(bp.game.game_date)}

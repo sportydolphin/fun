@@ -38,6 +38,8 @@ function builder(table: string) {
   const run = () => {
     if (table === 'wpbl_play_corrections') return db.corrections
     if (table === 'wpbl_games') return db.games
+    // The roster the reads spell names against (rosterSpelling.test.ts); none needed here.
+    if (table === 'wpbl_players') return []
     if (q.or) {
       queries.push(`or:${q.or}`)
       const ids = new Set(/batter_id\.in\.\(([^)]*)\)/.exec(q.or)![1].split(','))
