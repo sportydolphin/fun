@@ -1,22 +1,22 @@
-import { useDark } from '../../ui/useDark'
-import React, { memo, useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
-import { pressable } from '../../ui/interaction'
+import { memo, useState, useEffect, useCallback, useRef } from 'react'
 import { TYPE_SCALE, TAB_TITLE_SX } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
-import { Team, TeamSummary, SosEntry } from '../types'
-import { TEAM_BG, TEAM_ABBR, CURRENT_SEASON, TEAM_PAYROLLS_2026, TONE } from '../constants'
+import { Team, TeamSummary, SosEntry, StandingsDivision } from '../types'
+import { TEAM_ABBR, CURRENT_SEASON, TEAM_PAYROLLS_2026 } from '../constants'
 import {
   fetchDivisionForTeam, fetchTeamSummaryData,
   fetchTeamAverageAges, fetchStrengthOfSchedule,
   fetchStreakLeaders, StreakLeaders,
   fetchPitchesPerPa, PitchPaLeaders,
   fetchTopSalaries, SalaryRow,
+  fetchRosterMoves, fetchStandingsCached,
 } from '../api'
+import { moveSummary } from '../lib/rosterMoves'
+import { TeamCard } from './TeamCard'
+import { DivisionWinners } from './DivisionWinners'
 import { ordinal } from '../../lib/format'
-// ~1,400-line schedule module, lazy so the League tab doesn't pull it in.
-const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ default: m.TeamScheduleStrip })))
 import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
-import { edgeTone, cardGradient135, fmtGB } from '../lib/colorUtils'
+import { fmtGB } from '../lib/colorUtils'
 import { TopPerformers } from './TopPerformers'
 import { RosterMovesCard } from './RosterMoves'
 import { LiveDramaCard } from './LiveDrama'
@@ -29,7 +29,7 @@ import { StandingsSnapshot } from './StandingsSnapshot'
 import { FinalGamesSection } from './FinalGames'
 import { LeaderboardCard, PlayerLeaderboardCard, LbRow, PlayerLbRow } from '../components/leaderboards'
 import {
-  AgeEntry, buildFraudRows, buildPayrollRows, buildAgeRows, buildSosRows,
+  AgeEntry, buildFraudRows, buildPayrollRows, buildAgeRows, buildSosRows, buildWinChangeRows, buildCostPerWinRows,
   buildStreakRows, buildPitchPaRows, buildSalaryRows,
 } from '../components/reportCardRows'
 import { getHomeOverlay, clearOverlayIf } from '../state/homeOverlay'
@@ -44,7 +44,7 @@ import { AwardsCard } from './AwardsCard'
 import { useSeasonPhase, useHomeStage, isSeasonOver } from '../seasonPhase'
 import { useDevNoTeam } from '../dev/devSeasonPhase'
 import { fetchBracket, seededBracket, teamOctober, teamOctoberLine, stillPlaying, SERIES_ORDER, Bracket } from '../postseason'
-import { chromePx, typePx } from '../../ui/scale'
+import { chromePx } from '../../ui/scale'
 import { cachedJson, FRESH_LIVE_MS } from '../lib/readCache'
 import { MLB_VIEW_PATHS } from '../routes'
 import { useMlbHeadingTag } from '../components/PageHeading'
@@ -133,10 +133,11 @@ const WINTER_ORDER = {
   hotStove:   { xs: 1, md: 1 },
   awards:     { xs: 2, md: 0 },
   players:    { xs: 3, md: 1 },
-  standouts:  { xs: 4, md: 2 },
-  milestones: { xs: 5, md: 3 },
-  boards:     { xs: 6, md: 4 },
-  games:      { xs: 7, md: 2 },
+  standings:  { xs: 4, md: 2 },
+  standouts:  { xs: 5, md: 2 },
+  milestones: { xs: 6, md: 3 },
+  boards:     { xs: 7, md: 4 },
+  games:      { xs: 8, md: 3 },
 } as const
 
 // ─── HomeView ─────────────────────────────────────────────────────────────────
@@ -213,6 +214,10 @@ function HomeViewInner({
   const [streaks,   setStreaks]   = useState<StreakLeaders | null>(null)
   const [pitchPa,   setPitchPa]   = useState<PitchPaLeaders | null>(null)
   const [salaries,  setSalaries]  = useState<SalaryRow[]>([])
+  const [standings, setStandings] = useState<[StandingsDivision[], StandingsDivision[]] | null>(null)
+  // The team card's line on the club's winter, and its request to open the Hot Stove's list on the club.
+  const [teamMoves,  setTeamMoves]  = useState<string | null>(null)
+  const [movesFocus, setMovesFocus] = useState<{ teamId: number } | null>(null)
   const [loadingAges,     setLoadingAges]     = useState(false)
   const [loadingSos,      setLoadingSos]      = useState(false)
   const [loadingStreaks,  setLoadingStreaks]  = useState(false)
@@ -250,6 +255,16 @@ function HomeViewInner({
       .finally(() => setLoadingSpotlight(false))
   }, [seasonOver])
 
+  // The followed club's moves, for its card: the Hot Stove's own read, so it costs nothing more.
+  useEffect(() => {
+    if (!hotStove || !followedTeamId) { setTeamMoves(null); return }
+    let cancelled = false
+    fetchRosterMoves(true)
+      .then(m => { if (!cancelled) setTeamMoves(moveSummary(m, followedTeamId) ?? 'None') })
+      .catch(() => { if (!cancelled) setTeamMoves('None') })
+    return () => { cancelled = true }
+  }, [hotStove, followedTeamId])
+
   // Fetch which teams are currently in live games
   useEffect(() => {
     if (!showScores) return
@@ -276,8 +291,6 @@ function HomeViewInner({
     }).catch(() => {})
   }, [followedTeamId])
 
-  const isDark = useDark()
-
   // ── Daily report cards ────────────────────────────────────────────────────────
   // Two cards rotate daily: each day picks a distinct pair from the pool, keyed to
   // the day, so the two always differ from each other and both change day to day.
@@ -288,7 +301,7 @@ function HomeViewInner({
   const nameMap = new Map(allTeams.map(t => [t.id, t.name]))
 
   type BoardKind = 'team' | 'player'
-  type DataDep = 'summaries' | 'payroll' | 'ages' | 'sos' | 'streaks' | 'pitchPa' | 'salaries'
+  type DataDep = 'summaries' | 'payroll' | 'ages' | 'sos' | 'streaks' | 'pitchPa' | 'salaries' | 'standings'
   interface BoardMeta {
     id: string; kind: BoardKind; title: string
     subtitle: string; accent: string; dep: DataDep; tooltipText?: string
@@ -323,12 +336,25 @@ function HomeViewInner({
     { id: 'top-salary',      kind: 'player', title: 'Highest Salaries',       subtitle: `${CURRENT_SEASON}`,       accent: '#10b981', dep: 'salaries', tooltipText: `Each player's salary for the ${CURRENT_SEASON} season, straight from their contract. This is the money paid this year, so a backloaded or deferred deal can rank differently than its headline average annual value.` },
   ]
 
+  // THE WINTER'S POOL. Pitches per trip and a frozen hitless streak are something to glance at between
+  // games, and with no games they filled half the page. What a reader wants in January is what the
+  // season added up to, so those three give way to four that need a finished season. The same boards
+  // are on the page "All boards" opens (VizView).
+  const OFF_IN_WINTER = new Set(['pitches-most', 'pitches-fewest', 'hitless'])
+  const pool: BoardMeta[] = !noGamesNow ? BOARD_POOL : [
+    ...BOARD_POOL.filter(b => !OFF_IN_WINTER.has(b.id)),
+    { id: 'most-improved', kind: 'team', title: 'Most Improved', subtitle: `Wins vs ${CURRENT_SEASON - 1}`, accent: '#22c55e', dep: 'standings' },
+    { id: 'biggest-drops', kind: 'team', title: 'Biggest Drops', subtitle: `Wins vs ${CURRENT_SEASON - 1}`, accent: '#ef4444', dep: 'standings' },
+    { id: 'cheapest-wins', kind: 'team', title: 'Cheapest Wins', subtitle: 'Est. payroll per win', accent: '#14b8a6', dep: 'standings' },
+    { id: 'priciest-wins', kind: 'team', title: 'Priciest Wins', subtitle: 'Est. payroll per win', accent: '#eab308', dep: 'standings' },
+  ]
+
   const boardPairs: Array<[number, number]> = []
-  for (let i = 0; i < BOARD_POOL.length; i++)
-    for (let j = i + 1; j < BOARD_POOL.length; j++)
+  for (let i = 0; i < pool.length; i++)
+    for (let j = i + 1; j < pool.length; j++)
       boardPairs.push([i, j])
   const dayNum       = Math.floor(Date.now() / 86400000)
-  // Walk the pair list with a stride coprime to its length (105 = 3·5·7) rather
+  // Walk the pair list with a stride coprime to its length (105 = 3·5·7, 120 in the winter) rather
   // than stepping +1 a day: consecutive pairs in the list share a board, so a plain
   // step would leave the same card camped for up to a dozen days. 47 is prime and
   // does not divide it, so it hits every pair once across the cycle. A board added
@@ -336,8 +362,8 @@ function HomeViewInner({
   const [aIdx, bIdx] = boardPairs[(dayNum * 47) % boardPairs.length]
   // Alternate which of the pair sits on top so the ordering feels fresh too.
   const selectedMetas = dayNum % 2 === 0
-    ? [BOARD_POOL[aIdx], BOARD_POOL[bIdx]]
-    : [BOARD_POOL[bIdx], BOARD_POOL[aIdx]]
+    ? [pool[aIdx], pool[bIdx]]
+    : [pool[bIdx], pool[aIdx]]
   // Nothing is fetched until the phase is known, since it decides what the schedule boards read.
   const neededDeps = new Set<DataDep>(seasonOver == null ? [] : selectedMetas.map(m => m.dep))
 
@@ -359,17 +385,30 @@ function HomeViewInner({
       case 'pitches-most':    return { rows: buildPitchPaRows(pitchPa, 'most'),   loading: loadingPitchPa }
       case 'pitches-fewest':  return { rows: buildPitchPaRows(pitchPa, 'fewest'), loading: loadingPitchPa }
       case 'top-salary':      return { rows: buildSalaryRows(salaries), loading: loadingSalaries }
+      case 'most-improved':   return { rows: standings ? buildWinChangeRows(standings[0], standings[1], nameMap, 'up') : [], loading: !standings }
+      case 'biggest-drops':   return { rows: standings ? buildWinChangeRows(standings[0], standings[1], nameMap, 'down') : [], loading: !standings }
+      case 'cheapest-wins':   return { rows: standings ? buildCostPerWinRows(standings[0], TEAM_PAYROLLS_2026, nameMap, 'cheapest') : [], loading: !standings }
+      case 'priciest-wins':   return { rows: standings ? buildCostPerWinRows(standings[0], TEAM_PAYROLLS_2026, nameMap, 'priciest') : [], loading: !standings }
       default:                return { rows: [], loading: false }
     }
   }
 
   // ── Lazy dataset fetches: each fires only on a day whose pair needs it ────────
   const needSummaries = neededDeps.has('summaries')
+  const needStandings = neededDeps.has('standings')
   const needAges     = neededDeps.has('ages')
   const needSos      = neededDeps.has('sos')
   const needStreaks  = neededDeps.has('streaks')
   const needPitchPa  = neededDeps.has('pitchPa')
   const needSalaries = neededDeps.has('salaries')
+
+  useEffect(() => {
+    if (!needStandings) return
+    let cancelled = false
+    Promise.all([fetchStandingsCached(CURRENT_SEASON), fetchStandingsCached(CURRENT_SEASON - 1)])
+      .then(s => { if (!cancelled) setStandings(s) })
+    return () => { cancelled = true }
+  }, [needStandings])
 
   useEffect(() => {
     if (!needSummaries) return
@@ -444,7 +483,6 @@ function HomeViewInner({
 
   // ── Derived team info ─────────────────────────────────────────────────────────
   const followedTeam = allTeams.find(t => t.id === followedTeamId)
-  const bg       = TEAM_BG[followedTeamId ?? 0] ?? '#1a2035'
   // Use the full team name directly. `locationName` is the raw municipality
   // (e.g. "Denver" for the Rockies, "Flushing" for the Mets, "Arlington" for
   // the Rangers), which reads wrong next to the common name. `name` is the
@@ -563,99 +601,23 @@ function HomeViewInner({
               {/* Team card. Full size while its club is playing; one line, under the picks, once its
                   season is over (see `teamQuiet`). Not drawn until it knows which. */}
               {teamCardReady && (
-              <TrackedCard card="team_card" sx={{ order: teamQuiet ? ORDER.teamCardQuiet : ORDER.teamCard, minWidth: 0, ...winterSlot('team') }}>
-                <Box sx={{
-                  borderRadius: 3, overflow: 'hidden',
-                  border: '1px solid', borderColor: edgeTone(bg, isDark),
-                  borderLeft: `4px solid ${bg}`,
-                  bgcolor: 'background.paper',
-                  background: cardGradient135(bg, isDark),
-                  display: 'flex', flexDirection: 'column',
-                }}>
-                  {/* Team header: name+standing | buttons. px matches the schedule
-                      strip's 2.5 below so the name/record align with the game text. */}
-                  <Box sx={{ px: 2.5, pt: 1.25, pb: teamQuiet ? 1.25 : 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography sx={{
-                          fontSize: teamQuiet ? TYPE_SCALE.title : TYPE_SCALE.heading, fontWeight: 800,
-                          letterSpacing: typePx(-0.5), lineHeight: 1.25,
-                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                        }}>
-                          {teamLabel}
-                        </Typography>
-                        {standingParts.length > 0 && (
-                          <Typography sx={{
-                            fontSize: TYPE_SCALE.meta, mt: 0.35, lineHeight: 1.3,
-                            color: october?.kind === 'champion' ? TONE.yellow : 'text.secondary',
-                            fontWeight: october?.kind === 'champion' ? 800 : undefined,
-                          }}>
-                            {standingParts.map((p, i) => {
-                              // The October line alone can outgrow a phone's card at Large text
-                              // ("Out in the AL Wild Card Series, 0-2 vs CWS" spilled 72px), so its
-                              // words may wrap; only the series record and opponent stay unbroken.
-                              const series = /^(.* )(\d+-\d+(?: vs \S+)?)$/.exec(p)
-                              return (
-                                <React.Fragment key={i}>
-                                  {i > 0 && ' · '}
-                                  {series ? (
-                                    <span>{series[1]}<Box component="span" sx={{ whiteSpace: 'nowrap' }}>{series[2]}</Box></span>
-                                  ) : (
-                                    <Box component="span" sx={{ whiteSpace: 'nowrap' }}>{p}</Box>
-                                  )}
-                                </React.Fragment>
-                              )
-                            })}
-                          </Typography>
-                        )}
-                      </Box>
-                      <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0 }}>
-                        <Box
-                          {...pressable(() => setShowTeamSchedule(true))}
-                          sx={{
-                            fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary',
-                            cursor: 'pointer', px: 0.9, py: 0.3,
-                            borderRadius: 999, border: '1px solid', borderColor: 'outline',
-                            whiteSpace: 'nowrap',
-                            transition: 'color 0.12s, border-color 0.12s',
-                            '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
-                          }}
-                        >
-                          Schedule ›
-                        </Box>
-                        <Box
-                          {...pressable(onUnfollowTeam)}
-                          sx={{
-                            fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary',
-                            cursor: 'pointer', px: 0.9, py: 0.3,
-                            borderRadius: 999, border: '1px solid', borderColor: 'outline',
-                            whiteSpace: 'nowrap',
-                            transition: 'color 0.12s, border-color 0.12s',
-                            '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
-                          }}
-                        >
-                          Change
-                        </Box>
-                      </Box>
-                    </Box>
-                  </Box>
-  
-                  {/* Schedule strip. Collapsed on a quiet card: no strip, but Schedule still opens
-                      the club's whole season from it. */}
-                  <Box sx={teamQuiet ? undefined : { borderTop: '1px solid', borderColor: 'divider' }}>
-                    <Suspense fallback={teamQuiet ? null : <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', px: 1.5, py: 1 }}>Loading schedule…</Typography>}>
-                      <TeamScheduleStrip
-                        teamId={followedTeamId}
-                        showSchedule={showTeamSchedule}
-                        onScheduleClose={() => { setShowTeamSchedule(false); clearOverlayIf('teamSchedule') }}
-                        onPlayerClick={onPlayerClick}
-                        onTeamClick={onTeamClick}
-                        collapsed={teamQuiet}
-                      />
-                    </Suspense>
-                  </Box>
-                </Box>
-              </TrackedCard>
+                <TrackedCard card="team_card" sx={{ order: teamQuiet ? ORDER.teamCardQuiet : ORDER.teamCard, minWidth: 0, ...winterSlot('team') }}>
+                  <TeamCard
+                    teamId={followedTeamId}
+                    name={teamLabel}
+                    lines={standingParts}
+                    champion={october?.kind === 'champion'}
+                    quiet={teamQuiet}
+                    moves={hotStove ? teamMoves : undefined}
+                    showSchedule={showTeamSchedule}
+                    onOpenSchedule={() => setShowTeamSchedule(true)}
+                    onCloseSchedule={() => { setShowTeamSchedule(false); clearOverlayIf('teamSchedule') }}
+                    onOpenMoves={() => setMovesFocus({ teamId: followedTeamId })}
+                    onChange={onUnfollowTeam}
+                    onPlayerClick={onPlayerClick}
+                    onTeamClick={onTeamClick}
+                  />
+                </TrackedCard>
               )}
 
               {/* Your players, capped so a long list doesn't dominate; scrolls internally */}
@@ -691,6 +653,12 @@ function HomeViewInner({
               {!noGamesNow && (
                 <TrackedCard card="survivor" sx={{ order: ORDER.survivor, minWidth: 0 }}>
                   <StreakSurvivorWidget />
+                </TrackedCard>
+              )}
+
+              {noGamesNow && (
+                <TrackedCard card="standings_final" sx={winterSlot('standings')}>
+                  <DivisionWinners season={CURRENT_SEASON} followedTeamId={followedTeamId} onTeamClick={onTeamClick} />
                 </TrackedCard>
               )}
 
@@ -739,6 +707,11 @@ function HomeViewInner({
                 </TrackedCard>
               )}
               {noGamesNow && (
+                <TrackedCard card="standings_final" sx={winterSlot('standings')}>
+                  <DivisionWinners season={CURRENT_SEASON} followedTeamId={null} onTeamClick={onTeamClick} />
+                </TrackedCard>
+              )}
+              {noGamesNow && (
                 <TrackedCard card="games_winter" sx={winterSlot('games')}>
                   <WinterGamesCard />
                 </TrackedCard>
@@ -768,14 +741,14 @@ function HomeViewInner({
           {/* Roster moves: trades, DFAs, claims, signings; deadline countdown in July; the Hot Stove
               from the end of the World Series to opening day */}
           <TrackedCard card="roster_moves" sx={winterSlot('hotStove')}>
-            <RosterMovesCard hotStove={hotStove} followedTeamId={followedTeamId} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+            <RosterMovesCard hotStove={hotStove} followedTeamId={followedTeamId} focus={movesFocus} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
           </TrackedCard>
 
           {/* Milestone Watch: players closing in on career/season/record marks, and once the season
               is over, what was reached in it */}
           {seasonOver != null && (
             <TrackedCard card="milestones" sx={winterSlot('milestones')}>
-              <MilestoneWatchCard season={CURRENT_SEASON} liveTeamIds={liveTeamIds} seasonOver={seasonOver} onPlayerClick={onPlayerClick} />
+              <MilestoneWatchCard season={CURRENT_SEASON} liveTeamIds={liveTeamIds} seasonOver={seasonOver} leadChases={stage === 'winter'} onPlayerClick={onPlayerClick} />
             </TrackedCard>
           )}
 

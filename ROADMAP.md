@@ -217,9 +217,10 @@ October is over; it is the first real measurement of which Home cards are used.
   saying "back on Opening Day" and the bracket sat on top until March. With no games the champion is a
   row, the bracket, Standouts and Happening Now leave, the two pick games share `WinterGames.tsx`,
   and the cards are ordered by `WINTER_ORDER` (`display: contents` on a phone). A winter load went from
-  36 data requests and a poll a minute to 25 and none. *Still open from the audit:* final standings,
-  a winter pool of report boards, the followed club's moves on its card, Hot Stove ranked by kind of
-  move, Milestone Watch leading with 2027's chases. Read "MLB: what gets used" first.
+  36 data requests and a poll a minute to 25 and none. The rest of that audit shipped the same day
+  (v1.205.0): division winners, a winter pool of report boards, the club's moves on its card, Hot Stove
+  ranked by kind of move, Milestone Watch leading with the next marks. Read "MLB: what gets used" in
+  December to see whether readers use them.
 - **The plays mirror (second pass, item 6, step 4) is unblocked, with a budget.** Ops item 4
   shipped Oct 11 and took the database to 305 MB, but the 2000 to 2025 backfill means the MLB line
   tables are now most of it (about 137 MB of the two). Plays and pitches are roughly 1M rows a
@@ -566,8 +567,8 @@ will actually see all winter. The functional items do not wait.
    size, so WPBL's `StatsView` and `src/ui/statsTableHead.ts` moved with them, on the same steps.
    *Left, on purpose:* the live and postseason files (convert in spring, when they return),
    predictions (wait for October's numbers in "MLB: what gets used"), the charts (SVG labels),
-   `GamePreview` (shared with WPBL in v1.167.0, and off the list since), Standings and the player card's `cards.tsx` (after
-   Nov 1, when the bracket mode retires), and `SeriesSheet`'s 1.9 to 2.4rem score, which needs a
+   `GamePreview` (shared with WPBL in v1.167.0, and off the list since), Standings and the player card's `cards.tsx`
+   (✅ off the list; only admin files and `IconStudio` remain on it, checked Oct 31), and `SeriesSheet`'s 1.9 to 2.4rem score, which needs a
    step above `page` shared with WPBL's series page (2 to 3rem) rather than a guess in one file
    (✅ Oct 15, v1.167.3: `TYPE_SCALE.hero`, item 2 below).
 

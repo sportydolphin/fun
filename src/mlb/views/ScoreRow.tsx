@@ -1,6 +1,6 @@
 import React from 'react'
 import { Box, Skeleton, Typography } from '@mui/material'
-import { edge, TYPE_SCALE } from '../../ui/card'
+import { TYPE_SCALE } from '../../ui/card'
 import { NameText } from '../../ui/NameText'
 import { chromePx, typePx } from '../../ui/scale'
 import { LiveDot } from '../components/boxScore'
@@ -24,9 +24,9 @@ const ROW_H = `max(${chromePx(26)}, 1.6rem)`
 const LINE_H = `max(${chromePx(16)}, 1.15rem)`
 const COLUMNS = `3.3rem calc(${chromePx(22)} + 2.75rem) 1.5rem minmax(0, 1fr)`
 
-/** The rule between rows, and the room the followed club's edge takes on every row. */
+/** The rule between rows. */
 const ROW_FRAME = {
-  px: 1.25, py: 0.75, minWidth: 0, borderLeft: '3px solid transparent',
+  px: 1.25, py: 0.75, minWidth: 0,
   '&:not(:last-child)': { borderBottom: '1px solid', borderBottomColor: 'divider' },
 } as const
 
@@ -106,7 +106,7 @@ export function ScoreRow({ game, accent, onClick }: { game: FinalGameSummary; ac
     <Box {...gameLink(game.gamePk, onClick)} sx={{
       ...LINK_SX, ...ROW_FRAME, display: 'block', cursor: 'pointer', userSelect: 'none',
       '&:hover': { bgcolor: 'action.hover' },
-      ...(accent ? { borderLeftColor: edge(accent) } : null),
+      ...(accent ? { bgcolor: `${accent}22` } : null),
     }}>
       <Box sx={{ display: 'grid', gridTemplateColumns: COLUMNS, alignItems: 'center' }}>
         <Box sx={{ gridRow: 'span 2', display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, pr: 0.5 }}>

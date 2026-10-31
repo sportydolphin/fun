@@ -575,7 +575,7 @@ export async function fetchTeamTopPlayers(
 // Cache full standings by season (reused by both the Standings view and the team card)
 const standingsCache = new Map<number, Promise<StandingsDivision[]>>()
 
-function fetchStandingsCached(season: number): Promise<StandingsDivision[]> {
+export function fetchStandingsCached(season: number): Promise<StandingsDivision[]> {
   if (!standingsCache.has(season)) {
     standingsCache.set(season, fetchStandings(season).catch(() => []))
   }

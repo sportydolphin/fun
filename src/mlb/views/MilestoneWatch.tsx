@@ -259,7 +259,8 @@ function TabButton({ active, label, count, color, onClick }: {
   )
 }
 
-function MilestoneModal({ items, reached, liveTeamIds, seasonOver, season, onClose, onPlayerClick }: {
+function MilestoneModal({ items, reached, liveTeamIds, seasonOver, leadChases, season, onClose, onPlayerClick }: {
+  leadChases?: boolean
   items: MilestoneItem[]
   reached: MilestoneItem[]
   liveTeamIds?: Set<number>
@@ -270,7 +271,7 @@ function MilestoneModal({ items, reached, liveTeamIds, seasonOver, season, onClo
 }) {
   // Open on whichever side has content, and on the season's archive once the season is over: what
   // happened is the story then, and the chases are all a winter away.
-  const [tab, setTab] = useState<ModalTab>(items.length && !seasonOver ? 'chasing' : 'reached')
+  const [tab, setTab] = useState<ModalTab>(items.length && (!seasonOver || leadChases) ? 'chasing' : 'reached')
   const [groupFilter, setGroupFilter] = useState<GroupFilter>('all')
 
   const isLive = (it: MilestoneItem) => !!liveTeamIds?.has(it.teamId)
@@ -358,7 +359,10 @@ const GHOST_ITEM: MilestoneItem = {
   statLabel: 'hits', current: 990, target: 1000, remaining: 10, kind: 'career',
 }
 
-export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonOver, onPlayerClick }: {
+export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonOver, leadChases, onPlayerClick }: {
+  /** The winter, past the champion's week: September's marks are months old by now, and the card
+   *  should say who is about to get one. They stay a tap away. */
+  leadChases?: boolean
   season: number
   liveTeamIds?: Set<number>
   /** The regular season is over: lead with what was reached, and drop what can no longer be. */
@@ -412,7 +416,7 @@ export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonO
   // chases, up to FEATURED cards total.
   // Once the season is over "just reached" becomes the season's best: nothing new will be reached
   // until spring, and a week-old list in date order leads with whoever happened to finish last.
-  const leading = seasonOver ? [...reached].sort(byNotability) : recent
+  const leading = leadChases && orderedChases.length ? [] : seasonOver ? [...reached].sort(byNotability) : recent
   const recentCap = orderedChases.length ? RECENT_ON_CARD : FEATURED
   const featured = [...leading.slice(0, recentCap), ...orderedChases].slice(0, FEATURED)
   // The rows the card drew last time (none: it was not drawn), each as whether it carried a tag,
@@ -471,7 +475,7 @@ export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonO
         </Box>
       </SectionCard>
 
-      {modalOpen && <MilestoneModal items={chases} reached={reached} liveTeamIds={liveTeamIds} seasonOver={seasonOver} season={season} onClose={() => setModalOpen(false)} onPlayerClick={onPlayerClick} />}
+      {modalOpen && <MilestoneModal items={chases} reached={reached} liveTeamIds={liveTeamIds} seasonOver={seasonOver} leadChases={leadChases} season={season} onClose={() => setModalOpen(false)} onPlayerClick={onPlayerClick} />}
     </>
   )
 }

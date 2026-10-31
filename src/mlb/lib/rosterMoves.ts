@@ -77,6 +77,48 @@ export function pickMoves(transactions: FeedTransaction[], hotStove: boolean): R
  */
 export function cardMoves(moves: RosterMove[], hotStove: boolean, followedTeamId?: number | null): RosterMove[] {
   if (!hotStove) return moves
-  return moves.filter(m => m.typeCode !== 'DFA' ||
-    (followedTeamId != null && (m.fromTeamId === followedTeamId || m.toTeamId === followedTeamId)))
+  const touches = (m: RosterMove) => followedTeamId != null && (m.fromTeamId === followedTeamId || m.toTeamId === followedTeamId)
+  const newest = moves.reduce((d, m) => (m.date > d ? m.date : d), '')
+  const fresh = (m: RosterMove) => daysBetween(m.date, newest) <= FRESH_DAYS
+  return moves
+    .filter(m => m.typeCode !== 'DFA' || touches(m))
+    .map((m, i) => ({ m, i }))
+    .sort((a, b) =>
+      Number(fresh(b.m)) - Number(fresh(a.m))
+      || (MOVE_RANK[a.m.typeCode] ?? 2) - (MOVE_RANK[b.m.typeCode] ?? 2)
+      || Number(touches(b.m)) - Number(touches(a.m))
+      || a.i - b.i)
+    .map(({ m }) => m)
+}
+
+// NEWEST-FIRST LET A RELEASE BURY A SIGNING. The card holds four rows, and the feed files a nine-figure
+// contract beside a waiver claim on the same day, so a real signing could be gone from the card by the
+// next morning. Within the last week (a band, so an old signing never outranks this week's news) the
+// moves readers came for lead, and a followed club's lead its kind. Only the winter's card: the full
+// list stays in date order, and in season the card is a deadline-week log.
+const FRESH_DAYS = 7
+const MOVE_RANK: Record<string, number> = { SFA: 0, TR: 0, R5: 1, CLW: 1, SU: 1, DFA: 2, DES: 3, REL: 3 }
+const daysBetween = (a: string, b: string) => (Date.parse(b) - Date.parse(a)) / 86_400_000
+
+const MOVE_NOUNS: [string, string, string][] = [
+  ['SFA', 'signing', 'signings'], ['TR', 'trade', 'trades'], ['DFA', 'free agent', 'free agents'], ['R5', 'Rule 5 pick', 'Rule 5 picks'],
+  ['CLW', 'claim', 'claims'], ['DES', 'DFA', 'DFAs'], ['REL', 'release', 'releases'], ['SU', 'suspension', 'suspensions'],
+]
+
+/** The club's winter on one line, its two commonest kinds of move: "6 free agents · 2 trades". Null with none. */
+export function moveSummary(moves: RosterMove[], teamId: number): string | null {
+  const mine = moves.filter(m => m.fromTeamId === teamId || m.toTeamId === teamId)
+  const seenTrades = new Set<number>()
+  const counts = new Map<string, number>()
+  for (const m of mine) {
+    if (m.typeCode === 'TR') { if (seenTrades.has(m.id)) continue; seenTrades.add(m.id) }
+    counts.set(m.typeCode, (counts.get(m.typeCode) ?? 0) + 1)
+  }
+  const parts = MOVE_NOUNS
+    .map(([code, one, many], order) => ({ n: counts.get(code) ?? 0, one, many, order }))
+    .filter(p => p.n > 0)
+    .sort((a, b) => b.n - a.n || a.order - b.order)
+    .slice(0, 2)
+    .map(p => `${p.n} ${p.n === 1 ? p.one : p.many}`)
+  return parts.length ? parts.join(' · ') : null
 }

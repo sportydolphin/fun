@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { SectionCard, CardLink, TYPE_SCALE } from '../../ui/card'
-import { pressable } from '../../ui/interaction'
 import { NameText } from '../../ui/NameText'
 import { chromePx } from '../../ui/scale'
 import { useLastShape, useRememberShape } from '../../lib/lastShape'
 import { awardCardRows, awardSections, fetchAwards, positionCounts, seededAwards } from '../awardWinners'
 import type { AwardWinner } from '../awardWinners'
+import { CountRow } from '../components/CountRow'
 import { MlbSheet } from '../components/MlbSheet'
 import { TeamLogo } from '../components/TeamLogo'
 import { TEAM_ABBR } from '../constants'
@@ -122,19 +122,7 @@ export function AwardsCard({ season, followedTeamId, withSeriesMvp, onPlayerClic
               <WinnerRow key={`${w.code}:${w.name}`} w={w} detail={cardDetail(w)} onPlayerClick={onPlayerClick} />
             ))}
             {counts.map(c => (
-              <Box
-                key={c.group}
-                {...pressable(() => setSheetOpen(true))}
-                sx={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 1, py: 0.75,
-                  cursor: 'pointer', borderTop: '1px solid', borderColor: 'divider',
-                }}
-              >
-                <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700 }}>{c.group}</Typography>
-                <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                  {c.count} {c.count === 1 ? 'winner' : 'winners'} ›
-                </Typography>
-              </Box>
+              <CountRow key={c.group} label={c.group} value={`${c.count} ${c.count === 1 ? 'winner' : 'winners'}`} onOpen={() => setSheetOpen(true)} />
             ))}
           </>
         )}

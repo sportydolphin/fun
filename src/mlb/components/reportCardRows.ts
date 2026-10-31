@@ -2,7 +2,7 @@
 // display-ready row array for one leaderboard board. No JSX lives here; the
 // card components that render these rows are in ./leaderboards.
 
-import { TeamSummary, SosEntry } from '../types'
+import { TeamSummary, SosEntry, StandingsDivision } from '../types'
 import { TEAM_ABBR } from '../constants'
 import type { StreakRow, PitchPaLeaders, SalaryRow } from '../api'
 import type { LbRow, PlayerLbRow } from './leaderboards'
@@ -139,6 +139,44 @@ export function buildPayrollRows(payrolls: Record<number, number>, nameMap: Map<
     teamId: e.teamId, abbr: e.abbr, name: e.name,
     value: `$${e.amount}M`,
     barFraction: direction === 'highest' ? (e.amount - min) / range : (max - e.amount) / range,
+  }))
+}
+
+// ─── Boards that need a finished season ───────────────────────────────────────
+
+const clubs = (divisions: StandingsDivision[]) => divisions.flatMap(d => d.teams)
+
+/** Wins against the season before. A club with no row last year (none today) is left out. */
+export function buildWinChangeRows(now: StandingsDivision[], before: StandingsDivision[], nameMap: Map<number, string>, direction: 'up' | 'down'): LbRow[] {
+  const last = new Map(clubs(before).map(t => [t.teamId, t.wins]))
+  const rows = clubs(now)
+    .filter(t => last.has(t.teamId))
+    .map(t => ({ t, delta: t.wins - last.get(t.teamId)! }))
+    .filter(r => (direction === 'up' ? r.delta > 0 : r.delta < 0))
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta) || b.t.wins - a.t.wins)
+  const max = Math.max(...rows.map(r => Math.abs(r.delta)), 1)
+  return rows.map(({ t, delta }) => ({
+    teamId: t.teamId, abbr: t.abbr, name: nameMap.get(t.teamId) ?? t.abbr,
+    sub: `${t.wins}–${t.losses}`,
+    value: `${delta > 0 ? '+' : '−'}${Math.abs(delta)} wins`,
+    barFraction: Math.abs(delta) / max,
+  }))
+}
+
+/** Payroll over wins, in millions a win. Bars fill toward the board's own end, as the payroll boards do. */
+export function buildCostPerWinRows(now: StandingsDivision[], payrolls: Record<number, number>, nameMap: Map<number, string>, direction: 'cheapest' | 'priciest'): LbRow[] {
+  const rows = clubs(now)
+    .filter(t => t.wins > 0 && payrolls[t.teamId] != null)
+    .map(t => ({ t, cost: payrolls[t.teamId] / t.wins }))
+    .sort((a, b) => (direction === 'cheapest' ? a.cost - b.cost : b.cost - a.cost))
+  if (!rows.length) return []
+  const costs = rows.map(r => r.cost)
+  const min = Math.min(...costs), max = Math.max(...costs), range = max - min || 1
+  return rows.map(({ t, cost }) => ({
+    teamId: t.teamId, abbr: t.abbr, name: nameMap.get(t.teamId) ?? t.abbr,
+    sub: `${t.wins}–${t.losses}`,
+    value: `$${cost.toFixed(1)}M`,
+    barFraction: direction === 'priciest' ? (cost - min) / range : (max - cost) / range,
   }))
 }
 
