@@ -221,7 +221,7 @@ const ROUTES: Record<string, Seo> = {
   '/wpbl/watch': {
     title: "WPBL highlights, condensed games and clips | sportydolphin.fun",
     description:
-      "Every Women's Pro Baseball League game on video: the league's highlights, condensed games by WPBL from Day 1, and every clip the league has posted.",
+      "Every Women's Pro Baseball League game on video: the league's highlights, condensed games and season compilations by WPBL from Day 1, every clip the league has posted, and the podcast.",
   },
   '/wpbl/glossary': {
     title: "WPBL Rules & Stats Glossary | sportydolphin.fun",
