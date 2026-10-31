@@ -51,13 +51,15 @@ export function fetchWpblRecaps(): Promise<WpblGameRecap[]> {
 // Shorts a game in season, so the table passes PostgREST's silent 1000-row cap next summer, and
 // from that day a bare select would drop the OLDEST uploads without an error. `video_id` breaks
 // the tie between two uploads stamped the same second, which is what keeps the pages disjoint.
+const VIDEO_COLUMNS = 'video_id,channel_id,title,published_at,thumbnail_url,kind,game_id,away_hint,home_hint,game_date_hint,is_short,region_allowed,region_blocked,duration_seconds,view_count'
+
 export function fetchWpblVideos(): Promise<WpblVideo[]> {
   if (isFreshSlow(allVideosCache)) return Promise.resolve(allVideosCache!.data)
   return once('allVideos', async () => {
     const countryLookup = viewerCountry()
     const data = await fetchAllPaged<WpblVideo>('fetchWpblVideos', (from, to) =>
       supabase.from('wpbl_videos')
-        .select('video_id,channel_id,title,published_at,thumbnail_url,kind,game_id,away_hint,home_hint,game_date_hint,is_short,region_allowed,region_blocked')
+        .select(VIDEO_COLUMNS)
         .order('published_at', { ascending: false })
         .order('video_id', { ascending: true })
         .range(from, to) as unknown as
@@ -73,6 +75,22 @@ export function fetchWpblVideos(): Promise<WpblVideo[]> {
 }
 
 /**
+ * One video by id, whether or not this reader can play it, for the one question the filtered list
+ * cannot answer: a shared link to a video that is not in it, is it blocked here or gone? The caller
+ * says which from `playable`, rather than offering a player that reads "Video unavailable".
+ */
+export async function fetchWpblVideoRow(videoId: string): Promise<{ video: WpblVideo; playable: boolean } | null> {
+  const [rows, country] = await Promise.all([
+    safe<WpblVideo[]>('fetchWpblVideoRow', () =>
+      supabase.from('wpbl_videos').select(VIDEO_COLUMNS).eq('video_id', videoId).limit(1) as unknown as
+        PromiseLike<{ data: WpblVideo[] | null; error: unknown }>,
+      []),
+    viewerCountry(),
+  ])
+  return rows[0] ? { video: rows[0], playable: playableIn(rows[0], country) } : null
+}
+
+/**
  * What each Short shows (wpbl_video_tags), keyed by video id: the game, the at-bat, the players
  * and the club. A few hundred rows at most, read once and shared by the Watch page, Game Center's
  * clip row and the player page. A clip with no row has no tag, which is most of the pre-season.
@@ -83,7 +101,7 @@ export function fetchWpblVideoTags(fresh = false): Promise<Map<string, WpblVideo
   return once(fresh ? 'videoTagsFresh' : 'videoTags', async () => {
     const rows = await fetchAllPaged<WpblVideoTag>('fetchWpblVideoTags', (from, to) =>
       supabase.from('wpbl_video_tags')
-        .select('video_id,game_id,play_sequence,inning,half,team_id,player_ids,method')
+        .select('video_id,game_id,play_sequence,inning,half,event_type,team_id,player_ids,method')
         .order('video_id', { ascending: true })
         .range(from, to) as unknown as
         PromiseLike<{ data: WpblVideoTag[] | null; error: unknown }>)

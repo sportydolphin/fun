@@ -7,6 +7,7 @@
 // still carries sensible defaults for non-JS crawlers and social unfurlers.
 import { useEffect, useState } from 'react'
 import { WPBL_RULES } from './wpbl/glossary'
+import { wpblWatchVideoIdFromPath } from './wpbl/routes'
 import { MLB_CLUBS, MLB_TEAMS_BASE, MLB_VIEW_PATHS, MLB_GLOSSARY_PAGE, MLB_COMPARE_BASE, mlbGamePkFromPath, mlbSeriesFromPath, mlbPostseasonSeasonFromPath } from './mlb/routes'
 import { MLB_RULES } from './mlb/statGlossary'
 
@@ -437,6 +438,13 @@ export function setDynamicSeo(next: { path: string; seo: Seo } | null) {
 /** What is registered now, so a sheet titling itself over a page can put the page's tags back. */
 export const getDynamicSeo = (): { path: string; seo: Seo } | null => dynamicSeo
 
+// A video before its row has landed (WatchVideoPage registers the real title), and for a crawler
+// that reads the tags before the fetch.
+const WPBL_VIDEO_SEO: Seo = {
+  title: 'WPBL video | sportydolphin.fun',
+  description: "A video from the Women's Pro Baseball League.",
+}
+
 // An MLB game before its sheet has the clubs to title it with (mlb/state/gameSeo.ts), and for a
 // crawler that reads the tags before the fetch lands. Better than the site default, which is about
 // both leagues and names neither game nor club.
@@ -494,6 +502,7 @@ export function useSeo(path: string) {
     const base = path.split('?')[0].replace(/\/+$/, '') || '/'
     const recapSeason = mlbPostseasonSeasonFromPath(base)
     const seo = (dynamicSeo?.path === base ? dynamicSeo.seo : null) ?? ROUTES[base]
+      ?? (wpblWatchVideoIdFromPath(base) ? WPBL_VIDEO_SEO : null)
       ?? (mlbGamePkFromPath(base) ? MLB_GAME_SEO : null) ?? (mlbSeriesFromPath(base) ? MLB_SERIES_SEO : null)
       ?? (recapSeason ? mlbPostseasonSeo(recapSeason) : null) ?? DEFAULT
     const url = `${SITE}${base === '/' ? '/wpbl' : base}`

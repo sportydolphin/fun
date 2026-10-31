@@ -156,6 +156,9 @@
 /wpbl/reading    /  200
 # Every video of the league. Not a tab: see WPBL_WATCH_PAGE in src/wpbl/routes.ts.
 /wpbl/watch      /  200
+# One video. A wildcard because the ids live in the database; functions/wpbl/index.ts answers a real
+# 404 for one naming nothing, before this rewrite is reached.
+/wpbl/watch/*    /  200
 # Not a tab either: see the note on WPBL_COMPARE_BASE in src/wpbl/routes.ts.
 /wpbl/compare    /  200
 # The six season series, ONE LINE PER PAIR AND NOT A WILDCARD, for the reason the clubs above give:

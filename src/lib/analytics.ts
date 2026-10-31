@@ -128,6 +128,7 @@ export const EVENTS = {
   // RETIRED with the shelf (Sep 24, 2026); highlights now sit on the season recap and each game.
   WPBL_HIGHLIGHTS_SHOWN:  'wpbl_highlights_shown',  // retired
   WPBL_HIGHLIGHT_PLAYED:  'wpbl_highlight_played',  // opened the lightbox on a video, props {videoId, kind, from}
+  WPBL_VIDEO_ENDED:       'wpbl_video_ended',       // a video played to its end in the site's player, props {videoId, kind}
   WPBL_HIGHLIGHT_YOUTUBE: 'wpbl_highlight_youtube', // clicked out to YouTube from the lightbox, props {videoId}
   // The Watch card on Home and on the season recap. Its own pair rather than a reuse of the
   // highlight events, so the card has a funnel: `wpbl_highlight_played` fires from every video

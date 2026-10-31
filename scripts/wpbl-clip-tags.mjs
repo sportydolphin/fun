@@ -292,6 +292,7 @@ export function tagClip(video, ctx) {
       play_sequence: play?.sequence ?? null,
       inning: play?.inning ?? null,
       half: play?.half ?? null,
+      event_type: play?.event_type ?? null,
       team_id: teamId,
       player_ids: playerIds,
       method: play ? 'play' : 'game',
@@ -299,7 +300,7 @@ export function tagClip(video, ctx) {
   }
   if (playerIds.length > 0) {
     return {
-      game_id: null, play_sequence: null, inning: null, half: null,
+      game_id: null, play_sequence: null, inning: null, half: null, event_type: null,
       team_id: clubAsOf(ctx, playerIds[0], pubMs),
       player_ids: playerIds, method: 'player',
     }
@@ -312,7 +313,7 @@ export function tagClip(video, ctx) {
     (g.home_team_id === teamId || g.away_team_id === teamId)
     && g.startMs - EARLY_SLACK_MS <= pubMs && pubMs - g.startMs <= LIVE_WINDOW_MS)
   return {
-    game_id: game?.id ?? null, play_sequence: null, inning: null, half: null,
+    game_id: game?.id ?? null, play_sequence: null, inning: null, half: null, event_type: null,
     team_id: teamId, player_ids: [], method: game ? 'game' : 'team',
   }
 }

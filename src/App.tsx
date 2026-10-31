@@ -35,7 +35,7 @@ import { supabase } from './lib/supabase'
 import { useSeo } from './seo'
 // Import-free by design, so naming it here does not drag the lazy WPBL chunk into the
 // entry bundle. See the note at the top of that file.
-import { wpblPlayerSlugFromPath, wpblGameSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, isWpblGlossaryPage, isWpblSourcesPage, isWpblSeasonPage, isWpblScorigamiPage, isWpblMatchupsPage, isWpblPhotosPage, isWpblPhotoTagPage, isWpblReadingPage, isWpblWatchPage, isWpblComparePage, isWpblSeriesPage, wpblAppOwnsPath, wpblGamePath, WPBL_PATH_EVENT } from './wpbl/routes'
+import { wpblPlayerSlugFromPath, wpblGameSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, isWpblGlossaryPage, isWpblSourcesPage, isWpblSeasonPage, isWpblScorigamiPage, isWpblMatchupsPage, isWpblPhotosPage, isWpblPhotoTagPage, isWpblReadingPage, isWpblWatchPage, isWpblWatchVideoPage, isWpblComparePage, isWpblSeriesPage, wpblAppOwnsPath, wpblGamePath, WPBL_PATH_EVENT } from './wpbl/routes'
 import type { WpblGame, WpblTeam } from './wpbl/types'
 import { jerseyQuery } from './wpbl/playerSearch'
 import { defaultSectionPath } from './lib/defaultSection'
@@ -179,7 +179,7 @@ const rendersWpblApp = wpblAppOwnsPath
 /** Anything that should read as "the reader is in the WPBL section". */
 const isWpblSection = (p: string) =>
   rendersWpblApp(p) || p === '/wpbl/api' || isWpblLeaguePage(p) || isWpblGlossaryPage(p)
-  || isWpblSourcesPage(p) || isWpblSeasonPage(p) || isWpblScorigamiPage(p) || isWpblMatchupsPage(p) || isWpblPhotosPage(p) || isWpblPhotoTagPage(p) || isWpblReadingPage(p) || isWpblWatchPage(p) || isWpblPlayersIndex(p) || isWpblComparePage(p) || isWpblSeriesPage(p)
+  || isWpblSourcesPage(p) || isWpblSeasonPage(p) || isWpblScorigamiPage(p) || isWpblMatchupsPage(p) || isWpblPhotosPage(p) || isWpblPhotoTagPage(p) || isWpblReadingPage(p) || isWpblWatchPage(p) || isWpblWatchVideoPage(p) || isWpblPlayersIndex(p) || isWpblComparePage(p) || isWpblSeriesPage(p)
 /** Whether some page draws this path; anything else gets the in-app 404. */
 const isKnownPath = (p: string) =>
   isWpblSection(p) || isMlbSection(p) || p === '/' || p === '/admin' || p === '/privacy' || p === '/terms' || p === '/delete-account'
@@ -294,6 +294,9 @@ const PATH_ALIASES: Record<string, string> = {
 }
 
 function readPath(): string {
+  // A YouTube id is case-sensitive, so a video's path is the one path that folding would break. It
+  // also leaves the history entry alone, which is where the video's queue rides.
+  if (isWpblWatchVideoPage(window.location.pathname)) return window.location.pathname
   const lower = window.location.pathname.toLowerCase()
   const p = PATH_ALIASES[lower] ?? lower
   if (p !== window.location.pathname) {
@@ -1471,9 +1474,9 @@ function AppInner() {
               <WpblReadingPage />
             </Suspense>
           )}
-          {isWpblWatchPage(path) && (
+          {(isWpblWatchPage(path) || isWpblWatchVideoPage(path)) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-              <WpblWatchPage onOpenGame={openOverlayGame} />
+              <WpblWatchPage path={path} onNavigate={navigateFromStandalone} onOpenGame={openOverlayGame} />
             </Suspense>
           )}
           {isWpblComparePage(path) && (

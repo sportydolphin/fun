@@ -28,6 +28,7 @@ import {
   wpblPlayerSlug, wpblPlayerSlugFromPath, findWpblPlayerBySlug, type WpblSluggable,
   wpblGameSlug, wpblGameSlugFromPath, findWpblGameBySlug,
   wpblCompareSlugFromPath, findWpblComparePair, WPBL_COMPARE_BASE, wpblCompareCanonicalPath,
+  wpblWatchVideoIdFromPath, wpblWatchVideoPath, WPBL_WATCH_PAGE,
 } from '../../src/wpbl/routes'
 import { wpblGameCard, wpblCompareCard, type WpblCardGame, type WpblCardTeam, type WpblCompareSide } from '../../src/wpbl/ogCard'
 // The roster/schedule reads, SITE and Env live in shareEdge so this handler and the short-link
@@ -117,6 +118,26 @@ export async function onRequestGet(context: Ctx): Promise<Response> {
     const game = findWpblGameBySlug(gameSlug, schedule.games, schedule.teams)
     if (!game) return notFound(context)
     return withGameCard(context, game, schedule)
+  }
+
+  // ── Video pages ─────────────────────────────────────────────────────────────
+  //
+  // /wpbl/watch/<YouTube id>, a wildcard in public/_redirects for the usual reason: the valid ids are
+  // the table. Same soft-404 guard, and the same standing rule that an unreachable database serves
+  // the page rather than a 404 on a video that exists.
+  const watchVideoId = wpblWatchVideoIdFromPath(url.pathname)
+  if (watchVideoId === null && url.pathname.replace(/\/+$/, '').startsWith(`${WPBL_WATCH_PAGE}/`)) {
+    return notFound(context)
+  }
+  if (watchVideoId !== null) {
+    let row: WatchVideoRow | null
+    try {
+      row = await readWatchVideoEdge(watchVideoId, env)
+    } catch {
+      return next()
+    }
+    if (!row) return notFound(context)
+    return withVideoCard(context, row)
   }
 
   // ── Comparison pages ────────────────────────────────────────────────────────
@@ -231,6 +252,37 @@ export async function onRequestGet(context: Ctx): Promise<Response> {
   }
 
   return next()
+}
+
+interface WatchVideoRow { video_id: string; title: string; is_short: boolean | null }
+
+/** One video's row, or null when no video has this id. Throws when the database cannot say. */
+async function readWatchVideoEdge(videoId: string, env: Env): Promise<WatchVideoRow | null> {
+  const base = env.VITE_SUPABASE_URL || env.SUPABASE_URL
+  const key = env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY
+  if (!base || !key) throw new Error('no supabase binding')
+  const res = await fetch(`${base.replace(/\/+$/, '')}/rest/v1/wpbl_videos?select=video_id,title,is_short&video_id=eq.${encodeURIComponent(videoId)}&limit=1`, {
+    headers: { apikey: key, authorization: `Bearer ${key}`, accept: 'application/json' },
+    signal: AbortSignal.timeout(DATA_TIMEOUT_MS),
+  })
+  if (!res.ok) throw new Error(`postgrest ${res.status}`)
+  return ((await res.json()) as WatchVideoRow[])[0] ?? null
+}
+
+/** The video's own title and address. No per-video art: YouTube's poster is not the 1200x630 an
+ *  unfurler needs, so index.html's default cover stays. */
+async function withVideoCard(context: Ctx, row: WatchVideoRow): Promise<Response> {
+  const page = await context.next()
+  if (!(page.headers.get('content-type') || '').includes('text/html')) return page
+  return rewriteOgTags(page, {
+    title: `${row.title} | sportydolphin.fun`,
+    ogTitle: row.title,
+    description: `A ${row.is_short === true ? 'clip' : 'video'} from the Women's Pro Baseball League: ${row.title}`,
+    url: `${SITE}${wpblWatchVideoPath(row.video_id)}`,
+    image: null,
+    imageAlt: '',
+    ogType: 'video.other',
+  })
 }
 
 /** Fetch the page, then rewrite its Open Graph tags to describe this game. */

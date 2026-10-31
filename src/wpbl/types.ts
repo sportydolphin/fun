@@ -148,8 +148,8 @@ export interface WpblVideo {
   title: string
   published_at: string       // ISO timestamp
   thumbnail_url: string | null
-  // highlight / full_game / press / podcast come from the league channel only, condensed /
-  // compilation from the fan channel only; other from either.
+  // highlight / full_game / press / podcast come from the league channel only, condensed from the
+  // fan channel only; compilation and other from either.
   kind: 'highlight' | 'full_game' | 'press' | 'podcast' | 'condensed' | 'compilation' | 'other'
   game_id: string | null
   // A vertical YouTube Short. Null when the sync has not been able to tell (see probeIsShort),
@@ -161,6 +161,10 @@ export interface WpblVideo {
   // videoChannels.ts, never directly.
   region_allowed?: string[] | null
   region_blocked?: string[] | null
+  // From the Data API (refreshVideoDetails in scripts/sync-wpbl-youtube.mjs). Null until the sync has
+  // read it, and a surface draws nothing for a null rather than a zero.
+  duration_seconds?: number | null
+  view_count?: number | null
   away_hint?: string | null
   home_hint?: string | null
   game_date_hint?: string | null
@@ -178,6 +182,8 @@ export interface WpblVideoTag {
   play_sequence: number | null
   inning: number | null
   half: 'top' | 'bottom' | string | null
+  // The pinned play's event, copied onto the tag so a label needs no play-log read.
+  event_type?: string | null
   team_id: string | null
   player_ids: string[]
   method: 'play' | 'game' | 'player' | 'team' | 'manual'

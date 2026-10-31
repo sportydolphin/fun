@@ -560,6 +560,9 @@ async function wireContext(ctx, route) {
   }
   await ctx.route(url => !isApp(url.href), async handle => {
     const req = handle.request()
+    // The player's script and its embed: a frame the page reserves whatever loads in it, and not
+    // ours to record. Refused, the player takes its plain-embed path, and the box does not move.
+    if (/(^|\.)(youtube|youtube-nocookie)\.com$/.test(new URL(req.url()).hostname)) return handle.abort()
     if (req.resourceType() === 'image') {
       const [w, h] = fixture.images[imageKey(req.url())] ?? [1, 1]
       return handle.fulfill({ status: 200, contentType: 'image/svg+xml',
