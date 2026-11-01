@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, it, expect } from 'vitest'
 import {
   WPBL_AWARDS, AWARDS_OPEN_FALLBACK, AWARDS_CLOSE_AT, AWARDS_CLOSE_DATE, AWARDS_CLOSE_LABEL,
@@ -725,5 +726,24 @@ describe('the credit on the ballot', () => {
     // https because the sheet opens it in a new tab from a page that is itself https.
     expect(url.protocol).toBe('https:')
     expect(url.hostname).toBe('www.youtube.com')
+  })
+})
+
+describe('wpbl_award_vote_closed', () => {
+  const sql = readFileSync('scripts/migrations/20261101190000_close_finished_award_votes.sql', 'utf8')
+  const instant = (literal: string) => Date.parse(literal.replace(' ', 'T').replace(/([+-]\d\d)$/, '$1:00'))
+
+  // The database repeats these because it cannot read them. A drift either reopens a closed tally
+  // or shuts a vote the sheet still offers, and neither says so.
+  it('closes every award the UI closes, at the same moment', () => {
+    const closed = sql.match(/p_category in \(([^)]*)\)/)![1].match(/'[^']+'/g)!.map(s => s.slice(1, -1))
+    expect(closed.sort()).toEqual(WPBL_AWARDS.filter(a => a.closesAt === AWARDS_CLOSE_AT).map(a => a.id).sort())
+    expect(instant(sql.match(/timestamptz '([^']+)'\s+else false/)![1])).toBe(Date.parse(AWARDS_CLOSE_AT))
+  })
+
+  it('closes the one later award at its own moment', () => {
+    const later = WPBL_AWARDS.filter(a => a.closesAt === NEXT_SEASON_CLOSE_AT).map(a => a.id)
+    expect(later).toEqual(['franchise-2027'])
+    expect(instant(sql.match(/'franchise-2027' then now\(\) >= timestamptz '([^']+)'/)![1])).toBe(Date.parse(NEXT_SEASON_CLOSE_AT))
   })
 })

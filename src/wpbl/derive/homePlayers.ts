@@ -1,5 +1,6 @@
 import type { WpblPlayer } from '../types'
 import type { AwardResults } from '../awardVotes'
+import { WPBL_MANAGERS, type WpblManager } from '../awards'
 import { birthDateSettled, statedAge } from './discordBirthdays'
 
 // The offseason Home's player cards: one player a day, the players whose star sign's season it is
@@ -155,8 +156,57 @@ export function signSeason(players: WpblPlayer[], today: string): { sign: StarSi
  */
 export function awardWinner(results: AwardResults, awardId: string, players: WpblPlayer[]): WpblPlayer | null {
   const byId = new Map(players.map(p => [p.id, p]))
+  const key = topAwardKey(results, awardId, k => byId.has(k))
+  return key ? byId.get(key)! : null
+}
+
+/** The same for Manager of the Year, whose choices are `mgr:` keys rather than player ids. */
+export function awardManagerWinner(results: AwardResults, awardId: string): WpblManager | null {
+  const key = topAwardKey(results, awardId, k => WPBL_MANAGERS.some(m => m.key === k))
+  return key ? WPBL_MANAGERS.find(m => m.key === key)! : null
+}
+
+function topAwardKey(results: AwardResults, awardId: string, known: (key: string) => boolean): string | null {
   const [top] = Object.entries(results[awardId] ?? {})
-    .filter(([key, votes]) => votes > 0 && byId.has(key))
+    .filter(([key, votes]) => votes > 0 && known(key))
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-  return top ? byId.get(top[0])! : null
+  return top ? top[0] : null
+}
+
+/** One stat's leaders as the Stats tab's card ranks them, best first. */
+export interface HomeLeaderStat<S> {
+  stat: S
+  leaders: { player: WpblPlayer; text: string; rank: number }[]
+}
+
+/** One row of the leaders card: a leader with their stats, or the players tied for one stat. */
+export interface HomeLeaderRow<S> {
+  players: WpblPlayer[]
+  stats: { stat: S; text: string }[]
+}
+
+/** More stats than this and a row's values no longer fit beside a phone's name. */
+const STATS_PER_ROW = 2
+
+/**
+ * Up to `count` rows, walking the stats in order. A sole leader who already has a row adds the stat
+ * to it rather than drawing a second row of the same face, and a third is dropped, so the walk moves
+ * on to stats someone else leads. A tie keeps a row of its own: both names are the news there, and
+ * the tie-break would otherwise leave a co-leader off the card (Whitmore, 11 home runs, 2026).
+ */
+export function homeLeaderRows<S>(stats: HomeLeaderStat<S>[], count: number): HomeLeaderRow<S>[] {
+  const rows: HomeLeaderRow<S>[] = []
+  for (const { stat, leaders } of stats) {
+    const top = leaders.filter(l => l.rank === 1)
+    if (top.length === 0) continue
+    const own = top.length === 1
+      ? rows.find(r => r.players.length === 1 && r.players[0].id === top[0].player.id)
+      : undefined
+    if (own) {
+      if (own.stats.length < STATS_PER_ROW) own.stats.push({ stat, text: top[0].text })
+    } else if (rows.length < count) {
+      rows.push({ players: top.map(l => l.player), stats: [{ stat, text: top[0].text }] })
+    }
+  }
+  return rows
 }

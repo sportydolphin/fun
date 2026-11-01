@@ -20,6 +20,8 @@ import type { AwardBallotEntry, AwardCandidate } from '../derive/awards'
 import { awardVoteCount } from '../awardVotes'
 import type { WpblPlayer, WpblTeam } from '../types'
 import { typePx } from '../../ui/scale'
+import { sectionAnchorId } from '../../lib/sectionScroll'
+import { awardResultPart } from '../awards'
 import { NO_VOTES } from './useFanVote'
 import type { FanVoteState } from './useFanVote'
 
@@ -298,7 +300,7 @@ export function AwardResult({ entry, index, players, teams, state, onOpenPlayer,
   }, [origin, index])
 
   return (
-    <Box ref={rootRef} sx={{ position: 'relative' }}>
+    <Box ref={rootRef} id={skeleton ? undefined : sectionAnchorId(awardResultPart(award.id))} sx={{ position: 'relative' }}>
       {/* The confetti, drawn here so it flies free of the card below rather than being clipped by
           its rounded overflow. Placed on the measured winner portrait. */}
       {origin && fire && <WinnerConfetti x={origin.x} y={origin.y} r={origin.r} />}

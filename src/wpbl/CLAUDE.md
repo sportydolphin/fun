@@ -88,8 +88,8 @@ Loaded when you read anything under `src/wpbl/`. The feed and ingest traps (ids,
   merely `live` while still counting wins from finals only, and `seriesPickOpen` takes a REQUIRED
   `now` and independently refuses once `POSTSEASON_SCHEDULE`'s published first pitch has passed:
   that constant needs nothing from the feed, which is the whole point, since the outage above meant
-  there were no game rows to read at all. **The lock is UI-only.** Votes go through
-  `wpbl_cast_award_vote`, which stores a category and an answer and knows nothing about dates.
+  there were no game rows to read at all. **That lock is the series' first pitch, and it is UI-only.** Votes go through
+  `wpbl_cast_award_vote`, whose one date is when a finished category closes for good: `wpbl_award_vote_closed`.
 
 - **`live_state` is the feed's last word, not the current state, and it is wrong twice.** It is
   `box.status` mirrored verbatim, and between at-bats it holds a count that cannot exist: watched
@@ -195,5 +195,6 @@ Loaded when you read anything under `src/wpbl/`. The feed and ingest traps (ids,
   neither file (nor anything in [`fanVote/`](fanVote/)) contains `useIsAdmin` or `useHasRole` and
   that `drawable` stays exactly `fanVoteIsWorthDrawing(entries)`, because a single `&&` here would hide the ballot from every fan
   while the sitemap kept sending them to it. Votes go through `wpbl_cast_award_vote`, callable by
-  anyone; the close date is enforced in the UI only (see `AWARDS_CLOSE_AT` in
-  [`awards.ts`](awards.ts)), so the RPC itself takes a vote regardless of the clock.
+  anyone. It refuses a category past its close (`AWARDS_CLOSE_AT` in [`awards.ts`](awards.ts), repeated in
+  `wpbl_award_vote_closed`, pinned by `awards.test.ts`), because Home names the winners off the live tally.
+  **A new ballot's ids and a new pick'em year go in that function**, or nothing closes them.

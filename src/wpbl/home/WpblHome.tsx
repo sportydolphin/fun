@@ -527,8 +527,10 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           {seasonCards.length > 0 && <Box sx={{ mt: 1.5 }}>{seasonCards}</Box>}
 
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
-            <SeasonLeadersCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} />
-            <FanAwardWinnersCard players={players} onOpenPlayer={onOpenPlayer} onOpenAwards={onOpenAwards} />
+            <SeasonLeadersCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer}
+              rosterFailed={!loadingLeaders && players.length === 0} />
+            <FanAwardWinnersCard players={players} teams={teamMap} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} onOpenAwards={onOpenAwards}
+              rosterFailed={!loadingLeaders && players.length === 0} />
           </Box>
 
           {/* Fan photos: with no games left, the one block besides the player cards that changes

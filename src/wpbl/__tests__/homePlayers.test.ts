@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { WpblPlayer } from '../types'
-import { awardWinner, playerOfTheDay, sunSign, signSeason } from '../derive/homePlayers'
+import { awardManagerWinner, awardWinner, homeLeaderRows, playerOfTheDay, sunSign, signSeason } from '../derive/homePlayers'
 
 describe('awardWinner', () => {
   const roster = [playerAt('a'), playerAt('b')]
@@ -15,6 +15,37 @@ describe('awardWinner', () => {
     expect(awardWinner({ mvp: { 'name:gone': 9, a: 1 } }, 'mvp', roster)?.id).toBe('a')
     expect(awardWinner({ mvp: { a: 0 } }, 'mvp', roster)).toBeNull()
     expect(awardWinner({}, 'mvp', roster)).toBeNull()
+  })
+})
+
+describe('awardManagerWinner', () => {
+  it('names the manager from their key, and skips a key that is no manager', () => {
+    expect(awardManagerWinner({ manager: { 'mgr:matt-williams': 5, 'mgr:jemile-weeks': 3 } }, 'manager')?.name).toBe('Matt Williams')
+    expect(awardManagerWinner({ manager: { 'mgr:gone': 9 } }, 'manager')).toBeNull()
+  })
+})
+
+describe('homeLeaderRows', () => {
+  const a = { id: 'a', name: 'A' } as WpblPlayer, b = { id: 'b', name: 'B' } as WpblPlayer, c = { id: 'c', name: 'C' } as WpblPlayer
+  const solo = (stat: string, p: WpblPlayer) => ({ stat, leaders: [{ player: p, text: stat, rank: 1 }, { player: c, text: '0', rank: 2 }] })
+
+  it('merges the stats of a sole leader onto one row, up to two, and moves on to other leaders', () => {
+    const rows = homeLeaderRows([solo('war', a), solo('avg', a), solo('rbi', a), solo('era', b)], 2)
+    expect(rows.map(r => [r.players.map(p => p.id), r.stats.map(s => s.stat)])).toEqual([
+      [['a'], ['war', 'avg']],
+      [['b'], ['era']],
+    ])
+  })
+
+  it('names everyone tied for first in a row of its own, never merged', () => {
+    const tied = { stat: 'hr', leaders: [{ player: a, text: '11', rank: 1 }, { player: b, text: '11', rank: 1 }, { player: c, text: '5', rank: 3 }] }
+    const rows = homeLeaderRows([solo('avg', a), tied, solo('rbi', a)], 5)
+    expect(rows.map(r => r.players.map(p => p.id))).toEqual([['a'], ['a', 'b']])
+    expect(rows[0].stats.map(s => s.stat)).toEqual(['avg', 'rbi'])
+  })
+
+  it('stops at the row count, and skips a stat nobody leads', () => {
+    expect(homeLeaderRows([{ stat: 'sv', leaders: [] }, solo('avg', a), solo('era', b)], 1).map(r => r.stats[0].stat)).toEqual(['avg'])
   })
 })
 

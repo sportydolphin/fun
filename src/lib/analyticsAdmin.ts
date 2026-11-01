@@ -188,6 +188,7 @@ export const EVENT_INFO: Record<string, EventInfo> = {
   wpbl_compare_shown:     I('Compare card shown', 'Home'),
   wpbl_home_players_shown: I('Player card shown', 'Home'),
   wpbl_home_player_open:  A('Opened a player from a Home card', 'Home'),
+  wpbl_home_card_link:    A('Opened a link on a Home season card', 'Home'),
   discord_shown:          I('Discord invite shown', 'Home'),
   discord_joined:         A('Joined the Discord', 'Home'),
   discord_dismissed:      A('Dismissed the Discord invite', 'Home'),
