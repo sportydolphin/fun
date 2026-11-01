@@ -4,6 +4,7 @@ import { ModalShell, pressable, FOCUS_RING, TAPPABLE, TYPE_SCALE } from '../ui'
 import { type ShareCardData } from '../awardShareCard'
 import AwardsWinnersExport from '../AwardsWinnersExport'
 import { useEraBasis } from '../EraBasisContext'
+import { useSectionScroll } from '../../lib/sectionScroll'
 import { fanVoteAwards, AWARDS_CLOSE_LABEL, WPBL_AWARDS_CREDIT, awardsCreditLine } from '../awards'
 import type { AwardBallotEntry } from '../derive/awards'
 import type { WpblPlayer, WpblTeam } from '../types'
@@ -36,6 +37,8 @@ export function FanVoteSheet({ entries, players, teams, state, closed, testerPre
 }) {
   const answered = entries.filter(e => state.ballot[e.award.id]).length
   const { fmtEra } = useEraBasis()
+  // A vote share on Home opens the sheet at that award.
+  useSectionScroll()
   // Every category's winner as share-card data, for the admin-only "export all winners" poster.
   // Only built once voting is locked, since that is the only time there is a winner to draw.
   const winners = useMemo(

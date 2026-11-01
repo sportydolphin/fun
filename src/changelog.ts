@@ -23,6 +23,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.206.0',
+    date:    '2026-11-01',
+    changes: [
+      {
+        short: 'WPBL Home leaders',
+        full:  'WPBL Home: 2026 Leaders now has WAR, names both players on a tie, and puts a player who leads two stats on one row. Each figure opens its stat on the Players board.',
+      },
+      {
+        short: 'WPBL Home fan award winners',
+        full:  'WPBL Home: 2026 Fan Award Winners now has Manager of the Year and the vote share of each winner, which opens the results for that award.',
+      },
+    ],
+  },
+  {
     version: '1.205.1',
     date:    '2026-11-01',
     changes: [

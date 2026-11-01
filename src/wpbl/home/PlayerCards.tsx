@@ -1,18 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Skeleton, Typography } from '@mui/material'
 import type { WpblGame, WpblPlayer, WpblTeam, WpblBattingLine, WpblPitchingLine } from '../types'
 import { fetchWpblPlayerLines, fetchWpblPlayerSeasons } from '../api'
 import type { WpblPlayerSeasonsRead } from '../api/players'
 import { currentSeason } from '../season'
-import { useWpblPlayerLink } from '../LinkContext'
+import { useWpblPlayerLink, useWpblTeamLink } from '../LinkContext'
+import { wpblManagerPortraitSet, type WpblPortraitSet } from '../portraits'
 import { SectionCard, TeamBadge, PlayerPortrait, FittedName, TYPE_SCALE, TAPPABLE, FOCUS_RING, hoverOnly } from '../ui'
 import { sumBatting, sumPitching, plateAppearances, fmtRate, wpblQualifiers } from '../stats'
 import { viewPlayerSeasons } from '../derive/playerSeasons'
-import { hittingColumns, pitchingColumns } from '../statColumns'
+import { hittingColumns, OVR_COLS, pitchingColumns } from '../statColumns'
 import { LEADER_CARDS, leadersFor, type LeaderCol, type LeaderSeason, type LeaderSide, type LeaderTotals } from '../LeadersBoard'
 import { STATS_PATH } from '../stats/address'
-import { fetchWpblAwardResults, getCachedWpblAwardResults, type AwardResults } from '../awardVotes'
-import { AWARDS_SEASON, fanVoteAwards } from '../awards'
+import { awardVoteCount, fetchWpblAwardResults, getCachedWpblAwardResults, type AwardResults } from '../awardVotes'
+import { AWARDS_SEASON, awardResultPart, fanVoteAwards, type WpblManager } from '../awards'
 import { WPBL_AWARDS_PATH } from '../routes'
 import { useEraBasis } from '../EraBasisContext'
 import { outsToIp } from '../innings'
@@ -22,8 +23,10 @@ import { UNSTYLED_LINK, linkTo } from '../../nav'
 import { linkPress } from '../../ui/interaction'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
 import { typePx } from '../../ui/scale'
+import { nameAtStage, useLineNameFit } from '../../ui/names'
+import { requestSectionScroll } from '../../lib/sectionScroll'
 import { birthDateSettled } from '../derive/discordBirthdays'
-import { awardWinner, localIsoDate, playerOfTheDay, signSeason, signGlyph, type SignBirthday } from '../derive/homePlayers'
+import { awardManagerWinner, awardWinner, homeLeaderRows, localIsoDate, playerOfTheDay, signSeason, signGlyph, type SignBirthday } from '../derive/homePlayers'
 import { useWpblSeason } from '../SeasonContext'
 
 // The offseason Home's player cards. See derive/homePlayers.ts for why these and how each picks; this file only draws them. Every player in them is a real <a href> to the player page
@@ -43,11 +46,13 @@ const SIGN_COLUMNS = { xs: 2, sm: 3, md: 4 } as const
 const SIGN_FACE = 24
 const SIGN_GAP = 0.75
 
+type RowLink = { component: 'a'; href: string; onClick?: (e: React.MouseEvent) => void }
+
 /** The player-link props for a row, with the card's own tap recorded first. */
 function useTrackedPlayerLink(card: string, onOpenPlayer: OpenPlayer) {
   const playerLink = useWpblPlayerLink()
   return (p: WpblPlayer) => {
-    const link = playerLink(p, onOpenPlayer) as { onClick?: (e: React.MouseEvent) => void }
+    const link = playerLink(p, onOpenPlayer) as RowLink
     return {
       ...link,
       onClick: (e: React.MouseEvent) => {
@@ -82,33 +87,44 @@ function shortDate(iso: string, withYear = false): string {
 
 // ─── A player row ───────────────────────────────────────────────────────────────
 
+/** 44px tall on a phone, the tap target these rows are the whole of. */
+const ROW_PY = { xs: 0.75, md: 0.5 } as const
+
+const ROW_LINK_SX = {
+  ...UNSTYLED_LINK, display: 'flex', alignItems: 'center', minWidth: 0,
+  borderRadius: 1.5, px: 0.75, ml: -0.75, py: ROW_PY, ...TAPPABLE, ...FOCUS_RING,
+} as const
+
 /** Portrait, name and one quiet line under it, with an optional right-hand end. The row height
  *  is fixed by its two lines of type, which is what the skeleton reserves. */
-function PlayerRow({ player, meta, end, link, size = 32, gap = 1 }: {
-  player: WpblPlayer; meta: React.ReactNode; end?: React.ReactNode
-  link: ReturnType<ReturnType<typeof useTrackedPlayerLink>>; size?: number
+function PersonRow({ name, teamId, src, meta, aside, link, size = 32, gap = 1 }: {
+  name: string; teamId: string | null; src?: WpblPortraitSet | null; meta: React.ReactNode
+  /** Beside the link rather than inside it, since it holds links of its own. */
+  aside?: React.ReactNode
+  link: RowLink; size?: number
   /** Between the face and the name. The two-across star sign grid passes less. */
   gap?: number
 }) {
-  return (
-    <Box {...link} sx={{
-      ...UNSTYLED_LINK, display: 'flex', alignItems: 'center', gap, minWidth: 0,
-      borderRadius: 1.5, px: 0.75, mx: -0.75, py: 0.5, ...TAPPABLE, ...FOCUS_RING,
-    }}>
-      <PlayerPortrait name={player.name} teamId={player.team_id} size={size} />
+  const row = (
+    <Box {...link} sx={{ ...ROW_LINK_SX, gap, flex: 1, ...(aside ? null : { mr: -0.75 }) }}>
+      <PlayerPortrait name={name} teamId={teamId} size={size} src={src} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <FittedName name={player.name} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.3 }} />
+        <FittedName name={name} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.3 }} />
         <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>{meta}</Typography>
       </Box>
-      {end && <Box sx={{ flexShrink: 0, textAlign: 'right' }}>{end}</Box>}
     </Box>
   )
+  return aside ? <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>{row}{aside}</Box> : row
+}
+
+function PlayerRow({ player, ...row }: Omit<React.ComponentProps<typeof PersonRow>, 'name' | 'teamId' | 'src'> & { player: WpblPlayer }) {
+  return <PersonRow name={player.name} teamId={player.team_id} {...row} />
 }
 
 /** A row that is not here yet, the same two lines tall. */
 function RowSkeleton({ size = 32, gap = 1 }: { size?: number; gap?: number }) {
   return (
-    <Box aria-hidden sx={{ display: 'flex', alignItems: 'center', gap, py: 0.5 }}>
+    <Box aria-hidden sx={{ display: 'flex', alignItems: 'center', gap, py: ROW_PY }}>
       <Skeleton variant="circular" sx={{ flexShrink: 0, width: `calc(${size}px * var(--app-chrome, 1))`, height: `calc(${size}px * var(--app-chrome, 1))` }} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Skeleton variant="text" width="60%" sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1.3 }} />
@@ -338,22 +354,35 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer }: {
 
 // ─── The season's leaders and award winners ─────────────────────────────────────
 
-/** Both cards' rows, fixed so neither moves when its read lands. */
-const SEASON_ROWS = 4
+/** Both cards' rows, fixed so neither moves when its read lands. Five because the ballot has five
+ *  awards, and the leaders match so the two stay one height side by side. */
+const SEASON_ROWS = 5
 
-/** The Stats tab's own cards, one stat each: rates gated and figures printed as that board does. */
+/** The Stats tab's own cards: rates gated and figures printed as that board does. More than the rows
+ *  on purpose, in reading order: one player can lead most of these in a short season, and those past
+ *  the fifth row are how the card still names five (homeLeaderRows). */
 const LEADER_STATS: { side: LeaderSide; key: string }[] = [
-  { side: 'hitting', key: 'avg' }, { side: 'hitting', key: 'hr' },
+  { side: 'overall', key: 'war' }, { side: 'hitting', key: 'avg' }, { side: 'hitting', key: 'hr' },
   { side: 'pitching', key: 'era' }, { side: 'pitching', key: 'so' },
+  { side: 'hitting', key: 'sb' }, { side: 'pitching', key: 'ip' }, { side: 'hitting', key: 'rbi' },
+  { side: 'hitting', key: 'r' }, { side: 'pitching', key: 'w' },
 ]
 
-/** The ballot's player awards, the ones a tally can name without building its shortlists. */
-const WINNER_AWARDS = ['mvp', 'pitcher', 'glove', 'aura']
+/** The Stats tab's Players board sorted by a stat, the address its own leader cards "See all" to. */
+const statBoardPath = (side: LeaderSide, key: string): string =>
+  `${STATS_PATH}?board=players${side === 'hitting' ? '' : `&side=${side}`}&sort=${key}`
+
+const trackCardLink = (card: string, target: string) => track(EVENTS.WPBL_HOME_CARD_LINK, { card, target })
+
+/** Reaches past the 17px of type to the height of a tap target, without moving the header. */
+const TAP_AREA_SX = {
+  position: 'relative', '&::after': { content: '""', position: 'absolute', inset: '-14px 0' },
+} as const
 
 function CardLink({ link, label }: { link: { component: 'a'; href: string; onClick: (e: React.MouseEvent) => void }; label: string }) {
   return (
     <Box {...link} sx={{
-      ...UNSTYLED_LINK, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+      ...UNSTYLED_LINK, ...TAP_AREA_SX, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
       ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
     }}>
       {label}
@@ -361,16 +390,92 @@ function CardLink({ link, label }: { link: { component: 'a'; href: string; onCli
   )
 }
 
-const ROW_VALUE_SX = { fontSize: TYPE_SCALE.body, fontWeight: 800, fontVariantNumeric: 'tabular-nums' } as const
+/** The figure at a row's end, a link of its own beside the row's link to the person. */
+function RowValue({ link, label, children }: {
+  link: { component: 'a'; href: string; onClick: (e: React.MouseEvent) => void }; label: string; children: React.ReactNode
+}) {
+  return (
+    <Box {...link} aria-label={label} sx={{
+      ...UNSTYLED_LINK, ...TAP_AREA_SX, fontSize: TYPE_SCALE.body, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+      lineHeight: 1.3, borderRadius: 1, ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
+    }}>
+      {children}
+    </Box>
+  )
+}
+
+const ROW_ASIDE_SX = { flexShrink: 0, display: 'flex', alignItems: 'center', columnGap: 0.75, ml: 0.75 } as const
+
+/** Both cards' answer to a read that failed: the rows' own height held, so nothing under it moves. */
+function NoDataRows() {
+  return (
+    <Box sx={{ position: 'relative' }}>
+      <Typography sx={{ position: 'absolute', fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>No data</Typography>
+      <Box aria-hidden sx={{ visibility: 'hidden' }}>
+        {Array.from({ length: SEASON_ROWS }, (_, i) => <RowSkeleton key={i} />)}
+      </Box>
+    </Box>
+  )
+}
+
+/** Overlap between the tied faces, enough to read as one row without hiding the second face. */
+const TIED_FACE_OVERLAP = -1.25
 
 /**
- * One leader per headline stat, off the stored season rows: the one small read that can rank the
- * league, so the offseason Home still never touches the box-score lines. Rows that have gone stale
- * read "No data" rather than bringing those lines back; a correction leaves them stale only until
- * the job's next run, and the Stats tab one tap away has its own fallback.
+ * The players tied for a stat, two named and any others counted: "D. Benites, K. Whitmore". Each is
+ * its own link, so the row is not one tap target as the others are. Names fit as a line together
+ * (useLineNameFit), since a tie has no name that owns a width of its own.
  */
-export function SeasonLeadersCard({ players, teams, games, onOpenPlayer }: {
+function TiedRow({ players, link, meta, aside }: {
+  players: WpblPlayer[]; link: ReturnType<typeof useTrackedPlayerLink>; meta: string; aside: React.ReactNode
+}) {
+  const named = players.slice(0, 2)
+  const others = players.length - named.length
+  const { ref, stage } = useLineNameFit<HTMLDivElement>(named.map(p => p.name))
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, minWidth: 0, py: ROW_PY }}>
+        <Box sx={{ display: 'flex', flexShrink: 0 }}>
+          {named.map((p, i) => (
+            // The name beside it is the same link for a keyboard or a screen reader.
+            <Box key={p.id} {...link(p)} aria-hidden tabIndex={-1}
+              sx={{ ...UNSTYLED_LINK, display: 'flex', borderRadius: '50%', ml: i ? TIED_FACE_OVERLAP : 0, ...hoverOnly({ zIndex: 1 }) }}>
+              <PlayerPortrait name={p.name} teamId={p.team_id} size={32} />
+            </Box>
+          ))}
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box ref={ref} sx={{
+            fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {named.map((p, i) => (
+              <Fragment key={p.id}>
+                {i > 0 && ', '}
+                <Box component="a" {...link(p)} sx={{ ...UNSTYLED_LINK, ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING }}>
+                  {nameAtStage(p.name, stage)}
+                </Box>
+              </Fragment>
+            ))}
+            {others > 0 && ` +${others}`}
+          </Box>
+          <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>{meta}</Typography>
+        </Box>
+      </Box>
+      {aside}
+    </Box>
+  )
+}
+
+/**
+ * The season's leaders in the headline stats, off the stored season rows: the one small read that
+ * can rank the league, so the offseason Home still never touches the box-score lines. Rows that have
+ * gone stale read "No data" rather than bringing those lines back; a correction leaves them stale
+ * only until the job's next run, and the Stats tab one tap away has its own fallback.
+ */
+export function SeasonLeadersCard({ players, teams, games, onOpenPlayer, rosterFailed }: {
   players: WpblPlayer[]; teams: Map<string, WpblTeam>; games: WpblGame[]; onOpenPlayer: OpenPlayer
+  /** The roster's read has answered with nothing: there is nobody to name, and never will be. */
+  rosterFailed?: boolean
 }) {
   const { basis: eraBasis, fmtEra } = useEraBasis()
   const { season, seasonGames } = useWpblSeason(games, { current: true })
@@ -392,46 +497,63 @@ export function SeasonLeadersCard({ players, teams, games, onOpenPlayer }: {
     const qual = wpblQualifiers([...teams.values()], seasonGames)
     const batting = view.batting('regular'), pitching = view.pitching('regular')
     const hit = hittingColumns(ctx), pit = pitchingColumns(ctx)
-    const leader = <T extends LeaderTotals>(seasons: LeaderSeason<T>[], cols: LeaderCol<T>[], side: LeaderSide, key: string) => {
+    const leaders = <T extends LeaderTotals>(seasons: LeaderSeason<T>[], cols: LeaderCol<T>[], side: LeaderSide, key: string) => {
       const col = cols.find(c => c.key === key)
-      return col ? leadersFor(seasons, col, side, qual)[0] : undefined
+      return col ? leadersFor(seasons, col, side, qual) : []
     }
-    return LEADER_STATS.flatMap(({ side, key }) => {
-      const title = LEADER_CARDS[side].find(c => c.key === key)?.title ?? key
-      const top = side === 'hitting' ? leader(batting, hit, side, key) : leader(pitching, pit, side, key)
-      return top ? [{ key, title, ...top }] : []
-    })
+    return homeLeaderRows(LEADER_STATS.map(({ side, key }) => ({
+      stat: { side, key, title: LEADER_CARDS[side].find(c => c.key === key)?.title ?? key },
+      leaders: side === 'overall' ? leaders(view.value, OVR_COLS, side, key)
+        : side === 'hitting' ? leaders(batting, hit, side, key) : leaders(pitching, pit, side, key),
+    })), SEASON_ROWS)
   }, [read, players, teams, seasonGames, fmtEra, eraBasis])
   useShown('leaders', !!rows?.length)
 
-  const failed = read != null && !read.current
+  const failed = (read != null && !read.current) || rows?.length === 0 || (!!rosterFailed && !rows)
   return (
     // The year before the schedule lands too: a title needs no data, and the only season this card
     // can be drawn for until 2027 is the ballot's.
-    <SectionCard title={`${season ?? AWARDS_SEASON} Leaders`} fill action={<CardLink link={linkTo(STATS_PATH)} label="All leaders ›" />}>
+    <SectionCard title={`${season ?? AWARDS_SEASON} Leaders`} fill action={
+      <CardLink link={linkTo(STATS_PATH, () => trackCardLink('leaders', 'all'))} label="All leaders ›" />
+    }>
       {failed
-        ? <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>No data</Typography>
+        ? <NoDataRows />
         : Array.from({ length: SEASON_ROWS }, (_, i) => {
             const r = rows?.[i]
             if (!rows) return <RowSkeleton key={i} />
             if (!r) return <Box key={i} aria-hidden sx={{ visibility: 'hidden' }}><RowSkeleton /></Box>
-            return (
-              <PlayerRow key={r.key} player={r.player} link={link(r.player)}
-                meta={r.tied ? `${r.title} · Tied` : r.title}
-                end={<Typography sx={ROW_VALUE_SX}>{r.text}</Typography>} />
+            const key = r.stats[0].stat.key
+            const titles = r.stats.map(s => s.stat.title).join(' · ')
+            const aside = (
+              <Box sx={ROW_ASIDE_SX}>
+                {r.stats.map(({ stat, text }) => (
+                  <RowValue key={stat.key} label={`${stat.title} ${text}`}
+                    link={linkTo(statBoardPath(stat.side, stat.key), () => trackCardLink('leaders', stat.key))}>
+                    {text}
+                  </RowValue>
+                ))}
+              </Box>
             )
+            return r.players.length > 1
+              ? <TiedRow key={key} players={r.players} link={link} meta={`${titles} · Tied`} aside={aside} />
+              : <PlayerRow key={key} player={r.players[0]} link={link(r.players[0])} meta={titles} aside={aside} />
           })}
     </SectionCard>
   )
 }
 
-/** The closed ballot's player awards, each a link to its winner, read off the tally alone. */
-export function FanAwardWinnersCard({ players, onOpenPlayer, onOpenAwards }: {
-  players: WpblPlayer[]; onOpenPlayer: OpenPlayer
+type WinnerRow = { id: string; title: string; pct: number } & ({ player: WpblPlayer; manager?: undefined } | { manager: WpblManager; player?: undefined })
+
+/** The closed ballot's awards, each a link to its winner and a vote share, read off the tally alone. */
+export function FanAwardWinnersCard({ players, teams, onOpenPlayer, onOpenTeam, onOpenAwards, rosterFailed }: {
+  players: WpblPlayer[]; teams: Map<string, WpblTeam>; onOpenPlayer: OpenPlayer; onOpenTeam: (t: WpblTeam) => void
   /** Through WpblApp, which owns the results sheet: going to the address alone opens nothing. */
   onOpenAwards?: () => void
+  /** The roster's read has answered with nothing: there is nobody to name, and never will be. */
+  rosterFailed?: boolean
 }) {
   const link = useTrackedPlayerLink('winners', onOpenPlayer)
+  const teamLink = useWpblTeamLink()
   const [results, setResults] = useState<AwardResults | null>(() => getCachedWpblAwardResults())
   const ready = players.length > 0
   useEffect(() => {
@@ -443,21 +565,48 @@ export function FanAwardWinnersCard({ players, onOpenPlayer, onOpenAwards }: {
 
   const rows = useMemo(() => {
     if (!results || !ready) return null
-    const titles = new Map(fanVoteAwards().map(a => [a.id, a.title]))
-    return WINNER_AWARDS.flatMap(id => {
+    const share = (id: string, key: string) => {
+      const total = awardVoteCount(results, id)
+      return total > 0 ? Math.round(((results[id]?.[key] ?? 0) / total) * 100) : 0
+    }
+    return fanVoteAwards().flatMap(({ id, title, pick }): WinnerRow[] => {
+      if (pick === 'manager') {
+        const manager = awardManagerWinner(results, id)
+        return manager ? [{ id, title, manager, pct: share(id, manager.key) }] : []
+      }
       const player = awardWinner(results, id, players)
-      return player && titles.has(id) ? [{ id, title: titles.get(id)!, player }] : []
+      return player ? [{ id, title, player, pct: share(id, player.id) }] : []
     })
   }, [results, ready, players])
   useShown('winners', !!rows?.length)
 
+  const openAt = (id: string) => () => {
+    trackCardLink('winners', id)
+    requestSectionScroll(awardResultPart(id))
+    onOpenAwards?.()
+  }
+  const failed = rows?.length === 0 || (!!rosterFailed && !rows)
   return (
-    <SectionCard title={`${AWARDS_SEASON} Fan Award Winners`} fill action={<CardLink link={linkPress(WPBL_AWARDS_PATH, onOpenAwards)} label="All results ›" />}>
-      {Array.from({ length: SEASON_ROWS }, (_, i) => {
+    <SectionCard title={`${AWARDS_SEASON} Fan Award Winners`} fill action={
+      <CardLink link={linkPress(WPBL_AWARDS_PATH, () => { trackCardLink('winners', 'all'); onOpenAwards?.() })} label="All results ›" />
+    }>
+      {failed ? <NoDataRows /> : Array.from({ length: SEASON_ROWS }, (_, i) => {
         const r = rows?.[i]
         if (!rows) return <RowSkeleton key={i} />
         if (!r) return <Box key={i} aria-hidden sx={{ visibility: 'hidden' }}><RowSkeleton /></Box>
-        return <PlayerRow key={r.id} player={r.player} link={link(r.player)} meta={r.title} />
+        const aside = (
+          <Box sx={ROW_ASIDE_SX}>
+            <RowValue label={`${r.title} results, ${r.pct}%`} link={linkPress(WPBL_AWARDS_PATH, openAt(r.id))}>{r.pct}%</RowValue>
+          </Box>
+        )
+        if (r.player) return <PlayerRow key={r.id} player={r.player} link={link(r.player)} meta={r.title} aside={aside} />
+        // No player page for a manager: the club's is the page the award is about, as on the sheet.
+        const team = teams.get(r.manager.teamId)
+        const managerLink = team ? teamLink(team, () => onOpenTeam(team)) : linkPress(WPBL_AWARDS_PATH, openAt(r.id))
+        return (
+          <PersonRow key={r.id} name={r.manager.name} teamId={r.manager.teamId} src={wpblManagerPortraitSet(r.manager.key)}
+            link={managerLink as RowLink} meta={r.title} aside={aside} />
+        )
       })}
     </SectionCard>
   )

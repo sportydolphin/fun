@@ -405,6 +405,9 @@ export const fanVoteAwards = (): WpblAward[] =>
 
 export const awardById = (id: string): WpblAward | undefined => WPBL_AWARDS.find(a => a.id === id)
 
+/** The part of the results sheet that holds one award's result (lib/sectionScroll.ts). */
+export const awardResultPart = (id: string): string => `award-${id}`
+
 // ── How a vote is keyed ──────────────────────────────────────────────────────────
 
 /** The ballot key for a play, everywhere. Never the play's uuid: `wpbl_game_plays` is a

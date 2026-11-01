@@ -229,7 +229,7 @@ function OffseasonHomeSkeleton() {
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
         <SeasonLeadersCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
-        <FanAwardWinnersCard players={[]} onOpenPlayer={NO_OPEN} />
+        <FanAwardWinnersCard players={[]} teams={EMPTY_TEAMS} onOpenPlayer={NO_OPEN} onOpenTeam={NO_OPEN} />
       </Box>
 
       <FanPhotoHomeCardSkeleton />

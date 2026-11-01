@@ -200,6 +200,9 @@ export const EVENTS = {
   // is a tap on any player in them, props {card, playerId}.
   WPBL_HOME_PLAYERS_SHOWN: 'wpbl_home_players_shown',
   WPBL_HOME_PLAYER_OPEN:   'wpbl_home_player_open',
+  // A way out of the leaders and winners cards other than a player: the card's link, a stat's value
+  // or a vote share. Props {card, target}, target being 'all' or the stat's or award's id.
+  WPBL_HOME_CARD_LINK:     'wpbl_home_card_link',
   // The .ics calendar reminder on Next game. This is the ONLY reminder path most mobile readers
   // have (Web Push is unsupported on most mobile browsers, which is when this row is shown at
   // all), so without it the reminder feature's real usage is invisible: wpbl_game_reminder_on
