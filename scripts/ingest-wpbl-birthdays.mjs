@@ -344,7 +344,7 @@ async function main() {
     record => normName(record.name),
   )
 
-  const db = new pg.Client({ connectionString: DB_URL })
+  const db = new pg.Client({ connectionString: DB_URL, ssl: { rejectUnauthorized: false } })
   await db.connect()
   try {
     const { rows: players } = await db.query(

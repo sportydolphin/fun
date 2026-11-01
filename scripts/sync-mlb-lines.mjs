@@ -231,7 +231,7 @@ async function main() {
   const finals = finalsFromSchedule(schedule, season)
   console.log(`${season}: ${finals.length} finals on the schedule`)
 
-  const client = dryRun ? null : new pg.Client({ connectionString: process.env.SUPABASE_DB_URL })
+  const client = dryRun ? null : new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } })
   await client?.connect()
   const stored = new Set()
   if (client) {

@@ -224,8 +224,8 @@ October is over; it is the first real measurement of which Home cards are used.
 - **The plays mirror (second pass, item 6, step 4) is unblocked, with a budget.** Ops item 4
   shipped Oct 11 and took the database to 305 MB, but the 2000 to 2025 backfill means the MLB line
   tables are now most of it (about 137 MB of the two). Plays and pitches are roughly 1M rows a
-  season, so mirror 2026 alone first and measure it before any backfill. If the plan is the free
-  tier's 500 MB, that measurement decides how many seasons of plays fit.
+  season, so mirror 2026 alone first and measure it before any backfill. The disk is 8 GB under the
+  spend cap (Pro plan, checked Nov 1, 2026); that measurement decides how many seasons of plays fit.
 
 **Tests**: 19 files and about 180 cases under `src/mlb/__tests__/` (Oct 9), against 130 files in WPBL. Each item
 above should leave a test behind, as items 0, 4 and 5b did.

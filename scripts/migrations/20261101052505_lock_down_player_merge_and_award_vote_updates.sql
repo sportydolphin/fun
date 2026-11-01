@@ -1,0 +1,3 @@
+-- Empty, and recorded as applied on Nov 1, 2026. `npm run migrate -- --help` fell through to `up`
+-- and ran this scaffold before it had any SQL in it. The file stays because schema_migrations names
+-- it; the real change is 20261101053000_lock_down_player_merge_and_award_vote_updates.sql.

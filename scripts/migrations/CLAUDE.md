@@ -15,7 +15,7 @@ Loaded when you read a migration. Schema changes go through `npm run migrate` (s
   upserted into by the browser**: give it a writer function instead.
 
 - **Three write paths to the DB, and only three.** The browser writes user rows through RLS
-  (events, feedback, picks, fan-award votes); everything ingested or derived is written by service-role
+  (events, feedback, picks; fan-award votes through their writer function); everything ingested or derived is written by service-role
   actors, the `wpbl-ingest` edge function and the GitHub Actions `scripts/*.mjs` jobs. The
   browser only reads those. The third is the **Discord bot**
   ([`functions/discord/wpbl.ts`](../../functions/discord/wpbl.ts)), which holds a service-role key
@@ -24,3 +24,11 @@ Loaded when you read a migration. Schema changes go through `npm run migrate` (s
   under it could be forged for any Discord user by anyone who opened dev tools. That is the
   whole of the exception. Do not add a fourth, and do not let the bot's key reach anything
   outside `wpbl_predict_*`.
+
+- **A new function in `public` is callable by anyone, and `security definer` makes that dangerous.**
+  Supabase's default privileges grant EXECUTE to `anon` on every function created, so a definer function
+  with no check on the caller is an open door to everything its owner can write. `wpbl_merge_players` sat
+  like this from Aug 22 to Nov 1, 2026, where any visitor could have merged players. Every new definer
+  function either opens with `is_site_owner()` or ends in
+  `revoke all on function ... from public, anon, authenticated`, unless the public is meant to call it.
+  A `drop function` and re-create gets the default grants back; `create or replace` keeps the old ones.

@@ -62,7 +62,7 @@ measurement attached, and "stop here" is always an acceptable answer.
 
 Three constraints shape every phase:
 
-- **Storage.** The database is about 305 MB against what is probably a 500 MB ceiling (the
+- **Storage.** The database was about 305 MB in October, against the Pro plan's 8 GB disk (the
   Oct 10 audit in ROADMAP-WPBL). Nothing in this plan writes to Supabase until a phase proves it
   must (see [Storage](#storage)).
 - **Effort.** Every competition added is a source that can break. Depth on the players we already

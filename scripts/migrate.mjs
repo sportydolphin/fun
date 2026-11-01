@@ -191,8 +191,10 @@ async function cmdNew(rawName) {
     `-- ${rawName}\n` +
       `-- Created ${new Date().toISOString().slice(0, 10)}. Applied by scripts/migrate.mjs.\n` +
       `-- Prefer idempotent DDL (create table if not exists / add column if not exists).\n` +
-      `-- For CREATE INDEX CONCURRENTLY, uncomment the next line so it runs outside a txn:\n` +
-      `-- migrate:no-transaction\n\n`,
+      // Written as a commented-out directive: the bare line IS the directive, so a scaffold used to
+      // run every migration outside a transaction unless someone thought to delete it.
+      `-- For CREATE INDEX CONCURRENTLY, remove the "-- " before the next line so it runs outside a txn:\n` +
+      `-- -- migrate:no-transaction\n\n`,
     'utf8',
   );
   console.log(`\nCreated scripts/migrations/${file}\n`);
@@ -202,6 +204,11 @@ async function cmdNew(rawName) {
 const args = process.argv.slice(2);
 const cmd = args[0] && !args[0].startsWith('-') ? args[0] : 'up';
 const dryRun = args.includes('--dry-run');
+
+// Any flag used to fall through to `up`, so `npm run migrate -- --help` applied whatever was pending
+// to production (it did, twice, on Nov 1, 2026). Only a flag this file knows may reach a command.
+const unknownFlag = cmd !== 'new' && args.find((a) => a.startsWith('-') && a !== '--dry-run');
+if (unknownFlag) fail(`Unknown flag "${unknownFlag}". Use: up [--dry-run] | status | new "<name>"`);
 
 try {
   if (cmd === 'status') await cmdStatus();

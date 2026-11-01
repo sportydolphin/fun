@@ -273,7 +273,7 @@ async function main() {
   const parsed = files.flatMap(parseEventFile).map(toDetails)
   console.log(`RetroWPBL: ${parsed.length} transcribed games${commit ? ` @ ${commit}` : ''}`)
 
-  const db = new pg.Client({ connectionString: DB_URL })
+  const db = new pg.Client({ connectionString: DB_URL, ssl: { rejectUnauthorized: false } })
   await db.connect()
   try {
     const { rows: schedule } = await db.query(
