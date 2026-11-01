@@ -34,6 +34,16 @@ describe('ingestStatus', () => {
     expect(ingestStatus(ingest({ ran_at: minsAgo(7) }))).toEqual({ tone: 'warn', label: 'Stale' })
   })
 
+  it('away from a game it allows the six-hour cadence, and goes stale past that', () => {
+    expect(ingestStatus(ingest({ ran_at: hoursAgo(5.9) }), false)).toEqual({ tone: 'ok', label: 'Fresh' })
+    expect(ingestStatus(ingest({ ran_at: hoursAgo(8) }), false)).toEqual({ tone: 'warn', label: 'Stale' })
+  })
+
+  it('stays strict when the schedule could not be read', () => {
+    expect(ingestStatus(ingest({ ran_at: hoursAgo(2) }), undefined)).toEqual({ tone: 'warn', label: 'Stale' })
+    expect(ingestStatus(ingest({ ran_at: hoursAgo(2) }), true)).toEqual({ tone: 'warn', label: 'Stale' })
+  })
+
   it('reports per-game errors even on a run that succeeded overall', () => {
     expect(ingestStatus(ingest({ error_count: 2 }))).toEqual({ tone: 'warn', label: 'Errors' })
   })

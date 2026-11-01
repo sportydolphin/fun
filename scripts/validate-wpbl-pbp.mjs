@@ -71,13 +71,16 @@ const GAME_DATE = gameArgIx > -1 ? process.argv[gameArgIx + 1] : null
 
 // Events that are a plate appearance. Mirrors classifyPa() in src/wpbl/derive/matchups.ts;
 // keep the two in step. `unknown` is 21% of all rows and is almost entirely pickoff attempts
-// and substitutions, but a few are real PAs phrased as "reached on an error", so those count.
+// and substitutions, but a few are real PAs ("reached on an error", "infield fly"), so those
+// count. An `out` with no pitch count is a runner picked off or thrown out under the batter's
+// name, not a PA. Those two gaps were 21 of the 27 "new" findings on Nov 1, 2026.
 const PA_EVENTS = [
   'single', 'double', 'triple', 'home_run',
   'groundout', 'flyout', 'popup', 'lineout', 'foul_out', 'out', 'strikeout', 'fielders_choice',
   'walk', 'hit_by_pitch', 'sacrifice',
 ]
-const PA_FILTER = `(p.event_type = any($$PA$$) or (p.event_type = 'unknown' and p.narrative ~* 'reached'))`
+const PA_FILTER = `((p.event_type = any($$PA$$) or (p.event_type = 'unknown' and p.narrative ~* 'reached|infield fly'))
+  and not (p.event_type = 'out' and coalesce(p.narrative, '') <> '' and p.narrative !~ '\\(\\d-\\d'))`
 
 const sql = {
   // ─── 1. A batter the box score says played, with no plays at all ──────────────

@@ -83,6 +83,22 @@ Three of these were wrong when first written, and the reasons are worth keeping:
 `battingOrder` deliberately excludes two benign cases: the same slot twice in a row, which is a
 substitution taking over mid-slot, and slot 10, where the feed parks pitchers who never bat.
 
+**What counts as a plate appearance was wrong for ten weeks (fixed Nov 1, 2026), and nobody read
+the 27 "new" findings it produced.** The feed files an infield fly as `unknown`, so 10 real at-bats
+were not counted; and it files a runner picked off or thrown out as `out` under the batter's name,
+so 7 non-at-bats were. A real `out` carries a pitch count in its narrative and a runner's never
+does. Together they were 21 of the 27. `classifyPa` had the same two gaps, so the batter vs pitcher
+lines did too.
+
+The other 6 are real, are accepted in the baseline, and are two games. Neither changes a score:
+
+- **Aug 27:** Mo'ne Davis replaces Ayami Sato in center in the 4th. The box score gives Davis the
+  next two plate appearances (2 AB, 1 H) and the play log names Sato on both.
+- **Sep 3, NY:** the top of the 7th runs Willan (slot 8), Murphy (4), Yonetani (1), with Lahners a
+  trip long and Narasaki a trip short against the box score.
+
+Both are candidates for a video pass and a correction (§6). Neither has been watched.
+
 ---
 
 ## 4. The runs semantics, which have caught every reader so far
@@ -131,7 +147,7 @@ it hands somebody else's milestone to them permanently.
 
 ## 5. The baseline and the nightly job
 
-Run unattended, the validator reports 57 things and would report 57 things tomorrow. A job
+Run unattended, the validator reported 57 things at launch and would have reported 57 things the next day. A job
 wired to "fail when anything is flagged" therefore fails every night and is ignored inside a
 week.
 

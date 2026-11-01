@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.205.1',
+    date:    '2026-11-01',
+    changes: [
+      {
+        short: 'WPBL batter vs pitcher lines',
+        full:  'WPBL batter vs pitcher lines now count infield flies as at-bats and no longer charge a batter for a runner picked off during the plate appearance.',
+      },
+    ],
+  },
+  {
     version: '1.205.0',
     date:    '2026-10-31',
     changes: [

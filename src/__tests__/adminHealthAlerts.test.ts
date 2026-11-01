@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { healthAlerts, INGEST_STALE_MS, INGEST_STALE_OFFSEASON_MS, VALIDATION_STALE_MS, HEARTBEAT_CHECKS, WORKFLOW_JOB_PREFIX, WORKFLOW_FAILURE_WINDOW_MS, centralStartMs } from '../../shared/adminHealth.js'
+import { healthAlerts, nearGameWindow, INGEST_STALE_MS, INGEST_STALE_OFFSEASON_MS, VALIDATION_STALE_MS, HEARTBEAT_CHECKS, WORKFLOW_JOB_PREFIX, WORKFLOW_FAILURE_WINDOW_MS, centralStartMs } from '../../shared/adminHealth.js'
 
 // The thresholds ARE the feature: a job that quietly broke while still looking fine is the
 // whole failure mode, and paging on an expected state (a "behind" TrackMan feed, a nightly
@@ -72,6 +72,13 @@ describe('healthAlerts: ingest', () => {
     const a = healthAlerts({ ingest: freshIngest({ ok: false, ran_at: ago(60_000) }) }, NOW)[0]
     const b = healthAlerts({ ingest: freshIngest({ ok: false, ran_at: ago(30_000) }) }, NOW)[0]
     expect(a.signature).toBe(b.signature)
+  })
+})
+
+describe('nearGameWindow', () => {
+  it('spans two Central days back to three ahead, whatever the UTC date says', () => {
+    // 03:00 UTC on Nov 1 is still Oct 31 in Chicago.
+    expect(nearGameWindow(Date.UTC(2026, 10, 1, 3))).toEqual({ from: '2026-10-29', to: '2026-11-03' })
   })
 })
 
