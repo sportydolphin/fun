@@ -205,8 +205,8 @@ item 2 describes, which is why that item comes first.
    into `events_daily` first (the first delete is due Nov 3), and pg_cron forgets runs older than a
    week, which took `cron.job_run_details` from 112k rows to 15k and, after one VACUUM FULL by hand,
    from 49 MB to 4.5 MB (the database to 305 MB). Both on pg_cron, in
-   `20261011034522_events_rollup_and_retention.sql`. The plan's limit is not readable from the CLI;
-   if it is the free tier's 500 MB, the MLB line tables are now the thing to watch before the plays
+   `20261011034522_events_rollup_and_retention.sql`. The limit is the Pro plan's 8 GB disk under the
+   spend cap (checked Nov 1, 2026), with the MLB line tables still the biggest thing on it before the plays
    mirror, not analytics. `events_test` (9 MB) is the test-run quarantine and stays.
 5. ✅ **Actions off Node 20** (Oct 11). `checkout`, `setup-node` and `upload-artifact` moved from
    v4 to v7, their Node 24 majors, in all 38 workflows. `daily-bots.yml` also ran its own scripts on
@@ -274,7 +274,7 @@ and the reasoning; where the two disagree, `/admin` is the order.
   cache), which also becomes the open-data download. A `size-limit` bundle budget in CI. `knip`
   for dead exports and files.
 - *P3.* Prefetch on link hover or visibility. Archive old MLB line tables to R2 or Parquet before
-  the 500 MB ceiling. Replace `html2canvas` (unmaintained) with `modern-screenshot` or
+  the 8 GB disk fills. Replace `html2canvas` (unmaintained) with `modern-screenshot` or
   `html-to-image`. `@tanstack/react-virtual` for the stats table and Watch once two seasons double
   the rows. `fast-check` property tests for `derive/` (WAR sums, `runsOnPlay`, base-state
   transitions). A DuckDB-WASM SQL sandbox on the open-data page, over the frozen season files.

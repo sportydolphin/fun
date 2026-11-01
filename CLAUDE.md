@@ -123,6 +123,7 @@ first when you are working on what the line describes, even from somewhere else 
 [`scripts/migrations/CLAUDE.md`](scripts/migrations/CLAUDE.md), the database:
 - A browser `.upsert()` needs a SELECT policy; a table the browser must not read gets a writer function.
 - Three write paths to the database, and only three.
+- A new function in `public` is callable by `anon` by default: a `security definer` one checks the caller or revokes.
 
 [`functions/CLAUDE.md`](functions/CLAUDE.md), deploy and routing (covers `public/` too):
 - Signed-out Supabase reads come from Cloudflare's cache; only tables every reader sees alike go on that list.
