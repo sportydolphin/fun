@@ -62,6 +62,7 @@ export function gameAlerts(games: GameStateRow[] | null | undefined, nowMs: numb
 
 export const INGEST_STALE_MS: number
 export const INGEST_STALE_OFFSEASON_MS: number
+export function nearGameWindow(nowMs: number): { from: string; to: string }
 export const VALIDATION_STALE_MS: number
 export const HEARTBEAT_CHECKS: HeartbeatCheck[]
 export const WORKFLOW_JOB_PREFIX: string

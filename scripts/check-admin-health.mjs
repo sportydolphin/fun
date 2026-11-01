@@ -35,7 +35,7 @@
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import webpush from 'web-push'
-import { healthAlerts, WORKFLOW_JOB_PREFIX } from '../shared/adminHealth.js'
+import { healthAlerts, nearGameWindow, WORKFLOW_JOB_PREFIX } from '../shared/adminHealth.js'
 import { recordHeartbeat } from '../shared/heartbeat.js'
 import { buildAdminHealthAlert } from '../shared/notifications.js'
 
@@ -168,11 +168,10 @@ async function fetchHeartbeats() {
 // expected. Off it, the ingest runs four times a day and healthAlerts relaxes its staleness
 // window to match. A failed read answers undefined, which healthAlerts treats as in-season.
 async function nearGame() {
-  const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }))
-  const day = offset => { const d = new Date(today); d.setDate(d.getDate() + offset); return d.toLocaleDateString('en-CA') }
+  const { from, to } = nearGameWindow(Date.now())
   const { count, error } = await supabase.from('wpbl_games')
     .select('id', { count: 'exact', head: true })
-    .gte('game_date', day(-2)).lte('game_date', day(3))
+    .gte('game_date', from).lte('game_date', to)
   if (error) { console.warn(`⚠️  Reading wpbl_games failed: ${error.message}`); return undefined }
   return (count ?? 0) > 0
 }

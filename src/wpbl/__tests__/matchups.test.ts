@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { headToHead, batterPitcherMatchups, playerMatchups, edgeOf, matchupBoard, type WpblMatchupPlay } from '../derive/matchups'
+import { headToHead, batterPitcherMatchups, classifyPa, playerMatchups, edgeOf, matchupBoard, type WpblMatchupPlay } from '../derive/matchups'
 import type { WpblGame } from '../types'
 
 // `headToHead` backs the four-by-four grid on the Teams tab. It is asymmetric by design,
@@ -87,6 +87,26 @@ function pa(gameId: string, batter: [string | null, string], pitcher: [string | 
   return { game_id: gameId, team_id, batter_id: batter[0], batter_name: batter[1],
            pitcher_id: pitcher[0], pitcher_name: pitcher[1], event_type, narrative: null }
 }
+
+describe('classifyPa', () => {
+  it('counts an infield fly, which the feed files as unknown, as an at-bat', () => {
+    expect(classifyPa({ event_type: 'unknown', narrative: 'Jua Park infield fly to ss (3-1 BKBB).' }))
+      .toMatchObject({ ab: 1, h: 0 })
+  })
+
+  it('does not charge the batter for a runner out under their name', () => {
+    expect(classifyPa({ event_type: 'out', narrative: 'Jua Park out at first c to 1b, picked off.' })).toBeNull()
+  })
+
+  it('still counts a batter out at first, which carries a pitch count', () => {
+    expect(classifyPa({ event_type: 'out', narrative: 'Jua Park out at first 1b to p (0-2 KF).' }))
+      .toMatchObject({ ab: 1, h: 0 })
+  })
+
+  it('keeps an out with no narrative, so a thin row cannot lift an average', () => {
+    expect(classifyPa({ event_type: 'out', narrative: null })).toMatchObject({ ab: 1 })
+  })
+})
 
 describe('batterPitcherMatchups', () => {
   const reg = { id: 'r1', game_type: 'regularSeason', counts_in_standings: true } as WpblGame

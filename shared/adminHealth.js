@@ -41,6 +41,17 @@ export const INGEST_STALE_MS = 15 * 60_000
  *  Six hours plus margin: a page here still means the floor itself has stopped. */
 export const INGEST_STALE_OFFSEASON_MS = 7 * 60 * 60_000
 
+/**
+ * The game dates that put the ingest on its two-minute cadence: [-2, +3] Central days of today,
+ * the same window as wpbl_ingest_due. Shared by the pager and the panel, so the chip cannot read
+ * Stale on a cadence the pager accepts, which it did all of the first winter.
+ */
+export function nearGameWindow(nowMs) {
+  const today = new Date(new Date(nowMs).toLocaleString('en-US', { timeZone: 'America/Chicago' }))
+  const day = offset => { const d = new Date(today); d.setDate(d.getDate() + offset); return d.toLocaleDateString('en-CA') }
+  return { from: day(-2), to: day(3) }
+}
+
 /** Scoring runs nightly. 30h is a whole missed day plus margin for GitHub's best-effort cron,
  *  matching the spirit of AdminPanel's 26h amber but slower, because this one buzzes a phone. */
 export const VALIDATION_STALE_MS = 30 * 60 * 60_000

@@ -10,7 +10,7 @@ import { isSubscribed } from './lib/push'
 import { fetchFeedback, setFeedbackHandled, deleteFeedback, FeedbackRow } from './lib/feedback'
 import { UsersPanel } from './AdminUsers'
 import { AwardsPanel } from './AdminAwards'
-import { HEARTBEAT_CHECKS } from '../shared/adminHealth'
+import { HEARTBEAT_CHECKS, INGEST_STALE_OFFSEASON_MS, nearGameWindow } from '../shared/adminHealth'
 import type { Heartbeat, HeartbeatCheck } from '../shared/adminHealth'
 import { typePx } from './ui/scale'
 
@@ -77,13 +77,17 @@ export function payrollStatus(updatedAt: string): Status {
 }
 
 // WPBL feed-mirror ingest health, consolidated here from the WPBL home header. Cron runs
-// ~every 2 min: green = fresh + clean, amber = stale (>6 min) or per-game errors on the
-// last run, red = the last run failed outright.
+// ~every 2 min near a game and every 6 hours away from one: green = fresh + clean, amber =
+// stale (three missed runs near a game, one missed run away from one) or per-game errors on
+// the last run, red = the last run failed outright.
+// `nearGame` false is the only thing that relaxes it, the same rule the pager applies, so a
+// failed read of the schedule leaves the chip strict rather than green on a dead job.
 // `errors` is optional because `ingestStatus` reads only the count and the freshness, so the
 // health tests build rows without it; the Health group renders it when the select supplies it.
 interface WpblRunRow { ran_at: string; ok: boolean; mode: string | null; games: number; boxscores: number; error_count: number; errors?: string[] | null }
-export function ingestStatus(run: WpblRunRow): Status {
-  const stale = Date.now() - new Date(run.ran_at).getTime() > 6 * 60_000
+export function ingestStatus(run: WpblRunRow, nearGame?: boolean): Status {
+  const maxAgeMs = nearGame === false ? INGEST_STALE_OFFSEASON_MS : 6 * 60_000
+  const stale = Date.now() - new Date(run.ran_at).getTime() > maxAgeMs
   if (!run.ok) return { tone: 'bad', label: 'Failed' }
   if (run.error_count > 0) return { tone: 'warn', label: 'Errors' }
   return stale ? { tone: 'warn', label: 'Stale' } : { tone: 'ok', label: 'Fresh' }
@@ -462,6 +466,8 @@ function FeedbackModal({ open, onClose, onChanged }: {
 export interface OpsHealth {
   payroll:     PayrollRow | null
   ingest:      WpblRunRow | null
+  /** Whether a game is close enough for the two-minute cadence. Undefined until read, or if the read failed. */
+  nearGame?:   boolean
   validation:  WpblValidationRow | null
   tracking:    WpblTrackingRow | null
   predictions: number | null
@@ -488,6 +494,7 @@ export function useOpsHealth(): OpsHealth {
 
   useEffect(() => {
     let live = true
+    const window = nearGameWindow(Date.now())
     Promise.all([
       // Most-recent payroll update per season
       supabase.from('team_payrolls')
@@ -522,12 +529,19 @@ export function useOpsHealth(): OpsHealth {
 
       // The generic per-job heartbeats (drift checker today; more to come). One row per job.
       supabase.from('cron_heartbeats').select('job, ran_at, ok, detail'),
-    ]).then(([pr, pc, wp, wv, wt, hb]) => {
+
+      // Which cadence the ingest is on, so its chip judges it against the right one.
+      supabase.from('wpbl_games')
+        .select('id', { count: 'exact', head: true })
+        .gte('game_date', window.from)
+        .lte('game_date', window.to),
+    ]).then(([pr, pc, wp, wv, wt, hb, ng]) => {
       if (!live) return
       setState({
         payroll:     (((pr.data ?? [])[0]) ?? null) as PayrollRow | null,
         predictions: pc.count ?? 0,
         ingest:      (((wp.data ?? [])[0]) ?? null) as WpblRunRow | null,
+        nearGame:    ng.error ? undefined : (ng.count ?? 0) > 0,
         validation:  (((wv.data ?? [])[0]) ?? null) as WpblValidationRow | null,
         tracking:    (((wt.data ?? [])[0]) ?? null) as WpblTrackingRow | null,
         heartbeats:  ((hb.data ?? []) as Heartbeat[]),
@@ -550,7 +564,7 @@ const IDLE: Status = { tone: 'idle', label: 'Not yet run' }
 export function healthStatuses(h: OpsHealth): Array<Status & { key: string; name: string }> {
   const beats = new Map(h.heartbeats.map(b => [b.job, b]))
   return [
-    { key: 'ingest',   name: 'Ingest',   ...(h.ingest     ? ingestStatus(h.ingest)              : IDLE) },
+    { key: 'ingest',   name: 'Ingest',   ...(h.ingest     ? ingestStatus(h.ingest, h.nearGame)  : IDLE) },
     { key: 'trackman', name: 'TrackMan', ...(h.tracking   ? trackingStatus(h.tracking)          : IDLE) },
     { key: 'scoring',  name: 'Scoring',  ...(h.validation ? validationStatus(h.validation)      : IDLE) },
     { key: 'payrolls', name: 'Payrolls', ...(h.payroll    ? payrollStatus(h.payroll.updated_at) : IDLE) },
@@ -604,7 +618,7 @@ export function HealthStrip({ health, onOpen }: { health: OpsHealth; onOpen: () 
  * lines, in an order that put the every-two-minutes job below the once-a-day ones.
  */
 export function HealthGroup({ health }: { health: OpsHealth }) {
-  const { payroll, ingest, validation, tracking, heartbeats, loading } = health
+  const { payroll, ingest, nearGame, validation, tracking, heartbeats, loading } = health
   if (loading) {
     return (
       <Section title="Pipelines">
@@ -634,7 +648,7 @@ export function HealthGroup({ health }: { health: OpsHealth }) {
                 )}
               </>
             ) : 'No ingest runs logged yet.'}
-            value={<StatusPill {...(ingest ? ingestStatus(ingest) : IDLE)} />}
+            value={<StatusPill {...(ingest ? ingestStatus(ingest, nearGame) : IDLE)} />}
           />
           {/* Not our job failing: this one watches for the LEAGUE's radar publishing to resume. */}
           <StatRow

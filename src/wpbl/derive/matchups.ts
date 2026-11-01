@@ -19,6 +19,14 @@ const NON_AB_EVENTS = new Set(['walk', 'hit_by_pitch', 'sacrifice']) // a PA, bu
 // Most `unknown` rows are baserunning / substitution notes, but a few are genuine batter
 // PAs ("reached first on an error"); match that phrasing so they count as an at-bat out.
 const REACHED_ON_ERROR = /reached\b.*\b(error|fielder'?s choice)\b/i
+// The feed files an infield fly as `unknown` too, and it is an at-bat like any other out. Leaving
+// it out dropped 10 outs from the batter-vs-pitcher lines and made the play log look short.
+const INFIELD_FLY = /\binfield fly\b/i
+// An `out` row is either the batter's or a runner's ("X out at first c to 1b, picked off"), under
+// the name of whoever was at the plate. Only a batter's carries a pitch count: true of all 82
+// batter rows and none of the 7 runner rows measured Nov 1, 2026. A row with no narrative at all
+// stays an out, so a thin row cannot quietly lift a hitter's average.
+const PITCH_COUNT = /\(\d-\d/
 
 /**
  * Every event type `classifyPa` can turn into a plate appearance, `unknown` included for the
@@ -31,10 +39,11 @@ export const PA_EVENT_TYPES: readonly string[] = [...HIT_EVENTS, ...OUT_EVENTS, 
 
 export function classifyPa(play: Pick<WpblMatchupPlay, 'event_type' | 'narrative'>): PaOutcome | null {
   const et = play.event_type ?? ''
+  if (et === 'out' && play.narrative && !PITCH_COUNT.test(play.narrative)) return null
   if (HIT_EVENTS.has(et))    return { ab: 1, h: 1, hr: et === 'home_run' ? 1 : 0, xbh: et === 'single' ? 0 : 1, bb: 0, so: 0 }
   if (OUT_EVENTS.has(et))    return { ab: 1, h: 0, hr: 0, xbh: 0, bb: 0, so: et === 'strikeout' ? 1 : 0 }
   if (NON_AB_EVENTS.has(et)) return { ab: 0, h: 0, hr: 0, xbh: 0, bb: et === 'walk' ? 1 : 0, so: 0 }
-  if (et === 'unknown' && REACHED_ON_ERROR.test(play.narrative ?? '')) return { ab: 1, h: 0, hr: 0, xbh: 0, bb: 0, so: 0 }
+  if (et === 'unknown' && (REACHED_ON_ERROR.test(play.narrative ?? '') || INFIELD_FLY.test(play.narrative ?? ''))) return { ab: 1, h: 0, hr: 0, xbh: 0, bb: 0, so: 0 }
   return null
 }
 
