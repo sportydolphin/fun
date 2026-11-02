@@ -1,4 +1,4 @@
-import { fmtRate, type WpblFieldingTotals,
+import { caughtStealingPct, fmtPct, fmtRate, type WpblFieldingTotals,
 } from '../stats'
 import type { EraBasis } from '../stats'
 import type { Col } from '../statColumns'
@@ -12,6 +12,11 @@ import type { Side } from './axes'
 // regulars, the fewest errors is a leaderboard, and among everyone it is a list of bench players.
 // SBA rather than MLB.com's SB because the player card already calls it SBA, and the same column
 // should not be two abbreviations a tap apart.
+//
+// SBA, CS AND CS% ARE A CATCHER'S, and read as a dash on anyone else: the feed also charges each steal
+// to the pitcher (`catcherSteals`), and a center fielder's zero is not the fewest steals allowed. MLB's
+// board offers the same three on catchers only.
+const dash = (v: number | null | undefined) => (v == null ? '—' : String(v))
 export const FLD_COLS: Col<WpblFieldingTotals>[] = [
   { key: 'fpct', label: 'FPCT', value: t => t.fpct, display: t => fmtRate(t.fpct), rate: true },
   { key: 'tc',  label: 'TC',  value: t => t.tc },
@@ -20,9 +25,17 @@ export const FLD_COLS: Col<WpblFieldingTotals>[] = [
   { key: 'e',   label: 'E',   value: t => t.e, lowerBetter: true },
   { key: 'dp',  label: 'DP',  value: t => t.dp },
   { key: 'pb',  label: 'PB',  value: t => t.pb, lowerBetter: true },
-  { key: 'sba', label: 'SBA', value: t => t.sba, lowerBetter: true },
+  { key: 'sba', label: 'SBA', value: t => t.catching?.sba ?? null, display: t => dash(t.catching?.sba), lowerBetter: true },
+  { key: 'cs',  label: 'CS',  value: t => t.catching?.cs ?? null, display: t => dash(t.catching?.cs) },
+  { key: 'csPct', label: 'CS%', value: t => caughtStealingPct(t.catching), display: t => fmtPct(caughtStealingPct(t.catching)), rate: true },
   { key: 'g',   label: 'G',   value: t => t.g },
 ]
+
+// A club's row. DP is what the club turned rather than its fielders' credits added up. CS and CS% go:
+// they come per catcher from the stored seasons, and a catcher's club is a fact about a date.
+export const FLD_TEAM_COLS: Col<WpblFieldingTotals>[] = FLD_COLS
+  .filter(c => c.key !== 'cs' && c.key !== 'csPct')
+  .map(c => (c.key === 'dp' ? { ...c, value: t => t.dpTurned ?? null, display: t => dash(t.dpTurned) } : c))
 
 // The Overall side's columns (OVR_COLS) live in statColumns.ts too.
 
@@ -57,7 +70,8 @@ const PIT_NAMES: Record<string, string> = {
 }
 const FLD_NAMES: Record<string, string> = {
   fpct: 'Fielding percentage', tc: 'Total chances', po: 'Putouts', a: 'Assists', e: 'Errors',
-  dp: 'Double plays turned', pb: 'Passed balls', sba: 'Stolen bases allowed',
+  dp: 'Double plays turned', pb: 'Passed balls', sba: 'Stolen bases allowed while catching',
+  cs: 'Runners thrown out stealing, pickoffs excluded', csPct: 'Caught stealing rate',
   g: 'Games played, in any role',
 }
 

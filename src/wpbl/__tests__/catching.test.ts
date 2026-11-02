@@ -79,6 +79,15 @@ describe('catcherArmLeaders', () => {
     expect(rows[0].playerId).toBe('cSF')
   })
 
+  it('leaves out a caught stealing whose throw started at the pitcher', () => {
+    const rows = catcherArmLeaders([
+      ev('g1', 'BOS', 'sb', 0.2),
+      { ...ev('g1', 'BOS', 'cs', -0.6), catcherThrow: false },
+      { ...ev('g1', 'BOS', 'cs', -0.6), catcherThrow: true },
+    ], games, at, players)
+    expect(rows[0]).toMatchObject({ playerId: 'cSF', attempts: 2, sb: 1, cs: 1 })
+  })
+
   it('reads an average arm as zero, however often it is run on', () => {
     const rows = catcherArmLeaders(
       Array.from({ length: 10 }, (_, i) => ev('g1', 'BOS', i % 2 ? 'sb' : 'cs', i % 2 ? 0.2 : -0.6)),

@@ -65,6 +65,10 @@ export interface RunnerEvent {
   value: number
   /** This runner's share of the row, 1 unless the row was a double steal. */
   share: number
+  /** On a caught stealing, whether the throw started at the plate. Three of the fifteen in 2026
+   *  started at the pitcher, one of them with no "picked off" in its words, so the first fielder
+   *  in the chain is what says whose out it was. */
+  catcherThrow?: boolean
 }
 
 export interface BaserunningLine<P> {
@@ -158,6 +162,9 @@ function re(table: ReTable, outs: number, mask: number): number | null {
 
 const STEAL_EVENTS = new Set(['stolen_base', 'caught_stealing'])
 
+/** A runner thrown out on a throw from behind the plate: "out at second c to 2b". */
+export const CATCHER_THROW = /out at \w+ c to /i
+
 type Steps = ReturnType<typeof runnerSteps>
 
 function stealAttemptsOf(steps: Steps, event: string) {
@@ -233,7 +240,9 @@ export function baserunningEvents(
       for (const [, s] of attempts) {
         // "caught stealing, picked off" is scored a caught stealing, so that word wins.
         const kind: RunnerKind = s.step.caught ? 'cs' : s.step.pickoff ? 'pickoff' : s.step.to === 'out' ? 'cs' : 'sb'
-        out.push(mk(s.name, kind, value * share, share))
+        const e = mk(s.name, kind, value * share, share)
+        if (kind === 'cs') e.catcherThrow = CATCHER_THROW.test(p.narrative ?? '')
+        out.push(e)
       }
       continue
     }
@@ -343,7 +352,10 @@ export function baserunningLeaders<P extends { id: string }>(
       case 'pickoff': r.pickoffs++; r.stealRuns += e.value; break
       case 'extra': r.chances++; r.extra++; r.advanceRuns += e.value; break
       case 'out_advancing': r.chances++; r.thrownOut++; r.advanceRuns += e.value; break
-      case 'held': r.chances++; break
+      // A hold carries a price too: `center` measures it against the runners who took the base from
+      // the same spot. Left out of these runs, a spot no longer summed to zero, the league's BsR
+      // came to +19 and a runner who never took an extra base was never charged for it.
+      case 'held': r.chances++; r.advanceRuns += e.value; break
     }
     r.total += e.value
   }

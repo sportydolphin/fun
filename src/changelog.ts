@@ -23,6 +23,36 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.206.1',
+    date:    '2026-11-01',
+    changes: [
+      {
+        short: 'WPBL baserunning runs',
+        full:  'WPBL baserunning runs now charge a runner for holding where most runners take the base. BsR and WAR move with them: the league’s BsR sums to zero, and Ashton Lansdell leads it.',
+      },
+      {
+        short: 'WPBL catchers',
+        full:  'WPBL catcher arm runs leave out throws that started at the pitcher. The awards card counts everyone who ran, so Denae Benites threw out 5 of 17. CS and CS% join the Fielding board, and SBA there counts catchers only.',
+      },
+      {
+        short: 'WPBL team fielding',
+        full:  'Team double plays and steals allowed on the WPBL Fielding board were counted more than once. Each double play and steal now counts once.',
+      },
+      {
+        short: 'WPBL glossary',
+        full:  'The WPBL glossary adds OPS+, ERA+, LOB, STR%, CS%, TC and the WAR parts, and its benchmarks use this league’s averages.',
+      },
+      {
+        short: 'ERA rounding',
+        full:  'A WPBL ERA that lands on a half now rounds up, matching the league.',
+      },
+      {
+        short: 'MLB ERA+',
+        full:  'A 0.00 ERA reads ∞ on the MLB ERA+ column and leads the board.',
+      },
+    ],
+  },
+  {
     version: '1.206.0',
     date:    '2026-11-01',
     changes: [

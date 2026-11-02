@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { withAdvanced } from '../lib/advanced'
+import { PITCHING_ADVANCED_DEFS, withAdvanced } from '../lib/advanced'
+import { sortBoard } from '../lib/statsBoard'
 import { fetchParkFactors } from '../apiSeasonStats'
 import type { LeaderboardEntry } from '../types'
 
@@ -27,6 +28,23 @@ describe('park-adjusted OPS+ and ERA+', () => {
     const [h] = withAdvanced([hitter(1, 115, line)], 'hitting', null, 'pending')
     expect(h.stat.opsPlus).toBeUndefined()
     expect(h.stat.iso).toBeDefined()
+  })
+})
+
+describe('ERA+ on a 0.00 ERA', () => {
+  const arm = (id: number, era: string, ip = '10.0') => hitter(id, 115, { era, inningsPitched: ip, earnedRuns: Number(era) * 10 / 9 })
+
+  it('is infinite, prints ∞ and leads the board, and two of them do not scramble it', () => {
+    const rows = withAdvanced([arm(1, '3.00'), arm(2, '0.00'), arm(3, '0.00'), arm(4, '4.50')], 'pitching')
+    const def = PITCHING_ADVANCED_DEFS.find(d => d.key === 'eraPlus')!
+    expect(rows[1].stat.eraPlus).toBe(Infinity)
+    expect(def.format(def.getValue(rows[1].stat))).toBe('∞')
+    const board = sortBoard(rows, def, false).map(r => r.playerId)
+    expect(board.slice(2)).toEqual([1, 4])
+  })
+
+  it('stays blank with no innings to back it', () => {
+    expect(withAdvanced([arm(1, '3.00'), arm(2, '0.00', '0.0')], 'pitching')[1].stat.eraPlus).toBeUndefined()
   })
 })
 

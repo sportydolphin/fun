@@ -39,17 +39,21 @@ const SOURCE_BADGE: Record<RuleSource, string | null> = {
 const GROUPS: { key: string; label: string; keys: string[] }[] = [
   {
     key: 'batting', label: 'Batting',
-    keys: ['AVG', 'OBP', 'SLG', 'OPS', 'wOBA', 'wRC+', 'ISO', 'BABIP', 'PA', 'AB', 'H', '2B', '3B', 'XBH', 'HR', 'R',
-      'RBI', 'BB', 'IBB', 'SO', 'K%', 'BB%', 'P/PA', 'Swing%', 'Contact%', 'Whiff%', 'SwStr%', 'CStr%', 'SB', 'CS', 'SB%', 'BsR', 'WPA', 'TB', 'HBP', 'GDP', 'SF', 'SH'],
+    keys: ['AVG', 'OBP', 'SLG', 'OPS', 'OPS+', 'wOBA', 'wRC+', 'ISO', 'BABIP', 'PA', 'AB', 'H', '2B', '3B', 'XBH', 'HR', 'R',
+      'RBI', 'BB', 'IBB', 'SO', 'K%', 'BB%', 'P/PA', 'Swing%', 'Contact%', 'Whiff%', 'SwStr%', 'CStr%', 'SB', 'CS', 'SB%', 'BsR', 'WPA', 'TB', 'HBP', 'GDP', 'SF', 'SH', 'LOB'],
   },
   {
     key: 'pitching', label: 'Pitching',
-    keys: ['ERA', 'FIP', 'WHIP', 'W-L', 'SV', 'IP', 'ER', 'BF', 'GS', 'K/7', 'K/9', 'HR/7',
-      'HR/9', 'K/BB', 'K%', 'BB%', 'K-BB%', 'Strike%', 'F-Strike%', 'SwStr%', 'Putaway%', 'BABIP', 'WPA', 'WP', 'BK', 'P', 'DEC'],
+    keys: ['ERA', 'ERA+', 'FIP', 'WHIP', 'W-L', 'SV', 'IP', 'ER', 'BF', 'GS', 'K/7', 'K/9', 'HR/7',
+      'HR/9', 'K/BB', 'K%', 'BB%', 'K-BB%', 'Strike%', 'STR%', 'F-Strike%', 'SwStr%', 'Putaway%', 'BABIP', 'WPA', 'WP', 'BK', 'P', 'DEC'],
   },
   {
     key: 'fielding', label: 'Fielding',
-    keys: ['FPCT', 'PO', 'A', 'E', 'DP', 'PB', 'SBA', 'G', 'POS', 'OPP'],
+    keys: ['FPCT', 'TC', 'PO', 'A', 'E', 'DP', 'PB', 'SBA', 'CS%', 'G', 'POS', 'OPP'],
+  },
+  {
+    key: 'overall', label: 'Overall',
+    keys: ['WAR', 'Bat', 'Fld', 'Pos', 'Rep', 'C Arm', 'C Blk'],
   },
 ]
 

@@ -444,7 +444,7 @@ export interface WpblFieldingLine {
   a: number                  // assists
   e: number                  // errors
   pb: number                 // passed balls
-  sba: number                // stolen bases allowed (catcher)
+  sba: number                // stolen bases allowed: the feed charges each to the catcher AND the pitcher (`catcherSteals`)
   ci: number                 // catcher's interference
   dp: number                 // double plays turned
   created_at: string

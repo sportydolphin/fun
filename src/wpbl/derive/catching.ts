@@ -18,7 +18,8 @@ import { countsInStandings, type SeasonGame } from '../../league/season.ts'
  *
  * PICKOFFS ARE LEFT OUT. A pickoff throw is the pitcher's, and a runner caught leaning is not a
  * throw-out by the catcher. The feed scores "caught stealing, picked off" as a caught stealing,
- * and so does `baserunningEvents`, so those stay in, as they do in the box score's CS.
+ * and so does `baserunningEvents`, so a caught stealing counts here only if the throw started at
+ * the plate (`catcherThrow`). They stay in the box score's CS and in the runner's own price.
  *
  * THE CATCHER IS WHOEVER WAS BEHIND THE PLATE AT THAT PLAY. A play row names the batter and the
  * pitcher and nobody in the field, so the candidates come from the box score's position column:
@@ -52,6 +53,10 @@ export type CatcherAt = (gameId: string, teamId: string, sequence: number) => st
 // a sentence rather than a name, so it finds no candidate below and is dropped there.
 const TO_CATCHER = /^\s*(.+?) to c(?: for .+?)?\.?\s*$/
 
+/** Whether a box-score position says the player caught that game. Any token, not just the first. */
+export const caughtIn = (position: string | null | undefined): boolean =>
+  !!position && position.toLowerCase().split('/').map(t => t.trim()).includes('c')
+
 export function catcherIndex(
   lines: readonly CatcherSourceLine[],
   plays: readonly CatcherSourcePlay[],
@@ -59,10 +64,9 @@ export function catcherIndex(
 ): CatcherAt {
   const seen = new Map<string, Set<string>>()
   for (const l of lines) {
-    if (!l.team_id || !l.position) continue
-    // Any token, not just the first: "dh/c" is a DH who went behind the plate, and if they were
-    // the only one who did, every throw that game was theirs.
-    if (!l.position.toLowerCase().split('/').map(t => t.trim()).includes('c')) continue
+    // "dh/c" is a DH who went behind the plate, and if they were the only one who did, every throw
+    // that game was theirs.
+    if (!l.team_id || !caughtIn(l.position)) continue
     const k = `${l.game_id}|${l.team_id}`
     const s = seen.get(k) ?? new Set<string>()
     s.add(l.player_id)
@@ -132,7 +136,8 @@ export function catcherArmLeaders<P extends { id: string }>(
   players: readonly P[],
 ): CatcherArmLine<P>[] {
   const byGame = new Map(games.filter(g => countsInStandings(g)).map(g => [g.id, g]))
-  const attempts = events.filter(e => (e.kind === 'sb' || e.kind === 'cs') && byGame.has(e.game_id))
+  const attempts = events.filter(e =>
+    (e.kind === 'sb' || (e.kind === 'cs' && e.catcherThrow !== false)) && byGame.has(e.game_id))
   // The mean attempt, per runner: `value` is already this runner's share of the row.
   const shares = attempts.reduce((n, e) => n + e.share, 0)
   const mean = shares > 0 ? attempts.reduce((v, e) => v + e.value, 0) / shares : 0

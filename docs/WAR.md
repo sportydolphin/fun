@@ -81,7 +81,7 @@ actually played at each position**, and every rate below is per out at the posit
 | Errors | What each error cost against the play made cleanly | The average at the position, per out |
 | Double plays | What the second out was worth against a single out | The average at the position, per out |
 | Outfield arm | Extra bases runners took on balls hit to the outfielder | The average at the position, per runner chance |
-| Catcher arm | Steal attempts, priced like the runner's, sign flipped | The league's average attempt |
+| Catcher arm | Steal attempts, priced like the runner's, sign flipped, without a caught stealing whose throw started at the pitcher | The league's average attempt |
 | Catcher blocking | Wild pitches and passed balls, priced on the state they changed | The league's rate per pitch caught |
 
 **Range is a zone rating, not a tracking one.** The zone comes from the scorer's words
@@ -168,7 +168,10 @@ total rather than a different question.
 
 ## Checking it
 
-- The league's WAR must sum to `0.206 * team-games`, split 57/43. In 2026: 12.32, 7.00 and 5.26.
+- The league's WAR must sum to `0.206 * team-games`, split 57/43. In 2026: 12.35, 7.04 and 5.31.
+- Baserunning sums to zero across the league, and so does each spot inside it: a runner who held is
+  charged what a runner who took the base is paid. It came to +19 until Nov 2026, when holds were
+  left out of the runs.
 - Errors credited per player should match the box score's E: 114 against 117 in 2026. Double plays
   should match DP: 110 against 114.
 - Batting, centered fielding and pitching runs each sum to about zero. A part that drifts far from

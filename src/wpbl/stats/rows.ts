@@ -3,7 +3,7 @@ import { compareRows } from '../leaderOrder'
 import { wpblFullName } from '../constants'
 import { buildPositionIndex, displayPositionFromIndex } from '../positions'
 import {
-  aggregateBatting, aggregatePitching, aggregateFielding, sumBatting, sumPitching, sumFielding,
+  aggregateBatting, aggregatePitching, aggregateFielding, catcherSteals, sumBatting, sumPitching, sumFielding,
   wpblQualifiers, plateAppearances,
   type WpblBattingTotals, type WpblPitchingTotals, type WpblFieldingTotals,
 } from '../stats'
@@ -18,7 +18,7 @@ import type { Row } from './shared'
 /** The table's rows, sorted: one per player on Players (any side), one per club on Teams. */
 export function buildRows({ mode, side, players, lines, fielding, valueSeasons, batSeasons, pitSeasons, teams,
   teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, lobByGameTeam,
-  games, scope, positionIndex, pos }: {
+  games, scope, positionIndex, pos, teamDp, armCs }: {
   mode: Mode
   side: Side
   players: WpblPlayer[]
@@ -42,8 +42,14 @@ export function buildRows({ mode, side, players, lines, fielding, valueSeasons, 
   scope: SeasonScope
   positionIndex: ReturnType<typeof buildPositionIndex>
   pos: PositionFilter | null
+  /** Double plays per club in this scope, null until they are to hand. */
+  teamDp: Map<string, number> | null
+  /** Runners thrown out per catcher, regular season, null until they are to hand. */
+  armCs: Map<string, number> | null
 }): Row[] {
   let built: Row[]
+  let stealsMemo: ReturnType<typeof catcherSteals> | null = null
+  const steals = () => (stealsMemo ??= catcherSteals(fielding ?? [], lines.batting, games, scope))
   if (mode === 'teams') {
     // One row per team (only four). Team G is the team's games played (the count of distinct
     // game_ids), not the number of player lines that sumBatting/sumPitching add up.
@@ -54,6 +60,10 @@ export function buildRows({ mode, side, players, lines, fielding, valueSeasons, 
         // in which someone recorded something (see `gamesAppeared` in stats.ts).
         const totals = sumFielding((fielding ?? []).filter(l => l.team_id === team.id), games, scope)
         totals.g = new Set(scopedLines(lines.batting.filter(l => l.team_id === team.id), games, scope).map(l => l.game_id)).size
+        totals.catching = { sba: steals().byTeam.get(team.id) ?? 0, cs: null }
+        // Null until the play log or the stored seasons say, so the cell dashes. A club that has
+        // turned none reads 0 once either has: the map only holds clubs that turned one.
+        totals.dpTurned = teamDp ? teamDp.get(team.id) ?? 0 : null
         return {
           key: team.id, team, label: wpblFullName(team), shortLabel: team.name,
           totals: totals as Totals, qualified: true,
@@ -115,7 +125,13 @@ export function buildRows({ mode, side, players, lines, fielding, valueSeasons, 
     const seasons = side === 'hitting'
       ? batSeasons.map(s => ({ player: s.player, totals: s.totals as Totals, qualified: plateAppearances(s.totals) >= qual.minPa }))
       : side === 'fielding'
-      ? aggregateFielding(players, fielding ?? [], lines.batting, lines.pitching, games, scope).map(s => ({ player: s.player, totals: s.totals as Totals, qualified: s.totals.g >= qual.minG }))
+      ? aggregateFielding(players, fielding ?? [], lines.batting, lines.pitching, games, scope).map(s => {
+        const sba = steals().byPlayer.get(s.player.id)
+        // Throw-outs come from the WAR engine, which is regular season only.
+        const cs = scope === 'regular' ? armCs?.get(s.player.id) ?? (armCs ? 0 : null) : null
+        const totals = { ...s.totals, catching: sba == null ? null : { sba, cs } }
+        return { player: s.player, totals: totals as Totals, qualified: s.totals.g >= qual.minG }
+      })
       : pitSeasons.map(s => ({ player: s.player, totals: s.totals as Totals, qualified: s.totals.outs >= qual.minOuts }))
     let list = seasons
     if (teamId) list = list.filter(s => s.player.team_id === teamId)

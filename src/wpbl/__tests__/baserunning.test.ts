@@ -161,6 +161,18 @@ describe('extra bases', () => {
     expect(rows[0]).toMatchObject({ name: 'Rae Runner', sb: 1, chances: 1, extra: 1 })
     expect(rows[0].total).toBeCloseTo(rows[0].stealRuns + rows[0].advanceRuns, 10)
     expect(rows[1]).toMatchObject({ name: 'Sky Fast', chances: 1, extra: 0 })
+    // A hold is priced against the runner who took the base, so the spot sums to zero in the rows.
+    expect(rows[1].advanceRuns).toBeLessThan(0)
+    expect(rows[0].advanceRuns + rows[1].advanceRuns).toBeCloseTo(0, 10)
+  })
+
+  it('marks whose throw a caught stealing was', () => {
+    const cs = (narrative: string) => play({ event_type: 'caught_stealing', pitch_sequence: null, first_base: 'Rae Runner', narrative })
+    const ev = baserunningEvents([
+      cs('Rae Runner out at second c to 2b, caught stealing.'),
+      cs('Rae Runner out at second p to ss, caught stealing.'),
+    ], games, table, idOf)
+    expect(ev.map(e => e.catcherThrow)).toEqual([true, false])
   })
 })
 

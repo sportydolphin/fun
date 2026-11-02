@@ -1,6 +1,7 @@
 import type { WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblGame, WpblTeam } from './types'
 import { countsInStandings, scopedLines, isPostseasonGame,
   type WpblSeasonGame, type SeasonScope } from './season'
+import { caughtIn } from './derive/catching'
 
 // EVERY aggregate here takes the schedule, and it is not optional.
 //
@@ -151,6 +152,50 @@ export interface WpblFieldingTotals {
   /** Total chances, PO + A + E: the denominator of FPCT, and how much fielding a line holds. */
   tc: number
   fpct: number | null   // fielding %: (PO + A) / (PO + A + E)
+  /** The running game, on a row that caught. Null on anyone else, so a shortstop reads as a dash
+   *  rather than as the fewest steals allowed. Only the Fielding board fills it in. */
+  catching?: CatcherRunningGame | null
+  /** Double plays a CLUB turned, on a team row. `dp` there would count each fielder on the play. */
+  dpTurned?: number | null
+}
+
+export interface CatcherRunningGame {
+  /** Steals allowed while catching, off `sba` on the lines where they caught. */
+  sba: number
+  /** Runners thrown out, from the play log. Null where it is not to hand or not measured. */
+  cs: number | null
+}
+
+/** Caught-stealing rate over steals allowed plus throw-outs. Null before an attempt or a play log. */
+export function caughtStealingPct(c: CatcherRunningGame | null | undefined): number | null {
+  if (!c || c.cs == null || c.sba + c.cs === 0) return null
+  return c.cs / (c.sba + c.cs)
+}
+
+/**
+ * Steals allowed per catcher and per club, counting only the lines of whoever caught that game.
+ *
+ * THE FEED CHARGES EVERY STEAL TWICE. In all 80 club-games of 2026 a club's `sba` is exactly double
+ * the steals against it: once on the catcher, once on the pitcher. Summed straight, a club reads
+ * twice what it allowed, and a board ranks pitchers beside catchers on a catcher's stat. A player
+ * who never caught is not in `byPlayer`; one who caught and allowed nothing is, at zero.
+ */
+export function catcherSteals(
+  fielding: WpblFieldingLine[], batting: WpblBattingLine[], games: WpblSeasonGame[], scope: SeasonScope = 'regular',
+): { byPlayer: Map<string, number>; byTeam: Map<string, number> } {
+  const byPlayer = new Map<string, number>(), byTeam = new Map<string, number>()
+  const caught = new Set<string>()
+  for (const l of scopedLines(batting, games, scope)) {
+    if (!caughtIn(l.position)) continue
+    caught.add(`${l.game_id}|${l.player_id}`)
+    if (!byPlayer.has(l.player_id)) byPlayer.set(l.player_id, 0)
+  }
+  for (const l of scopedLines(fielding, games, scope)) {
+    if (!caught.has(`${l.game_id}|${l.player_id}`)) continue
+    byPlayer.set(l.player_id, (byPlayer.get(l.player_id) ?? 0) + l.sba)
+    if (l.team_id) byTeam.set(l.team_id, (byTeam.get(l.team_id) ?? 0) + l.sba)
+  }
+  return { byPlayer, byTeam }
 }
 
 // Scoped like `sumBatting` / `sumPitching`, and for the same reason: a fielding line carries a
@@ -411,8 +456,11 @@ export function wpblQualifiers(teams: WpblTeam[], games: WpblGame[], scope: Seas
 
 // ".278" (leading zero stripped) for AVG/OBP/SLG/OPS; dash when null.
 export const fmtRate = (v: number | null): string => (v == null ? '—' : v.toFixed(3).replace(/^0(?=\.)/, ''))
-// "3.24" for ERA/WHIP; dash when null.
-export const fmtTwo = (v: number | null): string => (v == null ? '—' : v.toFixed(2))
+// "3.24" for ERA/WHIP; dash when null. Rounded by hand because `toFixed` reads the binary value:
+// 4.725 is stored a hair under, so it printed 4.72 beside the league's 4.73. toPrecision takes off
+// that noise before the round, and nothing here has twelve real digits for it to disturb.
+export const fmtTwo = (v: number | null): string =>
+  (v == null ? '—' : (Math.round(Number((v * 100).toPrecision(12))) / 100).toFixed(2))
 /** A share as a percent to one place, the precision K% and BB% are conventionally quoted at. */
 export const fmtPct = (v: number | null): string =>
   // A true minus, as `fmtSigned` uses: K-BB% goes negative for a pitcher who walks more than they strike out.

@@ -99,11 +99,14 @@ export function advancedFor(stat: unknown, group: 'hitting' | 'pitching', ctx: A
     }
   }
   const l = pitchingLine(s)
-  // ERA+ off the ERA the row prints, so the two cannot disagree in the last digit.
+  // ERA+ off the ERA the row prints, so the two cannot disagree in the last digit. A 0.00 has no
+  // finite ratio, so it is Infinity, prints ∞ and leads the board, as WPBL's does: a dash took the
+  // best line in the pool off the board altogether.
   const era = Number(s.era)
+  const scoreless = park != null && era === 0 && (l.ip ?? 0) > 0 && !!ctx.era
   return {
     kPct: l.kPct, bbPct: l.bbPct, kbbPct: l.kbbPct, kbb: l.kbb, hr9: l.hr9, strikePct: l.strikePct, babipCalc: l.babip,
-    eraPlus: park != null && era > 0 && ctx.era ? 100 * ctx.era * park / era : undefined,
+    eraPlus: scoreless ? Infinity : park != null && era > 0 && ctx.era ? 100 * ctx.era * park / era : undefined,
     fip: l.fipCore != null && ctx.fipConstant != null ? l.fipCore + ctx.fipConstant : undefined,
   }
 }
@@ -165,7 +168,7 @@ export const PITCHING_ADVANCED_DEFS: StatDef[] = [
   def('kbbPct', 'K-BB%', pct(1)),
   def('strikePct', 'STR%', pct(0)),
   { ...def('babip', 'BABIP', rate3, { lowerIsBetter: true }), getValue: s => s?.babipCalc },
-  def('eraPlus', 'ERA+', whole),
+  def('eraPlus', 'ERA+', v => (v === Infinity ? '∞' : whole(v))),
   def('fip', 'FIP', two, { lowerIsBetter: true }),
 ]
 
