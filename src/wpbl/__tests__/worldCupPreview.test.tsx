@@ -19,7 +19,12 @@ vi.mock('../../lib/supabase', () => ({
   },
 }))
 
-const { WorldCupSection, eventLabel } = await import('../player/WorldCup')
+const { WorldCupSection, useWorldCupEvents, eventLabel } = await import('../player/WorldCup')
+
+/** As PlayerDetail wires it: the page reads the rows, the section draws them. */
+function Card({ id, name = 'Dana Quill' }: { id: string; name?: string }) {
+  return <WorldCupSection events={useWorldCupEvents(id)} playerName={name} accent="#036" />
+}
 
 const EVENT: InternationalEvent = {
   event_key: '2023-ix-womens-baseball-world-cup-group-a', event: 'Test', year: 2023, team_id: 'AAA',
@@ -34,7 +39,7 @@ beforeEach(() => { admin.owner = false; reads.calls = []; reads.rows = [] })
 describe('World Cup preview', () => {
   it('asks for nothing and draws nothing for anyone but the owner', async () => {
     reads.rows = [{ events: [EVENT] }]
-    const { container } = render(<WorldCupSection playerId="p1" accent="#036" />)
+    const { container } = render(<Card id="p1" />)
     await new Promise(r => setTimeout(r, 0))
     expect(reads.calls).toEqual([])
     expect(container.textContent).toBe('')
@@ -43,7 +48,7 @@ describe('World Cup preview', () => {
   it('draws the owner a row per event, with the WBSC name it matched', async () => {
     admin.owner = true
     reads.rows = [{ events: [EVENT] }]
-    render(<WorldCupSection playerId="p1" accent="#036" />)
+    render(<Card id="p1" />)
     await waitFor(() => expect(screen.getByText('World Cup')).toBeTruthy())
     expect(reads.calls).toEqual(['wbsc_world_cup_lines:p1'])
     expect(screen.getAllByText('2023 Group A')).toHaveLength(2)
@@ -53,9 +58,17 @@ describe('World Cup preview', () => {
     expect(screen.getByText(/Dana Lee-Ann Quill/)).toBeTruthy()
   })
 
+  it('leaves out the WBSC name when it is the roster name', async () => {
+    admin.owner = true
+    reads.rows = [{ events: [{ ...EVENT, wbsc_name: 'Dana Quill' }] }]
+    render(<Card id="p1" />)
+    await waitFor(() => expect(screen.getByText('World Cup')).toBeTruthy())
+    expect(screen.queryByText(/WBSC name/)).toBeNull()
+  })
+
   it('draws nothing for an owner looking at a player with no World Cup', async () => {
     admin.owner = true
-    const { container } = render(<WorldCupSection playerId="p2" accent="#036" />)
+    const { container } = render(<Card id="p2" />)
     await waitFor(() => expect(reads.calls).toEqual(['wbsc_world_cup_lines:p2']))
     expect(container.textContent).toBe('')
   })

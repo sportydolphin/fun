@@ -52,8 +52,18 @@ export function eventLabel(key: string): string {
 
 const open = (url: string) => () => { window.open(url, '_blank', 'noopener') }
 
-export function WorldCupSection({ playerId, accent }: { playerId: string; accent: string }) {
-  const events = useWorldCupEvents(playerId)
+/**
+ * The section, from rows the page read once with `useWorldCupEvents`: a two-way player's card
+ * draws a pane per role, and each would otherwise ask for the same rows.
+ */
+export function WorldCupSection({ events, playerName, accent, first = false }: {
+  events: InternationalEvent[] | null
+  /** The roster's name, beside which WBSC's is worth printing only when it differs. */
+  playerName: string
+  accent: string
+  /** On a card with no WPBL line, the section is the card's first, with no rule above it. */
+  first?: boolean
+}) {
   const { fmtEra } = useEraBasis()
   if (!events?.length) return null
 
@@ -79,12 +89,14 @@ export function WorldCupSection({ playerId, accent }: { playerId: string; accent
       cells: [p.g, p.gs, `${p.w}-${p.l}`, p.sv, outsToIp(p.outs), p.h, p.r, p.er, p.bb, p.so, p.hr, fmtEra(era)],
     }]
   })
-  // The name each row was matched under, so a wrong link is visible to whoever reads the page.
+  // The name each row was matched under, so a wrong link is visible to whoever reads the page. Not
+  // when it is the roster's own name: "WBSC name: Ayami Sato" under Ayami Sato says nothing.
   const names = [...new Set(events.map(e => e.wbsc_name))]
+  const sameName = names.length === 1 && names[0] === playerName
 
   return (
     <>
-      <RoleHeading title="World Cup" caption="Owner preview" />
+      <RoleHeading title="World Cup" caption="Owner preview" first={first} />
       {batting.length > 0 && (
         <StatLogTable title="Batting" leadHeaders={['Event', 'Team']} totalsLabel="" accent={accent} noun={['event', 'events']}
           statHeaders={['G', 'PA', 'AB', 'R', 'H', '2B', '3B', 'HR', 'RBI', 'SB', 'BB', 'SO', 'AVG', 'OBP', 'SLG', 'OPS']}
@@ -97,9 +109,11 @@ export function WorldCupSection({ playerId, accent }: { playerId: string; accent
             rows={pitching} />
         </Box>
       )}
-      <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 1 }}>
-        WBSC name: {names.join(' · ')}
-      </Typography>
+      {!sameName && (
+        <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 1 }}>
+          WBSC name: {names.join(' · ')}
+        </Typography>
+      )}
     </>
   )
 }
