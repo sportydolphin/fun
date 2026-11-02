@@ -14,8 +14,10 @@ Until WBSC says yes:
 - **Code and tests are committed.** The importer, the parser, the code tables, the validation. The
   test fixture is a synthetic game written by hand in WBSC's shape, never copied WBSC rows.
 - **Data is not.** The raw cache (`.wbsc-cache/`) and the output (`archive/wbsc/`) are both
-  gitignored and stay on the machine that ran the import. Nothing reads them at runtime and
-  nothing deploys them.
+  gitignored and stay on the machine that ran the import. Nothing deploys them. The one exception
+  is the owner's preview: `--upload` copies `international.json` into `wbsc_world_cup_lines`,
+  which only the site owner can read (see "The owner's preview" below), and `npm run dev` serves
+  the same file to this machine alone.
 - **Permission flips one line**: `archive/wbsc/` comes out of `.gitignore`, and the first commit
   of it is the publication. The cache stays ignored for good. A "no" means deleting two local
   folders and keeping the code for a different source.
@@ -309,7 +311,8 @@ On Nov 2, 2026: 478 by rule, 6 asked (5 yes, 1 no), and 751 people.
 
 ## Storage
 
-Nothing goes into Supabase. Measured on the 2026 group stage: about 800 KB of cached game data
+Nothing goes into Supabase but the owner-only preview table (`wbsc_world_cup_lines`, one row per
+linked WPBL player, about 280 KB). Measured on the 2026 group stage: about 800 KB of cached game data
 (gzipped, never committed) and 1.5 MB of output for 30 games, 1.3 MB of it the play log. The full
 catalog, about 190 games, is estimated at 8 to 10 MB of output. A size budget in CI should fail the
 build if an event's folder grows past what its game count explains, so a WBSC field that starts
@@ -364,7 +367,12 @@ enters git.
      those three kinds too (`MatchKind`); the search that found them turned up no other near miss.
    - The 2024 Finals hold one unplayed game (USA @ VEN), skipped as before.
 6. ✅ **`international.json`** for the player page (Nov 2, 2026): `--international`, above. Built
-   and tested; it stays gitignored, and nothing reads it until permission.
+   and tested; it stays gitignored.
+7. ✅ **The owner's preview** (Nov 2, 2026): `--upload` into the owner-only table, and the World Cup
+   section on WPBL player pages for the owner alone.
+8. ✅ **The person registry** (Nov 2, 2026): `people.json`, `--people`.
+9. ✅ **The same player across World Cups** (Nov 2, 2026): `--same` and `--confirm-same`, 478 pairs
+   by rule and 6 by the owner.
 
 ## The 2016 play log
 
