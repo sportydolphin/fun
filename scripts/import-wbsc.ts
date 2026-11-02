@@ -8,6 +8,7 @@
  *   npm run wbsc -- --review            review them in the browser (wbsc-review.ts; --no-open)
  *   npm run wbsc -- --confirm           move the reviewed ones into the crosswalk
  *   npm run wbsc -- --international     international.json for the player page, from the crosswalk
+ *   npm run wbsc -- --upload            that file into the owner-only table the preview reads
  *   flags: --refresh (refetch cached games), --offline (cache only, no network),
  *          --check (compare with the files on disk, write nothing)
  *
@@ -29,12 +30,13 @@ import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { gunzipSync, gzipSync } from 'node:zlib'
+import pg from 'pg'
 import { applyDecisions, EMPTY_CROSSWALK, propose } from '../src/intl/wbsc/crosswalk'
 import type { Crosswalk, CrosswalkWpblPlayer, Review } from '../src/intl/wbsc/crosswalk'
 import { inertiaFromHtml } from '../src/intl/wbsc/page'
 import { isFinal, transformGame, validateGame } from '../src/intl/wbsc/game'
 import type { WbscBattingLine, WbscGame, WbscPlayer } from '../src/intl/wbsc/game'
-import { buildInternational, type InternationalEventInput } from '../src/intl/wbsc/international'
+import { buildInternational, type International, type InternationalEventInput } from '../src/intl/wbsc/international'
 import type { PitchingGameLine } from '../src/league/types'
 import type { WbscEvent, WbscGamePage, WbscScheduleGame } from '../src/intl/wbsc/types'
 import { serveReview } from './wbsc-review'
@@ -428,12 +430,45 @@ function buildInternationalFile(): boolean {
   return true
 }
 
+// ── The owner's preview ─────────────────────────────────────────────────────────
+//
+// international.json into `wbsc_world_cup_lines`, which only the site owner can read (see its
+// migration, 20261102200647). Over SUPABASE_DB_URL, as the migrations are applied: the table has
+// no write policy, and no key that ships to a browser can write it. The whole table is replaced
+// in one transaction, so a player whose links were taken back loses their rows too.
+
+async function uploadInternational(): Promise<boolean> {
+  if (!existsSync(INTERNATIONAL)) { console.log(`No ${INTERNATIONAL}. Run --international first.`); return false }
+  const conn = process.env.SUPABASE_DB_URL
+  if (!conn) { console.log('SUPABASE_DB_URL is not set (see scripts/migrations/README.md).'); return false }
+  const international = readJson<International>(INTERNATIONAL, {})
+  const client = new pg.Client({ connectionString: conn, ssl: /@(localhost|127.0.0.1)/.test(conn) ? false : { rejectUnauthorized: false } })
+  await client.connect()
+  try {
+    await client.query('begin')
+    await client.query('delete from public.wbsc_world_cup_lines')
+    for (const [id, p] of Object.entries(international)) {
+      await client.query('insert into public.wbsc_world_cup_lines (wpbl_player_id, events) values ($1, $2)', [id, JSON.stringify(p.events)])
+    }
+    await client.query('commit')
+  } catch (err) {
+    await client.query('rollback')
+    throw err
+  } finally {
+    await client.end()
+  }
+  const rows = Object.values(international).reduce((n, p) => n + p.events.length, 0)
+  console.log(`wbsc_world_cup_lines: ${Object.keys(international).length} players, ${rows} event rows. Readable by the site owner only.`)
+  return true
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
   if (flag('propose')) { if (!proposeLinks()) process.exitCode = 1; return }
   if (flag('confirm')) { if (!confirmLinks()) process.exitCode = 1; return }
   if (flag('international')) { if (!buildInternationalFile()) process.exitCode = 1; return }
+  if (flag('upload')) { if (!(await uploadInternational())) process.exitCode = 1; return }
   if (flag('review')) {
     serveReview({ outDir: OUT_DIR, reviewPath: REVIEW, rosterPath: ROSTER, readJson, writeJson, confirm: confirmLinks, open: !flag('no-open') })
     return

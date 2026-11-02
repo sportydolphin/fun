@@ -21,6 +21,7 @@ import { WrittenAbout } from './Reading'
 import { aboutPlayerFirst } from './derive/articles'
 import { FanPhotoPlayerStrip } from './FanPhotoViews'
 import { PlayerClips, usePlayerHasClips } from './Watch'
+import { WorldCupSection, useWorldCupEvents } from './player/WorldCup'
 import { PitchLocationCard } from './PitchLocation'
 import SprayChart from './SprayChart'
 import PitchProfileBlock, { usePitchProfiles } from './PitchProfile'
@@ -828,6 +829,11 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   // Pinned on a desktop (a dialog is not short of height), and pinned while there is nothing to
   // scroll (loading, or a player with no stats), since a scroller around a spinner buys nothing.
   const noStats = !loading && !hasBatting && !hasPitching && !hasFielding
+  // The owner's World Cup preview (player/WorldCup.tsx); null for everyone else. Read here, once,
+  // because a two-way card draws it in each role's pane, and because a player with no WPBL line is
+  // exactly the one whose card is otherwise empty.
+  const worldCup = useWorldCupEvents(player.id)
+  const worldCupSection = (first = false) => <WorldCupSection events={worldCup} playerName={player.name} accent={color} first={first} />
   const bandPinned = wide || noStats
   useBandObserver(bandEls, setBandHidden, bandPinned, player.id, twoWay, pitcherFirst, loading)
 
@@ -858,6 +864,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
           {pane.extras}
           {/* Last among the stats, as on the desktop: see desktopRoleBlock. */}
           {hasFielding && <FieldingLine ft={ft} positions={showTabs ? fieldedPositions : undefined} />}
+          {worldCupSection()}
           {/* Rendered even for a player with no line yet (see the no-stats branch below): someone
               who has been written about but has not logged a game is exactly the case where this
               is the most interesting thing on the page. Renders nothing when nobody has written
@@ -943,9 +950,11 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
           (see skeletonPane), so the card has its finished shape from the first frame. */}
       {noStats ? (
         <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2 }}>
-          <Box sx={{ textAlign: 'center', py: 5, color: 'text.secondary' }}>
-            <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700 }}>No stats</Typography>
-          </Box>
+          {worldCup?.length ? worldCupSection(true) : (
+            <Box sx={{ textAlign: 'center', py: 5, color: 'text.secondary' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700 }}>No stats</Typography>
+            </Box>
+          )}
           <FanPhotoPlayerStrip playerId={player.id} players={players} />
           <PlayerClips playerId={player.id} />
           <WrittenAbout articles={writtenAbout} title={`Written about ${player.name}`} accent={color} />
@@ -1003,6 +1012,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
                   <FieldingLine ft={ft} bare />
                 </>
               )}
+              {!deskSkeleton && worldCupSection()}
               {/* NOT UNTIL THE LINES ARE IN. These fetch on their own and land first, and the season
                   blocks then pushed them down by up to 2,800px: most of a cold player page's layout
                   shift in October 2026. Drawn after, they arrive below everything already there. */}
