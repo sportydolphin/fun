@@ -7,6 +7,7 @@
  *   npm run wbsc -- --propose           candidate WPBL matches, into the review file
  *   npm run wbsc -- --review            review them in the browser (wbsc-review.ts; --no-open)
  *   npm run wbsc -- --confirm           move the reviewed ones into the crosswalk
+ *   npm run wbsc -- --international     international.json for the player page, from the crosswalk
  *   flags: --refresh (refetch cached games), --offline (cache only, no network),
  *          --check (compare with the files on disk, write nothing)
  *
@@ -32,7 +33,9 @@ import { applyDecisions, EMPTY_CROSSWALK, propose } from '../src/intl/wbsc/cross
 import type { Crosswalk, CrosswalkWpblPlayer, Review } from '../src/intl/wbsc/crosswalk'
 import { inertiaFromHtml } from '../src/intl/wbsc/page'
 import { isFinal, transformGame, validateGame } from '../src/intl/wbsc/game'
-import type { WbscPlayer } from '../src/intl/wbsc/game'
+import type { WbscBattingLine, WbscGame, WbscPlayer } from '../src/intl/wbsc/game'
+import { buildInternational, type InternationalEventInput } from '../src/intl/wbsc/international'
+import type { PitchingGameLine } from '../src/league/types'
 import type { WbscEvent, WbscGamePage, WbscScheduleGame } from '../src/intl/wbsc/types'
 import { serveReview } from './wbsc-review'
 
@@ -328,6 +331,7 @@ async function importEvent(event: WbscEvent): Promise<boolean> {
 const CROSSWALK = join(OUT_DIR, 'crosswalk.json')
 const REVIEW = join(OUT_DIR, 'crosswalk-review.json')
 const ROSTER = 'archive/wpbl/wpbl_players.json'
+const INTERNATIONAL = join(OUT_DIR, 'international.json')
 
 const readJson = <T>(path: string, fallback: T): T => (existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) as T : fallback)
 const writeJson = (path: string, value: unknown) => writeFileSync(path, JSON.stringify(value, null, 2) + '\n')
@@ -390,11 +394,46 @@ function confirmLinks(log: (line: string) => void = console.log): boolean {
   return true
 }
 
+// ── international.json (src/intl/wbsc/international.ts) ──────────────────────────
+//
+// Gitignored with the rest: it is WBSC's numbers, regrouped.
+
+function buildInternationalFile(): boolean {
+  const crosswalk = readJson<Crosswalk>(CROSSWALK, EMPTY_CROSSWALK)
+  if (!crosswalk.links.length) { console.log(`${CROSSWALK} holds no links. Review and --confirm first.`); return false }
+  const events: InternationalEventInput[] = readdirSync(OUT_DIR, { withFileTypes: true })
+    .filter(d => d.isDirectory() && existsSync(join(OUT_DIR, d.name, 'manifest.json')))
+    .map(d => {
+      const dir = join(OUT_DIR, d.name)
+      const m = readJson<{ event: string; name: string; year: number; source: string }>(join(dir, 'manifest.json'), { event: d.name, name: d.name, year: 0, source: '' })
+      return {
+        key: m.event, name: m.name, year: m.year, source: m.source,
+        games: readJson<WbscGame[]>(join(dir, 'games.json'), []),
+        playerIds: new Set(readJson<WbscPlayer[]>(join(dir, 'players.json'), []).map(p => p.id)),
+        batting: readJson<WbscBattingLine[]>(join(dir, 'batting_lines.json'), []),
+        pitching: readJson<PitchingGameLine[]>(join(dir, 'pitching_lines.json'), []),
+      }
+    })
+  const roster = new Set(readJson<CrosswalkWpblPlayer[]>(ROSTER, []).map(p => p.id))
+  const { international, errors, unplayed } = buildInternational(crosswalk, events, roster)
+  if (errors.length) {
+    console.log('Nothing written:')
+    for (const e of errors) console.log(`  ${e}`)
+    return false
+  }
+  for (const u of unplayed) console.log(`  unplayed ${u.wbsc_name} → ${u.wpbl_name}, on ${u.event_key}'s roster and in none of its games`)
+  writeJson(INTERNATIONAL, international)
+  const rows = Object.values(international).reduce((n, p) => n + p.events.length, 0)
+  console.log(`${INTERNATIONAL}: ${Object.keys(international).length} WPBL players, ${rows} event rows, from ${crosswalk.links.length} links.`)
+  return true
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
   if (flag('propose')) { if (!proposeLinks()) process.exitCode = 1; return }
   if (flag('confirm')) { if (!confirmLinks()) process.exitCode = 1; return }
+  if (flag('international')) { if (!buildInternationalFile()) process.exitCode = 1; return }
   if (flag('review')) {
     serveReview({ outDir: OUT_DIR, reviewPath: REVIEW, rosterPath: ROSTER, readJson, writeJson, confirm: confirmLinks, open: !flag('no-open') })
     return

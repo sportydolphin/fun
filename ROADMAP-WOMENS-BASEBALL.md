@@ -29,12 +29,13 @@ Stage 0 is half done: the back end is built and waiting on WBSC's permission and
 | Oct 16 | The importer: wbsc.org pages into validated files, all 30 games of the 2026 group stage passing | [sportydolphin/fun#122](https://github.com/sportydolphin/fun/pull/122), [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md) |
 | Oct 16 | The crosswalk proposer: 39 candidate WBSC-to-WPBL matches for a person to confirm | [sportydolphin/fun#123](https://github.com/sportydolphin/fun/pull/123) |
 | Nov 1 | The direction decided; this plan | this file |
-| Nov 2 | The back catalog: all seven events, 170 games; the crosswalk review page (`--review`) | [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md) |
+| Nov 2 | The back catalog: all seven events, 170 games; the crosswalk review page (`--review`) | [sportydolphin/fun#181](https://github.com/sportydolphin/fun/pull/181) |
+| Nov 2 | `international.json` (`--international`), the player page's one file, built from the crosswalk | [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md) |
 
 **Open as of Nov 2:** no reply from WBSC is recorded; the crosswalk review (134 candidates, every
 event 2016 to 2026) is in progress in the review file, 130 marked and 4 open, with no reviewer named
-and nothing confirmed, so `crosswalk.json` holds no links yet. Steps 1, 3 and 4 below are done on
-this machine.
+and nothing confirmed, so `crosswalk.json` holds no links yet. Steps 1, 3, 4 and 5 below are done
+on this machine; step 2, the review, is what stage 0 waits on besides WBSC.
 
 **Waiting on:** replies to the owner's outreach (WBSC for permission; Baseball Prospectus and
 RetroWPBL as neighbors, see [Neighbors](#neighbors)). Record each reply here, with its date.
@@ -67,9 +68,10 @@ In order. Each step says what done looks like; the commands are in
    [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md#build-order).
 4. ✅ **Re-measure the provisional numbers** (Nov 2, 2026): the pitch-board bars in
    `src/intl/league.ts`, now from every event.
-5. **Build `international.json`**, the one file a WPBL player page will read: per WPBL player, each
-   event's batting and pitching totals and the games behind them, from the confirmed crosswalk. It
-   can be built and tested now; it stays gitignored like the rest.
+5. ✅ **Build `international.json`** (Nov 2, 2026), the one file a WPBL player page will read: per
+   WPBL player, each event's batting and pitching totals and the games behind them, from the
+   confirmed crosswalk. `npm run wbsc -- --international`, run again after each `--confirm`; it
+   stays gitignored like the rest.
 6. **On permission** (and only then): take `archive/wbsc/` out of `.gitignore` (the cache stays
    ignored), add a size budget for it in CI, commit the data, and publish stage 1 below. On a "no":
    delete the two folders and keep the code for another source.

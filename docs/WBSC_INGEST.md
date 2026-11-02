@@ -234,9 +234,20 @@ of Newfoundland, one against Minseo Park). The reviewer decides each. One more W
 O'Sullivan written "O ` SULLIVAN", a backtick between spaces, which every apostrophe variant now
 folds to (`APOSTROPHE` in game.ts).
 
-What the player page will eventually read is one derived file, `international.json`, keyed by
-WPBL player id: each event's batting and pitching totals and the games behind them. Small, and the
-only file the WPBL section ever needs.
+What the player page will read is one derived file, `archive/wbsc/international.json`, keyed by
+WPBL player id: per event, the national team, the WBSC name the link matched, the batting and
+pitching totals (counts only; the page computes the rates) and the games behind them with their
+wbsc.org box scores. It is built from the confirmed crosswalk alone, never the review file:
+
+```bash
+npm run wbsc -- --international
+```
+
+All or nothing again ([`international.ts`](../src/intl/wbsc/international.ts)): a link to an event not
+imported, a WBSC player not in that event, someone off the WPBL roster, or two WBSC players for one
+WPBL player in one event, and nothing is written. A linked player on an event's roster who played
+no game in it gets no row and a line in the run log. Run it again after every `--confirm`. Built on
+Nov 2, 2026 from the review's yeses so far as a dry run: 49 players, 117 event rows, 171 KB.
 
 ## The league binding
 
@@ -310,7 +321,8 @@ enters git.
      Nicole, Esthela for Liliana Esthela) and one surname WBSC spells a letter off. It now proposes
      those three kinds too (`MatchKind`); the search that found them turned up no other near miss.
    - The 2024 Finals hold one unplayed game (USA @ VEN), skipped as before.
-6. **`international.json`** for the player page, which stays unbuilt until permission.
+6. ✅ **`international.json`** for the player page (Nov 2, 2026): `--international`, above. Built
+   and tested; it stays gitignored, and nothing reads it until permission.
 
 ## The 2016 play log
 
