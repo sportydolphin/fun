@@ -19,9 +19,10 @@ earned", after an April read of the World Cup's traffic. The identity is now dec
 still happens, and it now sets how far and how fast stage 5 goes, not whether the site is women's
 baseball. The traffic already argues for it: WPBL sessions ran about 20 to 1 over MLB in the season.
 
-## Where it stands (Nov 1, 2026)
+## Where it stands (Nov 2, 2026)
 
-Stage 0 is half done: the back end is built and waiting on WBSC's permission and the owner's review.
+Stage 0's work is done and waits only on WBSC's permission. Stage 1 is built, ahead of its window,
+as a preview only the owner can see.
 
 | Done | What | Where |
 |---|---|---|
@@ -30,34 +31,40 @@ Stage 0 is half done: the back end is built and waiting on WBSC's permission and
 | Oct 16 | The crosswalk proposer: 39 candidate WBSC-to-WPBL matches for a person to confirm | [sportydolphin/fun#123](https://github.com/sportydolphin/fun/pull/123) |
 | Nov 1 | The direction decided; this plan | this file |
 | Nov 2 | The back catalog: all seven events, 170 games; the crosswalk review page (`--review`) | [sportydolphin/fun#181](https://github.com/sportydolphin/fun/pull/181) |
-| Nov 2 | `international.json` (`--international`), the player page's one file, built from the crosswalk | [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md) |
+| Nov 2 | `international.json` (`--international`), the player page's one file, built from the crosswalk | [sportydolphin/fun#181](https://github.com/sportydolphin/fun/pull/181) |
 | Nov 2 | The crosswalk reviewed and confirmed: 121 links over 52 WPBL players, 13 ruled out | archive/wbsc/crosswalk.json (gitignored) |
-| Nov 2 | The World Cup on WPBL player pages as the owner's preview, from an owner-only table | [src/wpbl/player/WorldCup.tsx](src/wpbl/player/WorldCup.tsx) |
+| Nov 2 | The World Cup on WPBL player pages as the owner's preview, from an owner-only table; Owner view in the dev menu | [sportydolphin/fun#182](https://github.com/sportydolphin/fun/pull/182) |
+| Nov 2 | The person registry, `people.json` (`--people`) | [sportydolphin/fun#183](https://github.com/sportydolphin/fun/pull/183) |
+| Nov 2 | The same player across World Cups (`--same`): 478 pairs by rule, 6 by the owner; 751 people | [sportydolphin/fun#184](https://github.com/sportydolphin/fun/pull/184) |
 
 **Open as of Nov 2:** no reply from WBSC is recorded. Steps 1 to 5 below are done on this
-machine: the crosswalk is confirmed (121 links, 52 WPBL players, backed up to the owner's OneDrive),
-and stage 1 is built as the owner's preview: the World Cup rows, readable by the owner alone, and
-the person registry. Stage 0
-now waits only on WBSC, and releasing the preview is the owner's call.
+machine, and the hand work (`crosswalk.json`, `same-person.json`) is backed up to the owner's
+OneDrive (`sportydolphin-wbsc-backup`). Stage 1 is built as the owner's preview: the World Cup
+rows on WPBL player pages, readable by the owner alone, and the person registry, with every World
+Cup career joined (751 people). Next is stage 2's pages, built behind the same owner gate.
+Releasing anything is the owner's call, after WBSC's yes.
 
 **Waiting on:** replies to the owner's outreach (WBSC for permission; Baseball Prospectus and
 RetroWPBL as neighbors, see [Neighbors](#neighbors)). Record each reply here, with its date.
 
-**Nothing is on the site, and no WBSC data is in git.** The repository is public, so committing
-the data would publish it. Everything WBSC-derived lives in two gitignored folders on the machine
-that ran the import: `.wbsc-cache/` (the downloaded pages) and `archive/wbsc/` (the output and the
-crosswalk).
+**Nothing is public, and no WBSC data is in git.** The repository is public, so committing the
+data would publish it. Everything WBSC-derived lives in two gitignored folders on the machine that
+ran the import: `.wbsc-cache/` (the downloaded pages) and `archive/wbsc/` (the output, the
+crosswalk, the same-person decisions and the registry). The one copy off that machine is
+`wbsc_world_cup_lines` in Supabase, which only the site owner can read, for the preview
+([ARCHITECTURE.md](ARCHITECTURE.md), the database section).
 
 ## Pick up here: stage 0
 
 In order. Each step says what done looks like; the commands are in
 [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md).
 
-1. **Restore the local data if this is a fresh machine.** Re-run the import for every event done so
-   far (today the two 2026 groups: `npm run wbsc -- --list` prints the keys), about 30 requests per
-   event, 1.5 s apart. Done when each event's folder is back in `archive/wbsc/`. The crosswalk
-   cannot be re-downloaded: see the warning under step 2.
-2. **Review the crosswalk.** `npm run wbsc -- --propose`, then in
+1. **Restore the local data if this is a fresh machine.** `npm run wbsc -- --all` re-imports all
+   seven events, about 190 requests, 1.5 s apart. Done when each event's folder is back in
+   `archive/wbsc/`. The hand work cannot be re-downloaded: copy `crosswalk.json` and
+   `same-person.json` back from the OneDrive backup, then rebuild the rest with `--international`,
+   `--people` and `--upload`.
+2. ✅ **Review the crosswalk** (Nov 2, 2026: 121 links, 13 ruled out). `npm run wbsc -- --propose`, then in
    `archive/wbsc/crosswalk-review.json` put a name in `checked_by` and a `yes` or `no` on each
    candidate, then `npm run wbsc -- --confirm`. Or `npm run wbsc -- --review`, which does the same on a
    page with the facts beside each pair. Every event together proposes 134: 97 by full name, 37 by
@@ -73,11 +80,13 @@ In order. Each step says what done looks like; the commands are in
    `src/intl/league.ts`, now from every event.
 5. ✅ **Build `international.json`** (Nov 2, 2026), the one file a WPBL player page will read: per
    WPBL player, each event's batting and pitching totals and the games behind them, from the
-   confirmed crosswalk. `npm run wbsc -- --international`, run again after each `--confirm`; it
-   stays gitignored like the rest.
+   confirmed crosswalk. After every `--confirm`: `--international`, `--upload` (the owner's
+   preview), `--same` and `--people`. All of it stays gitignored like the rest.
 6. **On permission** (and only then): take `archive/wbsc/` out of `.gitignore` (the cache stays
-   ignored), add a size budget for it in CI, commit the data, and publish stage 1 below. On a "no":
-   delete the two folders and keep the code for another source.
+   ignored), add a size budget for it in CI, commit the data, and publish stage 1 below: the World
+   Cup rows read a public file instead of `wbsc_world_cup_lines`, that table is dropped, and the
+   `useIsAdmin` check in [`player/WorldCup.tsx`](src/wpbl/player/WorldCup.tsx) goes. On a "no":
+   delete the two folders and the table, and keep the code for another source.
 
 ## The approach
 

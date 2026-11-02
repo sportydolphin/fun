@@ -43,10 +43,10 @@
 
 ## Now: November
 
-1. **World Cup stage 0: permission and a complete local dataset.** Owner: chase WBSC (no reply
-   recorded since the October email), review the 39 crosswalk candidates (none decided as of Nov 1)
-   and keep a private copy off this machine. Code: import 2024, 2023, 2018 and 2016, re-measure the
-   provisional pitch-board bars, build `international.json`. All still gitignored.
+1. **World Cup stage 0: permission and a complete local dataset.** All done but the permission
+   (Nov 2, 2026): every event since 2016 imported, the crosswalk and the same-person review
+   confirmed and backed up off this machine, `international.json` built. Owner: chase WBSC (no reply
+   recorded since the October email; the second email is due by Nov 10). All still gitignored.
    *ROADMAP-WOMENS-BASEBALL, "The plan", stage 0.*
 2. **Google Play release.** Only Play's own process is left. Owner. *ROADMAP-WPBL ops item 9;
    docs/ANDROID.md.*
@@ -70,9 +70,9 @@
    - every Trap in CLAUDE.md re-verified against the 2027 feed once it speaks.
    *ROADMAP-WPBL, ops item 7, Priorities P0 and P2, engineering backlog.*
 7. **World Cup stages 1 and 2**: one person across every competition (the person registry and the
-   World Cup rows in WPBL player pages' career tables, Dec to Jan), then `/world-cup` with every event since
-   2016 and a page for every player in them (Jan to Mar). Built either way; published on WBSC's yes
-   only. *ROADMAP-WOMENS-BASEBALL, "The plan", stages 1 and 2.*
+   World Cup rows on WPBL player pages: built Nov 2, 2026 as an owner-only preview), then
+   `/world-cup` with every event since 2016 and a page for every player in them (Jan to Mar; the
+   same-player review it needs is done). Built either way; published on WBSC's yes only. *ROADMAP-WOMENS-BASEBALL, "The plan", stages 1 and 2.*
 8. **The live field**, in Game Center on both leagues, before MLB's Opening Day in late March: an
    animated diamond with runners, the count and pitch location. Built on MLB first, because spring
    training is live from late February while the WPBL feed is quiet; WPBL wires to it against the
