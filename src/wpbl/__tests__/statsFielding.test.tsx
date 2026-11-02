@@ -149,6 +149,32 @@ describe('the Fielding side', () => {
     expect(cell(sf, 'FPCT')).toBe('.857')
   })
 
+  // The feed charges a steal to the catcher and the pitcher both, and a double play to every fielder
+  // on it, so a club's line cannot be its players' added up.
+  it('counts a catcher’s steals and dashes the rest, and does not double a club’s', async () => {
+    const was = { batting: [...BATTING], fielding: [...FIELDING] }
+    BATTING.push(bat('g1', 'k', 'BOS'), bat('g2', 'k', 'BOS'))
+    BATTING.slice(-2).forEach(l => { l.position = 'c' })
+    FIELDING.push(
+      fld('g1', 'k', 'BOS', { sba: 3, po: 1 }), fld('g2', 'k', 'BOS', { po: 1 }),
+      fld('g1', 'b', 'BOS', { sba: 3 }),
+    )
+    PLAYERS.push(player('k', 'Kit Keane', 'BOS'))
+    try {
+      draw()
+      await openFielding()
+      expect(cell(bodyRows().find(r => r.textContent?.includes('Keane'))!, 'SBA')).toBe('3')
+      expect(cell(bodyRows().find(r => r.textContent?.includes('Baker'))!, 'SBA')).toBe('—')
+      fireEvent.click(screen.getByText('Teams'))
+      expect(cell(bodyRows().find(r => r.textContent?.includes('BOS'))!, 'SBA')).toBe('3')
+      expect(headers().some(h => h.startsWith('CS'))).toBe(false)
+    } finally {
+      BATTING.length = 0; BATTING.push(...was.batting)
+      FIELDING.length = 0; FIELDING.push(...was.fielding)
+      PLAYERS.pop()
+    }
+  })
+
   it('is a side in the address bar, and the old board link still opens it', async () => {
     window.history.replaceState(null, '', '/wpbl/stats')
     draw()

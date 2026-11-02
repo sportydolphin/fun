@@ -635,7 +635,8 @@ describe('what a catcher is carded on', () => {
     const c = card([caught('Runner out at second c to 2b, caught stealing.')])
     expect(c.stats?.map(s => s.label)).toEqual(['CS', 'Assists', 'Errors'])
     expect(c.stats?.[0].value).toBe('1')
-    expect(c.line).toBe('Threw out 1 of 12 who ran on them')
+    // 12 stole on her and 1 did not: `sba` is steals allowed, and never holds a caught stealing.
+    expect(c.line).toBe('Threw out 1 of 13 who ran on them')
     // 90 putouts, and every one of them is her pitcher's strikeout. It must not appear.
     expect(JSON.stringify(c)).not.toContain('90')
   })
@@ -662,6 +663,20 @@ describe('what a catcher is carded on', () => {
         bat({ player_id: second.id, team_id: her.team_id, game_id: ids[0], position: 'c' })],
     }))
     expect(c.stats?.[0].value).toBe('0')
+  })
+
+  it('credits the catcher the play log had put behind the plate by then', () => {
+    const second = player({ id: 'c2', name: 'Someone Else', team_id: her.team_id })
+    const c = cardFrom(input([
+      { game_id: ids[0], sequence: 1, narrative: 'Someone Else to c for ' + CATCHER.name + '.' },
+      { ...(caught('Runner out at second c to 2b, caught stealing.') as object), sequence: 2 },
+    ], {
+      players: [...roster, second],
+      batting: [...herLines,
+        bat({ player_id: second.id, team_id: her.team_id, game_id: ids[0], position: 'c' })],
+    }))
+    expect(c.stats?.[0].value).toBe('0')
+    expect(c.line).toBe('Threw out 0 of 12 who ran on them')
   })
 
   // One card, one substitution: the three names beside her keep the putout, since a catch at

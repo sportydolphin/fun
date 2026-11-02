@@ -3,6 +3,7 @@ import { catcherIndex, type CatcherSourceLine } from './catching.ts'
 import { OUTFIELD_ZONES, sprayZone, type SprayZone } from './spray.ts'
 import type { RunnerEvent } from './baserunning.ts'
 import { PITCH_CODES } from '../league.ts'
+import { scopedLines, type SeasonScope, type WpblSeasonGame } from '../season.ts'
 import type { WpblRunValuePlay } from '../types'
 
 /**
@@ -194,6 +195,30 @@ export function readDoublePlay(narrative: string): DoublePlayRead | null {
   // Caught in the air, with a runner doubled off; anything else (a ground ball, a bunt, a
   // fielder's choice turned into two) had a force for its first out.
   return { chain, ground: !/\b(?:lined|flied|popped|fouled) (?:out )?into (?:a )?double play/i.test(own) }
+}
+
+/**
+ * Double plays each club turned, off the play log.
+ *
+ * NEVER THE SUM OF ITS FIELDERS' `dp`. The box score credits a double play to everyone who touched
+ * it, so a 6-4-3 is three: added up, New York's 7 in 2026 read 20 and Los Angeles's 15 read 40. A row
+ * is the club's whatever its words go on to say about the fielders, so this reads the batter's own
+ * clause and not the chain `readDoublePlay` needs. The play's `team_id` is the batting side.
+ */
+export function teamDoublePlays(
+  plays: readonly { game_id: string; team_id: string | null; narrative: string | null }[],
+  games: WpblSeasonGame[],
+  scope: SeasonScope,
+): Map<string, number> {
+  const byId = new Map(games.map(g => [g.id, g]))
+  const out = new Map<string, number>()
+  for (const p of scopedLines([...plays], games, scope)) {
+    if (!p.narrative || !/\bdouble play\b/i.test(p.narrative.split(';')[0])) continue
+    const g = byId.get(p.game_id) as { home_team_id?: string; away_team_id?: string } | undefined
+    const club = p.team_id === g?.home_team_id ? g?.away_team_id : g?.home_team_id
+    if (club) out.set(club, (out.get(club) ?? 0) + 1)
+  }
+  return out
 }
 
 // ── The season ──────────────────────────────────────────────────────────────────

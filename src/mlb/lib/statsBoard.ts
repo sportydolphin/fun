@@ -29,7 +29,8 @@ export function sortBoard(entries: LeaderboardEntry[], def: StatDef, asc: boolea
   return entries
     .map(e => ({ ...e, _v: rankValue(def, e.stat) }))
     .filter(e => !isNaN(e._v))
-    .sort((a, b) => (asc ? a._v - b._v : b._v - a._v))
+    // Equal first: two scoreless ERA+ are both Infinity, and Infinity - Infinity is NaN.
+    .sort((a, b) => (a._v === b._v ? 0 : asc ? a._v - b._v : b._v - a._v))
 }
 
 /** A row's place on the board, and whether it shares it. */

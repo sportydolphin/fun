@@ -8,6 +8,8 @@ import { outsToIp } from '../innings'
 import { buildPositionIndex, displayPositionFromIndex, positionsPlayed } from '../positions'
 import { aggregateBatting, aggregatePitching, plateAppearances, sumFielding, wpblQualifiers, QUALIFY_FLOOR_PA } from '../stats'
 import type { WpblBattingTotals, WpblFieldingTotals, WpblPitchingTotals } from '../stats'
+import { CATCHER_THROW } from './baserunning'
+import { catcherIndex, caughtIn } from './catching'
 import type { MvpRace } from './mvpRace'
 import { fmtWinPct, type GameWinProb } from './winProbability'
 import type { TrackingBoard } from '../tracking'
@@ -130,45 +132,50 @@ export interface CatcherArm {
  * Caught stealing per catcher, read off the play log.
  *
  * NOT IN THE BOX SCORE AT ALL. The feed's fielding row is `po, a, e, dp, pb, sba, ci`: `sba`
- * counts the attempts against a catcher and nothing counts the ones they ended. A catcher's throw
- * shows up in the assist total, mixed in with every other throw, so the two cannot be separated
- * there. The play log can: it spells the throw path out, and a caught stealing that starts at the
- * plate reads "out at second c to 2b, caught stealing". In the 2026 regular season twelve of the
- * fifteen caught stealings started at the plate; the other three start at `p` and are pickoffs,
- * which belong to the pitcher.
+ * counts the steals allowed and nothing counts the runners a catcher threw out. In all 80 club-games
+ * of 2026 a club's `sba` is exactly twice the steals against it, once on the catcher and once on the
+ * pitcher, and never includes a caught stealing. So attempts are a catcher's own `sba` plus their
+ * throw-outs, and only on a line where they caught.
  *
- * THE NARRATIVE NAMES THE RUNNER, NEVER THE THROWER, so the catcher comes from the lineup: the
- * one player on the fielding club with `c` on their batting line that game, or nobody. An
- * unambiguous single hit or nothing, the same rule the slate itself uses for names, because a
- * game with two catchers in it cannot say which of them made the throw.
+ * A catcher's throw shows up in the assist total, mixed in with every other throw, so it cannot be
+ * separated there. The play log can: it spells the throw path out, and a caught stealing that starts
+ * at the plate reads "out at second c to 2b, caught stealing". In the 2026 regular season twelve of
+ * the fifteen caught stealings started at the plate; the other three start at `p`, which belong to
+ * the pitcher.
+ *
+ * THE NARRATIVE NAMES THE RUNNER, NEVER THE THROWER, so the catcher comes from `catcherIndex`, the
+ * one WAR's arm column reads, so this card and that column credit the same catcher: the one player
+ * with `c` on their batting line that game, else whoever the "to c" rows had put there by then, or
+ * nobody when the log cannot say.
  */
 export function catcherArms(
   plays: readonly WpblRunValuePlay[],
   batting: WpblBattingLine[],
   fielding: WpblFieldingLine[],
   games: WpblGame[],
+  players: readonly { id: string; name: string }[],
 ): Map<string, CatcherArm> {
   const gm = new Map(games.map(g => [g.id, g]))
-  const catcherOf = new Map<string, string | null>()
-  for (const b of regularSeasonLines(batting, games)) {
-    if (!String(b.position ?? '').split('/').some(x => x.trim().toLowerCase() === 'c')) continue
-    const k = `${b.game_id}|${b.team_id}`
-    catcherOf.set(k, catcherOf.has(k) && catcherOf.get(k) !== b.player_id ? null : b.player_id)
-  }
+  const lines = regularSeasonLines(batting, games)
+  const regularPlays = regularSeasonLines([...plays] as WpblRunValuePlay[], games)
+  const catcherAt = catcherIndex(lines, regularPlays, players)
+  const caught = new Set(lines.filter(b => caughtIn(b.position)).map(b => `${b.game_id}|${b.player_id}`))
   const out = new Map<string, CatcherArm>()
   const bump = (id: string, k: keyof CatcherArm, n = 1) => {
     const a = out.get(id) ?? { caught: 0, attempts: 0 }
     a[k] += n; out.set(id, a)
   }
-  for (const l of regularSeasonLines(fielding, games)) if (l.sba) bump(l.player_id, 'attempts', l.sba)
-  for (const p of regularSeasonLines([...plays] as WpblRunValuePlay[], games)) {
+  for (const l of regularSeasonLines(fielding, games)) {
+    if (l.sba && caught.has(`${l.game_id}|${l.player_id}`)) bump(l.player_id, 'attempts', l.sba)
+  }
+  for (const p of regularPlays) {
     const n = p.narrative ?? ''
-    if (!/caught stealing/i.test(n) || !/out at \w+ c to /i.test(n)) continue
+    if (!/caught stealing/i.test(n) || !CATCHER_THROW.test(n)) continue
     const g = gm.get(p.game_id); if (!g) continue
     // A play's `team_id` is the BATTING side, so the fielding club is the other one.
     const fieldingClub = p.team_id === g.home_team_id ? g.away_team_id : g.home_team_id
-    const c = catcherOf.get(`${p.game_id}|${fieldingClub}`)
-    if (c) bump(c, 'caught')
+    const c = catcherAt(p.game_id, fieldingClub, p.sequence)
+    if (c) { bump(c, 'caught'); bump(c, 'attempts') }
   }
   return out
 }
@@ -583,7 +590,7 @@ function gloveSlate({ players, fielding, batting, games, plays }: AwardBallotInp
   // Null, not an empty map, when the play log has not been fetched: a catcher then reads as the
   // no-value dash rather than a confident zero, which is the difference between "we do not know"
   // and "nobody ran on them". See AwardStat.
-  const arms = plays?.length ? catcherArms(plays, batting, fielding, games) : null
+  const arms = plays?.length ? catcherArms(plays, batting, fielding, games, players) : null
   const out: AwardCandidate[] = []
   for (const { player } of resolveNominees(WPBL_GLOVE_SHORTLIST, players)) {
     // `byPlayer` is already regular-season only (built from `regularSeasonLines` above), so the
@@ -917,7 +924,7 @@ function gloveStats(t: WpblFieldingTotals, catcher: boolean, arm: CatcherArm | n
   // pitcher rings somebody up (Denae Benites: 90 putouts, 86 of them strikeouts), so the number
   // measures innings caught and the pitching staff rather than the catcher. Under it is a real
   // season nobody could see, because it is not in the box score at all: Benites threw out 5 of the
-  // 12 who ran, 42%, where the league's other regulars sit between 5 and 8 per cent. Those five are
+  // 17 who ran, 29%, where the league's other regulars sit between 0 and 9 per cent. Those five are
   // also five of the fourteen assists, which is not double counting so much as the same throws
   // named twice: the assist column is where a catcher's arm has always hidden.
   //
@@ -972,7 +979,7 @@ export function awardStatsLookup(
   const writeInArms = () => {
     if (catcherArmIndex !== undefined) return catcherArmIndex
     catcherArmIndex = input.plays?.length
-      ? catcherArms(input.plays, input.batting, input.fielding, input.games)
+      ? catcherArms(input.plays, input.batting, input.fielding, input.games, input.players)
       : null
     return catcherArmIndex
   }

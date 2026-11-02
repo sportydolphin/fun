@@ -93,10 +93,10 @@ export const VIEW_ORDER: Record<Side, Record<View, readonly string[]>> = {
     advanced: ['ip', 'bf', 'k9', 'kbb', 'hr9', 'kPct', 'bbPct', 'kbbPct', 'strikePct', 'whip',
       'babip', 'eraPlus', 'era', 'fip'],
   },
-  // One view: nine columns fit any desktop, and there is nothing advanced to compute from a line
+  // One view: eleven columns fit any desktop, and there is nothing advanced to compute from a line
   // with no position and no innings on it. The empty list is what hides the view switch.
   fielding: {
-    standard: ['g', 'tc', 'po', 'a', 'e', 'dp', 'fpct', 'pb', 'sba'],
+    standard: ['g', 'tc', 'po', 'a', 'e', 'dp', 'fpct', 'pb', 'sba', 'cs', 'csPct'],
     advanced: [],
   },
 }

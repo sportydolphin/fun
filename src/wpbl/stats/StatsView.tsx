@@ -18,7 +18,7 @@ import { trackingWorthShowing } from '../tracking'
 import { WPBL_ACCENT, outsToIp, wpblFullName } from '../constants'
 import { buildPositionIndex } from '../positions'
 import {
-  aggregateBatting, aggregatePitching, aggregateFielding, sumFielding,
+  aggregateBatting, aggregatePitching, aggregateFielding, catcherSteals, sumFielding,
   wpblQualifiers,
   type WpblBattingTotals, type WpblPitchingTotals,
 } from '../stats'
@@ -39,7 +39,8 @@ import { ActiveFilterChip } from '../../ui/FilterChip'
 import { parsePositionFilter, positionFilterDef, type PositionFilter } from '../../league/positionFilter'
 import type { Side, BallSide, Totals, Source, Mode, Group, View } from './axes'
 import { axesOf, VIEW_ORDER, sideOn, defaultSide, inView, orderForView, viewFor, defaultSort } from './axes'
-import { FLD_COLS, statNames, cellText, CONTEXT_KEYS } from './columns'
+import { FLD_COLS, FLD_TEAM_COLS, statNames, cellText, CONTEXT_KEYS } from './columns'
+import { teamDoublePlays } from '../derive/fielding'
 import { ANALYSIS_TABS, ANALYSIS_SOURCES } from './boardTabs'
 import { STATS_PATH, boardParam, axesFromQuery } from './address'
 import { fullBleedSx, NAME_W, NAME_INNER_MAX, TEAM_NAME_W, TEAM_NAME_INNER_MAX } from './layout'
@@ -484,7 +485,7 @@ export default function WpblStatsView({
   const rvPlays = useMemo(() => (allRvPlays ? cut(allRvPlays) : null), [allRvPlays, cut])
   // Overall is built from the play log itself, so it asks whatever the priced row says. Neither is
   // asked while the stored seasons may yet answer both.
-  const needPlays = !rvPlays && storedSettled && !storedCurrent && ((runEnvAsked && !runEnvCurrent) || side === 'overall')
+  const needPlays = !rvPlays && storedSettled && !storedCurrent && ((runEnvAsked && !runEnvCurrent) || side === 'overall' || side === 'fielding')
   useEffect(() => {
     if (!needPlays) return
     let cancelled = false
@@ -513,8 +514,16 @@ export default function WpblStatsView({
   // reader who never leaves Hitting. Regular season only, like the Run value engines it calls, so
   // the scope chips are not offered on this side.
   const valueSeasons = useMemo(
-    () => (stored ? stored.value : side === 'overall' && rvPlays ? playerValueSeasons(rvPlays, games, players, lines).seasons : null),
+    () => (stored ? stored.value : (side === 'overall' || side === 'fielding') && rvPlays ? playerValueSeasons(rvPlays, games, players, lines).seasons : null),
     [stored, side, rvPlays, games, players, lines])
+  // What the Fielding side reads from the plays: throw-outs per catcher, double plays per club. An
+  // empty log is not an answer, so those cells dash rather than print a confident zero.
+  const armCs = useMemo(
+    () => (valueSeasons && valueSeasons.length > 0 ? new Map(valueSeasons.map(s => [s.player.id, s.totals.armCs])) : null),
+    [valueSeasons])
+  const teamDp = useMemo(
+    () => (side !== 'fielding' ? null : stored ? stored.teamDp(scope) : rvPlays?.length ? teamDoublePlays(rvPlays, games, scope) : null),
+    [side, stored, rvPlays, games, scope])
 
   // Every player's season on the slice showing, and the league's line over it: the stored rows when
   // current, else summed from the lines. The same totals either way (derive/playerSeasons.ts).
@@ -562,7 +571,7 @@ export default function WpblStatsView({
     () => pitchingColumns({ league, wWeights, fWeights, fmtEra, eraBasis }),
     [league, wWeights, fWeights, fmtEra, eraBasis])
 
-  const cols = (side === 'hitting' ? hitCols : side === 'fielding' ? FLD_COLS : side === 'overall' ? OVR_COLS : pitCols) as Col<Totals>[]
+  const cols = (side === 'hitting' ? hitCols : side === 'fielding' ? (mode === 'teams' ? FLD_TEAM_COLS : FLD_COLS) : side === 'overall' ? OVR_COLS : pitCols) as Col<Totals>[]
   const activeCol = cols.find(c => c.key === sortKey) ?? cols[0]
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
@@ -769,8 +778,8 @@ export default function WpblStatsView({
   const builtRows = useMemo<Row[]>(() => buildRows({
     mode, side, players, lines, fielding, valueSeasons, batSeasons, pitSeasons, teams, teamById, teamId,
     qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope,
-    positionIndex, pos,
-  }), [mode, side, players, lines, fielding, valueSeasons, batSeasons, pitSeasons, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope, positionIndex, pos])
+    positionIndex, pos, teamDp, armCs,
+  }), [mode, side, players, lines, fielding, valueSeasons, batSeasons, pitSeasons, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope, positionIndex, pos, teamDp, armCs])
   // THE LIST DROPS A ROW WITH NO NUMBER FOR ITS ONE STAT. It shows that stat alone, so a pitcher
   // with no WAR was a name beside a dash, and with ten of them the board's tail was a column of
   // dashes. The table keeps them: there the row has fifteen other columns to read.
@@ -797,12 +806,18 @@ export default function WpblStatsView({
   // whole league whatever the team filter says, the same baseline those three indexes use.
   const leagueTotals = useMemo<Totals>(
     () => side === 'hitting' ? league.batting
-      : side === 'fielding' ? sumFielding(fielding ?? [], games, scope)
+      : side === 'fielding' ? {
+        ...sumFielding(fielding ?? [], games, scope),
+        catching: {
+          sba: [...catcherSteals(fielding ?? [], lines.batting, games, scope).byTeam.values()].reduce((a, b) => a + b, 0),
+          cs: scope === 'regular' && armCs ? [...armCs.values()].reduce((a, b) => a + b, 0) : null,
+        },
+      }
       // Every Overall figure is against the average, so the league's line is zero across and
       // has no rate to print; the zero row keeps the type honest.
       : side === 'overall' ? EMPTY_VALUE_TOTALS
       : league.pitching,
-    [side, league, fielding, games, scope])
+    [side, league, fielding, lines.batting, armCs, games, scope])
   // RATES ONLY. A league total of home runs is not an average of anything a row here holds,
   // and a per-player mean would be dragged down by every pitcher's empty batting line, so the
   // counting cells are left empty rather than holding a number that means something else.

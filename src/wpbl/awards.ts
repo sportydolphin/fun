@@ -172,8 +172,8 @@ export const WPBL_MANAGERS: WpblManager[] = [
  * player's position from the box score's batting rows because the fielding rows do not carry
  * one). So any ranking has to be built out of assists and double plays, and that is an
  * infielder's stat line. Ordered on it, the shortlist comes out as four infielders, every time:
- * Denae Benites has taken 106 chances, more than anyone in the league, and ranks 16th on it
- * because 90 of them are putouts behind the plate, and Natsuki Yonetani ranks 36th for having 3
+ * Denae Benites has taken 106 chances, second in the league to a first baseman's 107, and ranks 16th
+ * on it because 90 of them are putouts behind the plate, and Natsuki Yonetani ranks 36th for having 3
  * assists in right field, where an assist means a runner was foolish enough to test that arm. A
  * shortlist that structurally cannot contain a catcher or an outfielder is not a shortlist of
  * defenders, and no weighting fixes that without a position to weight by.
