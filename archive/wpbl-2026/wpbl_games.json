@@ -98,7 +98,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-16T23:30:02.81+00:00",
-  "updated_at": "2026-10-26T00:00:05.631+00:00",
+  "updated_at": "2026-11-02T00:00:04.69+00:00",
   "venue": null
  },
  {
@@ -200,7 +200,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-06T19:00:12.853+00:00",
-  "updated_at": "2026-10-26T00:00:04.342+00:00",
+  "updated_at": "2026-11-02T00:00:03.095+00:00",
   "venue": null
  },
  {
@@ -302,7 +302,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-10T23:08:01.372+00:00",
-  "updated_at": "2026-10-26T00:00:05.37+00:00",
+  "updated_at": "2026-11-02T00:00:04.426+00:00",
   "venue": null
  },
  {
@@ -404,7 +404,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-26T18:00:06.14+00:00",
-  "updated_at": "2026-10-26T00:00:06.078+00:00",
+  "updated_at": "2026-11-02T00:00:05.222+00:00",
   "venue": null
  },
  {
@@ -506,7 +506,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-29T18:00:05.015+00:00",
-  "updated_at": "2026-10-26T00:00:06.112+00:00",
+  "updated_at": "2026-11-02T00:00:05.249+00:00",
   "venue": null
  },
  {
@@ -608,7 +608,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-24T23:52:02.373+00:00",
-  "updated_at": "2026-10-26T00:00:05.94+00:00",
+  "updated_at": "2026-11-02T00:00:05.135+00:00",
   "venue": null
  },
  {
@@ -710,7 +710,7 @@
   "status": "final",
   "status_detail": "Final - Weather Delay",
   "tracking_checked_at": "2026-09-30T18:00:03.89+00:00",
-  "updated_at": "2026-10-26T00:00:06.259+00:00",
+  "updated_at": "2026-11-02T00:00:05.316+00:00",
   "venue": null
  },
  {
@@ -812,7 +812,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-11T23:54:01.127+00:00",
-  "updated_at": "2026-10-26T00:00:05.405+00:00",
+  "updated_at": "2026-11-02T00:00:04.486+00:00",
   "venue": null
  },
  {
@@ -914,7 +914,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-06T19:00:07.678+00:00",
-  "updated_at": "2026-10-26T00:00:02.011+00:00",
+  "updated_at": "2026-11-02T00:00:02.589+00:00",
   "venue": null
  },
  {
@@ -1016,7 +1016,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-06T19:00:20.448+00:00",
-  "updated_at": "2026-10-26T00:00:04.829+00:00",
+  "updated_at": "2026-11-02T00:00:03.872+00:00",
   "venue": null
  },
  {
@@ -1118,7 +1118,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-06T19:00:09.054+00:00",
-  "updated_at": "2026-10-26T00:00:04.065+00:00",
+  "updated_at": "2026-11-02T00:00:02.71+00:00",
   "venue": "Robin Roberts"
  },
  {
@@ -1220,7 +1220,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-22T23:12:04.813+00:00",
-  "updated_at": "2026-10-26T00:00:05.852+00:00",
+  "updated_at": "2026-11-02T00:00:04.966+00:00",
   "venue": null
  },
  {
@@ -1322,7 +1322,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-06T19:00:21.693+00:00",
-  "updated_at": "2026-10-26T00:00:04.94+00:00",
+  "updated_at": "2026-11-02T00:00:03.959+00:00",
   "venue": null
  },
  {
@@ -1424,7 +1424,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-10-04T18:00:04.468+00:00",
-  "updated_at": "2026-10-26T00:00:06.359+00:00",
+  "updated_at": "2026-11-02T00:00:05.456+00:00",
   "venue": "Robin Roberts Stadium"
  },
  {
@@ -1526,7 +1526,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-19T23:02:01.659+00:00",
-  "updated_at": "2026-10-26T00:00:05.816+00:00",
+  "updated_at": "2026-11-02T00:00:04.928+00:00",
   "venue": null
  },
  {
@@ -1636,7 +1636,7 @@
   "status": "final",
   "status_detail": "Final - 8 innings",
   "tracking_checked_at": "2026-09-25T18:00:04.258+00:00",
-  "updated_at": "2026-10-26T00:00:05.994+00:00",
+  "updated_at": "2026-11-02T00:00:05.177+00:00",
   "venue": null
  },
  {
@@ -1738,7 +1738,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-10-07T18:00:04.696+00:00",
-  "updated_at": "2026-10-26T00:00:06.449+00:00",
+  "updated_at": "2026-11-02T00:00:05.535+00:00",
   "venue": null
  },
  {
@@ -1840,7 +1840,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-06T19:00:17.966+00:00",
-  "updated_at": "2026-10-26T00:00:04.681+00:00",
+  "updated_at": "2026-11-02T00:00:03.666+00:00",
   "venue": null
  },
  {
@@ -1942,7 +1942,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-09T23:20:04.801+00:00",
-  "updated_at": "2026-10-26T00:00:05.334+00:00",
+  "updated_at": "2026-11-02T00:00:04.315+00:00",
   "venue": null
  },
  {
@@ -2044,7 +2044,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-06T19:00:14.059+00:00",
-  "updated_at": "2026-10-26T00:00:04.436+00:00",
+  "updated_at": "2026-11-02T00:00:03.349+00:00",
   "venue": null
  },
  {
@@ -2146,7 +2146,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-18T23:08:01.836+00:00",
-  "updated_at": "2026-10-26T00:00:05.757+00:00",
+  "updated_at": "2026-11-02T00:00:04.882+00:00",
   "venue": null
  },
  {
@@ -2256,7 +2256,7 @@
   "status": "final",
   "status_detail": "Final - 8 innings",
   "tracking_checked_at": "2026-09-06T19:00:24.267+00:00",
-  "updated_at": "2026-10-26T00:00:05.131+00:00",
+  "updated_at": "2026-11-02T00:00:04.201+00:00",
   "venue": null
  },
  {
@@ -2358,7 +2358,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-10-10T18:00:05.409+00:00",
-  "updated_at": "2026-10-26T00:00:06.558+00:00",
+  "updated_at": "2026-11-02T00:00:05.616+00:00",
   "venue": null
  },
  {
@@ -2468,7 +2468,7 @@
   "status": "final",
   "status_detail": "Final - 8 innings",
   "tracking_checked_at": "2026-09-11T23:54:01.62+00:00",
-  "updated_at": "2026-10-26T00:00:05.466+00:00",
+  "updated_at": "2026-11-02T00:00:04.516+00:00",
   "venue": null
  },
  {
@@ -2570,7 +2570,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-10-06T18:00:04.138+00:00",
-  "updated_at": "2026-10-26T00:00:06.4+00:00",
+  "updated_at": "2026-11-02T00:00:05.496+00:00",
   "venue": null
  },
  {
@@ -2672,7 +2672,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-09T12:25:59.538+00:00",
-  "updated_at": "2026-10-26T00:00:05.049+00:00",
+  "updated_at": "2026-11-02T00:00:04.087+00:00",
   "venue": null
  },
  {
@@ -2774,7 +2774,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-10-02T18:00:03.922+00:00",
-  "updated_at": "2026-10-26T00:00:06.33+00:00",
+  "updated_at": "2026-11-02T00:00:05.423+00:00",
   "venue": null
  },
  {
@@ -2876,7 +2876,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-12T23:38:01.591+00:00",
-  "updated_at": "2026-10-26T00:00:05.552+00:00",
+  "updated_at": "2026-11-02T00:00:04.601+00:00",
   "venue": null
  },
  {
@@ -2970,7 +2970,7 @@
   "status": "final",
   "status_detail": "Final - 6 innings",
   "tracking_checked_at": "2026-09-16T12:43:41.573+00:00",
-  "updated_at": "2026-10-26T00:00:05.213+00:00",
+  "updated_at": "2026-11-02T00:00:04.24+00:00",
   "venue": null
  },
  {
@@ -3072,7 +3072,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-06T19:00:19.15+00:00",
-  "updated_at": "2026-10-26T00:00:04.739+00:00",
+  "updated_at": "2026-11-02T00:00:03.794+00:00",
   "venue": null
  },
  {
@@ -3174,7 +3174,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-17T23:16:01.903+00:00",
-  "updated_at": "2026-10-26T00:00:05.683+00:00",
+  "updated_at": "2026-11-02T00:00:04.755+00:00",
   "venue": null
  },
  {
@@ -3276,7 +3276,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-06T19:00:11.612+00:00",
-  "updated_at": "2026-10-26T00:00:04.255+00:00",
+  "updated_at": "2026-11-02T00:00:02.944+00:00",
   "venue": null
  },
  {
@@ -3378,7 +3378,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-15T23:50:01.869+00:00",
-  "updated_at": "2026-10-26T00:00:05.598+00:00",
+  "updated_at": "2026-11-02T00:00:04.656+00:00",
   "venue": null
  },
  {
@@ -3480,7 +3480,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-10-12T18:00:06.132+00:00",
-  "updated_at": "2026-10-26T00:00:06.601+00:00",
+  "updated_at": "2026-11-02T00:00:05.677+00:00",
   "venue": null
  },
  {
@@ -3582,7 +3582,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-06T19:00:15.331+00:00",
-  "updated_at": "2026-10-26T00:00:04.527+00:00",
+  "updated_at": "2026-11-02T00:00:03.47+00:00",
   "venue": null
  },
  {
@@ -3684,7 +3684,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-06T19:00:10.334+00:00",
-  "updated_at": "2026-10-26T00:00:04.176+00:00",
+  "updated_at": "2026-11-02T00:00:02.809+00:00",
   "venue": "Robin Roberts"
  },
  {
@@ -3786,7 +3786,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-10-09T18:00:04.034+00:00",
-  "updated_at": "2026-10-26T00:00:06.524+00:00",
+  "updated_at": "2026-11-02T00:00:05.569+00:00",
   "venue": null
  },
  {
@@ -3888,7 +3888,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-10-01T18:00:03.664+00:00",
-  "updated_at": "2026-10-26T00:00:06.299+00:00",
+  "updated_at": "2026-11-02T00:00:05.374+00:00",
   "venue": null
  },
  {
@@ -3990,7 +3990,7 @@
   "status": "final",
   "status_detail": "Final",
   "tracking_checked_at": "2026-09-23T23:58:02.128+00:00",
-  "updated_at": "2026-10-26T00:00:05.895+00:00",
+  "updated_at": "2026-11-02T00:00:05.005+00:00",
   "venue": null
  },
  {
@@ -4100,7 +4100,7 @@
   "status": "final",
   "status_detail": "Final - 8 innings",
   "tracking_checked_at": "2026-09-06T19:00:16.643+00:00",
-  "updated_at": "2026-10-26T00:00:04.599+00:00",
+  "updated_at": "2026-11-02T00:00:03.557+00:00",
   "venue": null
  }
 ]
