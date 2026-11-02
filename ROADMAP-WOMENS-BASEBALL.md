@@ -36,7 +36,8 @@ Stage 0 is half done: the back end is built and waiting on WBSC's permission and
 
 **Open as of Nov 2:** no reply from WBSC is recorded. Steps 1 to 5 below are done on this
 machine: the crosswalk is confirmed (121 links, 52 WPBL players, backed up to the owner's OneDrive),
-and stage 1's World Cup rows are built as the owner's preview, readable by the owner alone. Stage 0
+and stage 1 is built as the owner's preview: the World Cup rows, readable by the owner alone, and
+the person registry. Stage 0
 now waits only on WBSC, and releasing the preview is the owner's call.
 
 **Waiting on:** replies to the owner's outreach (WBSC for permission; Baseball Prospectus and
@@ -242,6 +243,10 @@ it, so it is designed for the developmental league and the AAGPBL as much as for
   It reads `wbsc_world_cup_lines`, which only the owner can read; releasing it is the owner's call.
 - **Done when** the registry has a test that every crosswalk row resolves to one person and no
   person holds two WPBL players, and the matched pages render the rows.
+- ✅ **Done on Nov 2, 2026, ahead of the window**, as the owner's preview: the rows render from an
+  owner-only table, and `people.json` ([`src/intl/people.ts`](src/intl/people.ts), `npm run wbsc --
+  --people`) is the registry, tested both ways and holding both on the real data (1,049 people).
+  Slugs wait for stage 2, which is the first thing to need them.
 
 ### Stage 2. The World Cup as a competition of its own (January to March)
 
@@ -252,6 +257,12 @@ it, so it is designed for the developmental league and the AAGPBL as much as for
   in `src/league/` (bests, the finder, run expectancy) run on it with `src/intl/league.ts`; the
   WPBL Game Center's components are reused where they are already league-neutral, and anything
   WPBL-only (TrackMan, clips) is simply absent.
+- **First, a second review: the same player across World Cups.** WBSC numbers every player afresh
+  each event, and the registry joins nothing by name, so the 931 World Cup rows with no WPBL link
+  are 931 people today. At least 165 of them are one person in several World Cups under the same
+  name and flag. The crosswalk proposer and the review page extend to WBSC-to-WBSC pairs (same name,
+  same country, a later event), the reviewer confirms them, and `people.json` joins them. Without
+  it, a player with three World Cups gets three pages. Found Nov 2, 2026.
 - **A page for every player, not only WPBL players.** About 200 of the 2026 field's 239 never
   played in the WPBL. Without a page each of those names is a dead end, and opening a player page is
   the retention event the traffic data names. `/players/<slug>` from the registry. A WPBL player's

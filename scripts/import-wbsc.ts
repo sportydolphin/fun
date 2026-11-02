@@ -9,6 +9,7 @@
  *   npm run wbsc -- --confirm           move the reviewed ones into the crosswalk
  *   npm run wbsc -- --international     international.json for the player page, from the crosswalk
  *   npm run wbsc -- --upload            that file into the owner-only table the preview reads
+ *   npm run wbsc -- --people            people.json, one person per player across every competition
  *   flags: --refresh (refetch cached games), --offline (cache only, no network),
  *          --check (compare with the files on disk, write nothing)
  *
@@ -37,6 +38,7 @@ import { inertiaFromHtml } from '../src/intl/wbsc/page'
 import { isFinal, transformGame, validateGame } from '../src/intl/wbsc/game'
 import type { WbscBattingLine, WbscGame, WbscPlayer } from '../src/intl/wbsc/game'
 import { buildInternational, type International, type InternationalEventInput } from '../src/intl/wbsc/international'
+import { buildPeople, type PeopleWpblPlayer } from '../src/intl/people'
 import type { PitchingGameLine } from '../src/league/types'
 import type { WbscEvent, WbscGamePage, WbscScheduleGame } from '../src/intl/wbsc/types'
 import { serveReview } from './wbsc-review'
@@ -334,6 +336,7 @@ const CROSSWALK = join(OUT_DIR, 'crosswalk.json')
 const REVIEW = join(OUT_DIR, 'crosswalk-review.json')
 const ROSTER = 'archive/wpbl/wpbl_players.json'
 const INTERNATIONAL = join(OUT_DIR, 'international.json')
+const PEOPLE = join(OUT_DIR, 'people.json')
 
 const readJson = <T>(path: string, fallback: T): T => (existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) as T : fallback)
 const writeJson = (path: string, value: unknown) => writeFileSync(path, JSON.stringify(value, null, 2) + '\n')
@@ -462,12 +465,35 @@ async function uploadInternational(): Promise<boolean> {
   return true
 }
 
+// ── people.json (src/intl/people.ts) ────────────────────────────────────────────
+//
+// Gitignored with the rest while it names WBSC's players. Run it after every --confirm, beside
+// --international.
+
+function buildPeopleFile(): boolean {
+  const roster = readJson<PeopleWpblPlayer[]>(ROSTER, [])
+  if (!roster.length) { console.log(`No ${ROSTER}.`); return false }
+  const { people, errors } = buildPeople(roster, importedPlayers(), readJson<Crosswalk>(CROSSWALK, EMPTY_CROSSWALK))
+  if (errors.length) {
+    console.log('Nothing written:')
+    for (const e of errors) console.log(`  ${e}`)
+    return false
+  }
+  writeJson(PEOPLE, people)
+  const n = (f: (p: typeof people[number]) => boolean) => people.filter(f).length
+  console.log(`${PEOPLE}: ${people.length} people. ${n(p => !!p.wpbl_id && p.wbsc.length > 0)} WPBL players with a World Cup,`
+    + ` ${n(p => !!p.wpbl_id && !p.wbsc.length)} without, ${n(p => !p.wpbl_id)} World Cup players with no WPBL row`
+    + ` (each event a separate person until a review links them).`)
+  return true
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
   if (flag('propose')) { if (!proposeLinks()) process.exitCode = 1; return }
   if (flag('confirm')) { if (!confirmLinks()) process.exitCode = 1; return }
   if (flag('international')) { if (!buildInternationalFile()) process.exitCode = 1; return }
+  if (flag('people')) { if (!buildPeopleFile()) process.exitCode = 1; return }
   if (flag('upload')) { if (!(await uploadInternational())) process.exitCode = 1; return }
   if (flag('review')) {
     serveReview({ outDir: OUT_DIR, reviewPath: REVIEW, rosterPath: ROSTER, readJson, writeJson, confirm: confirmLinks, open: !flag('no-open') })

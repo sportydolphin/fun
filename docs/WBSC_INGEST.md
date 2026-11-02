@@ -259,8 +259,18 @@ serve only and loopback only). So after every `--confirm`:
 ```bash
 npm run wbsc -- --international
 npm run wbsc -- --upload
-``` Built on
-Nov 2, 2026 from the review's yeses so far as a dry run: 49 players, 117 event rows, 171 KB.
+npm run wbsc -- --people
+```
+
+As confirmed on Nov 2, 2026: 121 links, 52 WPBL players, 121 event rows.
+
+**`people.json`** ([`src/intl/people.ts`](../src/intl/people.ts)) is stage 1's registry: one person per
+WPBL player, with every World Cup the crosswalk joins to them, and every World Cup player nobody has
+linked as a person of their own. Ids are anchored (`person:wpbl:<id>`, else
+`person:wbsc:<earliest tournament id>`), so a later link renumbers nobody. Nothing in it matches
+names: on Nov 2, 2026 it holds 1,049 people, 931 of them World Cup rows with no WPBL link, and at
+least 165 of those are one person playing several World Cups under the same name and flag, still
+separate until a review joins them (stage 2).
 
 ## The league binding
 
