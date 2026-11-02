@@ -40,7 +40,7 @@ Two pages per event:
 
 | Event | Key | Games | Play log |
 |---|---|---|---|
-| 2016 World Cup | `2016-womens-baseball-world-cup` | 44 | Plate appearances only, no pitches |
+| 2016 World Cup | `2016-womens-baseball-world-cup` | 44 | Pitch by pitch, written as prose (`legacy`, see below) |
 | 2018 World Cup | `2018-womens-baseball-world-cup` | 50 | Plate appearances only, no pitches |
 | 2023 groups A, B | `2023-ix-womens-baseball-world-cup-group-a`, `-group-b` | 15 + 15 | Pitch by pitch |
 | 2024 Finals | `2024-ix-womens-baseball-world-cup-finals` | 17 | Pitch by pitch |
@@ -198,8 +198,22 @@ refuses to overwrite a review that holds decisions not yet confirmed. Each candi
 - **ambiguous**, on top of either: the same player has another candidate in the same event, so at
   most one is right.
 
-To review, put your name in `checked_by` and set each `decision` to `yes` or `no` (or leave it
-empty for later), then:
+To review:
+
+```bash
+npm run wbsc -- --review
+```
+
+It opens a page on `127.0.0.1` ([`scripts/wbsc-review.ts`](../scripts/wbsc-review.ts)), built from
+the local files only, that groups the candidates by how hard to look: **Conflicts** (another
+candidate claims the same player), **Check** (an initial-only match, or a national team that
+differs from the hometown), then **Full name, same country**. Each row puts what the player did at
+the event (games, PA, IP, positions, a link to a box score) beside the roster's position, bats and
+throws, age at the event, hometown and player page ([`src/intl/wbsc/review.ts`](../src/intl/wbsc/review.ts)).
+None of these facts decides: a Phoenix native plays for Mexico. They make a wrong pair look wrong.
+Every click is written to the review file at once, so the tab can be closed and the review picked
+up later; Confirm runs `--confirm`. The file can still be edited by hand (`checked_by`, and each
+`decision` `yes`, `no` or empty), then:
 
 ```bash
 npm run wbsc -- --confirm
@@ -220,9 +234,20 @@ of Newfoundland, one against Minseo Park). The reviewer decides each. One more W
 O'Sullivan written "O ` SULLIVAN", a backtick between spaces, which every apostrophe variant now
 folds to (`APOSTROPHE` in game.ts).
 
-What the player page will eventually read is one derived file, `international.json`, keyed by
-WPBL player id: each event's batting and pitching totals and the games behind them. Small, and the
-only file the WPBL section ever needs.
+What the player page will read is one derived file, `archive/wbsc/international.json`, keyed by
+WPBL player id: per event, the national team, the WBSC name the link matched, the batting and
+pitching totals (counts only; the page computes the rates) and the games behind them with their
+wbsc.org box scores. It is built from the confirmed crosswalk alone, never the review file:
+
+```bash
+npm run wbsc -- --international
+```
+
+All or nothing again ([`international.ts`](../src/intl/wbsc/international.ts)): a link to an event not
+imported, a WBSC player not in that event, someone off the WPBL roster, or two WBSC players for one
+WPBL player in one event, and nothing is written. A linked player on an event's roster who played
+no game in it gets no row and a line in the run log. Run it again after every `--confirm`. Built on
+Nov 2, 2026 from the review's yeses so far as a dry run: 49 players, 117 event rows, 171 KB.
 
 ## The league binding
 
@@ -233,9 +258,12 @@ only file the WPBL section ever needs.
   what keeps the tie-break runner on second (from the eighth) out of the table.
 - `pitchCodes`: the alphabet above.
 - `runsOnPlay`: reads `runs` as it is.
-- `pitchBars`: **provisional**, from the 2026 groups alone: 3.61 pitches per plate appearance and
-  5.1 innings per side per game, because the run rule ended 24 of the 30 early. Re-measure once
-  the back catalog is in, before any board shows them.
+- `pitchBars`: WPBL's scaled by the whole catalog (Nov 2, 2026): 3.63 pitches per plate
+  appearance and 6.0 innings per side per game. The first measure, on the 2026 groups alone, read
+  5.1 innings (Tainan ended all 15 games early) and set them 15% low.
+- `isPlateAppearance`: by the event, not the pitch sequence. The engines read a sequence as the
+  mark of a plate appearance, which is right for WPBL and MLB, and measured nothing at all of 2018
+  (no pitches recorded) and missed 440 plate appearances of 2016. Now a `League` function.
 
 ## Storage
 
@@ -252,14 +280,78 @@ enters git.
 2. ✅ **List, fetch and validate** for the 2026 group stage. All 30 games pass.
 3. ✅ **Transform and write**, with the neutral engines (bests, the finder, run expectancy, the
    pitch boards) run on the output in a test.
-4. ✅ **The crosswalk proposal** (Oct 16, 2026). The hand check of the 39 candidates is the
-   reviewer's, and the one step here a script cannot do.
-5. **The back catalog**: 2024 and 2023 (pitch by pitch), then 2018 and 2016 (plate appearances
-   only: no `pitch_sequence`, so the pitch boards skip them). Expect new codes in the validation.
-6. **`international.json`** for the player page, which stays unbuilt until permission.
+4. ✅ **The crosswalk proposal** (Oct 16, 2026). The hand check is the reviewer's, and the one
+   step here a script cannot do; `--review` (Nov 2, 2026) is the page for it.
+5. ✅ **The back catalog** (Nov 2, 2026): all seven events, 170 games, 11,440 plays, 134
+   candidates to review. What it took:
+   - **Eight codes** the 2026 games never used, each read against the narrative and tested: the
+     batter reaching on a third strike (`result2` 25, 26, 27, still a strikeout), three more outs
+     by rule (101, 103, 104), errors on a pickoff (`runnerNtoM` 52, 53), and a runner thrown out
+     after a wild pitch with no steal or pickoff in the notation (`other_out`).
+   - **Three codes read wrong before**, found by the box-score checks below: a two-strike foul
+     bunt (102) is a strikeout, as every box counts it, not a plain out; "reaches on strikeout
+     fielders choice" (11) is a strikeout; and a groundout the narrative calls a "Sacrifice" (3) is
+     `sacrifice`, as WPBL and 2016 file one.
+   - **Two more checks on every game**: each side's batting against what the other side's pitchers
+     allowed (plate appearances against batters faced, runs, hits, strikeouts, walks), and each
+     batter's hits, home runs, strikeouts, walks and hit by pitches in the play log against the box
+     score. They found the three codes above, two of the 2016 box quirks below, and two more
+     2018 errors at the source.
+   - **2018 writes a final with its innings** ("F/5", "F/10"). Read as anything but `F`, 48 of 50
+     games were skipped as unplayed and the event was written with two (`isFinal`).
+   - **2016 is WBSC's older system** (`legacy` on the event), and its box score differs three ways.
+     Its pitchers' row (spot 90) beside a batting row is a whole copy of it, pitching included,
+     which summed doubled five teams' runs and every two-way pitcher's line; it adds nothing. A
+     pitcher with no batting row who batted did so from that row, and those four lines are kept
+     (spot 90). A half the home side never batted is `-1` in the line score, which summed took a
+     run off every home win. And it counts an intentional walk twice in PA, so that is taken back
+     (two batters).
+   - **2016's play log is prose**, read by [`legacy.ts`](../src/intl/wbsc/legacy.ts): all 44 games,
+     2,977 plays, with base-out state and, on 2,537 plate appearances, the pitches. See below.
+   - **Eight games are wrong at the source** and written as WBSC published them, each problem
+     quoted exactly in `ACCEPTED` in the importer and recorded in the event's manifest. In 2016, a
+     batter (O'Sullivan, Australia) bats in three games' play logs and is in none of their box
+     scores; the plays keep the runner under the prose's name with no id, and that batter's line
+     is exactly what each of those box scores is short. In 2018, three play logs credit a plate
+     appearance to the wrong batter (one to a pinch hitter WBSC gave no player id, whose line is
+     dropped), one has a single the box score lacks, and one box files a strikeout under the wrong
+     batter. Anything else wrong in those games still fails the event.
+   - **The proposer missed five people** who had played a World Cup under a name it did not
+     try: two nicknames (Liz, Beth for Elizabeth), two who go by a middle name (Niki for Cody
+     Nicole, Esthela for Liliana Esthela) and one surname WBSC spells a letter off. It now proposes
+     those three kinds too (`MatchKind`); the search that found them turned up no other near miss.
+   - The 2024 Finals hold one unplayed game (USA @ VEN), skipped as before.
+6. ✅ **`international.json`** for the player page (Nov 2, 2026): `--international`, above. Built
+   and tested; it stays gitignored, and nothing reads it until permission.
+
+## The 2016 play log
+
+2016 was scored in WBSC's older system, which stored the scorer's sentence for each play and almost
+none of the codes the later years carry:
+
+```
+GORTAREZ walked (3-1 SBBBB); GOMEZ advanced to second.
+UNDERWOOD stole third, scored on a throwing error by c, unearned.
+```
+
+One clause per player, split on `;`; a name in capitals (with a given-name prefix when two share a
+surname: "WEN Ya T" beside "WEN Ya Z"); then phrases split on `, `, each a batter's result, a move,
+or a tag that moves nobody. The pitches are the letters in parentheses, in the scorer's alphabet,
+where **K is a called strike** and S a swinging one. Every phrase is in a closed list, as every code
+is in the later years, and an unknown one fails the game.
+
+**Checked four ways, none of them the prose.** The runners are carried by name, and the result must
+agree with: the outs WBSC stored before every row; each half's runs against the line score; each
+team's runners left on base against the box score's LOB; and every batter's PA, hits by kind,
+walks, strikeouts and hit by pitches against the box score. Two fields are deliberately NOT used:
+the row's `runs` (0 on plays that scored two) and its "bases after" flags, which record the full
+state for the visitors, only the players the row names for the home side, and keep a runner on
+base after a pickoff. They match the prose on 98% of rows, and no rule makes the rest agree.
+
+The name, not `batterid`, says who batted: some 2016 rows carry a batter id that is nobody in the
+box score. Two runner advances have no reason in the prose and are written `other_advance`.
 
 ## Open questions
 
-- Whether **2016 and 2018** carry runner movement on their plate-appearance rows.
 - What the **2027 Finals** need: results within the hour means a scheduled re-run of stages 1 to 5
   during event week only. Decide by April 2027 (see the roadmap).

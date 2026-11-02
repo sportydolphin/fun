@@ -178,4 +178,12 @@ export interface League {
   /** The runs a play put on the board. A league function because WPBL's feed leaves the
    *  batter out of `runs_scored` (a solo home run reads 0), and MLB's does not. */
   runsOnPlay(p: Pick<RunValuePlay, 'event_type' | 'runs_scored'>): number
+  /**
+   * Whether a row is a completed plate appearance, which is what run expectancy observes and what
+   * the run-value boards credit. A league function because the marker differs: WPBL and MLB give
+   * every plate appearance a pitch sequence and nothing else one, but a World Cup scored without
+   * pitches (all of 2018, and 2016 where the scorer left the count out) has plate appearances with
+   * none, and read by the sequence those games measured nothing at all.
+   */
+  isPlateAppearance(p: Pick<RunValuePlay, 'event_type' | 'pitch_sequence'>): boolean
 }

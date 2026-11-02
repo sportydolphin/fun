@@ -390,7 +390,7 @@ export function buildRunExpectancy(
       // "nobody on, nobody out, no runs followed" in the cell the whole board leans on. A row that
       // names no batter is not a trip to the plate, and the runner-advance rows that legitimately
       // name none are not either.
-      if (!p.pitch_sequence || !p.batter_name) continue
+      if (!league.isPlateAppearance(p) || !p.batter_name) continue
       const outs = p.outs
       if (outs == null || outs < 0 || outs > 2) continue
       const bases = baseCode(p)
@@ -434,6 +434,9 @@ export interface PlayRunValue<T extends RunValuePlay = RunValuePlay> {
    *  number on its own explains nothing to a reader meeting this for the first time. */
   afterBases: BaseCode | null
   afterOuts: number | null
+  /** Whether the play is a plate appearance, by `League.isPlateAppearance`. Optional so a value
+   *  built by hand reads as before: a pitch sequence is a plate appearance. */
+  pa?: boolean
   /** The club in the field, worked out from the schedule. The play itself names only the club
    *  batting, and a pitcher's leaderboard row has to show the club they were pitching for. */
   fieldingTeamId: string | null
@@ -496,12 +499,15 @@ export function playRunValues<T extends RunValuePlay>(
         : null
       out.push({
         play: p, runs, outs, bases, before, after, afterBases, afterOuts, fieldingTeamId,
+        pa: league.isPlateAppearance(p),
         value: runs + after - before,
       })
     }
   }
   return out
 }
+
+const isPa = (v: PlayRunValue): boolean => v.pa ?? !!v.play.pitch_sequence
 
 /**
  * The plays that moved the needle most, biggest first.
@@ -518,7 +524,7 @@ export function playRunValues<T extends RunValuePlay>(
  */
 export function biggestSwings<T extends RunValuePlay>(values: PlayRunValue<T>[], limit = 10): PlayRunValue<T>[] {
   return values
-    .filter(v => v.play.pitch_sequence)
+    .filter(isPa)
     .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
     .slice(0, limit)
 }
@@ -555,7 +561,7 @@ export function runValueLeaders<P extends LeaguePlayer, T extends RunValuePlay>(
 
   for (const v of values) {
     // Same reason as biggestSwings: only a plate appearance names its own actors.
-    if (!v.play.pitch_sequence) continue
+    if (!isPa(v)) continue
     const id = side === 'hitting' ? v.play.batter_id : v.play.pitcher_id
     const name = (side === 'hitting' ? v.play.batter_name : v.play.pitcher_name) ?? ''
     if (!name) continue
@@ -759,7 +765,7 @@ function typicalOf<T extends RunValuePlay>(
     // A plate appearance the feed names a batter for. Steals and wild pitches carry whoever
     // happened to be at the plate rather than the runner who did it (see `biggestSwings`), so
     // an example built from one would caption the wrong person's name.
-    if (!v.play.pitch_sequence || !v.play.batter_name) continue
+    if (!isPa(v) || !v.play.batter_name) continue
     // The play has to have SCORED something: with all three terms non-zero the arithmetic
     // demonstrates the whole formula, where a runs-of-zero example silently teaches a
     // two-term one.

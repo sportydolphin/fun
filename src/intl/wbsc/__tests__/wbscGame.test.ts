@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { airOut, baserunningEvent, paEventType } from '../codes'
-import { inningsToOuts, playerLines, surnameCase, transformGame, validateGame } from '../game'
+import { inningsToOuts, isFinal, playerLines, surnameCase, transformGame, validateGame } from '../game'
 import { inertiaFromHtml, unescapeAttribute } from '../page'
 import { EVENT, fixturePage, row } from './fixture'
 
@@ -64,6 +64,15 @@ describe('codes', () => {
     expect(paEventType(row({ result2: 999 }))).toBeNull()
   })
 
+  it('scores the strikeouts the box scores count, and every other out by rule an out', () => {
+    for (const code of [25, 26, 27]) expect(paEventType(row({ result2: code }))).toBe('strikeout')
+    for (const code of [101, 103, 104, 108]) expect(paEventType(row({ result2: code }))).toBe('out')
+    expect(paEventType(row({ result2: 102 }))).toBe('strikeout')
+    expect(paEventType(row({ result2: 3, narrative: 'grounds out. Bunt. 5-3. Sacrifice.' }))).toBe('sacrifice')
+    expect(paEventType(row({ result2: 11, narrative: 'reaches on strikeout fielders choice KS.' }))).toBe('strikeout')
+    expect(paEventType(row({ result2: 11, narrative: 'reaches on a fielders choice.' }))).toBe('fielders_choice')
+  })
+
   it('names one baserunning event per row, an out before an advance', () => {
     expect(baserunningEvent(row({ runner1to2: 34 }))).toBe('stolen_base')
     expect(baserunningEvent(row({ runner1to2: 34, runner2to3: 31 }))).toBe('stolen_base')
@@ -71,12 +80,32 @@ describe('codes', () => {
     expect(baserunningEvent(row({ runner1out: 26, runner2to3: 34, narrative: 'out at 2nd CS26.' }))).toBe('caught_stealing')
     expect(baserunningEvent(row({ runner1out: 13, narrative: 'out at 1st PO13.' }))).toBe('pickoff')
     expect(baserunningEvent(row({ runner1out: 13, narrative: 'out at 1st.' }))).toBe('unknown_out')
+    // Thrown out after a wild pitch: fielders, no steal, no pickoff.
+    expect(baserunningEvent(row({ runner1to2: 31, runner1out: 215320, narrative: 'to 2nd on wild pitch. out at 3rd 215.' }))).toBe('other_out')
+    // A pickoff thrown away, or dropped.
+    expect(baserunningEvent(row({ runner1to2: 52 }))).toBe('error_advance')
+    expect(baserunningEvent(row({ runner1to2: 53 }))).toBe('error_advance')
     expect(baserunningEvent(row({ runner1to2: 77 }))).toBe('unknown_advance')
     expect(baserunningEvent(row({}))).toBeNull()
   })
 })
 
 describe('validation', () => {
+  it('reads a final with its innings after it as a final', () => {
+    expect(isFinal('F')).toBe(true)
+    expect(isFinal('F/5')).toBe(true)
+    expect(isFinal('F/10')).toBe(true)
+    expect(isFinal('')).toBe(false)
+    expect(isFinal('Postponed')).toBe(false)
+  })
+
+  it('refuses a box row with no player id', () => {
+    const page = fixturePage()
+    const bySpot = page.boxScore['20'] as Record<string, { playerid: number }[]>
+    Object.values(bySpot)[0][0].playerid = 0
+    expect(validateGame(page).join('\n')).toMatch(/has no player id/)
+  })
+
   it('passes the fixture', () => {
     expect(validateGame(fixturePage())).toEqual([])
   })
@@ -129,6 +158,33 @@ describe('box score', () => {
     expect(kilo.pa).toBe(1)          // from the batting row
     expect(kilo.pitch_outs).toBe(3)  // from the pitching row
     expect(kilo.field_po + kilo.field_a).toBe(2) // one from each
+  })
+
+  it('in a legacy box, adds nothing from a pitchers\' row beside a batting row: it is a copy', () => {
+    // 2016's 90 row repeats the batting row whole, and the batting row carries the pitching too.
+    // Summed, it doubled five teams' runs and every two-way pitcher's line.
+    const page = fixturePage()
+    type Row = { playerid: number; pa: number; field_po: number; field_a: number; pitch_ip: string; pitch_bf: number }
+    const bySpot = page.boxScore['20'] as Record<string, Row[]>
+    const copy = bySpot['90'].find(r => r.playerid === 204)!
+    const batting = Object.entries(bySpot).find(([spot]) => spot !== '90' && bySpot[spot].some(r => r.playerid === 204))![1].find(r => r.playerid === 204)!
+    Object.assign(copy, { pa: batting.pa, field_po: batting.field_po, field_a: batting.field_a })
+    Object.assign(batting, { pitch_ip: copy.pitch_ip, pitch_bf: copy.pitch_bf })
+    const kilo = playerLines(page, 20, true).find(p => p.playerid === 204)!
+    expect(kilo.pa).toBe(1)
+    expect(kilo.field_po + kilo.field_a).toBe(batting.field_po + batting.field_a)
+    expect(kilo.pitch_outs).toBe(3)
+    expect(kilo.pitch_bf).toBe(copy.pitch_bf)
+  })
+
+  it('in a legacy box, takes back the second count of an intentional walk', () => {
+    const page = fixturePage()
+    const bySpot = page.boxScore['20'] as Record<string, { playerid: number; pa: number; ibb: number }[]>
+    const kilo = Object.entries(bySpot).find(([spot]) => spot !== '90' && bySpot[spot].some(r => r.playerid === 204))![1].find(r => r.playerid === 204)!
+    kilo.ibb = 1
+    kilo.pa += 1 // 2016's double count
+    expect(playerLines(page, 20, true).find(p => p.playerid === 204)!.pa).toBe(kilo.pa - 1)
+    expect(playerLines(page, 20).find(p => p.playerid === 204)!.pa).toBe(kilo.pa)
   })
 })
 

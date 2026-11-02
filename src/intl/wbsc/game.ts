@@ -10,6 +10,7 @@ import type {
   BattingGameLine, FieldingGameLine, LeagueGame, LeaguePlayer, LineScoreEntry, PitchingGameLine, RunValuePlay,
 } from '../../league/types'
 import { NON_PITCH_RESULT1, PITCH_LETTER, TIE_BREAK_PLACEMENT, baserunningEvent, paEventType } from './codes'
+import { legacyPlays, type LegacyPerson, type LegacyPlay, type LegacyRow } from './legacy'
 import type { WbscBoxRow, WbscEvent, WbscGamePage, WbscPlayRow } from './types'
 
 // ── The rows we write ───────────────────────────────────────────────────────────
@@ -47,7 +48,7 @@ export interface WbscPlayer extends LeaguePlayer {
 export interface WbscBattingLine extends BattingGameLine {
   pa: number
   ibb: number
-  /** The lineup spot, 1 to 9. */
+  /** The lineup spot, 1 to 9, or 90 for a pitcher who batted from the pitchers' row (2016). */
   spot: number
   position: string | null
 }
@@ -136,16 +137,26 @@ const COUNTS = [
  * the player's game is the sum; keeping either row alone drops half of it. Seen 11 times in the
  * 30 games of the 2026 group stage. The batting spot is the row that is not 90.
  */
-export function playerLines(page: WbscGamePage, teamId: number): PlayerGame[] {
+export function playerLines(page: WbscGamePage, teamId: number, legacy = false): PlayerGame[] {
   const byId = new Map<number, PlayerGame>()
-  for (const r of boxRows(page, teamId)) {
+  // The batting spot first, so in a legacy box the pitchers' row is always the one merged in.
+  const rows = [...boxRows(page, teamId)].sort((a, b) => Number(a.spot >= 90) - Number(b.spot >= 90))
+  for (const r of rows) {
     const outs = inningsToOuts(r.pitch_ip) ?? 0
     const had = byId.get(r.playerid)
     if (!had) { byId.set(r.playerid, { ...r, pitch_outs: outs }); continue }
+    // A legacy pitchers' row beside a batting row is a whole copy of it, pitching included (all 32
+    // in 2016): adding any of it counted those pitchers twice, and their opponents' batting stopped
+    // matching what they allowed.
+    if (legacy && r.spot >= 90) continue
     for (const k of COUNTS) had[k] = (Number(had[k]) || 0) + (Number(r[k]) || 0)
     had.pitch_outs += outs
     if (had.spot >= 90 && r.spot < 90) { had.spot = r.spot; had.pos = r.pos }
   }
+  // 2016's box counts an intentional walk twice in plate appearances (as a walk and again as an
+  // intentional one): its two intentionally walked batters read 4 PA on 1 AB, 1 BB, 1 SF. Every
+  // other 2016 line is AB + BB + HBP + SF + SH, and the plays agree once this is taken off.
+  if (legacy) for (const p of byId.values()) p.pa -= p.ibb || 0
   return [...byId.values()]
 }
 
@@ -164,8 +175,10 @@ export function halves(page: WbscGamePage): { inning: number; half: Half; rows: 
   return out
 }
 
+// 2016 writes -1 in the cell of a half the home side never batted (the "x" of a printed line
+// score). Summed as a number it took a run off every home win.
 const lineRuns = (page: WbscGamePage, side: 'home' | 'away', inning: number): number =>
-  Number(page.gameData[`runs${side}${inning}`] ?? 0)
+  Math.max(0, Number(page.gameData[`runs${side}${inning}`] ?? 0))
 
 type Half = 'top' | 'bottom'
 
@@ -206,23 +219,35 @@ export function batterOnRow(row: WbscPlayRow, slots: Map<number, WbscBoxRow>): {
 
 // ── Validation ──────────────────────────────────────────────────────────────────
 
-/** Everything wrong with a game page, as sentences. Empty means it may be transformed. */
-export function validateGame(page: WbscGamePage): string[] {
+/**
+ * Whether a status is a final. The 2018 site writes the innings after it ("F/5" for a run-rule
+ * game, "F/10" for extras); read as anything but 'F', 48 of its 50 games were skipped as unplayed
+ * and the event was written with two.
+ */
+export const isFinal = (status: string | null | undefined): boolean => /^F(\/\d+)?$/.test(status ?? '')
+
+/**
+ * Everything wrong with a game page, as sentences. Empty means it may be transformed. With
+ * `legacy` (see WbscEvent) the play log is read from its prose (legacy.ts) and checked there.
+ */
+export function validateGame(page: WbscGamePage, { legacy = false }: { legacy?: boolean } = {}): string[] {
+  const playLog = !legacy
   const problems: string[] = []
   const g = page.gameData
   if (!g) return ['no gameData']
-  if (g.gamestatustext !== 'F') problems.push(`not final (status "${g.gamestatustext ?? ''}")`)
+  if (!isFinal(g.gamestatustext)) problems.push(`not final (status "${g.gamestatustext ?? ''}")`)
   if (!(g.innings > 0)) problems.push(`innings played is ${g.innings}`)
 
   const log = halves(page)
   if (!log.length) problems.push('the play log is empty')
+  const read = legacy ? legacyLog(page) : null
 
   for (const side of ['away', 'home'] as const) {
     const ioc = side === 'home' ? g.homeioc : g.awayioc
     const runs = side === 'home' ? g.homeruns : g.awayruns
     const hits = side === 'home' ? g.homehits : g.awayhits
     const teamId = side === 'home' ? g.homeid : g.awayid
-    const rows = playerLines(page, teamId)
+    const rows = playerLines(page, teamId, legacy)
     if (!rows.length) { problems.push(`${ioc}: no box score`); continue }
 
     // The line score adds up to the final.
@@ -240,7 +265,10 @@ export function validateGame(page: WbscGamePage): string[] {
     const half = side === 'home' ? 'bottom' : 'top'
     let logRuns = 0
     for (const h of log.filter(x => x.half === half)) {
-      const inHalf = h.rows.reduce((n, r) => n + (r.runs || 0), 0)
+      // A legacy row's own `runs` is unreliable (legacy.ts), so its runs are the ones the prose scores.
+      const inHalf = read
+        ? read.plays.filter(p => p.inning === h.inning && p.half === h.half).reduce((n, p) => n + p.runs, 0)
+        : h.rows.reduce((n, r) => n + (r.runs || 0), 0)
       logRuns += inHalf
       const cell = lineRuns(page, side, h.inning)
       if (inHalf !== cell) problems.push(`${ioc}: inning ${h.inning} play log scores ${inHalf}, line score has ${cell}`)
@@ -249,16 +277,40 @@ export function validateGame(page: WbscGamePage): string[] {
 
     // Per raw row: a merged line has already turned its innings into outs.
     for (const r of boxRows(page, teamId)) {
+      // One 2018 pinch hitter is id 0. Imported, every such row in an event would be one player.
+      if (!r.playerid) problems.push(`${ioc}: ${r.lastname} has no player id`)
       if ((r.pitch_appear > 0 || r.pitch_bf > 0) && inningsToOuts(r.pitch_ip) == null) {
         problems.push(`${ioc}: ${r.lastname} pitched "${r.pitch_ip}" innings, which is not innings notation`)
       }
     }
   }
 
-  // The play log's plate appearances match the box score's, batter by batter.
+  // Each side's batting matches what the other side's pitchers allowed. The same events counted
+  // twice, by batter and by pitcher: a 2018 box gave one batter another's strikeout, and the
+  // 2016 boxes copied two-way pitchers onto two rows, and neither showed anywhere else.
+  for (const [bats, pitches] of [[g.awayid, g.homeid], [g.homeid, g.awayid]]) {
+    const ioc = bats === g.homeid ? g.homeioc : g.awayioc
+    const b = playerLines(page, bats, legacy), p = playerLines(page, pitches, legacy)
+    const sum = <T,>(rows: T[], f: (r: T) => number) => rows.reduce((n, r) => n + (f(r) || 0), 0)
+    const pairs: [string, number, number][] = [
+      ['plate appearances', sum(b, r => r.pa), sum(p, r => r.pitch_bf)],
+      ['runs', sum(b, r => r.r), sum(p, r => r.pitch_r)],
+      ['hits', sum(b, r => r.h), sum(p, r => r.pitch_h)],
+      ['strikeouts', sum(b, r => r.so), sum(p, r => r.pitch_so)],
+      ['walks', sum(b, r => r.bb), sum(p, r => r.pitch_bb)],
+    ]
+    for (const [what, batting, allowed] of pairs) {
+      if (batting !== allowed) problems.push(`${ioc}: ${batting} ${what} batting, ${allowed} allowed by the other side's pitchers`)
+    }
+  }
+
+  // The play log's plate appearances match the box score's, batter by batter, and so do the
+  // results the log codes: hits, home runs, strikeouts, walks and hit by pitches.
   const boxPa = new Map<number, number>()
-  for (const id of [g.homeid, g.awayid]) for (const r of playerLines(page, id)) boxPa.set(r.playerid, r.pa)
+  const boxLine = new Map<number, PlayerGame>()
+  if (playLog) for (const id of [g.homeid, g.awayid]) for (const r of playerLines(page, id)) if (r.playerid) { boxPa.set(r.playerid, r.pa); boxLine.set(r.playerid, r) }
   const logPa = new Map<number, number>()
+  const logCounts = new Map<number, Record<'h' | 'hr' | 'so' | 'bb' | 'hbp', number>>()
   const slots = lineupSlots(page)
   for (const h of log) {
     for (const r of h.rows) {
@@ -270,6 +322,20 @@ export function validateGame(page: WbscGamePage): string[] {
         continue
       }
       logPa.set(id, (logPa.get(id) ?? 0) + 1)
+      const c = logCounts.get(id) ?? { h: 0, hr: 0, so: 0, bb: 0, hbp: 0 }
+      const ev = paEventType(r)
+      if (ev === 'single' || ev === 'double' || ev === 'triple' || ev === 'home_run') c.h++
+      if (ev === 'home_run') c.hr++
+      if (ev === 'strikeout') c.so++
+      if (ev === 'walk' || ev === 'intent_walk') c.bb++
+      if (ev === 'hit_by_pitch') c.hbp++
+      logCounts.set(id, c)
+    }
+  }
+  for (const [id, line] of boxLine) {
+    const c = logCounts.get(id) ?? { h: 0, hr: 0, so: 0, bb: 0, hbp: 0 }
+    for (const k of ['h', 'hr', 'so', 'bb', 'hbp'] as const) {
+      if ((line[k] || 0) !== c[k]) problems.push(`batter ${id}: ${k} ${c[k]} in the play log, ${line[k] || 0} in the box score`)
     }
   }
   for (const id of new Set([...boxPa.keys(), ...logPa.keys()])) {
@@ -278,8 +344,10 @@ export function validateGame(page: WbscGamePage): string[] {
     else if (box !== plays) problems.push(`batter ${id}: ${plays} plate appearances in the play log, ${box} in the box score`)
   }
 
+  if (read) problems.push(...read.problems)
+
   // Every code is one we know.
-  for (const h of log) {
+  for (const h of playLog ? log : []) {
     for (const r of h.rows) {
       const where = `inning ${h.inning} ${h.half}, play ${r.playorder} ("${cleanNarrative(r.narrative) ?? ''}")`
       if (r.pitch_pitches !== 0 && r.pitch_pitches !== 1) problems.push(`${where}: pitch_pitches is ${r.pitch_pitches}`)
@@ -301,6 +369,41 @@ export function validateGame(page: WbscGamePage): string[] {
     }
   }
   return problems
+}
+
+/**
+ * A legacy game's plays, read from the prose (legacy.ts), and every way they disagree with the
+ * box score: each batter's plate appearances, hits by kind, walks, strikeouts and hit by pitches.
+ */
+function legacyLog(page: WbscGamePage): { plays: LegacyPlay[]; problems: string[]; standIns: Map<number, string> } {
+  const g = page.gameData
+  const side = (teamId: number): LegacyPerson[] => {
+    const byId = new Map<number, LegacyPerson>()
+    for (const r of boxRows(page, teamId)) {
+      if (r.playerid) byId.set(r.playerid, { id: r.playerid, first_name: r.firstname, last_name: r.lastname })
+    }
+    return [...byId.values()]
+  }
+  const away = side(g.awayid), home = side(g.homeid)
+  const read = legacyPlays(halves(page).map(h => ({
+    inning: h.inning, half: h.half, rows: h.rows as unknown as LegacyRow[], batting: h.half === 'top' ? away : home,
+  })))
+  const problems = [...read.problems]
+  // The runners the plays strand, against WBSC's count: a check on every base the prose fills.
+  if (read.lob.top !== g.awaylob) problems.push(`${g.awayioc}: ${read.lob.top} left on base in the plays, ${g.awaylob} in the box score`)
+  if (read.lob.bottom !== g.homelob) problems.push(`${g.homeioc}: ${read.lob.bottom} left on base in the plays, ${g.homelob} in the box score`)
+  for (const teamId of [g.awayid, g.homeid]) {
+    for (const r of playerLines(page, teamId, true)) {
+      if (!r.playerid) continue
+      const c = read.counts.get(r.playerid) ?? { pa: 0, h: 0, double: 0, triple: 0, hr: 0, bb: 0, ibb: 0, so: 0, hbp: 0 }
+      const box = { pa: r.pa, h: r.h, double: r.double, triple: r.triple, hr: r.hr, bb: r.bb, so: r.so, hbp: r.hbp }
+      for (const [k, v] of Object.entries(box)) {
+        const mine = c[k as keyof typeof c]
+        if ((v || 0) !== mine) problems.push(`${r.lastname}: ${k} ${mine} in the plays, ${v || 0} in the box score`)
+      }
+    }
+  }
+  return { plays: read.plays, problems, standIns: read.standIns }
 }
 
 // ── Transform ───────────────────────────────────────────────────────────────────
@@ -353,7 +456,9 @@ export function transformGame(page: WbscGamePage, event: WbscEvent): WbscGameRow
 
   for (const teamId of [g.awayid, g.homeid]) {
     const team = iocOf(teamId)
-    for (const r of playerLines(page, teamId)) {
+    for (const r of playerLines(page, teamId, event.legacy)) {
+      // A row with no id (an accepted defect, see validateGame) is nobody we can name: dropped.
+      if (!r.playerid) continue
       const pid = playerId(tid, r.playerid)
       const name = `${r.firstname.trim()} ${surnameCase(r.lastname)}`
       nameById.set(r.playerid, name)
@@ -364,7 +469,9 @@ export function transformGame(page: WbscGamePage, event: WbscEvent): WbscGameRow
       })
       const key = `${g.id}:${r.playerid}`
 
-      if (r.spot > 0 && r.spot < 90) {
+      // A pitcher who batted with no lineup spot of their own (four in 2016, where the pitchers'
+      // row is the only row) still batted: left out, Hsu's hit went with them.
+      if (r.spot > 0 && (r.spot < 90 || r.pa > 0)) {
         batting.push({
           id: `wbsc:b:${key}`, game_id: gid, player_id: pid, team_id: team,
           spot: r.spot, position: r.pos || null,
@@ -403,6 +510,25 @@ export function transformGame(page: WbscGamePage, event: WbscEvent): WbscGameRow
   // each with the base-out state BEFORE it, the shape the WPBL log has and the engines read.
   const hasPitches = log.some(h => h.rows.some(r => r.pitch_pitches === 1))
   const plays: WbscPlay[] = []
+  if (event.legacy) {
+    const log = legacyLog(page)
+    // A stand-in (a player the box score lacks, an accepted defect) has no id, and keeps the prose's
+    // name so the base it holds still reads as occupied.
+    const name = (id: number | null) => (id && (nameById.get(id) ?? log.standIns.get(id))) || null
+    const pid = (id: number | null) => (id && id > 0 ? playerId(tid, id) : null)
+    for (const p of log.plays) {
+      plays.push({
+        game_id: gid, sequence: p.sequence, inning: p.inning, half: p.half,
+        team_id: p.half === 'top' ? g.awayioc : g.homeioc,
+        batter_id: pid(p.batter), batter_name: name(p.batter),
+        pitcher_id: pid(p.pitcher), pitcher_name: name(p.pitcher),
+        event_type: p.event, pitch_sequence: p.pitch_sequence, outs: p.outs,
+        first_base: name(p.bases[0]) ?? '', second_base: name(p.bases[1]) ?? '', third_base: name(p.bases[2]) ?? '',
+        runs_scored: p.runs, narrative: p.narrative,
+      })
+    }
+    return { game, players, batting, pitching, fielding, plays, notes: [] }
+  }
   const notes: string[] = []
   const slots = lineupSlots(page)
   // A runner is only ever a slot code. Every code in the 2026 groups resolves; one that does not

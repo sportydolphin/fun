@@ -27,11 +27,14 @@ export interface WbscGameData {
   homeioc: string
   homeruns: number
   homehits: number
+  /** Runners left on base, as the scorer counted them. */
+  homelob: number
   homeerrors: number
   awayid: number
   awayioc: string
   awayruns: number
   awayhits: number
+  awaylob: number
   awayerrors: number
   /** Innings played. Below 7 for a game ended by the run rule. */
   innings: number
@@ -133,4 +136,12 @@ export interface WbscEvent {
   key: string
   year: number
   name: string
+  /**
+   * true for an event scored in WBSC's older system (2016), which differs twice. Its play log is
+   * the scorer's words with pitch letters and no result codes ("GOMEZ walked (3-1 BBSBB)."), read
+   * by legacy.ts and checked against the box score and line score rather than trusted.
+   * And a player who also pitched has a pitchers' row (spot 90) that COPIES the batting and
+   * fielding of the batting row rather than splitting them, so only its pitching is added.
+   */
+  legacy?: true
 }

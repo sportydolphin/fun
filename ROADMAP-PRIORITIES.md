@@ -70,7 +70,7 @@
    - every Trap in CLAUDE.md re-verified against the 2027 feed once it speaks.
    *ROADMAP-WPBL, ops item 7, Priorities P0 and P2, engineering backlog.*
 7. **World Cup stages 1 and 2**: one person across every competition (the person registry and the
-   International section on WPBL player pages, Dec to Jan), then `/world-cup` with every event since
+   World Cup rows in WPBL player pages' career tables, Dec to Jan), then `/world-cup` with every event since
    2016 and a page for every player in them (Jan to Mar). Built either way; published on WBSC's yes
    only. *ROADMAP-WOMENS-BASEBALL, "The plan", stages 1 and 2.*
 8. **The live field**, in Game Center on both leagues, before MLB's Opening Day in late March: an
@@ -99,7 +99,7 @@
 16. **The pick'em, decided for Opening Day** (parked until then). *ROADMAP-WPBL, Parked.*
 17. **The live files onto the type scale** (WPBL's `Live` and `LiveGameView`, MLB's live and
     postseason files), when they return. *ROADMAP.md, Oct 15 audit item 2.*
-18. **World Cup read (April)**: `events` on the International section, the event pages and the
+18. **World Cup read (April)**: `events` on the World Cup rows, the event pages and the
     person pages. It sets how much of stage 5 goes ahead, not whether the site is women's baseball.
     Then `/world-cup/2027` built before Jul 19 and the Finals within the hour, Jul 19 to 25.
     *ROADMAP-WOMENS-BASEBALL, "The plan", stage 4.*
