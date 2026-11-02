@@ -1,11 +1,12 @@
 # Priorities: every roadmap in one order
 
-> Set **Oct 16, 2026**. One list across the four roadmaps, so nobody has to merge them in their head:
+> Set **Oct 16, 2026**; realigned **Nov 1, 2026** around the site becoming women's baseball. One
+> list across the four roadmaps, so nobody has to merge them in their head:
 > [ROADMAP-WPBL.md](ROADMAP-WPBL.md) (WPBL, plus the site-wide ops list and search),
 > [ROADMAP.md](ROADMAP.md) (MLB), [ROADMAP-WOMENS-BASEBALL.md](ROADMAP-WOMENS-BASEBALL.md) (the World
-> Cup and beyond), [ROADMAP-UI.md](ROADMAP-UI.md) (the visual overhaul), and the one plan that lives in
-> `docs/`, [PHOTO_TAGGING.md](docs/PHOTO_TAGGING.md). Each item names where its detail is; the detail
-> stays there and is not copied here.
+> Cup, the site's direction and beyond), [ROADMAP-UI.md](ROADMAP-UI.md) (the visual overhaul), and the
+> one plan that lives in `docs/`, [PHOTO_TAGGING.md](docs/PHOTO_TAGGING.md). Each item names where its
+> detail is; the detail stays there and is not copied here.
 >
 > **This file is the order; the four roadmaps are the reasoning.** When an item ships, tick it here
 > and in its roadmap. `/admin` → Roadmap (`roadmap_items`) was seeded on Oct 13 from ROADMAP-WPBL's
@@ -17,91 +18,117 @@
 1. **The 2027 WPBL season outranks everything.** The WPBL is the site's audience (WPBL sessions ran
    about 20 to 1 over MLB in the season). Anything that could break on its first game is done by
    March, whatever else is half built.
-2. **Winter work is durable or it is nothing.** No guessing at the 2027 feed; season-locked work is
+2. **The site is women's baseball** (decided Nov 1, 2026). The WPBL is the anchor, the World Cup is
+   the next competition, and a player has one career across all of them. MLB stays visible, one
+   league in the list a reader can click to, no longer half the site. *ROADMAP-WOMENS-BASEBALL, "The direction".*
+3. **Winter work is durable or it is nothing.** No guessing at the 2027 feed; season-locked work is
    built in the spring against the real one.
-3. **Measure before building more.** Three items below wait on a read of `events`, not on a decision.
-4. **One person.** Owner-only work (Figma, Play's console, the crosswalk review, outreach) runs beside
+4. **Measure before building more.** Items below that wait on a read of `events` say so.
+5. **One person.** Owner-only work (Figma, Play's console, the crosswalk review, outreach) runs beside
    the code, not in its place.
 
-## Now: the week of Oct 16 to 25
+## Done since Oct 16
 
-1. ✅ **Crash triage** (Oct 20): all five reader crashes were one bug, the stale-build reload's
-   own `vite:preloadError` cancel; the other suspects were dev-only.
-   *ROADMAP-WPBL, Oct 10 audit, ops item 2.*
-2. ✅ **The worst layout shifts** (Oct 20): the reports named only the MLB player page (0.39 on
-   a phone), now about 0.03 and swept; WPBL's p75 is 0.013. *ROADMAP-WPBL, Priorities P1; ROADMAP.md,
-   "From the Oct 10 audit".*
-3. **Google Play release.** Only Play's own process is left. Owner. *ROADMAP-WPBL ops item 9;
+- ✅ **Crash triage** (Oct 20): all five reader crashes were one bug, the stale-build reload's own
+  `vite:preloadError` cancel. *ROADMAP-WPBL, Oct 10 audit, ops item 2.*
+- ✅ **The worst layout shifts** (Oct 20): the MLB player page went from 0.39 on a phone to about
+  0.03; WPBL's p75 is 0.013. *ROADMAP-WPBL, Priorities P1; ROADMAP.md, "From the Oct 10 audit".*
+- ✅ **Photo tagging, first version** (Oct 21). Left: confirm `ip_hash` is filling on the first real
+  suggestions. *docs/PHOTO_TAGGING.md, "Launching".*
+- ✅ **The largest WPBL files split** (Oct 17): `FanVote.tsx` and `SeasonPage.tsx`.
+- ✅ **Database backup outside Supabase** (Oct 31). Left, for the owner: put the private key in a
+  password manager. *docs/BACKUPS.md.*
+- ✅ **MLB's offseason** (v1.203.0 to v1.205.0): the offseason Home, division winners, winter boards,
+  the Hot Stove order.
+
+## Now: November
+
+1. **World Cup stage 0: permission and a complete local dataset.** Owner: chase WBSC (no reply
+   recorded since the October email), review the 39 crosswalk candidates (none decided as of Nov 1)
+   and keep a private copy off this machine. Code: import 2024, 2023, 2018 and 2016, re-measure the
+   provisional pitch-board bars, build `international.json`. All still gitignored.
+   *ROADMAP-WOMENS-BASEBALL, "The plan", stage 0.*
+2. **Google Play release.** Only Play's own process is left. Owner. *ROADMAP-WPBL ops item 9;
    docs/ANDROID.md.*
-4. **World Cup crosswalk review**, and a private copy of the decisions off this machine. Owner;
-   needs no permission. *ROADMAP-WOMENS-BASEBALL, "Pick up here" steps 1 and 2.*
-
-## Next: Oct 25 to the end of November
-
-5. ✅ **Photo tagging, first version** (launched Oct 21): `/wpbl/photos/tag`, the owner's review
-   and the abuse guards, with a way in from the gallery. Left: confirm `ip_hash` is filling on the
-   first real suggestions. *docs/PHOTO_TAGGING.md, "Launching".*
-6. **The World Cup back catalog and `international.json`.** 2024, 2023, 2018, 2016 imported and
-   validated, the provisional pitch-board bars re-measured, the per-player file built and tested, all
-   still gitignored. *ROADMAP-WOMENS-BASEBALL, steps 3 to 5.*
-7. **MLB after Nov 1.** ✅ The offseason Home, division winners, winter boards and the Hot Stove order
-   (v1.203.0 to v1.205.0), and Standings and `cards.tsx` are off the type-scale legacy list. Left: read
-   "MLB: what gets used" on `/admin` and decide what moves into More. *ROADMAP.md, "Handoff" and item 7
-   of the second pass.*
-8. ✅ **Finish splitting the largest WPBL files** (Oct 17): `FanVote.tsx` and `SeasonPage.tsx`. *ROADMAP.md,
-   "From the Oct 15 audit" item 6.*
-9. **UI overhaul, phase 1 (Figma only).** Mood board, tokens in both themes, four screens on a phone
-   and a desktop, the open questions decided. Owner; no code until a direction is picked.
-   *ROADMAP-UI.md, Phases 1.*
-10. **Search examples from use**, once "Offered nothing for" has a few weeks in it (early November).
-    *ROADMAP-WPBL, "Search: what's next" item 13.*
-
-- ✅ **Database backup outside Supabase** (Oct 31): nightly, encrypted, restored and compared on every
-  run. Left, for the owner: put the private key in a password manager. *docs/BACKUPS.md.*
+3. **UI overhaul, phase 1 (Figma only)**, now including the women's baseball shell: the league list
+   (MLB in it, after the women's competitions) and whether `/` earns a front page. Owner; no code until a direction is picked.
+   *ROADMAP-UI.md, Phases 1; ROADMAP-WOMENS-BASEBALL, stage 3.*
+4. **MLB as one league among several.** Read "MLB: what gets used" on `/admin` and decide what MLB
+   keeps on its own pages now that it is no longer half the site. *ROADMAP.md, "Handoff" and item 7 of the second pass.*
+5. **Search examples from use**, once "Offered nothing for" has a few weeks in it.
+   *ROADMAP-WPBL, "Search: what's next" item 13.*
 
 ## Winter: December to March, all of it before the 2027 season
 
-11. **Spring readiness**, the one block that cannot slip past March:
-    - the feed rehearsal: replay the archived 2026 feed into a scratch schema and diff it (also the
-      real test of multiple seasons);
-    - `wpbl-postseason-check` failing on missing secrets;
-    - ~~a feed contract in `wpbl-ingest` (valibot or zod), `summary.errors` meaning failure, and a
-      Discord freshness alarm~~ ✅ done Oct 17 (valibot; the alarm is every health page posted to
-      the ops channel, `DISCORD_ALERTS_WEBHOOK_URL`); deployed Oct 20, first run clean;
-    - ~~the column-partition test for `LIVE_GAME_COLUMNS` and the line column lists~~ ✅ done Oct 17,
-      read from the migrations rather than `supabase gen types`;
-    - every Trap in CLAUDE.md re-verified against the 2027 feed once it speaks.
-    *ROADMAP-WPBL, ops item 7, Priorities P0 and P2, engineering backlog.*
-12. **iOS.** A much bigger build than Play, done before the season. *docs/IOS.md.*
-13. **Cheap engineering**: past seasons frozen as static JSON (which is also the open-data download),
-    a `size-limit` bundle budget in CI. *ROADMAP-WPBL, engineering backlog P2.*
-14. **World Cup phases 1 and 2, on WBSC's yes only**: the International row on WPBL player pages
-    (Nov to Jan), then the back catalog on the page and `/world-cup/2026` and `/2024` (Jan to Mar). On
-    a no, delete the data and stop. *ROADMAP-WOMENS-BASEBALL, Phases.*
-15. **UI overhaul, phases 2 and 3**: tokens and type on MUI, then the house components, migrating
+6. **Spring readiness**, the one block that cannot slip past March:
+   - the feed rehearsal: replay the archived 2026 feed into a scratch schema and diff it (also the
+     real test of multiple seasons);
+   - `wpbl-postseason-check` failing on missing secrets;
+   - ~~a feed contract in `wpbl-ingest`, `summary.errors` meaning failure, and a Discord freshness
+     alarm~~ ✅ done Oct 17, deployed Oct 20;
+   - ~~the column-partition test for `LIVE_GAME_COLUMNS` and the line column lists~~ ✅ done Oct 17;
+   - every Trap in CLAUDE.md re-verified against the 2027 feed once it speaks.
+   *ROADMAP-WPBL, ops item 7, Priorities P0 and P2, engineering backlog.*
+7. **World Cup stages 1 and 2**: one person across every competition (the person registry and the
+   International section on WPBL player pages, Dec to Jan), then `/world-cup` with every event since
+   2016 and a page for every player in them (Jan to Mar). Built either way; published on WBSC's yes
+   only. *ROADMAP-WOMENS-BASEBALL, "The plan", stages 1 and 2.*
+8. **The live field**, in Game Center on both leagues, before MLB's Opening Day in late March: an
+   animated diamond with runners, the count and pitch location. Built on MLB first, because spring
+   training is live from late February while the WPBL feed is quiet; WPBL wires to it against the
+   2027 feed. *ROADMAP-WPBL, "From the Nov 1, 2026 brainstorm".*
+9. **iOS.** A much bigger build than Play, done before the season. *docs/IOS.md.*
+10. **UI overhaul, phases 2 and 3**: tokens and type on MUI, then the house components, migrating
     WPBL page by page while its feed is quiet, then MLB. Stops in March so the sweep baselines are
     settled before the season. *ROADMAP-UI.md, Phases 2 and 3.*
-16. **MLB plays and pitches**: mirror 2026 alone and measure it against the database ceiling before
-    any backfill, then Pitch by pitch and Run value on MLB; fielding lines in the mirror for Find.
-    *ROADMAP.md, second pass item 6, steps 4 and 6.*
-17. **Hot Stove follow-up**: read "MLB: what gets used" in December before building a page of its
-    own or tracking the free-agent class. *ROADMAP.md, "From the Oct 10 audit".*
+11. **The women's baseball shell (stage 3)**, built with phase 3 in February and March: the
+    league list, with MLB one click away in it. Hard stop on Mar 15; if it is not settled by then it waits
+    for October 2027 rather than land under the season. *ROADMAP-WOMENS-BASEBALL, "The plan",
+    stage 3.*
+12. **Cheap engineering**: past seasons frozen as static JSON (which is also the open-data download),
+    a `size-limit` bundle budget in CI. *ROADMAP-WPBL, engineering backlog P2.*
 
 ## Spring 2027
 
-18. **The 2027 calendar into the code**: `POSTSEASON_SCHEDULE`, `PICKEM_SEASON` and the award
+13. **The 2027 calendar into the code**: `POSTSEASON_SCHEDULE`, `PICKEM_SEASON` and the award
     constants, once the league publishes. *ROADMAP-WPBL, Priorities P0, "Left for spring".*
-19. **The Bluesky rethink**, before the posters wake with the season. *ROADMAP-WPBL, the clock.*
-20. **The pick'em, decided for Opening Day** (parked until then). *ROADMAP-WPBL, Parked.*
-21. **The live files onto the type scale** (WPBL's `Live` and `LiveGameView`, MLB's live and
+14. **The Bluesky rethink**, before the posters wake with the season. *ROADMAP-WPBL, the clock.*
+15. **A weekly email digest: decide before the season.** Push drew 12 subscriptions; Discord
+    converted 7.7%. Decide whether email is the third channel, not whether to build it now.
+    *ROADMAP-WPBL, "From the Nov 1, 2026 brainstorm".*
+16. **The pick'em, decided for Opening Day** (parked until then). *ROADMAP-WPBL, Parked.*
+17. **The live files onto the type scale** (WPBL's `Live` and `LiveGameView`, MLB's live and
     postseason files), when they return. *ROADMAP.md, Oct 15 audit item 2.*
-22. **World Cup decision point (April)**: read `events` on the International row and the event
-    pages; go, smaller or stop. On a go, `/world-cup/2027` built before Jul 19, then the Finals
-    within the hour, Jul 19 to 25, alongside the WPBL season. *ROADMAP-WOMENS-BASEBALL, Phases 3
-    and 4.*
+18. **World Cup read (April)**: `events` on the International section, the event pages and the
+    person pages. It sets how much of stage 5 goes ahead, not whether the site is women's baseball.
+    Then `/world-cup/2027` built before Jul 19 and the Finals within the hour, Jul 19 to 25.
+    *ROADMAP-WOMENS-BASEBALL, "The plan", stage 4.*
+
+## When the league announces a second season
+
+Started by the announcement (teams, cities, dates), not by the calendar: each needs the real shape
+of 2027. Reports say the four clubs move to their home cities and two expansion clubs join; none of
+that is confirmed. Detail in *ROADMAP-WPBL, "From the Nov 1, 2026 brainstorm".*
+
+19. **The home-park era** (build): park factors from our own run-expectancy table, home and road
+    splits, a page per venue, road trips. None of it could exist while every game was in Springfield.
+20. **The press box** (build): game notes before every game, the pack a club hands broadcasters and
+    writers. The links it earns are the SEO brake.
+21. **Fantasy** (to explore): a free season-long game scored by run value. Only with enough players
+    to draft from.
+22. **Projections and a season simulator** (to explore): WPBL projections with heavy regression and
+    World Cup lines as a prior, projected standings, "sim this matchup".
 
 ## Later, when there is room
 
+- **The lineage (P2)**: the AAGPBL (1943–54) and earlier women's pro baseball, history pages and
+  "this day in women's baseball", with the Players Association's blessing. *ROADMAP-WOMENS-BASEBALL,
+  stage 5.*
+- The rest of stage 5: the WPBL developmental league, the continental championships, national
+  leagues as sources appear. *ROADMAP-WOMENS-BASEBALL.*
+- **MLB depth**: plays and pitches mirrored (2026 alone, measured against the database
+  ceiling first), Pitch by pitch and Run value on MLB, fielding lines for Find; the Hot Stove
+  follow-up after December's read. *ROADMAP.md, second pass item 6; "From the Oct 10 audit".*
 - `/wpbl/data` and the embeddable standings and box-score widget (ops item 8), then a DuckDB-WASM
   sandbox over the frozen season files.
 - The rest of the engineering backlog's P3: prefetch on hover, MLB line tables to R2 before the
@@ -110,8 +137,6 @@
 - Search: spans and splits (needs a date range on Find); firsts (needs a page to link).
 - The Visuals list, the data-mining backlog, portrait rights. *ROADMAP-WPBL.*
 - UI overhaul phases 4 (motion) and 5 (styling engine).
-- The site as "women's baseball" (navigation stage 3), only if the World Cup earns it, designed with
-  the UI overhaul.
 
 ## Parked, and why
 

@@ -10,6 +10,12 @@
 > Last realigned: **Sep 27, 2026**, around bringing the section up to the WPBL standard (see
 > "Aligning with WPBL" below, which is now the live front). Before that Aug 10, 2026.
 > Last reviewed for handoff: **Oct 2, 2026**, at v1.115.1. Start at "Handoff" just below.
+> **Nov 1, 2026: MLB becomes one league among several** on a women's baseball site: always in the
+> league list and one click away, every URL kept, no longer half the site
+> ([ROADMAP-WOMENS-BASEBALL.md](ROADMAP-WOMENS-BASEBALL.md), stage 3). The one MLB build before
+> Opening Day is the live field in Game Center ([ROADMAP-WPBL.md](ROADMAP-WPBL.md), "From the
+> Nov 1, 2026 brainstorm"); the plays and pitches mirror and the Hot Stove follow-up move to
+> "Later" in the priorities.
 > Search is site-wide and planned in [ROADMAP-WPBL.md](ROADMAP-WPBL.md), "Search: what's next"
 > (Oct 14, 2026), which covers both sections.
 > Audited **Oct 10, 2026** with the rest of the site: the site-wide ops list (error reporting,
