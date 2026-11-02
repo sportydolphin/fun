@@ -57,8 +57,12 @@ const NICKNAMES: Readonly<Record<string, readonly string[]>> = {
   mandy: ['amanda'], mel: ['melissa', 'melanie'], cassie: ['cassandra'], dani: ['daniela', 'daniella', 'danielle'],
 }
 
+/** Whether `short` is a common short form of one of `given` ("kate" of "katherine"). Folded words. */
+export const isNickname = (short: string, given: readonly string[]): boolean =>
+  given.some(g => NICKNAMES[short]?.includes(g) ?? false)
+
 /** Levenshtein distance, for the one-letter spelling case. */
-function editDistance(a: string, b: string): number {
+export function editDistance(a: string, b: string): number {
   const row = Array.from({ length: b.length + 1 }, (_, j) => j)
   for (let i = 1; i <= a.length; i++) {
     let prev = row[0]
@@ -166,7 +170,7 @@ export function matchKind(wbsc: Pick<CrosswalkWbscPlayer, 'first_name' | 'last_n
   if (wpbl[0] === given[0] && (surnameFits || (lastFits && containsRun([...given, ...surname], wpbl)))) return 'name'
   if (surnameFits && wpbl[0][0] === given[0][0]) return 'initial'
   if (surnameFits && given.slice(1).includes(wpbl[0])) return 'middle'
-  if (surnameFits && given.some(g => NICKNAMES[wpbl[0]]?.includes(g))) return 'nickname'
+  if (surnameFits && isNickname(wpbl[0], given)) return 'nickname'
   // Long surnames only: at four letters one letter off is another name ("Diaz", "Dias").
   if (wpbl.length === 2 && wpbl[0] === given[0] && surname.some(s => s.length > 4 && editDistance(s, wpbl[1]) === 1)) return 'spelling'
   return null

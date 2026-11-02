@@ -257,12 +257,13 @@ it, so it is designed for the developmental league and the AAGPBL as much as for
   in `src/league/` (bests, the finder, run expectancy) run on it with `src/intl/league.ts`; the
   WPBL Game Center's components are reused where they are already league-neutral, and anything
   WPBL-only (TrackMan, clips) is simply absent.
-- **First, a second review: the same player across World Cups.** WBSC numbers every player afresh
-  each event, and the registry joins nothing by name, so the 931 World Cup rows with no WPBL link
-  are 931 people today. At least 165 of them are one person in several World Cups under the same
-  name and flag. The crosswalk proposer and the review page extend to WBSC-to-WBSC pairs (same name,
-  same country, a later event), the reviewer confirms them, and `people.json` joins them. Without
-  it, a player with three World Cups gets three pages. Found Nov 2, 2026.
+- ✅ **First, a second review: the same player across World Cups** (Nov 2, 2026). WBSC numbers
+  every player afresh each event, so the 931 World Cup rows with no WPBL link were 931 people.
+  [`samePerson.ts`](src/intl/wbsc/samePerson.ts) decides 478 pairs by rules the owner's crosswalk
+  answers already settle (the same name for the same country, yes; two different Korean given names,
+  no; two people who played the same World Cup, no), and asked the owner 6. They are one person per
+  World Cup career now: 751 people in `people.json`, 633 of them with no WPBL row. The 2027 rosters
+  go through `npm run wbsc -- --same` after the crosswalk.
 - **A page for every player, not only WPBL players.** About 200 of the 2026 field's 239 never
   played in the WPBL. Without a page each of those names is a dead end, and opening a player page is
   the retention event the traffic data names. `/players/<slug>` from the registry. A WPBL player's
