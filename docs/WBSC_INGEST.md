@@ -246,7 +246,17 @@ npm run wbsc -- --international
 All or nothing again ([`international.ts`](../src/intl/wbsc/international.ts)): a link to an event not
 imported, a WBSC player not in that event, someone off the WPBL roster, or two WBSC players for one
 WPBL player in one event, and nothing is written. A linked player on an event's roster who played
-no game in it gets no row and a line in the run log. Run it again after every `--confirm`. Built on
+no game in it gets no row and a line in the run log. Run it again after every `--confirm`.
+
+**The owner's preview.** `npm run wbsc -- --upload` puts the file into `wbsc_world_cup_lines`,
+which RLS lets only the site owner read, replacing the whole table in one transaction. The WPBL
+player page draws a World Cup section from it for the owner, signed in, and for nobody else
+([`player/WorldCup.tsx`](../src/wpbl/player/WorldCup.tsx)). So after every `--confirm`:
+
+```bash
+npm run wbsc -- --international
+npm run wbsc -- --upload
+``` Built on
 Nov 2, 2026 from the review's yeses so far as a dry run: 49 players, 117 event rows, 171 KB.
 
 ## The league binding

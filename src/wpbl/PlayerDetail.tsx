@@ -21,6 +21,7 @@ import { WrittenAbout } from './Reading'
 import { aboutPlayerFirst } from './derive/articles'
 import { FanPhotoPlayerStrip } from './FanPhotoViews'
 import { PlayerClips, usePlayerHasClips } from './Watch'
+import { WorldCupSection } from './player/WorldCup'
 import { PitchLocationCard } from './PitchLocation'
 import SprayChart from './SprayChart'
 import PitchProfileBlock, { usePitchProfiles } from './PitchProfile'
@@ -858,6 +859,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
           {pane.extras}
           {/* Last among the stats, as on the desktop: see desktopRoleBlock. */}
           {hasFielding && <FieldingLine ft={ft} positions={showTabs ? fieldedPositions : undefined} />}
+          <WorldCupSection playerId={player.id} accent={color} />
           {/* Rendered even for a player with no line yet (see the no-stats branch below): someone
               who has been written about but has not logged a game is exactly the case where this
               is the most interesting thing on the page. Renders nothing when nobody has written
@@ -1003,6 +1005,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
                   <FieldingLine ft={ft} bare />
                 </>
               )}
+              {!deskSkeleton && <WorldCupSection playerId={player.id} accent={color} />}
               {/* NOT UNTIL THE LINES ARE IN. These fetch on their own and land first, and the season
                   blocks then pushed them down by up to 2,800px: most of a cold player page's layout
                   shift in October 2026. Drawn after, they arrive below everything already there. */}

@@ -31,11 +31,13 @@ Stage 0 is half done: the back end is built and waiting on WBSC's permission and
 | Nov 1 | The direction decided; this plan | this file |
 | Nov 2 | The back catalog: all seven events, 170 games; the crosswalk review page (`--review`) | [sportydolphin/fun#181](https://github.com/sportydolphin/fun/pull/181) |
 | Nov 2 | `international.json` (`--international`), the player page's one file, built from the crosswalk | [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md) |
+| Nov 2 | The crosswalk reviewed and confirmed: 121 links over 52 WPBL players, 13 ruled out | archive/wbsc/crosswalk.json (gitignored) |
+| Nov 2 | The World Cup on WPBL player pages as the owner's preview, from an owner-only table | [src/wpbl/player/WorldCup.tsx](src/wpbl/player/WorldCup.tsx) |
 
-**Open as of Nov 2:** no reply from WBSC is recorded; the crosswalk review (134 candidates, every
-event 2016 to 2026) is in progress in the review file, 130 marked and 4 open, with no reviewer named
-and nothing confirmed, so `crosswalk.json` holds no links yet. Steps 1, 3, 4 and 5 below are done
-on this machine; step 2, the review, is what stage 0 waits on besides WBSC.
+**Open as of Nov 2:** no reply from WBSC is recorded. Steps 1 to 5 below are done on this
+machine: the crosswalk is confirmed (121 links, 52 WPBL players, backed up to the owner's OneDrive),
+and stage 1's World Cup rows are built as the owner's preview, readable by the owner alone. Stage 0
+now waits only on WBSC, and releasing the preview is the owner's call.
 
 **Waiting on:** replies to the owner's outreach (WBSC for permission; Baseball Prospectus and
 RetroWPBL as neighbors, see [Neighbors](#neighbors)). Record each reply here, with its date.
@@ -234,6 +236,10 @@ it, so it is designed for the developmental league and the AAGPBL as much as for
   separate section; see [docs/PLAYER_PAGE.md](docs/PLAYER_PAGE.md)): per event, the
   country, the event, the line (G, PA, AVG/OPS or IP, ERA, K), the WBSC name it matched (so a reader
   can spot a wrong row), and a link to the games on wbsc.org. It shows only for players who have one.
+  **Built Nov 2, 2026 as the owner's preview** ([`player/WorldCup.tsx`](src/wpbl/player/WorldCup.tsx)):
+  for now a World Cup section of its own after Fielding, one row per event in a batting and a
+  pitching table, because the grouped career table waits on the Figma work in docs/PLAYER_PAGE.md.
+  It reads `wbsc_world_cup_lines`, which only the owner can read; releasing it is the owner's call.
 - **Done when** the registry has a test that every crosswalk row resolves to one person and no
   person holds two WPBL players, and the matched pages render the rows.
 
