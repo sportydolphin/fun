@@ -257,8 +257,10 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
         /* Counts, not shares: the figure on screen is a percentage, but the underlying record
            is the number of balls and that is what a reader listening to this wants. */
         sx={{
-          width: '100%', maxWidth, height: 'auto', display: 'block', mx: 'auto',
-          flex: { md: '1 1 auto' }, minWidth: 0,
+          width: '100%', maxWidth, height: 'auto', display: 'block', mx: { xs: 'auto', md: 0 },
+          // NOT GROWN ON A DESKTOP. Grown and centered, the fan sat mid-column and Pull / Center /
+          // Oppo floated at the far edge, a column's width from the picture they describe.
+          flex: { md: '0 1 auto' }, minWidth: 0,
           color: heat,
         }}
       >
@@ -345,7 +347,8 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
         it was a sentence in brackets until Oct 21, 2026 (labels, not narration). */}
         {pull.pullPct == null && profile.placed > 0 && (
           <Box sx={{ mb: 1 }}>
-            <Typography sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: TYPE_SCALE.nano, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.disabled' }}>
+            {/* A div, because the InfoDot inside is one: a <p> holding a <div> is invalid HTML. */}
+            <Typography component="div" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: TYPE_SCALE.nano, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.disabled' }}>
               Pull
               <InfoDot label="Why no pull share" text="Switch hitter. The feed records which side a switch hitter bats from only on the roster, not per plate appearance, so pull and opposite field cannot be told apart." />
             </Typography>

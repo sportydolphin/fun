@@ -61,11 +61,9 @@ export const gamePosition = (raw: string | null | undefined): string => {
   return t ? t.toUpperCase() : '—'
 }
 
-// A batting line only counts as real batting if the player actually came to the plate (an
-// at-bat, a walk, a HBP, or a sacrifice). Zero-PA rows (a pinch-runner who scored, a defensive
-// sub, a pitcher listed but never up) otherwise surface as an all-zero stat block and a phantom
-// "0-for-0" game-log line, so they are dropped. `hasPlateAppearance` lives in stats.ts, shared
-// with the compare card so the two cannot disagree about who batted.
+// Which batting lines are games batted is `isBattingGame` in stats.ts, shared with the compare
+// card and Home so none of them can disagree about who played: a defensive sub or a pinch runner
+// counts, a pitcher's empty box-score line does not.
 
 export type Role = 'batting' | 'pitching'
 

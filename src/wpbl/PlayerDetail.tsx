@@ -34,7 +34,7 @@ import { linkTo } from '../nav'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
 import { useSectionScroll } from '../lib/sectionScroll'
-import { leagueLine } from './statColumns'
+import { leagueLine, OVR_COLS } from './statColumns'
 import { wpblRoleTables, wpblDisciplineCols, seasonLead, row as statRow, type RankFor } from './player/statTables'
 import {
   statTip, gamePosition, type Role, RankProgress, FieldingLine, MatchupTable, CompareChip,
@@ -434,6 +434,13 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   const sliceLeague = useMemo(
     () => (leagueLines ? leagueLine(thisSeason(leagueLines.batting), thisSeason(leagueLines.pitching), games, scope) : null),
     [leagueLines, games, season, career, scope]) // eslint-disable-line react-hooks/exhaustive-deps
+  // ONE WAR FOR A TWO-WAY PLAYER. Each role's table carries its own side (Pos WAR, Pit WAR), so the
+  // one figure that sums the season was on no table. The board's own total, so it cannot disagree
+  // with the Stats table; regular season only, as every WAR on the card.
+  const ownValue = board?.value?.get(player.id)
+  const totalWar = twoWay && scope === 'regular' && ownValue
+    ? `Total WAR ${OVR_COLS.find(c => c.key === 'war')!.display!(ownValue)}`
+    : null
   const leadsWithSaves = pt.gs === 0 && pt.s > 0
   const tables = (r: Role) => wpblRoleTables(r, {
     bt, pt, league: sliceLeague, board, playerId: player.id, scope, twoWay, value: myValue, valueOn,
@@ -487,7 +494,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   const lineCaption = (r: Role, scopeControl?: React.ReactNode, metaOverride?: React.ReactNode) => (
     <LineCaption
       picker={seasonPickerNode()}
-      meta={metaOverride !== undefined ? metaOverride : r === 'pitching' ? pitchingMeta : battingMeta}
+      meta={metaOverride !== undefined ? metaOverride : [r === 'pitching' ? pitchingMeta : battingMeta, totalWar].filter(Boolean).join(' · ')}
       control={scopeControl}
     />
   )
@@ -548,7 +555,9 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
       ? (
         <Box sx={{ mt: BLOCK_GAP }}>
           <SectionHead title="Hit locations" part="spray" />
-          <SprayChart plays={myBattedBalls} bats={player.bats} />
+          {/* Narrower than the chart's own default: at 520 it was the tallest block on the page, about
+              500px for eleven percentages. */}
+          <SprayChart plays={myBattedBalls} bats={player.bats} maxWidth={400} />
         </Box>
       )
       : null,
@@ -717,7 +726,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   const roleName = (r: Role) => (r === 'pitching' ? 'Pitching' : 'Batting')
   const roleMeta = (r: Role) => (deskSkeleton ? '' : r === 'pitching' ? pitchingMeta : battingMeta)
   const desktopCaption = (
-    <LineCaption picker={seasonPickerNode()} control={hasPostseason || deskSkeleton
+    <LineCaption picker={seasonPickerNode()} meta={deskSkeleton ? undefined : totalWar ?? undefined} control={hasPostseason || deskSkeleton
       ? <Box sx={deskSkeleton ? { visibility: 'hidden' } : undefined} aria-hidden={deskSkeleton || undefined}>{scopeNav}</Box>
       : undefined} />
   )

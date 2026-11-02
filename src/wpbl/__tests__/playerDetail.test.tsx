@@ -371,8 +371,9 @@ describe('PlayerDetail: league ranks', () => {
     fireEvent.click(screen.getByRole('button', { name: 'All stats' }))
     expect(screen.getByText('Standard')).toBeInTheDocument()
     expect(screen.getByText('Advanced')).toBeInTheDocument()
-    expect(headsOf(1)).toContain('AB')
-    expect(headsOf(2)).toContain('OPS+')
+    // Open, the summary steps aside: every column of it is in these two (see summaryCovered).
+    expect(headsOf(0)).toContain('AB')
+    expect(headsOf(1)).toContain('OPS+')
     expect(localStorage.getItem('sd.playerCard.allStats')).toBe('1')
     fireEvent.click(screen.getByRole('button', { name: 'Fewer stats' }))
     expect(screen.queryByText('Standard')).not.toBeInTheDocument()
@@ -406,7 +407,7 @@ describe('PlayerDetail: league ranks', () => {
     expect(screen.getByText(/Toward qualifying/i)).toBeInTheDocument()
     // Steals are in the standard line, behind All stats.
     fireEvent.click(screen.getByRole('button', { name: 'All stats' }))
-    expect(rankRow(1)).toContain('1st')
+    expect(rankRow(0)).toContain('1st')
     fireEvent.click(screen.getByRole('button', { name: 'Fewer stats' }))
   })
 
@@ -427,9 +428,9 @@ describe('PlayerDetail: league ranks', () => {
     showInLeague(player(), [bat({ ab: 4, h: 1, tb: 1, so: 4, sb: 3 })])
     await waitFor(() => expect(battingShown()).toBe(true))
     fireEvent.click(screen.getByRole('button', { name: 'All stats' }))
-    const soAt = headsOf(1).indexOf('SO')
+    const soAt = headsOf(0).indexOf('SO')
     expect(soAt).toBeGreaterThan(-1)
-    expect((rankRow(1)[soAt] ?? '').trim()).toBe('')
+    expect((rankRow(0)[soAt] ?? '').trim()).toBe('')
     fireEvent.click(screen.getByRole('button', { name: 'Fewer stats' }))
   })
 
