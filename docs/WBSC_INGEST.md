@@ -272,6 +272,25 @@ names: on Nov 2, 2026 it holds 1,049 people, 931 of them World Cup rows with no 
 least 165 of those are one person playing several World Cups under the same name and flag, still
 separate until a review joins them (stage 2).
 
+**The same player across World Cups** ([`samePerson.ts`](../src/intl/wbsc/samePerson.ts)) is that
+review, and it asks only what the crosswalk review's answers do not already settle. Both sides are
+WBSC's own official names, which is what makes rules safe here where the crosswalk needed a person.
+Yes when the full name, or one with a middle name added, a hyphen for a space, a common nickname, a
+second given name gone by, or a long name one letter off, is for the same country with no rival in
+either event. No when the given names are simply two names ("Jia Lee", "Ji Eun Lee"), when one side
+was already ruled out as the other's WPBL player, or when the two people played the same World Cup.
+Initials, a name cut short, a short name one letter off, a close name and half of a hyphenated name
+go to the reviewer, one question per pair of people. Every decision, the rules' and the reviewer's,
+is in `archive/wbsc/same-person.json` with what made it, so nothing is asked twice:
+
+```bash
+npm run wbsc -- --same
+npm run wbsc -- --confirm-same
+npm run wbsc -- --people
+```
+
+On Nov 2, 2026: 478 by rule, 6 asked (5 yes, 1 no), and 751 people.
+
 ## The league binding
 
 [`src/intl/league.ts`](../src/intl/league.ts), a third `League` beside `src/wpbl/league.ts` and

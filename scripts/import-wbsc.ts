@@ -9,6 +9,8 @@
  *   npm run wbsc -- --confirm           move the reviewed ones into the crosswalk
  *   npm run wbsc -- --international     international.json for the player page, from the crosswalk
  *   npm run wbsc -- --upload            that file into the owner-only table the preview reads
+ *   npm run wbsc -- --same              the same player across World Cups: rules decide, the rest to review
+ *   npm run wbsc -- --confirm-same      move the reviewed answers into same-person.json
  *   npm run wbsc -- --people            people.json, one person per player across every competition
  *   flags: --refresh (refetch cached games), --offline (cache only, no network),
  *          --check (compare with the files on disk, write nothing)
@@ -39,6 +41,7 @@ import { isFinal, transformGame, validateGame } from '../src/intl/wbsc/game'
 import type { WbscBattingLine, WbscGame, WbscPlayer } from '../src/intl/wbsc/game'
 import { buildInternational, type International, type InternationalEventInput } from '../src/intl/wbsc/international'
 import { buildPeople, type PeopleWpblPlayer } from '../src/intl/people'
+import { EMPTY_SAME_PERSON, proposeSamePerson, type SamePersonCandidate, type SamePersonFile } from '../src/intl/wbsc/samePerson'
 import type { PitchingGameLine } from '../src/league/types'
 import type { WbscEvent, WbscGamePage, WbscScheduleGame } from '../src/intl/wbsc/types'
 import { serveReview } from './wbsc-review'
@@ -337,6 +340,11 @@ const REVIEW = join(OUT_DIR, 'crosswalk-review.json')
 const ROSTER = 'archive/wpbl/wpbl_players.json'
 const INTERNATIONAL = join(OUT_DIR, 'international.json')
 const PEOPLE = join(OUT_DIR, 'people.json')
+const SAME_PERSON = join(OUT_DIR, 'same-person.json')
+const SAME_REVIEW = join(OUT_DIR, 'same-person-review.json')
+
+/** The reviewer's file for the same-person questions. */
+interface SameReview { checked_by: string; questions: SamePersonCandidate[] }
 
 const readJson = <T>(path: string, fallback: T): T => (existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) as T : fallback)
 const writeJson = (path: string, value: unknown) => writeFileSync(path, JSON.stringify(value, null, 2) + '\n')
@@ -465,6 +473,54 @@ async function uploadInternational(): Promise<boolean> {
   return true
 }
 
+// ── The same player across World Cups (src/intl/wbsc/samePerson.ts) ─────────────
+//
+// Both files gitignored with the rest. same-person.json keeps every decision, the rules' and the
+// reviewer's, each saying which, so no pair is asked twice.
+
+const today = () => {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+function proposeSame(): boolean {
+  const open = readJson<SameReview | null>(SAME_REVIEW, null)
+  if (open?.questions.some(q => q.decision !== '')) { console.log(`${SAME_REVIEW} holds answers not yet confirmed. Run --confirm-same first.`); return false }
+  const file = readJson<SamePersonFile>(SAME_PERSON, EMPTY_SAME_PERSON)
+  const { decided, review } = proposeSamePerson(importedPlayers(), readJson<Crosswalk>(CROSSWALK, EMPTY_CROSSWALK), file, today())
+  writeJson(SAME_PERSON, { decisions: [...file.decisions, ...decided] } satisfies SamePersonFile)
+  writeJson(SAME_REVIEW, { checked_by: open?.checked_by ?? '', questions: review } satisfies SameReview)
+  const by = new Map<string, number>()
+  for (const d of decided) by.set(`${d.decided_by} ${d.same ? 'yes' : 'no'}`, (by.get(`${d.decided_by} ${d.same ? 'yes' : 'no'}`) ?? 0) + 1)
+  for (const [k, n] of [...by].sort()) console.log(`  ${String(n).padStart(4)}  ${k}`)
+  for (const q of review) console.log(`  ask   ${q.reason.padEnd(13)} ${q.a_name} (${q.a_team} ${q.a_event.slice(0, 4)}) | ${q.b_name} (${q.b_team} ${q.b_event.slice(0, 4)})`)
+  console.log(`${decided.length} decided by rule, ${review.length} to review in ${SAME_REVIEW}: set "checked_by" and each "decision", then --confirm-same.`)
+  return true
+}
+
+function confirmSame(): boolean {
+  const review = readJson<SameReview | null>(SAME_REVIEW, null)
+  if (!review) { console.log(`No ${SAME_REVIEW}. Run --same first.`); return false }
+  const answered = review.questions.filter(q => q.decision !== '')
+  const bad = answered.filter(q => q.decision !== 'yes' && q.decision !== 'no')
+  if (answered.length && !review.checked_by.trim()) { console.log('checked_by is empty: say who answered these.'); return false }
+  if (bad.length) { console.log(`Not yes or no: ${bad.map(q => q.a_name).join(', ')}`); return false }
+  const byId = new Map(importedPlayers().map(p => [p.id, p]))
+  const file = readJson<SamePersonFile>(SAME_PERSON, EMPTY_SAME_PERSON)
+  const decisions = answered.flatMap(q => q.covers.map(({ a, b }) => {
+    const [x, y] = [byId.get(a), byId.get(b)]
+    return {
+      a, b, a_name: x?.name ?? a, b_name: y?.name ?? b, a_event: x?.event_key ?? '', b_event: y?.event_key ?? '',
+      a_team: x?.team_id ?? null, b_team: y?.team_id ?? null,
+      same: q.decision === 'yes', decided_by: review.checked_by.trim(), decided_at: today(),
+    }
+  }))
+  writeJson(SAME_PERSON, { decisions: [...file.decisions, ...decisions] } satisfies SamePersonFile)
+  writeJson(SAME_REVIEW, { checked_by: review.checked_by, questions: review.questions.filter(q => q.decision === '') } satisfies SameReview)
+  console.log(`${answered.length} answered (${decisions.length} pairs), ${review.questions.length - answered.length} still to review. Run --people next.`)
+  return true
+}
+
 // ── people.json (src/intl/people.ts) ────────────────────────────────────────────
 //
 // Gitignored with the rest while it names WBSC's players. Run it after every --confirm, beside
@@ -473,7 +529,7 @@ async function uploadInternational(): Promise<boolean> {
 function buildPeopleFile(): boolean {
   const roster = readJson<PeopleWpblPlayer[]>(ROSTER, [])
   if (!roster.length) { console.log(`No ${ROSTER}.`); return false }
-  const { people, errors } = buildPeople(roster, importedPlayers(), readJson<Crosswalk>(CROSSWALK, EMPTY_CROSSWALK))
+  const { people, errors } = buildPeople(roster, importedPlayers(), readJson<Crosswalk>(CROSSWALK, EMPTY_CROSSWALK), readJson<SamePersonFile>(SAME_PERSON, EMPTY_SAME_PERSON))
   if (errors.length) {
     console.log('Nothing written:')
     for (const e of errors) console.log(`  ${e}`)
@@ -483,7 +539,7 @@ function buildPeopleFile(): boolean {
   const n = (f: (p: typeof people[number]) => boolean) => people.filter(f).length
   console.log(`${PEOPLE}: ${people.length} people. ${n(p => !!p.wpbl_id && p.wbsc.length > 0)} WPBL players with a World Cup,`
     + ` ${n(p => !!p.wpbl_id && !p.wbsc.length)} without, ${n(p => !p.wpbl_id)} World Cup players with no WPBL row`
-    + ` (each event a separate person until a review links them).`)
+    + ` (one person per World Cup career, as far as same-person.json has joined them).`)
   return true
 }
 
@@ -493,6 +549,8 @@ async function main(): Promise<void> {
   if (flag('propose')) { if (!proposeLinks()) process.exitCode = 1; return }
   if (flag('confirm')) { if (!confirmLinks()) process.exitCode = 1; return }
   if (flag('international')) { if (!buildInternationalFile()) process.exitCode = 1; return }
+  if (flag('same')) { if (!proposeSame()) process.exitCode = 1; return }
+  if (flag('confirm-same')) { if (!confirmSame()) process.exitCode = 1; return }
   if (flag('people')) { if (!buildPeopleFile()) process.exitCode = 1; return }
   if (flag('upload')) { if (!(await uploadInternational())) process.exitCode = 1; return }
   if (flag('review')) {
