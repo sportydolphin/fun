@@ -60,9 +60,10 @@ const MobilePreview = import.meta.env.DEV ? lazy(() => import('../mlb/dev/Mobile
 // engine's storage key is in dist/assets/index-*.js, with it the file is absent.
 if (import.meta.env.DEV) installWpblReadOverlay(withDevSecondSeason(devLiveOverlay))
 
-// The two flags read once at load by code outside this menu (lib/roles.ts, AdminUsers.tsx). They
+// The flags read once at load by code outside this menu (lib/admin.ts, lib/roles.ts, AdminUsers.tsx). They
 // have no store to subscribe to, so the menu writes them and reloads.
 const FORCE_TESTER_KEY = 'sdForceTester'
+const FORCE_OWNER_KEY = 'sdForceOwner'
 const FAKE_USERS_KEY = 'sdDevFakeUsers'
 const readFlag = (k: string) => { try { return localStorage.getItem(k) } catch { return null } }
 const writeFlag = (k: string, v: string | null) => {
@@ -84,6 +85,7 @@ function activeOverrides(): Override[] {
   if (devSecondSeasonOn()) out.push({ label: 'WPBL fake 2027 season', reset: () => setDevSecondSeason(false, null), reload: true })
   if (devFanPhotosOn()) out.push({ label: 'WPBL mock fan photos', reset: () => setDevFanPhotos(false) })
   if (devLiveSnapshot().enabled) out.push({ label: 'WPBL live replay', reset: () => setDevLiveEnabled(false) })
+  if (readFlag(FORCE_OWNER_KEY) === '1') out.push({ label: 'Owner view', reset: () => writeFlag(FORCE_OWNER_KEY, null), reload: true })
   if (readFlag(FORCE_TESTER_KEY) === '1') out.push({ label: 'Tester role', reset: () => writeFlag(FORCE_TESTER_KEY, null), reload: true })
   if (glassLevel() != null) out.push({ label: 'Bottom bar glass', reset: () => setGlassLevel(null) })
   if (readFlag('sdSurfaces') != null) out.push({ label: 'Surface settings', reset: () => writeFlag('sdSurfaces', null), reload: true })
@@ -711,16 +713,25 @@ function PredSimControls() {
 // ─── Account and access ────────────────────────────────────────────────────────
 
 /**
- * The two localStorage switches that used to need the console to set. Both are read once at load
- * by code that never imports this menu (the tester gate in lib/roles.ts, the roster in
- * AdminUsers.tsx), and both are dead in production however they are set.
+ * The localStorage switches that used to need the console to set. Each is read once at load by
+ * code that never imports this menu (the owner gate in lib/admin.ts, the tester gate in
+ * lib/roles.ts, the roster in AdminUsers.tsx), and each is dead in production however it is set.
  */
 function AccessControls() {
+  const owner = readFlag(FORCE_OWNER_KEY) === '1'
   const tester = readFlag(FORCE_TESTER_KEY) === '1'
   const fake = Number(readFlag(FAKE_USERS_KEY) ?? 0) > 0
   return (
     <>
-      <Typography sx={heading}>Tester role</Typography>
+      <Typography sx={heading}>Owner view</Typography>
+      <PillGroup
+        options={[{ value: 'real', label: 'From account' }, { value: 'on', label: 'Force on' }]}
+        value={owner ? 'on' : 'real'}
+        onChange={v => { writeFlag(FORCE_OWNER_KEY, v === 'on' ? '1' : null); window.location.reload() }}
+      />
+      <Typography sx={note}>Draws owner-gated UI. Owner-only database reads still come back empty, except the World Cup preview, which reads the local archive. Reloads.</Typography>
+
+      <Typography sx={{ ...heading, mt: 1.5 }}>Tester role</Typography>
       <PillGroup
         options={[{ value: 'real', label: 'From account' }, { value: 'on', label: 'Force on' }]}
         value={tester ? 'on' : 'real'}

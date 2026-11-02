@@ -251,7 +251,10 @@ no game in it gets no row and a line in the run log. Run it again after every `-
 **The owner's preview.** `npm run wbsc -- --upload` puts the file into `wbsc_world_cup_lines`,
 which RLS lets only the site owner read, replacing the whole table in one transaction. The WPBL
 player page draws a World Cup section from it for the owner, signed in, and for nobody else
-([`player/WorldCup.tsx`](../src/wpbl/player/WorldCup.tsx)). So after every `--confirm`:
+([`player/WorldCup.tsx`](../src/wpbl/player/WorldCup.tsx)). Under `npm run dev` there is no owner
+session to read it with, so the dev menu's **Owner view** draws the owner UI and the section reads
+`international.json` from the dev server instead ([`vite-plugin-wbsc-dev.mjs`](../scripts/vite-plugin-wbsc-dev.mjs),
+serve only and loopback only). So after every `--confirm`:
 
 ```bash
 npm run wbsc -- --international

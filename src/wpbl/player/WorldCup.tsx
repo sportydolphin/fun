@@ -27,9 +27,17 @@ export function useWorldCupEvents(playerId: string): InternationalEvent[] | null
   useEffect(() => {
     if (!owner) return
     let alive = true
-    void safe<{ events: InternationalEvent[] }[]>('world cup lines', () =>
+    // Under `npm run dev`, this machine's own archive first (vite-plugin-wbsc-dev.mjs): the dev
+    // menu's Owner view holds no session the table would answer.
+    const local = import.meta.env.DEV
+      ? fetch(`/__dev/wbsc-world-cup/${encodeURIComponent(playerId)}`)
+        .then(r => (r.ok ? r.json() as Promise<{ events: InternationalEvent[] }> : null))
+        .catch(() => null)
+      : Promise.resolve(null)
+    void local.then(dev => dev ?? safe<{ events: InternationalEvent[] }[]>('world cup lines', () =>
       supabase.from('wbsc_world_cup_lines').select('events').eq('wpbl_player_id', playerId), [])
-      .then(rows => { if (alive) setRead({ id: playerId, events: rows[0]?.events ?? [] }) })
+      .then(rows => rows[0] ?? { events: [] }))
+      .then(row => { if (alive) setRead({ id: playerId, events: row.events }) })
     return () => { alive = false }
   }, [owner, playerId])
   return owner && read?.id === playerId ? read.events : null
