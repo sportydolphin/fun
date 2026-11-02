@@ -1527,11 +1527,58 @@ post to the site page it comes from, which is also the backlink work in docs/BAC
 - 🖼️ **The season calendar**, a heatmap of every game day.
 - 🖼️ **Home was not an advantage.** One ballpark all season, so "home" only meant batting last.
 
-## Far off: women's baseball beyond the WPBL 🔬⚙️
+## From the Nov 1, 2026 brainstorm 🎯🔬
 
-Moved to its own document on Oct 15, 2026: **[ROADMAP-WOMENS-BASEBALL.md](ROADMAP-WOMENS-BASEBALL.md)**.
-The first step touches this section: a WPBL player's page shows their World Cup lines (32 of 118
-players were in the 2026 group stage).
+Big ideas outside every existing list, sorted by when they can start. Where each sits in the one
+order is [ROADMAP-PRIORITIES.md](ROADMAP-PRIORITIES.md).
+
+### Before the 2027 seasons: the live field (WPBL and MLB) 🎯
+
+An animated diamond in Game Center: fielders, runners moving on each play, the count and outs, and
+pitch location from TrackMan (WPBL) or StatsAPI's pitch coordinates (MLB). It is the second screen
+beside the broadcast; ESPN streams every WPBL game in the US. It extends `src/ui/BaseDiamond.tsx`
+(occupied bases today) rather than replacing it, lives in `src/ui/` so both sections share it, and
+is drawn from data, not illustrated.
+
+**Built on MLB first.** Spring training is live from late February while the WPBL feed is quiet, so
+MLB is the only live data to build against this winter. Done before MLB's Opening Day in late
+March; the WPBL wires to it against the 2027 feed in the spring.
+
+### Consider before next season: a weekly email digest 🎯
+
+Push drew 12 subscriptions across the season; the Discord invite converted 7.7%. Email is the other
+channel people keep. A Monday digest built from what is already computed (results, leaders, the
+week's best games and plays), monthly in the offseason. The decision is whether to run a third
+channel at all, made in the spring, not a build now.
+
+### When the league announces a second season
+
+Each needs the real shape of 2027 (teams, cities, dates), so none starts on a guess. Reports say the
+four clubs move to their home cities and two expansion clubs join; none of it is confirmed.
+
+- **The home-park era (build)** 🔬. Every 2026 game was in Springfield, so park factors and home
+  and road splits have never existed for this league. Park factors from our own run-expectancy
+  table, a page per venue, home and road splits on player and team pages, road trips and travel.
+  Park factors need a regression to the mean that a 30-game season makes heavy; say so on the page.
+- **The press box (build)** 🔬. Game notes before every game, the pack a club hands broadcasters and
+  writers: streaks, matchups, milestones, quick facts, as a page and a printable file. Broadcasters
+  and writers who use it link back, and links are the SEO brake (#3).
+- **Fantasy (to explore)** 🎮. A free season-long game scored by run value, so it rewards what the
+  site already measures. Only with enough players to draft from (six clubs is about 180). Different
+  from the pick'em, which picks games. The largest build here.
+- **Projections and a season simulator (to explore)** 🔬. WPBL projections with heavy regression,
+  World Cup lines as a prior for the players who have them, projected standings and odds, "sim this
+  matchup". The offseason gets something that changes. Must say plainly how noisy 30 games is.
+
+---
+
+## Women's baseball beyond the WPBL 🔬⚙️
+
+Its own document since Oct 15, 2026: **[ROADMAP-WOMENS-BASEBALL.md](ROADMAP-WOMENS-BASEBALL.md)**,
+and since Nov 1 the site's direction: the site becomes women's baseball, with MLB one league in
+the list. The first step touches this section: a WPBL player's page gains an International
+section (about 36 of 118 players were in the 2026 group stage), and later a link to every
+competition they played.
 
 ---
 

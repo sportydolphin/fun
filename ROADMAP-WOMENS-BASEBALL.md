@@ -1,20 +1,37 @@
 # Women's Baseball Roadmap
 
-> The slow move from "the WPBL and MLB" toward **women's baseball, all of it**. Scoped Oct 15, 2026;
-> last updated **Oct 16, 2026**. Companion docs: [ROADMAP-WPBL.md](ROADMAP-WPBL.md) (the league this
-> grows out of), [ROADMAP.md](ROADMAP.md) (MLB), and [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md) (how
-> the World Cup import works). Nothing here outranks the 2027 WPBL work; where each step sits
-> against the rest is [ROADMAP-PRIORITIES.md](ROADMAP-PRIORITIES.md).
+> The move from "the WPBL and MLB" to **women's baseball, all of it**. Scoped Oct 15, 2026; the
+> direction decided and the plan rewritten **Nov 1, 2026**. Companion docs:
+> [ROADMAP-WPBL.md](ROADMAP-WPBL.md) (the league this grows out of), [ROADMAP.md](ROADMAP.md) (MLB),
+> and [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md) (how the World Cup import works). Nothing here
+> outranks the 2027 WPBL work; where each step sits against the rest is
+> [ROADMAP-PRIORITIES.md](ROADMAP-PRIORITIES.md).
 
-## Where it stands (Oct 16, 2026)
+## The direction (decided Nov 1, 2026)
 
-Phase 0 is mostly done: the back end is built and waiting on WBSC's permission.
+**The site becomes a women's baseball site.** The WPBL is the anchor and the default. The World Cup
+is the next competition. A player has **one career across every competition**, on one page, which
+nobody offers today. **MLB stays, as one league in the list**: always visible and one click away,
+but the site no longer presents itself as half MLB, and every `/mlb` URL keeps working.
+
+What this replaces: the old plan held the change of identity back as "navigation stage 3, only if
+earned", after an April read of the World Cup's traffic. The identity is now decided. The April read
+still happens, and it now sets how far and how fast stage 5 goes, not whether the site is women's
+baseball. The traffic already argues for it: WPBL sessions ran about 20 to 1 over MLB in the season.
+
+## Where it stands (Nov 1, 2026)
+
+Stage 0 is half done: the back end is built and waiting on WBSC's permission and the owner's review.
 
 | Done | What | Where |
 |---|---|---|
 | Oct 15 | Scope, data probe of every World Cup since 2016, this roadmap | this file |
 | Oct 16 | The importer: wbsc.org pages into validated files, all 30 games of the 2026 group stage passing | [sportydolphin/fun#122](https://github.com/sportydolphin/fun/pull/122), [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md) |
 | Oct 16 | The crosswalk proposer: 39 candidate WBSC-to-WPBL matches for a person to confirm | [sportydolphin/fun#123](https://github.com/sportydolphin/fun/pull/123) |
+| Nov 1 | The direction decided; this plan | this file |
+
+**Open as of Nov 1:** no reply from WBSC is recorded; all 39 crosswalk candidates are undecided
+(`crosswalk.json` holds no links yet); only the two 2026 groups are imported.
 
 **Waiting on:** replies to the owner's outreach (WBSC for permission; Baseball Prospectus and
 RetroWPBL as neighbors, see [Neighbors](#neighbors)). Record each reply here, with its date.
@@ -24,7 +41,7 @@ the data would publish it. Everything WBSC-derived lives in two gitignored folde
 that ran the import: `.wbsc-cache/` (the downloaded pages) and `archive/wbsc/` (the output and the
 crosswalk).
 
-## Pick up here
+## Pick up here: stage 0
 
 In order. Each step says what done looks like; the commands are in
 [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md).
@@ -50,25 +67,24 @@ In order. Each step says what done looks like; the commands are in
    event's batting and pitching totals and the games behind them, from the confirmed crosswalk. It
    can be built and tested now; it stays gitignored like the rest.
 6. **On permission** (and only then): take `archive/wbsc/` out of `.gitignore` (the cache stays
-   ignored), add a size budget for it in CI, commit the data, and start phase 1 below. On a "no":
+   ignored), add a size budget for it in CI, commit the data, and publish stage 1 below. On a "no":
    delete the two folders and keep the code for another source.
 
 ## The approach
 
-One person, so: **grow from the players outward, one competition at a time, and stop at any
-step that does not earn the next.** The first step is the smallest useful one: a WPBL player's
-page shows what they did for their national team. Each later phase has a decision point with a
-measurement attached, and "stop here" is always an acceptable answer.
+One person, so: **grow from the players outward, one competition at a time.** Each competition
+after the World Cup is its own decision with a measurement attached, and "not this one" is always
+an acceptable answer. The identity of the site is no longer one of those decisions.
 
-Three constraints shape every phase:
+Three constraints shape every stage:
 
 - **Storage.** The database was about 305 MB in October, against the Pro plan's 8 GB disk (the
-  Oct 10 audit in ROADMAP-WPBL). Nothing in this plan writes to Supabase until a phase proves it
+  Oct 10 audit in ROADMAP-WPBL). Nothing in this plan writes to Supabase until a stage proves it
   must (see [Storage](#storage)).
 - **Effort.** Every competition added is a source that can break. Depth on the players we already
   cover beats breadth across leagues nobody here follows yet.
-- **Navigation.** No new section in the nav until there is more than one thing to put in it (see
-  [Navigation](#navigation)).
+- **The season.** The 2027 WPBL season outranks all of it. Anything that touches the shell lands by
+  Mar 15 or waits until October 2027.
 
 ---
 
@@ -77,7 +93,7 @@ Three constraints shape every phase:
 | Source | What it has | Years | Form | Verdict |
 |---|---|---|---|---|
 | **WBSC Women's Baseball World Cup** | Box scores, line scores, attendance, duration, and a play log; **pitch by pitch from 2023 on**, plate appearances only in 2018 | 2016, 2018, 2023, 2024, 2026 (and 2027) | JSON embedded in each wbsc.org game page (`data-page`, an Inertia app), not a published API | **Yes, pending terms** |
-| WBSC continental championships (Pan Am, Asian Cup, Europe) | Probably the same system; the event keys were not found in the probe | 2025 cycle | Unverified | Check in phase 3 |
+| WBSC continental championships (Pan Am, Asian Cup, Europe) | Probably the same system; the event keys were not found in the probe | 2025 cycle | Unverified | Check in stage 5 |
 | Japan's Venus League, national championships (AUS, CAN, US) | Nothing machine-readable found | | | No, until a source appears |
 | AAGPBL (1943–54) | Season lines on Baseball-Reference's Bullpen, sourced from the AAGPBL Players Association; a printed record book (copyrighted) | 1943–54 | HTML, print | Maybe, only with permission |
 | RetroWPBL | Hand-transcribed WPBL scoring, already used for game duration | 2026 | | Already in use |
@@ -139,7 +155,7 @@ Rules for the audit, enforced rather than remembered:
 2. The import writes only an allow-list of fields; a new WBSC field does not ride along. (Built.)
 3. The crosswalk (WBSC tournament player id to WPBL player id) is a small file beside the events,
    gitignored with them until permission. (Built.)
-4. The only data that ever needs a live path is the 2027 Finals while it is being played (phase 4),
+4. The only data that ever needs a live path is the 2027 Finals while it is being played (stage 4),
    and even that can be a cached proxy rather than a table.
 
 ---
@@ -164,50 +180,136 @@ and never media, and give back (publish the crosswalk as open data once it may b
 
 ---
 
-## Navigation
+## The plan (Nov 1, 2026)
 
-Three stages, each earned by the one before. Nothing in the first two changes the nav.
+Six stages. Stages 1 and 2 are code that runs on local files, so they are built whether or not WBSC
+has answered; only publishing waits. Stage 3 does not depend on WBSC at all.
 
-1. **A row on the player page.** "International" under the WPBL lines: the country flag or code,
-   the event, the line (G, PA, AVG/OPS or IP, ERA, K), linking to the game on wbsc.org. Shows only
-   for players who have one, so 86 of 118 pages look exactly as they do now.
-2. **Event pages, reached from the player rows and from search.** `/world-cup/2026`: standings by
-   group, results, each game's box score, leaders, and the WPBL players in the field highlighted.
-   A top-level route (two `_redirects` lines, `routes.ts`, `seo.ts`, the sitemap) because it is
-   not the WPBL's and should not live under `/wpbl`. It is also search traffic nobody else
-   answers well: "women's baseball world cup stats" has no good result today.
-3. **Only if earned: the site becomes "women's baseball".** WPBL and the World Cup as siblings in
-   the shell, MLB moved aside (kept, spun off to its own domain, or frozen; a separate decision).
-   Designed alongside the UI overhaul ([ROADMAP-UI.md](ROADMAP-UI.md)), not before it.
-
----
-
-## Phases and timeline
-
-| When | Phase | Done when |
+| When | Stage | Done when |
 |---|---|---|
-| **Oct–Nov 2026** | **0. Permission, and the back end built behind it.** Email WBSC, Baseball Prospectus and RetroWPBL. Meanwhile build the importer and the crosswalk, with the data kept out of git ([docs/WBSC_INGEST.md](docs/WBSC_INGEST.md)). | A reply from WBSC, all 30 group games passing validation (✅ Oct 16), and the crosswalk candidates checked. |
-| **Nov 2026–Jan 2027** | **1. International row on WPBL player pages**, from the 2026 group stage. `npm run wbsc` writes the files; the player page reads `international.json`. | The matched players' pages show their World Cup line, linked to wbsc.org. |
-| **Jan–Mar 2027** | **2. The back catalog and the event pages.** 2016, 2018, 2023, 2024 for the same players (an international career line), then `/world-cup/2026` and `/world-cup/2024`. | A player's page shows every World Cup they played; two event pages are live and in the sitemap. |
-| **April 2027** | **Decision point.** Read `events`: do people open the International row and the event pages, and does search bring anyone to them? | Go, smaller, or stop. Written here. |
-| **May–Jun 2027** | **3. Ready for the Finals**, only on a go. Pre-build `/world-cup/2027` from the schedule; check the continental championships' data while there. | The page exists with the schedule and rosters before Jul 19. |
-| **Jul 19–25, 2027** | **4. The Finals, results within the hour.** A job that re-imports during event week only, then freezes. Not a live Game Center: the 2027 WPBL season is running at the same time and gets the attention. | Every Finals game on the site within an hour of the last out; frozen to a file after. |
-| **Late 2027 on** | **5. Maybe.** Navigation stage 3. The continental qualifiers. AAGPBL history with the Players Association's blessing. A domestic league if one publishes data. | Each is its own decision, not a commitment made here. |
+| **Nov 2026** | **0. Permission and a complete local dataset** | WBSC has answered or the fallback below is in motion; the crosswalk is reviewed; every World Cup since 2016 imports and validates; `international.json` is built and tested |
+| **Dec 2026–Jan 2027** | **1. One person, every competition** | The person registry exists and the matched WPBL players' pages show every World Cup they played (locally, or live on a yes) |
+| **Jan–Mar 2027** | **2. The World Cup as a competition of its own** | Every World Cup since 2016 has an event page, every name on them is a link, all in the sitemap |
+| **Feb to Mar 15, 2027** | **3. The site becomes women's baseball** | A new reader lands on a women's baseball site with MLB one click away in the league list; an MLB reader still reaches it in one tap |
+| **Apr 2027** | **The read** | `events` on stages 1 to 3, written here; it sizes stage 5 |
+| **May to Jul 25, 2027** | **4. The 2027 Finals** (Rockford, Jul 19–25), on a yes | `/world-cup/2027` exists with schedule and rosters by Jul 1; every Finals game is on the site within an hour of the last out, then frozen |
+| **Late 2027 on** | **5. Beyond the World Cup** | Each item is its own decision |
 
-Rough effort, for one person: phase 0 is an afternoon plus waiting (the build took a day); phase 1
-is a weekend; phase 2 is two or three; phase 4 is mostly unattended once phase 3 is done.
+Rough effort, for one person: stage 0's code is a weekend (the rest is the owner's review and
+email); stage 1 a weekend; stage 2 three; stage 3 two to three weeks including the Figma work;
+stage 4 a weekend ahead of time and then mostly unattended.
+
+### Stage 0. Permission and a complete local dataset (November)
+
+The steps are under [Pick up here](#pick-up-here-stage-0). Two additions:
+
+- **Chase the permission.** No reply is recorded from the October email. Send a second one by
+  Nov 10 to a different WBSC contact (communications and the women's baseball commission), with
+  screenshots of what the International section would show.
+- **Silence is not a yes.** With no reply by Dec 1, keep building stages 1 and 2 behind the gate
+  and widen the ask: a national federation with players in the WPBL (USA, Australia, Canada) is
+  the likeliest introduction. Stage 3 goes ahead regardless. A "no" ends the WBSC data and leaves
+  the registry, the shell and the design to serve the next source.
+
+### Stage 1. One person, every competition (December to January)
+
+This is the stage that makes "track a player across leagues" real, and every later source rides on
+it, so it is designed for the developmental league and the AAGPBL as much as for the World Cup.
+
+- **A person registry.** Our own id and slug per person, the display name, the country, and a list
+  of identities in each competition: the WPBL player id (or ids, since the feed minted new ones for
+  the postseason), and each WBSC tournament id through the hand-checked crosswalk. A static file
+  generated by the import (`people.json`), like the event files, not a Supabase table: it changes
+  only when a crosswalk decision or a new roster does. The WPBL's `players` table stays the WPBL's
+  source of truth and is joined, not copied.
+- **Never name matching at runtime**, the rule already in the importer. A person exists in the
+  registry because a human said so.
+- **The WPBL player page gains an International section** under the WPBL lines: per event, the
+  country, the event, the line (G, PA, AVG/OPS or IP, ERA, K), the WBSC name it matched (so a reader
+  can spot a wrong row), and a link to the games on wbsc.org. It shows only for players who have one.
+- **Done when** the registry has a test that every crosswalk row resolves to one person and no
+  person holds two WPBL players, and the matched pages render the section.
+
+### Stage 2. The World Cup as a competition of its own (January to March)
+
+- **`/world-cup`** (every edition) and **`/world-cup/<year>`**: standings by group and round,
+  results, leaders, the WPBL players in the field marked. A top-level route, not under `/wpbl`:
+  two `_redirects` lines, `routes.ts`, `seo.ts`, the sitemap.
+- **A game page** per World Cup game: line score, box score and play by play. The neutral engines
+  in `src/league/` (bests, the finder, run expectancy) run on it with `src/intl/league.ts`; the
+  WPBL Game Center's components are reused where they are already league-neutral, and anything
+  WPBL-only (TrackMan, clips) is simply absent.
+- **A page for every player, not only WPBL players.** About 200 of the 2026 field's 239 never
+  played in the WPBL. Without a page each of those names is a dead end, and opening a player page is
+  the retention event the traffic data names. `/players/<slug>` from the registry. A WPBL player's
+  canonical page stays `/wpbl/players/<slug>` through the 2027 season, since its search ranking is
+  the site's; `/players/<slug>` redirects there for them.
+- **Search** covers people and events. Thin pages (one tournament, a handful of PA) are a known
+  SEO risk: decide `noindex` by a threshold when building, measured, not guessed.
+- **The size budget in CI** for the event files, added as they enter git.
+- **Done when** every World Cup since 2016 has its page and every name on them is a link.
+
+### Stage 3. The site becomes women's baseball (February to Mar 15)
+
+Designed in Figma with the UI overhaul's phase 1 (November), built with its phase 3, so the 2027
+season opens in the new shell. If it is not settled by **Mar 15**, it waits until October 2027:
+the season comes first.
+
+- **The league list** in the shell: WPBL (the default), World Cup, and later competitions as they
+  arrive, then MLB. Every league is always visible and one click away; the order and the default
+  say the site is women's baseball, nothing is hidden.
+- **MLB keeps everything it has**: its URLs, links, search results and the sitemap are unchanged.
+  What changes is its billing, from one of two halves of the site to one league among several.
+- **The name stays `sportydolphin.fun`.** The title, meta descriptions, share cards and the
+  manifest's description say women's baseball; the manifest's `id` stays `/mlb` (functions/CLAUDE.md).
+- **A front page at `/`**, only if the Figma work shows it earns one over today's redirect to
+  `/wpbl`: in the WPBL season the WPBL is the answer, and in July the World Cup shares it.
+- **When it ships**, CLAUDE.md's "What it is" and ARCHITECTURE's routes change with it.
+
+### Stage 4. The 2027 Finals (Jul 19–25, Rockford), on a yes
+
+- `/world-cup/2027` built ahead from the schedule and rosters by Jul 1. WBSC mints new player ids
+  every tournament, so the 2027 rosters go through the crosswalk review before the first pitch.
+- Results within the hour: a job that re-imports during event week only, then freezes the event to
+  a file. Not a live Game Center; the WPBL gets the attention if its season is running.
+- On the WPBL side, if the seasons overlap: which players are away at the Finals (availability,
+  not just stats).
+
+### Stage 5. Beyond the World Cup (late 2027 on)
+
+In the order they extend the registry. Each is its own decision, made with the April read in hand;
+a new source goes through the [data table](#what-data-exists-probed-oct-15-2026) first.
+
+1. **The WPBL's developmental league**, reported for Springfield in 2027. If it publishes a feed,
+   its players join the registry, and a WPBL rookie's page shows where they came from. Check when
+   the league announces 2027. Expansion and draft picks read the same way.
+2. **The continental championships** (the 2025 cycle: Asia, the Americas, Europe), through the same
+   importer if WBSC's system has them.
+3. **The lineage (P2)**: the AAGPBL (1943–54) and earlier women's pro baseball. History pages, the
+   AAGPBL's players in the registry, "this day in women's baseball". Only with the Players
+   Association's blessing; told as baseball, which it was by its last seasons.
+4. **National leagues and championships** (Japan, Australia, Canada, the US) when a machine-readable
+   source appears.
+5. **One URL per person site-wide**: WPBL player pages move to `/players/<slug>` with 301s, after
+   the 2027 season, if the registry has proven itself.
 
 ---
 
 ## Risks
 
-- **Terms.** The biggest one. A "no" from WBSC ends phases 1 to 4 for their data; the crosswalk
-  and the design would still serve a different source.
+- **Terms.** The biggest one. A "no" from WBSC ends the International section and stages 2 and 4
+  for their data; the registry, the shell and the design still serve the next source.
 - **The page shape changes.** The import validates and fails; nothing reads WBSC at runtime until
-  phase 4.
+  stage 4.
 - **A wrong crosswalk row** puts someone else's line on a player's page. Hand-checked, and a player
   page shows the WBSC name it matched so a reader can spot a mistake.
 - **The Finals overlap the 2027 WPBL season.** Some WPBL players will be away from their clubs that
   week, which is worth a line on the WPBL side too (availability, not just stats).
-- **Scope creep.** The phase table is the scope. A new competition goes through the data table
+- **The shell under the season.** Stage 3 is the one change that can break the WPBL's first game.
+  The Mar 15 stop is the guard; a half-built shell waits.
+- **An MLB reader cannot find their league.** MLB stays in the league list; check MLB's sessions
+  against `events` the week the shell ships.
+- **Thin player pages.** Most World Cup players have one tournament. Decide what gets indexed by a
+  measured threshold.
+- **Scope creep.** The plan's table is the scope. A new competition goes through the data table
   above first.

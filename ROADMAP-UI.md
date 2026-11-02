@@ -122,6 +122,9 @@ scale system, the sweep) stay; no library ships them.
 - [ ] Mood board from the references above.
 - [ ] Token variables in Figma, both themes.
 - [ ] Mock four screens, phone and desktop: WPBL scoreboard, Game Center, player page, standings.
+- [ ] The women's baseball shell (added Nov 1, 2026): the league list with MLB in it after the
+  women's competitions, and whether `/` earns a front page. Built with phase 3; the brief is
+  stage 3 of [ROADMAP-WOMENS-BASEBALL.md](ROADMAP-WOMENS-BASEBALL.md).
 - [ ] Decide the open questions below.
 
 ### 2. Tokens and type, still on MUI
