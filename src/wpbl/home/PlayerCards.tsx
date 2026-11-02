@@ -7,7 +7,7 @@ import { currentSeason } from '../season'
 import { useWpblPlayerLink, useWpblTeamLink } from '../LinkContext'
 import { wpblManagerPortraitSet, type WpblPortraitSet } from '../portraits'
 import { SectionCard, TeamBadge, PlayerPortrait, FittedName, TYPE_SCALE, TAPPABLE, FOCUS_RING, hoverOnly } from '../ui'
-import { sumBatting, sumPitching, plateAppearances, fmtRate, wpblQualifiers } from '../stats'
+import { sumBatting, sumPitching, plateAppearances, isBattingGame, fmtRate, wpblQualifiers } from '../stats'
 import { viewPlayerSeasons } from '../derive/playerSeasons'
 import { hittingColumns, OVR_COLS, pitchingColumns } from '../statColumns'
 import { LEADER_CARDS, leadersFor, type LeaderCol, type LeaderSeason, type LeaderSide, type LeaderTotals } from '../LeadersBoard'
@@ -186,7 +186,8 @@ function SeasonStrip({ player, lines, games }: { player: WpblPlayer; lines: Line
   const { season, cut, seasonGames } = useWpblSeason(games, { current: true })
   const cells = useMemo((): [string, string][] | null => {
     if (!lines) return null
-    const bat = sumBatting(cut(lines.batting), seasonGames)
+    // The player page's rule (isBattingGame), so a pitcher's empty box-score lines are not games batted.
+    const bat = sumBatting(cut(lines.batting).filter(isBattingGame), seasonGames)
     const pit = sumPitching(cut(lines.pitching), seasonGames)
     const pa = plateAppearances(bat)
     const hasBatting = pa > 0

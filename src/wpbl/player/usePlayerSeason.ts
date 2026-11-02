@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { sumBatting, sumPitching, sumFielding, plateAppearances, hasPlateAppearance } from '../stats'
+import { sumBatting, sumPitching, sumFielding, plateAppearances, isBattingGame } from '../stats'
 import { scopedLines, type SeasonScope } from '../season'
 import { computeWpblPlayerRanks } from '../percentiles'
 import type { EraBasis } from '../stats'
@@ -29,9 +29,10 @@ export function usePlayerSeason({ player, players, teams, games, seasonGames, se
   eraBasis: EraBasis
   thisSeason: <T extends { game_id: string }>(rows: T[]) => T[]
 }) {
-  // Only real plate appearances count as batting: a 0-for-0 pinch/defensive cameo shouldn't
-  // produce an all-zero batting card or a phantom game-log row.
-  const battingReal = useMemo(() => batting.filter(hasPlateAppearance), [batting])
+  // Every game played as a batter or fielder, the Stats table's G: a defensive sub's or pinch
+  // runner's line is a real game with a real row in the log. Only a pitcher's empty box-score line
+  // is dropped, so it cannot draw an all-zero batting card. See isBattingGame.
+  const battingReal = useMemo(() => batting.filter(isBattingGame), [batting])
   // Every total on the card follows the scope toggle. The game log follows it too (see
   // `battingLog`/`pitchingLog`): with an explicit Regular / Playoffs / Both control on the card,
   // a log filtered to the chosen slice is the answer the reader asked for, not missing data.

@@ -191,18 +191,18 @@ describe('which groups appear', () => {
     expect(c.groups.map(g => g.key)).toEqual(['pitching'])
   })
 
-  // A pitcher is in the box score of every game she pitches, with an all-zero batting line.
-  // Those are appearances, not games batted, so beside a hitter her batting column must read
-  // 0 G / 0 PA, never "3 G, 0 PA" as if she had come up in three games and made nothing of it.
-  // Same rule the player page applies (hasPlateAppearance), shared now so the two agree.
+  // A pitcher is in the box score of every game they pitch, with an all-zero batting line.
+  // Those are appearances, not games batted, so beside a hitter the pitcher's batting column must
+  // read 0 G / 0 PA, never "3 G, 0 PA" as if they had come up in three games and made nothing of it.
+  // Same rule the player page applies (isBattingGame), shared so the two agree.
   it('does not count a pitcher’s zero batting lines as games batted', () => {
     const c = build({
       teams, games,
       batting: [
         bat({ player_id: 'a', game_id: 'g0', ab: 3, h: 1 }),   // the hitter batted once
-        bat({ player_id: 'b', game_id: 'g1', ab: 0 }),          // the pitcher, three games, never up
-        bat({ player_id: 'b', game_id: 'g2', ab: 0 }),
-        bat({ player_id: 'b', game_id: 'g3', ab: 0 }),
+        bat({ player_id: 'b', game_id: 'g1', ab: 0, position: 'p' }),   // the pitcher, three games, never up
+        bat({ player_id: 'b', game_id: 'g2', ab: 0, position: 'p' }),
+        bat({ player_id: 'b', game_id: 'g3', ab: 0, position: 'p' }),
       ],
       pitching: [pit({ player_id: 'b', outs: 60 })],
     })
@@ -210,6 +210,24 @@ describe('which groups appear', () => {
     expect(g.playingTime.find(r => r.key === 'g')!.aText).toBe('1')   // hitter: one game batted
     expect(g.playingTime.find(r => r.key === 'g')!.bText).toBe('0')   // pitcher: never batted, not three
     expect(g.playingTime.find(r => r.key === 'pa')!.bText).toBe('0')
+  })
+
+  // A defensive sub or a pinch runner never came up but did play, and a run scored that way is a
+  // run: the Stats table counts both, so the card must too (it read 7 G where the table read 9).
+  it('counts a defensive sub’s and a pinch runner’s games and runs', () => {
+    const c = build({
+      teams, games,
+      batting: [
+        bat({ player_id: 'a', game_id: 'g0', ab: 3, h: 1 }),
+        bat({ player_id: 'a', game_id: 'g1', ab: 0, position: 'LF' }),
+        bat({ player_id: 'a', game_id: 'g2', ab: 0, r: 1, position: 'PR' }),
+        bat({ player_id: 'b', game_id: 'g0', ab: 4, h: 2 }),
+      ],
+      pitching: [],
+    })
+    const g = c.groups.find(x => x.key === 'batting')!
+    expect(g.playingTime.find(r => r.key === 'g')!.aText).toBe('3')
+    expect(g.playingTime.find(r => r.key === 'pa')!.aText).toBe('3')
   })
 
   // The asymmetry is deliberate: one of them doing a thing the other does not IS the

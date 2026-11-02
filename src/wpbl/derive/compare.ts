@@ -23,7 +23,7 @@
 import type { BoardPlace, PlayerSeasonValue } from './seasonValue'
 import { fmtRunValue } from '../../league/runExpectancy'
 import {
-  sumBatting, sumPitching, plateAppearances, hasPlateAppearance, wpblQualifiers, fmtRate, fmtTwo,
+  sumBatting, sumPitching, plateAppearances, isBattingGame, wpblQualifiers, fmtRate, fmtTwo,
   scaleToBasis, kRateLabel, ERA_BASIS_CANONICAL,
   aggregateBatting, aggregatePitching,
   type WpblBattingTotals, type WpblPitchingTotals, type EraBasis,
@@ -299,8 +299,8 @@ export function buildWpblComparison(
   // pitcher had come up eight times and done nothing, rather than never having batted. With the
   // filter it reads 0 G / 0 PA, and if neither side ever batted the group below drops out
   // entirely.
-  const aBat = sumBatting(forPlayer(batting, a).filter(hasPlateAppearance), games)
-  const bBat = sumBatting(forPlayer(batting, b).filter(hasPlateAppearance), games)
+  const aBat = sumBatting(forPlayer(batting, a).filter(isBattingGame), games)
+  const bBat = sumBatting(forPlayer(batting, b).filter(isBattingGame), games)
   const aPit = sumPitching(forPlayer(pitching, a), games)
   const bPit = sumPitching(forPlayer(pitching, b), games)
 

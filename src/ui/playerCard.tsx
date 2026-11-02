@@ -360,10 +360,12 @@ export interface StatRow { lead: string; cols: StatCol[] }
  * and drawn anywhere else it makes a reader hold a figure in their head on the way to it. Its line
  * is held open (`reserveRanks`) wherever ranks can arrive, so the row is one height before and after.
  */
-export function StatTable({ title, caption, part, row, league, reserveRanks, placeholder }: {
+export function StatTable({ title, caption, part, row, league, reserveRanks, placeholder, flush = false }: {
   /** A heading over the table, as every other section's. None for the summary, which the role's
    *  own heading already names. */
   title?: string
+  /** First under the season caption, where the summary would be: no gap above the heading. */
+  flush?: boolean
   caption?: React.ReactNode
   part?: PlayerPart
   row: StatRow
@@ -377,7 +379,7 @@ export function StatTable({ title, caption, part, row, league, reserveRanks, pla
   const { tip, ink } = useStatCard()
   const ranked = reserveRanks || row.cols.some(c => c.rank != null)
   return (
-    <Box id={part ? playerPartAnchor(part) : undefined} sx={{ ...(title ? { mt: BLOCK_GAP } : null), ...(part ? PART_SCROLL_SX : null) }}>
+    <Box id={part ? playerPartAnchor(part) : undefined} sx={{ ...(title && !flush ? { mt: BLOCK_GAP } : null), ...(part ? PART_SCROLL_SX : null) }}>
       {title && <SectionHead title={title} caption={caption} />}
       <Box sx={{ ...bleedSx(0.85), overflowX: 'auto' }}>
         <Box component="table" sx={{ width: '100%', minWidth: 'max-content', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
@@ -490,12 +492,16 @@ export function StatSummary({ summary, standard, advanced, discipline, league, r
 }) {
   const open = useAllStatsOpen()
   const more = !!standard || !!advanced || !!discipline
+  // OPEN, THE SUMMARY STEPS ASIDE when the tables under it hold every one of its columns. Drawn
+  // over them it printed ten figures twice in three tables (G, PA, HR and the slash line again in
+  // Standard, wOBA, wRC+ and WAR again in Advanced). A summary with a column the others lack stays.
+  const covered = open && summaryCovered(summary, [standard, advanced, discipline])
   return (
     <>
-      <StatTable row={summary} league={league} reserveRanks={reserveRanks} placeholder={placeholder} />
+      {!covered && <StatTable row={summary} league={league} reserveRanks={reserveRanks} placeholder={placeholder} />}
       {more && open && (
         <>
-          {standard && <StatTable title="Standard" row={standard} league={league} reserveRanks={reserveRanks} placeholder={placeholder} />}
+          {standard && <StatTable title="Standard" flush={covered} row={standard} league={league} reserveRanks={reserveRanks} placeholder={placeholder} />}
           {advanced && <StatTable title="Advanced" part="advanced" row={advanced} league={league} placeholder={placeholder} />}
           {discipline && <StatTable title="Plate discipline" row={discipline} league={league} placeholder={placeholder} />}
         </>
@@ -507,6 +513,13 @@ export function StatSummary({ summary, standard, advanced, discipline, league, r
       )}
     </>
   )
+}
+
+/** Does every summary column appear in one of the full tables? A record ("W-L") counts as its two
+ *  halves. Exported for the test. */
+export function summaryCovered(summary: StatRow, rest: (StatRow | null | undefined)[]): boolean {
+  const labels = new Set(rest.flatMap(r => r?.cols.map(c => c.label) ?? []))
+  return summary.cols.every(c => labels.has(c.label) || (c.label === 'W-L' && labels.has('W') && labels.has('L')))
 }
 
 /**
@@ -577,7 +590,9 @@ export function RoleHeading({ title, caption, part, first = false }: {
       mb: 1.5, ...(first ? { mt: 1 } : { mt: 4, pt: BLOCK_GAP, borderTop: '1px solid', borderColor: 'divider' }),
       ...PART_SCROLL_SX,
     }}>
-      <Typography component="h2" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, m: 0 }}>{title}</Typography>
+      {/* DISPLAY, NOT TITLE. At `title` (0.95rem) "Pitching" sat one step above the uppercase labels
+          of the blocks inside it and the page still read as one list (audit, Nov 2, 2026). */}
+      <Typography component="h2" sx={{ fontSize: TYPE_SCALE.display, fontWeight: 800, m: 0 }}>{title}</Typography>
       {caption != null && caption !== '' && (
         <Typography sx={SECTION_CAPTION_SX}>{caption}</Typography>
       )}

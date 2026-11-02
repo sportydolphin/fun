@@ -377,6 +377,21 @@ export function hasPlateAppearance(l: Pick<WpblBattingTotals, 'ab' | 'bb' | 'hbp
   return plateAppearances(l) > 0
 }
 
+/** Is this batting line a game the player played as a batter or fielder?
+ *
+ *  Every line with a plate appearance, plus a defensive sub or a pinch runner who never came up.
+ *  Only a pitcher's empty line is left out: the box score lists a pitcher in every game they pitch,
+ *  and those 136 rows (Nov 2026) are pitching games, not batting ones.
+ *
+ *  `hasPlateAppearance` alone was the player page's filter until Nov 2, 2026, and it dropped the
+ *  other 22 empty lines with them: three runs scored by pinch runners and defensive subs, and the
+ *  games themselves, so a page read 7 G where Home and the Stats table read 9. */
+export function isBattingGame(l: Pick<WpblBattingLine, 'ab' | 'bb' | 'hbp' | 'sf' | 'sh' | 'position'>): boolean {
+  if (plateAppearances(l) > 0) return true
+  const parts = String(l.position ?? '').toLowerCase().split('/').map(s => s.trim()).filter(Boolean)
+  return parts.length > 0 && !parts.every(p => p === 'p')
+}
+
 // ─── Rate-stat qualifiers ──────────────────────────────────────────────────────
 // A fixed threshold (a flat 5 AB / 3 IP, say) stops meaning anything the moment the
 // season moves past its first week: five games in, 5 AB is one game's work, so the OPS

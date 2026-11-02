@@ -23,6 +23,24 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.206.2',
+    date:    '2026-11-02',
+    changes: [
+      {
+        short: 'WPBL games played',
+        full:  'WPBL player pages count games as a defensive sub or pinch runner, and the runs scored in them, so G and R match Home and the Stats table.',
+      },
+      {
+        short: 'Player pages',
+        full:  'All stats no longer repeats the summary table above the full tables. Batting, Pitching and Fielding headings are larger, and a two-way WPBL player shows Total WAR.',
+      },
+      {
+        short: 'WPBL hit locations',
+        full:  'The hit locations chart on a player page is smaller, with Pull, Center and Oppo beside it.',
+      },
+    ],
+  },
+  {
     version: '1.206.1',
     date:    '2026-11-01',
     changes: [
