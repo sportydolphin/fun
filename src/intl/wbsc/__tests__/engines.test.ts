@@ -37,6 +37,15 @@ describe('the engines run on WBSC rows', () => {
     expect(result.rows.map(r => r.name).sort()).toEqual(['Bea Bravo', "Hana O'Home"])
   })
 
+  it('counts a plate appearance by its event, so a game scored without pitches is still measured', () => {
+    // All of 2018 and 440 plate appearances of 2016 carry no sequence. Read by the sequence, as the
+    // WPBL and MLB feeds are, the 2018 table came out empty.
+    expect(WBSC_LEAGUE.isPlateAppearance({ event_type: 'single', pitch_sequence: null })).toBe(true)
+    expect(WBSC_LEAGUE.isPlateAppearance({ event_type: 'stolen_base', pitch_sequence: null })).toBe(false)
+    const unpitched = rows.plays.map(p => ({ ...p, pitch_sequence: null }))
+    expect(buildRunExpectancy(WBSC_LEAGUE, unpitched, games).pa).toBe(buildRunExpectancy(WBSC_LEAGUE, rows.plays, games).pa)
+  })
+
   it('run expectancy measures all four half-innings and prices the home run at its run', () => {
     const table = buildRunExpectancy(WBSC_LEAGUE, rows.plays, games)
     expect(table.halfInnings).toBe(4)

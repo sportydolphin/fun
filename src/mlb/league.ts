@@ -60,4 +60,6 @@ export const MLB_LEAGUE: League = {
   // The mirror stores every run the play scored, batter included, so the column is the answer.
   // WPBL's feed is the one that needs a correction here.
   runsOnPlay: p => p.runs_scored ?? 0,
+  // As WPBL's: the mirror gives a pitch sequence to every plate appearance and nothing else.
+  isPlateAppearance: p => !!p.pitch_sequence,
 }

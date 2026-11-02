@@ -5,6 +5,7 @@
  *   npm run wbsc -- --all               every event in EVENTS
  *   npm run wbsc -- --list              the known events
  *   npm run wbsc -- --propose           candidate WPBL matches, into the review file
+ *   npm run wbsc -- --review            review them in the browser (wbsc-review.ts; --no-open)
  *   npm run wbsc -- --confirm           move the reviewed ones into the crosswalk
  *   flags: --refresh (refetch cached games), --offline (cache only, no network),
  *          --check (compare with the files on disk, write nothing)
@@ -30,13 +31,14 @@ import { gunzipSync, gzipSync } from 'node:zlib'
 import { applyDecisions, EMPTY_CROSSWALK, propose } from '../src/intl/wbsc/crosswalk'
 import type { Crosswalk, CrosswalkWpblPlayer, Review } from '../src/intl/wbsc/crosswalk'
 import { inertiaFromHtml } from '../src/intl/wbsc/page'
-import { transformGame, validateGame } from '../src/intl/wbsc/game'
+import { isFinal, transformGame, validateGame } from '../src/intl/wbsc/game'
 import type { WbscPlayer } from '../src/intl/wbsc/game'
 import type { WbscEvent, WbscGamePage, WbscScheduleGame } from '../src/intl/wbsc/types'
+import { serveReview } from './wbsc-review'
 
 /** Every event the importer knows, oldest first. A key is wbsc.org's, as in /en/events/<key>/. */
 const EVENTS: WbscEvent[] = [
-  { key: '2016-womens-baseball-world-cup', year: 2016, name: 'Women\'s Baseball World Cup 2016' },
+  { key: '2016-womens-baseball-world-cup', year: 2016, name: 'Women\'s Baseball World Cup 2016', legacy: true },
   { key: '2018-womens-baseball-world-cup', year: 2018, name: 'Women\'s Baseball World Cup 2018' },
   { key: '2023-ix-womens-baseball-world-cup-group-a', year: 2023, name: 'Women\'s Baseball World Cup 2023, Group A' },
   { key: '2023-ix-womens-baseball-world-cup-group-b', year: 2023, name: 'Women\'s Baseball World Cup 2023, Group B' },
@@ -44,6 +46,79 @@ const EVENTS: WbscEvent[] = [
   { key: '2026-x-womens-baseball-world-cup-group-stage-rockford', year: 2026, name: 'Women\'s Baseball World Cup 2026, Group Rockford' },
   { key: '2026-x-womens-baseball-world-cup-group-stage-tainan', year: 2026, name: 'Women\'s Baseball World Cup 2026, Group Tainan' },
 ]
+
+/**
+ * Errors in WBSC's own pages that validation finds and nothing here can correct, keyed by WBSC game
+ * id, each problem quoted exactly. The game is written as WBSC published it, and the manifest
+ * records what was accepted. EXACT STRINGS, NOT A SWITCH: a second, different problem in one of
+ * these games still fails the event, so this can only ever let through what someone has read.
+ * Found on the back catalog import, Nov 2, 2026.
+ */
+const ACCEPTED: Record<number, { why: string; problems: string[] }> = {
+  // 2016, three Australia games. O'Sullivan bats in the play log and is in none of the three box
+  // scores. The plays keep the runner on base under the prose's name, with no player id, and
+  // Australia's batting falls short of what the other side's pitchers allowed by exactly that
+  // batter's line. In 1832 (AUS @ KOR) it is also a hit short of the line score: O'Sullivan's single.
+  1815: {
+    why: 'a batter missing from the box score',
+    problems: [
+      "O'SULLIVAN is in the plays and not in the box score",
+      "AUS: 29 plate appearances batting, 31 allowed by the other side's pitchers",
+      "AUS: 2 strikeouts batting, 3 allowed by the other side's pitchers",
+    ],
+  },
+  1831: {
+    why: 'a batter missing from the box score',
+    problems: [
+      "O'SULLIVAN is in the plays and not in the box score",
+      "AUS: 32 plate appearances batting, 33 allowed by the other side's pitchers",
+    ],
+  },
+  1832: {
+    why: 'a batter missing from the box score, and the hit with them',
+    problems: [
+      'AUS: box score hits 8, line score has 9',
+      "O'SULLIVAN is in the plays and not in the box score",
+      "AUS: 32 plate appearances batting, 35 allowed by the other side's pitchers",
+      "AUS: 8 hits batting, 9 allowed by the other side's pitchers",
+    ],
+  },
+  // 2018, PUR @ USA. One plate appearance in the log names a batter the lineup slot does not hold;
+  // the box credits it to the substitute. The box score is what the totals read.
+  3533: {
+    why: 'one plate appearance credited to the wrong batter in the play log',
+    problems: [
+      'inning 3 top, play 145: batter 23504 but lineup slot 1090 is GARCIA GONZALEZ, and the narrative names neither',
+      'batter 23490: 0 plate appearances in the play log, 1 in the box score',
+    ],
+  },
+  // 2018, DOM @ HKG. A pinch hitter has no WBSC player id, so that one at bat is dropped, and the
+  // log gives the plate appearance to the starter who was hit for.
+  3549: {
+    why: 'a pinch hitter with no player id',
+    problems: [
+      'DOM: DIAZ DURAN has no player id',
+      'batter 23198: 5 plate appearances in the play log, 4 in the box score',
+    ],
+  },
+  // 2018, TPE @ USA. The play log has two singles for one batter and the box score one hit; the
+  // line score sides with the box, so one of the log's singles is wrong.
+  3556: { why: 'a hit in the play log the box score lacks', problems: ['batter 23327: h 2 in the play log, 1 in the box score'] },
+  // 2018, AUS @ PUR. The box gives one batter's strikeout (and the at bat) to another, who has no
+  // plate appearance in either the log or the box: it reads 0 PA on 1 AB.
+  3569: {
+    why: 'a strikeout filed under the wrong batter in the box score',
+    problems: ['batter 22038: so 1 in the play log, 0 in the box score', 'batter 22018: so 0 in the play log, 1 in the box score'],
+  },
+  // 2018, CUB @ PUR. The log gives a substitute's two plate appearances to the starter.
+  3573: {
+    why: 'two plate appearances credited to the wrong batter in the play log',
+    problems: [
+      'batter 22264: 4 plate appearances in the play log, 2 in the box score',
+      'batter 22276: 0 plate appearances in the play log, 2 in the box score',
+    ],
+  },
+}
 
 const SITE = 'https://www.wbsc.org'
 const OUT_DIR = 'archive/wbsc'
@@ -156,16 +231,23 @@ async function importEvent(event: WbscEvent): Promise<boolean> {
   }
   const players = new Map<string, WbscPlayer>()
   let failed = 0, skipped = 0
+  const accepted: { game: number; why: string; problems: string[] }[] = []
 
   for (const s of [...sched.games].sort((a, b) => a.id - b.id)) {
     // Not a game to import: a forfeit carries a score and no status, a postponement neither.
-    if (s.gamestatustext !== 'F') {
+    if (!isFinal(s.gamestatustext)) {
       console.log(`  skip     ${s.id} ${s.awayioc} @ ${s.homeioc}: not final ("${s.gamestatustext ?? ''}")`)
       skipped++
       continue
     }
     const page = await gamePage(event, s.id, sched.version)
-    const problems = validateGame(page)
+    const found = validateGame(page, { legacy: event.legacy })
+    const known = ACCEPTED[s.id]
+    const problems = found.filter(p => !known?.problems.includes(p))
+    if (known && !problems.length) {
+      accepted.push({ game: s.id, why: known.why, problems: found })
+      console.log(`  accepted ${s.id} ${s.awayioc} @ ${s.homeioc}: ${known.why}`)
+    }
     if (problems.length) {
       failed++
       console.log(`  FAILED   ${s.id} ${s.awayioc} @ ${s.homeioc}`)
@@ -230,7 +312,7 @@ async function importEvent(event: WbscEvent): Promise<boolean> {
   writeFileSync(join(dir, 'manifest.json'), JSON.stringify({
     event: event.key, name: event.name, year: event.year,
     source: `${SITE}/en/events/${event.key}/schedule-and-results`,
-    games: tables.games.length, skipped,
+    games: tables.games.length, skipped, accepted,
     tables: entries,
   }, null, 2) + '\n')
   const bytes = entries.reduce((n, e) => n + e.bytes, 0)
@@ -274,20 +356,20 @@ function proposeLinks(): boolean {
   writeJson(REVIEW, { checked_by: open?.checked_by ?? '', candidates } satisfies Review)
 
   for (const c of candidates) {
-    const flags = [c.match === 'initial' ? 'INITIAL ONLY' : '', c.ambiguous ? 'AMBIGUOUS' : ''].filter(Boolean).join(', ')
+    const flags = [c.match !== 'name' ? c.match.toUpperCase() : '', c.ambiguous ? 'AMBIGUOUS' : ''].filter(Boolean).join(', ')
     console.log(`  ${c.wbsc_team ?? '   '}  ${c.wbsc_name.padEnd(36)} → ${c.wpbl_name.padEnd(24)} ${c.wpbl_hometown ?? ''}${flags ? `  [${flags}]` : ''}`)
   }
   const n = (f: (c: typeof candidates[number]) => boolean) => candidates.filter(f).length
   console.log(`\n${candidates.length} candidates from ${players.length} WBSC players against ${roster.length} WPBL players`
-    + ` (${n(c => c.match === 'name')} by name, ${n(c => c.match === 'initial')} by surname and initial,`
+    + ` (${n(c => c.match === 'name')} by name, ${n(c => c.match !== 'name')} by surname and something weaker,`
     + ` ${n(c => c.ambiguous)} ambiguous); ${crosswalk.links.length} already linked, ${crosswalk.rejected.length} ruled out.`)
   console.log(`Review: set "checked_by", mark each "decision" yes or no in ${REVIEW}, then run --confirm.`)
   return true
 }
 
-function confirmLinks(): boolean {
+function confirmLinks(log: (line: string) => void = console.log): boolean {
   const review = readJson<Review | null>(REVIEW, null)
-  if (!review) { console.log(`No ${REVIEW}. Run --propose first.`); return false }
+  if (!review) { log(`No ${REVIEW}. Run --propose first.`); return false }
   const known = {
     wbsc: new Set(importedPlayers().map(p => p.id)),
     wpbl: new Set(readJson<CrosswalkWpblPlayer[]>(ROSTER, []).map(p => p.id)),
@@ -297,13 +379,13 @@ function confirmLinks(): boolean {
   const before = readJson<Crosswalk>(CROSSWALK, EMPTY_CROSSWALK)
   const result = applyDecisions(before, review, known, today)
   if (result.errors.length) {
-    console.log('Nothing confirmed:')
-    for (const e of result.errors) console.log(`  ${e}`)
+    log('Nothing confirmed:')
+    for (const e of result.errors) log(`  ${e}`)
     return false
   }
   writeJson(CROSSWALK, result.crosswalk)
   writeJson(REVIEW, { checked_by: review.checked_by, candidates: result.remaining } satisfies Review)
-  console.log(`${result.crosswalk.links.length - before.links.length} linked, ${result.crosswalk.rejected.length - before.rejected.length} ruled out, `
+  log(`${result.crosswalk.links.length - before.links.length} linked, ${result.crosswalk.rejected.length - before.rejected.length} ruled out, `
     + `${result.remaining.length} still to review. ${CROSSWALK} now holds ${result.crosswalk.links.length} links.`)
   return true
 }
@@ -313,6 +395,10 @@ function confirmLinks(): boolean {
 async function main(): Promise<void> {
   if (flag('propose')) { if (!proposeLinks()) process.exitCode = 1; return }
   if (flag('confirm')) { if (!confirmLinks()) process.exitCode = 1; return }
+  if (flag('review')) {
+    serveReview({ outDir: OUT_DIR, reviewPath: REVIEW, rosterPath: ROSTER, readJson, writeJson, confirm: confirmLinks, open: !flag('no-open') })
+    return
+  }
   const keys = args.filter(a => !a.startsWith('--'))
   if (flag('list') || (!keys.length && !flag('all'))) {
     for (const e of EVENTS) console.log(`${e.key}  (${e.name})`)

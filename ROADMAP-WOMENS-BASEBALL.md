@@ -29,9 +29,12 @@ Stage 0 is half done: the back end is built and waiting on WBSC's permission and
 | Oct 16 | The importer: wbsc.org pages into validated files, all 30 games of the 2026 group stage passing | [sportydolphin/fun#122](https://github.com/sportydolphin/fun/pull/122), [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md) |
 | Oct 16 | The crosswalk proposer: 39 candidate WBSC-to-WPBL matches for a person to confirm | [sportydolphin/fun#123](https://github.com/sportydolphin/fun/pull/123) |
 | Nov 1 | The direction decided; this plan | this file |
+| Nov 2 | The back catalog: all seven events, 170 games; the crosswalk review page (`--review`) | [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md) |
 
-**Open as of Nov 1:** no reply from WBSC is recorded; all 39 crosswalk candidates are undecided
-(`crosswalk.json` holds no links yet); only the two 2026 groups are imported.
+**Open as of Nov 2:** no reply from WBSC is recorded; the crosswalk review (134 candidates, every
+event 2016 to 2026) is in progress in the review file, 130 marked and 4 open, with no reviewer named
+and nothing confirmed, so `crosswalk.json` holds no links yet. Steps 1, 3 and 4 below are done on
+this machine.
 
 **Waiting on:** replies to the owner's outreach (WBSC for permission; Baseball Prospectus and
 RetroWPBL as neighbors, see [Neighbors](#neighbors)). Record each reply here, with its date.
@@ -52,17 +55,18 @@ In order. Each step says what done looks like; the commands are in
    cannot be re-downloaded: see the warning under step 2.
 2. **Review the crosswalk.** `npm run wbsc -- --propose`, then in
    `archive/wbsc/crosswalk-review.json` put a name in `checked_by` and a `yes` or `no` on each
-   candidate, then `npm run wbsc -- --confirm`. The 2026 groups propose 39: 32 by full name, 4 that
-   look like the roster's nicknames (Bebbere, Schroder, Albayati, del Castillo) and 3 Korean players
-   who only share a surname with a WPBL player. Done when the review file is empty.
+   candidate, then `npm run wbsc -- --confirm`. Or `npm run wbsc -- --review`, which does the same on a
+   page with the facts beside each pair. Every event together proposes 134: 97 by full name, 37 by
+   surname and something weaker (an initial, a middle name, a nickname, a near spelling), 11 in
+   conflict with another. Done when the review file is empty.
    **The decisions are hand work held only in a gitignored file.** Until permission lets it into
    git, keep a private copy of `archive/wbsc/crosswalk.json` somewhere other than this machine.
-3. **Import the back catalog.** 2024 and 2023 (pitch by pitch), then 2018 and 2016 (plate
-   appearances only). Expect the validation to stop on codes the 2026 games never used; add each to
-   `src/intl/wbsc/codes.ts` after checking it against the scorer's narrative, with a test. Then
-   `--propose` again for those events. Done when `npm run wbsc -- --all` writes every event.
-4. **Re-measure the provisional numbers** in `src/intl/league.ts` (the pitch-board bars) on the
-   full catalog.
+3. ✅ **Import the back catalog** (Nov 2, 2026). `npm run wbsc -- --all` writes all seven events,
+   170 games and 11,440 plays, every game checked against itself four ways; what it took (new
+   codes, a reader for 2016's prose play log, eight games wrong at the source) is in
+   [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md#build-order).
+4. ✅ **Re-measure the provisional numbers** (Nov 2, 2026): the pitch-board bars in
+   `src/intl/league.ts`, now from every event.
 5. **Build `international.json`**, the one file a WPBL player page will read: per WPBL player, each
    event's batting and pitching totals and the games behind them, from the confirmed crosswalk. It
    can be built and tested now; it stays gitignored like the rest.
@@ -92,7 +96,7 @@ Three constraints shape every stage:
 
 | Source | What it has | Years | Form | Verdict |
 |---|---|---|---|---|
-| **WBSC Women's Baseball World Cup** | Box scores, line scores, attendance, duration, and a play log; **pitch by pitch from 2023 on**, plate appearances only in 2018 | 2016, 2018, 2023, 2024, 2026 (and 2027) | JSON embedded in each wbsc.org game page (`data-page`, an Inertia app), not a published API | **Yes, pending terms** |
+| **WBSC Women's Baseball World Cup** | Box scores, line scores, attendance, duration, and a play log; **pitch by pitch from 2023 on, and in 2016 (written as prose)**, plate appearances only in 2018 | 2016, 2018, 2023, 2024, 2026 (and 2027) | JSON embedded in each wbsc.org game page (`data-page`, an Inertia app), not a published API | **Yes, pending terms** |
 | WBSC continental championships (Pan Am, Asian Cup, Europe) | Probably the same system; the event keys were not found in the probe | 2025 cycle | Unverified | Check in stage 5 |
 | Japan's Venus League, national championships (AUS, CAN, US) | Nothing machine-readable found | | | No, until a source appears |
 | AAGPBL (1943–54) | Season lines on Baseball-Reference's Bullpen, sourced from the AAGPBL Players Association; a printed record book (copyrighted) | 1943–54 | HTML, print | Maybe, only with permission |
@@ -205,7 +209,7 @@ The steps are under [Pick up here](#pick-up-here-stage-0). Two additions:
 
 - **Chase the permission.** No reply is recorded from the October email. Send a second one by
   Nov 10 to a different WBSC contact (communications and the women's baseball commission), with
-  screenshots of what the International section would show.
+  screenshots of what the World Cup rows on a player page would show.
 - **Silence is not a yes.** With no reply by Dec 1, keep building stages 1 and 2 behind the gate
   and widen the ask: a national federation with players in the WPBL (USA, Australia, Canada) is
   the likeliest introduction. Stage 3 goes ahead regardless. A "no" ends the WBSC data and leaves
@@ -224,11 +228,12 @@ it, so it is designed for the developmental league and the AAGPBL as much as for
   source of truth and is joined, not copied.
 - **Never name matching at runtime**, the rule already in the importer. A person exists in the
   registry because a human said so.
-- **The WPBL player page gains an International section** under the WPBL lines: per event, the
+- **The WPBL player page's career table gains World Cup rows** (decided Nov 2, 2026, over a
+  separate section; see [docs/PLAYER_PAGE.md](docs/PLAYER_PAGE.md)): per event, the
   country, the event, the line (G, PA, AVG/OPS or IP, ERA, K), the WBSC name it matched (so a reader
   can spot a wrong row), and a link to the games on wbsc.org. It shows only for players who have one.
 - **Done when** the registry has a test that every crosswalk row resolves to one person and no
-  person holds two WPBL players, and the matched pages render the section.
+  person holds two WPBL players, and the matched pages render the rows.
 
 ### Stage 2. The World Cup as a competition of its own (January to March)
 
@@ -297,7 +302,7 @@ a new source goes through the [data table](#what-data-exists-probed-oct-15-2026)
 
 ## Risks
 
-- **Terms.** The biggest one. A "no" from WBSC ends the International section and stages 2 and 4
+- **Terms.** The biggest one. A "no" from WBSC ends the World Cup rows and stages 2 and 4
   for their data; the registry, the shell and the design still serve the next source.
 - **The page shape changes.** The import validates and fails; nothing reads WBSC at runtime until
   stage 4.

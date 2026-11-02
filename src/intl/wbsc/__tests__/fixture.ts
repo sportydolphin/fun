@@ -149,8 +149,8 @@ export function fixturePage(): WbscGamePage {
   return {
     gameData: {
       id: 500, tournamentid: T, gamestatus: 3, gamestatustext: 'F',
-      homeid: HOME, homeioc: 'HHH', homeruns: 1, homehits: 1, homeerrors: 0,
-      awayid: AWAY, awayioc: 'AAA', awayruns: 2, awayhits: 2, awayerrors: 0,
+      homeid: HOME, homeioc: 'HHH', homeruns: 1, homehits: 1, homelob: 0, homeerrors: 0,
+      awayid: AWAY, awayioc: 'AAA', awayruns: 2, awayhits: 2, awaylob: 0, awayerrors: 0,
       innings: 2, gametypelabel: 'Group Stage Games',
       start: '2026-07-22 19:00:00', start_tz: 'America/Chicago',
       attendance: 1234, duration: '1:05', stadium: 'Test Park', location: 'Testville',

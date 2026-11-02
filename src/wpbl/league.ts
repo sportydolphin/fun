@@ -53,4 +53,6 @@ export const WPBL_LEAGUE: League = {
   },
   // The feed's `runs_scored` leaves the batter out: a solo home run reads 0. See CLAUDE.md.
   runsOnPlay,
+  // The feed's marker for one completed plate appearance (see buildRunExpectancy).
+  isPlateAppearance: p => !!p.pitch_sequence,
 }

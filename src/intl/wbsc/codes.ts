@@ -37,12 +37,16 @@ export const NON_PITCH_RESULT1 = new Set([1])
 const PA_RESULT: Readonly<Record<number, string | ((row: WbscPlayRow) => string | null)>> = {
   1: 'strikeout',       // looking
   2: 'strikeout',       // swinging
-  3: 'groundout',
+  // A sacrifice bunt is a groundout in the code and only "Sacrifice" in the narrative. WPBL files
+  // it as 'sacrifice', a plate appearance that is not an at bat, and so does 2016 (legacy.ts).
+  3: row => (/\bSacrifice\b/.test(row.narrative ?? '') ? 'sacrifice' : 'groundout'),
   4: row => airOut(row.narrative),
   // Grounded into a double play. WPBL's feed files these under the batter's own result too, and
   // the extra out is in the next row's base-out state, which is all run expectancy reads.
   5: 'groundout',
-  11: 'fielders_choice',
+  // "Reaches on strikeout fielders choice KS": a third strike not held, and the throw went for a
+  // runner. The box counts the strikeout, and so must the log, or the batter's line disagrees.
+  11: row => (/\bstrikeout\b/i.test(row.narrative ?? '') ? 'strikeout' : 'fielders_choice'),
   12: 'field_error',    // reached on an error
   13: 'walk',
   // Kept apart from 'walk': it has no pitches, and a pitch board that counted it would credit a
@@ -54,8 +58,20 @@ const PA_RESULT: Readonly<Record<number, string | ((row: WbscPlayRow) => string 
   19: 'double',
   20: 'triple',
   21: 'home_run',
-  // Out by rule: a two-strike bunt foul (102), a dropped infield fly (108).
-  102: 'out',
+  // The batter reaching on a third strike the catcher did not hold: a wild pitch (25), a passed
+  // ball (26), an error (27). Still a strikeout for both players; the runner on first is in the
+  // next row's state.
+  25: 'strikeout',
+  26: 'strikeout',
+  27: 'strikeout',
+  // A bunt fouled off with two strikes is out by rule and scored a strikeout, which is how every
+  // box score counts it.
+  102: 'strikeout',
+  // Out by rule: an illegally batted ball (101), a batted ball that touched the batter (103), the
+  // batter interfering with the catcher (104), a dropped infield fly (108).
+  101: 'out',
+  103: 'out',
+  104: 'out',
   108: 'out',
 }
 
@@ -97,7 +113,12 @@ export const ADVANCE_REASON: Readonly<Record<number, string>> = {
   32: 'passed_ball',
   33: 'balk',
   34: 'stolen_base',
-  51: 'error_advance', // the narrative's E1T, E2T: an error on a throw
+  // Errors, which the narrative writes in the scorer's notation. 51: a throwing error on a pitch
+  // (E2T on a steal). 52: a pickoff dropped by the fielder ("1E3"). 53: the pitcher's own throw
+  // away on a pickoff ("E1T"). All three are the same event to the engines.
+  51: 'error_advance',
+  52: 'error_advance',
+  53: 'error_advance',
 }
 
 /**
@@ -118,6 +139,9 @@ export function baserunningEvent(row: WbscPlayRow): string | null {
     const n = row.narrative ?? ''
     if (/\bCS\d/.test(n)) return 'caught_stealing'
     if (/\bPO\d/.test(n)) return 'pickoff'
+    // Thrown out taking an extra base on a wild pitch, or caught off a base after one: no steal,
+    // no pickoff, only the fielders ("out at 3rd 215"). MLB's name for it.
+    if (/\bout at (1st|2nd|3rd|home) \d/.test(n)) return 'other_out'
     return 'unknown_out'
   }
   const reasons = [
@@ -125,6 +149,6 @@ export function baserunningEvent(row: WbscPlayRow): string | null {
     row.runner2to3, row.runner2to4, row.runner3to4,
   ].filter(v => v > 0)
   if (!reasons.length) return null
-  for (const r of [34, 31, 32, 33, 51]) if (reasons.includes(r)) return ADVANCE_REASON[r]
+  for (const r of [34, 31, 32, 33, 51, 52, 53]) if (reasons.includes(r)) return ADVANCE_REASON[r]
   return 'unknown_advance'
 }

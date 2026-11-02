@@ -34,6 +34,18 @@ describe('names', () => {
     expect(matchKind({ first_name: 'Teresa Paz', last_name: 'DEL RIO SOTO' }, 'Tere del Rio')).toBe('initial')
   })
 
+  it('offers a middle name, a nickname and a surname one letter off, each for a person to judge', () => {
+    expect(matchKind({ first_name: 'Ana Wren', last_name: 'QUILL MORA' }, 'Wren Quill')).toBe('middle')
+    expect(matchKind({ first_name: 'Elizabeth Ann', last_name: 'QUILL' }, 'Liz Quill')).toBe('nickname')
+    expect(matchKind({ first_name: 'Cody Nicole', last_name: 'QUILL' }, 'Niki Quill')).toBe('nickname')
+    expect(matchKind({ first_name: 'Dana Ruth', last_name: 'MARSHALE' }, 'Dana Marshall')).toBe('spelling')
+    // One letter off a short surname is another family.
+    expect(matchKind({ first_name: 'Dana', last_name: 'DIAS' }, 'Dana Diaz')).toBeNull()
+    // A nickname of nobody's name, and a middle name with the wrong surname.
+    expect(matchKind({ first_name: 'Paula', last_name: 'QUILL' }, 'Liz Quill')).toBeNull()
+    expect(matchKind({ first_name: 'Ana Wren', last_name: 'MARSH' }, 'Wren Quill')).toBeNull()
+  })
+
   it('does not match a different given name, or a surname that is only a middle name', () => {
     expect(matchKind({ first_name: 'Paula', last_name: 'QUILL' }, 'Dana Quill')).toBeNull()
     expect(matchKind({ first_name: 'Dana Quill', last_name: 'MARSH' }, 'Dana Quill')).toBeNull()

@@ -31,11 +31,46 @@ export interface CrosswalkWpblPlayer {
 }
 
 /**
- * How strong a proposal is. `name`: every WPBL name appears in WBSC's, given name first. `initial`:
- * the surname matches and the given names share only a first letter ("Rosi" for "Rosa Maria"),
- * which is a nickname as often as it is someone else, so it is listed for a person to judge.
+ * How strong a proposal is. `name`: every WPBL name appears in WBSC's, given name first. The rest
+ * each match the surname and something weaker, and are listed for a person to judge:
+ * - `initial`: the given names share only a first letter ("Rosi" for "Rosa Maria"), which is a
+ *   nickname as often as it is someone else.
+ * - `middle`: the roster's given name is WBSC's second ("Esthela" for Liliana Esthela).
+ * - `nickname`: the roster's given name is a common short form of one of WBSC's ("Liz" for
+ *   Elizabeth, "Niki" for Cody Nicole), from `NICKNAMES`.
+ * - `spelling`: the same given name and a surname one letter off ("Leguizaman" for Leguizamon).
+ * The last three were added on the back catalog, Nov 2, 2026, when a search of the 70 WPBL players
+ * with no candidate turned up five who had played a World Cup under a name these miss.
  */
-export type MatchKind = 'name' | 'initial'
+export type MatchKind = 'name' | 'initial' | 'middle' | 'nickname' | 'spelling'
+
+/** Short forms a roster uses, to the given names they are short for. Folded, as `nameWords` gives. */
+const NICKNAMES: Readonly<Record<string, readonly string[]>> = {
+  liz: ['elizabeth'], lizzie: ['elizabeth'], beth: ['elizabeth'], eliza: ['elizabeth'], betsy: ['elizabeth'],
+  niki: ['nicole', 'nicola'], nikki: ['nicole', 'nicola'], nicki: ['nicole', 'nicola'],
+  kate: ['katherine', 'kathryn', 'catherine', 'katharine'], katie: ['katherine', 'kathryn', 'catherine', 'katharine'],
+  sam: ['samantha'], sami: ['samantha'], sammy: ['samantha'],
+  abby: ['abigail'], becca: ['rebecca'], maddie: ['madison', 'madeline', 'madelyn'],
+  alex: ['alexandra', 'alexa', 'alexis'], ally: ['allison', 'alison', 'alexandra'], allie: ['allison', 'alison', 'alexandra'],
+  jill: ['jillian', 'gillian'], jess: ['jessica'], jessie: ['jessica'], gabby: ['gabriela', 'gabriella', 'gabrielle'],
+  vicky: ['victoria'], tori: ['victoria'], chris: ['christina', 'christine', 'kristina'], steph: ['stephanie'],
+  mandy: ['amanda'], mel: ['melissa', 'melanie'], cassie: ['cassandra'], dani: ['daniela', 'daniella', 'danielle'],
+}
+
+/** Levenshtein distance, for the one-letter spelling case. */
+function editDistance(a: string, b: string): number {
+  const row = Array.from({ length: b.length + 1 }, (_, j) => j)
+  for (let i = 1; i <= a.length; i++) {
+    let prev = row[0]
+    row[0] = i
+    for (let j = 1; j <= b.length; j++) {
+      const was = row[j]
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1))
+      prev = was
+    }
+  }
+  return row[b.length]
+}
 
 export interface Candidate {
   wbsc_id: string
@@ -130,6 +165,10 @@ export function matchKind(wbsc: Pick<CrosswalkWbscPlayer, 'first_name' | 'last_n
 
   if (wpbl[0] === given[0] && (surnameFits || (lastFits && containsRun([...given, ...surname], wpbl)))) return 'name'
   if (surnameFits && wpbl[0][0] === given[0][0]) return 'initial'
+  if (surnameFits && given.slice(1).includes(wpbl[0])) return 'middle'
+  if (surnameFits && given.some(g => NICKNAMES[wpbl[0]]?.includes(g))) return 'nickname'
+  // Long surnames only: at four letters one letter off is another name ("Diaz", "Dias").
+  if (wpbl.length === 2 && wpbl[0] === given[0] && surname.some(s => s.length > 4 && editDistance(s, wpbl[1]) === 1)) return 'spelling'
   return null
 }
 
