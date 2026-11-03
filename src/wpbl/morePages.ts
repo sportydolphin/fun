@@ -47,6 +47,13 @@ export const WPBL_MORE_PAGES: MorePage[] = [
   { group: 'Reference', href: WPBL_PLAYERS_INDEX,  label: 'All players',       hint: 'Rosters by club', footerLabel: 'WPBL players' },
   { group: 'Reference', href: WPBL_LEAGUE_PAGE,    label: 'About the league',  hint: 'Format, clubs, countries' },
   { group: 'Reference', href: WPBL_GLOSSARY_PAGE,  label: 'Rules & glossary',  hint: 'Rules, stat definitions' },
+  // DEV ONLY until the World Cup goes public (src/intl/WorldCupPage.tsx), the same gate as its route in
+  // App.tsx: a production menu row would open the 404. It sits in WPBL's menu because until the site
+  // becomes women's baseball (ROADMAP-WOMENS-BASEBALL.md, stage 3) WPBL is the section a reader of
+  // women's baseball is in.
+  ...(import.meta.env.DEV
+    ? [{ group: 'International', href: '/world-cup', label: 'World Cup', hint: 'Medals, standings, box scores' }]
+    : []),
 ]
 
 /** The footer's list: the menu's pages plus Data sources, which a reader rarely wants and a

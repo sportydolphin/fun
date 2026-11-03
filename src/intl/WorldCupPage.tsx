@@ -27,6 +27,8 @@ import { ClubBadge } from '../ui/ClubBadge'
 import { LEADER_GRID_SX, LeaderCard, PORTRAIT_PX, printedRanks } from '../ui/leaders'
 import { BOX_POS_SX, BoxTable, BoxTeamHeading, HalfHeading, PLAY_TEXT_SX, PlayRow } from '../ui/gameCenter'
 import { usePhoneLayout } from '../ui/ModalShell'
+import { PageTabs } from '../ui/PageTabs'
+import { StatLogTable, type StatLogRow } from '../ui/playerCard'
 import { outsToIp } from '../league/innings'
 import { WorldCupCareerTables } from './WorldCupCareer'
 import { WBSC_LEAGUE } from './league'
@@ -34,7 +36,8 @@ import { fetchSite } from './siteFile'
 import type { WorldCupPersonFile } from './wbsc/personFile'
 import type { EditionLeaders, WpblInField } from './wbsc/editionLeaders'
 import type { WorldCupGameFile } from './wbsc/gameFile'
-import type { Medals, StandingRow, WorldCupEdition, WorldCupGame, WorldCupGroup, WorldCupIndexEntry } from './wbsc/editions'
+import type { TeamRoster } from './wbsc/editionLeaders'
+import { editionSlugOf, editionTitle, type Medals, type StandingRow, type WorldCupEdition, type WorldCupGame, type WorldCupGroup, type WorldCupIndexEntry, type WorldCupStage } from './wbsc/editions'
 
 
 function useSiteFile<T>(file: string): { file: string; data: T | null } | null {
@@ -144,8 +147,17 @@ function Index() {
 
 const NUM = { textAlign: 'right' as const, fontVariantNumeric: 'tabular-nums', width: '2.5rem' }
 
+/** A team's name as a link to its page at this edition. */
+function TeamLink({ team, slug }: { team: string; slug: string }) {
+  return (
+    <Box {...linkTo(teamPath(slug, team))} sx={{ ...UNSTYLED_LINK, '&:hover': { textDecoration: 'underline' } }}>
+      <TeamName team={team} />
+    </Box>
+  )
+}
+
 /** WBSC's final order, as a numbered list of teams. */
-function Placings({ teams }: { teams: string[] }) {
+function Placings({ teams, slug }: { teams: string[]; slug: string }) {
   return (
     <Box component="ol" sx={{ listStyle: 'none', m: 0, p: 0, fontSize: TYPE_SCALE.body }}>
       {teams.map((t, i) => (
@@ -154,14 +166,14 @@ function Placings({ teams }: { teams: string[] }) {
           borderTop: i ? '1px solid' : 'none', borderColor: 'divider',
         }}>
           <Box component="span" sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{i + 1}</Box>
-          <TeamName team={t} />
+          <Box><TeamLink team={t} slug={slug} /></Box>
         </Box>
       ))}
     </Box>
   )
 }
 
-function Standings({ rows }: { rows: StandingRow[] }) {
+function Standings({ rows, slug }: { rows: StandingRow[]; slug: string }) {
   return (
     <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', fontSize: TYPE_SCALE.body, mb: 1.5 }}>
       <thead>
@@ -173,7 +185,7 @@ function Standings({ rows }: { rows: StandingRow[] }) {
       <tbody>
         {rows.map(r => (
           <Box component="tr" key={r.team} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-            <Box component="td" sx={{ py: 0.75 }}><TeamName team={r.team} /></Box>
+            <Box component="td" sx={{ py: 0.75 }}><TeamLink team={r.team} slug={slug} /></Box>
             {[r.w, r.l, r.rs, r.ra].map((v, i) => <Box component="td" key={i} sx={NUM}>{v}</Box>)}
           </Box>
         ))}
@@ -182,15 +194,15 @@ function Standings({ rows }: { rows: StandingRow[] }) {
   )
 }
 
-function Result({ g, slug }: { g: WorldCupGame; slug: string }) {
+function Result({ g, slug, withYear = false }: { g: WorldCupGame; slug: string; withYear?: boolean }) {
   const awayWon = g.away_score > g.home_score
   return (
     // A forfeit has no box score, so no page to open.
     <Box {...(g.forfeit ? {} : linkTo(`/world-cup/${slug}/games/${g.wbsc_game_id}`))} sx={{
-      ...UNSTYLED_LINK, display: 'grid', gridTemplateColumns: '3.5rem 1fr auto', alignItems: 'center', columnGap: 1,
+      ...UNSTYLED_LINK, display: 'grid', gridTemplateColumns: `${withYear ? 5.5 : 3.5}rem 1fr auto`, alignItems: 'center', columnGap: 1,
       py: 0.75, borderTop: '1px solid', borderColor: 'divider', fontSize: TYPE_SCALE.body,
     }}>
-      <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{shortDate(g.date)}</Typography>
+      <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{shortDate(g.date)}{withYear ? `, ${g.date.slice(0, 4)}` : ''}</Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', minWidth: 0 }}>
         <Box sx={{ fontWeight: awayWon ? 700 : 400 }}><TeamName team={g.away} /> {g.away_score}</Box>
         <Box component="span" sx={{ color: 'text.secondary', mx: 0.75 }}>@</Box>
@@ -209,7 +221,7 @@ function Group({ group, standings, slug }: { group: WorldCupGroup; standings: bo
       {group.label && (
         <Typography component="h3" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, mb: 1 }}>{group.label}</Typography>
       )}
-      {standings && <Standings rows={group.standings} />}
+      {standings && <Standings rows={group.standings} slug={slug} />}
       <Box>{group.games.map(g => <Result key={g.id} g={g} slug={slug} />)}</Box>
     </Box>
   )
@@ -273,53 +285,294 @@ function WpblPlayers({ teams }: { teams: WpblInField[] }) {
   )
 }
 
-function Edition({ slug }: { slug: string }) {
+/** An edition's pages, each its own address so a link (or a crawler) lands on the one it means. The
+ *  edition was one page until Nov 2026 and ran to eight phone screens, with the medal games last. */
+export type EditionTab = 'overview' | 'games' | 'leaders' | 'teams'
+const EDITION_TABS: { value: EditionTab; label: string }[] = [
+  { value: 'overview', label: 'Overview' }, { value: 'games', label: 'Games' },
+  { value: 'leaders', label: 'Leaders' }, { value: 'teams', label: 'Teams' },
+]
+const editionPath = (slug: string, tab: EditionTab) => (tab === 'overview' ? `/world-cup/${slug}` : `/world-cup/${slug}/${tab}`)
+/** A team's code in an address is lower case, as every other path on the site is. */
+const teamPath = (slug: string | null, team: string) =>
+  slug ? `/world-cup/${slug}/teams/${team.toLowerCase()}` : `/world-cup/teams/${team.toLowerCase()}`
+
+/** Every game of the edition, in the order played, forfeits included (WBSC's standings count them). */
+const allGames = (e: WorldCupEdition): WorldCupGame[] =>
+  e.stages.flatMap(s => s.groups.flatMap(g => g.games)).sort((a, b) => cmp(a.date, b.date) || a.wbsc_game_id - b.wbsc_game_id)
+
+const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
+
+function record(games: WorldCupGame[], team: string) {
+  let w = 0, l = 0, rs = 0, ra = 0
+  for (const g of games) {
+    if (g.away !== team && g.home !== team) continue
+    const us = g.away === team ? g.away_score : g.home_score
+    const them = g.away === team ? g.home_score : g.away_score
+    if (us > them) w++
+    else l++
+    rs += us; ra += them
+  }
+  return { w, l, rs, ra }
+}
+
+/** A stage's heading, with its year when the edition spans two: the 2024 World Cup's group stage was
+ *  played in 2023, and its dates alone read as if it came a week before the Finals. */
+function stageTitle(e: WorldCupEdition, s: WorldCupStage): string {
+  const first = s.groups[0]?.games[0]?.date
+  return e.years.length > 1 && first ? `${s.label} · ${first.slice(0, 4)}` : s.label
+}
+
+function SourceLine({ urls }: { urls: string[] }) {
+  return (
+    <Box sx={{ px: 0.5, pt: 0.5, borderTop: '1px solid', borderColor: CARD_BORDER }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
+        Source: WBSC{urls.map(u => (
+          <Box component="a" key={u} href={u} target="_blank" rel="noopener" sx={{ color: 'inherit', ml: 1 }}>
+            {sourceLabel(u)}
+          </Box>
+        ))}
+      </Typography>
+    </Box>
+  )
+}
+
+function Overview({ e }: { e: WorldCupEdition }) {
+  const groupStages = e.stages.filter(s => s.kind === 'round-robin')
+  return (
+    <>
+      <SectionCard title="Summary">
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mb: 1 }}>
+          {[years(e.years), e.hosts.join(' · '), `${e.teams.length} teams`].join(' · ')}
+        </Typography>
+        {e.medals ? <MedalLine medals={e.medals} /> : (
+          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>In progress</Typography>
+        )}
+      </SectionCard>
+      {e.placings.length > 0 && (
+        <SectionCard title="Final standings">
+          <Placings teams={e.placings} slug={e.slug} />
+        </SectionCard>
+      )}
+      {groupStages.map(s => (
+        <SectionCard key={s.label} title={stageTitle(e, s)}>
+          {s.groups.map((g, i) => (
+            <Box key={g.label ?? i} sx={{ '& + &': { mt: 2.5 } }}>
+              {g.label && <Typography component="h3" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, mb: 1 }}>{g.label}</Typography>}
+              <Standings rows={g.standings} slug={e.slug} />
+            </Box>
+          ))}
+        </SectionCard>
+      ))}
+      {e.wpbl.length > 0 && (
+        <SectionCard title="WPBL players">
+          <WpblPlayers teams={e.wpbl} />
+        </SectionCard>
+      )}
+    </>
+  )
+}
+
+/** Newest first: the medal games are what a reader opens the page for, and they come last in time. */
+function Games({ e }: { e: WorldCupEdition }) {
+  return (
+    <>
+      {[...e.stages].reverse().map(s => (
+        <SectionCard key={s.label} title={stageTitle(e, s)}>
+          {s.groups.map((g, i) => <Group key={g.label ?? i} group={g} standings={false} slug={e.slug} />)}
+        </SectionCard>
+      ))}
+    </>
+  )
+}
+
+/** Placed teams in WBSC's order, then the rest by name (2024 ranks only its six finalists). */
+function Teams({ e }: { e: WorldCupEdition }) {
+  const games = allGames(e)
+  const rest = e.teams.filter(t => !e.placings.includes(t)).sort((a, b) => cmp(countryName(a), countryName(b)))
+  return (
+    <SectionCard title="Teams">
+      <Box component="ol" sx={{ listStyle: 'none', m: 0, p: 0, fontSize: TYPE_SCALE.body }}>
+        {[...e.placings, ...rest].map((t, i) => {
+          const r = record(games, t)
+          return (
+            <Box component="li" key={t} sx={{ borderTop: i ? '1px solid' : 'none', borderColor: 'divider' }}>
+              <Box {...linkTo(teamPath(e.slug, t))} sx={{
+                ...UNSTYLED_LINK, display: 'grid', gridTemplateColumns: '1.75rem 1fr auto', alignItems: 'center', py: 0.9,
+                '&:hover .team-name': { textDecoration: 'underline' },
+              }}>
+                <Box component="span" sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                  {i < e.placings.length ? i + 1 : '—'}
+                </Box>
+                <Box className="team-name"><TeamName team={t} /></Box>
+                <Box component="span" sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{r.w}–{r.l}</Box>
+              </Box>
+            </Box>
+          )
+        })}
+      </Box>
+    </SectionCard>
+  )
+}
+
+function Edition({ slug, tab }: { slug: string; tab: EditionTab }) {
   const read = useSiteFile<WorldCupEdition>(`world-cup-${slug}.json`)
   const e = read?.data
   return (
-    <StandalonePage title={`${slug} World Cup`} back={{ href: '/world-cup', label: 'World Cup' }}>
+    <StandalonePage title={editionTitle(slug)} back={{ href: '/world-cup', label: 'World Cup' }}
+      trail={[{ href: '/world-cup', label: 'World Cup' }]}>
+      <PageTabs value={tab} onChange={() => {}} mb={2}
+        options={EDITION_TABS.map(t => ({ ...t, href: editionPath(slug, t.value) }))} />
       {!read ? <Loading /> : !e ? <NoData /> : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <SectionCard title="Summary">
-            <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mb: 1 }}>
-              {[years(e.years), e.hosts.join(' · '), `${e.teams.length} teams`].join(' · ')}
-            </Typography>
-            {e.medals ? <MedalLine medals={e.medals} /> : (
-              <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>In progress</Typography>
-            )}
-          </SectionCard>
-          {e.placings.length > 0 && (
-            <SectionCard title="Final standings">
-              <Placings teams={e.placings} />
-            </SectionCard>
-          )}
-          <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-              <Typography component="h2" sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 700 }}>Leaders</Typography>
-              <InfoDot label="Qualified" text="Batting average and OPS: 2.4 plate appearances per team game. ERA: 2.4 outs per team game, per 7 innings." />
+          {tab === 'overview' && <Overview e={e} />}
+          {tab === 'games' && <Games e={e} />}
+          {tab === 'leaders' && (
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+                <Typography component="h2" sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 700 }}>Leaders</Typography>
+                <InfoDot label="Qualified" text="Batting average and OPS: 2.4 plate appearances per team game. ERA: 2.4 outs per team game, per 7 innings." />
+              </Box>
+              <Leaders leaders={e.leaders} />
             </Box>
-            <Leaders leaders={e.leaders} />
-          </Box>
-          {e.wpbl.length > 0 && (
-            <SectionCard title="WPBL players">
-              <WpblPlayers teams={e.wpbl} />
-            </SectionCard>
           )}
-          {e.stages.map(s => (
-            <SectionCard key={s.label} title={s.label}>
-              {s.groups.map((g, i) => <Group key={g.label ?? i} group={g} standings={s.kind === 'round-robin'} slug={slug} />)}
-            </SectionCard>
-          ))}
-          <Box sx={{ px: 0.5, pt: 0.5, borderTop: '1px solid', borderColor: CARD_BORDER }}>
-            <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
-              Source: WBSC{e.sources.map(u => (
-                <Box component="a" key={u} href={u} target="_blank" rel="noopener" sx={{ color: 'inherit', ml: 1 }}>
-                  {sourceLabel(u)}
-                </Box>
-              ))}
-            </Typography>
-          </Box>
+          {tab === 'teams' && <Teams e={e} />}
+          <SourceLine urls={e.sources} />
         </Box>
+      )}
+    </StandalonePage>
+  )
+}
+
+const ROSTER_BAT = ['G', 'PA', 'AB', 'R', 'H', '2B', '3B', 'HR', 'RBI', 'SB', 'BB', 'SO', 'AVG', 'OBP', 'SLG', 'OPS']
+const ROSTER_PIT = ['G', 'GS', 'W-L', 'SV', 'IP', 'H', 'R', 'ER', 'BB', 'SO', 'ERA']
+const rate = (v: number | null) => (v == null ? '—' : v.toFixed(3).replace(/^0(?=\.)/, ''))
+/** The player column reads as names, not as the dimmed date a game log leads with. */
+const PLAYER_LEAD_SX = [{ color: 'text.primary', fontWeight: 600 }]
+
+function playerLead(name: string, path: string | null) {
+  return path
+    ? <Box {...linkTo(path)} sx={{ ...UNSTYLED_LINK, '&:hover': { textDecoration: 'underline' } }}>{name}</Box>
+    : name
+}
+
+function RosterTables({ roster }: { roster: TeamRoster }) {
+  const batting: StatLogRow[] = roster.batting.map(b => {
+    const obp = b.ab + b.bb + b.hbp + b.sf > 0 ? (b.h + b.bb + b.hbp) / (b.ab + b.bb + b.hbp + b.sf) : null
+    const slg = b.ab > 0 ? b.tb / b.ab : null
+    return {
+      lead: [playerLead(b.name, b.path)],
+      cells: [b.g, b.pa, b.ab, b.r, b.h, b.doubles, b.triples, b.hr, b.rbi, b.sb, b.bb, b.so,
+        rate(b.ab > 0 ? b.h / b.ab : null), rate(obp), rate(slg), rate(obp != null && slg != null ? obp + slg : null)],
+    }
+  })
+  const pitching: StatLogRow[] = roster.pitching.map(p => ({
+    lead: [playerLead(p.name, p.path)],
+    cells: [p.g, p.gs, `${p.w}-${p.l}`, p.sv, outsToIp(p.outs), p.h, p.r, p.er, p.bb, p.so,
+      fmtTwo(p.outs > 0 ? (p.er * WBSC_LEAGUE.regulationInnings * 3) / p.outs : null)],
+  }))
+  // One card holding both tables, as a player's World Cup card does (WorldCupCareer.tsx).
+  return (
+    <SectionCard title="Players">
+      <StatLogTable title="Batting" leadHeaders={['Player']} statHeaders={ROSTER_BAT} rows={batting} accent={ACCENT}
+        noun={['player', 'players']} leadSx={PLAYER_LEAD_SX} />
+      {pitching.length > 0 && (
+        <Box sx={{ mt: 2.5 }}>
+          <StatLogTable title="Pitching" leadHeaders={['Player']} statHeaders={ROSTER_PIT} rows={pitching} accent={ACCENT}
+            noun={['pitcher', 'pitchers']} leadSx={PLAYER_LEAD_SX} />
+        </Box>
+      )}
+    </SectionCard>
+  )
+}
+
+/** One team at one edition: where it finished, every game it played, and its players. */
+function EditionTeamPage({ slug, code }: { slug: string; code: string }) {
+  const read = useSiteFile<WorldCupEdition>(`world-cup-${slug}.json`)
+  const e = read?.data
+  const team = code.toUpperCase()
+  const known = !!e?.teams.includes(team)
+  const roster = e?.rosters?.find(r => r.team === team)
+  const games = e ? allGames(e).filter(g => g.away === team || g.home === team) : []
+  const r = record(games, team)
+  const place = e ? e.placings.indexOf(team) : -1
+  const medal = e?.medals ? (['gold', 'silver', 'bronze'] as const).find(m => e.medals![m] === team) : undefined
+  return (
+    <StandalonePage title={known ? `${countryName(team)} · ${editionTitle(slug)}` : editionTitle(slug)}
+      back={{ href: editionPath(slug, 'teams'), label: editionTitle(slug) }}
+      trail={[{ href: '/world-cup', label: 'World Cup' }, { href: editionPath(slug, 'teams'), label: editionTitle(slug) }]}>
+      {!read ? <Loading /> : !e || !known ? <NoData /> : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <SectionCard title="Summary">
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+              <CountryBadge team={team} size={34} />
+              <Typography sx={{ fontSize: TYPE_SCALE.body }}>
+                {[
+                  medal ? `${medal.charAt(0).toUpperCase()}${medal.slice(1)} medal` : place >= 0 ? `${ordinal(place + 1)} place` : null,
+                  `${r.w}–${r.l}`, `${r.rs} RS`, `${r.ra} RA`,
+                ].filter(Boolean).join(' · ')}
+              </Typography>
+            </Box>
+            <Box {...linkTo(teamPath(null, team))} sx={{ display: 'inline-block', mt: 1.25, fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
+              Every World Cup
+            </Box>
+          </SectionCard>
+          <SectionCard title="Games">
+            {/* One list across both years of a two-year edition, so each date says which. */}
+            {games.map(g => <Result key={g.id} g={g} slug={slug} withYear={e.years.length > 1} />)}
+          </SectionCard>
+          {roster && <RosterTables roster={roster} />}
+          <SourceLine urls={e.sources} />
+        </Box>
+      )}
+    </StandalonePage>
+  )
+}
+
+/** One team across every edition, read from the edition files themselves (four small files), so it
+ *  needs nothing from the importer that the edition pages do not already have. */
+function TeamHistoryPage({ code }: { code: string }) {
+  const team = code.toUpperCase()
+  const index = useSiteFile<WorldCupIndexEntry[]>('world-cup.json')
+  const [editions, setEditions] = useState<{ team: string; list: WorldCupEdition[] } | null>(null)
+  useEffect(() => {
+    if (!index?.data) return
+    let alive = true
+    void Promise.all(index.data.map(x => fetchSite<WorldCupEdition>(`world-cup-${x.slug}.json`))).then(list => {
+      if (alive) setEditions({ team, list: list.filter((x): x is WorldCupEdition => !!x?.teams.includes(team)) })
+    })
+    return () => { alive = false }
+  }, [index, team])
+  const list = editions?.team === team ? editions.list : null
+  return (
+    <StandalonePage title={countryName(team) || team} back={{ href: '/world-cup', label: 'World Cup' }}
+      trail={[{ href: '/world-cup', label: 'World Cup' }]}>
+      {!index || (index.data && !list) ? <Loading /> : !list?.length ? <NoData /> : (
+        <SectionCard title="World Cups">
+          <Box component="ol" sx={{ listStyle: 'none', m: 0, p: 0, fontSize: TYPE_SCALE.body }}>
+            {list.map((e, i) => {
+              const r = record(allGames(e), team)
+              const place = e.placings.indexOf(team)
+              const medal = e.medals ? (['gold', 'silver', 'bronze'] as const).find(m => e.medals![m] === team) : undefined
+              return (
+                <Box component="li" key={e.slug} sx={{ borderTop: i ? '1px solid' : 'none', borderColor: 'divider' }}>
+                  <Box {...linkTo(teamPath(e.slug, team))} sx={{
+                    ...UNSTYLED_LINK, display: 'grid', gridTemplateColumns: '1fr auto auto', columnGap: 2, alignItems: 'center', py: 0.9,
+                    '&:hover .edition-name': { textDecoration: 'underline' },
+                  }}>
+                    <Box className="edition-name" sx={{ fontWeight: 600 }}>{e.title}</Box>
+                    <Box component="span" sx={{ color: 'text.secondary' }}>
+                      {medal ? `${medal.charAt(0).toUpperCase()}${medal.slice(1)}` : place >= 0 ? ordinal(place + 1) : '—'}
+                    </Box>
+                    <Box component="span" sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums', minWidth: '2.5rem', textAlign: 'right' }}>
+                      {r.w}–{r.l}
+                    </Box>
+                  </Box>
+                </Box>
+              )
+            })}
+          </Box>
+        </SectionCard>
       )}
     </StandalonePage>
   )
@@ -440,13 +693,37 @@ function ordinal(n: number): string {
   return `${n}${n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th'}`
 }
 
+function NeighborGame({ g, slug, label, alignEnd }: { g: WorldCupGame; slug: string; label: string; alignEnd?: boolean }) {
+  return (
+    <Box {...linkTo(`/world-cup/${slug}/games/${g.wbsc_game_id}`)} sx={{
+      ...UNSTYLED_LINK, display: 'flex', flexDirection: 'column', alignItems: alignEnd ? 'flex-end' : 'flex-start', gap: 0.5,
+      p: 1.5, border: '1px solid', borderColor: 'outline', borderRadius: 2, minWidth: 0,
+      '&:hover': { borderColor: 'text.secondary' },
+    }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{alignEnd ? `${shortDate(g.date)} · ${label} ›` : `‹ ${label} · ${shortDate(g.date)}`}</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, fontSize: TYPE_SCALE.body, fontWeight: 600, flexWrap: 'wrap', justifyContent: alignEnd ? 'flex-end' : 'flex-start' }}>
+        <CountryBadge team={g.away} size={16} />{g.away} {g.away_score}
+        <Box component="span" sx={{ color: 'text.secondary', fontWeight: 400 }}>@</Box>
+        <CountryBadge team={g.home} size={16} />{g.home} {g.home_score}
+      </Box>
+    </Box>
+  )
+}
+
 function GamePage({ slug, id }: { slug: string; id: string }) {
   const dense = usePhoneLayout()
   const read = useSiteFile<WorldCupGameFile>(`world-cup-game-${id}.json`)
+  const edition = useSiteFile<WorldCupEdition>(`world-cup-${slug}.json`)
   const g = read?.data
   const title = g ? `${countryName(g.away)} ${g.away_score}, ${countryName(g.home)} ${g.home_score}` : 'Game'
+  // The games either side in the order played, skipping forfeits, which have no page.
+  const played = edition?.data ? allGames(edition.data).filter(x => !x.forfeit) : []
+  const at = played.findIndex(x => String(x.wbsc_game_id) === id)
+  const prev = at > 0 ? played[at - 1] : null
+  const next = at >= 0 && at < played.length - 1 ? played[at + 1] : null
   return (
-    <StandalonePage title={title} back={{ href: `/world-cup/${slug}`, label: `${slug} World Cup` }}>
+    <StandalonePage title={title} back={{ href: editionPath(slug, 'games'), label: editionTitle(slug) }}
+      trail={[{ href: '/world-cup', label: 'World Cup' }, { href: editionPath(slug, 'games'), label: editionTitle(slug) }]}>
       {!read ? <Loading /> : !g ? <NoData /> : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <SectionCard title="Line score">
@@ -466,6 +743,12 @@ function GamePage({ slug, id }: { slug: string; id: string }) {
             <SectionCard title="Play by play">
               <PlayByPlay g={g} />
             </SectionCard>
+          )}
+          {(prev || next) && (
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+              {prev ? <NeighborGame g={prev} slug={slug} label="Previous game" /> : <Box />}
+              {next ? <NeighborGame g={next} slug={slug} label="Next game" alignEnd /> : <Box />}
+            </Box>
           )}
           <Box sx={{ px: 0.5, pt: 0.5, borderTop: '1px solid', borderColor: CARD_BORDER }}>
             <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
@@ -489,18 +772,25 @@ function PersonPage({ slug }: { slug: string }) {
     else window.open(e.url, '_blank', 'noopener')
   }
   return (
-    <StandalonePage title={p?.name ?? 'Player'} back={{ href: '/world-cup', label: 'World Cup' }}>
+    <StandalonePage title={p?.name ?? 'Player'} back={{ href: '/world-cup', label: 'World Cup' }}
+      trail={[{ href: '/world-cup', label: 'World Cup' }]}>
       {!read ? <Loading /> : !p ? <NoData /> : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {p.country && <CountryBadge team={p.country} size={34} />}
             <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
-              {[countryName(p.country), `${p.events.length} ${p.events.length === 1 ? 'event' : 'events'}`].filter(Boolean).join(' · ')}
+              {p.country && (
+                <Box {...linkTo(teamPath(null, p.country))} sx={{ ...UNSTYLED_LINK, '&:hover': { textDecoration: 'underline' } }}>
+                  {countryName(p.country)}
+                </Box>
+              )}
+              {p.country && ' · '}{`${p.events.length} ${p.events.length === 1 ? 'event' : 'events'}`}
             </Typography>
           </Box>
           <SectionCard title="World Cup">
             {/* The World Cup's own seven-inning basis: there is no league setting to follow here. */}
-            <WorldCupCareerTables events={p.events} accent={ACCENT} eraBasis={WBSC_LEAGUE.regulationInnings} fmtEra={fmtTwo} onOpen={openEvent} />
+            <WorldCupCareerTables events={p.events} accent={ACCENT} eraBasis={WBSC_LEAGUE.regulationInnings} fmtEra={fmtTwo} onOpen={openEvent}
+              hrefOf={e => { const ed = editionSlugOf(e.event_key); return ed ? `/world-cup/${ed}` : null }} />
           </SectionCard>
           <Box sx={{ px: 0.5, pt: 0.5, borderTop: '1px solid', borderColor: CARD_BORDER }}>
             <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
@@ -518,8 +808,11 @@ function PersonPage({ slug }: { slug: string }) {
 }
 
 export default function WorldCupPage({ path }: { path: string }) {
-  const [, , slug, games, id] = path.split('/')
-  if (slug === 'players' && games) return <PersonPage slug={games} />
-  if (slug && games === 'games' && id) return <GamePage slug={slug} id={id} />
-  return slug ? <Edition slug={slug} /> : <Index />
+  const [, , slug, part, id] = path.split('/')
+  if (slug === 'players' && part) return <PersonPage slug={part} />
+  if (slug === 'teams' && part) return <TeamHistoryPage code={part} />
+  if (slug && part === 'games' && id) return <GamePage slug={slug} id={id} />
+  if (slug && part === 'teams' && id) return <EditionTeamPage slug={slug} code={id} />
+  if (!slug) return <Index />
+  return <Edition slug={slug} tab={(EDITION_TABS.find(t => t.value === part)?.value) ?? 'overview'} />
 }

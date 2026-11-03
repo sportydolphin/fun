@@ -107,7 +107,8 @@ const WpblSourcesPage = lazy(() => import('./wpbl/SourcesPage'))
 // with it: no reader can reach it, and nothing WBSC-shaped ships. No `_redirects` lines yet either.
 const WORLD_CUP_ROUTES = import.meta.env.DEV
 const WorldCupPage = WORLD_CUP_ROUTES ? lazy(() => import('./intl/WorldCupPage')) : null
-const isWorldCupPath = (p: string) => WORLD_CUP_ROUTES && (p === '/world-cup' || /^\/world-cup\/(\d{4}(\/games\/\d+)?|players\/[a-z0-9-]+)$/.test(p))
+const isWorldCupPath = (p: string) => WORLD_CUP_ROUTES && (p === '/world-cup'
+  || /^\/world-cup\/(\d{4}(\/(games|leaders|teams)|\/games\/\d+|\/teams\/[a-z]{3})?|players\/[a-z0-9-]+|teams\/[a-z]{3})$/.test(p))
 const WpblSeasonPage = lazy(() => import('./wpbl/SeasonPage'))
 const WpblScorigami = lazy(() => import('./wpbl/Scorigami'))
 const WpblMatchupsPage = lazy(() => import('./wpbl/MatchupsPage'))
@@ -184,9 +185,11 @@ function KeptSection({ active, search, children }: { active: boolean; search: bo
 /** Everything WpblApp renders. The players INDEX is its own page, so it is not here.
  *  Defined in routes.ts because WpblApp's popstate handler has to agree with it. */
 const rendersWpblApp = wpblAppOwnsPath
-/** Anything that should read as "the reader is in the WPBL section". */
+/** Anything that should read as "the reader is in the WPBL section". The World Cup is in it until
+ *  the site becomes women's baseball (ROADMAP-WOMENS-BASEBALL.md, stage 3): outside every section
+ *  its pages had no tabs on a desktop, no bottom bar on a phone and neither league lit in the switch. */
 const isWpblSection = (p: string) =>
-  rendersWpblApp(p) || p === '/wpbl/api' || isWpblLeaguePage(p) || isWpblGlossaryPage(p)
+  rendersWpblApp(p) || p === '/wpbl/api' || isWorldCupPath(p) || isWpblLeaguePage(p) || isWpblGlossaryPage(p)
   || isWpblSourcesPage(p) || isWpblSeasonPage(p) || isWpblScorigamiPage(p) || isWpblMatchupsPage(p) || isWpblPhotosPage(p) || isWpblPhotoTagPage(p) || isWpblReadingPage(p) || isWpblWatchPage(p) || isWpblWatchVideoPage(p) || isWpblPlayersIndex(p) || isWpblComparePage(p) || isWpblSeriesPage(p)
 /** Whether some page draws this path; anything else gets the in-app 404. */
 const isKnownPath = (p: string) =>

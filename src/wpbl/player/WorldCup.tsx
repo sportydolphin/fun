@@ -79,7 +79,8 @@ export function WorldCupSection({ events, playerName, accent, first = false }: {
     <>
       <RoleHeading title="World Cup" caption="Owner preview" first={first} />
       {/* Stored on the league's basis, as every ERA on the site, so the reader's setting rescales it. */}
-      <WorldCupCareerTables events={events} accent={accent} eraBasis={ERA_BASIS_CANONICAL} fmtEra={fmtEra} onOpen={openEvent} />
+      <WorldCupCareerTables events={events} accent={accent} eraBasis={ERA_BASIS_CANONICAL} fmtEra={fmtEra} onOpen={openEvent}
+        hrefOf={e => { const slug = editionSlugOf(e.event_key); return slug ? `/world-cup/${slug}` : null }} />
       {!sameName && (
         <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 1 }}>
           WBSC name: {names.join(' · ')}
