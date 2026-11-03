@@ -32,11 +32,11 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'Faster search',
-        full:  'Search keeps the roster between visits, so it answers the first letter typed. MLB search finds this season's players without waiting on MLB's server.',
+        full:  'Search keeps the roster between visits, so it answers the first letter typed. MLB search finds this season’s players without waiting on MLB’s server.',
       },
       {
         short: 'WAR leaders',
-        full:  'An empty WPBL search box shows the season's WAR leaders until there are recent searches to show.',
+        full:  'An empty WPBL search box shows the season’s WAR leaders until there are recent searches to show.',
       },
     ],
   },
