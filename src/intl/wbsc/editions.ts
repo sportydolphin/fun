@@ -35,6 +35,10 @@ export interface EditionDef {
   /** Games awarded by forfeit, which the importer skips (no status, no box score) and WBSC's
    *  standings count, at the score WBSC records. Each from the event's schedule. */
   forfeits?: readonly ForfeitDef[]
+  /** WBSC's Final Standings, first place first, as its standings page has them. Not derived: from
+   *  the 2024 Finals on WBSC ranks only the teams in the Finals, and how it places the rest has no
+   *  rule its pages state. The first three must be the medalists, or the build fails. */
+  placings?: readonly string[]
 }
 
 export interface ForfeitDef {
@@ -55,12 +59,14 @@ export const EDITIONS: readonly EditionDef[] = [
     events: [{ key: '2016-womens-baseball-world-cup', label: null }],
     // wbsc.org/en/events/2016-womens-baseball-world-cup/standings
     groupLetters: { A: ['VEN', 'KOR', 'CUB', 'PAK'], B: ['JPN', 'CAN', 'NED', 'IND'], C: ['TPE', 'AUS', 'USA', 'HKG'] },
+    placings: ['JPN', 'CAN', 'VEN', 'TPE', 'AUS', 'KOR', 'USA', 'CUB', 'NED', 'HKG', 'IND', 'PAK'],
   },
   {
     slug: '2018', ordinal: null, years: [2018], hosts: ['Viera, Florida'],
     events: [{ key: '2018-womens-baseball-world-cup', label: null }],
     // wbsc.org/en/events/2018-womens-baseball-world-cup/standings
     groupLetters: { A: ['TPE', 'USA', 'VEN', 'PUR', 'KOR', 'NED'], B: ['JPN', 'CAN', 'DOM', 'AUS', 'HKG', 'CUB'] },
+    placings: ['JPN', 'TPE', 'CAN', 'USA', 'VEN', 'DOM', 'AUS', 'CUB', 'PUR', 'KOR', 'HKG', 'NED'],
   },
   {
     slug: '2024', ordinal: 'IX', years: [2023, 2024], hosts: ['Thunder Bay, Canada', 'Miyoshi, Japan'],
@@ -74,6 +80,8 @@ export const EDITIONS: readonly EditionDef[] = [
       event: '2024-ix-womens-baseball-world-cup-finals', wbsc_game_id: 131780, date: '2024-07-28', round: 'Final Stage Games',
       away: 'USA', home: 'VEN', away_score: 7, home_score: 0,
     }],
+    // wbsc.org/en/events/2024-ix-womens-baseball-world-cup-finals/standings: the six in the Finals.
+    placings: ['JPN', 'USA', 'CAN', 'MEX', 'VEN', 'TPE'],
   },
   {
     // The Finals (Rockford, Jul 19–25, 2027) join as a third event once WBSC publishes them.
@@ -145,6 +153,9 @@ export interface WorldCupEdition {
   stages: WorldCupStage[]
   /** Null until the final is played. */
   medals: Medals | null
+  /** WBSC's Final Standings, first place first; empty until it publishes them. May stop short of
+   *  every team (2024 ranks the Finals' six). */
+  placings: string[]
   /** Each event's schedule on wbsc.org. */
   sources: string[]
   leaders: EditionLeaders
@@ -369,13 +380,21 @@ export function buildWorldCupSite(
       stages.push({ label: 'Medal games', kind: 'medal', groups: [{ label: null, standings: [], games: sorted.map(g => summary(g, source)) }] })
     }
 
+    const placings = [...(def.placings ?? [])]
+    if (placings.length) {
+      const top = medals ? [medals.gold, medals.silver, medals.bronze] : []
+      if (top.some((t, i) => t !== placings[i])) errors.push(`${def.slug}: placings ${placings.slice(0, 3).join(', ')} are not the medalists`)
+      const unknownTeams = placings.filter(t => !teams.has(t))
+      if (unknownTeams.length || new Set(placings).size < placings.length) errors.push(`${def.slug}: placings name ${unknownTeams.join(', ') || 'a team twice'}`)
+    }
+
     const evs = def.events.map(e => byKey.get(e.key)!)
     const { leaders, wpbl } = editionLeaders({
       games: evs.flatMap(e => e.games), batting: evs.flatMap(e => e.batting), pitching: evs.flatMap(e => e.pitching),
     }, people)
     built.push({
       slug: def.slug, title: editionTitle(def.slug), ordinal: def.ordinal, years: def.years, hosts: def.hosts,
-      teams: [...teams].sort(cmp), stages, medals, sources, leaders, wpbl,
+      teams: [...teams].sort(cmp), stages, medals, placings, sources, leaders, wpbl,
     })
   }
 

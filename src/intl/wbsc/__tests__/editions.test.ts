@@ -144,6 +144,14 @@ describe('World Cup editions', () => {
     expect(index[0].games).toBe(1)
   })
 
+  it("carries WBSC's placings, and fails when they disagree with the medals or name a stranger", () => {
+    const placed = (placings: string[]) => buildWorldCupSite([oneEvent()], { editions: [{ ...ONE, placings }] })
+    expect(placed(['AAA', 'BBB', 'YYY', 'CCC', 'ZZZ']).editions[0].placings).toEqual(['AAA', 'BBB', 'YYY', 'CCC', 'ZZZ'])
+    expect(buildWorldCupSite([oneEvent()], { editions: [ONE] }).editions[0].placings).toEqual([])
+    expect(placed(['BBB', 'AAA', 'YYY']).errors[0]).toMatch(/not the medalists/)
+    expect(placed(['AAA', 'BBB', 'YYY', 'QQQ']).errors[0]).toMatch(/placings name QQQ/)
+  })
+
   it('builds nothing when an edition is half imported, a round is unknown or a group has no letter', () => {
     const half = buildWorldCupSite([{ key: 'ga', source: '', batting: [], pitching: [], games: [] }], { editions: [SPLIT] })
     expect(half.errors[0]).toMatch(/gb, fin not imported/)

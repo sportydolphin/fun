@@ -389,7 +389,10 @@ enters git.
     `groupLetters` in `EDITIONS`, copied from WBSC's standings pages (game order got both wrong). The
     standings are WBSC's: a later round carries over the earlier games between two of its teams, ties
     go by head to head and then Team Quality Balance, and a forfeit the importer skips is counted from
-    `forfeits` (2024's USA over Venezuela). Every table matched wbsc.org on Nov 2, 2026. `/world-cup` and `/world-cup/<year>` read
+    `forfeits` (2024's USA over Venezuela). Every table matched wbsc.org on Nov 2, 2026. The final
+    order is WBSC's Final Standings, copied into `placings` (all twelve for 2016 and 2018, the
+    Finals' six for 2024, which is all WBSC ranks); the build fails if its top three are not the
+    medalists. `/world-cup` and `/world-cup/<year>` read
     them under `npm run dev` only (`WORLD_CUP_ROUTES` in App.tsx), and the build fails if the page
     reaches a production bundle (`vite-plugin-no-dev-code.mjs`).
 12. ✅ **Game pages** (Nov 2, 2026): `--site` also writes `world-cup-game-<wbsc id>.json` per game
@@ -408,9 +411,14 @@ enters git.
     by play, the player card's career tables), and the career tables are one component on both
     sections ([`WorldCupCareer.tsx`](../src/intl/WorldCupCareer.tsx)). A team's flag stands where a
     club's logo would ([`flags.ts`](../src/intl/flags.ts), from `flag-icons`, MIT); Chinese Taipei
-    shows its code, since it plays under an Olympic flag no flag set carries. The names the display
+    shows its code, since it plays under an Olympic flag no flag set carries. On a Spanish-speaking
+    team a given name opening with María, Ana, Rosa, Luz, José, Flor or Sor keeps its second word
+    ("María José", "Rosa Maria"). The names the display
     rule gets wrong are set by hand in [`nameFixes.ts`](../src/intl/wbsc/nameFixes.ts), by team and
     registered name; re-import with `--offline` after adding one, then `--people` and `--site`.
+    Each file carries `indexable` (`isIndexable`): two World Cups, or 10 plate appearances and
+    batters faced together. 497 of 633 pass; the rest are a game or two, and go out of the sitemap and
+    get `noindex` once the pages are public, while staying linked and searchable on the site.
 14. ✅ **Search** (Nov 2, 2026): `--site` also writes `world-cup-people.json`, every World Cup-only
     player cut to the search row, and the WPBL search lists them after its own rows, with the
     editions for "world cup" or "wbsc" ([`worldCupSearch.ts`](../src/intl/worldCupSearch.ts)). A year

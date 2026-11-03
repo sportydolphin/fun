@@ -106,6 +106,12 @@ export function surnameCase(raw: string): string {
  *  name, not a first and a middle, so they stay whole. */
 const WHOLE_GIVEN_NAME = new Set(['TPE', 'KOR', 'CHN', 'HKG', 'PRK'])
 
+/** Spanish-speaking teams, whose given names are often one name in two words ("María José"). */
+const SPANISH_GIVEN_NAMES = new Set(['VEN', 'MEX', 'CUB', 'DOM', 'PUR', 'ESP', 'ARG', 'COL', 'PAN', 'NCA'])
+/** The first halves of those: names that seldom stand alone, so "Rosa Maria" is one name and
+ *  "Gabriela Paola" is a first and a middle. Not when a particle ("De La Caridad") or an initial follows. */
+const COMPOUND_START = /^(mar[ií]a|ana|rosa|luz|jos[eé]|flor|sor)$/i
+
 /**
  * The name the site shows: the first given name and the whole surname. WBSC registers every given
  * name ("Zoe Elizabeth Faith Hicks", "Mirialis De La Caridad Garcia Garcia"), which no box score
@@ -113,7 +119,8 @@ const WHOLE_GIVEN_NAME = new Set(['TPE', 'KOR', 'CHN', 'HKG', 'PRK'])
  * name is one name in two words (`WHOLE_GIVEN_NAME`) it stays whole, Taiwan's hyphenated as its
  * passports write it ("Yi-Ru"); a Hong Kong player's trailing English name is the one they go by
  * ("Wai Yin Michelle Lam" is Michelle Lam), and a name in parentheses beside it is dropped
- * ("Debby (Su-Yee) Mak"). A lone "." is WBSC's placeholder for a missing name. The few the rule
+ * ("Debby (Su-Yee) Mak"). On a Spanish-speaking team a given name opening with María, Ana, Rosa, Luz,
+ * José, Flor or Sor keeps its second word (`COMPOUND_START`). A lone "." is WBSC's placeholder for a missing name. The few the rule
  * gets wrong are set by hand in nameFixes.ts.
  * Only for showing: the crosswalk and the same-person rules match on everything WBSC wrote.
  */
@@ -131,6 +138,9 @@ export function displayName(firstName: string, lastName: string, teamId: string 
     // 2016 writes them hyphenated already, in lower case after the hyphen ("Wen-ching").
     else if (teamId === 'TPE') first = (given.length === 2 ? `${given[0]}-${given[1]}` : given.join(' ')).replace(/-(\p{Ll})/gu, (_, c: string) => `-${c.toUpperCase()}`)
     else first = given.join(' ')
+  } else if (teamId && SPANISH_GIVEN_NAMES.has(teamId) && given.length > 1 && COMPOUND_START.test(given[0])
+    && given[1].length > 1 && !/^(de|del|los|las)$/i.test(given[1])) {
+    first = `${given[0]} ${given[1]}`
   }
   return [first, surname].filter(Boolean).join(' ')
 }
