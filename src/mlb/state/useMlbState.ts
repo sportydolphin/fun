@@ -25,6 +25,8 @@ import {
 import { track, EVENTS } from '../../lib/analytics'
 import { fuzzyMatches } from '../../lib/fuzzyName'
 import { matchesClubNickname } from '../clubNicknames'
+import { loadMlbPlayerIndex, mlbPlayerIndexReady, searchMlbPlayerIndex } from '../playerIndex'
+import { onFirstSearchFocus } from './SearchBridgeContext'
 import { sheetOpen, keepSheetMarker, onSheetEntry, pushEntry, sheetEntryUrl } from './sheetHistory'
 import { openPlayerPanel } from './playerPanel'
 import { useOpensAsPanel } from '../../ui/ModalShell'
@@ -444,7 +446,11 @@ export function useMlbState() {
     setLbSelectedKeys(LB_FEATURED[lbGroup])
   }, [lbGroup])
 
-  // Combined search: instant team filter + debounced player search
+  // The season's player list for the search, read when the search is first focused rather than on
+  // every visit: most readers never search, and focus comes a few hundred ms before the first letter.
+  useEffect(() => onFirstSearchFocus(() => { void loadMlbPlayerIndex(CURRENT_SEASON) }), [])
+
+  // Combined search: instant team filter + local player matches + debounced network player search
   useEffect(() => {
     const blocked = blockDropdownRef.current
     if (blocked) blockDropdownRef.current = false
@@ -473,6 +479,21 @@ export function useMlbState() {
       return
     }
 
+    // This season's players answer at once, from the browser's copy (playerIndex.ts). The season
+    // list has no club names, so they come off the clubs in hand for the player page's eyebrow.
+    const teamName = new Map(allTeams.map(t => [t.id, t.name]))
+    const withTeam = (p: Player): Player => (p.currentTeam && !p.currentTeam.name
+      ? { ...p, currentTeam: { id: p.currentTeam.id, name: teamName.get(p.currentTeam.id) ?? '' } } : p)
+    const local = mlbPlayerIndexReady() ? searchMlbPlayerIndex(query).slice(0, 6).map(withTeam) : []
+    if (local.length) {
+      setPlayerResults(local)
+      setResultsForgiving(f => ({ ...f, players: false }))
+      if (!blocked) setDropdownOpen(true)
+    }
+    // Six of this season's players fill the list, and StatsAPI would rank the same active players
+    // first, so the network has nothing to add.
+    if (local.length >= 6) return
+
     const timer = setTimeout(async () => {
       setSearching(true)
       try {
@@ -480,9 +501,12 @@ export function useMlbState() {
         // StatsAPI matches the start of each name and nothing looser, so "Ohatni" finds no one. A
         // second, forgiving try runs only on a miss, so a correct spelling costs no extra call and
         // is never crowded by near names (searchPlayersForgiving says how).
-        const forgiven = !players.length
+        const forgiven = !players.length && !local.length
         if (forgiven) players = await searchPlayersForgiving(query)
-        const playerSlice = players.slice(0, 6)
+        // The local rows keep their places; the network adds who the season list lacks (a
+        // retired player, a prospect not yet up).
+        const seen = new Set(local.map(p => p.id))
+        const playerSlice = [...local, ...players.filter(p => !seen.has(p.id))].slice(0, 6)
         setPlayerResults(playerSlice)
         setResultsForgiving(f => ({ ...f, players: forgiven && playerSlice.length > 0 }))
         if (!blocked && (playerSlice.length > 0 || teamMatches.length > 0)) setDropdownOpen(true)

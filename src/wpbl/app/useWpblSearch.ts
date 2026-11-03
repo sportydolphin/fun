@@ -10,27 +10,45 @@ import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } fr
 import { useSearchBridge, updateSearchBridge, setSearchQuery, onFirstSearchFocus } from '../../mlb/state/SearchBridgeContext'
 import type { LeaderAsk, PlayerStatAsk, SearchResultRow } from '../../mlb/state/SearchBridgeContext'
 import { useWpblRecents } from '../recentSearches'
-import { fuzzyMatches } from '../../lib/fuzzyName'
+import { foldName, fuzzyMatches } from '../../lib/fuzzyName'
 import { gameRow } from '../../lib/gameRow'
 import { pickGames, todayIso, type GameQuery } from '../../league/finderParse'
 import { useAuth } from '../../AuthContext'
 import { wpblSearchedProps } from '../searchAnalytics'
-import { jerseyQuery, jerseyOf } from '../playerSearch'
+import { jerseyQuery, jerseyOf, rankHeaderMatches } from '../playerSearch'
+import { readSearchIndex, saveSearchIndex } from '../searchIndex'
 import type { WpblTeam, WpblPlayer, WpblGame } from '../types'
 import { track, EVENTS } from '../../lib/analytics'
 import {
   wpblGamePath, wpblComparePath,
 } from '../routes'
 import { currentSeason, inSeason, seasonsOnRecord } from '../season'
+import { LEAGUE_ROW } from '../derive/playerSeasons'
 
 /** The empty result list, one array for good: the bridge compares by identity, and a fresh `[]`
  *  per publish would wake every subscriber to say nothing changed. */
 const NO_ROWS: SearchResultRow[] = []
 
+/** Fetches portrait thumbnails into the browser's cache ahead of the rows that show them, once
+ *  each. A row draws its avatar the moment it renders, so a picture only arrives early if it was
+ *  asked for before the row existed: the empty box's players before the box opens, and the next
+ *  few matches before a longer query promotes them into the six shown. */
+const preloaded = new Set<string>()
+function preloadPortraits(urls: readonly (string | undefined)[]): void {
+  for (const url of urls) {
+    if (!url || preloaded.has(url)) continue
+    preloaded.add(url)
+    new Image().src = url
+  }
+}
+
+/** How many WAR leaders an empty box suggests: the palette's recents cap (PALETTE_RECENTS). */
+const SUGGESTED_PLAYERS = 3
+
 /** The section's half of the toolbar search: it registers as the owner while on screen, and answers
  *  the query with players, clubs, games, comparisons and stat answers. Returns the year a picked
  *  player's card should open on, for the one player it was picked for. */
-export function useWpblSearch({ searchActive, players, teams, games, openPlayer, selectTeam }: {
+export function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, games, openPlayer, selectTeam }: {
   searchActive: boolean
   players: WpblPlayer[]
   teams: WpblTeam[]
@@ -57,10 +75,16 @@ export function useWpblSearch({ searchActive, players, teams, games, openPlayer,
     if (!searchActive) return
     updateSearchBridge({ isRegistered: true, source: 'wpbl' })
     return () => {
-      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], searching: false, clearRecentSearches: null, resolveCompare: null, resolveGames: null, resolveLeader: null, resolvePlayerStat: null, seasonCount: null, resultsForgiving: { players: false, teams: false } })
+      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], suggestedRows: [], searching: false, clearRecentSearches: null, resolveCompare: null, resolveGames: null, resolveLeader: null, resolvePlayerStat: null, seasonCount: null, resultsForgiving: { players: false, teams: false } })
       setSearchQuery('')
     }
   }, [searchActive])
+
+  // Last visit's roster answers the search until this visit's lands (searchIndex.ts), so a letter
+  // typed in the first second after opening the site finds a player rather than nothing.
+  const [cached] = useState(readSearchIndex)
+  const players = livePlayers.length ? livePlayers : cached.players
+  const teams = liveTeams.length ? liveTeams : cached.teams
 
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
@@ -74,7 +98,11 @@ export function useWpblSearch({ searchActive, players, teams, games, openPlayer,
   // visitor, most of whom never search. Focus comes a few hundred ms before the first typed letter,
   // which is about what the read takes, and until it lands a row falls back to the roster's own
   // position label rather than showing nothing.
-  const [positionIndex, setPositionIndex] = useState<Map<string, PrimaryPosition>>(() => new Map())
+  // Seeded from last visit's copy, so a returning reader's rows have positions before any read.
+  const [positionIndex, setPositionIndex] = useState<Map<string, PrimaryPosition>>(() => new Map(cached.positions))
+  // The season's WAR leaders, from the same stored rows, for the empty box. Kept from the last
+  // visit when the stored season is not current, since the lines fallback carries no WAR.
+  const [leaders, setLeaders] = useState<string[]>(cached.leaders)
   const [searchUsed, setSearchUsed] = useState(false)
   useEffect(() => onFirstSearchFocus(() => setSearchUsed(true)), [])
   useEffect(() => {
@@ -93,7 +121,14 @@ export function useWpblSearch({ searchActive, players, teams, games, openPlayer,
           : year == null
             ? new Map()
             : buildPositionIndex(inSeason((await fetchWpblAllLines()).batting, games, year), games)
-        if (!cancelled) setPositionIndex(index)
+        if (cancelled) return
+        setPositionIndex(index)
+        if (stored?.current) {
+          setLeaders(stored.rows
+            .filter(r => r.scope === 'regular' && r.player_id !== LEAGUE_ROW && r.value)
+            .sort((a, b) => (b.value?.war ?? 0) - (a.value?.war ?? 0))
+            .slice(0, SUGGESTED_PLAYERS).map(r => r.player_id))
+        }
       })
       .catch(() => { /* search falls back to the roster's own labels */ })
     return () => { cancelled = true }
@@ -103,6 +138,11 @@ export function useWpblSearch({ searchActive, players, teams, games, openPlayer,
     // games to leave out, and that only moves when the schedule gains a game.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [games.length, searchUsed])
+
+  // Only the live answer is kept: writing the cached copy back would only restamp it.
+  useEffect(() => {
+    saveSearchIndex({ players: livePlayers, teams: liveTeams, positions: [...positionIndex], leaders })
+  }, [livePlayers, liveTeams, positionIndex, leaders])
 
   // Recent searches: the players and teams opened from the header search, newest first, so
   // the empty-query dropdown has something to show (opening a player page is the retention
@@ -125,7 +165,7 @@ export function useWpblSearch({ searchActive, players, teams, games, openPlayer,
   // results and the recents list so both look identical and both record the selection (a
   // recent re-selected bumps back to the front). The avatar is rebuilt from the live roster on
   // every render, so a traded player carries their current tint and team rather than a stale one.
-  const buildPlayerRow = useCallback((p: WpblPlayer, source: 'result' | 'recent'): SearchResultRow => {
+  const buildPlayerRow = useCallback((p: WpblPlayer, source: 'result' | 'recent' | 'suggested'): SearchResultRow => {
     const team = p.team_id ? teamById.get(p.team_id) : undefined
     const initials = p.name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
     return {
@@ -181,6 +221,13 @@ export function useWpblSearch({ searchActive, players, teams, games, openPlayer,
   // Matching is its own memo so the rows and the analytics below read the same answer rather
   // than filtering twice and being free to disagree. Counts are taken BEFORE the display slice:
   // "6 players" has to mean six, not "the cap".
+  // Ties in the ranking go to the player this reader opened most recently, then to a current
+  // player over a former one, then to whoever has taken the field more: with two "Kim"s, the one
+  // the reader means is far more often the one they just looked at, or the regular.
+  const tieWeight = useMemo(() => {
+    const recentRank = new Map(recentSearches.flatMap((r, i) => (r.type === 'player' ? [[r.id, recentSearches.length - i] as const] : [])))
+    return (p: WpblPlayer) => (recentRank.get(p.id) ?? 0) * 10_000 + (p.active ? 1000 : 0) + (positionIndex.get(p.id)?.fielded ?? 0)
+  }, [recentSearches, positionIndex])
   const matches = useMemo(() => {
     const raw = bridge.query.trim()
     // A jersey number, answered before the name path and on a SINGLE character: "7" is a real
@@ -196,10 +243,14 @@ export function useWpblSearch({ searchActive, players, teams, games, openPlayer,
           || a.name.localeCompare(b.name))
       return { q: raw.toLowerCase(), players: p, teams: [] as WpblTeam[], forgiving: false }
     }
-    const q = raw.toLowerCase()
+    // Folded on both sides: a plain lowercase let "Andreanne" miss "Andréanne" here while the
+    // Discord box (playerSearch.ts) and the compare resolver below already found her.
+    const q = foldName(raw)
     if (q.length < 2) return null
-    let p = players.filter(pl => pl.name.toLowerCase().includes(q))
-    let t = teams.filter(tm => `${tm.city} ${tm.name} ${tm.abbr}`.toLowerCase().includes(q))
+    // Ranked, not roster order: the six rows shown are the six best, so "le" opens on Leblanc
+    // rather than on whoever sorts first with an "le" somewhere inside.
+    let p = rankHeaderMatches(raw, players, tieWeight)
+    let t = teams.filter(tm => foldName(`${tm.city} ${tm.name} ${tm.abbr}`).includes(q))
     // A slip ("Whitmor", "Firebels"): the forgiving pass, and only once the exact one found nothing,
     // so a correct spelling is never crowded by near misses (src/lib/fuzzyName.ts).
     const forgiving = !p.length && !t.length && q.length >= 3
@@ -208,7 +259,7 @@ export function useWpblSearch({ searchActive, players, teams, games, openPlayer,
       t = fuzzyMatches(teams, q, tm => [`${tm.city} ${tm.name}`, tm.name, tm.city])
     }
     return { q, players: p, teams: t, forgiving }
-  }, [bridge.query, players, teams])
+  }, [bridge.query, players, teams, tieWeight])
 
   // The World Cup's players and editions, after the WPBL's own rows. Dev only until the World Cup
   // goes public: the build replaces the flag with false and drops the import with it.
@@ -226,6 +277,7 @@ export function useWpblSearch({ searchActive, players, teams, games, openPlayer,
     if (!searchActive) return
     if (!matches && !worldCupRows.length) { updateSearchBridge({ resultRows: NO_ROWS }); return }
     const playerRows = (matches?.players ?? []).slice(0, 6).map(p => buildPlayerRow(p, 'result'))
+    preloadPortraits((matches?.players ?? []).slice(6, 12).map(p => wpblPortraitSet(p.name)?.src))
     const teamRows = (matches?.teams ?? []).slice(0, 4).map(t => buildTeamRow(t, 'result'))
     const forgiving = matches?.forgiving ?? false
     updateSearchBridge({ resultRows: [...playerRows, ...teamRows, ...worldCupRows], resultsForgiving: { players: forgiving, teams: forgiving } })
@@ -352,6 +404,25 @@ export function useWpblSearch({ searchActive, players, teams, games, openPlayer,
     })
     updateSearchBridge({ recentRows: rows, clearRecentSearches: clearRecents })
   }, [recentSearches, players, teams, buildPlayerRow, buildTeamRow, clearRecents, searchActive])
+
+  useEffect(() => {
+    if (!searchActive) return
+    const byId = new Map(players.map(p => [p.id, p]))
+    updateSearchBridge({ suggestedRows: leaders.flatMap(id => { const p = byId.get(id); return p ? [buildPlayerRow(p, 'suggested')] : [] }) })
+  }, [leaders, players, buildPlayerRow, searchActive])
+
+  // The empty box's faces, fetched while the page is idle so they are there when it opens. Six
+  // thumbnails at most, about 40KB.
+  useEffect(() => {
+    if (!searchActive) return
+    const byId = new Map(players.map(p => [p.id, p]))
+    const ids = [...recentSearches.filter(r => r.type === 'player').map(r => r.id), ...leaders].slice(0, 6)
+    const urls = ids.map(id => { const p = byId.get(id); return p ? wpblPortraitSet(p.name)?.src : undefined })
+    const idle = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 1500))
+    const cancel = window.cancelIdleCallback ?? window.clearTimeout
+    const handle = idle(() => preloadPortraits(urls))
+    return () => cancel(handle)
+  }, [recentSearches, leaders, players, searchActive])
 
   return { openingSeason }
 }

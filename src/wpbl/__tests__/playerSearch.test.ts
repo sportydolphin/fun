@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { searchPlayers, normalizeName, editDistance } from '../playerSearch'
+import { searchPlayers, normalizeName, editDistance, rankHeaderMatches } from '../playerSearch'
 
 // The matcher behind the Discord bot's /player command. These cases are the actual 2026
 // roster's awkward shapes: accented names someone will type unaccented, a shared surname,
@@ -174,5 +174,39 @@ describe('searchPlayers by jersey number', () => {
   // than silently matching a shirt by its first two characters.
   it('does not treat a longer number as a jersey', () => {
     expect(searchPlayers('1997', shirts)).toHaveLength(0)
+  })
+})
+
+describe('rankHeaderMatches', () => {
+  const roster = [
+    { name: 'Kelsie Whitmore', w: 0 },
+    { name: 'Andréanne Leblanc', w: 0 },
+    { name: 'Maria José Valenzuela', w: 0 },
+    { name: 'Kim Lee', w: 0 },
+    { name: 'Kim Leeds', w: 5 },
+    { name: 'Kim Ledger', w: 1 },
+  ]
+  const names = (q: string) => rankHeaderMatches(q, roster, p => p.w).map(p => p.name)
+
+  it('puts a word start above a match inside a word, on two letters too', () => {
+    expect(names('le')).toEqual(['Kim Leeds', 'Kim Ledger', 'Kim Lee', 'Andréanne Leblanc', 'Maria José Valenzuela'])
+  })
+
+  it('finds what a substring cannot: surname first, and initials', () => {
+    expect(names('whitmore kelsie')).toEqual(['Kelsie Whitmore'])
+    expect(names('k whitmore')).toEqual(['Kelsie Whitmore'])
+  })
+
+  it('opens a middle name above the middle of a word, accents ignored', () => {
+    expect(names('jose')).toEqual(['Maria José Valenzuela'])
+  })
+
+  it('leaves misspellings to the forgiving pass', () => {
+    expect(names('whitmor')).toEqual(['Kelsie Whitmore'])
+    expect(names('witmore')).toEqual([])
+  })
+
+  it('breaks ties by weight before length', () => {
+    expect(names('kim')).toEqual(['Kim Leeds', 'Kim Ledger', 'Kim Lee'])
   })
 })
