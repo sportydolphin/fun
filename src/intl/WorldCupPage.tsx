@@ -33,7 +33,8 @@ import { outsToIp } from '../league/innings'
 import { WorldCupCareerTables } from './WorldCupCareer'
 import { WBSC_LEAGUE } from './league'
 import { fetchSite } from './siteFile'
-import type { WorldCupPersonFile } from './wbsc/personFile'
+import type { Medal, PersonGameLine, WorldCupPersonFile } from './wbsc/personFile'
+import type { InternationalEvent } from './wbsc/international'
 import type { EditionLeaders, WpblInField } from './wbsc/editionLeaders'
 import type { WorldCupGameFile } from './wbsc/gameFile'
 import type { TeamRoster } from './wbsc/editionLeaders'
@@ -821,6 +822,91 @@ function GamePage({ slug, id }: { slug: string; id: string }) {
 
 const fmtTwo = (v: number | null) => (v == null ? '—' : v.toFixed(2))
 
+const MEDAL_WORD: Record<Medal, string> = { gold: 'Gold', silver: 'Silver', bronze: 'Bronze' }
+const MEDAL_VAR: Record<Medal, string> = { gold: 'var(--wpbl-medal-1)', silver: 'var(--wpbl-medal-2)', bronze: 'var(--wpbl-medal-3)' }
+
+function MedalWord({ medal }: { medal: Medal }) {
+  return <Box component="span" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: MEDAL_VAR[medal] }}>{MEDAL_WORD[medal]}</Box>
+}
+
+/** An edition's medal goes on the person's last event of it (the Finals, where it was won), so a
+ *  group stage and its Finals do not both carry it. */
+function medalMark(p: WorldCupPersonFile, e: InternationalEvent) {
+  const ev = p.events.find(x => x.event_key === e.event_key)
+  const m = ev?.edition ? p.medals?.find(x => x.edition === ev.edition) : undefined
+  if (!m || !ev) return null
+  const last = [...p.events].reverse().find(x => x.edition === ev.edition)
+  return last?.event_key === e.event_key ? <MedalWord medal={m.medal} /> : null
+}
+
+/** Country, position, how many World Cups, and the medals won: the facts a reader scans first. */
+function PersonHeader({ p }: { p: WorldCupPersonFile }) {
+  const editions = new Set(p.events.flatMap(e => (e.edition ? [e.edition] : [])))
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+      {p.country && <CountryBadge team={p.country} size={40} />}
+      <Box>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
+          {[
+            p.country ? (
+              <Box key="c" {...linkTo(teamPath(null, p.country))} sx={{ ...UNSTYLED_LINK, color: 'text.primary', fontWeight: 600, '&:hover': { textDecoration: 'underline' } }}>
+                {countryName(p.country)}
+              </Box>
+            ) : null,
+            p.position,
+            `${editions.size} ${editions.size === 1 ? 'World Cup' : 'World Cups'}`,
+          ].filter(Boolean).map((x, i) => <Fragment key={i}>{i > 0 && ' · '}{x}</Fragment>)}
+        </Typography>
+        {(p.medals?.length ?? 0) > 0 && (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 1.5, mt: 0.25 }}>
+            {p.medals.map(m => (
+              <Box key={m.edition} sx={{ display: 'inline-flex', gap: 0.5, alignItems: 'baseline' }}>
+                <MedalWord medal={m.medal} />
+                <Box component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{m.edition}</Box>
+              </Box>
+            ))}
+          </Box>
+        )}
+      </Box>
+    </Box>
+  )
+}
+
+/** Every game, newest first, one table for what the person did at the plate and one on the mound.
+ *  A row opens the game's page. */
+function PersonGameLog({ p }: { p: WorldCupPersonFile }) {
+  const games = p.events.flatMap(e => (e.log ?? []).map(g => ({ g, edition: e.edition })))
+    .sort((a, b) => cmp(b.g.game_date, a.g.game_date) || b.g.wbsc_game_id - a.g.wbsc_game_id)
+  const lead = (g: PersonGameLine) => [
+    `${shortDate(g.game_date)}, ${g.game_date.slice(0, 4)}`,
+    `${g.home ? 'vs' : '@'} ${g.opponent_id}`,
+    `${g.team_score > g.opponent_score ? 'W' : 'L'} ${g.team_score}–${g.opponent_score}`,
+  ]
+  const opener = (g: PersonGameLine, edition: string | null) => (edition ? () => navigate(`/world-cup/${edition}/games/${g.wbsc_game_id}`) : undefined)
+  const batting: StatLogRow[] = games.flatMap(({ g, edition }) => (g.batting ? [{
+    lead: lead(g), onOpen: opener(g, edition),
+    cells: [g.batting.ab, g.batting.r, g.batting.h, g.batting.hr, g.batting.rbi, g.batting.bb, g.batting.so, g.batting.sb],
+  }] : []))
+  const pitching: StatLogRow[] = games.flatMap(({ g, edition }) => (g.pitching ? [{
+    lead: lead(g), onOpen: opener(g, edition),
+    cells: [outsToIp(g.pitching.outs), g.pitching.h, g.pitching.er, g.pitching.bb, g.pitching.so, g.pitching.decision ?? ''],
+  }] : []))
+  return (
+    <>
+      {batting.length > 0 && (
+        <StatLogTable title="Batting" leadHeaders={['Date', 'Opp', 'Result']} statHeaders={['AB', 'R', 'H', 'HR', 'RBI', 'BB', 'SO', 'SB']}
+          rows={batting} accent={ACCENT} />
+      )}
+      {pitching.length > 0 && (
+        <Box sx={{ mt: batting.length > 0 ? 2.5 : 0 }}>
+          <StatLogTable title="Pitching" leadHeaders={['Date', 'Opp', 'Result']} statHeaders={['IP', 'H', 'ER', 'BB', 'SO', 'Dec']}
+            rows={pitching} accent={ACCENT} />
+        </Box>
+      )}
+    </>
+  )
+}
+
 function PersonPage({ slug }: { slug: string }) {
   const read = useSiteFile<WorldCupPersonFile>(`world-cup-player-${slug}.json`)
   const p = read?.data
@@ -834,22 +920,18 @@ function PersonPage({ slug }: { slug: string }) {
       trail={[{ href: '/world-cup', label: 'World Cup' }]}>
       {!read ? <Loading /> : !p ? <NoData /> : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {p.country && <CountryBadge team={p.country} size={34} />}
-            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>
-              {p.country && (
-                <Box {...linkTo(teamPath(null, p.country))} sx={{ ...UNSTYLED_LINK, '&:hover': { textDecoration: 'underline' } }}>
-                  {countryName(p.country)}
-                </Box>
-              )}
-              {p.country && ' · '}{`${p.events.length} ${p.events.length === 1 ? 'event' : 'events'}`}
-            </Typography>
-          </Box>
+          <PersonHeader p={p} />
           <SectionCard title="World Cup">
             {/* The World Cup's own seven-inning basis: there is no league setting to follow here. */}
             <WorldCupCareerTables events={p.events} accent={ACCENT} eraBasis={WBSC_LEAGUE.regulationInnings} fmtEra={fmtTwo} onOpen={openEvent}
-              hrefOf={e => { const ed = editionSlugOf(e.event_key); return ed ? `/world-cup/${ed}` : null }} />
+              hrefOf={e => { const ed = editionSlugOf(e.event_key); return ed ? `/world-cup/${ed}` : null }}
+              markOf={e => medalMark(p, e)} total />
           </SectionCard>
+          {p.events.some(e => e.log?.length) && (
+            <SectionCard title="Games">
+              <PersonGameLog p={p} />
+            </SectionCard>
+          )}
           <Box sx={{ px: 0.5, pt: 0.5, borderTop: '1px solid', borderColor: CARD_BORDER }}>
             <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
               Source: WBSC{p.events.map(e => (

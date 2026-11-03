@@ -28,6 +28,23 @@ export interface PersonEventInput {
 export interface WorldCupPersonEvent extends InternationalEvent {
   /** The edition page this event is part of, when it has one. */
   edition: string | null
+  /** Every game the person played in the event, with their line in it, for the page's game log. */
+  log: PersonGameLine[]
+}
+
+export type Medal = 'gold' | 'silver' | 'bronze'
+
+/** One game of a person's, with the score from their team's side and only the stats a game log
+ *  shows. A side is null when the person did not bat, or did not pitch, that game. */
+export interface PersonGameLine {
+  wbsc_game_id: number
+  game_date: string
+  opponent_id: string
+  home: boolean
+  team_score: number
+  opponent_score: number
+  batting: { ab: number; r: number; h: number; hr: number; rbi: number; bb: number; so: number; sb: number } | null
+  pitching: { outs: number; h: number; er: number; bb: number; so: number; decision: string | null } | null
 }
 
 export interface WorldCupPersonFile {
@@ -36,6 +53,11 @@ export interface WorldCupPersonFile {
   country: string | null
   /** Oldest first; only the events the person played a game in. */
   events: WorldCupPersonEvent[]
+  /** The position the person played most, as WBSC writes it ("SS"); "P" for one who only pitched.
+   *  A pinch hitter's or runner's turn does not count. */
+  position: string | null
+  /** The medals the person's team won in an edition they played, oldest first. */
+  medals: { edition: string; medal: Medal }[]
   /** Whether search engines may list the page (`isIndexable`). The page's robots tag and the
    *  sitemap both read this, once the pages are public. */
   indexable: boolean
@@ -83,13 +105,27 @@ export function personSlugs(people: readonly Person[]): Map<string, string> {
 
 const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
 
+/** The position played most, by game. Ties go to the alphabet, so a rebuild cannot flip it. */
+function primaryPosition(batting: readonly WbscBattingLine[], pitched: boolean): string | null {
+  const n = new Map<string, number>()
+  for (const l of batting) {
+    const pos = String(l.position ?? '').toUpperCase().split('/').find(p => p && p !== 'PH' && p !== 'PR')
+    if (pos) n.set(pos, (n.get(pos) ?? 0) + 1)
+  }
+  const top = [...n].sort((a, b) => b[1] - a[1] || cmp(a[0], b[0]))[0]?.[0]
+  return top ?? (pitched ? 'P' : null)
+}
+
 export function buildPersonFile(
   person: Person,
   slug: string,
   events: ReadonlyMap<string, PersonEventInput>,
   editionOf: (eventKey: string) => string | null,
+  medalOf: (edition: string, team: string) => Medal | null = () => null,
 ): WorldCupPersonFile {
   const out: WorldCupPersonEvent[] = []
+  const allBatting: WbscBattingLine[] = []
+  let pitched = false
   for (const id of person.wbsc) {
     const ev = events.get(id.event_key)
     if (!ev) continue
@@ -98,6 +134,25 @@ export function buildPersonFile(
     const played = new Set([...batting, ...pitching].map(l => l.game_id))
     if (!played.size) continue
     const team = batting[0]?.team_id ?? pitching[0]?.team_id ?? id.team_id ?? ''
+    allBatting.push(...batting)
+    if (pitching.length) pitched = true
+    const log = ev.games.filter(g => played.has(g.id)).map((g): PersonGameLine => {
+      const home = g.home_team_id === team
+      const b = batting.filter(l => l.game_id === g.id)
+      const p = pitching.filter(l => l.game_id === g.id)
+      const add = <T extends object>(rows: readonly T[], k: keyof T) => rows.reduce((n, r) => n + (Number(r[k]) || 0), 0)
+      return {
+        wbsc_game_id: g.wbsc_game_id, game_date: g.game_date, opponent_id: home ? g.away_team_id : g.home_team_id, home,
+        team_score: (home ? g.home_score : g.away_score) ?? 0, opponent_score: (home ? g.away_score : g.home_score) ?? 0,
+        batting: b.length ? {
+          ab: add(b, 'ab'), r: add(b, 'r'), h: add(b, 'h'), hr: add(b, 'hr'), rbi: add(b, 'rbi'), bb: add(b, 'bb'), so: add(b, 'so'), sb: add(b, 'sb'),
+        } : null,
+        pitching: p.length ? {
+          outs: add(p, 'outs'), h: add(p, 'h'), er: add(p, 'er'), bb: add(p, 'bb'), so: add(p, 'so'),
+          decision: p.find(l => l.decision === 'W' || l.decision === 'L' || l.decision === 'S')?.decision ?? null,
+        } : null,
+      }
+    }).sort((a, b) => cmp(a.game_date, b.game_date) || a.wbsc_game_id - b.wbsc_game_id)
     const games = ev.games.filter(g => played.has(g.id)).map((g): InternationalGame => {
       const home = g.home_team_id === team
       return {
@@ -107,11 +162,19 @@ export function buildPersonFile(
     }).sort((a, b) => cmp(a.game_date, b.game_date) || a.wbsc_game_id - b.wbsc_game_id)
     out.push({
       event_key: ev.key, event: ev.name, year: ev.year, team_id: team, wbsc_name: person.name, wbsc_id: id.wbsc_id,
-      url: ev.source, batting: sumBatting(batting), pitching: sumPitching(pitching), games, edition: editionOf(ev.key),
+      url: ev.source, batting: sumBatting(batting), pitching: sumPitching(pitching), games, edition: editionOf(ev.key), log,
     })
   }
   out.sort((a, b) => cmp(a.games[0]?.game_date ?? '', b.games[0]?.game_date ?? '') || cmp(a.event_key, b.event_key))
-  return { slug, name: person.name, country: person.country, events: out, indexable: isIndexable(out) }
+  const medals: WorldCupPersonFile['medals'] = []
+  for (const e of out) {
+    const medal = e.edition ? medalOf(e.edition, e.team_id) : null
+    if (medal && e.edition && !medals.some(m => m.edition === e.edition)) medals.push({ edition: e.edition, medal })
+  }
+  return {
+    slug, name: person.name, country: person.country, events: out,
+    position: primaryPosition(allBatting, pitched), medals, indexable: isIndexable(out),
+  }
 }
 
 /** One World Cup-only person in the site search (`world-cup-people.json`): enough for the row, and
