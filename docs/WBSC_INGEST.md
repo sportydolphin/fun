@@ -434,6 +434,15 @@ enters git.
     editions for "world cup" or "wbsc" ([`worldCupSearch.ts`](../src/intl/worldCupSearch.ts)). A year
     typed beside a name narrows to that edition. A WPBL player is found as a WPBL player only, since
     that is their one page. Dev only, like the pages: the production build fails if the rows ship.
+    Since Nov 3 it also finds a team (`team_ids` on the index) and an edition by a year alone.
+15. ✅ **Navigation and the pages' second pass** (Nov 3, 2026): the World Cup sits in the WPBL
+    section (its tabs, bottom bar and More menu, all behind the dev flag); an edition is four
+    addresses (`/world-cup/<year>`, `/games`, `/leaders`, `/teams`); team pages per edition
+    (`/world-cup/<year>/teams/<ioc>`, from `rosters` in the edition file) and across editions
+    (`/world-cup/teams/<ioc>`); a game page's score header and neighbors; a player file's `log`,
+    `position` and `medals`. `--site` writes all of it.
+16. ✅ **2012 and 2014** (Nov 3, 2026): two more legacy events, 60 games, three accepted at the
+    source (`ACCEPTED` in the importer). What differed is under "The source" above.
 
 ## The 2016 play log
 
