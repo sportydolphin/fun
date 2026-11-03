@@ -262,6 +262,12 @@ it, so it is designed for the developmental league and the AAGPBL as much as for
 - **`/world-cup`** (every edition) and **`/world-cup/<year>`**: standings by group and round,
   results, leaders, the WPBL players in the field marked. A top-level route, not under `/wpbl`:
   two `_redirects` lines, `routes.ts`, `seo.ts`, the sitemap.
+  **Started Nov 2, 2026, dev only**: both pages render every edition's groups, records, results
+  and medals from `npm run wbsc -- --site`, under `npm run dev` alone; a production build cannot
+  carry them (docs/WBSC_INGEST.md, step 11). Leaders and the WPBL players in the field followed the
+  same day, and in dev a player page's World Cup row opens its edition. Game pages with our own play
+  by play followed too (step 12), then a page for every player outside the WPBL, all drawn with
+  WPBL's own pieces (step 13). The public switch is what is left.
 - **A game page** per World Cup game: line score, box score and play by play. The neutral engines
   in `src/league/` (bests, the finder, run expectancy) run on it with `src/intl/league.ts`; the
   WPBL Game Center's components are reused where they are already league-neutral, and anything
@@ -278,7 +284,8 @@ it, so it is designed for the developmental league and the AAGPBL as much as for
   the retention event the traffic data names. `/players/<slug>` from the registry. A WPBL player's
   canonical page stays `/wpbl/players/<slug>` through the 2027 season, since its search ranking is
   the site's; `/players/<slug>` redirects there for them.
-- **Search** covers people and events. Thin pages (one tournament, a handful of PA) are a known
+- **Search** covers people and events. **Built Nov 2, 2026, dev only** (docs/WBSC_INGEST.md, step 14).
+  Thin pages (one tournament, a handful of PA) are a known
   SEO risk: decide `noindex` by a threshold when building, measured, not guessed.
 - **The size budget in CI** for the event files, added as they enter git.
 - **Done when** every World Cup since 2016 has its page and every name on them is a link.

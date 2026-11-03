@@ -261,14 +261,27 @@ export function useWpblSearch({ searchActive, players: livePlayers, teams: liveT
     return { q, players: p, teams: t, forgiving }
   }, [bridge.query, players, teams, tieWeight])
 
+  // The World Cup's players and editions, after the WPBL's own rows. Dev only until the World Cup
+  // goes public: the build replaces the flag with false and drops the import with it.
+  const [worldCupRows, setWorldCupRows] = useState<SearchResultRow[]>(NO_ROWS)
+  useEffect(() => {
+    if (!import.meta.env.DEV || !searchActive) return
+    let live = true
+    void import('../../intl/worldCupSearchRows')
+      .then(m => m.worldCupRows(bridge.query, typeof bridge.querySeason === 'number' ? bridge.querySeason : null))
+      .then(rows => { if (live) setWorldCupRows(rows.length ? rows : NO_ROWS) })
+    return () => { live = false }
+  }, [bridge.query, bridge.querySeason, searchActive])
+
   useEffect(() => {
     if (!searchActive) return
-    if (!matches) { updateSearchBridge({ resultRows: NO_ROWS }); return }
-    const playerRows = matches.players.slice(0, 6).map(p => buildPlayerRow(p, 'result'))
-    preloadPortraits(matches.players.slice(6, 12).map(p => wpblPortraitSet(p.name)?.src))
-    const teamRows = matches.teams.slice(0, 4).map(t => buildTeamRow(t, 'result'))
-    updateSearchBridge({ resultRows: [...playerRows, ...teamRows], resultsForgiving: { players: matches.forgiving, teams: matches.forgiving } })
-  }, [matches, buildPlayerRow, buildTeamRow, searchActive])
+    if (!matches && !worldCupRows.length) { updateSearchBridge({ resultRows: NO_ROWS }); return }
+    const playerRows = (matches?.players ?? []).slice(0, 6).map(p => buildPlayerRow(p, 'result'))
+    preloadPortraits((matches?.players ?? []).slice(6, 12).map(p => wpblPortraitSet(p.name)?.src))
+    const teamRows = (matches?.teams ?? []).slice(0, 4).map(t => buildTeamRow(t, 'result'))
+    const forgiving = matches?.forgiving ?? false
+    updateSearchBridge({ resultRows: [...playerRows, ...teamRows, ...worldCupRows], resultsForgiving: { players: forgiving, teams: forgiving } })
+  }, [matches, worldCupRows, buildPlayerRow, buildTeamRow, searchActive])
 
   // "Whitmore vs Ibarra" in the palette. The halves arrive lowercased with accents folded (the
   // parser's normalize), so the names are folded the same way before matching. Best match first:

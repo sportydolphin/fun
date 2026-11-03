@@ -33,14 +33,14 @@ function events(): InternationalEventInput[] {
     {
       key: 'late', name: 'Late event', year: 2024, source: `${SRC}/late/schedule-and-results`,
       games: [game(30, '2024-08-01', 'AAA', 'BBB')],
-      playerIds: new Set(['wbsc:p:2:1']),
+      players: new Map([['wbsc:p:2:1', 'Some Player']]),
       batting: [bat('wbsc:p:2:1', 30, 'AAA', { pa: 4, ab: 4, h: 1, hr: 1, tb: 4, rbi: 1 })],
       pitching: [],
     },
     {
       key: 'early', name: 'Early event', year: 2018, source: `${SRC}/early/schedule-and-results`,
       games: [game(11, '2018-08-02', 'CCC', 'AAA'), game(10, '2018-08-01', 'AAA', 'BBB'), game(12, '2018-08-03', 'AAA', 'DDD')],
-      playerIds: new Set(['wbsc:p:1:1', 'wbsc:p:1:2', 'wbsc:p:1:3', 'wbsc:p:1:4']),
+      players: new Map([['wbsc:p:1:1', 'x'], ['wbsc:p:1:2', 'x'], ['wbsc:p:1:3', 'x'], ['wbsc:p:1:4', 'x']]),
       batting: [
         bat('wbsc:p:1:1', 10, 'AAA', { pa: 3, ab: 2, h: 1, doubles: 1, tb: 2, bb: 1 }),
         bat('wbsc:p:1:1', 11, 'AAA', { pa: 4, ab: 4, h: 2, tb: 2, so: 1 }),
@@ -79,6 +79,11 @@ describe('international.json', () => {
     expect(rows[0].games.map(g => [g.wbsc_game_id, g.opponent_id, g.home])).toEqual([[10, 'BBB', false], [11, 'CCC', true], [12, 'DDD', false]])
     expect(rows[0].games[0].url).toBe(`${SRC}/early/schedule-and-results/box-score/10`)
     expect(rows[0].team_id).toBe('AAA')
+  })
+
+  it('names the row as the site shows the WBSC player, not with every name the crosswalk recorded', () => {
+    const { international } = buildInternational(crosswalk([link('wbsc:p:2:1', 'late', 'w1', 'Some Middle Player')]), events(), ROSTER)
+    expect(international.w1.events[0].wbsc_name).toBe('Some Player')
   })
 
   it('gives a pitcher who never batted no batting row, and an unknown pitch count stays unknown', () => {

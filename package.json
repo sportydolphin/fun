@@ -67,6 +67,7 @@
     "@supabase/postgrest-js": "^2.117.3",
     "@supabase/realtime-js": "^2.117.3",
     "@supabase/supabase-js": "^2.117.3",
+    "flag-icons": "^7.6.0",
     "html2canvas": "^1.4.1",
     "pg": "^8.23.1",
     "react": "^19.3.0",

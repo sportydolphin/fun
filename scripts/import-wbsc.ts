@@ -12,6 +12,7 @@
  *   npm run wbsc -- --same              the same player across World Cups: rules decide, the rest to review
  *   npm run wbsc -- --confirm-same      move the reviewed answers into same-person.json
  *   npm run wbsc -- --people            people.json, one person per player across every competition
+ *   npm run wbsc -- --site              the World Cup pages' files, per edition, into archive/wbsc/site/
  *   flags: --refresh (refetch cached games), --offline (cache only, no network),
  *          --check (compare with the files on disk, write nothing)
  *
@@ -30,7 +31,7 @@
  * looks complete, which is worse than no file.
  */
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { gunzipSync, gzipSync } from 'node:zlib'
 import pg from 'pg'
@@ -40,9 +41,14 @@ import { inertiaFromHtml } from '../src/intl/wbsc/page'
 import { isFinal, transformGame, validateGame } from '../src/intl/wbsc/game'
 import type { WbscBattingLine, WbscGame, WbscPlayer } from '../src/intl/wbsc/game'
 import { buildInternational, type International, type InternationalEventInput } from '../src/intl/wbsc/international'
-import { buildPeople, type PeopleWpblPlayer } from '../src/intl/people'
+import { buildPeople, type PeopleWpblPlayer, type Person } from '../src/intl/people'
+import type { PersonLookup } from '../src/intl/wbsc/editionLeaders'
+import { wpblPlayerPath } from '../src/wpbl/routes'
+import { buildWorldCupSite, editionSlugOf, type EditionEventInput } from '../src/intl/wbsc/editions'
+import { buildGameFile } from '../src/intl/wbsc/gameFile'
+import { buildPersonFile, personSlugs, searchEntry, type WorldCupSearchPerson } from '../src/intl/wbsc/personFile'
 import { EMPTY_SAME_PERSON, proposeSamePerson, type SamePersonCandidate, type SamePersonFile } from '../src/intl/wbsc/samePerson'
-import type { PitchingGameLine } from '../src/league/types'
+import type { PitchingGameLine, RunValuePlay } from '../src/league/types'
 import type { WbscEvent, WbscGamePage, WbscScheduleGame } from '../src/intl/wbsc/types'
 import { serveReview } from './wbsc-review'
 
@@ -357,6 +363,11 @@ function importedPlayers(): WbscPlayer[] {
     .flatMap(d => readJson<WbscPlayer[]>(join(OUT_DIR, d.name, 'players.json'), []))
 }
 
+/** The same players under every name WBSC registered. The crosswalk and the same-person rules match
+ *  on it ("Esthela" is Liliana Esthela's middle name) and the reviewer reads it, so neither ever sees
+ *  the shortened name the site shows. */
+const asRegistered = (players: WbscPlayer[]): WbscPlayer[] => players.map(p => ({ ...p, name: p.full_name }))
+
 function proposeLinks(): boolean {
   // Never overwrite a review in progress: a decision typed into the file and not yet confirmed
   // would be lost without a word.
@@ -369,7 +380,7 @@ function proposeLinks(): boolean {
   if (!players.length) { console.log(`No imported events in ${OUT_DIR}. Import one first.`); return false }
   const roster = readJson<CrosswalkWpblPlayer[]>(ROSTER, [])
   const crosswalk = readJson<Crosswalk>(CROSSWALK, EMPTY_CROSSWALK)
-  const candidates = propose(players, roster, crosswalk)
+  const candidates = propose(asRegistered(players), roster, crosswalk)
   writeJson(REVIEW, { checked_by: open?.checked_by ?? '', candidates } satisfies Review)
 
   for (const c of candidates) {
@@ -422,7 +433,7 @@ function buildInternationalFile(): boolean {
       return {
         key: m.event, name: m.name, year: m.year, source: m.source,
         games: readJson<WbscGame[]>(join(dir, 'games.json'), []),
-        playerIds: new Set(readJson<WbscPlayer[]>(join(dir, 'players.json'), []).map(p => p.id)),
+        players: new Map(readJson<WbscPlayer[]>(join(dir, 'players.json'), []).map(p => [p.id, p.name])),
         batting: readJson<WbscBattingLine[]>(join(dir, 'batting_lines.json'), []),
         pitching: readJson<PitchingGameLine[]>(join(dir, 'pitching_lines.json'), []),
       }
@@ -487,7 +498,7 @@ function proposeSame(): boolean {
   const open = readJson<SameReview | null>(SAME_REVIEW, null)
   if (open?.questions.some(q => q.decision !== '')) { console.log(`${SAME_REVIEW} holds answers not yet confirmed. Run --confirm-same first.`); return false }
   const file = readJson<SamePersonFile>(SAME_PERSON, EMPTY_SAME_PERSON)
-  const { decided, review } = proposeSamePerson(importedPlayers(), readJson<Crosswalk>(CROSSWALK, EMPTY_CROSSWALK), file, today())
+  const { decided, review } = proposeSamePerson(asRegistered(importedPlayers()), readJson<Crosswalk>(CROSSWALK, EMPTY_CROSSWALK), file, today())
   writeJson(SAME_PERSON, { decisions: [...file.decisions, ...decided] } satisfies SamePersonFile)
   writeJson(SAME_REVIEW, { checked_by: open?.checked_by ?? '', questions: review } satisfies SameReview)
   const by = new Map<string, number>()
@@ -505,7 +516,7 @@ function confirmSame(): boolean {
   const bad = answered.filter(q => q.decision !== 'yes' && q.decision !== 'no')
   if (answered.length && !review.checked_by.trim()) { console.log('checked_by is empty: say who answered these.'); return false }
   if (bad.length) { console.log(`Not yes or no: ${bad.map(q => q.a_name).join(', ')}`); return false }
-  const byId = new Map(importedPlayers().map(p => [p.id, p]))
+  const byId = new Map(asRegistered(importedPlayers()).map(p => [p.id, p]))
   const file = readJson<SamePersonFile>(SAME_PERSON, EMPTY_SAME_PERSON)
   const decisions = answered.flatMap(q => q.covers.map(({ a, b }) => {
     const [x, y] = [byId.get(a), byId.get(b)]
@@ -543,6 +554,93 @@ function buildPeopleFile(): boolean {
   return true
 }
 
+// ── The World Cup pages' files (src/intl/wbsc/editions.ts) ─────────────────────
+
+const SITE_DIR = join(OUT_DIR, 'site')
+
+function buildSiteFiles(): boolean {
+  const events: EditionEventInput[] = readdirSync(OUT_DIR, { withFileTypes: true })
+    .filter(d => d.isDirectory() && existsSync(join(OUT_DIR, d.name, 'manifest.json')))
+    .map(d => {
+      const dir = join(OUT_DIR, d.name)
+      const m = readJson<{ event: string; name: string; year: number; source: string }>(join(dir, 'manifest.json'), { event: d.name, name: d.name, year: 0, source: '' })
+      return {
+        key: m.event, name: m.name, year: m.year, source: m.source,
+        games: readJson<WbscGame[]>(join(dir, 'games.json'), []),
+        batting: readJson<WbscBattingLine[]>(join(dir, 'batting_lines.json'), []),
+        pitching: readJson<PitchingGameLine[]>(join(dir, 'pitching_lines.json'), []),
+      }
+    })
+  // One person per World Cup career (people.json), so an edition's leaders sum a player's group
+  // stage and Finals together. Run --people first; without it each WBSC id stands alone.
+  if (!existsSync(PEOPLE)) console.log(`No ${PEOPLE}: leaders count each event's id as its own player. Run --people first.`)
+  const roster = readJson<(CrosswalkWpblPlayer & { id: string; name: string })[]>(ROSTER, [])
+  const rosterById = new Map(roster.map(p => [p.id, p]))
+  const everyone = readJson<Person[]>(PEOPLE, [])
+  const personOf = new Map<string, Person>()
+  for (const p of everyone) for (const w of p.wbsc) personOf.set(w.wbsc_id, p)
+  const slugs = personSlugs(everyone)
+  const shown = new Map(importedPlayers().map(p => [p.id, p.name]))
+  const people: PersonLookup = {
+    person: id => personOf.get(id)?.id ?? id,
+    name: id => personOf.get(id)?.name ?? shown.get(id) ?? id,
+    eventName: id => shown.get(id) ?? id,
+    wpbl: id => {
+      const r = rosterById.get(personOf.get(id)?.wpbl_id ?? '')
+      return r ? { name: r.name, path: wpblPlayerPath(r, roster) } : null
+    },
+    path: id => {
+      const p = personOf.get(id)
+      const wpbl = p?.wpbl_id ? rosterById.get(p.wpbl_id) : null
+      if (wpbl) return wpblPlayerPath(wpbl, roster)
+      const slug = p ? slugs.get(p.id) : null
+      return slug ? `/world-cup/players/${slug}` : null
+    },
+  }
+  const { index, editions, errors } = buildWorldCupSite(events, { people })
+  if (errors.length) {
+    console.log('Nothing written:')
+    for (const e of errors) console.log(`  ${e}`)
+    return false
+  }
+  // Rewritten whole, so an edition dropped from EDITIONS leaves no stale file behind.
+  rmSync(SITE_DIR, { recursive: true, force: true })
+  mkdirSync(SITE_DIR, { recursive: true })
+  writeJson(join(SITE_DIR, 'world-cup.json'), index)
+  for (const e of editions) writeJson(join(SITE_DIR, `world-cup-${e.slug}.json`), e)
+  // One file per game, for its page, with the play log read here alone: it is most of the archive.
+  let gameFiles = 0
+  for (const ev of events) {
+    const slug = editionSlugOf(ev.key)
+    if (!slug) continue
+    const dir = join(OUT_DIR, readdirSync(OUT_DIR).find(d => readJson<{ event?: string }>(join(OUT_DIR, d, 'manifest.json'), {}).event === ev.key) ?? ev.key)
+    const plays = readJson<RunValuePlay[]>(join(dir, 'plays.json'), [])
+    for (const g of ev.games) {
+      writeJson(join(SITE_DIR, `world-cup-game-${g.wbsc_game_id}.json`), buildGameFile(g, { batting: ev.batting, pitching: ev.pitching, plays }, slug, ev.source, people))
+      gameFiles++
+    }
+  }
+  console.log(`  ${gameFiles} game files`)
+  // A page for everyone who played a World Cup and has no WPBL page to hold it.
+  const byEvent = new Map(events.map(e => [e.key, e]))
+  // The search reads every one of them at once, so it gets a file of its own, cut to the row.
+  const search: WorldCupSearchPerson[] = []
+  for (const p of everyone) {
+    const slug = slugs.get(p.id)
+    if (!slug) continue
+    const file = buildPersonFile(p, slug, byEvent, editionSlugOf)
+    if (!file.events.length) continue
+    writeJson(join(SITE_DIR, `world-cup-player-${slug}.json`), file)
+    search.push(searchEntry(file))
+  }
+  search.sort((a, b) => a.name.localeCompare(b.name))
+  writeJson(join(SITE_DIR, 'world-cup-people.json'), search)
+  console.log(`  ${search.length} player files`)
+  for (const e of index) console.log(`  ${e.title}: ${e.teams} teams, ${e.games} games${e.medals ? `, ${e.medals.gold} gold` : ''}`)
+  console.log(`${SITE_DIR}: ${editions.length} editions.`)
+  return true
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -552,6 +650,7 @@ async function main(): Promise<void> {
   if (flag('same')) { if (!proposeSame()) process.exitCode = 1; return }
   if (flag('confirm-same')) { if (!confirmSame()) process.exitCode = 1; return }
   if (flag('people')) { if (!buildPeopleFile()) process.exitCode = 1; return }
+  if (flag('site')) { if (!buildSiteFiles()) process.exitCode = 1; return }
   if (flag('upload')) { if (!(await uploadInternational())) process.exitCode = 1; return }
   if (flag('review')) {
     serveReview({ outDir: OUT_DIR, reviewPath: REVIEW, rosterPath: ROSTER, readJson, writeJson, confirm: confirmLinks, open: !flag('no-open') })

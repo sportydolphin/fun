@@ -1,4 +1,6 @@
-// Fail the production build if any code from src/dev/ survives into the bundle.
+// Fail the production build if any code from src/dev/ survives into the bundle, or the World Cup
+// pages and search do before the World Cup goes public (`WORLD_CUP_ROUTES` in App.tsx; drop the second pattern
+// from DEV_ONLY the day that flag goes).
 //
 // src/dev/ holds the dev menu, the MLB simulators, the fake admin roster and the slow-load
 // switches. Each is kept out of production only by an `import.meta.env.DEV` gate at its call
@@ -11,6 +13,8 @@
 // module unavoidably leaves behind (slowLoad.ts exports a constant 0 that main.tsx still reads).
 
 const FLOOR_BYTES = 64
+
+const DEV_ONLY = [/[\\/]src[\\/]dev[\\/]/, /[\\/]src[\\/]intl[\\/](WorldCupPage\.tsx|worldCupSearchRows\.ts|siteFile\.ts)$/]
 
 // Rolldown (Vite 8) wraps every module in `//#region` / `//#endregion` comments and counts them in
 // renderedLength, about 45 bytes of nothing per module, so measure the code without them.
@@ -27,7 +31,7 @@ export function noDevCode() {
       for (const chunk of Object.values(bundle)) {
         if (chunk.type !== 'chunk') continue
         for (const [id, info] of Object.entries(chunk.modules)) {
-          if (!/[\\/]src[\\/]dev[\\/]/.test(id)) continue
+          if (!DEV_ONLY.some(re => re.test(id))) continue
           const size = codeLength(info)
           if (size > FLOOR_BYTES) leaks.push(`${id.replace(/^.*[\\/]src[\\/]/, 'src/')} (${size} bytes in ${chunk.fileName})`)
         }

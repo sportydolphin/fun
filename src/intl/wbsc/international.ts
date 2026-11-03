@@ -24,8 +24,9 @@ export interface InternationalEventInput {
   /** The event's schedule on wbsc.org. */
   source: string
   games: readonly WbscGame[]
-  /** Every player the event's box scores name, for checking that a link resolves. */
-  playerIds: ReadonlySet<string>
+  /** Every player the event's box scores name, to the name the site shows, for checking that a link
+   *  resolves and for naming it. */
+  players: ReadonlyMap<string, string>
   batting: readonly WbscBattingLine[]
   pitching: readonly PitchingGameLine[]
 }
@@ -92,7 +93,8 @@ export interface InternationalEvent {
   year: number
   /** The national team played for, its IOC code. */
   team_id: string
-  /** The WBSC name the crosswalk matched, shown beside the row so a reader can spot a wrong one. */
+  /** The WBSC player the crosswalk matched, under the name the site shows them by (no middle names,
+   *  `displayName`), beside the row so a reader can spot a wrong one. */
   wbsc_name: string
   wbsc_id: string
   /** The event's schedule on wbsc.org. */
@@ -137,7 +139,7 @@ export function isWbscBattingGame(l: Pick<WbscBattingLine, 'pa' | 'position'>): 
 const BATTING_KEYS = ['pa', 'ab', 'r', 'h', 'doubles', 'triples', 'hr', 'rbi', 'bb', 'ibb', 'so', 'hbp', 'sb', 'cs', 'sf', 'sh', 'gdp', 'tb'] as const
 const PITCHING_KEYS = ['outs', 'bf', 'h', 'r', 'er', 'bb', 'so', 'hr', 'hbp', 'wp', 'bk'] as const
 
-function sumBatting(lines: readonly WbscBattingLine[]): InternationalBatting | null {
+export function sumBatting(lines: readonly WbscBattingLine[]): InternationalBatting | null {
   const played = lines.filter(isWbscBattingGame)
   if (!played.length) return null
   const out = { g: played.length } as InternationalBatting
@@ -145,7 +147,7 @@ function sumBatting(lines: readonly WbscBattingLine[]): InternationalBatting | n
   return out
 }
 
-function sumPitching(lines: readonly PitchingGameLine[]): InternationalPitching | null {
+export function sumPitching(lines: readonly PitchingGameLine[]): InternationalPitching | null {
   if (!lines.length) return null
   const out = { g: lines.length, gs: lines.reduce((n, l) => n + (l.gs ?? 0), 0) } as InternationalPitching
   for (const k of PITCHING_KEYS) out[k] = lines.reduce((n, l) => n + (l[k] ?? 0), 0)
@@ -176,7 +178,7 @@ export function buildInternational(
     const label = `${link.wbsc_name} → ${link.wpbl_name} (${link.event_key})`
     const event = byKey.get(link.event_key)
     if (!event) { errors.push(`${label}: ${link.event_key} is not imported`); continue }
-    if (!event.playerIds.has(link.wbsc_id)) { errors.push(`${label}: ${link.wbsc_id} is not in ${link.event_key}`); continue }
+    if (!event.players.has(link.wbsc_id)) { errors.push(`${label}: ${link.wbsc_id} is not in ${link.event_key}`); continue }
     if (!roster.has(link.wpbl_id)) { errors.push(`${label}: ${link.wpbl_id} is not on the WPBL roster`); continue }
     const pair = `${link.wpbl_id} ${link.event_key}`
     const other = seen.get(pair)
@@ -205,7 +207,7 @@ export function buildInternational(
     const player = international[link.wpbl_id] ??= { wpbl_name: link.wpbl_name, events: [] }
     player.events.push({
       event_key: event.key, event: event.name, year: event.year, team_id: team,
-      wbsc_name: link.wbsc_name, wbsc_id: link.wbsc_id, url: event.source,
+      wbsc_name: event.players.get(link.wbsc_id) ?? link.wbsc_name, wbsc_id: link.wbsc_id, url: event.source,
       batting: sumBatting(batting), pitching: sumPitching(pitching), games,
     })
   }

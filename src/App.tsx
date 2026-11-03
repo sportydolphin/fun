@@ -102,6 +102,12 @@ const MlbGlossaryPage = lazy(() => import('./mlb/GlossaryPage'))
 const MlbPostseasonPage = lazy(() => import('./mlb/PostseasonPage'))
 const MlbComparePage = lazy(() => import('./mlb/ComparePage'))
 const WpblSourcesPage = lazy(() => import('./wpbl/SourcesPage'))
+// THE WORLD CUP IS DEV ONLY until it goes public (src/intl/WorldCupPage.tsx says what that takes).
+// `import.meta.env.DEV` is false in a production build, so the bundler drops the page and the route
+// with it: no reader can reach it, and nothing WBSC-shaped ships. No `_redirects` lines yet either.
+const WORLD_CUP_ROUTES = import.meta.env.DEV
+const WorldCupPage = WORLD_CUP_ROUTES ? lazy(() => import('./intl/WorldCupPage')) : null
+const isWorldCupPath = (p: string) => WORLD_CUP_ROUTES && (p === '/world-cup' || /^\/world-cup\/(\d{4}(\/games\/\d+)?|players\/[a-z0-9-]+)$/.test(p))
 const WpblSeasonPage = lazy(() => import('./wpbl/SeasonPage'))
 const WpblScorigami = lazy(() => import('./wpbl/Scorigami'))
 const WpblMatchupsPage = lazy(() => import('./wpbl/MatchupsPage'))
@@ -185,6 +191,7 @@ const isWpblSection = (p: string) =>
 /** Whether some page draws this path; anything else gets the in-app 404. */
 const isKnownPath = (p: string) =>
   isWpblSection(p) || isMlbSection(p) || p === '/' || p === '/admin' || p === '/privacy' || p === '/terms' || p === '/delete-account'
+  || isWorldCupPath(p)
 
 // Brand lockup in the toolbar. The logo is sized to the wordmark's line box so the
 // two read as one unit, and the wordmark is held back until the viewport can show it
@@ -1441,6 +1448,11 @@ function AppInner() {
           {isWpblGlossaryPage(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
               <WpblGlossaryPage />
+            </Suspense>
+          )}
+          {WorldCupPage && isWorldCupPath(path) && (
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <WorldCupPage path={path} />
             </Suspense>
           )}
           {isWpblSourcesPage(path) && (

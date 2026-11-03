@@ -7,7 +7,7 @@ import { buildPeople, type PeopleWbscPlayer, type PeopleWpblPlayer } from '../pe
 
 const ROSTER: PeopleWpblPlayer[] = [{ id: 'w1', name: 'Dana Quill' }, { id: 'w2', name: 'Nell Odare' }, { id: 'w3', name: 'Pia Rowan' }]
 const wbsc = (t: number, n: number, name: string, team = 'AAA'): PeopleWbscPlayer =>
-  ({ id: `wbsc:p:${t}:${n}`, event_key: `ev-${t}`, name, team_id: team })
+  ({ id: `wbsc:p:${t}:${n}`, event_key: `ev-${t}`, name, full_name: name, team_id: team })
 const WBSC = [
   wbsc(10, 1, 'Dana Lee-Ann Quill'), wbsc(20, 7, 'Dana Quill', 'BBB'), wbsc(10, 2, 'Nell Odare'),
   wbsc(10, 3, 'Uma Vance'), wbsc(20, 3, 'Uma Vance'),
