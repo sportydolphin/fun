@@ -11,6 +11,9 @@ export const NAME_FIXES: ReadonlyMap<string, string> = new Map([
   // apostrophe. A Goan player, reported as "Sharol D'Mello" (Herald Goa) and "Mello Sheral" (the
   // Baseball-Reference roster); D'Mello is the Goan surname.
   ['IND|D Mello Sheral', "Sheral D'Mello"],
+  // IBAF's 2010 list writes "LOKKEN H Letticia", an initial before the given name, which the rule
+  // shows as "H Lokken".
+  ['NED|H Letticia Lokken', 'Letticia Lokken'],
   // Initials, which WBSC writes in title case.
   ['USA|Aj Hamilton', 'AJ Hamilton'],
 ])

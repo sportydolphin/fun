@@ -50,12 +50,15 @@ import { buildPersonFile, personSlugs, searchEntry, type WorldCupSearchPerson } 
 import { EMPTY_SAME_PERSON, proposeSamePerson, type SamePersonCandidate, type SamePersonFile } from '../src/intl/wbsc/samePerson'
 import type { PitchingGameLine, RunValuePlay } from '../src/league/types'
 import type { WbscEvent, WbscGamePage, WbscScheduleGame } from '../src/intl/wbsc/types'
+import { IBAF_2010_EVENT_URL, IBAF_2010_GAMES, IBAF_2010_SOURCE, ibafGameId, ibafPitcherNames, parseIbafGame, parseIbafRoster } from '../src/intl/wbsc/ibaf'
 import { serveReview } from './wbsc-review'
 
 /** Every event the importer knows, oldest first. A key is wbsc.org's, as in /en/events/<key>/. */
 const EVENTS: WbscEvent[] = [
-  // 2012 and 2014 are WBSC's older system, as 2016 is. 2004 to 2010 keep only a standings page on
-  // wbsc.org (2010's schedule lists no games), so there is nothing for this importer to read there.
+  // 2010 is IBAF's, from its own stats pages as the Wayback Machine saved them (ibaf.ts): wbsc.org
+  // keeps only a standings page for it. 2004 to 2008 survive nowhere game by game, so they are not here.
+  { key: '2010-womens-baseball-world-cup', year: 2010, name: 'Women\'s Baseball World Cup 2010', legacy: true, ibaf: true },
+  // 2012 and 2014 are WBSC's older system, as 2016 is.
   { key: '2012-womens-baseball-world-cup', year: 2012, name: 'Women\'s Baseball World Cup 2012', legacy: true },
   { key: '2014-womens-baseball-world-cup', year: 2014, name: 'Women\'s Baseball World Cup 2014', legacy: true },
   { key: '2016-womens-baseball-world-cup', year: 2016, name: 'Women\'s Baseball World Cup 2016', legacy: true },
@@ -246,6 +249,39 @@ async function gamePage(event: WbscEvent, id: number, version: string | null): P
   return original
 }
 
+// ── 2010, from IBAF's pages in the Wayback Machine (src/intl/wbsc/ibaf.ts) ──────
+//
+// Each page once, as WBSC's are, cached raw: the archive's copy never changes, and the parse can then
+// be rerun offline as often as it is worked on. `id_` asks the archive for the page as captured,
+// without its toolbar; a timestamp of the year alone redirects to the capture nearest it.
+
+async function ibafPage(event: WbscEvent, name: string): Promise<string> {
+  const path = join(CACHE_DIR, event.key, `${name}.html.gz`)
+  if (!REFRESH && existsSync(path)) return gunzipSync(readFileSync(path)).toString('latin1')
+  const res = await get(`https://web.archive.org/web/2010id_/${IBAF_2010_SOURCE}/${name}`)
+  if (!res.ok) throw new Error(`${event.key} ${name}: ${res.status}`)
+  const body = Buffer.from(await res.arrayBuffer())
+  mkdirSync(join(path, '..'), { recursive: true })
+  writeFileSync(path, gzipSync(body))
+  return body.toString('latin1')
+}
+
+/** The 2010 games as WBSC pages, each with what its parse found wrong, and the schedule rows the loop reads. */
+async function ibafGames(event: WbscEvent): Promise<{ s: WbscScheduleGame; page: WbscGamePage; problems: string[]; notes: string[] }[]> {
+  const pages = new Map<number, string>()
+  for (const n of IBAF_2010_GAMES) pages.set(n, await ibafPage(event, `${String(n).padStart(2, '0')}.htm`))
+  const roster = parseIbafRoster(await ibafPage(event, 'lgplyrs.htm'), [...pages.values()].flatMap(ibafPitcherNames))
+  return IBAF_2010_GAMES.map(n => {
+    const { page, problems, notes } = parseIbafGame(pages.get(n)!, roster, n)
+    const g = page?.gameData
+    const s: WbscScheduleGame = {
+      id: ibafGameId(n), awayioc: g?.awayioc ?? '?', homeioc: g?.homeioc ?? '?', awayruns: g?.awayruns ?? 0, homeruns: g?.homeruns ?? 0,
+      gamestatustext: 'F', gamestatus: 3, start: g?.start ?? '',
+    }
+    return { s, page, problems, notes }
+  })
+}
+
 // ── Files ───────────────────────────────────────────────────────────────────────
 
 /** Keys sorted, so the same rows always serialize to the same bytes and the same digest. */
@@ -268,7 +304,8 @@ interface ManifestEntry { table: string; rows: number; sha256: string; bytes: nu
 
 async function importEvent(event: WbscEvent): Promise<boolean> {
   console.log(`\n${event.key}`)
-  const sched = await schedule(event)
+  const ibaf = event.ibaf ? new Map((await ibafGames(event)).map(x => [x.s.id, x])) : null
+  const sched = ibaf ? { version: null, games: [...ibaf.values()].map(x => x.s) } : await schedule(event)
   const tables = {
     games: [] as { id: string }[], players: [] as WbscPlayer[], batting_lines: [] as { id: string }[],
     pitching_lines: [] as { id: string }[], fielding_lines: [] as { id: string }[],
@@ -285,8 +322,11 @@ async function importEvent(event: WbscEvent): Promise<boolean> {
       skipped++
       continue
     }
-    const page = await gamePage(event, s.id, sched.version)
-    const found = validateGame(page, { legacy: event.legacy })
+    const fromIbaf = ibaf?.get(s.id)
+    const page = fromIbaf ? fromIbaf.page : await gamePage(event, s.id, sched.version)
+    for (const n of fromIbaf?.notes ?? []) console.log(`  note     ${s.id} ${n}`)
+    // A page the parse could not read is not a page to check.
+    const found = fromIbaf?.problems.length || !page ? fromIbaf?.problems ?? [] : validateGame(page, { legacy: event.legacy })
     const known = ACCEPTED[s.id]
     const problems = found.filter(p => !known?.problems.includes(p))
     if (known && !problems.length) {
@@ -356,7 +396,7 @@ async function importEvent(event: WbscEvent): Promise<boolean> {
   files.forEach(([table, rows]) => writeFileSync(join(dir, `${table}.json`), serialise(rows)))
   writeFileSync(join(dir, 'manifest.json'), JSON.stringify({
     event: event.key, name: event.name, year: event.year,
-    source: `${SITE}/en/events/${event.key}/schedule-and-results`,
+    source: event.ibaf ? IBAF_2010_EVENT_URL : `${SITE}/en/events/${event.key}/schedule-and-results`,
     games: tables.games.length, skipped, accepted,
     tables: entries,
   }, null, 2) + '\n')

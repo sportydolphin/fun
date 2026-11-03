@@ -15,6 +15,7 @@
 import type { PitchingGameLine } from '../../league/types'
 import type { Crosswalk } from './crosswalk'
 import type { WbscBattingLine, WbscGame } from './game'
+import { boxScoreUrl } from './ibaf'
 
 /** One imported event, as the importer wrote it to `archive/wbsc/<event-key>/`. */
 export interface InternationalEventInput {
@@ -196,7 +197,7 @@ export function buildInternational(
       return {
         game_id: g.id, wbsc_game_id: g.wbsc_game_id, game_date: g.game_date,
         opponent_id: home ? g.away_team_id : g.home_team_id, home,
-        url: `${event.source}/box-score/${g.wbsc_game_id}`,
+        url: boxScoreUrl(event.source, g.wbsc_game_id),
       }
     }).sort((a, b) => cmp(a.game_date, b.game_date) || a.wbsc_game_id - b.wbsc_game_id)
     if (games.length !== gameIds.size) {

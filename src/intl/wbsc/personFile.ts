@@ -13,6 +13,7 @@ import type { Person } from '../people'
 import type { PitchingGameLine } from '../../league/types'
 import type { WbscBattingLine, WbscGame } from './game'
 import { sumBatting, sumPitching, type InternationalEvent, type InternationalGame } from './international'
+import { boxScoreUrl } from './ibaf'
 
 export interface PersonEventInput {
   key: string
@@ -157,7 +158,7 @@ export function buildPersonFile(
       const home = g.home_team_id === team
       return {
         game_id: g.id, wbsc_game_id: g.wbsc_game_id, game_date: g.game_date,
-        opponent_id: home ? g.away_team_id : g.home_team_id, home, url: `${ev.source}/box-score/${g.wbsc_game_id}`,
+        opponent_id: home ? g.away_team_id : g.home_team_id, home, url: boxScoreUrl(ev.source, g.wbsc_game_id),
       }
     }).sort((a, b) => cmp(a.game_date, b.game_date) || a.wbsc_game_id - b.wbsc_game_id)
     out.push({

@@ -203,7 +203,7 @@ export function playerLines(page: WbscGamePage, teamId: number, legacy = false):
   // 2016's box counts an intentional walk twice in plate appearances (as a walk and again as an
   // intentional one): its two intentionally walked batters read 4 PA on 1 AB, 1 BB, 1 SF. Every
   // other 2016 line is AB + BB + HBP + SF + SH, and the plays agree once this is taken off.
-  if (legacy) for (const p of byId.values()) p.pa -= p.ibb || 0
+  if (legacy && !page.ibaf) for (const p of byId.values()) p.pa -= p.ibb || 0
   return [...byId.values()]
 }
 
