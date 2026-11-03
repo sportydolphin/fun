@@ -79,6 +79,32 @@ describe('World Cup edition leaders', () => {
     expect(leaders.pitching.find(b => b.stat === 'SO')!.rows.map(r => r.name)).toEqual(['Bea Bravo'])
   })
 
+  it('breaks a tie in a rate by the larger sample, before the name', () => {
+    const { leaders } = editionLeaders({
+      games: GAMES,
+      batting: [],
+      pitching: [
+        pitch('wbsc:p:1:2', 1, 'AAA', { outs: 12, er: 0 }),
+        pitch('wbsc:p:1:3', 5, 'BBB', { outs: 15, er: 0 }),
+      ],
+    }, PEOPLE)
+    expect(leaders.pitching.find(b => b.stat === 'ERA')!.rows.map(r => r.name)).toEqual(['Bea Bravo', 'Ana Alpha'])
+  })
+
+  it("gives each team its players' edition totals, one row per person", () => {
+    const { rosters } = editionLeaders({
+      games: GAMES,
+      batting: [
+        bat('wbsc:p:1:1', 1, 'AAA', { pa: 4, ab: 3, h: 2, bb: 1 }),
+        bat('wbsc:p:2:1', 5, 'AAA', { pa: 3, ab: 3, h: 1 }),
+      ],
+      pitching: [pitch('wbsc:p:1:2', 1, 'AAA', { outs: 9, er: 1, decision: 'W' })],
+    }, PEOPLE)
+    expect(rosters.map(r => r.team)).toEqual(['AAA'])
+    expect(rosters[0].batting.map(b => [b.name, b.g, b.pa, b.h])).toEqual([['Dana Q. Quill', 2, 7, 3]])
+    expect(rosters[0].pitching.map(p => [p.name, p.g, p.outs, p.w])).toEqual([['Ana Alpha', 1, 9, 1]])
+  })
+
   it('lists the WPBL players in the field by team', () => {
     const { wpbl } = editionLeaders({ games: GAMES, batting: [bat('wbsc:p:2:1', 5, 'AAA', { pa: 1 }), bat('wbsc:p:1:3', 5, 'BBB', { pa: 1 })], pitching: [] }, PEOPLE)
     expect(wpbl).toEqual([{ team: 'AAA', players: [{ name: 'Dana Q. Quill', path: '/wpbl/players/dana-quill' }] }])
