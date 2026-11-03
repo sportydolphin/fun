@@ -96,6 +96,8 @@ export interface SearchBridgeState {
   // WPBL-native recents for the empty-query dropdown, as self-describing rows (the MLB
   // `recentSearches` below is numeric-id shaped and renders from the MLB color/logo maps).
   recentRows: SearchResultRow[]
+  // WPBL's players to suggest in an empty box when there are no recents to show (the WAR leaders).
+  suggestedRows: SearchResultRow[]
   recentSearches: RecentSearchItem[]
   handleSelectRecent: ((item: RecentSearchItem) => void) | null
   clearRecentSearches: (() => void) | null
@@ -129,6 +131,7 @@ const DEFAULT: SearchBridgeState = {
   source: null,
   resultRows: [],
   recentRows: [],
+  suggestedRows: [],
   recentSearches: [],
   handleSelectRecent: null,
   clearRecentSearches: null,
