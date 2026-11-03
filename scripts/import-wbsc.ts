@@ -54,6 +54,10 @@ import { serveReview } from './wbsc-review'
 
 /** Every event the importer knows, oldest first. A key is wbsc.org's, as in /en/events/<key>/. */
 const EVENTS: WbscEvent[] = [
+  // 2012 and 2014 are WBSC's older system, as 2016 is. 2004 to 2010 keep only a standings page on
+  // wbsc.org (2010's schedule lists no games), so there is nothing for this importer to read there.
+  { key: '2012-womens-baseball-world-cup', year: 2012, name: 'Women\'s Baseball World Cup 2012', legacy: true },
+  { key: '2014-womens-baseball-world-cup', year: 2014, name: 'Women\'s Baseball World Cup 2014', legacy: true },
   { key: '2016-womens-baseball-world-cup', year: 2016, name: 'Women\'s Baseball World Cup 2016', legacy: true },
   { key: '2018-womens-baseball-world-cup', year: 2018, name: 'Women\'s Baseball World Cup 2018' },
   { key: '2023-ix-womens-baseball-world-cup-group-a', year: 2023, name: 'Women\'s Baseball World Cup 2023, Group A' },
@@ -132,6 +136,31 @@ const ACCEPTED: Record<number, { why: string; problems: string[] }> = {
     problems: [
       'batter 22264: 4 plate appearances in the play log, 2 in the box score',
       'batter 22276: 0 plate appearances in the play log, 2 in the box score',
+    ],
+  },
+  // 2012, VEN @ AUS. Torrington is entered as running for Gell with two out in the third, eleven
+  // rows after Gell scored on Kreppold's single; she ran for nobody on base.
+  1348: {
+    why: 'a pinch runner entered for a player who had already scored',
+    problems: ['inning 3 bottom, play 167 ("TORRINGTON pinch ran for GELL."): GELL is not on base'],
+  },
+  // 2012, CUB @ NED. "MORALES out at first c to 2b to 1b, caught stealing; RODRIGUEZ Y." ends the
+  // first: the prose names Rodriguez on third and drops that she scored, the run the line score has.
+  1358: {
+    why: 'a run the play text leaves out',
+    problems: [
+      'CUB: inning 1 play log scores 1, line score has 2',
+      'CUB: play log scores 12, final is 13',
+      'CUB: 9 left on base in the plays, 8 in the box score',
+    ],
+  },
+  // 2012, CUB @ VEN. The box score gives Morales Oliva 3 plate appearances; the plays and
+  // Venezuela's pitching lines both have a fourth.
+  1361: {
+    why: 'a plate appearance missing from the box score',
+    problems: [
+      "CUB: 36 plate appearances batting, 37 allowed by the other side's pitchers",
+      'MORALES OLIVA: pa 4 in the plays, 3 in the box score',
     ],
   },
 }
@@ -251,7 +280,7 @@ async function importEvent(event: WbscEvent): Promise<boolean> {
 
   for (const s of [...sched.games].sort((a, b) => a.id - b.id)) {
     // Not a game to import: a forfeit carries a score and no status, a postponement neither.
-    if (!isFinal(s.gamestatustext)) {
+    if (!isFinal(s.gamestatustext, s.gamestatus)) {
       console.log(`  skip     ${s.id} ${s.awayioc} @ ${s.homeioc}: not final ("${s.gamestatustext ?? ''}")`)
       skipped++
       continue

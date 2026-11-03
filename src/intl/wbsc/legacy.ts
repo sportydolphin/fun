@@ -62,8 +62,10 @@ export interface LegacyBatterCounts { pa: number; h: number; double: number; tri
 const fold = (s: string): string => s.normalize('NFD').replace(/\p{M}/gu, '').toUpperCase()
   .replace(/['’`]/g, '').replace(/[^A-Z]+/g, ' ').trim()
 
-/** A word of a given-name prefix: one capital letter, or a capital and up to two lowercase. */
-const GIVEN_WORD = /^\p{Lu}\p{Ll}{0,2}$/u
+/** A word of a given-name prefix: a capital and any lowercase after it, hyphen-joined parts too.
+ *  2016 cuts it to three letters at most ("WEN Ya T"); 2012 and 2014 write more of it ("CHEN
+ *  Hsiao-M", "LAU Tsz Chin"), and a word the rule refused was read as the start of the play. */
+const GIVEN_WORD = /^\p{Lu}\p{Ll}*(?:-\p{Lu}\p{Ll}*)*$/u
 
 /**
  * Split a clause into the name it opens with and the rest. The name is the run of capitalized
@@ -73,7 +75,8 @@ const GIVEN_WORD = /^\p{Lu}\p{Ll}{0,2}$/u
 export function splitName(clause: string): { name: string; rest: string } | null {
   const words = clause.trim().split(/\s+/)
   let i = 0
-  while (i < words.length && (/^[\p{Lu}'’`.-]+$/u.test(words[i]) || (i > 0 && GIVEN_WORD.test(words[i])))) i++
+  // "McMILLAN": 2012 and 2014 keep the small c of a Mc surname, which no other capitalized word has.
+  while (i < words.length && (/^(?:Mc|Mac)?[\p{Lu}'’`.-]+$/u.test(words[i]) || (i > 0 && GIVEN_WORD.test(words[i])))) i++
   if (i === 0 || !/\p{Lu}{2}/u.test(words[0].replace(/['’`.-]/g, ''))) return null
   return { name: words.slice(0, i).join(' '), rest: words.slice(i).join(' ') }
 }
@@ -90,18 +93,40 @@ const field = (s: string): string => (s.trim() === '.' ? '' : fold(s))
  * 'ambiguous' when more than one fits, null when nobody does.
  */
 export function resolveName(name: string, roster: readonly LegacyPerson[]): LegacyPerson | 'ambiguous' | null {
+  const found = resolveWords(name, roster)
+  if (found) return found
+  // 2012 and 2014 also write the given name as capital initials ("CHEN HM" for Chen Hsiao-Mei,
+  // "PAN CY"), which reads as a two-word surname nobody has. Only when that finds no one, the
+  // last word is taken as initials, one per given-name part.
+  const words = name.split(/\s+/)
+  const last = words[words.length - 1]
+  if (words.length < 2 || !/^\p{Lu}{1,3}$/u.test(last)) return found
+  return resolveWords([...words.slice(0, -1), ...[...last]].join(' '), roster)
+}
+
+function resolveWords(name: string, roster: readonly LegacyPerson[]): LegacyPerson | 'ambiguous' | null {
   const words = name.split(/\s+/)
   let cut = words.length
   while (cut > 1 && GIVEN_WORD.test(words[cut - 1]) && !/^\p{Lu}{2,}$/u.test(words[cut - 1])) cut--
   const surname = fold(words.slice(0, cut).join(' '))
-  const given = words.slice(cut).map(fold)
-  const givenFits = (p: LegacyPerson) => {
+  // Word by word, so "Hsiao-M" is HSIAO then M against "Hsiao-Mei".
+  const given = words.slice(cut).map(fold).join(' ').split(' ').filter(Boolean)
+  // A word may also drop letters after its first ("Kit Yn" for Kit Yan, 2014): its letters in
+  // order, first letter kept. Only when the word opens nobody's given name, or "CHEUNG Wi" (Wing)
+  // would also fit a Wai, as it did across six 2016 games.
+  const within = (w: string, full: string) => {
+    let j = 0
+    for (const ch of full) if (ch === w[j]) j++
+    return w[0] === full[0] && j === w.length
+  }
+  const givenFits = (p: LegacyPerson, loose: boolean) => {
     const g = field(p.first_name).split(' ')
-    return given.every((w, i) => (g[i] ?? '').startsWith(w))
+    return given.every((w, i) => (g[i] ?? '').startsWith(w) || (loose && within(w, g[i] ?? '')))
   }
   const own = (p: LegacyPerson) => field(p.last_name) || field(p.first_name)
   const pick = (fits: (p: LegacyPerson) => boolean): LegacyPerson | 'ambiguous' | null => {
-    const all = roster.filter(p => fits(p) && givenFits(p))
+    const strict = roster.filter(p => fits(p) && givenFits(p, false))
+    const all = strict.length ? strict : roster.filter(p => fits(p) && givenFits(p, true))
     if (all.length === 1) return all[0]
     const exact = all.filter(p => own(p) === surname)
     return exact.length === 1 ? exact[0] : all.length ? 'ambiguous' : null
@@ -124,7 +149,8 @@ const RESULTS: readonly [RegExp, string, number][] = [
   [/^intentionally walked$/, 'intent_walk', 0],
   [/^walked$/, 'walk', 0],
   [/^hit by pitch$/, 'hit_by_pitch', 0],
-  [/^struck out(?: swinging| looking)?$/, 'strikeout', OUT],
+  // "to catcher" is 2012 and 2014's way of naming who took the third strike.
+  [/^struck out(?: swinging| looking)?(?: to catcher)?$/, 'strikeout', OUT],
   [/^singled\b/, 'single', 0],
   [/^doubled\b/, 'double', 1],
   [/^tripled\b/, 'triple', 2],
@@ -133,6 +159,8 @@ const RESULTS: readonly [RegExp, string, number][] = [
   [/^(?:lined) into (?:double|triple) play\b/, 'lineout', OUT],
   [/^(?:flied) into (?:double|triple) play\b/, 'flyout', OUT],
   [/^(?:popped|fouled) into (?:double|triple) play\b/, 'popup', OUT],
+  // 2012 and 2014 write a ground ball into a double play as "hit into" (the fielders say so).
+  [/^hit into (?:double|triple) play\b/, 'groundout', OUT],
   [/^grounded out\b/, 'groundout', OUT],
   [/^flied out\b/, 'flyout', OUT],
   [/^lined out\b/, 'lineout', OUT],
@@ -148,7 +176,9 @@ const RESULTS: readonly [RegExp, string, number][] = [
 ]
 
 /** Tags: they say something about the play and move nobody. */
-const TAG = new RegExp(`^(?:(?:grounded|lined|flied|popped) into (?:double|triple) play(?: ${FIELDERS})?|failed pickoff attempt|interference|obstruction|sac|sf|bunt|rbi|\\d+ rbi|unearned|team unearned|caught stealing|picked off|no advance|assist by (?:(?:p|c|1b|2b|3b|ss|lf|cf|rf)(?: to | |$))+|out of order|${FIELDERS})$`)
+// "ground-rule" rides on a double; "safe on a throwing error by ss, no advance" is a runner kept where
+// they were by a throw that got away (both 2012 and 2014).
+const TAG = new RegExp(`^(?:(?:grounded|lined|flied|popped|hit) into (?:double|triple) play(?: ${FIELDERS})?|failed pickoff attempt|ground-rule|safe on (?:a |an )?(?:throwing |fielding )?error(?: by (?:p|c|1b|2b|3b|ss|lf|cf|rf))?|interference|obstruction|sac|sf|bunt|rbi|\\d+ rbi|unearned|team unearned|caught stealing|picked off|no advance|assist by (?:(?:p|c|1b|2b|3b|ss|lf|cf|rf)(?: to | |$))+|out of order|${FIELDERS})$`)
 
 /** Why a runner moved, from the end of a move phrase. Null for a move the play itself explains. */
 function reason(tail: string): string | null | undefined {
@@ -195,7 +225,8 @@ function move(phrase: string): Move | undefined {
 /** A row that is not a play: a substitution, a mound visit, a note. */
 const NOT_A_PLAY = [
   /^to (?:p|c|1b|2b|3b|ss|lf|cf|rf|dh)\b/,
-  /^pinch hit for\b/,
+  // 2012 and 2014 often leave off whom ("RODRIGUEZ Y pinch hit."); the box score has it either way.
+  /^pinch hit\b/,
 ]
 const NOT_A_PLAY_WHOLE = [/^:::.*$/, /^dropped foul ball\b/i, /^no play\.?$/i, /^batter set to\b/i, /^\/\s+for\b/, /^[.\- :]*$/, /^\p{L}$/u, /^\d$/]
 
@@ -267,6 +298,18 @@ function parseRow(narrative: string, ctx: Context): Parsed | null {
     const split = splitName(clause)
     if (!split) throw new Error(`no name opens "${clause}"`)
     const phrases = split.rest.toLowerCase().split(/,\s*/).map(p => p.trim()).filter(Boolean)
+    // A name and nothing else ("CAZORLA.", 2012) says nothing happened.
+    if (i === 0 && clauses.length === 1 && !phrases.length) return null
+    // 2014 sometimes swaps a runner as a lineup change ("PRIMERA HERR to dh for PINEDA FLORE" with
+    // Pineda on second): when the player replaced is on base, it is a pinch runner.
+    const swap = /^to (?:p|c|1b|2b|3b|ss|lf|cf|rf|dh) for (.+)$/.exec(split.rest)
+    if (i === 0 && swap) {
+      const was = resolveName(swap[1], ctx.batting)
+      if (was && was !== 'ambiguous' && ctx.onBase.has(was.id)) {
+        out.runnerSub = { in: person(split.name, ctx), for: was }
+        return out
+      }
+    }
     if (i === 0 && NOT_A_PLAY.some(re => re.test(phrases[0] ?? ''))) return null
     const pr = /^pinch ran(?: for (.+))?$/.exec(split.rest)
     if (i === 0 && pr) {

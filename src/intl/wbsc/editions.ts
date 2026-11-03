@@ -39,6 +39,10 @@ export interface EditionDef {
    *  the 2024 Finals on WBSC ranks only the teams in the Finals, and how it places the rest has no
    *  rule its pages state. The first three must be the medalists, or the build fails. */
   placings?: readonly string[]
+  /** Rounds of this edition that are single games, not a table, beyond the ones every edition
+   *  plays that way (KNOCKOUT_ROUNDS). 2012's "Consolation 5th-8th" is two crossover games where
+   *  2014's is a round robin under the same name. */
+  knockout?: readonly string[]
 }
 
 export interface ForfeitDef {
@@ -54,6 +58,20 @@ export interface ForfeitDef {
 
 /** Oldest first. A new edition is a new entry, written when WBSC announces its events. */
 export const EDITIONS: readonly EditionDef[] = [
+  {
+    slug: '2012', ordinal: null, years: [2012], hosts: ['Edmonton, Canada'],
+    events: [{ key: '2012-womens-baseball-world-cup', label: null }],
+    knockout: ['Consolation 5th-8th'],
+    // wbsc.org/en/events/2012-womens-baseball-world-cup/standings
+    placings: ['JPN', 'USA', 'CAN', 'AUS', 'VEN', 'TPE', 'NED', 'CUB'],
+  },
+  {
+    slug: '2014', ordinal: null, years: [2014], hosts: ['Miyazaki, Japan'],
+    events: [{ key: '2014-womens-baseball-world-cup', label: null }],
+    // wbsc.org/en/events/2014-womens-baseball-world-cup/standings
+    groupLetters: { A: ['JPN', 'AUS', 'VEN', 'HKG'], B: ['USA', 'CAN', 'TPE', 'NED'] },
+    placings: ['JPN', 'USA', 'AUS', 'CAN', 'TPE', 'VEN', 'HKG', 'NED'],
+  },
   {
     slug: '2016', ordinal: null, years: [2016], hosts: ['Gijang, Korea'],
     events: [{ key: '2016-womens-baseball-world-cup', label: null }],
@@ -137,7 +155,7 @@ export interface WorldCupGroup {
 
 export interface WorldCupStage {
   label: string
-  kind: 'round-robin' | 'medal'
+  kind: 'round-robin' | 'knockout' | 'medal'
   groups: WorldCupGroup[]
 }
 
@@ -197,7 +215,21 @@ export interface WorldCupSite {
   errors: string[]
 }
 
-const MEDAL_ROUNDS = new Set(['Bronze Medal Game', 'World Championship Final'])
+// 2012 and 2014 name the two medal games "Gold" and "Bronze".
+const MEDAL_ROUNDS = new Set(['Bronze Medal Game', 'World Championship Final', 'Bronze', 'Gold'])
+const isFinalRound = (r: string | null) => r === 'World Championship Final' || r === 'Gold'
+const isBronzeRound = (r: string | null) => r === 'Bronze Medal Game' || r === 'Bronze'
+
+/** WBSC's round strings that mean one round: a 2014 game filed under "Round1", and the 5th and 7th
+ *  place games, which read as one round of placement games. */
+const ROUND_ALIAS: Readonly<Record<string, string>> = {
+  'Round1': 'Round 1',
+  '5th Place Game': 'Placement games',
+  '7th Place Game': 'Placement games',
+}
+
+/** Rounds that are single games, drawn as a list with no table. */
+const KNOCKOUT_ROUNDS = new Set(['Semifinals', 'Placement games'])
 
 /** WBSC's round labels, as a reader would name them. Anything unknown fails the build. */
 const ROUND_LABEL: Readonly<Record<string, string>> = {
@@ -208,6 +240,14 @@ const ROUND_LABEL: Readonly<Record<string, string>> = {
   'Final Stage Games': 'Finals',
   'Bronze Medal Game': 'Medal games',
   'World Championship Final': 'Medal games',
+  // 2012 and 2014.
+  'Round 1': 'Opening Round',
+  'Round 2': 'Round 2',
+  'Consolation 5th-8th': 'Consolation Round',
+  'Semifinals': 'Semifinals',
+  'Placement games': 'Placement games',
+  'Bronze': 'Medal games',
+  'Gold': 'Medal games',
 }
 
 const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
@@ -332,6 +372,7 @@ export function buildWorldCupSite(
       const ev = byKey.get(evDef.key)!
       sources.push(ev.source)
       const games = [...ev.games, ...(def.forfeits ?? []).filter(f => f.event === ev.key).map(forfeitGame)]
+        .map(g => (g.round && ROUND_ALIAS[g.round] ? { ...g, round: ROUND_ALIAS[g.round] } : g))
       for (const g of games) { teams.add(g.home_team_id); teams.add(g.away_team_id) }
       const unknown = [...new Set(games.map(g => g.round ?? ''))].filter(r => !ROUND_LABEL[r])
       if (unknown.length) { errors.push(`${ev.key}: unknown round ${unknown.map(r => `"${r}"`).join(', ')}`); continue }
@@ -348,6 +389,10 @@ export function buildWorldCupSite(
         (outs.get(`${g.id}|${team === g.home_team_id ? g.away_team_id : g.home_team_id}`) ?? 0) / 3
       const earlier: WbscGame[] = []
       for (const [round, games] of rounds) {
+        if (KNOCKOUT_ROUNDS.has(round) || def.knockout?.includes(round)) {
+          stages.push({ label: ROUND_LABEL[round], kind: 'knockout', groups: [{ label: null, standings: [], games: games.map(g => summary(g, ev.source)) }] })
+          continue
+        }
         const split = splitGroups(games)
         const groups: WorldCupGroup[] = []
         for (const gs of split) {
@@ -378,8 +423,8 @@ export function buildWorldCupSite(
       const sorted = medalGames.sort(byDate)
       const winner = (g: WbscGame) => ((g.home_score ?? 0) > (g.away_score ?? 0) ? g.home_team_id : g.away_team_id)
       const loser = (g: WbscGame) => (winner(g) === g.home_team_id ? g.away_team_id : g.home_team_id)
-      const final = sorted.find(g => g.round === 'World Championship Final')
-      const bronze = sorted.find(g => g.round === 'Bronze Medal Game')
+      const final = sorted.find(g => isFinalRound(g.round))
+      const bronze = sorted.find(g => isBronzeRound(g.round))
       if (final) medals = { gold: winner(final), silver: loser(final), bronze: bronze ? winner(bronze) : null }
       const source = def.events.map(e => byKey.get(e.key)!).find(e => e.games.includes(sorted[0]))!.source
       stages.push({ label: 'Medal games', kind: 'medal', groups: [{ label: null, standings: [], games: sorted.map(g => summary(g, source)) }] })
