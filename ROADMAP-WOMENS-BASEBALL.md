@@ -285,8 +285,9 @@ it, so it is designed for the developmental league and the AAGPBL as much as for
   canonical page stays `/wpbl/players/<slug>` through the 2027 season, since its search ranking is
   the site's; `/players/<slug>` redirects there for them.
 - **Search** covers people and events. **Built Nov 2, 2026, dev only** (docs/WBSC_INGEST.md, step 14).
-  Thin pages (one tournament, a handful of PA) are a known
-  SEO risk: decide `noindex` by a threshold when building, measured, not guessed.
+  Thin pages (one tournament, a handful of PA) are a known SEO risk. **Threshold set Nov 3, 2026**:
+  two World Cups, or 10 plate appearances and batters faced together (`isIndexable`, 497 of 633
+  pages); the robots tag and the sitemap read it at the public switch.
 - **The size budget in CI** for the event files, added as they enter git.
 - **Done when** every World Cup since 2016 has its page and every name on them is a link.
 

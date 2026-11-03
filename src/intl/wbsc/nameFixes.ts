@@ -13,8 +13,6 @@ export const NAME_FIXES: ReadonlyMap<string, string> = new Map([
   ['IND|D Mello Sheral', "Sheral D'Mello"],
   // Initials, which WBSC writes in title case.
   ['USA|Aj Hamilton', 'AJ Hamilton'],
-  // One given name in two words; "Sor" alone is not a name.
-  ['VEN|Sor Malis Brito Carrillo', 'Sor Malis Brito Carrillo'],
 ])
 
 export const nameFixKey = (teamId: string | null, fullName: string): string => `${teamId ?? ''}|${fullName}`

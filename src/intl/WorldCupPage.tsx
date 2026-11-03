@@ -11,7 +11,8 @@
 // data comes from this machine's own archive through the dev server (vite-plugin-wbsc-dev.mjs).
 // Going public is: the files from `npm run wbsc -- --site` committed and served, `fetchSite` (siteFile.ts) reading
 // them, the flag in App.tsx removed, and the two `_redirects` lines, routes and seo.ts entries
-// every app route needs.
+// every app route needs. A player page whose file says `indexable: false` gets `noindex` and stays
+// out of the sitemap.
 //
 // EVERY PAGE CREDITS WBSC, with a link to its own page for what this one shows.
 import { useEffect, useState } from 'react'
@@ -143,6 +144,23 @@ function Index() {
 
 const NUM = { textAlign: 'right' as const, fontVariantNumeric: 'tabular-nums', width: '2.5rem' }
 
+/** WBSC's final order, as a numbered list of teams. */
+function Placings({ teams }: { teams: string[] }) {
+  return (
+    <Box component="ol" sx={{ listStyle: 'none', m: 0, p: 0, fontSize: TYPE_SCALE.body }}>
+      {teams.map((t, i) => (
+        <Box component="li" key={t} sx={{
+          display: 'grid', gridTemplateColumns: '1.75rem 1fr', alignItems: 'center', py: 0.75,
+          borderTop: i ? '1px solid' : 'none', borderColor: 'divider',
+        }}>
+          <Box component="span" sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{i + 1}</Box>
+          <TeamName team={t} />
+        </Box>
+      ))}
+    </Box>
+  )
+}
+
 function Standings({ rows }: { rows: StandingRow[] }) {
   return (
     <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', fontSize: TYPE_SCALE.body, mb: 1.5 }}>
@@ -270,6 +288,11 @@ function Edition({ slug }: { slug: string }) {
               <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>In progress</Typography>
             )}
           </SectionCard>
+          {e.placings.length > 0 && (
+            <SectionCard title="Final standings">
+              <Placings teams={e.placings} />
+            </SectionCard>
+          )}
           <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
               <Typography component="h2" sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 700 }}>Leaders</Typography>

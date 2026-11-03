@@ -36,6 +36,24 @@ export interface WorldCupPersonFile {
   country: string | null
   /** Oldest first; only the events the person played a game in. */
   events: WorldCupPersonEvent[]
+  /** Whether search engines may list the page (`isIndexable`). The page's robots tag and the
+   *  sitemap both read this, once the pages are public. */
+  indexable: boolean
+}
+
+/**
+ * A page worth a search result: two World Cups, or at least 10 plate appearances and batters faced
+ * together across them. Below that the page is a name and a line or two, the thin page search
+ * engines hold against a whole site, and about 130 of the 630 are that: mostly a pinch runner or a
+ * reliever with one or two games. Measured on Nov 3, 2026 over every World Cup since 2016: the
+ * median page holds 5 games; at 10 the 136 left out average 3, at 20 half of all pages would be.
+ * The page still exists, opens from every link and appears in the site's own search.
+ */
+export const INDEX_MIN_PA_BF = 10
+
+export function isIndexable(events: readonly WorldCupPersonEvent[]): boolean {
+  if (events.length >= 2) return true
+  return events.reduce((n, e) => n + (e.batting?.pa ?? 0) + (e.pitching?.bf ?? 0), 0) >= INDEX_MIN_PA_BF
 }
 
 const slugify = (name: string) => name.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
@@ -93,7 +111,7 @@ export function buildPersonFile(
     })
   }
   out.sort((a, b) => cmp(a.games[0]?.game_date ?? '', b.games[0]?.game_date ?? '') || cmp(a.event_key, b.event_key))
-  return { slug, name: person.name, country: person.country, events: out }
+  return { slug, name: person.name, country: person.country, events: out, indexable: isIndexable(out) }
 }
 
 /** One World Cup-only person in the site search (`world-cup-people.json`): enough for the row, and

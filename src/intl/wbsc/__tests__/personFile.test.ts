@@ -52,5 +52,16 @@ describe('World Cup player file', () => {
       ['ev-1', null, 1, 'Jia Lee'], ['ev-2', '2024', 2, 'Jia Lee'],
     ])
     expect(file.events[1].games.map(g => [g.opponent_id, g.home])).toEqual([['JPN', true], ['CAN', false]])
+    expect(file.indexable).toBe(true)
+  })
+
+  it('keeps a page with one World Cup and under 10 plate appearances out of search engines', () => {
+    const p = person('a', 'Jia Lee', 'KOR', ['wbsc:p:2:20'])
+    const games = [1, 2, 3, 4].map(n => game(n, 'KOR', 'USA'))
+    const played = (n: number) => buildPersonFile(p, 'jia-lee', new Map([
+      ['ev-2', ev('ev-2', 2024, games, games.slice(0, n).map(g => bat('wbsc:p:2:20', g.wbsc_game_id)))],
+    ]), () => '2024')
+    expect(played(3).indexable).toBe(false)
+    expect(played(4).indexable).toBe(true)
   })
 })

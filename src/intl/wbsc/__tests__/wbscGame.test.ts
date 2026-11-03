@@ -51,6 +51,16 @@ describe('small readers', () => {
     expect(displayName('Debby (Su-Yee)', 'MAK', 'HKG')).toBe('Debby Mak')
   })
 
+  it('keeps a Spanish compound given name, and only that', () => {
+    expect(displayName('María José', 'CASTRO', 'VEN')).toBe('María José Castro')
+    expect(displayName('Rosa Maria', 'DIAZ', 'MEX')).toBe('Rosa Maria Diaz')
+    expect(displayName('Sor Malis', 'BRITO CARRILLO', 'VEN')).toBe('Sor Malis Brito Carrillo')
+    expect(displayName('Gabriela Paola', 'RUIZ', 'VEN')).toBe('Gabriela Ruiz')
+    expect(displayName('Maria M', 'ORTIZ', 'PUR')).toBe('Maria Ortiz')
+    expect(displayName('Mariana del Carmen', 'LOPEZ', 'VEN')).toBe('Mariana Lopez')
+    expect(displayName('Ana Rosa', 'SMITH', 'USA')).toBe('Ana Smith')
+  })
+
   it("puts a Mc's capital back, and takes a hand-set name over the rule", () => {
     expect(displayName('Kim Lee', 'MCMILLAN', 'AUS')).toBe('Kim McMillan')
     expect(displayName('Ana', 'MACIAS', 'MEX')).toBe('Ana Macias')
