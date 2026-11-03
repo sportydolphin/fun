@@ -592,17 +592,18 @@ function TeamHistoryPage({ code }: { code: string }) {
 const BAT_COLS = [
   { key: 'ab', label: 'AB' }, { key: 'r', label: 'R' }, { key: 'h', label: 'H', bold: true },
   { key: 'rbi', label: 'RBI' }, { key: 'bb', label: 'BB' }, { key: 'so', label: 'SO' },
+  { key: 'hr', label: 'HR' }, { key: 'doubles', label: '2B' }, { key: 'sb', label: 'SB' },
 ] as const
 const PIT_COLS = [
   { key: 'ip', label: 'IP', bold: true, w: 32 }, { key: 'h', label: 'H' }, { key: 'r', label: 'R' },
-  { key: 'er', label: 'ER' }, { key: 'bb', label: 'BB' }, { key: 'so', label: 'SO' },
+  { key: 'er', label: 'ER' }, { key: 'bb', label: 'BB' }, { key: 'so', label: 'SO' }, { key: 'hr', label: 'HR' },
 ]
 
 function TeamBox({ g, side, dense }: { g: WorldCupGameFile; side: 'away' | 'home'; dense: boolean }) {
   const bat = g.batting[side]
   const pit = g.pitching[side]
-  const sum = (k: typeof BAT_COLS[number]['key']) => bat.reduce((n, b) => n + b[k], 0)
-  const pitSum = (k: 'h' | 'r' | 'er' | 'bb' | 'so') => pit.reduce((n, p) => n + p[k], 0)
+  const sum = (k: typeof BAT_COLS[number]['key']) => bat.reduce((n, b) => n + (b[k] ?? 0), 0)
+  const pitSum = (k: 'h' | 'r' | 'er' | 'bb' | 'so' | 'hr') => pit.reduce((n, p) => n + (p[k] ?? 0), 0)
   return (
     <Box>
       <BoxTeamHeading badge={<CountryBadge team={g[side]} size={24} />} name={countryName(g[side])} color={ACCENT} />
@@ -614,7 +615,7 @@ function TeamBox({ g, side, dense }: { g: WorldCupGameFile; side: 'away' | 'home
               key: i, name: b.name, isSub: b.sub,
               nameProps: b.path ? linkTo(b.path) as Record<string, unknown> : undefined,
               suffix: b.pos ? <Typography component="span" sx={BOX_POS_SX}>{b.pos}</Typography> : null,
-              cells: BAT_COLS.map(c => b[c.key]),
+              cells: BAT_COLS.map(c => b[c.key] ?? 0),
             }))}
             totals={BAT_COLS.map(c => sum(c.key))} />
         </Box>
@@ -626,9 +627,9 @@ function TeamBox({ g, side, dense }: { g: WorldCupGameFile; side: 'away' | 'home
             key: i, name: p.name,
             nameProps: p.path ? linkTo(p.path) as Record<string, unknown> : undefined,
             suffix: p.decision ? <Typography component="span" sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, lineHeight: 1 }}>({p.decision})</Typography> : null,
-            cells: [outsToIp(p.outs), p.h, p.r, p.er, p.bb, p.so],
+            cells: [outsToIp(p.outs), p.h, p.r, p.er, p.bb, p.so, p.hr ?? 0],
           }))}
-          totals={[outsToIp(pit.reduce((n, p) => n + p.outs, 0)), pitSum('h'), pitSum('r'), pitSum('er'), pitSum('bb'), pitSum('so')]} />
+          totals={[outsToIp(pit.reduce((n, p) => n + p.outs, 0)), pitSum('h'), pitSum('r'), pitSum('er'), pitSum('bb'), pitSum('so'), pitSum('hr')]} />
       )}
     </Box>
   )
@@ -676,7 +677,9 @@ function LineScore({ g }: { g: WorldCupGameFile }) {
   }
   const row = (team: string, line: Line, r: number, h: number, e: number) => (
     <Box component="tr" sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-      <Box component="td" sx={{ py: 0.6, pr: 1, fontWeight: 600 }}>{team}</Box>
+      <Box component="td" sx={{ py: 0.6, pr: 1, fontWeight: 600 }}>
+        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}><CountryBadge team={team} size={18} />{team}</Box>
+      </Box>
       {cols.map(i => <Box component="td" key={i} sx={{ ...NUM, width: '1.5rem' }}>{runs(line, i)}</Box>)}
       {[r, h, e].map((v, i) => <Box component="td" key={`t${i}`} sx={{ ...NUM, width: '1.75rem', fontWeight: i ? 400 : 700 }}>{v}</Box>)}
     </Box>
@@ -686,7 +689,7 @@ function LineScore({ g }: { g: WorldCupGameFile }) {
       <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', fontSize: TYPE_SCALE.body }}>
         <thead>
           <Box component="tr" sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.meta }}>
-            <Box component="th"><Box component="span" sx={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>Team</Box></Box>
+            <Box component="th"><Box component="span" sx={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>Team</Box></Box>
             {cols.map(i => <Box component="th" key={i} sx={{ ...NUM, width: '1.5rem', fontWeight: 600 }}>{i}</Box>)}
             {['R', 'H', 'E'].map(h => <Box component="th" key={h} sx={{ ...NUM, width: '1.75rem', fontWeight: 600 }}>{h}</Box>)}
           </Box>
@@ -721,12 +724,59 @@ function NeighborGame({ g, slug, label, alignEnd }: { g: WorldCupGame; slug: str
   )
 }
 
+/** A game's round as a reader names it: which medal it decided, else its group ("Group A") or stage
+ *  ("Finals"), from the edition file. WBSC's own string ("Group Stage Games") is the last resort. */
+function roundOf(g: WorldCupGameFile, e: WorldCupEdition | null | undefined): string | null {
+  if (g.round === 'World Championship Final') return 'Gold medal game'
+  if (g.round === 'Bronze Medal Game') return 'Bronze medal game'
+  for (const s of e?.stages ?? []) {
+    for (const grp of s.groups) if (grp.games.some(x => x.wbsc_game_id === g.wbsc_game_id)) return grp.label ?? s.label
+  }
+  return g.round
+}
+
+/** Both teams with their flags and the score, as WPBL's game header reads: the winner in full ink. */
+function ScoreHeader({ g, round }: { g: WorldCupGameFile; round: string | null }) {
+  const awayWon = g.away_score > g.home_score
+  // The name sits under the flag, not beside it: beside it "Hong Kong, China" took three lines on a phone.
+  const side = (team: string, score: number, won: boolean, end: boolean) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexDirection: end ? 'row-reverse' : 'row', minWidth: 0 }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, minWidth: 0, flex: '0 1 auto' }}>
+        <CountryBadge team={team} size={44} />
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: won ? 'text.primary' : 'text.secondary', lineHeight: 1.2, textAlign: 'center' }}>
+          {countryName(team)}
+        </Typography>
+      </Box>
+      <Typography sx={{
+        fontSize: TYPE_SCALE.page, fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1,
+        color: won ? 'text.primary' : 'text.secondary', ml: end ? 0 : 'auto', mr: end ? 'auto' : 0,
+      }}>{score}</Typography>
+    </Box>
+  )
+  return (
+    <SectionCard title={round ?? 'Final'}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', columnGap: { xs: 1.5, sm: 3 } }}>
+        {side(g.away, g.away_score, awayWon, false)}
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', fontWeight: 700, textAlign: 'center' }}>
+          {g.innings === 7 ? 'Final' : `F/${g.innings}`}
+        </Typography>
+        {side(g.home, g.home_score, !awayWon, true)}
+      </Box>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 1.5 }}>
+        {[`${shortDate(g.date)}, ${g.date.slice(0, 4)}`, g.venue, g.city, g.attendance ? `Attendance ${g.attendance.toLocaleString('en-US')}` : null]
+          .filter(Boolean).join(' · ')}
+      </Typography>
+    </SectionCard>
+  )
+}
+
 function GamePage({ slug, id }: { slug: string; id: string }) {
   const dense = usePhoneLayout()
   const read = useSiteFile<WorldCupGameFile>(`world-cup-game-${id}.json`)
   const edition = useSiteFile<WorldCupEdition>(`world-cup-${slug}.json`)
   const g = read?.data
-  const title = g ? `${countryName(g.away)} ${g.away_score}, ${countryName(g.home)} ${g.home_score}` : 'Game'
+  // The matchup, as a schedule names a game; the score is the header card's.
+  const title = g ? `${countryName(g.away)} at ${countryName(g.home)}` : 'Game'
   // The games either side in the order played, skipping forfeits, which have no page.
   const played = edition?.data ? allGames(edition.data).filter(x => !x.forfeit) : []
   const at = played.findIndex(x => String(x.wbsc_game_id) === id)
@@ -737,11 +787,8 @@ function GamePage({ slug, id }: { slug: string; id: string }) {
       trail={[{ href: '/world-cup', label: 'World Cup' }, { href: editionPath(slug, 'games'), label: editionTitle(slug) }]}>
       {!read ? <Loading /> : !g ? <NoData /> : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <ScoreHeader g={g} round={roundOf(g, edition?.data)} />
           <SectionCard title="Line score">
-            <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mb: 1 }}>
-              {[shortDate(g.date), g.round, g.venue, g.city, g.attendance ? `Attendance ${g.attendance.toLocaleString('en-US')}` : null]
-                .filter(Boolean).join(' · ')}
-            </Typography>
             <LineScore g={g} />
           </SectionCard>
           <SectionCard title="Box score">

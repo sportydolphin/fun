@@ -23,6 +23,11 @@ export interface BoxBatter {
   rbi: number
   bb: number
   so: number
+  /** WPBL's box score carries these three too (src/wpbl/gameDetail/shared.tsx), so the two read alike.
+   *  Optional only so a file built before them still reads. */
+  hr?: number
+  doubles?: number
+  sb?: number
 }
 
 export interface BoxPitcher {
@@ -34,6 +39,7 @@ export interface BoxPitcher {
   er: number
   bb: number
   so: number
+  hr?: number
   /** W, L or S. */
   decision: string | null
 }
@@ -125,7 +131,7 @@ export function buildGameFile(
         seen.add(l.spot)
         return {
           ...named(l.player_id), pos: String(l.position ?? '').toUpperCase(), spot: l.spot, sub,
-          ab: l.ab, r: l.r, h: l.h, rbi: l.rbi, bb: l.bb, so: l.so,
+          ab: l.ab, r: l.r, h: l.h, rbi: l.rbi, bb: l.bb, so: l.so, hr: l.hr, doubles: l.doubles, sb: l.sb,
         }
       })
     // In the order they pitched: WBSC's rows are not, so the closer can come first. The play log's
@@ -134,7 +140,7 @@ export function buildGameFile(
       .map((l, i) => ({ l, i, first: firstPitch.get(l.player_id) ?? Number.MAX_SAFE_INTEGER }))
       .sort((a, b) => (b.l.gs ?? 0) - (a.l.gs ?? 0) || a.first - b.first || a.i - b.i)
       .map(({ l }): BoxPitcher => ({
-      ...named(l.player_id), outs: l.outs, h: l.h, r: l.r, er: l.er, bb: l.bb, so: l.so,
+      ...named(l.player_id), outs: l.outs, h: l.h, r: l.r, er: l.er, bb: l.bb, so: l.so, hr: l.hr,
       decision: l.decision === 'W' || l.decision === 'L' || l.decision === 'S' ? l.decision : null,
     }))
     return { bat, pit }
