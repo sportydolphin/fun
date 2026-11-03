@@ -47,12 +47,17 @@ describe('World Cup player file', () => {
       ['ev-2', ev('ev-2', 2024, [game(5, 'JPN', 'KOR'), game(6, 'KOR', 'CAN')], [bat('wbsc:p:2:20', 5), bat('wbsc:p:2:20', 6)])],
       ['ev-3', ev('ev-3', 2026, [game(8, 'KOR', 'AUS')], [])],
     ])
-    const file = buildPersonFile(p, 'jia-lee', events, k => (k === 'ev-2' ? '2024' : null))
+    const file = buildPersonFile(p, 'jia-lee', events, k => (k === 'ev-2' ? '2024' : null), (ed, team) => (ed === '2024' && team === 'KOR' ? 'silver' : null))
     expect(file.events.map(e => [e.event_key, e.edition, e.batting?.g, e.wbsc_name])).toEqual([
       ['ev-1', null, 1, 'Jia Lee'], ['ev-2', '2024', 2, 'Jia Lee'],
     ])
     expect(file.events[1].games.map(g => [g.opponent_id, g.home])).toEqual([['JPN', true], ['CAN', false]])
     expect(file.indexable).toBe(true)
+    expect(file.position).toBe('SS')
+    expect(file.medals).toEqual([{ edition: '2024', medal: 'silver' }])
+    expect(file.events[1].log.map(g => [g.opponent_id, g.team_score, g.opponent_score, g.batting?.h, g.pitching])).toEqual([
+      ['JPN', 1, 0, 1, null], ['CAN', 0, 1, 1, null],
+    ])
   })
 
   it('keeps a page with one World Cup and under 10 plate appearances out of search engines', () => {

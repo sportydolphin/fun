@@ -625,10 +625,15 @@ function buildSiteFiles(): boolean {
   const byEvent = new Map(events.map(e => [e.key, e]))
   // The search reads every one of them at once, so it gets a file of its own, cut to the row.
   const search: WorldCupSearchPerson[] = []
+  const medalsBy = new Map(editions.map(e => [e.slug, e.medals]))
+  const medalOf = (edition: string, team: string) => {
+    const m = medalsBy.get(edition)
+    return !m ? null : m.gold === team ? 'gold' as const : m.silver === team ? 'silver' as const : m.bronze === team ? 'bronze' as const : null
+  }
   for (const p of everyone) {
     const slug = slugs.get(p.id)
     if (!slug) continue
-    const file = buildPersonFile(p, slug, byEvent, editionSlugOf)
+    const file = buildPersonFile(p, slug, byEvent, editionSlugOf, medalOf)
     if (!file.events.length) continue
     writeJson(join(SITE_DIR, `world-cup-player-${slug}.json`), file)
     search.push(searchEntry(file))
