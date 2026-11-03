@@ -130,6 +130,9 @@ export interface WbscGamePage {
    *  each, every count split between them: see `playerLines` in game.ts. */
   boxScore: Record<string, Record<string, WbscBoxRow[]> | unknown>
   gamePlays: { all: WbscPlayLog }
+  /** Set on a page read from IBAF's 2010 stats (ibaf.ts) rather than wbsc.org: its box counts an
+   *  intentional walk once, so 2016's correction for counting it twice is not made. */
+  ibaf?: true
 }
 
 /** Which event a game belongs to, from the importer's own list of events. */
@@ -146,4 +149,7 @@ export interface WbscEvent {
    * fielding of the batting row rather than splitting them, so only its pitching is added.
    */
   legacy?: true
+  /** true for 2010, read from IBAF's own stats pages in the Wayback Machine (ibaf.ts), not wbsc.org.
+   *  Always with `legacy`: the play-by-play is the same prose. */
+  ibaf?: true
 }

@@ -42,6 +42,7 @@ Two pages per event:
 
 | Event | Key | Games | Play log |
 |---|---|---|---|
+| 2010 World Cup | `2010-womens-baseball-world-cup` | 41 | Prose, as 2012 to 2016 (`legacy`, from IBAF, `ibaf`) |
 | 2012 World Cup | `2012-womens-baseball-world-cup` | 36 | Prose, as 2016 (`legacy`) |
 | 2014 World Cup | `2014-womens-baseball-world-cup` | 24 | Prose, as 2016 (`legacy`) |
 | 2016 World Cup | `2016-womens-baseball-world-cup` | 44 | Pitch by pitch, written as prose (`legacy`, see below) |
@@ -55,11 +56,51 @@ Two pages per event:
 schedule leaves the status text empty and only the code says final (3; the 2024 forfeit is 4), the
 prose writes more of a given name ("CHEN Hsiao-M", "CHEN HM", "YEUNG Kit Yn" for Kit Yan) and keeps
 a Mc surname's small c, and the rounds have other names ("Gold", "Bronze", "Semifinals", the 5th
-and 7th place games). 2004 to 2010 keep only a standings page on wbsc.org, and 2010's schedule lists
-no games, so there is nothing for the importer there.
+and 7th place games). 2004 to 2010 keep only a standings page on wbsc.org. 2010 comes from IBAF
+instead (below). 2004 to 2008 survive nowhere game by game.
 
 The continental championships (Pan Am, Asian Cup, Europe) are probably the same system; their
 keys were not found and they are out of scope for the first build.
+
+## 2010, from IBAF
+
+IBAF ran the World Cup until it merged into WBSC in 2013, and published 2010 on its own stats site,
+`ibaf.prod.kgroup.eu/stats/2010/venezuela/games/`, which is gone. The Wayback Machine has every game
+that was played: 41 of the 47 scheduled (numbers 7, 11, 16, 23, 38 and 40 are on no team's page;
+Hong Kong withdrew after its second game). The importer fetches each page once through the archive
+(`web.archive.org/web/2010id_/<page>`, the page as captured) into the same gitignored cache.
+[`ibaf.ts`](../src/intl/wbsc/ibaf.ts) reads each one into a WBSC legacy page, so `validateGame` and
+`transformGame` run on it unchanged. The play-by-play is the prose WBSC's own 2012 to 2016 logs use,
+pitch letters included.
+
+What IBAF's pages lack, and how it is covered:
+
+- **Player ids.** None, and the box score writes "BATISTA D". Every name resolves through
+  `resolveName` against the league list (`lgplyrs.htm`, "BATISTA Dayana, CUB"), plus the games'
+  pitching tables for pitchers who never batted and game 1's box for Hong Kong, which is in no list.
+  An id is a hash of team and name, so a name fixed later moves no one else's. A name that fits nobody,
+  or two, fails the game.
+- **The outs before a play.** None. legacy.ts counts them from the prose and, with nothing to hold
+  the count against, requires every half but the game's last to end on three. Each half's runs are
+  also held to the line score, and its LOB (the half's closing line) to the parse's runners.
+- **Catcher's interference.** In no box column; the play-by-play's sentence adds the plate appearance.
+- **Game 1** survives only as IBAF's shorter box (ab r h rbi bb so po a lob, then lines such as
+  "2B - PAN T H; ..."), read into the same row.
+
+IBAF's typing, each fixed by an entry that names it (`NAME_FIXES` and `TEXT_FIXES` in ibaf.ts): a
+letter dropped or added (Vazquez, Gerritsen, Tarazona), a given name and surname swapped (Katherine
+Welsh, Clare Whittam, Taylah Welch), a given name in capitals, one pitcher's given name in a second
+form (Anny León), and a pitcher the box writes "HSIEH Y L" and every pitching table Hsieh Yu-Ying.
+The scorer's notes in capitals ("SUJKOWSKY ADVANCED TO 2ND BY DEFENSIVE INDIFERENCE.") explain the
+sentence before them and are dropped (`scorerNotes`), as are two hand entries the next sentence
+contradicts; the three-outs check would fail any of them that mattered. Left as IBAF wrote them:
+"BROOKE Shiels" (nothing says which is the surname), Raiza Tarazona's box initial, and Korea's three
+near-identical Kims (two of them in one game).
+
+Rounds come from IBAF's game numbers: 1 to 25 are Round 1 (pools A and B), 26 to 40 Round 2 (C and
+D), then the 5th, 7th and 9th place games, the semifinals, bronze and gold (`ibafRound`). No
+standings page survives, so the edition's placings are the games that decided them. A game links to
+its archived page (`boxScoreUrl`), and the pages credit IBAF for 2010.
 
 ## What a play row holds
 
@@ -443,6 +484,10 @@ enters git.
     `position` and `medals`. `--site` writes all of it.
 16. ✅ **2012 and 2014** (Nov 3, 2026): two more legacy events, 60 games, three accepted at the
     source (`ACCEPTED` in the importer). What differed is under "The source" above.
+
+17. ✅ **2010, from IBAF** (Nov 3, 2026): 41 games, 2,842 plays, every check passing; see "2010, from
+    IBAF" above. The same-person rules link its players to the later World Cups (286 by rule, 14
+    left to review).
 
 ## The 2016 play log
 

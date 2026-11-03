@@ -13,6 +13,7 @@
 import type { PitchingGameLine } from '../../league/types'
 import { editionLeaders, type EditionLeaders, type PersonLookup, type TeamRoster, type WpblInField } from './editionLeaders'
 import type { WbscBattingLine, WbscGame } from './game'
+import { boxScoreUrl } from './ibaf'
 
 export interface EditionEventDef {
   key: string
@@ -58,6 +59,19 @@ export interface ForfeitDef {
 
 /** Oldest first. A new edition is a new entry, written when WBSC announces its events. */
 export const EDITIONS: readonly EditionDef[] = [
+  {
+    // IBAF's, from its own stats pages (ibaf.ts); wbsc.org keeps a standings page and no games.
+    slug: '2010', ordinal: null, years: [2010], hosts: ['Maracay, Venezuela'],
+    events: [{ key: '2010-womens-baseball-world-cup', label: null }],
+    // Pools A and B in Round 1, C and D in Round 2, as IBAF's schedule named them.
+    groupLetters: {
+      A: ['AUS', 'CAN', 'HKG', 'NED', 'TPE', 'VEN'], B: ['CUB', 'JPN', 'KOR', 'PUR', 'USA'],
+      C: ['AUS', 'CAN', 'CUB', 'JPN', 'USA', 'VEN'], D: ['KOR', 'NED', 'PUR', 'TPE'],
+    },
+    // No standings page lists them, so they are the games that decided them: the final, the bronze
+    // game, the 5th, 7th and 9th place games, and Hong Kong last, having withdrawn after one game.
+    placings: ['JPN', 'AUS', 'USA', 'VEN', 'CAN', 'CUB', 'TPE', 'PUR', 'KOR', 'NED', 'HKG'],
+  },
   {
     slug: '2012', ordinal: null, years: [2012], hosts: ['Edmonton, Canada'],
     events: [{ key: '2012-womens-baseball-world-cup', label: null }],
@@ -226,6 +240,7 @@ const ROUND_ALIAS: Readonly<Record<string, string>> = {
   'Round1': 'Round 1',
   '5th Place Game': 'Placement games',
   '7th Place Game': 'Placement games',
+  '9th Place Game': 'Placement games',
 }
 
 /** Rounds that are single games, drawn as a list with no table. */
@@ -267,7 +282,7 @@ function summary(g: WbscGame, source: string): WorldCupGame {
     away_score: g.away_score ?? 0, home_score: g.home_score ?? 0, innings: g.innings,
     // A game played has at least one inning; a forfeit, none.
     forfeit: g.innings === 0,
-    url: g.innings === 0 ? source : `${source}/box-score/${g.wbsc_game_id}`,
+    url: g.innings === 0 ? source : boxScoreUrl(source, g.wbsc_game_id),
   }
 }
 
