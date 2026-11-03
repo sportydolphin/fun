@@ -14,6 +14,8 @@ export interface WbscScheduleGame {
   awayruns: number
   /** 'F' when final. A forfeit has none: the 2024 USA–Venezuela 7–0 has an empty status. */
   gamestatustext: string | null
+  /** WBSC's status code: 3 for a final, 4 for that forfeit. 2012 and 2014 write only this. */
+  gamestatus: number
   start: string
 }
 

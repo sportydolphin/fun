@@ -19,10 +19,11 @@ earned", after an April read of the World Cup's traffic. The identity is now dec
 still happens, and it now sets how far and how fast stage 5 goes, not whether the site is women's
 baseball. The traffic already argues for it: WPBL sessions ran about 20 to 1 over MLB in the season.
 
-## Where it stands (Nov 2, 2026)
+## Where it stands (Nov 3, 2026)
 
 Stage 0's work is done and waits only on WBSC's permission. Stage 1 is built, ahead of its window,
-as a preview only the owner can see.
+as a preview only the owner can see. Stage 2's pages are built under `npm run dev` alone; a
+production build carries none of them.
 
 | Done | What | Where |
 |---|---|---|
@@ -36,13 +37,20 @@ as a preview only the owner can see.
 | Nov 2 | The World Cup on WPBL player pages as the owner's preview, from an owner-only table; Owner view in the dev menu | [sportydolphin/fun#182](https://github.com/sportydolphin/fun/pull/182) |
 | Nov 2 | The person registry, `people.json` (`--people`) | [sportydolphin/fun#183](https://github.com/sportydolphin/fun/pull/183) |
 | Nov 2 | The same player across World Cups (`--same`): 478 pairs by rule, 6 by the owner; 751 people | [sportydolphin/fun#184](https://github.com/sportydolphin/fun/pull/184) |
+| Nov 3 | Edition pages from WBSC's standings, search, name fixes (dev only) | [sportydolphin/fun#187](https://github.com/sportydolphin/fun/pull/187) |
+| Nov 3 | Final standings, Spanish compound first names, the search-index threshold | [sportydolphin/fun#188](https://github.com/sportydolphin/fun/pull/188) |
+| Nov 3 | Navigation: inside the WPBL section, edition tabs, team pages, breadcrumbs, team and year search | [sportydolphin/fun#189](https://github.com/sportydolphin/fun/pull/189) |
+| Nov 3 | Edition page: medals in the standings, scoreboard game rows, rate ties by sample | [sportydolphin/fun#190](https://github.com/sportydolphin/fun/pull/190) |
+| Nov 3 | Game page: score header, round names, flags in the line score, HR 2B SB | [sportydolphin/fun#191](https://github.com/sportydolphin/fun/pull/191) |
+| Nov 3 | Player page: position, medals, World Cups count, total row, game log | [sportydolphin/fun#192](https://github.com/sportydolphin/fun/pull/192) |
+| Nov 3 | 2012 and 2014 imported (60 games); 4 more links and 3 more same-person answers by the owner; uploaded | [sportydolphin/fun#193](https://github.com/sportydolphin/fun/pull/193) |
 
-**Open as of Nov 2:** no reply from WBSC is recorded. Steps 1 to 5 below are done on this
+**Open as of Nov 3:** no reply from WBSC is recorded. Steps 1 to 5 below are done on this
 machine, and the hand work (`crosswalk.json`, `same-person.json`) is backed up to the owner's
-OneDrive (`sportydolphin-wbsc-backup`). Stage 1 is built as the owner's preview: the World Cup
-rows on WPBL player pages, readable by the owner alone, and the person registry, with every World
-Cup career joined (751 people). Next is stage 2's pages, built behind the same owner gate.
-Releasing anything is the owner's call, after WBSC's yes.
+OneDrive (`sportydolphin-wbsc-backup`, the Nov 3 copies are the current ones). Stage 1 is built as
+the owner's preview: the World Cup rows on WPBL player pages (125 rows over 52 players, 2012 on),
+readable by the owner alone, and the person registry (885 people). Stage 2's pages are built in dev
+(see stage 2 for what is left). Releasing anything is the owner's call, after WBSC's yes.
 
 **Waiting on:** replies to the owner's outreach (WBSC for permission; Baseball Prospectus and
 RetroWPBL as neighbors, see [Neighbors](#neighbors)). Record each reply here, with its date.
@@ -60,7 +68,7 @@ In order. Each step says what done looks like; the commands are in
 [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md).
 
 1. **Restore the local data if this is a fresh machine.** `npm run wbsc -- --all` re-imports all
-   seven events, about 190 requests, 1.5 s apart. Done when each event's folder is back in
+   nine events (2012 on), about 260 requests, 1.5 s apart. Done when each event's folder is back in
    `archive/wbsc/`. The hand work cannot be re-downloaded: copy `crosswalk.json` and
    `same-person.json` back from the OneDrive backup, then rebuild the rest with `--international`,
    `--people` and `--upload`.
@@ -75,7 +83,9 @@ In order. Each step says what done looks like; the commands are in
 3. ✅ **Import the back catalog** (Nov 2, 2026). `npm run wbsc -- --all` writes all seven events,
    170 games and 11,440 plays, every game checked against itself four ways; what it took (new
    codes, a reader for 2016's prose play log, eight games wrong at the source) is in
-   [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md#build-order).
+   [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md#build-order). 2012 and 2014 followed on Nov 3, 2026
+   (36 and 24 games) after a reader noticed Ayami Sato's 2012 pitching was missing; 2004 to 2010
+   have only a standings page on wbsc.org.
 4. ✅ **Re-measure the provisional numbers** (Nov 2, 2026): the pitch-board bars in
    `src/intl/league.ts`, now from every event.
 5. ✅ **Build `international.json`** (Nov 2, 2026), the one file a WPBL player page will read: per
@@ -267,7 +277,20 @@ it, so it is designed for the developmental league and the AAGPBL as much as for
   carry them (docs/WBSC_INGEST.md, step 11). Leaders and the WPBL players in the field followed the
   same day, and in dev a player page's World Cup row opens its edition. Game pages with our own play
   by play followed too (step 12), then a page for every player outside the WPBL, all drawn with
-  WPBL's own pieces (step 13). The public switch is what is left.
+  WPBL's own pieces (step 13). On Nov 3 a visual audit led to the navigation, edition, game and
+  player page work in the table above (sportydolphin/fun#189 to #192).
+  **What is left, in order** (Nov 3, 2026):
+  1. Loading states and the layout sweep: every World Cup page drawn empty while it loads, and
+     `npm run sweep -- --shift` and `--ellipsis` clean on these routes. Held until the look is settled.
+  2. Polish from the audit: Chinese Taipei's gray "TPE" badge, WPBL players' portraits in the
+     leader cards, a title per page, the box score's small gray headers checked for contrast.
+  3. Optional: 2004 to 2010 as editions with final standings and medals only.
+  4. The public switch. A first cut is parked on the local branch `world-cup-stage2` (commit
+     dce1c95c, never pushed: it carries `archive/wbsc/`). It predates everything above, so the
+     switch is rebuilt on `main` from its list: `archive/wbsc/` out of `.gitignore` with a size
+     budget, `_redirects` and `_routes.json` lines with their 404 guards, `seo.ts`, the sitemap
+     (reading `indexable`), `fetchSite` reading the committed files, and the dev flags in App.tsx
+     and `morePages.ts` removed.
 - **A game page** per World Cup game: line score, box score and play by play. The neutral engines
   in `src/league/` (bests, the finder, run expectancy) run on it with `src/intl/league.ts`; the
   WPBL Game Center's components are reused where they are already league-neutral, and anything
@@ -289,7 +312,7 @@ it, so it is designed for the developmental league and the AAGPBL as much as for
   two World Cups, or 10 plate appearances and batters faced together (`isIndexable`, 497 of 633
   pages); the robots tag and the sitemap read it at the public switch.
 - **The size budget in CI** for the event files, added as they enter git.
-- **Done when** every World Cup since 2016 has its page and every name on them is a link.
+- **Done when** every World Cup since 2012 has its page and every name on them is a link.
 
 ### Stage 3. The site becomes women's baseball (February to Mar 15)
 

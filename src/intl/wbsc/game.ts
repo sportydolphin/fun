@@ -271,7 +271,11 @@ export function batterOnRow(row: WbscPlayRow, slots: Map<number, WbscBoxRow>): {
  * game, "F/10" for extras); read as anything but 'F', 48 of its 50 games were skipped as unplayed
  * and the event was written with two.
  */
-export const isFinal = (status: string | null | undefined): boolean => /^F(\/\d+)?$/.test(status ?? '')
+export const isFinal = (status: string | null | undefined, code?: number): boolean =>
+  /^F(\/\d+)?$/.test(status ?? '')
+  // The 2012 and 2014 schedules write no status text at all, only WBSC's code, and 3 is the code
+  // every final in the later events carries. A forfeit is 4 (the 2024 USA–Venezuela), so it stays out.
+  || (!status && code === 3)
 
 /**
  * Everything wrong with a game page, as sentences. Empty means it may be transformed. With
@@ -282,7 +286,7 @@ export function validateGame(page: WbscGamePage, { legacy = false }: { legacy?: 
   const problems: string[] = []
   const g = page.gameData
   if (!g) return ['no gameData']
-  if (!isFinal(g.gamestatustext)) problems.push(`not final (status "${g.gamestatustext ?? ''}")`)
+  if (!isFinal(g.gamestatustext, g.gamestatus)) problems.push(`not final (status "${g.gamestatustext ?? ''}")`)
   if (!(g.innings > 0)) problems.push(`innings played is ${g.innings}`)
 
   const log = halves(page)

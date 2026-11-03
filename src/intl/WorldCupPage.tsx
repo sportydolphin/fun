@@ -728,8 +728,10 @@ function NeighborGame({ g, slug, label, alignEnd }: { g: WorldCupGame; slug: str
 /** A game's round as a reader names it: which medal it decided, else its group ("Group A") or stage
  *  ("Finals"), from the edition file. WBSC's own string ("Group Stage Games") is the last resort. */
 function roundOf(g: WorldCupGameFile, e: WorldCupEdition | null | undefined): string | null {
-  if (g.round === 'World Championship Final') return 'Gold medal game'
-  if (g.round === 'Bronze Medal Game') return 'Bronze medal game'
+  // 2012 and 2014 write "Gold", "Bronze" and "5th Place Game".
+  if (g.round === 'World Championship Final' || g.round === 'Gold') return 'Gold medal game'
+  if (g.round === 'Bronze Medal Game' || g.round === 'Bronze') return 'Bronze medal game'
+  if (g.round === '5th Place Game' || g.round === '7th Place Game') return `${g.round.slice(0, 3)} place game`
   for (const s of e?.stages ?? []) {
     for (const grp of s.groups) if (grp.games.some(x => x.wbsc_game_id === g.wbsc_game_id)) return grp.label ?? s.label
   }

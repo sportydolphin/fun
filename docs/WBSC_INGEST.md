@@ -42,12 +42,21 @@ Two pages per event:
 
 | Event | Key | Games | Play log |
 |---|---|---|---|
+| 2012 World Cup | `2012-womens-baseball-world-cup` | 36 | Prose, as 2016 (`legacy`) |
+| 2014 World Cup | `2014-womens-baseball-world-cup` | 24 | Prose, as 2016 (`legacy`) |
 | 2016 World Cup | `2016-womens-baseball-world-cup` | 44 | Pitch by pitch, written as prose (`legacy`, see below) |
 | 2018 World Cup | `2018-womens-baseball-world-cup` | 50 | Plate appearances only, no pitches |
 | 2023 groups A, B | `2023-ix-womens-baseball-world-cup-group-a`, `-group-b` | 15 + 15 | Pitch by pitch |
 | 2024 Finals | `2024-ix-womens-baseball-world-cup-finals` | 17 | Pitch by pitch |
 | 2026 groups | `2026-x-womens-baseball-world-cup-group-stage-rockford`, `-tainan` | 15 + 15 | Pitch by pitch |
 | 2027 Finals | not published yet | about 17 | Expected pitch by pitch |
+
+2012 and 2014 (added Nov 3, 2026) are WBSC's older system with three differences from 2016: the
+schedule leaves the status text empty and only the code says final (3; the 2024 forfeit is 4), the
+prose writes more of a given name ("CHEN Hsiao-M", "CHEN HM", "YEUNG Kit Yn" for Kit Yan) and keeps
+a Mc surname's small c, and the rounds have other names ("Gold", "Bronze", "Semifinals", the 5th
+and 7th place games). 2004 to 2010 keep only a standings page on wbsc.org, and 2010's schedule lists
+no games, so there is nothing for the importer there.
 
 The continental championships (Pan Am, Asian Cup, Europe) are probably the same system; their
 keys were not found and they are out of scope for the first build.
@@ -425,6 +434,15 @@ enters git.
     editions for "world cup" or "wbsc" ([`worldCupSearch.ts`](../src/intl/worldCupSearch.ts)). A year
     typed beside a name narrows to that edition. A WPBL player is found as a WPBL player only, since
     that is their one page. Dev only, like the pages: the production build fails if the rows ship.
+    Since Nov 3 it also finds a team (`team_ids` on the index) and an edition by a year alone.
+15. ✅ **Navigation and the pages' second pass** (Nov 3, 2026): the World Cup sits in the WPBL
+    section (its tabs, bottom bar and More menu, all behind the dev flag); an edition is four
+    addresses (`/world-cup/<year>`, `/games`, `/leaders`, `/teams`); team pages per edition
+    (`/world-cup/<year>/teams/<ioc>`, from `rosters` in the edition file) and across editions
+    (`/world-cup/teams/<ioc>`); a game page's score header and neighbors; a player file's `log`,
+    `position` and `medals`. `--site` writes all of it.
+16. ✅ **2012 and 2014** (Nov 3, 2026): two more legacy events, 60 games, three accepted at the
+    source (`ACCEPTED` in the importer). What differed is under "The source" above.
 
 ## The 2016 play log
 

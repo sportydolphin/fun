@@ -133,6 +133,9 @@ describe('validation', () => {
     expect(isFinal('F/10')).toBe(true)
     expect(isFinal('')).toBe(false)
     expect(isFinal('Postponed')).toBe(false)
+    expect(isFinal('', 3)).toBe(true)
+    expect(isFinal(null, 3)).toBe(true)
+    expect(isFinal('', 4)).toBe(false)
   })
 
   it('refuses a box row with no player id', () => {
@@ -176,6 +179,7 @@ describe('validation', () => {
   it('refuses a game that is not final', () => {
     const page = fixturePage()
     page.gameData.gamestatustext = ''
+    page.gameData.gamestatus = 2
     expect(validateGame(page)).toContain('not final (status "")')
   })
 
