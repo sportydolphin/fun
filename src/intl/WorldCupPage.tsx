@@ -15,7 +15,7 @@
 // out of the sitemap.
 //
 // EVERY PAGE CREDITS WBSC, with a link to its own page for what this one shows.
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Box, CircularProgress, Typography } from '@mui/material'
 import StandalonePage from '../ui/StandalonePage'
 import { CARD_BORDER, SectionCard, TYPE_SCALE } from '../ui/card'
@@ -157,16 +157,23 @@ function TeamLink({ team, slug }: { team: string; slug: string }) {
 }
 
 /** WBSC's final order, as a numbered list of teams. */
+const MEDALS = ['Gold', 'Silver', 'Bronze'] as const
+
+/** The first three are the medalists (editions.ts checks it), so they carry the medal by name in its
+ *  color: the medal line above the list said the same three things again until Nov 2026. */
 function Placings({ teams, slug }: { teams: string[]; slug: string }) {
   return (
     <Box component="ol" sx={{ listStyle: 'none', m: 0, p: 0, fontSize: TYPE_SCALE.body }}>
       {teams.map((t, i) => (
         <Box component="li" key={t} sx={{
-          display: 'grid', gridTemplateColumns: '1.75rem 1fr', alignItems: 'center', py: 0.75,
+          display: 'grid', gridTemplateColumns: '1.75rem 1fr auto', alignItems: 'center', py: 0.75,
           borderTop: i ? '1px solid' : 'none', borderColor: 'divider',
         }}>
           <Box component="span" sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{i + 1}</Box>
           <Box><TeamLink team={t} slug={slug} /></Box>
+          {i < 3 && (
+            <Box component="span" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: `var(--wpbl-medal-${i + 1})` }}>{MEDALS[i]}</Box>
+          )}
         </Box>
       ))}
     </Box>
@@ -199,16 +206,24 @@ function Result({ g, slug, withYear = false }: { g: WorldCupGame; slug: string; 
   return (
     // A forfeit has no box score, so no page to open.
     <Box {...(g.forfeit ? {} : linkTo(`/world-cup/${slug}/games/${g.wbsc_game_id}`))} sx={{
-      ...UNSTYLED_LINK, display: 'grid', gridTemplateColumns: `${withYear ? 5.5 : 3.5}rem 1fr auto`, alignItems: 'center', columnGap: 1,
+      ...UNSTYLED_LINK, display: 'grid',
+      // The teams column stops at a phone's width, so on a desktop the score stays beside the name.
+      gridTemplateColumns: `${withYear ? 5.5 : 3.5}rem minmax(0, 14rem) minmax(3.5rem, 1fr)`, alignItems: 'center', columnGap: 1.5,
       py: 0.75, borderTop: '1px solid', borderColor: 'divider', fontSize: TYPE_SCALE.body,
     }}>
       <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{shortDate(g.date)}{withYear ? `, ${g.date.slice(0, 4)}` : ''}</Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', minWidth: 0 }}>
-        <Box sx={{ fontWeight: awayWon ? 700 : 400 }}><TeamName team={g.away} /> {g.away_score}</Box>
-        <Box component="span" sx={{ color: 'text.secondary', mx: 0.75 }}>@</Box>
-        <Box sx={{ fontWeight: awayWon ? 400 : 700 }}><TeamName team={g.home} /> {g.home_score}</Box>
+      {/* Away over home, scores in their own column, as a scoreboard reads. On one line ("Hong Kong,
+          China 9 @ Korea 8") a long name wrapped mid-row on a phone while the next row did not, so
+          no two rows lined up. */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', columnGap: 1.5, rowGap: 0.25, alignItems: 'center', minWidth: 0 }}>
+        {([[g.away, g.away_score, awayWon], [g.home, g.home_score, !awayWon]] as const).map(([team, score, won]) => (
+          <Fragment key={team}>
+            <Box sx={{ fontWeight: won ? 700 : 400, minWidth: 0 }}><TeamName team={team} /></Box>
+            <Box sx={{ fontWeight: won ? 700 : 400, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{score}</Box>
+          </Fragment>
+        ))}
       </Box>
-      <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
+      <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', textAlign: 'right' }}>
         {g.forfeit ? 'Forfeit' : g.innings === 7 ? 'Final' : `F/${g.innings}`}
       </Typography>
     </Box>
@@ -345,15 +360,11 @@ function Overview({ e }: { e: WorldCupEdition }) {
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mb: 1 }}>
           {[years(e.years), e.hosts.join(' · '), `${e.teams.length} teams`].join(' · ')}
         </Typography>
-        {e.medals ? <MedalLine medals={e.medals} /> : (
-          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>In progress</Typography>
-        )}
+        {e.placings.length > 0 ? <Placings teams={e.placings} slug={e.slug} />
+          : e.medals ? <MedalLine medals={e.medals} /> : (
+            <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>In progress</Typography>
+          )}
       </SectionCard>
-      {e.placings.length > 0 && (
-        <SectionCard title="Final standings">
-          <Placings teams={e.placings} slug={e.slug} />
-        </SectionCard>
-      )}
       {groupStages.map(s => (
         <SectionCard key={s.label} title={stageTitle(e, s)}>
           {s.groups.map((g, i) => (

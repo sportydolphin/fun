@@ -136,16 +136,19 @@ export function editionLeaders(input: LeaderInput, people: PersonLookup): { lead
   const minPa = (team: string) => Math.max(FLOOR_PA, Math.round(PA_PER_TEAM_GAME * (teamGames.get(team) ?? 0)))
   const minOuts = (team: string) => Math.max(FLOOR_OUTS, Math.round(OUTS_PER_TEAM_GAME * (teamGames.get(team) ?? 0)))
 
-  function board<S extends string, T>(stat: S, totals: Map<string, T>, value: (t: NoInfer<T>) => number | null, keep: (t: NoInfer<T>, team: string) => boolean, low = false): LeaderBoard<S> {
+  /** `weight` breaks a tie in a rate before the name does: the larger sample first. A short
+   *  tournament puts several pitchers at 0.00, and the one with 18 innings above the one with 6 is
+   *  the order a reader expects; the alphabet put the 6 first. They still print as tied. */
+  function board<S extends string, T>(stat: S, totals: Map<string, T>, value: (t: NoInfer<T>) => number | null, keep: (t: NoInfer<T>, team: string) => boolean, low = false, weight?: (t: NoInfer<T>) => number): LeaderBoard<S> {
     const rows = [...totals].flatMap(([id, t]) => {
       const p = who.get(id)!
       const v = value(t)
-      return v == null || !keep(t, p.team) ? [] : [{ name: p.name, team: p.team, path: p.path, wpbl: p.wpbl, value: v }]
+      return v == null || !keep(t, p.team) ? [] : [{ row: { name: p.name, team: p.team, path: p.path, wpbl: p.wpbl, value: v }, w: weight?.(t) ?? 0 }]
     })
     // Zero is no lead in a counting stat: a board of five players with no home run says nothing.
-    const shown = low ? rows : rows.filter(r => r.value > 0)
-    shown.sort((a, b) => (low ? a.value - b.value : b.value - a.value) || cmp(a.name, b.name))
-    return { stat, rows: shown.slice(0, TOP) }
+    const shown = low ? rows : rows.filter(r => r.row.value > 0)
+    shown.sort((a, b) => (low ? a.row.value - b.row.value : b.row.value - a.row.value) || b.w - a.w || cmp(a.row.name, b.row.name))
+    return { stat, rows: shown.slice(0, TOP).map(r => r.row) }
   }
 
   const obp = (t: { h: number; bb: number; hbp: number; ab: number; sf: number }) => {
@@ -156,14 +159,14 @@ export function editionLeaders(input: LeaderInput, people: PersonLookup): { lead
   const any = () => true
   const leaders: EditionLeaders = {
     batting: [
-      board('AVG' as const, bat, t => (t.ab > 0 ? t.h / t.ab : null), qualified),
-      board('OPS' as const, bat, t => { const o = obp(t); return o == null || t.ab === 0 ? null : o + t.tb / t.ab }, qualified),
+      board('AVG' as const, bat, t => (t.ab > 0 ? t.h / t.ab : null), qualified, false, t => t.pa),
+      board('OPS' as const, bat, t => { const o = obp(t); return o == null || t.ab === 0 ? null : o + t.tb / t.ab }, qualified, false, t => t.pa),
       board('HR' as const, bat, t => t.hr, any),
       board('RBI' as const, bat, t => t.rbi, any),
     ],
     pitching: [
       // Per seven innings, the World Cup's own game, as everything WBSC publishes is.
-      board('ERA' as const, pit, t => (t.outs > 0 ? (t.er * WBSC_LEAGUE.regulationInnings * 3) / t.outs : null), (t, team) => t.outs >= minOuts(team), true),
+      board('ERA' as const, pit, t => (t.outs > 0 ? (t.er * WBSC_LEAGUE.regulationInnings * 3) / t.outs : null), (t, team) => t.outs >= minOuts(team), true, t => t.outs),
       board('SO' as const, pit, t => t.so, any),
       board('W' as const, pit, t => t.w, any),
     ],
