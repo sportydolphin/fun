@@ -23,6 +23,24 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.207.0',
+    date:    '2026-11-02',
+    changes: [
+      {
+        short: 'Search ranking',
+        full:  'WPBL search lists the closest names first, finds a name typed surname first or with an initial ("k whitmore"), and ignores accents, so "andreanne" finds Andréanne Leblanc.',
+      },
+      {
+        short: 'Faster search',
+        full:  'Search keeps the roster between visits, so it answers the first letter typed. MLB search finds this season’s players without waiting on MLB’s server.',
+      },
+      {
+        short: 'WAR leaders',
+        full:  'An empty WPBL search box shows the season’s WAR leaders until there are recent searches to show.',
+      },
+    ],
+  },
+  {
     version: '1.206.2',
     date:    '2026-11-02',
     changes: [

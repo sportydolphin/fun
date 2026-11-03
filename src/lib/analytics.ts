@@ -148,7 +148,7 @@ export const EVENTS = {
   // nothing said how often it was used, how often it found nothing, or whether a typed result
   // or a recent did the work. `wpbl_searched` is the denominator for `wpbl_search_picked`.
   WPBL_SEARCHED:       'wpbl_searched',       // a settled query ran, props {length, players, teams, finder, leaders, compare, q?}; `q` only when nothing answered, a Find, ranking or pair reading included
-  WPBL_SEARCH_PICKED:  'wpbl_search_picked',  // chose a row, props {type, id, source: 'result' | 'recent'}
+  WPBL_SEARCH_PICKED:  'wpbl_search_picked',  // chose a row, props {type, id, source: 'result' | 'recent' | 'suggested'}
   // The site's search, which since Oct 2026 is one palette (src/CommandPalette.tsx) opened from
   // the toolbar field, its icon, "/" or Ctrl+K, in both sections. Every open is followed by
   // exactly one `picked` or `dismissed`, so opened = picked + dismissed, give or take an example

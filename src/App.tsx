@@ -700,9 +700,10 @@ function AppInner() {
   const paletteIdle = useMemo<PaletteIdleGroup[]>(() => {
     if (!paletteOpen) return []
     if (bridge.source === 'wpbl') {
-      return bridge.recentRows.length
-        ? [{ label: 'Recent', kind: 'recent', rows: bridge.recentRows, onClear: bridge.clearRecentSearches ?? undefined }]
-        : []
+      // The leaders only stand in for recents, never beside them, for the same reason: a first
+      // visit's box has room for three players above the examples, a returning one does not.
+      if (bridge.recentRows.length) return [{ label: 'Recent', kind: 'recent', rows: bridge.recentRows, onClear: bridge.clearRecentSearches ?? undefined }]
+      return bridge.suggestedRows.length ? [{ label: 'WAR leaders', kind: 'recent', rows: bridge.suggestedRows }] : []
     }
     const recents = bridge.recentSearches
     if (!recents.length) return []

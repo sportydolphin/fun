@@ -123,6 +123,39 @@ export function searchPlayers<T extends { name: string; jersey_number?: string |
   return hits
 }
 
+/**
+ * The header search's order: every player whose name holds the query, plus the ones the scorer
+ * above finds without a plain substring ("whitmore kelsie", "k whitmore"), best first.
+ *
+ * NOT `searchPlayers` as it stands. That one also answers misspellings, and the header search
+ * keeps those for a second pass flagged as a guess (src/lib/fuzzyName.ts), so a correct spelling
+ * is never listed beside near misses. It also answers two letters, which `searchPlayers` leaves to
+ * its typo rules: "le" has to find Leblanc. So a substring the scorer rates below its own
+ * substring rule still counts, at the start of a word above the middle of one.
+ *
+ * `weight` breaks ties (higher first), then the shorter name, as `searchPlayers` does.
+ */
+export function rankHeaderMatches<T extends { name: string }>(
+  query: string, players: readonly T[], weight: (p: T) => number,
+): T[] {
+  const q = normalizeName(query)
+  if (!q) return []
+  const qTokens = q.split(' ')
+  const hits: { player: T; score: number; weight: number }[] = []
+  for (const player of players) {
+    const full = normalizeName(player.name)
+    if (!full) continue
+    const tokens = full.split(' ')
+    const scored = scoreOne(q, qTokens, full, tokens)
+    let score = scored >= 60 ? scored : 0
+    // A middle name opened ("jose" in Maria José Valenzuela) outranks a match inside a word.
+    if (score <= 60 && full.includes(q)) score = tokens.some(t => t.startsWith(q)) ? 62 : Math.max(score, 50)
+    if (score) hits.push({ player, score, weight: weight(player) })
+  }
+  hits.sort((a, b) => b.score - a.score || b.weight - a.weight || a.player.name.length - b.player.name.length)
+  return hits.map(h => h.player)
+}
+
 function scoreOne(q: string, qTokens: string[], full: string, tokens: string[]): number {
   if (q === full) return 100
 
