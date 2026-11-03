@@ -7,8 +7,8 @@ import { buildPeople } from '../../people'
 // WBSC's do: 10 is 2016, 20 is 2018, 30 is 2023, 40 is 2024.
 
 const EVENT: Record<number, string> = { 10: '2016-ev', 20: '2018-ev', 30: '2023-ev', 31: '2023-ev-b', 40: '2024-ev' }
-const p = (t: number, n: number, first: string, last: string, team = 'AAA'): SamePersonPlayer =>
-  ({ id: `wbsc:p:${t}:${n}`, event_key: EVENT[t], name: `${first} ${last}`, first_name: first, last_name: last, team_id: team })
+const p = (t: number, n: number, first: string, last: string, team = 'AAA'): SamePersonPlayer & { full_name: string } =>
+  ({ id: `wbsc:p:${t}:${n}`, event_key: EVENT[t], name: `${first} ${last}`, full_name: `${first} ${last}`, first_name: first, last_name: last, team_id: team })
 const NONE: Crosswalk = { links: [], rejected: [] }
 const run = (players: SamePersonPlayer[], crosswalk = NONE) => proposeSamePerson(players, crosswalk, EMPTY_SAME_PERSON, '2026-11-02')
 const rules = (players: SamePersonPlayer[], crosswalk = NONE) =>

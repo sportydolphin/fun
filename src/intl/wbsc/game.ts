@@ -6,6 +6,7 @@
 // into. Where the three disagree, a board built on one of them is quietly wrong, so a game that
 // fails any check below is left out with its reasons printed, and the importer exits non-zero.
 
+import { NAME_FIXES, nameFixKey } from './nameFixes'
 import type {
   BattingGameLine, FieldingGameLine, LeagueGame, LeaguePlayer, LineScoreEntry, PitchingGameLine, RunValuePlay,
 } from '../../league/types'
@@ -38,6 +39,9 @@ export interface WbscGame extends LeagueGame {
 /** A player IN ONE EVENT. WBSC numbers a player afresh every tournament, so the same person in
  *  two events is two of these, joined (if ever) by the crosswalk and never by name. */
 export interface WbscPlayer extends LeaguePlayer {
+  /** Every name WBSC registered, for matching and for the reviewer; `name` is what the site shows
+   *  (`displayName`). */
+  full_name: string
   event_key: string
   wbsc_player_id: number
   first_name: string
@@ -90,12 +94,45 @@ export function inningsToOuts(ip: string | number | null | undefined): number | 
 export const APOSTROPHE = /\s*['’`´ʼ]\s*/g
 
 /** 'MARCANO  VIZCARRONDO' → 'Marcano Vizcarrondo', "O'SULLIVAN" → "O'Sullivan", 'DAY-BÉDARD' →
- *  'Day-Bédard'. WBSC writes every surname in capitals. A Mc or Mac loses its inner capital; the
- *  crosswalk records the name each side writes, so nothing is matched on this. */
+ *  'Day-Bédard'. WBSC writes every surname in capitals. A Mc or Mac loses its inner capital here,
+ *  which the crosswalk and the same-person rules match on; `displayName` puts a Mc's back. */
 export function surnameCase(raw: string): string {
   return raw.replace(APOSTROPHE, "'").trim().split(/\s+/)
     .map(word => word.toLowerCase().replace(/(^|[-'’])(\p{L})/gu, (_, sep: string, ch: string) => sep + ch.toUpperCase()))
     .join(' ')
+}
+
+/** Teams whose given names are two syllables WBSC writes as two words ("Yu Hsuan", "Jin mi"): one
+ *  name, not a first and a middle, so they stay whole. */
+const WHOLE_GIVEN_NAME = new Set(['TPE', 'KOR', 'CHN', 'HKG', 'PRK'])
+
+/**
+ * The name the site shows: the first given name and the whole surname. WBSC registers every given
+ * name ("Zoe Elizabeth Faith Hicks", "Mirialis De La Caridad Garcia Garcia"), which no box score
+ * or roster writes. Both surnames stay, since a double surname is the surname. Where the given
+ * name is one name in two words (`WHOLE_GIVEN_NAME`) it stays whole, Taiwan's hyphenated as its
+ * passports write it ("Yi-Ru"); a Hong Kong player's trailing English name is the one they go by
+ * ("Wai Yin Michelle Lam" is Michelle Lam), and a name in parentheses beside it is dropped
+ * ("Debby (Su-Yee) Mak"). A lone "." is WBSC's placeholder for a missing name. The few the rule
+ * gets wrong are set by hand in nameFixes.ts.
+ * Only for showing: the crosswalk and the same-person rules match on everything WBSC wrote.
+ */
+export function displayName(firstName: string, lastName: string, teamId: string | null): string {
+  const fixed = NAME_FIXES.get(nameFixKey(teamId, `${firstName.trim()} ${surnameCase(lastName)}`))
+  if (fixed) return fixed
+  const words = (s: string) => s.replace(/\([^)]*\)/g, ' ').trim().split(/\s+/).filter(w => w && w !== '.')
+  const cap = (w: string) => (w === w.toLowerCase() || w === w.toUpperCase() ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w)
+  const given = words(firstName).map(cap)
+  // McMillan, not surnameCase's Mcmillan. Mc only: a Mac is as often not a prefix (Macias, Mack).
+  const surname = words(surnameCase(lastName)).join(' ').replace(/\bMc(\p{Ll})/gu, (_, c: string) => `Mc${c.toUpperCase()}`)
+  let first = given[0] ?? ''
+  if (teamId && WHOLE_GIVEN_NAME.has(teamId)) {
+    if (teamId === 'HKG' && given.length > 2) first = given[given.length - 1]
+    // 2016 writes them hyphenated already, in lower case after the hyphen ("Wen-ching").
+    else if (teamId === 'TPE') first = (given.length === 2 ? `${given[0]}-${given[1]}` : given.join(' ')).replace(/-(\p{Ll})/gu, (_, c: string) => `-${c.toUpperCase()}`)
+    else first = given.join(' ')
+  }
+  return [first, surname].filter(Boolean).join(' ')
 }
 
 const cleanNarrative = (s: string | null | undefined): string | null => {
@@ -460,10 +497,11 @@ export function transformGame(page: WbscGamePage, event: WbscEvent): WbscGameRow
       // A row with no id (an accepted defect, see validateGame) is nobody we can name: dropped.
       if (!r.playerid) continue
       const pid = playerId(tid, r.playerid)
-      const name = `${r.firstname.trim()} ${surnameCase(r.lastname)}`
+      const full_name = `${r.firstname.trim()} ${surnameCase(r.lastname)}`
+      const name = displayName(r.firstname, r.lastname, team)
       nameById.set(r.playerid, name)
       players.push({
-        id: pid, event_key: event.key, wbsc_player_id: r.playerid, name,
+        id: pid, event_key: event.key, wbsc_player_id: r.playerid, name, full_name,
         first_name: r.firstname.trim(), last_name: surnameCase(r.lastname),
         team_id: team, uniform: r.uniform ?? null,
       })

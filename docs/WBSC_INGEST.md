@@ -164,8 +164,12 @@ Five stages per event:
      `pitch_sequence` in our own alphabet (B, C, S, F, X, H), null for a game scored without
      pitches. Stolen bases, wild pitches, passed balls, balks, pickoffs, caught stealing and
      advances on errors between pitches become their own rows, as in the WPBL log.
-   - Players become one row per tournament: the WBSC id, the name as WBSC writes it (surname out
-     of capitals, given names whole: "Kelsie Ann-Gamboa Whitmore"), the IOC code, the uniform.
+   - Players become one row per tournament: the WBSC id, the name as WBSC writes it in
+     `full_name` (surname out of capitals, given names whole: "Kelsie Ann-Gamboa Whitmore"), the
+     name the site shows in `name` (no middle names: "Kelsie Whitmore"; `displayName` in
+     `game.ts` keeps a two-word Taiwanese, Korean or Chinese given name whole), the IOC code, the
+     uniform. The play log carries `name`. The crosswalk and the same-person rules match on
+     `full_name`, since a middle name is sometimes the one a player goes by (Esthela).
    - **Ids are namespaced strings**: `wbsc:g:201054` for a game, `wbsc:p:2826:764325` for a player
      in a tournament (WBSC's player ids restart every event: Kelsie Whitmore is 23026 in 2018,
      310867 in 2023, 764325 in 2026). Teams are their IOC codes, which do persist.
@@ -373,6 +377,45 @@ enters git.
 8. ✅ **The person registry** (Nov 2, 2026): `people.json`, `--people`.
 9. ✅ **The same player across World Cups** (Nov 2, 2026): `--same` and `--confirm-same`, 478 pairs
    by rule and 6 by the owner.
+10. ✅ **Names without middle names** (Nov 2, 2026): `name` is what the site shows, `full_name` what
+    WBSC registered (step 4 above).
+11. ✅ **Editions and the pages' files** (Nov 2, 2026): `--site` writes `archive/wbsc/site/`, one
+    index and one file per edition ([`editions.ts`](../src/intl/wbsc/editions.ts): which events make
+    an edition, groups, records, medals, every result linked to its box score; leaders and the WPBL
+    players in the field from [`editionLeaders.ts`](../src/intl/wbsc/editionLeaders.ts), summed per
+    person through `people.json`, so run `--people` first). Results and records
+    only, no scorer sentences: these files are what publication will commit. 2016 and 2018 carry no
+    group labels, so their opening-round groups are split by who played whom and lettered from
+    `groupLetters` in `EDITIONS`, copied from WBSC's standings pages (game order got both wrong). The
+    standings are WBSC's: a later round carries over the earlier games between two of its teams, ties
+    go by head to head and then Team Quality Balance, and a forfeit the importer skips is counted from
+    `forfeits` (2024's USA over Venezuela). Every table matched wbsc.org on Nov 2, 2026. `/world-cup` and `/world-cup/<year>` read
+    them under `npm run dev` only (`WORLD_CUP_ROUTES` in App.tsx), and the build fails if the page
+    reaches a production bundle (`vite-plugin-no-dev-code.mjs`).
+12. ✅ **Game pages** (Nov 2, 2026): `--site` also writes `world-cup-game-<wbsc id>.json` per game
+    ([`gameFile.ts`](../src/intl/wbsc/gameFile.ts)): the line score, the box score with pitchers in
+    the order they pitched, and the play by play in our own words
+    ([`playText.ts`](../src/intl/wbsc/playText.ts)), never the scorer's sentence. A runner is named
+    only when the bases before and after the play say who; on all 11,440 plays, 1% fall back to a
+    count ("1 run scored") and 0.2% to the event alone ("Caught stealing"). `/world-cup/<year>/games/<id>`,
+    dev only like the rest.
+13. ✅ **Player pages, and WPBL's pieces** (Nov 2, 2026): `--site` writes `world-cup-player-<slug>.json`
+    for each of the 633 people who played a World Cup and have no WPBL page
+    ([`personFile.ts`](../src/intl/wbsc/personFile.ts)); a WPBL player's World Cups stay on their WPBL
+    page, and every link to them goes there. Every name on every World Cup page is a link, and one
+    name per person (the roster's or the registry's), in the play text too. The pages are drawn with
+    WPBL's league-neutral pieces in `src/ui` (the leader cards, the game center's box score and play
+    by play, the player card's career tables), and the career tables are one component on both
+    sections ([`WorldCupCareer.tsx`](../src/intl/WorldCupCareer.tsx)). A team's flag stands where a
+    club's logo would ([`flags.ts`](../src/intl/flags.ts), from `flag-icons`, MIT); Chinese Taipei
+    shows its code, since it plays under an Olympic flag no flag set carries. The names the display
+    rule gets wrong are set by hand in [`nameFixes.ts`](../src/intl/wbsc/nameFixes.ts), by team and
+    registered name; re-import with `--offline` after adding one, then `--people` and `--site`.
+14. ✅ **Search** (Nov 2, 2026): `--site` also writes `world-cup-people.json`, every World Cup-only
+    player cut to the search row, and the WPBL search lists them after its own rows, with the
+    editions for "world cup" or "wbsc" ([`worldCupSearch.ts`](../src/intl/worldCupSearch.ts)). A year
+    typed beside a name narrows to that edition. A WPBL player is found as a WPBL player only, since
+    that is their one page. Dev only, like the pages: the production build fails if the rows ship.
 
 ## The 2016 play log
 

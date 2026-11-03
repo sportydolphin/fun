@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { airOut, baserunningEvent, paEventType } from '../codes'
-import { inningsToOuts, isFinal, playerLines, surnameCase, transformGame, validateGame } from '../game'
+import { displayName, inningsToOuts, isFinal, playerLines, surnameCase, transformGame, validateGame } from '../game'
 import { inertiaFromHtml, unescapeAttribute } from '../page'
 import { EVENT, fixturePage, row } from './fixture'
 
@@ -32,6 +32,32 @@ describe('small readers', () => {
     expect(inningsToOuts('2.0')).toBe(6)
     expect(inningsToOuts('4.67')).toBeNull()
     expect(inningsToOuts('4.3')).toBeNull()
+  })
+
+  it('shows the first given name and the whole surname', () => {
+    expect(displayName('Zoe Elizabeth Faith', 'HICKS', 'CAN')).toBe('Zoe Hicks')
+    expect(displayName('Mirialis De La Caridad', 'GARCIA GARCIA', 'CUB')).toBe('Mirialis Garcia Garcia')
+    expect(displayName('Ambre Martine Marie-Agnes', 'BROUARD', 'FRA')).toBe('Ambre Brouard')
+    expect(displayName('Virpal', '.', 'IND')).toBe('Virpal')
+    expect(displayName('.', 'ARSHDEEP KAUR', 'IND')).toBe('Arshdeep Kaur')
+  })
+
+  it('keeps a given name that is one name in two words', () => {
+    expect(displayName('Yi ru', 'CHEN', 'TPE')).toBe('Yi-Ru Chen')
+    expect(displayName('Wen-ching', 'HSIEH', 'TPE')).toBe('Wen-Ching Hsieh')
+    expect(displayName('Jin mi', 'HEO', 'KOR')).toBe('Jin Mi Heo')
+    expect(displayName('Ho Ying', 'AU', 'HKG')).toBe('Ho Ying Au')
+    expect(displayName('Wai Yin Michelle', 'LAM', 'HKG')).toBe('Michelle Lam')
+    expect(displayName('Debby (Su-Yee)', 'MAK', 'HKG')).toBe('Debby Mak')
+  })
+
+  it("puts a Mc's capital back, and takes a hand-set name over the rule", () => {
+    expect(displayName('Kim Lee', 'MCMILLAN', 'AUS')).toBe('Kim McMillan')
+    expect(displayName('Ana', 'MACIAS', 'MEX')).toBe('Ana Macias')
+    expect(displayName('D Mello', 'SHERAL', 'IND')).toBe("Sheral D'Mello")
+    expect(displayName('Aj', 'HAMILTON', 'USA')).toBe('AJ Hamilton')
+    // Keyed by team: the same name for another country is the rule's.
+    expect(displayName('Aj', 'HAMILTON', 'CAN')).toBe('Aj Hamilton')
   })
 
   it('cases a surname WBSC writes in capitals', () => {
@@ -203,7 +229,7 @@ describe('transform', () => {
 
   it('names players per tournament, never across one', () => {
     const eve = rows.players.find(p => p.wbsc_player_id === 105)!
-    expect(eve).toMatchObject({ id: 'wbsc:p:99:105', name: 'Eve Marie Echo', team_id: 'AAA' })
+    expect(eve).toMatchObject({ id: 'wbsc:p:99:105', name: 'Eve Echo', team_id: 'AAA' })
     expect(rows.players.find(p => p.wbsc_player_id === 201)!.name).toBe("Hana O'Home")
   })
 
@@ -239,9 +265,9 @@ describe('transform', () => {
   it('takes the batter from the lineup slot when the narrative backs it, and says so', () => {
     const lineout = rows.plays.find(p => p.event_type === 'lineout')!
     expect(lineout.batter_id).toBe('wbsc:p:99:105')
-    expect(lineout.batter_name).toBe('Eve Marie Echo')
+    expect(lineout.batter_name).toBe('Eve Echo')
     expect(rows.notes).toHaveLength(1)
-    expect(rows.notes[0]).toMatch(/Eve Marie Echo from the lineup slot/)
+    expect(rows.notes[0]).toMatch(/Eve Echo from the lineup slot/)
   })
 
   it('writes no pitch sequence for a game scored without pitches', () => {

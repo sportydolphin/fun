@@ -25,7 +25,10 @@ export interface PeopleWbscPlayer {
   /** The namespaced tournament id, `wbsc:p:<tournament>:<player>`. */
   id: string
   event_key: string
+  /** What the site shows: first given name and surname (`displayName` in wbsc/game.ts). */
   name: string
+  /** Every name WBSC registered. */
+  full_name: string
   /** The national team, its IOC code. */
   team_id: string | null
 }
@@ -40,7 +43,8 @@ export interface WbscIdentity {
 
 export interface Person {
   id: string
-  /** The roster's name for a WPBL player; WBSC's, from their latest event, for anyone else. */
+  /** The roster's name for a WPBL player; for anyone else WBSC's from their latest event, without
+   *  the middle names WBSC registers. */
   name: string
   /** The national team of their latest World Cup, its IOC code. Null for a WPBL player who has
    *  played none. */
@@ -111,7 +115,8 @@ export function buildPeople(
   for (const [a, b] of joins) join(a, b)
   for (const [wbscId, wpbl] of linkOf) join(wbscId, `wpbl:${wpbl}`)
 
-  const identity = (p: PeopleWbscPlayer): WbscIdentity => ({ event_key: p.event_key, wbsc_id: p.id, name: p.name, team_id: p.team_id })
+  const identity = (p: PeopleWbscPlayer): WbscIdentity => ({ event_key: p.event_key, wbsc_id: p.id, name: p.full_name, team_id: p.team_id })
+  const shown = new Map(wbscPlayers.map(p => [p.id, p.name]))
   const byTournament = (a: WbscIdentity, b: WbscIdentity) => tournament(a.wbsc_id) - tournament(b.wbsc_id) || cmp(a.wbsc_id, b.wbsc_id)
   const latest = (ids: WbscIdentity[]) => ids[ids.length - 1]
 
@@ -143,7 +148,7 @@ export function buildPeople(
     if (!wbsc.length) continue
     people.push({
       id: `person:wbsc:${wbsc[0].wbsc_id.slice('wbsc:p:'.length)}`,
-      name: latest(wbsc).name, country: latest(wbsc).team_id, wpbl_id: null, wbsc,
+      name: shown.get(latest(wbsc).wbsc_id) ?? latest(wbsc).name, country: latest(wbsc).team_id, wpbl_id: null, wbsc,
     })
   }
   for (const r of roster) {
