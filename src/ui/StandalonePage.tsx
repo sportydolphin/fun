@@ -1,6 +1,6 @@
 import React from 'react'
 import { Box, Typography } from '@mui/material'
-import { navBack, isModified } from '../nav'
+import { navBack, navigate, isModified } from '../nav'
 import { TYPE_SCALE } from './card'
 import { hoverOnly, FOCUS_RING } from './interaction'
 import { panelShiftSx, useSidePanelOpen } from './ModalShell'
@@ -20,7 +20,7 @@ import { titleCaseNode } from '../lib/format'
 // Shared since Oct 9, 2026 (it was WPBL's alone), so the section's own parts come in as props:
 // where Back goes and what it says, and whether the title is the page's <h1>.
 
-export default function StandalonePage({ title, standfirst, maxWidth = '56.25rem', back, headingTag = 'h1', children }: {
+export default function StandalonePage({ title, standfirst, maxWidth = '56.25rem', back, trail, headingTag = 'h1', children }: {
   /** The page's own name, rendered as `headingTag`: its <h1>, or a <div> while a modal owns the
    *  heading (harmless on these pages, which are never under a modal, and correct if one ever is). */
   title: React.ReactNode
@@ -31,6 +31,10 @@ export default function StandalonePage({ title, standfirst, maxWidth = '56.25rem
   maxWidth?: number | string
   /** The section's root, which the phone-only Back pill returns to when there is no history. */
   back: { href: string; label: string }
+  /** The pages above this one, outermost first, drawn over the title above a phone's width. For a
+   *  page more than one level under its section (a World Cup game), where the section's tabs in the
+   *  toolbar say nothing about the level between. A phone has the Back pill instead. */
+  trail?: { href: string; label: string }[]
   headingTag?: 'h1' | 'div'
   children: React.ReactNode
 }) {
@@ -67,6 +71,24 @@ export default function StandalonePage({ title, standfirst, maxWidth = '56.25rem
           ...hoverOnly({ color: 'text.primary', borderColor: 'text.secondary' }), ...FOCUS_RING,
         }}
       >‹ {back.label}</Box>
+
+      {trail && trail.length > 0 && (
+        <Box component="nav" aria-label="Breadcrumb" sx={{
+          display: { xs: 'none', sm: 'flex' }, flexWrap: 'wrap', alignItems: 'center', columnGap: 0.75, mb: 0.75,
+          fontSize: TYPE_SCALE.meta, color: 'text.secondary',
+        }}>
+          {trail.map((t, i) => (
+            <React.Fragment key={t.href}>
+              {i > 0 && <Box component="span" aria-hidden>›</Box>}
+              <Box component="a" href={t.href}
+                onClick={(e: React.MouseEvent) => { if (!isModified(e)) { e.preventDefault(); navigate(t.href) } }}
+                sx={{ color: 'inherit', textDecoration: 'none', fontWeight: 600, ...hoverOnly({ color: 'text.primary' }), ...FOCUS_RING }}>
+                {t.label}
+              </Box>
+            </React.Fragment>
+          ))}
+        </Box>
+      )}
 
       <Typography component={headingTag} sx={{
         fontSize: TYPE_SCALE.page, fontWeight: 800, letterSpacing: typePx(-0.3), lineHeight: 1.2,

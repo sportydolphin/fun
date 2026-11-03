@@ -381,8 +381,9 @@ enters git.
     WBSC registered (step 4 above).
 11. ✅ **Editions and the pages' files** (Nov 2, 2026): `--site` writes `archive/wbsc/site/`, one
     index and one file per edition ([`editions.ts`](../src/intl/wbsc/editions.ts): which events make
-    an edition, groups, records, medals, every result linked to its box score; leaders and the WPBL
-    players in the field from [`editionLeaders.ts`](../src/intl/wbsc/editionLeaders.ts), summed per
+    an edition, groups, records, medals, every result linked to its box score; leaders, the WPBL
+    players in the field and each team's players with their totals (`rosters`, for the team pages,
+    Nov 3, 2026) from [`editionLeaders.ts`](../src/intl/wbsc/editionLeaders.ts), summed per
     person through `people.json`, so run `--people` first). Results and records
     only, no scorer sentences: these files are what publication will commit. 2016 and 2018 carry no
     group labels, so their opening-round groups are split by who played whom and lettered from

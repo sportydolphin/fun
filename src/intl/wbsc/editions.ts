@@ -11,7 +11,7 @@
 // from an allow-list, so publishing them later is publishing exactly this.
 
 import type { PitchingGameLine } from '../../league/types'
-import { editionLeaders, type EditionLeaders, type PersonLookup, type WpblInField } from './editionLeaders'
+import { editionLeaders, type EditionLeaders, type PersonLookup, type TeamRoster, type WpblInField } from './editionLeaders'
 import type { WbscBattingLine, WbscGame } from './game'
 
 export interface EditionEventDef {
@@ -161,6 +161,8 @@ export interface WorldCupEdition {
   leaders: EditionLeaders
   /** The WPBL players in the field, by national team, most first. */
   wpbl: WpblInField[]
+  /** Every team's players with their edition totals, for the team pages. */
+  rosters: TeamRoster[]
 }
 
 export interface WorldCupIndexEntry {
@@ -169,6 +171,9 @@ export interface WorldCupIndexEntry {
   years: number[]
   hosts: string[]
   teams: number
+  /** The teams by IOC code, for the search's team rows. Optional only so a file built before it
+   *  existed still reads. */
+  team_ids?: string[]
   games: number
   medals: Medals | null
 }
@@ -389,18 +394,18 @@ export function buildWorldCupSite(
     }
 
     const evs = def.events.map(e => byKey.get(e.key)!)
-    const { leaders, wpbl } = editionLeaders({
+    const { leaders, wpbl, rosters } = editionLeaders({
       games: evs.flatMap(e => e.games), batting: evs.flatMap(e => e.batting), pitching: evs.flatMap(e => e.pitching),
     }, people)
     built.push({
       slug: def.slug, title: editionTitle(def.slug), ordinal: def.ordinal, years: def.years, hosts: def.hosts,
-      teams: [...teams].sort(cmp), stages, medals, placings, sources, leaders, wpbl,
+      teams: [...teams].sort(cmp), stages, medals, placings, sources, leaders, wpbl, rosters,
     })
   }
 
   if (errors.length) return { index: [], editions: [], errors }
   const index = built.map((e): WorldCupIndexEntry => ({
-    slug: e.slug, title: e.title, years: e.years, hosts: e.hosts, teams: e.teams.length,
+    slug: e.slug, title: e.title, years: e.years, hosts: e.hosts, teams: e.teams.length, team_ids: e.teams,
     games: e.stages.reduce((n, s) => n + s.groups.reduce((m, g) => m + g.games.filter(x => !x.forfeit).length, 0), 0),
     medals: e.medals,
   }))

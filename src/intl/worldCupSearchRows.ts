@@ -40,5 +40,15 @@ export async function worldCupRows(query: string, season: number | null): Promis
     onSelect: open(`/world-cup/players/${p.slug}`),
     forgiving: m.forgiving || undefined,
   }))
-  return [...editionRows, ...personRows]
+  const teamRows = m.teams.map((t): SearchResultRow => {
+    const n = editions.filter(e => e.team_ids?.includes(t)).length
+    return {
+      key: `world-cup-team-${t}`,
+      title: countryName(t),
+      subtitle: `World Cup · ${n} ${n === 1 ? 'edition' : 'editions'}`,
+      avatar: { imageUrl: flagOf(t), fallbackText: t, bg: GREY, fit: 'cover', circle: true },
+      onSelect: open(`/world-cup/teams/${t.toLowerCase()}`),
+    }
+  })
+  return [...editionRows, ...teamRows, ...personRows]
 }

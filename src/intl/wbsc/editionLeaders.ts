@@ -43,6 +43,27 @@ export interface EditionLeaders {
   pitching: LeaderBoard<PitchingStat>[]
 }
 
+/** One player's line for the edition, for the team page: every event of the edition summed, one row
+ *  per person (the header says why). Counting stats only; the page computes the rates. */
+export interface RosterBatting {
+  name: string
+  path: string | null
+  g: number; pa: number; ab: number; r: number; h: number; doubles: number; triples: number; hr: number
+  rbi: number; sb: number; bb: number; so: number; hbp: number; sf: number; tb: number
+}
+
+export interface RosterPitching {
+  name: string
+  path: string | null
+  g: number; gs: number; w: number; l: number; sv: number; outs: number; h: number; r: number; er: number; bb: number; so: number
+}
+
+export interface TeamRoster {
+  team: string
+  batting: RosterBatting[]
+  pitching: RosterPitching[]
+}
+
 export interface WpblInField {
   team: string
   players: { name: string; path: string }[]
@@ -73,7 +94,7 @@ const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
 
 interface Person { name: string; team: string; path: string | null; wpbl: boolean; latest: string }
 
-export function editionLeaders(input: LeaderInput, people: PersonLookup): { leaders: EditionLeaders; wpbl: WpblInField[] } {
+export function editionLeaders(input: LeaderInput, people: PersonLookup): { leaders: EditionLeaders; wpbl: WpblInField[]; rosters: TeamRoster[] } {
   const teamGames = new Map<string, number>()
   for (const g of input.games) for (const t of [g.home_team_id, g.away_team_id]) teamGames.set(t, (teamGames.get(t) ?? 0) + 1)
   const gameOrder = new Map(input.games.map(g => [g.id, `${g.start_local}|${String(g.wbsc_game_id).padStart(9, '0')}`]))
@@ -157,5 +178,45 @@ export function editionLeaders(input: LeaderInput, people: PersonLookup): { lead
   }
   const wpbl = [...byTeam].map(([team, ps]) => ({ team, players: [...ps.values()].sort((a, b) => cmp(a.name, b.name)) }))
     .sort((a, b) => b.players.length - a.players.length || cmp(a.team, b.team))
-  return { leaders, wpbl }
+  // Keyed by person AND team: a person plays for one country in an edition, but nothing here should
+  // merge two teams' lines if the registry ever joined two people by mistake.
+  const rosterBat = new Map<string, RosterBatting & { team: string; games: Set<string> }>()
+  for (const l of input.batting) {
+    const id = people.person(l.player_id)
+    const key = `${id}|${l.team_id}`
+    const p = who.get(id)!
+    const t = rosterBat.get(key) ?? {
+      team: l.team_id, games: new Set<string>(), name: p.name, path: p.path,
+      g: 0, pa: 0, ab: 0, r: 0, h: 0, doubles: 0, triples: 0, hr: 0, rbi: 0, sb: 0, bb: 0, so: 0, hbp: 0, sf: 0, tb: 0,
+    }
+    t.games.add(l.game_id)
+    t.pa += l.pa; t.ab += l.ab; t.r += l.r; t.h += l.h; t.doubles += l.doubles; t.triples += l.triples; t.hr += l.hr
+    t.rbi += l.rbi; t.sb += l.sb; t.bb += l.bb; t.so += l.so; t.hbp += l.hbp; t.sf += l.sf; t.tb += l.tb
+    rosterBat.set(key, t)
+  }
+  const rosterPit = new Map<string, RosterPitching & { team: string; games: Set<string> }>()
+  for (const l of input.pitching) {
+    if (!l.team_id) continue
+    const id = people.person(l.player_id)
+    const key = `${id}|${l.team_id}`
+    const p = who.get(id)!
+    const t = rosterPit.get(key) ?? {
+      team: l.team_id, games: new Set<string>(), name: p.name, path: p.path,
+      g: 0, gs: 0, w: 0, l: 0, sv: 0, outs: 0, h: 0, r: 0, er: 0, bb: 0, so: 0,
+    }
+    t.games.add(l.game_id)
+    t.gs += l.gs ?? 0; t.w += l.decision === 'W' ? 1 : 0; t.l += l.decision === 'L' ? 1 : 0; t.sv += l.decision === 'S' ? 1 : 0
+    t.outs += l.outs ?? 0; t.h += l.h; t.r += l.r; t.er += l.er ?? 0; t.bb += l.bb; t.so += l.so
+    rosterPit.set(key, t)
+  }
+  const teamsSeen = new Set([...rosterBat.values(), ...rosterPit.values()].map(t => t.team))
+  const strip = <T extends { team: string; games: Set<string>; g: number }>({ team: _t, games, ...rest }: T) => ({ ...rest, g: games.size })
+  const rosters: TeamRoster[] = [...teamsSeen].sort(cmp).map(team => ({
+    team,
+    batting: [...rosterBat.values()].filter(t => t.team === team).map(strip)
+      .sort((a, b) => b.pa - a.pa || cmp(a.name, b.name)) as RosterBatting[],
+    pitching: [...rosterPit.values()].filter(t => t.team === team).map(strip)
+      .sort((a, b) => b.outs - a.outs || cmp(a.name, b.name)) as RosterPitching[],
+  }))
+  return { leaders, wpbl, rosters }
 }
