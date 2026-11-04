@@ -1,3 +1,4 @@
+import { HUE, INK, SHADOW } from '../ui/color'
 import { NameText } from '../ui/NameText'
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, useMediaQuery, type Theme } from '@mui/material'
@@ -113,7 +114,7 @@ export function FanAwardsCta({ onOpen, now = () => Date.now() }: {
         // The section accent as a FILL, which nothing else on Home is. Home is a page of
         // bordered cards on a plain ground, so the one control on it that wants a tap cannot
         // be another one of those: the point of the strip is that a reader scanning past stops.
-        bgcolor: 'var(--wpbl-accent-solid)', color: '#fff',
+        bgcolor: 'var(--wpbl-accent-solid)', color: INK.white,
         transition: 'transform 120ms ease',
         '&:active': { transform: 'scale(0.99)' },
       }}
@@ -349,10 +350,10 @@ export default function FanVoteCard({
                 ...hoverOnly({ borderColor: 'var(--wpbl-accent-fg)', color: 'var(--wpbl-accent-fg)' }),
               }
               : {
-                bgcolor: 'var(--wpbl-accent-solid)', color: '#fff',
+                bgcolor: 'var(--wpbl-accent-solid)', color: INK.white,
                 // A shadow in the button's own hue rather than a gray one, so it reads as the
                 // color glowing rather than as a piece of paper lifting off the card.
-                boxShadow: '0 1px 6px -1px color-mix(in srgb, var(--wpbl-accent-solid) 55%, transparent)',
+                boxShadow: SHADOW.accentGlow,
                 ...hoverOnly({ filter: 'brightness(1.08)', transform: 'translateY(-1px)' }),
               }),
           }}
@@ -473,7 +474,7 @@ export default function FanVoteCard({
                   // same treatment the results sheet gives its heroes.
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: chromePx(4), minWidth: 0 }}>
                     <NameText name={winnerC.name} sx={{ fontSize: rowText, fontWeight: 800, color: 'text.primary', minWidth: 0 }} />
-                    <EmojiEvents titleAccess="Winner" sx={{ fontSize: rowText, color: '#eab308' }} />
+                    <EmojiEvents titleAccess="Winner" sx={{ fontSize: rowText, color: HUE.yellow }} />
                   </Box>
                 ) : (
                   <Typography sx={{ fontSize: rowText, fontWeight: 700, color: 'text.disabled', flexShrink: 0 }}>&#8212;</Typography>

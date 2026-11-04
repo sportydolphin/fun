@@ -1,3 +1,4 @@
+import { INK } from '../ui/color'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import WpblPage from './WpblPage'
@@ -585,7 +586,7 @@ function ClipsShelf({ clips, tags, games, teams, fresh, club }: {
                   <Typography sx={{
                     position: 'absolute', top: 6, left: 6, px: 0.6, borderRadius: 1,
                     bgcolor: isNew ? 'var(--wpbl-accent-solid)' : 'rgba(0,0,0,0.55)',
-                    color: '#fff', fontSize: TYPE_SCALE.micro, fontWeight: isNew ? 800 : 700, lineHeight: 1.6, pointerEvents: 'none',
+                    color: INK.white, fontSize: TYPE_SCALE.micro, fontWeight: isNew ? 800 : 700, lineHeight: 1.6, pointerEvents: 'none',
                   }}>{isNew ? `New · ${videoDateLabel(v)}` : videoDateLabel(v)}</Typography>
                   {team && (
                     <Box sx={{ position: 'absolute', top: 5, right: 5, pointerEvents: 'none', lineHeight: 0 }}>

@@ -1,3 +1,4 @@
+import { HUE } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
@@ -34,7 +35,7 @@ function fmtOddsPct(p: number): string {
 
 // Green when a team is close to a lock, amber for a live shot, muted otherwise.
 function oddsColor(p: number): string {
-  return p >= 0.85 ? '#22c55e' : p >= 0.25 ? '#eab308' : 'text.secondary'
+  return p >= 0.85 ? HUE.green : p >= 0.25 ? HUE.yellow : 'text.secondary'
 }
 
 // ─── One standings row ──────────────────────────────────────────────────────────
@@ -176,7 +177,7 @@ function wildcardRows(divisions: StandingsDivision[], leagueId: number, highligh
     return {
       team: t,
       rightLabel: fmtWcGap(gap),
-      rightColor: gap > 0 ? '#22c55e' : gap < 0 ? '#ef4444' : 'text.disabled',
+      rightColor: gap > 0 ? HUE.green : gap < 0 ? HUE.red : 'text.disabled',
       isMine: t.teamId === highlightId,
       showSep: i === sepLocalIdx && sepLocalIdx >= 0 && sepLocalIdx < window.length - 1,
     }

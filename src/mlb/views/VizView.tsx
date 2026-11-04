@@ -1,3 +1,4 @@
+import { HUE, INK } from '../../ui/color'
 import React, { useState, useEffect } from 'react'
 import { pressable } from '../../ui/interaction'
 import { ACCENT_EDGE, TYPE_SCALE } from '../../ui/card'
@@ -198,36 +199,36 @@ export function VizView({
   // ─── Report Card boards: every leaderboard follows the same shape ────────
   const boards: Board[] = [
     {
-      id: 'fraud', title: 'Wins Above Expected', accent: '#f97316',
+      id: 'fraud', title: 'Wins Above Expected', accent: HUE.orange,
       subtitle: 'vs Pythagorean record', tooltipText: fraudTooltip,
       rows: buildFraudRows(teamSummaries, nameMap, 'fraud'), loading: loadingViz,
     },
     {
-      id: 'cursed', title: 'Wins Below Expected', accent: '#818cf8',
+      id: 'cursed', title: 'Wins Below Expected', accent: HUE.indigo,
       subtitle: 'vs Pythagorean record', tooltipText: cursedTooltip,
       rows: buildFraudRows(teamSummaries, nameMap, 'cursed'), loading: loadingViz,
     },
     ...(showSos ? [
       {
-        id: 'oldest', title: 'Oldest Rosters', accent: '#f97316',
+        id: 'oldest', title: 'Oldest Rosters', accent: HUE.orange,
         subtitle: final ? 'Avg age, by playing time' : 'Avg age',
         tooltipText: final ? AGE_TIP : undefined,
         rows: buildAgeRows(ageEntries, nameMap, 'oldest'), loading: loadingAges,
       },
       {
-        id: 'youngest', title: 'Youngest Rosters', accent: '#22c55e',
+        id: 'youngest', title: 'Youngest Rosters', accent: HUE.green,
         subtitle: final ? 'Avg age, by playing time' : 'Avg age',
         tooltipText: final ? AGE_TIP : undefined,
         rows: buildAgeRows(ageEntries, nameMap, 'youngest'), loading: loadingAges,
       },
       {
-        id: 'hardest', title: 'Hardest Schedules', accent: '#ef4444',
+        id: 'hardest', title: 'Hardest Schedules', accent: HUE.red,
         subtitle: final ? 'Opp. win%' : 'Remaining opp. win%',
         tooltipText: final ? SOS_TIP : undefined,
         rows: buildSosRows(sosData, 'hardest', final === true), loading: loadingSos,
       },
       {
-        id: 'easiest', title: 'Easiest Schedules', accent: '#22c55e',
+        id: 'easiest', title: 'Easiest Schedules', accent: HUE.green,
         subtitle: final ? 'Opp. win%' : 'Remaining opp. win%',
         tooltipText: final ? SOS_TIP : undefined,
         rows: buildSosRows(sosData, 'easiest', final === true), loading: loadingSos,
@@ -237,34 +238,34 @@ export function VizView({
     // data, so a past year would otherwise show today's numbers.
     ...(showSos ? [
       {
-        id: 'highest-payroll', title: 'Highest Payrolls', accent: '#eab308',
+        id: 'highest-payroll', title: 'Highest Payrolls', accent: HUE.yellow,
         subtitle: '2026 est. payroll',
         rows: buildPayrollRows(TEAM_PAYROLLS_2026, nameMap, 'highest'), loading: false,
       },
       {
-        id: 'lowest-payroll', title: 'Lowest Payrolls', accent: '#22c55e',
+        id: 'lowest-payroll', title: 'Lowest Payrolls', accent: HUE.green,
         subtitle: '2026 est. payroll',
         rows: buildPayrollRows(TEAM_PAYROLLS_2026, nameMap, 'lowest'), loading: false,
       },
     ] : []),
     ...(showSos && final ? [
       {
-        id: 'most-improved', title: 'Most Improved', accent: '#22c55e',
+        id: 'most-improved', title: 'Most Improved', accent: HUE.green,
         subtitle: `Wins vs ${vizSeason - 1}`,
         rows: standings ? buildWinChangeRows(standings[0], standings[1], nameMap, 'up') : [], loading: !standings,
       },
       {
-        id: 'biggest-drops', title: 'Biggest Drops', accent: '#ef4444',
+        id: 'biggest-drops', title: 'Biggest Drops', accent: HUE.red,
         subtitle: `Wins vs ${vizSeason - 1}`,
         rows: standings ? buildWinChangeRows(standings[0], standings[1], nameMap, 'down') : [], loading: !standings,
       },
       {
-        id: 'cheapest-wins', title: 'Cheapest Wins', accent: '#14b8a6',
+        id: 'cheapest-wins', title: 'Cheapest Wins', accent: HUE.teal,
         subtitle: 'Est. payroll per win',
         rows: standings ? buildCostPerWinRows(standings[0], TEAM_PAYROLLS_2026, nameMap, 'cheapest') : [], loading: !standings,
       },
       {
-        id: 'priciest-wins', title: 'Priciest Wins', accent: '#eab308',
+        id: 'priciest-wins', title: 'Priciest Wins', accent: HUE.yellow,
         subtitle: 'Est. payroll per win',
         rows: standings ? buildCostPerWinRows(standings[0], TEAM_PAYROLLS_2026, nameMap, 'priciest') : [], loading: !standings,
       },
@@ -281,44 +282,44 @@ export function VizView({
 
   const playerBoards: PlayerBoard[] = [
     ...(showSos ? [{
-      id: 'hit-streak', title: 'Hitting Streaks', accent: '#f97316',
+      id: 'hit-streak', title: 'Hitting Streaks', accent: HUE.orange,
       subtitle: streakSub('Active'),
       tooltipText: 'Games in a row with at least one hit. A game with no official at-bat (all walks or hit by pitches) doesn\'t break the streak.',
       rows: buildStreakRows(streaks?.hitting ?? [], 'hitting'), loading: loadingStreaks,
     },
     {
-      id: 'scoreless', title: 'Scoreless Streaks', accent: '#38bdf8',
+      id: 'scoreless', title: 'Scoreless Streaks', accent: HUE.sky,
       subtitle: streakSub('Active'),
       tooltipText: 'Innings a pitcher has thrown since the last run they gave up. Counted in whole outings, so the streak starts at their first clean appearance after it.',
       rows: buildStreakRows(streaks?.scoreless ?? [], 'scoreless'), loading: loadingStreaks,
     },
     {
-      id: 'hitless', title: 'Hitless Streaks', accent: '#a78bfa',
+      id: 'hitless', title: 'Hitless Streaks', accent: HUE.violet,
       subtitle: streakSub('Active'),
       tooltipText: 'Trips to the plate a hitter has gone without a hit. Games with no official at-bat are skipped.',
       rows: buildStreakRows(streaks?.hitless ?? [], 'hitless'), loading: loadingStreaks,
     },
     {
-      id: 'games-played', title: 'Games-Played Streaks', accent: '#eab308',
+      id: 'games-played', title: 'Games-Played Streaks', accent: HUE.yellow,
       subtitle: streakSub('Active'),
       tooltipText: 'Games a player has appeared in without ever sitting one out, carried across seasons. A trade doesn\'t break it. A "+" means the streak reaches back past the seasons searched, so the real streak is longer.',
       rows: buildStreakRows(streaks?.gamesPlayed ?? [], 'gamesPlayed'), loading: loadingStreaks,
     },
     {
-      id: 'top-salary', title: 'Highest Salaries', accent: '#10b981',
+      id: 'top-salary', title: 'Highest Salaries', accent: HUE.emerald,
       subtitle: `${vizSeason}`,
       tooltipText: `Each player's salary for the ${vizSeason} season, straight from their contract. This is the money paid this year, so a backloaded or deferred deal can rank differently than its headline average annual value.`,
       rows: buildSalaryRows(salaries), loading: loadingSalaries,
     }] : []),
     // Plain season rates, so unlike the streak boards these render for past seasons too
     {
-      id: 'pitches-most', title: 'Most Pitches per PA', accent: '#14b8a6',
+      id: 'pitches-most', title: 'Most Pitches per PA', accent: HUE.teal,
       subtitle: 'Qualified',
       tooltipText: `Pitches a hitter sees per trip to the plate. ${QUALIFIED_NOTE}`,
       rows: buildPitchPaRows(pitchPa, 'most'), loading: loadingPitchPa,
     },
     {
-      id: 'pitches-fewest', title: 'Fewest Pitches per PA', accent: '#f43f5e',
+      id: 'pitches-fewest', title: 'Fewest Pitches per PA', accent: HUE.rose,
       subtitle: 'Qualified',
       tooltipText: `Pitches a hitter sees per trip to the plate, lowest first. ${QUALIFIED_NOTE}`,
       rows: buildPitchPaRows(pitchPa, 'fewest'), loading: loadingPitchPa,
@@ -361,11 +362,11 @@ export function VizView({
 
           {vizHighlightId != null ? (
             <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.5, py: 0.55, borderRadius: 999, bgcolor: TEAM_BG[vizHighlightId] ?? 'grey.700' }}>
-              <Typography sx={{ color: '#fff', fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1 }}>
+              <Typography sx={{ color: INK.white, fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1 }}>
                 {nameMap.get(vizHighlightId) ?? teamSummaries.find(t => t.id === vizHighlightId)?.abbr}
               </Typography>
               <Box {...pressable(() => { setVizHighlightId(null); setVizSearch('') })}
-                sx={{ color: 'rgba(255,255,255,0.75)', fontSize: TYPE_SCALE.heading, lineHeight: 1, cursor: 'pointer', ml: 0.25, '&:hover': { color: '#fff' } }}>×</Box>
+                sx={{ color: 'rgba(255,255,255,0.75)', fontSize: TYPE_SCALE.heading, lineHeight: 1, cursor: 'pointer', ml: 0.25, '&:hover': { color: INK.white } }}>×</Box>
             </Box>
           ) : (
             <ClickAwayListener onClickAway={() => setVizSearchOpen(false)}>
@@ -397,7 +398,7 @@ export function VizView({
                             {i > 0 && <Divider />}
                             <ListItemButton onClick={() => { setVizHighlightId(t.id); setVizSearch(''); setVizSearchOpen(false) }} sx={{ gap: 1.25, py: 0.6 }}>
                               <Box sx={{ width: chromePx(26), height: chromePx(26), borderRadius: '50%', bgcolor: TEAM_BG[t.id] ?? 'grey.700', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: t.abbr.length > 2 ? TYPE_SCALE.nano : TYPE_SCALE.caption, lineHeight: 1 }}>{t.abbr}</Typography>
+                                <Typography sx={{ color: INK.white, fontWeight: 800, fontSize: t.abbr.length > 2 ? TYPE_SCALE.nano : TYPE_SCALE.caption, lineHeight: 1 }}>{t.abbr}</Typography>
                               </Box>
                               <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600 }}>{nameMap.get(t.id) ?? t.abbr}</Typography>
                             </ListItemButton>

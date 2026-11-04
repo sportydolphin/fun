@@ -1,3 +1,4 @@
+import { HUE } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
@@ -22,8 +23,8 @@ function fmtPct(p: number): string {
 // Green when a team is comfortably in, amber in the thick of the race, muted once
 // it's a long shot: a quick read down the column before any numbers register.
 function pctColor(p: number): string {
-  if (p >= 0.85) return '#22c55e'
-  if (p >= 0.25) return '#eab308'
+  if (p >= 0.85) return HUE.green
+  if (p >= 0.25) return HUE.yellow
   if (p > 0) return 'text.secondary'
   return 'text.disabled'
 }

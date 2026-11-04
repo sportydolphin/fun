@@ -1,3 +1,4 @@
+import { INK } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import { TeamLogo } from '../components/TeamLogo'
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
@@ -266,7 +267,7 @@ export function TopPerformers({
   // above (title + nav stepper) is rendered once, outside this track, and
   // never slides (see the return below).
   const renderContent = (entry: PerformerEntry, widthPct: string) => {
-    const teamColor  = TEAM_BG[entry.teamId] ?? '#888'
+    const teamColor  = TEAM_BG[entry.teamId] ?? INK.neutral
     const abbr       = TEAM_ABBR[entry.teamId] ?? '—'
     const accentText = accentColor(teamColor, isDark)
     const statItems  = buildStatItems(entry)
@@ -395,11 +396,11 @@ export function TopPerformers({
   // the slide (see the card box below).
   const headerIdx      = slide ? slide.toIdx : activeIdx
   const headerEntry     = performers[headerIdx]
-  const headerTeamColor = TEAM_BG[headerEntry.teamId] ?? '#888'
+  const headerTeamColor = TEAM_BG[headerEntry.teamId] ?? INK.neutral
   const headerAccent    = accentColor(headerTeamColor, isDark)
   // Team colors for the crossfade: `from` = outgoing pane, `to` = incoming.
   // At rest both resolve to the active performer; `toColor` === headerTeamColor.
-  const fromColor = TEAM_BG[performers[slide ? slide.fromIdx : activeIdx].teamId] ?? '#888'
+  const fromColor = TEAM_BG[performers[slide ? slide.fromIdx : activeIdx].teamId] ?? INK.neutral
   const toColor   = headerTeamColor
 
   return (

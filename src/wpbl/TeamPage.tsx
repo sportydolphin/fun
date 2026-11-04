@@ -1,3 +1,4 @@
+import { HUE } from '../ui/color'
 import { useDark } from '../ui/useDark'
 import { useEffect, useMemo, useState } from 'react'
 import { edge } from '../ui/card'
@@ -146,7 +147,7 @@ function ScheduleRow({ game, teamId, teamById, onOpenGame }: {
           <Typography sx={{ flex: 1, fontSize: TYPE_SCALE.body, fontWeight: 700, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>{us}–{them}</Typography>
         </Box>
       ) : (
-        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: live ? '#ef4444' : 'text.secondary', flexShrink: 0, width: SCORE_COL_W, textAlign: 'right' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: live ? HUE.red : 'text.secondary', flexShrink: 0, width: SCORE_COL_W, textAlign: 'right' }}>
           {live ? '● Live' : formatGameTime(game.game_date, game.start_time) || 'TBD'}
         </Typography>
       )}

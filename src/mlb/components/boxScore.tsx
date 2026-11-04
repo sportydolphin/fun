@@ -1,3 +1,4 @@
+import { HUE, INK } from '../../ui/color'
 // Shared box-score UI + parsing: the line score and batting/pitching tables,
 // plus the team-logo bubble and live dot. Rendered by both the Scores scoreboard
 // (FinalGames) and the Game Center (LiveGameCenter); parseBoxScoreData turns a raw
@@ -149,7 +150,7 @@ export function LiveDot({ size = 6 }: { size?: number }) {
     // A span, since it sits inside text (Game Center's eyebrow is a <p>), where a div is invalid
     // markup and React warns on every live game.
     <Box component="span" sx={{ display: 'inline-block',
-      width: chromePx(size), height: chromePx(size), borderRadius: '50%', bgcolor: '#ef4444', flexShrink: 0,
+      width: chromePx(size), height: chromePx(size), borderRadius: '50%', bgcolor: HUE.red, flexShrink: 0,
       animation: 'scoreLivePulse 1.6s ease-in-out infinite',
       '@keyframes scoreLivePulse': { '0%,100%': { opacity: 1, transform: 'scale(1)' }, '50%': { opacity: 0.45, transform: 'scale(0.8)' } },
     }} />
@@ -181,7 +182,7 @@ const boxName = (name: string, dense: boolean) => {
 export function ClubBox({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?: (id: number) => void }) {
   const isDark = useDark()
   const dense = usePhoneLayout()
-  const color = accentColor(TEAM_BG[team.teamId] ?? '#888888', isDark)
+  const color = accentColor(TEAM_BG[team.teamId] ?? INK.neutral, isDark)
   // The season AVG and ERA, where there is room. A phone's table is WPBL's nine fitted columns, and
   // a tenth clipped ".188" to ".18" and every ERA with it.
   const season = !dense

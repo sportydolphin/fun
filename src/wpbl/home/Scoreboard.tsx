@@ -1,3 +1,4 @@
+import { HUE } from '../../ui/color'
 import { SECTION_HEADING_SX } from '../../ui/card'
 import { useDark } from '../../ui/useDark'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -71,7 +72,7 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
     }}>
       <Typography sx={{
         fontSize: TYPE_SCALE.micro, fontWeight: 800, 
-        color: live ? '#ef4444' : 'text.secondary',
+        color: live ? HUE.red : 'text.secondary',
         // Never wrap: a second line here would make finals taller than upcoming chips and
         // break the strip's alignment. Ellipsis is the backstop for an unforeseen long label.
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',

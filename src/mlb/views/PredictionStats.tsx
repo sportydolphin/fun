@@ -1,3 +1,4 @@
+import { HUE, INK, SHADOW } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import { TeamLogo } from '../components/TeamLogo'
 import React, { useState, useEffect } from 'react'
@@ -336,7 +337,7 @@ function StatPill({ label, value, accent }: { label: string; value: string | num
 // ─── TeamPodium ───────────────────────────────────────────────────────────────
 // Shows up to 3 teams as large logo cards in a row.
 
-const RANK_COLORS = ['#f59e0b', '#94a3b8', '#cd7c2e']  // gold / silver / bronze
+const RANK_COLORS = [HUE.amber, HUE.slate, HUE.bronze]  // gold / silver / bronze
 
 function TeamLogoCard({ teamId, teamAbbr, rank, mainLabel, subLabel }: {
   teamId:    number
@@ -348,7 +349,7 @@ function TeamLogoCard({ teamId, teamAbbr, rank, mainLabel, subLabel }: {
   const tone = useTextTone()
   const isDark   = useDark()
   const col      = ringColor(teamId, isDark)
-  const rankCol  = RANK_COLORS[rank] ?? '#94a3b8'
+  const rankCol  = RANK_COLORS[rank] ?? HUE.slate
   const logoSize = rank === 0 ? 68 : 56
 
   return (
@@ -366,11 +367,11 @@ function TeamLogoCard({ teamId, teamAbbr, rank, mainLabel, subLabel }: {
           width: chromePx(20), height: chromePx(20), borderRadius: '50%',
           bgcolor: rankCol,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+          boxShadow: SHADOW.lift,
           border: '1.5px solid', borderColor: 'background.paper',
         }}>
           {/* Near-black, not white: white on the gold medal is 2.2:1, this is 6.6 to 9.7 on all three. */}
-          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: '#111827', lineHeight: 1 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: INK.nearBlack, lineHeight: 1 }}>
             {rank + 1}
           </Typography>
         </Box>
@@ -440,7 +441,7 @@ function MyStatsContent({ stats }: { stats: PersonalStats }) {
       {onHeater && (
         <Box sx={{
           display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1,
-          borderRadius: 2, bgcolor: '#f9731614', border: '1px solid #f9731640',
+          borderRadius: 2, bgcolor: `${HUE.orange}14`, border: `1px solid ${HUE.orange}40`,
         }}>
           <Box sx={{ minWidth: 0 }}>
             <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, color: TONE.orange, lineHeight: 1.2 }}>
@@ -553,7 +554,7 @@ function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; windo
             {entry.currentStreak >= PREDICTION_HEATER_MIN && (
               <Box component="span" sx={{
                 flexShrink: 0, px: 0.5, py: '1px', borderRadius: 999,
-                bgcolor: '#f9731618', border: '1px solid #f9731655',
+                bgcolor: `${HUE.orange}18`, border: `1px solid ${HUE.orange}55`,
                 fontSize: TYPE_SCALE.caption, fontWeight: 800, color: TONE.orange, lineHeight: 1.4,
                 whiteSpace: 'nowrap',
               }}>
@@ -649,7 +650,7 @@ export function PredictionStatsModal({ open, userId, displayName, initialTab = '
                   px: 1.5, py: 0.6, borderRadius: 999, cursor: 'pointer',
                   fontSize: TYPE_SCALE.meta, fontWeight: 700,
                   bgcolor: tab === t ? ACCENT     : 'transparent',
-                  color:   tab === t ? '#fff'     : 'text.secondary',
+                  color:   tab === t ? INK.white     : 'text.secondary',
                   border: '1px solid',
                   borderColor: tab === t ? ACCENT_EDGE : 'outline',
                   transition: 'all 0.15s',

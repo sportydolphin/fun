@@ -1,3 +1,4 @@
+import { HUE, INK } from '../ui/color'
 import { useDark } from '../ui/useDark'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, Skeleton, useMediaQuery } from '@mui/material'
@@ -199,7 +200,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     return last?.team_id ?? player.team_id
   }, [season, career, games, batting, pitching, gameById, player.team_id])
   const team = useMemo(() => teams.find(t => t.id === clubId), [teams, clubId])
-  const color = team ? wpblAccent(team.id, isDark) : '#888'
+  const color = team ? wpblAccent(team.id, isDark) : INK.neutral
   // The RAW club colors, for the header band only. Everywhere else on this page uses
   // `color` above, which is the foreground-safe accent.
   const teamPrimary = wpblColor(clubId)
@@ -813,9 +814,9 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
               sx={{
                 ...BAND_CHIP_SX,
                 ...hoverOnly({ bgcolor: 'rgba(255,255,255,0.26)' }),
-                '&:focus-visible': { outline: '2px solid #fff', outlineOffset: 2 },
+                '&:focus-visible': { outline: `2px solid ${INK.white}`, outlineOffset: 2 },
               }}>
-              <EmojiEvents aria-hidden sx={{ fontSize: ICON_SIZE.sm, color: '#eab308' }} />
+              <EmojiEvents aria-hidden sx={{ fontSize: ICON_SIZE.sm, color: HUE.yellow }} />
               Fan vote · {a.title}
             </Box>
           ))}

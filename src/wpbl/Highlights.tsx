@@ -1,3 +1,4 @@
+import { INK } from '../ui/color'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Box, Typography } from '@mui/material'
 import { ModalShell, CARD_BORDER, CARD_FILL, chromePx, hoverOnly, FOCUS_RING } from './ui'
@@ -38,7 +39,7 @@ export function PlayBadge({ size = 44 }: { size?: number }) {
         <Box sx={{
           width: 0, height: 0, ml: '3px',
           borderStyle: 'solid', borderWidth: `${size * 0.18}px 0 ${size * 0.18}px ${size * 0.28}px`,
-          borderColor: 'transparent transparent transparent #fff',
+          borderColor: `transparent transparent transparent ${INK.white}`,
         }} />
       </Box>
     </Box>
@@ -91,7 +92,7 @@ export function VideoThumb({ video, vertical, badge = 44, radius = 0, sizes }: {
       {!vertical && duration && (
         <Box component="span" sx={{
           position: 'absolute', right: 4, bottom: 6, px: 0.5, borderRadius: 1, pointerEvents: 'none',
-          bgcolor: 'rgba(0,0,0,0.8)', color: '#fff', fontSize: TYPE_SCALE.micro, fontWeight: 700, lineHeight: 1.5,
+          bgcolor: 'rgba(0,0,0,0.8)', color: INK.white, fontSize: TYPE_SCALE.micro, fontWeight: 700, lineHeight: 1.5,
           fontVariantNumeric: 'tabular-nums',
         }}>{duration}</Box>
       )}
@@ -143,7 +144,7 @@ export function HighlightLightbox({ video, onClose, onPrev, onNext, context }: {
     <ModalShell eyebrow={videoKindName(video)} onClose={onClose} maxWidth={vertical ? chromePx(460) : 880} zIndex={1600}>
       <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
         <Box sx={{
-          position: 'relative', borderRadius: 2, overflow: 'hidden', bgcolor: '#000', mx: 'auto',
+          position: 'relative', borderRadius: 2, overflow: 'hidden', bgcolor: INK.black, mx: 'auto',
           ...(vertical
             // Height-led: the frame is as tall as the screen allows and its width follows.
             ? { aspectRatio: '9 / 16', height: 'min(70vh, 44rem)', maxWidth: '100%' }

@@ -1,3 +1,4 @@
+import { HUE, SHADOW } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import { TeamLogo } from '../components/TeamLogo'
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
@@ -68,7 +69,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
   const isPostponed = game.state === 'postponed'
   const isLive      = game.state === 'live'
   const noScore     = isPreview || isPostponed   // postponed games never happened → no score row
-  const statusColor = game.delayed ? '#f59e0b' : isLive ? '#ef4444' : isPostponed ? '#f59e0b' : 'text.disabled'
+  const statusColor = game.delayed ? HUE.amber : isLive ? HUE.red : isPostponed ? HUE.amber : 'text.disabled'
   // In the postseason `record` is the SERIES record, which is the line a reader wants beside every
   // score, not only before first pitch: a final read "SEA 5, TOR 3" with no word on who now leads.
   const showRecord  = noScore || Boolean(game.series)
@@ -133,7 +134,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
         transition: 'all 0.15s',
         ...(onClick ? {
           cursor: 'pointer',
-          '&:hover': { borderColor: accent ?? 'text.secondary', transform: 'translateY(-2px)', boxShadow: '0 6px 18px rgba(0,0,0,0.18)' },
+          '&:hover': { borderColor: accent ?? 'text.secondary', transform: 'translateY(-2px)', boxShadow: SHADOW.popover },
         } : {}),
       }}
     >

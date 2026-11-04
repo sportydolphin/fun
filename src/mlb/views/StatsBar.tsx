@@ -1,3 +1,4 @@
+import { SHADOW } from '../../ui/color'
 import React, { useEffect, useRef, useState } from 'react'
 import { Box } from '@mui/material'
 
@@ -88,7 +89,7 @@ export function StatsBar({ tabs, isDesktop, onHeld, children }: {
         // under the bar disappear at its edge, not a few pixels below it.
         pt: { xs: 0.5, sm: 1 }, pb: { xs: 1, sm: 1.5 },
         // Bottom edge only: a spread equal to minus the blur cancels the shadow's reach sideways.
-        boxShadow: stuck ? '0 6px 6px -6px rgba(0,0,0,0.14)' : 'none',
+        boxShadow: stuck ? SHADOW.stuck : 'none',
         transition: 'box-shadow 0.2s',
         // Paint over the seam with the toolbar, which the two sticky offsets agree on only to within
         // a rounding error: WPBL's cover, for the same device pixel of a stats row.

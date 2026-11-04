@@ -1,3 +1,4 @@
+import { HUE } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import { NameText } from '../../ui/NameText'
 import { TeamLogo } from '../components/TeamLogo'
@@ -61,7 +62,7 @@ function GameCountdown({ iso }: { iso: string }) {
 
   // far: >3h away (quiet) · soon: 3h–15m (accent) · imminent: <15m (warm + pulsing)
   const urgency  = diffMs <= 15 * 60_000 ? 'imminent' : diffMs <= 3 * 3_600_000 ? 'soon' : 'far'
-  const tint     = urgency === 'imminent' ? '#f59e0b' : urgency === 'soon' ? ACCENT : undefined
+  const tint     = urgency === 'imminent' ? HUE.amber : urgency === 'soon' ? ACCENT : undefined
 
   return (
     <Box sx={{
@@ -186,7 +187,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
                 </Typography>
               )
               const logo = (teamId: number, col: string, won: boolean) =>
-                logoCircle(teamId, col, 26, isFinal ? (won ? '#22c55e' : '#ef4444') : undefined)
+                logoCircle(teamId, col, 26, isFinal ? (won ? HUE.green : HUE.red) : undefined)
               return (
                 <>
                   <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -595,7 +596,7 @@ export function TeamScheduleStrip({ teamId, showSchedule, onScheduleClose, onPla
           game={g}
           myTeamId={teamId}
           label={isFinal ? 'FINAL' : undefined}
-          labelColor={isFinal ? (g.isWin === true ? '#22c55e' : g.isWin === false ? '#ef4444' : undefined) : undefined}
+          labelColor={isFinal ? (g.isWin === true ? HUE.green : g.isWin === false ? HUE.red : undefined) : undefined}
           actionLabel={isPreview ? 'Preview ›' : isFinal ? 'Recap ›' : undefined}
           onAction={open}
           onTeamClick={onTeamClick}
@@ -647,7 +648,7 @@ export function TeamScheduleStrip({ teamId, showSchedule, onScheduleClose, onPla
                 game={g}
                 myTeamId={teamId}
                 label="FINAL"
-                labelColor={g.isWin === true ? '#22c55e' : g.isWin === false ? '#ef4444' : undefined}
+                labelColor={g.isWin === true ? HUE.green : g.isWin === false ? HUE.red : undefined}
                 actionLabel="Recap ›"
                 onAction={() => setBoxScoreGame(gameToFinalSummary(g, teamId))}
                 onTeamClick={onTeamClick}

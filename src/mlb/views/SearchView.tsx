@@ -1,3 +1,4 @@
+import { INK, SHADOW } from '../../ui/color'
 import type { MlbOpenSource } from '../state/useMlbState'
 import { ACCENT_EDGE, ICON_SIZE, TYPE_SCALE } from '../../ui/card'
 import React, { useRef, useEffect, lazy, Suspense } from 'react'
@@ -272,7 +273,7 @@ export function SearchView({
                       p: 0.5, borderRadius: 2,
                       bgcolor: (cardMenuAnchor || cardOptionsAnchor) ? 'rgba(0,0,0,0.42)' : 'rgba(0,0,0,0.22)',
                       color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
-                      '&:hover': { bgcolor: 'rgba(0,0,0,0.42)', color: '#fff' },
+                      '&:hover': { bgcolor: 'rgba(0,0,0,0.42)', color: INK.white },
                       transition: 'background 0.15s, color 0.15s',
                     }}
                   >
@@ -287,7 +288,7 @@ export function SearchView({
                 onClose={() => setCardMenuAnchor(null)}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                slotProps={{ paper: { sx: { borderRadius: 2, mt: 0.5, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: chromePx(190) } } }}
+                slotProps={{ paper: { sx: { borderRadius: 2, mt: 0.5, boxShadow: SHADOW.dialog, minWidth: chromePx(190) } } }}
               >
                 <MenuItem
                   onClick={() => { const el = cardMenuAnchor; setCardMenuAnchor(null); setCardOptionsAnchor(el) }}
@@ -313,7 +314,7 @@ export function SearchView({
                 onClose={() => setCardOptionsAnchor(null)}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                slotProps={{ paper: { sx: { borderRadius: 3, p: 2, mt: 0.75, width: chromePx(290), boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } } }}
+                slotProps={{ paper: { sx: { borderRadius: 3, p: 2, mt: 0.75, width: chromePx(290), boxShadow: SHADOW.dialog } } }}
               >
                 {/* Colors */}
                 <Box sx={{ mb: 1.75 }}>

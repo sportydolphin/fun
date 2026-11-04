@@ -1,3 +1,4 @@
+import { HUE } from './color'
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { FOCUS_RING, hoverOnly, pressable } from './interaction'
@@ -238,7 +239,7 @@ export function BoxTeamSwitch({ away, home, value, onChange, dense }: {
 // ─── The play log ──────────────────────────────────────────────────────────────
 
 /** The green a run is drawn in, on the rail, the tint and the +N. */
-export const RUN_GREEN = '#16a34a'
+export const RUN_GREEN = HUE.greenDeep
 
 /**
  * A half-inning's heading: the chevron that opens it, the batting club, the inning, and on the
@@ -308,7 +309,7 @@ export function PlayRow({ id, scored, flashed, children, aside, linkLabel }: {
   return (
     <Box id={id} sx={{
       display: 'flex', gap: 1, py: 0.6, pl: 1, borderLeft: '2px solid',
-      borderColor: scored ? '#22c55e' : 'divider',
+      borderColor: scored ? HUE.green : 'divider',
       bgcolor: scored ? 'rgba(34,197,94,0.06)' : 'transparent',
       // Where a link lands: loud for a moment and then gone. Only ever fades, so reduced motion is
       // respected without asking.

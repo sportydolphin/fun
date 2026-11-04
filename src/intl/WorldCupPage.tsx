@@ -1,3 +1,4 @@
+import { HUE } from '../ui/color'
 // /world-cup, /world-cup/<year>, /world-cup/<year>/games/<id> and /world-cup/players/<slug>: every
 // Women's Baseball World Cup, an edition, a game and a player. ROADMAP-WOMENS-BASEBALL.md, stage 2.
 //
@@ -108,7 +109,7 @@ function MedalLine({ medals }: { medals: Medals }) {
  *  (flags.ts says why Chinese Taipei has none) shows its IOC code on a neutral fill instead. Never a
  *  federation's or WBSC's own mark. */
 function CountryBadge({ team, size }: { team: string; size: number }) {
-  return <ClubBadge size={size} src={flagOf(team)} fit="cover" alt={team} bg="#4b5563" ring={t => t.palette.outline} logoScale={0.6} decorative />
+  return <ClubBadge size={size} src={flagOf(team)} fit="cover" alt={team} bg={HUE.grayDeep} ring={t => t.palette.outline} logoScale={0.6} decorative />
 }
 
 /** A team's flag and name, inline. A div, since the badge is one (and its fallback a paragraph). */
@@ -122,7 +123,7 @@ function TeamName({ team }: { team: string }) {
 }
 
 /** The rule color a club's own color takes on WPBL's box score: one neutral for every country. */
-const ACCENT = '#6b7280'
+const ACCENT = HUE.gray
 
 function Loading() {
   return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>

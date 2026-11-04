@@ -1,3 +1,4 @@
+import { HUE, INK } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import { TeamLogo } from '../components/TeamLogo'
 import React from 'react'
@@ -550,7 +551,7 @@ async function performersFrom(days: Array<{ date: string; games: any[] }>, now: 
 
 // ─── SpotlightCard ────────────────────────────────────────────────────────────
 
-const COLD_ACCENT = '#60a5fa'
+const COLD_ACCENT = HUE.blueLight
 
 export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
   data: HotGuyData; mode: 'hot' | 'cold'
@@ -559,10 +560,10 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
 }) {
   const tone = useTextTone()
   const isDark     = useDark()
-  const teamColor  = TEAM_BG[data.teamId] ?? '#444'
+  const teamColor  = TEAM_BG[data.teamId] ?? INK.dark
   const abbr       = TEAM_ABBR[data.teamId] ?? '—'
   const accent     = mode === 'hot' ? teamColor : COLD_ACCENT
-  const labelColor = mode === 'hot' ? (isDark ? '#fb923c' : teamColor) : COLD_ACCENT
+  const labelColor = mode === 'hot' ? (isDark ? HUE.orangeLight : teamColor) : COLD_ACCENT
   const accentText = mode === 'hot' ? accentColor(teamColor, isDark) : COLD_ACCENT
 
   interface StatItem { label: string; value: string; hero: boolean }

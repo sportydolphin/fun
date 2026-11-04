@@ -1,3 +1,4 @@
+import { HUE, INK } from '../../ui/color'
 import React, { useState } from 'react'
 import { ACCENT_EDGE, TYPE_SCALE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
@@ -21,7 +22,7 @@ const GROUPS: Array<{ key: string; label: string; match: (e: RosterEntry) => boo
 // Small circular headshot on a team-colored disc, matching the standings/search look.
 function RosterHeadshot({ playerId, teamId }: { playerId: number; teamId: number }) {
   const [failed, setFailed] = useState(false)
-  const bg = TEAM_BG[teamId] ?? '#444'
+  const bg = TEAM_BG[teamId] ?? INK.dark
   return (
     <Box sx={{
       width: chromePx(34), height: chromePx(34), borderRadius: '50%', bgcolor: bg, flexShrink: 0,
@@ -98,7 +99,7 @@ function RosterRow({ entry, teamId, onPlayerClick }: {
         <Box sx={{
           flexShrink: 0, px: 0.6, height: chromePx(16), borderRadius: 1,
           display: 'inline-flex', alignItems: 'center',
-          bgcolor: '#ef444422', color: TONE.red,
+          bgcolor: `${HUE.red}22`, color: TONE.red,
           fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.3),
         }}>
           IL

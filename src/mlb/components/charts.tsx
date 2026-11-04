@@ -1,3 +1,4 @@
+import { INK } from '../../ui/color'
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { TeamSummary } from '../types'
@@ -31,7 +32,7 @@ function teamPoint(t: TeamSummary, x: number, y: number, name: string, facts: [s
   { highlightTeamId, onSelectTeam }: PlotProps): ScatterPoint {
   return {
     id: String(t.id), x, y, weight: 1, label: t.abbr, badge: t.abbr,
-    color: TEAM_BG[t.id] ?? '#555',
+    color: TEAM_BG[t.id] ?? INK.mid,
     muted: highlightTeamId != null && t.id !== highlightTeamId,
     ariaLabel: `${name}: ${facts.map(([k, v]) => `${k} ${v}`).join(', ')}`,
     href: mlbTeamPath(t.id),

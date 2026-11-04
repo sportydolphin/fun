@@ -1,3 +1,4 @@
+import { INK } from './color'
 import { Box } from '@mui/material'
 import { pressable, FOCUS_RING } from './interaction'
 import { chromePx, typePx } from './scale'
@@ -61,7 +62,7 @@ export function PillGroup({ options, value, onChange, mb, dense }: {
               fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.3),
               whiteSpace: 'nowrap', userSelect: 'none', transition: 'all 0.15s',
               bgcolor: on ? 'var(--wpbl-accent-solid)' : 'transparent',
-              color: on ? '#fff' : off ? 'text.disabled' : 'text.secondary',
+              color: on ? INK.white : off ? 'text.disabled' : 'text.secondary',
               '&:hover': on || off ? {} : { color: 'text.primary' },
             }}
           >

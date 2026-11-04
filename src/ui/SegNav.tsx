@@ -1,3 +1,4 @@
+import { SHADOW } from './color'
 import React, { useEffect, useRef } from 'react'
 import { Box } from '@mui/material'
 import type { Theme, SxProps } from '@mui/material'
@@ -147,7 +148,7 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
               bgcolor: value === opt.value ? 'background.raised' : 'transparent',
               color: value === opt.value ? accentFg : 'text.secondary',
               fontWeight: value === opt.value ? 700 : 600,
-              boxShadow: value === opt.value ? '0 1px 3px rgba(0,0,0,0.20)' : 'none',
+              boxShadow: value === opt.value ? SHADOW.lift : 'none',
               '&:hover': value !== opt.value ? { color: 'text.primary' } : {},
               // 25px tall suits a cursor and not a thumb, and on a phone these are how a reader moves
               // between a game's or a player's views. Taller on a touch screen only, as the filter

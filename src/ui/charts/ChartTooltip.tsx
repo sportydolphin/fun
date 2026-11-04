@@ -1,3 +1,4 @@
+import { SHADOW } from '../color'
 import React, { useState } from 'react'
 import { Box } from '@mui/material'
 import { chromePx } from '../scale'
@@ -31,7 +32,7 @@ export function ChartTooltip({ tipPos, children }: { tipPos: { x: number; y: num
       border: '1px solid', borderColor: 'outline',
       borderRadius: 2, px: 1.5, py: 1,
       pointerEvents: 'none',
-      boxShadow: '0 4px 20px rgba(0,0,0,0.18)',
+      boxShadow: SHADOW.popover,
       zIndex: 10, minWidth: chromePx(148),
     }}>
       {children}

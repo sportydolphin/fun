@@ -1,3 +1,4 @@
+import { INK } from '../ui/color'
 import { useDark } from '../ui/useDark'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { edge } from '../ui/card'
@@ -361,7 +362,7 @@ export function PickemButton({ bracket, state, from, compact }: {
             whiteSpace: 'nowrap', flexShrink: 0,
             ...(done
               ? { border: '1px solid', borderColor: 'outline', color: 'text.secondary' }
-              : { bgcolor: 'var(--wpbl-accent-solid)', color: '#fff' }),
+              : { bgcolor: 'var(--wpbl-accent-solid)', color: INK.white }),
           }}
         >
           {/* Bigger from `sm` up, where this is the card's ONE action rather than a pill squeezed
@@ -404,7 +405,7 @@ export function PickemButton({ bracket, state, from, compact }: {
           mb: 1.25,
           ...(done
             ? { border: '1px solid', borderColor: 'outline', color: 'text.secondary' }
-            : { bgcolor: 'var(--wpbl-accent-solid)', color: '#fff' }),
+            : { bgcolor: 'var(--wpbl-accent-solid)', color: INK.white }),
         }}
       >
         <Box sx={{ minWidth: 0 }}>
@@ -758,7 +759,7 @@ function PickemSheet({ bracket, state, onClose }: {
         <Box {...pressable(onClose)} sx={{
           ...FOCUS_RING, minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'center',
           borderRadius: 2, cursor: 'pointer', userSelect: 'none',
-          bgcolor: 'var(--wpbl-accent-solid)', color: '#fff', fontWeight: 800, fontSize: TYPE_SCALE.title,
+          bgcolor: 'var(--wpbl-accent-solid)', color: INK.white, fontWeight: 800, fontSize: TYPE_SCALE.title,
         }}>Done</Box>
       }
     >

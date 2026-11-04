@@ -1,3 +1,4 @@
+import { HUE, SHADOW } from '../../ui/color'
 import React, { useState, useEffect, useRef } from 'react'
 import { pressable } from '../../ui/interaction'
 import { ACCENT_EDGE, TYPE_SCALE } from '../../ui/card'
@@ -456,7 +457,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
 
           {/* Horizontal avg line, counting stats only (label drawn on top, later) */}
           {showHorizAvg && (
-            <line x1={m.l} y1={avgY} x2={m.l + iW} y2={avgY} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.6} />
+            <line x1={m.l} y1={avgY} x2={m.l + iW} y2={avgY} stroke={HUE.amber} strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.6} />
           )}
 
           {/* League avg line for rate stats, one point per season (label drawn on top, later) */}
@@ -466,7 +467,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
                 const v = leagueAvgPts.get(p.season)
                 return v != null ? `${i === 0 || !fpts[i - 1] || leagueAvgPts.get(fpts[i - 1].season) == null ? 'M' : 'L'}${sx(i).toFixed(1)},${sy(v).toFixed(1)}` : null
               }).filter(Boolean).join(' ')}
-              fill="none" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.6} strokeLinejoin="round"
+              fill="none" stroke={HUE.amber} strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.6} strokeLinejoin="round"
             />
           )}
 
@@ -503,7 +504,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
           {/* Avg / league-avg labels are drawn here (after the trendline) so their
               halo sits on top of the line and stays legible. */}
           {showHorizAvg && (
-            <text x={m.l + 4} y={avgY - 6} fill="#f59e0b" fontSize={10.5} fontWeight={700} {...labelHalo}>avg {currentDef.fmt(avg!)}</text>
+            <text x={m.l + 4} y={avgY - 6} fill={HUE.amber} fontSize={10.5} fontWeight={700} {...labelHalo}>avg {currentDef.fmt(avg!)}</text>
           )}
           {showLeagueAvgLine && (() => {
             const lastPt = [...fpts].reverse().find(p => leagueAvgPts.has(p.season))
@@ -511,7 +512,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
             if (!lastPt || lastIdx < 0) return null
             return (
               <text x={sx(lastIdx) - 4} y={sy(leagueAvgPts.get(lastPt.season)!) - 6}
-                textAnchor="end" fill="#f59e0b" fontSize={10} fontWeight={700} {...labelHalo}>lg avg</text>
+                textAnchor="end" fill={HUE.amber} fontSize={10} fontWeight={700} {...labelHalo}>lg avg</text>
             )
           })()}
 
@@ -576,7 +577,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
               borderColor: 'outline',
               borderRadius: 2,
               px: 1.5, py: 1,
-              boxShadow: '0 4px 18px rgba(0,0,0,0.13)',
+              boxShadow: SHADOW.popover,
               minWidth: chromePx(90),
               zIndex: 10,
             }}>

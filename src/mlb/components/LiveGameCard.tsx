@@ -1,3 +1,4 @@
+import { HUE, INK } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import { NameText } from '../../ui/NameText'
 import { TeamLogo } from './TeamLogo'
@@ -54,7 +55,7 @@ function LiveCelebration({ type, teamColor }: { type: 'hit' | 'run'; teamColor: 
   // Confetti only for runs; a burst of team-colored + gold pieces raining down.
   const pieces = React.useMemo(() => {
     if (!isRun) return []
-    const cols = [teamColor, '#fbbf24', '#22c55e', '#ffffff', '#f97316']
+    const cols = [teamColor, HUE.amberLight, HUE.green, INK.white, HUE.orange]
     return Array.from({ length: 22 }, (_, i) => ({
       left:  Math.random() * 100,
       drift: (Math.random() * 2 - 1) * 40,
@@ -111,13 +112,13 @@ function LiveCelebration({ type, teamColor }: { type: 'hit' | 'run'; teamColor: 
         px: isRun ? 2 : 1.4, py: isRun ? 0.9 : 0.6,
         borderRadius: 999,
         bgcolor: isRun ? teamColor : 'rgba(0,0,0,0.72)',
-        border: isRun ? '2px solid #fff' : '1.5px solid', borderColor: isRun ? '#fff' : edge(teamColor),
+        border: isRun ? `2px solid ${INK.white}` : '1.5px solid', borderColor: isRun ? INK.white : edge(teamColor),
         boxShadow: isRun ? `0 4px 22px ${teamColor}bb` : `0 2px 12px ${teamColor}88`,
         animation: `celebPop ${isRun ? 2.4 : 1.5}s cubic-bezier(0.34, 1.56, 0.64, 1) forwards`,
       }}>
         <Typography sx={{
           fontSize: isRun ? TYPE_SCALE.display : TYPE_SCALE.body, fontWeight: 900,
-          letterSpacing: isRun ? typePx(1) : typePx(0.5), color: '#fff', lineHeight: 1,
+          letterSpacing: isRun ? typePx(1) : typePx(0.5), color: INK.white, lineHeight: 1,
           whiteSpace: 'nowrap',
           textShadow: isRun ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
         }}>
@@ -217,17 +218,17 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
             sx={{
               ml: 'auto', flexShrink: 0,
               display: 'inline-flex', alignItems: 'center', gap: 0.5,
-              fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.3), color: '#fff',
+              fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.3), color: INK.white,
               cursor: 'pointer', px: 1, py: 0.4,
               borderRadius: 999, bgcolor: FILL.red,
               whiteSpace: 'nowrap',
-              boxShadow: '0 1px 6px #ef444455',
+              boxShadow: `0 1px 6px ${HUE.red}55`,
               transition: 'transform 0.12s, box-shadow 0.12s, background-color 0.12s',
-              '&:hover': { bgcolor: '#dc2626', transform: 'translateY(-1px)', boxShadow: '0 3px 10px #ef444470' },
+              '&:hover': { bgcolor: HUE.redDeep, transform: 'translateY(-1px)', boxShadow: `0 3px 10px ${HUE.red}70` },
             }}
           >
             <Box sx={{
-              width: chromePx(5), height: chromePx(5), borderRadius: '50%', bgcolor: '#fff', flexShrink: 0,
+              width: chromePx(5), height: chromePx(5), borderRadius: '50%', bgcolor: INK.white, flexShrink: 0,
               '@keyframes livepulse': { '0%': { opacity: 1 }, '50%': { opacity: 0.25 }, '100%': { opacity: 1 } },
               animation: 'livepulse 1.5s ease-in-out infinite',
             }} />

@@ -1,3 +1,4 @@
+import { HUE } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import React, { useState, useEffect } from 'react'
 import { pressable } from '../../ui/interaction'
@@ -28,15 +29,15 @@ import { playerLink, rowClick, LINK_SX } from '../lib/links'
 // the winter the transactions are the only MLB news there is and nothing else on Home changes.
 
 export const MOVE_STYLE: Record<string, { label: string; color: string }> = {
-  TR:  { label: 'Trade',     color: '#f97316' },
-  CLW: { label: 'Claimed',   color: '#818cf8' },
-  DES: { label: 'DFA',       color: '#94a3b8' },
-  REL: { label: 'Released',  color: '#94a3b8' },
-  SFA: { label: 'Signed',    color: '#22c55e' },
-  SU:  { label: 'Suspended', color: '#ef4444' },
+  TR:  { label: 'Trade',     color: HUE.orange },
+  CLW: { label: 'Claimed',   color: HUE.indigo },
+  DES: { label: 'DFA',       color: HUE.slate },
+  REL: { label: 'Released',  color: HUE.slate },
+  SFA: { label: 'Signed',    color: HUE.green },
+  SU:  { label: 'Suspended', color: HUE.red },
   // Winter only. `DFA` on the wire is a player declaring free agency, not a designation (`DES`).
-  DFA: { label: 'Free agent', color: '#38bdf8' },
-  R5:  { label: 'Rule 5',     color: '#a78bfa' },
+  DFA: { label: 'Free agent', color: HUE.sky },
+  R5:  { label: 'Rule 5',     color: HUE.violet },
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -129,7 +130,7 @@ function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick, ghost 
 }) {
   const tone = useTextTone()
   const g = (text: React.ReactNode) => ghost ? <TextGhost>{text}</TextGhost> : text
-  const style = MOVE_STYLE[move.typeCode] ?? { label: move.typeDesc, color: '#94a3b8' }
+  const style = MOVE_STYLE[move.typeCode] ?? { label: move.typeDesc, color: HUE.slate }
   const teamClick = (id: number) => (e: React.SyntheticEvent) => {
     if (!onTeamClick) return
     e.stopPropagation()
@@ -500,8 +501,8 @@ export function RosterMovesCard({ hotStove, followedTeamId, focus, onPlayerClick
       titleAdornment={deadline ? (
         <Box sx={{
           px: 0.75, py: chromePx(2), borderRadius: 999, flexShrink: 0,
-          bgcolor: deadline.hot ? '#ef44441c' : '#f973161c',
-          border: '1px solid', borderColor: edge(deadline.hot ? '#ef4444' : '#f97316'),
+          bgcolor: deadline.hot ? `${HUE.red}1c` : `${HUE.orange}1c`,
+          border: '1px solid', borderColor: edge(deadline.hot ? HUE.red : HUE.orange),
         }}>
           <Typography sx={{
             fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), lineHeight: 1.3,

@@ -1,3 +1,4 @@
+import { HUE } from '../ui/color'
 import { useDark } from '../ui/useDark'
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
@@ -60,7 +61,7 @@ const NOTABLE_POINTS = 0.03
 
 /** Worse than the league: amber, the one warning color this section uses, in the shade that
  *  clears contrast on each theme (the light one is text on white). */
-const amberFor = (dark: boolean) => (dark ? '#f59e0b' : '#b45309')
+const amberFor = (dark: boolean) => (dark ? HUE.amber : HUE.amberDark)
 
 type Verdict = 'good' | 'bad' | null
 function verdict(v: number | null, league: number | null, better: Better, threshold: number): Verdict {

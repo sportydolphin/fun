@@ -1,3 +1,4 @@
+import { HUE, SHADOW } from '../../ui/color'
 import React, { useState, useEffect, useRef } from 'react'
 import { Box, Typography, useTheme, useMediaQuery } from '@mui/material'
 import { RecentGameEntry } from '../types'
@@ -385,7 +386,7 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
 
           {/* League avg dashed line (label drawn on top, later) */}
           {leagueAvg != null && (
-            <line x1={m.l} y1={sy(leagueAvg)} x2={m.l + iW} y2={sy(leagueAvg)} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.6} />
+            <line x1={m.l} y1={sy(leagueAvg)} x2={m.l + iW} y2={sy(leagueAvg)} stroke={HUE.amber} strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.6} />
           )}
 
           {/* Line */}
@@ -402,7 +403,7 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
 
           {/* League-avg label, drawn after the trendline so its halo sits on top */}
           {leagueAvg != null && (
-            <text x={m.l + 5} y={sy(leagueAvg) - 5} fill="#f59e0b" fontSize={10} fontWeight={700} {...labelHalo}>
+            <text x={m.l + 5} y={sy(leagueAvg) - 5} fill={HUE.amber} fontSize={10} fontWeight={700} {...labelHalo}>
               lg avg {fmt(leagueAvg)}
             </text>
           )}
@@ -442,7 +443,7 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
               ...tooltipAnchorSx(tipPos, canHover),
               pointerEvents: 'none',
               bgcolor: 'background.paper', border: '1.5px solid', borderColor: 'outline',
-              borderRadius: 2, px: 1.5, py: 1, boxShadow: '0 4px 18px rgba(0,0,0,0.13)',
+              borderRadius: 2, px: 1.5, py: 1, boxShadow: SHADOW.popover,
               minWidth: chromePx(90), zIndex: 10,
             }}>
               <Typography sx={{ fontWeight: 700, fontSize: TYPE_SCALE.body, lineHeight: 1 }}>{fmtDate(hov.date)}</Typography>

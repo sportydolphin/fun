@@ -1,3 +1,4 @@
+import { INK } from '../../ui/color'
 // What Game Center's Summary tab carries under the win probability graph: where the game sits in
 // its postseason series (with a way into the series itself), the feed's top performers, the plays
 // that moved the graph most, and the game's particulars. Each piece draws nothing when it has
@@ -119,7 +120,7 @@ export function TopPerformers({ performers, onPlayerClick }: {
             <Box sx={{ position: 'relative', flexShrink: 0 }}>
               <Box component="img" src={HEADSHOT(p.id)} alt="" loading="lazy" sx={{
                 width: chromePx(42), height: chromePx(42), borderRadius: '50%', objectFit: 'cover', display: 'block',
-                bgcolor: 'action.hover', border: '1.5px solid', borderColor: edgeTone(TEAM_BG[p.teamId] ?? '#888888', isDark),
+                bgcolor: 'action.hover', border: '1.5px solid', borderColor: edgeTone(TEAM_BG[p.teamId] ?? INK.neutral, isDark),
               }} />
               <Box sx={{ position: 'absolute', right: chromePx(-4), bottom: chromePx(-3) }}>
                 <TeamLogo teamId={p.teamId} abbr={p.abbr} size={18} />

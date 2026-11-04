@@ -1,3 +1,4 @@
+import { INK } from '../ui/color'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import WpblPage from './WpblPage'
@@ -54,7 +55,7 @@ function writeRecent(keys: string[]) {
  *  and the controls start above the fold on a phone. */
 const FRAME_SX = {
   height: { xs: '34vh', sm: '50vh' }, maxHeight: chromePx(560), minHeight: chromePx(200),
-  borderRadius: 2, bgcolor: '#000', overflow: 'hidden', position: 'relative',
+  borderRadius: 2, bgcolor: INK.black, overflow: 'hidden', position: 'relative',
   display: 'flex', alignItems: 'center', justifyContent: 'center',
 } as const
 
@@ -82,7 +83,7 @@ function Pill({ children, onClick, primary, disabled, label }: {
         px: 2, py: 1.1, minHeight: chromePx(44), borderRadius: 999, cursor: disabled ? 'default' : 'pointer',
         border: '1px solid', ...FOCUS_RING,
         ...(primary
-          ? { bgcolor: 'var(--wpbl-accent-solid)', borderColor: 'var(--wpbl-accent-solid)', color: '#fff' }
+          ? { bgcolor: 'var(--wpbl-accent-solid)', borderColor: 'var(--wpbl-accent-solid)', color: INK.white }
           : { bgcolor: 'background.paper', borderColor: 'outline', color: 'text.primary', ...hoverOnly({ bgcolor: 'action.hover' }) }),
         ...(disabled ? { bgcolor: 'action.disabledBackground', borderColor: 'outline', color: 'text.secondary' } : {}),
       }}>
@@ -412,7 +413,7 @@ function Credit({ text }: { text: React.ReactNode }) {
   return (
     <Typography sx={{
       position: 'absolute', left: 0, right: 0, bottom: 0, px: 1.25, pt: 2.5, pb: 0.75,
-      fontSize: TYPE_SCALE.meta, fontWeight: 600, color: '#fff',
+      fontSize: TYPE_SCALE.meta, fontWeight: 600, color: INK.white,
       background: 'linear-gradient(to top, rgba(0,0,0,0.75), rgba(0,0,0,0))',
     }} noWrap>{text}</Typography>
   )

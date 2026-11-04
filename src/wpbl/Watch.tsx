@@ -1,3 +1,4 @@
+import { INK } from '../ui/color'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { CARD_BORDER, CARD_FILL, TYPE_SCALE, FOCUS_RING, chromePx, useRailPaging, RailArrow, RailScroller, NewTag, SectionCard, CARD_LINK_SX } from './ui'
@@ -196,7 +197,7 @@ export function ClipCaption({ title, lines = 2 }: { title: string; lines?: numbe
       background: 'linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,0.78))', pointerEvents: 'none',
     }}>
       <Typography sx={{
-        color: '#fff', fontSize: TYPE_SCALE.micro, fontWeight: 700, lineHeight: 1.25,
+        color: INK.white, fontSize: TYPE_SCALE.micro, fontWeight: 700, lineHeight: 1.25,
         display: '-webkit-box', WebkitLineClamp: lines, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         textShadow: '0 1px 2px rgba(0,0,0,0.6)',
       }}>{title}</Typography>

@@ -1,3 +1,4 @@
+import { HUE } from '../ui/color'
 import { useMemo } from 'react'
 import { Box, Typography } from '@mui/material'
 import { useUnits } from '../UnitsContext'
@@ -15,8 +16,8 @@ import { TYPE_SCALE } from '../ui/card'
 
 // Distinct, colorblind-friendlyish hues that hold up on light and dark backgrounds.
 const PITCH_COLORS: Record<string, string> = {
-  Fastball: '#ef4444', Slider: '#3b82f6', Curveball: '#22c55e',
-  ChangeUp: '#f59e0b', Splitter: '#a855f7', Other: '#94a3b8',
+  Fastball: HUE.red, Slider: HUE.blue, Curveball: HUE.green,
+  ChangeUp: HUE.amber, Splitter: HUE.purple, Other: HUE.slate,
 }
 // Fixed legend/plot order regardless of how the feed happens to list them.
 const TYPE_ORDER = ['Fastball', 'Slider', 'Curveball', 'ChangeUp', 'Splitter', 'Other']

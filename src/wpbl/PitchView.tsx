@@ -1,3 +1,4 @@
+import { HUE } from '../ui/color'
 import { useDark } from '../ui/useDark'
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
@@ -61,7 +62,7 @@ const GROUPS: { offer: Offer; label: string }[] = [
 // they sit on. The light-mode pair is not the dark pair: the raw accent measures under 2:1 on this app's
 // light surfaces (see wpblAccentFg in constants.ts), which is not fine for a bar whose length IS the information.
 const offerColors = (isDark: boolean): Record<Offer, string> => ({
-  take: isDark ? '#94a3b8' : '#64748b',
+  take: isDark ? HUE.slate : HUE.slateDeep,
   swing: wpblAccentFg(isDark),
 })
 

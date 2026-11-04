@@ -1,3 +1,4 @@
+import { HUE } from '../../ui/color'
 // ─── Contract & team control panel ────────────────────────────────────────────
 //
 // Shown under the player card. The money is the obvious half; the more useful
@@ -21,12 +22,12 @@ import { TYPE_SCALE } from '../../ui/card'
 // One color per control state. Deliberately not team-colored: these encode
 // contract *status*, and the legend has to mean the same thing on every page.
 const KIND_STYLE: Record<ContractYear['kind'], { color: string; label: string }> = {
-  guaranteed:   { color: '#22c55e', label: 'Guaranteed' },
-  arb:          { color: '#38bdf8', label: 'Arbitration' },
-  'pre-arb':    { color: '#818cf8', label: 'Pre-arb' },
-  option:       { color: '#eab308', label: 'Option' },
-  'free-agent': { color: '#ef4444', label: 'Free agent' },
-  other:        { color: '#6b7280', label: 'Other' },
+  guaranteed:   { color: HUE.green, label: 'Guaranteed' },
+  arb:          { color: HUE.sky, label: 'Arbitration' },
+  'pre-arb':    { color: HUE.indigo, label: 'Pre-arb' },
+  option:       { color: HUE.yellow, label: 'Option' },
+  'free-agent': { color: HUE.red, label: 'Free agent' },
+  other:        { color: HUE.gray, label: 'Other' },
 }
 
 /** $170M / $7.7M / $810K: contract figures span five orders of magnitude. */

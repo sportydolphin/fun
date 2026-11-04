@@ -1,3 +1,4 @@
+import { INK } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import type { ComponentProps } from 'react'
 import { ClubBadge } from '../../ui/ClubBadge'
@@ -28,6 +29,6 @@ export function TeamLogo({ teamId, abbr, size = 28, ring, ...rest }: {
       // no 0.svg, and every load of /mlb logged a 404 for it.
       src={teamId > 0 ? teamLogoSrc(teamId, isDark) : undefined} bg={teamLogoBg(teamId, isDark)}
       ring={ring ?? ringColor(teamId, isDark)} logoTransform={teamLogoCrop(teamId, isDark)}
-      fallbackInk={isDark ? '#fff' : ringColor(teamId, isDark)} />
+      fallbackInk={isDark ? INK.white : ringColor(teamId, isDark)} />
   )
 }

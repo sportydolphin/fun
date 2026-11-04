@@ -1,3 +1,4 @@
+import { CHAMPION, INK, SHADOW } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Box, Typography, Skeleton, alpha } from '@mui/material'
@@ -273,9 +274,9 @@ function RecapButton({ children }: { children: React.ReactNode }) {
     <Box sx={{
       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75,
       mt: 0.5, px: 2, py: 1.1, borderRadius: 2,
-      bgcolor: 'var(--wpbl-accent-solid)', color: '#fff', textDecoration: 'none',
+      bgcolor: 'var(--wpbl-accent-solid)', color: INK.white, textDecoration: 'none',
       cursor: 'pointer', userSelect: 'none',
-      boxShadow: '0 1px 6px -1px color-mix(in srgb, var(--wpbl-accent-solid) 55%, transparent)',
+      boxShadow: SHADOW.accentGlow,
       transition: 'transform 120ms ease, filter 120ms ease',
       '&:active': { transform: 'scale(0.98)' },
       ...hoverOnly({ filter: 'brightness(1.08)', transform: 'translateY(-1px)' }),
@@ -414,7 +415,7 @@ function titlePath(champion: WpblTeam, standings: ReturnType<typeof computeStand
  *  translation of it. This is why the card does not use `trophyPalette`, whose field has to change
  *  with the theme because it is gold; the warning there about club color in the field is about
  *  mixing the two, and nothing is mixed here. */
-const HERO_INK = { gold: '#ffce55', name: '#f0d38a', text: '#efe9da' } as const
+const HERO_INK = { gold: CHAMPION.gold, name: CHAMPION.name, text: CHAMPION.text } as const
 
 /** The finished-season body, built so the title reads before anything else does: the club over a
  *  full-bleed field in its own color, the road there, the final game by game, and the Star.
@@ -504,7 +505,7 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
             </Typography>
             {series && runnerUp && (
               <Box sx={{ mt: 0.75, display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 0.75 }}>
-                <Typography sx={{ fontFamily: DISPLAY_FONT, fontSize: lead ? { xs: TYPE_SCALE.page, md: TYPE_SCALE.hero } : TYPE_SCALE.page, fontWeight: 900, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: '#fff' }}>
+                <Typography sx={{ fontFamily: DISPLAY_FONT, fontSize: lead ? { xs: TYPE_SCALE.page, md: TYPE_SCALE.hero } : TYPE_SCALE.page, fontWeight: 900, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: INK.white }}>
                   {series.champWins}–{series.rivalWins}
                 </Typography>
                 <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: HERO_INK.text }}>
@@ -676,8 +677,8 @@ export function ChampionBanner({ champion, season, runnerUp, champWins, rivalWin
   // bright one. Los Angeles' accent is itself a gold and would sit gold-on-gold in dark, so it
   // takes a cream-gold there; light mode's deep mix reads on gold for every club, LA included.
   const nameColor = dark
-    ? (champion.id === 'LA' ? '#f0d38a' : accent)
-    : `color-mix(in srgb, ${accent} 78%, #1a0f00)`
+    ? (champion.id === 'LA' ? CHAMPION.name : accent)
+    : `color-mix(in srgb, ${accent} 78%, ${CHAMPION.shade})`
 
   return (
     <Box
@@ -709,7 +710,7 @@ export function ChampionBanner({ champion, season, runnerUp, champWins, rivalWin
         {dev && (
           <Typography sx={{
             fontSize: TYPE_SCALE.nano, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase',
-            color: dark ? 'warning.main' : '#3d2905', ml: 0.25, opacity: dark ? 1 : 0.9,
+            color: dark ? 'warning.main' : CHAMPION.devInk, ml: 0.25, opacity: dark ? 1 : 0.9,
           }}>· dev preview</Typography>
         )}
       </Box>

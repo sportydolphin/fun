@@ -1,3 +1,4 @@
+import { HUE } from '../ui/color'
 // The World Cup's rows in the site search, built from `matchWorldCup`. Imported only behind
 // `import.meta.env.DEV` (useWpblSearch.ts) until the World Cup goes public; the production build
 // fails if it ships (scripts/vite-plugin-no-dev-code.mjs).
@@ -18,7 +19,7 @@ const load = () => (files ??= Promise.all([
   fetchSite<WorldCupIndexEntry[]>('world-cup.json').then(r => r ?? []),
 ]))
 
-const GREY = '#4b5563'
+const GREY = HUE.grayDeep
 
 const open = (path: string) => () => { setSearchQuery(''); navigate(path) }
 

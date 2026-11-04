@@ -1,3 +1,4 @@
+import { INK } from '../ui/color'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TextGhost, TeamBadge, TYPE_SCALE, FOCUS_RING, chromePx, hoverOnly } from './ui'
@@ -250,11 +251,11 @@ export default function WatchVideoPage({ videoId, videos, games, teams, onOpenGa
           ? { position: 'fixed', inset: 0, zIndex: 1200, bgcolor: 'background.default', display: 'flex', flexDirection: 'column', overscrollBehavior: 'contain' }
           : { minWidth: 0 }}>
           <BackLink viewer={viewer} shown={!!video} />
-          <Box sx={viewer ? { flex: 1, minHeight: 0, bgcolor: '#000', display: 'flex', justifyContent: 'center' } : {
+          <Box sx={viewer ? { flex: 1, minHeight: 0, bgcolor: INK.black, display: 'flex', justifyContent: 'center' } : {
             // Pinned on a phone so the queue scrolls under a video still playing, and full-bleed
             // against the shell's 16px gutter.
             position: { xs: 'sticky', md: 'static' }, top: 'var(--app-header-h, 0px)', zIndex: 4,
-            mx: { xs: -2, sm: 0 }, bgcolor: '#000', borderRadius: { xs: 0, sm: 2 }, overflow: 'hidden',
+            mx: { xs: -2, sm: 0 }, bgcolor: INK.black, borderRadius: { xs: 0, sm: 2 }, overflow: 'hidden',
             width: { xs: 'auto', sm: '100%' }, aspectRatio: '16 / 9', maxHeight: STAGE_MAX_HEIGHT,
             display: 'flex', justifyContent: 'center',
           }}>

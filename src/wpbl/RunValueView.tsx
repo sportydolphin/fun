@@ -1,3 +1,4 @@
+import { INK } from '../ui/color'
 import { useDark } from '../ui/useDark'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
@@ -212,7 +213,7 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
         <Box aria-hidden sx={{
           width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          bgcolor: 'var(--wpbl-accent-solid)', color: '#fff',
+          bgcolor: 'var(--wpbl-accent-solid)', color: INK.white,
           fontSize: TYPE_SCALE.micro, fontWeight: 800, lineHeight: 1,
         }}>{n}</Box>
         <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, lineHeight: 1.2 }}>{title}</Typography>

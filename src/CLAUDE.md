@@ -41,7 +41,10 @@ Loaded when you read anything under `src/`. The section-specific traps are in `s
   on top, so it has no outline to hold to 3:1. The outline stays on what a reader taps or reads as
   one object (a game tile, a chip, a control, the followed-team card, `SectionCard framed`), and
   there it is still 3:1. Never make a section visible with a lighter fill instead: in dark mode a
-  lifted surface means "this floats" (ThemeContext.tsx). The layout sweep measures every outline on every page
+  lifted surface means "this floats" (ThemeContext.tsx). **Colors and shadows are tokens**
+  (`src/ui/color.ts`; the lint refuses a raw hex or shadow in a UI file): a status hue there is a
+  FILL, and the same hue as text is the text-safe variable (`TONE`, `--wpbl-pos`), since #22c55e is
+  2.3:1 on white. The layout sweep measures every outline on every page
   and fails the `layout` check under 3:1; exempt are row rules, anything disabled or deliberately
   faded (an eliminated club at 50%), and anything sitting on a photo.
 

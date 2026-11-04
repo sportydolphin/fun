@@ -1,3 +1,4 @@
+import { HUE } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import { useMemo, useState, type ReactNode } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
@@ -347,7 +348,7 @@ export function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenT
     const live = g.status === 'live'
     const ser = series.get(g.id)
     const status = (
-      <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, whiteSpace: 'nowrap', color: live ? '#ef4444' : final ? 'text.secondary' : WPBL_ACCENT }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, whiteSpace: 'nowrap', color: live ? HUE.red : final ? 'text.secondary' : WPBL_ACCENT }}>
         {live ? '● Live' : final ? `Final${g.innings && g.innings !== 7 ? `/${g.innings}` : ''}` : formatGameTime(g.game_date, g.start_time) || 'TBD'}
       </Typography>
     )
