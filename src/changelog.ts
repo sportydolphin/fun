@@ -52,7 +52,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'Player Spotlight',
-        full:  'WPBL Player Spotlight never shows the same player as the Star of the final beside it.',
+        full:  'WPBL Player Spotlight never shows the same player as the Star of the final beside it, prints the jersey number large, and puts the player’s facts in three short lines.',
       },
       {
         short: 'MLB Home',
