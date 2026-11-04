@@ -2,22 +2,21 @@ import React from 'react'
 import { pressable } from './ui/interaction'
 import { Box } from '@mui/material'
 import { APP_VERSION } from './version'
-import { ACCENT } from './mlb/constants'
 import { track, EVENTS } from './lib/analytics'
 import { WPBL_FOOTER_PAGES } from './wpbl/morePages'
 import { MLB_MORE_PAGES } from './mlb/routes'
-import { TYPE_SCALE } from './ui/card'
+import { TYPE_SCALE, DISPLAY_FONT, AGATE_SX, SECTION_RULE } from './ui/card'
 
 const KOFI_URL = 'https://ko-fi.com/sportydolphin'
 const BLUESKY_URL = 'https://bsky.app/profile/sportydolphin.fun'
 
-// Shared style for the footer's clickable text bits (buttons + links). Muted by
-// default, brand accent on hover. Works in both themes via text.* tokens.
+// Shared style for the footer's clickable text bits (buttons + links): the agate face, like the
+// index at the foot of a sports page. Secondary ink, the full ink and an underline on hover.
 const linkSx = {
   cursor: 'pointer', userSelect: 'none' as const, whiteSpace: 'nowrap' as const,
-  fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary',
+  ...AGATE_SX, fontSize: TYPE_SCALE.body, color: 'text.secondary',
   textDecoration: 'none', transition: 'color 0.15s',
-  '&:hover': { color: ACCENT },
+  '&:hover': { color: 'text.primary', textDecoration: 'underline' },
 }
 
 // Site-wide footer: the page links a crawler must reach, plus the meta bits that used to crowd
@@ -49,13 +48,11 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
   const pageLink = (href: string, label: string) => (
     <Box component="a" href={href} onClick={e => { e.preventDefault(); onNavigate(href) }} sx={linkSx}>{label}</Box>
   )
-  const columns = groups.length + 2
   return (
     <Box
       component="footer"
       sx={{
-        borderTop: '1px solid', borderColor: 'divider',
-        mt: 4, px: 2, py: 2.5,
+        mt: 4, px: 2, pt: 1.5, pb: 2.5,
         // Out of the way of either stats board's full table on a phone, which needs the height to
         // stay pinned; the attributes' owners (each section's StatsView) explain why that is safe
         // for crawling.
@@ -64,11 +61,10 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
         },
       }}
     >
-      {/* COLUMNS UNDER HEADINGS, NOT CENTERED ROWS OF DOTTED WORDS. Three centered rows wrapped
-          differently at every width, so the same link sat in a new place on each page size and
-          nothing lined up with anything. A column per kind of link gives every item a fixed
-          place, and it let the page links come out of the `More pages` expander they were folded
-          into: a labeled column is as quiet as a closed disclosure and costs a reader no tap.
+      {/* THE FOOT OF A SPORTS PAGE, NOT A SITE MAP (Nov 4, 2026, ROADMAP-UI.md's audit). It was six
+          labeled columns of links, the most generic block on the site. Now the site's name under the
+          section rule, and an index: one line per group, the group in capitals and its links in the
+          agate face, the way a paper prints its index of sections.
 
           NOTHING HERE CAN BE DELETED, and the audit that showed it is worth keeping. The glossary
           and the players index have no other internal link anywhere on the site, and the players
@@ -76,99 +72,68 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
           because Google had indexed /wpbl and never heard of /mlb. Privacy and Terms were found
           only through this footer. Every link is a fix for an indexing failure that happened, so
           each stays a real anchor: an onClick-only control is invisible to a crawler. */}
-      <Box sx={{
-        maxWidth: 1100, mx: 'auto',
-        display: 'grid', columnGap: 3, rowGap: 2.5,
-        // Two across on a phone: the longest anchor ("WPBL batter vs pitcher") needs half of a
-        // 375px screen and no less, and the links do not wrap.
-        gridTemplateColumns: {
-          xs: 'repeat(2, minmax(0, 1fr))',
-          sm: 'repeat(3, minmax(0, 1fr))',
-          md: `repeat(${columns}, minmax(0, 1fr))`,
-        },
-      }}>
-        {groups.map(g => (
-          <FooterColumn key={g.title} title={g.title}>
-            {g.pages.map(pg => <React.Fragment key={pg.href}>{pageLink(pg.href, pg.label)}</React.Fragment>)}
-          </FooterColumn>
-        ))}
-
-        <FooterColumn title="Connect">
-          {isWpbl && (
-            // The fan Discord's only remaining door, after its promo card on the WPBL home screen
-            // was retired. Still tracked as a join, so that number survives the card.
-            <Box
-              component="a" href={WPBL_DISCORD_INVITE} target="_blank" rel="noopener noreferrer"
-              onClick={() => track(EVENTS.DISCORD_JOINED, { from: 'footer' })}
-              sx={linkSx}
-            >Fan Discord</Box>
-          )}
-          <Box component="a" href={BLUESKY_URL} target="_blank" rel="noopener noreferrer" sx={linkSx}>Bluesky</Box>
-          <Box component="span" {...pressable(onOpenFeedback)} sx={linkSx}>Feedback</Box>
-          {/* "Support" stays in front of Ko-fi: the verb is the information, and Ko-fi is a name
-              a general sports reader may not know before following an external link. */}
-          <Box component="a" href={KOFI_URL} target="_blank" rel="noopener noreferrer" sx={linkSx}>Support on Ko-fi &hearts;</Box>
-        </FooterColumn>
-
-        {/* The section switch sits here rather than under Connect, which Bluesky filled to five:
-            four links a column keeps the columns level on WPBL, and the switch is about the site. */}
-        <FooterColumn title="Site">
-          {/* The other section, with its name spelled out. The header's league switch is a
-              toggle rather than a pair of links, so before this the only crawlable door to
-              a section was whichever one you happened to land on. Keep the wording
-              keyword-shaped: anchor text is most of what tells a search engine what a page is. */}
-          {pageLink(isWpbl ? '/mlb' : '/wpbl', isWpbl ? 'MLB stats' : 'WPBL stats')}
-          <Box component="span" {...pressable(onOpenChangelog)} sx={linkSx}>What's new</Box>
-          {pageLink('/privacy', 'Privacy')}
-          {pageLink('/terms', 'Terms')}
-        </FooterColumn>
-      </Box>
-
-      {/* The fine print, last and centered under the columns, where a reader stops looking. The
-          data credit lives on the sources page; the disclaimer is a different claim and stays. */}
-      <Box sx={{
-        maxWidth: 1100, mx: 'auto', mt: 2.5, pt: 2,
-        borderTop: '1px solid', borderColor: 'divider',
-        fontSize: TYPE_SCALE.meta, color: 'text.secondary',
-      }}>
-        <FooterRow>
-          <Box component="span" sx={{ fontWeight: 700 }}>sportydolphin.fun</Box>
-          <Dot />
-          <Box component="span">v{APP_VERSION}</Box>
-          {/* Its own line on a phone. Left to wrap, this row stranded a dot at the end of the line
-              above, since a flex row cannot tell a separator it has become one. */}
-          <Dot sx={{ display: { xs: 'none', sm: 'inline' } }} />
-          <Box component="span" sx={{ flexBasis: { xs: '100%', sm: 'auto' }, textAlign: 'center' }}>
-            {isWpbl ? 'Not affiliated with the WPBL.' : 'Not affiliated with MLB.'}
+      <Box sx={{ maxWidth: 1100, mx: 'auto' }}>
+        <Box sx={{
+          ...SECTION_RULE, pt: 1, mb: 1.5,
+          display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', columnGap: 2, rowGap: 0.5,
+        }}>
+          <Box component="span" sx={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: TYPE_SCALE.page, textTransform: 'uppercase', letterSpacing: '0.02em', lineHeight: 1.1 }}>
+            sportydolphin.fun
           </Box>
-        </FooterRow>
+          {/* The fine print beside the name rather than under the links, where a reader stops
+              looking. The data credit lives on the sources page; the disclaimer is a different
+              claim and stays. */}
+          <Box component="span" sx={{ ...AGATE_SX, fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
+            v{APP_VERSION} · {isWpbl ? 'Not affiliated with the WPBL.' : 'Not affiliated with MLB.'}
+          </Box>
+        </Box>
+
+        <Box component="nav" aria-label="Site" sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.25, sm: 0.75 } }}>
+          {groups.map(g => (
+            <FooterLine key={g.title} title={g.title}>
+              {g.pages.map(pg => <React.Fragment key={pg.href}>{pageLink(pg.href, pg.label)}</React.Fragment>)}
+            </FooterLine>
+          ))}
+          <FooterLine title="Connect">
+            {isWpbl && (
+              // The fan Discord's only remaining door, after its promo card on the WPBL home screen
+              // was retired. Still tracked as a join, so that number survives the card.
+              <Box
+                component="a" href={WPBL_DISCORD_INVITE} target="_blank" rel="noopener noreferrer"
+                onClick={() => track(EVENTS.DISCORD_JOINED, { from: 'footer' })}
+                sx={linkSx}
+              >Fan Discord</Box>
+            )}
+            <Box component="a" href={BLUESKY_URL} target="_blank" rel="noopener noreferrer" sx={linkSx}>Bluesky</Box>
+            <Box component="span" {...pressable(onOpenFeedback)} sx={linkSx}>Feedback</Box>
+            {/* "Support" stays in front of Ko-fi: the verb is the information, and Ko-fi is a name
+                a general sports reader may not know before following an external link. */}
+            <Box component="a" href={KOFI_URL} target="_blank" rel="noopener noreferrer" sx={linkSx}>Support on Ko-fi &hearts;</Box>
+          </FooterLine>
+          <FooterLine title="Site">
+            {/* The other section, with its name spelled out. The header's league switch is a
+                toggle rather than a pair of links, so before this the only crawlable door to
+                a section was whichever one you happened to land on. Keep the wording
+                keyword-shaped: anchor text is most of what tells a search engine what a page is. */}
+            {pageLink(isWpbl ? '/mlb' : '/wpbl', isWpbl ? 'MLB stats' : 'WPBL stats')}
+            <Box component="span" {...pressable(onOpenChangelog)} sx={linkSx}>What's new</Box>
+            {pageLink('/privacy', 'Privacy')}
+            {pageLink('/terms', 'Terms')}
+          </FooterLine>
+        </Box>
       </Box>
     </Box>
   )
 }
 
-/** One labeled column of footer links, stacked and left-aligned so every column starts on the
- *  same line whatever its length. */
-function FooterColumn({ title, children }: { title: string; children: React.ReactNode }) {
+/** One line of the index: the group in capitals in a fixed column, its links after it, wrapping
+ *  under themselves. On a phone the group sits over its links, since a fixed column would leave
+ *  the links half the screen. */
+function FooterLine({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.75, minWidth: 0 }}>
-      <Box sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.primary', mb: 0.25 }}>{title}</Box>
-      {children}
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '7rem minmax(0, 1fr)' }, columnGap: 2, rowGap: 0.25, alignItems: 'baseline' }}>
+      <Box sx={{ ...AGATE_SX, fontSize: TYPE_SCALE.meta, color: 'text.primary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{title}</Box>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 2, rowGap: 0.5, minWidth: 0 }}>{children}</Box>
     </Box>
   )
-}
-
-/** One row of the footer: centered, dot-separated, wrapping only when it has to. */
-function FooterRow({ children }: { children: React.ReactNode }) {
-  return (
-    <Box sx={{
-      display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center',
-      columnGap: 1, rowGap: 0.5,
-    }}>{children}</Box>
-  )
-}
-
-// Faint dot divider between footer items.
-function Dot({ sx }: { sx?: { display: { xs: string; sm: string } } }) {
-  return <Box component="span" sx={{ color: 'text.disabled', opacity: 0.5, userSelect: 'none', ...sx }}>·</Box>
 }

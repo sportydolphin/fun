@@ -5,11 +5,32 @@
 > here blocks feature work in either section. Where each phase sits against the rest is
 > [ROADMAP-PRIORITIES.md](ROADMAP-PRIORITIES.md): phase 1 now, phases 2 and 3 over the winter,
 > settled by March so the sweep baselines are stable for the 2027 WPBL season.
-> Started: **Oct 15, 2026**. Design happens in Figma first; no code until a direction is picked.
+> Started: **Oct 15, 2026**. Planned as Figma first, no code until a direction was picked. Since
+> **Nov 3** the direction is being set in code instead, on the `redesign` branch: WPBL Home first,
+> as the precedent for the rest of the site, then page by page. The branch merges to `main` when
+> the redesign is complete. "Where it landed" below is the direction as built.
 
 ---
 
-## The direction: smooth, modern, Apple Sports
+## Where it landed (Nov 4, 2026)
+
+A sports page, not an app dashboard. Where this and the original brief below disagree, this wins.
+
+- **One brand color, stitch red** (`BRAND`): `#f26b5b` dark, `#b3261e` light and under white text.
+  Links, the active tab and focus only, since red already means live and negative.
+- **Three faces.** Barlow Condensed 700 (`DISPLAY_FONT`) for scores, the one big number and titles;
+  Inter for names and prose; Barlow Semi Condensed 600 (`AGATE_SX`) for figures in print, the
+  box score's agate. Never a player's name in either Barlow (the name fits measure Inter).
+- **Sections, not cards.** A section is a 2px rule in the text color (`SECTION_RULE`) and a heading
+  in display capitals; no frame, no fill. Objects (a game tile, the Spotlight card, a control)
+  keep a frame at 3:1.
+- **Clubs as solid blocks** (`wpblField`): a club's own color with its ink, square, the way a
+  jersey or a broadcast graphic prints a club. No pale washes (they vanished on the light page)
+  and no accent stripe down one edge of a rounded card (it read as generated).
+- **Rows as box-score lines**: rank, a club tick, the name, the club, the figure in agate. A face
+  only where the face is the point (a leader, the Spotlight).
+
+## The direction: smooth, modern, Apple Sports (original brief, Oct 15)
 
 Glanceable, dark-first and calm. Team color does the decorating, so nothing else has to. One
 number dominates each card, detail lives one tap deeper, and motion explains where things went.
@@ -124,7 +145,7 @@ Each item names the phase that carries it.
 
 - [x] **Card soup** (Nov 3, option B). Every module was the same outlined card with a "Title ...
       Link ›" header in a two-column grid. `SectionCard` is now a section by default: no border,
-      fill or corners, one `divider` rule on top, and a 32px column gap (`SECTION_COLUMN_GAP`) in
+      fill or corners, one rule on top (since Nov 4 a 2px rule in the text color, `SECTION_RULE`), and a 32px column gap (`SECTION_COLUMN_GAP`) in
       place of 12px. Objects keep their frame (`framed`, game tiles, the followed-team card, the
       standout card, chips and controls at 3:1). Not fill-only cards: in dark mode a lifted
       surface means "this floats" (v1.157.0), and no fill reaches 3:1 without becoming a slab
@@ -161,8 +182,15 @@ Each item names the phase that carries it.
       and a club page's header are the same block. Replaces the pale-wash tile with a colored top
       edge (first cut, same day) and the 3px left stripe on Teams: an accent edge on a rounded card
       read as generated, and the washes all but vanished on the light page (owner's call). A badge
-      on a block takes the block's ink as its ring as given (`TeamBadge`'s `onFill`). Still on the
-      old stripe: LeaguePage's club cards, `ui.tsx`'s accent card, SeriesPicks.
+      on a block takes the block's ink as its ring as given (`TeamBadge`'s `onFill`). The league
+      page's club cards are blocks too; `AccentPanel` and the pick'em's "Your call" row trade their
+      3px left rail for a square swatch before the label. No accent edge stripes are left in WPBL.
+- [x] **The rest of the offseason Home** (Nov 4). Fan Award Winners: each award's name in the
+      display face, the winner under it, the share in agate with a bar in the winner's club color.
+      The star sign card: a calendar tile (month over day) in place of the face, today's tile the
+      club's block, the sign's glyph large in the heading row. The gallery leads with one landscape
+      photo across the section, the rail under it. The footer is the site's name under the section
+      rule and an index, one line per group in agate, in place of six link columns.
 - [x] **Spotlight as a trading card** (Nov 4). A framed object in the club's accent: a band in the
       club's surface color with a square photo, the jersey number in the band's corner at `lead`
       size in the club's color, and the reason over the name in agate caps. Facts under it, and the
@@ -190,7 +218,8 @@ Each item names the phase that carries it.
       a sports page heads a column, and a heading that links has no ›.
 - [x] **Eyebrow caps everywhere** (Nov 3, v1.208.0). 236 `textTransform: 'uppercase'` labels; 25
       remain, all in the two roles caps keep: stat-table column heads (and one chart axis) and the
-      gold champion eyebrows. Not yet a lint rule: a new caps label is caught in review.
+      gold champion eyebrows. A third role since Nov 4: section headings, display capitals under
+      the section rule. Not yet a lint rule: a new caps label is caught in review.
 - [x] **The same header everywhere** (Nov 3). Every section ended in a teal "See all ›". A link to
       more of the same is now the heading itself (`SectionCard`'s `titleLink`, "2026 Leaders ›"); the
       action slot keeps a verb that goes somewhere else ("Choose a team", "Compare teams") and plain
@@ -219,13 +248,16 @@ Each item names the phase that carries it.
 
 ## Phases
 
-### 1. Direction (Figma only)
+### 1. Direction
+
+Planned in Figma; set in code on the `redesign` branch since Nov 3 (see "Where it landed").
 
 - [ ] Mood board from the references above.
 - [ ] Token variables in Figma, both themes.
 - [ ] Mock five screens, phone and desktop: WPBL home, scoreboard, Game Center, player page,
       standings.
-- [ ] Pick the display face for numbers and titles, and the one brand color.
+- [x] Pick the display face for numbers and titles, and the one brand color (Nov 3 and 4: Barlow
+      Condensed, stitch red, and an agate face, Barlow Semi Condensed).
 - [ ] The women's baseball shell (added Nov 1, 2026): the league list with MLB in it after the
   women's competitions, and whether `/` earns a front page. Built with phase 3; the brief is
   stage 3 of [ROADMAP-WOMENS-BASEBALL.md](ROADMAP-WOMENS-BASEBALL.md).
@@ -234,16 +266,22 @@ Each item names the phase that carries it.
 ### 2. Tokens and type, still on MUI
 
 - [ ] Token layer as CSS variables in `styles.css`, wired into `createAppTheme` in `ThemeContext.tsx`.
-- [ ] New type ramp on the existing `--app-type` scale; Inter Display subset; tabular figures.
-- [ ] Move hard-coded `sx` colors and spacing onto tokens (lint rule to stop new ones).
-- [ ] Re-measure name fits after the font change (`npm run sweep -- --ellipsis`).
+- [ ] Type ramp on the existing `--app-type` scale. The faces are picked (above); the ramp is still
+      `TYPE_SCALE` as it was, with `lead` added. Inter Display is dropped: the condensed faces carry
+      the character it was meant to.
+- [x] Move hard-coded `sx` colors onto tokens, with a lint rule to stop new ones (Nov 3: `src/ui/color.ts`,
+      `BRAND`, `RADIUS`). Spacing is not on tokens yet.
+- [ ] Re-measure name fits after the font change (`npm run sweep -- --ellipsis`). Clean on Home, the
+      Teams tab, club pages and the league page (Nov 4); the rest as each page is migrated.
 
 ### 3. House components in `src/ui/`
 
 - [ ] `ScoreCard` (team tint, live glyph, score roll), `Stat`, `StatLine`, `TeamChip`,
       `DataTable`, `Section`. (Glass `BottomNav` shipped early, v1.175.0, Oct 21.)
 - [ ] `ModalShell` sheets restyled to the new materials.
-- [ ] Migrate WPBL page by page (the feed is quiet until spring 2027), then MLB.
+- [ ] Migrate WPBL page by page (the feed is quiet until spring 2027), then MLB. Home is done on
+      `redesign` (Nov 4); the Teams tab, a club page's header and the league page's clubs are on the
+      club blocks. Next: the Stats tab's leaders board, the scoreboard and Game Center.
 - [ ] Re-record the sweep baselines per page (`npm run sweep:record`).
 
 ### 4. Motion

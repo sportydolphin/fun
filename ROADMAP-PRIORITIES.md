@@ -50,8 +50,10 @@
    *ROADMAP-WOMENS-BASEBALL, "The plan", stage 0.*
 2. **Google Play release.** Only Play's own process is left. Owner. *ROADMAP-WPBL ops item 9;
    docs/ANDROID.md.*
-3. **UI overhaul, phase 1 (Figma only)**, now including the women's baseball shell: the league list
-   (MLB in it, after the women's competitions) and whether `/` earns a front page. Owner; no code until a direction is picked.
+3. **UI overhaul, phase 1**, now including the women's baseball shell: the league list
+   (MLB in it, after the women's competitions) and whether `/` earns a front page. The direction is
+   set in code since Nov 3, on the `redesign` branch: WPBL Home is done as the precedent (Nov 4).
+   The shell is still open.
    *ROADMAP-UI.md, Phases 1; ROADMAP-WOMENS-BASEBALL, stage 3.*
 4. **MLB as one league among several.** Read "MLB: what gets used" on `/admin` and decide what MLB
    keeps on its own pages now that it is no longer half the site. *ROADMAP.md, "Handoff" and item 7 of the second pass.*
@@ -79,7 +81,8 @@
    2027 feed. *ROADMAP-WPBL, "From the Nov 1, 2026 brainstorm".*
 9. **iOS.** A much bigger build than Play, done before the season. *docs/IOS.md.*
 10. **UI overhaul, phases 2 and 3**: tokens and type on MUI, then the house components, migrating
-    WPBL page by page while its feed is quiet, then MLB. Stops in March so the sweep baselines are
+    WPBL page by page while its feed is quiet, then MLB. Colors are on tokens and Home is migrated
+    (Nov 3 and 4, on `redesign`). Stops in March so the sweep baselines are
     settled before the season. *ROADMAP-UI.md, Phases 2 and 3.*
 11. **The women's baseball shell (stage 3)**, built with phase 3 in February and March: the
     league list, with MLB one click away in it. Hard stop on Mar 15; if it is not settled by then it waits

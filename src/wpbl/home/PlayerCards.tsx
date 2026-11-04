@@ -20,7 +20,7 @@ import { WPBL_AWARDS_PATH } from '../routes'
 import { useEraBasis } from '../EraBasisContext'
 import { outsToIp } from '../innings'
 import { displayPosition, displayPositionFromIndex, leadsWithPitching, playedPosition, type PrimaryPosition } from '../positions'
-import { wpblAccent, wpblFullName, wpblSurface } from '../constants'
+import { wpblAccent, wpblField, wpblFullName, wpblSurface } from '../constants'
 import { UNSTYLED_LINK, linkTo } from '../../nav'
 import { linkPress } from '../../ui/interaction'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
@@ -29,7 +29,6 @@ import { birthDateSettled } from '../derive/discordBirthdays'
 import { awardManagerWinner, awardWinner, localIsoDate, playerOfTheDay, spotlightStories, signSeason, signGlyph, type SignBirthday } from '../derive/homePlayers'
 import { useWpblSeason } from '../SeasonContext'
 import { usePhoneLayout } from '../../ui/ModalShell'
-import { useAccessibilitySettings } from '../../AccessibilityContext'
 
 // The offseason Home's player cards. See derive/homePlayers.ts for why these and how each picks; this file only draws them. Every player in them is a real <a href> to the player page
 // (useWpblPlayerLink), which is both the point of the cards and what lets a crawler follow them.
@@ -45,10 +44,9 @@ const SIGN_CAP = 12
  *  award winners (Nov 3, 2026). Not from `md`: two across half of a 960 page cut "B. Espinoza-Molina"
  *  at large text. */
 const SIGN_COLUMNS = { xs: 2, sm: 3, md: 4, lg: 2 } as const
-/** Its rows' face and gaps. Two across a phone leaves a name about 113px, and "B. Espinoza-Molina",
- *  already at its last stage, needs 120: a smaller face and tighter gaps give it the room, since a
+/** The gap between a row's date tile and its name. Two across a phone leaves a name about 113px, and
+ *  "B. Espinoza-Molina", already at its last stage, needs 120: a tight gap gives it the room, since a
  *  name that does not fit as "F. Last" has no shorter form to fall back on. */
-const SIGN_FACE = 24
 const SIGN_GAP = 0.75
 
 type RowLink = { component: 'a'; href: string; onClick?: (e: React.MouseEvent) => void }
@@ -100,34 +98,6 @@ const ROW_LINK_SX = {
   ...UNSTYLED_LINK, display: 'flex', alignItems: 'center', minWidth: 0,
   borderRadius: 2, px: 0.75, ml: -0.75, py: ROW_PY, ...TAPPABLE, ...FOCUS_RING,
 } as const
-
-/** Portrait, name and one quiet line under it, with an optional right-hand end. The row height
- *  is fixed by its two lines of type, which is what the skeleton reserves. */
-function PersonRow({ name, teamId, src, meta, aside, link, size = 32, gap = 1, faceHidden }: {
-  name: string; teamId: string | null; src?: WpblPortraitSet | null; meta: React.ReactNode
-  /** Beside the link rather than inside it, since it holds links of its own. */
-  aside?: React.ReactNode
-  link: RowLink; size?: number
-  /** Between the face and the name. The two-across star sign grid passes less. */
-  gap?: number
-  /** No face, so the name has its room: the star sign grid on a phone at large text. */
-  faceHidden?: boolean
-}) {
-  const row = (
-    <Box {...link} sx={{ ...ROW_LINK_SX, gap, flex: 1, ...(aside ? null : { mr: -0.75 }) }}>
-      {!faceHidden && <PlayerPortrait name={name} teamId={teamId} size={size} src={src} />}
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <FittedName name={name} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.3 }} />
-        <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>{meta}</Typography>
-      </Box>
-    </Box>
-  )
-  return aside ? <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>{row}{aside}</Box> : row
-}
-
-function PlayerRow({ player, ...row }: Omit<React.ComponentProps<typeof PersonRow>, 'name' | 'teamId' | 'src'> & { player: WpblPlayer }) {
-  return <PersonRow name={player.name} teamId={player.team_id} {...row} />
-}
 
 /** A row that is not here yet, the same two lines tall. */
 function RowSkeleton({ size = 32, gap = 1, faceHidden }: { size?: number; gap?: number; faceHidden?: boolean }) {
@@ -481,22 +451,6 @@ const TAP_AREA_SX = {
   position: 'relative', '&::after': { content: '""', position: 'absolute', inset: '-14px 0' },
 } as const
 
-/** The figure at a row's end, a link of its own beside the row's link to the person. */
-function RowValue({ link, label, children }: {
-  link: { component: 'a'; href: string; onClick: (e: React.MouseEvent) => void }; label: string; children: React.ReactNode
-}) {
-  return (
-    <Box {...link} aria-label={label} sx={{
-      ...UNSTYLED_LINK, ...TAP_AREA_SX, fontSize: TYPE_SCALE.body, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
-      lineHeight: 1.3, borderRadius: 1, ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
-    }}>
-      {children}
-    </Box>
-  )
-}
-
-const ROW_ASIDE_SX = { flexShrink: 0, display: 'flex', alignItems: 'center', columnGap: 0.75, ml: 0.75 } as const
-
 /** Both cards' answer to a read that failed: the rows' own height held, so nothing under it moves. */
 function NoDataRows() {
   return (
@@ -665,8 +619,10 @@ export function FanAwardWinnersCard({ players, teams, onOpenPlayer, onOpenTeam, 
   /** The roster's read has answered with nothing: there is nobody to name, and never will be. */
   rosterFailed?: boolean
 }) {
+  const isDark = useTheme().palette.mode === 'dark'
   const link = useTrackedPlayerLink('winners', onOpenPlayer)
   const teamLink = useWpblTeamLink()
+  const clubAbbr = (id: string | null) => (id ? teams.get(id)?.abbr ?? null : null)
   const [results, setResults] = useState<AwardResults | null>(() => getCachedWpblAwardResults())
   const ready = players.length > 0
   useEffect(() => {
@@ -704,34 +660,109 @@ export function FanAwardWinnersCard({ players, teams, onOpenPlayer, onOpenTeam, 
       titleLink={linkPress(WPBL_AWARDS_PATH, () => { trackCardLink('winners', 'all'); onOpenAwards?.() })}>
       {failed ? <NoDataRows /> : Array.from({ length: SEASON_ROWS }, (_, i) => {
         const r = rows?.[i]
-        if (!rows) return <RowSkeleton key={i} />
-        if (!r) return <Box key={i} aria-hidden sx={{ visibility: 'hidden' }}><RowSkeleton /></Box>
-        const aside = (
-          <Box sx={ROW_ASIDE_SX}>
-            <RowValue label={`${r.title} results, ${r.pct}%`} link={linkPress(WPBL_AWARDS_PATH, openAt(r.id))}>{r.pct}%</RowValue>
-          </Box>
-        )
-        if (r.player) return <PlayerRow key={r.id} player={r.player} link={link(r.player)} meta={r.title} aside={aside} />
+        if (!r) return <AwardRow key={i} row={null} hidden={!!rows} isDark={isDark} />
+        const value = linkPress(WPBL_AWARDS_PATH, openAt(r.id))
+        if (r.player) {
+          return <AwardRow key={r.id} isDark={isDark} value={value} link={link(r.player)}
+            row={{ title: r.title, name: r.player.name, teamId: r.player.team_id, pct: r.pct, club: clubAbbr(r.player.team_id) }} />
+        }
         // No player page for a manager: the club's is the page the award is about, as on the sheet.
         const team = teams.get(r.manager.teamId)
-        const managerLink = team ? teamLink(team, () => onOpenTeam(team)) : linkPress(WPBL_AWARDS_PATH, openAt(r.id))
-        return (
-          <PersonRow key={r.id} name={r.manager.name} teamId={r.manager.teamId} src={wpblManagerPortraitSet(r.manager.key)}
-            link={managerLink as RowLink} meta={r.title} aside={aside} />
-        )
+        const managerLink = team ? teamLink(team, () => onOpenTeam(team)) : value
+        return <AwardRow key={r.id} isDark={isDark} value={value} link={managerLink as RowLink}
+          row={{ title: r.title, name: r.manager.name, teamId: r.manager.teamId, pct: r.pct, club: clubAbbr(r.manager.teamId), src: wpblManagerPortraitSet(r.manager.key) }} />
       })}
     </SectionCard>
   )
 }
 
+/** The winner's face beside the name: small, since the award is the line's subject. */
+const AWARD_FACE = 22
+
+/**
+ * One award, as a results page prints it (Nov 4, 2026, ROADMAP-UI.md's audit): the award's name in
+ * the display face, the winner under it, the vote share in the agate face at the end, and a bar
+ * under the line in the winner's club color, so the share reads as a share and not a bare "41%".
+ * It was the face, the name, the award as a gray line and the number: the same row as the leaders
+ * and the star sign card beside it, with the award, the subject, in the smallest type on the line.
+ *
+ * ONE STRUCTURE, LOADED OR NOT, so the card is one height before the tally lands: `row` null draws
+ * placeholders, and `hidden` keeps an empty slot's height for a ballot with fewer than five.
+ */
+function AwardRow({ row, link, value, isDark, hidden }: {
+  row: { title: string; name: string; teamId: string | null; pct: number; club: string | null; src?: WpblPortraitSet | null } | null
+  link?: RowLink; value?: ReturnType<typeof linkPress>; isDark: boolean; hidden?: boolean
+}) {
+  const who = (
+    <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Typography noWrap sx={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: TYPE_SCALE.title, textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.2 }}>
+        {row?.title ?? <Skeleton width="50%" />}
+      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, mt: 0.25 }}>
+        {row
+          ? <PlayerPortrait name={row.name} teamId={row.teamId} size={AWARD_FACE} src={row.src} />
+          : <Skeleton variant="circular" sx={{ flexShrink: 0, width: chromePx(AWARD_FACE), height: chromePx(AWARD_FACE) }} />}
+        {row
+          ? <FittedName name={row.name} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.3 }} wrapperSx={{ minWidth: 0 }} />
+          : <Skeleton variant="text" width="45%" sx={{ fontSize: TYPE_SCALE.body }} />}
+        {row?.club && <Typography sx={{ ...AGATE_SX, flexShrink: 0, fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{row.club}</Typography>}
+      </Box>
+    </Box>
+  )
+  return (
+    <Box aria-hidden={hidden || !row || undefined} sx={{ py: 0.75, ...(hidden ? { visibility: 'hidden' } : null) }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+        {row && link ? <Box {...link} sx={{ ...ROW_LINK_SX, flex: 1, py: 0 }}>{who}</Box> : who}
+        {row && value
+          ? <Box {...value} aria-label={`${row.title} results, ${row.pct}%`} sx={{
+              ...UNSTYLED_LINK, ...TAP_AREA_SX, ...AGATE_SX, flexShrink: 0, fontSize: TYPE_SCALE.heading, lineHeight: 1.2,
+              borderRadius: 1, ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
+            }}>{row.pct}%</Box>
+          : <Typography sx={{ ...AGATE_SX, flexShrink: 0, fontSize: TYPE_SCALE.heading, lineHeight: 1.2 }}>{'\u00a0'}</Typography>}
+      </Box>
+      {/* The share as a bar, in the winner's club color, on a track the width of the line. */}
+      <Box aria-hidden sx={{ mt: 0.75, height: chromePx(3), bgcolor: 'action.hover' }}>
+        <Box sx={{ height: '100%', width: `${row?.pct ?? 0}%`, bgcolor: row ? wpblAccent(row.teamId, isDark) : 'transparent' }} />
+      </Box>
+    </Box>
+  )
+}
+
 // ─── Star sign, with birthdays ──────────────────────────────────────────────────
 
-/** "Oct 16", or how near it is when that says more. */
-function birthdayLabel(b: SignBirthday): string {
+/** How near it is, when that says more than the date on the tile beside it. */
+function birthdayWord(b: SignBirthday): string | null {
   if (b.offset === 0) return 'Today'
   if (b.offset === 1) return 'Tomorrow'
   if (b.offset === -1) return 'Yesterday'
-  return b.date ? shortMonthDay(b.date.slice(5)) : ''
+  return null
+}
+
+/** The date tile's side. Structure, so chromePx: it must not grow with the reader's text size. */
+const DATE_TILE = 36
+
+/**
+ * The birthday as a calendar page: the month over the day, the way a desk calendar or a team's
+ * schedule poster prints a date (Nov 4, 2026, ROADMAP-UI.md's audit). Today's is the birthday
+ * player's club block (wpblField), so the one that matters is the one that stands out; the rest are
+ * a quiet fill, and the ones already past are printed in the secondary ink.
+ */
+function DateTile({ b, isDark }: { b: SignBirthday | null; isDark: boolean }) {
+  const today = b?.offset === 0
+  const field = today ? wpblField(b.player.team_id, isDark) : null
+  const month = b?.date ? new Date(`${b.date}T12:00:00`).toLocaleDateString('en-US', { month: 'short' }) : ''
+  const day = b?.date ? String(Number(b.date.slice(8, 10))) : b ? '—' : ''
+  const ink = field ? field.ink : b && b.offset != null && b.offset < 0 ? 'text.secondary' : 'text.primary'
+  return (
+    <Box aria-hidden sx={{
+      flexShrink: 0, width: chromePx(DATE_TILE), height: chromePx(DATE_TILE),
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      bgcolor: field ? field.fill : 'action.hover', color: ink,
+    }}>
+      <Typography sx={{ ...AGATE_SX, fontSize: TYPE_SCALE.caption, textTransform: 'uppercase', letterSpacing: '0.06em', lineHeight: 1, color: ink }}>{month}</Typography>
+      <Typography sx={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: TYPE_SCALE.display, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: ink }}>{day}</Typography>
+    </Box>
+  )
 }
 
 export function StarSignCard({ players, teams, games, onOpenPlayer }: {
@@ -746,36 +777,44 @@ export function StarSignCard({ players, teams, games, onOpenPlayer }: {
   const shown = born.slice(0, SIGN_CAP)
   const range = `${shortMonthDay(sign.from)} – ${shortMonthDay(sign.to)}`
   const columns = Object.fromEntries(Object.entries(SIGN_COLUMNS).map(([bp, n]) => [bp, `repeat(${n}, minmax(0, 1fr))`]))
-  // Two across a phone at large text leaves a name about 125px, and "B. Espinoza-Molina", already at
-  // its last stage, needs 138: the face goes there, which gives the name the 30px it lacked rather
-  // than cutting it (CLAUDE.md, names). The rows stay the same height without it.
-  const phone = usePhoneLayout()
-  const { textScale } = useAccessibilitySettings()
-  const faceHidden = phone && textScale === 'large'
   return (
+    // The sign's glyph large beside the range, as a horoscope column heads itself; it was a 12px
+    // glyph in the meta line.
     <SectionCard title={`${sign.name} season`} action={
-      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{sign.glyph} {range}</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+        <Typography aria-hidden sx={{ fontSize: TYPE_SCALE.page, lineHeight: 1 }}>{sign.glyph}</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{range}</Typography>
+      </Box>
     }>
-      <Box sx={{ display: 'grid', gridTemplateColumns: columns, columnGap: 1 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: columns, columnGap: 1.5, rowGap: 0.25 }}>
         {Array.from({ length: SIGN_CAP }, (_, i) => {
-          if (players.length === 0) return <RowSkeleton key={i} size={SIGN_FACE} gap={SIGN_GAP} faceHidden={faceHidden} />
           const b = shown[i]
-          // An empty slot keeps the row a sign with few players would otherwise give back, so
-          // the card is one height whichever sign's season it is.
-          if (!b) return <Box key={i} aria-hidden />
+          // Before the roster: the tile and two lines, the loaded row's shape. An empty slot past
+          // the sign's last player keeps its height, so the card is one height whichever sign it is.
+          if (players.length === 0 || !b) {
+            return (
+              <Box key={i} aria-hidden sx={{ display: 'flex', alignItems: 'center', gap: SIGN_GAP, py: ROW_PY, ...(players.length ? { visibility: 'hidden' } : null) }}>
+                <DateTile b={null} isDark={isDark} />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Skeleton variant="text" width="70%" sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1.3 }} />
+                  <Skeleton variant="text" width="50%" sx={{ fontSize: TYPE_SCALE.meta, lineHeight: 1.3 }} />
+                </Box>
+              </Box>
+            )
+          }
           const club = clubMeta(b.player, teams, positions)
+          const word = birthdayWord(b)
           return (
-            <PlayerRow key={b.player.id} player={b.player} link={link(b.player)} size={SIGN_FACE} gap={SIGN_GAP} faceHidden={faceHidden}
-              meta={<>
-                {b.date && (
-                  <Box component="span" sx={{ fontWeight: b.offset === 0 ? 800 : 600, // The player's club color, not the brand's: since the brand became a red (Nov 4, 2026), a
-                  // red "Today" read as an alert rather than a birthday.
-                  color: b.offset === 0 ? wpblAccent(b.player.team_id, isDark) : 'text.primary' }}>
-                    {birthdayLabel(b)}
-                  </Box>
-                )}
-                {b.date && club ? ' · ' : ''}{club}
-              </>} />
+            <Box key={b.player.id} {...link(b.player)} sx={{ ...ROW_LINK_SX, gap: SIGN_GAP }}>
+              <DateTile b={b} isDark={isDark} />
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <FittedName name={b.player.name} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.3 }} />
+                <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>
+                  {word && <Box component="span" sx={{ fontWeight: 800, color: 'text.primary' }}>{word}</Box>}
+                  {word && club ? ' · ' : ''}{club}
+                </Typography>
+              </Box>
+            </Box>
           )
         })}
       </Box>

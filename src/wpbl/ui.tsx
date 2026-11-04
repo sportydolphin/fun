@@ -16,7 +16,7 @@ import type { WpblTeam, WpblPlayer } from './types'
 import { scrollBehavior } from '../lib/motion'
 import { useWpblPlayerLink } from './LinkContext'
 import { TAPPABLE, tappableIf, pressable, FOCUS_RING, hoverOnly } from '../ui/interaction'
-import { typePx } from '../ui/scale'
+import { typePx, chromePx } from '../ui/scale'
 import { CopyLinkButton as CopyLinkButtonBase } from '../ui/CopyLinkButton'
 import { nameStages, nameAtStage, useLineNameFit } from '../ui/names'
 // The card, its surfaces and the type scale moved to src/ui/card.tsx on Oct 9, 2026, when MLB's
@@ -416,9 +416,6 @@ export { SegNav, NewDot } from '../ui/SegNav'
 // imports did not change.
 export { PillGroup } from '../ui/PillGroup'
 
-// Bordered content card with a left accent stripe and an icon + title + subtitle
-// header, mirroring the MLB home-feed cards. `action` sits at the right of the header
-// (e.g. a "View all" link); body is the children.
 // pressable / linkPress / FOCUS_RING live in src/ui/interaction.ts (shared with MLB); re-exported above.
 
 // ─── Horizontal rail paging ─────────────────────────────────────────────────────
@@ -698,18 +695,16 @@ export function AccentPanel({ label, summary, meta, accent, defaultOpen = false,
         } : {})}
         sx={{
           display: 'flex', alignItems: 'baseline', gap: 1, px: 1.5, py: 1,
-          // ORDER MATTERS AND IT IS NOT OBVIOUS. A shorthand `borderColor` would repaint the left edge
-          // too, turning the club's rule the divider's gray and losing the only thing tying the panel to
-          // the team. The long-hand bottom color leaves the left edge alone. Check the computed style
-          // after touching this rather than the look: at a glance a 3px gray rule still reads as a
-          // deliberate border.
           borderBottom: open ? '1px solid' : 'none',
           borderBottomColor: 'divider',
-          borderLeft: `3px solid ${accent}`,
           ...(canOpen ? { cursor: 'pointer', ...TAPPABLE } : {}),
           '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: -2 },
         }}
       >
+        {/* The club as a square swatch before the label, the key a box score prints beside a club.
+            It was a 3px stripe down the panel's left edge: an accent edge on a rounded box, which
+            read as generated (Nov 4, 2026, ROADMAP-UI.md's audit). */}
+        <Box aria-hidden sx={{ width: chromePx(9), height: chromePx(9), bgcolor: accent, flexShrink: 0, alignSelf: 'center' }} />
         <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, flexShrink: 0 }}>
           {label}
         </Typography>
