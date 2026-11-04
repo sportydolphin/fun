@@ -8,7 +8,7 @@ import { MlbSheet } from '../components/MlbSheet'
 import { fetchMilestoneData, MilestoneItem } from '../api'
 import { useDeepLink } from '../state/deepLink'
 import { TeamLogo } from '../components/TeamLogo'
-import { SectionCard, CardLink, TYPE_SCALE, edge, ACCENT_EDGE } from '../../ui/card'
+import { SectionCard, TYPE_SCALE, edge, ACCENT_EDGE } from '../../ui/card'
 import { chromePx, typePx } from '../../ui/scale'
 import { NameText } from '../../ui/NameText'
 import { playerLink, LINK_SX } from '../lib/links'
@@ -461,7 +461,7 @@ export function MilestoneWatchCard({ season, liveTeamIds: liveTeamIdsIn, seasonO
         title="Milestone Watch"
         subtitle={subtitle}
         // The sheet holds every chase and the season's reached marks; the card shows a few.
-        action={total > featured.length ? <CardLink label={`All ${total}`} onClick={() => setModalOpen(true)} /> : undefined}
+        titleLink={total > featured.length ? pressable(() => setModalOpen(true)) : undefined}
       >
         {/* Run to the card's edges, as they always were: each row's colored left rule is the
             card's edge, and inset by the body padding it would float. */}

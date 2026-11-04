@@ -30,16 +30,17 @@ describe('Report Card boards', () => {
     const onExpand = vi.fn()
     render(<LeaderboardCard {...board} rows={rows} loading={false} onExpand={onExpand}
       actionLabel="All boards" actionHref="/mlb/charts" />)
-    const a = screen.getByRole('link', { name: 'All boards' })
+    // The heading is the link (SectionCard's titleLink, Nov 3, 2026).
+    const a = screen.getAllByRole('link').find(el => el.closest('h2'))!
     expect(a.getAttribute('href')).toBe('/mlb/charts')
     fireEvent.click(a)
     expect(onExpand).toHaveBeenCalledOnce()
   })
 
-  it('opens its own sheet from a button counting the board', () => {
+  it('opens its own sheet from its heading', () => {
     const onExpand = vi.fn()
     render(<LeaderboardCard {...board} rows={rows} loading={false} onExpand={onExpand} />)
-    fireEvent.click(screen.getByRole('button', { name: 'All 4' }))
+    fireEvent.click(screen.getAllByRole('button').find(el => el.closest('h2'))!)
     expect(onExpand).toHaveBeenCalledOnce()
   })
 

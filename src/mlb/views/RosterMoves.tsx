@@ -2,7 +2,7 @@ import { useDark } from '../../ui/useDark'
 import React, { useState, useEffect } from 'react'
 import { pressable } from '../../ui/interaction'
 import { Box, Typography } from '@mui/material'
-import { SectionCard, CardLink, TextGhost, TYPE_SCALE, edge } from '../../ui/card'
+import { SectionCard, TextGhost, TYPE_SCALE, edge } from '../../ui/card'
 import { KeyboardArrowDown } from '@mui/icons-material'
 import { fetchRosterMoves, RosterMove } from '../api'
 import { cardMoves, moveWindowDays } from '../lib/rosterMoves'
@@ -511,7 +511,7 @@ export function RosterMovesCard({ hotStove, followedTeamId, focus, onPlayerClick
           </Typography>
         </Box>
       ) : undefined}
-      action={<CardLink label="All moves" onClick={() => setShowAll(true)} />}
+      titleLink={pressable(() => setShowAll(true))}
     >
       {/* The rows' own hover inset, pulled back out so their content starts on the title's edge. */}
       <Box sx={{ mx: -0.75 }}>

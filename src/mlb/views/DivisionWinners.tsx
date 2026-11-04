@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Box, Skeleton, Typography } from '@mui/material'
 import { navigate } from '../../nav'
-import { CardLink, SectionCard, TYPE_SCALE } from '../../ui/card'
+import { linkPress } from '../../ui/interaction'
+import { SectionCard, TYPE_SCALE } from '../../ui/card'
 import { chromePx } from '../../ui/scale'
 import { fetchStandingsCached } from '../api'
 import { TeamLogo } from '../components/TeamLogo'
@@ -40,7 +41,7 @@ export function DivisionWinners({ season, followedTeamId, onTeamClick }: {
   return (
     <SectionCard
       title={`${season} Division Winners`}
-      action={<CardLink label="Standings" href={MLB_VIEW_PATHS.standings} onClick={() => navigate(MLB_VIEW_PATHS.standings)} />}
+      titleLink={linkPress(MLB_VIEW_PATHS.standings, () => navigate(MLB_VIEW_PATHS.standings))}
     >
       {DIVISIONS.map(name => {
         const winner = divisions?.find(d => d.divisionName === name)?.teams.find(t => t.divisionRank === 1)

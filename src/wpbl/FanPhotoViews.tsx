@@ -661,7 +661,7 @@ const HOME_CARD_TITLE = 'Gallery'
 export function FanPhotoHomeCardSkeleton() {
   return (
     <Box sx={{ mt: 1.5 }} aria-hidden>
-      <SectionCard title={HOME_CARD_TITLE}>
+      <SectionCard title={HOME_CARD_TITLE} titleLink={{}}>
         <Box sx={{ mx: { xs: -2, sm: 0 }, display: 'flex', gap: 1.25, overflow: 'hidden', pb: 0.5 }}>
           {[1.5, 1, 1.5, 1.33, 1.5].map((a, i) => (
             <Box key={i} sx={{ flexShrink: 0, width: { xs: `calc(${chromePx(RAIL_TILE_H.xs)} * ${a})`, sm: `calc(${chromePx(RAIL_TILE_H.sm)} * ${a})` } }}>
@@ -741,9 +741,8 @@ export function FanPhotoHomeCard({ reserve = false }: {
     <Box sx={{ mt: 1.5 }}>
       <SectionCard
         title={HOME_CARD_TITLE}
-        action={
-          <Box {...seeAll} sx={CARD_LINK_SX}>All {photos.length} photos ›</Box>
-        }
+        titleLink={seeAll}
+        action={<Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{photos.length} photos</Typography>}
       >
         {/* Edge to edge on a phone: the card's side padding is 2 of a ~340px body, and the rail
             is the one thing on the card that gains from every pixel of width. The negative margin

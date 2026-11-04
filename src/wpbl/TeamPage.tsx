@@ -795,13 +795,10 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
           <SectionCard
             id={sectionAnchorId('schedule')}
             title="Results"
-            action={hiddenCount > 0 ? (
-              // Opens the full season in a modal. Expanding in place pushed everything below
-              // it down by nine rows, so the card you were reading jumped out from under you
-              // and you had to find your way back up to collapse it again.
-              <CardLink label={`All ${schedule.length}`}
-                onClick={() => setScheduleOpen(true)} />
-            ) : undefined}
+            // Opens the full season in a modal. Expanding in place pushed everything below
+            // it down by nine rows, so the card you were reading jumped out from under you
+            // and you had to find your way back up to collapse it again.
+            titleLink={hiddenCount > 0 ? pressable(() => setScheduleOpen(true)) : undefined}
           >
             <Box sx={{ display: 'flex', flexDirection: 'column' }}>
               {visibleSchedule.map(g => (
@@ -910,17 +907,16 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
             subtitle={rosterRows.length < visibleRoster.length
               ? `${rosterRows.length} of ${visibleRoster.length} players`
               : `${visibleRoster.length} players`}
-            action={onOpenStats ? (
-              // The roster row shows three stats; this is the door to all of them, with the
-              // team filter chip already set so you don't land in the whole league.
-              //
-              // AND QUALIFIED OFF, because this card is the whole roster and the board it opens should be
-              // too. Landing on the qualified board would answer a question nobody asked here: most of the
-              // names the reader had just scrolled past would be gone, with only a lit chip above the table
-              // as a clue.
-              <CardLink label="Full stats"
-                onClick={() => onOpenStats('hitting', undefined, { mode: 'players', teamId: team.id, qualified: false })} />
-            ) : undefined}
+            // The roster row shows three stats; the heading is the door to all of them, with the
+            // team filter chip already set so you don't land in the whole league.
+            //
+            // AND QUALIFIED OFF, because this card is the whole roster and the board it opens should be
+            // too. Landing on the qualified board would answer a question nobody asked here: most of the
+            // names the reader had just scrolled past would be gone, with only a lit chip above the table
+            // as a clue.
+            titleLink={onOpenStats
+              ? pressable(() => onOpenStats('hitting', undefined, { mode: 'players', teamId: team.id, qualified: false }))
+              : undefined}
           >
             {visibleRoster.length === 0 ? (
               <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>Roster coming soon.</Typography>

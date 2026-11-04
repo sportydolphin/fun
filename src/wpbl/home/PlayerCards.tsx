@@ -386,17 +386,6 @@ const TAP_AREA_SX = {
   position: 'relative', '&::after': { content: '""', position: 'absolute', inset: '-14px 0' },
 } as const
 
-function CardLink({ link, label }: { link: { component: 'a'; href: string; onClick: (e: React.MouseEvent) => void }; label: string }) {
-  return (
-    <Box {...link} sx={{
-      ...UNSTYLED_LINK, ...TAP_AREA_SX, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
-      ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
-    }}>
-      {label}
-    </Box>
-  )
-}
-
 /** The figure at a row's end, a link of its own beside the row's link to the person. */
 function RowValue({ link, label, children }: {
   link: { component: 'a'; href: string; onClick: (e: React.MouseEvent) => void }; label: string; children: React.ReactNode
@@ -520,9 +509,8 @@ export function SeasonLeadersCard({ players, teams, games, onOpenPlayer, rosterF
   return (
     // The year before the schedule lands too: a title needs no data, and the only season this card
     // can be drawn for until 2027 is the ballot's.
-    <SectionCard title={`${season ?? AWARDS_SEASON} Leaders`} fill action={
-      <CardLink link={linkTo(STATS_PATH, () => trackCardLink('leaders', 'all'))} label="All leaders ›" />
-    }>
+    <SectionCard title={`${season ?? AWARDS_SEASON} Leaders`} fill
+      titleLink={linkTo(STATS_PATH, () => trackCardLink('leaders', 'all'))}>
       {failed
         ? <NoDataRows />
         : Array.from({ length: SEASON_ROWS }, (_, i) => {
@@ -594,9 +582,8 @@ export function FanAwardWinnersCard({ players, teams, onOpenPlayer, onOpenTeam, 
   }
   const failed = rows?.length === 0 || (!!rosterFailed && !rows)
   return (
-    <SectionCard title={`${AWARDS_SEASON} Fan Award Winners`} fill action={
-      <CardLink link={linkPress(WPBL_AWARDS_PATH, () => { trackCardLink('winners', 'all'); onOpenAwards?.() })} label="All results ›" />
-    }>
+    <SectionCard title={`${AWARDS_SEASON} Fan Award Winners`} fill
+      titleLink={linkPress(WPBL_AWARDS_PATH, () => { trackCardLink('winners', 'all'); onOpenAwards?.() })}>
       {failed ? <NoDataRows /> : Array.from({ length: SEASON_ROWS }, (_, i) => {
         const r = rows?.[i]
         if (!rows) return <RowSkeleton key={i} />

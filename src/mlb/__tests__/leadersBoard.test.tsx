@@ -43,7 +43,8 @@ describe('MLB Leaders', () => {
 
   it('links each card to the Table ranked by its stat, and opens it in the app on a plain click', () => {
     const onOpen = renderLeaders()
-    const all = screen.getByRole('link', { name: /See all/ })
+    // The card's heading is the link since Nov 3, 2026 (SectionCard's titleLink), not a "See all".
+    const all = screen.getAllByRole('link').find(a => a.closest('h2'))!
     expect(all.getAttribute('href')).toBe('/mlb/stats?sort=hr')
     fireEvent.click(all)
     expect(onOpen).toHaveBeenCalledWith('hr')
