@@ -33,23 +33,27 @@ const SKELETON_GAME_CHIPS = [0, 1, 2, 3, 4, 5, 6, 7, 8]
  * divided by the root size it was measured at, which is why the phone and desktop figures
  * collapse to the same value wherever a card's height is set purely by its own text.
  */
-export function CardSkeleton({ minHeight, titleWidth = '7rem', lines = 3 }: {
+export function CardSkeleton({ minHeight, titleWidth = '7rem', lines = 3, headingHidden }: {
   minHeight: string | { xs: string; sm?: string; md: string; lg?: string }
   titleWidth?: string
   /** Faint body rows. A card outline with nothing but a title bar in it reads as a card that
    *  failed rather than one that is loading. */
   lines?: number
+  /** SectionCard's `headingHidden`: no title bar and no rule, as the lead draws none. */
+  headingHidden?: boolean
 }) {
   return (
     // SectionCard's section shape (one rule on top, no frame), so the placeholder takes the box the
     // loaded section will.
     <Box aria-hidden sx={{
       overflow: 'hidden', minHeight,
-      borderTop: '1px solid', borderTopColor: 'divider',
+      ...(headingHidden ? null : { borderTop: '1px solid', borderTopColor: 'divider' }),
     }}>
-      <Box sx={{ px: 2, pt: 1.25, pb: 1 }}>
-        <Skeleton variant="text" width={titleWidth} sx={{ fontSize: TYPE_SCALE.display, lineHeight: 1.2 }} />
-      </Box>
+      {!headingHidden && (
+        <Box sx={{ px: 2, pt: 1.25, pb: 1 }}>
+          <Skeleton variant="text" width={titleWidth} sx={{ fontSize: TYPE_SCALE.display, lineHeight: 1.2 }} />
+        </Box>
+      )}
       {lines > 0 && (
         <Box sx={{ px: 2, pb: 1.5 }}>
           {Array.from({ length: lines }, (_, i) => (
@@ -215,11 +219,11 @@ function OffseasonHomeSkeleton() {
         </Box>
       </Box>
 
-      {/* The lead: the champion's season card at full width. Its own height, measured at 375 and at
-          960 and 1440 (Nov 3, 2026, with the display-face heading and the lead's larger name): one
-          card in a column below md, and band beside road from md. */}
+      {/* The lead: the champion's season card at full width, with no heading of its own (the band
+          says "2026 WPBL Champions"). Its height measured at 375 and 1440 (Nov 3, 2026): one card in
+          a column below md, band beside road from md. */}
       <Box sx={{ mt: 3 }}>
-        <CardSkeleton minHeight={{ xs: '24.65rem', md: '16.55rem' }} titleWidth="6rem" lines={5} />
+        <CardSkeleton minHeight={{ xs: '23.73rem', md: '15.64rem' }} lines={5} headingHidden />
       </Box>
       {awards && (
         <Box sx={{ mt: 3 }}>
