@@ -259,9 +259,9 @@ export function SeriesPickLine({ series, bracket, state }: {
     // supplied would outrank the one fact the reader supplied. This is the only line in the bracket
     // that belongs to the person looking at it, and the whole reason the button above is worth
     // pressing, so it gets three things. A tint in the club's own color, which is also what the
-    // selected tile in the sheet looks like, so a pick is recognizable in both places. A rail down
-    // the left edge, which is what actually separates it from the meta line above without spending
-    // any height. And the sentence itself at `body`, one step up, which makes it the second-loudest
+    // selected tile in the sheet looks like, so a pick is recognizable in both places. A swatch before
+    // the line in the same color, which marks it as the reader's without spending any height.
+    // And the sentence itself at `body`, one step up, which makes it the second-loudest
     // thing in the box after the two clubs rather than the quietest.
     <Box sx={{
       px: 1.25, py: 0.6, borderTop: '1px solid', borderColor: 'divider',
@@ -270,11 +270,15 @@ export function SeriesPickLine({ series, bracket, state }: {
       // `alpha` on the theme's own success color rather than a literal green, so a right call
       // stays the same green as every other right thing on the site if the palette ever moves.
       bgcolor: tone === 'success' ? (t => alpha(t.palette.success.main, 0.13)) : tone ? `${tone}1f` : 'transparent',
-      // A settled pick keeps the rail so the row still reads as the reader's, and takes its
-      // color from the outcome rather than from the club.
-      borderLeft: '3px solid',
-      borderLeftColor: tone === 'success' ? 'success.main' : tone ? tone : 'transparent',
     }}>
+      {/* The pick's color as a square swatch before the line, not a 3px rail down its left edge
+          (an accent edge read as generated: Nov 4, 2026, ROADMAP-UI.md's audit). A settled pick
+          keeps the swatch so the row still reads as the reader's, and takes its color from the
+          outcome rather than from the club. */}
+      <Box aria-hidden sx={{
+        width: chromePx(9), height: chromePx(9), flexShrink: 0, alignSelf: 'center',
+        bgcolor: tone === 'success' ? 'success.main' : tone ? tone : 'transparent',
+      }} />
       <Typography sx={{
         fontSize: TYPE_SCALE.caption, fontWeight: 800, 
         color: tone === 'success' ? 'success.main' : 'text.disabled', flexShrink: 0,

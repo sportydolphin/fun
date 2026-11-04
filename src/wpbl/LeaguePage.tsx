@@ -21,8 +21,9 @@ import { useDark } from '../ui/useDark'
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { fetchWpblAllPlayers, fetchWpblTeams, fetchWpblSchedule, computeStandings, countsInStandings } from './api'
-import { FOCUS_RING, TAPPABLE, TeamBadge, TYPE_SCALE, CARD_BORDER, CARD_FILL, hoverOnly, pressable, TextGhost, chromePx } from './ui'
-import { wpblAccent, wpblFullName } from './constants'
+import { FOCUS_RING, TAPPABLE, TeamBadge, TYPE_SCALE, CARD_BORDER, hoverOnly, pressable, TextGhost, chromePx } from './ui'
+import { wpblField, wpblFullName } from './constants'
+import { AGATE_SX } from '../ui/card'
 import { byCountry, placeOf } from './derive/hometowns'
 import { buildBracket, championResult } from './derive/bracket'
 import { wpblPlayerPath, wpblTeamPath, WPBL_GLOSSARY_PAGE, wpblSeasonPath } from './routes'
@@ -143,7 +144,7 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
             <SectionHeading>The clubs</SectionHeading>
             <Box aria-hidden sx={CLUB_GRID}>
               {Array.from({ length: 4 }, (_, i) => (
-                <Box key={i} sx={{ ...CLUB_CARD, borderColor: CARD_BORDER, borderLeftColor: 'action.hover' }}>
+                <Box key={i} sx={{ ...CLUB_CARD, bgcolor: 'action.hover' }}>
                   <Skeleton variant="circular" width={chromePx(36)} height={chromePx(36)} sx={{ flexShrink: 0 }} />
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography sx={CLUB_NAME}><Skeleton width="65%" /></Typography>
@@ -173,24 +174,25 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
             <Box sx={CLUB_GRID}>
               {[...teams].sort((a, b) => a.city.localeCompare(b.city)).map(t => {
                 const record = recordOf(t.id)
+                // The club as a block of its own color (Nov 4, 2026), as on Home and the Teams tab
+                // (wpblField). It was an outlined card with the club's color as a left-edge stripe.
+                const field = wpblField(t.id, dark)
                 return (
                   <Box key={t.id} {...link(wpblTeamPath(t, teams))} sx={{
-                    ...FOCUS_RING, ...CLUB_CARD,
-                    borderColor: CARD_BORDER, borderLeftColor: wpblAccent(t.id, dark),
-                    textDecoration: 'none', color: 'text.primary',
-                    transition: 'border-color 0.15s',
-                    ...hoverOnly({ borderColor: wpblAccent(t.id, dark) }),
+                    ...FOCUS_RING, ...CLUB_CARD, bgcolor: field.fill,
+                    textDecoration: 'none', color: field.ink,
+                    ...hoverOnly({ filter: 'brightness(1.12)' }),
                   }}>
-                    <TeamBadge team={t} size={36} />
+                    <TeamBadge team={t} size={36} ring={field.ink} onFill />
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography sx={CLUB_NAME}>{wpblFullName(t)}</Typography>
+                      <Typography sx={{ ...CLUB_NAME, color: field.ink }}>{wpblFullName(t)}</Typography>
                       {record && (
-                        <Typography sx={CLUB_RECORD}>
+                        <Typography sx={{ ...CLUB_RECORD, color: field.ink }}>
                           {record} in the regular season
                         </Typography>
                       )}
                     </Box>
-                    <Box aria-hidden sx={CLUB_CHEVRON}>›</Box>
+                    <Box aria-hidden sx={{ ...CLUB_CHEVRON, color: field.ink }}>›</Box>
                   </Box>
                 )
               })}
@@ -282,10 +284,9 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
 const CLUB_GRID = { display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } } as const
 const CLUB_CARD = {
   display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: 1.25,
-  borderRadius: 2, border: '1px solid', bgcolor: CARD_FILL, borderLeft: '3px solid',
 } as const
 const CLUB_NAME = { fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1.2 } as const
-const CLUB_RECORD = { fontSize: TYPE_SCALE.meta, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' } as const
+const CLUB_RECORD = { ...AGATE_SX, fontSize: TYPE_SCALE.meta, color: 'text.secondary' } as const
 const CLUB_CHEVRON = { color: 'text.disabled', fontSize: TYPE_SCALE.display } as const
 const CHIP = {
   display: 'inline-flex', alignItems: 'center', gap: 0.6,
