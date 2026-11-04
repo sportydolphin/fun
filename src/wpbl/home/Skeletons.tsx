@@ -215,14 +215,11 @@ function OffseasonHomeSkeleton() {
         </Box>
       </Box>
 
-      {/* The player cards draw their own empty state (no players yet), so the placeholder is the
-          real card rather than a guess at its height. */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 1.5, mt: 1.5 }}>
-        <PlayerSpotlightCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
-        {/* The champion card's own height, measured at 375, 760, 960 and 1440 (Oct 30, 2026): one
-            number per scale, since its rows stack the same way at every width. Taller here than the
-            card puts the row out of step with Player Spotlight, which then moves on load. */}
-        <CardSkeleton minHeight={{ xs: '24.5rem', md: '24.4rem' }} titleWidth="6rem" lines={5} />
+      {/* The lead: the champion's season card at full width. Its own height, measured at 375, 760,
+          960 and 1440: one card in a column below md (24.5rem, as before the lead), and band beside
+          road from md (14.85rem, Nov 3, 2026, at both desktop widths). */}
+      <Box sx={{ mt: 1.5 }}>
+        <CardSkeleton minHeight={{ xs: '24.5rem', md: '14.85rem' }} titleWidth="6rem" lines={5} />
       </Box>
       {awards && (
         <Box sx={{ mt: 1.5 }}>
@@ -230,9 +227,15 @@ function OffseasonHomeSkeleton() {
         </Box>
       )}
 
+      {/* The player cards draw their own empty state (no players yet), so the placeholder is the
+          real card rather than a guess at its height. Leaders and the award winners stack beside
+          Spotlight, as on the loaded page. */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 1.5, mt: 1.5 }}>
-        <SeasonLeadersCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
-        <FanAwardWinnersCard players={[]} teams={EMPTY_TEAMS} onOpenPlayer={NO_OPEN} onOpenTeam={NO_OPEN} />
+        <PlayerSpotlightCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: 0 }}>
+          <SeasonLeadersCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
+          <FanAwardWinnersCard players={[]} teams={EMPTY_TEAMS} onOpenPlayer={NO_OPEN} onOpenTeam={NO_OPEN} />
+        </Box>
       </Box>
 
       <FanPhotoHomeCardSkeleton />

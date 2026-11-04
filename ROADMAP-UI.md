@@ -130,9 +130,12 @@ Each item names the phase that carries it.
       surface means "this floats" (v1.157.0), and no fill reaches 3:1 without becoming a slab
       (8% white is 1.22:1). The Borders rule in `src/CLAUDE.md` says so. Hand-drawn list boxes
       outside `SectionCard` still have frames; convert them as their pages are touched.
-- [ ] **No lead on the home page** (phase 1 mock, phase 3 build). Eight modules of equal weight.
-      One lead full width (in the offseason, the champion card, already the best-drawn piece on
-      the site), two or three secondary, then a feed. Add the home page to phase 1's mocks.
+- [x] **No lead on the home page** (Nov 3, WPBL). Eight sections of one weight, in pairs. The
+      offseason Home now opens on the champion's season card at full width, band beside the road
+      to the title from `md` (`lead` on NextGameCard), then Spotlight beside the leaders and the
+      award winners stacked, the gallery, the star sign card, and Reading beside Watch. Its Star of
+      the final keeps a player link in the first screen. MLB already led with its World Series
+      card. Left: the in-season lead (today's games) when the 2027 feed returns.
 - [x] **Spotlight repeated the Star of the Final** (Nov 3). Spotlight now steps to the next player
       in the rotation when it lands on the final's Star (`useChampionFinal`, shared with the
       season card). The "Scorpio Season" card and the star sign stay (owner's call, Nov 3).

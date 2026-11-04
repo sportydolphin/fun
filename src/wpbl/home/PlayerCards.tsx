@@ -293,7 +293,9 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
         ? <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)' }}>Birthday today</Typography>
         : <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{shortDate(today)}</Typography>
     }>
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 1.5 }}>
+      {/* Top-aligned: beside the leaders and the award winners stacked (Nov 3, 2026) this section is
+          stretched well past its content, and `space-between` opened that slack up under the name. */}
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 1.5 }}>
         {/* ONE STRUCTURE, LOADED OR NOT: the same boxes with placeholder content, so the header
             and the facts take the same height before the roster lands as after. */}
         <Box {...(player ? link(player) : { 'aria-hidden': true })} sx={{
