@@ -1,6 +1,6 @@
 import { INK, MARK } from '../../ui/color'
 import { useEffect } from 'react'
-import { SECTION_HEADING_SX } from '../../ui/card'
+import { SECTION_HEADING_SX, SECTION_RULE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { chromePx, hoverOnly, pressable, TYPE_SCALE, FOCUS_RING } from '../ui'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
@@ -44,7 +44,7 @@ export function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
       sx={{
         display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.25,
         textDecoration: 'none', cursor: 'pointer', color: 'inherit',
-        borderTop: '1px solid', borderTopColor: 'divider', ...FOCUS_RING,
+        ...SECTION_RULE, ...FOCUS_RING,
         ...hoverOnly({ '& .sd-discord-title': { textDecoration: 'underline' } }),
       }}
     >

@@ -65,7 +65,7 @@
           var b = document.createElement('button');
           b.type = 'button';
           b.textContent = 'Reload';
-          b.style.cssText = 'margin-left:8px;padding:8px 20px;border:0;border-radius:999px;cursor:pointer;font:inherit;font-weight:800;background:#0f766e;color:#fff';
+          b.style.cssText = 'margin-left:8px;padding:8px 20px;border:0;border-radius:999px;cursor:pointer;font:inherit;font-weight:800;background:#b3261e;color:#fff';
           b.onclick = function () { reload('boot_button'); };
           line.appendChild(b);
         }
@@ -145,7 +145,7 @@
         font-style: normal; white-space: nowrap; color: rgba(0,0,0,0.6); }
       .sd-bar nav i.on { color: rgba(0,0,0,0.87); }
       .sd-bar nav i.on::after { content: ''; position: absolute; left: calc(10px * var(--sd-s)); right: calc(10px * var(--sd-s)); bottom: 0; height: 3px;
-        border-radius: 3px 3px 0 0; background: #0f766e; }
+        border-radius: 3px 3px 0 0; background: #b3261e; }
       .sd-bar nav small { font-size: calc(9.6px * var(--sd-s) * var(--sd-t, 1)); }
       [data-theme="dark"] .sd-bar .sd-sw b:not(.on), [data-theme="dark"] .sd-bar nav i { color: rgba(255,255,255,0.7); }
       [data-theme="dark"] .sd-bar nav i.on { color: #fff; }
@@ -218,6 +218,7 @@
 
     <link rel="preload" href="/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/BarlowCondensed-700.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/BarlowSemiCondensed-600.woff2" as="font" type="font/woff2" crossorigin />
     <!-- Open the connection to Supabase before any JS asks for it. Every view's first read
          (teams + schedule gate the whole section) is a cross-origin CORS fetch to this origin,
          so warming DNS + TLS here takes that round trip off the critical path. Vite substitutes
@@ -288,9 +289,9 @@
         </p>
         <p id="sd-boot-status" style="font-size:0.9rem;color:var(--text-color,#6b7280);opacity:0.6;margin:0 0 16px;">Loading the app…</p>
         <p style="font-size:0.9rem;margin:0;">
-          <a href="/privacy" style="color:var(--link-color,#0f766e);text-decoration:none;">Privacy Policy</a>
+          <a href="/privacy" style="color:var(--link-color,#b3261e);text-decoration:none;">Privacy Policy</a>
           &nbsp;·&nbsp;
-          <a href="/terms" style="color:var(--link-color,#0f766e);text-decoration:none;">Terms of Service</a>
+          <a href="/terms" style="color:var(--link-color,#b3261e);text-decoration:none;">Terms of Service</a>
         </p>
       </main>
     </div>

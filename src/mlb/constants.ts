@@ -4,7 +4,7 @@ import { whiteAlphaOn, cardBgForWhite } from './lib/contrast'
 
 // ─── Design token ─────────────────────────────────────────────────────────────
 
-export const ACCENT = '#2dd4bf'
+export const ACCENT = '#f26b5b'
 /** ACCENT for TEXT. ACCENT itself is blue-400, which is 6.8:1 on the dark page and about 2.5:1 on
  *  the light one, so a sorted column or a leader's number printed in it all but vanished in light
  *  mode. This token is the same blue in dark and a darker one in light (styles.css). Borders,

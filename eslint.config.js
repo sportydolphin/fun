@@ -57,7 +57,7 @@ const TRAPS = [
 // the values (TOKEN_FILES below) or that draw a picture rather than a page.
 const HEX = '#([0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\\b'
 const TOKENS = [
-  // The brand teal as raw hex. The accent lives in BRAND (src/ui/card.tsx), the theme's
+  // The brand red as raw hex. The accent lives in BRAND (src/ui/card.tsx), the theme's
   // primary and styles.css; a hex typed anywhere else is how the old accent blue ended up in
   // 55 places, and a change of brand color has to reach all of them. Blues with a meaning of
   // their own (Ice Cold, a play code, a chart series) are not the accent and stay legal.

@@ -23,6 +23,20 @@
   src: url('/fonts/BarlowCondensed-700.woff2') format('woff2');
 }
 
+/* The agate face: stat lines, leader values, counts and dates in a section's heading row, the
+   small tabular print of a newspaper box score (ROADMAP-UI.md, Nov 3, 2026). Inter at a small size
+   read as an app list; a semi-condensed face from the display face's own family reads as a sports
+   page and fits more figures across a phone. One weight, 600, Latin only (23 KB, SIL OFL), preloaded
+   for the same reason as the display face: a stat line that re-flows after first paint is a shift
+   the sweep fails. Never a name, for the reason the display face never is (names.ts measures Inter). */
+@font-face {
+  font-family: 'Barlow Semi Condensed';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/BarlowSemiCondensed-600.woff2') format('woff2');
+}
+
 /* ── The desktop scale, which replaced `zoom: 1.4` on both sections ─────────────
    Two variables rather than one, because they carry different dependencies.
 
@@ -94,27 +108,29 @@
   --crit-color-2: #ef4444;
 }
 
-/* Section accent, foreground-safe. The site's one brand color is a teal (since Nov 3, 2026; it
-   was a stock blue, #60a5fa, that said nothing about the site: ROADMAP-UI.md, the audit). The raw
-   #2dd4bf is a light teal: as TEXT on this app's light surfaces it measures about 1.7:1, while being
-   perfectly readable in dark mode (10:1) and never usable as a FILL behind white. Rather than thread a
+/* Section accent, foreground-safe. The site's one brand color is stitch red, the red of a baseball's seams (Nov 3, 2026; a
+   Tailwind teal before it and a stock blue, #60a5fa, before that, neither of which said baseball:
+   ROADMAP-UI.md, the audit). The raw #f26b5b is a light red: as TEXT on this app's light surfaces it
+   measures about 2.8:1, while being perfectly readable in dark mode (6.3:1) and never usable as a FILL behind white. Rather than thread a
    useWpblDark() through the dozen places that use it as text, the safe value is published
    here and keyed on [data-theme], the same attribute the rest of the stylesheet already
    switches on, set pre-paint by the head script so there is no light-blue flash.
    Keep in sync with wpblAccentFg() in src/wpbl/constants.ts, which is the JS counterpart
    for the few places that need the value rather than the CSS. */
 :root {
-  --wpbl-accent-fg: #0f766e;
-  /* Accent used as a FILL with white text on it. #0f766e measures 5.5:1 against white; the raw
-     #2dd4bf measures 1.8:1, and
+  --wpbl-accent-fg: #b3261e;
+  /* Accent used as a FILL with white text on it. #b3261e measures 6.5:1 against white; the raw
+     #f26b5b measures 3.0:1, and
      color contrast is absolute, so that fails in dark mode exactly as hard as in light, which
      is why this one value serves both themes rather than splitting. */
-  --wpbl-accent-solid: #0f766e;
+  --wpbl-accent-solid: #b3261e;
   /* The winner's cell wash on the compare page. A FULL-CELL shade (Stathead marks a leader by
      the whole column, not a ring round the glyph), so it is tuned lighter than any text color:
      it sits behind a full-strength number and a bold weight, which are what actually name the
-     winner, and must not fight them. Light surfaces need less of it than dark. */
-  --wpbl-compare-lead: rgba(15, 118, 110, 0.13);
+     winner, and must not fight them. Light surfaces need less of it than dark. Neutral, not the brand
+     color: since the brand became a red (Nov 3, 2026), a red wash on the winning cell read as the
+     losing one. */
+  --wpbl-compare-lead: rgba(15, 23, 42, 0.08);
   /* Positive / negative numerics (run differential, W-L streaks, form). The dark-mode pair is
      the original #22c55e / #ef4444, which measure 2.28 and 3.76 on a light background; the
      light-mode pair is the same hues taken down to 5.0 and 6.5. */
@@ -168,8 +184,8 @@
   --mlb-tone-rose: #f44764;
   --mlb-tone-slate: #94a3b8;
   --mlb-tone-gray: #838994;
-  --wpbl-accent-fg: #2dd4bf;
-  --wpbl-compare-lead: rgba(45, 212, 191, 0.20);
+  --wpbl-accent-fg: #f26b5b;
+  --wpbl-compare-lead: rgba(255, 255, 255, 0.10);
   --wpbl-pos: #22c55e;
   --wpbl-neg: #ef4444;
   --wpbl-flag: #fb923c;
