@@ -147,6 +147,12 @@ export const RADIUS = { none: 0, sm: 1, md: 2, lg: 3, pill: 999 } as const
  *  name: the name fits (names.ts) are measured in Inter. styles.css has the why. */
 export const DISPLAY_FONT = '"Barlow Condensed", Inter, system-ui, -apple-system, "Segoe UI", sans-serif'
 
+/** Read, not drawn (the same recipe as ui/heading.tsx's VISUALLY_HIDDEN, which imports this file). */
+const HEADING_HIDDEN_SX = {
+  position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clipPath: 'inset(50%)',
+  padding: 0, margin: '-1px', border: 0, whiteSpace: 'nowrap',
+} as const
+
 /** A section's heading, in the display face (Nov 3, 2026). With no box around a section, its heading
  *  is what marks it, and 15px Inter beside a condensed page title read as two voices. One size up
  *  (`display`) because a condensed face at the same size reads smaller. Hand-drawn headers that
@@ -179,7 +185,7 @@ export function Chevron({ open }: { open: boolean }) {
   )
 }
 
-export function SectionCard({ id, title, titleAdornment, subtitle, action, actionWraps, collapsed, onToggleCollapse, fill, bare, frameless, framed, titleLink, children }: {
+export function SectionCard({ id, title, titleAdornment, subtitle, action, actionWraps, collapsed, onToggleCollapse, fill, bare, frameless, framed, titleLink, headingHidden, children }: {
   /** An anchor a page can be asked to scroll to (lib/sectionScroll.ts). */
   id?: string
   title: string
@@ -231,6 +237,10 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
    *  on every header was the most repeated thing on the site (ROADMAP-UI.md, the audit). The action
    *  slot keeps a verb that goes somewhere ELSE ("Choose a team") and a fact ("147 photos"). */
   titleLink?: Record<string, unknown>
+  /** Keep the `h2` for a screen reader's heading list and draw nothing: for a lead whose own band
+   *  already says what it is ("2026 WPBL Champions"), where a section label over it was a second
+   *  headline. Drops the rule on top too, since the lead's band brings its own edge. */
+  headingHidden?: boolean
   /** Draw the old outlined box. For a card that is ONE thing a reader taps or reads as an object,
    *  never for a list, a table or prose. Off by default; see the section note below. */
   framed?: boolean
@@ -262,7 +272,7 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
       scrollMarginTop: id ? 'calc(var(--app-header-h, 0px) + 8px)' : undefined,
       overflow: 'hidden',
       // The one rule, on top only: `divider`, a row rule, which the Borders rule leaves lighter.
-      borderTop: '1px solid', borderTopColor: 'divider',
+      ...(headingHidden ? null : { borderTop: '1px solid', borderTopColor: 'divider' }),
       ...(fill ? { display: 'flex', flexDirection: 'column' } : {}),
     } : {
       // Lands below the pinned toolbar when scrolled to, rather than under it.
@@ -282,7 +292,7 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
       <Box
         {...pressable(collapsible ? onToggleCollapse : undefined)}
         aria-expanded={collapsible ? !collapsed : undefined}
-        sx={{
+        sx={headingHidden ? HEADING_HIDDEN_SX : {
           px: frameless ? { xs: 0, sm: 2 } : 2, pt: 1.25, pb: collapsed ? 1.25 : 1,
           display: 'flex', alignItems: 'center', gap: 1,
           ...(collapsible ? { cursor: 'pointer', userSelect: 'none', ...TAPPABLE } : {}),

@@ -139,6 +139,10 @@ Each item names the phase that carries it.
       Second pass the same day: the champion's name at `TYPE_SCALE.lead` (3.5rem) from `md`, section
       headings in the display face (`SECTION_HEADING_SX`), 24px between sections on Home, a dot
       between a leader's two figures, and About the League as a heading link, not a box.
+      Third pass, the champion card: no section heading over the lead (the band says "2026 WPBL
+      Champions", with "Season recap ›" on it; the h2 stays for screen readers, `headingHidden`), the
+      road to the title a size up, the three blocks on the right spread down the band's height, and
+      the logo watermark larger, fainter and lower so its crown no longer cuts the gold rule.
 - [x] **Spotlight repeated the Star of the Final** (Nov 3). Spotlight now steps to the next player
       in the rotation when it lands on the final's Star (`useChampionFinal`, shared with the
       season card). The "Scorpio Season" card and the star sign stay (owner's call, Nov 3).

@@ -139,6 +139,7 @@ export function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame, 
   // outer one, so the card would come out in fragments. Those bodies put the recap link on each
   // of their other blocks instead (see `RecapLink`); only the off-season text is one link whole.
   const split = finalInProgress || !!champTeam
+  const championLead = !!lead && !!champTeam && !finalInProgress
 
   // THE SPLIT BODIES PUT THE RECAP IN THE HEADER, where Reading and Compare put their way on. A solid
   // button across the foot competed with the champion for the eye, and it was the only one on Home.
@@ -146,7 +147,12 @@ export function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame, 
   // also be a second anchor in the header.
 
   return (
-    <SectionCard title={`${yearWord}Season`} fill titleLink={split ? recap : undefined}>
+    // THE LEAD DRAWS NO SECTION HEADING once there is a champion: its band says "2026 WPBL Champions"
+    // and carries the recap link, and a "2026 Season ›" over it was a second headline. The h2 stays
+    // for screen readers.
+    <SectionCard title={`${yearWord}Season`} fill
+      headingHidden={championLead}
+      titleLink={split && !championLead ? recap : undefined}>
       {/* The whole body is the link, the way the league card's is: a card whose one job is to send
           a reader to the recap should open it from anywhere on the card, not just a trailing word.
           `flex: 1` + centered so it absorbs whatever height the card beside it (Last game) forces,
@@ -169,7 +175,7 @@ export function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame, 
         ) : champTeam ? (
           <ChampionRecapBody champion={champTeam} series={series} teams={teams} log={finalLog} isDark={isDark}
             path={titlePath(champTeam, standings, bracket, series)} recap={recap} onOpenGame={onOpenGame}
-            star={star} players={players} onOpenPlayer={onOpenPlayer} lead={lead} />
+            star={star} players={players} onOpenPlayer={onOpenPlayer} lead={lead} year={year} />
         ) : (
           <>
             <Typography sx={{ fontSize: TYPE_SCALE.display, fontWeight: 800, lineHeight: 1.15 }}>
@@ -423,7 +429,7 @@ const HERO_INK = { gold: '#ffce55', name: '#f0d38a', text: '#efe9da' } as const
  *  The Star is pinned to the card's foot, so the slack from Player Spotlight beside it falls between
  *  the games and the Star instead of under a block that ends the card early. A dev-simulated champion
  *  has no real series, so its hero shows the crown alone and the row carries the real finalists. */
-function ChampionRecapBody({ champion, series, teams, log, path, star, players, onOpenPlayer, isDark, recap, onOpenGame, lead }: {
+function ChampionRecapBody({ champion, series, teams, log, path, star, players, onOpenPlayer, isDark, recap, onOpenGame, lead, year }: {
   /** The Star of the final: undefined while its read is in flight, null for none. */
   star: SeriesStar | null | undefined
   players: WpblPlayer[]
@@ -437,6 +443,8 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
   recap: RecapLinkProps
   onOpenGame: (g: WpblGame) => void
   lead?: boolean
+  /** The season, for the lead's eyebrow ("2026 WPBL Champions"), which stands in for its heading. */
+  year?: number | null
 }) {
   // Only games that were played: a decided series has no fixture left, and this also drops a
   // still-scheduled decider under a dev-simulated champion, where the real series is not over.
@@ -473,17 +481,20 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
         }}>
           {logo && (
             <Box component="img" src={logo} alt="" aria-hidden sx={{
-              position: 'absolute', top: '50%', right: '-3rem', transform: 'translateY(-50%)',
-              width: lead ? { xs: chromePx(190), md: chromePx(280) } : chromePx(190), height: lead ? { xs: chromePx(190), md: chromePx(280) } : chromePx(190), borderRadius: '50%',
+              // On the lead, larger, fainter and cropped hard at the edge, so it reads as texture rather
+              // than a second mark beside the name with its crown through the gold rule.
+              // Below center on the lead, so the crown sits whole under the gold rule instead of cut by it.
+              position: 'absolute', top: lead ? { xs: '50%', md: '62%' } : '50%', right: lead ? { xs: '-3rem', md: '-6rem' } : '-3rem', transform: 'translateY(-50%)',
+              width: lead ? { xs: chromePx(190), md: chromePx(380) } : chromePx(190), height: lead ? { xs: chromePx(190), md: chromePx(380) } : chromePx(190), borderRadius: '50%',
               objectFit: wpblLogoFill(champion.id) ? 'cover' : 'contain',
-              opacity: 0.22, pointerEvents: 'none',
+              opacity: lead ? { xs: 0.22, md: 0.12 } : 0.22, pointerEvents: 'none',
             }} />
           )}
           <Box sx={{ position: 'relative', minWidth: 0 }}>
             <Typography sx={{
               fontSize: TYPE_SCALE.micro, fontWeight: 900, letterSpacing: typePx(1), textTransform: 'uppercase',
               color: HERO_INK.gold,
-            }}>WPBL Champions</Typography>
+            }}>{lead && year != null ? `${year} WPBL Champions` : 'WPBL Champions'}</Typography>
             <Typography sx={{ mt: 0.75, fontSize: lead ? { xs: TYPE_SCALE.title, md: TYPE_SCALE.display } : TYPE_SCALE.title, fontWeight: 600, lineHeight: 1.2, color: HERO_INK.text }}>
               {champion.city}
             </Typography>
@@ -501,11 +512,19 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
                 </Typography>
               </Box>
             )}
+            {/* Where the band goes, said on the band: the heading that carried the link is hidden on the lead. */}
+            {lead && (
+              <Typography sx={{ mt: 1.25, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: HERO_INK.gold }}>
+                Season recap ›
+              </Typography>
+            )}
           </Box>
         </Box>
       </RecapLink>
 
-      <Box sx={{ display: { xs: 'contents', ...(lead ? { md: 'flex' } : {}) }, flexDirection: 'column', gap: 1.25, minWidth: 0 }}>
+      {/* The road, the games and the Star spread down the band's height on the lead: top-packed, the
+          Star sat alone at the foot under a blank stretch. */}
+      <Box sx={{ display: { xs: 'contents', ...(lead ? { md: 'flex' } : {}) }, flexDirection: 'column', gap: 1.25, minWidth: 0, justifyContent: 'space-between' }}>
       {/* THREE EQUAL COLUMNS AT ANY COUNT, so a dev champion's missing final leaves a gap on the right
           rather than stretching the season across the card. */}
       {path.length > 0 && (
@@ -514,7 +533,7 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
             <Box key={step.stage} sx={{ minWidth: 0 }}>
               <Typography sx={stageSx}>{step.stage}</Typography>
               <Typography sx={{
-                fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.display, fontWeight: 900, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums',
+                fontFamily: DISPLAY_FONT, fontSize: lead ? { xs: TYPE_SCALE.display, md: TYPE_SCALE.page } : TYPE_SCALE.display, fontWeight: 900, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums',
                 color: step.title ? 'var(--wpbl-medal-1)' : 'text.primary',
               }}>{step.value}</Typography>
               {step.note && <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.25 }}>{step.note}</Typography>}
@@ -530,7 +549,9 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
           while it does: type at the loaded lines' own heights and the portrait in chrome units, or
           the row is a few px off and on a desktop moves Player Spotlight beside it. */}
       {(starLoading || starPlayer) && (
-        <Box sx={{ ...cardFooterBand(isDark), mt: 'auto', mb: -2 }}>
+        // On the lead's right column the Star is the last of three spread blocks, ending level with the
+        // band (no auto margin, no bleed under the card); elsewhere it pins to the card's foot.
+        <Box sx={{ ...cardFooterBand(isDark), mt: lead ? { xs: 'auto', md: 0 } : 'auto', mb: lead ? { xs: -2, md: 0 } : -2 }}>
           {starLoading || !star || !starPlayer ? (
             <>
               <Skeleton variant="circular" sx={{ width: chromePx(48), height: chromePx(48), flexShrink: 0 }} />
