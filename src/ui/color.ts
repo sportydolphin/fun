@@ -4,7 +4,7 @@
 //
 // THESE ARE FILLS, MARKS AND LINES. Text in a status color is the text-safe variable, which is a
 // different value in each theme (TONE in mlb/constants.ts, --wpbl-pos / --wpbl-neg in styles.css):
-// #22c55e is a fine fill and 2.3:1 as text on white. The brand teal is BRAND in ./card.tsx.
+// #22c55e is a fine fill and 2.3:1 as text on white. The brand red is BRAND in ./card.tsx.
 //
 // Exempt from the rule, by name in eslint.config.js: data (each club's colors in both sections'
 // constants.ts), the token files, the dev tools, the owner's admin pages, and the share-card

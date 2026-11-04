@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
 import { WPBL_LEAGUE_PAGE, WPBL_PATH_EVENT } from '../routes'
 import { hoverOnly, FOCUS_RING } from '../ui'
-import { SECTION_HEADING_SX } from '../../ui/card'
+import { SECTION_HEADING_SX, SECTION_RULE } from '../../ui/card'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
 import { isModified } from '../../nav'
 
@@ -44,14 +44,13 @@ export function LeagueCard() {
       // it was the last outlined box on the page, a frame around four words and a chevron.
       sx={{
         display: 'flex', alignItems: 'center', gap: 0.5, textDecoration: 'none',
-        borderTop: '1px solid', borderTopColor: 'divider', px: 2, py: 1.25,
+        ...SECTION_RULE, px: 2, py: 1.25,
         ...hoverOnly({ '& .sd-league-title': { textDecoration: 'underline' } }), ...FOCUS_RING,
       }}
     >
       <Typography className="sd-league-title" sx={{ ...SECTION_HEADING_SX, color: 'text.primary' }}>
         About the League
-      </Typography>
-      <Box aria-hidden sx={{ ...SECTION_HEADING_SX, color: 'var(--wpbl-accent-fg)' }}>›</Box>
+      </Typography>
     </Box>
   )
 }

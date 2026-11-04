@@ -25,8 +25,8 @@ export const CARD_BORDER = (t: Theme) => t.palette.outline
 export const edge = (hex: string) => (t: Theme) => edgeTone(hex, t.palette.mode === 'dark')
 
 /** The site accent as an outline: a selected chip, a lit tab, a hovered control. The text-safe
- *  accent rather than the raw #2dd4bf, which measures under 2:1 on the light page; in dark mode the
- *  two are the same teal. */
+ *  accent rather than the raw #f26b5b, which measures under 3:1 on the light page; in dark mode the
+ *  two are the same red. */
 export const ACCENT_EDGE = 'var(--wpbl-accent-fg)'
 
 /** The outline of a box nested INSIDE a card (a bracket series, a game chip). The card's own
@@ -129,10 +129,10 @@ export const ICON_SIZE = {
  *  so Home's display-size title next to four smaller ones read as the page jumping on every switch.
  *  The size of a standalone page's (WpblPage) on a desktop, a step down on a phone. */
 /** The brand color, the one hue the site owns (ROADMAP-UI.md, the audit, Nov 3, 2026). `raw` is
- *  the teal for a mark, a fill or a dark-mode line; `fg` is the same accent safe as TEXT in both
+ *  the red for a mark, a fill or a dark-mode line; `fg` is the same accent safe as TEXT in both
  *  themes; `solid` is the fill that takes white text. The lint refuses these hexes anywhere but the
  *  token files, so the accent is changed here, in styles.css and in ThemeContext, and nowhere else. */
-export const BRAND = { raw: '#2dd4bf', fg: 'var(--wpbl-accent-fg)', solid: 'var(--wpbl-accent-solid)' } as const
+export const BRAND = { raw: '#f26b5b', fg: 'var(--wpbl-accent-fg)', solid: 'var(--wpbl-accent-solid)' } as const
 
 /** The gap between two columns of sections. Wider than the 12px that sat between framed cards: with
  *  no frame, the column gutter is all that keeps two sections' rules and headings apart. */
@@ -147,6 +147,12 @@ export const RADIUS = { none: 0, sm: 1, md: 2, lg: 3, pill: 999 } as const
  *  name: the name fits (names.ts) are measured in Inter. styles.css has the why. */
 export const DISPLAY_FONT = '"Barlow Condensed", Inter, system-ui, -apple-system, "Segoe UI", sans-serif'
 
+/** The agate face, for figures in print: a stat line, a leader's value, the count or date in a
+ *  section's heading row. Never a name (names.ts measures Inter) and never a title (that is
+ *  DISPLAY_FONT). Spread `AGATE_SX` rather than this alone, so the figures are always tabular. */
+export const AGATE_FONT = '"Barlow Semi Condensed", Inter, system-ui, -apple-system, "Segoe UI", sans-serif'
+export const AGATE_SX = { fontFamily: AGATE_FONT, fontWeight: 600, fontVariantNumeric: 'tabular-nums', letterSpacing: 0 } as const
+
 /** Read, not drawn (the same recipe as ui/heading.tsx's VISUALLY_HIDDEN, which imports this file). */
 const HEADING_HIDDEN_SX = {
   position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clipPath: 'inset(50%)',
@@ -156,8 +162,22 @@ const HEADING_HIDDEN_SX = {
 /** A section's heading, in the display face (Nov 3, 2026). With no box around a section, its heading
  *  is what marks it, and 15px Inter beside a condensed page title read as two voices. One size up
  *  (`display`) because a condensed face at the same size reads smaller. Hand-drawn headers that
- *  imitate a section (the followed players' list, the loading copies) spread this too. */
-export const SECTION_HEADING_SX = { fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.display, fontWeight: 700, lineHeight: 1.2 } as const
+ *  imitate a section (the followed players' list, the loading copies) spread this too.
+ *
+ *  In capitals under a heavy rule (SECTION_RULE), the way a sports page heads a column: in title case
+ *  under a hairline it was one more app list header. A third role for caps beside stat-table heads and
+ *  the champion eyebrows. CSS caps, so the text a screen reader gets is still title case. */
+export const SECTION_HEADING_SX = {
+  fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.display, fontWeight: 700, lineHeight: 1.2,
+  textTransform: 'uppercase', letterSpacing: '0.04em',
+} as const
+
+/** The rule on top of a section: 2px in the text color, the column rule of a sports page. A hairline
+ *  in `divider` gave every section the same quiet edge, so the page read as one long list. */
+export const SECTION_RULE = { borderTop: '2px solid', borderTopColor: 'text.primary' } as const
+
+/** A section heading row's plain facts (a count, a date, a range), in the agate face. */
+const HEADER_ACTION_SX = { '&, & .MuiTypography-root': { fontFamily: AGATE_FONT, fontVariantNumeric: 'tabular-nums' } } as const
 
 export const TAB_TITLE_SX = {
   fontSize: { xs: TYPE_SCALE.heading, md: TYPE_SCALE.page },
@@ -232,9 +252,10 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
    *  there. Off by default. */
   frameless?: boolean
   /** The heading as the way to more of the same: the full board, the whole gallery, every result.
-   *  Spread onto the title, which gains a ›: `linkPress(href, onOpen)` for a page, `pressable(fn)`
-   *  for a sheet. Since Nov 3, 2026 a "See all ›" in the action slot is this instead: one teal link
-   *  on every header was the most repeated thing on the site (ROADMAP-UI.md, the audit). The action
+   *  Spread onto the title: `linkPress(href, onOpen)` for a page, `pressable(fn)` for a sheet. Since
+   *  Nov 3, 2026 a "See all ›" in the action slot is this instead: one accent link on every header
+   *  was the most repeated thing on the site (ROADMAP-UI.md, the audit). No › on the title either,
+   *  since the same day: an accent chevron on every heading was the same tic moved up a line. The action
    *  slot keeps a verb that goes somewhere ELSE ("Choose a team") and a fact ("147 photos"). */
   titleLink?: Record<string, unknown>
   /** Keep the `h2` for a screen reader's heading list and draw nothing: for a lead whose own band
@@ -255,7 +276,7 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
       position: 'relative', '&::after': { content: '""', position: 'absolute', inset: '-12px 0' },
       ...hoverOnly({ textDecoration: 'underline' }),
     }}>
-      {titleCase(title)}<Box component="span" aria-hidden sx={{ color: 'var(--wpbl-accent-fg)', ml: 0.5 }}>›</Box>
+      {titleCase(title)}
     </Box>
   ) : titleCase(title)
   // A SECTION, NOT A CARD, by default (Nov 3, 2026, ROADMAP-UI.md's audit, option B). Every module
@@ -272,7 +293,7 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
       scrollMarginTop: id ? 'calc(var(--app-header-h, 0px) + 8px)' : undefined,
       overflow: 'hidden',
       // The one rule, on top only: `divider`, a row rule, which the Borders rule leaves lighter.
-      ...(headingHidden ? null : { borderTop: '1px solid', borderTopColor: 'divider' }),
+      ...(headingHidden ? null : SECTION_RULE),
       ...(fill ? { display: 'flex', flexDirection: 'column' } : {}),
     } : {
       // Lands below the pinned toolbar when scrolled to, rather than under it.
@@ -323,7 +344,7 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
           <Box
             onClick={e => e.stopPropagation()}
             onKeyDown={e => e.stopPropagation()}
-            sx={{ display: 'flex', ...(actionWraps ? { flex: 1, minWidth: 0, justifyContent: 'flex-end' } : { flexShrink: 0 }) }}
+            sx={{ ...HEADER_ACTION_SX, display: 'flex', ...(actionWraps ? { flex: 1, minWidth: 0, justifyContent: 'flex-end' } : { flexShrink: 0 }) }}
           >
             {action}
           </Box>

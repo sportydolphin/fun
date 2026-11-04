@@ -163,6 +163,14 @@ Each item names the phase that carries it.
       (`DISPLAY_FONT`, 22 KB, preloaded) for scores, the one big number on a card and page titles,
       never names; a neutral segmented league switch with no confetti. Team colors stay the only
       other decoration.
+      Second pass (Nov 4): the teal was Tailwind's stock `teal-400`, the most generated color there
+      is, so the brand is now **stitch red** (`#f26b5b` dark, `#b3261e` light and as the fill under
+      white text). The compare page's winner wash went neutral, since a red cell read as the loser.
+      Red already meant live and negative (`--wpbl-neg`); the brand is only links, the active tab and
+      focus, so keep it there. A third face, **agate** (`AGATE_SX`, Barlow Semi Condensed 600, 23 KB,
+      preloaded), for figures in print: stat lines, leader values, the count or date in a heading row.
+      Section headings are display caps under a 2px rule in the text color (`SECTION_RULE`), the way
+      a sports page heads a column, and a heading that links has no ›.
 - [x] **Eyebrow caps everywhere** (Nov 3, v1.208.0). 236 `textTransform: 'uppercase'` labels; 25
       remain, all in the two roles caps keep: stat-table column heads (and one chart axis) and the
       gold champion eyebrows. Not yet a lint rule: a new caps label is caught in review.
@@ -177,7 +185,10 @@ Each item names the phase that carries it.
       locally. The "empty circles" on the leader boards were portraits still lazy-loading;
       a player with no face already gets initials.
 - [ ] **Leaders as widget grids** (phase 3). Four boxed top-5 lists side by side. One `DataTable`
-      with the leader's number large, or one board with a stat picker.
+      with the leader's number large, or one board with a stat picker. Home's card is done (Nov 4):
+      one board, stat tabs (WAR, AVG, HR, ERA, K), the leader with a face and the figure in the display
+      face, places 2 to 5 as box-score lines (rank, club tick, name, club, figure in the agate face),
+      a tie marked on the rank ("T2"). The Stats tab's Leaders board is left.
 - [x] **Token drift** (Nov 3). About 12 `borderRadius` values, 215 distinct hex colors (813 uses),
       55 distinct shadows. Now: `RADIUS` (4, 8, 12px and pill); `src/ui/color.ts` for every color
       (`HUE`, `INK`, `SURFACE`, `CHAMPION`, `MARK`, `SCORIGAMI_SQUARES`) and every shadow (`SHADOW`,

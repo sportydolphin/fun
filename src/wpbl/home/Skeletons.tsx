@@ -1,6 +1,6 @@
 import { Box, Skeleton } from '@mui/material'
 import { chromePx, CARD_BORDER, CARD_FILL, TYPE_SCALE } from '../ui'
-import { SECTION_COLUMN_GAP } from '../../ui/card'
+import { SECTION_COLUMN_GAP, SECTION_RULE } from '../../ui/card'
 // The dismissal key and the dev-only undo. Their own module so the dev settings menu can reach
 // the undo without dragging this file into the main bundle. See discordInvite.ts.
 import { DISCORD_DISMISS_KEY } from '../discordInvite'
@@ -47,7 +47,7 @@ export function CardSkeleton({ minHeight, titleWidth = '7rem', lines = 3, headin
     // loaded section will.
     <Box aria-hidden sx={{
       overflow: 'hidden', minHeight,
-      ...(headingHidden ? null : { borderTop: '1px solid', borderTopColor: 'divider' }),
+      ...(headingHidden ? null : SECTION_RULE),
     }}>
       {!headingHidden && (
         <Box sx={{ px: 2, pt: 1.25, pb: 1 }}>
