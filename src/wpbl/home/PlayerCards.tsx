@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Skeleton, Typography } from '@mui/material'
+import { Box, Skeleton, Typography, useMediaQuery } from '@mui/material'
+import type { Theme } from '@mui/material'
 import type { WpblGame, WpblPlayer, WpblTeam, WpblBattingLine, WpblPitchingLine } from '../types'
 import { fetchWpblPlayerLines, fetchWpblPlayerSeasons } from '../api'
 import type { WpblPlayerSeasonsRead } from '../api/players'
@@ -28,6 +29,7 @@ import { birthDateSettled } from '../derive/discordBirthdays'
 import { awardManagerWinner, awardWinner, homeLeaderRows, localIsoDate, playerOfTheDay, signSeason, signGlyph, type SignBirthday } from '../derive/homePlayers'
 import { useWpblSeason } from '../SeasonContext'
 import { usePhoneLayout } from '../../ui/ModalShell'
+import { useAccessibilitySettings } from '../../AccessibilityContext'
 
 // The offseason Home's player cards. See derive/homePlayers.ts for why these and how each picks; this file only draws them. Every player in them is a real <a href> to the player page
 // (useWpblPlayerLink), which is both the point of the cards and what lets a crawler follow them.
@@ -38,9 +40,10 @@ type OpenPlayer = (p: WpblPlayer) => void
  *  the same height before the roster lands as after whatever sign's season it is: they run from 5
  *  players to 15. */
 const SIGN_CAP = 12
-/** Its columns, which with SIGN_CAP set its rows: six on a phone, four and three across the page's
- *  width at `sm` (three columns) and `md` (four), and six rows again from `lg`, where it shares a row with the award winners
- *  (Nov 3, 2026). Not from `md`: two across half of a 960 page cut "B. Espinoza-Molina" at large text. */
+/** Its columns, which with SIGN_CAP set its rows: two across a phone (six rows), three at `sm` and
+ *  four at `md` across the page's width, and two again from `lg`, where it shares a row with the
+ *  award winners (Nov 3, 2026). Not from `md`: two across half of a 960 page cut "B. Espinoza-Molina"
+ *  at large text. */
 const SIGN_COLUMNS = { xs: 2, sm: 3, md: 4, lg: 2 } as const
 /** Its rows' face and gaps. Two across a phone leaves a name about 113px, and "B. Espinoza-Molina",
  *  already at its last stage, needs 120: a smaller face and tighter gaps give it the room, since a
@@ -100,17 +103,19 @@ const ROW_LINK_SX = {
 
 /** Portrait, name and one quiet line under it, with an optional right-hand end. The row height
  *  is fixed by its two lines of type, which is what the skeleton reserves. */
-function PersonRow({ name, teamId, src, meta, aside, link, size = 32, gap = 1 }: {
+function PersonRow({ name, teamId, src, meta, aside, link, size = 32, gap = 1, faceHidden }: {
   name: string; teamId: string | null; src?: WpblPortraitSet | null; meta: React.ReactNode
   /** Beside the link rather than inside it, since it holds links of its own. */
   aside?: React.ReactNode
   link: RowLink; size?: number
   /** Between the face and the name. The two-across star sign grid passes less. */
   gap?: number
+  /** No face, so the name has its room: the star sign grid on a phone at large text. */
+  faceHidden?: boolean
 }) {
   const row = (
     <Box {...link} sx={{ ...ROW_LINK_SX, gap, flex: 1, ...(aside ? null : { mr: -0.75 }) }}>
-      <PlayerPortrait name={name} teamId={teamId} size={size} src={src} />
+      {!faceHidden && <PlayerPortrait name={name} teamId={teamId} size={size} src={src} />}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <FittedName name={name} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.3 }} />
         <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>{meta}</Typography>
@@ -125,10 +130,10 @@ function PlayerRow({ player, ...row }: Omit<React.ComponentProps<typeof PersonRo
 }
 
 /** A row that is not here yet, the same two lines tall. */
-function RowSkeleton({ size = 32, gap = 1 }: { size?: number; gap?: number }) {
+function RowSkeleton({ size = 32, gap = 1, faceHidden }: { size?: number; gap?: number; faceHidden?: boolean }) {
   return (
     <Box aria-hidden sx={{ display: 'flex', alignItems: 'center', gap, py: ROW_PY }}>
-      <Skeleton variant="circular" sx={{ flexShrink: 0, width: `calc(${size}px * var(--app-chrome, 1))`, height: `calc(${size}px * var(--app-chrome, 1))` }} />
+      {!faceHidden && <Skeleton variant="circular" sx={{ flexShrink: 0, width: `calc(${size}px * var(--app-chrome, 1))`, height: `calc(${size}px * var(--app-chrome, 1))` }} />}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Skeleton variant="text" width="60%" sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1.3 }} />
         <Skeleton variant="text" width="40%" sx={{ fontSize: TYPE_SCALE.meta, lineHeight: 1.3 }} />
@@ -269,9 +274,12 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
   const playerId = player?.id ?? null
   const onFaceReady = useCallback(() => setFaceFor(playerId), [playerId])
   const faceReady = !!player && faceFor === player.id
-  // The portrait's size is a number, not a breakpoint object, so the phone asks (see NAME_SX).
+  // The portrait's size is a number, not a breakpoint object, so the width is asked (see NAME_SX).
+  // 72 between a phone and lg: in half of a 960 page at large text, 88 left the club line
+  // ("Los Angeles Queens · C") an ellipsis.
   const phone = usePhoneLayout()
-  const face = phone ? 64 : 88
+  const lgUp = useMediaQuery((t: Theme) => t.breakpoints.up('lg'))
+  const face = phone ? 64 : lgUp ? 88 : 72
 
   const team = player?.team_id ? teams.get(player.team_id) : undefined
   // Nothing until the player's own lines land, never the roster's label first: the roster can
@@ -638,20 +646,26 @@ export function StarSignCard({ players, teams, games, onOpenPlayer }: {
   const shown = born.slice(0, SIGN_CAP)
   const range = `${shortMonthDay(sign.from)} – ${shortMonthDay(sign.to)}`
   const columns = Object.fromEntries(Object.entries(SIGN_COLUMNS).map(([bp, n]) => [bp, `repeat(${n}, minmax(0, 1fr))`]))
+  // Two across a phone at large text leaves a name about 125px, and "B. Espinoza-Molina", already at
+  // its last stage, needs 138: the face goes there, which gives the name the 30px it lacked rather
+  // than cutting it (CLAUDE.md, names). The rows stay the same height without it.
+  const phone = usePhoneLayout()
+  const { textScale } = useAccessibilitySettings()
+  const faceHidden = phone && textScale === 'large'
   return (
     <SectionCard title={`${sign.name} season`} action={
       <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{sign.glyph} {range}</Typography>
     }>
       <Box sx={{ display: 'grid', gridTemplateColumns: columns, columnGap: 1 }}>
         {Array.from({ length: SIGN_CAP }, (_, i) => {
-          if (players.length === 0) return <RowSkeleton key={i} size={SIGN_FACE} gap={SIGN_GAP} />
+          if (players.length === 0) return <RowSkeleton key={i} size={SIGN_FACE} gap={SIGN_GAP} faceHidden={faceHidden} />
           const b = shown[i]
           // An empty slot keeps the row a sign with few players would otherwise give back, so
           // the card is one height whichever sign's season it is.
           if (!b) return <Box key={i} aria-hidden />
           const club = clubMeta(b.player, teams, positions)
           return (
-            <PlayerRow key={b.player.id} player={b.player} link={link(b.player)} size={SIGN_FACE} gap={SIGN_GAP}
+            <PlayerRow key={b.player.id} player={b.player} link={link(b.player)} size={SIGN_FACE} gap={SIGN_GAP} faceHidden={faceHidden}
               meta={<>
                 {b.date && (
                   <Box component="span" sx={{ fontWeight: b.offset === 0 ? 800 : 600, color: b.offset === 0 ? 'var(--wpbl-accent-fg)' : 'text.primary' }}>

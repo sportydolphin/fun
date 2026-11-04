@@ -249,15 +249,15 @@ function OffseasonHomeSkeleton() {
         <CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />
       </Box>
 
+      {/* The Discord row, a section row since Nov 3, 2026 (DiscordCard), at its measured height. No
+          About the League after it: the offseason Home dropped it. */}
       {!discordDismissed && (
-        <Box sx={{ display: { xs: 'block', md: 'none' }, mt: 1.5 }}>
-          <CardSkeleton minHeight="3.55rem" titleWidth="6rem" lines={0} />
+        <Box sx={{ display: { xs: 'block', md: 'none' }, mt: 3 }}>
+          {/* 55px: the 34px mark (raw px, an ornament) and the row's padding, at either text size, since the
+              title is shorter than the mark at both. Phone only, where the chrome scale is 1. */}
+          <CardSkeleton minHeight="55px" titleWidth="6rem" lines={0} />
         </Box>
       )}
-
-      <Box sx={{ mt: 1.5 }}>
-        <CardSkeleton minHeight={{ xs: '6rem', md: '4.7rem' }} titleWidth="5rem" lines={1} />
-      </Box>
     </Box>
   )
 }

@@ -653,7 +653,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           subgrid with shared row boundaries that a loose card would break; a desktop home for it
           is a later job. */}
       {!discordDismissed && (
-        <Box sx={{ display: { xs: 'block', md: 'none' }, mt: 1.5 }}>
+        <Box sx={{ display: { xs: 'block', md: 'none' }, mt: seasonDone ? 3 : 1.5 }}>
           <DiscordCard onDismiss={() => setDiscordDismissed(true)} />
         </Box>
       )}
@@ -672,11 +672,15 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           threshold is met. */}
       {!seasonDone && <FanPhotoHomeCard />}
 
-      <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-        {!seasonDone && <WatchCard from="home" />}
-        {!seasonDone && <LatestReadingCard />}
-        <LeagueCard />
-      </Box>
+      {/* Not in the offseason: there it was a heading with nothing under it at the foot of the page
+          (Nov 3, 2026), and the footer's Reference list links the same page. */}
+      {!seasonDone && (
+        <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          <WatchCard from="home" />
+          <LatestReadingCard />
+          <LeagueCard />
+        </Box>
+      )}
 
       {matchup && (
         <WpblMatchupPreview

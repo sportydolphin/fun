@@ -147,8 +147,13 @@ Each item names the phase that carries it.
       place of seven labeled facts, the stat line a size up, the heading as the profile link (the
       footer "Full profile ›" went). Shorter now, so Home pairs it with the leaders, and the award
       winners with the star sign card (from `lg`; full width below, where two names across half a
-      960 page cut "B. Espinoza-Molina"). Left: that same name is cut on a 375 phone at large text in
-      the star sign card, which this pass did not change.
+      960 page cut "B. Espinoza-Molina"). That name on a 375 phone at large text (cut before this
+      work) fits now: the star sign rows drop the face there. The face is 72 between phone and lg.
+      Fifth pass, the foot of the page: About the League off the offseason Home (a heading with
+      nothing under it; the footer links it), the Discord invite a section row instead of a blurple
+      promo box, "Submit photos ›" in the gallery's header, and the footer's Data sources back in its
+      own Reference group (the dev-only World Cup group had split it in two). The ellipsis list for
+      Home is empty at every width and both text sizes.
 - [x] **Spotlight repeated the Star of the Final** (Nov 3). Spotlight now steps to the next player
       in the rotation when it lands on the final's Star (`useChampionFinal`, shared with the
       season card). The "Scorpio Season" card and the star sign stay (owner's call, Nov 3).
