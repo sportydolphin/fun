@@ -105,7 +105,7 @@ export function useChampionFinal(teams: Map<string, WpblTeam>, games: WpblGame[]
   return { standings, bracket, champTeam, series, finalSeries, finalInProgress, leader, finalLog, star }
 }
 
-export function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame, players, onOpenPlayer }: {
+export function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame, players, onOpenPlayer, lead }: {
   teams: Map<string, WpblTeam>; games: WpblGame[]
   onOpenGame: (g: WpblGame) => void
   players: WpblPlayer[]; onOpenPlayer: (p: WpblPlayer) => void
@@ -113,6 +113,8 @@ export function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame, 
    *  since a random winner is not the club that actually led the final. Null (or absent) shows
    *  whatever the real bracket gives, which is the pre-champion state while the final is on. */
   devChampion?: WpblTeam | null
+  /** The page's lead: the champion's band and the road to the title side by side from `md`. */
+  lead?: boolean
 }) {
   const isDark = useDark()
   const { standings, bracket, champTeam, series, finalSeries, finalInProgress, leader, finalLog, star } =
@@ -167,7 +169,7 @@ export function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame, 
         ) : champTeam ? (
           <ChampionRecapBody champion={champTeam} series={series} teams={teams} log={finalLog} isDark={isDark}
             path={titlePath(champTeam, standings, bracket, series)} recap={recap} onOpenGame={onOpenGame}
-            star={star} players={players} onOpenPlayer={onOpenPlayer} />
+            star={star} players={players} onOpenPlayer={onOpenPlayer} lead={lead} />
         ) : (
           <>
             <Typography sx={{ fontSize: TYPE_SCALE.display, fontWeight: 800, lineHeight: 1.15 }}>
@@ -421,7 +423,7 @@ const HERO_INK = { gold: '#ffce55', name: '#f0d38a', text: '#efe9da' } as const
  *  The Star is pinned to the card's foot, so the slack from Player Spotlight beside it falls between
  *  the games and the Star instead of under a block that ends the card early. A dev-simulated champion
  *  has no real series, so its hero shows the crown alone and the row carries the real finalists. */
-function ChampionRecapBody({ champion, series, teams, log, path, star, players, onOpenPlayer, isDark, recap, onOpenGame }: {
+function ChampionRecapBody({ champion, series, teams, log, path, star, players, onOpenPlayer, isDark, recap, onOpenGame, lead }: {
   /** The Star of the final: undefined while its read is in flight, null for none. */
   star: SeriesStar | null | undefined
   players: WpblPlayer[]
@@ -434,6 +436,7 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
   isDark: boolean
   recap: RecapLinkProps
   onOpenGame: (g: WpblGame) => void
+  lead?: boolean
 }) {
   // Only games that were played: a decided series has no fixture left, and this also drops a
   // still-scheduled decider under a dev-simulated champion, where the real series is not over.
@@ -449,13 +452,24 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
   const stageSx = {
     fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary', lineHeight: 1.3,
   } as const
+  // THE PAGE'S LEAD (Nov 3, 2026, ROADMAP-UI.md's audit): eight sections of one weight gave the
+  // offseason Home no story, so the champion leads at full width. From `md` the band and the road to
+  // the title sit side by side, the band filling its column's height; on a phone `display: contents`
+  // hands every block back to the card's own column, so the phone card is unchanged. The Star of the
+  // final stays in the first screen either way, which keeps a player page one tap from the top, the
+  // reason Player Spotlight used to sit up here.
+  const leadMd = lead ? { md: 'grid' } : {}
   return (
-    <>
-      <RecapLink recap={recap}>
+    <Box sx={{
+      display: { xs: 'contents', ...leadMd },
+      ...(lead ? { gridTemplateColumns: { md: 'minmax(0, 1.15fr) minmax(0, 1fr)' }, columnGap: 3 } : null),
+    }}>
+      <RecapLink recap={recap} sx={lead ? { height: { md: '100%' } } : undefined}>
         <Box sx={{
           ...CLUB_BAND, position: 'relative', px: 2, pt: 1.75, pb: 1.5,
           bgcolor: wpblColor(champion.id),
           borderTop: '2px solid', borderTopColor: HERO_INK.gold,
+          ...(lead ? { mr: { md: 0 }, flex: { md: 1 }, justifyContent: { md: 'center' }, px: { xs: 2, md: 3 } } : null),
         }}>
           {logo && (
             <Box component="img" src={logo} alt="" aria-hidden sx={{
@@ -490,6 +504,7 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
         </Box>
       </RecapLink>
 
+      <Box sx={{ display: { xs: 'contents', ...(lead ? { md: 'flex' } : {}) }, flexDirection: 'column', gap: 1.25, minWidth: 0 }}>
       {/* THREE EQUAL COLUMNS AT ANY COUNT, so a dev champion's missing final leaves a gap on the right
           rather than stretching the season across the card. */}
       {path.length > 0 && (
@@ -545,7 +560,8 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
           )}
         </Box>
       )}
-    </>
+      </Box>
+    </Box>
   )
 }
 

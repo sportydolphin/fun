@@ -513,29 +513,35 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
         <Scoreboard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} onOpenMatchup={setMatchup} />
       )}
 
-      {/* THE OFFSEASON HOME LEADS WITH A PLAYER. A player page is what readers open most, and until
-          Oct 2026 this page had no link to one: the gallery, Reading and Watch each point at a hub,
-          the season card at the recap and its games. Player Spotlight sits beside the season card
-          so a player is above the fold at every width, the leaders and the fan award winners answer
-          who stood out, and the star sign card under the gallery (the players whose sign's season it
-          is, with their birthdays) puts a dozen more names on the page, every one a real link. None
-          of them costs a box-score read: they select from the roster the page already holds, the
-          stored season rows and the award tally, and Player Spotlight reads its one player's lines. */}
+      {/* THE OFFSEASON HOME LEADS WITH THE CHAMPION, full width (Nov 3, 2026, ROADMAP-UI.md's audit).
+          Eight sections of one weight in pairs gave the page no story; a sports front page has one
+          lead and then the rest. The lead keeps a player in the first screen through its Star of the
+          final, a real player link, which is why Player Spotlight could move down: until then it sat
+          beside the season card so a player page was one tap from the top (a player page is what
+          readers open most). Below the lead, Spotlight beside the leaders and the fan award winners
+          (the players who stood out), then the gallery, the star sign card (a dozen more player
+          links), and Reading beside Watch. None of them costs a box-score read: they
+          select from the roster the page already holds, the stored season rows and the award tally,
+          and Player Spotlight reads its one player's lines. */}
       {seasonDone && (
         <>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 1.5, mt: 1.5 }}>
-            <PlayerSpotlightCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} avoid={spotlightAvoid} />
+          <Box sx={{ mt: 1.5 }}>
             <NextGameCard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} players={players} onOpenPlayer={onOpenPlayer}
-              devForceRecap={devForceRecap} devChampion={devChampTeam} />
+              devForceRecap={devForceRecap} devChampion={devChampTeam} lead />
           </Box>
           {/* The award results, for the days they stay up after the final (AWARDS_RESULTS_UNTIL). */}
           {seasonCards.length > 0 && <Box sx={{ mt: 1.5 }}>{seasonCards}</Box>}
 
+          {/* Spotlight is about as tall as the leaders and the award winners together, so those two
+              stack beside it: a pair of one-high sections left Spotlight's lower half beside nothing. */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 1.5, mt: 1.5 }}>
-            <SeasonLeadersCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer}
-              rosterFailed={!loadingLeaders && players.length === 0} />
-            <FanAwardWinnersCard players={players} teams={teamMap} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} onOpenAwards={onOpenAwards}
-              rosterFailed={!loadingLeaders && players.length === 0} />
+            <PlayerSpotlightCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} avoid={spotlightAvoid} />
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: 0 }}>
+              <SeasonLeadersCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer}
+                rosterFailed={!loadingLeaders && players.length === 0} />
+              <FanAwardWinnersCard players={players} teams={teamMap} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} onOpenAwards={onOpenAwards}
+                rosterFailed={!loadingLeaders && players.length === 0} />
+            </Box>
           </Box>
 
           {/* Fan photos: with no games left, the one block besides the player cards that changes

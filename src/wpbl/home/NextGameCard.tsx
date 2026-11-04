@@ -331,7 +331,7 @@ export function nextGameContext(
  * Sizes on this card come from `TYPE_SCALE`, like the rest of the page. The scale, and the test
  * that keeps a raw rem literal out of this file, live in ui.tsx.
  */
-export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, players, onOpenPlayer, devForceRecap, devChampion }: {
+export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, players, onOpenPlayer, devForceRecap, devChampion, lead }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>
   /** For the season card's Star of the final, once this slot has become it. */
   players: WpblPlayer[]; onOpenPlayer: (p: WpblPlayer) => void
@@ -343,6 +343,8 @@ export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, p
   devForceRecap?: boolean
   /** Dev only: the simulated champion for that forced card (null while the final is "in progress"). */
   devChampion?: WpblTeam | null
+  /** The page's lead, full width: the season card lays itself out in two columns on a desktop. */
+  lead?: boolean
 }) {
   const gameLink = useWpblGameLink()
   const isDark = useDark()
@@ -386,7 +388,7 @@ export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, p
   // is first so this whole branch drops from production.
   if (import.meta.env.DEV && devForceRecap) {
     return <SeasonRecapPreviewCard teams={teams} games={seasonGames} devChampion={devChampion} onOpenGame={onOpenGame}
-      players={players} onOpenPlayer={onOpenPlayer} />
+      players={players} onOpenPlayer={onOpenPlayer} lead={lead} />
   }
   // Nothing in the feed ahead falls to the postseason calendar; once THAT is exhausted too, the
   // season is over and this slot becomes the recap card. Same retire-by-emptiness the strip uses,
@@ -394,7 +396,7 @@ export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, p
   if (!next) {
     return nextPostseasonRow(postRows)
       ? <NextPostseasonCard rows={postRows} teams={teams} games={seasonGames} />
-      : <SeasonRecapPreviewCard teams={teams} games={seasonGames} onOpenGame={onOpenGame} players={players} onOpenPlayer={onOpenPlayer} />
+      : <SeasonRecapPreviewCard teams={teams} games={seasonGames} onOpenGame={onOpenGame} players={players} onOpenPlayer={onOpenPlayer} lead={lead} />
   }
   const g = next.g
   const away = teams.get(g.away_team_id)
