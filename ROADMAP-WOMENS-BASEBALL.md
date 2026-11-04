@@ -84,8 +84,9 @@ In order. Each step says what done looks like; the commands are in
    170 games and 11,440 plays, every game checked against itself four ways; what it took (new
    codes, a reader for 2016's prose play log, eight games wrong at the source) is in
    [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md#build-order). 2012 and 2014 followed on Nov 3, 2026
-   (36 and 24 games) after a reader noticed Ayami Sato's 2012 pitching was missing; 2004 to 2010
-   have only a standings page on wbsc.org.
+   (36 and 24 games) after a reader noticed Ayami Sato's 2012 pitching was missing, and 2010 the same
+   day from IBAF's own stats pages in the Wayback Machine (41 games, box scores and play-by-play).
+   2004 to 2008 survive only as results, rosters and Canada's box scores.
 4. ✅ **Re-measure the provisional numbers** (Nov 2, 2026): the pitch-board bars in
    `src/intl/league.ts`, now from every event.
 5. ✅ **Build `international.json`** (Nov 2, 2026), the one file a WPBL player page will read: per
@@ -284,7 +285,10 @@ it, so it is designed for the developmental league and the AAGPBL as much as for
      `npm run sweep -- --shift` and `--ellipsis` clean on these routes. Held until the look is settled.
   2. Polish from the audit: Chinese Taipei's gray "TPE" badge, WPBL players' portraits in the
      leader cards, a title per page, the box score's small gray headers checked for contrast.
-  3. Optional: 2004 to 2010 as editions with final standings and medals only.
+  3. Optional: 2004 to 2008 as editions with results, final standings and medals only (no player
+     stats: what survives game by game is Canada's box scores alone). The sources are IBAF's
+     2004 to 2010 compendium (`ibaf.org/doc/.../2010 - Mundial Femenino - Estadísticas.pdf`, in the
+     Wayback Machine) and the results Wikipedia carries.
   4. The public switch. A first cut is parked on the local branch `world-cup-stage2` (commit
      dce1c95c, never pushed: it carries `archive/wbsc/`). It predates everything above, so the
      switch is rebuilt on `main` from its list: `archive/wbsc/` out of `.gitignore` with a size

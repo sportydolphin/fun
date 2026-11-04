@@ -7,6 +7,7 @@ import type { LineScoreEntry, PitchingGameLine, RunValuePlay } from '../../leagu
 import type { PersonLookup } from './editionLeaders'
 import type { WbscBattingLine, WbscGame } from './game'
 import { gamePlayTexts } from './playText'
+import { boxScoreUrl } from './ibaf'
 
 export interface BoxBatter {
   name: string
@@ -157,6 +158,6 @@ export function buildGameFile(
     batting: { away: away.bat, home: home.bat },
     pitching: { away: away.pit, home: home.pit },
     halves,
-    url: `${source}/box-score/${game.wbsc_game_id}`,
+    url: boxScoreUrl(source, game.wbsc_game_id),
   }
 }

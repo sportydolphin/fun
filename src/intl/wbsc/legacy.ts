@@ -35,7 +35,9 @@ export interface LegacyRow {
   batterid: number
   inning: number
   narrative: string | null
-  outs: number
+  /** The outs before the row, as WBSC stored them. Null where the source has none (IBAF's 2010
+   *  pages): the count is then the prose's own, and each half must end on three instead. */
+  outs: number | null
 }
 
 /** One play, in the neutral shape's terms but with WBSC's numeric ids; game.ts names them. */
@@ -95,6 +97,13 @@ const field = (s: string): string => (s.trim() === '.' ? '' : fold(s))
 export function resolveName(name: string, roster: readonly LegacyPerson[]): LegacyPerson | 'ambiguous' | null {
   const found = resolveWords(name, roster)
   if (found) return found
+  // IBAF's 2010 pages write some Korean given names in capitals too ("KIM HEE JEOM"), which read as a
+  // three-word surname. Only when that finds no one, the words after the first are the given name.
+  const parts = name.split(/\s+/)
+  if (parts.length > 1 && parts.slice(1).every(w => /^\p{Lu}{2,}$/u.test(w))) {
+    const given = resolveWords([parts[0], ...parts.slice(1).map(w => w.charAt(0) + w.slice(1).toLowerCase())].join(' '), roster)
+    if (given) return given
+  }
   // 2012 and 2014 also write the given name as capital initials ("CHEN HM" for Chen Hsiao-Mei,
   // "PAN CY"), which reads as a two-word surname nobody has. Only when that finds no one, the
   // last word is taken as initials, one per given-name part.
@@ -436,7 +445,7 @@ export function legacyPlays(halves: readonly LegacyHalf[]): {
         continue
       }
 
-      if (r.outs !== outs) problems.push(`${where}: the row says ${r.outs} out, the plays before it make ${outs}`)
+      if (r.outs != null && r.outs !== outs) problems.push(`${where}: the row says ${r.outs} out, the plays before it make ${outs}`)
       const before: [number | null, number | null, number | null] = [...bases]
       let made = 0, scored = 0
 
@@ -495,6 +504,11 @@ export function legacyPlays(halves: readonly LegacyHalf[]): {
       outs += made
     }
     if (outs > 3) problems.push(`inning ${h.inning} ${h.half}: ${outs} outs`)
+    // With no stored outs to hold the count against, a half that is not the game's last must end
+    // on three: a play read wrong drops or adds an out, and nothing else would see it.
+    else if (outs < 3 && h !== halves[halves.length - 1] && h.rows.some(r => r.outs == null)) {
+      problems.push(`inning ${h.inning} ${h.half}: ends on ${outs} out${outs === 1 ? '' : 's'}`)
+    }
     lob[h.half] += bases.filter(b => b != null).length
   }
   for (const name of missing.keys()) problems.push(`${name} is in the plays and not in the box score`)

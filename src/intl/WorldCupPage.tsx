@@ -54,12 +54,35 @@ function useSiteFile<T>(file: string): { file: string; data: T | null } | null {
 const years = (ys: number[]) => (ys.length > 1 ? `${ys[0]}–${String(ys[ys.length - 1]).slice(2)}` : String(ys[0]))
 
 /** 'https://www.wbsc.org/en/events/2023-ix-womens-baseball-world-cup-group-a/schedule-and-results'
- *  reads '2023 Group A', the Finals '2024 Finals', a one-event edition its year. */
+ *  reads '2023 Group A', the Finals '2024 Finals', a one-event edition its year. 2010 is IBAF's
+ *  stats pages in the Wayback Machine (src/intl/wbsc/ibaf.ts), which read '2010'. */
 function sourceLabel(url: string): string {
+  if (isIbaf(url)) return '2010'
   const key = url.split('/events/')[1]?.split('/')[0] ?? ''
   const tail = (key.split('world-cup')[1] ?? '').replace(/^-/, '').replace('group-stage-', '')
   const words = tail.split('-').filter(Boolean).map(w => (w.length === 1 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
   return [key.slice(0, 4), ...words].join(' ')
+}
+
+const isIbaf = (url: string) => url.includes('ibaf.prod.kgroup.eu')
+
+/** Who published a source: IBAF ran the World Cup until 2013, when it merged into WBSC. */
+const publisher = (url: string) => (isIbaf(url) ? 'IBAF' : 'WBSC')
+
+/** "Source: WBSC 2012 2014", or "IBAF 2010" before it: each publisher named once, before its links. */
+function SourceLinks({ links }: { links: { key: string; url: string }[] }) {
+  return (
+    <>
+      Source:{links.map((l, i) => (
+        <Fragment key={l.key}>
+          {publisher(l.url) !== publisher(links[i - 1]?.url ?? '') && ` ${publisher(l.url)}`}
+          <Box component="a" href={l.url} target="_blank" rel="noopener" sx={{ color: 'inherit', ml: 1 }}>
+            {sourceLabel(l.url)}
+          </Box>
+        </Fragment>
+      ))}
+    </>
+  )
 }
 
 const shortDate = (iso: string) =>
@@ -139,7 +162,7 @@ function Index() {
       )}
       <Box sx={{ mt: 2, px: 0.5, pt: 0.5, borderTop: '1px solid', borderColor: CARD_BORDER }}>
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
-          Source: WBSC · Flags: <Box component="a" href="https://github.com/lipis/flag-icons" target="_blank" rel="noopener" sx={{ color: 'inherit' }}>flag-icons</Box> (MIT)
+          Sources: WBSC, IBAF · Flags: <Box component="a" href="https://github.com/lipis/flag-icons" target="_blank" rel="noopener" sx={{ color: 'inherit' }}>flag-icons</Box> (MIT)
         </Typography>
       </Box>
     </StandalonePage>
@@ -343,11 +366,7 @@ function SourceLine({ urls }: { urls: string[] }) {
   return (
     <Box sx={{ px: 0.5, pt: 0.5, borderTop: '1px solid', borderColor: CARD_BORDER }}>
       <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
-        Source: WBSC{urls.map(u => (
-          <Box component="a" key={u} href={u} target="_blank" rel="noopener" sx={{ color: 'inherit', ml: 1 }}>
-            {sourceLabel(u)}
-          </Box>
-        ))}
+        <SourceLinks links={urls.map(u => ({ key: u, url: u }))} />
       </Typography>
     </Box>
   )
@@ -813,7 +832,7 @@ function GamePage({ slug, id }: { slug: string; id: string }) {
           )}
           <Box sx={{ px: 0.5, pt: 0.5, borderTop: '1px solid', borderColor: CARD_BORDER }}>
             <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
-              Source: <Box component="a" href={g.url} target="_blank" rel="noopener" sx={{ color: 'inherit' }}>WBSC box score</Box>
+              Source: <Box component="a" href={g.url} target="_blank" rel="noopener" sx={{ color: 'inherit' }}>{publisher(g.url)} box score</Box>
             </Typography>
           </Box>
         </Box>
@@ -936,11 +955,7 @@ function PersonPage({ slug }: { slug: string }) {
           )}
           <Box sx={{ px: 0.5, pt: 0.5, borderTop: '1px solid', borderColor: CARD_BORDER }}>
             <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
-              Source: WBSC{p.events.map(e => (
-                <Box component="a" key={e.event_key} href={e.url} target="_blank" rel="noopener" sx={{ color: 'inherit', ml: 1 }}>
-                  {sourceLabel(e.url)}
-                </Box>
-              ))}
+              <SourceLinks links={p.events.map(e => ({ key: e.event_key, url: e.url }))} />
             </Typography>
           </Box>
         </Box>
