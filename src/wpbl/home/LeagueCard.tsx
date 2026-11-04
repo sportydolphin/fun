@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
 import { WPBL_LEAGUE_PAGE, WPBL_PATH_EVENT } from '../routes'
-import { CARD_BORDER, CARD_FILL, hoverOnly, TYPE_SCALE } from '../ui'
+import { hoverOnly, FOCUS_RING } from '../ui'
+import { SECTION_HEADING_SX } from '../../ui/card'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
 import { isModified } from '../../nav'
 
@@ -39,19 +40,18 @@ export function LeagueCard() {
       component="a"
       href={WPBL_LEAGUE_PAGE}
       onClick={go}
+      // A section's heading that is a link, the way every other way-on on Home is since Nov 3, 2026:
+      // it was the last outlined box on the page, a frame around four words and a chevron.
       sx={{
-        display: 'flex', alignItems: 'center', gap: 1.5, textDecoration: 'none',
-        border: '1px solid', borderColor: CARD_BORDER, borderRadius: 3,
-        bgcolor: CARD_FILL, px: 2, py: 1.75,
-        ...hoverOnly({ borderColor: 'var(--wpbl-accent-fg)' }),
+        display: 'flex', alignItems: 'center', gap: 0.5, textDecoration: 'none',
+        borderTop: '1px solid', borderTopColor: 'divider', px: 2, py: 1.25,
+        ...hoverOnly({ '& .sd-league-title': { textDecoration: 'underline' } }), ...FOCUS_RING,
       }}
     >
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, color: 'text.primary' }}>
-          About the League
-        </Typography>
-      </Box>
-      <Box aria-hidden sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.display, flexShrink: 0 }}>›</Box>
+      <Typography className="sd-league-title" sx={{ ...SECTION_HEADING_SX, color: 'text.primary' }}>
+        About the League
+      </Typography>
+      <Box aria-hidden sx={{ ...SECTION_HEADING_SX, color: 'var(--wpbl-accent-fg)' }}>›</Box>
     </Box>
   )
 }

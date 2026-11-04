@@ -136,6 +136,9 @@ Each item names the phase that carries it.
       award winners stacked, the gallery, the star sign card, and Reading beside Watch. Its Star of
       the final keeps a player link in the first screen. MLB already led with its World Series
       card. Left: the in-season lead (today's games) when the 2027 feed returns.
+      Second pass the same day: the champion's name at `TYPE_SCALE.lead` (3.5rem) from `md`, section
+      headings in the display face (`SECTION_HEADING_SX`), 24px between sections on Home, a dot
+      between a leader's two figures, and About the League as a heading link, not a box.
 - [x] **Spotlight repeated the Star of the Final** (Nov 3). Spotlight now steps to the next player
       in the rotation when it lands on the final's Star (`useChampionFinal`, shared with the
       season card). The "Scorpio Season" card and the star sign stay (owner's call, Nov 3).

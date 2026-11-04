@@ -523,11 +523,15 @@ export function SeasonLeadersCard({ players, teams, games, onOpenPlayer, rosterF
             const titles = r.stats.map(s => s.stat.title).join(' · ')
             const aside = (
               <Box sx={ROW_ASIDE_SX}>
-                {r.stats.map(({ stat, text }) => (
-                  <RowValue key={stat.key} label={`${stat.title} ${text}`}
-                    link={linkTo(statBoardPath(stat.side, stat.key), () => trackCardLink('leaders', stat.key))}>
-                    {text}
-                  </RowValue>
+                {/* A dot between two figures: side by side, "2.00 .552" read as one garbled number. */}
+                {r.stats.map(({ stat, text }, n) => (
+                  <Fragment key={stat.key}>
+                    {n > 0 && <Box component="span" aria-hidden sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.body }}>·</Box>}
+                    <RowValue label={`${stat.title} ${text}`}
+                      link={linkTo(statBoardPath(stat.side, stat.key), () => trackCardLink('leaders', stat.key))}>
+                      {text}
+                    </RowValue>
+                  </Fragment>
                 ))}
               </Box>
             )

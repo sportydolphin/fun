@@ -48,7 +48,7 @@ export function CardSkeleton({ minHeight, titleWidth = '7rem', lines = 3 }: {
       borderTop: '1px solid', borderTopColor: 'divider',
     }}>
       <Box sx={{ px: 2, pt: 1.25, pb: 1 }}>
-        <Skeleton variant="text" width={titleWidth} sx={{ fontSize: TYPE_SCALE.title, lineHeight: 1.2 }} />
+        <Skeleton variant="text" width={titleWidth} sx={{ fontSize: TYPE_SCALE.display, lineHeight: 1.2 }} />
       </Box>
       {lines > 0 && (
         <Box sx={{ px: 2, pb: 1.5 }}>
@@ -106,7 +106,7 @@ export function WpblHomeSkeleton() {
           the strip tracks both the desktop chrome scale and the reader's text size the way the
           real one does. */}
       <Box sx={{ mb: SECTION_GAP }}>
-        <Skeleton variant="text" width="6.5rem" sx={{ fontSize: TYPE_SCALE.title, lineHeight: 1.2, mb: 1 }} />
+        <Skeleton variant="text" width="6.5rem" sx={{ fontSize: TYPE_SCALE.display, lineHeight: 1.2, mb: 1 }} />
         <Box sx={{ display: 'flex', gap: 1, pb: 0.5, overflow: 'hidden' }}>
           {SKELETON_GAME_CHIPS.map(i => (
             <Box key={i} sx={{
@@ -215,14 +215,14 @@ function OffseasonHomeSkeleton() {
         </Box>
       </Box>
 
-      {/* The lead: the champion's season card at full width. Its own height, measured at 375, 760,
-          960 and 1440: one card in a column below md (24.5rem, as before the lead), and band beside
-          road from md (14.85rem, Nov 3, 2026, at both desktop widths). */}
-      <Box sx={{ mt: 1.5 }}>
-        <CardSkeleton minHeight={{ xs: '24.5rem', md: '14.85rem' }} titleWidth="6rem" lines={5} />
+      {/* The lead: the champion's season card at full width. Its own height, measured at 375 and at
+          960 and 1440 (Nov 3, 2026, with the display-face heading and the lead's larger name): one
+          card in a column below md, and band beside road from md. */}
+      <Box sx={{ mt: 3 }}>
+        <CardSkeleton minHeight={{ xs: '24.65rem', md: '16.55rem' }} titleWidth="6rem" lines={5} />
       </Box>
       {awards && (
-        <Box sx={{ mt: 1.5 }}>
+        <Box sx={{ mt: 3 }}>
           <CardSkeleton minHeight={{ xs: '16.7rem', md: '21.6rem' }} titleWidth="5.5rem" lines={4} />
         </Box>
       )}
@@ -230,9 +230,9 @@ function OffseasonHomeSkeleton() {
       {/* The player cards draw their own empty state (no players yet), so the placeholder is the
           real card rather than a guess at its height. Leaders and the award winners stack beside
           Spotlight, as on the loaded page. */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 1.5, mt: 1.5 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
         <PlayerSpotlightCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: 0 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
           <SeasonLeadersCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
           <FanAwardWinnersCard players={[]} teams={EMPTY_TEAMS} onOpenPlayer={NO_OPEN} onOpenTeam={NO_OPEN} />
         </Box>
@@ -240,11 +240,11 @@ function OffseasonHomeSkeleton() {
 
       <FanPhotoHomeCardSkeleton />
 
-      <Box sx={{ mt: 1.5 }}>
+      <Box sx={{ mt: 3 }}>
         <StarSignCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
       </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 1.5, mt: 1.5 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
         <CardSkeleton minHeight={READING_CARD_SKELETON_H} titleWidth="4.5rem" lines={0} />
         <CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />
       </Box>
