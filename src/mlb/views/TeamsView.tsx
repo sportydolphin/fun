@@ -35,7 +35,7 @@ export function TeamsView({ followedTeamId, onTeamClick }: {
         {DIVISIONS.map(d => (
           <Box key={d.code}>
             <Typography sx={{
-              fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(1.2), textTransform: 'uppercase',
+              fontSize: TYPE_SCALE.micro, fontWeight: 800, 
               color: 'text.disabled', mb: 0.75,
             }}>
               {d.label}

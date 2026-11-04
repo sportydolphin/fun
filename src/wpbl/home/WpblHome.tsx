@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { edge } from '../../ui/card'
+import { edge, SECTION_COLUMN_GAP } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import {
   fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblTrackedGameIds, computeStandings, countsInStandings,
@@ -44,7 +44,7 @@ import { localIsoDate } from '../derive/homePlayers'
 import { HEADER_GAP, homeWideSx } from './shared'
 import { type MatchupPreviewArg, Scoreboard } from './Scoreboard'
 import { NextGameCard } from './NextGameCard'
-import { gameYear, devChampionPick, ChampionBanner } from './ChampionCards'
+import { gameYear, devChampionPick, ChampionBanner, useChampionFinal } from './ChampionCards'
 import { useNewTrackingBatch, NewTrackingBanner } from './TrackingBanner'
 import { DiscordCard } from './DiscordCard'
 import { LatestReadingCard, ReadingHomeCard } from './ReadingCards'
@@ -245,6 +245,11 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // 'started' or 'finished' both force the recap card into the Next-game slot: once the final is
   // under way there is no next game, which is the real trigger this stands in for.
   const devForceRecap = import.meta.env.DEV && devSim.phase !== 'off'
+  // The Star of the final, so Player Spotlight never headlines the player the season card's foot
+  // already names. The same derivation the card makes (the same games and dev champion), so the two
+  // agree; undefined while its read is out, which Spotlight waits on rather than swap players.
+  const { star: finalStar } = useChampionFinal(teamMap, seasonGames, devForceRecap ? devChampTeam : null)
+  const spotlightAvoid = finalStar === undefined ? undefined : finalStar?.playerId ?? null
 
   // Whether the final is decided, the switch every offseason change on this page keys on. A
   // dev-simulated champion counts, so the offseason preview shows the offseason Home.
@@ -518,15 +523,15 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           stored season rows and the award tally, and Player Spotlight reads its one player's lines. */}
       {seasonDone && (
         <>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
-            <PlayerSpotlightCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} />
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 1.5, mt: 1.5 }}>
+            <PlayerSpotlightCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} avoid={spotlightAvoid} />
             <NextGameCard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} players={players} onOpenPlayer={onOpenPlayer}
               devForceRecap={devForceRecap} devChampion={devChampTeam} />
           </Box>
           {/* The award results, for the days they stay up after the final (AWARDS_RESULTS_UNTIL). */}
           {seasonCards.length > 0 && <Box sx={{ mt: 1.5 }}>{seasonCards}</Box>}
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 1.5, mt: 1.5 }}>
             <SeasonLeadersCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer}
               rosterFailed={!loadingLeaders && players.length === 0} />
             <FanAwardWinnersCard players={players} teams={teamMap} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} onOpenAwards={onOpenAwards}
@@ -546,7 +551,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
 
           {/* Reading and Watch share a row: each was a full-width block for three posts or six
               posters, about a screen of desktop between them for nine links to two hub pages. */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 1.5, mt: 1.5 }}>
             <ReadingHomeCard teamById={teamMap} />
             <WatchCard from="home" compact placeholder={<CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />} />
           </Box>

@@ -189,7 +189,7 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
 
       {recap.stars.length > 0 && (
         <Box>
-          <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: 'text.disabled', mb: 0.25 }}>Stars of the game</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.disabled', mb: 0.25 }}>Stars of the game</Typography>
           {/* Mobile: stack the three stars, each on its own full-width row so the name and
           statline show in full instead of all three cramming one line and truncating.
           Desktop lays them in one row, each star starting from the width its own name

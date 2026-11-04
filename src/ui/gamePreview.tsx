@@ -4,7 +4,6 @@ import type { SxProps, Theme } from '@mui/material'
 import { TYPE_SCALE } from './card'
 import { SegNav } from './SegNav'
 import { pressable, FOCUS_RING, TAPPABLE } from './interaction'
-import { typePx } from './scale'
 import { useDark } from './useDark'
 import { ordinal } from '../lib/format'
 
@@ -43,7 +42,7 @@ export interface PreviewSide {
 }
 
 export const PREVIEW_SHIMMER = {
-  bgcolor: 'action.hover', borderRadius: 0.75,
+  bgcolor: 'action.hover', borderRadius: 1,
   '@keyframes pvPulse': { '0%,100%': { opacity: 0.5 }, '50%': { opacity: 0.85 } },
   animation: 'pvPulse 1.1s ease-in-out infinite',
 } as const
@@ -53,7 +52,7 @@ export function PreviewHeading({ children }: { children: React.ReactNode }) {
   return (
     <Typography sx={{
       fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled',
-      textTransform: 'uppercase', letterSpacing: typePx(0.8), lineHeight: 1, mb: 1,
+      lineHeight: 1, mb: 1,
     }}>
       {children}
     </Typography>
@@ -166,7 +165,7 @@ export function ComparisonBars({ away, home, defs, awayStats, homeStats, loading
         <Typography sx={{
           flexShrink: 0, width: '2.375rem', textAlign: 'center',
           fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary',
-          textTransform: 'uppercase', letterSpacing: typePx(0.6), lineHeight: 1,
+          lineHeight: 1,
         }}>
           {labelFor ? labelFor(def) : def.label}
         </Typography>
@@ -196,7 +195,7 @@ export function ComparisonBars({ away, home, defs, awayStats, homeStats, loading
           // 700 at `nano`: 8px, uppercase, letter-spaced AND dimmed, so weight was the one thing
           // not earning its place.
           fontSize: TYPE_SCALE.nano, fontWeight: 700, color: 'text.disabled',
-          textTransform: 'uppercase', letterSpacing: typePx(1), lineHeight: 1, flexShrink: 0,
+          lineHeight: 1, flexShrink: 0,
         }}>
           {label}
         </Typography>

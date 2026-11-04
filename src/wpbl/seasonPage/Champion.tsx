@@ -119,8 +119,8 @@ export function FinalGameHead({ n, date }: { n: number; date: React.ReactNode })
   return (
     <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
       <Typography sx={{
-        flex: 1, fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6),
-        textTransform: 'uppercase', color: 'text.disabled',
+        flex: 1, fontSize: TYPE_SCALE.micro, fontWeight: 800, 
+        color: 'text.disabled',
       }}>Game {n}</Typography>
       <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled' }}>{date}</Typography>
     </Box>

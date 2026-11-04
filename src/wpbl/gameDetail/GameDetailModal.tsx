@@ -23,7 +23,6 @@ import type { WpblRunValuePlay } from '../types'
 import { ENTRY_HASH, PLAY_HASH_RE } from '../entryUrl'
 import FeedDelayNote from '../FeedDelayNote'
 import { ExpandButton } from '../../ui/ExpandButton'
-import { typePx } from '../../ui/scale'
 import type {
   WpblTeam, WpblGame, WpblPlayer, WpblBattingLine, WpblPitchingLine,
   WpblGamePlay, WpblPitchTracking, WpblVideo, WpblArticle, WpblGameRecap, WpblGameDetails, WpblGameRevision,
@@ -331,7 +330,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
         sx={{
           flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 1,
           ...(team && onOpenTeam ? {
-            cursor: 'pointer', borderRadius: 1.5, mx: -0.75, px: 0.75, py: 0.25,
+            cursor: 'pointer', borderRadius: 2, mx: -0.75, px: 0.75, py: 0.25,
             ...TAPPABLE,
             ...FOCUS_RING,
           } : {}),
@@ -481,7 +480,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
       {scoreboard}
       {series && (
         <Box sx={{ px: 2, mt: 1.25, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 1 }}>
-          <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'var(--wpbl-accent-fg)' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'var(--wpbl-accent-fg)' }}>
             {series.label} · Game {series.gameNumber} of {series.bestOf}
           </Typography>
           {series.line && <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700 }}>{series.line}</Typography>}
@@ -742,7 +741,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
               here. */}
           {series && (
             <Box sx={{ px: 2, mt: 1.25, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 1 }}>
-              <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'var(--wpbl-accent-fg)' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'var(--wpbl-accent-fg)' }}>
                 {series.label} · Game {series.gameNumber} of {series.bestOf}
               </Typography>
               {series.line && (

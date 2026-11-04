@@ -190,7 +190,7 @@ export function StatsRankedList({
       {/* WPBL's header: "Player", the league's figure, the ranked stat with its direction arrow. On
           the ERA board the numbers ascend and nothing else says so. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.25, py: 0.7, borderBottom: '1px solid', borderColor: 'divider' }}>
-        <Typography sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.disabled' }}>
+        <Typography sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled' }}>
           {clubs ? 'Club' : 'Player'}
         </Typography>
         {league && (

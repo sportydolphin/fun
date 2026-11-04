@@ -93,7 +93,7 @@ function SwatchRow({ label, colors, value, onPick }: {
 }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
-      <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.6), width: 66, flexShrink: 0, opacity: 0.7 }}>
+      <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, width: 66, flexShrink: 0, opacity: 0.7 }}>
         {label}
       </Typography>
       <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap' }}>
@@ -126,7 +126,7 @@ function LogoPicker({ id, style, onPick }: {
 }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-      <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.6), width: 66, flexShrink: 0, opacity: 0.7 }}>
+      <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, width: 66, flexShrink: 0, opacity: 0.7 }}>
         Logo
       </Typography>
       <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
@@ -162,7 +162,7 @@ function RowPreview({ id, style, dark }: { id: number; style: IconStyle; dark: b
   return (
     <Box sx={{
       display: 'flex', alignItems: 'center', gap: 1.25,
-      px: 1.25, py: '9px', borderRadius: 1.5,
+      px: 1.25, py: '9px', borderRadius: 2,
       bgcolor: rowBg,
       border: `1px solid ${dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
       borderLeftWidth: 3, borderLeftColor: style.highlight,
@@ -195,7 +195,7 @@ function RowPreview({ id, style, dark }: { id: number; style: IconStyle; dark: b
 function ArrowBtn({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
   return (
     <Box {...pressable(onClick)} sx={{
-      width: 38, height: 38, borderRadius: 1.5, cursor: 'pointer', userSelect: 'none',
+      width: 38, height: 38, borderRadius: 2, cursor: 'pointer', userSelect: 'none',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       fontSize: '1.1rem', fontWeight: 800, lineHeight: 1,
       bgcolor: 'rgba(255,255,255,0.1)', color: '#fff',
@@ -282,7 +282,7 @@ function CropOverlay({ id, style, onChange, onClose }: {
               <ArrowBtn onClick={() => zoomBy(-ZOOM_STEP)}>−</ArrowBtn>
               <ArrowBtn onClick={() => zoomBy(ZOOM_STEP)}>＋</ArrowBtn>
             </Box>
-            <Typography sx={{ fontSize: '0.58rem', opacity: 0.6, textTransform: 'uppercase', letterSpacing: typePx(0.6) }}>zoom</Typography>
+            <Typography sx={{ fontSize: '0.58rem', opacity: 0.6 }}>zoom</Typography>
           </Box>
           <StudioButton onClick={resetAll}>Reset crop</StudioButton>
         </Box>

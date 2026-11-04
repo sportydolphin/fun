@@ -94,7 +94,7 @@ function StatCell({ children, bold = false, dense = false }: { children: React.R
 }
 
 /** A position after a batter's name, or a decision after a pitcher's. */
-export const BOX_POS_SX = { fontSize: TYPE_SCALE.caption, color: 'text.disabled', lineHeight: 1, flexShrink: 0, textTransform: 'uppercase' } as const
+export const BOX_POS_SX = { fontSize: TYPE_SCALE.caption, color: 'text.disabled', lineHeight: 1, flexShrink: 0 } as const
 
 /** The name cell, a component of its own so each row measures its own name: "F. Last" before an
  *  ellipsis, by the room the column actually has (CLAUDE.md). At 960px the 10rem cap cut
@@ -276,7 +276,7 @@ export function HalfHeading({ open, onToggle, badge, label, runs, awayTo, homeTo
       {badge}
       {/* The label gives way, not the score: the reader's Large text setting multiplies every rem
           on this row, and the number is what the row exists to show. */}
-      <Typography noWrap sx={{ minWidth: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary' }}>
+      <Typography noWrap sx={{ minWidth: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary' }}>
         {label}
       </Typography>
       <Box component="span" sx={{ ml: 'auto', display: 'inline-flex', alignItems: 'baseline', gap: 0.6, flexShrink: 0 }}>

@@ -10,7 +10,6 @@ import { SOURCES, sourceOf } from './derive/articles'
 import type { WpblArticle, WpblTeam } from './types'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
 import { useNewSince } from './newSince'
-import { typePx } from '../ui/scale'
 import { TYPE_SCALE } from '../ui/card'
 
 // /wpbl/reading: everything two independent writers have written about the league, newest first:
@@ -162,8 +161,7 @@ export default function ReadingPage() {
 const bylinesSx = (n: number) =>
   ({ mb: 2, display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr', sm: `repeat(${n}, 1fr)` } }) as const
 const MONTH_SX = {
-  fontSize: TYPE_SCALE.meta, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
-  color: 'text.secondary', mb: 1,
+  fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'text.secondary', mb: 1,
 } as const
 const GRID_SX = {
   display: 'grid', gap: { xs: 1, sm: 1.5 },

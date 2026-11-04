@@ -13,7 +13,6 @@ import { wpblAccentFg } from './constants'
 import { SectionCard, LeaderRow, leaderPlaces, CARD_BORDER } from './ui'
 import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 import { wpblQualifiers } from './stats'
-import { typePx } from '../ui/scale'
 import { InfoDot } from '../ui/InfoDot'
 import { useWpblSeason } from './SeasonContext'
 import { TYPE_SCALE } from '../ui/card'
@@ -59,9 +58,8 @@ const GROUPS: { offer: Offer; label: string }[] = [
 ]
 
 // Two colors, each meaning one thing, and both dark enough to clear 3:1 against the surface
-// they sit on. The light-mode pair is not the dark pair: #60a5fa measures 2.3:1 on this app's
-// light surfaces (see wpblAccentFg in constants.ts), which is fine for a fill behind white
-// text and not fine for a bar whose length IS the information.
+// they sit on. The light-mode pair is not the dark pair: the raw accent measures under 2:1 on this app's
+// light surfaces (see wpblAccentFg in constants.ts), which is not fine for a bar whose length IS the information.
 const offerColors = (isDark: boolean): Record<Offer, string> => ({
   take: isDark ? '#94a3b8' : '#64748b',
   swing: wpblAccentFg(isDark),
@@ -95,10 +93,10 @@ function PitchMix({ counts, total }: { counts: PitchCounts; total: number }) {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography sx={{
               width: LABEL_W, flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800,
-              textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', whiteSpace: 'nowrap',
+              color: 'text.secondary', whiteSpace: 'nowrap',
             }}>{g.label}</Typography>
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Box sx={{ width: width(groupTotal[g.offer]), height: 10, borderRadius: 5, bgcolor: color[g.offer] }} />
+              <Box sx={{ width: width(groupTotal[g.offer]), height: 10, borderRadius: 999, bgcolor: color[g.offer] }} />
             </Box>
             <Typography sx={{ width: VALUE_W, flexShrink: 0, textAlign: 'right', fontSize: TYPE_SCALE.meta, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
               {fmtPct(groupTotal[g.offer] / total, 0)}
@@ -166,7 +164,7 @@ function StatStrip({ items }: { items: { label: string; value: string; sub: stri
           borderTopWidth: i >= 2 ? '1px' : 0,
         }}>
           <Typography sx={{
-            fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.7),
+            fontSize: TYPE_SCALE.caption, fontWeight: 800, 
             color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>{t.label}</Typography>
           <Typography sx={{
@@ -326,7 +324,7 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
 
           <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.75 }}>
-              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: 'text.secondary' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.secondary' }}>
                 Pitch outcomes
               </Typography>
               <InfoDot text={[

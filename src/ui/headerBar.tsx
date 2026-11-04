@@ -11,13 +11,12 @@ import type React from 'react'
 import { Box, Typography } from '@mui/material'
 import { ChevronLeft } from '@mui/icons-material'
 import { hoverOnly, FOCUS_RING, pressable } from './interaction'
-import { chromePx, typePx } from './scale'
+import { chromePx } from './scale'
 import { ICON_SIZE, TYPE_SCALE } from './card'
 
 /** Every word in a header bar. */
 export const HEADER_TEXT_SX = {
-  fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
-  lineHeight: 1, whiteSpace: 'nowrap',
+  fontSize: TYPE_SCALE.micro, fontWeight: 800, lineHeight: 1, whiteSpace: 'nowrap',
 } as const
 
 /** The label naming what the page or sheet is: the same type, in full ink, and the one part of the

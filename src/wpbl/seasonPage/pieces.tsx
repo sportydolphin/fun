@@ -234,7 +234,7 @@ function LeaderGrid({ children }: { children: React.ReactNode }) {
 export function LeaderBoard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Box sx={{ minWidth: 0, borderRadius: 2, p: 1.5, border: '1px solid', borderColor: CARD_BORDER }}>
-      <Typography component="h3" sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'text.secondary', mb: 1 }}>
+      <Typography component="h3" sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, letterSpacing: '0.04em', color: 'text.secondary', mb: 1 }}>
         {title}
       </Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
@@ -265,7 +265,7 @@ export function LeaderRow({ rank, wide = false, name, teamId, value, href, onNav
       sx={{
         ...FOCUS_RING,
         display: 'flex', alignItems: 'center', gap: 1, textDecoration: 'none', color: 'inherit',
-        borderRadius: 1.5, px: 0.75, py: 0.5, ...TAPPABLE,
+        borderRadius: 2, px: 0.75, py: 0.5, ...TAPPABLE,
       }}
     >
       <Typography sx={{ flexShrink: 0, width: wide ? '1.75rem' : '1rem', fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.disabled', whiteSpace: 'nowrap' }}>
@@ -301,7 +301,7 @@ export function PerformanceRow({ rank, name, teamId, context, stat, href, onOpen
       sx={{
         ...FOCUS_RING,
         display: 'flex', alignItems: 'center', gap: 1, textDecoration: 'none', color: 'inherit',
-        borderRadius: 1.5, px: 0.75, py: 0.5, ...TAPPABLE,
+        borderRadius: 2, px: 0.75, py: 0.5, ...TAPPABLE,
       }}
     >
       <Typography sx={{ flexShrink: 0, width: '1rem', fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.disabled' }}>

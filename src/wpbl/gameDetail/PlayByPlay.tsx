@@ -11,7 +11,6 @@ import { parsePlay, runsOnPlay, endsInCalledThirdStrike, stateAfter, pitchingCha
 import { ENTRY_HASH, playHashSequence } from '../entryUrl'
 import { isPitchingChangeNarrative } from '../derive/playByPlay'
 import type { PitchingChange } from '../derive/playByPlay'
-import { typePx } from '../../ui/scale'
 import type { WpblTeam, WpblGame, WpblPlayer, WpblGamePlay, WpblVideo } from '../types'
 import { EmptyBody } from './shared'
 import { SourceMark, SourceNote } from './PlaySource'
@@ -385,8 +384,8 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
             // a finger and not a letter: it must not shrink when the reader's text is small, and it must
             // not grow when it is large.
             px: 0.75, minHeight: chromePx(32), borderRadius: 1, cursor: 'pointer',
-            fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6),
-            textTransform: 'uppercase', userSelect: 'none',
+            fontSize: TYPE_SCALE.micro, fontWeight: 800, 
+            userSelect: 'none',
             color: scoringOnly ? '#16a34a' : 'text.secondary',
             '@media (hover: hover)': { '&:hover': { color: scoringOnly ? '#16a34a' : 'text.primary' } },
           }}
@@ -407,8 +406,8 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
             ...FOCUS_RING, display: 'inline-flex', alignItems: 'center', gap: 0.4,
             // Sized with the lens beside it: see the note there.
             px: 0.75, minHeight: chromePx(32), borderRadius: 1, cursor: 'pointer',
-            fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6),
-            textTransform: 'uppercase', color: 'text.secondary', userSelect: 'none',
+            fontSize: TYPE_SCALE.micro, fontWeight: 800, 
+            color: 'text.secondary', userSelect: 'none',
             '@media (hover: hover)': { '&:hover': { color: 'text.primary' } },
           }}
         >
@@ -453,7 +452,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
               {/* The label gives way, not the score. It fits at 320px today and the reader's
                   Large text setting multiplies every rem on this row, so the one thing that
                   must survive that is the number the row exists to show. */}
-              <Typography noWrap sx={{ minWidth: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary' }}>
+              <Typography noWrap sx={{ minWidth: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary' }}>
                 {g.label}{team ? ` · ${team.abbr}` : ''}
                 {/* WHO THEY BATTED AGAINST, which the league's substitution sentences are otherwise the
                     only place to find. Last in the line and inside the same noWrap, so on a phone it is
@@ -595,7 +594,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                               <Box component="span" {...('href' in link ? link : pressable(open))} sx={{
                                 fontWeight: 700,
                                 ...(open ? {
-                                  ...FOCUS_RING, cursor: 'pointer', borderRadius: 0.5,
+                                  ...FOCUS_RING, cursor: 'pointer', borderRadius: 1,
                                   '@media (hover: hover)': { '&:hover': { textDecoration: 'underline' } },
                                 } : {}),
                               }}>{batter?.name ?? parsed.who}</Box>
@@ -619,9 +618,9 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                               "SWING". */}
                           {swing?.sequence === p.sequence && (
                             <Box component="span" sx={{
-                              ml: 0.6, px: 0.5, py: '1px', borderRadius: 0.75,
-                              fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5),
-                              textTransform: 'uppercase', whiteSpace: 'nowrap',
+                              ml: 0.6, px: 0.5, py: '1px', borderRadius: 1,
+                              fontSize: TYPE_SCALE.caption, fontWeight: 800, 
+                              whiteSpace: 'nowrap',
                               color: 'primary.main', border: '1px solid', borderColor: 'primary.main',
                             }}>{swing.label}</Box>
                           )}
@@ -636,8 +635,8 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                               }}
                               aria-label={`Watch the clip of this play: ${clipBySequence.get(p.sequence)!.title}`}
                               sx={{
-                                ml: 0.6, px: 0.6, py: '1px', borderRadius: 0.75, cursor: 'pointer', font: 'inherit',
-                                fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase',
+                                ml: 0.6, px: 0.6, py: '1px', borderRadius: 1, cursor: 'pointer', font: 'inherit',
+                                fontSize: TYPE_SCALE.caption, fontWeight: 800, 
                                 whiteSpace: 'nowrap', verticalAlign: 'baseline',
                                 color: 'var(--wpbl-accent-fg)', bgcolor: 'transparent',
                                 border: '1px solid', borderColor: 'var(--wpbl-accent-fg)',

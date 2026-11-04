@@ -16,7 +16,6 @@ import { WpblMatchupPreview } from '../GamePreview'
 import { useWpblGameLink } from '../LinkContext'
 import { useGameNotes, ScoreCardFooter, ScoreCardFooterSkeleton } from '../ScoreCardNotes'
 import { TabTitle } from '../PageHeading'
-import { typePx } from '../../ui/scale'
 import { EmptyState } from './Placeholders'
 
 /**
@@ -325,7 +324,7 @@ export function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenT
           display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.75,
           pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
         }}>
-          <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.primary' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.primary' }}>
             {r.label} · Game {r.gameNumber}
           </Typography>
           {/* Spelled out rather than left as the bracket's asterisk: there is no key beside a
@@ -423,7 +422,7 @@ export function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenT
             display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.75,
             pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
           }}>
-            <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.primary' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.primary' }}>
               {ser.label} · Game {ser.gameNumber}
             </Typography>
             {ser.line && (
@@ -447,7 +446,7 @@ export function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenT
             display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.6,
             pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
           }}>
-            <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.disabled' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.disabled' }}>
               Box score revised
             </Typography>
             <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary' }}>

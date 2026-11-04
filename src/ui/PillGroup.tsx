@@ -15,7 +15,7 @@ import { TYPE_SCALE } from './card'
 // Solid accent fill rather than SegNav's raised surface chip, because at this size the chip's
 // shadow-on-paper trick disappears against the card it is sitting on: inside a card the only
 // thing that reads as "selected" at 0.68rem is color. Use `--wpbl-accent-solid`, never
-// WPBL_ACCENT. White on #60a5fa measures 2.37:1, and color contrast is absolute, so the raw
+// WPBL_ACCENT. White on the raw accent measures under 2:1, and color contrast is absolute, so the raw
 // accent fails in dark mode too.
 export function PillGroup({ options, value, onChange, mb, dense }: {
   /** `disabled` keeps an option DRAWN and unpressable, for a choice the page in front of the reader

@@ -5,7 +5,6 @@ import {
   fetchRoadmap, addRoadmapItem, updateRoadmapItem, deleteRoadmapItem, PRIORITIES, AREAS,
   type RoadmapItem, type RoadmapPriority, type RoadmapArea,
 } from './lib/roadmap'
-import { typePx } from './ui/scale'
 import { TYPE_SCALE, ICON_SIZE } from './ui/card'
 
 // /admin → Roadmap: the priority list, edited in place. ROADMAP-WPBL.md keeps the reasoning and
@@ -22,7 +21,7 @@ const nextPosition = (items: RoadmapItem[], tier: RoadmapPriority) =>
 function TierLabel({ children, count }: { children: React.ReactNode; count: number }) {
   return (
     <Typography component="h3" sx={{
-      fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(1), textTransform: 'uppercase',
+      fontSize: TYPE_SCALE.micro, fontWeight: 800, 
       color: 'text.secondary', mt: 2, mb: 0.75,
     }}>{children} · {count}</Typography>
   )

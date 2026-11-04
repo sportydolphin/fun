@@ -11,7 +11,7 @@ import { TEAM_ABBR, TEAM_BG } from '../constants'
 import { accentColor } from '../lib/colorUtils'
 import { BoxTable, BOX_POS_SX } from '../../ui/gameCenter'
 import { usePhoneLayout } from '../../ui/ModalShell'
-import { chromePx, typePx } from '../../ui/scale'
+import { chromePx } from '../../ui/scale'
 import { playerLink } from '../lib/links'
 import { TYPE_SCALE } from '../../ui/card'
 import { outsToIp } from '../../league/innings'
@@ -231,7 +231,7 @@ export function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <Typography sx={{
       fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary',
-      textTransform: 'uppercase', letterSpacing: typePx(0.8), lineHeight: 1,
+      lineHeight: 1,
     }}>
       {children}
     </Typography>

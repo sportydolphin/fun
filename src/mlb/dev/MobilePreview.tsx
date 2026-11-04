@@ -15,7 +15,6 @@ import {
   useDevDevice, setDeviceMode, setDevicePreset, toggleDeviceOrientation,
   currentPreset, DEVICE_PRESETS, FRAME_PARAM,
 } from './devDevice'
-import { typePx } from '../../ui/scale'
 import { TYPE_SCALE } from '../../ui/card'
 
 // Room left for the toolbar above the phone + breathing space around it.
@@ -77,7 +76,7 @@ export default function MobilePreview() {
     }}>
       {/* Toolbar */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', justifyContent: 'center', px: 2 }}>
-        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(1), textTransform: 'uppercase', color: '#f59e0b', mr: 0.5 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: '#f59e0b', mr: 0.5 }}>
           📱 Mobile sim
         </Typography>
         {DEVICE_PRESETS.map(d => (
@@ -132,7 +131,7 @@ function ChromeButton({ children, onClick, active = false, accent = false }: {
     <Box
       {...pressable(onClick)}
       sx={{
-        px: 1.1, py: 0.5, borderRadius: 1.5, cursor: 'pointer', userSelect: 'none',
+        px: 1.1, py: 0.5, borderRadius: 2, cursor: 'pointer', userSelect: 'none',
         fontSize: TYPE_SCALE.micro, fontWeight: 700, lineHeight: 1,
         border: '1px solid',
         borderColor: accent ? '#f59e0b' : active ? '#60a5fa' : 'rgba(255,255,255,0.18)',

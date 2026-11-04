@@ -4,7 +4,6 @@ import { sprayProfile, pullProfile, OUTFIELD_ZONES } from './derive/spray'
 import type { SprayZone, ZoneTally } from './derive/spray'
 import type { WpblSprayPlay } from './types'
 import { TYPE_SCALE, chromePx } from './ui'
-import { typePx } from '../ui/scale'
 import { InfoDot } from '../ui/InfoDot'
 
 // ─── Spray chart ──────────────────────────────────────────────────────────────
@@ -348,7 +347,7 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
         {pull.pullPct == null && profile.placed > 0 && (
           <Box sx={{ mb: 1 }}>
             {/* A div, because the InfoDot inside is one: a <p> holding a <div> is invalid HTML. */}
-            <Typography component="div" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: TYPE_SCALE.nano, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.disabled' }}>
+            <Typography component="div" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: TYPE_SCALE.nano, fontWeight: 800, color: 'text.disabled' }}>
               Pull
               <InfoDot label="Why no pull share" text="Switch hitter. The feed records which side a switch hitter bats from only on the roster, not per plate appearance, so pull and opposite field cannot be told apart." />
             </Typography>
@@ -359,7 +358,7 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
           <Box sx={{ display: 'flex', gap: 1.5, mb: 1 }}>
             {([['Pull', pull.pull], ['Center', pull.center], ['Oppo', pull.oppo]] as const).map(([label, n]) => (
               <Box key={label} sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontSize: TYPE_SCALE.nano, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.disabled' }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.nano, fontWeight: 800, color: 'text.disabled' }}>
                   {label}
                 </Typography>
                 <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>

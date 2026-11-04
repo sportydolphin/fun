@@ -4,7 +4,6 @@ import { fetchWpblScoreCardLines, fetchWpblAllPlayers, type WpblScoreCardLines }
 import { buildRecap, leagueRecapContext, type RecapDecision, type RecapStar } from './derive/recap'
 import { PlayerPortrait, TYPE_SCALE } from './ui'
 import { useWpblPlayerLink } from './LinkContext'
-import { typePx } from '../ui/scale'
 import { nameAtStage, useLineNameFit } from '../ui/names'
 import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer, WpblTeam } from './types'
 
@@ -132,7 +131,7 @@ export function ScoreCardFooter({ notes, players, onOpenPlayer }: {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
           <PlayerPortrait name={s.name} teamId={s.teamId} size={PORTRAIT} />
           <StarLine star={s} players={players} onOpenPlayer={onOpenPlayer} />
-          <Typography sx={{ ml: 'auto', flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.4), textTransform: 'uppercase', color: 'text.disabled' }}>
+          <Typography sx={{ ml: 'auto', flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled' }}>
             Star
           </Typography>
         </Box>

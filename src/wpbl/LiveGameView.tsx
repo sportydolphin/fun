@@ -7,13 +7,12 @@ import { LazyWinProbCard } from './RecapCard'
 import { canonicalFeedName, matchFeedName } from './feedNames'
 import { parsePlay, runsOnPlay } from './derive/playByPlay'
 import { battingStatline, pitchingStatline } from './derive/recap'
-import { wpblAccent, wpblFullName } from './constants'
+import { wpblAccent, wpblFullName, WPBL_ACCENT } from './constants'
 import { CARD_BORDER, FOCUS_RING, PlayerPortrait, TeamBadge, chromePx, pressable, usePhoneLayout } from './ui'
 import { useWpblPlayerLink, linkColor } from './LinkContext'
 import type {
   WpblBattingLine, WpblGame, WpblGamePlay, WpblPitchingLine, WpblPlayer, WpblTeam,
 } from './types'
-import { typePx } from '../ui/scale'
 import { ordinal } from '../lib/format'
 import { TYPE_SCALE } from '../ui/card'
 
@@ -380,7 +379,7 @@ function Pips({ label, filled, of, unit, tint }: {
       aria-label={filled === 0 ? `No ${unit}s` : `${filled} ${unit}${filled === 1 ? '' : 's'}`}
     >
       <Typography aria-hidden sx={{
-        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.8), textTransform: 'uppercase',
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, 
         color: 'text.disabled',
       }}>{label}</Typography>
       <Box aria-hidden sx={{ display: 'flex', gap: chromePx(4) }}>
@@ -439,8 +438,8 @@ function Diamond({ first, second, third }: { first: boolean; second: boolean; th
       position: 'absolute', ...pos,
       width: plate ? '20%' : '28%', height: plate ? '20%' : '28%',
       transform: 'translate(-50%,-50%) rotate(45deg)',
-      bgcolor: occ ? '#60a5fa' : 'transparent',
-      border: '1.5px solid', borderColor: occ ? '#60a5fa' : 'text.disabled',
+      bgcolor: occ ? WPBL_ACCENT : 'transparent',
+      border: '1.5px solid', borderColor: occ ? WPBL_ACCENT : 'text.disabled',
       borderRadius: '1px',
       // Home is scenery, not a base anyone can be standing on, so it is smaller and dimmer.
       ...(plate ? { opacity: 0.45 } : {}),
@@ -564,7 +563,7 @@ function PersonCard({ label, name, team, accent, line, onOpenPlayer, mirror }: {
       <PlayerPortrait name={shown} teamId={team.id} size={72} />
       <Box sx={{ minWidth: 0, textAlign: 'left', [WIDE_CARD]: { textAlign: mirror ? 'right' : 'left' } }}>
         <Typography sx={{
-          fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.8), textTransform: 'uppercase',
+          fontSize: TYPE_SCALE.caption, fontWeight: 800, 
           color: 'text.disabled',
         }}>{label} · {team.abbr}</Typography>
         {/* A real <a> when the name resolved to somebody, so this is a crawlable link to her
@@ -640,7 +639,7 @@ function LastPlay({ play, teams, names, onOpenPlayer }: {
       display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 1.25,
     }}>
       <Typography sx={{
-        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.8), textTransform: 'uppercase',
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, 
         color: 'text.disabled', whiteSpace: 'nowrap', flexShrink: 0,
         // A box reserving room for a label, so it is in REM. Aligned to the first line of the
         // sentence beside it rather than to the top of the block.
@@ -661,7 +660,7 @@ function LastPlay({ play, teams, names, onOpenPlayer }: {
                 <Box component="span" {...('href' in link ? link : pressable(openPlayer))} sx={{
                   fontWeight: 700,
                   ...(openPlayer ? {
-                    ...FOCUS_RING, cursor: 'pointer', borderRadius: 0.5,
+                    ...FOCUS_RING, cursor: 'pointer', borderRadius: 1,
                     '@media (hover: hover)': { '&:hover': { textDecoration: 'underline' } },
                   } : {}),
                 }}>{batter?.name ?? parsed.who}</Box>

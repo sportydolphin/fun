@@ -15,7 +15,7 @@ import React from 'react'
 import { Box, Typography, Tooltip } from '@mui/material'
 import { PlayerContract, ContractYear } from '../types'
 import { defaultBorder } from '../lib/colorUtils'
-import { chromePx, typePx } from '../../ui/scale'
+import { chromePx } from '../../ui/scale'
 import { TYPE_SCALE } from '../../ui/card'
 
 // One color per control state. Deliberately not team-colored: these encode
@@ -69,8 +69,8 @@ export function ContractPanel({ contract, currentSeason }: {
   const summaryChip = (label: string, value: string) => (
     <Box key={label} sx={{ minWidth: 0 }}>
       <Typography sx={{
-        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.8),
-        textTransform: 'uppercase', color: 'text.disabled', lineHeight: 1,
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, 
+        color: 'text.disabled', lineHeight: 1,
       }}>
         {label}
       </Typography>
@@ -152,7 +152,7 @@ export function ContractPanel({ contract, currentSeason }: {
                     </Typography>
                     <Box sx={{ width: '100%', height: chromePx(46), display: 'flex', alignItems: 'flex-end' }}>
                       <Box sx={{
-                        width: '100%', height: `${pct}%`, borderRadius: 0.75,
+                        width: '100%', height: `${pct}%`, borderRadius: 1,
                         bgcolor: style.color,
                         // Dashed-looking stub for years with no negotiated salary; a paid-out
                         // season's bar recedes, which is where the dimming belongs.
@@ -180,7 +180,7 @@ export function ContractPanel({ contract, currentSeason }: {
               const style = KIND_STYLE[kind] ?? KIND_STYLE.other
               return (
                 <Box key={kind} sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
-                  <Box sx={{ width: chromePx(8), height: chromePx(8), borderRadius: 0.5, bgcolor: style.color, flexShrink: 0 }} />
+                  <Box sx={{ width: chromePx(8), height: chromePx(8), borderRadius: 1, bgcolor: style.color, flexShrink: 0 }} />
                   <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary', fontWeight: 600 }}>
                     {style.label}
                   </Typography>

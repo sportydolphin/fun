@@ -11,7 +11,6 @@ import { SectionCard, CARD_BORDER, CARD_FILL, hoverOnly, FOCUS_RING, TYPE_SCALE,
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
 import { useNewSince } from '../newSince'
 import type { WpblTeam, WpblArticle } from '../types'
-import { typePx } from '../../ui/scale'
 import { CardSkeleton, READING_CARD_SKELETON_H } from './Skeletons'
 
 /**
@@ -52,8 +51,8 @@ export function LatestReadingCard() {
     }}>
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
         <Typography sx={{
-          flex: 1, minWidth: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6),
-          textTransform: 'uppercase', color: 'text.secondary',
+          flex: 1, minWidth: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800, 
+          color: 'text.secondary',
         }}>Latest from {sourceOf(latest.source).authorName}</Typography>
         <Box {...all}
           sx={{

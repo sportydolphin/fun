@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react'
 import { Box } from '@mui/material'
 import { linkPress, pressable, FOCUS_RING } from './interaction'
-import { TYPE_SCALE } from './card'
+import { TYPE_SCALE, BRAND } from './card'
 
 // THE ROW THAT PICKS A PAGE WITHIN A TAB: WPBL Stats' boards, MLB Stats' boards, MLB Standings'
 // modes. Moved out of WPBL's StatsView in Oct 2026, when MLB's equivalents were still a centered
@@ -14,7 +14,7 @@ import { TYPE_SCALE } from './card'
 
 /** Both sections' accent. The foreground-safe var would lose the underline's weight in light mode;
  *  a 2px rule is not text, so the raw accent clears the non-text contrast bar. */
-const UNDERLINE = '#60a5fa'
+const UNDERLINE = BRAND.raw
 
 export interface PageTab {
   value: string

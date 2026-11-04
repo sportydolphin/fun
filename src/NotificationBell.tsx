@@ -23,7 +23,6 @@ import { milestoneSource } from './mlb/notifications/milestones'
 import { wpblGameStartSource } from './wpbl/notifications/gameStart'
 import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 import { useForegroundInterval } from './lib/foregroundInterval'
-import { typePx } from './ui/scale'
 import { ICON_SIZE, TYPE_SCALE } from './ui/card'
 
 // Registered at module load so the set of sources is declared in one place.
@@ -142,7 +141,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
 
         {open && (
           <Paper elevation={8} role="dialog" aria-labelledby="notification-panel-title" sx={{
-            zIndex: 1500, borderRadius: 2.5, overflow: 'hidden',
+            zIndex: 1500, borderRadius: 3, overflow: 'hidden',
             // Phone: a sheet pinned to the viewport with an even margin each side, so it
             // can't run off an edge whatever the bell's position in the toolbar.
             // Tablet up: the original dropdown, anchored under the bell.
@@ -160,7 +159,6 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
             }}>
               <Typography id="notification-panel-title" sx={{
                 flex: 1, fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.secondary',
-                textTransform: 'uppercase', letterSpacing: typePx(1),
               }}>
                 Notifications
               </Typography>
@@ -178,7 +176,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
                     flexShrink: 0, px: 1, minHeight: 32, my: -0.5, borderRadius: 1,
                     display: 'flex', alignItems: 'center',
                     fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary',
-                    textTransform: 'uppercase', letterSpacing: typePx(0.5), cursor: 'pointer',
+                    cursor: 'pointer',
                     '&:hover': { color: 'text.primary', bgcolor: 'action.hover' },
                     ...FOCUS_RING,
                   }}

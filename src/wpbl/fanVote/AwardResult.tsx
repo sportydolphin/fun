@@ -19,7 +19,6 @@ import { withWriteIns } from '../derive/awards'
 import type { AwardBallotEntry, AwardCandidate } from '../derive/awards'
 import { awardVoteCount } from '../awardVotes'
 import type { WpblPlayer, WpblTeam } from '../types'
-import { typePx } from '../../ui/scale'
 import { sectionAnchorId } from '../../lib/sectionScroll'
 import { awardResultPart } from '../awards'
 import { NO_VOTES } from './useFanVote'
@@ -30,9 +29,9 @@ import type { FanVoteState } from './useFanVote'
 /**
  * A one-shot confetti pop over a winner's portrait, fired when the results sheet opens.
  *
- * THE SAME NOD AS THE LEAGUE SWITCHER'S BURST (ConfettiBurst in App.tsx), rebuilt for this
- * surface: that one portals to <body> at fixed viewport coords because it fires from a bar that
- * scrolls under sticky chrome. This is placed by `x`/`y` inside AwardResult's OUTER box, which is
+ * The site's one confetti: the league switch fired one too until Nov 3, 2026, when it went for a
+ * celebration with nothing to celebrate (ROADMAP-UI.md, the audit). Placed by `x`/`y` inside
+ * AwardResult's OUTER box, which is
  * NOT overflow-clipped, so the burst flies free of the results card's rounded corners rather than
  * being cut off at the card's top edge (the card clips its own wash and bars). The caller measures
  * the portrait so the origin and the rim radius `r` are exact at any chrome scale. Purely
@@ -321,8 +320,8 @@ export function AwardResult({ entry, index, players, teams, state, onOpenPlayer,
         <Typography sx={{
           // The category, stepped up so it reads as the section heading it is. Uppercase and
           // secondary keep it clearly below the winner's name, which is bigger still.
-          fontSize: { xs: TYPE_SCALE.body, md: TYPE_SCALE.title }, fontWeight: 800, letterSpacing: typePx(0.5),
-          textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1.3, minWidth: 0,
+          fontSize: { xs: TYPE_SCALE.body, md: TYPE_SCALE.title }, fontWeight: 800, 
+          color: 'text.secondary', lineHeight: 1.3, minWidth: 0,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{award.title}</Typography>
         {winner && (skeleton ? (
@@ -501,7 +500,7 @@ export function AwardResult({ entry, index, players, teams, state, onOpenPlayer,
                           }}>{s.eraBasisValue !== undefined ? fmtEra(s.eraBasisValue) : s.value}</Typography>
                           <Typography component="span" sx={{
                             fontSize: { xs: TYPE_SCALE.caption, md: TYPE_SCALE.meta }, fontWeight: 700,
-                            letterSpacing: typePx(0.3), textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1.2,
+                            color: 'text.secondary', lineHeight: 1.2,
                           }}>{s.label}</Typography>
                         </Box>, s.label,
                       ))}

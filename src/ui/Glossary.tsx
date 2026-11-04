@@ -7,7 +7,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { CARD_BORDER, SectionCard, TYPE_SCALE } from './card'
 import { PillGroup } from './PillGroup'
-import { typePx } from './scale'
 import { glossaryTermKey, type GlossaryRule, type GlossaryEntry, type GlossaryGroup } from '../league/glossary'
 import { pendingSectionScroll, sectionAnchorId, useSectionScroll } from '../lib/sectionScroll'
 
@@ -36,8 +35,7 @@ export function GlossaryRules({ title, rules, badge }: {
                 {label && (
                   <Typography component="span" sx={{
                     flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800,
-                    textTransform: 'uppercase', letterSpacing: typePx(0.4),
-                    px: 0.6, py: '1px', borderRadius: 0.75,
+                    px: 0.6, py: '1px', borderRadius: 1,
                     border: '1px solid', borderColor: CARD_BORDER, color: 'text.secondary',
                   }}>
                     {label}

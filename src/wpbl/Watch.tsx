@@ -171,7 +171,7 @@ function FanVideoRow({ video, isNew, onPlay }: { video: WpblVideo; isNew: boolea
       aria-label={`Play${isNew ? ' new' : ''} ${videoKindName(video).toLowerCase()}: ${video.title}`}
       sx={{ display: 'flex', gap: 1, alignItems: 'center', minWidth: 0, cursor: 'pointer', borderRadius: 2, ...PLAYABLE_HOVER, ...FOCUS_RING }}
     >
-      <Box sx={{ width: chromePx(104), flexShrink: 0, borderRadius: 1.5, overflow: 'hidden', position: 'relative' }}>
+      <Box sx={{ width: chromePx(104), flexShrink: 0, borderRadius: 2, overflow: 'hidden', position: 'relative' }}>
         <VideoThumb video={video} badge={24} />
         {isNew && <NewTag />}
       </Box>

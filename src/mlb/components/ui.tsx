@@ -79,7 +79,7 @@ export function StatItem({ label, value, playerId, leaderCategory, leaders, pale
         {rankNum > 0 ? (
           <Box sx={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 0.4,
-            bgcolor: `${palette.rank}22`, borderRadius: 0.75,
+            bgcolor: `${palette.rank}22`, borderRadius: 1,
             px: 0.75, py: 0.15,
           }}>
             <Typography component="span" sx={{ color: palette.rank, fontSize: TYPE_SCALE.body, fontWeight: 800, letterSpacing: typePx(0.4), lineHeight: 1.4 }}>
@@ -119,7 +119,7 @@ export function StatGrid({ defs, stats, selected, palette, rankMode, playerId, l
   return (
     <Box sx={{ borderTop: `1px solid ${palette.divider}`, pt: 2.5, mt: mt ?? 0 }}>
       {showHeader && (sectionLabel ? (
-        <Typography sx={{ textAlign: 'center', color: palette.rank, fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(2.5), mb: 2 }}>
+        <Typography sx={{ textAlign: 'center', color: palette.rank, fontSize: TYPE_SCALE.caption, fontWeight: 700, mb: 2 }}>
           {sectionLabel}
         </Typography>
       ) : bigYear ? (
@@ -130,7 +130,7 @@ export function StatGrid({ defs, stats, selected, palette, rankMode, playerId, l
           {season}
         </Typography>
       ) : (
-        <Typography sx={{ textAlign: 'center', color: palette.rank, fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(2.5), mb: 2 }}>
+        <Typography sx={{ textAlign: 'center', color: palette.rank, fontSize: TYPE_SCALE.caption, fontWeight: 700, mb: 2 }}>
           {season} {label}
         </Typography>
       ))}

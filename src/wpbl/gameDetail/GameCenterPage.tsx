@@ -9,7 +9,6 @@ import { WpblVisuallyHiddenH1 } from '../PageHeading'
 import { wpblGameCard } from '../ogCard'
 import { BoxTeamHeading, BoxTeamSwitch } from '../../ui/gameCenter'
 import { usePhoneLayout, CARD_BORDER, TeamBadge, hoverOnly, FOCUS_RING } from '../ui'
-import { typePx } from '../../ui/scale'
 import { scrollBehavior } from '../../lib/motion'
 import { GAME_PAGE_W } from '../layoutWidths'
 import { DetailPageBar } from '../DetailPageBar'
@@ -78,8 +77,8 @@ function PageSection({ v, order, children }: { v: Board; order: number; children
       order: { xs: order, lg: 0 },
     }}>
       <Typography id={`${sectionId(v)}-h`} component="h2" sx={{
-        px: 2, pt: 1.75, pb: 1, fontSize: TYPE_SCALE.meta, fontWeight: 800, textTransform: 'uppercase',
-        letterSpacing: typePx(0.8), color: 'text.secondary',
+        px: 2, pt: 1.75, pb: 1, fontSize: TYPE_SCALE.meta, fontWeight: 800, 
+        color: 'text.secondary',
       }}>
         {SECTION_LABEL[v]}
       </Typography>

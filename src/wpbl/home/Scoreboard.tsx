@@ -4,10 +4,9 @@ import { Box, Typography } from '@mui/material'
 import { wpblAccent, wpblAccentFg, formatGameTime, relativeDayShort } from '../constants'
 import { useWpblGameLink } from '../LinkContext'
 import { HIDE_ON_PHONE, VISUALLY_HIDDEN } from '../PageHeading'
-import { TeamBadge, CARD_BORDER, CARD_FILL, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, ICON_SIZE } from '../ui'
+import { TeamBadge, CARD_BORDER, CARD_FILL, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, DISPLAY_FONT, ICON_SIZE } from '../ui'
 import { postseasonSlots, type PostseasonScheduleRow, type PostseasonSlot } from '../derive/bracket'
 import type { WpblTeam, WpblGame } from '../types'
-import { typePx } from '../../ui/scale'
 import { SECTION_GAP } from './shared'
 
 function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, WpblTeam>; onOpen: () => void }) {
@@ -48,7 +47,7 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
       }}>{t?.abbr ?? '?'}</Typography>
       {(final || live) && (
         <Typography sx={{
-          fontSize: TYPE_SCALE.heading, fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+          fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.heading, fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
           color: won ? 'text.primary' : final ? 'text.disabled' : 'text.primary',
         }}>
           {score ?? '—'}
@@ -70,7 +69,7 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
       transition: 'border-color 0.15s', ...hoverOnly({ borderColor: 'text.disabled' }),
     }}>
       <Typography sx={{
-        fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
+        fontSize: TYPE_SCALE.micro, fontWeight: 800, 
         color: live ? '#ef4444' : 'text.secondary',
         // Never wrap: a second line here would make finals taller than upcoming chips and
         // break the strip's alignment. Ellipsis is the backstop for an unforeseen long label.
@@ -165,7 +164,7 @@ function PostseasonChip({ row, onOpenMatchup }: {
       }}
     >
       <Typography sx={{
-        fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
+        fontSize: TYPE_SCALE.micro, fontWeight: 800, 
         // The accent rather than text.secondary: it is the one mark separating a fixture that
         // exists from a date the league has only published, on a strip where the dashed border
         // is a hairline.

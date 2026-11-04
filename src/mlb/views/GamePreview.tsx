@@ -261,7 +261,7 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
       >
         {/* Headshot (or its shimmer while loading) */}
         <Box sx={{
-          width: chromePx(58), height: chromePx(70), borderRadius: 1.5, overflow: 'hidden',
+          width: chromePx(58), height: chromePx(70), borderRadius: 2, overflow: 'hidden',
           border: '2px solid', borderColor: edge(teamColor), bgcolor: 'action.hover', flexShrink: 0,
           ...(loading ? PREVIEW_SHIMMER : {}),
         }}>
@@ -322,8 +322,8 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
                   {s.value}
                 </Typography>
                 <Typography sx={{
-                  fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase',
-                  letterSpacing: typePx(0.4), color: 'text.secondary', lineHeight: 1, mt: 0.2,
+                  fontSize: TYPE_SCALE.caption, fontWeight: 700, 
+                  color: 'text.secondary', lineHeight: 1, mt: 0.2,
                 }}>
                   {s.label}
                 </Typography>

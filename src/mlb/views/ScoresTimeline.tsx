@@ -3,7 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { TYPE_SCALE, ICON_SIZE, TextGhost } from '../../ui/card'
 import CalendarMonthOutlined from '@mui/icons-material/CalendarMonthOutlined'
 import { pressable } from '../../ui/interaction'
-import { chromePx, typePx } from '../../ui/scale'
+import { chromePx } from '../../ui/scale'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { TEAM_BG, CURRENT_SEASON, TONE } from '../constants'
 import { bracketLikely } from '../postseason'
@@ -348,7 +348,7 @@ function DayHead({ day }: { day: string | null }) {
     }}>
       {day ? fromISO(day).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }) : <TextGhost hidden>Sunday, October 12</TextGhost>}
       {rel && (
-        <Box component="span" sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: typePx(0.8) }}>
+        <Box component="span" sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.secondary' }}>
           {rel}
         </Box>
       )}
@@ -394,12 +394,12 @@ function DateBar({ innerRef, days, current, homeDay, onPick, inSheet }: {
             <Box key={d} data-chip={d} {...pressable(() => onPick(d))} aria-current={on ? 'date' : undefined}
               aria-label={dt.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
               sx={{
-                flexShrink: 0, minWidth: '2.9rem', px: 0.75, py: 0.4, borderRadius: 1.5, cursor: 'pointer', textAlign: 'center',
+                flexShrink: 0, minWidth: '2.9rem', px: 0.75, py: 0.4, borderRadius: 2, cursor: 'pointer', textAlign: 'center',
                 bgcolor: on ? 'action.selected' : 'transparent',
                 border: '1px solid', borderColor: on ? 'outline' : 'transparent',
                 '&:hover': { bgcolor: 'action.hover' },
               }}>
-              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', lineHeight: 1.1, textTransform: 'uppercase' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', lineHeight: 1.1 }}>
                 {dt.toLocaleDateString([], { weekday: 'short' })}
               </Typography>
               <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: on ? 800 : 600, color: 'text.primary', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
@@ -450,7 +450,7 @@ function MineRow({ teamId, onOpen }: { teamId: number; onOpen: (gamePk: number) 
 
   const half = (label: string, g: ScheduleGame | null, body: React.ReactNode) => (
     <Box {...(g ? gameLink(g.gamePk, () => onOpen(g.gamePk)) : {})} sx={{ ...LINK_SX, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 0.6, cursor: g ? 'pointer' : 'default' }}>
-      <Typography component="span" sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: typePx(0.6), flexShrink: 0 }}>{label}</Typography>
+      <Typography component="span" sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.secondary', flexShrink: 0 }}>{label}</Typography>
       <Typography component="span" noWrap sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, minWidth: 0 }}>{body}</Typography>
     </Box>
   )

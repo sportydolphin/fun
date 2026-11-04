@@ -39,7 +39,7 @@ const toSeries = (season: number, id: SeriesId) => {
   navigate(mlbSeriesPath(season, id))
 }
 
-const CARD = { border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2.5, bgcolor: 'background.paper', p: 1.75, minWidth: 0 } as const
+const CARD = { border: '1px solid', borderColor: CARD_BORDER, borderRadius: 3, bgcolor: 'background.paper', p: 1.75, minWidth: 0 } as const
 const ROW_H = chromePx(36)
 
 function PathCard({ bracket }: { bracket: Bracket }) {

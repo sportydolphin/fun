@@ -24,7 +24,6 @@ import { Box, Typography } from '@mui/material'
 import { WPBL_SOURCES, SOURCE_GROUPS } from './sources'
 import { CARD_BORDER, SectionCard, TYPE_SCALE, hoverOnly } from './ui'
 import WpblPage from './WpblPage'
-import { typePx } from '../ui/scale'
 import { isModified } from '../nav'
 
 /** Modified clicks are left to the browser, so open-in-new-tab works on an internal link the
@@ -133,7 +132,7 @@ function Detail({ label, children }: { label: string; children: React.ReactNode 
   return (
     <>
       <Typography component="dt" sx={{
-        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase',
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, 
         color: 'text.disabled', lineHeight: 1.9, whiteSpace: 'nowrap',
       }}>
         {label}

@@ -217,7 +217,7 @@ function SubjectPicker({ subjects, total, selected, onPick }: {
   const row = (key: string, label: string, count: number) => (
     <Box key={key} {...pressable(() => choose(key))} aria-pressed={selected === key}
       sx={{
-        display: 'flex', alignItems: 'center', gap: 1, px: 1, py: 0.6, minHeight: chromePx(36), borderRadius: 1.5,
+        display: 'flex', alignItems: 'center', gap: 1, px: 1, py: 0.6, minHeight: chromePx(36), borderRadius: 2,
         cursor: 'pointer', ...FOCUS_RING,
         fontWeight: selected === key ? 800 : 500,
         color: selected === key ? 'var(--wpbl-accent-fg)' : 'text.primary',
@@ -238,7 +238,7 @@ function SubjectPicker({ subjects, total, selected, onPick }: {
       <Popover open={open} anchorEl={anchor.current} onClose={close}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }} transformOrigin={{ vertical: 'top', horizontal: 'left' }}
         slotProps={{ paper: { sx: {
-          borderRadius: 2.5, mt: 0.75, width: chromePx(300), maxWidth: 'calc(100vw - 32px)', maxHeight: '60vh',
+          borderRadius: 3, mt: 0.75, width: chromePx(300), maxWidth: 'calc(100vw - 32px)', maxHeight: '60vh',
           display: 'flex', flexDirection: 'column', border: '1px solid', borderColor: 'outline',
         } } }}>
         {subjects.length > 8 && (

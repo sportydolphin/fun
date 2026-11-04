@@ -175,7 +175,7 @@ export function StatRow({ label, value, sub }: { label: React.ReactNode; value: 
 export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Box sx={{ mb: 2.5 }}>
-      <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: typePx(1.2), textTransform: 'uppercase', color: 'text.disabled', mb: 1 }}>
+      <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, color: 'text.disabled', mb: 1 }}>
         {title}
       </Typography>
       <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'outline', overflow: 'hidden' }}>
@@ -597,7 +597,7 @@ export function HealthStrip({ health, onOpen }: { health: OpsHealth; onOpen: () 
         // does not strand a lone "Recap sync" on a second line; rowGap keeps the wrapped lines
         // from crowding when it still wraps on a narrow screen.
         display: 'flex', flexWrap: 'wrap', columnGap: 0.75, rowGap: 0.75, mb: 1.5, cursor: 'pointer',
-        alignItems: 'center', userSelect: 'none', borderRadius: 1.5, p: 0.5, mx: -0.5,
+        alignItems: 'center', userSelect: 'none', borderRadius: 2, p: 0.5, mx: -0.5,
         '&:hover': { bgcolor: 'action.hover' },
       }}
     >

@@ -115,13 +115,59 @@ scale system, the sweep) stay; no library ships them.
 
 ---
 
+## Audit: what reads as generated (Nov 3, 2026)
+
+A pass over the live WPBL home, WPBL stats and MLB home, phone and desktop. The site reads as a
+dark admin dashboard with sports data in it. Apple Sports alone is also a template; the lead
+story, the display face and team color as the only decoration are what make it this site.
+Each item names the phase that carries it.
+
+- [x] **Card soup** (Nov 3, option B). Every module was the same outlined card with a "Title ...
+      Link ›" header in a two-column grid. `SectionCard` is now a section by default: no border,
+      fill or corners, one `divider` rule on top, and a 32px column gap (`SECTION_COLUMN_GAP`) in
+      place of 12px. Objects keep their frame (`framed`, game tiles, the followed-team card, the
+      standout card, chips and controls at 3:1). Not fill-only cards: in dark mode a lifted
+      surface means "this floats" (v1.157.0), and no fill reaches 3:1 without becoming a slab
+      (8% white is 1.22:1). The Borders rule in `src/CLAUDE.md` says so. Hand-drawn list boxes
+      outside `SectionCard` still have frames; convert them as their pages are touched.
+- [ ] **No lead on the home page** (phase 1 mock, phase 3 build). Eight modules of equal weight.
+      One lead full width (in the offseason, the champion card, already the best-drawn piece on
+      the site), two or three secondary, then a feed. Add the home page to phase 1's mocks.
+- [x] **Spotlight repeated the Star of the Final** (Nov 3). Spotlight now steps to the next player
+      in the rotation when it lands on the final's Star (`useChampionFinal`, shared with the
+      season card). The "Scorpio Season" card and the star sign stay (owner's call, Nov 3).
+- [x] **No identity** (Nov 3, v1.208.0). Was Inter on near-black, a stock link blue and a
+      rainbow on the WPBL toggle. Now: one brand teal (`BRAND` in `src/ui/card.tsx`, `#2dd4bf` dark,
+      `#0f766e` light, the hex refused by lint outside the token files); Barlow Condensed 700
+      (`DISPLAY_FONT`, 22 KB, preloaded) for scores, the one big number on a card and page titles,
+      never names; a neutral segmented league switch with no confetti. Team colors stay the only
+      other decoration.
+- [x] **Eyebrow caps everywhere** (Nov 3, v1.208.0). 236 `textTransform: 'uppercase'` labels; 25
+      remain, all in the two roles caps keep: stat-table column heads (and one chart axis) and the
+      gold champion eyebrows. Not yet a lint rule: a new caps label is caught in review.
+- [x] **Empty states as content** (Nov 3). MLB home opened on "No team followed" and "No players
+      followed"; with neither, it is now one "Following" card with + Team and + Player, and an
+      empty players card is its header alone. Kept for signed-out readers: follows are stored
+      locally. The "empty circles" on the leader boards were portraits still lazy-loading;
+      a player with no face already gets initials.
+- [ ] **Leaders as widget grids** (phase 3). Four boxed top-5 lists side by side. One `DataTable`
+      with the leader's number large, or one board with a stat picker.
+- [ ] **Token drift** (phase 2, first). About 12 `borderRadius` values, 258 distinct hex colors,
+      54 gradients, 64 `boxShadow`s. Radius done Nov 3: `RADIUS` (4, 8, 12px and pill), lint-enforced.
+      The brand hex is lint-enforced too. Left: the other hex colors, gradients and shadows onto
+      tokens, each with its lint rule.
+
+---
+
 ## Phases
 
 ### 1. Direction (Figma only)
 
 - [ ] Mood board from the references above.
 - [ ] Token variables in Figma, both themes.
-- [ ] Mock four screens, phone and desktop: WPBL scoreboard, Game Center, player page, standings.
+- [ ] Mock five screens, phone and desktop: WPBL home, scoreboard, Game Center, player page,
+      standings.
+- [ ] Pick the display face for numbers and titles, and the one brand color.
 - [ ] The women's baseball shell (added Nov 1, 2026): the league list with MLB in it after the
   women's competitions, and whether `/` earns a front page. Built with phase 3; the brief is
   stage 3 of [ROADMAP-WOMENS-BASEBALL.md](ROADMAP-WOMENS-BASEBALL.md).
@@ -137,7 +183,7 @@ scale system, the sweep) stay; no library ships them.
 ### 3. House components in `src/ui/`
 
 - [ ] `ScoreCard` (team tint, live glyph, score roll), `Stat`, `StatLine`, `TeamChip`,
-      `DataTable`, `Section`, glass `BottomNav`.
+      `DataTable`, `Section`. (Glass `BottomNav` shipped early, v1.175.0, Oct 21.)
 - [ ] `ModalShell` sheets restyled to the new materials.
 - [ ] Migrate WPBL page by page (the feed is quiet until spring 2027), then MLB.
 - [ ] Re-record the sweep baselines per page (`npm run sweep:record`).
@@ -159,8 +205,8 @@ scale system, the sweep) stay; no library ships them.
 
 ## Open questions
 
-- **Borderless cards against the 3:1 outline rule** (`src/CLAUDE.md`). Does fill contrast count as
-  the boundary, and at what ratio?
+- ~~**Borderless cards against the 3:1 outline rule**~~ Settled Nov 3: a read-only section has no
+  outline and needs none; objects and controls keep theirs at 3:1. No fill-as-boundary.
 - **Two-club gradients and text contrast.** Pick a tint recipe that passes axe on every pairing,
   or fall back to a neutral card with color only in the edges.
 - **Light mode.** A true equal, or a faithful translation of dark?

@@ -3,7 +3,7 @@
 import { useDark } from '../../ui/useDark'
 import { TeamLogo } from './TeamLogo'
 import { pressable } from '../../ui/interaction'
-import { edge, ACCENT_EDGE, TYPE_SCALE } from '../../ui/card'
+import { edge, ACCENT_EDGE, TYPE_SCALE, DISPLAY_FONT } from '../../ui/card'
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { RankMode, Palette, StatDef, Team, TeamPlayerStat, TeamStandingInfo, StandingsDivision } from '../types'
@@ -90,8 +90,8 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
             <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4, mb: 2.5 }}>
               {[['W', wins], ['L', losses], ...(pct ? [['PCT', pct]] : [])].map(([lbl, val]) => (
                 <Box key={lbl as string} sx={{ textAlign: 'center' }}>
-                  <Typography sx={{ color: palette.rank, fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(2), mb: 0.5 }}>{lbl}</Typography>
-                  <Typography sx={{ color: palette.text, fontWeight: 800, fontSize: TYPE_SCALE.hero, lineHeight: 1 }}>{val}</Typography>
+                  <Typography sx={{ color: palette.rank, fontSize: TYPE_SCALE.caption, fontWeight: 700, mb: 0.5 }}>{lbl}</Typography>
+                  <Typography sx={{ color: palette.text, fontWeight: 800, fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.hero, lineHeight: 1 }}>{val}</Typography>
                 </Box>
               ))}
             </Box>
@@ -122,7 +122,7 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
               <Box sx={{ display: 'flex', gap: 2.5 }}>
                 {[['W', wins], ['L', losses], ...(pct ? [['PCT', pct]] : [])].map(([lbl, val]) => (
                   <Box key={lbl as string}>
-                    <Typography sx={{ color: palette.rank, fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.5), mb: 0.25 }}>{lbl}</Typography>
+                    <Typography sx={{ color: palette.rank, fontSize: TYPE_SCALE.caption, fontWeight: 700, mb: 0.25 }}>{lbl}</Typography>
                     <Typography sx={{ color: palette.text, fontWeight: 800, fontSize: TYPE_SCALE.page, lineHeight: 1 }}>{val}</Typography>
                   </Box>
                 ))}
@@ -195,7 +195,7 @@ export function FeaturedMiniCard({
     <Box
       {...pressable(onClick)}
       sx={{
-        borderRadius: 2.5, border: '1px solid', borderColor: 'outline',
+        borderRadius: 3, border: '1px solid', borderColor: 'outline',
         bgcolor: 'background.paper', overflow: 'hidden',
         cursor: 'pointer', transition: 'border-color 0.15s, box-shadow 0.15s',
         '&:hover': { borderColor: ACCENT_EDGE, boxShadow: `0 0 0 1px ${ACCENT}50` },
@@ -210,8 +210,8 @@ export function FeaturedMiniCard({
         px: 1, py: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <Typography sx={{
-          fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase',
-          letterSpacing: typePx(0.8), color: tone(accent, undefined, 5.6), lineHeight: 1,
+          fontSize: TYPE_SCALE.caption, fontWeight: 800, 
+          color: tone(accent, undefined, 5.6), lineHeight: 1,
         }}>
           {awardLabel}
         </Typography>
@@ -269,8 +269,8 @@ export function FeaturedMiniCard({
                 px: 0.25,
               }}>
                 <Typography sx={{
-                  fontSize: TYPE_SCALE.nano, fontWeight: 700, textTransform: 'uppercase',
-                  letterSpacing: typePx(0.6), color: isAward ? accent : 'text.disabled',
+                  fontSize: TYPE_SCALE.nano, fontWeight: 700, 
+                  color: isAward ? accent : 'text.disabled',
                   lineHeight: 1, mb: 0.4,
                 }}>
                   {def.label}
@@ -314,13 +314,13 @@ export function DivisionStandingsCard({
   const accent2Text = textTone(accent2, isDark2, undefined, 5.6)
 
   const hdrSx = {
-    fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase' as const,
-    letterSpacing: typePx(0.5), color: 'text.disabled', lineHeight: 1,
+    fontSize: TYPE_SCALE.caption, fontWeight: 700, 
+    color: 'text.disabled', lineHeight: 1,
   }
   const cellSx = { fontSize: TYPE_SCALE.meta, fontWeight: 600, lineHeight: 1 }
 
   return (
-    <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', overflow: 'hidden' }}>
+    <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', overflow: 'hidden' }}>
       {/* Header */}
       <Box sx={{
         px: 1.5, py: 0.85,

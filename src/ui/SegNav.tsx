@@ -64,7 +64,7 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
   // to the container's center, clamped at the ends. We nudge only the strip's own
   // scrollLeft, never the page, so a swipe can't jog the vertical scroll.
   // The active pill is a SURFACE-colored chip with accent TEXT on it (see below), so the
-  // accent here has to be the foreground-safe variant, since the raw #60a5fa reads at 2.2:1 on a
+  // accent here has to be the foreground-safe variant, since the raw accent reads under 2:1 on a
   // white chip. Callers passing their own accent are already handing us a team color from
   // wpblAccent(), which is foreground-safe by construction.
   // The var rather than wpblAccentFg(useDark()): it is the same pair of blues keyed on the

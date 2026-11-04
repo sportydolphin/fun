@@ -7,7 +7,7 @@ export { BOTTOM_NAV_SPACE, MORE_KEY }
 
 export default function WpblBottomNav(props: Omit<ComponentProps<typeof BottomNav>, 'accent' | 'badgeColor' | 'label' | 'moreLabel'>) {
   return (
-    // The active tab is a LABEL, so it takes the text-safe accent: the raw #60a5fa measured 2.5:1
+    // The active tab is a LABEL, so it takes the text-safe accent: the raw accent measures under 2:1
     // on the light bar. The "new" dot is a fill and keeps the solid one.
     <BottomNav {...props} accent="var(--wpbl-accent-fg)" badgeColor="var(--wpbl-accent-solid)"
       label="WPBL sections" moreLabel="More WPBL pages" />

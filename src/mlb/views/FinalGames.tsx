@@ -16,7 +16,7 @@ import { scrollBehavior } from '../../lib/motion'
 import { bracketLikely } from '../postseason'
 import { gameLink, LINK_SX } from '../lib/links'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
-import { chromePx, typePx } from '../../ui/scale'
+import { chromePx } from '../../ui/scale'
 import { MlbTabTitle } from '../components/PageHeading'
 
 // Loaded on first game click, which keeps the Game Center out of the home bundle.
@@ -142,7 +142,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
         {isLive && <LiveDot size={5} />}
         <Typography sx={{
           fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(statusColor),
-          letterSpacing: typePx(0.5), textTransform: 'uppercase', lineHeight: 1, whiteSpace: 'nowrap',
+          lineHeight: 1, whiteSpace: 'nowrap',
         }}>
           {game.statusText}
         </Typography>
@@ -504,8 +504,8 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
           display: 'flex', alignItems: 'center', gap: 1,
         }}>
           <Typography sx={{
-            fontWeight: 800, fontSize: TYPE_SCALE.micro, textTransform: 'uppercase',
-            letterSpacing: typePx(1), color: 'text.secondary', lineHeight: 1,
+            fontWeight: 800, fontSize: TYPE_SCALE.micro, 
+            color: 'text.secondary', lineHeight: 1,
           }}>
             Scores
           </Typography>
@@ -616,7 +616,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick, 
                     pl: 0.5, pr: 0.25, borderLeft: '1px solid', borderColor: 'divider', ml: 0.5,
                   }}>
                     <Typography sx={{
-                      fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase',
+                      fontSize: TYPE_SCALE.caption, fontWeight: 800, 
                       color: 'text.secondary', writingMode: 'vertical-rl', transform: 'rotate(180deg)', lineHeight: 1,
                     }}>
                       {dateLabel(earlier.date)}

@@ -52,7 +52,7 @@ export function FinalStandings({ rows, orderIds, cadence, teamHref, onNavigate }
       <Box sx={{
         display: 'grid', gridTemplateColumns: { xs: ST_COLS_XS, sm: ST_COLS }, alignItems: 'center', gap: 1,
         px: 1.25, py: 0.75, borderBottom: '1px solid', borderColor: 'divider',
-        fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em',
+        fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: '0.04em',
         color: 'text.secondary',
       }}>
         <Box />

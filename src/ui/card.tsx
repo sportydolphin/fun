@@ -7,7 +7,6 @@ import React from 'react'
 import { Box, Typography } from '@mui/material'
 import type { Theme } from '@mui/material'
 import { TAPPABLE, FOCUS_RING, pressable, linkPress } from './interaction'
-import { typePx } from './scale'
 import { edgeTone } from '../lib/contrast'
 import { titleCase } from '../lib/format'
 
@@ -26,8 +25,8 @@ export const CARD_BORDER = (t: Theme) => t.palette.outline
 export const edge = (hex: string) => (t: Theme) => edgeTone(hex, t.palette.mode === 'dark')
 
 /** The site accent as an outline: a selected chip, a lit tab, a hovered control. The text-safe
- *  accent rather than the raw #60a5fa, which measured 2.37:1 on the light page; in dark mode the
- *  two are the same blue. */
+ *  accent rather than the raw #2dd4bf, which measures under 2:1 on the light page; in dark mode the
+ *  two are the same teal. */
 export const ACCENT_EDGE = 'var(--wpbl-accent-fg)'
 
 /** The outline of a box nested INSIDE a card (a bracket series, a game chip). The card's own
@@ -126,9 +125,28 @@ export const ICON_SIZE = {
  *  sequence: with the tabs in the toolbar there is no pill row between them to absorb a change,
  *  so Home's display-size title next to four smaller ones read as the page jumping on every switch.
  *  The size of a standalone page's (WpblPage) on a desktop, a step down on a phone. */
+/** The brand color, the one hue the site owns (ROADMAP-UI.md, the audit, Nov 3, 2026). `raw` is
+ *  the teal for a mark, a fill or a dark-mode line; `fg` is the same accent safe as TEXT in both
+ *  themes; `solid` is the fill that takes white text. The lint refuses these hexes anywhere but the
+ *  token files, so the accent is changed here, in styles.css and in ThemeContext, and nowhere else. */
+export const BRAND = { raw: '#2dd4bf', fg: 'var(--wpbl-accent-fg)', solid: 'var(--wpbl-accent-solid)' } as const
+
+/** The gap between two columns of sections. Wider than the 12px that sat between framed cards: with
+ *  no frame, the column gutter is all that keeps two sections' rules and headings apart. */
+export const SECTION_COLUMN_GAP = 4
+
+/** The corner scale, in MUI's 4px unit, and the only values `borderRadius` may take (the lint
+ *  enforces it): `sm` a chip, a bar, a row's hover; `md` a box inside a card; `lg` a card or a sheet;
+ *  `pill` anything round-ended. Twelve radii from 2px to 20px collapsed onto these Nov 3, 2026. */
+export const RADIUS = { none: 0, sm: 1, md: 2, lg: 3, pill: 999 } as const
+
+/** The display face, for scores, the one big number on a card, and page titles. Never a player's
+ *  name: the name fits (names.ts) are measured in Inter. styles.css has the why. */
+export const DISPLAY_FONT = '"Barlow Condensed", Inter, system-ui, -apple-system, "Segoe UI", sans-serif'
+
 export const TAB_TITLE_SX = {
   fontSize: { xs: TYPE_SCALE.heading, md: TYPE_SCALE.page },
-  fontWeight: 800, letterSpacing: typePx(-0.3), lineHeight: 1.15,
+  fontFamily: DISPLAY_FONT, fontWeight: 700, letterSpacing: 0, lineHeight: 1.15,
 } as const
 
 // Disclosure chevron, drawn from a rotated border corner rather than pulled from an icon
@@ -152,7 +170,7 @@ export function Chevron({ open }: { open: boolean }) {
   )
 }
 
-export function SectionCard({ id, title, titleAdornment, subtitle, action, actionWraps, collapsed, onToggleCollapse, fill, bare, frameless, children }: {
+export function SectionCard({ id, title, titleAdornment, subtitle, action, actionWraps, collapsed, onToggleCollapse, fill, bare, frameless, framed, children }: {
   /** An anchor a page can be asked to scroll to (lib/sectionScroll.ts). */
   id?: string
   title: string
@@ -198,11 +216,29 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
    *  frame costs width the content cannot spare. Framed as normal from `sm` up, where the room is
    *  there. Off by default. */
   frameless?: boolean
+  /** Draw the old outlined box. For a card that is ONE thing a reader taps or reads as an object,
+   *  never for a list, a table or prose. Off by default; see the section note below. */
+  framed?: boolean
   children: React.ReactNode
 }) {
   const collapsible = !!onToggleCollapse
+  // A SECTION, NOT A CARD, by default (Nov 3, 2026, ROADMAP-UI.md's audit, option B). Every module
+  // on the site was the same outlined box in a grid, which is what made it read as generated. A
+  // read-only grouping now has no border, no fill and no corners: its heading, the space around it
+  // and one rule above it are the grouping. Not a lift either: in dark mode a lighter surface means
+  // "this floats" (ThemeContext.tsx, v1.157.0), so fills stay for sheets and menus. Nothing here is
+  // a control, so dropping the edge drops no 3:1 boundary (src/CLAUDE.md, "Borders"). The padding
+  // stays, so a body that bleeds a row or a band to the old edge with negative margins still lands
+  // inside the section and nothing moves.
+  const section = !framed
   return (
-    <Box id={id} sx={[{
+    <Box id={id} sx={[section ? {
+      scrollMarginTop: id ? 'calc(var(--app-header-h, 0px) + 8px)' : undefined,
+      overflow: 'hidden',
+      // The one rule, on top only: `divider`, a row rule, which the Borders rule leaves lighter.
+      borderTop: '1px solid', borderTopColor: 'divider',
+      ...(fill ? { display: 'flex', flexDirection: 'column' } : {}),
+    } : {
       // Lands below the pinned toolbar when scrolled to, rather than under it.
       scrollMarginTop: id ? 'calc(var(--app-header-h, 0px) + 8px)' : undefined,
       borderRadius: frameless ? { xs: 0, sm: 3 } : 3, overflow: 'hidden',
@@ -304,7 +340,6 @@ export function SectionLabel({ children, strong }: { children: React.ReactNode; 
     <Typography sx={{
       fontSize: strong ? TYPE_SCALE.body : TYPE_SCALE.caption,
       fontWeight: strong ? 800 : 700,
-      textTransform: 'uppercase', letterSpacing: typePx(1.8),
       color: strong ? 'text.primary' : 'text.disabled', mb: 1,
     }}>
       {children}

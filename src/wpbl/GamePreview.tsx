@@ -11,7 +11,6 @@ import { useEraBasis } from './EraBasisContext'
 import { useWpblPlayerLink } from './LinkContext'
 import { teamLeaders, LeaderTable } from './TeamLeaders'
 import type { WpblTeam, WpblGame, WpblPlayer } from './types'
-import { typePx } from '../ui/scale'
 import { useWpblSeason } from './SeasonContext'
 
 // WPBL's binding of the game preview (the drawing is src/ui/gamePreview.tsx), shown inside Game
@@ -204,7 +203,6 @@ export function WpblGamePreview({ away, home, teams, games: allGames, onOpenTeam
               {p.position && (
                 <Typography sx={{
                   flexShrink: 0, fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled',
-                  textTransform: 'uppercase', letterSpacing: typePx(0.3),
                 }}>{p.position}</Typography>
               )}
             </Box>

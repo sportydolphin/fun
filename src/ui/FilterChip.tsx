@@ -1,7 +1,7 @@
 import React from 'react'
 import { Box } from '@mui/material'
 import { pressable, hoverOnly, FOCUS_RING } from './interaction'
-import { CARD_BORDER, ACCENT_EDGE, TYPE_SCALE } from './card'
+import { CARD_BORDER, ACCENT_EDGE, TYPE_SCALE, BRAND } from './card'
 import { chromePx } from './scale'
 
 // A FILTER on the board in front of the reader: a club, a slice of the season, the qualifying
@@ -12,9 +12,9 @@ import { chromePx } from './scale'
 // with its row and its new-item dot, so a filter reads the same on every page of both sections.
 
 /** Both sections' accent, raw, for the 7% tint. The EDGE takes the foreground-safe var with the
- *  text: raw #60a5fa measured 2.37:1 on the light page, under the 3:1 an outline needs (CLAUDE.md,
+ *  text: raw accent measured under 3:1 on the light page, under the 3:1 an outline needs (CLAUDE.md,
  *  "Borders"), and the var is the same blue in dark mode, where it already passed. */
-const ACCENT = '#60a5fa'
+const ACCENT = BRAND.raw
 
 /** The chip's look, for the two controls in the same row that are not toggles: a select (the
  *  season) and a button that opens a picker. Until Oct 2026 MLB drew those as pills of their own,

@@ -35,7 +35,6 @@ import { passwordProblem } from './lib/passwordPolicy'
 import { PasswordChecklist } from './PasswordChecklist'
 import { useAccessibilitySettings, type TextScale } from './AccessibilityContext'
 import { track, EVENTS } from './lib/analytics'
-import { typePx } from './ui/scale'
 import { ICON_SIZE, TYPE_SCALE } from './ui/card'
 
 interface Props {
@@ -75,7 +74,7 @@ function SettingsLabel({ children, icon, danger, sx }: {
         <Box aria-hidden sx={{ display: 'flex', color, '& > svg': { fontSize: ICON_SIZE.sm } }}>{icon}</Box>
       )}
       <Typography sx={{
-        fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
+        fontSize: TYPE_SCALE.micro, fontWeight: 800, 
         color, ...sx,
       }}>
         {children}

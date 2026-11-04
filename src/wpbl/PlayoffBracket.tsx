@@ -248,8 +248,8 @@ function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, bare, chi
         shouts, through the color and the border. */}
         {elim && (
           <Typography sx={{
-            fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase',
-            color: 'error.main', border: '1px solid', borderColor: 'error.main', borderRadius: 0.75,
+            fontSize: TYPE_SCALE.caption, fontWeight: 800, 
+            color: 'error.main', border: '1px solid', borderColor: 'error.main', borderRadius: 1,
             px: 0.5, py: 0.05, whiteSpace: 'nowrap', lineHeight: 1.3,
           }}>Elimination</Typography>
         )}
@@ -268,8 +268,8 @@ function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, bare, chi
         column, on purpose. */}
         {showOdds && (
           <Typography sx={{
-            fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.6),
-            textTransform: 'uppercase', color: 'text.disabled', flexShrink: 0,
+            fontSize: TYPE_SCALE.caption, fontWeight: 800, 
+            color: 'text.disabled', flexShrink: 0,
           }}>Odds</Typography>
         )}
         {/* The affordance. A box that opens something has to say so somewhere, and the header
@@ -306,7 +306,7 @@ function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, bare, chi
           {season && (
             <Typography sx={{
               fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled',
-              textTransform: 'uppercase', letterSpacing: typePx(0.6), whiteSpace: 'nowrap', flexShrink: 0,
+              whiteSpace: 'nowrap', flexShrink: 0,
             }}>{season}</Typography>
           )}
         </Box>
@@ -432,7 +432,7 @@ export function BracketDiagram({ bracket, odds, onOpenSeries, onOpenTeam, picks,
           "The winners meet in the" it was until Oct 21, 2026. */}
       <Typography sx={{
         display: { xs: 'block', sm: 'none' },
-        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase',
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, 
         color: 'text.disabled', textAlign: 'center', mt: 0.25,
       }}>Final</Typography>
       {/* THE CHAMPIONSHIP TAKES THE WHOLE COLUMN, AND THE TITLE ODDS ARE INSIDE IT.
@@ -540,20 +540,20 @@ function TitleOddsStrip({ odds, bracket, picks, onOpenTeam }: {
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.9, mb: 0.75, px: 0.5 }}>
         <Typography sx={{
           flex: 1, minWidth: 0,
-          fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase',
+          fontSize: TYPE_SCALE.caption, fontWeight: 800, 
           color: 'text.disabled',
         }}>Chance to win it all</Typography>
         {fans && (
           <>
             <Typography sx={{
               width: '2.5rem', flexShrink: 0, textAlign: 'center',
-              fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.6),
-              textTransform: 'uppercase', color: 'text.disabled',
+              fontSize: TYPE_SCALE.caption, fontWeight: 800, 
+              color: 'text.disabled',
             }}>Odds</Typography>
             <Typography sx={{
               width: '2.5rem', flexShrink: 0, textAlign: 'center',
-              fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.6),
-              textTransform: 'uppercase', color: 'text.disabled',
+              fontSize: TYPE_SCALE.caption, fontWeight: 800, 
+              color: 'text.disabled',
             }}>Fans</Typography>
           </>
         )}
@@ -592,7 +592,7 @@ function TitleOddsStrip({ odds, bracket, picks, onOpenTeam }: {
               }}>{t.team.name}</Typography>
               {/* The bar fills the row: name on the left, percentage on the right, no gap
                   between. Length is the probability, so the four bars are directly comparable. */}
-              <Box sx={{ flex: 1, minWidth: 0, height: 8, borderRadius: 4, overflow: 'hidden', bgcolor: 'action.hover' }}>
+              <Box sx={{ flex: 1, minWidth: 0, height: 8, borderRadius: 999, overflow: 'hidden', bgcolor: 'action.hover' }}>
                 <Box sx={{ width: `${Math.max(t.p * 100, t.p > 0 ? 2 : 0)}%`, height: '100%', bgcolor: accent }} />
               </Box>
               <Typography sx={{

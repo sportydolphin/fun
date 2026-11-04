@@ -1,8 +1,8 @@
 import React from 'react'
 import { Box, Skeleton, Typography } from '@mui/material'
-import { TYPE_SCALE } from '../../ui/card'
+import { TYPE_SCALE, DISPLAY_FONT } from '../../ui/card'
 import { NameText } from '../../ui/NameText'
-import { chromePx, typePx } from '../../ui/scale'
+import { chromePx } from '../../ui/scale'
 import { LiveDot } from '../components/boxScore'
 import { BaseDiamond } from '../components/LiveGameCard'
 import { TeamLogo } from '../components/TeamLogo'
@@ -95,7 +95,7 @@ export function ScoreRow({ game, accent, onClick }: { game: FinalGameSummary; ac
           {t.abbr}
         </Typography>
       </Box>
-      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: ahead(t, o) ? 800 : 700, lineHeight: 1, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: dim(t, o) ? 'text.secondary' : 'text.primary' }}>
+      <Typography sx={{ fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.title, fontWeight: ahead(t, o) ? 800 : 700, lineHeight: 1, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: dim(t, o) ? 'text.secondary' : 'text.primary' }}>
         {played ? t.runs : ''}
       </Typography>
       <Box sx={{ minWidth: 0, pl: 1.25 }}>{detail}</Box>
@@ -111,7 +111,7 @@ export function ScoreRow({ game, accent, onClick }: { game: FinalGameSummary; ac
       <Box sx={{ display: 'grid', gridTemplateColumns: COLUMNS, alignItems: 'center' }}>
         <Box sx={{ gridRow: 'span 2', display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, pr: 0.5 }}>
           {isLive && !game.delayed && <LiveDot size={5} />}
-          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: statusColor, letterSpacing: typePx(0.3), textTransform: 'uppercase', lineHeight: 1.15 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: statusColor, lineHeight: 1.15 }}>
             {statusLabel(game)}
           </Typography>
         </Box>

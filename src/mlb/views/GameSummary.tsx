@@ -12,7 +12,7 @@ import { SectionLabel } from '../components/boxScore'
 import { edgeTone, chartPairColors, inkOn, textTone } from '../lib/colorUtils'
 import { playerLink, LINK_SX } from '../lib/links'
 import { linkPress, hoverOnly, FOCUS_RING } from '../../ui/interaction'
-import { chromePx, typePx } from '../../ui/scale'
+import { chromePx } from '../../ui/scale'
 import { useUnits } from '../../UnitsContext'
 import { fetchBracket, seriesName, winsNeeded } from '../postseason'
 import type { PsSeries } from '../postseason'
@@ -67,7 +67,7 @@ export function SeriesBand({ s, gamePk, season, onOpen }: {
   return (
     <Box sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', borderTop: '1px solid', borderColor: 'divider' }}>
       <Box sx={{ minWidth: 0, flex: 1 }}>
-        <Typography sx={{ fontSize: GC_CAPS, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'primary.main', lineHeight: 1.3 }}>
+        <Typography sx={{ fontSize: GC_CAPS, fontWeight: 800, color: 'primary.main', lineHeight: 1.3 }}>
           {seriesName(s)} · Game {g.number} of {s.bestOf}
         </Typography>
         {line && <Typography sx={{ fontSize: GC_BODY, fontWeight: 700, lineHeight: 1.35 }}>{line}</Typography>}
@@ -89,7 +89,7 @@ export function SeriesBandSkeleton() {
   return (
     <Box aria-hidden sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', gap: 1.5, borderTop: '1px solid', borderColor: 'divider', visibility: 'hidden' }}>
       <Box sx={{ minWidth: 0, flex: 1 }}>
-        <Typography sx={{ fontSize: GC_CAPS, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', lineHeight: 1.3 }}>Series</Typography>
+        <Typography sx={{ fontSize: GC_CAPS, fontWeight: 800, lineHeight: 1.3 }}>Series</Typography>
         <Typography sx={{ fontSize: GC_BODY, fontWeight: 700, lineHeight: 1.35 }}>Series</Typography>
       </Box>
       <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25, flexShrink: 0, fontSize: GC_META, fontWeight: 800, px: 1.4, py: 0.6, border: '1px solid' }}>
@@ -126,7 +126,7 @@ export function TopPerformers({ performers, onPlayerClick }: {
               </Box>
             </Box>
             <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontSize: GC_CAPS, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: typePx(0.6), lineHeight: 1.3 }}>
+              <Typography sx={{ fontSize: GC_CAPS, fontWeight: 700, color: 'text.secondary', lineHeight: 1.3 }}>
                 {KIND_LABEL[p.kind] ?? p.kind}
               </Typography>
               <Typography {...playerLink(p.id, p.name, onPlayerClick)} sx={{
@@ -260,7 +260,7 @@ export function GameInfo({ info }: { info: GameInfoData }) {
       <Box sx={{ mt: 1.25, display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))' }, columnGap: 2, rowGap: 1.5 }}>
         {shown.map(([k, v]) => (
           <Box key={k} sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontSize: GC_CAPS, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: typePx(0.6), lineHeight: 1.3 }}>{k}</Typography>
+            <Typography sx={{ fontSize: GC_CAPS, fontWeight: 700, color: 'text.secondary', lineHeight: 1.3 }}>{k}</Typography>
             <Typography sx={{ fontSize: GC_BODY, fontWeight: 600, lineHeight: 1.35, mt: 0.25 }}>{v}</Typography>
           </Box>
         ))}

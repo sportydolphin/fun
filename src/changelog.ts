@@ -23,6 +23,36 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.208.0',
+    date:    '2026-11-03',
+    changes: [
+      {
+        short: 'New look',
+        full:  'A teal accent in place of the blue, a condensed face for scores, big numbers and page titles, and one set of corner sizes across the site.',
+      },
+      {
+        short: 'Sections',
+        full:  'Lists, tables and leader boards sit on the page under a heading and a rule, without a box around each one. Games, chips and the followed team keep theirs.',
+      },
+      {
+        short: 'Labels',
+        full:  'Labels are in sentence case. Stat table headers and the champions banners keep their capitals.',
+      },
+      {
+        short: 'League switch',
+        full:  'The MLB and WPBL switch is a plain gray slider in both sections, with no rainbow and no confetti.',
+      },
+      {
+        short: 'Player Spotlight',
+        full:  'WPBL Player Spotlight never shows the same player as the Star of the final beside it.',
+      },
+      {
+        short: 'MLB Home',
+        full:  'With nothing followed, MLB Home shows one Following card with + Team and + Player in place of two empty cards.',
+      },
+    ],
+  },
+  {
     version: '1.207.2',
     date:    '2026-11-06',
     changes: [

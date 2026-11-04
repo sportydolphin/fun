@@ -339,7 +339,7 @@ function MatchupCard({ label, player, teamId, onSelect }: {
       }}
     >
       <Box sx={{
-        width: chromePx(40), height: chromePx(50), borderRadius: 1.5, overflow: 'hidden', flexShrink: 0,
+        width: chromePx(40), height: chromePx(50), borderRadius: 2, overflow: 'hidden', flexShrink: 0,
         border: '2px solid', borderColor: edge(col), bgcolor: 'action.hover',
       }}>
         {player && (
@@ -350,7 +350,7 @@ function MatchupCard({ label, player, teamId, onSelect }: {
         )}
       </Box>
       <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(accent), textTransform: 'uppercase', letterSpacing: typePx(0.8), lineHeight: 1 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(accent), lineHeight: 1 }}>
           {label}
         </Typography>
         <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, lineHeight: 1.2, mt: 0.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -383,7 +383,7 @@ function SituationPanel({ sit, onPlayerClick }: {
         // Between innings there's no live count/outs/bases, so just flag who's due up.
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mb: 1.25 }}>
           <Box sx={{ width: chromePx(6), height: chromePx(6), borderRadius: '50%', bgcolor: 'text.disabled', flexShrink: 0 }} />
-          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: typePx(0.8) }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.secondary' }}>
             Due up next inning
           </Typography>
         </Box>
@@ -556,7 +556,7 @@ function PlayCard({ p, onPlayerClick }: { p: GcPlay; onPlayerClick?: (id: number
         {named ? <>
           <Box component="span" {...link} sx={{
             ...LINK_SX, fontWeight: 700,
-            ...('href' in link ? { ...FOCUS_RING, cursor: 'pointer', borderRadius: 0.5, ...hoverOnly({ textDecoration: 'underline' }) } : {}),
+            ...('href' in link ? { ...FOCUS_RING, cursor: 'pointer', borderRadius: 1, ...hoverOnly({ textDecoration: 'underline' }) } : {}),
           }}>{p.batter}</Box>
           {head.slice(p.batter.length)}
         </> : head}
@@ -612,7 +612,7 @@ function PlaysList({ plays, away, home, scoringOnly, expanded, onToggle, onPlaye
               {showHeader && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, pt: 1.25, pb: 0.5 }}>
                   <TeamLogo teamId={p.battingTeamId} abbr={TEAM_ABBR[p.battingTeamId] ?? ''} size={18} />
-                  <Typography noWrap sx={{ minWidth: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary' }}>
+                  <Typography noWrap sx={{ minWidth: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary' }}>
                     {label(p)}
                   </Typography>
                 </Box>
@@ -928,7 +928,7 @@ function GameCenterView({ game, onClose, onPlayerClick, onTeamClick, initialTab,
       aria-pressed={scoringOnly === value}
       sx={{
         ...FOCUS_RING, whiteSpace: 'nowrap',
-        px: 1.25, py: 0.6, borderRadius: 99, cursor: 'pointer', userSelect: 'none',
+        px: 1.25, py: 0.6, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
         fontSize: GC_CAPS, fontWeight: 800, lineHeight: 1,
         color: scoringOnly === value ? 'text.primary' : 'text.secondary',
         border: '1px solid', borderColor: scoringOnly === value ? 'text.secondary' : 'outline',
@@ -996,7 +996,7 @@ function GameCenterView({ game, onClose, onPlayerClick, onTeamClick, initialTab,
           sx={{
             ...FOCUS_RING, display: 'inline-flex', alignItems: 'center', gap: 0.4, mr: 0.5, whiteSpace: 'nowrap',
             px: 0.75, minHeight: chromePx(28), borderRadius: 1, cursor: 'pointer', userSelect: 'none',
-            fontSize: GC_CAPS, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase',
+            fontSize: GC_CAPS, fontWeight: 800, 
             color: 'text.secondary', ...hoverOnly({ color: 'text.primary' }),
           }}
         >
@@ -1219,7 +1219,7 @@ function GamePageLayout({ gamePk, heading, eyebrow, actions, onBack, header, awa
   const section = (key: keyof typeof GC_SECTION, title: string, body: React.ReactNode, controls?: React.ReactNode) => (
     <Box component="section" id={GC_SECTION[key]} aria-label={title} sx={{ ...cardSx, gridArea: key, minWidth: 0, scrollMarginTop }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider' }}>
-        <Typography component="h2" sx={{ fontSize: GC_CAPS, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary' }}>
+        <Typography component="h2" sx={{ fontSize: GC_CAPS, fontWeight: 800, color: 'text.secondary' }}>
           {title}
         </Typography>
         {/* The plays' controls are drawn from the first frame, hidden, so the header is its own height

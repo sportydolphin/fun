@@ -67,7 +67,7 @@ function StatTiles({ items }: { items: { label: string; value: string }[] }) {
       {items.map(it => (
         <Box key={it.label} sx={{ textAlign: 'center', minWidth: 0 }}>
           <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{it.value}</Typography>
-          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled' }}>{it.label}</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled' }}>{it.label}</Typography>
         </Box>
       ))}
     </Box>
@@ -169,7 +169,7 @@ function LeaderList({ label, note, rows, accent, onOpenPlayer }: {
   if (rows.length === 0) return null
   return (
     <Box sx={{ mb: 1.25, '&:last-of-type': { mb: 0 } }}>
-      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', mb: 0.4 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled', mb: 0.4 }}>
         {label}
         {note && <Box component="span" sx={{ ml: 0.75, fontWeight: 600, letterSpacing: typePx(0.3), textTransform: 'none' }}>{note}</Box>}
       </Typography>
@@ -979,7 +979,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
                         {stats.map(s => (
                           <Box key={s.label} sx={{ textAlign: 'right', minWidth: '2.125rem' }}>
                             <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{s.value}</Typography>
-                            <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.3), color: 'text.disabled' }}>{s.label}</Typography>
+                            <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled' }}>{s.label}</Typography>
                           </Box>
                         ))}
                       </Box>

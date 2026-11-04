@@ -1,6 +1,6 @@
 import React from 'react'
 import { Box, Skeleton, Typography } from '@mui/material'
-import { SectionCard, CardLink, TYPE_SCALE } from './card'
+import { SectionCard, CardLink, TYPE_SCALE, SECTION_COLUMN_GAP } from './card'
 import { FOCUS_RING } from './interaction'
 import { chromePx } from './scale'
 import { useLineNameFit, nameAtStage } from './names'
@@ -33,10 +33,12 @@ const CARD_MIN = `calc(12.25rem + ${chromePx(124)})`
  *  caps the width, so 1920 is three too), two at Large text up to about 1280. The second term, a
  *  quarter of the row less a gap, stops a fifth if the column is ever widened. */
 export const LEADER_GRID_SX = {
-  display: 'grid', gap: 1.5,
+  // The section column gap, not the 12px framed cards had: unframed boards need the gutter to
+  // stay apart. The fifth-column guard subtracts the same gap.
+  display: 'grid', columnGap: SECTION_COLUMN_GAP, rowGap: 1.5,
   gridTemplateColumns: {
     xs: '1fr',
-    sm: `repeat(auto-fill, minmax(min(100%, max(${CARD_MIN}, calc(25% - ${chromePx(12)}))), 1fr))`,
+    sm: `repeat(auto-fill, minmax(min(100%, max(${CARD_MIN}, calc(25% - ${chromePx(SECTION_COLUMN_GAP * 8)}))), 1fr))`,
   },
 } as const
 

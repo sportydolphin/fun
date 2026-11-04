@@ -1,5 +1,6 @@
 import { Box } from '@mui/material'
 import { chromePx } from './scale'
+import { BRAND } from './card'
 
 // Moved out of src/wpbl/ui.tsx in Oct 2026, when MLB's play-by-play took WPBL's play row and with it
 // the diamond and out lamps that close each row. One glyph for both sections, for the reason below.
@@ -48,7 +49,7 @@ export function basesPhrase(first: boolean, second: boolean, third: boolean): st
  * strip whose other lengths are raw px, where scaling one of them pulls the row apart.
  * See the scale rules in CLAUDE.md.
  */
-export function BaseDiamond({ first, second, third, size = 34, scale, color = '#60a5fa', context }: {
+export function BaseDiamond({ first, second, third, size = 34, scale, color = BRAND.raw, context }: {
   first: boolean; second: boolean; third: boolean
   size?: number
   scale: 'chrome' | 'none'

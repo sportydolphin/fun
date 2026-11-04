@@ -93,7 +93,7 @@ export default function CountBoard({ counts, fullCount, accent }: {
                 if (!c) {
                   return (
                     <Box key={st} sx={{
-                      borderRadius: 1.5, border: '1px dashed', borderColor: 'outline',
+                      borderRadius: 2, border: '1px dashed', borderColor: 'outline',
                       py: 1.4, textAlign: 'center',
                     }}>
                       <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled' }}>—</Typography>
@@ -106,7 +106,7 @@ export default function CountBoard({ counts, fullCount, accent }: {
                 const { fill, ink } = heatCell(mixHex(c.per >= 0 ? accent : neg, card, 0.25 + 0.75 * (Math.abs(c.per) / span)))
                 return (
                   <Box key={st} sx={{
-                    borderRadius: 1.5, py: 0.9, px: 0.5, textAlign: 'center',
+                    borderRadius: 2, py: 0.9, px: 0.5, textAlign: 'center',
                     bgcolor: fill, color: ink,
                   }}>
                     <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'inherit' }}>

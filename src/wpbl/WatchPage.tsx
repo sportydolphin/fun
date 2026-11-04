@@ -334,7 +334,7 @@ const GAME_CARD = {
 } as const
 const GAME_THUMB = {
   gridArea: 'thumb', alignSelf: 'start', position: 'relative',
-  m: { xs: 1, sm: 0 }, mr: { xs: 0, sm: 0 }, borderRadius: { xs: 1.5, sm: 0 }, overflow: 'hidden',
+  m: { xs: 1, sm: 0 }, mr: { xs: 0, sm: 0 }, borderRadius: { xs: 2, sm: 0 }, overflow: 'hidden',
 } as const
 const GAME_INFO = {
   gridArea: 'info', minWidth: 0, p: { xs: 1, sm: 1.25 }, pb: { xs: 0.5, sm: 0.5 },

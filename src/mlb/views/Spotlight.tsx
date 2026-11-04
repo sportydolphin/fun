@@ -618,7 +618,7 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
       // Whole-card click; the name and club inside are the links (see rowClick).
       {...rowClick(onPlayerClick && (() => onPlayerClick(data.playerId)))}
       sx={{
-      flex: 1, minWidth: 0, borderRadius: 2.5, overflow: 'hidden',
+      flex: 1, minWidth: 0, borderRadius: 3, overflow: 'hidden',
       // Outline follows labelColor so the "On Fire" card reads orange in dark mode.
       border: '1px solid', borderColor: edgeTone(labelColor, isDark),
       bgcolor: 'background.paper',
@@ -635,8 +635,8 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
         display: 'flex', alignItems: 'center', gap: 0.75,
       }}>
         <Typography sx={{
-          fontWeight: 800, fontSize: TYPE_SCALE.micro, textTransform: 'uppercase',
-          letterSpacing: typePx(1), color: (labelColor && tone(labelColor)), flex: 1, lineHeight: 1,
+          fontWeight: 800, fontSize: TYPE_SCALE.micro, 
+          color: (labelColor && tone(labelColor)), flex: 1, lineHeight: 1,
         }}>
           {mode === 'hot' ? 'Hot' : 'Cold'}
         </Typography>
@@ -699,7 +699,6 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
                 </Typography>
                 <Typography sx={{
                   fontSize: TYPE_SCALE.caption, fontWeight: 700,
-                  textTransform: 'uppercase', letterSpacing: typePx(0.5),
                   color: 'text.secondary',
                   lineHeight: 1, mt: 0.2,
                 }}>

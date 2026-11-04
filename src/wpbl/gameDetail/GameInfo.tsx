@@ -1,6 +1,5 @@
 import { Box, Typography } from '@mui/material'
 import { boxScoreRevision, formatRevisionDay } from '../derive/feedHealth'
-import { typePx } from '../../ui/scale'
 import type { WpblGame, WpblGameDetails } from '../types'
 import { TYPE_SCALE } from '../../ui/card'
 
@@ -55,7 +54,7 @@ export function GameInfo({ game, details }: { game: WpblGame; details: WpblGameD
   return (
     <Box sx={{ px: 2, pt: 2.5, pb: 1 }}>
       <Typography sx={{
-        fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1),
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, 
         color: 'text.disabled', mb: 0.75,
       }}>Game info</Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 2, rowGap: 0.5 }}>

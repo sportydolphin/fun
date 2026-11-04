@@ -278,7 +278,7 @@ export function ReadingLead({ article, teamById, from, isNew, onOpen, ghost }: {
         widths={[480, 800, 1200]} sizes="(max-width: 899px) 100vw, 640px"
         sx={{ aspectRatio: '16 / 9' }} />
       <Box sx={{ p: { xs: 1.5, md: 2.25 }, display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
-        <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary' }}>
           Latest
         </Typography>
         <Typography sx={{ fontSize: { xs: TYPE_SCALE.display, md: TYPE_SCALE.page }, fontWeight: 800, lineHeight: 1.2, letterSpacing: typePx(-0.2), mt: 0.5 }}>
@@ -329,7 +329,7 @@ export function ReadingCard({ article, teamById, from, isNew, onOpen, ghost, row
         // Unboxed as a row: the rows only appear inside Home's Reading card, where each one's own
         // border made a box inside a box, three times over. The card's divider separates them
         // instead (ReadingHomeCard), and the hover fill still marks the row under the pointer.
-        ...(rows ? { border: 'none', bgcolor: 'transparent', borderRadius: 1.5 } : null),
+        ...(rows ? { border: 'none', bgcolor: 'transparent', borderRadius: 2 } : null),
       }}
     >
       <Cover article={article} teamById={teamById} badge={18} fresh={isNew}
@@ -382,14 +382,14 @@ export function GameStoryCard({ article }: { article: WpblArticle }) {
         '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
       }}
     >
-      <Box sx={{ position: 'relative', width: chromePx(108), flexShrink: 0, aspectRatio: '16 / 9', borderRadius: 1.5, overflow: 'hidden', bgcolor: 'action.hover' }}>
+      <Box sx={{ position: 'relative', width: chromePx(108), flexShrink: 0, aspectRatio: '16 / 9', borderRadius: 2, overflow: 'hidden', bgcolor: 'action.hover' }}>
         {article.cover_url && (
           <Box component="img" src={coverAt(article.cover_url, 280) ?? undefined} alt="" loading="lazy"
             sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
         )}
       </Box>
       <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary' }}>
           Story
         </Typography>
         <Typography sx={{
@@ -448,7 +448,7 @@ export function GameRecapLinkCard({ recap }: { recap: WpblGameRecap }) {
     >
       <Box sx={{
         position: 'relative', width: chromePx(108), flexShrink: 0, aspectRatio: '16 / 9',
-        borderRadius: 1.5, overflow: 'hidden', bgcolor: 'action.hover',
+        borderRadius: 2, overflow: 'hidden', bgcolor: 'action.hover',
       }}>
         {thumb && (
           <Box component="img" src={thumb} alt="" loading="lazy"
@@ -461,7 +461,7 @@ export function GameRecapLinkCard({ recap }: { recap: WpblGameRecap }) {
             Its sibling `GameStoryCard` says "Story" for the same reason: the two sit one above
             the other and a reader should be able to tell them apart at a glance rather than by
             reading two near-identical sentences. */}
-        <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary' }}>
           Recap
         </Typography>
         <Typography sx={{
