@@ -28,7 +28,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'New look',
-        full:  'A teal accent in place of the blue, a condensed face for scores, big numbers and page titles, and one set of corner sizes across the site.',
+        full:  'A teal accent in place of the blue, a condensed face for scores, big numbers, page titles and section headings, and one set of corner sizes across the site.',
       },
       {
         short: 'Sections',
@@ -36,7 +36,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'WPBL Home',
-        full:  'The season’s champion leads WPBL Home across the full width. Player Spotlight sits beside the leaders and the fan award winners.',
+        full:  'The season’s champion leads WPBL Home across the full width, with the club’s name at the largest size on the site. Player Spotlight sits beside the leaders and the fan award winners, with more room between sections.',
       },
       {
         short: 'Section headings',

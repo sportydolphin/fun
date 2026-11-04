@@ -78,6 +78,9 @@ export const MICRO_TEXT = '0.68rem'
  * next size added has to be a decision about the scale rather than a number typed into an `sx`.
  */
 export const TYPE_SCALE = {
+  /** The page's lead and nothing else: the champion's name across the offseason Home's lead band
+   *  (Nov 3, 2026). One step above `hero`, because the lead has to win on size as well as width. */
+  lead: '3.5rem',
   /** The one number a page is about: a season series' or a playoff series' wins, as a scoreboard
    *  draws them. Both sections typed their own (WPBL's series page 2 to 3rem, MLB's SeriesSheet
    *  1.9 to 2.4rem) until Oct 15, 2026; one step, so the two read alike. */
@@ -143,6 +146,12 @@ export const RADIUS = { none: 0, sm: 1, md: 2, lg: 3, pill: 999 } as const
 /** The display face, for scores, the one big number on a card, and page titles. Never a player's
  *  name: the name fits (names.ts) are measured in Inter. styles.css has the why. */
 export const DISPLAY_FONT = '"Barlow Condensed", Inter, system-ui, -apple-system, "Segoe UI", sans-serif'
+
+/** A section's heading, in the display face (Nov 3, 2026). With no box around a section, its heading
+ *  is what marks it, and 15px Inter beside a condensed page title read as two voices. One size up
+ *  (`display`) because a condensed face at the same size reads smaller. Hand-drawn headers that
+ *  imitate a section (the followed players' list, the loading copies) spread this too. */
+export const SECTION_HEADING_SX = { fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.display, fontWeight: 700, lineHeight: 1.2 } as const
 
 export const TAB_TITLE_SX = {
   fontSize: { xs: TYPE_SCALE.heading, md: TYPE_SCALE.page },
@@ -289,11 +298,11 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
               prop for it would only invite a card to lie. */}
           {titleAdornment != null ? (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-              <Typography component="h2" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2, minWidth: 0 }}>{heading}</Typography>
+              <Typography component="h2" sx={{ ...SECTION_HEADING_SX, minWidth: 0 }}>{heading}</Typography>
               {titleAdornment}
             </Box>
           ) : (
-            <Typography component="h2" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2 }}>{heading}</Typography>
+            <Typography component="h2" sx={SECTION_HEADING_SX}>{heading}</Typography>
           )}
           {subtitle && <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>{subtitle}</Typography>}
         </Box>

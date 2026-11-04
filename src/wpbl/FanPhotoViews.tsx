@@ -660,7 +660,7 @@ const HOME_CARD_TITLE = 'Gallery'
 
 export function FanPhotoHomeCardSkeleton() {
   return (
-    <Box sx={{ mt: 1.5 }} aria-hidden>
+    <Box sx={{ mt: 3 }} aria-hidden>
       <SectionCard title={HOME_CARD_TITLE} titleLink={{}}>
         <Box sx={{ mx: { xs: -2, sm: 0 }, display: 'flex', gap: 1.25, overflow: 'hidden', pb: 0.5 }}>
           {[1.5, 1, 1.5, 1.33, 1.5].map((a, i) => (
@@ -735,10 +735,10 @@ export function FanPhotoHomeCard({ reserve = false }: {
   if (photos.length < HOME_MIN_PHOTOS) return null
 
   const seeAll = linkTo(WPBL_PHOTOS_PAGE)
-  // Its own top margin (Home's 1.5 step), carried here rather than by a wrapper on Home, so a
+  // Its own top margin (Home's section step, 24px since Nov 3, 2026), carried here rather than by a wrapper on Home, so a
   // hidden card (below the threshold) leaves no empty gap above "The league".
   return (
-    <Box sx={{ mt: 1.5 }}>
+    <Box sx={{ mt: 3 }}>
       <SectionCard
         title={HOME_CARD_TITLE}
         titleLink={seeAll}

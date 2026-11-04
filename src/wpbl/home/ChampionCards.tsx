@@ -469,12 +469,12 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
           ...CLUB_BAND, position: 'relative', px: 2, pt: 1.75, pb: 1.5,
           bgcolor: wpblColor(champion.id),
           borderTop: '2px solid', borderTopColor: HERO_INK.gold,
-          ...(lead ? { mr: { md: 0 }, flex: { md: 1 }, justifyContent: { md: 'center' }, px: { xs: 2, md: 3 } } : null),
+          ...(lead ? { mr: { md: 0 }, flex: { md: 1 }, justifyContent: { md: 'center' }, px: { xs: 2, md: 3 }, py: { md: 3 } } : null),
         }}>
           {logo && (
             <Box component="img" src={logo} alt="" aria-hidden sx={{
               position: 'absolute', top: '50%', right: '-3rem', transform: 'translateY(-50%)',
-              width: chromePx(190), height: chromePx(190), borderRadius: '50%',
+              width: lead ? { xs: chromePx(190), md: chromePx(280) } : chromePx(190), height: lead ? { xs: chromePx(190), md: chromePx(280) } : chromePx(190), borderRadius: '50%',
               objectFit: wpblLogoFill(champion.id) ? 'cover' : 'contain',
               opacity: 0.22, pointerEvents: 'none',
             }} />
@@ -484,15 +484,16 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
               fontSize: TYPE_SCALE.micro, fontWeight: 900, letterSpacing: typePx(1), textTransform: 'uppercase',
               color: HERO_INK.gold,
             }}>WPBL Champions</Typography>
-            <Typography sx={{ mt: 0.75, fontSize: TYPE_SCALE.title, fontWeight: 600, lineHeight: 1.2, color: HERO_INK.text }}>
+            <Typography sx={{ mt: 0.75, fontSize: lead ? { xs: TYPE_SCALE.title, md: TYPE_SCALE.display } : TYPE_SCALE.title, fontWeight: 600, lineHeight: 1.2, color: HERO_INK.text }}>
               {champion.city}
             </Typography>
-            <Typography sx={{ fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.hero, fontWeight: 900, lineHeight: 1.1, color: HERO_INK.name }}>
+            {/* The lead's name wins on size as well as width: `lead`, the one step above `hero`. */}
+            <Typography sx={{ fontFamily: DISPLAY_FONT, fontSize: lead ? { xs: TYPE_SCALE.hero, md: TYPE_SCALE.lead } : TYPE_SCALE.hero, fontWeight: 900, lineHeight: 1.05, color: HERO_INK.name }}>
               {champion.name}
             </Typography>
             {series && runnerUp && (
               <Box sx={{ mt: 0.75, display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 0.75 }}>
-                <Typography sx={{ fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.page, fontWeight: 900, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: '#fff' }}>
+                <Typography sx={{ fontFamily: DISPLAY_FONT, fontSize: lead ? { xs: TYPE_SCALE.page, md: TYPE_SCALE.hero } : TYPE_SCALE.page, fontWeight: 900, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: '#fff' }}>
                   {series.champWins}–{series.rivalWins}
                 </Typography>
                 <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: HERO_INK.text }}>

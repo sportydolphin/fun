@@ -1,3 +1,4 @@
+import { SECTION_HEADING_SX } from '../../ui/card'
 import { useDark } from '../../ui/useDark'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
@@ -409,7 +410,7 @@ export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup
           accessibility tree, which is what the heading is for. Drawn from `sm` up, where the page
           is a grid rather than a scroll and section headings tell the two columns apart. */}
       <Typography component="h2" sx={{
-        fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2, mb: 1,
+        ...SECTION_HEADING_SX, mb: 1,
         ...HIDE_ON_PHONE,
       }}>Scoreboard</Typography>
       <Box sx={{ position: 'relative' }}>

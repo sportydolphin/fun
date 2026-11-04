@@ -1,3 +1,4 @@
+import { SECTION_HEADING_SX } from '../../ui/card'
 import { useDark } from '../../ui/useDark'
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { pressable } from '../../ui/interaction'
@@ -695,7 +696,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
         {/* Title, hidden while search is open */}
         {!adding && (
           <Typography component={editMode ? 'div' : 'h2'} sx={{
-            fontWeight: 700, fontSize: TYPE_SCALE.title, lineHeight: 1.2,
+            ...SECTION_HEADING_SX,
             color: editMode ? 'text.secondary' : 'text.primary',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             transition: 'color 0.15s',
