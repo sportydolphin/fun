@@ -8,7 +8,7 @@ import { currentSeason } from '../season'
 import { useWpblPlayerLink, useWpblTeamLink } from '../LinkContext'
 import { wpblManagerPortraitSet, type WpblPortraitSet } from '../portraits'
 import { SectionCard, TeamBadge, PlayerPortrait, FittedName, TYPE_SCALE, DISPLAY_FONT, TAPPABLE, FOCUS_RING, hoverOnly, chromePx } from '../ui'
-import { AGATE_SX, BRAND } from '../../ui/card'
+import { AGATE_SX, BRAND, CARD_BORDER, RADIUS } from '../../ui/card'
 import { sumBatting, sumPitching, plateAppearances, isBattingGame, fmtRate, wpblQualifiers } from '../stats'
 import { viewPlayerSeasons } from '../derive/playerSeasons'
 import { hittingColumns, OVR_COLS, pitchingColumns } from '../statColumns'
@@ -20,13 +20,13 @@ import { WPBL_AWARDS_PATH } from '../routes'
 import { useEraBasis } from '../EraBasisContext'
 import { outsToIp } from '../innings'
 import { displayPosition, displayPositionFromIndex, leadsWithPitching, playedPosition, type PrimaryPosition } from '../positions'
-import { wpblAccent, wpblFullName } from '../constants'
+import { wpblAccent, wpblFullName, wpblSurface } from '../constants'
 import { UNSTYLED_LINK, linkTo } from '../../nav'
 import { linkPress } from '../../ui/interaction'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
 import { requestSectionScroll } from '../../lib/sectionScroll'
 import { birthDateSettled } from '../derive/discordBirthdays'
-import { awardManagerWinner, awardWinner, localIsoDate, playerOfTheDay, signSeason, signGlyph, type SignBirthday } from '../derive/homePlayers'
+import { awardManagerWinner, awardWinner, localIsoDate, playerOfTheDay, spotlightStories, signSeason, signGlyph, type SignBirthday } from '../derive/homePlayers'
 import { useWpblSeason } from '../SeasonContext'
 import { usePhoneLayout } from '../../ui/ModalShell'
 import { useAccessibilitySettings } from '../../AccessibilityContext'
@@ -171,21 +171,76 @@ function useStoredPositions(games: WpblGame[]): Map<string, PrimaryPosition> {
   return index
 }
 
+// ─── The season's boards, shared ────────────────────────────────────────────────
+
+type Place = { player: WpblPlayer; text: string; rank: number; tied: boolean }
+
+/** Every board Home reads off the stored season rows: the leaders board's tabs, and the boards a
+ *  Spotlight story can come from, in order of importance (spotlightStories reads the order). */
+const STORY_STATS: { side: LeaderSide; key: string }[] = [
+  { side: 'overall', key: 'war' }, { side: 'hitting', key: 'avg' }, { side: 'hitting', key: 'hr' },
+  { side: 'pitching', key: 'era' }, { side: 'pitching', key: 'so' }, { side: 'hitting', key: 'ops' },
+  { side: 'hitting', key: 'rbi' }, { side: 'pitching', key: 'w' }, { side: 'hitting', key: 'sb' },
+  { side: 'pitching', key: 'whip' }, { side: 'hitting', key: 'r' }, { side: 'hitting', key: 'h' },
+  { side: 'hitting', key: 'obp' }, { side: 'pitching', key: 'sv' }, { side: 'pitching', key: 'ip' },
+]
+
+const statTitle = (side: LeaderSide, key: string) => LEADER_CARDS[side].find(c => c.key === key)?.title ?? key.toUpperCase()
+
+/**
+ * The season's boards, ranked as the Stats tab ranks them, off the stored season rows: one small
+ * cached read (fetchWpblPlayerSeasons dedupes), shared by the leaders board and the Spotlight's pick.
+ * `boards` is null until it lands; `stale` is true when the rows are behind the lines or the read
+ * failed, and then there are no boards to draw.
+ */
+function useSeasonBoards(players: WpblPlayer[], teams: Map<string, WpblTeam>, games: WpblGame[]) {
+  const { basis: eraBasis, fmtEra } = useEraBasis()
+  const { season, seasonGames } = useWpblSeason(games, { current: true })
+  const [read, setRead] = useState<WpblPlayerSeasonsRead | null>(null)
+  useEffect(() => {
+    if (season == null) return
+    let live = true
+    fetchWpblPlayerSeasons(season)
+      .then(r => { if (live) setRead(r) })
+      .catch(() => { if (live) setRead({ rows: [], current: false }) })
+    return () => { live = false }
+  }, [season])
+
+  const boards = useMemo(() => {
+    if (!read?.current || players.length === 0 || teams.size === 0) return null
+    const view = viewPlayerSeasons(read.rows, players)
+    const ctx = { league: view.league('regular'), wWeights: view.weights.woba, fWeights: view.weights.fip, fmtEra, eraBasis }
+    const qual = wpblQualifiers([...teams.values()], seasonGames)
+    const batting = view.batting('regular'), pitching = view.pitching('regular')
+    const hit = hittingColumns(ctx), pit = pitchingColumns(ctx)
+    const leaders = <T extends LeaderTotals>(seasons: LeaderSeason<T>[], cols: LeaderCol<T>[], side: LeaderSide, key: string) => {
+      const col = cols.find(c => c.key === key)
+      return col ? leadersFor(seasons, col, side, qual) : []
+    }
+    return new Map<string, Place[]>(STORY_STATS.map(({ side, key }) => [key, side === 'overall' ? leaders(view.value, OVR_COLS, side, key)
+      : side === 'hitting' ? leaders(batting, hit, side, key) : leaders(pitching, pit, side, key)]))
+  }, [read, players, teams, seasonGames, fmtEra, eraBasis])
+  return { season, boards, stale: read != null && !read.current }
+}
+
 // ─── Player spotlight ───────────────────────────────────────────────────────────
 
 interface Lines { batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }
 
-/** One stat in the season strip: label over value. */
+/** The card's stat line, the back of a baseball card: heads over figures, both in the agate face. */
 function StatCell({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <Box sx={{ minWidth: 0, textAlign: 'center' }}>
-      <Typography sx={{ ...LABEL_SX }}>{label}</Typography>
-      <Typography component="div" sx={{ fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.page, fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
+      <Typography sx={{ ...AGATE_SX, fontSize: TYPE_SCALE.micro, color: 'text.secondary', lineHeight: 1.3 }}>{label}</Typography>
+      <Typography component="div" sx={{ ...AGATE_SX, fontSize: TYPE_SCALE.display, lineHeight: 1.2 }}>
         {value}
       </Typography>
     </Box>
   )
 }
+
+/** The strip's height, held when a pick never played so the card does not shorten under a reader. */
+const STRIP_MIN_H = `calc(${TYPE_SCALE.micro} * 1.3 + ${TYPE_SCALE.display} * 1.2)`
 
 function SeasonStrip({ player, lines, games }: { player: WpblPlayer; lines: Lines | null; games: WpblGame[] }) {
   const { fmtEra } = useEraBasis()
@@ -218,9 +273,7 @@ function SeasonStrip({ player, lines, games }: { player: WpblPlayer; lines: Line
     <Box>
       <Typography sx={{ ...LABEL_SX, mb: 0.5 }}>{season != null ? `${season} regular season` : 'Regular season'}</Typography>
       {cells && cells.length === 0 ? (
-        // Two lines tall, the strip's own height, so a birthday pick who never played does not
-        // shorten the card under the reader.
-        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.3, minHeight: `calc(${TYPE_SCALE.micro} * 1.3 + ${TYPE_SCALE.page} * 1.2)`, display: 'flex', alignItems: 'center' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.3, minHeight: STRIP_MIN_H, display: 'flex', alignItems: 'center' }}>
           {season != null ? `No ${season} games` : 'No games'}
         </Typography>
       ) : (
@@ -228,8 +281,8 @@ function SeasonStrip({ player, lines, games }: { player: WpblPlayer; lines: Line
           {(cells ?? ['G', '', '', '', '', ''].map(l => [l, ''] as [string, string])).map(([label, value], i) => (
             // A no-break space, not ' ': a lone space collapses, so the label row took no height
             // until the stats landed and the card grew by a line under the reader.
-            <StatCell key={i} label={cells ? label : ' '}
-              value={cells ? value : <Skeleton variant="text" width="70%" sx={{ mx: 'auto', fontSize: TYPE_SCALE.page }} />} />
+            <StatCell key={i} label={cells ? label : ' '}
+              value={cells ? value : <Skeleton variant="text" width="70%" sx={{ mx: 'auto', fontSize: TYPE_SCALE.display }} />} />
           ))}
         </Box>
       )}
@@ -241,6 +294,26 @@ function SeasonStrip({ player, lines, games }: { player: WpblPlayer; lines: Line
 // desktop size the name fell back to "O. Bricker" and the club line to an ellipsis.
 const NAME_SX = { fontSize: { xs: TYPE_SCALE.display, md: TYPE_SCALE.page }, fontWeight: 800, lineHeight: 1.2 } as const
 
+/** The line over the name: why this player, the way a card's front says what it commemorates. One
+ *  line of the agate face in capitals, always drawn so the band is one height before and after. */
+/** The numeral's width at its largest ("#29" at `lead`), kept clear on the story line beside it. */
+const NUMERAL_ROOM = { xs: '5rem', lg: '7rem' } as const
+
+const STORY_SX = { ...AGATE_SX, fontSize: TYPE_SCALE.meta, textTransform: 'uppercase', letterSpacing: '0.06em', lineHeight: 1.4 } as const
+
+/**
+ * One player a day, as a trading card (Nov 4, 2026, ROADMAP-UI.md's audit): a band in the club's
+ * own color with a square photo, the jersey number big in the corner and the reason they are here
+ * over the name; the facts under it; the season's line along the bottom in the agate face. It was a
+ * section like every other, a round face and three lines of prose, and nothing about it said card.
+ *
+ * AN OBJECT, SO IT HAS A FRAME: the club's accent, which clears 3:1 on the page in both themes
+ * (src/CLAUDE.md, "Borders"), so the frame is the club as well as the edge.
+ *
+ * THE PICK HAS A STORY (spotlightStories): a podium finish in one of the season's headline stats, or
+ * a birthday. Until Nov 4 the rotation walked everyone with a box-score line, and the front page led
+ * with a 9.63 ERA and no strikeouts under nothing that said why.
+ */
 export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid = null }: {
   players: WpblPlayer[]; teams: Map<string, WpblTeam>; games: WpblGame[]; onOpenPlayer: OpenPlayer
   /** A player another card on the page already headlines (the Star of the final). Undefined while
@@ -248,10 +321,17 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
    *  have to swap a beat later. */
   avoid?: string | null
 }) {
+  const isDark = useTheme().palette.mode === 'dark'
   const today = localIsoDate()
+  const { boards, stale } = useSeasonBoards(players, teams, games)
+  // Null until the boards land, and empty when they cannot (stale rows, a failed read), which
+  // leaves the plain rotation. Waiting on them is the same wait as the leaders board beside it.
+  const stories = useMemo(() => boards
+    ? spotlightStories(STORY_STATS.map(({ side, key }) => ({ title: statTitle(side, key), places: boards.get(key) ?? [] })))
+    : stale ? new Map<string, string>() : null, [boards, stale])
   const pick = useMemo(
-    () => (avoid === undefined ? null : playerOfTheDay(players, today, avoid)),
-    [players, today, avoid])
+    () => (avoid === undefined || stories == null ? null : playerOfTheDay(players, today, avoid, stories)),
+    [players, today, avoid, stories])
   const player = pick?.player ?? null
   const link = useTrackedPlayerLink('day', onOpenPlayer)
   useShown('day', !!player)
@@ -274,14 +354,14 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
   const playerId = player?.id ?? null
   const onFaceReady = useCallback(() => setFaceFor(playerId), [playerId])
   const faceReady = !!player && faceFor === player.id
-  // The portrait's size is a number, not a breakpoint object, so the width is asked (see NAME_SX).
-  // 72 between a phone and lg: in half of a 960 page at large text, 88 left the club line
-  // ("Los Angeles Queens · C") an ellipsis.
+  // The photo's size is a number, not a breakpoint object, so the width is asked. Smaller between a
+  // phone and lg, where the card has half of a 960 page and the club line needs the room.
   const phone = usePhoneLayout()
   const lgUp = useMediaQuery((t: Theme) => t.breakpoints.up('lg'))
-  const face = phone ? 64 : lgUp ? 88 : 72
+  const face = phone ? 84 : lgUp ? 108 : 88
 
-  const team = player?.team_id ? teams.get(player.team_id) : undefined
+  const teamId = player?.team_id ?? null
+  const team = teamId ? teams.get(teamId) : undefined
   // Nothing until the player's own lines land, never the roster's label first: the roster can
   // list a shortstop who has been playing second, and the line read the card as SS, then 2B.
   const position = player && own ? displayPosition(player.position, own.batting, games).label : null
@@ -291,11 +371,8 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
     ? `Round ${player.draft_round}${player.draft_pick != null ? `, pick ${player.draft_pick}` : ''}`
     : '—'
 
-  // Three plain lines in place of a grid of seven labels (Nov 3, 2026, ROADMAP-UI.md's audit): the
-  // grid read as a form, and every fact carries its own few words of context, so a label over each
-  // one was the noise. Three short lines, not two long ones: "Born Dec 1, 2005 (20) · Bedford, New
-  // Hampshire, USA" did not fit a phone, and the sweep's ellipsis list caught it. Each holds one row
-  // and never wraps, so the stat line under them cannot move.
+  // Three plain lines (Nov 3, 2026): every fact carries its own few words of context. Each holds one
+  // row and never wraps, so the stat line under them cannot move.
   const born = player && settled ? `Born ${shortDate(player.birth_date!, true)}${player.age != null ? ` (${player.age})` : ''}` : null
   const sign = player?.zodiac_sign ? `${glyph} ${player.zodiac_sign}` : null
   const bt = player && (player.bats || player.throws) ? `B/T ${player.bats ?? '—'}/${player.throws ?? '—'}` : null
@@ -304,39 +381,42 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
     ? [[born, sign].filter(Boolean).join(' · ') || '—', player.hometown ?? '—', [bt, drafted].filter(Boolean).join(' · ') || '—']
     : [null, null, null]
   const number = player?.jersey_number ? `#${player.jersey_number}` : null
+  const story = !player ? null
+    : pick?.reason === 'birthday' ? 'Birthday today'
+    : stories?.get(player.id) ?? 'Today'
+  const clubInk = player ? wpblAccent(teamId, isDark) : 'text.secondary'
 
   return (
-    // The heading opens the player's page, the way every section's heading opens more of itself; the
-    // "Full profile ›" that sat under the stat line said it a third time after the face and the name.
-    // Before the pick lands the › is an inert span, so the heading takes its loaded width.
-    <SectionCard title="Player Spotlight" fill titleLink={player ? link(player) : { 'aria-hidden': true }} action={
-      // A birthday says so here rather than as a line over the name, which would make the header a
-      // line taller on the days it applies and move the card under a reader as the roster lands.
-      pick?.reason === 'birthday'
-        ? <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)' }}>Birthday today</Typography>
-        : <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{shortDate(today)}</Typography>
-    }>
-      {/* Top-aligned: beside the leaders and the award winners stacked (Nov 3, 2026) this section is
-          stretched well past its content, and `space-between` opened that slack up under the name. */}
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', gap: 1.5 }}>
-        {/* ONE STRUCTURE, LOADED OR NOT: the same boxes with placeholder content, so the header
-            and the facts take the same height before the roster lands as after. */}
-        <Box {...(player ? link(player) : { 'aria-hidden': true })} sx={{
-          ...UNSTYLED_LINK, display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0,
-          borderRadius: 2, p: 0.5, mx: -0.5, ...(player ? { ...TAPPABLE, ...FOCUS_RING } : null),
+    // The heading opens the player's page, the way every section's heading opens more of itself.
+    // No date beside it: the card is today's by being on today's page, and the line on the band
+    // says why this player.
+    <SectionCard title="Player Spotlight" fill titleLink={player ? link(player) : { 'aria-hidden': true }}>
+      <Box {...(player ? link(player) : { 'aria-hidden': true })} sx={{
+        ...UNSTYLED_LINK, display: 'flex', flexDirection: 'column', minWidth: 0,
+        border: '2px solid', borderColor: player ? clubInk : CARD_BORDER, borderRadius: RADIUS.lg, overflow: 'hidden',
+        ...(player ? { ...TAPPABLE, ...FOCUS_RING } : null),
+      }}>
+        {/* The band: the club's own surface color, the photo, the story, the name, the numeral. */}
+        <Box sx={{
+          display: 'flex', alignItems: 'flex-end', gap: 1.5, px: 1.5, pt: 1.5, minWidth: 0, position: 'relative',
+          bgcolor: wpblSurface(teamId, isDark),
         }}>
-          {/* The skeleton circle stays over the portrait until its face has loaded, and the face
-              fades in under it. Swapped straight in, the frame painted as a bare club-colored disc
-              for the beat before the photo arrived: grey, then navy, then a face, a blink. */}
-          <Box sx={{ position: 'relative', flexShrink: 0 }}>
+          {/* The skeleton stays over the photo until its face has loaded, and the face fades in
+              under it. Swapped straight in, the frame painted as a bare club-colored square for the
+              beat before the photo arrived: a blink. */}
+          <Box sx={{ position: 'relative', flexShrink: 0, mb: 1.5 }}>
             {player
               ? <Box sx={{ opacity: faceReady ? 1 : 0, transition: 'opacity 0.25s' }}>
-                  <PlayerPortrait name={player.name} teamId={player.team_id} size={face} eager onReady={onFaceReady} />
+                  <PlayerPortrait name={player.name} teamId={teamId} size={face} square eager onReady={onFaceReady} ring={clubInk} />
                 </Box>
-              : <Box sx={{ width: `calc(${face}px * var(--app-chrome, 1))`, height: `calc(${face}px * var(--app-chrome, 1))` }} />}
-            {!faceReady && <Skeleton variant="circular" sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />}
+              : <Box sx={{ width: chromePx(face), height: chromePx(face) }} />}
+            {!faceReady && <Skeleton variant="rounded" sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />}
           </Box>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box sx={{ flex: 1, minWidth: 0, pb: 1.5 }}>
+            {/* Clear of the numeral in the corner; the name and club under it take the full width. */}
+            <Typography noWrap sx={{ ...STORY_SX, color: player ? clubInk : 'text.secondary', pr: NUMERAL_ROOM }}>
+              {story ?? <Skeleton width="40%" />}
+            </Typography>
             {player
               ? <FittedName name={player.name} sx={NAME_SX} />
               : <Typography sx={NAME_SX}><Skeleton width="55%" /></Typography>}
@@ -349,18 +429,17 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
               </Typography>
             </Box>
           </Box>
-          {/* The jersey number as the card's numeral, in the display face: a baseball card prints it
-              big, and in the old grid it was one more label. Its box is reserved before the pick lands. */}
+          {/* The jersey number, the card's numeral: big, in the display face, in the club's color,
+              in the band's top corner the way a card prints it. Placed, not in the row: beside the
+              name it took a phone's room and the name fell back to "R. Kim". */}
           <Typography aria-hidden sx={{
-            flexShrink: 0, alignSelf: 'flex-start', minWidth: '2.2em', textAlign: 'right',
-            // Full size only from lg: at 960 the half column could not hold it beside the face, and the
-            // club line under the name ended in an ellipsis.
-            fontFamily: DISPLAY_FONT, fontSize: { xs: TYPE_SCALE.page, lg: TYPE_SCALE.hero }, fontWeight: 700, lineHeight: 1,
-            color: 'text.secondary', fontVariantNumeric: 'tabular-nums',
+            position: 'absolute', top: chromePx(12), right: chromePx(12), textAlign: 'right',
+            fontFamily: DISPLAY_FONT, fontSize: { xs: TYPE_SCALE.hero, lg: TYPE_SCALE.lead }, fontWeight: 700, lineHeight: 0.9,
+            color: clubInk, fontVariantNumeric: 'tabular-nums',
           }}>{number ?? ''}</Typography>
         </Box>
 
-        <Box sx={{ minWidth: 0 }}>
+        <Box sx={{ px: 1.5, py: 1.25, minWidth: 0 }}>
           {factLines.map((line, i) => (
             <Typography key={i} noWrap sx={{ fontSize: TYPE_SCALE.body, color: i === 1 ? 'text.primary' : 'text.secondary', lineHeight: 1.5 }}>
               {line ?? <Skeleton width={['60%', '50%', '55%'][i]} />}
@@ -368,7 +447,10 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
           ))}
         </Box>
 
-        {player ? <SeasonStrip player={player} lines={own} games={games} /> : <SeasonStrip player={{} as WpblPlayer} lines={null} games={games} />}
+        {/* The back of the card, along the bottom: the season in the agate face over a row rule. */}
+        <Box sx={{ px: 1.5, pt: 1, pb: 1.25, borderTop: '1px solid', borderTopColor: 'divider' }}>
+          {player ? <SeasonStrip player={player} lines={own} games={games} /> : <SeasonStrip player={{} as WpblPlayer} lines={null} games={games} />}
+        </Box>
       </Box>
     </SectionCard>
   )
@@ -443,8 +525,6 @@ const PLACE_GRID_SX = {
 
 /** "1", or "T2" for a share of second: a newspaper's leaders list marks a tie on the rank. */
 const placeText = (rank: number, tied: boolean) => `${tied ? 'T' : ''}${rank}`
-
-type Place = { player: WpblPlayer; text: string; rank: number; tied: boolean }
 
 /** The stat tabs. Buttons that say which is on (`aria-pressed`), not a tablist: the board under them
  *  is one region that changes, not five panels. */
@@ -543,40 +623,16 @@ export function SeasonLeadersCard({ players, teams, games, onOpenPlayer, rosterF
   rosterFailed?: boolean
 }) {
   const isDark = useTheme().palette.mode === 'dark'
-  const { basis: eraBasis, fmtEra } = useEraBasis()
-  const { season, seasonGames } = useWpblSeason(games, { current: true })
   const link = useTrackedPlayerLink('leaders', onOpenPlayer)
   const [statKey, setStatKey] = useState(LEADER_STATS[0].key)
-  const [read, setRead] = useState<WpblPlayerSeasonsRead | null>(null)
-  useEffect(() => {
-    if (season == null) return
-    let live = true
-    fetchWpblPlayerSeasons(season)
-      .then(r => { if (live) setRead(r) })
-      .catch(() => { if (live) setRead({ rows: [], current: false }) })
-    return () => { live = false }
-  }, [season])
-
-  // Every stat's places at once, so a tab is a lookup rather than a ranking per tap.
-  const boards = useMemo(() => {
-    if (!read?.current || players.length === 0 || teams.size === 0) return null
-    const view = viewPlayerSeasons(read.rows, players)
-    const ctx = { league: view.league('regular'), wWeights: view.weights.woba, fWeights: view.weights.fip, fmtEra, eraBasis }
-    const qual = wpblQualifiers([...teams.values()], seasonGames)
-    const batting = view.batting('regular'), pitching = view.pitching('regular')
-    const hit = hittingColumns(ctx), pit = pitchingColumns(ctx)
-    const leaders = <T extends LeaderTotals>(seasons: LeaderSeason<T>[], cols: LeaderCol<T>[], side: LeaderSide, key: string) => {
-      const col = cols.find(c => c.key === key)
-      return col ? leadersFor(seasons, col, side, qual) : []
-    }
-    return new Map(LEADER_STATS.map(({ side, key }) => [key, (side === 'overall' ? leaders(view.value, OVR_COLS, side, key)
-      : side === 'hitting' ? leaders(batting, hit, side, key) : leaders(pitching, pit, side, key)).slice(0, SEASON_ROWS)]))
-  }, [read, players, teams, seasonGames, fmtEra, eraBasis])
+  const { season, boards: all, stale } = useSeasonBoards(players, teams, games)
+  // The board's five stats, five places each.
+  const boards = useMemo(() => all && new Map(LEADER_STATS.map(({ key }) => [key, (all.get(key) ?? []).slice(0, SEASON_ROWS)])), [all])
   useShown('leaders', !!boards)
 
   const stat = LEADER_STATS.find(s => s.key === statKey) ?? LEADER_STATS[0]
   const places = boards?.get(stat.key) ?? null
-  const failed = (read != null && !read.current) || (!!boards && [...boards.values()].every(b => b.length === 0)) || (!!rosterFailed && !boards)
+  const failed = stale || (!!boards && [...boards.values()].every(b => b.length === 0)) || (!!rosterFailed && !boards)
   const teamOf = (p: Place | null | undefined) => (p?.player.team_id ? teams.get(p.player.team_id) : undefined)
   const placeAt = (i: number): Place | null => places?.[i] ?? null
   return (
@@ -681,6 +737,7 @@ function birthdayLabel(b: SignBirthday): string {
 export function StarSignCard({ players, teams, games, onOpenPlayer }: {
   players: WpblPlayer[]; teams: Map<string, WpblTeam>; games: WpblGame[]; onOpenPlayer: OpenPlayer
 }) {
+  const isDark = useTheme().palette.mode === 'dark'
   const positions = useStoredPositions(games)
   const today = localIsoDate()
   const { sign, players: born } = useMemo(() => signSeason(players, today), [players, today])
@@ -711,7 +768,9 @@ export function StarSignCard({ players, teams, games, onOpenPlayer }: {
             <PlayerRow key={b.player.id} player={b.player} link={link(b.player)} size={SIGN_FACE} gap={SIGN_GAP} faceHidden={faceHidden}
               meta={<>
                 {b.date && (
-                  <Box component="span" sx={{ fontWeight: b.offset === 0 ? 800 : 600, color: b.offset === 0 ? 'var(--wpbl-accent-fg)' : 'text.primary' }}>
+                  <Box component="span" sx={{ fontWeight: b.offset === 0 ? 800 : 600, // The player's club color, not the brand's: since the brand became a red (Nov 4, 2026), a
+                  // red "Today" read as an alert rather than a birthday.
+                  color: b.offset === 0 ? wpblAccent(b.player.team_id, isDark) : 'text.primary' }}>
                     {birthdayLabel(b)}
                   </Box>
                 )}
