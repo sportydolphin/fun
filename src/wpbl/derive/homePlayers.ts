@@ -62,15 +62,23 @@ export interface PlayerOfTheDay {
  * it reached the whole roster, and the site's front page led with a player whose card read "No
  * 2026 games" and a dash for a number. A birthday off the pool still gets its "Today" in the star
  * sign card.
+ *
+ * `stories`, when given, narrows the ROTATION to the players who have one (spotlightStories): a
+ * card that led Home with a 9.63 ERA and no strikeouts spotlighted nobody (Nov 4, 2026). The
+ * birthday still reaches the whole pool, since the birthday is its own story. An empty or missing
+ * set leaves the rotation as it was, so a stale read never empties the card.
  */
-export function playerOfTheDay(players: WpblPlayer[], today: string, avoid: string | null = null): PlayerOfTheDay | null {
-  const pool = players.filter(p => p.active && p.api_ids.length > 0)
-  const birthdays = pool.filter(p => p.id !== avoid && birthDateSettled(p) && monthDay(p.birth_date!) === monthDay(today))
+export function playerOfTheDay(players: WpblPlayer[], today: string, avoid: string | null = null,
+  stories: ReadonlyMap<string, string> | null = null): PlayerOfTheDay | null {
+  const everyone = players.filter(p => p.active && p.api_ids.length > 0)
+  const birthdays = everyone.filter(p => p.id !== avoid && birthDateSettled(p) && monthDay(p.birth_date!) === monthDay(today))
   const day = dayNumber(today)
   if (birthdays.length) {
     const order = rotation(birthdays, p => p.id)
     return { player: order[day % order.length], reason: 'birthday' }
   }
+  const told = stories ? everyone.filter(p => stories.has(p.id)) : []
+  const pool = told.length ? told : everyone
   if (!pool.length) return null
   // `avoid` steps to the next in the rotation rather than leaving the pool: filtered out, the pool's
   // length changes and every later day's pick shifts with it, so readers would see a different
@@ -79,6 +87,35 @@ export function playerOfTheDay(players: WpblPlayer[], today: string, avoid: stri
   const at = day % order.length
   const pick = order[at].id === avoid && order.length > 1 ? order[(at + 1) % order.length] : order[at]
   return { player: pick, reason: 'rotation' }
+}
+
+/** One stat's ranked places, as the Stats tab's leader cards rank them. */
+export interface StoryBoard { title: string; places: { player: WpblPlayer; rank: number; tied: boolean }[] }
+
+/** How far down a board still counts as a story: the podium. */
+const STORY_RANK = 3
+
+/** "1st", "2nd", "3rd"; "T2" for a share, as a leaders list prints one. */
+function placeLabel(rank: number, tied: boolean): string {
+  if (tied) return `T${rank}`
+  return `${rank}${rank === 1 ? 'st' : rank === 2 ? 'nd' : rank === 3 ? 'rd' : 'th'}`
+}
+
+/**
+ * Each player's best finish on the season's boards, as the Spotlight card prints it ("1st in Home
+ * Runs", "T2 in ERA"). Top three only. The best rank wins, and among equal ranks the board that
+ * comes first, so the order the boards are passed in is the order of importance.
+ */
+export function spotlightStories(boards: StoryBoard[]): Map<string, string> {
+  const best = new Map<string, { rank: number; text: string }>()
+  for (const { title, places } of boards) {
+    for (const { player, rank, tied } of places) {
+      if (rank > STORY_RANK) continue
+      const had = best.get(player.id)
+      if (!had || rank < had.rank) best.set(player.id, { rank, text: `${placeLabel(rank, tied)} in ${title}` })
+    }
+  }
+  return new Map([...best].map(([id, s]) => [id, s.text]))
 }
 
 export interface StarSign { name: string; glyph: string; from: string; to: string }

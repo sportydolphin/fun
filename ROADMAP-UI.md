@@ -154,6 +154,14 @@ Each item names the phase that carries it.
       promo box, "Submit photos ›" in the gallery's header, and the footer's Data sources back in its
       own Reference group (the dev-only World Cup group had split it in two). The ellipsis list for
       Home is empty at every width and both text sizes.
+- [x] **Spotlight as a trading card** (Nov 4). A framed object in the club's accent: a band in the
+      club's surface color with a square photo, the jersey number in the band's corner at `lead`
+      size in the club's color, and the reason over the name in agate caps. Facts under it, and the
+      season line along the bottom in the agate face. The date beside the heading is gone. The
+      rotation now draws from players with a story (`spotlightStories`: a top-3 finish on one of
+      fifteen headline boards, "1st in Strikeouts", "T1 in Wins"); a birthday still outranks it, and
+      stale season rows fall back to everyone. The star sign card's "Today" is the club's color,
+      not the brand red.
 - [x] **Spotlight repeated the Star of the Final** (Nov 3). Spotlight now steps to the next player
       in the rotation when it lands on the final's Star (`useChampionFinal`, shared with the
       season card). The "Scorpio Season" card and the star sign stay (owner's call, Nov 3).

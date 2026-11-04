@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { WpblPlayer } from '../types'
-import { awardManagerWinner, awardWinner, playerOfTheDay, sunSign, signSeason } from '../derive/homePlayers'
+import { awardManagerWinner, awardWinner, playerOfTheDay, spotlightStories, sunSign, signSeason } from '../derive/homePlayers'
 
 describe('awardWinner', () => {
   const roster = [playerAt('a'), playerAt('b')]
@@ -34,8 +34,29 @@ function player(id: string, over: Partial<WpblPlayer> = {}): WpblPlayer {
   }
 }
 
+describe('spotlightStories', () => {
+  const a = player('a'), b = player('b'), c = player('c'), d = player('d')
+  it('keeps each player\'s best podium finish, the earlier board on a tie of rank', () => {
+    const stories = spotlightStories([
+      { title: 'WAR', places: [{ player: a, rank: 1, tied: false }, { player: b, rank: 2, tied: false }, { player: d, rank: 4, tied: false }] },
+      { title: 'Home Runs', places: [{ player: b, rank: 1, tied: true }, { player: c, rank: 1, tied: true }, { player: a, rank: 3, tied: false }] },
+      { title: 'ERA', places: [{ player: c, rank: 1, tied: false }] },
+    ])
+    expect(Object.fromEntries(stories)).toEqual({ a: '1st in WAR', b: 'T1 in Home Runs', c: 'T1 in Home Runs' })
+  })
+})
+
 describe('playerOfTheDay', () => {
   const roster = Array.from({ length: 10 }, (_, i) => player(`p${i}`))
+
+  it('rotates through the players with a story when there are any, and through everyone when not', () => {
+    const stories = new Map([['p3', '1st in WAR'], ['p7', '2nd in ERA']])
+    for (let d = 1; d <= 6; d++) {
+      const day = `2026-11-${String(d).padStart(2, '0')}`
+      expect(['p3', 'p7']).toContain(playerOfTheDay(roster, day, null, stories)?.player.id)
+    }
+    expect(playerOfTheDay(roster, '2026-11-05', null, new Map())?.player.id).toBe(playerOfTheDay(roster, '2026-11-05')?.player.id)
+  })
 
   it('is the same pick all day and walks the whole pool before repeating', () => {
     const seen = new Set<string>()
