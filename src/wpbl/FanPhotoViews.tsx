@@ -671,7 +671,6 @@ export function FanPhotoHomeCardSkeleton() {
             </Box>
           ))}
         </Box>
-        <Skeleton variant="text" width="16rem" sx={{ fontSize: TYPE_SCALE.meta, mt: 1, maxWidth: '100%' }} />
       </SectionCard>
     </Box>
   )
@@ -742,7 +741,10 @@ export function FanPhotoHomeCard({ reserve = false }: {
       <SectionCard
         title={HOME_CARD_TITLE}
         titleLink={seeAll}
-        action={<Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{photos.length} photos</Typography>}
+        // The ask in the header's action slot, where a link that goes somewhere else belongs (Nov 3,
+        // 2026): as a line under the rail it hung off the bottom of the section on its own. The count
+        // it replaces is one tap away under the heading.
+        action={<Box component="a" href={FAN_PHOTO_SUBMIT_HREF} sx={CARD_LINK_SX}>Submit photos ›</Box>}
       >
         {/* Edge to edge on a phone: the card's side padding is 2 of a ~340px body, and the rail
             is the one thing on the card that gains from every pixel of width. The negative margin
@@ -752,7 +754,6 @@ export function FanPhotoHomeCard({ reserve = false }: {
         <Box sx={{ mx: { xs: -2, sm: 0 } }}>
           <FanPhotoStrip photos={shuffled.slice(0, HOME_RAIL_MAX)} resolveNames={resolveNames} from="home" autoScroll phoneInset={2} />
         </Box>
-        <FanPhotoSubmitNote variant="line" />
       </SectionCard>
     </Box>
   )

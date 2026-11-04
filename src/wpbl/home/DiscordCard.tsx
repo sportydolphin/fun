@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
-import { edge } from '../../ui/card'
+import { SECTION_HEADING_SX } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
-import { chromePx, hoverOnly, pressable, TYPE_SCALE } from '../ui'
+import { chromePx, hoverOnly, pressable, TYPE_SCALE, FOCUS_RING } from '../ui'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
 // The dismissal key and the dev-only undo. Their own module so the dev settings menu can reach
 // the undo without dragging this file into the main bundle. See discordInvite.ts.
@@ -36,24 +36,15 @@ export function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
       target="_blank"
       rel="noopener noreferrer"
       onClick={() => track(EVENTS.DISCORD_JOINED)}
+      // A SECTION ROW, NOT A PROMO BOX (Nov 3, 2026, ROADMAP-UI.md's audit): it was a framed card in
+      // Discord's blurple with a filled button, the loudest thing low on Home for an invite. Now one
+      // rule above like every section, the heading in the section face, and Discord's color only in
+      // its own small mark.
       sx={{
-        // `px: 2` and `borderRadius: 3` are NOT free choices: they are what every SectionCard on this
-        // page uses, and this card sits in the middle of a stack of them. The eye reads the left edges of
-        // a vertical stack as one line, so a card whose content starts a few pixels off, or whose corners
-        // are a few pixels tighter, looks wrong without looking like a bug.
-        //
-        // The vertical padding stays tighter than the horizontal on purpose. This is a promo strip
-        // rather than a section, and the row's height is set by the 34px avatar anyway, so `py: 2` would
-        // only add empty space to a card that is one line tall.
         display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.25,
-        textDecoration: 'none', cursor: 'pointer',
-        borderRadius: 3, border: '1.5px solid', borderColor: edge(DISCORD_BLURPLE),
-        bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(88,101,242,0.09)' : 'rgba(88,101,242,0.06)',
-        transition: 'background-color 0.15s, border-color 0.15s',
-        ...hoverOnly({
-          bgcolor: 'rgba(88,101,242,0.18)',
-          borderColor: DISCORD_BLURPLE,
-        }),
+        textDecoration: 'none', cursor: 'pointer', color: 'inherit',
+        borderTop: '1px solid', borderTopColor: 'divider', ...FOCUS_RING,
+        ...hoverOnly({ '& .sd-discord-title': { textDecoration: 'underline' } }),
       }}
     >
       <Box sx={{ width: 34, height: 34, borderRadius: '50%', bgcolor: DISCORD_BLURPLE, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -67,13 +58,11 @@ export function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
           Wrapping is off for the same reason it is off on the reminder row: a title that grows
           a second line puts the height straight back, and this one is a hair under its budget
           at 320px with the Join button beside it. */}
-      <Typography noWrap sx={{
-        flex: 1, minWidth: 0, fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1.2, color: 'text.primary',
-      }}>
+      <Typography noWrap className="sd-discord-title" sx={{ ...SECTION_HEADING_SX, flex: 1, minWidth: 0, color: 'text.primary' }}>
         Fan Discord
       </Typography>
-      <Box sx={{ flexShrink: 0, px: 1.5, py: 0.6, borderRadius: 999, bgcolor: DISCORD_BLURPLE, color: '#fff', fontSize: TYPE_SCALE.meta, fontWeight: 800, whiteSpace: 'nowrap' }}>
-        Join
+      <Box sx={{ flexShrink: 0, color: 'var(--wpbl-accent-fg)', fontSize: TYPE_SCALE.meta, fontWeight: 800, whiteSpace: 'nowrap' }}>
+        Join ›
       </Box>
       <Box
         {...pressable(e => { e.preventDefault(); e.stopPropagation(); dismiss() })}

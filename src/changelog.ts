@@ -36,7 +36,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'WPBL Home',
-        full:  'The season’s champion leads WPBL Home across the full width, with the club’s name at the largest size on the site. Player Spotlight sits beside the leaders and the fan award winners, with more room between sections.',
+        full:  'The season’s champion leads WPBL Home across the full width, with the club’s name at the largest size on the site. Player Spotlight sits beside the leaders, the fan award winners beside the star sign card, with more room between sections. The Discord invite is a plain row, and Submit photos sits by the gallery’s heading.',
       },
       {
         short: 'Section headings',

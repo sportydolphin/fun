@@ -42,11 +42,8 @@ export const WPBL_MORE_PAGES: MorePage[] = [
     event: EVENTS.WPBL_COMPARE_OPENED, eventProps: { from: 'more', pair: false } },
   { group: 'Tools',     href: WPBL_MATCHUPS_PAGE,  label: 'Batter vs pitcher', hint: 'Batter vs pitcher records', footerLabel: 'WPBL batter vs pitcher' },
   { group: 'Tools',     href: WPBL_SCORIGAMI_PAGE, label: 'Scorigami',         hint: 'Every final score' },
-  // The players index is the one page carrying a real <a href> to each player page, so it must
-  // stay in the footer even though a reader mostly reaches players through a club.
-  { group: 'Reference', href: WPBL_PLAYERS_INDEX,  label: 'All players',       hint: 'Rosters by club', footerLabel: 'WPBL players' },
-  { group: 'Reference', href: WPBL_LEAGUE_PAGE,    label: 'About the league',  hint: 'Format, clubs, countries' },
-  { group: 'Reference', href: WPBL_GLOSSARY_PAGE,  label: 'Rules & glossary',  hint: 'Rules, stat definitions' },
+  // Above Reference, so the footer's Data sources (appended after this list) lands in the Reference
+  // group rather than opening a second one after this (Nov 3, 2026).
   // DEV ONLY until the World Cup goes public (src/intl/WorldCupPage.tsx), the same gate as its route in
   // App.tsx: a production menu row would open the 404. It sits in WPBL's menu because until the site
   // becomes women's baseball (ROADMAP-WOMENS-BASEBALL.md, stage 3) WPBL is the section a reader of
@@ -54,6 +51,11 @@ export const WPBL_MORE_PAGES: MorePage[] = [
   ...(import.meta.env.DEV
     ? [{ group: 'International', href: '/world-cup', label: 'World Cup', hint: 'Medals, standings, box scores' }]
     : []),
+  // The players index is the one page carrying a real <a href> to each player page, so it must
+  // stay in the footer even though a reader mostly reaches players through a club.
+  { group: 'Reference', href: WPBL_PLAYERS_INDEX,  label: 'All players',       hint: 'Rosters by club', footerLabel: 'WPBL players' },
+  { group: 'Reference', href: WPBL_LEAGUE_PAGE,    label: 'About the league',  hint: 'Format, clubs, countries' },
+  { group: 'Reference', href: WPBL_GLOSSARY_PAGE,  label: 'Rules & glossary',  hint: 'Rules, stat definitions' },
 ]
 
 /** The footer's list: the menu's pages plus Data sources, which a reader rarely wants and a
