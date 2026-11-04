@@ -63,17 +63,22 @@ export interface PlayerOfTheDay {
  * 2026 games" and a dash for a number. A birthday off the pool still gets its "Today" in the star
  * sign card.
  */
-export function playerOfTheDay(players: WpblPlayer[], today: string): PlayerOfTheDay | null {
+export function playerOfTheDay(players: WpblPlayer[], today: string, avoid: string | null = null): PlayerOfTheDay | null {
   const pool = players.filter(p => p.active && p.api_ids.length > 0)
-  const birthdays = pool.filter(p => birthDateSettled(p) && monthDay(p.birth_date!) === monthDay(today))
+  const birthdays = pool.filter(p => p.id !== avoid && birthDateSettled(p) && monthDay(p.birth_date!) === monthDay(today))
   const day = dayNumber(today)
   if (birthdays.length) {
     const order = rotation(birthdays, p => p.id)
     return { player: order[day % order.length], reason: 'birthday' }
   }
   if (!pool.length) return null
+  // `avoid` steps to the next in the rotation rather than leaving the pool: filtered out, the pool's
+  // length changes and every later day's pick shifts with it, so readers would see a different
+  // player on days that had nothing to do with the avoided one.
   const order = rotation(pool, p => p.id)
-  return { player: order[day % order.length], reason: 'rotation' }
+  const at = day % order.length
+  const pick = order[at].id === avoid && order.length > 1 ? order[(at + 1) % order.length] : order[at]
+  return { player: pick, reason: 'rotation' }
 }
 
 export interface StarSign { name: string; glyph: string; from: string; to: string }

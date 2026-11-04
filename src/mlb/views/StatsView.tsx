@@ -502,7 +502,7 @@ export function StatsView({
                     // phone, where the frozen sorted column pins at exactly this offset.
                     minWidth: NAME_W, width: phoneTable ? NAME_W : undefined, maxWidth: phoneTable ? NAME_W : undefined,
                     color: 'text.disabled', px: 1,
-                    textAlign: phoneTable ? 'right' : 'left', textTransform: 'uppercase',
+                    textAlign: phoneTable ? 'right' : 'left', 
                   }}>
                     {/* On a phone the count lives here, since the foot gave up its words for rows. */}
                     {phoneTable ? `${totalInDataset} players` : 'Player'}

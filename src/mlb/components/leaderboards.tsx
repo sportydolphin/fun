@@ -256,7 +256,7 @@ export function PlayerHeadshot({ playerId, name, size = 36, accent, highlighted,
     return (
       <Box sx={{
         flexShrink: 0, width: chromePx(size), height: chromePx(Math.round(size * 70 / 58)),
-        borderRadius: 1.5, overflow: 'hidden',
+        borderRadius: 2, overflow: 'hidden',
         border: `2px solid ${border}`, bgcolor: 'action.hover',
       }}>
         <Box
@@ -310,7 +310,7 @@ export function PlayerLeaderboardRowItem({ row, rank, accent, onSelect, ghost }:
       {ghost
         // The portrait's own box: its 2px border is inside these dimensions, so a plain fill of
         // the same size holds the same room.
-        ? <Box sx={{ flexShrink: 0, width: chromePx(36), height: chromePx(Math.round(36 * 70 / 58)), borderRadius: 1.5, bgcolor: 'action.hover' }} />
+        ? <Box sx={{ flexShrink: 0, width: chromePx(36), height: chromePx(Math.round(36 * 70 / 58)), borderRadius: 2, bgcolor: 'action.hover' }} />
         : <PlayerHeadshot playerId={row.playerId} name={row.playerName} variant="portrait" teamId={row.teamId} />}
 
       <Box sx={{ flex: 1, minWidth: '4rem' }}>

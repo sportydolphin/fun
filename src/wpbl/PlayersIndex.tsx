@@ -26,7 +26,6 @@ import { wpblPlayerPath, WPBL_COMPARE_BASE } from './routes'
 import WpblPage from './WpblPage'
 import type { WpblTeam, WpblPlayer } from './types'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
-import { typePx } from '../ui/scale'
 import { TYPE_SCALE } from '../ui/card'
 import { isModified } from '../nav'
 
@@ -158,7 +157,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
           <Box sx={{ ...CELL_META, display: 'flex', alignItems: 'center', gap: 0.75, color: 'text.disabled' }}>
             {p.jersey_number && <Box component="span">#{p.jersey_number}</Box>}
             {positionOf(p) && <Box component="span">{positionOf(p)}</Box>}
-            {showTeam && team && <Box component="span" sx={{ textTransform: 'uppercase', letterSpacing: typePx(0.3) }}>{team.abbr}</Box>}
+            {showTeam && team && team.abbr}
           </Box>
         </Box>
       </Box>
@@ -316,7 +315,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
 }
 
 // One definition each for the loaded rows and their skeletons, so the two cannot drift apart.
-const CELL = { display: 'flex', alignItems: 'center', gap: 1, px: 1, py: 0.75, borderRadius: 1.5 } as const
+const CELL = { display: 'flex', alignItems: 'center', gap: 1, px: 1, py: 0.75, borderRadius: 2 } as const
 const CELL_TEXT = { minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.1 } as const
 const CELL_NAME = { fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2 } as const
 const CELL_META = { fontSize: TYPE_SCALE.meta, fontWeight: 600 } as const

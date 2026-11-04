@@ -20,7 +20,6 @@ import { SectionCard, LeaderRow, leaderPlaces, CARD_BORDER, chromePx } from './u
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
 import type { WpblTeam, WpblPlayer } from './types'
-import { typePx } from '../ui/scale'
 import { InfoDot } from '../ui/InfoDot'
 import { useWpblSeason } from './SeasonContext'
 import { TYPE_SCALE } from '../ui/card'
@@ -38,7 +37,7 @@ function BestTile({ label, value, unit, name, accent }: {
       flex: 1, minWidth: chromePx(130), p: 1.25, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
       background: `linear-gradient(135deg, ${accent}1f 0%, transparent 70%)`,
     }}>
-      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: 'text.secondary' }}>{label}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.secondary' }}>{label}</Typography>
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.4, mt: 0.25 }}>
         <Typography sx={{ fontSize: TYPE_SCALE.page, fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: accent }}>{value}</Typography>
         <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary' }}>{unit}</Typography>
@@ -139,7 +138,7 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
         background: `linear-gradient(135deg, ${accent}26 0%, ${accent}0d 70%)`,
       }}>
         <Box sx={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: accent }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, color: accent }}>
             Partial tracking data
           </Typography>
           <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>

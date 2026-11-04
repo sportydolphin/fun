@@ -22,7 +22,7 @@ import { nameStages, nameAtStage, useLineNameFit } from '../ui/names'
 // glossary became the first MLB page drawn with them. Re-exported so the section's imports held.
 import { TYPE_SCALE, CARD_BORDER, edge } from '../ui/card'
 import { ClubBadge } from '../ui/ClubBadge'
-export { TYPE_SCALE, MICRO_TEXT, CARD_BORDER, CARD_FILL, CARD_INK, INNER_BORDER, SectionCard } from '../ui/card'
+export { TYPE_SCALE, DISPLAY_FONT, MICRO_TEXT, CARD_BORDER, CARD_FILL, CARD_INK, INNER_BORDER, SectionCard } from '../ui/card'
 export { hoverOnly, TAPPABLE, tappableIf, pressable, linkPress, FOCUS_RING } from '../ui/interaction'
 export { ModalShell, usePhoneLayout, AfterShellEnters } from '../ui/ModalShell'
 
@@ -705,7 +705,7 @@ export function AccentPanel({ label, summary, meta, accent, defaultOpen = false,
           '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: -2 },
         }}
       >
-        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), flexShrink: 0 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, flexShrink: 0 }}>
           {label}
         </Typography>
         {summary != null && (

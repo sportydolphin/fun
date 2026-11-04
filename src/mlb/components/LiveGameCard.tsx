@@ -118,7 +118,7 @@ function LiveCelebration({ type, teamColor }: { type: 'hit' | 'run'; teamColor: 
         <Typography sx={{
           fontSize: isRun ? TYPE_SCALE.display : TYPE_SCALE.body, fontWeight: 900,
           letterSpacing: isRun ? typePx(1) : typePx(0.5), color: '#fff', lineHeight: 1,
-          textTransform: 'uppercase', whiteSpace: 'nowrap',
+          whiteSpace: 'nowrap',
           textShadow: isRun ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
         }}>
           {isRun ? 'Run scores' : 'Base hit'}
@@ -250,7 +250,7 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
                     {...playerLink(liveData.pitcher.id, liveData.pitcher.name, onPlayerClick)}
                     sx={{ ...LINK_SX, display: 'block', minWidth: 0, cursor: onPlayerClick ? 'pointer' : 'default', '&:hover .lpn': onPlayerClick ? { color: ACCENT_TEXT } : {} }}
                   >
-                    <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', lineHeight: 1 }}>
+                    <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled', lineHeight: 1 }}>
                       {betweenInnings ? 'On the Mound' : 'Pitching'}
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6, mt: 0.2, minWidth: 0 }}>
@@ -268,7 +268,7 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
                     {...playerLink(liveData.batter.id, liveData.batter.name, onPlayerClick)}
                     sx={{ ...LINK_SX, display: 'block', minWidth: 0, cursor: onPlayerClick ? 'pointer' : 'default', '&:hover .lpn': onPlayerClick ? { color: ACCENT_TEXT } : {} }}
                   >
-                    <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.8), color: 'text.disabled', lineHeight: 1 }}>
+                    <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled', lineHeight: 1 }}>
                       {betweenInnings ? 'Leading Off' : 'At Bat'}
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6, mt: 0.2, minWidth: 0 }}>
@@ -319,7 +319,7 @@ export function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick,
                     </Typography>
                   )}
                   {liveData.balls !== null && liveData.strikes !== null && (
-                    <Box sx={{ px: 0.7, py: chromePx(2), borderRadius: 0.5, bgcolor: 'action.hover' }}>
+                    <Box sx={{ px: 0.7, py: chromePx(2), borderRadius: 1, bgcolor: 'action.hover' }}>
                       <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: 1, letterSpacing: typePx(0.2) }}>
                         {liveData.balls}–{liveData.strikes}
                       </Typography>

@@ -89,10 +89,10 @@ export function StealCard({ econ, accent }: {
       </Typography>
 
       <Box sx={{ mt: 2.5, mb: 1 }}>
-        <Box sx={{ position: 'relative', height: 10, borderRadius: 5, bgcolor: 'action.hover' }}>
+        <Box sx={{ position: 'relative', height: 10, borderRadius: 999, bgcolor: 'action.hover' }}>
           <Box sx={{
             position: 'absolute', inset: 0, right: 'auto', width: x(successRate),
-            borderRadius: 5, bgcolor: worthIt ? accent : 'text.disabled',
+            borderRadius: 999, bgcolor: worthIt ? accent : 'text.disabled',
           }} />
           {/* The break-even line, drawn over the fill so the shortfall is the visible gap. */}
           <Box sx={{

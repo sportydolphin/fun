@@ -211,11 +211,11 @@ export function TopPerformers({
   // whole discovery column down. Same header, same pane, same type sizes, so nothing moves.
   if (loading) {
     return (
-      <Box sx={{ borderRadius: 2.5, overflow: 'hidden', border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper' }}>
+      <Box sx={{ borderRadius: 3, overflow: 'hidden', border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper' }}>
         <Box sx={{ px: 1.75, py: 1, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 0.75 }}>
           <Typography sx={{
-            flex: 1, fontWeight: 800, fontSize: TYPE_SCALE.micro, textTransform: 'uppercase',
-            letterSpacing: typePx(1), color: 'text.secondary', lineHeight: 1, whiteSpace: 'nowrap',
+            flex: 1, fontWeight: 800, fontSize: TYPE_SCALE.micro, 
+            color: 'text.secondary', lineHeight: 1, whiteSpace: 'nowrap',
           }}>
             {postseason || worldSeriesOf != null ? 'Postseason Standout' : 'Single-Game Standout'}
           </Typography>
@@ -337,7 +337,6 @@ export function TopPerformers({
                   </Typography>
                   <Typography sx={{
                     fontSize: TYPE_SCALE.caption, fontWeight: 700,
-                    textTransform: 'uppercase', letterSpacing: typePx(0.5),
                     color: 'text.secondary', lineHeight: 1, mt: 0.2,
                   }}>
                     {s.label}
@@ -414,7 +413,7 @@ export function TopPerformers({
     >
       <Box sx={{
         position: 'relative',
-        borderRadius: 2.5, overflow: 'hidden',
+        borderRadius: 3, overflow: 'hidden',
         border: '1px solid',
         // Border color crossfades between team colors over the slide, gated on
         // `sliding` (same phase as the content slide) so it plants at the
@@ -452,8 +451,8 @@ export function TopPerformers({
         }}>
           <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6, flex: 1, minWidth: 0 }}>
             <Typography sx={{
-              fontWeight: 800, fontSize: TYPE_SCALE.micro, textTransform: 'uppercase',
-              letterSpacing: typePx(1), color: headerAccent, lineHeight: 1, whiteSpace: 'nowrap',
+              fontWeight: 800, fontSize: TYPE_SCALE.micro, 
+              color: headerAccent, lineHeight: 1, whiteSpace: 'nowrap',
             }}>
               {headerEntry.context ? 'Postseason Standout' : 'Single-Game Standout'}
             </Typography>

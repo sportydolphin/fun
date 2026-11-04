@@ -104,7 +104,7 @@ export function FanPhotoSubmitNote({ variant }: { variant: 'line' | 'block' }) {
     <Box component="a" href={FAN_PHOTO_SUBMIT_HREF} sx={{
       color: 'primary.main', fontWeight: 700, textDecoration: 'none',
       '&:hover': { textDecoration: 'underline' },
-      '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2, borderRadius: 0.5 },
+      '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2, borderRadius: 1 },
     }}>{label}</Box>
   )
   if (variant === 'line') {
@@ -250,7 +250,7 @@ function PhotoCard({ photo, names, onOpen, frame, focusable = true, subject, pri
         role="button" tabIndex={focusable ? 0 : -1} aria-label={`View photograph: ${caption}`}
         sx={{
           position: 'relative', ...size, cursor: 'pointer',
-          borderRadius: 1.5, overflow: 'hidden', bgcolor: 'action.hover',
+          borderRadius: 2, overflow: 'hidden', bgcolor: 'action.hover',
           border: '1px solid', borderColor: CARD_BORDER, transition: 'border-color 0.15s, transform 0.1s',
           ...hoverOnly({ borderColor: 'text.disabled' }),
           '&:active': { transform: 'scale(0.99)' },
@@ -585,7 +585,7 @@ export function FanPhotoGridSkeleton({ count = 18 }: { count?: number }) {
         <Box key={i} sx={GRID_CELL}>
           <Box sx={{
             width: '100%', aspectRatio: ['4 / 3', '3 / 4', '4 / 3', '1 / 1'][i % 4],
-            borderRadius: 1.5, bgcolor: 'action.hover', border: '1px solid', borderColor: CARD_BORDER,
+            borderRadius: 2, bgcolor: 'action.hover', border: '1px solid', borderColor: CARD_BORDER,
           }} />
           <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, lineHeight: 1.3, mt: 0.6 }}>
             <TextGhost>{i % 3 === 0 ? 'Firstname Lastname and Firstname Lastname' : 'Firstname Lastname'}</TextGhost>

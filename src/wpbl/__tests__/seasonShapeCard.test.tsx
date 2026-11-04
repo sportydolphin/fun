@@ -56,7 +56,10 @@ describe('the standings chart', () => {
   // page renders perfectly, it just has two surfaces on a tab that holds one subject.
   it('sits on the page like the standings table, with no fill of its own', () => {
     const { container } = render(<SeasonShapeCard shape={shapeOf(SEASON)} onPreview={vi.fn()} />)
-    expect(styleOf(container.firstChild as HTMLElement)).toMatch(/background-color:\s*transparent/)
+    // A section (SectionCard's default since Nov 3, 2026) sets no background at all; a framed card
+    // with `bare` sets `transparent`. Either is the page; any other color is a second surface.
+    const own = styleOf(container.firstChild as HTMLElement).split('}')[0]
+    expect(own).not.toMatch(/background-color:\s*(?!transparent)[^;]+/)
   })
 
   it('leaves vertical scrolling to the page', () => {

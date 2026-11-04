@@ -81,7 +81,7 @@ export function Countdown({ target }: { target: number }) {
   return (
     <Typography component="span" sx={{
       // TEXT USES THE FOREGROUND-SAFE ACCENT, the tint behind it uses the raw one. `WPBL_ACCENT`
-      // (#60a5fa) measures ~2.3:1 as text on the light-mode paper and is documented in constants.ts
+      // (#2dd4bf) measures under 2:1 as text on the light-mode paper and is documented in constants.ts
       // as fill-only; as the countdown figure on white it was the pale blue that made this card's
       // one live number the hardest accent on the page to read, and a second blue against the
       // darker `--wpbl-accent-fg` links ("Full recap", "Try it") elsewhere on the feed. The wash

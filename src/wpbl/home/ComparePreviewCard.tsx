@@ -8,7 +8,6 @@ import { wpblQualifiers, plateAppearances, fmtRate,
 } from '../stats'
 import { trackImpression, EVENTS } from '../../lib/analytics'
 import type { WpblTeam, WpblPlayer } from '../types'
-import { typePx } from '../../ui/scale'
 import { trackedLinkTo } from './shared'
 
 // Home's second column points at the compare tool, the one thing in that column a reader cannot
@@ -133,7 +132,7 @@ export function ComparePreviewCard({ batSeasons, qual, teams, players, loading }
         borderBottom: '1px solid', borderColor: 'divider', '&:last-of-type': { borderBottom: 'none' },
       }}>
         {valCell(aText, leadA)}
-        <Typography sx={{ flex: '0 0 auto', px: 1.5, textAlign: 'center', fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary' }}>
+        <Typography sx={{ flex: '0 0 auto', px: 1.5, textAlign: 'center', fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary' }}>
           {label}
         </Typography>
         {valCell(bText, leadB)}
@@ -190,7 +189,7 @@ export function ComparePreviewCard({ batSeasons, qual, teams, players, loading }
                 middle and leaves the left and right thirds of the card empty. */}
             <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, width: '100%' }}>
               {head(a)}
-              <Typography aria-hidden sx={{ alignSelf: 'center', px: 0.5, fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.disabled' }}>
+              <Typography aria-hidden sx={{ alignSelf: 'center', px: 0.5, fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.disabled' }}>
                 vs
               </Typography>
               {head(b)}

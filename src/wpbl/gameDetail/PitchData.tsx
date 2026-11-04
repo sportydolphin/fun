@@ -5,7 +5,6 @@ import { outsToIp } from '../constants'
 import { useUnits } from '../../UnitsContext'
 import { fmtSpeed, speedUnit } from '../../lib/units'
 import { prettyType } from '../tracking'
-import { typePx } from '../../ui/scale'
 import type { WpblPitchTracking } from '../types'
 import { fmtFeedName, StatHead, StatCell, EmptyBody, tableSx, nameHeadSx, nameCellSx, posSx } from './shared'
 import { TYPE_SCALE } from '../../ui/card'
@@ -177,17 +176,17 @@ export function PitchData({ tracking, boxPitchers, firstHit = null, live = false
   const tile = (label: string, value: string) => (
     <Box sx={{ textAlign: 'center', flex: 1, minWidth: '4.25rem' }}>
       <Typography sx={{ fontSize: TYPE_SCALE.display, fontWeight: 800, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
-      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled' }}>{label}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled' }}>{label}</Typography>
     </Box>
   )
   const sectionLabel = (t: string) => (
-    <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary', mb: 1 }}>{t}</Typography>
+    <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary', mb: 1 }}>{t}</Typography>
   )
   // Standout game-highlights tile for the summary strip: bigger value + who did it.
   const hl = (label: string, value: string, sub: string, first: boolean, nameIn?: 'v' | 's') => (
     <Box sx={{ flex: 1, minWidth: 0, textAlign: 'center', px: 0.75, ...(first ? {} : { borderLeft: '1px solid', borderColor: 'divider' }) }}>
       {/* 700 under 9px: see the weight ceiling under TYPE_SCALE in ui.tsx. */}
-      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled', whiteSpace: 'nowrap' }}>{label}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled', whiteSpace: 'nowrap' }}>{label}</Typography>
       {nameIn === 'v'
         ? <NameText name={value} sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, lineHeight: 1.25 }} />
         : <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, lineHeight: 1.25, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</Typography>}
@@ -255,7 +254,7 @@ export function PitchData({ tracking, boxPitchers, firstHit = null, live = false
                   {p.batter && (
                     <NameLine names={[p.batter]} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600 }} render={n => <>
                       <Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>vs </Box>{n(p.batter!)}
-                      {p.inPlay && <Box component="span" sx={{ ml: 0.5, fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.4) }}>in play</Box>}
+                      {p.inPlay && <Box component="span" sx={{ ml: 0.5, fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled' }}>In play</Box>}
                     </>} />
                   )}
                   {p.pitcher && (
@@ -294,7 +293,7 @@ export function PitchData({ tracking, boxPitchers, firstHit = null, live = false
                     <Box component="td" sx={{ ...nameCellSx, overflow: 'hidden' }}>
                       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, overflow: 'hidden' }}>
                         <NameText name={r.name} component="span" sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600 }} />
-                        <Typography component="span" sx={{ ...posSx, textTransform: 'uppercase' }}>{r.teamAbbr}</Typography>
+                        <Typography component="span" sx={{ ...posSx }}>{r.teamAbbr}</Typography>
                       </Box>
                     </Box>
                     <StatCell>{outsToIp(r.outs)}</StatCell>

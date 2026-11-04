@@ -4,7 +4,6 @@ import { ModalShell, CARD_BORDER, CARD_FILL, chromePx, hoverOnly, FOCUS_RING } f
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblVideo } from './types'
 import { formatDuration, videoCredit, videoLabel, videoKindName } from './videoChannels'
-import { typePx } from '../ui/scale'
 import { ICON_SIZE, TYPE_SCALE } from '../ui/card'
 import { YouTubePlayer } from './watch/YouTubePlayer'
 import { useWatchedShare } from './watch/progress'
@@ -91,7 +90,7 @@ export function VideoThumb({ video, vertical, badge = 44, radius = 0, sizes }: {
       {/* Not on a Short: a clip is under a minute by nature, and its caption has the foot of the poster. */}
       {!vertical && duration && (
         <Box component="span" sx={{
-          position: 'absolute', right: 4, bottom: 6, px: 0.5, borderRadius: 0.5, pointerEvents: 'none',
+          position: 'absolute', right: 4, bottom: 6, px: 0.5, borderRadius: 1, pointerEvents: 'none',
           bgcolor: 'rgba(0,0,0,0.8)', color: '#fff', fontSize: TYPE_SCALE.micro, fontWeight: 700, lineHeight: 1.5,
           fontVariantNumeric: 'tabular-nums',
         }}>{duration}</Box>
@@ -302,7 +301,7 @@ function GameHighlightCard({ video }: { video: WpblVideo }) {
           <VideoThumb video={video} badge={30} radius={1.5} />
         </Box>
         <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary' }}>
             {label}
           </Typography>
           <Typography sx={{

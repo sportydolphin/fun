@@ -1,7 +1,6 @@
 import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
 import { ACCENT_EDGE } from './ui/card'
-import { createPortal } from 'react-dom'
-import { Typography, Box, IconButton, AppBar, Toolbar, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery } from '@mui/material'
+import { Typography, Box, IconButton, AppBar, Toolbar, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery, type Theme } from '@mui/material'
 import {
   AccountCircle, Search, DarkModeOutlined, LightModeOutlined, SettingsOutlined, LogoutOutlined, LoginOutlined,
   PersonAddAltOutlined, InsightsOutlined,
@@ -11,7 +10,7 @@ import type { PlayerBridgeItem, SearchResultRow, SearchResultAvatar } from './ml
 import { requestSectionScroll } from './lib/sectionScroll'
 import { MLB_PLAYER_PARTS, PLAYER_PART_LABEL, WPBL_PLAYER_PARTS, playerPartKey } from './lib/playerParts'
 import type { PaletteAction, PaletteIdleGroup } from './CommandPalette'
-import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT } from './mlb/constants'
+import { HEADSHOT, TEAM_BG, TEAM_ABBR } from './mlb/constants'
 import { useTheme } from './ThemeContext'
 import { DevSettings, MobilePreviewHost } from './dev/DevSettings'
 import { isInsideDeviceFrame } from './mlb/dev/devDevice'
@@ -200,10 +199,13 @@ const isKnownPath = (p: string) =>
 // two read as one unit, and the wordmark is held back until the viewport can show it
 // without the ellipsis biting into it. See the toolbar brand block for the math.
 const BRAND_LOGO_H = 32
-// The section switch's WPBL fill. Its label is dark (#111), and each stop clears 4.5:1 against it:
-// Apple's indigo #5856d6 was the one that did not (3.3:1), so it is lifted to #8a88ff. index.html's
-// static copy of the bar repeats this gradient; change both.
-const RAINBOW = 'linear-gradient(90deg, #ff3b30, #ff9500, #ffcc00, #34c759, #007aff, #8a88ff, #af52de, #ff3b30)'
+// The section switch's lit half: one neutral thumb with dark ink, the same in both sections. It was
+// a panning rainbow on WPBL and the accent blue on MLB until Nov 3, 2026; both competed with the blue
+// underline of the active tab beside it, and the rainbow was the loudest thing on the bar for the
+// least important choice on it (ROADMAP-UI.md, the audit). Navigation chrome stays neutral so color
+// is left to the content. index.html's static copy of the bar repeats these; change both.
+const SWITCH_THUMB = { dark: '#e6e6e9', light: '#ffffff' } as const
+const SWITCH_INK = '#111'
 // Where the toolbar holds the section tabs, the widths at which the search field and the handle
 // beside the account icon come back inline. Measured, at the 1.25 desktop scale, with WPBL's
 // tabs (the longer set, with the Stats dot) and the wordmark showing: brand, tabs, field and
@@ -237,62 +239,6 @@ const BRAND_WORDMARK_MIN = 960
 export const DESKTOP_SCALE = 1.25
 const BRAND_WORDMARK_MIN_SCALED = Math.ceil(BRAND_WORDMARK_MIN * DESKTOP_SCALE)
 
-
-// A one-shot confetti pop, fired when you flip the league switch to WPBL, a small nod to
-// the section's playful side. Purely cosmetic: self-contained CSS, no library, `pointer-
-// events: none` so it never blocks a tap, and it unmounts itself once the animation ends.
-// Re-triggered by remounting with a fresh `key`, which reseeds the random spread.
-//
-// Portaled to <body> at fixed viewport coords (x/y = the WPBL segment's center): the AppBar
-// is `position: static` on mobile, so confetti left inside it renders *under* the section's
-// sticky tab nav. A body-level portal with a very high z-index floats it above everything.
-const CONFETTI_COLORS = ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#007aff', '#5856d6', '#af52de']
-function ConfettiBurst({ x, y, onDone }: { x: number; y: number; onDone: () => void }) {
-  const pieces = useMemo(() => Array.from({ length: 16 }, (_, i) => {
-    // Fan downward-and-out: the switch sits at the very top of the page, so an upward
-    // burst would fly off the top edge of the viewport. Down has the whole page below.
-    const angle = Math.PI * (0.15 + Math.random() * 0.7)
-    const dist = 26 + Math.random() * 34
-    return {
-      id: i,
-      tx: Math.cos(angle) * dist * (Math.random() < 0.5 ? -1 : 1),
-      ty: Math.sin(angle) * dist + (4 + Math.random() * 8),
-      rot: (Math.random() * 2 - 1) * 220,
-      delay: Math.random() * 60,
-      color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
-      size: 4 + Math.random() * 3,
-      round: Math.random() < 0.4,
-    }
-  }), [])
-  useEffect(() => {
-    const t = window.setTimeout(onDone, 850)
-    return () => window.clearTimeout(t)
-  }, [onDone])
-  return createPortal(
-    <Box sx={{ position: 'fixed', left: x, top: y, width: 0, height: 0, pointerEvents: 'none', zIndex: 20000, '@keyframes confettiFly': {
-      '0%':   { transform: 'translate(-50%, -50%) rotate(0deg)', opacity: 1 },
-      '100%': { transform: 'translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) rotate(var(--rot))', opacity: 0 },
-    } }}>
-      {pieces.map(p => (
-        <Box
-          key={p.id}
-          style={{
-            '--tx': `${p.tx}px`,
-            '--ty': `${p.ty}px`,
-            '--rot': `${p.rot}deg`,
-            width: p.size,
-            height: p.size,
-            background: p.color,
-            borderRadius: p.round ? '50%' : '1px',
-            animationDelay: `${p.delay}ms`,
-          } as React.CSSProperties}
-          sx={{ position: 'absolute', left: 0, top: 0, animation: 'confettiFly 0.75s cubic-bezier(0.2, 0.6, 0.35, 1) forwards' }}
-        />
-      ))}
-    </Box>,
-    document.body,
-  )
-}
 
 // Every route path is lowercase and matched exactly, but inbound links (and the
 // analytics beacon) sometimes see mis-cased URLs like /WPBL. Lowercasing the
@@ -444,11 +390,6 @@ function AppInner() {
   const changelogMounted   = useOpenedOnce(changelogOpen)
   const [authToast,        setAuthToast]         = useState<'in' | 'out' | 'deleted' | null>(null)
   const accountBtnRef = useRef<HTMLButtonElement>(null)
-  const leagueSwitchRef = useRef<HTMLDivElement>(null)
-  const confettiTimer = useRef<number | undefined>(undefined)
-  // Set (with a fresh key + the WPBL segment's screen coords) each time the switch flips to
-  // WPBL, to fire the confetti pop from there; null once it finishes.
-  const [confetti, setConfetti] = useState<{ key: number; x: number; y: number } | null>(null)
   const isAdmin = user?.email === ADMIN_EMAIL
   const isDesktop = useMediaQuery('(min-width: 600px)')
   // EACH SECTION STAYS MOUNTED ONCE VISITED, hidden while the reader is in the other one, so
@@ -1037,15 +978,13 @@ function AppInner() {
               sportydolphin
             </Typography>
 
-            {/* League switcher: MLB | WPBL, a thumb that glides between two equal halves, rainbow on
-                the WPBL side and the solid accent on MLB.
+            {/* League switcher: MLB | WPBL, a neutral thumb that glides between two equal halves.
                 EACH HALF IS A LINK TO ITS OWN LEAGUE. Until Oct 15, 2026 the whole control was one
                 toggle, so pressing "WPBL" while on WPBL took the reader to MLB: the label promised
                 the opposite of what it did. The lit half is the page you are on (aria-current) and
                 does nothing. A plain group, not a button holding two links, which nested one
                 control in another for a screen reader. */}
             <Box
-              ref={leagueSwitchRef}
               role="group"
               aria-label="League"
               sx={{
@@ -1057,7 +996,7 @@ function AppInner() {
               // spacing it read as part of the name. See TOOLBAR SPACING below.
               ml: 0.75,
               p: '2px', borderRadius: 999,
-              border: '1px solid', borderColor: ACCENT_EDGE, bgcolor: `${ACCENT}14`,
+              border: '1px solid', borderColor: 'outline', bgcolor: 'action.hover',
             }}>
               {(isMlbSection(path) || isWpblSection(path)) && (() => {
                 const wpblActive = isWpblSection(path)
@@ -1067,34 +1006,20 @@ function AppInner() {
                     width: 'calc(50% - 2px)', borderRadius: 999,
                     transform: wpblActive ? 'translateX(100%)' : 'translateX(0)',
                     transition: 'transform 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
-                    // WPBL side: the rainbow gently pans (repeat the first stop at the end so
-                    // the 200%-wide fill loops seamlessly). MLB stays a plain accent fill. The pan
-                    // stops for a reader who asked for less motion: styles.css collapses every
-                    // animation under prefers-reduced-motion and the Settings override.
-                    ...(wpblActive
-                      ? {
-                          background: RAINBOW,
-                          backgroundSize: '200% 100%',
-                          animation: 'wpblShimmer 4s linear infinite',
-                          '@keyframes wpblShimmer': {
-                            '0%':   { backgroundPosition: '0% 50%' },
-                            '100%': { backgroundPosition: '200% 50%' },
-                          },
-                        }
-                      // The solid accent, not the raw #60a5fa: the white "MLB" on it measured 2.5:1.
-                      : { background: 'var(--wpbl-accent-solid)' }),
+                    bgcolor: (t: Theme) => SWITCH_THUMB[t.palette.mode],
+                    // Lifts the white thumb off the light track, where fill alone barely separates them.
+                    boxShadow: (t: Theme) => t.palette.mode === 'light' ? '0 1px 2px rgba(0,0,0,0.25)' : 'none',
                   }} />
                 )
               })()}
               {[{ label: 'MLB', to: '/mlb' }, { label: 'WPBL', to: '/wpbl' }].map(seg => {
                 // The SAME test the thumb above uses, which is the whole point: an exact path
                 // match here meant that the day the WPBL tabs became real paths, /wpbl/stats
-                // slid the rainbow across and left the label in unselected gray on top of it.
+                // slid the thumb across and left the label in unselected gray on top of it.
                 // Every WPBL tab counts, and /wpbl/api too, so the switch stays "on WPBL" in
                 // the docs.
                 const toWpbl = seg.to === '/wpbl'
                 const active = toWpbl ? isWpblSection(path) : isMlbSection(path)
-                const rainbow = active && toWpbl
                 return (
                   // A real anchor, so a crawler can see both sections exist: the switch is what
                   // makes /mlb reachable at all. The href is the league's root; the click goes to
@@ -1114,17 +1039,6 @@ function AppInner() {
                       e.preventDefault()
                       if (active) return
                       const target = otherSectionPath(path, isWpblSection(path), window.location.search)
-                      if (toWpbl) {
-                        // Pop confetti from the bottom edge of the WPBL segment (right half of the
-                        // control), held until the thumb finishes sliding across (matches the 0.28s slide).
-                        const r = leagueSwitchRef.current?.getBoundingClientRect()
-                        if (r) {
-                          window.clearTimeout(confettiTimer.current)
-                          confettiTimer.current = window.setTimeout(() => {
-                            setConfetti(c => ({ key: (c?.key ?? 0) + 1, x: r.left + r.width * 0.75, y: r.bottom }))
-                          }, 280)
-                        }
-                      }
                       navigate(target)
                     }}
                     sx={{
@@ -1135,11 +1049,9 @@ function AppInner() {
                       px: 1.1, py: '5px', borderRadius: 999, userSelect: 'none',
                       cursor: active ? 'default' : 'pointer',
                       fontSize: TYPE_SCALE.meta, fontWeight: 800, letterSpacing: typePx(0.3), lineHeight: 1,
-                      // Dark on the rainbow: white measured 1.5:1 on its yellow. With RAINBOW's
-                      // lightened indigo every stop clears 4.5:1 against this ink.
-                      color: rainbow ? '#111' : active ? '#fff' : 'text.secondary',
+                      color: active ? SWITCH_INK : 'text.secondary',
                       transition: 'color 0.2s',
-                      '&:hover': { color: rainbow ? '#111' : active ? '#fff' : 'text.primary' },
+                      '&:hover': { color: active ? SWITCH_INK : 'text.primary' },
                       // A finger-sized target on a touch screen without a taller pill: the hit area
                       // reaches past the visible edge, above and below, into the bar's own padding.
                       '@media (pointer: coarse)': {
@@ -1151,7 +1063,6 @@ function AppInner() {
                   </Box>
                 )
               })}
-              {confetti && <ConfettiBurst key={confetti.key} x={confetti.x} y={confetti.y} onDone={() => setConfetti(null)} />}
             </Box>
           </Box>
 
@@ -1733,7 +1644,7 @@ function AppInner() {
 
 const ACCOUNT_MENU_SX = {
   position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 1400,
-  borderRadius: 2.5, minWidth: 232, overflow: 'hidden',
+  borderRadius: 3, minWidth: 232, overflow: 'hidden',
   border: '1px solid', borderColor: 'outline',
 } as const
 const ACCOUNT_MENU_GROUP_SX = { py: 0.5 } as const

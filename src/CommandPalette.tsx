@@ -11,7 +11,7 @@ import { nameWords, parseCompareText, parseGameQuery, todayIso, typedPart, typed
 import { mightBeFinderQuestion } from './finderGate'
 import { linkTo, navigate } from './nav'
 import { track, EVENTS } from './lib/analytics'
-import { chromePx, typePx } from './ui/scale'
+import { chromePx } from './ui/scale'
 import { ICON_SIZE, TYPE_SCALE } from './ui/card'
 import { pressable } from './ui/interaction'
 import { SearchAvatar } from './ui/SearchAvatar'
@@ -269,7 +269,7 @@ const questionItem = (q: RecentQuestion): Item => ({
 })
 
 const GROUP_LABEL_SX = {
-  fontSize: TYPE_SCALE.micro, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary',
+  fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.secondary',
 } as const
 
 export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames, resolveLeader, resolvePlayerStat, seasonCount = null, actions = [] }: {
@@ -715,7 +715,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
                   >
                     {item.avatar
                       ? <SearchAvatar avatar={item.avatar} size={32} />
-                      : <Box sx={{ width: 32, height: 32, flexShrink: 0, borderRadius: 1.5, bgcolor: 'action.hover', color: 'text.secondary', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{item.icon}</Box>}
+                      : <Box sx={{ width: 32, height: 32, flexShrink: 0, borderRadius: 2, bgcolor: 'action.hover', color: 'text.secondary', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{item.icon}</Box>}
                     <Box sx={{ minWidth: 0 }}>
                       <Typography sx={{ fontWeight: 600, fontSize: TYPE_SCALE.body, lineHeight: 1.25 }}>{item.title}</Typography>
                       {item.subtitle && <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>{item.subtitle}</Typography>}

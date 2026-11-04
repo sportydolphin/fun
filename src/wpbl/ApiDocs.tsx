@@ -34,7 +34,7 @@ function CodeBlock({ children }: { children: React.ReactNode }) {
 function Code({ children }: { children: React.ReactNode }) {
   return (
     <Box component="code" sx={{
-      px: 0.5, py: 0.15, borderRadius: 0.75, fontSize: '0.85em',
+      px: 0.5, py: 0.15, borderRadius: 1, fontSize: '0.85em',
       bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
     }}>
@@ -66,13 +66,13 @@ function EndpointCard({ path, purpose, returns }: { path: string; purpose: strin
         </Box>
       </Box>
       <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 0.4, lineHeight: 1.5 }}>{purpose}</Typography>
-      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6), color: 'text.disabled', mt: 1, mb: 0.5 }}>Returns</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled', mt: 1, mb: 0.5 }}>Returns</Typography>
       {/* Pre-formatted so the shape reads top-to-bottom instead of wrapping into a wall;
           horizontal scroll keeps a wide line from breaking the layout on narrow screens. */}
       <Box
         component="pre"
         sx={{
-          m: 0, p: 1.25, borderRadius: 1.5,
+          m: 0, p: 1.25, borderRadius: 2,
           bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
           border: '1px solid', borderColor: 'outline',
           overflowX: 'auto', fontSize: TYPE_SCALE.meta, lineHeight: 1.6,

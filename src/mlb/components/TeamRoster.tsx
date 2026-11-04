@@ -61,7 +61,7 @@ function RosterRow({ entry, teamId, onPlayerClick }: {
       {...playerLink(entry.playerId, entry.fullName, onPlayerClick)}
       sx={{
         ...LINK_SX, display: 'flex', alignItems: 'center', gap: 1,
-        px: 1, py: 0.75, borderRadius: 1.5,
+        px: 1, py: 0.75, borderRadius: 2,
         border: '1px solid', borderColor: 'outline',
         bgcolor: 'background.paper',
         cursor: clickable ? 'pointer' : 'default',
@@ -96,7 +96,7 @@ function RosterRow({ entry, teamId, onPlayerClick }: {
       {/* IL badge */}
       {injured && (
         <Box sx={{
-          flexShrink: 0, px: 0.6, height: chromePx(16), borderRadius: 0.75,
+          flexShrink: 0, px: 0.6, height: chromePx(16), borderRadius: 1,
           display: 'inline-flex', alignItems: 'center',
           bgcolor: '#ef444422', color: TONE.red,
           fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.3),
@@ -134,8 +134,8 @@ export function TeamRoster({ roster, teamId, onPlayerClick }: {
       {groups.map(g => (
         <Box key={g.label}>
           <Typography sx={{
-            fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase',
-            letterSpacing: typePx(1.4), color: 'text.disabled', mb: 0.75,
+            fontSize: TYPE_SCALE.caption, fontWeight: 700, 
+            color: 'text.disabled', mb: 0.75,
           }}>
             {g.label} · {g.players.length}
           </Typography>

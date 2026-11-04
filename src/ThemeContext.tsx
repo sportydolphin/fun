@@ -75,7 +75,8 @@ export const SURFACE_CHOICES = {
 } as const;
 
 const LIGHT_PAGE = '#f6f7f9';
-const PRIMARY = { dark: '#60a5fa', light: '#2563eb' };
+// The brand teal (ROADMAP-UI.md, the audit, Nov 3, 2026); the same pair as --wpbl-accent-fg.
+const PRIMARY = { dark: '#2dd4bf', light: '#0f766e' };
 
 /** `hex` with `a` of white mixed in, as a hex: an opaque lifted tone, so it can sit under text,
  *  be a sticky header's fill and be spread into a gradient. */

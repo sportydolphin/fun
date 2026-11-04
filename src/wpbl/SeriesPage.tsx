@@ -33,7 +33,7 @@ import {
   WPBL_MATCHUPS_PAGE, findWpblSeriesPair, wpblSeriesSlugFromPath, wpblSeriesPath,
   wpblComparePath, wpblGamePath, wpblPlayerPath, wpblTeamPath,
 } from './routes'
-import { SegNav, TeamBadge, TYPE_SCALE, FOCUS_RING, TextGhost, LeaderRow, leaderPlaces, hoverOnly, pressable, chromePx } from './ui'
+import { SegNav, TeamBadge, TYPE_SCALE, DISPLAY_FONT, FOCUS_RING, TextGhost, LeaderRow, leaderPlaces, hoverOnly, pressable, chromePx } from './ui'
 import { SECTION_CAPTION_SX, useRankInk } from './cardParts'
 import { WpblLinkProvider } from './LinkContext'
 import { useEraBasis } from './EraBasisContext'
@@ -417,7 +417,7 @@ function ClubSide({ club, clubs, wins, skeleton, align }: {
       }}
     >
       <Box sx={{ gridArea: 'badge', display: 'flex' }}><TeamBadge team={club} size={wide ? 64 : 44} /></Box>
-      <Typography sx={{ gridArea: 'wins', fontSize: TYPE_SCALE.hero, fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+      <Typography sx={{ gridArea: 'wins', fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.hero, fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
         {skeleton ? <TextGhost>0</TextGhost> : wins}
       </Typography>
       <Box sx={{ gridArea: 'name', minWidth: 0 }}>

@@ -16,7 +16,7 @@ import { useLastShape, useRememberShape } from '../../lib/lastShape'
 import { SCHEDULE_GAME_TYPES, isUnplayed, hasStartTime } from '../gameStatus'
 import { fetchSeasonPhase, fetchNextOpeningDay, longDay } from '../seasonPhase'
 import { fetchBracket } from '../postseason'
-import { chromePx, typePx } from '../../ui/scale'
+import { chromePx } from '../../ui/scale'
 import { SectionCard, CardLink, TYPE_SCALE, edge } from '../../ui/card'
 
 // Both open on a tap from the widget, so neither rides in the Home landing (see PredictorModal.tsx).
@@ -281,7 +281,7 @@ function QuickPickTeam({ team, side, picked, dimmed, onPick }: {
       sx={{
         flex: '0 1 auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.7,
         justifyContent: away ? 'flex-end' : 'flex-start',
-        px: 0.85, py: 0.55, borderRadius: 1.5, cursor: 'pointer',
+        px: 0.85, py: 0.55, borderRadius: 2, cursor: 'pointer',
         border: '1.5px solid', borderColor: picked ? edge(col) : 'transparent',
         bgcolor: picked ? `${col}14` : 'transparent',
         transition: 'all 0.15s',
@@ -619,7 +619,7 @@ export function PredictorWidget({ onPicksSettled }: {
               }} />
             )}
             {(isTomorrow || isLater) && !idle && (
-              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', border: '1px solid', borderColor: 'outline', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.secondary', border: '1px solid', borderColor: 'outline', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
                 {isTomorrow ? 'Tomorrow' : shortDay(slateDate)}
               </Typography>
             )}

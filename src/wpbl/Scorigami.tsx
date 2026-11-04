@@ -333,7 +333,7 @@ export default function WpblScorigami({ onOpenGame }: {
                     // A possible score that has not happened: a faint empty square.
                     return (
                       <Box key={`c${w}-${l}`} sx={{
-                        width: 'var(--cell)', height: 'var(--cell)', borderRadius: 0.75,
+                        width: 'var(--cell)', height: 'var(--cell)', borderRadius: 1,
                         border: '1px solid', borderColor: 'outline', bgcolor: 'transparent',
                       }} />
                     )
@@ -366,7 +366,7 @@ export default function WpblScorigami({ onOpenGame }: {
                       }}
                       sx={{
                         ...FOCUS_RING,
-                        width: 'var(--cell)', height: 'var(--cell)', borderRadius: 0.75,
+                        width: 'var(--cell)', height: 'var(--cell)', borderRadius: 1,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         textDecoration: 'none', color: '#fff', cursor: 'pointer',
                         // A thin neutral seam between the halves: at this size an edge does more to
@@ -413,7 +413,7 @@ export default function WpblScorigami({ onOpenGame }: {
         }}>
           {clubColors && [...teams].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map(t => (
             <Box key={t.id} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6 }}>
-              <Box aria-hidden sx={{ width: '0.7rem', height: '0.7rem', borderRadius: 0.5, bgcolor: squareColor(t.id, dark) }} />
+              <Box aria-hidden sx={{ width: '0.7rem', height: '0.7rem', borderRadius: 1, bgcolor: squareColor(t.id, dark) }} />
               <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary', lineHeight: 1 }}>
                 {t.name}
               </Typography>

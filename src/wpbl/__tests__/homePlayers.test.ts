@@ -88,6 +88,19 @@ describe('playerOfTheDay', () => {
     expect(playerOfTheDay(noGames, '2026-11-05')).toMatchObject({ reason: 'rotation' })
     expect(playerOfTheDay(noGames, '2026-11-05')?.player.id).not.toBe('bd')
   })
+
+  it('skips the avoided player without moving any other day\'s pick', () => {
+    const day = '2026-11-05'
+    const usual = playerOfTheDay(roster, day)!.player.id
+    expect(playerOfTheDay(roster, day, usual)?.player.id).not.toBe(usual)
+    for (let d = 1; d <= 10; d++) {
+      const other = `2026-11-${String(d).padStart(2, '0')}`
+      const pick = playerOfTheDay(roster, other)!.player.id
+      if (pick !== usual) expect(playerOfTheDay(roster, other, usual)?.player.id).toBe(pick)
+    }
+    const withBirthday = [...roster, player('bd', { birth_date: '2001-11-05' })]
+    expect(playerOfTheDay(withBirthday, day, 'bd')).toMatchObject({ reason: 'rotation' })
+  })
 })
 
 describe('sunSign', () => {

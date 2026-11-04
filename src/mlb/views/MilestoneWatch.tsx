@@ -79,7 +79,7 @@ function LiveBadge() {
 function Tag({ color, children }: { color: string; children: React.ReactNode }) {
   const tone = useTextTone()
   return (
-    <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: tone(color), border: '1px solid', borderColor: edge(color), borderRadius: 999, px: 0.6, py: '1px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+    <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(color), border: '1px solid', borderColor: edge(color), borderRadius: 999, px: 0.6, py: '1px', whiteSpace: 'nowrap', flexShrink: 0 }}>
       {children}
     </Typography>
   )
@@ -150,8 +150,8 @@ function FeaturedMilestone({ item, isLive, seasonOver, onPlayerClick }: {
           <Typography sx={{ fontSize: TYPE_SCALE.display, fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1, color: isLive ? TONE.red : item.remaining <= 3 ? TONE.green : 'text.primary' }}>
             {item.remaining}
           </Typography>
-          <Typography sx={{ mt: chromePx(2), fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', lineHeight: 1 }}>
-            to go
+          <Typography sx={{ mt: chromePx(2), fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', lineHeight: 1 }}>
+            To go
           </Typography>
         </>)}
       </Box>
@@ -321,7 +321,7 @@ function MilestoneModal({ items, reached, liveTeamIds, seasonOver, leadChases, s
             return (
               <Box key={g.key}>
                 <Box sx={{ px: 1.5, py: chromePx(6), bgcolor: 'action.hover' }}>
-                  <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary' }}>
+                  <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary' }}>
                     {g.label}
                   </Typography>
                 </Box>

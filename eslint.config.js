@@ -102,6 +102,20 @@ export default tseslint.config(
             `Property[key.name='letterSpacing']${path} > Literal[value=/^-?[0-9.]+px$/]`,
           ])
           .map(selector => ({ selector, message: 'letterSpacing in px does not scale with the type. Use typePx(n) from src/ui/scale (or em).' })),
+        // Corners come from one scale (RADIUS in src/ui/card.tsx): 0, 1, 2, 3 and 999, in MUI's
+        // 4px unit. Twelve different radii had accumulated by Nov 2026 (2px to 20px), which is half
+        // of why nothing on the site looked decided (ROADMAP-UI.md, the audit).
+        ...['', ' > ConditionalExpression', ' > ObjectExpression > Property']
+          .map(path => `Property[key.name='borderRadius']${path} > Literal[raw=/^[0-9.]+$/]:not([raw=/^(0|1|2|3|999)$/])`)
+          .map(selector => ({ selector, message: 'borderRadius is on the RADIUS scale (src/ui/card.tsx): 0, 1, 2, 3 or 999.' })),
+        // The brand teal as raw hex. The accent lives in BRAND (src/ui/card.tsx), the theme's
+        // primary and styles.css; a hex typed anywhere else is how the old accent blue ended up in
+        // 55 places, and a change of brand color has to reach all of them. Blues with a meaning of
+        // their own (Ice Cold, a play code, a chart series) are not the accent and stay legal.
+        {
+          selector: 'Literal[value=/#(2dd4bf|0f766e)\\b/i]',
+          message: 'Use the brand tokens (BRAND, ACCENT_EDGE in src/ui/card.tsx; --wpbl-accent-* in CSS), not the hex.',
+        },
         // A cancelable touch listener makes the browser wait for JavaScript before it scrolls
         // anything under it, so the content trails the finger (the player sheet until Oct 7, 2026).
         // The two that exist are deliberate and say so beside them.
@@ -119,6 +133,11 @@ export default tseslint.config(
         ].map(selector => ({ selector, message: 'Faded SVG text falls under 4.5:1 and axe cannot see it. Use theme.palette.text.secondary (or another full-strength ink) instead of fillOpacity/opacity on <text>.' })),
       ],
     },
+  },
+  {
+    // The token files are where the brand hex is allowed to be written down.
+    files: ['src/ui/card.tsx', 'src/ThemeContext.tsx', 'src/wpbl/constants.ts', 'src/mlb/constants.ts'],
+    rules: { 'no-restricted-syntax': 'off' },
   },
   {
     // The share-card exporters render a fixed-size image with px type, where px spacing is right.

@@ -9,9 +9,10 @@ import {
   MAX_FOLLOWED_PLAYERS, FOLLOWED_PREVIEW_XS, FOLLOWED_PREVIEW_SM, FILL, TONE } from '../constants'
 import { searchPlayers, fetchRecentGames, fetchRosterMoves, fetchServedSuspensionIds, RosterMove } from '../api'
 import { MOVE_STYLE } from './RosterMoves'
+import { TeamPickerSheet } from './TeamPicker'
 import { parseIP } from '../lib/utils'
 import { fetchSuggestions, SuggestionChip, SuggestionPlayer } from './SuggestedPlayers'
-import { defaultBorder, useTextTone } from '../lib/colorUtils'
+import { useTextTone } from '../lib/colorUtils'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { chromePx, typePx } from '../../ui/scale'
 import { cachedJson, FRESH_LONG_MS } from '../lib/readCache'
@@ -392,7 +393,7 @@ function FollowedPlayerRow({ id, data, isLive, showForm, move, editMode, isSelec
         display: 'flex', alignItems: 'center',
         gap: { xs: 1, sm: 1.5 },
         px: 2, py: 0.9,
-        cursor: 'pointer', borderRadius: 1.5,
+        cursor: 'pointer', borderRadius: 2,
         transition: 'background 0.12s',
         bgcolor: isSelected ? `${ACCENT}14` : 'transparent',
         '&:hover': { bgcolor: isSelected ? `${ACCENT}1e` : 'action.hover' },
@@ -467,7 +468,7 @@ function FollowedPlayerRow({ id, data, isLive, showForm, move, editMode, isSelec
                 px: 0.5, py: '1px', borderRadius: 999, flexShrink: 0,
                 bgcolor: `${ACCENT}1c`, border: '1px solid', borderColor: ACCENT_EDGE,
                 fontSize: TYPE_SCALE.caption, fontWeight: 800, color: ACCENT_TEXT,
-                letterSpacing: typePx(0.5), textTransform: 'uppercase', lineHeight: 1.4,
+                lineHeight: 1.4,
                 whiteSpace: 'nowrap',
               }}>
                 {isLive ? 'Live' : 'Today'}
@@ -483,7 +484,7 @@ function FollowedPlayerRow({ id, data, isLive, showForm, move, editMode, isSelec
                     px: 0.5, py: '1px', borderRadius: 999, flexShrink: 0,
                     bgcolor: `${style.color}1c`, border: '1px solid', borderColor: edge(style.color),
                     fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(style.color, undefined, 5.6),
-                    letterSpacing: typePx(0.5), textTransform: 'uppercase', lineHeight: 1.4,
+                    lineHeight: 1.4,
                     whiteSpace: 'nowrap',
                   }}>
                     {label}
@@ -519,7 +520,6 @@ function FollowedPlayerRow({ id, data, isLive, showForm, move, editMode, isSelec
           </Typography>
           <Typography sx={{
             fontSize: TYPE_SCALE.caption, fontWeight: 700,
-            textTransform: 'uppercase', letterSpacing: typePx(0.5),
             color: playedToday ? ACCENT_TEXT : 'text.secondary', lineHeight: 1,
           }}>
             {s.label}
@@ -534,8 +534,12 @@ function FollowedPlayerRow({ id, data, isLive, showForm, move, editMode, isSelec
 
 // ─── FollowedPlayersSection ───────────────────────────────────────────────────
 
-export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayerClick, onFollow, liveTeamIds, compact, teamId, hotStove = false }: {
+export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayerClick, onFollow, liveTeamIds, compact, teamId, hotStove = false, followTeam }: {
   followedPlayerIds: number[]
+  /** Home with no team AND no players followed: this card is the only follow prompt, with a team
+   *  pill beside the player one. Two cards that each said "none" were the top of MLB Home for
+   *  every first visit (the Nov 3, 2026 audit in ROADMAP-UI.md). */
+  followTeam?:   { onFollow: (teamId: number) => void; playing?: Set<number> }
   onUnfollow:    (id: number) => void
   onPlayerClick: (id: number) => void
   onFollow:      (id: number) => void
@@ -549,6 +553,8 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
 }) {
   const [playerData, setPlayerData]     = useState<Record<number, FollowedPlayerInfo>>({})
   const [adding, setAdding]             = useState(false)
+  const [teamSheet, setTeamSheet]       = useState(false)
+  const empty = followedPlayerIds.length === 0
 
   // Recent notable moves keyed by player, the badge source. fetchRosterMoves is
   // module-cached, so this shares the Roster Moves card's single fetch. Moves
@@ -580,7 +586,6 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
   const [expanded, setExpanded]         = useState(false)
   const headerRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)   // portaled search/suggestions Popper content
-  const isDark = useDark()
 
   // Only a preview of the list shows by default (3 rows on phones, where vertical space is
   // precious, and 5 from sm up), behind a "View all" toggle. Which rows are dropped is
@@ -669,9 +674,13 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
 
   return (
     <Box sx={{
-      borderRadius: 3, border: '1px solid', borderColor: defaultBorder(isDark),
-      bgcolor: 'background.paper', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column',
+      // SectionCard's section shape (src/ui/card.tsx): a list is a section, not a framed box.
+      borderTop: '1px solid', borderTopColor: 'divider',
+      overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column',
     }}>
+      {followTeam && teamSheet && (
+        <TeamPickerSheet playing={followTeam.playing} onClose={() => setTeamSheet(false)} onSelect={followTeam.onFollow} />
+      )}
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       {/* SectionCard's header in its type and padding (the title an h2 at 0.95rem, 16px in), drawn
@@ -693,6 +702,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
           }}>
             {editMode
               ? (selected.size > 0 ? `${selected.size} selected` : 'Tap to select')
+              : followTeam && empty ? 'Following'
               : hotStove ? `${CURRENT_SEASON} Players` : (compact ? 'Players' : 'Your Players')}
           </Typography>
         )}
@@ -736,6 +746,11 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
             </>
           ) : (
             <>
+              {followTeam && !adding && (
+                <Box {...pressable(() => setTeamSheet(true))} sx={pillSx(ACCENT, compact)}>
+                  + Team
+                </Box>
+              )}
               {!adding && followedPlayerIds.length > 0 && (
                 <Box {...pressable(() => { setEditMode(true); setAdding(false); setAddQuery(''); setAddResults([]) })}
                   sx={pillSx(ACCENT, compact)}>
@@ -763,7 +778,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                   {...pressable(() => { setAdding(a => !a); setAddQuery(''); setAddResults([]) })}
                   sx={pillSx(ACCENT, compact)}
                 >
-                  {adding ? '✕' : '+ Add'}
+                  {adding ? '✕' : followTeam ? '+ Player' : '+ Add'}
                 </Box>
               )}
             </>
@@ -843,7 +858,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                 borderRadius: 2, boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
                 p: 1.25, display: 'flex', flexDirection: 'column', gap: 0.75,
               }}>
-                <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', px: 0.25 }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', px: 0.25 }}>
                   Suggested
                 </Typography>
                 {suggestions.map(p => (
@@ -864,13 +879,9 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
 
       {/* ── Player rows ───────────────────────────────────────────────────────── */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        {followedPlayerIds.length === 0 ? (
-          <Box sx={{ py: compact ? 2.5 : 3.5, textAlign: 'center' }}>
-            <Typography sx={{ color: 'text.disabled', fontSize: compact ? TYPE_SCALE.meta : TYPE_SCALE.body, mb: 0.5, lineHeight: 1.4 }}>
-              {compact ? 'No players' : 'No players followed'}
-            </Typography>
-          </Box>
-        ) : (
+        {/* Nothing followed: the header and its "+" pill are the whole card. A body that only
+            said "No players followed" was a card-sized empty state above the fold. */}
+        {empty ? null : (
           <Box sx={{
             display: 'flex', flexDirection: 'column', py: 0.5, flex: 1, minHeight: 0, overflowY: 'auto',
             scrollbarWidth: 'thin',
@@ -922,7 +933,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
               px: 1.5, py: 0.75, cursor: 'pointer', flexShrink: 0,
               borderTop: '1px solid', borderColor: 'divider',
               color: ACCENT_TEXT, fontSize: compact ? TYPE_SCALE.caption : TYPE_SCALE.micro,
-              fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.8),
+              fontWeight: 800, 
               userSelect: 'none',
               transition: 'background 0.12s',
               '&:hover': { bgcolor: `${ACCENT}12` },

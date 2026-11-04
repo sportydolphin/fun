@@ -114,8 +114,8 @@ export function NextPostseasonCard({ rows, teams, games }: {
         </Box>
 
         <Typography sx={{
-          fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6),
-          textTransform: 'uppercase', color: 'var(--wpbl-accent-fg)', mt: 1, lineHeight: 1.2,
+          fontSize: TYPE_SCALE.micro, fontWeight: 800, 
+          color: 'var(--wpbl-accent-fg)', mt: 1, lineHeight: 1.2,
         }}>
           {r.label} · Game {r.gameNumber} of {bestOf}
         </Typography>

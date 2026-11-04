@@ -140,6 +140,13 @@ dependency list at all, the directive goes above the hook call, not above its cl
 chart could fade every axis label under 4.5:1 and pass both checks, which MLB's charts did until
 v1.181.0. Use `theme.palette.text.secondary` for a recessive label.
 
+**Corners and the brand color are lint errors off their tokens** (also `no-restricted-syntax`,
+since Nov 3, 2026). A literal `borderRadius` must be on `RADIUS` in `src/ui/card.tsx` (0, 1, 2, 3
+or 999); twelve radii had drifted in. The brand teal's hex (`#2dd4bf`, `#0f766e`) may be written
+only in the token files (`src/ui/card.tsx`, `ThemeContext.tsx`, both sections' `constants.ts`);
+everywhere else uses `BRAND`, `ACCENT_EDGE` or `--wpbl-accent-*`, so a change of brand color is
+one edit rather than the 55 the old blue took.
+
 **Em dashes and British spelling fail a test**, `src/__tests__/houseRules.test.ts`, run with the
 others. It reads every tracked file, so it covers what the lint never opens: `scripts/`,
 `supabase/`, the workflows and the docs. In code it reads prose only (comments, strings with a

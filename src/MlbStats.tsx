@@ -895,8 +895,8 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           onChange={k => goTab(k as NavKey)}
           onMore={() => setMoreOpen(true)}
           moreOpen={moreOpen}
-          // The active tab is a label, so it takes the text-safe accent: the raw #60a5fa read at
-          // 2.5:1 on the light bar. The "new" dot is a fill, which wants the solid one.
+          // The active tab is a label, so it takes the text-safe accent: the raw accent reads under
+          // 2:1 on the light bar. The "new" dot is a fill, which wants the solid one.
           accent={ACCENT_TEXT}
           badgeColor="var(--wpbl-accent-solid)"
           label="MLB sections"

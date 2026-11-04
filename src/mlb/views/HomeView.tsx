@@ -1,5 +1,5 @@
 import { memo, useState, useEffect, useCallback, useRef } from 'react'
-import { TYPE_SCALE, TAB_TITLE_SX } from '../../ui/card'
+import { TYPE_SCALE, TAB_TITLE_SX, SECTION_COLUMN_GAP } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { Team, TeamSummary, SosEntry, StandingsDivision } from '../types'
 import { TEAM_ABBR, CURRENT_SEASON, TEAM_PAYROLLS_2026 } from '../constants'
@@ -588,7 +588,7 @@ function HomeViewInner({
       <Box sx={{
         display: 'grid',
         gridTemplateColumns: { xs: '1fr', md: '1.4fr 1fr' },
-        columnGap: HOME_GAP,
+        columnGap: SECTION_COLUMN_GAP,
         rowGap: { xs: HOME_GAP, md: 0 },
         alignItems: 'start',
       }}>
@@ -672,21 +672,39 @@ function HomeViewInner({
           ) : (
             /* No team followed: a one-line invitation under the picks (see TeamPicker.tsx for why it
                is no longer the whole grid). Same card id as the grid it replaced, so the admin
-               series runs straight through the change and shows what it did to follows. */
+               series runs straight through the change and shows what it did to follows.
+               With no players either, the two prompts are one card ("Following", + Team, + Player)
+               under the team_picker id: two cards each saying "none" were the top of the page. */
             <>
-              <TrackedCard card="team_picker" sx={{ order: ORDER.teamCardQuiet, minWidth: 0, ...winterSlot('team') }}>
-                <FollowTeamPrompt onFollow={onFollowTeam} playing={playingIds} />
-              </TrackedCard>
-              <TrackedCard card="followed_players" sx={{ order: ORDER.followedPlayers, minWidth: 0, ...winterSlot('players') }}>
-                <FollowedPlayersSection
-                  hotStove={hotStove}
-                  followedPlayerIds={followedPlayerIds}
-                  onUnfollow={onUnfollowPlayer}
-                  onPlayerClick={onPlayerClick}
-                  onFollow={onFollowPlayer}
-                  liveTeamIds={liveTeamIds}
-                />
-              </TrackedCard>
+              {followedPlayerIds.length === 0 ? (
+                <TrackedCard card="team_picker" sx={{ order: ORDER.teamCardQuiet, minWidth: 0, ...winterSlot('team') }}>
+                  <FollowedPlayersSection
+                    hotStove={hotStove}
+                    followedPlayerIds={followedPlayerIds}
+                    onUnfollow={onUnfollowPlayer}
+                    onPlayerClick={onPlayerClick}
+                    onFollow={onFollowPlayer}
+                    liveTeamIds={liveTeamIds}
+                    followTeam={{ onFollow: onFollowTeam, playing: playingIds }}
+                  />
+                </TrackedCard>
+              ) : (
+                <>
+                  <TrackedCard card="team_picker" sx={{ order: ORDER.teamCardQuiet, minWidth: 0, ...winterSlot('team') }}>
+                    <FollowTeamPrompt onFollow={onFollowTeam} playing={playingIds} />
+                  </TrackedCard>
+                  <TrackedCard card="followed_players" sx={{ order: ORDER.followedPlayers, minWidth: 0, ...winterSlot('players') }}>
+                    <FollowedPlayersSection
+                      hotStove={hotStove}
+                      followedPlayerIds={followedPlayerIds}
+                      onUnfollow={onUnfollowPlayer}
+                      onPlayerClick={onPlayerClick}
+                      onFollow={onFollowPlayer}
+                      liveTeamIds={liveTeamIds}
+                    />
+                  </TrackedCard>
+                </>
+              )}
               {!noGamesNow && (
                 <TrackedCard card="predictions" sx={{ order: predictorOrder, minWidth: 0 }}>
                   <PredictorWidget onPicksSettled={handlePicksSettled} />

@@ -116,7 +116,7 @@ export function FullScheduleModal({ games, myTeamId, today, onPlayerClick, onTea
               return (
                 <Box key={iso ?? `blank-${i}`} sx={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.25, minWidth: 0, pt: 0.5, pb: 0.25,
-                  borderRadius: 1.5, ...(isToday ? { border: '1px solid', borderColor: ACCENT_EDGE } : null),
+                  borderRadius: 2, ...(isToday ? { border: '1px solid', borderColor: ACCENT_EDGE } : null),
                 }}>
                   {iso && (
                     <Typography component="span" sx={{ fontSize: TYPE_SCALE.caption, fontWeight: isToday ? 800 : 600, color: isToday ? 'text.primary' : 'text.secondary', lineHeight: 1 }}>

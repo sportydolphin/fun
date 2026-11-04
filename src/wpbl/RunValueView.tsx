@@ -22,7 +22,6 @@ import { fullCountSwing, takeSwingSplit } from './derive/pitchValue'
 import { pitchQualifiers } from './derive/pitches'
 import { wpblQualifiers } from './stats'
 import type { WpblBattingLine, WpblGame, WpblPlayer, WpblTeam } from './types'
-import { typePx } from '../ui/scale'
 import { InfoDot } from '../ui/InfoDot'
 import { useWpblSeason } from './SeasonContext'
 import { PillGroup } from '../ui/PillGroup'
@@ -113,7 +112,7 @@ function ReGrid({ table, accent }: { table: ReTable; accent: string }) {
         <Box />
         {[0, 1, 2].map(o => (
           <Box key={o} sx={{
-            fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
+            fontSize: TYPE_SCALE.caption, fontWeight: 800, 
             color: 'text.secondary', textAlign: 'center', pb: 0.5,
           }}>{o} out{o === 1 ? '' : 's'}</Box>
         ))}
@@ -242,7 +241,7 @@ function Say({ children }: { children: React.ReactNode }) {
 function Formula() {
   const term = (t: string) => (
     <Box component="span" sx={{
-      px: 0.9, py: 0.4, borderRadius: 1.5, bgcolor: 'background.paper',
+      px: 0.9, py: 0.4, borderRadius: 2, bgcolor: 'background.paper',
       border: '1px solid', borderColor: 'outline',
       fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.primary',
     }}>{t}</Box>

@@ -9,7 +9,6 @@ import { wpblQualifiers } from './stats'
 import { SectionHead, SECTION_CAPTION_SX, useRankInk } from './cardParts'
 import { inSeason, gamesInSeason, type SeasonScope } from './season'
 import type { WpblGame, WpblPitchPlay, WpblPlayer, WpblTeam } from './types'
-import { typePx } from '../ui/scale'
 import { TYPE_SCALE } from '../ui/card'
 
 // The pitch profile on a player page: what the league's pitch-by-pitch log says about how this
@@ -90,7 +89,7 @@ function MixRows({ me, league, side, better, amber }: {
   const max = Math.max(...MIX.flatMap(m => [me[m.key] / tMe, league[m.key] / tLg])) * 1.1
   const group = (swung: boolean) => (
     <Box sx={{ minWidth: 0 }}>
-      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.disabled', mb: 0.25 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled', mb: 0.25 }}>
         {swung ? 'Swung at' : 'Taken'}
       </Typography>
       {MIX.filter(m => m.swung === swung).map(m => {

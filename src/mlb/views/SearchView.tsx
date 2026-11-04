@@ -20,7 +20,7 @@ import { TeamCardInner, TeamCardInnerProps, FeaturedMiniCard, DivisionStandingsC
 // the ScheduleStrip module only loads when a team page is actually opened.
 const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ default: m.TeamScheduleStrip })))
 import { TeamRoster } from '../components/TeamRoster'
-import { chromePx, typePx } from '../../ui/scale'
+import { chromePx } from '../../ui/scale'
 import { PillGroup } from '../../ui/PillGroup'
 import { MlbPageH1 } from '../components/PageHeading'
 import { linkPress, pressable } from '../../ui/interaction'
@@ -257,7 +257,7 @@ export function SearchView({
           <Box>
             <Box sx={{ position: 'relative' }}>
               <Paper ref={cardRef} elevation={4} sx={{
-                borderRadius: 4, overflow: 'hidden', background: palette.bg,
+                borderRadius: 999, overflow: 'hidden', background: palette.bg,
                 transition: 'background 0.45s ease', p: { xs: 2, sm: 2.5 },
               }}>
                 {teamCardProps && <TeamCardInner {...teamCardProps} />}
@@ -269,7 +269,7 @@ export function SearchView({
                     {...pressable(e => setCardMenuAnchor(e.currentTarget as HTMLElement))}
                     sx={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      p: 0.5, borderRadius: 1.5,
+                      p: 0.5, borderRadius: 2,
                       bgcolor: (cardMenuAnchor || cardOptionsAnchor) ? 'rgba(0,0,0,0.42)' : 'rgba(0,0,0,0.22)',
                       color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
                       '&:hover': { bgcolor: 'rgba(0,0,0,0.42)', color: '#fff' },
@@ -313,11 +313,11 @@ export function SearchView({
                 onClose={() => setCardOptionsAnchor(null)}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                slotProps={{ paper: { sx: { borderRadius: 2.5, p: 2, mt: 0.75, width: chromePx(290), boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } } }}
+                slotProps={{ paper: { sx: { borderRadius: 3, p: 2, mt: 0.75, width: chromePx(290), boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } } }}
               >
                 {/* Colors */}
                 <Box sx={{ mb: 1.75 }}>
-                  <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled', mb: 0.75 }}>
+                  <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled', mb: 0.75 }}>
                     Colors
                   </Typography>
                   <Box
@@ -345,7 +345,7 @@ export function SearchView({
                   return (
                     <Box sx={{ mb: 1.75 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
-                        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled' }}>
+                        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled' }}>
                           Batting stats
                         </Typography>
                         <Box {...pressable(() => setHitSel(allHit ? hitDefaults : hitDefs.map(d => d.key)))} sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', userSelect: 'none' }}>
@@ -371,7 +371,7 @@ export function SearchView({
                   return (
                     <Box sx={{ mb: 1.75 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
-                        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled' }}>
+                        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled' }}>
                           Pitching stats
                         </Typography>
                         <Box {...pressable(() => setPitSel(allPit ? pitDefaults : pitDefs.map(d => d.key)))} sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', userSelect: 'none' }}>
@@ -389,7 +389,7 @@ export function SearchView({
 
                 {/* League rank */}
                 <Box>
-                  <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.6), color: 'text.disabled', mb: 0.75 }}>
+                  <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled', mb: 0.75 }}>
                     League rank
                   </Typography>
                   <PillGroup

@@ -49,8 +49,8 @@ export const HEAD_CARD = {
  *  the reader's, with one canonical already declared for both spellings. */
 export const VS_SX = {
   alignSelf: 'center', flexShrink: 0, px: 0.5,
-  fontSize: MICRO_TEXT, fontWeight: 800, letterSpacing: typePx(0.8),
-  textTransform: 'uppercase', color: 'text.disabled',
+  fontSize: MICRO_TEXT, fontWeight: 800, 
+  color: 'text.disabled',
 } as const
 /** The empty slot beside the one player chosen so far. */
 export const PICK_SLOT = {
@@ -166,8 +166,8 @@ export function CompareCard({ title, subtitle, children }: {
         bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: CARD_BORDER,
       }}>
         <Typography component="h2" sx={{
-          fontSize: TYPE_SCALE.body, fontWeight: 800, letterSpacing: typePx(0.8),
-          textTransform: 'uppercase', lineHeight: 1.3,
+          fontSize: TYPE_SCALE.body, fontWeight: 800, 
+          lineHeight: 1.3,
         }}>
           {title}
         </Typography>
@@ -326,7 +326,7 @@ export function HeadToHeadCard({ duels }: { duels: HeadToHeadView[] }) {
             </Typography>
             {d.slices.map(s => (
               <Box key={s.label} sx={{ mt: 0.75 }}>
-                <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', lineHeight: 1.3 }}>
+                <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 800, color: 'text.disabled', lineHeight: 1.3 }}>
                   {s.label}
                 </Typography>
                 <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
@@ -352,7 +352,7 @@ export function HeadToHeadSkeleton({ labels = ['Regular season'] }: { labels?: s
         </Typography>
         {labels.map(label => (
           <Box key={label} sx={{ mt: 0.75 }}>
-            <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', lineHeight: 1.3 }}>
+            <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 800, color: 'text.disabled', lineHeight: 1.3 }}>
               {label}
             </Typography>
             <Typography sx={{ fontSize: TYPE_SCALE.body, fontVariantNumeric: 'tabular-nums' }}>
@@ -395,7 +395,7 @@ export interface ComparePick {
 const PICK_ROW = {
   display: 'flex', alignItems: 'center', gap: 1, width: '100%', textAlign: 'left',
   minWidth: 0,
-  p: 0.75, borderRadius: 1.5, border: '1px solid',
+  p: 0.75, borderRadius: 2, border: '1px solid',
 } as const
 
 /**

@@ -119,13 +119,13 @@ export function ChampionCard({ bracket, compact, linkLabel, linkProps, onTeamCli
         {/* Null is a feed that has not published one: no row at all rather than an empty label. */}
         {mvp !== null && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, flexShrink: 0 }}>
-            <Box sx={{ width: chromePx(40), borderRadius: 1.5, overflow: 'hidden', flexShrink: 0, bgcolor: 'action.hover' }}>
+            <Box sx={{ width: chromePx(40), borderRadius: 2, overflow: 'hidden', flexShrink: 0, bgcolor: 'action.hover' }}>
               {mvp
                 ? <Box component="img" src={HEADSHOT(mvp.id)} alt="" sx={{ width: '100%', height: 'auto', aspectRatio: '2 / 3', objectFit: 'cover', display: 'block' }} />
                 : <Box sx={{ width: '100%', aspectRatio: '2 / 3' }} />}
             </Box>
             <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.primary' }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.primary' }}>
                 World Series MVP
               </Typography>
               {mvp ? (
@@ -209,9 +209,9 @@ export function ChampionCardSkeleton({ season, compact }: { season: number; comp
           </Box>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, flexShrink: 0 }}>
-          <Box sx={{ width: chromePx(40), aspectRatio: '2 / 3', borderRadius: 1.5, flexShrink: 0, bgcolor: 'action.hover' }} />
+          <Box sx={{ width: chromePx(40), aspectRatio: '2 / 3', borderRadius: 2, flexShrink: 0, bgcolor: 'action.hover' }} />
           <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.primary' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.primary' }}>
               World Series MVP
             </Typography>
             <Typography sx={{ fontSize: TYPE_SCALE.title }}><Skeleton width="8rem" /></Typography>

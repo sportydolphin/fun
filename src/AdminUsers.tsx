@@ -137,7 +137,7 @@ function SplitBar({ u }: { u: AdminUser }) {
       </Typography>
       {total > 0 && (
         <Box sx={{ display: 'flex', height: 4, borderRadius: 999, overflow: 'hidden', bgcolor: 'action.hover' }}>
-          <Box sx={{ width: `${(u.wpbl_events / total) * 100}%`, bgcolor: 'var(--wpbl-accent-solid, #2563eb)' }} />
+          <Box sx={{ width: `${(u.wpbl_events / total) * 100}%`, bgcolor: 'var(--wpbl-accent-solid)' }} />
           <Box sx={{ width: `${(u.mlb_events / total) * 100}%`, bgcolor: 'warning.main' }} />
         </Box>
       )}
@@ -209,9 +209,9 @@ function AlertCell({ u }: { u: AdminUser }) {
 }
 
 const ROLE_STYLE: Record<SiteRole, { label: string; bg: string }> = {
-  collaborator: { label: 'Collaborator', bg: 'var(--wpbl-accent-solid, #2563eb)' },
+  collaborator: { label: 'Collaborator', bg: 'var(--wpbl-accent-solid)' },
   moderator:    { label: 'Moderator',    bg: '#7c3aed' },
-  tester:       { label: 'Tester',       bg: '#0f766e' },
+  tester:       { label: 'Tester',       bg: '#7c3aed' },
 }
 
 function RolePills({ roles }: { roles: AdminUser['roles'] }) {
@@ -221,7 +221,7 @@ function RolePills({ roles }: { roles: AdminUser['roles'] }) {
       {roles.map(r => (
         <Tooltip key={r.role} title={r.note ?? ''} disableHoverListener={!r.note}>
           <Box sx={{ px: 0.65, py: 0.1, borderRadius: 999, bgcolor: ROLE_STYLE[r.role].bg, flexShrink: 0 }}>
-            <Typography sx={{ fontSize: '0.5rem', fontWeight: 900, color: '#fff', letterSpacing: typePx(0.4), textTransform: 'uppercase' }}>
+            <Typography sx={{ fontSize: '0.5rem', fontWeight: 900, color: '#fff' }}>
               {ROLE_STYLE[r.role].label}
             </Typography>
           </Box>
@@ -262,7 +262,7 @@ function Identity({ u, dense }: { u: AdminUser; dense?: boolean }) {
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>{u.email ?? '—'}</Typography>
         {u.provider !== 'email' && (
-          <Typography sx={{ fontSize: '0.55rem', fontWeight: 800, color: 'text.disabled', textTransform: 'uppercase', flexShrink: 0 }}>
+          <Typography sx={{ fontSize: '0.55rem', fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>
             {u.provider}
           </Typography>
         )}
@@ -331,7 +331,7 @@ function RowMenu({ u, busy, onToggleDeleted, onToggleRole }: {
         onClick={e => e.stopPropagation()}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
-        <Typography sx={{ px: 2, pt: 0.5, pb: 0.75, fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.6), color: 'text.disabled', textTransform: 'uppercase' }}>
+        <Typography sx={{ px: 2, pt: 0.5, pb: 0.75, fontSize: '0.6rem', fontWeight: 800, color: 'text.disabled' }}>
           Roles
         </Typography>
         {SITE_ROLES.map(role => (
@@ -482,7 +482,7 @@ function Tile({ label, value, sub }: { label: string; value: string; sub?: strin
       px: { xs: 1.25, md: 1.5 }, py: 1,
       border: '1px solid', borderColor: 'outline', borderRadius: 2,
     }}>
-      <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.disabled' }}>
+      <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled' }}>
         {label}
       </Typography>
       <Typography sx={{ fontSize: '1.15rem', fontWeight: 900, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>
@@ -711,7 +711,7 @@ export function UsersPanel({ open, onClose, onChanged }: {
                   flex: '1 1 220px', minWidth: 180, boxSizing: 'border-box', px: 1.25, py: 0.8,
                   fontSize: '0.82rem', color: 'text.primary', font: 'inherit',
                   bgcolor: 'action.hover', border: '1px solid', borderColor: 'outline',
-                  borderRadius: 1.5, outline: 'none', '&:focus': { borderColor: 'primary.main' },
+                  borderRadius: 2, outline: 'none', '&:focus': { borderColor: 'primary.main' },
                 }}
               />
               {/* Native select rather than MUI's: it is one control, it needs no styling to be
@@ -719,7 +719,7 @@ export function UsersPanel({ open, onClose, onChanged }: {
                   that has to fit on screen. Its value is DERIVED from (sort, desc), so
                   clicking a column header moves this too and the two can never disagree. */}
               <Box component="label" sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.disabled' }}>
+                <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: 'text.disabled' }}>
                   Sort
                 </Typography>
                 <Box
@@ -732,7 +732,7 @@ export function UsersPanel({ open, onClose, onChanged }: {
                   sx={{
                     px: 1, py: 0.7, fontSize: '0.78rem', font: 'inherit', fontWeight: 600,
                     color: 'text.primary', bgcolor: 'action.hover',
-                    border: '1px solid', borderColor: 'outline', borderRadius: 1.5,
+                    border: '1px solid', borderColor: 'outline', borderRadius: 2,
                     outline: 'none', cursor: 'pointer',
                     '&:focus': { borderColor: 'primary.main' },
                   }}

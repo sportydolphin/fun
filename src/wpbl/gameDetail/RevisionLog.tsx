@@ -6,7 +6,6 @@ import { WPBL_ACCENT, wpblFullName } from '../constants'
 import { formatRevisionDay, leagueDay } from '../derive/feedHealth'
 import { describeRevision, revisionOverflow } from '../derive/gameRevisions'
 import { pressable, FOCUS_RING, TAPPABLE } from '../ui'
-import { typePx } from '../../ui/scale'
 import type { WpblTeam, WpblPlayer, WpblGameRevision } from '../types'
 import { TYPE_SCALE } from '../../ui/card'
 
@@ -61,7 +60,7 @@ export function RevisionLog({ revisions, gameId, away, home, names, onOpenPlayer
         }}
       >
         <Box component="span" sx={{
-          fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1),
+          fontSize: TYPE_SCALE.caption, fontWeight: 800, 
           color: 'text.disabled',
         }}>Scoring changes</Box>
         <Box component="span" sx={{ color: 'text.disabled' }}>

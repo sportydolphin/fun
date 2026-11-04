@@ -10,7 +10,6 @@ import { useEraBasis } from '../EraBasisContext'
 import type { WpblAward } from '../awards'
 import type { AwardCandidate } from '../derive/awards'
 import type { WpblPlayer, WpblTeam } from '../types'
-import { typePx } from '../../ui/scale'
 
 // ─── one candidate, one tap ──────────────────────────────────────────────────────
 
@@ -305,8 +304,8 @@ export function CandidateTile({ candidate, award, team, player, on, share, showS
               {/* 700 at `caption`, inside the ceiling in ui.tsx: this is 9.6px uppercase on a
                   phone and a heavier one closes its own counters up. */}
               <Typography sx={{
-                fontSize: TYPE_SCALE.caption, fontWeight: 700, letterSpacing: typePx(0.4),
-                textTransform: 'uppercase', color: 'text.disabled', lineHeight: 1.3,
+                fontSize: TYPE_SCALE.caption, fontWeight: 700, 
+                color: 'text.disabled', lineHeight: 1.3,
                 whiteSpace: 'nowrap',
               }}>{st.label}</Typography>
             </Box>

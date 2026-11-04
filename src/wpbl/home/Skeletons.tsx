@@ -1,5 +1,6 @@
 import { Box, Skeleton } from '@mui/material'
 import { chromePx, CARD_BORDER, CARD_FILL, TYPE_SCALE } from '../ui'
+import { SECTION_COLUMN_GAP } from '../../ui/card'
 // The dismissal key and the dev-only undo. Their own module so the dev settings menu can reach
 // the undo without dragging this file into the main bundle. See discordInvite.ts.
 import { DISCORD_DISMISS_KEY } from '../discordInvite'
@@ -40,9 +41,11 @@ export function CardSkeleton({ minHeight, titleWidth = '7rem', lines = 3 }: {
   lines?: number
 }) {
   return (
+    // SectionCard's section shape (one rule on top, no frame), so the placeholder takes the box the
+    // loaded section will.
     <Box aria-hidden sx={{
-      borderRadius: 3, overflow: 'hidden', minHeight,
-      border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL,
+      overflow: 'hidden', minHeight,
+      borderTop: '1px solid', borderTopColor: 'divider',
     }}>
       <Box sx={{ px: 2, pt: 1.25, pb: 1 }}>
         <Skeleton variant="text" width={titleWidth} sx={{ fontSize: TYPE_SCALE.title, lineHeight: 1.2 }} />
@@ -214,7 +217,7 @@ function OffseasonHomeSkeleton() {
 
       {/* The player cards draw their own empty state (no players yet), so the placeholder is the
           real card rather than a guess at its height. */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 1.5, mt: 1.5 }}>
         <PlayerSpotlightCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
         {/* The champion card's own height, measured at 375, 760, 960 and 1440 (Oct 30, 2026): one
             number per scale, since its rows stack the same way at every width. Taller here than the
@@ -227,7 +230,7 @@ function OffseasonHomeSkeleton() {
         </Box>
       )}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 1.5, mt: 1.5 }}>
         <SeasonLeadersCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
         <FanAwardWinnersCard players={[]} teams={EMPTY_TEAMS} onOpenPlayer={NO_OPEN} onOpenTeam={NO_OPEN} />
       </Box>
@@ -238,7 +241,7 @@ function OffseasonHomeSkeleton() {
         <StarSignCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
       </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 1.5, mt: 1.5 }}>
         <CardSkeleton minHeight={READING_CARD_SKELETON_H} titleWidth="4.5rem" lines={0} />
         <CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />
       </Box>

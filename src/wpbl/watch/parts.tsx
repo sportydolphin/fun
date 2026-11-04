@@ -5,7 +5,6 @@ import { wpblWatchVideoPath } from '../routes'
 import { VideoCreditLine, VideoThumb, PLAYABLE_HOVER, videoDateLabel } from '../Highlights'
 import { ClipCaption } from '../Watch'
 import { videoCredit, videoKindName } from '../videoChannels'
-import { typePx } from '../../ui/scale'
 import { InfoDot } from '../../ui/InfoDot'
 import { NameText } from '../../ui/NameText'
 import type { WpblVideo } from '../types'
@@ -35,7 +34,7 @@ export const CARD_LINK = { display: 'block', color: 'inherit', textDecoration: '
 export function GroupHeading({ children, mb = 1 }: { children: React.ReactNode; mb?: number }) {
   return (
     <Typography component="h2" sx={{
-      fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.6),
+      fontSize: TYPE_SCALE.micro, fontWeight: 800, 
       color: 'text.secondary', mb,
     }}>{children}</Typography>
   )

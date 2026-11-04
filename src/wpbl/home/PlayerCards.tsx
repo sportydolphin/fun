@@ -6,7 +6,7 @@ import type { WpblPlayerSeasonsRead } from '../api/players'
 import { currentSeason } from '../season'
 import { useWpblPlayerLink, useWpblTeamLink } from '../LinkContext'
 import { wpblManagerPortraitSet, type WpblPortraitSet } from '../portraits'
-import { SectionCard, TeamBadge, PlayerPortrait, FittedName, TYPE_SCALE, TAPPABLE, FOCUS_RING, hoverOnly } from '../ui'
+import { SectionCard, TeamBadge, PlayerPortrait, FittedName, TYPE_SCALE, DISPLAY_FONT, TAPPABLE, FOCUS_RING, hoverOnly } from '../ui'
 import { sumBatting, sumPitching, plateAppearances, isBattingGame, fmtRate, wpblQualifiers } from '../stats'
 import { viewPlayerSeasons } from '../derive/playerSeasons'
 import { hittingColumns, OVR_COLS, pitchingColumns } from '../statColumns'
@@ -22,7 +22,6 @@ import { wpblFullName } from '../constants'
 import { UNSTYLED_LINK, linkTo } from '../../nav'
 import { linkPress } from '../../ui/interaction'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
-import { typePx } from '../../ui/scale'
 import { nameAtStage, useLineNameFit } from '../../ui/names'
 import { requestSectionScroll } from '../../lib/sectionScroll'
 import { birthDateSettled } from '../derive/discordBirthdays'
@@ -73,9 +72,10 @@ function useShown(card: string, ready: boolean) {
   }, [card, ready])
 }
 
+// Sentence case, not small caps: caps on every label of every card was the site's most repeated
+// tic (the Nov 3, 2026 audit in ROADMAP-UI.md). Caps stay on stat abbreviations, which are caps.
 const LABEL_SX = {
-  fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6),
-  textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1.3,
+  fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.secondary', lineHeight: 1.3,
 } as const
 
 /** "Thu, Oct 16" for a 'YYYY-MM-DD'. Noon, so no zone can move it onto another day. */
@@ -92,7 +92,7 @@ const ROW_PY = { xs: 0.75, md: 0.5 } as const
 
 const ROW_LINK_SX = {
   ...UNSTYLED_LINK, display: 'flex', alignItems: 'center', minWidth: 0,
-  borderRadius: 1.5, px: 0.75, ml: -0.75, py: ROW_PY, ...TAPPABLE, ...FOCUS_RING,
+  borderRadius: 2, px: 0.75, ml: -0.75, py: ROW_PY, ...TAPPABLE, ...FOCUS_RING,
 } as const
 
 /** Portrait, name and one quiet line under it, with an optional right-hand end. The row height
@@ -172,7 +172,7 @@ function StatCell({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <Box sx={{ minWidth: 0, textAlign: 'center' }}>
       <Typography sx={{ ...LABEL_SX }}>{label}</Typography>
-      <Typography component="div" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1.3 }}>
+      <Typography component="div" sx={{ fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.title, fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1.3 }}>
         {value}
       </Typography>
     </Box>
@@ -241,11 +241,17 @@ function Fact({ label, wide, children }: { label: string; wide?: boolean; childr
   )
 }
 
-export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer }: {
+export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid = null }: {
   players: WpblPlayer[]; teams: Map<string, WpblTeam>; games: WpblGame[]; onOpenPlayer: OpenPlayer
+  /** A player another card on the page already headlines (the Star of the final). Undefined while
+   *  that is still being read: the card holds its placeholder rather than draw a player it may
+   *  have to swap a beat later. */
+  avoid?: string | null
 }) {
   const today = localIsoDate()
-  const pick = useMemo(() => playerOfTheDay(players, today), [players, today])
+  const pick = useMemo(
+    () => (avoid === undefined ? null : playerOfTheDay(players, today, avoid)),
+    [players, today, avoid])
   const player = pick?.player ?? null
   const link = useTrackedPlayerLink('day', onOpenPlayer)
   useShown('day', !!player)

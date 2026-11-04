@@ -16,7 +16,7 @@ import {
   fetchSurvivorLeaderboard, fetchMyRecentPicks,
   SurvivorPick, SurvivorStats, HotHitter, SurvivorLeaderRow, SurvivorResult,
 } from './survivorData'
-import { chromePx, typePx } from '../../ui/scale'
+import { chromePx } from '../../ui/scale'
 import { useLastShape, useRememberShape } from '../../lib/lastShape'
 
 const ZERO_STATS: SurvivorStats = { currentStreak: 0, longestStreak: 0, totalHits: 0, totalPicks: 0 }
@@ -37,7 +37,7 @@ function ResultPill({ result }: { result: SurvivorResult }) {
     <Box sx={{
       px: 1, py: chromePx(2), borderRadius: 999, bgcolor: `${m.color}22`,
       fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(m.color, undefined, 5.6),
-      textTransform: 'uppercase', letterSpacing: typePx(0.5), whiteSpace: 'nowrap',
+      whiteSpace: 'nowrap',
     }}>
       {m.label}
     </Box>
@@ -51,14 +51,14 @@ function StreakBadge({ current, longest }: { current: number; longest: number })
         <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1, color: current > 0 ? TONE.orange : 'text.primary' }}>
           {current}
         </Typography>
-        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', mt: chromePx(2) }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', mt: chromePx(2) }}>
           Current
         </Typography>
       </Box>
       <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: 'divider' }} />
       <Box sx={{ textAlign: 'right' }}>
         <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1, color: 'text.primary' }}>{longest}</Typography>
-        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', mt: chromePx(2) }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', mt: chromePx(2) }}>
           Best
         </Typography>
       </Box>
@@ -135,9 +135,9 @@ export function SurvivorLeaderboardModal({ userId, onClose }: { userId: string |
   return (
     <MlbSheet onClose={onClose} maxWidth={chromePx(440)} sheet eyebrow="Streak Survivor leaderboard">
         <Box sx={{ px: 1.5, py: chromePx(6), flexShrink: 0, display: 'flex', alignItems: 'center', gap: 1.25, bgcolor: 'action.hover' }}>
-          <Typography sx={{ minWidth: '1.625rem', textAlign: 'center', fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary' }}>#</Typography>
-          <Typography sx={{ flex: 1, fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary' }}>Player</Typography>
-          <Typography sx={{ minWidth: '2.125rem', textAlign: 'right', fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary' }}>Best</Typography>
+          <Typography sx={{ minWidth: '1.625rem', textAlign: 'center', fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary' }}>#</Typography>
+          <Typography sx={{ flex: 1, fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary' }}>Player</Typography>
+          <Typography sx={{ minWidth: '2.125rem', textAlign: 'right', fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary' }}>Best</Typography>
         </Box>
 
         {rows === null ? (
@@ -288,7 +288,7 @@ export function StreakSurvivorWidget() {
       titleAdornment={<>
         <InfoDot label="Rules" text="One hitter a day. A hit extends the streak; an 0-fer resets it." />
         {isTomorrow && (
-          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', border: '1px solid', borderColor: 'outline', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.secondary', border: '1px solid', borderColor: 'outline', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
             Tomorrow
           </Typography>
         )}
@@ -305,7 +305,7 @@ export function StreakSurvivorWidget() {
           px: 2, py: chromePx(8), borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1,
           ...(ghost ? { '& > *': { visibility: 'hidden' } } : null),
         }}>
-          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary' }}>Recent</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary' }}>Recent</Typography>
           <Box sx={{ display: 'flex', gap: 0.5 }}>
             {(ghost ? [] : recentForm).map((r, i) => (
               <Box key={i} title={`${r.gameDate}: ${RESULT_META[r.result].label} (${r.playerName})`} sx={{
@@ -403,7 +403,7 @@ export function StreakSurvivorWidget() {
   function pickBody(myPick: SurvivorPick, pickLocked: boolean) {
     return (
       <Box sx={{ px: 2, pt: 0.5, pb: 1.5 }}>
-        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', mb: 0.75 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', mb: 0.75 }}>
           {isTomorrow ? "Tomorrow's pick" : "Today's pick"}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -436,7 +436,7 @@ export function StreakSurvivorWidget() {
   function chooseBody(suggestions: React.ReactNode) {
     return (
       <Box sx={{ px: 2, pt: 0.5, pb: 1.5 }}>
-        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.secondary', mb: 0.75 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', mb: 0.75 }}>
           {changing ? 'Change your pick' : isTomorrow ? "Pick tomorrow's hitter" : "Pick today's hitter"}
         </Typography>
         {suggestions}

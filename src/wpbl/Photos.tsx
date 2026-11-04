@@ -157,7 +157,7 @@ export function ArchiveGrid({ photos }: { photos: WpblPhoto[] }) {
               aria-label={`View photograph: ${photoCaption(p)}`}
               sx={{
                 position: 'relative', width: '100%', aspectRatio: '4 / 3', cursor: 'pointer',
-                borderRadius: 1.5, overflow: 'hidden', bgcolor: 'action.hover',
+                borderRadius: 2, overflow: 'hidden', bgcolor: 'action.hover',
                 border: '1px solid', borderColor: CARD_BORDER,
                 transition: 'border-color 0.15s, transform 0.1s',
                 ...hoverOnly({ borderColor: 'text.disabled' }),

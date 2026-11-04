@@ -65,7 +65,7 @@
           var b = document.createElement('button');
           b.type = 'button';
           b.textContent = 'Reload';
-          b.style.cssText = 'margin-left:8px;padding:8px 20px;border:0;border-radius:999px;cursor:pointer;font:inherit;font-weight:800;background:#1565c0;color:#fff';
+          b.style.cssText = 'margin-left:8px;padding:8px 20px;border:0;border-radius:999px;cursor:pointer;font:inherit;font-weight:800;background:#0f766e;color:#fff';
           b.onclick = function () { reload('boot_button'); };
           line.appendChild(b);
         }
@@ -132,20 +132,20 @@
          here because nothing sits under it to be pushed. The icons on the right are not copied:
          they appear in place without moving anything. */
       .sd-bar .sd-sw { display: grid; grid-template-columns: 1fr 1fr; flex-shrink: 0; margin-left: calc(6px * var(--sd-s)); padding: 2px; border-radius: 999px;
-        border: 1px solid #60a5fa55; background: #60a5fa14; }
+        border: 1px solid rgba(0,0,0,0.44); background: rgba(0,0,0,0.04); }
       .sd-bar .sd-sw b { padding: 5px calc(8.8px * var(--sd-s)); border-radius: 999px; text-align: center; letter-spacing: calc(0.3px * var(--sd-s) * var(--sd-t, 1));
         font: 800 calc(12px * var(--sd-s) * var(--sd-t, 1))/1 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
         color: rgba(0,0,0,0.6); }
-      .sd-bar .sd-sw b.on { color: #fff; background: #1565c0; }
-      .sd-bar .sd-sw b.on.rb { background: linear-gradient(90deg, #ff3b30, #ff9500, #ffcc00, #34c759, #007aff, #8a88ff, #af52de, #ff3b30);
-        background-size: 200% 100%; color: #111; }
+      .sd-bar .sd-sw b.on { color: #111; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.25); }
+      [data-theme="dark"] .sd-bar .sd-sw { border-color: rgba(255,255,255,0.36); background: rgba(255,255,255,0.08); }
+      [data-theme="dark"] .sd-bar .sd-sw b.on { background: #e6e6e9; box-shadow: none; }
       .sd-bar nav { display: none; align-self: stretch; }
       .sd-bar nav i { position: relative; display: inline-flex; align-items: center; gap: calc(4px * var(--sd-s));
         padding: 0 calc(10px * var(--sd-s)); font: 600 calc(13.6px * var(--sd-s) * var(--sd-t, 1))/1.5 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
         font-style: normal; white-space: nowrap; color: rgba(0,0,0,0.6); }
       .sd-bar nav i.on { color: rgba(0,0,0,0.87); }
       .sd-bar nav i.on::after { content: ''; position: absolute; left: calc(10px * var(--sd-s)); right: calc(10px * var(--sd-s)); bottom: 0; height: 3px;
-        border-radius: 3px 3px 0 0; background: #1565c0; }
+        border-radius: 3px 3px 0 0; background: #0f766e; }
       .sd-bar nav small { font-size: calc(9.6px * var(--sd-s) * var(--sd-t, 1)); }
       [data-theme="dark"] .sd-bar .sd-sw b:not(.on), [data-theme="dark"] .sd-bar nav i { color: rgba(255,255,255,0.7); }
       [data-theme="dark"] .sd-bar nav i.on { color: #fff; }
@@ -217,6 +217,7 @@
     </script>
 
     <link rel="preload" href="/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/BarlowCondensed-700.woff2" as="font" type="font/woff2" crossorigin />
     <!-- Open the connection to Supabase before any JS asks for it. Every view's first read
          (teams + schedule gate the whole section) is a cross-origin CORS fetch to this origin,
          so warming DNS + TLS here takes that round trip off the critical path. Vite substitutes
@@ -273,7 +274,7 @@
           for (var i = 0; i < tabs.length; i++) nav += '<i' + (tabs[i] === lit ? ' class="on"' : '') + '>' + tabs[i] + '</i>';
           nav += '<i>More<small>\u25BE</small></i>';
           bar.firstChild.insertAdjacentHTML('beforeend',
-            '<span class="sd-sw"><b' + (sec === 'mlb' ? ' class="on"' : '') + '>MLB</b><b' + (sec === 'wpbl' ? ' class="on rb"' : '') + '>WPBL</b></span><nav>' + nav + '</nav>');
+            '<span class="sd-sw"><b' + (sec === 'mlb' ? ' class="on"' : '') + '>MLB</b><b' + (sec === 'wpbl' ? ' class="on"' : '') + '>WPBL</b></span><nav>' + nav + '</nav>');
           bar.insertAdjacentHTML('beforeend', '<nav class="sd-row">' + nav + '</nav>');
         })();
       </script>
@@ -287,9 +288,9 @@
         </p>
         <p id="sd-boot-status" style="font-size:0.9rem;color:var(--text-color,#6b7280);opacity:0.6;margin:0 0 16px;">Loading the app…</p>
         <p style="font-size:0.9rem;margin:0;">
-          <a href="/privacy" style="color:var(--link-color,#2563eb);text-decoration:none;">Privacy Policy</a>
+          <a href="/privacy" style="color:var(--link-color,#0f766e);text-decoration:none;">Privacy Policy</a>
           &nbsp;·&nbsp;
-          <a href="/terms" style="color:var(--link-color,#2563eb);text-decoration:none;">Terms of Service</a>
+          <a href="/terms" style="color:var(--link-color,#0f766e);text-decoration:none;">Terms of Service</a>
         </p>
       </main>
     </div>

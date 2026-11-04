@@ -269,7 +269,7 @@ export default function WatchVideoPage({ videoId, videos, games, teams, onOpenGa
           <Box {...swipe} sx={viewer
             ? { flexShrink: 0, px: 1.5, pt: 1, pb: 'calc(env(safe-area-inset-bottom, 0px) + 8px)' }
             : { mt: 1.5 }}>
-            <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', color: 'text.secondary' }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary' }}>
               {eyebrow ?? <TextGhost>Highlights</TextGhost>}
             </Typography>
             <Typography component={headingTag} sx={{
@@ -343,7 +343,7 @@ export default function WatchVideoPage({ videoId, videos, games, teams, onOpenGa
             footer under the viewer jumps up the moment a shared link turns out to be a Short. */}
         {viewer && <Box ref={heldBox} aria-hidden />}
         <Box component="section" aria-label="Up next" sx={{ mt: { xs: 2.5, md: 0 }, minWidth: 0, visibility: viewer ? 'hidden' : 'visible' }}>
-          <Typography component="h2" sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', color: 'text.secondary', mb: 1 }}>
+          <Typography component="h2" sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary', mb: 1 }}>
             Up next
           </Typography>
           <Box sx={{ display: 'grid', gap: 1 }}>
@@ -423,7 +423,7 @@ function QueueRow({ video, onPick }: { video?: WpblVideo; onPick?: () => void })
   const credit = video ? videoCredit(video) : null
   const inner = (
     <>
-      <Box sx={{ width: chromePx(128), flexShrink: 0, borderRadius: 1.5, overflow: 'hidden', position: 'relative' }}>
+      <Box sx={{ width: chromePx(128), flexShrink: 0, borderRadius: 2, overflow: 'hidden', position: 'relative' }}>
         {video ? <VideoThumb video={video} badge={24} /> : <Box sx={{ width: '100%', aspectRatio: '16 / 9', bgcolor: 'action.hover' }} />}
       </Box>
       <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -443,7 +443,7 @@ function QueueRow({ video, onPick }: { video?: WpblVideo; onPick?: () => void })
   return (
     <Box component="a" href={wpblWatchVideoPath(video.video_id)}
       onClick={(e: React.MouseEvent) => { if (!isModified(e)) { e.preventDefault(); onPick?.() } }}
-      sx={{ ...row, color: 'inherit', textDecoration: 'none', borderRadius: 1.5, ...hoverOnly({ bgcolor: 'action.hover' }), ...FOCUS_RING }}>
+      sx={{ ...row, color: 'inherit', textDecoration: 'none', borderRadius: 2, ...hoverOnly({ bgcolor: 'action.hover' }), ...FOCUS_RING }}>
       {inner}
     </Box>
   )

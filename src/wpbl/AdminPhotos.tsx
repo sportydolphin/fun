@@ -91,7 +91,7 @@ function SubjectPicker({ candidates, onPick }: {
       {matches.length > 0 && (
         <Box sx={{
           position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 5, mt: 0.5,
-          borderRadius: 1.5, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper',
+          borderRadius: 2, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper',
           boxShadow: 3, overflow: 'hidden',
         }}>
           {matches.map(c => (
@@ -534,7 +534,7 @@ function PhotoCard({ photo, subjects, lookups, onChange, onOpen }: {
         <Box component="button" type="button" onClick={onOpen} aria-label="Open in tag mode"
           sx={{ p: 0, border: 0, bgcolor: 'transparent', cursor: 'zoom-in', display: 'block', width: '100%' }}>
           <Box component="img" src={photo.card_url} alt={photo.caption ?? 'Fan photo'} loading="lazy"
-            sx={{ width: '100%', aspectRatio: '1', objectFit: 'contain', borderRadius: 1.5, bgcolor: 'action.hover',
+            sx={{ width: '100%', aspectRatio: '1', objectFit: 'contain', borderRadius: 2, bgcolor: 'action.hover',
                   display: 'block', border: '1px solid', borderColor: 'outline' }} />
         </Box>
         {photo.taken_on && (

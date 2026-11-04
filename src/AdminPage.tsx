@@ -156,7 +156,7 @@ function Tile({ label, value, delta, sub }: {
       p: 1.5, borderRadius: 2, border: '1px solid', borderColor: 'outline',
       bgcolor: 'background.paper', minWidth: 0,
     }}>
-      <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: typePx(0.8), textTransform: 'uppercase', color: 'text.disabled' }}>
+      <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, color: 'text.disabled' }}>
         {label}
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.8, mt: 0.3, flexWrap: 'wrap' }}>
@@ -494,7 +494,7 @@ function MetricRow({ label, value, sub, bar }: {
 function GroupLabel({ children }: { children: React.ReactNode }) {
   return (
     <Typography sx={{
-      fontSize: '0.62rem', fontWeight: 800, letterSpacing: typePx(1), textTransform: 'uppercase',
+      fontSize: '0.62rem', fontWeight: 800, 
       color: 'text.disabled', mt: 1.25, mb: 0.25,
     }}>{children}</Typography>
   )
@@ -1104,7 +1104,7 @@ export default function AdminPage() {
               const missed = (palette.missed ?? []).filter(m => m.section === sec.section)
               return (
                 <Box key={sec.section} sx={{ mb: 1.5 }}>
-                  <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary', mt: 0.5, mb: 0.25, textTransform: 'uppercase' }}>
+                  <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary', mt: 0.5, mb: 0.25 }}>
                     {sec.section}
                   </Typography>
                   <StatRow label="Opened" value={formatCount(sec.opened)} sub={plural(sec.opened_browsers, 'browser')} />
@@ -1245,7 +1245,7 @@ export default function AdminPage() {
             return (
               <MetricRow key={e.event}
                 label={<>{info.label}{info.kind !== 'action' && (
-                  <Box component="span" sx={{ ml: 0.75, fontSize: '0.6rem', fontWeight: 800, color: 'text.disabled', textTransform: 'uppercase' }}>
+                  <Box component="span" sx={{ ml: 0.75, fontSize: '0.6rem', fontWeight: 800, color: 'text.disabled' }}>
                     {info.kind}
                   </Box>
                 )}</>}

@@ -69,7 +69,7 @@ const PANE_GAP_REM = 1.25
 const fieldSx = {
   ...FOCUS_RING,
   minHeight: chromePx(34), py: 0.4,
-  borderRadius: 1.5, border: '1px solid', borderColor: CARD_BORDER,
+  borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
   bgcolor: 'background.paper', color: 'text.primary',
   fontSize: TYPE_SCALE.meta, fontWeight: 700, fontFamily: 'inherit',
   ...hoverOnly({ borderColor: 'text.disabled' }),
@@ -390,7 +390,7 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
       <Box key={key} role="columnheader" aria-sort={on ? (active.desc ? 'descending' : 'ascending') : 'none'}
         sx={{ textAlign: align, minWidth: 0 }}>
         <Box component="button" type="button" title={title} onClick={() => press(key)} sx={{
-          all: 'unset', ...FOCUS_RING, cursor: 'pointer', borderRadius: 0.5, whiteSpace: 'nowrap',
+          all: 'unset', ...FOCUS_RING, cursor: 'pointer', borderRadius: 1, whiteSpace: 'nowrap',
           fontSize: TYPE_SCALE.micro, fontWeight: 800,
           color: on || asked.includes(key) ? 'text.primary' : 'text.secondary',
           borderBottom: '2px solid', borderColor: on ? ACCENT_EDGE : 'transparent',
@@ -715,7 +715,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
             <Box component="span" sx={{ color: 'text.secondary', fontWeight: 700 }}>Try</Box>
             {shownExamples.map(ex => (
               <Box key={ex.label} {...pressable(() => askWhole(ex))} sx={{
-                ...FOCUS_RING, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', borderRadius: 0.5,
+                ...FOCUS_RING, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', borderRadius: 1,
                 color: ACCENT_EDGE, fontWeight: 700, ...hoverOnly({ textDecoration: 'underline' }),
               }}>{ex.label}</Box>
             ))}

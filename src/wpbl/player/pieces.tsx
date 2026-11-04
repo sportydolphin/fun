@@ -19,7 +19,6 @@ import { HeaderChipLabel, HEADER_ICON_SX, headerChipSx } from '../../ui/headerBa
 import { linkTo } from '../../nav'
 import { track, EVENTS } from '../../lib/analytics'
 import type { WpblPlayer } from '../types'
-import { typePx } from '../../ui/scale'
 import { StatTip, CARD_SECTION_SX } from '../../ui/playerCard'
 import { TYPE_SCALE } from '../../ui/card'
 
@@ -112,7 +111,7 @@ export function RankProgress({ reason, have, need, unit, fmt, noun, color }: {
           headings are what carry the difference. */}
       <Typography sx={sectionSx}>Toward qualifying</Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography sx={{ width: '2.375rem', flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.4), color: 'text.disabled' }}>
+        <Typography sx={{ width: '2.375rem', flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled' }}>
           {unit}
         </Typography>
         <Typography sx={{ width: '2.75rem', flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>

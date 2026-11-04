@@ -228,7 +228,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
         {label && (
           <Box component="span" sx={{
             ml: 1, flexShrink: 0, alignSelf: 'center',
-            fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase',
+            fontSize: TYPE_SCALE.caption, fontWeight: 800, 
             color: (labelColor && tone(labelColor)) ?? 'text.secondary', lineHeight: 1,
           }}>
             {label}

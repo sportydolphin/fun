@@ -10,6 +10,19 @@
   src: url('/fonts/InterVariable.woff2') format('woff2');
 }
 
+/* The display face: scores, big numbers and page titles (ROADMAP-UI.md, the audit, Nov 3, 2026).
+   Inter on every number read as a stock dashboard; a condensed sports face is where a stat site's
+   character comes from. One weight, 700, Latin only (22 KB, SIL OFL, public/fonts/), preloaded in
+   index.html so a title does not re-flow narrower after first paint. A request for 800 or 900
+   lands on this face as it is, with no faux bold, because a real bold face exists. */
+@font-face {
+  font-family: 'Barlow Condensed';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/BarlowCondensed-700.woff2') format('woff2');
+}
+
 /* ── The desktop scale, which replaced `zoom: 1.4` on both sections ─────────────
    Two variables rather than one, because they carry different dependencies.
 
@@ -81,25 +94,27 @@
   --crit-color-2: #ef4444;
 }
 
-/* Section accent, foreground-safe. The raw #60a5fa is a light blue: as TEXT on this app's
-   light surfaces it measures 2.2:1, well under AA, while being perfectly readable in dark
-   mode and perfectly fine in either mode as a FILL behind white. Rather than thread a
+/* Section accent, foreground-safe. The site's one brand color is a teal (since Nov 3, 2026; it
+   was a stock blue, #60a5fa, that said nothing about the site: ROADMAP-UI.md, the audit). The raw
+   #2dd4bf is a light teal: as TEXT on this app's light surfaces it measures about 1.7:1, while being
+   perfectly readable in dark mode (10:1) and never usable as a FILL behind white. Rather than thread a
    useWpblDark() through the dozen places that use it as text, the safe value is published
    here and keyed on [data-theme], the same attribute the rest of the stylesheet already
    switches on, set pre-paint by the head script so there is no light-blue flash.
    Keep in sync with wpblAccentFg() in src/wpbl/constants.ts, which is the JS counterpart
    for the few places that need the value rather than the CSS. */
 :root {
-  --wpbl-accent-fg: #1565c0;
-  /* Accent used as a FILL with white text on it. #60a5fa measures 2.37:1 against white, and
+  --wpbl-accent-fg: #0f766e;
+  /* Accent used as a FILL with white text on it. #0f766e measures 5.5:1 against white; the raw
+     #2dd4bf measures 1.8:1, and
      color contrast is absolute, so that fails in dark mode exactly as hard as in light, which
      is why this one value serves both themes rather than splitting. */
-  --wpbl-accent-solid: #1565c0;
+  --wpbl-accent-solid: #0f766e;
   /* The winner's cell wash on the compare page. A FULL-CELL shade (Stathead marks a leader by
      the whole column, not a ring round the glyph), so it is tuned lighter than any text color:
      it sits behind a full-strength number and a bold weight, which are what actually name the
      winner, and must not fight them. Light surfaces need less of it than dark. */
-  --wpbl-compare-lead: rgba(21, 101, 192, 0.13);
+  --wpbl-compare-lead: rgba(15, 118, 110, 0.13);
   /* Positive / negative numerics (run differential, W-L streaks, form). The dark-mode pair is
      the original #22c55e / #ef4444, which measure 2.28 and 3.76 on a light background; the
      light-mode pair is the same hues taken down to 5.0 and 6.5. */
@@ -153,8 +168,8 @@
   --mlb-tone-rose: #f44764;
   --mlb-tone-slate: #94a3b8;
   --mlb-tone-gray: #838994;
-  --wpbl-accent-fg: #60a5fa;
-  --wpbl-compare-lead: rgba(96, 165, 250, 0.20);
+  --wpbl-accent-fg: #2dd4bf;
+  --wpbl-compare-lead: rgba(45, 212, 191, 0.20);
   --wpbl-pos: #22c55e;
   --wpbl-neg: #ef4444;
   --wpbl-flag: #fb923c;
@@ -168,7 +183,7 @@
   color-scheme: dark;
   --bg-color: #0f1115;
   --text-color: #ffffff;
-  --link-color: #90caf9;
+  --link-color: #5eead4;
   --card-bg: #0f1115;
   --sd-card-border: rgba(255,255,255,0.36);
   --card-bg-gradient: linear-gradient(180deg,#1e1e1e,#2a2a2a);

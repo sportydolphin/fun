@@ -158,7 +158,7 @@ export function SuggestionChips({ photoId, subjects, players, figures, teams, bu
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.6 }}>
       {reports.length > 0 && (
-        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.6, p: 0.75, borderRadius: 1.5, border: '1px solid', borderColor: 'error.main' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.6, p: 0.75, borderRadius: 2, border: '1px solid', borderColor: 'error.main' }}>
           <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'error.main' }}>
             Reported ×{reports.length}: {[...new Set(reports.map(r => REPORT_LABEL[r.reason]))].join(', ')}
           </Typography>

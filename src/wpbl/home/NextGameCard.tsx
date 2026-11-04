@@ -552,8 +552,8 @@ export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, p
             row in the mirror), not a rendering fault to defend against here. */}
         {postseason && (
           <Typography sx={{
-            fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6),
-            textTransform: 'uppercase', color: 'var(--wpbl-accent-fg)', mt: 1, lineHeight: 1.2,
+            fontSize: TYPE_SCALE.micro, fontWeight: 800, 
+            color: 'var(--wpbl-accent-fg)', mt: 1, lineHeight: 1.2,
           }}>
             {postseason.label} · Game {postseason.gameNumber} of {postseason.bestOf}
           </Typography>

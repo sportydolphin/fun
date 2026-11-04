@@ -201,8 +201,8 @@ export function ScoreCard({ game, accent, onClick }: {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, height: ROW_STATUS, minWidth: 0 }}>
           {isLive && !game.delayed && <LiveDot size={5} />}
           <Typography sx={{
-            fontSize: TYPE_SCALE.caption, fontWeight: 800, color: statusColor, letterSpacing: typePx(0.5),
-            textTransform: 'uppercase', lineHeight: 1, whiteSpace: 'nowrap',
+            fontSize: TYPE_SCALE.caption, fontWeight: 800, color: statusColor, 
+            lineHeight: 1, whiteSpace: 'nowrap',
           }}>
             {game.statusText}{postponed && game.reason ? ` · ${game.reason}` : ''}
           </Typography>

@@ -11,7 +11,7 @@ import { supabase } from '../../lib/supabase'
 import { fetchDeactivatedUserIds } from '../../lib/usernames'
 import { ensureActiveUser } from '../../lib/userActive'
 import { SCHEDULE_GAME_TYPES } from '../gameStatus'
-import { chromePx, typePx } from '../../ui/scale'
+import { chromePx } from '../../ui/scale'
 
 // ─── Supabase table setup (run once in Supabase SQL editor) ──────────────────
 //
@@ -325,7 +325,7 @@ function StatPill({ label, value, accent }: { label: string; value: string | num
       </Typography>
       <Typography sx={{
         fontSize: { xs: TYPE_SCALE.caption, sm: TYPE_SCALE.micro }, color: 'text.secondary',
-        lineHeight: 1, mt: 0.5, textTransform: 'uppercase', letterSpacing: typePx(0.5),
+        lineHeight: 1, mt: 0.5, 
       }}>
         {label}
       </Typography>
@@ -409,7 +409,6 @@ function TeamPodium({ title, teams, getMain, getSub }: {
     <Box>
       <Typography sx={{
         fontWeight: 800, fontSize: TYPE_SCALE.caption,
-        textTransform: 'uppercase', letterSpacing: typePx(1.2),
         color: ACCENT_TEXT, mb: 1.25,
       }}>
         {title}
@@ -509,10 +508,10 @@ function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; windo
         display: 'flex', gap: 1, pb: 0.75,
         borderBottom: '1px solid', borderColor: 'divider', mb: 0.5,
       }}>
-        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.5), width: '1.75rem', textAlign: 'center', flexShrink: 0 }}>#</Typography>
-        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.5), flex: 1 }}>User</Typography>
-        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.5), minWidth: '3.25rem', textAlign: 'right' }}>W/L</Typography>
-        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: typePx(0.5), minWidth: '2.5rem', textAlign: 'right' }}>Acc.</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', width: '1.75rem', textAlign: 'center', flexShrink: 0 }}>#</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', flex: 1 }}>User</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', minWidth: '3.25rem', textAlign: 'right' }}>W/L</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', minWidth: '2.5rem', textAlign: 'right' }}>Acc.</Typography>
       </Box>
 
       {leaders.map((entry, i) => {
@@ -528,7 +527,7 @@ function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; windo
         <Box
           sx={{
             display: 'flex', alignItems: 'center', gap: 1,
-            py: 0.8, px: entry.isMe ? 0.75 : 0, borderRadius: 1.5,
+            py: 0.8, px: entry.isMe ? 0.75 : 0, borderRadius: 2,
             border: '1px solid',
             borderColor: entry.isMe ? ACCENT_EDGE : 'transparent',
             bgcolor:     entry.isMe ? `${ACCENT}0d` : 'transparent',

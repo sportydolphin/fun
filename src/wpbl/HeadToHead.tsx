@@ -46,7 +46,7 @@ export default function HeadToHead({ rows, games, onSelect, title = 'Head to hea
   const teamLink = useWpblTeamLink()
 
   const head = {
-    fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: typePx(0.4),
+    fontSize: TYPE_SCALE.caption, fontWeight: 800, 
     color: 'text.disabled', textAlign: 'center' as const, py: 0.5,
   }
 

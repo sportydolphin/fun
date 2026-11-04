@@ -9,7 +9,7 @@ import { ringColor } from '../lib/colorUtils'
 import { ModalShell } from '../../ui/ModalShell'
 import { useSheetHistory } from '../state/sheetHistory'
 import { pressable, hoverOnly, FOCUS_RING } from '../../ui/interaction'
-import { chromePx, typePx } from '../../ui/scale'
+import { chromePx } from '../../ui/scale'
 
 // ─── Following a team, for a reader who has not ───────────────────────────────
 //
@@ -86,7 +86,7 @@ export function TeamPickerSheet({ onSelect, onClose, playing }: {
           {DIVISIONS.map(d => (
             <Box key={d.code}>
               <Typography sx={{
-                fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase',
+                fontSize: TYPE_SCALE.caption, fontWeight: 800, 
                 color: 'text.secondary', mb: 0.5,
               }}>
                 {d.label}

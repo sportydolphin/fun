@@ -43,7 +43,6 @@ import { resetFeatureDotsForDev } from '../lib/seen'
 import { useNotifications, addEventNotification, refreshNotifications, clearNotifications } from '../lib/notifications'
 import { sampleNotifications } from '../../shared/notifications'
 import type { NotificationPayload } from '../../shared/notifications'
-import { typePx } from '../ui/scale'
 import { useGlassLevel, setGlassLevel, glassLevel, GLASS_DEFAULT } from '../ui/glassLevel'
 
 const MobilePreview = import.meta.env.DEV ? lazy(() => import('../mlb/dev/MobilePreview')) : null
@@ -127,7 +126,7 @@ const btn = { textTransform: 'none', fontWeight: 600 } as const
 /** A group label, so a long menu can be scanned for the section you want. Letter spacing is
  *  typePx(0.8) written out: Rolldown keeps a module-level call it cannot prove pure, which left
  *  this object in the production bundle after the menu itself was gone. */
-const group = { fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05rem', color: 'text.disabled', mb: 1 } as const
+const group = { fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.05rem', color: 'text.disabled', mb: 1 } as const
 
 export function DevSettings({ showMlbTools, showWpblTools }: { showMlbTools: boolean; showWpblTools: boolean }) {
   const [anchor, setAnchor] = React.useState<HTMLElement | null>(null)
@@ -164,9 +163,9 @@ export function DevSettings({ showMlbTools, showWpblTools }: { showMlbTools: boo
         onClose={() => { setAnchor(null); refresh() }}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        slotProps={{ paper: { sx: { borderRadius: 2.5, p: 2, mt: 0.75, width: 280, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } } }}
+        slotProps={{ paper: { sx: { borderRadius: 3, p: 2, mt: 0.75, width: 280, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } } }}
       >
-        <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'warning.main', mb: 1.5 }}>
+        <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, color: 'warning.main', mb: 1.5 }}>
           🛠 Dev settings · local only
         </Typography>
 
@@ -243,7 +242,7 @@ function ActiveOverrides({ active, refresh }: { active: Override[]; refresh: () 
     if (list.some(o => o.reload)) window.location.reload(); else refresh()
   }
   return (
-    <Box sx={{ mb: 1.75, p: 1, borderRadius: 1.5, border: '1px solid', borderColor: 'warning.main' }}>
+    <Box sx={{ mb: 1.75, p: 1, borderRadius: 2, border: '1px solid', borderColor: 'warning.main' }}>
       <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'warning.main', mb: 0.5 }}>
         Not real data
       </Typography>
@@ -431,7 +430,7 @@ function LiveGameSimControls() {
             value={sim.gameId ?? ''}
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDevLiveGame(e.target.value)}
             sx={{
-              width: '100%', mb: 0.75, px: 1, py: 0.6, borderRadius: 1.5,
+              width: '100%', mb: 0.75, px: 1, py: 0.6, borderRadius: 2,
               fontSize: '0.72rem', fontWeight: 600,
               color: 'text.primary', bgcolor: 'background.paper',
               border: '1px solid', borderColor: 'outline',

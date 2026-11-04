@@ -10,7 +10,6 @@ import { gameStartMs } from './constants'
 import { clipLabel, ClipCaption, inningLabel } from './Watch'
 import { HighlightLightbox, VideoThumb, PLAYABLE_HOVER } from './Highlights'
 import type { WpblGame, WpblGamePlay, WpblPlayer, WpblRunValuePlay, WpblTeam, WpblVideo, WpblVideoTag } from './types'
-import { typePx } from '../ui/scale'
 
 // /admin → Clips: correct what the clip matcher (scripts/wpbl-clip-tags.mjs) got wrong or could not
 // place. Every save is method 'manual', which the sync never overwrites or deletes, so a fix
@@ -189,7 +188,7 @@ export default function AdminClips() {
               }}>
                 <Box onClick={() => setPlaying(v)} role="button" tabIndex={0} aria-label={`Play clip: ${v.title}`}
                   onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPlaying(v) } }}
-                  sx={{ width: 72, flexShrink: 0, position: 'relative', borderRadius: 1.5, overflow: 'hidden', cursor: 'pointer', ...PLAYABLE_HOVER, ...FOCUS_RING }}>
+                  sx={{ width: 72, flexShrink: 0, position: 'relative', borderRadius: 2, overflow: 'hidden', cursor: 'pointer', ...PLAYABLE_HOVER, ...FOCUS_RING }}>
                   <VideoThumb video={v} vertical badge={24} />
                 </Box>
                 <Box sx={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: 0.4 }}>
@@ -229,8 +228,8 @@ function MethodBadge({ method }: { method: string }) {
   const manual = method === 'manual'
   return (
     <Box component="span" sx={{
-      px: 0.6, py: '1px', borderRadius: 0.75, fontSize: '0.6rem', fontWeight: 800, letterSpacing: typePx(0.4),
-      textTransform: 'uppercase', border: '1px solid',
+      px: 0.6, py: '1px', borderRadius: 1, fontSize: '0.6rem', fontWeight: 800, 
+      border: '1px solid',
       color: manual ? 'primary.main' : 'text.secondary', borderColor: manual ? 'primary.main' : 'outline',
     }}>{METHOD_LABEL[method] ?? method}</Box>
   )
@@ -459,7 +458,7 @@ function ClipTagEditor({ video, tag, games, teams, players, onClose, onSaved }: 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-      <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.6), textTransform: 'uppercase', color: 'text.secondary', mb: 0.5 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary', mb: 0.5 }}>
         {label}
       </Typography>
       {children}

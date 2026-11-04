@@ -9,7 +9,7 @@ import { hoverOnly, linkPress, FOCUS_RING } from '../../ui/interaction'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import { fetchBracket, seededBracket, bracketLikely, likelySeriesInRound, seriesLine, fieldIsSet, winsNeeded, liveGameScore, ROUNDS, SERIES_ORDER } from '../postseason'
 import type { Bracket, PsSeries, PsTeam, Round, SeriesId } from '../postseason'
-import { chromePx, typePx } from '../../ui/scale'
+import { chromePx } from '../../ui/scale'
 import { SCORES_HEADER_H, STRIP_PY } from './FinalGames'
 import { PillGroup } from '../../ui/PillGroup'
 import { LINK_SX } from '../lib/links'
@@ -128,7 +128,7 @@ function SeriesCard({ s, season, onOpen, compact = false }: {
   return (
     <Box {...linkPress(href, onOpen)} sx={{
       ...LINK_SX, display: 'block',
-      borderRadius: 2.5, border: '1px solid',
+      borderRadius: 3, border: '1px solid',
       // The site's card outline, not `divider`, which left an undecided series barely separated
       // from the page. A winner's color goes through the theme's readable tone first: most clubs'
       // primaries are navy or brown, and drawn raw on the dark page a decided series had no edge.
@@ -138,7 +138,7 @@ function SeriesCard({ s, season, onOpen, compact = false }: {
     }}>
       {/* The length stays on Home's compact card too: it is the one word on the card that says series. */}
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, mb: 0.25 }}>
-        <Typography sx={{ display: 'block', flex: 1, minWidth: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase', color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', }}>
+        <Typography sx={{ display: 'block', flex: 1, minWidth: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {s.label}
         </Typography>
         <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', whiteSpace: 'nowrap', flexShrink: 0 }}>
@@ -192,7 +192,7 @@ const labelBoxSx = (compact: boolean) => compact
   : {}
 
 export function BracketSkeleton({ compact }: { compact: boolean }) {
-  const card = <Skeleton variant="rounded" sx={{ height: SERIES_CARD_H[compact ? 'compact' : 'full'], borderRadius: 2.5 }} />
+  const card = <Skeleton variant="rounded" sx={{ height: SERIES_CARD_H[compact ? 'compact' : 'full'], borderRadius: 3 }} />
   const n = likelySeriesInRound()
   return (
     <Box aria-hidden>
@@ -351,7 +351,7 @@ export function PlayoffBracketCard({ onTeamClick, onPlayerClick, heading = 'Play
     <Box>
       <Box sx={{ display: 'flex', gap: 1, ...headerSx(compact), flexWrap: 'wrap' }}>
         <Box sx={{ ...labelBoxSx(compact), display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.micro, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary', lineHeight: 1 }}>
+          <Typography sx={{ fontWeight: 800, fontSize: TYPE_SCALE.micro, color: 'text.secondary', lineHeight: 1 }}>
             {/* Once it is over it is a record of a season, read all winter: say which. */}
             {title ?? (bracket.over ? `${bracket.season} postseason` : heading)}
           </Typography>

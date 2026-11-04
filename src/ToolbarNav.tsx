@@ -32,8 +32,8 @@ const STATIC_TABS: Record<NavSection, SectionNavTab[]> = {
 const staticActive = (section: NavSection, path: string): string | null =>
   section === 'wpbl' ? wpblViewFromPath(path) : mlbNavKeyFromPath(path)
 
-// The lit tab's stripe. The accent, not the brand rainbow: a rainbow line under one tab read as a
-// decoration competing with the league switch beside it rather than as "you are here".
+// The lit tab's stripe, and the one color on the bar: the league switch beside it is neutral (since
+// Nov 3, 2026), so this alone says "you are here".
 const UNDERLINE = 'var(--wpbl-accent-solid)'
 
 /** The row's page is the one on screen: its path, or a page under it. A row whose address opens a

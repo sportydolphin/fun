@@ -9,18 +9,18 @@ import sfLogo from './logos/sf.webp'
 // accent rather than splitting into a gendered blue-vs-pink pairing; WPBL keeps its own
 // identity through team colors and logos, not a section-wide accent. Drives the nav's
 // active pill, links, chips, and card stripes.
-export const WPBL_ACCENT = '#60a5fa'
+export const WPBL_ACCENT = '#2dd4bf'
 
 // The same accent made safe for FOREGROUND use, mirroring what wpblAccent() does for team
-// colors. #60a5fa is a light blue: measured against this app's light-mode surfaces it comes
-// out at 2.2–2.5:1, so every place it is used as TEXT on a light background (the active nav
+// colors. The brand teal #2dd4bf is light: measured against this app's light-mode surfaces it
+// comes out under 2:1, so every place it is used as TEXT on a light background (the active nav
 // pill's label, the sorted stat column, "View all" links) fails AA by a wide margin. It is
-// perfectly fine in dark mode, and fine in both modes as a FILL behind white text, which is
-// why the raw constant stays exactly as it is.
+// perfectly fine in dark mode. White text never goes on it: a fill behind white text is
+// --wpbl-accent-solid.
 //
 // The light variant is the same hue darkened to clear 4.5:1 on both `background.default` and
 // `background.paper`. Use this for anything that has to be read; use WPBL_ACCENT for fills.
-const WPBL_ACCENT_LIGHT_FG = '#1565c0'
+const WPBL_ACCENT_LIGHT_FG = '#0f766e'
 export function wpblAccentFg(isDark: boolean): string {
   return isDark ? WPBL_ACCENT : WPBL_ACCENT_LIGHT_FG
 }

@@ -8,7 +8,7 @@ import { NameText } from '../../ui/NameText'
 import { wpblColor, wpblAccent, wpblSurface, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime, relativeDayShort } from '../constants'
 import { useWpblGameLink, useWpblPlayerLink } from '../LinkContext'
 import { WPBL_SEASON_PAGE, WPBL_RECAP_YEARS, wpblSeasonPath } from '../routes'
-import { SectionCard, TeamBadge, PlayerPortrait, chromePx, TAPPABLE, hoverOnly, FOCUS_RING, TYPE_SCALE, CLUB_BAND, CARD_LINK_SX, cardFooterBand } from '../ui'
+import { SectionCard, TeamBadge, PlayerPortrait, chromePx, TAPPABLE, hoverOnly, FOCUS_RING, TYPE_SCALE, DISPLAY_FONT, CLUB_BAND, CARD_LINK_SX, cardFooterBand } from '../ui'
 import { BEST_OF, buildBracket, championResult, championshipGames, aliveContenders, winsNeeded, type WpblBracket, type BracketSeries, type ChampionResult } from '../derive/bracket'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
 import type { WpblTeam, WpblPlayer, WpblGame } from '../types'
@@ -71,16 +71,11 @@ function finalTitleStake(series: BracketSeries): string | null {
   return lead.team ? `${lead.team.name} can clinch` : null
 }
 
-export function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame, players, onOpenPlayer }: {
-  teams: Map<string, WpblTeam>; games: WpblGame[]
-  onOpenGame: (g: WpblGame) => void
-  players: WpblPlayer[]; onOpenPlayer: (p: WpblPlayer) => void
-  /** Dev only: a simulated champion to headline instead of the real one, with no series line
-   *  since a random winner is not the club that actually led the final. Null (or absent) shows
-   *  whatever the real bracket gives, which is the pre-champion state while the final is on. */
-  devChampion?: WpblTeam | null
-}) {
-  const isDark = useDark()
+/** The champion, the title series and its Star, derived once for the season card and for Player
+ *  Spotlight, which must not headline the same player the card's foot names (Nov 3, 2026: both
+ *  showed one pitcher, a few inches apart). The Star's read is cached by game ids, so the second
+ *  caller costs nothing. */
+export function useChampionFinal(teams: Map<string, WpblTeam>, games: WpblGame[], devChampion?: WpblTeam | null) {
   const teamList = useMemo(() => [...teams.values()], [teams])
   const standings = useMemo(() => computeStandings(teamList, games), [teamList, games])
   const bracket = useMemo(() => buildBracket(standings, games), [standings, games])
@@ -107,6 +102,21 @@ export function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame, 
       : [],
     [finalSeries, games])
   const star = useFinalStar(champTeam?.id ?? null, finalLog)
+  return { standings, bracket, champTeam, series, finalSeries, finalInProgress, leader, finalLog, star }
+}
+
+export function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame, players, onOpenPlayer }: {
+  teams: Map<string, WpblTeam>; games: WpblGame[]
+  onOpenGame: (g: WpblGame) => void
+  players: WpblPlayer[]; onOpenPlayer: (p: WpblPlayer) => void
+  /** Dev only: a simulated champion to headline instead of the real one, with no series line
+   *  since a random winner is not the club that actually led the final. Null (or absent) shows
+   *  whatever the real bracket gives, which is the pre-champion state while the final is on. */
+  devChampion?: WpblTeam | null
+}) {
+  const isDark = useDark()
+  const { standings, bracket, champTeam, series, finalSeries, finalInProgress, leader, finalLog, star } =
+    useChampionFinal(teams, games, devChampion)
 
   const shown = useRef(false)
   useEffect(() => {
@@ -199,7 +209,7 @@ function ChampionshipInProgressBody({ series, teams, log, recap, onOpenGame }: {
       <TeamBadge team={t} size={26} />
       <Typography noWrap sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 700 }}>{wpblFullName(t)}</Typography>
       <Typography sx={{
-        fontSize: TYPE_SCALE.display, fontWeight: 900, fontVariantNumeric: 'tabular-nums',
+        fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.display, fontWeight: 900, fontVariantNumeric: 'tabular-nums',
         color: leads ? 'text.primary' : 'text.secondary',
       }}>{wins}</Typography>
     </Box>
@@ -257,7 +267,7 @@ function RecapButton({ children }: { children: React.ReactNode }) {
   return (
     <Box sx={{
       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75,
-      mt: 0.5, px: 2, py: 1.1, borderRadius: 1.5,
+      mt: 0.5, px: 2, py: 1.1, borderRadius: 2,
       bgcolor: 'var(--wpbl-accent-solid)', color: '#fff', textDecoration: 'none',
       cursor: 'pointer', userSelect: 'none',
       boxShadow: '0 1px 6px -1px color-mix(in srgb, var(--wpbl-accent-solid) 55%, transparent)',
@@ -312,8 +322,8 @@ function SeriesGameLog({ log, teams, onOpenGame }: {
             ...hoverOnly({ bgcolor: 'action.hover' }), ...FOCUS_RING,
           }}>
             <Typography aria-hidden sx={{
-              fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.5),
-              textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1.2,
+              fontSize: TYPE_SCALE.micro, fontWeight: 800, 
+              color: 'text.secondary', lineHeight: 1.2,
             }}>G{i + 1}</Typography>
             {winner ? (
               <>
@@ -438,9 +448,9 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
   const starPlayer = star ? players.find(p => p.id === star.playerId) ?? null : null
   const starLoading = star === undefined || (!!star && !starPlayer && players.length === 0)
   const logo = wpblLogo(champion.id)
+  // Sentence case: the gold "WPBL Champions" eyebrow is the card's one line in caps (Nov 3, 2026).
   const stageSx = {
-    fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.5), textTransform: 'uppercase',
-    color: 'text.secondary', lineHeight: 1.3,
+    fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary', lineHeight: 1.3,
   } as const
   return (
     <>
@@ -466,12 +476,12 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
             <Typography sx={{ mt: 0.75, fontSize: TYPE_SCALE.title, fontWeight: 600, lineHeight: 1.2, color: HERO_INK.text }}>
               {champion.city}
             </Typography>
-            <Typography sx={{ fontSize: TYPE_SCALE.hero, fontWeight: 900, lineHeight: 1.1, color: HERO_INK.name }}>
+            <Typography sx={{ fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.hero, fontWeight: 900, lineHeight: 1.1, color: HERO_INK.name }}>
               {champion.name}
             </Typography>
             {series && runnerUp && (
               <Box sx={{ mt: 0.75, display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 0.75 }}>
-                <Typography sx={{ fontSize: TYPE_SCALE.page, fontWeight: 900, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: '#fff' }}>
+                <Typography sx={{ fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.page, fontWeight: 900, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: '#fff' }}>
                   {series.champWins}–{series.rivalWins}
                 </Typography>
                 <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: HERO_INK.text }}>
@@ -491,7 +501,7 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
             <Box key={step.stage} sx={{ minWidth: 0 }}>
               <Typography sx={stageSx}>{step.stage}</Typography>
               <Typography sx={{
-                fontSize: TYPE_SCALE.display, fontWeight: 900, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums',
+                fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.display, fontWeight: 900, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums',
                 color: step.title ? 'var(--wpbl-medal-1)' : 'text.primary',
               }}>{step.value}</Typography>
               {step.note && <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.25 }}>{step.note}</Typography>}

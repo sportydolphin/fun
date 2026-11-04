@@ -104,7 +104,7 @@ function DivisionCard({ division, wcIds, onTeamClick, highlightTeamId }: {
   const showSeparator = lastPlayoffIdx >= 0 && lastPlayoffIdx < teams.length - 1
 
   return (
-    <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', overflow: 'hidden' }}>
+    <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', overflow: 'hidden' }}>
       {/* Division header, a prominent label */}
       <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider' }}>
         <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.primary' }}>
@@ -205,7 +205,7 @@ function LeagueSection({ label, order, leagueId, divisions, onTeamClick, highlig
 
   return (
     <Box>
-      <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(2), color: 'text.disabled', mb: 1.5 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.disabled', mb: 1.5 }}>
         {label}
       </Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 2 }}>
@@ -293,8 +293,8 @@ const ColHeaders = () => (
   <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
     {(['W–L', 'PCT', 'GB', 'Strk'] as const).map((h, i) => (
       <Typography key={i} sx={{
-        fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase',
-        letterSpacing: typePx(0.5), color: 'text.disabled', textAlign: 'right',
+        fontSize: TYPE_SCALE.caption, fontWeight: 700, 
+        color: 'text.disabled', textAlign: 'right',
         minWidth: i === 0 ? '2.75rem' : i === 1 ? '2.125rem' : i === 2 ? '3.75rem' : '1.625rem',
         display: i === 1 ? { xs: 'none', sm: 'block' } : 'block',
       }}>{h}</Typography>
@@ -325,7 +325,7 @@ function PlayoffLeagueCard({ label, divisions, leagueId, onTeamClick, highlightT
     cutoff ? ((t.wins - cutoff.wins) + (cutoff.losses - t.losses)) / 2 : 0
 
   return (
-    <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', overflow: 'hidden' }}>
+    <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', overflow: 'hidden' }}>
       {/* League header */}
       <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.primary' }}>{label}</Typography>
@@ -334,7 +334,7 @@ function PlayoffLeagueCard({ label, divisions, leagueId, onTeamClick, highlightT
 
       {/* Wild Card sub-header */}
       <Box sx={{ px: 2, py: chromePx(6), bgcolor: 'action.hover' }}>
-        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1.2), color: 'text.disabled' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled' }}>
           Wild Card
         </Typography>
       </Box>

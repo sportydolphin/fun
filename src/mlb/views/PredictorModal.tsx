@@ -116,7 +116,7 @@ function PredictionCard({ game, prediction, onPick, gameVotes }: {
   const homeCol   = TEAM_BG[game.home.teamId] ?? '#888'
 
   return (
-    <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', overflow: 'hidden', flexShrink: 0 }}>
+    <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', overflow: 'hidden', flexShrink: 0 }}>
       <Box sx={{
         px: 2, py: chromePx(5), borderBottom: '1px solid', borderColor: 'divider',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75,
@@ -127,7 +127,6 @@ function PredictionCard({ game, prediction, onPick, gameVotes }: {
         <Typography sx={{
           fontSize: { xs: TYPE_SCALE.caption, sm: TYPE_SCALE.meta }, fontWeight: 700, letterSpacing: typePx(0.5), lineHeight: 1,
           color: game.state === 'live' ? TONE.red : game.state === 'postponed' ? TONE.amber : 'text.secondary',
-          textTransform: 'uppercase',
         }}>
           {game.state === 'live' ? 'Live' : game.state === 'final' ? 'Final' : game.state === 'postponed' ? 'PPD' : game.note ? `${game.note} · ${game.gameTime}` : game.gameTime}
         </Typography>

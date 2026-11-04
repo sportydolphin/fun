@@ -159,7 +159,7 @@ function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick, ghost 
             px: 0.6, py: '1px', borderRadius: 999, flexShrink: 0,
             bgcolor: `${style.color}1c`, border: '1px solid', borderColor: edge(style.color),
             fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(style.color, undefined, 5.6),
-            letterSpacing: typePx(0.5), textTransform: 'uppercase', lineHeight: 1.4,
+            lineHeight: 1.4,
             ...(ghost ? { bgcolor: 'action.hover', borderColor: 'transparent', color: 'transparent' } : {}),
           }}>
             {style.label}
@@ -235,7 +235,7 @@ function TradeGroupItem({ group, showDescription, onPlayerClick, onTeamClick }: 
           px: 0.6, py: '1px', borderRadius: 999, flexShrink: 0,
           bgcolor: `${style.color}1c`, border: '1px solid', borderColor: edge(style.color),
           fontSize: TYPE_SCALE.caption, fontWeight: 800, color: tone(style.color, undefined, 5.6),
-          letterSpacing: typePx(0.5), textTransform: 'uppercase', lineHeight: 1.4,
+          lineHeight: 1.4,
         }}>
           {style.label}
         </Box>
@@ -417,7 +417,6 @@ function RosterMovesModal({ open, onClose, moves, hotStove, followedTeamId, focu
                   }} />
                   <Typography className="day-label" sx={{
                     fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.secondary',
-                    textTransform: 'uppercase', letterSpacing: typePx(0.5),
                     transition: 'color 0.12s',
                   }}>
                     {fmtMoveDay(group.day)}

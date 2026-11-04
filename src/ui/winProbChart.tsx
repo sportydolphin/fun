@@ -194,7 +194,7 @@ export function WinProbChart({ points, away, home, info, now, accent, marks = []
       }}>
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.25 }}>
           <Typography sx={{
-            fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.8),
+            fontSize: TYPE_SCALE.caption, fontWeight: 800, 
             color: accent, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>{read?.label}</Typography>
           {/* Tabular, because this changes under a moving finger and proportional digits make
@@ -209,8 +209,8 @@ export function WinProbChart({ points, away, home, info, now, accent, marks = []
             readout has already shortened. */}
         <PlayLine read={read} />
         <Typography sx={{
-          mt: 'auto', pt: 0.25, fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase',
-          letterSpacing: typePx(0.7), color: 'text.secondary', whiteSpace: 'nowrap',
+          mt: 'auto', pt: 0.25, fontSize: TYPE_SCALE.caption, fontWeight: 700, 
+          color: 'text.secondary', whiteSpace: 'nowrap',
           fontVariantNumeric: 'tabular-nums',
         }}>{read?.note}</Typography>
       </Box>

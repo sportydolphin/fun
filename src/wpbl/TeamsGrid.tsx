@@ -84,7 +84,7 @@ function FixtureLine({ fixture }: { fixture: Fixture }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
       <Typography sx={{
-        fontSize: TYPE_SCALE.caption, fontWeight: 800, textTransform: 'uppercase', letterSpacing: typePx(0.4),
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, 
         color: kind === 'live' ? LOSS : 'text.disabled', flexShrink: 0,
       }}>
         {label}

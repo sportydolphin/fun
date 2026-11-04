@@ -53,8 +53,8 @@ export function StatList({ listRef, mode, activeCol, leagueCell, sortAsc, visibl
         borderBottom: '1px solid', borderColor: 'divider',
       }}>
         <Typography sx={{
-          flex: 1, minWidth: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: typePx(0.4),
-          textTransform: 'uppercase', color: 'text.disabled',
+          flex: 1, minWidth: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, 
+          color: 'text.disabled',
         }}>{mode === 'teams' ? 'Team' : 'Player'}</Typography>
         {/* The league's figure for the stat being ranked, in the header line rather than a
             row of its own: it cost 33px of the first screen as a row, and here it costs

@@ -9,7 +9,7 @@ export function SearchAvatar({ avatar: a, size = 36 }: { avatar: SearchResultAva
   return (
     <Box sx={{
       width: size, height: size, flexShrink: 0,
-      borderRadius: a.circle ? '50%' : 1.5,
+      borderRadius: a.circle ? '50%' : 2,
       bgcolor: a.bg ?? 'grey.700',
       border: a.ring ? `2px solid ${a.ring}` : undefined,
       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',

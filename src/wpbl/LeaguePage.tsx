@@ -249,7 +249,7 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
                   const place = placeOf(p.hometown)
                   return (
                     <Box key={p.id} {...link(href)} sx={{
-                      textDecoration: 'none', color: 'text.primary', borderRadius: 1.5,
+                      textDecoration: 'none', color: 'text.primary', borderRadius: 2,
                       px: 1, py: 0.6, display: 'block', ...TAPPABLE,
                     }}>
                       <Box component="span" sx={{ display: 'block', fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.35 }}>

@@ -5,7 +5,7 @@ import { TEAM_NICKNAME } from '../constants'
 import { highlightColor } from '../lib/colorUtils'
 import { fetchPlayoffOdds, PlayoffOddsRow } from '../api'
 import { TeamLogo } from '../components/TeamLogo'
-import { chromePx, typePx } from '../../ui/scale'
+import { chromePx } from '../../ui/scale'
 import { teamLink, LINK_SX } from '../lib/links'
 import { TYPE_SCALE } from '../../ui/card'
 import { bracketLikely } from '../postseason'
@@ -128,15 +128,15 @@ function LeagueOddsCard({ label, leagueId, rows, onTeamClick, highlightTeamId }:
   if (teams && !teams.length) return null
 
   return (
-    <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', overflow: 'hidden' }}>
+    <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', overflow: 'hidden' }}>
       {/* League header + column labels */}
       <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
         <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.primary' }}>{label}</Typography>
         <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', minWidth: '3.75rem', textAlign: 'right' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled', minWidth: '3.75rem', textAlign: 'right' }}>
             Playoffs
           </Typography>
-          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(0.5), color: 'text.disabled', minWidth: '2.625rem', textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled', minWidth: '2.625rem', textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
             Div
           </Typography>
         </Box>
