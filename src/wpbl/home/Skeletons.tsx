@@ -1,5 +1,5 @@
-import { Box, Skeleton } from '@mui/material'
-import { chromePx, CARD_BORDER, CARD_FILL, TYPE_SCALE } from '../ui'
+import { Box, Skeleton, Typography } from '@mui/material'
+import { chromePx, CARD_BORDER, CARD_FILL, TYPE_SCALE, TAB_TITLE_SX } from '../ui'
 import { SECTION_COLUMN_GAP, SECTION_RULE } from '../../ui/card'
 // The dismissal key and the dev-only undo. Their own module so the dev settings menu can reach
 // the undo without dragging this file into the main bundle. See discordInvite.ts.
@@ -9,7 +9,8 @@ import { FanPhotoHomeCardSkeleton } from '../FanPhotoViews'
 import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard } from './PlayerCards'
 import type { WpblTeam } from '../types'
 import { offseasonByCalendar } from '../offseasonCalendar'
-import { SECTION_GAP, HEADER_GAP, homeWideSx } from './shared'
+import { SECTION_GAP, HEADER_GAP, MASTHEAD_RAIL_GAP, homeWideSx } from './shared'
+import { ClubRailSkeleton } from './ClubRail'
 
 // Skeletons shaped like the real rows, so a card reserves its final height while its
 // data loads and doesn't grow/jump when the data lands. Replaces the old centered
@@ -19,7 +20,6 @@ import { SECTION_GAP, HEADER_GAP, homeWideSx } from './shared'
 // page is drawn at. The loaded strip always does, and a placeholder that stops short of the
 // edge announces itself as a placeholder.
 
-const SKELETON_CLUB_CHIPS = [0, 1, 2, 3]
 
 const SKELETON_GAME_CHIPS = [0, 1, 2, 3, 4, 5, 6, 7, 8]
 
@@ -85,24 +85,12 @@ export function WpblHomeSkeleton() {
       {/* No margin under it on a phone, where the loaded row has 12px: the scoreboard block below
           makes up the difference, and the two measure the same at 375px. Check any change to
           either against the loaded page (see "Loading states" in CLAUDE.md). */}
-      <Box sx={{
-        display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
-        alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 },
-        mb: { xs: 0, sm: HEADER_GAP },
-      }}>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Skeleton variant="text" sx={{ width: { xs: '16rem', md: '22rem' }, fontSize: { xs: TYPE_SCALE.heading, md: TYPE_SCALE.page }, lineHeight: 1.15, maxWidth: '100%' }} />
-        </Box>
-        <Box sx={{ display: { xs: 'none', sm: 'flex' }, flexWrap: 'wrap', gap: 0.75, flexShrink: 0 }}>
-          {SKELETON_CLUB_CHIPS.map(i => (
-            <Skeleton key={i} variant="rounded" sx={{
-              borderRadius: 999, width: chromePx(58),
-              // The chip is a 24px badge with 3px of padding and a hairline either side. Two of
-              // those three are ornament and stay raw; only the badge scales.
-              height: `calc(24px * var(--app-chrome, 1) + 8px)`,
-            }} />
-          ))}
-        </Box>
+      <Box sx={{ mb: { xs: 0, sm: HEADER_GAP } }}>
+          {/* The title's own line box (TAB_TITLE_SX) with the bar inside it: a bare text skeleton is
+              not the same height as the h1, which the chips beside it used to hide and the rail under
+              it does not. */}
+          <Typography sx={TAB_TITLE_SX}><Skeleton sx={{ width: { xs: '16rem', md: '22rem' }, maxWidth: '100%' }} /></Typography>
+        <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><ClubRailSkeleton /></Box>
       </Box>
 
       {/* Scoreboard: its heading, then the chip strip. The chips are built from the same box
@@ -202,21 +190,12 @@ function OffseasonHomeSkeleton() {
   const awards = awardsResultsShowOnHome()
   return (
     <Box role="status" aria-busy="true" aria-label="Loading the Women's Pro Baseball League home page" sx={homeWideSx}>
-      <Box sx={{
-        display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
-        alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 },
-        mb: { xs: 0, sm: HEADER_GAP },
-      }}>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Skeleton variant="text" sx={{ width: { xs: '16rem', md: '22rem' }, fontSize: { xs: TYPE_SCALE.heading, md: TYPE_SCALE.page }, lineHeight: 1.15, maxWidth: '100%' }} />
-        </Box>
-        <Box sx={{ display: { xs: 'none', sm: 'flex' }, flexWrap: 'wrap', gap: 0.75, flexShrink: 0 }}>
-          {SKELETON_CLUB_CHIPS.map(i => (
-            <Skeleton key={i} variant="rounded" sx={{
-              borderRadius: 999, width: chromePx(58), height: `calc(24px * var(--app-chrome, 1) + 8px)`,
-            }} />
-          ))}
-        </Box>
+      <Box sx={{ mb: { xs: 0, sm: HEADER_GAP } }}>
+          {/* The title's own line box (TAB_TITLE_SX) with the bar inside it: a bare text skeleton is
+              not the same height as the h1, which the chips beside it used to hide and the rail under
+              it does not. */}
+          <Typography sx={TAB_TITLE_SX}><Skeleton sx={{ width: { xs: '16rem', md: '22rem' }, maxWidth: '100%' }} /></Typography>
+        <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><ClubRailSkeleton /></Box>
       </Box>
 
       {/* The lead: the champion's season card at full width, with no heading of its own (the band

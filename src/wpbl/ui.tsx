@@ -300,18 +300,22 @@ export const CARD_LINK_SX = {
 // full-bleed for finished lockups (Boston), centered for transparent knockouts, or
 // the abbreviation when no logo exists. The drawing is src/ui/ClubBadge.tsx, shared with MLB's
 // TeamLogo; this says which colors and art a WPBL club gets.
-export function TeamBadge({ team, size = 34, ring }: {
+export function TeamBadge({ team, size = 34, ring, onFill }: {
   team: Pick<WpblTeam, 'id' | 'abbr'>; size?: number
   /** Override the ring color, which defaults to the club's secondary. For a surface that keys a
    *  whole card on one team color and needs the badge ring to match it rather than compete. */
   ring?: string
+  /** The badge sits on a club's solid block (wpblField), not on the page: `ring` is that block's
+   *  ink, already measured against the block, and is drawn as given. Toned for the page by edge(),
+   *  white ink came out gray and fell to 2.5:1 on the block (Nov 4, 2026). */
+  onFill?: boolean
 }) {
   return (
     <ClubBadge size={size} alt={team.abbr} src={wpblLogo(team.id) ?? undefined}
       bg={wpblColor(team.id)}
       // Through edge(): a club's secondary can sit close to the page (a club's near-black
       // primary on the dark page is under 1.5:1), and the ring is the badge's edge. CLAUDE.md, "Borders".
-      ring={edge(ring ?? wpblSecondary(team.id))}
+      ring={onFill && ring ? ring : edge(ring ?? wpblSecondary(team.id))}
       fit={wpblLogoFill(team.id) ? 'cover' : 'contain'} logoScale={0.65} />
   )
 }

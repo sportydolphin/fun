@@ -1,16 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { edge, SECTION_COLUMN_GAP } from '../../ui/card'
+import { SECTION_COLUMN_GAP } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
+import { TAB_TITLE_SX } from '../ui'
 import {
   fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblTrackedGameIds, computeStandings, countsInStandings,
   fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays,
   getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblTrackedGameIds, wpblHomeCacheAgeMs,
 } from '../api'
-import { wpblColor } from '../constants'
 import { useWpblHeadingTag } from '../PageHeading'
-import { TeamBadge, CARD_BORDER, CARD_FILL, hoverOnly, FOCUS_RING, TYPE_SCALE, TAB_TITLE_SX } from '../ui'
-import { useWpblTeamLink } from '../LinkContext'
-import { UNSTYLED_LINK } from '../../nav'
 import { LiveHero } from '../Live'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import PlayoffBracket from '../PlayoffBracket'
@@ -36,12 +33,12 @@ import { WatchCard } from '../Watch'
 import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard } from './PlayerCards'
 import type { WpblRunValuePlay } from '../types'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame, WpblBattingLine, WpblPitchingLine } from '../types'
-import { typePx } from '../../ui/scale'
 import { useWpblSeason } from '../SeasonContext'
 import { offseasonByCalendar, nextOpeningDay, rememberNextOpeningDay } from '../offseasonCalendar'
 import { regularSeasonOver } from '../season'
 import { localIsoDate } from '../derive/homePlayers'
-import { HEADER_GAP, homeWideSx } from './shared'
+import { HEADER_GAP, MASTHEAD_RAIL_GAP, homeWideSx } from './shared'
+import { ClubRail } from './ClubRail'
 import { type MatchupPreviewArg, Scoreboard } from './Scoreboard'
 import { NextGameCard } from './NextGameCard'
 import { gameYear, devChampionPick, ChampionBanner, useChampionFinal } from './ChampionCards'
@@ -108,7 +105,6 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // is no feed game to address, so this is a plain modal that closes on X/Escape.
   const [matchup, setMatchup] = useState<MatchupPreviewArg | null>(null)
   const headingTag = useWpblHeadingTag()
-  const teamLink = useWpblTeamLink()
 
   // Leaders + tracking data, fetched here so only the home view pays for it. Seeded from the
   // shared session cache so swiping back to Home (the default tab, so the most re-entered)
@@ -426,56 +422,31 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           closes. */}
       <FanAwardsCta onOpen={onOpenAwards} />
 
-      {/* Slim league header. On mobile it's just the title; on wider screens the club chips
-          sit inline to the right. */}
-      <Box sx={{
-        display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
-        alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 },
-        mb: { xs: 1.5, sm: HEADER_GAP },
-      }}>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          {/* The page's one <h1>. It carries the full league name (an exact match for that
-              search) while the <title> in seo.ts leads with "WPBL Stats"; between them the
-              home page covers both the brand term and the acronym people actually type. Every
-              other WPBL tab is a separate route with its own h1. */}
-          {/* WEIGHT 800. At 600 the page's one `h1` sits lighter than the `h2`s beneath it
-              (0.95rem/700) while being only slightly bigger, so it reads as a caption above
-              "Scoreboard" rather than as the top of anything. Size alone does not make a title
-              on this page: the heaviest ink on it is the club names at display/800, and a title
-              has to be in that conversation to win. */}
-          {/* DRAWN AT EVERY WIDTH. On a phone the section nav is the bottom bar, so nothing at the
-              top of the screen names the league but this; without it Home opened onto bare
-              scoreboard tiles. It fits one line on a 375px phone. Never delete it: it is the page's
-              one h1, an exact match for the search people type for this league, and Google indexes
-              the mobile DOM. */}
-          <Typography component={headingTag} sx={TAB_TITLE_SX}>
-            Women's Pro Baseball League
-          </Typography>
-        </Box>
-        {/* Team chips: badge + abbreviation in a tappable pill so they read as controls (not
-            decoration) on touch, where there's no hover. Ring adopts the club color on hover,
-            and a press-scale gives tactile feedback. Each jumps to that team's page. Hidden on
-            mobile: the chips are redundant there with the full Teams tab a swipe away. */}
-        <Box sx={{ display: { xs: 'none', sm: 'flex' }, flexWrap: 'wrap', gap: 0.75, flexShrink: 0 }}>
-          {teams.map(t => (
-            <Box
-              key={t.id}
-              {...teamLink(t, onOpenTeam)}
-              sx={{
-                ...UNSTYLED_LINK, ...FOCUS_RING,
-                display: 'flex', alignItems: 'center', gap: 0.6,
-                pl: '3px', pr: 0.9, py: '3px', borderRadius: 999,
-                cursor: 'pointer', userSelect: 'none',
-                border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL,
-                transition: 'border-color 0.15s, transform 0.1s',
-                ...hoverOnly({ borderColor: edge(wpblColor(t.id)) }),
-                '&:active': { transform: 'scale(0.94)' },
-              }}
-            >
-              <TeamBadge team={t} size={24} />
-              <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, letterSpacing: typePx(0.3) }}>{t.abbr}</Typography>
-            </Box>
-          ))}
+      {/* THE MASTHEAD: the league's name over its four clubs, each a tile in its own color (Nov 4, 2026,
+          ROADMAP-UI.md's audit). The clubs were four small chips beside the title, a filter bar,
+          and hidden on a phone; the rail is drawn at every width, and on a phone it is the way to
+          the club pages from Home. */}
+      <Box sx={{ mb: { xs: 1.5, sm: HEADER_GAP } }}>
+        {/* The page's one <h1>. It carries the full league name (an exact match for that
+            search) while the <title> in seo.ts leads with "WPBL Stats"; between them the
+            home page covers both the brand term and the acronym people actually type. Every
+            other WPBL tab is a separate route with its own h1. */}
+        {/* WEIGHT 800. At 600 the page's one `h1` sits lighter than the `h2`s beneath it
+            (0.95rem/700) while being only slightly bigger, so it reads as a caption above
+            "Scoreboard" rather than as the top of anything. Size alone does not make a title
+            on this page: the heaviest ink on it is the club names at display/800, and a title
+            has to be in that conversation to win. */}
+        {/* DRAWN AT EVERY WIDTH. On a phone the section nav is the bottom bar, so nothing at the
+            top of the screen names the league but this; without it Home opened onto bare
+            scoreboard tiles. It fits one line on a 375px phone. Never delete it: it is the page's
+            one h1, an exact match for the search people type for this league, and Google indexes
+            the mobile DOM. */}
+        <Typography component={headingTag} sx={TAB_TITLE_SX}>
+          Women's Pro Baseball League
+        </Typography>
+        <Box sx={{ mt: MASTHEAD_RAIL_GAP }}>
+          <ClubRail teams={teams} standings={standingsRows} onOpenTeam={onOpenTeam}
+            championId={devChampTeam?.id ?? realChampion?.champion.id ?? null} />
         </Box>
       </Box>
 

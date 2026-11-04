@@ -1,9 +1,8 @@
 import { useDark } from '../ui/useDark'
 import { useEffect, useMemo, useState } from 'react'
-import { edge } from '../ui/card'
 import { Box, Typography } from '@mui/material'
 import { computeStandings, fetchWpblAllLines, fetchWpblAllPitchPlays } from './api'
-import { wpblAccent, wpblFullName, formatGameTime, relativeDayShort } from './constants'
+import { wpblAccent, wpblField, formatGameTime, relativeDayShort } from './constants'
 import { TeamBadge, FOCUS_RING, CARD_BORDER, CARD_FILL, FormDots, WPBL_WIN as WIN, WPBL_LOSS as LOSS, hoverOnly } from './ui'
 import { useWpblTeamLink } from './LinkContext'
 import { fmtSigned } from './stats'
@@ -15,7 +14,7 @@ import { TabTitle } from './PageHeading'
 import { typePx } from '../ui/scale'
 import { useWpblSeason } from './SeasonContext'
 import { SeasonMenu } from './SeasonMenu'
-import { TYPE_SCALE } from '../ui/card'
+import { TYPE_SCALE, DISPLAY_FONT, AGATE_SX } from '../ui/card'
 
 /**
  * The Teams tab's landing screen: one card per club, in standings order.
@@ -122,7 +121,7 @@ function TeamCard({ row, rank, ranked, fixture, onOpen }: {
 }) {
   const teamLink = useWpblTeamLink()
   const isDark = useDark()
-  const accent = wpblAccent(row.team.id, isDark)
+  const field = wpblField(row.team.id, isDark)
   const gp = row.wins + row.losses
   const diff = row.runsFor - row.runsAgainst
   // .571, dropping the leading zero the way a batting line is written.
@@ -134,81 +133,67 @@ function TeamCard({ row, rank, ranked, fixture, onOpen }: {
     // follow to a club, which is the hub that leads it to eighteen player pages. Same treatment,
     // same reasons, as every player name on the section: see the note at the top of
     // LinkContext.tsx.
+    //
+    // THE CLUB AS A BLOCK OF ITS OWN COLOR (Nov 4, 2026), the same as Home's club rail
+    // (wpblField): rank, crest, name and record on the club's fill, square, and the form and the
+    // fixture on the page under it. It was a rounded outlined card with the club's color as a 3px
+    // stripe down its left edge, which read as a generated dashboard card, and the stripe was most
+    // of the club there was on the light page.
     <Box {...link} sx={{
-      ...FOCUS_RING,
-      display: 'flex', flexDirection: 'column', gap: 0.9,
-      p: 1.5, pl: 1.25, cursor: 'pointer',
-      borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
-      // The club's color, permanently, rather than only on hover. Four cards of identical
-      // chrome is what made the old grid read as a list of links. Hover still lifts the whole
-      // hairline to the same color, so the two states are one idea at two strengths.
-      borderLeft: '3px solid', borderLeftColor: accent,
-      bgcolor: CARD_FILL,
-      transition: 'border-color 0.15s',
-      // On a phone a bare :hover latches on tap, so the card a reader opened stayed ringed in
-      // its club color behind them, reading as selected rather than as opened.
-      ...hoverOnly({ borderColor: edge(accent) }),
+      ...FOCUS_RING, display: 'flex', flexDirection: 'column', cursor: 'pointer', minWidth: 0,
+      ...hoverOnly({ '& .sd-club-block': { filter: 'brightness(1.12)' } }),
     }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
+      <Box className="sd-club-block" sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0, px: 1.5, py: 1.25, bgcolor: field.fill }}>
         {ranked && (
-          <Typography sx={{
-            width: '0.875rem', flexShrink: 0, textAlign: 'center',
-            fontSize: TYPE_SCALE.body, fontWeight: 800, color: 'text.disabled', fontVariantNumeric: 'tabular-nums',
-          }}>
+          <Typography sx={{ ...AGATE_SX, width: '1rem', flexShrink: 0, textAlign: 'center', fontSize: TYPE_SCALE.title, color: field.ink }}>
             {rank}
           </Typography>
         )}
-        <TeamBadge team={row.team} size={38} />
+        <TeamBadge team={row.team} size={40} ring={field.ink} onFill />
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{
-            fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2,
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>
-            {wpblFullName(row.team)}
+          <Typography noWrap sx={{ ...AGATE_SX, fontSize: TYPE_SCALE.meta, textTransform: 'uppercase', letterSpacing: '0.06em', lineHeight: 1.3, color: field.ink }}>
+            {row.team.city}
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.4, minWidth: 0 }}>
-            <FormDots recent={row.recent} />
-            {/* Only once it's longer than the dot strip can show. Below three it's a fact the
-                dots already carry; at three and up it's the headline about the team. */}
-            {row.streak && row.streak.count >= 3 && (
-              <Typography sx={{
-                fontSize: TYPE_SCALE.micro, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
-                color: row.streak.type === 'W' ? WIN : LOSS,
-              }}>
-                {row.streak.type}{row.streak.count}
-              </Typography>
-            )}
-            {gp === 0 && (
-              <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>Yet to play</Typography>
-            )}
-          </Box>
+          <Typography noWrap sx={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: TYPE_SCALE.page, lineHeight: 1.1, textTransform: 'uppercase', color: field.ink }}>
+            {row.team.name}
+          </Typography>
         </Box>
         <Box sx={{ flexShrink: 0, textAlign: 'right' }}>
-          <Typography sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>
+          <Typography sx={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: TYPE_SCALE.page, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums', color: field.ink }}>
             {row.wins}–{row.losses}
           </Typography>
-          {pct && (
-            <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 600, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-              {pct}
-            </Typography>
-          )}
+          <Typography sx={{ ...AGATE_SX, fontSize: TYPE_SCALE.meta, lineHeight: 1.3, color: field.ink }}>
+            {pct ?? '\u00a0'}
+          </Typography>
         </Box>
       </Box>
 
+      {/* Under the block, on the page: the shape of the record and the game that is next or last.
+          Framed on three sides at the outline token, so the two halves read as one object. */}
       <Box sx={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1,
-        pt: 0.85, borderTop: '1px solid', borderColor: 'divider', minWidth: 0,
+        display: 'flex', flexDirection: 'column', gap: 0.75, px: 1.5, py: 1, minWidth: 0,
+        border: '1px solid', borderTop: 0, borderColor: CARD_BORDER, bgcolor: CARD_FILL,
       }}>
-        <FixtureLine fixture={fixture} />
-        {gp > 0 && (
-          <Typography sx={{
-            fontSize: TYPE_SCALE.meta, fontWeight: 700, flexShrink: 0, fontVariantNumeric: 'tabular-nums',
-            color: diff > 0 ? WIN : diff < 0 ? LOSS : 'text.secondary',
-          }}>
-            {fmtSigned(diff)}
-            <Box component="span" sx={{ ml: 0.5, fontWeight: 700, fontSize: TYPE_SCALE.caption, letterSpacing: typePx(0.3), color: 'text.disabled' }}>DIFF</Box>
-          </Typography>
-        )}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+          <FormDots recent={row.recent} />
+          {/* Only once it's longer than the dot strip can show. Below three it's a fact the
+              dots already carry; at three and up it's the headline about the team. */}
+          {row.streak && row.streak.count >= 3 && (
+            <Typography sx={{ ...AGATE_SX, fontSize: TYPE_SCALE.meta, color: row.streak.type === 'W' ? WIN : LOSS }}>
+              {row.streak.type}{row.streak.count}
+            </Typography>
+          )}
+          {gp === 0 && <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Yet to play</Typography>}
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, minWidth: 0 }}>
+          <FixtureLine fixture={fixture} />
+          {gp > 0 && (
+            <Typography sx={{ ...AGATE_SX, fontSize: TYPE_SCALE.meta, flexShrink: 0, color: diff > 0 ? WIN : diff < 0 ? LOSS : 'text.secondary' }}>
+              {fmtSigned(diff)}
+              <Box component="span" sx={{ ml: 0.5, fontSize: TYPE_SCALE.caption, letterSpacing: typePx(0.3), color: 'text.secondary' }}>DIFF</Box>
+            </Typography>
+          )}
+        </Box>
       </Box>
     </Box>
   )
