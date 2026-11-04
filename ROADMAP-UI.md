@@ -154,6 +154,15 @@ Each item names the phase that carries it.
       promo box, "Submit photos ›" in the gallery's header, and the footer's Data sources back in its
       own Reference group (the dev-only World Cup group had split it in two). The ellipsis list for
       Home is empty at every width and both text sizes.
+- [x] **Clubs as solid blocks** (Nov 4). Home's masthead is the title over the four clubs, flush
+      blocks of each club's own color (`wpblField`: deep fills with white ink, Los Angeles black with
+      gold ink in light mode and gold with black ink in dark), square, with city, name, record and
+      finish; drawn at every width, so it is the way to the clubs on a phone. The Teams tab's cards
+      and a club page's header are the same block. Replaces the pale-wash tile with a colored top
+      edge (first cut, same day) and the 3px left stripe on Teams: an accent edge on a rounded card
+      read as generated, and the washes all but vanished on the light page (owner's call). A badge
+      on a block takes the block's ink as its ring as given (`TeamBadge`'s `onFill`). Still on the
+      old stripe: LeaguePage's club cards, `ui.tsx`'s accent card, SeriesPicks.
 - [x] **Spotlight as a trading card** (Nov 4). A framed object in the club's accent: a band in the
       club's surface color with a square photo, the jersey number in the band's corner at `lead`
       size in the club's color, and the reason over the name in agate caps. Facts under it, and the

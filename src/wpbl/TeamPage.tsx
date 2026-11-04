@@ -5,7 +5,7 @@ import { edge } from '../ui/card'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import { ChevronLeft, GridViewRounded } from '@mui/icons-material'
 import { fetchWpblRoster, fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblLineupHistory, fetchWpblPitchingUsage, fetchWpblAllPitchPlays, computeStandings, getCachedWpblRoster, getCachedWpblLineupHistory, getCachedWpblPitchingUsage } from './api'
-import { wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
+import { wpblAccent, wpblField, wpblFullName, formatGameTime, positionRank } from './constants'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
 import { SectionCard, SectionLabel, CardLink, TeamBadge, PlayerPortrait, FittedName, ModalShell, pressable, FOCUS_RING, CARD_BORDER, CARD_FILL, INNER_BORDER, TAPPABLE, hoverOnly } from './ui'
 import {
@@ -29,7 +29,7 @@ import { typePx } from '../ui/scale'
 import { useWpblSeason } from './SeasonContext'
 import { SeasonMenu } from './SeasonMenu'
 import { sectionAnchorId, useSectionScroll } from '../lib/sectionScroll'
-import { ICON_SIZE, TYPE_SCALE } from '../ui/card'
+import { ICON_SIZE, TYPE_SCALE, DISPLAY_FONT, AGATE_SX } from '../ui/card'
 import { ordinal } from '../lib/format'
 
 // A team's page: header + record, results, season batting/pitching totals, top hitters /
@@ -315,6 +315,7 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
   const accent = wpblAccent(team.id, isDark)
   const playerLink = useWpblPlayerLink()
   const headingTag = useWpblHeadingTag()
+  const field = wpblField(team.id, isDark)
   const { fmtEra, fmtK, kLabel, scale: scaleK } = useEraBasis()
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   // ONE SEASON. The league reads below hold every year, so each is cut to the one on screen, and
@@ -669,14 +670,27 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
         gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) auto' },
       }}>
        <Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <TeamBadge team={team} size={52} />
+        {/* THE CLUB AS A BLOCK OF ITS OWN COLOR (Nov 4, 2026), as on Home's club rail and the Teams
+            tab (wpblField): crest, city, name and record on the club's fill, square. It was a badge
+            and a line of bold text on the page, and nothing on the club's own page was the club's
+            color. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.75, px: 2, py: 1.75, bgcolor: field.fill }}>
+        <TeamBadge team={team} size={64} ring={field.ink} onFill />
         <Box sx={{ minWidth: 0 }}>
           {/* The page's heading. A selected club replaces the Teams grid, which is why that
               grid's own h1 is not also on screen; this drops to a plain div if a player or
-              game modal opens over it. See PageHeading.tsx. */}
-          <Typography component={headingTag} sx={{ fontSize: TYPE_SCALE.display, fontWeight: 900, lineHeight: 1.1, m: 0 }}>{wpblFullName(team)}</Typography>
-          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{recordText}</Typography>
+              game modal opens over it. See PageHeading.tsx. The city and the name are two lines
+              of one heading, so it still reads "Los Angeles Queens". */}
+          <Typography component={headingTag} sx={{ m: 0, color: field.ink }}>
+            <Box component="span" sx={{ display: 'block', ...AGATE_SX, fontSize: TYPE_SCALE.body, textTransform: 'uppercase', letterSpacing: '0.06em', lineHeight: 1.3 }}>
+              {team.city}
+            </Box>
+            {' '}
+            <Box component="span" sx={{ display: 'block', fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: { xs: TYPE_SCALE.hero, md: TYPE_SCALE.lead }, lineHeight: 1, textTransform: 'uppercase' }}>
+              {team.name}
+            </Box>
+          </Typography>
+          <Typography sx={{ ...AGATE_SX, fontSize: TYPE_SCALE.body, color: field.ink, mt: 0.5 }}>{recordText}</Typography>
         </Box>
         </Box>
         <SeasonMenu label="season" sx={{ mt: 1.5 }} />

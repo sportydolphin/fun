@@ -136,6 +136,28 @@ const WPBL_SURFACES: Record<string, { light: string; dark: string }> = {
 }
 const NEUTRAL_SURFACE = { light: '#f1f2f4', dark: '#26282c' }
 
+// Team color as a SOLID BLOCK, the fourth role: a club's tile on Home, its row on Teams, its page's
+// header. A block of the club's own color with its ink on top, the way a jersey or a TV standings
+// graphic prints a club, rather than a pale wash or a stripe down one edge of a rounded card (both
+// read as generated, and the washes all but vanished on the light page: Nov 4, 2026).
+//
+// Deep fills that sit at 6 to 8:1 against the light page and carry white ink at 6.5:1 or better.
+// On the dark page a deep fill is quieter (2 to 3:1, still plainly a colored block) except Los
+// Angeles, whose black is the page itself: there the Queens' gold is the block, in black ink.
+const WPBL_FIELDS: Record<string, { light: { fill: string; ink: string }; dark: { fill: string; ink: string } }> = {
+  BOS: { light: { fill: '#1d6b45', ink: '#ffffff' }, dark: { fill: '#1d6b45', ink: '#ffffff' } },
+  LA:  { light: { fill: '#111111', ink: '#e9c46a' }, dark: { fill: '#d9ad3c', ink: '#111111' } },
+  NY:  { light: { fill: '#1f4f8f', ink: '#ffffff' }, dark: { fill: '#1f4f8f', ink: '#ffffff' } },
+  SF:  { light: { fill: '#5d3496', ink: '#ffffff' }, dark: { fill: '#5d3496', ink: '#ffffff' } },
+}
+const NEUTRAL_FIELD = { fill: '#3a3d43', ink: '#ffffff' }
+
+/** A club's solid block and the ink that goes on it, for this theme. */
+export function wpblField(teamId: string | null | undefined, isDark: boolean): { fill: string; ink: string } {
+  const c = teamId ? WPBL_FIELDS[teamId] : undefined
+  return c ? (isDark ? c.dark : c.light) : NEUTRAL_FIELD
+}
+
 export function wpblSurface(teamId: string | null | undefined, isDark: boolean): string {
   const c = (teamId && WPBL_SURFACES[teamId]) || NEUTRAL_SURFACE
   return isDark ? c.dark : c.light

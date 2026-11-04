@@ -19,6 +19,9 @@ import { HOME_WIDE_W } from '../layoutWidths'
  */
 export const SECTION_GAP = 2.5
 
+/** Between Home's title and the club rail under it: close, so the two read as one masthead. */
+export const MASTHEAD_RAIL_GAP = 1.5
+
 /**
  * The gap under the league header, shared with the skeleton so the heading lands where its
  * placeholder was. The title's size, `{ xs: heading, md: page }`, is written out at both sites

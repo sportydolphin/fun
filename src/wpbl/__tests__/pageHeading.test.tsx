@@ -70,7 +70,8 @@ describe('every tab title is drawn on a phone', () => {
   it("Home's title, which is not a TabTitle, spreads nothing that hides it either", () => {
     // Line endings normalized, so a Windows checkout (CRLF) reads the file the way the search expects.
     const src = readFileSync('src/wpbl/home/WpblHome.tsx', 'utf8').replace(/\r\n/g, '\n')
-    const at = src.indexOf("Women's Pro Baseball League\n          </Typography>")
+    // By pattern, not exact indentation: the title moved a level when the club rail joined it.
+    const at = src.search(/Women's Pro Baseball League\n\s*<\/Typography>/)
     expect(at).toBeGreaterThan(-1)
     const tag = src.slice(src.lastIndexOf('<Typography', at), at)
     expect(tag).not.toMatch(/HIDE_ON_PHONE|VISUALLY_HIDDEN|hidePhone/)
