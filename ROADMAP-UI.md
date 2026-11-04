@@ -143,6 +143,12 @@ Each item names the phase that carries it.
       Champions", with "Season recap ›" on it; the h2 stays for screen readers, `headingHidden`), the
       road to the title a size up, the three blocks on the right spread down the band's height, and
       the logo watermark larger, fainter and lower so its crown no longer cuts the gold rule.
+      Fourth pass, Player Spotlight: the jersey number as the card's numeral, three plain lines in
+      place of seven labeled facts, the stat line a size up, the heading as the profile link (the
+      footer "Full profile ›" went). Shorter now, so Home pairs it with the leaders, and the award
+      winners with the star sign card (from `lg`; full width below, where two names across half a
+      960 page cut "B. Espinoza-Molina"). Left: that same name is cut on a 375 phone at large text in
+      the star sign card, which this pass did not change.
 - [x] **Spotlight repeated the Star of the Final** (Nov 3). Spotlight now steps to the next player
       in the rotation when it lands on the final's Star (`useChampionFinal`, shared with the
       season card). The "Scorpio Season" card and the star sign stay (owner's call, Nov 3).

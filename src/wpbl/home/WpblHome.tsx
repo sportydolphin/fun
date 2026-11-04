@@ -518,9 +518,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           lead and then the rest. The lead keeps a player in the first screen through its Star of the
           final, a real player link, which is why Player Spotlight could move down: until then it sat
           beside the season card so a player page was one tap from the top (a player page is what
-          readers open most). Below the lead, Spotlight beside the leaders and the fan award winners
-          (the players who stood out), then the gallery, the star sign card (a dozen more player
-          links), and Reading beside Watch. None of them costs a box-score read: they
+          readers open most). Below the lead, in pairs (see the note on them below). None of them costs a box-score read: they
           select from the roster the page already holds, the stored season rows and the award tally,
           and Player Spotlight reads its one player's lines. */}
       {seasonDone && (
@@ -532,31 +530,26 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           {/* The award results, for the days they stay up after the final (AWARDS_RESULTS_UNTIL). */}
           {seasonCards.length > 0 && <Box sx={{ mt: 3 }}>{seasonCards}</Box>}
 
-          {/* Spotlight is about as tall as the leaders and the award winners together, so those two
-              stack beside it: a pair of one-high sections left Spotlight's lower half beside nothing. */}
+          {/* Pairs of about one height, by subject: Spotlight beside the leaders, the award winners beside
+              the star sign card (players either way), the gallery across, then Reading beside Watch.
+              Spotlight was a column of labeled facts as tall as two sections until Nov 3, 2026. */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
             <PlayerSpotlightCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} avoid={spotlightAvoid} />
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-              <SeasonLeadersCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer}
-                rosterFailed={!loadingLeaders && players.length === 0} />
-              <FanAwardWinnersCard players={players} teams={teamMap} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} onOpenAwards={onOpenAwards}
-                rosterFailed={!loadingLeaders && players.length === 0} />
-            </Box>
+            <SeasonLeadersCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer}
+              rosterFailed={!loadingLeaders && players.length === 0} />
+          </Box>
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
+            <FanAwardWinnersCard players={players} teams={teamMap} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} onOpenAwards={onOpenAwards}
+              rosterFailed={!loadingLeaders && players.length === 0} />
+            {/* The players born under the sign whose season it is, each with their birthday. */}
+            <StarSignCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} />
           </Box>
 
           {/* Fan photos: with no games left, the one block besides the player cards that changes
               from one visit to the next, and the rail reshuffles every load. */}
           <FanPhotoHomeCard reserve />
 
-          {/* The players born under the sign whose season it is, each with their birthday: one card
-              that does what a birthdays card and a star sign card did apart. Full width, so the
-              names sit four abreast on a desktop rather than in a narrow column. */}
-          <Box sx={{ mt: 3 }}>
-            <StarSignCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} />
-          </Box>
-
-          {/* Reading and Watch share a row: each was a full-width block for three posts or six
-              posters, about a screen of desktop between them for nine links to two hub pages. */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
             <ReadingHomeCard teamById={teamMap} />
             <WatchCard from="home" compact placeholder={<CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />} />

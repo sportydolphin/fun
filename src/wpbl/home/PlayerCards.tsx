@@ -27,6 +27,7 @@ import { requestSectionScroll } from '../../lib/sectionScroll'
 import { birthDateSettled } from '../derive/discordBirthdays'
 import { awardManagerWinner, awardWinner, homeLeaderRows, localIsoDate, playerOfTheDay, signSeason, signGlyph, type SignBirthday } from '../derive/homePlayers'
 import { useWpblSeason } from '../SeasonContext'
+import { usePhoneLayout } from '../../ui/ModalShell'
 
 // The offseason Home's player cards. See derive/homePlayers.ts for why these and how each picks; this file only draws them. Every player in them is a real <a href> to the player page
 // (useWpblPlayerLink), which is both the point of the cards and what lets a crawler follow them.
@@ -37,8 +38,10 @@ type OpenPlayer = (p: WpblPlayer) => void
  *  the same height before the roster lands as after whatever sign's season it is: they run from 5
  *  players to 15. */
 const SIGN_CAP = 12
-/** Its columns, which with SIGN_CAP set its rows: six on a phone, three on a desktop. */
-const SIGN_COLUMNS = { xs: 2, sm: 3, md: 4 } as const
+/** Its columns, which with SIGN_CAP set its rows: six on a phone, four and three across the page's
+ *  width at `sm` (three columns) and `md` (four), and six rows again from `lg`, where it shares a row with the award winners
+ *  (Nov 3, 2026). Not from `md`: two across half of a 960 page cut "B. Espinoza-Molina" at large text. */
+const SIGN_COLUMNS = { xs: 2, sm: 3, md: 4, lg: 2 } as const
 /** Its rows' face and gaps. Two across a phone leaves a name about 113px, and "B. Espinoza-Molina",
  *  already at its last stage, needs 120: a smaller face and tighter gaps give it the room, since a
  *  name that does not fit as "F. Last" has no shorter form to fall back on. */
@@ -172,7 +175,7 @@ function StatCell({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <Box sx={{ minWidth: 0, textAlign: 'center' }}>
       <Typography sx={{ ...LABEL_SX }}>{label}</Typography>
-      <Typography component="div" sx={{ fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.title, fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1.3 }}>
+      <Typography component="div" sx={{ fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.page, fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
         {value}
       </Typography>
     </Box>
@@ -212,7 +215,7 @@ function SeasonStrip({ player, lines, games }: { player: WpblPlayer; lines: Line
       {cells && cells.length === 0 ? (
         // Two lines tall, the strip's own height, so a birthday pick who never played does not
         // shorten the card under the reader.
-        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.3, minHeight: '2.6em', display: 'flex', alignItems: 'center' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.3, minHeight: `calc(${TYPE_SCALE.micro} * 1.3 + ${TYPE_SCALE.page} * 1.2)`, display: 'flex', alignItems: 'center' }}>
           {season != null ? `No ${season} games` : 'No games'}
         </Typography>
       ) : (
@@ -221,7 +224,7 @@ function SeasonStrip({ player, lines, games }: { player: WpblPlayer; lines: Line
             // A no-break space, not ' ': a lone space collapses, so the label row took no height
             // until the stats landed and the card grew by a line under the reader.
             <StatCell key={i} label={cells ? label : ' '}
-              value={cells ? value : <Skeleton variant="text" width="70%" sx={{ mx: 'auto', fontSize: TYPE_SCALE.title }} />} />
+              value={cells ? value : <Skeleton variant="text" width="70%" sx={{ mx: 'auto', fontSize: TYPE_SCALE.page }} />} />
           ))}
         </Box>
       )}
@@ -229,17 +232,9 @@ function SeasonStrip({ player, lines, games }: { player: WpblPlayer; lines: Line
   )
 }
 
-const NAME_SX = { fontSize: TYPE_SCALE.display, fontWeight: 800, lineHeight: 1.2 } as const
-
-/** One fact under the header: a small label over a value. */
-function Fact({ label, wide, children }: { label: string; wide?: boolean; children: React.ReactNode }) {
-  return (
-    <Box sx={{ minWidth: 0, gridColumn: wide ? '1 / -1' : undefined }}>
-      <Typography sx={{ ...LABEL_SX }}>{label}</Typography>
-      <Typography noWrap sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.35 }}>{children}</Typography>
-    </Box>
-  )
-}
+// One step smaller below md: on a phone the face, the name and the numeral share 340px, and at the
+// desktop size the name fell back to "O. Bricker" and the club line to an ellipsis.
+const NAME_SX = { fontSize: { xs: TYPE_SCALE.display, md: TYPE_SCALE.page }, fontWeight: 800, lineHeight: 1.2 } as const
 
 export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid = null }: {
   players: WpblPlayer[]; teams: Map<string, WpblTeam>; games: WpblGame[]; onOpenPlayer: OpenPlayer
@@ -274,6 +269,9 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
   const playerId = player?.id ?? null
   const onFaceReady = useCallback(() => setFaceFor(playerId), [playerId])
   const faceReady = !!player && faceFor === player.id
+  // The portrait's size is a number, not a breakpoint object, so the phone asks (see NAME_SX).
+  const phone = usePhoneLayout()
+  const face = phone ? 64 : 88
 
   const team = player?.team_id ? teams.get(player.team_id) : undefined
   // Nothing until the player's own lines land, never the roster's label first: the roster can
@@ -285,8 +283,25 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
     ? `Round ${player.draft_round}${player.draft_pick != null ? `, pick ${player.draft_pick}` : ''}`
     : '—'
 
+  // Three plain lines in place of a grid of seven labels (Nov 3, 2026, ROADMAP-UI.md's audit): the
+  // grid read as a form, and every fact carries its own few words of context, so a label over each
+  // one was the noise. Three short lines, not two long ones: "Born Dec 1, 2005 (20) · Bedford, New
+  // Hampshire, USA" did not fit a phone, and the sweep's ellipsis list caught it. Each holds one row
+  // and never wraps, so the stat line under them cannot move.
+  const born = player && settled ? `Born ${shortDate(player.birth_date!, true)}${player.age != null ? ` (${player.age})` : ''}` : null
+  const sign = player?.zodiac_sign ? `${glyph} ${player.zodiac_sign}` : null
+  const bt = player && (player.bats || player.throws) ? `B/T ${player.bats ?? '—'}/${player.throws ?? '—'}` : null
+  const drafted = player?.draft_round != null ? `Drafted ${draft.replace('Round', 'round')}` : null
+  const factLines = player
+    ? [[born, sign].filter(Boolean).join(' · ') || '—', player.hometown ?? '—', [bt, drafted].filter(Boolean).join(' · ') || '—']
+    : [null, null, null]
+  const number = player?.jersey_number ? `#${player.jersey_number}` : null
+
   return (
-    <SectionCard title="Player Spotlight" fill action={
+    // The heading opens the player's page, the way every section's heading opens more of itself; the
+    // "Full profile ›" that sat under the stat line said it a third time after the face and the name.
+    // Before the pick lands the › is an inert span, so the heading takes its loaded width.
+    <SectionCard title="Player Spotlight" fill titleLink={player ? link(player) : { 'aria-hidden': true }} action={
       // A birthday says so here rather than as a line over the name, which would make the header a
       // line taller on the days it applies and move the card under a reader as the roster lands.
       pick?.reason === 'birthday'
@@ -308,9 +323,9 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
           <Box sx={{ position: 'relative', flexShrink: 0 }}>
             {player
               ? <Box sx={{ opacity: faceReady ? 1 : 0, transition: 'opacity 0.25s' }}>
-                  <PlayerPortrait name={player.name} teamId={player.team_id} size={72} eager onReady={onFaceReady} />
+                  <PlayerPortrait name={player.name} teamId={player.team_id} size={face} eager onReady={onFaceReady} />
                 </Box>
-              : <Box sx={{ width: 'calc(72px * var(--app-chrome, 1))', height: 'calc(72px * var(--app-chrome, 1))' }} />}
+              : <Box sx={{ width: `calc(${face}px * var(--app-chrome, 1))`, height: `calc(${face}px * var(--app-chrome, 1))` }} />}
             {!faceReady && <Skeleton variant="circular" sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />}
           </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -326,36 +341,26 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
               </Typography>
             </Box>
           </Box>
+          {/* The jersey number as the card's numeral, in the display face: a baseball card prints it
+              big, and in the old grid it was one more label. Its box is reserved before the pick lands. */}
+          <Typography aria-hidden sx={{
+            flexShrink: 0, alignSelf: 'flex-start', minWidth: '2.2em', textAlign: 'right',
+            // Full size only from lg: at 960 the half column could not hold it beside the face, and the
+            // club line under the name ended in an ellipsis.
+            fontFamily: DISPLAY_FONT, fontSize: { xs: TYPE_SCALE.page, lg: TYPE_SCALE.hero }, fontWeight: 700, lineHeight: 1,
+            color: 'text.secondary', fontVariantNumeric: 'tabular-nums',
+          }}>{number ?? ''}</Typography>
         </Box>
 
-        {/* Hometown takes a row of its own: "Town, State, Country" wraps in half a phone's width,
-            and a value that wraps only for some players would move everything under it.
-
-            Not on a phone, where this grid made the card a full screen before the season card. The
-            desktop keeps it because the season card beside it sets the row's height, and without
-            the bio this card would stretch around empty space. The profile carries it either way. */}
-        <Box sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', columnGap: 2, rowGap: 1 }}>
-          <Fact label="Hometown" wide>{player ? (player.hometown ?? '—') : <Skeleton width="50%" />}</Fact>
-          <Fact label="Born">{player ? (settled ? shortDate(player.birth_date!, true) : '—') : <Skeleton width="60%" />}</Fact>
-          <Fact label="Star sign">{player ? (player.zodiac_sign ? `${glyph} ${player.zodiac_sign}` : '—') : <Skeleton width="50%" />}</Fact>
-          <Fact label="Age">{player ? (player.age ?? '—') : <Skeleton width="30%" />}</Fact>
-          <Fact label="Bats / Throws">{player ? `${player.bats ?? '—'} / ${player.throws ?? '—'}` : <Skeleton width="40%" />}</Fact>
-          <Fact label="Drafted">{player ? draft : <Skeleton width="60%" />}</Fact>
-          <Fact label="Number">{player ? (player.jersey_number ? `#${player.jersey_number}` : '—') : <Skeleton width="30%" />}</Fact>
+        <Box sx={{ minWidth: 0 }}>
+          {factLines.map((line, i) => (
+            <Typography key={i} noWrap sx={{ fontSize: TYPE_SCALE.body, color: i === 1 ? 'text.primary' : 'text.secondary', lineHeight: 1.5 }}>
+              {line ?? <Skeleton width={['60%', '50%', '55%'][i]} />}
+            </Typography>
+          ))}
         </Box>
 
         {player ? <SeasonStrip player={player} lines={own} games={games} /> : <SeasonStrip player={{} as WpblPlayer} lines={null} games={games} />}
-
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', minHeight: '1.4em' }}>
-          {player && (
-            <Box {...link(player)} sx={{
-              ...UNSTYLED_LINK, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
-              ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
-            }}>
-              Full profile ›
-            </Box>
-          )}
-        </Box>
       </Box>
     </SectionCard>
   )
