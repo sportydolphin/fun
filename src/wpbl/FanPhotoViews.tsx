@@ -1,3 +1,4 @@
+import { INK } from '../ui/color'
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { ModalShell, SectionCard, CARD_BORDER, CARD_FILL, useRailPaging, RailArrow, RailScroller, hoverOnly, chromePx, TextGhost, CARD_LINK_SX } from './ui'
@@ -472,8 +473,8 @@ function useRailAutoScroll(
 /** The rail's edge fade: each side fades only while there is more to scroll to on it. */
 function railFade(start: boolean, end: boolean): string | undefined {
   if (!start && !end) return undefined
-  const a = start ? 'transparent 0, #000 24px' : '#000 0'
-  const b = end ? '#000 calc(100% - 56px), transparent 100%' : '#000 100%'
+  const a = start ? `transparent 0, ${INK.black} 24px` : `${INK.black} 0`
+  const b = end ? `${INK.black} calc(100% - 56px), transparent 100%` : `${INK.black} 100%`
   return `linear-gradient(to right, ${a}, ${b})`
 }
 

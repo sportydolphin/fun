@@ -1,3 +1,4 @@
+import { HUE } from '../../ui/color'
 import { NameLine, NameText } from '../../ui/NameText'
 import { Fragment, useMemo } from 'react'
 import { Box, Typography } from '@mui/material'
@@ -222,7 +223,7 @@ export function PitchData({ tracking, boxPitchers, firstHit = null, live = false
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1 }}>
             {live && (
               <Box sx={{
-                width: 7, height: 7, borderRadius: '50%', bgcolor: '#ef4444', flexShrink: 0,
+                width: 7, height: 7, borderRadius: '50%', bgcolor: HUE.red, flexShrink: 0,
                 animation: 'wpblpulse 1.5s ease-in-out infinite',
                 '@keyframes wpblpulse': { '0%': { opacity: 1 }, '50%': { opacity: 0.3 }, '100%': { opacity: 1 } },
               }} />

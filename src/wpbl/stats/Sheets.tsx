@@ -1,3 +1,4 @@
+import { INK } from '../../ui/color'
 import { ACCENT_EDGE, TYPE_SCALE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { WPBL_ACCENT, wpblFullName } from '../constants'
@@ -106,7 +107,7 @@ function SheetDone({ onClose }: { onClose: () => void }) {
       ...FOCUS_RING,
       minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'center',
       borderRadius: 2, cursor: 'pointer', userSelect: 'none',
-      bgcolor: 'var(--wpbl-accent-solid)', color: '#fff', fontWeight: 800, fontSize: TYPE_SCALE.title,
+      bgcolor: 'var(--wpbl-accent-solid)', color: INK.white, fontWeight: 800, fontSize: TYPE_SCALE.title,
     }}>Done</Box>
   )
 }

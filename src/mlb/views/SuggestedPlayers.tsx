@@ -1,3 +1,4 @@
+import { HUE, INK } from '../../ui/color'
 import React from 'react'
 import { pressable } from '../../ui/interaction'
 import { edge, TYPE_SCALE } from '../../ui/card'
@@ -87,7 +88,7 @@ export function SuggestionChip({ player, alreadyFollowed, onFollow, large }: {
   large?:          boolean
 }) {
   const tone = useTextTone()
-  const col      = TEAM_BG[player.teamId] ?? '#444'
+  const col      = TEAM_BG[player.teamId] ?? INK.dark
   // Show last name for brevity (keeps chips narrow)
   const lastName = player.fullName.split(' ').slice(1).join(' ') || player.fullName
 
@@ -138,7 +139,7 @@ export function SuggestionChip({ player, alreadyFollowed, onFollow, large }: {
         <Box sx={{
           flexShrink: 0, width: chromePx(20), height: chromePx(20), borderRadius: '50%',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          border: '1.5px solid #22c55e60',
+          border: `1.5px solid ${HUE.green}60`,
           color: TONE.green, fontSize: TYPE_SCALE.caption, fontWeight: 900, lineHeight: 1,
         }}>
           ✓

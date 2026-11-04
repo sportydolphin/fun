@@ -1,3 +1,4 @@
+import { HUE } from '../ui/color'
 import { useDark } from '../ui/useDark'
 import { NameText } from '../ui/NameText'
 import { useMemo } from 'react'
@@ -353,9 +354,9 @@ function CountBand({ s, accent, dark }: { s: Situation; accent: string; dark: bo
 
 /** Green, yellow, red, in the shade that survives the theme it is drawn on. */
 function pipTint(kind: 'ball' | 'strike' | 'out', dark: boolean): string {
-  if (kind === 'ball') return dark ? '#4ade80' : '#15803d'
-  if (kind === 'strike') return dark ? '#fbbf24' : '#a16207'
-  return dark ? '#f87171' : '#b91c1c'
+  if (kind === 'ball') return dark ? HUE.greenLight : HUE.greenDark
+  if (kind === 'strike') return dark ? HUE.amberLight : HUE.yellowDark
+  return dark ? HUE.redLight : HUE.redDark
 }
 
 /**

@@ -1,3 +1,4 @@
+import { INK } from '../../ui/color'
 import { TeamLogo } from '../components/TeamLogo'
 import React, { useEffect, useRef, useState } from 'react'
 import { ACCENT_EDGE, TYPE_SCALE } from '../../ui/card'
@@ -283,7 +284,7 @@ function SheetDone({ onClose }: { onClose: () => void }) {
     <Box {...pressable(onClose)} sx={{
       ...FOCUS_RING, minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'center',
       borderRadius: 2, cursor: 'pointer', userSelect: 'none',
-      bgcolor: 'var(--wpbl-accent-solid)', color: '#fff', fontWeight: 800, fontSize: TYPE_SCALE.title,
+      bgcolor: 'var(--wpbl-accent-solid)', color: INK.white, fontWeight: 800, fontSize: TYPE_SCALE.title,
     }}>Done</Box>
   )
 }

@@ -1,3 +1,4 @@
+import { INK, SURFACE } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import { NameText } from '../../ui/NameText'
 import { edge } from '../../ui/card'
@@ -57,8 +58,8 @@ function ShareBadge({ share, on, accent, dark }: {
       // A pill sitting half on a photograph needs its own ground, or the digits land on
       // whatever the crop happens to have behind them. Yours is filled; everyone else's is
       // the card's own surface with a hairline, so four tiles do not read as four selections.
-      color: on ? '#fff' : 'text.secondary',
-      bgcolor: on ? accent : (dark ? '#161a20' : '#fff'),
+      color: on ? INK.white : 'text.secondary',
+      bgcolor: on ? accent : (dark ? SURFACE.raisedDark : INK.white),
       border: '1px solid', borderColor: on ? edge(accent) : 'outline',
     }}>
       {on && <Box component="span" aria-hidden sx={{ fontWeight: 900 }}>✓</Box>}

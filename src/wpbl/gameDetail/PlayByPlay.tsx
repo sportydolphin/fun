@@ -1,3 +1,4 @@
+import { HUE } from '../../ui/color'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { track, EVENTS } from '../../lib/analytics'
@@ -33,12 +34,12 @@ const writePbpExpandAll = (on: boolean) => {
 // are unreliable: it tags 'K' as "Unknown pitch code" and 'P' as "Pitchout"), so we decode
 // them ourselves: color each pip and spell the full sequence out in a hover tooltip.
 const PITCH_CODES: Record<string, { label: string; color: string }> = {
-  B: { label: 'Ball',            color: '#16a34a' }, // green
-  K: { label: 'Called strike',   color: '#dc2626' }, // red
-  S: { label: 'Swinging strike', color: '#dc2626' }, // red
-  F: { label: 'Foul',            color: '#d97706' }, // amber
-  H: { label: 'Hit by pitch',    color: '#9333ea' }, // purple
-  P: { label: 'In play',         color: '#2563eb' }, // blue
+  B: { label: 'Ball',            color: HUE.greenDeep }, // green
+  K: { label: 'Called strike',   color: HUE.redDeep }, // red
+  S: { label: 'Swinging strike', color: HUE.redDeep }, // red
+  F: { label: 'Foul',            color: HUE.amberDeep }, // amber
+  H: { label: 'Hit by pitch',    color: HUE.purpleDeep }, // purple
+  P: { label: 'In play',         color: HUE.blueDeep }, // blue
 }
 
 function PitchSequence({ seq, calledThirdStrike }: {
@@ -386,16 +387,16 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
             px: 0.75, minHeight: chromePx(32), borderRadius: 1, cursor: 'pointer',
             fontSize: TYPE_SCALE.micro, fontWeight: 800, 
             userSelect: 'none',
-            color: scoringOnly ? '#16a34a' : 'text.secondary',
-            '@media (hover: hover)': { '&:hover': { color: scoringOnly ? '#16a34a' : 'text.primary' } },
+            color: scoringOnly ? HUE.greenDeep : 'text.secondary',
+            '@media (hover: hover)': { '&:hover': { color: scoringOnly ? HUE.greenDeep : 'text.primary' } },
           }}
         >
           {/* The same green the +N badges and the scoring rail already use, so the control and
               the rows it keeps are obviously the same idea. */}
           <Box component="span" aria-hidden sx={{
             width: '0.5rem', height: '0.5rem', borderRadius: '50%', flexShrink: 0,
-            border: '1.5px solid', borderColor: scoringOnly ? '#16a34a' : 'text.disabled',
-            bgcolor: scoringOnly ? '#16a34a' : 'transparent',
+            border: '1.5px solid', borderColor: scoringOnly ? HUE.greenDeep : 'text.disabled',
+            bgcolor: scoringOnly ? HUE.greenDeep : 'transparent',
           }} />
           Scoring only
         </Box>
@@ -561,7 +562,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
                     // `runsOnPlay`) said a run had scored, one row disagreeing with itself. See CLAUDE.md.
                     <Box id={`play-${p.sequence}`} sx={{
                       display: 'flex', gap: 1, py: 0.6, pl: 1, borderLeft: '2px solid',
-                      borderColor: runsOnPlay(p) > 0 ? '#22c55e' : 'divider',
+                      borderColor: runsOnPlay(p) > 0 ? HUE.green : 'divider',
                       bgcolor: runsOnPlay(p) > 0 ? 'rgba(34,197,94,0.06)' : 'transparent',
                       // WHERE A LINK LANDS. Loud for a moment and then gone: a reader who
                       // followed a link to one at-bat out of eighty needs to be shown which,

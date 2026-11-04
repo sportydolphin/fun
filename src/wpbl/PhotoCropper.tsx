@@ -1,3 +1,4 @@
+import { INK } from '../ui/color'
 import { useEffect, useRef, useState } from 'react'
 import ReactCrop, { centerCrop, makeAspectCrop, type PercentCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
@@ -36,7 +37,7 @@ function Pill({ label, active = false, primary = false, disabled = false, onClic
         cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1,
         borderColor: primary || active ? 'primary.main' : 'outline',
         bgcolor: primary ? 'primary.main' : active ? 'action.selected' : 'background.paper',
-        color: primary ? '#fff' : active ? 'text.primary' : 'text.secondary',
+        color: primary ? INK.white : active ? 'text.primary' : 'text.secondary',
       }}>{label}</Box>
   )
 }
@@ -122,7 +123,7 @@ export default function PhotoCropper({ photo, onDone, onCancel }: {
   return (
     <>
       <Box sx={{
-        bgcolor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        bgcolor: INK.black, display: 'flex', alignItems: 'center', justifyContent: 'center',
         height: { xs: '48vh', md: '62vh' }, flexShrink: 0,
         '& .ReactCrop__image': { maxHeight: { xs: '48vh', md: '62vh' }, maxWidth: '100%', display: 'block' },
       }}>
@@ -132,7 +133,7 @@ export default function PhotoCropper({ photo, onDone, onCancel }: {
             <img ref={imgRef} src={src.url} alt="Crop preview" />
           </ReactCrop>
         ) : error ? null : (
-          <CircularProgress size={24} sx={{ color: '#fff' }} />
+          <CircularProgress size={24} sx={{ color: INK.white }} />
         )}
       </Box>
 

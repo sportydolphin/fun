@@ -1,3 +1,4 @@
+import { SHADOW } from '../ui/color'
 import { useDark } from '../ui/useDark'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
@@ -522,7 +523,7 @@ export default function LeaderboardRace({ players, games, batting, plays }: {
                 <Box sx={{
                   position: 'absolute', left: 0, top: 0, height: '100%', width: `${pct}%`,
                   bgcolor: color, borderRadius: chromePx(5), transition: barGlide,
-                  boxShadow: '0 1px 0 rgba(255,255,255,0.14) inset',
+                  boxShadow: SHADOW.sheen,
                 }} />
                 <Typography aria-hidden sx={{
                   position: 'absolute', left: `${pct}%`, top: '50%', transform: 'translate(6px,-50%)',

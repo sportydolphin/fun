@@ -1,3 +1,4 @@
+import { SURFACE } from '../../ui/color'
 import React, { lazy, Suspense } from 'react'
 import { Box, Typography } from '@mui/material'
 import { FOCUS_RING, hoverOnly, pressable } from '../../ui/interaction'
@@ -41,7 +42,7 @@ export function TeamCard({ teamId, name, lines, champion, quiet, moves, showSche
   onTeamClick?: (id: number) => void
 }) {
   const isDark = useDark()
-  const bg = TEAM_BG[teamId] ?? '#1a2035'
+  const bg = TEAM_BG[teamId] ?? SURFACE.clubFallback
   return (
     <Box sx={{
       borderRadius: 3, overflow: 'hidden', border: '1px solid', borderColor: edgeTone(bg, isDark),

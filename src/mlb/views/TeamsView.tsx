@@ -1,3 +1,4 @@
+import { INK } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import { TeamLogo } from '../components/TeamLogo'
 import { Box, Typography } from '@mui/material'
@@ -45,7 +46,7 @@ export function TeamsView({ followedTeamId, onTeamClick }: {
                 .sort((a, b) => (TEAM_NICKNAME[a] ?? '').localeCompare(TEAM_NICKNAME[b] ?? ''))
                 .map(id => {
                   const mine = id === followedTeamId
-                  const col = TEAM_BG[id] ?? '#888'
+                  const col = TEAM_BG[id] ?? INK.neutral
                   return (
                     <Box key={id} {...linkPress(mlbTeamPath(id), () => onTeamClick(id))} sx={{
                       display: 'flex', alignItems: 'center', gap: 1.25,

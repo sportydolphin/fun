@@ -1,3 +1,4 @@
+import { INK, SHADOW } from '../ui/color'
 // ─── WPBL UI primitives ─────────────────────────────────────────────────────────
 // The section's own primitives, keyed to WPBL_ACCENT. WPBL never imports from src/mlb, so it
 // stays a self-contained lazy chunk. What BOTH sections use (ModalShell, the tap and hover
@@ -398,7 +399,7 @@ export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ri
             onError={() => { setFailedSrc(art.src); onReady?.() }}
             sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
-        : <Typography sx={{ fontSize: size * 0.36, fontWeight: 800, color: '#fff' }}>{initials}</Typography>}
+        : <Typography sx={{ fontSize: size * 0.36, fontWeight: 800, color: INK.white }}>{initials}</Typography>}
     </Box>
   )
 }
@@ -480,7 +481,7 @@ export function RailArrow({ dir, show, onClick, label }: {
         width: 34, height: 34, borderRadius: '50%',
         display: 'none', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
         bgcolor: 'background.raised', border: '1px solid', borderColor: CARD_BORDER,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.28)', color: 'text.primary',
+        boxShadow: SHADOW.lift, color: 'text.primary',
         opacity: show ? 1 : 0, pointerEvents: show ? 'auto' : 'none',
         transition: 'opacity 0.15s, background 0.15s',
         // NOT `...TAPPABLE`, and the reason is one line down: this control only EXISTS on a
@@ -757,9 +758,9 @@ export function NewTag({ sx }: { sx?: object }) {
   return (
     <Box component="span" sx={{
       position: 'absolute', top: 6, left: 6, zIndex: 1, pointerEvents: 'none',
-      px: 0.6, borderRadius: 1, bgcolor: 'var(--wpbl-accent-solid)', color: '#fff',
+      px: 0.6, borderRadius: 1, bgcolor: 'var(--wpbl-accent-solid)', color: INK.white,
       fontSize: TYPE_SCALE.micro, fontWeight: 800, lineHeight: 1.6, letterSpacing: typePx(0.3),
-      boxShadow: '0 1px 3px rgba(0,0,0,0.35)', ...sx,
+      boxShadow: SHADOW.lift, ...sx,
     }}>New</Box>
   )
 }

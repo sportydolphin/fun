@@ -1,3 +1,4 @@
+import { HUE, SHADOW } from '../ui/color'
 import { useMemo, useRef, useState } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
 import { aggregateBatting, aggregatePitching, fmtRate, fmtTwo, plateAppearances, scaleToBasis } from './stats'
@@ -101,8 +102,8 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
   const dark = theme.palette.mode === 'dark'
   // Categorical slots 1 and 2 (blue, orange), light/dark steps. Validated for the
   // lightness band, chroma floor, CVD separation and contrast against both surfaces.
-  const DOT = dark ? '#3987e5' : '#2a78d6'
-  const LINE = dark ? '#d95926' : '#eb6834'
+  const DOT = dark ? HUE.blue : HUE.blueDeep
+  const LINE = dark ? HUE.orange : HUE.orangeDeep
   const surface = theme.palette.background.paper
 
   // Which dot the card is showing, and whether a tap pinned it. The same rule as the shared
@@ -314,7 +315,7 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
         <Box sx={{
           position: 'absolute', top: 0, right: 0, px: 1, py: 0.5, borderRadius: 1,
           bgcolor: 'background.paper', border: '1px solid', borderColor: CARD_BORDER,
-          boxShadow: 2, pointerEvents: 'none', maxWidth: '15rem',
+          boxShadow: SHADOW.popover, pointerEvents: 'none', maxWidth: '15rem',
         }}>
           <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800 }}>{hover.pt.name}</Typography>
           <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>

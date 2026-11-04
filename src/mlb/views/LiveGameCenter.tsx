@@ -1,3 +1,4 @@
+import { INK } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import { TeamLogo } from '../components/TeamLogo'
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
@@ -323,7 +324,7 @@ function MatchupCard({ label, player, teamId, onSelect }: {
 }) {
   const tone = useTextTone()
   const isDark = useDark()
-  const col    = TEAM_BG[teamId] ?? '#444'
+  const col    = TEAM_BG[teamId] ?? INK.dark
   const accent = accentColor(col, isDark)
   return (
     <Box
@@ -673,7 +674,7 @@ function TeamBoxColumns({ box, onPlayerClick, stacked = false }: {
   const club = (t: BoxScore['away'], size: number) => ({
     badge: <TeamLogo teamId={t.teamId} abbr={t.abbr} size={size} />,
     name: t.name, short: TEAM_NICKNAME[t.teamId] ?? t.abbr,
-    color: accentColor(TEAM_BG[t.teamId] ?? '#888888', isDark),
+    color: accentColor(TEAM_BG[t.teamId] ?? INK.neutral, isDark),
   })
   // The heading exists only where the switch does not: below `lg` the switch IS the heading, and
   // drawing both would name the club twice inside forty pixels.
@@ -728,7 +729,7 @@ function Scoreboard({ box, decided, onTeam, blank = false }: {
     const t = box[k]
     const other = k === 'away' ? box.home : box.away
     const won = decided && t.runs > other.runs
-    const col = TEAM_BG[t.teamId] ?? '#888888'
+    const col = TEAM_BG[t.teamId] ?? INK.neutral
     const accent = accentColor(col, isDark)
     const muted = decided && !won
     return (

@@ -16,6 +16,78 @@ import jsxA11y from 'eslint-plugin-jsx-a11y'
 //
 // Rules are OFF only with a reason beside them. Turning one on later is a sweep of its own.
 
+// The CLAUDE.md traps, as rules, so they are checked rather than remembered. Every file gets these.
+const TRAPS = [
+  // MUI reads a bare `letterSpacing: 0.5` as 0.5px, which does not grow with the type
+  // around it (rem, scaled per section and by the reader's Large text). 175 of them had
+  // accumulated by Oct 2026, and px spacing is what re-wrapped headings across /mlb in the
+  // rebuild. em and 0 are fine; `typePx(0.5)` keeps the number and makes it type.
+  ...['', ' > UnaryExpression', ' > ConditionalExpression', ' > ConditionalExpression > UnaryExpression', ' > ObjectExpression > Property']
+    .flatMap(path => [
+      `Property[key.name='letterSpacing']${path} > Literal[raw=/^(0?\\.\\d*[1-9]|[1-9])/]`,
+      `Property[key.name='letterSpacing']${path} > Literal[value=/^-?[0-9.]+px$/]`,
+    ])
+    .map(selector => ({ selector, message: 'letterSpacing in px does not scale with the type. Use typePx(n) from src/ui/scale (or em).' })),
+  // Corners come from one scale (RADIUS in src/ui/card.tsx): 0, 1, 2, 3 and 999, in MUI's
+  // 4px unit. Twelve different radii had accumulated by Nov 2026 (2px to 20px), which is half
+  // of why nothing on the site looked decided (ROADMAP-UI.md, the audit).
+  ...['', ' > ConditionalExpression', ' > ObjectExpression > Property']
+    .map(path => `Property[key.name='borderRadius']${path} > Literal[raw=/^[0-9.]+$/]:not([raw=/^(0|1|2|3|999)$/])`)
+    .map(selector => ({ selector, message: 'borderRadius is on the RADIUS scale (src/ui/card.tsx): 0, 1, 2, 3 or 999.' })),
+  // A cancelable touch listener makes the browser wait for JavaScript before it scrolls
+  // anything under it, so the content trails the finger (the player sheet until Oct 7, 2026).
+  // The two that exist are deliberate and say so beside them.
+  {
+    selector: "Property[key.name='passive'] > Literal[value=false]",
+    message: 'A passive:false touch listener makes scrolling wait on JavaScript. See the ModalShell trap in src/CLAUDE.md; if it is truly needed, disable this line with the reason.',
+  },
+  // Faded chart text. axe in the layout sweep measures HTML text, not SVG <text>, so an
+  // opacity on a label passes CI while taking it under 4.5:1: MLB's charts drew every axis
+  // and quadrant label that way until v1.181.0. The rule in src/CLAUDE.md: use the
+  // secondary ink (theme.palette.text.secondary) and fade only marks, never words.
+  ...[
+    "JSXOpeningElement[name.name=/^(text|tspan)$/] > JSXAttribute[name.name=/^(fillOpacity|opacity)$/]",
+    "JSXOpeningElement[name.name=/^(text|tspan)$/] > JSXAttribute[name.name='style'] Property[key.name=/^(fillOpacity|opacity)$/]",
+  ].map(selector => ({ selector, message: 'Faded SVG text falls under 4.5:1 and axe cannot see it. Use theme.palette.text.secondary (or another full-strength ink) instead of fillOpacity/opacity on <text>.' })),
+]
+
+// THE DESIGN TOKENS (ROADMAP-UI.md's audit, Nov 3, 2026): a UI file chooses a color or a shadow by
+// name from src/ui/color.ts, or the brand from src/ui/card.tsx, and never types one. 813 raw hex
+// values and 55 different shadows had drifted in, one `sx` at a time. Not for the files that ARE
+// the values (TOKEN_FILES below) or that draw a picture rather than a page.
+const HEX = '#([0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\\b'
+const TOKENS = [
+  // The brand teal as raw hex. The accent lives in BRAND (src/ui/card.tsx), the theme's
+  // primary and styles.css; a hex typed anywhere else is how the old accent blue ended up in
+  // 55 places, and a change of brand color has to reach all of them. Blues with a meaning of
+  // their own (Ice Cold, a play code, a chart series) are not the accent and stay legal.
+  {
+    selector: 'Literal[value=/#(2dd4bf|0f766e)\\b/i]',
+    message: 'Use the brand tokens (BRAND, ACCENT_EDGE in src/ui/card.tsx; --wpbl-accent-* in CSS), not the hex.',
+  },
+  {
+    selector: `Literal[value=/${HEX}/]`,
+    message: 'A color is a token: HUE, INK, SURFACE and the rest in src/ui/color.ts (BRAND in src/ui/card.tsx for the accent). Add one there if none fits.',
+  },
+  {
+    selector: `TemplateElement[value.raw=/${HEX}/]`,
+    message: 'A color is a token: HUE, INK, SURFACE and the rest in src/ui/color.ts. Interpolate it, as `${HUE.red}22` for a tint.',
+  },
+  ...['', ' > ConditionalExpression']
+    .map(path => `Property[key.name='boxShadow']${path} > Literal:not([value='none'])`)
+    .map(selector => ({ selector, message: 'A shadow is a token: SHADOW in src/ui/color.ts.' })),
+]
+
+// Where the values themselves live, plus pictures drawn at a fixed size, the dev tools and the
+// owner's admin pages: each club's colors are data, a share card is an image, and a dev tool is
+// not the site.
+const TOKEN_FILES = [
+  'src/ui/color.ts', 'src/ui/card.tsx', 'src/ui/trophy.ts', 'src/ThemeContext.tsx', 'src/lib/contrast.ts',
+  'src/wpbl/constants.ts', 'src/mlb/constants.ts', 'src/mlb/lib/colorUtils.ts', 'src/mlb/ogCard.ts', 'src/intl/flags.ts',
+  'src/wpbl/derive/blueskyRecap.ts', 'src/wpbl/AwardsPosterPreview.tsx',
+  'src/dev/**', 'src/**/dev/**', 'src/Admin*.tsx', 'src/wpbl/Admin*.tsx', 'src/**/__tests__/**',
+]
+
 export default tseslint.config(
   {
     ignores: [
@@ -92,52 +164,16 @@ export default tseslint.config(
 
       // The CLAUDE.md traps, as rules, so they are checked rather than remembered.
       'no-restricted-syntax': ['error',
-        // MUI reads a bare `letterSpacing: 0.5` as 0.5px, which does not grow with the type
-        // around it (rem, scaled per section and by the reader's Large text). 175 of them had
-        // accumulated by Oct 2026, and px spacing is what re-wrapped headings across /mlb in the
-        // rebuild. em and 0 are fine; `typePx(0.5)` keeps the number and makes it type.
-        ...['', ' > UnaryExpression', ' > ConditionalExpression', ' > ConditionalExpression > UnaryExpression', ' > ObjectExpression > Property']
-          .flatMap(path => [
-            `Property[key.name='letterSpacing']${path} > Literal[raw=/^(0?\\.\\d*[1-9]|[1-9])/]`,
-            `Property[key.name='letterSpacing']${path} > Literal[value=/^-?[0-9.]+px$/]`,
-          ])
-          .map(selector => ({ selector, message: 'letterSpacing in px does not scale with the type. Use typePx(n) from src/ui/scale (or em).' })),
-        // Corners come from one scale (RADIUS in src/ui/card.tsx): 0, 1, 2, 3 and 999, in MUI's
-        // 4px unit. Twelve different radii had accumulated by Nov 2026 (2px to 20px), which is half
-        // of why nothing on the site looked decided (ROADMAP-UI.md, the audit).
-        ...['', ' > ConditionalExpression', ' > ObjectExpression > Property']
-          .map(path => `Property[key.name='borderRadius']${path} > Literal[raw=/^[0-9.]+$/]:not([raw=/^(0|1|2|3|999)$/])`)
-          .map(selector => ({ selector, message: 'borderRadius is on the RADIUS scale (src/ui/card.tsx): 0, 1, 2, 3 or 999.' })),
-        // The brand teal as raw hex. The accent lives in BRAND (src/ui/card.tsx), the theme's
-        // primary and styles.css; a hex typed anywhere else is how the old accent blue ended up in
-        // 55 places, and a change of brand color has to reach all of them. Blues with a meaning of
-        // their own (Ice Cold, a play code, a chart series) are not the accent and stay legal.
-        {
-          selector: 'Literal[value=/#(2dd4bf|0f766e)\\b/i]',
-          message: 'Use the brand tokens (BRAND, ACCENT_EDGE in src/ui/card.tsx; --wpbl-accent-* in CSS), not the hex.',
-        },
-        // A cancelable touch listener makes the browser wait for JavaScript before it scrolls
-        // anything under it, so the content trails the finger (the player sheet until Oct 7, 2026).
-        // The two that exist are deliberate and say so beside them.
-        {
-          selector: "Property[key.name='passive'] > Literal[value=false]",
-          message: 'A passive:false touch listener makes scrolling wait on JavaScript. See the ModalShell trap in src/CLAUDE.md; if it is truly needed, disable this line with the reason.',
-        },
-        // Faded chart text. axe in the layout sweep measures HTML text, not SVG <text>, so an
-        // opacity on a label passes CI while taking it under 4.5:1: MLB's charts drew every axis
-        // and quadrant label that way until v1.181.0. The rule in src/CLAUDE.md: use the
-        // secondary ink (theme.palette.text.secondary) and fade only marks, never words.
-        ...[
-          "JSXOpeningElement[name.name=/^(text|tspan)$/] > JSXAttribute[name.name=/^(fillOpacity|opacity)$/]",
-          "JSXOpeningElement[name.name=/^(text|tspan)$/] > JSXAttribute[name.name='style'] Property[key.name=/^(fillOpacity|opacity)$/]",
-        ].map(selector => ({ selector, message: 'Faded SVG text falls under 4.5:1 and axe cannot see it. Use theme.palette.text.secondary (or another full-strength ink) instead of fillOpacity/opacity on <text>.' })),
+        ...TRAPS,
+        ...TOKENS,
       ],
     },
   },
   {
-    // The token files are where the brand hex is allowed to be written down.
-    files: ['src/ui/card.tsx', 'src/ThemeContext.tsx', 'src/wpbl/constants.ts', 'src/mlb/constants.ts'],
-    rules: { 'no-restricted-syntax': 'off' },
+    // The token files, and what draws a picture rather than a page, may write a color down. The traps
+    // still apply there.
+    files: TOKEN_FILES,
+    rules: { 'no-restricted-syntax': ['error', ...TRAPS] },
   },
   {
     // The share-card exporters render a fixed-size image with px type, where px spacing is right.

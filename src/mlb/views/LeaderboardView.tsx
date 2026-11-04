@@ -1,3 +1,4 @@
+import { SHADOW } from '../../ui/color'
 import { TeamLogo } from '../components/TeamLogo'
 import React, { useRef, useState } from 'react'
 import {
@@ -147,7 +148,7 @@ export function LeaderboardView({
         onClose={() => setLbPickerAnchor(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        slotProps={{ paper: { sx: { borderRadius: 3, p: 1.75, mt: 0.75, width: chromePx(280), boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } } }}
+        slotProps={{ paper: { sx: { borderRadius: 3, p: 1.75, mt: 0.75, width: chromePx(280), boxShadow: SHADOW.dialog } } }}
       >
         {(() => {
           const allLbSelected = allLbKeys.length > 0 && allLbKeys.every(k => lbSelectedKeys.includes(k))

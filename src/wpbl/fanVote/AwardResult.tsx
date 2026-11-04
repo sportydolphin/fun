@@ -1,3 +1,4 @@
+import { HUE, MARK } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import { NameText } from '../../ui/NameText'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -41,7 +42,7 @@ import type { FanVoteState } from './useFanVote'
  * HONORS reduced motion: a reader who has asked the OS for less movement gets the trophy and the
  * result and no burst.
  */
-const WINNER_CONFETTI_COLORS = ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#007aff', '#5856d6', '#af52de']
+const WINNER_CONFETTI_COLORS = MARK.confetti
 
 function WinnerConfetti({ x, y, r }: { x: number; y: number; r: number }) {
   // The Settings toggle as well as the OS: the media query alone ignored a reader who asked here.
@@ -467,7 +468,7 @@ export function AwardResult({ entry, index, players, teams, state, onOpenPlayer,
                       // seal on it. Gold rather than the club accent, because a trophy reads as
                       // first place in a color a green or blue one would not; sized off the name.
                       <EmojiEvents titleAccess="Winner" sx={{
-                        fontSize: { xs: TYPE_SCALE.title, md: TYPE_SCALE.heading }, color: '#eab308', flexShrink: 0,
+                        fontSize: { xs: TYPE_SCALE.title, md: TYPE_SCALE.heading }, color: HUE.yellow, flexShrink: 0,
                       }} />
                     )}
                   </Box>

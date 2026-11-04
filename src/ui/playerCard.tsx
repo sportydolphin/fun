@@ -1,3 +1,4 @@
+import { INK } from './color'
 // ─── Player card parts ───────────────────────────────────────────────────────────
 //
 // The pieces a player page is built from, shared by both sections since Oct 2026: the type scale,
@@ -600,7 +601,7 @@ export function RoleHeading({ title, caption, part, first = false }: {
   )
 }
 
-const FORM_INK = { label: 'rgba(255,255,255,0.72)', opp: 'rgba(255,255,255,0.75)', value: '#fff' }
+const FORM_INK = { label: 'rgba(255,255,255,0.72)', opp: 'rgba(255,255,255,0.75)', value: INK.white }
 
 /**
  * The last few games, in the band's own empty middle.
@@ -1077,7 +1078,7 @@ export const tdSx = { ...TYPE.body, py: 0.55, px: { xs: 0.22, sm: 0.85 }, textAl
 // ─── The club band ───────────────────────────────────────────────────────────────
 
 /** White text on the band, as WPBL measured it against its wash (see BAND_WASH in PlayerDetail). */
-const BAND_INK = { name: '#fff', meta: 'rgba(255,255,255,0.88)', line: 'rgba(255,255,255,0.75)' }
+const BAND_INK = { name: INK.white, meta: 'rgba(255,255,255,0.88)', line: 'rgba(255,255,255,0.75)' }
 
 /**
  * Identity, on the club's own colors: portrait, name, the facts about the player, and room on the
@@ -1193,7 +1194,7 @@ export interface BandFact {
  *  color, which on some clubs' primaries measures under 4.5:1. */
 export function BandBadge({ children }: { children: React.ReactNode }) {
   return (
-    <Box sx={{ flexShrink: 0, px: 0.85, py: 0.2, borderRadius: 1, bgcolor: 'rgba(255,255,255,0.22)', color: '#fff', fontSize: TYPE_SCALE.caption, fontWeight: 800 }}>
+    <Box sx={{ flexShrink: 0, px: 0.85, py: 0.2, borderRadius: 1, bgcolor: 'rgba(255,255,255,0.22)', color: INK.white, fontSize: TYPE_SCALE.caption, fontWeight: 800 }}>
       {children}
     </Box>
   )
@@ -1203,7 +1204,7 @@ export function BandBadge({ children }: { children: React.ReactNode }) {
  *  and a bright club color. `href` makes it a link. */
 export const BAND_CHIP_SX = {
   display: 'inline-flex', alignItems: 'center', gap: 0.4, textDecoration: 'none',
-  px: 0.9, py: 0.3, borderRadius: 999, color: '#fff', whiteSpace: 'nowrap', flexShrink: 0,
+  px: 0.9, py: 0.3, borderRadius: 999, color: INK.white, whiteSpace: 'nowrap', flexShrink: 0,
   bgcolor: 'rgba(255,255,255,0.16)', border: '1px solid rgba(255,255,255,0.32)',
   fontSize: TYPE_SCALE.micro, fontWeight: 800, lineHeight: 1.2,
 } as const
@@ -1262,7 +1263,7 @@ export function BandChips({ children, noun = ['award', 'awards'], edge }: {
   const toggleSx = {
     ...chipSx, cursor: 'pointer', font: 'inherit', fontSize: BAND_CHIP_SX.fontSize, fontWeight: 800,
     ...hoverOnly({ bgcolor: 'rgba(255,255,255,0.26)' }),
-    '&:focus-visible': { outline: '2px solid #fff', outlineOffset: 2 },
+    '&:focus-visible': { outline: `2px solid ${INK.white}`, outlineOffset: 2 },
   }
   return (
     <Box ref={boxRef} sx={{ position: 'relative', mt: 0.6, minWidth: 0 }}>

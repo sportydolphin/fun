@@ -1,3 +1,4 @@
+import { SHADOW } from '../../ui/color'
 import { ACCENT_EDGE, TYPE_SCALE } from '../../ui/card'
 import { Box } from '@mui/material'
 import { WPBL_ACCENT } from '../constants'
@@ -112,7 +113,7 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
         // sides of the page. Spread equal to the negative of the blur cancels the horizontal
         // reach exactly (side extent = blur + spread = 0) while the y offset still drops a soft
         // edge below, which is the only side content actually passes under.
-        boxShadow: barStuck ? '0 6px 6px -6px rgba(0,0,0,0.14)' : 'none',
+        boxShadow: barStuck ? SHADOW.stuck : 'none',
         // Four pixels of the same paint above the top edge, for the seam with the bar above.
         // Two sticky bars meeting at a shared offset agree only to within a rounding error,
         // and a rounding error is a device pixel of the page showing between them. Same

@@ -1,3 +1,4 @@
+import { HUE, INK, SHADOW } from '../../ui/color'
 import { SECTION_HEADING_SX } from '../../ui/card'
 import { useDark } from '../../ui/useDark'
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react'
@@ -94,7 +95,7 @@ const pillSx = (color = ACCENT, compact = false) => ({
   flexShrink: 0, cursor: 'pointer',
   fontSize: compact ? TYPE_SCALE.caption : TYPE_SCALE.meta,
   // The raw hex frames and tints the pill; the label takes its text-safe twin (TONE, ACCENT_TEXT).
-  fontWeight: 700, color: color === ACCENT ? ACCENT_TEXT : color === '#ef4444' ? TONE.red : color,
+  fontWeight: 700, color: color === ACCENT ? ACCENT_TEXT : color === HUE.red ? TONE.red : color,
   px: compact ? 1 : 1.25, py: 0.5,
   borderRadius: 999, border: '1px solid', borderColor: edge(color),
   transition: 'background 0.12s',
@@ -242,7 +243,7 @@ function PlayerSparkline({ id, isPitcher }: { id: number; isPitcher: boolean }) 
   const earlyMean = series.slice(0, half).reduce((s, v) => s + v, 0) / half
   const lateMean  = series.slice(n - half).reduce((s, v) => s + v, 0) / half
   const norm = (lateMean - earlyMean) / seriesSpread
-  const color = norm > 0.12 ? '#22c55e' : norm < -0.12 ? '#ef4444' : (isDark ? '#64748b' : '#9ca3af')
+  const color = norm > 0.12 ? HUE.green : norm < -0.12 ? HUE.red : (isDark ? HUE.slateDeep : HUE.grayLight)
 
   const svg = (
     <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"
@@ -358,7 +359,7 @@ function FollowedPlayerRow({ id, data, isLive, showForm, move, editMode, isSelec
   onClick:        () => void
 }) {
   const tone = useTextTone()
-  const teamColor  = TEAM_BG[data?.teamId ?? 0] ?? '#444'
+  const teamColor  = TEAM_BG[data?.teamId ?? 0] ?? INK.dark
   const subtitle   = data ? [data.position, data.teamAbbr].filter(Boolean).join(' · ') : ''
   const playedToday = !!data?.playedToday
   // Loaded with no line at all (a player who has not appeared this season: injured all year, released,
@@ -408,7 +409,7 @@ function FollowedPlayerRow({ id, data, isLive, showForm, move, editMode, isSelec
           bgcolor: isSelected ? 'var(--wpbl-accent-solid)' : 'transparent',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'all 0.15s',
-          color: '#fff', fontSize: TYPE_SCALE.caption, fontWeight: 800, lineHeight: 1,
+          color: INK.white, fontSize: TYPE_SCALE.caption, fontWeight: 800, lineHeight: 1,
         }}>
           {isSelected && '✓'}
         </Box>
@@ -434,7 +435,7 @@ function FollowedPlayerRow({ id, data, isLive, showForm, move, editMode, isSelec
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             py: chromePx(1.5),
           }}>
-            <Typography sx={{ fontSize: TYPE_SCALE.nano, fontWeight: 800, color: '#fff', lineHeight: 1, letterSpacing: typePx(0.5) }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.nano, fontWeight: 800, color: INK.white, lineHeight: 1, letterSpacing: typePx(0.5) }}>
               LIVE
             </Typography>
           </Box>
@@ -476,7 +477,7 @@ function FollowedPlayerRow({ id, data, isLive, showForm, move, editMode, isSelec
               </Box>
             )}
             {move && (() => {
-              const style = MOVE_STYLE[move.typeCode] ?? { label: move.typeDesc, color: '#94a3b8' }
+              const style = MOVE_STYLE[move.typeCode] ?? { label: move.typeDesc, color: HUE.slate }
               // Past tense reads better on a player badge; only the trade label differs
               const label = move.typeCode === 'TR' ? 'Traded' : style.label
               return (
@@ -737,7 +738,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
           {editMode ? (
             <>
               {selected.size > 0 && (
-                <Box {...pressable(handleDeleteSelected)} sx={pillSx('#ef4444', compact)}>
+                <Box {...pressable(handleDeleteSelected)} sx={pillSx(HUE.red, compact)}>
                   Remove {selected.size}
                 </Box>
               )}
@@ -812,7 +813,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
               <Box sx={{
                 bgcolor: 'background.paper', border: '1px solid', borderColor: 'outline',
                 borderRadius: 2, overflow: 'hidden',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
+                boxShadow: SHADOW.menu,
               }}>
                 {addSearching && !addResults.length && (
                   <Box sx={{ px: 2, py: 1.5 }}>
@@ -856,7 +857,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
             {addQuery.length < 2 && suggestions.length > 0 && (
               <Box sx={{
                 bgcolor: 'background.paper', border: '1px solid', borderColor: 'outline',
-                borderRadius: 2, boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
+                borderRadius: 2, boxShadow: SHADOW.menu,
                 p: 1.25, display: 'flex', flexDirection: 'column', gap: 0.75,
               }}>
                 <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', px: 0.25 }}>

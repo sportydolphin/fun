@@ -1,3 +1,4 @@
+import { HUE, INK, SURFACE } from '../../ui/color'
 // Game preview modal: the pre-game matchup card (probable pitchers, weather,
 // season-stat comparison bars) shown from the Scores scoreboard and the team
 // ScheduleStrip. MLB's binding of src/ui/gamePreview.tsx: it feeds StatsAPI's numbers, the
@@ -124,17 +125,17 @@ function hexHue(hex: string): number {
 // team colors would then be indistinguishable, and color is doing real work
 // here. When the hues are too close, both sides fall back to a colorblind-safe
 // blue/orange pair instead.
-const FALLBACK_AWAY = '#3b82f6'
-const FALLBACK_HOME = '#f97316'
+const FALLBACK_AWAY = HUE.blue
+const FALLBACK_HOME = HUE.orange
 const MIN_HUE_GAP   = 40
 
 function comparisonColors(awayId: number, homeId: number, isDark: boolean): [string, string] {
-  const a = accentColor(TEAM_BG[awayId] ?? '#444', isDark)
-  const h = accentColor(TEAM_BG[homeId] ?? '#444', isDark)
+  const a = accentColor(TEAM_BG[awayId] ?? INK.dark, isDark)
+  const h = accentColor(TEAM_BG[homeId] ?? INK.dark, isDark)
   const gap = Math.abs(hexHue(a) - hexHue(h))
   const hueGap = Math.min(gap, 360 - gap)
   // Held to AA like the club colors above them (accentColor): these are printed as the numbers.
-  return hueGap < MIN_HUE_GAP ? [textTone(FALLBACK_AWAY, isDark, isDark ? undefined : '#f6f7f9'), textTone(FALLBACK_HOME, isDark, isDark ? undefined : '#f6f7f9')] : [a, h]
+  return hueGap < MIN_HUE_GAP ? [textTone(FALLBACK_AWAY, isDark, isDark ? undefined : SURFACE.pageLight), textTone(FALLBACK_HOME, isDark, isDark ? undefined : SURFACE.pageLight)] : [a, h]
 }
 
 // MLB's binding of the season comparison (the drawing is src/ui/gamePreview.tsx): StatsAPI's team
@@ -238,7 +239,7 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
   // Called as a function, not rendered as <PitcherCard>: declared inside this component, it would be
   // a new component type on every render, so React would remount the card and reload its headshot.
   function pitcherCard({ pitcher, team, loading }: { pitcher: ProbablePitcher | null; team: { teamId: number; abbr: string }; loading?: boolean }) {
-    const teamColor  = TEAM_BG[team.teamId] ?? '#444'
+    const teamColor  = TEAM_BG[team.teamId] ?? INK.dark
     const accentText = accentColor(teamColor, isDark)
     const clickable  = !loading && !!pitcher && !!onPlayerClick
     const line = (size: string, lineHeight: number, width: number, mt = 0) => (

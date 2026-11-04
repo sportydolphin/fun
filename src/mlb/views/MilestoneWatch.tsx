@@ -1,3 +1,4 @@
+import { HUE, INK } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import React, { useState, useEffect } from 'react'
 import { pressable } from '../../ui/interaction'
@@ -16,9 +17,9 @@ import { useLastShape, useRememberShape } from '../../lib/lastShape'
 
 const FEATURED = 3          // hero chases shown on the card; the rest live in the modal
 const RECENT_ON_CARD = 2    // cap on how many "just reached" rows lead the featured strip
-const ACHIEVED_GREEN = '#22c55e'
-const RECORD_GOLD = '#f59e0b'
-const LIVE_RED = '#ef4444'
+const ACHIEVED_GREEN = HUE.green
+const RECORD_GOLD = HUE.amber
+const LIVE_RED = HUE.red
 
 // "2 days ago" / "today" from a YYYY-MM-DD stamp, for the recently-reached rows.
 function relativeDay(ymd: string): string {
@@ -67,11 +68,11 @@ function LiveBadge() {
   return (
     <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.4, px: 0.6, py: '1px', borderRadius: 999, bgcolor: FILL.red, flexShrink: 0 }}>
       <Box sx={{
-        width: chromePx(4), height: chromePx(4), borderRadius: '50%', bgcolor: '#fff',
+        width: chromePx(4), height: chromePx(4), borderRadius: '50%', bgcolor: INK.white,
         '@keyframes msLiveDot': { '0%': { opacity: 1 }, '50%': { opacity: 0.2 }, '100%': { opacity: 1 } },
         animation: 'msLiveDot 1.4s ease-in-out infinite',
       }} />
-      <Typography sx={{ fontSize: TYPE_SCALE.nano, fontWeight: 800, letterSpacing: typePx(0.5), color: '#fff' }}>LIVE</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.nano, fontWeight: 800, letterSpacing: typePx(0.5), color: INK.white }}>LIVE</Typography>
     </Box>
   )
 }

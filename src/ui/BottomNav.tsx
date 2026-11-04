@@ -1,3 +1,4 @@
+import { SURFACE } from './color'
 import { useEffect, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { Box, Typography, alpha } from '@mui/material'
@@ -79,7 +80,7 @@ const PENDING_STALL_MS = 2000
 // the alpha toward 1 while the hue is still white, so the icon flashes white before it turns blue.
 // An opaque gray of about the same weight interpolates straight to the accent with nothing white in
 // between. Two values because the resting shade differs by mode; both clear AA on every skin's paper.
-const INACTIVE_TAB = { dark: '#a7adb7', light: '#5f6570' } as const
+const INACTIVE_TAB = { dark: SURFACE.tabInkDark, light: SURFACE.tabInkLight } as const
 
 // ONE DURATION AND CURVE FOR EVERY PART OF A SELECTION. A tap changes three things (the indicator
 // bubble slides to the tab, the icon fills in, the icon and label recolor), and if any of them runs

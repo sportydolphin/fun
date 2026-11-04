@@ -1,3 +1,4 @@
+import { HUE, INK } from '../../ui/color'
 // The Predictor's full board: every game of the slate as a card, opened from the Home widget.
 // Its own module so it loads on that tap. It was half of Predictor.tsx, and Home renders only
 // the widget, so every Home landing carried the board for a reader who may never open it.
@@ -54,7 +55,7 @@ function PredTeamSide({ side, game, prediction, locked, onPick }: {
           width: chromePx(17), height: chromePx(17), borderRadius: '50%',
           bgcolor: correct ? FILL.green : FILL.red,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: TYPE_SCALE.caption, color: '#fff', fontWeight: 900, lineHeight: 1,
+          fontSize: TYPE_SCALE.caption, color: INK.white, fontWeight: 900, lineHeight: 1,
           userSelect: 'none',
         }}>
           {correct ? '✓' : '✗'}
@@ -112,8 +113,8 @@ function PredictionCard({ game, prediction, onPick, gameVotes }: {
   const totalVotes = awayVotes + homeVotes
   const awayPct   = totalVotes ? Math.round(awayVotes / totalVotes * 100) : null
   const homePct   = awayPct !== null ? 100 - awayPct : null
-  const awayCol   = TEAM_BG[game.away.teamId] ?? '#888'
-  const homeCol   = TEAM_BG[game.home.teamId] ?? '#888'
+  const awayCol   = TEAM_BG[game.away.teamId] ?? INK.neutral
+  const homeCol   = TEAM_BG[game.home.teamId] ?? INK.neutral
 
   return (
     <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', overflow: 'hidden', flexShrink: 0 }}>
@@ -122,7 +123,7 @@ function PredictionCard({ game, prediction, onPick, gameVotes }: {
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75,
       }}>
         {game.state === 'live' && (
-          <Box sx={{ width: chromePx(5), height: chromePx(5), borderRadius: '50%', bgcolor: '#ef4444', flexShrink: 0 }} />
+          <Box sx={{ width: chromePx(5), height: chromePx(5), borderRadius: '50%', bgcolor: HUE.red, flexShrink: 0 }} />
         )}
         <Typography sx={{
           fontSize: { xs: TYPE_SCALE.caption, sm: TYPE_SCALE.meta }, fontWeight: 700, letterSpacing: typePx(0.5), lineHeight: 1,

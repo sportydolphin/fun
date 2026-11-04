@@ -1,3 +1,4 @@
+import { HUE } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { pressable } from '../../ui/interaction'
@@ -27,11 +28,11 @@ const POLL_MS = 60_000
 const MAX_ROWS = 4
 
 const KIND_ACCENT: Record<DramaKind, string> = {
-  perfect:  '#dc2626',
-  nohitter: '#ef4444',
-  walkoff:  '#f97316',
-  cycle:    '#a855f7',
-  marathon: '#3b82f6',
+  perfect:  HUE.redDeep,
+  nohitter: HUE.red,
+  walkoff:  HUE.orange,
+  cycle:    HUE.purple,
+  marathon: HUE.blue,
 }
 
 const KIND_TAG: Record<DramaKind, string> = {

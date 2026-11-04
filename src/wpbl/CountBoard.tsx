@@ -1,3 +1,4 @@
+import { HUE, INK, SURFACE } from '../ui/color'
 import { useDark } from '../ui/useDark'
 import { Box, Typography } from '@mui/material'
 import { SectionCard } from './ui'
@@ -39,8 +40,8 @@ export default function CountBoard({ counts, fullCount, accent }: {
 }) {
   const dark = useDark()
   // The card the grid sits on, and the theme's error red, as hex: the cells are mixed from them.
-  const card = dark ? '#0f1115' : '#ffffff'
-  const neg = dark ? '#f44336' : '#d32f2f'
+  const card = dark ? SURFACE.pageDark : INK.white
+  const neg = dark ? HUE.red : HUE.redDeep
   const byKey = new Map(counts.map(c => [c.key, c]))
   // Scaled to the widest cell rather than to a fixed range: this league's runs are roughly
   // double a major-league one, so any hardcoded span would wash the whole grid out.

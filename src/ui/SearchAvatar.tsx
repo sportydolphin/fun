@@ -1,3 +1,4 @@
+import { INK } from './color'
 import { Box, Typography } from '@mui/material'
 import { TYPE_SCALE } from './card'
 import type { SearchResultAvatar } from '../mlb/state/SearchBridgeContext'
@@ -16,7 +17,7 @@ export function SearchAvatar({ avatar: a, size = 36 }: { avatar: SearchResultAva
     }}>
       {a.imageUrl
         ? <Box component="img" src={a.imageUrl} alt="" loading="lazy" sx={{ width: contain ? '74%' : '100%', height: contain ? '74%' : '100%', objectFit: a.fit ?? 'cover' }} />
-        : <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, color: '#fff' }}>{a.fallbackText}</Typography>}
+        : <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, color: INK.white }}>{a.fallbackText}</Typography>}
     </Box>
   )
 }

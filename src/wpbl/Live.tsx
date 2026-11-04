@@ -1,3 +1,4 @@
+import { HUE, INK } from '../ui/color'
 import { useDark } from '../ui/useDark'
 import { NameLine } from '../ui/NameText'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -28,7 +29,7 @@ export type { Situation, LineScores }
 
 /** The section's live red. Home's scoreboard chip and the LIVE hero already use it; exported so
  *  Game Center's header can say the same thing in the same color. */
-export const LIVE_RED = '#ef4444'
+export const LIVE_RED = HUE.red
 
 // Poll + realtime-subscribe one game's row while it is live, so score + situation stay
 // fresh. Seeded by the passed-in game; returns the freshest copy.
@@ -227,8 +228,8 @@ export function LiveHero({ game: seed, teams, players, onOpen }: {
         <Box sx={{ flex: 1 }} />
         <Box {...pressable(onOpen)} sx={{
           display: 'inline-flex', alignItems: 'center', gap: 0.4, cursor: 'pointer',
-          fontSize: TYPE_SCALE.meta, fontWeight: 800, color: '#fff', px: 1.1, py: 0.35, borderRadius: 999, bgcolor: LIVE_RED,
-          ...hoverOnly({ bgcolor: '#dc2626' }),
+          fontSize: TYPE_SCALE.meta, fontWeight: 800, color: INK.white, px: 1.1, py: 0.35, borderRadius: 999, bgcolor: LIVE_RED,
+          ...hoverOnly({ bgcolor: HUE.redDeep }),
         }}>Game Center ›</Box>
       </Box>
 

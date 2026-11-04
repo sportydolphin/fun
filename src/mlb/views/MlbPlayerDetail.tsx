@@ -1,3 +1,4 @@
+import { HUE } from '../../ui/color'
 // The MLB player page, rebuilt in Oct 2026 on WPBL's card (src/ui/playerCard.tsx).
 //
 // It replaces a customizable "share card" (four auto-picked stats on a club-colored tile, a
@@ -860,7 +861,7 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
         <BandChips edge={palette.sub}>
           {awards.map(a => (
             <Box key={a.key} title={`${a.label}: ${a.seasons.join(', ')}`} sx={{ ...BAND_CHIP_SX, borderColor: palette.sub }}>
-              <EmojiEvents aria-hidden sx={{ fontSize: ICON_SIZE.sm, color: '#eab308' }} />
+              <EmojiEvents aria-hidden sx={{ fontSize: ICON_SIZE.sm, color: HUE.yellow }} />
               {a.seasons.length > 1 ? `${a.seasons.length}× ${a.label}` : `${a.label} ${a.seasons[0]}`}
             </Box>
           ))}

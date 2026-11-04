@@ -1,3 +1,4 @@
+import { HUE, INK } from '../color'
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
 import { usePhoneLayout } from '../ModalShell'
@@ -97,7 +98,7 @@ const BOX = {
 const FONT = { tick: 11, guide: 11, axis: 12, label: 11 }
 // Categorical slot 1 (blue), light and dark steps. Validated against both surfaces for the
 // lightness band, chroma floor and contrast; the same pair DraftValue's dots use.
-const DOT = { light: '#2a78d6', dark: '#3987e5' }
+const DOT = { light: HUE.blueDeep, dark: HUE.blue }
 // The fixed radius of a badge dot, sized for a three-letter abbreviation. A phone has no room for
 // letters big enough to read inside a dot (they printed at 5.7px), so there the dot is smaller and
 // plain, and the abbreviation becomes a direct label beside it, placed like a player's name.
@@ -511,7 +512,7 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
               <circle cx={cx} cy={cy} r={on ? r + 2 : r} fill={p.color ?? dot}
                 stroke={on ? ink : surface} strokeWidth={on ? 2 : 1.25} />
               {!phone && (
-                <text x={cx} y={cy + 3} textAnchor="middle" fill="#fff" pointerEvents="none" fontWeight={800}
+                <text x={cx} y={cy + 3} textAnchor="middle" fill={INK.white} pointerEvents="none" fontWeight={800}
                   fontSize={p.badge.length > 2 ? 6.5 : 7.5}>{p.badge}</text>
               )}
             </g>

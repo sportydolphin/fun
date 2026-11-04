@@ -147,6 +147,13 @@ only in the token files (`src/ui/card.tsx`, `ThemeContext.tsx`, both sections' `
 everywhere else uses `BRAND`, `ACCENT_EDGE` or `--wpbl-accent-*`, so a change of brand color is
 one edit rather than the 55 the old blue took.
 
+**Every color and shadow is a token** (the same rule, since Nov 3, 2026). A raw hex in a string or
+a template, or a fixed `boxShadow`, is an error in a UI file: name it from `src/ui/color.ts` (`HUE`,
+`INK`, `SURFACE`, `SHADOW` and the rest), or add a name there if none fits. A tint stays a template,
+`${HUE.red}22`. Exempt, by name in `eslint.config.js` (`TOKEN_FILES`): the files that hold the values
+(each club's colors in both `constants.ts` files among them), the share-card and recap images, the
+dev tools, the admin pages and the tests. The other checks (`TRAPS`) still run on those files.
+
 **Em dashes and British spelling fail a test**, `src/__tests__/houseRules.test.ts`, run with the
 others. It reads every tracked file, so it covers what the lint never opens: `scripts/`,
 `supabase/`, the workflows and the docs. In code it reads prose only (comments, strings with a

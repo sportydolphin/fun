@@ -1,3 +1,4 @@
+import { INK } from '../../ui/color'
 import { useEffect, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TYPE_SCALE } from '../../ui/card'
@@ -172,7 +173,7 @@ export function YouTubePlayer({ video, onEnded }: { video: WpblVideo; onEnded?: 
 
   const fill = { position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 } as const
   return (
-    <Box ref={box} sx={{ ...fill, bgcolor: '#000', '& iframe': fill }}>
+    <Box ref={box} sx={{ ...fill, bgcolor: INK.black, '& iframe': fill }}>
       {mode === 'plain' && (
         <Box
           key={id}
@@ -185,10 +186,10 @@ export function YouTubePlayer({ video, onEnded }: { video: WpblVideo; onEnded?: 
         />
       )}
       {broken === id && (
-        <Box sx={{ ...fill, zIndex: 1, bgcolor: '#000', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, p: 2, textAlign: 'center' }}>
-          <Typography sx={{ color: '#fff', fontSize: TYPE_SCALE.body, fontWeight: 700 }}>Not playable here</Typography>
+        <Box sx={{ ...fill, zIndex: 1, bgcolor: INK.black, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, p: 2, textAlign: 'center' }}>
+          <Typography sx={{ color: INK.white, fontSize: TYPE_SCALE.body, fontWeight: 700 }}>Not playable here</Typography>
           <Box component="a" href={youtubeUrl(video)} target="_blank" rel="noopener noreferrer"
-            sx={{ color: '#fff', fontSize: TYPE_SCALE.meta, fontWeight: 700 }}>Watch on YouTube ↗</Box>
+            sx={{ color: INK.white, fontSize: TYPE_SCALE.meta, fontWeight: 700 }}>Watch on YouTube ↗</Box>
         </Box>
       )}
     </Box>

@@ -1,3 +1,4 @@
+import { INK, SURFACE } from './ui/color'
 import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
 import { ACCENT_EDGE } from './ui/card'
 import { Typography, Box, IconButton, AppBar, Toolbar, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery, type Theme } from '@mui/material'
@@ -204,8 +205,8 @@ const BRAND_LOGO_H = 32
 // underline of the active tab beside it, and the rainbow was the loudest thing on the bar for the
 // least important choice on it (ROADMAP-UI.md, the audit). Navigation chrome stays neutral so color
 // is left to the content. index.html's static copy of the bar repeats these; change both.
-const SWITCH_THUMB = { dark: '#e6e6e9', light: '#ffffff' } as const
-const SWITCH_INK = '#111'
+const SWITCH_THUMB = { dark: SURFACE.switchThumbDark, light: INK.white } as const
+const SWITCH_INK = INK.nearBlack
 // Where the toolbar holds the section tabs, the widths at which the search field and the handle
 // beside the account icon come back inline. Measured, at the 1.25 desktop scale, with WPBL's
 // tabs (the longer set, with the Stats dot) and the wordmark showing: brand, tabs, field and

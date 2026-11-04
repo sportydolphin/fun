@@ -1,3 +1,4 @@
+import { INK } from './ui/color'
 import { TeamLogo } from './mlb/components/TeamLogo'
 import React, { useEffect, useState } from 'react'
 import { Button, Typography, Box, CircularProgress, TextField, Switch, useMediaQuery, type SxProps, type Theme } from '@mui/material'
@@ -182,7 +183,7 @@ function PillGroup<T extends string | number>({ options, value, onChange, accent
               textAlign: 'center', cursor: 'pointer', userSelect: 'none',
               fontSize: TYPE_SCALE.meta, fontWeight: 700, whiteSpace: 'nowrap',
               bgcolor: active ? accent : 'transparent',
-              color: active ? '#fff' : 'text.secondary',
+              color: active ? INK.white : 'text.secondary',
               transition: 'background-color 0.15s',
               '&:hover': active ? {} : { bgcolor: 'action.hover' },
             }}
@@ -428,7 +429,7 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
                     maxHeight: 168, overflowY: 'auto', pr: 0.5,
                   }}>
                     {sortedTeams.map(t => {
-                      const bg = TEAM_BG[t.id] ?? '#444'
+                      const bg = TEAM_BG[t.id] ?? INK.dark
                       const selected = teamId === t.id
                       return (
                         <Box

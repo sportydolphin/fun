@@ -1,3 +1,4 @@
+import { INK, SHADOW } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import React from 'react'
 import { Box, Typography } from '@mui/material'
@@ -256,7 +257,7 @@ export function PlayerHeadshot({ playerId, name, size = 36, accent, highlighted,
   // (TopPerformers / Spotlight): the face framed near the top rather than a tight
   // circle that clips the head, inside a team-colored border.
   if (variant === 'portrait') {
-    const border = teamId ? edgeTone(TEAM_BG[teamId] ?? '#888', isDark) : 'rgba(128,128,128,0.3)'
+    const border = teamId ? edgeTone(TEAM_BG[teamId] ?? INK.neutral, isDark) : 'rgba(128,128,128,0.3)'
     return (
       <Box sx={{
         flexShrink: 0, width: chromePx(size), height: chromePx(Math.round(size * 70 / 58)),
@@ -281,7 +282,7 @@ export function PlayerHeadshot({ playerId, name, size = 36, accent, highlighted,
       sx={{
         width: chromePx(size), height: chromePx(size), borderRadius: '50%', objectFit: 'cover', flexShrink: 0,
         bgcolor: 'action.hover',
-        boxShadow: highlighted && accent ? `0 0 0 2.5px ${accent}` : '0 0 0 1px rgba(128,128,128,0.25)',
+        boxShadow: highlighted && accent ? `0 0 0 2.5px ${accent}` : SHADOW.hairline,
       }}
     />
   )

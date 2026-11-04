@@ -1,3 +1,4 @@
+import { HUE, INK } from '../../ui/color'
 import React, { useState, useEffect, useCallback } from 'react'
 import { pressable } from '../../ui/interaction'
 import { Box, Typography, CircularProgress } from '@mui/material'
@@ -24,10 +25,10 @@ const ZERO_STATS: SurvivorStats = { currentStreak: 0, longestStreak: 0, totalHit
 // ─── Small pieces ─────────────────────────────────────────────────────────────
 
 const RESULT_META: Record<SurvivorResult, { label: string; color: string }> = {
-  hit:     { label: 'Hit',     color: '#22c55e' },
-  miss:    { label: 'No hit',  color: '#ef4444' },
-  void:    { label: 'No game', color: '#94a3b8' },
-  pending: { label: 'Locked',  color: '#eab308' },
+  hit:     { label: 'Hit',     color: HUE.green },
+  miss:    { label: 'No hit',  color: HUE.red },
+  void:    { label: 'No game', color: HUE.slate },
+  pending: { label: 'Locked',  color: HUE.yellow },
 }
 
 function ResultPill({ result }: { result: SurvivorResult }) {
@@ -388,7 +389,7 @@ export function StreakSurvivorWidget() {
       <Box sx={{ px: 2, pt: 0.5, pb: 1.75 }}>
         <Box
           {...pressable(() => openAuthDialog('signin'))}
-          sx={{ px: 1.5, py: chromePx(9), borderRadius: 2, bgcolor: 'var(--wpbl-accent-solid)', color: '#fff', textAlign: 'center', cursor: 'pointer', fontWeight: 800, fontSize: TYPE_SCALE.body, '&:hover': { opacity: 0.9 } }}
+          sx={{ px: 1.5, py: chromePx(9), borderRadius: 2, bgcolor: 'var(--wpbl-accent-solid)', color: INK.white, textAlign: 'center', cursor: 'pointer', fontWeight: 800, fontSize: TYPE_SCALE.body, '&:hover': { opacity: 0.9 } }}
         >
           Sign in to play
         </Box>

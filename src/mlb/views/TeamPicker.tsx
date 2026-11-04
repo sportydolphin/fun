@@ -1,3 +1,4 @@
+import { HUE } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import { TeamLogo } from '../components/TeamLogo'
 import React, { useRef, useState } from 'react'
@@ -78,7 +79,7 @@ export function TeamPickerSheet({ onSelect, onClose, playing }: {
       <Box sx={{ px: 2, pt: 1.25, pb: 2 }}>
         {anyPlaying && (
           <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mb: 1, display: 'flex', alignItems: 'center', gap: 0.6 }}>
-            <Box component="span" sx={{ width: chromePx(6), height: chromePx(6), borderRadius: '50%', bgcolor: '#22c55e', flexShrink: 0 }} />
+            <Box component="span" sx={{ width: chromePx(6), height: chromePx(6), borderRadius: '50%', bgcolor: HUE.green, flexShrink: 0 }} />
             Still playing this postseason
           </Typography>
         )}
@@ -109,7 +110,7 @@ export function TeamPickerSheet({ onSelect, onClose, playing }: {
                       {live && (
                         <Box sx={{
                           position: 'absolute', top: chromePx(6), right: `calc(50% - ${chromePx(22)})`,
-                          width: chromePx(8), height: chromePx(8), borderRadius: '50%', bgcolor: '#22c55e',
+                          width: chromePx(8), height: chromePx(8), borderRadius: '50%', bgcolor: HUE.green,
                           border: '1.5px solid', borderColor: 'background.paper',
                         }} />
                       )}

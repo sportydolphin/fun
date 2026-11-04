@@ -1,3 +1,4 @@
+import { HUE } from '../ui/color'
 import { useEffect, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { CloudOffOutlined, SyncProblemOutlined, ScoreboardOutlined } from '@mui/icons-material'
@@ -117,7 +118,7 @@ function Note({ Icon, title, detail }: {
         bgcolor: 'rgba(245,158,11,0.08)',
       }}
     >
-      <Icon sx={{ fontSize: ICON_SIZE.md, flexShrink: 0, color: '#f59e0b', mt: '1px' }} />
+      <Icon sx={{ fontSize: ICON_SIZE.md, flexShrink: 0, color: HUE.amber, mt: '1px' }} />
       <Box sx={{ minWidth: 0 }}>
         <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.25 }}>{title}</Typography>
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.4, mt: 0.15 }}>

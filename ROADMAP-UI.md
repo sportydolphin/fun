@@ -178,10 +178,14 @@ Each item names the phase that carries it.
       a player with no face already gets initials.
 - [ ] **Leaders as widget grids** (phase 3). Four boxed top-5 lists side by side. One `DataTable`
       with the leader's number large, or one board with a stat picker.
-- [ ] **Token drift** (phase 2, first). About 12 `borderRadius` values, 258 distinct hex colors,
-      54 gradients, 64 `boxShadow`s. Radius done Nov 3: `RADIUS` (4, 8, 12px and pill), lint-enforced.
-      The brand hex is lint-enforced too. Left: the other hex colors, gradients and shadows onto
-      tokens, each with its lint rule.
+- [x] **Token drift** (Nov 3). About 12 `borderRadius` values, 215 distinct hex colors (813 uses),
+      55 distinct shadows. Now: `RADIUS` (4, 8, 12px and pill); `src/ui/color.ts` for every color
+      (`HUE`, `INK`, `SURFACE`, `CHAMPION`, `MARK`, `SCORIGAMI_SQUARES`) and every shadow (`SHADOW`,
+      eleven named by what floats); `BRAND` for the accent. All lint-enforced in UI files; data, images,
+      dev tools and admin are exempt by name (`TOKEN_FILES`). A few near-duplicates collapsed onto their
+      step (MUI's reds onto `red` and `redDeep`, two chart blues onto `blue` and `blueDeep`).
+      Gradients left as they are: 50, nearly all the scroll fades on sticky table columns, which are
+      function rather than decoration.
 
 ---
 

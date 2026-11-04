@@ -1,3 +1,4 @@
+import { HUE } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { pressable } from '../../ui/interaction'
@@ -51,7 +52,7 @@ function L10Cell({ value }: { value: string }) {
   if (!value || value === '—') return <Box component="span" sx={{ color: 'text.disabled' }}>—</Box>
   const wins = parseInt(value.split('-')[0] ?? '0', 10)
   return (
-    <Box component="span" sx={{ color: wins > 5 ? '#22c55e' : wins < 5 ? '#ef4444' : 'text.secondary', fontWeight: 600 }}>
+    <Box component="span" sx={{ color: wins > 5 ? HUE.green : wins < 5 ? HUE.red : 'text.secondary', fontWeight: 600 }}>
       {value}
     </Box>
   )

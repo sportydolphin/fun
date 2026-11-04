@@ -1,3 +1,4 @@
+import { SHADOW } from '../../ui/color'
 import React, { useLayoutEffect, useRef, useState } from 'react'
 import { Box, Skeleton, Typography } from '@mui/material'
 import type { Theme } from '@mui/material'
@@ -91,7 +92,7 @@ function Frame({ children, accent, innerRef, link }: {
       transition: 'border-color 0.15s, box-shadow 0.15s, transform 0.15s',
       ...(link ? {
         cursor: 'pointer',
-        '&:hover': { borderColor: accent ? edge(accent) : 'text.secondary', transform: 'translateY(-2px)', boxShadow: '0 6px 18px rgba(0,0,0,0.18)' },
+        '&:hover': { borderColor: accent ? edge(accent) : 'text.secondary', transform: 'translateY(-2px)', boxShadow: SHADOW.popover },
       } : {}),
     }}>
       {children}

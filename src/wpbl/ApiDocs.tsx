@@ -1,3 +1,4 @@
+import { HUE } from '../ui/color'
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { typePx } from '../ui/scale'
@@ -60,7 +61,7 @@ function EndpointCard({ path, purpose, returns }: { path: string; purpose: strin
   return (
     <Box sx={{ mb: 1.25, p: 1.5, borderRadius: 2, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper' }}>
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
-        <Box component="span" sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: '#16a34a', letterSpacing: typePx(0.5) }}>GET</Box>
+        <Box component="span" sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: HUE.greenDeep, letterSpacing: typePx(0.5) }}>GET</Box>
         <Box component="span" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, fontFamily: 'ui-monospace, Menlo, Consolas, monospace', color: 'var(--wpbl-accent-fg)', wordBreak: 'break-all' }}>
           {path}
         </Box>

@@ -1,3 +1,4 @@
+import { HUE, INK, SCORIGAMI_SQUARES, SHADOW } from '../ui/color'
 // /wpbl/scorigami: every final score the league has produced, as a grid.
 //
 // One square per (winning score, losing score). A lit square is a final that has happened; the
@@ -52,13 +53,8 @@ const MAX_STEP_MS = 400
 // sits apart from Heights blue on lightness as well as hue. Under red-green color blindness green
 // and gold still sit close; the legend and each square's label, which names both clubs, carry what
 // the color cannot.
-const SQUARE_COLORS: Record<string, { light: string; dark: string }> = {
-  BOS: { light: '#135f34', dark: '#288f55' },
-  LA:  { light: '#a8761d', dark: '#e0b54f' },
-  NY:  { light: '#3a9ae0', dark: '#8fd0fa' },
-  SF:  { light: '#7a3fb8', dark: '#a77ce8' },
-}
-const SQUARE_NEUTRAL = { light: '#6b7280', dark: '#9ca3af' }
+const SQUARE_COLORS = SCORIGAMI_SQUARES
+const SQUARE_NEUTRAL = { light: HUE.gray, dark: HUE.grayLight }
 const squareColor = (teamId: string | null | undefined, dark: boolean): string => {
   const c = (teamId && SQUARE_COLORS[teamId]) || SQUARE_NEUTRAL
   return dark ? c.dark : c.light
@@ -284,9 +280,9 @@ export default function WpblScorigami({ onOpenGame }: {
               // The replay's landing: the square overshoots its size and settles while a ring fades
               // off it, so the eye finds the one square that changed among dozens that did not.
               '@keyframes wpblScorigamiPop': {
-                '0%': { transform: 'scale(0.4)', boxShadow: '0 0 0 0 rgba(128,128,128,0.7)' },
+                '0%': { transform: 'scale(0.4)', boxShadow: SHADOW.pulseFrom },
                 '55%': { transform: 'scale(1.25)' },
-                '100%': { transform: 'scale(1)', boxShadow: '0 0 0 8px transparent' },
+                '100%': { transform: 'scale(1)', boxShadow: SHADOW.pulseTo },
               },
             }}
             // The column count is data, so it is spelled here rather than in the stylesheet:
@@ -368,7 +364,7 @@ export default function WpblScorigami({ onOpenGame }: {
                         ...FOCUS_RING,
                         width: 'var(--cell)', height: 'var(--cell)', borderRadius: 1,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        textDecoration: 'none', color: '#fff', cursor: 'pointer',
+                        textDecoration: 'none', color: INK.white, cursor: 'pointer',
                         // A thin neutral seam between the halves: at this size an edge does more to
                         // tell two colors apart than the colors do. Stops at fractional px, or the
                         // diagonal renders stepped.
@@ -390,7 +386,7 @@ export default function WpblScorigami({ onOpenGame }: {
                           thing competing with two colors, and it made the grid too busy to read.
                           The square's label still says how many games ended on it. */}
                       {count > 1 && !clubColors && (
-                        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, lineHeight: 1, color: '#fff' }}>
+                        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, lineHeight: 1, color: INK.white }}>
                           {count}
                         </Typography>
                       )}

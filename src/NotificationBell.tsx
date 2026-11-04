@@ -1,3 +1,4 @@
+import { HUE, INK } from './ui/color'
 // ─── Toolbar notification bell ────────────────────────────────────────────────
 //
 // Reads the store in src/lib/notifications.ts and drives the refresh loop that
@@ -132,7 +133,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
             <Badge
               badgeContent={unread}
               max={9}
-              sx={{ '& .MuiBadge-badge': { bgcolor: '#ef4444', color: '#fff', fontSize: TYPE_SCALE.caption, minWidth: 15, height: 15 } }}
+              sx={{ '& .MuiBadge-badge': { bgcolor: HUE.red, color: INK.white, fontSize: TYPE_SCALE.caption, minWidth: 15, height: 15 } }}
             >
               <Notifications />
             </Badge>

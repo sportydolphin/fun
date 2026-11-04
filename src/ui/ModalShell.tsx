@@ -1,3 +1,4 @@
+import { SHADOW } from './color'
 import React, { createContext, startTransition, useContext, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Close } from '@mui/icons-material'
 import { HeaderBack, HEADER_EYEBROW_SX, HEADER_ICON_SX, headerChipSx } from './headerBar'
@@ -825,7 +826,7 @@ function SidePanelShell({ eyebrow, onClose, actions, footer, openKey, onBack, ba
         bgcolor: 'background.paper',
         borderLeft: '1px solid', borderColor: 'divider',
         // Shadow on the page side only: the panel is a layer over the page, not a slot in it.
-        boxShadow: '-16px 0 40px rgba(0,0,0,0.22)',
+        boxShadow: SHADOW.panel,
         display: 'flex', flexDirection: 'column',
         outline: 'none',
         // Slides in from the edge it is anchored to, the desktop twin of the sheet coming up from
@@ -993,7 +994,7 @@ function DialogShell({ eyebrow, onClose, maxWidth = 720, zIndex: ownZ = 1500, ac
         bgcolor: 'background.paper',
         borderRadius: sheet ? { xs: '18px 18px 0 0', sm: 3 } : 3,
         border: '1px solid', borderColor: 'outline',
-        boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
+        boxShadow: SHADOW.sheet,
         // `100%` (of the padded fixed overlay), not `vh`: under the desktop `zoom`
         // wrapper viewport units don't shrink, so `92vh` overflows the screen.
         // 96% for a FILLED sheet (the player page and Game Center), 88% for the rest. Those two are

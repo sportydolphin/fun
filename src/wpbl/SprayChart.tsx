@@ -1,3 +1,4 @@
+import { HUE, INK } from '../ui/color'
 import { useMemo, useState } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
 import { sprayProfile, pullProfile, OUTFIELD_ZONES } from './derive/spray'
@@ -185,7 +186,7 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
   // the crossover is the only thing standing between a mid-red zone and an unreadable figure:
   // at 0.5 the middle of the scale prints white on medium red, which is the worst pairing on
   // the card.
-  const inkFor = (n: number) => (shade(n) >= 0.62 ? '#fff' : theme.palette.text.primary)
+  const inkFor = (n: number) => (shade(n) >= 0.62 ? INK.white : theme.palette.text.primary)
 
   /**
    * A zone's share of the balls on screen.
@@ -212,7 +213,7 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
    * Two of them, because one red cannot serve both themes: the darker one holds up against
    * white, the brighter one against a near-black card.
    */
-  const heat = theme.palette.mode === 'dark' ? '#ef4444' : '#d92020'
+  const heat = theme.palette.mode === 'dark' ? HUE.red : HUE.redDeep
 
   const line = theme.palette.divider
   const faint = theme.palette.text.disabled

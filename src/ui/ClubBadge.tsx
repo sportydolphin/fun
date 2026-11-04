@@ -1,3 +1,4 @@
+import { INK } from './color'
 import { useState } from 'react'
 import { Box, Typography, type BoxProps } from '@mui/material'
 import type { Theme } from '@mui/material/styles'
@@ -25,7 +26,7 @@ import { chromePx } from './scale'
  */
 export function ClubBadge({
   size, src, alt, bg, ring, ringWidth, fit = 'contain', logoScale = 0.72, logoTransform,
-  fallbackInk = '#fff', highlight, decorative, sx, ...rest
+  fallbackInk = INK.white, highlight, decorative, sx, ...rest
 }: Omit<BoxProps, 'children'> & {
   size: number | Partial<Record<'xs' | 'sm' | 'md', number>>
   /** The logo. Absent, or failing to load, the badge shows `alt` instead. */

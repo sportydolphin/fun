@@ -1,3 +1,4 @@
+import { HUE, INK } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import { TeamLogo } from '../components/TeamLogo'
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react'
@@ -336,8 +337,8 @@ function QuickPickRow({ game, prediction, gameVotes, onPick }: {
   const homePct    = 100 - awayPct
   const isDark     = useDark()
   // Ring color in dark mode gives the bars maximum contrast; light stays on TEAM_BG.
-  const awayCol    = isDark ? ringColor(game.away.teamId, true) : TEAM_BG[game.away.teamId] ?? '#888'
-  const homeCol    = isDark ? ringColor(game.home.teamId, true) : TEAM_BG[game.home.teamId] ?? '#888'
+  const awayCol    = isDark ? ringColor(game.away.teamId, true) : TEAM_BG[game.away.teamId] ?? INK.neutral
+  const homeCol    = isDark ? ringColor(game.home.teamId, true) : TEAM_BG[game.home.teamId] ?? INK.neutral
   const pickedAway = prediction === game.away.teamId
   const pickedHome = prediction === game.home.teamId
 
@@ -645,7 +646,7 @@ export function PredictorWidget({ onPicksSettled }: {
         {heaterStreak >= PREDICTION_HEATER_MIN && (
           <Box sx={{
             display: 'flex', alignItems: 'center', gap: 0.75, px: 2, py: 0.9,
-            bgcolor: '#f9731612', borderBottom: '1px solid', borderColor: 'divider',
+            bgcolor: `${HUE.orange}12`, borderBottom: '1px solid', borderColor: 'divider',
           }}>
             <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: TONE.orange, lineHeight: 1.2 }}>
               {heaterStreak}-game streak

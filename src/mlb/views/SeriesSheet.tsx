@@ -1,3 +1,4 @@
+import { INK } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import { NameText } from '../../ui/NameText'
 import { TeamLogo } from '../components/TeamLogo'
@@ -275,7 +276,7 @@ function Starter({ p, line, teamId, teamAbbr, align, toPlayer }: {
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flexDirection: align === 'left' ? 'row' : 'row-reverse', textAlign: align }}>
       <Box sx={{
         width: chromePx(40), height: chromePx(40), borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
-        bgcolor: 'action.hover', border: '1.5px solid', borderColor: edgeTone(TEAM_BG[teamId] ?? '#888888', isDark),
+        bgcolor: 'action.hover', border: '1.5px solid', borderColor: edgeTone(TEAM_BG[teamId] ?? INK.neutral, isDark),
       }}>
         {p && <Box component="img" src={HEADSHOT(p.id)} alt="" loading="lazy" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
       </Box>
@@ -357,7 +358,7 @@ function LeaderRow({ id, name, teamId, abbr, line, toPlayer }: {
       <Box sx={{ position: 'relative', flexShrink: 0 }}>
         <Box component="img" src={HEADSHOT(id)} alt="" loading="lazy" sx={{
           width: chromePx(34), height: chromePx(34), borderRadius: '50%', objectFit: 'cover', display: 'block',
-          bgcolor: 'action.hover', border: '1.5px solid', borderColor: edgeTone(TEAM_BG[teamId] ?? '#888888', isDark),
+          bgcolor: 'action.hover', border: '1.5px solid', borderColor: edgeTone(TEAM_BG[teamId] ?? INK.neutral, isDark),
         }} />
         <Box sx={{ position: 'absolute', right: chromePx(-4), bottom: chromePx(-3) }}>
           <TeamLogo teamId={teamId} abbr={abbr} size={16} />

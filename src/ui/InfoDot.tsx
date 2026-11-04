@@ -1,3 +1,4 @@
+import { INK, SURFACE } from './color'
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { TapTip } from './TapTip'
@@ -26,7 +27,7 @@ export function InfoDot({ text, label = 'How this is worked out' }: {
       closeAfterMs={20000}
       // OPAQUE. MUI's tooltip is a translucent gray, which is fine over a word or two and not over
       // a paragraph: on the draft chart the dots and the headline showed through the text.
-      tipSx={{ bgcolor: '#2a2e35', color: '#fff', px: 1.25, py: 1, '& .MuiTooltip-arrow': { color: '#2a2e35' } }}
+      tipSx={{ bgcolor: SURFACE.tooltip, color: INK.white, px: 1.25, py: 1, '& .MuiTooltip-arrow': { color: SURFACE.tooltip } }}
       title={
         <Box sx={{ maxWidth: '19rem', py: 0.25 }}>
           {paras.map((t, i) => (
