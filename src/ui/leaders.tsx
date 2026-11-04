@@ -1,7 +1,7 @@
 import React from 'react'
 import { Box, Skeleton, Typography } from '@mui/material'
-import { SectionCard, CardLink, TYPE_SCALE, SECTION_COLUMN_GAP } from './card'
-import { FOCUS_RING } from './interaction'
+import { SectionCard, TYPE_SCALE, SECTION_COLUMN_GAP } from './card'
+import { FOCUS_RING, linkPress } from './interaction'
 import { chromePx } from './scale'
 import { useLineNameFit, nameAtStage } from './names'
 
@@ -112,7 +112,7 @@ export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKe
 }) {
   const half = Math.ceil(items.length / 2)
   return (
-    <SectionCard bare title={title} action={seeAll && <CardLink label="See all" href={seeAll.href} onClick={seeAll.onClick} />}>
+    <SectionCard bare title={title} titleLink={seeAll ? linkPress(seeAll.href, seeAll.onClick) : undefined}>
       {items.length === 0
         ? <Typography sx={{ py: 1.5, color: 'text.secondary', fontSize: TYPE_SCALE.meta }}>{empty}</Typography>
         : <Box sx={splitSx(splitWhen, half)}>
@@ -177,7 +177,8 @@ export function LeaderCardSkeleton({ title, rows = LEADERS_SHOWN, seeAll = true,
 }) {
   const half = Math.ceil(rows / 2)
   return (
-    <SectionCard bare title={title} action={seeAll ? <CardLink label="See all" onClick={() => {}} /> : undefined}>
+    // An inert span with the same › the loaded heading link carries, so the title takes its width.
+    <SectionCard bare title={title} titleLink={seeAll ? { 'aria-hidden': true } : undefined}>
       <Box sx={splitSx(splitWhen, half)}>
         {Array.from({ length: rows }, (_, i) => (
           <Box key={i} sx={{ ...ROW_SX, ...rule(i), ...splitRule(splitWhen, i, half) }}>

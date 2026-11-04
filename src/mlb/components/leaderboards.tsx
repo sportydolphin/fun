@@ -2,7 +2,8 @@ import { useDark } from '../../ui/useDark'
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { InfoDot } from '../../ui/InfoDot'
-import { SectionCard, CardLink, TextGhost, TYPE_SCALE, edge } from '../../ui/card'
+import { SectionCard, TextGhost, TYPE_SCALE, edge } from '../../ui/card'
+import { linkPress, pressable } from '../../ui/interaction'
 import { ACCENT, TEAM_BG, TEAM_SECONDARY, HEADSHOT, HEADSHOT_THUMB, TEAM_NICKNAME } from '../constants'
 import { useTextTone, edgeTone } from '../lib/colorUtils'
 import { MlbSheet } from './MlbSheet'
@@ -115,11 +116,13 @@ const GHOST_PLAYER_ROW: PlayerLbRow = { playerId: 0, playerName: 'Bobby Witt Jr.
  * hand-rolled its own box with a ruled header, a 1rem title and a bordered pill or an expand
  * icon, which read as a second design system one card below WPBL's.
  */
-function BoardCard({ title, subtitle, tooltipText, actionLabel, actionHref, onExpand, children }: {
+function BoardCard({ title, subtitle, tooltipText, actionHref, onExpand, children }: {
   title: string
   subtitle: string
   tooltipText?: string
-  actionLabel: string
+  /** The words of the old "All 30" link. Unused since the heading became the link (Nov 3, 2026);
+   *  kept so callers that name where the board goes still read that way. */
+  actionLabel?: string
   actionHref?: string
   onExpand: () => void
   children: React.ReactNode
@@ -131,7 +134,8 @@ function BoardCard({ title, subtitle, tooltipText, actionLabel, actionHref, onEx
       titleAdornment={tooltipText ? (
         <InfoDot text={tooltipText} label="What this shows" />
       ) : undefined}
-      action={<CardLink label={actionLabel} href={actionHref} onClick={onExpand} />}
+      // More of the same board (the full ranking, or every board), so the heading opens it.
+      titleLink={actionHref ? linkPress(actionHref, onExpand) : pressable(onExpand)}
     >
       {/* The rows' own hover inset, pulled back out so their content starts on the title's edge. */}
       <Box sx={{ mx: -0.75 }}>{children}</Box>

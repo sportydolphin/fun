@@ -8,7 +8,7 @@ import { NameText } from '../../ui/NameText'
 import { wpblColor, wpblAccent, wpblSurface, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime, relativeDayShort } from '../constants'
 import { useWpblGameLink, useWpblPlayerLink } from '../LinkContext'
 import { WPBL_SEASON_PAGE, WPBL_RECAP_YEARS, wpblSeasonPath } from '../routes'
-import { SectionCard, TeamBadge, PlayerPortrait, chromePx, TAPPABLE, hoverOnly, FOCUS_RING, TYPE_SCALE, DISPLAY_FONT, CLUB_BAND, CARD_LINK_SX, cardFooterBand } from '../ui'
+import { SectionCard, TeamBadge, PlayerPortrait, chromePx, TAPPABLE, hoverOnly, FOCUS_RING, TYPE_SCALE, DISPLAY_FONT, CLUB_BAND, cardFooterBand } from '../ui'
 import { BEST_OF, buildBracket, championResult, championshipGames, aliveContenders, winsNeeded, type WpblBracket, type BracketSeries, type ChampionResult } from '../derive/bracket'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
 import type { WpblTeam, WpblPlayer, WpblGame } from '../types'
@@ -142,12 +142,9 @@ export function SeasonRecapPreviewCard({ teams, games, devChampion, onOpenGame, 
   // button across the foot competed with the champion for the eye, and it was the only one on Home.
   // The pre-champion body keeps its button: there the whole card is one anchor, so the link cannot
   // also be a second anchor in the header.
-  const headerLink = split
-    ? <Box {...recap} sx={CARD_LINK_SX}>{finalInProgress ? 'Season so far ›' : 'Recap ›'}</Box>
-    : undefined
 
   return (
-    <SectionCard title={`${yearWord}Season`} fill action={headerLink}>
+    <SectionCard title={`${yearWord}Season`} fill titleLink={split ? recap : undefined}>
       {/* The whole body is the link, the way the league card's is: a card whose one job is to send
           a reader to the recap should open it from anywhere on the card, not just a trailing word.
           `flex: 1` + centered so it absorbs whatever height the card beside it (Last game) forces,

@@ -145,6 +145,11 @@ Each item names the phase that carries it.
 - [x] **Eyebrow caps everywhere** (Nov 3, v1.208.0). 236 `textTransform: 'uppercase'` labels; 25
       remain, all in the two roles caps keep: stat-table column heads (and one chart axis) and the
       gold champion eyebrows. Not yet a lint rule: a new caps label is caught in review.
+- [x] **The same header everywhere** (Nov 3). Every section ended in a teal "See all ›". A link to
+      more of the same is now the heading itself (`SectionCard`'s `titleLink`, "2026 Leaders ›"); the
+      action slot keeps a verb that goes somewhere else ("Choose a team", "Compare teams") and plain
+      counts ("147 photos"). Every link checked opens more than its section shows (Fan Award Winners:
+      5 of 13 categories), so none was dropped.
 - [x] **Empty states as content** (Nov 3). MLB home opened on "No team followed" and "No players
       followed"; with neither, it is now one "Following" card with + Team and + Player, and an
       empty players card is its header alone. Kept for signed-out readers: follows are stored

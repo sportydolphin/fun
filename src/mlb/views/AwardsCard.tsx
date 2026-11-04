@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { SectionCard, CardLink, TYPE_SCALE } from '../../ui/card'
+import { SectionCard, TYPE_SCALE } from '../../ui/card'
+import { pressable } from '../../ui/interaction'
 import { NameText } from '../../ui/NameText'
 import { chromePx } from '../../ui/scale'
 import { useLastShape, useRememberShape } from '../../lib/lastShape'
@@ -112,7 +113,7 @@ export function AwardsCard({ season, followedTeamId, withSeriesMvp, onPlayerClic
   return (
     <SectionCard
       title={`${season} Awards`}
-      action={shape > 0 ? <CardLink label="All awards" onClick={() => setSheetOpen(true)} /> : undefined}
+      titleLink={shape > 0 ? pressable(() => setSheetOpen(true)) : undefined}
     >
       {shape === 0
         ? Array.from({ length: ghostRows }, (_, i) => <WinnerRow key={i} w={GHOST} detail={GHOST.label} ghost />)

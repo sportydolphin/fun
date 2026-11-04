@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { WPBL_COMPARE_BASE, wpblComparePath } from '../routes'
 import { UNSTYLED_LINK } from '../../nav'
-import { SectionCard, TeamBadge, PlayerPortrait, TAPPABLE, hoverOnly, FOCUS_RING, TYPE_SCALE } from '../ui'
+import { SectionCard, TeamBadge, PlayerPortrait, TAPPABLE, FOCUS_RING, TYPE_SCALE } from '../ui'
 import { wpblQualifiers, plateAppearances, fmtRate,
   type WpblBatSeason,
 } from '../stats'
@@ -140,17 +140,10 @@ export function ComparePreviewCard({ batSeasons, qual, teams, players, loading }
     )
   }
 
-  const cta = (
-    <Box {...trackedLinkTo(WPBL_COMPARE_BASE, EVENTS.WPBL_COMPARE_OPENED, { from: 'home', pair: false })} sx={{
-      ...UNSTYLED_LINK, fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'var(--wpbl-accent-fg)',
-      flexShrink: 0, ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
-    }}>
-      Compare ›
-    </Box>
-  )
 
   return (
-    <SectionCard title="Compare tool" fill action={cta}>
+    <SectionCard title="Compare tool" fill
+      titleLink={trackedLinkTo(WPBL_COMPARE_BASE, EVENTS.WPBL_COMPARE_OPENED, { from: 'home', pair: false })}>
       {loading || !pair ? (
         <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', py: 1 }}>
           No data

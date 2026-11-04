@@ -6,7 +6,7 @@
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import type { Theme } from '@mui/material'
-import { TAPPABLE, FOCUS_RING, pressable, linkPress } from './interaction'
+import { TAPPABLE, FOCUS_RING, pressable, linkPress, hoverOnly } from './interaction'
 import { edgeTone } from '../lib/contrast'
 import { titleCase } from '../lib/format'
 
@@ -170,7 +170,7 @@ export function Chevron({ open }: { open: boolean }) {
   )
 }
 
-export function SectionCard({ id, title, titleAdornment, subtitle, action, actionWraps, collapsed, onToggleCollapse, fill, bare, frameless, framed, children }: {
+export function SectionCard({ id, title, titleAdornment, subtitle, action, actionWraps, collapsed, onToggleCollapse, fill, bare, frameless, framed, titleLink, children }: {
   /** An anchor a page can be asked to scroll to (lib/sectionScroll.ts). */
   id?: string
   title: string
@@ -216,12 +216,29 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
    *  frame costs width the content cannot spare. Framed as normal from `sm` up, where the room is
    *  there. Off by default. */
   frameless?: boolean
+  /** The heading as the way to more of the same: the full board, the whole gallery, every result.
+   *  Spread onto the title, which gains a ›: `linkPress(href, onOpen)` for a page, `pressable(fn)`
+   *  for a sheet. Since Nov 3, 2026 a "See all ›" in the action slot is this instead: one teal link
+   *  on every header was the most repeated thing on the site (ROADMAP-UI.md, the audit). The action
+   *  slot keeps a verb that goes somewhere ELSE ("Choose a team") and a fact ("147 photos"). */
+  titleLink?: Record<string, unknown>
   /** Draw the old outlined box. For a card that is ONE thing a reader taps or reads as an object,
    *  never for a list, a table or prose. Off by default; see the section note below. */
   framed?: boolean
   children: React.ReactNode
 }) {
   const collapsible = !!onToggleCollapse
+  const heading = titleLink ? (
+    <Box component="span" {...titleLink} sx={{
+      color: 'inherit', textDecoration: 'none', cursor: 'pointer', borderRadius: 1, ...FOCUS_RING,
+      // A tap target taller than the 15px of type, reaching into the header's padding, without
+      // making the header any taller.
+      position: 'relative', '&::after': { content: '""', position: 'absolute', inset: '-12px 0' },
+      ...hoverOnly({ textDecoration: 'underline' }),
+    }}>
+      {titleCase(title)}<Box component="span" aria-hidden sx={{ color: 'var(--wpbl-accent-fg)', ml: 0.5 }}>›</Box>
+    </Box>
+  ) : titleCase(title)
   // A SECTION, NOT A CARD, by default (Nov 3, 2026, ROADMAP-UI.md's audit, option B). Every module
   // on the site was the same outlined box in a grid, which is what made it read as generated. A
   // read-only grouping now has no border, no fill and no corners: its heading, the space around it
@@ -272,11 +289,11 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
               prop for it would only invite a card to lie. */}
           {titleAdornment != null ? (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-              <Typography component="h2" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2, minWidth: 0 }}>{titleCase(title)}</Typography>
+              <Typography component="h2" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2, minWidth: 0 }}>{heading}</Typography>
               {titleAdornment}
             </Box>
           ) : (
-            <Typography component="h2" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2 }}>{titleCase(title)}</Typography>
+            <Typography component="h2" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2 }}>{heading}</Typography>
           )}
           {subtitle && <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>{subtitle}</Typography>}
         </Box>

@@ -7,7 +7,7 @@ import { WPBL_READING_PAGE } from '../routes'
 import { readMinutes, sourceOf, SOURCES } from '../derive/articles'
 import { ReadingCard } from '../Reading'
 import { linkTo } from '../../nav'
-import { SectionCard, CARD_BORDER, CARD_FILL, hoverOnly, FOCUS_RING, TYPE_SCALE, CARD_LINK_SX } from '../ui'
+import { SectionCard, CARD_BORDER, CARD_FILL, hoverOnly, FOCUS_RING, TYPE_SCALE } from '../ui'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
 import { useNewSince } from '../newSince'
 import type { WpblTeam, WpblArticle } from '../types'
@@ -134,10 +134,8 @@ export function ReadingHomeCard({ teamById }: { teamById: Map<string, WpblTeam> 
 
   const all = linkTo(WPBL_READING_PAGE, () => track(EVENTS.WPBL_READING_ARCHIVE, { count: articles.length, from: 'home' }))
   return (
-    <SectionCard title="Reading" fill action={
-      <Box {...all}
-        sx={CARD_LINK_SX}>All {articles.length} posts ›</Box>
-    }>
+    <SectionCard title="Reading" fill titleLink={all}
+      action={<Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{articles.length} posts</Typography>}>
     <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
       {/* Rows at every width: the card shares its row with Watch, and three covers on top in half a
           row would be stamps. */}

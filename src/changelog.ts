@@ -35,6 +35,10 @@ export const CHANGELOG: ChangelogEntry[] = [
         full:  'Lists, tables and leader boards sit on the page under a heading and a rule, without a box around each one. Games, chips and the followed team keep theirs.',
       },
       {
+        short: 'Section headings',
+        full:  'A section that has more (the full leaders, every award result, the whole gallery) opens it from its heading, marked ›, in place of a See all link.',
+      },
+      {
         short: 'Labels',
         full:  'Labels are in sentence case. Stat table headers and the champions banners keep their capitals.',
       },

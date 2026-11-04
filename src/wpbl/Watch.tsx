@@ -81,6 +81,7 @@ export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
   // Six posters on a desktop, four on a phone: at 375px six would be a row of stamps.
   const row = clips.slice(0, 6)
   const summary = `${gameIds.length} games, ${clips.length} clips`
+  // The inline strip (not a section) keeps its own link; the section's is its heading.
   const link = <Box {...all} sx={CARD_LINK_SX}>All videos ›</Box>
   const body = (
     <>
@@ -138,7 +139,7 @@ export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
   // header of its own, since a second "Watch" title there would only repeat the heading.
   if (eyebrow) {
     return (
-      <SectionCard title="Watch" fill={compact} action={link}>
+      <SectionCard title="Watch" fill={compact} titleLink={all}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, ...(compact ? { flex: 1 } : null) }}>{body}</Box>
       </SectionCard>
     )
