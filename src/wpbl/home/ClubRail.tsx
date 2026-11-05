@@ -1,6 +1,6 @@
 import { Box, Skeleton, Typography } from '@mui/material'
 import type { WpblTeam, WpblStandingRow } from '../types'
-import { TeamBadge, TYPE_SCALE, FOCUS_RING, hoverOnly, chromePx } from '../ui'
+import { TeamMark, TYPE_SCALE, FOCUS_RING, hoverOnly, chromePx } from '../ui'
 import { AGATE_SX, SECTION_RULE } from '../../ui/card'
 import { useWpblTeamLink } from '../LinkContext'
 import { UNSTYLED_LINK } from '../../nav'
@@ -42,8 +42,8 @@ function ClubCell({ team, row, place, champion, first, onOpenTeam }: {
       </Typography>
       {team
         ? <>
-            <Box sx={{ display: { xs: 'flex', sm: 'none' } }}><TeamBadge team={team} size={BADGE.phone} /></Box>
-            <Box sx={{ display: { xs: 'none', sm: 'flex' } }}><TeamBadge team={team} size={BADGE.wide} /></Box>
+            <Box sx={{ display: { xs: 'flex', sm: 'none' } }}><TeamMark team={team} size={BADGE.phone} /></Box>
+            <Box sx={{ display: { xs: 'none', sm: 'flex' } }}><TeamMark team={team} size={BADGE.wide} /></Box>
           </>
         : <Skeleton variant="circular" sx={{ flexShrink: 0, width: { xs: chromePx(BADGE.phone), sm: chromePx(BADGE.wide) }, height: { xs: chromePx(BADGE.phone), sm: chromePx(BADGE.wide) } }} />}
       <Box sx={{ minWidth: 0 }}>

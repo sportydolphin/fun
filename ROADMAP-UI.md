@@ -186,6 +186,13 @@ Where the work is, for whoever picks it up.
   columns down to 1000px, so the frame costs it nothing. At 1440 every one of those pages starts at
   83px, at 1280 at 25px (was about 5). The 720 column pages (Standings, Teams, the league page, a
   player page) still start at 263 at 1440: they move onto the frame as each is migrated.
+- **Club marks, bare** (Nov 5; on #195's branch). Every WPBL club mark now prints alone in the
+  club's color (`TeamMark` in `src/wpbl/ui.tsx`, one-color masks in `src/wpbl/logos/*-mark.webp`),
+  with no disc or ring, everywhere `TeamBadge` drew one: `TeamBadge` routes to it, and on a club's
+  own block the mark takes the block's ink. Dark mode uses the secondary (5.2 to 9.5:1), light the
+  `wpblField` fill (3.2 to 8.2:1). New York is cropped to the tower and ball, San Francisco to the
+  bell without its letters, and Boston's hawk is an outline plus its own linework so it reads as
+  line art beside the bell (the owner turned down a filled silhouette). MLB keeps its badges.
 - **Proposed for after Home (waiting on the owner):** the player page next, before the Stats
   leaders board (readers open it most, and it still draws the rounded portrait and a club band);
   and the jersey as the one club recipe, since Home no longer draws a `wpblField` block.

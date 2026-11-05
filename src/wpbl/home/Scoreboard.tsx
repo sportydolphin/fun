@@ -6,7 +6,7 @@ import { Box, Typography } from '@mui/material'
 import { wpblAccent, wpblAccentFg, formatGameTime, relativeDayShort } from '../constants'
 import { useWpblGameLink } from '../LinkContext'
 import { HIDE_ON_PHONE, VISUALLY_HIDDEN } from '../PageHeading'
-import { TeamBadge, CARD_BORDER, CARD_FILL, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, DISPLAY_FONT, ICON_SIZE } from '../ui'
+import { TeamMark, CARD_BORDER, CARD_FILL, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, DISPLAY_FONT, ICON_SIZE } from '../ui'
 import { postseasonSlots, type PostseasonScheduleRow, type PostseasonSlot } from '../derive/bracket'
 import { seriesTileLine, type SeriesContext } from '../derive/series'
 import type { WpblTeam, WpblGame } from '../types'
@@ -55,7 +55,7 @@ function GameChip({ game, teams, series, onOpen, fill }: {
       {final && (
         <Box sx={{ width: '0.4375rem', flexShrink: 0, mx: -0.45, textAlign: 'center', fontSize: ICON_SIZE.sm, lineHeight: 1, color: wpblAccent(t?.id, isDark) }}>{won ? '▸' : ''}</Box>
       )}
-      {t && <TeamBadge team={t} size={20} />}
+      {t && <TeamMark team={t} size={20} />}
       <Typography sx={{
         flex: 1, fontSize: TYPE_SCALE.body, fontWeight: won ? 800 : 600,
         color: won ? 'text.primary' : final ? 'text.secondary' : 'text.primary',
@@ -144,7 +144,7 @@ function PostseasonChip({ row, onOpenMatchup }: {
 
   const slot = (p: PostseasonSlot, i: number) => (
     <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-      {p.team ? <TeamBadge team={p.team} size={20} /> : (
+      {p.team ? <TeamMark team={p.team} size={20} /> : (
         // The empty seat, sized exactly like a badge so a slot filling in mid-week does not
         // shift the row under it.
         <Box aria-hidden sx={{
