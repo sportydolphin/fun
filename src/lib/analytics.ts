@@ -136,6 +136,10 @@ export const EVENTS = {
   // page view (WpblPage), so SHOWN never fires from /wpbl/watch and stays a pure card denominator.
   WPBL_WATCH_SHOWN:       'wpbl_watch_shown',       // the Watch card drew, props {count, from}
   WPBL_WATCH_OPEN:        'wpbl_watch_open',        // used the Watch card, props {from, action: 'page' | 'play'}
+  // Home's Latest list. Its own pair for the same reason as Watch's: the article, recap and watch
+  // events fire from every surface and cannot say whether the list earned its place.
+  WPBL_LATEST_SHOWN:      'wpbl_latest_shown',      // Home's Latest list drew, props {count, from}
+  WPBL_LATEST_OPEN:       'wpbl_latest_open',       // opened a row of it, props {kind}
 
   // A team page opened, from anywhere. `wpbl_seeding_team` and `wpbl_bracket_team` were the
   // only team opens counted, which measured two cards rather than the surface: the Teams grid,

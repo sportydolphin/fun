@@ -36,7 +36,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'WPBL Home',
-        full:  'The season’s champion leads WPBL Home with a photo of the title celebration over the club’s name, beside the road to the title and the final’s games. The four clubs sit under the page title in their own colors. Player Spotlight sits beside the leaders; Reading, Watch, the gallery, the fan award winners and the star sign card follow under smaller headings. The Discord invite is a plain row, and Submit photos sits by the gallery’s heading.',
+        full:  'The season’s champion leads WPBL Home with a photo of the title celebration over the club’s name, beside the road to the title and the final’s games. The four clubs sit under the page title as a standings line. Under the lead, a Latest list of the newest videos, posts and recaps, with dates, beside Player Spotlight and the leaders; Reading, Watch, the gallery, the fan award winners and the star sign card follow under smaller headings. The Discord invite is a plain row, and Submit photos sits by the gallery’s heading.',
       },
       {
         short: 'Clubs',

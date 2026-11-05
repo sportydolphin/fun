@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Skeleton, Typography, useMediaQuery, useTheme } from '@mui/material'
-import type { Theme } from '@mui/material'
+import { Box, Skeleton, Typography, useTheme } from '@mui/material'
 import type { WpblGame, WpblPlayer, WpblTeam, WpblBattingLine, WpblPitchingLine } from '../types'
 import { fetchWpblPlayerLines, fetchWpblPlayerSeasons } from '../api'
 import type { WpblPlayerSeasonsRead } from '../api/players'
@@ -323,9 +322,10 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
   const onFaceReady = useCallback(() => setFaceFor(playerId), [playerId])
   const faceReady = !!player && faceFor === player.id
   // The photo's size is a number, not a breakpoint object, so the width is asked.
+  // 104 from lg as below it (Nov 4, 2026): Spotlight is a third of Home's news row there, beside
+  // Latest and the leaders, and at 120 the club line ("New York Heights · RHP · #29") was cut.
   const phone = usePhoneLayout()
-  const lgUp = useMediaQuery((t: Theme) => t.breakpoints.up('lg'))
-  const face = phone ? 96 : lgUp ? 120 : 104
+  const face = phone ? 96 : 104
 
   const teamId = player?.team_id ?? null
   const team = teamId ? teams.get(teamId) : undefined
@@ -383,8 +383,15 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0, mt: 0.25 }}>
               {team && <TeamBadge team={team} size={18} />}
               <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', minWidth: 0, flex: player ? undefined : 1 }}>
+                {/* From lg Spotlight is a third of the news row, and "San Francisco Firebells · RHP ·
+                    #29" ran past it: there the club is its name alone, after the badge that already
+                    says the city. */}
                 {player
-                  ? [team ? wpblFullName(team) : null, position, number].filter(Boolean).join(' · ')
+                  ? <>
+                      {team && <Box component="span" sx={{ display: { lg: 'none' } }}>{wpblFullName(team)}</Box>}
+                      {team && <Box component="span" sx={{ display: { xs: 'none', lg: 'inline' } }}>{team.name}</Box>}
+                      {(team ? [''] : []).concat([position, number].filter((v): v is string => !!v)).join(' · ')}
+                    </>
                   : <Skeleton width="70%" />}
               </Typography>
             </Box>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { SECTION_COLUMN_GAP, MinorSections } from '../../ui/card'
+import { SECTION_COLUMN_GAP, MinorSections, FlushSections } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import {
   fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblTrackedGameIds, computeStandings, countsInStandings,
@@ -36,7 +36,7 @@ import { useWpblSeason } from '../SeasonContext'
 import { offseasonByCalendar, nextOpeningDay, rememberNextOpeningDay } from '../offseasonCalendar'
 import { regularSeasonOver } from '../season'
 import { localIsoDate } from '../derive/homePlayers'
-import { HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, homeWideSx } from './shared'
+import { HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, NEWS_ROW_SX, homeWideSx } from './shared'
 import { ClubRail } from './ClubRail'
 import { type MatchupPreviewArg, Scoreboard } from './Scoreboard'
 import { NextGameCard } from './NextGameCard'
@@ -44,6 +44,7 @@ import { gameYear, devChampionPick, ChampionBanner, useChampionFinal } from './C
 import { useNewTrackingBatch, NewTrackingBanner } from './TrackingBanner'
 import { DiscordCard } from './DiscordCard'
 import { LatestReadingCard, ReadingHomeCard } from './ReadingCards'
+import { LatestCard } from './LatestCard'
 import { LeagueCard } from './LeagueCard'
 import { ComparePreviewCard } from './ComparePreviewCard'
 import { CardSkeleton, WATCH_CARD_SKELETON_H } from './Skeletons'
@@ -491,8 +492,11 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           readers open most). Below the lead, in pairs (see the note on them below). None of them costs a box-score read: they
           select from the roster the page already holds, the stored season rows and the award tally,
           and Player Spotlight reads its one player's lines. */}
+      {/* Print columns (FlushSections): each section's text flush with its rule. The offseason Home
+          only, since the in-season cards still bleed a band to the old card edge (NextGameCard's
+          `mx: -2`) and are rebuilt in Home step 1. */}
       {seasonDone && (
-        <>
+        <FlushSections>
           <Box sx={{ mt: 3 }}>
             <NextGameCard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} players={players} onOpenPlayer={onOpenPlayer}
               devForceRecap={devForceRecap} devChampion={devChampTeam} lead />
@@ -500,10 +504,14 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           {/* The award results, for the days they stay up after the final (AWARDS_RESULTS_UNTIL). */}
           {seasonCards.length > 0 && <Box sx={{ mt: 3 }}>{seasonCards}</Box>}
 
-          {/* Pairs of about one height, by subject: Spotlight beside the leaders, Reading beside Watch,
-              the gallery across, then the award winners beside the star sign card (players either way).
-              Spotlight was a column of labeled facts as tall as two sections until Nov 3, 2026. */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
+          {/* THE NEWS ROW, three columns from lg: Latest, Spotlight, the leaders (Nov 4, 2026,
+              docs/design-references/ANALYSIS.md). Latest is first in the DOM and on screen at every
+              width, as a newspaper's "What's News" column runs down the left of its front page: on a
+              phone it is straight under the lead, and between md and lg it spans the row above the
+              pair, its rows in two columns. Spotlight and the leaders were a pair of about one height
+              until then, and still are below lg. */}
+          <Box sx={{ ...NEWS_ROW_SX, columnGap: SECTION_COLUMN_GAP }}>
+            <LatestCard />
             <PlayerSpotlightCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} avoid={spotlightAvoid} />
             <SeasonLeadersCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer}
               rosterFailed={!loadingLeaders && players.length === 0} />
@@ -531,7 +539,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
               <StarSignCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} />
             </Box>
           </MinorSections>
-        </>
+        </FlushSections>
       )}
 
       {!seasonDone && bracketLeads && bracketCard}
@@ -631,7 +639,9 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           is a later job. */}
       {!discordDismissed && (
         <Box sx={{ display: { xs: 'block', md: 'none' }, mt: seasonDone ? 3 : 1.5 }}>
-          <DiscordCard onDismiss={() => setDiscordDismissed(true)} />
+          {seasonDone
+            ? <FlushSections><DiscordCard onDismiss={() => setDiscordDismissed(true)} /></FlushSections>
+            : <DiscordCard onDismiss={() => setDiscordDismissed(true)} />}
         </Box>
       )}
 

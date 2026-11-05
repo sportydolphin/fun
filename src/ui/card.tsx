@@ -166,8 +166,11 @@ export const HEADLINE_FONT = '"Newsreader", Georgia, "Times New Roman", serif'
 /** A headline: the lead's club name. A touch of negative tracking, since a serif at 56px spaces
  *  itself for text sizes. */
 export const HEADLINE_SX = { fontFamily: HEADLINE_FONT, fontWeight: 600, letterSpacing: '-0.01em' } as const
-/** A title: an article's or a video's, in the headline face at text size. */
-export const TITLE_SX = { fontFamily: HEADLINE_FONT, fontWeight: 600 } as const
+/** A title: an article's or a video's, in the headline face at text size. `pretty` wrapping, as a
+ *  copy desk breaks a headline: without it "The Home Run Race You've Never Heard Of" left "Of"
+ *  alone on its second line (Nov 4, 2026). Not `balance`, which shortens every line and leaves a
+ *  narrow headline in a wide column. A browser without it wraps as before. */
+export const TITLE_SX = { fontFamily: HEADLINE_FONT, fontWeight: 600, textWrap: 'pretty' } as const
 /** A title's size: a serif reads about a tenth smaller than Inter at the same size, so a title takes
  *  this step up to sit level with the Inter beside it. */
 export const titleSize = (size: string) => `calc(${size} * 1.12)`
@@ -215,6 +218,26 @@ export const MINOR_HEADING_SX = {
   textTransform: 'uppercase', letterSpacing: '0.04em',
 } as const
 export const MINOR_RULE = { borderTop: '1px solid', borderTopColor: 'divider' } as const
+
+/** PRINT COLUMNS (Nov 4, 2026, the margins pass): a page that wraps its sections in `FlushSections`
+ *  sets their text flush with the rule above it, and the heading close under that rule, the way a
+ *  newspaper sets a column. Until then a section kept the old card's 16px of side padding with no
+ *  card around it, so its rule ran 16px past its text on both sides, the text of two columns stood
+ *  80px apart across a 40px gutter at 1440, and on a phone every section sat 16px inside the masthead.
+ *  Opt-in, page by page, as each page is migrated: a body that bleeds a row to the old card edge
+ *  with `mx: -2` would run into the gutter here. */
+const FlushSectionContext = React.createContext(false)
+export function FlushSections({ children }: { children: React.ReactNode }) {
+  return <FlushSectionContext.Provider value>{children}</FlushSectionContext.Provider>
+}
+/** The padding a section's header and body take: the card's old inset, or flush (`FlushSections`).
+ *  For a loading copy that has to sit where the loaded section's heading will. */
+export function useSectionInset() {
+  const flush = React.useContext(FlushSectionContext)
+  return flush
+    ? { px: 0, headerPt: 0.75, headerPb: 1, bodyPb: 1 }
+    : { px: 2, headerPt: 1.25, headerPb: 1, bodyPb: 1.5 }
+}
 /** The rule and heading size of the tier a section is drawn in, for a loading copy that has to take
  *  the loaded section's exact box (a 2px rule and a `display` heading are a few px taller). */
 export function useSectionTier() {
@@ -319,6 +342,9 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
 }) {
   const collapsible = !!onToggleCollapse
   const minor = React.useContext(MinorSectionContext)
+  // Flush only for a section: a framed card keeps its padding inside its frame.
+  const flush = React.useContext(FlushSectionContext) && !framed
+  const inset = { px: flush ? 0 : frameless ? { xs: 0, sm: 2 } : 2, pt: flush ? 0.75 : 1.25, pb: flush ? 1 : 1.5 }
   const headingSx = minor ? MINOR_HEADING_SX : SECTION_HEADING_SX
   const heading = titleLink ? (
     <Box component="span" {...titleLink} sx={{
@@ -344,7 +370,9 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
   return (
     <Box id={id} sx={[section ? {
       scrollMarginTop: id ? 'calc(var(--app-header-h, 0px) + 8px)' : undefined,
-      overflow: 'hidden',
+      // Visible when flush: with no padding left, a row's hover pad (`mx: -0.75`) and a focus ring
+      // reach a few px past the text into the gutter, and clipping them cut the ring in half.
+      overflow: flush ? 'visible' : 'hidden',
       // The one rule, on top only: the heavy SECTION_RULE, or the minor tier's `divider` hairline.
       ...(headingHidden ? null : minor ? MINOR_RULE : SECTION_RULE),
       ...(fill ? { display: 'flex', flexDirection: 'column' } : {}),
@@ -367,7 +395,7 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
         {...pressable(collapsible ? onToggleCollapse : undefined)}
         aria-expanded={collapsible ? !collapsed : undefined}
         sx={headingHidden ? HEADING_HIDDEN_SX : {
-          px: frameless ? { xs: 0, sm: 2 } : 2, pt: 1.25, pb: collapsed ? 1.25 : 1,
+          px: inset.px, pt: inset.pt, pb: collapsed ? inset.pt : 1,
           display: 'flex', alignItems: 'center', gap: 1,
           ...(collapsible ? { cursor: 'pointer', userSelect: 'none', ...TAPPABLE } : {}),
         }}
@@ -406,7 +434,7 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
       </Box>
       {!collapsed && (
         <Box sx={{
-          px: frameless ? { xs: 0, sm: 2 } : 2, pb: 1.5,
+          px: inset.px, pb: inset.pb,
           // `flexShrink: 0` on every child so a filled body lays out exactly like the block
           // body it replaces: flex items shrink below their content height by default, which
           // would squash a leader board or a score row the moment the card ran short.

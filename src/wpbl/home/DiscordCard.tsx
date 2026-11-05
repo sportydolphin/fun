@@ -1,6 +1,6 @@
 import { INK, MARK } from '../../ui/color'
 import { useEffect } from 'react'
-import { MINOR_HEADING_SX, MINOR_RULE } from '../../ui/card'
+import { MINOR_HEADING_SX, MINOR_RULE, useSectionInset } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { chromePx, hoverOnly, pressable, TYPE_SCALE, FOCUS_RING } from '../ui'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
@@ -21,6 +21,7 @@ const DISCORD_INVITE = 'https://discord.gg/hTaZKFzk6H'
 const DISCORD_BLURPLE = MARK.discord
 
 export function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
+  const inset = useSectionInset()
   // Dismissal is remembered (localStorage) and owned by the parent, which only mounts this card
   // when it hasn't been dismissed, so once closed it stays gone and leaves no empty slot behind.
   // Count one impression per mount, i.e. only for users who actually see the card.
@@ -42,7 +43,7 @@ export function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
       // rule above like every section, the heading in the section face, and Discord's color only in
       // its own small mark.
       sx={{
-        display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.25,
+        display: 'flex', alignItems: 'center', gap: 1.5, px: inset.px, py: 1.25,
         textDecoration: 'none', cursor: 'pointer', color: 'inherit',
         // The minor tier (Nov 4, 2026): an invite is not news, and under the heavy rule in display
         // capitals it outranked the gallery and Reading above it.
