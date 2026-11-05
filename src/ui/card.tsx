@@ -146,7 +146,7 @@ export const RADIUS = { none: 0, sm: 1, md: 2, lg: 3, pill: 999 } as const
 /** A photograph's or a video still's corners: square, as a printed page runs a picture (Nov 4, 2026,
  *  ROADMAP-UI.md's audit). Home had square club blocks and a square champion photo beside rounded
  *  gallery, Watch and Reading thumbnails, three shapes for one kind of thing. Radius stays for
- *  controls, sheets and the one card drawn as an object (Player Spotlight's trading card). */
+ *  controls and sheets. */
 export const MEDIA_RADIUS = RADIUS.none
 
 /** The display face, for scores, the one big number on a card, and page titles. Never a player's
@@ -186,16 +186,21 @@ export const SECTION_RULE = { borderTop: '2px solid', borderTopColor: 'text.prim
  *  same caps heading under the same heavy rule, so below the lead nothing outranked anything and the
  *  page read as nine equal widgets. A page marks the sections that are browsing rather than news
  *  (the gallery, Reading, Watch, the award results) by wrapping them in `MinorSections`: a hairline
- *  and a smaller heading in title case. Context rather than a prop, because those cards are built in
+ *  and a smaller heading. Context rather than a prop, because those cards are built in
  *  five files that should not each learn where Home puts them. */
 const MinorSectionContext = React.createContext(false)
 export function MinorSections({ children }: { children: React.ReactNode }) {
   return <MinorSectionContext.Provider value>{children}</MinorSectionContext.Provider>
 }
-const MINOR_HEADING_SX = {
+/** The minor tier's heading: the same capitals as the news tier, a size smaller. In title case
+ *  (until Nov 4, 2026) the two tiers read as two typefaces rather than two ranks, since the case
+ *  changed as well as the size; now size and the rule's weight alone say which is which. Exported
+ *  for a hand-drawn header in the minor tier (the Discord row). */
+export const MINOR_HEADING_SX = {
   fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.heading, fontWeight: 700, lineHeight: 1.2,
+  textTransform: 'uppercase', letterSpacing: '0.04em',
 } as const
-const MINOR_RULE = { borderTop: '1px solid', borderTopColor: 'divider' } as const
+export const MINOR_RULE = { borderTop: '1px solid', borderTopColor: 'divider' } as const
 /** The rule and heading size of the tier a section is drawn in, for a loading copy that has to take
  *  the loaded section's exact box (a 2px rule and a `display` heading are a few px taller). */
 export function useSectionTier() {

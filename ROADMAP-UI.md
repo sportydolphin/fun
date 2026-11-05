@@ -56,11 +56,17 @@ Where the work is, for whoever picks it up.
   yet: it merges to `main` in one piece when the redesign is complete, as v1.208.0. That entry in
   `src/changelog.ts` is written as of Nov 4; set its date, and its version if `main` has taken
   1.208.0 by then, at the merge.
-- **Uncommitted on top of it: the seventh pass** (Nov 4, from the third audit): the lead rebuilt as
-  a front page (`ChampionLead`, and `ChampionLeadSkeleton` reserving it), Spotlight as a section
-  instead of a trading card, square `print` faces across Home, and Reading's row thumbnails square.
-  Typecheck, lint, the tests and `npm run sweep -- --routes /wpbl --shift --ellipsis` (plus
-  `--text large`) are clean on it.
+- **The seventh and eighth passes are committed on top of it** (Nov 4, from the third audit). Seventh
+  (`636ecfc0`): the lead rebuilt as a front page (`ChampionLead`, and `ChampionLeadSkeleton`
+  reserving it), Spotlight as a section instead of a trading card, square `print` faces across Home,
+  Reading's row thumbnails square. Eighth: the masthead's clubs in the order they finished, the star
+  sign card in calendar order (signSeason still picks who fits the cap), both heading tiers in
+  capitals (the minor one a size down under a hairline, the Discord row in it), gray labels at
+  medium weight, the award bars dropped, and the rail arrows square with a stroked chevron (a white
+  disc with a triangle read as a play button). Typecheck, lint, the tests and the sweep on `/wpbl`,
+  `/wpbl/watch` and `/wpbl/photos` (`--shift --ellipsis`, and `--text large` on Home) are clean.
+  Left from the audit on purpose: the leaders' 44px phone rows (that is the tap target), the
+  ringed gear (the dev menu, never in production), Watch's two-line clip titles.
 - **The last commit of work is the sixth pass on Home** (`ff012f33`, from the Nov 4 visual audit):
   the two section tiers, square pictures, the masthead as jerseys, the champion lead as a news
   photo, the gallery's lead photo dropped, the page reordered, the footer's wordmark, and the
@@ -75,6 +81,19 @@ Where the work is, for whoever picks it up.
   held on boards without one, and the ranked list's header ("WAR ↓ ▾") opens the sort sheet. It
   touches `stats/ControlBar.tsx` and `stats/RankedList.tsx`, which `redesign` also changed: expect
   a small conflict, whichever lands second.
+- **Proposed changes to the plan (Nov 4, waiting on the owner):**
+  - **Ship Home now, not the whole branch in March.** The branch is 75 commits on one page and
+    already conflicts with `stats-phone-bar`; the tokens, faces and section tiers it carries are
+    site-wide and lint-enforced, so other pages already wear them. Merging Home as v1.208.0 and
+    each later page as its own pull request keeps conflicts small and lets real readers see it.
+  - **Components before pages.** Home's vocabulary lives in Home's files: the lead
+    (`ChampionLead`), agate lines (the road, the stat strip), print headshots, the two tiers. Lift
+    the reusable ones into `src/ui/` (phase 3's `Section`, `StatLine`, a lead story) before the next
+    page, or each page re-derives them.
+  - **The player page next**, before the Stats leaders board: it is what readers open most, and it
+    still draws the rounded `square` portrait and a club band beside Home's square `print` faces.
+  - **The club recipe: the jersey.** Home now has no `wpblField` block left; Teams, a club page and
+    the league page are the only users.
 - **Next, in order:** decide the club recipe (below), then the Stats tab's Leaders board (the last
   open audit item), the scoreboard and Game Center for the 2027 feed, then the rest of WPBL page by
   page, then MLB. Re-run `npm run sweep -- --ellipsis` on each page migrated, and re-record the

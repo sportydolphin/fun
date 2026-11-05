@@ -21,7 +21,7 @@ import { CopyLinkButton as CopyLinkButtonBase } from '../ui/CopyLinkButton'
 import { nameStages, nameAtStage, useLineNameFit } from '../ui/names'
 // The card, its surfaces and the type scale moved to src/ui/card.tsx on Oct 9, 2026, when MLB's
 // glossary became the first MLB page drawn with them. Re-exported so the section's imports held.
-import { TYPE_SCALE, CARD_BORDER, MEDIA_RADIUS, edge } from '../ui/card'
+import { TYPE_SCALE, CARD_BORDER, MEDIA_RADIUS, RADIUS, edge } from '../ui/card'
 import { ClubBadge } from '../ui/ClubBadge'
 export { TYPE_SCALE, DISPLAY_FONT, MICRO_TEXT, CARD_BORDER, CARD_FILL, CARD_INK, INNER_BORDER, SectionCard } from '../ui/card'
 export { hoverOnly, TAPPABLE, tappableIf, pressable, linkPress, FOCUS_RING } from '../ui/interaction'
@@ -483,7 +483,9 @@ export function RailArrow({ dir, show, onClick, label }: {
       tabIndex={-1}
       sx={{
         position: 'absolute', top: '34%', [dir]: -4, transform: 'translateY(-50%)', zIndex: 2,
-        width: 34, height: 34, borderRadius: '50%',
+        // A square control with a stroked chevron (Nov 4, 2026): a white disc with a filled triangle
+        // is the play button, and on the gallery, under Watch's play buttons, it read as a video.
+        width: 34, height: 34, borderRadius: RADIUS.sm,
         display: 'none', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
         bgcolor: 'background.raised', border: '1px solid', borderColor: CARD_BORDER,
         boxShadow: SHADOW.lift, color: 'text.primary',
@@ -501,10 +503,9 @@ export function RailArrow({ dir, show, onClick, label }: {
       }}
     >
       <Box sx={{
-        width: 0, height: 0, borderStyle: 'solid',
-        ...(dir === 'left'
-          ? { borderWidth: '6px 8px 6px 0', borderColor: 'transparent currentColor transparent transparent', mr: '2px' }
-          : { borderWidth: '6px 0 6px 8px', borderColor: 'transparent transparent transparent currentColor', ml: '2px' }),
+        width: 9, height: 9, borderTop: '2px solid', borderRight: '2px solid', borderColor: 'currentColor',
+        transform: dir === 'left' ? 'rotate(-135deg)' : 'rotate(45deg)',
+        ...(dir === 'left' ? { ml: '3px' } : { mr: '3px' }),
       }} />
     </Box>
   )

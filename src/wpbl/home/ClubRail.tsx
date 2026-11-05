@@ -96,8 +96,12 @@ export function ClubRail({ teams, standings, championId, onOpenTeam }: {
   championId: string | null
   onOpenTeam: (t: WpblTeam) => void
 }) {
-  const ordered = [...teams].sort((a, b) => a.sort_order - b.sort_order)
   const rowOf = new Map(standings.map((r, i) => [r.team.id, { row: r, place: i + 1 }]))
+  // IN THE ORDER THEY FINISHED once there is a table (Nov 4, 2026): four blocks in a row each
+  // carrying "4th", "Champions", "2nd", "1st" read as a ranking that was out of order. The
+  // league's own order only until the standings land, or for a club the table does not have.
+  const placeOf = (t: WpblTeam) => rowOf.get(t.id)?.place ?? Number.MAX_SAFE_INTEGER
+  const ordered = [...teams].sort((a, b) => placeOf(a) - placeOf(b) || a.sort_order - b.sort_order)
   return (
     // Flush, no gap: four blocks side by side read as one band of the league's colors.
     <Box component="nav" aria-label="Clubs" sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
