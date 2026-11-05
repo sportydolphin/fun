@@ -1,6 +1,7 @@
 import { Box, Skeleton, Typography } from '@mui/material'
 import { chromePx, CARD_BORDER, CARD_FILL, TYPE_SCALE } from '../ui'
-import { SECTION_COLUMN_GAP, useSectionTier, useSectionInset, MinorSections, FlushSections } from '../../ui/card'
+import { SECTION_COLUMN_GAP, SECTION_HEADING_SX, useSectionTier, useSectionInset, MinorSections, FlushSections } from '../../ui/card'
+import { HIDE_ON_PHONE } from '../PageHeading'
 // The dismissal key and the dev-only undo. Their own module so the dev settings menu can reach
 // the undo without dragging this file into the main bundle. See discordInvite.ts.
 import { DISCORD_DISMISS_KEY } from '../discordInvite'
@@ -24,6 +25,30 @@ import { ChampionLeadSkeleton } from './ChampionCards'
 
 
 const SKELETON_GAME_CHIPS = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+
+/** The score strip's row of tiles, built from the same box GameChip is (8.5rem wide, p:1, a 20px
+ *  badge per row) rather than given a height, so it tracks the desktop chrome scale and the reader's
+ *  text size the way the real one does. */
+function StripChipsSkeleton() {
+  return (
+    <Box sx={{ display: 'flex', gap: 1, pb: 0.5, overflow: 'hidden' }}>
+      {SKELETON_GAME_CHIPS.map(i => (
+        <Box key={i} sx={{
+          flexShrink: 0, width: '8.5rem', p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
+          borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL,
+        }}>
+          <Skeleton variant="text" width="70%" sx={{ fontSize: TYPE_SCALE.micro }} />
+          {[0, 1].map(r => (
+            <Box key={r} sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+              <Skeleton variant="circular" width={chromePx(20)} height={chromePx(20)} sx={{ flexShrink: 0 }} />
+              <Skeleton variant="text" sx={{ flex: 1, fontSize: TYPE_SCALE.body }} />
+            </Box>
+          ))}
+        </Box>
+      ))}
+    </Box>
+  )
+}
 
 /**
  * A card that is not here yet: the SectionCard chrome with its title bar, over a reserved
@@ -103,22 +128,7 @@ export function WpblHomeSkeleton() {
           real one does. */}
       <Box sx={{ mb: SECTION_GAP }}>
         <Skeleton variant="text" width="6.5rem" sx={{ fontSize: TYPE_SCALE.display, lineHeight: 1.2, mb: 1 }} />
-        <Box sx={{ display: 'flex', gap: 1, pb: 0.5, overflow: 'hidden' }}>
-          {SKELETON_GAME_CHIPS.map(i => (
-            <Box key={i} sx={{
-              flexShrink: 0, width: '8.5rem', p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
-              borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL,
-            }}>
-              <Skeleton variant="text" width="70%" sx={{ fontSize: TYPE_SCALE.micro }} />
-              {[0, 1].map(r => (
-                <Box key={r} sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                  <Skeleton variant="circular" width={chromePx(20)} height={chromePx(20)} sx={{ flexShrink: 0 }} />
-                  <Skeleton variant="text" sx={{ flex: 1, fontSize: TYPE_SCALE.body }} />
-                </Box>
-              ))}
-            </Box>
-          ))}
-        </Box>
+        <StripChipsSkeleton />
       </Box>
 
       {/* The two card columns. Same grid, same 1fr 1fr, same single 1.5 gap and the same
@@ -200,6 +210,14 @@ function OffseasonHomeSkeleton() {
               it does not. */}
           <Typography sx={HOME_TITLE_SX}><Skeleton sx={{ width: { xs: '16rem', md: '22rem' }, maxWidth: '100%' }} /></Typography>
         <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><ClubRailSkeleton /></Box>
+      </Box>
+
+      {/* The offseason strip (the champion's tile and the final's games), in the loaded strip's own
+          box: its real heading, hidden on a phone as the loaded one is, and its margins. The header
+          above draws no margin on a phone, so the strip brings the loaded header's 12px itself. */}
+      <Box sx={{ mt: { xs: 1.5, sm: 0 }, mb: { xs: 1.5, sm: SECTION_GAP } }}>
+        <Typography sx={{ ...SECTION_HEADING_SX, mb: 1, ...HIDE_ON_PHONE }}>Championship</Typography>
+        <StripChipsSkeleton />
       </Box>
 
       {/* The lead: the champion's photo and its text column, in the loaded lead's own grid. */}

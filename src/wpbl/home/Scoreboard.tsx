@@ -8,10 +8,16 @@ import { useWpblGameLink } from '../LinkContext'
 import { HIDE_ON_PHONE, VISUALLY_HIDDEN } from '../PageHeading'
 import { TeamBadge, CARD_BORDER, CARD_FILL, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, DISPLAY_FONT, ICON_SIZE } from '../ui'
 import { postseasonSlots, type PostseasonScheduleRow, type PostseasonSlot } from '../derive/bracket'
+import { seriesTileLine, type SeriesContext } from '../derive/series'
 import type { WpblTeam, WpblGame } from '../types'
-import { SECTION_GAP } from './shared'
+import { SECTION_GAP, type trackedLinkTo } from './shared'
 
-function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, WpblTeam>; onOpen: () => void }) {
+function GameChip({ game, teams, series, onOpen }: {
+  game: WpblGame; teams: Map<string, WpblTeam>
+  /** This game's series, when it is a postseason game: a final then says where the series stands. */
+  series?: SeriesContext
+  onOpen: () => void
+}) {
   const gameLink = useWpblGameLink()
   const away = teams.get(game.away_team_id)
   const home = teams.get(game.home_team_id)
@@ -29,10 +35,15 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
   // upcoming game, because each puts its own headline first, and because if the line ever has to
   // ellipsize it should lose the date rather than the result. A live game is by definition today,
   // so a date there would be noise.
-  const statusText = final
-    ? `Final${game.innings && game.innings !== 7 ? `/${game.innings}` : ''} · ${dateText}`
+  const finalText = `Final${game.innings && game.innings !== 7 ? `/${game.innings}` : ''} · ${dateText}`
+  // A postseason final says where its series stands instead ("G3 · SF leads 2–1"): five finals
+  // between the same two clubs read as five scores and no story without it. The final and its date
+  // stay on the tile as its tooltip.
+  const seriesText = final && series && home && away ? seriesTileLine(series, home.abbr, away.abbr) : null
+  const statusText = seriesText ?? (final
+    ? finalText
     : live ? 'Live'
-    : timeText ? `${dateText} · ${timeText}` : dateText
+    : timeText ? `${dateText} · ${timeText}` : dateText)
 
   const isDark = useDark()
   const row = (t: WpblTeam | undefined, score: number | null, won: boolean) => (
@@ -59,7 +70,7 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
   )
 
   return (
-    <Box {...gameLink(game, onOpen)} sx={{
+    <Box {...gameLink(game, onOpen)} title={seriesText ? finalText : undefined} sx={{
       // IN rem BECAUSE THE WIDTH IS DECIDED BY A STRING. Every chip has to be the same width or the
       // strip loses its rhythm, so this cannot be `max-content`, and a fixed pixel box holding text the
       // reader can enlarge clips its eyebrow under the Large text setting (see AccessibilityContext).
@@ -190,16 +201,83 @@ function PostseasonChip({ row, onOpenMatchup }: {
   )
 }
 
-/** One tile on the strip: a game the feed has, or a postseason date it does not have yet. */
+/** The decided final, for the offseason strip: who won it, against whom, and where its recap is. */
+export interface StripFinal {
+  champion: WpblTeam
+  runnerUp: WpblTeam
+  champWins: number
+  rivalWins: number
+  year: number | null
+  /** The title series' games that were played, in order. */
+  games: WpblGame[]
+  recap: ReturnType<typeof trackedLinkTo>
+}
+
+/**
+ * The first tile of the offseason strip: the final's result, as the series tile a broadcast puts
+ * before the games ("2026 Champions", LA 3, SF 2). The same box as a GameChip, so the strip keeps
+ * its rhythm, and a link to the season recap, which is where a reader of a finished final goes.
+ */
+function ChampionTile({ final }: { final: StripFinal }) {
+  const row = (t: WpblTeam, wins: number, won: boolean) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+      <TeamBadge team={t} size={20} />
+      <Typography sx={{ flex: 1, fontSize: TYPE_SCALE.body, fontWeight: won ? 800 : 600, color: won ? 'text.primary' : 'text.secondary' }}>
+        {t.abbr}
+      </Typography>
+      <Typography sx={{
+        fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.heading, fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+        color: won ? 'text.primary' : 'text.disabled',
+      }}>{wins}</Typography>
+    </Box>
+  )
+  return (
+    <Box {...final.recap}
+      aria-label={`${final.year != null ? `${final.year} ` : ''}season recap: ${final.champion.abbr} won the championship ${final.champWins}–${final.rivalWins}`}
+      sx={{
+        flexShrink: 0, width: '8.5rem', cursor: 'pointer', textDecoration: 'none', color: 'inherit',
+        borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL,
+        p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
+        ...TAPPABLE, ...FOCUS_RING, transition: 'border-color 0.15s', ...hoverOnly({ borderColor: 'text.disabled' }),
+      }}>
+      {/* Gold, as the lead's kicker and the masthead's "Champions" are: the one word on Home that
+          color is spent on outside a link. */}
+      <Typography sx={{
+        fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'var(--wpbl-medal-1)',
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>
+        {final.year != null ? `${final.year} Champions` : 'Champions'}
+      </Typography>
+      {row(final.champion, final.champWins, true)}
+      {row(final.runnerUp, final.rivalWins, false)}
+    </Box>
+  )
+}
+
+/** One tile on the strip: a game the feed has, a postseason date it does not have yet, or the
+ *  decided final's result. */
 type StripItem =
   | { kind: 'game'; id: string; game: WpblGame }
   | { kind: 'post'; id: string; row: PostseasonScheduleRow }
+  | { kind: 'champion'; id: string }
 
 /** Exported for `scoreboardStrip.test.tsx`, which pins which fixtures reach the strip. Same
  *  reason `NextPostseasonCard` is: what these two choose to show is a judgment about what is
  *  true, and neither failure is visible from a render that happens to look fine. */
-export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup }: {
+export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup, series, final }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>
+  /** Each postseason game's series, keyed by game id (`seriesContexts` over the season on screen),
+   *  so a postseason final says where its series stands. Absent, finals say "Final". */
+  series?: Map<string, SeriesContext>
+  /**
+   * THE OFFSEASON STRIP (Nov 5, 2026, ROADMAP-UI.md, Home step 1). Set once the final is decided:
+   * the strip becomes the champion's tile and the final's games, in order, in place of the window
+   * round now. Until then Home dropped the strip in the offseason, since a window of the last
+   * finals sat frozen until spring, and the lead carried the five games as a row of its own. A
+   * strip of the final is what MLB.com and Savant run all winter: the games are still the first
+   * line of the page, and never "No games" or next season's games before they are public.
+   */
+  final?: StripFinal | null
   /** The published postseason, for the days past the end of the feed's schedule. Date-sorted,
    *  and already retiring itself a row at a time as the feed publishes the real games. */
   postseason: PostseasonScheduleRow[]
@@ -243,6 +321,13 @@ export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup
    * the one time a strip of results is the whole story.
    */
   const { strip, anchorIndex } = useMemo(() => {
+    if (final) {
+      return {
+        strip: [{ kind: 'champion', id: 'champion' } as StripItem,
+          ...final.games.map((g): StripItem => ({ kind: 'game', id: g.id, game: g }))],
+        anchorIndex: 0,
+      }
+    }
     const finals = games.filter(g => g.status === 'final')
     const rest: StripItem[] = games.filter(g => g.status !== 'final').slice(0, UPCOMING)
       .map(g => ({ kind: 'game', id: g.id, game: g }))
@@ -275,7 +360,7 @@ export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup
       strip: [...head, ...rest],
       anchorIndex: rest.length > 0 ? head.length : Math.max(0, head.length - 1),
     }
-  }, [games, postseason])
+  }, [games, postseason, final])
 
   // Where the strip is scrolled to. Nothing is drawn from this: it gates the two desktop
   // hover-scroll zones, neither of which should be offered at the end it would scroll towards.
@@ -413,7 +498,7 @@ export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup
       <Typography component="h2" sx={{
         ...SECTION_HEADING_SX, mb: 1,
         ...HIDE_ON_PHONE,
-      }}>Scoreboard</Typography>
+      }}>{final ? 'Championship' : 'Scoreboard'}</Typography>
       <Box sx={{ position: 'relative' }}>
         {/* Not a control: the key, wheel and pointer listeners only notice the reader taking over the
             scroll, so the strip stops scrolling itself. The chips inside are the links. */}
@@ -436,8 +521,10 @@ export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup
           msOverflowStyle: 'none', scrollbarWidth: 'none',
         }} data-swipe-ignore="true">
           {strip.map(item => item.kind === 'game'
-            ? <GameChip key={item.id} game={item.game} teams={teams} onOpen={() => onOpenGame(item.game)} />
-            : <PostseasonChip key={item.id} row={item.row} onOpenMatchup={onOpenMatchup} />)}
+            ? <GameChip key={item.id} game={item.game} teams={teams} series={series?.get(item.game.id)} onOpen={() => onOpenGame(item.game)} />
+            : item.kind === 'post'
+              ? <PostseasonChip key={item.id} row={item.row} onOpenMatchup={onOpenMatchup} />
+              : final && <ChampionTile key={item.id} final={final} />)}
         </Box>
         {/* NO EDGE FADES. A leading fade paints over the anchor chip's date, since the chip sits
             flush with the page's column; a trailing fade alone leaves one edge fading and the

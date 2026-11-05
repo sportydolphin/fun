@@ -291,3 +291,25 @@ export function seriesContexts(
   }
   return out
 }
+
+/**
+ * The record after a decided game, short enough for a score tile's one-line eyebrow:
+ * "G3 · SF leads 2–1", "G2 · Tied 1–1", "G5 · LA wins 3–2". For a FINAL only: an upcoming game's
+ * context counts the games before it, and its tile keeps its date and time, which is what a reader
+ * of an upcoming game needs. Null when no game of the series is decided.
+ *
+ * WHY THE TILE CARRIES THE SERIES AND NOT THE DATE. A postseason score read alone says who won a
+ * game; the unit a fan follows is the series, and a strip of five finals between the same two
+ * clubs is unreadable without it. The tile is 8.5rem and its eyebrow may not wrap, so it is the
+ * abbreviation and the singular verb ("SF leads"), not `line`'s "Firebells lead". The longest this
+ * builds is "G5 · BOS wins 3–2", shorter than the "Final · Yesterday" the tile was sized for.
+ */
+export function seriesTileLine(ctx: SeriesContext, homeAbbr: string, awayAbbr: string): string | null {
+  if (ctx.homeWins === 0 && ctx.awayWins === 0) return null
+  const game = `G${ctx.gameNumber}`
+  if (ctx.homeWins === ctx.awayWins) return `${game} · Tied ${ctx.homeWins}–${ctx.awayWins}`
+  const [lead, leadWins, trailWins] = ctx.homeWins > ctx.awayWins
+    ? [homeAbbr, ctx.homeWins, ctx.awayWins]
+    : [awayAbbr, ctx.awayWins, ctx.homeWins]
+  return `${game} · ${lead} ${ctx.clinched ? 'wins' : 'leads'} ${leadWins}–${trailWins}`
+}

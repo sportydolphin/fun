@@ -308,7 +308,7 @@ function RecapButton({ children }: { children: React.ReactNode }) {
  *  A game still to come has no winner to name, so it shows its date in a neutral bar. That is the
  *  in-progress body; a phone's column is about 60px, so the date and time wrap rather than hide. The
  *  full line is each column's accessible name. Shared by the in-progress and the champion bodies. */
-function SeriesGameLog({ log, teams, onOpenGame, championId, bars = true }: {
+function SeriesGameLog({ log, teams, onOpenGame, championId }: {
   log: WpblGame[]; teams: Map<string, WpblTeam>; onOpenGame: (g: WpblGame) => void
   /** A decided final: the champion's wins get the strong bar and the rival's the quiet one, in ink
    *  rather than club color (Nov 4, 2026). The lead already sits under the club strip and the
@@ -316,8 +316,6 @@ function SeriesGameLog({ log, teams, onOpenGame, championId, bars = true }: {
    *  The series still reads at a glance as won, won, lost, lost, won. Absent while the final is on,
    *  where neither club is the subject and each keeps its own color. */
   championId?: string
-  /** False on Home's lead, which rules the row once above it and lets the ink alone say who won. */
-  bars?: boolean
 }) {
   const isDark = useDark()
   const gameLink = useWpblGameLink()
@@ -340,7 +338,7 @@ function SeriesGameLog({ log, teams, onOpenGame, championId, bars = true }: {
           <Box key={g.id} {...gameLink(g, onOpenGame)} aria-label={label} sx={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.15, minWidth: 0,
             pt: 0.6, pb: 0.5, textAlign: 'center',
-            ...(bars ? { borderTop: '3px solid', borderTopColor: ink } : null),
+            borderTop: '3px solid', borderTopColor: ink,
             textDecoration: 'none', color: 'inherit', cursor: 'pointer',
             transition: 'background 0.12s',
             ...hoverOnly({ bgcolor: 'action.hover' }), ...FOCUS_RING,
@@ -457,29 +455,27 @@ const LEAD_LABEL_SX = { fontSize: TYPE_SCALE.meta, color: 'text.secondary', line
 /**
  * THE OFFSEASON HOME'S LEAD, AS A FRONT PAGE RUNS ONE (Nov 4, 2026, ROADMAP-UI.md's third audit): the
  * title photo large on the left with its credit under it, and beside it the kicker, the club's name
- * as the headline, the road to the title as three lines of agate, the final's five games, and the
- * Star. On the page's own ground in both themes, with no box around either half.
+ * as the headline, the road to the title as three lines of agate, and the Star. The final's games
+ * are the score strip above it since Nov 5. On the page's own ground in both themes, with no box
+ * around either half.
  *
  * WHY NOT THE BAR AND THE PANEL IT REPLACES: the photo was a 16:5 strip over a black bar, beside a
  * gray filled panel of another height with a blank stretch above the Star. Two boxes that did not
  * line up, the only filled card left on the page, a headline at 40px, and a light theme that was
- * still dark across the top. The five bars over the games had no key, so they said nothing; the
- * champion's wins are now its bold ink and the rival's the secondary ink.
+ * still dark across the top.
  *
  * THE PHOTO IS A FIXED 3:2 AT EVERY WIDTH, so the skeleton can reserve it and its read landing late
  * moves nothing. It holds the club's mark on its primary until the photo has loaded, or for good when
  * there is no photo (a dev-simulated champion, or a final nobody photographed).
  */
-function ChampionLead({ champion, teams, played, path, star, starPlayer, starLoading, recap, onOpenGame, onOpenPlayer, year }: {
+function ChampionLead({ champion, played, path, star, starPlayer, starLoading, recap, onOpenPlayer, year }: {
   champion: WpblTeam
-  teams: Map<string, WpblTeam>
   played: WpblGame[]
   path: TitlePathStep[]
   star: SeriesStar | null | undefined
   starPlayer: WpblPlayer | null
   starLoading: boolean
   recap: RecapLinkProps
-  onOpenGame: (g: WpblGame) => void
   onOpenPlayer: (p: WpblPlayer) => void
   year?: number | null
 }) {
@@ -553,12 +549,8 @@ function ChampionLead({ champion, teams, played, path, star, starPlayer, starLoa
           </RecapLink>
         )}
 
-        {/* The final's games, each its own box score, under the road's last line, which names it. */}
-        {played.length > 0 && (
-          <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 0.25 }}>
-            <SeriesGameLog log={played} teams={teams} onOpenGame={onOpenGame} championId={champion.id} bars={false} />
-          </Box>
-        )}
+        {/* NO ROW OF THE FINAL'S GAMES (Nov 5, 2026): the score strip above the lead carries them
+            all winter, with the champion's tile first (Scoreboard's `final`). */}
 
         {/* THE STAR OF THE FINAL, a real link to the player page, since a player page is what readers
             open most. Its read lands after first paint, so the row holds its place in the same shape
@@ -606,10 +598,10 @@ function ChampionLead({ champion, teams, played, path, star, starPlayer, starLoa
 }
 
 /** The lead's text column at its loaded height, for the skeleton: the kicker, a headline of one
- *  line on a phone and two in the narrower desktop column, the road, the games, the Star and the
- *  recap link. Measured at 375, 760, 960, 1280 and 1440 in Newsreader (Nov 4, 2026). In rem, since
- *  all of it is type. */
-const LEAD_TEXT_H = { xs: '19.57rem', md: '22.76rem', lg: '24.26rem' } as const
+ *  line on a phone and two in the narrower desktop column, the road, the Star and the recap link.
+ *  Measured at 375, 760, 960, 1280 and 1440 in Newsreader (Nov 5, 2026, after the final's games
+ *  moved to the score strip). In rem, since all of it is type. */
+const LEAD_TEXT_H = { xs: '17.05rem', md: '20.25rem', lg: '21.75rem' } as const
 
 /** Home's lead before the season's read lands, in the loaded lead's own wrapper and grid: the photo
  *  is the same 3:2 box at the same column width, so it reserves itself exactly at every width, and
@@ -672,9 +664,9 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
   const starPlayer = star ? players.find(p => p.id === star.playerId) ?? null : null
   const starLoading = star === undefined || (!!star && !starPlayer && players.length === 0)
   if (lead) {
-    return <ChampionLead champion={champion} teams={teams} played={played} path={path}
+    return <ChampionLead champion={champion} played={played} path={path}
       star={star} starPlayer={starPlayer} starLoading={starLoading} recap={recap}
-      onOpenGame={onOpenGame} onOpenPlayer={onOpenPlayer} year={year} />
+      onOpenPlayer={onOpenPlayer} year={year} />
   }
   const logo = wpblLogo(champion.id)
   const stageSx = {

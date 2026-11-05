@@ -34,11 +34,14 @@ import type { WpblRunValuePlay } from '../types'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame, WpblBattingLine, WpblPitchingLine } from '../types'
 import { useWpblSeason } from '../SeasonContext'
 import { offseasonByCalendar, nextOpeningDay, rememberNextOpeningDay } from '../offseasonCalendar'
-import { regularSeasonOver } from '../season'
+import { regularSeasonOver, latestSeason } from '../season'
+import { seriesContexts } from '../derive/series'
+import { WPBL_SEASON_PAGE, WPBL_RECAP_YEARS, wpblSeasonPath } from '../routes'
+import { EVENTS } from '../../lib/analytics'
 import { localIsoDate } from '../derive/homePlayers'
-import { HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, NEWS_ROW_SX, homeWideSx } from './shared'
+import { HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, NEWS_ROW_SX, homeWideSx, trackedLinkTo } from './shared'
 import { ClubRail } from './ClubRail'
-import { type MatchupPreviewArg, Scoreboard } from './Scoreboard'
+import { type MatchupPreviewArg, type StripFinal, Scoreboard } from './Scoreboard'
 import { NextGameCard } from './NextGameCard'
 import { gameYear, devChampionPick, ChampionBanner, useChampionFinal } from './ChampionCards'
 import { useNewTrackingBatch, NewTrackingBanner } from './TrackingBanner'
@@ -244,13 +247,43 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // The Star of the final, so Player Spotlight never headlines the player the season card's foot
   // already names. The same derivation the card makes (the same games and dev champion), so the two
   // agree; undefined while its read is out, which Spotlight waits on rather than swap players.
-  const { star: finalStar } = useChampionFinal(teamMap, seasonGames, devForceRecap ? devChampTeam : null)
+  const { star: finalStar, finalLog } = useChampionFinal(teamMap, seasonGames, devForceRecap ? devChampTeam : null)
   const spotlightAvoid = finalStar === undefined ? undefined : finalStar?.playerId ?? null
 
   // Whether the final is decided, the switch every offseason change on this page keys on. A
   // dev-simulated champion counts, so the offseason preview shows the offseason Home.
   const realChampion = useMemo(() => bracket ? championResult(bracket) : null, [bracket])
   const seasonDone = !!realChampion || !!devChampTeam
+
+  // Each postseason game's series, so the strip's postseason finals say where the series stands.
+  // Over the season on screen: a pairing is two club ids, and the same two clubs meet in more than
+  // one year's postseason.
+  const seriesById = useMemo(() => seriesContexts(seasonGames, teamMap), [seasonGames, teamMap])
+
+  // The offseason strip: the champion's tile and the final's games (see Scoreboard's `final`). A
+  // dev-simulated champion that did not play in the real final has no series to draw, so the strip
+  // stays off for it rather than crediting it with another club's games.
+  const stripFinal = useMemo<StripFinal | null>(() => {
+    const champion = devChampTeam ?? realChampion?.champion ?? null
+    if (!seasonDone || !champion) return null
+    const played = finalLog.filter(g => g.status === 'final' && g.home_score != null && g.away_score != null)
+    const first = played[0]
+    if (!first || (first.home_team_id !== champion.id && first.away_team_id !== champion.id)) return null
+    const runnerUp = teamMap.get(first.home_team_id === champion.id ? first.away_team_id : first.home_team_id)
+    if (!runnerUp) return null
+    let champWins = 0, rivalWins = 0
+    for (const g of played) {
+      if (g.home_score === g.away_score) continue
+      const winner = g.home_score! > g.away_score! ? g.home_team_id : g.away_team_id
+      if (winner === champion.id) champWins++
+      else rivalWins++
+    }
+    const year = latestSeason(seasonGames)
+    const recap = trackedLinkTo(
+      year != null && WPBL_RECAP_YEARS.includes(year) ? wpblSeasonPath(year) : WPBL_SEASON_PAGE,
+      EVENTS.WPBL_SEASON_CARD_OPEN, { from: 'home_strip' })
+    return { champion, runnerUp, champWins, rivalWins, year, games: played, recap }
+  }, [seasonDone, devChampTeam, realChampion, finalLog, teamMap, seasonGames])
   // Next year's opener, for the skeleton's guess on a later load (see offseasonByCalendar).
   const opener = nextOpeningDay(schedule, current)
   useEffect(() => { rememberNextOpeningDay(opener) }, [opener])
@@ -476,12 +509,13 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
       {/* Scoreboard. The postseason rows come from the calendar the league published, and each
           one retires itself the day the feed carries a real game on its date.
 
-          Gone once there is a champion, for the reason Last game goes: nothing is left to be
-          played, so the strip would sit frozen on the final's scores until next season, and the
-          season card's game log already carries those five games. Keyed on the champion like the
-          rest of the offseason Home, so a dev-simulated champion previews it too. */}
-      {!seasonDone && (
-        <Scoreboard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} onOpenMatchup={setMatchup} />
+          ONE STRIP FOR EVERY PHASE (Nov 5, 2026, Home step 1): the window round now in season, the
+          series state on each postseason final, and once there is a champion, the champion's tile
+          and the final's games, which is why the lead no longer carries a row of them. Keyed on the
+          champion like the rest of the offseason Home, so a dev-simulated champion previews it. */}
+      {(!seasonDone || stripFinal) && (
+        <Scoreboard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} onOpenMatchup={setMatchup}
+          series={seriesById} final={seasonDone ? stripFinal : null} />
       )}
 
       {/* THE OFFSEASON HOME LEADS WITH THE CHAMPION, full width (Nov 3, 2026, ROADMAP-UI.md's audit).

@@ -36,7 +36,11 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'WPBL Home',
-        full:  'The season’s champion leads WPBL Home with a photo of the title celebration over the club’s name, beside the road to the title and the final’s games. The four clubs sit under the page title as a standings line. Under the lead, a Latest list of the newest videos, posts and recaps, with dates, beside Player Spotlight and the leaders; Reading, Watch, the gallery, the fan award winners and the star sign card follow under smaller headings. The Discord invite is a plain row, and Submit photos sits by the gallery’s heading.',
+        full:  'The season’s champion leads WPBL Home with a photo of the title celebration over the club’s name, beside the road to the title. Above it, the scores strip shows the champion and the final’s games all winter. The four clubs sit under the page title as a standings line. Under the lead, a Latest list of the newest videos, posts and recaps, with dates, beside Player Spotlight and the leaders; Reading, Watch, the gallery, the fan award winners and the star sign card follow under smaller headings. The Discord invite is a plain row, and Submit photos sits by the gallery’s heading.',
+      },
+      {
+        short: 'Scores strip',
+        full:  'A postseason final on WPBL Home’s scores strip shows where its series stands, such as “G3 · LA leads 2–1”, in place of its date.',
       },
       {
         short: 'Clubs',

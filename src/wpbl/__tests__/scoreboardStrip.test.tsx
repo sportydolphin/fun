@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { Scoreboard } from '../home/Scoreboard'
+import { Scoreboard, type StripFinal } from '../home/Scoreboard'
+import { seriesContexts } from '../derive/series'
 import type { PostseasonScheduleRow, PostseasonSlot } from '../derive/bracket'
 import type { WpblGame, WpblTeam } from '../types'
 
@@ -86,5 +87,35 @@ describe('the postseason on the scoreboard strip', () => {
     const games = [final('g1', '2026-09-11')]
     draw([row({ ifNecessary: true })], games)
     expect(screen.getByText(/Semi G3\* ·/)).toBeTruthy()
+  })
+})
+
+// One strip for every phase (Nov 5, 2026, Home step 1). Until then the offseason Home dropped the
+// strip and the lead carried the final's games as a row of its own.
+describe('the strip once the final is decided', () => {
+  const champ = (id: string, date: string, home: number, away: number): WpblGame => ({
+    id, game_date: date, status: 'final', game_type: 'postseason', counts_in_standings: false,
+    home_team_id: 'LA', away_team_id: 'SF', home_score: home, away_score: away,
+  } as WpblGame)
+  const games = [champ('c1', '2026-09-16', 7, 6), champ('c2', '2026-09-17', 2, 3), champ('c3', '2026-09-19', 4, 1)]
+  const stripFinal: StripFinal = {
+    champion: LA, runnerUp: SF, champWins: 2, rivalWins: 1, year: 2026, games,
+    recap: { component: 'a', href: '/wpbl/season/2026', onClick: vi.fn() },
+  }
+
+  it('leads with the champion and then runs the final in order, not the window round now', () => {
+    render(<Scoreboard games={[final('later', '2026-09-30'), ...games]} teams={TEAMS} postseason={[row()]}
+      onOpenGame={vi.fn()} final={stripFinal} series={seriesContexts(games, TEAMS)} />)
+    expect(screen.getByText('2026 Champions')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Championship' })).toBeTruthy()
+    expect(screen.getByText('G1 · LA leads 1–0')).toBeTruthy()
+    expect(screen.getByText('G2 · Tied 1–1')).toBeTruthy()
+    // The published postseason and any other final stay off it.
+    expect(screen.queryByText(/Semi G3/)).toBeNull()
+  })
+
+  it('opens the season recap from the champion tile', () => {
+    render(<Scoreboard games={games} teams={TEAMS} postseason={[]} onOpenGame={vi.fn()} final={stripFinal} />)
+    expect(screen.getByRole('link', { name: /season recap/ }).getAttribute('href')).toBe('/wpbl/season/2026')
   })
 })
