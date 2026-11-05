@@ -167,8 +167,7 @@ export interface SignBirthday {
  * a date good enough to place a sign is not always good enough to print, so those players are
  * listed without one, after the dated ones.
  */
-export function signSeason(players: WpblPlayer[], today: string): { sign: StarSign; players: SignBirthday[] } {
-  const sign = sunSign(today)
+export function signSeason(players: WpblPlayer[], today: string, sign: StarSign = sunSign(today)): { sign: StarSign; players: SignBirthday[] } {
   const base = dayNumber(today)
   const year = Number(today.slice(0, 4))
   const born = players
@@ -188,6 +187,19 @@ export function signSeason(players: WpblPlayer[], today: string): { sign: StarSi
     || (group(a) === 1 ? (b.offset ?? 0) - (a.offset ?? 0) : (a.offset ?? 0) - (b.offset ?? 0))
     || a.player.name.localeCompare(b.player.name))
   return { sign, players: born }
+}
+
+/**
+ * The sign after the one whose season it is, with its dated birthdays in the order they come. It
+ * fills the star sign card's slots past the current sign's last player: signs run from 5 players to
+ * 15 and the card holds its height for the most, so a small sign left half the card blank (Nov 4,
+ * 2026). Offsets stay from today, so nobody in it reads as "Today".
+ */
+export function nextSignSeason(players: WpblPlayer[], today: string): { sign: StarSign; players: SignBirthday[] } {
+  const now = SIGNS.indexOf(sunSign(today))
+  const next = SIGNS[(now + 1) % SIGNS.length]
+  const season = signSeason(players, today, next)
+  return { sign: next, players: season.players.filter(b => b.offset != null && b.offset > 0) }
 }
 
 /**

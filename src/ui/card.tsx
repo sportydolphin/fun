@@ -143,6 +143,12 @@ export const SECTION_COLUMN_GAP = 4
  *  `pill` anything round-ended. Twelve radii from 2px to 20px collapsed onto these Nov 3, 2026. */
 export const RADIUS = { none: 0, sm: 1, md: 2, lg: 3, pill: 999 } as const
 
+/** A photograph's or a video still's corners: square, as a printed page runs a picture (Nov 4, 2026,
+ *  ROADMAP-UI.md's audit). Home had square club blocks and a square champion photo beside rounded
+ *  gallery, Watch and Reading thumbnails, three shapes for one kind of thing. Radius stays for
+ *  controls, sheets and the one card drawn as an object (Player Spotlight's trading card). */
+export const MEDIA_RADIUS = RADIUS.none
+
 /** The display face, for scores, the one big number on a card, and page titles. Never a player's
  *  name: the name fits (names.ts) are measured in Inter. styles.css has the why. */
 export const DISPLAY_FONT = '"Barlow Condensed", Inter, system-ui, -apple-system, "Segoe UI", sans-serif'
@@ -175,6 +181,29 @@ export const SECTION_HEADING_SX = {
 /** The rule on top of a section: 2px in the text color, the column rule of a sports page. A hairline
  *  in `divider` gave every section the same quiet edge, so the page read as one long list. */
 export const SECTION_RULE = { borderTop: '2px solid', borderTopColor: 'text.primary' } as const
+
+/** THE SECOND TIER (Nov 4, 2026, ROADMAP-UI.md's audit): every section on the offseason Home wore the
+ *  same caps heading under the same heavy rule, so below the lead nothing outranked anything and the
+ *  page read as nine equal widgets. A page marks the sections that are browsing rather than news
+ *  (the gallery, Reading, Watch, the award results) by wrapping them in `MinorSections`: a hairline
+ *  and a smaller heading in title case. Context rather than a prop, because those cards are built in
+ *  five files that should not each learn where Home puts them. */
+const MinorSectionContext = React.createContext(false)
+export function MinorSections({ children }: { children: React.ReactNode }) {
+  return <MinorSectionContext.Provider value>{children}</MinorSectionContext.Provider>
+}
+const MINOR_HEADING_SX = {
+  fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.heading, fontWeight: 700, lineHeight: 1.2,
+} as const
+const MINOR_RULE = { borderTop: '1px solid', borderTopColor: 'divider' } as const
+/** The rule and heading size of the tier a section is drawn in, for a loading copy that has to take
+ *  the loaded section's exact box (a 2px rule and a `display` heading are a few px taller). */
+export function useSectionTier() {
+  const minor = React.useContext(MinorSectionContext)
+  return minor
+    ? { rule: MINOR_RULE, headingType: { fontSize: TYPE_SCALE.heading, lineHeight: 1.2 } }
+    : { rule: SECTION_RULE, headingType: { fontSize: TYPE_SCALE.display, lineHeight: 1.2 } }
+}
 
 /** A section heading row's plain facts (a count, a date, a range), in the agate face. */
 const HEADER_ACTION_SX = { '&, & .MuiTypography-root': { fontFamily: AGATE_FONT, fontVariantNumeric: 'tabular-nums' } } as const
@@ -254,9 +283,11 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
   /** The heading as the way to more of the same: the full board, the whole gallery, every result.
    *  Spread onto the title: `linkPress(href, onOpen)` for a page, `pressable(fn)` for a sheet. Since
    *  Nov 3, 2026 a "See all ›" in the action slot is this instead: one accent link on every header
-   *  was the most repeated thing on the site (ROADMAP-UI.md, the audit). No › on the title either,
-   *  since the same day: an accent chevron on every heading was the same tic moved up a line. The action
-   *  slot keeps a verb that goes somewhere ELSE ("Choose a team") and a fact ("147 photos"). */
+   *  was the most repeated thing on the site (ROADMAP-UI.md, the audit). Not an accent chevron on the
+   *  title, which was the same tic moved up a line; a › in the heading's own ink (Nov 4, 2026), since
+   *  with nothing at all a linked heading looked exactly like a plain one, and a phone has no hover to
+   *  find out. The action slot keeps a verb that goes somewhere ELSE ("Choose a team") and a fact
+   *  ("147 photos"). */
   titleLink?: Record<string, unknown>
   /** Keep the `h2` for a screen reader's heading list and draw nothing: for a lead whose own band
    *  already says what it is ("2026 WPBL Champions"), where a section label over it was a second
@@ -268,6 +299,8 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
   children: React.ReactNode
 }) {
   const collapsible = !!onToggleCollapse
+  const minor = React.useContext(MinorSectionContext)
+  const headingSx = minor ? MINOR_HEADING_SX : SECTION_HEADING_SX
   const heading = titleLink ? (
     <Box component="span" {...titleLink} sx={{
       color: 'inherit', textDecoration: 'none', cursor: 'pointer', borderRadius: 1, ...FOCUS_RING,
@@ -277,6 +310,7 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
       ...hoverOnly({ textDecoration: 'underline' }),
     }}>
       {titleCase(title)}
+      <Box component="span" aria-hidden sx={{ ml: '0.3em' }}>›</Box>
     </Box>
   ) : titleCase(title)
   // A SECTION, NOT A CARD, by default (Nov 3, 2026, ROADMAP-UI.md's audit, option B). Every module
@@ -292,8 +326,8 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
     <Box id={id} sx={[section ? {
       scrollMarginTop: id ? 'calc(var(--app-header-h, 0px) + 8px)' : undefined,
       overflow: 'hidden',
-      // The one rule, on top only: `divider`, a row rule, which the Borders rule leaves lighter.
-      ...(headingHidden ? null : SECTION_RULE),
+      // The one rule, on top only: the heavy SECTION_RULE, or the minor tier's `divider` hairline.
+      ...(headingHidden ? null : minor ? MINOR_RULE : SECTION_RULE),
       ...(fill ? { display: 'flex', flexDirection: 'column' } : {}),
     } : {
       // Lands below the pinned toolbar when scrolled to, rather than under it.
@@ -329,11 +363,11 @@ export function SectionCard({ id, title, titleAdornment, subtitle, action, actio
               prop for it would only invite a card to lie. */}
           {titleAdornment != null ? (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-              <Typography component="h2" sx={{ ...SECTION_HEADING_SX, minWidth: 0 }}>{heading}</Typography>
+              <Typography component="h2" sx={{ ...headingSx, minWidth: 0 }}>{heading}</Typography>
               {titleAdornment}
             </Box>
           ) : (
-            <Typography component="h2" sx={SECTION_HEADING_SX}>{heading}</Typography>
+            <Typography component="h2" sx={headingSx}>{heading}</Typography>
           )}
           {subtitle && <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>{subtitle}</Typography>}
         </Box>

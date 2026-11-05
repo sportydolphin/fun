@@ -7,7 +7,7 @@ import { recapThumb, PUBLICATION_NAME as RECAP_PUBLICATION } from './derive/reca
 import type { WpblArticle, WpblGameRecap, WpblTeam } from './types'
 import { track, EVENTS } from '../lib/analytics'
 import { typePx } from '../ui/scale'
-import { TYPE_SCALE } from '../ui/card'
+import { TYPE_SCALE, MEDIA_RADIUS } from '../ui/card'
 
 // The WPBL reading surface: a mirror of two independent writers' coverage of the league,
 // read from the wpbl_articles table (populated by scripts/sync-wpbl-substack.ts). Four
@@ -196,12 +196,19 @@ function MetaLine({ article, sx, ghost }: { article: WpblArticle; sx?: object; g
  *  phone and ~400px in the desktop grid: one size is either blurry on desktop or a large
  *  download for a thumbnail on a phone. Only offered for Substack's CDN, which can resize; any
  *  other URL passes through at whatever size it is (see coverAt). */
+/** How much wider than tall a cover has to be to count as a banner (see Cover). */
+const BANNER_RATIO = 2.5
+
 function Cover({ article, teamById, widths, sizes, lead, badge = 20, fresh, sx }: {
   article: WpblArticle; teamById: Map<string, WpblTeam>
   widths: number[]; sizes: string; lead?: boolean; badge?: number; fresh?: boolean; sx?: object
 }) {
   const url = article.cover_url
   const resizable = !!url && coverAt(url, widths[0]) !== url
+  // A banner (a masthead or a title graphic, 3:1 and wider) is fitted rather than cropped: cropped to
+  // the row's near-square cover it read as "BL Women Baseba" (Nov 4, 2026). Photos run 1.5 to 2:1
+  // and keep filling the box.
+  const [banner, setBanner] = useState(false)
   const teams = article.team_ids.map(id => teamById.get(id)).filter((t): t is WpblTeam => !!t).slice(0, 3)
   return (
     <Box sx={{ position: 'relative', flexShrink: 0, overflow: 'hidden', bgcolor: 'action.hover', ...sx }}>
@@ -214,7 +221,8 @@ function Cover({ article, teamById, widths, sizes, lead, badge = 20, fresh, sx }
           // left queued behind the grid's requests.
           loading={lead ? 'eager' : 'lazy'} decoding="async"
           fetchPriority={lead ? 'high' : undefined}
-          sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+          onLoad={e => setBanner(e.currentTarget.naturalWidth > BANNER_RATIO * e.currentTarget.naturalHeight)}
+          sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: banner ? 'contain' : 'cover' }} />
       )}
       {teams.length > 0 && (
         <Box sx={{ position: 'absolute', left: 6, bottom: 6, display: 'flex', gap: 0.4 }}>
@@ -382,7 +390,7 @@ export function GameStoryCard({ article }: { article: WpblArticle }) {
         '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
       }}
     >
-      <Box sx={{ position: 'relative', width: chromePx(108), flexShrink: 0, aspectRatio: '16 / 9', borderRadius: 2, overflow: 'hidden', bgcolor: 'action.hover' }}>
+      <Box sx={{ position: 'relative', width: chromePx(108), flexShrink: 0, aspectRatio: '16 / 9', borderRadius: MEDIA_RADIUS, overflow: 'hidden', bgcolor: 'action.hover' }}>
         {article.cover_url && (
           <Box component="img" src={coverAt(article.cover_url, 280) ?? undefined} alt="" loading="lazy"
             sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -448,7 +456,7 @@ export function GameRecapLinkCard({ recap }: { recap: WpblGameRecap }) {
     >
       <Box sx={{
         position: 'relative', width: chromePx(108), flexShrink: 0, aspectRatio: '16 / 9',
-        borderRadius: 2, overflow: 'hidden', bgcolor: 'action.hover',
+        borderRadius: MEDIA_RADIUS, overflow: 'hidden', bgcolor: 'action.hover',
       }}>
         {thumb && (
           <Box component="img" src={thumb} alt="" loading="lazy"

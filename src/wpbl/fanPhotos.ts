@@ -24,6 +24,26 @@ export interface FanPhotoWithSubjects extends WpblFanPhoto {
   categoryName?: string | null
 }
 
+/**
+ * The photo that leads Home once there is a champion: one of the club's own team photos, dated
+ * during the final or the day after it, landscape so it fills the lead. The latest date first,
+ * since the clincher's celebration is the picture; the curator's order breaks a tie. Null when none
+ * fits, and the lead draws the club's mark instead: an undated or off-date team photo could be a
+ * preseason group shot, which is not the story.
+ */
+export function championPhoto(teamPhotos: FanPhotoWithSubjects[], finalDates: string[]): FanPhotoWithSubjects | null {
+  if (finalDates.length === 0) return null
+  const sorted = [...finalDates].sort()
+  const last = new Date(`${sorted[sorted.length - 1]}T12:00:00Z`)
+  last.setUTCDate(last.getUTCDate() + 1)
+  const from = sorted[0]
+  const to = last.toISOString().slice(0, 10)
+  const fits = teamPhotos.filter(p => p.taken_on != null && p.taken_on >= from && p.taken_on <= to
+    && (p.width ?? 0) > (p.height ?? 0))
+  // A stable sort keeps the curator's order among photos of one date.
+  return [...fits].sort((a, b) => b.taken_on!.localeCompare(a.taken_on!))[0] ?? null
+}
+
 /** How a tagged club reads in a caption and a filter chip: "Boston Hunters". */
 export function fanPhotoTeamName(team: WpblTeam | undefined): string {
   return team ? `${team.city} ${team.name}` : '—'

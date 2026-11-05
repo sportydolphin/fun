@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { WpblPlayer } from '../types'
-import { awardManagerWinner, awardWinner, playerOfTheDay, spotlightStories, sunSign, signSeason } from '../derive/homePlayers'
+import { awardManagerWinner, awardWinner, playerOfTheDay, spotlightStories, sunSign, signSeason, nextSignSeason } from '../derive/homePlayers'
 
 describe('awardWinner', () => {
   const roster = [playerAt('a'), playerAt('b')]
@@ -139,5 +139,19 @@ describe('sunSign', () => {
   it('dates a January Capricorn as next year when the season starts in December', () => {
     const roster = [player('a', { zodiac_sign: 'Capricorn', birth_date: '2001-01-05' })]
     expect(signSeason(roster, '2026-12-28').players[0]).toMatchObject({ date: '2027-01-05', offset: 8 })
+  })
+
+  it('names the next sign with its dated birthdays in order, counted from today', () => {
+    const roster = [
+      player('a', { name: 'Ada', zodiac_sign: 'Sagittarius', birth_date: '2001-12-02' }),
+      player('b', { name: 'Bea', zodiac_sign: 'Sagittarius', birth_date: '2003-11-25' }),
+      player('c', { name: 'Cy', zodiac_sign: 'Sagittarius', birth_date: '2002-12-01', birth_date_source: 'doc-unsettled' }),
+      player('d', { name: 'Di', zodiac_sign: 'Scorpio', birth_date: '2002-11-04' }),
+    ]
+    const next = nextSignSeason(roster, '2026-11-04')
+    expect(next.sign.name).toBe('Sagittarius')
+    expect(next.players.map(b => [b.player.name, b.offset])).toEqual([['Bea', 21], ['Ada', 28]])
+    // Capricorn wraps the year; the sign after it is Aquarius.
+    expect(nextSignSeason([], '2026-12-28').sign.name).toBe('Aquarius')
   })
 })

@@ -20,13 +20,13 @@ import { WPBL_AWARDS_PATH } from '../routes'
 import { useEraBasis } from '../EraBasisContext'
 import { outsToIp } from '../innings'
 import { displayPosition, displayPositionFromIndex, leadsWithPitching, playedPosition, type PrimaryPosition } from '../positions'
-import { wpblAccent, wpblField, wpblFullName, wpblSurface } from '../constants'
+import { wpblAccent, wpblField, wpblFullName } from '../constants'
 import { UNSTYLED_LINK, linkTo } from '../../nav'
 import { linkPress } from '../../ui/interaction'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
 import { requestSectionScroll } from '../../lib/sectionScroll'
 import { birthDateSettled } from '../derive/discordBirthdays'
-import { awardManagerWinner, awardWinner, localIsoDate, playerOfTheDay, spotlightStories, signSeason, signGlyph, type SignBirthday } from '../derive/homePlayers'
+import { awardManagerWinner, awardWinner, localIsoDate, playerOfTheDay, spotlightStories, signSeason, nextSignSeason, signGlyph, type SignBirthday } from '../derive/homePlayers'
 import { useWpblSeason } from '../SeasonContext'
 import { usePhoneLayout } from '../../ui/ModalShell'
 
@@ -278,7 +278,8 @@ const STORY_SX = { ...AGATE_SX, fontSize: TYPE_SCALE.meta, textTransform: 'upper
  * section like every other, a round face and three lines of prose, and nothing about it said card.
  *
  * AN OBJECT, SO IT HAS A FRAME: the club's accent, which clears 3:1 on the page in both themes
- * (src/CLAUDE.md, "Borders"), so the frame is the club as well as the edge.
+ * (src/CLAUDE.md, "Borders"), so the frame is the club as well as the edge. Not the band's block
+ * color, which is only 2 to 3:1 on the dark page.
  *
  * THE PICK HAS A STORY (spotlightStories): a podium finish in one of the season's headline stats, or
  * a birthday. Until Nov 4 the rotation walked everyone with a box-score line, and the front page led
@@ -354,7 +355,10 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
   const story = !player ? null
     : pick?.reason === 'birthday' ? 'Birthday today'
     : stories?.get(player.id) ?? 'Today'
-  const clubInk = player ? wpblAccent(teamId, isDark) : 'text.secondary'
+  // The band is the club's block in its own ink, as the strip at the top of the page prints a club:
+  // it was a pale wash of the club color, which all but vanished on the light page (Nov 4, 2026).
+  const field = wpblField(player ? teamId : null, isDark)
+  const clubInk = player ? field.ink : 'text.secondary'
 
   return (
     // The heading opens the player's page, the way every section's heading opens more of itself.
@@ -363,13 +367,13 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
     <SectionCard title="Player Spotlight" fill titleLink={player ? link(player) : { 'aria-hidden': true }}>
       <Box {...(player ? link(player) : { 'aria-hidden': true })} sx={{
         ...UNSTYLED_LINK, display: 'flex', flexDirection: 'column', minWidth: 0,
-        border: '2px solid', borderColor: player ? clubInk : CARD_BORDER, borderRadius: RADIUS.lg, overflow: 'hidden',
+        border: '2px solid', borderColor: player ? wpblAccent(teamId, isDark) : CARD_BORDER, borderRadius: RADIUS.lg, overflow: 'hidden',
         ...(player ? { ...TAPPABLE, ...FOCUS_RING } : null),
       }}>
         {/* The band: the club's own surface color, the photo, the story, the name, the numeral. */}
         <Box sx={{
           display: 'flex', alignItems: 'flex-end', gap: 1.5, px: 1.5, pt: 1.5, minWidth: 0, position: 'relative',
-          bgcolor: wpblSurface(teamId, isDark),
+          bgcolor: player ? field.fill : 'action.hover', color: player ? field.ink : 'text.primary',
         }}>
           {/* The skeleton stays over the photo until its face has loaded, and the face fades in
               under it. Swapped straight in, the frame painted as a bare club-colored square for the
@@ -388,11 +392,11 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
               {story ?? <Skeleton width="40%" />}
             </Typography>
             {player
-              ? <FittedName name={player.name} sx={NAME_SX} />
+              ? <FittedName name={player.name} sx={{ ...NAME_SX, color: field.ink }} />
               : <Typography sx={NAME_SX}><Skeleton width="55%" /></Typography>}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0, mt: 0.25 }}>
               {team && <TeamBadge team={team} size={18} />}
-              <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', minWidth: 0, flex: player ? undefined : 1 }}>
+              <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, color: player ? field.ink : 'text.secondary', minWidth: 0, flex: player ? undefined : 1 }}>
                 {player
                   ? [team ? wpblFullName(team) : null, position].filter(Boolean).join(' · ')
                   : <Skeleton width="70%" />}
@@ -472,9 +476,11 @@ const LEAD_FACE = 56
  *  desktop. Structure, so chromePx: it must not grow with the reader's text size. */
 const PLACE_ROW_H = { xs: chromePx(44), md: chromePx(30) }
 
-/** Rank, team tick, name, club, figure: the columns of a box score's leader line. */
+/** Rank, name, club, figure: the columns of a box score's leader line. The club-color tick between
+ *  rank and name went on Nov 4, 2026: the club abbreviation after the name already says it, and five
+ *  colored ticks under the club strip were color doing no work the text was not. */
 const PLACE_GRID_SX = {
-  display: 'grid', gridTemplateColumns: '1.75rem 3px minmax(0, 1fr) auto auto', columnGap: 1, alignItems: 'center',
+  display: 'grid', gridTemplateColumns: '1.75rem minmax(0, 1fr) auto', columnGap: 1, alignItems: 'center',
 } as const
 
 /** "1", or "T2" for a share of second: a newspaper's leaders list marks a tie on the rank. */
@@ -523,8 +529,10 @@ function LeadPlace({ place, team, link }: { place: Place | null; team: WpblTeam 
           {place ? [place.tied ? 'T1' : null, team ? wpblFullName(team) : null].filter(Boolean).join(' · ') : <Skeleton width="45%" />}
         </Typography>
       </Box>
+      {/* One step down on a phone (Nov 4, 2026): at `hero` the figure was the largest thing on the
+          screen there, bigger than the champion's name in the lead above it, beside ranks at `meta`. */}
       <Typography sx={{
-        flexShrink: 0, fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.hero, fontWeight: 700, lineHeight: 1,
+        flexShrink: 0, fontFamily: DISPLAY_FONT, fontSize: { xs: TYPE_SCALE.page, md: TYPE_SCALE.hero }, fontWeight: 700, lineHeight: 1,
         fontVariantNumeric: 'tabular-nums', minWidth: '3ch', textAlign: 'right',
       }}>
         {place?.text ?? ''}
@@ -537,19 +545,23 @@ function LeadPlace({ place, team, link }: { place: Place | null; team: WpblTeam 
     : <Box aria-hidden sx={sx}>{body}</Box>
 }
 
-/** Second place down, as a box score prints a leaders list: one line each, the club's color as a
- *  tick rather than a face, so the leader's face is the only picture on the board. */
-function PlaceLine({ place, team, link, isDark }: { place: Place | null; team: WpblTeam | undefined; link: RowLink | null; isDark: boolean }) {
+/** Second place down, as a box score prints a leaders list: one line each, no face, so the leader's
+ *  face is the only picture on the board. The rank at the value's own size and ink (Nov 4, 2026): in
+ *  gray at `meta` it was the smallest, faintest thing on the line, and the rank is what a list is. */
+function PlaceLine({ place, team, link }: { place: Place | null; team: WpblTeam | undefined; link: RowLink | null }) {
   const cells = (
     <>
-      <Typography sx={{ ...AGATE_SX, fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
+      <Typography sx={{ ...AGATE_SX, fontSize: TYPE_SCALE.body, fontWeight: 700 }}>
         {place ? placeText(place.rank, place.tied) : ''}
       </Typography>
-      <Box aria-hidden sx={{ height: '1em', fontSize: TYPE_SCALE.body, bgcolor: place ? wpblAccent(place.player.team_id, isDark) : 'transparent' }} />
-      {place
-        ? <FittedName name={place.player.name} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.3 }} />
-        : <Skeleton variant="text" width="55%" sx={{ fontSize: TYPE_SCALE.body }} />}
-      <Typography sx={{ ...AGATE_SX, fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{team?.abbr ?? ''}</Typography>
+      {/* The club right after the name, as a box score prints "Whitmore SF": in its own column at the
+          far end it sat 450px from the name it belongs to on a desktop (Nov 4, 2026). */}
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, minWidth: 0 }}>
+        {place
+          ? <FittedName name={place.player.name} sx={{ flex: '0 1 auto', minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.3 }} />
+          : <Skeleton variant="text" width="55%" sx={{ fontSize: TYPE_SCALE.body }} />}
+        <Typography sx={{ flexShrink: 0, ...AGATE_SX, fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{team?.abbr ?? ''}</Typography>
+      </Box>
       <Typography sx={{ ...AGATE_SX, fontSize: TYPE_SCALE.body, minWidth: '3ch', textAlign: 'right' }}>{place?.text ?? ''}</Typography>
     </>
   )
@@ -576,7 +588,6 @@ export function SeasonLeadersCard({ players, teams, games, onOpenPlayer, rosterF
   /** The roster's read has answered with nothing: there is nobody to name, and never will be. */
   rosterFailed?: boolean
 }) {
-  const isDark = useTheme().palette.mode === 'dark'
   const link = useTrackedPlayerLink('leaders', onOpenPlayer)
   const [statKey, setStatKey] = useState(LEADER_STATS[0].key)
   const { season, boards: all, stale } = useSeasonBoards(players, teams, games)
@@ -600,7 +611,7 @@ export function SeasonLeadersCard({ players, teams, games, onOpenPlayer, rosterF
         <Box aria-live="polite">
           <LeadPlace place={placeAt(0)} team={teamOf(placeAt(0))} link={placeAt(0) ? link(placeAt(0)!.player) : null} />
           {[1, 2, 3, 4].map(i => (
-            <PlaceLine key={i} place={placeAt(i)} team={teamOf(placeAt(i))} isDark={isDark}
+            <PlaceLine key={i} place={placeAt(i)} team={teamOf(placeAt(i))}
               link={placeAt(i) ? link(placeAt(i)!.player) : null} />
           ))}
         </Box>
@@ -619,7 +630,6 @@ export function FanAwardWinnersCard({ players, teams, onOpenPlayer, onOpenTeam, 
   /** The roster's read has answered with nothing: there is nobody to name, and never will be. */
   rosterFailed?: boolean
 }) {
-  const isDark = useTheme().palette.mode === 'dark'
   const link = useTrackedPlayerLink('winners', onOpenPlayer)
   const teamLink = useWpblTeamLink()
   const clubAbbr = (id: string | null) => (id ? teams.get(id)?.abbr ?? null : null)
@@ -660,16 +670,16 @@ export function FanAwardWinnersCard({ players, teams, onOpenPlayer, onOpenTeam, 
       titleLink={linkPress(WPBL_AWARDS_PATH, () => { trackCardLink('winners', 'all'); onOpenAwards?.() })}>
       {failed ? <NoDataRows /> : Array.from({ length: SEASON_ROWS }, (_, i) => {
         const r = rows?.[i]
-        if (!r) return <AwardRow key={i} row={null} hidden={!!rows} isDark={isDark} />
+        if (!r) return <AwardRow key={i} row={null} hidden={!!rows} />
         const value = linkPress(WPBL_AWARDS_PATH, openAt(r.id))
         if (r.player) {
-          return <AwardRow key={r.id} isDark={isDark} value={value} link={link(r.player)}
+          return <AwardRow key={r.id} value={value} link={link(r.player)}
             row={{ title: r.title, name: r.player.name, teamId: r.player.team_id, pct: r.pct, club: clubAbbr(r.player.team_id) }} />
         }
         // No player page for a manager: the club's is the page the award is about, as on the sheet.
         const team = teams.get(r.manager.teamId)
         const managerLink = team ? teamLink(team, () => onOpenTeam(team)) : value
-        return <AwardRow key={r.id} isDark={isDark} value={value} link={managerLink as RowLink}
+        return <AwardRow key={r.id} value={value} link={managerLink as RowLink}
           row={{ title: r.title, name: r.manager.name, teamId: r.manager.teamId, pct: r.pct, club: clubAbbr(r.manager.teamId), src: wpblManagerPortraitSet(r.manager.key) }} />
       })}
     </SectionCard>
@@ -689,13 +699,15 @@ const AWARD_FACE = 22
  * ONE STRUCTURE, LOADED OR NOT, so the card is one height before the tally lands: `row` null draws
  * placeholders, and `hidden` keeps an empty slot's height for a ballot with fewer than five.
  */
-function AwardRow({ row, link, value, isDark, hidden }: {
+function AwardRow({ row, link, value, hidden }: {
   row: { title: string; name: string; teamId: string | null; pct: number; club: string | null; src?: WpblPortraitSet | null } | null
-  link?: RowLink; value?: ReturnType<typeof linkPress>; isDark: boolean; hidden?: boolean
+  link?: RowLink; value?: ReturnType<typeof linkPress>; hidden?: boolean
 }) {
   const who = (
     <Box sx={{ flex: 1, minWidth: 0 }}>
-      <Typography noWrap sx={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: TYPE_SCALE.title, textTransform: 'uppercase', letterSpacing: '0.03em', lineHeight: 1.2 }}>
+      {/* A label, not a heading: in display caps the award's name outshouted the section's own
+          heading once the section moved to the quieter tier (Nov 4, 2026). */}
+      <Typography noWrap sx={{ fontWeight: 700, fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>
         {row?.title ?? <Skeleton width="50%" />}
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, mt: 0.25 }}>
@@ -703,7 +715,7 @@ function AwardRow({ row, link, value, isDark, hidden }: {
           ? <PlayerPortrait name={row.name} teamId={row.teamId} size={AWARD_FACE} src={row.src} />
           : <Skeleton variant="circular" sx={{ flexShrink: 0, width: chromePx(AWARD_FACE), height: chromePx(AWARD_FACE) }} />}
         {row
-          ? <FittedName name={row.name} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.3 }} wrapperSx={{ minWidth: 0 }} />
+          ? <FittedName name={row.name} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, lineHeight: 1.3 }} wrapperSx={{ minWidth: 0 }} />
           : <Skeleton variant="text" width="45%" sx={{ fontSize: TYPE_SCALE.body }} />}
         {row?.club && <Typography sx={{ ...AGATE_SX, flexShrink: 0, fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{row.club}</Typography>}
       </Box>
@@ -720,9 +732,11 @@ function AwardRow({ row, link, value, isDark, hidden }: {
             }}>{row.pct}%</Box>
           : <Typography sx={{ ...AGATE_SX, flexShrink: 0, fontSize: TYPE_SCALE.heading, lineHeight: 1.2 }}>{'\u00a0'}</Typography>}
       </Box>
-      {/* The share as a bar, in the winner's club color, on a track the width of the line. */}
+      {/* The share as a bar on a track the width of the line, in ink rather than the winner's club
+          color (Nov 4, 2026): five bars in five club colors were the most colorful block below the
+          lead, and the share is the fact, not the club. */}
       <Box aria-hidden sx={{ mt: 0.75, height: chromePx(3), bgcolor: 'action.hover' }}>
-        <Box sx={{ height: '100%', width: `${row?.pct ?? 0}%`, bgcolor: row ? wpblAccent(row.teamId, isDark) : 'transparent' }} />
+        <Box sx={{ height: '100%', width: `${row?.pct ?? 0}%`, bgcolor: row ? 'text.secondary' : 'transparent' }} />
       </Box>
     </Box>
   )
@@ -775,6 +789,11 @@ export function StarSignCard({ players, teams, games, onOpenPlayer }: {
   const link = useTrackedPlayerLink('sign', onOpenPlayer)
   useShown('sign', born.length > 0)
   const shown = born.slice(0, SIGN_CAP)
+  // The slots the sign leaves empty go to the next sign, behind a tile naming it: one held blank,
+  // they were a hole as tall as three rows on a phone. Only with room for the tile and a player.
+  const next = useMemo(() => nextSignSeason(players, today), [players, today])
+  const nextRoom = SIGN_CAP - shown.length - 1
+  const upNext = nextRoom > 0 && next.players.length > 0 ? next.players.slice(0, nextRoom) : []
   const range = `${shortMonthDay(sign.from)} – ${shortMonthDay(sign.to)}`
   const columns = Object.fromEntries(Object.entries(SIGN_COLUMNS).map(([bp, n]) => [bp, `repeat(${n}, minmax(0, 1fr))`]))
   return (
@@ -788,7 +807,30 @@ export function StarSignCard({ players, teams, games, onOpenPlayer }: {
     }>
       <Box sx={{ display: 'grid', gridTemplateColumns: columns, columnGap: 1.5, rowGap: 0.25 }}>
         {Array.from({ length: SIGN_CAP }, (_, i) => {
-          const b = shown[i]
+          if (upNext.length && i === shown.length) {
+            return (
+              // A DIVIDER, NOT A PLAYER (Nov 4, 2026): a filled tile and the sign's name in the bold
+              // name slot read as one more birthday in the grid. Now an unfilled tile under a rule on
+              // its left, and the label leads ("Next sign") in the quiet type a row's meta uses. Same
+              // box as a player row, so the grid's height does not depend on where it falls.
+              <Box key="next" sx={{ display: 'flex', alignItems: 'center', gap: SIGN_GAP, py: ROW_PY }}>
+                <Box aria-hidden sx={{
+                  flexShrink: 0, width: chromePx(DATE_TILE), height: chromePx(DATE_TILE),
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  borderLeft: '2px solid', borderLeftColor: 'text.secondary',
+                }}>
+                  <Typography sx={{ fontSize: TYPE_SCALE.page, lineHeight: 1 }}>{next.sign.glyph}</Typography>
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary', lineHeight: 1.3 }}>Next: {next.sign.name}</Typography>
+                  <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>
+                    From {shortMonthDay(next.sign.from)}
+                  </Typography>
+                </Box>
+              </Box>
+            )
+          }
+          const b = i < shown.length ? shown[i] : upNext[i - shown.length - 1]
           // Before the roster: the tile and two lines, the loaded row's shape. An empty slot past
           // the sign's last player keeps its height, so the card is one height whichever sign it is.
           if (players.length === 0 || !b) {

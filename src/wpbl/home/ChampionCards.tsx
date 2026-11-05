@@ -2,7 +2,7 @@ import { CHAMPION, INK, SHADOW } from '../../ui/color'
 import { useDark } from '../../ui/useDark'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Box, Typography, Skeleton, alpha } from '@mui/material'
-import { computeStandings, fetchWpblLinesForGames,
+import { computeStandings, fetchWpblLinesForGames, fetchWpblFanPhotoIndex, getCachedWpblFanPhotoIndex,
 } from '../api'
 import { seriesStar, type SeriesStar } from '../derive/seriesStar'
 import { NameText } from '../../ui/NameText'
@@ -18,6 +18,8 @@ import { latestSeason } from '../season'
 import { trackedLinkTo } from './shared'
 import { ordinal } from '../../lib/format'
 import { trophyPalette } from '../../ui/trophy'
+import { AGATE_SX } from '../../ui/card'
+import { championPhoto, type FanPhotoIndex, type FanPhotoWithSubjects } from '../fanPhotos'
 
 /**
  * Next game, when the only games left are ones the league has dated and not yet published.
@@ -301,8 +303,14 @@ function RecapButton({ children }: { children: React.ReactNode }) {
  *  A game still to come has no winner to name, so it shows its date in a neutral bar. That is the
  *  in-progress body; a phone's column is about 60px, so the date and time wrap rather than hide. The
  *  full line is each column's accessible name. Shared by the in-progress and the champion bodies. */
-function SeriesGameLog({ log, teams, onOpenGame }: {
+function SeriesGameLog({ log, teams, onOpenGame, championId }: {
   log: WpblGame[]; teams: Map<string, WpblTeam>; onOpenGame: (g: WpblGame) => void
+  /** A decided final: the champion's wins get the strong bar and the rival's the quiet one, in ink
+   *  rather than club color (Nov 4, 2026). The lead already sits under the club strip and the
+   *  champion's gold, and two more club colors in five bars made it the loudest block on the page.
+   *  The series still reads at a glance as won, won, lost, lost, won. Absent while the final is on,
+   *  where neither club is the subject and each keeps its own color. */
+  championId?: string
 }) {
   const isDark = useDark()
   const gameLink = useWpblGameLink()
@@ -315,6 +323,9 @@ function SeriesGameLog({ log, teams, onOpenGame }: {
         const homeWon = played && g.home_score! > g.away_score!
         const winner = played ? (homeWon ? h : a) : undefined
         const time = formatGameTime(g.game_date, g.start_time)
+        const ink = !winner ? 'outline'
+          : championId ? (winner.id === championId ? 'text.primary' : 'outline')
+          : wpblAccent(winner.id, isDark)
         const label = played
           ? `Game ${i + 1}: ${a ? wpblFullName(a) : 'Away'} ${g.away_score}, ${h ? wpblFullName(h) : 'Home'} ${g.home_score}`
           : `Game ${i + 1}: ${relativeDayShort(g.game_date)}${time ? `, ${time}` : ''}`
@@ -322,7 +333,7 @@ function SeriesGameLog({ log, teams, onOpenGame }: {
           <Box key={g.id} {...gameLink(g, onOpenGame)} aria-label={label} sx={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.15, minWidth: 0,
             pt: 0.6, pb: 0.5, textAlign: 'center',
-            borderTop: '3px solid', borderTopColor: winner ? wpblAccent(winner.id, isDark) : 'outline',
+            borderTop: '3px solid', borderTopColor: ink,
             textDecoration: 'none', color: 'inherit', cursor: 'pointer',
             transition: 'background 0.12s',
             ...hoverOnly({ bgcolor: 'action.hover' }), ...FOCUS_RING,
@@ -332,14 +343,14 @@ function SeriesGameLog({ log, teams, onOpenGame }: {
               color: 'text.secondary', lineHeight: 1.2,
             }}>G{i + 1}</Typography>
             {winner ? (
-              <>
-                <Typography aria-hidden sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, lineHeight: 1.25, color: wpblAccent(winner.id, isDark) }}>
-                  {winner.abbr}
-                </Typography>
-                <Typography aria-hidden sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, lineHeight: 1.25, fontVariantNumeric: 'tabular-nums' }}>
-                  {Math.max(g.home_score!, g.away_score!)}–{Math.min(g.home_score!, g.away_score!)}
-                </Typography>
-              </>
+              // One line, "LA 7–6", as an agate line prints a result: the club and the score on three
+              // stacked lines made five games the busiest block in the lead (Nov 4, 2026).
+              <Typography aria-hidden noWrap sx={{ ...AGATE_SX, fontSize: TYPE_SCALE.meta, lineHeight: 1.25 }}>
+                <Box component="span" sx={championId
+                  ? { fontWeight: 800, color: winner.id === championId ? 'text.primary' : 'text.secondary' }
+                  : { color: wpblAccent(winner.id, isDark) }}>{winner.abbr}</Box>
+                {' '}{Math.max(g.home_score!, g.away_score!)}–{Math.min(g.home_score!, g.away_score!)}
+              </Typography>
             ) : (
               <Typography aria-hidden sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary', lineHeight: 1.25 }}>
                 {relativeDayShort(g.game_date)}{time ? <><br />{time}</> : null}
@@ -410,12 +421,114 @@ function titlePath(champion: WpblTeam, standings: ReturnType<typeof computeStand
   return steps
 }
 
-/** The champion's field, one set of inks in both themes: the field is the club's primary, and all
+/** The champion's field when its block carries white ink, one set of inks in both themes: the field is the club's primary, and all
  *  four primaries are near-black, so a light theme gets the same dark hero rather than a washed-out
  *  translation of it. This is why the card does not use `trophyPalette`, whose field has to change
  *  with the theme because it is gold; the warning there about club color in the field is about
  *  mixing the two, and nothing is mixed here. */
 const HERO_INK = { gold: CHAMPION.gold, name: CHAMPION.name, text: CHAMPION.text } as const
+
+/** The champion's photo for the lead: the index from the session cache when the section warmed it,
+ *  else after its read. Null until then and when nothing fits (championPhoto). */
+function useChampionPhoto(championId: string, finals: WpblGame[]): FanPhotoWithSubjects | null {
+  const [index, setIndex] = useState<FanPhotoIndex | null>(() => getCachedWpblFanPhotoIndex())
+  useEffect(() => {
+    let live = true
+    fetchWpblFanPhotoIndex().then(idx => { if (live) setIndex(idx) }).catch(() => { /* the mark stays */ })
+    return () => { live = false }
+  }, [])
+  const dates = finals.map(g => g.game_date).join(',')
+  return useMemo(
+    () => (index ? championPhoto(index.byTeam.get(championId) ?? [], dates ? dates.split(',') : []) : null),
+    [index, championId, dates],
+  )
+}
+
+/**
+ * THE LEAD AS A NEWS PHOTO (Nov 4, 2026, ROADMAP-UI.md's audit): the title celebration across the
+ * top, and under it a bar in the club's own near-black primary with gold trim carrying the title,
+ * the way a front page runs a picture over its headline. The band before it was one flat block of
+ * color as tall as the column, the biggest thing on the page and the least specific.
+ *
+ * ONE HEIGHT WITH OR WITHOUT THE PHOTO, so its read landing late moves nothing: the picture area is
+ * a fixed height below `md` (not an aspect ratio, which made the lead a different height at every
+ * width and so unreservable by the page skeleton) and fills what the column beside it leaves above. It holds the
+ * club's mark on its primary until the photo has loaded, or for good when there is no photo (a
+ * dev-simulated champion, or a final nobody photographed).
+ */
+function ChampionPhotoLead({ champion, series, runnerUp, recap, year, log }: {
+  champion: WpblTeam
+  series: ChampionResult | null
+  runnerUp: WpblTeam | null
+  recap: RecapLinkProps
+  year?: number | null
+  /** The final's played games, whose dates place the photo. */
+  log: WpblGame[]
+}) {
+  const photo = useChampionPhoto(champion.id, log)
+  const [shown, setShown] = useState<string | null>(null)
+  const loaded = !!photo && shown === photo.id
+  const logo = wpblLogo(champion.id)
+  const field = wpblColor(champion.id)
+  return (
+    <RecapLink recap={recap} sx={{ gap: 0, height: { md: '100%' } }}>
+      <Box sx={{ ...CLUB_BAND, gap: 0, mr: { md: 0 }, flex: { md: 1 }, bgcolor: field }}>
+        <Box sx={{
+          position: 'relative', overflow: 'hidden', bgcolor: field,
+          height: { xs: chromePx(200), md: 'auto' }, flex: { md: 1 }, minHeight: { md: chromePx(150) },
+        }}>
+          {logo && (
+            <Box component="img" src={logo} alt="" aria-hidden sx={{
+              position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+              width: chromePx(120), height: chromePx(120), borderRadius: '50%',
+              objectFit: wpblLogoFill(champion.id) ? 'cover' : 'contain',
+              opacity: loaded ? 0 : 0.3, transition: 'opacity 0.3s',
+            }} />
+          )}
+          {photo && (
+            // Decorative: the link already says where it goes, and the bar under it says who won.
+            <Box component="img" src={photo.full_url} alt="" aria-hidden onLoad={() => setShown(photo.id)} sx={{
+              position: 'absolute', inset: 0, width: '100%', height: '100%',
+              objectFit: 'cover', objectPosition: 'center 28%',
+              opacity: loaded ? 1 : 0, transition: 'opacity 0.3s',
+            }} />
+          )}
+          {photo?.credit && (
+            <Typography sx={{
+              position: 'absolute', right: chromePx(8), bottom: chromePx(8), px: 0.75, py: 0.25,
+              bgcolor: field, color: HERO_INK.text, ...AGATE_SX, fontSize: TYPE_SCALE.micro, lineHeight: 1.3,
+            }}>Photo: {photo.credit}</Typography>
+          )}
+        </Box>
+        <Box sx={{ borderTop: '3px solid', borderTopColor: HERO_INK.gold, px: { xs: 2, md: 3 }, pt: { xs: 1.25, md: 1.5 }, pb: { xs: 1.5, md: 2 } }}>
+          <Typography noWrap sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 900, letterSpacing: typePx(1), textTransform: 'uppercase', color: HERO_INK.gold }}>
+            {year != null ? `${year} WPBL Champions` : 'WPBL Champions'} · {champion.city}
+          </Typography>
+          {/* Every line one line at any width, the recap link beside the name rather than wrapping
+              under the score, so the lead is one height on every phone and the skeleton can hold it. */}
+          <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', columnGap: 1.5 }}>
+            <Typography noWrap sx={{ fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.hero, fontWeight: 900, lineHeight: 1.05, color: HERO_INK.name, minWidth: 0 }}>
+              {champion.name}
+            </Typography>
+            <Typography noWrap sx={{ flexShrink: 0, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: HERO_INK.gold }}>
+              Season recap ›
+            </Typography>
+          </Box>
+          {series && runnerUp && (
+            <Box sx={{ mt: 0.75, display: 'flex', alignItems: 'baseline', columnGap: 0.75, minWidth: 0 }}>
+              <Typography sx={{ fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.page, fontWeight: 900, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: INK.white }}>
+                {series.champWins}–{series.rivalWins}
+              </Typography>
+              <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: HERO_INK.text, minWidth: 0 }}>
+                Final vs. {wpblFullName(runnerUp)}
+              </Typography>
+            </Box>
+          )}
+        </Box>
+      </Box>
+    </RecapLink>
+  )
+}
 
 /** The finished-season body, built so the title reads before anything else does: the club over a
  *  full-bleed field in its own color, the road there, the final game by game, and the Star.
@@ -468,16 +581,23 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
   // final stays in the first screen either way, which keeps a player page one tap from the top, the
   // reason Player Spotlight used to sit up here.
   const leadMd = lead ? { md: 'grid' } : {}
+  // The lead's photo bar carries the final's score, so its road stops at the semifinal rather than
+  // print "3–2" twice in one screen.
+  const shownPath = lead && played.length > 0 ? path.filter(step => !step.title) : path
+  const ink = { band: wpblColor(champion.id), ...HERO_INK, score: INK.white }
   return (
     <Box sx={{
       display: { xs: 'contents', ...leadMd },
       ...(lead ? { gridTemplateColumns: { md: 'minmax(0, 1.15fr) minmax(0, 1fr)' }, columnGap: 3 } : null),
     }}>
-      <RecapLink recap={recap} sx={lead ? { height: { md: '100%' } } : undefined}>
+      {lead ? (
+        <ChampionPhotoLead champion={champion} series={series} runnerUp={runnerUp} recap={recap} year={year} log={played} />
+      ) : (
+      <RecapLink recap={recap} >
         <Box sx={{
           ...CLUB_BAND, position: 'relative', px: 2, pt: 1.75, pb: 1.5,
-          bgcolor: wpblColor(champion.id),
-          borderTop: '2px solid', borderTopColor: HERO_INK.gold,
+          bgcolor: ink.band,
+          borderTop: '2px solid', borderTopColor: ink.gold,
           ...(lead ? { mr: { md: 0 }, flex: { md: 1 }, justifyContent: { md: 'center' }, px: { xs: 2, md: 3 }, py: { md: 3 } } : null),
         }}>
           {logo && (
@@ -494,43 +614,54 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
           <Box sx={{ position: 'relative', minWidth: 0 }}>
             <Typography sx={{
               fontSize: TYPE_SCALE.micro, fontWeight: 900, letterSpacing: typePx(1), textTransform: 'uppercase',
-              color: HERO_INK.gold,
+              color: ink.gold,
             }}>{lead && year != null ? `${year} WPBL Champions` : 'WPBL Champions'}</Typography>
-            <Typography sx={{ mt: 0.75, fontSize: lead ? { xs: TYPE_SCALE.title, md: TYPE_SCALE.display } : TYPE_SCALE.title, fontWeight: 600, lineHeight: 1.2, color: HERO_INK.text }}>
+            <Typography sx={{ mt: 0.75, fontSize: lead ? { xs: TYPE_SCALE.title, md: TYPE_SCALE.display } : TYPE_SCALE.title, fontWeight: 600, lineHeight: 1.2, color: ink.text }}>
               {champion.city}
             </Typography>
             {/* The lead's name wins on size as well as width: `lead`, the one step above `hero`. */}
-            <Typography sx={{ fontFamily: DISPLAY_FONT, fontSize: lead ? { xs: TYPE_SCALE.hero, md: TYPE_SCALE.lead } : TYPE_SCALE.hero, fontWeight: 900, lineHeight: 1.05, color: HERO_INK.name }}>
+            <Typography sx={{ fontFamily: DISPLAY_FONT, fontSize: lead ? { xs: TYPE_SCALE.hero, md: TYPE_SCALE.lead } : TYPE_SCALE.hero, fontWeight: 900, lineHeight: 1.05, color: ink.name }}>
               {champion.name}
             </Typography>
             {series && runnerUp && (
               <Box sx={{ mt: 0.75, display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 0.75 }}>
-                <Typography sx={{ fontFamily: DISPLAY_FONT, fontSize: lead ? { xs: TYPE_SCALE.page, md: TYPE_SCALE.hero } : TYPE_SCALE.page, fontWeight: 900, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: INK.white }}>
+                <Typography sx={{ fontFamily: DISPLAY_FONT, fontSize: lead ? { xs: TYPE_SCALE.page, md: TYPE_SCALE.hero } : TYPE_SCALE.page, fontWeight: 900, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: ink.score }}>
                   {series.champWins}–{series.rivalWins}
                 </Typography>
-                <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: HERO_INK.text }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: ink.text }}>
                   Final vs. {wpblFullName(runnerUp)}
                 </Typography>
               </Box>
             )}
             {/* Where the band goes, said on the band: the heading that carried the link is hidden on the lead. */}
             {lead && (
-              <Typography sx={{ mt: 1.25, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: HERO_INK.gold }}>
+              <Typography sx={{ mt: 1.25, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: ink.gold }}>
                 Season recap ›
               </Typography>
             )}
           </Box>
         </Box>
       </RecapLink>
+      )}
 
-      {/* The road, the games and the Star spread down the band's height on the lead: top-packed, the
-          Star sat alone at the foot under a blank stretch. */}
-      <Box sx={{ display: { xs: 'contents', ...(lead ? { md: 'flex' } : {}) }, flexDirection: 'column', gap: 1.25, minWidth: 0, justifyContent: 'space-between' }}>
+      {/* THE ROAD, THE GAMES AND THE STAR ON A PANEL OF THEIR OWN beside the photo (Nov 4, 2026), the
+          panel as tall as the photo card and run to the section's right edge the way the photo card
+          runs to its left, so the lead is two blocks with one top and one bottom. Loose on the page,
+          its three blocks were spread with `space-between` to reach the photo's height, which left
+          a blank stretch between Semifinal and Final sized by the photo rather than by anything in
+          the column. Now the gaps are fixed and the slack sits above the Star, under a hairline. */}
+      <Box sx={{
+        display: { xs: 'contents', ...(lead ? { md: 'flex' } : {}) }, flexDirection: 'column', gap: 2, minWidth: 0,
+        ...(lead ? {
+          mr: { md: -2 }, px: { md: 3 }, py: { md: 2 },
+          bgcolor: { md: isDark ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.03)' },
+        } : null),
+      }}>
       {/* THREE EQUAL COLUMNS AT ANY COUNT, so a dev champion's missing final leaves a gap on the right
           rather than stretching the season across the card. */}
-      {path.length > 0 && (
-        <RecapLink recap={recap} sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 1 }}>
-          {path.map(step => (
+      {shownPath.length > 0 && (
+        <RecapLink recap={recap} sx={{ display: 'grid', gridTemplateColumns: `repeat(${lead ? Math.max(shownPath.length, 2) : 3}, minmax(0, 1fr))`, gap: 1 }}>
+          {shownPath.map(step => (
             <Box key={step.stage} sx={{ minWidth: 0 }}>
               <Typography sx={stageSx}>{step.stage}</Typography>
               <Typography sx={{
@@ -543,16 +674,29 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
         </RecapLink>
       )}
 
-      {played.length > 0 && <SeriesGameLog log={played} teams={teams} onOpenGame={onOpenGame} />}
+      {played.length > 0 && (lead
+        ? (
+          // On the lead the final is the bar's headline under the photo, so here it is its games, under
+          // the stage's label like the steps above.
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ ...stageSx, mb: 0.5 }}>Final</Typography>
+            <SeriesGameLog log={played} teams={teams} onOpenGame={onOpenGame} championId={champion.id} />
+          </Box>
+        )
+        : <SeriesGameLog log={played} teams={teams} onOpenGame={onOpenGame} championId={champion.id} />)}
 
       {/* THE STAR OF THE FINAL, a real link to the player page, since a player page is what readers
           open most. Its read lands after first paint, so the row holds its place in the same shape
           while it does: type at the loaded lines' own heights and the portrait in chrome units, or
           the row is a few px off and on a desktop moves Player Spotlight beside it. */}
       {(starLoading || starPlayer) && (
-        // On the lead's right column the Star is the last of three spread blocks, ending level with the
-        // band (no auto margin, no bleed under the card); elsewhere it pins to the card's foot.
-        <Box sx={{ ...cardFooterBand(isDark), mt: lead ? { xs: 'auto', md: 0 } : 'auto', mb: lead ? { xs: -2, md: 0 } : -2 }}>
+        // Pinned to the foot either way: on the lead's panel the slack above it is the panel's only
+        // give, so the Star ends level with the photo card beside it.
+        // On the lead, a row under a hairline rather than a gray band: the lead is a section, and a
+        // filled box inside it was the one card left on the page (Nov 4, 2026).
+        <Box sx={lead
+          ? { mt: 'auto', pt: 1.25, borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }
+          : { ...cardFooterBand(isDark), mt: 'auto', mb: -2 }}>
           {starLoading || !star || !starPlayer ? (
             <>
               <Skeleton variant="circular" sx={{ width: chromePx(48), height: chromePx(48), flexShrink: 0 }} />

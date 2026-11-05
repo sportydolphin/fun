@@ -143,8 +143,13 @@ export function ReadingHomeCard({ teamById }: { teamById: Map<string, WpblTeam> 
           padding so a cover lines up with the card's title rather than sitting a step in from it. */}
       <Box sx={{
         display: 'grid', gap: 0, gridTemplateColumns: '1fr', mx: -1,
-        // Doubled &&: each row's own `border: none` is one class too, and this has to outrank it.
-        '&& > * + *': { borderTop: '1px solid', borderColor: 'divider' },
+        // The rule inset by the rows' own bleed, so it starts under the cover and stops at the text's
+        // edge: as a border on the bleeding row it ran 8px past the section on both sides (Nov 4,
+        // 2026). Doubled &&: each row's own `position` is one class too, and this has to outrank it.
+        '&& > * + *': {
+          position: 'relative',
+          '&::after': { content: '""', position: 'absolute', top: 0, left: 8, right: 8, borderTop: '1px solid', borderColor: 'divider', pointerEvents: 'none' },
+        },
       }}>
         {picks.map(a => <ReadingCard key={a.post_id} article={a} teamById={teamById} from="home" rows
           isNew={isNew(String(a.post_id), a.published_at)} onOpen={() => markOpened(String(a.post_id))} />)}

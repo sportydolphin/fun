@@ -142,11 +142,13 @@ const NEUTRAL_SURFACE = { light: '#f1f2f4', dark: '#26282c' }
 // read as generated, and the washes all but vanished on the light page: Nov 4, 2026).
 //
 // Deep fills that sit at 6 to 8:1 against the light page and carry white ink at 6.5:1 or better.
-// On the dark page a deep fill is quieter (2 to 3:1, still plainly a colored block) except Los
-// Angeles, whose black is the page itself: there the Queens' gold is the block, in black ink.
+// On the dark page a deep fill is quieter (2 to 3:1, still plainly a colored block). Los Angeles is
+// gold with black ink in both themes: black is the dark page itself, and a black block on the light
+// page made the Queens a different club from one theme to the other (Nov 4, 2026). The light gold is
+// deeper, to hold 3:1 against the light page; black ink on it is 5.5:1.
 const WPBL_FIELDS: Record<string, { light: { fill: string; ink: string }; dark: { fill: string; ink: string } }> = {
   BOS: { light: { fill: '#1d6b45', ink: '#ffffff' }, dark: { fill: '#1d6b45', ink: '#ffffff' } },
-  LA:  { light: { fill: '#111111', ink: '#e9c46a' }, dark: { fill: '#d9ad3c', ink: '#111111' } },
+  LA:  { light: { fill: '#b08226', ink: '#111111' }, dark: { fill: '#d9ad3c', ink: '#111111' } },
   NY:  { light: { fill: '#1f4f8f', ink: '#ffffff' }, dark: { fill: '#1f4f8f', ink: '#ffffff' } },
   SF:  { light: { fill: '#5d3496', ink: '#ffffff' }, dark: { fill: '#5d3496', ink: '#ffffff' } },
 }
