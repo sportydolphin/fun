@@ -48,12 +48,11 @@ Where the work is, for whoever picks it up.
   yet: it merges to `main` in one piece when the redesign is complete, as v1.208.0. That entry in
   `src/changelog.ts` is written as of Nov 4; set its date, and its version if `main` has taken
   1.208.0 by then, at the merge.
-- **The sixth pass on Home is uncommitted in that worktree** (17 files, from the Nov 4 visual
-  audit): the two section tiers, square pictures, the masthead as jerseys, the champion lead as a
-  news photo, the gallery's lead photo dropped, the page reordered, the footer's wordmark, and the
+- **The last commit of work is the sixth pass on Home** (`ff012f33`, from the Nov 4 visual audit):
+  the two section tiers, square pictures, the masthead as jerseys, the champion lead as a news
+  photo, the gallery's lead photo dropped, the page reordered, the footer's wordmark, and the
   leaders and award rows simplified. All of it is in the audit list below. Typecheck, lint and the
-  tests pass on it (Nov 4: 279 files, 3,506 tests); the layout sweep was not run. Commit it to
-  `redesign` before starting anything new.
+  tests pass on it (Nov 4: 279 files, 3,506 tests); the layout sweep was not run on it.
 - **Run it** with the `redesign-lan` entry in `.claude/launch.json` (port 5190, LAN-visible for a
   phone), which serves the worktree from the main checkout. That entry is itself uncommitted on the
   main checkout's `stats-phone-bar` branch.
@@ -238,8 +237,7 @@ Each item names the phase that carries it.
       photo across the section, the rail under it (undone in the sixth pass). The footer is the
       site's name under the section rule and an index, one line per group in agate, in place of six
       link columns.
-- [x] **Sixth pass: a page with an order** (Nov 4, from a second visual audit; uncommitted at
-      handoff, see "Handoff"). Below the lead nothing outranked anything, nine sections in one
+- [x] **Sixth pass: a page with an order** (Nov 4, from a second visual audit). Below the lead nothing outranked anything, nine sections in one
       heading style. Now three tiers: the lead, then Spotlight and the leaders under the heavy rule,
       then Reading beside Watch, the gallery, and the award winners beside the star sign card in the
       minor tier (`MinorSections` in `src/ui/card.tsx`), in order of what changes between visits.
