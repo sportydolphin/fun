@@ -32,13 +32,14 @@ Loaded when you read anything under `src/`. The section-specific traps are in `s
   chip, a button, a box nested in a card, a club's ring. Three tokens, in
   [`src/ui/card.tsx`](ui/card.tsx): `borderColor: 'outline'` (the theme's `palette.outline`,
   which `CARD_BORDER` and `INNER_BORDER` also return) for a plain box, `edge(color)` for a club's
-  or a status's own color, which lifts it just far enough, and `ACCENT_EDGE` for the site blue.
+  or a status's own color, which lifts it just far enough, and `ACCENT_EDGE` for the brand red.
   **Never fade a color with an alpha suffix to make a border** (`${teamColor}55`): fading can only
   lower contrast, and most clubs' primaries are navy or brown, which is how the MLB bracket's
   decided series came out at 1.2:1 on the dark page. `divider` is for the rule BETWEEN rows, one
   side only, and stays lighter on purpose. **A read-only grouping is a section, not a box** (since
-  Nov 3, 2026): `SectionCard` draws no border, fill or corners by default, only a `divider` rule
-  on top, so it has no outline to hold to 3:1. The outline stays on what a reader taps or reads as
+  Nov 3, 2026): `SectionCard` draws no border, fill or corners by default, only a rule on top (the
+  2px `SECTION_RULE` in the text color, or a `divider` hairline inside `MinorSections`), so it has
+  no outline to hold to 3:1. The outline stays on what a reader taps or reads as
   one object (a game tile, a chip, a control, the followed-team card, `SectionCard framed`), and
   there it is still 3:1. Never make a section visible with a lighter fill instead: in dark mode a
   lifted surface means "this floats" (ThemeContext.tsx). **Colors and shadows are tokens**

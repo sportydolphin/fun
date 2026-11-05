@@ -53,7 +53,8 @@
 3. **UI overhaul, phase 1**, now including the women's baseball shell: the league list
    (MLB in it, after the women's competitions) and whether `/` earns a front page. The direction is
    set in code since Nov 3, on the `redesign` branch: WPBL Home is done as the precedent (Nov 4).
-   The shell is still open.
+   The shell is still open. Handed off on Nov 4: where the branch stands and what is next is
+   ROADMAP-UI.md, "Handoff".
    *ROADMAP-UI.md, Phases 1; ROADMAP-WOMENS-BASEBALL, stage 3.*
 4. **MLB as one league among several.** Read "MLB: what gets used" on `/admin` and decide what MLB
    keeps on its own pages now that it is no longer half the site. *ROADMAP.md, "Handoff" and item 7 of the second pass.*

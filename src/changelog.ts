@@ -28,7 +28,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'New look',
-        full:  'A teal accent in place of the blue, a condensed face for scores, big numbers, page titles and section headings, and one set of corner sizes across the site.',
+        full:  'A red accent in place of the blue, a condensed face for scores, big numbers, page titles and section headings, a print face for figures, and one set of corner sizes across the site. Photos have square corners.',
       },
       {
         short: 'Sections',
@@ -36,7 +36,15 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'WPBL Home',
-        full:  'The season’s champion leads WPBL Home across the full width, with the club’s name at the largest size on the site. Player Spotlight sits beside the leaders, the fan award winners beside the star sign card, with more room between sections. The Discord invite is a plain row, and Submit photos sits by the gallery’s heading.',
+        full:  'The season’s champion leads WPBL Home with a photo of the title celebration over the club’s name, beside the road to the title and the final’s games. The four clubs sit under the page title in their own colors. Player Spotlight sits beside the leaders; Reading, Watch, the gallery, the fan award winners and the star sign card follow under smaller headings. The Discord invite is a plain row, and Submit photos sits by the gallery’s heading.',
+      },
+      {
+        short: 'Clubs',
+        full:  'The Teams tab, a club’s page and the league page show each club as a block of its own color, in place of a colored stripe down one edge.',
+      },
+      {
+        short: 'Footer',
+        full:  'The footer is one line of links per group under the site’s name.',
       },
       {
         short: 'Section headings',
@@ -52,7 +60,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'Player Spotlight',
-        full:  'WPBL Player Spotlight never shows the same player as the Star of the final beside it, prints the jersey number large, and puts the player’s facts in three short lines.',
+        full:  'WPBL Player Spotlight is a player card. It picks a player with a top-three finish on a headline stat and says which, never shows the same player as the Star of the final, and prints the jersey number large.',
       },
       {
         short: 'MLB Home',
