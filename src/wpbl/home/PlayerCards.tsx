@@ -653,7 +653,10 @@ export function FanAwardWinnersCard({ players, teams, onOpenPlayer, onOpenTeam, 
   }
   const failed = rows?.length === 0 || (!!rosterFailed && !rows)
   return (
+    // The share's column head in the heading row, over the figures (Nov 5, 2026): a bare "41%" at the
+    // far end of a 600px line read as a number with nothing to say what it counted.
     <SectionCard title={`${AWARDS_SEASON} Fan Award Winners`} fill
+      action={failed ? undefined : <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Vote share</Typography>}
       titleLink={linkPress(WPBL_AWARDS_PATH, () => { trackCardLink('winners', 'all'); onOpenAwards?.() })}>
       {failed ? <NoDataRows /> : Array.from({ length: SEASON_ROWS }, (_, i) => {
         const r = rows?.[i]
@@ -787,6 +790,10 @@ export function StarSignCard({ players, teams, games, onOpenPlayer }: {
   const upNext = nextRoom > 0 && next.players.length > 0 ? next.players.slice(0, nextRoom) : []
   const range = `${shortMonthDay(sign.from)} – ${shortMonthDay(sign.to)}`
   const columns = Object.fromEntries(Object.entries(SIGN_COLUMNS).map(([bp, n]) => [bp, `repeat(${n}, minmax(0, 1fr))`]))
+  // DOWN EACH COLUMN, THEN ACROSS, as a paper runs a list (Nov 5, 2026). Filled across, the "Next"
+  // divider took one cell of a row while the cell beside it already held the next sign's first
+  // player (Dec 1 beside "Next: Sagittarius"), and the dates zigzagged between the columns.
+  const rows = Object.fromEntries(Object.entries(SIGN_COLUMNS).map(([bp, n]) => [bp, `repeat(${Math.ceil(SIGN_CAP / n)}, auto)`]))
   return (
     // The sign's glyph large beside the range, as a horoscope column heads itself; it was a 12px
     // glyph in the meta line.
@@ -796,7 +803,7 @@ export function StarSignCard({ players, teams, games, onOpenPlayer }: {
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{range}</Typography>
       </Box>
     }>
-      <Box sx={{ display: 'grid', gridTemplateColumns: columns, columnGap: 1.5, rowGap: 0.25 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: columns, gridTemplateRows: rows, gridAutoFlow: 'column', columnGap: 1.5, rowGap: 0.25 }}>
         {Array.from({ length: SIGN_CAP }, (_, i) => {
           if (upNext.length && i === shown.length) {
             return (

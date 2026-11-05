@@ -486,11 +486,8 @@ function ChampionLead({ champion, played, path, star, starPlayer, starLoading, r
   const field = wpblColor(champion.id)
   const playerLink = useWpblPlayerLink()
   return (
-    <Box sx={{
-      display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 7fr) minmax(0, 5fr)' },
-      columnGap: 3, rowGap: 1.5, alignItems: 'start',
-    }}>
-      <Box component="figure" sx={{ m: 0, minWidth: 0 }}>
+    <Box sx={LEAD_GRID_SX}>
+      <Box component="figure" sx={{ m: 0, minWidth: 0, gridArea: 'photo' }}>
         <RecapLink recap={recap} label={year != null ? `${year} season recap` : 'Season recap'} sx={{ gap: 0, borderRadius: MEDIA_RADIUS }}>
           <Box sx={{ position: 'relative', overflow: 'hidden', bgcolor: field, aspectRatio: '3 / 2', borderRadius: MEDIA_RADIUS }}>
             {logo && (
@@ -503,7 +500,14 @@ function ChampionLead({ champion, played, path, star, starPlayer, starLoading, r
             )}
             {photo && (
               // Decorative: the link already says where it goes, and the headline beside it says who won.
-              <Box component="img" src={photo.full_url} alt="" aria-hidden onLoad={() => setShown(photo.id)} sx={{
+              // THE PAGE'S LARGEST PAINT, so it goes first and at the size drawn (Nov 5, 2026): it was the
+              // 1600px render at default priority on every screen, behind the gallery's first tile. The
+              // column is 7/12 of Home's width from md (about half the window; 900 is
+              // MUI's md), the full width below.
+              <Box component="img" src={photo.full_url} alt="" aria-hidden onLoad={() => setShown(photo.id)}
+                srcSet={`${photo.card_url} 800w, ${photo.full_url} 1600w`}
+                sizes="(min-width: 900px) 55vw, 100vw"
+                fetchPriority="high" loading="eager" sx={{
                 position: 'absolute', inset: 0, width: '100%', height: '100%',
                 objectFit: 'cover', objectPosition: 'center 35%',
                 opacity: loaded ? 1 : 0, transition: 'opacity 0.3s',
@@ -518,8 +522,7 @@ function ChampionLead({ champion, played, path, star, starPlayer, starLoading, r
         </Typography>
       </Box>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <RecapLink recap={recap} sx={{ gap: 0.25 }}>
+      <RecapLink recap={recap} sx={{ gap: 0.25, gridArea: 'head', minWidth: 0 }}>
           <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 900, letterSpacing: typePx(1), textTransform: 'uppercase', color: 'var(--wpbl-medal-1)' }}>
             {year != null ? `${year} WPBL Champions` : 'WPBL Champions'}
           </Typography>
@@ -529,11 +532,12 @@ function ChampionLead({ champion, played, path, star, starPlayer, starLoading, r
           <Typography component="p" sx={{ ...HEADLINE_SX, fontSize: { xs: TYPE_SCALE.hero, md: '2.75rem', lg: TYPE_SCALE.lead }, lineHeight: 1.0, textWrap: 'balance' }}>
             {wpblFullName(champion)}
           </Typography>
-        </RecapLink>
+      </RecapLink>
 
+      <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, gridArea: 'body' }}>
         {/* The road, one line per stage, as an agate column prints a club's postseason. */}
         {path.length > 0 && (
-          <RecapLink recap={recap} sx={{ gap: 0, mt: 2 }}>
+          <RecapLink recap={recap} sx={{ gap: 0, mt: { xs: 0.5, md: 2 } }}>
             {path.map(step => (
               <Box key={step.stage} sx={{
                 display: 'grid', gridTemplateColumns: 'minmax(0, 6rem) minmax(0, 3.5rem) minmax(0, 1fr)', alignItems: 'baseline', columnGap: 1,
@@ -550,7 +554,7 @@ function ChampionLead({ champion, played, path, star, starPlayer, starLoading, r
         )}
 
         {/* NO ROW OF THE FINAL'S GAMES (Nov 5, 2026): the score strip above the lead carries them
-            all winter, with the champion's tile first (Scoreboard's `final`). */}
+            all winter (Scoreboard's `final`). */}
 
         {/* THE STAR OF THE FINAL, a real link to the player page, since a player page is what readers
             open most. Its read lands after first paint, so the row holds its place in the same shape
@@ -597,11 +601,25 @@ function ChampionLead({ champion, played, path, star, starPlayer, starLoading, r
   )
 }
 
-/** The lead's text column at its loaded height, for the skeleton: the kicker, a headline of one
- *  line on a phone and two in the narrower desktop column, the road, the Star and the recap link.
- *  Measured at 375, 760, 960, 1280 and 1440 in Newsreader (Nov 5, 2026, after the final's games
- *  moved to the score strip). In rem, since all of it is type. */
-const LEAD_TEXT_H = { xs: '17.05rem', md: '20.25rem', lg: '21.75rem' } as const
+/**
+ * The lead's three parts: the head (kicker and headline), the photo and the body (the road, the Star,
+ * the recap link). From md the photo takes seven columns and the head sits over the body beside it.
+ * ON A PHONE THE HEAD COMES FIRST (Nov 5, 2026): under a full-width 3:2 photo, the masthead and the
+ * strip, "Los Angeles Queens" started about 680px down a 812px screen, so the first screen was a
+ * picture with no story. A paper's front page runs its headline over the art for the same reason.
+ */
+const LEAD_GRID_SX = {
+  display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 7fr) minmax(0, 5fr)' },
+  gridTemplateAreas: { xs: '"head" "photo" "body"', md: '"photo head" "photo body"' },
+  gridTemplateRows: { md: 'auto 1fr' },
+  columnGap: 3, rowGap: { xs: 1.5, md: 0 }, alignItems: 'start',
+} as const
+
+/** The head and the body at their loaded heights, for the skeleton: a headline of one line on a
+ *  phone and two in the narrower desktop column; the road, the Star and the recap link. Measured at
+ *  375, 960 and 1440 in Newsreader (Nov 5, 2026). In rem, since all of it is type. */
+const LEAD_HEAD_H = { xs: '3.395rem', md: '6.645rem', lg: '8.145rem' } as const
+const LEAD_BODY_H = { xs: '12.9rem', md: '13.6rem' } as const
 
 /** Home's lead before the season's read lands, in the loaded lead's own wrapper and grid: the photo
  *  is the same 3:2 box at the same column width, so it reserves itself exactly at every width, and
@@ -610,18 +628,16 @@ export function ChampionLeadSkeleton() {
   return (
     <SectionCard title="Season" fill headingHidden>
       <Box aria-hidden sx={{ p: 0.5, mx: -0.5 }}>
-        <Box sx={{
-          display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 7fr) minmax(0, 5fr)' },
-          columnGap: 3, rowGap: 1.5, alignItems: 'start',
-        }}>
-          <Box sx={{ minWidth: 0 }}>
+        <Box sx={LEAD_GRID_SX}>
+          <Box sx={{ minWidth: 0, gridArea: 'photo' }}>
             <Skeleton variant="rectangular" sx={{ width: '100%', height: 'auto', aspectRatio: '3 / 2' }} />
-            <Typography sx={{ ...AGATE_SX, mt: 0.5, fontSize: TYPE_SCALE.meta, lineHeight: 1.4 }}>{'\u00a0'}</Typography>
+            <Typography sx={{ ...AGATE_SX, mt: 0.5, fontSize: TYPE_SCALE.meta, lineHeight: 1.4 }}>{' '}</Typography>
           </Box>
-          <Box sx={{ minWidth: 0, minHeight: LEAD_TEXT_H }}>
+          <Box sx={{ minWidth: 0, gridArea: 'head', minHeight: LEAD_HEAD_H }}>
             <Skeleton variant="text" width="45%" sx={{ fontSize: TYPE_SCALE.micro }} />
             <Skeleton variant="text" width="85%" sx={{ fontSize: { xs: TYPE_SCALE.hero, md: '2.75rem', lg: TYPE_SCALE.lead } }} />
           </Box>
+          <Box sx={{ minWidth: 0, gridArea: 'body', minHeight: LEAD_BODY_H }} />
         </Box>
       </Box>
     </SectionCard>

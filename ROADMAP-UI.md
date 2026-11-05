@@ -72,8 +72,8 @@ goes (Nov 4, seventh pass). Where this and the original brief below disagree, th
   `home/ChampionCards.tsx`).
 - **One score strip for every phase** (Nov 5, `Scoreboard`): the games are the first line of Home
   all year. In season the window round now; in the postseason each final says where its series
-  stands ("G3 · LA leads 2–1"); in the offseason the champion's tile and the final's games, as
-  MLB.com and Savant run theirs all winter. Never "No games", never next season's games before
+  stands ("G3 · LA leads 2–1"); in the offseason the final's games, sharing the row, as MLB.com and
+  Savant run theirs all winter. No result tile before them: the lead names the champion once. Never "No games", never next season's games before
   they are public.
 
 ## Handoff (Nov 5, 2026)
@@ -144,16 +144,17 @@ Where the work is, for whoever picks it up.
      tier held to three (the lead, Latest, the leaders), Spotlight in the minor tier, the minor
      heading quieter (small letterspaced caps); a date on clips and photos; club marks on Latest
      rows; the first screen's links counted by the sweep at 1440 and 375 (ten is the target).
-  3. **Edge states**: fan award shares need a head ("Share of votes"); no photo, awards coming down,
-     a small sign.
+  3. **Edge states**: ~~fan award shares need a head~~ ("Vote share", Nov 5); no photo, awards
+     coming down, a small sign.
   4. **The champion lead receding as the winter goes on.** Needs the owner's trigger: when the award
      results leave Home, a date, or never.
-  5. **A phone pass** across all three phases: nav, strip, photo, headline, Latest, then the
-     sections; one left edge; the room under the Discord row, the footer's length, Watch's clipped
+  5. **A phone pass** across all three phases: nav, strip, photo, ~~headline~~ (over the photo,
+     Nov 5), Latest, then the sections; the room under the Discord row, the footer's length, Watch's clipped
      clip titles.
   6. **Light mode** designed as an equal, not a translation of dark, and which theme a new visitor
      gets (11 of the 14 references are light).
-  7. **The lead photo's weight** (responsive sizes, an early fetch) and the skeleton-to-content fade.
+  7. **The lead photo's weight**: ~~responsive sizes, an early fetch~~ (Nov 5); the
+     skeleton-to-content fade.
   8. **Lift Home's pieces into `src/ui/`**, as the kit for the next pages: the two heading tiers,
      `FlushSections`, agate lines, the print headshot, the lead, the score strip (the Scores tab's
      too) and Latest as a general headline list (Game Center's play list is the same shape).
@@ -168,6 +169,23 @@ Where the work is, for whoever picks it up.
   upcoming game keeps its date and time. In season nothing changed. The offseason skeleton reserves
   the strip with its real heading. Typecheck, lint, the tests and the sweep on `/wpbl` and
   `/wpbl/season` (`--shift --ellipsis`) are clean.
+- **The twelfth pass** (Nov 5, from the fourth audit; on #195's branch). #195's red layout check was
+  axe on `/wpbl/league` in light mode: the glass bottom bar's labels (`tabInkLight`) fell to 3.74:1
+  where a solid club block showed through; the ink is now `#454a52`, 4.75:1 even over black. Home:
+  the strip's "2026 Champions" tile is gone (with the masthead's "Champions" and the lead's kicker it
+  was the third statement of one result in the first screen), and its five games share the row up
+  to 12rem each; the lead's headline sits over the photo on a phone (it started 680px down an 812
+  screen), with the skeleton split into head and body heights (`LEAD_HEAD_H`, `LEAD_BODY_H`); the
+  lead photo has a `srcset` and high priority, and the gallery rail on Home is lazy (its first tile
+  was fetched at high priority, ahead of the lead); Watch's Videos shelf skips what Latest already
+  lists (`useLatestItems`, Watch's `skip`); the star sign grid runs down each column, so "Next:
+  Sagittarius" heads the second instead of sitting beside Dec 1; the award shares have a "Vote
+  share" head. **The page frame**: `PAGE_FRAME_W` in `src/ui/layoutWidths.ts`, 1260px with a 32px
+  margin past the phone column, shared by Home, Scores, Game Center and both Stats tabs. Stats took
+  `100vw - 24px` up to 1540, so its title sat 5px from the window at 1440; its table fits all 24
+  columns down to 1000px, so the frame costs it nothing. At 1440 every one of those pages starts at
+  83px, at 1280 at 25px (was about 5). The 720 column pages (Standings, Teams, the league page, a
+  player page) still start at 263 at 1440: they move onto the frame as each is migrated.
 - **Proposed for after Home (waiting on the owner):** the player page next, before the Stats
   leaders board (readers open it most, and it still draws the rounded portrait and a club band);
   and the jersey as the one club recipe, since Home no longer draws a `wpblField` block.

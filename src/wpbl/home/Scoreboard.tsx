@@ -10,13 +10,15 @@ import { TeamBadge, CARD_BORDER, CARD_FILL, TAPPABLE, hoverOnly, FOCUS_RING, pre
 import { postseasonSlots, type PostseasonScheduleRow, type PostseasonSlot } from '../derive/bracket'
 import { seriesTileLine, type SeriesContext } from '../derive/series'
 import type { WpblTeam, WpblGame } from '../types'
-import { SECTION_GAP, type trackedLinkTo } from './shared'
+import { SECTION_GAP } from './shared'
 
-function GameChip({ game, teams, series, onOpen }: {
+function GameChip({ game, teams, series, onOpen, fill }: {
   game: WpblGame; teams: Map<string, WpblTeam>
   /** This game's series, when it is a postseason game: a final then says where the series stands. */
   series?: SeriesContext
   onOpen: () => void
+  /** Share the row with the others rather than hold 8.5rem: the offseason strip (see Scoreboard). */
+  fill?: boolean
 }) {
   const gameLink = useWpblGameLink()
   const away = teams.get(game.away_team_id)
@@ -76,7 +78,7 @@ function GameChip({ game, teams, series, onOpen }: {
       // reader can enlarge clips its eyebrow under the Large text setting (see AccessibilityContext).
       // Sized for the longest eyebrow, "Final · Yesterday". Art and tap targets on this card stay in
       // px: they are not holding type and must not grow with it.
-      flexShrink: 0, width: '8.5rem', cursor: 'pointer',
+      ...(fill ? { flex: '1 0 8.5rem', maxWidth: '12rem' } : { flexShrink: 0, width: '8.5rem' }), cursor: 'pointer',
       borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL,
       p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
       transition: 'border-color 0.15s', ...hoverOnly({ borderColor: 'text.disabled' }),
@@ -201,65 +203,18 @@ function PostseasonChip({ row, onOpenMatchup }: {
   )
 }
 
-/** The decided final, for the offseason strip: who won it, against whom, and where its recap is. */
+/** The decided final, for the offseason strip: the title series' games that were played, in order.
+ *  NO RESULT TILE BEFORE THEM (Nov 5, 2026). A "2026 Champions" series tile led the strip for a
+ *  day, and with the masthead's "Champions" and the lead's kicker it made three statements of one
+ *  result in the first screen; the lead's "Final 3–2" line and G5's "LA wins 3–2" already say it. */
 export interface StripFinal {
-  champion: WpblTeam
-  runnerUp: WpblTeam
-  champWins: number
-  rivalWins: number
-  year: number | null
-  /** The title series' games that were played, in order. */
   games: WpblGame[]
-  recap: ReturnType<typeof trackedLinkTo>
 }
 
-/**
- * The first tile of the offseason strip: the final's result, as the series tile a broadcast puts
- * before the games ("2026 Champions", LA 3, SF 2). The same box as a GameChip, so the strip keeps
- * its rhythm, and a link to the season recap, which is where a reader of a finished final goes.
- */
-function ChampionTile({ final }: { final: StripFinal }) {
-  const row = (t: WpblTeam, wins: number, won: boolean) => (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-      <TeamBadge team={t} size={20} />
-      <Typography sx={{ flex: 1, fontSize: TYPE_SCALE.body, fontWeight: won ? 800 : 600, color: won ? 'text.primary' : 'text.secondary' }}>
-        {t.abbr}
-      </Typography>
-      <Typography sx={{
-        fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.heading, fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
-        color: won ? 'text.primary' : 'text.disabled',
-      }}>{wins}</Typography>
-    </Box>
-  )
-  return (
-    <Box {...final.recap}
-      aria-label={`${final.year != null ? `${final.year} ` : ''}season recap: ${final.champion.abbr} won the championship ${final.champWins}–${final.rivalWins}`}
-      sx={{
-        flexShrink: 0, width: '8.5rem', cursor: 'pointer', textDecoration: 'none', color: 'inherit',
-        borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL,
-        p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
-        ...TAPPABLE, ...FOCUS_RING, transition: 'border-color 0.15s', ...hoverOnly({ borderColor: 'text.disabled' }),
-      }}>
-      {/* Gold, as the lead's kicker and the masthead's "Champions" are: the one word on Home that
-          color is spent on outside a link. */}
-      <Typography sx={{
-        fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'var(--wpbl-medal-1)',
-        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-      }}>
-        {final.year != null ? `${final.year} Champions` : 'Champions'}
-      </Typography>
-      {row(final.champion, final.champWins, true)}
-      {row(final.runnerUp, final.rivalWins, false)}
-    </Box>
-  )
-}
-
-/** One tile on the strip: a game the feed has, a postseason date it does not have yet, or the
- *  decided final's result. */
+/** One tile on the strip: a game the feed has, or a postseason date it does not have yet. */
 type StripItem =
   | { kind: 'game'; id: string; game: WpblGame }
   | { kind: 'post'; id: string; row: PostseasonScheduleRow }
-  | { kind: 'champion'; id: string }
 
 /** Exported for `scoreboardStrip.test.tsx`, which pins which fixtures reach the strip. Same
  *  reason `NextPostseasonCard` is: what these two choose to show is a judgment about what is
@@ -271,7 +226,7 @@ export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup
   series?: Map<string, SeriesContext>
   /**
    * THE OFFSEASON STRIP (Nov 5, 2026, ROADMAP-UI.md, Home step 1). Set once the final is decided:
-   * the strip becomes the champion's tile and the final's games, in order, in place of the window
+   * the strip becomes the final's games, in order, in place of the window
    * round now. Until then Home dropped the strip in the offseason, since a window of the last
    * finals sat frozen until spring, and the lead carried the five games as a row of its own. A
    * strip of the final is what MLB.com and Savant run all winter: the games are still the first
@@ -323,8 +278,7 @@ export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup
   const { strip, anchorIndex } = useMemo(() => {
     if (final) {
       return {
-        strip: [{ kind: 'champion', id: 'champion' } as StripItem,
-          ...final.games.map((g): StripItem => ({ kind: 'game', id: g.id, game: g }))],
+        strip: final.games.map((g): StripItem => ({ kind: 'game', id: g.id, game: g })),
         anchorIndex: 0,
       }
     }
@@ -521,10 +475,12 @@ export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup
           msOverflowStyle: 'none', scrollbarWidth: 'none',
         }} data-swipe-ignore="true">
           {strip.map(item => item.kind === 'game'
-            ? <GameChip key={item.id} game={item.game} teams={teams} series={series?.get(item.game.id)} onOpen={() => onOpenGame(item.game)} />
-            : item.kind === 'post'
-              ? <PostseasonChip key={item.id} row={item.row} onOpenMatchup={onOpenMatchup} />
-              : final && <ChampionTile key={item.id} final={final} />)}
+            // THE FINAL'S GAMES SHARE THE ROW (Nov 5, 2026): five 8.5rem tiles ran about 900px of a
+            // 1270px column at 1440 and left the rest of the line empty. Up to 12rem each, the width
+            // a badge, an abbreviation and a score still read as one line at; past that they would
+            // be three islands. The window strip keeps its fixed tile, which is what makes it scroll.
+            ? <GameChip key={item.id} game={item.game} teams={teams} series={series?.get(item.game.id)} onOpen={() => onOpenGame(item.game)} fill={!!final} />
+            : <PostseasonChip key={item.id} row={item.row} onOpenMatchup={onOpenMatchup} />)}
         </Box>
         {/* NO EDGE FADES. A leading fade paints over the anchor chip's date, since the chip sits
             flush with the page's column; a trailing fade alone leaves one edge fading and the

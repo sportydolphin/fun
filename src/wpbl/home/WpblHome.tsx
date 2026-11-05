@@ -34,12 +34,10 @@ import type { WpblRunValuePlay } from '../types'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame, WpblBattingLine, WpblPitchingLine } from '../types'
 import { useWpblSeason } from '../SeasonContext'
 import { offseasonByCalendar, nextOpeningDay, rememberNextOpeningDay } from '../offseasonCalendar'
-import { regularSeasonOver, latestSeason } from '../season'
+import { regularSeasonOver } from '../season'
 import { seriesContexts } from '../derive/series'
-import { WPBL_SEASON_PAGE, WPBL_RECAP_YEARS, wpblSeasonPath } from '../routes'
-import { EVENTS } from '../../lib/analytics'
 import { localIsoDate } from '../derive/homePlayers'
-import { HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, NEWS_ROW_SX, homeWideSx, trackedLinkTo } from './shared'
+import { HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, NEWS_ROW_SX, homeWideSx } from './shared'
 import { ClubRail } from './ClubRail'
 import { type MatchupPreviewArg, type StripFinal, Scoreboard } from './Scoreboard'
 import { NextGameCard } from './NextGameCard'
@@ -47,7 +45,7 @@ import { gameYear, devChampionPick, ChampionBanner, useChampionFinal } from './C
 import { useNewTrackingBatch, NewTrackingBanner } from './TrackingBanner'
 import { DiscordCard } from './DiscordCard'
 import { LatestReadingCard, ReadingHomeCard } from './ReadingCards'
-import { LatestCard } from './LatestCard'
+import { LatestCard, useLatestItems } from './LatestCard'
 import { LeagueCard } from './LeagueCard'
 import { ComparePreviewCard } from './ComparePreviewCard'
 import { CardSkeleton, WATCH_CARD_SKELETON_H } from './Skeletons'
@@ -254,13 +252,16 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // dev-simulated champion counts, so the offseason preview shows the offseason Home.
   const realChampion = useMemo(() => bracket ? championResult(bracket) : null, [bracket])
   const seasonDone = !!realChampion || !!devChampTeam
+  // Latest's list, read here so Watch's Videos shelf can leave out the videos Latest already runs.
+  const latest = useLatestItems()
+  const latestVideos = useMemo(() => new Set(latest?.flatMap(i => i.videoId ? [i.videoId] : []) ?? []), [latest])
 
   // Each postseason game's series, so the strip's postseason finals say where the series stands.
   // Over the season on screen: a pairing is two club ids, and the same two clubs meet in more than
   // one year's postseason.
   const seriesById = useMemo(() => seriesContexts(seasonGames, teamMap), [seasonGames, teamMap])
 
-  // The offseason strip: the champion's tile and the final's games (see Scoreboard's `final`). A
+  // The offseason strip: the final's games (see Scoreboard's `final`). A
   // dev-simulated champion that did not play in the real final has no series to draw, so the strip
   // stays off for it rather than crediting it with another club's games.
   const stripFinal = useMemo<StripFinal | null>(() => {
@@ -269,21 +270,8 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
     const played = finalLog.filter(g => g.status === 'final' && g.home_score != null && g.away_score != null)
     const first = played[0]
     if (!first || (first.home_team_id !== champion.id && first.away_team_id !== champion.id)) return null
-    const runnerUp = teamMap.get(first.home_team_id === champion.id ? first.away_team_id : first.home_team_id)
-    if (!runnerUp) return null
-    let champWins = 0, rivalWins = 0
-    for (const g of played) {
-      if (g.home_score === g.away_score) continue
-      const winner = g.home_score! > g.away_score! ? g.home_team_id : g.away_team_id
-      if (winner === champion.id) champWins++
-      else rivalWins++
-    }
-    const year = latestSeason(seasonGames)
-    const recap = trackedLinkTo(
-      year != null && WPBL_RECAP_YEARS.includes(year) ? wpblSeasonPath(year) : WPBL_SEASON_PAGE,
-      EVENTS.WPBL_SEASON_CARD_OPEN, { from: 'home_strip' })
-    return { champion, runnerUp, champWins, rivalWins, year, games: played, recap }
-  }, [seasonDone, devChampTeam, realChampion, finalLog, teamMap, seasonGames])
+    return { games: played }
+  }, [seasonDone, devChampTeam, realChampion, finalLog])
   // Next year's opener, for the skeleton's guess on a later load (see offseasonByCalendar).
   const opener = nextOpeningDay(schedule, current)
   useEffect(() => { rememberNextOpeningDay(opener) }, [opener])
@@ -545,7 +533,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
               pair, its rows in two columns. Spotlight and the leaders were a pair of about one height
               until then, and still are below lg. */}
           <Box sx={{ ...NEWS_ROW_SX, columnGap: SECTION_COLUMN_GAP }}>
-            <LatestCard />
+            <LatestCard items={latest} />
             <PlayerSpotlightCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} avoid={spotlightAvoid} />
             <SeasonLeadersCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer}
               rosterFailed={!loadingLeaders && players.length === 0} />
@@ -560,7 +548,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           <MinorSections>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
               <ReadingHomeCard teamById={teamMap} />
-              <WatchCard from="home" compact placeholder={<CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />} />
+              <WatchCard from="home" compact skip={latestVideos} placeholder={<CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />} />
             </Box>
 
             {/* Fan photos: the rail alone. A lead photo over it made the gallery a screen tall. */}

@@ -79,7 +79,8 @@ const PENDING_STALL_MS = 2000
 // 0.7 alpha (the theme does not override it), and animating THAT to the opaque accent on tap raises
 // the alpha toward 1 while the hue is still white, so the icon flashes white before it turns blue.
 // An opaque gray of about the same weight interpolates straight to the accent with nothing white in
-// between. Two values because the resting shade differs by mode; both clear AA on every skin's paper.
+// between. Two values because the resting shade differs by mode; both clear AA on every skin's paper,
+// and the light one also over whatever the glass shows through it (a solid club block, a photo).
 const INACTIVE_TAB = { dark: SURFACE.tabInkDark, light: SURFACE.tabInkLight } as const
 
 // ONE DURATION AND CURVE FOR EVERY PART OF A SELECTION. A tap changes three things (the indicator

@@ -212,7 +212,7 @@ function OffseasonHomeSkeleton() {
         <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><ClubRailSkeleton /></Box>
       </Box>
 
-      {/* The offseason strip (the champion's tile and the final's games), in the loaded strip's own
+      {/* The offseason strip (the final's games), in the loaded strip's own
           box: its real heading, hidden on a phone as the loaded one is, and its margins. The header
           above draws no margin on a phone, so the strip brings the loaded header's 12px itself. */}
       <Box sx={{ mt: { xs: 1.5, sm: 0 }, mb: { xs: 1.5, sm: SECTION_GAP } }}>
