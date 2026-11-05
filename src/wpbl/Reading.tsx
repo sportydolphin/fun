@@ -7,7 +7,7 @@ import { recapThumb, PUBLICATION_NAME as RECAP_PUBLICATION } from './derive/reca
 import type { WpblArticle, WpblGameRecap, WpblTeam } from './types'
 import { track, EVENTS } from '../lib/analytics'
 import { typePx } from '../ui/scale'
-import { TYPE_SCALE, MEDIA_RADIUS } from '../ui/card'
+import { TYPE_SCALE, MEDIA_RADIUS, TITLE_SX, titleSize } from '../ui/card'
 
 // The WPBL reading surface: a mirror of two independent writers' coverage of the league,
 // read from the wpbl_articles table (populated by scripts/sync-wpbl-substack.ts). Four
@@ -347,7 +347,7 @@ export function ReadingCard({ article, teamById, from, isNew, onOpen, ghost, row
           aspectRatio: r('auto', '16 / 9'), borderRadius: MEDIA_RADIUS,
         }} />
       <Box sx={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', p: r(0, 1.25) }}>
-        <Typography sx={{ fontSize: r(TYPE_SCALE.body, TYPE_SCALE.title), fontWeight: 700, lineHeight: 1.3 }}>{g(article.title)}</Typography>
+        <Typography sx={{ ...TITLE_SX, fontSize: r(titleSize(TYPE_SCALE.body), titleSize(TYPE_SCALE.title)), lineHeight: 1.3 }}>{g(article.title)}</Typography>
         {article.subtitle && (
           <Typography sx={{
             fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.4, mt: 0.35,

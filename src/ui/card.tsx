@@ -153,10 +153,24 @@ export const MEDIA_RADIUS = RADIUS.none
  *  name: the name fits (names.ts) are measured in Inter. styles.css has the why. */
 export const DISPLAY_FONT = '"Barlow Condensed", Inter, system-ui, -apple-system, "Segoe UI", sans-serif'
 
-/** The agate face, for figures in print: a stat line, a leader's value, the count or date in a
- *  section's heading row. Never a name (names.ts measures Inter) and never a title (that is
- *  DISPLAY_FONT). Spread `AGATE_SX` rather than this alone, so the figures are always tabular. */
-export const AGATE_FONT = '"Barlow Semi Condensed", Inter, system-ui, -apple-system, "Segoe UI", sans-serif'
+/** The agate, for figures in print: a stat line, a leader's value, the count or date in a section's
+ *  heading row. Inter's tabular figures since Nov 4, 2026: it was Barlow Semi Condensed, a third
+ *  sans that read as the display face at small sizes, and with a serif for headlines the page would
+ *  have had four faces. Now each face has one job: Barlow Condensed for scores and section headings,
+ *  Newsreader for headlines, Inter for the rest. Spread `AGATE_SX` rather than this alone, so the
+ *  figures are always tabular. */
+export const AGATE_FONT = 'Inter, system-ui, -apple-system, "Segoe UI", sans-serif'
+
+/** The headline face (styles.css has the why). Never a player's name: names.ts measures Inter. */
+export const HEADLINE_FONT = '"Newsreader", Georgia, "Times New Roman", serif'
+/** A headline: the lead's club name. A touch of negative tracking, since a serif at 56px spaces
+ *  itself for text sizes. */
+export const HEADLINE_SX = { fontFamily: HEADLINE_FONT, fontWeight: 600, letterSpacing: '-0.01em' } as const
+/** A title: an article's or a video's, in the headline face at text size. */
+export const TITLE_SX = { fontFamily: HEADLINE_FONT, fontWeight: 600 } as const
+/** A title's size: a serif reads about a tenth smaller than Inter at the same size, so a title takes
+ *  this step up to sit level with the Inter beside it. */
+export const titleSize = (size: string) => `calc(${size} * 1.12)`
 export const AGATE_SX = { fontFamily: AGATE_FONT, fontWeight: 600, fontVariantNumeric: 'tabular-nums', letterSpacing: 0 } as const
 
 /** Read, not drawn (the same recipe as ui/heading.tsx's VISUALLY_HIDDEN, which imports this file). */

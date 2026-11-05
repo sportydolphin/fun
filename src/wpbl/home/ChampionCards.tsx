@@ -18,7 +18,7 @@ import { latestSeason } from '../season'
 import { trackedLinkTo } from './shared'
 import { ordinal } from '../../lib/format'
 import { trophyPalette } from '../../ui/trophy'
-import { AGATE_SX, MEDIA_RADIUS } from '../../ui/card'
+import { AGATE_SX, MEDIA_RADIUS, HEADLINE_SX } from '../../ui/card'
 import { championPhoto, type FanPhotoIndex, type FanPhotoWithSubjects } from '../fanPhotos'
 
 /**
@@ -528,7 +528,7 @@ function ChampionLead({ champion, teams, played, path, star, starPlayer, starLoa
             {year != null ? `${year} WPBL Champions` : 'WPBL Champions'}
           </Typography>
           {/* The headline: the club's full name, allowed to wrap rather than cut at a narrow column. */}
-          <Typography component="p" sx={{ fontFamily: DISPLAY_FONT, fontSize: { xs: TYPE_SCALE.hero, md: TYPE_SCALE.lead }, fontWeight: 700, lineHeight: 1.0, textWrap: 'balance' }}>
+          <Typography component="p" sx={{ ...HEADLINE_SX, fontSize: { xs: TYPE_SCALE.hero, md: TYPE_SCALE.lead }, lineHeight: 1.0, textWrap: 'balance' }}>
             {wpblFullName(champion)}
           </Typography>
         </RecapLink>

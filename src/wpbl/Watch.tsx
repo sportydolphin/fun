@@ -2,7 +2,7 @@ import { INK } from '../ui/color'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { CARD_BORDER, CARD_FILL, TYPE_SCALE, FOCUS_RING, chromePx, useRailPaging, RailArrow, RailScroller, NewTag, SectionCard, CARD_LINK_SX } from './ui'
-import { MEDIA_RADIUS } from '../ui/card'
+import { MEDIA_RADIUS, TITLE_SX, titleSize } from '../ui/card'
 import { SectionHead } from './cardParts'
 import { linkTo } from '../nav'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
@@ -186,7 +186,7 @@ function FanVideoRow({ video, isNew, onPlay }: { video: WpblVideo; isNew: boolea
       </Box>
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Typography sx={{
-          fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: 1.25,
+          ...TITLE_SX, fontSize: titleSize(TYPE_SCALE.meta), lineHeight: 1.25,
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>{video.title}</Typography>
         <VideoCreditLine credit={credit} what={videoKindName(video)} />
