@@ -93,13 +93,22 @@ const SELECT_MS = 300
 const SELECT_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)'
 
 // The glass, as a function of one level (0 nearly solid, 1 clear; see glassLevel.ts). At the
-// default 0.5 the fill is the raised tone at 72%: low enough that color from the page shows
-// through the blur, high enough that a white headline sliding under a label cannot drag it below
-// AA. Saturate is what makes it read as glass rather than frosted plastic: the blurred color comes
-// through richer instead of washed out. The lit top rim and faint inner glow are the two cues that
-// make a translucent pill read as a lens with thickness; inset shadows, so they cost no layout.
+// default 0.5 the fill is the raised tone at 72% in dark mode (86% in light, below): low enough
+// that color from the page shows through the blur, high enough that a white headline sliding under
+// a label cannot drag it below AA. Saturate is what makes it read as glass rather than frosted
+// plastic: the blurred color comes through richer instead of washed out. The lit top rim and faint
+// inner glow are the two cues that make a translucent pill read as a lens with thickness; inset
+// shadows, so they cost no layout.
+//
+// THE LIGHT FILL HAS A FLOOR OF 86%, whatever the level. The labels are ink chosen against paper,
+// and a solid block scrolled under the bar (a club's color on the league page, a photo) tints the
+// glass toward its own color: at 74% the active tab's red (#b3261e) fell to 4.17:1 over the
+// Firebells' purple, an axe failure in the layout sweep. At 86% the red holds 4.73:1 with pure
+// black under the glass (84% is the bare 4.5), so no page content can take a label under AA. Dark
+// mode's inks are light on a dark fill, which a dark block cannot hurt.
+const LIGHT_GLASS_FLOOR = 0.86
 const glass = (level: number) => ({
-  alpha: { dark: 0.96 - 0.48 * level, light: 0.98 - 0.48 * level },
+  alpha: { dark: 0.96 - 0.48 * level, light: Math.max(LIGHT_GLASS_FLOOR, 0.98 - 0.48 * level) },
   blur: `blur(${Math.round(8 + 24 * level)}px) saturate(${Math.round(120 + 120 * level)}%)`,
   rim: {
     dark: `inset 0 1px 0 rgba(255,255,255,${(0.06 + 0.16 * level).toFixed(3)}), inset 0 0 0 1px rgba(255,255,255,${(0.08 * level).toFixed(3)})`,
