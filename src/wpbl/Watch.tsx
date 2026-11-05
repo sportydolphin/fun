@@ -2,6 +2,7 @@ import { INK } from '../ui/color'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { CARD_BORDER, CARD_FILL, TYPE_SCALE, FOCUS_RING, chromePx, useRailPaging, RailArrow, RailScroller, NewTag, SectionCard, CARD_LINK_SX } from './ui'
+import { MEDIA_RADIUS } from '../ui/card'
 import { SectionHead } from './cardParts'
 import { linkTo } from '../nav'
 import { track, trackImpression, EVENTS } from '../lib/analytics'
@@ -84,8 +85,15 @@ export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
   const summary = `${gameIds.length} games, ${clips.length} clips`
   // The inline strip (not a section) keeps its own link; the section's is its heading.
   const link = <Box {...all} sx={CARD_LINK_SX}>All videos ›</Box>
+  // EACH SHELF LABELED (Nov 4, 2026): the league's vertical clips and a channel's long videos sat in
+  // one stack with nothing between them, so the second read as the first one's captions run long.
+  // Only when both are there: a lone shelf is what the heading already names.
+  const shelfLabel = (text: string) => fanVideos.length > 0
+    ? <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary', lineHeight: 1.3 }}>{text}</Typography>
+    : null
   const body = (
     <>
+      {shelfLabel('Clips')}
       <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: 'repeat(4, minmax(0, 1fr))', md: compact ? undefined : 'repeat(6, minmax(0, 1fr))' } }}>
         {row.map((v, i) => (
           <Box
@@ -97,7 +105,7 @@ export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
             aria-label={`Play${isNew(v.video_id, v.published_at) ? ' new' : ''} clip: ${v.title}`}
             sx={{
               display: { xs: i < 4 ? 'block' : 'none', md: compact && i >= 4 ? 'none' : 'block' },
-              borderRadius: 2, overflow: 'hidden', cursor: 'pointer', position: 'relative',
+              borderRadius: MEDIA_RADIUS, overflow: 'hidden', cursor: 'pointer', position: 'relative',
               ...PLAYABLE_HOVER, ...FOCUS_RING,
             }}
           >
@@ -107,6 +115,7 @@ export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
           </Box>
         ))}
       </Box>
+      {fanVideos.length > 0 && shelfLabel('Videos')}
       {fanVideos.length > 0 && (
         <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: compact ? undefined : 'repeat(2, minmax(0, 1fr))' } }}>
           {fanVideos.map(v => (
@@ -118,11 +127,6 @@ export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
             }} />
           ))}
         </Box>
-      )}
-      {eyebrow && (
-        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mt: compact ? 'auto' : undefined }}>
-          {gameIds.length} games · {clips.length} clips
-        </Typography>
       )}
       {active != null && (
         <HighlightLightbox
@@ -140,7 +144,10 @@ export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
   // header of its own, since a second "Watch" title there would only repeat the heading.
   if (eyebrow) {
     return (
-      <SectionCard title="Watch" fill={compact} titleLink={all}>
+      // The count in the heading row, where Reading's "63 posts" is: at the foot it was the same kind
+      // of fact in a different place on the two sections side by side (Nov 4, 2026).
+      <SectionCard title="Watch" fill={compact} titleLink={all}
+        action={<Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{gameIds.length} games · {clips.length} clips</Typography>}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, ...(compact ? { flex: 1 } : null) }}>{body}</Box>
       </SectionCard>
     )
@@ -173,7 +180,7 @@ function FanVideoRow({ video, isNew, onPlay }: { video: WpblVideo; isNew: boolea
       aria-label={`Play${isNew ? ' new' : ''} ${videoKindName(video).toLowerCase()}: ${video.title}`}
       sx={{ display: 'flex', gap: 1, alignItems: 'center', minWidth: 0, cursor: 'pointer', borderRadius: 2, ...PLAYABLE_HOVER, ...FOCUS_RING }}
     >
-      <Box sx={{ width: chromePx(104), flexShrink: 0, borderRadius: 2, overflow: 'hidden', position: 'relative' }}>
+      <Box sx={{ width: chromePx(104), flexShrink: 0, borderRadius: MEDIA_RADIUS, overflow: 'hidden', position: 'relative' }}>
         <VideoThumb video={video} badge={24} />
         {isNew && <NewTag />}
       </Box>
@@ -287,7 +294,7 @@ export function ClipStrip({ clips, labelFor, from, title = 'Clips', all }: {
                   onClick={() => play(i)}
                   onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); play(i) } }}
                   role="button" tabIndex={0} aria-label={`Play clip: ${v.title}`}
-                  sx={{ position: 'relative', borderRadius: 2, overflow: 'hidden', cursor: 'pointer', ...PLAYABLE_HOVER, ...FOCUS_RING }}
+                  sx={{ position: 'relative', borderRadius: MEDIA_RADIUS, overflow: 'hidden', cursor: 'pointer', ...PLAYABLE_HOVER, ...FOCUS_RING }}
                 >
                   <VideoThumb video={v} vertical badge={30} />
                   <ClipCaption title={v.title} lines={3} />

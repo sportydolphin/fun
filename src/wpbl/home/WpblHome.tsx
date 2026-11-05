@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { SECTION_COLUMN_GAP } from '../../ui/card'
+import { SECTION_COLUMN_GAP, MinorSections } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
-import { TAB_TITLE_SX } from '../ui'
 import {
   fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblTrackedGameIds, computeStandings, countsInStandings,
   fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays,
@@ -37,7 +36,7 @@ import { useWpblSeason } from '../SeasonContext'
 import { offseasonByCalendar, nextOpeningDay, rememberNextOpeningDay } from '../offseasonCalendar'
 import { regularSeasonOver } from '../season'
 import { localIsoDate } from '../derive/homePlayers'
-import { HEADER_GAP, MASTHEAD_RAIL_GAP, homeWideSx } from './shared'
+import { HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, homeWideSx } from './shared'
 import { ClubRail } from './ClubRail'
 import { type MatchupPreviewArg, Scoreboard } from './Scoreboard'
 import { NextGameCard } from './NextGameCard'
@@ -441,7 +440,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
             scoreboard tiles. It fits one line on a 375px phone. Never delete it: it is the page's
             one h1, an exact match for the search people type for this league, and Google indexes
             the mobile DOM. */}
-        <Typography component={headingTag} sx={TAB_TITLE_SX}>
+        <Typography component={headingTag} sx={HOME_TITLE_SX}>
           Women's Pro Baseball League
         </Typography>
         <Box sx={{ mt: MASTHEAD_RAIL_GAP }}>
@@ -501,8 +500,8 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           {/* The award results, for the days they stay up after the final (AWARDS_RESULTS_UNTIL). */}
           {seasonCards.length > 0 && <Box sx={{ mt: 3 }}>{seasonCards}</Box>}
 
-          {/* Pairs of about one height, by subject: Spotlight beside the leaders, the award winners beside
-              the star sign card (players either way), the gallery across, then Reading beside Watch.
+          {/* Pairs of about one height, by subject: Spotlight beside the leaders, Reading beside Watch,
+              the gallery across, then the award winners beside the star sign card (players either way).
               Spotlight was a column of labeled facts as tall as two sections until Nov 3, 2026. */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
             <PlayerSpotlightCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} avoid={spotlightAvoid} />
@@ -510,21 +509,28 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
               rosterFailed={!loadingLeaders && players.length === 0} />
           </Box>
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
-            <FanAwardWinnersCard players={players} teams={teamMap} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} onOpenAwards={onOpenAwards}
-              rosterFailed={!loadingLeaders && players.length === 0} />
-            {/* The players born under the sign whose season it is, each with their birthday. */}
-            <StarSignCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} />
-          </Box>
+          {/* THREE TIERS, NOT ONE (Nov 4, 2026): the lead, then Spotlight and the leaders under the
+              heavy rule, then everything a reader browses rather than reads as news in the quieter
+              tier (MinorSections). With one heading style for all nine the page had no order. */}
+          {/* In order of what changes between visits (Nov 4, 2026): Reading and Watch get new posts and
+              clips all offseason, the gallery reshuffles every load, and the award results and the
+              star sign card hold for weeks, so they close the page. The sign card sat above all three. */}
+          <MinorSections>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
+              <ReadingHomeCard teamById={teamMap} />
+              <WatchCard from="home" compact placeholder={<CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />} />
+            </Box>
 
-          {/* Fan photos: with no games left, the one block besides the player cards that changes
-              from one visit to the next, and the rail reshuffles every load. */}
-          <FanPhotoHomeCard reserve />
+            {/* Fan photos: the rail alone. A lead photo over it made the gallery a screen tall. */}
+            <FanPhotoHomeCard reserve />
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
-            <ReadingHomeCard teamById={teamMap} />
-            <WatchCard from="home" compact placeholder={<CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />} />
-          </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
+              <FanAwardWinnersCard players={players} teams={teamMap} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} onOpenAwards={onOpenAwards}
+                rosterFailed={!loadingLeaders && players.length === 0} />
+              {/* The players born under the sign whose season it is, each with their birthday. */}
+              <StarSignCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} />
+            </Box>
+          </MinorSections>
         </>
       )}
 

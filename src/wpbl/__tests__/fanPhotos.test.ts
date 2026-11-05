@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildFanPhotoIndex } from '../fanPhotos'
+import { buildFanPhotoIndex, championPhoto, type FanPhotoWithSubjects } from '../fanPhotos'
 import type { WpblFanPhoto, WpblPhotoSubject, WpblPhotoFigure } from '../types'
 
 // buildFanPhotoIndex joins the three flat fan-photo reads into per-subject and per-game lookups.
@@ -89,5 +89,28 @@ describe('buildFanPhotoIndex', () => {
     expect(idx.byPlayer.has('p2')).toBe(false)
     expect(idx.byGame.has('g1')).toBe(false)
     expect(idx.byCategory.has('fan-signs')).toBe(false)
+  })
+})
+
+describe('championPhoto', () => {
+  const team = (o: Partial<WpblFanPhoto> & { id: string }): FanPhotoWithSubjects =>
+    ({ ...photo(o), playerIds: [], figureKeys: [], teamIds: ['LA'] })
+  const finals = ['2026-09-18', '2026-09-21', '2026-09-20']
+
+  it('takes the latest landscape team photo from the final or the day after it', () => {
+    const got = championPhoto([
+      team({ id: 'preseason', taken_on: '2026-05-01' }),
+      team({ id: 'undated' }),
+      team({ id: 'game1', taken_on: '2026-09-18' }),
+      team({ id: 'portrait', taken_on: '2026-09-22', width: 800, height: 1200 }),
+      team({ id: 'trophy', taken_on: '2026-09-22' }),
+      team({ id: 'late', taken_on: '2026-09-23' }),
+    ], finals)
+    expect(got?.id).toBe('trophy')
+  })
+
+  it('is null with no final or nothing dated in it', () => {
+    expect(championPhoto([team({ id: 'a', taken_on: '2026-09-21' })], [])).toBeNull()
+    expect(championPhoto([team({ id: 'a' })], finals)).toBeNull()
   })
 })

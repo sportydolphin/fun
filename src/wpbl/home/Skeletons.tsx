@@ -1,6 +1,6 @@
 import { Box, Skeleton, Typography } from '@mui/material'
-import { chromePx, CARD_BORDER, CARD_FILL, TYPE_SCALE, TAB_TITLE_SX } from '../ui'
-import { SECTION_COLUMN_GAP, SECTION_RULE } from '../../ui/card'
+import { chromePx, CARD_BORDER, CARD_FILL, TYPE_SCALE } from '../ui'
+import { SECTION_COLUMN_GAP, useSectionTier, MinorSections } from '../../ui/card'
 // The dismissal key and the dev-only undo. Their own module so the dev settings menu can reach
 // the undo without dragging this file into the main bundle. See discordInvite.ts.
 import { DISCORD_DISMISS_KEY } from '../discordInvite'
@@ -9,7 +9,7 @@ import { FanPhotoHomeCardSkeleton } from '../FanPhotoViews'
 import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard } from './PlayerCards'
 import type { WpblTeam } from '../types'
 import { offseasonByCalendar } from '../offseasonCalendar'
-import { SECTION_GAP, HEADER_GAP, MASTHEAD_RAIL_GAP, homeWideSx } from './shared'
+import { SECTION_GAP, HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, homeWideSx } from './shared'
 import { ClubRailSkeleton } from './ClubRail'
 
 // Skeletons shaped like the real rows, so a card reserves its final height while its
@@ -42,16 +42,17 @@ export function CardSkeleton({ minHeight, titleWidth = '7rem', lines = 3, headin
   /** SectionCard's `headingHidden`: no title bar and no rule, as the lead draws none. */
   headingHidden?: boolean
 }) {
+  const tier = useSectionTier()
   return (
     // SectionCard's section shape (one rule on top, no frame), so the placeholder takes the box the
-    // loaded section will.
+    // loaded section will, in the same tier (MinorSections).
     <Box aria-hidden sx={{
       overflow: 'hidden', minHeight,
-      ...(headingHidden ? null : SECTION_RULE),
+      ...(headingHidden ? null : tier.rule),
     }}>
       {!headingHidden && (
         <Box sx={{ px: 2, pt: 1.25, pb: 1 }}>
-          <Skeleton variant="text" width={titleWidth} sx={{ fontSize: TYPE_SCALE.display, lineHeight: 1.2 }} />
+          <Skeleton variant="text" width={titleWidth} sx={tier.headingType} />
         </Box>
       )}
       {lines > 0 && (
@@ -86,10 +87,10 @@ export function WpblHomeSkeleton() {
           makes up the difference, and the two measure the same at 375px. Check any change to
           either against the loaded page (see "Loading states" in CLAUDE.md). */}
       <Box sx={{ mb: { xs: 0, sm: HEADER_GAP } }}>
-          {/* The title's own line box (TAB_TITLE_SX) with the bar inside it: a bare text skeleton is
+          {/* The title's own line box (HOME_TITLE_SX) with the bar inside it: a bare text skeleton is
               not the same height as the h1, which the chips beside it used to hide and the rail under
               it does not. */}
-          <Typography sx={TAB_TITLE_SX}><Skeleton sx={{ width: { xs: '16rem', md: '22rem' }, maxWidth: '100%' }} /></Typography>
+          <Typography sx={HOME_TITLE_SX}><Skeleton sx={{ width: { xs: '16rem', md: '22rem' }, maxWidth: '100%' }} /></Typography>
         <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><ClubRailSkeleton /></Box>
       </Box>
 
@@ -191,18 +192,18 @@ function OffseasonHomeSkeleton() {
   return (
     <Box role="status" aria-busy="true" aria-label="Loading the Women's Pro Baseball League home page" sx={homeWideSx}>
       <Box sx={{ mb: { xs: 0, sm: HEADER_GAP } }}>
-          {/* The title's own line box (TAB_TITLE_SX) with the bar inside it: a bare text skeleton is
+          {/* The title's own line box (HOME_TITLE_SX) with the bar inside it: a bare text skeleton is
               not the same height as the h1, which the chips beside it used to hide and the rail under
               it does not. */}
-          <Typography sx={TAB_TITLE_SX}><Skeleton sx={{ width: { xs: '16rem', md: '22rem' }, maxWidth: '100%' }} /></Typography>
+          <Typography sx={HOME_TITLE_SX}><Skeleton sx={{ width: { xs: '16rem', md: '22rem' }, maxWidth: '100%' }} /></Typography>
         <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><ClubRailSkeleton /></Box>
       </Box>
 
       {/* The lead: the champion's season card at full width, with no heading of its own (the band
-          says "2026 WPBL Champions"). Its height measured at 375 and 1440 (Nov 3, 2026): one card in
+          says "2026 WPBL Champions"). Its height measured at 375 and 1440 (Nov 4, 2026): one card in
           a column below md, band beside road from md. */}
       <Box sx={{ mt: 3 }}>
-        <CardSkeleton minHeight={{ xs: '23.73rem', md: '15.64rem' }} lines={5} headingHidden />
+        <CardSkeleton minHeight={{ xs: '33.59rem', md: '18.33rem' }} lines={5} headingHidden />
       </Box>
       {awards && (
         <Box sx={{ mt: 3 }}>
@@ -216,17 +217,19 @@ function OffseasonHomeSkeleton() {
         <PlayerSpotlightCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
         <SeasonLeadersCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
       </Box>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
-        <FanAwardWinnersCard players={[]} teams={EMPTY_TEAMS} onOpenPlayer={NO_OPEN} onOpenTeam={NO_OPEN} />
-        <StarSignCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
-      </Box>
+      <MinorSections>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
+          <CardSkeleton minHeight={READING_CARD_SKELETON_H} titleWidth="4.5rem" lines={0} />
+          <CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />
+        </Box>
 
-      <FanPhotoHomeCardSkeleton />
+        <FanPhotoHomeCardSkeleton />
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
-        <CardSkeleton minHeight={READING_CARD_SKELETON_H} titleWidth="4.5rem" lines={0} />
-        <CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />
-      </Box>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
+          <FanAwardWinnersCard players={[]} teams={EMPTY_TEAMS} onOpenPlayer={NO_OPEN} onOpenTeam={NO_OPEN} />
+          <StarSignCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
+        </Box>
+      </MinorSections>
 
       {/* The Discord row, a section row since Nov 3, 2026 (DiscordCard), at its measured height. No
           About the League after it: the offseason Home dropped it. */}

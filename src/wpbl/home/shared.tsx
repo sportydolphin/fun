@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Typography, alpha } from '@mui/material'
 import { WPBL_ACCENT, countdownLabel } from '../constants'
 import { linkTo, isModified } from '../../nav'
-import { TYPE_SCALE } from '../ui'
+import { TYPE_SCALE, TAB_TITLE_SX } from '../ui'
 import { track } from '../../lib/analytics'
 import { HOME_WIDE_W } from '../layoutWidths'
 
@@ -21,6 +21,10 @@ export const SECTION_GAP = 2.5
 
 /** Between Home's title and the club rail under it: close, so the two read as one masthead. */
 export const MASTHEAD_RAIL_GAP = 1.5
+
+/** Home's h1 in the capitals every section heading under it uses (SECTION_HEADING_SX), one size up.
+ *  In title case it was the one heading on the page set differently from the rest (Nov 4, 2026). */
+export const HOME_TITLE_SX = { ...TAB_TITLE_SX, textTransform: 'uppercase', letterSpacing: '0.02em' } as const
 
 /**
  * The gap under the league header, shared with the skeleton so the heading lands where its

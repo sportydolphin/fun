@@ -13,7 +13,7 @@ import { devFanPhotosOn, DEV_FAN_PHOTOS_EVENT, mockFanPhotos } from './dev/devFa
 import { track, EVENTS } from '../lib/analytics'
 import { CONTACT_EMAIL } from '../lib/contact'
 import { useReducedMotion } from '../AccessibilityContext'
-import { TYPE_SCALE } from '../ui/card'
+import { TYPE_SCALE, MEDIA_RADIUS } from '../ui/card'
 
 // How many published photos before the Home card earns its slot, and the most it shows in the
 // rail. The threshold is deliberately not small: a card on the front page has to look like a
@@ -216,19 +216,14 @@ const RAIL_ASPECT_MAX = 2
 
 /** The rail's one fixed dimension. Structure, so it scales with the chrome (see chromePx). */
 const RAIL_TILE_H = { xs: 168, sm: 184 } as const
-/** The Home gallery's lead photograph: the section's picture, cropped to this height across the
- *  section's width. A photo is the one thing on Home that is better big (Nov 4, 2026). */
-const LEAD_PHOTO_H = { xs: 220, sm: 300, md: 380 } as const
-const leadHeight = { xs: chromePx(LEAD_PHOTO_H.xs), sm: chromePx(LEAD_PHOTO_H.sm), md: chromePx(LEAD_PHOTO_H.md) }
 
 function PhotoCard({ photo, names, onOpen, frame, focusable = true, subject, priority }: {
   photo: FanPhotoWithSubjects; names: string[]; onOpen: () => void
   /** The page's own subject (a player's name on their page), named nowhere in `names`. */
   subject?: string
   /** 'rail': fixed height, width follows the photo. 'natural': full width of its column, height
-   *  follows the photo (the gallery's masonry). 'lead': the full width at LEAD_PHOTO_H, cropped to
-   *  fill (the Home gallery's lead, always a landscape shot). */
-  frame: 'rail' | 'natural' | 'lead'
+   *  follows the photo (the gallery's masonry). */
+  frame: 'rail' | 'natural'
   /** False on the Home rail's loop copy, which `inert` already hides; this keeps it out of the
    *  tab order in a browser too old to know `inert`. */
   focusable?: boolean
@@ -242,9 +237,7 @@ function PhotoCard({ photo, names, onOpen, frame, focusable = true, subject, pri
   const showCaption = !captionIsOnlySubject(photo, names, subject)
   const size = frame === 'rail'
     ? { width: '100%', height: { xs: chromePx(RAIL_TILE_H.xs), sm: chromePx(RAIL_TILE_H.sm) } }
-    : frame === 'lead'
-      ? { width: '100%', height: leadHeight }
-      : { width: '100%', aspectRatio: photo.width && photo.height ? `${photo.width} / ${photo.height}` : '4 / 3' }
+    : { width: '100%', aspectRatio: photo.width && photo.height ? `${photo.width} / ${photo.height}` : '4 / 3' }
   // A lazy tile was a flat gray box until its photo arrived, which on a slow phone read as a broken
   // gallery rather than one still loading. The index carries no color or preview to paint
   // instead, so the box shows the site's loading wave and the photo fades in over it. A photo
@@ -258,7 +251,7 @@ function PhotoCard({ photo, names, onOpen, frame, focusable = true, subject, pri
         role="button" tabIndex={focusable ? 0 : -1} aria-label={`View photograph: ${caption}`}
         sx={{
           position: 'relative', ...size, cursor: 'pointer',
-          borderRadius: 2, overflow: 'hidden', bgcolor: 'action.hover',
+          borderRadius: MEDIA_RADIUS, overflow: 'hidden', bgcolor: 'action.hover',
           border: '1px solid', borderColor: CARD_BORDER, transition: 'border-color 0.15s, transform 0.1s',
           ...hoverOnly({ borderColor: 'text.disabled' }),
           '&:active': { transform: 'scale(0.99)' },
@@ -272,13 +265,13 @@ function PhotoCard({ photo, names, onOpen, frame, focusable = true, subject, pri
           // An error ends the wait too: a photo that will never come must not shimmer forever.
           onLoad={() => setLoaded(true)} onError={() => setLoaded(true)}
           sx={{
-            position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: frame === 'lead' ? 'cover' : 'contain', objectPosition: frame === 'lead' ? 'center 25%' : undefined,
+            position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain',
             opacity: loaded ? 1 : 0, transition: 'opacity 0.25s',
           }} />
       </Box>
       {showCaption && (
         <Typography sx={{
-          fontSize: frame === 'lead' ? TYPE_SCALE.title : TYPE_SCALE.meta, fontWeight: frame === 'lead' ? 700 : 600, lineHeight: 1.3, mt: 0.6,
+          fontSize: TYPE_SCALE.meta, fontWeight: 600, lineHeight: 1.3, mt: 0.6,
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>{caption}</Typography>
       )}
@@ -489,21 +482,17 @@ function railFade(start: boolean, end: boolean): string | undefined {
  *  open event so a player-page strip and a Game Center strip can be judged separately.
  *  `autoScroll` makes it drift on its own (Home only; see useRailAutoScroll). `phoneInset` is for
  *  a rail bled to its card's edges on a phone (see RailScroller). */
-export function FanPhotoStrip({ photos: all, resolveNames, from, autoScroll = false, phoneInset = 0, subject, lead = false }: {
+export function FanPhotoStrip({ photos, resolveNames, from, autoScroll = false, phoneInset = 0, subject }: {
   photos: FanPhotoWithSubjects[]; resolveNames: ResolveNames; from: string; autoScroll?: boolean; phoneInset?: number
   /** The page's own subject, left out of `resolveNames` because every photo here is of them. */
   subject?: string
-  /** Draw the first landscape photo big above the rail (Home). The lightbox still pages through all. */
-  lead?: boolean
 }) {
-  const leadPhoto = lead ? all.find(p => (p.width ?? 0) > (p.height ?? 0)) ?? null : null
-  const photos = leadPhoto ? all.filter(p => p !== leadPhoto) : all
   const { scrollRef, canPrev, canNext, syncEdges, page } = useRailPaging(photos.length)
-  const { open, node, viewing } = useFanPhotoViewer(all, resolveNames, from, subject)
+  const { open, node, viewing } = useFanPhotoViewer(photos, resolveNames, from, subject)
   const areaRef = useRef<HTMLDivElement>(null)
   const { drifting, looping } = useRailAutoScroll(scrollRef, areaRef, autoScroll && photos.length > 0, viewing)
 
-  if (all.length === 0) return null
+  if (photos.length === 0) return null
   // Each tile as wide as its photo is at the rail's height, so a portrait and a landscape shot sit
   // side by side at their own shapes.
   //
@@ -522,20 +511,12 @@ export function FanPhotoStrip({ photos: all, resolveNames, from, autoScroll = fa
         ...(drifting ? { transform: `translateX(calc(var(${DRIFT_VAR}, 0) * -1px))`, willChange: 'transform' } : {}),
       }}>
         <PhotoCard photo={p} names={resolveNames(p)} onOpen={() => open(p)} frame="rail" focusable={!copy} subject={subject}
-          priority={copy || i >= 3 ? undefined : i === 0 && autoScroll && !leadPhoto ? 'high' : 'eager'} />
+          priority={copy || i >= 3 ? undefined : i === 0 && autoScroll ? 'high' : 'eager'} />
       </Box>
     )
   })
   return (
     <>
-      {leadPhoto && (
-        // Inset on a phone like the rail's resting edge (`phoneInset`), so the lead lines up with
-        // the section's heading while the rail under it still runs to the screen's edge.
-        <Box sx={{ px: { xs: phoneInset, sm: 0 }, mb: 2 }}>
-          <PhotoCard photo={leadPhoto} names={resolveNames(leadPhoto)} onOpen={() => open(leadPhoto)} frame="lead"
-            subject={subject} priority="high" />
-        </Box>
-      )}
       <Box ref={areaRef} sx={{ position: 'relative' }}>
         {/* NO SNAPPING ON A DRIFTING RAIL, EVER, not only while it drifts. Snap had to be off
             during the drift (it re-snaps every nudge), which left exactly one moment it came on:
@@ -682,15 +663,10 @@ export function FanPhotoHomeCardSkeleton() {
   return (
     <Box sx={{ mt: 3 }} aria-hidden>
       <SectionCard title={HOME_CARD_TITLE} titleLink={{}}>
-        <Box sx={{ mb: 2 }}>
-          <Skeleton variant="rounded" sx={{ width: '100%', height: leadHeight }} />
-          <Skeleton variant="text" width="40%" sx={{ fontSize: TYPE_SCALE.title, lineHeight: 1.3, mt: 0.6 }} />
-          <Skeleton variant="text" width="25%" sx={{ fontSize: TYPE_SCALE.caption, lineHeight: 1.35, mt: 0.5 }} />
-        </Box>
         <Box sx={{ mx: { xs: -2, sm: 0 }, display: 'flex', gap: 1.25, overflow: 'hidden', pb: 0.5 }}>
           {[1.5, 1, 1.5, 1.33, 1.5].map((a, i) => (
             <Box key={i} sx={{ flexShrink: 0, width: { xs: `calc(${chromePx(RAIL_TILE_H.xs)} * ${a})`, sm: `calc(${chromePx(RAIL_TILE_H.sm)} * ${a})` } }}>
-              <Skeleton variant="rounded" sx={{ width: '100%', height: { xs: chromePx(RAIL_TILE_H.xs), sm: chromePx(RAIL_TILE_H.sm) } }} />
+              <Skeleton variant="rectangular" sx={{ width: '100%', height: { xs: chromePx(RAIL_TILE_H.xs), sm: chromePx(RAIL_TILE_H.sm) } }} />
               <Skeleton variant="text" width="60%" sx={{ fontSize: TYPE_SCALE.meta, lineHeight: 1.3, mt: 0.6 }} />
               <Skeleton variant="text" width="45%" sx={{ fontSize: TYPE_SCALE.caption, lineHeight: 1.35, mt: 0.5 }} />
             </Box>
@@ -777,7 +753,7 @@ export function FanPhotoHomeCard({ reserve = false }: {
             `phoneInset` puts the same 2 back inside the scroller, so at rest the photos line up
             with the title and the note, and only a scrolling photo runs to the edge. */}
         <Box sx={{ mx: { xs: -2, sm: 0 } }}>
-          <FanPhotoStrip photos={shuffled.slice(0, HOME_RAIL_MAX)} resolveNames={resolveNames} from="home" autoScroll phoneInset={2} lead />
+          <FanPhotoStrip photos={shuffled.slice(0, HOME_RAIL_MAX)} resolveNames={resolveNames} from="home" autoScroll phoneInset={2} />
         </Box>
       </SectionCard>
     </Box>

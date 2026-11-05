@@ -1,11 +1,12 @@
 import React from 'react'
 import { pressable } from './ui/interaction'
-import { Box } from '@mui/material'
+import { Box, useTheme } from '@mui/material'
 import { APP_VERSION } from './version'
 import { track, EVENTS } from './lib/analytics'
 import { WPBL_FOOTER_PAGES } from './wpbl/morePages'
 import { MLB_MORE_PAGES } from './mlb/routes'
-import { TYPE_SCALE, DISPLAY_FONT, AGATE_SX, SECTION_RULE } from './ui/card'
+import { TYPE_SCALE, AGATE_SX, SECTION_RULE } from './ui/card'
+import { HOME_W } from './ui/layoutWidths'
 
 const KOFI_URL = 'https://ko-fi.com/sportydolphin'
 const BLUESKY_URL = 'https://bsky.app/profile/sportydolphin.fun'
@@ -45,6 +46,7 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
     if (last?.title === pg.group) last.pages.push(pg)
     else groups.push({ title: pg.group, pages: [pg] })
   }
+  const isDark = useTheme().palette.mode === 'dark'
   const pageLink = (href: string, label: string) => (
     <Box component="a" href={href} onClick={e => { e.preventDefault(); onNavigate(href) }} sx={linkSx}>{label}</Box>
   )
@@ -72,13 +74,21 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
           because Google had indexed /wpbl and never heard of /mlb. Privacy and Terms were found
           only through this footer. Every link is a fix for an indexing failure that happened, so
           each stays a real anchor: an onClick-only control is invisible to a crawler. */}
-      <Box sx={{ maxWidth: 1100, mx: 'auto' }}>
+      {/* Home's column, so the footer's rule lines up with the section rules above it on Home and
+          Game Center: at 1100 it stopped 80px short of them on each side (Nov 4, 2026). */}
+      <Box sx={{ maxWidth: HOME_W, mx: 'auto' }}>
         <Box sx={{
           ...SECTION_RULE, pt: 1, mb: 1.5,
           display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', columnGap: 2, rowGap: 0.5,
         }}>
-          <Box component="span" sx={{ fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: TYPE_SCALE.page, textTransform: 'uppercase', letterSpacing: '0.02em', lineHeight: 1.1 }}>
-            sportydolphin.fun
+          {/* The toolbar's lockup, the mark and the name in the same weight, so the site has one
+              wordmark: this was "SPORTYDOLPHIN.FUN" in the display face, a second logo (Nov 4, 2026). */}
+          <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, alignSelf: 'center' }}>
+            <Box component="img" src="/logo-mark.png" alt="" aria-hidden sx={{
+              display: 'block', height: `calc(28px * var(--app-chrome, 1))`, width: 'auto',
+              ...(isDark && { filter: 'invert(1)' }),
+            }} />
+            <Box component="span" sx={{ fontWeight: 700, fontSize: TYPE_SCALE.heading, lineHeight: 1.1 }}>sportydolphin</Box>
           </Box>
           {/* The fine print beside the name rather than under the links, where a reader stops
               looking. The data credit lives on the sources page; the disclaimer is a different
