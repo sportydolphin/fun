@@ -34,10 +34,14 @@ goes (Nov 4, seventh pass). Where this and the original brief below disagree, th
   is a section now, not a framed card, and the lead has no filled panel. A heading that links ends in a › in its own ink, never the accent.
 - **Clubs as solid blocks**, square, the way a jersey or a broadcast graphic prints a club. No pale
   washes (they vanished on the light page) and no accent stripe down one edge of a rounded card (it
-  read as generated). Two recipes are live, see "Handoff": Home's masthead is the jersey (the club's
-  near-black primary, white ink, its bright color as trim along the foot); the Teams tab, a club
-  page and the league page still use `wpblField` (a mid-tone fill picked to carry ink). Spotlight
-  no longer draws a club block at all.
+  read as generated). Home draws no club block now: its masthead is a standings line (below). The
+  Teams tab, a club page and the league page still use `wpblField` (a mid-tone fill picked to carry
+  ink).
+- **Home's masthead is a standings line** (Nov 4, owner's pick from a trial against the jersey
+  blocks, a line under a four-color bar, and nothing): the title on a heavy rule, then the clubs in
+  the order they finished, each a place, a mark, a name and a record, with "Champions" in gold, over
+  a hairline (`ClubRail`). The blocks were the heaviest thing on the page and only navigation; the
+  color is left to the marks.
 - **Pictures are square** (`MEDIA_RADIUS`), as a printed page runs a photo, and so are faces on
   Home: `PlayerPortrait`'s `print` is a square headshot on the club's color with no ring (the
   leader, Spotlight, the award winners, the Star of the final). Corners stay on controls and sheets.
@@ -95,8 +99,9 @@ Where the work is, for whoever picks it up.
      under the posts, the leaders a 72 face and 34 rows, the award rows more room; each pair now ends
      within about 40px of the other at 1440. The lead's headline steps to 2.75rem between md and lg.
   5. A phone pass: headline over the photo or under it, the room under the Discord row, the
-     footer's length, a one-line masthead, Watch's clipped clip titles.
-  6. Light mode: an equal, or a translation of dark (the masthead's near-black jerseys).
+     footer's length, Watch's clipped clip titles. (The masthead is one line since Nov 4.)
+  6. Light mode: an equal, or a translation of dark. With the jerseys gone from the masthead, the
+     top of the light page is light; what is left dark is the club marks' own fills.
   7. Fan award shares need a head ("Share of votes"); edge states (no photo, awards coming down, a
      small sign).
   8. The lead photo's weight (responsive sizes, an early fetch) and the skeleton-to-content fade.
@@ -109,10 +114,9 @@ Where the work is, for whoever picks it up.
   page, then MLB. Re-run `npm run sweep -- --ellipsis` on each page migrated, and re-record the
   sweep baselines (`npm run sweep:record`) before the merge.
 - **Decisions waiting on the owner:**
-  - One club recipe or two. The masthead moved to the jersey on Nov 4 (owner's call: the
-    `wpblField` fills read as a palette rather than as clubs); Teams, the club page header and the
-    league page have not followed, and Los Angeles's `wpblField` changed the same day
-    to gold with black ink in both themes.
+  - The club recipe for Teams, a club page's header and the league page: the jersey (the club's
+    near-black primary, white ink, bright trim) or `wpblField` (Los Angeles's is gold with black ink
+    in both themes since Nov 4). Home no longer draws either.
   - The open questions at the end of this file (two-club tints, light mode, glass on Android).
 - **Figma was skipped.** Phase 1's Figma items (mood board, variables, five mocks) are open and
   may stay that way: the direction was set in code instead.
