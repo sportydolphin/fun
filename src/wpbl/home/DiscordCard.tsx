@@ -1,6 +1,6 @@
 import { INK, MARK } from '../../ui/color'
 import { useEffect } from 'react'
-import { SECTION_HEADING_SX, SECTION_RULE } from '../../ui/card'
+import { MINOR_HEADING_SX, MINOR_RULE } from '../../ui/card'
 import { Box, Typography } from '@mui/material'
 import { chromePx, hoverOnly, pressable, TYPE_SCALE, FOCUS_RING } from '../ui'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
@@ -44,7 +44,9 @@ export function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
       sx={{
         display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.25,
         textDecoration: 'none', cursor: 'pointer', color: 'inherit',
-        ...SECTION_RULE, ...FOCUS_RING,
+        // The minor tier (Nov 4, 2026): an invite is not news, and under the heavy rule in display
+        // capitals it outranked the gallery and Reading above it.
+        ...MINOR_RULE, ...FOCUS_RING,
         ...hoverOnly({ '& .sd-discord-title': { textDecoration: 'underline' } }),
       }}
     >
@@ -59,7 +61,7 @@ export function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
           Wrapping is off for the same reason it is off on the reminder row: a title that grows
           a second line puts the height straight back, and this one is a hair under its budget
           at 320px with the Join button beside it. */}
-      <Typography noWrap className="sd-discord-title" sx={{ ...SECTION_HEADING_SX, flex: 1, minWidth: 0, color: 'text.primary' }}>
+      <Typography noWrap className="sd-discord-title" sx={{ ...MINOR_HEADING_SX, flex: 1, minWidth: 0, color: 'text.primary' }}>
         Fan Discord
       </Typography>
       <Box sx={{ flexShrink: 0, color: 'var(--wpbl-accent-fg)', fontSize: TYPE_SCALE.meta, fontWeight: 800, whiteSpace: 'nowrap' }}>

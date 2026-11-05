@@ -78,8 +78,10 @@ function useShown(card: string, ready: boolean) {
 
 // Sentence case, not small caps: caps on every label of every card was the site's most repeated
 // tic (the Nov 3, 2026 audit in ROADMAP-UI.md). Caps stay on stat abbreviations, which are caps.
+// Medium, not bold (Nov 4, 2026): nearly every line on Home was bold, the gray labels too, so
+// weight stopped marking anything. Bold is for names and figures.
 const LABEL_SX = {
-  fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.secondary', lineHeight: 1.3,
+  fontSize: TYPE_SCALE.micro, fontWeight: 500, color: 'text.secondary', lineHeight: 1.3,
 } as const
 
 /** "Thu, Oct 16" for a 'YYYY-MM-DD'. Noon, so no zone can move it onto another day. */
@@ -683,7 +685,7 @@ function AwardRow({ row, link, value, hidden }: {
     <Box sx={{ flex: 1, minWidth: 0 }}>
       {/* A label, not a heading: in display caps the award's name outshouted the section's own
           heading once the section moved to the quieter tier (Nov 4, 2026). */}
-      <Typography noWrap sx={{ fontWeight: 700, fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>
+      <Typography noWrap sx={{ fontWeight: 500, fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>
         {row?.title ?? <Skeleton width="50%" />}
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, mt: 0.25 }}>
@@ -708,12 +710,9 @@ function AwardRow({ row, link, value, hidden }: {
             }}>{row.pct}%</Box>
           : <Typography sx={{ ...AGATE_SX, flexShrink: 0, fontSize: TYPE_SCALE.heading, lineHeight: 1.2 }}>{'\u00a0'}</Typography>}
       </Box>
-      {/* The share as a bar on a track the width of the line, in ink rather than the winner's club
-          color (Nov 4, 2026): five bars in five club colors were the most colorful block below the
-          lead, and the share is the fact, not the club. */}
-      <Box aria-hidden sx={{ mt: 0.75, height: chromePx(3), bgcolor: 'action.hover' }}>
-        <Box sx={{ height: '100%', width: `${row?.pct ?? 0}%`, bgcolor: row ? 'text.secondary' : 'transparent' }} />
-      </Box>
+      {/* NO BAR UNDER THE SHARE (Nov 4, 2026, third audit): a gray bar on a gray track the width of
+          the line said less than the figure beside it, and with only the winner's share there was
+          nothing for it to be measured against. The results page has the full vote. */}
     </Box>
   )
 }
@@ -764,7 +763,12 @@ export function StarSignCard({ players, teams, games, onOpenPlayer }: {
   const { sign, players: born } = useMemo(() => signSeason(players, today), [players, today])
   const link = useTrackedPlayerLink('sign', onOpenPlayer)
   useShown('sign', born.length > 0)
-  const shown = born.slice(0, SIGN_CAP)
+  // signSeason's order PICKS who fits under the cap (today and the days ahead first, so a birthday
+  // today never falls off the end); the grid then prints them in calendar order. In the picking
+  // order the rows ran Nov 4, 9, 18, then back to Nov 2, Oct 30, Oct 25, which read as shuffled.
+  // Undated players last, as signSeason lists them.
+  const shown = useMemo(() => born.slice(0, SIGN_CAP).sort((a, b) =>
+    (a.offset == null ? 1 : 0) - (b.offset == null ? 1 : 0) || (a.offset ?? 0) - (b.offset ?? 0)), [born])
   // The slots the sign leaves empty go to the next sign, behind a tile naming it: one held blank,
   // they were a hole as tall as three rows on a phone. Only with room for the tile and a player.
   const next = useMemo(() => nextSignSeason(players, today), [players, today])
