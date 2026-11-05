@@ -528,7 +528,9 @@ function ChampionLead({ champion, teams, played, path, star, starPlayer, starLoa
             {year != null ? `${year} WPBL Champions` : 'WPBL Champions'}
           </Typography>
           {/* The headline: the club's full name, allowed to wrap rather than cut at a narrow column. */}
-          <Typography component="p" sx={{ ...HEADLINE_SX, fontSize: { xs: TYPE_SCALE.hero, md: TYPE_SCALE.lead }, lineHeight: 1.0, textWrap: 'balance' }}>
+          {/* A step between `hero` and `lead` from md to lg, where the column is about 350px and
+              Newsreader at `lead` broke "Los Angeles" itself across two lines. */}
+          <Typography component="p" sx={{ ...HEADLINE_SX, fontSize: { xs: TYPE_SCALE.hero, md: '2.75rem', lg: TYPE_SCALE.lead }, lineHeight: 1.0, textWrap: 'balance' }}>
             {wpblFullName(champion)}
           </Typography>
         </RecapLink>
@@ -605,8 +607,9 @@ function ChampionLead({ champion, teams, played, path, star, starPlayer, starLoa
 
 /** The lead's text column at its loaded height, for the skeleton: the kicker, a headline of one
  *  line on a phone and two in the narrower desktop column, the road, the games, the Star and the
- *  recap link. Measured at 375, 760, 960 and 1440 (Nov 4, 2026). In rem, since all of it is type. */
-const LEAD_TEXT_H = { xs: '19.73rem', md: '24.34rem' } as const
+ *  recap link. Measured at 375, 760, 960, 1280 and 1440 in Newsreader (Nov 4, 2026). In rem, since
+ *  all of it is type. */
+const LEAD_TEXT_H = { xs: '19.57rem', md: '22.76rem', lg: '24.26rem' } as const
 
 /** Home's lead before the season's read lands, in the loaded lead's own wrapper and grid: the photo
  *  is the same 3:2 box at the same column width, so it reserves itself exactly at every width, and
@@ -625,7 +628,7 @@ export function ChampionLeadSkeleton() {
           </Box>
           <Box sx={{ minWidth: 0, minHeight: LEAD_TEXT_H }}>
             <Skeleton variant="text" width="45%" sx={{ fontSize: TYPE_SCALE.micro }} />
-            <Skeleton variant="text" width="85%" sx={{ fontSize: { xs: TYPE_SCALE.hero, md: TYPE_SCALE.lead } }} />
+            <Skeleton variant="text" width="85%" sx={{ fontSize: { xs: TYPE_SCALE.hero, md: '2.75rem', lg: TYPE_SCALE.lead } }} />
           </Box>
         </Box>
       </Box>

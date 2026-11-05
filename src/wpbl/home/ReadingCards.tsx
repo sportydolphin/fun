@@ -76,7 +76,11 @@ export function LatestReadingCard() {
 }
 
 /** How many posts the offseason Reading card shows: one row of three on a desktop. */
-const READING_HOME_COUNT = 3
+// Four, the fourth shown from `lg` only (Nov 4, 2026, Home step 4): beside Watch at 1440, three rows
+// ran about 100px short, and the gap opened above the credit line, which was pinned to the foot.
+// Between `md` and `lg` Watch's posters are smaller and three already match it; on a phone the card
+// is alone in its row and three is enough.
+const READING_HOME_COUNT = 4
 
 /**
  * The newest posts for the offseason Reading card, newest first, with each writer's latest
@@ -113,6 +117,12 @@ export function ReadingHomeCard({ teamById }: { teamById: Map<string, WpblTeam> 
   }, [])
   const articles = useMemo(() => loaded ?? [], [loaded])
   const picks = useMemo(() => readingHomePicks(articles), [articles])
+  // The row a phone drops: the one the three-post pick would not have made, so each writer's latest
+  // stays on a phone too. Not simply the oldest, which can be a writer's only post.
+  const desktopOnly = useMemo(() => {
+    const three = new Set(readingHomePicks(articles, 3))
+    return picks.findIndex(a => !three.has(a))
+  }, [articles, picks])
   const stamped = useMemo(() => loaded?.map(a => ({ id: String(a.post_id), at: a.published_at })) ?? null, [loaded])
   const { isNew, markOpened } = useNewSince('reading', stamped)
   const writers = useMemo(
@@ -143,6 +153,7 @@ export function ReadingHomeCard({ teamById }: { teamById: Map<string, WpblTeam> 
           padding so a cover lines up with the card's title rather than sitting a step in from it. */}
       <Box sx={{
         display: 'grid', gap: 0, gridTemplateColumns: '1fr', mx: -1,
+        ...(desktopOnly >= 0 ? { [`& > :nth-of-type(${desktopOnly + 1})`]: { display: { xs: 'none', lg: 'flex' } } } : null),
         // The rule inset by the rows' own bleed, so it starts under the cover and stops at the text's
         // edge: as a border on the bleeding row it ran 8px past the section on both sides (Nov 4,
         // 2026). Doubled &&: each row's own `position` is one class too, and this has to outrank it.
@@ -154,7 +165,9 @@ export function ReadingHomeCard({ teamById }: { teamById: Map<string, WpblTeam> 
         {picks.map(a => <ReadingCard key={a.post_id} article={a} teamById={teamById} from="home" rows
           isNew={isNew(String(a.post_id), a.published_at)} onOpen={() => markOpened(String(a.post_id))} />)}
       </Box>
-      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mt: 'auto' }}>
+      {/* Right under the posts, not pinned to the foot: pinned, any slack from Watch beside it
+          opened a hole between the last post and the credit that belongs to it. */}
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', mt: 0.5 }}>
         Written by {writers.map((w, i) => (
           <Fragment key={w.key}>
             {i > 0 && (i === writers.length - 1 ? ' and ' : ', ')}

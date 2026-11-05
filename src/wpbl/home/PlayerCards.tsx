@@ -448,11 +448,13 @@ function NoDataRows() {
 // ─── The leaders board ──────────────────────────────────────────────────────────
 
 /** The leader's face. Big enough to be the board's picture, which the four lines under it are not. */
-const LEAD_FACE = 56
+// 72, up from 56 (Nov 4, 2026, Home step 4): beside Spotlight the board ran 46px short, and the
+// leader's face is the one picture on it.
+const LEAD_FACE = 72
 
 /** A place's line, 44px on a phone (the tap target it is the whole of) and a box-score line's 30 on a
  *  desktop. Structure, so chromePx: it must not grow with the reader's text size. */
-const PLACE_ROW_H = { xs: chromePx(44), md: chromePx(30) }
+const PLACE_ROW_H = { xs: chromePx(44), md: chromePx(34) }
 
 /** Rank, name, club, figure: the columns of a box score's leader line. The club-color tick between
  *  rank and name went on Nov 4, 2026: the club abbreviation after the name already says it, and five
@@ -700,7 +702,9 @@ function AwardRow({ row, link, value, hidden }: {
     </Box>
   )
   return (
-    <Box aria-hidden={hidden || !row || undefined} sx={{ py: 0.75, ...(hidden ? { visibility: 'hidden' } : null) }}>
+    // A little more room per row from `md` (Nov 4, 2026, Home step 4): with the share bars gone the
+    // card ran 28px short of the star sign card beside it.
+    <Box aria-hidden={hidden || !row || undefined} sx={{ py: { xs: 0.75, md: 1.1 }, ...(hidden ? { visibility: 'hidden' } : null) }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
         {row && link ? <Box {...link} sx={{ ...ROW_LINK_SX, flex: 1, py: 0 }}>{who}</Box> : who}
         {row && value
