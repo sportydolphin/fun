@@ -142,8 +142,12 @@ export function FittedName({ name, className, sx, wrapperSx, fitKey }: {
   // squeeze this. The recap's star columns take their width from the flex row that holds all
   // three, and measure the same either way, so switching them is a change with no effect and
   // no test to notice if that stopped being true. Left to the callers that need it.
+  // `overflowX: 'clip'` FOR THE MEASURING COPY (Nov 5, 2026): out of flow, it adds nothing to the
+  // column's width but still counts toward the page's, so a long name in the right-hand column of
+  // Home's star sign card made a 375 phone scroll sideways. `clip`, not `hidden`, so the wrapper
+  // does not become a scroll container; the name itself is noWrap and clips its own text anyway.
   return (
-    <Box sx={{ position: 'relative', ...wrapperSx }}>
+    <Box sx={{ position: 'relative', overflowX: 'clip', ...wrapperSx }}>
       <Typography ref={ref} className={className} noWrap title={stage > 0 ? name : undefined} sx={sx}>
         {stages[stage]}
       </Typography>
