@@ -14,7 +14,8 @@ import { describe, it, expect } from 'vitest'
  * the card dimensions: an alpha channel is a flag in the container, and pulling an image
  * library into the unit tests for one bit is not worth it.
  *
- * A FAILURE HERE MEANS RUN THE SCRIPT, not edit the test: python scripts/cut-out-wpbl-portraits.py
+ * A FAILURE HERE MEANS RUN THE SCRIPTS, not edit the test: python scripts/cut-out-wpbl-portraits.py,
+ * then python scripts/frame-wpbl-portraits.py
  */
 
 // Resolved from the repo root, which is where vitest runs. Same reason as ogCard.test.ts.
