@@ -153,6 +153,47 @@ Where the work is, for whoever picks it up.
 - **Figma was skipped.** Phase 1's Figma items (mood board, variables, five mocks) are open and
   may stay that way: the direction was set in code instead.
 
+## Player portraits (Nov 5, 2026)
+
+The audit: the 118 bundled headshots are 512 squares cropped once (Aug 4) from whatever photo the
+league had, and the frame draws each file whole, so an odd crop is odd in the file. They come
+from three shoots with no shared framing rule:
+
+- **The league's studio shoot in club uniform, about 50.** Consistent: cap near the top, face
+  about 44% of the frame's width, shoulders across the bottom edge.
+- **The WPBL draft shoot, black tee and W cap, about 54.** Consistent with each other, but no club
+  is in the photo; the club color behind it is the only club on the face.
+- **About 12 one-offs** (college, national team, ID photos), which are the broken ones. A head with
+  no shoulders: Ayuri Shimano, Olivia Bricker, Melissa Mayeux (her cut-out lost part of her
+  jersey). Zoomed in and soft: Rosi del Castillo, Luciana Moreno, Chloe Atkinson. A white fringe
+  left by the key: Rosi del Castillo, Melissa Mayeux, Maddison Erwin, Leah Cornish, Emily Baxter,
+  Laura Hirai, Braidy Birdsall. Another team's kit: Leah Cornish (Canada), Claire and Elodie
+  O'Sullivan (Australia), Laura Hirai, Sydney Barry. The cap cut by the top edge: Valerie Perez.
+  Framed small: Scrappy Hopkins. Wrong club: Diana Ibarra wears New York on Los Angeles's color.
+
+The background is the club's raw primary. Los Angeles's is `#000000`, so with `print`'s ring gone
+a Los Angeles face has no edge on the dark page and is the heaviest block on the light one.
+
+The plan, in order:
+
+1. [x] **Sources, a manifest and one framing rule** (Nov 5: `scripts/frame-wpbl-portraits.py`,
+   `art/wpbl-portraits/`, `portraitFraming.test.ts`; 33 photos carry an issue, and the share cards
+   in `src/wpbl/cards/` still show the old crops until `make-wpbl-share-cards.py` is rerun).
+   Keep each player's photo as it came in, as source art outside the bundle, and record per player the measured face box, where the photo is
+   from, and the club in the photo, plus an optional hand-set box. One script builds the 512 and
+   the 128 from that with one rule (the face's center and width at fixed fractions of the frame),
+   so a new photo from any shoot lands framed like the rest. Anything the rule cannot fix (a gap
+   under the shoulders, an upscale past what the source holds) is written down as an issue on the
+   player, and a test holds the list, so a new one fails CI.
+2. [ ] **New photos for the one-offs**, from the league or the clubs, and the draft-tee 54 when 2027's
+   media day publishes. Until then, square frames fade their bottom edge into the club color, which
+   hides a cut line or a missing pair of shoulders.
+3. [ ] **The background on the club's `wpblField` fill** per theme (measured at 3:1 or better
+   against the page; Los Angeles's is gold), not the raw primary. Settle with the club recipe.
+4. [ ] **The club in the photo checked against the roster**, from the manifest: a trade or a draft
+   photo on a new club is listed rather than found by eye.
+5. [ ] **The player page's rounded 84 moves to `print`**, the last frame that has not.
+
 ## The direction: smooth, modern, Apple Sports (original brief, Oct 15)
 
 Glanceable, dark-first and calm. Team color does the decorating, so nothing else has to. One

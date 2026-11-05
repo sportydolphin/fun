@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Key the white studio background out of the bundled roster headshots, in place.
+"""Key the white studio background out of the roster headshots' sources, in place.
 
     python scripts/cut-out-wpbl-portraits.py            # every file that still needs it
     python scripts/cut-out-wpbl-portraits.py --check    # name them, change nothing
@@ -13,11 +13,11 @@ white disc inside a club-colored ring, and a player whose club had never publish
 of her was the only one on the page wearing no color. Nothing about that is visible to a
 type checker or a test that only counts files, which is why it sat there for months.
 
-IN PLACE, AND THE FILE IS ITS OWN SOURCE. This is the opposite of make-wpbl-manager-portraits,
-which rebuilds its output from a published graphic every run: there is no upstream to re-fetch
-here, the 512 square IS the original, and git is the only copy of what went in. So the pass is
-idempotent by construction (a file that already carries alpha is skipped, not re-keyed) and
-`--check` exists to see the list before anything is written.
+IN PLACE, ON THE SOURCE. It keys art/wpbl-portraits/<slug>.webp, the photo as it came in, and
+scripts/frame-wpbl-portraits.py builds the bundled 512 from that (since Nov 2026; before then
+this keyed the bundled file itself). There is no upstream to re-fetch, and git is the only copy
+of what went in. So the pass is idempotent by construction (a file that already carries alpha is
+skipped, not re-keyed) and `--check` exists to see the list before anything is written.
 
 WHY A THRESHOLD AND NOT rembg. A segmentation model is the right tool when the background is a
 scene, which is what the manager script is up against. These are seamless white, and against
@@ -26,8 +26,8 @@ paper and nothing else, where a model happily shaves off a pale cap or half a bl
 and gives no sign it did. The two rules below are what make it safe on a white UNIFORM, which
 is the case that would otherwise eat somebody's jersey.
 
-RUN IT WHEN A NEW HEADSHOT LANDS. `src/wpbl/__tests__/portraitAlpha.test.ts` fails on any
-bundled portrait with no alpha channel, so a white-backed file cannot reach main unnoticed.
+RUN IT WHEN A NEW HEADSHOT LANDS, then frame-wpbl-portraits.py. `portraitAlpha.test.ts` fails on
+any bundled portrait with no alpha channel, so a white-backed file cannot reach main unnoticed.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ import numpy as np
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
-PORTRAITS = ROOT / "src" / "wpbl" / "portraits"
+PORTRAITS = ROOT / "art" / "wpbl-portraits"
 
 # The two ends of the ramp, in min(R, G, B).
 #

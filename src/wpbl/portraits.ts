@@ -1,14 +1,19 @@
 // Player portrait assets. The headshots are bundled in ./portraits/<slug>.webp
-// (512×512, smart-cropped), mirroring how team logos are bundled in ./logos (see
+// (512×512), mirroring how team logos are bundled in ./logos (see
 // constants.ts). Vite emits each as a hashed asset URL, fetched on demand.
+//
+// GENERATED, and never edited here: scripts/frame-wpbl-portraits.py builds each one from the
+// photo in art/wpbl-portraits/ by one framing rule, so faces from different shoots sit at one
+// size side by side. A new or better photo goes in that folder; `portraitFraming.test.ts` fails
+// on a 512 that was not built from the source that is there.
 //
 // Files are named by a normalized slug of the player's DB `name`; we resolve a player to
 // their portrait by slugifying that name the same way, so no per-name mapping is needed.
 // The alias table is a fallback for any future roster name whose DB spelling can't be
 // slugified to its file name (currently empty: every portrait is named by its DB slug).
 //
-// EVERY FILE HERE IS A CUT-OUT, and a new one that is not has to be made into one:
-// `python scripts/cut-out-wpbl-portraits.py`. PlayerPortrait fills its circle with the club's
+// EVERY FILE HERE IS A CUT-OUT, and a new source that is not has to be made into one:
+// `python scripts/cut-out-wpbl-portraits.py`, before framing. PlayerPortrait fills its circle with the club's
 // primary color and draws the photo over it, so a headshot that kept its white studio
 // background renders sharp, correct and colorless, the only face on the page not wearing a
 // club. Nothing about that is visible to tsc, and the page looks fine unless you know what the
