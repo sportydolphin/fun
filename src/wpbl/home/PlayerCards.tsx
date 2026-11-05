@@ -8,7 +8,7 @@ import { currentSeason } from '../season'
 import { useWpblPlayerLink, useWpblTeamLink } from '../LinkContext'
 import { wpblManagerPortraitSet, type WpblPortraitSet } from '../portraits'
 import { SectionCard, TeamBadge, PlayerPortrait, FittedName, TYPE_SCALE, DISPLAY_FONT, TAPPABLE, FOCUS_RING, hoverOnly, chromePx } from '../ui'
-import { AGATE_SX, BRAND, CARD_BORDER, RADIUS } from '../../ui/card'
+import { AGATE_SX, BRAND } from '../../ui/card'
 import { sumBatting, sumPitching, plateAppearances, isBattingGame, fmtRate, wpblQualifiers } from '../stats'
 import { viewPlayerSeasons } from '../derive/playerSeasons'
 import { hittingColumns, OVR_COLS, pitchingColumns } from '../statColumns'
@@ -20,7 +20,7 @@ import { WPBL_AWARDS_PATH } from '../routes'
 import { useEraBasis } from '../EraBasisContext'
 import { outsToIp } from '../innings'
 import { displayPosition, displayPositionFromIndex, leadsWithPitching, playedPosition, type PrimaryPosition } from '../positions'
-import { wpblAccent, wpblField, wpblFullName } from '../constants'
+import { wpblField, wpblFullName } from '../constants'
 import { UNSTYLED_LINK, linkTo } from '../../nav'
 import { linkPress } from '../../ui/interaction'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
@@ -264,22 +264,18 @@ function SeasonStrip({ player, lines, games }: { player: WpblPlayer; lines: Line
 // desktop size the name fell back to "O. Bricker" and the club line to an ellipsis.
 const NAME_SX = { fontSize: { xs: TYPE_SCALE.display, md: TYPE_SCALE.page }, fontWeight: 800, lineHeight: 1.2 } as const
 
-/** The line over the name: why this player, the way a card's front says what it commemorates. One
- *  line of the agate face in capitals, always drawn so the band is one height before and after. */
-/** The numeral's width at its largest ("#29" at `lead`), kept clear on the story line beside it. */
-const NUMERAL_ROOM = { xs: '5rem', lg: '7rem' } as const
-
 const STORY_SX = { ...AGATE_SX, fontSize: TYPE_SCALE.meta, textTransform: 'uppercase', letterSpacing: '0.06em', lineHeight: 1.4 } as const
 
 /**
- * One player a day, as a trading card (Nov 4, 2026, ROADMAP-UI.md's audit): a band in the club's
- * own color with a square photo, the jersey number big in the corner and the reason they are here
- * over the name; the facts under it; the season's line along the bottom in the agate face. It was a
- * section like every other, a round face and three lines of prose, and nothing about it said card.
+ * One player a day, as a printed page runs a profile (Nov 4, 2026, ROADMAP-UI.md's second audit): a
+ * square headshot on the club's own color, the reason they are here over the name, the facts, and the
+ * season's line along the foot in the agate face. No frame and no fill: the section's rule and
+ * heading are its edge, like every other section on Home.
  *
- * AN OBJECT, SO IT HAS A FRAME: the club's accent, which clears 3:1 on the page in both themes
- * (src/CLAUDE.md, "Borders"), so the frame is the club as well as the edge. Not the band's block
- * color, which is only 2 to 3:1 on the dark page.
+ * IT WAS A TRADING CARD earlier the same day, with a rounded frame in the club's accent, a band of
+ * club color and the jersey number at `lead` size. Between square news photos and box-score lines it
+ * read as a second design system, and its band was a third blue beside the masthead's navy. The
+ * number stays, as a fact on the club line.
  *
  * THE PICK HAS A STORY (spotlightStories): a podium finish in one of the season's headline stats, or
  * a birthday. Until Nov 4 the rotation walked everyone with a box-score line, and the front page led
@@ -292,7 +288,6 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
    *  have to swap a beat later. */
   avoid?: string | null
 }) {
-  const isDark = useTheme().palette.mode === 'dark'
   const today = localIsoDate()
   const { boards, stale } = useSeasonBoards(players, teams, games)
   // Null until the boards land, and empty when they cannot (stale rows, a failed read), which
@@ -325,11 +320,10 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
   const playerId = player?.id ?? null
   const onFaceReady = useCallback(() => setFaceFor(playerId), [playerId])
   const faceReady = !!player && faceFor === player.id
-  // The photo's size is a number, not a breakpoint object, so the width is asked. Smaller between a
-  // phone and lg, where the card has half of a 960 page and the club line needs the room.
+  // The photo's size is a number, not a breakpoint object, so the width is asked.
   const phone = usePhoneLayout()
   const lgUp = useMediaQuery((t: Theme) => t.breakpoints.up('lg'))
-  const face = phone ? 84 : lgUp ? 108 : 88
+  const face = phone ? 96 : lgUp ? 120 : 104
 
   const teamId = player?.team_id ?? null
   const team = teamId ? teams.get(teamId) : undefined
@@ -355,65 +349,47 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
   const story = !player ? null
     : pick?.reason === 'birthday' ? 'Birthday today'
     : stories?.get(player.id) ?? 'Today'
-  // The band is the club's block in its own ink, as the strip at the top of the page prints a club:
-  // it was a pale wash of the club color, which all but vanished on the light page (Nov 4, 2026).
-  const field = wpblField(player ? teamId : null, isDark)
-  const clubInk = player ? field.ink : 'text.secondary'
 
   return (
     // The heading opens the player's page, the way every section's heading opens more of itself.
-    // No date beside it: the card is today's by being on today's page, and the line on the band
-    // says why this player.
+    // No date beside it: the card is today's by being on today's page, and the story line says why
+    // this player.
     <SectionCard title="Player Spotlight" fill titleLink={player ? link(player) : { 'aria-hidden': true }}>
       <Box {...(player ? link(player) : { 'aria-hidden': true })} sx={{
         ...UNSTYLED_LINK, display: 'flex', flexDirection: 'column', minWidth: 0,
-        border: '2px solid', borderColor: player ? wpblAccent(teamId, isDark) : CARD_BORDER, borderRadius: RADIUS.lg, overflow: 'hidden',
         ...(player ? { ...TAPPABLE, ...FOCUS_RING } : null),
       }}>
-        {/* The band: the club's own surface color, the photo, the story, the name, the numeral. */}
-        <Box sx={{
-          display: 'flex', alignItems: 'flex-end', gap: 1.5, px: 1.5, pt: 1.5, minWidth: 0, position: 'relative',
-          bgcolor: player ? field.fill : 'action.hover', color: player ? field.ink : 'text.primary',
-        }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, minWidth: 0 }}>
           {/* The skeleton stays over the photo until its face has loaded, and the face fades in
               under it. Swapped straight in, the frame painted as a bare club-colored square for the
               beat before the photo arrived: a blink. */}
-          <Box sx={{ position: 'relative', flexShrink: 0, mb: 1.5 }}>
+          <Box sx={{ position: 'relative', flexShrink: 0 }}>
             {player
               ? <Box sx={{ opacity: faceReady ? 1 : 0, transition: 'opacity 0.25s' }}>
-                  <PlayerPortrait name={player.name} teamId={teamId} size={face} square eager onReady={onFaceReady} ring={clubInk} />
+                  <PlayerPortrait name={player.name} teamId={teamId} size={face} print eager onReady={onFaceReady} />
                 </Box>
               : <Box sx={{ width: chromePx(face), height: chromePx(face) }} />}
-            {!faceReady && <Skeleton variant="rounded" sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />}
+            {!faceReady && <Skeleton variant="rectangular" sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />}
           </Box>
-          <Box sx={{ flex: 1, minWidth: 0, pb: 1.5 }}>
-            {/* Clear of the numeral in the corner; the name and club under it take the full width. */}
-            <Typography noWrap sx={{ ...STORY_SX, color: player ? clubInk : 'text.secondary', pr: NUMERAL_ROOM }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography noWrap sx={{ ...STORY_SX, color: 'text.secondary' }}>
               {story ?? <Skeleton width="40%" />}
             </Typography>
             {player
-              ? <FittedName name={player.name} sx={{ ...NAME_SX, color: field.ink }} />
+              ? <FittedName name={player.name} sx={NAME_SX} />
               : <Typography sx={NAME_SX}><Skeleton width="55%" /></Typography>}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0, mt: 0.25 }}>
               {team && <TeamBadge team={team} size={18} />}
-              <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, color: player ? field.ink : 'text.secondary', minWidth: 0, flex: player ? undefined : 1 }}>
+              <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', minWidth: 0, flex: player ? undefined : 1 }}>
                 {player
-                  ? [team ? wpblFullName(team) : null, position].filter(Boolean).join(' · ')
+                  ? [team ? wpblFullName(team) : null, position, number].filter(Boolean).join(' · ')
                   : <Skeleton width="70%" />}
               </Typography>
             </Box>
           </Box>
-          {/* The jersey number, the card's numeral: big, in the display face, in the club's color,
-              in the band's top corner the way a card prints it. Placed, not in the row: beside the
-              name it took a phone's room and the name fell back to "R. Kim". */}
-          <Typography aria-hidden sx={{
-            position: 'absolute', top: chromePx(12), right: chromePx(12), textAlign: 'right',
-            fontFamily: DISPLAY_FONT, fontSize: { xs: TYPE_SCALE.hero, lg: TYPE_SCALE.lead }, fontWeight: 700, lineHeight: 0.9,
-            color: clubInk, fontVariantNumeric: 'tabular-nums',
-          }}>{number ?? ''}</Typography>
         </Box>
 
-        <Box sx={{ px: 1.5, py: 1.25, minWidth: 0 }}>
+        <Box sx={{ pt: 1.25, pb: 1.25, minWidth: 0 }}>
           {factLines.map((line, i) => (
             <Typography key={i} noWrap sx={{ fontSize: TYPE_SCALE.body, color: i === 1 ? 'text.primary' : 'text.secondary', lineHeight: 1.5 }}>
               {line ?? <Skeleton width={['60%', '50%', '55%'][i]} />}
@@ -421,8 +397,8 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
           ))}
         </Box>
 
-        {/* The back of the card, along the bottom: the season in the agate face over a row rule. */}
-        <Box sx={{ px: 1.5, pt: 1, pb: 1.25, borderTop: '1px solid', borderTopColor: 'divider' }}>
+        {/* The season in the agate face over a row rule, the way a profile ends on the player's line. */}
+        <Box sx={{ pt: 1, borderTop: '1px solid', borderTopColor: 'divider' }}>
           {player ? <SeasonStrip player={player} lines={own} games={games} /> : <SeasonStrip player={{} as WpblPlayer} lines={null} games={games} />}
         </Box>
       </Box>
@@ -519,8 +495,8 @@ function LeadPlace({ place, team, link }: { place: Place | null; team: WpblTeam 
   const body = (
     <>
       {place
-        ? <PlayerPortrait name={place.player.name} teamId={place.player.team_id} size={LEAD_FACE} />
-        : <Skeleton variant="circular" sx={{ flexShrink: 0, width: chromePx(LEAD_FACE), height: chromePx(LEAD_FACE) }} />}
+        ? <PlayerPortrait name={place.player.name} teamId={place.player.team_id} size={LEAD_FACE} print />
+        : <Skeleton variant="rectangular" sx={{ flexShrink: 0, width: chromePx(LEAD_FACE), height: chromePx(LEAD_FACE) }} />}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         {place
           ? <FittedName name={place.player.name} sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 700, lineHeight: 1.3 }} />
@@ -712,8 +688,8 @@ function AwardRow({ row, link, value, hidden }: {
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, mt: 0.25 }}>
         {row
-          ? <PlayerPortrait name={row.name} teamId={row.teamId} size={AWARD_FACE} src={row.src} />
-          : <Skeleton variant="circular" sx={{ flexShrink: 0, width: chromePx(AWARD_FACE), height: chromePx(AWARD_FACE) }} />}
+          ? <PlayerPortrait name={row.name} teamId={row.teamId} size={AWARD_FACE} src={row.src} print />
+          : <Skeleton variant="rectangular" sx={{ flexShrink: 0, width: chromePx(AWARD_FACE), height: chromePx(AWARD_FACE) }} />}
         {row
           ? <FittedName name={row.name} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, lineHeight: 1.3 }} wrapperSx={{ minWidth: 0 }} />
           : <Skeleton variant="text" width="45%" sx={{ fontSize: TYPE_SCALE.body }} />}

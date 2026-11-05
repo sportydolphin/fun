@@ -21,7 +21,7 @@ import { CopyLinkButton as CopyLinkButtonBase } from '../ui/CopyLinkButton'
 import { nameStages, nameAtStage, useLineNameFit } from '../ui/names'
 // The card, its surfaces and the type scale moved to src/ui/card.tsx on Oct 9, 2026, when MLB's
 // glossary became the first MLB page drawn with them. Re-exported so the section's imports held.
-import { TYPE_SCALE, CARD_BORDER, edge } from '../ui/card'
+import { TYPE_SCALE, CARD_BORDER, MEDIA_RADIUS, edge } from '../ui/card'
 import { ClubBadge } from '../ui/ClubBadge'
 export { TYPE_SCALE, DISPLAY_FONT, MICRO_TEXT, CARD_BORDER, CARD_FILL, CARD_INK, INNER_BORDER, SectionCard } from '../ui/card'
 export { hoverOnly, TAPPABLE, tappableIf, pressable, linkPress, FOCUS_RING } from '../ui/interaction'
@@ -327,7 +327,7 @@ export { basesPhrase, BaseDiamond } from '../ui/BaseDiamond'
 // Player portrait: circular headshot ringed in the team's secondary hue (matching the
 // TeamBadge ring so players and teams read as one set). Falls back to the player's
 // initials on the team color when no portrait is bundled (see ./portraits.ts).
-export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ring, eager, priority, onReady }: {
+export function PlayerPortrait({ name, teamId, size = 40, square, print, src: given, ring, eager, priority, onReady }: {
   name: string; teamId: string | null; size?: number
   /** Told once the frame has its final look: the face has loaded (or failed), or there is no
    *  face and the initials are it. For a caller that holds a placeholder over the frame until
@@ -350,6 +350,10 @@ export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ri
    *  crops a head-and-shoulders portrait to the face, which is right at 32px in a table row
    *  and wasteful at 84px where there is room to show the shoulders and the uniform. */
   square?: boolean
+  /** A headshot the way a printed page runs one: square corners and no ring, on the club's own
+   *  color (Nov 4, 2026, ROADMAP-UI.md "Pictures are square"). Home's faces use it; a round face in
+   *  a ring beside square photos was the app idiom the redesign moved away from. Outranks `square`. */
+  print?: boolean
   /** A face this component cannot look up, because the lookup is by a DB player name and the
    *  person is not on a roster: the four managers on the awards ballot. Everything else about
    *  the frame is the same, which is the point of routing them through here rather than
@@ -374,10 +378,10 @@ export function PlayerPortrait({ name, teamId, size = 40, square, src: given, ri
     <Box sx={{
       // Same as TeamBadge: art scales with the chrome, not with the reader's text size.
       width: `calc(${size}px * var(--app-chrome, 1))`, height: `calc(${size}px * var(--app-chrome, 1))`,
-      borderRadius: square ? `calc(${Math.round(size * 0.18)}px * var(--app-chrome, 1))` : '50%', flexShrink: 0,
+      borderRadius: print ? MEDIA_RADIUS : square ? `calc(${Math.round(size * 0.18)}px * var(--app-chrome, 1))` : '50%', flexShrink: 0,
       bgcolor: wpblColor(teamId),
       ...(placeholder ? { backgroundImage: `url(${placeholder})`, backgroundSize: 'cover' } : {}),
-      border: '2px solid', borderColor: edge(ring ?? wpblSecondary(teamId)),
+      ...(print ? null : { border: '2px solid', borderColor: edge(ring ?? wpblSecondary(teamId)) }),
       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
     }}>
       {art
