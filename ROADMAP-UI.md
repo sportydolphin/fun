@@ -91,7 +91,9 @@ Where the work is, for whoever picks it up.
      in progress are still the old cards. Built against the dev simulation and 2026's data.
   2. A reason to come back in the offseason: a "Today" line, or the champion lead receding.
   3. ~~Type~~ Done Nov 4: Newsreader for headlines and titles, Inter for figures.
-  4. Ragged desktop pairs: Reading beside Watch, Spotlight beside the leaders.
+  4. ~~Ragged desktop pairs~~ Done Nov 4: Reading takes a fourth post from `lg` with its credit
+     under the posts, the leaders a 72 face and 34 rows, the award rows more room; each pair now ends
+     within about 40px of the other at 1440. The lead's headline steps to 2.75rem between md and lg.
   5. A phone pass: headline over the photo or under it, the room under the Discord row, the
      footer's length, a one-line masthead, Watch's clipped clip titles.
   6. Light mode: an equal, or a translation of dark (the masthead's near-black jerseys).
