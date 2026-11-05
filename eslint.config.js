@@ -59,10 +59,11 @@ const HEX = '#([0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\\b'
 const TOKENS = [
   // The brand red as raw hex. The accent lives in BRAND (src/ui/card.tsx), the theme's
   // primary and styles.css; a hex typed anywhere else is how the old accent blue ended up in
-  // 55 places, and a change of brand color has to reach all of them. Blues with a meaning of
-  // their own (Ice Cold, a play code, a chart series) are not the accent and stay legal.
+  // 55 places, and a change of brand color has to reach all of them. Listed ahead of the general
+  // hex rule below for its message: it names the brand tokens. It still named the Nov 3 teal after
+  // the brand went red on Nov 4, so a red hex got only the general message.
   {
-    selector: 'Literal[value=/#(2dd4bf|0f766e)\\b/i]',
+    selector: 'Literal[value=/#(f26b5b|b3261e)\\b/i]',
     message: 'Use the brand tokens (BRAND, ACCENT_EDGE in src/ui/card.tsx; --wpbl-accent-* in CSS), not the hex.',
   },
   {

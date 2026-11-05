@@ -108,13 +108,13 @@
   --crit-color-2: #ef4444;
 }
 
-/* Section accent, foreground-safe. The site's one brand color is stitch red, the red of a baseball's seams (Nov 3, 2026; a
+/* Section accent, foreground-safe. The site's one brand color is stitch red, the red of a baseball's seams (Nov 4, 2026; a
    Tailwind teal before it and a stock blue, #60a5fa, before that, neither of which said baseball:
    ROADMAP-UI.md, the audit). The raw #f26b5b is a light red: as TEXT on this app's light surfaces it
    measures about 2.8:1, while being perfectly readable in dark mode (6.3:1) and never usable as a FILL behind white. Rather than thread a
    useWpblDark() through the dozen places that use it as text, the safe value is published
    here and keyed on [data-theme], the same attribute the rest of the stylesheet already
-   switches on, set pre-paint by the head script so there is no light-blue flash.
+   switches on, set pre-paint by the head script so there is no flash of the light value.
    Keep in sync with wpblAccentFg() in src/wpbl/constants.ts, which is the JS counterpart
    for the few places that need the value rather than the CSS. */
 :root {

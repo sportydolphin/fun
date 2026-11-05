@@ -8,7 +8,8 @@
 > Started: **Oct 15, 2026**. Planned as Figma first, no code until a direction was picked. Since
 > **Nov 3** the direction is being set in code instead, on the `redesign` branch: WPBL Home first,
 > as the precedent for the rest of the site, then page by page. The branch merges to `main` when
-> the redesign is complete. "Where it landed" below is the direction as built.
+> the redesign is complete. "Where it landed" below is the direction as built; "Handoff" is the
+> state of the branch and what is next.
 
 ---
 
@@ -21,14 +22,59 @@ A sports page, not an app dashboard. Where this and the original brief below dis
 - **Three faces.** Barlow Condensed 700 (`DISPLAY_FONT`) for scores, the one big number and titles;
   Inter for names and prose; Barlow Semi Condensed 600 (`AGATE_SX`) for figures in print, the
   box score's agate. Never a player's name in either Barlow (the name fits measure Inter).
-- **Sections, not cards.** A section is a 2px rule in the text color (`SECTION_RULE`) and a heading
-  in display capitals; no frame, no fill. Objects (a game tile, the Spotlight card, a control)
-  keep a frame at 3:1.
-- **Clubs as solid blocks** (`wpblField`): a club's own color with its ink, square, the way a
-  jersey or a broadcast graphic prints a club. No pale washes (they vanished on the light page)
-  and no accent stripe down one edge of a rounded card (it read as generated).
-- **Rows as box-score lines**: rank, a club tick, the name, the club, the figure in agate. A face
-  only where the face is the point (a leader, the Spotlight).
+- **Sections, not cards, in two tiers.** A section is a rule and a heading; no frame, no fill.
+  News (the lead, Spotlight, the leaders) takes the heavy tier: a 2px rule in the text color
+  (`SECTION_RULE`) and a heading in display capitals. What a reader browses (Reading, Watch, the
+  gallery, the award results, the star sign card) is wrapped in `MinorSections`: a `divider`
+  hairline and a smaller heading. Objects (a game tile, the Spotlight card, a control) keep a frame
+  at 3:1. A heading that links ends in a › in its own ink, never the accent.
+- **Clubs as solid blocks**, square, the way a jersey or a broadcast graphic prints a club. No pale
+  washes (they vanished on the light page) and no accent stripe down one edge of a rounded card (it
+  read as generated). Two recipes are live, see "Handoff": Home's masthead is the jersey (the club's
+  near-black primary, white ink, its bright color as trim along the foot); the Teams tab, a club
+  page, the league page and Spotlight still use `wpblField` (a mid-tone fill picked to carry ink).
+- **Pictures are square** (`MEDIA_RADIUS`), as a printed page runs a photo. Corners stay on
+  controls, sheets and the one card drawn as an object (Spotlight).
+- **Rows as box-score lines**: rank, the name, the club right after it, the figure in agate. No
+  club-color tick (the abbreviation already says it). A face only where the face is the point (a
+  leader, the Spotlight).
+
+## Handoff (Nov 4, 2026)
+
+Where the work is, for whoever picks it up.
+
+- **Branch `redesign`**, checked out in its own worktree at `../fun-redesign` (beside this repo).
+  Pushed to `origin/redesign`, up to date with `main` as of `c6ac96c2` (#194), no pull request
+  yet: it merges to `main` in one piece when the redesign is complete, as v1.208.0. That entry in
+  `src/changelog.ts` is written as of Nov 4; set its date, and its version if `main` has taken
+  1.208.0 by then, at the merge.
+- **The sixth pass on Home is uncommitted in that worktree** (17 files, from the Nov 4 visual
+  audit): the two section tiers, square pictures, the masthead as jerseys, the champion lead as a
+  news photo, the gallery's lead photo dropped, the page reordered, the footer's wordmark, and the
+  leaders and award rows simplified. All of it is in the audit list below. Typecheck, lint and the
+  tests pass on it (Nov 4: 279 files, 3,506 tests); the layout sweep was not run. Commit it to
+  `redesign` before starting anything new.
+- **Run it** with the `redesign-lan` entry in `.claude/launch.json` (port 5190, LAN-visible for a
+  phone), which serves the worktree from the main checkout. That entry is itself uncommitted on the
+  main checkout's `stats-phone-bar` branch.
+- **Not on this branch: `stats-phone-bar`**, uncommitted in the main checkout, cut from `main`
+  before the redesign. The WPBL Stats tab's phone bar: the four-way side switch fills the line
+  (`PillGroup`'s new `fill`), the "Sort WAR" pill becomes a 34px icon button (Tune) whose room is
+  held on boards without one, and the ranked list's header ("WAR ↓ ▾") opens the sort sheet. It
+  touches `stats/ControlBar.tsx` and `stats/RankedList.tsx`, which `redesign` also changed: expect
+  a small conflict, whichever lands second.
+- **Next, in order:** decide the club recipe (below), then the Stats tab's Leaders board (the last
+  open audit item), the scoreboard and Game Center for the 2027 feed, then the rest of WPBL page by
+  page, then MLB. Re-run `npm run sweep -- --ellipsis` on each page migrated, and re-record the
+  sweep baselines (`npm run sweep:record`) before the merge.
+- **Decisions waiting on the owner:**
+  - One club recipe or two. The masthead moved to the jersey on Nov 4 (owner's call: the
+    `wpblField` fills read as a palette rather than as clubs); Teams, the club page header, the
+    league page and Spotlight have not followed, and Los Angeles's `wpblField` changed the same day
+    to gold with black ink in both themes.
+  - The open questions at the end of this file (two-club tints, light mode, glass on Android).
+- **Figma was skipped.** Phase 1's Figma items (mood board, variables, five mocks) are open and
+  may stay that way: the direction was set in code instead.
 
 ## The direction: smooth, modern, Apple Sports (original brief, Oct 15)
 
@@ -188,9 +234,29 @@ Each item names the phase that carries it.
 - [x] **The rest of the offseason Home** (Nov 4). Fan Award Winners: each award's name in the
       display face, the winner under it, the share in agate with a bar in the winner's club color.
       The star sign card: a calendar tile (month over day) in place of the face, today's tile the
-      club's block, the sign's glyph large in the heading row. The gallery leads with one landscape
-      photo across the section, the rail under it. The footer is the site's name under the section
-      rule and an index, one line per group in agate, in place of six link columns.
+      club's block, the sign's glyph large in the heading row. The gallery led with one landscape
+      photo across the section, the rail under it (undone in the sixth pass). The footer is the
+      site's name under the section rule and an index, one line per group in agate, in place of six
+      link columns.
+- [x] **Sixth pass: a page with an order** (Nov 4, from a second visual audit; uncommitted at
+      handoff, see "Handoff"). Below the lead nothing outranked anything, nine sections in one
+      heading style. Now three tiers: the lead, then Spotlight and the leaders under the heavy rule,
+      then Reading beside Watch, the gallery, and the award winners beside the star sign card in the
+      minor tier (`MinorSections` in `src/ui/card.tsx`), in order of what changes between visits.
+      The champion lead is a news photo: the title celebration (`championPhoto` in `fanPhotos.ts`, a
+      landscape team photo dated during the final or the day after, else the club's mark at the same
+      height) over a bar in the club's near-black primary with gold trim, and the road, the final's
+      games ("LA 7–6", one agate line each, bars in ink rather than club color) and the Star on a
+      panel beside it. The gallery is the rail alone. Home's masthead clubs are jerseys (see "Where it
+      landed"); Los Angeles's `wpblField` is gold with black ink in both themes. Award names are
+      labels, not display caps, and the share bar is ink. The star sign card fills its empty slots
+      with the next sign's players behind a "Next sign" divider (`nextSignSeason`). Leader rows lose
+      the club tick and put the club after the name; the rank is the figure's size and ink; the
+      leader's figure is a step smaller on a phone. Reading fits a banner cover (3:1 and wider)
+      rather than cropping it, with the row rule inset; Watch labels its two shelves and puts its
+      count in the heading row. Pictures are square (`MEDIA_RADIUS`). Home's h1 is in capitals
+      (`HOME_TITLE_SX`). The footer's name is the toolbar's lockup (mark and "sportydolphin"), not a
+      second logo in the display face, and its column is Home's width (`HOME_W`).
 - [x] **Spotlight as a trading card** (Nov 4). A framed object in the club's accent: a band in the
       club's surface color with a square photo, the jersey number in the band's corner at `lead`
       size in the club's color, and the reason over the name in agate caps. Facts under it, and the
@@ -203,8 +269,8 @@ Each item names the phase that carries it.
       in the rotation when it lands on the final's Star (`useChampionFinal`, shared with the
       season card). The "Scorpio Season" card and the star sign stay (owner's call, Nov 3).
 - [x] **No identity** (Nov 3, v1.208.0). Was Inter on near-black, a stock link blue and a
-      rainbow on the WPBL toggle. Now: one brand teal (`BRAND` in `src/ui/card.tsx`, `#2dd4bf` dark,
-      `#0f766e` light, the hex refused by lint outside the token files); Barlow Condensed 700
+      rainbow on the WPBL toggle. Then: one brand teal (`BRAND` in `src/ui/card.tsx`, `#2dd4bf` dark,
+      `#0f766e` light, the hex refused by lint outside the token files; replaced the next day, below); Barlow Condensed 700
       (`DISPLAY_FONT`, 22 KB, preloaded) for scores, the one big number on a card and page titles,
       never names; a neutral segmented league switch with no confetti. Team colors stay the only
       other decoration.
@@ -215,7 +281,8 @@ Each item names the phase that carries it.
       focus, so keep it there. A third face, **agate** (`AGATE_SX`, Barlow Semi Condensed 600, 23 KB,
       preloaded), for figures in print: stat lines, leader values, the count or date in a heading row.
       Section headings are display caps under a 2px rule in the text color (`SECTION_RULE`), the way
-      a sports page heads a column, and a heading that links has no ›.
+      a sports page heads a column. A heading that links had no › that day; it got one back in the
+      heading's own ink in the sixth pass, since a phone has no hover to tell a link from a label.
 - [x] **Eyebrow caps everywhere** (Nov 3, v1.208.0). 236 `textTransform: 'uppercase'` labels; 25
       remain, all in the two roles caps keep: stat-table column heads (and one chart axis) and the
       gold champion eyebrows. A third role since Nov 4: section headings, display capitals under
@@ -233,8 +300,9 @@ Each item names the phase that carries it.
 - [ ] **Leaders as widget grids** (phase 3). Four boxed top-5 lists side by side. One `DataTable`
       with the leader's number large, or one board with a stat picker. Home's card is done (Nov 4):
       one board, stat tabs (WAR, AVG, HR, ERA, K), the leader with a face and the figure in the display
-      face, places 2 to 5 as box-score lines (rank, club tick, name, club, figure in the agate face),
-      a tie marked on the rank ("T2"). The Stats tab's Leaders board is left.
+      face, places 2 to 5 as box-score lines (rank, name, club, figure in the agate face; the club
+      tick went in the sixth pass), a tie marked on the rank ("T2"). The Stats tab's Leaders board is
+      left.
 - [x] **Token drift** (Nov 3). About 12 `borderRadius` values, 215 distinct hex colors (813 uses),
       55 distinct shadows. Now: `RADIUS` (4, 8, 12px and pill); `src/ui/color.ts` for every color
       (`HUE`, `INK`, `SURFACE`, `CHAMPION`, `MARK`, `SCORIGAMI_SQUARES`) and every shadow (`SHADOW`,
