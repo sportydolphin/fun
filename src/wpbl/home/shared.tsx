@@ -19,8 +19,9 @@ import { HOME_WIDE_W } from '../layoutWidths'
  */
 export const SECTION_GAP = 2.5
 
-/** Between Home's title and the club rail under it: close, so the two read as one masthead. */
-export const MASTHEAD_RAIL_GAP = 1.5
+/** Between Home's title and the standings line under it: close, so the title sits on the line's heavy
+ *  rule the way a nameplate sits on its own. */
+export const MASTHEAD_RAIL_GAP = 1
 
 /** Home's h1 in the capitals every section heading under it uses (SECTION_HEADING_SX), one size up.
  *  In title case it was the one heading on the page set differently from the rest (Nov 4, 2026). */
