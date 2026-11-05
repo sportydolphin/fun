@@ -11,6 +11,7 @@ import type { WpblTeam } from '../types'
 import { offseasonByCalendar } from '../offseasonCalendar'
 import { SECTION_GAP, HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, homeWideSx } from './shared'
 import { ClubRailSkeleton } from './ClubRail'
+import { ChampionLeadSkeleton } from './ChampionCards'
 
 // Skeletons shaped like the real rows, so a card reserves its final height while its
 // data loads and doesn't grow/jump when the data lands. Replaces the old centered
@@ -199,11 +200,9 @@ function OffseasonHomeSkeleton() {
         <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><ClubRailSkeleton /></Box>
       </Box>
 
-      {/* The lead: the champion's season card at full width, with no heading of its own (the band
-          says "2026 WPBL Champions"). Its height measured at 375 and 1440 (Nov 4, 2026): one card in
-          a column below md, band beside road from md. */}
+      {/* The lead: the champion's photo and its text column, in the loaded lead's own grid. */}
       <Box sx={{ mt: 3 }}>
-        <CardSkeleton minHeight={{ xs: '33.59rem', md: '18.33rem' }} lines={5} headingHidden />
+        <ChampionLeadSkeleton />
       </Box>
       {awards && (
         <Box sx={{ mt: 3 }}>

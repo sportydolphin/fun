@@ -15,7 +15,8 @@
 
 ## Where it landed (Nov 4, 2026)
 
-A sports page, not an app dashboard. Where this and the original brief below disagree, this wins.
+A sports page, not an app dashboard: **one metaphor, the newspaper**, and whatever does not fit it
+goes (Nov 4, seventh pass). Where this and the original brief below disagree, this wins.
 
 - **One brand color, stitch red** (`BRAND`): `#f26b5b` dark, `#b3261e` light and under white text.
   Links, the active tab and focus only, since red already means live and negative.
@@ -26,18 +27,25 @@ A sports page, not an app dashboard. Where this and the original brief below dis
   News (the lead, Spotlight, the leaders) takes the heavy tier: a 2px rule in the text color
   (`SECTION_RULE`) and a heading in display capitals. What a reader browses (Reading, Watch, the
   gallery, the award results, the star sign card) is wrapped in `MinorSections`: a `divider`
-  hairline and a smaller heading. Objects (a game tile, the Spotlight card, a control) keep a frame
-  at 3:1. A heading that links ends in a › in its own ink, never the accent.
+  hairline and a smaller heading. Objects (a game tile, a control) keep a frame at 3:1. Spotlight
+  is a section now, not a framed card, and the lead has no filled panel. A heading that links ends in a › in its own ink, never the accent.
 - **Clubs as solid blocks**, square, the way a jersey or a broadcast graphic prints a club. No pale
   washes (they vanished on the light page) and no accent stripe down one edge of a rounded card (it
   read as generated). Two recipes are live, see "Handoff": Home's masthead is the jersey (the club's
   near-black primary, white ink, its bright color as trim along the foot); the Teams tab, a club
-  page, the league page and Spotlight still use `wpblField` (a mid-tone fill picked to carry ink).
-- **Pictures are square** (`MEDIA_RADIUS`), as a printed page runs a photo. Corners stay on
-  controls, sheets and the one card drawn as an object (Spotlight).
+  page and the league page still use `wpblField` (a mid-tone fill picked to carry ink). Spotlight
+  no longer draws a club block at all.
+- **Pictures are square** (`MEDIA_RADIUS`), as a printed page runs a photo, and so are faces on
+  Home: `PlayerPortrait`'s `print` is a square headshot on the club's color with no ring (the
+  leader, Spotlight, the award winners, the Star of the final). Corners stay on controls and sheets.
+  The player page's rounded `square` portrait has not moved yet.
 - **Rows as box-score lines**: rank, the name, the club right after it, the figure in agate. No
   club-color tick (the abbreviation already says it). A face only where the face is the point (a
   leader, the Spotlight).
+- **The lead is a front page**: the title photo at 3:2 in seven columns of twelve with its credit
+  under it, and beside it a gold kicker, the club's full name as the headline at `lead`, the road
+  as agate lines, the final's games (the champion's wins in bold ink, no bars), the Star and
+  "Season recap ›". No black bar, no gray panel (`ChampionLead` in `home/ChampionCards.tsx`).
 
 ## Handoff (Nov 4, 2026)
 
@@ -48,6 +56,11 @@ Where the work is, for whoever picks it up.
   yet: it merges to `main` in one piece when the redesign is complete, as v1.208.0. That entry in
   `src/changelog.ts` is written as of Nov 4; set its date, and its version if `main` has taken
   1.208.0 by then, at the merge.
+- **Uncommitted on top of it: the seventh pass** (Nov 4, from the third audit): the lead rebuilt as
+  a front page (`ChampionLead`, and `ChampionLeadSkeleton` reserving it), Spotlight as a section
+  instead of a trading card, square `print` faces across Home, and Reading's row thumbnails square.
+  Typecheck, lint, the tests and `npm run sweep -- --routes /wpbl --shift --ellipsis` (plus
+  `--text large`) are clean on it.
 - **The last commit of work is the sixth pass on Home** (`ff012f33`, from the Nov 4 visual audit):
   the two section tiers, square pictures, the masthead as jerseys, the champion lead as a news
   photo, the gallery's lead photo dropped, the page reordered, the footer's wordmark, and the
@@ -68,8 +81,8 @@ Where the work is, for whoever picks it up.
   sweep baselines (`npm run sweep:record`) before the merge.
 - **Decisions waiting on the owner:**
   - One club recipe or two. The masthead moved to the jersey on Nov 4 (owner's call: the
-    `wpblField` fills read as a palette rather than as clubs); Teams, the club page header, the
-    league page and Spotlight have not followed, and Los Angeles's `wpblField` changed the same day
+    `wpblField` fills read as a palette rather than as clubs); Teams, the club page header and the
+    league page have not followed, and Los Angeles's `wpblField` changed the same day
     to gold with black ink in both themes.
   - The open questions at the end of this file (two-club tints, light mode, glass on Android).
 - **Figma was skipped.** Phase 1's Figma items (mood board, variables, five mocks) are open and

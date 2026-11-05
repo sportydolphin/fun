@@ -344,7 +344,7 @@ export function ReadingCard({ article, teamById, from, isNew, onOpen, ghost, row
         widths={[240, 480, 720]} sizes={rows ? '104px' : '(max-width: 599px) 104px, (max-width: 1199px) 50vw, 400px'}
         sx={{
           width: r(chromePx(104), '100%'), minHeight: r(chromePx(72), 0),
-          aspectRatio: r('auto', '16 / 9'), borderRadius: r(1.5, 0),
+          aspectRatio: r('auto', '16 / 9'), borderRadius: MEDIA_RADIUS,
         }} />
       <Box sx={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', p: r(0, 1.25) }}>
         <Typography sx={{ fontSize: r(TYPE_SCALE.body, TYPE_SCALE.title), fontWeight: 700, lineHeight: 1.3 }}>{g(article.title)}</Typography>
