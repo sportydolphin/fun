@@ -117,3 +117,12 @@ export function trackedLinkTo(to: string, event: string, props: Record<string, u
     },
   }
 }
+
+/** Home's news row (Nov 4, 2026): Latest, Spotlight and the leaders, three across from lg; Latest
+ *  across the top between md and lg with the pair under it; stacked in that order on a phone. Shared
+ *  with the offseason skeleton so the two grids cannot drift apart. */
+export const NEWS_ROW_SX = {
+  display: 'grid', rowGap: 3, mt: 3,
+  gridTemplateColumns: { xs: '1fr', md: '1fr 1fr', lg: '1fr 1fr 1fr' },
+  '& > :first-of-type': { gridColumn: { md: '1 / -1', lg: 'auto' } },
+} as const

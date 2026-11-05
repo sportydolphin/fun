@@ -223,6 +223,8 @@ export const EVENT_INFO: Record<string, EventInfo> = {
   wpbl_highlight_youtube: A('Opened a highlight on YouTube', 'Reading & photos'),
   wpbl_watch_shown:       I('Watch card shown', 'Reading & photos'),
   wpbl_watch_open:        A('Used the Watch card', 'Reading & photos'),
+  wpbl_latest_shown:      I('Latest list shown', 'Reading & photos'),
+  wpbl_latest_open:       A('Opened a Latest row', 'Reading & photos'),
 
   wpbl_award_shown:       I('Fan awards shown', 'Awards & picks'),
   wpbl_award_open:        A('Opened fan awards', 'Awards & picks'),
@@ -316,6 +318,7 @@ export const HOME_FUNNELS: Array<{ label: string; seen: string; used: string[]; 
   { label: 'Player cards', seen: 'wpbl_home_players_shown', used: ['wpbl_home_player_open'],                     verb: 'opened a player' },
   { label: 'Latest post',  seen: 'wpbl_reading_shown',     used: ['wpbl_article_opened', 'wpbl_reading_archive'], verb: 'opened a post' },
   { label: 'Watch card',   seen: 'wpbl_watch_shown',       used: ['wpbl_watch_open'],                             verb: 'played a clip or opened Watch' },
+  { label: 'Latest list',  seen: 'wpbl_latest_shown',      used: ['wpbl_latest_open'],                            verb: 'opened a row' },
   { label: 'Discord',      seen: 'discord_shown',          used: ['discord_joined'],                              verb: 'joined' },
 ]
 

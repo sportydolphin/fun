@@ -27,7 +27,7 @@ goes (Nov 4, seventh pass). Where this and the original brief below disagree, th
   was Barlow Semi Condensed until it read as the display face at small sizes). Never a player's
   name in Barlow or Newsreader (the name fits measure Inter).
 - **Sections, not cards, in two tiers.** A section is a rule and a heading; no frame, no fill.
-  News (the lead, Spotlight, the leaders) takes the heavy tier: a 2px rule in the text color
+  News (the lead, Latest, Spotlight, the leaders) takes the heavy tier: a 2px rule in the text color
   (`SECTION_RULE`) and a heading in display capitals. What a reader browses (Reading, Watch, the
   gallery, the award results, the star sign card) is wrapped in `MinorSections`: a `divider`
   hairline and a smaller heading. Objects (a game tile, a control) keep a frame at 3:1. Spotlight
@@ -49,6 +49,23 @@ goes (Nov 4, seventh pass). Where this and the original brief below disagree, th
 - **Rows as box-score lines**: rank, the name, the club right after it, the figure in agate. No
   club-color tick (the abbreviation already says it). A face only where the face is the point (a
   leader, the Spotlight).
+- **A headline list under the lead** (Nov 4, from the 14-site study in
+  `docs/design-references/ANALYSIS.md`, where 11 of 14 baseball front pages run one): `LatestCard`,
+  the newest league videos, the two writers' posts and This is Women's Baseball's recaps as text
+  rows with a date, the week's clips as one row, at most three of a kind, four rows. The news row is
+  Latest, Spotlight and the leaders, three across from lg (`NEWS_ROW_SX`), Latest first at every
+  width, as a paper runs "What's News" down the left; on a phone it is straight under the lead.
+  Fixed row slots, so it loads at its own height.
+- **Print columns** (Nov 4, the margins pass, `FlushSections` in `src/ui/card.tsx`): a section's
+  text is flush with its rule, and its heading 10px under the rule rather than 15. Before, a section
+  kept the old card's 16px side padding with no card around it, so each rule ran past its text, two
+  columns' text stood 80px apart across a 40px gutter at 1440, and on a phone every section sat 16px
+  inside the masthead. Now the masthead, the lead photo and every heading share one left edge (83px
+  at 1440, the 16px gutter on a phone). Opt-in per page as it is migrated; the offseason Home is the
+  first. Sections stay about 45px apart, content to the next rule.
+- **Headlines break like a copy desk's**: `TITLE_SX` wraps `pretty`, so no title leaves one word on
+  its last line ("…Never Heard / Of"). The three faces stay: a condensed gothic for column heads,
+  a serif for headlines, a sans for names and agate is how a sports page is set.
 - **The lead is a front page**: the title photo at 3:2 in seven columns of twelve with its credit
   under it, and beside it a gold kicker, the club's full name as the headline at `lead`, the road
   as agate lines, the final's games (the champion's wins in bold ink, no bars), the Star and
@@ -74,6 +91,20 @@ Where the work is, for whoever picks it up.
   `/wpbl/watch` and `/wpbl/photos` (`--shift --ellipsis`, and `--text large` on Home) are clean.
   Left from the audit on purpose: the leaders' 44px phone rows (that is the tap target), the
   ringed gear (the dev menu, never in production), Watch's two-line clip titles.
+- **The tenth pass** (Nov 4, margins and type): print columns on the offseason Home (`FlushSections`,
+  `useSectionInset` for a loading copy and the Discord row), `pretty` wrapping on titles, and Latest's
+  clips row headed by the newest clip ("Clip · 3 this week") with each row centered in its slot.
+  The in-season Home is not flush yet: NextGameCard bleeds its band with `mx: -2`, rebuilt in step 1.
+  Sweep clean on `/wpbl`, `/wpbl/watch`, `/wpbl/reading` and `/wpbl/photos` (`--shift --ellipsis`,
+  and `--text large` on Home).
+- **The ninth pass** (Nov 4, from `docs/design-references/ANALYSIS.md`): the Latest list and the
+  news row (see "Where it landed"), and Spotlight's face at 104 from lg with the club's short name
+  there, since a third of the row cut "New York Heights · RHP · #29". Two new events,
+  `wpbl_latest_shown` and `wpbl_latest_open`, in the admin funnel. Typecheck, lint, the tests (3,512)
+  and the sweep on `/wpbl` (`--shift --ellipsis`) are clean. Not taken from the study yet: the score
+  strip's offseason state (the final's games, as MLB.com and Savant do) waits on step 1; sections
+  inset their content 16px from their rule on a phone, which the references do not (done for Home in
+  the tenth pass); Watch's clips carry no date.
 - **The last commit of work is the sixth pass on Home** (`ff012f33`, from the Nov 4 visual audit):
   the two section tiers, square pictures, the masthead as jerseys, the champion lead as a news
   photo, the gallery's lead photo dropped, the page reordered, the footer's wordmark, and the
@@ -93,7 +124,8 @@ Where the work is, for whoever picks it up.
   remaining steps, in order (the owner took 3 onward first; 1 and 2 are after):
   1. The in-season and postseason Home: the scoreboard strip, Next game, the bracket and the final
      in progress are still the old cards. Built against the dev simulation and 2026's data.
-  2. A reason to come back in the offseason: a "Today" line, or the champion lead receding.
+  2. A reason to come back in the offseason: ~~a "Today" line~~ the Latest list, Nov 4 (ninth
+     pass, below). Left: the champion lead receding as the winter goes on.
   3. ~~Type~~ Done Nov 4: Newsreader for headlines and titles, Inter for figures.
   4. ~~Ragged desktop pairs~~ Done Nov 4: Reading takes a fourth post from `lg` with its credit
      under the posts, the leaders a 72 face and 34 rows, the award rows more room; each pair now ends

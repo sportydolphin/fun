@@ -1,6 +1,6 @@
 import { Box, Skeleton, Typography } from '@mui/material'
 import { chromePx, CARD_BORDER, CARD_FILL, TYPE_SCALE } from '../ui'
-import { SECTION_COLUMN_GAP, useSectionTier, MinorSections } from '../../ui/card'
+import { SECTION_COLUMN_GAP, useSectionTier, useSectionInset, MinorSections, FlushSections } from '../../ui/card'
 // The dismissal key and the dev-only undo. Their own module so the dev settings menu can reach
 // the undo without dragging this file into the main bundle. See discordInvite.ts.
 import { DISCORD_DISMISS_KEY } from '../discordInvite'
@@ -9,7 +9,8 @@ import { FanPhotoHomeCardSkeleton } from '../FanPhotoViews'
 import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard } from './PlayerCards'
 import type { WpblTeam } from '../types'
 import { offseasonByCalendar } from '../offseasonCalendar'
-import { SECTION_GAP, HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, homeWideSx } from './shared'
+import { SECTION_GAP, HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, NEWS_ROW_SX, homeWideSx } from './shared'
+import { LatestSkeleton } from './LatestCard'
 import { ClubRailSkeleton } from './ClubRail'
 import { ChampionLeadSkeleton } from './ChampionCards'
 
@@ -44,6 +45,7 @@ export function CardSkeleton({ minHeight, titleWidth = '7rem', lines = 3, headin
   headingHidden?: boolean
 }) {
   const tier = useSectionTier()
+  const inset = useSectionInset()
   return (
     // SectionCard's section shape (one rule on top, no frame), so the placeholder takes the box the
     // loaded section will, in the same tier (MinorSections).
@@ -52,12 +54,12 @@ export function CardSkeleton({ minHeight, titleWidth = '7rem', lines = 3, headin
       ...(headingHidden ? null : tier.rule),
     }}>
       {!headingHidden && (
-        <Box sx={{ px: 2, pt: 1.25, pb: 1 }}>
+        <Box sx={{ px: inset.px, pt: inset.headerPt, pb: inset.headerPb }}>
           <Skeleton variant="text" width={titleWidth} sx={tier.headingType} />
         </Box>
       )}
       {lines > 0 && (
-        <Box sx={{ px: 2, pb: 1.5 }}>
+        <Box sx={{ px: inset.px, pb: inset.bodyPb }}>
           {Array.from({ length: lines }, (_, i) => (
             <Skeleton key={i} variant="text" width={['85%', '65%', '75%', '55%'][i % 4]}
               sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1.6 }} />
@@ -183,9 +185,9 @@ const EMPTY_TEAMS = new Map<string, WpblTeam>()
 const NO_OPEN = () => {}
 
 /** The offseason Home with nothing in it, mirroring the loaded page block for block (see
- *  WpblHome's render): the header, Player Spotlight beside the season card, the award results while
- *  they are up, the leaders beside the fan award winners, the gallery, the star sign card, Reading beside Watch, the Discord invite on a
- *  phone, and the league line. Heights measured off the real page. */
+ *  WpblHome's render): the header, the lead, the award results while they are up, the news row
+ *  (Latest, Spotlight, the leaders), Reading beside Watch, the gallery, the award winners beside the
+ *  star sign card, and the Discord row on a phone. Heights measured off the real page. */
 function OffseasonHomeSkeleton() {
   let discordDismissed = false
   try { discordDismissed = localStorage.getItem(DISCORD_DISMISS_KEY) === '1' } catch { /* storage off */ }
@@ -201,6 +203,7 @@ function OffseasonHomeSkeleton() {
       </Box>
 
       {/* The lead: the champion's photo and its text column, in the loaded lead's own grid. */}
+      <FlushSections>
       <Box sx={{ mt: 3 }}>
         <ChampionLeadSkeleton />
       </Box>
@@ -210,9 +213,11 @@ function OffseasonHomeSkeleton() {
         </Box>
       )}
 
-      {/* The player cards draw their own empty state (no players yet), so the placeholder is the
-          real card rather than a guess at its height. The same pairs as the loaded page. */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
+      {/* The news row: Latest's own placeholder, then the player cards, which draw their own empty
+          state (no players yet), so the placeholder is the real card rather than a guess at its
+          height. The same grid as the loaded page (NEWS_ROW_SX). */}
+      <Box sx={{ ...NEWS_ROW_SX, columnGap: SECTION_COLUMN_GAP }}>
+        <LatestSkeleton />
         <PlayerSpotlightCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
         <SeasonLeadersCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
       </Box>
@@ -229,6 +234,7 @@ function OffseasonHomeSkeleton() {
           <StarSignCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
         </Box>
       </MinorSections>
+      </FlushSections>
 
       {/* The Discord row, a section row since Nov 3, 2026 (DiscordCard), at its measured height. No
           About the League after it: the offseason Home dropped it. */}
