@@ -20,9 +20,12 @@ goes (Nov 4, seventh pass). Where this and the original brief below disagree, th
 
 - **One brand color, stitch red** (`BRAND`): `#f26b5b` dark, `#b3261e` light and under white text.
   Links, the active tab and focus only, since red already means live and negative.
-- **Three faces.** Barlow Condensed 700 (`DISPLAY_FONT`) for scores, the one big number and titles;
-  Inter for names and prose; Barlow Semi Condensed 600 (`AGATE_SX`) for figures in print, the
-  box score's agate. Never a player's name in either Barlow (the name fits measure Inter).
+- **Three faces, one job each** (Nov 4, Home step 3). Barlow Condensed 700 (`DISPLAY_FONT`) for
+  scores, the one big number, page titles and section headings; Newsreader 600 (`HEADLINE_SX`,
+  `TITLE_SX`) for the lead's headline and article and video titles, as a paper sets its headlines in
+  a serif; Inter for names, prose and figures, the figures in its tabular digits (`AGATE_SX`, which
+  was Barlow Semi Condensed until it read as the display face at small sizes). Never a player's
+  name in Barlow or Newsreader (the name fits measure Inter).
 - **Sections, not cards, in two tiers.** A section is a rule and a heading; no frame, no fill.
   News (the lead, Spotlight, the leaders) takes the heavy tier: a 2px rule in the text color
   (`SECTION_RULE`) and a heading in display capitals. What a reader browses (Reading, Watch, the
@@ -81,20 +84,25 @@ Where the work is, for whoever picks it up.
   held on boards without one, and the ranked list's header ("WAR ↓ ▾") opens the sort sheet. It
   touches `stats/ControlBar.tsx` and `stats/RankedList.tsx`, which `redesign` also changed: expect
   a small conflict, whichever lands second.
-- **Proposed changes to the plan (Nov 4, waiting on the owner):**
-  - **Ship Home now, not the whole branch in March.** The branch is 75 commits on one page and
-    already conflicts with `stats-phone-bar`; the tokens, faces and section tiers it carries are
-    site-wide and lint-enforced, so other pages already wear them. Merging Home as v1.208.0 and
-    each later page as its own pull request keeps conflicts small and lets real readers see it.
-  - **Components before pages.** Home's vocabulary lives in Home's files: the lead
-    (`ChampionLead`), agate lines (the road, the stat strip), print headshots, the two tiers. Lift
-    the reusable ones into `src/ui/` (phase 3's `Section`, `StatLine`, a lead story) before the next
-    page, or each page re-derives them.
-  - **The player page next**, before the Stats leaders board: it is what readers open most, and it
-    still draws the rounded `square` portrait and a club band beside Home's square `print` faces.
-  - **The club recipe: the jersey.** Home now has no `wpblField` block left; Teams, a club page and
-    the league page are the only users.
-- **Next, in order:** decide the club recipe (below), then the Stats tab's Leaders board (the last
+- **Home is not done, and does not go to `main` until the owner is satisfied with it** (owner's
+  call, Nov 4). The branch still merges whole; the other pages wait until Home is settled. Home's
+  remaining steps, in order (the owner took 3 onward first; 1 and 2 are after):
+  1. The in-season and postseason Home: the scoreboard strip, Next game, the bracket and the final
+     in progress are still the old cards. Built against the dev simulation and 2026's data.
+  2. A reason to come back in the offseason: a "Today" line, or the champion lead receding.
+  3. ~~Type~~ Done Nov 4: Newsreader for headlines and titles, Inter for figures.
+  4. Ragged desktop pairs: Reading beside Watch, Spotlight beside the leaders.
+  5. A phone pass: headline over the photo or under it, the room under the Discord row, the
+     footer's length, a one-line masthead, Watch's clipped clip titles.
+  6. Light mode: an equal, or a translation of dark (the masthead's near-black jerseys).
+  7. Fan award shares need a head ("Share of votes"); edge states (no photo, awards coming down, a
+     small sign).
+  8. The lead photo's weight (responsive sizes, an early fetch) and the skeleton-to-content fade.
+  9. Lift Home's pieces into `src/ui/` (the lead, agate lines, print headshots, the two tiers).
+- **Proposed for after Home (waiting on the owner):** the player page next, before the Stats
+  leaders board (readers open it most, and it still draws the rounded portrait and a club band);
+  and the jersey as the one club recipe, since Home no longer draws a `wpblField` block.
+- **After Home, in order:** decide the club recipe (below), then the Stats tab's Leaders board (the last
   open audit item), the scoreboard and Game Center for the 2027 feed, then the rest of WPBL page by
   page, then MLB. Re-run `npm run sweep -- --ellipsis` on each page migrated, and re-record the
   sweep baselines (`npm run sweep:record`) before the merge.

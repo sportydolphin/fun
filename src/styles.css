@@ -23,18 +23,19 @@
   src: url('/fonts/BarlowCondensed-700.woff2') format('woff2');
 }
 
-/* The agate face: stat lines, leader values, counts and dates in a section's heading row, the
-   small tabular print of a newspaper box score (ROADMAP-UI.md, Nov 3, 2026). Inter at a small size
-   read as an app list; a semi-condensed face from the display face's own family reads as a sports
-   page and fits more figures across a phone. One weight, 600, Latin only (23 KB, SIL OFL), preloaded
-   for the same reason as the display face: a stat line that re-flows after first paint is a shift
-   the sweep fails. Never a name, for the reason the display face never is (names.ts measures Inter). */
+/* The headline face: the lead's headline and the titles of articles and videos, the way a
+   newspaper sets its headlines in a serif over sans-serif agate (Nov 4, 2026, ROADMAP-UI.md, Home
+   step 3, picked from a trial against Source Serif 4 and Barlow Condensed). Newsreader, drawn for
+   news on screens. One weight, 600, with its optical-size axis kept, so the same file draws a 56px
+   headline with display contrast and a 15px article title sturdy enough to read; Latin only (55 KB,
+   SIL OFL, public/fonts/), preloaded for the reason the display face is. Never a player's name:
+   names.ts measures Inter. */
 @font-face {
-  font-family: 'Barlow Semi Condensed';
+  font-family: 'Newsreader';
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: url('/fonts/BarlowSemiCondensed-600.woff2') format('woff2');
+  src: url('/fonts/Newsreader-600.woff2') format('woff2');
 }
 
 /* ── The desktop scale, which replaced `zoom: 1.4` on both sections ─────────────

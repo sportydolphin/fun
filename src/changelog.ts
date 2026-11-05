@@ -28,7 +28,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'New look',
-        full:  'A red accent in place of the blue, a condensed face for scores, big numbers, page titles and section headings, a print face for figures, and one set of corner sizes across the site. Photos have square corners.',
+        full:  'A red accent in place of the blue, a condensed face for scores, big numbers, page titles and section headings, a serif for headlines and article titles, and one set of corner sizes across the site. Photos have square corners.',
       },
       {
         short: 'Sections',
