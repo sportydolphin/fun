@@ -26,7 +26,7 @@ THE MANIFEST is the record a person reviews, keyed by slug:
   box       the face box measured on the source, [center x, center y, width] as fractions
   box_set   a box set by hand, which outranks `box` (the detector misses, or picks a cap)
   kit       what the player wears in the photo: "club", "draft" (the WPBL tee) or "other"
-  kit_club  for "club", the club in the photo when it is not obvious from the roster
+  kit_club  for "club", the club in the photo, set by a person; the test checks it against the roster
   note      anything a person should know before replacing the photo
   source_sha, scale, frame, issues   written by this script, read by the test
   build     a digest of everything the 512 was built from, so an unchanged one is not re-encoded

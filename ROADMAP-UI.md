@@ -177,8 +177,8 @@ a Los Angeles face has no edge on the dark page and is the heaviest block on the
 The plan, in order:
 
 1. [x] **Sources, a manifest and one framing rule** (Nov 5: `scripts/frame-wpbl-portraits.py`,
-   `art/wpbl-portraits/`, `portraitFraming.test.ts`; 33 photos carry an issue, and the share cards
-   in `src/wpbl/cards/` still show the old crops until `make-wpbl-share-cards.py` is rerun).
+   `art/wpbl-portraits/`, `portraitFraming.test.ts`; 33 photos carry an issue. The share cards were
+   rebuilt from them the same day).
    Keep each player's photo as it came in, as source art outside the bundle, and record per player the measured face box, where the photo is
    from, and the club in the photo, plus an optional hand-set box. One script builds the 512 and
    the 128 from that with one rule (the face's center and width at fixed fractions of the frame),
@@ -195,8 +195,9 @@ The plan, in order:
    and 15 to 20:1 against the light one; the field is 2.2 to 2.9:1 dark (Los Angeles's gold 9:1) and
    3.2 to 8.2:1 light. The ringed circle keeps the primary, since its ring is its edge. The club
    recipe for blocks elsewhere is still open, but faces now lean it toward `wpblField`.
-4. [ ] **The club in the photo checked against the roster**, from the manifest: a trade or a draft
-   photo on a new club is listed rather than found by eye.
+4. [x] **The club in the photo checked against the roster** (Nov 5): each club-kit photo's
+   `kit_club` against `archive/wpbl/wpbl_players.json`, in `portraitFraming.test.ts`, so a trade
+   fails the week the archive picks it up. One known: Diana Ibarra (New York in the photo).
 5. [x] **The player page's rounded 84 moves to `print`**, the last frame that had not (Nov 5).
    `PlayerPortrait`'s `square` option went with it.
 

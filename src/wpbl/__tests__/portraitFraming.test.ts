@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, it, expect } from 'vitest'
+import { slugifyName } from '../slug'
 
 /**
  * Every bundled headshot is built from its source by one framing rule, and nothing else would
@@ -132,5 +133,41 @@ describe('the bundled portraits are framed by one rule', () => {
   it('has the known issues and no others', () => {
     const now = Object.fromEntries(Object.entries(players).filter(([, e]) => e.issues.length).map(([s, e]) => [s, e.issues]))
     expect(now).toEqual(KNOWN_ISSUES)
+  })
+})
+
+/**
+ * A face in one club's uniform on another club's roster, found from files rather than by eye.
+ *
+ * The square stands on the roster club's color, so a traded player, or one whose only photo is
+ * from a club they left, wears one club on another's field, and nothing on the page says so. The
+ * manifest records the club in each club-kit photo (`kit_club`, checked by eye on Nov 5, 2026);
+ * the roster is the archive's player rows (archive/wpbl/wpbl_players.json, the current club as
+ * `team_id`), which the weekly archive job refreshes. So a trade lands here the week it lands in
+ * the archive, as a player missing from KNOWN_KIT_MISMATCHES.
+ *
+ * A FAILURE MEANS a new photo, a trade, or a kit recorded wrong. Look at the face: replace the
+ * photo, correct `kit_club`, or add the player below with why.
+ */
+const KNOWN_KIT_MISMATCHES: Record<string, string> = {
+  // New York in the photo, on the Los Angeles roster; the only photo the league has published.
+  'diana-ibarra': 'NY in the photo, LA on the roster',
+}
+
+describe('the club in each photo is the club on the roster', () => {
+  const roster: { name: string; team_id: string | null }[] =
+    JSON.parse(readFileSync(join(root, 'archive/wpbl/wpbl_players.json'), 'utf8'))
+  const club = new Map(roster.map(p => [slugifyName(p.name), p.team_id]))
+
+  it('every club-kit photo names its club', () => {
+    const unnamed = Object.entries(manifest.players).filter(([, e]) => e.kit === 'club' && !e.kit_club).map(([s]) => s)
+    expect(unnamed).toEqual([])
+  })
+
+  it('matches the roster, apart from the known mismatches', () => {
+    const now = Object.fromEntries(Object.entries(manifest.players)
+      .filter(([s, e]) => e.kit === 'club' && club.has(s) && e.kit_club !== club.get(s))
+      .map(([s, e]) => [s, `${e.kit_club} in the photo, ${club.get(s)} on the roster`]))
+    expect(now).toEqual(KNOWN_KIT_MISMATCHES)
   })
 })
