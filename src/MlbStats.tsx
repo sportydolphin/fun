@@ -629,6 +629,8 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
                 setPosition={state.setFieldingPos}
                 club={state.fieldingClub}
                 setClub={state.setFieldingClub}
+                qualified={state.fieldingQualified}
+                setQualified={state.setFieldingQualified}
                 highlightId={state.gridHighlightId}
                 setHighlightId={state.setGridHighlightId}
               />

@@ -7,6 +7,7 @@ import { track, EVENTS } from './lib/analytics'
 import { WPBL_FOOTER_PAGES } from './wpbl/morePages'
 import { MLB_MORE_PAGES } from './mlb/routes'
 import { TYPE_SCALE } from './ui/card'
+import { groupMoreRows } from './ui/MoreMenu'
 
 const KOFI_URL = 'https://ko-fi.com/sportydolphin'
 const BLUESKY_URL = 'https://bsky.app/profile/sportydolphin.fun'
@@ -40,12 +41,7 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
   // WPBL's eleven pages split by the More menu's own groups, so a column here is a heading a reader
   // has already met in the menu. MLB's four stay one column: split by group they would be four
   // columns of one link each.
-  const groups: { title: string; pages: typeof pages }[] = []
-  for (const pg of pages) {
-    const last = groups[groups.length - 1]
-    if (last?.title === pg.group) last.pages.push(pg)
-    else groups.push({ title: pg.group, pages: [pg] })
-  }
+  const groups = groupMoreRows(pages).map(g => ({ title: g.group, pages: g.rows }))
   const pageLink = (href: string, label: string) => (
     <Box component="a" href={href} onClick={e => { e.preventDefault(); onNavigate(href) }} sx={linkSx}>{label}</Box>
   )
