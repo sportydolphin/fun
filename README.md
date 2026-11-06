@@ -36,6 +36,7 @@ npm run sweep -- --replay --shift --baseline   # the layout check CI runs (see d
 npm run sweep:record                           # re-record its data after changing what a page fetches (needs .env)
 npm run migrate  # apply pending DB migrations (scripts/migrations/; needs SUPABASE_DB_URL)
 npm run auth-link -- recovery you@example.com   # a real reset link pointing at localhost (see below)
+npm run rehearse # the league feed through the ingest's rules, diffed with archive/ (no DB writes)
 npm run discord-recaps -- --dry-run   # render the WPBL box scores this would post to Discord
 npm run discord-highlights -- --dry-run # render the YouTube highlight posts this would send
 npm run discord-commands -- --list    # show the Discord slash commands currently registered

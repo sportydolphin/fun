@@ -61,9 +61,10 @@
 ## Winter: December to March, all of it before the 2027 season
 
 6. **Spring readiness**, the one block that cannot slip past March:
-   - the feed rehearsal: replay the archived 2026 feed into a scratch schema and diff it (also the
-     real test of multiple seasons);
-   - `wpbl-postseason-check` failing on missing secrets;
+   - ~~the feed rehearsal~~ ✅ built Nov 6 as `npm run rehearse`: the whole feed through the ingest's
+     own transforms, diffed with `archive/` and no database writes. 2026 matches row for row; TrackMan's
+     `/activity` now wants an API key. Run it again when the feed wakes;
+   - ~~`wpbl-postseason-check` failing on missing secrets~~ ✅ Nov 6;
    - ~~a feed contract in `wpbl-ingest`, `summary.errors` meaning failure, and a Discord freshness
      alarm~~ ✅ done Oct 17, deployed Oct 20;
    - ~~the column-partition test for `LIVE_GAME_COLUMNS` and the line column lists~~ ✅ done Oct 17;
