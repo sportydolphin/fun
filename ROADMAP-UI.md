@@ -185,14 +185,19 @@ The plan, in order:
    so a new photo from any shoot lands framed like the rest. Anything the rule cannot fix (a gap
    under the shoulders, an upscale past what the source holds) is written down as an issue on the
    player, and a test holds the list, so a new one fails CI.
-2. [ ] **New photos for the one-offs**, from the league or the clubs, and the draft-tee 54 when 2027's
-   media day publishes. Until then, square frames fade their bottom edge into the club color, which
-   hides a cut line or a missing pair of shoulders.
-3. [ ] **The background on the club's `wpblField` fill** per theme (measured at 3:1 or better
-   against the page; Los Angeles's is gold), not the raw primary. Settle with the club recipe.
+2. [ ] **New photos for the one-offs**, from the league or the clubs, and the draft-tee 48 when 2027's
+   media day publishes. Until then (Nov 5): a source cut at the chin is held on the frame's bottom
+   edge, where the cut reads as a crop (Ayuri Shimano, Olivia Bricker). A fade was the first plan
+   and does not work: under a head with no shoulders there is nothing for it to fade but club color.
+   Melissa Mayeux's cut-out lost part of her jersey, which only a new photo fixes.
+3. [ ] **The background behind a face** (waiting on the owner). Today the raw primary, which is
+   1.1 to 1.2:1 against the dark page (the square is not there) and 15 to 20:1 against the light
+   one. The club's `wpblField` would be 2.2 to 2.9:1 dark (Los Angeles's gold 9:1) and 3.2 to 8.2:1
+   light. Settle with the club recipe.
 4. [ ] **The club in the photo checked against the roster**, from the manifest: a trade or a draft
    photo on a new club is listed rather than found by eye.
-5. [ ] **The player page's rounded 84 moves to `print`**, the last frame that has not.
+5. [x] **The player page's rounded 84 moves to `print`**, the last frame that had not (Nov 5).
+   `PlayerPortrait`'s `square` option went with it.
 
 ## The direction: smooth, modern, Apple Sports (original brief, Oct 15)
 

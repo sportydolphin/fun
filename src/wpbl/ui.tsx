@@ -327,7 +327,7 @@ export { basesPhrase, BaseDiamond } from '../ui/BaseDiamond'
 // Player portrait: circular headshot ringed in the team's secondary hue (matching the
 // TeamBadge ring so players and teams read as one set). Falls back to the player's
 // initials on the team color when no portrait is bundled (see ./portraits.ts).
-export function PlayerPortrait({ name, teamId, size = 40, square, print, src: given, ring, eager, priority, onReady }: {
+export function PlayerPortrait({ name, teamId, size = 40, print, src: given, ring, eager, priority, onReady }: {
   name: string; teamId: string | null; size?: number
   /** Told once the frame has its final look: the face has loaded (or failed), or there is no
    *  face and the initials are it. For a caller that holds a placeholder over the frame until
@@ -346,13 +346,10 @@ export function PlayerPortrait({ name, teamId, size = 40, square, print, src: gi
   /** Load the image eagerly instead of lazily. Needed for an OFF-SCREEN capture (the share card):
    *  a lazy image parked outside the viewport never loads, so it captures blank. */
   eager?: boolean
-  /** A rounded square instead of a circle. Opt-in, and only the player page uses it: a circle
-   *  crops a head-and-shoulders portrait to the face, which is right at 32px in a table row
-   *  and wasteful at 84px where there is room to show the shoulders and the uniform. */
-  square?: boolean
   /** A headshot the way a printed page runs one: square corners and no ring, on the club's own
-   *  color (Nov 4, 2026, ROADMAP-UI.md "Pictures are square"). Home's faces use it; a round face in
-   *  a ring beside square photos was the app idiom the redesign moved away from. Outranks `square`. */
+   *  color (Nov 4, 2026, ROADMAP-UI.md "Pictures are square"). Home's faces and the player page use
+   *  it; a round face in a ring beside square photos was the app idiom the redesign moved away from.
+   *  The player page's rounded `square` frame was the last one, and went with it (Nov 5). */
   print?: boolean
   /** A face this component cannot look up, because the lookup is by a DB player name and the
    *  person is not on a roster: the four managers on the awards ballot. Everything else about
@@ -378,7 +375,7 @@ export function PlayerPortrait({ name, teamId, size = 40, square, print, src: gi
     <Box sx={{
       // Same as TeamBadge: art scales with the chrome, not with the reader's text size.
       width: `calc(${size}px * var(--app-chrome, 1))`, height: `calc(${size}px * var(--app-chrome, 1))`,
-      borderRadius: print ? MEDIA_RADIUS : square ? `calc(${Math.round(size * 0.18)}px * var(--app-chrome, 1))` : '50%', flexShrink: 0,
+      borderRadius: print ? MEDIA_RADIUS : '50%', flexShrink: 0,
       bgcolor: wpblColor(teamId),
       ...(placeholder ? { backgroundImage: `url(${placeholder})`, backgroundSize: 'cover' } : {}),
       ...(print ? null : { border: '2px solid', borderColor: edge(ring ?? wpblSecondary(teamId)) }),

@@ -61,7 +61,7 @@ const ISSUES = new Set(['no-face', 'upscaled', 'clamped', 'gap-under', 'cut-top'
 const KNOWN_ISSUES: Record<string, string[]> = {
   'amira-hondras': ['upscaled'],
   'ayaka-yamamoto': ['held'],
-  'ayuri-shimano': ['gap-under'],
+  'ayuri-shimano': ['gap-under', 'held'],
   'braidy-birdsall': ['fringe', 'held'],
   'chloe-atkinson': ['held'],
   'clara-rice': ['held'],
@@ -85,7 +85,7 @@ const KNOWN_ISSUES: Record<string, string[]> = {
   'micaela-minner': ['held'],
   'milanyela-cortez': ['clamped', 'upscaled'],
   'natsuki-yonetani': ['held'],
-  'olivia-bricker': ['clamped', 'gap-under'],
+  'olivia-bricker': ['gap-under', 'held'],
   'rio-obitsu': ['held'],
   'rosi-del-castillo': ['fringe', 'held'],
   'sarah-edwards': ['held'],
