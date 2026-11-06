@@ -86,7 +86,7 @@ export function StatList({ listRef, mode, activeCol, leagueCell, sortAsc, visibl
           // A dash is a half of the game the player never played, which is noise in one line;
           // on Overall it is most rows, since most players only bat or only pitch.
           // And a figure in `echo` that is the row's own big number says nothing: a pure hitter's
-          // Pos WAR is her WAR, so "1.99 · 1.99 Pos WAR" spent half the line repeating itself.
+          // Pos WAR is the whole WAR, so "1.99 · 1.99 Pos WAR" spent half the line repeating itself.
           context={contextCols.map(c => [cellText(c, r.totals), c.label, c.key] as const)
             .filter(([v, , k]) => v !== '—' && !(echo?.has(k) && v === cellText(activeCol, r.totals)))
             .slice(0, contextCap).map(([v, l]) => `${v} ${l}`).join(' · ')} />

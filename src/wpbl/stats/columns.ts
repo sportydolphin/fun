@@ -132,7 +132,7 @@ export function cellText<T>(c: Col<T>, t: T): string {
 export const WAR_HALVES: ReadonlySet<string> = new Set(['batWar', 'pitWar'])
 export const CONTEXT_KEYS: Record<Side, { rate: string[]; counting: string[] }> = {
   // Nothing here is a rate. The two halves of WAR first, so a two-way row says where the wins came
-  // from; a one-way player's half is her WAR again (WAR_HALVES), so her row falls through to the runs
+  // from; a one-way player's half is the whole WAR again (WAR_HALVES), so that row falls through to the runs
   // it is made of: Bat for a hitter, Pit for a pitcher, then the glove.
   overall: {
     rate: [],
