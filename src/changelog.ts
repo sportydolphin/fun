@@ -23,6 +23,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.207.2',
+    date:    '2026-11-06',
+    changes: [
+      {
+        short: 'Stats filters in links',
+        full:  'A WPBL Stats board keeps its club, Playoffs or Both, and Everyone through a reload or a shared link. On both leagues, Everyone on the Players and Fielding boards does too.',
+      },
+      {
+        short: 'Sheets and screen readers',
+        full:  'Every sheet and dialog is announced as a dialog with its name, takes focus as it opens, keeps Tab inside it, and gives focus back when it closes. A player card is named for the player.',
+      },
+    ],
+  },
+  {
     version: '1.207.1',
     date:    '2026-11-06',
     changes: [

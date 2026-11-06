@@ -1056,6 +1056,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   return (
     <ModalShell
       eyebrow={eyebrow}
+      label={player.name}
       onClose={onClose}
       // A fixed pair rather than a value derived from the content, so the dialog cannot resize under
       // the reader as the season totals land. The widest block on the card is the batting season

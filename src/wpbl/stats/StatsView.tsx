@@ -252,7 +252,8 @@ export default function WpblStatsView({
     oppId: fromUrl.findOpp || null,
     venue: fromUrl.findVenue ?? 'any',
   }))
-  const [teamId, setTeamId] = useState<string | null>(null)
+  // Matched to a club once the clubs load (below): a link's `?team=` is the club's id in lower case.
+  const [teamId, setTeamId] = useState<string | null>(() => fromUrl.team ?? null)
   // A position or role, from the address only (the search writes it): the board has no picker for
   // it, so it shows as a chip that removes it. See src/league/positionFilter.ts.
   const [pos, setPos] = useState<PositionFilter | null>(() => parsePositionFilter(fromUrl.pos))
@@ -304,14 +305,17 @@ export default function WpblStatsView({
    * qualifier cannot activate and the top of every board is whoever went 2-for-3 last night.
    * The playoffs are worth having, as a slice a reader asks for.
    */
-  const [scope, setScope] = useState<SeasonScope>('regular')
+  const [scope, setScope] = useState<SeasonScope>(() => fromUrl.games ?? 'regular')
 
   /** Only offer the switch once there is a postseason to switch to. */
   const hasPostseason = useMemo(
     () => games.some(g => isPostseasonGame(g) && g.status === 'final'), [games])
   // A postseason that has not started yet must not strand a reader on an empty board if the
   // scope was set from a previous session or a re-render.
-  useEffect(() => { if (!hasPostseason && scope !== 'regular') setScope('regular') }, [hasPostseason, scope])
+  //
+  // ONLY ONCE THERE ARE GAMES TO ASK. Before they load, every season looks like one with no
+  // postseason, and a `?games=post` link would be reset to the regular season on its way in.
+  useEffect(() => { if (games.length && !hasPostseason && scope !== 'regular') setScope('regular') }, [games.length, hasPostseason, scope])
 
   const qual = useMemo(() => wpblQualifiers(teams, games, scope), [teams, games, scope])
   // Games that have actually been played, which is what the tracked count has to be a share
@@ -336,7 +340,7 @@ export default function WpblStatsView({
   // The position each player has actually been playing, for the leaderboard sublabels.
   const positionIndex = useMemo(
     () => (stored ? stored.positions : buildPositionIndex(lines.batting, games)), [stored, lines.batting, games])
-  const [qualified, setQualified] = useState(() => qual.active)
+  const [qualified, setQualified] = useState(() => !fromUrl.everyone && qual.active)
   // `defaultSort` validates the key it is handed and falls back to the board's own default, so
   // a stale or hand-edited ?sort= lands on a sensible column rather than an empty sort.
   const [sortKey, setSortKey] = useState(() => defaultSort(side, fromUrl.sortKey ?? focus?.sortKey).key)
@@ -574,6 +578,13 @@ export default function WpblStatsView({
   const cols = (side === 'hitting' ? hitCols : side === 'fielding' ? (mode === 'teams' ? FLD_TEAM_COLS : FLD_COLS) : side === 'overall' ? OVR_COLS : pitCols) as Col<Totals>[]
   const activeCol = cols.find(c => c.key === sortKey) ?? cols[0]
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+  // A link's `?team=` is lower case and may name no club at all (a hand-edited or stale link).
+  // Matched once the clubs are in, and dropped if nothing matches: a filter on a club that is not
+  // there would show an empty board with nothing on it to say why.
+  useEffect(() => {
+    if (!teamId || !teams.length || teamById.has(teamId)) return
+    setTeamId(teams.find(t => t.id.toLowerCase() === teamId.toLowerCase())?.id ?? null)
+  }, [teamId, teams, teamById])
 
   // On phones the sorted column is pinned right after the name (a second frozen column) so
   // rank → name → its ranking value are always adjacent and the table can rest at its
@@ -737,11 +748,18 @@ export default function WpblStatsView({
     set('opp', finding ? findQuery.oppId : null)
     set('venue', finding && findQuery.venue !== 'any' ? findQuery.venue : null)
     set('pos', source === 'season' && mode === 'players' ? pos : null)
+    // THE FILTERS, which a reload used to drop: a link to Boston's playoff pitchers opened on the
+    // whole league's regular season. Named as MLB's address names them. `team` is Find's own
+    // param on Find (above), so the filter only writes it on the other boards.
+    set('games', scope === 'postseason' ? 'post' : scope === 'all' ? 'all' : null)
+    if (!finding) set('team', teamId ? teamId.toLowerCase() : null)
+    // Only when it differs from how the board opens: Qualified is the default once the bar is live.
+    set('who', source === 'season' && !qualified && qual.active ? 'all' : null)
     const str = q.toString()
     const url = str ? `${window.location.pathname}?${str}` : window.location.pathname
     if (url === window.location.pathname + window.location.search) return
     window.history.replaceState(window.history.state, '', url)
-  }, [active, source, mode, side, sortKey, sortAsc, findQuery, scope, pos])
+  }, [active, source, mode, side, sortKey, sortAsc, findQuery, scope, pos, teamId, qualified, qual.active])
 
   const bestAsc = activeCol.lowerBetter ?? false
   const bestFirst = sortAsc === bestAsc

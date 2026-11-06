@@ -74,6 +74,10 @@ export interface SeasonGridViewProps {
   setPosition: (p: FieldingPosition | 'all') => void
   club: number | null
   setClub: (id: number | null) => void
+  /** Fielding's Qualified chip, held by the section so the address carries it. Null is the
+   *  board's default: qualified for the league, everyone for one club. */
+  qualified: boolean | null
+  setQualified: (q: boolean | null) => void
   /** The row a link came to see (a club on Teams, a player on Fielding), tinted and scrolled to. */
   highlightId: number | null
   setHighlightId: (id: number | null) => void
@@ -122,6 +126,7 @@ function ClubName({ teamId, name, sx }: { teamId: number; name: string; sx: obje
 export function SeasonGridView({
   kind, boardTabs, isDesktop, lbGroup, fielding, sideSwitch, vizSeason, setVizSeason, gameScope, setGameScope, onOpenPlayer, onOpenTeam,
   sort, setSort, position: posProp, setPosition, club: clubProp, setClub, highlightId, setHighlightId,
+  qualified: qualifiedProp, setQualified: setQualifiedProp,
 }: SeasonGridViewProps) {
   const teams = kind === 'teams'
   // The side the rows are: a club's bat or arm, or a glove (every Fielding row, and Teams on Fielding).
@@ -131,8 +136,17 @@ export function SeasonGridView({
   const club = teams ? null : clubProp
   // One club's fielders open on everyone, as WPBL's roster link opens its board: the bar would leave a
   // club's page showing eight of the names the reader had just been reading.
-  const [qualified, setQualified] = useState(club == null)
-  useEffect(() => { setQualified(club == null) }, [club])
+  const qualified = qualifiedProp ?? club == null
+  const setQualified = (next: boolean | ((q: boolean) => boolean)) =>
+    setQualifiedProp(typeof next === 'function' ? next(qualified) : next)
+  // A new club starts from its own default. Not on the first render, which is the address's
+  // choice arriving (a reload of one club's fielders, qualified).
+  const clubSeen = useRef(club)
+  useEffect(() => {
+    if (clubSeen.current === club) return
+    clubSeen.current = club
+    setQualifiedProp(null)
+  }, [club, setQualifiedProp])
   // THE PHONE'S LIST, Players' (StatsRankedList), and the table behind the same remembered choice.
   const [fullTable, setFullTable] = useState(readFullTable)
   const toggleFullTable = () => { const next = !fullTable; setFullTable(next); writeFullTable(next) }
@@ -215,7 +229,7 @@ export function SeasonGridView({
   // bar off rather than landing on a board without them.
   const hlHidden = !teams && highlightId != null && canQualify && qualified
     && onPosition.some(r => r.playerId === highlightId) && !pool.some(r => r.playerId === highlightId)
-  useEffect(() => { if (hlHidden) setQualified(false) }, [hlHidden])
+  useEffect(() => { if (hlHidden) setQualifiedProp(false) }, [hlHidden, setQualifiedProp])
   const ranked = sortBoard(pool as unknown as LeaderboardEntry[], activeDef, asc) as unknown as (GridRow & { _v: number })[]
   const ranks = printedRanks(ranked.map(r => activeDef.format(activeDef.getValue(r.stat))))
   const league = useMemo(() => {

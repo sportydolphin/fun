@@ -36,13 +36,16 @@ export interface MoreRow {
 
 /** The rows under their headings, in the order the groups first appear. */
 export function groupMoreRows<T extends { group: string }>(rows: readonly T[]): { group: string; rows: T[] }[] {
-  const out: { group: string; rows: T[] }[] = []
+  // BY NAME, NOT BY RUN. The footer appends Data sources (Reference) after the dev-only World Cup
+  // row (International), and grouping consecutive runs made two Reference columns with one React
+  // key between them. A group is one heading wherever its rows sit in the list.
+  const out = new Map<string, { group: string; rows: T[] }>()
   for (const r of rows) {
-    const last = out[out.length - 1]
-    if (last?.group === r.group) last.rows.push(r)
-    else out.push({ group: r.group, rows: [r] })
+    const g = out.get(r.group)
+    if (g) g.rows.push(r)
+    else out.set(r.group, { group: r.group, rows: [r] })
   }
-  return out
+  return [...out.values()]
 }
 
 function RowLink({ row, close, size }: { row: MoreRow; close: () => void; size: 'panel' | 'sheet' }) {
