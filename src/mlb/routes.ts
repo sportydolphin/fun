@@ -444,6 +444,9 @@ export interface MlbSnapshot {
    *  (qualified, or everyone on one club's fielders). `who=all` / `who=qualified` on the address,
    *  as WPBL's board spells it. A reload used to drop it. */
   qualified?: boolean | null
+  /** Advanced rather than Standard columns on Players, `cols=advanced` on the address. Not `view`,
+   *  which is the pre-Oct 2026 page param, and WPBL's board spells it the same. */
+  advanced?: boolean
   /** Fielding's club filter, by id; the address spells it as the club's slug. Not `teamId`, which
    *  is a club's own PAGE: this is a board narrowed to one club's fielders. */
   club?: number | null
@@ -489,6 +492,7 @@ export function mlbUrlFor(s: MlbSnapshot, currentSeason?: number): string {
     if ((s.view === 'stats' || s.view === 'teamStats' || s.view === 'fielding') && s.dir) params.set('dir', s.dir)
     if (s.view === 'stats' && s.who) params.set('pos', s.who)
     if ((s.view === 'stats' || s.view === 'fielding') && s.qualified != null) params.set('who', s.qualified ? 'qualified' : 'all')
+    if (s.view === 'stats' && s.advanced) params.set('cols', 'advanced')
     if (s.view === 'fielding') {
       if (s.pos) params.set('pos', s.pos)
       const club = s.club != null ? mlbClubById(s.club) : undefined
@@ -543,6 +547,7 @@ export function mlbSnapshotFromUrl(pathname: string, search: string): MlbSnapsho
   // Only when the address says one, like `who` above: a plain address reads back as it was written.
   const who = q.get('who')
   if ((v === 'stats' || v === 'fielding') && (who === 'all' || who === 'qualified')) snap.qualified = who === 'qualified'
+  if (v === 'stats' && q.get('cols') === 'advanced') snap.advanced = true
   if (v === 'stats' || v === 'teamStats' || v === 'fielding') {
     snap.sort = q.get('sort') || null
     const dir = q.get('dir')
