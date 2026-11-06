@@ -20,6 +20,8 @@ npm install
 npm run dev
 ```
 
+`npm install` also points git at the hooks in `.githooks/`, which rerun `npm ci` after a checkout or pull that changes `package-lock.json` (`SKIP_REINSTALL=1` turns that off).
+
 Open the site at http://localhost:5173 (it redirects to `/wpbl`; MLB is one tap away via the MLB | WPBL toggle).
 
 Client env vars (a `.env` with `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and (for push) `VITE_VAPID_PUBLIC_KEY`) are needed for live data and accounts; without them the app renders its empty states.

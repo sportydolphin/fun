@@ -156,11 +156,15 @@ jobs:
   # SKIPPED STEP BY STEP, NOT AS A JOB, when `changes` says the pull request touches no UI. A
   # skipped job reports `skipped`, which fails the `layout` test below; a job whose steps all skip
   # reports success, so `layout` still goes green and the pull request still merges.
+  #
+  # 12 minutes is about twice the slowest slice (5.4 in early November 2026). Shard 6/8 once hung
+  # for 14 minutes before it failed and needed a rerun; at 25 a stall held the pull request for
+  # longer than the whole sweep takes. Raise it with the slices, never to cover a hang.
   layout-shard:
     name: layout ${{ matrix.shard }}${{ (matrix.shard != 'experiments' && matrix.shard != 'behavior') && '/8' || '' }}
     needs: changes
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 12
     strategy:
       fail-fast: false
       matrix:

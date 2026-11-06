@@ -1,0 +1,4 @@
+#!/bin/sh
+# `git pull` ends in a merge (or a fast-forward), which never fires post-checkout. ORIG_HEAD is
+# where HEAD stood before it.
+exec sh "$(dirname "$0")/reinstall-if-lock-changed" "$(git rev-parse ORIG_HEAD)" "$(git rev-parse HEAD)"
