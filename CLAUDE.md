@@ -69,6 +69,12 @@ Violating these creates real problems. Treat them as hard constraints.
   devDependencies so every platform writes them; do not remove them as unused (knip ignores them).
   A new `Missing: X from lock file` in CI is the same thing: add X the same way. Node 24 and npm 11
   everywhere, enforced by `devEngines`.
+- **Every text file is LF, in the working tree too.** Git for Windows ships `core.autocrlf=true`,
+  so before [`.gitattributes`](.gitattributes) every checkout here was CRLF while the repo held LF,
+  and a script matching `<<<<<<<` line by line missed the markers and committed them mid-rebase
+  (Nov 6, 2026). `* text=auto eol=lf` overrides that; do not remove it. A script that reads files
+  should still split on `/\r?\n/`, since an older checkout keeps its CRLF until each file is
+  rewritten.
 - **Read the open pull requests, not just `main`.** Everything lands through pull requests that
   merge themselves, so work in flight (a roadmap section, a fix) lives on their branches until
   then. A SessionStart hook ([`scripts/open-prs.mjs`](scripts/open-prs.mjs)) lists them with their
