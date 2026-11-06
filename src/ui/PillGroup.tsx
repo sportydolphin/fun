@@ -17,7 +17,7 @@ import { TYPE_SCALE } from './card'
 // thing that reads as "selected" at 0.68rem is color. Use `--wpbl-accent-solid`, never
 // WPBL_ACCENT. White on #60a5fa measures 2.37:1, and color contrast is absolute, so the raw
 // accent fails in dark mode too.
-export function PillGroup({ options, value, onChange, mb }: {
+export function PillGroup({ options, value, onChange, mb, dense }: {
   /** `disabled` keeps an option DRAWN and unpressable, for a choice the page in front of the reader
    *  cannot answer (Fielding on a board with no fielding): hiding it instead resizes the switch and
    *  slides everything after it, which is how one control came to sit in a different place on
@@ -26,6 +26,8 @@ export function PillGroup({ options, value, onChange, mb }: {
   value: string
   onChange: (v: string) => void
   mb?: number
+  /** Tighter side padding, for a phone row the pills share with another control. */
+  dense?: boolean
 }) {
   return (
     <Box sx={{ display: 'inline-flex', bgcolor: 'action.hover', borderRadius: 999, p: '3px', mb }}>
@@ -41,8 +43,9 @@ export function PillGroup({ options, value, onChange, mb }: {
             title={opt.hint}
             sx={{
               ...FOCUS_RING,
-              px: 1.5, py: 0.4, borderRadius: 999, cursor: off ? 'default' : 'pointer',
-              opacity: off ? 0.4 : 1,
+              px: dense ? 0.875 : 1.5, py: 0.4, borderRadius: 999, cursor: off ? 'default' : 'pointer',
+              // Not faded with opacity (src/CLAUDE.md): the disabled ink, which WCAG exempts from the
+              // contrast floor for an inactive control, as axe does for anything aria-disabled.
               // A FLOOR UNDER THE TAP TARGET. At their natural height these are one pixel under WCAG 2.2's
               // 24px minimum, and they sit shoulder to shoulder inside one pill, so the spacing exception
               // that forgives a small target does not apply. `minHeight` rather than more padding: the
@@ -58,7 +61,7 @@ export function PillGroup({ options, value, onChange, mb }: {
               fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.3),
               whiteSpace: 'nowrap', userSelect: 'none', transition: 'all 0.15s',
               bgcolor: on ? 'var(--wpbl-accent-solid)' : 'transparent',
-              color: on ? '#fff' : 'text.secondary',
+              color: on ? '#fff' : off ? 'text.disabled' : 'text.secondary',
               '&:hover': on || off ? {} : { color: 'text.primary' },
             }}
           >

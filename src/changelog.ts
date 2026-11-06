@@ -23,6 +23,24 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.207.1',
+    date:    '2026-11-06',
+    changes: [
+      {
+        short: 'WPBL Stats sides',
+        full:  'Overall and Fielding are grayed out on the WPBL Stats boards that have no such table, and pressing them no longer opens Leaders.',
+      },
+      {
+        short: 'WPBL Stats on phones',
+        full:  'The Hitting, Pitching, Fielding and Overall switch and the Sort button share one row on a phone again.',
+      },
+      {
+        short: 'WPBL Overall table',
+        full:  'The Overall table has no empty League avg row. On a phone, a player who only bats or only pitches shows Bat or Pit runs under the name in place of Pos WAR or Pit WAR, which repeated the WAR beside it.',
+      },
+    ],
+  },
+  {
     version: '1.207.0',
     date:    '2026-11-02',
     changes: [

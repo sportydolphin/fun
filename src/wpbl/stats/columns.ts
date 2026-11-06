@@ -128,11 +128,15 @@ export function cellText<T>(c: Col<T>, t: T): string {
 // They are the stats a fan would ask for unprompted, not the ones the table happens to start
 // with: a row that says "12 HR" is worth more than one that says ".412 OBP", even though OBP
 // is the better stat, because this line is here to identify a season rather than to rank it.
+/** The two halves of WAR, which repeat it on a player who only bats or only pitches (StatList's `echo`). */
+export const WAR_HALVES: ReadonlySet<string> = new Set(['batWar', 'pitWar'])
 export const CONTEXT_KEYS: Record<Side, { rate: string[]; counting: string[] }> = {
-  // Nothing here is a rate. The two halves of WAR first, so a row says where the wins came from.
+  // Nothing here is a rate. The two halves of WAR first, so a two-way row says where the wins came
+  // from; a one-way player's half is her WAR again (WAR_HALVES), so her row falls through to the runs
+  // it is made of: Bat for a hitter, Pit for a pitcher, then the glove.
   overall: {
     rate: [],
-    counting: ['batWar', 'pitWar', 'fld', 'pa'],
+    counting: ['batWar', 'pitWar', 'bat', 'pit', 'fld', 'pa'],
   },
   hitting: {
     rate: ['pa', 'hr', 'rbi', 'ops', 'avg'],

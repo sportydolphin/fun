@@ -39,7 +39,7 @@ import { ActiveFilterChip } from '../../ui/FilterChip'
 import { parsePositionFilter, positionFilterDef, type PositionFilter } from '../../league/positionFilter'
 import type { Side, BallSide, Totals, Source, Mode, Group, View } from './axes'
 import { axesOf, VIEW_ORDER, sideOn, defaultSide, inView, orderForView, viewFor, defaultSort } from './axes'
-import { FLD_COLS, FLD_TEAM_COLS, statNames, cellText, CONTEXT_KEYS } from './columns'
+import { FLD_COLS, FLD_TEAM_COLS, statNames, cellText, CONTEXT_KEYS, WAR_HALVES } from './columns'
 import { teamDoublePlays } from '../derive/fielding'
 import { ANALYSIS_TABS, ANALYSIS_SOURCES } from './boardTabs'
 import { STATS_PATH, boardParam, axesFromQuery } from './address'
@@ -848,13 +848,11 @@ export default function WpblStatsView({
     setSource(target)
     setMode(nextMode)
   }
-  /** The side switch. A side this board cannot answer goes to Leaders, which answers every side,
-   *  rather than doing nothing: "Fielding" pressed on Find means "show me fielding". */
+  /** The side switch. A side this board cannot answer is drawn disabled and does nothing. It used to
+   *  open Leaders on that side, which read as the tab jumping on its own: a reader on Teams who
+   *  pressed Overall landed on a different board than the one they had picked (Nov 2026). */
   const pickSide = (s: Side) => {
-    if (sideOn(s, source, mode)) { switchSide(s); return }
-    logBoard('source', { source: 'leaders', mode, side: s })
-    switchSide(s, false)
-    setSource('leaders')
+    if (sideOn(s, source, mode)) switchSide(s)
   }
 
   // The Leaders board's rows: the same aggregates as the Players table, before its sort, its club
@@ -898,13 +896,15 @@ export default function WpblStatsView({
   const canFilter = (source === 'season' && mode === 'players') || multiSeason
     || ((source === 'leaders' || source === 'season' || source === 'bests' || source === 'find') && hasPostseason && !overall)
 
-  // The three context stats: the preference list minus whatever is already the big number.
+  // The three context stats: the preference list minus whatever is already the big number. Overall
+  // hands the list its whole preference order, since most of a row's candidates there are a dash or
+  // an echo (StatList), and the list keeps the first two that are neither.
   const contextCols = useMemo(() => (
     CONTEXT_KEYS[side][activeCol.rate ? 'rate' : 'counting']
       .filter(k => k !== sortKey)
       .map(k => cols.find(c => c.key === k))
       .filter((c): c is Col<Totals> => !!c)
-      .slice(0, 3)
+      .slice(0, side === 'overall' ? undefined : 3)
   ), [side, sortKey, cols, activeCol])
 
   const pickedId = picked && mode === 'players' && picked.side === side && picked.sortKey === sortKey ? picked.id : null
@@ -1089,7 +1089,8 @@ export default function WpblStatsView({
         // meant. The control bar above is sticky, so the sort control stays reachable anyway.
         <StatList listRef={listRef} mode={mode} activeCol={activeCol} leagueCell={leagueCell} sortAsc={sortAsc}
           visibleRows={visibleRows} ranks={ranks} pickedId={pickedId} pickedRef={pickedRef} pickedTint={pickedTint}
-          contextCols={contextCols} contextCap={side === 'overall' ? 2 : 3} rows={rows} listCap={listCap} capped={capped} noun={noun}
+          contextCols={contextCols} contextCap={side === 'overall' ? 2 : 3}
+          echo={side === 'overall' ? WAR_HALVES : undefined} rows={rows} listCap={listCap} capped={capped} noun={noun}
           setExpanded={setExpanded} collapse={collapse} boardFooter={boardFooter} />
       ) : (
         <SeasonTable listRef={listRef} pinActive={pinActive} scrollRef={scrollRef} boardPinned={boardPinned}
