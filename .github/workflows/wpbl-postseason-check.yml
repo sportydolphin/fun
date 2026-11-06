@@ -46,22 +46,24 @@ jobs:
         with:
           node-version: '24'
 
-      # A WARNING and not a failure, but a warning rather than the usual quiet echo: a
-      # tripwire nobody wired up is worse than no tripwire, because it reads as covered. A
-      # red X here would be a config problem crying the wolf this job exists to cry.
-      - name: Warn when not configured
-        if: env.VITE_SUPABASE_ANON_KEY == ''
-        run: echo "::warning::VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are not set, so the postseason marking check did NOT run."
+      # A failure, not a warning. It used to warn, on the theory that a red X for missing config
+      # would cry the wolf this job exists to cry. But a warning on a green run is read by nobody,
+      # and the archive job proved where that ends: 32 green no-ops before anyone noticed. A
+      # tripwire nobody wired up reads as covered, which is worse than no tripwire. Red here means
+      # "configure me", and the message says so; a marking problem fails in the check step below.
+      - name: Fail when not configured
+        if: env.VITE_SUPABASE_URL == '' || env.VITE_SUPABASE_ANON_KEY == ''
+        run: |
+          echo "::error::VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are not set as Actions secrets, so the postseason marking check did NOT run."
+          exit 1
 
       # Only esbuild, which bundles the check together with the two modules it shares with the
       # app (season.ts for the predicate, bracket.ts for the published dates). Sharing them is
       # the point: a check that restated either rule would drift from the code it is guarding.
       - name: Install the bundler
-        if: env.VITE_SUPABASE_ANON_KEY != ''
         uses: ./.github/actions/script-deps
         with:
           packages: 'esbuild'
 
       - name: Check the postseason marking
-        if: env.VITE_SUPABASE_ANON_KEY != ''
         run: npm run check-postseason

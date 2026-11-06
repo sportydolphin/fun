@@ -59,8 +59,8 @@ Dated things left:
 - **Spring 2027, before the first game**: re-verify every feed assumption in CLAUDE.md's Traps
   before trusting a season total. The league minted new team and player ids for the postseason,
   changed the ERA basis mid-season and caps `/games` silently; any of those can change again over
-  a winter. `wpbl-postseason-check` still only warns when its secrets are missing, and should fail
-  the way the archive and sitemap jobs now do before it is relied on again.
+  a winter. ✅ `wpbl-postseason-check` fails on missing secrets the way the archive and sitemap
+  jobs do (Nov 6).
 
 *(The September clock, which counted down to Sep 6 and Sep 22 and graded the list through the
 season, is retired; it is in git history.)*
@@ -230,8 +230,8 @@ item 2 describes, which is why that item comes first.
    page.
 7. **Rehearse the spring.** Replay the archived 2026 feed through `wpbl-ingest` into a scratch
    schema and diff it against the mirror, so the feed re-verification on the clock above is a run
-   rather than a reading of CLAUDE.md. Same item as the clock's: make `wpbl-postseason-check` fail
-   on missing secrets.
+   rather than a reading of CLAUDE.md. (`wpbl-postseason-check` failing on missing secrets, once part
+   of this item, is ✅ done Nov 6.)
 8. **Open data, and something to embed** 🎯. A `/wpbl/data` page offering the 2026 season as CSV
    (and Retrosheet-style event files where RetroWPBL's permission covers it), credited, and an
    embeddable standings and box-score widget for the two writers. Links are the brake on search
