@@ -34,6 +34,8 @@ npm run test     # Vitest, about 22s (jsdom pinned to 26.x, see note below); CI 
 npm run lint     # must print nothing; hook dependencies are an error
 npm run sweep -- --replay --shift --baseline   # the layout check CI runs (see docs/CI.md for the dev server it needs)
 npm run sweep:record                           # re-record its data after changing what a page fetches (needs .env)
+npm run sweep -- --replay --behavior           # board filters survive a reload and Back (CI's `layout behavior`)
+npm run shot -- /wpbl/stats 375                # PNG of one page at one width into shots/; --theme dark, --full
 npm run migrate  # apply pending DB migrations (scripts/migrations/; needs SUPABASE_DB_URL)
 npm run auth-link -- recovery you@example.com   # a real reset link pointing at localhost (see below)
 npm run rehearse # the league feed through the ingest's rules, diffed with archive/ (no DB writes)
