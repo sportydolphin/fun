@@ -10,7 +10,7 @@ import { printedRanks } from '../ui/leaders'
 import React, { useEffect, useLayoutEffect, useMemo, useCallback, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import type { Theme, SxProps } from '@mui/material'
-import { wpblAccentFg, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill } from './constants'
+import { wpblAccentFg, wpblColor, wpblField, wpblSecondary, wpblLogo, wpblLogoFill } from './constants'
 import { wpblPortraitSet, type WpblPortraitSet } from './portraits'
 import type { WpblTeam, WpblPlayer } from './types'
 import { scrollBehavior } from '../lib/motion'
@@ -371,12 +371,19 @@ export function PlayerPortrait({ name, teamId, size = 40, print, src: given, rin
   const placeholder = priority && art?.srcSet ? art.src : null
   const hasArt = !!art
   useEffect(() => { if (!hasArt) onReady?.() }, [hasArt, onReady])
+  // A PRINT FACE STANDS ON THE CLUB'S FIELD, not its primary (owner's pick, Nov 5, 2026). With no
+  // ring, the square's edge is its fill against the page, and every primary is near-black: 1.1 to
+  // 1.2:1 on the dark page, so the square was not there and a cut-out floated on the page, and a
+  // heavy black block on the light one. The field is the club's hue at block strength (2.2 to 9:1
+  // dark, 3.2 to 8.2:1 light). The ringed circle keeps the primary: its ring is its edge.
+  const dark = useDark()
+  const field = print ? wpblField(teamId, dark) : null
   return (
     <Box sx={{
       // Same as TeamBadge: art scales with the chrome, not with the reader's text size.
       width: `calc(${size}px * var(--app-chrome, 1))`, height: `calc(${size}px * var(--app-chrome, 1))`,
       borderRadius: print ? MEDIA_RADIUS : '50%', flexShrink: 0,
-      bgcolor: wpblColor(teamId),
+      bgcolor: field ? field.fill : wpblColor(teamId),
       ...(placeholder ? { backgroundImage: `url(${placeholder})`, backgroundSize: 'cover' } : {}),
       ...(print ? null : { border: '2px solid', borderColor: edge(ring ?? wpblSecondary(teamId)) }),
       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
@@ -404,7 +411,8 @@ export function PlayerPortrait({ name, teamId, size = 40, print, src: given, rin
             onError={() => { setFailedSrc(art.src); onReady?.() }}
             sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
-        : <Typography sx={{ fontSize: size * 0.36, fontWeight: 800, color: INK.white }}>{initials}</Typography>}
+        // The field's own ink: Los Angeles's gold takes black, and white initials on it were 1.9:1.
+        : <Typography sx={{ fontSize: size * 0.36, fontWeight: 800, color: field ? field.ink : INK.white }}>{initials}</Typography>}
     </Box>
   )
 }

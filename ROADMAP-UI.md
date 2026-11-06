@@ -190,10 +190,11 @@ The plan, in order:
    edge, where the cut reads as a crop (Ayuri Shimano, Olivia Bricker). A fade was the first plan
    and does not work: under a head with no shoulders there is nothing for it to fade but club color.
    Melissa Mayeux's cut-out lost part of her jersey, which only a new photo fixes.
-3. [ ] **The background behind a face** (waiting on the owner). Today the raw primary, which is
-   1.1 to 1.2:1 against the dark page (the square is not there) and 15 to 20:1 against the light
-   one. The club's `wpblField` would be 2.2 to 2.9:1 dark (Los Angeles's gold 9:1) and 3.2 to 8.2:1
-   light. Settle with the club recipe.
+3. [x] **The background behind a face is the club's `wpblField`** (owner's pick, Nov 5), on every
+   `print` face. The raw primary was 1.1 to 1.2:1 against the dark page (the square was not there)
+   and 15 to 20:1 against the light one; the field is 2.2 to 2.9:1 dark (Los Angeles's gold 9:1) and
+   3.2 to 8.2:1 light. The ringed circle keeps the primary, since its ring is its edge. The club
+   recipe for blocks elsewhere is still open, but faces now lean it toward `wpblField`.
 4. [ ] **The club in the photo checked against the roster**, from the manifest: a trade or a draft
    photo on a new club is listed rather than found by eye.
 5. [x] **The player page's rounded 84 moves to `print`**, the last frame that had not (Nov 5).
