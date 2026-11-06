@@ -10,7 +10,7 @@ import { printedRanks } from '../ui/leaders'
 import React, { useEffect, useLayoutEffect, useMemo, useCallback, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import type { Theme, SxProps } from '@mui/material'
-import { wpblAccentFg, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill } from './constants'
+import { wpblAccentFg, wpblColor, wpblField, wpblSecondary, wpblLogo, wpblLogoFill } from './constants'
 import { wpblPortraitSet, type WpblPortraitSet } from './portraits'
 import type { WpblTeam, WpblPlayer } from './types'
 import { scrollBehavior } from '../lib/motion'
@@ -327,7 +327,7 @@ export { basesPhrase, BaseDiamond } from '../ui/BaseDiamond'
 // Player portrait: circular headshot ringed in the team's secondary hue (matching the
 // TeamBadge ring so players and teams read as one set). Falls back to the player's
 // initials on the team color when no portrait is bundled (see ./portraits.ts).
-export function PlayerPortrait({ name, teamId, size = 40, square, print, src: given, ring, eager, priority, onReady }: {
+export function PlayerPortrait({ name, teamId, size = 40, print, src: given, ring, eager, priority, onReady }: {
   name: string; teamId: string | null; size?: number
   /** Told once the frame has its final look: the face has loaded (or failed), or there is no
    *  face and the initials are it. For a caller that holds a placeholder over the frame until
@@ -346,13 +346,10 @@ export function PlayerPortrait({ name, teamId, size = 40, square, print, src: gi
   /** Load the image eagerly instead of lazily. Needed for an OFF-SCREEN capture (the share card):
    *  a lazy image parked outside the viewport never loads, so it captures blank. */
   eager?: boolean
-  /** A rounded square instead of a circle. Opt-in, and only the player page uses it: a circle
-   *  crops a head-and-shoulders portrait to the face, which is right at 32px in a table row
-   *  and wasteful at 84px where there is room to show the shoulders and the uniform. */
-  square?: boolean
   /** A headshot the way a printed page runs one: square corners and no ring, on the club's own
-   *  color (Nov 4, 2026, ROADMAP-UI.md "Pictures are square"). Home's faces use it; a round face in
-   *  a ring beside square photos was the app idiom the redesign moved away from. Outranks `square`. */
+   *  color (Nov 4, 2026, ROADMAP-UI.md "Pictures are square"). Home's faces and the player page use
+   *  it; a round face in a ring beside square photos was the app idiom the redesign moved away from.
+   *  The player page's rounded `square` frame was the last one, and went with it (Nov 5). */
   print?: boolean
   /** A face this component cannot look up, because the lookup is by a DB player name and the
    *  person is not on a roster: the four managers on the awards ballot. Everything else about
@@ -374,12 +371,19 @@ export function PlayerPortrait({ name, teamId, size = 40, square, print, src: gi
   const placeholder = priority && art?.srcSet ? art.src : null
   const hasArt = !!art
   useEffect(() => { if (!hasArt) onReady?.() }, [hasArt, onReady])
+  // A PRINT FACE STANDS ON THE CLUB'S FIELD, not its primary (owner's pick, Nov 5, 2026). With no
+  // ring, the square's edge is its fill against the page, and every primary is near-black: 1.1 to
+  // 1.2:1 on the dark page, so the square was not there and a cut-out floated on the page, and a
+  // heavy black block on the light one. The field is the club's hue at block strength (2.2 to 9:1
+  // dark, 3.2 to 8.2:1 light). The ringed circle keeps the primary: its ring is its edge.
+  const dark = useDark()
+  const field = print ? wpblField(teamId, dark) : null
   return (
     <Box sx={{
       // Same as TeamBadge: art scales with the chrome, not with the reader's text size.
       width: `calc(${size}px * var(--app-chrome, 1))`, height: `calc(${size}px * var(--app-chrome, 1))`,
-      borderRadius: print ? MEDIA_RADIUS : square ? `calc(${Math.round(size * 0.18)}px * var(--app-chrome, 1))` : '50%', flexShrink: 0,
-      bgcolor: wpblColor(teamId),
+      borderRadius: print ? MEDIA_RADIUS : '50%', flexShrink: 0,
+      bgcolor: field ? field.fill : wpblColor(teamId),
       ...(placeholder ? { backgroundImage: `url(${placeholder})`, backgroundSize: 'cover' } : {}),
       ...(print ? null : { border: '2px solid', borderColor: edge(ring ?? wpblSecondary(teamId)) }),
       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
@@ -407,7 +411,8 @@ export function PlayerPortrait({ name, teamId, size = 40, square, print, src: gi
             onError={() => { setFailedSrc(art.src); onReady?.() }}
             sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
-        : <Typography sx={{ fontSize: size * 0.36, fontWeight: 800, color: INK.white }}>{initials}</Typography>}
+        // The field's own ink: Los Angeles's gold takes black, and white initials on it were 1.9:1.
+        : <Typography sx={{ fontSize: size * 0.36, fontWeight: 800, color: field ? field.ink : INK.white }}>{initials}</Typography>}
     </Box>
   )
 }

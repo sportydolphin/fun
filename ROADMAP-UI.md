@@ -177,22 +177,29 @@ a Los Angeles face has no edge on the dark page and is the heaviest block on the
 The plan, in order:
 
 1. [x] **Sources, a manifest and one framing rule** (Nov 5: `scripts/frame-wpbl-portraits.py`,
-   `art/wpbl-portraits/`, `portraitFraming.test.ts`; 33 photos carry an issue, and the share cards
-   in `src/wpbl/cards/` still show the old crops until `make-wpbl-share-cards.py` is rerun).
+   `art/wpbl-portraits/`, `portraitFraming.test.ts`; 33 photos carry an issue. The share cards were
+   rebuilt from them the same day).
    Keep each player's photo as it came in, as source art outside the bundle, and record per player the measured face box, where the photo is
    from, and the club in the photo, plus an optional hand-set box. One script builds the 512 and
    the 128 from that with one rule (the face's center and width at fixed fractions of the frame),
    so a new photo from any shoot lands framed like the rest. Anything the rule cannot fix (a gap
    under the shoulders, an upscale past what the source holds) is written down as an issue on the
    player, and a test holds the list, so a new one fails CI.
-2. [ ] **New photos for the one-offs**, from the league or the clubs, and the draft-tee 54 when 2027's
-   media day publishes. Until then, square frames fade their bottom edge into the club color, which
-   hides a cut line or a missing pair of shoulders.
-3. [ ] **The background on the club's `wpblField` fill** per theme (measured at 3:1 or better
-   against the page; Los Angeles's is gold), not the raw primary. Settle with the club recipe.
-4. [ ] **The club in the photo checked against the roster**, from the manifest: a trade or a draft
-   photo on a new club is listed rather than found by eye.
-5. [ ] **The player page's rounded 84 moves to `print`**, the last frame that has not.
+2. [ ] **New photos for the one-offs**, from the league or the clubs, and the draft-tee 48 when 2027's
+   media day publishes. Until then (Nov 5): a source cut at the chin is held on the frame's bottom
+   edge, where the cut reads as a crop (Ayuri Shimano, Olivia Bricker). A fade was the first plan
+   and does not work: under a head with no shoulders there is nothing for it to fade but club color.
+   Melissa Mayeux's cut-out lost part of her jersey, which only a new photo fixes.
+3. [x] **The background behind a face is the club's `wpblField`** (owner's pick, Nov 5), on every
+   `print` face. The raw primary was 1.1 to 1.2:1 against the dark page (the square was not there)
+   and 15 to 20:1 against the light one; the field is 2.2 to 2.9:1 dark (Los Angeles's gold 9:1) and
+   3.2 to 8.2:1 light. The ringed circle keeps the primary, since its ring is its edge. The club
+   recipe for blocks elsewhere is still open, but faces now lean it toward `wpblField`.
+4. [x] **The club in the photo checked against the roster** (Nov 5): each club-kit photo's
+   `kit_club` against `archive/wpbl/wpbl_players.json`, in `portraitFraming.test.ts`, so a trade
+   fails the week the archive picks it up. One known: Diana Ibarra (New York in the photo).
+5. [x] **The player page's rounded 84 moves to `print`**, the last frame that had not (Nov 5).
+   `PlayerPortrait`'s `square` option went with it.
 
 ## The direction: smooth, modern, Apple Sports (original brief, Oct 15)
 
