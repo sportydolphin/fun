@@ -12,7 +12,7 @@
    "scale": 0.967,
    "frame": [0.4997, 0.4817, 0.4097],
    "issues": [],
-   "build": "d7ec2797d60c3852"
+   "build": "a1ca5c437cbb1d20"
   },
   "addisyn-baird": {
    "box": [0.5098, 0.4629, 0.4062],
@@ -21,16 +21,17 @@
    "scale": 1.009,
    "frame": [0.4992, 0.4616, 0.4102],
    "issues": [],
-   "build": "cd5bad8920c37a0b"
+   "build": "d6fb21c01fd33ca2"
   },
   "adelaide-frank": {
    "box": [0.5088, 0.4619, 0.4199],
    "kit": "club",
+   "kit_club": "LA",
    "source_sha": "3cd41f0d757032e2",
    "scale": 0.976,
    "frame": [0.5008, 0.4765, 0.4101],
    "issues": [],
-   "build": "1fa162af273ec471"
+   "build": "e872514601c343eb"
   },
   "adelaide-ziebart": {
    "box": [0.5088, 0.458, 0.3965],
@@ -39,25 +40,27 @@
    "scale": 1.034,
    "frame": [0.5003, 0.4615, 0.4097],
    "issues": [],
-   "build": "6740d3d10682d59b"
+   "build": "240827c124e9244f"
   },
   "alexia-jorge": {
    "box": [0.499, 0.46, 0.4141],
    "kit": "club",
+   "kit_club": "SF",
    "source_sha": "c67592ab0aee43ba",
    "scale": 0.99,
    "frame": [0.5, 0.4672, 0.4101],
    "issues": [],
-   "build": "762ab3fd05a4acb7"
+   "build": "4d7c59665e718745"
   },
   "alli-schroder": {
    "box": [0.5049, 0.4629, 0.3848],
    "kit": "club",
+   "kit_club": "BOS",
    "source_sha": "61d847942783958c",
    "scale": 1.065,
    "frame": [0.4994, 0.4604, 0.4104],
    "issues": [],
-   "build": "144e0ed362f365fa"
+   "build": "3fa841ff33cc9c89"
   },
   "allie-bebbere": {
    "box": [0.4961, 0.4619, 0.4023],
@@ -66,7 +69,7 @@
    "scale": 1.019,
    "frame": [0.4999, 0.4612, 0.4102],
    "issues": [],
-   "build": "bdf4cad2dab3d4e5"
+   "build": "e394e3fc02443536"
   },
   "allie-lacey": {
    "box": [0.5049, 0.4629, 0.4023],
@@ -75,43 +78,47 @@
    "scale": 1.019,
    "frame": [0.4991, 0.4602, 0.4102],
    "issues": [],
-   "build": "aeb6cfe04d53d8a1"
+   "build": "f75414b1cf655557"
   },
   "alyssa-zettlemoyer": {
    "box": [0.4971, 0.4697, 0.4219],
    "kit": "club",
+   "kit_club": "NY",
    "source_sha": "e68d5abfb5424aad",
    "scale": 0.972,
    "frame": [0.4991, 0.4862, 0.4104],
    "issues": [],
-   "build": "0e8cfd1bc0e892e7"
+   "build": "01925d36b4439685"
   },
   "amanda-gianelloni": {
    "box": [0.5, 0.4766, 0.4102],
    "kit": "club",
+   "kit_club": "SF",
    "source_sha": "33615cc099e6f4fd",
    "scale": 1.0,
    "frame": [0.5, 0.4786, 0.4102],
    "issues": [],
-   "build": "6cd408f2f92478d3"
+   "build": "39ebe21b6004cb01"
   },
   "amira-hondras": {
    "box": [0.4746, 0.4512, 0.3535],
    "kit": "club",
+   "kit_club": "LA",
    "source_sha": "0528387ac742d3ed",
    "scale": 1.16,
    "frame": [0.4998, 0.461, 0.4101],
    "issues": ["upscaled"],
-   "build": "a0bbe06e68f84a4d"
+   "build": "e9a6d9c13288524a"
   },
   "andreanne-leblanc": {
    "box": [0.4893, 0.4668, 0.4277],
    "kit": "club",
+   "kit_club": "SF",
    "source_sha": "e167892ad1ff3660",
    "scale": 0.959,
    "frame": [0.5005, 0.4906, 0.4102],
    "issues": [],
-   "build": "5678da9be434d06b"
+   "build": "fda323c47f879171"
   },
   "angela-valenzuela": {
    "box": [0.5, 0.4609, 0.3789],
@@ -120,7 +127,7 @@
    "scale": 1.082,
    "frame": [0.5, 0.4616, 0.41],
    "issues": [],
-   "build": "92a98384df698ce2"
+   "build": "ed49cb1ba0557999"
   },
   "angelis-rivera": {
    "box": [0.4932, 0.4609, 0.4375],
@@ -129,7 +136,7 @@
    "scale": 0.937,
    "frame": [0.4995, 0.4965, 0.4102],
    "issues": [],
-   "build": "f20cfffbbe28c91a"
+   "build": "5f0eeca6b1e3587f"
   },
   "arwen-mccullough": {
    "box": [0.4961, 0.4609, 0.375],
@@ -138,16 +145,17 @@
    "scale": 1.093,
    "frame": [0.4996, 0.4611, 0.4102],
    "issues": [],
-   "build": "e41a1b3022370395"
+   "build": "d38fa0622d94c896"
   },
   "ashton-lansdell": {
    "box": [0.5039, 0.4609, 0.4258],
    "kit": "club",
+   "kit_club": "LA",
    "source_sha": "4294f38cf308c89c",
    "scale": 0.963,
    "frame": [0.5008, 0.4809, 0.41],
    "issues": [],
-   "build": "972e8b8169bacc76"
+   "build": "0038a82d4b3c92c2"
   },
   "ayaka-yamamoto": {
    "box": [0.5059, 0.4775, 0.4395],
@@ -156,26 +164,27 @@
    "scale": 0.957,
    "frame": [0.4998, 0.5019, 0.4206],
    "issues": ["held"],
-   "build": "e5b433d74db7fc97"
+   "build": "9d1772a084c71b52"
   },
   "ayami-sato": {
    "box": [0.5078, 0.4609, 0.4219],
    "kit": "club",
+   "kit_club": "LA",
    "source_sha": "fd16b29e13ba95d9",
    "scale": 0.972,
    "frame": [0.4998, 0.4776, 0.4104],
    "issues": [],
-   "build": "d7a70db72227bca2"
+   "build": "4ae0afad3fb210dd"
   },
   "ayuri-shimano": {
    "box": [0.4902, 0.7178, 0.4844],
    "kit": "other",
-   "source_sha": "0a4e2e23ec345b61",
-   "scale": 0.846,
-   "frame": [0.5005, 0.4606, 0.4097],
-   "issues": ["gap-under"],
    "note": "An ID-style photo: a head with no shoulders.",
-   "build": "ecb317445feef91d"
+   "source_sha": "0a4e2e23ec345b61",
+   "scale": 1.0,
+   "frame": [0.5, 0.7178, 0.4844],
+   "issues": ["gap-under", "held"],
+   "build": "584e4a75e87cf265"
   },
   "bella-espinoza-molina": {
    "box": [0.5132, 0.4653, 0.4346],
@@ -184,35 +193,37 @@
    "scale": 0.943,
    "frame": [0.4998, 0.4956, 0.41],
    "issues": [],
-   "build": "68bacc7dae6fabe4"
+   "build": "2934ebb613f8dbb0"
   },
   "beth-greenwood": {
    "box": [0.5088, 0.4668, 0.3945],
    "kit": "club",
+   "kit_club": "BOS",
    "source_sha": "7b8547831d28ee4f",
    "scale": 1.039,
    "frame": [0.4994, 0.4616, 0.4099],
    "issues": [],
-   "build": "5d361a2617a59596"
+   "build": "80e77c0d25b8c078"
   },
   "braidy-birdsall": {
    "box": [0.5195, 0.5254, 0.4766],
    "kit": "other",
+   "note": "No cap, a plain top.",
    "source_sha": "e3407a5d57207c2b",
    "scale": 1.0,
    "frame": [0.5, 0.5254, 0.4766],
    "issues": ["fringe", "held"],
-   "note": "No cap, a plain top.",
-   "build": "60dcb4352dea0141"
+   "build": "8851ad52fbc283ae"
   },
   "brittany-apgar": {
    "box": [0.4951, 0.4541, 0.4004],
    "kit": "club",
+   "kit_club": "LA",
    "source_sha": "fc699bc58e906b67",
    "scale": 1.024,
    "frame": [0.5008, 0.4608, 0.4098],
    "issues": [],
-   "build": "e1cf4c59cf1f2b9a"
+   "build": "9eb5636311f0b974"
   },
   "brittany-womack": {
    "box": [0.5059, 0.4609, 0.4062],
@@ -221,16 +232,17 @@
    "scale": 1.009,
    "frame": [0.4991, 0.4615, 0.4102],
    "issues": [],
-   "build": "d96808f8903778d4"
+   "build": "0ec7f8c558a3d18b"
   },
   "caitlin-eynon": {
    "box": [0.501, 0.4619, 0.4316],
    "kit": "club",
+   "kit_club": "LA",
    "source_sha": "b7ceec168f81e2c9",
    "scale": 0.95,
    "frame": [0.5009, 0.4892, 0.4097],
    "issues": [],
-   "build": "04d07d445920fccf"
+   "build": "e3235c85a5260c21"
   },
   "celicia-wilken": {
    "box": [0.5029, 0.4629, 0.4297],
@@ -239,17 +251,17 @@
    "scale": 0.954,
    "frame": [0.4998, 0.489, 0.4104],
    "issues": [],
-   "build": "73459dcd05e2f8e5"
+   "build": "7a49473f6de37bee"
   },
   "chloe-atkinson": {
    "box": [0.5088, 0.6641, 0.3398],
    "kit": "other",
+   "note": "An ID-style photo, small in the frame.",
    "source_sha": "702246435bc02353",
    "scale": 1.0,
    "frame": [0.499, 0.6641, 0.3398],
    "issues": ["held"],
-   "note": "An ID-style photo, small in the frame.",
-   "build": "b4cf0e62a2a195fb"
+   "build": "d18468f47f6e62c0"
   },
   "claire-eccles": {
    "box": [0.5068, 0.459, 0.3984],
@@ -258,17 +270,17 @@
    "scale": 1.029,
    "frame": [0.5002, 0.4607, 0.4101],
    "issues": [],
-   "build": "daaab3daea16e2fe"
+   "build": "d2d3d0f411a14a8d"
   },
   "claire-o-sullivan": {
    "box": [0.4961, 0.4707, 0.4297],
    "kit": "other",
+   "note": "Australia cap.",
    "source_sha": "417f3025eaccbf80",
    "scale": 0.954,
    "frame": [0.4992, 0.4964, 0.4104],
    "issues": [],
-   "note": "Australia cap.",
-   "build": "bbdf48260ba9f126"
+   "build": "5311f6d77704e723"
   },
   "clara-rice": {
    "box": [0.4961, 0.4688, 0.457],
@@ -277,73 +289,78 @@
    "scale": 0.941,
    "frame": [0.5002, 0.5019, 0.4302],
    "issues": ["held"],
-   "build": "6f2ef2b0ddb73b9d"
+   "build": "1ed4903b275b06f2"
   },
   "denae-benites": {
    "box": [0.499, 0.4424, 0.3887],
    "kit": "club",
+   "kit_club": "NY",
    "source_sha": "35e5f410939ff0e7",
    "scale": 1.055,
    "frame": [0.5009, 0.4607, 0.41],
    "issues": [],
-   "build": "4d1f769b10b17c2c"
+   "build": "88c6e3657d56e87c"
   },
   "denver-bryant": {
    "box": [0.4971, 0.4619, 0.4043],
    "kit": "club",
+   "kit_club": "BOS",
    "source_sha": "1bd2ddd776f02107",
    "scale": 1.014,
    "frame": [0.5, 0.4604, 0.4098],
    "issues": [],
-   "build": "9fc550fe5c10da80"
+   "build": "de4bad1843880a70"
   },
   "diana-ibarra": {
    "box": [0.5029, 0.4678, 0.3887],
    "kit": "club",
+   "kit_club": "NY",
+   "note": "Wears New York in the photo; on the Los Angeles roster.",
    "source_sha": "5826c70d48a37c21",
    "scale": 1.055,
    "frame": [0.4992, 0.4602, 0.41],
    "issues": [],
-   "kit_club": "NY",
-   "note": "Wears New York in the photo; on the Los Angeles roster.",
-   "build": "d5f3c1980307287a"
+   "build": "798e8ed663356e22"
   },
   "edith-de-leija": {
    "box": [0.498, 0.4648, 0.4102],
    "kit": "club",
+   "kit_club": "BOS",
    "source_sha": "42290bdb7c28d211",
    "scale": 1.0,
    "frame": [0.5, 0.4668, 0.4102],
    "issues": [],
-   "build": "0113fe38adfce17d"
+   "build": "2339a327c3436ac4"
   },
   "ela-day-bedard": {
    "box": [0.5068, 0.4658, 0.4102],
    "kit": "club",
+   "kit_club": "SF",
    "source_sha": "2a5b44d9bd5bf6dd",
    "scale": 1.0,
    "frame": [0.5009, 0.4678, 0.4102],
    "issues": [],
-   "build": "e3e6fce066438b92"
+   "build": "2a52b3adc1217d65"
   },
   "elodie-ciamarro": {
    "box": [0.502, 0.4609, 0.3984],
    "kit": "club",
+   "kit_club": "NY",
    "source_sha": "d1c341033192d849",
    "scale": 1.029,
    "frame": [0.4991, 0.4607, 0.4101],
    "issues": [],
-   "build": "35b969d75afeb9d2"
+   "build": "82833035c9f4c6a4"
   },
   "elodie-o-sullivan": {
    "box": [0.502, 0.459, 0.3876],
    "kit": "other",
+   "note": "Australia cap.",
    "source_sha": "9d849d5555efd041",
    "scale": 1.058,
    "frame": [0.5002, 0.4605, 0.4103],
    "issues": ["fringe"],
-   "note": "Australia cap.",
-   "build": "815fd3dd494c3d27"
+   "build": "ba0c76ad2212486a"
   },
   "emi-saiki": {
    "box": [0.498, 0.457, 0.3633],
@@ -352,17 +369,17 @@
    "scale": 1.129,
    "frame": [0.4997, 0.4612, 0.4101],
    "issues": ["upscaled"],
-   "build": "3c0906eb3168434b"
+   "build": "28f2036b81f9071f"
   },
   "emily-baxter": {
    "box": [0.502, 0.4668, 0.4609],
    "kit": "other",
+   "note": "No cap, a plain top.",
    "source_sha": "f47b89b6b3a819fa",
    "scale": 0.938,
    "frame": [0.4999, 0.5001, 0.4321],
    "issues": ["fringe", "held"],
-   "note": "No cap, a plain top.",
-   "build": "ba3c3d5ade42de28"
+   "build": "4d836816e0109b48"
   },
   "esthela-segovia": {
    "box": [0.4951, 0.4658, 0.4015],
@@ -371,7 +388,7 @@
    "scale": 1.021,
    "frame": [0.4999, 0.4602, 0.4101],
    "issues": [],
-   "build": "42dedeb5c22e8a8a"
+   "build": "c4cee35b5a4803db"
   },
   "flor-elena-valerio-montoya": {
    "box": [0.5059, 0.4629, 0.3842],
@@ -380,16 +397,17 @@
    "scale": 1.067,
    "frame": [0.5004, 0.4604, 0.4097],
    "issues": [],
-   "build": "a73bc8b788cf27db"
+   "build": "657c9a626c319223"
   },
   "gabrielle-haas": {
    "box": [0.501, 0.4707, 0.3887],
    "kit": "club",
+   "kit_club": "BOS",
    "source_sha": "0c9b60df788139b7",
    "scale": 1.055,
    "frame": [0.4991, 0.4613, 0.41],
    "issues": [],
-   "build": "0265a3a7242c5c37"
+   "build": "8ce175458a03e88e"
   },
   "genevieve-hastings": {
    "box": [0.5049, 0.4736, 0.4102],
@@ -398,16 +416,17 @@
    "scale": 1.0,
    "frame": [0.499, 0.4756, 0.4102],
    "issues": [],
-   "build": "7f8732ec6791fefb"
+   "build": "91f64cc6d776b6ba"
   },
   "gigi-schiano": {
    "box": [0.502, 0.4688, 0.3945],
    "kit": "club",
+   "kit_club": "BOS",
    "source_sha": "c40f4ed2bd971963",
    "scale": 1.039,
    "frame": [0.5001, 0.4617, 0.4099],
    "issues": [],
-   "build": "18b769cdfe2d5ecf"
+   "build": "1e03221188b90209"
   },
   "hinano-beppu": {
    "box": [0.5029, 0.46, 0.3926],
@@ -416,16 +435,17 @@
    "scale": 1.044,
    "frame": [0.5001, 0.4611, 0.4102],
    "issues": [],
-   "build": "8ef755a23e2fca34"
+   "build": "d0a663a715123102"
   },
   "hyeonah-kim": {
    "box": [0.5088, 0.4658, 0.4434],
    "kit": "club",
+   "kit_club": "BOS",
    "source_sha": "4474aa9da1a5c30a",
    "scale": 0.936,
    "frame": [0.4994, 0.5002, 0.4148],
    "issues": ["held"],
-   "build": "1ddd9115ba9d3b11"
+   "build": "e6c467e556ea72fb"
   },
   "isabella-villarreal": {
    "box": [0.502, 0.458, 0.4043],
@@ -434,54 +454,59 @@
    "scale": 1.014,
    "frame": [0.4991, 0.4604, 0.4098],
    "issues": [],
-   "build": "ca191bac3310b31a"
+   "build": "d195a57b6a420fd7"
   },
   "jacqui-reynolds": {
    "box": [0.5117, 0.4785, 0.4219],
    "kit": "club",
+   "kit_club": "NY",
    "source_sha": "30426c4264a62b64",
    "scale": 0.972,
    "frame": [0.4997, 0.4947, 0.4104],
    "issues": [],
-   "build": "b49c824970e4e0bf"
+   "build": "d6ec8236ed3ec660"
   },
   "jaida-lee": {
    "box": [0.499, 0.46, 0.4199],
    "kit": "club",
+   "kit_club": "NY",
    "source_sha": "f59efc1b99bc1d65",
    "scale": 0.976,
    "frame": [0.499, 0.4746, 0.4101],
    "issues": [],
-   "build": "0c595966ff08cb41"
+   "build": "0874031b2e68bf65"
   },
   "jamie-mackay": {
    "box": null,
+   "box_set": [0.47, 0.44, 0.37],
    "kit": "club",
+   "kit_club": "LA",
+   "note": "No model finds this face (the cap brim and the smile); boxed by eye.",
    "source_sha": "944a0adb2e862f4c",
    "scale": 1.108,
    "frame": [0.501, 0.4619, 0.4097],
    "issues": [],
-   "box_set": [0.47, 0.44, 0.37],
-   "note": "No model finds this face (the cap brim and the smile); boxed by eye.",
-   "build": "557f49f8afe201ab"
+   "build": "69ce83ceb476c4fb"
   },
   "jill-albayati": {
    "box": [0.5039, 0.4648, 0.3984],
    "kit": "club",
+   "kit_club": "SF",
    "source_sha": "fb966222924b3b23",
    "scale": 1.029,
    "frame": [0.4991, 0.4608, 0.4101],
    "issues": [],
-   "build": "3e66c5321196c60e"
+   "build": "b184c1eb7450cafb"
   },
   "joely-leguizamon": {
    "box": [0.501, 0.4629, 0.4297],
    "kit": "club",
+   "kit_club": "SF",
    "source_sha": "d42aae8951f68917",
    "scale": 0.954,
    "frame": [0.5, 0.489, 0.4104],
    "issues": [],
-   "build": "bb903bd924c605ef"
+   "build": "cd1e6922487a6373"
   },
   "jordan-eyster": {
    "box": [0.5039, 0.4521, 0.4062],
@@ -490,16 +515,17 @@
    "scale": 1.009,
    "frame": [0.4991, 0.4604, 0.4102],
    "issues": [],
-   "build": "eec02e7327bf0ed5"
+   "build": "52cffebafe6f1053"
   },
   "jua-park": {
    "box": [0.5098, 0.4688, 0.4676],
    "kit": "club",
+   "kit_club": "SF",
    "source_sha": "a9a00c075bb8ce72",
    "scale": 0.941,
    "frame": [0.4995, 0.5019, 0.4402],
    "issues": ["held"],
-   "build": "f9923351a3fa951d"
+   "build": "4b38b61a5163b810"
   },
   "juliette-kladko": {
    "box": [0.5127, 0.4658, 0.416],
@@ -508,7 +534,7 @@
    "scale": 0.986,
    "frame": [0.4998, 0.4751, 0.4103],
    "issues": [],
-   "build": "4352caddcff41d07"
+   "build": "62ca955c526e5b78"
   },
   "kaelei-kajitani": {
    "box": [0.5049, 0.4668, 0.4062],
@@ -517,7 +543,7 @@
    "scale": 1.009,
    "frame": [0.5001, 0.4635, 0.4102],
    "issues": [],
-   "build": "65404e02d505e97a"
+   "build": "3693cfd655cd007a"
   },
   "kaija-bazzano": {
    "box": [0.5049, 0.4619, 0.4062],
@@ -526,7 +552,7 @@
    "scale": 1.009,
    "frame": [0.5001, 0.4606, 0.4102],
    "issues": [],
-   "build": "a3cae456559cad05"
+   "build": "7a327e213a63aa63"
   },
   "kailyn-bearpaw": {
    "box": [0.5, 0.4678, 0.416],
@@ -535,25 +561,27 @@
    "scale": 0.986,
    "frame": [0.501, 0.477, 0.4103],
    "issues": [],
-   "build": "99cf60bf59cda427"
+   "build": "e08b2fd849a01fbb"
   },
   "kate-blunt": {
    "box": [0.4971, 0.4775, 0.4668],
    "kit": "club",
+   "kit_club": "BOS",
    "source_sha": "8beda06f8d6f23a7",
    "scale": 0.957,
    "frame": [0.4992, 0.5019, 0.4467],
    "issues": ["held"],
-   "build": "43d8488680b29c61"
+   "build": "2051806e752d68e2"
   },
   "katherine-murphy": {
    "box": [0.4932, 0.4678, 0.4043],
    "kit": "club",
+   "kit_club": "NY",
    "source_sha": "43b65aac85ee4383",
    "scale": 1.014,
    "frame": [0.4999, 0.4605, 0.4098],
    "issues": [],
-   "build": "b38a3e5e1509138f"
+   "build": "7da1c73bebe3c339"
   },
   "katie-reynolds": {
    "box": [0.501, 0.4658, 0.3926],
@@ -562,25 +590,27 @@
    "scale": 1.044,
    "frame": [0.5001, 0.4613, 0.4102],
    "issues": [],
-   "build": "5d781a8cc4bd06d5"
+   "build": "a57502fe7736c7d9"
   },
   "keira-izumi": {
    "box": [0.5029, 0.4658, 0.4141],
    "kit": "club",
+   "kit_club": "NY",
    "source_sha": "c00a3ca6a428a050",
    "scale": 0.99,
    "frame": [0.4999, 0.473, 0.4101],
    "issues": [],
-   "build": "c2d0d34153e38b89"
+   "build": "b1eefc727f48de10"
   },
   "kelsie-whitmore": {
    "box": [0.5029, 0.4678, 0.4512],
    "kit": "club",
+   "kit_club": "SF",
    "source_sha": "17bc166188198805",
    "scale": 0.939,
    "frame": [0.4998, 0.5, 0.4239],
    "issues": ["held"],
-   "build": "a8c14f0751cc566c"
+   "build": "0ae75902bb24722f"
   },
   "kiley-ingram": {
    "box": [0.5, 0.4609, 0.445],
@@ -589,36 +619,37 @@
    "scale": 0.927,
    "frame": [0.499, 0.5018, 0.4128],
    "issues": ["held"],
-   "build": "470bee6d28ad1db7"
+   "build": "01e66b9f4f443d21"
   },
   "kylee-lahners": {
    "box": [0.5, 0.4629, 0.3984],
    "kit": "club",
+   "kit_club": "NY",
    "source_sha": "5108b2f9696b4d25",
    "scale": 1.029,
    "frame": [0.499, 0.4608, 0.4101],
    "issues": [],
-   "build": "8024b347db2c6839"
+   "build": "4ca06e268aefdcfd"
   },
   "laura-hirai": {
    "box": [0.4541, 0.5029, 0.4941],
    "kit": "other",
+   "note": "A red jersey from another team.",
    "source_sha": "05e7571796f856b0",
    "scale": 1.0,
    "frame": [0.501, 0.5029, 0.4941],
    "issues": ["fringe", "held"],
-   "note": "A red jersey from another team.",
-   "build": "06f095549da5e34f"
+   "build": "6971e8a2e13d9c7b"
   },
   "leah-cornish": {
    "box": [0.4434, 0.457, 0.4023],
    "kit": "other",
+   "note": "Canada cap.",
    "source_sha": "8da63e10bb70b2d4",
    "scale": 1.019,
    "frame": [0.5009, 0.4601, 0.4102],
    "issues": ["fringe"],
-   "note": "Canada cap.",
-   "build": "e4a3e3a3cb0644cc"
+   "build": "4fa82d7c76b46658"
   },
   "lexi-hastings": {
    "box": [0.5127, 0.4639, 0.3807],
@@ -627,35 +658,37 @@
    "scale": 1.077,
    "frame": [0.501, 0.4602, 0.4097],
    "issues": [],
-   "build": "ac4170a1bbed5887"
+   "build": "15ee5e1fe80e7949"
   },
   "liz-gilder": {
    "box": [0.4814, 0.3428, 0.3809],
    "kit": "club",
+   "kit_club": "SF",
    "source_sha": "9019633196e3bf65",
    "scale": 1.076,
    "frame": [0.5005, 0.4607, 0.4099],
    "issues": [],
-   "build": "9bbd83a6f09d5412"
+   "build": "20f8631f6c7a1eec"
   },
   "london-studer": {
    "box": [0.5, 0.4619, 0.4336],
    "kit": "club",
+   "kit_club": "NY",
    "source_sha": "0d9f942e5e084362",
    "scale": 0.946,
    "frame": [0.5, 0.4913, 0.4099],
    "issues": [],
-   "build": "136e9d2792634c5c"
+   "build": "2b2a4d8cbe31a3a4"
   },
   "luciana-moreno": {
    "box": [0.5078, 0.6748, 0.5371],
    "kit": "other",
+   "note": "An ID-style photo, cropped tight.",
    "source_sha": "0a36aa602374dd3b",
    "scale": 1.0,
    "frame": [0.5, 0.6748, 0.5371],
    "issues": ["held"],
-   "note": "An ID-style photo, cropped tight.",
-   "build": "f58e8351f0100ac6"
+   "build": "d9713be43af86c3c"
   },
   "luisa-hernandez": {
    "box": [0.5059, 0.459, 0.3672],
@@ -664,53 +697,57 @@
    "scale": 1.117,
    "frame": [0.5007, 0.4601, 0.4102],
    "issues": [],
-   "build": "2260fd4295a958d2"
+   "build": "7a5660829e94953a"
   },
   "maddison-erwin": {
    "box": [0.5078, 0.4629, 0.4336],
    "kit": "other",
+   "note": "No cap, a plain tee.",
    "source_sha": "dafebb6e7b68399c",
    "scale": 0.946,
    "frame": [0.4996, 0.4923, 0.4099],
    "issues": ["fringe"],
-   "note": "No cap, a plain tee.",
-   "build": "dfdaf00365cdf0b5"
+   "build": "07324342ab27193a"
   },
   "madison-willan": {
    "box": [0.502, 0.4619, 0.3894],
    "kit": "club",
+   "kit_club": "NY",
    "source_sha": "5200dcc83ab2d957",
    "scale": 1.053,
    "frame": [0.4992, 0.4609, 0.4099],
    "issues": [],
-   "build": "61a557d68678a0b0"
+   "build": "8b8b144023729c82"
   },
   "maggie-foxx": {
    "box": [0.5039, 0.4561, 0.4867],
    "kit": "club",
+   "kit_club": "LA",
    "source_sha": "95f59191a90f1887",
    "scale": 0.919,
    "frame": [0.5007, 0.5016, 0.4477],
    "issues": ["held"],
-   "build": "7bcd18359f1f75b1"
+   "build": "fb973a30f591de0c"
   },
   "maika-dumais": {
    "box": [0.5049, 0.46, 0.3672],
    "kit": "club",
+   "kit_club": "BOS",
    "source_sha": "56e764eb943653f2",
    "scale": 1.117,
    "frame": [0.4996, 0.4612, 0.4102],
    "issues": [],
-   "build": "842463319e96ac08"
+   "build": "5d5c551db61860d6"
   },
   "maria-jose-valenzuela": {
    "box": [0.502, 0.4395, 0.3477],
    "kit": "club",
+   "kit_club": "BOS",
    "source_sha": "145c6f35b4b3557d",
    "scale": 1.179,
    "frame": [0.5004, 0.4618, 0.4102],
    "issues": ["upscaled"],
-   "build": "7fc9fe6bf0eb4b35"
+   "build": "0cebaf8686f36216"
   },
   "mary-grace-o-neill": {
    "box": [0.4961, 0.4453, 0.3359],
@@ -719,7 +756,7 @@
    "scale": 1.221,
    "frame": [0.5001, 0.4615, 0.41],
    "issues": ["upscaled"],
-   "build": "b3986682c62fb58d"
+   "build": "65ff29a68bbbcdd4"
   },
   "mckenna-huff": {
    "box": [0.5, 0.4746, 0.4172],
@@ -728,36 +765,37 @@
    "scale": 0.983,
    "frame": [0.499, 0.4838, 0.4099],
    "issues": [],
-   "build": "063a3140bcf322bf"
+   "build": "599e5fc201934562"
   },
   "meaghan-houk": {
    "box": [0.5029, 0.4971, 0.4668],
    "kit": "other",
+   "note": "No cap, a plain top.",
    "source_sha": "ecdc8f61d9869b20",
    "scale": 0.994,
    "frame": [0.5, 0.5, 0.4641],
    "issues": ["held"],
-   "note": "No cap, a plain top.",
-   "build": "0d2b49d3d2e9014e"
+   "build": "516796fce48e7c80"
   },
   "meggie-meidlinger": {
    "box": [0.5029, 0.4619, 0.4375],
    "kit": "club",
+   "kit_club": "LA",
    "source_sha": "f22f54c30d0a8e92",
    "scale": 0.937,
    "frame": [0.5008, 0.4975, 0.4102],
    "issues": [],
-   "build": "c3c81a15ab954d1c"
+   "build": "fe951860cbba1236"
   },
   "melissa-mayeux": {
    "box": [0.4873, 0.3564, 0.4199],
    "kit": "other",
+   "note": "A college jersey; the cut-out lost part of it on the left.",
    "source_sha": "5687239e4d02af19",
    "scale": 0.976,
    "frame": [0.4993, 0.4613, 0.4101],
    "issues": ["fringe", "gap-under"],
-   "note": "A college jersey; the cut-out lost part of it on the left.",
-   "build": "b2a27e5d2b9a307e"
+   "build": "e65f9a0b4967984b"
   },
   "micaela-minner": {
    "box": [0.4893, 0.4668, 0.4531],
@@ -766,16 +804,17 @@
    "scale": 0.938,
    "frame": [0.4997, 0.5001, 0.4248],
    "issues": ["held"],
-   "build": "24112df41139702a"
+   "build": "afbb97d9a51c69b4"
   },
   "michelle-roche": {
    "box": [0.5029, 0.459, 0.4102],
    "kit": "club",
+   "kit_club": "LA",
    "source_sha": "b35ab6a51bdff853",
    "scale": 1.0,
    "frame": [0.5009, 0.461, 0.4102],
    "issues": [],
-   "build": "ad6749393137cce8"
+   "build": "36b5a330635ba207"
   },
   "milanyela-cortez": {
    "box": [0.4927, 0.5093, 0.3084],
@@ -784,34 +823,37 @@
    "scale": 1.25,
    "frame": [0.5006, 0.4608, 0.3855],
    "issues": ["clamped", "upscaled"],
-   "build": "d980e53b739de9b8"
+   "build": "c5cd8e8817b021cf"
   },
   "minseo-park": {
    "box": [0.5, 0.46, 0.4102],
-   "kit": "club",
+   "kit": "other",
+   "note": "The W draft cap with New York pinstripes.",
    "source_sha": "8c7da68c87567b49",
    "scale": 1.0,
    "frame": [0.5, 0.462, 0.4102],
    "issues": [],
-   "build": "e8684992cc718139"
+   "build": "773c6141b5caa637"
   },
   "mo-ne-davis": {
    "box": [0.4961, 0.4561, 0.4062],
    "kit": "club",
+   "kit_club": "LA",
    "source_sha": "30b7fef0cb942aa3",
    "scale": 1.009,
    "frame": [0.5009, 0.4606, 0.4102],
    "issues": [],
-   "build": "fe1ca09591384d0d"
+   "build": "12d97250c14ed491"
   },
   "molly-paddison": {
    "box": [0.502, 0.4619, 0.4043],
    "kit": "club",
+   "kit_club": "BOS",
    "source_sha": "6d4650cdf6db5fa8",
    "scale": 1.014,
    "frame": [0.4991, 0.4604, 0.4098],
    "issues": [],
-   "build": "8be8ed78d44d6e87"
+   "build": "905c873b998e31f1"
   },
   "nadia-diaz": {
    "box": [0.498, 0.4746, 0.3945],
@@ -820,16 +862,17 @@
    "scale": 1.039,
    "frame": [0.4999, 0.4619, 0.4099],
    "issues": [],
-   "build": "606b5cd69279b5e4"
+   "build": "f0498ea5829b1e7c"
   },
   "natsuki-yonetani": {
    "box": [0.5049, 0.4678, 0.4414],
    "kit": "club",
+   "kit_club": "NY",
    "source_sha": "e776f1bb0402f74b",
    "scale": 0.939,
    "frame": [0.4997, 0.5, 0.4147],
    "issues": ["held"],
-   "build": "ad109e846914173b"
+   "build": "d447e46bb115ff8e"
   },
   "nicole-rivera-moats": {
    "box": [0.4902, 0.4609, 0.3894],
@@ -838,16 +881,17 @@
    "scale": 1.053,
    "frame": [0.5004, 0.4618, 0.4099],
    "issues": [],
-   "build": "35521e8549884ec7"
+   "build": "e026f9ad28e0af10"
   },
   "niki-eckert": {
    "box": [0.5, 0.4629, 0.4102],
    "kit": "club",
+   "kit_club": "SF",
    "source_sha": "f04f392d0be8f20b",
    "scale": 1.0,
    "frame": [0.5, 0.4649, 0.4102],
    "issues": [],
-   "build": "30a128231cc2cd7c"
+   "build": "bba54841b305463e"
   },
   "nylah-ramirez": {
    "box": [0.5, 0.4512, 0.3906],
@@ -856,16 +900,16 @@
    "scale": 1.05,
    "frame": [0.501, 0.4615, 0.4097],
    "issues": [],
-   "build": "9d0ab1e5a749f915"
+   "build": "fe183a5f506e92ac"
   },
   "olivia-bricker": {
    "box": [0.5166, 0.707, 0.5128],
-   "kit": "club",
+   "kit": "draft",
    "source_sha": "ad4f203258894654",
-   "scale": 0.8,
-   "frame": [0.4996, 0.4607, 0.4106],
-   "issues": ["clamped", "gap-under"],
-   "build": "5ac634dada1a70a8"
+   "scale": 1.0,
+   "frame": [0.501, 0.707, 0.5128],
+   "issues": ["gap-under", "held"],
+   "build": "726812bf56f9a235"
   },
   "paloma-benach": {
    "box": [0.501, 0.4639, 0.416],
@@ -874,7 +918,7 @@
    "scale": 0.986,
    "frame": [0.5, 0.4732, 0.4103],
    "issues": [],
-   "build": "b3a5bf4a1b84a5f6"
+   "build": "a9111d37f51d0696"
   },
   "peyton-coria": {
    "box": [0.5273, 0.4609, 0.4102],
@@ -883,25 +927,27 @@
    "scale": 1.0,
    "frame": [0.5, 0.4629, 0.4102],
    "issues": [],
-   "build": "55dec3c0d6847785"
+   "build": "ec5232f4fd9c9a70"
   },
   "raine-padgham": {
    "box": [0.499, 0.4639, 0.4355],
    "kit": "club",
+   "kit_club": "BOS",
    "source_sha": "2a2077719f01c9fe",
    "scale": 0.941,
    "frame": [0.4991, 0.4953, 0.41],
    "issues": [],
-   "build": "67b73968eced08ba"
+   "build": "91d9c6b4b8dc45f0"
   },
   "rakyung-kim": {
    "box": [0.5, 0.457, 0.4219],
    "kit": "club",
+   "kit_club": "NY",
    "source_sha": "71b8faf59e5f4243",
    "scale": 0.972,
    "frame": [0.5, 0.4738, 0.4104],
    "issues": [],
-   "build": "d0039221a1f8dec0"
+   "build": "975104ac057d1850"
   },
   "rio-obitsu": {
    "box": [0.5029, 0.4707, 0.445],
@@ -910,7 +956,7 @@
    "scale": 0.945,
    "frame": [0.5008, 0.5016, 0.4207],
    "issues": ["held"],
-   "build": "79f59c7612cb09cf"
+   "build": "10d8b9ff7630e301"
   },
   "rocio-barajas": {
    "box": [0.5029, 0.4629, 0.4141],
@@ -919,26 +965,27 @@
    "scale": 0.99,
    "frame": [0.4999, 0.4701, 0.4101],
    "issues": [],
-   "build": "b8e50680e416a90b"
+   "build": "2caffaa47e2d81f4"
   },
   "rosi-del-castillo": {
    "box": [0.502, 0.6523, 0.6094],
    "kit": "other",
+   "note": "An ID-style photo, cropped tight.",
    "source_sha": "52f3624c5986ba2c",
    "scale": 1.0,
    "frame": [0.5, 0.6523, 0.6094],
    "issues": ["fringe", "held"],
-   "note": "An ID-style photo, cropped tight.",
-   "build": "b725908e87b7081f"
+   "build": "3c65cb353e84e7f7"
   },
   "sabrina-robinson": {
    "box": [0.4541, 0.4785, 0.4004],
    "kit": "club",
+   "kit_club": "BOS",
    "source_sha": "89e0c1e24ae2474f",
    "scale": 1.024,
    "frame": [0.4999, 0.4663, 0.4098],
    "issues": [],
-   "build": "38f10562a5f81c24"
+   "build": "daf151db9310680f"
   },
   "sadie-zion": {
    "box": [0.5059, 0.4668, 0.3945],
@@ -947,16 +994,17 @@
    "scale": 1.039,
    "frame": [0.5003, 0.4616, 0.4099],
    "issues": [],
-   "build": "01adaed2aae3c560"
+   "build": "a0bed4452ed0454c"
   },
   "samantha-gutierrez": {
    "box": [0.5762, 0.4346, 0.3945],
    "kit": "club",
+   "kit_club": "SF",
    "source_sha": "1e84ddadce8e59d9",
    "scale": 1.039,
    "frame": [0.4991, 0.4613, 0.4099],
    "issues": [],
-   "build": "2e950f2391b2582c"
+   "build": "fbc8c7e3754c9ddc"
   },
   "samaria-benitez": {
    "box": [0.5234, 0.4512, 0.3685],
@@ -965,7 +1013,7 @@
    "scale": 1.113,
    "frame": [0.5007, 0.4613, 0.4102],
    "issues": [],
-   "build": "3c61af2dac7b62a8"
+   "build": "86f94496acfddb57"
   },
   "sarah-beaulieu": {
    "box": [0.502, 0.4688, 0.4219],
@@ -974,16 +1022,17 @@
    "scale": 0.972,
    "frame": [0.5, 0.4853, 0.4104],
    "issues": [],
-   "build": "dddb0ce52430500e"
+   "build": "406cf6730d292376"
   },
   "sarah-edwards": {
    "box": [0.5015, 0.4688, 0.4502],
    "kit": "club",
+   "kit_club": "LA",
    "source_sha": "8c37f79966ceb732",
    "scale": 0.941,
    "frame": [0.4995, 0.5019, 0.4238],
    "issues": ["held"],
-   "build": "3047958e4c8c53b5"
+   "build": "2b4e61009cd2250a"
   },
   "scrappy-hopkins": {
    "box": [0.4697, 0.4824, 0.3262],
@@ -992,16 +1041,17 @@
    "scale": 1.25,
    "frame": [0.4992, 0.4604, 0.4078],
    "issues": ["clamped", "upscaled"],
-   "build": "1a590d9a9f3db37a"
+   "build": "57ad69c80b6a918a"
   },
   "skylar-kaplan": {
    "box": [0.5059, 0.4668, 0.4102],
    "kit": "club",
+   "kit_club": "SF",
    "source_sha": "0e66a51ea7035d09",
    "scale": 1.0,
    "frame": [0.5, 0.4688, 0.4102],
    "issues": [],
-   "build": "54d6bf8469524a29"
+   "build": "d42c21215ec9cb7c"
   },
   "stephanie-everett": {
    "box": [0.499, 0.4697, 0.405],
@@ -1010,7 +1060,7 @@
    "scale": 1.012,
    "frame": [0.5009, 0.4635, 0.4097],
    "issues": [],
-   "build": "a78eda1fc80119de"
+   "build": "d7adb737ee7d2554"
   },
   "suzu-narasaki": {
    "box": [0.5098, 0.4629, 0.3945],
@@ -1019,7 +1069,7 @@
    "scale": 1.039,
    "frame": [0.5004, 0.4615, 0.4099],
    "issues": [],
-   "build": "a01fb90afd8675ca"
+   "build": "4885706172981ab2"
   },
   "suzuka-yamamoto": {
    "box": [0.501, 0.457, 0.3672],
@@ -1028,35 +1078,37 @@
    "scale": 1.117,
    "frame": [0.4992, 0.4617, 0.4102],
    "issues": [],
-   "build": "c2426fef8b7385b7"
+   "build": "f8cb4a24b14b6f78"
   },
   "sydney-barry": {
    "box": [0.5059, 0.4639, 0.3984],
    "kit": "other",
+   "note": "An FM cap from another team.",
    "source_sha": "15d6a5c6a6040b15",
    "scale": 1.029,
    "frame": [0.4992, 0.4619, 0.4101],
    "issues": [],
-   "note": "An FM cap from another team.",
-   "build": "e7ec801a412b148c"
+   "build": "f8dcbf5ad67694b0"
   },
   "thaima-maximiliana": {
    "box": [0.4971, 0.3447, 0.2694],
    "kit": "club",
+   "kit_club": "LA",
    "source_sha": "9d82bfff004a6871",
    "scale": 1.25,
    "frame": [0.5003, 0.4602, 0.3367],
    "issues": ["clamped", "upscaled"],
-   "build": "f7f89e108066a0cc"
+   "build": "68c93161ce703b0d"
   },
   "ticara-geldenhuis": {
    "box": [0.5078, 0.4727, 0.3867],
    "kit": "club",
+   "kit_club": "BOS",
    "source_sha": "72575ed5d9489327",
    "scale": 1.06,
    "frame": [0.4995, 0.4603, 0.4101],
    "issues": [],
-   "build": "55009ddedac76684"
+   "build": "6a156dc1a0b38eaa"
   },
   "trinity-curtis": {
    "box": [0.501, 0.46, 0.3926],
@@ -1065,26 +1117,27 @@
    "scale": 1.044,
    "frame": [0.5001, 0.4611, 0.4102],
    "issues": [],
-   "build": "63df193faa9e8052"
+   "build": "1ae3cbe861470a5a"
   },
   "valerie-perez": {
    "box": [0.501, 0.3232, 0.373],
    "kit": "club",
+   "kit_club": "NY",
    "source_sha": "bce200ec9aa44515",
    "scale": 1.099,
    "frame": [0.5001, 0.4609, 0.4102],
    "issues": [],
-   "build": "2eefc4eb9b5a84c3"
+   "build": "89ca03b59d88101c"
   },
   "zoe-falardeau": {
    "box": [0.4941, 0.5557, 0.3262],
    "kit": "other",
+   "note": "No cap, a plain top.",
    "source_sha": "5229d73965e15a7e",
    "scale": 1.25,
    "frame": [0.5004, 0.4602, 0.4078],
    "issues": ["clamped", "upscaled"],
-   "note": "No cap, a plain top.",
-   "build": "8c364f65dac4c47e"
+   "build": "55ad5eba3fa450c2"
   }
  }
 }

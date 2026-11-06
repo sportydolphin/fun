@@ -26,7 +26,7 @@ THE MANIFEST is the record a person reviews, keyed by slug:
   box       the face box measured on the source, [center x, center y, width] as fractions
   box_set   a box set by hand, which outranks `box` (the detector misses, or picks a cap)
   kit       what the player wears in the photo: "club", "draft" (the WPBL tee) or "other"
-  kit_club  for "club", the club in the photo when it is not obvious from the roster
+  kit_club  for "club", the club in the photo, set by a person; the test checks it against the roster
   note      anything a person should know before replacing the photo
   source_sha, scale, frame, issues   written by this script, read by the test
   build     a digest of everything the 512 was built from, so an unchanged one is not re-encoded
@@ -71,6 +71,7 @@ SCALE_MIN, SCALE_MAX = 0.8, 1.25
 #   held        kept larger than the rule, since shrinking it would lift the shoulders (see frame)
 UPSCALE = 1.12
 GAP_COVER = 0.55     # share of the bottom row the subject must cover
+TOUCH_COVER = 0.08   # share of the bottom row that means the subject runs off the bottom edge
 TOP_COVER = 0.12     # share of the top row the subject may cover
 FRINGE_PX = 3000     # light half-transparent pixels, on a 512 scale
 CY_MAX = 0.50        # how far down a face may move to keep the shoulders on the bottom edge
@@ -155,8 +156,13 @@ def frame(im: Image.Image, box: list[float] | None) -> tuple[Image.Image, float,
     # of bare club color under them, which reads far worse than a face a little large. So when a
     # shrink would open that strip, the face first moves down (to CY_MAX) to keep the jersey on the
     # edge, and past that the scale stops shrinking: the face stays larger than the rule ("held").
+    #
+    # A NECK COUNTS. Any subject that touches the bottom edge is held there, not only a full pair
+    # of shoulders: a source cut at the chin (Ayuri Shimano, Olivia Bricker) is an ordinary crop
+    # while the cut is the frame's edge, and a floating head with a flat bottom once the rule lifts
+    # it into the square. Until Nov 5, 2026 this asked for GAP_COVER, and both floated.
     a_src = np.array(src)[:, :, 3]
-    reaches_bottom = (a_src[-2:, :] > 128).any(axis=0).mean() >= GAP_COVER
+    reaches_bottom = (a_src[-2:, :] > 128).any(axis=0).mean() >= TOUCH_COVER
     want_cy = RULE["cy"]
     if reaches_bottom and want_cy + s * (1 - cy) < 1:
         want_cy = min(1 - s * (1 - cy), CY_MAX)
@@ -224,7 +230,7 @@ def main() -> None:
         # Everything the 512 depends on. The encode is about 4s a file at method 6, so a rerun
         # after adding one player writes one file, not 118.
         key = hashlib.sha256(json.dumps(
-            [digest, e.get("box_set") or e.get("box"), RULE, SCALE_MIN, SCALE_MAX, CY_MAX, SIZE, QUALITY]
+            [digest, e.get("box_set") or e.get("box"), RULE, SCALE_MIN, SCALE_MAX, CY_MAX, TOUCH_COVER, SIZE, QUALITY]
         ).encode()).hexdigest()[:16]
         dest = OUT / f"{slug}.webp"
         if not check and (e.get("build") != key or not dest.exists() or force):

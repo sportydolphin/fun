@@ -784,12 +784,13 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
         image: `linear-gradient(105deg, transparent 0%, transparent 26%, ${teamSecondary}${washMid} 62%, ${teamSecondary}${washEnd} 100%)`,
       }}
       stripe={teamSecondary}
-      // A rounded square rather than a circle, and bigger. A circle crops a head-and-shoulders
+      // A square headshot (`print`), not a circle, and bigger. A circle crops a head-and-shoulders
       // portrait to the face; at this size there is room for the shoulders and the uniform, which
-      // is most of what makes a player recognizable. One size at every width, deliberately: a JS
-      // media query picking a size does not re-render on a live window resize the way the band's
-      // CSS breakpoints do.
-      portrait={<PlayerPortrait key={player.id} name={player.name} teamId={clubId} square size={84} priority />}
+      // is most of what makes a player recognizable. Square corners and no ring, the way Home runs a
+      // face (Nov 5, 2026): the rounded square in a ring was the last face on the old app idiom.
+      // One size at every width, deliberately: a JS media query picking a size does not re-render on
+      // a live window resize the way the band's CSS breakpoints do.
+      portrait={<PlayerPortrait key={player.id} name={player.name} teamId={clubId} print size={84} priority />}
       // The page's <h1>. A player page is a modal over a tab but it is a real page with its own URL
       // and title, and the tab underneath stops rendering an h1 while this is open; see PageHeading.tsx.
       name={player.name}
