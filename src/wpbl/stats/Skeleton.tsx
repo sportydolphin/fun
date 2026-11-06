@@ -14,6 +14,9 @@ import { fullBleedSx, fullBleedStickySx } from './layout'
 // draws one, is the 15px this leaves out.
 const DESKTOP_BOARD_SKELETON = `calc(${TABLE_CAP} * (1.56rem + ${chromePx(8.06)} + 1px)`
   + ` + 0.64rem + ${chromePx(28.36)} + 48px + 0.99rem + ${chromePx(16.8)} + 2px)`
+// The header's league row, which a board with no rate on it (Overall) does not draw (SeasonTable).
+// Measured at 15.05px on the 16px root and 18.69px on the desktop's 20px.
+const LEAGUE_ROW = `(0.66rem + ${chromePx(4.5)})`
 
 // Placeholder while a sub-tab's chunk arrives. These views render in place under the group
 // bar, so a centered spinner in the content area is what the reader already sees while their
@@ -60,7 +63,10 @@ export function StatsSkeleton({ newBoards }: { newBoards?: ReadonlySet<string> }
         // Above a phone the table is as tall as its rows, TABLE_CAP of them on the default board
         // (every qualified hitter), plus the 48px "Show all" row and the board's footer. Each part is
         // type plus chrome, so the box tracks the reader's text size: measured at two text scales.
-        <Skeleton variant="rounded" sx={{ ...fullBleedSx, height: { xs: '593px', sm: DESKTOP_BOARD_SKELETON }, borderRadius: 2, mt: '-1px' }} />
+        <Skeleton variant="rounded" sx={{
+          ...fullBleedSx, borderRadius: 2, mt: '-1px',
+          height: { xs: '593px', sm: (q.side ?? defaultSide(source, q.mode)) === 'overall' ? `calc(${DESKTOP_BOARD_SKELETON} - ${LEAGUE_ROW})` : DESKTOP_BOARD_SKELETON },
+        }} />
       )}
     </Box>
   )

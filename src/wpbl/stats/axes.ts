@@ -104,10 +104,11 @@ export const VIEW_OPTIONS = [{ value: 'standard', label: 'Standard' }, { value: 
 // THE SIDE OF THE GAME IS ONE SWITCH, on every board, in the same place, with all three sides in it.
 // Fielding was a board in the tab row until Oct 2026 while Hitting and Pitching were this switch,
 // so the three answers to one question lived in two places, and opening Fielding made the switch
-// vanish and the controls after it slide left. A board that cannot answer Fielding keeps the option
-// drawn, so the switch is the same width everywhere, and pressing it goes to Leaders on that side
-// (`pickSide`). It was drawn disabled until Oct 2026: faded to 40%, which took its text under the
-// contrast floor, and a pill that does nothing when pressed read as a broken board.
+// vanish and the controls after it slide left. A board that cannot answer a side keeps the option
+// drawn, so the switch is the same width everywhere, and draws it disabled (`pickSide`). From Oct
+// to Nov 2026 pressing it opened Leaders on that side instead, and readers took that for a bug:
+// pressing Overall on Teams moved them off the board they had chosen. The disabled pill is in
+// `text.disabled`, not faded with opacity, and says which boards answer it on hover.
 export const SIDES: { value: Side; label: string }[] = [
   { value: 'overall', label: 'Overall' },
   { value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }, { value: 'fielding', label: 'Fielding' },
