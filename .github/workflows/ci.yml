@@ -101,7 +101,8 @@ jobs:
   # on a page. Everything not listed as safe counts as UI, so a new folder is swept until someone
   # decides otherwise; the sweep itself, its fixtures and this file are always swept. Read from the
   # API rather than a deep clone, and a renamed file counts under both names, so moving a page
-  # into docs/ is still a change to src/. A push to `main` always sweeps.
+  # into docs/ is still a change to src/. A push to `main` always sweeps. `scripts/shot.mjs` counts
+  # as the sweep, since the behavior slice runs it.
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -124,7 +125,7 @@ jobs:
           sweep=$([ -s files.txt ] && echo false || echo true)
           while read -r f; do
             case "$f" in
-              scripts/layout-sweep.mjs | scripts/fixtures/* | .github/workflows/ci.yml) sweep=true ;;
+              scripts/layout-sweep.mjs | scripts/shot.mjs | scripts/fixtures/* | .github/workflows/ci.yml) sweep=true ;;
               docs/* | *.md | scripts/* | .github/* | supabase/*) ;;
               *) sweep=true ;;
             esac
@@ -146,18 +147,24 @@ jobs:
   # after shard 1's own sweep, already the longest of the slices, and added its 35 seconds to the
   # slowest path through every pull request; alone it finishes well before any of them.
   #
+  # The behavior slice is the sweep's --behavior pass: on every stats board, set the filters,
+  # reload, leave and come Back, and fail if one was lost (sportydolphin/fun#201 fixed WPBL's after
+  # a reload dropped them, with nothing failing). Its own slice for the same reason as experiments:
+  # about a minute, alone. It also takes two `npm run shot` pictures, so the command that replaces
+  # the preview pane is known to work on Linux, and keeps them as an artifact to look at.
+  #
   # SKIPPED STEP BY STEP, NOT AS A JOB, when `changes` says the pull request touches no UI. A
   # skipped job reports `skipped`, which fails the `layout` test below; a job whose steps all skip
   # reports success, so `layout` still goes green and the pull request still merges.
   layout-shard:
-    name: layout ${{ matrix.shard }}${{ matrix.shard != 'experiments' && '/8' || '' }}
+    name: layout ${{ matrix.shard }}${{ (matrix.shard != 'experiments' && matrix.shard != 'behavior') && '/8' || '' }}
     needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, experiments]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, experiments, behavior]
     env:
       SWEEP: ${{ needs.changes.outputs.sweep }}
       VITE_SUPABASE_URL: 'http://127.0.0.1:54321'
@@ -186,7 +193,7 @@ jobs:
           cat vite.log; exit 1
 
       - name: Sweep
-        if: ${{ env.SWEEP == 'true' && matrix.shard != 'experiments' }}
+        if: ${{ env.SWEEP == 'true' && matrix.shard != 'experiments' && matrix.shard != 'behavior' }}
         run: npm run sweep -- --replay --shift --baseline --shots sweep-shots --shard ${{ matrix.shard }}/8
 
       # The one place a flag-gated layout gets looked at. Name the routes that draw something
@@ -194,6 +201,24 @@ jobs:
       - name: Sweep with experiments on
         if: ${{ env.SWEEP == 'true' && matrix.shard == 'experiments' }}
         run: npm run sweep -- --replay --shift --baseline --shots sweep-shots --experiments --routes /wpbl/stats?board=runs
+
+      - name: Filters survive a reload and Back
+        if: ${{ env.SWEEP == 'true' && matrix.shard == 'behavior' }}
+        run: npm run sweep -- --replay --behavior
+
+      # Against the placeholder database, so the pages are empty states: this proves the command,
+      # not the pages. The pictures are the artifact `page-shots`.
+      - name: Shot
+        if: ${{ env.SWEEP == 'true' && matrix.shard == 'behavior' }}
+        run: |
+          npm run shot -- /wpbl/stats 375
+          npm run shot -- /mlb/standings 1440 --theme dark
+      - if: ${{ env.SWEEP == 'true' && matrix.shard == 'behavior' && always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: page-shots
+          path: shots
+          if-no-files-found: error
 
       # Both frames of every case that shifted. A shift that hangs on timing can happen on this
       # runner and on no desktop (the awards results did, Oct 2026), and the log line alone could

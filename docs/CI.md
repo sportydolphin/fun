@@ -14,8 +14,10 @@ squash-merged, and Cloudflare deploys whatever lands. The ruleset requires two c
 | `check` | `check` | `npm ci`, typecheck, lint, the tests, the production build, then the code the build never sees (below) | about 3 min |
 | `layout` | `layout` | nothing itself: passes only if every `layout` slice did | seconds |
 
-`layout 1/8` to `layout 8/8` are the layout sweep split by route, run in parallel, and `layout
-experiments` sweeps the flag-gated routes beside them in about a minute. Four slices took about 9
+`layout 1/8` to `layout 8/8` are the layout sweep split by route, run in parallel, `layout
+experiments` sweeps the flag-gated routes beside them in about a minute, and `layout behavior`
+checks that board filters survive a reload and Back ([below](#filters-survive-a-reload-and-back)),
+also in about a minute. Four slices took about 9
 minutes each on Oct 14, 2026, nearly all of it the sweep's fixed waits; eight slices, and the
 loading-shift check at the default text size only, brought that down without shortening a wait.
 A slice takes 2 to 6 minutes, and the slowest one sets the pull request's time: 4m22s to 5m44s
@@ -30,8 +32,8 @@ you rename the check the ruleset waits for**, so every pull request waits foreve
 **A pull request that touches no UI skips the sweep.** The `changes` job lists the pull request's
 files, and if every one is under `docs/`, `scripts/`, `.github/` or `supabase/`, or ends in `.md`,
 each slice skips its steps and reports success, so `layout` goes green with `check` in about 3
-minutes. Three paths in those folders always sweep: `scripts/layout-sweep.mjs`,
-`scripts/fixtures/`, and `.github/workflows/ci.yml`. Anything else, a new top-level folder included,
+minutes. Four paths in those folders always sweep: `scripts/layout-sweep.mjs`,
+`scripts/shot.mjs` (the behavior slice runs it), `scripts/fixtures/`, and `.github/workflows/ci.yml`. Anything else, a new top-level folder included,
 counts as UI until the list says otherwise. A renamed file counts under its old name too, and a push
 to `main` always sweeps. The slices skip their steps rather than the whole job on purpose: a skipped
 job fails the `layout` test, and a required check that never reports leaves the pull request waiting.
@@ -236,6 +238,7 @@ Flags worth knowing:
 | `--experiments` | with the experiments flag on; CI sweeps the flagged routes this way in the `layout experiments` slice |
 | `--cpu 4` | slow Chrome down to CI's speed |
 | `--shots dir` | save the before and after frame of every case that shifts |
+| `--behavior` | the filter check below, in place of the layout checks |
 
 The sweep needs a dev server built the way CI builds it. With a real `.env` the app talks to the
 real project; for a replay, start one with the placeholder settings:
@@ -244,6 +247,40 @@ real project; for a replay, start one with the placeholder settings:
 VITE_SUPABASE_URL=http://127.0.0.1:54321 VITE_SUPABASE_ANON_KEY=sweep-anon-key VITE_VAPID_PUBLIC_KEY=sweep-vapid-key npx vite --port 5180
 npm run sweep -- --base http://localhost:5180 --replay --shift --baseline
 ```
+
+## Filters survive a reload and Back
+
+`npm run sweep -- --replay --behavior` (the `layout behavior` slice) opens every stats board in
+`BEHAVIOR_BOARDS` at 1440px, changes its filters, and checks they all hold after a reload, after
+following a link elsewhere in the app and going Back, and after leaving the page and going Back.
+A board's state is every pressed control and every select's value, plus the address with its
+params sorted. sportydolphin/fun#201 is the bug it catches: WPBL's club, Playoffs and Qualified
+lived in component state, so a reload or a shared link dropped them.
+
+A finding names what was lost and the address before and after. Either the board stopped writing
+a filter to the address, or stopped reading it back. "No control" means the board's controls
+changed: fix the clicks in `BEHAVIOR_BOARDS`. Its reads are in the same fixture, and every
+`--record` runs this pass on the boards among its routes, so the record command a miss prints
+covers it.
+
+Three filters are left out because they are lost today, each noted beside `BEHAVIOR_BOARDS`: the
+Charts board's Qualified and club chips, and Standard / Advanced on WPBL Teams and MLB Players. Fix
+one, then add its click.
+
+## Looking at a page without the preview pane
+
+`npm run shot -- <path> <width>` writes a PNG of one page to `shots/` (gitignored) and prints its
+path. It reuses the dev server on 5173, or starts Vite for the one shot and stops it after. It
+waits until the skeletons have been gone for a second, capped at 15s.
+
+```bash
+npm run shot -- /wpbl/stats 375
+npm run shot -- /mlb/standings 1440 --theme dark --full
+```
+
+`--theme light|dark`, `--full` (the whole page), `--text large`, `--out <file>`, `--base <url>`.
+The `layout behavior` slice runs two of these against the placeholder database and keeps them as
+the `page-shots` artifact.
 
 ## When the layout job fails and your machine is clean
 
