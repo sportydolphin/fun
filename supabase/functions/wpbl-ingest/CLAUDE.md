@@ -100,6 +100,14 @@ What the league feed does that it never says, and what the ingest does about it.
   contradicts itself rather than simply going stale.
   [`scripts/check-wpbl-drift.mjs`](../../../scripts/check-wpbl-drift.mjs) is what closes this, nightly.
 
+- **TrackMan needs an API key now, and the ingest would not say so.** `/games/<id>/activity`
+  answered with no key all season and answers `401 missing api key` since at least Nov 6, 2026;
+  the box score's own capped copy (`tracking_activity`) was gone from it before then.
+  `fetchTracking` falls back to the box score with a `console.warn` and nothing in
+  `summary.errors`, so a season of games would ingest `ok: true` with no pitch tracking at all.
+  `npm run rehearse` prints the endpoint's status; check it before Opening Day, and ask the league
+  for a key if TrackMan matters for 2027.
+
 - **The feed has a contract, [`feed-contract.ts`](feed-contract.ts), and it reports rather than
   refuses.** Every `/games` row and box score is checked with valibot against the shape the 2026
   feed actually sent (all 71 box scores and the list passed; fixtures in
