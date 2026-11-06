@@ -944,9 +944,16 @@ function DialogShell({ eyebrow, label, onClose, maxWidth = 720, zIndex: ownZ = 1
     const opener = document.activeElement instanceof HTMLElement && document.activeElement !== document.body
       ? document.activeElement : null
     card?.focus({ preventScroll: true })
+    // A MUI menu or dropdown opened from inside the card renders in a portal on the body, outside
+    // the card, and traps focus in itself. Pulling focus back from it made the two traps hand
+    // focus back and forth until the stack overflowed (the clips editor's dropdowns), so a layer
+    // portalled over the card keeps its focus.
+    const PORTAL_LAYER = '.MuiPopover-root, .MuiPopper-root, .MuiModal-root, [role="dialog"], [role="listbox"], [role="menu"]'
     const onFocusIn = (e: FocusEvent) => {
       if (!card || escapeStack[escapeStack.length - 1] !== id) return
-      if (e.target instanceof Node && !card.contains(e.target)) card.focus({ preventScroll: true })
+      if (!(e.target instanceof Element) || card.contains(e.target)) return
+      if (e.target.closest(PORTAL_LAYER)) return
+      card.focus({ preventScroll: true })
     }
     document.addEventListener('focusin', onFocusIn)
     return () => {
