@@ -97,7 +97,7 @@ async function main() {
     await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {})
     // Until the skeletons have been gone for a full second, capped: the network goes quiet between
     // a page's first reads and the ones they unlock, and before React has drawn anything there is
-    // no skeleton to see either. Both shot WPBL Stats as a column of grey bars on a first try. A
+    // no skeleton to see either. Both shot WPBL Stats as a column of gray bars on a first try. A
     // page that keeps one on purpose (an empty slot) still gets its picture after 15s.
     let clear = 0
     for (let t = 0; t < 60 && clear < 4; t++) {
