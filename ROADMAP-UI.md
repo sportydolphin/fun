@@ -193,6 +193,20 @@ Where the work is, for whoever picks it up.
   `wpblField` fill (3.2 to 8.2:1). New York is cropped to the tower and ball, San Francisco to the
   bell without its letters, and Boston's hawk is an outline plus its own linework so it reads as
   line art beside the bell (the owner turned down a filled silhouette). MLB keeps its badges.
+- **The thirteenth pass** (Nov 6, 2026, the newspaper pass on everything above Latest; uncommitted
+  in `../fun-redesign` until the owner looks). The first screen said "LA won" four times. The
+  offseason strip of five framed tiles is gone: the final is a **line score under the lead**
+  (`SeriesLineScore`), a column per game that links to it, the champion's row on top whoever won the
+  game, and the series total behind a heavy rule; it fits 375 without scrolling. The lead now follows
+  the masthead directly, so a phone's headline starts about 330px higher. The `Scoreboard` lost its
+  offseason mode (in season and the postseason it is unchanged). **The masthead has a dateline**
+  (`Dateline` in `ClubRail.tsx`): the date and the edition ("Offseason", "Postseason", "Regular
+  season", "Preseason") between the nameplate's heavy rule and the standings line, which keeps only
+  its hairline. The lead skeleton's head is a fixed height now (it ran 16px long on a phone, hidden
+  until now by the old strip). Sweep `--shift --ellipsis` on `/wpbl` and `/wpbl/season` at 375, 960
+  and 1440, and `--text large`, clean. Left from the same review: the rail's "Champions" (still a
+  second statement), the rail's empty cells at 1440, a real photo caption, the headline as the recap
+  link, Sato's line in box-score order.
 - **Proposed for after Home (waiting on the owner):** the player page next, before the Stats
   leaders board (readers open it most, and it still draws the rounded portrait and a club band);
   and the jersey as the one club recipe, since Home no longer draws a `wpblField` block.

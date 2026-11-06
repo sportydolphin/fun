@@ -12,13 +12,11 @@ import { seriesTileLine, type SeriesContext } from '../derive/series'
 import type { WpblTeam, WpblGame } from '../types'
 import { SECTION_GAP } from './shared'
 
-function GameChip({ game, teams, series, onOpen, fill }: {
+function GameChip({ game, teams, series, onOpen }: {
   game: WpblGame; teams: Map<string, WpblTeam>
   /** This game's series, when it is a postseason game: a final then says where the series stands. */
   series?: SeriesContext
   onOpen: () => void
-  /** Share the row with the others rather than hold 8.5rem: the offseason strip (see Scoreboard). */
-  fill?: boolean
 }) {
   const gameLink = useWpblGameLink()
   const away = teams.get(game.away_team_id)
@@ -78,7 +76,7 @@ function GameChip({ game, teams, series, onOpen, fill }: {
       // reader can enlarge clips its eyebrow under the Large text setting (see AccessibilityContext).
       // Sized for the longest eyebrow, "Final · Yesterday". Art and tap targets on this card stay in
       // px: they are not holding type and must not grow with it.
-      ...(fill ? { flex: '1 0 8.5rem', maxWidth: '12rem' } : { flexShrink: 0, width: '8.5rem' }), cursor: 'pointer',
+      flexShrink: 0, width: '8.5rem', cursor: 'pointer',
       borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL,
       p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
       transition: 'border-color 0.15s', ...hoverOnly({ borderColor: 'text.disabled' }),
@@ -203,14 +201,6 @@ function PostseasonChip({ row, onOpenMatchup }: {
   )
 }
 
-/** The decided final, for the offseason strip: the title series' games that were played, in order.
- *  NO RESULT TILE BEFORE THEM (Nov 5, 2026). A "2026 Champions" series tile led the strip for a
- *  day, and with the masthead's "Champions" and the lead's kicker it made three statements of one
- *  result in the first screen; the lead's "Final 3–2" line and G5's "LA wins 3–2" already say it. */
-export interface StripFinal {
-  games: WpblGame[]
-}
-
 /** One tile on the strip: a game the feed has, or a postseason date it does not have yet. */
 type StripItem =
   | { kind: 'game'; id: string; game: WpblGame }
@@ -219,20 +209,13 @@ type StripItem =
 /** Exported for `scoreboardStrip.test.tsx`, which pins which fixtures reach the strip. Same
  *  reason `NextPostseasonCard` is: what these two choose to show is a judgment about what is
  *  true, and neither failure is visible from a render that happens to look fine. */
-export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup, series, final }: {
+export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup, series }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>
   /** Each postseason game's series, keyed by game id (`seriesContexts` over the season on screen),
    *  so a postseason final says where its series stands. Absent, finals say "Final". */
   series?: Map<string, SeriesContext>
-  /**
-   * THE OFFSEASON STRIP (Nov 5, 2026, ROADMAP-UI.md, Home step 1). Set once the final is decided:
-   * the strip becomes the final's games, in order, in place of the window
-   * round now. Until then Home dropped the strip in the offseason, since a window of the last
-   * finals sat frozen until spring, and the lead carried the five games as a row of its own. A
-   * strip of the final is what MLB.com and Savant run all winter: the games are still the first
-   * line of the page, and never "No games" or next season's games before they are public.
-   */
-  final?: StripFinal | null
+  // NO OFFSEASON MODE (Nov 6, 2026). Once the final is decided Home draws its games as a line
+  // score under the lead (SeriesLineScore), not as tiles over it.
   /** The published postseason, for the days past the end of the feed's schedule. Date-sorted,
    *  and already retiring itself a row at a time as the feed publishes the real games. */
   postseason: PostseasonScheduleRow[]
@@ -276,12 +259,6 @@ export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup
    * the one time a strip of results is the whole story.
    */
   const { strip, anchorIndex } = useMemo(() => {
-    if (final) {
-      return {
-        strip: final.games.map((g): StripItem => ({ kind: 'game', id: g.id, game: g })),
-        anchorIndex: 0,
-      }
-    }
     const finals = games.filter(g => g.status === 'final')
     const rest: StripItem[] = games.filter(g => g.status !== 'final').slice(0, UPCOMING)
       .map(g => ({ kind: 'game', id: g.id, game: g }))
@@ -314,7 +291,7 @@ export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup
       strip: [...head, ...rest],
       anchorIndex: rest.length > 0 ? head.length : Math.max(0, head.length - 1),
     }
-  }, [games, postseason, final])
+  }, [games, postseason])
 
   // Where the strip is scrolled to. Nothing is drawn from this: it gates the two desktop
   // hover-scroll zones, neither of which should be offered at the end it would scroll towards.
@@ -452,7 +429,7 @@ export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup
       <Typography component="h2" sx={{
         ...SECTION_HEADING_SX, mb: 1,
         ...HIDE_ON_PHONE,
-      }}>{final ? 'Championship' : 'Scoreboard'}</Typography>
+      }}>Scoreboard</Typography>
       <Box sx={{ position: 'relative' }}>
         {/* Not a control: the key, wheel and pointer listeners only notice the reader taking over the
             scroll, so the strip stops scrolling itself. The chips inside are the links. */}
@@ -475,11 +452,7 @@ export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup
           msOverflowStyle: 'none', scrollbarWidth: 'none',
         }} data-swipe-ignore="true">
           {strip.map(item => item.kind === 'game'
-            // THE FINAL'S GAMES SHARE THE ROW (Nov 5, 2026): five 8.5rem tiles ran about 900px of a
-            // 1270px column at 1440 and left the rest of the line empty. Up to 12rem each, the width
-            // a badge, an abbreviation and a score still read as one line at; past that they would
-            // be three islands. The window strip keeps its fixed tile, which is what makes it scroll.
-            ? <GameChip key={item.id} game={item.game} teams={teams} series={series?.get(item.game.id)} onOpen={() => onOpenGame(item.game)} fill={!!final} />
+            ? <GameChip key={item.id} game={item.game} teams={teams} series={series?.get(item.game.id)} onOpen={() => onOpenGame(item.game)} />
             : <PostseasonChip key={item.id} row={item.row} onOpenMatchup={onOpenMatchup} />)}
         </Box>
         {/* NO EDGE FADES. A leading fade paints over the anchor chip's date, since the chip sits

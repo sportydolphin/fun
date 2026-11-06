@@ -633,7 +633,11 @@ export function ChampionLeadSkeleton() {
             <Skeleton variant="rectangular" sx={{ width: '100%', height: 'auto', aspectRatio: '3 / 2' }} />
             <Typography sx={{ ...AGATE_SX, mt: 0.5, fontSize: TYPE_SCALE.meta, lineHeight: 1.4 }}>{' '}</Typography>
           </Box>
-          <Box sx={{ minWidth: 0, gridArea: 'head', minHeight: LEAD_HEAD_H }}>
+          {/* HEIGHT, NOT minHeight: the two text bars' line boxes run about 16px past the measured head
+              on a phone, which moved everything under the lead by that much on load. Hidden only once
+              the final's line score sat right under it (Nov 6, 2026); the old strip's skeleton
+              happened to be as much short. */}
+          <Box sx={{ minWidth: 0, gridArea: 'head', height: LEAD_HEAD_H, overflow: 'hidden' }}>
             <Skeleton variant="text" width="45%" sx={{ fontSize: TYPE_SCALE.micro }} />
             <Skeleton variant="text" width="85%" sx={{ fontSize: { xs: TYPE_SCALE.hero, md: '2.75rem', lg: TYPE_SCALE.lead } }} />
           </Box>

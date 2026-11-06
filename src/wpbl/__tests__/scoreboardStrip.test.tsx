@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { Scoreboard, type StripFinal } from '../home/Scoreboard'
-import { seriesContexts } from '../derive/series'
+import { Scoreboard } from '../home/Scoreboard'
+import { SeriesLineScore } from '../home/SeriesLineScore'
 import type { PostseasonScheduleRow, PostseasonSlot } from '../derive/bracket'
 import type { WpblGame, WpblTeam } from '../types'
 
@@ -90,25 +90,20 @@ describe('the postseason on the scoreboard strip', () => {
   })
 })
 
-// One strip for every phase (Nov 5, 2026, Home step 1). Until then the offseason Home dropped the
-// strip and the lead carried the final's games as a row of its own.
-describe('the strip once the final is decided', () => {
+// Once the final is decided Home draws it as a line score under the lead (Nov 6, 2026).
+describe('the final as a line score', () => {
   const champ = (id: string, date: string, home: number, away: number): WpblGame => ({
     id, game_date: date, status: 'final', game_type: 'postseason', counts_in_standings: false,
     home_team_id: 'LA', away_team_id: 'SF', home_score: home, away_score: away,
   } as WpblGame)
   const games = [champ('c1', '2026-09-16', 7, 6), champ('c2', '2026-09-17', 2, 3), champ('c3', '2026-09-19', 4, 1)]
-  const stripFinal: StripFinal = { games }
 
-  it('runs the final in order, not the window round now', () => {
-    render(<Scoreboard games={[final('later', '2026-09-30'), ...games]} teams={TEAMS} postseason={[row()]}
-      onOpenGame={vi.fn()} final={stripFinal} series={seriesContexts(games, TEAMS)} />)
-    // No result tile: the lead and the masthead already name the champion.
-    expect(screen.queryByText(/\bChampions\b/)).toBeNull()
+  it('keeps the champion on the top row whoever won the game, and totals the series', () => {
+    render(<SeriesLineScore games={games} teams={TEAMS} championId="LA" onOpenGame={vi.fn()} />)
     expect(screen.getByRole('heading', { name: 'Championship' })).toBeTruthy()
-    expect(screen.getByText('G1 · LA leads 1–0')).toBeTruthy()
-    expect(screen.getByText('G2 · Tied 1–1')).toBeTruthy()
-    // The published postseason and any other final stay off it.
-    expect(screen.queryByText(/Semi G3/)).toBeNull()
+    // G2 went to SF, and LA's score is still the top one.
+    expect(screen.getByLabelText(/^Game 2, .*: LA 2, SF 3$/)).toBeTruthy()
+    expect(screen.getByLabelText(/^Game 1, .*: LA 7, SF 6$/)).toBeTruthy()
+    expect(screen.getByText(/2, .* 1\.$/)).toBeTruthy()
   })
 })

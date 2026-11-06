@@ -38,8 +38,9 @@ import { regularSeasonOver } from '../season'
 import { seriesContexts } from '../derive/series'
 import { localIsoDate } from '../derive/homePlayers'
 import { HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, NEWS_ROW_SX, homeWideSx } from './shared'
-import { ClubRail } from './ClubRail'
-import { type MatchupPreviewArg, type StripFinal, Scoreboard } from './Scoreboard'
+import { ClubRail, Dateline } from './ClubRail'
+import { SeriesLineScore } from './SeriesLineScore'
+import { type MatchupPreviewArg, Scoreboard } from './Scoreboard'
 import { NextGameCard } from './NextGameCard'
 import { gameYear, devChampionPick, ChampionBanner, useChampionFinal } from './ChampionCards'
 import { useNewTrackingBatch, NewTrackingBanner } from './TrackingBanner'
@@ -261,17 +262,17 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // one year's postseason.
   const seriesById = useMemo(() => seriesContexts(seasonGames, teamMap), [seasonGames, teamMap])
 
-  // The offseason strip: the final's games (see Scoreboard's `final`). A
-  // dev-simulated champion that did not play in the real final has no series to draw, so the strip
-  // stays off for it rather than crediting it with another club's games.
-  const stripFinal = useMemo<StripFinal | null>(() => {
-    const champion = devChampTeam ?? realChampion?.champion ?? null
-    if (!seasonDone || !champion) return null
+  // The final's games, for the line score under the lead. A dev-simulated champion that did not play
+  // in the real final has no series to draw, so the box stays off for it rather than crediting it
+  // with another club's games.
+  const championId = devChampTeam?.id ?? realChampion?.champion.id ?? null
+  const finalGames = useMemo<WpblGame[] | null>(() => {
+    if (!seasonDone || !championId) return null
     const played = finalLog.filter(g => g.status === 'final' && g.home_score != null && g.away_score != null)
     const first = played[0]
-    if (!first || (first.home_team_id !== champion.id && first.away_team_id !== champion.id)) return null
-    return { games: played }
-  }, [seasonDone, devChampTeam, realChampion, finalLog])
+    if (!first || (first.home_team_id !== championId && first.away_team_id !== championId)) return null
+    return played
+  }, [seasonDone, championId, finalLog])
   // Next year's opener, for the skeleton's guess on a later load (see offseasonByCalendar).
   const opener = nextOpeningDay(schedule, current)
   useEffect(() => { rememberNextOpeningDay(opener) }, [opener])
@@ -346,6 +347,14 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
     : null
   const bracketLeads = regularSeasonOver(seasonGames, localIsoDate())
     && !seasonGames.some(g => g.status === 'final' && !countsInStandings(g))
+
+  // The dateline's edition. Null until the schedule is in, so the line holds its height without
+  // guessing; "Preseason" before a season's first final.
+  const phase = seasonGames.length === 0 && !seasonDone ? null
+    : seasonDone ? 'Offseason'
+    : regularSeasonOver(seasonGames, localIsoDate()) ? 'Postseason'
+    : seasonGames.some(g => g.status === 'final') ? 'Regular season'
+    : 'Preseason'
 
   // The postseason as dated-but-undrawn rows, for the scoreboard strip. The same function the
   // Schedule tab reads, so the two cannot disagree about who plays whom or about which
@@ -466,8 +475,8 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           Women's Pro Baseball League
         </Typography>
         <Box sx={{ mt: MASTHEAD_RAIL_GAP }}>
-          <ClubRail teams={teams} standings={standingsRows} onOpenTeam={onOpenTeam}
-            championId={devChampTeam?.id ?? realChampion?.champion.id ?? null} />
+          <Dateline phase={phase} />
+          <ClubRail teams={teams} standings={standingsRows} onOpenTeam={onOpenTeam} championId={championId} />
         </Box>
       </Box>
 
@@ -497,13 +506,13 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
       {/* Scoreboard. The postseason rows come from the calendar the league published, and each
           one retires itself the day the feed carries a real game on its date.
 
-          ONE STRIP FOR EVERY PHASE (Nov 5, 2026, Home step 1): the window round now in season, the
-          series state on each postseason final, and once there is a champion, the champion's tile
-          and the final's games, which is why the lead no longer carries a row of them. Keyed on the
-          champion like the rest of the offseason Home, so a dev-simulated champion previews it. */}
-      {(!seasonDone || stripFinal) && (
+          In season and through the postseason, with the series state on each postseason final. Once
+          there is a champion the page leads with the story and the final's games follow it as a line
+          score (SeriesLineScore, Nov 6, 2026): tiles over the lead pushed its headline down a phone
+          and said the result a fourth time before it. */}
+      {!seasonDone && (
         <Scoreboard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} onOpenMatchup={setMatchup}
-          series={seriesById} final={seasonDone ? stripFinal : null} />
+          series={seriesById} />
       )}
 
       {/* THE OFFSEASON HOME LEADS WITH THE CHAMPION, full width (Nov 3, 2026, ROADMAP-UI.md's audit).
@@ -523,6 +532,12 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
             <NextGameCard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} players={players} onOpenPlayer={onOpenPlayer}
               devForceRecap={devForceRecap} devChampion={devChampTeam} lead />
           </Box>
+          {/* The final's box, under the story it belongs to. */}
+          {finalGames && (
+            <Box sx={{ mt: 3 }}>
+              <SeriesLineScore games={finalGames} teams={teamMap} championId={championId} onOpenGame={onOpenGame} />
+            </Box>
+          )}
           {/* The award results, for the days they stay up after the final (AWARDS_RESULTS_UNTIL). */}
           {seasonCards.length > 0 && <Box sx={{ mt: 3 }}>{seasonCards}</Box>}
 

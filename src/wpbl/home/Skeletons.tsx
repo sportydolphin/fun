@@ -1,7 +1,6 @@
 import { Box, Skeleton, Typography } from '@mui/material'
 import { chromePx, CARD_BORDER, CARD_FILL, TYPE_SCALE } from '../ui'
-import { SECTION_COLUMN_GAP, SECTION_HEADING_SX, useSectionTier, useSectionInset, MinorSections, FlushSections } from '../../ui/card'
-import { HIDE_ON_PHONE } from '../PageHeading'
+import { SECTION_COLUMN_GAP, useSectionTier, useSectionInset, MinorSections, FlushSections } from '../../ui/card'
 // The dismissal key and the dev-only undo. Their own module so the dev settings menu can reach
 // the undo without dragging this file into the main bundle. See discordInvite.ts.
 import { DISCORD_DISMISS_KEY } from '../discordInvite'
@@ -12,7 +11,8 @@ import type { WpblTeam } from '../types'
 import { offseasonByCalendar } from '../offseasonCalendar'
 import { SECTION_GAP, HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, NEWS_ROW_SX, homeWideSx } from './shared'
 import { LatestSkeleton } from './LatestCard'
-import { ClubRailSkeleton } from './ClubRail'
+import { ClubRailSkeleton, Dateline } from './ClubRail'
+import { SeriesLineScore } from './SeriesLineScore'
 import { ChampionLeadSkeleton } from './ChampionCards'
 
 // Skeletons shaped like the real rows, so a card reserves its final height while its
@@ -119,7 +119,7 @@ export function WpblHomeSkeleton() {
               not the same height as the h1, which the chips beside it used to hide and the rail under
               it does not. */}
           <Typography sx={HOME_TITLE_SX}><Skeleton sx={{ width: { xs: '16rem', md: '22rem' }, maxWidth: '100%' }} /></Typography>
-        <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><ClubRailSkeleton /></Box>
+        <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><Dateline phase={null} /><ClubRailSkeleton /></Box>
       </Box>
 
       {/* Scoreboard: its heading, then the chip strip. The chips are built from the same box
@@ -204,26 +204,22 @@ function OffseasonHomeSkeleton() {
   const awards = awardsResultsShowOnHome()
   return (
     <Box role="status" aria-busy="true" aria-label="Loading the Women's Pro Baseball League home page" sx={homeWideSx}>
-      <Box sx={{ mb: { xs: 0, sm: HEADER_GAP } }}>
+      <Box sx={{ mb: { xs: 1.5, sm: HEADER_GAP } }}>
           {/* The title's own line box (HOME_TITLE_SX) with the bar inside it: a bare text skeleton is
               not the same height as the h1, which the chips beside it used to hide and the rail under
               it does not. */}
           <Typography sx={HOME_TITLE_SX}><Skeleton sx={{ width: { xs: '16rem', md: '22rem' }, maxWidth: '100%' }} /></Typography>
-        <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><ClubRailSkeleton /></Box>
+        <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><Dateline phase="Offseason" /><ClubRailSkeleton /></Box>
       </Box>
 
-      {/* The offseason strip (the final's games), in the loaded strip's own
-          box: its real heading, hidden on a phone as the loaded one is, and its margins. The header
-          above draws no margin on a phone, so the strip brings the loaded header's 12px itself. */}
-      <Box sx={{ mt: { xs: 1.5, sm: 0 }, mb: { xs: 1.5, sm: SECTION_GAP } }}>
-        <Typography sx={{ ...SECTION_HEADING_SX, mb: 1, ...HIDE_ON_PHONE }}>Championship</Typography>
-        <StripChipsSkeleton />
-      </Box>
-
-      {/* The lead: the champion's photo and its text column, in the loaded lead's own grid. */}
+      {/* The lead: the champion's photo and its text column, in the loaded lead's own grid. Then the
+          final's line score, which draws its own empty grid at the loaded height. */}
       <FlushSections>
       <Box sx={{ mt: 3 }}>
         <ChampionLeadSkeleton />
+      </Box>
+      <Box sx={{ mt: 3 }}>
+        <SeriesLineScore games={[]} teams={EMPTY_TEAMS} championId={null} onOpenGame={NO_OPEN} />
       </Box>
       {awards && (
         <Box sx={{ mt: 3 }}>

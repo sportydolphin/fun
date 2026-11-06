@@ -95,10 +95,10 @@ export function ClubRail({ teams, standings, championId, onOpenTeam }: {
   const placeOf = (t: WpblTeam) => rowOf.get(t.id)?.place ?? Number.MAX_SAFE_INTEGER
   const ordered = [...teams].sort((a, b) => placeOf(a) - placeOf(b) || a.sort_order - b.sort_order)
   return (
-    // A heavy rule over it and a hairline under it: the nameplate's rule, then the line.
+    // A hairline under it. The nameplate's heavy rule is on the dateline above (Dateline).
     <Box component="nav" aria-label="Clubs" sx={{
       display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-      ...SECTION_RULE, borderBottom: '1px solid', borderBottomColor: 'divider',
+      borderBottom: '1px solid', borderBottomColor: 'divider',
     }}>
       {SLOTS.map(i => {
         const team = ordered[i] ?? null
@@ -108,6 +108,40 @@ export function ClubRail({ teams, standings, championId, onOpenTeam }: {
             champion={!!team && team.id === championId} onOpenTeam={onOpenTeam} />
         )
       })}
+    </Box>
+  )
+}
+
+/** The date as a reader's calendar prints it: "Friday, November 6, 2026", or "Fri, Nov 6, 2026"
+ *  where the long form does not fit. */
+function dateText(d: Date, long: boolean): string {
+  return d.toLocaleDateString('en-US', long
+    ? { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }
+    : { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+/**
+ * THE DATELINE (Nov 6, 2026, the thirteenth pass): the folio line a paper prints under its
+ * nameplate, today's date and the edition, between the nameplate's heavy rule and the standings
+ * line. Without it the league's name read as one more section heading over a row of cells; the
+ * date is what makes a nameplate a front page, and on a site that is updated daily it is true.
+ *
+ * `phase` is the edition ("Offseason"); null holds the line's height while the schedule loads.
+ */
+export function Dateline({ phase, now = new Date() }: { phase: string | null; now?: Date }) {
+  const sx = { ...AGATE_SX, fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 } as const
+  return (
+    <Box sx={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 2, py: 0.6,
+      ...SECTION_RULE, borderBottom: '1px solid', borderBottomColor: 'divider',
+    }}>
+      <Typography noWrap sx={sx}>
+        <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{dateText(now, false)}</Box>
+        <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{dateText(now, true)}</Box>
+      </Typography>
+      <Typography noWrap sx={{ ...sx, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        {phase ?? EMPTY_LINE}
+      </Typography>
     </Box>
   )
 }
