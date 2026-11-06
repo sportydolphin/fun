@@ -204,9 +204,13 @@ Where the work is, for whoever picks it up.
   season", "Preseason") between the nameplate's heavy rule and the standings line, which keeps only
   its hairline. The lead skeleton's head is a fixed height now (it ran 16px long on a phone, hidden
   until now by the old strip). Sweep `--shift --ellipsis` on `/wpbl` and `/wpbl/season` at 375, 960
-  and 1440, and `--text large`, clean. Left from the same review: the rail's "Champions" (still a
-  second statement), the rail's empty cells at 1440, a real photo caption, the headline as the recap
-  link, Sato's line in box-score order.
+  and 1440, and `--text large`, clean. Its small fixes, the same day: the rail drops "Champions"
+  and prints games back from `sm`; the score strip's winner caret is gone; the lead photo has a
+  caption (the curator's, else the club and the day) with the credit set right; a pitching line reads
+  in box-score order everywhere (`pitchingStatline`: IP, ER, K, which also changes new recap posts).
+  Still open: the curator's caption on the title photo is "Championship Group Photo", which reads as
+  a file name (a data edit, not code), and the lead photo still sits on its placeholder for seconds
+  (Home step 7).
 - **Proposed for after Home (waiting on the owner):** the player page next, before the Stats
   leaders board (readers open it most, and it still draws the rounded portrait and a club band);
   and the jersey as the one club recipe, since Home no longer draws a `wpblField` block.

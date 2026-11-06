@@ -179,9 +179,8 @@ export function pitchStarScore(p: WpblPitchingLine): number {
 }
 
 export function pitchingStatline(p: WpblPitchingLine): string {
-  const parts = [`${outsToIp(p.outs)} IP`, `${p.so} K`]
-  parts.push(`${p.er} ER`)
-  return parts.join(', ')
+  // In box-score order (IP, ER, K), the order a pitching line is read in everywhere else.
+  return [`${outsToIp(p.outs)} IP`, `${p.er} ER`, `${p.so} K`].join(', ')
 }
 
 // A batter's two consecutive plate appearances both homering. Reuses the shared PA rule so

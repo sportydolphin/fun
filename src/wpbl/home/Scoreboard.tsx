@@ -3,10 +3,10 @@ import { SECTION_HEADING_SX } from '../../ui/card'
 import { useDark } from '../../ui/useDark'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { wpblAccent, wpblAccentFg, formatGameTime, relativeDayShort } from '../constants'
+import { wpblAccentFg, formatGameTime, relativeDayShort } from '../constants'
 import { useWpblGameLink } from '../LinkContext'
 import { HIDE_ON_PHONE, VISUALLY_HIDDEN } from '../PageHeading'
-import { TeamMark, CARD_BORDER, CARD_FILL, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, DISPLAY_FONT, ICON_SIZE } from '../ui'
+import { TeamMark, CARD_BORDER, CARD_FILL, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, DISPLAY_FONT } from '../ui'
 import { postseasonSlots, type PostseasonScheduleRow, type PostseasonSlot } from '../derive/bracket'
 import { seriesTileLine, type SeriesContext } from '../derive/series'
 import type { WpblTeam, WpblGame } from '../types'
@@ -45,14 +45,10 @@ function GameChip({ game, teams, series, onOpen }: {
     : live ? 'Live'
     : timeText ? `${dateText} · ${timeText}` : dateText)
 
-  const isDark = useDark()
   const row = (t: WpblTeam | undefined, score: number | null, won: boolean) => (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-      {/* Winner caret, only on finals, where a fixed-width slot keeps both rows' badges aligned.
-          Upcoming and live games omit the slot entirely so the badge sits flush left. */}
-      {final && (
-        <Box sx={{ width: '0.4375rem', flexShrink: 0, mx: -0.45, textAlign: 'center', fontSize: ICON_SIZE.sm, lineHeight: 1, color: wpblAccent(t?.id, isDark) }}>{won ? '▸' : ''}</Box>
-      )}
+      {/* NO WINNER CARET (Nov 6, 2026): the winner's weight and the loser's dimmed score already say
+          it, as a box score does, and the caret was a third mark for one fact. */}
       {t && <TeamMark team={t} size={20} />}
       <Typography sx={{
         flex: 1, fontSize: TYPE_SCALE.body, fontWeight: won ? 800 : 600,

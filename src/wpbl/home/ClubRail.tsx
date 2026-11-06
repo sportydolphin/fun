@@ -33,6 +33,7 @@ function ClubCell({ team, row, place, champion, first, onOpenTeam }: {
 }) {
   const teamLink = useWpblTeamLink()
   const record = row && (row.wins + row.losses) > 0 ? `${row.wins}–${row.losses}` : null
+  const gb = record && row && row.gamesBack > 0 ? String(row.gamesBack) : null
   const body = (
     <>
       {/* The place, as a standings line numbers itself. Ornament to a screen reader, whose name for
@@ -56,8 +57,11 @@ function ClubCell({ team, row, place, champion, first, onOpenTeam }: {
         </Typography>
         <Typography noWrap sx={{ ...AGATE_SX, fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>
           {record ?? EMPTY_LINE}
-          {/* The title in the champion's gold, from `sm`; on a phone the lead under it says so. */}
-          {champion && <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' }, color: 'var(--wpbl-medal-1)', fontWeight: 700 }}> · Champions</Box>}
+          {/* Games back from `sm`, as a standings line prints it, where a cell is a quarter of the page
+              and the record alone left most of it empty. NO "Champions" HERE (Nov 6, 2026): the lead
+              under the line says it in its kicker and headline, and a third statement of one result
+              in the first screen is what the strip's champion tile was cut for. */}
+          {gb && <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}> · {gb} GB</Box>}
         </Typography>
       </Box>
     </>

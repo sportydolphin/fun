@@ -37,7 +37,7 @@ describe('seriesStar', () => {
     ])
     expect(star?.playerId).toBe('p')
     expect(star?.kind).toBe('pitch')
-    expect(star?.statline).toBe('7.0 IP, 9 K, 0 ER')
+    expect(star?.statline).toBe('7.0 IP, 0 ER, 9 K')
   })
 
   it('never names a player from the club that lost', () => {

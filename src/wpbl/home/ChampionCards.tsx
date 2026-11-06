@@ -448,6 +448,18 @@ function useChampionPhoto(championId: string, finals: WpblGame[]): FanPhotoWithS
   )
 }
 
+/** A no-break space: holds a line's height with nothing in it. */
+const NBSP = ' '
+
+/** The lead photo's caption: the curator's, else "Los Angeles Queens, Sep 21". */
+function photoCaption(photo: FanPhotoWithSubjects, champion: WpblTeam): string {
+  if (photo.caption?.trim()) return photo.caption.trim()
+  const day = photo.taken_on
+    ? new Date(`${photo.taken_on}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+    : null
+  return day ? `${wpblFullName(champion)}, ${day}` : wpblFullName(champion)
+}
+
 /** The lead's label column: a stage of the road, or "Star of the final". Regular weight: a label as
  *  bold as the figure beside it stops reading as a label. */
 const LEAD_LABEL_SX = { fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 } as const
@@ -456,7 +468,7 @@ const LEAD_LABEL_SX = { fontSize: TYPE_SCALE.meta, color: 'text.secondary', line
  * THE OFFSEASON HOME'S LEAD, AS A FRONT PAGE RUNS ONE (Nov 4, 2026, ROADMAP-UI.md's third audit): the
  * title photo large on the left with its credit under it, and beside it the kicker, the club's name
  * as the headline, the road to the title as three lines of agate, and the Star. The final's games
- * are the score strip above it since Nov 5. On the page's own ground in both themes, with no box
+ * are the line score under it (SeriesLineScore). On the page's own ground in both themes, with no box
  * around either half.
  *
  * WHY NOT THE BAR AND THE PANEL IT REPLACES: the photo was a 16:5 strip over a black bar, beside a
@@ -515,11 +527,20 @@ function ChampionLead({ champion, played, path, star, starPlayer, starLoading, r
             )}
           </Box>
         </RecapLink>
-        {/* The credit under the picture, as the gallery prints it, not a chip over the photo. One line
-            held even before the photo lands, so the column does not grow by it. */}
-        <Typography component="figcaption" noWrap sx={{ ...AGATE_SX, mt: 0.5, fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.4 }}>
-          {photo?.credit ? `Photo: ${photo.credit}` : ' '}
-        </Typography>
+        {/* A CAPTION AND A CREDIT, as a paper prints a photo (Nov 6, 2026): what the picture is on the
+            left, who took it on the right in the quieter ink. The credit alone was a byline with no
+            caption. The curator's caption when there is one, else the club and the day. One line held
+            even before the photo lands, so the column does not grow by it; the credit never gives way. */}
+        <Box component="figcaption" sx={{ display: 'flex', gap: 1.5, alignItems: 'baseline', mt: 0.5, minWidth: 0 }}>
+          <Typography noWrap sx={{ ...AGATE_SX, flex: 1, minWidth: 0, fontSize: TYPE_SCALE.meta, lineHeight: 1.4 }}>
+            {photo ? photoCaption(photo, champion) : NBSP}
+          </Typography>
+          {photo?.credit && (
+            <Typography noWrap sx={{ ...AGATE_SX, flexShrink: 0, fontWeight: 500, fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.4 }}>
+              Photo: {photo.credit}
+            </Typography>
+          )}
+        </Box>
       </Box>
 
       <RecapLink recap={recap} sx={{ gap: 0.25, gridArea: 'head', minWidth: 0 }}>
@@ -553,8 +574,7 @@ function ChampionLead({ champion, played, path, star, starPlayer, starLoading, r
           </RecapLink>
         )}
 
-        {/* NO ROW OF THE FINAL'S GAMES (Nov 5, 2026): the score strip above the lead carries them
-            all winter (Scoreboard's `final`). */}
+        {/* NO ROW OF THE FINAL'S GAMES: the line score under the lead carries them (SeriesLineScore). */}
 
         {/* THE STAR OF THE FINAL, a real link to the player page, since a player page is what readers
             open most. Its read lands after first paint, so the row holds its place in the same shape
