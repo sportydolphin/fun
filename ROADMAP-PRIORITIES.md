@@ -116,7 +116,7 @@ Stats controls.
    `seo.ts`, the sitemap reading `indexable`, the dev flags removed), with the safeguards: our own
    play text only, every game credited and linked to wbsc.org, no WBSC video, photos or marks, and
    a Sources entry with a takedown contact. Owner: the WBSC notice (not a request) offering removal
-   goes out before the switch. Optionally 2004 to 2008 as results-only editions, any time.
+   goes out before the switch. 2004 to 2008 as results-only editions ✅ Nov 7, 2026.
    *ROADMAP-WOMENS-BASEBALL, "The plan", stage 2.*
 10. **The live field**, in Game Center on both leagues, before MLB's Opening Day in late March: an
    animated diamond with runners, the count and pitch location. Built on MLB first, because spring

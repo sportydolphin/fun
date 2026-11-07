@@ -133,6 +133,9 @@ export interface WbscGamePage {
   /** Set on a page read from IBAF's 2010 stats (ibaf.ts) rather than wbsc.org: its box counts an
    *  intentional walk once, so 2016's correction for counting it twice is not made. */
   ibaf?: true
+  /** true for 2004 to 2008: results only, from IBAF's compendium as transcribed into the cache
+   *  (compendium.ts). No box scores, so no players, lines or plays. */
+  compendium?: true
 }
 
 /** Which event a game belongs to, from the importer's own list of events. */
