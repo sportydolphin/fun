@@ -462,7 +462,7 @@ function Edition({ slug, tab }: { slug: string; tab: EditionTab }) {
             <Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
                 <Typography component="h2" sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 700 }}>Leaders</Typography>
-                <InfoDot label="Qualified" text="Batting average and OPS: 2.4 plate appearances per team game. ERA: 2.4 outs per team game, per 7 innings." />
+                <InfoDot label="Qualified" text="AVG and OPS: 2.4 plate appearances per team game. ERA: 2.4 outs per team game. ERA is per 7 innings." />
               </Box>
               <Leaders leaders={e.leaders} />
             </Box>

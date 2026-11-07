@@ -18,6 +18,7 @@ import { chromePx, typePx } from '../../ui/scale'
 import { useSeasonPhase, isSeasonOver } from '../seasonPhase'
 import { FilterSelect } from '../../ui/FilterChip'
 import { StatsBar, STATS_BOARD_ROOT_SX } from './StatsBar'
+import { AGE_TIP, SOS_TIP, WINS_ABOVE_TIP, WINS_BELOW_TIP, HIT_STREAK_TIP, SCORELESS_TIP, HITLESS_TIP, GAMES_PLAYED_TIP, PITCHES_MOST_TIP, PITCHES_FEWEST_TIP, salaryTip } from '../boardTips'
 
 
 // TWO PAGES, ONE COMPONENT: the graphs are Standings' Charts (/mlb/charts) and the report cards a
@@ -190,21 +191,16 @@ export function VizView({
     return () => { cancelled = true }
   }, [vizSeason, showSos])
 
-  const AGE_TIP = 'Every player who played for the club this season, at their age for the season, counted by their plate appearances and batters faced, so a September call-up barely moves it. A traded player counts for both clubs.'
-  const SOS_TIP = 'Average final win% of every opponent a club played, once per game. Each opponent\'s record leaves out its games against that club.'
-  const fraudTooltip = 'Wins above the Pythagorean record: the wins a team\'s runs scored and allowed predict. Ties go to the better record.'
-  const cursedTooltip = 'Wins below the Pythagorean record: the wins a team\'s runs scored and allowed predict. Ties go to the worse record.'
-
   // ─── Report Card boards: every leaderboard follows the same shape ────────
   const boards: Board[] = [
     {
       id: 'fraud', title: 'Wins Above Expected', accent: '#f97316',
-      subtitle: 'vs Pythagorean record', tooltipText: fraudTooltip,
+      subtitle: 'vs Pythagorean record', tooltipText: WINS_ABOVE_TIP,
       rows: buildFraudRows(teamSummaries, nameMap, 'fraud'), loading: loadingViz,
     },
     {
       id: 'cursed', title: 'Wins Below Expected', accent: '#818cf8',
-      subtitle: 'vs Pythagorean record', tooltipText: cursedTooltip,
+      subtitle: 'vs Pythagorean record', tooltipText: WINS_BELOW_TIP,
       rows: buildFraudRows(teamSummaries, nameMap, 'cursed'), loading: loadingViz,
     },
     ...(showSos ? [
@@ -274,8 +270,6 @@ export function VizView({
   const activeBoard = boards.find(b => b.id === expandedBoard) ?? null
 
   // ─── Player report cards: active streaks (current season only) ────────────
-  // Both pitch boards share the "who counts as qualified" line
-  const QUALIFIED_NOTE = 'Qualified hitters only.'
   // Home's words for the same boards (HomeView's streakSub): a streak the season ended is not active.
   const streakSub = (active: string) => (seasonOver ? 'At season end' : active)
 
@@ -283,44 +277,44 @@ export function VizView({
     ...(showSos ? [{
       id: 'hit-streak', title: 'Hitting Streaks', accent: '#f97316',
       subtitle: streakSub('Active'),
-      tooltipText: 'Games in a row with at least one hit. A game with no official at-bat (all walks or hit by pitches) doesn\'t break the streak.',
+      tooltipText: HIT_STREAK_TIP,
       rows: buildStreakRows(streaks?.hitting ?? [], 'hitting'), loading: loadingStreaks,
     },
     {
       id: 'scoreless', title: 'Scoreless Streaks', accent: '#38bdf8',
       subtitle: streakSub('Active'),
-      tooltipText: 'Innings a pitcher has thrown since the last run they gave up. Counted in whole outings, so the streak starts at their first clean appearance after it.',
+      tooltipText: SCORELESS_TIP,
       rows: buildStreakRows(streaks?.scoreless ?? [], 'scoreless'), loading: loadingStreaks,
     },
     {
       id: 'hitless', title: 'Hitless Streaks', accent: '#a78bfa',
       subtitle: streakSub('Active'),
-      tooltipText: 'Trips to the plate a hitter has gone without a hit. Games with no official at-bat are skipped.',
+      tooltipText: HITLESS_TIP,
       rows: buildStreakRows(streaks?.hitless ?? [], 'hitless'), loading: loadingStreaks,
     },
     {
       id: 'games-played', title: 'Games-Played Streaks', accent: '#eab308',
       subtitle: streakSub('Active'),
-      tooltipText: 'Games a player has appeared in without ever sitting one out, carried across seasons. A trade doesn\'t break it. A "+" means the streak reaches back past the seasons searched, so the real streak is longer.',
+      tooltipText: GAMES_PLAYED_TIP,
       rows: buildStreakRows(streaks?.gamesPlayed ?? [], 'gamesPlayed'), loading: loadingStreaks,
     },
     {
       id: 'top-salary', title: 'Highest Salaries', accent: '#10b981',
       subtitle: `${vizSeason}`,
-      tooltipText: `Each player's salary for the ${vizSeason} season, straight from their contract. This is the money paid this year, so a backloaded or deferred deal can rank differently than its headline average annual value.`,
+      tooltipText: salaryTip(vizSeason),
       rows: buildSalaryRows(salaries), loading: loadingSalaries,
     }] : []),
     // Plain season rates, so unlike the streak boards these render for past seasons too
     {
       id: 'pitches-most', title: 'Most Pitches per PA', accent: '#14b8a6',
       subtitle: 'Qualified',
-      tooltipText: `Pitches a hitter sees per trip to the plate. ${QUALIFIED_NOTE}`,
+      tooltipText: PITCHES_MOST_TIP,
       rows: buildPitchPaRows(pitchPa, 'most'), loading: loadingPitchPa,
     },
     {
       id: 'pitches-fewest', title: 'Fewest Pitches per PA', accent: '#f43f5e',
       subtitle: 'Qualified',
-      tooltipText: `Pitches a hitter sees per trip to the plate, lowest first. ${QUALIFIED_NOTE}`,
+      tooltipText: PITCHES_FEWEST_TIP,
       rows: buildPitchPaRows(pitchPa, 'fewest'), loading: loadingPitchPa,
     },
   ]

@@ -163,8 +163,7 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
       {side === 'pitching' ? (
         <>
           <SectionCard bare title="Fastest pitchers" titleAdornment={<InfoDot text={[
-            "Each pitcher's single fastest pitch, as measured by the league's in-park radar. Underneath: the average of all their tracked pitches, and how many there were.",
-            'Only the games the league has published radar readings for are counted.',
+            "Each pitcher's fastest tracked pitch. Underneath: their average velocity, and how many pitches were tracked.",
           ]} />}>
             {board.veloLeaders.length === 0
               ? <EmptyState title="No velocity data" />
@@ -176,8 +175,7 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
 
           {board.spinLeaders.length > 0 && (
             <SectionCard bare title="Most spin" titleAdornment={<InfoDot text={[
-              "The average spin rate of each pitcher's tracked pitches, in revolutions per minute. Underneath: their highest, and how many pitches were tracked.",
-              'Only the games the league has published radar readings for are counted.',
+              "Each pitcher's average spin rate on tracked pitches, in revolutions per minute. Underneath: their highest, and how many pitches were tracked.",
             ]} />}>
               {board.spinLeaders.slice(0, 8).map((l: SpinLeader, i, top) => (
                 <LeaderRow key={l.player?.id ?? l.name} {...leaderPlaces(top.map(x => String(Math.round(x.avgSpin))))[i]} player={l.player} name={l.name} teamId={l.teamId}
@@ -193,8 +191,7 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
           ) : (
             <>
               <SectionCard bare title="Hardest-hit balls" titleAdornment={<InfoDot text={[
-                'Every tracked ball in play, ranked by exit velocity: how fast it was going as it left the bat.',
-                'Only the games the league has published radar readings for are counted.',
+                'Tracked balls in play, by exit velocity: how fast the ball left the bat.',
               ]} />}>
                 {board.hardestHits.slice(0, 10).map((b: BattedBall, i, top) => (
                   <LeaderRow key={i} {...leaderPlaces(top.map(x => fmtSpeed(x.exit ?? 0, units)))[i]} player={b.player} name={b.name} teamId={b.teamId}
@@ -205,8 +202,8 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
 
               {board.longestHits.length > 0 && (
                 <SectionCard bare title="Longest tracked hits" titleAdornment={<InfoDot text={[
-                  'Every tracked ball in play, ranked by how far the radar measured it traveling.',
-                  "The radar can't follow a ball once it leaves the field, so home runs, usually the longest hits, often have no distance and won't appear here.",
+                  'Tracked balls in play, by distance.',
+                  'Home runs often have no distance, since the radar loses a ball once it leaves the field.',
                 ]} />}>
                   {board.longestHits.slice(0, 10).map((b: BattedBall, i, top) => (
                     <LeaderRow key={i} {...leaderPlaces(top.map(x => fmtDistance(x.distance!, units)))[i]} player={b.player} name={b.name} teamId={b.teamId}
