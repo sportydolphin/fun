@@ -6,7 +6,7 @@ import {
   getCachedWpblAllPlayers, getCachedWpblAllLines, wpblStatsCacheAgeMs,
   fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays,
   fetchWpblRunEnvironment, getCachedWpblRunEnvironment,
-  fetchWpblAllFielding, getCachedWpblAllFielding, fetchWpblSchedule,
+  fetchWpblAllFielding, getCachedWpblAllFielding,
   fetchWpblPlayerSeasons, getCachedWpblPlayerSeasons,
 } from '../api'
 import { buildRunExpectancy, playRunValues } from '../derive/runExpectancy'
@@ -23,7 +23,7 @@ import {
   type WpblBattingTotals, type WpblPitchingTotals,
 } from '../stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine } from '../types'
-import { currentSeason, isPostseasonGame, type SeasonScope } from '../season'
+import { isPostseasonGame, type SeasonScope } from '../season'
 import {
   decodeFinderPer, decodeFinderQuery, encodeFinderQuery, finderFields,
   type FinderBoardSide, type FinderQuery,
@@ -70,33 +70,8 @@ import { useBoardLayout } from './useBoardLayout'
 // every arrival 'open' and leave the two names measuring nothing.
 let statsOpened = false
 
-/** Every read the Stats tab makes on mounting, started early. The tab cannot mount until the
- *  section's teams and schedule are in (WpblApp's `loading`), and none of these reads needs either
- *  of them to FETCH, only to aggregate, so a reader landing on /wpbl/stats waited one whole Supabase
- *  round trip (about 650ms) before the slowest reads on the site had even started. Each fetcher
- *  shares an in-flight request (`once` in api/core.ts), so the tab's own effects pick these up rather
- *  than asking twice. Failures are the tab's to handle when it asks; here they are dropped. */
-export function warmStatsReads(picked: number | null): void {
-  const drop = () => { /* the tab's own read reports it */ }
-  fetchWpblAllPlayers().catch(drop)
-  fetchWpblAllFielding().catch(drop)
-  fetchWpblTrackedGameCount().catch(drop)
-  // The year's stored seasons first (derive/playerSeasons.ts), which is all the boards the tab
-  // opens on need when they are current: the box-score lines and the play log, the two heaviest
-  // reads in the section, are started only when they are not. Both wait for the schedule (already
-  // in flight for the section) to say which year that is when the address does not.
-  fetchWpblSchedule()
-    .then(async games => {
-      const year = picked ?? currentSeason(games)
-      if (year != null && (await fetchWpblPlayerSeasons(year)).current) return
-      fetchWpblAllLines().catch(drop)
-      // The priced row rather than the play log for the weights; the play log for the Overall side,
-      // which the tab opens on.
-      fetchWpblRunEnvironment().catch(drop)
-      fetchWpblAllRunValuePlays(year).catch(drop)
-    })
-    .catch(drop)
-}
+// warmStatsReads lives in ./warmReads, so WpblApp can start these reads without importing this tab.
+export { warmStatsReads } from './warmReads'
 
 
 // How much of the list a phone gets before it asks. Ten is a leaderboard; thirty-four is a
