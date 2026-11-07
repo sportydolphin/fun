@@ -11,7 +11,7 @@
 // click is the app's, through the row's own handler when the section has one (MLB opens a board
 // inside a tab without reloading it) and a navigate() when it does not.
 
-import type { MouseEvent, ReactNode } from 'react'
+import { useEffect, useState, type MouseEvent, type ReactNode } from 'react'
 import { Box, Popover, SwipeableDrawer, Typography } from '@mui/material'
 import { navigate, isModified } from '../nav'
 import { track } from '../lib/analytics'
@@ -133,10 +133,24 @@ export function MorePanel({ id, anchor, onClose, rows }: {
 
 /** The phone's sheet, raised by the bottom bar's More slot. */
 export function MoreSheet({ open, onClose, rows }: { open: boolean; onClose: () => void; rows: readonly MoreRow[] }) {
+  // NOT MOUNTED UNTIL FIRST ASKED FOR. SwipeableDrawer keeps its sheet mounted while closed, and
+  // the Slide inside measures itself on mount (getBoundingClientRect, getComputedStyle), which
+  // forced a layout in the middle of every page's first render: about 170ms on a throttled phone
+  // (Nov 6, 2026), for a sheet most readers never open. It mounts closed first and opens a frame
+  // later, because a Drawer that mounts already open skips its slide-in.
+  const [mounted, setMounted] = useState(false)
+  const [ready, setReady] = useState(false)
+  useEffect(() => { if (open && !mounted) setMounted(true) }, [open, mounted])
+  useEffect(() => {
+    if (!mounted || ready) return
+    const id = requestAnimationFrame(() => setReady(true))
+    return () => cancelAnimationFrame(id)
+  }, [mounted, ready])
+  if (!mounted) return null
   return (
     <SwipeableDrawer
       anchor="bottom"
-      open={open}
+      open={open && ready}
       onClose={onClose}
       // SwipeableDrawer, not Drawer, so a phone can flick the sheet down to dismiss it (the grabber
       // is the affordance). onOpen is required by the type but never fires: the sheet is only ever
