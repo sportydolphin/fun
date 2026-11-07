@@ -1,5 +1,5 @@
-// The 2004, 2006 and 2008 World Cups: results only, from IBAF's 2004 to 2010 compendium. See
-// "2004 to 2008, results only" in docs/WBSC_INGEST.md.
+// The 2004, 2006 and 2008 World Cups from IBAF's 2004 to 2010 compendium: results, rosters and
+// awards, with no box scores. See "2004 to 2008, results only" in docs/WBSC_INGEST.md.
 //
 // No box score survives for most of these games: wbsc.org keeps a standings page per edition, and
 // the only box scores anywhere are Canada's, on baseball.ca. What does survive is Oscar Izaguirre's
@@ -20,7 +20,7 @@
 // for each, and the event's manifest says `results_only`, which is what keeps the site from
 // showing those zeros or drawing a game page for it.
 
-import type { WbscGame } from './game'
+import { displayName, type WbscGame, type WbscPlayer } from './game'
 
 /** The compendium in the Wayback Machine. Each edition links to its own page of results. */
 export const COMPENDIUM_PDF =
@@ -29,9 +29,6 @@ export const COMPENDIUM_PDF =
 /** The PDF page where each edition's results start. */
 const RESULTS_PAGE: Readonly<Record<number, number>> = { 2004: 3, 2006: 8, 2008: 13 }
 
-/** The editions with results alone, by slug: their pages have no Leaders tab. Known from the slug,
- *  not the file, so the tabs are drawn before the file arrives. */
-export const RESULTS_ONLY_EDITIONS: ReadonlySet<string> = new Set(Object.keys(RESULTS_PAGE))
 
 export const compendiumUrl = (year: number): string => `${COMPENDIUM_PDF}#page=${RESULTS_PAGE[year]}`
 
@@ -73,6 +70,29 @@ export interface CompendiumTable {
   rows: [string, number, number, number, number][]
 }
 
+/** One team's roster as the compendium prints it: players with a position where it gives one
+ *  (2004's Canada and Japan have none), then the staff. */
+export interface CompendiumRoster {
+  team: string
+  /** India's and Korea's 2008 rosters write the surname first ("Park Jeong Hee"), as no other does. */
+  surname_first?: boolean
+  players: { name: string; position: string | null }[]
+  staff: { name: string; role: string }[]
+}
+
+/** A name as an award prints it. `roster` is the roster's spelling when the two differ
+ *  ("Lin-Pei Chun" for Pei-Chun Lin), so the award resolves to the player. */
+export interface CompendiumNamed { name: string; team: string; roster?: string }
+
+export interface CompendiumAwards {
+  /** IBAF's award leaders, value and detail as printed (".556", "5 H, 9 AB"). */
+  leaders: (CompendiumNamed & { stat: string; value: string; detail: string | null })[]
+  all_tournament: (CompendiumNamed & { position: string })[]
+  mvp: CompendiumNamed
+  /** The champion's manager, from the staff. */
+  manager: { name: string; team: string }
+}
+
 export interface CompendiumEdition {
   year: number
   city: string
@@ -81,11 +101,16 @@ export interface CompendiumEdition {
   /** Game numbers the schedule had and rain canceled; they are numbered, so they are listed. */
   canceled: number[]
   standings: CompendiumTable[]
+  rosters?: CompendiumRoster[]
+  awards?: CompendiumAwards
 }
 
 export interface CompendiumFile {
   /** Where the transcription came from: COMPENDIUM_PDF. */
   source: string
+  /** What the transcription changed from the page, and why: a typo another page of the compendium
+   *  spells right, a cell two columns ran into. */
+  corrections?: string[]
   editions: CompendiumEdition[]
 }
 
@@ -99,6 +124,54 @@ export function compendiumGames(ed: CompendiumEdition): WbscGame[] {
     away_team_id: g.away, home_team_id: g.home, away_score: g.away_score, home_score: g.home_score,
     innings: 0, attendance: null, duration_minutes: null, home_hits: 0, away_hits: 0, home_errors: 0, away_errors: 0,
   }))
+}
+
+// ── Rosters and awards ────────────────────────────────────────────────────────
+
+/** The 2004 to 2008 "tournament", in WBSC's id terms, as ibaf.ts numbers 2010. */
+export const compendiumTournamentId = (year: number): number => year * 1000
+
+/** A roster's player id, numbered in the order the compendium prints the rosters. */
+const playerId = (year: number, n: number) => `wbsc:p:${compendiumTournamentId(year)}:${n}`
+
+/** Given names and surname from a roster's name. A nickname in quotes ('Ka-Yan "Marco" Chan') is a
+ *  given name, which is where WBSC's later rosters put it; a hyphenated given name is two, as WBSC
+ *  registers them ("Ka Yan"). Cuba's surnames are two words, as WBSC writes them. */
+export function splitRosterName(raw: string, team: string, surnameFirst = false): { first_name: string; last_name: string } {
+  const words = raw.replace(/["“”]/g, ' ').replace(/-/g, team === 'HKG' || team === 'TPE' ? ' ' : '-').trim().split(/\s+/)
+  if (words.length < 2) return { first_name: '', last_name: words[0] ?? '' }
+  if (surnameFirst) return { first_name: words.slice(1).join(' '), last_name: words[0] }
+  const surname = team === 'CUB' && words.length > 2 ? 2 : 1
+  return { first_name: words.slice(0, -surname).join(' '), last_name: words.slice(-surname).join(' ') }
+}
+
+/** Every roster's players, as the importer's other events write theirs, so the same-person rules,
+ *  the WPBL crosswalk and people.json take them like any other World Cup's. */
+export function compendiumPlayers(ed: CompendiumEdition): (WbscPlayer & { position: string | null })[] {
+  let n = 0
+  return (ed.rosters ?? []).flatMap(r => r.players.map(p => {
+    n++
+    const { first_name, last_name } = splitRosterName(p.name, r.team, r.surname_first)
+    return {
+      id: playerId(ed.year, n), name: displayName(first_name, last_name, r.team), full_name: `${first_name} ${last_name}`.trim(),
+      event_key: compendiumEventKey(ed.year), wbsc_player_id: n, first_name, last_name, uniform: null, team_id: r.team,
+      position: p.position,
+    }
+  }))
+}
+
+/** The roster player an award names: exactly one on that team, by the roster's spelling, or null. */
+export function awardPlayer(ed: CompendiumEdition, a: CompendiumNamed): string | null {
+  const fold = (s: string) => s.normalize('NFD').replace(/\p{Mn}/gu, '').toLowerCase()
+  const want = fold(a.roster ?? a.name)
+  const players = compendiumPlayers(ed)
+  let n = 0
+  const hits: string[] = []
+  for (const r of ed.rosters ?? []) for (const p of r.players) {
+    const id = players[n++].id
+    if (r.team === a.team && fold(p.name) === want) hits.push(id)
+  }
+  return hits.length === 1 ? hits[0] : null
 }
 
 /** Rounds in the order played, for carrying earlier games into a later table. */
@@ -154,5 +227,63 @@ export function checkCompendium(ed: CompendiumEdition): string[] {
     const tabled = new Set(ed.standings.filter(t => t.round === r).flatMap(t => t.rows.map(x => x[0])))
     if ([...teams].some(t => !tabled.has(t))) problems.push(`${ed.year} ${r}: a team with no standings row`)
   }
+  if (ed.rosters) problems.push(...checkRosters(ed))
   return problems
+}
+
+/** A roster for every team that played and none other, no player twice on one, and every award
+ *  naming exactly one of them. */
+function checkRosters(ed: CompendiumEdition): string[] {
+  const problems: string[] = []
+  const played = [...new Set(ed.games.flatMap(g => [g.away, g.home]))].sort()
+  const rostered = (ed.rosters ?? []).map(r => r.team).sort()
+  if (played.join() !== rostered.join()) problems.push(`${ed.year}: rosters for ${rostered.join(', ')}, games for ${played.join(', ')}`)
+  for (const r of ed.rosters ?? []) {
+    const names = r.players.map(p => p.name)
+    if (new Set(names).size < names.length) problems.push(`${ed.year} ${r.team}: a player listed twice`)
+    if (names.length < 9) problems.push(`${ed.year} ${r.team}: ${names.length} players`)
+  }
+  if (!ed.awards) return problems
+  const named = [...ed.awards.leaders, ...ed.awards.all_tournament, ed.awards.mvp]
+  for (const a of named) if (!awardPlayer(ed, a)) problems.push(`${ed.year}: ${a.name} (${a.team}) is no one on that roster`)
+  const m = ed.awards.manager
+  if (!ed.rosters?.some(r => r.team === m.team && r.staff.some(s => s.name === m.name))) problems.push(`${ed.year}: manager ${m.name} is not on ${m.team}'s staff`)
+  return problems
+}
+
+/** What an edition's pages need from the rosters and awards, by player id, written beside the event's
+ *  games as `compendium.json`. The ids resolve to names and pages through people.json, as every
+ *  other World Cup player's do. */
+export interface CompendiumExtras {
+  rosters: { team: string; players: { id: string; position: string | null }[]; staff: { name: string; role: string }[] }[]
+  awards: {
+    leaders: { stat: string; id: string; team: string; value: string; detail: string | null }[]
+    all_tournament: { position: string; id: string; team: string }[]
+    mvp: { id: string; team: string }
+    manager: { name: string; team: string }
+  } | null
+}
+
+/** Only for an edition `checkCompendium` passed: an award that names no one throws. */
+export function compendiumExtras(ed: CompendiumEdition): CompendiumExtras {
+  const players = compendiumPlayers(ed)
+  let n = 0
+  const rosters = (ed.rosters ?? []).map(r => ({
+    team: r.team, staff: r.staff,
+    players: r.players.map(() => { const p = players[n++]; return { id: p.id, position: p.position } }),
+  }))
+  const id = (a: CompendiumNamed) => {
+    const hit = awardPlayer(ed, a)
+    if (!hit) throw new Error(`${ed.year}: ${a.name} is no one on ${a.team}'s roster`)
+    return hit
+  }
+  const a = ed.awards
+  return {
+    rosters,
+    awards: a ? {
+      leaders: a.leaders.map(l => ({ stat: l.stat, id: id(l), team: l.team, value: l.value, detail: l.detail })),
+      all_tournament: a.all_tournament.map(x => ({ position: x.position, id: id(x), team: x.team })),
+      mvp: { id: id(a.mvp), team: a.mvp.team }, manager: a.manager,
+    } : null,
+  }
 }

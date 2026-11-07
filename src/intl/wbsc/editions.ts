@@ -14,6 +14,7 @@ import type { PitchingGameLine } from '../../league/types'
 import { editionLeaders, type EditionLeaders, type PersonLookup, type TeamRoster, type WpblInField } from './editionLeaders'
 import type { WbscBattingLine, WbscGame } from './game'
 import { boxScoreUrl } from './ibaf'
+import type { CompendiumExtras } from './compendium'
 
 export interface EditionEventDef {
   key: string
@@ -222,6 +223,18 @@ export interface WorldCupEdition {
   wpbl: WpblInField[]
   /** Every team's players with their edition totals, for the team pages. */
   rosters: TeamRoster[]
+  /** IBAF's awards for a results-only edition (2004 to 2008), which has no box scores to rank. */
+  awards?: EditionAwards | null
+}
+
+export interface AwardPlayer { name: string; path: string | null; team: string }
+
+export interface EditionAwards {
+  /** IBAF's award leaders, value and detail as printed. */
+  leaders: (AwardPlayer & { stat: string; value: string; detail: string | null })[]
+  all_tournament: (AwardPlayer & { position: string })[]
+  mvp: AwardPlayer
+  manager: { name: string; team: string }
 }
 
 export interface WorldCupIndexEntry {
@@ -246,6 +259,8 @@ export interface EditionEventInput {
   pitching: readonly PitchingGameLine[]
   /** Scores and nothing else (2004 to 2008, compendium.ts): no box scores, so no game pages. */
   results_only?: boolean
+  /** A results-only event's rosters and awards, by player id (compendium.ts). */
+  compendium?: CompendiumExtras | null
 }
 
 /** With no registry, every WBSC id is its own person, linked to nobody, named by its id. */
@@ -513,12 +528,32 @@ export function buildWorldCupSite(
     }
 
     const evs = def.events.map(e => byKey.get(e.key)!)
-    const { leaders, wpbl, rosters } = editionLeaders({
+    const lead = editionLeaders({
       games: evs.flatMap(e => e.games), batting: evs.flatMap(e => e.batting), pitching: evs.flatMap(e => e.pitching),
     }, people)
+    const extras = evs.find(e => e.compendium)?.compendium ?? null
+    const award = (x: { id: string; team: string }): AwardPlayer => ({ name: people.name(x.id), path: people.path(x.id), team: x.team })
+    // A results-only edition's team pages list the compendium's rosters, and its WPBL players are
+    // the ones its rosters name, there being no box score to find them in.
+    const rosters: TeamRoster[] = extras
+      ? extras.rosters.map(r => ({
+        team: r.team, batting: [], pitching: [], staff: r.staff,
+        players: r.players.map(p => ({ name: people.name(p.id), path: people.path(p.id), position: p.position })),
+      }))
+      : lead.rosters
+    const wpbl = extras
+      ? extras.rosters.map(r => ({ team: r.team, players: r.players.flatMap(p => people.wpbl(p.id) ?? []) }))
+        .filter(x => x.players.length).sort((a, b) => b.players.length - a.players.length || cmp(a.team, b.team))
+      : lead.wpbl
+    const awards: EditionAwards | null = extras?.awards ? {
+      leaders: extras.awards.leaders.map(l => ({ ...award(l), stat: l.stat, value: l.value, detail: l.detail })),
+      all_tournament: extras.awards.all_tournament.map(x => ({ ...award(x), position: x.position })),
+      mvp: award(extras.awards.mvp), manager: extras.awards.manager,
+    } : null
     built.push({
       slug: def.slug, title: editionTitle(def.slug), ordinal: def.ordinal, years: def.years, hosts: def.hosts,
-      teams: [...teams].sort(cmp), stages, medals, placings, sources, leaders, wpbl, rosters,
+      teams: [...teams].sort(cmp), stages, medals, placings, sources, leaders: lead.leaders, wpbl, rosters,
+      ...(awards ? { awards } : {}),
     })
   }
 

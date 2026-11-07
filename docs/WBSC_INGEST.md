@@ -107,8 +107,8 @@ its archived page (`boxScoreUrl`), and the pages credit IBAF for 2010.
 
 No box score survives for most of these games: Canada's are on baseball.ca (2006: 4 of 21, 2008: 6
 of 22) and USA Baseball kept line scores for 2004; nothing else. A player table built from those
-would be one team's, so these three editions carry results, standings and medals, and no player
-stats, leaders, rosters or game pages.
+would be one team's, so these three editions carry results, standings, medals, rosters and IBAF's
+awards, and no player stats or game pages.
 
 The results come from IBAF's 2004 to 2010 compendium by Oscar Izaguirre (`COMPENDIUM_PDF` in
 [`compendium.ts`](../src/intl/wbsc/compendium.ts), in the Wayback Machine): every game's number, date,
@@ -130,6 +130,29 @@ Three things differ from the later editions:
 - **A results-only row carries 0** for innings, hits and errors, which the source does not give, and
   the event's manifest says `results_only`. The site files read that flag: `innings` is null,
   `page` is false and the result links to the compendium's page for the year.
+
+### Rosters and awards
+
+The compendium also prints every team's roster (players with a position, then the staff) and
+IBAF's awards: the leaders in eight categories, the all-tournament team, the MVP and the champion's
+manager. They were transcribed with the results (`rosters` and `awards` in `results.json`), and
+`checkCompendium` requires a roster for every team that played and every award to name exactly one
+player on that team's roster. Where an award spells a name its own way ("Lin-Pei Chun" for the
+roster's Pei-Chun Lin) the entry carries the roster's spelling in `roster`. What the transcription
+changed from the page is listed in the file's `corrections`: one typo the all-tournament team spells
+right (Lillian Jacobson) and three cells two columns ran into.
+
+Each roster player becomes a WBSC player like any other event's (`players.json`, ids
+`wbsc:p:2004000:<n>`, numbered in roster order), so the same-person rules, the WPBL crosswalk and
+people.json take them, and a career reaches back to 2004. Names are split as WBSC registers them
+(`splitRosterName`): a quoted nickname is a given name, a hyphenated given name two words, Cuba's
+surnames two words, and India's and Korea's 2008 rosters, which print the surname first, are
+turned around. The positions, staff and awards ride beside the games as `compendium.json`, by
+player id, and the edition's team pages, Leaders tab and Overview read them from there.
+
+A player's own page lists a 2004 to 2008 World Cup in a "Roster only" table, with the roster's
+position. A WPBL player's page does not yet: international.json carries events with box score
+lines only.
 
 ## What a play row holds
 
@@ -519,6 +542,9 @@ enters git.
     left to review).
 18. ✅ **2004 to 2008, results only** (Nov 7, 2026): 57 games from IBAF's compendium, every
     standings table matching; see "2004 to 2008, results only" above.
+19. ✅ **2004 to 2008 rosters and awards** (Nov 7, 2026): 360 players and the staff, IBAF's award
+    leaders, all-tournament teams and MVPs; the same-person rules joined 498 pairs and left 7 to
+    review; see "Rosters and awards" above.
 
 ## The 2016 play log
 
