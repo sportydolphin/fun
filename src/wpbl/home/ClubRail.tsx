@@ -1,6 +1,6 @@
 import { Box, Skeleton, Typography } from '@mui/material'
 import type { WpblTeam, WpblStandingRow } from '../types'
-import { TeamBadge, TYPE_SCALE, FOCUS_RING, hoverOnly, chromePx } from '../ui'
+import { TeamMark, TYPE_SCALE, FOCUS_RING, hoverOnly, chromePx } from '../ui'
 import { AGATE_SX, SECTION_RULE } from '../../ui/card'
 import { useWpblTeamLink } from '../LinkContext'
 import { UNSTYLED_LINK } from '../../nav'
@@ -33,6 +33,7 @@ function ClubCell({ team, row, place, champion, first, onOpenTeam }: {
 }) {
   const teamLink = useWpblTeamLink()
   const record = row && (row.wins + row.losses) > 0 ? `${row.wins}–${row.losses}` : null
+  const gb = record && row && row.gamesBack > 0 ? String(row.gamesBack) : null
   const body = (
     <>
       {/* The place, as a standings line numbers itself. Ornament to a screen reader, whose name for
@@ -42,8 +43,8 @@ function ClubCell({ team, row, place, champion, first, onOpenTeam }: {
       </Typography>
       {team
         ? <>
-            <Box sx={{ display: { xs: 'flex', sm: 'none' } }}><TeamBadge team={team} size={BADGE.phone} /></Box>
-            <Box sx={{ display: { xs: 'none', sm: 'flex' } }}><TeamBadge team={team} size={BADGE.wide} /></Box>
+            <Box sx={{ display: { xs: 'flex', sm: 'none' } }}><TeamMark team={team} size={BADGE.phone} /></Box>
+            <Box sx={{ display: { xs: 'none', sm: 'flex' } }}><TeamMark team={team} size={BADGE.wide} /></Box>
           </>
         : <Skeleton variant="circular" sx={{ flexShrink: 0, width: { xs: chromePx(BADGE.phone), sm: chromePx(BADGE.wide) }, height: { xs: chromePx(BADGE.phone), sm: chromePx(BADGE.wide) } }} />}
       <Box sx={{ minWidth: 0 }}>
@@ -56,8 +57,11 @@ function ClubCell({ team, row, place, champion, first, onOpenTeam }: {
         </Typography>
         <Typography noWrap sx={{ ...AGATE_SX, fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>
           {record ?? EMPTY_LINE}
-          {/* The title in the champion's gold, from `sm`; on a phone the lead under it says so. */}
-          {champion && <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' }, color: 'var(--wpbl-medal-1)', fontWeight: 700 }}> · Champions</Box>}
+          {/* Games back from `sm`, as a standings line prints it, where a cell is a quarter of the page
+              and the record alone left most of it empty. NO "Champions" HERE (Nov 6, 2026): the lead
+              under the line says it in its kicker and headline, and a third statement of one result
+              in the first screen is what the strip's champion tile was cut for. */}
+          {gb && <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}> · {gb} GB</Box>}
         </Typography>
       </Box>
     </>
@@ -95,10 +99,10 @@ export function ClubRail({ teams, standings, championId, onOpenTeam }: {
   const placeOf = (t: WpblTeam) => rowOf.get(t.id)?.place ?? Number.MAX_SAFE_INTEGER
   const ordered = [...teams].sort((a, b) => placeOf(a) - placeOf(b) || a.sort_order - b.sort_order)
   return (
-    // A heavy rule over it and a hairline under it: the nameplate's rule, then the line.
+    // A hairline under it. The nameplate's heavy rule is on the dateline above (Dateline).
     <Box component="nav" aria-label="Clubs" sx={{
       display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-      ...SECTION_RULE, borderBottom: '1px solid', borderBottomColor: 'divider',
+      borderBottom: '1px solid', borderBottomColor: 'divider',
     }}>
       {SLOTS.map(i => {
         const team = ordered[i] ?? null
@@ -108,6 +112,54 @@ export function ClubRail({ teams, standings, championId, onOpenTeam }: {
             champion={!!team && team.id === championId} onOpenTeam={onOpenTeam} />
         )
       })}
+    </Box>
+  )
+}
+
+/** The date as a reader's calendar prints it: "Friday, November 6, 2026", or "Fri, Nov 6" where
+ *  the long form does not fit (a phone, where the year is in the label beside it). */
+function dateText(d: Date, long: boolean): string {
+  return d.toLocaleDateString('en-US', long
+    ? { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }
+    : { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+/** What the standings line under the dateline is: the table while it is still moving, and the
+ *  regular season's final one once the postseason starts. `long` carries the year, for the wide
+ *  dateline and for a reader in January looking at last year's table. */
+export interface RailLabel { short: string; long: string }
+
+/**
+ * THE DATELINE (Nov 6, 2026, the thirteenth pass): the folio line a paper prints under its
+ * nameplate, between the nameplate's heavy rule and the standings line. Without it the league's
+ * name read as one more section heading over a row of cells.
+ *
+ * LEFT IS THE DAY, RIGHT IS THE LINE UNDER IT (option B of three, Nov 6). The date and the phase
+ * ("Offseason") on the left; on the right the standings line's own label, which is what keeps
+ * "1 Firebells" from contradicting a lead that crowns the third-place club: once the regular
+ * season is over the line says it is the regular season. A third row for that label was clearer
+ * still, and the busiest masthead the page has had.
+ *
+ * `phase` and `label` null hold the line's height while the schedule loads.
+ */
+export function Dateline({ phase, label, now = new Date() }: { phase: string | null; label: RailLabel | null; now?: Date }) {
+  const sx = { ...AGATE_SX, fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 } as const
+  const tail = phase ? ` · ${phase}` : ''
+  return (
+    <Box sx={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 2, py: 0.6,
+      ...SECTION_RULE, borderBottom: '1px solid', borderBottomColor: 'divider',
+    }}>
+      <Typography noWrap sx={sx}>
+        <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{dateText(now, false)}{tail}</Box>
+        <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{dateText(now, true)}{tail}</Box>
+      </Typography>
+      <Typography noWrap sx={{ ...sx, flexShrink: 0, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        {label
+          ? <><Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{label.short}</Box>
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{label.long}</Box></>
+          : EMPTY_LINE}
+      </Typography>
     </Box>
   )
 }

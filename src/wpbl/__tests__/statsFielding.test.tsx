@@ -120,10 +120,11 @@ describe('the Fielding side', () => {
     expect(document.querySelector('[data-board-foot]')?.textContent).toContain('faded: under 2 G')
   })
 
-  // One switch for all three sides, on every board. Moving to a board with no fielding answer while
-  // on Fielding drops back to the side the reader last had, so the board is never asked a question
-  // it cannot answer; pressing Fielding THERE goes to Leaders on Fielding rather than doing nothing.
-  it('is one switch with Hitting and Pitching, and Fielding off a fielding board opens Leaders', async () => {
+  // One switch for every side, on every board. Moving to a board with no fielding answer while on
+  // Fielding drops back to the side the reader last had, so the board is never asked a question it
+  // cannot answer. There, Fielding and Overall are drawn disabled and pressing them does nothing:
+  // they used to open Leaders, which read as the tab switching on its own (Nov 2026).
+  it('is one switch with Hitting and Pitching, and a side a board cannot answer stays on the board', async () => {
     draw()
     fireEvent.click(await screen.findByText('Pitching'))
     await openFielding()
@@ -131,10 +132,12 @@ describe('the Fielding side', () => {
     expect(screen.getByText('Fielding').getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(screen.getByText('Bests'))
     expect(screen.getByText('Pitching').getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByText('Fielding').getAttribute('aria-disabled')).toBeNull()
-    fireEvent.click(screen.getByText('Fielding'))
-    expect(screen.getByText('Fielding').getAttribute('aria-pressed')).toBe('true')
-    expect(screen.getByText('Leaders').closest('[aria-current]')?.getAttribute('aria-current')).toBe('page')
+    for (const side of ['Fielding', 'Overall']) {
+      expect(screen.getByText(side).getAttribute('aria-disabled')).toBe('true')
+      fireEvent.click(screen.getByText(side))
+      expect(screen.getByText('Pitching').getAttribute('aria-pressed')).toBe('true')
+      expect(screen.getByText('Bests').closest('[aria-current]')?.getAttribute('aria-current')).toBe('page')
+    }
   })
 
   it('stays on Fielding from Players to Teams, and sums each club', async () => {

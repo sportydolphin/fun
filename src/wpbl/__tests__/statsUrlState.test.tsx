@@ -86,6 +86,31 @@ describe('the stats view in the address bar', () => {
     expect(url()).toBe('/wpbl/stats?side=pitching&sort=whip&board=players')
   })
 
+  // THE FILTERS SURVIVE A RELOAD. They used to live only in component state, so a link to one
+  // club's playoff board opened on the whole league's regular season.
+  it('keeps a club filter a pasted link names, matched to the club', async () => {
+    at('/wpbl/stats?board=players&team=sf')
+    draw()
+    await screen.findByText('Hitting')
+    expect(url()).toBe('/wpbl/stats?board=players&team=sf')
+  })
+
+  it('drops a club filter that names no club', async () => {
+    at('/wpbl/stats?board=players&team=zz')
+    draw()
+    await screen.findByText('Hitting')
+    expect(url()).toBe('/wpbl/stats?board=players')
+  })
+
+  // Before the games load every season looks like one with no postseason; the link must not be
+  // reset to the regular season on its way in.
+  it('keeps a playoffs link while the games are still loading', async () => {
+    at('/wpbl/stats?board=players&games=post')
+    draw()
+    await screen.findByText('Hitting')
+    expect(url()).toBe('/wpbl/stats?board=players&games=post')
+  })
+
   it('opens on Leaders at a bare address', async () => {
     draw()
     // This harness has no games, so every card is empty, and only the Leaders board says this.

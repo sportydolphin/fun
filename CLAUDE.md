@@ -108,6 +108,7 @@ first when you are working on what the line describes, even from somewhere else 
 - The postseason is a separate presto season with no timezone twins; the league's own calendar outranks the feed's start times.
 - A game's status goes backwards; `completed_at` outranks the status string.
 - `/games` caps at 50 in silence: always pass `?limit=` and compare against `count`.
+- TrackMan's `/activity` wants an API key since Nov 2026, and the ingest only warns; `npm run rehearse` reports it.
 - A final is read-only to the ingest while the league keeps editing it; `check-wpbl-drift.mjs` closes that.
 
 [`src/CLAUDE.md`](src/CLAUDE.md), UI in both sections:

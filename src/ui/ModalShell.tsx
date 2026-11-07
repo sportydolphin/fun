@@ -456,6 +456,10 @@ const escapeStack: object[] = []
 
 type ModalShellProps = {
   eyebrow: React.ReactNode
+  /** The dialog's name for a screen reader, when the eyebrow does not say what it is: a player's
+   *  card heads itself with the club, drawn at two lengths to fit, which read out as "New York
+   *  HeightsHeights". Left off, the eyebrow names it. */
+  label?: string
   onClose: () => void
   /** Responsive object as well as a plain number, because a modal that is the right size for
    *  a phone sheet is not the right size for a desktop dialog. Handed straight to `sx`. */
@@ -754,7 +758,7 @@ function panelZ(self: object): number {
  */
 let lastPanelGoneAt = -Infinity
 
-function SidePanelShell({ eyebrow, onClose, actions, footer, openKey, onBack, backLabel, children }: ModalShellProps) {
+function SidePanelShell({ eyebrow, label, onClose, actions, footer, openKey, onBack, backLabel, children }: ModalShellProps) {
   const id = useRef({}).current
   useEscapeToClose(onClose, id)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -816,7 +820,8 @@ function SidePanelShell({ eyebrow, onClose, actions, footer, openKey, onBack, ba
       ref={panelRef}
       role="dialog"
       aria-modal="false"
-      aria-labelledby={labelId}
+      aria-label={label}
+      aria-labelledby={label ? undefined : labelId}
       tabIndex={-1}
       sx={{
         position: 'fixed', right: 0, bottom: 0, zIndex: z,
@@ -865,7 +870,7 @@ function SidePanelShell({ eyebrow, onClose, actions, footer, openKey, onBack, ba
   ), document.body)
 }
 
-function DialogShell({ eyebrow, onClose, maxWidth = 720, zIndex: ownZ = 1500, actions, footer, fillHeight, sheet, sheetFill, dialogFill, children }: ModalShellProps) {
+function DialogShell({ eyebrow, label, onClose, maxWidth = 720, zIndex: ownZ = 1500, actions, footer, fillHeight, sheet, sheetFill, dialogFill, children }: ModalShellProps) {
   const id = useRef({}).current
   useEscapeToClose(onClose, id)
 
@@ -922,6 +927,43 @@ function DialogShell({ eyebrow, onClose, maxWidth = 720, zIndex: ownZ = 1500, ac
   useSheetDrag(!!sheet && swipeNav, cardRef, backdropRef, chromeRef, onClose)
   useRegisterShell(id, zIndex, false, overlayRef)
   const entered = useEntered(cardRef)
+  const labelId = useId()
+
+  /**
+   * A DIALOG TO A SCREEN READER, NOT ONLY TO THE EYE. The card carried no role, so the sort sheet,
+   * a player and Game Center were announced as more page: nothing said a dialog had opened or what
+   * it was, and focus stayed on the row underneath, behind the dim. Now focus moves into the card as
+   * it opens, stays inside while it is the top dialog (it is modal: the page behind is frozen and
+   * dimmed), and goes back to what opened it when it closes. The side panel does the first and last
+   * of those and lets Tab leave, because it is not modal (SidePanelShell).
+   *
+   * "Top" is Escape's stack, which already orders every open shell: a player opened over a game
+   * holds focus, and the game takes it back when the player closes.
+   */
+  useEffect(() => {
+    const card = cardRef.current
+    const opener = document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+      ? document.activeElement : null
+    card?.focus({ preventScroll: true })
+    // A MUI menu or dropdown opened from inside the card renders in a portal on the body, outside
+    // the card, and traps focus in itself. Pulling focus back from it made the two traps hand
+    // focus back and forth until the stack overflowed (the clips editor's dropdowns), so a layer
+    // portalled over the card keeps its focus.
+    const PORTAL_LAYER = '.MuiPopover-root, .MuiPopper-root, .MuiModal-root, [role="dialog"], [role="listbox"], [role="menu"]'
+    const onFocusIn = (e: FocusEvent) => {
+      if (!card || escapeStack[escapeStack.length - 1] !== id) return
+      if (!(e.target instanceof Element) || card.contains(e.target)) return
+      if (e.target.closest(PORTAL_LAYER)) return
+      card.focus({ preventScroll: true })
+    }
+    document.addEventListener('focusin', onFocusIn)
+    return () => {
+      document.removeEventListener('focusin', onFocusIn)
+      const now = document.activeElement
+      const lost = !now || now === document.body || (!!card && card.contains(now))
+      if (lost && opener?.isConnected) opener.focus({ preventScroll: true })
+    }
+  }, [id])
 
   /**
    * PORTALLED TO THE BODY, AND IT HAS TO BE.
@@ -987,9 +1029,11 @@ function DialogShell({ eyebrow, onClose, maxWidth = 720, zIndex: ownZ = 1500, ac
           },
         } : {}),
       }} />
-      <Box ref={cardRef} sx={{
+      <Box ref={cardRef} role="dialog" aria-modal="true" aria-label={label} aria-labelledby={label ? undefined : labelId} tabIndex={-1} sx={{
         // Positioned, so it paints over the absolutely placed dim beside it.
         position: 'relative',
+        // Focus lands on the card itself only so the next Tab starts inside it; it is not a control.
+        outline: 'none',
         width: '100%', maxWidth,
         bgcolor: 'background.paper',
         borderRadius: sheet ? { xs: '18px 18px 0 0', sm: 3 } : 3,
@@ -1064,7 +1108,7 @@ function DialogShell({ eyebrow, onClose, maxWidth = 720, zIndex: ownZ = 1500, ac
           }} />
         )}
         {/* Sticky eyebrow header */}
-        <ShellHeader eyebrow={eyebrow} actions={actions} onClose={onClose} />
+        <ShellHeader eyebrow={eyebrow} actions={actions} onClose={onClose} labelId={labelId} />
         </Box>
 
         {/* Scrollable body.

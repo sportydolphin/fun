@@ -3,15 +3,21 @@ import { SECTION_HEADING_SX } from '../../ui/card'
 import { useDark } from '../../ui/useDark'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { wpblAccent, wpblAccentFg, formatGameTime, relativeDayShort } from '../constants'
+import { wpblAccentFg, formatGameTime, relativeDayShort } from '../constants'
 import { useWpblGameLink } from '../LinkContext'
 import { HIDE_ON_PHONE, VISUALLY_HIDDEN } from '../PageHeading'
-import { TeamBadge, CARD_BORDER, CARD_FILL, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, DISPLAY_FONT, ICON_SIZE } from '../ui'
+import { TeamMark, CARD_BORDER, CARD_FILL, TAPPABLE, hoverOnly, FOCUS_RING, pressable, TYPE_SCALE, DISPLAY_FONT } from '../ui'
 import { postseasonSlots, type PostseasonScheduleRow, type PostseasonSlot } from '../derive/bracket'
+import { seriesTileLine, type SeriesContext } from '../derive/series'
 import type { WpblTeam, WpblGame } from '../types'
 import { SECTION_GAP } from './shared'
 
-function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, WpblTeam>; onOpen: () => void }) {
+function GameChip({ game, teams, series, onOpen }: {
+  game: WpblGame; teams: Map<string, WpblTeam>
+  /** This game's series, when it is a postseason game: a final then says where the series stands. */
+  series?: SeriesContext
+  onOpen: () => void
+}) {
   const gameLink = useWpblGameLink()
   const away = teams.get(game.away_team_id)
   const home = teams.get(game.home_team_id)
@@ -29,20 +35,21 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
   // upcoming game, because each puts its own headline first, and because if the line ever has to
   // ellipsize it should lose the date rather than the result. A live game is by definition today,
   // so a date there would be noise.
-  const statusText = final
-    ? `Final${game.innings && game.innings !== 7 ? `/${game.innings}` : ''} · ${dateText}`
+  const finalText = `Final${game.innings && game.innings !== 7 ? `/${game.innings}` : ''} · ${dateText}`
+  // A postseason final says where its series stands instead ("G3 · SF leads 2–1"): five finals
+  // between the same two clubs read as five scores and no story without it. The final and its date
+  // stay on the tile as its tooltip.
+  const seriesText = final && series && home && away ? seriesTileLine(series, home.abbr, away.abbr) : null
+  const statusText = seriesText ?? (final
+    ? finalText
     : live ? 'Live'
-    : timeText ? `${dateText} · ${timeText}` : dateText
+    : timeText ? `${dateText} · ${timeText}` : dateText)
 
-  const isDark = useDark()
   const row = (t: WpblTeam | undefined, score: number | null, won: boolean) => (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-      {/* Winner caret, only on finals, where a fixed-width slot keeps both rows' badges aligned.
-          Upcoming and live games omit the slot entirely so the badge sits flush left. */}
-      {final && (
-        <Box sx={{ width: '0.4375rem', flexShrink: 0, mx: -0.45, textAlign: 'center', fontSize: ICON_SIZE.sm, lineHeight: 1, color: wpblAccent(t?.id, isDark) }}>{won ? '▸' : ''}</Box>
-      )}
-      {t && <TeamBadge team={t} size={20} />}
+      {/* NO WINNER CARET (Nov 6, 2026): the winner's weight and the loser's dimmed score already say
+          it, as a box score does, and the caret was a third mark for one fact. */}
+      {t && <TeamMark team={t} size={20} />}
       <Typography sx={{
         flex: 1, fontSize: TYPE_SCALE.body, fontWeight: won ? 800 : 600,
         color: won ? 'text.primary' : final ? 'text.secondary' : 'text.primary',
@@ -59,7 +66,7 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
   )
 
   return (
-    <Box {...gameLink(game, onOpen)} sx={{
+    <Box {...gameLink(game, onOpen)} title={seriesText ? finalText : undefined} sx={{
       // IN rem BECAUSE THE WIDTH IS DECIDED BY A STRING. Every chip has to be the same width or the
       // strip loses its rhythm, so this cannot be `max-content`, and a fixed pixel box holding text the
       // reader can enlarge clips its eyebrow under the Large text setting (see AccessibilityContext).
@@ -131,7 +138,7 @@ function PostseasonChip({ row, onOpenMatchup }: {
 
   const slot = (p: PostseasonSlot, i: number) => (
     <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-      {p.team ? <TeamBadge team={p.team} size={20} /> : (
+      {p.team ? <TeamMark team={p.team} size={20} /> : (
         // The empty seat, sized exactly like a badge so a slot filling in mid-week does not
         // shift the row under it.
         <Box aria-hidden sx={{
@@ -198,8 +205,13 @@ type StripItem =
 /** Exported for `scoreboardStrip.test.tsx`, which pins which fixtures reach the strip. Same
  *  reason `NextPostseasonCard` is: what these two choose to show is a judgment about what is
  *  true, and neither failure is visible from a render that happens to look fine. */
-export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup }: {
+export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup, series }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>
+  /** Each postseason game's series, keyed by game id (`seriesContexts` over the season on screen),
+   *  so a postseason final says where its series stands. Absent, finals say "Final". */
+  series?: Map<string, SeriesContext>
+  // NO OFFSEASON MODE (Nov 6, 2026). Once the final is decided Home draws its games as a line
+  // score under the lead (SeriesLineScore), not as tiles over it.
   /** The published postseason, for the days past the end of the feed's schedule. Date-sorted,
    *  and already retiring itself a row at a time as the feed publishes the real games. */
   postseason: PostseasonScheduleRow[]
@@ -436,7 +448,7 @@ export function Scoreboard({ games, teams, postseason, onOpenGame, onOpenMatchup
           msOverflowStyle: 'none', scrollbarWidth: 'none',
         }} data-swipe-ignore="true">
           {strip.map(item => item.kind === 'game'
-            ? <GameChip key={item.id} game={item.game} teams={teams} onOpen={() => onOpenGame(item.game)} />
+            ? <GameChip key={item.id} game={item.game} teams={teams} series={series?.get(item.game.id)} onOpen={() => onOpenGame(item.game)} />
             : <PostseasonChip key={item.id} row={item.row} onOpenMatchup={onOpenMatchup} />)}
         </Box>
         {/* NO EDGE FADES. A leading fade paints over the anchor chip's date, since the chip sits

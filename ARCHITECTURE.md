@@ -635,6 +635,13 @@ sequenceDiagram
   score. A break goes to `summary.errors` and the row is still ingested; any error makes the run
   `ok: false`, which `admin-health-alert` pages with the errors named. Pinned against the real
   2026 feed in `src/wpbl/__tests__/feedContract.test.ts`.
+- **The transforms**, [`transform.ts`](supabase/functions/wpbl-ingest/transform.ts): every row the
+  ingest makes from the feed (dates, status, the duplicate copies, the game row, a box score's
+  lines and plays, TrackMan), with no database in it. `index.ts` keeps the roster resolver, the
+  writes and what to fetch. Shared with `npm run rehearse`
+  ([`scripts/rehearse-wpbl-feed.ts`](scripts/rehearse-wpbl-feed.ts)), which runs the live feed
+  through it and diffs every row with `archive/`, writing nothing: the spring check that the feed
+  still says what the ingest expects. Pinned in `src/wpbl/__tests__/ingestTransform.test.ts`.
 
 ---
 

@@ -181,6 +181,9 @@ In order. Each item names the Home step in ROADMAP-UI.md it belongs to, or a new
    ("LA leads 2–1"). Offseason: the final's five games and the champion, as MLB.com and Savant do,
    which lets the lead's G1 to G5 row go. Never "No games", never next season's games before
    they are public (see the next-season rule).
+   Taken Nov 5, 2026 for the offseason and the postseason ("G3 · LA leads 2–1" on each final, the
+   champion's tile and the final's games all winter). The in-season half, the strip replacing the
+   masthead clubs, comes with the in-season page.
 3. **Ten entry points in the first screen** at 1440 and at 375. The Latest list gets most of the way;
    measure it in the sweep rather than by eye.
 4. **A time on every item that has one**: clips, photos, Spotlight's reason ("Birthday today" has

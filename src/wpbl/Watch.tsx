@@ -30,7 +30,7 @@ import { useNewSince } from './newSince'
  * through a page to keep it would be the four-steps-to-the-fourteenth-post problem Reading was
  * built to fix. Renders nothing until there is a clip.
  */
-export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
+export function WatchCard({ from, eyebrow = true, placeholder, compact, skip }: {
   /** Which surface drew it, for the WATCH events: 'home' or 'recap'. */
   from: string
   /** Its own "Watch" label. Off where a section heading above it already says so. */
@@ -42,6 +42,9 @@ export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
   /** The phone's four posters at every width, stretched to its grid cell: the offseason Home
    *  draws it in half a row beside Reading, where six would be stamps. */
   compact?: boolean
+  /** Videos another section on the page already runs (Home's Latest list), left off the Videos
+   *  shelf so the next ones show instead of the same two titles twice. */
+  skip?: ReadonlySet<string>
 }) {
   // Null until the read answers, which is not the same as no videos.
   const [loaded, setLoaded] = useState<WpblVideo[] | null>(() => getCachedWpblVideos())
@@ -55,7 +58,7 @@ export function WatchCard({ from, eyebrow = true, placeholder, compact }: {
   // WPBL from Day 1 posts no Shorts (condensed games and compilations, 44 uploads by Oct 12, 2026),
   // so a card built from clips alone never showed one of theirs. Their newest two get a row of
   // their own, credited, rather than being cropped into the 9:16 posters.
-  const fanVideos = useMemo(() => videos.filter(v => v.is_short !== true && videoCredit(v)).slice(0, 2), [videos])
+  const fanVideos = useMemo(() => videos.filter(v => v.is_short !== true && videoCredit(v) && !skip?.has(v.video_id)).slice(0, 2), [videos, skip])
   const [fanActive, setFanActive] = useState<WpblVideo | null>(null)
   // Only where the reader can play one: the broadcasts are blocked in the US, and the list here
   // has already had what this reader cannot play taken out (fetchWpblVideos).

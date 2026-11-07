@@ -69,7 +69,9 @@ export const SURFACE = {
   tooltip: '#2a2e35',
   switchThumbDark: '#e6e6e9',
   tabInkDark: '#a7adb7',
-  tabInkLight: '#5f6570',
+  // Dark enough for 4.5:1 over the light glass with pure black under it (4.75): the solid club
+  // blocks tint the glass, and #5f6570 fell to 3.74 over the Firebells' block on the league page.
+  tabInkLight: '#454a52',
   clubFallback: '#1a2035',
 } as const
 

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { Scoreboard } from '../home/Scoreboard'
+import { SeriesLineScore } from '../home/SeriesLineScore'
 import type { PostseasonScheduleRow, PostseasonSlot } from '../derive/bracket'
 import type { WpblGame, WpblTeam } from '../types'
 
@@ -86,5 +87,23 @@ describe('the postseason on the scoreboard strip', () => {
     const games = [final('g1', '2026-09-11')]
     draw([row({ ifNecessary: true })], games)
     expect(screen.getByText(/Semi G3\* ·/)).toBeTruthy()
+  })
+})
+
+// Once the final is decided Home draws it as a line score under the lead (Nov 6, 2026).
+describe('the final as a line score', () => {
+  const champ = (id: string, date: string, home: number, away: number): WpblGame => ({
+    id, game_date: date, status: 'final', game_type: 'postseason', counts_in_standings: false,
+    home_team_id: 'LA', away_team_id: 'SF', home_score: home, away_score: away,
+  } as WpblGame)
+  const games = [champ('c1', '2026-09-16', 7, 6), champ('c2', '2026-09-17', 2, 3), champ('c3', '2026-09-19', 4, 1)]
+
+  it('keeps the champion on the top row whoever won the game, and totals the series', () => {
+    render(<SeriesLineScore games={games} teams={TEAMS} championId="LA" onOpenGame={vi.fn()} />)
+    expect(screen.getByRole('heading', { name: 'Championship' })).toBeTruthy()
+    // G2 went to SF, and LA's score is still the top one.
+    expect(screen.getByLabelText(/^Game 2, .*: LA 2, SF 3$/)).toBeTruthy()
+    expect(screen.getByLabelText(/^Game 1, .*: LA 7, SF 6$/)).toBeTruthy()
+    expect(screen.getByText(/2, .* 1\.$/)).toBeTruthy()
   })
 })
