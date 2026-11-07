@@ -644,7 +644,10 @@ function probeLoading(selector) {
     // A shimmer laid over a picture that has not loaded is not the page loading: its box is the
     // picture's, already reserved, and a lazy image below the fold never loads in a page nobody
     // scrolls (the fan-photo rail on a player page sat there for good).
-    return !el.parentElement?.querySelector(':scope > img, :scope > picture')
+    if (el.parentElement?.querySelector(':scope > img, :scope > picture')) return false
+    // Nor is an infinite list's edge, which loads the next stretch only as the reader nears it
+    // (the MLB scores timeline). It marks itself so this does not have to guess.
+    return !el.closest('[data-load-edge]')
   }).map(el => {
     if (el.id) return `#${el.id}`
     // Named by the nearest thing a person would recognize: an aria-label on it or above it, else
