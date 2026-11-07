@@ -116,35 +116,49 @@ export function ClubRail({ teams, standings, championId, onOpenTeam }: {
   )
 }
 
-/** The date as a reader's calendar prints it: "Friday, November 6, 2026", or "Fri, Nov 6, 2026"
- *  where the long form does not fit. */
+/** The date as a reader's calendar prints it: "Friday, November 6, 2026", or "Fri, Nov 6" where
+ *  the long form does not fit (a phone, where the year is in the label beside it). */
 function dateText(d: Date, long: boolean): string {
   return d.toLocaleDateString('en-US', long
     ? { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }
-    : { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+    : { weekday: 'short', month: 'short', day: 'numeric' })
 }
+
+/** What the standings line under the dateline is: the table while it is still moving, and the
+ *  regular season's final one once the postseason starts. `long` carries the year, for the wide
+ *  dateline and for a reader in January looking at last year's table. */
+export interface RailLabel { short: string; long: string }
 
 /**
  * THE DATELINE (Nov 6, 2026, the thirteenth pass): the folio line a paper prints under its
- * nameplate, today's date and the edition, between the nameplate's heavy rule and the standings
- * line. Without it the league's name read as one more section heading over a row of cells; the
- * date is what makes a nameplate a front page, and on a site that is updated daily it is true.
+ * nameplate, between the nameplate's heavy rule and the standings line. Without it the league's
+ * name read as one more section heading over a row of cells.
  *
- * `phase` is the edition ("Offseason"); null holds the line's height while the schedule loads.
+ * LEFT IS THE DAY, RIGHT IS THE LINE UNDER IT (option B of three, Nov 6). The date and the phase
+ * ("Offseason") on the left; on the right the standings line's own label, which is what keeps
+ * "1 Firebells" from contradicting a lead that crowns the third-place club: once the regular
+ * season is over the line says it is the regular season. A third row for that label was clearer
+ * still, and the busiest masthead the page has had.
+ *
+ * `phase` and `label` null hold the line's height while the schedule loads.
  */
-export function Dateline({ phase, now = new Date() }: { phase: string | null; now?: Date }) {
+export function Dateline({ phase, label, now = new Date() }: { phase: string | null; label: RailLabel | null; now?: Date }) {
   const sx = { ...AGATE_SX, fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 } as const
+  const tail = phase ? ` · ${phase}` : ''
   return (
     <Box sx={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 2, py: 0.6,
       ...SECTION_RULE, borderBottom: '1px solid', borderBottomColor: 'divider',
     }}>
       <Typography noWrap sx={sx}>
-        <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{dateText(now, false)}</Box>
-        <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{dateText(now, true)}</Box>
+        <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{dateText(now, false)}{tail}</Box>
+        <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{dateText(now, true)}{tail}</Box>
       </Typography>
-      <Typography noWrap sx={{ ...sx, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-        {phase ?? EMPTY_LINE}
+      <Typography noWrap sx={{ ...sx, flexShrink: 0, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        {label
+          ? <><Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{label.short}</Box>
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>{label.long}</Box></>
+          : EMPTY_LINE}
       </Typography>
     </Box>
   )

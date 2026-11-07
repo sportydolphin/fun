@@ -208,6 +208,8 @@ Where the work is, for whoever picks it up.
   and prints games back from `sm`; the score strip's winner caret is gone; the lead photo has a
   caption (the curator's, else the club and the day) with the credit set right; a pitching line reads
   in box-score order everywhere (`pitchingStatline`: IP, ER, K, which also changes new recap posts).
+  The dateline's right side labels the standings line ("2026 regular season" once the postseason
+  starts, "Standings" before), so "1 Firebells" no longer reads against a lead that crowns the Queens.
   Still open: the curator's caption on the title photo is "Championship Group Photo", which reads as
   a file name (a data edit, not code), and the lead photo still sits on its placeholder for seconds
   (Home step 7).

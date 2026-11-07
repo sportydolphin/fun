@@ -355,6 +355,11 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
     : regularSeasonOver(seasonGames, localIsoDate()) ? 'Postseason'
     : seasonGames.some(g => g.status === 'final') ? 'Regular season'
     : 'Preseason'
+  // The standings line's label: the table while it moves, the regular season's once it is final.
+  const railLabel = phase == null ? null
+    : phase === 'Postseason' || phase === 'Offseason'
+      ? { short: 'Regular season', long: `${current ?? new Date().getFullYear()} regular season` }
+      : { short: 'Standings', long: 'Standings' }
 
   // The postseason as dated-but-undrawn rows, for the scoreboard strip. The same function the
   // Schedule tab reads, so the two cannot disagree about who plays whom or about which
@@ -475,7 +480,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           Women's Pro Baseball League
         </Typography>
         <Box sx={{ mt: MASTHEAD_RAIL_GAP }}>
-          <Dateline phase={phase} />
+          <Dateline phase={phase} label={railLabel} />
           <ClubRail teams={teams} standings={standingsRows} onOpenTeam={onOpenTeam} championId={championId} />
         </Box>
       </Box>

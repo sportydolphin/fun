@@ -119,7 +119,7 @@ export function WpblHomeSkeleton() {
               not the same height as the h1, which the chips beside it used to hide and the rail under
               it does not. */}
           <Typography sx={HOME_TITLE_SX}><Skeleton sx={{ width: { xs: '16rem', md: '22rem' }, maxWidth: '100%' }} /></Typography>
-        <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><Dateline phase={null} /><ClubRailSkeleton /></Box>
+        <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><Dateline phase={null} label={null} /><ClubRailSkeleton /></Box>
       </Box>
 
       {/* Scoreboard: its heading, then the chip strip. The chips are built from the same box
@@ -209,7 +209,7 @@ function OffseasonHomeSkeleton() {
               not the same height as the h1, which the chips beside it used to hide and the rail under
               it does not. */}
           <Typography sx={HOME_TITLE_SX}><Skeleton sx={{ width: { xs: '16rem', md: '22rem' }, maxWidth: '100%' }} /></Typography>
-        <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><Dateline phase="Offseason" /><ClubRailSkeleton /></Box>
+        <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><Dateline phase="Offseason" label={null} /><ClubRailSkeleton /></Box>
       </Box>
 
       {/* The lead: the champion's photo and its text column, in the loaded lead's own grid. Then the
