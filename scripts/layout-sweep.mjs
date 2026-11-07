@@ -640,8 +640,23 @@ const LOADING_SELECTOR = '#sd-boot-status, .MuiSkeleton-root, .MuiCircularProgre
 function probeLoading(selector) {
   return [...document.querySelectorAll(selector)].filter(el => {
     const r = el.getBoundingClientRect()
-    return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'
-  }).map(el => (el.id ? `#${el.id}` : el.getAttribute('aria-label') || el.className.toString().split(' ')[0] || el.tagName.toLowerCase()))
+    if (!(r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden')) return false
+    // A shimmer laid over a picture that has not loaded is not the page loading: its box is the
+    // picture's, already reserved, and a lazy image below the fold never loads in a page nobody
+    // scrolls (the fan-photo rail on a player page sat there for good).
+    return !el.parentElement?.querySelector(':scope > img, :scope > picture')
+  }).map(el => {
+    if (el.id) return `#${el.id}`
+    // Named by the nearest thing a person would recognize: an aria-label on it or above it, else
+    // the heading of the section it sits in, so a finding says WHICH skeleton is stuck.
+    const kind = el.matches('.MuiSkeleton-root') ? 'skeleton' : el.matches('.MuiCircularProgress-root') ? 'spinner' : 'aria-busy'
+    const labeled = el.closest('[aria-label]')?.getAttribute('aria-label')
+    let heading = null
+    for (let n = el; n && n !== document.body && !heading; n = n.parentElement) {
+      heading = n.querySelector('h1, h2, h3, [role="heading"]')?.textContent.trim().slice(0, 40) || null
+    }
+    return `${kind} in ${labeled ? `[${labeled}]` : heading ? `"${heading}"` : 'page'}`
+  })
 }
 
 /**
@@ -654,13 +669,12 @@ function probeLoading(selector) {
  * loading after the wait is a finding, not a pass.
  */
 async function waitForContent(page, ms = 10_000) {
-  const ok = await page.waitForFunction(s => {
-    return ![...document.querySelectorAll(s)].some(el => {
-      const r = el.getBoundingClientRect()
-      return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'
-    })
-  }, LOADING_SELECTOR, { timeout: ms, polling: 100 }).then(() => true, () => false)
-  return ok ? [] : page.evaluate(probeLoading, LOADING_SELECTOR)
+  const until = Date.now() + ms
+  for (;;) {
+    const left = await page.evaluate(probeLoading, LOADING_SELECTOR)
+    if (!left.length || Date.now() > until) return left
+    await page.waitForTimeout(150)
+  }
 }
 
 async function runCase(browser, route, width, text, { warm = false } = {}) {
