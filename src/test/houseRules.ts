@@ -24,13 +24,19 @@ const PROSE = /\.(md|yml|yaml|html|css|sql)$/
  *  that is history rather than something anyone edits: every migration up to the day this check
  *  arrived (CLAUDE.md: never edit an applied migration) and the legacy scripts/*.sql baseline. */
 function houseRuleFiles(): string[] {
-  return execSync('git ls-files', { encoding: 'utf8' }).split('\n').filter(f =>
-    (CODE.test(f) || PROSE.test(f))
+  return execSync('git ls-files', { encoding: 'utf8' }).split('\n').filter(isHouseRuleFile)
+}
+
+/** Whether a repo-relative path (forward slashes) is one the rules read. Shared with
+ *  scripts/house-rules.mjs, so the edit hook and the pre-commit hook skip exactly what the test
+ *  skips. */
+export function isHouseRuleFile(f: string): boolean {
+  return (CODE.test(f) || PROSE.test(f))
     && !/^(public|archive|node_modules)\//.test(f)
     && !/^scripts\/[^/]+\.sql$/.test(f)
     && !(/^scripts\/migrations\/\d+_.*\.sql$/.test(f) && f.slice('scripts/migrations/'.length) < '20261022')
     // This file and its test spell the banned words in order to ban them.
-    && !/(^|\/)houseRules(\.test)?\.ts$/.test(f))
+    && !/(^|\/)houseRules(\.test)?\.ts$/.test(f)
 }
 
 interface Fragment { line: number; text: string; kind: 'comment' | 'string' | 'part' | 'prose' }

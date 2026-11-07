@@ -152,6 +152,12 @@ before Oct 22, 2026 and the legacy `scripts/*.sql` are history and are left out.
 its word lists are in `src/test/houseRules.ts`; an English word wrongly caught by the `-ise`
 ending goes on its allow list there.
 
+The same scanner runs earlier on fewer files through `scripts/house-rules.mjs`: on each file Claude
+Code edits (a PostToolUse hook in `.claude/settings.json`, which hands the findings back in the same
+turn) and on the staged files at commit (`.githooks/pre-commit`). `.githooks/pre-push` adds the
+typecheck and `vitest related` on the branch's changed files. Every hook exits early under `CI`,
+since `npm ci` installs them there too and the scheduled jobs push.
+
 ## Dead code
 
 `npm run knip` lists unused files, exports and dependencies across `src/`, `functions/`,

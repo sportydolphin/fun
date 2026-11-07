@@ -145,97 +145,61 @@ first when you are working on what the line describes, even from somewhere else 
 
 ## What it is
 
-Two independent league sections sharing one shell (auth, search, notifications, theme,
-units):
+Two independent league sections in one shell (auth, search, notifications, theme, units), plus
+`/admin` (owner analytics). **Nothing else**: the bolted-on toys (`/cups`, `/stopwatch` and the
+rest) were deleted on Sep 10, 2026.
 
-- **WPBL** (`/wpbl`, the default): Women's Pro Baseball League. Scoreboard, schedule,
-  standings, stats, TrackMan, Game Center, auto recaps, push reminders.
-  Run value (the league's own run-expectancy table, built from our own plays).
-  Offseason surfaces: the season recap, Reading (two outside writers, linked out, see
-  `docs/READING.md`), Watch (every video, the league's Shorts tagged to the plays they show) and a
-  fan-photo gallery.
-  Mirrored from the league feed into Supabase by the `wpbl-ingest` edge function. The feed
-  went quiet on Sep 22, 2026 when the season ended, and returns in spring 2027.
-- **MLB** (`/mlb`): deeper and StatsAPI-driven. Game Center, personalized home feed, a
-  predictions game with a Wilson-ranked leaderboard and bot rivals, playoff odds, milestone
-  watch, streak report cards, Streak Survivor.
-
-Also `/admin` (owner analytics). **Nothing else.** The five bolted-on toys that used to live
-here (`/cups`, `/stopwatch`, `/weights`, `/poop`, `/testgame`, plus the `projects/` and
-`public/projects/` trees behind them) were deleted on Sep 10, 2026: the site is the two
-leagues, and a games drawer nobody visited was still costing routes, redirects, CSS,
-a password-lock dialog and a tile grid on the admin page.
+- **WPBL** (`/wpbl`, the default): Women's Pro Baseball League, mirrored from the league feed into
+  Supabase by the `wpbl-ingest` edge function. The feed went quiet on Sep 22, 2026 and returns in
+  spring 2027.
+- **MLB** (`/mlb`): StatsAPI-driven, with the predictions game, playoff odds and Streak Survivor.
 
 **Stack:** React 19 + TypeScript + Vite + MUI · Supabase (Postgres, Auth, Edge Functions,
-pg_cron) · GitHub Actions for cron · installable PWA · Cloudflare Pages at
-`sportydolphin.fun`.
+pg_cron) · GitHub Actions for cron · installable PWA · Cloudflare at `sportydolphin.fun`.
 
 ## Where to look
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) is the real map: routes, DB tables, the ingest, every cron
-  job, edge functions, integrations, config and secrets. **Keep it current** when you add a table,
-  workflow, or integration. It is large: find the section with Grep, then read that part.
-- [ROADMAP-PRIORITIES.md](ROADMAP-PRIORITIES.md) is the one order across every roadmap below;
-  start there when picking what to work on next.
-- [ROADMAP-WOMENS-BASEBALL.md](ROADMAP-WOMENS-BASEBALL.md) for the slow move to women's baseball beyond the WPBL
-  (the World Cup first).
-- [ROADMAP-WPBL.md](ROADMAP-WPBL.md) for anything under `/wpbl` (the clock and the priority list);
-  its dated shipped log is under [`docs/roadmap-log/`](docs/roadmap-log/), one file per month.
-  [ROADMAP.md](ROADMAP.md) is the MLB equivalent. [ROADMAP-UI.md](ROADMAP-UI.md) is the visual
-  overhaul (Apple Sports direction, designed in Figma first). [README.md](README.md) for scripts.
-- [docs/](docs/). Read the named one BEFORE touching what it guards: `CI.md` (`ci.yml`, test
-  config, lint rules, the layout sweep), `ADMIN_ANALYTICS.md` (the `events` table, `admin_*` RPCs;
-  its security section is what keeps analytics private), `WAR.md` (`derive/war.ts`,
-  `derive/fielding.ts`), `COMMONS_PHOTOS.md` (approving an archive photo), `WBSC_INGEST.md` (`scripts/import-wbsc.ts` and `src/intl/`, the World Cup import, and why its data stays out of git), `ANDROID.md`
-  (`manifest.webmanifest`, `sw.js`, `assetlinks.json`), `IOS.md`
-  (`public/.well-known/apple-app-site-association` and its `_headers` rule), `PLAY_VALIDATION.md`.
-  The rest are reference: `BACKUPS.md` (restoring the database), `DISCORD.md`, `PUSH_NOTIFICATIONS.md`, `READING.md`, `RECAPS.md`,
-  `FAN_PHOTOS.md`, `GOOGLE_TASKS.md` (paused), `BACKLINKS.md`.
-- The changelog is [`src/changelog.ts`](src/changelog.ts) (newest releases only; older ones are
-  archived under `src/changelog/`). Add new entries at its top.
+- [ARCHITECTURE.md](ARCHITECTURE.md) is the map: routes, tables, the ingest, every cron job, edge
+  functions, integrations, secrets. **Keep it current** when you add a table, workflow or
+  integration. It is large: Grep for the section, then read that part.
+- [ROADMAP-PRIORITIES.md](ROADMAP-PRIORITIES.md) orders every roadmap: start there when picking
+  work. The others are `ROADMAP-WPBL.md` (shipped log in `docs/roadmap-log/`), `ROADMAP.md` (MLB),
+  `ROADMAP-UI.md` (the redesign) and `ROADMAP-WOMENS-BASEBALL.md`.
+- [docs/](docs/): read the one that guards what you touch BEFORE touching it. `CI.md` (`ci.yml`,
+  test config, lint, the sweep), `ADMIN_ANALYTICS.md` (`events`, `admin_*` RPCs, its security
+  section), `WAR.md` (`derive/war.ts`, `derive/fielding.ts`), `COMMONS_PHOTOS.md`, `WBSC_INGEST.md`
+  (`scripts/import-wbsc.ts`, `src/intl/`), `ANDROID.md` (`manifest.webmanifest`, `sw.js`,
+  `assetlinks.json`), `IOS.md` (`apple-app-site-association` and its `_headers` rule, live with a
+  placeholder Team ID), `PLAY_VALIDATION.md`. The rest are reference.
+- The changelog is [`src/changelog.ts`](src/changelog.ts); new entries go at its top.
 
-  `public/.well-known/apple-app-site-association` or its `_headers` rule**, which is live
-  ahead of the app with a placeholder Team ID).
-
-Code: [`src/App.tsx`](src/App.tsx) is the shell, with hand-rolled path routing and no
-router lib. [`src/wpbl/`](src/wpbl/) is self-contained with no MLB coupling
-(`WpblApp.tsx` with its tabs and search in `app/`, `api.ts` with its reads in `api/`, `SwipeableViews.tsx` are its spine);
-[`src/mlb/`](src/mlb/) plus [`src/MlbStats.tsx`](src/MlbStats.tsx) is the other section;
-[`src/ui/`](src/ui/) holds the UI both sections share (the bottom bar, the tab pager,
-`ModalShell`, the tap helpers), which WPBL built and re-exports from its old paths: neither
-section imports the other, both import this;
-[`src/league/`](src/league/) holds the league-neutral engines (single-game bests, the finder,
-the pitch-code boards, run expectancy) on neutral line and play types, each fed a `League` from
-the section's own `league.ts` for anything that differs (innings, pitch letters, how a play's runs
-are counted); WPBL's `derive/` files of the same names bind it and keep their old exports;
-[`src/lib/`](src/lib/) holds the shared client libs;
-[`shared/notifications.js`](shared/notifications.js) is one catalog serving both the
-in-site bell and the push senders.
+**Code:** [`src/App.tsx`](src/App.tsx) is the shell (hand-rolled path routing, no router lib).
+[`src/wpbl/`](src/wpbl/) and [`src/mlb/`](src/mlb/) never import each other; both import
+[`src/ui/`](src/ui/) (shared UI), [`src/league/`](src/league/) (league-neutral engines, each fed a
+`League` from the section's `league.ts`) and [`src/lib/`](src/lib/).
+[`shared/notifications.js`](shared/notifications.js) is one catalog for the bell and push.
 
 ## Environment
 
-- **Windows.** PowerShell 5.1 is the primary shell; a Bash tool is also available. Mind the
-  syntax differences.
-- **Dev:** `npm install && npm run dev` → http://localhost:5173, redirects to `/wpbl`.
-  Needs `.env` with `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_VAPID_PUBLIC_KEY`
-  for push. Without them the app renders empty states.
-- **Symbols:** the `serena` MCP ([`.mcp.json`](.mcp.json), TypeScript's language server) answers
-  "who calls X" and "what is in this file" with symbols, not whole files: prefer
-  `find_referencing_symbols`, `find_symbol` and `get_symbols_overview` to reading files to find a use.
-  Its first call after startup waits about 90s while TypeScript indexes the project. It runs on
-  `uvx --python 3.11` with `UV_PYTHON_DOWNLOADS=never`, because uv 0.13.1 fails its own Python link
-  check on this machine.
-- **Tests:** `npm run test` (Vitest, about 22s), in `src/__tests__/` and `src/**/__tests__`.
-  `.tsx` tests run in jsdom and `.ts` tests in plain Node: a `.ts` test that touches `window`
-  starts with `// @vitest-environment jsdom`. Never sleep for a history move; use `traverse()`
-  from `src/test/history.ts`. Both, and the flake hunt, are in [docs/CI.md](docs/CI.md).
-- **CI:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs `npm run typecheck`, `npm run lint`,
-  the tests and the build on every push and pull request. `npm run lint -- --fix` removes unused
-  imports; an unused variable is an error left for a person. The tests run against placeholder
-  Supabase settings (`test.env` in `vite.config.js`), never the real project, so no test may need
-  `.env`. Its `check` and `layout` checks are required on every pull request into `main`.
-  Lint must print nothing: `react-hooks/exhaustive-deps` is an error, and a dependency left out
-  on purpose carries a disable comment with the reason above it.
-- **Cron:** `scripts/*.mjs` are Node jobs on GitHub Actions schedules (table in
-  ARCHITECTURE §5), using the service-role key from repo secrets.
+- **Windows.** PowerShell 5.1 is the primary shell; a Bash tool is also available.
+- **Dev:** `npm install && npm run dev` → http://localhost:5173. Needs `.env` with
+  `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` and `VITE_VAPID_PUBLIC_KEY`; without them the app
+  renders empty states.
+- **Symbols:** the `serena` MCP ([`.mcp.json`](.mcp.json)) answers "who calls X" and "what is in
+  this file": prefer `find_referencing_symbols`, `find_symbol` and `get_symbols_overview` to reading
+  files. Its first call waits about 90s while TypeScript indexes. It runs on `uvx --python 3.11`
+  with `UV_PYTHON_DOWNLOADS=never`, because uv 0.13.1 fails its own Python link check here.
+- **Tests:** `npm run test` (Vitest, about 22s). `.tsx` tests run in jsdom, `.ts` in plain Node (a
+  `.ts` test touching `window` starts with `// @vitest-environment jsdom`). Never sleep for a
+  history move; use `traverse()` from `src/test/history.ts`. More in [docs/CI.md](docs/CI.md).
+- **CI:** [`ci.yml`](.github/workflows/ci.yml) runs typecheck, lint, tests and build; `check` and
+  `layout` are required on every pull request. Tests use placeholder Supabase settings, so no test
+  may need `.env`. Lint must print nothing: `react-hooks/exhaustive-deps` is an error, and a
+  dependency left out on purpose carries a disable comment with the reason.
+- **Local gates** ([`.githooks/`](.githooks/), installed by `npm install`): the house rules run on
+  every Edit/Write (a Claude Code hook) and on staged files at commit; `pre-push` runs the typecheck
+  and `vitest related`. All skip under `CI`; `SKIP_PREPUSH=1` skips the push one.
+- **Scripts:** a TypeScript script runs through `node scripts/run-ts.mjs [--env] scripts/x.ts`
+  (bundle, then run); add a `package.json` entry in that form. `scripts/*.mjs` are the cron jobs
+  (ARCHITECTURE §5), on the service-role key from repo secrets.
 - **Edge functions** deploy by hand: `supabase functions deploy <name>`.
