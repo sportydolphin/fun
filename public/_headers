@@ -30,6 +30,13 @@
 /portraits/*
   Cache-Control: public, max-age=604800
 
+# The open-data download (scripts/vite-plugin-wpbl-data.mjs). Stable paths whose bytes change
+# only when the weekly archive commits a correction, so an hour then a revalidation. Readable
+# from any origin, since a notebook or someone else's page fetching it is the point.
+/data/*
+  Cache-Control: public, max-age=3600
+  Access-Control-Allow-Origin: *
+
 # The app shell must not be cached: it is what points at the current hashed asset names,
 # so a stale copy pins a returning visitor to a previous deploy's chunks.
 /

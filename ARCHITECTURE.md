@@ -844,7 +844,12 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 ## 10. Deploy & hosting
 
 - **Frontend:** `vite build` → **Cloudflare Pages** (`sportydolphin.fun`), deployed on push
-  to `main`.
+  to `main`. Bundle budgets in CI: `.size-limit.js`, [docs/CI.md](docs/CI.md#bundle-budgets).
+- **Open data:** the build publishes the WPBL archive (`archive/wpbl/` and every
+  `archive/wpbl-<year>/`, never `archive/wbsc/`) at `/data/wpbl/`, with an `index.json` listing
+  every file, via [`scripts/vite-plugin-wpbl-data.mjs`](scripts/vite-plugin-wpbl-data.mjs).
+  Readable from any origin (`_headers`). The site itself never reads these files, so a file that
+  lags a correction is only a stale download; the weekly `wpbl-archive` commit refreshes them.
 - **Brand icons:** every icon the site publishes (tab, home screen, install tile,
   notification, social card) is generated from the one logo master, `public/logo.png`, by
   [`scripts/make-brand-icons.py`](scripts/make-brand-icons.py). That script is a manual

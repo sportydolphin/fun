@@ -11,6 +11,12 @@ The public record of the Women's Pro Baseball League, one directory per season:
 Each is one JSON file per table, plain arrays of rows, keys sorted, plus a `manifest.json` with
 row counts and a digest of each file.
 
+The same files are published on the site, readable from any origin: start at
+`https://sportydolphin.fun/data/wpbl/index.json`, which lists each season's tables
+(`/data/wpbl/<year>/<table>.json`) and the league's (`/data/wpbl/league/<table>.json`) with row
+counts and sizes. Plays are the feed's rows as published; our fixes to them are a table of their
+own, `wpbl_play_corrections`, applied on the site and left for a reader to apply or ignore.
+
 Written by [`scripts/export-wpbl-archive.ts`](../scripts/export-wpbl-archive.ts) and refreshed
 weekly by the `wpbl-archive` workflow, which commits only when the data actually moved.
 

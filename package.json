@@ -59,7 +59,8 @@
     "visual": "node scripts/run-ts.mjs --env scripts/make-visual.ts",
     "sweep": "node scripts/layout-sweep.mjs",
     "sweep:record": "node scripts/layout-sweep.mjs --record --shift",
-    "shot": "node scripts/shot.mjs"
+    "shot": "node scripts/shot.mjs",
+    "size": "size-limit"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -84,6 +85,7 @@
     "@emnapi/runtime": "^1.11.3",
     "@eslint/js": "^10.0.1",
     "@resvg/resvg-js": "^2.6.2",
+    "@size-limit/file": "^14.2.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.8",
@@ -103,6 +105,7 @@
     "jsdom": "^29.1.1",
     "knip": "^6.41.0",
     "playwright-core": "^1.64.0",
+    "size-limit": "^14.2.0",
     "subset-font": "^2.9.0",
     "typescript": "^6.0.3",
     "typescript-7": "npm:typescript@^7.0.2",

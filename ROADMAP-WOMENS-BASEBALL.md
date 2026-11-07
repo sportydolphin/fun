@@ -50,7 +50,9 @@ machine, and the hand work (`crosswalk.json`, `same-person.json`) is backed up t
 OneDrive (`sportydolphin-wbsc-backup`, the Nov 3 copies are the current ones). Stage 1 is built as
 the owner's preview: the World Cup rows on WPBL player pages (125 rows over 52 players, 2012 on),
 readable by the owner alone, and the person registry (885 people). Stage 2's pages are built in dev
-(see stage 2 for what is left). Release is on implied permission since Nov 2 (stage 0, below); the public switch is next.
+(see stage 2 for what is left). Release is on implied permission since Nov 2 (stage 0, below), and
+waits for the redesign (decided Nov 7, 2026): the World Cup goes public once the redesign is on
+`main`, so its pages launch in the new look rather than being restyled in public.
 
 **Waiting on:** replies to the owner's outreach (WBSC for permission; Baseball Prospectus and
 RetroWPBL as neighbors, see [Neighbors](#neighbors)). Record each reply here, with its date.
@@ -93,7 +95,7 @@ In order. Each step says what done looks like; the commands are in
    WPBL player, each event's batting and pitching totals and the games behind them, from the
    confirmed crosswalk. After every `--confirm`: `--international`, `--upload` (the owner's
    preview), `--same` and `--people`. All of it stays gitignored like the rest.
-6. **The public switch** (implied permission, Nov 2): take `archive/wbsc/` out of `.gitignore` (the cache stays
+6. **The public switch** (implied permission, Nov 2; after the redesign lands on `main`, Nov 7): take `archive/wbsc/` out of `.gitignore` (the cache stays
    ignored), add a size budget for it in CI, commit the data, and publish stage 1 below: the World
    Cup rows read a public file instead of `wbsc_world_cup_lines`, that table is dropped, and the
    `useIsAdmin` check in [`player/WorldCup.tsx`](src/wpbl/player/WorldCup.tsx) goes. On a "no":
@@ -283,7 +285,8 @@ it, so it is designed for the developmental league and the AAGPBL as much as for
   by play followed too (step 12), then a page for every player outside the WPBL, all drawn with
   WPBL's own pieces (step 13). On Nov 3 a visual audit led to the navigation, edition, game and
   player page work in the table above (sportydolphin/fun#189 to #192).
-  **What is left, in order** (Nov 3, 2026):
+  **What is left, in order** (Nov 3, 2026; since Nov 7 all of it but item 3 waits for the
+  redesign to land on `main`):
   1. Loading states and the layout sweep: every World Cup page drawn empty while it loads, and
      `npm run sweep -- --shift` and `--ellipsis` clean on these routes. Held until the look is settled.
   2. Polish from the audit: Chinese Taipei's gray "TPE" badge, WPBL players' portraits in the

@@ -53,6 +53,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Bundle budgets on the build above (.size-limit.js). Nothing else here notices a big import
+      # landing in every phone's first load.
+      - name: Bundle size
+        run: npm run size
+
       # THE CODE THE APP BUILD NEVER SEES. Everything below deploys or runs somewhere other than the
       # site, and each one used to fail only there: a Pages Function at Cloudflare's upload (which
       # leaves the old deploy serving), a cron script at its next scheduled run, an edge function at
