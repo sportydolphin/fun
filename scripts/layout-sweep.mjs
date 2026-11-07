@@ -634,6 +634,52 @@ const settle = async (page, ms) => {
   await page.waitForTimeout(ms)
 }
 
+// WHAT STILL SAYS "LOADING", visible on the page: index.html's boot line (the app has not mounted),
+// an MUI skeleton or spinner, or a box marked aria-busy (a card's own loading branch).
+const LOADING_SELECTOR = '#sd-boot-status, .MuiSkeleton-root, .MuiCircularProgress-root, [aria-busy="true"]'
+function probeLoading(selector) {
+  return [...document.querySelectorAll(selector)].filter(el => {
+    const r = el.getBoundingClientRect()
+    if (!(r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden')) return false
+    // A shimmer laid over a picture that has not loaded is not the page loading: its box is the
+    // picture's, already reserved, and a lazy image below the fold never loads in a page nobody
+    // scrolls (the fan-photo rail on a player page sat there for good).
+    if (el.parentElement?.querySelector(':scope > img, :scope > picture')) return false
+    // Nor is an infinite list's edge, which loads the next stretch only as the reader nears it
+    // (the MLB scores timeline). It marks itself so this does not have to guess.
+    return !el.closest('[data-load-edge]')
+  }).map(el => {
+    if (el.id) return `#${el.id}`
+    // Named by the nearest thing a person would recognize: an aria-label on it or above it, else
+    // the heading of the section it sits in, so a finding says WHICH skeleton is stuck.
+    const kind = el.matches('.MuiSkeleton-root') ? 'skeleton' : el.matches('.MuiCircularProgress-root') ? 'spinner' : 'aria-busy'
+    const labeled = el.closest('[aria-label]')?.getAttribute('aria-label')
+    let heading = null
+    for (let n = el; n && n !== document.body && !heading; n = n.parentElement) {
+      heading = n.querySelector('h1, h2, h3, [role="heading"]')?.textContent.trim().slice(0, 40) || null
+    }
+    return `${kind} in ${labeled ? `[${labeled}]` : heading ? `"${heading}"` : 'page'}`
+  })
+}
+
+/**
+ * Waits until nothing on the page says it is loading, and returns what still does if it never
+ * stops. NETWORK IDLE IS NOT "LOADED". Under four parallel pages Vite serves a lazy chunk or a
+ * page's second read late, and the probe ran on whatever was there: on Nov 6, 2026 about half of
+ * one slice's team-page cases measured a page with no heading yet, or its spec box still loading,
+ * and passed. That hid "HUNTERS" spilling its fill for as long as the readout lost the race, and
+ * a sweep that quietly checks less is the failure this file exists to remove. So a page still
+ * loading after the wait is a finding, not a pass.
+ */
+async function waitForContent(page, ms = 10_000) {
+  const until = Date.now() + ms
+  for (;;) {
+    const left = await page.evaluate(probeLoading, LOADING_SELECTOR)
+    if (!left.length || Date.now() > until) return left
+    await page.waitForTimeout(150)
+  }
+}
+
 async function runCase(browser, route, width, text, { warm = false } = {}) {
   const ctx = await browser.newContext({
     viewport: { width, height: HEIGHT[width] ?? 900 },
@@ -698,10 +744,12 @@ async function runCase(browser, route, width, text, { warm = false } = {}) {
     }
     await page.goto(`${BASE}${route}`, { waitUntil: 'domcontentloaded' })
     await settle(page, 600)
+    const stillLoading = await waitForContent(page)
     await recordImages(page)
     const o = await page.evaluate(probeOverflow, ELLIPSIS)
     result.pageOverflow = o.pageOverflow
     result.issues = o.issues
+    if (stillLoading.length) result.issues.push({ kind: 'loading', px: 0, text: [...new Set(stillLoading)].join(', '), where: 'still loading after 10s' })
     // Both themes, on the same load: the theme follows the device until a reader picks one, so
     // flipping the emulated scheme re-renders the page in the other one without a second visit.
     // ON THE DEFAULT TEXT SIZE ONLY. A color, a contrast ratio or a control's name is the same at
@@ -940,7 +988,7 @@ async function main() {
       const k = `${i.kind}|${i.text}`
       if (seen.has(k)) continue
       seen.add(k)
-      const measure = i.kind === 'border' ? `${i.px.toFixed(2)}:1` : i.kind === 'a11y' ? '' : `${String(i.px).padStart(4)}px`
+      const measure = i.kind === 'border' ? `${i.px.toFixed(2)}:1` : i.kind === 'a11y' || i.kind === 'loading' ? '' : `${String(i.px).padStart(4)}px`
       lines.push([`${caseKey}|${k}`, `  ${i.kind.padEnd(9)} ${measure}  "${i.text}"  (${i.where})`])
     }
     if (r.shifts.length) {
