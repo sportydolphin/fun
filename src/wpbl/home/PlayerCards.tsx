@@ -28,6 +28,7 @@ import { birthDateSettled } from '../derive/discordBirthdays'
 import { awardManagerWinner, awardWinner, localIsoDate, playerOfTheDay, spotlightStories, signSeason, nextSignSeason, signGlyph, type SignBirthday } from '../derive/homePlayers'
 import { useWpblSeason } from '../SeasonContext'
 import { usePhoneLayout } from '../../ui/ModalShell'
+import { localeDate } from '../../lib/dateFormat'
 
 // The offseason Home's player cards. See derive/homePlayers.ts for why these and how each picks; this file only draws them. Every player in them is a real <a href> to the player page
 // (useWpblPlayerLink), which is both the point of the cards and what lets a crawler follow them.
@@ -85,7 +86,7 @@ const LABEL_SX = {
 
 /** "Thu, Oct 16" for a 'YYYY-MM-DD'. Noon, so no zone can move it onto another day. */
 function shortDate(iso: string, withYear = false): string {
-  return new Date(`${iso}T12:00:00`).toLocaleDateString('en-US', withYear
+  return localeDate(new Date(`${iso}T12:00:00`), 'en-US', withYear
     ? { month: 'short', day: 'numeric', year: 'numeric' }
     : { weekday: 'short', month: 'short', day: 'numeric' })
 }
@@ -753,7 +754,7 @@ const DATE_TILE = 36
 function DateTile({ b, isDark }: { b: SignBirthday | null; isDark: boolean }) {
   const today = b?.offset === 0
   const field = today ? wpblField(b.player.team_id, isDark) : null
-  const month = b?.date ? new Date(`${b.date}T12:00:00`).toLocaleDateString('en-US', { month: 'short' }) : ''
+  const month = b?.date ? localeDate(new Date(`${b.date}T12:00:00`), 'en-US', { month: 'short' }) : ''
   const day = b?.date ? String(Number(b.date.slice(8, 10))) : b ? '—' : ''
   const ink = field ? field.ink : b && b.offset != null && b.offset < 0 ? 'text.secondary' : 'text.primary'
   return (
@@ -864,5 +865,5 @@ export function StarSignCard({ players, teams, games, onOpenPlayer }: {
 
 /** 'MM-DD' as "Sep 23". */
 function shortMonthDay(md: string): string {
-  return new Date(`2026-${md}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return localeDate(new Date(`2026-${md}T12:00:00`), 'en-US', { month: 'short', day: 'numeric' })
 }

@@ -34,7 +34,11 @@ if (rootEl) {
       )
     })
   } else {
-    const boot = () => root.render(
+    // Dev only: the dev menu installs the WPBL read overlay when its module runs, and that has to
+    // happen before the section's first read. App.tsx imports it lazily (see the note there), so it
+    // is loaded here and the first render waits for it. The build drops the branch.
+    const devReady: Promise<unknown> = import.meta.env.DEV ? import('./dev/DevSettings') : Promise.resolve()
+    const render = () => root.render(
       <AppThemeProvider>
         <CssBaseline />
         <AppErrorBoundary>
@@ -42,6 +46,7 @@ if (rootEl) {
         </AppErrorBoundary>
       </AppThemeProvider>
     )
+    const boot = import.meta.env.DEV ? () => { void devReady.then(render, render) } : render
     // ONE FRAME FIRST, so index.html's toolbar shell is on screen before React's first render
     // takes the main thread. That render is a long uninterrupted task on a phone, and started at
     // once it ran through the frame the shell was due in: production's first paint landed at 2.4s,

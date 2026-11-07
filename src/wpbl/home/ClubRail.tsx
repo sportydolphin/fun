@@ -4,6 +4,7 @@ import { TeamMark, TYPE_SCALE, FOCUS_RING, hoverOnly, chromePx } from '../ui'
 import { AGATE_SX, SECTION_RULE } from '../../ui/card'
 import { useWpblTeamLink } from '../LinkContext'
 import { UNSTYLED_LINK } from '../../nav'
+import { localeDate } from '../../lib/dateFormat'
 
 // The four clubs under Home's title, as the standings line a sports section runs under its
 // nameplate (Nov 4, 2026, owner's pick from a trial against the blocks, a strip under a club-color
@@ -119,7 +120,7 @@ export function ClubRail({ teams, standings, championId, onOpenTeam }: {
 /** The date as a reader's calendar prints it: "Friday, November 6, 2026", or "Fri, Nov 6, 2026"
  *  where the long form does not fit. */
 function dateText(d: Date, long: boolean): string {
-  return d.toLocaleDateString('en-US', long
+  return localeDate(d, 'en-US', long
     ? { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }
     : { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
 }

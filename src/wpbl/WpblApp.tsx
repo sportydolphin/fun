@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react'
 import { Box, useMediaQuery } from '@mui/material'
 import { useTheme as useMuiTheme } from '@mui/material/styles'
 import {
@@ -21,7 +21,8 @@ import WpblHome, { homeLandingReadsLines } from './home/WpblHome'
 import { WpblHomeSkeleton } from './home/Skeletons'
 import FanAwardsSheet from './FanAwardsSheet'
 import { awardsResultsShowOnHome } from './awards'
-import WpblStatsView, { warmStatsReads, type WpblStatsFocus } from './stats/StatsView'
+import { warmStatsReads } from './stats/warmReads'
+import type { WpblStatsFocus } from './stats/StatsView'
 import { StatsSkeleton } from './stats/Skeleton'
 import SwipeableViews from './SwipeableViews'
 import WpblBottomNav, { BOTTOM_NAV_SPACE, MORE_KEY } from './BottomNav'
@@ -41,12 +42,9 @@ import { PanelActiveContext, useSectionActive, useSectionSearch } from '../lib/p
 import { WpblHeadingOwnerProvider } from './PageHeading'
 import { AppErrorBoundary } from '../AppErrorBoundary'
 import { ModalChunkFallback, DetailPageSkeleton, TabSkeleton } from './app/Placeholders'
-import { ScheduleView } from './app/ScoresTab'
-import { StandingsView } from './app/StandingsTab'
-import { TeamsView } from './app/TeamsTab'
 import type { WpblSnap } from './app/snapshot'
 import { normalizeView, viewFromLocation, snapFromLocation, wpblUrlFor } from './app/snapshot'
-import { useWpblSearch } from './app/useWpblSearch'
+import { WpblSearch, type OpeningSeason } from './app/useWpblSearch'
 import { usePageSeo } from './app/usePageSeo'
 
 // The two detail modals, split out of the section's chunk.
@@ -70,13 +68,58 @@ function usePreloadGameDetail() {
   useEffect(() => {
     // The player card too: it is reached from every leaderboard, roster and box score, and cold its
     // chunk cost the first open a fetch, a Suspense tick and a parse before the sheet could move.
-    const warm = () => { void import('./gameDetail/GameDetailModal'); void import('./PlayerDetail') }
+    // And the four tabs beside Home (TAB_LOADERS), for the same reason: a tap should find them here.
+    const warm = () => {
+      void import('./gameDetail/GameDetailModal'); void import('./PlayerDetail')
+      for (const view of Object.keys(TAB_LOADERS)) preloadTab(view)
+    }
     const hasRIC = typeof window.requestIdleCallback === 'function'
     const id = hasRIC ? window.requestIdleCallback(warm, { timeout: 2000 }) : window.setTimeout(warm, 800)
     return () => { if (hasRIC) window.cancelIdleCallback(id as number); else window.clearTimeout(id as number) }
   }, [])
 }
 const PlayerDetailModal = lazy(() => import('./PlayerDetail'))
+
+// THE FOUR TABS BESIDE HOME ARE CHUNKS OF THEIR OWN. Imported statically they were about half of
+// this chunk (Stats, the club page, Schedule, Standings: ~40 KB gzipped), all of it downloaded and
+// parsed before Home could draw, for tabs most readers open later or never (Nov 6, 2026). Each
+// is fetched at once when the address opens on it, and the rest while the section is idle
+// (usePreloadGameDetail), so a tap or a swipe finds its tab already loaded; a tab that is not
+// draws its own loading skeleton, the same one the section shows while its data loads.
+//
+// NOT A PLAIN React.lazy. A lazy component suspends on its first render however long ago its
+// chunk arrived, because it only starts resolving when first rendered, so a tab warmed at idle
+// still drew its skeleton for a frame on the first tap. `lazyTab` remembers the module once its
+// import lands and renders it directly from then on; an instance that started on the lazy path
+// stays on it, since switching component types under it would remount the tab.
+function lazyTab<P extends object>(load: () => Promise<{ default: ComponentType<P> }>) {
+  let loaded: ComponentType<P> | null = null
+  const preload = () => load().then(m => { loaded = m.default; return m })
+  const Lazy = lazy(preload)
+  function Tab(props: P) {
+    const [Direct] = useState(() => loaded)
+    return Direct ? <Direct {...props} /> : <Lazy {...props} />
+  }
+  return { Tab, preload }
+}
+const SCHEDULE = lazyTab(() => import('./app/ScoresTab').then(m => ({ default: m.ScheduleView })))
+const STANDINGS = lazyTab(() => import('./app/StandingsTab').then(m => ({ default: m.StandingsView })))
+const STATS = lazyTab(() => import('./stats/StatsView'))
+const TEAMS = lazyTab(() => import('./app/TeamsTab').then(m => ({ default: m.TeamsView })))
+const TAB_LOADERS = { schedule: SCHEDULE.preload, standings: STANDINGS.preload, stats: STATS.preload, teams: TEAMS.preload } as const
+const ScheduleView = SCHEDULE.Tab
+const StandingsView = STANDINGS.Tab
+const WpblStatsView = STATS.Tab
+const TeamsView = TEAMS.Tab
+function preloadTab(view: string | null | undefined): void {
+  const load = view ? TAB_LOADERS[view as keyof typeof TAB_LOADERS] : undefined
+  if (load) load().catch(() => { /* the lazy import reports it when the tab is shown */ })
+}
+// The tab this address opens on, the moment this chunk runs rather than when the pager first asks.
+if (typeof window !== 'undefined') {
+  const v = viewFromLocation()
+  if (v != null) preloadTab(normalizeView(v).view)
+}
 
 // WPBL section root. Reads the official-feed mirror from Supabase (games, box scores,
 // play-by-play, live state) and renders it; everything shows a friendly empty state until
@@ -723,7 +766,8 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     active, detailPlayer, detailGame, players, games, teams, view, awardsOpen, pickedSeason, selectedTeam,
   })
 
-  const { openingSeason } = useWpblSearch({ searchActive, players, teams, games, openPlayer, selectTeam })
+  // The search itself is <WpblSearch> in the tree below, so a keystroke re-renders it alone.
+  const [openingSeason, setOpeningSeason] = useState<OpeningSeason>(null)
 
   // Stamp the entry App created for /wpbl with the initial snapshot the first time we land,
   // so the first Back leaves the section and a refresh restores the view. On a Back/remount
@@ -843,6 +887,8 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     // club's list would mint a bare slug for a name someone on another club also holds. See
     // LinkContext.tsx.
     <WpblLinkProvider roster={players} schedule={games} teams={teams}>
+    <WpblSearch searchActive={searchActive} players={players} teams={teams} games={games}
+      openPlayer={openPlayer} selectTeam={selectTeam} setOpeningSeason={setOpeningSeason} />
     <WpblSeasonProvider picked={pickedSeason} onPick={pickSeason} schedule={games}>
     {/* While a player or game modal is open it IS the page, so the tab underneath stops
         rendering an <h1> and the modal supplies it. See PageHeading.tsx. */}
@@ -946,7 +992,10 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
             panels={NAV.map(n => {
               // EACH TAB HOLDS ITS OWN ERRORS. The pager keeps every visited tab mounted, so without
               // this a crash in one board took the bottom nav and the other four tabs down with it.
-              const content = <AppErrorBoundary inline where="tab">{(() => {
+              // The tabs beside Home are lazy (TAB_LOADERS): each waits on its chunk behind the skeleton
+              // the section draws for it while loading, so the wait looks like the page arriving.
+              const tabFallback = n.key === 'home' ? null : n.key === 'stats' ? <StatsSkeleton newBoards={newBoards} /> : <TabSkeleton view={n.key} />
+              const content = <AppErrorBoundary inline where="tab"><Suspense fallback={tabFallback}>{(() => {
                 switch (n.key) {
                   case 'home':      return <WpblHome teams={teams} games={games} siteGames={siteGames} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromHome} onViewStats={openStats} onViewTracking={openTracking} awardsOpen={awardsOpen} onOpenAwards={openAwards} onCloseAwards={closeAwards} />
                   case 'schedule':  return <ScheduleView teams={teams} games={games} siteGames={siteGames} onOpenGame={openGame} onOpenTeam={selectTeamFromSchedule} onOpenPlayer={openPlayer} active={view === 'schedule'} />
@@ -954,7 +1003,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
                   case 'stats':     return <WpblStatsView teams={teams} games={games} focus={statsFocus} active={view === 'stats'} newBoards={newBoards} onBoardSeen={markBoardSeen} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromStats} onOpenGame={openGame} />
                   case 'teams':     return <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeamFromTeams} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenStats={openStats} />
                 }
-              })()}</AppErrorBoundary>
+              })()}</Suspense></AppErrorBoundary>
               // On mobile the footer lives at the bottom of each tab pane rather than as one shared element
               // below the swipe area, so it slides with its page. Swiping lands on the new tab's top (its
               // footer off-screen) and a partial swipe that springs back moves nothing; no shared footer
