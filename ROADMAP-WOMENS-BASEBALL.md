@@ -50,7 +50,7 @@ machine, and the hand work (`crosswalk.json`, `same-person.json`) is backed up t
 OneDrive (`sportydolphin-wbsc-backup`, the Nov 3 copies are the current ones). Stage 1 is built as
 the owner's preview: the World Cup rows on WPBL player pages (125 rows over 52 players, 2012 on),
 readable by the owner alone, and the person registry (885 people). Stage 2's pages are built in dev
-(see stage 2 for what is left). Releasing anything is the owner's call, after WBSC's yes.
+(see stage 2 for what is left). Release is on implied permission since Nov 2 (stage 0, below); the public switch is next.
 
 **Waiting on:** replies to the owner's outreach (WBSC for permission; Baseball Prospectus and
 RetroWPBL as neighbors, see [Neighbors](#neighbors)). Record each reply here, with its date.
@@ -93,7 +93,7 @@ In order. Each step says what done looks like; the commands are in
    WPBL player, each event's batting and pitching totals and the games behind them, from the
    confirmed crosswalk. After every `--confirm`: `--international`, `--upload` (the owner's
    preview), `--same` and `--people`. All of it stays gitignored like the rest.
-6. **On permission** (and only then): take `archive/wbsc/` out of `.gitignore` (the cache stays
+6. **The public switch** (implied permission, Nov 2): take `archive/wbsc/` out of `.gitignore` (the cache stays
    ignored), add a size budget for it in CI, commit the data, and publish stage 1 below: the World
    Cup rows read a public file instead of `wbsc_world_cup_lines`, that table is dropped, and the
    `useIsAdmin` check in [`player/WorldCup.tsx`](src/wpbl/player/WorldCup.tsx) goes. On a "no":
@@ -217,11 +217,11 @@ has answered; only publishing waits. Stage 3 does not depend on WBSC at all.
 | When | Stage | Done when |
 |---|---|---|
 | **Nov 2026** | **0. Permission and a complete local dataset** | WBSC has answered or the fallback below is in motion; the crosswalk is reviewed; every World Cup since 2016 imports and validates; `international.json` is built and tested |
-| **Dec 2026–Jan 2027** | **1. One person, every competition** | The person registry exists and the matched WPBL players' pages show every World Cup they played (locally, or live on a yes) |
+| **Dec 2026–Jan 2027** | **1. One person, every competition** | The person registry exists and the matched WPBL players' pages show every World Cup they played (live on implied permission) |
 | **Jan–Mar 2027** | **2. The World Cup as a competition of its own** | Every World Cup since 2016 has an event page, every name on them is a link, all in the sitemap |
 | **Feb to Mar 15, 2027** | **3. The site becomes women's baseball** | A new reader lands on a women's baseball site with MLB one click away in the league list; an MLB reader still reaches it in one tap |
 | **Apr 2027** | **The read** | `events` on stages 1 to 3, written here; it sizes stage 5 |
-| **May to Jul 25, 2027** | **4. The 2027 Finals** (Rockford, Jul 19–25), on a yes | `/world-cup/2027` exists with schedule and rosters by Jul 1; every Finals game is on the site within an hour of the last out, then frozen |
+| **May to Jul 25, 2027** | **4. The 2027 Finals** (Rockford, Jul 19–25) | `/world-cup/2027` exists with schedule and rosters by Jul 1; every Finals game is on the site within an hour of the last out, then frozen |
 | **Late 2027 on** | **5. Beyond the World Cup** | Each item is its own decision |
 
 Rough effort, for one person: stage 0's code is a weekend (the rest is the owner's review and
@@ -235,10 +235,13 @@ The steps are under [Pick up here](#pick-up-here-stage-0). Two additions:
 - **Chase the permission.** No reply is recorded from the October email. Send a second one by
   Nov 10 to a different WBSC contact (communications and the women's baseball commission), with
   screenshots of what the World Cup rows on a player page would show.
-- **Silence is not a yes.** With no reply by Dec 1, keep building stages 1 and 2 behind the gate
-  and widen the ask: a national federation with players in the WPBL (USA, Australia, Canada) is
-  the likeliest introduction. Stage 3 goes ahead regardless. A "no" ends the WBSC data and leaves
-  the registry, the shell and the design to serve the next source.
+- **Implied permission, decided Nov 2, 2026.** WBSC's reply is no longer the gate: the World Cup
+  publishes on the footing the WPBL feed is on, unless WBSC objects. The second email becomes a
+  notice offering removal, not a request. Safeguards: our own play text, never WBSC's scorer
+  sentences; every game credited and linked to wbsc.org; no WBSC video, photos or marks; a Sources
+  entry with a takedown contact. A "no" still ends the WBSC data (delete `.wbsc-cache/`,
+  `archive/wbsc/` and the table) and leaves the registry, the shell and the design to serve the
+  next source.
 
 ### Stage 1. One person, every competition (December to January)
 
@@ -335,7 +338,7 @@ the season comes first.
   `/wpbl`: in the WPBL season the WPBL is the answer, and in July the World Cup shares it.
 - **When it ships**, CLAUDE.md's "What it is" and ARCHITECTURE's routes change with it.
 
-### Stage 4. The 2027 Finals (Jul 19–25, Rockford), on a yes
+### Stage 4. The 2027 Finals (Jul 19–25, Rockford)
 
 - `/world-cup/2027` built ahead from the schedule and rosters by Jul 1. WBSC mints new player ids
   every tournament, so the 2027 rosters go through the crosswalk review before the first pitch.
