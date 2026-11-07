@@ -689,6 +689,8 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
                 setLbStatsLimit={state.setLbStatsLimit}
                 lbQualified={state.lbQualified}
                 setLbQualified={state.setLbQualified}
+                tableView={state.statsTableView}
+                setTableView={state.setStatsTableView}
                 isDesktop={isDesktop}
                 canHover={canHover}
                 handleLbPlayerClick={state.handleLbPlayerClick}

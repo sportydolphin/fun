@@ -315,6 +315,10 @@ export function useMlbState() {
   const [lbStatsLimit, setLbStatsLimit] = useState(50)
   // On the address as `who=all` when off, so a reload keeps the part-timers the reader asked for.
   const [lbQualified, setLbQualified] = useState(() => !(landing?.view === 'stats' && landing.qualified === false))
+  // Players' Standard or Advanced, on the address as `cols=advanced`. The board also moves it to
+  // whichever view holds the sort, so a link sorted by wRC+ needs no `cols`.
+  const [statsTableView, setStatsTableView] = useState<'standard' | 'advanced'>(
+    () => (landing?.view === 'stats' && landing.advanced ? 'advanced' : 'standard'))
   // All-time (career) mode for the Stats tab only, kept separate from vizSeason so
   // it never leaks into the Leaderboard/Viz tabs, which share vizSeason.
   // Regular season, postseason or both, for the Leaders and Table boards. On the URL as `games=`.
@@ -643,6 +647,7 @@ export function useMlbState() {
     if (view === 'stats' && dirParam) s.dir = dirParam
     if (view === 'stats' && statsWho) s.who = statsWho
     if (view === 'stats' && !lbQualified) s.qualified = false
+    if (view === 'stats' && statsTableView === 'advanced') s.advanced = true
     // A grid sort carries `asc` only when it is turned round, so its presence is the direction.
     const gridDir = (g: GridSort | null) => (g?.asc != null ? (g.asc ? 'asc' : 'desc') : null)
     if (view === 'teamStats' && teamGridSort) {
@@ -663,7 +668,7 @@ export function useMlbState() {
       s.findVenue = findQuery.venue === 'any' ? null : findQuery.venue
     }
     return s
-  }, [player, team, playerSeason, view, lbGroup, statsFielding, statsAllTime, lbGameScope, sortParam, dirParam, vizSeason, teamGridSort, fieldingSort, fieldingPos, fieldingClub, findQuery, scoresDate, statsWho, lbQualified, fieldingQualified])
+  }, [player, team, playerSeason, view, lbGroup, statsFielding, statsAllTime, lbGameScope, sortParam, dirParam, vizSeason, teamGridSort, fieldingSort, fieldingPos, fieldingClub, findQuery, scoresDate, statsWho, lbQualified, fieldingQualified, statsTableView])
 
   // Stamp the active entry with the latest snapshot of the current view right before
   // pushing a new one, so Back returns here with the exact sub-state (e.g. the season
@@ -737,6 +742,7 @@ export function useMlbState() {
     if (!allTime) setVizSeason(season)
     setLbFullscreen({ def, group, sortKey: statKey, sortAsc: def.lowerIsBetter ?? false, entries: [] })
     setLbQualified(true)
+    setStatsTableView('standard')
     setLbStatsLimit(500)
     setStatsHighlightPlayerId(from?.playerId ?? player?.id ?? null)
     setStatsHighlightStatKey(statKey)
@@ -763,6 +769,7 @@ export function useMlbState() {
     setStatsWho(null)
     setLbFullscreen(next)
     setLbQualified(true)
+    setStatsTableView('standard')
     setLbStatsLimit(50)
     setStatsHighlightPlayerId(null)
     setStatsHighlightStatKey(null)
@@ -941,6 +948,7 @@ export function useMlbState() {
         setStatsAllTime(!!snap.allTime)
         setStatsWho(parsePositionFilter(snap.who))
         setLbQualified(snap.qualified !== false)
+        setStatsTableView(snap.advanced ? 'advanced' : 'standard')
         setLbFullscreen(boardSortFor(group, snap.sort, snap.dir))
       }
     }
@@ -1088,6 +1096,7 @@ export function useMlbState() {
     lbFullscreen, setLbFullscreen, openStatsBoard,
     lbStatsLimit, setLbStatsLimit,
     lbQualified, setLbQualified,
+    statsTableView, setStatsTableView,
     statsAllTime, setStatsAllTime,
     lbGameScope, setLbGameScope,
     handleLbPlayerClick,

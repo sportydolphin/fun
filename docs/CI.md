@@ -263,10 +263,6 @@ changed: fix the clicks in `BEHAVIOR_BOARDS`. Its reads are in the same fixture,
 `--record` runs this pass on the boards among its routes, so the record command a miss prints
 covers it.
 
-Three filters are left out because they are lost today, each noted beside `BEHAVIOR_BOARDS`: the
-Charts board's Qualified and club chips, and Standard / Advanced on WPBL Teams and MLB Players. Fix
-one, then add its click.
-
 ## Looking at a page without the preview pane
 
 `npm run shot -- <path> <width>` writes a PNG of one page to `shots/` (gitignored) and prints its
