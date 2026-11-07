@@ -18,6 +18,7 @@ import { useGameNotes, ScoreCardFooter, ScoreCardFooterSkeleton } from '../Score
 import { TabTitle } from '../PageHeading'
 import { typePx } from '../../ui/scale'
 import { EmptyState } from './Placeholders'
+import { localeDate } from '../../lib/dateFormat'
 
 /**
  * How recent a revision has to be to be worth marking on the schedule.
@@ -253,8 +254,8 @@ export function ScheduleView({ teams, games, siteGames = [], onOpenGame, onOpenT
     const today = new Date(); today.setHours(0, 0, 0, 0)
     const diff = Math.round((d.getTime() - today.getTime()) / 86400000)
     const rel = diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : diff === -1 ? 'Yesterday' : null
-    const md = d.toLocaleDateString([], { month: 'short', day: 'numeric' })
-    return rel ? `${rel} · ${md}` : d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+    const md = localeDate(d, [], { month: 'short', day: 'numeric' })
+    return rel ? `${rel} · ${md}` : localeDate(d, [], { weekday: 'short', month: 'short', day: 'numeric' })
   }
 
   // A postseason game the league has dated but not yet drawn. Deliberately a different object

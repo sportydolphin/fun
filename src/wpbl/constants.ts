@@ -3,6 +3,7 @@ import bostonLogo from './logos/boston.webp'
 import laLogo from './logos/la.webp'
 import nyLogo from './logos/ny.webp'
 import sfLogo from './logos/sf.webp'
+import { localeDate, localeTime } from '../lib/dateFormat'
 
 // Section accent: deliberately the SAME blue as the MLB app's ACCENT (see
 // src/mlb/constants.ts; keep the two in sync). The leagues share one nav-slider / UI
@@ -179,7 +180,7 @@ export function formatGameTime(gameDate: string, startTime: string | null | unde
   const offset = new Date(ref.toLocaleString('en-US', { timeZone: 'UTC' })).getTime()
     - new Date(ref.toLocaleString('en-US', { timeZone: WPBL_TZ })).getTime()
   const real = new Date(naive + offset)
-  return real.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', ...(withZone ? { timeZoneName: 'short' } : {}) })
+  return localeTime(real, [], { hour: 'numeric', minute: '2-digit', ...(withZone ? { timeZoneName: 'short' } : {}) })
 }
 
 // Whole days from today to a game's date: negative in the past, 0 today. Compared on the
@@ -198,7 +199,7 @@ export function relativeDayLabel(gameDate: string): string {
   if (diff === 0) return 'Today'
   if (diff === 1) return 'Tomorrow'
   if (diff === -1) return 'Yesterday'
-  return date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+  return localeDate(date, [], { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
 /** The same label with the weekday dropped ("Aug 20"), for places measured in single digits of
@@ -212,7 +213,7 @@ export function relativeDayShort(gameDate: string): string {
   const { diff, date } = dayOffset(gameDate)
   if (diff === 0) return 'Today'
   if (diff === -1) return 'Yesterday'
-  return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+  return localeDate(date, [], { month: 'short', day: 'numeric' })
 }
 
 // The true UTC instant (epoch ms) of a game's first pitch, treating the stored wall
