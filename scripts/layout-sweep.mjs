@@ -186,14 +186,10 @@ const DEFAULT_ROUTES = [
 const BEHAVIOR_BOARDS = [
   { route: '/wpbl/stats?board=players&side=hitting', steps: ['Playoffs', 'LA', '✓ Qualified'] },
   { route: '/wpbl/stats?board=players&side=fielding', steps: ['Both', 'NY', '✓ Qualified'] },
-  { route: '/wpbl/stats?board=teams', steps: ['Pitching', 'Playoffs'] },
+  { route: '/wpbl/stats?board=teams', steps: ['Pitching', 'Playoffs', 'Advanced'] },
   { route: '/wpbl/stats?side=hitting', steps: ['Pitching', 'Both'] },
-  { route: '/mlb/stats', steps: ['Pitching', '✓ Qualified', { select: 'Season', value: '2025' }] },
-  // NOT YET CHECKED, because each is lost today and the check would fail every pull request: the
-  // Charts board's Qualified and club chips, and Standard / Advanced on WPBL Teams and MLB Players.
-  // All three live in component state only (found by this pass, Nov 6, 2026). Fix one, then add
-  // its click here: 'Qualified', 'BOS' on charts, 'Advanced' on the other two.
-  { route: '/wpbl/stats?board=charts', steps: ['Pitching'] },
+  { route: '/mlb/stats', steps: ['Pitching', '✓ Qualified', 'Advanced', { select: 'Season', value: '2025' }] },
+  { route: '/wpbl/stats?board=charts', steps: ['Pitching', 'Qualified', 'BOS'] },
   { route: '/mlb/fielding', steps: ['SS', 'Both', '✓ Qualified'] },
   { route: '/mlb/leaders', steps: ['Pitching', 'Both', { select: 'Season', value: '2025' }] },
   { route: '/mlb/team-stats', steps: ['Pitching', 'Playoffs'] },

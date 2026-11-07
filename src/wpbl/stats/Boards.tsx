@@ -41,6 +41,15 @@ export interface ChartInputs {
   fWeights: FipWeights | null
 }
 
+/** The Charts board's own two filters, held by StatsView so they ride the address: a reload, a
+ *  shared link or Back used to reset both, which lived in ChartsView's state. */
+export interface ChartFilters {
+  everyone: boolean
+  setEveryone: (on: boolean) => void
+  club: string | null
+  setClub: (id: string | null) => void
+}
+
 /** The Leaders board on whichever side is showing, or that side's skeleton until its read lands. */
 export function LeadersPane({ side, valueSeasons, fielding, linesIn, leaderSeasons, hitCols, pitCols, qual,
   onOpenPlayer, seeAll, seeAllHref }: {
@@ -89,7 +98,7 @@ export function LeadersPane({ side, valueSeasons, fielding, linesIn, leaderSeaso
 /** Every board past the season tables and Leaders: Bests, Find and the Analysis boards, each behind its
  *  own chunk. */
 export function BoardPane({ source, side, boardSide, findSide, teams, players, lines, fielding, linesIn, games,
-  scope, findQuery, setFindQuery, trackedOffered, charts, onOpenPlayer, onOpenGame, onOpenTeam }: {
+  scope, findQuery, setFindQuery, trackedOffered, charts, chartFilters, onOpenPlayer, onOpenGame, onOpenTeam }: {
   source: Source
   side: Side
   boardSide: BallSide
@@ -105,6 +114,7 @@ export function BoardPane({ source, side, boardSide, findSide, teams, players, l
   setFindQuery: (q: Omit<FinderQuery, 'scope'>) => void
   trackedOffered: boolean
   charts: ChartInputs | null
+  chartFilters: ChartFilters
   onOpenPlayer: (p: WpblPlayer) => void
   onOpenGame?: (g: WpblGame) => void
   onOpenTeam?: (t: WpblTeam) => void
@@ -151,7 +161,7 @@ export function BoardPane({ source, side, boardSide, findSide, teams, players, l
       <Suspense fallback={<SubViewFallback />}>
         <WpblChartsView side={boardSide} teams={teams} players={players} games={games}
           batting={charts.batting} pitching={charts.pitching} league={charts.league}
-          fWeights={charts.fWeights} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} />
+          fWeights={charts.fWeights} {...chartFilters} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} />
       </Suspense>
       </Box>
     )
