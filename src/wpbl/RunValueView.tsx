@@ -620,7 +620,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
             ? 'This adds up every plate appearance against a pitcher and flips the sign, so keeping runs off the board ranks higher.'
             : 'This adds up every plate appearance a hitter has had this season. Steals and wild pitches are not counted here; steals are on Best on the bases.',
           pitching
-            ? 'Not the same as Pit on the Stats tab, which is built from strikeouts, walks and home runs only and ignores the runners on base. This counts every plate appearance and the situation it came in.'
+            ? 'Not the same as Pit on the Stats tab, which is built from strikeouts, walks, hit batters and home runs only and ignores the runners on base. This counts every plate appearance and the situation it came in.'
             : 'Not the same as Bat on the Stats tab, which values a hit the same whatever the situation. This counts the runners on and the outs, so a single with the bases loaded is worth more here than one with them empty.',
         ]} />}>
         {leaders.length === 0
@@ -673,8 +673,8 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
       {!pitching && (
         <SectionCard title="Best on the bases"
           titleAdornment={<InfoDot text={[
-            'Steals, caught stealing and pickoffs are worth the change in the value of the situation, plus a run if the runner scored. Each player is then charged what the league’s runners gained or lost stealing per time on first, for every time they reached first, so zero is an average runner and a player who reached often without running is measured against that average too.',
-            'Extra bases are the chances to go first to third or second to home on a single, first to home on a double, or tag up on a fly ball with fewer than two out. Each is measured against what runners in this league usually do in the same spot, so taking the base adds and being thrown out subtracts.',
+            'Steals, caught stealing and pickoffs are worth the change in the value of the situation, plus a run if the runner scored. Each time a player reached first, they are charged what the league’s average runner gained or lost stealing from there, so zero is average, running or not.',
+            'Extra bases: first to third or second to home on a single, first to home on a double, and tagging up on a fly ball with fewer than two out. Each is measured against what this league’s runners usually do in the same spot.',
             'Double plays hit into count too, against how often the league hits into one with a runner on first.',
             'Under each name: steals, and how many of those chances the runner took the extra base. The total is BsR, the same number as the Stats tab’s BsR column and the baserunning part of WAR.',
           ]} />}>
