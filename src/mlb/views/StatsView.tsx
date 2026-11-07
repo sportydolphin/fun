@@ -53,6 +53,10 @@ export interface StatsViewProps {
   setLbStatsLimit: (n: number | ((prev: number) => number)) => void
   lbQualified: boolean
   setLbQualified: (q: boolean | ((prev: boolean) => boolean)) => void
+  /** Standard or Advanced. Held by useMlbState, which puts Advanced on the address as
+   *  `cols=advanced`: kept here, a reload or Back reset it to Standard. */
+  tableView: TableView
+  setTableView: (v: TableView) => void
   isDesktop: boolean
   canHover: boolean
   handleLbPlayerClick: (playerId: number) => void
@@ -67,6 +71,7 @@ export function StatsView({
   lbData, lbFullscreen, setLbFullscreen,
   setLbStatsLimit,
   lbQualified, setLbQualified,
+  tableView: view, setTableView: setView,
   isDesktop, handleLbPlayerClick,
   highlightPlayerId, highlightStatKey,
   setHighlightPlayerId, setHighlightStatKey,
@@ -105,11 +110,10 @@ export function StatsView({
   const sortKey   = sortValid ? requestedSort : TABLE_DEFAULT_SORT[lbGroup]
   const activeDef = allDefs.find(d => d.key === sortKey) ?? allDefs[0]
   const sortAsc   = (sortValid ? lbFullscreen?.sortAsc : undefined) ?? (activeDef.lowerIsBetter ?? false)
-  // Not in the address bar: it follows the sort, which is, as WPBL's does. A link sorted by wRC+
-  // opens on Advanced because that is the only view with wRC+ in it.
-  const [view, setView] = useState<TableView>(() => (defsFor('standard').some(d => d.key === sortKey) ? 'standard' : 'advanced'))
+  // It follows the sort, as WPBL's does: a link sorted by wRC+ opens on Advanced because that is
+  // the only view with wRC+ in it.
   const shownView: TableView = defsFor(view).some(d => d.key === sortKey) ? view : view === 'standard' ? 'advanced' : 'standard'
-  useEffect(() => { if (shownView !== view) setView(shownView) }, [shownView, view])
+  useEffect(() => { if (shownView !== view) setView(shownView) }, [shownView, view, setView])
   // The other way round: choosing a view that does not hold the sort re-sorts on the board's
   // default, which both views carry, rather than bouncing the reader back.
   const switchView = (v: TableView) => {

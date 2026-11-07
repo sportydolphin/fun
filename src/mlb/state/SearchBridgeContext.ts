@@ -203,3 +203,10 @@ const _querySnapshot = () => _state.query
 export function useSearchBridgeQuery(): string {
   return useSyncExternalStore(_subscribe, _querySnapshot)
 }
+
+const _querySeasonSnapshot = () => _state.querySeason
+
+/** Only the typed year ("Whitmore 2026"), for the same reason as useSearchBridgeQuery. */
+export function useSearchBridgeQuerySeason(): number | 'career' | null {
+  return useSyncExternalStore(_subscribe, _querySeasonSnapshot)
+}

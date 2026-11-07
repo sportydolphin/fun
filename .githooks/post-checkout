@@ -1,0 +1,5 @@
+#!/bin/sh
+# $3 is 1 for a branch checkout and 0 for a file checkout (`git checkout -- path`), which
+# leaves HEAD where it was.
+[ "$3" = "1" ] || exit 0
+exec sh "$(dirname "$0")/reinstall-if-lock-changed" "$1" "$2"

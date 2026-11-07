@@ -321,8 +321,10 @@ export function ScoresTimeline({ followedTeamId, date, onDateChange, onGameClick
         </Box>
       )}
 
-      {/* The bottom edge: the next days loading, drawn as a day so their arrival moves nothing. */}
-      <Box ref={bottomRef} sx={{ mt: 3 }}>
+      {/* The bottom edge: the next days loading, drawn as a day so their arrival moves nothing.
+          data-load-edge because it is up until the reader scrolls near it, by design: the layout
+          sweep skips loading markers inside one rather than wait on a scroll that never comes. */}
+      <Box ref={bottomRef} data-load-edge sx={{ mt: 3 }}>
         {ready && !atEnd && days && days.length > 0 && (
           <Box aria-hidden>
             <DayHead day={null} />

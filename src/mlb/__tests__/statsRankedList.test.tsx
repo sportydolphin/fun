@@ -28,6 +28,7 @@ function Harness({ isDesktop = false, onOpen = () => {} }: { isDesktop?: boolean
   const [fs, setFs] = useState<LbFullscreenState | null>(null)
   const [limit, setLimit] = useState(50)
   const [qualified, setQualified] = useState(true)
+  const [view, setView] = useState<'standard' | 'advanced'>('standard')
   const [season, setSeason] = useState(CURRENT_SEASON)
   const [allTime, setAllTime] = useState(false)
   const [scope, setScope] = useState<'regular' | 'post' | 'all'>('regular')
@@ -40,6 +41,7 @@ function Harness({ isDesktop = false, onOpen = () => {} }: { isDesktop?: boolean
       lbData={DATA} lbFullscreen={fs} setLbFullscreen={setFs}
       lbStatsLimit={limit} setLbStatsLimit={setLimit}
       lbQualified={qualified} setLbQualified={setQualified}
+      tableView={view} setTableView={setView}
       isDesktop={isDesktop} canHover={false}
       handleLbPlayerClick={onOpen}
     />

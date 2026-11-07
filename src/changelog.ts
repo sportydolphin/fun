@@ -73,6 +73,16 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
+    version: '1.207.3',
+    date:    '2026-11-06',
+    changes: [
+      {
+        short: 'More filters in links',
+        full:  "Standard or Advanced on the Players and Teams boards, and the WPBL Charts board's Qualified and club, now hold through a reload, a shared link or Back.",
+      },
+    ],
+  },
+  {
     version: '1.207.2',
     date:    '2026-11-06',
     changes: [
