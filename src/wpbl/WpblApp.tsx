@@ -44,7 +44,7 @@ import { AppErrorBoundary } from '../AppErrorBoundary'
 import { ModalChunkFallback, DetailPageSkeleton, TabSkeleton } from './app/Placeholders'
 import type { WpblSnap } from './app/snapshot'
 import { normalizeView, viewFromLocation, snapFromLocation, wpblUrlFor } from './app/snapshot'
-import { useWpblSearch } from './app/useWpblSearch'
+import { WpblSearch, type OpeningSeason } from './app/useWpblSearch'
 import { usePageSeo } from './app/usePageSeo'
 
 // The two detail modals, split out of the section's chunk.
@@ -766,7 +766,8 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     active, detailPlayer, detailGame, players, games, teams, view, awardsOpen, pickedSeason, selectedTeam,
   })
 
-  const { openingSeason } = useWpblSearch({ searchActive, players, teams, games, openPlayer, selectTeam })
+  // The search itself is <WpblSearch> in the tree below, so a keystroke re-renders it alone.
+  const [openingSeason, setOpeningSeason] = useState<OpeningSeason>(null)
 
   // Stamp the entry App created for /wpbl with the initial snapshot the first time we land,
   // so the first Back leaves the section and a refresh restores the view. On a Back/remount
@@ -886,6 +887,8 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     // club's list would mint a bare slug for a name someone on another club also holds. See
     // LinkContext.tsx.
     <WpblLinkProvider roster={players} schedule={games} teams={teams}>
+    <WpblSearch searchActive={searchActive} players={players} teams={teams} games={games}
+      openPlayer={openPlayer} selectTeam={selectTeam} setOpeningSeason={setOpeningSeason} />
     <WpblSeasonProvider picked={pickedSeason} onPick={pickSeason} schedule={games}>
     {/* While a player or game modal is open it IS the page, so the tab underneath stops
         rendering an <h1> and the modal supplies it. See PageHeading.tsx. */}

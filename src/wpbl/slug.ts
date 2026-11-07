@@ -5,12 +5,22 @@
 // Vite understands), so keeping the rule here is what stops the two from drifting and
 // silently dropping every link preview's thumbnail.
 
+// Remembered, because a name's slug never changes and the callers ask constantly: every player
+// link checks the whole roster for a shared slug, so a list of links slugified the roster once
+// per row, and `normalize` is the slow part. Search spent 168ms (4x CPU) here per keystroke
+// before this (Nov 6, 2026). The set of names is a roster plus a few searches: no bound needed.
+const slugCache = new Map<string, string>()
+
 // Strip accents, lowercase, collapse non-alphanumerics to single hyphens.
 export function slugifyName(name: string): string {
-  return name
+  const hit = slugCache.get(name)
+  if (hit !== undefined) return hit
+  const slug = name
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '') // combining diacritical marks
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
+  slugCache.set(name, slug)
+  return slug
 }
