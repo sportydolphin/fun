@@ -634,6 +634,35 @@ const settle = async (page, ms) => {
   await page.waitForTimeout(ms)
 }
 
+// WHAT STILL SAYS "LOADING", visible on the page: index.html's boot line (the app has not mounted),
+// an MUI skeleton or spinner, or a box marked aria-busy (a card's own loading branch).
+const LOADING_SELECTOR = '#sd-boot-status, .MuiSkeleton-root, .MuiCircularProgress-root, [aria-busy="true"]'
+function probeLoading(selector) {
+  return [...document.querySelectorAll(selector)].filter(el => {
+    const r = el.getBoundingClientRect()
+    return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'
+  }).map(el => (el.id ? `#${el.id}` : el.getAttribute('aria-label') || el.className.toString().split(' ')[0] || el.tagName.toLowerCase()))
+}
+
+/**
+ * Waits until nothing on the page says it is loading, and returns what still does if it never
+ * stops. NETWORK IDLE IS NOT "LOADED". Under four parallel pages Vite serves a lazy chunk or a
+ * page's second read late, and the probe ran on whatever was there: on Nov 6, 2026 about half of
+ * one slice's team-page cases measured a page with no heading yet, or its spec box still loading,
+ * and passed. That hid "HUNTERS" spilling its fill for as long as the readout lost the race, and
+ * a sweep that quietly checks less is the failure this file exists to remove. So a page still
+ * loading after the wait is a finding, not a pass.
+ */
+async function waitForContent(page, ms = 10_000) {
+  const ok = await page.waitForFunction(s => {
+    return ![...document.querySelectorAll(s)].some(el => {
+      const r = el.getBoundingClientRect()
+      return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'
+    })
+  }, LOADING_SELECTOR, { timeout: ms, polling: 100 }).then(() => true, () => false)
+  return ok ? [] : page.evaluate(probeLoading, LOADING_SELECTOR)
+}
+
 async function runCase(browser, route, width, text, { warm = false } = {}) {
   const ctx = await browser.newContext({
     viewport: { width, height: HEIGHT[width] ?? 900 },
@@ -698,10 +727,12 @@ async function runCase(browser, route, width, text, { warm = false } = {}) {
     }
     await page.goto(`${BASE}${route}`, { waitUntil: 'domcontentloaded' })
     await settle(page, 600)
+    const stillLoading = await waitForContent(page)
     await recordImages(page)
     const o = await page.evaluate(probeOverflow, ELLIPSIS)
     result.pageOverflow = o.pageOverflow
     result.issues = o.issues
+    if (stillLoading.length) result.issues.push({ kind: 'loading', px: 0, text: [...new Set(stillLoading)].join(', '), where: 'still loading after 10s' })
     // Both themes, on the same load: the theme follows the device until a reader picks one, so
     // flipping the emulated scheme re-renders the page in the other one without a second visit.
     // ON THE DEFAULT TEXT SIZE ONLY. A color, a contrast ratio or a control's name is the same at
@@ -940,7 +971,7 @@ async function main() {
       const k = `${i.kind}|${i.text}`
       if (seen.has(k)) continue
       seen.add(k)
-      const measure = i.kind === 'border' ? `${i.px.toFixed(2)}:1` : i.kind === 'a11y' ? '' : `${String(i.px).padStart(4)}px`
+      const measure = i.kind === 'border' ? `${i.px.toFixed(2)}:1` : i.kind === 'a11y' || i.kind === 'loading' ? '' : `${String(i.px).padStart(4)}px`
       lines.push([`${caseKey}|${k}`, `  ${i.kind.padEnd(9)} ${measure}  "${i.text}"  (${i.where})`])
     }
     if (r.shifts.length) {
