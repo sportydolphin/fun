@@ -12,13 +12,6 @@
       "autoPort": true
     },
     {
-      "name": "sweep-tmp",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", "--port", "5193", "--strictPort"],
-      "env": { "SWEEP": "true", "VITE_SUPABASE_URL": "http://127.0.0.1:54321", "VITE_SUPABASE_ANON_KEY": "sweep-anon-key", "VITE_VAPID_PUBLIC_KEY": "sweep-vapid-key" },
-      "port": 5193
-    },
-    {
       "name": "redesign-lan",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
