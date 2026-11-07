@@ -199,7 +199,10 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     return last?.team_id ?? player.team_id
   }, [season, career, games, batting, pitching, gameById, player.team_id])
   const team = useMemo(() => teams.find(t => t.id === clubId), [teams, clubId])
-  const color = team ? wpblAccent(team.id, isDark) : '#888'
+  // Before the clubs load there is no team, and wpblAccent's own neutral is the fallback: it is
+  // picked to pass AA as text on both themes. A literal '#888' here was 3.5:1 on white, and the
+  // layout sweep caught it once the tabs became their own chunks and the page drew a frame sooner.
+  const color = wpblAccent(team?.id, isDark)
   // The RAW club colors, for the header band only. Everywhere else on this page uses
   // `color` above, which is the foreground-safe accent.
   const teamPrimary = wpblColor(clubId)

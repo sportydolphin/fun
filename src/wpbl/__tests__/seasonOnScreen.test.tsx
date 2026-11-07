@@ -87,6 +87,7 @@ const EXEMPT: Record<string, string> = {
   'src/wpbl/AdminClips.tsx': 'lists single home runs with no clip, for the owner, and sums nothing',
   'src/wpbl/watch/useWatchRankings.ts': 'ranks single games and plays across a catalog with no season on screen, and sums nothing',
   'src/wpbl/WpblApp.tsx': 'warms the reads Home makes, into the cache, and sums nothing',
+  'src/wpbl/stats/warmReads.ts': 'starts the Stats tab\'s reads into the cache, and sums nothing',
   'src/wpbl/player/usePlayerReads.ts': 'reads the league lines for the card, which PlayerDetail.tsx cuts to the season before they are summed',
   // Mentions the read in a comment only.
   'src/league/bests.ts': 'comment only',
