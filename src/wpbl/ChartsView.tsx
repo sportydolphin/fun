@@ -74,7 +74,7 @@ interface ClubTotals { batting: WpblBattingTotals; pitching: WpblPitchingTotals 
 
 const both = (x: number | null, y: number | null) => (x != null && y != null ? { x, y } : null)
 
-export default function WpblChartsView({ side, teams, players, games, batting, pitching, league, fWeights, onOpenPlayer, onOpenTeam }: {
+export default function WpblChartsView({ side, teams, players, games, batting, pitching, league, fWeights, everyone, setEveryone, club, setClub, onOpenPlayer, onOpenTeam }: {
   side: 'hitting' | 'pitching'
   teams: WpblTeam[]
   /** Every player, for naming the play log's batters and pitchers (traded players included). */
@@ -85,11 +85,16 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
   pitching: WpblPitSeason[]
   league: { batting: WpblBattingTotals; pitching: WpblPitchingTotals }
   fWeights: FipWeights | null
+  /** Qualified off, and the club the dots are narrowed to. Owned by StatsView, which writes them
+   *  to the address as `who=all` and `team=`, so a reload or Back keeps them. */
+  everyone: boolean
+  setEveryone: (on: boolean) => void
+  club: string | null
+  setClub: (id: string | null) => void
   onOpenPlayer: (p: WpblPlayer) => void
   onOpenTeam?: (t: WpblTeam) => void
 }) {
   const { basis } = useEraBasis()
-  const [everyone, setEveryone] = useState(false)
   const qual = useMemo(() => wpblQualifiers(teams, games), [teams, games])
   const pitchMins = useMemo(() => pitchQualifiers(qual.active ? qual.teamGames : 0), [qual])
 
@@ -202,7 +207,6 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
 
   // What the reader has narrowed the dots to: one club, a name typed into the search, or both.
   // Everything else stays drawn, faded, so a player is still seen against the league.
-  const [club, setClub] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const focus = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -284,10 +288,10 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
   return (
     <Box>
       <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-        {qual.active && <FilterChip active={!everyone} onClick={() => setEveryone(e => !e)}>Qualified</FilterChip>}
+        {qual.active && <FilterChip active={!everyone} onClick={() => setEveryone(!everyone)}>Qualified</FilterChip>}
         {specs.some(sp => sp.club) && <FilterChip active={clubsOn} onClick={() => setClubsOn(c => !c)}>Clubs</FilterChip>}
         {[...teams].sort((a, b) => a.sort_order - b.sort_order).map(t => (
-          <FilterChip key={t.id} active={club === t.id} onClick={() => setClub(c => (c === t.id ? null : t.id))}>
+          <FilterChip key={t.id} active={club === t.id} onClick={() => setClub(club === t.id ? null : t.id)}>
             <Box component="span" aria-hidden sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: clubColor(t.id), mr: 0.6, flexShrink: 0 }} />
             <Box component="span" title={wpblFullName(t)}>{t.abbr}</Box>
           </FilterChip>
