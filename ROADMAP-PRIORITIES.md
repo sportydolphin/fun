@@ -85,7 +85,10 @@ to change only if the change is small; anything larger waits so it is not built 
 - `/admin` → Roadmap: reseed it from this file or retire it.
 - **Search examples from use**, from late November, once "Offered nothing for" has a few weeks of
   v1.207.0 in it. *ROADMAP-WPBL, "Search: what's next" item 13.*
-- The dupe and orphan audit of players and games, and the portrait-rights ask to the league.
+- ~~The dupe and orphan audit of players and games~~ ✅ Nov 7, clean: 40 finals, each with a box
+  score and plays; 118 players, no shared names or feed ids; every line, play and fielding row
+  names a known player and game. Rerun once the 2027 feed starts adding rows. Left: the
+  portrait-rights ask to the league (owner).
   *ROADMAP-WPBL, "Ongoing hygiene & ops".*
 
 **Not now, because the redesign would redo it:** the live field, the live files on the type
