@@ -106,8 +106,21 @@ export interface WpblSluggable { id: string; name: string }
 export function wpblPlayerSlug(player: WpblSluggable, roster: readonly WpblSluggable[]): string {
   const base = slugifyName(player.name)
   if (!base) return player.id
-  const shared = roster.filter(p => slugifyName(p.name) === base).length > 1
+  const shared = (slugCounts(roster).get(base) ?? 0) > 1
   return shared ? `${base}-${player.id.slice(0, 8)}` : base
+}
+
+// How many players on a roster hold each slug, counted once per roster array. A filter per link
+// made every list of player links quadratic in the roster (and findWpblPlayerBySlug cubic). The
+// length check covers a caller that pushes onto an array it already asked about.
+const countsByRoster = new WeakMap<readonly WpblSluggable[], { n: number; counts: Map<string, number> }>()
+function slugCounts(roster: readonly WpblSluggable[]): Map<string, number> {
+  const hit = countsByRoster.get(roster)
+  if (hit && hit.n === roster.length) return hit.counts
+  const counts = new Map<string, number>()
+  for (const p of roster) { const s = slugifyName(p.name); counts.set(s, (counts.get(s) ?? 0) + 1) }
+  countsByRoster.set(roster, { n: roster.length, counts })
+  return counts
 }
 
 export function wpblPlayerPath(player: WpblSluggable, roster: readonly WpblSluggable[]): string {

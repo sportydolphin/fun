@@ -20,6 +20,7 @@ import { ordinal } from '../../lib/format'
 import { trophyPalette } from '../../ui/trophy'
 import { AGATE_SX, MEDIA_RADIUS, HEADLINE_SX } from '../../ui/card'
 import { championPhoto, type FanPhotoIndex, type FanPhotoWithSubjects } from '../fanPhotos'
+import { localeDate } from '../../lib/dateFormat'
 
 /**
  * Next game, when the only games left are ones the league has dated and not yet published.
@@ -455,7 +456,7 @@ const NBSP = ' '
 function photoCaption(photo: FanPhotoWithSubjects, champion: WpblTeam): string {
   if (photo.caption?.trim()) return photo.caption.trim()
   const day = photo.taken_on
-    ? new Date(`${photo.taken_on}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+    ? localeDate(new Date(`${photo.taken_on}T12:00:00Z`), 'en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
     : null
   return day ? `${wpblFullName(champion)}, ${day}` : wpblFullName(champion)
 }

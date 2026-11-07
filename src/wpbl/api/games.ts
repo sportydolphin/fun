@@ -83,7 +83,15 @@ export function fetchWpblSchedule(): Promise<WpblGame[]> {
     // is a rule that gets forgotten by the next one. Everything downstream of this read sees a
     // game the league has stopped updating as the final it is. See gameOver.ts.
     seedSchedule()
-    const schedule = mergeSchedule(cleanSchedule(games), lastGoodSchedule)
+    let schedule = mergeSchedule(cleanSchedule(games), lastGoodSchedule)
+    // NOTHING CHANGED, SAME ARRAY. WpblApp polls this every 20-60s and puts the answer straight
+    // into state, so a fresh array of identical rows re-rendered the whole section and every
+    // visited tab once a minute, recomputing standings and season totals, all offseason long
+    // (Nov 6, 2026). Compared as JSON because rows carry nested json columns, which never match by
+    // identity; about a millisecond for a season's schedule.
+    if (schedule !== lastGoodSchedule && lastGoodSchedule
+      && schedule.length === lastGoodSchedule.length
+      && JSON.stringify(schedule) === JSON.stringify(lastGoodSchedule)) schedule = lastGoodSchedule
     if (schedule.length > 0) {
       // Only a real read is remembered for the next visit, never the seed handed back.
       if (games.length > 0) writeSeed('schedule', schedule)

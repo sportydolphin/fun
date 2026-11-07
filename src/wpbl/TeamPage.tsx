@@ -664,10 +664,14 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
           is otherwise the widest empty run on the section, and too short for six labeled
           spokes, so the row grows into it rather than squeezing the chart into the exact gap:
           the cards below move down a little and the space stops being a hole. On a phone there
-          is no gap to fill and it stacks under the chips. */}
+          is no gap to fill and it stacks under the chips.
+          THE IDENTITY COLUMN KEEPS ITS OWN WIDTH (max-content), and the chart's row wraps its
+          readout under the radar instead. With `minmax(0, 1fr)` the `auto` chart column took its
+          full 587px once the readout loaded, and "HUNTERS" spilled its fill by 43px, 104px at
+          Large text, at 960 and 1440 (Nov 6, 2026). */}
       <Box sx={{
         display: 'grid', gap: 2, mb: 2, alignItems: 'center',
-        gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) auto' },
+        gridTemplateColumns: { xs: '1fr', md: 'minmax(max-content, 1fr) auto' },
       }}>
        <Box>
         {/* THE CLUB AS A BLOCK OF ITS OWN COLOR (Nov 4, 2026), as on Home's club rail and the Teams

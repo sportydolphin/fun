@@ -10,6 +10,7 @@
 // or a response without `x-edge`, which is what `vite preview` gives (its app shell, with a 200).
 // A read the cache cannot serve costs one extra round trip, never a missing table.
 import { EDGE_PREFIX, edgeTable } from './edgeTables'
+import { takeEarlyRead } from './earlyReads'
 
 type Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 
@@ -23,6 +24,15 @@ export function edgeFetch(supabaseUrl: string, anonKey: string, origin: string, 
     if (headers.get('authorization') !== `Bearer ${anonKey}`) return base(input, init)
     const u = new URL(url)
     if (!edgeTable(u.pathname)) return base(input, init)
+    // Already asked by index.html before the bundles loaded (earlyReads.ts). Anything but a good
+    // edge answer falls through to asking again, exactly as if it had never been started.
+    const early = takeEarlyRead(`${u.pathname}${u.search}`)
+    if (early) {
+      try {
+        const res = await early
+        if (res.headers.has('x-edge') && res.status < 500) return res
+      } catch { /* ask again below */ }
+    }
     try {
       const res = await base(`${origin}${EDGE_PREFIX}${u.pathname}${u.search}`, { ...init, headers })
       if (res.headers.has('x-edge') && res.status < 500) return res

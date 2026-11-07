@@ -12,6 +12,7 @@ import { SectionCard, TYPE_SCALE, AGATE_SX, TITLE_SX, titleSize } from '../../ui
 import { hoverOnly, FOCUS_RING } from '../../ui/interaction'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
 import type { WpblArticle, WpblGameRecap, WpblVideo } from '../types'
+import { localeDate } from '../../lib/dateFormat'
 
 /**
  * HOME'S HEADLINE LIST (Nov 4, 2026, docs/design-references/ANALYSIS.md). Eleven of the fourteen
@@ -61,7 +62,7 @@ export function latestWhen(iso: string, now = Date.now()): string {
   const diff = Math.round((day(today) - day(d)) / 86_400_000)
   if (diff === 0) return 'Today'
   if (diff === 1) return 'Yesterday'
-  return d.toLocaleDateString('en-US', d.getFullYear() === today.getFullYear()
+  return localeDate(d, 'en-US', d.getFullYear() === today.getFullYear()
     ? { month: 'short', day: 'numeric' }
     : { month: 'short', day: 'numeric', year: 'numeric' })
 }
