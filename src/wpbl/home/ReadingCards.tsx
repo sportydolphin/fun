@@ -12,6 +12,7 @@ import { track, trackImpression, EVENTS } from '../../lib/analytics'
 import { useNewSince } from '../newSince'
 import type { WpblTeam, WpblArticle } from '../types'
 import { CardSkeleton, READING_CARD_SKELETON_H } from './Skeletons'
+import { localeDate } from '../../lib/dateFormat'
 
 /**
  * The latest post from either writer the section mirrors, as one line, and a door to all of them.
@@ -43,7 +44,7 @@ export function LatestReadingCard() {
 
   const all = linkTo(WPBL_READING_PAGE, () => track(EVENTS.WPBL_READING_ARCHIVE, { count: articles.length, from: 'home' }))
   const date = new Date(latest.published_at)
-  const when = Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+  const when = Number.isNaN(date.getTime()) ? '' : localeDate(date, [], { month: 'short', day: 'numeric' })
   return (
     <Box sx={{
       border: '1px solid', borderColor: CARD_BORDER, borderRadius: 3, bgcolor: CARD_FILL,

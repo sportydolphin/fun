@@ -163,9 +163,11 @@ export const AGATE_FONT = 'Inter, system-ui, -apple-system, "Segoe UI", sans-ser
 
 /** The headline face (styles.css has the why). Never a player's name: names.ts measures Inter. */
 export const HEADLINE_FONT = '"Newsreader", Georgia, "Times New Roman", serif'
+/** The same face cut for display sizes (opsz 48): for a headline, never a title at text size. */
+export const HEADLINE_DISPLAY_FONT = '"Newsreader Display", "Newsreader", Georgia, "Times New Roman", serif'
 /** A headline: the lead's club name. A touch of negative tracking, since a serif at 56px spaces
  *  itself for text sizes. */
-export const HEADLINE_SX = { fontFamily: HEADLINE_FONT, fontWeight: 600, letterSpacing: '-0.01em' } as const
+export const HEADLINE_SX = { fontFamily: HEADLINE_DISPLAY_FONT, fontWeight: 600, letterSpacing: '-0.01em' } as const
 /** A title: an article's or a video's, in the headline face at text size. `pretty` wrapping, as a
  *  copy desk breaks a headline: without it "The Home Run Race You've Never Heard Of" left "Of"
  *  alone on its second line (Nov 4, 2026). Not `balance`, which shortens every line and leaves a

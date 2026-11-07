@@ -26,16 +26,26 @@
 /* The headline face: the lead's headline and the titles of articles and videos, the way a
    newspaper sets its headlines in a serif over sans-serif agate (Nov 4, 2026, ROADMAP-UI.md, Home
    step 3, picked from a trial against Source Serif 4 and Barlow Condensed). Newsreader, drawn for
-   news on screens. One weight, 600, with its optical-size axis kept, so the same file draws a 56px
-   headline with display contrast and a 15px article title sturdy enough to read; Latin only (55 KB,
-   SIL OFL, public/fonts/), preloaded for the reason the display face is. Never a player's name:
-   names.ts measures Inter. */
+   news on screens. One weight, 600, in TWO STATIC CUTS of its optical-size axis: display (opsz 48)
+   for the 40-56px headline, with display contrast, and text (opsz 16) for a 15px article title
+   sturdy enough to read. The variable file drew both from one font but was 55 KB, preloaded on
+   every page; the two cuts are 21 KB each and a page loads only the ones it sets (Nov 6, 2026). Cut
+   from Newsreader's variable font with fontTools' instancer, Latin only, SIL OFL, public/fonts/.
+   The display cut is preloaded (index.html), since the headline is above the fold. Never a
+   player's name: names.ts measures Inter. */
 @font-face {
   font-family: 'Newsreader';
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: url('/fonts/Newsreader-600.woff2') format('woff2');
+  src: url('/fonts/Newsreader-600-text.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Newsreader Display';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/Newsreader-600-display.woff2') format('woff2');
 }
 
 /* ── The desktop scale, which replaced `zoom: 1.4` on both sections ─────────────
