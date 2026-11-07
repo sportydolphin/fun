@@ -37,6 +37,7 @@ import type { Medal, PersonGameLine, WorldCupPersonFile } from './wbsc/personFil
 import type { InternationalEvent } from './wbsc/international'
 import type { EditionLeaders, WpblInField } from './wbsc/editionLeaders'
 import type { WorldCupGameFile } from './wbsc/gameFile'
+import { compendiumYearOf, RESULTS_ONLY_EDITIONS } from './wbsc/compendium'
 import type { TeamRoster } from './wbsc/editionLeaders'
 import { editionSlugOf, editionTitle, type Medals, type StandingRow, type WorldCupEdition, type WorldCupGame, type WorldCupGroup, type WorldCupIndexEntry, type WorldCupStage } from './wbsc/editions'
 
@@ -55,8 +56,11 @@ const years = (ys: number[]) => (ys.length > 1 ? `${ys[0]}–${String(ys[ys.leng
 
 /** 'https://www.wbsc.org/en/events/2023-ix-womens-baseball-world-cup-group-a/schedule-and-results'
  *  reads '2023 Group A', the Finals '2024 Finals', a one-event edition its year. 2010 is IBAF's
- *  stats pages in the Wayback Machine (src/intl/wbsc/ibaf.ts), which read '2010'. */
+ *  stats pages in the Wayback Machine (src/intl/wbsc/ibaf.ts), which read '2010'; 2004 to 2008 its
+ *  compendium's page for that year. */
 function sourceLabel(url: string): string {
+  const compendium = compendiumYearOf(url)
+  if (compendium) return String(compendium)
   if (isIbaf(url)) return '2010'
   const key = url.split('/events/')[1]?.split('/')[0] ?? ''
   const tail = (key.split('world-cup')[1] ?? '').replace(/^-/, '').replace('group-stage-', '')
@@ -64,7 +68,8 @@ function sourceLabel(url: string): string {
   return [key.slice(0, 4), ...words].join(' ')
 }
 
-const isIbaf = (url: string) => url.includes('ibaf.prod.kgroup.eu')
+// 2004 to 2008 link to IBAF's compendium (src/intl/wbsc/compendium.ts), on ibaf.org.
+const isIbaf = (url: string) => url.includes('ibaf.prod.kgroup.eu') || url.includes('ibaf.org')
 
 /** Who published a source: IBAF ran the World Cup until 2013, when it merged into WBSC. */
 const publisher = (url: string) => (isIbaf(url) ? 'IBAF' : 'WBSC')
@@ -228,8 +233,8 @@ function Standings({ rows, slug }: { rows: StandingRow[]; slug: string }) {
 function Result({ g, slug, withYear = false }: { g: WorldCupGame; slug: string; withYear?: boolean }) {
   const awayWon = g.away_score > g.home_score
   return (
-    // A forfeit has no box score, so no page to open.
-    <Box {...(g.forfeit ? {} : linkTo(`/world-cup/${slug}/games/${g.wbsc_game_id}`))} sx={{
+    // A forfeit has no box score, nor does a results-only game (2004 to 2008), so no page to open.
+    <Box {...(!g.page ? {} : linkTo(`/world-cup/${slug}/games/${g.wbsc_game_id}`))} sx={{
       ...UNSTYLED_LINK, display: 'grid',
       // The teams column stops at a phone's width, so on a desktop the score stays beside the name.
       gridTemplateColumns: `${withYear ? 5.5 : 3.5}rem minmax(0, 14rem) minmax(3.5rem, 1fr)`, alignItems: 'center', columnGap: 1.5,
@@ -248,7 +253,7 @@ function Result({ g, slug, withYear = false }: { g: WorldCupGame; slug: string; 
         ))}
       </Box>
       <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', textAlign: 'right' }}>
-        {g.forfeit ? 'Forfeit' : g.innings === 7 ? 'Final' : `F/${g.innings}`}
+        {g.forfeit ? 'Forfeit' : g.innings === null || g.innings === 7 ? 'Final' : `F/${g.innings}`}
       </Typography>
     </Box>
   )
@@ -453,7 +458,7 @@ function Edition({ slug, tab }: { slug: string; tab: EditionTab }) {
     <StandalonePage title={editionTitle(slug)} back={{ href: '/world-cup', label: 'World Cup' }}
       trail={[{ href: '/world-cup', label: 'World Cup' }]}>
       <PageTabs value={tab} onChange={() => {}} mb={2}
-        options={EDITION_TABS.map(t => ({ ...t, href: editionPath(slug, t.value) }))} />
+        options={EDITION_TABS.filter(t => t.value !== 'leaders' || !RESULTS_ONLY_EDITIONS.has(slug)).map(t => ({ ...t, href: editionPath(slug, t.value) }))} />
       {!read ? <Loading /> : !e ? <NoData /> : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {tab === 'overview' && <Overview e={e} />}
@@ -799,8 +804,8 @@ function GamePage({ slug, id }: { slug: string; id: string }) {
   const g = read?.data
   // The matchup, as a schedule names a game; the score is the header card's.
   const title = g ? `${countryName(g.away)} at ${countryName(g.home)}` : 'Game'
-  // The games either side in the order played, skipping forfeits, which have no page.
-  const played = edition?.data ? allGames(edition.data).filter(x => !x.forfeit) : []
+  // The games either side in the order played, skipping the ones with no page.
+  const played = edition?.data ? allGames(edition.data).filter(x => x.page) : []
   const at = played.findIndex(x => String(x.wbsc_game_id) === id)
   const prev = at > 0 ? played[at - 1] : null
   const next = at >= 0 && at < played.length - 1 ? played[at + 1] : null

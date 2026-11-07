@@ -50,13 +50,18 @@ import { buildPersonFile, personSlugs, searchEntry, type WorldCupSearchPerson } 
 import { EMPTY_SAME_PERSON, proposeSamePerson, type SamePersonCandidate, type SamePersonFile } from '../src/intl/wbsc/samePerson'
 import type { PitchingGameLine, RunValuePlay } from '../src/league/types'
 import type { WbscEvent, WbscGamePage, WbscScheduleGame } from '../src/intl/wbsc/types'
+import { checkCompendium, compendiumEventKey, compendiumGames, compendiumUrl, type CompendiumFile } from '../src/intl/wbsc/compendium'
 import { IBAF_2010_EVENT_URL, IBAF_2010_GAMES, IBAF_2010_SOURCE, ibafGameId, ibafPitcherNames, parseIbafGame, parseIbafRoster } from '../src/intl/wbsc/ibaf'
 import { serveReview } from './wbsc-review'
 
 /** Every event the importer knows, oldest first. A key is wbsc.org's, as in /en/events/<key>/. */
 const EVENTS: WbscEvent[] = [
   // 2010 is IBAF's, from its own stats pages as the Wayback Machine saved them (ibaf.ts): wbsc.org
-  // keeps only a standings page for it. 2004 to 2008 survive nowhere game by game, so they are not here.
+  // keeps only a standings page for it. 2004 to 2008 survive only as results, from IBAF's
+  // compendium (compendium.ts), so those three have games and nothing else.
+  { key: compendiumEventKey(2004), year: 2004, name: 'Women\'s Baseball World Cup 2004', compendium: true },
+  { key: compendiumEventKey(2006), year: 2006, name: 'Women\'s Baseball World Cup 2006', compendium: true },
+  { key: compendiumEventKey(2008), year: 2008, name: 'Women\'s Baseball World Cup 2008', compendium: true },
   { key: '2010-womens-baseball-world-cup', year: 2010, name: 'Women\'s Baseball World Cup 2010', legacy: true, ibaf: true },
   // 2012 and 2014 are WBSC's older system, as 2016 is.
   { key: '2012-womens-baseball-world-cup', year: 2012, name: 'Women\'s Baseball World Cup 2012', legacy: true },
@@ -302,7 +307,25 @@ interface ManifestEntry { table: string; rows: number; sha256: string; bytes: nu
 
 // ── One event ───────────────────────────────────────────────────────────────────
 
+// ── 2004 to 2008, results only, from IBAF's compendium (src/intl/wbsc/compendium.ts) ─
+
+/** The transcription of the compendium's results, beside the PDF it was read from. */
+const COMPENDIUM = join(CACHE_DIR, 'pre-2012', '2004-2010-ibaf-compendium', 'results.json')
+
+function importCompendium(event: WbscEvent): boolean {
+  console.log(`\n${event.key}`)
+  if (!existsSync(COMPENDIUM)) { console.log(`  MISSING  ${COMPENDIUM}`); return false }
+  const ed = readJson<CompendiumFile>(COMPENDIUM, { source: '', editions: [] }).editions.find(e => e.year === event.year)
+  if (!ed) { console.log(`  FAILED   no ${event.year} in ${COMPENDIUM}`); return false }
+  const problems = checkCompendium(ed)
+  for (const p of problems) console.log(`  FAILED   ${p}`)
+  if (problems.length) { console.log(`  ${event.key} not written.`); return false }
+  for (const n of ed.canceled) console.log(`  skip     game ${n}: canceled by rain`)
+  return writeEvent(event, { games: compendiumGames(ed) }, { source: compendiumUrl(event.year), skipped: ed.canceled.length, accepted: [], results_only: true })
+}
+
 async function importEvent(event: WbscEvent): Promise<boolean> {
+  if (event.compendium) return importCompendium(event)
   console.log(`\n${event.key}`)
   const ibaf = event.ibaf ? new Map((await ibafGames(event)).map(x => [x.s.id, x])) : null
   const sched = ibaf ? { version: null, games: [...ibaf.values()].map(x => x.s) } : await schedule(event)
@@ -363,14 +386,25 @@ async function importEvent(event: WbscEvent): Promise<boolean> {
     return false
   }
 
+  return writeEvent(event, tables, {
+    source: event.ibaf ? IBAF_2010_EVENT_URL : `${SITE}/en/events/${event.key}/schedule-and-results`, skipped, accepted,
+  })
+}
+
+/** An event's tables and manifest, or with --check, whether they match what is on disk. */
+function writeEvent(
+  event: WbscEvent,
+  tables: { games: { id: string }[]; players?: { id: string }[]; batting_lines?: { id: string }[]; pitching_lines?: { id: string }[]; fielding_lines?: { id: string }[]; plays?: { game_id: string; sequence: number }[] },
+  meta: { source: string; skipped: number; accepted: unknown[]; results_only?: true },
+): boolean {
   const dir = join(OUT_DIR, event.key)
   const files: [string, unknown[]][] = [
     ['games', byId(tables.games)],
-    ['players', byId(tables.players)],
-    ['batting_lines', byId(tables.batting_lines)],
-    ['pitching_lines', byId(tables.pitching_lines)],
-    ['fielding_lines', byId(tables.fielding_lines)],
-    ['plays', [...tables.plays].sort((a, b) => (a.game_id === b.game_id ? a.sequence - b.sequence : a.game_id < b.game_id ? -1 : 1))],
+    ['players', byId(tables.players ?? [])],
+    ['batting_lines', byId(tables.batting_lines ?? [])],
+    ['pitching_lines', byId(tables.pitching_lines ?? [])],
+    ['fielding_lines', byId(tables.fielding_lines ?? [])],
+    ['plays', [...(tables.plays ?? [])].sort((a, b) => (a.game_id === b.game_id ? a.sequence - b.sequence : a.game_id < b.game_id ? -1 : 1))],
   ]
   const entries: ManifestEntry[] = files.map(([table, rows]) => {
     const text = serialise(rows)
@@ -395,9 +429,9 @@ async function importEvent(event: WbscEvent): Promise<boolean> {
   mkdirSync(dir, { recursive: true })
   files.forEach(([table, rows]) => writeFileSync(join(dir, `${table}.json`), serialise(rows)))
   writeFileSync(join(dir, 'manifest.json'), JSON.stringify({
-    event: event.key, name: event.name, year: event.year,
-    source: event.ibaf ? IBAF_2010_EVENT_URL : `${SITE}/en/events/${event.key}/schedule-and-results`,
-    games: tables.games.length, skipped, accepted,
+    event: event.key, name: event.name, year: event.year, source: meta.source,
+    games: tables.games.length, skipped: meta.skipped, accepted: meta.accepted,
+    ...(meta.results_only ? { results_only: true } : {}),
     tables: entries,
   }, null, 2) + '\n')
   const bytes = entries.reduce((n, e) => n + e.bytes, 0)
@@ -632,9 +666,9 @@ function buildSiteFiles(): boolean {
     .filter(d => d.isDirectory() && existsSync(join(OUT_DIR, d.name, 'manifest.json')))
     .map(d => {
       const dir = join(OUT_DIR, d.name)
-      const m = readJson<{ event: string; name: string; year: number; source: string }>(join(dir, 'manifest.json'), { event: d.name, name: d.name, year: 0, source: '' })
+      const m = readJson<{ event: string; name: string; year: number; source: string; results_only?: boolean }>(join(dir, 'manifest.json'), { event: d.name, name: d.name, year: 0, source: '' })
       return {
-        key: m.event, name: m.name, year: m.year, source: m.source,
+        key: m.event, name: m.name, year: m.year, source: m.source, results_only: m.results_only === true,
         games: readJson<WbscGame[]>(join(dir, 'games.json'), []),
         batting: readJson<WbscBattingLine[]>(join(dir, 'batting_lines.json'), []),
         pitching: readJson<PitchingGameLine[]>(join(dir, 'pitching_lines.json'), []),
@@ -681,7 +715,8 @@ function buildSiteFiles(): boolean {
   let gameFiles = 0
   for (const ev of events) {
     const slug = editionSlugOf(ev.key)
-    if (!slug) continue
+    // A results-only event has no box scores, so no game pages.
+    if (!slug || ev.results_only) continue
     const dir = join(OUT_DIR, readdirSync(OUT_DIR).find(d => readJson<{ event?: string }>(join(OUT_DIR, d, 'manifest.json'), {}).event === ev.key) ?? ev.key)
     const plays = readJson<RunValuePlay[]>(join(dir, 'plays.json'), [])
     for (const g of ev.games) {

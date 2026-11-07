@@ -88,7 +88,8 @@ In order. Each step says what done looks like; the commands are in
    [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md#build-order). 2012 and 2014 followed on Nov 3, 2026
    (36 and 24 games) after a reader noticed Ayami Sato's 2012 pitching was missing, and 2010 the same
    day from IBAF's own stats pages in the Wayback Machine (41 games, box scores and play-by-play).
-   2004 to 2008 survive only as results, rosters and Canada's box scores.
+   2004 to 2008 survive only as results, rosters and Canada's box scores; their results followed
+   on Nov 7, 2026 (57 games, results-only editions).
 4. ✅ **Re-measure the provisional numbers** (Nov 2, 2026): the pitch-board bars in
    `src/intl/league.ts`, now from every event.
 5. ✅ **Build `international.json`** (Nov 2, 2026), the one file a WPBL player page will read: per
@@ -285,16 +286,15 @@ it, so it is designed for the developmental league and the AAGPBL as much as for
   by play followed too (step 12), then a page for every player outside the WPBL, all drawn with
   WPBL's own pieces (step 13). On Nov 3 a visual audit led to the navigation, edition, game and
   player page work in the table above (sportydolphin/fun#189 to #192).
-  **What is left, in order** (Nov 3, 2026; since Nov 7 all of it but item 3 waits for the
+  **What is left, in order** (Nov 3, 2026; since Nov 7 all of it but item 3, now done, waits for the
   redesign to land on `main`):
   1. Loading states and the layout sweep: every World Cup page drawn empty while it loads, and
      `npm run sweep -- --shift` and `--ellipsis` clean on these routes. Held until the look is settled.
   2. Polish from the audit: Chinese Taipei's gray "TPE" badge, WPBL players' portraits in the
      leader cards, a title per page, the box score's small gray headers checked for contrast.
-  3. Optional: 2004 to 2008 as editions with results, final standings and medals only (no player
-     stats: what survives game by game is Canada's box scores alone). The sources are IBAF's
-     2004 to 2010 compendium (`ibaf.org/doc/.../2010 - Mundial Femenino - Estadísticas.pdf`, in the
-     Wayback Machine) and the results Wikipedia carries.
+  3. ✅ 2004 to 2008 as editions with results, final standings and medals only (Nov 7, 2026): no
+     player stats, as what survives game by game is Canada's box scores alone. From IBAF's 2004 to
+     2010 compendium; see docs/WBSC_INGEST.md, "2004 to 2008, results only".
   4. The public switch. A first cut is parked on the local branch `world-cup-stage2` (commit
      dce1c95c, never pushed: it carries `archive/wbsc/`). It predates everything above, so the
      switch is rebuilt on `main` from its list: `archive/wbsc/` out of `.gitignore` with a size

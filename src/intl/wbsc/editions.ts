@@ -59,6 +59,29 @@ export interface ForfeitDef {
 
 /** Oldest first. A new edition is a new entry, written when WBSC announces its events. */
 export const EDITIONS: readonly EditionDef[] = [
+  // 2004 to 2008: results only, from IBAF's compendium (compendium.ts). Its placings are the
+  // compendium's final standings, which wbsc.org's standings pages repeat.
+  {
+    slug: '2004', ordinal: null, years: [2004], hosts: ['Edmonton, Canada'],
+    events: [{ key: '2004-womens-baseball-world-cup', label: null }],
+    placings: ['USA', 'JPN', 'CAN', 'AUS', 'TPE'],
+  },
+  {
+    // One round robin and no medal games: the table decided the medals.
+    slug: '2006', ordinal: null, years: [2006], hosts: ['Taipei, Taiwan'],
+    events: [{ key: '2006-womens-baseball-world-cup', label: null }],
+    placings: ['USA', 'JPN', 'CAN', 'AUS', 'TPE', 'CUB', 'HKG'],
+  },
+  {
+    slug: '2008', ordinal: null, years: [2008], hosts: ['Matsuyama, Japan'],
+    events: [{ key: '2008-womens-baseball-world-cup', label: null }],
+    // Pools A and B in the first round, 1 and 2 in the second, as the compendium names them.
+    groupLetters: {
+      A: ['AUS', 'IND', 'TPE', 'USA'], B: ['CAN', 'HKG', 'JPN', 'KOR'],
+      1: ['HKG', 'IND', 'KOR', 'TPE'], 2: ['AUS', 'CAN', 'JPN', 'USA'],
+    },
+    placings: ['JPN', 'CAN', 'USA', 'AUS', 'TPE', 'KOR', 'IND', 'HKG'],
+  },
   {
     // IBAF's, from its own stats pages (ibaf.ts); wbsc.org keeps a standings page and no games.
     slug: '2010', ordinal: null, years: [2010], hosts: ['Maracay, Venezuela'],
@@ -142,10 +165,14 @@ export interface WorldCupGame {
   home: string
   away_score: number
   home_score: number
-  /** Below seven for a game ended by the run rule; 0 for a forfeit, which has no game page. */
-  innings: number
+  /** Below seven for a game ended by the run rule; 0 for a forfeit; null where the source has
+   *  only the score (2004 to 2008). */
+  innings: number | null
   forfeit: boolean
-  /** The box score on wbsc.org, which every result links to; the schedule for a forfeit. */
+  /** Whether the game has a page: a box score to draw. Not a forfeit's, nor a results-only game's. */
+  page: boolean
+  /** The box score on wbsc.org, which every result links to; the schedule for a forfeit, the
+   *  compendium's page for a results-only game. */
   url: string
 }
 
@@ -217,6 +244,8 @@ export interface EditionEventInput {
   games: readonly WbscGame[]
   batting: readonly WbscBattingLine[]
   pitching: readonly PitchingGameLine[]
+  /** Scores and nothing else (2004 to 2008, compendium.ts): no box scores, so no game pages. */
+  results_only?: boolean
 }
 
 /** With no registry, every WBSC id is its own person, linked to nobody, named by its id. */
@@ -258,6 +287,8 @@ const ROUND_LABEL: Readonly<Record<string, string>> = {
   // 2012 and 2014.
   'Round 1': 'Opening Round',
   'Round 2': 'Round 2',
+  // 2006, its only round.
+  'Round Robin': 'Round robin',
   'Consolation 5th-8th': 'Consolation Round',
   'Semifinals': 'Semifinals',
   'Placement games': 'Placement games',
@@ -276,14 +307,14 @@ const forfeitGame = (f: ForfeitDef): WbscGame => ({
   duration_minutes: null, home_hits: 0, away_hits: 0, home_errors: 0, away_errors: 0,
 })
 
-function summary(g: WbscGame, source: string): WorldCupGame {
-  return {
-    id: g.id, wbsc_game_id: g.wbsc_game_id, date: g.game_date, away: g.away_team_id, home: g.home_team_id,
-    away_score: g.away_score ?? 0, home_score: g.home_score ?? 0, innings: g.innings,
-    // A game played has at least one inning; a forfeit, none.
-    forfeit: g.innings === 0,
-    url: g.innings === 0 ? source : boxScoreUrl(source, g.wbsc_game_id),
-  }
+function summary(g: WbscGame, ev: EditionEventInput): WorldCupGame {
+  const base = { id: g.id, wbsc_game_id: g.wbsc_game_id, date: g.game_date, away: g.away_team_id, home: g.home_team_id,
+    away_score: g.away_score ?? 0, home_score: g.home_score ?? 0 }
+  // The compendium's rows carry 0 innings because it has none to give; they are not forfeits.
+  if (ev.results_only) return { ...base, innings: null, forfeit: false, page: false, url: ev.source }
+  // A game played has at least one inning; a forfeit, none.
+  const forfeit = g.innings === 0
+  return { ...base, innings: g.innings, forfeit, page: !forfeit, url: forfeit ? ev.source : boxScoreUrl(ev.source, g.wbsc_game_id) }
 }
 
 /** A team's innings at bat in one game: the outs the other side's pitchers got, over three. */
@@ -295,7 +326,7 @@ type InningsAtBat = (game: WbscGame, team: string) => number
  * scored per inning at bat less runs allowed per inning in the field). Ties past that are left in
  * code order; WBSC goes on to earned runs and batting average, which has not yet been needed.
  */
-export function standings(games: readonly WbscGame[], atBat: InningsAtBat): StandingRow[] {
+export function standings(games: readonly WbscGame[], atBat: InningsAtBat, placings: readonly string[] = []): StandingRow[] {
   const rows = new Map<string, StandingRow>()
   const row = (team: string) => rows.get(team) ?? rows.set(team, { team, w: 0, l: 0, rs: 0, ra: 0 }).get(team)!
   for (const g of games) {
@@ -324,7 +355,10 @@ export function standings(games: readonly WbscGame[], atBat: InningsAtBat): Stan
       const x = h2h.get(t)!
       return (x.bat ? x.rs / x.bat : 0) - (x.field ? x.ra / x.field : 0)
     }
-    return [...tied].sort((x, y) => h2h.get(y.team)!.w - h2h.get(x.team)!.w || tqb(y.team) - tqb(x.team) || cmp(x.team, y.team))
+    // With no innings (2004 to 2008 have scores alone) Team Quality Balance is 0 for everyone, so
+    // the final standings decide, as they decide the compendium's own tables.
+    const placed = (t: string) => (placings.includes(t) ? placings.indexOf(t) : placings.length)
+    return [...tied].sort((x, y) => h2h.get(y.team)!.w - h2h.get(x.team)!.w || tqb(y.team) - tqb(x.team) || placed(x.team) - placed(y.team) || cmp(x.team, y.team))
   })
 }
 
@@ -353,6 +387,27 @@ function splitGroups(games: readonly WbscGame[]): WbscGame[][] {
     groups.set(root, [...(groups.get(root) ?? []), g])
   }
   return [...groups.values()]
+}
+
+/**
+ * Pieces of one group put back together. A group whose games are not all played can fall apart by
+ * the games alone: 2008's second-round Pool 1 lost Korea v Chinese Taipei and Hong Kong v India to
+ * rain, which left two pairs that never met. Pieces that fit inside the same listed group, and
+ * cover it between them, are that group.
+ */
+function mergeByLetter(def: EditionDef, groups: WbscGame[][]): WbscGame[][] {
+  if (!def.groupLetters || groups.length < 2) return groups
+  const teamsOf = (gs: readonly WbscGame[]) => new Set(gs.flatMap(g => [g.away_team_id, g.home_team_id]))
+  const out: WbscGame[][] = []
+  const used = new Set<number>()
+  for (const ts of Object.values(def.groupLetters)) {
+    const inside = groups.map((gs, i) => [gs, i] as const).filter(([gs, i]) => !used.has(i) && [...teamsOf(gs)].every(t => ts.includes(t)))
+    const covered = new Set(inside.flatMap(([gs]) => [...teamsOf(gs)]))
+    if (inside.length < 2 || covered.size !== ts.length) continue
+    for (const [, i] of inside) used.add(i)
+    out.push(inside.flatMap(([gs]) => gs).sort(byDate))
+  }
+  return out.length ? [...out, ...groups.filter((_, i) => !used.has(i))] : groups
 }
 
 /** A group's letter from the edition's list, by its teams; null when the round is one group. */
@@ -405,10 +460,10 @@ export function buildWorldCupSite(
       const earlier: WbscGame[] = []
       for (const [round, games] of rounds) {
         if (KNOCKOUT_ROUNDS.has(round) || def.knockout?.includes(round)) {
-          stages.push({ label: ROUND_LABEL[round], kind: 'knockout', groups: [{ label: null, standings: [], games: games.map(g => summary(g, ev.source)) }] })
+          stages.push({ label: ROUND_LABEL[round], kind: 'knockout', groups: [{ label: null, standings: [], games: games.map(g => summary(g, ev)) }] })
           continue
         }
-        const split = splitGroups(games)
+        const split = mergeByLetter(def, splitGroups(games))
         const groups: WorldCupGroup[] = []
         for (const gs of split) {
           const letter = evDef.label ? null : letterOf(def, gs, split.length)
@@ -420,8 +475,8 @@ export function buildWorldCupSite(
           const carried = earlier.filter(g => teamsIn.has(g.away_team_id) && teamsIn.has(g.home_team_id))
           groups.push({
             label: evDef.label ?? (letter ? `Group ${letter}` : null),
-            standings: standings([...carried, ...gs], atBat),
-            games: gs.map(g => summary(g, ev.source)),
+            standings: standings([...carried, ...gs], atBat, def.placings),
+            games: gs.map(g => summary(g, ev)),
           })
         }
         groups.sort((a, b) => cmp(a.label ?? '', b.label ?? ''))
@@ -441,8 +496,12 @@ export function buildWorldCupSite(
       const final = sorted.find(g => isFinalRound(g.round))
       const bronze = sorted.find(g => isBronzeRound(g.round))
       if (final) medals = { gold: winner(final), silver: loser(final), bronze: bronze ? winner(bronze) : null }
-      const source = def.events.map(e => byKey.get(e.key)!).find(e => e.games.includes(sorted[0]))!.source
-      stages.push({ label: 'Medal games', kind: 'medal', groups: [{ label: null, standings: [], games: sorted.map(g => summary(g, source)) }] })
+      const ev = def.events.map(e => byKey.get(e.key)!).find(e => e.games.includes(sorted[0]))!
+      stages.push({ label: 'Medal games', kind: 'medal', groups: [{ label: null, standings: [], games: sorted.map(g => summary(g, ev)) }] })
+    } else if (def.placings && def.placings.length >= 3 && stages.length) {
+      // An edition with no medal games (2006, one round robin) gave its medals by the table.
+      const [gold, silver, bronze] = def.placings
+      medals = { gold, silver, bronze }
     }
 
     const placings = [...(def.placings ?? [])]
