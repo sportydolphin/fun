@@ -240,6 +240,8 @@ item 2 describes, which is why that item comes first.
    (and Retrosheet-style event files where RetroWPBL's permission covers it), credited, and an
    embeddable standings and box-score widget for the two writers. Links are the brake on search
    (#3), and a dataset and a widget are the two things other sites link to without being asked.
+   The JSON is published since Nov 7, 2026 at `/data/wpbl/index.json`; the page, the CSV and the
+   widget are left.
 9. **Google Play.** A signed build works on a device; what is left is Play's own process
    ([docs/ANDROID.md](docs/ANDROID.md)).
 
@@ -274,9 +276,11 @@ and the reasoning; where the two disagree, `/admin` is the order.
   included. The partition test replays the migrations rather than `supabase gen types`, so CI needs
   no database; it found `tracking_checked_at` in neither list (ingest-only, now named as such).
   Deployed Oct 20, 2026; the first run under it was clean (`ok: true`, 40 games, no errors).
-- *P2, cheap now.* Freeze past seasons as static JSON (R2 or `/data/2026/*.json`, immutable
-  cache), which also becomes the open-data download. A `size-limit` bundle budget in CI. `knip`
-  for dead exports and files.
+- ✅ *P2, Nov 7, 2026.* Past seasons frozen as static JSON: the weekly `archive/` in git, now
+  published at `/data/wpbl/` (`index.json` first) as the open-data download. The site keeps
+  reading Supabase behind Cloudflare's cache; switching it to the files would touch every bulk
+  read to save little on a season this small. A `size-limit` bundle budget in CI
+  ([docs/CI.md](docs/CI.md#bundle-budgets)). `knip` was already in.
 - *P3.* Prefetch on link hover or visibility. Archive old MLB line tables to R2 or Parquet before
   the 8 GB disk fills. Replace `html2canvas` (unmaintained) with `modern-screenshot` or
   `html-to-image`. `@tanstack/react-virtual` for the stats table and Watch once two seasons double

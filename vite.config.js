@@ -4,13 +4,14 @@ import { wpblImageAssets } from './scripts/vite-plugin-wpbl-images.mjs'
 import { wpblPreload } from './scripts/vite-plugin-wpbl-preload.mjs'
 import { noDevCode } from './scripts/vite-plugin-no-dev-code.mjs'
 import { wbscDev } from './scripts/vite-plugin-wbsc-dev.mjs'
+import { wpblData } from './scripts/vite-plugin-wpbl-data.mjs'
 
 // Bundled for the test runner; see `deps` under `test`.
 const MUI_DEPS = ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled']
 
 export default defineConfig({
   root: '.',
-  plugins: [react(), wpblImageAssets(), wpblPreload(), noDevCode(), wbscDev()],
+  plugins: [react(), wpblImageAssets(), wpblPreload(), noDevCode(), wbscDev(), wpblData()],
   // Dev-server port can be assigned by tooling (e.g. Claude preview) via PORT.
   //
   // `strictPort` on the default branch, so a busy 5173 FAILS instead of quietly moving to 5174.

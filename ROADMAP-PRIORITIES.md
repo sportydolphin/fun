@@ -61,16 +61,9 @@ to change only if the change is small; anything larger waits so it is not built 
 
 1. ~~**The Stats phone bar, landed once.**~~ ✅ Nov 6: #198 merged; the other copy is parked in a stash.
 2. ~~**#195 into `redesign` conflicts.**~~ ✅ Nov 6: #195 is mergeable into `redesign` again.
-3. **The World Cup goes public** (large). Since Nov 2 it publishes on implied permission, the
-   footing the WPBL feed is on: WBSC's reply is no longer the gate, and a "no" still ends it. Owner:
-   send WBSC a notice (not a request) by Nov 10 offering removal. Code: the public switch rebuilt
-   on `main` from its list (`archive/wbsc/` into git with a size budget, `_redirects`,
-   `_routes.json` and their 404 guards, `seo.ts`, the sitemap reading `indexable`, the dev flags
-   removed), plus the safeguards: our own play text only, every game credited and linked to
-   wbsc.org, no WBSC video, photos or marks, and a Sources entry with a takedown contact. Then the
-   audit's polish (the gray "TPE" badge, leader portraits, a title per page, small header
-   contrast). Loading states and the sweep on these routes wait for the redesign's look.
-   *ROADMAP-WOMENS-BASEBALL, stage 2, "What is left" items 2 and 4.*
+3. ~~**The World Cup goes public.**~~ Moved to after the redesign (decided Nov 7, 2026): it
+   publishes once the redesign is on `main`, so its pages launch in the new look and are not
+   restyled in public. See Winter, item 9. *ROADMAP-WOMENS-BASEBALL, stage 2, "What is left".*
 4. ~~**The feed rehearsal**~~ ✅ Nov 6 as `npm run rehearse` (#200); see Winter, item 8.
 5. **Google Play release.** Only Play's own process is left. Owner. *ROADMAP-WPBL ops item 9;
    docs/ANDROID.md.*
@@ -78,23 +71,29 @@ to change only if the change is small; anything larger waits so it is not built 
    after the women's competitions) and whether `/` earns a front page. Then the redesign resumes at
    Home's step 1, the in-season and postseason Home. Owner. *ROADMAP-UI.md, "Handoff";
    ROADMAP-WOMENS-BASEBALL, stage 3.*
-7. **Past seasons frozen as static JSON** (also the open-data download) and a `size-limit` bundle
-   budget in CI (medium; moved up from the winter). *ROADMAP-WPBL, engineering backlog P2.*
+7. ~~**Past seasons frozen as static JSON** (also the open-data download) and a `size-limit` bundle
+   budget in CI.~~ ✅ Nov 7: `archive/` published at `/data/wpbl/`, the budgets in
+   `.size-limit.js`. *ROADMAP-WPBL, engineering backlog P2.*
 
 **Small, any time this month:**
 
-- Photo tagging: confirm `ip_hash` is filling on the first real suggestions. *docs/PHOTO_TAGGING.md.*
+- ~~Photo tagging: confirm `ip_hash` is filling on the first real suggestions.~~ ✅ Nov 7: the one
+  suggestion so far (Oct 21) carries it. *docs/PHOTO_TAGGING.md.*
 - The backup's private key into a password manager. Owner. *docs/BACKUPS.md.*
 - **MLB as one league among several**: read "MLB: what gets used" on `/admin` and decide what MLB
   keeps on its own pages. *ROADMAP.md, "Handoff" and item 7 of the second pass.*
 - `/admin` → Roadmap: reseed it from this file or retire it.
 - **Search examples from use**, from late November, once "Offered nothing for" has a few weeks of
   v1.207.0 in it. *ROADMAP-WPBL, "Search: what's next" item 13.*
-- The dupe and orphan audit of players and games, and the portrait-rights ask to the league.
+- ~~The dupe and orphan audit of players and games~~ ✅ Nov 7, clean: 40 finals, each with a box
+  score and plays; 118 players, no shared names or feed ids; every line, play and fielding row
+  names a known player and game. Rerun once the 2027 feed starts adding rows. Left: the
+  portrait-rights ask to the league (owner).
   *ROADMAP-WPBL, "Ongoing hygiene & ops".*
 
 **Not now, because the redesign would redo it:** the live field, the live files on the type
-scale, World Cup loading states and their sweep, and anything on Home or the WPBL Stats controls.
+scale, the World Cup's loading states, sweep and public switch, and anything on Home or the WPBL
+Stats controls.
 
 ## Winter: December to March, all of it before the 2027 season
 
@@ -108,9 +107,17 @@ scale, World Cup loading states and their sweep, and anything on Home or the WPB
    - ~~the column-partition test for `LIVE_GAME_COLUMNS` and the line column lists~~ ✅ done Oct 17;
    - every Trap in CLAUDE.md re-verified against the 2027 feed once it speaks.
    *ROADMAP-WPBL, ops item 7, Priorities P0 and P2, engineering backlog.*
-9. **World Cup stage 2, finished**: loading states and the sweep on its routes once the redesign's
-   look is settled, and optionally 2004 to 2008 as results-only editions. The pages themselves and
-   the public switch are November's item 3. *ROADMAP-WOMENS-BASEBALL, "The plan", stage 2.*
+9. **The World Cup goes public, after the redesign** (large; decided Nov 7, 2026). It publishes
+   on implied permission, the footing the WPBL feed is on: WBSC's reply is no longer the gate, and
+   a "no" still ends it. In order, once the redesign is on `main`: the pages in the new look, their
+   loading states and the sweep, the audit's polish (the gray "TPE" badge, leader portraits, a
+   title per page, small header contrast), then the public switch rebuilt on `main` from its list
+   (`archive/wbsc/` into git with a size budget, `_redirects`, `_routes.json` and their 404 guards,
+   `seo.ts`, the sitemap reading `indexable`, the dev flags removed), with the safeguards: our own
+   play text only, every game credited and linked to wbsc.org, no WBSC video, photos or marks, and
+   a Sources entry with a takedown contact. Owner: the WBSC notice (not a request) offering removal
+   goes out before the switch. Optionally 2004 to 2008 as results-only editions, any time.
+   *ROADMAP-WOMENS-BASEBALL, "The plan", stage 2.*
 10. **The live field**, in Game Center on both leagues, before MLB's Opening Day in late March: an
    animated diamond with runners, the count and pitch location. Built on MLB first, because spring
    training is live from late February while the WPBL feed is quiet; WPBL wires to it against the

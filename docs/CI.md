@@ -11,7 +11,7 @@ squash-merged, and Cloudflare deploys whatever lands. The ruleset requires two c
 
 | Check | Job in `ci.yml` | What it runs | Typical time |
 |---|---|---|---|
-| `check` | `check` | `npm ci`, typecheck, lint, the tests, the production build, then the code the build never sees (below) | about 3 min |
+| `check` | `check` | `npm ci`, typecheck, lint, the tests, the production build, the bundle budgets (`npm run size`, [below](#bundle-budgets)), then the code the build never sees (below) | about 3 min |
 | `layout` | `layout` | nothing itself: passes only if every `layout` slice did | seconds |
 
 `layout 1/8` to `layout 8/8` are the layout sweep split by route, run in parallel, `layout
@@ -86,6 +86,24 @@ Other checks on a pull request:
 Open a pull request with `gh pr create --fill && gh pr merge --auto --squash`. It merges itself
 once both required checks pass. The title and body become the commit on `main`, so they follow
 the commit-message rule in CLAUDE.md (why, not what; no em dashes).
+
+## Bundle budgets
+
+`npm run size` runs [size-limit](https://github.com/ai/size-limit) on the build, with the
+budgets in [`.size-limit.js`](../.size-limit.js), brotli sizes, about 8% over what `main`
+measured on Nov 7, 2026:
+
+| Budget | Nov 7 | Limit |
+|---|---|---|
+| First load on `/wpbl`: the entry plus every live modulepreload in `index.html` | 396 kB | 428 kB |
+| The entry chunk | 110 kB | 119 kB |
+| All JavaScript | 1.05 MB | 1.13 MB |
+
+The first-load list is read out of `dist/index.html`, so it follows the preload plugin by itself;
+the MLB links inside `<template>` are cut out first because no WPBL reader fetches them. A failure
+means something grew: find it with `npx vite-bundle-visualizer` or by comparing `dist/assets`
+against `main`. Raising a limit is fine when the growth is wanted; say why in the pull request.
+Run `npm run build` first, or the config throws.
 
 ## The tests
 
