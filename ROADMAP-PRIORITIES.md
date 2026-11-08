@@ -187,8 +187,7 @@ that is confirmed. Detail in *ROADMAP-WPBL, "From the Nov 1, 2026 brainstorm".*
   follow-up after December's read. *ROADMAP.md, second pass item 6; "From the Oct 10 audit".*
 - `/wpbl/data` and the embeddable standings and box-score widget (ops item 8), then a DuckDB-WASM
   sandbox over the frozen season files.
-- The rest of the engineering backlog's P3: prefetch on hover, MLB line tables to R2 before the
-  ceiling, `html2canvas` replaced, virtualized tables, `fast-check` tests for `derive/`.
+- The rest of the engineering backlog's P3: prefetch on hover, `html2canvas` replaced, virtualized tables, `fast-check` tests for `derive/`.
 - MLB Draft board; Tracked on MLB, if ever.
 - Search: spans and splits (needs a date range on Find); firsts (needs a page to link).
 - The Visuals list, the data-mining backlog, portrait rights. *ROADMAP-WPBL.*

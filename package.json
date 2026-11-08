@@ -40,6 +40,7 @@
     "check-roster-forks": "node --env-file=.env scripts/check-wpbl-roster-forks.mjs",
     "fill-play-gaps": "node --env-file=.env scripts/fill-wpbl-play-gaps.mjs",
     "archive": "node scripts/run-ts.mjs --env scripts/export-wpbl-archive.ts",
+    "freeze-mlb-lines": "node --env-file=.env scripts/freeze-mlb-lines.mjs",
     "rehearse": "node scripts/run-ts.mjs scripts/rehearse-wpbl-feed.ts",
     "wbsc": "node scripts/run-ts.mjs --env scripts/import-wbsc.ts",
     "player-seasons": "node scripts/run-ts.mjs --env scripts/compute-wpbl-player-seasons.ts",
