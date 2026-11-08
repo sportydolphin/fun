@@ -20,10 +20,12 @@ export function mlbGameLineLabel(game: MlbLineGame | null, teamId: string | null
 }
 
 export default function GameLineRow({
-  rank, name, player, teamId, game, detail, value, unit, divider, onOpenPlayer, onOpenGame,
+  rank, tied, name, player, teamId, game, detail, value, unit, divider, onOpenPlayer, onOpenGame,
   nameOpens = 'player', emphasizeRank = true,
 }: {
   rank?: number
+  /** Another row shares the rank ("T-3"). */
+  tied?: boolean
   name: string
   player: MlbLinePlayer | null
   /** The club played for THAT DAY, off the line. */
@@ -46,7 +48,7 @@ export default function GameLineRow({
   const link = game ? gameLink(game.gamePk, openGame) : undefined
   return (
     <GameLineFrame
-      rank={rank} emphasizeRank={emphasizeRank} name={name} detail={detail} value={value} unit={unit} divider={divider}
+      rank={rank} tied={tied} emphasizeRank={emphasizeRank} name={name} detail={detail} value={value} unit={unit} divider={divider}
       label={mlbGameLineLabel(game, teamId)}
       portrait={player
         ? <PlayerHeadshot variant="ring" playerId={player.playerId} name={name} teamId={club || undefined} size={PORTRAIT_PX} />

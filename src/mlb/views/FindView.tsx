@@ -123,8 +123,8 @@ export function MlbFindView({
             clubAbbr={id => TEAM_ABBR[Number(id)] ?? id}
             sort={sort} onSort={setSort} examples={EXAMPLES[side]} stickyTop={STATS_BOARD_TOP}
             parse={text => parseFinderText(text, MLB_FINDER_CLUBS)} onAsk={onAsk}
-            renderRow={(r, i, unit) => (
-              <GameLineRow key={r.key} rank={i + 1} name={r.name} player={r.player} teamId={r.teamId}
+            renderRow={(r, i, unit, rank) => (
+              <GameLineRow key={r.key} rank={rank.rank} tied={rank.tied} name={r.name} player={r.player} teamId={r.teamId}
                 game={r.game} detail={r.detail} value={r.headlineDisplay} unit={unit} divider={i > 0}
                 nameOpens="game" emphasizeRank={false} onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
             )}

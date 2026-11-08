@@ -201,10 +201,12 @@ export function LeaderCardSkeleton({ title, rows = LEADERS_SHOWN, seeAll = true,
 }
 
 /** Competition ranks over values already in rank order, judged on the text AS PRINTED (two
- *  hitters at .400 share a place even if the fourth decimal differs), with the tie marked. */
+ *  hitters at .400 share a place even if the fourth decimal differs), with the tie marked. The one
+ *  rank rule for every board in both sections (leader cards, the season tables, Find). A dash is
+ *  never a tie: it is the absence of a number. */
 export function printedRanks(texts: string[]): { rank: number; tied: boolean }[] {
   const out: { rank: number; tied: boolean }[] = []
-  texts.forEach((t, i) => { out.push({ rank: i > 0 && texts[i - 1] === t ? out[i - 1].rank : i + 1, tied: false }) })
+  texts.forEach((t, i) => { out.push({ rank: i > 0 && t !== '—' && texts[i - 1] === t ? out[i - 1].rank : i + 1, tied: false }) })
   out.forEach((r, i) => { r.tied = (i > 0 && out[i - 1].rank === r.rank) || (i + 1 < out.length && out[i + 1].rank === r.rank) })
   return out
 }

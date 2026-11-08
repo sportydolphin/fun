@@ -20,11 +20,13 @@ export function gameLineLabel(game: WpblGame | null, teamId: string | null): str
 }
 
 export default function GameLineRow({
-  rank, name, player, teamId, game, detail, value, unit, accent, divider, onOpenPlayer, onOpenGame,
+  rank, tied, name, player, teamId, game, detail, value, unit, accent, divider, onOpenPlayer, onOpenGame,
   nameOpens = 'player', emphasizeRank = true,
 }: {
   /** The row's place in the list. Omitted draws no number at all. */
   rank?: number
+  /** Another row shares the rank ("T-3"). */
+  tied?: boolean
   name: string
   player: WpblPlayer | null
   /** The club played for THAT DAY, off the line. Never the roster's, which means "now". */
@@ -52,7 +54,7 @@ export default function GameLineRow({
   const link = game ? gameLink(game, onOpenGame) : undefined
   return (
     <GameLineFrame
-      rank={rank} emphasizeRank={emphasizeRank} name={name} detail={detail} value={value} unit={unit} divider={divider}
+      rank={rank} tied={tied} emphasizeRank={emphasizeRank} name={name} detail={detail} value={value} unit={unit} divider={divider}
       accent={accent}
       label={gameLineLabel(game, teamId)}
       portrait={<PlayerPortrait name={name} teamId={teamId} size={32} />}

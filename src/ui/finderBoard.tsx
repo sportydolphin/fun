@@ -7,14 +7,14 @@ import {
   type FinderCondition, type FinderOp, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
   type FinderBoardSide, type FinderSort, type FinderTally, type FinderVenue,
 } from '../league/finder'
-import { GameLineFrame } from './gameLine'
+import { GAME_LINE_RANK_SX, GameLineFrame } from './gameLine'
 import { shortDate } from '../lib/format'
 import type { LeagueGame, LeaguePlayer } from '../league/types'
 import { SectionCard, SectionLabel, TYPE_SCALE, CARD_BORDER, ACCENT_EDGE } from './card'
 import { ExpandRow } from './ExpandRow'
-import { LeaderCard, LeaderCardSkeleton, PORTRAIT_PX, type LeaderItem } from './leaders'
+import { LeaderCard, LeaderCardSkeleton, PORTRAIT_PX, printedRanks, type LeaderItem } from './leaders'
 import { FOCUS_RING, TAPPABLE, hoverOnly, pressable } from './interaction'
-import { NameText } from './NameText'
+import { NameColumn, NameText } from './NameText'
 import { chromePx } from './scale'
 import { BOARD_COLUMN } from './layoutWidths'
 
@@ -50,7 +50,10 @@ const MAX_CONDITIONS = 6
 
 // THE TABLE'S COLUMNS, in rem so they grow with the reader's text. The player column takes what is
 // left and steps a long name down to "F. Last" (NameText) rather than pushing the numbers off.
-const COL = { rank: 1.5, player: 8, game: 5.25, result: 3.75, stat: 2.4, gap: 0.4 }
+// THE RANK COLUMN HOLDS "T-10" at the meta size (37px of 40 at 1440), since ties are marked. The
+// half rem it gained came out of Result, whose widest score ("W 18–7") used 53px of 75, so the
+// player column kept its width: taken from the player column instead, "N. Yonetani" clipped.
+const COL = { rank: 2, player: 8, game: 5.25, result: 3.25, stat: 2.4, gap: 0.4 }
 /** The table's narrowest, which is what the main column must hold before it is drawn: the fixed
  *  columns, the player column's floor, the gaps, and the card's padding and borders (2 x 16 chrome
  *  px, under 2.5rem at either scale). */
@@ -306,7 +309,7 @@ function RowSkeleton({ divider }: { divider: boolean }) {
       display: 'flex', alignItems: 'center', gap: 1.25, px: 0.5, py: 0.85,
       borderTop: divider ? '1px solid' : 'none', borderColor: 'divider',
     }}>
-      <Box sx={{ width: '1.5rem', flexShrink: 0, fontSize: TYPE_SCALE.body }}>&nbsp;</Box>
+      <Box sx={GAME_LINE_RANK_SX}>&nbsp;</Box>
       <Skeleton variant="circular" width={chromePx(PORTRAIT_PX)} height={chromePx(PORTRAIT_PX)} sx={{ flexShrink: 0 }} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{ fontSize: TYPE_SCALE.body }}><Skeleton width="55%" /></Typography>
@@ -344,6 +347,23 @@ function gameLabel(game: LeagueGame | null, teamId: string | null, clubAbbr: (id
   return `${date} ${home ? 'vs' : 'at'} ${clubAbbr(home ? game.away_team_id : game.home_team_id)}`
 }
 
+/** A row's place, and whether another row shares it. */
+export interface RankMark { rank: number; tied: boolean }
+
+/** "T-3" for a shared place, as the leader cards and the season table draw it. */
+const rankText = (r: RankMark) => (r.tied ? `T-${r.rank}` : String(r.rank))
+
+/**
+ * COMPETITION RANKS ON THE COLUMN THE ROWS ARE IN ORDER BY, judged on the number as printed, the
+ * rule the leader cards and the season table use (`printedRanks`). Nine lines numbered 1 to 9 that
+ * all read 4 H claimed an order nobody could see (Nov 7, 2026 audit). A date order is a list, not a
+ * standing, so it numbers plainly.
+ */
+export function finderRanks(side: FinderBoardSide, rows: { values: Record<string, number> }[], sort: FinderSort): RankMark[] {
+  if (sort.key === 'date') return rows.map((_, i) => ({ rank: i + 1, tied: false }))
+  return printedRanks(rows.map(r => displayFinderValue(side, sort.key, r.values[sort.key] ?? 0)))
+}
+
 /**
  * THE TABLE. A matching line drawn as "8/2 at BOS · 2.0 IP, 2 H, 2 R, 2 BB, 4 K" is a table
  * squashed into a sentence; with the width for it the line gets its columns, the game its result,
@@ -355,11 +375,13 @@ function gameLabel(game: LeagueGame | null, teamId: string | null, clubAbbr: (id
  * Each row is its own grid on the same template, which the fixed rem columns make exact.
  */
 function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
-  side, query, rows, sort, onSort, headlineField, clubAbbr, rowParts, loading,
+  side, query, rows, ranks, sort, onSort, headlineField, clubAbbr, rowParts, loading,
 }: {
   side: FinderBoardSide
   query: FinderQuery
   rows: FinderRow<P, G>[]
+  /** Each row's place in the order shown, ties marked; see `finderRanks`. */
+  ranks: RankMark[]
   sort: FinderSort | null
   onSort: (s: FinderSort | null) => void
   headlineField: string
@@ -426,7 +448,7 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
               {cols.map(c => <Typography key={c.key} sx={{ fontSize: TYPE_SCALE.title }}><Skeleton /></Typography>)}
             </Box>
           ))
-          : rows.map((r, i) => {
+          : <NameColumn names={rows.map(r => r.name)}>{rows.map((r, i) => {
             const parts = rowParts(r)
             const label = gameLabel(r.game, r.teamId, clubAbbr)
             const rowLink = season ? parts.playerLink : parts.gameLink
@@ -437,7 +459,7 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
                 ...(rowLink ? TAPPABLE : {}),
               }}>
                 <Box role="cell" sx={{ textAlign: 'center', fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-                  {i + 1}
+                  {rankText(ranks[i])}
                 </Box>
                 <Box role="cell" sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
                   {parts.portrait}
@@ -483,7 +505,7 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
                 })}
               </Box>
             )
-          })}
+          })}</NameColumn>}
       </Box>
     </Box>
   )
@@ -491,15 +513,16 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
 
 /** A season row for the list: the shared game-line frame with the player as its one link, since a
  *  season has no night for the row to open. */
-function SeasonRow<P extends LeaguePlayer, G extends LeagueGame>({ row, i, unit, parts, accent }: {
+function SeasonRow<P extends LeaguePlayer, G extends LeagueGame>({ row, i, rank, unit, parts, accent }: {
   row: FinderRow<P, G>
   i: number
+  rank: RankMark
   unit: string
   parts: FinderRowParts
   accent?: string
 }) {
   return (
-    <GameLineFrame rank={i + 1} emphasizeRank={false} portrait={parts.portrait} name={row.name} club={parts.club}
+    <GameLineFrame rank={rank.rank} tied={rank.tied} emphasizeRank={false} portrait={parts.portrait} name={row.name} club={parts.club}
       label={null} detail={row.detail} value={row.headlineDisplay} unit={unit} divider={i > 0}
       accent={accent} rowLink={parts.playerLink} />
   )
@@ -522,7 +545,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   loading?: boolean
   /** A matching game line in the section's own parts (GameLineFrame, in game mode), for the list.
    *  A season row is drawn here, from `rowParts`, since it has no game for a section's row to show. */
-  renderRow: (row: FinderRow<P, G>, i: number, unit: string) => React.ReactNode
+  renderRow: (row: FinderRow<P, G>, i: number, unit: string, rank: RankMark) => React.ReactNode
   /** The same line's parts, for the table. */
   rowParts: (row: FinderRow<P, G>) => FinderRowParts
   /** The section's face, club mark and link for a tally row. */
@@ -603,6 +626,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     ? `Show more ${who[1]}`
     : `Show ${loading || result.total > result.rows.length ? 'top' : 'all'} ${loading ? 50 : result.rows.length} games`
   const shownRows = allRows ? result.rows : result.rows.slice(0, RESULT_CAP)
+  const ranks = finderRanks(side, result.rows, sort ?? { key: result.headlineField, desc: !finderLowerBetter(side, result.headlineField) })
 
   // Competition ranks over the games counts: 1, 1, 3.
   const tally = result.tally.slice(0, TALLY_SHOWN)
@@ -749,7 +773,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   )
 
   const table = (
-    <ResultTable side={side} query={query} rows={shownRows} sort={sort} onSort={onSort}
+    <ResultTable side={side} query={query} rows={shownRows} ranks={ranks} sort={sort} onSort={onSort}
       headlineField={result.headlineField} clubAbbr={clubAbbr} rowParts={rowParts} loading={loading} />
   )
 
@@ -810,9 +834,9 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
                   {/* BOTH DRAWN, ONE SHOWN, so which one is a matter of the width alone and the first
                       paint is already the right one: a measured switch would paint the list and then
                       replace it. */}
-                  <Box sx={listOnly}>{shownRows.map((r, i) => season ? (
-                    <SeasonRow key={r.key} row={r} i={i} unit={unit} parts={rowParts(r)} accent={accent} />
-                  ) : renderRow(r, i, unit))}</Box>
+                  <Box sx={listOnly}><NameColumn names={shownRows.map(r => r.name)}>{shownRows.map((r, i) => season ? (
+                    <SeasonRow key={r.key} row={r} i={i} rank={ranks[i]} unit={unit} parts={rowParts(r)} accent={accent} />
+                  ) : renderRow(r, i, unit, ranks[i]))}</NameColumn></Box>
                   <Box sx={tableOnly}>{table}</Box>
                   {result.rows.length > RESULT_CAP && (
                     <ExpandRow flush expanded={allRows}

@@ -420,9 +420,9 @@ function ChartPanel({ spec, everyone, onOpenPlayer, focus, lit, onLit, clubOf, c
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1 }}>
         <Typography component="h3" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, letterSpacing: typePx(-0.2) }}>{spec.title}</Typography>
         <InfoDot label={`About ${spec.title}`} text={spec.info} />
-        {/* The size key: a small dot and a big one, and what the size counts. */}
+        {/* The size key: one dot and what its size counts. A small dot beside a big one read as a
+            stray bullet ("• ● Size: PA", Nov 7, 2026 audit); the label carries "size" on its own. */}
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary', flexShrink: 0 }}>
-          <Box component="span" aria-hidden sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: 'currentColor' }} />
           <Box component="span" aria-hidden sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: 'currentColor' }} />
           <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700 }}>Size: {spec.size}</Typography>
         </Box>

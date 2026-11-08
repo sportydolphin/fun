@@ -48,14 +48,14 @@ export default function WpblBestsView({
   // itself, and the two slices are exactly the case where nobody would think to check.
   const finals = useMemo(
     () => scopedGames(games.filter(g => g.status === 'final'), scope).length, [games, scope])
-  const gamesWord = scope === 'regular' ? 'regular-season games'
-    : scope === 'postseason' ? 'playoff games'
-    : 'games'
+  // "LEAGUE GAMES", not "regular-season games": the Teams board beside this shows G = 15 for each
+  // club, and 30 regular-season games read as each club's count. The total is the league's.
+  const gamesWord = scope === 'postseason' ? 'league playoff games' : 'league games'
 
   return (
     <BestsBoards boards={boards} finals={finals} gamesWord={gamesWord}
       renderRow={(r, i, b) => (
-        <GameLineRow key={r.key} rank={r.rank} name={r.name} player={r.player} teamId={r.teamId}
+        <GameLineRow key={r.key} rank={r.rank} tied={r.tied} name={r.name} player={r.player} teamId={r.teamId}
           game={r.game} detail={r.detail} value={r.display} unit={b.unit} accent={accent}
           divider={i > 0} onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
       )} />
