@@ -88,12 +88,19 @@ const splitSx = (when: string | undefined, half: number) => when ? {
     gridAutoFlow: 'column', gridTemplateRows: `repeat(${half}, auto)`,
   },
 } : undefined
+/** A row past `phoneRows`, hidden below `sm`. CSS rather than a measured width, so the first paint
+ *  is already right and the skeleton can say the same thing in the same way. */
+const phoneHide = (phoneRows: number | undefined, i: number) =>
+  phoneRows != null && i >= phoneRows ? { display: { xs: 'none', sm: 'flex' } } : {}
 /** The second column's first row heads its column, so it has no rule above it. */
 const splitRule = (when: string | undefined, i: number, half: number) =>
   when && i === half ? { [when]: { borderTop: 'none' } } : {}
 
-export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKey, onHover, splitWhen }: {
+export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKey, onHover, splitWhen, phoneRows }: {
   title: string
+  /** The rows a phone shows, the rest one tap away on "See all". Nine cards of five stacked were a
+   *  3,200px scroll on WPBL's phone board (Nov 7, 2026 audit). */
+  phoneRows?: number
   /** A media or container query under which the rows run down two columns rather than one. For a
    *  card stretched across a wide page (Find's tally under its table), where one column is a list
    *  of names with a screen of nothing between each and its number. */
@@ -125,6 +132,7 @@ export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKe
                 sx={{
                   ...ROW_SX, ...rule(i), ...FOCUS_RING,
                   ...splitRule(splitWhen, i, half),
+                  ...phoneHide(phoneRows, i),
                   cursor: it.linkProps ? 'pointer' : 'default',
                   opacity: dimmed ? 0.35 : 1,
                   transition: 'opacity 0.18s, background-color 0.18s',
@@ -164,8 +172,10 @@ function LeaderName({ name }: { name: string }) {
 
 /** The card before its rows have landed: the real title, which needs no data, over ghost rows of
  *  the loaded row's box, so nothing moves when the names arrive. */
-export function LeaderCardSkeleton({ title, rows = LEADERS_SHOWN, seeAll = true, splitWhen }: {
+export function LeaderCardSkeleton({ title, rows = LEADERS_SHOWN, seeAll = true, splitWhen, phoneRows }: {
   title: string
+  /** The loaded card's `phoneRows`. */
+  phoneRows?: number
   /** The rows the loaded card will have. */
   rows?: number
   /** Whether the loaded card has a "See all" link, so the title line is the same height. */
@@ -178,7 +188,7 @@ export function LeaderCardSkeleton({ title, rows = LEADERS_SHOWN, seeAll = true,
     <SectionCard bare title={title} action={seeAll ? <CardLink label="See all" onClick={() => {}} /> : undefined}>
       <Box sx={splitSx(splitWhen, half)}>
         {Array.from({ length: rows }, (_, i) => (
-          <Box key={i} sx={{ ...ROW_SX, ...rule(i), ...splitRule(splitWhen, i, half) }}>
+          <Box key={i} sx={{ ...ROW_SX, ...rule(i), ...splitRule(splitWhen, i, half), ...phoneHide(phoneRows, i) }}>
             <Box sx={RANK_SX}>&nbsp;</Box>
             <Skeleton variant="circular" width={chromePx(PORTRAIT_PX)} height={chromePx(PORTRAIT_PX)} sx={{ flexShrink: 0 }} />
             <Typography sx={{ ...NAME_SX, flex: 1 }}><Skeleton width="60%" /></Typography>
