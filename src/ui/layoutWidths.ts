@@ -11,11 +11,12 @@ import { chromePx } from './scale'
 // capped.
 //
 // THE GUTTER IS THE TOOLBAR'S. Under the cap the column is the viewport less the scrollbar
-// (`--sd-scrollbar-w`, lib/scrollbarWidth.ts: `100vw` counts a classic one) and less the toolbar's
-// own side padding on each side, MUI's `spacing(3)` in chrome px, so the page's left edge and the
-// logo's are one line. It was a flat 24px, which put the Stats heading about 20px left of the logo,
-// and 4.5px from the window's edge on Windows (Nov 7, 2026 audit).
-const VIEWPORT_COLUMN = `calc(100vw - var(--sd-scrollbar-w, 0px) - 2 * ${chromePx(24)})`
+// (`--sd-scrollbar-w`, lib/scrollbarWidth.ts: `100vw` counts a classic one) and less
+// `--sd-page-gutter` on each side (styles.css): from `sm` the toolbar's own side padding, so the
+// page's left edge and the logo's are one line; on a phone the 12px it always was. It was a flat
+// 12px everywhere, which put the Stats heading about 20px left of the logo, and 4.5px from the
+// window's edge on Windows (Nov 7, 2026 audit).
+const VIEWPORT_COLUMN = 'calc(100vw - var(--sd-scrollbar-w, 0px) - 2 * var(--sd-page-gutter, 12px))'
 
 /** Home's column above a phone: the scoreboard, the cards and everything between. */
 export const HOME_W = `min(1260px, ${VIEWPORT_COLUMN})`
