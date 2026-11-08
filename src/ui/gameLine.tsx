@@ -3,7 +3,8 @@ import { Box, Typography } from '@mui/material'
 import { TYPE_SCALE } from './card'
 import { shortDate } from '../lib/format'
 import { TAPPABLE } from './interaction'
-import { nameAtStage, useLineNameFit } from './names'
+import { nameAtStage } from './names'
+import { useNameFit } from './NameText'
 
 // One line of a box score, drawn as a row: who, in which game, and the number it is here for.
 //
@@ -35,16 +36,27 @@ export function formatGameLineLabel(gameDate: string, home: boolean, opp: string
   return opp ? `${date} ${home ? 'vs' : 'at'} ${opp}` : date
 }
 
+/** The rank's box, shared with the skeletons that stand in for these rows so the two cannot drift.
+ *  The leader cards' rank (leaders.tsx): the meta size, wide enough for "T-10" (1.85rem), in rem so
+ *  it grows with Large text. At the body size "T-10" needed 2.25rem, and every rem the rank takes
+ *  comes out of the game line beside it on a phone. */
+export const GAME_LINE_RANK_SX = {
+  width: '2rem', flexShrink: 0, textAlign: 'center', whiteSpace: 'nowrap',
+  fontSize: TYPE_SCALE.meta, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+} as const
+
 /** Link props as each section's link helpers build them: a real `<a href>` that preventDefaults
  *  into the section's opener, or nothing where there is nowhere to go. */
 type LinkProps = object
 
 export function GameLineFrame({
-  rank, emphasizeRank = true, portrait, name, club, label, detail, value, unit, divider,
+  rank, tied = false, emphasizeRank = true, portrait, name, club, label, detail, value, unit, divider,
   accent = 'var(--wpbl-accent-fg)', rowLink, nameLink, gameLink,
 }: {
   /** The row's place in the list. Omitted draws no number at all. */
   rank?: number
+  /** Another row shares the rank: drawn "T-3", as the leader cards and the season table draw it. */
+  tied?: boolean
   /** Color the top three ranks in the accent. Off where `rank` is just a list position (Find)
    *  rather than a real standing (Bests), where the accent would assert a ranking that is not one. */
   emphasizeRank?: boolean
@@ -70,7 +82,7 @@ export function GameLineFrame({
   /** Player mode only: the date's own anchor. */
   gameLink?: LinkProps
 }) {
-  const fit = useLineNameFit<HTMLElement>([name])
+  const fit = useNameFit(name)
   const rowIsLink = !!rowLink
   // Hover only where there is a pointer: a touch browser fires hover on tap and then leaves it
   // there, so a scrolled list keeps whichever row the finger started on lit.
@@ -83,10 +95,7 @@ export function GameLineFrame({
       ...(rowIsLink ? { cursor: 'pointer', borderRadius: 1, ...TAPPABLE } : {}),
     }}>
       {rank != null && (
-        <Box sx={{
-          width: '1.5rem', textAlign: 'center', fontSize: TYPE_SCALE.body, fontWeight: 800, flexShrink: 0,
-          color: emphasizeRank && rank <= 3 ? accent : 'text.disabled', fontVariantNumeric: 'tabular-nums',
-        }}>{rank}</Box>
+        <Box sx={{ ...GAME_LINE_RANK_SX, color: emphasizeRank && rank <= 3 ? accent : 'text.disabled' }}>{tied ? `T-${rank}` : rank}</Box>
       )}
       {portrait}
       <Box sx={{ minWidth: 0, flex: 1 }}>

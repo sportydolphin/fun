@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
 import { Box, Typography, useMediaQuery, useTheme } from '@mui/material'
 import { SectionCard, TYPE_SCALE } from './card'
+import { NameColumn } from './NameText'
 import { BOARD_COLUMN, BOARD_COLUMN_WIDE } from './layoutWidths'
 import { sectionAnchorId, useSectionScroll } from '../lib/sectionScroll'
 
@@ -19,7 +20,7 @@ export interface BestsBoardShape<R> {
   more: number
 }
 
-export function BestsBoards<R extends { display: string }>({
+export function BestsBoards<R extends { display: string; name: string }>({
   boards, finals, gamesWord, renderRow, loading = false, skeleton,
 }: {
   boards: BestsBoardShape<R>[]
@@ -84,7 +85,8 @@ export function BestsBoards<R extends { display: string }>({
                   <SectionCard title={b.label}>
                     {b.rows.length === 0
                       ? <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>No data</Typography>
-                      : b.rows.map((r, i) => renderRow(r, i, b))}
+                      // One name stage down the card, the longest any row needs.
+                      : <NameColumn names={b.rows.map(r => r.name)}>{b.rows.map((r, i) => renderRow(r, i, b))}</NameColumn>}
                     {b.more > 0 && (
                       <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', textAlign: 'center', pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
                         +{b.more} more at {b.rows[b.rows.length - 1].display} {b.unit}

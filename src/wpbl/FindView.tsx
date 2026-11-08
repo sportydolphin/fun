@@ -128,8 +128,8 @@ export default function WpblFindView({
       clubAbbr={id => teams.find(t => t.id === id)?.abbr ?? id}
       sort={sort} onSort={setSort} examples={EXAMPLES[side]} stickyTop={STICKY_TOP} accent={accent}
       parse={text => parseFinderText(text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES)} onAsk={onAsk}
-      renderRow={(r, i, unit) => (
-        <GameLineRow key={r.key} rank={i + 1} name={r.name} player={r.player}
+      renderRow={(r, i, unit, rank) => (
+        <GameLineRow key={r.key} rank={rank.rank} tied={rank.tied} name={r.name} player={r.player}
           teamId={r.teamId} game={r.game} detail={r.detail}
           value={r.headlineDisplay} unit={unit} accent={accent} divider={i > 0}
           nameOpens="game" emphasizeRank={false}

@@ -4,6 +4,7 @@ import { bestGames, BEST_ROWS, type BestBoard } from '../../league/bests'
 import { scopedGames } from '../../league/season'
 import { SectionCard, TYPE_SCALE } from '../../ui/card'
 import { BestsBoards } from '../../ui/bestsBoards'
+import { GAME_LINE_RANK_SX } from '../../ui/gameLine'
 import { FilterChip, FilterSelect } from '../../ui/FilterChip'
 import { PORTRAIT_PX } from '../../ui/leaders'
 import { chromePx } from '../../ui/scale'
@@ -142,7 +143,7 @@ function BoardSkeleton({ label }: { label: string }) {
           display: 'flex', alignItems: 'center', gap: 1.25, px: 0.5, py: 0.85,
           borderTop: i > 0 ? '1px solid' : 'none', borderColor: 'divider',
         }}>
-          <Box sx={{ width: '1.5rem', flexShrink: 0, fontSize: TYPE_SCALE.body }}>&nbsp;</Box>
+          <Box sx={GAME_LINE_RANK_SX}>&nbsp;</Box>
           <Skeleton variant="circular" width={chromePx(PORTRAIT_PX)} height={chromePx(PORTRAIT_PX)} sx={{ flexShrink: 0 }} />
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography sx={{ fontSize: TYPE_SCALE.body }}><Skeleton width="55%" /></Typography>
@@ -188,7 +189,7 @@ export function MlbBestsView({
           <BestsBoards boards={boards} finals={finals} gamesWord={gamesWord} loading={loading}
             skeleton={b => <BoardSkeleton key={b.key} label={b.label} />}
             renderRow={(r, i, b) => (
-              <GameLineRow key={r.key} rank={r.rank} name={r.name} player={r.player} teamId={r.teamId}
+              <GameLineRow key={r.key} rank={r.rank} tied={r.tied} name={r.name} player={r.player} teamId={r.teamId}
                 game={r.game} detail={r.detail} value={r.display} unit={b.unit} divider={i > 0}
                 onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
             )} />

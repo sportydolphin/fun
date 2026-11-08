@@ -2,6 +2,8 @@ import { Box } from '@mui/material'
 import { pressable, FOCUS_RING } from './interaction'
 import { chromePx, typePx } from './scale'
 import { TYPE_SCALE } from './card'
+import { TapTip } from './TapTip'
+import { VISUALLY_HIDDEN } from './heading'
 
 // Moved out of src/wpbl/ui.tsx in Oct 2026, when MLB took the same split WPBL draws between its two
 // segmented controls: a raised chip for NAVIGATION (SegNav, shared since MLB's SegControl folded into it) and this solid
@@ -21,7 +23,7 @@ export function PillGroup({ options, value, onChange, mb, dense }: {
   /** `disabled` keeps an option DRAWN and unpressable, for a choice the page in front of the reader
    *  cannot answer (Fielding on a board with no fielding): hiding it instead resizes the switch and
    *  slides everything after it, which is how one control came to sit in a different place on
-   *  every board. `hint` says why, on hover and to a screen reader. */
+   *  every board. `hint` says why: a tooltip on hover, focus and tap, and read with the label. */
   options: { value: string; label: string; disabled?: boolean; hint?: string }[]
   value: string
   onChange: (v: string) => void
@@ -34,16 +36,21 @@ export function PillGroup({ options, value, onChange, mb, dense }: {
       {options.map(opt => {
         const on = opt.value === value
         const off = !!opt.disabled && !on
-        return (
+        const pill = (
           <Box
             key={opt.value}
-            {...(off ? { role: 'button', tabIndex: -1 } : pressable(() => onChange(opt.value)))}
+            // FOCUSABLE WHEN OFF, so a keyboard reaches the hint the way a mouse does on hover.
+            {...(off ? { role: 'button', tabIndex: 0 } : pressable(() => onChange(opt.value)))}
             aria-pressed={on}
             aria-disabled={off || undefined}
-            title={opt.hint}
             sx={{
               ...FOCUS_RING,
-              px: dense ? 0.875 : 1.5, py: 0.4, borderRadius: 999, cursor: off ? 'default' : 'pointer',
+              px: dense ? 0.875 : 1.5, py: 0.4, borderRadius: 999, cursor: off ? 'not-allowed' : 'pointer',
+              // UNMISTAKABLY OFF, not merely dimmer. The disabled ink alone sat at 50% beside the
+              // others' 70%, so an unavailable side read as one more choice and the switch looked
+              // broken (Nov 7, 2026 audit). A dotted ring says "not here" at a glance. An outline,
+              // so it takes no room and moves nothing; the focus ring replaces it on focus.
+              ...(off ? { outline: '1px dotted', outlineColor: 'text.disabled', outlineOffset: '-2px' } : {}),
               // Not faded with opacity (src/CLAUDE.md): the disabled ink, which WCAG exempts from the
               // contrast floor for an inactive control, as axe does for anything aria-disabled.
               // A FLOOR UNDER THE TAP TARGET. At their natural height these are one pixel under WCAG 2.2's
@@ -66,8 +73,14 @@ export function PillGroup({ options, value, onChange, mb, dense }: {
             }}
           >
             {opt.label}
+            {off && opt.hint && <span style={VISUALLY_HIDDEN}>, {opt.hint}</span>}
           </Box>
         )
+        // The reason, as a tooltip on hover and focus (and on a tap, on a touchscreen), rather than
+        // the browser's `title`, which never shows on focus or touch.
+        return off && opt.hint
+          ? <TapTip key={opt.value} title={opt.hint} sx={{ display: 'flex', cursor: 'not-allowed' }}>{pill}</TapTip>
+          : pill
       })}
     </Box>
   )

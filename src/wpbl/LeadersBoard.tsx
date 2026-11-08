@@ -5,6 +5,7 @@ import { useWpblPlayerLink } from './LinkContext'
 import { LeaderCard, LeaderCardSkeleton, LEADER_GRID_SX, LEADERS_SHOWN, PORTRAIT_PX, printedRanks } from '../ui/leaders'
 import { plateAppearances, type WpblBattingTotals, type WpblPitchingTotals, type WpblFieldingTotals } from './stats'
 import { compareRows } from './leaderOrder'
+import { useEraBasis } from './EraBasisContext'
 import type { WpblPlayer } from './types'
 import type { WpblValueTotals } from './derive/playerValue'
 
@@ -156,9 +157,12 @@ export function LeadersBoard<T extends LeaderTotals>({ side, cols, seasons, qual
 const PHONE_ROWS = 3
 
 export function LeadersBoardSkeleton({ side = 'hitting' }: { side?: LeaderSide }) {
+  // The strikeout rate's card has no fixed title: it names the reader's basis, so the ghost asks the
+  // same context the loaded card's column does. It drew its key, "k9", until Nov 2026.
+  const { kLabel } = useEraBasis()
   return (
     <Box aria-hidden sx={LEADER_GRID_SX}>
-      {LEADER_CARDS[side].map(card => <LeaderCardSkeleton key={card.key} title={card.title ?? card.key} phoneRows={PHONE_ROWS} />)}
+      {LEADER_CARDS[side].map(card => <LeaderCardSkeleton key={card.key} title={titleFor(card, { label: card.key === 'k9' ? kLabel : card.key })} phoneRows={PHONE_ROWS} />)}
     </Box>
   )
 }

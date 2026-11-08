@@ -23,6 +23,28 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.208.3',
+    date:    '2026-11-08',
+    changes: [
+      {
+        short: 'Ties on every Stats board',
+        full:  'WPBL Bests and Find mark a shared place "T-3", as Leaders and Players do. On MLB, Bests and Find do too.',
+      },
+      {
+        short: 'Names in step',
+        full:  'A card or table on Bests and Find shortens every name in it to "F. Last" together, so one column reads in one style.',
+      },
+      {
+        short: 'Unavailable sides',
+        full:  'On a WPBL Stats board, a side the board does not cover has a dotted outline and says which boards have it on hover, focus or tap.',
+      },
+      {
+        short: 'Labels',
+        full:  'WPBL Bests counts league games. The RBI board on Bests is "RBIs" on both leagues, matching Leaders. The WPBL chart size key has one dot.',
+      },
+    ],
+  },
+  {
     version: '1.208.2',
     date:    '2026-11-08',
     changes: [

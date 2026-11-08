@@ -35,6 +35,7 @@ import { useWpblSeason } from '../SeasonContext'
 import { useEraBasis } from '../EraBasisContext'
 import { OVR_COLS, hittingColumns, leagueLine, pitchingColumns, type Col } from '../statColumns'
 import { TABLE_CAP } from '../../ui/ExpandRow'
+import { printedRanks } from '../../ui/leaders'
 import { ActiveFilterChip } from '../../ui/FilterChip'
 import { parsePositionFilter, positionFilterDef, type PositionFilter } from '../../league/positionFilter'
 import type { Side, BallSide, Totals, Source, Mode, Group, View } from './axes'
@@ -823,14 +824,11 @@ export default function WpblStatsView({
   // printed at .400 and numbered 8, 9 and 10 claims an order the reader cannot see, which is
   // what B-Ref's and MLB.com's leaderboards mark as a tie. The raw values are the wrong test:
   // .4004 and .3996 both print .400, and two identical ERAs can differ in the last bit of a
-  // float. A dash is never a tie, it is the absence of a number.
-  const ranks = useMemo<RankMark[]>(() => {
-    const txt = rows.map(r => cellText(activeCol, r.totals))
-    const same = (i: number) => i > 0 && txt[i] !== '—' && txt[i] === txt[i - 1]
-    const out: RankMark[] = []
-    txt.forEach((_, i) => { out.push({ n: same(i) ? out[i - 1].n : i + 1, tied: same(i) || same(i + 1) }) })
-    return out
-  }, [rows, activeCol])
+  // float. A dash is never a tie, it is the absence of a number. The rule is `printedRanks`, the
+  // one Leaders, Bests and Find use, so the boards cannot drift apart.
+  const ranks = useMemo<RankMark[]>(
+    () => printedRanks(rows.map(r => cellText(activeCol, r.totals))).map(r => ({ n: r.rank, tied: r.tied })),
+    [rows, activeCol])
 
   // The league average, so a rate has something to be read against: a .400 OBP means little
   // until the header under OBP says the league is at .352, and it is the only honest explanation of
