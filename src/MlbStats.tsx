@@ -3,18 +3,14 @@ import type { ReactNode } from 'react'
 import { Box, useMediaQuery } from '@mui/material'
 import { useMlbState } from './mlb/state/useMlbState'
 import type { MlbView } from './mlb/state/useMlbState'
-import { ACCENT_TEXT, CURRENT_SEASON, TEAM_ABBR } from './mlb/constants'
-import { fetchClubGames, fetchPlayerDetails, searchPlayers, searchPlayersForgiving } from './mlb/api'
-import { mlbLeaderPeek, mlbPlayerAnswer } from './mlb/searchAnswers'
-import { gameRow } from './lib/gameRow'
-import { pickGames, todayIso } from './league/finderParse'
+import { ACCENT_TEXT, CURRENT_SEASON } from './mlb/constants'
 import BottomNav, { BOTTOM_NAV_SPACE, MORE_KEY } from './ui/BottomNav'
 import { requestDeepLink, parseDeepLink } from './mlb/state/deepLink'
 import { MoreSheet } from './ui/MoreMenu'
 import { FinalGamesSection } from './mlb/views/FinalGames'
 import { GameRoute } from './mlb/views/GameRoute'
 import { SeriesRoute } from './mlb/views/SeriesRoute'
-import { mlbComparePath, withMlbCompareSeason, mlbTargetFromPath, MLB_SHORT_REF_PARAM, MLB_SHORT_REF_VALUE, MLB_MORE, type MlbMoreRow } from './mlb/routes'
+import { mlbTargetFromPath, MLB_SHORT_REF_PARAM, MLB_SHORT_REF_VALUE, MLB_MORE, type MlbMoreRow } from './mlb/routes'
 
 // `?ref=short` means a short link (functions/m) sent this reader here. Read when the chunk loads,
 // before the section's first address rewrite drops the query, and counted once on mount. Only a
@@ -25,7 +21,9 @@ import { PageTabs } from './ui/PageTabs'
 import { PillGroup } from './ui/PillGroup'
 import { HomeView, Standings, TeamsView, LeaderboardView, StatsView, VizView, SeasonGridView, MlbBestsView, MlbFindView, SearchView, MlbPlayerDetail, MlbPlayerPanel, preloadAllMlbViews } from './mlb/views/lazyViews'
 import { saveDataOn } from './lib/saveData'
-import { useSearchBridgeQuery, updateSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
+import { updateSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
+import type { PlayerBridgeItem, TeamBridgeItem } from './mlb/state/SearchBridgeContext'
+import { MlbSearch } from './mlb/MlbSearch'
 import { clearHomeOverlay } from './mlb/state/homeOverlay'
 import { MLB_VIEW_PATHS, MLB_NAV, MLB_STATS_TABS, isMlbStatsBoard, type MlbStatsBoard, type MlbStatsTab, mlbUrlFor, mlbPlayerPath, mlbGamePath, type MlbNavKey } from './mlb/routes'
 import { navigate } from './nav'
@@ -136,48 +134,32 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     track(EVENTS.MLB_SHARE_OPENED, { kind: t?.series ? 'series' : t?.gamePk ? 'game' : t?.playerId ? 'player' : 'other' })
   }, [])
   const canHover = useMediaQuery('(hover: hover)')
-  // The query alone. This section PUBLISHES the rest of the bridge, so subscribing to all of it
-  // re-rendered the section on its own every publish.
-  const bridgeQuery = useSearchBridgeQuery()
-
-  // Sync query typed in the toolbar → useMlbState debounced search
-  useEffect(() => {
-    if (searchActive) state.setQuery(bridgeQuery)
-  }, [bridgeQuery, searchActive]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Push current result state + selection handlers up to the toolbar bridge
+  // The section picking a row from the toolbar search. Held on a ref so both keep one identity for
+  // the section's life: MlbSearch is memoized, and a new callback per section render would re-render
+  // it with every one, which is the coupling it exists to break.
+  const stateRef = useRef(state)
+  stateRef.current = state
   const handleBridgeSelect = useCallback((fn: () => void, dest: Record<string, any>) => {
-    state.stampCurrentEntry()
+    stateRef.current.stampCurrentEntry()
     pushEntry(dest, mlbUrlFor(dest as { view: MlbView }))
     fn()
     setSearchQuery('')
-    state.setView('search')
-  }, [state.stampCurrentEntry, state.setView]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!searchActive) return
-    updateSearchBridge({
-      playerResults: state.playerResults,
-      teamResults: state.teamResults,
-      resultsForgiving: state.resultsForgiving,
-      searching: state.searching,
-      handleSelectPlayer: (p, season) => {
-        track(EVENTS.MLB_PLAYER_OPENED, { playerId: (p as any).id, from: 'header_search' })
-        // A year typed with the name opens the card on it, but only one inside the player's span:
-        // the card draws any year it is handed, and a year before the debut is an empty page.
-        // "Career" is every player's span, so it always applies.
-        const first = Number(p.mlbDebutDate?.slice(0, 4)) || null
-        const last = p.active === false ? Number(p.lastPlayedDate?.slice(0, 4)) || null : CURRENT_SEASON
-        const inSpan = season === 'career' || (season != null && (first == null || season >= first) && (last == null || season <= last))
-        handleBridgeSelect(() => state.selectPlayer(p as any, { recordRecent: true, season: inSpan ? season ?? undefined : undefined }), { view: 'search', playerId: (p as any).id })
-      },
-      handleSelectTeam: t => {
-        track(EVENTS.MLB_TEAM_OPENED, { teamId: (t as any).id, from: 'header_search' })
-        handleBridgeSelect(() => state.selectTeam(t as any, { recordRecent: true }), { view: 'search', teamId: (t as any).id })
-      },
-      isRegistered: true,
-    })
-  }, [state.playerResults, state.teamResults, state.resultsForgiving, state.searching, handleBridgeSelect, searchActive]) // eslint-disable-line react-hooks/exhaustive-deps
+    stateRef.current.setView('search')
+  }, [])
+  const onSearchPlayer = useCallback((p: PlayerBridgeItem, season?: number | 'career' | null) => {
+    track(EVENTS.MLB_PLAYER_OPENED, { playerId: p.id, from: 'header_search' })
+    // A year typed with the name opens the card on it, but only one inside the player's span:
+    // the card draws any year it is handed, and a year before the debut is an empty page.
+    // "Career" is every player's span, so it always applies.
+    const first = Number(p.mlbDebutDate?.slice(0, 4)) || null
+    const last = p.active === false ? Number(p.lastPlayedDate?.slice(0, 4)) || null : CURRENT_SEASON
+    const inSpan = season === 'career' || (season != null && (first == null || season >= first) && (last == null || season <= last))
+    handleBridgeSelect(() => stateRef.current.selectPlayer(p as any, { recordRecent: true, season: inSpan ? season ?? undefined : undefined }), { view: 'search', playerId: p.id })
+  }, [handleBridgeSelect])
+  const onSearchTeam = useCallback((t: TeamBridgeItem) => {
+    track(EVENTS.MLB_TEAM_OPENED, { teamId: t.id, from: 'header_search' })
+    handleBridgeSelect(() => stateRef.current.selectTeam(t as any, { recordRecent: true }), { view: 'search', teamId: t.id })
+  }, [handleBridgeSelect])
 
   // A player page's title and description. seo.ts describes the tabs and the thirty clubs from a
   // table; a player cannot be in one, since the name arrives with a fetch. Keyed on the player's
@@ -213,76 +195,6 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     })
   }, [recentSearches, handleTeamSearchClick, handleFollowedPlayerClick, clearRecentSearches, searchActive])
 
-  // "Ohtani hr" answers in the player row, which only knows its key: the player is looked up among
-  // the results being shown, through a ref so the resolver keeps one identity while they change.
-  const playerResultsRef = useRef(state.playerResults)
-  playerResultsRef.current = state.playerResults
-
-  // "Judge vs Ohtani" in the palette: StatsAPI's own name search for each half, its first answer
-  // (active players come first), the same lookup the header search makes for one name.
-  useEffect(() => {
-    if (!searchActive) return
-    updateSearchBridge({
-      resolveCompare: async (a, b, season) => {
-        try {
-          const find = async (n: string) => { const r = await searchPlayers(n); return r.length ? r : searchPlayersForgiving(n) }
-          const [ra, rb] = await Promise.all([find(a), find(b)])
-          const pa = ra[0], pb = rb[0]
-          if (!pa || !pb || pa.id === pb.id) return null
-          const year = season ?? CURRENT_SEASON
-          return {
-            title: `${pa.fullName} vs ${pb.fullName}`,
-            subtitle: `${year} seasons side by side`,
-            href: withMlbCompareSeason(mlbComparePath(pa, pb), year, CURRENT_SEASON),
-          }
-        } catch { return null }
-      },
-      // "Dodgers last night", "Cubs vs Cardinals": StatsAPI's schedule for the club (and opponent),
-      // over the days the question can mean. A name two clubs share is each of them, at most two
-      // calls for a pairing of the two Chicagos with someone.
-      // "Most home runs": who tops the board the row opens. "Ohtani hr": the player row's answer.
-      resolveLeader: ask => mlbLeaderPeek(ask).catch(() => null),
-      resolvePlayerStat: async (rowKey, ask) => {
-        const id = Number(rowKey.replace(/^player-/, ''))
-        const player = playerResultsRef.current.find(p => p.id === id) ?? await fetchPlayerDetails(id).catch(() => null)
-        return player ? mlbPlayerAnswer(player, ask).catch(() => null) : null
-      },
-      resolveGames: async q => {
-        const today = todayIso()
-        const shift = (iso: string, days: number) => {
-          const [y, m, d] = iso.split('-').map(Number)
-          return todayIso(new Date(y, m - 1, d + days))
-        }
-        const when = q.when
-        const [start, end] = when && typeof when === 'object' ? [when.date, when.date]
-          : when === 'last' ? [shift(today, -60), today]
-          : when === 'next' ? [today, shift(today, 60)]
-          : [shift(today, -365), shift(today, 200)]
-        const pairs = q.clubs[0].flatMap(a => (q.clubs[1] ?? [null]).map(b => [Number(a), b == null ? null : Number(b)] as const))
-          .filter(([a, b]) => a !== b).slice(0, 2)
-        try {
-          const pools = await Promise.all(pairs.map(([a, b]) => fetchClubGames(a, b, start, end)))
-          const seen = new Set<number>()
-          const all = pools.flat().filter(g => !seen.has(g.gamePk) && !!seen.add(g.gamePk))
-          return pickGames(all, when, today, g => g.date, g => g.state !== 'scheduled').map(g => gameRow({
-            away: TEAM_ABBR[g.awayId] ?? String(g.awayId), home: TEAM_ABBR[g.homeId] ?? String(g.homeId),
-            awayScore: g.awayScore, homeScore: g.homeScore, state: g.state, date: g.date, inning: g.inning,
-            href: mlbGamePath(g.gamePk),
-          }))
-        } catch { return [] }
-      },
-    })
-  }, [searchActive])
-
-  // Unregister from the toolbar when this section unmounts or is hidden behind WPBL. Within one
-  // commit React runs every cleanup before any setup, so this lands before WPBL registers.
-  useEffect(() => {
-    if (!searchActive) return
-    return () => {
-      updateSearchBridge({ isRegistered: false, playerResults: [], teamResults: [], resultsForgiving: { players: false, teams: false }, searching: false, handleSelectPlayer: null, handleSelectTeam: null, recentSearches: [], handleSelectRecent: null, clearRecentSearches: null, resolveCompare: null, resolveGames: null, resolveLeader: null, resolvePlayerStat: null })
-      setSearchQuery('')
-    }
-  }, [searchActive])
 
   // Warm every other view once this one has had the network to itself, on the same few-second
   // footing as App.tsx's warming of the other section, so a later tab tap does not wait on a chunk.
@@ -717,6 +629,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       // the footer can always be scrolled clear of it.
       pb: bottomNav ? `calc(${BOTTOM_NAV_SPACE} + env(safe-area-inset-bottom, 0px))` : 0,
     }}>
+      <MlbSearch searchActive={searchActive} allTeams={state.allTeams} onSelectPlayer={onSearchPlayer} onSelectTeam={onSearchTeam} />
 
       {/* The dev-settings gear + mobile-device preview now live app-wide in App.tsx
           (src/dev/DevSettings.tsx) so they cover both the MLB and WPBL sections. */}
@@ -809,13 +722,6 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
 
       {onSearch && shownPlayerId == null && !gamePageOpen && withFooter(
         <SearchView
-          query={state.query}
-          setQuery={state.setQuery}
-          playerResults={state.playerResults}
-          teamResults={state.teamResults}
-          searching={state.searching}
-          dropdownOpen={state.dropdownOpen}
-          setDropdownOpen={state.setDropdownOpen}
           selectTeam={state.selectTeam}
           onPlayerClick={state.handleFollowedPlayerClick}
           onTeamClick={state.handleTeamSearchClick}

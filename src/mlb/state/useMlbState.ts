@@ -15,18 +15,13 @@ import {
   DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS,
   CURRENT_SEASON, TEAM_SEASONS, LB_FEATURED, TABLE_DEFAULT_SORT, FEATURED_PLAYER_IDS, DEFAULT_PALETTE, teamPalette, MAX_FOLLOWED_PLAYERS,
 } from '../constants'
-import {
-  searchPlayers, searchPlayersForgiving, fetchPlayerDetails,
+import { fetchPlayerDetails,
   fetchAndRankPlayers, fetchAllTeams,
   fetchTeamStats, fetchLeaderboardData, fetchAllTimeLeaderboardData, fetchTeamRankings,
   fetchTeamSummaryData,
   fetchTeamTopPlayers, fetchTeamStanding, fetchDivisionForTeam, fetchTeamRoster,
 } from '../api'
 import { track, EVENTS } from '../../lib/analytics'
-import { fuzzyMatches } from '../../lib/fuzzyName'
-import { matchesClubNickname } from '../clubNicknames'
-import { loadMlbPlayerIndex, mlbPlayerIndexReady, searchMlbPlayerIndex } from '../playerIndex'
-import { onFirstSearchFocus } from './SearchBridgeContext'
 import { sheetOpen, keepSheetMarker, onSheetEntry, pushEntry, sheetEntryUrl } from './sheetHistory'
 import { openPlayerPanel } from './playerPanel'
 import { useOpensAsPanel } from '../../ui/ModalShell'
@@ -155,14 +150,9 @@ export function useMlbState() {
   const sectionActive = useSectionActive()
   const { user, openAuthDialog } = useAuth()
   // ─── Search ──────────────────────────────────────────────────────────────────
-  const [query, setQuery] = useState('')
-  const [playerResults, setPlayerResults] = useState<Player[]>([])
-  const [teamResults, setTeamResults] = useState<Team[]>([])
-  // Whether each list came from the forgiving pass, for the search bridge (resultsForgiving).
-  const [resultsForgiving, setResultsForgiving] = useState({ players: false, teams: false })
+  // The query and its results live in MlbSearch (src/mlb/MlbSearch.tsx), not here: everything in
+  // this hook re-renders the whole section, and the query changes on every keystroke.
   const [allTeams, setAllTeams] = useState<Team[]>([])
-  const [searching, setSearching] = useState(false)
-  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   // ─── Player state ─────────────────────────────────────────────────────────────
   // Only WHICH player and which season: the page fetches the rest itself (views/MlbPlayerDetail),
@@ -359,7 +349,6 @@ export function useMlbState() {
   const dirParam = lbFullscreen && lbFullscreen.group === lbGroup ? dirOf(lbFullscreen.sortAsc, lbFullscreen.def.lowerIsBetter ?? false) : null
 
   // ─── Refs ─────────────────────────────────────────────────────────────────────
-  const blockDropdownRef = useRef(false)  // prevents dropdown re-opening after programmatic query set
   const loadGenRef = useRef(0)            // incremented each load; stale async callbacks bail out early
   const autoLoadedRef = useRef(false)
 
@@ -456,77 +445,6 @@ export function useMlbState() {
     setLbSelectedKeys(LB_FEATURED[lbGroup])
   }, [lbGroup])
 
-  // The season's player list for the search, read when the search is first focused rather than on
-  // every visit: most readers never search, and focus comes a few hundred ms before the first letter.
-  useEffect(() => onFirstSearchFocus(() => { void loadMlbPlayerIndex(CURRENT_SEASON) }), [])
-
-  // Combined search: instant team filter + local player matches + debounced network player search
-  useEffect(() => {
-    const blocked = blockDropdownRef.current
-    if (blocked) blockDropdownRef.current = false
-
-    if (query.length < 1) {
-      setPlayerResults([])
-      setTeamResults([])
-      setDropdownOpen(false)
-      return
-    }
-
-    const q = query.toLowerCase()
-    let teamMatches = allTeams.filter(t =>
-      t.name.toLowerCase().includes(q) || t.abbreviation.toLowerCase().includes(q) || matchesClubNickname(t.id, q)
-    )
-    // A slip in a club's name ("Dodgrs"), only once the exact pass found nothing (lib/fuzzyName.ts).
-    const teamsForgiven = !teamMatches.length && q.length >= 3
-    if (teamsForgiven) teamMatches = fuzzyMatches(allTeams, q, t => [t.name])
-    teamMatches = teamMatches.slice(0, 5)
-    setResultsForgiving({ players: false, teams: teamsForgiven && teamMatches.length > 0 })
-    setTeamResults(teamMatches)
-    if (teamMatches.length > 0 && !blocked) setDropdownOpen(true)
-
-    if (query.length < 2) {
-      setPlayerResults([])
-      return
-    }
-
-    // This season's players answer at once, from the browser's copy (playerIndex.ts). The season
-    // list has no club names, so they come off the clubs in hand for the player page's eyebrow.
-    const teamName = new Map(allTeams.map(t => [t.id, t.name]))
-    const withTeam = (p: Player): Player => (p.currentTeam && !p.currentTeam.name
-      ? { ...p, currentTeam: { id: p.currentTeam.id, name: teamName.get(p.currentTeam.id) ?? '' } } : p)
-    const local = mlbPlayerIndexReady() ? searchMlbPlayerIndex(query).slice(0, 6).map(withTeam) : []
-    if (local.length) {
-      setPlayerResults(local)
-      setResultsForgiving(f => ({ ...f, players: false }))
-      if (!blocked) setDropdownOpen(true)
-    }
-    // Six of this season's players fill the list, and StatsAPI would rank the same active players
-    // first, so the network has nothing to add.
-    if (local.length >= 6) return
-
-    const timer = setTimeout(async () => {
-      setSearching(true)
-      try {
-        let players = await searchPlayers(query)
-        // StatsAPI matches the start of each name and nothing looser, so "Ohatni" finds no one. A
-        // second, forgiving try runs only on a miss, so a correct spelling costs no extra call and
-        // is never crowded by near names (searchPlayersForgiving says how).
-        const forgiven = !players.length && !local.length
-        if (forgiven) players = await searchPlayersForgiving(query)
-        // The local rows keep their places; the network adds who the season list lacks (a
-        // retired player, a prospect not yet up).
-        const seen = new Set(local.map(p => p.id))
-        const playerSlice = [...local, ...players.filter(p => !seen.has(p.id))].slice(0, 6)
-        setPlayerResults(playerSlice)
-        setResultsForgiving(f => ({ ...f, players: forgiven && playerSlice.length > 0 }))
-        if (!blocked && (playerSlice.length > 0 || teamMatches.length > 0)) setDropdownOpen(true)
-      } finally {
-        setSearching(false)
-      }
-    }, 350)
-    return () => clearTimeout(timer)
-  }, [query, allTeams])
-
   // ─── Callbacks: stat loading ──────────────────────────────────────────────────
 
   const loadTeamStats = useCallback(async (t: Team, s: number, initial = true) => {
@@ -577,9 +495,6 @@ export function useMlbState() {
   //    box scores, standings) must NOT pollute recents with players merely clicked
   //    through from elsewhere.
   const selectPlayer = useCallback(async (p: Player, opts?: { season?: PlayerSeason; recordRecent?: boolean }) => {
-    blockDropdownRef.current = true
-    setDropdownOpen(false)
-    setQuery(p.fullName)
     const resolved = (await fetchPlayerDetails(p.id).catch(() => null)) ?? p
     if (opts?.recordRecent) addRecentSearch({
       type: 'player', id: resolved.id, name: resolved.fullName,
@@ -594,9 +509,6 @@ export function useMlbState() {
   }, [addRecentSearch])
 
   const selectTeam = useCallback(async (t: Team, opts?: { recordRecent?: boolean }) => {
-    blockDropdownRef.current = true
-    setDropdownOpen(false)
-    setQuery(t.name)
     if (opts?.recordRecent) addRecentSearch({ type: 'team', id: t.id, name: t.name, teamId: t.id })
     setPalette(teamPalette(t.id))
     setTeam(t)
@@ -914,8 +826,6 @@ export function useMlbState() {
       if (snap.teamId) {
         const t = allTeams.find(t => t.id === snap.teamId)
         if (!t) return
-        blockDropdownRef.current = true
-        setQuery(t.name)
         setView('search')
         selectTeam(t).then(() => { if (typeof savedY === 'number') restoreScroll(savedY) }).catch(() => {})
         return
@@ -1040,9 +950,7 @@ export function useMlbState() {
   return {
     clearSelection,
     // Search
-    query, setQuery,
-    playerResults, teamResults, resultsForgiving, allTeams,
-    searching, dropdownOpen, setDropdownOpen,
+    allTeams,
     selectPlayer, selectTeam,
 
     // Player state

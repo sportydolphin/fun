@@ -6,7 +6,7 @@ import {
   Popover, Menu, MenuItem, Tooltip,
 } from '@mui/material'
 import { Search, Shuffle, FileDownload, OpenInFull, Tune, MoreVert } from '@mui/icons-material'
-import { Player, Team, Palette, RankMode, TeamPlayerStat, RosterEntry, StandingsDivision } from '../types'
+import { Team, Palette, RankMode, TeamPlayerStat, RosterEntry, StandingsDivision } from '../types'
 import { ACCENT_TEXT, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, BBREF_ABBR, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette, CURRENT_SEASON } from '../constants'
 import { linkPillSx, SectionLabel } from '../components/ui'
 import { sectionAnchorId, useSectionScroll } from '../../lib/sectionScroll'
@@ -32,13 +32,6 @@ import { mlbUrlFor } from '../routes'
 
 export interface SearchViewProps {
   // Search
-  query: string
-  setQuery: (q: string) => void
-  playerResults: Player[]
-  teamResults: Team[]
-  searching: boolean
-  dropdownOpen: boolean
-  setDropdownOpen: (o: boolean) => void
   /** The section's player opener: the side panel on a desktop, the page below that. */
   onPlayerClick: (playerId: number, from?: MlbOpenSource) => void
   selectTeam: (t: Team) => void
