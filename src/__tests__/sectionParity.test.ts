@@ -37,6 +37,7 @@ const ALLOWED: Record<string, string> = {
   'compare.ts': "each league's comparison rules: WPBL's from our own lines and plays, MLB's from StatsAPI with WAR and the head-to-head",
   'searchAnswers.ts': "each league's stat answers in the search box, read through its own stats table; the parsing is src/league/finderParse.ts",
   'ogCard.ts': "the words on each league's link preview, from its own data; both run in a Pages function",
+  'liveField.ts': "each league's feed read into the one timeline model in src/league/liveField.ts: StatsAPI's runner movements, WPBL's base snapshots and narrative",
 }
 
 const sourceFiles = (dir: string): string[] => readdirSync(join(process.cwd(), dir), { withFileTypes: true })
