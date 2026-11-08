@@ -28,7 +28,9 @@ const sumOf = <T extends object>(rows: readonly T[]): T =>
   }, {} as T)
 
 export function WorldCupCareerTables({ events, accent, eraBasis, fmtEra, onOpen, hrefOf, markOf, total = false }: {
-  events: InternationalEvent[]
+  /** An event with neither batting nor pitching is a 2004 to 2008 roster (no box scores survive),
+   *  listed in a table of its own with the roster's position. */
+  events: (InternationalEvent & { roster_position?: string | null })[]
   accent: string
   /** The innings ERA is stored per: the WPBL's canonical basis on its pages, the World Cup's seven
    *  on its own, each formatted by the page's `fmtEra`. */
@@ -71,6 +73,8 @@ export function WorldCupCareerTables({ events, accent, eraBasis, fmtEra, onOpen,
   const pitLines = events.flatMap(e => (e.pitching ? [{ e, p: e.pitching }] : []))
   const batting: StatLogRow[] = batLines.map(({ e, b }) => ({ lead: lead(e), onOpen: open(e), cells: batCells(b) }))
   const pitching: StatLogRow[] = pitLines.map(({ e, p }) => ({ lead: lead(e), onOpen: open(e), cells: pitCells(p) }))
+  const rostered: StatLogRow[] = events.filter(e => !e.batting && !e.pitching)
+    .map(e => ({ lead: lead(e), onOpen: open(e), cells: [e.roster_position ?? '—'] }))
   const batTotal = total && batLines.length > 1 ? batCells(sumOf(batLines.map(x => x.b))) : undefined
   const pitTotal = total && pitLines.length > 1 ? pitCells(sumOf(pitLines.map(x => x.p))) : undefined
   return (
@@ -85,6 +89,11 @@ export function WorldCupCareerTables({ events, accent, eraBasis, fmtEra, onOpen,
           <StatLogTable title="Pitching" leadHeaders={['Event', 'Team']} totalsLabel={pitTotal ? 'Total' : ''} totals={pitTotal} accent={accent} noun={['event', 'events']}
             statHeaders={['G', 'GS', 'W-L', 'SV', 'IP', 'H', 'R', 'ER', 'BB', 'SO', 'HR', 'ERA']}
             rows={pitching} />
+        </Box>
+      )}
+      {rostered.length > 0 && (
+        <Box sx={{ mt: batting.length + pitching.length > 0 ? 2.5 : 0 }}>
+          <StatLogTable title="Roster only" leadHeaders={['Event', 'Team']} statHeaders={['Pos']} rows={rostered} accent={accent} noun={['event', 'events']} />
         </Box>
       )}
     </>

@@ -62,6 +62,10 @@ export interface TeamRoster {
   team: string
   batting: RosterBatting[]
   pitching: RosterPitching[]
+  /** A results-only edition's roster (2004 to 2008): names and positions with no stats, in the
+   *  compendium's order, and the staff. Absent where the box scores give the batting and pitching. */
+  players?: { name: string; path: string | null; position: string | null }[]
+  staff?: { name: string; role: string }[]
 }
 
 export interface WpblInField {

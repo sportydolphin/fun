@@ -292,7 +292,8 @@ it, so it is designed for the developmental league and the AAGPBL as much as for
      `npm run sweep -- --shift` and `--ellipsis` clean on these routes. Held until the look is settled.
   2. Polish from the audit: Chinese Taipei's gray "TPE" badge, WPBL players' portraits in the
      leader cards, a title per page, the box score's small gray headers checked for contrast.
-  3. ✅ 2004 to 2008 as editions with results, final standings and medals only (Nov 7, 2026): no
+  3. ✅ 2004 to 2008 as editions with results, final standings, medals, rosters and IBAF's awards
+     (Nov 7, 2026), the rosters joined to the later World Cups by the same-person rules: no
      player stats, as what survives game by game is Canada's box scores alone. From IBAF's 2004 to
      2010 compendium; see docs/WBSC_INGEST.md, "2004 to 2008, results only".
   4. The public switch. A first cut is parked on the local branch `world-cup-stage2` (commit

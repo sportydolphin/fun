@@ -50,7 +50,7 @@ import { buildPersonFile, personSlugs, searchEntry, type WorldCupSearchPerson } 
 import { EMPTY_SAME_PERSON, proposeSamePerson, type SamePersonCandidate, type SamePersonFile } from '../src/intl/wbsc/samePerson'
 import type { PitchingGameLine, RunValuePlay } from '../src/league/types'
 import type { WbscEvent, WbscGamePage, WbscScheduleGame } from '../src/intl/wbsc/types'
-import { checkCompendium, compendiumEventKey, compendiumGames, compendiumUrl, type CompendiumFile } from '../src/intl/wbsc/compendium'
+import { checkCompendium, compendiumEventKey, compendiumExtras, compendiumGames, compendiumPlayers, compendiumUrl, type CompendiumExtras, type CompendiumFile } from '../src/intl/wbsc/compendium'
 import { IBAF_2010_EVENT_URL, IBAF_2010_GAMES, IBAF_2010_SOURCE, ibafGameId, ibafPitcherNames, parseIbafGame, parseIbafRoster } from '../src/intl/wbsc/ibaf'
 import { serveReview } from './wbsc-review'
 
@@ -321,7 +321,13 @@ function importCompendium(event: WbscEvent): boolean {
   for (const p of problems) console.log(`  FAILED   ${p}`)
   if (problems.length) { console.log(`  ${event.key} not written.`); return false }
   for (const n of ed.canceled) console.log(`  skip     game ${n}: canceled by rain`)
-  return writeEvent(event, { games: compendiumGames(ed) }, { source: compendiumUrl(event.year), skipped: ed.canceled.length, accepted: [], results_only: true })
+  // The rosters' players, so the same-person rules and the crosswalk take them as any event's; the
+  // positions, staff and awards ride beside them for the edition's pages.
+  const players = compendiumPlayers(ed).map(({ position: _, ...p }) => p)
+  const ok = writeEvent(event, { games: compendiumGames(ed), players }, { source: compendiumUrl(event.year), skipped: ed.canceled.length, accepted: [], results_only: true })
+  if (ok && !CHECK) writeJson(join(OUT_DIR, event.key, 'compendium.json'), compendiumExtras(ed))
+  console.log(`  ${players.length} players on ${ed.rosters?.length ?? 0} rosters${ed.awards ? ', awards' : ''}`)
+  return ok
 }
 
 async function importEvent(event: WbscEvent): Promise<boolean> {
@@ -669,6 +675,7 @@ function buildSiteFiles(): boolean {
       const m = readJson<{ event: string; name: string; year: number; source: string; results_only?: boolean }>(join(dir, 'manifest.json'), { event: d.name, name: d.name, year: 0, source: '' })
       return {
         key: m.event, name: m.name, year: m.year, source: m.source, results_only: m.results_only === true,
+        compendium: readJson<CompendiumExtras | null>(join(dir, 'compendium.json'), null),
         games: readJson<WbscGame[]>(join(dir, 'games.json'), []),
         batting: readJson<WbscBattingLine[]>(join(dir, 'batting_lines.json'), []),
         pitching: readJson<PitchingGameLine[]>(join(dir, 'pitching_lines.json'), []),
