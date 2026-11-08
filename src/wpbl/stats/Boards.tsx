@@ -183,7 +183,7 @@ export function BoardPane({ source, side, boardSide, findSide, teams, players, l
     // nothing on a phone, where the cap never binds, and a centered column on a desktop.
     <Box sx={fullBleedSx}>
       <Suspense fallback={<SubViewFallback />}>
-        <WpblRunValueView side={boardSide} teams={teams} games={games} battingLines={lines.batting}
+        <WpblRunValueView side={side === 'overall' ? 'overall' : boardSide} teams={teams} games={games} battingLines={lines.batting}
           onOpenPlayer={onOpenPlayer} />
       </Suspense>
     </Box>

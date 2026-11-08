@@ -140,6 +140,24 @@ describe('the Fielding side', () => {
     }
   })
 
+  // The switch keeps the side the reader chose, not the one a board had to drop to: Teams has no
+  // Overall, and on the way back the switch read Hitting as if the reader had changed it.
+  it('returns to the side the reader chose once a board answers it again', async () => {
+    draw()
+    fireEvent.click(await screen.findByText('Players'))
+    expect(screen.getByText('Overall').getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByText('Teams'))
+    expect(screen.getByText('Hitting').getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByText('Players'))
+    expect(screen.getByText('Overall').getAttribute('aria-pressed')).toBe('true')
+    // And Fielding, through a board with no fielding.
+    fireEvent.click(screen.getByText('Fielding'))
+    fireEvent.click(screen.getByText('Bests'))
+    expect(screen.getByText('Hitting').getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(screen.getByText('Players'))
+    expect(screen.getByText('Fielding').getAttribute('aria-pressed')).toBe('true')
+  })
+
   it('stays on Fielding from Players to Teams, and sums each club', async () => {
     draw()
     await openFielding()

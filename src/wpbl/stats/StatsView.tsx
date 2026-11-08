@@ -209,6 +209,12 @@ export default function WpblStatsView({
   const [ballSide, setBallSide] = useState<BallSide>(
     fromUrl.side === 'pitching' || (!fromUrl.side && seedAxes.side === 'pitching') ? 'pitching' : 'hitting')
   const boardSide: BallSide = side === 'fielding' || side === 'overall' ? ballSide : side
+  // THE SIDE THE READER LAST ASKED FOR, which is not always the one showing: Players on Overall to
+  // Teams has to drop to Hitting, since Teams has no Overall, and on the way back to Players the
+  // switch read Hitting, as if the reader had changed it (Nov 7, 2026 audit). A board that answers
+  // this side returns to it; one that cannot falls back to `ballSide`. Set by the switch, a link and
+  // the address, never by a board change.
+  const [chosenSide, setChosenSide] = useState<Side>(side)
   // Find answers Fielding as well, which no other board past the season tables does.
   const findSide: FinderBoardSide = side === 'fielding' ? 'fielding' : boardSide
   const [mode, setMode] = useState<Mode>(fromUrl.mode ?? 'players')
@@ -383,7 +389,7 @@ export default function WpblStatsView({
     // A link names Hitting or Pitching or no side at all, and every one of them leaves Fielding:
     // a side-less link (Tracked, Run value) lands on the switch's last side, not a hidden switch.
     const linkSide: BallSide = axes.side === 'pitching' || axes.side === 'hitting' ? axes.side : ballSide
-    setSide(linkSide); setBallSide(linkSide)
+    setSide(linkSide); setBallSide(linkSide); setChosenSide(linkSide)
     setSource(axes.source)
     // A link can also ask for the teams board, for the player board already narrowed to one
     // club, or for the qualified filter off: the states the team page links into. All three
@@ -592,6 +598,8 @@ export default function WpblStatsView({
   // boards are showing: it leaves the table sorted sensibly for when the reader switches back.
   const switchSide = (s: Side, log = true) => {
     if (log && s !== side) logBoard('side', { side: s })
+    // Only the reader's own press is a choice; a board moving the switch for them (log off) is not.
+    if (log) setChosenSide(s)
     setSide(s)
     if (s === 'hitting' || s === 'pitching') setBallSide(s)
     const next = defaultSort(s)
@@ -628,6 +636,7 @@ export default function WpblStatsView({
     setMode(q.mode ?? 'players')
     setPos(parsePositionFilter(q.pos))
     if (nextSide !== side) switchSide(nextSide, false)
+    setChosenSide(nextSide)
     // After the switch, which re-sorts on the side's headline column: no `sort` is that column.
     const next = defaultSort(nextSide, q.sortKey)
     setSortKey(next.key); setSortAsc(q.sortAsc ?? next.asc)
@@ -848,9 +857,10 @@ export default function WpblStatsView({
   const selectBoard = (k: string) => {
     const target: Source = k === 'players' || k === 'teams' ? 'season' : k === 'analysis' ? lastAnalysis : k as Source
     const nextMode: Mode = k === 'players' || k === 'teams' ? k : mode
-    // A board that cannot answer the side drops the switch to the side last chosen before it; one
-    // that can keeps it, so Players to Teams on Fielding compares the clubs' gloves.
-    const nextSide: Side = sideOn(side, target, nextMode) ? side : ballSide
+    // The side the reader chose, where the board answers it, so Players to Teams on Fielding compares
+    // the clubs' gloves and Teams back to Players returns to Overall. Otherwise the last of Hitting
+    // and Pitching, which every board answers. Moved for the reader, so never logged as a 'side'.
+    const nextSide: Side = sideOn(chosenSide, target, nextMode) ? chosenSide : ballSide
     // One tap, one board event, named for the widest axis it moved.
     if (target !== source || nextMode !== mode) {
       logBoard(target !== source ? 'source' : 'mode', { source: target, mode: nextMode, side: nextSide })

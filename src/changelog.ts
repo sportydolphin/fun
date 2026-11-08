@@ -23,6 +23,24 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.207.6',
+    date:    '2026-11-08',
+    changes: [
+      {
+        short: 'Stats keeps your side',
+        full:  'On WPBL Stats, a board that has to show Hitting in place of Overall or Fielding goes back to your side on the next board that has it.',
+      },
+      {
+        short: 'Season chips stay put',
+        full:  'Regular season, Playoffs and Both are on every WPBL Stats board, shown as unavailable where the board does not split by them, so the bar holds its shape.',
+      },
+      {
+        short: 'Run value: Overall',
+        full:  "Run value's Overall side adds each player's batting and pitching, in runs and in wins. It replaces the Both ways switch in the wins card.",
+      },
+    ],
+  },
+  {
     version: '1.207.4',
     date:    '2026-11-07',
     changes: [

@@ -120,12 +120,14 @@ export const SIDES: { value: Side; label: string }[] = [
  *  club's wins added is just its record. */
 export function sideOn(side: Side, source: Source, mode: Mode = 'players'): boolean {
   if (side === 'fielding') return source === 'season' || source === 'leaders' || source === 'find'
-  if (side === 'overall') return source === 'leaders' || (source === 'season' && mode === 'players')
+  // Run value too, as both ways: a player's batting and pitching in runs and wins (Nov 2026).
+  if (side === 'overall') return source === 'leaders' || source === 'runs' || (source === 'season' && mode === 'players')
   return true
 }
-/** Where a board opens, and what an address with no `side` means on it. */
+/** Where a board opens, and what an address with no `side` means on it. Run value answers Overall
+ *  but still opens on Hitting: every link to it written before then meant Hitting. */
 export const defaultSide = (source: Source, mode: Mode = 'players'): Side =>
-  (sideOn('overall', source, mode) ? 'overall' : 'hitting')
+  (sideOn('overall', source, mode) && source !== 'runs' ? 'overall' : 'hitting')
 /** The side a linked column belongs to, for an address that names a column and no side: every link
  *  written before Overall existed, when a missing side meant Hitting. */
 export function sideOfSort(key: string): Side | undefined {

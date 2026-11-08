@@ -165,7 +165,7 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
         }}>
           <PillGroup
             options={SIDES.map(o => !sideOn(o.value, source, mode)
-              ? { ...o, disabled: true, hint: o.value === 'overall' ? 'Leaders and Players only' : 'Leaders, Players, Teams and Find only' }
+              ? { ...o, disabled: true, hint: o.value === 'overall' ? 'Leaders, Players and Run value only' : 'Leaders, Players, Teams and Find only' }
               : o)}
             value={side}
             onChange={v => pickSide(v as Side)}
@@ -240,15 +240,26 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
         {/* THE YEAR, on every board, since every board sums one: before the season slice, because it
             is the wider cut of the two. Not drawn at all until there is a second year to pick. */}
         {!isNarrow && <SeasonMenu sx={{ flexShrink: 0, alignItems: 'center' }} />}
-        {(source === 'leaders' || source === 'season' || source === 'bests' || source === 'find') && hasPostseason && !isNarrow && !overall && (
+        {/* DRAWN ON EVERY BOARD once there is a postseason, and disabled where the board cannot
+            take the slice: removed instead, the desktop bar reflowed every time the side or the board
+            changed (Nov 7, 2026 audit). Overall is the regular season's, so that chip stays lit. */}
+        {hasPostseason && !isNarrow && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
             {/* "Both" rather than "All", which is what this option is: the team filter sitting
                 immediately to its right already has an "All" chip, and two chips reading All
                 side by side in one row is a coin toss about which one a tap changes. */}
             {([['regular', 'Regular season'], ['postseason', 'Playoffs'], ['all', 'Both']] as const)
-              .map(([k, label]) => (
-                <Chip key={k} active={scope === k} onClick={() => setScope(k)}>{label}</Chip>
-              ))}
+              .map(([k, label]) => {
+                const takesSlice = source === 'leaders' || source === 'season' || source === 'bests' || source === 'find'
+                const off = !takesSlice || overall
+                return (
+                  <Chip key={k} active={takesSlice && (overall ? k === 'regular' : scope === k)} onClick={() => setScope(k)}
+                    disabled={off}
+                    hint={!takesSlice ? 'Leaders, Players, Teams, Bests and Find only' : overall ? 'Regular season only' : undefined}>
+                    {label}
+                  </Chip>
+                )
+              })}
           </Box>
         )}
 

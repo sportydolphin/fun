@@ -25,7 +25,6 @@ import type { WpblBattingLine, WpblGame, WpblPlayer, WpblTeam } from './types'
 import { typePx } from '../ui/scale'
 import { InfoDot } from '../ui/InfoDot'
 import { useWpblSeason } from './SeasonContext'
-import { PillGroup } from '../ui/PillGroup'
 import { TYPE_SCALE } from '../ui/card'
 import { ordinal } from '../lib/format'
 
@@ -379,8 +378,33 @@ function EmptyState({ title }: { title: string }) {
 }
 
 /** "6th", for an inning in a sentence. Innings only, so the teens never come up. */
+/**
+ * A player's batting and pitching rows as one, for the Overall side: `pa` stays the times up, and
+ * `faced` counts the batters faced. Keyed as the leaderboards key, so a player the log names but
+ * cannot resolve still adds up.
+ */
+function bothWays<R extends { player: { id: string } | null; name: string; pa: number }>(
+  hitting: R[], pitching: R[], score: (r: R) => number, add: (row: R, more: number) => void,
+): (R & { faced: number })[] {
+  const rows = new Map<string, R & { faced: number }>()
+  const key = (r: R) => r.player?.id ?? `name:${r.name.toLowerCase()}`
+  for (const r of hitting) rows.set(key(r), { ...r, faced: 0 })
+  for (const r of pitching) {
+    const row = rows.get(key(r))
+    if (row) { add(row, score(r)); row.faced += r.pa } else rows.set(key(r), { ...r, pa: 0, faced: r.pa })
+  }
+  return [...rows.values()].sort((a, b) => score(b) - score(a))
+}
+
+/** Under a both-ways name: the times up and the batters faced, whichever the player has. */
+const bothWaysSub = (r: { pa: number; faced: number }) =>
+  [r.pa ? `${r.pa} ${r.pa === 1 ? 'time' : 'times'} up` : null, r.faced ? `${r.faced} faced` : null].filter(Boolean).join(' · ')
+
 export default function WpblRunValueView({ side, teams, games, battingLines, onOpenPlayer }: {
-  side: 'hitting' | 'pitching'
+  /** Overall is both ways: a player's batting and pitching added together on the two leaderboards.
+   *  It was a `Hitting | Both ways` switch inside the wins card until Nov 2026, under a bar that
+   *  already had the side switch, with Overall drawn disabled in it. */
+  side: 'overall' | 'hitting' | 'pitching'
   teams: WpblTeam[]
   /** Required, not convenience: nothing here can tell a postseason play from a regular-season
    *  one without the schedule, and it also needs to know which games have finished.
@@ -416,9 +440,11 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
   }, [])
   const [allLeaders, setAllLeaders] = useState(false)
   const [allWpa, setAllWpa] = useState(false)
-  // Wins added for the side, or both ways: a two-way player's season is half a row on each side,
-  // and this is the one board that adds them (the Overall side's WAR does the same for value).
-  const [wpaBoth, setWpaBoth] = useState(false)
+  // Both ways on Overall: a two-way player's season is half a row on each side, and this is the one
+  // board that adds them in runs and wins (the Overall side's WAR does the same for value).
+  const overall = side === 'overall'
+  // The one side a board with no both-ways reading speaks (the take and swing split).
+  const ballSide = side === 'pitching' ? 'pitching' : 'hitting'
   const [allBases, setAllBases] = useState(false)
   const [allTakeSwing, setAllTakeSwing] = useState(false)
 
@@ -454,8 +480,11 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
     () => (plays ? buildRunExpectancy(plays, games) : null), [plays, games])
   const values = useMemo(
     () => (plays && table ? playRunValues(plays, games, table) : []), [plays, games, table])
-  const leaders = useMemo(
-    () => runValueLeaders(values, players, side).slice(0, 10), [values, players, side])
+  const leaders = useMemo(() => (side === 'overall'
+    ? bothWays(runValueLeaders(values, players, 'hitting'), runValueLeaders(values, players, 'pitching'),
+      r => r.value, (row, v) => { row.value += v })
+    : runValueLeaders(values, players, side).map(r => ({ ...r, faced: 0 }))
+  ).slice(0, 10), [values, players, side])
   // The same plays priced in wins, and the runs on the bases: one build shared with the player
   // card and Compare (derive/seasonValue.ts), so a place printed there is a place on this board.
   const boards = useMemo(
@@ -465,22 +494,15 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
     [plays, games, players, battingLines])
   const wpa = useMemo(() => {
     if (!boards) return []
-    const one = (s: 'hitting' | 'pitching') => (s === 'hitting' ? boards.wpaHitting : boards.wpaPitching)
-    if (!wpaBoth) return one(side).slice(0, 10).map(r => ({ ...r, faced: 0 }))
-    // Keyed as wpaLeaders keys them, so a player the log names but cannot resolve still adds up.
-    const rows = new Map<string, ReturnType<typeof one>[number] & { faced: number }>()
-    const key = (r: ReturnType<typeof one>[number]) => r.player?.id ?? `name:${r.name.toLowerCase()}`
-    for (const r of one('hitting')) rows.set(key(r), { ...r, faced: 0 })
-    for (const r of one('pitching')) {
-      const row = rows.get(key(r))
-      if (row) { row.wpa += r.wpa; row.faced += r.pa } else rows.set(key(r), { ...r, pa: 0, faced: r.pa })
+    if (side !== 'overall') {
+      return (side === 'hitting' ? boards.wpaHitting : boards.wpaPitching).slice(0, 10).map(r => ({ ...r, faced: 0 }))
     }
-    return [...rows.values()].sort((a, b) => b.wpa - a.wpa).slice(0, 10)
-  }, [boards, side, wpaBoth])
-  // Hitting only: a pitcher's side of a steal is shared with the catcher, and nothing on the
-  // row says how.
+    return bothWays(boards.wpaHitting, boards.wpaPitching, r => r.wpa, (row, v) => { row.wpa += v }).slice(0, 10)
+  }, [boards, side])
+  // Hitting and Overall: a pitcher's side of a steal is shared with the catcher, and nothing on the
+  // row says how. Overall keeps it, as the Overall side's BsR column does.
   const bases = useMemo(
-    () => (boards && side === 'hitting' ? boards.bases.slice(0, 10) : []), [boards, side])
+    () => (boards && side !== 'pitching' ? boards.bases.slice(0, 10) : []), [boards, side])
 
   // The per-event averages, which the play-value card draws and the worked example has to land
   // on. One memo for both, which is the point of them being on one board: they are pure and
@@ -502,9 +524,9 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
     return pitchQualifiers(q.active ? q.teamGames : 0)
   }, [teams, games])
   const takeSwing = useMemo(() => {
-    const min = side === 'pitching' ? mins.minPitcher : mins.minBatter
-    return takeSwingSplit(values, counts, players, side).filter(r => r.pitches >= min)
-  }, [values, counts, players, side, mins])
+    const min = ballSide === 'pitching' ? mins.minPitcher : mins.minBatter
+    return takeSwingSplit(values, counts, players, ballSide).filter(r => r.pitches >= min)
+  }, [values, counts, players, ballSide, mins])
   // The 3-2 pitch, which the count table on its own cannot price: both of its outcomes leave
   // the grid. See `fullCountSwing`.
   const fullCount = useMemo(
@@ -531,7 +553,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
   const shownBases = isNarrow && !allBases ? bases.slice(0, LIST_CAP) : bases
   // Drawn in one of two columns depending on the side; see the column notes below.
   const takeSwingBoard = (
-    <TakeSwingBoard rows={takeSwing} side={side} accent={accent} isNarrow={isNarrow}
+    <TakeSwingBoard rows={takeSwing} side={ballSide} accent={accent} isNarrow={isNarrow}
       expanded={allTakeSwing} onToggle={() => setAllTakeSwing(v => !v)}
       onOpenPlayer={onOpenPlayer} />
   )
@@ -616,10 +638,14 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
           `Run value: how much better or worse off a play left a team, in runs, from this league's own ${table.games} games.`,
           SITUATION_VALUE,
           'A plate appearance is worth the runs that scored on it, plus the value of the situation it left, minus the value of the one it started in.',
-          pitching
+          overall
+            ? 'This adds a player’s plate appearances at bat to those against them on the mound, with the pitching sign flipped. Steals and wild pitches are not counted here; steals are on Best on the bases.'
+            : pitching
             ? 'This adds up every plate appearance against a pitcher and flips the sign, so keeping runs off the board ranks higher.'
             : 'This adds up every plate appearance a hitter has had this season. Steals and wild pitches are not counted here; steals are on Best on the bases.',
-          pitching
+          overall
+            ? 'Not the same as Bat and Pit on the Stats tab, which value a hit the same whatever the situation. This counts the runners on and the outs.'
+            : pitching
             ? 'Not the same as Pit on the Stats tab, which is built from strikeouts, walks, hit batters and home runs only and ignores the runners on base. This counts every plate appearance and the situation it came in.'
             : 'Not the same as Bat on the Stats tab, which values a hit the same whatever the situation. This counts the runners on and the outs, so a single with the bases loaded is worth more here than one with them empty.',
         ]} />}>
@@ -629,7 +655,7 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
               <LeaderRow key={r.player?.id ?? r.name} {...leaderPlaces(shownLeaders.map(x => fmtRunValue(x.value)))[i]} player={r.player} name={r.player?.name ?? r.name}
                 teamId={r.teamId} value={fmtRunValue(r.value)} unit="runs" accent={accent}
                 onOpen={onOpenPlayer}
-                sub={pitching ? `${r.pa} batters faced` : `${r.pa} times up`} />
+                sub={overall ? bothWaysSub(r) : pitching ? `${r.pa} batters faced` : `${r.pa} times up`} />
             ))}
         {isNarrow && leaders.length > LIST_CAP && (
           <ExpandRow flush expanded={allLeaders} moreLabel={`Show all ${leaders.length}`}
@@ -641,15 +667,13 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
           same plays, priced by the score as well as the situation, so a hit in a tie game
           outranks the same hit in a rout. See `wpaLeaders`. */}
       <SectionCard title="Most wins added"
-        action={<PillGroup options={[{ value: 'side', label: pitching ? 'Pitching' : 'Hitting' }, { value: 'both', label: 'Both ways' }]}
-          value={wpaBoth ? 'both' : 'side'} onChange={v => setWpaBoth(v === 'both')} />}
         titleAdornment={<InfoDot text={[
           "Before and after every plate appearance, the batting team's chance of winning is estimated from the inning, the score, the outs and the runners, using this league's own games.",
           pitching
             ? 'A pitcher gets the change on every plate appearance against them, with the sign flipped. One whole win is 1.00.'
             : 'A hitter gets the change, and a steal, caught stealing or pickoff goes to the runner. One whole win is +1.00.',
           'Unlike run value, a hit in a tie game in the 7th is worth far more here than the same hit in a rout.',
-          'Both ways adds a player’s batting and pitching together. It is not WAR: WAR, on the Stats tab’s Overall side, ignores the score, and this is the record of who swung close games.',
+          ...(overall ? ['Overall adds a player’s batting and pitching together. It is not WAR: WAR ignores the score, and this is the record of who swung close games.'] : []),
         ]} />}>
         {wpa.length === 0
           ? <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', py: 1 }}>No plays</Typography>
@@ -657,8 +681,8 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
               <LeaderRow key={r.player?.id ?? r.name} {...leaderPlaces(shownWpa.map(x => fmtRunValue(x.wpa, 2)))[i]} player={r.player} name={r.player?.name ?? r.name}
                 teamId={r.teamId} value={fmtRunValue(r.wpa, 2)} unit="wins" accent={accent}
                 onOpen={onOpenPlayer}
-                sub={wpaBoth
-                  ? [r.pa ? `${r.pa} times up` : null, r.faced ? `${r.faced} faced` : null].filter(Boolean).join(' · ')
+                sub={overall
+                  ? bothWaysSub(r)
                   : pitching ? `${r.pa} batters faced` : `${r.pa} times up`} />
             ))}
         {isNarrow && wpa.length > LIST_CAP && (
@@ -714,7 +738,8 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
 
       {counts.length > 0 && <CountBoard counts={counts} fullCount={fullCount} accent={accent} />}
 
-      {!pitching && takeSwingBoard}
+      {/* Not on Overall: a take or a swing is one side's decision, with no both-ways reading. */}
+      {side === 'hitting' && takeSwingBoard}
 
       {/* THE WHOLE EXPLANATION, IN ONE SHUT CARD, in the order the idea is actually built:
       a situation is worth something, a play is worth what it changed to it, and here is one
