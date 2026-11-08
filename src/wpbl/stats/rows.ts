@@ -8,7 +8,8 @@ import {
   type WpblBattingTotals, type WpblPitchingTotals, type WpblFieldingTotals,
 } from '../stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine } from '../types'
-import { scopedLines, type SeasonScope } from '../season'
+import { scopedGames, scopedLines, type SeasonScope } from '../season'
+import type { TeamRecord } from './columns'
 import { useWpblPlayerLink } from '../LinkContext'
 import type { Col } from '../statColumns'
 import { matchesPositionFilter, type PositionFilter } from '../../league/positionFilter'
@@ -51,6 +52,20 @@ export function buildRows({ mode, side, players, lines, fielding, valueSeasons, 
   let stealsMemo: ReturnType<typeof catcherSteals> | null = null
   const steals = () => (stealsMemo ??= catcherSteals(fielding ?? [], lines.batting, games, scope))
   if (mode === 'teams') {
+    // Each club's record over the same slice as the rest of its row: the decided finals in this
+    // season (`games` is the year on screen) and this scope.
+    const records = new Map<string, TeamRecord>()
+    for (const g of scopedGames(games, scope)) {
+      if (g.status !== 'final' || g.home_score == null || g.away_score == null) continue
+      for (const [id, us, them] of [[g.home_team_id, g.home_score, g.away_score], [g.away_team_id, g.away_score, g.home_score]] as const) {
+        const r = records.get(id) ?? { w: 0, l: 0, rs: 0, ra: 0 }
+        if (us > them) r.w++
+        else if (us < them) r.l++
+        r.rs += us; r.ra += them
+        records.set(id, r)
+      }
+    }
+    const withRecord = <T extends object>(totals: T, id: string): T => Object.assign(totals, { record: records.get(id) })
     // One row per team (only four). Team G is the team's games played (the count of distinct
     // game_ids), not the number of player lines that sumBatting/sumPitching add up.
     built = teams.map(team => {
@@ -66,7 +81,7 @@ export function buildRows({ mode, side, players, lines, fielding, valueSeasons, 
         totals.dpTurned = teamDp ? teamDp.get(team.id) ?? 0 : null
         return {
           key: team.id, team, label: wpblFullName(team), shortLabel: team.name,
-          totals: totals as Totals, qualified: true,
+          totals: withRecord(totals, team.id) as Totals, qualified: true,
           onClick: onOpenTeam ? () => onOpenTeam(team) : undefined,
         }
       }
@@ -104,7 +119,7 @@ export function buildRows({ mode, side, players, lines, fielding, valueSeasons, 
       }
       return {
         key: team.id, team, label: wpblFullName(team), shortLabel: team.name,
-        totals, qualified: true,
+        totals: withRecord(totals, team.id), qualified: true,
         onClick: onOpenTeam ? () => onOpenTeam(team) : undefined,
       }
     })

@@ -39,11 +39,11 @@ import { ActiveFilterChip } from '../../ui/FilterChip'
 import { parsePositionFilter, positionFilterDef, type PositionFilter } from '../../league/positionFilter'
 import type { Side, BallSide, Totals, Source, Mode, Group, View } from './axes'
 import { axesOf, VIEW_ORDER, sideOn, defaultSide, inView, orderForView, viewFor, defaultSort } from './axes'
-import { FLD_COLS, FLD_TEAM_COLS, statNames, cellText, CONTEXT_KEYS, OVERALL_PARTS } from './columns'
+import { FLD_COLS, FLD_TEAM_COLS, statNames, cellText, CONTEXT_KEYS, OVERALL_PARTS, TEAM_RECORD_COLS, TEAM_RECORD_KEYS } from './columns'
 import { teamDoublePlays } from '../derive/fielding'
 import { ANALYSIS_TABS, ANALYSIS_SOURCES } from './boardTabs'
 import { STATS_PATH, boardParam, axesFromQuery } from './address'
-import { fullBleedSx, NAME_W, NAME_INNER_MAX, TEAM_NAME_W, TEAM_NAME_INNER_MAX } from './layout'
+import { fullBleedSx, NAME_W, NAME_INNER_MAX, TEAM_NAME_W, TEAM_NAME_INNER_MAX, useShortStatsPage } from './layout'
 import type { RankMark, Row } from './shared'
 import { BoardFooter } from './shared'
 import { SubViewFallback, StatsSkeleton } from './Skeleton'
@@ -514,6 +514,9 @@ export default function WpblStatsView({
     [stored, side, rvPlays, games, players, lines])
   // What the Fielding side reads from the plays: throw-outs per catcher, double plays per club. An
   // empty log is not an answer, so those cells dash rather than print a confident zero.
+  const rngBy = useMemo(
+    () => (valueSeasons && valueSeasons.length > 0 ? new Map(valueSeasons.map(s => [s.player.id, s.totals.rng])) : null),
+    [valueSeasons])
   const armCs = useMemo(
     () => (valueSeasons && valueSeasons.length > 0 ? new Map(valueSeasons.map(s => [s.player.id, s.totals.armCs])) : null),
     [valueSeasons])
@@ -567,8 +570,13 @@ export default function WpblStatsView({
     () => pitchingColumns({ league, wWeights, fWeights, fmtEra, eraBasis }),
     [league, wWeights, fWeights, fmtEra, eraBasis])
 
-  const cols = (side === 'hitting' ? hitCols : side === 'fielding' ? (mode === 'teams' ? FLD_TEAM_COLS : FLD_COLS) : side === 'overall' ? OVR_COLS : pitCols) as Col<Totals>[]
+  const sideCols = useMemo(() => (side === 'hitting' ? hitCols : side === 'fielding' ? (mode === 'teams' ? FLD_TEAM_COLS : FLD_COLS) : side === 'overall' ? OVR_COLS : pitCols) as Col<Totals>[],
+    [side, mode, hitCols, pitCols])
+  // A club's record leads the Teams board on every side (TEAM_RECORD_COLS), and sorts like any column.
+  const cols = useMemo(() => (mode === 'teams' ? [...TEAM_RECORD_COLS as Col<Totals>[], ...sideCols] : sideCols), [mode, sideCols])
   const activeCol = cols.find(c => c.key === sortKey) ?? cols[0]
+  // Four rows: the section's screen-tall floor comes off while this board is up. See the hook.
+  useShortStatsPage(active && source === 'season' && mode === 'teams')
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   // A link's `?team=` is lower case and may name no club at all (a hand-edited or stale link).
   // Matched once the clubs are in, and dropped if nothing matches: a filter on a club that is not
@@ -590,7 +598,11 @@ export default function WpblStatsView({
   const teamsNarrow = pinActive && mode === 'teams'
   const nameW = teamsNarrow ? TEAM_NAME_W : NAME_W
   const nameInnerMax = teamsNarrow ? TEAM_NAME_INNER_MAX : NAME_INNER_MAX
-  const viewCols = orderForView(side, view, cols)
+  // The record first in both views; `orderForView` would file keys it does not know under Standard's end.
+  const viewCols = mode === 'teams'
+    // A club's pitching W and L are its record again, so W-L stands for them.
+    ? [...cols.filter(c => TEAM_RECORD_KEYS.has(c.key)), ...orderForView(side, view, sideCols).filter(c => side !== 'pitching' || (c.key !== 'w' && c.key !== 'l'))]
+    : orderForView(side, view, cols)
   const hasViews = VIEW_ORDER[side].advanced.length > 0
   const scrollCols = pinActive ? viewCols.filter(c => c.key !== activeCol.key) : viewCols
 
@@ -878,11 +890,22 @@ export default function WpblStatsView({
 
   // The Leaders board's rows: the same aggregates as the Players table, before its sort, its club
   // chip or its qualifier, which the board applies per card (rates only; see LeadersBoard.tsx).
-  const leaderSeasons = useMemo(() => source !== 'leaders' ? { batting: [], pitching: [], fielding: [] } : {
+  const leaderSeasons = useMemo(() => source !== 'leaders' ? { batting: [], pitching: [], fielding: [] } : (() => {
+    const steals = side === 'fielding' ? catcherSteals(fielding ?? [], lines.batting, games, scope) : null
+    return {
     batting: batSeasons,
     pitching: pitSeasons,
-    fielding: side === 'fielding' ? aggregateFielding(players, fielding ?? [], lines.batting, lines.pitching, games, scope) : [],
-  }, [source, side, players, lines, fielding, games, scope, batSeasons, pitSeasons])
+    // With the catcher's line and the WAR engine's range, as the Players table carries them, for the
+    // Caught Stealing % and Range Runs cards. Both engines are regular season only, so a playoff
+    // slice dashes them rather than ranking regular-season figures under a playoff heading.
+    fielding: steals ? aggregateFielding(players, fielding ?? [], lines.batting, lines.pitching, games, scope).map(s => {
+      const sba = steals.byPlayer.get(s.player.id)
+      const cs = scope === 'regular' ? armCs?.get(s.player.id) ?? (armCs ? 0 : null) : null
+      const rngRuns = scope === 'regular' ? rngBy?.get(s.player.id) ?? null : null
+      return { ...s, totals: { ...s.totals, catching: sba == null ? null : { sba, cs }, rngRuns } }
+    }) : [],
+    }
+  })(), [source, side, players, lines, fielding, games, scope, batSeasons, pitSeasons, armCs, rngBy])
   // "See all" on a card: the Players table sorted by that stat, showing the population the card
   // ranked, so its top five are the table's top five. A rate card ranked qualifiers and a counting
   // card ranked everyone.

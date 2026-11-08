@@ -56,6 +56,15 @@
    BREAKPOINT stays here: a media query is the one thing JS should not be deciding, since it
    would have to be told about a resize and an orientation change is exactly when that is least
    trustworthy. */
+/* THE PAGE'S SIDE GUTTER for the wide columns (HOME_W, STATS_W in src/ui/layoutWidths.ts). From `sm`,
+   the toolbar's own side padding (MUI's spacing(3), in chrome px), so the page and the logo share
+   a left edge. Below it, 12px, the phone's measure since before: the Stats boards bleed to it on a
+   phone, and a narrower bleed shrank the charts' text (Nov 2026). */
+:root { --sd-page-gutter: 12px; }
+@media (min-width: 600px) {
+  :root { --sd-page-gutter: calc(24px * var(--app-chrome, 1)); }
+}
+
 @media (min-width: 900px) {
   :root[data-app-scale] {
     --app-type: var(--app-scale-desktop, 1);

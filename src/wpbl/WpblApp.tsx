@@ -921,6 +921,11 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           by five thousand pixels. */}
       <Box sx={{
         minHeight: { xs: 'calc(100dvh - 24px)', sm: '100dvh' },
+        // Except under the Stats tab's Teams board, which is four rows and draws its skeleton at that
+        // height, so there is no jump for the floor to prevent (stats/layout.ts, useShortStatsPage).
+        // `html`, not `:root`, and a plain media query: stylis reads a leading `:root` as a pseudo-class
+        // of this box (`.css-x:root[...]`), and that matches nothing.
+        'html[data-stats-short] &': { '@media (min-width: 600px)': { minHeight: 0 } },
         // Scroll room under the floating bar, plus the device's own safe-area inset, so the
         // last card in a tab can always be scrolled clear of it.
         pb: bottomNav ? `calc(${BOTTOM_NAV_SPACE} + env(safe-area-inset-bottom, 0px))` : 0,

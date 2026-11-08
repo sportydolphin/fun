@@ -1412,7 +1412,9 @@ function AppInner() {
             on its way the footer painted a third of the way down and was then shoved off: CI's
             slower runner caught it on Compare and the Glossary, a fast desktop never did. Both
             sections already hold themselves this tall. */}
-        <Box sx={{ p: 2, minHeight: '100dvh' }}>
+        {/* Not under WPBL's Teams board above a phone, which is four rows and draws its skeleton at
+            that height (src/wpbl/stats/layout.ts, useShortStatsPage). */}
+        <Box sx={{ p: 2, minHeight: '100dvh', 'html[data-stats-short] &': { '@media (min-width: 600px)': { minHeight: 0 } } }}>
           {/* The page area's own boundary, under the toolbar: a crash here keeps the toolbar and
               its section switch working, and moving to another path clears it. */}
           <AppErrorBoundary inline where="page" resetKey={path}>

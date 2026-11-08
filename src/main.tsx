@@ -8,6 +8,7 @@ import { AppThemeProvider } from './ThemeContext'
 import { AppErrorBoundary } from './AppErrorBoundary'
 import { installStaleBuildRecovery } from './lib/staleBuild'
 import { startWebVitals } from './lib/webVitals'
+import { publishScrollbarWidth } from './lib/scrollbarWidth'
 import './styles.css'
 
 // Before anything can lazy-load: a page left open across a deploy asks for chunks that no longer
@@ -15,6 +16,8 @@ import './styles.css'
 installStaleBuildRecovery()
 // Real readers' page-load timings, reported to /admin. See lib/webVitals.ts.
 startWebVitals()
+// Before the first paint, so the page widths that subtract it are right from the start.
+publishScrollbarWidth()
 
 // DEV-ONLY poster preview: `?awardsPreview` renders the fan-awards export harness in isolation, so
 // the html2canvas capture can be eyeballed without a closed ballot or vote data. Dead in prod.

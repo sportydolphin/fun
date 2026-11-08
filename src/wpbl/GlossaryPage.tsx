@@ -53,7 +53,7 @@ const GROUPS: { key: string; label: string; keys: string[] }[] = [
   },
   {
     key: 'overall', label: 'Overall',
-    keys: ['WAR', 'Bat', 'Fld', 'Pos', 'Rep', 'C Arm', 'C Blk'],
+    keys: ['WAR', 'Bat', 'Fld', 'Pos adj', 'Rep', 'C Arm', 'C Blk'],
   },
 ]
 

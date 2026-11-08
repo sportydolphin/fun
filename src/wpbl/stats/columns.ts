@@ -31,6 +31,15 @@ export const FLD_COLS: Col<WpblFieldingTotals>[] = [
   { key: 'g',   label: 'G',   value: t => t.g },
 ]
 
+// The Leaders board's Range Runs card on the Fielding side: the WAR engine's range figure, which
+// StatsView puts on each fielder's leader row (`rngRuns`). Not a column of the Players table, where
+// it is on Overall's Advanced view.
+export const FLD_RANGE_COL: Col<WpblFieldingTotals> = {
+  key: 'rngRuns', label: 'Range Runs',
+  value: t => (t as { rngRuns?: number | null }).rngRuns ?? null,
+  display: t => { const v = (t as { rngRuns?: number | null }).rngRuns; return v == null ? '—' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}` },
+}
+
 // A club's row. DP is what the club turned rather than its fielders' credits added up. CS and CS% go:
 // they come per catcher from the stored seasons, and a catcher's club is a fact about a date.
 export const FLD_TEAM_COLS: Col<WpblFieldingTotals>[] = FLD_COLS
@@ -90,12 +99,44 @@ const OVR_NAMES: Record<string, string> = {
 
 /** What each column stands for on one side, with the basis-dependent ones spelled out. Shared by
  *  the Rank by sheet and the table's headings, so the two explain a column the same way. */
+// ─── A club's record, on the Teams board ───────────────────────────────────────
+// Four rows of batting lines with no record beside them answered every question about a club but
+// "how good is it" (Nov 7, 2026 audit). Leading, on every side and both views, since the record is
+// what a reader checks a club's numbers against. Keys that cannot collide with a pitcher's W and L.
+
+/** A club's decided games in the slice the board shows, added to a team row's totals. */
+export interface TeamRecord { w: number; l: number; rs: number; ra: number }
+const recordOf = (t: unknown): TeamRecord | undefined => (t as { record?: TeamRecord }).record
+/** A true minus, as the board's other signed figures draw it. */
+const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0')
+
+export const TEAM_RECORD_COLS: Col<unknown>[] = [
+  {
+    key: 'teamWl', label: 'W-L',
+    // Sorted by winning percentage, so 10-5 sits above 9-4 only when it is the better record.
+    value: t => { const r = recordOf(t); return r && r.w + r.l > 0 ? r.w / (r.w + r.l) : null },
+    display: t => { const r = recordOf(t); return r ? `${r.w}–${r.l}` : '—' },
+  },
+  { key: 'teamRs', label: 'RS', value: t => recordOf(t)?.rs ?? null },
+  { key: 'teamRa', label: 'RA', value: t => recordOf(t)?.ra ?? null, lowerBetter: true },
+  {
+    key: 'teamDiff', label: 'Diff',
+    value: t => { const r = recordOf(t); return r ? r.rs - r.ra : null },
+    display: t => { const r = recordOf(t); return r ? signed(r.rs - r.ra) : '—' },
+  },
+]
+export const TEAM_RECORD_KEYS = new Set(TEAM_RECORD_COLS.map(c => c.key))
+const TEAM_RECORD_NAMES: Record<string, string> = {
+  teamWl: 'Wins and losses', teamRs: 'Runs scored', teamRa: 'Runs allowed', teamDiff: 'Run differential',
+}
+
 export function statNames(side: Side, eraBasis: EraBasis): Record<string, string> {
-  if (side === 'hitting') return HIT_NAMES
-  if (side === 'fielding') return FLD_NAMES
+  if (side === 'hitting') return { ...HIT_NAMES, ...TEAM_RECORD_NAMES }
+  if (side === 'fielding') return { ...FLD_NAMES, ...TEAM_RECORD_NAMES }
   if (side === 'overall') return OVR_NAMES
   return {
     ...PIT_NAMES,
+    ...TEAM_RECORD_NAMES,
     era: `Earned run average, per ${eraBasis}`,
     // The strikeout RATE. Its key is `k9` and its label is built at render time, so a static
     // entry in PIT_NAMES could not carry the denominator and a lookup on the key would find

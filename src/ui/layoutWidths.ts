@@ -6,21 +6,30 @@ import { chromePx } from './scale'
 // the two phone columns were 640 and 720.
 //
 // Raw px with a viewport cap, like the rest of WPBL's breakout widths (src/wpbl/layoutWidths.ts):
-// a cap on a wide layout rather than structure inside it, so not chromePx. The 24px of slack stops
-// `100vw` (which counts a classic scrollbar) from giving the site a horizontal scrollbar, and it is
-// LESS than the shell's own padding on purpose: a Home this wide breaks out of that padding, so
-// the column is centered on its parent (a transform on WPBL, a margin on MLB) rather than capped.
+// a cap on a wide layout rather than structure inside it. A Home this wide breaks out of the shell's
+// padding, so the column is centered on its parent (a transform on WPBL, a margin on MLB) rather than
+// capped.
+//
+// THE GUTTER IS THE TOOLBAR'S. Under the cap the column is the viewport less the scrollbar
+// (`--sd-scrollbar-w`, lib/scrollbarWidth.ts: `100vw` counts a classic one) and less
+// `--sd-page-gutter` on each side (styles.css): from `sm` the toolbar's own side padding, so the
+// page's left edge and the logo's are one line; on a phone the 12px it always was. It was a flat
+// 12px everywhere, which put the Stats heading about 20px left of the logo, and 4.5px from the
+// window's edge on Windows (Nov 7, 2026 audit).
+const VIEWPORT_COLUMN = 'calc(100vw - var(--sd-scrollbar-w, 0px) - 2 * var(--sd-page-gutter, 12px))'
 
 /** Home's column above a phone: the scoreboard, the cards and everything between. */
-export const HOME_W = 'min(1260px, calc(100vw - 24px))'
+export const HOME_W = `min(1260px, ${VIEWPORT_COLUMN})`
 
 /** The column below `md`, for both sections: WPBL's whole section is built on 720. */
 export const PHONE_COLUMN_W = 720
 
-/** Both Stats tabs above a phone: wider than the page column, so every column of the Players table
- *  is in view. WPBL's since the table needed it; MLB's three boards since Oct 9, 2026, when the two
- *  tabs were 1416 and 1385 wide at 1440 and the title, tabs and cards moved 15px on a switch. */
-export const STATS_W = 'min(1540px, calc(100vw - 24px))'
+/** Both Stats tabs above a phone: wider than the page column. MLB's three boards since Oct 9, 2026,
+ *  when the two tabs were 1416 and 1385 wide at 1440 and the title, tabs and cards moved 15px on a
+ *  switch. Home's width since Nov 2026 (1540 before): the tables size to their columns now
+ *  (SeasonTable), so the extra width was a stretched name column, and the page width jumped between
+ *  Home and Stats. */
+export const STATS_W = HOME_W
 
 /**
  * The page column the Stats boards that are prose and lists sit in, and the wider measure the

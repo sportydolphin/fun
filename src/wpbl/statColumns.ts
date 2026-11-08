@@ -235,7 +235,8 @@ export const OVR_COLS: Col<WpblValueTotals>[] = [
   { key: 'bat',    label: 'Bat',    value: t => batting(t, t.bat), display: t => runs(batting(t, t.bat)) },
   { key: 'bsr',    label: 'BsR',    value: t => batting(t, t.bsr), display: t => runs(batting(t, t.bsr)) },
   { key: 'fld',    label: 'Fld',    value: t => t.fld,    display: t => runs(t.fld) },
-  { key: 'pos',    label: 'Pos',    value: t => t.pos,    display: t => runs(t.pos) },
+  // "Pos adj", not "Pos": the line under each name on this board is the position itself.
+  { key: 'pos',    label: 'Pos adj', value: t => t.pos,   display: t => runs(t.pos) },
   { key: 'pit',    label: 'Pit',    value: t => pitching(t, t.pit), display: t => runs(pitching(t, t.pit)) },
   { key: 'wpa',    label: 'WPA',    value: t => t.wpa,    display: t => wpaText(t.wpa) },
   // The glove, part by part, for the Advanced view.
