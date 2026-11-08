@@ -230,3 +230,38 @@ describe('the search box', () => {
     expect(named('command_palette_picked')[0]).toMatchObject({ kind: 'game', rank: 0 })
   })
 })
+
+// The three misses on /admin's "Offered nothing for" list in Oct and Nov 2026, each answered now.
+describe('a search that finds nothing', () => {
+  beforeEach(() => { track.mockClear(); localStorage.clear(); window.history.replaceState({}, '', '/wpbl') })
+  afterEach(() => { cleanup() })
+
+  it('falls back to the examples, and Enter keeps what was typed', async () => {
+    const user = userEvent.setup()
+    render(<Host />)
+    await user.type(input(), 'zzyzx')
+    expect(screen.getByText(/Nothing matches/)).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Try' })).toBeInTheDocument()
+    await user.keyboard('{Enter}')
+    await user.keyboard('{Tab}')
+    expect(input()).toHaveValue('zzyzx')
+    expect(named('command_palette_picked')).toEqual([])
+  })
+
+  it('finds WPBL fielding, a side of Leaders', async () => {
+    const user = userEvent.setup()
+    render(<Host />)
+    await user.type(input(), 'fielding')
+    expect(screen.getByRole('option', { name: /Fielding/ })).toHaveAttribute('href', '/wpbl/stats?board=leaders&side=fielding')
+  })
+
+  it('offers the other section’s page by name when this one has none', async () => {
+    const user = userEvent.setup()
+    render(<CommandPalette open onClose={() => {}} section="mlb" results={[]} idle={[]} searching={false} />)
+    await user.type(input(), 'scorigami')
+    const opt = screen.getByRole('option', { name: /Scorigami/ })
+    expect(opt).toHaveAttribute('href', '/wpbl/scorigami')
+    expect(opt).toHaveTextContent('WPBL')
+    expect(screen.queryByText(/Nothing matches/)).not.toBeInTheDocument()
+  })
+})

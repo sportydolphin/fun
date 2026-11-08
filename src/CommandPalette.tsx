@@ -109,6 +109,9 @@ const BOARD_PAGES: Record<NavSection, PageEntry[]> = {
     { label: 'Leaders', hint: 'Stats', href: '/wpbl/stats?board=leaders' },
     { label: 'Players', hint: 'Stats: the season table', href: '/wpbl/stats?board=players' },
     { label: 'Team stats', hint: 'Stats: the four clubs', href: '/wpbl/stats?board=teams' },
+    // A side of Leaders rather than a board of its own, but "fielding" is what a reader types for
+    // it, and it found nothing until Nov 2026 because MLB's Fielding board is the only one named so.
+    { label: 'Fielding', hint: 'Stats: leaders', href: '/wpbl/stats?board=leaders&side=fielding' },
     { label: 'Bests', hint: 'Stats: the best single games', href: '/wpbl/stats?board=bests' },
     { label: 'Find', hint: 'Stats: search every box-score line', href: '/wpbl/stats?board=find' },
     { label: 'Run value', hint: 'Stats: runs and wins added', href: '/wpbl/stats?board=runs' },
@@ -224,6 +227,9 @@ function pageScore(p: PageEntry, q: string): number {
   if (p.hint?.toLowerCase().includes(q)) return 1
   return 0
 }
+
+/** Every page a section has by name, the dated MLB scoreboard aside. */
+const sectionPages = (s: NavSection): PageEntry[] => [...TAB_PAGES[s], ...BOARD_PAGES[s], ...MORE_PAGES[s]]
 
 /** "scores yesterday", "tomorrow's games": MLB's scoreboard on that day. WPBL's Scores is the whole
  *  season on one page, so a day there is the game row's job (parseGameQuery), not a page's. */
@@ -433,13 +439,14 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
 
   const groups = useMemo<Group[]>(() => {
     const q = text.trim().toLowerCase()
-    const pageItem = (p: PageEntry, i: number): Item => ({
-      key: `page-${p.href}-${i}`, kind: 'page', title: p.label, subtitle: p.hint, href: p.href,
+    const pageItem = (p: PageEntry, i: number, owner: NavSection = section): Item => ({
+      key: `page-${p.href}-${i}`, kind: 'page', title: p.label,
+      subtitle: owner === section ? p.hint : [owner === 'mlb' ? 'MLB' : 'WPBL', p.hint].filter(Boolean).join(' · '), href: p.href,
       icon: <Article sx={{ fontSize: ICON_SIZE.md }} />,
       onOpen: () => {
         // MLB's `?open=` rows are a board over a tab, which the tab's owner opens on its next
         // mount or right away if it is mounted: the same intent the toolbar's More menu hands it.
-        const link = section === 'mlb' ? parseDeepLink(p.href) : null
+        const link = owner === 'mlb' ? parseDeepLink(p.href) : null
         if (link) requestDeepLink(link)
       },
     })
@@ -540,17 +547,27 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     }))
     const seen = new Set<string>()
     const dated = datedScores(section, q)
-    const pages: Item[] = [...(dated ? [dated] : []), ...TAB_PAGES[section], ...BOARD_PAGES[section], ...MORE_PAGES[section]]
+    const pages: Item[] = [...(dated ? [dated] : []), ...sectionPages(section)]
       .map(p => ({ p, score: p === dated ? 4 : pageScore(p, q) }))
       .filter(x => x.score > 0 && !seen.has(x.p.href) && seen.add(x.p.href))
       .sort((a, b) => b.score - a.score)
       .slice(0, 6)
       .map((x, i) => pageItem(x.p, i))
+    // "scorigami" on MLB found nothing (Oct 2026): the page is WPBL's, and only the section's own
+    // pages were searched. The other section's pages answer only when this one has none, and only
+    // by name (score 2 and up), so a word in a hint never pulls in the other league.
+    const otherSide: NavSection = section === 'mlb' ? 'wpbl' : 'mlb'
+    const otherPages: Item[] = pages.length || q.length < 3 ? [] : sectionPages(otherSide)
+      .map(p => ({ p, score: pageScore(p, q) }))
+      .filter(x => x.score >= 2 && !seen.has(x.p.href) && seen.add(x.p.href))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((x, i) => pageItem(x.p, i, otherSide))
 
     // A term asked about in words ("what is OPS") is the answer; typed bare ("ops") it is more
     // likely the board, so it waits behind the rankings and the Find readings.
     const glossary = { label: 'Glossary', items: definitions }
-    return [
+    const found = [
       { label: 'Live now', items: liveGames },
       ...(defined.asked ? [glossary] : []),
       { label: 'Games', items: games },
@@ -566,19 +583,25 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
         const answer = answers && answers.text === text ? answers.byKey[r.key] : undefined
         return rowItem('result')(answer ? { ...r, subtitle: [answer, r.subtitle].filter(Boolean).join(' · ') } : r)
       }) },
-      { label: section === 'mlb' ? 'In the WPBL' : 'In MLB', items: other },
+      { label: section === 'mlb' ? 'In the WPBL' : 'In MLB', items: [...other, ...otherPages] },
       { label: 'Pages', items: pages },
       { label: 'Actions', items: acts },
     ].filter(g => g.items.length)
-  }, [text, results, idle, section, compare, gameRows, liveRows, recentQs, rowPicks, leaderRows, peeks, answers, elsewhere, ownPlayers, actions])
+    // A miss ends on the examples, not a blank box: what the box does understand, one pick from
+    // trying it. Not while the section is still looking, or they flash in ahead of its rows.
+    return found.length || searching ? found : [{ label: 'Try', grid: true, items: tryItems }]
+  }, [text, results, idle, section, searching, compare, gameRows, liveRows, recentQs, rowPicks, leaderRows, peeks, answers, elsewhere, ownPlayers, actions])
 
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups])
+  // Rows that answer the text, as against the examples a miss falls back to.
+  // "?" asks for the examples, so they are its answer.
+  const answered = text.trim() === '?' || flat.some(i => i.kind !== 'example')
   const current = Math.min(active, Math.max(0, flat.length - 1))
   // The typed text goes with a close ONLY when the box offered nothing for it, the rule
   // `wpbl_searched` keeps (docs/ADMIN_ANALYTICS.md): then the text is the finding, a player or a
   // spelling the search cannot reach. Anything that got an answer is described by its pick instead.
   const typedText = text.trim()
-  closeState.current = typedText && !flat.length
+  closeState.current = typedText && !answered
     ? { typed: typedText.length, shown: 0, q: typedText.slice(0, 40) }
     : { typed: typedText.length, shown: flat.length }
 
@@ -619,17 +642,19 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); setActive((current + 1) % Math.max(1, flat.length)) }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((current - 1 + flat.length) % Math.max(1, flat.length)) }
-    else if (e.key === 'Enter' && flat[current]) { e.preventDefault(); activate(flat[current]) }
+    // Enter on a miss does nothing: the lit row is an example, and swapping the reader's text for it
+    // would lose what they typed.
+    else if (e.key === 'Enter' && flat[current] && (answered || !typedText)) { e.preventDefault(); activate(flat[current]) }
     // TAB COMPLETES: the lit row's name goes into the box, so "whit" Tab is "Kelsie Whitmore" and the
     // reader can go on to type " avg" or " game log" after it. Only while something is typed, and
     // never Shift+Tab, so the key still leaves the box when there is nothing to complete.
-    else if (e.key === 'Tab' && !e.shiftKey && text.trim() && flat[current] && flat[current].title.toLowerCase() !== text.trim().toLowerCase()) {
+    else if (e.key === 'Tab' && !e.shiftKey && text.trim() && answered && flat[current] && flat[current].title.toLowerCase() !== text.trim().toLowerCase()) {
       e.preventDefault()
       change(`${flat[current].title} `)
     }
   }
 
-  const empty = text.trim() && !flat.length && !searching
+  const empty = typedText && !answered && !searching
   let index = -1
 
   return (
@@ -676,6 +701,11 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
         </IconButton>
       </Box>
       <Box sx={{ overflowY: 'auto', flex: 1 }}>
+        {empty && (
+          <Typography sx={{ px: 2, pt: 2, pb: 0.5, fontSize: TYPE_SCALE.body, color: 'text.secondary', textAlign: 'center' }}>
+            Nothing matches. A stat question needs a number and a stat, like “2 home runs”.
+          </Typography>
+        )}
         <List ref={listRef} id="cmdk-list" role="listbox" aria-label="Results" dense disablePadding sx={{ pb: 1 }}>
           {groups.map(g => (
             <React.Fragment key={g.label}>
@@ -727,11 +757,6 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
             </React.Fragment>
           ))}
         </List>
-        {empty && (
-          <Typography sx={{ px: 2, py: 3, fontSize: TYPE_SCALE.body, color: 'text.secondary', textAlign: 'center' }}>
-            Nothing matches. A stat question needs a number and a stat, like “2 home runs”.
-          </Typography>
-        )}
       </Box>
       <Box sx={{ px: 2, py: 0.75, borderTop: '1px solid', borderColor: 'divider', display: { xs: 'none', sm: 'block' } }}>
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
