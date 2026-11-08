@@ -1,7 +1,7 @@
 # Priorities: every roadmap in one order
 
 > Set **Oct 16, 2026**; realigned **Nov 1, 2026** around the site becoming women's baseball; the November list reset
-> **Nov 6** while the redesign waits on Figma. One
+> **Nov 6** while the redesign waits on Figma; the three large items set in order **Nov 8**. One
 > list across the four roadmaps, so nobody has to merge them in their head:
 > [ROADMAP-WPBL.md](ROADMAP-WPBL.md) (WPBL, plus the site-wide ops list and search),
 > [ROADMAP.md](ROADMAP.md) (MLB), [ROADMAP-WOMENS-BASEBALL.md](ROADMAP-WOMENS-BASEBALL.md) (the World
@@ -27,6 +27,9 @@
 4. **Measure before building more.** Items below that wait on a read of `events` say so.
 5. **One person.** Owner-only work (Figma, Play's console, the crosswalk review, outreach) runs beside
    the code, not in its place.
+6. **Three large items, one after another** (set Nov 8, 2026): the redesign, then the World Cup in
+   public, then the apps (Android and iOS). Each starts once the one before it is on `main`. The
+   season's deadlines (rule 1, item 8, the live field) still outrank all three.
 
 ## Done since Oct 16
 
@@ -63,10 +66,10 @@ to change only if the change is small; anything larger waits so it is not built 
 2. ~~**#195 into `redesign` conflicts.**~~ ✅ Nov 6: #195 is mergeable into `redesign` again.
 3. ~~**The World Cup goes public.**~~ Moved to after the redesign (decided Nov 7, 2026): it
    publishes once the redesign is on `main`, so its pages launch in the new look and are not
-   restyled in public. See Winter, item 9. *ROADMAP-WOMENS-BASEBALL, stage 2, "What is left".*
+   restyled in public. See Winter, item 11. *ROADMAP-WOMENS-BASEBALL, stage 2, "What is left".*
 4. ~~**The feed rehearsal**~~ ✅ Nov 6 as `npm run rehearse` (#200); see Winter, item 8.
-5. **Google Play release.** Only Play's own process is left. Owner. *ROADMAP-WPBL ops item 9;
-   docs/ANDROID.md.*
+5. ~~**Google Play release.**~~ Moved to after the World Cup (decided Nov 8, 2026), with iOS as one
+   apps phase. See Winter, item 12.
 6. **The Figma file, finished**, including the women's baseball shell: the league list (MLB in it,
    after the women's competitions) and whether `/` earns a front page. Then the redesign resumes at
    Home's step 1, the in-season and postseason Home. Owner. *ROADMAP-UI.md, "Handoff";
@@ -107,7 +110,15 @@ Stats controls.
    - ~~the column-partition test for `LIVE_GAME_COLUMNS` and the line column lists~~ ✅ done Oct 17;
    - every Trap in CLAUDE.md re-verified against the 2027 feed once it speaks.
    *ROADMAP-WPBL, ops item 7, Priorities P0 and P2, engineering backlog.*
-9. **The World Cup goes public, after the redesign** (large; decided Nov 7, 2026). It publishes
+9. **UI overhaul, phases 2 and 3** (first of the three large items): the `redesign` branch is this
+   work, resumed once the Figma file is done. Home first, then WPBL page by page while its feed is
+   quiet, then MLB; it merges to `main` in one piece as v1.208.0. Stops in March so the sweep
+   baselines are settled before the season. *ROADMAP-UI.md, "Handoff", Phases 2 and 3.*
+10. **The women's baseball shell (stage 3)**, built with phase 3 in February and March: the
+    league list, with MLB one click away in it. Hard stop on Mar 15; if it is not settled by then it waits
+    for October 2027 rather than land under the season. *ROADMAP-WOMENS-BASEBALL, "The plan",
+    stage 3.*
+11. **The World Cup goes public, after the redesign** (second of the three; decided Nov 7, 2026). It publishes
    on implied permission, the footing the WPBL feed is on: WBSC's reply is no longer the gate, and
    a "no" still ends it. In order, once the redesign is on `main`: the pages in the new look, their
    loading states and the sweep, the audit's polish (the gray "TPE" badge, leader portraits, a
@@ -118,18 +129,18 @@ Stats controls.
    a Sources entry with a takedown contact. Owner: the WBSC notice (not a request) offering removal
    goes out before the switch. 2004 to 2008 as results-only editions ✅ Nov 7, 2026.
    *ROADMAP-WOMENS-BASEBALL, "The plan", stage 2.*
-10. **The live field**, in Game Center on both leagues, before MLB's Opening Day in late March: an
-   animated diamond with runners, the count and pitch location. Built on MLB first, because spring
-   training is live from late February while the WPBL feed is quiet; WPBL wires to it against the
-   2027 feed. *ROADMAP-WPBL, "From the Nov 1, 2026 brainstorm".*
-11. **iOS.** A much bigger build than Play, done before the season. *docs/IOS.md.*
-12. **UI overhaul, phases 2 and 3**: the `redesign` branch is this work. Home first, then WPBL page
-    by page while its feed is quiet, then MLB; it merges to `main` in one piece as v1.208.0. Stops in March so the sweep baselines are
-    settled before the season. *ROADMAP-UI.md, Phases 2 and 3.*
-13. **The women's baseball shell (stage 3)**, built with phase 3 in February and March: the
-    league list, with MLB one click away in it. Hard stop on Mar 15; if it is not settled by then it waits
-    for October 2027 rather than land under the season. *ROADMAP-WOMENS-BASEBALL, "The plan",
-    stage 3.*
+12. **The apps, Android and iOS** (third of the three; after the World Cup, decided Nov 8, 2026).
+    Android first: the code is done and only Play's own process is left (account, upload, listing,
+    then 12 testers for 14 days, the long pole). Owner. iOS is a much bigger build: the home-screen
+    PWA on a real iPhone first (it might end the project), then the Team ID, the auth rewrite with
+    Sign in with Apple, the Capacitor build on a Mac, APNs, Live Activities. If it cannot ship
+    before the season, it waits rather than land under it (rule 1). *ROADMAP-WPBL ops item 9;
+    docs/ANDROID.md; docs/IOS.md.*
+13. **The live field**, in Game Center on both leagues, before MLB's Opening Day in late March: an
+    animated diamond with runners, the count and pitch location. It runs on its date, not in the
+    queue above: built on the redesigned Game Center, on MLB first, because spring training is live
+    from late February while the WPBL feed is quiet; WPBL wires to it against the 2027 feed.
+    *ROADMAP-WPBL, "From the Nov 1, 2026 brainstorm".*
 
 ## Spring 2027
 

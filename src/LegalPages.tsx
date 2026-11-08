@@ -217,12 +217,13 @@ export function DeleteAccount() {
         <>Your username, and with it your name on any leaderboard.</>,
         <>Your saved preferences: followed teams and players, notification settings, theme and units, recent searches.</>,
         <>Your prediction history and prediction stats, including any streak or leaderboard standing.</>,
+        <>Your Streak Survivor picks and record, and your postseason pick'em answers.</>,
         <>Your push notification subscriptions, so the site stops sending to your devices.</>,
       ]} />
 
       <H>What is kept, and why</H>
       <P>
-        Two things survive, and neither is tied to you afterwards:
+        Three things survive, and none is tied to you afterwards:
       </P>
       <Bullets items={[
         <><b>Anonymous usage counts.</b> Records of which pages and features were used have the
@@ -233,6 +234,8 @@ export function DeleteAccount() {
           does not vanish before it is fixed, but your name, account link and reply-to address
           are removed from it. If you would rather the message itself went too, say so in your
           email and it will be deleted.</>,
+        <><b>Photo tags you suggested.</b> A tag says who is in a public photo, not anything about
+          you, so it stays for the photo, with the account link removed.</>,
       ]} />
       <P>
         Nothing is kept that identifies you, and nothing is ever sold or shared. See the{' '}
