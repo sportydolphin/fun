@@ -281,8 +281,8 @@ and the reasoning; where the two disagree, `/admin` is the order.
   reading Supabase behind Cloudflare's cache; switching it to the files would touch every bulk
   read to save little on a season this small. A `size-limit` bundle budget in CI
   ([docs/CI.md](docs/CI.md#bundle-budgets)). `knip` was already in.
-- *P3.* Prefetch on link hover or visibility. Archive old MLB line tables to R2 or Parquet before
-  the 8 GB disk fills. Replace `html2canvas` (unmaintained) with `modern-screenshot` or
+- *P3.* Prefetch on link hover or visibility. ~~Archive old MLB line tables to R2~~ (done Nov 8,
+  2026: [docs/MLB_LINES_ARCHIVE.md](docs/MLB_LINES_ARCHIVE.md)). Replace `html2canvas` (unmaintained) with `modern-screenshot` or
   `html-to-image`. `@tanstack/react-virtual` for the stats table and Watch once two seasons double
   the rows. `fast-check` property tests for `derive/` (WAR sums, `runsOnPlay`, base-state
   transitions). A DuckDB-WASM SQL sandbox on the open-data page, over the frozen season files.

@@ -3,6 +3,7 @@ import type { SeasonScope } from '../league/season'
 import type { BattingGameLine, LeagueGame, LeaguePlayer, PitchingGameLine } from '../league/types'
 import type { GameScope } from './lib/gameScope'
 import { CURRENT_SEASON } from './constants'
+import { MLB_LINES_FROZEN_THROUGH, mlbLinesArchiveUrl } from '../../shared/mlbLinesArchive.js'
 
 // Every MLB box-score line of one season, for the boards that run WPBL's engines (src/league/):
 // Bests and Find. Mirrored nightly by scripts/sync-mlb-lines.mjs and served packed, one row per
@@ -117,6 +118,15 @@ export function fetchMlbSeasonLines(season: number): Promise<MlbSeasonLines | nu
   let p = cache.get(season)
   if (!p) {
     p = (async () => {
+      // A closed season is a static file on R2, the view's own row frozen (shared/mlbLinesArchive.js,
+      // docs/MLB_LINES_ARCHIVE.md). Its rows are gone from Postgres, so the view would answer with
+      // the games and no lines: a board of zeros rather than an error.
+      if (season <= MLB_LINES_FROZEN_THROUGH) {
+        const res = await fetch(mlbLinesArchiveUrl(season))
+        if (res.status === 404) return null
+        if (!res.ok) throw new Error(`MLB lines ${season}: ${res.status}`)
+        return adaptSeasonLines(await res.json())
+      }
       const { data, error } = await supabase.from('mlb_season_lines').select('*').eq('season', season).maybeSingle()
       if (error) throw error
       return data ? adaptSeasonLines(data) : null
