@@ -13,7 +13,7 @@ import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 import { ScatterFrame, ScatterPlot, type ScatterAxis, type ScatterGuides, type ScatterPoint } from '../ui/charts/ScatterPlot'
 import { niceDomain, sharedDomain, stepDecimals, tickStep, axisValues } from '../ui/charts/scale'
 import { nameStages } from '../ui/names'
-import { FilterChip, filterChipSx } from '../ui/FilterChip'
+import { FilterChip, FilterSelect, filterChipSx } from '../ui/FilterChip'
 import { wpblAccent, wpblFullName } from './constants'
 import { InfoDot } from '../ui/InfoDot'
 import { usePhoneLayout } from '../ui/ModalShell'
@@ -283,6 +283,7 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
     }
     return out
   }
+  const sortedTeams = useMemo(() => [...teams].sort((a, b) => a.sort_order - b.sort_order), [teams])
   const clubAbbr = useCallback((id: string | null) => (id ? teamById.get(id)?.abbr ?? null : null), [teamById])
 
   return (
@@ -290,12 +291,22 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
       <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
         {qual.active && <FilterChip active={!everyone} onClick={() => setEveryone(!everyone)}>Qualified</FilterChip>}
         {specs.some(sp => sp.club) && <FilterChip active={clubsOn} onClick={() => setClubsOn(c => !c)}>Clubs</FilterChip>}
-        {[...teams].sort((a, b) => a.sort_order - b.sort_order).map(t => (
-          <FilterChip key={t.id} active={club === t.id} onClick={() => setClub(club === t.id ? null : t.id)}>
-            <Box component="span" aria-hidden sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: clubColor(t.id), mr: 0.6, flexShrink: 0 }} />
-            <Box component="span" title={wpblFullName(t)}>{t.abbr}</Box>
-          </FilterChip>
-        ))}
+        {/* ONE SELECT BELOW `sm`, the club chips from there up: four chips beside Qualified, Clubs and
+            the search wrapped onto a second row at 375 (Nov 7, 2026 audit). Both drawn and CSS picks,
+            as the Stats bar does below `lg`, so nothing is measured and nothing moves on load. */}
+        <Box sx={{ display: { xs: 'none', sm: 'contents' } }}>
+          {sortedTeams.map(t => (
+            <FilterChip key={t.id} active={club === t.id} onClick={() => setClub(club === t.id ? null : t.id)}>
+              <Box component="span" aria-hidden sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: clubColor(t.id), mr: 0.6, flexShrink: 0 }} />
+              <Box component="span" title={wpblFullName(t)}>{t.abbr}</Box>
+            </FilterChip>
+          ))}
+        </Box>
+        <Box sx={{ display: { xs: 'flex', sm: 'none' } }}>
+          <FilterSelect value={club ?? ''} active={club !== null} ariaLabel="Club"
+            options={[{ value: '', label: 'All clubs' }, ...sortedTeams.map(t => ({ value: t.id, label: t.abbr }))]}
+            onChange={v => setClub(v || null)} />
+        </Box>
         <Box component="input" type="search" value={query} placeholder="Find player" aria-label="Find player"
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
           sx={{

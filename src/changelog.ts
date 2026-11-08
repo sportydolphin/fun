@@ -23,6 +23,28 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.208.1',
+    date:    '2026-11-08',
+    changes: [
+      {
+        short: 'Shorter Leaders on phones',
+        full:  'On a phone, each WPBL leader card shows its top three, with See all for the rest.',
+      },
+      {
+        short: 'Whole game lines',
+        full:  'On Bests and Find, a game line too long for a phone continues on a second line instead of being cut off. On both leagues.',
+      },
+      {
+        short: 'One line per board',
+        full:  'On a phone, the line under each name on WPBL Players → Overall shows the same two figures on every row: Pos WAR and Pit WAR when ranked by WAR, and the two parts of WAR that vary most otherwise.',
+      },
+      {
+        short: 'Charts on phones',
+        full:  'The WPBL Charts filters fit one row on a phone, with the clubs in one select. Player names on every scatter chart stay clear of the other dots, and a name with no clear spot is left off.',
+      },
+    ],
+  },
+  {
     version: '1.207.6',
     date:    '2026-11-08',
     changes: [

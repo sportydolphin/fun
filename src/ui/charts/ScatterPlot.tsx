@@ -325,13 +325,23 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
 
   // Which names are drawn, and where. Each tries every spot `labelSpots` offers, in order, and
   // takes the first that stays inside the plot and clears the guide labels, the names already
-  // placed and the middle of every other dot. A crowd drops the lesser name, never the first.
+  // placed and the WHOLE of every other dot. A crowd drops the lesser name, never the first.
+  //
+  // Whole dots, not their middles: cleared of only the middle 60%, a name could cover most of a
+  // neighbor, and in a cluster ("M. Davis", "A. Hondras", "M. Paddison" low on OBP vs SLG, Nov 7,
+  // 2026 audit) the names sat across each other's dots. A name that cannot be placed clear is dropped.
   const labelCap = labeled ? (phone ? LABEL_CAP.phone : g.w === BOX.large.w ? LABEL_CAP.large : LABEL_CAP.wide) : Infinity
   const shownLabels = useMemo(() => {
     const placed = new Map<string, PlacedLabel>()
     if (!labelIds?.length) return placed
     const byId = new Map(points.map(p => [p.id, p]))
     const cores = new Map(dotCores.map(d => [d.id, d.box]))
+    // Each dot's full extent, a pixel out, for the names' collision pass. A label's own dot is left
+    // out of its own check (`own`): its spots already sit beside it.
+    const wholeDots = points.map(p => {
+      const r = radius(p) + 1
+      return { id: p.id, box: { x: pxOf(p) - r, y: pyOf(p) - r, w: 2 * r, h: 2 * r } }
+    })
     const candidates: { item: string; spots: LabelSpot[]; own: LabelBox }[] = []
     for (const id of labelIds) {
       const p = byId.get(id)
@@ -340,9 +350,10 @@ export function ScatterPlot({ points, x, y, guides = {}, labeled, title, onActiv
       const spots = labelSpots(pxOf(p), pyOf(p), radius(p), p.label.length * LABEL_CHAR_W, LABEL_FONT).filter(sp => inPlot(sp.box))
       candidates.push({ item: id, spots, own })
     }
+    const whole = new Map(wholeDots.map(d => [d.id, d.box]))
     const kept = placeLabels(
-      candidates.map(c => ({ item: c.item, own: c.own, spots: c.spots.map(sp => sp.box) })),
-      [...dotCores.map(d => d.box), ...guideLabels.boxes],
+      candidates.map(c => ({ item: c.item, own: whole.get(c.item) ?? c.own, spots: c.spots.map(sp => sp.box) })),
+      [...wholeDots.map(d => d.box), ...guideLabels.boxes],
     )
     for (const { item, spot } of kept.slice(0, labelCap)) {
       const c = candidates.find(k => k.item === item)!

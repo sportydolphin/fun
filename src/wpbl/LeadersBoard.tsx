@@ -130,7 +130,7 @@ export function LeadersBoard<T extends LeaderTotals>({ side, cols, seasons, qual
         return (
           <LeaderCard key={card.key} title={titleFor(card, col)}
             seeAll={{ href: seeAllHref(card.key), onClick: () => onSeeAll(card.key) }}
-            hoverKey={hover} onHover={setHover}
+            hoverKey={hover} onHover={setHover} phoneRows={PHONE_ROWS}
             items={leadersFor(seasons, col, side, qual).map(r => ({
               key: r.player.id, rank: r.rank, tied: r.tied, name: r.player.name, value: r.text,
               // No club badge beside the name: the portrait's ring is already the club's color, and in
@@ -146,10 +146,13 @@ export function LeadersBoard<T extends LeaderTotals>({ side, cols, seasons, qual
 
 /** The board before the season's lines have landed: the real titles over ghost rows, for the side
  *  the address asks for (Hitting, unless it says otherwise). */
+/** Rows a card shows on a phone, the rest behind "See all". */
+const PHONE_ROWS = 3
+
 export function LeadersBoardSkeleton({ side = 'hitting' }: { side?: LeaderSide }) {
   return (
     <Box aria-hidden sx={LEADER_GRID_SX}>
-      {LEADER_CARDS[side].map(card => <LeaderCardSkeleton key={card.key} title={card.title ?? card.key} />)}
+      {LEADER_CARDS[side].map(card => <LeaderCardSkeleton key={card.key} title={card.title ?? card.key} phoneRows={PHONE_ROWS} />)}
     </Box>
   )
 }

@@ -22,10 +22,9 @@ import { nameAtStage, useLineNameFit } from './names'
 // one anchor and the name and date are plain text inside it: the tap target is the row rather than
 // two words in it.
 //
-// THE GAME LINK COMES FIRST ON THE SECOND LINE, ahead of the rest of the box-score line. The line
-// truncates with an ellipsis on a narrow phone, and whatever sits at the end of it is what
-// disappears: with the detail first, the LINK is what a 375px screen at the Large text setting
-// eats. Put the destination where it survives and let the supporting detail be the part that goes.
+// THE GAME LINK COMES FIRST ON THE SECOND LINE, ahead of the rest of the box-score line, and holds
+// together. The rest WRAPS: it used to end in an ellipsis on a phone, "3-for-4, 3 HR, 6 …", six or
+// seven rows a board at 375 (Nov 7, 2026 audit), and the part a reader came for was the part cut.
 
 /** "Aug 12 vs LA". There was a compact "8/12" for Bests and Find until Oct 21, 2026: one date
  *  format across the site outranks the four characters it saved. `home` must come off the LINE's club, the club
@@ -100,13 +99,10 @@ export function GameLineFrame({
           }}>{nameAtStage(name, fit.stage)}</Typography>
           {club}
         </Box>
-        <Typography component="div" sx={{
-          fontSize: TYPE_SCALE.meta, color: 'text.secondary',
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-        }}>
+        <Typography component="div" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
           {label && (
             <Box component="span" {...(rowIsLink ? {} : gameLink)} sx={{
-              textDecoration: 'none', fontWeight: 700, color: accent,
+              textDecoration: 'none', fontWeight: 700, color: accent, whiteSpace: 'nowrap',
               ...(rowIsLink ? {} : underline),
             }}>{label}</Box>
           )}

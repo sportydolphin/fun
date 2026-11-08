@@ -13,7 +13,7 @@ import { RankText, FADED } from './shared'
 
 /** The phone's ranked list: one stat, the top LIST_CAP, and the rest behind Show all. */
 export function StatList({ listRef, mode, activeCol, leagueCell, sortAsc, visibleRows, ranks, pickedId, pickedRef,
-  pickedTint, contextCols, contextCap = 3, echo, rows, listCap, capped, noun, setExpanded, collapse, boardFooter }: {
+  pickedTint, contextCols, contextCap = 3, rows, listCap, capped, noun, setExpanded, collapse, boardFooter }: {
   listRef: React.RefObject<HTMLDivElement | null>
   mode: Mode
   activeCol: Col<Totals>
@@ -29,8 +29,6 @@ export function StatList({ listRef, mode, activeCol, leagueCell, sortAsc, visibl
    *  Overall, where "1.49 Pos WAR · 0.31 Pit WAR · +3.1 Fld" ran a few px past it on every two-way
    *  player; a one-way player has a dash to drop and still shows two. */
   contextCap?: number
-  /** Context columns dropped from a row where they print the same figure as its big number. */
-  echo?: ReadonlySet<string>
   rows: Row[]
   listCap: number
   capped: boolean
@@ -83,13 +81,13 @@ export function StatList({ listRef, mode, activeCol, leagueCell, sortAsc, visibl
           faded={mode === 'players' && !r.qualified}
           total={visibleRows.length}
           value={cellText(activeCol, r.totals)}
-          // A dash is a half of the game the player never played, which is noise in one line;
-          // on Overall it is most rows, since most players only bat or only pitch.
-          // And a figure in `echo` that is the row's own big number says nothing: a pure hitter's
-          // Pos WAR is the whole WAR, so "1.99 · 1.99 Pos WAR" spent half the line repeating itself.
-          context={contextCols.map(c => [cellText(c, r.totals), c.label, c.key] as const)
-            .filter(([v, , k]) => v !== '—' && !(echo?.has(k) && v === cellText(activeCol, r.totals)))
-            .slice(0, contextCap).map(([v, l]) => `${v} ${l}`).join(' · ')} />
+          // A dash is a half of the game the player never played, which is noise in one line; on
+          // Overall it is most rows, since most players only bat or only pitch. The pair is the
+          // board's (StatsView), so a pure hitter ranked by WAR reads "Pos WAR" alone: all of it from
+          // the plate, which is the point of the pair. A row with none of them prints a dash.
+          context={contextCols.map(c => [cellText(c, r.totals), c.label] as const)
+            .filter(([v]) => v !== '—')
+            .slice(0, contextCap).map(([v, l]) => `${v} ${l}`).join(' · ') || '—'} />
       ))}
       {rows.length > listCap && (
         <ExpandRow expanded={!capped} moreLabel={`Show all ${rows.length} ${noun}`}
