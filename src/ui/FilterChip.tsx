@@ -3,6 +3,8 @@ import { Box } from '@mui/material'
 import { pressable, hoverOnly, FOCUS_RING } from './interaction'
 import { CARD_BORDER, ACCENT_EDGE, TYPE_SCALE } from './card'
 import { chromePx } from './scale'
+import { TapTip } from './TapTip'
+import { VISUALLY_HIDDEN } from './heading'
 
 // A FILTER on the board in front of the reader: a club, a slice of the season, the qualifying
 // bar. Moved out of WPBL's StatsView in Oct 2026 for MLB's stats table, which drew its qualifying
@@ -34,8 +36,34 @@ export const filterChipSx = (active: boolean) => ({
   '@media (pointer: coarse)': { py: 0.7 },
 }) as const
 
-/** `dot` marks a chip with something new behind it (newSince.ts). */
-export function FilterChip({ active, onClick, children, dot }: { active: boolean; onClick: () => void; children: React.ReactNode; dot?: boolean }) {
+/** `dot` marks a chip with something new behind it (newSince.ts). `disabled` keeps a chip DRAWN
+ *  where the board cannot take it, so a row of filters is the same shape on every board: a dotted
+ *  edge and the disabled ink, unpressable but focusable, with `hint` saying why as a tooltip on
+ *  hover, focus and tap. `active` still shows what the board does read (Overall's regular season). */
+export function FilterChip({ active, onClick, children, dot, disabled = false, hint }: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+  dot?: boolean
+  disabled?: boolean
+  hint?: string
+}) {
+  if (disabled) {
+    const chip = (
+      <Box role="button" tabIndex={0} aria-pressed={active} aria-disabled sx={{
+        ...filterChipSx(active), cursor: 'not-allowed', borderStyle: 'dotted',
+        // Disabled controls are exempt from the 3:1 edge and 4.5:1 text floors (src/CLAUDE.md), and
+        // the dotted edge is what tells them apart from a chip that is simply off. A lit one keeps
+        // its accent: it is still the slice the board reads, only not one the reader can change.
+        ...(active ? {} : { bgcolor: 'transparent', borderColor: 'text.disabled', color: 'text.disabled' }),
+        '&:hover': {},
+      }}>
+        {children}
+        {hint && <span style={VISUALLY_HIDDEN}>, {hint}</span>}
+      </Box>
+    )
+    return hint ? <TapTip title={hint} sx={{ display: 'flex', cursor: 'not-allowed' }}>{chip}</TapTip> : chip
+  }
   return (
     <Box {...pressable(onClick)} aria-pressed={active} sx={filterChipSx(active)}>
       {children}
