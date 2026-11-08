@@ -1552,6 +1552,11 @@ is drawn from data, not illustrated.
 MLB is the only live data to build against this winter. Done before MLB's Opening Day in late
 March; the WPBL wires to it against the 2027 feed in the spring.
 
+**The engine first, Nov 8, 2026** ([docs/LIVE_FIELD.md](docs/LIVE_FIELD.md)): the timeline model,
+its invariants and the MLB adapter, built apart from the drawing so the redesign does not redo it.
+Every finished 2026 regular-season game (2,383) passes; 14 recorded games are the fixtures.
+Left: `advance()` for live polling, the WPBL adapter, a dev text view, then the drawing.
+
 ### Consider before next season: a weekly email digest 🎯
 
 Push drew 12 subscriptions across the season; the Discord invite converted 7.7%. Email is the other

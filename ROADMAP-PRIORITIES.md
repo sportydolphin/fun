@@ -94,7 +94,8 @@ to change only if the change is small; anything larger waits so it is not built 
   portrait-rights ask to the league (owner).
   *ROADMAP-WPBL, "Ongoing hygiene & ops".*
 
-**Not now, because the redesign would redo it:** the live field, the live files on the type
+**Not now, because the redesign would redo it:** the live field's drawing (its engine is
+under way, Nov 8: docs/LIVE_FIELD.md), the live files on the type
 scale, the World Cup's loading states, sweep and public switch, and anything on Home or the WPBL
 Stats controls.
 
@@ -140,6 +141,7 @@ Stats controls.
     animated diamond with runners, the count and pitch location. It runs on its date, not in the
     queue above: built on the redesigned Game Center, on MLB first, because spring training is live
     from late February while the WPBL feed is quiet; WPBL wires to it against the 2027 feed.
+    The engine, apart from the drawing, started Nov 8 (docs/LIVE_FIELD.md).
     *ROADMAP-WPBL, "From the Nov 1, 2026 brainstorm".*
 
 ## Spring 2027
