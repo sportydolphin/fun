@@ -14,7 +14,7 @@ import {
 import { OVR_COLS, type Col } from '../statColumns'
 import { LeadersBoard, LeadersBoardSkeleton } from '../LeadersBoard'
 import type { Side, BallSide, Source } from './axes'
-import { FLD_COLS } from './columns'
+import { FLD_COLS, FLD_RANGE_COL } from './columns'
 import { fullBleedSx } from './layout'
 import { SubViewFallback } from './Skeleton'
 
@@ -50,6 +50,9 @@ export interface ChartFilters {
   setClub: (id: string | null) => void
 }
 
+/** The Fielding side's leader columns: the table's, and the Range Runs card's. */
+const LEADER_FLD_COLS = [...FLD_COLS, FLD_RANGE_COL]
+
 /** The Leaders board on whichever side is showing, or that side's skeleton until its read lands. */
 export function LeadersPane({ side, valueSeasons, fielding, linesIn, leaderSeasons, hitCols, pitCols, qual,
   onOpenPlayer, seeAll, seeAllHref }: {
@@ -80,7 +83,7 @@ export function LeadersPane({ side, valueSeasons, fielding, linesIn, leaderSeaso
           )
         ) : side === 'fielding' ? (
           fielding == null || !linesIn ? <LeadersBoardSkeleton side="fielding" /> : (
-            <LeadersBoard side="fielding" cols={FLD_COLS} seasons={leaderSeasons.fielding} qual={qual}
+            <LeadersBoard side="fielding" cols={LEADER_FLD_COLS} seasons={leaderSeasons.fielding} qual={qual}
               onOpenPlayer={onOpenPlayer} onSeeAll={seeAll} seeAllHref={seeAllHref} />
           )
         ) : side === 'hitting' ? (

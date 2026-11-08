@@ -163,10 +163,12 @@ export function viewFor(side: Side, key: string, current: View): View {
 // ERA basis) are not in HIT_COLS / PIT_COLS, so without this list a shared `?sort=fip` link was
 // "unknown" and landed on ERA. Each maps to its `lowerBetter`. A key added to hitCols / pitCols
 // and not here still renders and sorts on click, it just cannot be linked to.
+// A club's record (TEAM_RECORD_COLS), which leads the Teams board on every side but Overall.
+const TEAM_RECORD_SORTS = { teamWl: false, teamRs: false, teamRa: true, teamDiff: false }
 const DERIVED_SORTS: Record<Side, Record<string, boolean>> = {
-  hitting: { lob: false, opsPlus: false, woba: false, wrcPlus: false },
-  pitching: { eraPlus: false, fip: true, k9: false, hr9: true },
-  fielding: {},
+  hitting: { lob: false, opsPlus: false, woba: false, wrcPlus: false, ...TEAM_RECORD_SORTS },
+  pitching: { eraPlus: false, fip: true, k9: false, hr9: true, ...TEAM_RECORD_SORTS },
+  fielding: { ...TEAM_RECORD_SORTS },
   overall: {},
 }
 // The column each side opens on. ONE NAME, read by the cold load, the side switch and the view

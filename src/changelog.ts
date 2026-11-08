@@ -23,6 +23,32 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.208.2',
+    date:    '2026-11-08',
+    changes: [
+      {
+        short: 'Stats at Home’s width',
+        full:  'Both Stats tabs are as wide as Home, and on both sections the page lines up with the logo at every width, with or without a scrollbar.',
+      },
+      {
+        short: 'Tables fit their columns',
+        full:  'The WPBL Players and Teams tables are as wide as their columns, so each number sits next to its name.',
+      },
+      {
+        short: 'Club records on Teams',
+        full:  'The WPBL Teams board leads with each club’s W-L, runs scored, runs allowed and run differential, and the footer follows its four rows.',
+      },
+      {
+        short: 'Nine leader cards',
+        full:  'Each WPBL Leaders side has nine cards: Overall adds Wins Added and Positional Adjustment in place of Position Player WAR, Hitting adds Walks, Pitching adds K/BB. Fielding has six, with Range Runs and Caught Stealing %.',
+      },
+      {
+        short: 'Pos adj',
+        full:  'The positional adjustment column on Overall is "Pos adj", with a glossary entry.',
+      },
+    ],
+  },
+  {
     version: '1.208.1',
     date:    '2026-11-08',
     changes: [

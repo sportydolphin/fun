@@ -46,34 +46,40 @@ export interface LeaderQual { active: boolean; minPa: number; minOuts: number; m
  *  boards' cards read alike across the league switch. Runs and FIP have no MLB card; they follow the
  *  same style. The strikeout rate names the reader's basis ("K per 7"), as MLB's says "K per 9". */
 export const LEADER_CARDS: Record<LeaderSide, { key: string; title?: string }[]> = {
-  // The whole game in one board, one question: who was best. WAR first, then its two halves, then
-  // the runs it is made of. Wins added is not here: it prices plays by the score, so beside WAR it
-  // read as a rival total rather than a different question. It is the last column on Players and
-  // has its boards on Run value. MLB has no equivalent board, so these titles follow the house
-  // style rather than a counterpart.
+  // NINE CARDS A SIDE, three rows of the three-wide grid; eight left a hole in the last row (Nov 7,
+  // 2026 audit). The whole game in one board, one question: who was best. WAR first, then Wins Added
+  // as the second opinion, priced by the score, then Pitching WAR and the runs WAR is made of.
+  // Position Player WAR was here until then, and its top five were WAR's. MLB has no equivalent
+  // board, so these titles follow the house style rather than a counterpart.
   overall: [
-    { key: 'war', title: 'WAR' }, { key: 'batWar', title: 'Position Player WAR' },
+    { key: 'war', title: 'WAR' }, { key: 'wpa', title: 'Wins Added' },
     { key: 'pitWar', title: 'Pitching WAR' }, { key: 'bat', title: 'Batting Runs' },
     { key: 'bsr', title: 'Baserunning Runs' }, { key: 'fld', title: 'Fielding Runs' },
     { key: 'rng', title: 'Range Runs' }, { key: 'pit', title: 'Pitching Runs' },
+    { key: 'pos', title: 'Positional Adjustment' },
   ],
   hitting: [
     { key: 'avg', title: 'Batting Average' }, { key: 'obp', title: 'On-Base %' },
     { key: 'ops', title: 'OPS' }, { key: 'hr', title: 'Home Runs' },
     { key: 'rbi', title: 'RBIs' }, { key: 'r', title: 'Runs' },
     { key: 'h', title: 'Hits' }, { key: 'sb', title: 'Stolen Bases' },
+    // The WPBL drew more walks than it struck out in 2026, 277 to 269.
+    { key: 'bb', title: 'Walks' },
   ],
   pitching: [
     { key: 'era', title: 'ERA' }, { key: 'whip', title: 'WHIP' },
     { key: 'so', title: 'Strikeouts' }, { key: 'w', title: 'Wins' },
     { key: 'sv', title: 'Saves' }, { key: 'ip', title: 'Innings Pitched' },
     { key: 'k9' }, { key: 'fip', title: 'FIP' },
+    { key: 'kbb', title: 'K/BB' },
   ],
-  // One row of four. Errors and the catcher's columns are left off: a fewest-errors card is led by
-  // whoever played least, and a catcher's card ranks four people.
+  // Two rows of three. Errors are left off: a fewest-errors card is led by whoever played least.
+  // Range Runs is the WAR engine's (FLD_RANGE_COL). Caught Stealing % is a rate, so it ranks only
+  // fielders over the games bar, which leaves the catchers who caught.
   fielding: [
     { key: 'fpct', title: 'Fielding %' }, { key: 'a', title: 'Assists' },
     { key: 'po', title: 'Putouts' }, { key: 'dp', title: 'Double Plays' },
+    { key: 'rngRuns', title: 'Range Runs' }, { key: 'csPct', title: 'Caught Stealing %' },
   ],
 }
 

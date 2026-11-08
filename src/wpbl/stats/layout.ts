@@ -1,3 +1,4 @@
+import { useLayoutEffect } from 'react'
 import { STATS_FULL_BLEED_W } from '../layoutWidths'
 
 // Break the table out of the 720px page column so every stat column is visible. The page
@@ -165,3 +166,23 @@ export const HEAD_FOCUS = {
 // No rank number in this mode (see the row), so the budget is padding + badge + gap + label.
 export const TEAM_NAME_W = '6.5rem'
 export const TEAM_NAME_INNER_MAX = '3.875rem'
+
+/**
+ * THE TEAMS BOARD IS SHORTER THAN A SCREEN, and the section floors every tab at a screen's height
+ * above a phone (WpblApp), so its four rows sat over 400px of blank page with the footer pushed
+ * below the fold (Nov 7, 2026 audit). While this is on, `html[data-stats-short]` lifts that floor
+ * and the footer follows the board. The skeleton sets it too, at the board's own height, so the
+ * footer is in the same place before the board lands and after.
+ */
+export function useShortStatsPage(on: boolean): void {
+  useLayoutEffect(() => {
+    if (!on) return
+    // COUNTED, not a plain set and remove: the board mounts while its skeleton is still up, and the
+    // skeleton's cleanup, coming second, took the flag off under a board that had just set it.
+    const root = document.documentElement
+    shortHolders++
+    root.setAttribute('data-stats-short', '')
+    return () => { if (--shortHolders === 0) root.removeAttribute('data-stats-short') }
+  }, [on])
+}
+let shortHolders = 0
