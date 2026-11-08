@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.207.4',
+    date:    '2026-11-07',
+    changes: [
+      {
+        short: 'Search finds more pages',
+        full:  "Search finds a page from the other section by name (Scorigami from MLB) and WPBL's fielding leaders. A search that finds nothing shows what the box understands.",
+      },
+    ],
+  },
+  {
     version: '1.207.3',
     date:    '2026-11-06',
     changes: [
