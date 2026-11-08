@@ -940,7 +940,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1.25 }}>
                     <WarningAmber sx={{ color: 'error.main', fontSize: ICON_SIZE.md, mt: '1px', flexShrink: 0 }} />
                     <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.5 }}>
-                      This permanently deletes your account, username, followed team/players, and prediction history. This can't be undone.
+                      This permanently deletes your account, username, followed team/players, predictions, picks and Streak Survivor record. This can't be undone.
                     </Typography>
                   </Box>
                   <TextField
