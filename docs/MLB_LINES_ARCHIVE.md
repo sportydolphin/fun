@@ -45,8 +45,14 @@ where no board reads them.
 
 ## CORS
 
-The photo bucket's CORS rule allows `https://sportydolphin.fun` only. `npm run dev` and PR
-previews cannot read the files, so MLB Bests and Find show the error state for frozen seasons
-there. To fix it, add `http://localhost:5173` and the Pages preview domain to the bucket's CORS
-rule in the Cloudflare dashboard. The layout sweep does not need CORS: it replays the file from
-its fixture.
+The photo bucket (`sportydolphin-wpbl-photos`) allows GET from `https://sportydolphin.fun`,
+`http://localhost:5173`, `https://fun-ege.pages.dev` and `https://*.fun-ege.pages.dev`, so
+production, `npm run dev` and PR previews all read the files (set Nov 8, 2026). `wrangler r2
+bucket cors set` replaces every rule at once, so list them first and keep the others. The R2 keys
+in `.env` cannot change CORS; it needs `wrangler login`. The layout sweep does not need CORS: it
+replays the file from its fixture.
+
+## Result
+
+Nov 8, 2026: every season from 2000 to 2026 frozen, the line tables emptied, and the database
+from 407 MB to 157 MB.
