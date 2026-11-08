@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { checkTimeline, type FieldFrame } from '../../league/liveField'
+import { advance, checkTimeline, type FieldFrame } from '../../league/liveField'
 import { buildMlbTimeline, mlbLinescore, type FeedPlay, type MlbLiveFeed } from '../liveField'
 
 // Real games recorded by `npm run record-mlb-feed` (scripts/record-mlb-feed.ts). A file named
@@ -113,5 +113,42 @@ describe('live field: a mid-game feed builds the start of the final one', () => 
         expect({ ...field(f), pitch: null, ball: null }).toEqual({ ...field(g), pitch: null, ball: null })
       }
     }
+  })
+})
+
+describe('live field: polling', () => {
+  // Each recorded game's snapshots in time order, then the final feed: what a reader polling
+  // that game would have been handed.
+  const games = new Map<string, string[]>()
+  for (const f of files.filter(f => f.includes('@')).sort()) {
+    const game = f.replace(/@[^.]+/, '')
+    games.set(game, [...(games.get(game) ?? []), f])
+  }
+  it.each([...games.entries()])('%s: every poll extends the last', (final, snaps) => {
+    let prev: ReturnType<typeof buildMlbTimeline> | null = null
+    for (const f of [...snaps, final]) {
+      const next = buildMlbTimeline(load(f))
+      const u = advance(prev, next)
+      if (prev) {
+        // Nothing before the plate appearance that was open at the last poll changes.
+        const lastSeen = prev.frames[prev.frames.length - 1]
+        const openFrom = prev.frames.findIndex(x => x.atBat === lastSeen.atBat)
+        expect(u.firstChange, f).toBeGreaterThanOrEqual(lastSeen.result == null ? openFrom : prev.frames.length)
+        expect(u.firstChange).toBeLessThan(next.frames.length)
+      } else expect(u.firstChange).toBe(0)
+      prev = next
+    }
+  })
+
+  it('reports nothing new for the same feed twice, and a revision when a seen frame changes', () => {
+    const t = buildMlbTimeline(load(finals[0]))
+    expect(advance(t, buildMlbTimeline(load(finals[0])))).toMatchObject({ firstChange: t.frames.length, revised: false })
+    const k = 40
+    const changed = { ...t, frames: t.frames.map(f => (f.index === k ? { ...f, outs: f.outs === 3 ? 2 : f.outs + 1 } : f)) }
+    expect(advance(t, changed)).toMatchObject({ firstChange: k, revised: true })
+    // A pitch's tracking filled in later is a change to draw, not a revision.
+    const p = t.frames.find(f => f.index >= k && f.pitch)!.index
+    const tracked = { ...t, frames: t.frames.map(f => (f.index === p ? { ...f, pitch: { ...f.pitch!, speed: 1 } } : f)) }
+    expect(advance(t, tracked).revised).toBe(false)
   })
 })

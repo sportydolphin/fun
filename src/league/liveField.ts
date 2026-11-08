@@ -36,6 +36,7 @@ export type FieldEventKind =
   | 'runner'          // a move between pitches: a steal, a wild pitch, a balk, a caught stealing
   | 'runner_placed'   // the automatic runner at the start of an extra inning
   | 'substitution'
+  | 'play'            // a plate appearance's result with no pitch on record (the feed left the sequence out)
 
 export type PitchCall =
   | 'ball' | 'called_strike' | 'swinging_strike' | 'foul' | 'in_play' | 'hit_by_pitch' | 'other'
@@ -115,6 +116,10 @@ export interface FieldFrame {
   moves: RunnerMove[]
   /** Set on the last frame of a plate appearance: the play's result ("Single", "Groundout"). */
   result: string | null
+  /** The feed has no account of this moment (WPBL published rows with nothing in them on
+   *  Aug 20, 2026). The frame keeps the field as it was; the drawing says nothing happened that
+   *  it can show, rather than inventing a play. Its half is exempt from the out and run checks. */
+  gap?: true
 }
 
 export interface FieldCapabilities {
@@ -138,6 +143,17 @@ export interface FieldTimeline {
 }
 
 export const EMPTY_BASES: Readonly<Bases> = Object.freeze({ 1: null, 2: null, 3: null })
+
+/** A fielder to a position, leaving wherever they were: one player is never in two places,
+ *  and whoever stood at the position before is off it. */
+export function placeFielder(
+  d: Partial<Record<FieldPosition, string>>, pos: FieldPosition, player: string,
+): Partial<Record<FieldPosition, string>> {
+  const next: Partial<Record<FieldPosition, string>> = {}
+  for (const p of FIELD_POSITIONS) if (d[p] != null && d[p] !== player) next[p] = d[p]
+  next[pos] = player
+  return next
+}
 
 /**
  * Applies one event's runner moves to the bases. Moves for one event are simultaneous: every
@@ -186,6 +202,7 @@ export function checkTimeline(
   const order = (x: FieldFrame) => x.inning * 2 + (x.half === 'bottom' ? 1 : 0)
   const battingRuns = (x: FieldFrame, half: Half) => (half === 'top' ? x.away : x.home)
 
+  const gapHalves = new Set(t.frames.filter(f => f.gap).map(f => `${f.inning}${f.half}`))
   let prev: FieldFrame | null = null
   for (const f of t.frames) {
     if (f.outs < 0 || f.outs > 3) say(f.index, `outs ${f.outs}`)
@@ -209,7 +226,7 @@ export function checkTimeline(
     const sameHalf = prev != null && prev.inning === f.inning && prev.half === f.half
     if (prev && !sameHalf) {
       if (order(f) < order(prev)) say(f.index, 'the inning went backward')
-      if (prev.outs !== 3) say(prev.index, `the half ended on ${prev.outs} outs`)
+      if (prev.outs !== 3 && !gapHalves.has(`${prev.inning}${prev.half}`)) say(prev.index, `the half ended on ${prev.outs} outs`)
     }
     if (prev && sameHalf && prev.atBat !== f.atBat && prev.result == null) {
       say(f.index, `plate appearance ${prev.atBat} ended with no result`)
@@ -222,7 +239,7 @@ export function checkTimeline(
 
     // A pinch runner is a substitution frame that swaps a name on a base with no move, the one
     // other way a base changes.
-    if (f.kind !== 'substitution') {
+    if (f.kind !== 'substitution' && !f.gap) {
       const want = applyMoves(fromBases, f.moves)
       for (const b of [1, 2, 3] as const) {
         if (want.bases[b] !== f.bases[b]) {
@@ -245,11 +262,54 @@ export function checkTimeline(
     for (const half of ['top', 'bottom'] as const) {
       const want = half === 'top' ? inn.away : inn.home
       const h = halves.get(`${inn.inning}${half}`)
-      if (want == null || h == null) continue
+      if (want == null || h == null || gapHalves.has(`${inn.inning}${half}`)) continue
       if (h.end - h.start !== want) {
         say(-1, `inning ${inn.inning} ${half}: ${h.end - h.start} runs in the frames, ${want} in the line score`)
       }
     }
   }
   return problems
+}
+
+// ── Live polling ──────────────────────────────────────────────────────────────────
+
+export interface TimelineUpdate {
+  timeline: FieldTimeline
+  /** The first frame that is new or differs from the previous poll; the drawing animates from
+   *  here. Equal to the new timeline's length when nothing changed. */
+  firstChange: number
+  /** A frame the reader already saw now shows a different field: a review overturned a play,
+   *  or a move the feed posted late (the out that follows strike three). The drawing jumps to
+   *  the corrected field rather than animating a play that did not happen that way. */
+  revised: boolean
+}
+
+/** What a reader sees of a frame, without the detail the feed fills in afterward (a pitch's
+ *  tracking arrives a few seconds after its call; the play's words arrive with its result). */
+function fieldOf(f: FieldFrame): string {
+  return JSON.stringify([f.kind, f.inning, f.half, f.outs, f.balls, f.strikes, f.away, f.home, f.batter, f.pitcher,
+    f.bases, f.defense, f.moves, f.pitch?.call ?? null])
+}
+
+/**
+ * The timeline from a new poll, against the one before it.
+ *
+ * WHY A DIFF AND NOT AN INCREMENTAL BUILD. Building a whole game's timeline from a feed takes
+ * about a millisecond, and the feed is the source of truth, including about the past: a review
+ * rewrites a play the reader already saw. Rebuilding and comparing cannot drift from the feed;
+ * patching frames in place could. What the drawing needs from the comparison is where to start
+ * animating and whether to jump instead.
+ */
+export function advance(previous: FieldTimeline | null, next: FieldTimeline): TimelineUpdate {
+  const before = previous?.frames ?? []
+  let firstChange = 0
+  while (
+    firstChange < before.length && firstChange < next.frames.length &&
+    JSON.stringify(before[firstChange]) === JSON.stringify(next.frames[firstChange])
+  ) firstChange++
+  let revised = next.frames.length < before.length
+  for (let i = firstChange; i < before.length && i < next.frames.length && !revised; i++) {
+    if (fieldOf(before[i]) !== fieldOf(next.frames[i])) revised = true
+  }
+  return { timeline: next, firstChange, revised }
 }

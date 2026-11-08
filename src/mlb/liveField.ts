@@ -1,5 +1,5 @@
 import {
-  applyMoves, EMPTY_BASES, FIELD_POSITIONS,
+  applyMoves, EMPTY_BASES, FIELD_POSITIONS, placeFielder,
   type Base, type BaseOrHome, type BattedBall, type Bases, type FieldFrame, type FieldEventKind,
   type FieldPitch, type FieldPosition, type FieldTimeline, type Half, type PitchCall, type RunnerMove,
 } from '../league/liveField'
@@ -232,12 +232,6 @@ function startingDefense(feed: MlbLiveFeed, side: Side): Defense {
   return d
 }
 
-function place(d: Defense, pos: FieldPosition, player: string): Defense {
-  const next: Defense = {}
-  for (const p of FIELD_POSITIONS) if (d[p] != null && d[p] !== player) next[p] = d[p]
-  next[pos] = player
-  return next
-}
 
 // ── The timeline ────────────────────────────────────────────────────────────────
 
@@ -309,7 +303,7 @@ export function buildMlbTimeline(feed: MlbLiveFeed): FieldTimeline {
               for (const b of [1, 2, 3] as const) if (bases[b] === replaced) bases = { ...bases, [b]: player }
             }
           } else if (isFieldPosition(pos)) {
-            defense[fielding] = place(defense[fielding], pos, player)
+            defense[fielding] = placeFielder(defense[fielding], pos, player)
           }
           kind = 'substitution'
         }

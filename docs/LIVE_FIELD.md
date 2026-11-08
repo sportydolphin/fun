@@ -11,10 +11,13 @@ comes now are in [ROADMAP-WPBL.md](../ROADMAP-WPBL.md), "From the Nov 1, 2026 br
 
 | File | What it is |
 |---|---|
-| [`src/league/liveField.ts`](../src/league/liveField.ts) | The model (`FieldTimeline`, `FieldFrame`), `applyMoves`, and `checkTimeline`, the invariants every adapter must pass |
+| [`src/league/liveField.ts`](../src/league/liveField.ts) | The model (`FieldTimeline`, `FieldFrame`), `applyMoves`, `checkTimeline` (the invariants every adapter must pass), and `advance` for live polling |
 | [`src/mlb/liveField.ts`](../src/mlb/liveField.ts) | `buildMlbTimeline`: StatsAPI's `feed/live` as a timeline |
+| [`src/wpbl/liveField.ts`](../src/wpbl/liveField.ts) | `buildWpblTimeline`: one game's `wpbl_game_plays` (corrections applied), batting and pitching lines, and the player list |
 | [`scripts/record-mlb-feed.ts`](../scripts/record-mlb-feed.ts) | `npm run record-mlb-feed -- <gamePk>[:label] ... [--snapshots N]`: real games as trimmed, gzipped fixtures |
-| [`src/mlb/__tests__/liveField.test.ts`](../src/mlb/__tests__/liveField.test.ts) | Every fixture through the invariants, against the feed's own after-the-play state, and mid-game snapshots against the final feed |
+| [`scripts/show-field.ts`](../scripts/show-field.ts) | `npm run field -- mlb <gamePk>` or `npm run field -- wpbl <game id prefix>`: a timeline as text, one frame a line, to read against the play-by-play |
+| [`src/mlb/__tests__/liveField.test.ts`](../src/mlb/__tests__/liveField.test.ts) | Every fixture through the invariants, against the feed's own after-the-play state; mid-game snapshots and polling against the final feed |
+| [`src/wpbl/__tests__/liveField.test.ts`](../src/wpbl/__tests__/liveField.test.ts) | All 40 finals of 2026 through the invariants and the line score; each game cut at three points and read as live |
 
 ## The model
 
@@ -51,6 +54,30 @@ location only on the rare TrackMan games, and the drawing leaves those out rathe
   before the out is. The newest frame of an open plate appearance can be one step behind, and
   the next poll catches it up.
 
+## What the WPBL feed does, learned from the 2026 finals
+
+- **A row's bases and outs are the state before its play**, by runner name. The state after is
+  the next row in the half, so a play's moves are the difference between the two. The narrative
+  says what became of a runner who left the bases ("scored", "out at second"); where it is silent,
+  the play's runs (`runsOnPlay`) and outs decide it, lead runner first, marked `inferred`. In 2026
+  that left 6 guesses in about 2,800 moves, all in the half rebuilt from RetroWPBL on Aug 20.
+- **The last row of a half has no "after"**, so its outs are three when the game goes on, and
+  whatever the narrative says when nothing follows (a walk-off, the live game's newest row).
+- **The event type does not say whether a row is a plate appearance.** A batter reaching on an
+  error is filed as `unknown` with no sequence, a runner thrown out between pitches as `out`, and
+  a balk mid at-bat carries the pitches so far. Whose name the narrative starts with decides it.
+- **A row between pitches often says how far the count had got** ("Amira Hondras to 2b (1-2
+  KFB)"), which places it among the plate appearance's pitches.
+- **Names differ between the narrative and the roster** ("Benitez", "Benítez"; "Suzu Naraski"),
+  so names are compared with accents folded, and a substitution's name may be two letters off a
+  player in the game's box score.
+- **A corrected row has its play back but not its snapshot**, which stays at nobody on, nobody
+  out; it is never read as an "after".
+- **The feed loses names**: "/  for Michelle Roche" is a substitution row with the incoming
+  player missing. It is a stoppage with nothing to draw.
+- **One hole the league left**: Sep 9 (`e385b272`) empties left field in the 6th and never fills
+  it, and its box score disagrees with its play log about who moved. The test names it.
+
 ## Recording a game
 
 Games from any finished season stay in the feed, and `?timecode=` replays it as it stood at any
@@ -58,11 +85,16 @@ moment, so fixtures need no live game. `--snapshots N` saves N mid-game copies a
 keeps only the fields `MlbLiveFeed` types: when the adapter reads a new field, add it to `trim`
 and record the fixtures again.
 
+## Live polling
+
+`advance(previous, next)` compares a new poll's timeline with the last one: `firstChange` is
+where the drawing animates from, and `revised` says a frame the reader already saw now shows a
+different field (a review, or the out that follows strike three), so the drawing jumps rather
+than animates. A whole game rebuilds in about a millisecond, so every poll rebuilds from the feed
+instead of patching frames, which cannot drift from it.
+
 ## Left to build
 
-1. `advance(previous, newerFeed)`: the timeline from a new poll, marking frames a review or a
-   late-arriving move revised.
-2. The WPBL adapter, from `wpbl_game_plays`, `live_state` and `wpbl_pitch_tracking`, run over
-   every 2026 final.
-3. A dev-only text view of a timeline, to read against the play-by-play.
-4. The drawing, with the redesign.
+1. The drawing, with the redesign, on MLB's spring training from late February.
+2. Run against the 2027 WPBL feed when it wakes (`npm run rehearse` first), including
+   `live_state` for the newest moment and TrackMan's pitch location where it is published.

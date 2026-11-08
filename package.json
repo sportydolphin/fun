@@ -61,7 +61,8 @@
     "sweep:record": "node scripts/layout-sweep.mjs --record --shift",
     "shot": "node scripts/shot.mjs",
     "size": "size-limit",
-    "record-mlb-feed": "node scripts/run-ts.mjs scripts/record-mlb-feed.ts"
+    "record-mlb-feed": "node scripts/run-ts.mjs scripts/record-mlb-feed.ts",
+    "field": "node scripts/run-ts.mjs scripts/show-field.ts"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
