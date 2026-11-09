@@ -847,7 +847,11 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
   to `main`. Bundle budgets in CI: `.size-limit.js`, [docs/CI.md](docs/CI.md#bundle-budgets).
 - **Open data:** the build publishes the WPBL archive (`archive/wpbl/` and every
   `archive/wpbl-<year>/`, never `archive/wbsc/`) at `/data/wpbl/`, with an `index.json` listing
-  every file, via [`scripts/vite-plugin-wpbl-data.mjs`](scripts/vite-plugin-wpbl-data.mjs).
+  every file, via [`scripts/vite-plugin-wpbl-data.mjs`](scripts/vite-plugin-wpbl-data.mjs). Each
+  table is also written as `<table>.csv` beside its JSON ([`scripts/wpbl-csv.mjs`](scripts/wpbl-csv.mjs)),
+  and `/wpbl/data` ([`src/wpbl/DataPage.tsx`](src/wpbl/DataPage.tsx)) lists them from the bundled
+  manifests. Board exports (CSV and Copy at a stats board's foot) are client-side, in
+  [`src/ui/exportTable.ts`](src/ui/exportTable.ts).
   Readable from any origin (`_headers`). The site itself never reads these files, so a file that
   lags a correction is only a stale download; the weekly `wpbl-archive` commit refreshes them.
 - **Brand icons:** every icon the site publishes (tab, home screen, install tile,

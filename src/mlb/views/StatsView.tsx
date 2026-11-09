@@ -14,6 +14,9 @@ import { ActiveFilterChip, FilterChip, FilterSelect } from '../../ui/FilterChip'
 import { matchesPositionFilter, positionFilterDef, type PositionFilter } from '../../league/positionFilter'
 import { CARD_BORDER, TYPE_SCALE } from '../../ui/card'
 import { pressable, FOCUS_RING } from '../../ui/interaction'
+import { ExportLinks, type ExportKind } from '../../ui/ExportLinks'
+import { track, EVENTS } from '../../lib/analytics'
+import { copyText, downloadCsv, exportFilename, toCsv, toTsv, type ExportCol } from '../../ui/exportTable'
 import { sortBoard, ascFor, isBestFirst, leagueLine } from '../lib/statsBoard'
 import { printedRanks } from '../../ui/leaders'
 import { ExpandRow, TABLE_CAP } from '../../ui/ExpandRow'
@@ -347,6 +350,27 @@ export function StatsView({
     allTime ? whoWord : activeDef.isRate && !lbQualified ? 'everyone' : null,
     allTime || shownScope !== 'regular' || vizSeason !== CURRENT_SEASON ? scopeWord : null,
   ].filter(Boolean).join(' · ')
+  // THE BOARD AS A FILE, WPBL's rule: every row in the board's order, the view's columns, each cell
+  // as the table prints it, and the name in full rather than the column's "F. Last".
+  const exportBoard = async (kind: ExportKind): Promise<boolean> => {
+    const indexed = rankedAll.map((e, i) => ({ e, i }))
+    const cols: ExportCol<{ e: LeaderboardEntry; i: number }>[] = [
+      { label: 'Rank', cell: ({ i }) => ranks[i]?.rank ?? null },
+      { label: 'Player', cell: ({ e }) => e.playerName },
+      { label: 'Team', cell: ({ e }) => e.teamAbbr || null },
+      { label: 'Pos', cell: ({ e }) => e.position ?? null },
+      ...statDefs.map(d => ({ label: d.label, cell: ({ e }: { e: LeaderboardEntry }) => d.format(d.getValue(e.stat)) })),
+    ]
+    let how: string
+    if (kind === 'copy') {
+      how = (await copyText(toTsv(indexed, cols))) ? 'copy' : 'failed'
+    } else {
+      const parts = ['mlb', allTime ? 'career' : vizSeason, shownScope === 'regular' ? null : shownScope, lbGroup, shownView, who]
+      how = await downloadCsv(toCsv(indexed, cols), exportFilename(parts, 'csv'))
+    }
+    track(EVENTS.MLB_STATS_EXPORTED, { kind, how, group: lbGroup, view: shownView, rows: indexed.length })
+    return how !== 'failed'
+  }
   const boardFoot = (n: number | null, shown?: number) => (
     <Box ref={footRef} sx={{ ...TABLE_FOOT_SX, flexWrap: phoneTable ? 'wrap' : undefined }}>
       {phoneTable
@@ -358,9 +382,10 @@ export function StatsView({
           <PillGroup options={VIEW_OPTIONS} value={shownView} onChange={v => switchView(v as TableView)} />
         </Box>
       )}
+      {n != null && n > 0 && <ExportLinks onExport={exportBoard} isNarrow={!isDesktop} />}
       {!isDesktop && (
         <Box {...pressable(toggleFullTable)} sx={{
-          ...FOCUS_RING, ml: 'auto', flexShrink: 0, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
+          ...FOCUS_RING, ml: n != null && n > 0 ? 0.5 : 'auto', flexShrink: 0, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
           minHeight: 34, px: 1.25, display: 'inline-flex', alignItems: 'center', borderRadius: 999,
           border: '1px solid', borderColor: CARD_BORDER, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
         }}>{fullTable ? 'Ranked list' : 'Full table'}</Box>

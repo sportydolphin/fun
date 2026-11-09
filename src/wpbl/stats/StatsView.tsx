@@ -46,7 +46,8 @@ import { ANALYSIS_TABS, ANALYSIS_SOURCES } from './boardTabs'
 import { STATS_PATH, boardParam, axesFromQuery } from './address'
 import { fullBleedSx, NAME_W, NAME_INNER_MAX, TEAM_NAME_W, TEAM_NAME_INNER_MAX, useShortStatsPage } from './layout'
 import type { RankMark, Row } from './shared'
-import { BoardFooter } from './shared'
+import { BoardFooter, type ExportKind } from './shared'
+import { copyText, downloadCsv, exportFilename, toCsv, toTsv, type ExportCol } from '../../ui/exportTable'
 import { SubViewFallback, StatsSkeleton } from './Skeleton'
 import { StatsSheet, SortBody, FilterBody } from './Sheets'
 import { StatList } from './RankedList'
@@ -1044,10 +1045,40 @@ export default function WpblStatsView({
   // Labels only: "sort by any column heading" closed this line until Oct 21, 2026, an instruction
   // where every other word is a label (house rule: labels, not narration).
   const footText = (footWords.filter(Boolean) as string[]).join(' · ')
+
+  // THE BOARD AS A FILE: every row, not the capped few on screen, in the board's own order and with
+  // the view's columns, so the file is what "Show all" would draw. The player's name in full, never
+  // the table's "F. Last", which is a fit for an 84px column and not a name.
+  const exportBoard = async (kind: ExportKind): Promise<boolean> => {
+    const exportCols: ExportCol<{ r: Row; i: number }>[] = [
+      { label: 'Rank', cell: ({ i }) => ranks[i]?.n ?? null },
+      mode === 'teams'
+        ? { label: 'Team', cell: ({ r }) => r.label }
+        : { label: 'Player', cell: ({ r }) => r.fullName ?? r.label },
+      ...(mode === 'players' ? [
+        { label: 'Team', cell: ({ r }: { r: Row }) => r.team?.abbr ?? null },
+        { label: 'Pos', cell: ({ r }: { r: Row }) => r.sublabel ?? null },
+        { label: 'Qualified', cell: ({ r }: { r: Row }) => (r.qualified ? 'Yes' : 'No') },
+      ] : []),
+      ...viewCols.map(c => ({ label: c.label, cell: ({ r }: { r: Row }) => cellText(c, r.totals) })),
+    ]
+    const indexed = rows.map((r, i) => ({ r, i }))
+    const parts = ['wpbl', season, scope === 'regular' || overall ? null : scope, side, mode,
+      hasViews ? view : null, teamId, pos]
+    let how: string
+    if (kind === 'copy') {
+      how = (await copyText(toTsv(indexed, exportCols))) ? 'copy' : 'failed'
+    } else {
+      how = await downloadCsv(toCsv(indexed, exportCols), exportFilename(parts, 'csv'))
+    }
+    track(EVENTS.WPBL_STATS_EXPORTED, { kind, how, side, mode, view, rows: rows.length })
+    return how !== 'failed'
+  }
+
   const boardFooter = (
     <BoardFooter footText={footText} phoneTable={phoneTable} hasViews={hasViews} view={view}
       switchView={switchView} isNarrow={isNarrow} source={source} toggleFullTable={toggleFullTable}
-      fullTable={fullTable} />
+      fullTable={fullTable} onExport={source === 'season' ? exportBoard : undefined} />
   )
 
   // THE SITE FOOTER STEPS ASIDE FOR THE PHONE'S FULL PLAYER TABLE. The board there is pinned under the bar

@@ -70,6 +70,8 @@ const STATIC: Entry[] = [
   // Yearly for the same reason as the glossary, and low priority on purpose: this page is not
   // trying to rank, it is trying to be citable. It changes when a source is added.
   { loc: '/wpbl/sources', changefreq: 'yearly', priority: '0.4' },
+  // Weekly: the archive commit that refreshes the files is weekly.
+  { loc: '/wpbl/data', changefreq: 'weekly', priority: '0.5' },
   // THE PICKER ONLY, and every pair page under it deliberately absent. 118 players is 6,903
   // comparisons; submitting them would bury the ~125 URLs on this site that somebody actually
   // wrote, under machine-made pages nobody asked for, which is the definition of a doorway

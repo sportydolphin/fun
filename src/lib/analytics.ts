@@ -93,6 +93,8 @@ export const EVENTS = {
   WPBL_STATS_BOARD:    'wpbl_stats_board',    // a Stats board is on screen, props {side, source, mode, via}
   WPBL_STATS_SORTED:   'wpbl_stats_sorted',   // tapped a column header, props {key, asc, side, mode}
   WPBL_STATS_FILTERED: 'wpbl_stats_filtered', // team chip or Qualified, props {filter, on, teamId?}
+  WPBL_DATA_DOWNLOADED: 'wpbl_data_downloaded', // a file on /wpbl/data, props {table: <folder>/<table>, format: csv|json}
+  WPBL_STATS_EXPORTED: 'wpbl_stats_exported', // CSV or Copy at a board's foot, props {kind: csv|copy, how: download|share|copy|canceled|failed, side, mode, view, rows}
 
   // RETIRED when the standalone seeding card folded into the bracket (the seeding race now
   // renders inside PlayoffBracket, which carries wpbl_bracket_shown / wpbl_bracket_team below).
@@ -227,6 +229,7 @@ export const EVENTS = {
   MLB_TAB_VIEWED:      'mlb_tab_viewed',      // switched MLB tab, props {view, via: pill|link, from}
   MLB_PLAYER_OPENED:   'mlb_player_opened',   // opened an MLB player, props {playerId, from}
   MLB_TEAM_OPENED:     'mlb_team_opened',     // opened an MLB team, props {teamId, from}
+  MLB_STATS_EXPORTED:  'mlb_stats_exported',  // CSV or Copy at the Stats board's foot, props {kind: csv|copy, how, group, view, rows}
   // Short links (/m/<code>), the MLB half of the WPBL pair above: made, and landed from.
   MLB_SHARE_COPIED:    'mlb_share_copied',    // tapped Copy link, props {kind: series|game|player, path}
   MLB_SHARE_OPENED:    'mlb_share_opened',    // arrived via a short link, props {kind}

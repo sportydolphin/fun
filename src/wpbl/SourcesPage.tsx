@@ -26,6 +26,7 @@ import { CARD_BORDER, SectionCard, TYPE_SCALE, hoverOnly } from './ui'
 import WpblPage from './WpblPage'
 import { typePx } from '../ui/scale'
 import { isModified } from '../nav'
+import { WPBL_DATA_PAGE } from './routes'
 
 /** Modified clicks are left to the browser, so open-in-new-tab works on an internal link the
  *  way it does on any other. Same rule as LeaguePage. */
@@ -105,8 +106,19 @@ export default function SourcesPage({ onNavigate }: { onNavigate: (to: string) =
               '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
             }}
           >API for developers</Box>{' '}
-          has the endpoints, and the same credit asked of this page applies to anything built on
-          them: the data is the league&rsquo;s and the people above&rsquo;s, not ours to license.
+          has the endpoints, and{' '}
+          <Box
+            component="a"
+            href={WPBL_DATA_PAGE}
+            onClick={e => { if (!isModified(e)) { e.preventDefault(); onNavigate(WPBL_DATA_PAGE) } }}
+            sx={{
+              color: 'inherit', fontWeight: 700, textDecoration: 'underline',
+              '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
+            }}
+          >Open data</Box>{' '}
+          has the whole season as CSV and JSON files. The same credit asked of this page applies to
+          anything built on them: the data is the league&rsquo;s and the people above&rsquo;s, not
+          ours to license.
         </Typography>
       </SectionCard>
 
