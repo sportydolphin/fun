@@ -80,8 +80,8 @@ Other checks on a pull request:
 
 - `Cloudflare Pages`: builds a preview of the branch. Useful, not required.
 - `Supabase Preview`: skipped; there is no branch database.
-- There is deliberately **no** `Workers Builds` check. The production Worker builds `main` only;
-  see "Cloudflare builds" below.
+- There is deliberately **no** `Workers Builds` check: production is the Pages project. See
+  "Cloudflare builds" below.
 
 Open a pull request with `gh pr create --fill && gh pr merge --auto --squash`. It merges itself
 once both required checks pass. The title and body become the commit on `main`, so they follow
@@ -318,14 +318,15 @@ a slow phone would see, or the sweep misreading something, which is a sweep bug 
 
 ## Cloudflare builds
 
-Two Cloudflare projects deploy this repo, both named `fun`:
+One Cloudflare project deploys this repo: the **Pages project** `fun` (`fun-ege.pages.dev`). It
+builds every branch, gives each pull request its preview, and deploys `main` to
+`sportydolphin.fun`.
 
-- the **Worker** (route `*.sportydolphin.fun/*`), which serves production, deploying `main` with
-  `npx wrangler deploy`;
-- the **Pages project** (`fun-ege.pages.dev`), which builds every branch and gives each pull
-  request its preview.
-
-The Worker's "Builds for non-production branches" is **off**, since Oct 9, 2026. A branch build
-runs `npx wrangler versions upload`, which needs a Wrangler config the repo does not have, so
-with it on every pull request carried a red check that meant nothing. Turn it back on only with
-a Wrangler config in the same change.
+A standalone **Worker**, also `fun`, deployed `main` with `npx wrangler deploy` until Nov 8,
+2026, when it was deleted with its route. It served nothing: the route `*.sportydolphin.fun/*`
+never matches the apex, `www` is redirected by a zone rule before Workers run, and `photos.`
+had its own carve-out (docs/FAN_PHOTOS.md). It was assets-only, so its zero invocations proved
+nothing; the zone's per-host status counts did (`www` only ever answered 301). Its branch builds
+ran `npx wrangler versions upload`, which needs a Wrangler config the repo does not have, and were
+red on every pull request until turned off on Oct 9, 2026. Bring a Worker back only with a
+Wrangler config in the same change.

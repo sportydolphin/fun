@@ -1,15 +1,20 @@
 # Cloudflare Pages response headers.
 #
-# Pages' default for every file is `public, max-age=14400, must-revalidate` — four hours,
-# applied even to files whose names already contain a content hash. Past that window a
-# returning visitor revalidates the entry chunk, the WPBL chunk, the font and every
-# portrait: a round trip each, on a connection where round trips are the expensive part.
-# Three quarters of the traffic here is mobile, so that default was the wrong trade.
+# A file with no rule here leaves Pages as `max-age=0, must-revalidate`, and the zone's Browser
+# Cache TTL (4 hours, the plan default) raises that to `max-age=14400` for static file types,
+# hashed or not. Past that window a returning visitor revalidates the entry chunk, the font and
+# every portrait: a round trip each, on a connection where round trips are the expensive part.
+# Three quarters of the traffic here is mobile, so that default is the wrong trade.
+#
+# The zone setting only ever RAISES a max-age. A rule above 4 hours works as written; one below it
+# (`/sw.js`, `/data/*`) goes out as 4 hours on sportydolphin.fun and as written on pages.dev.
+# The zone stays on 4 hours anyway: `photos.sportydolphin.fun` (R2, no Cache-Control of its own)
+# gets its only max-age from it, and the service worker is fetched past the HTTP cache regardless.
 #
 # The rules below split the tree by whether a URL's content can ever change.
 
 # Vite stamps a content hash into every filename under /assets/, so a given URL is
-# immutable by construction — a changed file gets a different name. Cache it for a year
+# immutable by construction: a changed file gets a different name. Cache it for a year
 # and never revalidate.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
@@ -29,6 +34,36 @@
   Cache-Control: public, max-age=604800
 /portraits/*
   Cache-Control: public, max-age=604800
+
+# The brand images at the root (scripts/make-brand-icons.py) and robots.txt. Stable paths that
+# change only on a rebrand, so a day, not the 4-hour revalidation every visit used to pay. Not a
+# week: a new icon should reach a returning visitor within a day.
+/apple-touch-icon.png
+  Cache-Control: public, max-age=86400
+/badge-96.png
+  Cache-Control: public, max-age=86400
+/favicon.ico
+  Cache-Control: public, max-age=86400
+/icon-192.png
+  Cache-Control: public, max-age=86400
+/icon-512.png
+  Cache-Control: public, max-age=86400
+/icon-maskable-192.png
+  Cache-Control: public, max-age=86400
+/icon-maskable-512.png
+  Cache-Control: public, max-age=86400
+/icon.svg
+  Cache-Control: public, max-age=86400
+/logo-mark.png
+  Cache-Control: public, max-age=86400
+/logo.png
+  Cache-Control: public, max-age=86400
+/og-cover.png
+  Cache-Control: public, max-age=86400
+/play-feature-graphic.png
+  Cache-Control: public, max-age=86400
+/robots.txt
+  Cache-Control: public, max-age=86400
 
 # The open-data download (scripts/vite-plugin-wpbl-data.mjs). Stable paths whose bytes change
 # only when the weekly archive commits a correction, so an hour then a revalidation. Readable
