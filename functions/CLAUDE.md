@@ -23,18 +23,14 @@
   running the day the WPBL tabs became real paths: the page was fine, only the unfurl was
   wrong.
 
-- **`npx wrangler pages dev dist` is NOT the production runtime.** Production deploys as a
-  Worker (the build log says `workers/scripts/fun/versions`). It is still the best local
-  check for routing and status codes, but it accepts input the real deploy refuses, so a
-  green local run is evidence and not proof. Watch the actual Cloudflare build after a push
-  that touches `_redirects`, `_routes.json` or `functions/`, **and watch the one on `main`**:
-  the Worker builds `main` only. Until Oct 9, 2026 it also built every PR branch, and those
-  builds were red on every PR ever opened: a branch ran `npx wrangler versions upload`, which
-  needs a Wrangler config the repo does not have, where `main` runs `npx wrangler deploy`,
-  which works it out. "Builds for non-production branches" is now off in the Worker's Build
-  settings, so a PR shows no `Workers Builds` check at all, and `Cloudflare Pages` gives each
-  PR its preview. Turn it back on and the red check returns, training everyone to ignore the
-  one signal this rule is asking you to read.
+- **`npx wrangler pages dev dist` is NOT the production runtime.** Production is the Pages
+  project's deployment of `main` on `sportydolphin.fun` (its functions show in analytics as
+  `pages-worker--…-production`). `pages dev` is still the best local check for routing and
+  status codes, but it accepts input the real deploy refuses, so a green local run is evidence
+  and not proof. Watch the actual `Cloudflare Pages` build after a push that touches
+  `_redirects`, `_routes.json` or `functions/`, **and watch the one on `main`**. A standalone
+  Worker also named `fun` built `main` too until Nov 8, 2026 and served nobody (docs/CI.md,
+  "Cloudflare builds"); it is deleted, and one comes back only with a Wrangler config.
 
 - **The wildcards in `_redirects` (`/wpbl/players/*`, `/wpbl/games/*`, `/wpbl/compare/*`,
   `/mlb/players/*`) each have a Pages Function standing in front of them** that answers a real

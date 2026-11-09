@@ -197,7 +197,7 @@ original file is gone by then, so a crop is cut in the browser from the UNCROPPE
 (`/api/fan-photo` takes an optional `variant`). The row's `card_url` / `full_url` / dimensions are
 repointed; `storage_path` is not, which is how every later crop and "Reset to original" find the
 original again. Two reasons it is never an overwrite: re-cropping a crop would lose resolution
-each time, and `photos.sportydolphin.fun` serves `max-age=14400`, so an overwritten render would
+each time, and `photos.sportydolphin.fun` serves `max-age=14400` (the zone's Browser Cache TTL; the R2 objects carry no Cache-Control), so an overwritten render would
 show the old framing for hours. Superseded crop renders are left in R2; they are small and
 nothing links to them.
 
@@ -281,7 +281,9 @@ time (a proxied `R2` CNAME on `photos`). The fix is a MORE-SPECIFIC Worker Route
 Worker's own "Add Route" only binds `fun` and offers no None); the specific route wins over the
 wildcard and the request falls through to R2. Confirmed serving `image/webp` with the CORS
 header on Sep 21, 2026. **Any future subdomain that must NOT be the site** (a second bucket, a
-status page) needs the same carve-out, for the same reason.
+status page) needs the same carve-out, for the same reason. The `fun` Worker and its wildcard
+route were deleted on Nov 8, 2026 (docs/CI.md, "Cloudflare builds"); the None route stays as a
+guard in case a wildcard comes back.
 
 ## Ingest, in two passes
 
