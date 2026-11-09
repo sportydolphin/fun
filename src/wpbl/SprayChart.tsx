@@ -230,6 +230,8 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
               px: 1.1, py: 0.35, borderRadius: 999, cursor: 'pointer',
               border: '1px solid', borderColor: mode === m ? 'transparent' : 'outline',
               bgcolor: mode === m ? 'text.primary' : 'transparent',
+              // 22px suits a cursor, not a thumb: taller on a touch screen only, as SegNav does.
+              '@media (pointer: coarse)': { py: 0.75 },
             }}>
             <Typography sx={{
               fontSize: TYPE_SCALE.caption, fontWeight: 800,

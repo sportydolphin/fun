@@ -14,6 +14,7 @@ import React, { createContext, useContext, useLayoutEffect, useMemo, useRef, use
 import { Box, Skeleton, Typography, type Theme } from '@mui/material'
 import { ExpandMore } from '@mui/icons-material'
 import { TapTip } from './TapTip'
+import { useEdgeFade } from './edgeFade'
 import { TAPPABLE, hoverOnly } from './interaction'
 import { chromePx, typePx } from './scale'
 import { ICON_SIZE, TYPE_SCALE } from './card'
@@ -378,10 +379,12 @@ export function StatTable({ title, caption, part, row, league, reserveRanks, pla
 }) {
   const { tip, ink } = useStatCard()
   const ranked = reserveRanks || row.cols.some(c => c.rank != null)
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const fade = useEdgeFade(scrollRef)
   return (
     <Box id={part ? playerPartAnchor(part) : undefined} sx={{ ...(title && !flush ? { mt: BLOCK_GAP } : null), ...(part ? PART_SCROLL_SX : null) }}>
       {title && <SectionHead title={title} caption={caption} />}
-      <Box sx={{ ...bleedSx(0.85), overflowX: 'auto' }}>
+      <Box ref={scrollRef} sx={{ ...bleedSx(0.85), overflowX: 'auto', ...fade }}>
         <Box component="table" sx={{ width: '100%', minWidth: 'max-content', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
           <Box component="thead">
             <Box component="tr">
@@ -477,13 +480,18 @@ const useAllStatsOpen = () => useSyncExternalStore(subscribeAllStats, readAllSta
  * section of their own further down (MLB's Advanced), and plate discipline, which on WPBL was a row
  * of large tiles in the pitch profile, in a type of its own.
  */
-export function StatSummary({ summary, standard, advanced, discipline, league, reserveRanks, placeholder, accent }: {
+export function StatSummary({ summary, standard, advanced, discipline, fielding, fieldingCaption, league, reserveRanks, placeholder, accent }: {
   summary: StatRow
   standard?: StatRow | null
   advanced?: StatRow | null
   /** How the player met the pitches: swings, misses, pitches per trip. Null where the pitch record
    *  is too thin to say anything (a handful of pitches is noise wearing a percentage sign). */
   discipline?: StatRow | null
+  /** The season in the field, last of the full tables. Passed to ONE role only: it is the player's,
+   *  not a role's, and on a desktop both roles' tables are on the page at once. */
+  fielding?: StatRow | null
+  /** Where the fielding came from ("CF, P"), on a card where it could be misread as one role's. */
+  fieldingCaption?: string
   /** Draw the League avg row on every table. */
   league?: boolean
   reserveRanks?: boolean
@@ -491,7 +499,7 @@ export function StatSummary({ summary, standard, advanced, discipline, league, r
   accent: string
 }) {
   const open = useAllStatsOpen()
-  const more = !!standard || !!advanced || !!discipline
+  const more = !!standard || !!advanced || !!discipline || !!fielding
   // OPEN, THE SUMMARY STEPS ASIDE when the tables under it hold every one of its columns. Drawn
   // over them it printed ten figures twice in three tables (G, PA, HR and the slash line again in
   // Standard, wOBA, wRC+ and WAR again in Advanced). A summary with a column the others lack stays.
@@ -504,6 +512,9 @@ export function StatSummary({ summary, standard, advanced, discipline, league, r
           {standard && <StatTable title="Standard" flush={covered} row={standard} league={league} reserveRanks={reserveRanks} placeholder={placeholder} />}
           {advanced && <StatTable title="Advanced" part="advanced" row={advanced} league={league} placeholder={placeholder} />}
           {discipline && <StatTable title="Plate discipline" row={discipline} league={league} placeholder={placeholder} />}
+          {/* No League avg row: a fielding average over every position at once compares a catcher
+              with a left fielder, which says nothing about either. */}
+          {fielding && <StatTable title="Fielding" part="fielding" caption={fieldingCaption} row={fielding} placeholder={placeholder} />}
         </>
       )}
       {more && (
@@ -848,6 +859,7 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
   // about the season, and recomputing it per preview would move the highlight when the reader
   // expanded the table, which is the one thing a highlight must never do.
   const { expanded, toggle, sectionRef, scrollerRef } = useCollapsibleTable()
+  const fade = useEdgeFade(scrollerRef)
   // NOT FOR A ROW OR TWO. "Show 1 more season" under a ten-row career is a button the height of
   // the row it hides, so a table within two rows of its preview simply shows them all.
   const cut = rows.length > preview + 2 ? preview : rows.length
@@ -883,6 +895,7 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
         overflowX: 'auto',
         maxHeight: { xs: expanded ? LOG_MAX_H_XS : 'none', md: chromePx(LOG_MAX_H) },
         overflowY: 'auto',
+        ...fade,
       }}>
         <Box component="table" sx={{ width: '100%', minWidth: 'max-content', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
           <Box component="thead">
@@ -1076,6 +1089,9 @@ export const tdSx = { ...TYPE.body, py: 0.55, px: { xs: 0.22, sm: 0.85 }, textAl
 
 // ─── The club band ───────────────────────────────────────────────────────────────
 
+/** The longest meta fact kept on one line: "Bats R, throws R" fits the band's text column at 320px. */
+const META_KEEP_WHOLE = 18
+
 /** White text on the band, as WPBL measured it against its wash (see BAND_WASH in PlayerDetail). */
 const BAND_INK = { name: '#fff', meta: 'rgba(255,255,255,0.88)', line: 'rgba(255,255,255,0.75)' }
 
@@ -1147,7 +1163,17 @@ export function PlayerBand({ bandRef, background, stripe, portrait, name, nameAs
             {badge}
           </Box>
           {meta && (
-            <Typography sx={{ fontSize: TYPE_SCALE.body, color: ink.meta, mt: 0.25 }}>{meta}</Typography>
+            <Typography sx={{ fontSize: TYPE_SCALE.body, color: ink.meta, mt: 0.25 }}>
+              {/* Breaks only between facts. A phone split "Age 24" and "Bats R, throws R" across
+                  two lines. A long part ("Third base (listed second base)") may still wrap inside,
+                  or held whole it would overflow the band at 320px. */}
+              {meta.split(' · ').map((part, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && ' · '}
+                  <Box component="span" sx={part.length <= META_KEEP_WHOLE ? { whiteSpace: 'nowrap' } : undefined}>{part}</Box>
+                </React.Fragment>
+              ))}
+            </Typography>
           )}
           {/* Separate lines, not one run-on: joined with a separator the draft line wraps
               mid-phrase behind a long hometown and reads as part of the address. */}
