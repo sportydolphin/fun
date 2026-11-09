@@ -103,19 +103,26 @@ export function ChipRow({ mb, children }: { mb: number; children: React.ReactNod
 
 /** A chip that picks one of many (a season), as a native select so the list is the platform's.
  *  Lit while it is off its default, as a filter chip is while it is on. */
-export function FilterSelect({ value, options, onChange, active, ariaLabel }: {
+export function FilterSelect({ value, options, onChange, active, ariaLabel, disabled = false, hint }: {
   value: string
   options: { value: string; label: string }[]
   onChange: (v: string) => void
   active: boolean
   ariaLabel: string
+  /** As on FilterChip: drawn, unpickable, with `hint` saying why. */
+  disabled?: boolean
+  hint?: string
 }) {
   return (
-    <Box sx={{ ...filterChipSx(active), position: 'relative', p: 0, '&:focus-within': { borderColor: ACCENT_EDGE } }}>
-      <Box component="select" value={value} aria-label={ariaLabel} onChange={e => onChange((e.target as HTMLSelectElement).value)}
+    <Box title={disabled ? hint : undefined} sx={{
+      ...filterChipSx(active), position: 'relative', p: 0, '&:focus-within': { borderColor: ACCENT_EDGE },
+      ...(disabled ? { cursor: 'not-allowed', bgcolor: 'transparent', borderColor: 'text.disabled', color: 'text.disabled' } : {}),
+    }}>
+      <Box component="select" value={value} aria-label={disabled && hint ? `${ariaLabel}, ${hint}` : ariaLabel} disabled={disabled}
+        onChange={e => onChange((e.target as HTMLSelectElement).value)}
         sx={{
           appearance: 'none', border: 'none', outline: 'none', bgcolor: 'transparent', color: 'inherit',
-          font: 'inherit', cursor: 'pointer', borderRadius: 999,
+          font: 'inherit', cursor: disabled ? 'not-allowed' : 'pointer', borderRadius: 999,
           // The chip's own padding, with room on the right for the caret drawn over it.
           py: 0.4, pl: 1, pr: 2.25,
           '& option': { color: 'text.primary', bgcolor: 'background.paper' },
