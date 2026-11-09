@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.210.2',
+    date:    '2026-11-09',
+    changes: [
+      {
+        short: 'Stats filters on one row',
+        full:  'The WPBL Stats filter row stays on one line on a desktop. When it runs short of room, the club chips become a club select first, then the season chips become a select, then the side switch tightens.',
+      },
+    ],
+  },
+  {
     version: '1.210.1',
     date:    '2026-11-09',
     changes: [

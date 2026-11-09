@@ -157,6 +157,9 @@ const DEFAULT_ROUTES = [
   '/wpbl/stats?board=charts', '/wpbl/stats?board=charts&side=pitching',
   // The draft-pick scatter, which printed every label at 6px on a phone until Oct 2026.
   '/wpbl/stats?board=draft',
+  // The Players board on a side with Qualified, its widest control row, which wrapped at every
+  // desktop width once Overall joined it (Nov 9, 2026). Its [data-one-row] check runs here.
+  '/wpbl/stats?board=players&side=hitting',
   '/wpbl/players', '/wpbl/league', '/wpbl/season', '/wpbl/matchups', '/wpbl/awards', '/wpbl/compare',
   // A season series that went on to meet in the final, the longest shape the page takes.
   '/wpbl/series/firebells-vs-queens',
@@ -184,7 +187,7 @@ const DEFAULT_ROUTES = [
 // Every board here has filters a reader sets and expects to find again; the side tabs (Hitting,
 // Pitching) are in the steps too, since a reload that lands on the wrong side loses the rest with it.
 const BEHAVIOR_BOARDS = [
-  { route: '/wpbl/stats?board=players&side=hitting', steps: ['Playoffs', 'LA', '✓ Qualified'] },
+  { route: '/wpbl/stats?board=players&side=hitting', steps: ['Playoffs', { select: 'Club', value: 'LA' }, '✓ Qualified'] },
   { route: '/wpbl/stats?board=players&side=fielding', steps: ['Both', 'NY', '✓ Qualified'] },
   { route: '/wpbl/stats?board=teams', steps: ['Pitching', 'Playoffs', 'Advanced'] },
   { route: '/wpbl/stats?side=hitting', steps: ['Pitching', 'Both'] },
@@ -280,6 +283,31 @@ function probeChartNames() {
     if (svg.querySelectorAll('[data-pid]').length < 6) continue
     if (svg.querySelector('[data-name-label]')) continue
     out.push({ kind: 'chart-names', px: 0, text: 'no names drawn', where: `svg[${(svg.getAttribute('aria-label') || 'svg').slice(0, 50)}]` })
+  }
+  return out
+}
+
+/**
+ * A row marked `data-one-row="<min width>"` whose children no longer share one line at or above
+ * that viewport width. The stats control bar wrapped its club chips onto a second line at every
+ * desktop width after Overall joined it (Nov 9, 2026), the latest of several times a control
+ * added to that row did the same, and no other check sees a wrap: nothing overflows, it just
+ * grows a line. At Large text the width scales by `scale`: every control is wider, and a second
+ * line is the right fallback on a narrow desktop then (960px is 32px short at Large text).
+ */
+function probeOneRow(scale) {
+  const out = []
+  for (const row of document.querySelectorAll('[data-one-row]')) {
+    if (window.innerWidth < Number(row.getAttribute('data-one-row')) * scale) continue
+    const boxes = [...row.children].map(k => k.getBoundingClientRect()).filter(r => r.width > 0 && r.height > 0)
+    // Two children on different lines: one starts at or below where another ends.
+    const wrapped = boxes.some(a => boxes.some(b => b.top >= a.bottom - 1))
+    if (wrapped) {
+      out.push({
+        kind: 'wrapped', px: Math.round(row.getBoundingClientRect().height),
+        text: row.textContent.trim().replace(/\s+/g, ' ').slice(0, 60), where: '[data-one-row]',
+      })
+    }
   }
   return out
 }
@@ -749,6 +777,7 @@ async function runCase(browser, route, width, text, { warm = false } = {}) {
     const o = await page.evaluate(probeOverflow, ELLIPSIS)
     result.pageOverflow = o.pageOverflow
     result.issues = o.issues
+    result.issues.push(...await page.evaluate(probeOneRow, text === 'large' ? 1.25 : 1))
     if (stillLoading.length) result.issues.push({ kind: 'loading', px: 0, text: [...new Set(stillLoading)].join(', '), where: 'still loading after 10s' })
     // Both themes, on the same load: the theme follows the device until a reader picks one, so
     // flipping the emulated scheme re-renders the page in the other one without a second visit.
