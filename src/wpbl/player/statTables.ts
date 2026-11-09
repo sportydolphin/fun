@@ -1,5 +1,5 @@
 import { OVR_COLS, hittingColumns, pitchingColumns, type Col, type WpblLeagueLine } from '../statColumns'
-import { plateAppearances, type EraBasis, type WpblBattingTotals, type WpblPitchingTotals } from '../stats'
+import { plateAppearances, fmtRate, type EraBasis, type WpblBattingTotals, type WpblFieldingTotals, type WpblPitchingTotals } from '../stats'
 import { fmtRunValue } from '../../league/runExpectancy'
 import type { SeasonScope } from '../season'
 import type { WpblBoard } from '../searchAnswers'
@@ -194,4 +194,22 @@ export function wpblDisciplineCols(role: Role, profiles: Record<Role, PitchProfi
     pending,
     league: pair ? show(key, pair.league[key]) : null,
   }))
+}
+
+/**
+ * THE FIELDING TABLE's columns, in the season tables' dialect. PB, DP and SBA only when there are
+ * any: a catcher's columns on a left fielder's line would be a row of zeros about a job she never had.
+ * The loading state (`totals` null) reserves the four every fielder has.
+ */
+export function wpblFieldingCols(totals: WpblFieldingTotals | null): StatCol[] {
+  if (!totals) return [['FPCT', '.000'], ['E', '0'], ['PO', '00'], ['A', '00']].map(([label, value]) => ({ label, value }))
+  return [
+    { label: 'FPCT', value: fmtRate(totals.fpct) },
+    { label: 'E', value: totals.e },
+    { label: 'PO', value: totals.po },
+    { label: 'A', value: totals.a },
+    ...(totals.dp ? [{ label: 'DP', value: totals.dp }] : []),
+    ...(totals.pb ? [{ label: 'PB', value: totals.pb }] : []),
+    ...(totals.sba ? [{ label: 'SBA', value: totals.sba }] : []),
+  ]
 }
