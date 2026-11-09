@@ -240,8 +240,8 @@ item 2 describes, which is why that item comes first.
    (and Retrosheet-style event files where RetroWPBL's permission covers it), credited, and an
    embeddable standings and box-score widget for the two writers. Links are the brake on search
    (#3), and a dataset and a widget are the two things other sites link to without being asked.
-   The JSON is published since Nov 7, 2026 at `/data/wpbl/index.json`; the page, the CSV and the
-   widget are left.
+   The JSON is published since Nov 7, 2026 at `/data/wpbl/index.json`; the page and the CSV since
+   Nov 8 (`/wpbl/data`). The widget is left.
 9. **Google Play.** A signed build works on a device; what is left is Play's own process
    ([docs/ANDROID.md](docs/ANDROID.md)).
 

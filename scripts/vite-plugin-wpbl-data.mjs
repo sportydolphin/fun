@@ -1,11 +1,13 @@
 import { createReadStream } from 'node:fs'
 import { cp, readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { rowsToCsv } from './wpbl-csv.mjs'
 
 // Publish the WPBL archive as the open-data download, at stable public paths:
 //
 //   /data/wpbl/index.json            every season and file, with row counts and sizes
 //   /data/wpbl/<year>/<table>.json   one season's tables (archive/wpbl-<year>/)
+//   /data/wpbl/<year>/<table>.csv    the same table as a spreadsheet file (scripts/wpbl-csv.mjs)
 //   /data/wpbl/league/<table>.json   the clubs, players and links (archive/wpbl/)
 //   /data/wpbl/README.md             what the files are and are not
 //
@@ -45,7 +47,9 @@ export async function buildIndex(archiveDir) {
     const entry = {
       path: `${PREFIX}${out}/`,
       exported_at: manifest.exported_at,
-      files: manifest.tables.map(t => ({ table: t.table, url: `${PREFIX}${out}/${t.table}.json`, rows: t.rows, bytes: t.bytes })),
+      files: manifest.tables.map(t => ({
+        table: t.table, url: `${PREFIX}${out}/${t.table}.json`, csv_url: `${PREFIX}${out}/${t.table}.csv`, rows: t.rows, bytes: t.bytes,
+      })),
     }
     if (out === 'league') league = entry
     else seasons.push({ season: Number(out), ...entry })
@@ -68,6 +72,14 @@ export function resolveDataPath(archiveDir, url) {
   if (!m) return null
   const folder = m[1] === 'league' ? LEAGUE_DIR : `wpbl-${m[1]}`
   return path.join(archiveDir, folder, m[2])
+}
+
+/** A request for a table's CSV → the JSON file it is written from, or null. The CSV is derived, never
+ *  stored: one source in git, so the two downloads cannot disagree. */
+export function resolveCsvSource(archiveDir, url) {
+  if (!url.endsWith('.csv')) return null
+  const file = resolveDataPath(archiveDir, url.slice(0, -'.csv'.length) + '.json')
+  return file && path.basename(file) !== 'manifest.json' ? file : null
 }
 
 export function wpblData() {
@@ -93,6 +105,14 @@ export function wpblData() {
           )
           return
         }
+        const csvSource = resolveCsvSource(archive(), url)
+        if (csvSource) {
+          readFile(csvSource, 'utf8').then(
+            text => { res.setHeader('content-type', 'text/csv; charset=utf-8'); res.end(rowsToCsv(JSON.parse(text))) },
+            () => next(),
+          )
+          return
+        }
         const file = resolveDataPath(archive(), url)
         if (!file) return next()
         stat(file).then(
@@ -110,7 +130,13 @@ export function wpblData() {
       const dest = path.resolve(root, outDir, 'data', 'wpbl')
       for (const name of await readdir(archive())) {
         const out = publishedFolder(name)
-        if (out) await cp(path.join(archive(), name), path.join(dest, out), { recursive: true })
+        if (!out) continue
+        await cp(path.join(archive(), name), path.join(dest, out), { recursive: true })
+        for (const file of await readdir(path.join(archive(), name))) {
+          if (!file.endsWith('.json') || file === 'manifest.json') continue
+          const rows = JSON.parse(await readFile(path.join(archive(), name, file), 'utf8'))
+          await writeFile(path.join(dest, out, file.replace(/\.json$/, '.csv')), rowsToCsv(rows))
+        }
       }
       await cp(path.join(archive(), 'README.md'), path.join(dest, 'README.md'))
       await writeFile(path.join(dest, 'index.json'), JSON.stringify(await buildIndex(archive()), null, 2) + '\n')
