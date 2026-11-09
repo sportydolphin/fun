@@ -21,6 +21,7 @@ import { track, EVENTS } from '../../lib/analytics'
 import type { WpblPlayer } from '../types'
 import { typePx } from '../../ui/scale'
 import { StatTip, CARD_SECTION_SX } from '../../ui/playerCard'
+import { useEdgeFade } from '../../ui/edgeFade'
 import { TYPE_SCALE } from '../../ui/card'
 
 // The parts of WPBL's player card that hold no state of the card's own: the stat tooltip, the
@@ -169,14 +170,15 @@ export function FieldingLine({ ft, positions, bare = false }: {
     ...(ft.pb ? [['PB', ft.pb] as [string, number]] : []),
     ...(ft.sba ? [['SBA', ft.sba] as [string, number]] : []),
   ]
-  // Wide enough to read as columns rather than as figures run together, never the card's width:
-  // five numbers spread across 1000px would put a hand's span between each one and its neighbor.
+  // The card's full width, as every other table on it: drawn at its own width it stopped three
+  // quarters of the way across a phone, under a heading whose caption sat at the far edge, and read
+  // as a different kind of block. The floor keeps one-digit columns from running together.
   const cellSx = { minWidth: '3.25rem' }
   return (
     <Box sx={{ mt: bare ? 0 : BLOCK_GAP }}>
       {!bare && <SectionHead title="Fielding" part="fielding" caption={positions && positions.length > 0 ? positions.join(', ').toUpperCase() : undefined} />}
-      <Box sx={{ overflowX: 'auto' }}>
-        <Box component="table" sx={{ borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
+      <Box sx={{ ...bleedSx(0.85), overflowX: 'auto' }}>
+        <Box component="table" sx={{ width: '100%', minWidth: 'max-content', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
           <Box component="thead">
             <Box component="tr">
               {cols.map(([h]) => (
@@ -222,6 +224,7 @@ export function MatchupTable({ player, side, lines, players, scope, accent }: {
 }) {
   const { basis: eraBasis } = useEraBasis()
   const { expanded, toggle, sectionRef, scrollerRef } = useCollapsibleTable()
+  const fade = useEdgeFade(scrollerRef)
   const byId = useMemo(() => new Map(players.map(p => [p.id, p])), [players])
   if (lines.length === 0) return null
   const shown = expanded ? lines : lines.slice(0, MATCHUP_PREVIEW)
@@ -246,6 +249,7 @@ export function MatchupTable({ player, side, lines, players, scope, accent }: {
         overflowX: 'auto',
         maxHeight: { xs: expanded ? LOG_MAX_H_XS : 'none', md: chromePx(LOG_MAX_H) },
         overflowY: 'auto',
+        ...fade,
       }}>
         <Box component="table" sx={{ width: '100%', minWidth: 'max-content', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
           <Box component="thead">
