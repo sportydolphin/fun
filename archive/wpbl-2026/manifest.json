@@ -3,14 +3,14 @@
   "league": "Women's Pro Baseball League",
   "source": "https://sportydolphin.fun, mirrored from stats.womensprobaseballleague.com",
   "note": "The public record of the 2026 WPBL season: every row keyed to a game played that year. Plain JSON arrays of rows, one file per table, keys sorted. NOT a database backup: it is what the anonymous client can read, which is what the website serves. See scripts/export-wpbl-archive.ts.",
-  "exported_at": "2026-11-02T01:25:49.762Z",
+  "exported_at": "2026-11-09T01:35:53.086Z",
   "total_rows": 6587,
   "tables": [
     {
       "table": "wpbl_games",
       "rows": 40,
-      "sha256": "41f0cdd6d24d6f24",
-      "bytes": 68694
+      "sha256": "df646fea82f1ded2",
+      "bytes": 68689
     },
     {
       "table": "wpbl_batting_lines",
@@ -57,7 +57,7 @@
     {
       "table": "wpbl_game_details",
       "rows": 30,
-      "sha256": "e59cf96887240dfa",
+      "sha256": "d28248a3b7aed5cb",
       "bytes": 19206
     }
   ]
