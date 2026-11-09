@@ -164,6 +164,13 @@ const ROUTES: Record<string, Seo> = {
     description:
       "Every Women's Pro Baseball League game, batting, pitching and fielding line, play and pitch from the 2026 season, free to download as CSV for a spreadsheet or JSON for code.",
   },
+  // The road to the 2027 rosters (RostersPage.tsx): written for "WPBL re-signings" and "WPBL 2027
+  // roster", what a reader types while the window is open.
+  '/wpbl/rosters': {
+    title: "WPBL 2027 rosters: re-signings and the draft | sportydolphin.fun",
+    description:
+      "Who each Women's Pro Baseball League club has re-signed for 2027, out of the 10 each may keep from its 2026 roster, and who is headed for the 2027 WPBL Draft.",
+  },
   // The season as a finished thing: leaders, the numbers that make this league its own, and the
   // plays that turned its games. Written for the query it can win in November, which is "WPBL
   // 2026 season" rather than "WPBL stats", where /wpbl/stats and every club page already compete.
