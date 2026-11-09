@@ -81,6 +81,10 @@ export const HEARTBEAT_CHECKS = [
   // death there is missed game reminders.
   { job: 'wpbl-game-start', label: 'Game-start push', maxAgeMs: null },
   { job: 'wpbl-recaps-sync', label: 'Recap sync', maxAgeMs: null },
+  // The league news watch runs every 3 hours year-round, so 12h is several missed runs: long
+  // enough to ride out GitHub's schedule slipping, short enough that a dead watcher cannot sit
+  // through an announcement.
+  { job: 'wpbl-news-watch', label: 'News watch', maxAgeMs: 12 * 60 * 60_000 },
 ]
 
 /** Heartbeat job names written for a failed GitHub Actions run: `workflow:<workflow name>`. */
