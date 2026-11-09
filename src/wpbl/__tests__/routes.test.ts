@@ -39,6 +39,7 @@ import {
   wpblGameSlug, wpblGamePath, wpblGameSlugFromPath, findWpblGameBySlug, isWpblLeaguePage,
   isWpblGlossaryPage,
   isWpblSourcesPage,
+  isWpblDataPage,
   isWpblSeasonPage, wpblSeasonYearFromPath, WPBL_RECAP_YEARS,
   isWpblScorigamiPage,
   isWpblMatchupsPage,
@@ -736,6 +737,24 @@ describe('/wpbl/glossary, the rules page', () => {
   it('declares FAQPage structured data built from the rules themselves', () => {
     expect(seoSource).toContain("'@type': 'FAQPage'")
     expect(seoSource).toContain('WPBL_RULES.map')
+  })
+})
+
+describe('/wpbl/data, the open-data page', () => {
+  it('has a 200 rewrite, a trailing-slash 301, a title and a sitemap entry', () => {
+    expect(redirects).toMatch(/^\/wpbl\/data\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/wpbl\/data\/\s+\/wpbl\/data\s+301\s*$/m)
+    expect(seoSource).toMatch(/'\/wpbl\/data':\s*\{[^}]*title:/)
+    expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/data</loc>')
+  })
+
+  it('is recognized as itself and not as a tab, and the footer links it', () => {
+    expect(isWpblDataPage('/wpbl/data')).toBe(true)
+    expect(isWpblDataPage('/wpbl/data/')).toBe(true)
+    expect(isWpblDataPage('/wpbl/data/2026')).toBe(false)
+    expect(wpblViewFromPath('/wpbl/data')).toBeNull()
+    expect(wpblAppOwnsPath('/wpbl/data')).toBe(false)
+    expectInFooter('WPBL_DATA_PAGE')
   })
 })
 

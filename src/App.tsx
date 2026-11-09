@@ -36,7 +36,7 @@ import { supabase } from './lib/supabase'
 import { useSeo } from './seo'
 // Import-free by design, so naming it here does not drag the lazy WPBL chunk into the
 // entry bundle. See the note at the top of that file.
-import { wpblPlayerSlugFromPath, wpblGameSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, isWpblGlossaryPage, isWpblSourcesPage, isWpblSeasonPage, isWpblScorigamiPage, isWpblMatchupsPage, isWpblPhotosPage, isWpblPhotoTagPage, isWpblReadingPage, isWpblWatchPage, isWpblWatchVideoPage, isWpblComparePage, isWpblSeriesPage, wpblAppOwnsPath, wpblGamePath, WPBL_PATH_EVENT } from './wpbl/routes'
+import { wpblPlayerSlugFromPath, wpblGameSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, isWpblGlossaryPage, isWpblSourcesPage, isWpblDataPage, isWpblSeasonPage, isWpblScorigamiPage, isWpblMatchupsPage, isWpblPhotosPage, isWpblPhotoTagPage, isWpblReadingPage, isWpblWatchPage, isWpblWatchVideoPage, isWpblComparePage, isWpblSeriesPage, wpblAppOwnsPath, wpblGamePath, WPBL_PATH_EVENT } from './wpbl/routes'
 import type { WpblGame, WpblTeam } from './wpbl/types'
 import { jerseyQuery } from './wpbl/playerSearch'
 import { defaultSectionPath } from './lib/defaultSection'
@@ -110,6 +110,7 @@ const MlbGlossaryPage = lazy(() => import('./mlb/GlossaryPage'))
 const MlbPostseasonPage = lazy(() => import('./mlb/PostseasonPage'))
 const MlbComparePage = lazy(() => import('./mlb/ComparePage'))
 const WpblSourcesPage = lazy(() => import('./wpbl/SourcesPage'))
+const WpblDataPage = lazy(() => import('./wpbl/DataPage'))
 // THE WORLD CUP IS DEV ONLY until it goes public (src/intl/WorldCupPage.tsx says what that takes).
 // `import.meta.env.DEV` is false in a production build, so the bundler drops the page and the route
 // with it: no reader can reach it, and nothing WBSC-shaped ships. No `_redirects` lines yet either.
@@ -198,7 +199,7 @@ const rendersWpblApp = wpblAppOwnsPath
  *  its pages had no tabs on a desktop, no bottom bar on a phone and neither league lit in the switch. */
 const isWpblSection = (p: string) =>
   rendersWpblApp(p) || p === '/wpbl/api' || isWorldCupPath(p) || isWpblLeaguePage(p) || isWpblGlossaryPage(p)
-  || isWpblSourcesPage(p) || isWpblSeasonPage(p) || isWpblScorigamiPage(p) || isWpblMatchupsPage(p) || isWpblPhotosPage(p) || isWpblPhotoTagPage(p) || isWpblReadingPage(p) || isWpblWatchPage(p) || isWpblWatchVideoPage(p) || isWpblPlayersIndex(p) || isWpblComparePage(p) || isWpblSeriesPage(p)
+  || isWpblSourcesPage(p) || isWpblDataPage(p) || isWpblSeasonPage(p) || isWpblScorigamiPage(p) || isWpblMatchupsPage(p) || isWpblPhotosPage(p) || isWpblPhotoTagPage(p) || isWpblReadingPage(p) || isWpblWatchPage(p) || isWpblWatchVideoPage(p) || isWpblPlayersIndex(p) || isWpblComparePage(p) || isWpblSeriesPage(p)
 /** Whether some page draws this path; anything else gets the in-app 404. */
 const isKnownPath = (p: string) =>
   isWpblSection(p) || isMlbSection(p) || p === '/' || p === '/admin' || p === '/privacy' || p === '/terms' || p === '/delete-account'
@@ -1471,6 +1472,11 @@ function AppInner() {
           {isWpblSourcesPage(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
               <WpblSourcesPage onNavigate={navigate} />
+            </Suspense>
+          )}
+          {isWpblDataPage(path) && (
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <WpblDataPage onNavigate={navigate} />
             </Suspense>
           )}
           {isWpblSeasonPage(path) && (

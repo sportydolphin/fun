@@ -173,6 +173,8 @@ export const EVENT_INFO: Record<string, EventInfo> = {
   wpbl_stats_board:       A('Stats board on screen', 'Stats'),
   wpbl_stats_sorted:      A('Sorted a stats column', 'Stats'),
   wpbl_stats_filtered:    A('Filtered stats', 'Stats'),
+  wpbl_data_downloaded:   A('Downloaded a data file', 'Stats'),
+  wpbl_stats_exported:    A('Exported a stats board', 'Stats'),
 
   wpbl_page_section_seen: A('Reached a section of a page', 'Pages'),
   wpbl_page_open:         A('Left a page for a game, player or team', 'Pages'),
@@ -240,6 +242,7 @@ export const EVENT_INFO: Record<string, EventInfo> = {
   mlb_tab_viewed:         A('Switched MLB tab', 'MLB'),
   mlb_player_opened:      A('Opened an MLB player', 'MLB'),
   mlb_team_opened:        A('Opened an MLB team', 'MLB'),
+  mlb_stats_exported:     A('Exported the MLB stats board', 'MLB'),
   mlb_share_copied:       A('Copied an MLB link', 'MLB'),
   mlb_compare_opened:     A('Opened MLB Compare', 'MLB'),
   mlb_compare_viewed:     A('Viewed an MLB comparison', 'MLB'),

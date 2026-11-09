@@ -635,6 +635,16 @@ export const WPBL_SOURCES_PAGE = `${WPBL_BASE}/sources`
 export const isWpblSourcesPage = (pathname: string) =>
   pathname.replace(/\/+$/, '') === WPBL_SOURCES_PAGE
 
+// ─── The open-data page ──────────────────────────────────────────────────────────
+//
+// The season as CSV and JSON (DataPage.tsx), beside the sources page it credits. Its own path for
+// the reason the sources page has one: a dataset is cited and linked by URL. No tab; the footer is
+// the crawl path, and the sources page links it.
+export const WPBL_DATA_PAGE = `${WPBL_BASE}/data`
+
+export const isWpblDataPage = (pathname: string) =>
+  pathname.replace(/\/+$/, '') === WPBL_DATA_PAGE
+
 // ─── The season recap page ─────────────────────────────────────────────────────
 //
 // A fourth sibling, on the same footing as the league, glossary and sources pages: a real path
