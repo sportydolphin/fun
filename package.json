@@ -52,6 +52,7 @@
     "ingest-fan-photos": "node --env-file=.env scripts/ingest-fan-photos.mjs",
     "site-calendar": "node --env-file=.env scripts/sync-wpbl-site-calendar.mjs",
     "listen-tracking": "node --env-file=.env scripts/listen-wpbl-tracking.mjs",
+    "news-watch": "node --env-file=.env scripts/watch-wpbl-news.mjs",
     "tracking-watch": "node --env-file=.env scripts/watch-wpbl-tracking.mjs",
     "retro-sync": "node --env-file=.env scripts/sync-wpbl-retro.mjs",
     "mentions-watch": "node --env-file=.env scripts/watch-wpbl-mentions.mjs",

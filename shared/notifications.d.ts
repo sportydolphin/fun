@@ -60,6 +60,12 @@ export function buildAdminHealthAlert(args: {
   body:  string
 }): NotificationPayload
 
+export function buildLeagueNewsAlert(args: {
+  key:   string
+  title: string
+  body:  string
+}): NotificationPayload
+
 export function buildMilestoneNear(args: {
   playerId:   number
   playerName: string

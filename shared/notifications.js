@@ -197,6 +197,24 @@ export function buildAdminHealthAlert({ key, title, body }) {
 }
 
 /**
+ * League news for the owner (scripts/watch-wpbl-news.mjs): the stats feed carrying a new season,
+ * club or game, or the league adding a club or venue. Rides the admin-health type on purpose: it
+ * is owner-only like those pages, so it needs no reader preference, bell entry or deep link.
+ * The key keeps each run's push distinct, so one never replaces the last on the lock screen.
+ */
+export function buildLeagueNewsAlert({ key, title, body }) {
+  const meta = NOTIFICATION_META[NOTIFICATION_TYPES.ADMIN_HEALTH]
+  return {
+    id:    `${NOTIFICATION_TYPES.ADMIN_HEALTH}:news:${key}`,
+    type:  NOTIFICATION_TYPES.ADMIN_HEALTH,
+    icon:  '📰',
+    title,
+    body,
+    url:   meta.defaultUrl,
+  }
+}
+
+/**
  * A followed player is closing in on a milestone.
  *
  * @param {{ playerId: number, playerName: string, statLabel: string, remaining: number, target: number, kind: string }} args

@@ -49,6 +49,7 @@ on:
       - WPBL Game Start Reminders
       - WPBL Mention Watch
       - WPBL Mirror Drift Check
+      - WPBL News Watch
       - WPBL Play-by-Play Validation
       - WPBL play gap fill
       - WPBL postseason marking check
