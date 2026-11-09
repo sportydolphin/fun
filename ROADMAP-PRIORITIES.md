@@ -185,7 +185,7 @@ that is confirmed. Detail in *ROADMAP-WPBL, "From the Nov 1, 2026 brainstorm".*
 - **MLB depth**: plays and pitches mirrored (2026 alone, measured against the database
   ceiling first), Pitch by pitch and Run value on MLB, fielding lines for Find; the Hot Stove
   follow-up after December's read. *ROADMAP.md, second pass item 6; "From the Oct 10 audit".*
-- `/wpbl/data` and the embeddable standings and box-score widget (ops item 8), then a DuckDB-WASM
+- The embeddable standings and box-score widget (ops item 8; `/wpbl/data` shipped Nov 8), then a DuckDB-WASM
   sandbox over the frozen season files.
 - The rest of the engineering backlog's P3: prefetch on hover, `html2canvas` replaced, virtualized tables, `fast-check` tests for `derive/`.
 - MLB Draft board; Tracked on MLB, if ever.

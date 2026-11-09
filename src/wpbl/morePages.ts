@@ -1,6 +1,6 @@
 import {
   WPBL_SEASON_PAGE, WPBL_READING_PAGE, WPBL_WATCH_PAGE, WPBL_PHOTOS_PAGE, WPBL_LEAGUE_PAGE, WPBL_SCORIGAMI_PAGE, WPBL_MATCHUPS_PAGE,
-  WPBL_COMPARE_BASE, WPBL_PLAYERS_INDEX, WPBL_GLOSSARY_PAGE, WPBL_SOURCES_PAGE,
+  WPBL_COMPARE_BASE, WPBL_PLAYERS_INDEX, WPBL_GLOSSARY_PAGE, WPBL_SOURCES_PAGE, WPBL_DATA_PAGE,
 } from './routes'
 import { EVENTS } from '../lib/analytics'
 
@@ -56,9 +56,10 @@ export const WPBL_MORE_PAGES: MorePage[] = [
     : []),
 ]
 
-/** The footer's list: the menu's pages plus Data sources, which a reader rarely wants and a
- *  crawler must still reach (the API docs hang off it). Not in the menu for that reason. */
+/** The footer's list: the menu's pages plus Data sources and Open data, which a reader rarely wants
+ *  and a crawler must still reach (the API docs hang off the first). Not in the menu for that reason. */
 export const WPBL_FOOTER_PAGES: MorePage[] = [
   ...WPBL_MORE_PAGES,
   { group: 'Reference', href: WPBL_SOURCES_PAGE, label: 'Data sources', hint: 'Feeds and APIs' },
+  { group: 'Reference', href: WPBL_DATA_PAGE, label: 'Open data', hint: 'CSV and JSON', footerLabel: 'WPBL data download' },
 ]

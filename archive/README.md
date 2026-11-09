@@ -14,7 +14,8 @@ row counts and a digest of each file.
 The same files are published on the site, readable from any origin: start at
 `https://sportydolphin.fun/data/wpbl/index.json`, which lists each season's tables
 (`/data/wpbl/<year>/<table>.json`) and the league's (`/data/wpbl/league/<table>.json`) with row
-counts and sizes. Plays are the feed's rows as published; our fixes to them are a table of their
+counts and sizes. Every table is also a CSV beside its JSON (`<table>.csv`, written from it at build
+time, nested values as JSON text), and https://sportydolphin.fun/wpbl/data lists them all. Plays are the feed's rows as published; our fixes to them are a table of their
 own, `wpbl_play_corrections`, applied on the site and left for a reader to apply or ignore.
 
 Written by [`scripts/export-wpbl-archive.ts`](../scripts/export-wpbl-archive.ts) and refreshed

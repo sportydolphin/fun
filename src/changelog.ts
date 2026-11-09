@@ -23,6 +23,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.209.0',
+    date:    '2026-11-08',
+    changes: [
+      {
+        short: 'Stats to a spreadsheet',
+        full:  'The Players and Teams boards on WPBL and the MLB Stats table end in CSV and Copy. CSV saves every row of the board as a file that opens in Excel, Google Sheets or Numbers; Copy puts the same table on the clipboard to paste into a sheet.',
+      },
+      {
+        short: 'WPBL open data',
+        full:  'Open data, at /wpbl/data and in the footer: every 2026 WPBL table (games, batting, pitching and fielding lines, plays, pitch tracking) and the clubs and players, each as a CSV for a spreadsheet or JSON for code.',
+      },
+    ],
+  },
+  {
     version: '1.208.3',
     date:    '2026-11-08',
     changes: [
