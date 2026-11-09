@@ -23,6 +23,24 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.210.1',
+    date:    '2026-11-09',
+    changes: [
+      {
+        short: 'Wide tables on a phone',
+        full:  'On a WPBL player card, a season table or game log wider than the screen fades at its right edge until you scroll to its last column.',
+      },
+      {
+        short: 'Fielding in All stats',
+        full:  'A WPBL player’s fielding line is a season table under All stats, after Plate discipline.',
+      },
+      {
+        short: 'Player card on a phone',
+        full:  'The line under a WPBL player’s name breaks only between facts, never inside "Age 24". Close, Copy link and the hit chart’s All, Hits and Outs are easier to tap.',
+      },
+    ],
+  },
+  {
     version: '1.210.0',
     date:    '2026-11-09',
     changes: [

@@ -36,7 +36,7 @@ import { track, EVENTS } from '../lib/analytics'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
 import { useSectionScroll } from '../lib/sectionScroll'
 import { leagueLine, OVR_COLS } from './statColumns'
-import { wpblRoleTables, wpblDisciplineCols, seasonLead, row as statRow, type RankFor } from './player/statTables'
+import { wpblRoleTables, wpblDisciplineCols, wpblFieldingCols, seasonLead, row as statRow, type RankFor } from './player/statTables'
 import {
   statTip, gamePosition, type Role, RankProgress, FieldingLine, MatchupTable, CompareChip,
   BAND_WASH, BAND_WASH_FLOOR, SENTENCE_W, CARD_RANK_BAR,
@@ -464,10 +464,20 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   const statSummary = (r: Role, placeholder = false) => {
     const t = tables(r)
     const discipline = wpblDisciplineCols(r, pitchProfiles)
+    // FIELDING IS THE LAST OF THE FULL TABLES, behind All stats with Standard and Advanced. It was a
+    // section of its own after the charts: a one-row table at its own width, the only stat block on
+    // the card outside the season tables, and so far down a phone's sheet that a reader who wanted
+    // it scrolled past the clips' rail to get there. A season line in the field is one more line of
+    // the season. It goes under the role that does the fielding, the batting side for anyone who
+    // bats (a two-way player's chances come mostly off the mound), and is drawn once, since a
+    // desktop shows both roles. The loading state reserves it on the one role it draws.
+    const fieldsHere = placeholder || (hasFielding && r === (pitcherFirst && !twoWay ? 'pitching' : 'batting'))
     return (
       <StatSummary accent={color} league reserveRanks={scope === 'regular' && !career} placeholder={placeholder}
         summary={statRow(lead, t.summary)} standard={statRow(lead, t.standard)} advanced={statRow(lead, t.advanced)}
-        discipline={discipline ? statRow(lead, discipline) : null} />
+        discipline={discipline ? statRow(lead, discipline) : null}
+        fielding={fieldsHere ? statRow(lead, wpblFieldingCols(placeholder ? null : ft)) : null}
+        fieldingCaption={twoWay && fieldedPositions.length > 0 ? fieldedPositions.join(', ').toUpperCase() : undefined} />
     )
   }
 
@@ -872,8 +882,9 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
           {pane.matchups}
           {pane.profile}
           {pane.extras}
-          {/* Last among the stats, as on the desktop: see desktopRoleBlock. */}
-          {hasFielding && <FieldingLine ft={ft} positions={showTabs ? fieldedPositions : undefined} />}
+          {/* Fielding is behind All stats (see statSummary), except for a defensive-only cameo,
+              which has no season table to put it under. */}
+          {hasFielding && !hasBatting && !hasPitching && <FieldingLine ft={ft} />}
           {worldCupSection()}
           {/* Rendered even for a player with no line yet (see the no-stats branch below): someone
               who has been written about but has not logged a game is exactly the case where this
@@ -1011,14 +1022,10 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
             <Box sx={{ minHeight: 0, overflowY: 'auto', px: 2, pt: 2, pb: 2 }}>
               {desktopCaption}
               {roles.map((r, i) => desktopRoleBlock(r, i === 0))}
-              {/* Fielding belongs to the PLAYER, not to a role, so it is its own section, once. On
-                  a two-way card its totals are the mound work and the outfield work added
-                  together, which the caption says. LAST among the stats: it is the least reliable
-                  number on the card. */}
-              {!deskSkeleton && hasFielding && (
+              {/* Fielding is behind All stats (see statSummary), except for a defensive-only cameo. */}
+              {!deskSkeleton && hasFielding && !hasBatting && !hasPitching && (
                 <>
-                  <RoleHeading title="Fielding" part="fielding"
-                    caption={twoWay && fieldedPositions.length > 0 ? fieldedPositions.join(', ').toUpperCase() : undefined} />
+                  <RoleHeading title="Fielding" part="fielding" />
                   <FieldingLine ft={ft} bare />
                 </>
               )}
