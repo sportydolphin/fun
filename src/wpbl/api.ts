@@ -53,3 +53,7 @@ export {
   type PhotoToTag, type TagSubject, type TagAnswer, type ReportReason,
   type PhotoTagSuggestion, type PhotoReport, type PhotoTagBlock, type PhotoTagReview,
 } from './api/photoTagging'
+export {
+  getCachedWpblRosterMoves, fetchWpblRosterMoves, ROSTER_MOVES_CHANGED_EVENT,
+  saveWpblRosterMove, deleteWpblRosterMove, type NewRosterMove
+} from './api/offseasonMoves'

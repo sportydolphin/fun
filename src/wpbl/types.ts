@@ -171,6 +171,23 @@ export interface WpblVideo {
 }
 
 /**
+ * One move toward a club's next roster (wpbl_roster_moves), recorded by hand from /admin with the
+ * link that announced it. `player_name` stands in only for someone not in wpbl_players yet.
+ */
+export interface WpblRosterMove {
+  id: number
+  season: number
+  kind: 're-signed' | 'drafted' | 'signed' | 'released'
+  player_id: string | null
+  player_name: string | null
+  team_id: string
+  draft_round: number | null
+  draft_pick: number | null
+  announced_on: string
+  source_url: string
+}
+
+/**
  * What one Short shows (wpbl_video_tags), matched from its title against play-by-play by
  * scripts/wpbl-clip-tags.mjs. `method` is how sure: 'play' pins the at-bat, 'game' the game only,
  * 'player' and 'team' no game at all. The play is (game_id, play_sequence), never a play uuid,

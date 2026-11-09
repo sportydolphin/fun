@@ -34,6 +34,7 @@ export const EDGE_TABLES: Readonly<Record<string, EdgeTier>> = {
   wpbl_players: 'slow',
   wpbl_videos: 'slow',
   wpbl_video_tags: 'slow',
+  wpbl_roster_moves: 'slow',
   wpbl_articles: 'slow',
   wpbl_recaps: 'slow',
   wpbl_fan_photos: 'slow',

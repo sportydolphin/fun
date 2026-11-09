@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.210.0',
+    date:    '2026-11-09',
+    changes: [
+      {
+        short: 'WPBL 2027 rosters',
+        full:  '2027 rosters, at /wpbl/rosters and in the More menu: each club\'s re-signings out of the 10 it may keep from its 2026 roster, each linked to its announcement, and the rest of the roster by 2026 WAR. The re-signing window runs Nov 9 to Nov 20. A 2026 player\'s card now has a 2027 line: Re-signed, Not yet re-signed, or Draft eligible once the window closes.',
+      },
+    ],
+  },
+  {
     version: '1.209.0',
     date:    '2026-11-08',
     changes: [

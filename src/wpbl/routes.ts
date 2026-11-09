@@ -645,6 +645,17 @@ export const WPBL_DATA_PAGE = `${WPBL_BASE}/data`
 export const isWpblDataPage = (pathname: string) =>
   pathname.replace(/\/+$/, '') === WPBL_DATA_PAGE
 
+// ─── The next season's rosters ─────────────────────────────────────────────────
+//
+// Each club's re-signings against its 2026 roster (RostersPage.tsx, offseason2027.ts), then the
+// draft and free agency as the league runs them. A page and not a tab: it matters for a few weeks a
+// year, and the More menu and footer reach it. One path for every offseason, so a link shared now
+// still lands next November; the year is on the page.
+export const WPBL_ROSTERS_PAGE = `${WPBL_BASE}/rosters`
+
+export const isWpblRostersPage = (pathname: string) =>
+  pathname.replace(/\/+$/, '') === WPBL_ROSTERS_PAGE
+
 // ─── The season recap page ─────────────────────────────────────────────────────
 //
 // A fourth sibling, on the same footing as the league, glossary and sources pages: a real path

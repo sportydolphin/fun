@@ -160,7 +160,7 @@ const DEFAULT_ROUTES = [
   '/wpbl/players', '/wpbl/league', '/wpbl/season', '/wpbl/matchups', '/wpbl/awards', '/wpbl/compare',
   // A season series that went on to meet in the final, the longest shape the page takes.
   '/wpbl/series/firebells-vs-queens',
-  '/wpbl/reading', '/wpbl/watch', '/wpbl/glossary', '/wpbl/data', ...samplePages(),
+  '/wpbl/reading', '/wpbl/watch', '/wpbl/glossary', '/wpbl/data', '/wpbl/rosters', ...samplePages(),
   // A video page in both shapes: a game's reel and a Short, which is its own viewer on a phone.
   '/wpbl/watch/m4GsxVjMhEY', '/wpbl/watch/dmPLhFEquWQ',
   // Naming who is in a photo, on the dev queue (src/wpbl/dev/devPhotoTagging.ts): the real queue is

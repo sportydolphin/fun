@@ -40,6 +40,7 @@ import {
   isWpblGlossaryPage,
   isWpblSourcesPage,
   isWpblDataPage,
+  isWpblRostersPage,
   isWpblSeasonPage, wpblSeasonYearFromPath, WPBL_RECAP_YEARS,
   isWpblScorigamiPage,
   isWpblMatchupsPage,
@@ -755,6 +756,24 @@ describe('/wpbl/data, the open-data page', () => {
     expect(wpblViewFromPath('/wpbl/data')).toBeNull()
     expect(wpblAppOwnsPath('/wpbl/data')).toBe(false)
     expectInFooter('WPBL_DATA_PAGE')
+  })
+})
+
+describe('/wpbl/rosters, the next season\'s rosters', () => {
+  it('has a 200 rewrite, a trailing-slash 301, a title and a sitemap entry', () => {
+    expect(redirects).toMatch(/^\/wpbl\/rosters\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/wpbl\/rosters\/\s+\/wpbl\/rosters\s+301\s*$/m)
+    expect(seoSource).toMatch(/'\/wpbl\/rosters':\s*\{[^}]*title:/)
+    expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/rosters</loc>')
+  })
+
+  it('is recognized as itself and not as a tab, and the footer links it', () => {
+    expect(isWpblRostersPage('/wpbl/rosters')).toBe(true)
+    expect(isWpblRostersPage('/wpbl/rosters/')).toBe(true)
+    expect(isWpblRostersPage('/wpbl/rosters/2027')).toBe(false)
+    expect(wpblViewFromPath('/wpbl/rosters')).toBeNull()
+    expect(wpblAppOwnsPath('/wpbl/rosters')).toBe(false)
+    expectInFooter('WPBL_ROSTERS_PAGE')
   })
 })
 

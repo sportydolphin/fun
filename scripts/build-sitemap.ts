@@ -72,6 +72,7 @@ const STATIC: Entry[] = [
   { loc: '/wpbl/sources', changefreq: 'yearly', priority: '0.4' },
   // Weekly: the archive commit that refreshes the files is weekly.
   { loc: '/wpbl/data', changefreq: 'weekly', priority: '0.5' },
+  { loc: '/wpbl/rosters', changefreq: 'daily', priority: '0.7' },
   // THE PICKER ONLY, and every pair page under it deliberately absent. 118 players is 6,903
   // comparisons; submitting them would bury the ~125 URLs on this site that somebody actually
   // wrote, under machine-made pages nobody asked for, which is the definition of a doorway
