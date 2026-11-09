@@ -37,6 +37,11 @@ export const headerChipSx = {
   textDecoration: 'none', color: 'text.secondary', transition: 'color 0.15s, background-color 0.15s',
   ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }),
   ...FOCUS_RING,
+  // 28px is a cursor's target, not a thumb's, and Close and Copy link sit side by side in a sheet
+  // header on a phone. A wider invisible hit area on a touch screen only, so the bar keeps its height:
+  // 8px above and below takes it to 44px, 4px each side leaves the gap between two chips untouched.
+  position: 'relative',
+  '@media (pointer: coarse)': { '&::after': { content: '""', position: 'absolute', inset: '-8px -4px' } },
 } as const
 
 /** A chip that is only its icon: square, the same 28px as the worded chips, so a bar of both still

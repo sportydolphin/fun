@@ -34,6 +34,7 @@
 /wpbl/league/    /wpbl/league     301
 /wpbl/glossary/  /wpbl/glossary   301
 /wpbl/sources/   /wpbl/sources    301
+/wpbl/data/      /wpbl/data       301
 /wpbl/season/    /wpbl/season     301
 /wpbl/season/2026/ /wpbl/season/2026 301
 /wpbl/scorigami/ /wpbl/scorigami  301
@@ -140,6 +141,7 @@
 # Same, and for the same reason: see WPBL_GLOSSARY_PAGE in src/wpbl/routes.ts.
 /wpbl/glossary   /  200
 /wpbl/sources    /  200
+/wpbl/data       /  200
 # The season recap. Not a tab: see WPBL_SEASON_PAGE in src/wpbl/routes.ts. One line per finished
 # season (WPBL_RECAP_YEARS), not a wildcard, so a year with no season answers a real 404.
 /wpbl/season     /  200

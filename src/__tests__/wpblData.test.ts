@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
-import { buildIndex, publishedFolder, resolveDataPath } from '../../scripts/vite-plugin-wpbl-data.mjs'
+import { buildIndex, publishedFolder, resolveCsvSource, resolveDataPath } from '../../scripts/vite-plugin-wpbl-data.mjs'
+import { rowsToCsv } from '../../scripts/wpbl-csv.mjs'
 
 const ARCHIVE = path.resolve(process.cwd(), 'archive')
 
@@ -40,5 +41,26 @@ describe('the open-data download', () => {
         expect(JSON.parse(readFileSync(file!, 'utf8'))).toHaveLength(f.rows)
       }
     }
+  })
+
+  it('writes each table as CSV from the JSON beside it, and only a table', () => {
+    expect(resolveCsvSource(ARCHIVE, '/data/wpbl/2026/wpbl_games.csv')).toBe(path.join(ARCHIVE, 'wpbl-2026', 'wpbl_games.json'))
+    expect(resolveCsvSource(ARCHIVE, '/data/wpbl/2026/manifest.csv')).toBeNull()
+    expect(resolveCsvSource(ARCHIVE, '/data/wpbl/wbsc/people.csv')).toBeNull()
+    expect(resolveCsvSource(ARCHIVE, '/data/wpbl/2026/wpbl_games.json')).toBeNull()
+  })
+
+  it('writes CSV a spreadsheet opens as it is', () => {
+    const csv = rowsToCsv([
+      { id: 'a', name: 'Martínez, Ana', line: [{ inning: 1, runs: 0 }], ok: true, n: -3 },
+      { id: 'b', name: '=HYPERLINK("x")', ok: null, n: 2.5, added_later: 'y' },
+    ])
+    expect(csv.startsWith('﻿')).toBe(true)
+    expect(csv.slice(1).split('\r\n')).toEqual([
+      'id,name,line,ok,n,added_later',
+      'a,"Martínez, Ana","[{""inning"":1,""runs"":0}]",true,-3,',
+      `b,"'=HYPERLINK(""x"")",,,2.5,y`,
+      '',
+    ])
   })
 })
