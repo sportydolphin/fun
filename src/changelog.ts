@@ -23,6 +23,24 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.222.0',
+    date:    '2026-11-10',
+    changes: [
+      {
+        short: 'Find: club games',
+        full:  'Find asks about a club’s whole game, beside single games: runs, hits and steals at the plate, strikeouts and hits allowed on the mound, errors in the field, and whether it won and by how much. Search reads "most runs in a game by a team", "teams with 15 hits", "shutouts", "no-hitters", "won by 10" and "errorless games". On MLB too.',
+      },
+      {
+        short: 'Find: fielding by the inning',
+        full:  'Errors, double plays, passed balls and steals allowed can be asked by the inning, for the club in the field: "most errors in an inning", "2 errors in an inning".',
+      },
+      {
+        short: 'Find: pickoffs and pitches seen',
+        full:  'A pitcher’s pickoffs and a batter’s pitches seen can be asked over a game or a season: "most pickoffs", "most pitches seen in a game".',
+      },
+    ],
+  },
+  {
     version: '1.221.0',
     date:    '2026-11-10',
     changes: [

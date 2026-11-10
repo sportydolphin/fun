@@ -8,8 +8,8 @@
 // count by construction: the same lines, cut to the same season, through the same engine and
 // qualifying bar. A second reading of the typed words could drift from what the link opens.
 
-import { decodeFinderPer, decodeFinderQuery, finderAnswerText, runFinder, type FinderBoardSide, type FinderQuery } from '../league/finder'
-import { inningPitchingLines, plateAppearanceLines, teamInningLines } from '../league/inningLines'
+import { decodeFinderPer, decodeFinderQuery, finderAnswerText, finderNeedsPlays, runFinder, type FinderBoardSide, type FinderQuery } from '../league/finder'
+import { fieldingInningLines, inningPitchingLines, plateAppearanceLines, playTotals, teamInningLines } from '../league/inningLines'
 import type { SeasonScope } from '../league/season'
 import { fetchWpblAllFielding, fetchWpblAllLines } from './api'
 import { fetchWpblPlayLog, type WpblLogPlay } from './api/plays'
@@ -74,7 +74,7 @@ export async function wpblFindAnswer(href: string, ctx: {
   // Cut against the WHOLE schedule, never one season's games (src/wpbl/CLAUDE.md).
   const cut = <T extends { game_id: string }>(rows: T[]): T[] => inSeason(rows, ctx.schedule, season)
   const games = gamesInSeason(ctx.schedule, season)
-  const fine = query.per === 'inning' || query.per === 'pa'
+  const fine = finderNeedsPlays(side, query)
   const [lines, fielding, plays] = await Promise.all([
     fetchWpblAllLines(),
     side === 'fielding' ? fetchWpblAllFielding() : Promise.resolve<WpblFieldingLine[]>([]),
@@ -89,6 +89,8 @@ export async function wpblFindAnswer(href: string, ctx: {
     innings: log && query.per === 'inning' && side === 'pitching' ? inningPitchingLines(WPBL_LEAGUE, log, games) : undefined,
     teamInnings: log && query.per === 'inning' && side === 'hitting' ? teamInningLines(WPBL_LEAGUE, log, games) : undefined,
     plateAppearances: log && query.per === 'pa' ? plateAppearanceLines(WPBL_LEAGUE, log, games) : undefined,
+    fieldInnings: log && query.per === 'inning' && side === 'fielding' ? fieldingInningLines(log, games) : undefined,
+    playTotals: log && (query.per === 'game' || query.per === 'season') ? playTotals(WPBL_LEAGUE, log, games) : undefined,
     clubName: id => ctx.teams.find(t => t.id === id)?.name ?? id,
   })
   return finderAnswerText(result, side, query)

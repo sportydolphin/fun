@@ -185,6 +185,12 @@ flowchart LR
   ranking or Bests card holds goes to Find too, fielding and season counts included
   (`parseRecordQuestion`'s `season` option, `fieldingStat`), and the inning grain counts the runners'
   plays off the narrative (`runnerEvents` in `src/league/inningLines.ts`).
+  **A fifth grain, `club`** (Nov 10, 2026): a club's whole game, its side's lines of one game summed
+  in the engine plus `won` and `margin` off the game row, so it needs no read and MLB has it too. "By a
+  team" and the named games (shutouts, no-hitters, blowouts, "won by 10") ask it. Fielding's inning
+  is the club in the field (`fieldingInningLines`, errors counted where the text charges one), and a
+  game or a season asking pickoffs or pitches seen reads the play log (`playTotals`,
+  `finderNeedsPlays`), which MLB's board is never offered (`plays={false}`).
   Questions run from the box come back under Recent on this device
   ([`src/lib/recentQuestions.ts`](src/lib/recentQuestions.ts)), merged with the section's synced
   players and clubs by when each was opened; MLB's name lookups are kept ten minutes

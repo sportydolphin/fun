@@ -1,7 +1,7 @@
 import { TeamLogo } from '../components/TeamLogo'
 import { useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { runFinder, validFinderSort, type FinderQuery, type FinderSide, type FinderSort } from '../../league/finder'
+import { runFinder, validFinderSort, type FinderPer, type FinderQuery, type FinderSide, type FinderSort } from '../../league/finder'
 import { FinderBoard, type FinderExample, type FinderReading } from '../../ui/finderBoard'
 import { parseFinderText } from '../../league/finderParse'
 import { scopedGames } from '../../league/season'
@@ -36,6 +36,11 @@ const CLUBS = [...MLB_CLUBS]
   .sort((a, b) => (TEAM_NICKNAME[a.id] ?? a.name).localeCompare(TEAM_NICKNAME[b.id] ?? b.name))
   .map(c => ({ value: String(c.id), label: TEAM_NICKNAME[c.id] ?? c.name }))
 
+// A player's game, a club's, and a season. MLB has no play log, so no inning or plate appearance.
+const GRAINS: FinderPer[] = ['game', 'club', 'season']
+/** A club's name for a club's row: the nickname, as the club picker says it. */
+const clubName = (id: string) => TEAM_NICKNAME[Number(id)] ?? id
+
 // THE ONE-TAP QUESTIONS, in nine-inning terms and a 162-game season. Innings are in outs and rates
 // in their last printed digit, as the engine stores both.
 const EXAMPLES: Record<FinderSide, FinderExample[]> = {
@@ -46,6 +51,9 @@ const EXAMPLES: Record<FinderSide, FinderExample[]> = {
     { label: '6+ IP, no hits', conditions: [{ field: 'ip', op: 'gte', value: 18 }, { field: 'h', op: 'eq', value: 0 }] },
     { label: '10+ K in a loss', conditions: [{ field: 'so', op: 'gte', value: 10 }, { field: 'l', op: 'eq', value: 1 }] },
     { label: '110+ pitches', conditions: [{ field: 'pitches', op: 'gte', value: 110 }] },
+    { per: 'club', label: 'Shutouts', conditions: [{ field: 'r', op: 'eq', value: 0 }] },
+    { per: 'club', label: 'No-hitters', conditions: [{ field: 'h', op: 'eq', value: 0 }] },
+    { per: 'club', label: '15+ strikeouts', conditions: [{ field: 'so', op: 'gte', value: 15 }] },
     { per: 'season', label: 'ERA under 3.00', conditions: [{ field: 'era', op: 'lte', value: 299 }] },
     { per: 'season', label: 'WHIP under 1.10', conditions: [{ field: 'whip', op: 'lte', value: 109 }] },
     { per: 'season', label: '15+ wins', conditions: [{ field: 'w', op: 'gte', value: 15 }] },
@@ -55,6 +63,9 @@ const EXAMPLES: Record<FinderSide, FinderExample[]> = {
   ],
   hitting: [
     { label: '4-hit games', conditions: [{ field: 'h', op: 'gte', value: 4 }] },
+    { per: 'club', label: '15+ runs', conditions: [{ field: 'r', op: 'gte', value: 15 }] },
+    { per: 'club', label: '20+ hits', conditions: [{ field: 'h', op: 'gte', value: 20 }] },
+    { per: 'club', label: 'Won by 10+', conditions: [{ field: 'margin', op: 'gte', value: 10 }] },
     { label: 'Multi-homer games', conditions: [{ field: 'hr', op: 'gte', value: 2 }] },
     { label: '5+ RBI', conditions: [{ field: 'rbi', op: 'gte', value: 5 }] },
     { label: '3+ steals', conditions: [{ field: 'sb', op: 'gte', value: 3 }] },
@@ -94,13 +105,13 @@ export function MlbFindView({
   }, [data, scoped.scope])
   const result = useMemo(
     () => runFinder(side, data?.batting ?? [], data?.pitching ?? [], data?.players ?? [], data?.games ?? [], scoped, 50, sort,
-      { eraInnings: 9, qualify }),
+      { eraInnings: 9, qualify, clubName }),
     [side, data, scoped, sort, qualify])
   // The examples' counts for the board before a question, in the slice on screen (WPBL's FindView).
   // None until the season's lines are in, which the board draws as a blank line rather than a zero.
   const exampleCounts = useMemo(() => {
     if (query.conditions.length > 0 || !data) return null
-    const opts = { eraInnings: 9, qualify }
+    const opts = { eraInnings: 9, qualify, clubName }
     return new Map(EXAMPLES[side].map(ex => [ex.label,
       runFinder(side, data.batting, data.pitching, data.players, data.games, { ...scoped, per: ex.per ?? 'game', conditions: ex.conditions }, 0, null, opts).total]))
   }, [query.conditions.length, data, side, scoped, qualify])
@@ -114,6 +125,8 @@ export function MlbFindView({
     else navigate(mlbFinderHref(r))
   }
   const mirrored = MLB_LINES_SEASONS.includes(vizSeason)
+  // A club's game is the club's row, with its mark where a player's portrait goes.
+  const clubRows = query.per === 'club'
 
   return (
     <Box sx={STATS_BOARD_ROOT_SX}>
@@ -133,12 +146,12 @@ export function MlbFindView({
           <FinderBoard side={side} query={query} onQuery={onQuery} result={result} clubs={CLUBS} loading={loading}
             clubAbbr={id => TEAM_ABBR[Number(id)] ?? id}
             sort={sort} onSort={setSort} examples={EXAMPLES[side]}
-            exampleCount={ex => exampleCounts?.get(ex.label) ?? null} exampleCounted={['game', 'season']} exampleHref={exampleHref}
+            exampleCount={ex => exampleCounts?.get(ex.label) ?? null} exampleCounted={GRAINS} exampleHref={exampleHref} grains={GRAINS} plays={false}
             parse={text => parseFinderText(text, MLB_FINDER_CLUBS)} onAsk={onAsk}
             renderRow={(r, i, unit, rank) => (
               <GameLineRow key={r.key} rank={rank.rank} tied={rank.tied} name={r.name} player={r.player} teamId={r.teamId}
                 game={r.game} detail={r.detail} value={r.headlineDisplay} unit={unit} divider={i > 0}
-                nameOpens="game" emphasizeRank={false} onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
+                nameOpens="game" emphasizeRank={false} club={clubRows} onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
             )}
             rowParts={r => {
               const club = r.teamId ? Number(r.teamId) : 0
@@ -146,8 +159,9 @@ export function MlbFindView({
               return {
                 portrait: r.player
                   ? <PlayerHeadshot variant="ring" playerId={r.player.playerId} name={r.name} teamId={club || undefined} size={PORTRAIT_PX} />
+                  : clubRows && club > 0 ? <TeamLogo teamId={club} abbr={TEAM_ABBR[club] ?? ''} size={PORTRAIT_PX} />
                   : <Box sx={{ width: chromePx(PORTRAIT_PX), flexShrink: 0 }} />,
-                club: club > 0 ? <TeamLogo teamId={club} abbr={TEAM_ABBR[club] ?? ''} size={16} /> : undefined,
+                club: club > 0 && !clubRows ? <TeamLogo teamId={club} abbr={TEAM_ABBR[club] ?? ''} size={16} /> : undefined,
                 playerLink: r.player ? playerLink(r.player.playerId, r.name, onOpenPlayer) : undefined,
                 gameLink: game ? gameLink(game.gamePk, onOpenGame ? () => onOpenGame(game.gamePk) : undefined) : undefined,
               }
@@ -159,8 +173,9 @@ export function MlbFindView({
                 name: t.name,
                 portrait: t.player
                   ? <PlayerHeadshot variant="ring" playerId={t.player.playerId} name={t.name} teamId={club || undefined} size={PORTRAIT_PX} />
+                  : clubRows && club > 0 ? <TeamLogo teamId={club} abbr={TEAM_ABBR[club] ?? ''} size={PORTRAIT_PX} />
                   : <Box sx={{ width: chromePx(PORTRAIT_PX) }} />,
-                badge: club > 0 ? <TeamLogo teamId={club} abbr={TEAM_ABBR[club] ?? ''} size={16} /> : undefined,
+                badge: club > 0 && !clubRows ? <TeamLogo teamId={club} abbr={TEAM_ABBR[club] ?? ''} size={16} /> : undefined,
                 linkProps: t.player ? playerLink(t.player.playerId, t.name, onOpenPlayer) : undefined,
               }
             }} />

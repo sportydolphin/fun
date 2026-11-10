@@ -1248,12 +1248,17 @@ team", ...) found 360 of 630 with no row; "most stolen bases in an inning" was t
 
 Still unanswered after these, in the order worth doing:
 
-5. **A club's game as a grain**: "most runs in a game by a team", "most hits by a club in a game",
-   shutouts, blowouts (42 of the probe's misses). The club half-inning's shape, summed per game.
+5. ✅ **A club's game as a grain** (v1.222.0). `club` beside the player's game, on every side and in
+   MLB: the side's lines summed per game in the engine, with `won` and a signed `margin`. "By a team",
+   "teams with 15 hits", "shutouts", "no-hitters", "blowouts", "won by 10", "lost by 8", "errorless
+   games"; "most runs by a team" with no game said stays the team stats ranking. 2026: 18 runs is the
+   most (Heights, Sep 3), one shutout, no no-hitter.
 6. **Spans**: a month, a series, a doubleheader, extra innings as a game filter (search item 9).
-7. **Fielding by the inning** (errors, double plays turned): the play log names no fielder's error
-   cleanly; read it off the narrative the way the runners are.
-8. **Pickoffs and pitches seen over a game or a season**: the inning lines summed per game.
+7. ✅ **Fielding by the inning** (v1.222.0). The club in the field: errors where the text charges one
+   ("error by", "dropped", "muffed"; 148 of 149), double plays, passed balls, steals allowed.
+8. ✅ **Pickoffs and pitches seen over a game or a season** (v1.222.0). `playTotals`, read only when a
+   question asks for them (`finderNeedsPlays`). A runner picked off stays inning-only: the log names
+   the runner by name alone.
 9. **Not answerable from the data**: intentional walks (11 recorded in 2026), left on base (never
    recorded), earned runs and RBI in an inning (the log cannot say).
 

@@ -416,6 +416,81 @@ export interface TeamInningLine {
   pk: number
 }
 
+/**
+ * A club's half-inning IN THE FIELD: Fielding's inning grain. The log names a fielder by position
+ * ("error by ss"), never by player, so the line is the club's. Errors are counted where the text
+ * charges one ("error by", "dropped", "muffed"), never where it only mentions one: "advanced to second
+ * on the error" is the same error again. A double play is a row that says so. Against 2026's box
+ * scores: 148 of 149 errors.
+ */
+export interface FieldingInningLine {
+  /** `${game_id}|${inning}|${half}`. */
+  id: string
+  game_id: string
+  /** The club in the field. */
+  team_id: string
+  inning: number
+  half: 'top' | 'bottom'
+  /** The half's first row: where Game Center opens. */
+  sequence: number
+  e: number
+  dp: number
+  pb: number
+  /** Steals against the club's catcher. */
+  sba: number
+}
+
+export function fieldingInningLines(plays: RunValuePlay[], games: LeagueGame[]): FieldingInningLine[] {
+  const gameById = new Map(games.map(g => [g.id, g]))
+  const lines = new Map<string, FieldingInningLine>()
+  for (const p of inOrder(plays, gameById)) {
+    const g = gameById.get(p.game_id)!
+    const id = halfKey(p)
+    let line = lines.get(id)
+    if (!line) {
+      line = {
+        id, game_id: p.game_id, team_id: p.half === 'top' ? g.home_team_id : g.away_team_id,
+        inning: p.inning, half: p.half, sequence: p.sequence, e: 0, dp: 0, pb: 0, sba: 0,
+      }
+      lines.set(id, line)
+    }
+    const text = (p.narrative ?? '').toLowerCase()
+    const count = (re: RegExp) => (text.match(re) ?? []).length
+    line.e += count(/error by|dropped|muffed/g)
+    line.dp += count(/double play/g)
+    const run = runnerEvents(p)
+    line.pb += run.pb
+    line.sba += run.sb
+  }
+  return [...lines.values()]
+}
+
+/**
+ * Each player's play-log counts in each game, for a game or a season of the two counts no box score
+ * carries: a pitcher's pickoffs (`runnerEvents`, credited to the pitcher on the row) and a batter's
+ * pitches seen (the plate appearances' own pitch counts, so a row that was the start of the next one
+ * is not counted twice). Keyed `${game_id}|${player_id}`.
+ */
+export function playTotals(league: League, plays: RunValuePlay[], games: LeagueGame[]): Map<string, { pk: number; pitches: number }> {
+  const out = new Map<string, { pk: number; pitches: number }>()
+  const at = (game: string, player: string) => {
+    const key = `${game}|${player}`
+    let t = out.get(key)
+    if (!t) { t = { pk: 0, pitches: 0 }; out.set(key, t) }
+    return t
+  }
+  const gameIds = new Set(games.map(g => g.id))
+  for (const p of plays) {
+    if (!gameIds.has(p.game_id) || !p.pitcher_id) continue
+    const pk = runnerEvents(p).pk
+    if (pk) at(p.game_id, p.pitcher_id).pk += pk
+  }
+  for (const l of plateAppearanceLines(league, plays, games)) {
+    if (l.batter_id) at(l.game_id, l.batter_id).pitches += l.pitches
+  }
+  return out
+}
+
 export function teamInningLines(league: League, plays: RunValuePlay[], games: LeagueGame[]): TeamInningLine[] {
   const gameById = new Map(games.map(g => [g.id, g]))
   const sorted = inOrder(plays, gameById)

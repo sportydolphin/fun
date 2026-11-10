@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   runWpblFinder, encodeFinderQuery, decodeFinderQuery, parseFinderValue, describeFinderQuery, describeFinderConditions,
-  finderColumns, validFinderSort, decodeFinderPer, EMPTY_FINDER_QUERY, type FinderQuery,
+  finderColumns, finderFields, validFinderSort, decodeFinderPer, EMPTY_FINDER_QUERY, type FinderQuery,
 } from '../derive/finder'
 import { conditionsForPer, finderPlayerAt, hasMatchup, hasPlayerFilter } from '../../league/finder'
 import type { WpblBattingLine, WpblFieldingLine, WpblGame, WpblPitchingLine, WpblPlayer } from '../types'
@@ -731,4 +731,65 @@ it('drops a condition a plate appearance cannot meet when the grain becomes one'
   const asked = [{ field: 'so', op: 'gte' as const, value: 5 }, { field: 'pitches', op: 'gte' as const, value: 8 }, { field: 'hr', op: 'gte' as const, value: 1 }]
   expect(conditionsForPer('pitching', 'pa', asked).map(c => c.field)).toEqual(['pitches', 'hr'])
   expect(conditionsForPer('pitching', 'game', asked)).toHaveLength(3)
+})
+
+// A club's whole game: its players' lines of one game summed, and the result off the game row. A
+// "most runs by a team" that read one player's line, or summed across games, would still look like a
+// list of clubs.
+describe('the finder, by a club game', () => {
+  const games = [
+    game({ id: 'g1', home_team_id: 'NY', away_team_id: 'LA', home_score: 7, away_score: 2 } as Partial<WpblGame>),
+    game({ id: 'g2', game_date: '2026-08-08', home_team_id: 'NY', away_team_id: 'LA', home_score: 1, away_score: 4 } as Partial<WpblGame>),
+  ]
+  const lines = [
+    bat({ game_id: 'g1', player_id: 'a', team_id: 'NY', r: 4, h: 3 }), bat({ game_id: 'g1', player_id: 'c', team_id: 'NY', r: 3, h: 2 }),
+    bat({ game_id: 'g1', player_id: 'b', team_id: 'LA', r: 2, h: 5 }),
+    bat({ game_id: 'g2', player_id: 'a', team_id: 'NY', r: 1, h: 1 }), bat({ game_id: 'g2', player_id: 'b', team_id: 'LA', r: 4, h: 6 }),
+  ]
+  const clubName = (id: string) => id
+
+  it('sums a club\'s lines in one game and files the row under the club', () => {
+    const r = runWpblFinder('hitting', lines, [], PLAYERS, games, q({ per: 'club', conditions: [{ field: 'r', op: 'gte', value: 5 }] }), 50, null, { clubName })
+    expect(r.rows.map(x => [x.name, x.game?.id, x.values.r, x.values.h])).toEqual([['NY', 'g1', 7, 5]])
+  })
+
+  it('reads the result off the game, a loss as a negative margin', () => {
+    const won = runWpblFinder('hitting', lines, [], PLAYERS, games, q({ per: 'club', conditions: [{ field: 'won', op: 'eq', value: 1 }] }), 50, null, { clubName })
+    expect(won.rows.map(x => `${x.name} ${x.game?.id}`).sort()).toEqual(['LA g2', 'NY g1'])
+    const lost = runWpblFinder('hitting', lines, [], PLAYERS, games, q({ per: 'club', conditions: [{ field: 'margin', op: 'lte', value: -3 }] }), 50, null, { clubName })
+    expect(lost.rows.map(x => [x.name, x.values.margin])).toEqual([['NY', -3], ['LA', -5]])
+  })
+
+  it('names no decision a club cannot have', () => {
+    expect(finderFields('pitching', 'club').map(f => f.key)).not.toContain('w')
+    expect(finderFields('pitching', 'club').map(f => f.key)).toContain('won')
+    expect(finderFields('hitting', 'game').map(f => f.key)).not.toContain('margin')
+  })
+
+  it('reads a club game off the address and writes it back', () => {
+    expect(decodeFinderPer('club~r.gte.10')).toBe('club')
+    expect(encodeFinderQuery({ per: 'club', conditions: [{ field: 'margin', op: 'lte', value: -5 }] })).toBe('club~margin.lte.-5')
+    expect(decodeFinderQuery('club~margin.lte.-5', 'hitting')).toEqual([{ field: 'margin', op: 'lte', value: -5 }])
+  })
+})
+
+// Pickoffs and pitches seen live in the play log, so a game has them only with the play totals, and a
+// section without plays cannot be offered them.
+describe('the finder, with the play totals', () => {
+  it('reads a pitcher\'s pickoffs and a batter\'s pitches seen into the game line', () => {
+    const games = [game()]
+    const totals = new Map([['g1|a', { pk: 2, pitches: 0 }], ['g1|b', { pk: 0, pitches: 31 }]])
+    const pk = runWpblFinder('pitching', [], [pit({ player_id: 'a', outs: 15 })], PLAYERS, games,
+      q({ conditions: [{ field: 'pk', op: 'gte', value: 2 }] }), 50, null, { playTotals: totals })
+    expect(names(pk)).toEqual(['Jaida Lee'])
+    const seen = runWpblFinder('hitting', [bat({ player_id: 'b', ab: 4 })], [], PLAYERS, games,
+      q({ conditions: [{ field: 'pitches', op: 'gte', value: 30 }] }), 50, null, { playTotals: totals })
+    expect(names(seen)).toEqual(['Ayami Sato'])
+  })
+
+  it('offers them only to a section that reads its plays', () => {
+    expect(finderFields('pitching', 'game').map(f => f.key)).toContain('pk')
+    expect(finderFields('pitching', 'game', false).map(f => f.key)).not.toContain('pk')
+    expect(finderFields('hitting', 'season', false).map(f => f.key)).not.toContain('pitches')
+  })
 })

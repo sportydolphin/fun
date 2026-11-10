@@ -1,9 +1,9 @@
 import { useDark } from '../ui/useDark'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { runWpblFinder, validFinderSort, type FinderBoardSide, type FinderQuery, type FinderSort } from './derive/finder'
-import { conditionsForPer, hasPlayerFilter, type FinderPer, type FinderRow } from '../league/finder'
+import { conditionsForPer, finderNeedsPlays, hasPlayerFilter, type FinderPer, type FinderRow } from '../league/finder'
 import { requestPlay } from './entryUrl'
-import { inningPitchingLines, plateAppearanceLines, teamInningLines } from '../league/inningLines'
+import { fieldingInningLines, inningPitchingLines, plateAppearanceLines, playTotals as buildPlayTotals, teamInningLines } from '../league/inningLines'
 import { WPBL_LEAGUE } from './league'
 import { fetchWpblPlayLog, getCachedWpblPlayLog } from './api/plays'
 import { useWpblSeason } from './SeasonContext'
@@ -69,6 +69,10 @@ const EXAMPLES: Record<FinderBoardSide, FinderExample[]> = {
     { per: 'pa', label: 'Walk-offs', conditions: [{ field: 'walkoff', op: 'eq', value: 1 }] },
     { per: 'pa', label: '9+ retired in a row', conditions: [{ field: 'retired', op: 'gte', value: 9 }], ladder: { values: [18, 15, 12, 10, 9, 8, 7, 6], label: v => `${v}+ retired in a row` } },
     { per: 'pa', label: '3+ strikeouts in a row', conditions: [{ field: 'krow', op: 'gte', value: 3 }], ladder: { values: [7, 6, 5, 4, 3], label: v => `${v}+ strikeouts in a row` } },
+    { per: 'club', label: 'Shutouts', conditions: [{ field: 'r', op: 'eq', value: 0 }] },
+    { per: 'club', label: 'No-hitters', conditions: [{ field: 'h', op: 'eq', value: 0 }] },
+    { per: 'club', label: '12+ strikeouts', conditions: [{ field: 'so', op: 'gte', value: 12 }], ladder: { values: [18, 16, 15, 14, 13, 12, 11, 10], label: plus('strikeouts') } },
+    { per: 'club', label: '8+ walks', conditions: [{ field: 'bb', op: 'gte', value: 8 }], ladder: { values: [12, 11, 10, 9, 8, 7, 6], label: plus('walks') } },
     { per: 'season', label: 'ERA under 3.00', conditions: [{ field: 'era', op: 'lte', value: 299 }], ladder: { values: [99, 149, 199, 249, 299, 349, 399, 449, 499], label: v => `ERA under ${under(v)}` } },
     { per: 'season', label: 'WHIP under 1.20', conditions: [{ field: 'whip', op: 'lte', value: 119 }], ladder: { values: [89, 99, 109, 119, 129, 139, 149, 169, 199], label: v => `WHIP under ${under(v)}` } },
     { per: 'season', label: '4+ wins', conditions: [{ field: 'w', op: 'gte', value: 4 }], ladder: { values: [8, 7, 6, 5, 4, 3, 2], label: plus('wins') } },
@@ -92,6 +96,10 @@ const EXAMPLES: Record<FinderBoardSide, FinderExample[]> = {
     { per: 'pa', label: '2-out run-scoring hits', conditions: [{ field: 'h', op: 'gte', value: 1 }, { field: 'paouts', op: 'eq', value: 2 }, { field: 'runs', op: 'gte', value: 1 }] },
     { per: 'pa', label: 'Walk-offs', conditions: [{ field: 'walkoff', op: 'eq', value: 1 }] },
     { per: 'pa', label: 'Back-to-back home runs', conditions: [{ field: 'hrrow', op: 'gte', value: 2 }], ladder: { values: [4, 3, 2], label: v => (v === 2 ? 'Back-to-back home runs' : `${v} home runs in a row`) } },
+    { per: 'club', label: '10+ runs', conditions: [{ field: 'r', op: 'gte', value: 10 }], ladder: { values: [20, 18, 16, 15, 14, 12, 10], label: plus('runs') } },
+    { per: 'club', label: '15+ hits', conditions: [{ field: 'h', op: 'gte', value: 15 }], ladder: { values: [22, 20, 18, 16, 15, 14, 12], label: plus('hits') } },
+    { per: 'club', label: 'Won by 10+', conditions: [{ field: 'margin', op: 'gte', value: 10 }], ladder: { values: [15, 12, 10, 8], label: v => `Won by ${v}+` } },
+    { per: 'club', label: '4+ steals', conditions: [{ field: 'sb', op: 'gte', value: 4 }], ladder: { values: [8, 7, 6, 5, 4, 3], label: plus('steals') } },
     { per: 'season', label: '.300 hitters', conditions: [{ field: 'avg', op: 'gte', value: 300 }], ladder: { values: [450, 400, 350, 300, 275, 250], label: v => `${avgText(v)} hitters` } },
     { per: 'season', label: '.900+ OPS', conditions: [{ field: 'ops', op: 'gte', value: 900 }], ladder: { values: [1300, 1200, 1100, 1000, 900, 800, 700], label: v => `${avgText(v)}+ OPS` } },
     { per: 'season', label: '3+ home runs', conditions: [{ field: 'hr', op: 'gte', value: 3 }], ladder: { values: [12, 10, 8, 6, 5, 4, 3, 2], label: plus('home runs') } },
@@ -105,6 +113,12 @@ const EXAMPLES: Record<FinderBoardSide, FinderExample[]> = {
     { label: '5+ assists', conditions: [{ field: 'a', op: 'gte', value: 5 }], ladder: { values: [9, 8, 7, 6, 5, 4], label: plus('assists') } },
     { label: '2+ double plays', conditions: [{ field: 'dp', op: 'gte', value: 2 }], ladder: { values: [4, 3, 2], label: plus('double plays') } },
     { label: '8+ chances, no errors', conditions: [{ field: 'tc', op: 'gte', value: 8 }, { field: 'e', op: 'eq', value: 0 }], ladder: { values: [16, 14, 12, 10, 8], label: v => `${v}+ chances, no errors` } },
+    { per: 'club', label: '3+ errors', conditions: [{ field: 'e', op: 'gte', value: 3 }], ladder: { values: [6, 5, 4, 3], label: plus('errors') } },
+    { per: 'club', label: 'Errorless wins', conditions: [{ field: 'e', op: 'eq', value: 0 }, { field: 'won', op: 'eq', value: 1 }] },
+    { per: 'club', label: '3+ double plays', conditions: [{ field: 'dp', op: 'gte', value: 3 }], ladder: { values: [5, 4, 3, 2], label: plus('double plays') } },
+    { per: 'inning', label: '2+ errors', conditions: [{ field: 'e', op: 'gte', value: 2 }], ladder: { values: [4, 3, 2], label: plus('errors') } },
+    { per: 'inning', label: 'Double plays', conditions: [{ field: 'dp', op: 'gte', value: 1 }] },
+    { per: 'inning', label: '2+ steals allowed', conditions: [{ field: 'sba', op: 'gte', value: 2 }], ladder: { values: [4, 3, 2], label: v => `${v}+ steals allowed` } },
     { per: 'season', label: 'Errorless seasons', conditions: [{ field: 'e', op: 'eq', value: 0 }, { field: 'tc', op: 'gte', value: 30 }], ladder: { at: 1, values: [100, 75, 60, 45, 30, 20], label: v => (v === 30 ? 'Errorless seasons' : `Errorless, ${v}+ chances`) } },
     { per: 'season', label: '.980+ fielding', conditions: [{ field: 'fpct', op: 'gte', value: 980 }], ladder: { values: [1000, 995, 990, 980, 970], label: v => (v === 1000 ? '1.000 fielding' : `${avgText(v)}+ fielding`) } },
     { per: 'season', label: '5+ errors', conditions: [{ field: 'e', op: 'gte', value: 5 }], ladder: { values: [12, 10, 8, 6, 5, 4], label: plus('errors') } },
@@ -113,12 +127,13 @@ const EXAMPLES: Record<FinderBoardSide, FinderExample[]> = {
 }
 
 
-/** The grains each side can be asked at. An inning is a pitcher's on Pitching and a club's turn at the
- *  plate on Hitting; a plate appearance has no fielder. */
+/** The grains each side can be asked at. An inning is a pitcher's on Pitching, a club's turn at the
+ *  plate on Hitting and a club's turn in the field on Fielding; a plate appearance has no fielder. A
+ *  club's whole game sits beside the player's, the grain a "by a team" question asks. */
 const GRAINS: Record<FinderBoardSide, FinderPer[]> = {
-  hitting: ['game', 'inning', 'pa', 'season'],
-  pitching: ['game', 'inning', 'pa', 'season'],
-  fielding: ['game', 'season'],
+  hitting: ['game', 'club', 'inning', 'pa', 'season'],
+  pitching: ['game', 'club', 'inning', 'pa', 'season'],
+  fielding: ['game', 'club', 'inning', 'season'],
 }
 
 export default function WpblFindView({
@@ -171,7 +186,9 @@ export default function WpblFindView({
   }, [grains, side, query, onQuery])
   const [playRead, setPlayRead] = useState(() => ({ season, plays: getCachedWpblPlayLog(season) }))
   const plays = playRead.season === season ? playRead.plays : null
-  const askPlays = askInnings || askPas
+  // A game or a season asking a count only the plays hold (pickoffs, pitches seen) reads them too.
+  const askTotals = (query.per === 'game' || query.per === 'season') && finderNeedsPlays(side, query, sort)
+  const askPlays = askInnings || askPas || askTotals
   useEffect(() => {
     if (!askPlays || plays) return
     let cancelled = false
@@ -186,12 +203,18 @@ export default function WpblFindView({
   const teamInnings = useMemo(
     () => (askInnings && side === 'hitting' && plays ? teamInningLines(WPBL_LEAGUE, cut(plays), games) : undefined),
     [askInnings, side, plays, cut, games])
-  // Hitting by the inning is a club's half-inning, so its rows and its tally are clubs, not players.
-  const clubRows = side === 'hitting' && query.per === 'inning'
+  const fieldInnings = useMemo(
+    () => (askInnings && side === 'fielding' && plays ? fieldingInningLines(cut(plays), games) : undefined),
+    [askInnings, side, plays, cut, games])
+  // A club's game, and a club's half-inning at the plate or in the field: rows and tally are clubs.
+  const clubRows = query.per === 'club' || (query.per === 'inning' && side !== 'pitching')
   // THE NICKNAME, NOT THE FULL NAME: every name column here steps a name down the way it does a
   // person's, so "Los Angeles Queens" came out "L. Queens", which reads as a player. One word has no
   // stage to step to, and four clubs never share a nickname.
   const clubName = useCallback((id: string) => teams.find(x => x.id === id)?.name ?? id, [teams])
+  const playTotals = useMemo(
+    () => (askTotals && plays ? buildPlayTotals(WPBL_LEAGUE, cut(plays), games) : undefined),
+    [askTotals, plays, cut, games])
   const plateAppearances = useMemo(
     () => (askPas && plays ? plateAppearanceLines(WPBL_LEAGUE, cut(plays), games) : undefined),
     [askPas, plays, cut, games])
@@ -234,8 +257,8 @@ export default function WpblFindView({
     }
   }, [side, batting, pitching, fielding, plateAppearances, players, teams, query.playerId, query.batterId, query.pitcherId])
   const result = useMemo(
-    () => runWpblFinder(side, batting, pitching, players, games, query, 50, sort, { eraInnings, qualify, fielding, innings, plateAppearances, teamInnings, clubName }),
-    [side, batting, pitching, fielding, players, games, query, sort, eraInnings, qualify, innings, plateAppearances, teamInnings, clubName])
+    () => runWpblFinder(side, batting, pitching, players, games, query, 50, sort, { eraInnings, qualify, fielding, innings, plateAppearances, teamInnings, fieldInnings, playTotals, clubName }),
+    [side, batting, pitching, fielding, players, games, query, sort, eraInnings, qualify, innings, plateAppearances, teamInnings, fieldInnings, playTotals, clubName])
   // THE EXAMPLES' COUNTS, for the board before a question: each one run in the scope on screen. A
   // play-log example counts only once the log is in hand (cached, or read for a play-log grain),
   // since the start screen must not cost the read the play-log grains are careful to defer.
@@ -247,20 +270,24 @@ export default function WpblFindView({
   const exTeamInnings = useMemo(
     () => teamInnings ?? (countPlays && side === 'hitting' ? teamInningLines(WPBL_LEAGUE, cut(countPlays), games) : undefined),
     [teamInnings, countPlays, side, cut, games])
+  const exFieldInnings = useMemo(
+    () => fieldInnings ?? (countPlays && side === 'fielding' ? fieldingInningLines(cut(countPlays), games) : undefined),
+    [fieldInnings, countPlays, side, cut, games])
   const exPas = useMemo(
     () => plateAppearances ?? (countPlays && side !== 'fielding' ? plateAppearanceLines(WPBL_LEAGUE, cut(countPlays), games) : undefined),
     [plateAppearances, countPlays, side, cut, games])
   // Each laddered example at the highest bar the slice reaches (src/ui/finderExamples.ts), so a tile
   // names what happened rather than "0 games". Before a count is possible, the examples as written.
   const fitted = useMemo(() => {
-    const opts = { eraInnings, qualify, fielding, innings: exInnings, plateAppearances: exPas, teamInnings: exTeamInnings, clubName }
+    const opts = { eraInnings, qualify, fielding, innings: exInnings, plateAppearances: exPas, teamInnings: exTeamInnings, fieldInnings: exFieldInnings, clubName }
     return fitExamples(EXAMPLES[side], ex => {
       if (!startScreen) return null
       const per = ex.per ?? 'game'
-      const missing = (per === 'pa' && !exPas) || (per === 'inning' && !(side === 'pitching' ? exInnings : exTeamInnings))
+      const missing = (per === 'pa' && !exPas)
+        || (per === 'inning' && !(side === 'pitching' ? exInnings : side === 'fielding' ? exFieldInnings : exTeamInnings))
       return missing ? null : runWpblFinder(side, batting, pitching, players, games, { ...query, per, conditions: ex.conditions, batterId: null, pitcherId: null, playerId: null }, 0, null, opts).total
     })
-  }, [startScreen, side, batting, pitching, players, games, query, eraInnings, qualify, fielding, exInnings, exPas, exTeamInnings, clubName])
+  }, [startScreen, side, batting, pitching, players, games, query, eraInnings, qualify, fielding, exInnings, exPas, exTeamInnings, exFieldInnings, clubName])
   const examples = useMemo(() => fitted.map(f => f.ex), [fitted])
   const exampleCounts = useMemo(() => new Map(fitted.map(f => [f.ex, f.n])), [fitted])
   const exampleHref = (ex: FinderExample) => wpblFinderHref({

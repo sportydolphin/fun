@@ -15,7 +15,7 @@
 // strikeouts", "hr at bat" (the plate-appearance grain said bare, an event with no number). A word missing here hides the question from the search bar with no sign, so a
 // countless phrase added to the parser adds its word here too.
 
-const COUNT_WORDS = /(?<![a-z])(zero|no|none|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|without|multi|double|triple|immaculate|loaded|slams?|walk[\s-]?offs?|full|risp|scoring|empty|extras?|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|runners?|men|someone|somebody|comebacks?|behind|ahead|rall(?:y|ies)|lead|biggest|largest|back|b2b|straight|consecutive|successive|at[\s-]?bats?|plate\s+appearances?)(?![a-z])/i
+const COUNT_WORDS = /(?<![a-z])(zero|no|none|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|without|multi|double|triple|immaculate|loaded|slams?|walk[\s-]?offs?|full|risp|scoring|empty|extras?|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|runners?|men|someone|somebody|comebacks?|behind|ahead|rall(?:y|ies)|lead|biggest|largest|back|b2b|straight|consecutive|successive|at[\s-]?bats?|plate\s+appearances?|shut[\s-]?outs?|blow[\s-]?outs?|errorless)(?![a-z])/i
 
 export function mightBeFinderQuestion(text: string): boolean {
   return /\d/.test(text) || COUNT_WORDS.test(text)

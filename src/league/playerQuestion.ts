@@ -166,7 +166,8 @@ export function parsePlayerQuestion(
 
   // A RECORD OF THEIR OWN: "most hr in a game by Whitmore", "Sato's most strikeouts in an inning".
   // Their lines, ranked by the stat, so the first row is the answer.
-  const records = parseRecordQuestion(rest.replace(/(?<![a-z])by(?![a-z])/gi, ' '), clubs)
+  // WPBL's alone (see above), which reads its plays: the play-log counts are records too.
+  const records = parseRecordQuestion(rest.replace(/(?<![a-z])by(?![a-z])/gi, ' '), clubs, { plays: true })
     .filter(r => sides.includes(r.side) && !(r.per === 'inning' && r.side === 'hitting') && (r.per !== 'inning' || opts.plays))
   if (records.length) {
     for (const id of ids) {

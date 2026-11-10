@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { inningPitchingLines, plateAppearanceLines, runnerEvents, teamInningLines } from '../inningLines'
+import { fieldingInningLines, inningPitchingLines, plateAppearanceLines, playTotals, runnerEvents, teamInningLines } from '../inningLines'
 import type { LeagueGame, RunValuePlay } from '../types'
 import { WPBL_LEAGUE } from '../../wpbl/league'
 
@@ -229,3 +229,28 @@ describe('the runners rows', () => {
   })
 })
 
+
+// The club in the field: an error counted where the text charges it, never where it only mentions it.
+describe('fieldingInningLines', () => {
+  it('counts each error once and a double play, under the club in the field', () => {
+    const plays = [
+      play({ outs: 0, event_type: 'unknown', narrative: 'Jo Doe reached on a throwing error by ss, advanced to second on the error.' }),
+      play({ outs: 0, event_type: 'unknown', narrative: 'Al Roe reached first on a dropped fly by lf.' }),
+      play({ outs: 0, event_type: 'groundout', pitch_sequence: 'P', narrative: 'Bo Poe grounded into double play ss to 2b to 1b.' }),
+    ]
+    const [line] = fieldingInningLines(plays, [game()])
+    expect(line).toMatchObject({ team_id: 'home', e: 2, dp: 1 })
+  })
+})
+
+describe('playTotals', () => {
+  it('credits a pickoff to the pitcher and the pitches to the batter', () => {
+    const plays = [
+      play({ outs: 0, event_type: 'walk', pitch_sequence: 'BBFBB', batter_id: 'x' }),
+      play({ outs: 0, event_type: 'out', narrative: 'Runner out at first p to 1b, picked off.' }),
+    ]
+    const totals = playTotals(WPBL_LEAGUE, plays, [game()])
+    expect(totals.get('g1|x')).toMatchObject({ pitches: 5 })
+    expect(totals.get('g1|p1')).toMatchObject({ pk: 1 })
+  })
+})

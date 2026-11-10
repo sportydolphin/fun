@@ -90,7 +90,6 @@ describe('parseFinderText', () => {
     expect(parseFinderText('Kelsie Whitmore', CLUBS)).toEqual([])
     expect(parseFinderText('7', CLUBS)).toEqual([])
     expect(parseFinderText('a b', CLUBS)).toEqual([])
-    expect(parseFinderText('no hitter', CLUBS)).toEqual([])
     expect(parseFinderText('', CLUBS)).toEqual([])
   })
 

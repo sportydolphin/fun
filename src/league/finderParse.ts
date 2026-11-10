@@ -235,7 +235,7 @@ const FILLER = new Set([
   'a', 'an', 'the', 'and', 'or', 'with', 'of', 'in', 'on', 'game', 'games', 'line', 'lines', 'who', 'had',
   'has', 'have', 'did', 'got', 'any', 'anyone', 'anybody', 'player', 'players', 'times', 'time', 'find',
   'show', 'me', 'all', 'every', 'how', 'many', 'most', 'when', 'where', 'what', 'which', 'were', 'was',
-  'is', 'are', 'least', 'than', 'more', 'fewer', 'less', 'only', 'single', 'one',
+  'is', 'are', 'least', 'than', 'more', 'fewer', 'less', 'only', 'single', 'one', 'that', 'scored',
   // A club's lead word with no club after it: the club itself is what gets reported.
   'vs', 'v', 'versus', 'against', 'facing', 'at', 'for', 'by',
 ])
@@ -278,6 +278,26 @@ const ONE_TWO_THREE: FinderCondition[] = [
 const featConditions = (feat: string): FinderCondition[] => (feat.startsWith('immaculate')
   ? [{ field: 'so', op: 'gte', value: 3 }, { field: 'pitches', op: 'lte', value: 9 }]
   : ONE_TWO_THREE)
+
+// ─── A club's whole game, said in words ───────────────────────────────────────
+//
+// "BY A TEAM" IS THE GRAIN: "most runs in a game by a team", "teams with 15 hits", "club games with 3
+// errors". Without it the same words are a player's line, which is the commoner question, so the club
+// is read only when it is said. The named feats are a club's game by definition (a no-hitter is the
+// staff's, a blowout the score's) and carry their own side and conditions.
+const CLUB_WORDS = /(?<![a-z])(?:(?:by|for|from)\s+(?:a|one|the|either|any)\s+(?:team|club)|as\s+a\s+(?:team|club)|(?:teams?|clubs?)(?:\s+games?)?)(?![a-z])/g
+const CLUB_FEATS: { re: RegExp; side: FinderBoardSide; conditions: (m: string[]) => FinderCondition[] }[] = [
+  { re: /(?<![a-z])(?:combined\s+)?no[\s-]?hitters?|no[\s-]hit\s+games?(?![a-z])/g, side: 'pitching', conditions: () => [{ field: 'h', op: 'eq', value: 0 }] },
+  { re: /(?<![a-z0-9])(one|two|1|2)[\s-]hitters?(?![a-z])/g, side: 'pitching',
+    conditions: m => [{ field: 'h', op: 'eq', value: m[1] === 'one' || m[1] === '1' ? 1 : 2 }] },
+  { re: /(?<![a-z])shut[\s-]?outs?(?![a-z])/g, side: 'pitching', conditions: () => [{ field: 'r', op: 'eq', value: 0 }] },
+  { re: /(?<![a-z])blow[\s-]?outs?(?![a-z])/g, side: 'hitting', conditions: () => [{ field: 'margin', op: 'gte', value: 10 }] },
+  { re: /(?<![a-z])(?:won|wins?|winning|victories)\s+by\s+(?:at\s+least\s+)?(\d+)\+?(?:\s+or\s+more)?(?:\s+runs?)?(?![a-z0-9])/g, side: 'hitting',
+    conditions: m => [{ field: 'margin', op: 'gte', value: Number(m[1]) }] },
+  { re: /(?<![a-z])(?:lost|loss(?:es)?|losing)\s+by\s+(?:at\s+least\s+)?(\d+)\+?(?:\s+or\s+more)?(?:\s+runs?)?(?![a-z0-9])/g, side: 'hitting',
+    conditions: m => [{ field: 'margin', op: 'lte', value: -Number(m[1]) }] },
+  { re: /(?<![a-z])errorless\s+(?:games?|wins?)(?![a-z])/g, side: 'fielding', conditions: () => [{ field: 'e', op: 'eq', value: 0 }] },
+]
 
 // ─── The plate-appearance grain, said in words ────────────────────────────────
 //
@@ -731,6 +751,19 @@ export function parseFinderText(
       return ' '.repeat((args[0] as string).length)
     })
   }
+  // A CLUB'S GAME: its named feats first (they hold numbers "won by 10" would otherwise give a stat),
+  // then the words that say the club. Not with an inning, which on Hitting is a club's already.
+  let clubHint = false
+  let featSide: FinderBoardSide | null = null
+  for (const { re, side, conditions } of CLUB_FEATS) {
+    rest = rest.replace(re, (...args: unknown[]) => {
+      clubHint = true
+      featSide = side
+      feats.push(...conditions(args.slice(0, -2) as string[]))
+      return ' '.repeat((args[0] as string).length)
+    })
+  }
+  rest = rest.replace(CLUB_WORDS, m => { clubHint = true; return ' '.repeat(m.length) })
   let innSaid = false
   for (const { re, condition } of INN_PHRASES) {
     rest = rest.replace(re, (...args: unknown[]) => {
@@ -852,8 +885,8 @@ export function parseFinderText(
   for (const side of sides) {
     // An inning is a pitcher's on Pitching and a club's turn at the plate on Hitting, and Fielding has
     // none: the grain check below drops a side whose fields cannot ask it.
-    if (inningHint && side === 'fielding') continue
     if (paHint && side === 'fielding') continue
+    if (featSide && side !== featSide) continue
     const byField = new Map<string, FinderCondition>()
     for (const c of feats) byField.set(c.op === 'eq' ? c.field : `${c.field}:${c.op}`, c)
     let ok = true
@@ -889,7 +922,7 @@ export function parseFinderText(
 
     // WHICH GRAINS. A field only a season has settles it; so does a word for either. Otherwise the
     // biggest number decides, against what one game can hold (GAME_LIMITS).
-    const gameKeys = new Set(finderFields(side, 'game').map(f => f.key))
+    const gameKeys = new Set(finderFields(side, 'game', plays).map(f => f.key))
     const seasonOnly = conditions.some(c => !gameKeys.has(c.field))
     const limits = GAME_LIMITS[side]
     const floors = conditions.filter(c => c.op !== 'lte' && limits[c.field])
@@ -901,7 +934,10 @@ export function parseFinderText(
     // since the board is already one season: a number that small keeps the game reading, offered first.
     const small = !pastTypical
     const grains: { per: FinderPer; bonus: number }[] = []
-    if (inningHint || paHint) {
+    if (clubHint && !inningHint && !paHint) {
+      const keys = new Set(finderFields(side, 'club').map(f => f.key))
+      if (conditions.length && conditions.every(c => keys.has(c.field))) grains.push({ per: 'club', bonus: 1 })
+    } else if (inningHint || paHint) {
       // Said in words, so it is the only reading; a stat that grain cannot have ("an ERA in an
       // inning", "a double for a pitcher") leaves none rather than a game question nobody asked.
       const per: FinderPer = inningHint ? 'inning' : 'pa'
@@ -914,9 +950,13 @@ export function parseFinderText(
       if (seasonOnly || (!gameHint && !forLine.seen && (seasonHint || (pastTypical && !none)))) grains.push({ per: 'season', bonus: 0 })
     }
 
+    // A BATTER'S PITCHES OVER A GAME OR A SEASON are asked as "pitches seen": "100 pitches" bare is a
+    // pitcher's count, and a batter's season of it would only crowd that reading.
+    const barePitches = side === 'hitting' && pending.some(p => p.alias.hitting === 'pitches' && p.alias.pitching)
     for (const { per, bonus } of grains) {
+      if (barePitches && (per === 'game' || per === 'season')) continue
       // Every condition must be one this grain can ask, or the link would match nothing.
-      const askable = new Set(finderFields(side, per).map(f => f.key))
+      const askable = new Set(finderFields(side, per, plays).map(f => f.key))
       if (!conditions.every(c => askable.has(c.field))) continue
       for (const teamId of teamIds) {
         for (const oppId of oppIds) {
@@ -1197,7 +1237,7 @@ export interface ParsedRecord {
   field: string
   /** A season only where the caller asked for one (`season: true`): the stats tables rank a season,
    *  so this is for the stats they have no column for ("most singles", "most errors"). */
-  per: 'game' | 'inning' | 'season'
+  per: 'game' | 'inning' | 'season' | 'club'
   teamId: string | null
   oppId: string | null
   venue: FinderVenue
@@ -1212,13 +1252,13 @@ export interface ParsedRecord {
  * off first, so they narrow the record rather than making the words unreadable. Most only: the
  * fewest of something in one game is nearly always zero, which is no record anybody keeps.
  */
-export function parseRecordQuestion(text: string, clubs: readonly FinderClubAlias[], { season: seasons = false }: { season?: boolean } = {}): ParsedRecord[] {
+export function parseRecordQuestion(text: string, clubs: readonly FinderClubAlias[], { season: seasons = false, plays = false }: { season?: boolean; plays?: boolean } = {}): ParsedRecord[] {
   const clubWords = new Set(clubs.flatMap(c => c.names.flatMap(n => normalize(n).split(' '))))
   const year = takeYear(` ${fixStatTypos(normalize(text), clubWords)} `)
   const placed = takeVenue(year.rest, 'any')
   const clubbed = takeClubs(placed.rest, clubs, placed.venue)
   let rest = clubbed.rest
-  let per: 'game' | 'inning' | 'season' | null = null
+  let per: 'game' | 'inning' | 'season' | 'club' | null = null
   rest = rest.replace(INNING_SPAN, m => { per = 'inning'; return ' '.repeat(m.length) })
   rest = rest.replace(SINGLE_GAME_G, m => { per ??= 'game'; return ' '.repeat(m.length) })
   // THE GRAIN WORD ALONE, the way a search box is typed: "most walks game", "strikeouts inning". Not
@@ -1227,12 +1267,18 @@ export function parseRecordQuestion(text: string, clubs: readonly FinderClubAlia
   rest = rest.replace(BARE_GAME_SPAN, m => { per ??= 'game'; return ' '.repeat(m.length) })
   // A SEASON, said or (with a lead word) left unsaid: "most singles in a season", "most errors". Only
   // when the caller asks, since a season the stats tables can rank belongs to them.
+  // "By a team" makes a game record a club's ("most runs in a game by a team"). With no grain said it
+  // is the club's season, which the team stats table ranks ("most runs by a team"), so nothing here.
+  let byClub = false
+  rest = rest.replace(CLUB_WORDS, m => { byClub = true; return ' '.repeat(m.length) })
+  if (byClub && per === 'game') per = 'club'
+  if (byClub && !per) return []
   if (seasons && !per) {
     rest = rest.replace(SEASON_SPAN, m => { per = 'season'; return ' '.repeat(m.length) })
     if (!per && /(?<![a-z])(most|highest|greatest|top|leaders?|leading)(?![a-z])/.test(rest)) per = 'season'
   }
   if (!per) return []
-  const grain: 'game' | 'inning' | 'season' = per
+  const grain: 'game' | 'inning' | 'season' | 'club' = per
   rest = rest.replace(/(?<![a-z])(records?|highs?|bests?)(?![a-z])/g, ' ')
   const read: { side: FinderBoardSide; field: string }[] = parseLeaderText(rest)
     .filter(p => !p.career && p.season == null && p.side !== 'overall' && p.dir !== 'asc')
@@ -1245,7 +1291,7 @@ export function parseRecordQuestion(text: string, clubs: readonly FinderClubAlia
   // a game" is a batter's record; a pitcher's is asked as "most home runs allowed".
   return read.filter(p => p.side === read[0].side)
     .filter(p => grain !== 'season' || !RATE_FIELDS.has(p.field))
-    .filter(p => finderFields(p.side, grain).some(f => f.key === p.field && f.key !== 'g'))
+    .filter(p => finderFields(p.side, grain, plays).some(f => f.key === p.field && f.key !== 'g'))
     .flatMap(p => clubbed.teamIds.flatMap(teamId => clubbed.oppIds.flatMap(oppId => (teamId && teamId === oppId ? [] : [{
       side: p.side, field: p.field, per: grain, teamId, oppId, venue: clubbed.venue, season: year.season,
     }]))))
