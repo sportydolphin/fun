@@ -1224,9 +1224,36 @@ worth doing:
     shares a call in flight, and keeps no failure.
 
 Two limits to keep in mind rather than fix. A player's name inside a Find question ("Whitmore 2
-hr") is dropped from the Find row, because Find cannot filter by player; the name search beside it
-finds the player. And MLB has no regular-season page for a pairing of
+hr") is dropped from the Find row: Find takes one player since Nov 10 (v1.218.0), but the parser
+does not read names yet (step 2 below). And MLB has no regular-season page for a pairing of
 clubs, so "Cubs vs Cardinals" answers with their latest and next game only.
+
+## Search: names, records for every stat, looser wording (Nov 10, 2026) 🎯⚙️
+
+A probe of about 30 phrasings found the misses: "most walks in a game" offers nothing (no Bests card
+for walks), "most walks game" opens the SEASON leaders, "Sato vs hunters" reads as two players,
+"whitmore off sato", "strikeouts inning", "hr at home" and "most pitches at bat" offer nothing, and
+"hr vs boston" opens Boston's own home-run ranking. The root of most of them was that Find could not
+ask about one player, so a name was dropped. Four pull requests, in this order (decided Nov 10):
+
+1. ✅ **One player in Find** (Nov 10, v1.218.0). `playerId` on the query (`by` in the address, since
+   `player` opens a player), at a game, a season and a pitcher's inning; at a plate appearance it is
+   the matchup's batter (Hitting) or pitcher (Pitching), and `finderPlayerAt` swaps one for the other
+   when the grain changes. Not at a club's half-inning, which is nobody's. A Player picker over the
+   clubs; a player with nothing asked is their game log in date order.
+2. **Names in the search bar**, with the matchup reading. The parser takes names out before the
+   stats. "Sato vs hunters" / "at Boston" / "against LA": the player's games against the club in
+   date order, and a second row with their season against it. "Whitmore vs Sato" / "off" / "facing"
+   with one batter and one pitcher: their plate appearances first, the side-by-side compare second.
+   "Whitmore 2-hit games": the question narrowed to the player. WPBL only; MLB's search later.
+3. **"Most X" for every stat and grain.** The Bests card where one exists, else Find at that grain
+   ranked by the stat, so the record is the first row: "most walks in a game", "most strikeouts in
+   an inning", "most pitches in an at-bat", "most hr in a game by Whitmore", "most hits vs Boston".
+4. **Looser wording.** Grain words count wherever they sit ("most walks game", "strikeouts inning",
+   "hr at bat"); "in", "at", "on", "vs" are optional where nothing hangs on them, kept where they
+   mean something ("in the 7th", "at home", "on 0-2"). "hr vs boston" offers both readings. No row
+   for a side that can never match ("3 strikeouts in an inning" on Hitting). A corpus of about 80
+   phrasings, each with the row it must open first, every miss above among them.
 
 ## Find by the inning (Nov 9, 2026) 🎯🔬
 
@@ -1306,7 +1333,14 @@ Shipped Nov 9, 2026 as v1.211.0 (#239). Follow-ups, in the order taken:
    open the inning grain, which already ranks highest first. 2026 (regular season): one back-to-back
    (two with the playoffs), three runs of 3+ strikeouts (the most, 4), and 9 retired is the longest.
    A run's row opens Game Center at its last plate appearance, not its first.
-10. **Matchup filter**: one batter or pitcher on the plate-appearance grain.
+10. ✅ **Matchup filter** (Nov 10, v1.218.0). `batterId` and `pitcherId` on the query, asked at the
+    plate-appearance grain only (the one line that names both players), on either side: a pitcher on
+    Hitting is who batters faced, a batter on Pitching who pitchers faced, both is the head-to-head.
+    The cut comes before the count, so the tally's "of N" is trips in the matchup. A matchup with no
+    stat asked is its log in date order. Pickers under Matchup list who came to the plate (and who
+    pitched to them) in the plays on screen, under the club each did it for most; `bat` and `pit` in
+    the address, dropped with the grain. Not yet in the search bar: "Whitmore vs Schroder" opens the
+    two players' seasons side by side, with no Find row for their plate appearances.
 11. **TrackMan fields** where a game has them, **win probability per plate appearance**, and **feat
     alerts** (immaculate innings, walk-offs) to Discord, Bluesky or Home.
 12. **Across seasons** once 2027 plays exist, and **MLB** once its plays are mirrored (below).

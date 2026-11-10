@@ -1,7 +1,7 @@
 import { useDark } from '../ui/useDark'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { runWpblFinder, validFinderSort, type FinderBoardSide, type FinderQuery, type FinderSort } from './derive/finder'
-import { conditionsForPer, type FinderPer, type FinderRow } from '../league/finder'
+import { conditionsForPer, hasPlayerFilter, type FinderPer, type FinderRow } from '../league/finder'
 import { requestPlay } from './entryUrl'
 import { inningPitchingLines, plateAppearanceLines, teamInningLines } from '../league/inningLines'
 import { WPBL_LEAGUE } from './league'
@@ -10,7 +10,7 @@ import { useWpblSeason } from './SeasonContext'
 import { wpblAccentFg, wpblFullName } from './constants'
 import { PlayerPortrait, TeamBadge } from './ui'
 import { useWpblGameLink, useWpblPlayerLink } from './LinkContext'
-import { FinderBoard, type FinderExample, type FinderReading } from '../ui/finderBoard'
+import { FinderBoard, type FinderExample, type FinderPlayerPicks, type FinderReading } from '../ui/finderBoard'
 import { fitExamples } from '../ui/finderExamples'
 import { PORTRAIT_PX } from '../ui/leaders'
 import { parseFinderText } from '../league/finderParse'
@@ -195,13 +195,51 @@ export default function WpblFindView({
   const plateAppearances = useMemo(
     () => (askPas && plays ? plateAppearanceLines(WPBL_LEAGUE, cut(plays), games) : undefined),
     [askPas, plays, cut, games])
+  // THE PLAYER PICKERS: whoever has a line on the side on screen (one player), and everyone who came
+  // to the plate and everyone who pitched to them in the plays on screen (the matchup), each under the
+  // club they did it for most, so no list holds somebody with nothing to find. The matchup's lists are
+  // empty until the plays land, which the board shows as only "Any batter".
+  const picks = useMemo((): FinderPlayerPicks => {
+    const byId = new Map(players.map(p => [p.id, p]))
+    const clubOf = (id: string) => teams.find(t => t.id === id)
+    const groups = (pairs: Iterable<[string | null, string | null]>, keep: string | null | undefined) => {
+      const clubs = new Map<string, Map<string, number>>()
+      for (const [id, club] of pairs) {
+        if (!id || !byId.has(id)) continue
+        const counts = clubs.get(id) ?? new Map<string, number>()
+        counts.set(club ?? '', (counts.get(club ?? '') ?? 0) + 1)
+        clubs.set(id, counts)
+      }
+      // The player a link names stays pickable even with no line here (a hitter asked about on
+      // Pitching), so the picker reads that name rather than "Any player" over an empty answer.
+      if (keep && byId.has(keep) && !clubs.has(keep)) clubs.set(keep, new Map([[byId.get(keep)!.team_id ?? '', 1]]))
+      const under = new Map<string, { value: string; label: string }[]>()
+      for (const [id, counts] of clubs) {
+        const club = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0]
+        const list = under.get(club) ?? []
+        list.push({ value: id, label: byId.get(id)!.name })
+        under.set(club, list)
+      }
+      return [...under]
+        .map(([club, options]) => ({ label: clubOf(club) ? wpblFullName(clubOf(club)!) : 'Other', options: options.sort((a, b) => a.label.localeCompare(b.label)) }))
+        .sort((a, b) => a.label.localeCompare(b.label))
+    }
+    const lines: { player_id: string; team_id: string | null }[] = side === 'pitching' ? pitching : side === 'fielding' ? fielding : batting
+    const pas = plateAppearances ?? []
+    return {
+      players: groups(lines.map(l => [l.player_id, l.team_id]), query.playerId),
+      batters: groups(pas.map(l => [l.batter_id, l.batting_team]), query.batterId),
+      pitchers: groups(pas.map(l => [l.pitcher_id, l.fielding_team]), query.pitcherId),
+      name: id => byId.get(id)?.name ?? id,
+    }
+  }, [side, batting, pitching, fielding, plateAppearances, players, teams, query.playerId, query.batterId, query.pitcherId])
   const result = useMemo(
     () => runWpblFinder(side, batting, pitching, players, games, query, 50, sort, { eraInnings, qualify, fielding, innings, plateAppearances, teamInnings, clubName }),
     [side, batting, pitching, fielding, players, games, query, sort, eraInnings, qualify, innings, plateAppearances, teamInnings, clubName])
   // THE EXAMPLES' COUNTS, for the board before a question: each one run in the scope on screen. A
   // play-log example counts only once the log is in hand (cached, or read for a play-log grain),
   // since the start screen must not cost the read the play-log grains are careful to defer.
-  const startScreen = query.conditions.length === 0
+  const startScreen = query.conditions.length === 0 && !hasPlayerFilter(side, query)
   const countPlays = startScreen ? plays : null
   const exInnings = useMemo(
     () => innings ?? (countPlays && side === 'pitching' ? inningPitchingLines(WPBL_LEAGUE, cut(countPlays), games) : undefined),
@@ -220,7 +258,7 @@ export default function WpblFindView({
       if (!startScreen) return null
       const per = ex.per ?? 'game'
       const missing = (per === 'pa' && !exPas) || (per === 'inning' && !(side === 'pitching' ? exInnings : exTeamInnings))
-      return missing ? null : runWpblFinder(side, batting, pitching, players, games, { ...query, per, conditions: ex.conditions }, 0, null, opts).total
+      return missing ? null : runWpblFinder(side, batting, pitching, players, games, { ...query, per, conditions: ex.conditions, batterId: null, pitcherId: null, playerId: null }, 0, null, opts).total
     })
   }, [startScreen, side, batting, pitching, players, games, query, eraInnings, qualify, fielding, exInnings, exPas, exTeamInnings, clubName])
   const examples = useMemo(() => fitted.map(f => f.ex), [fitted])
@@ -232,7 +270,9 @@ export default function WpblFindView({
   // the other side goes through the address, the way the search box sends it, since the side is
   // StatsView's to switch.
   const onAsk = (r: FinderReading) => {
-    if (r.side === side) onQuery({ ...query, per: r.per, conditions: r.conditions, teamId: r.teamId, oppId: r.oppId, venue: r.venue })
+    // A matchup outlives a typed question only at the grain that asks it.
+    if (r.side === side) onQuery({ ...query, per: r.per, conditions: r.conditions, teamId: r.teamId, oppId: r.oppId, venue: r.venue,
+      ...(r.per === 'pa' ? {} : { batterId: null, pitcherId: null }) })
     else navigate(wpblFinderHref(r))
   }
   const clubs = useMemo(
@@ -255,7 +295,7 @@ export default function WpblFindView({
       sort={sort} onSort={setSort} examples={examples} accent={accent}
       exampleCount={ex => exampleCounts.get(ex) ?? null} exampleHref={exampleHref}
       exampleCounted={plays || askPlays ? grains : ['game', 'season']}
-      grains={grains} loading={askPlays && !plays}
+      grains={grains} loading={askPlays && !plays} picks={picks}
       parse={text => parseFinderText(text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS)} onAsk={onAsk}
       renderRow={(r, i, unit, rank) => (
         <GameLineRow key={r.key} rank={rank.rank} tied={rank.tied} name={r.name} player={r.player}

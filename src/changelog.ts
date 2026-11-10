@@ -23,6 +23,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.218.0',
+    date:    '2026-11-10',
+    changes: [
+      {
+        short: 'Find: batter vs pitcher',
+        full:  'Find’s plate appearances take a batter, a pitcher or both, on Hitting or Pitching. Pick a pitcher to see who hit the home runs off them, a batter to see who struck them out, or both for every trip to the plate between the two, in order.',
+      },
+      {
+        short: 'Find: one player',
+        full:  'Find asks about one player too: their 3-hit games, their innings with 3 strikeouts, their season against one club. A player with nothing else asked is their game log. The player stays picked when you switch between games, plate appearances and seasons.',
+      },
+    ],
+  },
+  {
     version: '1.217.0',
     date:    '2026-11-09',
     changes: [

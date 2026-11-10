@@ -25,7 +25,7 @@ import {
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine } from '../types'
 import { isPostseasonGame, type SeasonScope } from '../season'
 import {
-  decodeFinderPer, decodeFinderQuery, encodeFinderQuery, finderFields,
+  decodeFinderPer, decodeFinderQuery, encodeFinderQuery, finderFields, finderPlayerApplies,
   type FinderBoardSide, type FinderQuery,
 } from '../derive/finder'
 import { track, EVENTS } from '../../lib/analytics'
@@ -234,6 +234,9 @@ export default function WpblStatsView({
     teamId: fromUrl.findTeam || null,
     oppId: fromUrl.findOpp || null,
     venue: fromUrl.findVenue ?? 'any',
+    batterId: fromUrl.findBatter || null,
+    pitcherId: fromUrl.findPitcher || null,
+    playerId: fromUrl.findPlayer || null,
   }))
   // Matched to a club once the clubs load (below): a link's `?team=` is the club's id in lower case.
   // Not on a Charts link, whose `team` and `who` are the chart's own (chartsClub below).
@@ -665,6 +668,9 @@ export default function WpblStatsView({
         teamId: q.findTeam || null,
         oppId: q.findOpp || null,
         venue: q.findVenue ?? 'any',
+        batterId: q.findBatter || null,
+        pitcherId: q.findPitcher || null,
+        playerId: q.findPlayer || null,
       })
     }
   }
@@ -760,6 +766,11 @@ export default function WpblStatsView({
     set('team', finding ? findQuery.teamId : null)
     set('opp', finding ? findQuery.oppId : null)
     set('venue', finding && findQuery.venue !== 'any' ? findQuery.venue : null)
+    // Only at the grain that asks it, so a link never carries a player its board ignores.
+    const matchup = finding && findQuery.per === 'pa'
+    set('bat', matchup ? findQuery.batterId ?? null : null)
+    set('pit', matchup ? findQuery.pitcherId ?? null : null)
+    set('by', finding && finderPlayerApplies(findSide, findQuery.per) ? findQuery.playerId ?? null : null)
     set('pos', source === 'season' && mode === 'players' ? pos : null)
     // THE FILTERS, which a reload used to drop: a link to Boston's playoff pitchers opened on the
     // whole league's regular season. Named as MLB's address names them. `team` is Find's own
@@ -775,7 +786,7 @@ export default function WpblStatsView({
     const url = str ? `${window.location.pathname}?${str}` : window.location.pathname
     if (url === window.location.pathname + window.location.search) return
     window.history.replaceState(window.history.state, '', url)
-  }, [active, source, mode, side, sortKey, sortAsc, findQuery, scope, pos, teamId, qualified, qual.active, chartsClub, chartsEveryone, view, hasViews])
+  }, [active, source, mode, side, findSide, sortKey, sortAsc, findQuery, scope, pos, teamId, qualified, qual.active, chartsClub, chartsEveryone, view, hasViews])
 
   const bestAsc = activeCol.lowerBetter ?? false
   const bestFirst = sortAsc === bestAsc

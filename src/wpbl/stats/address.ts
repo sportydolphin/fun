@@ -43,7 +43,7 @@ export const STATS_PATH = '/wpbl/stats'
  * the target is this tab. See `playFragmentFor` in entryUrl.ts for the related case of the URL
  * fragment, which needs capturing rather than carrying.
  */
-export const STATS_URL_PARAMS = ['board', 'side', 'sort', 'dir', 'q', 'team', 'opp', 'venue', 'pos', 'games', 'who', 'cols'] as const
+export const STATS_URL_PARAMS = ['board', 'side', 'sort', 'dir', 'q', 'team', 'opp', 'venue', 'by', 'bat', 'pit', 'pos', 'games', 'who', 'cols'] as const
 
 
 /** Copy this board's params from one query onto another, leaving everything else alone.
@@ -89,7 +89,7 @@ function boardAxes(board: string | null): { source: Source; mode: Mode; side?: S
  *  own controls are the truth and this module writes the URL rather than reading it. */
 export function axesFromQuery(): {
   source?: Source; mode?: Mode; side?: Side; sortKey?: string; sortAsc?: boolean
-  find?: string | null; findTeam?: string | null; findOpp?: string | null; findVenue?: FinderVenue
+  find?: string | null; findTeam?: string | null; findOpp?: string | null; findVenue?: FinderVenue; findBatter?: string | null; findPitcher?: string | null; findPlayer?: string | null
   pos?: string | null
   /** The board's filters, named as MLB's address names them (`games`, `team`), so one reader's
    *  habit works in both sections. `team` is the Find board's club on Find and the filter
@@ -127,6 +127,11 @@ export function axesFromQuery(): {
     find: q.get('q'),
     findTeam: q.get('team'),
     findOpp: q.get('opp'),
+    // The matchup's two players, by id: a plate-appearance question only (see FinderQuery).
+    findBatter: q.get('bat'),
+    // One player's lines (`by`, since `player` already opens a player).
+    findPlayer: q.get('by'),
+    findPitcher: q.get('pit'),
     findVenue: venue === 'home' || venue === 'away' ? (venue as FinderVenue) : undefined,
     // A position or role on the players board ("best catcher" in the search).
     pos: q.get('pos'),

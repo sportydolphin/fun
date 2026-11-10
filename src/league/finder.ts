@@ -89,6 +89,51 @@ export interface FinderQuery {
   venue: FinderVenue
   scope: SeasonScope
   per: FinderPer
+  /** THE MATCHUP: one batter, one pitcher, or both, at the plate-appearance grain only. A trip to the
+   *  plate is the one line that names both players, so it is the only grain where "against this
+   *  pitcher" is a fact about the line rather than about the game (a box-score line knows only the
+   *  club it faced). Either side can ask either: on Hitting a pitcher picks who batters faced, on
+   *  Pitching a batter picks who pitchers faced, and with both set it is the head-to-head. Ignored at
+   *  every other grain, and absent is everyone. */
+  batterId?: string | null
+  pitcherId?: string | null
+  /** ONE PLAYER'S LINES: the player each match is filed under, at a game, a season or a pitcher's
+   *  inning. Not at a plate appearance, where the matchup's batter (Hitting) or pitcher (Pitching) is
+   *  the same thing and the board swaps one for the other with the grain (`finderPlayerAt`), and not
+   *  at a club's half-inning, which is nobody's. Before it, a name in a typed question was dropped,
+   *  since Find could not ask about one player. Absent is everyone. */
+  playerId?: string | null
+}
+
+/** Whether a query names a matchup that its grain can ask. */
+export function hasMatchup(q: Pick<FinderQuery, 'per' | 'batterId' | 'pitcherId'>): boolean {
+  return q.per === 'pa' && !!(q.batterId || q.pitcherId)
+}
+
+/** Whether one player can be asked about at this grain on this side (see `FinderQuery.playerId`). */
+export function finderPlayerApplies(side: FinderBoardSide, per: FinderPer): boolean {
+  return per === 'game' || per === 'season' || (per === 'inning' && side === 'pitching')
+}
+
+/** Whether a query asks about particular players at all: a matchup, or one player where it applies. */
+export function hasPlayerFilter(side: FinderBoardSide, q: Pick<FinderQuery, 'per' | 'batterId' | 'pitcherId' | 'playerId'>): boolean {
+  return hasMatchup(q) || (!!q.playerId && finderPlayerApplies(side, q.per))
+}
+
+/**
+ * The same players at another grain. A player picked for single games is the batter of a plate
+ * appearance on Hitting and its pitcher on Pitching, and back again, so switching grain keeps the
+ * question about them rather than dropping the name. The matchup's other player has no place at
+ * the coarser grains, and goes.
+ */
+export function finderPlayerAt<Q extends Pick<FinderQuery, 'per' | 'batterId' | 'pitcherId' | 'playerId'>>(side: FinderBoardSide, q: Q, per: FinderPer): Q {
+  const own = side === 'pitching' ? 'pitcherId' : 'batterId'
+  if (per === 'pa') {
+    const carried = q.per === 'pa' ? q[own] : q.playerId
+    return { ...q, playerId: null, batterId: null, pitcherId: null, ...(side !== 'fielding' && carried ? { [own]: carried } : {}) }
+  }
+  const carried = q.per === 'pa' ? (side === 'fielding' ? null : q[own]) : q.playerId
+  return { ...q, batterId: null, pitcherId: null, playerId: carried ?? null }
 }
 
 export const EMPTY_FINDER_QUERY: FinderQuery = {
@@ -764,9 +809,12 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
   // The lines a question looks at: finals, the season slice, then the club, opponent and venue. The
   // club, opponent and venue cut BEFORE a season is summed, which is what makes a season question
   // "at home" a home split.
+  // One player, where the grain files lines under one (a club's half-inning is filed under the club).
+  const subject = query.playerId && finderPlayerApplies(side, query.per) ? query.playerId : null
   const cutLines = <L extends AnyLine>(lines: L[]): L[] =>
     scopedLines(lines.filter(l => gameById.has(l.game_id)), finals, query.scope)
-      .filter(l => (!query.teamId || l.team_id === query.teamId) && gameOk(gameById.get(l.game_id), l.team_id))
+      .filter(l => (!query.teamId || l.team_id === query.teamId) && (!subject || l.player_id === subject)
+        && gameOk(gameById.get(l.game_id), l.team_id))
 
   const collect = <L extends AnyLine>(
     lines: L[], fields: Field<L>[], detail: (l: L) => string, played: (l: L) => boolean,
@@ -800,6 +848,11 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     const qualifier = asksRate && !ownBar && bar.min ? { field: bar.field, min: bar.min } : null
     const barField = byKey.get(bar.field)!
 
+    // A MATCHUP OR ONE PLAYER WITH NOTHING ELSE ASKED IS A LOG: every trip to the plate between the
+    // two, or every game the player played, in the order they happened, the way a player page lists a
+    // game log. Ranked by the side's default stat, it put every hit first and read as an answer to a
+    // question nobody asked. A season has one row per player, so nothing to order.
+    const log = !season && query.conditions.length === 0 && (hasMatchup(query) || !!subject)
     const matched: { line: L; head: number }[] = []
     for (const line of candidates) {
       if (qualifier && barField.value(line) < qualifier.min) continue
@@ -831,7 +884,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
         const c = highFirst(sortField.value(a.line), sortField.value(b.line))
         if (c) return c * dir
       }
-      if (a.head !== b.head) return highFirst(a.head, b.head) * (head.lowerBetter ? -1 : 1)
+      if (!log && a.head !== b.head) return highFirst(a.head, b.head) * (head.lowerBetter ? -1 : 1)
       if (season) return nameOf(a).localeCompare(nameOf(b))
       const ad = dateOf(a), bd = dateOf(b)
       if (ad !== bd) return ad < bd ? -1 : 1
@@ -843,7 +896,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     })
 
     // Flat only with a question asked: the unasked board is every line, ordered by its default stat.
-    const flat = !season && query.conditions.length > 0 && matched.length > 1 && matched.every(m => m.head === matched[0].head)
+    const flat = !season && matched.length > 1 && (log || (query.conditions.length > 0 && matched.every(m => m.head === matched[0].head)))
     const differs = (f: Field<L>) => { const v = f.value(matched[0].line); return matched.some(m => f.value(m.line) !== v) }
     const lead = flat
       ? (FLAT_LEAD[side][query.per] ?? []).map(k => byKey.get(k)).find((f): f is Field<L> => !!f && f !== head && differs(f)) ?? head
@@ -933,7 +986,11 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     // would be. No fielding side. "Played" in the tally is plate appearances.
     const pas = side === 'fielding' ? [] : opts.plateAppearances ?? []
     type FiledPa = PlateAppearanceLine & { player_id: string; team_id: string | null }
+    // The matchup cuts before anything is counted, so the tally's "of 7" is the trips to the plate
+    // against that pitcher (or by that batter), not every one of the season.
     const lines = pas.flatMap((l): FiledPa[] => {
+      if (query.batterId && l.batter_id !== query.batterId) return []
+      if (query.pitcherId && l.pitcher_id !== query.pitcherId) return []
       const playerId = side === 'pitching' ? l.pitcher_id : l.batter_id
       return playerId ? [{ ...l, player_id: playerId, team_id: side === 'pitching' ? l.fielding_team : l.batting_team }] : []
     })

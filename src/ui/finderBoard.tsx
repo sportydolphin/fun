@@ -4,7 +4,7 @@ import { Box, Skeleton, Typography } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import {
   finderFieldGroups, finderUnit, finderColumns, defaultCondition, parseFinderValue, unparseFinderValue,
-  displayFinderValue, describeFinderQuery, describeFinderConditions, finderLowerBetter, conditionsForPer,
+  displayFinderValue, describeFinderQuery, describeFinderConditions, finderLowerBetter, conditionsForPer, finderPlayerApplies, finderPlayerAt, hasPlayerFilter,
   FINDER_OPS,
   type FinderCondition, type FinderOp, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
   type FinderBoardSide, type FinderSort, type FinderTally, type FinderVenue,
@@ -240,12 +240,29 @@ export interface FinderReading {
   ignored: string[]
 }
 
-/** The club, opponent and venue in words: "for NY, vs LA, at home". */
-function scopeWords(q: Pick<FinderQuery, 'teamId' | 'oppId' | 'venue'>, clubAbbr: (id: string) => string): string {
+type PickGroups = { label: string; options: { value: string; label: string }[] }[]
+
+/** The board's player pickers, under their clubs, and a picked player's name. `players` is who the
+ *  side on screen files its lines under (its hitters, pitchers or fielders); the other two are a plate
+ *  appearance's two sides, for the matchup. */
+export interface FinderPlayerPicks {
+  players: PickGroups
+  batters: { label: string; options: { value: string; label: string }[] }[]
+  pitchers: { label: string; options: { value: string; label: string }[] }[]
+  name: (id: string) => string
+}
+
+/** The club, opponent, venue and players in words: "for NY, vs LA, at home, by K. Whitmore". */
+function scopeWords(side: FinderBoardSide, q: Pick<FinderQuery, 'teamId' | 'oppId' | 'venue' | 'per' | 'batterId' | 'pitcherId' | 'playerId'>,
+  clubAbbr: (id: string) => string, name: (id: string) => string = id => id): string {
+  const pa = q.per === 'pa'
   return [
+    !pa && q.playerId && finderPlayerApplies(side, q.per) && `by ${name(q.playerId)}`,
     q.teamId && `for ${clubAbbr(q.teamId)}`,
     q.oppId && `vs ${clubAbbr(q.oppId)}`,
     q.venue === 'home' ? 'at home' : q.venue === 'away' ? 'on the road' : null,
+    pa && q.batterId && `by ${name(q.batterId)}`,
+    pa && q.pitcherId && `against ${name(q.pitcherId)}`,
   ].filter(Boolean).join(', ')
 }
 
@@ -266,7 +283,7 @@ function AskBox({ side, parse, onAsk, clubAbbr }: {
   const readings = text.trim() ? parse(text) : []
   const best = readings.find(r => r.side === side) ?? readings[0] ?? null
   const ask = () => { if (best) { onAsk(best); setText('') } }
-  const scope = best ? scopeWords(best, clubAbbr) : ''
+  const scope = best ? scopeWords(best.side, best, clubAbbr) : ''
   return (
     <Box>
       {/* A SEARCH BOX THAT LOOKS LIKE ONE: the mark and the button. Bare, its example placeholder read
@@ -674,7 +691,7 @@ function ExampleGrid({ side, grains, examples, count, counted, href, onPick }: {
 
 export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   side, query, onQuery, result, clubs, clubAbbr, loading = false, renderRow, rowParts, tallyParts,
-  sort, onSort, examples, exampleCount, exampleCounted = [], exampleHref, parse, onAsk, accent, grains = DEFAULT_GRAINS,
+  sort, onSort, examples, exampleCount, exampleCounted = [], exampleHref, parse, onAsk, accent, grains = DEFAULT_GRAINS, picks,
 }: {
   side: FinderBoardSide
   /** Owned by the section, which mirrors it into the address bar. */
@@ -715,16 +732,22 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   /** The grains this side can be asked at, in the switch's order. Single innings only where the
    *  section reads its plays and the side is pitching (src/league/inningLines.ts). */
   grains?: FinderPer[]
+  /** The players to pick from: one player at a game, a season or a pitcher's inning, and a batter and
+   *  a pitcher at a plate appearance. Absent draws no player pickers. */
+  picks?: FinderPlayerPicks
 }) {
   const [allRows, setAllRows] = useState(false)
   // FOLDED ONCE THERE IS AN ANSWER. The form is a screen of selects above the list it produced, so a
   // question that arrived whole (a shared link, an example, the typed box) opens folded to its chips,
   // and editing is one tap. A question being built from the pickers stays open, since folding it
   // under the reader's thumb would be worse.
-  const [folded, setFolded] = useState(() => query.conditions.length > 0)
+  const [folded, setFolded] = useState(() => query.conditions.length > 0 || hasPlayerFilter(side, query))
   const unit = finderUnit(side, result.headlineField)
   const clubOptions = (blank: string) => [{ value: '', label: blank }, ...clubs]
-  const hasConditions = query.conditions.length > 0
+  // A PLAYER IS A QUESTION ON ITS OWN: "every trip to the plate between these two" or "every game
+  // Sato pitched" asks no stat, and answers with the log rather than the examples.
+  const hasConditions = query.conditions.length > 0 || hasPlayerFilter(side, query)
+  const playerHere = !!picks && query.per !== 'pa' && finderPlayerApplies(side, query.per)
   const isFolded = folded && hasConditions
 
   const setCondition = (i: number, c: FinderCondition) =>
@@ -740,7 +763,8 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   const setPer = (per: FinderPer) => {
     if (per === query.per) return
     const kept = conditionsForPer(side, per, query.conditions)
-    onQuery({ ...query, per, conditions: kept.length || per === 'game' ? kept : [defaultCondition(side, per)] })
+    // The players go with the grain: a game's player is a plate appearance's batter or pitcher.
+    onQuery({ ...finderPlayerAt(side, query, per), per, conditions: kept.length || per === 'game' ? kept : [defaultCondition(side, per)] })
   }
 
   // A NUMBER AND A SENTENCE, not just a number. "12" over a list is a fact about a question the
@@ -754,9 +778,9 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   const tallyTitle = `Most ${noun[1]} matching`
   const games_ = season ? (result.total === 1 ? who[0] : who[1])
     : result.total === 1 ? noun[0] : noun[1]
-  const scopeText = scopeWords(query, clubAbbr)
+  const scopeText = scopeWords(side, query, clubAbbr, picks?.name)
   const total = result.total.toLocaleString()
-  const summary = hasConditions
+  const summary = query.conditions.length > 0
     ? `${total} ${games_} where ${describeFinderQuery(side, query)}${scopeText ? `, ${scopeText}` : ''}`
     : scopeText
       ? `${total} ${games_} ${scopeText}`
@@ -824,6 +848,9 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     ...(query.teamId ? [{ key: 'team', text: `For ${clubAbbr(query.teamId)}`, remove: () => onQuery({ ...query, teamId: null }) }] : []),
     ...(query.oppId ? [{ key: 'opp', text: `Vs ${clubAbbr(query.oppId)}`, remove: () => onQuery({ ...query, oppId: null }) }] : []),
     ...(query.venue !== 'any' ? [{ key: 'venue', text: query.venue === 'home' ? 'At home' : 'On the road', remove: () => onQuery({ ...query, venue: 'any' as FinderVenue }) }] : []),
+    ...(playerHere && query.playerId ? [{ key: 'player', text: picks!.name(query.playerId), remove: () => onQuery({ ...query, playerId: null }) }] : []),
+    ...(query.per === 'pa' && query.batterId ? [{ key: 'bat', text: `By ${picks?.name(query.batterId) ?? query.batterId}`, remove: () => onQuery({ ...query, batterId: null }) }] : []),
+    ...(query.per === 'pa' && query.pitcherId ? [{ key: 'pit', text: `Against ${picks?.name(query.pitcherId) ?? query.pitcherId}`, remove: () => onQuery({ ...query, pitcherId: null }) }] : []),
   ]
 
   const question = (
@@ -876,7 +903,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
               }}>+ Add a condition</Box>
             )}
             {hasConditions && (
-              <Box {...pressable(() => { onQuery({ ...query, conditions: [] }); setFolded(false) })} sx={textButtonSx}>Clear</Box>
+              <Box {...pressable(() => { onQuery({ ...query, conditions: [], batterId: null, pitcherId: null, playerId: null }); setFolded(false) })} sx={textButtonSx}>Clear</Box>
             )}
             {hasConditions && (
               <Box {...pressable(() => setFolded(true))} sx={{
@@ -884,6 +911,15 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
               }}>Done</Box>
             )}
           </Box>
+
+          {/* ONE PLAYER, first because it narrows the most: "Sato's games" before "at home". */}
+          {playerHere && (
+            <Box sx={{ pt: 1.25, mt: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
+              <SectionLabel>Player</SectionLabel>
+              <Picker label="Player" value={query.playerId ?? ''} options={[{ value: '', label: 'Any player' }]}
+                groups={picks!.players} onChange={v => onQuery({ ...query, playerId: v || null })} />
+            </Box>
+          )}
 
           {/* WHO AND WHERE, kept apart from the conditions above because they are a different kind
               of question: those ask what happened in a game, these ask which games to look at. */}
@@ -907,6 +943,19 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
               onChange={v => onQuery({ ...query, oppId: v || null })} />
           </Box>
           </Box>
+
+          {/* THE MATCHUP, only where a line names both players: a plate appearance. */}
+          {picks && query.per === 'pa' && (
+            <Box sx={{ pt: 1.25, mt: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
+              <SectionLabel>Matchup</SectionLabel>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                <Picker label="Batter" value={query.batterId ?? ''} options={[{ value: '', label: 'Any batter' }]}
+                  groups={picks.batters} onChange={v => onQuery({ ...query, batterId: v || null })} />
+                <Picker label="Pitcher" value={query.pitcherId ?? ''} options={[{ value: '', label: 'Any pitcher' }]}
+                  groups={picks.pitchers} onChange={v => onQuery({ ...query, pitcherId: v || null })} />
+              </Box>
+            </Box>
+          )}
         </Box>
       </Box>
     </SectionCard>
