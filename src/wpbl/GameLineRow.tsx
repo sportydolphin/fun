@@ -21,7 +21,7 @@ export function gameLineLabel(game: WpblGame | null, teamId: string | null): str
 
 export default function GameLineRow({
   rank, tied, name, player, teamId, game, detail, value, unit, accent, divider, onOpenPlayer, onOpenGame,
-  nameOpens = 'player', emphasizeRank = true,
+  nameOpens = 'player', emphasizeRank = true, club = false,
 }: {
   /** The row's place in the list. Omitted draws no number at all. */
   rank?: number
@@ -48,6 +48,9 @@ export default function GameLineRow({
   /** Color the top three ranks in the accent. Off where `rank` is just a list position (Find)
    *  rather than a real standing (Bests), where the accent would assert a ranking that is not one. */
   emphasizeRank?: boolean
+  /** The row is a club rather than a player (Find's club half-innings): the club's mark stands where
+   *  the portrait would, and there is no second, smaller one beside the name. */
+  club?: boolean
 }) {
   const playerLink = useWpblPlayerLink()
   const gameLink = useWpblGameLink()
@@ -57,8 +60,8 @@ export default function GameLineRow({
       rank={rank} tied={tied} emphasizeRank={emphasizeRank} name={name} detail={detail} value={value} unit={unit} divider={divider}
       accent={accent}
       label={gameLineLabel(game, teamId)}
-      portrait={<PlayerPortrait name={name} teamId={teamId} size={32} />}
-      club={teamId ? <TeamBadge team={{ id: teamId, abbr: teamId }} size={16} /> : undefined}
+      portrait={club && teamId ? <TeamBadge team={{ id: teamId, abbr: teamId }} size={32} /> : <PlayerPortrait name={name} teamId={teamId} size={32} />}
+      club={teamId && !club ? <TeamBadge team={{ id: teamId, abbr: teamId }} size={16} /> : undefined}
       rowLink={nameOpens === 'game' ? link : undefined}
       nameLink={player ? playerLink(player, onOpenPlayer) : undefined}
       gameLink={link}

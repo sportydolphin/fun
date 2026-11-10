@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.211.2',
+    date:    '2026-11-09',
+    changes: [
+      {
+        short: 'Find: club innings',
+        full:  'WPBL Find\'s Hitting side searches a club\'s half-innings: 5-run innings, two-out rallies, comebacks, go-ahead innings. Each row is the club, with its runs, hits, two-out runs and the score it came from.',
+      },
+    ],
+  },
+  {
     version: '1.211.1',
     date:    '2026-11-09',
     changes: [

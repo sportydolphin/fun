@@ -1,5 +1,5 @@
 import { ipToOuts, outsToIp } from './innings'
-import type { InningPitchingLine, PlateAppearanceLine } from './inningLines'
+import type { InningPitchingLine, PlateAppearanceLine, TeamInningLine } from './inningLines'
 import { ordinal } from '../lib/format'
 import { scopedLines, type SeasonScope } from './season'
 import type { BattingGameLine, FieldingGameLine, LeagueGame, LeaguePlayer, PitchingGameLine } from './types'
@@ -254,6 +254,10 @@ const PIT_SEASON_FIELDS = pitSeasonFields(9)
 // play log credits to one half-inning. Two fields are its own: the outs, and which inning it was, so
 // "three strikeouts in the 7th or later" can be asked.
 const INNING_KEYS = new Set(['inn', 'outs', 'bf', 'so', 'bb', 'hbp', 'h', 'hr', 'r', 'pitches', 'strikes', 'baserunners'])
+// A CLUB'S HALF-INNING AT THE PLATE is Hitting's inning (src/league/inningLines.ts, `teamInningLines`): the
+// batting line's counts, plus the two-out runs and the score it began in, which is what a rally or a
+// comeback is.
+const HIT_INNING_KEYS = new Set(['inn', 'pa', 'r', 'h', '2b', '3b', 'hr', 'tb', 'bb', 'so', 'hbp', 'r2', 'trail', 'tooklead'])
 
 // ─── What a plate appearance can be asked about ───────────────────────────────
 //
@@ -267,7 +271,7 @@ const HIT_PA_KEYS = new Set(['inn', 'paouts', 'on', 'risp', 'walkoff', 'balls', 
 const PIT_PA_KEYS = new Set(['inn', 'paouts', 'on', 'risp', 'walkoff', 'balls', 'scount', 'pitches', 'strikes', 'fouls', 'runs',
   'h', 'hr', 'bb', 'so', 'hbp'])
 
-type FineLine = InningPitchingLine & PlateAppearanceLine
+type FineLine = InningPitchingLine & PlateAppearanceLine & TeamInningLine
 const INN_FIELD: Field<FineLine> = { key: 'inn', label: 'Inning', unit: 'INN', value: l => l.inning, fineOnly: true, display: ordinal }
 const PA_FIELDS: Field<FineLine>[] = [
   { key: 'paouts', label: 'Outs', unit: 'OUT', value: l => l.paouts, fineOnly: true },
@@ -288,6 +292,9 @@ const PIT_FINE_FIELDS: Field<FineLine>[] = [
 const HIT_FINE_FIELDS: Field<FineLine>[] = [
   INN_FIELD,
   { key: 'pitches', label: 'Pitches seen', unit: 'P', value: l => l.pitches, fineOnly: true },
+  { key: 'r2', label: 'Two-out runs', unit: 'R2', value: l => l.r2, fineOnly: true },
+  { key: 'trail', label: 'Trailing by', unit: 'DN', value: l => l.trail, fineOnly: true },
+  { key: 'tooklead', label: 'Took the lead', unit: 'LEAD', value: l => l.tooklead, fineOnly: true },
   ...PA_FIELDS,
 ]
 
@@ -310,7 +317,7 @@ function allFields(side: FinderBoardSide): Field<never>[] {
 
 /** The keys a side can ask at one of the play-log grains; none on a side that has no such grain. */
 function fineKeys(side: FinderBoardSide, per: 'inning' | 'pa'): Set<string> {
-  if (per === 'inning') return side === 'pitching' ? INNING_KEYS : new Set()
+  if (per === 'inning') return side === 'pitching' ? INNING_KEYS : side === 'hitting' ? HIT_INNING_KEYS : new Set()
   return side === 'pitching' ? PIT_PA_KEYS : side === 'hitting' ? HIT_PA_KEYS : new Set()
 }
 
@@ -336,10 +343,10 @@ export function finderFields(side: FinderBoardSide, per: FinderPer = 'game'): { 
 // src/league/__tests__/finderGroups.test.ts.
 const FIELD_GROUPS: Record<FinderBoardSide, [string, string[]][]> = {
   hitting: [
-    ['Situation', ['inn', 'paouts', 'on', 'risp', 'walkoff']],
+    ['Situation', ['inn', 'paouts', 'on', 'risp', 'walkoff', 'trail', 'tooklead']],
     ['Count', ['balls', 'scount', 'pitches', 'fouls']],
     ['Hits', ['h', 'tb', 'hr', '2b', '3b']],
-    ['Runs', ['rbi', 'r', 'runs']],
+    ['Runs', ['rbi', 'r', 'runs', 'r2']],
     ['On base', ['ob', 'bb', 'hbp', 'so']],
     ['Running', ['sb', 'cs', 'gdp']],
     ['Playing time', ['g', 'pa', 'ab']],
@@ -394,7 +401,9 @@ export function defaultCondition(side: FinderBoardSide, per: FinderPer = 'game',
   // least 3 and Hits at least 3", which narrows nothing and looks like the button misfired. The next
   // pick is a stat that is a natural second clause, then any stat not yet asked.
   const used = new Set(taken.map(c => c.field))
-  const preset = (per === 'inning'
+  const preset = (per === 'inning' && side === 'hitting'
+    ? [{ field: 'r', op: 'gte', value: 4 }, { field: 'r2', op: 'gte', value: 2 }, { field: 'tooklead', op: 'eq', value: 1 }]
+    : per === 'inning'
     ? [{ field: 'so', op: 'gte', value: 3 }, { field: 'baserunners', op: 'eq', value: 0 }, { field: 'pitches', op: 'lte', value: 12 }]
     : per === 'pa'
     ? [{ field: 'pitches', op: 'gte', value: 10 }, { field: side === 'pitching' ? 'so' : 'hr', op: 'gte', value: 1 }, { field: 'on', op: 'eq', value: 3 }]
@@ -454,13 +463,15 @@ const FLD_COLUMNS = ['tc', 'po', 'a', 'e', 'dp']
 const FLD_SEASON_COLUMNS = ['g', 'tc', 'po', 'a', 'e', 'dp', 'fpct']
 // An inning's line leads with which inning it was, which the game column beside it cannot say.
 const PIT_INNING_COLUMNS = ['inn', 'bf', 'h', 'r', 'bb', 'so', 'pitches']
+// A club's half-inning: who came up, what they did, and the two-out runs a rally is made of.
+const HIT_INNING_COLUMNS = ['inn', 'pa', 'h', 'r', 'hr', 'bb', 'so', 'r2']
 // A plate appearance's line is its situation: when, the outs, who was on, the count it ended in, and
 // what it cost. What happened is the row's result, drawn where a game row draws its score.
 const PA_COLUMNS = ['inn', 'paouts', 'on', 'balls', 'scount', 'pitches', 'runs']
 // Only pitching has an inning grain and fielding no plate-appearance one; those keep their game line
 // so the record is total.
 const COLUMNS: Record<FinderBoardSide, Record<FinderPer, string[]>> = {
-  hitting: { game: HIT_COLUMNS, season: HIT_SEASON_COLUMNS, inning: HIT_COLUMNS, pa: PA_COLUMNS },
+  hitting: { game: HIT_COLUMNS, season: HIT_SEASON_COLUMNS, inning: HIT_INNING_COLUMNS, pa: PA_COLUMNS },
   pitching: { game: PIT_COLUMNS, season: PIT_SEASON_COLUMNS, inning: PIT_INNING_COLUMNS, pa: PA_COLUMNS },
   fielding: { game: FLD_COLUMNS, season: FLD_SEASON_COLUMNS, inning: FLD_COLUMNS, pa: FLD_COLUMNS },
 }
@@ -545,6 +556,10 @@ export interface FinderOptions {
   /** Every pitcher's half-innings (`inningPitchingLines`), for the inning grain. Built from the play
    *  log, which a section reads only once the grain is asked for; without them it searches nothing. */
   innings?: InningPitchingLine[]
+  /** Every club's half-innings at the plate (`teamInningLines`), for Hitting's inning grain. */
+  teamInnings?: TeamInningLine[]
+  /** A club's name, for a row that is a club rather than a player (Hitting's inning grain). */
+  clubName?: (teamId: string) => string
   /** Every plate appearance (`plateAppearanceLines`), for that grain, read the same way. */
   plateAppearances?: PlateAppearanceLine[]
 }
@@ -553,6 +568,19 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 
 /** "Bottom 4th, 2 out, bases loaded, 3-2: BB, 2 runs, 9 pitches". The situation leads, since the
  *  result is the row's result column on a desktop, and on a phone this line is all there is. */
+/** "Bottom 4th: 5 R, 4 H, 2 BB, 3 with two out, from 2 down, took the lead". */
+const teamInningDetail = (l: TeamInningLine): string => [
+  `${l.half === 'top' ? 'Top' : 'Bottom'} ${ordinal(l.inning)}: ${l.r} R`, `${l.h} H`,
+  l.hr > 0 && plural(l.hr, 'HR', 'HR'),
+  l.bb > 0 && plural(l.bb, 'BB', 'BB'),
+  l.r2 > 0 && `${l.r2} with two out`,
+  l.trail > 0 && `from ${l.trail} down`,
+  l.tooklead > 0 && 'took the lead',
+].filter(Boolean).join(', ')
+
+/** The id a club's row is filed under on Hitting's inning grain, apart from every player's. */
+const CLUB_KEY = 'club:'
+
 const RUNNERS = ['bases empty', '1 on', '2 on', 'bases loaded']
 const paDetail = (l: PlateAppearanceLine): string => [
   `${l.half === 'top' ? 'Top' : 'Bottom'} ${ordinal(l.inning)}`,
@@ -692,6 +720,8 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
   const finals = games.filter(g => g.status === 'final')
   const gameById = new Map(finals.map(g => [g.id, g]))
   const playerById = new Map(players.map(p => [p.id, p]))
+  const clubNamed = (id: string): string | null =>
+    (id.startsWith(CLUB_KEY) && opts.clubName ? opts.clubName(id.slice(CLUB_KEY.length)) : null)
   const season = query.per === 'season'
   const headlineField = query.conditions[0]?.field ?? (side === 'pitching' ? 'so' : side === 'fielding' ? 'tc' : 'h')
 
@@ -807,7 +837,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     const tally: FinderTally<P>[] = [...counts.entries()]
       .map(([id, n]) => {
         const p = playerById.get(id) ?? null
-        return { player: p, name: p?.name ?? '—', teamId: topClub(id), games: n, played: appearances.get(id) ?? n }
+        return { player: p, name: p?.name ?? clubNamed(id) ?? '—', teamId: topClub(id), games: n, played: appearances.get(id) ?? n }
       })
       // A tie on games goes to whoever needed fewer appearances for them.
       .sort((a, b) => b.games - a.games || a.played - b.played || a.name.localeCompare(b.name))
@@ -818,7 +848,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
         return {
           key: line.id,
           player: p,
-          name: p?.name ?? '—',
+          name: p?.name ?? clubNamed(line.player_id) ?? '—',
           teamId: line.team_id,
           game: season ? null : gameById.get(line.game_id) ?? null,
           inning: query.per === 'inning' || query.per === 'pa'
@@ -840,8 +870,17 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
   }
 
   const qualify = opts.qualify ?? null
+  if (query.per === 'inning' && side === 'hitting') {
+    // A CLUB'S HALF-INNING, filed under the club: its row has no player, and its tally is clubs. The
+    // line is keyed `club:<id>` so it can never collide with a player's id, and named through
+    // `opts.clubName`. "Played" in the tally is the club's half-innings at the plate.
+    type FiledInning = TeamInningLine & { player_id: string }
+    const lines = (opts.teamInnings ?? []).map((l): FiledInning => ({ ...l, player_id: `${CLUB_KEY}${l.team_id}` }))
+    const fields = allFields(side).filter(f => askable(side, f, 'inning')) as unknown as Field<FiledInning>[]
+    return collect<FiledInning>(lines, fields, teamInningDetail, () => true, { field: 'pa', own: [], min: undefined })
+  }
   if (query.per === 'inning') {
-    // PITCHING ONLY, and asked of any other side it searches nothing rather than the game lines,
+    // A PITCHER'S HALF-INNING on Pitching, and nothing on Fielding rather than the game lines,
     // which would answer "in an inning" with whole nights. The inning fields are the game line's
     // own where they mean the same (see INNING_KEYS) plus the two only an inning has; a condition
     // on any other field is an unknown key, which matches nothing, as a hand-edited link should.
@@ -979,8 +1018,11 @@ export function describeFinderQuery(side: FinderBoardSide, q: Pick<FinderQuery, 
   const innWords: Record<FinderOp, (v: number) => string> = {
     eq: v => `${ordinal(v)} inning`, gte: v => `${ordinal(v)} inning or later`, lte: v => `Through the ${ordinal(v)}`,
   }
+  // A club's half-inning says its score the same way: "Took the lead", "Down 2 or more".
+  if (q.per === 'inning' && side === 'hitting') said.tooklead = v => (v === 1 ? 'Took the lead' : 'Did not take the lead')
   const parts = q.conditions.flatMap(c => {
     if (balls && strikes && (c === balls || c === strikes)) return c === balls ? [`${balls.value}-${strikes.value} count`] : []
+    if (c.field === 'trail' && q.per === 'inning' && c.op === 'gte') return [`Down ${c.value} or more`]
     if (c.field === 'inn' && (q.per === 'pa' || q.per === 'inning')) return [innWords[c.op](c.value)]
     if (c.op === 'eq' && said[c.field]) return [said[c.field](c.value)]
     const f = labels.get(c.field)

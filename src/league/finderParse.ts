@@ -240,6 +240,23 @@ const GAME_WORDS = /(?<![a-z])(in a game|in one game|in a single game|single gam
 // "single", "per". "Inning" alone is innings pitched (STAT_ALIASES), so it is never read here bare.
 // "One inning" alone could be a reliever's one inning pitched, so "one" and "1" count only after "in".
 const INNING_WORDS = /(?<![a-z0-9])(?:(?:in|during)\s+(?:an|one|1|a single|a|the same)|an|a single|single|the same|per)\s+(?:inning|frame)(?![a-z])/g
+// A CLUB'S HALF-INNING, said the way a broadcast says it: "5-run innings", "innings with 3+ runs",
+// "two-out rallies", "comebacks", "go-ahead innings". Taken before the plate-appearance phrases, which
+// would read the "2 out" of a two-out rally as the outs of one at-bat. A count of runs reads on either
+// side (a club's big inning is a pitcher's bad one); a comeback or a rally is the club's alone.
+const TEAM_INNING_PHRASES: { re: RegExp; conditions: (m: string[]) => FinderCondition[] }[] = [
+  { re: /(?<![a-z0-9])(?:two|2)[\s-]+outs?\s+rall(?:y|ies)(?![a-z])/g,
+    conditions: () => [{ field: 'r2', op: 'gte', value: 2 }] },
+  { re: /(?<![a-z0-9])(?:comebacks?|come[\s-]+from[\s-]+behind)(?:\s+(?:innings?|rall(?:y|ies)))?(?![a-z])/g,
+    conditions: () => [{ field: 'trail', op: 'gte', value: 1 }, { field: 'tooklead', op: 'eq', value: 1 }] },
+  { re: /(?<![a-z0-9])(?:go[\s-]+ahead|lead[\s-]+changing)\s+(?:innings?|rall(?:y|ies))(?![a-z])/g,
+    conditions: () => [{ field: 'tooklead', op: 'eq', value: 1 }] },
+  { re: /(?<![a-z0-9])(\d+)\+?[\s-]+runs?\s+(?:innings?|frames?)(?![a-z])/g,
+    conditions: m => [{ field: 'r', op: 'gte', value: Number(m[1]) }] },
+  { re: /(?<![a-z0-9])(?:innings?|frames?)\s+(?:with|of|where)(?![a-z])/g,
+    conditions: () => [] },
+]
+
 // The innings with names, each a whole question. Immaculate: three strikeouts on nine pitches, which
 // "nine or fewer" says exactly, since a strikeout takes three. 1-2-3: three up, three down, nobody on.
 // The numbers need "inning" after them, or any "1 2 3" typed would be read as one.
@@ -565,6 +582,13 @@ export function parseFinderText(
     return ' '.repeat(m.length)
   })
   rest = rest.replace(INNING_WORDS, m => { inningHint = true; return ' '.repeat(m.length) })
+  for (const { re, conditions } of TEAM_INNING_PHRASES) {
+    rest = rest.replace(re, (...args: unknown[]) => {
+      inningHint = true
+      feats.push(...conditions(args.slice(0, -2) as string[]))
+      return ' '.repeat((args[0] as string).length)
+    })
+  }
   let paHint = false
   for (const { re, conditions } of PA_PHRASES) {
     rest = rest.replace(re, (...args: unknown[]) => {
@@ -707,9 +731,9 @@ export function parseFinderText(
 
   const readings: { parsed: ParsedFinder; score: number }[] = []
   for (const side of sides) {
-    // An inning is a pitcher's alone (FinderPer), so "3 hits in an inning" is no question at all
-    // rather than a batter's game.
-    if (inningHint && side !== 'pitching') continue
+    // An inning is a pitcher's on Pitching and a club's turn at the plate on Hitting, and Fielding has
+    // none: the grain check below drops a side whose fields cannot ask it.
+    if (inningHint && side === 'fielding') continue
     if (paHint && side === 'fielding') continue
     const byField = new Map<string, FinderCondition>()
     for (const c of feats) byField.set(c.op === 'eq' ? c.field : `${c.field}:${c.op}`, c)

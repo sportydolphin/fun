@@ -1276,7 +1276,14 @@ Shipped Nov 9, 2026 as v1.211.0 (#239). Follow-ups, in the order taken:
    6th", "before the 3rd", "extra innings" (past the league's regulation length, which the parser is
    now told). A count beside it is a pitcher's inning, an event with no number a plate appearance.
    Both play-log grains are in the layout sweep's routes (the play log was already recorded).
-8. **Team half-innings**: "innings with 5+ runs", two-out rallies, comebacks.
+8. ✅ **Club half-innings** (Nov 9). Hitting's inning grain is a club's turn at the plate
+   (`teamInningLines`): the batting counts, two-out runs (`r2`), how far it trailed as the half began
+   (`trail`) and whether it took the lead (`tooklead`). Rows and tally are clubs, with the club's
+   mark where a portrait goes and "Club" over the column. Search: "5-run innings", "innings with 4+
+   runs", "two-out rallies", "comebacks", "go-ahead innings"; a run count reads on either side, the
+   club first. Database check (playoffs in): 26 innings of 5+ runs (the most, 10), 59 with 2+
+   two-out runs; 23 comebacks in the regular season. The score is the log's running sum, so a game
+   with missing plays can misread a lead from that point.
 9. **Runs of plays**: back-to-back home runs, consecutive strikeouts, a pitcher retiring 10 straight.
 10. **Matchup filter**: one batter or pitcher on the plate-appearance grain.
 11. **TrackMan fields** where a game has them, **win probability per plate appearance**, and **feat

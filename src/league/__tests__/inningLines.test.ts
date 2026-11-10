@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { inningPitchingLines, plateAppearanceLines } from '../inningLines'
+import { inningPitchingLines, plateAppearanceLines, teamInningLines } from '../inningLines'
 import type { LeagueGame, RunValuePlay } from '../types'
 import { WPBL_LEAGUE } from '../../wpbl/league'
 
@@ -138,5 +138,38 @@ describe('plateAppearanceLines', () => {
     const pas = plateAppearanceLines(WPBL_LEAGUE, plays, [game({ home_score: 1, away_score: 0 })])
     expect(pas.map(p => p.walkoff)).toEqual([0, 1])
     expect(plateAppearanceLines(WPBL_LEAGUE, plays, [game({ home_score: 1, away_score: 3 })]).every(p => p.walkoff === 0)).toBe(true)
+  })
+})
+
+describe('teamInningLines', () => {
+  it('files a half-inning under the club batting, with its two-out runs', () => {
+    const plays = [
+      play({ outs: 0, event_type: 'single', pitch_sequence: 'P' }),
+      play({ outs: 0, event_type: 'strikeout', pitch_sequence: 'KSS' }),
+      play({ outs: 1, event_type: 'walk', pitch_sequence: 'BBBB' }),
+      play({ outs: 1, event_type: 'flyout', pitch_sequence: 'P' }),
+      play({ outs: 2, event_type: 'home_run', pitch_sequence: 'BP', runs_scored: 2 }),
+      play({ outs: 2, event_type: 'groundout', pitch_sequence: 'P' }),
+      play({ half: 'bottom', team_id: 'home', pitcher_id: 'q', event_type: 'groundout', pitch_sequence: 'P' }),
+    ]
+    const [top] = teamInningLines(WPBL_LEAGUE, plays, [game()])
+    expect(top).toMatchObject({ team_id: 'away', half: 'top', r: 3, r2: 3, h: 2, hr: 1, tb: 5, bb: 1, so: 1, ab: 5, sequence: plays[0].sequence })
+    // Plate appearances as the finder sums them on a batting line.
+    expect(top.ab + top.bb + top.hbp + top.sf + top.sh).toBe(6)
+  })
+
+  it('reads the score the half began in, and whether it took the lead', () => {
+    const plays = [
+      play({ inning: 1, half: 'top', outs: 0, event_type: 'home_run', pitch_sequence: 'P' }),
+      play({ inning: 1, half: 'top', outs: 0, event_type: 'home_run', pitch_sequence: 'P' }),
+      play({ inning: 1, half: 'bottom', team_id: 'home', pitcher_id: 'q', outs: 0, event_type: 'home_run', pitch_sequence: 'P' }),
+      play({ inning: 2, half: 'top', outs: 0, event_type: 'groundout', pitch_sequence: 'P' }),
+      play({ inning: 2, half: 'bottom', team_id: 'home', pitcher_id: 'q', outs: 0, event_type: 'double', pitch_sequence: 'P' }),
+      play({ inning: 2, half: 'bottom', team_id: 'home', pitcher_id: 'q', outs: 0, event_type: 'home_run', pitch_sequence: 'P', runs_scored: 1 }),
+    ]
+    const lines = teamInningLines(WPBL_LEAGUE, plays, [game({ home_score: 3, away_score: 2 })])
+    expect(lines.map(l => [l.inning, l.half, l.r, l.trail, l.tooklead])).toEqual([
+      [1, 'top', 2, 0, 1], [1, 'bottom', 1, 2, 0], [2, 'top', 0, 0, 0], [2, 'bottom', 2, 1, 1],
+    ])
   })
 })

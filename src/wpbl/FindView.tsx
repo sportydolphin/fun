@@ -1,9 +1,9 @@
 import { useDark } from '../ui/useDark'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { runWpblFinder, validFinderSort, type FinderBoardSide, type FinderQuery, type FinderSort } from './derive/finder'
 import { conditionsForPer, type FinderPer, type FinderRow } from '../league/finder'
 import { requestPlay } from './entryUrl'
-import { inningPitchingLines, plateAppearanceLines } from '../league/inningLines'
+import { inningPitchingLines, plateAppearanceLines, teamInningLines } from '../league/inningLines'
 import { WPBL_LEAGUE } from './league'
 import { fetchWpblPlayLog, getCachedWpblPlayLog } from './api/plays'
 import { useWpblSeason } from './SeasonContext'
@@ -68,6 +68,10 @@ const EXAMPLES: Record<FinderBoardSide, FinderExample[]> = {
     { label: '4+ RBI', conditions: [{ field: 'rbi', op: 'gte', value: 4 }] },
     { label: '2+ steals', conditions: [{ field: 'sb', op: 'gte', value: 2 }] },
     { label: 'On base 4+ times', conditions: [{ field: 'ob', op: 'gte', value: 4 }] },
+    { per: 'inning', label: '4+ run innings', conditions: [{ field: 'r', op: 'gte', value: 4 }] },
+    { per: 'inning', label: 'Comebacks', conditions: [{ field: 'trail', op: 'gte', value: 1 }, { field: 'tooklead', op: 'eq', value: 1 }] },
+    { per: 'inning', label: 'Two-out rallies', conditions: [{ field: 'r2', op: 'gte', value: 2 }] },
+    { per: 'inning', label: '2+ home runs', conditions: [{ field: 'hr', op: 'gte', value: 2 }] },
     { per: 'pa', label: '10+ pitches', conditions: [{ field: 'pitches', op: 'gte', value: 10 }] },
     { per: 'pa', label: 'Home runs on 0-2', conditions: [{ field: 'hr', op: 'gte', value: 1 }, { field: 'balls', op: 'eq', value: 0 }, { field: 'scount', op: 'eq', value: 2 }] },
     { per: 'pa', label: 'Bases-loaded hits', conditions: [{ field: 'h', op: 'gte', value: 1 }, { field: 'on', op: 'eq', value: 3 }] },
@@ -98,10 +102,10 @@ const EXAMPLES: Record<FinderBoardSide, FinderExample[]> = {
  *  lazy chunk cannot import without importing StatsView itself. */
 const STICKY_TOP = 'calc(var(--app-header-h, 0px) + var(--wpbl-stats-bar-h, 0px))'
 
-/** The grains each side can be asked at. Pitching alone has an inning (a batter's half-inning is one
- *  trip to the plate), and a plate appearance has no fielder. */
+/** The grains each side can be asked at. An inning is a pitcher's on Pitching and a club's turn at the
+ *  plate on Hitting; a plate appearance has no fielder. */
 const GRAINS: Record<FinderBoardSide, FinderPer[]> = {
-  hitting: ['game', 'pa', 'season'],
+  hitting: ['game', 'inning', 'pa', 'season'],
   pitching: ['game', 'inning', 'pa', 'season'],
   fielding: ['game', 'season'],
 }
@@ -166,14 +170,20 @@ export default function WpblFindView({
     return () => { cancelled = true }
   }, [askPlays, plays, season])
   const innings = useMemo(
-    () => (askInnings && plays ? inningPitchingLines(WPBL_LEAGUE, cut(plays), games) : undefined),
-    [askInnings, plays, cut, games])
+    () => (askInnings && side === 'pitching' && plays ? inningPitchingLines(WPBL_LEAGUE, cut(plays), games) : undefined),
+    [askInnings, side, plays, cut, games])
+  const teamInnings = useMemo(
+    () => (askInnings && side === 'hitting' && plays ? teamInningLines(WPBL_LEAGUE, cut(plays), games) : undefined),
+    [askInnings, side, plays, cut, games])
+  // Hitting by the inning is a club's half-inning, so its rows and its tally are clubs, not players.
+  const clubRows = side === 'hitting' && query.per === 'inning'
+  const clubName = useCallback((id: string) => { const t = teams.find(x => x.id === id); return t ? wpblFullName(t) : id }, [teams])
   const plateAppearances = useMemo(
     () => (askPas && plays ? plateAppearanceLines(WPBL_LEAGUE, cut(plays), games) : undefined),
     [askPas, plays, cut, games])
   const result = useMemo(
-    () => runWpblFinder(side, batting, pitching, players, games, query, 50, sort, { eraInnings, qualify, fielding, innings, plateAppearances }),
-    [side, batting, pitching, fielding, players, games, query, sort, eraInnings, qualify, innings, plateAppearances])
+    () => runWpblFinder(side, batting, pitching, players, games, query, 50, sort, { eraInnings, qualify, fielding, innings, plateAppearances, teamInnings, clubName }),
+    [side, batting, pitching, fielding, players, games, query, sort, eraInnings, qualify, innings, plateAppearances, teamInnings, clubName])
   // A reading on this side is asked in place, which keeps the season and slice on screen; one on
   // the other side goes through the address, the way the search box sends it, since the side is
   // StatsView's to switch.
@@ -205,20 +215,22 @@ export default function WpblFindView({
         <GameLineRow key={r.key} rank={rank.rank} tied={rank.tied} name={r.name} player={r.player}
           teamId={r.teamId} game={r.game} detail={r.detail}
           value={r.headlineDisplay} unit={unit} accent={accent} divider={i > 0}
-          nameOpens="game" emphasizeRank={false}
+          nameOpens="game" emphasizeRank={false} club={clubRows}
           onOpenPlayer={onOpenPlayer} onOpenGame={openRowGame(r)} />
       )}
       rowParts={r => ({
-        portrait: <PlayerPortrait name={r.name} teamId={r.teamId} size={PORTRAIT_PX} />,
-        club: r.teamId ? <TeamBadge team={{ id: r.teamId, abbr: r.teamId }} size={16} /> : undefined,
+        portrait: clubRows && r.teamId ? <TeamBadge team={{ id: r.teamId, abbr: r.teamId }} size={PORTRAIT_PX} />
+          : <PlayerPortrait name={r.name} teamId={r.teamId} size={PORTRAIT_PX} />,
+        club: r.teamId && !clubRows ? <TeamBadge team={{ id: r.teamId, abbr: r.teamId }} size={16} /> : undefined,
         playerLink: r.player ? playerLink(r.player, onOpenPlayer) : undefined,
         gameLink: r.game ? rowGameLink(r) : undefined,
       })}
       tallyParts={t => ({
         key: t.player?.id ?? t.name,
         name: t.name,
-        portrait: <PlayerPortrait name={t.name} teamId={t.teamId} size={PORTRAIT_PX} />,
-        badge: t.teamId ? <TeamBadge team={{ id: t.teamId, abbr: t.teamId }} size={16} /> : undefined,
+        portrait: clubRows && t.teamId ? <TeamBadge team={{ id: t.teamId, abbr: t.teamId }} size={PORTRAIT_PX} />
+          : <PlayerPortrait name={t.name} teamId={t.teamId} size={PORTRAIT_PX} />,
+        badge: t.teamId && !clubRows ? <TeamBadge team={{ id: t.teamId, abbr: t.teamId }} size={16} /> : undefined,
         linkProps: t.player ? playerLink(t.player, onOpenPlayer) : undefined,
       })} />
   )
