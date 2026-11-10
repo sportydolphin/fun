@@ -418,51 +418,125 @@ export interface TeamInningLine {
   pk: number
 }
 
+/** The nine positions as the log writes them, in scorer's order, so a position's number is its index + 1. */
+export const FIELD_POSITIONS = ['p', 'c', '1b', '2b', '3b', 'ss', 'lf', 'cf', 'rf'] as const
+const POS = '(p|c|1b|2b|3b|ss|lf|cf|rf)'
+
+/** What a section knows that the plays do not: where each starter played, and who a name is. */
+export interface FielderSource {
+  /** Each game's lineups: the position a player started at (`started`), written as the lineup card
+   *  writes it, the first of "lf/p" being where she began. */
+  starts: { game_id: string; team_id: string | null; player_id: string; position: string | null; started: boolean }[]
+  /** The player a name is, or null. Names are unique in the league (checked Nov 7, 2026). */
+  byName: (name: string) => string | null
+  /** The club a player played for in a game, off that game's lines. */
+  teamOf: (gameId: string, playerId: string) => string | null
+}
+
 /**
- * A club's half-inning IN THE FIELD: Fielding's inning grain. The log names a fielder by position
- * ("error by ss"), never by player, so the line is the club's. Errors are counted where the text
- * charges one ("error by", "dropped", "muffed"), never where it only mentions one: "advanced to second
- * on the error" is the same error again. A double play is a row that says so. Against 2026's box
- * scores: 148 of 149 errors.
+ * ONE FIELDER'S HALF-INNING: Fielding's inning grain, a fielder's as a pitcher's inning is a pitcher's.
+ *
+ * THE LOG CHARGES A POSITION, NOT A PLAYER ("throwing error by ss"), so the fielder is whoever held
+ * that position at that play: the lineup card's starters, then every change the log writes as a row
+ * of its own ("Jua Park to 2b for Amanda Gianelloni", "Kelsie Whitmore to cf"), and the pitcher always
+ * the play's own pitcher, since in a game with a designated hitter the pitcher is on no lineup card.
+ * An error is counted where the text charges one ("error by", "dropped fly by", "muffed throw by"),
+ * never where it only mentions one: "advanced to second on the error" is the same error again. Every
+ * fielder in a double play's chain ("double play ss to 2b to 1b") turned it, as the box score credits
+ * each. The catcher's passed balls and the steals against her go to whoever was catching.
+ *
+ * A position nobody can be placed at (a card that does not list it, a change the log does not write)
+ * leaves that play uncredited rather than guessed. Against 2026's box scores: see the tests.
  */
 export interface FieldingInningLine {
-  /** `${game_id}|${inning}|${half}`. */
+  /** `${game_id}|${inning}|${half}|${player_id}`. */
   id: string
   game_id: string
+  /** The fielder. */
+  player_id: string
   /** The club in the field. */
   team_id: string
   inning: number
   half: 'top' | 'bottom'
-  /** The half's first row: where Game Center opens. */
+  /** The fielder's first play in the half: where Game Center opens. */
   sequence: number
+  /** Where the fielder was playing at their first play of the half, as the position's number (1 to 9). */
+  pos: number
   e: number
   dp: number
   pb: number
-  /** Steals against the club's catcher. */
+  /** Steals against the fielder, when catching. */
   sba: number
 }
 
-export function fieldingInningLines(plays: RunValuePlay[], games: LeagueGame[]): FieldingInningLine[] {
+export function fieldingInningLines(plays: RunValuePlay[], games: LeagueGame[], src: FielderSource): FieldingInningLine[] {
   const gameById = new Map(games.map(g => [g.id, g]))
+  // Who is at each position, per club in each game, as of the play being read.
+  const align = new Map<string, Map<string, string>>()
+  const at = (game: string, team: string) => {
+    const key = `${game}|${team}`
+    let m = align.get(key)
+    if (!m) { m = new Map(); align.set(key, m) }
+    return m
+  }
+  for (const r of src.starts) {
+    const first = r.position?.split('/')[0] ?? ''
+    if (!r.started || !r.team_id || !gameById.has(r.game_id) || first === 'p' || !(FIELD_POSITIONS as readonly string[]).includes(first)) continue
+    at(r.game_id, r.team_id).set(first, r.player_id)
+  }
   const lines = new Map<string, FieldingInningLine>()
-  for (const p of inOrder(plays, gameById)) {
-    const g = gameById.get(p.game_id)!
-    const id = halfKey(p)
+  const credit = (p: RunValuePlay, team: string, pos: string, playerId: string | null | undefined): FieldingInningLine | null => {
+    if (!playerId) return null
+    const id = `${halfKey(p)}|${playerId}`
     let line = lines.get(id)
     if (!line) {
       line = {
-        id, game_id: p.game_id, team_id: p.half === 'top' ? g.home_team_id : g.away_team_id,
-        inning: p.inning, half: p.half, sequence: p.sequence, e: 0, dp: 0, pb: 0, sba: 0,
+        id, game_id: p.game_id, player_id: playerId, team_id: team, inning: p.inning, half: p.half,
+        sequence: p.sequence, pos: FIELD_POSITIONS.indexOf(pos as typeof FIELD_POSITIONS[number]) + 1, e: 0, dp: 0, pb: 0, sba: 0,
       }
       lines.set(id, line)
     }
-    const text = (p.narrative ?? '').toLowerCase()
-    const count = (re: RegExp) => (text.match(re) ?? []).length
-    line.e += count(/error by|dropped|muffed/g)
-    line.dp += count(/double play/g)
+    return line
+  }
+  const sub = new RegExp(`^\\s*(.+?) to ${POS.slice(0, -1)}|dh)(?: for (.+?))?\\.?\\s*$`, 'i')
+  for (const p of inOrder(plays, gameById)) {
+    const g = gameById.get(p.game_id)!
+    const fielding = p.half === 'top' ? g.home_team_id : g.away_team_id
+    const raw = p.narrative ?? ''
+    // A CHANGE IN THE FIELD: the named player takes the position, and leaves the one she held.
+    const change = !p.pitch_sequence ? raw.match(sub) : null
+    if (change) {
+      const playerId = src.byName(change[1])
+      const pos = change[2].toLowerCase()
+      const team = playerId ? src.teamOf(p.game_id, playerId) : null
+      if (playerId && team && pos !== 'p' && pos !== 'dh') {
+        const m = at(p.game_id, team)
+        for (const [k, v] of m) if (v === playerId) m.delete(k)
+        m.set(pos, playerId)
+      } else if (playerId && team && pos === 'p') {
+        // To the mound: the position she held is open until a change fills it.
+        const m = at(p.game_id, team)
+        for (const [k, v] of m) if (v === playerId) m.delete(k)
+      }
+      continue
+    }
+    const text = raw.toLowerCase()
+    const who = (pos: string) => (pos === 'p' ? p.pitcher_id : at(p.game_id, fielding).get(pos))
+    for (const m of text.matchAll(new RegExp(`(?:error|dropped \\w+|muffed \\w+) by ${POS}\\b`, 'g'))) {
+      const line = credit(p, fielding, m[1], who(m[1]))
+      if (line) line.e++
+    }
+    for (const m of text.matchAll(new RegExp(`double play ((?:${POS}(?: to )?)+)`, 'g'))) {
+      for (const pos of new Set(m[1].trim().split(/\s+to\s+/))) {
+        const line = credit(p, fielding, pos, who(pos))
+        if (line) line.dp++
+      }
+    }
     const run = runnerEvents(p)
-    line.pb += run.pb
-    line.sba += run.sb
+    if (run.pb || run.sb) {
+      const line = credit(p, fielding, 'c', who('c'))
+      if (line) { line.pb += run.pb; line.sba += run.sb }
+    }
   }
   return [...lines.values()]
 }

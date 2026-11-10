@@ -1254,17 +1254,19 @@ Still unanswered after these, in the order worth doing:
    games"; "most runs by a team" with no game said stays the team stats ranking. 2026: 18 runs is the
    most (Heights, Sep 3), one shutout, no no-hitter.
 6. **Spans**: a month, a series, a doubleheader, extra innings as a game filter (search item 9).
-7. ✅ **Fielding by the inning** (v1.222.0). The club in the field: errors where the text charges one
-   ("error by", "dropped", "muffed"; 148 of 149), double plays, passed balls, steals allowed.
+7. ✅ **Fielding by the inning** (v1.222.0). A fielder's half-inning: errors where the text charges one
+   ("error by", "dropped", "muffed"), double plays, passed balls, steals allowed, and the position.
 8. ✅ **Pickoffs and pitches seen over a game or a season** (v1.222.0). `playTotals`, read only when a
    question asks for them (`finderNeedsPlays`). A runner is named in the log by name alone, so
    `runnerResolver` matches the clause to the batters that club sent up in that game (every runner
    batted first): times picked off and steals of home are a player's too (6 of 6 pickoffs resolve).
    A pinch runner who never batted stays unnamed.
-8b. **A fielder by position**: "error by ss" names a position, not a player. The lineup gives each
-   starter's position and rows like "Jua Park to 2b for Amanda Gianelloni" give every change, so the
-   fielder at each position is knowable play by play: errors, putouts and assists by the inning for a
-   fielder, and a fielder's double plays turned.
+8b. ✅ **A fielder by position** (v1.222.0). "error by ss" names a position, so `fieldingInningLines`
+   tracks who holds each one: the lineup cards' starters (`src/wpbl/fielders.ts`), every change the log
+   writes ("Jua Park to 2b for Amanda Gianelloni"), and the play's own pitcher at P. Against 2026's box
+   scores, every error and double play it places is on the right fielder: 144 of 149 errors placed
+   (none wrong), 170 of 174 double plays (one wrong). Not yet: putouts and assists off the chains
+   ("ss to 2b to 1b"), and "at shortstop" in the search bar (the board's Position picker asks it).
 9. **Not answerable from the data**: intentional walks (11 recorded in 2026), left on base (never
    recorded), earned runs and RBI in an inning (the log cannot say).
 

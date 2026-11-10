@@ -3,7 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { runWpblFinder, validFinderSort, type FinderBoardSide, type FinderQuery, type FinderSort } from './derive/finder'
 import { conditionsForPer, finderNeedsPlays, hasPlayerFilter, type FinderPer, type FinderRow } from '../league/finder'
 import { requestPlay } from './entryUrl'
-import { fieldingInningLines, inningPitchingLines, plateAppearanceLines, playTotals as buildPlayTotals, teamInningLines } from '../league/inningLines'
+import { fieldingInningLines, inningPitchingLines, plateAppearanceLines, playTotals as buildPlayTotals, teamInningLines, type FielderSource } from '../league/inningLines'
+import { wpblFielderSource } from './fielders'
 import { WPBL_LEAGUE } from './league'
 import { fetchWpblPlayLog, getCachedWpblPlayLog } from './api/plays'
 import { useWpblSeason } from './SeasonContext'
@@ -203,11 +204,22 @@ export default function WpblFindView({
   const teamInnings = useMemo(
     () => (askInnings && side === 'hitting' && plays ? teamInningLines(WPBL_LEAGUE, cut(plays), games) : undefined),
     [askInnings, side, plays, cut, games])
+  // WHO WAS AT EACH POSITION, for a fielder's inning: the lineup cards, read once that is asked for.
+  const askFielders = askInnings && side === 'fielding'
+  const [fielders, setFielders] = useState<FielderSource | null>(null)
+  useEffect(() => {
+    if (!askFielders || fielders) return
+    let cancelled = false
+    wpblFielderSource(teams, players, [batting, pitching, fielding])
+      .then(src => { if (!cancelled) setFielders(src) })
+      .catch(() => { if (!cancelled) setFielders({ starts: [], byName: () => null, teamOf: () => null }) })
+    return () => { cancelled = true }
+  }, [askFielders, fielders, teams, players, batting, pitching, fielding])
   const fieldInnings = useMemo(
-    () => (askInnings && side === 'fielding' && plays ? fieldingInningLines(cut(plays), games) : undefined),
-    [askInnings, side, plays, cut, games])
-  // A club's game, and a club's half-inning at the plate or in the field: rows and tally are clubs.
-  const clubRows = query.per === 'club' || (query.per === 'inning' && side !== 'pitching')
+    () => (askFielders && plays && fielders ? fieldingInningLines(cut(plays), games, fielders) : undefined),
+    [askFielders, plays, fielders, cut, games])
+  // A club's game, and a club's half-inning at the plate: rows and tally are clubs.
+  const clubRows = query.per === 'club' || (query.per === 'inning' && side === 'hitting')
   // THE NICKNAME, NOT THE FULL NAME: every name column here steps a name down the way it does a
   // person's, so "Los Angeles Queens" came out "L. Queens", which reads as a player. One word has no
   // stage to step to, and four clubs never share a nickname.
@@ -271,8 +283,8 @@ export default function WpblFindView({
     () => teamInnings ?? (countPlays && side === 'hitting' ? teamInningLines(WPBL_LEAGUE, cut(countPlays), games) : undefined),
     [teamInnings, countPlays, side, cut, games])
   const exFieldInnings = useMemo(
-    () => fieldInnings ?? (countPlays && side === 'fielding' ? fieldingInningLines(cut(countPlays), games) : undefined),
-    [fieldInnings, countPlays, side, cut, games])
+    () => fieldInnings ?? (countPlays && fielders && side === 'fielding' ? fieldingInningLines(cut(countPlays), games, fielders) : undefined),
+    [fieldInnings, countPlays, fielders, side, cut, games])
   const exPas = useMemo(
     () => plateAppearances ?? (countPlays && side !== 'fielding' ? plateAppearanceLines(WPBL_LEAGUE, cut(countPlays), games) : undefined),
     [plateAppearances, countPlays, side, cut, games])
@@ -322,7 +334,7 @@ export default function WpblFindView({
       sort={sort} onSort={setSort} examples={examples} accent={accent}
       exampleCount={ex => exampleCounts.get(ex) ?? null} exampleHref={exampleHref}
       exampleCounted={plays || askPlays ? grains : ['game', 'season']}
-      grains={grains} loading={askPlays && !plays} picks={picks}
+      grains={grains} loading={askPlays && (!plays || (askFielders && !fielders))} picks={picks}
       parse={text => parseFinderText(text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS)} onAsk={onAsk}
       renderRow={(r, i, unit, rank) => (
         <GameLineRow key={r.key} rank={rank.rank} tied={rank.tied} name={r.name} player={r.player}

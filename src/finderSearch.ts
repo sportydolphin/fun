@@ -409,7 +409,7 @@ export function recordSuggestions(section: FinderSection, text: string): RecordS
     seen.add(href)
     const where = [r.teamId && `for ${clubLabel(section, r.teamId)}`, r.oppId && `vs ${clubLabel(section, r.oppId)}`,
       r.venue === 'home' ? 'at home' : r.venue === 'away' ? 'on the road' : null, r.season && String(r.season)].filter(Boolean)
-    const club = r.per === 'club' || (r.per === 'inning' && r.side !== 'pitching')
+    const club = r.per === 'club' || (r.per === 'inning' && r.side === 'hitting')
     return [{
       key: `record-${href}`,
       title: [`Most ${field.label.toLowerCase()}${r.per === 'season' ? '' : ` in ${r.per === 'inning' ? 'an inning' : 'a game'}`}${r.per === 'club' ? ' by a club' : ''}`, ...where].join(' '),

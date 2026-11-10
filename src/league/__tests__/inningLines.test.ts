@@ -230,16 +230,49 @@ describe('the runners rows', () => {
 })
 
 
-// The club in the field: an error counted where the text charges it, never where it only mentions it.
+// A fielder's half-inning: the position the log charges, placed on whoever held it at that play.
 describe('fieldingInningLines', () => {
-  it('counts each error once and a double play, under the club in the field', () => {
+  const src = (extra: { game_id: string; team_id: string; player_id: string; position: string; started: boolean }[] = []) => ({
+    starts: [
+      { game_id: 'g1', team_id: 'home', player_id: 'ss1', position: 'ss', started: true },
+      { game_id: 'g1', team_id: 'home', player_id: 'lf1', position: 'lf/p', started: true },
+      { game_id: 'g1', team_id: 'home', player_id: '2b1', position: '2b', started: true },
+      { game_id: 'g1', team_id: 'home', player_id: '1b1', position: '1b', started: true },
+      ...extra,
+    ],
+    byName: (n: string) => ({ 'Jua Park': 'park', 'Lee Fox': 'lf1' } as Record<string, string>)[n] ?? null,
+    teamOf: (_g: string, p: string) => (['park', 'lf1', 'ss1', '2b1', '1b1'].includes(p) ? 'home' : null),
+  })
+
+  it('charges each error once to the fielder at that position, and every fielder in a double play', () => {
     const plays = [
       play({ outs: 0, event_type: 'unknown', narrative: 'Jo Doe reached on a throwing error by ss, advanced to second on the error.' }),
       play({ outs: 0, event_type: 'unknown', narrative: 'Al Roe reached first on a dropped fly by lf.' }),
       play({ outs: 0, event_type: 'groundout', pitch_sequence: 'P', narrative: 'Bo Poe grounded into double play ss to 2b to 1b.' }),
     ]
-    const [line] = fieldingInningLines(plays, [game()])
-    expect(line).toMatchObject({ team_id: 'home', e: 2, dp: 1 })
+    const lines = fieldingInningLines(plays, [game()], src())
+    const by = (id: string) => lines.find(l => l.player_id === id)
+    expect(by('ss1')).toMatchObject({ team_id: 'home', pos: 6, e: 1, dp: 1 })
+    expect(by('lf1')).toMatchObject({ pos: 7, e: 1, dp: 0 })
+    expect(by('2b1')).toMatchObject({ dp: 1 })
+    expect(by('1b1')).toMatchObject({ dp: 1 })
+  })
+
+  it('follows a change in the field, and gives the mound to the pitcher of the play', () => {
+    const plays = [
+      play({ event_type: 'unknown', narrative: 'Jua Park to ss for Sam Ess.' }),
+      play({ outs: 0, event_type: 'unknown', narrative: 'Jo Doe reached on an error by ss.' }),
+      play({ outs: 0, event_type: 'unknown', pitcher_id: 'pit', narrative: 'Al Roe safe on a throwing error by p.' }),
+    ]
+    const lines = fieldingInningLines(plays, [game()], src())
+    expect(lines.find(l => l.player_id === 'park')).toMatchObject({ e: 1, pos: 6 })
+    expect(lines.find(l => l.player_id === 'ss1')).toBeUndefined()
+    expect(lines.find(l => l.player_id === 'pit')).toMatchObject({ e: 1, pos: 1 })
+  })
+
+  it('credits nobody at a position it cannot place', () => {
+    const plays = [play({ outs: 0, event_type: 'unknown', narrative: 'Jo Doe reached on an error by cf.' })]
+    expect(fieldingInningLines(plays, [game()], src())).toEqual([])
   })
 })
 

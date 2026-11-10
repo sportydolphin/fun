@@ -32,7 +32,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'Find: fielding by the inning',
-        full:  'Errors, double plays, passed balls and steals allowed can be asked by the inning, for the club in the field: "most errors in an inning", "2 errors in an inning".',
+        full:  'Errors, double plays, passed balls and steals allowed can be asked by the inning, for each fielder, with the position played: "most errors in an inning", "2 errors in an inning". The play-by-play names only the position ("error by ss"), so each is placed on whoever was playing there at the time.',
       },
       {
         short: 'Find: pickoffs and pitches seen',

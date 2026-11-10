@@ -14,6 +14,7 @@ import type { SeasonScope } from '../league/season'
 import { fetchWpblAllFielding, fetchWpblAllLines } from './api'
 import { fetchWpblPlayLog, type WpblLogPlay } from './api/plays'
 import { WPBL_LEAGUE } from './league'
+import { wpblFielderSource } from './fielders'
 import { currentSeason, gamesInSeason, inSeason, seasonsOnRecord } from './season'
 import { wpblQualifiers } from './stats'
 import type { WpblFieldingLine, WpblGame, WpblPlayer, WpblTeam } from './types'
@@ -81,6 +82,8 @@ export async function wpblFindAnswer(href: string, ctx: {
     fine ? fetchWpblPlayLog(season) : Promise.resolve<WpblLogPlay[] | null>(null),
   ])
   const log = plays ? cut(plays) : null
+  const fielders = log && query.per === 'inning' && side === 'fielding'
+    ? await wpblFielderSource(ctx.teams, ctx.players, [lines.batting, lines.pitching, fielding]) : null
   const q = wpblQualifiers(ctx.teams, games, query.scope)
   const result = runFinder(side, cut(lines.batting), cut(lines.pitching), ctx.players, games, query, Infinity, null, {
     eraInnings: ctx.eraInnings,
@@ -89,7 +92,7 @@ export async function wpblFindAnswer(href: string, ctx: {
     innings: log && query.per === 'inning' && side === 'pitching' ? inningPitchingLines(WPBL_LEAGUE, log, games) : undefined,
     teamInnings: log && query.per === 'inning' && side === 'hitting' ? teamInningLines(WPBL_LEAGUE, log, games) : undefined,
     plateAppearances: log && query.per === 'pa' ? plateAppearanceLines(WPBL_LEAGUE, log, games) : undefined,
-    fieldInnings: log && query.per === 'inning' && side === 'fielding' ? fieldingInningLines(log, games) : undefined,
+    fieldInnings: log && fielders ? fieldingInningLines(log, games, fielders) : undefined,
     playTotals: log && (query.per === 'game' || query.per === 'season') ? playTotals(WPBL_LEAGUE, log, games) : undefined,
     clubName: id => ctx.teams.find(t => t.id === id)?.name ?? id,
   })

@@ -114,7 +114,7 @@ export function hasMatchup(q: Pick<FinderQuery, 'per' | 'batterId' | 'pitcherId'
 
 /** Whether one player can be asked about at this grain on this side (see `FinderQuery.playerId`). */
 export function finderPlayerApplies(side: FinderBoardSide, per: FinderPer): boolean {
-  return per === 'game' || per === 'season' || (per === 'inning' && side === 'pitching')
+  return per === 'game' || per === 'season' || (per === 'inning' && side !== 'hitting')
 }
 
 /** Whether a query asks about particular players at all: a matchup, or one player where it applies. */
@@ -323,10 +323,15 @@ const INNING_KEYS = new Set(['inn', 'outs', 'bf', 'so', 'bb', 'hbp', 'h', 'hr', 
 const HIT_INNING_KEYS = new Set(['inn', 'pa', 'ob', 'r', 'h', '1b', '2b', '3b', 'hr', 'xbh', 'tb', 'bb', 'so', 'hbp', 'sf', 'sh', 'r2', 'trail', 'tooklead',
   'sb', 'sbh', 'cs', 'pk'])
 
-// THE CLUB IN THE FIELD, a half-inning at a time (`fieldingInningLines`): its errors and double plays
-// off the narrative, and the passed balls and steals against its catcher. Filed under the club, since
-// the log names a fielder by position, not by player.
-const FLD_INNING_KEYS = new Set(['inn', 'e', 'dp', 'pb', 'sba'])
+// A FIELDER'S HALF-INNING (`fieldingInningLines`): the errors and double plays the log charges to the
+// position she held, and the passed balls and steals against her when catching, with the position.
+const FLD_INNING_KEYS = new Set(['inn', 'pos', 'e', 'dp', 'pb', 'sba'])
+const POSITION_LABELS = ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF']
+// Only the fielding inning knows where a play was made; a game line has no position (FLD_FIELDS).
+const POS_FIELD: Field<{ pos: number }> = { key: 'pos', label: 'Position', unit: 'POS', value: l => l.pos, fineOnly: true,
+  display: v => POSITION_LABELS[v - 1] ?? String(v),
+  parse: raw => { const i = POSITION_LABELS.indexOf(raw.trim().toUpperCase()); return i >= 0 ? i + 1 : Number(raw) },
+  unparse: v => POSITION_LABELS[v - 1] ?? String(v) }
 
 // ─── What a plate appearance can be asked about ───────────────────────────────
 //
@@ -411,7 +416,7 @@ const CLUB_KEYS: Record<FinderBoardSide, Set<string>> = {
 
 function allFields(side: FinderBoardSide): Field<never>[] {
   return (side === 'pitching' ? [...PIT_FINE_FIELDS, ...PIT_FIELDS, ...PIT_SEASON_FIELDS, ...CLUB_FIELDS]
-    : side === 'fielding' ? [INN_FIELD, ...FLD_FIELDS, ...FLD_SEASON_FIELDS, ...CLUB_FIELDS]
+    : side === 'fielding' ? [INN_FIELD, POS_FIELD, ...FLD_FIELDS, ...FLD_SEASON_FIELDS, ...CLUB_FIELDS]
     : [...HIT_FINE_FIELDS, ...HIT_FIELDS, ...HIT_SEASON_FIELDS, ...CLUB_FIELDS]) as Field<never>[]
 }
 
@@ -469,7 +474,7 @@ const FIELD_GROUPS: Record<FinderBoardSide, [string, string[]][]> = {
     ['Result', ['won', 'margin']],
   ],
   fielding: [
-    ['Situation', ['inn']],
+    ['Situation', ['inn', 'pos']],
     ['Chances', ['tc', 'po', 'a', 'e', 'dp']],
     ['Catching', ['pb', 'sba', 'ci']],
     ['Playing time', ['g']],
@@ -603,7 +608,7 @@ const PA_COLUMNS = ['inn', 'paouts', 'on', 'balls', 'scount', 'pitches', 'runs']
 const HIT_CLUB_COLUMNS = ['pa', 'h', 'r', 'hr', 'bb', 'so', 'sb', 'margin']
 const PIT_CLUB_COLUMNS = ['ip', 'h', 'r', 'er', 'bb', 'so', 'pitches', 'margin']
 const FLD_CLUB_COLUMNS = ['tc', 'po', 'a', 'e', 'dp', 'margin']
-const FLD_INNING_COLUMNS = ['inn', 'e', 'dp', 'pb', 'sba']
+const FLD_INNING_COLUMNS = ['inn', 'pos', 'e', 'dp', 'pb', 'sba']
 const COLUMNS: Record<FinderBoardSide, Record<FinderPer, string[]>> = {
   hitting: { game: HIT_COLUMNS, season: HIT_SEASON_COLUMNS, inning: HIT_INNING_COLUMNS, pa: PA_COLUMNS, club: HIT_CLUB_COLUMNS },
   pitching: { game: PIT_COLUMNS, season: PIT_SEASON_COLUMNS, inning: PIT_INNING_COLUMNS, pa: PA_COLUMNS, club: PIT_CLUB_COLUMNS },
@@ -703,7 +708,7 @@ export interface FinderOptions {
   clubName?: (teamId: string) => string
   /** Every plate appearance (`plateAppearanceLines`), for that grain, read the same way. */
   plateAppearances?: PlateAppearanceLine[]
-  /** Every club's half-innings in the field (`fieldingInningLines`), for Fielding's inning grain. */
+  /** Every fielder's half-innings (`fieldingInningLines`), for Fielding's inning grain. */
   fieldInnings?: FieldingInningLine[]
   /** A player's play-log counts in each game (`playTotals`), keyed `${game_id}|${player_id}`: what a
    *  game or a season knows of pickoffs and pitches seen. Without them those fields match nothing. */
@@ -751,9 +756,9 @@ const teamInningDetail = (l: TeamInningLine): string => [
   l.tooklead > 0 && 'took the lead',
 ].filter(Boolean).join(', ')
 
-/** "Top 4th: 2 E, 1 DP". */
+/** "Top 4th at SS: 2 E, 1 DP". */
 const fieldInningDetail = (l: FieldingInningLine): string => [
-  `${l.half === 'top' ? 'Top' : 'Bottom'} ${ordinal(l.inning)}: ${plural(l.e, 'E', 'E')}`,
+  `${l.half === 'top' ? 'Top' : 'Bottom'} ${ordinal(l.inning)} at ${POSITION_LABELS[l.pos - 1] ?? '?'}: ${plural(l.e, 'E', 'E')}`,
   l.dp > 0 && plural(l.dp, 'DP', 'DP'),
   l.pb > 0 && plural(l.pb, 'PB', 'PB'),
   l.sba > 0 && plural(l.sba, 'SB', 'SB'),
@@ -1133,11 +1138,10 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     return collect(sum(batting), fields as unknown as Field<BattingGameLine & Club>[], hitDetail, () => true, none)
   }
   if (query.per === 'inning' && side === 'fielding') {
-    // THE CLUB IN THE FIELD, a half-inning at a time, filed under the club like its turn at the plate.
-    type FiledField = FieldingInningLine & { player_id: string }
-    const lines = (opts.fieldInnings ?? []).map((l): FiledField => ({ ...l, player_id: `${CLUB_KEY}${l.team_id}` }))
-    const fields = allFields(side).filter(f => askable(side, f, 'inning')) as unknown as Field<FiledField>[]
-    return collect<FiledField>(lines, fields, fieldInningDetail, () => true, { field: 'pa', own: [], min: undefined })
+    // A FIELDER'S HALF-INNING, a player's as a pitcher's inning is. "Played" in the tally is the
+    // innings the fielder had a play charged in, as a fielding line exists only for a night with one.
+    const fields = allFields(side).filter(f => askable(side, f, 'inning')) as unknown as Field<FieldingInningLine>[]
+    return collect(opts.fieldInnings ?? [], fields, fieldInningDetail, () => true, { field: 'pa', own: [], min: undefined })
   }
   if (query.per === 'inning' && side === 'hitting') {
     // A CLUB'S HALF-INNING, filed under the club: its row has no player, and its tally is clubs. The

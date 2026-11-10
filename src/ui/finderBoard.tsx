@@ -596,7 +596,7 @@ function SeasonRow<P extends LeaguePlayer, G extends LeagueGame>({ row, i, rank,
 /** Who a row is, for the counts: a player on every side, and a club on Hitting by the inning, where
  *  a row is a club's half-inning at the plate. */
 function whoFor(side: FinderBoardSide, per: FinderPer): [string, string] {
-  if (per === 'club' || (per === 'inning' && side !== 'pitching')) return ['club', 'clubs']
+  if (per === 'club' || (per === 'inning' && side === 'hitting')) return ['club', 'clubs']
   return side === 'pitching' ? ['pitcher', 'pitchers'] : side === 'fielding' ? ['fielder', 'fielders'] : ['hitter', 'hitters']
 }
 
