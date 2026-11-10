@@ -1268,6 +1268,26 @@ and nobody threw an immaculate inning).
    bases-loaded walks, 7 grand slams. A hitting side at the inning grain was left out: a batter's
    half-inning is nearly always one trip to the plate, which this grain already is.
 
+Shipped Nov 9, 2026 as v1.211.0 (#239). Follow-ups, in the order taken:
+
+7. ✅ **Runners in scoring position and which inning** (Nov 9, v1.211.1). A `risp` field on the plate
+   appearance; "with risp", "with runners in scoring position", "bases empty", "with runners on".
+   Which inning in words at either grain: "in the 7th", "first inning", "5th or later", "after the
+   6th", "before the 3rd", "extra innings" (past the league's regulation length, which the parser is
+   now told). A count beside it is a pitcher's inning, an event with no number a plate appearance.
+   Both play-log grains are in the layout sweep's routes (the play log was already recorded).
+8. **Team half-innings**: "innings with 5+ runs", two-out rallies, comebacks.
+9. **Runs of plays**: back-to-back home runs, consecutive strikeouts, a pitcher retiring 10 straight.
+10. **Matchup filter**: one batter or pitcher on the plate-appearance grain.
+11. **TrackMan fields** where a game has them, **win probability per plate appearance**, and **feat
+    alerts** (immaculate innings, walk-offs) to Discord, Bluesky or Home.
+12. **Across seasons** once 2027 plays exist, and **MLB** once its plays are mirrored (below).
+
+Known limits: inning R is runs on the pitcher's watch, not charged runs; no RBI or earned runs on a
+plate appearance; the 658 plays the feed calls `unknown` count as plate appearances with no event;
+a walk-off on a wild pitch or balk is not one (it is no plate appearance); an inning row opens at
+the pitcher's first batter, not the strikeouts.
+
 **MLB** gets steps 2 to 5 for free once its plays are mirrored (ROADMAP.md item 6): the engine takes
 a `League`, nothing in it is WPBL's. An MLB season is about 190k plays, too many for the browser, so
 there the lines are built in Postgres and only the matches are read.

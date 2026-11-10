@@ -202,6 +202,8 @@ export interface PlateAppearanceLine {
   /** Outs when the plate appearance began, and runners on base. */
   paouts: number
   on: number
+  /** One with a runner on second or third (in scoring position), else zero. */
+  risp: number
   /** The count before the last pitch. */
   balls: number
   scount: number
@@ -269,6 +271,7 @@ export function plateAppearanceLines(league: League, plays: RunValuePlay[], game
       fielding_team: p.half === 'top' ? g.home_team_id : g.away_team_id,
       event: EVENT_CODE[ev] ?? null,
       paouts: p.outs, on: onBase(p.first_base) + onBase(p.second_base) + onBase(p.third_base),
+      risp: onBase(p.second_base) || onBase(p.third_base),
       balls: Math.min(balls, 3), scount: Math.min(scount, 2), pitches: seq.length, strikes, fouls,
       h: HITS.has(ev) ? 1 : 0, doubles: ev === 'double' ? 1 : 0, triples: ev === 'triple' ? 1 : 0,
       hr: ev === 'home_run' ? 1 : 0, tb: BASES[ev] ?? 0,

@@ -504,3 +504,37 @@ describe('parseFinderText: the plate-appearance grain', () => {
     expect(pa('home run on 0-2 in an inning')).toEqual([])
   })
 })
+
+describe('parseFinderText: situations and the inning in words', () => {
+  const wpbl = (t: string) => parseFinderText(t, CLUBS, ['hitting', 'pitching', 'fielding'], { plays: true, regulationInnings: 7 })
+  const best = (t: string) => wpbl(t)[0]
+  const conds = (t: string) => best(t)?.conditions.map(c => `${c.field}.${c.op}.${c.value}`)
+
+  it('reads runners in scoring position and empty bases', () => {
+    expect(best('hits with runners in scoring position')).toMatchObject({ side: 'hitting', per: 'pa' })
+    expect(conds('hits with risp')).toEqual(['risp.eq.1', 'h.gte.1'])
+    expect(conds('home runs with the bases empty')).toEqual(['on.eq.0', 'hr.gte.1'])
+    expect(conds('walks with runners on')).toEqual(['on.gte.1', 'bb.gte.1'])
+  })
+
+  it('reads which inning, and picks the grain from what is beside it', () => {
+    expect(best('3 strikeouts in the 7th')).toMatchObject({ side: 'pitching', per: 'inning' })
+    expect(conds('3 strikeouts in the 7th')).toEqual(['inn.eq.7', 'so.gte.3'])
+    expect(best('home runs in the 1st inning')).toMatchObject({ side: 'hitting', per: 'pa' })
+    expect(conds('home runs in the first inning')).toEqual(['inn.eq.1', 'hr.gte.1'])
+    expect(conds('strikeouts in the 5th or later')).toEqual(['inn.gte.5', 'so.gte.1'])
+    expect(conds('hits after the 6th')).toEqual(['inn.gte.7', 'h.gte.1'])
+    expect(conds('walks before the 3rd')).toEqual(['inn.lte.2', 'bb.gte.1'])
+  })
+
+  it('takes extra innings from the league', () => {
+    expect(conds('home runs in extra innings')).toEqual(['inn.gte.8', 'hr.gte.1'])
+    expect(parseFinderText('home runs in extras', CLUBS, ['hitting', 'pitching'], { plays: true })[0].conditions[0])
+      .toEqual({ field: 'inn', op: 'gte', value: 10 })
+  })
+
+  it('leaves innings pitched alone, and offers MLB nothing', () => {
+    expect(best('7 innings no walks')).toMatchObject({ per: 'game' })
+    expect(parseFinderText('home runs in the 7th', CLUBS)).toEqual([])
+  })
+})

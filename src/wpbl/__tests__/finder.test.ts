@@ -532,7 +532,7 @@ describe('the finder, by the plate appearance', () => {
   const pa = (o: Partial<PlateAppearanceLine> = {}): PlateAppearanceLine => ({
     id: Math.random().toString(36).slice(2), game_id: 'g1', sequence: 10, inning: 3, half: 'top',
     batter_id: 'a', pitcher_id: 'b', batting_team: 'NY', fielding_team: 'LA', event: 'HR',
-    paouts: 0, on: 0, balls: 0, scount: 2, pitches: 4, strikes: 3, fouls: 1,
+    paouts: 0, on: 0, risp: 0, balls: 0, scount: 2, pitches: 4, strikes: 3, fouls: 1,
     h: 1, doubles: 0, triples: 0, hr: 1, tb: 4, bb: 0, so: 0, hbp: 0, runs: 1, walkoff: 0, ...o,
   })
   const ask = (side: 'hitting' | 'pitching', conditions: FinderQuery['conditions'], plateAppearances: PlateAppearanceLine[]) =>
@@ -571,5 +571,9 @@ describe('the finder, by the plate appearance', () => {
     // A range of counts, or the same fields on another grain, read field by field.
     expect(describeFinderQuery('hitting', { per: 'pa', conditions: [{ field: 'balls', op: 'gte', value: 2 }] }))
       .toBe('Balls in the count at least 2')
+    expect(describeFinderQuery('pitching', { per: 'inning', conditions: [{ field: 'so', op: 'gte', value: 3 }, { field: 'inn', op: 'gte', value: 6 }] }))
+      .toBe('Strikeouts at least 3 and 6th inning or later')
+    expect(describeFinderQuery('hitting', { per: 'pa', conditions: [{ field: 'h', op: 'gte', value: 1 }, { field: 'risp', op: 'eq', value: 1 }] }))
+      .toBe('Hits at least 1 and Runner in scoring position')
   })
 })

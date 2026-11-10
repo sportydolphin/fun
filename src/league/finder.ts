@@ -262,9 +262,9 @@ const INNING_KEYS = new Set(['inn', 'outs', 'bf', 'so', 'bb', 'hbp', 'h', 'hr', 
 // a count, so "home runs at least 1" is the same condition at every grain. What only a trip to the
 // plate has is the situation it began in and how it got there: the count before the last pitch, the
 // outs, the runners on, the fouls, the runs the play scored, and whether it ended the game.
-const HIT_PA_KEYS = new Set(['inn', 'paouts', 'on', 'walkoff', 'balls', 'scount', 'pitches', 'fouls', 'runs',
+const HIT_PA_KEYS = new Set(['inn', 'paouts', 'on', 'risp', 'walkoff', 'balls', 'scount', 'pitches', 'fouls', 'runs',
   'h', '2b', '3b', 'hr', 'tb', 'bb', 'so', 'hbp'])
-const PIT_PA_KEYS = new Set(['inn', 'paouts', 'on', 'walkoff', 'balls', 'scount', 'pitches', 'strikes', 'fouls', 'runs',
+const PIT_PA_KEYS = new Set(['inn', 'paouts', 'on', 'risp', 'walkoff', 'balls', 'scount', 'pitches', 'strikes', 'fouls', 'runs',
   'h', 'hr', 'bb', 'so', 'hbp'])
 
 type FineLine = InningPitchingLine & PlateAppearanceLine
@@ -272,6 +272,7 @@ const INN_FIELD: Field<FineLine> = { key: 'inn', label: 'Inning', unit: 'INN', v
 const PA_FIELDS: Field<FineLine>[] = [
   { key: 'paouts', label: 'Outs', unit: 'OUT', value: l => l.paouts, fineOnly: true },
   { key: 'on', label: 'Runners on', unit: 'ON', value: l => l.on, fineOnly: true },
+  { key: 'risp', label: 'Runner in scoring position', unit: 'RISP', value: l => l.risp, fineOnly: true },
   { key: 'balls', label: 'Balls in the count', unit: 'B', value: l => l.balls, fineOnly: true },
   { key: 'scount', label: 'Strikes in the count', unit: 'S', value: l => l.scount, fineOnly: true },
   { key: 'fouls', label: 'Fouls', unit: 'F', value: l => l.fouls, fineOnly: true },
@@ -335,7 +336,7 @@ export function finderFields(side: FinderBoardSide, per: FinderPer = 'game'): { 
 // src/league/__tests__/finderGroups.test.ts.
 const FIELD_GROUPS: Record<FinderBoardSide, [string, string[]][]> = {
   hitting: [
-    ['Situation', ['inn', 'paouts', 'on', 'walkoff']],
+    ['Situation', ['inn', 'paouts', 'on', 'risp', 'walkoff']],
     ['Count', ['balls', 'scount', 'pitches', 'fouls']],
     ['Hits', ['h', 'tb', 'hr', '2b', '3b']],
     ['Runs', ['rbi', 'r', 'runs']],
@@ -345,7 +346,7 @@ const FIELD_GROUPS: Record<FinderBoardSide, [string, string[]][]> = {
     ['Rates', ['avg', 'obp', 'slg', 'ops']],
   ],
   pitching: [
-    ['Situation', ['inn', 'paouts', 'on', 'walkoff']],
+    ['Situation', ['inn', 'paouts', 'on', 'risp', 'walkoff']],
     ['Count', ['balls', 'scount', 'fouls']],
     ['Workload', ['ip', 'outs', 'g', 'gs', 'bf', 'pitches', 'strikes']],
     ['Decisions', ['w', 'l', 'sv', 'hld']],
@@ -970,11 +971,17 @@ export function describeFinderQuery(side: FinderBoardSide, q: Pick<FinderQuery, 
   const strikes = q.per === 'pa' ? exact('scount') : undefined
   const said: Record<string, (v: number) => string> = q.per === 'pa' ? {
     on: v => (v === 3 ? 'Bases loaded' : v === 0 ? 'Bases empty' : `${v} on`),
+    risp: v => (v === 1 ? 'Runner in scoring position' : 'Nobody in scoring position'),
     paouts: v => `${v} out`,
     walkoff: v => (v === 1 ? 'Walk-off' : 'Not a walk-off'),
   } : {}
+  // Which inning, at either play-log grain: "7th inning", "7th inning or later", "Through the 3rd".
+  const innWords: Record<FinderOp, (v: number) => string> = {
+    eq: v => `${ordinal(v)} inning`, gte: v => `${ordinal(v)} inning or later`, lte: v => `Through the ${ordinal(v)}`,
+  }
   const parts = q.conditions.flatMap(c => {
     if (balls && strikes && (c === balls || c === strikes)) return c === balls ? [`${balls.value}-${strikes.value} count`] : []
+    if (c.field === 'inn' && (q.per === 'pa' || q.per === 'inning')) return [innWords[c.op](c.value)]
     if (c.op === 'eq' && said[c.field]) return [said[c.field](c.value)]
     const f = labels.get(c.field)
     const sym = FINDER_OPS.find(o => o.op === c.op)?.label ?? ''

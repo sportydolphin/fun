@@ -176,6 +176,8 @@ const DEFAULT_ROUTES = [
   // there are matches, and the board switches between its layouts on its own width (Oct 2026).
   '/wpbl/stats?board=find&q=h.gte.3', '/mlb/find?q=h.gte.3',
   '/wpbl/stats?board=find&q=season~avg.gte.300', '/mlb/find?q=season~hr.gte.30',
+  // The two play-log grains, which read the play log and draw a Result column of events.
+  '/wpbl/stats?board=find&side=pitching&q=inning~so.gte.3', '/wpbl/stats?board=find&q=pa~hr.gte.1~on.eq.3',
   // One slot filled, and a pair: two hitters, the shape the pair's skeleton reserves.
   '/mlb/compare/zack-wheeler-554430', '/mlb/compare/bobby-witt-jr-677951-vs-julio-rodriguez-677594',
   // A player page, one of each role. None was swept until Oct 20, 2026, when the field reports found

@@ -116,7 +116,7 @@ describe('plateAppearanceLines', () => {
 
   it('reads the outs and runners it began with, and files both clubs', () => {
     const [pa] = plateAppearanceLines(WPBL_LEAGUE, [play({ outs: 2, first_base: 'A', second_base: '', third_base: 'C', event_type: 'walk', pitch_sequence: 'BBBB' })], [game()])
-    expect(pa).toMatchObject({ paouts: 2, on: 2, bb: 1, batting_team: 'away', fielding_team: 'home', balls: 3, scount: 0 })
+    expect(pa).toMatchObject({ paouts: 2, on: 2, risp: 1, bb: 1, batting_team: 'away', fielding_team: 'home', balls: 3, scount: 0 })
   })
 
   it('skips rows that are not a plate appearance, and the start of the next one', () => {

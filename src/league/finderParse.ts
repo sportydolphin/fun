@@ -281,8 +281,41 @@ const PA_PHRASES: { re: RegExp; conditions: (m: RegExpExecArray) => FinderCondit
     conditions: () => [{ field: 'walkoff', op: 'eq', value: 1 }] },
   { re: /(?<![a-z0-9])(?:with\s+)?([0-2]|no|none|zero|one|two)[\s-]+outs?(?![a-z])/g,
     conditions: m => [{ field: 'paouts', op: 'eq', value: outsCount(m[1]) }] },
+  { re: /(?<![a-z0-9])(?:with\s+)?(?:(?:runners?|men|someone|somebody)\s+in\s+scoring\s+position|risp)(?![a-z])/g,
+    conditions: () => [{ field: 'risp', op: 'eq', value: 1 }] },
+  { re: /(?<![a-z0-9])(?:with\s+(?:the\s+)?bases\s+empty|with\s+nobody\s+on|bases\s+empty)(?![a-z])/g,
+    conditions: () => [{ field: 'on', op: 'eq', value: 0 }] },
+  { re: /(?<![a-z0-9])with\s+(?:runners?|men|someone|somebody)\s+on(?:\s+base)?(?![a-z])/g,
+    conditions: () => [{ field: 'on', op: 'gte', value: 1 }] },
   { re: /(?<![a-z0-9])(?:(?:in|during)\s+(?:an?|one|1|a single|the same)|per)\s+(?:at[\s-]?bat|plate appearance)(?![a-z])/g,
     conditions: () => [] },
+]
+
+// WHICH INNING, in words: "in the 7th", "7th inning or later", "after the 5th", "in extra innings".
+// Either play-log grain can ask it, so it settles neither on its own: a count beside it ("3
+// strikeouts in the 7th") is a pitcher's inning, an event with no number ("a home run in the 7th")
+// is a plate appearance. Extra innings are the league's own, past its regulation length, which is
+// why the parser is told that length rather than assuming nine.
+const ORDINAL_WORDS: Record<string, number> = {
+  first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10, eleventh: 11, twelfth: 12,
+}
+const ORD = `(\\d{1,2})(?:st|nd|rd|th)`
+const ORD_WORD = `(${Object.keys(ORDINAL_WORDS).join('|')})`
+const INN_PHRASES: { re: RegExp; condition: (m: string[], regulation: number) => FinderCondition }[] = [
+  { re: /(?<![a-z0-9])(?:in\s+)?(?:extra\s+(?:innings?|frames?)|extras)(?![a-z])/g,
+    condition: (_m, regulation) => ({ field: 'inn', op: 'gte', value: regulation + 1 }) },
+  { re: new RegExp(`(?<![a-z0-9])(after|before)\\s+the\\s+(?:${ORD}|${ORD_WORD})(?:\\s+(?:inning|frame))?(?![a-z])`, 'g'),
+    condition: m => {
+      const v = m[2] ? Number(m[2]) : ORDINAL_WORDS[m[3]]
+      return m[1] === 'after' ? { field: 'inn', op: 'gte', value: v + 1 } : { field: 'inn', op: 'lte', value: v - 1 }
+    } },
+  { re: new RegExp(`(?<![a-z0-9])(?:(?:in|during|through)\\s+(?:the\\s+)?)?(?:${ORD}(?:\\s+(?:inning|frame))?|${ORD_WORD}\\s+(?:inning|frame))(?:\\s+or\\s+(later|after|beyond|earlier|before))?(?![a-z])`, 'g'),
+    condition: m => {
+      const v = m[1] ? Number(m[1]) : ORDINAL_WORDS[m[2]]
+      const later = m[3] === 'later' || m[3] === 'after' || m[3] === 'beyond'
+      const earlier = m[3] === 'earlier' || m[3] === 'before' || /^through/.test(m[0])
+      return { field: 'inn', op: later ? 'gte' : earlier ? 'lte' : 'eq', value: v }
+    } },
 ]
 const EVENT_LEAN: Record<string, FinderBoardSide> = { so: 'pitching', hr: 'hitting', h: 'hitting', '2b': 'hitting', '3b': 'hitting', bb: 'hitting', hbp: 'hitting' }
 // The events a plate appearance can be, as words with no number beside them.
@@ -511,7 +544,7 @@ function takeYear(rest: string): { rest: string; season: number | null } {
 export function parseFinderText(
   text: string, clubs: readonly FinderClubAlias[] = [],
   sides: readonly FinderBoardSide[] = ['hitting', 'pitching'],
-  { plays = false }: { plays?: boolean } = {},
+  { plays = false, regulationInnings = 9 }: { plays?: boolean; regulationInnings?: number } = {},
 ): ParsedFinder[] {
   const clubWords = new Set(clubs.flatMap(c => c.names.flatMap(n => normalize(n).split(' '))))
   let rest = ` ${wordedThresholds(fixStatTypos(normalize(text), clubWords))} `
@@ -541,9 +574,17 @@ export function parseFinderText(
       return ' '.repeat((args[0] as string).length)
     })
   }
+  let innSaid = false
+  for (const { re, condition } of INN_PHRASES) {
+    rest = rest.replace(re, (...args: unknown[]) => {
+      innSaid = true
+      feats.push(condition(args.slice(0, -2) as string[], regulationInnings))
+      return ' '.repeat((args[0] as string).length)
+    })
+  }
   // Both at once ("on 0-2 in an inning") is no one question, and a section that does not read its
   // plays has neither grain: nothing, rather than the game question it is not.
-  if ((inningHint || paHint) && (!plays || (inningHint && paHint))) return []
+  if ((inningHint || paHint || innSaid) && (!plays || (inningHint && paHint))) return []
 
   // `at` is where in the text it was written, so the conditions keep the reader's order: the first
   // one is the board's headline. Every match is blanked to spaces of its own length, which is what
@@ -593,6 +634,12 @@ export function parseFinderText(
     rest = rest.replace(STAT_FIRST, statFirst).replace(NUMBER_FIRST, numberFirst)
   } else {
     rest = rest.replace(NUMBER_FIRST, numberFirst).replace(STAT_FIRST, statFirst)
+  }
+  // An inning named with nothing else to say which grain: a count is a pitcher's inning ("3
+  // strikeouts in the 7th"), anything else a plate appearance ("a home run in the 7th").
+  if (innSaid && !inningHint && !paHint) {
+    if (pending.length) inningHint = true
+    else paHint = true
   }
   // A plate appearance's event, named with no number: "a home run on 0-2" is one home run. After the
   // stats, whose numbered events have gone, and before the venue, which would take the "home" of a

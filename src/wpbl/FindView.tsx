@@ -71,6 +71,7 @@ const EXAMPLES: Record<FinderBoardSide, FinderExample[]> = {
     { per: 'pa', label: '10+ pitches', conditions: [{ field: 'pitches', op: 'gte', value: 10 }] },
     { per: 'pa', label: 'Home runs on 0-2', conditions: [{ field: 'hr', op: 'gte', value: 1 }, { field: 'balls', op: 'eq', value: 0 }, { field: 'scount', op: 'eq', value: 2 }] },
     { per: 'pa', label: 'Bases-loaded hits', conditions: [{ field: 'h', op: 'gte', value: 1 }, { field: 'on', op: 'eq', value: 3 }] },
+    { per: 'pa', label: 'Hits with RISP', conditions: [{ field: 'h', op: 'gte', value: 1 }, { field: 'risp', op: 'eq', value: 1 }] },
     { per: 'pa', label: '2-out run-scoring hits', conditions: [{ field: 'h', op: 'gte', value: 1 }, { field: 'paouts', op: 'eq', value: 2 }, { field: 'runs', op: 'gte', value: 1 }] },
     { per: 'pa', label: 'Walk-offs', conditions: [{ field: 'walkoff', op: 'eq', value: 1 }] },
     { per: 'season', label: '.300 hitters', conditions: [{ field: 'avg', op: 'gte', value: 300 }] },
