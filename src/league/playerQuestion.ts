@@ -1,5 +1,5 @@
 import type { FinderBoardSide, FinderCondition, FinderPer, FinderVenue } from './finder'
-import { isQuestionWord, parseClubScope, parseFinderText, type FinderClubAlias } from './finderParse'
+import { isQuestionWord, parseClubScope, parseFinderText, parseRecordQuestion, type FinderClubAlias } from './finderParse'
 import { foldName } from '../lib/fuzzyName'
 
 /**
@@ -49,6 +49,9 @@ export interface PlayerQuestion {
   /** The matchup's two, at a plate appearance; one of them alone when one player is asked there. */
   batterId: string | null
   pitcherId: string | null
+  /** The player's most of one stat at a grain ("most hr in a game by Whitmore"): the condition is
+   *  at least one, and Find's order is the answer. */
+  record?: boolean
 }
 
 const CONNECTORS = new Set(['vs', 'vs.', 'versus', 'v', 'v.', 'against', 'off', 'facing', 'faced', 'and', 'or', '&'])
@@ -156,6 +159,23 @@ export function parsePlayerQuestion(
         const own = r.per === 'pa' ? (r.side === 'pitching' ? { pitcherId: id } : { batterId: id }) : { playerId: id }
         out.push({ ...blank, kind: 'player', side: r.side, per: r.per, conditions: r.conditions,
           teamId: r.teamId, oppId: r.oppId, venue: r.venue, season: r.season, ...own })
+      }
+    }
+    return out.slice(0, MAX_READINGS)
+  }
+
+  // A RECORD OF THEIR OWN: "most hr in a game by Whitmore", "Sato's most strikeouts in an inning".
+  // Their lines, ranked by the stat, so the first row is the answer.
+  const records = parseRecordQuestion(rest.replace(/(?<![a-z])by(?![a-z])/gi, ' '), clubs)
+    .filter(r => sides.includes(r.side) && !(r.per === 'inning' && r.side === 'hitting') && (r.per !== 'inning' || opts.plays))
+  if (records.length) {
+    for (const id of ids) {
+      const p = byId.get(id)!
+      for (const r of records) {
+        if (!plays(p, r.side)) continue
+        out.push({ ...blank, kind: 'player', record: true, side: r.side, per: r.per,
+          conditions: [{ field: r.field, op: 'gte', value: 1 }],
+          teamId: r.teamId, oppId: r.oppId, venue: r.venue, season: r.season, playerId: id })
       }
     }
     return out.slice(0, MAX_READINGS)

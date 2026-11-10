@@ -47,6 +47,13 @@ export interface LeaderPeek {
 
 /** A question answered with one play: a first, or a plate-appearance record. Also the row that
  *  stands for the rest of a shared record, which opens the Find board instead of a play. */
+/** A Find question that names players ("Sato vs hunters", "Whitmore off Schroder"), as a row. A
+ *  matchup is a batter against a pitcher; the rest are one player's question. */
+export interface PlayerQuestionRow {
+  key: string; title: string; subtitle: string; href: string
+  matchup: boolean
+}
+
 export interface PlayAnswer {
   key: string
   /** "First home run", "Longest at-bat". */
@@ -136,6 +143,9 @@ export interface SearchBridgeState {
   /** "longest at-bat", "most fouls in a PA": the play that holds it, each of up to three that share
    *  it, then the Find board for the rest. Null where the section has no play log (MLB). */
   resolvePaRecord: ((ask: PaRecordQuestion) => Promise<PlayAnswer[]>) | null
+  /** A Find question naming players, read against the section's roster. Null where the section has
+   *  none to offer (MLB, until its Find takes a player). */
+  resolvePlayerQuestion: ((text: string) => Promise<PlayerQuestionRow[]>) | null
 }
 
 const DEFAULT: SearchBridgeState = {
@@ -163,6 +173,7 @@ const DEFAULT: SearchBridgeState = {
   resolvePlayerStat: null,
   resolveFirsts: null,
   resolvePaRecord: null,
+  resolvePlayerQuestion: null,
 }
 
 let _state: SearchBridgeState = { ...DEFAULT }

@@ -1224,8 +1224,8 @@ worth doing:
     shares a call in flight, and keeps no failure.
 
 Two limits to keep in mind rather than fix. A player's name inside a Find question ("Whitmore 2
-hr") is dropped from the Find row: Find takes one player since Nov 10 (v1.218.0), but the parser
-does not read names yet (step 2 below). And MLB has no regular-season page for a pairing of
+hr") was dropped from the Find row until Nov 10 (v1.219.0), when search began reading names against
+the roster (step 2 below). MLB's search still drops it. And MLB has no regular-season page for a pairing of
 clubs, so "Cubs vs Cardinals" answers with their latest and next game only.
 
 ## Search: names, records for every stat, looser wording (Nov 10, 2026) 🎯⚙️
@@ -1241,13 +1241,25 @@ ask about one player, so a name was dropped. Four pull requests, in this order (
    the matchup's batter (Hitting) or pitcher (Pitching), and `finderPlayerAt` swaps one for the other
    when the grain changes. Not at a club's half-inning, which is nobody's. A Player picker over the
    clubs; a player with nothing asked is their game log in date order.
-2. **Names in the search bar**, with the matchup reading. The parser takes names out before the
-   stats. "Sato vs hunters" / "at Boston" / "against LA": the player's games against the club in
+2. ✅ **Names in the search bar** (Nov 10, v1.219.0), with the matchup reading.
+   `parsePlayerQuestion` in `src/league/playerQuestion.ts` finds roster names (whole, or the surname
+   when it is no question word or club word, a possessive only with its apostrophe), takes them out,
+   and hands the rest to the Find parser unchanged; a club-only rest is `parseClubScope`. The roster
+   comes from the section through the search bridge (`resolvePlayerQuestion`), with who has hit and
+   who has pitched off every season's lines, and the side a two-way player plays most for a
+   club-only question. In the palette a batter-vs-pitcher row leads the compare row, a player's
+   question leads Find, and the Find readings that would drop the name go. A player and a club is no
+   compare lookup any more ("hunters" found a player). "Sato vs hunters" / "at Boston" / "against LA": the player's games against the club in
    date order, and a second row with their season against it. "Whitmore vs Sato" / "off" / "facing"
    with one batter and one pitcher: their plate appearances first, the side-by-side compare second.
    "Whitmore 2-hit games": the question narrowed to the player. WPBL only; MLB's search later.
-3. **"Most X" for every stat and grain.** The Bests card where one exists, else Find at that grain
-   ranked by the stat, so the record is the first row: "most walks in a game", "most strikeouts in
+3. ✅ **"Most X" for every stat and grain** (Nov 10, v1.219.0). `parseRecordQuestion` in
+   finderParse.ts reads the club, place, year and grain ("in a game", "in an inning") off first, then
+   the stat as a ranking, on one side (the stat's lean, or the side a word like "allowed" names). The
+   Bests card where one keeps it and nothing narrows it, else Find at that grain asking for at least
+   one, ranked highest first, so the record is the first row. A player's own record goes through the
+   player reader. Bare "most X in an inning" stays the Find reading's (`inningRecord`, which also
+   knows "biggest innings"). Asked for: "most walks in a game", "most strikeouts in
    an inning", "most pitches in an at-bat", "most hr in a game by Whitmore", "most hits vs Boston".
 4. **Looser wording.** Grain words count wherever they sit ("most walks game", "strikeouts inning",
    "hr at bat"); "in", "at", "on", "vs" are optional where nothing hangs on them, kept where they

@@ -26,8 +26,22 @@ describe('single-game records', () => {
     expect(leaderSuggestions('mlb', 'most hr in a game')).toEqual([])
     expect(recordSuggestions('wpbl', 'longest scoreless outing')[0]).toMatchObject({ scrollTo: 'best-scoreless' })
   })
-  it('offers nothing for a record no card keeps, or for the low end', () => {
-    expect(recordSuggestions('mlb', 'most walks in a game')).toEqual([])
+  // A record no card keeps is Find's: at least one, ranked highest first, so the record is its first
+  // row. Before Nov 10, 2026 "most walks in a game" offered nothing.
+  it('answers a record no card keeps on Find, ranked', () => {
+    expect(recordSuggestions('wpbl', 'most walks in a game')).toEqual([
+      expect.objectContaining({ title: 'Most walks in a game', href: '/wpbl/stats?board=find&side=hitting&q=bb.gte.1' }),
+    ])
+    expect(recordSuggestions('wpbl', 'most walks issued in a game')[0]).toMatchObject({ title: 'Most walks allowed in a game' })
+    expect(recordSuggestions('mlb', 'most walks in a game')[0]).toMatchObject({ title: 'Most walks in a game' })
+  })
+  it('narrows a record by club, place and year, which a Bests card cannot', () => {
+    expect(recordSuggestions('wpbl', 'most hits in a game vs boston')[0]).toMatchObject({
+      title: 'Most hits in a game vs BOS', href: '/wpbl/stats?board=find&side=hitting&q=h.gte.1&opp=BOS',
+    })
+    expect(recordSuggestions('wpbl', 'most strikeouts in an inning 2026')[0]).toMatchObject({ href: expect.stringContaining('q=inning~so.gte.1') })
+  })
+  it('offers nothing for the low end', () => {
     expect(recordSuggestions('mlb', 'fewest hr in a game')).toEqual([])
   })
   it('leaves a season ranking alone', () => {

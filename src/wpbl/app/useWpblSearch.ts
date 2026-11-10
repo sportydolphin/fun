@@ -8,7 +8,7 @@ import { useEraBasis } from '../EraBasisContext'
 import { wpblPortraitSet } from '../portraits'
 import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from '../positions'
 import { useSearchBridgeQuery, useSearchBridgeQuerySeason, updateSearchBridge, setSearchQuery, onFirstSearchFocus } from '../../mlb/state/SearchBridgeContext'
-import type { PlayAnswer, LeaderAsk, PlayerStatAsk, SearchResultRow } from '../../mlb/state/SearchBridgeContext'
+import type { PlayAnswer, LeaderAsk, PlayerQuestionRow, PlayerStatAsk, SearchResultRow } from '../../mlb/state/SearchBridgeContext'
 import type { FirstQuestion } from '../../league/firsts'
 import type { PaRecordQuestion } from '../../league/paRecords'
 import { requestPlay } from '../entryUrl'
@@ -100,7 +100,7 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
     if (!searchActive) return
     updateSearchBridge({ isRegistered: true, source: 'wpbl' })
     return () => {
-      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], suggestedRows: [], searching: false, clearRecentSearches: null, resolveCompare: null, resolveGames: null, resolveLeader: null, resolvePlayerStat: null, resolveFirsts: null, resolvePaRecord: null, seasonCount: null, resultsForgiving: { players: false, teams: false } })
+      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], suggestedRows: [], searching: false, clearRecentSearches: null, resolveCompare: null, resolveGames: null, resolveLeader: null, resolvePlayerStat: null, resolveFirsts: null, resolvePaRecord: null, resolvePlayerQuestion: null, seasonCount: null, resultsForgiving: { players: false, teams: false } })
       setSearchQuery('')
     }
   }, [searchActive])
@@ -466,9 +466,23 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
     }
     return answers
   }, [games, players, playersById, teams, teamById])
+  // "Sato vs hunters", "Whitmore off Schroder", "Whitmore 2-hit games" (src/league/playerQuestion.ts):
+  // the roster with who has hit and who has pitched, from every season's lines, which decides who is
+  // the batter in a matchup and which side a player's question is asked on.
+  const resolvePlayerQuestion = useCallback(async (text: string): Promise<PlayerQuestionRow[]> => {
+    const [{ playerQuestionRows }, lines] = await Promise.all([import('../../finderSearch'), fetchWpblAllLines()])
+    const pa = new Map<string, number>(), bf = new Map<string, number>()
+    for (const l of lines.batting) pa.set(l.player_id, (pa.get(l.player_id) ?? 0) + l.ab + l.bb + l.hbp + l.sf + l.sh)
+    for (const l of lines.pitching) bf.set(l.player_id, (bf.get(l.player_id) ?? 0) + Math.max(l.bf ?? 0, l.outs))
+    const roster = players.map(p => {
+      const trips = pa.get(p.id) ?? 0, faced = bf.get(p.id) ?? 0
+      return { id: p.id, name: p.name, hits: trips > 0, pitches: faced > 0, lean: faced > trips ? 'pitching' as const : 'hitting' as const }
+    }).filter(p => p.hits || p.pitches)
+    return playerQuestionRows('wpbl', text, roster, id => teamById.get(id)?.name ?? id)
+  }, [players, teamById])
   useEffect(() => {
-    if (searchActive) updateSearchBridge({ resolvePlayerStat, resolveLeader, resolveFirsts, resolvePaRecord })
-  }, [resolvePlayerStat, resolveLeader, resolveFirsts, resolvePaRecord, searchActive])
+    if (searchActive) updateSearchBridge({ resolvePlayerStat, resolveLeader, resolveFirsts, resolvePaRecord, resolvePlayerQuestion })
+  }, [resolvePlayerStat, resolveLeader, resolveFirsts, resolvePaRecord, resolvePlayerQuestion, searchActive])
 
   // The header search is on screen on every page in the section and was entirely unmeasured.
   // One event per SETTLED query, never per keystroke: a debounce, plus a per-mount set of

@@ -83,3 +83,12 @@ describe('a two-way player', () => {
     expect(read('cole vs mora')[0]).toMatchObject({ batterId: 'h', pitcherId: 'p' })
   })
 })
+
+describe('a record of one player', () => {
+  it('ranks the player’s own lines by the stat', () => {
+    expect(ask('most hr in a game by jaida lee')[0]).toMatchObject({ kind: 'player', record: true, side: 'hitting', per: 'game', playerId: 'jl', conditions: [{ field: 'hr', op: 'gte', value: 1 }] })
+    expect(ask('schroder most strikeouts in an inning')[0]).toMatchObject({ side: 'pitching', per: 'inning', playerId: 'sc' })
+    const rows = playerQuestionRows('wpbl', 'most walks in a game by lee', ROSTER, id => id)
+    expect(rows[0].title).toBe('Jaida Lee: most walks in a game')
+  })
+})

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Dialog, IconButton, List, ListItemButton, Typography } from '@mui/material'
 import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups, SportsBaseball, MenuBook, Person, TravelExplore, EmojiEvents, Tune, Flag } from '@mui/icons-material'
-import { setSearchQuery, type CompareRow, type PlayAnswer, type LeaderPeek, type PlayerStatAsk, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
+import { setSearchQuery, type CompareRow, type PlayAnswer, type LeaderPeek, type PlayerQuestionRow, type PlayerStatAsk, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
 import type { NavSection } from './sectionNav'
 import { boardColumn, paRecordQuestion, peekText, positionRankSuggestions, recordSuggestions, clubPageSuggestions, definitionSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs, teamRankSuggestions } from './finderSearch'
 import { otherSectionPlayer, type OtherSectionRow } from './otherSection'
@@ -281,7 +281,7 @@ const GROUP_LABEL_SX = {
   fontSize: TYPE_SCALE.micro, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary',
 } as const
 
-export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames, resolveLeader, resolvePlayerStat, resolveFirsts, resolvePaRecord, seasonCount = null, actions = [] }: {
+export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames, resolveLeader, resolvePlayerStat, resolveFirsts, resolvePaRecord, resolvePlayerQuestion, seasonCount = null, actions = [] }: {
   open: boolean
   onClose: () => void
   section: NavSection
@@ -302,6 +302,8 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   resolveFirsts?: SearchBridgeState['resolveFirsts']
   /** "longest at-bat", "most fouls in a PA": the plays that hold it, from the search bridge (WPBL only). */
   resolvePaRecord?: SearchBridgeState['resolvePaRecord']
+  /** "Sato vs hunters", "Whitmore off Schroder": Find questions naming players (WPBL only). */
+  resolvePlayerQuestion?: SearchBridgeState['resolvePlayerQuestion']
   /** How many seasons the section has on record, from the search bridge. */
   seasonCount?: number | null
   /** The site's own actions (theme, settings, feedback), from the shell. */
@@ -370,9 +372,25 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     return () => { live = false; clearTimeout(t) }
   }, [text, section, resolveGames])
 
+  // A Find question naming players, read against the section's roster a beat after the last key, and
+  // kept with the text it answers like the compare row.
+  const [playerQs, setPlayerQs] = useState<{ text: string; rows: PlayerQuestionRow[] } | null>(null)
   useEffect(() => {
-    // Two clubs read as a game question are not two players to compare: no lookup for them.
-    const pair = resolveCompare && !parseGameQuery(text, sectionClubs(section)) ? parseCompareText(text) : null
+    if (!resolvePlayerQuestion || text.trim().split(/\s+/).length < 2) return
+    let live = true
+    const t = setTimeout(() => {
+      resolvePlayerQuestion(text).then(rows => { if (live) setPlayerQs({ text, rows }) }).catch(() => {})
+    }, 250)
+    return () => { live = false; clearTimeout(t) }
+  }, [text, resolvePlayerQuestion])
+
+  useEffect(() => {
+    // Two clubs read as a game question are not two players to compare: no lookup for them. Nor is a
+    // player and a club ("Sato vs hunters"), which the player rows above answer: matched as a second
+    // name, the club's word found whoever's name was nearest it.
+    const clubs = sectionClubs(section)
+    const pair = resolveCompare && !parseGameQuery(text, clubs) ? parseCompareText(text) : null
+    if (pair && (soleClub(pair.a, clubs) || soleClub(pair.b, clubs))) return
     if (!pair || !resolveCompare) return
     let live = true
     // A beat after the last key, since MLB's answer is two network calls per try.
@@ -556,7 +574,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     const records: Item[] = [...paRows, ...(paAsk ? [] : recordSuggestions(section, text)).map(s => ({
       key: s.key, kind: 'record' as const, title: s.title, subtitle: s.subtitle, href: s.href, scrollTo: s.scrollTo,
       icon: <EmojiEvents sx={{ fontSize: ICON_SIZE.md }} />,
-      onOpen: () => requestSectionScroll(s.scrollTo),
+      onOpen: () => { if (s.scrollTo) requestSectionScroll(s.scrollTo) },
     }))]
     const firstRows: Item[] = (firsts && firsts.text === text ? firsts.rows : []).map(f => ({
       key: f.key, kind: 'first', title: f.title, subtitle: `Firsts · ${f.detail}`, href: f.href,
@@ -583,6 +601,16 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
         })
       },
     }))
+    // NAMED PLAYERS: a batter against a pitcher leads the compare row for the same two names, and a
+    // player's own question leads the Find readings, whose versions without the name ("not used:
+    // whitmore") then answer a question nobody asked.
+    const named = playerQs && playerQs.text === text ? playerQs.rows : []
+    const playerItem = (r: PlayerQuestionRow): Item => ({
+      key: r.key, kind: 'finder', title: r.title, subtitle: `Find · ${r.subtitle}`, href: r.href,
+      icon: <ManageSearch sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
+    })
+    const matchupRows = named.filter(r => r.matchup).map(playerItem)
+    const findRows = [...named.filter(r => !r.matchup).map(playerItem), ...(named.length ? finder.filter(f => !f.subtitle.includes('not used:')) : finder)]
     const seen = new Set<string>()
     const dated = datedScores(section, q)
     const pages: Item[] = [...(dated ? [dated] : []), ...sectionPages(section)]
@@ -611,12 +639,13 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       { label: 'Games', items: games },
       { label: 'Matchups', items: matchups },
       { label: 'Clubs', items: clubPages },
+      { label: 'Batter vs pitcher', items: matchupRows },
       { label: 'Compare', items: compared },
       { label: 'Firsts', items: firstRows },
       { label: 'Records', items: records },
       { label: 'Team stats', items: teamRanks },
       { label: 'Leaders', items: leaders },
-      { label: 'Find', items: finder },
+      { label: 'Find', items: findRows },
       ...(defined.asked ? [] : [glossary]),
       { label: section === 'mlb' ? 'Players & teams' : 'Players & clubs', items: results.slice(0, 8).map(r => {
         const answer = answers && answers.text === text ? answers.byKey[r.key] : undefined
@@ -629,7 +658,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     // A miss ends on the examples, not a blank box: what the box does understand, one pick from
     // trying it. Not while the section is still looking, or they flash in ahead of its rows.
     return found.length || searching ? found : [{ label: 'Try', grid: true, items: tryItems }]
-  }, [text, results, idle, section, searching, compare, gameRows, liveRows, recentQs, rowPicks, leaderRows, peeks, answers, elsewhere, ownPlayers, actions, firsts, firstAsk, paRecords, paAsk])
+  }, [text, results, idle, section, searching, compare, gameRows, liveRows, recentQs, rowPicks, leaderRows, peeks, answers, elsewhere, ownPlayers, actions, firsts, firstAsk, paRecords, paAsk, playerQs])
 
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups])
   // Rows that answer the text, as against the examples a miss falls back to.
