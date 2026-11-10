@@ -1,14 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Dialog, IconButton, List, ListItemButton, Typography } from '@mui/material'
-import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups, SportsBaseball, MenuBook, Person, TravelExplore, EmojiEvents, Tune } from '@mui/icons-material'
-import { setSearchQuery, type CompareRow, type LeaderPeek, type PlayerStatAsk, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
+import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups, SportsBaseball, MenuBook, Person, TravelExplore, EmojiEvents, Tune, Flag } from '@mui/icons-material'
+import { setSearchQuery, type CompareRow, type PlayAnswer, type LeaderPeek, type PlayerStatAsk, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
 import type { NavSection } from './sectionNav'
-import { boardColumn, peekText, positionRankSuggestions, recordSuggestions, clubPageSuggestions, definitionSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs, teamRankSuggestions } from './finderSearch'
+import { boardColumn, paRecordQuestion, peekText, positionRankSuggestions, recordSuggestions, clubPageSuggestions, definitionSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs, teamRankSuggestions } from './finderSearch'
 import { otherSectionPlayer, type OtherSectionRow } from './otherSection'
 import { requestSectionScroll } from './lib/sectionScroll'
 import { clearRecentQuestions, getRecentQuestions, getRowPicks, mergeRecent, recordRecentQuestion, recordRowPick, type RecentQuestion } from './lib/recentQuestions'
 import { nameWords, parseCompareText, parseGameQuery, todayIso, typedPart, typedSeason, typedStat } from './league/finderParse'
 import { mightBeFinderQuestion } from './finderGate'
+import { parseFirstText } from './league/firsts'
 import { linkTo, navigate } from './nav'
 import { track, EVENTS } from './lib/analytics'
 import { chromePx, typePx } from './ui/scale'
@@ -42,7 +43,7 @@ import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 
 // 'suggestion' was MLB's "Your team" / "Trending" idle rows, since removed; it stays here because
 // older `command_palette_picked` events carry it.
-export type PickKind = 'club_page' | 'game' | 'matchup' | 'compare' | 'finder' | 'leader' | 'team_rank' | 'record' | 'definition' | 'result' | 'other_section' | 'recent' | 'suggestion' | 'page' | 'action' | 'example'
+export type PickKind = 'club_page' | 'game' | 'matchup' | 'compare' | 'finder' | 'leader' | 'team_rank' | 'record' | 'first' | 'definition' | 'result' | 'other_section' | 'recent' | 'suggestion' | 'page' | 'action' | 'example'
 
 /** Something the site DOES rather than a page it has: dark mode, settings, feedback. The shell owns
  *  each one (its dialogs and the theme live there), so it hands them in. */
@@ -166,6 +167,8 @@ const EXAMPLES: Record<NavSection, Example[]> = {
     { q: 'Firebells vs Hunters', what: 'Two clubs’ season series', icon: ic(CompareArrows) },
     { q: 'Whitmore vs Ibarra', what: 'Two players side by side', icon: ic(CompareArrows) },
     { q: '5 strikeouts no walks', what: 'Every game line that matches', icon: ic(ManageSearch) },
+    { q: 'first home run', what: 'A league first, opened at the play', icon: ic(Flag) },
+    { q: 'longest at-bat', what: 'A plate-appearance record, opened at the play', icon: ic(EmojiEvents) },
     { q: 'SF roster', what: 'A club’s page', icon: ic(Groups) },
     { q: 'what is FIP', what: 'What a stat means', icon: ic(MenuBook) },
     { q: 'standings', what: 'Any page on the site', icon: ic(Article) },
@@ -278,7 +281,7 @@ const GROUP_LABEL_SX = {
   fontSize: TYPE_SCALE.micro, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary',
 } as const
 
-export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames, resolveLeader, resolvePlayerStat, seasonCount = null, actions = [] }: {
+export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames, resolveLeader, resolvePlayerStat, resolveFirsts, resolvePaRecord, seasonCount = null, actions = [] }: {
   open: boolean
   onClose: () => void
   section: NavSection
@@ -295,6 +298,10 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   resolveLeader?: SearchBridgeState['resolveLeader']
   /** The answer to a stat typed beside a name, for one player row, from the search bridge. */
   resolvePlayerStat?: SearchBridgeState['resolvePlayerStat']
+  /** "first home run", "firsts": the play each happened on, from the search bridge (WPBL only). */
+  resolveFirsts?: SearchBridgeState['resolveFirsts']
+  /** "longest at-bat", "most fouls in a PA": the plays that hold it, from the search bridge (WPBL only). */
+  resolvePaRecord?: SearchBridgeState['resolvePaRecord']
   /** How many seasons the section has on record, from the search bridge. */
   seasonCount?: number | null
   /** The site's own actions (theme, settings, feedback), from the shell. */
@@ -332,6 +339,26 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   const [compare, setCompare] = useState<{ text: string; row: CompareRow } | null>(null)
   // "SF vs NY sep 9", "Dodgers last night": the section's schedule answers, on the same terms as
   // the compare row above (kept with its text, a beat after the last key).
+  // A first is answered or it is no row: its link is the play, which only the answer knows.
+  const firstAsk = useMemo(() => (resolveFirsts ? parseFirstText(text) : null), [text, resolveFirsts])
+  const [firsts, setFirsts] = useState<{ text: string; rows: PlayAnswer[] } | null>(null)
+  useEffect(() => {
+    if (!firstAsk || !resolveFirsts) return
+    let live = true
+    resolveFirsts(firstAsk).then(rows => { if (live) setFirsts({ text, rows }) }).catch(() => {})
+    return () => { live = false }
+  }, [text, firstAsk, resolveFirsts])
+
+  // A plate-appearance record, answered with its plays the same way.
+  const paAsk = useMemo(() => (resolvePaRecord ? paRecordQuestion(section, text) : null), [text, section, resolvePaRecord])
+  const [paRecords, setPaRecords] = useState<{ text: string; rows: PlayAnswer[] } | null>(null)
+  useEffect(() => {
+    if (!paAsk || !resolvePaRecord) return
+    let live = true
+    resolvePaRecord(paAsk).then(rows => { if (live) setPaRecords({ text, rows }) }).catch(() => {})
+    return () => { live = false }
+  }, [text, paAsk, resolvePaRecord])
+
   const [gameRows, setGameRows] = useState<{ text: string; rows: CompareRow[] } | null>(null)
   useEffect(() => {
     const q = resolveGames ? parseGameQuery(text, sectionClubs(section)) : null
@@ -501,7 +528,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       key: s.key, kind: 'leader', title: s.title, subtitle: s.subtitle, href: s.href,
       recentSubtitle: s.subtitle, icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
     }))
-    const leaders: Item[] = [...positionRanks, ...leaderRows.map(s => ({
+    const leaders: Item[] = paAsk ? [] : [...positionRanks, ...leaderRows.map(s => ({
       key: s.key, kind: 'leader', title: s.title, href: s.href,
       // Leaders · Hitting · 2026 · Kelsie Whitmore leads with 9: what kind of row, which board, which
       // year, then the answer. The year the leader was read for wins over the guess made before it.
@@ -510,7 +537,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
       onOpen: () => {},
     } as Item))]
-    const teamRanks: Item[] = teamRankSuggestions(section, text).map(s => ({
+    const teamRanks: Item[] = (paAsk ? [] : teamRankSuggestions(section, text)).map(s => ({
       key: s.key, kind: 'team_rank', title: s.title, subtitle: s.subtitle, href: s.href,
       icon: <Groups sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
     }))
@@ -519,10 +546,21 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       subtitle: elsewhere.row.subtitle, href: elsewhere.row.href,
       icon: <SportsBaseball sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
     }] : []
-    const records: Item[] = recordSuggestions(section, text).map(s => ({
-      key: s.key, kind: 'record', title: s.title, subtitle: s.subtitle, href: s.href, scrollTo: s.scrollTo,
+    // A plate-appearance record opens its play; the "N tied" row after the plays opens Find.
+    const paRows: Item[] = (paRecords && paRecords.text === text ? paRecords.rows : []).map(r => ({
+      key: r.key, kind: 'record', title: r.title, subtitle: r.detail.startsWith('Find · ') ? r.detail : `Record · ${r.detail}`,
+      href: r.href, icon: <EmojiEvents sx={{ fontSize: ICON_SIZE.md }} />, onOpen: r.open,
+    }))
+    // Once it is a plate-appearance record, the single-game records, rankings and Find readings that
+    // share its words ("most strikeouts", "most pitches") answer a question nobody asked.
+    const records: Item[] = [...paRows, ...(paAsk ? [] : recordSuggestions(section, text)).map(s => ({
+      key: s.key, kind: 'record' as const, title: s.title, subtitle: s.subtitle, href: s.href, scrollTo: s.scrollTo,
       icon: <EmojiEvents sx={{ fontSize: ICON_SIZE.md }} />,
       onOpen: () => requestSectionScroll(s.scrollTo),
+    }))]
+    const firstRows: Item[] = (firsts && firsts.text === text ? firsts.rows : []).map(f => ({
+      key: f.key, kind: 'first', title: f.title, subtitle: `Firsts · ${f.detail}`, href: f.href,
+      icon: <Flag sx={{ fontSize: ICON_SIZE.md }} />, onOpen: f.open,
     }))
     const acts: Item[] = q.length < 2 ? [] : actions
       .filter(a => [a.title.toLowerCase(), ...a.words].some(w => w.startsWith(q) || (q.length >= 4 && q.includes(w))))
@@ -534,7 +572,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       onOpen: () => requestSectionScroll(s.scrollTo),
     }))
     // A ranking is never also a line question ("top 10 ops" is not "an OPS of at least 10").
-    const finder: Item[] = (!leaders.length && mightBeFinderQuestion(text) ? finderSuggestions(section, text) : []).map(s => ({
+    const finder: Item[] = (!leaders.length && !firstAsk && !paAsk && mightBeFinderQuestion(text) ? finderSuggestions(section, text) : []).map(s => ({
       key: s.key, kind: 'finder', title: s.title, subtitle: `Find · ${s.subtitle}`, href: s.href,
       icon: <ManageSearch sx={{ fontSize: ICON_SIZE.md }} />,
       onOpen: () => {
@@ -574,6 +612,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       { label: 'Matchups', items: matchups },
       { label: 'Clubs', items: clubPages },
       { label: 'Compare', items: compared },
+      { label: 'Firsts', items: firstRows },
       { label: 'Records', items: records },
       { label: 'Team stats', items: teamRanks },
       { label: 'Leaders', items: leaders },
@@ -590,7 +629,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     // A miss ends on the examples, not a blank box: what the box does understand, one pick from
     // trying it. Not while the section is still looking, or they flash in ahead of its rows.
     return found.length || searching ? found : [{ label: 'Try', grid: true, items: tryItems }]
-  }, [text, results, idle, section, searching, compare, gameRows, liveRows, recentQs, rowPicks, leaderRows, peeks, answers, elsewhere, ownPlayers, actions])
+  }, [text, results, idle, section, searching, compare, gameRows, liveRows, recentQs, rowPicks, leaderRows, peeks, answers, elsewhere, ownPlayers, actions, firsts, firstAsk, paRecords, paAsk])
 
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups])
   // Rows that answer the text, as against the examples a miss falls back to.

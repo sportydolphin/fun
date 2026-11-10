@@ -19,6 +19,7 @@ import { WPBL_FINDER_CLUBS, WPBL_FINDER_OPTS, WPBL_FINDER_SIDES, wpblFinderHref 
 import { WPBL_TEAMS } from './wpbl/constants'
 import { WPBL_GLOSSARY_PAGE, wpblSeriesPath, wpblTeamPath } from './wpbl/routes'
 import { askedTerms, glossaryTermKey } from './league/glossary'
+import { parsePaRecord, type PaRecordQuestion } from './league/paRecords'
 import { positionFilterDef } from './league/positionFilter'
 import { MLB_STAT_TERMS } from './mlb/statGlossary'
 import { STAT_TERMS } from './wpbl/glossary'
@@ -38,6 +39,34 @@ export interface FinderSuggestion {
 
 function clubLabel(section: FinderSection, id: string): string {
   return section === 'mlb' ? TEAM_ABBR[Number(id)] ?? id : id
+}
+
+/**
+ * "longest at-bat", "most fouls in a PA", "longest strikeout with the bases loaded": a plate-appearance
+ * record (src/league/paRecords.ts), or null. WPBL only, since MLB has no play log. The words beside the
+ * measure are read by the Find parser as a plate-appearance question, so a record means what the same
+ * words mean on the Find board, and a remainder it cannot place in full (a player's name) is no record.
+ */
+export function paRecordQuestion(section: FinderSection, text: string): PaRecordQuestion | null {
+  if (section !== 'wpbl') return null
+  return parsePaRecord(text, (rest, side) => {
+    if (!rest) return { conditions: [], teamId: null, oppId: null, venue: 'any' }
+    const parse = (t: string) => parseFinderText(t, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS)
+      .filter(p => p.per === 'pa' && !p.ignored.length && p.season == null)
+    // A club or an opponent alone is no question to the Find parser, which wants a stat, so it is
+    // asked beside a stand-in condition that every plate appearance meets, which is then dropped.
+    let read = parse(`${rest} in a plate appearance`)
+    if (!read.length) {
+      read = parse(`1+ pitches ${rest} in a plate appearance`).map(p => ({
+        ...p, conditions: p.conditions.filter(c => !(c.field === 'pitches' && c.op === 'gte' && c.value === 1)),
+      }))
+    }
+    // The side the measure is filed under when the words allow it; an event leans its own way
+    // ("strikeout" reads as the pitcher's first), and the plays are the same lines on either side.
+    const p = read.find(r => r.side === side) ?? read[0]
+    // A club alone ("Firebells") reads as no condition, which is fine: the record is theirs.
+    return p ? { conditions: p.conditions, teamId: p.teamId, oppId: p.oppId, venue: p.venue } : null
+  })
 }
 
 // "most runs in an inning", "biggest innings": the inning record, which neither the leaders (season

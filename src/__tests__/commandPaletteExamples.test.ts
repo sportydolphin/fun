@@ -9,8 +9,10 @@ import { clubPageSuggestions, definitionSuggestions, finderSuggestions, leaderSu
 import { mightBeFinderQuestion } from '../finderGate'
 import { parseCompareText, parseGameQuery, typedPart, typedStat } from '../league/finderParse'
 import type { NavSection } from '../sectionNav'
+import { parseFirstText } from '../league/firsts'
+import { paRecordQuestion } from '../finderSearch'
 
-type Shows = 'name' | 'stat' | 'part' | 'leader' | 'team' | 'game' | 'series' | 'compare' | 'find' | 'club' | 'term' | 'page'
+type Shows = 'name' | 'stat' | 'part' | 'leader' | 'team' | 'game' | 'series' | 'compare' | 'find' | 'first' | 'pa_record' | 'club' | 'term' | 'page'
 
 const answers: Record<Shows, (s: NavSection, q: string) => boolean> = {
   name: () => true,
@@ -23,12 +25,15 @@ const answers: Record<Shows, (s: NavSection, q: string) => boolean> = {
   series: (s, q) => matchupSuggestions(s, q).length > 0,
   compare: (_s, q) => !!parseCompareText(q),
   find: (s, q) => mightBeFinderQuestion(q) && finderSuggestions(s, q).length > 0,
+  // The row itself needs the play log; WPBL's resolver answers every kind the parser reads.
+  first: (s, q) => s === 'wpbl' && !!parseFirstText(q),
+  pa_record: (s, q) => !!paRecordQuestion(s, q),
   club: (s, q) => clubPageSuggestions(s, q).length > 0,
   term: (s, q) => definitionSuggestions(s, q).rows.length > 0,
 }
 
 const SHOWS: Record<NavSection, Shows[]> = {
-  wpbl: ['name', 'stat', 'part', 'leader', 'team', 'game', 'series', 'compare', 'find', 'club', 'term', 'page', 'name'],
+  wpbl: ['name', 'stat', 'part', 'leader', 'team', 'game', 'series', 'compare', 'find', 'first', 'pa_record', 'club', 'term', 'page', 'name'],
   mlb: ['name', 'stat', 'part', 'leader', 'team', 'game', 'compare', 'find', 'club', 'term', 'page', 'name'],
 }
 

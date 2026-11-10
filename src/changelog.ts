@@ -23,6 +23,28 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.216.0',
+    date:    '2026-11-09',
+    changes: [
+      {
+        short: 'Search: WPBL firsts',
+        full:  'Search answers the league’s firsts: "first home run", "first grand slam of 2026", or "firsts" for all of them. Each row names the player and the day, and opens the game at that play. Hits, doubles, triples, home runs, grand slams, walks, strikeouts, hit by pitch and walk-offs.',
+      },
+      {
+        short: 'Search: plate-appearance records',
+        full:  'Search answers records set in one plate appearance and opens the game at that play: "longest at-bat", "most fouls", "longest strikeout", "most pitches thrown to one batter", "most runs on one play", "most strikeouts in a row", "most batters retired in a row". Add a situation, a club or a year ("longest walk with the bases loaded", "longest at-bat by the Firebells", "in the playoffs"). A shared record lists up to three plays, then the rest in Find.',
+      },
+      {
+        short: 'Find: examples fit the season',
+        full:  'Find’s examples name the best the season holds instead of a fixed bar that often found nothing: "6+ strikeouts", "7+ runs" in an inning, "3+ wins". They follow the club, year and playoffs on screen. Immaculate innings stay, at zero.',
+      },
+      {
+        short: 'Game rows in search open the game',
+        full:  'Picking a WPBL game in search ("Firebells last game") now opens it beside the page you were on. Before, the address changed and nothing opened.',
+      },
+    ],
+  },
+  {
     version: '1.215.0',
     date:    '2026-11-09',
     changes: [

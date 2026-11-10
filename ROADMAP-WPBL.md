@@ -1197,7 +1197,18 @@ worth doing:
    once the Find board takes one.
 10. **Records and firsts.** ✅ Records (Oct 14, v1.162.0): "most hr in a game", "longest scoreless
     outing" open Bests at that card (`parseRecordText`), and the season ranking steps aside for
-    single-game words. Firsts wait for a page to link: there is no Hall of Firsts yet.
+    single-game words. ✅ Firsts (Nov 9, v1.216.0): "first home run", "first grand slam of 2026",
+    "firsts" (`parseFirstText`, `findFirsts` in `src/league/firsts.ts`). No page was built: the answer
+    is the play, opened in Game Center through `requestPlay` as Find's inning rows are, so a first
+    needed only the plate-appearance lines. Play-log events only; a win, a save, a complete game and a
+    stolen base have no plate appearance to open. Next: a player's own firsts ("Whitmore first hr").
+    ✅ Plate-appearance records (Nov 9, v1.216.0): "longest at-bat", "most fouls", "longest strikeout",
+    "most pitches thrown to one batter", "most strikeouts in a row" and the rest (`parsePaRecord` in
+    `src/league/paRecords.ts`). The measure is read there; every other word goes to the Find parser as
+    a plate-appearance filter, and the Find engine ranks, so the record is the board's first row. Each
+    opens its play; a record shared by more than three plays lists three, then Find. Regular season
+    unless the playoffs are named. TrackMan records (fastest pitch, hardest hit, longest home run) wait
+    for more than two games of TrackMan data.
 11. ✅ **Questions in Recent** (Oct 14). A ranking, a Find question or a glossary term run from the
     box comes back in Recent, merged with the players and clubs by when each was opened
     (`src/lib/recentQuestions.ts`). On this device only: the sections' synced recents are typed as

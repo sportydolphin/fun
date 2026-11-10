@@ -171,6 +171,12 @@ flowchart LR
   [`src/mlb/searchAnswers.ts`](src/mlb/searchAnswers.ts)). That includes the advanced figures (OPS+,
   wRC+, FIP, and WAR on WPBL), which are season-only words the Find parser never sees. WPBL's table
   and search both build their columns from [`src/wpbl/statColumns.ts`](src/wpbl/statColumns.ts).
+  A league first ("first home run", "firsts") is WPBL's alone (`resolveFirsts`): the plate-appearance
+  lines of the season asked, the earliest match by date and first pitch
+  ([`src/league/firsts.ts`](src/league/firsts.ts)), and the row opens Game Center at that play.
+  A plate-appearance record ("longest at-bat", "most strikeouts in a row") goes the same way
+  (`resolvePaRecord`): its measure from [`src/league/paRecords.ts`](src/league/paRecords.ts), the rest
+  of the words as a Find filter, ranked by `runFinder` over the plate-appearance lines.
   Questions run from the box come back under Recent on this device
   ([`src/lib/recentQuestions.ts`](src/lib/recentQuestions.ts)), merged with the section's synced
   players and clubs by when each was opened; MLB's name lookups are kept ten minutes

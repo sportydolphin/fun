@@ -358,6 +358,14 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     window.history.state?.wpbl ? null : wpblGameSlugFromPath(window.location.pathname),
   )
   /**
+   * A game path pushed from inside the site with no snapshot: a search row ("Firebells last game",
+   * "first home run") is a plain link through `navigate`. The cold-load effect below opens it, as
+   * the panel over the tab the reader is on, and `linkTick` wakes that effect, since nothing it
+   * reads has changed. Until Nov 9, 2026 the address moved and nothing opened.
+   */
+  const gameLinkInApp = useRef(false)
+  const [linkTick, setLinkTick] = useState(0)
+  /**
    * Which board a shared game link asked for, captured HERE rather than read by GameDetail.
    *
    * It has to be. `urlFor` builds a game's URL from its slug alone and carries no query, so by
@@ -695,16 +703,19 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   useEffect(() => {
     const id = pendingGameId.current
     const slug = pendingGameSlug.current
-    if ((!id && !slug) || detailGame || games.length === 0) return
+    const inApp = gameLinkInApp.current
+    if ((!id && !slug) || (detailGame && !inApp) || games.length === 0) return
     if (slug && teams.length === 0) return
     pendingGameId.current = null
     pendingGameSlug.current = null
+    gameLinkInApp.current = false
     setLandingPage(null)
     const g = slug ? findWpblGameBySlug(slug, games, teams) : games.find(gm => gm.id === id)
     if (!g) return
     // A game arrived at, rather than opened from a row, is the full page. See WpblSnap.gamePage.
-    openFromLink({ view, team: selectedTeam, game: g, player: detailPlayer, gamePage: true })
-  }, [games, teams, detailGame, view, selectedTeam, detailPlayer, openFromLink])
+    // One opened by a link inside the site is the panel, like a row on the page.
+    openFromLink({ view, team: selectedTeam, game: g, player: inApp ? null : detailPlayer, gamePage: !inApp })
+  }, [games, teams, detailGame, view, selectedTeam, detailPlayer, openFromLink, linkTick])
 
   // Open the player named by the URL, once the roster is available. Two spellings: the
   // canonical /wpbl/players/<slug> path, and the legacy ?player=<uuid> that shared links and
@@ -827,7 +838,16 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       // No snapshot means nobody in the section pushed this entry, so the address is all there is
       // to go on. It was Home, which was right only while every way in from outside was /wpbl;
       // the league switch now lands on the tab the reader was on in MLB.
-      apply((e.state?.wpbl as WpblSnap | undefined) ?? snapFromLocation())
+      const snap = e.state?.wpbl as WpblSnap | undefined
+      const gameSlug = snap ? null : wpblGameSlugFromPath(window.location.pathname)
+      if (gameSlug) {
+        pendingGameSlug.current = gameSlug
+        gameLinkInApp.current = true
+        arrivedByInAppLink.current = true
+        setLinkTick(t => t + 1)
+        return
+      }
+      apply(snap ?? snapFromLocation())
     }
     window.addEventListener('popstate', onPop)
     return () => {
