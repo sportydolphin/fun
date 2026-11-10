@@ -11,7 +11,7 @@
 // tab on a modified click like any other.
 
 import { describeFinderQuery, finderFields, type FinderSide } from './league/finder'
-import { parseClubPage, parseFinderText, parseGameQuery, parseLeaderText, parsePositionRank, parseRecordQuestion, parseRecordText, parseTeamRankText, rankField, rankLowerBetter, type ClubPagePart, type ParsedFinder, type ParsedLeader, type RankSide } from './league/finderParse'
+import { parseClubPage, parseFinderText, parseGameQuery, parseLeaderText, parsePositionRank, parseRecordQuestion, parseRecordText, parseScopedRank, parseTeamRankText, rankField, rankLowerBetter, type ClubPagePart, type ParsedFinder, type ParsedLeader, type RankSide } from './league/finderParse'
 import { MLB_FINDER_CLUBS, mlbFinderHref } from './mlb/finderLink'
 import { CURRENT_SEASON, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_ABBR } from './mlb/constants'
 import { MLB_GLOSSARY_PAGE, mlbClubById, mlbTeamPath, mlbUrlFor } from './mlb/routes'
@@ -411,6 +411,27 @@ export function recordSuggestions(section: FinderSection, text: string): RecordS
       href,
     }]
   })]
+}
+
+/**
+ * "hr vs boston", "hits against the hunters", "strikeouts at home": who has the most against one club
+ * or at one place, as the Find board's season grain asking for at least one, ranked highest first.
+ * Beside the team-total row the same words also read as ("Boston Hunters team home runs"), since
+ * either could be meant.
+ */
+export function scopedRankSuggestions(section: FinderSection, text: string): RecordSuggestion[] {
+  return parseScopedRank(text, sectionClubs(section)).flatMap(r => {
+    const field = finderFields(r.side, 'season').find(f => f.key === r.field)
+    if (!field) return []
+    const parsed = { ...r, per: 'season' as const, conditions: [{ field: r.field, op: 'gte' as const, value: 1 }], ignored: [] }
+    const href = section === 'mlb' ? mlbFinderHref(parsed) : wpblFinderHref(parsed)
+    const where = [r.oppId && `vs ${clubLabel(section, r.oppId)}`, r.teamId && `for ${clubLabel(section, r.teamId)}`,
+      r.venue === 'home' ? 'at home' : r.venue === 'away' ? 'on the road' : null, r.season && String(r.season)].filter(Boolean)
+    return [{
+      key: `scoped-${href}`, title: [`Most ${field.label.toLowerCase()}`, ...where].join(' '),
+      subtitle: `Find · ${r.side === 'pitching' ? 'Pitching' : 'Batting'}, season totals`, href,
+    }]
+  })
 }
 
 /** A ranking row's leader in words: "Kelsie Whitmore leads with 9", "Kelsie Whitmore and 1 more lead

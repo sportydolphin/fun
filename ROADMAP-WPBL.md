@@ -1261,7 +1261,19 @@ ask about one player, so a name was dropped. Four pull requests, in this order (
    player reader. Bare "most X in an inning" stays the Find reading's (`inningRecord`, which also
    knows "biggest innings"). Asked for: "most walks in a game", "most strikeouts in
    an inning", "most pitches in an at-bat", "most hr in a game by Whitmore", "most hits vs Boston".
-4. **Looser wording.** Grain words count wherever they sit ("most walks game", "strikeouts inning",
+4. ✅ **Looser wording** (Nov 10, v1.220.0). Records take the grain word bare
+   (`BARE_GAME_SPAN`, `BARE_INNING_SPAN`; never "innings pitched", "games played" or a number before
+   "innings"), and the season ranking steps aside for a bare "game" once a stat is read. The
+   plate-appearance grain and its records read "at bat" with or without "in an" (not after a number:
+   "100 at bats" is a count), and the search bar's gate passes those words. A stat with an opponent or
+   a place and no number is `parseScopedRank`: Find's season grain asking for at least one, beside
+   the club-total row, counts only (a rate against one club is a few dozen plate appearances).
+   "Home runs" is never read as "at home" any more, whichever reader takes the place first. The
+   corpus is `src/__tests__/searchCorpus.test.ts`, every phrasing pinned to the row the palette puts
+   first. One part of the plan was wrong and was left out: Hitting's row for "3 strikeouts in an
+   inning" is a club's half-inning with 3 strikeouts, which can happen, so it stays. Also fixed:
+   switching Find to plate appearances drops a floor one trip cannot reach ("5+ strikeouts"), which
+   had matched nothing and read as 0. Planned as: Grain words count wherever they sit ("most walks game", "strikeouts inning",
    "hr at bat"); "in", "at", "on", "vs" are optional where nothing hangs on them, kept where they
    mean something ("in the 7th", "at home", "on 0-2"). "hr vs boston" offers both readings. No row
    for a side that can never match ("3 strikeouts in an inning" on Hitting). A corpus of about 80

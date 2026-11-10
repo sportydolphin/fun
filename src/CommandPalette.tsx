@@ -3,7 +3,7 @@ import { Box, Dialog, IconButton, List, ListItemButton, Typography } from '@mui/
 import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups, SportsBaseball, MenuBook, Person, TravelExplore, EmojiEvents, Tune, Flag } from '@mui/icons-material'
 import { setSearchQuery, type CompareRow, type PlayAnswer, type LeaderPeek, type PlayerQuestionRow, type PlayerStatAsk, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
 import type { NavSection } from './sectionNav'
-import { boardColumn, paRecordQuestion, peekText, positionRankSuggestions, recordSuggestions, clubPageSuggestions, definitionSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs, teamRankSuggestions } from './finderSearch'
+import { boardColumn, paRecordQuestion, peekText, positionRankSuggestions, recordSuggestions, scopedRankSuggestions, clubPageSuggestions, definitionSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs, teamRankSuggestions } from './finderSearch'
 import { otherSectionPlayer, type OtherSectionRow } from './otherSection'
 import { requestSectionScroll } from './lib/sectionScroll'
 import { clearRecentQuestions, getRecentQuestions, getRowPicks, mergeRecent, recordRecentQuestion, recordRowPick, type RecentQuestion } from './lib/recentQuestions'
@@ -555,6 +555,11 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
       onOpen: () => {},
     } as Item))]
+    // "hr vs boston": who has the most against them, on Find, beside the club's own total below.
+    const scopedRanks: Item[] = (paAsk ? [] : scopedRankSuggestions(section, text)).map(s => ({
+      key: s.key, kind: 'leader', title: s.title, subtitle: s.subtitle, href: s.href, recentSubtitle: s.subtitle,
+      icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
+    }))
     const teamRanks: Item[] = (paAsk ? [] : teamRankSuggestions(section, text)).map(s => ({
       key: s.key, kind: 'team_rank', title: s.title, subtitle: s.subtitle, href: s.href,
       icon: <Groups sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
@@ -644,7 +649,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       { label: 'Firsts', items: firstRows },
       { label: 'Records', items: records },
       { label: 'Team stats', items: teamRanks },
-      { label: 'Leaders', items: leaders },
+      { label: 'Leaders', items: [...scopedRanks, ...leaders] },
       { label: 'Find', items: findRows },
       ...(defined.asked ? [] : [glossary]),
       { label: section === 'mlb' ? 'Players & teams' : 'Players & clubs', items: results.slice(0, 8).map(r => {

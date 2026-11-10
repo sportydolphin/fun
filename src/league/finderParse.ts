@@ -344,6 +344,10 @@ const PA_PHRASES: { re: RegExp; conditions: (m: RegExpExecArray) => FinderCondit
     conditions: () => [{ field: 'on', op: 'gte', value: 1 }] },
   { re: /(?<![a-z0-9])(?:(?:in|during)\s+(?:an?|one|1|a single|the same)|per)\s+(?:at[\s-]?bat|plate appearance)(?![a-z])/g,
     conditions: () => [] },
+  // The grain word alone, as a search box is typed ("hr at bat", "walks plate appearance"). Not after
+  // a number, which makes it a count of at-bats ("100 at bats").
+  { re: /(?<![0-9]\s?)(?<![a-z0-9])(?:in\s+)?(?:at[\s-]?bats?|plate appearances?)(?![a-z])/g,
+    conditions: () => [] },
 ]
 
 // WHICH INNING, in words: "in the 7th", "7th inning or later", "after the 5th", "in extra innings".
@@ -620,7 +624,9 @@ function takeClubs(rest: string, clubs: readonly FinderClubAlias[], venue: Finde
 
 /** The venue words in `rest`, blanked, and the venue they name. */
 function takeVenue(rest: string, venue: FinderVenue): { rest: string; venue: FinderVenue } {
-  rest = rest.replace(/(?<![a-z])(at home|home games?|home)(?![a-z])/g, () => { venue = 'home'; return ' ' })
+  // Never the "home" of a home run or home plate, which a reader who has not taken the stats out
+  // first would read as "at home": "home runs off Boston" was the runs scored at home (Nov 10, 2026).
+  rest = rest.replace(/(?<![a-z])(at home|home games?|home(?![\s-]*(?:runs?|rs?|plate|team)(?![a-z])))(?![a-z])/g, () => { venue = 'home'; return ' ' })
   rest = rest.replace(/(?<![a-z])(on the road|road games?|road|away games?|away)(?![a-z])/g, () => { venue = 'away'; return ' ' })
   return { rest, venue }
 }
@@ -979,6 +985,10 @@ export function parseLeaderText(text: string): ParsedLeader[] {
 
   const phrases = new Set<string>()
   rest = rest.replace(STAT_ANY, (_m: string, p: string) => { phrases.add(p); return ' ' })
+  // "most walks game" is the record of one game (parseRecordQuestion), not the season board, for the
+  // reason "in a game" is above. The word alone counts once the stat has been read, so "games played"
+  // stays the ranking it is.
+  if (phrases.size && /(?<![a-z])(games?|outings?|nights?)(?![a-z])/.test(rest)) return []
   const aliases = [...new Set([...phrases].map(aliasOf))]
   if (aliases.length !== 1) return []
   const alias = aliases[0]
@@ -1165,6 +1175,8 @@ export function parseRecordText(text: string): { side: RankSide; field: string }
 
 // An inning said as a record's span: "in an inning", "in one frame", "in a half inning".
 const INNING_SPAN = /(?<![a-z])(?:in\s+(?:an|one|a single|a)\s+(?:half[\s-]+)?(?:inning|frame)|per\s+inning)(?![a-z])/g
+const BARE_INNING_SPAN = /(?<![0-9.]\s?)(?<![a-z])(?:in\s+)?(?:innings?|frames?)(?!\s+pitched)(?![a-z])/g
+const BARE_GAME_SPAN = /(?<![a-z])(?:in\s+)?(?:games?|outings?|nights?)(?!\s+(?:played|started|log))(?![a-z])/g
 
 /** A record asked of any stat, at a grain, narrowed by club, place and year (`parseRecordQuestion`). */
 export interface ParsedRecord {
@@ -1194,6 +1206,10 @@ export function parseRecordQuestion(text: string, clubs: readonly FinderClubAlia
   let per: 'game' | 'inning' | null = null
   rest = rest.replace(INNING_SPAN, m => { per = 'inning'; return ' '.repeat(m.length) })
   rest = rest.replace(SINGLE_GAME_G, m => { per ??= 'game'; return ' '.repeat(m.length) })
+  // THE GRAIN WORD ALONE, the way a search box is typed: "most walks game", "strikeouts inning". Not
+  // innings pitched ("innings pitched", "5 innings"), and not "starts", which is a count of its own.
+  rest = rest.replace(BARE_INNING_SPAN, m => { per ??= 'inning'; return ' '.repeat(m.length) })
+  rest = rest.replace(BARE_GAME_SPAN, m => { per ??= 'game'; return ' '.repeat(m.length) })
   if (!per) return []
   const grain: 'game' | 'inning' = per
   rest = rest.replace(/(?<![a-z])(records?|highs?|bests?)(?![a-z])/g, ' ')
@@ -1205,6 +1221,37 @@ export function parseRecordQuestion(text: string, clubs: readonly FinderClubAlia
     .flatMap(p => clubbed.teamIds.flatMap(teamId => clubbed.oppIds.flatMap(oppId => (teamId && teamId === oppId ? [] : [{
       side: p.side as FinderSide, field: p.field, per: grain, teamId, oppId, venue: clubbed.venue, season: year.season,
     }]))))
+}
+
+/** A season ranking against one club or at one place (`parseScopedRank`). */
+export interface ParsedScopedRank {
+  side: FinderSide
+  field: string
+  teamId: string | null
+  oppId: string | null
+  venue: FinderVenue
+  season: number | null
+}
+
+/**
+ * "hr vs boston", "hits against the hunters", "most strikeouts at home 2026": who has the most of a
+ * stat against one club, or at home or on the road, which no stats table can say (it has no split by
+ * opponent) and which the Find board's season grain is, since it sums each player's lines after the
+ * club, opponent and venue cut. A count stat only: a rate against one club is a few dozen plate
+ * appearances, under any bar. Needs an opponent or a place; the club alone ("Boston hr") is the
+ * team's total, which `parseTeamRankText` answers.
+ */
+export function parseScopedRank(text: string, clubs: readonly FinderClubAlias[]): ParsedScopedRank[] {
+  const clubWords = new Set(clubs.flatMap(c => c.names.flatMap(n => normalize(n).split(' '))))
+  const year = takeYear(` ${fixStatTypos(normalize(text), clubWords)} `)
+  const placed = takeVenue(year.rest, 'any')
+  const clubbed = takeClubs(placed.rest, clubs, placed.venue)
+  if (clubbed.oppIds[0] == null && clubbed.venue === 'any') return []
+  const read = parseLeaderText(clubbed.rest.replace(SEASON_WORDS, ' '))
+    .filter(p => !p.career && p.season == null && p.side !== 'overall' && p.dir !== 'asc' && !RATE_FIELDS.has(p.field))
+    .filter(p => finderFields(p.side as FinderSide, 'season').some(f => f.key === p.field && f.key !== 'g'))
+  return read.filter(p => p.side === read[0].side).flatMap(p => clubbed.teamIds.flatMap(teamId => clubbed.oppIds.flatMap(oppId =>
+    (teamId && teamId === oppId ? [] : [{ side: p.side as FinderSide, field: p.field, teamId, oppId, venue: clubbed.venue, season: year.season }]))))
 }
 
 // ─── A ranking among one position or role ─────────────────────────────────────

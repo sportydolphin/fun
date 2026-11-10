@@ -3,7 +3,7 @@ import {
   runWpblFinder, encodeFinderQuery, decodeFinderQuery, parseFinderValue, describeFinderQuery, describeFinderConditions,
   finderColumns, validFinderSort, decodeFinderPer, EMPTY_FINDER_QUERY, type FinderQuery,
 } from '../derive/finder'
-import { finderPlayerAt, hasMatchup, hasPlayerFilter } from '../../league/finder'
+import { conditionsForPer, finderPlayerAt, hasMatchup, hasPlayerFilter } from '../../league/finder'
 import type { WpblBattingLine, WpblFieldingLine, WpblGame, WpblPitchingLine, WpblPlayer } from '../types'
 import type { InningPitchingLine, PlateAppearanceLine, TeamInningLine } from '../../league/inningLines'
 
@@ -724,4 +724,11 @@ describe('the finder, for one player', () => {
       .toMatchObject({ playerId: 'a', batterId: null, pitcherId: null })
     expect(finderPlayerAt('fielding', base, 'season')).toMatchObject({ playerId: 'a' })
   })
+})
+
+// A floor no single plate appearance can reach matched nothing and read as an answer of 0.
+it('drops a condition a plate appearance cannot meet when the grain becomes one', () => {
+  const asked = [{ field: 'so', op: 'gte' as const, value: 5 }, { field: 'pitches', op: 'gte' as const, value: 8 }, { field: 'hr', op: 'gte' as const, value: 1 }]
+  expect(conditionsForPer('pitching', 'pa', asked).map(c => c.field)).toEqual(['pitches', 'hr'])
+  expect(conditionsForPer('pitching', 'game', asked)).toHaveLength(3)
 })
