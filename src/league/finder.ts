@@ -439,10 +439,17 @@ export function finderLowerBetter(side: FinderBoardSide, key: string): boolean {
   return !!fieldFor(side, key)?.lowerBetter
 }
 
-/** The conditions another grain can still ask: going back to single games drops every rate. */
+// THE MOST ONE PLATE APPEARANCE CAN HOLD of a field it shares with a game: one of any event, four
+// total bases, four runs. "Strikeouts at least 5" carried from single games to plate appearances
+// matched nothing and showed 0, which read as an answer (Nov 10, 2026).
+const PA_MAX: Record<string, number> = { h: 1, '2b': 1, '3b': 1, hr: 1, bb: 1, so: 1, hbp: 1, tb: 4, runs: 4 }
+
+/** The conditions another grain can still ask: going back to single games drops every rate, and a
+ *  plate appearance drops a floor no single trip to the plate can reach. */
 export function conditionsForPer(side: FinderBoardSide, per: FinderPer, conditions: FinderCondition[]): FinderCondition[] {
   const known = new Set(finderFields(side, per).map(f => f.key))
-  return conditions.filter(c => known.has(c.field))
+  return conditions.filter(c => known.has(c.field)
+    && !(per === 'pa' && c.op !== 'lte' && c.value > (PA_MAX[c.field] ?? Infinity)))
 }
 
 /** The condition a freshly added row carries. A game asks for the side's headline count, and a

@@ -23,6 +23,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.220.0',
+    date:    '2026-11-10',
+    changes: [
+      {
+        short: 'Search: fewer words needed',
+        full:  'Search reads a question without its small words: "most walks game", "strikeouts inning", "most pitches at bat", "hr at bat". A stat against a club or at a place is a ranking too: "hr vs Boston" lists who has hit the most home runs off Boston, beside Boston’s own totals, and "hr at home" who has hit the most at home.',
+      },
+      {
+        short: 'Find: switching to plate appearances',
+        full:  'Switching Find to plate appearances drops a condition one plate appearance cannot meet, such as "5+ strikeouts", instead of showing 0.',
+      },
+    ],
+  },
+  {
     version: '1.219.0',
     date:    '2026-11-10',
     changes: [

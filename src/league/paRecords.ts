@@ -111,8 +111,9 @@ const MEASURES: { re: RegExp; measure: (m: RegExpMatchArray) => PaMeasure | null
     rest: m => m[1],
   },
   // "most fouls in a PA", "most pitches in an at-bat", "most runs on one play", "most pitches per PA".
+  // The article is optional, and "in" too, as a search box is typed: "most pitches at bat".
   {
-    re: new RegExp(String.raw`\b(?:most|highest)\s+${MEASURE_WORDS}\s+(?:(?:seen|faced|thrown|fought\s+off|hit)\s+)?(?:(?:in|on|during)\s+${ONE}\s+(?:${PA_NOUN}|plays?)|per\s+${PA_NOUN})\b`),
+    re: new RegExp(String.raw`\b(?:most|highest)\s+${MEASURE_WORDS}\s+(?:(?:seen|faced|thrown|fought\s+off|hit)\s+)?(?:(?:(?:in|on|during)\s+(?:${ONE}\s+)?)?(?:${PA_NOUN}|plays?)|per\s+${PA_NOUN})\b`),
     measure: m => M[MEASURE_WORD[norm(m[1])]] as PaMeasure,
     title: m => {
       const w = MEASURE_WORD[norm(m[1])]
