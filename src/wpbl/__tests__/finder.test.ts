@@ -3,6 +3,7 @@ import {
   runWpblFinder, encodeFinderQuery, decodeFinderQuery, parseFinderValue, describeFinderQuery, describeFinderConditions,
   finderColumns, validFinderSort, decodeFinderPer, EMPTY_FINDER_QUERY, type FinderQuery,
 } from '../derive/finder'
+import { finderPlayerAt, hasMatchup, hasPlayerFilter } from '../../league/finder'
 import type { WpblBattingLine, WpblFieldingLine, WpblGame, WpblPitchingLine, WpblPlayer } from '../types'
 import type { InningPitchingLine, PlateAppearanceLine, TeamInningLine } from '../../league/inningLines'
 
@@ -606,6 +607,46 @@ describe('the finder, by the plate appearance', () => {
     expect(ranked.headlineField).toBe('runs')
     expect(ranked.rows.map(x => x.headline)).toEqual([4, 2, 1])
   })
+
+  // THE MATCHUP. One batter, one pitcher or both, cut before anything is counted, so the tally's
+  // "of N" is the trips against that pitcher rather than the season's.
+  describe('a matchup', () => {
+    const lines = [
+      pa({ sequence: 10, batter_id: 'a', pitcher_id: 'b' }),
+      pa({ sequence: 20, batter_id: 'a', pitcher_id: 'b', h: 0, hr: 0, tb: 0, so: 1, event: 'K' }),
+      pa({ sequence: 30, batter_id: 'a', pitcher_id: 'c' }),
+      pa({ sequence: 40, batter_id: 'c', pitcher_id: 'b', h: 0, hr: 0, tb: 0, event: 'Out' }),
+    ]
+    const run = (side: 'hitting' | 'pitching', o: Partial<FinderQuery>) =>
+      runWpblFinder(side, [], [], PLAYERS, [game()], q({ per: 'pa', ...o }), 50, null, { plateAppearances: lines })
+    const hr = [{ field: 'hr', op: 'gte' as const, value: 1 }]
+
+    it('keeps only the plate appearances against one pitcher, and counts the tally among them', () => {
+      const r = run('hitting', { conditions: hr, pitcherId: 'b' })
+      expect(r.total).toBe(1)
+      expect(r.searched).toBe(3)
+      expect(r.tally).toEqual([expect.objectContaining({ name: 'Jaida Lee', games: 1, played: 2 })])
+    })
+
+    it('asks the head-to-head from either side', () => {
+      expect(run('hitting', { conditions: [], batterId: 'a', pitcherId: 'b' }).total).toBe(2)
+      const pit = run('pitching', { conditions: hr, batterId: 'a' })
+      expect(pit.rows.map(x => x.name).sort()).toEqual(['Ayami Sato', 'Emi Saiki'])
+    })
+
+    it('reads a matchup with nothing else asked as its log, in the order the plays happened', () => {
+      const r = run('hitting', { conditions: [], batterId: 'a', pitcherId: 'b' })
+      expect(r.flat).toBe(true)
+      expect(r.rows.map(x => x.inning?.event)).toEqual(['HR', 'K'])
+    })
+
+    it('ignores the matchup at every other grain', () => {
+      const games = run('hitting', { per: 'game', conditions: [], pitcherId: 'b' })
+      expect(games.searched).toBe(0)
+      expect(hasMatchup({ per: 'game', batterId: 'a' })).toBe(false)
+      expect(hasMatchup({ per: 'pa', pitcherId: 'b' })).toBe(true)
+    })
+  })
 })
 
 describe('the finder, by a club half-inning', () => {
@@ -635,5 +676,52 @@ describe('the finder, by a club half-inning', () => {
       { teamInnings: [half({ trail: 1, tooklead: 1 }), half({ trail: 0, tooklead: 1 })], clubName })
     expect(r.total).toBe(1)
     expect(describeFinderQuery('hitting', { per: 'inning', conditions })).toBe('Down 1 or more and Took the lead')
+  })
+})
+
+// ONE PLAYER. Before it, a name in a question was dropped, since Find could not ask about one player.
+describe('the finder, for one player', () => {
+  const games = [game({ id: 'g1', game_date: '2026-08-07' }), game({ id: 'g2', game_date: '2026-08-01' })]
+  const batting = [
+    bat({ game_id: 'g1', player_id: 'a', ab: 4, h: 3 }),
+    bat({ game_id: 'g2', player_id: 'a', ab: 4, h: 1 }),
+    bat({ game_id: 'g1', player_id: 'b', team_id: 'LA', ab: 4, h: 3 }),
+  ]
+  const run = (o: Partial<FinderQuery>, opts = {}) => runWpblFinder('hitting', batting, [], PLAYERS, games, q(o), 50, null, opts)
+
+  it("keeps only that player's lines, at a game and over a season", () => {
+    const r = run({ conditions: [{ field: 'h', op: 'gte', value: 3 }], playerId: 'a' })
+    expect(r.rows.map(x => x.name)).toEqual(['Jaida Lee'])
+    expect(r.tally).toEqual([expect.objectContaining({ games: 1, played: 2 })])
+    const season = run({ per: 'season', conditions: [{ field: 'h', op: 'gte', value: 1 }], playerId: 'a' })
+    expect(season.rows.map(x => x.headline)).toEqual([4])
+  })
+
+  it('reads one player with nothing asked as a game log, in date order', () => {
+    const r = run({ conditions: [], playerId: 'a' })
+    expect(r.flat).toBe(true)
+    expect(r.rows.map(x => x.game?.id)).toEqual(['g2', 'g1'])
+  })
+
+  it("asks it of a pitcher's innings, and of nobody's club half-innings", () => {
+    const inn = (o: Partial<InningPitchingLine>): InningPitchingLine => ({
+      id: Math.random().toString(36).slice(2), game_id: 'g1', player_id: 'a', team_id: 'NY', inning: 2, half: 'top', sequence: 5,
+      bf: 3, outs: 3, so: 3, bb: 0, hbp: 0, h: 0, hr: 0, r: 0, pitches: 12, strikes: 9, ...o,
+    } as InningPitchingLine)
+    const innings = [inn({}), inn({ player_id: 'b', team_id: 'LA' })]
+    const r = runWpblFinder('pitching', [], [], PLAYERS, games, q({ per: 'inning', conditions: [{ field: 'so', op: 'gte', value: 3 }], playerId: 'b' }), 50, null, { innings })
+    expect(r.rows.map(x => x.name)).toEqual(['Ayami Sato'])
+    expect(hasPlayerFilter('hitting', { per: 'inning', playerId: 'a' })).toBe(false)
+    expect(hasPlayerFilter('pitching', { per: 'inning', playerId: 'a' })).toBe(true)
+  })
+
+  it('carries the player across grains as the batter or the pitcher', () => {
+    const base = { per: 'game' as const, playerId: 'a', batterId: null, pitcherId: null }
+    expect(finderPlayerAt('hitting', base, 'pa')).toMatchObject({ playerId: null, batterId: 'a', pitcherId: null })
+    expect(finderPlayerAt('pitching', base, 'pa')).toMatchObject({ playerId: null, pitcherId: 'a', batterId: null })
+    // Back again, the matchup's other player goes.
+    expect(finderPlayerAt('hitting', { per: 'pa' as const, playerId: null, batterId: 'a', pitcherId: 'b' }, 'season'))
+      .toMatchObject({ playerId: 'a', batterId: null, pitcherId: null })
+    expect(finderPlayerAt('fielding', base, 'season')).toMatchObject({ playerId: 'a' })
   })
 })
