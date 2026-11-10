@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Box, Skeleton, Typography } from '@mui/material'
 import {
   finderFieldGroups, finderUnit, finderColumns, defaultCondition, parseFinderValue, unparseFinderValue,
-  displayFinderValue, describeFinderQuery, finderLowerBetter, conditionsForPer,
+  displayFinderValue, describeFinderQuery, describeFinderConditions, finderLowerBetter, conditionsForPer,
   FINDER_OPS,
   type FinderCondition, type FinderOp, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
   type FinderBoardSide, type FinderSort, type FinderTally, type FinderVenue,
@@ -12,6 +12,7 @@ import { shortDate } from '../lib/format'
 import type { LeagueGame, LeaguePlayer } from '../league/types'
 import { SectionCard, SectionLabel, TYPE_SCALE, CARD_BORDER, ACCENT_EDGE } from './card'
 import { ExpandRow } from './ExpandRow'
+import { InfoDot } from './InfoDot'
 import { LeaderCard, LeaderCardSkeleton, PORTRAIT_PX, printedRanks, type LeaderItem } from './leaders'
 import { FOCUS_RING, TAPPABLE, hoverOnly, pressable } from './interaction'
 import { NameColumn, NameText } from './NameText'
@@ -54,12 +55,22 @@ const MAX_CONDITIONS = 6
 // half rem it gained came out of Result, whose widest score ("W 18–7") used 53px of 75, so the
 // player column kept its width: taken from the player column instead, "N. Yonetani" clipped.
 const COL = { rank: 2, player: 8, game: 5.25, result: 3.25, stat: 2.4, gap: 0.4 }
+// A LINE'S STATS ARE COUNTS, a digit or two, so their columns are narrower than a season's rates
+// (".552", "1.155") and the player column takes the difference, floor and all. At 2.4 and 8 every
+// name column at 1440 sat on its floor beside the tally, and "F. Last" itself was cut by up to 31px
+// ("T. Maximiliana" on PAs, "N. Yonetani" on games, Nov 9, 2026). The floor rises by what the stats
+// give up, so the widths where the rail and the tally move in are where they were.
+const LINE_COL = { ...COL, player: 10, stat: 2.15 }
+const colsFor = (per: FinderPer) => (per === 'season' ? COL : LINE_COL)
 /** The table's narrowest, which is what the main column must hold before it is drawn: the fixed
  *  columns, the player column's floor, the gaps, and the card's padding and borders (2 x 16 chrome
  *  px, under 2.5rem at either scale). */
-const tableMinRem = (stats: number, per: FinderPer = 'game') => per === 'season'
-  ? COL.rank + COL.player + stats * COL.stat + (stats + 1) * COL.gap + 2.5
-  : COL.rank + COL.player + COL.game + COL.result + stats * COL.stat + (stats + 3) * COL.gap + 2.5
+const tableMinRem = (stats: number, per: FinderPer = 'game') => {
+  const c = colsFor(per)
+  return per === 'season'
+    ? c.rank + c.player + stats * c.stat + (stats + 1) * c.gap + 2.5
+    : c.rank + c.player + c.game + c.result + stats * c.stat + (stats + 3) * c.gap + 2.5
+}
 /** The rail's width, and the tally's when it sits beside the table. Wide enough for a condition on
  *  one line (CONDITION_COLUMNS): at 22 the value and its ✕ wrapped under every row. */
 const RAIL_REM = 24
@@ -404,11 +415,12 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
   // A SEASON ROW IS A PLAYER, so it has no night and no result: the player is its one destination,
   // and the columns start straight after the name.
   const season = query.per === 'season'
+  const c = colsFor(query.per)
   const template = [
-    `${COL.rank}rem`, `minmax(${COL.player}rem, 1fr)`, ...(season ? [] : [`${COL.game}rem`, `${COL.result}rem`]),
-    ...cols.map(() => `${COL.stat}rem`),
+    `${c.rank}rem`, `minmax(${c.player}rem, 1fr)`, ...(season ? [] : [`${c.game}rem`, `${c.result}rem`]),
+    ...cols.map(() => `${c.stat}rem`),
   ].join(' ')
-  const rowSx = { display: 'grid', gridTemplateColumns: template, columnGap: `${COL.gap}rem`, alignItems: 'center' } as const
+  const rowSx = { display: 'grid', gridTemplateColumns: template, columnGap: `${c.gap}rem`, alignItems: 'center' } as const
   // No sort is the question's own order, which is its first stat from the good end: drawn as that.
   // A first press on a column starts at its good end too, so a press on ERA is the best ERA.
   const best = (key: string) => !finderLowerBetter(side, key)
@@ -539,9 +551,107 @@ function SeasonRow<P extends LeaguePlayer, G extends LeagueGame>({ row, i, rank,
   )
 }
 
+/** Who a row is, for the counts: a player on every side, and a club on Hitting by the inning, where
+ *  a row is a club's half-inning at the plate. */
+function whoFor(side: FinderBoardSide, per: FinderPer): [string, string] {
+  if (side === 'hitting' && per === 'inning') return ['club', 'clubs']
+  return side === 'pitching' ? ['pitcher', 'pitchers'] : side === 'fielding' ? ['fielder', 'fielders'] : ['hitter', 'hitters']
+}
+
+/** One piece of the question: its words open the form, its ✕ drops it. */
+function QuestionChip({ text, onRemove, onEdit }: { text: string; onRemove: () => void; onEdit: () => void }) {
+  return (
+    <Box sx={{
+      display: 'inline-flex', alignItems: 'center', minWidth: 0, maxWidth: '100%', minHeight: chromePx(30),
+      pl: 1.25, pr: 0.25, borderRadius: 999, border: '1px solid', borderColor: CARD_BORDER,
+    }}>
+      <Box {...pressable(onEdit)} sx={{
+        ...FOCUS_RING, minWidth: 0, cursor: 'pointer', userSelect: 'none', borderRadius: 0.5,
+        fontSize: TYPE_SCALE.meta, fontWeight: 700, overflowWrap: 'anywhere',
+        ...hoverOnly({ textDecoration: 'underline' }),
+      }}>{text}</Box>
+      <Box {...pressable(onRemove)} aria-label={`Remove ${text}`} sx={{
+        ...FOCUS_RING, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        width: chromePx(26), height: chromePx(26), ml: 0.25, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
+        color: 'text.secondary', fontSize: TYPE_SCALE.micro, fontWeight: 800,
+        ...hoverOnly({ color: 'text.primary', bgcolor: 'action.hover' }),
+      }}>✕</Box>
+    </Box>
+  )
+}
+
+/**
+ * THE BOARD BEFORE A QUESTION: the examples, every grain's, each with how often it happened. It
+ * opened on "every game line" until Nov 9, 2026, which is 612 rows ranked by hits, nine tied at T-1,
+ * beside a tally where everyone had done it 15 times of 15: an answer to nothing. A count on each
+ * example says which questions have interesting answers before anyone taps one.
+ */
+function ExampleGrid({ side, grains, examples, count, counted, href, onPick }: {
+  side: FinderBoardSide
+  grains: FinderPer[]
+  examples: FinderExample[]
+  count?: (ex: FinderExample) => number | null
+  counted: FinderPer[]
+  href?: (ex: FinderExample) => string
+  onPick: (ex: FinderExample) => void
+}) {
+  const groups = grains
+    .map(per => ({ per, list: examples.filter(ex => (ex.per ?? 'game') === per) }))
+    .filter(g => g.list.length > 0)
+    .map(g => ({ ...g, counted: counted.includes(g.per) }))
+  return (
+    <SectionCard title="Examples">
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 0.5 }}>
+        {groups.map(g => (
+          <Box key={g.per}>
+            <SectionLabel>{GRAIN_LABEL[g.per]}</SectionLabel>
+            {/* Two across on a 375 phone: at 10rem it was one, and the pitching side a column of 22. */}
+            <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 8.5rem), 1fr))' }}>
+              {g.list.map(ex => {
+                const n = count?.(ex) ?? null
+                const noun = g.per === 'season' ? whoFor(side, g.per) : GRAIN_NOUN[g.per]
+                const link = href?.(ex)
+                // A REAL LINK where the section gives the address, so a tile opens in a new tab and a
+                // crawler can follow it; a plain click asks in place, keeping the season on screen.
+                const open = link
+                  ? {
+                    component: 'a' as const, href: link,
+                    onClick: (e: React.MouseEvent) => {
+                      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+                      e.preventDefault()
+                      onPick(ex)
+                    },
+                  }
+                  : pressable(() => onPick(ex))
+                return (
+                  <Box key={ex.label} {...open} sx={{
+                    ...FOCUS_RING, display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 0,
+                    px: 1.25, py: 1, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
+                    color: 'inherit', textDecoration: 'none', cursor: 'pointer', ...TAPPABLE,
+                  }}>
+                    <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.25 }}>{ex.label}</Typography>
+                    {/* A GROUP COUNTS ALL OR NONE, and says so before its numbers exist: a blank line under
+                        every tile read as broken, and a line that appeared once the lines were read
+                        moved the page (MLB reads its season after the board draws). */}
+                    {g.counted && (
+                      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                        {n == null ? String.fromCharCode(160) : `${n.toLocaleString()} ${n === 1 ? noun[0] : noun[1]}`}
+                      </Typography>
+                    )}
+                  </Box>
+                )
+              })}
+            </Box>
+          </Box>
+        ))}
+      </Box>
+    </SectionCard>
+  )
+}
+
 export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   side, query, onQuery, result, clubs, clubAbbr, loading = false, renderRow, rowParts, tallyParts,
-  sort, onSort, examples, stickyTop, parse, onAsk, accent, grains = DEFAULT_GRAINS,
+  sort, onSort, examples, exampleCount, exampleCounted = [], exampleHref, stickyTop, parse, onAsk, accent, grains = DEFAULT_GRAINS,
 }: {
   side: FinderBoardSide
   /** Owned by the section, which mirrors it into the address bar. */
@@ -564,8 +674,16 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   /** The table's order. Held by the section, because the engine sorts before it caps. */
   sort: FinderSort | null
   onSort: (s: FinderSort | null) => void
-  /** One-tap questions for this side. */
+  /** One-tap questions for this side, every grain's: the board with no question asked is these. */
   examples: FinderExample[]
+  /** How many lines an example matches, in the scope on screen, or null where the section has not
+   *  read what it searches (WPBL's play log, until a play-log grain is asked or it is cached). */
+  exampleCount?: (ex: FinderExample) => number | null
+  /** The grains whose examples the section counts, known before the counts are: a count still
+   *  loading keeps its line, and a grain left out draws none. */
+  exampleCounted?: FinderPer[]
+  /** An example's own address, so its tile is a real link that opens in a new tab. */
+  exampleHref?: (ex: FinderExample) => string
   /** Where the rail pins: under the section's pinned chrome. */
   stickyTop: string
   /** The question typed as words. The box is drawn only when both are given. */
@@ -611,7 +729,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // included: `describeFinderQuery` knows only the stat conditions, and a summary that omits the
   // who and where claims a wider search than it ran. The unasked question gets its own wording,
   // since "612 games where every game line" reads as a bug.
-  const who = side === 'pitching' ? ['pitcher', 'pitchers'] : side === 'fielding' ? ['fielder', 'fielders'] : ['hitter', 'hitters']
+  const who = whoFor(side, query.per)
   const noun = GRAIN_NOUN[query.per]
   const tallyTitle = `Most ${noun[1]} matching`
   const games_ = season ? (result.total === 1 ? who[0] : who[1])
@@ -623,19 +741,17 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     : scopeText
       ? `${total} ${games_} ${scopeText}`
       : `${total} ${games_}`
-  const questionText = `${GRAIN_LEAD[query.per]}${describeFinderQuery(side, query)}${scopeText ? `, ${scopeText}` : ''}`
-  // SAID, because a bar the reader did not set is a filter they cannot see. The way past it is part
-  // of the sentence, since "where is the 2-for-4 hitter" has an answer and it is one condition away.
-  const qualifierNote = result.qualifier
+  // SHOWN, because a bar the reader did not set is a filter they cannot see. A label with its
+  // definition behind an InfoDot, as every other board's qualifier is, rather than two sentences of
+  // instructions above the table (house rule: labels, not narration). The way past it stays in the
+  // definition, since "where is the 2-for-4 hitter" is one condition away.
+  const qualifier = result.qualifier
     ? result.qualifier.field === 'pa'
-      ? `Qualified hitters only: ${result.qualifier.min} plate appearances or more. Add a plate appearances condition to set your own bar.`
+      ? { label: `Qualified: ${result.qualifier.min}+ PA`, tip: `Seasons with at least ${result.qualifier.min} plate appearances, the leaderboards' bar. A plate appearances condition sets a different one.` }
       : result.qualifier.field === 'g'
-        ? `Qualified fielders only: ${result.qualifier.min} games or more. Add a games played condition to set your own bar.`
-        : `Qualified pitchers only: ${displayFinderValue(side, 'ip', result.qualifier.min)} innings or more. Add an innings condition to set your own bar.`
+        ? { label: `Qualified: ${result.qualifier.min}+ G`, tip: `Seasons with at least ${result.qualifier.min} games played, the leaderboards' bar. A games played condition sets a different one.` }
+        : { label: `Qualified: ${displayFinderValue(side, 'ip', result.qualifier.min)}+ IP`, tip: `Seasons with at least ${displayFinderValue(side, 'ip', result.qualifier.min)} innings, the leaderboards' bar. An innings condition sets a different one.` }
     : null
-  // Offered only to an empty form: an example replaces the conditions, so once there are some it is a
-  // way to lose them, and the chips sat between the typed box and the rows they would overwrite.
-  const shownExamples = hasConditions ? [] : examples.filter(ex => (ex.per ?? 'game') === query.per)
   // The same words loading and loaded, so the row does not reflow when the answer lands. A game
   // question nearly always runs past the cap; a season one is a list of a few dozen at most, so it
   // names no count the skeleton would have to guess.
@@ -643,7 +759,10 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     ? `Show more ${who[1]}`
     : `Show ${loading || result.total > result.rows.length ? 'top' : 'all'} ${loading ? 50 : result.rows.length} ${noun[1]}`
   const shownRows = allRows ? result.rows : result.rows.slice(0, RESULT_CAP)
-  const ranks = finderRanks(side, result.rows, sort ?? { key: result.headlineField, desc: !finderLowerBetter(side, result.headlineField) })
+  // A yes-or-no answer comes back in date order (the engine's `flat`), and is drawn as that order:
+  // the Game column marked, the rows numbered plainly rather than fifty-seven T-1s.
+  const shownSort = sort ?? (result.flat ? { key: 'date', desc: false } : null)
+  const ranks = finderRanks(side, result.rows, shownSort ?? { key: result.headlineField, desc: !finderLowerBetter(side, result.headlineField) })
 
   // Competition ranks over the games counts: 1, 1, 3.
   const tally = result.tally.slice(0, TALLY_SHOWN)
@@ -673,28 +792,26 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   const listOnly = { display: 'block', [tableOn]: { display: 'none' } }
   const tableOnly = { display: 'none', [tableOn]: { display: 'block' } }
 
+  // THE QUESTION AS CHIPS, one per condition and one per club, venue or opponent set, each with its
+  // own ✕. Folded, the card used to be one sentence and an Edit link, and the grain switch and the
+  // clubs went with the rest of the form, so asking anything turned the card into a different board
+  // (Nov 9, 2026 audit). Now the grain stays, the question stays in pieces that can each be dropped,
+  // and Edit is for changing a number.
+  const chips: { key: string; text: string; remove: () => void }[] = [
+    ...describeFinderConditions(side, query, true).map(p => ({
+      key: `c${p.indices.join('-')}`, text: p.text,
+      remove: () => onQuery({ ...query, conditions: query.conditions.filter((_, j) => !p.indices.includes(j)) }),
+    })),
+    ...(query.teamId ? [{ key: 'team', text: `For ${clubAbbr(query.teamId)}`, remove: () => onQuery({ ...query, teamId: null }) }] : []),
+    ...(query.oppId ? [{ key: 'opp', text: `Vs ${clubAbbr(query.oppId)}`, remove: () => onQuery({ ...query, oppId: null }) }] : []),
+    ...(query.venue !== 'any' ? [{ key: 'venue', text: query.venue === 'home' ? 'At home' : 'On the road', remove: () => onQuery({ ...query, venue: 'any' as FinderVenue }) }] : []),
+  ]
+
   const question = (
     <SectionCard title="Search" action={<CopyLink />}>
-      {/* Folded: the question in one line, which is also the way back in. */}
-      {hasConditions && (
-        <Box {...pressable(() => setFolded(false))} aria-expanded={false} sx={{
-          ...FOCUS_RING,
-          display: isFolded ? 'flex' : 'none', [inRail]: { display: 'none' },
-          alignItems: 'center', gap: 1, mt: 0.5, px: 1.25, py: 0.75, minHeight: chromePx(40), cursor: 'pointer',
-          borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, ...TAPPABLE,
-        }}>
-          <Typography sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 700, overflowWrap: 'anywhere' }}>
-            {questionText}
-          </Typography>
-          <Box component="span" sx={{ flexShrink: 0, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: ACCENT_EDGE }}>Edit</Box>
-        </Box>
-      )}
-      <Box sx={{
-        display: isFolded ? 'none' : 'flex', [inRail]: { display: 'flex' },
-        flexDirection: 'column', gap: 1, pt: 0.5,
-      }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, pt: 0.5 }}>
         {/* THE GRAIN, first because it changes what every control under it means: "3+ home runs" is a
-            night or a body of work. */}
+            night or a body of work. Drawn folded or open, so the card keeps its top either way. */}
         <Box role="radiogroup" aria-label="Search" sx={{
           display: 'flex', alignSelf: 'flex-start', p: 0.25, gap: 0.25,
           borderRadius: 999, border: '1px solid', borderColor: CARD_BORDER,
@@ -714,84 +831,82 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
           })}
         </Box>
 
-        {parse && onAsk && (
-          <AskBox side={side} parse={parse} clubAbbr={clubAbbr} onAsk={r => { onAsk(r); setFolded(true) }} />
-        )}
-
-        {/* THE CONDITIONS READ AS A SENTENCE: "and" between rows, since every condition is AND and a
-            stack of identical rows said nothing about how they combine. */}
-        {query.conditions.map((c, i) => (
-          <React.Fragment key={i}>
-            {i > 0 && (
-              <Typography aria-hidden sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary', px: 0.5, mt: -0.5, mb: -0.5 }}>and</Typography>
-            )}
-            <ConditionRow side={side} per={query.per} n={i + 1} condition={c}
-              onChange={next => setCondition(i, next)} onRemove={() => removeCondition(i)} />
-          </React.Fragment>
-        ))}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-          {query.conditions.length < MAX_CONDITIONS && (
-            <Box {...pressable(addCondition)} sx={{
-              ...textButtonSx, gap: 0.5, border: '1px dashed', borderColor: CARD_BORDER,
-              ...hoverOnly({ borderColor: ACCENT_EDGE, color: 'text.primary' }),
-            }}>+ Add a condition</Box>
-          )}
-          {hasConditions && (
-            <Box {...pressable(() => { onQuery({ ...query, conditions: [] }); setFolded(false) })} sx={textButtonSx}>Clear</Box>
-          )}
-          {hasConditions && (
-            <Box {...pressable(() => setFolded(true))} sx={{
-              ...textButtonSx, ml: 'auto', color: ACCENT_EDGE, [inRail]: { display: 'none' },
-            }}>Done</Box>
-          )}
-        </Box>
-
-        {shownExamples.length > 0 && (
-          // LINKS, NOT CHIPS: a shortcut to a whole question is a different kind of thing from the
-          // fields that build one, and wrapped as text they take two lines on a phone where a row
-          // of chips scrolled off the side of the card.
-          <Box role="group" aria-label="Example questions" sx={{
-            display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 1.25, rowGap: 0.25,
-            fontSize: TYPE_SCALE.meta,
+        {/* Folded: the question in chips, and the way back into the form. */}
+        {hasConditions && (
+          <Box role="group" aria-label="Question" sx={{
+            display: isFolded ? 'flex' : 'none', [inRail]: { display: 'none' },
+            alignItems: 'center', flexWrap: 'wrap', gap: 0.75,
           }}>
-            <Box component="span" sx={{ color: 'text.secondary', fontWeight: 700 }}>Try</Box>
-            {shownExamples.map(ex => (
-              <Box key={ex.label} {...pressable(() => askWhole(ex))} sx={{
-                ...FOCUS_RING, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', borderRadius: 0.5,
-                color: ACCENT_EDGE, fontWeight: 700, ...hoverOnly({ textDecoration: 'underline' }),
-              }}>{ex.label}</Box>
-            ))}
+            {chips.map(c => <QuestionChip key={c.key} text={c.text} onRemove={c.remove} onEdit={() => setFolded(false)} />)}
+            <Box {...pressable(() => setFolded(false))} aria-expanded={false} sx={{ ...textButtonSx, ml: 'auto', color: ACCENT_EDGE }}>Edit</Box>
           </Box>
         )}
 
-        {/* WHO AND WHERE, kept apart from the conditions above because they are a different kind
-            of question: those ask what happened in a game, these ask which games to look at. */}
-        <Box sx={{ pt: 1.25, mt: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
-        <SectionLabel>Clubs</SectionLabel>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-          {/* The club and the venue read as one clause ("New York, at home"), so they stay on one
-              row; the opponent is the one that wraps on a phone, before this pair may split. */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', maxWidth: '100%' }}>
-            <Picker label="Club" value={query.teamId ?? ''} options={clubOptions('Any club')}
-              onChange={v => onQuery({ ...query, teamId: v || null })} />
-            <Picker label="Home or away" value={query.venue}
-              options={[
-                { value: 'any', label: 'Home or away' },
-                { value: 'home', label: 'At home' },
-                { value: 'away', label: 'On the road' },
-              ]}
-              onChange={v => onQuery({ ...query, venue: v as FinderVenue })} />
+        <Box sx={{
+          display: isFolded ? 'none' : 'flex', [inRail]: { display: 'flex' },
+          flexDirection: 'column', gap: 1,
+        }}>
+          {parse && onAsk && (
+            <AskBox side={side} parse={parse} clubAbbr={clubAbbr} onAsk={r => { onAsk(r); setFolded(true) }} />
+          )}
+
+          {/* THE CONDITIONS READ AS A SENTENCE: "and" between rows, since every condition is AND and a
+              stack of identical rows said nothing about how they combine. */}
+          {query.conditions.map((c, i) => (
+            <React.Fragment key={i}>
+              {i > 0 && (
+                <Typography aria-hidden sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary', px: 0.5, mt: -0.5, mb: -0.5 }}>and</Typography>
+              )}
+              <ConditionRow side={side} per={query.per} n={i + 1} condition={c}
+                onChange={next => setCondition(i, next)} onRemove={() => removeCondition(i)} />
+            </React.Fragment>
+          ))}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+            {query.conditions.length < MAX_CONDITIONS && (
+              <Box {...pressable(addCondition)} sx={{
+                ...textButtonSx, gap: 0.5, border: '1px dashed', borderColor: CARD_BORDER,
+                ...hoverOnly({ borderColor: ACCENT_EDGE, color: 'text.primary' }),
+              }}>+ Add a condition</Box>
+            )}
+            {hasConditions && (
+              <Box {...pressable(() => { onQuery({ ...query, conditions: [] }); setFolded(false) })} sx={textButtonSx}>Clear</Box>
+            )}
+            {hasConditions && (
+              <Box {...pressable(() => setFolded(true))} sx={{
+                ...textButtonSx, ml: 'auto', color: ACCENT_EDGE, [inRail]: { display: 'none' },
+              }}>Done</Box>
+            )}
           </Box>
-          <Picker label="Opponent" value={query.oppId ?? ''} options={clubOptions('Any opponent')}
-            onChange={v => onQuery({ ...query, oppId: v || null })} />
-        </Box>
+
+          {/* WHO AND WHERE, kept apart from the conditions above because they are a different kind
+              of question: those ask what happened in a game, these ask which games to look at. */}
+          <Box sx={{ pt: 1.25, mt: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
+          <SectionLabel>Clubs</SectionLabel>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+            {/* The club and the venue read as one clause ("New York, at home"), so they stay on one
+                row; the opponent is the one that wraps on a phone, before this pair may split. */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', maxWidth: '100%' }}>
+              <Picker label="Club" value={query.teamId ?? ''} options={clubOptions('Any club')}
+                onChange={v => onQuery({ ...query, teamId: v || null })} />
+              <Picker label="Home or away" value={query.venue}
+                options={[
+                  { value: 'any', label: 'Home or away' },
+                  { value: 'home', label: 'At home' },
+                  { value: 'away', label: 'On the road' },
+                ]}
+                onChange={v => onQuery({ ...query, venue: v as FinderVenue })} />
+            </Box>
+            <Picker label="Opponent" value={query.oppId ?? ''} options={clubOptions('Any opponent')}
+              onChange={v => onQuery({ ...query, oppId: v || null })} />
+          </Box>
+          </Box>
         </Box>
       </Box>
     </SectionCard>
   )
 
   const table = (
-    <ResultTable side={side} query={query} rows={shownRows} ranks={ranks} sort={sort} onSort={onSort}
+    <ResultTable side={side} query={query} rows={shownRows} ranks={ranks} sort={shownSort} onSort={onSort}
       headlineField={result.headlineField} clubAbbr={clubAbbr} rowParts={rowParts} loading={loading} />
   )
 
@@ -818,14 +933,21 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
         </Box>
 
         <Box sx={{ minWidth: 0, containerType: 'inline-size', containerName: 'finder-main' }}>
+          {!hasConditions ? (
+            <ExampleGrid side={side} grains={grains} examples={examples} count={exampleCount} counted={exampleCounted} href={exampleHref}
+              onPick={askWhole} />
+          ) : (
           <Box sx={{
             display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', alignItems: 'start', gap: { xs: 1.5, sm: 2 },
             ...(season ? {} : { [tallyBeside]: { gridTemplateColumns: `minmax(0, 1fr) ${TALLY_REM}rem`, columnGap: `${PANE_GAP_REM}rem` } }),
           }}>
             {/* A no-break space while loading: a plain one collapses, and the line with it. */}
             <SectionCard title={season ? 'Matching seasons' : `Matching ${noun[1]}`} subtitle={loading ? String.fromCharCode(160) : summary}>
-              {!loading && qualifierNote && (
-                <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', pb: 1 }}>{qualifierNote}</Typography>
+              {!loading && qualifier && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, pb: 1 }}>
+                  <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary' }}>{qualifier.label}</Typography>
+                  <InfoDot text={qualifier.tip} label="Qualified" />
+                </Box>
               )}
               {loading ? (
                 <>
@@ -837,14 +959,13 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
                 </>
               ) : result.rows.length === 0 ? (
                 <Box sx={{ py: 2 }}>
-                  <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, mb: 0.5 }}>Nothing matched</Typography>
-                  {/* SAYING WHAT WAS SEARCHED is what separates "nobody has done this" from "your
-                      filters left nothing to look at". */}
+                  <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, mb: 0.5 }}>No {season ? who[1] : noun[1]}</Typography>
+                  {/* THE COUNT SEARCHED is what separates "nobody has done this" from "your filters
+                      left nothing to look at", so it stays, as a label rather than advice. */}
                   <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
-                    {season
-                      ? `Searched the seasons of ${result.searched.toLocaleString()} ${result.searched === 1 ? who[0] : who[1]}.`
-                      : `Searched ${result.searched.toLocaleString()} ${result.searched === 1 ? 'line' : 'lines'}${side === 'pitching' ? ' from pitchers who appeared' : side === 'fielding' ? ' from fielders who were in on a play' : ' from batters who came to the plate'}.`}
-                    {' '}Loosen a condition, or widen the clubs.
+                    {result.searched.toLocaleString()} {season
+                      ? (result.searched === 1 ? who[0] : who[1])
+                      : (result.searched === 1 ? noun[0] : noun[1])} searched
                   </Typography>
                 </Box>
               ) : (
@@ -866,7 +987,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
                       a list that stops at fifty with nothing explaining it reads as the answer. */}
                   {allRows && result.total > result.rows.length && (
                     <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', textAlign: 'center', pt: 1 }}>
-                      Showing the top {result.rows.length} of {total}. Narrow the question to see the rest.
+                      Top {result.rows.length} of {total}
                     </Typography>
                   )}
                 </>
@@ -884,13 +1005,14 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
                 <SectionCard bare title={tallyTitle}>
                   <Typography sx={{ py: 1, fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.5 }}>
                     {result.tally.length === 1
-                      ? `One ${who[0]}, once. Nobody has done it twice.`
-                      : `${result.tally.length.toLocaleString()} ${who[1]}, once each. Nobody has done it twice.`}
+                      ? `1 ${who[0]}, once`
+                      : `${result.tally.length.toLocaleString()} ${who[1]}, once each`}
                   </Typography>
                 </SectionCard>
               )
-              : <LeaderCard title={tallyTitle} empty="Nobody yet." items={tallyItems} splitWhen={tallySplit} />}
+              : <LeaderCard title={tallyTitle} empty="None" items={tallyItems} splitWhen={tallySplit} />}
           </Box>
+          )}
         </Box>
       </Box>
     </Box>

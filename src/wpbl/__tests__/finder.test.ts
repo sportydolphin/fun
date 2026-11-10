@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  runWpblFinder, encodeFinderQuery, decodeFinderQuery, parseFinderValue, describeFinderQuery,
+  runWpblFinder, encodeFinderQuery, decodeFinderQuery, parseFinderValue, describeFinderQuery, describeFinderConditions,
   finderColumns, validFinderSort, decodeFinderPer, EMPTY_FINDER_QUERY, type FinderQuery,
 } from '../derive/finder'
 import type { WpblBattingLine, WpblFieldingLine, WpblGame, WpblPitchingLine, WpblPlayer } from '../types'
@@ -575,6 +575,36 @@ describe('the finder, by the plate appearance', () => {
       .toBe('Strikeouts at least 3 and 6th inning or later')
     expect(describeFinderQuery('hitting', { per: 'pa', conditions: [{ field: 'h', op: 'gte', value: 1 }, { field: 'risp', op: 'eq', value: 1 }] }))
       .toBe('Hits at least 1 and Runner in scoring position')
+  })
+
+  // The search card's chips: one per phrase, and a phrase made of two conditions drops both.
+  it('names each condition as a chip, with the conditions it stands for', () => {
+    const conditions = [
+      { field: 'hr', op: 'gte' as const, value: 1 }, { field: 'balls', op: 'eq' as const, value: 0 },
+      { field: 'on', op: 'eq' as const, value: 3 }, { field: 'scount', op: 'eq' as const, value: 2 },
+    ]
+    expect(describeFinderConditions('hitting', { per: 'pa', conditions }, true)).toEqual([
+      { text: 'Home runs ≥ 1', indices: [0] },
+      { text: '0-2 count', indices: [1, 3] },
+      { text: 'Bases loaded', indices: [2] },
+    ])
+  })
+
+  // A YES-OR-NO QUESTION. Every home run is HR 1, so ranking by it ties everyone and leads every row
+  // with the same 1. The rows come back in date order, flagged, led by what tells them apart.
+  it('reads a question every match answers alike as a log in date order', () => {
+    const games = [game({ id: 'g1', game_date: '2026-08-07' }), game({ id: 'g2', game_date: '2026-08-01' })]
+    const lines = [pa({ game_id: 'g1', runs: 1 }), pa({ game_id: 'g2', runs: 4 }), pa({ game_id: 'g1', sequence: 20, runs: 2 })]
+    const r = runWpblFinder('hitting', [], [], PLAYERS, games, q({ per: 'pa', conditions: [{ field: 'hr', op: 'gte', value: 1 }] }), 50, null, { plateAppearances: lines })
+    expect(r.flat).toBe(true)
+    expect(r.headlineField).toBe('runs')
+    expect(r.rows.map(x => x.game?.id)).toEqual(['g2', 'g1', 'g1'])
+    expect(r.rows.map(x => x.headlineDisplay)).toEqual(['4', '1', '2'])
+    // Two different first stats is a ranking again, led by the stat asked about.
+    const ranked = runWpblFinder('hitting', [], [], PLAYERS, games, q({ per: 'pa', conditions: [{ field: 'runs', op: 'gte', value: 1 }] }), 50, null, { plateAppearances: lines })
+    expect(ranked.flat).toBe(false)
+    expect(ranked.headlineField).toBe('runs')
+    expect(ranked.rows.map(x => x.headline)).toEqual([4, 2, 1])
   })
 })
 

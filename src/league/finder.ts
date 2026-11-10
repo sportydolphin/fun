@@ -547,6 +547,9 @@ export interface FinderResult<P extends LeaguePlayer = LeaguePlayer, G extends L
   /** The bar a season question about a rate applied, so the board can say who was left out and
    *  why. Null when none was: a game question, no rate asked, or the reader set their own. */
   qualifier: { field: 'pa' | 'ip' | 'g'; min: number } | null
+  /** Every match has the same value of the question's first stat, so the rows are in date order
+   *  and `headlineField` is the next stat that tells them apart (FLAT_LEAD). False on a season. */
+  flat: boolean
 }
 
 /** What the section knows that the engine cannot: the innings an ERA is quoted per, and the
@@ -569,6 +572,18 @@ export interface FinderOptions {
   clubName?: (teamId: string) => string
   /** Every plate appearance (`plateAppearanceLines`), for that grain, read the same way. */
   plateAppearances?: PlateAppearanceLine[]
+}
+
+// A YES-OR-NO QUESTION HAS NOTHING TO RANK. "Home runs on 0-2" is HR at least 1 on a plate
+// appearance, so every match reads 1: fifty-seven rows tied at T-1 under a column of 1s, the row's
+// one big number saying nothing (Nov 9, 2026 audit). Once every match has the same first stat, the
+// list is a log in date order (the order the tie-break already gives) and each row leads with the
+// first of these that differs between matches: the runs a home run brought in, the pitches an inning
+// took. In box-score order of interest, per side and grain; a key the grain lacks is skipped.
+const FLAT_LEAD: Record<FinderBoardSide, Partial<Record<FinderPer, string[]>>> = {
+  hitting: { game: ['h', 'rbi', 'r'], inning: ['r', 'h', 'pa'], pa: ['runs', 'pitches'] },
+  pitching: { game: ['so', 'ip', 'pitches'], inning: ['so', 'pitches', 'bf'], pa: ['runs', 'pitches'] },
+  fielding: { game: ['tc', 'po', 'a'] },
 }
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
@@ -759,7 +774,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     gamesPlayed?: Map<string, number>,
   ): FinderResult<P, G> => {
     // A side with no field at this grain (Hitting by the inning) can ask nothing, and finds nothing.
-    if (!fields.length) return { rows: [], total: 0, searched: 0, tally: [], headlineField, qualifier: null }
+    if (!fields.length) return { rows: [], total: 0, searched: 0, tally: [], headlineField, qualifier: null, flat: false }
     const byKey = new Map(fields.map(f => [f.key, f]))
     const head = byKey.get(headlineField) ?? fields[0]
     // THE SEARCHED COUNT EXCLUDES LINES THAT ARE NOT APPEARANCES. Ninety-seven of the season's
@@ -820,8 +835,19 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
       if (season) return nameOf(a).localeCompare(nameOf(b))
       const ad = dateOf(a), bd = dateOf(b)
       if (ad !== bd) return ad < bd ? -1 : 1
+      // Two plays or innings in one game go in the order they happened, which a yes-or-no answer's
+      // date-ordered log needs; the id alone put a game's 6th-inning homer before its 3rd's.
+      const as = (a.line as { sequence?: number }).sequence, bs = (b.line as { sequence?: number }).sequence
+      if (as != null && bs != null && as !== bs) return as - bs
       return a.line.id < b.line.id ? -1 : 1
     })
+
+    // Flat only with a question asked: the unasked board is every line, ordered by its default stat.
+    const flat = !season && query.conditions.length > 0 && matched.length > 1 && matched.every(m => m.head === matched[0].head)
+    const differs = (f: Field<L>) => { const v = f.value(matched[0].line); return matched.some(m => f.value(m.line) !== v) }
+    const lead = flat
+      ? (FLAT_LEAD[side][query.per] ?? []).map(k => byKey.get(k)).find((f): f is Field<L> => !!f && f !== head && differs(f)) ?? head
+      : head
 
     // A SEASON HAS NO TALLY: each player is one row already, so "who did it most" is the list.
     const counts = new Map<string, number>()
@@ -851,7 +877,8 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
       .sort((a, b) => b.games - a.games || a.played - b.played || a.name.localeCompare(b.name))
 
     return {
-      rows: matched.slice(0, limit).map(({ line, head: v }) => {
+      rows: matched.slice(0, limit).map(({ line, head: h }) => {
+        const v = lead === head ? h : lead.value(line)
         const p = playerById.get(line.player_id) ?? null
         return {
           key: line.id,
@@ -863,7 +890,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
             ? (({ inning, half, sequence, event }: FineLine) => ({ inning, half, sequence, ...(query.per === 'pa' ? { event } : {}) }))(line as unknown as FineLine)
             : null,
           headline: v,
-          headlineDisplay: head.display ? head.display(v) : String(v),
+          headlineDisplay: lead.display ? lead.display(v) : String(v),
           detail: detail(line),
           values: Object.fromEntries(fields.map(f => [f.key, f.value(line)])),
         }
@@ -872,8 +899,9 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
       // A season search looked through players rather than lines, and is counted that way.
       searched: candidates.length,
       tally,
-      headlineField: head.key,
+      headlineField: lead.key,
       qualifier,
+      flat,
     }
   }
 
@@ -1012,8 +1040,15 @@ const RUN_WORDS: Record<string, (v: number) => string> = {
   retired: v => `${v}+ batters retired in a row`,
 }
 
-/** The query in words, for the line above the results. */
-export function describeFinderQuery(side: FinderBoardSide, q: Pick<FinderQuery, 'conditions'> & { per?: FinderPer }): string {
+/**
+ * Each condition in words, with the positions in `q.conditions` it stands for: one phrase can be two
+ * conditions ("0-2 count" is the balls and the strikes), so removing the phrase removes both. The
+ * search card's chips are these; the line above the results joins them. `symbols` writes the
+ * comparison as "≥" rather than "at least", for a chip.
+ */
+export function describeFinderConditions(
+  side: FinderBoardSide, q: Pick<FinderQuery, 'conditions'> & { per?: FinderPer }, symbols = false,
+): { text: string; indices: number[] }[] {
   const labels = new Map(allFields(side).map(f => [f.key, f]))
   // A PLATE APPEARANCE'S SITUATION READS THE WAY IT IS SAID. "Balls in the count exactly 0 and Strikes
   // in the count exactly 2" is "0-2 count", and the runners, outs and walk-off have the same short
@@ -1034,17 +1069,24 @@ export function describeFinderQuery(side: FinderBoardSide, q: Pick<FinderQuery, 
   }
   // A club's half-inning says its score the same way: "Took the lead", "Down 2 or more".
   if (q.per === 'inning' && side === 'hitting') said.tooklead = v => (v === 1 ? 'Took the lead' : 'Did not take the lead')
-  const parts = q.conditions.flatMap(c => {
-    if (balls && strikes && (c === balls || c === strikes)) return c === balls ? [`${balls.value}-${strikes.value} count`] : []
-    if (c.field === 'trail' && q.per === 'inning' && c.op === 'gte') return [`Down ${c.value} or more`]
+  const pair = balls && strikes ? [q.conditions.indexOf(balls), q.conditions.indexOf(strikes)] : []
+  return q.conditions.flatMap((c, i) => {
+    const one = (text: string) => [{ text, indices: [i] }]
+    if (balls && strikes && (c === balls || c === strikes)) return c === balls ? [{ text: `${balls.value}-${strikes.value} count`, indices: pair }] : []
+    if (c.field === 'trail' && q.per === 'inning' && c.op === 'gte') return one(`Down ${c.value} or more`)
     // A run of plays reads as the run: "Back-to-back home runs", "5+ strikeouts in a row".
-    if (q.per === 'pa' && c.op === 'gte' && RUN_WORDS[c.field]) return [RUN_WORDS[c.field](c.value)]
-    if (c.field === 'inn' && (q.per === 'pa' || q.per === 'inning')) return [innWords[c.op](c.value)]
-    if (c.op === 'eq' && said[c.field]) return [said[c.field](c.value)]
+    if (q.per === 'pa' && c.op === 'gte' && RUN_WORDS[c.field]) return one(RUN_WORDS[c.field](c.value))
+    if (c.field === 'inn' && (q.per === 'pa' || q.per === 'inning')) return one(innWords[c.op](c.value))
+    if (c.op === 'eq' && said[c.field]) return one(said[c.field](c.value))
     const f = labels.get(c.field)
-    const sym = FINDER_OPS.find(o => o.op === c.op)?.label ?? ''
-    return [`${f?.label ?? c.field} ${sym} ${displayFinderValue(side, c.field, c.value)}`]
+    const op = FINDER_OPS.find(o => o.op === c.op)
+    return one(`${f?.label ?? c.field} ${(symbols ? op?.symbol : op?.label) ?? ''} ${displayFinderValue(side, c.field, c.value)}`)
   })
+}
+
+/** The query in words, for the line above the results. */
+export function describeFinderQuery(side: FinderBoardSide, q: Pick<FinderQuery, 'conditions'> & { per?: FinderPer }): string {
+  const parts = describeFinderConditions(side, q).map(p => p.text)
   return parts.length ? parts.join(' and ')
     : q.per === 'season' ? 'every season line' : q.per === 'inning' ? 'every inning'
     : q.per === 'pa' ? 'every plate appearance' : 'every game line'
