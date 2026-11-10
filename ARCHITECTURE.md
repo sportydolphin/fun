@@ -190,7 +190,9 @@ flowchart LR
   team" and the named games (shutouts, no-hitters, blowouts, "won by 10") ask it. Fielding's inning
   is the club in the field (`fieldingInningLines`, errors counted where the text charges one), and a
   game or a season asking pickoffs or pitches seen reads the play log (`playTotals`,
-  `finderNeedsPlays`), which MLB's board is never offered (`plays={false}`).
+  `finderNeedsPlays`), which MLB's board is never offered (`plays={false}`). A runner the log names only
+  by name is matched to the batters that club sent up in that game (`runnerResolver`), which is how a
+  player's times picked off and steals of home are counted.
   Questions run from the box come back under Recent on this device
   ([`src/lib/recentQuestions.ts`](src/lib/recentQuestions.ts)), merged with the section's synced
   players and clubs by when each was opened; MLB's name lookups are kept ten minutes

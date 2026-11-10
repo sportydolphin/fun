@@ -243,6 +243,34 @@ describe('fieldingInningLines', () => {
   })
 })
 
+describe('the runner a clause names', () => {
+  it('is the batter of that club and game whose name the clause starts with, the longest first', () => {
+    const plays = [
+      play({ batter_id: 'k1', batter_name: 'Kim', event_type: 'single', pitch_sequence: 'P' }),
+      play({ batter_id: 'k2', batter_name: 'Hyeonah Kim', event_type: 'single', pitch_sequence: 'P' }),
+      play({ batter_id: 'd1', batter_name: 'Denver Bryant', event_type: 'walk', pitch_sequence: 'BBBB' }),
+      play({ event_type: 'out', narrative: 'Denver Bryant advanced to second; Hyeonah Kim out at second c to ss, picked off.' }),
+    ]
+    const totals = playTotals(WPBL_LEAGUE, plays, [game()])
+    expect(totals.get('g1|k2')).toMatchObject({ pko: 1 })
+    expect(totals.get('g1|k1')?.pko ?? 0).toBe(0)
+    expect(totals.get('g1|d1')?.pko ?? 0).toBe(0)
+  })
+
+  it('reads accents either way, and a steal of home', () => {
+    const plays = [
+      play({ batter_id: 'm1', batter_name: 'Maïka Dumais', event_type: 'single', pitch_sequence: 'P' }),
+      play({ event_type: 'stolen_base', narrative: 'Maika Dumais stole home.' }),
+    ]
+    expect(playTotals(WPBL_LEAGUE, plays, [game()]).get('g1|m1')).toMatchObject({ sbh: 1 })
+  })
+
+  it('names nobody for a runner who never batted', () => {
+    const plays = [play({ event_type: 'out', narrative: 'Pinch Runner out at first p to 1b, picked off.' })]
+    expect([...playTotals(WPBL_LEAGUE, plays, [game()]).values()].some(t => t.pko > 0)).toBe(false)
+  })
+})
+
 describe('playTotals', () => {
   it('credits a pickoff to the pitcher and the pitches to the batter', () => {
     const plays = [

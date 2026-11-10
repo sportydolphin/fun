@@ -36,7 +36,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'Find: pickoffs and pitches seen',
-        full:  'A pitcher’s pickoffs and a batter’s pitches seen can be asked over a game or a season: "most pickoffs", "most pitches seen in a game".',
+        full:  'A pitcher’s pickoffs, a batter’s pitches seen, and a runner’s times picked off and steals of home can be asked over a game or a season: "most pickoffs", "most pitches seen in a game", "most times picked off", "steals of home".',
       },
     ],
   },

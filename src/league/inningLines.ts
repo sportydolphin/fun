@@ -85,11 +85,12 @@ const HITS = new Set(['single', 'double', 'triple', 'home_run'])
  * Against 2026's box scores: 115 of 116 steals, 21 of 22 caught, 93 of 93 wild pitches, 18 of 24 balks
  * (a balk with nobody moving leaves no row).
  */
-export function runnerEvents(p: Pick<RunValuePlay, 'event_type' | 'narrative'>): { sb: number; cs: number; pk: number; wp: number; pb: number; bk: number } {
+export function runnerEvents(p: Pick<RunValuePlay, 'event_type' | 'narrative'>): { sb: number; sbh: number; cs: number; pk: number; wp: number; pb: number; bk: number } {
   const text = (p.narrative ?? '').toLowerCase()
   const count = (re: RegExp) => (text.match(re) ?? []).length
   return {
     sb: Math.max(p.event_type === 'stolen_base' ? 1 : 0, count(/\bstole\b/g)),
+    sbh: count(/\bstole home\b/g),
     cs: Math.max(p.event_type === 'caught_stealing' ? 1 : 0, count(/caught stealing/g)),
     pk: count(/\bpicked off\b/g),
     wp: p.event_type === 'wild_pitch' || /wild pitch/.test(text) ? 1 : 0,
@@ -410,8 +411,9 @@ export interface TeamInningLine {
   trail: number
   /** One when the club started the half level or behind and ended it in front. */
   tooklead: number
-  /** The club's runners: bases stolen, caught stealing and picked off (`runnerEvents`). */
+  /** The club's runners: bases stolen (home among them), caught stealing and picked off (`runnerEvents`). */
   sb: number
+  sbh: number
   cs: number
   pk: number
 }
@@ -465,25 +467,76 @@ export function fieldingInningLines(plays: RunValuePlay[], games: LeagueGame[]):
   return [...lines.values()]
 }
 
+/** A name as it is compared: no accents, no case, single spaces. */
+const foldName = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
+
 /**
- * Each player's play-log counts in each game, for a game or a season of the two counts no box score
- * carries: a pitcher's pickoffs (`runnerEvents`, credited to the pitcher on the row) and a batter's
- * pitches seen (the plate appearances' own pitch counts, so a row that was the start of the next one
- * is not counted twice). Keyed `${game_id}|${player_id}`.
+ * WHO A RUNNER'S CLAUSE IS ABOUT. The log names a runner only by name ("Hyeonah Kim out at second c to
+ * ss, picked off"), never by id. But every runner reached base as a batter, and the log gives each
+ * batter's name AND id, so the names a club sent to the plate in a game are the runners it can have,
+ * and a clause is the runner whose name it starts with (the longest, so "Kim" never beats "Hyeonah
+ * Kim"). A pinch runner who never batted is not among them and stays unnamed, which costs that one
+ * play rather than guessing. On 2026's log every pickoff resolves (6 of 6).
  */
-export function playTotals(league: League, plays: RunValuePlay[], games: LeagueGame[]): Map<string, { pk: number; pitches: number }> {
-  const out = new Map<string, { pk: number; pitches: number }>()
+export function runnerResolver(plays: RunValuePlay[]): (p: RunValuePlay) => { id: string; clause: string }[] {
+  const byClub = new Map<string, { name: string; id: string }[]>()
+  for (const p of plays) {
+    if (!p.batter_id || !p.batter_name || !p.team_id) continue
+    const key = `${p.game_id}|${p.team_id}`
+    const list = byClub.get(key) ?? []
+    const name = foldName(p.batter_name)
+    if (!list.some(x => x.id === p.batter_id)) list.push({ name, id: p.batter_id })
+    byClub.set(key, list)
+  }
+  for (const list of byClub.values()) list.sort((a, b) => b.name.length - a.name.length)
+  return p => {
+    const names = byClub.get(`${p.game_id}|${p.team_id}`) ?? []
+    return (p.narrative ?? '').split(';').flatMap(raw => {
+      const clause = foldName(raw)
+      const who = names.find(n => clause.startsWith(`${n.name} `))
+      return who ? [{ id: who.id, clause }] : []
+    })
+  }
+}
+
+/** One player's play-log counts in one game (`playTotals`). */
+export interface PlayTotals {
+  /** A pitcher's pickoffs. */
+  pk: number
+  /** A batter's pitches seen. */
+  pitches: number
+  /** A runner's times picked off. */
+  pko: number
+  /** A runner's steals of home. */
+  sbh: number
+}
+
+/**
+ * Each player's play-log counts in each game, for a game or a season of the counts no box score
+ * carries: a pitcher's pickoffs (`runnerEvents`, credited to the pitcher on the row), a batter's
+ * pitches seen (the plate appearances' own pitch counts, so a row that was the start of the next one
+ * is not counted twice), and a runner's pickoffs and steals of home (`runnerResolver`). Keyed
+ * `${game_id}|${player_id}`.
+ */
+export function playTotals(league: League, plays: RunValuePlay[], games: LeagueGame[]): Map<string, PlayTotals> {
+  const out = new Map<string, PlayTotals>()
   const at = (game: string, player: string) => {
     const key = `${game}|${player}`
     let t = out.get(key)
-    if (!t) { t = { pk: 0, pitches: 0 }; out.set(key, t) }
+    if (!t) { t = { pk: 0, pitches: 0, pko: 0, sbh: 0 }; out.set(key, t) }
     return t
   }
   const gameIds = new Set(games.map(g => g.id))
+  const runners = runnerResolver(plays)
   for (const p of plays) {
-    if (!gameIds.has(p.game_id) || !p.pitcher_id) continue
+    if (!gameIds.has(p.game_id)) continue
     const pk = runnerEvents(p).pk
-    if (pk) at(p.game_id, p.pitcher_id).pk += pk
+    if (pk && p.pitcher_id) at(p.game_id, p.pitcher_id).pk += pk
+    if (!/picked off|stole home/i.test(p.narrative ?? '')) continue
+    for (const { id, clause } of runners(p)) {
+      if (/\bpicked off\b/.test(clause)) at(p.game_id, id).pko++
+      if (/\bstole home\b/.test(clause)) at(p.game_id, id).sbh++
+    }
   }
   for (const l of plateAppearanceLines(league, plays, games)) {
     if (l.batter_id) at(l.game_id, l.batter_id).pitches += l.pitches
@@ -519,12 +572,12 @@ export function teamInningLines(league: League, plays: RunValuePlay[], games: Le
         id, game_id: p.game_id, team_id: p.half === 'top' ? g.away_team_id : g.home_team_id,
         inning: p.inning, half: p.half, sequence: p.sequence,
         r: 0, h: 0, doubles: 0, triples: 0, hr: 0, tb: 0, bb: 0, so: 0, hbp: 0, ab: 0, sh: 0, sf: 0, r2: 0,
-        trail: Math.max(0, them - us), tooklead: 0, sb: 0, cs: 0, pk: 0,
+        trail: Math.max(0, them - us), tooklead: 0, sb: 0, sbh: 0, cs: 0, pk: 0,
       }
     }
     const l = line!
     const run = runnerEvents(p)
-    l.sb += run.sb; l.cs += run.cs; l.pk += run.pk
+    l.sb += run.sb; l.sbh += run.sbh; l.cs += run.cs; l.pk += run.pk
     const runs = league.runsOnPlay(p)
     l.r += runs
     if (p.outs === 2) l.r2 += runs

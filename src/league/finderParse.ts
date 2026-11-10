@@ -91,6 +91,7 @@ add(both('cs', 'cs', 'hitting'), 'caught stealing', 'cs')
 // A runner picked off, or a pitcher's pickoffs: the play log's, so an inning's only.
 add(both('pk', 'pk', 'pitching'), 'pickoffs', 'pickoff', 'pick offs', 'pick off')
 add({ hitting: 'pk' }, 'picked off', 'times picked off')
+add({ hitting: 'sbh' }, 'steals of home', 'steal of home', 'stole home', 'stolen bases of home', 'home steals')
 // Sums of the hit types. Not "1b", "sf" or "sh": first base, San Francisco and a typo come first.
 add({ hitting: '1b' }, 'singles')
 add({ hitting: 'xbh' }, 'extra base hits', 'extra base hit', 'xbh', 'xbhs', 'extra bases hits')
@@ -298,6 +299,8 @@ const CLUB_FEATS: { re: RegExp; side: FinderBoardSide; conditions: (m: string[])
     conditions: m => [{ field: 'margin', op: 'lte', value: -Number(m[1]) }] },
   { re: /(?<![a-z])errorless\s+(?:games?|wins?)(?![a-z])/g, side: 'fielding', conditions: () => [{ field: 'e', op: 'eq', value: 0 }] },
 ]
+
+const STEALS_OF_HOME = /(?<![a-z0-9])(?:(\d+|one|two|three)\s+)?(?:steals?\s+of\s+home|stole\s+home|home\s+steals?)(?![a-z])/g
 
 // ─── The plate-appearance grain, said in words ────────────────────────────────
 //
@@ -659,7 +662,8 @@ function takeClubs(rest: string, clubs: readonly FinderClubAlias[], venue: Finde
 function takeVenue(rest: string, venue: FinderVenue): { rest: string; venue: FinderVenue } {
   // Never the "home" of a home run or home plate, which a reader who has not taken the stats out
   // first would read as "at home": "home runs off Boston" was the runs scored at home (Nov 10, 2026).
-  rest = rest.replace(/(?<![a-z])(at home|home games?|home(?![\s-]*(?:runs?|rs?|plate|team)(?![a-z])))(?![a-z])/g, () => { venue = 'home'; return ' ' })
+  // Nor the base stolen: "steals of home" is a count, not a split.
+  rest = rest.replace(/(?<![a-z])(at home|home games?|(?<!(?:of|stole|steals?|stealing)\s+)home(?![\s-]*(?:runs?|rs?|plate|team)(?![a-z])))(?![a-z])/g, () => { venue = 'home'; return ' ' })
   rest = rest.replace(/(?<![a-z])(on the road|road games?|road|away games?|away)(?![a-z])/g, () => { venue = 'away'; return ' ' })
   return { rest, venue }
 }
@@ -764,6 +768,12 @@ export function parseFinderText(
     })
   }
   rest = rest.replace(CLUB_WORDS, m => { clubHint = true; return ' '.repeat(m.length) })
+  // A STEAL OF HOME needs no number ("steals of home" is any), and is read whole before the stats,
+  // which would take "steals" alone and leave "home" for the venue.
+  rest = rest.replace(STEALS_OF_HOME, (m: string, n: string | undefined) => {
+    feats.push({ field: 'sbh', op: 'gte', value: n ? Number(NUMBER_WORDS[n] ?? n) : 1 })
+    return ' '.repeat(m.length)
+  })
   let innSaid = false
   for (const { re, condition } of INN_PHRASES) {
     rest = rest.replace(re, (...args: unknown[]) => {

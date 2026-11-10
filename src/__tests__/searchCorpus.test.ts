@@ -110,6 +110,11 @@ const FIRST: [string, string][] = [
   ['most pickoffs', 'record: Most pickoffs'],
   ['most pitches seen in a game', 'record: Most pitches seen in a game'],
   ['100 pitches', 'find: Pitches thrown at least 100 (Pitching lines)'],
+  // A runner, named in the clause and matched to the batter it is.
+  ['most times picked off', 'record: Most picked off'],
+  ['picked off in a game', 'record: Most picked off in a game'],
+  ['steals of home', 'find: Steals of home at least 1 (Batting lines)'],
+  ['most steals of home', 'record: Most steals of home'],
   // A player and a club or a place.
   ['Sato vs hunters', 'find: Ayami Sato vs Hunters (Pitching lines)'],
   ['sato vs boston', 'find: Ayami Sato vs Hunters (Pitching lines)'],

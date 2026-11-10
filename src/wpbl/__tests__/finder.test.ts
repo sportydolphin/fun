@@ -652,7 +652,7 @@ describe('the finder, by the plate appearance', () => {
 describe('the finder, by a club half-inning', () => {
   const half = (o: Partial<TeamInningLine> = {}): TeamInningLine => ({
     id: Math.random().toString(36).slice(2), game_id: 'g1', team_id: 'NY', inning: 4, half: 'bottom', sequence: 30,
-    r: 0, h: 0, doubles: 0, triples: 0, hr: 0, tb: 0, bb: 0, so: 0, hbp: 0, ab: 3, sh: 0, sf: 0, r2: 0, trail: 0, tooklead: 0, sb: 0, cs: 0, pk: 0, ...o,
+    r: 0, h: 0, doubles: 0, triples: 0, hr: 0, tb: 0, bb: 0, so: 0, hbp: 0, ab: 3, sh: 0, sf: 0, r2: 0, trail: 0, tooklead: 0, sb: 0, sbh: 0, cs: 0, pk: 0, ...o,
   })
   const clubName = (id: string) => ({ NY: 'New York Heights', LA: 'Los Angeles Queens' })[id] ?? id
 
@@ -778,13 +778,17 @@ describe('the finder, by a club game', () => {
 describe('the finder, with the play totals', () => {
   it('reads a pitcher\'s pickoffs and a batter\'s pitches seen into the game line', () => {
     const games = [game()]
-    const totals = new Map([['g1|a', { pk: 2, pitches: 0 }], ['g1|b', { pk: 0, pitches: 31 }]])
+    const totals = new Map([['g1|a', { pk: 2, pitches: 0, pko: 0, sbh: 0 }], ['g1|b', { pk: 0, pitches: 31, pko: 1, sbh: 0 }]])
     const pk = runWpblFinder('pitching', [], [pit({ player_id: 'a', outs: 15 })], PLAYERS, games,
       q({ conditions: [{ field: 'pk', op: 'gte', value: 2 }] }), 50, null, { playTotals: totals })
     expect(names(pk)).toEqual(['Jaida Lee'])
     const seen = runWpblFinder('hitting', [bat({ player_id: 'b', ab: 4 })], [], PLAYERS, games,
       q({ conditions: [{ field: 'pitches', op: 'gte', value: 30 }] }), 50, null, { playTotals: totals })
     expect(names(seen)).toEqual(['Ayami Sato'])
+    // The runner's own count, under the batter it is: picked off once.
+    const off = runWpblFinder('hitting', [bat({ player_id: 'b', ab: 4 })], [], PLAYERS, games,
+      q({ conditions: [{ field: 'pk', op: 'gte', value: 1 }] }), 50, null, { playTotals: totals })
+    expect(off.rows.map(r => r.detail)).toEqual(['0-for-4, picked off once'])
   })
 
   it('offers them only to a section that reads its plays', () => {

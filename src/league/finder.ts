@@ -321,7 +321,7 @@ const INNING_KEYS = new Set(['inn', 'outs', 'bf', 'so', 'bb', 'hbp', 'h', 'hr', 
 // batting line's counts, plus the two-out runs and the score it began in, which is what a rally or a
 // comeback is.
 const HIT_INNING_KEYS = new Set(['inn', 'pa', 'ob', 'r', 'h', '1b', '2b', '3b', 'hr', 'xbh', 'tb', 'bb', 'so', 'hbp', 'sf', 'sh', 'r2', 'trail', 'tooklead',
-  'sb', 'cs', 'pk'])
+  'sb', 'sbh', 'cs', 'pk'])
 
 // THE CLUB IN THE FIELD, a half-inning at a time (`fieldingInningLines`): its errors and double plays
 // off the narrative, and the passed balls and steals against its catcher. Filed under the club, since
@@ -372,7 +372,10 @@ const PIT_FINE_FIELDS: Field<FineLine>[] = [
 const HIT_FINE_FIELDS: Field<FineLine>[] = [
   INN_FIELD,
   { key: 'pitches', label: 'Pitches seen', unit: 'P', value: l => l.pitches ?? 0, playOnly: true },
-  { key: 'pk', label: 'Picked off', unit: 'PK', value: l => l.pk, fineOnly: true },
+  // A runner's, resolved from the name in the clause (`runnerResolver`): a club's inning has them off
+  // `runnerEvents`, a player's game and season off the play totals.
+  { key: 'pk', label: 'Picked off', unit: 'PK', value: l => l.pk ?? 0, playOnly: true },
+  { key: 'sbh', label: 'Steals of home', unit: 'SBH', value: l => l.sbh ?? 0, playOnly: true },
   { key: 'r2', label: 'Two-out runs', unit: 'R2', value: l => l.r2, fineOnly: true },
   { key: 'trail', label: 'Trailing by', unit: 'DN', value: l => l.trail, fineOnly: true },
   { key: 'tooklead', label: 'Took the lead', unit: 'LEAD', value: l => l.tooklead, fineOnly: true },
@@ -446,7 +449,7 @@ const FIELD_GROUPS: Record<FinderBoardSide, [string, string[]][]> = {
     ['Hits', ['h', 'tb', 'hr', '1b', '2b', '3b', 'xbh']],
     ['Runs', ['rbi', 'r', 'runs', 'r2']],
     ['On base', ['ob', 'bb', 'hbp', 'so']],
-    ['Running', ['sb', 'cs', 'pk', 'gdp']],
+    ['Running', ['sb', 'sbh', 'cs', 'pk', 'gdp']],
     ['Sacrifices', ['sf', 'sh']],
     ['Playing time', ['g', 'pa', 'ab']],
     ['Rates', ['avg', 'obp', 'slg', 'ops']],
@@ -704,7 +707,7 @@ export interface FinderOptions {
   fieldInnings?: FieldingInningLine[]
   /** A player's play-log counts in each game (`playTotals`), keyed `${game_id}|${player_id}`: what a
    *  game or a season knows of pickoffs and pitches seen. Without them those fields match nothing. */
-  playTotals?: Map<string, { pk: number; pitches: number }>
+  playTotals?: Map<string, { pk: number; pitches: number; pko: number; sbh: number }>
 }
 
 /** The play-only fields of a side, for a game or a season that has the play totals. */
@@ -777,11 +780,16 @@ const hitDetail = (l: BattingGameLine): string => [
   l.rbi > 0 && plural(l.rbi, 'RBI', 'RBI'),
   l.bb > 0 && plural(l.bb, 'walk'),
   l.sb > 0 && plural(l.sb, 'SB', 'SB'),
+  ((l as { pk?: number }).pk ?? 0) > 0 && `picked off ${(l as { pk?: number }).pk === 1 ? 'once' : `${(l as { pk?: number }).pk} times`}`,
+  ((l as { sbh?: number }).sbh ?? 0) > 0 && 'stole home',
 ].filter(Boolean).join(', ')
 
 const DECISION_WORD: Record<string, string> = { W: 'Win', L: 'Loss', S: 'Save', H: 'Hold' }
-const pitDetail = (l: PitchingGameLine): string =>
-  `${l.decision && DECISION_WORD[l.decision] ? `${DECISION_WORD[l.decision]}, ` : ''}${outsToIp(l.outs)} IP, ${l.h} H, ${l.r} R, ${l.bb} BB, ${l.so} K`
+// A pickoff joins the line only where the play totals put one there, so a list of them says so.
+const pitDetail = (l: PitchingGameLine): string => {
+  const pk = (l as { pk?: number }).pk ?? 0
+  return `${l.decision && DECISION_WORD[l.decision] ? `${DECISION_WORD[l.decision]}, ` : ''}${outsToIp(l.outs)} IP, ${l.h} H, ${l.r} R, ${l.bb} BB, ${l.so} K${pk > 0 ? `, ${plural(pk, 'pickoff')}` : ''}`
+}
 
 // A season row's detail says the games first, since "12 HR" means one thing in 20 games and another
 // in 160, and then the line's shape. The rates are columns on a desktop; on a phone this is the only
@@ -1200,7 +1208,10 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
   }
   const totals = opts.playTotals
   const lines = totals
-    ? batting.map(l => ({ ...l, pitches: totals.get(`${l.game_id}|${l.player_id}`)?.pitches ?? 0 }))
+    ? batting.map(l => {
+      const t = totals.get(`${l.game_id}|${l.player_id}`)
+      return { ...l, pitches: t?.pitches ?? 0, pk: t?.pko ?? 0, sbh: t?.sbh ?? 0 }
+    })
     : batting
   return collect(lines, [...HIT_FIELDS, ...HIT_SEASON_FIELDS, ...(totals ? playFields(side) : [])] as Field<BattingGameLine>[],
     season ? hitSeasonDetail as (l: BattingGameLine) => string : hitDetail,
