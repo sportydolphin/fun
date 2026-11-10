@@ -1,4 +1,5 @@
 import type { League, LeagueGame, RunValuePlay } from './types'
+import { isBunt, isSacBunt } from './sacrifice'
 
 /**
  * One pitcher's work in one half-inning, built from the play log: the finder's third grain.
@@ -277,8 +278,8 @@ export interface PlateAppearanceLine {
    *  built by hand (a test, an older reader) reads as none. `leadoff`: the half-inning's first plate
    *  appearance. `ph`: the batter came in to pinch hit for it ("X pinch hit for Y." is the row before).
    *  `bunt`: the narrative says bunt. `ifh`: a single to an infielder or the pitcher ("singled to
-   *  shortstop"). `sf` / `sh`: a sacrifice fly (the feed's `sacrifice`) or a sacrifice bunt (an out
-   *  written "SAC, bunt"), which a season against one arm needs to count at-bats. */
+   *  shortstop"). `sf` / `sh`: a sacrifice fly (the feed's `sacrifice`) or a sacrifice bunt ("SAC" on
+   *  the out, `isSacBunt`), which a season against one arm needs to count at-bats. */
   leadoff?: number
   ph?: number
   bunt?: number
@@ -411,9 +412,9 @@ function buildPlateAppearanceLines(league: League, plays: RunValuePlay[], games:
       walkoff: homeWon && runs > 0 && p.half === 'bottom' && halfKey(p) === lastHalf.get(p.game_id)
         && lastRun.get(p.game_id) === p.sequence ? 1 : 0,
       hrrow: 0, krow: 0, retired: 0,
-      leadoff: first ? 1 : 0, ph: pinchName ? 1 : 0, bunt: /\bbunt/i.test(text) ? 1 : 0,
-      ifh: ev === 'single' && (INFIELD_SINGLE.test(text) || /\bbunt/i.test(text)) ? 1 : 0,
-      sf: ev === 'sacrifice' ? 1 : 0, sh: ev !== 'sacrifice' && /\bSAC\b/.test(text) && /\bbunt/i.test(text) ? 1 : 0,
+      leadoff: first ? 1 : 0, ph: pinchName ? 1 : 0, bunt: isBunt(p) ? 1 : 0,
+      ifh: ev === 'single' && (INFIELD_SINGLE.test(text) || isBunt(p)) ? 1 : 0,
+      sf: ev === 'sacrifice' ? 1 : 0, sh: isSacBunt(p) ? 1 : 0,
       hitrow: 0,
     })
   }
@@ -788,7 +789,10 @@ function buildTeamInningLines(league: League, plays: RunValuePlay[], games: Leag
     const ev = p.event_type ?? ''
     if (ev === 'walk') l.bb++
     else if (ev === 'hit_by_pitch') l.hbp++
-    else if (ev === 'sacrifice') l.sh++
+    // `sacrifice` is the sac fly; the bunt is "SAC" on its out (sacrifice.ts). Until Nov 2026 this
+    // filed every sac fly as a bunt and every bunt as an at-bat.
+    else if (ev === 'sacrifice') l.sf++
+    else if (isSacBunt(p)) l.sh++
     else l.ab++
     if (ev === 'strikeout') l.so++
     if (HITS.has(ev)) {

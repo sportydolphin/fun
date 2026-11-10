@@ -143,6 +143,25 @@ The Hall of Firsts is the most attribution-sensitive surface in the app: a first
 once and then reads as settled league history, so a wrong batter does not just mislabel one row,
 it hands somebody else's milestone to them permanently.
 
+### The sacrifices: `sacrifice` is the fly, and a bunt is "SAC" (Nov 10, 2026)
+
+**The feed's `sacrifice` event is a sacrifice fly and nothing else**: all 35 of 2026's match the
+box scores' SF. A sacrifice bunt is filed as how the batter was retired (`groundout`, or `unknown`
+when the batter reached on an error) with "SAC" in capitals in the text, and **3 of the 10 never
+say "bunt"** ("grounded out to 3b, SAC"). With "SAC" read as the bunt, the log's 10 match the box
+scores' SH exactly, and the season has 18 bunts in all rather than the 15 the word alone finds.
+
+Four readers each had their own rule and each was wrong in its own way: the bunt counts missed the
+three; a club's half-inning in Find filed every sac fly as a sac bunt and every sac bunt as an
+at-bat; batter vs pitcher counted a sac bunt as an at-bat; and the wOBA baseline counted one as an
+ordinary out, against its own comment. All four now read `isSacBunt` / `isBunt` in
+[`src/league/sacrifice.ts`](../src/league/sacrifice.ts), pinned by its test on the real rows.
+
+Measured the same day against the box scores, every final: sac flies, sac bunts, doubles, triples
+and home runs match exactly; hits, walks, strikeouts and hit batters are short 3, 3, 1 and 1, all
+in Aug 20's blank rows (section 9). Infield hits ("singled to" a fielder) and pinch hits (each
+"X pinch hit for Y" matched to X's next trip) read cleanly; two singles name no location at all.
+
 ---
 
 ## 5. The baseline and the nightly job
