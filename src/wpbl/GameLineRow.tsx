@@ -1,6 +1,7 @@
 import { PlayerPortrait, TeamBadge } from './ui'
 import { GameLineFrame, formatGameLineLabel } from '../ui/gameLine'
 import { useWpblGameLink, useWpblPlayerLink } from './LinkContext'
+import { boxScoreOf, requestBoxScore } from './entryUrl'
 import type { WpblGame, WpblPlayer } from './types'
 
 // One box-score line drawn as a row, for WPBL's Bests and Find: the shared frame (src/ui/gameLine.tsx,
@@ -21,7 +22,7 @@ export function gameLineLabel(game: WpblGame | null, teamId: string | null): str
 
 export default function GameLineRow({
   rank, tied, name, player, teamId, game, detail, value, unit, accent, divider, onOpenPlayer, onOpenGame,
-  nameOpens = 'player', emphasizeRank = true, club = false,
+  nameOpens = 'player', emphasizeRank = true, club = false, opensPlay = false,
 }: {
   /** The row's place in the list. Omitted draws no number at all. */
   rank?: number
@@ -51,10 +52,20 @@ export default function GameLineRow({
   /** The row is a club rather than a player (Find's club half-innings): the club's mark stands where
    *  the portrait would, and there is no second, smaller one beside the name. */
   club?: boolean
+  /** `onOpenGame` opens the game at one play (Find's innings and plate appearances), so the row does
+   *  not ask for the box score over it. */
+  opensPlay?: boolean
 }) {
   const playerLink = useWpblPlayerLink()
   const gameLink = useWpblGameLink()
-  const link = game ? gameLink(game, onOpenGame) : undefined
+  // A LINE OPENS ITS BOX SCORE, on its own club, not the game's Recap: the line is what the row was.
+  const link = (() => {
+    if (!game) return undefined
+    if (opensPlay) return gameLink(game, onOpenGame)
+    const box = boxScoreOf(game, teamId)
+    const built = gameLink(game, onOpenGame && ((g: WpblGame) => { requestBoxScore(g.id, box.side); onOpenGame(g) }))
+    return built.href ? { ...built, href: `${built.href}${box.query}` } : built
+  })()
   return (
     <GameLineFrame
       rank={rank} tied={tied} emphasizeRank={emphasizeRank} name={name} detail={detail} value={value} unit={unit} divider={divider}

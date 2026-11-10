@@ -47,7 +47,7 @@ describe('while the answers arrive', () => {
 
   it('asks for a Find row’s count once, and keeps it as the text moves on', async () => {
     const user = userEvent.setup()
-    const resolveFindAnswer = vi.fn(async () => '6 times · last Sep 3')
+    const resolveFindAnswer = vi.fn(async () => ({ text: '6 times · last Sep 3', target: null }))
     render(<CommandPalette open onClose={() => {}} section="wpbl" results={[]} idle={[]} searching={false} resolveFindAnswer={resolveFindAnswer} />)
     const box = screen.getByRole('combobox')
     await user.type(box, '2 hr')
@@ -59,5 +59,16 @@ describe('while the answers arrive', () => {
     expect(screen.getAllByRole('option')[0]).toHaveTextContent('6 times')
     await act(() => sleep(200))
     expect(resolveFindAnswer.mock.calls.length).toBe(asked)
+  })
+
+  it('opens on what was typed before it was there, and goes on from it', async () => {
+    const user = userEvent.setup()
+    render(<CommandPalette open onClose={() => {}} section="wpbl" results={[]} idle={[]} searching={false} takeTypeahead={() => 'standi'} />)
+    const box = screen.getByRole('combobox') as HTMLInputElement
+    expect(box.value).toBe('standi')
+    expect(screen.getByRole('option', { name: /Standings/ })).toBeInTheDocument()
+    await act(() => sleep(0))
+    await user.type(box, 'ngs')
+    expect(box.value).toBe('standings')
   })
 })

@@ -288,13 +288,13 @@ function Host({ results = [], resolveLeader, resolvePlayerStat, resolveFindAnswe
 describe('the palette', () => {
   afterEach(() => { cleanup(); localStorage.clear() })
 
-  it('puts the answer in front of the player row\'s subtitle', async () => {
+  it('puts the answer on its own line in the player row', async () => {
     const user = userEvent.setup()
     const resolvePlayerStat = vi.fn(async () => '.429 AVG · 2026')
     render(<Host results={[row('player-p1', 'Kelsie Whitmore'), row('team-SF', 'San Francisco')]} resolvePlayerStat={resolvePlayerStat} />)
     await user.type(screen.getByRole('combobox'), 'whitmore avg')
     // A beat after the last key, as the compare row asks.
-    await waitFor(() => expect(screen.getByRole('option', { name: /Kelsie Whitmore/ })).toHaveTextContent('.429 AVG · 2026 · CF · SF'))
+    await waitFor(() => expect(screen.getByRole('option', { name: /Kelsie Whitmore/ })).toHaveTextContent('Kelsie Whitmore.429 AVG · 2026CF · SF'))
     // Only player rows are asked, and with the table's column on each side the word means.
     expect(resolvePlayerStat).toHaveBeenCalledWith('player-p1', { columns: { hitting: 'avg' }, lean: null, season: null })
     expect(resolvePlayerStat.mock.calls.every(c => (c as unknown[])[0] === 'player-p1')).toBe(true)
@@ -306,22 +306,40 @@ describe('the palette', () => {
     render(<Host resolveLeader={resolveLeader} />)
     await user.type(screen.getByRole('combobox'), 'most hr')
     // "hr" is a hitting board and a pitching one ("home runs allowed"); the hitting one comes first.
-    await waitFor(() => expect(screen.getAllByRole('option')[0]).toHaveTextContent('Most home runsLeaders · Hitting · This season · Kelsie Whitmore leads with 9'))
+    // The answer on its own line under the title, then the table it opens and the year.
+    await waitFor(() => expect(screen.getAllByRole('option')[0]).toHaveTextContent('Most home runsKelsie Whitmore leads with 9Hitting stats · This season'))
     expect(resolveLeader).toHaveBeenCalledWith({ side: 'hitting', sort: 'hr', dir: 'desc', season: null, career: false })
 
     await user.keyboard('{Enter}')
-    expect(getRecentQuestions('wpbl')[0]).toMatchObject({ title: 'Most home runs', subtitle: 'Leaders · Hitting · This season' })
+    expect(getRecentQuestions('wpbl')[0]).toMatchObject({ title: 'Most home runs', subtitle: 'Hitting stats · This season' })
   })
 
   it('says how often and when last in a Find row, read off its link, and keeps it out of Recent', async () => {
     const user = userEvent.setup()
-    const resolveFindAnswer = vi.fn(async (href: string) => (href.includes('q=so.gte.5') ? '7 times · last Sep 2' : null))
+    const resolveFindAnswer = vi.fn(async (href: string) => (href.includes('q=so.gte.5') ? { text: '7 times · last Sep 2', target: null } : null))
     render(<Host resolveFindAnswer={resolveFindAnswer} />)
     await user.type(screen.getByRole('combobox'), '5 strikeouts no walks')
-    await waitFor(() => expect(screen.getAllByRole('option')[0]).toHaveTextContent(/Find · 7 times · last Sep 2 · /))
+    await waitFor(() => expect(screen.getAllByRole('option')[0]).toHaveTextContent(/7 times · last Sep 2Find · /))
     expect(resolveFindAnswer.mock.calls.every(c => (c as unknown[])[0] && String((c as unknown[])[0]).includes('board=find'))).toBe(true)
 
     await user.keyboard('{Enter}')
     expect(getRecentQuestions('wpbl')[0].subtitle).not.toMatch(/times/)
+  })
+
+  it('opens the one night a Find answer names, at its box score, and keeps the question in Recent', async () => {
+    const user = userEvent.setup()
+    const open = vi.fn()
+    const resolveFindAnswer = vi.fn(async (href: string) => (href.includes('q=so.gte.5')
+      ? { text: 'Once · Aug 22', target: { href: '/wpbl/games/2026-08-22-queens-at-firebells?tab=box&side=home', play: false, open } } : null))
+    render(<Host resolveFindAnswer={resolveFindAnswer} />)
+    await user.type(screen.getByRole('combobox'), '5 strikeouts no walks')
+    await waitFor(() => expect(screen.getAllByRole('option')[0]).toHaveTextContent(/Once · Aug 22Box score · /))
+    expect(screen.getAllByRole('option')[0]).toHaveAttribute('href', '/wpbl/games/2026-08-22-queens-at-firebells?tab=box&side=home')
+
+    await user.keyboard('{Enter}')
+    expect(open).toHaveBeenCalled()
+    const recent = getRecentQuestions('wpbl')[0]
+    expect(recent.href).toContain('board=find')
+    expect(recent.subtitle).toMatch(/^Find · /)
   })
 })

@@ -8,14 +8,17 @@
 // count by construction: the same lines, cut to the same season, through the same engine and
 // qualifying bar. A second reading of the typed words could drift from what the link opens.
 
-import { decodeFinderByClub, decodeFinderCuts, decodeFinderPer, decodeFinderQuery, finderAnswerText, finderNeedsPlays, runFinder, type FinderBoardSide, type FinderQuery } from '../league/finder'
+import { decodeFinderByClub, decodeFinderCuts, decodeFinderPer, decodeFinderQuery, finderAnswerRow, finderAnswerText, finderNeedsPlays, runFinder, type FinderBoardSide, type FinderQuery } from '../league/finder'
 import { clubFieldingInningLines, fieldingInningLines, inningPitchingLines, plateAppearanceLines, playTotals, teamInningLines } from '../league/inningLines'
 import type { SeasonScope } from '../league/season'
 import { fetchWpblAllFielding, fetchWpblAllLines } from './api'
 import { fetchWpblPlayLog, type WpblLogPlay } from './api/plays'
+import { boxScoreOf, requestBoxScore, requestPlay } from './entryUrl'
+import { wpblGamePath } from './routes'
+import type { FindAnswer } from '../mlb/state/SearchBridgeContext'
 import { WPBL_LEAGUE } from './league'
 import { wpblFielderSource } from './fielders'
-import { currentSeason, gamesInSeason, inSeason, seasonsOnRecord } from './season'
+import { currentSeason, seasonCut, seasonGames, seasonsOnRecord } from './season'
 import { wpblQualifiers } from './stats'
 import type { WpblFieldingLine, WpblGame, WpblPlayer, WpblTeam } from './types'
 
@@ -66,17 +69,26 @@ export function findAskFromHref(href: string, teams: readonly Pick<WpblTeam, 'id
  * or a plate appearance (one season of it, often already in memory from the board or a first).
  * Uncapped, since a record's ties are counted over every match (`finderAnswerText`).
  */
-export async function wpblFindAnswer(href: string, ctx: {
-  schedule: WpblGame[]; players: WpblPlayer[]; teams: WpblTeam[]; eraInnings: number
-}): Promise<string | null> {
+export async function wpblFindAnswer(href: string, ctx: FindContext): Promise<string | null> {
+  return (await wpblFindAnswerWithTarget(href, ctx))?.text ?? null
+}
+
+type FindContext = { schedule: WpblGame[]; players: WpblPlayer[]; teams: WpblTeam[]; eraInnings: number }
+
+/**
+ * The answer, and the night or play it names when it names one (`finderAnswerRow`): that game's box
+ * score on the line's club, or the play-by-play at the play for an inning or a plate appearance.
+ */
+export async function wpblFindAnswerWithTarget(href: string, ctx: FindContext): Promise<FindAnswer | null> {
   const ask = findAskFromHref(href, ctx.teams)
   if (!ask) return null
   const { side, query } = ask
   const season = ask.season ?? currentSeason(ctx.schedule)
   if (season == null || !seasonsOnRecord(ctx.schedule).includes(season)) return null
-  // Cut against the WHOLE schedule, never one season's games (src/wpbl/CLAUDE.md).
-  const cut = <T extends { game_id: string }>(rows: T[]): T[] => inSeason(rows, ctx.schedule, season)
-  const games = gamesInSeason(ctx.schedule, season)
+  // Cut against the WHOLE schedule, never one season's games (src/wpbl/CLAUDE.md). Both keep their
+  // identity from one call to the next, so the play-log lines are built once a season, not once a row.
+  const cut = <T extends { game_id: string }>(rows: T[]): T[] => seasonCut(rows, ctx.schedule, season)
+  const games = seasonGames(ctx.schedule, season)
   const fine = finderNeedsPlays(side, query)
   const [lines, fielding, plays] = await Promise.all([
     fetchWpblAllLines(),
@@ -100,5 +112,18 @@ export async function wpblFindAnswer(href: string, ctx: {
     playTotals: log && (query.per === 'game' || query.per === 'season') ? playTotals(WPBL_LEAGUE, log, games) : undefined,
     clubName: id => ctx.teams.find(t => t.id === id)?.name ?? id,
   })
-  return finderAnswerText(result, side, query)
+  const row = finderAnswerRow(result, query)
+  const game = row?.game ?? null
+  let target: FindAnswer['target'] = null
+  if (row && game) {
+    const path = wpblGamePath(game, ctx.teams, ctx.schedule)
+    const at = row.inning?.sequence
+    if (at != null) {
+      target = { href: `${path}#play-${at}`, play: true, open: () => requestPlay(game.id, at) }
+    } else {
+      const box = boxScoreOf(game, row.teamId)
+      target = { href: `${path}${box.query}`, play: false, open: () => requestBoxScore(game.id, box.side) }
+    }
+  }
+  return { text: finderAnswerText(result, side, query), target }
 }

@@ -155,7 +155,12 @@ const FeedbackDialog = lazy(() => import('./FeedbackDialog').then(m => ({ defaul
 const UsernameDialog = lazy(() => import('./UsernameDialog').then(m => ({ default: m.UsernameDialog })))
 const DeactivatedDialog = lazy(() => import('./DeactivatedDialog').then(m => ({ default: m.DeactivatedDialog })))
 const ChangelogDialogs = lazy(() => import('./ChangelogDialogs'))
-const CommandPalette = lazy(() => import('./CommandPalette'))
+// The search box's chunk, asked for the moment a pointer or the focus reaches the field or its icon
+// (a touch lands a pointerdown before its click), so the box is usually in hand by the click. "/" and
+// Ctrl+K have no such warning; the shell's typeahead buffer below covers them.
+const loadPalette = () => import('./CommandPalette')
+const prefetchPalette = () => { loadPalette().catch(() => {}) }
+const CommandPalette = lazy(loadPalette)
 
 // Latch a dialog's "has ever been open" flag.
 //
@@ -615,8 +620,31 @@ function AppInner() {
   const searchSection: 'wpbl' | 'mlb' = bridge.source ?? (isMlbSection(path) ? 'mlb' : 'wpbl')
   // `via` is how it was opened, which the palette cannot know for itself and is the first question
   // about it: does anyone find the shortcut, or is it all the field.
+  // KEYS TYPED BEFORE THE BOX IS THERE. The first open waits on the palette's chunk, and a reader who
+  // presses "/" and types straight on used to lose every letter of that wait. From each open until
+  // the palette takes them (`takeTypeahead`, in its open effect), printable keys and Backspace are
+  // kept here instead of going to the page. A later open, with the chunk in hand, is taken in the
+  // same commit, before any key can arrive. Taking stops the keeping but leaves the text until the
+  // close, so a second run of the open effect (StrictMode runs each twice) reads the same letters.
+  const typeahead = useRef({ text: '', keeping: false })
+  const takeTypeahead = useCallback(() => { typeahead.current.keeping = false; return typeahead.current.text }, [])
+  useEffect(() => {
+    if (!paletteOpen) { typeahead.current = { text: '', keeping: false }; return }
+    const onKey = (e: KeyboardEvent) => {
+      const buf = typeahead.current
+      if (!buf.keeping || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return
+      if (e.key.length === 1) buf.text += e.key
+      else if (e.key === 'Backspace') buf.text = buf.text.slice(0, -1)
+      else return
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [paletteOpen])
   const openPalette = useCallback((via: 'field' | 'icon' | 'slash' | 'shortcut') => {
     if (paletteOpen) return
+    typeahead.current = { text: '', keeping: true }
     // The sections load their search data on the first focus of the search (onFirstSearchFocus),
     // which used to be the field's; opening the palette is that moment now.
     noteSearchFocus()
@@ -1191,6 +1219,9 @@ function AppInner() {
               component="button"
               type="button"
               onClick={() => openPalette('field')}
+              onPointerEnter={prefetchPalette}
+              onPointerDown={prefetchPalette}
+              onFocus={prefetchPalette}
               aria-label="Search players, clubs, pages or a stat question"
               aria-keyshortcuts="Control+K Meta+K /"
               aria-haspopup="dialog"
@@ -1245,7 +1276,8 @@ function AppInner() {
             {/* Search icon wherever the field is folded away (a phone, or beside the tabs on a
                 narrower desktop). Opens the same palette. */}
             {searchShown && searchCollapsed && (
-              <IconButton size="small" aria-label="Search" aria-haspopup="dialog" onClick={() => openPalette('icon')} sx={{ color: 'text.secondary' }}>
+              <IconButton size="small" aria-label="Search" aria-haspopup="dialog" onClick={() => openPalette('icon')}
+                onPointerEnter={prefetchPalette} onPointerDown={prefetchPalette} onFocus={prefetchPalette} sx={{ color: 'text.secondary' }}>
                 <Search />
               </IconButton>
             )}
@@ -1693,7 +1725,7 @@ function AppInner() {
             results={paletteResults} idle={paletteIdle} searching={bridge.searching}
             resolveCompare={bridge.resolveCompare} resolveGames={bridge.resolveGames}
             resolveLeader={bridge.resolveLeader} resolvePlayerStat={bridge.resolvePlayerStat} resolveFirsts={bridge.resolveFirsts} resolvePaRecord={bridge.resolvePaRecord} resolvePlayerQuestion={bridge.resolvePlayerQuestion} resolveFindAnswer={bridge.resolveFindAnswer} seasonCount={bridge.seasonCount}
-            actions={paletteActions} />
+            actions={paletteActions} takeTypeahead={takeTypeahead} />
         </Suspense>
       )}
 

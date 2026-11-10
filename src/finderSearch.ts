@@ -496,7 +496,7 @@ export function positionRankSuggestions(section: FinderSection, text: string): O
     const who = def.plural.toLowerCase()
     const title = p ? `${leaderTitle(p)} among ${who}` : `Best ${who}`
     const span = String(p?.season ?? (section === 'mlb' ? CURRENT_SEASON : 'This season'))
-    const subtitle = ['Leaders', side === 'pitching' ? 'Pitching' : 'Hitting', span, `${def.plural} only`].join(' · ')
+    const subtitle = [side === 'pitching' ? 'Pitching stats' : 'Hitting stats', span, `${def.plural} only`].join(' · ')
     return [{ key: `pos-rank-${href}`, title, subtitle, href }]
   })
 }
@@ -564,9 +564,14 @@ export function recordSuggestions(section: FinderSection, text: string): RecordS
     // MLB stores no fielding lines, so its Find has no Fielding side.
     .filter(r => r.side !== 'fielding' || section === 'wpbl')
   const found: (RecordSuggestion & { who?: string })[] = [...outings, ...read.flatMap(r => {
-    const board = r.per === 'game' && r.side !== 'fielding' ? BEST_BOARDS[r.side][r.field] : undefined
-    if (board && r.side !== 'fielding' && !r.teamId && !r.oppId && r.venue === 'any' && r.season == null) return bestsRow(r.side, board)
+    // FIND BEFORE BESTS. A record asked for is a night, and the Find reading answers in the row
+    // ("Record 3 · Kelsie Whitmore, Aug 3") and opens that night's box score when one game holds it
+    // (finderAnswerRow), where the Bests card was one more page to read before the game. Bests keeps
+    // the measures Find has no field for, and MLB keeps it whole: its search has no Find answers.
     const field = finderFields(r.side, r.per).find(f => f.key === r.field)
+    const board = r.per === 'game' && r.side !== 'fielding' ? BEST_BOARDS[r.side][r.field] : undefined
+    const bests = board && r.side !== 'fielding' && !r.teamId && !r.oppId && r.venue === 'any' && r.season == null
+    if (bests && (!field || section === 'mlb')) return bestsRow(r.side as FinderSide, board)
     if (!field) return []
     const parsed = { ...r, conditions: [{ field: r.field, op: 'gte' as const, value: 1 }], ignored: [] }
     const href = section === 'mlb' ? mlbFinderHref({ ...parsed, side: r.side === 'pitching' ? 'pitching' : 'hitting' }) : wpblFinderHref(parsed)
@@ -578,7 +583,8 @@ export function recordSuggestions(section: FinderSection, text: string): RecordS
     return [{
       who: whose(r),
       key: `record-${href}`,
-      title: [`Most ${field.label.toLowerCase()}${r.per === 'season' ? '' : ` in ${r.per === 'inning' ? 'an inning' : 'a game'}`}${r.per === 'club' || r.byClub ? ' by a club' : ''}`, ...where].join(' '),
+      // The record book's own name for it where Bests keeps one ("Most RBI in a game", "Longest outing").
+      title: bests ? board!.label : [`Most ${field.label.toLowerCase()}${r.per === 'season' ? '' : ` in ${r.per === 'inning' ? 'an inning' : 'a game'}`}${r.per === 'club' || r.byClub ? ' by a club' : ''}`, ...where].join(' '),
       subtitle: `Find · ${r.side === 'pitching' ? 'Pitching' : r.side === 'fielding' ? 'Fielding' : club ? 'Clubs' : 'Batting'}, ${r.per === 'inning' ? 'single innings' : r.per === 'season' ? 'season totals' : r.per === 'club' ? 'club games' : 'single games'}`,
       href,
     }]

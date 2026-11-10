@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { navigate } from '../nav'
 import type { GameKeyed } from '../league/season.ts'
 import type { WpblGame } from './types'
-import { currentSeason, gamesInSeason, inSeason, seasonsOnRecord } from './season'
+import { currentSeason, seasonCut, seasonGames as seasonSlice, seasonsOnRecord } from './season'
 
 // THE SEASON ON SCREEN, for the whole section.
 //
@@ -114,16 +114,15 @@ export function useWpblSeason(fallback: WpblGame[] = NO_GAMES, opts?: {
   const pick = useCallback((s: number | null) => rawPick(s === current ? null : s), [rawPick, current])
   const cut = useCallback(
     <T extends GameKeyed>(rows: T[]): T[] => {
-      if (season == null) return rows
       // The same array back when nothing was dropped, which is every read while the league has one
-      // season: several derivations (the win model, run expectancy) are cached on the identity of
-      // the shared league arrays, and a fresh copy of the same rows would miss every one of them.
-      const out = inSeason(rows, games, season)
-      return out.length === rows.length ? rows : out
+      // season: several derivations (the win model, run expectancy, the play-log lines) are cached
+      // on the identity of the shared league arrays, and a fresh copy of the same rows would miss
+      // every one of them.
+      return season == null ? rows : seasonCut(rows, games, season)
     },
     [games, season])
   const seasonGames = useMemo(
-    () => (season == null ? games : gamesInSeason(games, season)),
+    () => (season == null ? games : seasonSlice(games, season)),
     [games, season])
   return { season, current, seasons, pick, cut, seasonGames, schedule: games }
 }

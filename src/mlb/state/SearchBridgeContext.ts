@@ -54,6 +54,13 @@ export interface PlayerQuestionRow {
   matchup: boolean
 }
 
+/** A Find row's answer ("7 times · last Sep 2"), and the one night or play it names, if it names one,
+ *  which the row then opens instead of the board. */
+export interface FindAnswer {
+  text: string
+  target: { href: string; play: boolean; open: () => void } | null
+}
+
 export interface PlayAnswer {
   key: string
   /** "First home run", "Longest at-bat". */
@@ -149,7 +156,7 @@ export interface SearchBridgeState {
   /** What a Find link answers, in one line ("7 times · last Sep 2"), read off the link itself so it is
    *  the board's own count. Null for a link that is not Find's, and null where the section does not
    *  answer (MLB, for now). */
-  resolveFindAnswer: ((href: string) => Promise<string | null>) | null
+  resolveFindAnswer: ((href: string) => Promise<FindAnswer | null>) | null
 }
 
 const DEFAULT: SearchBridgeState = {

@@ -136,6 +136,27 @@ export function gamesInSeason<G extends Pick<WpblGame, 'game_date'>>(games: G[],
 }
 
 /**
+ * `gamesInSeason`, the same array each time for the same schedule and year, and `inSeason` handing
+ * the lines back as they came when nothing was dropped (every read while the league has one season).
+ * The play-log derivations (src/league/inningLines.ts) are kept by the identity of the log and the
+ * games they were built from, so a surface that cut afresh on every call built them afresh: the
+ * search box counting four Find rows walked the season's log four times a pause. Treat what comes
+ * back as read-only, since other readers hold the same array.
+ */
+const seasonSlices = new WeakMap<readonly unknown[], Map<number, unknown[]>>()
+export function seasonGames<G extends Pick<WpblGame, 'game_date'>>(games: G[], season: number): G[] {
+  let byYear = seasonSlices.get(games)
+  if (!byYear) { byYear = new Map(); seasonSlices.set(games, byYear) }
+  let out = byYear.get(season) as G[] | undefined
+  if (!out) { out = gamesInSeason(games, season); byYear.set(season, out) }
+  return out
+}
+export function seasonCut<T extends GameKeyed>(lines: T[], games: WpblDatedGame[], season: number): T[] {
+  const out = inSeason(lines, games, season)
+  return out.length === lines.length ? lines : out
+}
+
+/**
  * The season the section shows when the reader has not picked one: the newest year with a FINAL
  * in it, not the newest year on the schedule.
  *

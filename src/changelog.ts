@@ -23,6 +23,28 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.225.0',
+    date:    '2026-11-10',
+    changes: [
+      {
+        short: 'Search: the answer on its own line',
+        full:  'Who leads, how often it happened and a player’s stat now sit on their own line under each result, in dark text, instead of in the gray line below it.',
+      },
+      {
+        short: 'Search: a record or a one-time feat opens the game',
+        full:  '"Most home runs in a game", or anything that has happened once, opens that game’s box score on the club it was for. One inning or one at-bat opens the play-by-play at that play.',
+      },
+      {
+        short: 'Games from Bests and Find open on the box score',
+        full:  'A game opened from a Bests card or a Find row now opens on the box score, on the club whose line it was, rather than on the recap.',
+      },
+      {
+        short: 'Search: no lost letters, and faster answers',
+        full:  'Letters typed right after pressing / or Ctrl+K are no longer lost while the search opens, and the counts beside Find results come back faster.',
+      },
+    ],
+  },
+  {
     version: '1.224.0',
     date:    '2026-11-10',
     changes: [

@@ -1597,6 +1597,27 @@ export function finderSpanText(span: FinderResult['span']): string {
  * is the first row: "Record 3 · Heights, Aug 5", or "Record 3 · 4 tied". A season's is the leader.
  * Ties are counted over every match, so `result` must be uncapped for a record.
  */
+/**
+ * The one row `finderAnswerText` names, when it names one: the only match ("Once · Aug 22"), or the
+ * record held alone ("Record 3 · Kelsie Whitmore, Aug 3"). That night, or that play, IS the answer,
+ * so the search row opens it rather than a board listing one row. Null for a season (a player, not a
+ * night), a club's record, a tie, and a streak, whose row is only the game the run ended in.
+ */
+export function finderAnswerRow<P extends LeaguePlayer, G extends LeagueGame>(
+  result: FinderResult<P, G>, query: Pick<FinderQuery, 'per' | 'conditions'>,
+): FinderRow<P, G> | null {
+  if (query.per === 'season' || result.total === 0 || !result.rows.length) return null
+  if (query.conditions.some(c => STREAK_FIELDS.has(c.field))) return null
+  if (result.total === 1) return result.rows[0].game ? result.rows[0] : null
+  const [only] = query.conditions
+  if (query.conditions.length !== 1 || only.op !== 'gte' || only.value !== 1) return null
+  const top = result.rows.reduce((m, r) => Math.max(m, r.values[only.field] ?? 0), 0)
+  const best = result.rows.filter(r => (r.values[only.field] ?? 0) === top)
+  return best.length === 1 && best[0].game ? best[0] : null
+}
+/** A run over games or plays, whose row is where the run ended rather than what it was. */
+const STREAK_FIELDS = new Set(['hstreak', 'obstreak', 'hitrow'])
+
 export function finderAnswerText(result: FinderResult, side: FinderBoardSide, query: Pick<FinderQuery, 'per' | 'conditions'>): string {
   if (result.total === 0) return 'Never'
   // A CLUB'S GAMES WITH NOTHING ASKED ARE ITS RECORD: "Hunters at home", "Queens last 10" read "6–4".
