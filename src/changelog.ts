@@ -23,6 +23,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.223.0',
+    date:    '2026-11-10',
+    changes: [
+      {
+        short: 'Search: answers sooner',
+        full:  'The counts, leaders and stat answers in search rows arrive about a tenth of a second after you stop typing, down from over half a second, and stay put as you type on or back. The highlighted row no longer jumps when a row lands above it, and typing partway through a word no longer flashes the list of examples.',
+      },
+      {
+        short: 'Search: clearer rows',
+        full:  'A question with a name is shown by its name: "Grand slams", "Shutouts", "No-hitters", "Immaculate innings". Two rows never share a title: "Most strikeouts by a pitcher" and "by a batter", "Ayami Sato vs Hunters (pitching games)". A plate-appearance question like "grand slams" offers one row rather than the same plays twice, and rows that never happened go after the ones that did.',
+      },
+    ],
+  },
+  {
     version: '1.222.0',
     date:    '2026-11-10',
     changes: [

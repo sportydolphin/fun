@@ -12,7 +12,8 @@ describe('leaderSuggestions', () => {
 
   it('uses the MLB table\'s own column names', () => {
     const [r] = leaderSuggestions('mlb', 'strikeout leaders')
-    expect(r.title).toBe('Most strikeouts')
+    // The batters' strikeouts rank too, so the title says whose these are.
+    expect(r.title).toBe('Most strikeouts by a pitcher')
     expect(r.href).toBe('/mlb/stats?lb=pitching&sort=k')
   })
 

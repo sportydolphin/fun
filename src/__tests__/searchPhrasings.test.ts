@@ -98,7 +98,7 @@ describe('play-log questions from the search bar', () => {
   })
   it('reads the most in an inning as the inning grain, which lists the biggest first', () => {
     expect(finderSuggestions('wpbl', 'most strikeouts in an inning')[0]).toMatchObject({
-      title: 'Most strikeouts in an inning', href: '/wpbl/stats?board=find&side=pitching&q=inning~so.gte.1',
+      title: 'Most strikeouts in an inning by a pitcher', href: '/wpbl/stats?board=find&side=pitching&q=inning~so.gte.1',
     })
     expect(findTitles('biggest innings')).toEqual(['Most runs scored in an inning', 'Most runs allowed in an inning'])
     expect(findTitles('what was the most hits in a single inning?')[0]).toBe('Most hits in an inning')

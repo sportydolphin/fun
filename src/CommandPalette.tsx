@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { Box, Dialog, IconButton, List, ListItemButton, Typography } from '@mui/material'
 import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups, SportsBaseball, MenuBook, Person, TravelExplore, EmojiEvents, Tune, Flag } from '@mui/icons-material'
 import { setSearchQuery, type CompareRow, type PlayAnswer, type LeaderPeek, type PlayerQuestionRow, type PlayerStatAsk, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
@@ -105,6 +105,56 @@ const QUESTION_ICON: Record<RecentQuestion['kind'], React.ReactNode> = {
   leader: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
   finder: <ManageSearch sx={{ fontSize: ICON_SIZE.md }} />,
   definition: <MenuBook sx={{ fontSize: ICON_SIZE.md }} />,
+}
+
+/** How long after the last key a section is asked for an answer. MLB's answers are network calls,
+ *  so it waits for the reader to pause; WPBL's are computed in the browser in a few milliseconds
+ *  from data already in hand, and a quarter second there was most of the wait for every row. */
+const SETTLE_MS: Record<NavSection, number> = { wpbl: 80, mlb: 250 }
+/** How long a lit row must have been on screen before a row arriving above it may no longer take
+ *  the highlight. Under it, the reader cannot have seen the first one: the list is still settling. */
+const LIT_HOLD_MS = 300
+/** How long typed text must sit unchanged before a miss shows the examples. On the way to "most
+ *  walks", "most w" matches nothing, and the fifteen example rows flashed in for that one key. */
+const MISS_SETTLE_MS = 450
+/** Joins the parts of a cache key; no row key or question can contain it. */
+const KEY_SEP = '\u0001'
+
+/**
+ * Answers to row keys, kept BY KEY for as long as `scope` stands, rather than by the text they were
+ * asked for. A key names its whole question (a Find link, a leader board's link), so an answer read
+ * for one text is right for any other text that offers the same row: backspacing, or typing on past
+ * a name, shows the answer at once instead of dropping it and asking again. Until Nov 2026 each was
+ * kept with its text, so every keystroke blanked every subtitle and a row's answer arrived only
+ * after two quarter-second waits in a row (one for the named-player rows, then one for the counts).
+ * A new `scope` (the section's resolver, rebuilt when its data changes) starts over.
+ */
+function useKeyedAnswers<T>(keys: readonly string[], ask: ((key: string) => Promise<T | null>) | null, delay: number, scope: unknown): Record<string, T> {
+  const store = useMemo(() => ({ scope, done: new Map<string, T | null>(), pending: new Set<string>() }), [scope])
+  const [, bump] = useReducer((n: number) => n + 1, 0)
+  const askRef = useRef(ask)
+  askRef.current = ask
+  const keyList = keys.join('\n')
+  const asking = !!ask
+  useEffect(() => {
+    if (!asking) return
+    const todo = keyList.split('\n').filter(k => k && !store.done.has(k) && !store.pending.has(k))
+    if (!todo.length) return
+    const t = setTimeout(() => {
+      const run = askRef.current
+      if (!run) return
+      todo.forEach(k => store.pending.add(k))
+      Promise.all(todo.map(k => run(k).catch(() => null).then(v => { store.done.set(k, v); store.pending.delete(k) })))
+        .then(bump)
+    }, delay)
+    return () => clearTimeout(t)
+  }, [keyList, asking, delay, store])
+  const out: Record<string, T> = {}
+  for (const k of keys) {
+    const v = store.done.get(k)
+    if (v != null) out[k] = v
+  }
+  return out
 }
 
 interface Group { label: string; items: Item[]; onClear?: () => void; /** Two columns from `sm` up. */ grid?: boolean }
@@ -322,6 +372,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   const [recentQs, setRecentQs] = useState<RecentQuestion[]>([])
   const [rowPicks, setRowPicks] = useState<Record<string, number>>({})
   const [active, setActive] = useState(0)
+  const settle = SETTLE_MS[section]
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
 
@@ -376,9 +427,9 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     let live = true
     const t = setTimeout(() => {
       resolveGames(q).then(rows => { if (live) setGameRows({ text, rows }) }).catch(() => {})
-    }, 250)
+    }, settle)
     return () => { live = false; clearTimeout(t) }
-  }, [text, section, resolveGames])
+  }, [text, section, resolveGames, settle])
 
   // A Find question naming players, read against the section's roster a beat after the last key, and
   // kept with the text it answers like the compare row.
@@ -388,9 +439,9 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     let live = true
     const t = setTimeout(() => {
       resolvePlayerQuestion(text).then(rows => { if (live) setPlayerQs({ text, rows }) }).catch(() => {})
-    }, 250)
+    }, settle)
     return () => { live = false; clearTimeout(t) }
-  }, [text, resolvePlayerQuestion])
+  }, [text, resolvePlayerQuestion, settle])
 
   useEffect(() => {
     // Two clubs read as a game question are not two players to compare: no lookup for them. Nor is a
@@ -406,13 +457,13 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       resolveCompare(pair.a, pair.b, pair.season)
         .then(row => { if (live && row) setCompare({ text, row }) })
         .catch(() => {})
-    }, 250)
+    }, settle)
     return () => { live = false; clearTimeout(t) }
-  }, [text, section, resolveCompare])
+  }, [text, section, resolveCompare, settle])
 
   // "Whitmore avg": the player rows answer it in their subtitles, ".312 AVG · 2026", so a quick
   // question needs no click. Asked of the section for the first few player rows, a beat after the
-  // last key, and kept with the text it answers like the compare row.
+  // last key, and kept by row and question, so the same row asked the same thing answers at once.
   const statAsk = useMemo<PlayerStatAsk | null>(() => {
     const alias = typedStat(text)
     if (!alias) return null
@@ -423,32 +474,28 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     }
     return Object.keys(columns).length ? { columns, lean: alias.lean ?? null, season: typedSeason(text) } : null
   }, [text, section])
-  const answerKeys = results.filter(r => r.key.startsWith('player-')).slice(0, ANSWERED_ROWS).map(r => r.key).join(' ')
-  const [answers, setAnswers] = useState<{ text: string; byKey: Record<string, string> } | null>(null)
-  useEffect(() => {
-    if (!statAsk || !resolvePlayerStat || !answerKeys) return
-    let live = true
-    const t = setTimeout(() => {
-      Promise.all(answerKeys.split(' ').map(k => resolvePlayerStat(k, statAsk).catch(() => null).then(a => [k, a] as const)))
-        .then(pairs => { if (live) setAnswers({ text, byKey: Object.fromEntries(pairs.filter(([, a]) => a)) }) })
-    }, 250)
-    return () => { live = false; clearTimeout(t) }
-  }, [text, statAsk, answerKeys, resolvePlayerStat])
+  // The question goes in the key, since one row is asked "avg" and then "hr" as the reader types.
+  const statKey = statAsk ? JSON.stringify(statAsk) : null
+  const answerKeys = useMemo(() => (statKey
+    ? results.filter(r => r.key.startsWith('player-')).slice(0, ANSWERED_ROWS).map(r => `${statKey}${KEY_SEP}${r.key}`)
+    : []), [results, statKey])
+  const askPlayerStat = useMemo(() => (resolvePlayerStat ? (k: string) => {
+    const [ask, rowKey] = k.split(KEY_SEP)
+    return resolvePlayerStat(rowKey, JSON.parse(ask) as PlayerStatAsk)
+  } : null), [resolvePlayerStat])
+  const answerByKey = useKeyedAnswers(answerKeys, askPlayerStat, settle, resolvePlayerStat)
 
-  // "Most home runs": the ranking row says who leads and with what, from the board it links to.
+  // "Most home runs": the ranking row says who leads and with what, from the board it links to. The
+  // row's key is its board's link, which names the whole ranking, so the peek is kept by it.
   const leaderRows = useMemo(() => leaderSuggestions(section, text, { seasonCount }), [section, text, seasonCount])
-  const [peeks, setPeeks] = useState<{ text: string; byKey: Record<string, LeaderPeek> } | null>(null)
-  useEffect(() => {
-    if (!leaderRows.length || !resolveLeader) return
-    let live = true
-    const t = setTimeout(() => {
-      Promise.all(leaderRows.map(r => resolveLeader(r.ask).catch(() => null).then(p => [r.key, p] as const)))
-        .then(pairs => {
-          if (live) setPeeks({ text, byKey: Object.fromEntries(pairs.filter((x): x is [string, LeaderPeek] => !!x[1])) })
-        })
-    }, 250)
-    return () => { live = false; clearTimeout(t) }
-  }, [text, leaderRows, resolveLeader])
+  const leaderAsks = useMemo(() => new Map(leaderRows.map(r => [r.key, r.ask])), [leaderRows])
+  const leaderAsksRef = useRef(leaderAsks)
+  leaderAsksRef.current = leaderAsks
+  const askLeader = useMemo(() => (resolveLeader ? (k: string) => {
+    const ask = leaderAsksRef.current.get(k)
+    return ask ? resolveLeader(ask) : Promise.resolve(null)
+  } : null), [resolveLeader])
+  const peek = useKeyedAnswers<LeaderPeek>(leaderRows.map(r => r.key), askLeader, settle, resolveLeader)
 
   // A club playing RIGHT NOW: "Dodgers" offers their live game above everything else, with the score
   // and the inning. Asked of the section's own game lookup for today, only when the text is a club and
@@ -463,9 +510,9 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       resolveGames({ clubs: [ids], when: { date: todayIso() } })
         .then(rows => { if (live) setLiveRows({ text, rows: rows.filter(r => r.live) }) })
         .catch(() => {})
-    }, 250)
+    }, settle)
     return () => { live = false; clearTimeout(t) }
-  }, [text, section, resolveGames])
+  }, [text, section, resolveGames, settle])
 
   // "Ohtani" on WPBL, "Whitmore" on MLB: one row into the other section, asked only once this one
   // has finished and found no player, and only for text that is a plain name (no stat, year or
@@ -483,7 +530,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   }, [text, section, ownPlayers, searching])
 
   const change = (v: string) => {
-    setText(v); setActive(0)
+    setText(v); setActive(0); lit.current = null
     // "whitmore hr" searches names for "whitmore": the stat and any year are for the rows above,
     // and no player is called "whitmore hr". The year goes along on its own, so "Ohtani 2023"
     // opens Ohtani on 2023, and so does a part of the card: "Ohtani splits" opens him at the splits.
@@ -549,7 +596,6 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       icon: <Groups sx={{ fontSize: ICON_SIZE.md }} />,
       onOpen: () => { if (s.scrollTo) requestSectionScroll(s.scrollTo) },
     }))
-    const peek = peeks && peeks.text === text ? peeks.byKey : {}
     const positionRanks: Item[] = positionRankSuggestions(section, text).map(s => ({
       key: s.key, kind: 'leader', title: s.title, subtitle: s.subtitle, href: s.href,
       recentSubtitle: s.subtitle, icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
@@ -661,7 +707,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       { label: 'Find', items: findRows },
       ...(defined.asked ? [] : [glossary]),
       { label: section === 'mlb' ? 'Players & teams' : 'Players & clubs', items: results.slice(0, 8).map(r => {
-        const answer = answers && answers.text === text ? answers.byKey[r.key] : undefined
+        const answer = statKey ? answerByKey[`${statKey}${KEY_SEP}${r.key}`] : undefined
         return rowItem('result')(answer ? { ...r, subtitle: [answer, r.subtitle].filter(Boolean).join(' · ') } : r)
       }) },
       { label: section === 'mlb' ? 'In the WPBL' : 'In MLB', items: [...other, ...otherPages] },
@@ -671,49 +717,92 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     // A miss ends on the examples, not a blank box: what the box does understand, one pick from
     // trying it. Not while the section is still looking, or they flash in ahead of its rows.
     return found.length || searching ? found : [{ label: 'Try', grid: true, items: tryItems }]
-  }, [text, results, idle, section, searching, compare, gameRows, liveRows, recentQs, rowPicks, leaderRows, peeks, answers, elsewhere, ownPlayers, actions, firsts, firstAsk, paRecords, paAsk, playerQs])
+  }, [text, results, idle, section, searching, compare, gameRows, liveRows, recentQs, rowPicks, leaderRows, peek, statKey, answerByKey, elsewhere, ownPlayers, actions, firsts, firstAsk, paRecords, paAsk, playerQs])
 
   // HAS IT EVER HAPPENED, answered in the row: every row that opens Find says how often and when last
   // ("Find · 7 times · last Sep 2 · ..."), so "has anyone ever" needs no tap, and "Never" is an
   // answer the link alone could not give. Read off each row's link by the section, so the count is the
   // board's own. Not a plate-appearance record's own rows, which already name the play. The first few
   // only, the rows a reader is choosing between; the answer goes after the kind of row, where a long
-  // subtitle's cut cannot reach it, and Recent keeps the row without it, since it goes stale.
+  // subtitle's cut cannot reach it, and Recent keeps the row without it, since it goes stale. Kept by
+  // link (useKeyedAnswers), so a row the named-player rows push down keeps the count it already had.
   const findHrefs = useMemo(() => [...new Set(rawGroups.flatMap(g => g.items)
-    .filter(findAnswerable).map(i => i.href!))].slice(0, ANSWERED_FIND_ROWS).join(' '), [rawGroups])
-  const [findAnswers, setFindAnswers] = useState<{ text: string; byHref: Record<string, string> } | null>(null)
-  useEffect(() => {
-    if (!findHrefs || !resolveFindAnswer) return
-    let live = true
-    const t = setTimeout(() => {
-      Promise.all(findHrefs.split(' ').map(h => resolveFindAnswer(h).catch(() => null).then(a => [h, a] as const)))
-        .then(pairs => { if (live) setFindAnswers({ text, byHref: Object.fromEntries(pairs.filter((x): x is [string, string] => !!x[1])) }) })
-    }, 250)
-    return () => { live = false; clearTimeout(t) }
-  }, [text, findHrefs, resolveFindAnswer])
+    .filter(findAnswerable).map(i => i.href!))].slice(0, ANSWERED_FIND_ROWS), [rawGroups])
+  const byHref = useKeyedAnswers(findHrefs, resolveFindAnswer ?? null, settle, resolveFindAnswer)
   const groups = useMemo<Group[]>(() => {
-    const byHref = findAnswers && findAnswers.text === text ? findAnswers.byHref : null
-    if (!byHref) return rawGroups
-    return rawGroups.map(g => ({
+    const answerOf = (i: Item) => (findAnswerable(i) ? byHref[i.href!] : undefined)
+    const decorated = rawGroups.map(g => ({
       ...g,
       items: g.items.map(i => {
-        const answer = findAnswerable(i) ? byHref[i.href!] : undefined
+        const answer = answerOf(i)
         if (!answer) return i
         const [kind, ...rest] = i.subtitle?.split(' · ') ?? []
         return { ...i, subtitle: [kind, answer, ...rest].filter(Boolean).join(' · '), recentSubtitle: i.recentSubtitle ?? i.subtitle }
-      }),
+      })
+        // A question that never happened is still an answer, but not the one to lead with: "Ayami
+        // Sato vs Hunters · Never · Batting lines" sat above the pitching lines that had happened.
+        .sort((a, b) => Number(answerOf(a) === 'Never') - Number(answerOf(b) === 'Never')),
     }))
-  }, [rawGroups, findAnswers, text])
+    // A whole group that never happened goes after the groups that did, ahead of the names and pages:
+    // "Whitmore vs Ibarra" led with a batter-vs-pitcher row reading Never, over the comparison.
+    const never = (g: Group) => g.items.length > 0 && g.items.every(i => answerOf(i) === 'Never')
+    const firstPlain = decorated.findIndex(g => g.items.some(i => i.kind === 'result' || i.kind === 'page' || i.kind === 'other_section' || i.kind === 'action'))
+    const cut = firstPlain < 0 ? decorated.length : firstPlain
+    const questions = decorated.slice(0, cut)
+    return [...questions.filter(g => !never(g)), ...questions.filter(never), ...decorated.slice(cut)]
+  }, [rawGroups, byHref])
 
-  const flat = useMemo(() => groups.flatMap(g => g.items), [groups])
   // Rows that answer the text, as against the examples a miss falls back to.
   // "?" asks for the examples, so they are its answer.
-  const answered = text.trim() === '?' || flat.some(i => i.kind !== 'example')
+  const typedText = text.trim()
+  const answered = typedText === '?' || groups.some(g => g.items.some(i => i.kind !== 'example'))
+
+  // A MISS SHOWS THE EXAMPLES ONLY ONCE THE TEXT HAS SETTLED. Until then the rows from before the
+  // miss stay up, so typing through a word no row reads yet ("most w" on the way to "most walks")
+  // does not swap the list for the fifteen examples and back. They are what was on screen a key ago,
+  // not answers to this text, so Enter, Tab and the close report all go by `answered` above.
+  const [settledText, setSettledText] = useState(text)
+  useEffect(() => {
+    const t = setTimeout(() => setSettledText(text), MISS_SETTLE_MS)
+    return () => clearTimeout(t)
+  }, [text])
+  const lastAnswered = useRef<Group[]>([])
+  const holding = !!typedText && !answered && settledText !== text && lastAnswered.current.length > 0
+  const shown = holding ? lastAnswered.current : groups
+  useEffect(() => { if (answered && typedText) lastAnswered.current = groups }, [answered, typedText, groups])
+  useEffect(() => { if (!open) lastAnswered.current = [] }, [open])
+
+  const flat = useMemo(() => shown.flatMap(g => g.items), [shown])
   const current = Math.min(active, Math.max(0, flat.length - 1))
+
+  // THE LIT ROW STAYS PUT when a row arrives above it. The answers land a beat after the last key,
+  // some of them above the row already lit ("Whitmore vs Ibarra": the comparison, then the
+  // batter-vs-pitcher row over it 6ms later), and a highlight kept by position moved onto the newcomer,
+  // so Enter opened a row the reader had not seen lit. Kept by key once the reader has chosen it (the
+  // arrows, the mouse) or it has been on screen long enough to be seen; a list still settling in its
+  // first moments may still hand the highlight to a better row above. Nor does a highlight the reader
+  // never chose follow a row down when its answer came back Never: the row that leads now is the one
+  // the box means, and the demoted row is no longer what Enter should open.
+  const lit = useRef<{ key: string; at: number; chosen: boolean } | null>(null)
+  const litKey = flat[current]?.key
+  useLayoutEffect(() => {
+    const was = lit.current
+    if (was && litKey !== was.key) {
+      const i = flat.findIndex(item => item.key === was.key)
+      const demoted = i >= 0 && flat[i].subtitle?.split(' · ')[1] === 'Never'
+      if (i >= 0 && (was.chosen || (!demoted && performance.now() - was.at >= LIT_HOLD_MS))) { setActive(i); return }
+    }
+    if (litKey && (!was || was.key !== litKey)) lit.current = { key: litKey, at: performance.now(), chosen: false }
+  }, [flat, litKey])
+  const choose = (i: number) => {
+    setActive(i)
+    const key = flat[i]?.key
+    lit.current = key ? { key, at: performance.now(), chosen: true } : null
+  }
+
   // The typed text goes with a close ONLY when the box offered nothing for it, the rule
   // `wpbl_searched` keeps (docs/ADMIN_ANALYTICS.md): then the text is the finding, a player or a
   // spelling the search cannot reach. Anything that got an answer is described by its pick instead.
-  const typedText = text.trim()
   closeState.current = typedText && !answered
     ? { typed: typedText.length, shown: 0, q: typedText.slice(0, 40) }
     : { typed: typedText.length, shown: flat.length }
@@ -753,8 +842,8 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   }
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') { e.preventDefault(); setActive((current + 1) % Math.max(1, flat.length)) }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((current - 1 + flat.length) % Math.max(1, flat.length)) }
+    if (e.key === 'ArrowDown') { e.preventDefault(); choose((current + 1) % Math.max(1, flat.length)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); choose((current - 1 + flat.length) % Math.max(1, flat.length)) }
     // Enter on a miss does nothing: the lit row is an example, and swapping the reader's text for it
     // would lose what they typed.
     else if (e.key === 'Enter' && flat[current] && (answered || !typedText)) { e.preventDefault(); activate(flat[current]) }
@@ -767,7 +856,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     }
   }
 
-  const empty = typedText && !answered && !searching
+  const empty = typedText && !answered && !searching && !holding
   let index = -1
 
   return (
@@ -820,7 +909,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
           </Typography>
         )}
         <List ref={listRef} id="cmdk-list" role="listbox" aria-label="Results" dense disablePadding sx={{ pb: 1 }}>
-          {groups.map(g => (
+          {shown.map(g => (
             <React.Fragment key={g.label}>
               <Box component="li" role="presentation" sx={{ px: 2, pt: 1.25, pb: 0.5, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
                 <Typography component="span" sx={GROUP_LABEL_SX}>{g.label}</Typography>
@@ -852,7 +941,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
                     aria-selected={selected}
                     selected={selected}
                     tabIndex={-1}
-                    onMouseMove={() => { if (!selected) setActive(i) }}
+                    onMouseMove={() => { if (!selected) choose(i) }}
                     {...(link ?? { onClick: () => pick(item) })}
                     sx={{ gap: 1.25, py: 0.75, px: 2, textDecoration: 'none', color: 'inherit' }}
                   >

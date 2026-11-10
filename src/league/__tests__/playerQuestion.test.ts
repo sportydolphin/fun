@@ -62,7 +62,7 @@ describe('a Find question naming players', () => {
 
   it('says the question as a row with its link', () => {
     const rows = playerQuestionRows('wpbl', 'Ayami Sato vs hunters', ROSTER, id => ({ BOS: 'Hunters' } as Record<string, string>)[id] ?? id)
-    expect(rows[0]).toMatchObject({ title: 'Ayami Sato vs Hunters', subtitle: 'Pitching lines', matchup: false })
+    expect(rows[0]).toMatchObject({ title: 'Ayami Sato vs Hunters (games)', subtitle: 'Pitching lines', matchup: false })
     expect(rows[0].href).toBe('/wpbl/stats?board=find&side=pitching&opp=BOS&by=as')
     const m = playerQuestionRows('wpbl', 'lee vs schroder', ROSTER, id => id)
     expect(m[0]).toMatchObject({ title: 'Jaida Lee vs Alli Schroder', matchup: true })

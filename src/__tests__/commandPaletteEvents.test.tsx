@@ -75,10 +75,11 @@ describe('the search box', () => {
     const user = userEvent.setup()
     render(<Host />)
     await user.type(input(), 'zzyzx')
+    // The miss message waits for the text to settle (MISS_SETTLE_MS), so it is read before the close.
+    expect(await screen.findByText(/Nothing matches/)).toBeInTheDocument()
     await user.keyboard('{Escape}')
     await waitFor(() => expect(named('command_palette_dismissed')).toEqual([{ section: 'wpbl', typed: 5, shown: 0, q: 'zzyzx' }]))
     expect(named('command_palette_picked')).toEqual([])
-    expect(screen.getByText(/Nothing matches/)).toBeInTheDocument()
   })
 
   it('counts an example as a pick that keeps the box open, so a second pick can follow', async () => {
@@ -240,7 +241,7 @@ describe('a search that finds nothing', () => {
     const user = userEvent.setup()
     render(<Host />)
     await user.type(input(), 'zzyzx')
-    expect(screen.getByText(/Nothing matches/)).toBeInTheDocument()
+    expect(await screen.findByText(/Nothing matches/)).toBeInTheDocument()
     expect(screen.getByRole('group', { name: 'Try' })).toBeInTheDocument()
     await user.keyboard('{Enter}')
     await user.keyboard('{Tab}')

@@ -83,6 +83,123 @@ function inningRecord(text: string): { text: string; stat: string } | null {
   return m ? { text: `1+ ${m[1]} in an inning`, stat: m[1] } : null
 }
 
+// ─── Titles in the reader's words ─────────────────────────────────────────────
+//
+// A QUESTION WITH A NAME IS TITLED BY ITS NAME. "grand slams" came back as "Home runs at least 1 and
+// Bases loaded", "shutouts" as "Runs allowed exactly 0": right, and not what anybody calls them.
+// Each named question is read by the parser itself, and a row whose question comes out the same
+// (side, grain and every condition) takes the name, however it was typed: "bases loaded home runs"
+// is a grand slam too. A question with anything more in it ("grand slams on 0-2") has no name and
+// keeps the board's own statement. Clubs, venue and year are the subtitle's, so they do not count.
+type Side = FinderSide | 'fielding'
+const NAMED_QUESTIONS: [phrase: string, label: Partial<Record<Side, string>>][] = [
+  ['grand slams', { hitting: 'Grand slams', pitching: 'Grand slams allowed' }],
+  ['walk-offs', { hitting: 'Walk-offs', pitching: 'Walk-offs allowed' }],
+  ['back-to-back-to-back home runs', { hitting: 'Back-to-back-to-back home runs', pitching: 'Back-to-back-to-back home runs allowed' }],
+  ['back-to-back home runs', { hitting: 'Back-to-back home runs', pitching: 'Back-to-back home runs allowed' }],
+  ['walk-off home runs', { hitting: 'Walk-off home runs', pitching: 'Walk-off home runs allowed' }],
+  ['bases loaded walks', { hitting: 'Bases-loaded walks', pitching: 'Bases-loaded walks allowed' }],
+  ['full count', { hitting: 'Full counts', pitching: 'Full counts' }],
+  ['hits with risp', { hitting: 'Hits with runners in scoring position', pitching: 'Hits allowed with runners in scoring position' }],
+  ['no-hitters', { pitching: 'No-hitters' }],
+  ['one-hitters', { pitching: 'One-hitters' }],
+  ['two-hitters', { pitching: 'Two-hitters' }],
+  ['shutouts', { pitching: 'Shutouts' }],
+  ['errorless games', { fielding: 'Errorless games' }],
+  ['immaculate inning', { pitching: 'Immaculate innings' }],
+  ['1-2-3 innings', { pitching: '1-2-3 innings' }],
+  ['comebacks', { hitting: 'Comebacks' }],
+  ['go-ahead innings', { hitting: 'Go-ahead innings' }],
+  ['two-out rallies', { hitting: 'Two-out rallies' }],
+  ['steals of home', { hitting: 'Steals of home' }],
+]
+
+type Question = Pick<ParsedFinder, 'side' | 'per' | 'conditions' | 'byClub'>
+const signature = (q: Question) => [q.side, q.per, q.byClub ? 'club' : '',
+  ...q.conditions.map(c => `${c.field}:${c.op}:${c.value}`).sort()].join('|')
+
+const namedBySection = new Map<FinderSection, Map<string, string>>()
+function namedQuestions(section: FinderSection): Map<string, string> {
+  let named = namedBySection.get(section)
+  if (!named) {
+    named = new Map()
+    for (const [phrase, labels] of NAMED_QUESTIONS) {
+      const read = section === 'mlb' ? parseFinderText(phrase, MLB_FINDER_CLUBS) : parseFinderText(phrase, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS)
+      for (const p of read) {
+        const label = labels[p.side]
+        if (label && !p.ignored.length && !named.has(signature(p))) named.set(signature(p), label)
+      }
+    }
+    namedBySection.set(section, named)
+  }
+  return named
+}
+
+/** The question's own name ("Grand slams"), or the board's statement of it. */
+function questionTitle(section: FinderSection, q: Question): string {
+  return namedQuestions(section).get(signature(q)) ?? describeFinderQuery(q.side, q)
+}
+
+// TWO ROWS NEVER SHARE A TITLE. "3 strikeouts in an inning" offered "Strikeouts at least 3" twice (a
+// pitcher's inning, a club's half at the plate), "Sato vs Hunters" "Ayami Sato vs BOS" four times,
+// and the difference sat at the end of a subtitle a phone cuts off. Rows that collide take the first
+// qualifier that tells them all apart: who the line belongs to, then the grain, then both.
+const GRAIN_PHRASE: Record<ParsedFinder['per'], string> = {
+  game: 'in a game', club: 'in a game', inning: 'in an inning', season: 'in a season', pa: 'in a plate appearance',
+}
+const GRAIN_NOUN: Record<ParsedFinder['per'], string> = {
+  game: 'games', club: 'club games', inning: 'innings', season: 'seasons', pa: 'plate appearances',
+}
+/** Whose line a question counts: a club's for a club's game or half-inning, and for a run of plays
+ *  at the plate (back-to-back home runs are two batters'), else the side's player. */
+function whose(q: Pick<ParsedFinder, 'side' | 'per' | 'byClub'> & { conditions?: ParsedFinder['conditions'] }): string {
+  if (q.per === 'club' || q.byClub || (q.per === 'inning' && q.side === 'hitting')) return 'by a club'
+  if (q.side === 'hitting' && q.conditions?.some(c => RUN_FIELDS.has(c.field))) return 'by a club'
+  return q.side === 'pitching' ? 'by a pitcher' : q.side === 'fielding' ? 'by a fielder' : 'by a batter'
+}
+const sideWord = (side: Side) => (side === 'pitching' ? 'pitching' : side === 'fielding' ? 'fielding' : 'batting')
+
+/** `rows` with every shared title told apart, by the first of `qualifiers(row)` that separates the
+ *  rows sharing it (or all of them joined), added by `add`. Rows with a title of their own are left. */
+export function distinctTitles<T extends { title: string }>(
+  rows: T[], qualifiers: (row: T) => string[], add: (title: string, qualifier: string) => string = (t, q) => `${t} ${q}`,
+): T[] {
+  const byTitle = new Map<string, T[]>()
+  for (const r of rows) byTitle.set(r.title, [...(byTitle.get(r.title) ?? []), r])
+  const renamed = new Map<T, string>()
+  for (const [title, same] of byTitle) {
+    if (same.length < 2) continue
+    const quals = same.map(qualifiers)
+    const width = Math.max(...quals.map(q => q.length))
+    let pick: (q: string[]) => string = q => q.join(' ')
+    for (let i = 0; i < width; i++) {
+      if (new Set(quals.map(q => q[i] ?? '')).size === same.length) { pick = q => q[i] ?? ''; break }
+    }
+    same.forEach((r, i) => { const q = pick(quals[i]); if (q) renamed.set(r, add(title, q)) })
+  }
+  return rows.map(r => (renamed.has(r) ? { ...r, title: renamed.get(r)! } : r))
+}
+
+// ONE PLATE APPEARANCE IS ONE LINE ON EACH SIDE, so "grand slams" read for the batters and for the
+// pitchers is one set of plays, counted twice under two rows with the same count. With no club or
+// venue to cut it (both of which mean something different on each side), the second reading goes.
+// Not the runs of plays: back-to-back home runs by a club and allowed by one pitcher are different
+// runs once the pitcher changes in the middle of one.
+const RUN_FIELDS = new Set(['hrrow', 'krow', 'retired'])
+function dropPaTwins<T extends { parsed: ParsedFinder }>(rows: T[]): T[] {
+  const kept: T[] = []
+  for (const r of rows) {
+    const p = r.parsed
+    const plain = p.per === 'pa' && !p.teamId && !p.oppId && p.venue === 'any' && !p.ignored.length
+      && !p.conditions.some(c => RUN_FIELDS.has(c.field))
+    const twin = plain && kept.some(k => k.parsed.per === 'pa' && k.parsed.side !== p.side && k.parsed.season === p.season
+      && !k.parsed.teamId && !k.parsed.oppId && k.parsed.venue === 'any' && !k.parsed.ignored.length
+      && signature({ ...k.parsed, side: p.side }) === signature(p))
+    if (!twin) kept.push(r)
+  }
+  return kept
+}
+
 /** Which lines a question searches, and any club, venue and year: "Pitching lines · vs SF · 2026". */
 function scopeBits(section: FinderSection, p: Pick<ParsedFinder, 'side' | 'per' | 'teamId' | 'oppId' | 'venue' | 'season' | 'byClub'>): string[] {
   const sideWord = p.side === 'pitching' ? 'Pitching' : p.side === 'fielding' ? 'Fielding' : 'Batting'
@@ -107,19 +224,22 @@ export function playerQuestionRows(
 ): PlayerQuestionRow[] {
   if (section !== 'wpbl') return []
   const name = (id: string | null) => roster.find(p => p.id === id)?.name ?? ''
-  return parsePlayerQuestion(text, roster, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS).map(q => {
+  const rows = parsePlayerQuestion(text, roster, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS).map(q => {
     const href = wpblFinderHref(q)
     const field = q.record ? finderFields(q.side, q.per).find(f => f.key === q.conditions[0]?.field) : null
     const asked = field ? `most ${field.label.toLowerCase()} in ${q.per === 'inning' ? 'an inning' : 'a game'}`
-      : q.conditions.length ? describeFinderQuery(q.side, q) : ''
+      : q.conditions.length ? questionTitle(section, q) : ''
     const where = [q.oppId && `vs ${club(q.oppId)}`, q.teamId && `for ${club(q.teamId)}`,
       q.venue === 'home' ? 'at home' : q.venue === 'away' ? 'on the road' : null].filter(Boolean).join(', ')
     const who = q.kind === 'matchup' ? `${name(q.batterId)} vs ${name(q.pitcherId)}` : name(q.playerId ?? q.batterId ?? q.pitcherId)
     const title = q.kind === 'club' ? [who, where].filter(Boolean).join(' ') : asked ? `${who}: ${asked}` : who
     // The club already said in a club row's title is not said again under it.
     const bits = scopeBits(section, q.kind === 'club' ? { ...q, teamId: null, oppId: null, venue: 'any' } : q)
-    return { key: `player-q-${href}`, title, subtitle: bits.join(' · '), href, matchup: q.kind === 'matchup' }
+    return { key: `player-q-${href}`, title, subtitle: bits.join(' · '), href, matchup: q.kind === 'matchup', q }
   })
+  // One player's question read at two grains, or on both sides: the grain, or the side and the grain.
+  return distinctTitles(rows, r => [GRAIN_NOUN[r.q.per], `${sideWord(r.q.side)} ${GRAIN_NOUN[r.q.per]}`], (t, q) => `${t} (${q})`)
+    .map(({ q: _q, ...row }) => row)
 }
 
 /** Every reading of `text` as a question for this section's Find board, best first. */
@@ -129,9 +249,9 @@ export function finderSuggestions(section: FinderSection, text: string): FinderS
     ? parseFinderText(text, MLB_FINDER_CLUBS)
     : parseFinderText(record?.text ?? text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS)
       .filter(p => !record || (p.per === 'inning' && p.conditions.length === 1))
-  return parsed.map(p => {
+  const rows = parsed.map(p => {
     const field = record ? finderFields(p.side, 'inning').find(f => f.key === p.conditions[0].field) : null
-    const title = field ? `Most ${field.label.toLowerCase()} in an inning` : describeFinderQuery(p.side, p)
+    const title = field ? `Most ${field.label.toLowerCase()} in an inning` : questionTitle(section, p)
     const bits = scopeBits(section, p)
     // Said, not dropped: Find cannot ask about a named player, so "Whitmore 2 hr" is everyone's
     // two-homer games, and the row has to admit the name went unused.
@@ -139,6 +259,7 @@ export function finderSuggestions(section: FinderSection, text: string): FinderS
     const href = section === 'mlb' ? mlbFinderHref(p) : wpblFinderHref(p)
     return { key: `finder-${href}`, title, subtitle: bits.join(' · '), href, parsed: p }
   })
+  return distinctTitles(dropPaTwins(rows), r => [whose(r.parsed), GRAIN_PHRASE[r.parsed.per]])
 }
 
 export interface LeaderSuggestion {
@@ -226,7 +347,7 @@ function leaderTitle(p: ParsedLeader): string {
 
 /** A ranking typed as words, as rows linking to the section's stats table sorted on that stat. */
 export function leaderSuggestions(section: FinderSection, text: string, opts: LeaderOptions = {}): LeaderSuggestion[] {
-  return parseLeaderText(text).flatMap(p => {
+  const rows = parseLeaderText(text).flatMap(p => {
     const sort = BOARD_COLUMNS[section][p.side][p.field]
     if (!sort) return []
     let href: string
@@ -258,6 +379,8 @@ export function leaderSuggestions(section: FinderSection, text: string, opts: Le
     const ask = { side: p.side, sort, dir: p.dir, season: p.season, career: p.career }
     return [{ key: `leader-${href}`, title: leaderTitle(p), subtitle, side: sideLabel, span, href, parsed: p, ask }]
   })
+  // "most strikeouts" ranks the pitchers and the batters: "Most strikeouts by a pitcher", "by a batter".
+  return distinctTitles(rows, r => [r.parsed.side === 'pitching' ? 'by a pitcher' : r.parsed.side === 'hitting' ? 'by a batter' : ''])
 }
 
 export interface TeamRankSuggestion {
@@ -284,7 +407,7 @@ function clubFullName(section: FinderSection, id: string): string | null {
 
 /** "SF team ERA", "most runs by a team": the section's team stats board, sorted on the stat. */
 export function teamRankSuggestions(section: FinderSection, text: string): TeamRankSuggestion[] {
-  return parseTeamRankText(text, sectionClubs(section)).flatMap(({ leader: p, clubIds }) => {
+  const rows = parseTeamRankText(text, sectionClubs(section)).flatMap(({ leader: p, clubIds }) => {
     const side = p.side as FinderSide
     const sort = BOARD_COLUMNS[section][side][p.field]
     if (!sort || (section === 'mlb' && !MLB_TEAM_SORTS[side].has(sort))) return []
@@ -304,8 +427,10 @@ export function teamRankSuggestions(section: FinderSection, text: string): TeamR
     // "Lowest ERA" names the ranking; with a club named, the stat alone is the question.
     const stat = ranked.replace(/^(Most|Fewest|Highest|Lowest) /, '')
     const title = club ? `${club} team ${stat}` : `${ranked} by a team`
-    return [{ key: `team-rank-${href}-${club ?? ''}`, title, subtitle, href }]
+    return [{ key: `team-rank-${href}-${club ?? ''}`, title, subtitle, href, side }]
   })
+  return distinctTitles(rows, r => [r.side === 'pitching' ? 'pitching' : 'hitting'], (t, q) => `${t} (${q})`)
+    .map(({ side: _side, ...row }) => row)
 }
 
 /** "best catcher", "most hr by a shortstop", "top relievers": the players board, narrowed to the
@@ -398,7 +523,7 @@ export function recordSuggestions(section: FinderSection, text: string): RecordS
     .filter(r => r.per !== 'inning' || innings)
     // MLB stores no fielding lines, so its Find has no Fielding side.
     .filter(r => r.side !== 'fielding' || section === 'wpbl')
-  return [...outings, ...read.flatMap(r => {
+  const found: (RecordSuggestion & { who?: string })[] = [...outings, ...read.flatMap(r => {
     const board = r.per === 'game' && r.side !== 'fielding' ? BEST_BOARDS[r.side][r.field] : undefined
     if (board && r.side !== 'fielding' && !r.teamId && !r.oppId && r.venue === 'any' && r.season == null) return bestsRow(r.side, board)
     const field = finderFields(r.side, r.per).find(f => f.key === r.field)
@@ -411,12 +536,16 @@ export function recordSuggestions(section: FinderSection, text: string): RecordS
       r.venue === 'home' ? 'at home' : r.venue === 'away' ? 'on the road' : null, r.season && String(r.season)].filter(Boolean)
     const club = r.per === 'club' || (r.per === 'inning' && (r.side === 'hitting' || !!r.byClub))
     return [{
+      who: whose(r),
       key: `record-${href}`,
       title: [`Most ${field.label.toLowerCase()}${r.per === 'season' ? '' : ` in ${r.per === 'inning' ? 'an inning' : 'a game'}`}${r.per === 'club' || r.byClub ? ' by a club' : ''}`, ...where].join(' '),
       subtitle: `Find · ${r.side === 'pitching' ? 'Pitching' : r.side === 'fielding' ? 'Fielding' : club ? 'Clubs' : 'Batting'}, ${r.per === 'inning' ? 'single innings' : r.per === 'season' ? 'season totals' : r.per === 'club' ? 'club games' : 'single games'}`,
       href,
     }]
   })]
+  // "most strikeouts in an inning": a pitcher's inning and a club's half at the plate, told apart.
+  return distinctTitles(found, r => [r.who ?? ''], (t, q) => (t.includes(q) ? t : `${t} ${q}`))
+    .map(({ who: _who, ...row }) => row)
 }
 
 /**
