@@ -10,7 +10,7 @@
 // shell's own `navigate()` is the whole integration, and the row is a real link that opens in a new
 // tab on a modified click like any other.
 
-import { describeFinderCuts, describeFinderQuery, finderFields, type FinderBoardSide, type FinderPer, type FinderSide } from './league/finder'
+import { describeFinderConditions, describeFinderCuts, describeFinderQuery, finderFields, type FinderBoardSide, type FinderCondition, type FinderPer, type FinderSide } from './league/finder'
 import { parseClubPage, parseClubRecord, parseFinderText, parseGameQuery, parseLeaderText, parsePositionRank, parseRecordQuestion, parseRecordText, parseScopedRank, parseTeamRankText, rankField, rankLowerBetter, type ClubPagePart, type ParsedFinder, type ParsedLeader, type RankSide } from './league/finderParse'
 import { MLB_FINDER_CLUBS, mlbFinderHref } from './mlb/finderLink'
 import { CURRENT_SEASON, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_ABBR } from './mlb/constants'
@@ -94,6 +94,15 @@ function inningRecord(text: string): { text: string; stat: string } | null {
 type Side = FinderSide | 'fielding'
 const NAMED_QUESTIONS: [phrase: string, label: Partial<Record<Side, string>>][] = [
   ['grand slams', { hitting: 'Grand slams', pitching: 'Grand slams allowed' }],
+  ['solo home runs', { hitting: 'Solo home runs', pitching: 'Solo home runs allowed' }],
+  ['2 run home runs', { hitting: 'Two-run home runs', pitching: 'Two-run home runs allowed' }],
+  ['3 run home runs', { hitting: 'Three-run home runs', pitching: 'Three-run home runs allowed' }],
+  ['first pitch home runs', { hitting: 'First-pitch home runs', pitching: 'First-pitch home runs allowed' }],
+  ['one run games', { hitting: 'One-run games' }],
+  ['one run wins', { hitting: 'One-run wins' }],
+  ['one run losses', { hitting: 'One-run losses' }],
+  ['golden sombreros', { hitting: 'Golden sombreros' }],
+  ['maddux', { pitching: 'Madduxes' }],
   ['walk-offs', { hitting: 'Walk-offs', pitching: 'Walk-offs allowed' }],
   ['back-to-back-to-back home runs', { hitting: 'Back-to-back-to-back home runs', pitching: 'Back-to-back-to-back home runs allowed' }],
   ['back-to-back home runs', { hitting: 'Back-to-back home runs', pitching: 'Back-to-back home runs allowed' }],
@@ -255,7 +264,12 @@ export function playerQuestionRows(
     const where = [q.oppId && `vs ${club(q.oppId)}`, q.teamId && `for ${club(q.teamId)}`,
       q.venue === 'home' ? 'at home' : q.venue === 'away' ? 'on the road' : null, ...cutBits(q.side, q)].filter(Boolean).join(', ')
     const who = q.kind === 'matchup' ? `${name(q.batterId)} vs ${name(q.pitcherId)}` : name(q.playerId ?? q.batterId ?? q.pitcherId)
-    const title = q.kind === 'club' ? [who, where].filter(Boolean).join(' ') : asked ? `${who}: ${asked}` : who
+    // Against one pitcher, the batters' row names the pitcher last: "Most home runs off Kelsie Whitmore".
+    const ranked = q.rank ? finderFields('hitting', 'season').find(f => f.key === q.rank!.field) : null
+    const off = q.kind === 'against'
+      ? `${ranked ? `${q.rank!.rate ? 'Highest' : 'Most'} ${/^[A-Z]{2}/.test(ranked.label) ? ranked.label : ranked.label.toLowerCase()}` : questionTitle(section, q)} off ${who}`
+      : null
+    const title = off ?? (q.kind === 'club' ? [who, where].filter(Boolean).join(' ') : asked ? `${who}: ${asked}` : who)
     // The club already said in a club row's title is not said again under it.
     const bits = scopeBits(section, q.kind === 'club' ? { ...q, teamId: null, oppId: null, venue: 'any', from: null, to: null, last: null, hand: null } : q)
     return { key: `player-q-${href}`, title, subtitle: bits.join(' · '), href, matchup: q.kind === 'matchup', q }
@@ -594,6 +608,26 @@ export function recordSuggestions(section: FinderSection, text: string): RecordS
     .map(({ who: _who, ...row }) => row)
 }
 
+const ORD = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`
+
+/** A situation as a ranking's title says it: "with RISP", "with 2 outs", "on 0-2", "in the 9th". */
+function situationWords(situation: FinderCondition[]): string[] {
+  const eq = (f: string) => situation.find(c => c.field === f && c.op === 'eq')
+  const balls = eq('balls'), strikes = eq('scount')
+  const out: string[] = []
+  if (balls && strikes) out.push(balls.value + strikes.value === 0 ? 'on the first pitch' : `on ${balls.value}-${strikes.value}`)
+  for (const c of situation) {
+    if ((c === balls || c === strikes) && balls && strikes) continue
+    if (c.field === 'risp' && c.op === 'eq') out.push(c.value ? 'with RISP' : 'with nobody in scoring position')
+    else if (c.field === 'paouts' && c.op === 'eq') out.push(c.value === 0 ? 'with no outs' : `with ${c.value} out${c.value === 1 ? '' : 's'}`)
+    else if (c.field === 'on' && c.op === 'eq') out.push(c.value === 3 ? 'with the bases loaded' : c.value === 0 ? 'with the bases empty' : `with ${c.value} on`)
+    else if (c.field === 'on' && c.op === 'gte' && c.value === 1) out.push('with runners on')
+    else if (c.field === 'inn') out.push(c.op === 'eq' ? `in the ${ORD(c.value)}` : c.op === 'gte' ? `in the ${ORD(c.value)} or later` : `through the ${ORD(c.value)}`)
+    else out.push(describeFinderConditions('hitting', { conditions: [c], per: 'season' })[0]?.text.toLowerCase() ?? '')
+  }
+  return out.filter(Boolean)
+}
+
 /**
  * "hr vs boston", "hits against the hunters", "strikeouts at home": who has the most against one club
  * or at one place, as the Find board's season grain asking for at least one, ranked highest first.
@@ -601,7 +635,7 @@ export function recordSuggestions(section: FinderSection, text: string): RecordS
  * either could be meant.
  */
 export function scopedRankSuggestions(section: FinderSection, text: string): RecordSuggestion[] {
-  return parseScopedRank(text, sectionClubs(section)).flatMap(r => {
+  return parseScopedRank(text, sectionClubs(section), section === 'wpbl' ? WPBL_FINDER_OPTS : {}).flatMap(r => {
     const field = finderFields(r.side, 'season').find(f => f.key === r.field)
     if (!field) return []
     // MLB's board reads no cut off its address, so a cut there is no row.
@@ -610,11 +644,12 @@ export function scopedRankSuggestions(section: FinderSection, text: string): Rec
     // ranks it; a count asks for at least one. A rate over a cut carries its own smaller bar.
     const lower = rankLowerBetter(r.side, r.field)
     const rate = !!r.bar
+    const situation = r.situation ?? []
     const conditions = [{ field: r.field, op: 'gte' as const, value: rate && lower ? 0 : 1 },
-      ...(r.bar ? [{ field: r.bar.field, op: 'gte' as const, value: r.bar.value }] : [])]
+      ...(r.bar ? [{ field: r.bar.field, op: 'gte' as const, value: r.bar.value }] : []), ...situation]
     const parsed = { ...r, per: 'season' as const, conditions, ignored: [] }
     const href = section === 'mlb' ? mlbFinderHref(parsed) : wpblFinderHref(parsed)
-    const where = [r.oppId && `vs ${clubLabel(section, r.oppId)}`, r.teamId && `for ${clubLabel(section, r.teamId)}`,
+    const where = [...situationWords(situation), r.oppId && `vs ${clubLabel(section, r.oppId)}`, r.teamId && `for ${clubLabel(section, r.teamId)}`,
       r.venue === 'home' ? 'at home' : r.venue === 'away' ? 'on the road' : null, ...cutBits(r.side, { ...r, per: 'season' }),
       r.season && String(r.season)].filter(Boolean)
     const lead = rate ? (lower ? 'Lowest' : 'Highest') : 'Most'

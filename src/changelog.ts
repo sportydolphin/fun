@@ -23,6 +23,28 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.228.0',
+    date:    '2026-11-10',
+    changes: [
+      {
+        short: 'Search reads the verbs',
+        full:  'Search reads "hit 2 home runs", "drove in 5", "gave up 3 home runs", "struck out 10 batters", "walked 5 batters", "stole 2 bases" and "caught stealing twice" as the stat they mean. "Hit 2 home runs" was two hits, and "drove in 5 runs" five runs scored.',
+      },
+      {
+        short: 'Search: home runs by who was on, and one-run games',
+        full:  'Search finds solo, two-run and three-run home runs, first-pitch home runs, two-out RBI and walk-off wins. "One-run games", "one-run wins" and "one-run losses" are a club’s games by the margin; before, "one run games" asked for a run scored.',
+      },
+      {
+        short: 'Search: more ways to ask',
+        full:  '"hr and a triple" asks for both. Golden sombreros, Madduxes and relievers with a stat line ("relievers with 3 ks") are each a question of their own, "most k’s" ranks strikeouts, and a rate at home or on the road ("road avg", "home era") ranks the leaders there.',
+      },
+      {
+        short: 'Find: against one pitcher, and in one situation',
+        full:  'Search answers "hr off Whitmore", "3 hits off Whitmore" and "avg against Schroder" with every batter’s season against that pitcher, and "avg with RISP", "ops with 2 outs", "avg with the bases loaded" and "avg on 0-2" with the leaders in that spot. Find’s season totals can be cut by the pitcher and by the situation too.',
+      },
+    ],
+  },
+  {
     version: '1.227.0',
     date:    '2026-11-10',
     changes: [

@@ -4,7 +4,7 @@ import { Box, Skeleton, Typography } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import {
   finderFieldGroups, finderUnit, finderColumns, defaultCondition, parseFinderValue, unparseFinderValue,
-  displayFinderValue, describeFinderQuery, describeFinderConditions, describeFinderCuts, finderSpanText, finderSigned, finderLowerBetter, conditionsForPer, finderPlayerApplies, finderPlayerAt, hasPlayerFilter,
+  displayFinderValue, describeFinderQuery, describeFinderConditions, describeFinderCuts, finderSpanText, finderSigned, finderLowerBetter, conditionsForPer, finderPitcherApplies, finderPlayerApplies, finderPlayerAt, hasPlayerFilter,
   FINDER_OPS, FINDER_MONTH_NAMES, finderSpanMonth, finderMonthSpan,
   type FinderCondition, type FinderOp, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
   type FinderBoardSide, type FinderSort, type FinderTally, type FinderVenue,
@@ -258,13 +258,14 @@ export interface FinderPlayerPicks {
 function scopeWords(side: FinderBoardSide, q: Pick<FinderQuery, 'teamId' | 'oppId' | 'venue' | 'per' | 'batterId' | 'pitcherId' | 'playerId' | 'byClub' | 'from' | 'to' | 'last' | 'hand'>,
   clubAbbr: (id: string) => string, name: (id: string) => string = id => id): string {
   const pa = q.per === 'pa'
+  const against = finderPitcherApplies(side, q.per)
   return [
     !pa && q.playerId && finderPlayerApplies(side, q.per, q.byClub) && `by ${name(q.playerId)}`,
     q.teamId && `for ${clubAbbr(q.teamId)}`,
     q.oppId && `vs ${clubAbbr(q.oppId)}`,
     q.venue === 'home' ? 'at home' : q.venue === 'away' ? 'on the road' : null,
     pa && q.batterId && `by ${name(q.batterId)}`,
-    pa && q.pitcherId && `against ${name(q.pitcherId)}`,
+    against && q.pitcherId && `against ${name(q.pitcherId)}`,
     // The span, the last N games and the arm, mid-sentence: "since Aug 1", "vs LHP". A month keeps its capital.
     ...describeFinderCuts(side, q).map(c => c.text.replace(/^(Since|Through|Last|Vs)\b/, w => w.toLowerCase())),
   ].filter(Boolean).join(', ')
@@ -882,7 +883,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     ...(query.venue !== 'any' ? [{ key: 'venue', text: query.venue === 'home' ? 'At home' : 'On the road', remove: () => onQuery({ ...query, venue: 'any' as FinderVenue }) }] : []),
     ...(playerHere && query.playerId ? [{ key: 'player', text: picks!.name(query.playerId), remove: () => onQuery({ ...query, playerId: null }) }] : []),
     ...(query.per === 'pa' && query.batterId ? [{ key: 'bat', text: `By ${picks?.name(query.batterId) ?? query.batterId}`, remove: () => onQuery({ ...query, batterId: null }) }] : []),
-    ...(query.per === 'pa' && query.pitcherId ? [{ key: 'pit', text: `Against ${picks?.name(query.pitcherId) ?? query.pitcherId}`, remove: () => onQuery({ ...query, pitcherId: null }) }] : []),
+    ...(finderPitcherApplies(side, query.per) && query.pitcherId ? [{ key: 'pit', text: `Against ${picks?.name(query.pitcherId) ?? query.pitcherId}`, remove: () => onQuery({ ...query, pitcherId: null }) }] : []),
     // The span, the last N games and the arm. A whole month and the last N have pickers under When; a
     // span of days and the arm only the search sets, so their chip is the only way to take one off.
     ...describeFinderCuts(side, query).map(c => ({
@@ -1011,13 +1012,14 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
             </Box>
           )}
 
-          {/* THE MATCHUP, only where a line names both players: a plate appearance. */}
-          {picks && query.per === 'pa' && (
+          {/* THE MATCHUP, only where a line names both players: a plate appearance. A hitter's season
+              is summed from those, so it can be against one pitcher (`seasonFromPas`). */}
+          {picks && plays && finderPitcherApplies(side, query.per) && (
             <Box sx={{ pt: 1.25, mt: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
               <SectionLabel>Matchup</SectionLabel>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-                <Picker label="Batter" value={query.batterId ?? ''} options={[{ value: '', label: 'Any batter' }]}
-                  groups={picks.batters} onChange={v => onQuery({ ...query, batterId: v || null })} />
+                {query.per === 'pa' && <Picker label="Batter" value={query.batterId ?? ''} options={[{ value: '', label: 'Any batter' }]}
+                  groups={picks.batters} onChange={v => onQuery({ ...query, batterId: v || null })} />}
                 <Picker label="Pitcher" value={query.pitcherId ?? ''} options={[{ value: '', label: 'Any pitcher' }]}
                   groups={picks.pitchers} onChange={v => onQuery({ ...query, pitcherId: v || null })} />
               </Box>

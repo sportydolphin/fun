@@ -96,6 +96,21 @@ describe('cuts', () => {
     expect(r.rows[0].values.avg).toBe(500)
   })
 
+  // "avg off Schroder", "avg with RISP": the same sum, cut by the pitcher or by where each trip began.
+  it('sum a hitter\'s season against one pitcher, or in one situation, from those plate appearances', () => {
+    const pas = [
+      pa({ batter_id: 'a', pitcher_id: 'b', h: 1, tb: 1, risp: 1 }), pa({ batter_id: 'a', pitcher_id: 'b', sequence: 2 }),
+      pa({ batter_id: 'a', pitcher_id: 'c', h: 1, tb: 4, hr: 1, sequence: 3, risp: 1 }), pa({ batter_id: 'a', pitcher_id: 'c', sequence: 4, risp: 1 }),
+    ]
+    const opts = { plateAppearances: pas }
+    const offC = runWpblFinder('hitting', [], [], PLAYERS, GAMES, q({ per: 'season', conditions: [{ field: 'hr', op: 'gte', value: 1 }], pitcherId: 'c' }), 50, null, opts)
+    expect(offC.rows.map(r => [r.name, r.values.hr, r.values.pa])).toEqual([['Jaida Lee', 1, 2]])
+    const risp = runWpblFinder('hitting', [], [], PLAYERS, GAMES,
+      q({ per: 'season', conditions: [{ field: 'avg', op: 'gte', value: 1 }, { field: 'risp', op: 'eq', value: 1 }] }), 50, null, opts)
+    expect(risp.rows[0].values.avg).toBe(667)
+    expect(risp.qualifier).toBeNull()
+  })
+
   it('ride in q and come back whole, beside conditions an older reader still reads', () => {
     const raw = encodeFinderQuery(q({ per: 'season', conditions: [{ field: 'hr', op: 'gte', value: 1 }], from: '0801', last: 10, hand: 'L' }))
     expect(raw).toBe('season~from.0801~last.10~hand.l~hr.gte.1')
