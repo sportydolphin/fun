@@ -391,14 +391,20 @@ export function recordSuggestions(section: FinderSection, text: string): RecordS
   // "Most X in an inning" said bare is already the Find reading's (inningRecord), which also knows
   // "biggest innings"; this takes the inning records that reading cannot, with a club or a year.
   const innings = section === 'wpbl' && !inningRecord(text)
-  const read = parseRecordQuestion(text, sectionClubs(section)).filter(r => r.per === 'game' || innings)
+  // A SEASON is the stats tables' to rank. Find answers only the counts they have no column for
+  // ("most singles", "most errors", "most baserunners allowed"), and only when no ranking row does.
+  const seasons = !leaderSuggestions(section, text).length && !scopedRankSuggestions(section, text).length
+  const read = parseRecordQuestion(text, sectionClubs(section), { season: seasons })
+    .filter(r => r.per === 'game' || r.per === 'season' || innings)
+    // MLB stores no fielding lines, so its Find has no Fielding side.
+    .filter(r => r.side !== 'fielding' || section === 'wpbl')
   return [...outings, ...read.flatMap(r => {
-    const board = r.per === 'game' ? BEST_BOARDS[r.side][r.field] : undefined
-    if (board && !r.teamId && !r.oppId && r.venue === 'any' && r.season == null) return bestsRow(r.side, board)
+    const board = r.per === 'game' && r.side !== 'fielding' ? BEST_BOARDS[r.side][r.field] : undefined
+    if (board && r.side !== 'fielding' && !r.teamId && !r.oppId && r.venue === 'any' && r.season == null) return bestsRow(r.side, board)
     const field = finderFields(r.side, r.per).find(f => f.key === r.field)
     if (!field) return []
     const parsed = { ...r, conditions: [{ field: r.field, op: 'gte' as const, value: 1 }], ignored: [] }
-    const href = section === 'mlb' ? mlbFinderHref(parsed) : wpblFinderHref(parsed)
+    const href = section === 'mlb' ? mlbFinderHref({ ...parsed, side: r.side === 'pitching' ? 'pitching' : 'hitting' }) : wpblFinderHref(parsed)
     if (seen.has(href)) return []
     seen.add(href)
     const where = [r.teamId && `for ${clubLabel(section, r.teamId)}`, r.oppId && `vs ${clubLabel(section, r.oppId)}`,
@@ -406,8 +412,8 @@ export function recordSuggestions(section: FinderSection, text: string): RecordS
     const club = r.per === 'inning' && r.side === 'hitting'
     return [{
       key: `record-${href}`,
-      title: [`Most ${field.label.toLowerCase()} in ${r.per === 'inning' ? 'an inning' : 'a game'}`, ...where].join(' '),
-      subtitle: `Find · ${r.side === 'pitching' ? 'Pitching' : club ? 'Clubs' : 'Batting'}, ${r.per === 'inning' ? 'single innings' : 'single games'}`,
+      title: [`Most ${field.label.toLowerCase()}${r.per === 'season' ? '' : ` in ${r.per === 'inning' ? 'an inning' : 'a game'}`}`, ...where].join(' '),
+      subtitle: `Find · ${r.side === 'pitching' ? 'Pitching' : r.side === 'fielding' ? 'Fielding' : club ? 'Clubs' : 'Batting'}, ${r.per === 'inning' ? 'single innings' : r.per === 'season' ? 'season totals' : 'single games'}`,
       href,
     }]
   })]

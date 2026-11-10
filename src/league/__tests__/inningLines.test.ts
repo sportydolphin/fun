@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { inningPitchingLines, plateAppearanceLines, teamInningLines } from '../inningLines'
+import { inningPitchingLines, plateAppearanceLines, runnerEvents, teamInningLines } from '../inningLines'
 import type { LeagueGame, RunValuePlay } from '../types'
 import { WPBL_LEAGUE } from '../../wpbl/league'
 
@@ -204,3 +204,28 @@ describe('teamInningLines', () => {
     ])
   })
 })
+
+// The runners' rows: no pitches and no batter's event, so only the narrative and the row's own event
+// say what happened, and the box score's counts are what they must add up to.
+describe('the runners rows', () => {
+  it('counts both steals of a double steal, and a pickoff but not a throw over', () => {
+    expect(runnerEvents({ event_type: 'stolen_base', narrative: 'Ashton Lansdell stole second; Ayuri Shimano stole third.' }).sb).toBe(2)
+    expect(runnerEvents({ event_type: 'out', narrative: 'Denver Bryant advanced to second; Hyeonah Kim out at second c to ss, picked off.' }).pk).toBe(1)
+    expect(runnerEvents({ event_type: 'unknown', narrative: 'Mo Davis Failed pickoff attempt.' }).pk).toBe(0)
+    expect(runnerEvents({ event_type: 'unknown', narrative: 'Andreanne Leblanc advanced to second on a balk.' }).bk).toBe(1)
+  })
+
+  it('credits them to the pitcher on the mound and the club batting', () => {
+    const plays = [
+      play({ outs: 0, event_type: 'single', pitch_sequence: 'P' }),
+      play({ outs: 0, event_type: 'stolen_base', narrative: 'Runner stole second.' }),
+      play({ outs: 0, event_type: 'wild_pitch', narrative: 'Runner advanced to third on a wild pitch.' }),
+      k(0, 'KSS', { batter_id: 'b2' }), k(1, 'KSS', { batter_id: 'b3' }), k(2, 'KSS', { batter_id: 'b4' }),
+    ]
+    const [pitcher] = inningPitchingLines(WPBL_LEAGUE, plays, [game()])
+    expect(pitcher).toMatchObject({ sb: 1, wp: 1, cs: 0, so: 3, bf: 4 })
+    const [club] = teamInningLines(WPBL_LEAGUE, plays, [game()])
+    expect(club).toMatchObject({ team_id: 'away', sb: 1, cs: 0, h: 1 })
+  })
+})
+

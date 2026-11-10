@@ -146,6 +146,10 @@ export interface SearchBridgeState {
   /** A Find question naming players, read against the section's roster. Null where the section has
    *  none to offer (MLB, until its Find takes a player). */
   resolvePlayerQuestion: ((text: string) => Promise<PlayerQuestionRow[]>) | null
+  /** What a Find link answers, in one line ("7 times · last Sep 2"), read off the link itself so it is
+   *  the board's own count. Null for a link that is not Find's, and null where the section does not
+   *  answer (MLB, for now). */
+  resolveFindAnswer: ((href: string) => Promise<string | null>) | null
 }
 
 const DEFAULT: SearchBridgeState = {
@@ -174,6 +178,7 @@ const DEFAULT: SearchBridgeState = {
   resolveFirsts: null,
   resolvePaRecord: null,
   resolvePlayerQuestion: null,
+  resolveFindAnswer: null,
 }
 
 let _state: SearchBridgeState = { ...DEFAULT }

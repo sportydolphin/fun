@@ -23,6 +23,24 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.221.0',
+    date:    '2026-11-10',
+    changes: [
+      {
+        short: 'Search: how often, and when last',
+        full:  'A search row that opens Find now says how often it happened and when it last did, before you open it: "3 strikeouts in an inning" reads "5 times · last Sep 3", and "immaculate inning" reads "Never". When one player did it most, the row names them. A record says the record: "most stolen bases in an inning" reads "Record 4 · Heights, Sep 4".',
+      },
+      {
+        short: 'Search and Find: more stats',
+        full:  'Stolen bases, caught stealing, pickoffs, wild pitches, passed balls and balks can be asked by the inning ("most stolen bases in an inning", "2 wild pitches in an inning"). Singles, extra-base hits, sacrifice flies and sacrifice bunts are new on Find at every grain. Fielding records ("most errors in a game") and season totals the stats tables have no column for ("most singles", "most errors", "most baserunners allowed") now have a search row.',
+      },
+      {
+        short: 'Find: the dates of the matches',
+        full:  'The line over Find’s results gives the first and the latest date it happened: "5 innings where Strikeouts at least 3 · Aug 2 to Sep 3".',
+      },
+    ],
+  },
+  {
     version: '1.220.0',
     date:    '2026-11-10',
     changes: [

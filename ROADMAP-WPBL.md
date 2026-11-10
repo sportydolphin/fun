@@ -1228,6 +1228,35 @@ hr") was dropped from the Find row until Nov 10 (v1.219.0), when search began re
 the roster (step 2 below). MLB's search still drops it. And MLB has no regular-season page for a pairing of
 clubs, so "Cubs vs Cardinals" answers with their latest and next game only.
 
+## Search: every stat at every grain (Nov 10, 2026) 🎯⚙️
+
+A probe of 42 stat words in 15 phrasings each ("most X in an inning", "3 X in a game", "most X by a
+team", ...) found 360 of 630 with no row; "most stolen bases in an inning" was the one a reader asked.
+
+1. ✅ **The answer in the row** (v1.221.0). Every row that opens Find says how often and when last, or
+   the record itself ("Record 4 · Heights, Sep 4"); the board's summary line gives the first and latest
+   date. `src/wpbl/findAnswer.ts`, `finderAnswerText` and `finderSpanText` in `src/league/finder.ts`.
+2. ✅ **The runners by the inning** (v1.221.0). Steals, caught stealing, pickoffs, wild pitches, passed
+   balls and balks, read off every row's narrative (`runnerEvents`), on a pitcher's and a club's
+   half-inning. Against the box scores: 115 of 116 steals, 21 of 22 caught, 93 of 93 wild pitches, 18
+   of 24 balks.
+3. ✅ **New fields** (v1.221.0). Singles and extra-base hits at every grain, sacrifice flies and bunts
+   at a game, a season and a club's inning, times on base on a club's inning.
+4. ✅ **Records with no ranking** (v1.221.0). Fielding ("most errors in a game") and season counts the
+   tables have no column for ("most singles", "most errors"), as Find, only where no ranking row
+   answers. "Fewest" stays no record.
+
+Still unanswered after these, in the order worth doing:
+
+5. **A club's game as a grain**: "most runs in a game by a team", "most hits by a club in a game",
+   shutouts, blowouts (42 of the probe's misses). The club half-inning's shape, summed per game.
+6. **Spans**: a month, a series, a doubleheader, extra innings as a game filter (search item 9).
+7. **Fielding by the inning** (errors, double plays turned): the play log names no fielder's error
+   cleanly; read it off the narrative the way the runners are.
+8. **Pickoffs and pitches seen over a game or a season**: the inning lines summed per game.
+9. **Not answerable from the data**: intentional walks (11 recorded in 2026), left on base (never
+   recorded), earned runs and RBI in an inning (the log cannot say).
+
 ## Search: names, records for every stat, looser wording (Nov 10, 2026) 🎯⚙️
 
 A probe of about 30 phrasings found the misses: "most walks in a game" offers nothing (no Bests card

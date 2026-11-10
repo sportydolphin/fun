@@ -177,6 +177,14 @@ flowchart LR
   A plate-appearance record ("longest at-bat", "most strikeouts in a row") goes the same way
   (`resolvePaRecord`): its measure from [`src/league/paRecords.ts`](src/league/paRecords.ts), the rest
   of the words as a Find filter, ranked by `runFinder` over the plate-appearance lines.
+  Every row that opens Find says how often and when last ("5 times · last Sep 3", "Never"), from the
+  bridge's `resolveFindAnswer`: WPBL reads the question back off the row's link
+  ([`src/wpbl/findAnswer.ts`](src/wpbl/findAnswer.ts)) and runs the board's own engine over the same
+  cut, so the count is the board's (`finderAnswerText` in `src/league/finder.ts`); a record's row gives
+  the record ("Record 4 · Heights, Sep 4") rather than the count. MLB answers none yet. A record no
+  ranking or Bests card holds goes to Find too, fielding and season counts included
+  (`parseRecordQuestion`'s `season` option, `fieldingStat`), and the inning grain counts the runners'
+  plays off the narrative (`runnerEvents` in `src/league/inningLines.ts`).
   Questions run from the box come back under Recent on this device
   ([`src/lib/recentQuestions.ts`](src/lib/recentQuestions.ts)), merged with the section's synced
   players and clubs by when each was opened; MLB's name lookups are kept ten minutes

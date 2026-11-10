@@ -75,6 +75,23 @@ const FIRST: [string, string][] = [
   ['most fouls at bat', 'record: Most fouls in a plate appearance'],
   ['most runs on one play', 'record: Most runs on one play'],
   ['most strikeouts in a row', 'record: Most strikeouts in a row'],
+  // The runners' rows and the sums of the hit types, at every grain that has them (Nov 10, 2026 probe:
+  // "most stolen bases in an inning" offered nothing).
+  ['most stolen bases in an inning', 'find: Most stolen bases in an inning (Batting, single innings)'],
+  ['most steals inning', 'record: Most stolen bases in an inning'],
+  ['3 steals in an inning', 'find: Stolen bases at least 3 (Batting, single innings)'],
+  ['most wild pitches in an inning', 'find: Most wild pitches in an inning (Pitching, single innings)'],
+  ['most pickoffs in an inning', 'find: Most pickoffs in an inning (Pitching, single innings)'],
+  ['most balks in an inning', 'find: Most balks in an inning (Pitching, single innings)'],
+  ['most singles in a game', 'record: Most singles in a game'],
+  ['most extra base hits in an inning', 'find: Most extra-base hits in an inning (Batting, single innings)'],
+  ['most sacrifice flies in a game', 'record: Most sacrifice flies in a game'],
+  // The glove's records, and a season the stats tables have no column for.
+  ['most errors in a game', 'record: Most errors in a game'],
+  ['most putouts game', 'record: Most putouts in a game'],
+  ['most errors', 'record: Most errors'],
+  ['most singles in a season', 'record: Most singles'],
+  ['most baserunners allowed', 'record: Most baserunners allowed'],
   // A player and a club or a place.
   ['Sato vs hunters', 'find: Ayami Sato vs Hunters (Pitching lines)'],
   ['sato vs boston', 'find: Ayami Sato vs Hunters (Pitching lines)'],
@@ -158,6 +175,11 @@ describe('the search bar corpus', () => {
 
   // Nothing at all for a plain name, a name and a bare stat (the player row answers those), or a
   // club alone (the club row does).
+  // The fewest of something in one game is no record, whichever reader takes the words.
+  it('reads no record for the fewest', () => {
+    expect(rows('fewest errors in a game')).not.toContain('record: Most errors in a game')
+  })
+
   it('leaves names and clubs to the name search', () => {
     for (const t of ['jaida lee', 'lee hr', 'boston hunters']) expect(rows(t), t).toEqual([])
   })
