@@ -584,6 +584,82 @@ function takeYear(rest: string): { rest: string; season: number | null } {
 }
 
 /**
+ * The clubs in `rest`, each in its ROLE, and every club the name could mean: a city two clubs share
+ * ("Chicago") is every one of them, and each becomes a reading of its own rather than a guess. A
+ * name that means one club is the ordinary case of the same thing. "vs", "against" and "facing" name
+ * the opponent; "at Boston" is a road game in Boston, the opponent and the venue with it; any other
+ * mention is the club played for. Each match is blanked to spaces of its own length.
+ */
+function takeClubs(rest: string, clubs: readonly FinderClubAlias[], venue: FinderVenue):
+  { rest: string; teamIds: (string | null)[]; oppIds: (string | null)[]; venue: FinderVenue } {
+  let teamIds: (string | null)[] = [null]
+  let oppIds: (string | null)[] = [null]
+  const byName = new Map<string, string[]>()
+  for (const c of clubs) {
+    for (const raw of c.names) {
+      const name = normalize(raw)
+      if (!name) continue
+      const ids = byName.get(name) ?? []
+      if (!ids.includes(c.id)) ids.push(c.id)
+      byName.set(name, ids)
+    }
+  }
+  const names = [...byName.keys()].sort((a, b) => b.length - a.length)
+  if (names.length) {
+    const clubRe = new RegExp(`(?<![a-z0-9])(?:(vs\\.?|versus|against|v\\.?|facing|faced|off|at|for|by|with)\\s+)?(?:the\\s+)?(${alt(names)})(?![a-z0-9])`, 'g')
+    rest = rest.replace(clubRe, (m: string, lead: string | undefined, name: string) => {
+      const ids = byName.get(name)!
+      if (lead && /^(vs|versus|against|v|facing|faced|off)/.test(lead)) oppIds = ids
+      else if (lead === 'at') { oppIds = ids; if (venue === 'any') venue = 'away' }
+      else teamIds = ids
+      return ' '.repeat(m.length)
+    })
+  }
+  return { rest, teamIds, oppIds, venue }
+}
+
+/** The venue words in `rest`, blanked, and the venue they name. */
+function takeVenue(rest: string, venue: FinderVenue): { rest: string; venue: FinderVenue } {
+  rest = rest.replace(/(?<![a-z])(at home|home games?|home)(?![a-z])/g, () => { venue = 'home'; return ' ' })
+  rest = rest.replace(/(?<![a-z])(on the road|road games?|road|away games?|away)(?![a-z])/g, () => { venue = 'away'; return ' ' })
+  return { rest, venue }
+}
+
+/**
+ * A question that is only WHO AND WHERE: "vs Boston", "at the Firebells", "for LA at home 2026". What
+ * is left once a player's name is taken out of "Sato vs hunters", which the Find parser reads as no
+ * question since it names no stat. Null when anything else is left, or when no club or venue is named.
+ */
+export function parseClubScope(text: string, clubs: readonly FinderClubAlias[]):
+  { teamIds: (string | null)[]; oppIds: (string | null)[]; venue: FinderVenue; season: number | null; per: FinderPer | null } | null {
+  const year = takeYear(` ${normalize(text)} `)
+  const v = takeVenue(year.rest, 'any')
+  const c = takeClubs(v.rest, clubs, v.venue)
+  let rest = c.rest
+  let per: FinderPer | null = null
+  rest = rest.replace(SEASON_WORDS, m => { per = 'season'; return ' '.repeat(m.length) })
+  if (GAME_WORDS.test(rest)) per ??= 'game'
+  const named = c.teamIds[0] != null || c.oppIds[0] != null || c.venue !== 'any'
+  const left = rest.split(/[^a-z0-9]+/).filter(w => w && !FILLER.has(w) && !['off', 'faced', 'log', 'logs'].includes(w))
+  return named && !left.length ? { teamIds: c.teamIds, oppIds: c.oppIds, venue: c.venue, season: year.season, per } : null
+}
+
+/**
+ * Whether a word is one a question is made of rather than part of a name: a stat, a filler word, a
+ * side or a grain, a lead word, a number. A player's surname that is one of these ("Walker" is not,
+ * "Home" would be) is never matched alone, only with the first name, so a question word is never
+ * taken for a player.
+ */
+export function isQuestionWord(word: string): boolean {
+  const w = normalize(word)
+  if (!w || /\d/.test(w)) return true
+  if (FILLER.has(w) || LEADER_FILLER.has(w) || PITCHING_HINTS.includes(w) || HITTING_HINTS.includes(w) || FIELDING_HINTS.includes(w)) return true
+  if (/^(innings?|frames?|seasons?|year|career|home|road|away|first|last|off|faced|versus|records?|longest|shortest|straight|row|consecutive|retired|count|full|bases|loaded|empty|outs?|walk|offs?|runners?|scoring|position|extra|grand|slams?|back|immaculate|comebacks?|rall(?:y|ies)|highest|lowest|fewest|top|best|worst|leaders?|least)$/.test(w)) return true
+  STAT_ANY.lastIndex = 0
+  return STAT_ANY.test(` ${w} `)
+}
+
+/**
  * Every reading of `text` as a finder question, best first, or an empty list when it is not one.
  *
  * One reading per side, and per club when a name could mean more than one (two Chicagos, two
@@ -728,37 +804,14 @@ export function parseFinderText(
 
   // Where, and against whom. Read after the stats, so "home runs" has already gone and cannot be
   // taken for "at home".
-  let venue: FinderVenue = 'any'
-  rest = rest.replace(/(?<![a-z])(at home|home games?|home)(?![a-z])/g, () => { venue = 'home'; return ' ' })
-  rest = rest.replace(/(?<![a-z])(on the road|road games?|road|away games?|away)(?![a-z])/g, () => { venue = 'away'; return ' ' })
+  const placed = takeVenue(rest, 'any')
+  rest = placed.rest
+  let venue: FinderVenue = placed.venue
 
-  // Each mention of a club is a ROLE and every club the name could mean: a city two clubs share
-  // ("Chicago") is every one of them, and each becomes a reading of its own below rather than a
-  // guess. A name that means one club is the ordinary case of the same thing.
-  let teamIds: (string | null)[] = [null]
-  let oppIds: (string | null)[] = [null]
-  const byName = new Map<string, string[]>()
-  for (const c of clubs) {
-    for (const raw of c.names) {
-      const name = normalize(raw)
-      if (!name) continue
-      const ids = byName.get(name) ?? []
-      if (!ids.includes(c.id)) ids.push(c.id)
-      byName.set(name, ids)
-    }
-  }
-  const names = [...byName.keys()].sort((a, b) => b.length - a.length)
-  if (names.length) {
-    const clubRe = new RegExp(`(?<![a-z0-9])(?:(vs\\.?|versus|against|v\\.?|facing|at|for|by|with)\\s+)?(?:the\\s+)?(${alt(names)})(?![a-z0-9])`, 'g')
-    rest = rest.replace(clubRe, (m: string, lead: string | undefined, name: string) => {
-      const ids = byName.get(name)!
-      if (lead && /^(vs|versus|against|v|facing)/.test(lead)) oppIds = ids
-      // "at Boston" is a road game in Boston: the opponent, and the venue with it.
-      else if (lead === 'at') { oppIds = ids; if (venue === 'any') venue = 'away' }
-      else teamIds = ids
-      return ' '.repeat(m.length)
-    })
-  }
+  const clubbed = takeClubs(rest, clubs, venue)
+  rest = clubbed.rest
+  venue = clubbed.venue
+  const { teamIds, oppIds } = clubbed
 
   // The grain, from what is left: the stats and clubs are gone, so "home runs" cannot be "runs" here
   // and "games played" has already been read as a stat.
@@ -1108,6 +1161,50 @@ export function parseRecordText(text: string): { side: RankSide; field: string }
   return parseLeaderText(rest.replace(SINGLE_GAME_G, ' ').replace(/(?<![a-z])(records?|highs?|bests?)(?![a-z])/g, ' '))
     .filter(p => !p.career && p.side !== 'overall' && p.dir !== 'asc')
     .map(p => ({ side: p.side, field: p.field }))
+}
+
+// An inning said as a record's span: "in an inning", "in one frame", "in a half inning".
+const INNING_SPAN = /(?<![a-z])(?:in\s+(?:an|one|a single|a)\s+(?:half[\s-]+)?(?:inning|frame)|per\s+inning)(?![a-z])/g
+
+/** A record asked of any stat, at a grain, narrowed by club, place and year (`parseRecordQuestion`). */
+export interface ParsedRecord {
+  side: FinderSide
+  field: string
+  per: 'game' | 'inning'
+  teamId: string | null
+  oppId: string | null
+  venue: FinderVenue
+  season: number | null
+}
+
+/**
+ * "most walks in a game", "most strikeouts in an inning vs Boston", "most hits in a game at home
+ * 2026": the most of any stat in one game or one inning. Unlike `parseRecordText`, which answers only
+ * the records a Bests card keeps, any stat the Find board can rank at that grain is a record here,
+ * since Find ranks highest first and its first row is the record. The club, place and year are read
+ * off first, so they narrow the record rather than making the words unreadable. Most only: the
+ * fewest of something in one game is nearly always zero, which is no record anybody keeps.
+ */
+export function parseRecordQuestion(text: string, clubs: readonly FinderClubAlias[]): ParsedRecord[] {
+  const clubWords = new Set(clubs.flatMap(c => c.names.flatMap(n => normalize(n).split(' '))))
+  const year = takeYear(` ${fixStatTypos(normalize(text), clubWords)} `)
+  const placed = takeVenue(year.rest, 'any')
+  const clubbed = takeClubs(placed.rest, clubs, placed.venue)
+  let rest = clubbed.rest
+  let per: 'game' | 'inning' | null = null
+  rest = rest.replace(INNING_SPAN, m => { per = 'inning'; return ' '.repeat(m.length) })
+  rest = rest.replace(SINGLE_GAME_G, m => { per ??= 'game'; return ' '.repeat(m.length) })
+  if (!per) return []
+  const grain: 'game' | 'inning' = per
+  rest = rest.replace(/(?<![a-z])(records?|highs?|bests?)(?![a-z])/g, ' ')
+  const read = parseLeaderText(rest).filter(p => !p.career && p.season == null && p.side !== 'overall' && p.dir !== 'asc')
+  // ONE SIDE: the ranking's first, which is the stat's own lean or the side a word named. "Most hr in
+  // a game" is a batter's record; a pitcher's is asked as "most home runs allowed".
+  return read.filter(p => p.side === read[0].side)
+    .filter(p => finderFields(p.side as FinderSide, grain).some(f => f.key === p.field))
+    .flatMap(p => clubbed.teamIds.flatMap(teamId => clubbed.oppIds.flatMap(oppId => (teamId && teamId === oppId ? [] : [{
+      side: p.side as FinderSide, field: p.field, per: grain, teamId, oppId, venue: clubbed.venue, season: year.season,
+    }]))))
 }
 
 // ─── A ranking among one position or role ─────────────────────────────────────

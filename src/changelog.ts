@@ -23,6 +23,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.219.0',
+    date:    '2026-11-10',
+    changes: [
+      {
+        short: 'Search: a record for every stat',
+        full:  'Search answers "most" for any stat in a game or an inning, not only the records Bests keeps: "most walks in a game", "most stolen bases in a game vs Boston", "most strikeouts in an inning 2026". The answer opens Find, ranked, with the record first. Add a player for their own: "most hr in a game by Whitmore".',
+      },
+      {
+        short: 'Search: players in a question',
+        full:  'Search reads a player’s name inside a question. "Sato vs Hunters" opens Sato’s games against Boston, and season totals against them. "Whitmore vs Schroder" opens every plate appearance between a batter and a pitcher, ahead of the side-by-side compare. "Whitmore 2-hit games" and "Schroder 3 strikeouts in an inning" ask the question of that player.',
+      },
+    ],
+  },
+  {
     version: '1.218.0',
     date:    '2026-11-10',
     changes: [

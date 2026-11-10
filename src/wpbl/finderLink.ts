@@ -19,11 +19,20 @@ export const WPBL_FINDER_CLUBS: FinderClubAlias[] = Object.values(WPBL_TEAMS).ma
 }))
 
 /** The Find board asking `p`. */
-export function wpblFinderHref(p: Omit<ParsedFinder, 'season'> & { season?: number | null }): string {
-  const params = new URLSearchParams({ board: 'find', side: p.side, q: encodeFinderQuery(p) })
+export function wpblFinderHref(p: Omit<ParsedFinder, 'season' | 'ignored'> & {
+  season?: number | null; ignored?: string[]; playerId?: string | null; batterId?: string | null; pitcherId?: string | null
+}): string {
+  const params = new URLSearchParams({ board: 'find', side: p.side })
+  // No `q` for a game question with no stat ("Sato vs hunters"), which is the board's default grain.
+  const q = encodeFinderQuery(p)
+  if (q) params.set('q', q)
   if (p.teamId) params.set('team', p.teamId)
   if (p.oppId) params.set('opp', p.oppId)
   if (p.venue !== 'any') params.set('venue', p.venue)
+  // The players, under the names StatsView reads (src/wpbl/stats/address.ts).
+  if (p.playerId) params.set('by', p.playerId)
+  if (p.batterId) params.set('bat', p.batterId)
+  if (p.pitcherId) params.set('pit', p.pitcherId)
   if (p.season) params.set('season', String(p.season))
   // The finder's grammar is URL-safe on purpose (see encodeFinderQuery), so undo the escaping
   // URLSearchParams gives `~`: the address should read the way the board writes it.
