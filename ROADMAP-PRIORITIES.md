@@ -166,6 +166,13 @@ Started by the announcement (teams, cities, dates), not by the calendar: each ne
 of 2027. Reports say the four clubs move to their home cities and two expansion clubs join; none of
 that is confirmed. Detail in *ROADMAP-WPBL, "From the Nov 1, 2026 brainstorm".*
 
+**Home's 2027 Rosters card** ([`home/RostersCard.tsx`](src/wpbl/home/RostersCard.tsx), shipped Nov 9,
+2026 for the re-signing window) grows one phase at a time, each only once the league publishes it:
+the draft and combine dates (`DRAFT_DATE` / `COMBINE_DATE` in `offseason2027.ts`, null until then);
+the draft itself (a `drafted` move kind in /admin, picks by round, each club's count toward 20); free
+agency (a `signed` kind, same count); then the schedule, when the card becomes Opening Day and
+`offseasonByCalendar` starts turning Home back.
+
 20. **The home-park era** (build): park factors from our own run-expectancy table, home and road
     splits, a page per venue, road trips. None of it could exist while every game was in Springfield.
 21. **The press box** (build): game notes before every game, the pack a club hands broadcasters and

@@ -22,17 +22,12 @@ import { NameText } from '../ui/NameText'
 import { isModified } from '../nav'
 import { track, EVENTS } from '../lib/analytics'
 import {
-  rosterBoards, resignPhase, ROSTERS_2026, DRAFT_ORDER_2027, MAX_RESIGNED, RESIGN_WINDOW,
+  rosterBoards, resignPhase, windowLine, ROSTERS_2026, DRAFT_ORDER_2027, MAX_RESIGNED,
   ROSTER_EXPLAINER_URL, ROSTER_SEASON, CLUB_NAMES_2026,
 } from './offseason2027'
 import type { WpblPlayer, WpblRosterMove, WpblTeam } from './types'
 
 const SEASON_2026 = 2026
-
-/** "Nov 20", in the league's own time zone for the window (ET). */
-function shortDate(ms: number): string {
-  return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' })
-}
 
 /** An announcement date ('YYYY-MM-DD') as "Nov 12". */
 function dayLabel(iso: string): string {
@@ -50,14 +45,6 @@ function fmtWar(v: number | undefined): string {
 /** Most valuable 2026 first, which is the order a club weighs them in; no line sorts last. */
 function byWar(ids: readonly string[], war: Map<string, number>): string[] {
   return [...ids].sort((a, b) => (war.get(b) ?? -Infinity) - (war.get(a) ?? -Infinity))
-}
-
-export function windowLine(now: number): string {
-  const phase = resignPhase(now)
-  const span = `${shortDate(RESIGN_WINDOW.opens)} to ${shortDate(RESIGN_WINDOW.closes)}`
-  if (phase === 'before') return `Re-signing window: ${span}`
-  if (phase === 'open') return `Re-signing window open: ${span}`
-  return `Re-signing window closed ${shortDate(RESIGN_WINDOW.closes)}`
 }
 
 interface Season2026 { war: Map<string, number>; pos: Map<string, string> }

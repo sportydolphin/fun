@@ -6,6 +6,7 @@ import { DISCORD_DISMISS_KEY } from '../discordInvite'
 import { awardsResultsShowOnHome } from '../awards'
 import { FanPhotoHomeCardSkeleton } from '../FanPhotoViews'
 import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard } from './PlayerCards'
+import { RostersCardView } from './RostersCard'
 import type { WpblTeam } from '../types'
 import { offseasonByCalendar } from '../offseasonCalendar'
 import { SECTION_GAP, HEADER_GAP, homeWideSx } from './shared'
@@ -210,6 +211,10 @@ function OffseasonHomeSkeleton() {
             }} />
           ))}
         </Box>
+      </Box>
+
+      <Box sx={{ mt: 1.5 }}>
+        <RostersCardView teams={EMPTY_TEAMS} players={[]} moves={null} />
       </Box>
 
       {/* The player cards draw their own empty state (no players yet), so the placeholder is the

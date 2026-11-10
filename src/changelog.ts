@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.212.0',
+    date:    '2026-11-09',
+    changes: [
+      {
+        short: '2027 Rosters on Home',
+        full:  'WPBL Home leads with 2027 Rosters: each club\'s re-signings out of 10, its newest re-signing, and the re-signing window. Each club opens /wpbl/rosters.',
+      },
+    ],
+  },
+  {
     version: '1.211.2',
     date:    '2026-11-09',
     changes: [
