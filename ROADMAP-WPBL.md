@@ -1265,8 +1265,11 @@ Still unanswered after these, in the order worth doing:
    tracks who holds each one: the lineup cards' starters (`src/wpbl/fielders.ts`), every change the log
    writes ("Jua Park to 2b for Amanda Gianelloni"), and the play's own pitcher at P. Against 2026's box
    scores, every error and double play it places is on the right fielder: 144 of 149 errors placed
-   (none wrong), 170 of 174 double plays (one wrong). Not yet: putouts and assists off the chains
-   ("ss to 2b to 1b"), and "at shortstop" in the search bar (the board's Position picker asks it).
+   (none wrong), 170 of 174 double plays (one wrong). Putouts and assists are read off the same
+   clauses (`outsIn`): 1,604 of 1,642 putouts and 636 of 667 assists on the right fielder, 7 credits
+   more than the box gives. A club's half in the field is a second switch on the grain (`byClub`,
+   `clubinning` in the address, "by a team" in search), and a position is asked in words ("errors at
+   shortstop", "by a catcher", "at 2b").
 9. **Not answerable from the data**: intentional walks (11 recorded in 2026), left on base (never
    recorded), earned runs and RBI in an inning (the log cannot say).
 

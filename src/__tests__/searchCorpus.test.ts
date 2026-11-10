@@ -106,6 +106,13 @@ const FIRST: [string, string][] = [
   // The club in the field by the inning, and the play log's counts over a game or a season.
   ['most errors in an inning', 'find: Most errors in an inning (Fielding, single innings)'],
   ['2 errors in an inning', 'find: Errors at least 2 (Fielding, single innings)'],
+  ['2 errors in an inning by a team', 'find: Errors at least 2 (Fielding, club innings)'],
+  ['most errors in an inning by a team', 'record: Most errors in an inning by a club'],
+  // A position is where a fielder's inning was played.
+  ['errors at shortstop', 'find: Errors at least 1 and Position exactly SS (Fielding, single innings)'],
+  ['2 errors by a catcher in an inning', 'find: Errors at least 2 and Position exactly C (Fielding, single innings)'],
+  ['putouts at 1b', 'find: Putouts at least 1 and Position exactly 1B (Fielding, single innings)'],
+  ['assists by shortstops', 'find: Assists at least 1 and Position exactly SS (Fielding, single innings)'],
   ['most pickoffs in a game', 'record: Most pickoffs in a game'],
   ['most pickoffs', 'record: Most pickoffs'],
   ['most pitches seen in a game', 'record: Most pitches seen in a game'],

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { fieldingInningLines, inningPitchingLines, plateAppearanceLines, playTotals, runnerEvents, teamInningLines } from '../inningLines'
+import { clubFieldingInningLines, fieldingInningLines, inningPitchingLines, plateAppearanceLines, playTotals, runnerEvents, teamInningLines } from '../inningLines'
 import type { LeagueGame, RunValuePlay } from '../types'
 import { WPBL_LEAGUE } from '../../wpbl/league'
 
@@ -268,6 +268,29 @@ describe('fieldingInningLines', () => {
     expect(lines.find(l => l.player_id === 'park')).toMatchObject({ e: 1, pos: 6 })
     expect(lines.find(l => l.player_id === 'ss1')).toBeUndefined()
     expect(lines.find(l => l.player_id === 'pit')).toMatchObject({ e: 1, pos: 1 })
+  })
+
+  it('reads putouts and assists the way the box score credits them', () => {
+    const plays = [
+      play({ outs: 0, event_type: 'flyout', pitch_sequence: 'P', narrative: 'Jo Doe flied out to lf (0-0).' }),
+      play({ outs: 1, event_type: 'groundout', pitch_sequence: 'P', narrative: 'Al Roe grounded out to ss (1-0 B).' }),
+      play({ outs: 2, event_type: 'out', pitch_sequence: 'P', narrative: 'Bo Poe grounded into double play ss to 2b to 1b (0-0); Cy Loe out on the play.' }),
+    ]
+    const by = (id: string) => fieldingInningLines(plays, [game()], src()).find(l => l.player_id === id)
+    expect(by('lf1')).toMatchObject({ po: 1, a: 0 })
+    // A ground ball to short: her assist, first base's putout. In the 6-4-3, short and second assist,
+    // second and first put out.
+    expect(by('ss1')).toMatchObject({ po: 0, a: 2 })
+    expect(by('2b1')).toMatchObject({ po: 1, a: 1 })
+    expect(by('1b1')).toMatchObject({ po: 2, a: 0 })
+  })
+
+  it('counts every charge on the club’s line, placed or not', () => {
+    const plays = [
+      play({ outs: 0, event_type: 'unknown', narrative: 'Jo Doe reached on an error by cf.' }),
+      play({ outs: 0, event_type: 'unknown', narrative: 'Al Roe reached on a throwing error by ss.' }),
+    ]
+    expect(clubFieldingInningLines(plays, [game()], src())).toEqual([expect.objectContaining({ team_id: 'home', e: 2, pos: 0 })])
   })
 
   it('credits nobody at a position it cannot place', () => {

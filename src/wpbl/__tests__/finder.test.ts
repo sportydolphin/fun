@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   runWpblFinder, encodeFinderQuery, decodeFinderQuery, parseFinderValue, describeFinderQuery, describeFinderConditions,
-  finderColumns, finderFields, validFinderSort, decodeFinderPer, EMPTY_FINDER_QUERY, type FinderQuery,
+  finderColumns, finderFields, validFinderSort, decodeFinderByClub, decodeFinderPer, EMPTY_FINDER_QUERY, type FinderQuery,
 } from '../derive/finder'
 import { conditionsForPer, finderPlayerAt, hasMatchup, hasPlayerFilter } from '../../league/finder'
 import type { WpblBattingLine, WpblFieldingLine, WpblGame, WpblPitchingLine, WpblPlayer } from '../types'
@@ -797,3 +797,15 @@ describe('the finder, with the play totals', () => {
     expect(finderFields('hitting', 'season', false).map(f => f.key)).not.toContain('pitches')
   })
 })
+
+// Fielding by the inning, a fielder's or the club's: the address says which.
+describe('the finder, fielding by the inning', () => {
+  it('reads and writes the club’s inning in the address', () => {
+    expect(encodeFinderQuery({ per: 'inning', byClub: true, conditions: [{ field: 'e', op: 'gte', value: 2 }] })).toBe('clubinning~e.gte.2')
+    expect(decodeFinderPer('clubinning~e.gte.2')).toBe('inning')
+    expect(decodeFinderByClub('clubinning~e.gte.2')).toBe(true)
+    expect(decodeFinderByClub('inning~e.gte.2')).toBe(false)
+    expect(decodeFinderQuery('inning~pos.eq.6', 'fielding')).toEqual([{ field: 'pos', op: 'eq', value: 6 }])
+  })
+})
+

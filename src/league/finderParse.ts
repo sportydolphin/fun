@@ -48,6 +48,8 @@ export interface ParsedFinder {
   side: FinderBoardSide
   per: FinderPer
   conditions: FinderCondition[]
+  /** Fielding by the inning, filed under the club ("most errors in an inning by a team"). */
+  byClub?: boolean
   teamId: string | null
   oppId: string | null
   venue: FinderVenue
@@ -300,6 +302,13 @@ const CLUB_FEATS: { re: RegExp; side: FinderBoardSide; conditions: (m: string[])
   { re: /(?<![a-z])errorless\s+(?:games?|wins?)(?![a-z])/g, side: 'fielding', conditions: () => [{ field: 'e', op: 'eq', value: 0 }] },
 ]
 
+const FIELD_POSITION_WORDS = /(?<![a-z0-9])(?:(?:at|playing|by\s+(?:a|an|the)|from\s+(?:a|the)|among)\s+)?(catchers?|first\s+base(?:m[ae]n)?|second\s+base(?:m[ae]n)?|third\s+base(?:m[ae]n)?|shortstops?|left\s+field(?:ers?)?|center\s+field(?:ers?)?|right\s+field(?:ers?)?|(?<=(?:at|playing)\s+)(?:c|1b|2b|3b|ss|lf|cf|rf))(?![a-z0-9])/g
+const fieldPositionNumber = (word: string): number => {
+  const w = word.replace(/\s+/g, ' ')
+  const table: [RegExp, number][] = [[/^(catcher|c$)/, 2], [/^(first|1b)/, 3], [/^(second|2b)/, 4], [/^(third|3b)/, 5],
+    [/^(shortstop|ss)/, 6], [/^(left|lf)/, 7], [/^(center|cf)/, 8], [/^(right|rf)/, 9]]
+  return table.find(([re]) => re.test(w))?.[1] ?? 0
+}
 const STEALS_OF_HOME = /(?<![a-z0-9])(?:(\d+|one|two|three)\s+)?(?:steals?\s+of\s+home|stole\s+home|home\s+steals?)(?![a-z])/g
 
 // ─── The plate-appearance grain, said in words ────────────────────────────────
@@ -768,6 +777,18 @@ export function parseFinderText(
     })
   }
   rest = rest.replace(CLUB_WORDS, m => { clubHint = true; return ' '.repeat(m.length) })
+  // A FIELDING POSITION ("errors at shortstop", "by a catcher", "at 2b"): only a fielder's inning knows
+  // where a play was made, so naming one asks Fielding by the inning. The abbreviations only after
+  // "at" or "playing", since a bare "2b" is a double and "ss" could start a name.
+  let posCond: FinderCondition | null = null
+  rest = rest.replace(FIELD_POSITION_WORDS, (m: string, word: string) => {
+    const n = fieldPositionNumber(word)
+    if (!n) return m
+    posCond = { field: 'pos', op: 'eq', value: n }
+    featSide = 'fielding'
+    inningHint = true
+    return ' '.repeat(m.length)
+  })
   // A STEAL OF HOME needs no number ("steals of home" is any), and is read whole before the stats,
   // which would take "steals" alone and leave "home" for the venue.
   rest = rest.replace(STEALS_OF_HOME, (m: string, n: string | undefined) => {
@@ -861,7 +882,16 @@ export function parseFinderText(
       })
     }
   }
-  if (!pending.length && !forLine.seen && !feats.length) return []
+  // "Errors at shortstop": a fielding stat said with no number beside a position is any of it.
+  if (posCond && !pending.length) {
+    rest = rest.replace(STAT_ONLY, (m: string, p: string) => {
+      const alias = STAT_ALIASES[p]
+      if (!alias?.fielding) return m
+      feats.push({ field: alias.fielding, op: 'gte', value: 1 })
+      return ' '.repeat(m.length)
+    })
+  }
+  if (!pending.length && !forLine.seen && !feats.length && !posCond) return []
   pending.sort((x, y) => x.at - y.at)
 
   // Where, and against whom. Read after the stats, so "home runs" has already gone and cannot be
@@ -925,6 +955,8 @@ export function parseFinderText(
       if (!sides.some(o => o !== side && p.alias[o])) score += 2
       else if (p.alias.lean === side) score += 1
     }
+    // The position goes after the stats, so the stat leads the list rather than a column of SS.
+    if (posCond) byField.set('pos', posCond)
     if (!ok) continue
     if (hinted[side]) score += 3
     // The engine reads at most six conditions off a link (decodeFinderQuery).
@@ -972,7 +1004,9 @@ export function parseFinderText(
         for (const oppId of oppIds) {
           // A club cannot play itself, which is what "Chicago vs Chicago" would otherwise offer.
           if (teamId && teamId === oppId) continue
-          readings.push({ parsed: { side, per, conditions, teamId, oppId, venue, ignored, season }, score: score + bonus })
+          // "By a team" with an inning on Fielding is the club's half in the field.
+          const byClub = side === 'fielding' && per === 'inning' && clubHint && !posCond
+          readings.push({ parsed: { side, per, conditions, teamId, oppId, venue, ignored, season, ...(byClub ? { byClub } : {}) }, score: score + bonus })
         }
       }
     }
@@ -1248,6 +1282,8 @@ export interface ParsedRecord {
   /** A season only where the caller asked for one (`season: true`): the stats tables rank a season,
    *  so this is for the stats they have no column for ("most singles", "most errors"). */
   per: 'game' | 'inning' | 'season' | 'club'
+  /** Fielding by the inning, the club's half rather than a fielder's. */
+  byClub?: boolean
   teamId: string | null
   oppId: string | null
   venue: FinderVenue
@@ -1304,6 +1340,7 @@ export function parseRecordQuestion(text: string, clubs: readonly FinderClubAlia
     .filter(p => finderFields(p.side, grain, plays).some(f => f.key === p.field && f.key !== 'g'))
     .flatMap(p => clubbed.teamIds.flatMap(teamId => clubbed.oppIds.flatMap(oppId => (teamId && teamId === oppId ? [] : [{
       side: p.side, field: p.field, per: grain, teamId, oppId, venue: clubbed.venue, season: year.season,
+      ...(byClub && grain === 'inning' && p.side === 'fielding' ? { byClub: true } : {}),
     }]))))
 }
 

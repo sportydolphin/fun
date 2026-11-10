@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { runWpblFinder, validFinderSort, type FinderBoardSide, type FinderQuery, type FinderSort } from './derive/finder'
 import { conditionsForPer, finderNeedsPlays, hasPlayerFilter, type FinderPer, type FinderRow } from '../league/finder'
 import { requestPlay } from './entryUrl'
-import { fieldingInningLines, inningPitchingLines, plateAppearanceLines, playTotals as buildPlayTotals, teamInningLines, type FielderSource } from '../league/inningLines'
+import { clubFieldingInningLines, fieldingInningLines, inningPitchingLines, plateAppearanceLines, playTotals as buildPlayTotals, teamInningLines, type FielderSource } from '../league/inningLines'
 import { wpblFielderSource } from './fielders'
 import { WPBL_LEAGUE } from './league'
 import { fetchWpblPlayLog, getCachedWpblPlayLog } from './api/plays'
@@ -216,10 +216,13 @@ export default function WpblFindView({
     return () => { cancelled = true }
   }, [askFielders, fielders, teams, players, batting, pitching, fielding])
   const fieldInnings = useMemo(
-    () => (askFielders && plays && fielders ? fieldingInningLines(cut(plays), games, fielders) : undefined),
-    [askFielders, plays, fielders, cut, games])
-  // A club's game, and a club's half-inning at the plate: rows and tally are clubs.
-  const clubRows = query.per === 'club' || (query.per === 'inning' && side === 'hitting')
+    () => (askFielders && plays && fielders && !query.byClub ? fieldingInningLines(cut(plays), games, fielders) : undefined),
+    [askFielders, plays, fielders, query.byClub, cut, games])
+  const clubFieldInnings = useMemo(
+    () => (askFielders && plays && fielders && query.byClub ? clubFieldingInningLines(cut(plays), games, fielders) : undefined),
+    [askFielders, plays, fielders, query.byClub, cut, games])
+  // A club's game, and a club's half-inning at the plate or (asked so) in the field: rows are clubs.
+  const clubRows = query.per === 'club' || (query.per === 'inning' && (side === 'hitting' || (side === 'fielding' && !!query.byClub)))
   // THE NICKNAME, NOT THE FULL NAME: every name column here steps a name down the way it does a
   // person's, so "Los Angeles Queens" came out "L. Queens", which reads as a player. One word has no
   // stage to step to, and four clubs never share a nickname.
@@ -269,8 +272,8 @@ export default function WpblFindView({
     }
   }, [side, batting, pitching, fielding, plateAppearances, players, teams, query.playerId, query.batterId, query.pitcherId])
   const result = useMemo(
-    () => runWpblFinder(side, batting, pitching, players, games, query, 50, sort, { eraInnings, qualify, fielding, innings, plateAppearances, teamInnings, fieldInnings, playTotals, clubName }),
-    [side, batting, pitching, fielding, players, games, query, sort, eraInnings, qualify, innings, plateAppearances, teamInnings, fieldInnings, playTotals, clubName])
+    () => runWpblFinder(side, batting, pitching, players, games, query, 50, sort, { eraInnings, qualify, fielding, innings, plateAppearances, teamInnings, fieldInnings, clubFieldInnings, playTotals, clubName }),
+    [side, batting, pitching, fielding, players, games, query, sort, eraInnings, qualify, innings, plateAppearances, teamInnings, fieldInnings, clubFieldInnings, playTotals, clubName])
   // THE EXAMPLES' COUNTS, for the board before a question: each one run in the scope on screen. A
   // play-log example counts only once the log is in hand (cached, or read for a play-log grain),
   // since the start screen must not cost the read the play-log grains are careful to defer.

@@ -255,11 +255,11 @@ export interface FinderPlayerPicks {
 }
 
 /** The club, opponent, venue and players in words: "for NY, vs LA, at home, by K. Whitmore". */
-function scopeWords(side: FinderBoardSide, q: Pick<FinderQuery, 'teamId' | 'oppId' | 'venue' | 'per' | 'batterId' | 'pitcherId' | 'playerId'>,
+function scopeWords(side: FinderBoardSide, q: Pick<FinderQuery, 'teamId' | 'oppId' | 'venue' | 'per' | 'batterId' | 'pitcherId' | 'playerId' | 'byClub'>,
   clubAbbr: (id: string) => string, name: (id: string) => string = id => id): string {
   const pa = q.per === 'pa'
   return [
-    !pa && q.playerId && finderPlayerApplies(side, q.per) && `by ${name(q.playerId)}`,
+    !pa && q.playerId && finderPlayerApplies(side, q.per, q.byClub) && `by ${name(q.playerId)}`,
     q.teamId && `for ${clubAbbr(q.teamId)}`,
     q.oppId && `vs ${clubAbbr(q.oppId)}`,
     q.venue === 'home' ? 'at home' : q.venue === 'away' ? 'on the road' : null,
@@ -493,7 +493,7 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
         <Box role="row" sx={{ ...rowSx, alignItems: 'end', px: 0.5, pb: 0.75 }}>
           <Box role="columnheader" sx={{ ...plainHead, textAlign: 'center' }}>#</Box>
           {/* Hitting by the inning is a club's half-inning at the plate (runFinder), so its rows are clubs. */}
-          <Box role="columnheader" sx={plainHead}>{whoFor(side, query.per)[0] === 'club' ? 'Club' : 'Player'}</Box>
+          <Box role="columnheader" sx={plainHead}>{whoFor(side, query.per, query.byClub)[0] === 'club' ? 'Club' : 'Player'}</Box>
           {!season && head('date', 'Game', 'Sort by date', 'left')}
           {!season && <Box role="columnheader" sx={plainHead}>Result</Box>}
           {cols.map(c => head(c.key, c.unit, c.label, 'right'))}
@@ -595,8 +595,8 @@ function SeasonRow<P extends LeaguePlayer, G extends LeagueGame>({ row, i, rank,
 
 /** Who a row is, for the counts: a player on every side, and a club on Hitting by the inning, where
  *  a row is a club's half-inning at the plate. */
-function whoFor(side: FinderBoardSide, per: FinderPer): [string, string] {
-  if (per === 'club' || (per === 'inning' && side === 'hitting')) return ['club', 'clubs']
+function whoFor(side: FinderBoardSide, per: FinderPer, byClub = false): [string, string] {
+  if (per === 'club' || (per === 'inning' && (side === 'hitting' || (side === 'fielding' && byClub)))) return ['club', 'clubs']
   return side === 'pitching' ? ['pitcher', 'pitchers'] : side === 'fielding' ? ['fielder', 'fielders'] : ['hitter', 'hitters']
 }
 
@@ -753,7 +753,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // A PLAYER IS A QUESTION ON ITS OWN: "every trip to the plate between these two" or "every game
   // Sato pitched" asks no stat, and answers with the log rather than the examples.
   const hasConditions = query.conditions.length > 0 || hasPlayerFilter(side, query)
-  const playerHere = !!picks && query.per !== 'pa' && finderPlayerApplies(side, query.per)
+  const playerHere = !!picks && query.per !== 'pa' && finderPlayerApplies(side, query.per, query.byClub)
   const isFolded = folded && hasConditions
 
   const setCondition = (i: number, c: FinderCondition) =>
@@ -779,7 +779,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // included: `describeFinderQuery` knows only the stat conditions, and a summary that omits the
   // who and where claims a wider search than it ran. The unasked question gets its own wording,
   // since "612 games where every game line" reads as a bug.
-  const who = whoFor(side, query.per)
+  const who = whoFor(side, query.per, query.byClub)
   const noun = GRAIN_NOUN[query.per]
   const tallyTitle = `Most ${noun[1]} matching`
   const games_ = season ? (result.total === 1 ? who[0] : who[1])
@@ -874,6 +874,16 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
           <PillGroup options={grains.map(per => ({ value: per, label: GRAIN_SHORT[per] }))}
             value={query.per} onChange={v => setPer(v as FinderPer)} />
         </Box>
+        {/* FIELDING BY THE INNING IS A FIELDER'S OR A CLUB'S: the log places most plays on a fielder,
+            and a club's half counts every one. The second switch only where the grain has both. */}
+        {side === 'fielding' && query.per === 'inning' && (
+          <Box role="group" aria-label="Innings by" sx={{ alignSelf: 'flex-start' }}>
+            <PillGroup options={[{ value: 'fielder', label: 'Fielders' }, { value: 'club', label: 'Clubs' }]}
+              value={query.byClub ? 'club' : 'fielder'}
+              onChange={v => onQuery({ ...query, byClub: v === 'club', playerId: v === 'club' ? null : query.playerId,
+                conditions: v === 'club' ? query.conditions.filter(c => c.field !== 'pos') : query.conditions })} />
+          </Box>
+        )}
 
         {/* Folded: the question in chips, and the way back into the form. */}
         {hasConditions && (
