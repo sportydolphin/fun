@@ -2,7 +2,7 @@ import { useDark } from '../ui/useDark'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { runWpblFinder, validFinderSort, type FinderBoardSide, type FinderQuery, type FinderSort } from './derive/finder'
 import { conditionsForPer, finderNeedsPlays, hasPlayerFilter, type FinderPer, type FinderRow } from '../league/finder'
-import { requestPlay } from './entryUrl'
+import { boxScoreOf, requestBoxScore, requestPlay } from './entryUrl'
 import { clubFieldingInningLines, fieldingInningLines, inningPitchingLines, plateAppearanceLines, playTotals as buildPlayTotals, teamInningLines, type FielderSource } from '../league/inningLines'
 import { wpblFielderSource } from './fielders'
 import { WPBL_LEAGUE } from './league'
@@ -324,12 +324,19 @@ export default function WpblFindView({
   // AN INNING ROW OPENS ITS INNING, not the top of the game: the answer to "three strikeouts in an
   // inning" is those three at-bats. In the app the play is handed to Game Center (requestPlay); a
   // new tab gets it as the `#play-N` fragment a link to one at-bat already uses.
+  // Any other row opens its game at the box score, on the row's club (requestBoxScore): the line is
+  // the answer, and a final's Recap is not where it is.
   const openRowGame = (r: FinderRow<WpblPlayer, WpblGame>) => (r.inning
     ? (g: WpblGame) => { requestPlay(g.id, r.inning!.sequence); onOpenGame?.(g) }
     : onOpenGame)
   const rowGameLink = (r: FinderRow<WpblPlayer, WpblGame>) => {
-    const link = gameLink(r.game, openRowGame(r))
-    return r.inning && link.href ? { ...link, href: `${link.href}#play-${r.inning.sequence}` } : link
+    if (r.inning) {
+      const link = gameLink(r.game, openRowGame(r))
+      return link.href ? { ...link, href: `${link.href}#play-${r.inning.sequence}` } : link
+    }
+    const box = r.game ? boxScoreOf(r.game, r.teamId) : null
+    const link = gameLink(r.game, onOpenGame && ((g: WpblGame) => { if (box) requestBoxScore(g.id, box.side); onOpenGame(g) }))
+    return box && link.href ? { ...link, href: `${link.href}${box.query}` } : link
   }
 
   return (
@@ -344,7 +351,7 @@ export default function WpblFindView({
         <GameLineRow key={r.key} rank={rank.rank} tied={rank.tied} name={r.name} player={r.player}
           teamId={r.teamId} game={r.game} detail={r.detail}
           value={r.headlineDisplay} unit={unit} accent={accent} divider={i > 0}
-          nameOpens="game" emphasizeRank={false} club={clubRows}
+          nameOpens="game" emphasizeRank={false} club={clubRows} opensPlay={!!r.inning}
           onOpenPlayer={onOpenPlayer} onOpenGame={openRowGame(r)} />
       )}
       rowParts={r => ({

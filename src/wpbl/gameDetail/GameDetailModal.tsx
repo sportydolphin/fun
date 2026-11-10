@@ -20,7 +20,7 @@ import { wpblGameCard } from '../ogCard'
 import { ModalShell, SegNav, TeamBadge, CopyLinkButton, pressable, FOCUS_RING, chromePx, TAPPABLE } from '../ui'
 import SwipeableViews from '../SwipeableViews'
 import type { WpblRunValuePlay } from '../types'
-import { PLAY_HASH_RE, takeOpeningPlayHash } from '../entryUrl'
+import { PLAY_HASH_RE, takeOpening } from '../entryUrl'
 import FeedDelayNote from '../FeedDelayNote'
 import { ExpandButton } from '../../ui/ExpandButton'
 import { typePx } from '../../ui/scale'
@@ -110,15 +110,21 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
   const urlTab = useRef(asTab(initialTab)).current
   // Read once, at mount: the play this game was opened to (entryUrl.ts), whether by a link or by a
   // row inside the app. Held here because the play-by-play pane remounts on the first refresh.
-  const [openingHash] = useState(() => takeOpeningPlayHash(seed.id))
+  const [opening] = useState(() => takeOpening(seed.id))
+  const openingHash = opening.hash
   const [tab, setTab] = useState<Tab>(() =>
     // A LINK TO ONE AT-BAT LANDS ON THE LOG THAT HOLDS IT. Without this the fragment opened the
     // modal on the Recap and waited for the reader to find the right tab, which is the whole of
     // what the link was for. Under an explicit ?tab=, because that is the reader naming a tab
     // and this is only ever inferring one.
-    urlTab ?? (PLAY_HASH_RE.test(openingHash) ? 'plays'
+    // A game reached through a stat (a Find row, a Bests card) opens on the box score that holds
+    // the line, on that club's side (requestBoxScore). Ahead of `urlTab`, which a cold open captured
+    // and every later game inherits.
+    opening.box ? 'box' : urlTab ?? (PLAY_HASH_RE.test(openingHash) ? 'plays'
       : seed.status === 'final' ? 'recap' : seed.status === 'live' ? 'live' : 'box'))
-  const [boxTeam, setBoxTeam] = useState<'away' | 'home'>(() => (initialSide === 'home' ? 'home' : 'away'))
+  // A side asked for in-app wins over the one captured at the cold open: that is older, and it can be
+  // some other page's `side` (Stats' `?side=pitching` reached here as the box score's club).
+  const [boxTeam, setBoxTeam] = useState<'away' | 'home'>(() => opening.box ?? (initialSide === 'home' ? 'home' : 'away'))
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => cached?.lines ?? { batting: [], pitching: [] })
   const [plays, setPlays] = useState<WpblGamePlay[]>(() => cached?.plays ?? [])

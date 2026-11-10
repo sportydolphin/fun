@@ -150,7 +150,7 @@ function outsAfterRow(sorted: RunValuePlay[], i: number, lastHalf: Map<string, s
   return walkOff ? p.outs : 3
 }
 
-export function inningPitchingLines(league: League, plays: RunValuePlay[], games: LeagueGame[]): InningPitchingLine[] {
+function buildInningPitchingLines(league: League, plays: RunValuePlay[], games: LeagueGame[]): InningPitchingLine[] {
   const gameById = new Map(games.map(g => [g.id, g]))
   const sorted = inOrder(plays, gameById)
   const lastHalf = lastHalves(sorted)
@@ -351,7 +351,7 @@ function markHitRuns(lines: PlateAppearanceLine[], gameById: ReadonlyMap<string,
 
 /** Every plate appearance in the plays handed in. `games` says which club is in the field and how a
  *  game ended (for the walk-off); a play whose game is missing is skipped, as above. */
-export function plateAppearanceLines(league: League, plays: RunValuePlay[], games: LeagueGame[]): PlateAppearanceLine[] {
+function buildPlateAppearanceLines(league: League, plays: RunValuePlay[], games: LeagueGame[]): PlateAppearanceLine[] {
   const gameById = new Map(games.map(g => [g.id, g]))
   const sorted = inOrder(plays, gameById)
 
@@ -562,7 +562,7 @@ function outsIn(clause: string): { po: string[]; a: string[] } {
 }
 
 /** One pass over the plays: every fielder's half-innings, and every club's in the field. */
-function fieldingPass(plays: RunValuePlay[], games: LeagueGame[], src: FielderSource): { fielders: FieldingInningLine[]; clubs: FieldingInningLine[] } {
+function buildFieldingPass(plays: RunValuePlay[], games: LeagueGame[], src: FielderSource): { fielders: FieldingInningLine[]; clubs: FieldingInningLine[] } {
   const gameById = new Map(games.map(g => [g.id, g]))
   // Who is at each position, per club in each game, as of the play being read.
   const align = new Map<string, Map<string, string>>()
@@ -706,7 +706,7 @@ export interface PlayTotals {
  * is not counted twice), and a runner's pickoffs and steals of home (`runnerResolver`). Keyed
  * `${game_id}|${player_id}`.
  */
-export function playTotals(league: League, plays: RunValuePlay[], games: LeagueGame[]): Map<string, PlayTotals> {
+function buildPlayTotals(league: League, plays: RunValuePlay[], games: LeagueGame[]): Map<string, PlayTotals> {
   const out = new Map<string, PlayTotals>()
   const at = (game: string, player: string) => {
     const key = `${game}|${player}`
@@ -732,7 +732,7 @@ export function playTotals(league: League, plays: RunValuePlay[], games: LeagueG
   return out
 }
 
-export function teamInningLines(league: League, plays: RunValuePlay[], games: LeagueGame[]): TeamInningLine[] {
+function buildTeamInningLines(league: League, plays: RunValuePlay[], games: LeagueGame[]): TeamInningLine[] {
   const gameById = new Map(games.map(g => [g.id, g]))
   const sorted = inOrder(plays, gameById)
   const out: TeamInningLine[] = []
@@ -787,4 +787,53 @@ export function teamInningLines(league: League, plays: RunValuePlay[], games: Le
   }
   close()
   return out
+}
+
+// ─── Built once per log ───────────────────────────────────────────────────────
+//
+// EACH OF THESE IS A WALK OF A WHOLE SEASON'S LOG, about 16ms on a desktop for 3,707 plays and five
+// times that on a phone, and the same season was being walked again and again: the search box asked
+// it once for every Find row it counted (up to four a pause), once a keystroke for a plate-appearance
+// record or a first, and the Find board a row opens built it once more. Keyed on the identity of the
+// log and the games handed in, so a reader holding the same arrays gets the same lines back, and a
+// fresh read of the log (a new array) builds fresh lines while the old ones are collected. A caller
+// that cuts the log or the schedule must hand the same cut back each time to share it (`seasonGames`
+// and the identity-keeping `cut` in src/wpbl), or it builds its own copy, which is only slower.
+//
+// THE LINES ARE SHARED, SO NOTHING MAY CHANGE THEM. Every reader maps or filters into arrays of its
+// own (runFinder copies a line before it relabels one); sorting or editing one of these in place
+// would change what every other surface sees.
+type Built = Map<unknown, unknown>
+const built = new WeakMap<readonly unknown[], WeakMap<readonly unknown[], Built>>()
+function remembered<R>(build: unknown, extra: object, plays: readonly unknown[], games: readonly unknown[], make: () => R): R {
+  let byGames = built.get(plays)
+  if (!byGames) { byGames = new WeakMap(); built.set(plays, byGames) }
+  let byBuild = byGames.get(games)
+  if (!byBuild) { byBuild = new Map(); byGames.set(games, byBuild) }
+  let byExtra = byBuild.get(build) as WeakMap<object, R> | undefined
+  if (!byExtra) { byExtra = new WeakMap(); byBuild.set(build, byExtra) }
+  if (byExtra.has(extra)) return byExtra.get(extra)!
+  const out = make()
+  byExtra.set(extra, out)
+  return out
+}
+
+export function inningPitchingLines(league: League, plays: RunValuePlay[], games: LeagueGame[]): InningPitchingLine[] {
+  return remembered(buildInningPitchingLines, league, plays, games, () => buildInningPitchingLines(league, plays, games))
+}
+
+export function plateAppearanceLines(league: League, plays: RunValuePlay[], games: LeagueGame[]): PlateAppearanceLine[] {
+  return remembered(buildPlateAppearanceLines, league, plays, games, () => buildPlateAppearanceLines(league, plays, games))
+}
+
+export function playTotals(league: League, plays: RunValuePlay[], games: LeagueGame[]): Map<string, PlayTotals> {
+  return remembered(buildPlayTotals, league, plays, games, () => buildPlayTotals(league, plays, games))
+}
+
+export function teamInningLines(league: League, plays: RunValuePlay[], games: LeagueGame[]): TeamInningLine[] {
+  return remembered(buildTeamInningLines, league, plays, games, () => buildTeamInningLines(league, plays, games))
+}
+
+function fieldingPass(plays: RunValuePlay[], games: LeagueGame[], src: FielderSource): { fielders: FieldingInningLine[]; clubs: FieldingInningLine[] } {
+  return remembered(buildFieldingPass, src, plays, games, () => buildFieldingPass(plays, games, src))
 }

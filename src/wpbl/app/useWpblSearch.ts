@@ -25,7 +25,7 @@ import { track, EVENTS } from '../../lib/analytics'
 import {
   wpblGamePath, wpblComparePath,
 } from '../routes'
-import { currentSeason, gamesInSeason, inSeason, seasonsOnRecord } from '../season'
+import { currentSeason, inSeason, seasonGames, seasonsOnRecord } from '../season'
 import { LEAGUE_ROW } from '../derive/playerSeasons'
 import { ageOn, parseRosterQuery } from '../rosterQuery'
 
@@ -420,10 +420,11 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
     const [{ fetchWpblPlayLog }, { plateAppearanceLines }, { findFirsts, firstKind }, { WPBL_LEAGUE }] = await Promise.all([
       import('../api/plays'), import('../../league/inningLines'), import('../../league/firsts'), import('../league'),
     ])
-    const lines = plateAppearanceLines(WPBL_LEAGUE, await fetchWpblPlayLog(season), games)
-    const seasonGames = gamesInSeason(games, season)
-    return findFirsts(lines, seasonGames, ask.kinds, g => `${g.game_date} ${g.start_time ?? ''}`).map(f => {
-      const game = seasonGames.find(g => g.id === f.line.game_id)!
+    // The season's own games, as the Find answers read them, so both share one build of the lines.
+    const yearGames = seasonGames(games, season)
+    const lines = plateAppearanceLines(WPBL_LEAGUE, await fetchWpblPlayLog(season), yearGames)
+    return findFirsts(lines, yearGames, ask.kinds, g => `${g.game_date} ${g.start_time ?? ''}`).map(f => {
+      const game = yearGames.find(g => g.id === f.line.game_id)!
       const sequence = f.line.sequence
       return {
         key: `first-${f.kind}-${season}`,
@@ -445,7 +446,7 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
       import('../api/plays'), import('../../league/inningLines'), import('../../league/finder'), import('../../league/paRecords'),
       import('../league'), import('../finderLink'),
     ])
-    const pool = season == null ? games : gamesInSeason(games, season)
+    const pool = season == null ? games : seasonGames(games, season)
     const lines = plateAppearanceLines(WPBL_LEAGUE, await fetchWpblPlayLog(season), pool)
     const { measure } = ask
     const result = runFinder(measure.side, [], [], players, pool,
@@ -502,8 +503,8 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
   }, [players, teamById])
   // "7 times · last Sep 2" on every row that opens Find (src/wpbl/findAnswer.ts), read off the link.
   const resolveFindAnswer = useCallback(async (href: string) => {
-    const { wpblFindAnswer } = await import('../findAnswer')
-    return wpblFindAnswer(href, { schedule: games, players, teams, eraInnings: eraBasis })
+    const { wpblFindAnswerWithTarget } = await import('../findAnswer')
+    return wpblFindAnswerWithTarget(href, { schedule: games, players, teams, eraInnings: eraBasis })
   }, [games, players, teams, eraBasis])
   useEffect(() => {
     if (searchActive) updateSearchBridge({ resolvePlayerStat, resolveLeader, resolveFirsts, resolvePaRecord, resolvePlayerQuestion, resolveFindAnswer })

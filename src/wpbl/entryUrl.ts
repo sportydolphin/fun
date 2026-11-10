@@ -42,7 +42,10 @@ export function playHashSequence(hash: string): number | null {
  * used up a moment after it is first taken, so opening the same game again later starts where any
  * game starts.
  */
-let requestedPlay: { gameId: string; hash: string; takenAt: number | null } | null = null
+let requestedPlay: { gameId: string; hash: string; box: BoxSide | null; takenAt: number | null } | null = null
+
+/** Which club's box score a game opens on. */
+export type BoxSide = 'away' | 'home'
 
 /** How long a taken request still answers the same game. Game Center can mount twice as it opens
  *  (the remount above), and a link from search reached it that way: the first mount took the play
@@ -51,16 +54,42 @@ let requestedPlay: { gameId: string; hash: string; takenAt: number | null } | nu
 const REMOUNT_MS = 3000
 
 export function requestPlay(gameId: string, sequence: number): void {
-  requestedPlay = { gameId, hash: `#play-${sequence}`, takenAt: null }
+  requestedPlay = { gameId, hash: `#play-${sequence}`, box: null, takenAt: null }
 }
 
-/** The fragment a game opens on: one asked for in-app for this game, or else the entry's. */
-export function takeOpeningPlayHash(gameId: string, now = Date.now()): string {
+/**
+ * A game opened from a stat, at the box score that holds the line, on the club that line was for.
+ *
+ * A FINAL OPENS ON ITS RECAP, which is right for a game looked up as a game (a score, the schedule,
+ * "Firebells last game") and wrong for one reached through a number: a reader who tapped "4 HR" on
+ * Bests or a row on Find came for that line, and the Recap made them find the Box Score tab and then
+ * the right club. The same one-shot, game-keyed hand-off as `requestPlay`; a link that leaves the app
+ * carries `?tab=box` (and `&side=home`) instead, which a cold open already reads.
+ */
+export function requestBoxScore(gameId: string, side: BoxSide): void {
+  requestedPlay = { gameId, hash: '', box: side, takenAt: null }
+}
+
+/** What a game opens on: a play or a box score asked for in-app for this game, or else the entry's
+ *  fragment. */
+export function takeOpening(gameId: string, now = Date.now()): { hash: string; box: BoxSide | null } {
   const r = requestedPlay
   const live = r && r.gameId === gameId && (r.takenAt == null || now - r.takenAt < REMOUNT_MS)
-  if (!live) { requestedPlay = null; return ENTRY_HASH }
+  if (!live) { requestedPlay = null; return { hash: ENTRY_HASH, box: null } }
   r.takenAt ??= now
-  return r.hash
+  return { hash: r.hash, box: r.box }
+}
+
+/** The fragment a game opens on (`takeOpening`'s hash). */
+export function takeOpeningPlayHash(gameId: string, now = Date.now()): string {
+  return takeOpening(gameId, now).hash
+}
+
+/** The box score of `teamId`'s side of `game`, for a line from that game: the side, and the query a
+ *  link to the game carries for a new tab. */
+export function boxScoreOf(game: { home_team_id: string }, teamId: string | null): { side: BoxSide; query: string } {
+  const side: BoxSide = teamId != null && teamId === game.home_team_id ? 'home' : 'away'
+  return { side, query: side === 'home' ? '?tab=box&side=home' : '?tab=box' }
 }
 
 /**

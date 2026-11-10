@@ -69,13 +69,13 @@ describe('useWpblSeason', () => {
 // ─── Every bulk read is cut, or says why not ────────────────────────────────────
 //
 // The failure this whole module guards against is silent: a board handed two seasons sums them.
-// So any file that reads a league-wide table has to cut it (useWpblSeason, or inSeason), or be on
-// the list below with the reason it should not. NOT_YET held the surfaces still to convert while
+// So any file that reads a league-wide table has to cut it (useWpblSeason, inSeason or seasonCut), or
+// be on the list below with the reason it should not. NOT_YET held the surfaces still to convert while
 // the multiple-seasons work was under way; it is empty now, and a file only goes back on it with a
 // plan to take it off before the next season's first final.
 
 const BULK_READ = /\b(fetchWpbl|getCachedWpbl)(AllLines|AllPlays|AllRunValuePlays|AllPitchPlays|AllMatchupPlays|AllFielding|BattedBalls|AllTracking|ScoreCardLines)\b/
-const CUTS = /\buseWpblSeason\b|\binSeason\(/
+const CUTS = /\buseWpblSeason\b|\b(?:inSeason|seasonCut)\(/
 
 const EXEMPT: Record<string, string> = {
   // Every season on purpose.

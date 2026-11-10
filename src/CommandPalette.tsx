@@ -83,9 +83,15 @@ interface Item {
   scrollTo?: string
   /** A question picked from Recent, which moves back to the front when asked again. */
   question?: RecentQuestion
-  /** What Recent keeps as the subtitle, when the row's own says something that will go stale (who
-   *  leads a ranking today). */
-  recentSubtitle?: string
+  /** The row's answer to the question ("Jaida Lee leads with 23", "4 times · last Aug 30"), drawn
+   *  on a line of its own between the title and the subtitle. Never kept in Recent: it goes stale. */
+  answer?: string
+  /** The section has been asked for this row's answer and has not replied: the answer's line is
+   *  held open so the rows under it do not move when it lands. */
+  pending?: boolean
+  /** The question's own link, kept in Recent, when the row opens the one night or play it found
+   *  instead (a Find answer's target). */
+  questionHref?: string
 }
 
 /** How many recents show before anything is typed, players, clubs and questions together: few,
@@ -129,7 +135,7 @@ const KEY_SEP = '\u0001'
  * after two quarter-second waits in a row (one for the named-player rows, then one for the counts).
  * A new `scope` (the section's resolver, rebuilt when its data changes) starts over.
  */
-function useKeyedAnswers<T>(keys: readonly string[], ask: ((key: string) => Promise<T | null>) | null, delay: number, scope: unknown): Record<string, T> {
+function useKeyedAnswers<T>(keys: readonly string[], ask: ((key: string) => Promise<T | null>) | null, delay: number, scope: unknown): Record<string, T | null> {
   const store = useMemo(() => ({ scope, done: new Map<string, T | null>(), pending: new Set<string>() }), [scope])
   const [, bump] = useReducer((n: number) => n + 1, 0)
   const askRef = useRef(ask)
@@ -149,10 +155,10 @@ function useKeyedAnswers<T>(keys: readonly string[], ask: ((key: string) => Prom
     }, delay)
     return () => clearTimeout(t)
   }, [keyList, asking, delay, store])
-  const out: Record<string, T> = {}
+  // Null is an answer too (the section had nothing to say), so the row stops holding a line for it.
+  const out: Record<string, T | null> = {}
   for (const k of keys) {
-    const v = store.done.get(k)
-    if (v != null) out[k] = v
+    if (store.done.has(k)) out[k] = store.done.get(k) ?? null
   }
   return out
 }
@@ -338,7 +344,7 @@ const GROUP_LABEL_SX = {
   fontSize: TYPE_SCALE.micro, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary',
 } as const
 
-export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames, resolveLeader, resolvePlayerStat, resolveFirsts, resolvePaRecord, resolvePlayerQuestion, resolveFindAnswer, seasonCount = null, actions = [] }: {
+export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames, resolveLeader, resolvePlayerStat, resolveFirsts, resolvePaRecord, resolvePlayerQuestion, resolveFindAnswer, seasonCount = null, actions = [], takeTypeahead }: {
   open: boolean
   onClose: () => void
   section: NavSection
@@ -367,6 +373,9 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   seasonCount?: number | null
   /** The site's own actions (theme, settings, feedback), from the shell. */
   actions?: PaletteAction[]
+  /** What was typed between the key that opened the box and the box being there to take it (the
+   *  shell's typeahead buffer). Ends the keeping; the same text comes back until the box closes. */
+  takeTypeahead?: () => string
 }) {
   const [text, setText] = useState('')
   // The questions and pick times, read fresh on every open: another tab may have asked one.
@@ -385,7 +394,15 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   // read the bridge would find this text in it, and a close without a pick reported.
   useEffect(() => {
     if (!open) return
-    setText(''); setActive(0)
+    // The first open waits on this chunk, and a reader who pressed "/" and went straight on typing
+    // had every letter of that wait dropped (Nov 10, 2026: "whitmore" in an empty box). The shell
+    // keeps them, and they arrive here as if typed into the field.
+    const typed = takeTypeahead?.() ?? ''
+    setText(typed); setActive(0)
+    if (typed) {
+      setSearchQuery(nameWords(typed) ?? typed, typedSeason(typed), typedPart(typed))
+      setTimeout(() => inputRef.current?.setSelectionRange(typed.length, typed.length))
+    }
     setRecentQs(getRecentQuestions(section)); setRowPicks(getRowPicks(section))
     pickedRef.current = false
     return () => {
@@ -394,7 +411,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       }
       setSearchQuery('')
     }
-  }, [open, section])
+  }, [open, section, takeTypeahead])
 
   // "A vs B", once the section has found both players. Kept with the text it answers, so a reply
   // that lands after the reader has typed on is never shown against the newer text.
@@ -407,9 +424,13 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   useEffect(() => {
     if (!firstAsk || !resolveFirsts) return
     let live = true
-    resolveFirsts(firstAsk).then(rows => { if (live) setFirsts({ text, rows }) }).catch(() => {})
-    return () => { live = false }
-  }, [text, firstAsk, resolveFirsts])
+    // A beat after the last key like every other lookup: each ask walks a season's play log, and
+    // "first home run" read as a first at every letter from "first h" on.
+    const t = setTimeout(() => {
+      resolveFirsts(firstAsk).then(rows => { if (live) setFirsts({ text, rows }) }).catch(() => {})
+    }, settle)
+    return () => { live = false; clearTimeout(t) }
+  }, [text, firstAsk, resolveFirsts, settle])
 
   // A plate-appearance record, answered with its plays the same way.
   const paAsk = useMemo(() => (resolvePaRecord ? paRecordQuestion(section, text) : null), [text, section, resolvePaRecord])
@@ -417,9 +438,11 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   useEffect(() => {
     if (!paAsk || !resolvePaRecord) return
     let live = true
-    resolvePaRecord(paAsk).then(rows => { if (live) setPaRecords({ text, rows }) }).catch(() => {})
-    return () => { live = false }
-  }, [text, paAsk, resolvePaRecord])
+    const t = setTimeout(() => {
+      resolvePaRecord(paAsk).then(rows => { if (live) setPaRecords({ text, rows }) }).catch(() => {})
+    }, settle)
+    return () => { live = false; clearTimeout(t) }
+  }, [text, paAsk, resolvePaRecord, settle])
 
   const [gameRows, setGameRows] = useState<{ text: string; rows: CompareRow[] } | null>(null)
   useEffect(() => {
@@ -599,20 +622,23 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     }))
     const positionRanks: Item[] = positionRankSuggestions(section, text).map(s => ({
       key: s.key, kind: 'leader', title: s.title, subtitle: s.subtitle, href: s.href,
-      recentSubtitle: s.subtitle, icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
+      icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
     }))
-    const leaders: Item[] = paAsk ? [] : [...positionRanks, ...leaderRows.map(s => ({
-      key: s.key, kind: 'leader', title: s.title, href: s.href,
-      // Leaders · Hitting · 2026 · Kelsie Whitmore leads with 9: what kind of row, which board, which
-      // year, then the answer. The year the leader was read for wins over the guess made before it.
-      subtitle: ['Leaders', s.side, peekSpan(peek[s.key]) ?? s.span, peek[s.key] ? peekText(peek[s.key]) : null].filter(Boolean).join(' · '),
-      recentSubtitle: `Leaders · ${s.subtitle}`,
-      icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
-      onOpen: () => {},
-    } as Item))]
+    const leaders: Item[] = paAsk ? [] : [...positionRanks, ...leaderRows.map(s => {
+      const p = peek[s.key] ?? undefined
+      return {
+        key: s.key, kind: 'leader', title: s.title, href: s.href,
+        // The answer on its line, then which table it opens and which year. The year the leader was
+        // read for wins over the guess made before it.
+        answer: p ? peekText(p) : undefined, pending: !!resolveLeader && !(s.key in peek),
+        subtitle: [`${s.side} stats`, peekSpan(p) ?? s.span].join(' · '),
+        icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
+        onOpen: () => {},
+      } as Item
+    })]
     // "hr vs boston": who has the most against them, on Find, beside the club's own total below.
     const scopedRanks: Item[] = (paAsk ? [] : scopedRankSuggestions(section, text)).map(s => ({
-      key: s.key, kind: 'leader', title: s.title, subtitle: s.subtitle, href: s.href, recentSubtitle: s.subtitle,
+      key: s.key, kind: 'leader', title: s.title, subtitle: s.subtitle, href: s.href,
       icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
     }))
     const teamRanks: Item[] = (paAsk ? [] : teamRankSuggestions(section, text)).map(s => ({
@@ -626,7 +652,8 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     }] : []
     // A plate-appearance record opens its play; the "N tied" row after the plays opens Find.
     const paRows: Item[] = (paRecords && paRecords.text === text ? paRecords.rows : []).map(r => ({
-      key: r.key, kind: 'record', title: r.title, subtitle: r.detail.startsWith('Find · ') ? r.detail : `Record · ${r.detail}`,
+      key: r.key, kind: 'record', title: r.title,
+      ...(r.detail.startsWith('Find · ') ? { subtitle: r.detail } : { answer: r.detail, subtitle: 'Record · Play-by-play' }),
       href: r.href, icon: <EmojiEvents sx={{ fontSize: ICON_SIZE.md }} />, onOpen: r.open,
     }))
     // Once it is a plate-appearance record, the single-game records, rankings and Find readings that
@@ -637,7 +664,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       onOpen: () => { if (s.scrollTo) requestSectionScroll(s.scrollTo) },
     }))]
     const firstRows: Item[] = (firsts && firsts.text === text ? firsts.rows : []).map(f => ({
-      key: f.key, kind: 'first', title: f.title, subtitle: `Firsts · ${f.detail}`, href: f.href,
+      key: f.key, kind: 'first', title: f.title, answer: f.detail, subtitle: 'Firsts · Play-by-play', href: f.href,
       icon: <Flag sx={{ fontSize: ICON_SIZE.md }} />, onOpen: f.open,
     }))
     const acts: Item[] = q.length < 2 ? [] : actions
@@ -704,12 +731,13 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       { label: 'Firsts', items: firstRows },
       { label: 'Records', items: records },
       { label: 'Team stats', items: teamRanks },
-      { label: 'Leaders', items: [...scopedRanks, ...leaders] },
+      { label: 'Rankings', items: [...scopedRanks, ...leaders] },
       { label: 'Find', items: findRows },
       ...(defined.asked ? [] : [glossary]),
       { label: section === 'mlb' ? 'Players & teams' : 'Players & clubs', items: results.slice(0, 8).map(r => {
-        const answer = statKey ? answerByKey[`${statKey}${KEY_SEP}${r.key}`] : undefined
-        return rowItem('result')(answer ? { ...r, subtitle: [answer, r.subtitle].filter(Boolean).join(' · ') } : r)
+        const k = statKey ? `${statKey}${KEY_SEP}${r.key}` : null
+        const asked = k != null && !!resolvePlayerStat && answerKeys.includes(k)
+        return { ...rowItem('result')(r), answer: (k != null && answerByKey[k]) || undefined, pending: asked && !(k in answerByKey) }
       }) },
       { label: section === 'mlb' ? 'In the WPBL' : 'In MLB', items: [...other, ...otherPages] },
       { label: 'Pages', items: pages },
@@ -718,7 +746,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     // A miss ends on the examples, not a blank box: what the box does understand, one pick from
     // trying it. Not while the section is still looking, or they flash in ahead of its rows.
     return found.length || searching ? found : [{ label: 'Try', grid: true, items: tryItems }]
-  }, [text, results, idle, section, searching, compare, gameRows, liveRows, recentQs, rowPicks, leaderRows, peek, statKey, answerByKey, elsewhere, ownPlayers, actions, firsts, firstAsk, paRecords, paAsk, playerQs])
+  }, [text, results, idle, section, searching, compare, gameRows, liveRows, recentQs, rowPicks, leaderRows, peek, statKey, answerByKey, answerKeys, resolveLeader, resolvePlayerStat, elsewhere, ownPlayers, actions, firsts, firstAsk, paRecords, paAsk, playerQs])
 
   // HAS IT EVER HAPPENED, answered in the row: every row that opens Find says how often and when last
   // ("Find · 7 times · last Sep 2 · ..."), so "has anyone ever" needs no tap, and "Never" is an
@@ -731,27 +759,37 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     .filter(findAnswerable).map(i => i.href!))].slice(0, ANSWERED_FIND_ROWS), [rawGroups])
   const byHref = useKeyedAnswers(findHrefs, resolveFindAnswer ?? null, settle, resolveFindAnswer)
   const groups = useMemo<Group[]>(() => {
-    const answerOf = (i: Item) => (findAnswerable(i) ? byHref[i.href!] : undefined)
+    const asked = new Set(findHrefs)
     const decorated = rawGroups.map(g => ({
       ...g,
       items: g.items.map(i => {
-        const answer = answerOf(i)
-        if (!answer) return i
-        const [kind, ...rest] = i.subtitle?.split(' · ') ?? []
-        return { ...i, subtitle: [kind, answer, ...rest].filter(Boolean).join(' · '), recentSubtitle: i.recentSubtitle ?? i.subtitle }
+        if (!findAnswerable(i) || !resolveFindAnswer) return i
+        const href = i.href!
+        const a = byHref[href]
+        const out = { ...i, answer: a?.text, pending: asked.has(href) && !(href in byHref) }
+        // ONE NIGHT OR ONE PLAY IS THE ANSWER ITSELF ("Once · Aug 22", a record held alone), so the
+        // row opens it, at the box score on the line's club or the play-by-play at the play, rather
+        // than a board that lists one row. Recent keeps the question.
+        const target = a?.target
+        if (!target) return out
+        return {
+          ...out, href: target.href, questionHref: href,
+          subtitle: i.subtitle?.replace(/^Find\b/, target.play ? 'Play-by-play' : 'Box score'),
+          onOpen: () => { i.onOpen(); target.open() },
+        }
       })
         // A question that never happened is still an answer, but not the one to lead with: "Ayami
         // Sato vs Hunters · Never · Batting lines" sat above the pitching lines that had happened.
-        .sort((a, b) => Number(answerOf(a) === 'Never') - Number(answerOf(b) === 'Never')),
+        .sort((a, b) => Number(a.answer === 'Never') - Number(b.answer === 'Never')),
     }))
     // A whole group that never happened goes after the groups that did, ahead of the names and pages:
     // "Whitmore vs Ibarra" led with a batter-vs-pitcher row reading Never, over the comparison.
-    const never = (g: Group) => g.items.length > 0 && g.items.every(i => answerOf(i) === 'Never')
+    const never = (g: Group) => g.items.length > 0 && g.items.every(i => i.answer === 'Never')
     const firstPlain = decorated.findIndex(g => g.items.some(i => i.kind === 'result' || i.kind === 'page' || i.kind === 'other_section' || i.kind === 'action'))
     const cut = firstPlain < 0 ? decorated.length : firstPlain
     const questions = decorated.slice(0, cut)
     return [...questions.filter(g => !never(g)), ...questions.filter(never), ...decorated.slice(cut)]
-  }, [rawGroups, byHref])
+  }, [rawGroups, byHref, findHrefs, resolveFindAnswer])
 
   // Rows that answer the text, as against the examples a miss falls back to.
   // "?" asks for the examples, so they are its answer.
@@ -790,7 +828,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     const was = lit.current
     if (was && litKey !== was.key) {
       const i = flat.findIndex(item => item.key === was.key)
-      const demoted = i >= 0 && flat[i].subtitle?.split(' · ')[1] === 'Never'
+      const demoted = i >= 0 && flat[i].answer === 'Never'
       if (i >= 0 && (was.chosen || (!demoted && performance.now() - was.at >= LIT_HOLD_MS))) { setActive(i); return }
     }
     if (litKey && (!was || was.key !== litKey)) lit.current = { key: litKey, at: performance.now(), chosen: false }
@@ -828,7 +866,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     if (item.kind === 'example') { item.onOpen(); return }
     // Into Recent: a question by its link, a player or club by when it was opened.
     const asked = item.question ?? (QUESTION_KINDS.has(item.kind) && item.href
-      ? { kind: item.kind as RecentQuestion['kind'], title: item.title, subtitle: item.recentSubtitle ?? item.subtitle, href: item.href, scrollTo: item.scrollTo }
+      ? { kind: item.kind as RecentQuestion['kind'], title: item.title, subtitle: item.subtitle?.replace(/^(Box score|Play-by-play)\b/, 'Find'), href: item.questionHref ?? item.href, scrollTo: item.scrollTo }
       : null)
     if (asked) recordRecentQuestion(section, asked)
     else if (item.rowKey) recordRowPick(section, item.rowKey)
@@ -951,6 +989,18 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
                       : <Box sx={{ width: 32, height: 32, flexShrink: 0, borderRadius: 1.5, bgcolor: 'action.hover', color: 'text.secondary', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{item.icon}</Box>}
                     <Box sx={{ minWidth: 0 }}>
                       <Typography sx={{ fontWeight: 600, fontSize: TYPE_SCALE.body, lineHeight: 1.25 }}>{item.title}</Typography>
+                      {/* THE ANSWER ON A LINE OF ITS OWN, in full ink: it is what the row is for, and in
+                          the middle of the gray subtitle it read as one more label. "Never" stays in
+                          the secondary ink, the quieter answer. Held open while it is being asked. */}
+                      {(item.answer || item.pending) && (
+                        <Typography sx={{
+                          fontSize: TYPE_SCALE.meta, lineHeight: 1.3,
+                          fontWeight: item.answer === 'Never' ? 400 : 600,
+                          color: item.answer === 'Never' ? 'text.secondary' : 'text.primary',
+                        }}>
+                          {item.answer ?? '\u00a0'}
+                        </Typography>
+                      )}
                       {item.subtitle && <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>{item.subtitle}</Typography>}
                     </Box>
                   </ListItemButton>
