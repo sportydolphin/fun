@@ -533,7 +533,7 @@ describe('the finder, by the plate appearance', () => {
     id: Math.random().toString(36).slice(2), game_id: 'g1', sequence: 10, inning: 3, half: 'top',
     batter_id: 'a', pitcher_id: 'b', batting_team: 'NY', fielding_team: 'LA', event: 'HR',
     paouts: 0, on: 0, risp: 0, balls: 0, scount: 2, pitches: 4, strikes: 3, fouls: 1,
-    h: 1, doubles: 0, triples: 0, hr: 1, tb: 4, bb: 0, so: 0, hbp: 0, runs: 1, walkoff: 0, ...o,
+    h: 1, doubles: 0, triples: 0, hr: 1, tb: 4, bb: 0, so: 0, hbp: 0, runs: 1, walkoff: 0, hrrow: 0, krow: 0, retired: 0, ...o,
   })
   const ask = (side: 'hitting' | 'pitching', conditions: FinderQuery['conditions'], plateAppearances: PlateAppearanceLine[]) =>
     runWpblFinder(side, [], [], PLAYERS, [game()], q({ per: 'pa', conditions }), 50, null, { plateAppearances })

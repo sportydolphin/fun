@@ -1284,7 +1284,17 @@ Shipped Nov 9, 2026 as v1.211.0 (#239). Follow-ups, in the order taken:
    club first. Database check (playoffs in): 26 innings of 5+ runs (the most, 10), 59 with 2+
    two-out runs; 23 comebacks in the regular season. The score is the log's running sum, so a game
    with missing plays can misread a lead from that point.
-9. **Runs of plays**: back-to-back home runs, consecutive strikeouts, a pitcher retiring 10 straight.
+9. ✅ **Runs of plays** (Nov 9, v1.213.0). Three plate-appearance fields, each set only on a run's
+   last plate appearance so a run matches once and the board's own order lists the longest first:
+   `hrrow` (a club's home runs in a row within the half, both sides), `krow` and `retired` (the
+   pitcher's, within the game, across innings). Retired is read off the outs, not the event: an out
+   made and the batter not on (no hit, walk, HBP or fielder's choice), since infield flies and errors
+   both arrive as `unknown`. Search: "back-to-back home runs", "b2b hr", "3 straight home runs", "5
+   strikeouts in a row", "retired 10 straight", "9 straight outs". The search bar's gate also passes
+   "comebacks", "go-ahead innings", "with runners on", and "most runs in an inning" / "biggest innings"
+   open the inning grain, which already ranks highest first. 2026 (regular season): one back-to-back
+   (two with the playoffs), three runs of 3+ strikeouts (the most, 4), and 9 retired is the longest.
+   A run's row opens Game Center at its last plate appearance, not its first.
 10. **Matchup filter**: one batter or pitcher on the plate-appearance grain.
 11. **TrackMan fields** where a game has them, **win probability per plate appearance**, and **feat
     alerts** (immaculate innings, walk-offs) to Discord, Bluesky or Home.

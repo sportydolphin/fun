@@ -449,11 +449,22 @@ describe('parseFinderText: the inning grain', () => {
     }
   })
 
+  it('reads a bare "inning" after a count as the grain, the way a search box is typed', () => {
+    for (const t of ['3 strikeouts inning', '3 strikeout innings', '3 k inning', 'three strikeout inning', '3 strikeouts in inning']) {
+      const r = inn(t)
+      expect(r[0], t).toMatchObject({ side: 'pitching', per: 'inning', conditions: [{ field: 'so', op: 'gte', value: 3 }], ignored: [] })
+    }
+    expect(inn('2 hr inning')[0]).toMatchObject({ side: 'hitting', per: 'inning' })
+  })
+
   it('leaves innings pitched alone', () => {
     const r = inn('5 innings no walks')
     expect(r[0]).toMatchObject({ side: 'pitching', per: 'game' })
     expect(r[0].conditions).toContainEqual({ field: 'ip', op: 'gte', value: 15 })
     expect(inn('one inning no hits').every(x => x.per !== 'inning')).toBe(true)
+    expect(inn('6 innings pitched')[0]).toMatchObject({ per: 'game', conditions: [{ field: 'ip', op: 'gte', value: 18 }] })
+    expect(inn('3 strikeouts in 5 innings')[0]).toMatchObject({ per: 'game' })
+    expect(inn('6.1 innings')[0].per).not.toBe('inning')
   })
 
   it('reads the named innings as their conditions', () => {

@@ -34,6 +34,7 @@ import { buildRunExpectancy, playRunValues } from '../derive/runExpectancy'
 import { mvpRace } from '../derive/mvpRace'
 import { WatchCard } from '../Watch'
 import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard } from './PlayerCards'
+import { RostersCard } from './RostersCard'
 import type { WpblRunValuePlay } from '../types'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame, WpblBattingLine, WpblPitchingLine } from '../types'
 import { typePx } from '../../ui/scale'
@@ -518,6 +519,11 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           stored season rows and the award tally, and Player Spotlight reads its one player's lines. */}
       {seasonDone && (
         <>
+          {/* The 2027 rosters lead while they are being built: the one thing in the offseason that
+              changes week to week, and the only way from Home to /wpbl/rosters. */}
+          <Box sx={{ mt: 1.5 }}>
+            <RostersCard teams={teamMap} players={players} />
+          </Box>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
             <PlayerSpotlightCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} />
             <NextGameCard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} players={players} onOpenPlayer={onOpenPlayer}

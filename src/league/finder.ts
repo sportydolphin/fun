@@ -266,10 +266,12 @@ const HIT_INNING_KEYS = new Set(['inn', 'pa', 'r', 'h', '2b', '3b', 'hr', 'tb', 
 // a count, so "home runs at least 1" is the same condition at every grain. What only a trip to the
 // plate has is the situation it began in and how it got there: the count before the last pitch, the
 // outs, the runners on, the fouls, the runs the play scored, and whether it ended the game.
+// And the runs of plays a plate appearance ends (`hrrow`, `krow`, `retired`): a club's home runs in a
+// row on either side, and the pitcher's own two only on Pitching, since a batter has no streak in them.
 const HIT_PA_KEYS = new Set(['inn', 'paouts', 'on', 'risp', 'walkoff', 'balls', 'scount', 'pitches', 'fouls', 'runs',
-  'h', '2b', '3b', 'hr', 'tb', 'bb', 'so', 'hbp'])
+  'h', '2b', '3b', 'hr', 'tb', 'bb', 'so', 'hbp', 'hrrow'])
 const PIT_PA_KEYS = new Set(['inn', 'paouts', 'on', 'risp', 'walkoff', 'balls', 'scount', 'pitches', 'strikes', 'fouls', 'runs',
-  'h', 'hr', 'bb', 'so', 'hbp'])
+  'h', 'hr', 'bb', 'so', 'hbp', 'hrrow', 'krow', 'retired'])
 
 type FineLine = InningPitchingLine & PlateAppearanceLine & TeamInningLine
 const INN_FIELD: Field<FineLine> = { key: 'inn', label: 'Inning', unit: 'INN', value: l => l.inning, fineOnly: true, display: ordinal }
@@ -282,6 +284,9 @@ const PA_FIELDS: Field<FineLine>[] = [
   { key: 'fouls', label: 'Fouls', unit: 'F', value: l => l.fouls, fineOnly: true },
   { key: 'runs', label: 'Runs on the play', unit: 'RS', value: l => l.runs, fineOnly: true },
   { key: 'walkoff', label: 'Walk-off', unit: 'WO', value: l => l.walkoff, fineOnly: true },
+  { key: 'hrrow', label: 'Home runs in a row', unit: 'HR ROW', value: l => l.hrrow, fineOnly: true },
+  { key: 'krow', label: 'Strikeouts in a row', unit: 'K ROW', value: l => l.krow, fineOnly: true },
+  { key: 'retired', label: 'Batters retired in a row', unit: 'RET', value: l => l.retired, fineOnly: true },
 ]
 const PIT_FINE_FIELDS: Field<FineLine>[] = [
   INN_FIELD,
@@ -351,6 +356,7 @@ const FIELD_GROUPS: Record<FinderBoardSide, [string, string[]][]> = {
     ['Running', ['sb', 'cs', 'gdp']],
     ['Playing time', ['g', 'pa', 'ab']],
     ['Rates', ['avg', 'obp', 'slg', 'ops']],
+    ['In a row', ['hrrow']],
   ],
   pitching: [
     ['Situation', ['inn', 'paouts', 'on', 'risp', 'walkoff']],
@@ -360,6 +366,7 @@ const FIELD_GROUPS: Record<FinderBoardSide, [string, string[]][]> = {
     ['Strikeouts and walks', ['so', 'bb', 'hbp', 'wp', 'bk']],
     ['Allowed', ['h', 'r', 'er', 'hr', 'baserunners', 'runs']],
     ['Rates', ['era', 'whip']],
+    ['In a row', ['krow', 'retired', 'hrrow']],
   ],
   fielding: [
     ['Chances', ['tc', 'po', 'a', 'e', 'dp']],
@@ -589,6 +596,7 @@ const paDetail = (l: PlateAppearanceLine): string => [
   l.walkoff > 0 && 'walk-off',
   l.runs > 0 && plural(l.runs, 'run'),
   plural(l.pitches, 'pitch', 'pitches'),
+  l.hrrow > 1 && `${l.hrrow} HR in a row`,
 ].filter(Boolean).join(', ')
 
 const hitDetail = (l: BattingGameLine): string => [
@@ -998,6 +1006,12 @@ export function decodeFinderQuery(raw: string | null, side: FinderBoardSide): Fi
   return out
 }
 
+const RUN_WORDS: Record<string, (v: number) => string> = {
+  hrrow: v => (v === 2 ? 'Back-to-back home runs' : v === 3 ? 'Back-to-back-to-back home runs' : `${v}+ home runs in a row`),
+  krow: v => `${v}+ strikeouts in a row`,
+  retired: v => `${v}+ batters retired in a row`,
+}
+
 /** The query in words, for the line above the results. */
 export function describeFinderQuery(side: FinderBoardSide, q: Pick<FinderQuery, 'conditions'> & { per?: FinderPer }): string {
   const labels = new Map(allFields(side).map(f => [f.key, f]))
@@ -1023,6 +1037,8 @@ export function describeFinderQuery(side: FinderBoardSide, q: Pick<FinderQuery, 
   const parts = q.conditions.flatMap(c => {
     if (balls && strikes && (c === balls || c === strikes)) return c === balls ? [`${balls.value}-${strikes.value} count`] : []
     if (c.field === 'trail' && q.per === 'inning' && c.op === 'gte') return [`Down ${c.value} or more`]
+    // A run of plays reads as the run: "Back-to-back home runs", "5+ strikeouts in a row".
+    if (q.per === 'pa' && c.op === 'gte' && RUN_WORDS[c.field]) return [RUN_WORDS[c.field](c.value)]
     if (c.field === 'inn' && (q.per === 'pa' || q.per === 'inning')) return [innWords[c.op](c.value)]
     if (c.op === 'eq' && said[c.field]) return [said[c.field](c.value)]
     const f = labels.get(c.field)

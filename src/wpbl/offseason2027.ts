@@ -135,6 +135,21 @@ export function resignPhase(now: number): WindowPhase {
   return now <= RESIGN_WINDOW.closes ? 'open' : 'closed'
 }
 
+/** "Nov 20", in the league's own time zone for the window (ET). */
+function windowDate(ms: number): string {
+  return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' })
+}
+
+/** The window as one label, for the rosters page and Home's card. Here rather than in RostersPage so
+ *  Home can say it without pulling in that page's chunk. */
+export function windowLine(now: number): string {
+  const phase = resignPhase(now)
+  const span = `${windowDate(RESIGN_WINDOW.opens)} to ${windowDate(RESIGN_WINDOW.closes)}`
+  if (phase === 'before') return `Re-signing window: ${span}`
+  if (phase === 'open') return `Re-signing window open: ${span}`
+  return `Re-signing window closed ${windowDate(RESIGN_WINDOW.closes)}`
+}
+
 export interface ClubBoard {
   teamId: string
   /** Re-signed, newest announcement first. */

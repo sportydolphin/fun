@@ -240,6 +240,8 @@ const GAME_WORDS = /(?<![a-z])(in a game|in one game|in a single game|single gam
 // "single", "per". "Inning" alone is innings pitched (STAT_ALIASES), so it is never read here bare.
 // "One inning" alone could be a reliever's one inning pitched, so "one" and "1" count only after "in".
 const INNING_WORDS = /(?<![a-z0-9])(?:(?:in|during)\s+(?:an|one|1|a single|a|the same)|an|a single|single|the same|per)\s+(?:inning|frame)(?![a-z])/g
+// A number written right before "inning", which makes it innings pitched ("5 innings", "6.1 inning").
+const BARE_INNING_COUNT = new RegExp(`(?<![a-z0-9.])(?:\\d+(?:\\.\\d+)?|${Object.keys(NUMBER_WORDS).join('|')})\\+?[\\s-]*(?:in\\s+)?$`)
 // A CLUB'S HALF-INNING, said the way a broadcast says it: "5-run innings", "innings with 3+ runs",
 // "two-out rallies", "comebacks", "go-ahead innings". Taken before the plate-appearance phrases, which
 // would read the "2 out" of a two-out rally as the outs of one at-bat. A count of runs reads on either
@@ -280,7 +282,43 @@ const featConditions = (feat: string): FinderCondition[] => (feat.startsWith('im
 const PA_WORDS_TO_N: Record<string, number> = { no: 0, none: 0, zero: 0, one: 1, two: 2 }
 const outsCount = (raw: string) => (raw in PA_WORDS_TO_N ? PA_WORDS_TO_N[raw] : Number(raw))
 const PA_EVENTS = '(?:walks?|strikeouts?|ks?|home runs?|homers?|hrs?|hits?|singles?|doubles?|triples?)'
+// RUNS OF PLAYS: "back-to-back home runs", "5 straight strikeouts", "retired 10 in a row". Each is a
+// field on the plate appearance that ends the run (inningLines.ts, `markRuns`), so saying one settles
+// that grain. First in the list, so "3 home runs in a row" is never three home runs in a game, and
+// with no number a run is two. Retired needs its number: "retired in a row" names no run worth asking.
+const RUN_N = `(\\d+|${Object.keys(NUMBER_WORDS).filter(w => NUMBER_WORDS[w] >= 2).join('|')})`
+const IN_A_ROW = '(?:straight|consecutive|successive)'
+const ROW_TAIL = '\\s+in\\s+a\\s+row'
+const HR_WORDS = '(?:home\\s+runs?|homers?|hrs?|jacks?|dingers?)'
+const K_WORDS = '(?:strikeouts?|strike\\s+outs?|ks?|punchouts?)'
+const BATTERS = '(?:batters?|hitters?|outs)'
+const runCount = (raw: string | undefined, fallback: number) => (raw == null ? fallback : raw in NUMBER_WORDS ? NUMBER_WORDS[raw] : Number(raw))
+const runPhrases = (words: string, field: string): { re: RegExp; conditions: (m: RegExpExecArray) => FinderCondition[] }[] => [
+  // "3 straight strikeouts", "straight strikeouts".
+  { re: new RegExp(`(?<![a-z0-9])(?:${RUN_N}\\s+)?${IN_A_ROW}\\s+${words}(?![a-z])`, 'g'),
+    conditions: m => [{ field, op: 'gte', value: runCount(m[1], 2) }] },
+  // "3 strikeouts in a row", "strikeouts in a row".
+  { re: new RegExp(`(?<![a-z0-9])(?:${RUN_N}\\s+)?${words}${ROW_TAIL}(?![a-z])`, 'g'),
+    conditions: m => [{ field, op: 'gte', value: runCount(m[1], 2) }] },
+]
+const RUN_PHRASES: { re: RegExp; conditions: (m: RegExpExecArray) => FinderCondition[] }[] = [
+  { re: new RegExp(`(?<![a-z0-9])back[\\s-]+to[\\s-]+back[\\s-]+to[\\s-]+back\\s+${HR_WORDS}(?![a-z])`, 'g'),
+    conditions: () => [{ field: 'hrrow', op: 'gte', value: 3 }] },
+  { re: new RegExp(`(?<![a-z0-9])(?:back[\\s-]+to[\\s-]+back|b2b)\\s+${HR_WORDS}(?![a-z])`, 'g'),
+    conditions: () => [{ field: 'hrrow', op: 'gte', value: 2 }] },
+  ...runPhrases(HR_WORDS, 'hrrow'),
+  ...runPhrases(K_WORDS, 'krow'),
+  // "retired 10 straight", "retired the next 9 in a row", "10 straight batters retired", "10 straight outs".
+  { re: new RegExp(`(?<![a-z0-9])retir(?:ed|es|ing)\\s+(?:the\\s+)?(?:last\\s+|next\\s+)?${RUN_N}\\s+(?:${IN_A_ROW}|in\\s+a\\s+row)(?:\\s+${BATTERS})?(?![a-z])`, 'g'),
+    conditions: m => [{ field: 'retired', op: 'gte', value: runCount(m[1], 2) }] },
+  { re: new RegExp(`(?<![a-z0-9])(?:retir(?:ed|es|ing)\\s+)?${RUN_N}\\s+${IN_A_ROW}\\s+${BATTERS}(?:\\s+retired)?(?![a-z])`, 'g'),
+    conditions: m => [{ field: 'retired', op: 'gte', value: runCount(m[1], 2) }] },
+  { re: new RegExp(`(?<![a-z0-9])${RUN_N}\\s+${BATTERS}\\s+retired${ROW_TAIL}(?![a-z])`, 'g'),
+    conditions: m => [{ field: 'retired', op: 'gte', value: runCount(m[1], 2) }] },
+]
+
 const PA_PHRASES: { re: RegExp; conditions: (m: RegExpExecArray) => FinderCondition[] }[] = [
+  ...RUN_PHRASES,
   { re: /(?<![a-z0-9])(?:a\s+)?(\d+)\+?\s+pitch\s+(?:at[\s-]?bats?|plate appearances?|pas?)(?![a-z])/g,
     conditions: m => [{ field: 'pitches', op: 'gte', value: Number(m[1]) }] },
   // "An 8-pitch walk": the count is taken and the event is left for the event words.
@@ -334,7 +372,7 @@ const INN_PHRASES: { re: RegExp; condition: (m: string[], regulation: number) =>
       return { field: 'inn', op: later ? 'gte' : earlier ? 'lte' : 'eq', value: v }
     } },
 ]
-const EVENT_LEAN: Record<string, FinderBoardSide> = { so: 'pitching', hr: 'hitting', h: 'hitting', '2b': 'hitting', '3b': 'hitting', bb: 'hitting', hbp: 'hitting' }
+const EVENT_LEAN: Record<string, FinderBoardSide> = { so: 'pitching', hr: 'hitting', hrrow: 'hitting', h: 'hitting', '2b': 'hitting', '3b': 'hitting', bb: 'hitting', hbp: 'hitting' }
 // The events a plate appearance can be, as words with no number beside them.
 const PA_EVENT_WORDS: { re: RegExp; field: string }[] = [
   { re: /(?<![a-z])(?:hit by pitch(?:es)?|hbps?)(?![a-z])/g, field: 'hbp' },
@@ -606,6 +644,15 @@ export function parseFinderText(
       return ' '.repeat((args[0] as string).length)
     })
   }
+  // A BARE "INNING" AFTER A COUNT IS THE GRAIN TOO: "3 strikeouts inning", "3 strikeout innings", "2 hr
+  // inning", the way a search box is typed. Read as innings pitched only with its own number right
+  // before it ("5 innings, no walks") or "pitched" after it. Missed, the question fell back to a game
+  // and said "not used: inning". After the named innings above, which take "7th inning" whole.
+  rest = rest.replace(/(?<![a-z0-9])(?:in\s+)?(?:innings?|frames?)(?![a-z])/g, (m: string, at: number, all: string) => {
+    if (BARE_INNING_COUNT.test(all.slice(0, at)) || /^\s+pitched/.test(all.slice(at + m.length))) return m
+    inningHint = true
+    return ' '.repeat(m.length)
+  })
   // Both at once ("on 0-2 in an inning") is no one question, and a section that does not read its
   // plays has neither grain: nothing, rather than the game question it is not.
   if ((inningHint || paHint || innSaid) && (!plays || (inningHint && paHint))) return []

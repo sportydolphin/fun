@@ -23,6 +23,26 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.213.0',
+    date:    '2026-11-09',
+    changes: [
+      {
+        short: 'Find: plays in a row',
+        full:  'WPBL Find searches runs of plays: back-to-back home runs, strikeouts in a row, batters retired in a row. Each run is one row, longest first. The search box reads "back-to-back homers", "5 straight strikeouts", "retired 9 in a row", "most runs in an inning", "comebacks" and "hits with runners on".',
+      },
+    ],
+  },
+  {
+    version: '1.212.0',
+    date:    '2026-11-09',
+    changes: [
+      {
+        short: '2027 Rosters on Home',
+        full:  'WPBL Home leads with 2027 Rosters: each club\'s re-signings out of 10, its newest re-signing, and the re-signing window. Each club opens /wpbl/rosters.',
+      },
+    ],
+  },
+  {
     version: '1.211.2',
     date:    '2026-11-09',
     changes: [

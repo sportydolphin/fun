@@ -68,3 +68,40 @@ describe('the position filter', () => {
     expect(matchesPositionFilter('RP', 'P', null)).toBe(false)
   })
 })
+
+describe('play-log questions from the search bar', () => {
+  // The palette asks the gate before it loads the parser, so a phrase the gate drops never reaches Find.
+  it('lets through the questions with no count in them', async () => {
+    const { mightBeFinderQuestion } = await import('../finderGate')
+    for (const q of ['hits with runners on', 'comebacks', 'go-ahead innings', 'come from behind', 'two-out rallies', 'biggest innings', 'hits with risp', 'bases-loaded walks',
+      'back-to-back home runs', 'consecutive strikeouts', 'strikeouts in a row']) {
+      expect(mightBeFinderQuestion(q), q).toBe(true)
+      expect(finderSuggestions('wpbl', q).length, q).toBeGreaterThan(0)
+    }
+  })
+  it('opens a comeback on the club innings', () => {
+    expect(finderSuggestions('wpbl', 'comebacks')[0].href).toBe('/wpbl/stats?board=find&side=hitting&q=inning~trail.gte.1~tooklead.eq.1')
+  })
+  it('reads the most in an inning as the inning grain, which lists the biggest first', () => {
+    expect(finderSuggestions('wpbl', 'most strikeouts in an inning')[0]).toMatchObject({
+      title: 'Most strikeouts in an inning', href: '/wpbl/stats?board=find&side=pitching&q=inning~so.gte.1',
+    })
+    expect(findTitles('biggest innings')).toEqual(['Most runs scored in an inning', 'Most runs allowed in an inning'])
+    expect(findTitles('what was the most hits in a single inning?')[0]).toBe('Most hits in an inning')
+  })
+  it('reads runs of plays as the plate appearance that ends them', () => {
+    expect(finderSuggestions('wpbl', 'back-to-back home runs')[0]).toMatchObject({
+      title: 'Back-to-back home runs', href: '/wpbl/stats?board=find&side=hitting&q=pa~hrrow.gte.2',
+    })
+    expect(findTitles('3 straight home runs')[0]).toBe('Back-to-back-to-back home runs')
+    expect(findTitles('five strikeouts in a row')).toEqual(['5+ strikeouts in a row'])
+    for (const q of ['retired 10 straight', 'retired ten in a row', '10 straight batters retired']) {
+      expect(finderSuggestions('wpbl', q)[0]?.href, q).toBe('/wpbl/stats?board=find&side=pitching&q=pa~retired.gte.10')
+    }
+    // Not in a row, so still a game.
+    expect(finderSuggestions('wpbl', '3 home runs')[0].parsed.per).toBe('game')
+  })
+  it('leaves MLB alone, which has no innings to search', () => {
+    expect(finderSuggestions('mlb', 'most runs in an inning').every(f => f.parsed.per !== 'inning')).toBe(true)
+  })
+})

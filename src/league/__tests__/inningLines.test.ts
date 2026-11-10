@@ -139,6 +139,37 @@ describe('plateAppearanceLines', () => {
     expect(pas.map(p => p.walkoff)).toEqual([0, 1])
     expect(plateAppearanceLines(WPBL_LEAGUE, plays, [game({ home_score: 1, away_score: 3 })]).every(p => p.walkoff === 0)).toBe(true)
   })
+
+  // Each a different batter: one batter's rows in a row with the same pitches read as one at-bat.
+  let n = 0
+  const up = () => ({ batter_id: `b${n++}` })
+
+  it('counts a run of home runs once, on its last plate appearance, and never across a half', () => {
+    const hr = (over: Partial<RunValuePlay> = {}) => play({ event_type: 'home_run', pitch_sequence: 'P', ...up(), ...over })
+    const pas = plateAppearanceLines(WPBL_LEAGUE, [
+      hr(), hr(), hr(), k(0),
+      hr({ outs: 1 }),
+      // A new half: the club batting changed, so this is no fourth in a row.
+      hr({ half: 'bottom', team_id: 'home', pitcher_id: 'q' }),
+    ], [game()])
+    expect(pas.map(p => p.hrrow)).toEqual([0, 0, 3, 0, 1, 1])
+  })
+
+  it("runs a pitcher's strikeouts and batters retired across innings, and an error ends the retired run", () => {
+    const pas = plateAppearanceLines(WPBL_LEAGUE, [
+      k(0, 'KSS', up()), k(1, 'KSS', up()), k(2, 'KSS', up()),
+      play({ half: 'bottom', team_id: 'home', pitcher_id: 'q', event_type: 'groundout', pitch_sequence: 'P', ...up() }),
+      play({ inning: 2, outs: 0, event_type: 'flyout', pitch_sequence: 'P', ...up() }),
+      // An infield fly arrives as `unknown`, and is an out all the same.
+      play({ inning: 2, outs: 1, event_type: 'unknown', pitch_sequence: 'B', narrative: 'Ann infield fly to ss.', ...up() }),
+      // Safe on an error: also `unknown`, but no out was made.
+      play({ inning: 2, outs: 2, event_type: 'unknown', pitch_sequence: 'P', narrative: 'Bea reached first on an error by 3b.', ...up() }),
+      k(2, 'SSS', { inning: 2, ...up() }),
+    ], [game()])
+    const mine = pas.filter(p => p.pitcher_id === 'p1')
+    expect(mine.map(p => p.krow)).toEqual([0, 0, 3, 0, 0, 0, 1])
+    expect(mine.map(p => p.retired)).toEqual([0, 0, 0, 0, 5, 0, 1])
+  })
 })
 
 describe('teamInningLines', () => {
