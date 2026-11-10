@@ -3,6 +3,8 @@ import type { RecentSearchItem } from '../storage/recentSearches'
 import type { GameQuery, RankSide } from '../../league/finderParse'
 import type { FinderSide } from '../../league/finder'
 import type { PlayerPart } from '../../lib/playerParts'
+import type { FirstQuestion } from '../../league/firsts'
+import type { PaRecordQuestion } from '../../league/paRecords'
 export type { RecentSearchItem } from '../storage/recentSearches'
 
 export interface PlayerBridgeItem {
@@ -41,6 +43,20 @@ export interface LeaderPeek {
   /** The year the board was read for, so the row can name it rather than say "this season" (which
    *  between seasons is last year). Null for an all-time board. */
   season?: number | null
+}
+
+/** A question answered with one play: a first, or a plate-appearance record. Also the row that
+ *  stands for the rest of a shared record, which opens the Find board instead of a play. */
+export interface PlayAnswer {
+  key: string
+  /** "First home run", "Longest at-bat". */
+  title: string
+  /** "Kelsie Whitmore · May 30, 2026", what the row says under its title. */
+  detail: string
+  /** The game at that play (`#play-N`), for a new tab and for Recent; or the Find board. */
+  href: string
+  /** Hands the play to the game about to open, since an in-app open drops the fragment. */
+  open: () => void
 }
 
 /** A stat typed beside a name ("Whitmore avg"): the column it means on each side the section's
@@ -114,6 +130,12 @@ export interface SearchBridgeState {
   /** The answer to a stat typed beside a name, for one player row (its `key`): ".312 AVG · 2026".
    *  Null when the player has no such number in the span. */
   resolvePlayerStat: ((rowKey: string, ask: PlayerStatAsk) => Promise<string | null>) | null
+  /** "first home run", "firsts": each first asked, from the section's play log. Null where the
+   *  section has no play log (MLB). */
+  resolveFirsts: ((ask: FirstQuestion) => Promise<PlayAnswer[]>) | null
+  /** "longest at-bat", "most fouls in a PA": the play that holds it, each of up to three that share
+   *  it, then the Find board for the rest. Null where the section has no play log (MLB). */
+  resolvePaRecord: ((ask: PaRecordQuestion) => Promise<PlayAnswer[]>) | null
 }
 
 const DEFAULT: SearchBridgeState = {
@@ -139,6 +161,8 @@ const DEFAULT: SearchBridgeState = {
   resolveGames: null,
   resolveLeader: null,
   resolvePlayerStat: null,
+  resolveFirsts: null,
+  resolvePaRecord: null,
 }
 
 let _state: SearchBridgeState = { ...DEFAULT }

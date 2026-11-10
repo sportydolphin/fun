@@ -196,7 +196,7 @@ agency (a `signed` kind, same count); then the schedule, when the card becomes O
   sandbox over the frozen season files.
 - The rest of the engineering backlog's P3: prefetch on hover, `html2canvas` replaced, virtualized tables, `fast-check` tests for `derive/`.
 - MLB Draft board; Tracked on MLB, if ever.
-- Search: spans and splits (needs a date range on Find); firsts (needs a page to link).
+- Search: spans and splits (needs a date range on Find). Firsts ✅ (Nov 9, v1.216.0): the play is the page.
 - The Visuals list, the data-mining backlog, portrait rights. *ROADMAP-WPBL.*
 - UI overhaul phases 4 (motion) and 5 (styling engine).
 

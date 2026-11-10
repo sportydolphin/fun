@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import type { ExampleLadder } from './finderExamples'
 import { Box, Skeleton, Typography } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import {
@@ -223,6 +224,8 @@ export interface FinderExample {
   conditions: FinderCondition[]
   /** A season question, offered under Season totals. Absent is a game question. */
   per?: FinderPer
+  /** Bars to try, the most impressive first, so the tile names what the slice holds (finderExamples.ts). */
+  ladder?: ExampleLadder
 }
 
 /** One way a typed question can be read, in the shape src/league/finderParse.ts returns. */

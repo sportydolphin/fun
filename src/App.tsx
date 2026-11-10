@@ -1692,7 +1692,7 @@ function AppInner() {
           <CommandPalette open={paletteOpen} onClose={closePalette} section={searchSection}
             results={paletteResults} idle={paletteIdle} searching={bridge.searching}
             resolveCompare={bridge.resolveCompare} resolveGames={bridge.resolveGames}
-            resolveLeader={bridge.resolveLeader} resolvePlayerStat={bridge.resolvePlayerStat} seasonCount={bridge.seasonCount}
+            resolveLeader={bridge.resolveLeader} resolvePlayerStat={bridge.resolvePlayerStat} resolveFirsts={bridge.resolveFirsts} resolvePaRecord={bridge.resolvePaRecord} seasonCount={bridge.seasonCount}
             actions={paletteActions} />
         </Suspense>
       )}

@@ -11,6 +11,7 @@ import { wpblAccentFg, wpblFullName } from './constants'
 import { PlayerPortrait, TeamBadge } from './ui'
 import { useWpblGameLink, useWpblPlayerLink } from './LinkContext'
 import { FinderBoard, type FinderExample, type FinderReading } from '../ui/finderBoard'
+import { fitExamples } from '../ui/finderExamples'
 import { PORTRAIT_PX } from '../ui/leaders'
 import { parseFinderText } from '../league/finderParse'
 import { navigate } from '../nav'
@@ -39,65 +40,75 @@ import type { WpblBattingLine, WpblFieldingLine, WpblGame, WpblPitchingLine, Wpb
 // THE ONE-TAP QUESTIONS, in a seven-inning league's terms: a long start here is five or six innings,
 // where MLB's are seven or eight, and a season is thirty games, so its counts are a fifth of MLB's.
 // Innings are in outs and rates in their last printed digit, as the engine stores both.
+const plus = (noun: string) => (v: number) => `${v}+ ${noun}`
+const inningsOf = (outs: number) => outs / 3
+/** A rate's bar ("under 3.00") from its stored last digit (299). */
+const under = (v: number) => ((v + 1) / 100).toFixed(2)
+/** ".300", "1.100": an average or OPS as it is printed. */
+const avgText = (v: number) => (v >= 1000 ? (v / 1000).toFixed(3) : `.${String(v).padStart(3, '0')}`)
+/** Innings in outs, so every bar is a whole inning. */
+const OUTS = (...ip: number[]) => ip.map(i => i * 3)
+
 const EXAMPLES: Record<FinderBoardSide, FinderExample[]> = {
   pitching: [
-    { label: '8+ strikeouts', conditions: [{ field: 'so', op: 'gte', value: 8 }] },
-    { label: '5+ IP, no walks', conditions: [{ field: 'ip', op: 'gte', value: 15 }, { field: 'bb', op: 'eq', value: 0 }] },
-    { label: '6+ IP, no runs', conditions: [{ field: 'ip', op: 'gte', value: 18 }, { field: 'r', op: 'eq', value: 0 }] },
-    { label: '3+ IP, no hits', conditions: [{ field: 'ip', op: 'gte', value: 9 }, { field: 'h', op: 'eq', value: 0 }] },
-    { label: '2+ wild pitches', conditions: [{ field: 'wp', op: 'gte', value: 2 }] },
-    { per: 'inning', label: '3+ strikeouts', conditions: [{ field: 'so', op: 'gte', value: 3 }] },
+    { label: '8+ strikeouts', conditions: [{ field: 'so', op: 'gte', value: 8 }], ladder: { values: [12, 11, 10, 9, 8, 7, 6, 5], label: plus('strikeouts') } },
+    { label: '5+ IP, no walks', conditions: [{ field: 'ip', op: 'gte', value: 15 }, { field: 'bb', op: 'eq', value: 0 }], ladder: { values: OUTS(7, 6, 5, 4, 3), label: v => `${inningsOf(v)}+ IP, no walks` } },
+    { label: '6+ IP, no runs', conditions: [{ field: 'ip', op: 'gte', value: 18 }, { field: 'r', op: 'eq', value: 0 }], ladder: { values: OUTS(7, 6, 5, 4, 3), label: v => `${inningsOf(v)}+ IP, no runs` } },
+    { label: '3+ IP, no hits', conditions: [{ field: 'ip', op: 'gte', value: 9 }, { field: 'h', op: 'eq', value: 0 }], ladder: { values: OUTS(7, 6, 5, 4, 3, 2), label: v => `${inningsOf(v)}+ IP, no hits` } },
+    { label: '2+ wild pitches', conditions: [{ field: 'wp', op: 'gte', value: 2 }], ladder: { values: [5, 4, 3, 2], label: plus('wild pitches') } },
+    { per: 'inning', label: '3+ strikeouts', conditions: [{ field: 'so', op: 'gte', value: 3 }], ladder: { values: [4, 3], label: plus('strikeouts') } },
+    // The one rarity kept as written: nobody threw one in 2026, and that is worth seeing.
     { per: 'inning', label: 'Immaculate', conditions: [{ field: 'so', op: 'gte', value: 3 }, { field: 'pitches', op: 'lte', value: 9 }] },
     { per: 'inning', label: '1-2-3', conditions: [{ field: 'bf', op: 'eq', value: 3 }, { field: 'outs', op: 'eq', value: 3 }, { field: 'baserunners', op: 'eq', value: 0 }] },
-    { per: 'inning', label: '3+ runs', conditions: [{ field: 'r', op: 'gte', value: 3 }] },
-    { per: 'inning', label: '25+ pitches', conditions: [{ field: 'pitches', op: 'gte', value: 25 }] },
-    { per: 'pa', label: '10+ pitches', conditions: [{ field: 'pitches', op: 'gte', value: 10 }] },
+    { per: 'inning', label: '3+ runs', conditions: [{ field: 'r', op: 'gte', value: 3 }], ladder: { values: [8, 7, 6, 5, 4, 3], label: plus('runs') } },
+    { per: 'inning', label: '25+ pitches', conditions: [{ field: 'pitches', op: 'gte', value: 25 }], ladder: { values: [45, 40, 35, 30, 25], label: plus('pitches') } },
+    { per: 'pa', label: '10+ pitches', conditions: [{ field: 'pitches', op: 'gte', value: 10 }], ladder: { values: [14, 13, 12, 11, 10, 9], label: plus('pitches') } },
     { per: 'pa', label: 'Strikeout on 3-2', conditions: [{ field: 'so', op: 'gte', value: 1 }, { field: 'balls', op: 'eq', value: 3 }, { field: 'scount', op: 'eq', value: 2 }] },
     { per: 'pa', label: 'Bases-loaded walks', conditions: [{ field: 'bb', op: 'gte', value: 1 }, { field: 'on', op: 'eq', value: 3 }] },
     { per: 'pa', label: 'Home runs on 0-2', conditions: [{ field: 'hr', op: 'gte', value: 1 }, { field: 'balls', op: 'eq', value: 0 }, { field: 'scount', op: 'eq', value: 2 }] },
     { per: 'pa', label: 'Walk-offs', conditions: [{ field: 'walkoff', op: 'eq', value: 1 }] },
-    { per: 'pa', label: '9+ retired in a row', conditions: [{ field: 'retired', op: 'gte', value: 9 }] },
-    { per: 'pa', label: '3+ strikeouts in a row', conditions: [{ field: 'krow', op: 'gte', value: 3 }] },
-    { per: 'season', label: 'ERA under 3.00', conditions: [{ field: 'era', op: 'lte', value: 299 }] },
-    { per: 'season', label: 'WHIP under 1.20', conditions: [{ field: 'whip', op: 'lte', value: 119 }] },
-    { per: 'season', label: '4+ wins', conditions: [{ field: 'w', op: 'gte', value: 4 }] },
-    { per: 'season', label: '30+ strikeouts', conditions: [{ field: 'so', op: 'gte', value: 30 }] },
-    { per: 'season', label: '30+ innings', conditions: [{ field: 'ip', op: 'gte', value: 90 }] },
+    { per: 'pa', label: '9+ retired in a row', conditions: [{ field: 'retired', op: 'gte', value: 9 }], ladder: { values: [18, 15, 12, 10, 9, 8, 7, 6], label: v => `${v}+ retired in a row` } },
+    { per: 'pa', label: '3+ strikeouts in a row', conditions: [{ field: 'krow', op: 'gte', value: 3 }], ladder: { values: [7, 6, 5, 4, 3], label: v => `${v}+ strikeouts in a row` } },
+    { per: 'season', label: 'ERA under 3.00', conditions: [{ field: 'era', op: 'lte', value: 299 }], ladder: { values: [99, 149, 199, 249, 299, 349, 399, 449, 499], label: v => `ERA under ${under(v)}` } },
+    { per: 'season', label: 'WHIP under 1.20', conditions: [{ field: 'whip', op: 'lte', value: 119 }], ladder: { values: [89, 99, 109, 119, 129, 139, 149, 169, 199], label: v => `WHIP under ${under(v)}` } },
+    { per: 'season', label: '4+ wins', conditions: [{ field: 'w', op: 'gte', value: 4 }], ladder: { values: [8, 7, 6, 5, 4, 3, 2], label: plus('wins') } },
+    { per: 'season', label: '30+ strikeouts', conditions: [{ field: 'so', op: 'gte', value: 30 }], ladder: { values: [80, 70, 60, 50, 40, 30, 25, 20, 15, 10], label: plus('strikeouts') } },
+    { per: 'season', label: '30+ innings', conditions: [{ field: 'ip', op: 'gte', value: 90 }], ladder: { values: OUTS(80, 70, 60, 50, 40, 30, 25, 20, 15, 10), label: v => `${inningsOf(v)}+ innings` } },
   ],
   hitting: [
-    { label: '3-hit games', conditions: [{ field: 'h', op: 'gte', value: 3 }] },
-    { label: 'Multi-homer games', conditions: [{ field: 'hr', op: 'gte', value: 2 }] },
-    { label: '4+ RBI', conditions: [{ field: 'rbi', op: 'gte', value: 4 }] },
-    { label: '2+ steals', conditions: [{ field: 'sb', op: 'gte', value: 2 }] },
-    { label: 'On base 4+ times', conditions: [{ field: 'ob', op: 'gte', value: 4 }] },
-    { per: 'inning', label: '4+ run innings', conditions: [{ field: 'r', op: 'gte', value: 4 }] },
+    { label: '3-hit games', conditions: [{ field: 'h', op: 'gte', value: 3 }], ladder: { values: [5, 4, 3], label: v => `${v}-hit games` } },
+    { label: 'Multi-homer games', conditions: [{ field: 'hr', op: 'gte', value: 2 }], ladder: { values: [3, 2], label: v => (v === 2 ? 'Multi-homer games' : `${v}-homer games`) } },
+    { label: '4+ RBI', conditions: [{ field: 'rbi', op: 'gte', value: 4 }], ladder: { values: [8, 7, 6, 5, 4], label: plus('RBI') } },
+    { label: '2+ steals', conditions: [{ field: 'sb', op: 'gte', value: 2 }], ladder: { values: [5, 4, 3, 2], label: plus('steals') } },
+    { label: 'On base 4+ times', conditions: [{ field: 'ob', op: 'gte', value: 4 }], ladder: { values: [6, 5, 4], label: v => `On base ${v}+ times` } },
+    { per: 'inning', label: '4+ run innings', conditions: [{ field: 'r', op: 'gte', value: 4 }], ladder: { values: [10, 9, 8, 7, 6, 5, 4], label: v => `${v}+ run innings` } },
     { per: 'inning', label: 'Comebacks', conditions: [{ field: 'trail', op: 'gte', value: 1 }, { field: 'tooklead', op: 'eq', value: 1 }] },
     { per: 'inning', label: 'Two-out rallies', conditions: [{ field: 'r2', op: 'gte', value: 2 }] },
-    { per: 'inning', label: '2+ home runs', conditions: [{ field: 'hr', op: 'gte', value: 2 }] },
-    { per: 'pa', label: '10+ pitches', conditions: [{ field: 'pitches', op: 'gte', value: 10 }] },
+    { per: 'inning', label: '2+ home runs', conditions: [{ field: 'hr', op: 'gte', value: 2 }], ladder: { values: [4, 3, 2], label: plus('home runs') } },
+    { per: 'pa', label: '10+ pitches', conditions: [{ field: 'pitches', op: 'gte', value: 10 }], ladder: { values: [14, 13, 12, 11, 10, 9], label: plus('pitches') } },
     { per: 'pa', label: 'Home runs on 0-2', conditions: [{ field: 'hr', op: 'gte', value: 1 }, { field: 'balls', op: 'eq', value: 0 }, { field: 'scount', op: 'eq', value: 2 }] },
     { per: 'pa', label: 'Bases-loaded hits', conditions: [{ field: 'h', op: 'gte', value: 1 }, { field: 'on', op: 'eq', value: 3 }] },
     { per: 'pa', label: 'Hits with RISP', conditions: [{ field: 'h', op: 'gte', value: 1 }, { field: 'risp', op: 'eq', value: 1 }] },
     { per: 'pa', label: '2-out run-scoring hits', conditions: [{ field: 'h', op: 'gte', value: 1 }, { field: 'paouts', op: 'eq', value: 2 }, { field: 'runs', op: 'gte', value: 1 }] },
     { per: 'pa', label: 'Walk-offs', conditions: [{ field: 'walkoff', op: 'eq', value: 1 }] },
-    { per: 'pa', label: 'Back-to-back home runs', conditions: [{ field: 'hrrow', op: 'gte', value: 2 }] },
-    { per: 'season', label: '.300 hitters', conditions: [{ field: 'avg', op: 'gte', value: 300 }] },
-    { per: 'season', label: '.900+ OPS', conditions: [{ field: 'ops', op: 'gte', value: 900 }] },
-    { per: 'season', label: '3+ home runs', conditions: [{ field: 'hr', op: 'gte', value: 3 }] },
-    { per: 'season', label: '10+ steals', conditions: [{ field: 'sb', op: 'gte', value: 10 }] },
+    { per: 'pa', label: 'Back-to-back home runs', conditions: [{ field: 'hrrow', op: 'gte', value: 2 }], ladder: { values: [4, 3, 2], label: v => (v === 2 ? 'Back-to-back home runs' : `${v} home runs in a row`) } },
+    { per: 'season', label: '.300 hitters', conditions: [{ field: 'avg', op: 'gte', value: 300 }], ladder: { values: [450, 400, 350, 300, 275, 250], label: v => `${avgText(v)} hitters` } },
+    { per: 'season', label: '.900+ OPS', conditions: [{ field: 'ops', op: 'gte', value: 900 }], ladder: { values: [1300, 1200, 1100, 1000, 900, 800, 700], label: v => `${avgText(v)}+ OPS` } },
+    { per: 'season', label: '3+ home runs', conditions: [{ field: 'hr', op: 'gte', value: 3 }], ladder: { values: [12, 10, 8, 6, 5, 4, 3, 2], label: plus('home runs') } },
+    { per: 'season', label: '10+ steals', conditions: [{ field: 'sb', op: 'gte', value: 10 }], ladder: { values: [25, 20, 15, 12, 10, 8, 6, 5], label: plus('steals') } },
   ],
   // A fielding line exists only for a night with a play to make, so "no errors" alone would be most
   // of them: it is asked with a busy night beside it.
   fielding: [
-    { label: '2+ errors', conditions: [{ field: 'e', op: 'gte', value: 2 }] },
-    { label: '12+ putouts', conditions: [{ field: 'po', op: 'gte', value: 12 }] },
-    { label: '5+ assists', conditions: [{ field: 'a', op: 'gte', value: 5 }] },
-    { label: '2+ double plays', conditions: [{ field: 'dp', op: 'gte', value: 2 }] },
-    { label: '8+ chances, no errors', conditions: [{ field: 'tc', op: 'gte', value: 8 }, { field: 'e', op: 'eq', value: 0 }] },
-    { per: 'season', label: 'Errorless seasons', conditions: [{ field: 'e', op: 'eq', value: 0 }, { field: 'tc', op: 'gte', value: 30 }] },
-    { per: 'season', label: '.980+ fielding', conditions: [{ field: 'fpct', op: 'gte', value: 980 }] },
-    { per: 'season', label: '5+ errors', conditions: [{ field: 'e', op: 'gte', value: 5 }] },
-    { per: 'season', label: '10+ double plays', conditions: [{ field: 'dp', op: 'gte', value: 10 }] },
+    { label: '2+ errors', conditions: [{ field: 'e', op: 'gte', value: 2 }], ladder: { values: [4, 3, 2], label: plus('errors') } },
+    { label: '12+ putouts', conditions: [{ field: 'po', op: 'gte', value: 12 }], ladder: { values: [16, 15, 14, 13, 12, 11, 10], label: plus('putouts') } },
+    { label: '5+ assists', conditions: [{ field: 'a', op: 'gte', value: 5 }], ladder: { values: [9, 8, 7, 6, 5, 4], label: plus('assists') } },
+    { label: '2+ double plays', conditions: [{ field: 'dp', op: 'gte', value: 2 }], ladder: { values: [4, 3, 2], label: plus('double plays') } },
+    { label: '8+ chances, no errors', conditions: [{ field: 'tc', op: 'gte', value: 8 }, { field: 'e', op: 'eq', value: 0 }], ladder: { values: [16, 14, 12, 10, 8], label: v => `${v}+ chances, no errors` } },
+    { per: 'season', label: 'Errorless seasons', conditions: [{ field: 'e', op: 'eq', value: 0 }, { field: 'tc', op: 'gte', value: 30 }], ladder: { at: 1, values: [100, 75, 60, 45, 30, 20], label: v => (v === 30 ? 'Errorless seasons' : `Errorless, ${v}+ chances`) } },
+    { per: 'season', label: '.980+ fielding', conditions: [{ field: 'fpct', op: 'gte', value: 980 }], ladder: { values: [1000, 995, 990, 980, 970], label: v => (v === 1000 ? '1.000 fielding' : `${avgText(v)}+ fielding`) } },
+    { per: 'season', label: '5+ errors', conditions: [{ field: 'e', op: 'gte', value: 5 }], ladder: { values: [12, 10, 8, 6, 5, 4], label: plus('errors') } },
+    { per: 'season', label: '10+ double plays', conditions: [{ field: 'dp', op: 'gte', value: 10 }], ladder: { values: [25, 20, 15, 12, 10, 8, 6], label: plus('double plays') } },
   ],
 }
 
@@ -201,15 +212,19 @@ export default function WpblFindView({
   const exPas = useMemo(
     () => plateAppearances ?? (countPlays && side !== 'fielding' ? plateAppearanceLines(WPBL_LEAGUE, cut(countPlays), games) : undefined),
     [plateAppearances, countPlays, side, cut, games])
-  const exampleCounts = useMemo(() => {
-    if (!startScreen) return null
+  // Each laddered example at the highest bar the slice reaches (src/ui/finderExamples.ts), so a tile
+  // names what happened rather than "0 games". Before a count is possible, the examples as written.
+  const fitted = useMemo(() => {
     const opts = { eraInnings, qualify, fielding, innings: exInnings, plateAppearances: exPas, teamInnings: exTeamInnings, clubName }
-    return new Map(EXAMPLES[side].map(ex => {
+    return fitExamples(EXAMPLES[side], ex => {
+      if (!startScreen) return null
       const per = ex.per ?? 'game'
       const missing = (per === 'pa' && !exPas) || (per === 'inning' && !(side === 'pitching' ? exInnings : exTeamInnings))
-      return [ex.label, missing ? null : runWpblFinder(side, batting, pitching, players, games, { ...query, per, conditions: ex.conditions }, 0, null, opts).total]
-    }))
+      return missing ? null : runWpblFinder(side, batting, pitching, players, games, { ...query, per, conditions: ex.conditions }, 0, null, opts).total
+    })
   }, [startScreen, side, batting, pitching, players, games, query, eraInnings, qualify, fielding, exInnings, exPas, exTeamInnings, clubName])
+  const examples = useMemo(() => fitted.map(f => f.ex), [fitted])
+  const exampleCounts = useMemo(() => new Map(fitted.map(f => [f.ex, f.n])), [fitted])
   const exampleHref = (ex: FinderExample) => wpblFinderHref({
     side, per: ex.per ?? 'game', conditions: ex.conditions, teamId: query.teamId, oppId: query.oppId, venue: query.venue, ignored: [], season,
   })
@@ -237,8 +252,8 @@ export default function WpblFindView({
   return (
     <FinderBoard side={side} query={query} onQuery={onQuery} result={result} clubs={clubs}
       clubAbbr={id => teams.find(t => t.id === id)?.abbr ?? id}
-      sort={sort} onSort={setSort} examples={EXAMPLES[side]} accent={accent}
-      exampleCount={ex => exampleCounts?.get(ex.label) ?? null} exampleHref={exampleHref}
+      sort={sort} onSort={setSort} examples={examples} accent={accent}
+      exampleCount={ex => exampleCounts.get(ex) ?? null} exampleHref={exampleHref}
       exampleCounted={plays || askPlays ? grains : ['game', 'season']}
       grains={grains} loading={askPlays && !plays}
       parse={text => parseFinderText(text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS)} onAsk={onAsk}
