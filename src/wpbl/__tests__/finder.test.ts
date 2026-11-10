@@ -4,7 +4,7 @@ import {
   finderColumns, validFinderSort, decodeFinderPer, EMPTY_FINDER_QUERY, type FinderQuery,
 } from '../derive/finder'
 import type { WpblBattingLine, WpblFieldingLine, WpblGame, WpblPitchingLine, WpblPlayer } from '../types'
-import type { InningPitchingLine, PlateAppearanceLine } from '../../league/inningLines'
+import type { InningPitchingLine, PlateAppearanceLine, TeamInningLine } from '../../league/inningLines'
 
 // The finder, and the ways a query engine lies without looking like it.
 //
@@ -532,7 +532,7 @@ describe('the finder, by the plate appearance', () => {
   const pa = (o: Partial<PlateAppearanceLine> = {}): PlateAppearanceLine => ({
     id: Math.random().toString(36).slice(2), game_id: 'g1', sequence: 10, inning: 3, half: 'top',
     batter_id: 'a', pitcher_id: 'b', batting_team: 'NY', fielding_team: 'LA', event: 'HR',
-    paouts: 0, on: 0, balls: 0, scount: 2, pitches: 4, strikes: 3, fouls: 1,
+    paouts: 0, on: 0, risp: 0, balls: 0, scount: 2, pitches: 4, strikes: 3, fouls: 1,
     h: 1, doubles: 0, triples: 0, hr: 1, tb: 4, bb: 0, so: 0, hbp: 0, runs: 1, walkoff: 0, ...o,
   })
   const ask = (side: 'hitting' | 'pitching', conditions: FinderQuery['conditions'], plateAppearances: PlateAppearanceLine[]) =>
@@ -571,5 +571,39 @@ describe('the finder, by the plate appearance', () => {
     // A range of counts, or the same fields on another grain, read field by field.
     expect(describeFinderQuery('hitting', { per: 'pa', conditions: [{ field: 'balls', op: 'gte', value: 2 }] }))
       .toBe('Balls in the count at least 2')
+    expect(describeFinderQuery('pitching', { per: 'inning', conditions: [{ field: 'so', op: 'gte', value: 3 }, { field: 'inn', op: 'gte', value: 6 }] }))
+      .toBe('Strikeouts at least 3 and 6th inning or later')
+    expect(describeFinderQuery('hitting', { per: 'pa', conditions: [{ field: 'h', op: 'gte', value: 1 }, { field: 'risp', op: 'eq', value: 1 }] }))
+      .toBe('Hits at least 1 and Runner in scoring position')
+  })
+})
+
+describe('the finder, by a club half-inning', () => {
+  const half = (o: Partial<TeamInningLine> = {}): TeamInningLine => ({
+    id: Math.random().toString(36).slice(2), game_id: 'g1', team_id: 'NY', inning: 4, half: 'bottom', sequence: 30,
+    r: 0, h: 0, doubles: 0, triples: 0, hr: 0, tb: 0, bb: 0, so: 0, hbp: 0, ab: 3, sh: 0, sf: 0, r2: 0, trail: 0, tooklead: 0, ...o,
+  })
+  const clubName = (id: string) => ({ NY: 'New York Heights', LA: 'Los Angeles Queens' })[id] ?? id
+
+  it('rows and tallies clubs, named, with no player', () => {
+    const teamInnings = [
+      half({ r: 5, h: 4, bb: 2, r2: 3, trail: 2, tooklead: 1, ab: 7 }),
+      half({ r: 4, inning: 6 }), half({ team_id: 'LA', half: 'top', r: 1 }),
+    ]
+    const r = runWpblFinder('hitting', [], [], PLAYERS, [game()], q({ per: 'inning', conditions: [{ field: 'r', op: 'gte', value: 4 }] }),
+      50, null, { teamInnings, clubName })
+    expect(r.rows.map(x => [x.name, x.player, x.teamId])).toEqual([['New York Heights', null, 'NY'], ['New York Heights', null, 'NY']])
+    expect(r.rows[0].detail).toBe('Bottom 4th: 5 R, 4 H, 2 BB, 3 with two out, from 2 down, took the lead')
+    expect(r.tally).toEqual([expect.objectContaining({ name: 'New York Heights', games: 2, played: 2 })])
+    expect(finderColumns('hitting', { per: 'inning', conditions: [] }).map(c => c.key))
+      .toEqual(['inn', 'pa', 'h', 'r', 'hr', 'bb', 'so', 'r2'])
+  })
+
+  it('reads a comeback back the way it is asked', () => {
+    const conditions = [{ field: 'trail', op: 'gte' as const, value: 1 }, { field: 'tooklead', op: 'eq' as const, value: 1 }]
+    const r = runWpblFinder('hitting', [], [], PLAYERS, [game()], q({ per: 'inning', conditions }), 50, null,
+      { teamInnings: [half({ trail: 1, tooklead: 1 }), half({ trail: 0, tooklead: 1 })], clubName })
+    expect(r.total).toBe(1)
+    expect(describeFinderQuery('hitting', { per: 'inning', conditions })).toBe('Down 1 or more and Took the lead')
   })
 })

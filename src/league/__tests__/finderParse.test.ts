@@ -442,7 +442,9 @@ describe('parseFinderText: the inning grain', () => {
   it('reads "in an inning" as one pitcher half-inning, and only that', () => {
     for (const t of ['3 strikeouts in an inning', '3 k in one inning', 'pitchers with 3 strikeouts in a single inning', '3+ ks per inning']) {
       const r = inn(t)
-      expect(r.map(x => [x.side, x.per]), t).toEqual([['pitching', 'inning']])
+      // A pitcher's first: a strikeout leans that way. A club striking out three times is the other reading.
+      expect(r.map(x => [x.side, x.per])[0], t).toEqual(['pitching', 'inning'])
+      expect(r.every(x => x.per === 'inning'), t).toBe(true)
       expect(r[0].conditions, t).toEqual([{ field: 'so', op: 'gte', value: 3 }])
     }
   })
@@ -462,8 +464,8 @@ describe('parseFinderText: the inning grain', () => {
   })
 
   it('offers nothing an inning cannot hold, and nothing to a section without the grain', () => {
-    // A batter has no inning grain, so three hits in an inning is the pitcher's three hits allowed.
-    expect(inn('3 hits in an inning').map(x => [x.side, x.per])).toEqual([['pitching', 'inning']])
+    // Three hits in an inning is a club's inning first and a pitcher's three allowed second.
+    expect(inn('3 hits in an inning').map(x => [x.side, x.per])).toEqual([['hitting', 'inning'], ['pitching', 'inning']])
     expect(inn('era under 2 in an inning')).toEqual([])
     expect(parseFinderText('3 strikeouts in an inning', CLUBS)).toEqual([])
   })
@@ -502,5 +504,61 @@ describe('parseFinderText: the plate-appearance grain', () => {
     // A word it cannot use is said back, as any unread word is, and no fielding reading is offered.
     expect(pa('errors on 0-2').every(r => r.side !== 'fielding' && r.ignored.includes('errors'))).toBe(true)
     expect(pa('home run on 0-2 in an inning')).toEqual([])
+  })
+})
+
+describe('parseFinderText: situations and the inning in words', () => {
+  const wpbl = (t: string) => parseFinderText(t, CLUBS, ['hitting', 'pitching', 'fielding'], { plays: true, regulationInnings: 7 })
+  const best = (t: string) => wpbl(t)[0]
+  const conds = (t: string) => best(t)?.conditions.map(c => `${c.field}.${c.op}.${c.value}`)
+
+  it('reads runners in scoring position and empty bases', () => {
+    expect(best('hits with runners in scoring position')).toMatchObject({ side: 'hitting', per: 'pa' })
+    expect(conds('hits with risp')).toEqual(['risp.eq.1', 'h.gte.1'])
+    expect(conds('home runs with the bases empty')).toEqual(['on.eq.0', 'hr.gte.1'])
+    expect(conds('walks with runners on')).toEqual(['on.gte.1', 'bb.gte.1'])
+  })
+
+  it('reads which inning, and picks the grain from what is beside it', () => {
+    expect(best('3 strikeouts in the 7th')).toMatchObject({ side: 'pitching', per: 'inning' })
+    expect(conds('3 strikeouts in the 7th')).toEqual(['inn.eq.7', 'so.gte.3'])
+    expect(best('home runs in the 1st inning')).toMatchObject({ side: 'hitting', per: 'pa' })
+    expect(conds('home runs in the first inning')).toEqual(['inn.eq.1', 'hr.gte.1'])
+    expect(conds('strikeouts in the 5th or later')).toEqual(['inn.gte.5', 'so.gte.1'])
+    expect(conds('hits after the 6th')).toEqual(['inn.gte.7', 'h.gte.1'])
+    expect(conds('walks before the 3rd')).toEqual(['inn.lte.2', 'bb.gte.1'])
+  })
+
+  it('takes extra innings from the league', () => {
+    expect(conds('home runs in extra innings')).toEqual(['inn.gte.8', 'hr.gte.1'])
+    expect(parseFinderText('home runs in extras', CLUBS, ['hitting', 'pitching'], { plays: true })[0].conditions[0])
+      .toEqual({ field: 'inn', op: 'gte', value: 10 })
+  })
+
+  it('leaves innings pitched alone, and offers MLB nothing', () => {
+    expect(best('7 innings no walks')).toMatchObject({ per: 'game' })
+    expect(parseFinderText('home runs in the 7th', CLUBS)).toEqual([])
+  })
+})
+
+describe('parseFinderText: a club half-inning', () => {
+  const wpbl = (t: string) => parseFinderText(t, CLUBS, ['hitting', 'pitching', 'fielding'], { plays: true, regulationInnings: 7 })
+  const read = (t: string) => wpbl(t).map(r => [r.side, r.per, r.conditions.map(c => `${c.field}.${c.op}.${c.value}`).join(' ')])
+
+  it('reads big innings on either side, the club first', () => {
+    expect(read('5-run innings')).toEqual([['hitting', 'inning', 'r.gte.5'], ['pitching', 'inning', 'r.gte.5']])
+    expect(read('innings with 4+ runs')[0]).toEqual(['hitting', 'inning', 'r.gte.4'])
+    expect(read('pitchers allowing 4 run innings')[0]).toEqual(['pitching', 'inning', 'r.gte.4'])
+  })
+
+  it('reads comebacks and rallies as the club alone', () => {
+    expect(read('comeback innings')).toEqual([['hitting', 'inning', 'trail.gte.1 tooklead.eq.1']])
+    expect(read('two-out rallies')).toEqual([['hitting', 'inning', 'r2.gte.2']])
+    expect(read('go-ahead innings vs SF')).toEqual([['hitting', 'inning', 'tooklead.eq.1']])
+    expect(wpbl('go-ahead innings vs SF')[0].oppId).toBe('SF')
+  })
+
+  it('leaves a two-out at-bat to the plate appearance', () => {
+    expect(read('2-out hits')[0]).toEqual(['hitting', 'pa', 'paouts.eq.2 h.gte.1'])
   })
 })

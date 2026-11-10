@@ -6,12 +6,13 @@
 import type { FinderClubAlias, ParsedFinder } from '../league/finderParse'
 import { encodeFinderQuery, type FinderBoardSide } from '../league/finder'
 import { WPBL_TEAMS } from './constants'
+import { REGULATION_INNINGS } from './innings'
 
 /** The sides WPBL's Find board searches: the glove too, since the section stores fielding lines. */
 export const WPBL_FINDER_SIDES: readonly FinderBoardSide[] = ['hitting', 'pitching', 'fielding']
 
 /** What else WPBL's board can answer: a pitcher's half-innings and every plate appearance, from the play log. */
-export const WPBL_FINDER_OPTS = { plays: true } as const
+export const WPBL_FINDER_OPTS = { plays: true, regulationInnings: REGULATION_INNINGS } as const
 
 export const WPBL_FINDER_CLUBS: FinderClubAlias[] = Object.values(WPBL_TEAMS).map(t => ({
   id: t.id, names: [t.abbr, t.city, t.name, `${t.city} ${t.name}`],

@@ -202,6 +202,8 @@ export interface PlateAppearanceLine {
   /** Outs when the plate appearance began, and runners on base. */
   paouts: number
   on: number
+  /** One with a runner on second or third (in scoring position), else zero. */
+  risp: number
   /** The count before the last pitch. */
   balls: number
   scount: number
@@ -269,6 +271,7 @@ export function plateAppearanceLines(league: League, plays: RunValuePlay[], game
       fielding_team: p.half === 'top' ? g.home_team_id : g.away_team_id,
       event: EVENT_CODE[ev] ?? null,
       paouts: p.outs, on: onBase(p.first_base) + onBase(p.second_base) + onBase(p.third_base),
+      risp: onBase(p.second_base) || onBase(p.third_base),
       balls: Math.min(balls, 3), scount: Math.min(scount, 2), pitches: seq.length, strikes, fouls,
       h: HITS.has(ev) ? 1 : 0, doubles: ev === 'double' ? 1 : 0, triples: ev === 'triple' ? 1 : 0,
       hr: ev === 'home_run' ? 1 : 0, tb: BASES[ev] ?? 0,
@@ -278,5 +281,106 @@ export function plateAppearanceLines(league: League, plays: RunValuePlay[], game
         && lastRun.get(p.game_id) === p.sequence ? 1 : 0,
     })
   }
+  return out
+}
+
+/**
+ * One club's half-inning at the plate: "innings with 5+ runs", "two-out rallies", comebacks.
+ *
+ * THE BATTING SIDE'S INNING, where `InningPitchingLine` is the fielding side's pitcher's. One line per
+ * half-inning, whoever pitched it, filed under the club batting. It carries the batting line's own
+ * property names (`r`, `h`, `hr`, `bb`, `so`, and `ab`/`sh` so a plate-appearance sum reads as on a
+ * box-score line), so the finder's Hitting fields read it unchanged.
+ *
+ * THE SCORE IS THE LOG'S OWN RUNNING SUM, from the first play of the game. `trail` is how far the club
+ * was behind as the half began, and `tooklead` whether it ended the half in front having started it
+ * level or behind: a comeback is both. A game whose log is missing runs (runExpectancy.ts says how
+ * that happens) runs its sum short from that point, so a lead read off it can be wrong there; the line
+ * score cannot fix it, since it says how many runs an inning scored but not when.
+ */
+export interface TeamInningLine {
+  /** `${game_id}|${inning}|${half}`. */
+  id: string
+  game_id: string
+  /** The club batting. */
+  team_id: string
+  inning: number
+  half: 'top' | 'bottom'
+  /** The half's first plate appearance (its first row, when there is none): where Game Center opens. */
+  sequence: number
+  r: number
+  h: number
+  doubles: number
+  triples: number
+  hr: number
+  tb: number
+  bb: number
+  so: number
+  hbp: number
+  /** Plate appearances less walks, hit batters and sacrifices, and the sacrifices, so `ab + bb + hbp +
+   *  sf + sh` is the plate appearances the half sent up, as the finder sums them on a batting line. */
+  ab: number
+  sh: number
+  sf: number
+  /** Runs that scored on plays begun with two out. */
+  r2: number
+  /** Runs behind as the half began; zero when level or ahead. */
+  trail: number
+  /** One when the club started the half level or behind and ended it in front. */
+  tooklead: number
+}
+
+export function teamInningLines(league: League, plays: RunValuePlay[], games: LeagueGame[]): TeamInningLine[] {
+  const gameById = new Map(games.map(g => [g.id, g]))
+  const sorted = inOrder(plays, gameById)
+  const out: TeamInningLine[] = []
+  let gameId = ''
+  let score = { top: 0, bottom: 0 }
+  let line: TeamInningLine | null = null
+  let before = { us: 0, them: 0 }
+  const close = () => {
+    if (!line) return
+    const us = score[line.half], them = score[line.half === 'top' ? 'bottom' : 'top']
+    line.tooklead = before.us <= before.them && us > them ? 1 : 0
+    out.push(line)
+    line = null
+  }
+  for (let i = 0; i < sorted.length; i++) {
+    const p = sorted[i]
+    if (p.game_id !== gameId) { close(); gameId = p.game_id; score = { top: 0, bottom: 0 } }
+    const g = gameById.get(p.game_id)!
+    const id = halfKey(p)
+    if (line?.id !== id) {
+      close()
+      const us = score[p.half], them = score[p.half === 'top' ? 'bottom' : 'top']
+      before = { us, them }
+      line = {
+        id, game_id: p.game_id, team_id: p.half === 'top' ? g.away_team_id : g.home_team_id,
+        inning: p.inning, half: p.half, sequence: p.sequence,
+        r: 0, h: 0, doubles: 0, triples: 0, hr: 0, tb: 0, bb: 0, so: 0, hbp: 0, ab: 0, sh: 0, sf: 0, r2: 0,
+        trail: Math.max(0, them - us), tooklead: 0,
+      }
+    }
+    const l = line!
+    const runs = league.runsOnPlay(p)
+    l.r += runs
+    if (p.outs === 2) l.r2 += runs
+    score[p.half] += runs
+    if (!league.isPlateAppearance(p) || partOfNext(p, sorted[i + 1])) continue
+    if (l.ab + l.bb + l.hbp + l.sh === 0) l.sequence = p.sequence
+    const ev = p.event_type ?? ''
+    if (ev === 'walk') l.bb++
+    else if (ev === 'hit_by_pitch') l.hbp++
+    else if (ev === 'sacrifice') l.sh++
+    else l.ab++
+    if (ev === 'strikeout') l.so++
+    if (HITS.has(ev)) {
+      l.h++; l.tb += BASES[ev]
+      if (ev === 'double') l.doubles++
+      else if (ev === 'triple') l.triples++
+      else if (ev === 'home_run') l.hr++
+    }
+  }
+  close()
   return out
 }

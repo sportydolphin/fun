@@ -438,7 +438,8 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
       <Box role="rowgroup">
         <Box role="row" sx={{ ...rowSx, px: 0.5, pb: 0.75 }}>
           <Box role="columnheader" sx={{ ...plainHead, textAlign: 'center' }}>#</Box>
-          <Box role="columnheader" sx={plainHead}>Player</Box>
+          {/* Hitting by the inning is a club's half-inning at the plate (runFinder), so its rows are clubs. */}
+          <Box role="columnheader" sx={plainHead}>{side === 'hitting' && query.per === 'inning' ? 'Club' : 'Player'}</Box>
           {!season && head('date', 'Game', 'Sort by date', 'left')}
           {!season && <Box role="columnheader" sx={plainHead}>Result</Box>}
           {cols.map(c => head(c.key, c.unit, `Sort by ${c.label.toLowerCase()}`, 'right'))}
