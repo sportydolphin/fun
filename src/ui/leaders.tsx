@@ -146,10 +146,13 @@ export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKe
                   <LeaderName name={it.name} />
                   {it.badge}
                 </Box>
-                <Box sx={VALUE_SX}>
+                {/* THE NOTE GOES UNDER THE VALUE, not beside it. Beside, "of 104" took about 50px from
+                    the name in Find's 17rem tally and cut even "F. Last" ("J. Leguizamon" by 25px at
+                    1440, Nov 9, 2026); stacked, the two lines are still shorter than the face. */}
+                <Box sx={{ ...VALUE_SX, ...(it.valueNote ? { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.25 } : {}) }}>
                   {it.value}
                   {it.valueNote && (
-                    <Box component="span" sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', ml: 0.5 }}>
+                    <Box component="span" sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', lineHeight: 1 }}>
                       {it.valueNote}
                     </Box>
                   )}

@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.214.0',
+    date:    '2026-11-09',
+    changes: [
+      {
+        short: 'Find: examples, chips, and logs',
+        full:  'Find opens on its examples, grouped by games, innings, plate appearances and seasons, each with how often it happened. An asked question shows as chips, one per condition or club, each with its own ✕. A question every match answers alike, such as home runs on 0-2, lists in date order and leads each row with what differs. Names no longer cut off beside the tally, and clubs read by their nickname.',
+      },
+    ],
+  },
+  {
     version: '1.213.0',
     date:    '2026-11-09',
     changes: [

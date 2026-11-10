@@ -96,6 +96,17 @@ export function MlbFindView({
     () => runFinder(side, data?.batting ?? [], data?.pitching ?? [], data?.players ?? [], data?.games ?? [], scoped, 50, sort,
       { eraInnings: 9, qualify }),
     [side, data, scoped, sort, qualify])
+  // The examples' counts for the board before a question, in the slice on screen (WPBL's FindView).
+  // None until the season's lines are in, which the board draws as a blank line rather than a zero.
+  const exampleCounts = useMemo(() => {
+    if (query.conditions.length > 0 || !data) return null
+    const opts = { eraInnings: 9, qualify }
+    return new Map(EXAMPLES[side].map(ex => [ex.label,
+      runFinder(side, data.batting, data.pitching, data.players, data.games, { ...scoped, per: ex.per ?? 'game', conditions: ex.conditions }, 0, null, opts).total]))
+  }, [query.conditions.length, data, side, scoped, qualify])
+  const exampleHref = (ex: FinderExample) => mlbFinderHref({
+    side, per: ex.per ?? 'game', conditions: ex.conditions, teamId: query.teamId, oppId: query.oppId, venue: query.venue, ignored: [], season: vizSeason,
+  })
   // A reading on this side is asked in place, keeping the season on screen; the other side goes
   // through the address, as the search box sends it, since the side is the section's to switch.
   const onAsk = (r: FinderReading) => {
@@ -122,6 +133,7 @@ export function MlbFindView({
           <FinderBoard side={side} query={query} onQuery={onQuery} result={result} clubs={CLUBS} loading={loading}
             clubAbbr={id => TEAM_ABBR[Number(id)] ?? id}
             sort={sort} onSort={setSort} examples={EXAMPLES[side]} stickyTop={STATS_BOARD_TOP}
+            exampleCount={ex => exampleCounts?.get(ex.label) ?? null} exampleCounted={['game', 'season']} exampleHref={exampleHref}
             parse={text => parseFinderText(text, MLB_FINDER_CLUBS)} onAsk={onAsk}
             renderRow={(r, i, unit, rank) => (
               <GameLineRow key={r.key} rank={rank.rank} tied={rank.tied} name={r.name} player={r.player} teamId={r.teamId}

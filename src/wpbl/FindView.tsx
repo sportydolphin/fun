@@ -180,13 +180,42 @@ export default function WpblFindView({
     [askInnings, side, plays, cut, games])
   // Hitting by the inning is a club's half-inning, so its rows and its tally are clubs, not players.
   const clubRows = side === 'hitting' && query.per === 'inning'
-  const clubName = useCallback((id: string) => { const t = teams.find(x => x.id === id); return t ? wpblFullName(t) : id }, [teams])
+  // THE NICKNAME, NOT THE FULL NAME: every name column here steps a name down the way it does a
+  // person's, so "Los Angeles Queens" came out "L. Queens", which reads as a player. One word has no
+  // stage to step to, and four clubs never share a nickname.
+  const clubName = useCallback((id: string) => teams.find(x => x.id === id)?.name ?? id, [teams])
   const plateAppearances = useMemo(
     () => (askPas && plays ? plateAppearanceLines(WPBL_LEAGUE, cut(plays), games) : undefined),
     [askPas, plays, cut, games])
   const result = useMemo(
     () => runWpblFinder(side, batting, pitching, players, games, query, 50, sort, { eraInnings, qualify, fielding, innings, plateAppearances, teamInnings, clubName }),
     [side, batting, pitching, fielding, players, games, query, sort, eraInnings, qualify, innings, plateAppearances, teamInnings, clubName])
+  // THE EXAMPLES' COUNTS, for the board before a question: each one run in the scope on screen. A
+  // play-log example counts only once the log is in hand (cached, or read for a play-log grain),
+  // since the start screen must not cost the read the play-log grains are careful to defer.
+  const startScreen = query.conditions.length === 0
+  const countPlays = startScreen ? plays : null
+  const exInnings = useMemo(
+    () => innings ?? (countPlays && side === 'pitching' ? inningPitchingLines(WPBL_LEAGUE, cut(countPlays), games) : undefined),
+    [innings, countPlays, side, cut, games])
+  const exTeamInnings = useMemo(
+    () => teamInnings ?? (countPlays && side === 'hitting' ? teamInningLines(WPBL_LEAGUE, cut(countPlays), games) : undefined),
+    [teamInnings, countPlays, side, cut, games])
+  const exPas = useMemo(
+    () => plateAppearances ?? (countPlays && side !== 'fielding' ? plateAppearanceLines(WPBL_LEAGUE, cut(countPlays), games) : undefined),
+    [plateAppearances, countPlays, side, cut, games])
+  const exampleCounts = useMemo(() => {
+    if (!startScreen) return null
+    const opts = { eraInnings, qualify, fielding, innings: exInnings, plateAppearances: exPas, teamInnings: exTeamInnings, clubName }
+    return new Map(EXAMPLES[side].map(ex => {
+      const per = ex.per ?? 'game'
+      const missing = (per === 'pa' && !exPas) || (per === 'inning' && !(side === 'pitching' ? exInnings : exTeamInnings))
+      return [ex.label, missing ? null : runWpblFinder(side, batting, pitching, players, games, { ...query, per, conditions: ex.conditions }, 0, null, opts).total]
+    }))
+  }, [startScreen, side, batting, pitching, players, games, query, eraInnings, qualify, fielding, exInnings, exPas, exTeamInnings, clubName])
+  const exampleHref = (ex: FinderExample) => wpblFinderHref({
+    side, per: ex.per ?? 'game', conditions: ex.conditions, teamId: query.teamId, oppId: query.oppId, venue: query.venue, ignored: [], season,
+  })
   // A reading on this side is asked in place, which keeps the season and slice on screen; one on
   // the other side goes through the address, the way the search box sends it, since the side is
   // StatsView's to switch.
@@ -212,6 +241,8 @@ export default function WpblFindView({
     <FinderBoard side={side} query={query} onQuery={onQuery} result={result} clubs={clubs}
       clubAbbr={id => teams.find(t => t.id === id)?.abbr ?? id}
       sort={sort} onSort={setSort} examples={EXAMPLES[side]} stickyTop={STICKY_TOP} accent={accent}
+      exampleCount={ex => exampleCounts?.get(ex.label) ?? null} exampleHref={exampleHref}
+      exampleCounted={plays || askPlays ? grains : ['game', 'season']}
       grains={grains} loading={askPlays && !plays}
       parse={text => parseFinderText(text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS)} onAsk={onAsk}
       renderRow={(r, i, unit, rank) => (
