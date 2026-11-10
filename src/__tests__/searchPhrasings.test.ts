@@ -68,3 +68,27 @@ describe('the position filter', () => {
     expect(matchesPositionFilter('RP', 'P', null)).toBe(false)
   })
 })
+
+describe('play-log questions from the search bar', () => {
+  // The palette asks the gate before it loads the parser, so a phrase the gate drops never reaches Find.
+  it('lets through the questions with no count in them', async () => {
+    const { mightBeFinderQuestion } = await import('../finderGate')
+    for (const q of ['hits with runners on', 'comebacks', 'go-ahead innings', 'come from behind', 'two-out rallies', 'biggest innings', 'hits with risp', 'bases-loaded walks']) {
+      expect(mightBeFinderQuestion(q), q).toBe(true)
+      expect(finderSuggestions('wpbl', q).length, q).toBeGreaterThan(0)
+    }
+  })
+  it('opens a comeback on the club innings', () => {
+    expect(finderSuggestions('wpbl', 'comebacks')[0].href).toBe('/wpbl/stats?board=find&side=hitting&q=inning~trail.gte.1~tooklead.eq.1')
+  })
+  it('reads the most in an inning as the inning grain, which lists the biggest first', () => {
+    expect(finderSuggestions('wpbl', 'most strikeouts in an inning')[0]).toMatchObject({
+      title: 'Most strikeouts in an inning', href: '/wpbl/stats?board=find&side=pitching&q=inning~so.gte.1',
+    })
+    expect(findTitles('biggest innings')).toEqual(['Most runs scored in an inning', 'Most runs allowed in an inning'])
+    expect(findTitles('what was the most hits in a single inning?')[0]).toBe('Most hits in an inning')
+  })
+  it('leaves MLB alone, which has no innings to search', () => {
+    expect(finderSuggestions('mlb', 'most runs in an inning').every(f => f.parsed.per !== 'inning')).toBe(true)
+  })
+})

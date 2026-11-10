@@ -40,13 +40,29 @@ function clubLabel(section: FinderSection, id: string): string {
   return section === 'mlb' ? TEAM_ABBR[Number(id)] ?? id : id
 }
 
+// "most runs in an inning", "biggest innings": the inning record, which neither the leaders (season
+// totals) nor the Bests boards (one game) hold. The Find board already lists its matches highest
+// first by the question's stat, so "at least 1, in an inning" IS that ranking. WPBL only: MLB has no
+// play log to cut into innings.
+const INNING_MOST = /^\s*(?:what\s+(?:is|was|were|are)\s+)?(?:the\s+)?(?:most|highest|greatest)\s+(.+?)\s+in\s+(?:an?|one|a\s+single)\s+(?:half[\s-]+)?inning\s*\??\s*$/i
+const BIGGEST_INNING = /^\s*(?:the\s+)?(?:biggest|largest)\s+innings?\s*\??\s*$/i
+
+function inningRecord(text: string): { text: string; stat: string } | null {
+  if (BIGGEST_INNING.test(text)) return { text: '1+ runs in an inning', stat: 'runs' }
+  const m = text.match(INNING_MOST)
+  return m ? { text: `1+ ${m[1]} in an inning`, stat: m[1] } : null
+}
+
 /** Every reading of `text` as a question for this section's Find board, best first. */
 export function finderSuggestions(section: FinderSection, text: string): FinderSuggestion[] {
+  const record = section === 'wpbl' ? inningRecord(text) : null
   const parsed = section === 'mlb'
     ? parseFinderText(text, MLB_FINDER_CLUBS)
-    : parseFinderText(text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS)
+    : parseFinderText(record?.text ?? text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS)
+      .filter(p => !record || (p.per === 'inning' && p.conditions.length === 1))
   return parsed.map(p => {
-    const title = describeFinderQuery(p.side, p)
+    const field = record ? finderFields(p.side, 'inning').find(f => f.key === p.conditions[0].field) : null
+    const title = field ? `Most ${field.label.toLowerCase()} in an inning` : describeFinderQuery(p.side, p)
     const sideWord = p.side === 'pitching' ? 'Pitching' : p.side === 'fielding' ? 'Fielding' : 'Batting'
     const bits = [p.per === 'season' ? `${sideWord}, season totals` : p.per === 'inning' ? `${sideWord}, single innings`
       : p.per === 'pa' ? `${sideWord}, plate appearances` : `${sideWord} lines`]
