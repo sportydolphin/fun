@@ -98,14 +98,29 @@ function partOfNext(p: RunValuePlay, next: RunValuePlay | undefined): boolean {
     && (next.pitch_sequence ?? '').startsWith(seq)
 }
 
+/** Each game's last half-inning, the only one that can end on something other than a third out. */
+function lastHalves(sorted: RunValuePlay[]): Map<string, string> {
+  const lastHalf = new Map<string, string>()
+  for (const p of sorted) lastHalf.set(p.game_id, halfKey(p))
+  return lastHalf
+}
+
+/** The outs once row `i` was over: the next row's, or the end of the half (see the comment above). */
+function outsAfterRow(sorted: RunValuePlay[], i: number, lastHalf: Map<string, string>, g: LeagueGame): number {
+  const p = sorted[i]
+  const next = sorted[i + 1]
+  if (next != null && halfKey(next) === halfKey(p)) return next.outs
+  if (halfKey(p) !== lastHalf.get(p.game_id)) return 3
+  // The game's last half-inning. A top half, or a bottom half the home side did not win, ended on the
+  // third out; a bottom half the home side won ended on the winning run.
+  const walkOff = p.half === 'bottom' && g.home_score != null && g.away_score != null && g.home_score > g.away_score
+  return walkOff ? p.outs : 3
+}
+
 export function inningPitchingLines(league: League, plays: RunValuePlay[], games: LeagueGame[]): InningPitchingLine[] {
   const gameById = new Map(games.map(g => [g.id, g]))
   const sorted = inOrder(plays, gameById)
-
-  // The last half-inning of each game, which is the only one that can end on something other than
-  // a third out.
-  const lastHalf = new Map<string, string>()
-  for (const p of sorted) lastHalf.set(p.game_id, halfKey(p))
+  const lastHalf = lastHalves(sorted)
 
   const lines = new Map<string, InningPitchingLine>()
   for (let i = 0; i < sorted.length; i++) {
@@ -113,17 +128,7 @@ export function inningPitchingLines(league: League, plays: RunValuePlay[], games
     const g = gameById.get(p.game_id)!
     const key = halfKey(p)
     const next = sorted[i + 1]
-    const sameHalf = next != null && halfKey(next) === key
-
-    let outsAfter: number
-    if (sameHalf) outsAfter = next.outs
-    else if (key !== lastHalf.get(p.game_id)) outsAfter = 3
-    else {
-      // The game's last half-inning. A top half, or a bottom half the home side did not win, ended
-      // on the third out; a bottom half the home side won ended on the winning run.
-      const walkOff = p.half === 'bottom' && g.home_score != null && g.away_score != null && g.home_score > g.away_score
-      outsAfter = walkOff ? p.outs : 3
-    }
+    const outsAfter = outsAfterRow(sorted, i, lastHalf, g)
 
     // A row with no pitcher still moves the outs (a pickoff with the name missing), but there is
     // nobody to credit it to.
@@ -222,6 +227,43 @@ export interface PlateAppearanceLine {
   /** Runs that scored on the play. */
   runs: number
   walkoff: number
+  /**
+   * RUNS OF PLAYS, each counted ONCE, on the run's last plate appearance and zero everywhere else, so
+   * "back-to-back home runs" matches a run of three once rather than twice, and the board's highest
+   * first order lists the longest run first. `hrrow`: the batting club's home runs in a row within the
+   * half-inning (a solo one is 1). `krow` and `retired`: the pitcher's strikeouts and batters retired
+   * in a row within the game, across innings.
+   */
+  hrrow: number
+  krow: number
+  retired: number
+}
+
+/**
+ * A BATTER IS RETIRED when the plate appearance made an out and the batter did not reach: no hit, walk,
+ * hit batter or fielder's choice. Read off the outs rather than the event, because the event misleads
+ * both ways: an infield fly arrives as `unknown`, a batter safe on an error is `unknown` too, and a
+ * strikeout can reach on a dropped third strike. A double play counts once, as one batter.
+ */
+const reached = (l: PlateAppearanceLine) => l.h + l.bb + l.hbp > 0 || l.event === 'FC'
+
+/** Sets `field` on the last line of each run of `hit` lines sharing a `group`, to the run's length. */
+function markRuns(lines: PlateAppearanceLine[], group: (l: PlateAppearanceLine) => string | null,
+  hit: (l: PlateAppearanceLine, i: number) => boolean, field: 'hrrow' | 'krow' | 'retired') {
+  const run = new Map<string, { n: number; last: number }>()
+  const close = (key: string) => {
+    const r = run.get(key)
+    if (r && r.n > 0) lines[r.last][field] = r.n
+    run.delete(key)
+  }
+  lines.forEach((l, i) => {
+    const key = group(l)
+    if (key == null) return
+    if (!hit(l, i)) { close(key); return }
+    const r = run.get(key) ?? { n: 0, last: i }
+    run.set(key, { n: r.n + 1, last: i })
+  })
+  for (const key of [...run.keys()]) close(key)
 }
 
 const EVENT_CODE: Record<string, string> = {
@@ -240,13 +282,12 @@ export function plateAppearanceLines(league: League, plays: RunValuePlay[], game
 
   // Each game's last run-scoring row, and its last half-inning.
   const lastRun = new Map<string, number>()
-  const lastHalf = new Map<string, string>()
-  for (const p of sorted) {
-    if (league.runsOnPlay(p) > 0) lastRun.set(p.game_id, p.sequence)
-    lastHalf.set(p.game_id, halfKey(p))
-  }
+  const lastHalf = lastHalves(sorted)
+  for (const p of sorted) if (league.runsOnPlay(p) > 0) lastRun.set(p.game_id, p.sequence)
 
   const out: PlateAppearanceLine[] = []
+  // The outs each plate appearance made, beside `out`, for who was retired.
+  const outsMade: number[] = []
   for (let i = 0; i < sorted.length; i++) {
     const p = sorted[i]
     if (!league.isPlateAppearance(p) || partOfNext(p, sorted[i + 1])) continue
@@ -264,6 +305,7 @@ export function plateAppearanceLines(league: League, plays: RunValuePlay[], game
     const ev = p.event_type ?? ''
     const runs = league.runsOnPlay(p)
     const homeWon = g.home_score != null && g.away_score != null && g.home_score > g.away_score
+    outsMade.push(Math.max(0, outsAfterRow(sorted, i, lastHalf, g) - p.outs))
     out.push({
       id: `${p.game_id}|${p.sequence}`, game_id: p.game_id, sequence: p.sequence, inning: p.inning, half: p.half,
       batter_id: p.batter_id, pitcher_id: p.pitcher_id,
@@ -279,8 +321,13 @@ export function plateAppearanceLines(league: League, plays: RunValuePlay[], game
       runs,
       walkoff: homeWon && runs > 0 && p.half === 'bottom' && halfKey(p) === lastHalf.get(p.game_id)
         && lastRun.get(p.game_id) === p.sequence ? 1 : 0,
+      hrrow: 0, krow: 0, retired: 0,
     })
   }
+  markRuns(out, l => `${l.game_id}|${l.inning}|${l.half}`, l => l.hr > 0, 'hrrow')
+  const byPitcher = (l: PlateAppearanceLine) => (l.pitcher_id ? `${l.game_id}|${l.pitcher_id}` : null)
+  markRuns(out, byPitcher, l => l.so > 0, 'krow')
+  markRuns(out, byPitcher, (l, i) => outsMade[i] > 0 && !reached(l), 'retired')
   return out
 }
 

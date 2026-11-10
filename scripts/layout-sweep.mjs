@@ -180,6 +180,8 @@ const DEFAULT_ROUTES = [
   '/wpbl/stats?board=find&side=pitching&q=inning~so.gte.3', '/wpbl/stats?board=find&q=pa~hr.gte.1~on.eq.3',
   // Hitting's inning is a club's half-inning, whose rows are clubs: a badge where a portrait goes.
   '/wpbl/stats?board=find&q=inning~r.gte.4',
+  // A run of plays: the widest unit on the board ("RET") in a column the standard PA line lacks.
+  '/wpbl/stats?board=find&side=pitching&q=pa~retired.gte.7',
   // One slot filled, and a pair: two hitters, the shape the pair's skeleton reserves.
   '/mlb/compare/zack-wheeler-554430', '/mlb/compare/bobby-witt-jr-677951-vs-julio-rodriguez-677594',
   // A player page, one of each role. None was swept until Oct 20, 2026, when the field reports found
