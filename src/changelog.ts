@@ -23,6 +23,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.227.0',
+    date:    '2026-11-10',
+    changes: [
+      {
+        short: 'Every sacrifice bunt counted',
+        full:  'Three of the season’s ten sacrifice bunts are written "SAC" with no "bunt" in the play-by-play, and were missing from bunt counts. They are counted now, so the bunt totals match the box scores.',
+      },
+      {
+        short: 'Sacrifices fixed in Find, batter vs pitcher and wOBA',
+        full:  'A club’s half-inning in Find no longer counts a sacrifice fly as a bunt or a sacrifice bunt as an at-bat. Batter vs pitcher no longer counts a sacrifice bunt as an at-bat. And a sacrifice bunt no longer counts as an ordinary out in the wOBA baseline, which moves wOBA and run values very slightly.',
+      },
+    ],
+  },
+  {
     version: '1.226.0',
     date:    '2026-11-10',
     changes: [
