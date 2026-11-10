@@ -23,6 +23,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.229.0',
+    date:    '2026-11-10',
+    changes: [
+      {
+        short: 'Find on a phone: a card per match',
+        full:  'Each match on a phone is a card with its stats in labeled cells, the ones you asked about first and in color, in place of one line of text beside a big number. That number was sometimes a stat nobody asked for: "Strikeouts at least 6" showed every row as innings pitched.',
+      },
+      {
+        short: 'Find: the answer first',
+        full:  'The line over the matches says how many and when, and "3 pitchers, once each" moved into it from a card of its own. The table puts the stats you asked about first, and an exact one like a 0-2 count last, since it reads the same on every row.',
+      },
+    ],
+  },
+  {
     version: '1.228.0',
     date:    '2026-11-10',
     changes: [

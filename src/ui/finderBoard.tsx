@@ -3,13 +3,13 @@ import type { ExampleLadder } from './finderExamples'
 import { Box, Skeleton, Typography } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import {
-  finderFieldGroups, finderUnit, finderColumns, defaultCondition, parseFinderValue, unparseFinderValue,
+  finderFieldGroups, finderColumns, defaultCondition, parseFinderValue, unparseFinderValue,
   displayFinderValue, describeFinderQuery, describeFinderConditions, describeFinderCuts, finderSpanText, finderSigned, finderLowerBetter, conditionsForPer, finderPitcherApplies, finderPlayerApplies, finderPlayerAt, hasPlayerFilter,
   FINDER_OPS, FINDER_MONTH_NAMES, finderSpanMonth, finderMonthSpan,
   type FinderCondition, type FinderOp, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
   type FinderBoardSide, type FinderSort, type FinderTally, type FinderVenue,
 } from '../league/finder'
-import { GAME_LINE_RANK_SX, GameLineFrame } from './gameLine'
+import { GAME_LINE_RANK_SX } from './gameLine'
 import { shortDate } from '../lib/format'
 import type { LeagueGame, LeaguePlayer } from '../league/types'
 import { SectionCard, SectionLabel, TYPE_SCALE, CARD_BORDER, ACCENT_EDGE } from './card'
@@ -363,21 +363,128 @@ function CopyLink() {
   )
 }
 
-/** A result row's ghost, the same box as GameLineFrame's. */
-function RowSkeleton({ divider }: { divider: boolean }) {
+/** The table's columns with the ones the question asks first, in the order asked: the answer is the
+ *  first number on every row, whichever column the list is in order by. Not an exact condition ("0-2
+ *  count", "bases loaded"), which reads the same on every row and is the chip's to say: first, it
+ *  spent a phone card's first three cells on "B 0, S 2". */
+function askedFirst(side: FinderBoardSide, query: FinderQuery): { key: string; unit: string; label: string }[] {
+  const cols = finderColumns(side, query)
+  const asked = query.conditions.filter(c => c.op !== 'eq').map(c => c.field)
+  const exact = new Set(query.conditions.filter(c => c.op === 'eq').map(c => c.field))
+  const rank = (key: string) => { const i = asked.indexOf(key); return i >= 0 ? i : exact.has(key) ? asked.length + 1 : asked.length }
+  return cols.map((c, i) => ({ c, i })).sort((a, b) => rank(a.c.key) - rank(b.c.key) || a.i - b.i).map(x => x.c)
+}
+
+// A CARD'S STAT STRIP: one row of labeled cells, as many as the width holds, the rest cut whole (rows
+// after the first are zero tall). The asked columns come first, so what is cut is never the answer.
+const STRIP_CELL_REM = 2.6
+const stripSx = {
+  display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${STRIP_CELL_REM}rem, 1fr))`,
+  gridTemplateRows: 'auto', gridAutoRows: 0, overflow: 'hidden', columnGap: 0.5, mt: 0.5,
+} as const
+const stripLabelSx = { fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary', whiteSpace: 'nowrap', lineHeight: 1.3 } as const
+const stripValueSx = { fontSize: TYPE_SCALE.body, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', lineHeight: 1.3 } as const
+
+/** A result card's ghost, the same box as `ResultCards`' card, so nothing moves when the rows land. */
+function CardSkeleton({ divider, season, stats }: { divider: boolean; season: boolean; stats: number }) {
   return (
     <Box aria-hidden sx={{
-      display: 'flex', alignItems: 'center', gap: 1.25, px: 0.5, py: 0.85,
+      display: 'flex', alignItems: 'flex-start', gap: 1.25, px: 0.5, py: 0.85,
       borderTop: divider ? '1px solid' : 'none', borderColor: 'divider',
     }}>
-      <Box sx={GAME_LINE_RANK_SX}>&nbsp;</Box>
+      <Box sx={{ ...GAME_LINE_RANK_SX, lineHeight: 1.5 }}>&nbsp;</Box>
       <Skeleton variant="circular" width={chromePx(PORTRAIT_PX)} height={chromePx(PORTRAIT_PX)} sx={{ flexShrink: 0 }} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{ fontSize: TYPE_SCALE.body }}><Skeleton width="55%" /></Typography>
-        <Typography sx={{ fontSize: TYPE_SCALE.meta }}><Skeleton width="75%" /></Typography>
+        {!season && <Typography sx={{ fontSize: TYPE_SCALE.meta }}><Skeleton width="45%" /></Typography>}
+        <Box sx={stripSx}>
+          {Array.from({ length: stats }, (_, i) => (
+            <Box key={i}>
+              <Box sx={stripLabelSx}><Skeleton width="1.4rem" /></Box>
+              <Box sx={stripValueSx}><Skeleton width="1.6rem" /></Box>
+            </Box>
+          ))}
+        </Box>
       </Box>
-      <Box sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800 }}><Skeleton width="2rem" /></Box>
     </Box>
+  )
+}
+
+/**
+ * THE LIST, WHERE THE TABLE DOES NOT FIT: a card per match, built from the table's own columns and
+ * links. Until Nov 10, 2026 a phone drew each match as a sentence ("Win, 3.2 IP, 1 H, 1 R, 0 BB, 6 K")
+ * beside one big number, and on a yes-or-no answer that number was not the stat asked: "Strikeouts
+ * at least 6" listed every row as "3.2 IP", since every row's strikeouts were the same. Now the line is
+ * a strip of labeled cells, the asked stats first and in the accent, and the night and its result
+ * read as the table's Game and Result columns do.
+ */
+function ResultCards<P extends LeaguePlayer, G extends LeagueGame>({ side, query, rows, ranks, clubAbbr, rowParts }: {
+  side: FinderBoardSide
+  query: FinderQuery
+  rows: FinderRow<P, G>[]
+  ranks: RankMark[]
+  clubAbbr: (id: string) => string
+  rowParts: (row: FinderRow<P, G>) => FinderRowParts
+}) {
+  const cols = askedFirst(side, query)
+  const asked = query.conditions.map(c => c.field)
+  const season = query.per === 'season'
+  const stretched = { '&::after': { content: '""', position: 'absolute', inset: 0, borderRadius: 1 } } as const
+  return (
+    <NameColumn names={rows.map(r => r.name)}>{rows.map((r, i) => {
+      const parts = rowParts(r)
+      const label = gameLabel(r.game, r.teamId, clubAbbr)
+      const rowLink = season ? parts.playerLink : parts.gameLink
+      const result = r.inning?.event !== undefined ? r.inning.event ?? '' : gameResult(r.game, r.teamId)
+      return (
+        <Box key={r.key} sx={{
+          position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 1.25, px: 0.5, py: 0.85, borderRadius: 1,
+          borderTop: i > 0 ? '1px solid' : 'none', borderColor: 'divider',
+          ...(rowLink ? TAPPABLE : {}),
+        }}>
+          <Box sx={{ ...GAME_LINE_RANK_SX, lineHeight: 1.5, color: 'text.secondary' }}>{rankText(ranks[i])}</Box>
+          {parts.portrait}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+              {/* Raised over the row's stretched game link, so the name still opens the player. On a
+                  season card the name IS the card's link, stretched over it. */}
+              <NameText name={r.name} linkProps={parts.playerLink} sx={{
+                ...(season ? {} : { position: 'relative', zIndex: 1 }),
+                minWidth: 0, textDecoration: 'none', color: 'inherit',
+                fontSize: TYPE_SCALE.body, fontWeight: 700,
+                ...(parts.playerLink ? hoverOnly({ textDecoration: 'underline' }) : {}),
+                ...(season && parts.playerLink ? stretched : {}),
+              }} />
+              {parts.club && <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', flexShrink: 0 }}>{parts.club}</Box>}
+            </Box>
+            {!season && (
+              <Typography component="div" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', minWidth: 0 }}>
+                {parts.gameLink ? (
+                  <Box component="a" {...parts.gameLink} sx={{
+                    ...FOCUS_RING, color: ACCENT_EDGE, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap',
+                    ...stretched, ...hoverOnly({ textDecoration: 'underline' }),
+                  }}>{label}</Box>
+                ) : <Box component="span" sx={{ whiteSpace: 'nowrap' }}>{label}</Box>}
+                {result && result !== '—' ? ` · ${result}` : ''}
+              </Typography>
+            )}
+            <Box role="list" aria-label="Line" sx={stripSx}>
+              {cols.map(c => {
+                const isAsked = asked.includes(c.key)
+                return (
+                  <Box key={c.key} role="listitem" title={c.label} sx={{ minWidth: 0 }}>
+                    <Box sx={{ ...stripLabelSx, color: isAsked ? 'text.primary' : 'text.secondary' }}>{c.unit}</Box>
+                    <Box sx={{ ...stripValueSx, fontWeight: isAsked ? 800 : 500, color: isAsked ? ACCENT_EDGE : 'text.primary' }}>
+                      {displayFinderValue(side, c.key, r.values[c.key] ?? 0)}
+                    </Box>
+                  </Box>
+                )
+              })}
+            </Box>
+          </Box>
+        </Box>
+      )
+    })}</NameColumn>
   )
 }
 
@@ -450,7 +557,7 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
   rowParts: (row: FinderRow<P, G>) => FinderRowParts
   loading: boolean
 }) {
-  const cols = finderColumns(side, query)
+  const cols = askedFirst(side, query)
   const asked = query.conditions.map(c => c.field)
   // A SEASON ROW IS A PLAYER, so it has no night and no result: the player is its one destination,
   // and the columns start straight after the name.
@@ -579,23 +686,6 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
   )
 }
 
-/** A season row for the list: the shared game-line frame with the player as its one link, since a
- *  season has no night for the row to open. */
-function SeasonRow<P extends LeaguePlayer, G extends LeagueGame>({ row, i, rank, unit, parts, accent }: {
-  row: FinderRow<P, G>
-  i: number
-  rank: RankMark
-  unit: string
-  parts: FinderRowParts
-  accent?: string
-}) {
-  return (
-    <GameLineFrame rank={rank.rank} tied={rank.tied} emphasizeRank={false} portrait={parts.portrait} name={row.name} club={parts.club}
-      label={null} detail={row.detail} value={row.headlineDisplay} unit={unit} divider={i > 0}
-      accent={accent} rowLink={parts.playerLink} />
-  )
-}
-
 /** Who a row is, for the counts: a player on every side, and a club on Hitting by the inning, where
  *  a row is a club's half-inning at the plate. */
 function whoFor(side: FinderBoardSide, per: FinderPer, byClub = false): [string, string] {
@@ -695,8 +785,8 @@ function ExampleGrid({ side, grains, examples, count, counted, href, onPick }: {
 }
 
 export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
-  side, query, onQuery, result, clubs, clubAbbr, loading = false, renderRow, rowParts, tallyParts,
-  sort, onSort, examples, exampleCount, exampleCounted = [], exampleHref, parse, onAsk, accent, grains = DEFAULT_GRAINS, picks,
+  side, query, onQuery, result, clubs, clubAbbr, loading = false, rowParts, tallyParts,
+  sort, onSort, examples, exampleCount, exampleCounted = [], exampleHref, parse, onAsk, grains = DEFAULT_GRAINS, picks,
   plays = true, months,
 }: {
   side: FinderBoardSide
@@ -710,10 +800,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   /** The line under the question's title: what the board searches. */
   /** While the lines are still coming (MLB reads them; WPBL already holds them). */
   loading?: boolean
-  /** A matching game line in the section's own parts (GameLineFrame, in game mode), for the list.
-   *  A season row is drawn here, from `rowParts`, since it has no game for a section's row to show. */
-  renderRow: (row: FinderRow<P, G>, i: number, unit: string, rank: RankMark) => React.ReactNode
-  /** The same line's parts, for the table. */
+  /** A matching line's parts (face, club mark, links), for the table and the cards alike. */
   rowParts: (row: FinderRow<P, G>) => FinderRowParts
   /** The section's face, club mark and link for a tally row. */
   tallyParts: (t: FinderTally<P>) => Pick<LeaderItem, 'key' | 'name' | 'portrait' | 'badge' | 'linkProps'>
@@ -733,8 +820,6 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   /** The question typed as words. The box is drawn only when both are given. */
   parse?: (text: string) => FinderReading[]
   onAsk?: (r: FinderReading) => void
-  /** The section's accent for a season row's number, as its game rows use. */
-  accent?: string
   /** The grains this side can be asked at, in the switch's order. Single innings only where the
    *  section reads its plays and the side is pitching (src/league/inningLines.ts). */
   grains?: FinderPer[]
@@ -754,7 +839,6 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // and editing is one tap. A question being built from the pickers stays open, since folding it
   // under the reader's thumb would be worse.
   const [folded, setFolded] = useState(() => query.conditions.length > 0 || hasPlayerFilter(side, query))
-  const unit = finderUnit(side, result.headlineField)
   const clubOptions = (blank: string) => [{ value: '', label: blank }, ...clubs]
   // A PLAYER IS A QUESTION ON ITS OWN: "every trip to the plate between these two" or "every game
   // Sato pitched" asks no stat, and answers with the log rather than the examples.
@@ -796,28 +880,26 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     onQuery({ ...finderPlayerAt(side, query, per), per, conditions: kept.length || per === 'game' ? kept : [defaultCondition(side, per)] })
   }
 
-  // A NUMBER AND A SENTENCE, not just a number. "12" over a list is a fact about a question the
-  // reader may have changed three controls ago; "12 games where Strikeouts at least 5" is the
-  // question read back, which is the only way to notice you asked the wrong one. Club and venue
-  // included: `describeFinderQuery` knows only the stat conditions, and a summary that omits the
-  // who and where claims a wider search than it ran. The unasked question gets its own wording,
-  // since "612 games where every game line" reads as a bug.
+  // HOW MANY AND WHEN. The line used to read the whole question back ("12 games where Strikeouts at
+  // least 5, vs SF"), which the chips above it now say piece by piece, each removable; twice over, the
+  // answer was the last thing on a line that wrapped to three on a phone.
   const who = whoFor(side, query.per, query.byClub)
   const noun = GRAIN_NOUN[query.per]
   const tallyTitle = `Most ${noun[1]} matching`
   const games_ = season ? (result.total === 1 ? who[0] : who[1])
     : result.total === 1 ? noun[0] : noun[1]
-  const scopeText = scopeWords(side, query, clubAbbr, picks?.name)
   const total = result.total.toLocaleString()
   // WHEN, beside how many: the first and the latest match across all of them, since the rows are the
   // top fifty by the stat and "when did it last happen" is half of a yes-or-no question. On the same
   // line rather than a line of its own, which the skeleton would have to guess the presence of.
   const span = finderSpanText(result.span)
-  const summary = [query.conditions.length > 0
-    ? `${total} ${games_} where ${describeFinderQuery(side, query)}${scopeText ? `, ${scopeText}` : ''}`
-    : scopeText
-      ? `${total} ${games_} ${scopeText}`
-      : `${total} ${games_}`, span].filter(Boolean).join(' · ')
+  // THE ANSWER, not the question again: the chips above already say what was asked, so the line is how
+  // many, when, and (where nobody did it twice) that, which used to be a card of its own under the list.
+  const onceEach = result.tally.length > 0 && result.tally[0].games === 1
+  const onceText = !season && onceEach
+    ? (result.tally.length === 1 ? `1 ${who[0]}` : `${result.tally.length.toLocaleString()} ${who[1]}, once each`)
+    : ''
+  const summary = [`${total} ${games_}`, span, onceText].filter(Boolean).join(' · ')
   // SHOWN, because a bar the reader did not set is a filter they cannot see. A label with its
   // definition behind an InfoDot, as every other board's qualifier is, rather than two sentences of
   // instructions above the table (house rule: labels, not narration). The way past it stays in the
@@ -851,8 +933,8 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     valueNote: `of ${t.played}`,
   }))
   // NOBODY TWICE IS AN ANSWER, and a ranking buries it. Four rows all reading "T-1, 1" say only that
-  // every match was a different player, under a title promising a leader; a sentence says it.
-  const onceEach = result.tally.length > 0 && result.tally[0].games === 1
+  // every match was a different player, under a title promising a leader: the answer line says it
+  // (`onceText`), and the card goes.
 
   const tableRem = tableMinRem(finderColumns(side, query).length, query.per)
   // WHAT EACH COLUMN IS. "R2", "RS" and "ON" are this board's own, and a header's `title` never shows
@@ -866,6 +948,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // across a wide desktop is ten names with a screen of nothing between each and its count.
   const tallySplit = `@container finder-main (min-width: ${2 * TALLY_REM + 2}rem) and (max-width: ${besideRem - 0.01}rem)`
   const listOnly = { display: 'block', [tableOn]: { display: 'none' } }
+  const stripStats = finderColumns(side, query).length
   const tableOnly = { display: 'none', [tableOn]: { display: 'block' } }
 
   // THE QUESTION AS CHIPS, one per condition and one per club, venue or opponent set, each with its
@@ -1072,7 +1155,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
               )}
               {loading ? (
                 <>
-                  <Box sx={listOnly}>{Array.from({ length: RESULT_CAP }, (_, i) => <RowSkeleton key={i} divider={i > 0} />)}</Box>
+                  <Box sx={listOnly}>{Array.from({ length: RESULT_CAP }, (_, i) => <CardSkeleton key={i} divider={i > 0} season={season} stats={stripStats} />)}</Box>
                   <Box sx={tableOnly}>{table}</Box>
                   {/* The expand row a season's worth of matches always brings, so the card does not grow
                       by it when they land and push the tally under it on a phone. */}
@@ -1094,9 +1177,9 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
                   {/* BOTH DRAWN, ONE SHOWN, so which one is a matter of the width alone and the first
                       paint is already the right one: a measured switch would paint the list and then
                       replace it. */}
-                  <Box sx={listOnly}><NameColumn names={shownRows.map(r => r.name)}>{shownRows.map((r, i) => season ? (
-                    <SeasonRow key={r.key} row={r} i={i} rank={ranks[i]} unit={unit} parts={rowParts(r)} accent={accent} />
-                  ) : renderRow(r, i, unit, ranks[i]))}</NameColumn></Box>
+                  <Box sx={listOnly}>
+                    <ResultCards side={side} query={query} rows={shownRows} ranks={ranks} clubAbbr={clubAbbr} rowParts={rowParts} />
+                  </Box>
                   <Box sx={tableOnly}>{table}</Box>
                   {result.rows.length > RESULT_CAP && (
                     <ExpandRow flush expanded={allRows}
@@ -1123,15 +1206,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
             {/* Nothing matched, nobody to rank: the card said "None" under the line that already says 0. */}
             {season || (!loading && result.total === 0) ? null : loading
               ? <LeaderCardSkeleton title={tallyTitle} rows={TALLY_SHOWN} seeAll={false} splitWhen={tallySplit} />
-              : onceEach ? (
-                <SectionCard bare title={tallyTitle}>
-                  <Typography sx={{ py: 1, fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.5 }}>
-                    {result.tally.length === 1
-                      ? `1 ${who[0]}, once`
-                      : `${result.tally.length.toLocaleString()} ${who[1]}, once each`}
-                  </Typography>
-                </SectionCard>
-              )
+              : onceEach ? null
               : <LeaderCard title={tallyTitle} empty="None" items={tallyItems} splitWhen={tallySplit} />}
           </Box>
           )}
