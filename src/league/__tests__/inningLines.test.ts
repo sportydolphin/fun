@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { inningPitchingLines, plateAppearanceLines, runnerEvents, teamInningLines } from '../inningLines'
+import { clubFieldingInningLines, fieldingInningLines, inningPitchingLines, plateAppearanceLines, playTotals, runnerEvents, teamInningLines } from '../inningLines'
 import type { LeagueGame, RunValuePlay } from '../types'
 import { WPBL_LEAGUE } from '../../wpbl/league'
 
@@ -229,3 +229,112 @@ describe('the runners rows', () => {
   })
 })
 
+
+// A fielder's half-inning: the position the log charges, placed on whoever held it at that play.
+describe('fieldingInningLines', () => {
+  const src = (extra: { game_id: string; team_id: string; player_id: string; position: string; started: boolean }[] = []) => ({
+    starts: [
+      { game_id: 'g1', team_id: 'home', player_id: 'ss1', position: 'ss', started: true },
+      { game_id: 'g1', team_id: 'home', player_id: 'lf1', position: 'lf/p', started: true },
+      { game_id: 'g1', team_id: 'home', player_id: '2b1', position: '2b', started: true },
+      { game_id: 'g1', team_id: 'home', player_id: '1b1', position: '1b', started: true },
+      ...extra,
+    ],
+    byName: (n: string) => ({ 'Jua Park': 'park', 'Lee Fox': 'lf1' } as Record<string, string>)[n] ?? null,
+    teamOf: (_g: string, p: string) => (['park', 'lf1', 'ss1', '2b1', '1b1'].includes(p) ? 'home' : null),
+  })
+
+  it('charges each error once to the fielder at that position, and every fielder in a double play', () => {
+    const plays = [
+      play({ outs: 0, event_type: 'unknown', narrative: 'Jo Doe reached on a throwing error by ss, advanced to second on the error.' }),
+      play({ outs: 0, event_type: 'unknown', narrative: 'Al Roe reached first on a dropped fly by lf.' }),
+      play({ outs: 0, event_type: 'groundout', pitch_sequence: 'P', narrative: 'Bo Poe grounded into double play ss to 2b to 1b.' }),
+    ]
+    const lines = fieldingInningLines(plays, [game()], src())
+    const by = (id: string) => lines.find(l => l.player_id === id)
+    expect(by('ss1')).toMatchObject({ team_id: 'home', pos: 6, e: 1, dp: 1 })
+    expect(by('lf1')).toMatchObject({ pos: 7, e: 1, dp: 0 })
+    expect(by('2b1')).toMatchObject({ dp: 1 })
+    expect(by('1b1')).toMatchObject({ dp: 1 })
+  })
+
+  it('follows a change in the field, and gives the mound to the pitcher of the play', () => {
+    const plays = [
+      play({ event_type: 'unknown', narrative: 'Jua Park to ss for Sam Ess.' }),
+      play({ outs: 0, event_type: 'unknown', narrative: 'Jo Doe reached on an error by ss.' }),
+      play({ outs: 0, event_type: 'unknown', pitcher_id: 'pit', narrative: 'Al Roe safe on a throwing error by p.' }),
+    ]
+    const lines = fieldingInningLines(plays, [game()], src())
+    expect(lines.find(l => l.player_id === 'park')).toMatchObject({ e: 1, pos: 6 })
+    expect(lines.find(l => l.player_id === 'ss1')).toBeUndefined()
+    expect(lines.find(l => l.player_id === 'pit')).toMatchObject({ e: 1, pos: 1 })
+  })
+
+  it('reads putouts and assists the way the box score credits them', () => {
+    const plays = [
+      play({ outs: 0, event_type: 'flyout', pitch_sequence: 'P', narrative: 'Jo Doe flied out to lf (0-0).' }),
+      play({ outs: 1, event_type: 'groundout', pitch_sequence: 'P', narrative: 'Al Roe grounded out to ss (1-0 B).' }),
+      play({ outs: 2, event_type: 'out', pitch_sequence: 'P', narrative: 'Bo Poe grounded into double play ss to 2b to 1b (0-0); Cy Loe out on the play.' }),
+    ]
+    const by = (id: string) => fieldingInningLines(plays, [game()], src()).find(l => l.player_id === id)
+    expect(by('lf1')).toMatchObject({ po: 1, a: 0 })
+    // A ground ball to short: her assist, first base's putout. In the 6-4-3, short and second assist,
+    // second and first put out.
+    expect(by('ss1')).toMatchObject({ po: 0, a: 2 })
+    expect(by('2b1')).toMatchObject({ po: 1, a: 1 })
+    expect(by('1b1')).toMatchObject({ po: 2, a: 0 })
+  })
+
+  it('counts every charge on the club’s line, placed or not', () => {
+    const plays = [
+      play({ outs: 0, event_type: 'unknown', narrative: 'Jo Doe reached on an error by cf.' }),
+      play({ outs: 0, event_type: 'unknown', narrative: 'Al Roe reached on a throwing error by ss.' }),
+    ]
+    expect(clubFieldingInningLines(plays, [game()], src())).toEqual([expect.objectContaining({ team_id: 'home', e: 2, pos: 0 })])
+  })
+
+  it('credits nobody at a position it cannot place', () => {
+    const plays = [play({ outs: 0, event_type: 'unknown', narrative: 'Jo Doe reached on an error by cf.' })]
+    expect(fieldingInningLines(plays, [game()], src())).toEqual([])
+  })
+})
+
+describe('the runner a clause names', () => {
+  it('is the batter of that club and game whose name the clause starts with, the longest first', () => {
+    const plays = [
+      play({ batter_id: 'k1', batter_name: 'Kim', event_type: 'single', pitch_sequence: 'P' }),
+      play({ batter_id: 'k2', batter_name: 'Hyeonah Kim', event_type: 'single', pitch_sequence: 'P' }),
+      play({ batter_id: 'd1', batter_name: 'Denver Bryant', event_type: 'walk', pitch_sequence: 'BBBB' }),
+      play({ event_type: 'out', narrative: 'Denver Bryant advanced to second; Hyeonah Kim out at second c to ss, picked off.' }),
+    ]
+    const totals = playTotals(WPBL_LEAGUE, plays, [game()])
+    expect(totals.get('g1|k2')).toMatchObject({ pko: 1 })
+    expect(totals.get('g1|k1')?.pko ?? 0).toBe(0)
+    expect(totals.get('g1|d1')?.pko ?? 0).toBe(0)
+  })
+
+  it('reads accents either way, and a steal of home', () => {
+    const plays = [
+      play({ batter_id: 'm1', batter_name: 'Maïka Dumais', event_type: 'single', pitch_sequence: 'P' }),
+      play({ event_type: 'stolen_base', narrative: 'Maika Dumais stole home.' }),
+    ]
+    expect(playTotals(WPBL_LEAGUE, plays, [game()]).get('g1|m1')).toMatchObject({ sbh: 1 })
+  })
+
+  it('names nobody for a runner who never batted', () => {
+    const plays = [play({ event_type: 'out', narrative: 'Pinch Runner out at first p to 1b, picked off.' })]
+    expect([...playTotals(WPBL_LEAGUE, plays, [game()]).values()].some(t => t.pko > 0)).toBe(false)
+  })
+})
+
+describe('playTotals', () => {
+  it('credits a pickoff to the pitcher and the pitches to the batter', () => {
+    const plays = [
+      play({ outs: 0, event_type: 'walk', pitch_sequence: 'BBFBB', batter_id: 'x' }),
+      play({ outs: 0, event_type: 'out', narrative: 'Runner out at first p to 1b, picked off.' }),
+    ]
+    const totals = playTotals(WPBL_LEAGUE, plays, [game()])
+    expect(totals.get('g1|x')).toMatchObject({ pitches: 5 })
+    expect(totals.get('g1|p1')).toMatchObject({ pk: 1 })
+  })
+})

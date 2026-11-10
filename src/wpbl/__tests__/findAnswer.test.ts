@@ -69,7 +69,7 @@ describe('the question read off a Find link', () => {
     expect(findAskFromHref(`${href}&by=p1&games=post`)).toEqual({
       side: 'pitching', season: 2026,
       query: {
-        conditions: [{ field: 'so', op: 'gte', value: 3 }], per: 'inning', teamId: 'NY', oppId: null, venue: 'home',
+        conditions: [{ field: 'so', op: 'gte', value: 3 }], per: 'inning', byClub: false, teamId: 'NY', oppId: null, venue: 'home',
         scope: 'postseason', batterId: null, pitcherId: null, playerId: 'p1',
       },
     })

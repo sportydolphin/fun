@@ -25,7 +25,7 @@ import {
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine } from '../types'
 import { isPostseasonGame, type SeasonScope } from '../season'
 import {
-  decodeFinderPer, decodeFinderQuery, encodeFinderQuery, finderFields, finderPlayerApplies,
+  decodeFinderByClub, decodeFinderPer, decodeFinderQuery, encodeFinderQuery, finderFields, finderPlayerApplies,
   type FinderBoardSide, type FinderQuery,
 } from '../derive/finder'
 import { track, EVENTS } from '../../lib/analytics'
@@ -231,6 +231,7 @@ export default function WpblStatsView({
         : !fromUrl.side && seedAxes.side === 'pitching' ? 'pitching' : 'hitting',
     ),
     per: decodeFinderPer(fromUrl.find ?? null),
+    byClub: decodeFinderByClub(fromUrl.find ?? null),
     teamId: fromUrl.findTeam || null,
     oppId: fromUrl.findOpp || null,
     venue: fromUrl.findVenue ?? 'any',
@@ -665,6 +666,7 @@ export default function WpblStatsView({
       setFindQuery({
         conditions: decodeFinderQuery(q.find ?? null, nextSide === 'overall' ? 'hitting' : nextSide),
         per: decodeFinderPer(q.find ?? null),
+        byClub: decodeFinderByClub(q.find ?? null),
         teamId: q.findTeam || null,
         oppId: q.findOpp || null,
         venue: q.findVenue ?? 'any',
@@ -770,7 +772,7 @@ export default function WpblStatsView({
     const matchup = finding && findQuery.per === 'pa'
     set('bat', matchup ? findQuery.batterId ?? null : null)
     set('pit', matchup ? findQuery.pitcherId ?? null : null)
-    set('by', finding && finderPlayerApplies(findSide, findQuery.per) ? findQuery.playerId ?? null : null)
+    set('by', finding && finderPlayerApplies(findSide, findQuery.per, findQuery.byClub) ? findQuery.playerId ?? null : null)
     set('pos', source === 'season' && mode === 'players' ? pos : null)
     // THE FILTERS, which a reload used to drop: a link to Boston's playoff pitchers opened on the
     // whole league's regular season. Named as MLB's address names them. `team` is Find's own

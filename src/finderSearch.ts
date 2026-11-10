@@ -84,10 +84,10 @@ function inningRecord(text: string): { text: string; stat: string } | null {
 }
 
 /** Which lines a question searches, and any club, venue and year: "Pitching lines · vs SF · 2026". */
-function scopeBits(section: FinderSection, p: Pick<ParsedFinder, 'side' | 'per' | 'teamId' | 'oppId' | 'venue' | 'season'>): string[] {
+function scopeBits(section: FinderSection, p: Pick<ParsedFinder, 'side' | 'per' | 'teamId' | 'oppId' | 'venue' | 'season' | 'byClub'>): string[] {
   const sideWord = p.side === 'pitching' ? 'Pitching' : p.side === 'fielding' ? 'Fielding' : 'Batting'
-  const bits = [p.per === 'season' ? `${sideWord}, season totals` : p.per === 'inning' ? `${sideWord}, single innings`
-    : p.per === 'pa' ? `${sideWord}, plate appearances` : `${sideWord} lines`]
+  const bits = [p.per === 'season' ? `${sideWord}, season totals` : p.per === 'inning' ? `${sideWord}, ${p.byClub ? 'club innings' : 'single innings'}`
+    : p.per === 'pa' ? `${sideWord}, plate appearances` : p.per === 'club' ? `${sideWord}, club games` : `${sideWord} lines`]
   if (p.teamId) bits.push(`for ${clubLabel(section, p.teamId)}`)
   if (p.oppId) bits.push(`vs ${clubLabel(section, p.oppId)}`)
   if (p.venue === 'home') bits.push('at home')
@@ -394,8 +394,8 @@ export function recordSuggestions(section: FinderSection, text: string): RecordS
   // A SEASON is the stats tables' to rank. Find answers only the counts they have no column for
   // ("most singles", "most errors", "most baserunners allowed"), and only when no ranking row does.
   const seasons = !leaderSuggestions(section, text).length && !scopedRankSuggestions(section, text).length
-  const read = parseRecordQuestion(text, sectionClubs(section), { season: seasons })
-    .filter(r => r.per === 'game' || r.per === 'season' || innings)
+  const read = parseRecordQuestion(text, sectionClubs(section), { season: seasons, plays: section === 'wpbl' })
+    .filter(r => r.per !== 'inning' || innings)
     // MLB stores no fielding lines, so its Find has no Fielding side.
     .filter(r => r.side !== 'fielding' || section === 'wpbl')
   return [...outings, ...read.flatMap(r => {
@@ -409,11 +409,11 @@ export function recordSuggestions(section: FinderSection, text: string): RecordS
     seen.add(href)
     const where = [r.teamId && `for ${clubLabel(section, r.teamId)}`, r.oppId && `vs ${clubLabel(section, r.oppId)}`,
       r.venue === 'home' ? 'at home' : r.venue === 'away' ? 'on the road' : null, r.season && String(r.season)].filter(Boolean)
-    const club = r.per === 'inning' && r.side === 'hitting'
+    const club = r.per === 'club' || (r.per === 'inning' && (r.side === 'hitting' || !!r.byClub))
     return [{
       key: `record-${href}`,
-      title: [`Most ${field.label.toLowerCase()}${r.per === 'season' ? '' : ` in ${r.per === 'inning' ? 'an inning' : 'a game'}`}`, ...where].join(' '),
-      subtitle: `Find · ${r.side === 'pitching' ? 'Pitching' : r.side === 'fielding' ? 'Fielding' : club ? 'Clubs' : 'Batting'}, ${r.per === 'inning' ? 'single innings' : r.per === 'season' ? 'season totals' : 'single games'}`,
+      title: [`Most ${field.label.toLowerCase()}${r.per === 'season' ? '' : ` in ${r.per === 'inning' ? 'an inning' : 'a game'}`}${r.per === 'club' || r.byClub ? ' by a club' : ''}`, ...where].join(' '),
+      subtitle: `Find · ${r.side === 'pitching' ? 'Pitching' : r.side === 'fielding' ? 'Fielding' : club ? 'Clubs' : 'Batting'}, ${r.per === 'inning' ? 'single innings' : r.per === 'season' ? 'season totals' : r.per === 'club' ? 'club games' : 'single games'}`,
       href,
     }]
   })]

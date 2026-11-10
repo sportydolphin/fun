@@ -4,7 +4,7 @@ import { Box, Skeleton, Typography } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import {
   finderFieldGroups, finderUnit, finderColumns, defaultCondition, parseFinderValue, unparseFinderValue,
-  displayFinderValue, describeFinderQuery, describeFinderConditions, finderSpanText, finderLowerBetter, conditionsForPer, finderPlayerApplies, finderPlayerAt, hasPlayerFilter,
+  displayFinderValue, describeFinderQuery, describeFinderConditions, finderSpanText, finderSigned, finderLowerBetter, conditionsForPer, finderPlayerApplies, finderPlayerAt, hasPlayerFilter,
   FINDER_OPS,
   type FinderCondition, type FinderOp, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
   type FinderBoardSide, type FinderSort, type FinderTally, type FinderVenue,
@@ -75,16 +75,16 @@ const tableMinRem = (stats: number, per: FinderPer = 'game') => {
     : c.rank + c.player + c.game + c.result + stats * c.stat + (stats + 3) * c.gap + 2.5
 }
 /** A grain's name over its examples. */
-const GRAIN_LABEL: Record<FinderPer, string> = { game: 'Single games', inning: 'Single innings', pa: 'Plate appearances', season: 'Season totals' }
+const GRAIN_LABEL: Record<FinderPer, string> = { game: 'Single games', club: 'Club games', inning: 'Single innings', pa: 'Plate appearances', season: 'Season totals' }
 // THE SWITCH SAYS THEM SHORT ON EVERY SIDE. More than two do not fit a phone at the long names, and
 // until Nov 9, 2026 a side with two (Fielding, MLB) said "Single games / Season totals" while the
 // sides with four said "Games / Seasons" for the same two choices.
-const GRAIN_SHORT: Record<FinderPer, string> = { game: 'Games', inning: 'Innings', pa: 'PAs', season: 'Seasons' }
+const GRAIN_SHORT: Record<FinderPer, string> = { game: 'Games', club: 'Clubs', inning: 'Innings', pa: 'PAs', season: 'Seasons' }
 /** What one row is, for the counts and titles: "12 games", "Most innings matching". */
 const GRAIN_NOUN: Record<FinderPer, [string, string]> = {
-  game: ['game', 'games'], inning: ['inning', 'innings'], pa: ['plate appearance', 'plate appearances'], season: ['season', 'seasons'],
+  game: ['game', 'games'], club: ['club game', 'club games'], inning: ['inning', 'innings'], pa: ['plate appearance', 'plate appearances'], season: ['season', 'seasons'],
 }
-const GRAIN_LEAD: Record<FinderPer, string> = { game: '', inning: 'Inning: ', pa: 'PA: ', season: 'Season: ' }
+const GRAIN_LEAD: Record<FinderPer, string> = { game: '', club: 'Club: ', inning: 'Inning: ', pa: 'PA: ', season: 'Season: ' }
 const DEFAULT_GRAINS: FinderPer[] = ['game', 'season']
 const TALLY_REM = 17
 const PANE_GAP_REM = 1.25
@@ -167,9 +167,10 @@ const CONDITION_COLUMNS = `minmax(0, 1fr) 3rem 3.75rem ${chromePx(34)}`
 
 /** One `stat op value` row. `n` is the 1-based position, spoken into the labels so a screen reader
  *  with several conditions can tell the rows apart. */
-function ConditionRow({ side, per, n, condition, onChange, onRemove }: {
+function ConditionRow({ side, per, plays, n, condition, onChange, onRemove }: {
   side: FinderBoardSide
   per: FinderPer
+  plays: boolean
   n: number
   condition: FinderCondition
   onChange: (c: FinderCondition) => void
@@ -186,7 +187,7 @@ function ConditionRow({ side, per, n, condition, onChange, onRemove }: {
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: CONDITION_COLUMNS, alignItems: 'center', columnGap: 0.75 }}>
       <Picker label={`Stat, condition ${n}`} value={condition.field} sx={{ width: '100%' }}
-        groups={finderFieldGroups(side, per).map(g => ({ label: g.label, options: g.fields.map(f => ({ value: f.key, label: f.label })) }))}
+        groups={finderFieldGroups(side, per, plays).map(g => ({ label: g.label, options: g.fields.map(f => ({ value: f.key, label: f.label })) }))}
         onChange={field => onChange({ ...condition, field })} />
       {/* THE SYMBOL, with the words in the tooltip, the accessible name and the summary sentence
           over the results. "at least" made this column as wide as the stat's. */}
@@ -197,8 +198,9 @@ function ConditionRow({ side, per, n, condition, onChange, onRemove }: {
       {/* A TEXT INPUT, NOT type="number", and innings are why. "4.2" means four and two thirds in
           this sport, so the value is parsed with `ipToOuts` rather than with Number, and a number
           input's own stepper would offer 4.3, which is not an innings figure that exists.
-          `inputMode` still brings up the numeric keypad on a phone. */}
-      <Box component="input" aria-label={`Value, condition ${n}`} inputMode="decimal"
+          `inputMode` still brings up the numeric keypad on a phone, except for a value that can be
+          below zero (a run margin), since a phone's decimal keypad has no minus. */}
+      <Box component="input" aria-label={`Value, condition ${n}`} inputMode={finderSigned(side, condition.field) ? 'text' : 'decimal'}
         value={draft ?? unparseFinderValue(side, condition.field, condition.value)}
         onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
           setDraft(e.target.value)
@@ -253,11 +255,11 @@ export interface FinderPlayerPicks {
 }
 
 /** The club, opponent, venue and players in words: "for NY, vs LA, at home, by K. Whitmore". */
-function scopeWords(side: FinderBoardSide, q: Pick<FinderQuery, 'teamId' | 'oppId' | 'venue' | 'per' | 'batterId' | 'pitcherId' | 'playerId'>,
+function scopeWords(side: FinderBoardSide, q: Pick<FinderQuery, 'teamId' | 'oppId' | 'venue' | 'per' | 'batterId' | 'pitcherId' | 'playerId' | 'byClub'>,
   clubAbbr: (id: string) => string, name: (id: string) => string = id => id): string {
   const pa = q.per === 'pa'
   return [
-    !pa && q.playerId && finderPlayerApplies(side, q.per) && `by ${name(q.playerId)}`,
+    !pa && q.playerId && finderPlayerApplies(side, q.per, q.byClub) && `by ${name(q.playerId)}`,
     q.teamId && `for ${clubAbbr(q.teamId)}`,
     q.oppId && `vs ${clubAbbr(q.oppId)}`,
     q.venue === 'home' ? 'at home' : q.venue === 'away' ? 'on the road' : null,
@@ -491,7 +493,7 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
         <Box role="row" sx={{ ...rowSx, alignItems: 'end', px: 0.5, pb: 0.75 }}>
           <Box role="columnheader" sx={{ ...plainHead, textAlign: 'center' }}>#</Box>
           {/* Hitting by the inning is a club's half-inning at the plate (runFinder), so its rows are clubs. */}
-          <Box role="columnheader" sx={plainHead}>{side === 'hitting' && query.per === 'inning' ? 'Club' : 'Player'}</Box>
+          <Box role="columnheader" sx={plainHead}>{whoFor(side, query.per, query.byClub)[0] === 'club' ? 'Club' : 'Player'}</Box>
           {!season && head('date', 'Game', 'Sort by date', 'left')}
           {!season && <Box role="columnheader" sx={plainHead}>Result</Box>}
           {cols.map(c => head(c.key, c.unit, c.label, 'right'))}
@@ -593,8 +595,8 @@ function SeasonRow<P extends LeaguePlayer, G extends LeagueGame>({ row, i, rank,
 
 /** Who a row is, for the counts: a player on every side, and a club on Hitting by the inning, where
  *  a row is a club's half-inning at the plate. */
-function whoFor(side: FinderBoardSide, per: FinderPer): [string, string] {
-  if (side === 'hitting' && per === 'inning') return ['club', 'clubs']
+function whoFor(side: FinderBoardSide, per: FinderPer, byClub = false): [string, string] {
+  if (per === 'club' || (per === 'inning' && (side === 'hitting' || (side === 'fielding' && byClub)))) return ['club', 'clubs']
   return side === 'pitching' ? ['pitcher', 'pitchers'] : side === 'fielding' ? ['fielder', 'fielders'] : ['hitter', 'hitters']
 }
 
@@ -692,6 +694,7 @@ function ExampleGrid({ side, grains, examples, count, counted, href, onPick }: {
 export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   side, query, onQuery, result, clubs, clubAbbr, loading = false, renderRow, rowParts, tallyParts,
   sort, onSort, examples, exampleCount, exampleCounted = [], exampleHref, parse, onAsk, accent, grains = DEFAULT_GRAINS, picks,
+  plays = true,
 }: {
   side: FinderBoardSide
   /** Owned by the section, which mirrors it into the address bar. */
@@ -732,6 +735,9 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   /** The grains this side can be asked at, in the switch's order. Single innings only where the
    *  section reads its plays and the side is pitching (src/league/inningLines.ts). */
   grains?: FinderPer[]
+  /** The section reads its play log, so a game or a season can ask the play-only counts (pickoffs,
+   *  pitches seen). False on MLB, which has no plays. */
+  plays?: boolean
   /** The players to pick from: one player at a game, a season or a pitcher's inning, and a batter and
    *  a pitcher at a plate appearance. Absent draws no player pickers. */
   picks?: FinderPlayerPicks
@@ -747,7 +753,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // A PLAYER IS A QUESTION ON ITS OWN: "every trip to the plate between these two" or "every game
   // Sato pitched" asks no stat, and answers with the log rather than the examples.
   const hasConditions = query.conditions.length > 0 || hasPlayerFilter(side, query)
-  const playerHere = !!picks && query.per !== 'pa' && finderPlayerApplies(side, query.per)
+  const playerHere = !!picks && query.per !== 'pa' && finderPlayerApplies(side, query.per, query.byClub)
   const isFolded = folded && hasConditions
 
   const setCondition = (i: number, c: FinderCondition) =>
@@ -762,7 +768,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // every line ranks nobody.
   const setPer = (per: FinderPer) => {
     if (per === query.per) return
-    const kept = conditionsForPer(side, per, query.conditions)
+    const kept = conditionsForPer(side, per, query.conditions, plays)
     // The players go with the grain: a game's player is a plate appearance's batter or pitcher.
     onQuery({ ...finderPlayerAt(side, query, per), per, conditions: kept.length || per === 'game' ? kept : [defaultCondition(side, per)] })
   }
@@ -773,7 +779,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // included: `describeFinderQuery` knows only the stat conditions, and a summary that omits the
   // who and where claims a wider search than it ran. The unasked question gets its own wording,
   // since "612 games where every game line" reads as a bug.
-  const who = whoFor(side, query.per)
+  const who = whoFor(side, query.per, query.byClub)
   const noun = GRAIN_NOUN[query.per]
   const tallyTitle = `Most ${noun[1]} matching`
   const games_ = season ? (result.total === 1 ? who[0] : who[1])
@@ -868,6 +874,16 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
           <PillGroup options={grains.map(per => ({ value: per, label: GRAIN_SHORT[per] }))}
             value={query.per} onChange={v => setPer(v as FinderPer)} />
         </Box>
+        {/* FIELDING BY THE INNING IS A FIELDER'S OR A CLUB'S: the log places most plays on a fielder,
+            and a club's half counts every one. The second switch only where the grain has both. */}
+        {side === 'fielding' && query.per === 'inning' && (
+          <Box role="group" aria-label="Innings by" sx={{ alignSelf: 'flex-start' }}>
+            <PillGroup options={[{ value: 'fielder', label: 'Fielders' }, { value: 'club', label: 'Clubs' }]}
+              value={query.byClub ? 'club' : 'fielder'}
+              onChange={v => onQuery({ ...query, byClub: v === 'club', playerId: v === 'club' ? null : query.playerId,
+                conditions: v === 'club' ? query.conditions.filter(c => c.field !== 'pos') : query.conditions })} />
+          </Box>
+        )}
 
         {/* Folded: the question in chips, and the way back into the form. */}
         {hasConditions && (
@@ -895,7 +911,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
               {i > 0 && (
                 <Typography aria-hidden sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary', px: 0.5, mt: -0.5, mb: -0.5 }}>and</Typography>
               )}
-              <ConditionRow side={side} per={query.per} n={i + 1} condition={c}
+              <ConditionRow side={side} per={query.per} plays={plays} n={i + 1} condition={c}
                 onChange={next => setCondition(i, next)} onRemove={() => removeCondition(i)} />
             </React.Fragment>
           ))}

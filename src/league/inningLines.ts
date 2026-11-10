@@ -85,11 +85,12 @@ const HITS = new Set(['single', 'double', 'triple', 'home_run'])
  * Against 2026's box scores: 115 of 116 steals, 21 of 22 caught, 93 of 93 wild pitches, 18 of 24 balks
  * (a balk with nobody moving leaves no row).
  */
-export function runnerEvents(p: Pick<RunValuePlay, 'event_type' | 'narrative'>): { sb: number; cs: number; pk: number; wp: number; pb: number; bk: number } {
+export function runnerEvents(p: Pick<RunValuePlay, 'event_type' | 'narrative'>): { sb: number; sbh: number; cs: number; pk: number; wp: number; pb: number; bk: number } {
   const text = (p.narrative ?? '').toLowerCase()
   const count = (re: RegExp) => (text.match(re) ?? []).length
   return {
     sb: Math.max(p.event_type === 'stolen_base' ? 1 : 0, count(/\bstole\b/g)),
+    sbh: count(/\bstole home\b/g),
     cs: Math.max(p.event_type === 'caught_stealing' ? 1 : 0, count(/caught stealing/g)),
     pk: count(/\bpicked off\b/g),
     wp: p.event_type === 'wild_pitch' || /wild pitch/.test(text) ? 1 : 0,
@@ -410,10 +411,267 @@ export interface TeamInningLine {
   trail: number
   /** One when the club started the half level or behind and ended it in front. */
   tooklead: number
-  /** The club's runners: bases stolen, caught stealing and picked off (`runnerEvents`). */
+  /** The club's runners: bases stolen (home among them), caught stealing and picked off (`runnerEvents`). */
   sb: number
+  sbh: number
   cs: number
   pk: number
+}
+
+/** The nine positions as the log writes them, in scorer's order, so a position's number is its index + 1. */
+export const FIELD_POSITIONS = ['p', 'c', '1b', '2b', '3b', 'ss', 'lf', 'cf', 'rf'] as const
+
+/** What a section knows that the plays do not: where each starter played, and who a name is. */
+export interface FielderSource {
+  /** Each game's lineups: the position a player started at (`started`), written as the lineup card
+   *  writes it, the first of "lf/p" being where she began. */
+  starts: { game_id: string; team_id: string | null; player_id: string; position: string | null; started: boolean }[]
+  /** The player a name is, or null. Names are unique in the league (checked Nov 7, 2026). */
+  byName: (name: string) => string | null
+  /** The club a player played for in a game, off that game's lines. */
+  teamOf: (gameId: string, playerId: string) => string | null
+}
+
+/**
+ * ONE FIELDER'S HALF-INNING: Fielding's inning grain, a fielder's as a pitcher's inning is a pitcher's.
+ *
+ * THE LOG CHARGES A POSITION, NOT A PLAYER ("throwing error by ss"), so the fielder is whoever held
+ * that position at that play: the lineup card's starters, then every change the log writes as a row
+ * of its own ("Jua Park to 2b for Amanda Gianelloni", "Kelsie Whitmore to cf"), and the pitcher always
+ * the play's own pitcher, since in a game with a designated hitter the pitcher is on no lineup card.
+ * An error is counted where the text charges one ("error by", "dropped fly by", "muffed throw by"),
+ * never where it only mentions one: "advanced to second on the error" is the same error again. Every
+ * fielder in a double play's chain ("double play ss to 2b to 1b") turned it, as the box score credits
+ * each. The putouts and assists are read off the same clauses (`outsIn`). The catcher's passed balls
+ * and the steals against her go to whoever was catching.
+ *
+ * A position nobody can be placed at (a card that does not list it, a change the log does not write)
+ * leaves that play uncredited rather than guessed. Against 2026's box scores: see the tests.
+ */
+export interface FieldingInningLine {
+  /** `${game_id}|${inning}|${half}|${player_id}`, or without the player for a club's. */
+  id: string
+  game_id: string
+  /** The fielder. On a club's line, unset: the engine files it under the club. */
+  player_id?: string
+  /** The club in the field. */
+  team_id: string
+  inning: number
+  half: 'top' | 'bottom'
+  /** The fielder's first play in the half: where Game Center opens. */
+  sequence: number
+  /** Where the fielder was playing at their first play of the half, as the position's number (1 to 9).
+   *  Zero on a club's line, which is every position. */
+  pos: number
+  po: number
+  a: number
+  e: number
+  dp: number
+  pb: number
+  /** Steals against the fielder, when catching. */
+  sba: number
+}
+
+/**
+ * THE OUTS IN A CLAUSE, as the box score credits them. A catch is the catcher's putout ("flied out to
+ * cf", "popped up to ss", "fouled out to 1b"). A ground ball to one fielder is that fielder's assist and
+ * the first baseman's putout ("grounded out to ss"), unless it was to first, which is her own. A throw
+ * written as a chain ("out at second ss to 2b", "c to 2b, caught stealing") is an assist for every
+ * fielder but the last and a putout for the last; a double play's chain is two putouts, the middle
+ * fielder's force and the last ("2b to ss to 1b"), or both of two ("ss to 1b", "p to ss" on a liner).
+ * "unassisted" is a putout alone. A strikeout is the catcher's putout.
+ */
+function outsIn(clause: string): { po: string[]; a: string[] } {
+  const po: string[] = [], a: string[] = []
+  const P = '(p|c|1b|2b|3b|ss|lf|cf|rf)'
+  const chain = clause.match(new RegExp(`\\b${P}((?: to ${P})+)`))
+  const dp = /\b(?:double|triple) play\b/.test(clause)
+  if (chain && (dp || /\bout at\b|caught stealing|picked off|sacrifice|bunt/.test(clause))) {
+    const list = [chain[1], ...chain[2].trim().split(/\s*to\s+/).filter(Boolean)]
+    a.push(...new Set(list.slice(0, -1)))
+    if (dp) po.push(...new Set(list.length >= 3 ? list.slice(1) : list))
+    else po.push(list[list.length - 1])
+    return { po, a }
+  }
+  const unassisted = clause.match(new RegExp(`\\b${P} unassisted\\b`))
+  if (unassisted) return { po: [unassisted[1]], a }
+  const caught = clause.match(new RegExp(`\\b(?:flied|lined|fouled|popped) (?:out|up) to ${P}\\b`))
+  if (caught) return { po: [caught[1]], a }
+  const ground = clause.match(new RegExp(`\\bgrounded out to ${P}\\b`))
+  if (ground) return ground[1] === '1b' ? { po: ['1b'], a } : { po: ['1b'], a: [ground[1]] }
+  if (/\bstruck out\b/.test(clause)) return { po: ['c'], a }
+  return { po, a }
+}
+
+/** One pass over the plays: every fielder's half-innings, and every club's in the field. */
+function fieldingPass(plays: RunValuePlay[], games: LeagueGame[], src: FielderSource): { fielders: FieldingInningLine[]; clubs: FieldingInningLine[] } {
+  const gameById = new Map(games.map(g => [g.id, g]))
+  // Who is at each position, per club in each game, as of the play being read.
+  const align = new Map<string, Map<string, string>>()
+  const at = (game: string, team: string) => {
+    const key = `${game}|${team}`
+    let m = align.get(key)
+    if (!m) { m = new Map(); align.set(key, m) }
+    return m
+  }
+  for (const r of src.starts) {
+    const first = r.position?.split('/')[0] ?? ''
+    if (!r.started || !r.team_id || !gameById.has(r.game_id) || first === 'p' || !(FIELD_POSITIONS as readonly string[]).includes(first)) continue
+    at(r.game_id, r.team_id).set(first, r.player_id)
+  }
+  const blank = (p: RunValuePlay, id: string, team: string, pos: number): FieldingInningLine => ({
+    id, game_id: p.game_id, team_id: team, inning: p.inning, half: p.half, sequence: p.sequence, pos,
+    po: 0, a: 0, e: 0, dp: 0, pb: 0, sba: 0,
+  })
+  const fielders = new Map<string, FieldingInningLine>()
+  const clubs = new Map<string, FieldingInningLine>()
+  const credit = (p: RunValuePlay, team: string, pos: string, playerId: string | null | undefined): FieldingInningLine | null => {
+    if (!playerId) return null
+    const id = `${halfKey(p)}|${playerId}`
+    let line = fielders.get(id)
+    if (!line) {
+      line = { ...blank(p, id, team, FIELD_POSITIONS.indexOf(pos as typeof FIELD_POSITIONS[number]) + 1), player_id: playerId }
+      fielders.set(id, line)
+    }
+    return line
+  }
+  const P = '(p|c|1b|2b|3b|ss|lf|cf|rf)'
+  const sub = new RegExp(`^\\s*(.+?) to (p|c|1b|2b|3b|ss|lf|cf|rf|dh)(?: for (.+?))?\\.?\\s*$`, 'i')
+  for (const p of inOrder(plays, gameById)) {
+    const g = gameById.get(p.game_id)!
+    const fielding = p.half === 'top' ? g.home_team_id : g.away_team_id
+    const raw = p.narrative ?? ''
+    // A CHANGE IN THE FIELD: the named player takes the position, and leaves the one she held.
+    const change = !p.pitch_sequence ? raw.match(sub) : null
+    if (change) {
+      const playerId = src.byName(change[1])
+      const pos = change[2].toLowerCase()
+      const team = playerId ? src.teamOf(p.game_id, playerId) : null
+      if (playerId && team && pos !== 'dh') {
+        const m = at(p.game_id, team)
+        for (const [k, v] of m) if (v === playerId) m.delete(k)
+        // To the mound, the position she held is open until a change fills it; the pitcher is the play's.
+        if (pos !== 'p') m.set(pos, playerId)
+      }
+      continue
+    }
+    const key = halfKey(p)
+    let club = clubs.get(key)
+    if (!club) { club = blank(p, key, fielding, 0); clubs.set(key, club) }
+    const text = raw.toLowerCase()
+    const who = (pos: string) => (pos === 'p' ? p.pitcher_id : at(p.game_id, fielding).get(pos))
+    for (const m of text.matchAll(new RegExp(`(?:error|dropped \\w+|muffed \\w+) by ${P}\\b`, 'g'))) {
+      club.e++
+      const line = credit(p, fielding, m[1], who(m[1]))
+      if (line) line.e++
+    }
+    for (const m of text.matchAll(new RegExp(`double play ((?:${P}(?: to )?)+)`, 'g'))) {
+      club.dp++
+      for (const pos of new Set(m[1].trim().split(/\s+to\s+/))) {
+        const line = credit(p, fielding, pos, who(pos))
+        if (line) line.dp++
+      }
+    }
+    for (const clause of text.split(';')) {
+      const { po, a } = outsIn(clause)
+      for (const pos of po) { club.po++; const line = credit(p, fielding, pos, who(pos)); if (line) line.po++ }
+      for (const pos of a) { club.a++; const line = credit(p, fielding, pos, who(pos)); if (line) line.a++ }
+    }
+    const run = runnerEvents(p)
+    club.pb += run.pb
+    club.sba += run.sb
+    if (run.pb || run.sb) {
+      const line = credit(p, fielding, 'c', who('c'))
+      if (line) { line.pb += run.pb; line.sba += run.sb }
+    }
+  }
+  return { fielders: [...fielders.values()], clubs: [...clubs.values()] }
+}
+
+export function fieldingInningLines(plays: RunValuePlay[], games: LeagueGame[], src: FielderSource): FieldingInningLine[] {
+  return fieldingPass(plays, games, src).fielders
+}
+
+/** Every club's half-innings in the field: each charge counted, placed on a fielder or not. */
+export function clubFieldingInningLines(plays: RunValuePlay[], games: LeagueGame[], src: FielderSource): FieldingInningLine[] {
+  return fieldingPass(plays, games, src).clubs
+}
+
+/** A name as it is compared: no accents, no case, single spaces. */
+const foldName = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
+
+/**
+ * WHO A RUNNER'S CLAUSE IS ABOUT. The log names a runner only by name ("Hyeonah Kim out at second c to
+ * ss, picked off"), never by id. But every runner reached base as a batter, and the log gives each
+ * batter's name AND id, so the names a club sent to the plate in a game are the runners it can have,
+ * and a clause is the runner whose name it starts with (the longest, so "Kim" never beats "Hyeonah
+ * Kim"). A pinch runner who never batted is not among them and stays unnamed, which costs that one
+ * play rather than guessing. On 2026's log every pickoff resolves (6 of 6).
+ */
+export function runnerResolver(plays: RunValuePlay[]): (p: RunValuePlay) => { id: string; clause: string }[] {
+  const byClub = new Map<string, { name: string; id: string }[]>()
+  for (const p of plays) {
+    if (!p.batter_id || !p.batter_name || !p.team_id) continue
+    const key = `${p.game_id}|${p.team_id}`
+    const list = byClub.get(key) ?? []
+    const name = foldName(p.batter_name)
+    if (!list.some(x => x.id === p.batter_id)) list.push({ name, id: p.batter_id })
+    byClub.set(key, list)
+  }
+  for (const list of byClub.values()) list.sort((a, b) => b.name.length - a.name.length)
+  return p => {
+    const names = byClub.get(`${p.game_id}|${p.team_id}`) ?? []
+    return (p.narrative ?? '').split(';').flatMap(raw => {
+      const clause = foldName(raw)
+      const who = names.find(n => clause.startsWith(`${n.name} `))
+      return who ? [{ id: who.id, clause }] : []
+    })
+  }
+}
+
+/** One player's play-log counts in one game (`playTotals`). */
+export interface PlayTotals {
+  /** A pitcher's pickoffs. */
+  pk: number
+  /** A batter's pitches seen. */
+  pitches: number
+  /** A runner's times picked off. */
+  pko: number
+  /** A runner's steals of home. */
+  sbh: number
+}
+
+/**
+ * Each player's play-log counts in each game, for a game or a season of the counts no box score
+ * carries: a pitcher's pickoffs (`runnerEvents`, credited to the pitcher on the row), a batter's
+ * pitches seen (the plate appearances' own pitch counts, so a row that was the start of the next one
+ * is not counted twice), and a runner's pickoffs and steals of home (`runnerResolver`). Keyed
+ * `${game_id}|${player_id}`.
+ */
+export function playTotals(league: League, plays: RunValuePlay[], games: LeagueGame[]): Map<string, PlayTotals> {
+  const out = new Map<string, PlayTotals>()
+  const at = (game: string, player: string) => {
+    const key = `${game}|${player}`
+    let t = out.get(key)
+    if (!t) { t = { pk: 0, pitches: 0, pko: 0, sbh: 0 }; out.set(key, t) }
+    return t
+  }
+  const gameIds = new Set(games.map(g => g.id))
+  const runners = runnerResolver(plays)
+  for (const p of plays) {
+    if (!gameIds.has(p.game_id)) continue
+    const pk = runnerEvents(p).pk
+    if (pk && p.pitcher_id) at(p.game_id, p.pitcher_id).pk += pk
+    if (!/picked off|stole home/i.test(p.narrative ?? '')) continue
+    for (const { id, clause } of runners(p)) {
+      if (/\bpicked off\b/.test(clause)) at(p.game_id, id).pko++
+      if (/\bstole home\b/.test(clause)) at(p.game_id, id).sbh++
+    }
+  }
+  for (const l of plateAppearanceLines(league, plays, games)) {
+    if (l.batter_id) at(l.game_id, l.batter_id).pitches += l.pitches
+  }
+  return out
 }
 
 export function teamInningLines(league: League, plays: RunValuePlay[], games: LeagueGame[]): TeamInningLine[] {
@@ -444,12 +702,12 @@ export function teamInningLines(league: League, plays: RunValuePlay[], games: Le
         id, game_id: p.game_id, team_id: p.half === 'top' ? g.away_team_id : g.home_team_id,
         inning: p.inning, half: p.half, sequence: p.sequence,
         r: 0, h: 0, doubles: 0, triples: 0, hr: 0, tb: 0, bb: 0, so: 0, hbp: 0, ab: 0, sh: 0, sf: 0, r2: 0,
-        trail: Math.max(0, them - us), tooklead: 0, sb: 0, cs: 0, pk: 0,
+        trail: Math.max(0, them - us), tooklead: 0, sb: 0, sbh: 0, cs: 0, pk: 0,
       }
     }
     const l = line!
     const run = runnerEvents(p)
-    l.sb += run.sb; l.cs += run.cs; l.pk += run.pk
+    l.sb += run.sb; l.sbh += run.sbh; l.cs += run.cs; l.pk += run.pk
     const runs = league.runsOnPlay(p)
     l.r += runs
     if (p.outs === 2) l.r2 += runs

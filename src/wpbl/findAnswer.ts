@@ -8,12 +8,13 @@
 // count by construction: the same lines, cut to the same season, through the same engine and
 // qualifying bar. A second reading of the typed words could drift from what the link opens.
 
-import { decodeFinderPer, decodeFinderQuery, finderAnswerText, runFinder, type FinderBoardSide, type FinderQuery } from '../league/finder'
-import { inningPitchingLines, plateAppearanceLines, teamInningLines } from '../league/inningLines'
+import { decodeFinderByClub, decodeFinderPer, decodeFinderQuery, finderAnswerText, finderNeedsPlays, runFinder, type FinderBoardSide, type FinderQuery } from '../league/finder'
+import { clubFieldingInningLines, fieldingInningLines, inningPitchingLines, plateAppearanceLines, playTotals, teamInningLines } from '../league/inningLines'
 import type { SeasonScope } from '../league/season'
 import { fetchWpblAllFielding, fetchWpblAllLines } from './api'
 import { fetchWpblPlayLog, type WpblLogPlay } from './api/plays'
 import { WPBL_LEAGUE } from './league'
+import { wpblFielderSource } from './fielders'
 import { currentSeason, gamesInSeason, inSeason, seasonsOnRecord } from './season'
 import { wpblQualifiers } from './stats'
 import type { WpblFieldingLine, WpblGame, WpblPlayer, WpblTeam } from './types'
@@ -46,6 +47,7 @@ export function findAskFromHref(href: string, teams: readonly Pick<WpblTeam, 'id
     query: {
       conditions: decodeFinderQuery(raw, side),
       per: decodeFinderPer(raw),
+      byClub: decodeFinderByClub(raw),
       teamId: club(p.get('team')),
       oppId: club(p.get('opp')),
       venue: venue === 'home' || venue === 'away' ? venue : 'any',
@@ -74,13 +76,15 @@ export async function wpblFindAnswer(href: string, ctx: {
   // Cut against the WHOLE schedule, never one season's games (src/wpbl/CLAUDE.md).
   const cut = <T extends { game_id: string }>(rows: T[]): T[] => inSeason(rows, ctx.schedule, season)
   const games = gamesInSeason(ctx.schedule, season)
-  const fine = query.per === 'inning' || query.per === 'pa'
+  const fine = finderNeedsPlays(side, query)
   const [lines, fielding, plays] = await Promise.all([
     fetchWpblAllLines(),
     side === 'fielding' ? fetchWpblAllFielding() : Promise.resolve<WpblFieldingLine[]>([]),
     fine ? fetchWpblPlayLog(season) : Promise.resolve<WpblLogPlay[] | null>(null),
   ])
   const log = plays ? cut(plays) : null
+  const fielders = log && query.per === 'inning' && side === 'fielding'
+    ? await wpblFielderSource(ctx.teams, ctx.players, [lines.batting, lines.pitching, fielding]) : null
   const q = wpblQualifiers(ctx.teams, games, query.scope)
   const result = runFinder(side, cut(lines.batting), cut(lines.pitching), ctx.players, games, query, Infinity, null, {
     eraInnings: ctx.eraInnings,
@@ -89,6 +93,9 @@ export async function wpblFindAnswer(href: string, ctx: {
     innings: log && query.per === 'inning' && side === 'pitching' ? inningPitchingLines(WPBL_LEAGUE, log, games) : undefined,
     teamInnings: log && query.per === 'inning' && side === 'hitting' ? teamInningLines(WPBL_LEAGUE, log, games) : undefined,
     plateAppearances: log && query.per === 'pa' ? plateAppearanceLines(WPBL_LEAGUE, log, games) : undefined,
+    fieldInnings: log && fielders && !query.byClub ? fieldingInningLines(log, games, fielders) : undefined,
+    clubFieldInnings: log && fielders && query.byClub ? clubFieldingInningLines(log, games, fielders) : undefined,
+    playTotals: log && (query.per === 'game' || query.per === 'season') ? playTotals(WPBL_LEAGUE, log, games) : undefined,
     clubName: id => ctx.teams.find(t => t.id === id)?.name ?? id,
   })
   return finderAnswerText(result, side, query)

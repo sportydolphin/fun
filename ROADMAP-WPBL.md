@@ -1248,12 +1248,28 @@ team", ...) found 360 of 630 with no row; "most stolen bases in an inning" was t
 
 Still unanswered after these, in the order worth doing:
 
-5. **A club's game as a grain**: "most runs in a game by a team", "most hits by a club in a game",
-   shutouts, blowouts (42 of the probe's misses). The club half-inning's shape, summed per game.
+5. ✅ **A club's game as a grain** (v1.222.0). `club` beside the player's game, on every side and in
+   MLB: the side's lines summed per game in the engine, with `won` and a signed `margin`. "By a team",
+   "teams with 15 hits", "shutouts", "no-hitters", "blowouts", "won by 10", "lost by 8", "errorless
+   games"; "most runs by a team" with no game said stays the team stats ranking. 2026: 18 runs is the
+   most (Heights, Sep 3), one shutout, no no-hitter.
 6. **Spans**: a month, a series, a doubleheader, extra innings as a game filter (search item 9).
-7. **Fielding by the inning** (errors, double plays turned): the play log names no fielder's error
-   cleanly; read it off the narrative the way the runners are.
-8. **Pickoffs and pitches seen over a game or a season**: the inning lines summed per game.
+7. ✅ **Fielding by the inning** (v1.222.0). A fielder's half-inning: errors where the text charges one
+   ("error by", "dropped", "muffed"), double plays, passed balls, steals allowed, and the position.
+8. ✅ **Pickoffs and pitches seen over a game or a season** (v1.222.0). `playTotals`, read only when a
+   question asks for them (`finderNeedsPlays`). A runner is named in the log by name alone, so
+   `runnerResolver` matches the clause to the batters that club sent up in that game (every runner
+   batted first): times picked off and steals of home are a player's too (6 of 6 pickoffs resolve).
+   A pinch runner who never batted stays unnamed.
+8b. ✅ **A fielder by position** (v1.222.0). "error by ss" names a position, so `fieldingInningLines`
+   tracks who holds each one: the lineup cards' starters (`src/wpbl/fielders.ts`), every change the log
+   writes ("Jua Park to 2b for Amanda Gianelloni"), and the play's own pitcher at P. Against 2026's box
+   scores, every error and double play it places is on the right fielder: 144 of 149 errors placed
+   (none wrong), 170 of 174 double plays (one wrong). Putouts and assists are read off the same
+   clauses (`outsIn`): 1,604 of 1,642 putouts and 636 of 667 assists on the right fielder, 7 credits
+   more than the box gives. A club's half in the field is a second switch on the grain (`byClub`,
+   `clubinning` in the address, "by a team" in search), and a position is asked in words ("errors at
+   shortstop", "by a catcher", "at 2b").
 9. **Not answerable from the data**: intentional walks (11 recorded in 2026), left on base (never
    recorded), earned runs and RBI in an inning (the log cannot say).
 
