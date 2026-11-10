@@ -240,6 +240,8 @@ const GAME_WORDS = /(?<![a-z])(in a game|in one game|in a single game|single gam
 // "single", "per". "Inning" alone is innings pitched (STAT_ALIASES), so it is never read here bare.
 // "One inning" alone could be a reliever's one inning pitched, so "one" and "1" count only after "in".
 const INNING_WORDS = /(?<![a-z0-9])(?:(?:in|during)\s+(?:an|one|1|a single|a|the same)|an|a single|single|the same|per)\s+(?:inning|frame)(?![a-z])/g
+// A number written right before "inning", which makes it innings pitched ("5 innings", "6.1 inning").
+const BARE_INNING_COUNT = new RegExp(`(?<![a-z0-9.])(?:\\d+(?:\\.\\d+)?|${Object.keys(NUMBER_WORDS).join('|')})\\+?[\\s-]*(?:in\\s+)?$`)
 // A CLUB'S HALF-INNING, said the way a broadcast says it: "5-run innings", "innings with 3+ runs",
 // "two-out rallies", "comebacks", "go-ahead innings". Taken before the plate-appearance phrases, which
 // would read the "2 out" of a two-out rally as the outs of one at-bat. A count of runs reads on either
@@ -642,6 +644,15 @@ export function parseFinderText(
       return ' '.repeat((args[0] as string).length)
     })
   }
+  // A BARE "INNING" AFTER A COUNT IS THE GRAIN TOO: "3 strikeouts inning", "3 strikeout innings", "2 hr
+  // inning", the way a search box is typed. Read as innings pitched only with its own number right
+  // before it ("5 innings, no walks") or "pitched" after it. Missed, the question fell back to a game
+  // and said "not used: inning". After the named innings above, which take "7th inning" whole.
+  rest = rest.replace(/(?<![a-z0-9])(?:in\s+)?(?:innings?|frames?)(?![a-z])/g, (m: string, at: number, all: string) => {
+    if (BARE_INNING_COUNT.test(all.slice(0, at)) || /^\s+pitched/.test(all.slice(at + m.length))) return m
+    inningHint = true
+    return ' '.repeat(m.length)
+  })
   // Both at once ("on 0-2 in an inning") is no one question, and a section that does not read its
   // plays has neither grain: nothing, rather than the game question it is not.
   if ((inningHint || paHint || innSaid) && (!plays || (inningHint && paHint))) return []
