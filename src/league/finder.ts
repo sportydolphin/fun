@@ -128,6 +128,26 @@ export function hasMatchup(q: Pick<FinderQuery, 'per' | 'batterId' | 'pitcherId'
   return q.per === 'pa' && !!(q.batterId || q.pitcherId)
 }
 
+// A HITTER'S SEASON SUMMED FROM PLATE APPEARANCES. No box-score line splits by the pitcher or by the
+// situation a trip began in, so a season against one arm, against one pitcher ("avg off Whitmore") or
+// in one situation ("avg with RISP") is summed from the plate appearances that fit, a game line per
+// night. "avg with risp" and "hr off whitmore" offered nothing, or the plays with the average dropped,
+// until Nov 10, 2026. Only the situation a trip began in cuts that way, not how it ended.
+export const SITUATION_KEYS: ReadonlySet<string> = new Set(['inn', 'paouts', 'on', 'risp', 'balls', 'scount'])
+/** What such a season can count truthfully: a plate appearance carries no runs scored, RBI or steals. */
+export const PA_SEASON_KEYS: ReadonlySet<string> = new Set(['g', 'pa', 'ab', 'h', '1b', '2b', '3b', 'hr', 'xbh', 'tb', 'bb', 'so', 'hbp', 'sf', 'sh', 'avg', 'obp', 'slg', 'ops'])
+
+/** Whether a question's season is summed from plate appearances (see SITUATION_KEYS). */
+export function seasonFromPas(side: FinderBoardSide, q: Pick<FinderQuery, 'per' | 'conditions'> & { hand?: FinderQuery['hand']; pitcherId?: string | null }): boolean {
+  return side === 'hitting' && q.per === 'season' && (!!q.hand || !!q.pitcherId || q.conditions.some(c => SITUATION_KEYS.has(c.field)))
+}
+
+/** Whether the pitcher a query names can be asked at its grain: the matchup's plate appearance, and a
+ *  hitter's season against one pitcher. */
+export function finderPitcherApplies(side: FinderBoardSide, per: FinderPer): boolean {
+  return per === 'pa' || (per === 'season' && side === 'hitting')
+}
+
 /** Whether one player can be asked about at this grain on this side (see `FinderQuery.playerId`). */
 export function finderPlayerApplies(side: FinderBoardSide, per: FinderPer, byClub = false): boolean {
   return per === 'game' || per === 'season' || (per === 'inning' && side !== 'hitting' && !(side === 'fielding' && byClub))
@@ -151,6 +171,8 @@ export function finderPlayerAt<Q extends Pick<FinderQuery, 'per' | 'batterId' | 
     return { ...q, playerId: null, batterId: null, pitcherId: null, ...(side !== 'fielding' && carried ? { [own]: carried } : {}) }
   }
   const carried = q.per === 'pa' ? (side === 'fielding' ? null : q[own]) : q.playerId
+  // The pitcher goes too, even to a hitter's season, which could be cut by one: switching grain is
+  // asking about the batter's lines, and a cut the reader cannot see carried over would narrow them.
   return { ...q, batterId: null, pitcherId: null, playerId: carried ?? null }
 }
 
@@ -514,6 +536,7 @@ function fineKeys(side: FinderBoardSide, per: 'inning' | 'pa'): Set<string> {
 function askable(side: FinderBoardSide, f: Field<never>, per: FinderPer, plays = true): boolean {
   if (per === 'inning' || per === 'pa') return fineKeys(side, per).has(f.key)
   if (per === 'club') return CLUB_KEYS[side].has(f.key)
+  if (per === 'season' && side === 'hitting' && SITUATION_KEYS.has(f.key)) return plays
   return !f.fineOnly && !f.clubOnly && (plays || !f.playOnly) && (per === 'season' || !f.seasonOnly) && (per === 'game' || !f.gameOnly)
 }
 
@@ -703,12 +726,14 @@ const COLUMNS: Record<FinderBoardSide, Record<FinderPer, string[]>> = {
 
 /** The stat columns for the table: the side's standard line, then every field a condition names
  *  that the line lacks, in the order asked. */
-export function finderColumns(side: FinderBoardSide, query: Pick<FinderQuery, 'conditions'> & { per?: FinderPer; byClub?: boolean; hand?: FinderQuery['hand'] }): { key: string; unit: string; label: string }[] {
+export function finderColumns(side: FinderBoardSide, query: Pick<FinderQuery, 'conditions'> & { per?: FinderPer; byClub?: boolean; hand?: FinderQuery['hand']; pitcherId?: string | null }): { key: string; unit: string; label: string }[] {
   // A club's half-inning in the field is every position, so it has no position column. A season
-  // against one arm is summed from plate appearances, which carry no runs, RBI or steals.
-  const keys = (query.per === 'season' && query.hand && side === 'hitting' ? HAND_SEASON_COLUMNS : COLUMNS[side][query.per ?? 'game'])
+  // summed from plate appearances carries no runs, RBI or steals, and its situation is a cut on the
+  // trips rather than a number on the season, so it has no column either.
+  const fromPas = seasonFromPas(side, { per: query.per ?? 'game', conditions: query.conditions, hand: query.hand, pitcherId: query.pitcherId })
+  const keys = (fromPas ? HAND_SEASON_COLUMNS : COLUMNS[side][query.per ?? 'game'])
     .filter(k => !(query.byClub && k === 'pos'))
-  for (const c of query.conditions) if (!keys.includes(c.field) && fieldFor(side, c.field)) keys.push(c.field)
+  for (const c of query.conditions) if (!keys.includes(c.field) && fieldFor(side, c.field) && !(fromPas && SITUATION_KEYS.has(c.field))) keys.push(c.field)
   return keys.map(k => { const f = fieldFor(side, k)!; return { key: k, unit: f.unit, label: f.label } })
 }
 
@@ -814,10 +839,10 @@ const playFields = (side: FinderBoardSide): Field<never>[] => allFields(side).fi
  * season once it asks about (or is sorted by) a count only the plays hold. A section reads its plays
  * only on this, since a game question otherwise costs no read at all.
  */
-export function finderNeedsPlays(side: FinderBoardSide, q: Pick<FinderQuery, 'per' | 'conditions'> & { hand?: FinderQuery['hand'] }, sort: FinderSort | null = null): boolean {
+export function finderNeedsPlays(side: FinderBoardSide, q: Pick<FinderQuery, 'per' | 'conditions'> & { hand?: FinderQuery['hand']; pitcherId?: string | null }, sort: FinderSort | null = null): boolean {
   if (q.per === 'inning' || q.per === 'pa') return true
-  // A hitter's season against one arm is summed from the plate appearances.
-  if (q.per === 'season' && q.hand && side === 'hitting') return true
+  // A hitter's season against one arm, one pitcher or in a situation is summed from the plate appearances.
+  if (seasonFromPas(side, q)) return true
   if (q.per === 'club') return false
   const keys = new Set(playFields(side).map(f => f.key))
   return q.conditions.some(c => keys.has(c.field)) || (!!sort && keys.has(sort.key))
@@ -1078,6 +1103,9 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     lines: L[], fields: Field<L>[], detail: (l: L) => string, played: (l: L) => boolean,
     bar: { field: 'pa' | 'ip' | 'g'; own: string[]; min: number | undefined },
     gamesPlayed?: Map<string, number>,
+    // The conditions asked of each line, which a season summed from plate appearances hands in
+    // without its situation (already spent cutting the trips).
+    conds: FinderCondition[] = query.conditions,
   ): FinderResult<P, G> => {
     // A side with no field at this grain (Hitting by the inning) can ask nothing, and finds nothing.
     if (!fields.length) return { rows: [], total: 0, searched: 0, tally: [], headlineField, qualifier: null, flat: false, span: null }
@@ -1101,8 +1129,8 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
       ? seasonLines(cut).filter(played).map(l => (gamesPlayed?.has(l.player_id) ? { ...l, g: gamesPlayed.get(l.player_id)! } : l))
       : pool
 
-    const asksRate = season && query.conditions.some(c => byKey.get(c.field)?.rate)
-    const ownBar = query.conditions.some(c => bar.own.includes(c.field))
+    const asksRate = season && conds.some(c => byKey.get(c.field)?.rate)
+    const ownBar = conds.some(c => bar.own.includes(c.field))
     const qualifier = asksRate && !ownBar && bar.min ? { field: bar.field, min: bar.min } : null
     const barField = byKey.get(bar.field)!
 
@@ -1110,12 +1138,12 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     // two, or every game the player played, in the order they happened, the way a player page lists a
     // game log. Ranked by the side's default stat, it put every hit first and read as an answer to a
     // question nobody asked. A season has one row per player, so nothing to order.
-    const log = !season && query.conditions.length === 0 && (hasMatchup(query) || !!subject)
+    const log = !season && conds.length === 0 && (hasMatchup(query) || !!subject)
     const matched: { line: L; head: number }[] = []
     for (const line of candidates) {
       if (qualifier && barField.value(line) < qualifier.min) continue
       let ok = true
-      for (const c of query.conditions) {
+      for (const c of conds) {
         const f = byKey.get(c.field)
         // An unknown field is a hand-edited link, and dropping the condition would answer a
         // different question than the one the URL asks. Match nothing instead. A rate on a game
@@ -1154,7 +1182,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     })
 
     // Flat only with a question asked: the unasked board is every line, ordered by its default stat.
-    const flat = !season && matched.length > 1 && (log || (query.conditions.length > 0 && matched.every(m => m.head === matched[0].head)))
+    const flat = !season && matched.length > 1 && (log || (conds.length > 0 && matched.every(m => m.head === matched[0].head)))
     const differs = (f: Field<L>) => { const v = f.value(matched[0].line); return matched.some(m => f.value(m.line) !== v) }
     const lead = flat
       ? (FLAT_LEAD[side][query.per] ?? []).map(k => byKey.get(k)).find((f): f is Field<L> => !!f && f !== head && differs(f)) ?? head
@@ -1350,13 +1378,18 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
       l => l.outs > 0 || (l.bf ?? 0) > 0,
       { field: 'ip', own: ['ip', 'bf'], min: qualify?.minOuts })
   }
-  // A HITTER'S SEASON AGAINST ONE ARM is summed from the plate appearances against it, a game line
-  // per night, since no box-score line splits by the pitcher. Only what a plate appearance says: no
-  // runs scored, RBI or steals, which the board's columns for it leave out (`finderColumns`).
-  if (season && query.hand) {
+  // A HITTER'S SEASON AGAINST ONE ARM, ONE PITCHER OR IN ONE SITUATION is summed from the plate
+  // appearances that fit (SITUATION_KEYS), a game line per night, since no box-score line splits by
+  // any of them. Only what a plate appearance says: no runs scored, RBI or steals, which the board's
+  // columns for it leave out (`finderColumns`).
+  if (seasonFromPas(side, query)) {
+    const situation = query.conditions.filter(c => SITUATION_KEYS.has(c.field))
+    const situationFields = situation.map(c => ({ c, f: fieldFor(side, c.field) as unknown as Field<PlateAppearanceLine> | null }))
     const nights = new Map<string, BattingGameLine>()
     for (const l of byHand(opts.plateAppearances ?? [])) {
       if (!l.batter_id) continue
+      if (query.pitcherId && l.pitcher_id !== query.pitcherId) continue
+      if (!situationFields.every(({ c, f }) => !!f && passes(f.value(l), c))) continue
       const key = `${l.game_id}|${l.batter_id}`
       const n = nights.get(key) ?? { id: key, game_id: l.game_id, player_id: l.batter_id, team_id: l.batting_team,
         ab: 0, r: 0, h: 0, doubles: 0, triples: 0, hr: 0, rbi: 0, bb: 0, so: 0, hbp: 0, sb: 0, cs: 0, sf: 0, sh: 0, tb: 0 }
@@ -1369,7 +1402,10 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     return collect([...nights.values()], [...HIT_FIELDS, ...HIT_SEASON_FIELDS] as Field<BattingGameLine>[],
       hitSeasonDetail as (l: BattingGameLine) => string,
       l => l.ab + l.bb + l.hbp + l.sf + l.sh > 0,
-      { field: 'pa', own: ['pa', 'ab'], min: qualify?.minPa })
+      // The season's bar is for a whole season; a cut this narrow brings its own (the search's rows
+      // ask for a few plate appearances), so the board's is not put on top of it.
+      { field: 'pa', own: ['pa', 'ab'], min: query.hand && !query.pitcherId && !situation.length ? qualify?.minPa : undefined },
+      undefined, query.conditions.filter(c => !SITUATION_KEYS.has(c.field)))
   }
   const totals = opts.playTotals
   const withTotals = totals
@@ -1568,10 +1604,13 @@ export function describeFinderConditions(
   // in the count exactly 2" is "0-2 count", and the runners, outs and walk-off have the same short
   // names, so a search row states "Home runs at least 1, 0-2 count" rather than a paragraph. Only the
   // exact forms: a range of counts still reads field by field.
+  // A hitter's season cut by a situation (`seasonFromPas`) says it the same way: "Batting average,
+  // runner in scoring position".
+  const fine = q.per === 'pa' || q.per === 'season'
   const exact = (field: string) => q.conditions.find(c => c.field === field && c.op === 'eq')
-  const balls = q.per === 'pa' ? exact('balls') : undefined
-  const strikes = q.per === 'pa' ? exact('scount') : undefined
-  const said: Record<string, (v: number) => string> = q.per === 'pa' ? {
+  const balls = fine ? exact('balls') : undefined
+  const strikes = fine ? exact('scount') : undefined
+  const said: Record<string, (v: number) => string> = fine ? {
     on: v => (v === 3 ? 'Bases loaded' : v === 0 ? 'Bases empty' : `${v} on`),
     risp: v => (v === 1 ? 'Runner in scoring position' : 'Nobody in scoring position'),
     paouts: v => `${v} out`,
@@ -1594,7 +1633,7 @@ export function describeFinderConditions(
     if (c.field === 'trail' && q.per === 'inning' && c.op === 'gte') return one(`Down ${c.value} or more`)
     // A run of plays reads as the run: "Back-to-back home runs", "5+ strikeouts in a row".
     if (q.per === 'pa' && c.op === 'gte' && RUN_WORDS[c.field]) return one(RUN_WORDS[c.field](c.value))
-    if (c.field === 'inn' && (q.per === 'pa' || q.per === 'inning')) return one(innWords[c.op](c.value))
+    if (c.field === 'inn' && (fine || q.per === 'inning')) return one(innWords[c.op](c.value))
     if (c.op === 'eq' && said[c.field]) return one(said[c.field](c.value))
     const f = labels.get(c.field)
     const op = FINDER_OPS.find(o => o.op === c.op)

@@ -8,7 +8,7 @@
 // count by construction: the same lines, cut to the same season, through the same engine and
 // qualifying bar. A second reading of the typed words could drift from what the link opens.
 
-import { decodeFinderByClub, decodeFinderCuts, decodeFinderPer, decodeFinderQuery, finderAnswerRow, finderAnswerText, finderNeedsPlays, runFinder, type FinderBoardSide, type FinderQuery } from '../league/finder'
+import { decodeFinderByClub, decodeFinderCuts, decodeFinderPer, decodeFinderQuery, finderAnswerRow, finderAnswerText, finderNeedsPlays, runFinder, seasonFromPas, type FinderBoardSide, type FinderQuery } from '../league/finder'
 import { clubFieldingInningLines, fieldingInningLines, inningPitchingLines, plateAppearanceLines, playTotals, teamInningLines } from '../league/inningLines'
 import type { SeasonScope } from '../league/season'
 import { fetchWpblAllFielding, fetchWpblAllLines } from './api'
@@ -105,8 +105,9 @@ export async function wpblFindAnswerWithTarget(href: string, ctx: FindContext): 
     fielding: cut(fielding),
     innings: log && query.per === 'inning' && side === 'pitching' ? inningPitchingLines(WPBL_LEAGUE, log, games) : undefined,
     teamInnings: log && query.per === 'inning' && side === 'hitting' ? teamInningLines(WPBL_LEAGUE, log, games) : undefined,
-    // A hitter's season against one arm is summed from the plate appearances too.
-    plateAppearances: log && (query.per === 'pa' || (query.per === 'season' && !!query.hand)) ? plateAppearanceLines(WPBL_LEAGUE, log, games) : undefined,
+    // A hitter's season against one arm, one pitcher or in a situation is summed from the plate
+    // appearances too; left out, "hr off Whitmore" answered "Never" over a board listing four.
+    plateAppearances: log && (query.per === 'pa' || seasonFromPas(side, query)) ? plateAppearanceLines(WPBL_LEAGUE, log, games) : undefined,
     fieldInnings: log && fielders && !query.byClub ? fieldingInningLines(log, games, fielders) : undefined,
     clubFieldInnings: log && fielders && query.byClub ? clubFieldingInningLines(log, games, fielders) : undefined,
     playTotals: log && (query.per === 'game' || query.per === 'season') ? playTotals(WPBL_LEAGUE, log, games) : undefined,

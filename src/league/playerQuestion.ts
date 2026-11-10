@@ -1,5 +1,5 @@
-import type { FinderBoardSide, FinderCondition, FinderPer, FinderVenue } from './finder'
-import { isQuestionWord, parseClubScope, parseFinderText, parseRecordQuestion, takeBareStat, type FinderClubAlias } from './finderParse'
+import { PA_SEASON_KEYS, type FinderBoardSide, type FinderCondition, type FinderPer, type FinderVenue } from './finder'
+import { isQuestionWord, parseClubScope, parseFinderText, parseLeaderText, parseRecordQuestion, takeBareStat, type FinderClubAlias } from './finderParse'
 import { foldName } from '../lib/fuzzyName'
 
 /**
@@ -35,8 +35,11 @@ export interface RosterPlayer {
 }
 
 export interface PlayerQuestion {
-  /** A batter against a pitcher, one player's stat question, or one player against a club. */
-  kind: 'matchup' | 'player' | 'club'
+  /** A batter against a pitcher, one player's stat question, one player against a club, or every
+   *  batter's season against one pitcher (`pitcherId`). */
+  kind: 'matchup' | 'player' | 'club' | 'against'
+  /** Against one pitcher with a stat and no number ("hr off Whitmore"): the batters ranked by it. */
+  rank?: { field: string; rate: boolean }
   side: FinderBoardSide
   per: FinderPer
   conditions: FinderCondition[]
@@ -63,6 +66,9 @@ const cutsOf = (c: { from?: string | null; to?: string | null; last?: number | n
   ({ from: c.from ?? null, to: c.to ?? null, last: c.last ?? null, hand: c.hand ?? null })
 
 const CONNECTORS = new Set(['vs', 'vs.', 'versus', 'v', 'v.', 'against', 'off', 'facing', 'faced', 'and', 'or', '&'])
+// The words that make the one player named the pitcher being faced: "3 hits off Whitmore".
+const AGAINST = new Set(['vs', 'vs.', 'versus', 'v', 'v.', 'against', 'off', 'facing', 'faced'])
+const RATES = new Set(['avg', 'obp', 'slg', 'ops'])
 const MAX_READINGS = 4
 
 interface Span { from: number; to: number; ids: string[]; whole: boolean }
@@ -153,6 +159,38 @@ export function parsePlayerQuestion(
   const rest = raw.filter((_w, i) => !inSpan(i)).join(' ')
   if (!rest.trim()) return []
   const ids = spans[0].ids
+
+  // AGAINST ONE PITCHER: "3 hits off Whitmore", "hr off Whitmore", "avg against Schroder". The word
+  // before the name makes the named player the one being faced, so the question is every batter's
+  // season against them, summed from the plate appearances (`seasonFromPas`), which only a section
+  // reading its plays can sum. Until Nov 10, 2026 "off Whitmore" was a word left over, and no row came.
+  const lead = spans[0].from > 0 ? raw[spans[0].from - 1].toLowerCase() : ''
+  const pitchers = ids.filter(id => byId.get(id)!.pitches)
+  if (opts.plays && sides.includes('hitting') && AGAINST.has(lead) && pitchers.length) {
+    const asked = raw.filter((_w, i) => !inSpan(i) && i !== spans[0].from - 1).join(' ')
+    // A count: the batters with at least that many off them over the season.
+    const counted = parseFinderText(`${asked} on the season`, clubs, ['hitting'], opts)
+      .filter(p => p.per === 'season' && !p.ignored.length && p.conditions.length && p.conditions.every(c => PA_SEASON_KEYS.has(c.field)))
+      .slice(0, 1)
+    // A stat alone: who has the most off them. A rate brings its own small bar, five trips.
+    const ranked = counted.length ? [] : parseLeaderText(asked)
+      .filter(p => p.side === 'hitting' && PA_SEASON_KEYS.has(p.field) && p.dir !== 'asc' && !p.career)
+      .slice(0, 1)
+    for (const id of pitchers) {
+      for (const r of counted) {
+        out.push({ ...blank, kind: 'against', side: 'hitting', per: 'season', conditions: r.conditions,
+          teamId: r.teamId, oppId: r.oppId, venue: r.venue, season: r.season, ...cutsOf(r), pitcherId: id })
+      }
+      for (const r of ranked) {
+        const rate = RATES.has(r.field)
+        out.push({ ...blank, kind: 'against', side: 'hitting', per: 'season', season: r.season, pitcherId: id,
+          conditions: [{ field: r.field, op: 'gte', value: 1 }, ...(rate ? [{ field: 'pa', op: 'gte' as const, value: 5 }] : [])],
+          rank: { field: r.field, rate } })
+      }
+    }
+    if (out.length) return out.slice(0, MAX_READINGS)
+  }
+
   // A side the player has lines on: a pitcher's strikeouts, a hitter's hits. Fielding is anyone who plays.
   const plays = (p: RosterPlayer, side: FinderBoardSide) => (side === 'pitching' ? p.pitches : side === 'hitting' ? p.hits : p.hits || p.pitches)
 

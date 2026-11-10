@@ -1,7 +1,7 @@
 import { useDark } from '../ui/useDark'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { runWpblFinder, validFinderSort, type FinderBoardSide, type FinderQuery, type FinderSort } from './derive/finder'
-import { conditionsForPer, finderMonths, finderNeedsPlays, hasPlayerFilter, type FinderPer, type FinderRow } from '../league/finder'
+import { conditionsForPer, finderMonths, finderNeedsPlays, hasPlayerFilter, seasonFromPas, type FinderPer, type FinderRow } from '../league/finder'
 import { boxScoreOf, requestBoxScore, requestPlay } from './entryUrl'
 import { clubFieldingInningLines, fieldingInningLines, inningPitchingLines, plateAppearanceLines, playTotals as buildPlayTotals, teamInningLines, type FielderSource } from '../league/inningLines'
 import { wpblFielderSource } from './fielders'
@@ -179,8 +179,9 @@ export default function WpblFindView({
   const months = useMemo(() => finderMonths(seasonGames.filter(g => g.status === 'final')), [seasonGames])
   const grains = GRAINS[side]
   const askInnings = query.per === 'inning' && grains.includes('inning')
-  // A hitter's season against one arm is summed from the plate appearances (FinderQuery.hand).
-  const askPas = (query.per === 'pa' && grains.includes('pa')) || (query.per === 'season' && side === 'hitting' && !!query.hand)
+  // A hitter's season against one arm, one pitcher or in a situation is summed from the plate
+  // appearances (`seasonFromPas`).
+  const askPas = (query.per === 'pa' && grains.includes('pa')) || seasonFromPas(side, query)
   // Switched to a side without the grain on screen (Fielding has neither, Hitting has no innings),
   // the board would have no grain lit and an empty list. The question goes back to single games,
   // keeping what that grain can ask.

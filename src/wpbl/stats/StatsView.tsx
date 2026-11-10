@@ -25,7 +25,7 @@ import {
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine } from '../types'
 import { isPostseasonGame, type SeasonScope } from '../season'
 import {
-  decodeFinderByClub, decodeFinderCuts, decodeFinderPer, decodeFinderQuery, encodeFinderQuery, finderFields, finderPlayerApplies,
+  decodeFinderByClub, decodeFinderCuts, decodeFinderPer, decodeFinderQuery, encodeFinderQuery, finderFields, finderPitcherApplies, finderPlayerApplies,
   type FinderBoardSide, type FinderQuery,
 } from '../derive/finder'
 import { track, EVENTS } from '../../lib/analytics'
@@ -773,7 +773,8 @@ export default function WpblStatsView({
     // Only at the grain that asks it, so a link never carries a player its board ignores.
     const matchup = finding && findQuery.per === 'pa'
     set('bat', matchup ? findQuery.batterId ?? null : null)
-    set('pit', matchup ? findQuery.pitcherId ?? null : null)
+    // A hitter's season can be against one pitcher too ("avg off Whitmore").
+    set('pit', finding && finderPitcherApplies(findSide, findQuery.per) ? findQuery.pitcherId ?? null : null)
     set('by', finding && finderPlayerApplies(findSide, findQuery.per, findQuery.byClub) ? findQuery.playerId ?? null : null)
     set('pos', source === 'season' && mode === 'players' ? pos : null)
     // THE FILTERS, which a reload used to drop: a link to Boston's playoff pitchers opened on the
