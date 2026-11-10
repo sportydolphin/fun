@@ -1320,6 +1320,37 @@ the pitcher's first batter, not the strikeouts.
 a `League`, nothing in it is WPBL's. An MLB season is about 190k plays, too many for the browser, so
 there the lines are built in Postgres and only the matches are read.
 
+## Leverage index (Nov 9, 2026) 🔬
+
+✅ **The engine and three surfaces shipped Nov 9, 2026** (see the log):
+[`derive/leverage.ts`](src/wpbl/derive/leverage.ts), Tango's definition with this league's own
+transitions priced by the win model. LI on every play of the win probability chart, pLI and gmLI on
+the player page's Advanced tables and on the Stats table's Overall side. Checked against the play
+log: the average plate appearance is 1.00, the bases-loaded, two-out, down-one last of the seventh
+is 11.5.
+
+**What it could do next**, cheapest first. Each reads numbers that are already computed.
+
+- **The play-by-play.** A small LI beside each plate appearance, or a mark on the ones at 2.0 and up.
+  The rows and the model are already on the page.
+- **Live games.** The current batter's LI in the live strip and on Home's live card: the one number
+  that says "tune in now". `leverageIndex` takes the state `deriveSituation` already reads.
+- **Search and Find.** "highest leverage plays", "biggest spots of 2026", "Whitmore's at-bats at LI
+  2+". A Find condition on LI fits the play grain beside the base-out and score filters.
+- **Clutch.** WPA divided by pLI, less WPA/LI (context-neutral wins): FanGraphs' Clutch. Needs
+  `wpaLeaders` to also sum WPA/LI per play, which is one more field on the same walk. Two seasons of
+  this league is still a small sample; label it as a record, not a skill.
+- **Bullpen use.** Per club, relievers ranked by gmLI: who a manager trusts. A small card on the team
+  page, and the shape of a postseason preview.
+- **Compare.** pLI and gmLI on the two-player table; the boards it reads already carry them.
+- **Watch.** Rank clips by the LI of their play as well as by the swing: a strikeout that ended a
+  bases-loaded tie is the clip a fan wants, and it moves win probability less than a homer in the
+  third.
+- **Share and Discord cards.** "LI 4.2" on a recap's swing of the game. The cards read stored numbers,
+  so this waits until leverage is stored per play, if ever.
+- **MLB.** The engine is WPBL-bound through its win model. MLB's Game Center draws its own win
+  probability from the feed; an LI there would come from MLB's published tables, not this code.
+
 ## Where new things go (decided Aug 27, 2026)
 
 The section has four nouns: games, clubs, players, and **the league itself**. The fourth has
@@ -1387,7 +1418,7 @@ reasons.
 **3. Base-out state plus `runsOnPlay()` gives run expectancy for free.** ✅ *shipped as the Run
 value board, Aug 23, 2026, behind the experiments switch: see the log*. Every play stores outs and all three bases, and
 summing runs chronologically reconstructs the score at each play. So RE24, and a WPA-shaped
-leverage number, are derivable from our own 1,527 plays with no new field and no new table.
+leverage number (✅ *shipped Nov 9, 2026: see Leverage index above*), are derivable from our own 1,527 plays with no new field and no new table.
 The table it produced is itself the finding: nobody on and nobody out is worth **1.13 runs** in
 this league against roughly 0.5 in the majors, which is what makes a borrowed table unusable
 here.
@@ -1869,6 +1900,7 @@ The dated log of what shipped lives in [`docs/roadmap-log/`](docs/roadmap-log/),
 newest first. A new entry goes at the top of the current month's file (start a new file when the month
 turns). The changelog in [`src/changelog.ts`](src/changelog.ts) holds the per-version detail.
 
+- [Nov 2026](docs/roadmap-log/wpbl-2026-11.md)
 - [Oct 2026](docs/roadmap-log/wpbl-2026-10.md)
 - [Sep 2026](docs/roadmap-log/wpbl-2026-09.md)
 - [Aug 2026](docs/roadmap-log/wpbl-2026-08.md)

@@ -5,6 +5,7 @@ import {
 import { outsToIp } from './innings'
 import { woba, wobaContext, wrcPlus, type WobaWeights } from './derive/linearWeights'
 import { fmtRunValue } from './derive/runExpectancy'
+import { fmtLeverage } from './derive/leverage'
 import type { WpblValueTotals } from './derive/playerValue'
 import type { SeasonScope, WpblSeasonGame } from './season'
 import type { WpblBattingLine, WpblPitchingLine } from './types'
@@ -239,6 +240,11 @@ export const OVR_COLS: Col<WpblValueTotals>[] = [
   { key: 'pos',    label: 'Pos adj', value: t => t.pos,   display: t => runs(t.pos) },
   { key: 'pit',    label: 'Pit',    value: t => pitching(t, t.pit), display: t => runs(pitching(t, t.pit)) },
   { key: 'wpa',    label: 'WPA',    value: t => t.wpa,    display: t => wpaText(t.wpa) },
+  // The stakes behind WPA: a big WPA at a high pLI is a player trusted with big spots who came
+  // through, at a low one a player who piled it up anyway. Stored rows older than these fields
+  // read as a dash rather than a zero.
+  { key: 'pli',    label: 'pLI',    value: t => (t.liPa ? t.liSum / t.liPa : null), display: t => fmtLeverage(t.liPa ? t.liSum / t.liPa : null), rate: true },
+  { key: 'gmli',   label: 'gmLI',   value: t => (t.reliefApps ? t.gmliSum / t.reliefApps : null), display: t => fmtLeverage(t.reliefApps ? t.gmliSum / t.reliefApps : null), rate: true },
   // The glove, part by part, for the Advanced view.
   { key: 'rng',    label: 'Rng',    value: t => t.rng,    display: t => runs(t.rng) },
   { key: 'err',    label: 'Err',    value: t => t.err,    display: t => runs(t.err) },

@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.217.0',
+    date:    '2026-11-09',
+    changes: [
+      {
+        short: 'Leverage index',
+        full:  'Leverage index (LI), built from the league’s own plays: 1.00 is an average plate appearance, 2.00 twice the stakes. The win probability chart shows it for every play. Player pages and the Stats table’s Overall side add pLI, the average leverage of a player’s plate appearances, and gmLI for relievers, the leverage when they entered.',
+      },
+    ],
+  },
+  {
     version: '1.216.0',
     date:    '2026-11-09',
     changes: [

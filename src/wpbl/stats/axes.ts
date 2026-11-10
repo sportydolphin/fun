@@ -78,7 +78,7 @@ export const VIEW_ORDER: Record<Side, Record<View, readonly string[]>> = {
   // position, pitching), then WAR last, the one-number answer, with wins added after it as the
   // second opinion. Advanced takes the glove apart and shows the two adjustments every row carries.
   overall: {
-    standard: ['pa', 'ip', 'bat', 'bsr', 'fld', 'pos', 'pit', 'batWar', 'pitWar', 'war', 'wpa'],
+    standard: ['pa', 'ip', 'bat', 'bsr', 'fld', 'pos', 'pit', 'batWar', 'pitWar', 'war', 'wpa', 'pli', 'gmli'],
     advanced: ['pa', 'ip', 'rng', 'err', 'dp', 'ofArm', 'cArm', 'cBlk', 'fld', 'gdp', 'lgAdj', 'rep', 'war'],
   },
   hitting: {
