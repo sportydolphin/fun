@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Box, Skeleton, Typography } from '@mui/material'
+import SearchIcon from '@mui/icons-material/Search'
 import {
   finderFieldGroups, finderUnit, finderColumns, defaultCondition, parseFinderValue, unparseFinderValue,
   displayFinderValue, describeFinderQuery, describeFinderConditions, finderLowerBetter, conditionsForPer,
@@ -12,6 +13,7 @@ import { shortDate } from '../lib/format'
 import type { LeagueGame, LeaguePlayer } from '../league/types'
 import { SectionCard, SectionLabel, TYPE_SCALE, CARD_BORDER, ACCENT_EDGE } from './card'
 import { ExpandRow } from './ExpandRow'
+import { PillGroup } from './PillGroup'
 import { InfoDot } from './InfoDot'
 import { LeaderCard, LeaderCardSkeleton, PORTRAIT_PX, printedRanks, type LeaderItem } from './leaders'
 import { FOCUS_RING, TAPPABLE, hoverOnly, pressable } from './interaction'
@@ -31,10 +33,10 @@ import { BOARD_COLUMN } from './layoutWidths'
 //
 // THE LAYOUT IS DECIDED BY CONTAINER QUERIES, NOT BREAKPOINTS. Until Oct 2026 the whole board was
 // one 720px column centered in a 1540px page: a form over two cards with a gutter either side, and
-// the tally squeezed into a third of the column. Three things now switch on, each only once the
-// board's own width has room for it: the question moves into a rail on the left that stays pinned
-// while the answers scroll; the list becomes a table with the line's columns; and the tally moves
-// beside the table. The thresholds are in rem because the table's columns are, so at the Large
+// the tally squeezed into a third of the column. Two things now switch on, each only once the
+// board's own width has room for it: the list becomes a table with the line's columns, and the
+// tally moves beside the table. (A third, the question in a pinned rail, went on Nov 9, 2026: only
+// Fielding was ever narrow enough to get it.) The thresholds are in rem because the table's columns are, so at the Large
 // text setting each switch happens later, where a px threshold or a breakpoint would switch on a
 // table that then overflowed. (A container query's rem is the root's font size, as it is anywhere
 // else; its `em` would be the container's, which a parent could move.)
@@ -59,7 +61,7 @@ const COL = { rank: 2, player: 8, game: 5.25, result: 3.25, stat: 2.4, gap: 0.4 
 // (".552", "1.155") and the player column takes the difference, floor and all. At 2.4 and 8 every
 // name column at 1440 sat on its floor beside the tally, and "F. Last" itself was cut by up to 31px
 // ("T. Maximiliana" on PAs, "N. Yonetani" on games, Nov 9, 2026). The floor rises by what the stats
-// give up, so the widths where the rail and the tally move in are where they were.
+// give up, so the width where the tally moves in is where it was.
 const LINE_COL = { ...COL, player: 10, stat: 2.15 }
 const colsFor = (per: FinderPer) => (per === 'season' ? COL : LINE_COL)
 /** The table's narrowest, which is what the main column must hold before it is drawn: the fixed
@@ -71,12 +73,11 @@ const tableMinRem = (stats: number, per: FinderPer = 'game') => {
     ? c.rank + c.player + stats * c.stat + (stats + 1) * c.gap + 2.5
     : c.rank + c.player + c.game + c.result + stats * c.stat + (stats + 3) * c.gap + 2.5
 }
-/** The rail's width, and the tally's when it sits beside the table. Wide enough for a condition on
- *  one line (CONDITION_COLUMNS): at 22 the value and its ✕ wrapped under every row. */
-const RAIL_REM = 24
-/** The grain switch's words, and the word that leads a question asked at that grain. */
+/** A grain's name over its examples. */
 const GRAIN_LABEL: Record<FinderPer, string> = { game: 'Single games', inning: 'Single innings', pa: 'Plate appearances', season: 'Season totals' }
-// More than two grains do not fit a phone's width at the long names, so the switch says them short.
+// THE SWITCH SAYS THEM SHORT ON EVERY SIDE. More than two do not fit a phone at the long names, and
+// until Nov 9, 2026 a side with two (Fielding, MLB) said "Single games / Season totals" while the
+// sides with four said "Games / Seasons" for the same two choices.
 const GRAIN_SHORT: Record<FinderPer, string> = { game: 'Games', inning: 'Innings', pa: 'PAs', season: 'Seasons' }
 /** What one row is, for the counts and titles: "12 games", "Most innings matching". */
 const GRAIN_NOUN: Record<FinderPer, [string, string]> = {
@@ -142,7 +143,7 @@ function Picker({ value, onChange, options, groups, label, title, sx }: {
         backgroundPosition: 'right 12px center, right 7px center',
         backgroundSize: '5px 5px, 5px 5px',
         backgroundRepeat: 'no-repeat',
-        // Capped at the row, for the rail: a long club name in a 22em column otherwise runs past it.
+        // Capped at the row: a long club name on a phone otherwise runs past it.
         minWidth: 0, maxWidth: '100%', flexShrink: 0, pl: 1.25, pr: 3, cursor: 'pointer',
         textOverflow: 'ellipsis',
         ...sx,
@@ -158,7 +159,7 @@ function Picker({ value, onChange, options, groups, label, title, sx }: {
 }
 
 /** A condition's four columns. ONE LINE AT EVERY WIDTH, which is the whole point: sized to their
- *  content, the four wrapped in the desktop rail and on a phone, leaving a value and a ✕ on a line
+ *  content, the four wrapped on a phone, leaving a value and a ✕ on a line
  *  of their own under every stat. The stat takes what is left; the comparison is a symbol, so its
  *  column is narrow and fixed, and every row's columns line up under the last. */
 const CONDITION_COLUMNS = `minmax(0, 1fr) 3rem 3.75rem ${chromePx(34)}`
@@ -265,11 +266,25 @@ function AskBox({ side, parse, onAsk, clubAbbr }: {
   const scope = best ? scopeWords(best, clubAbbr) : ''
   return (
     <Box>
-      <Box component="input" type="search" aria-label="Ask in words" placeholder="3 hits at home, 5 HR on the season"
-        value={text} enterKeyHint="search"
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setText(e.target.value)}
-        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); ask() } }}
-        sx={{ ...fieldSx, boxSizing: 'border-box', width: '100%', px: 1.5, fontWeight: 600, '&::placeholder': { color: 'text.secondary', opacity: 1 } }} />
+      {/* A SEARCH BOX THAT LOOKS LIKE ONE: the mark and the button. Bare, its example placeholder read
+          as a question already typed in (Nov 9, 2026 audit). */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+        <Box sx={{ position: 'relative', flex: 1, minWidth: 0 }}>
+          <SearchIcon aria-hidden sx={{
+            position: 'absolute', left: chromePx(10), top: '50%', transform: 'translateY(-50%)',
+            fontSize: chromePx(18), color: 'text.secondary', pointerEvents: 'none',
+          }} />
+          <Box component="input" type="search" aria-label="Ask in words" placeholder="3 hits at home, 5 HR on the season"
+            value={text} enterKeyHint="search"
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setText(e.target.value)}
+            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); ask() } }}
+            sx={{ ...fieldSx, boxSizing: 'border-box', width: '100%', pl: `calc(${chromePx(10)} + ${chromePx(18)} + 0.5rem)`, pr: 1.5, fontWeight: 600, '&::placeholder': { color: 'text.secondary', opacity: 1 } }} />
+        </Box>
+        <Box {...pressable(ask)} aria-disabled={!best || undefined} sx={{
+          ...textButtonSx, border: '1px solid', borderColor: best ? ACCENT_EDGE : CARD_BORDER,
+          color: best ? ACCENT_EDGE : 'text.secondary', cursor: best ? 'pointer' : 'default',
+        }}>Ask</Box>
+      </Box>
       {/* DRAWN ONLY WHILE THERE IS TEXT. Reserved always, it was a blank band between the box and
           the conditions that read as a gap in the form; it opens on the first keystroke, which is
           the reader's own input moving the page, and then holds its height while they type. */}
@@ -427,7 +442,12 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
   const active: FinderSort = sort ?? { key: headlineField, desc: best(headlineField) }
   const press = (key: string) => onSort({ key, desc: active.key === key ? !active.desc : best(key) })
   const stretched = { '&::after': { content: '""', position: 'absolute', inset: 0, borderRadius: 1 } } as const
-  const plainHead = { fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary', whiteSpace: 'nowrap' } as const
+  // THE SAME BOTTOM EDGE AS A SORTABLE HEAD, whose button carries a 2px rule for the sort mark: without
+  // it "#", "Player" and "Result" sat 3px above the stat heads beside them (Nov 9, 2026 audit).
+  const plainHead = {
+    fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary', whiteSpace: 'nowrap',
+    borderBottom: '2px solid transparent',
+  } as const
   const head = (key: string, label: string, title: string, align: 'left' | 'right') => {
     const on = active.key === key
     return (
@@ -448,13 +468,13 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
   return (
     <Box role="table" aria-label={season ? 'Matching seasons' : `Matching ${GRAIN_NOUN[query.per][1]}`} aria-busy={loading || undefined}>
       <Box role="rowgroup">
-        <Box role="row" sx={{ ...rowSx, px: 0.5, pb: 0.75 }}>
+        <Box role="row" sx={{ ...rowSx, alignItems: 'end', px: 0.5, pb: 0.75 }}>
           <Box role="columnheader" sx={{ ...plainHead, textAlign: 'center' }}>#</Box>
           {/* Hitting by the inning is a club's half-inning at the plate (runFinder), so its rows are clubs. */}
           <Box role="columnheader" sx={plainHead}>{side === 'hitting' && query.per === 'inning' ? 'Club' : 'Player'}</Box>
           {!season && head('date', 'Game', 'Sort by date', 'left')}
           {!season && <Box role="columnheader" sx={plainHead}>Result</Box>}
-          {cols.map(c => head(c.key, c.unit, `Sort by ${c.label.toLowerCase()}`, 'right'))}
+          {cols.map(c => head(c.key, c.unit, c.label, 'right'))}
         </Box>
       </Box>
       <Box role="rowgroup">
@@ -651,7 +671,7 @@ function ExampleGrid({ side, grains, examples, count, counted, href, onPick }: {
 
 export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   side, query, onQuery, result, clubs, clubAbbr, loading = false, renderRow, rowParts, tallyParts,
-  sort, onSort, examples, exampleCount, exampleCounted = [], exampleHref, stickyTop, parse, onAsk, accent, grains = DEFAULT_GRAINS,
+  sort, onSort, examples, exampleCount, exampleCounted = [], exampleHref, parse, onAsk, accent, grains = DEFAULT_GRAINS,
 }: {
   side: FinderBoardSide
   /** Owned by the section, which mirrors it into the address bar. */
@@ -684,8 +704,6 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   exampleCounted?: FinderPer[]
   /** An example's own address, so its tile is a real link that opens in a new tab. */
   exampleHref?: (ex: FinderExample) => string
-  /** Where the rail pins: under the section's pinned chrome. */
-  stickyTop: string
   /** The question typed as words. The box is drawn only when both are given. */
   parse?: (text: string) => FinderReading[]
   onAsk?: (r: FinderReading) => void
@@ -696,11 +714,10 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   grains?: FinderPer[]
 }) {
   const [allRows, setAllRows] = useState(false)
-  // FOLDED ONCE THERE IS AN ANSWER, wherever there is no rail. On a phone the form is a screen of
-  // selects above the list it produced, so a question that arrived whole (a shared link, an example
-  // chip, the typed box) opens folded to its one-line summary, and editing is one tap. A question
-  // being built from the pickers stays open, since folding it under the reader's thumb would be
-  // worse. Beside a rail there is room for both, so the fold is never drawn there.
+  // FOLDED ONCE THERE IS AN ANSWER. The form is a screen of selects above the list it produced, so a
+  // question that arrived whole (a shared link, an example, the typed box) opens folded to its chips,
+  // and editing is one tap. A question being built from the pickers stays open, since folding it
+  // under the reader's thumb would be worse.
   const [folded, setFolded] = useState(() => query.conditions.length > 0)
   const unit = finderUnit(side, result.headlineField)
   const clubOptions = (blank: string) => [{ value: '', label: blank }, ...clubs]
@@ -778,11 +795,10 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   const onceEach = result.tally.length > 0 && result.tally[0].games === 1
 
   const tableRem = tableMinRem(finderColumns(side, query).length, query.per)
-  // The rail switches on the STANDARD line's width rather than this question's, so a condition that
-  // adds a column cannot fold the rail away under the reader's hand while they build the question.
-  // The game line's whichever grain is asked, so switching to seasons does not move it either.
-  const railRem = RAIL_REM + PANE_GAP_REM + tableMinRem(finderColumns(side, { conditions: [] }).length)
-  const inRail = `@container finder (min-width: ${railRem}rem)`
+  // WHAT EACH COLUMN IS. "R2", "RS" and "ON" are this board's own, and a header's `title` never shows
+  // on a touchscreen, where the phone row leads with one of them ("3 RS"). One key per table, as a
+  // definition behind the card's InfoDot, rather than a dot on every header.
+  const columnKey = finderColumns(side, query).map(c => `${c.unit}: ${c.label}`).join(' · ')
   const tableOn = `@container finder-main (min-width: ${tableRem}rem)`
   const besideRem = tableRem + PANE_GAP_REM + TALLY_REM
   const tallyBeside = `@container finder-main (min-width: ${besideRem}rem)`
@@ -812,29 +828,17 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, pt: 0.5 }}>
         {/* THE GRAIN, first because it changes what every control under it means: "3+ home runs" is a
             night or a body of work. Drawn folded or open, so the card keeps its top either way. */}
-        <Box role="radiogroup" aria-label="Search" sx={{
-          display: 'flex', alignSelf: 'flex-start', p: 0.25, gap: 0.25,
-          borderRadius: 999, border: '1px solid', borderColor: CARD_BORDER,
-        }}>
-          {grains.map(per => {
-            const label = (grains.length > 2 ? GRAIN_SHORT : GRAIN_LABEL)[per]
-            const on = query.per === per
-            return (
-              <Box key={per} role="radio" aria-checked={on} {...pressable(() => setPer(per))} sx={{
-                ...FOCUS_RING, display: 'inline-flex', alignItems: 'center', minHeight: chromePx(28), px: 1.25,
-                borderRadius: 999, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
-                fontSize: TYPE_SCALE.meta, fontWeight: 700,
-                bgcolor: on ? 'action.selected' : 'transparent', color: on ? 'text.primary' : 'text.secondary',
-                ...hoverOnly({ color: 'text.primary' }),
-              }}>{label}</Box>
-            )
-          })}
+        {/* The site's switch for a setting on the data, the Hitting / Pitching one above the card:
+            a gray outlined pill of its own here read as a third kind of control (Nov 9, 2026 audit). */}
+        <Box role="group" aria-label="Search by" sx={{ alignSelf: 'flex-start' }}>
+          <PillGroup options={grains.map(per => ({ value: per, label: GRAIN_SHORT[per] }))}
+            value={query.per} onChange={v => setPer(v as FinderPer)} />
         </Box>
 
         {/* Folded: the question in chips, and the way back into the form. */}
         {hasConditions && (
           <Box role="group" aria-label="Question" sx={{
-            display: isFolded ? 'flex' : 'none', [inRail]: { display: 'none' },
+            display: isFolded ? 'flex' : 'none',
             alignItems: 'center', flexWrap: 'wrap', gap: 0.75,
           }}>
             {chips.map(c => <QuestionChip key={c.key} text={c.text} onRemove={c.remove} onEdit={() => setFolded(false)} />)}
@@ -843,7 +847,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
         )}
 
         <Box sx={{
-          display: isFolded ? 'none' : 'flex', [inRail]: { display: 'flex' },
+          display: isFolded ? 'none' : 'flex',
           flexDirection: 'column', gap: 1,
         }}>
           {parse && onAsk && (
@@ -873,7 +877,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
             )}
             {hasConditions && (
               <Box {...pressable(() => setFolded(true))} sx={{
-                ...textButtonSx, ml: 'auto', color: ACCENT_EDGE, [inRail]: { display: 'none' },
+                ...textButtonSx, ml: 'auto', color: ACCENT_EDGE,
               }}>Done</Box>
             )}
           </Box>
@@ -914,21 +918,16 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     /* LEFT-ALIGNED WITH THE PAGE. The board starts where the tabs and the controls bar above it
        start; centered, it sat 300px in from them on a desktop and read as a different page. Below
        `md` it keeps the ordinary board column's cap, so a tablet's form does not stretch across. */
-    <Box sx={{ containerType: 'inline-size', containerName: 'finder', width: '100%' }}>
+    // ONE LAYOUT ON EVERY SIDE: the question over the answers. The question moved into a pinned rail
+    // beside them once the board was wide enough for both, which at the page's 1260px cap only a
+    // five-column table ever was, so Fielding alone drew it and looked like another board (Nov 9,
+    // 2026 audit). The folded chips keep the question in reach above the answers instead.
+    <Box sx={{ width: '100%' }}>
       <Box sx={{
         display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', alignItems: 'start',
         gap: { xs: 1.5, sm: 2 }, maxWidth: { xs: BOARD_COLUMN, md: 'none' },
-        [inRail]: { gridTemplateColumns: `${RAIL_REM}rem minmax(0, 1fr)`, columnGap: `${PANE_GAP_REM}rem` },
       }}>
-        {/* THE RAIL PINS under the section's chrome, so the question stays in reach while the answers
-            scroll, and scrolls itself if a long question is taller than the window. */}
-        <Box sx={{
-          minWidth: 0,
-          [inRail]: {
-            position: 'sticky', top: `calc(${stickyTop} + ${chromePx(12)})`,
-            maxHeight: `calc(100vh - ${stickyTop} - ${chromePx(24)})`, overflowY: 'auto',
-          },
-        }}>
+        <Box sx={{ minWidth: 0 }}>
           {question}
         </Box>
 
@@ -942,7 +941,8 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
             ...(season ? {} : { [tallyBeside]: { gridTemplateColumns: `minmax(0, 1fr) ${TALLY_REM}rem`, columnGap: `${PANE_GAP_REM}rem` } }),
           }}>
             {/* A no-break space while loading: a plain one collapses, and the line with it. */}
-            <SectionCard title={season ? 'Matching seasons' : `Matching ${noun[1]}`} subtitle={loading ? String.fromCharCode(160) : summary}>
+            <SectionCard title={season ? 'Matching seasons' : `Matching ${noun[1]}`} subtitle={loading ? String.fromCharCode(160) : summary}
+              titleAdornment={<InfoDot label="Columns" text={columnKey} />}>
               {!loading && qualifier && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, pb: 1 }}>
                   <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary' }}>{qualifier.label}</Typography>
@@ -959,9 +959,9 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
                 </>
               ) : result.rows.length === 0 ? (
                 <Box sx={{ py: 2 }}>
-                  <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, mb: 0.5 }}>No {season ? who[1] : noun[1]}</Typography>
                   {/* THE COUNT SEARCHED is what separates "nobody has done this" from "your filters
-                      left nothing to look at", so it stays, as a label rather than advice. */}
+                      left nothing to look at", so it stays, as a label rather than advice. The zero
+                      itself is the subtitle's ("0 games where…"); a "No games" here said it twice. */}
                   <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
                     {result.searched.toLocaleString()} {season
                       ? (result.searched === 1 ? who[0] : who[1])
@@ -999,7 +999,8 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
                 once the matching is done, on the Leaders board's card so it reads as those rows do.
                 "of 11" beside a count is the player's appearances in the games searched, which is
                 what separates doing it a lot from playing a lot. */}
-            {season ? null : loading
+            {/* Nothing matched, nobody to rank: the card said "None" under the line that already says 0. */}
+            {season || (!loading && result.total === 0) ? null : loading
               ? <LeaderCardSkeleton title={tallyTitle} rows={TALLY_SHOWN} seeAll={false} splitWhen={tallySplit} />
               : onceEach ? (
                 <SectionCard bare title={tallyTitle}>

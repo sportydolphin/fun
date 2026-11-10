@@ -10,7 +10,7 @@ import { MLB_FINDER_CLUBS, mlbFinderHref } from '../finderLink'
 import { MLB_QUALIFY_IP_PER_GAME, MLB_QUALIFY_PA_PER_GAME } from '../qualify'
 import { PORTRAIT_PX } from '../../ui/leaders'
 import { chromePx } from '../../ui/scale'
-import { StatsBar, STATS_BOARD_ROOT_SX, STATS_BOARD_TOP } from './StatsBar'
+import { StatsBar, STATS_BOARD_ROOT_SX } from './StatsBar'
 import GameLineRow from '../components/GameLineRow'
 import { PlayerHeadshot } from '../components/leaderboards'
 
@@ -132,7 +132,7 @@ export function MlbFindView({
         <Box sx={{ pt: { xs: 1.5, sm: 2 } }}>
           <FinderBoard side={side} query={query} onQuery={onQuery} result={result} clubs={CLUBS} loading={loading}
             clubAbbr={id => TEAM_ABBR[Number(id)] ?? id}
-            sort={sort} onSort={setSort} examples={EXAMPLES[side]} stickyTop={STATS_BOARD_TOP}
+            sort={sort} onSort={setSort} examples={EXAMPLES[side]}
             exampleCount={ex => exampleCounts?.get(ex.label) ?? null} exampleCounted={['game', 'season']} exampleHref={exampleHref}
             parse={text => parseFinderText(text, MLB_FINDER_CLUBS)} onAsk={onAsk}
             renderRow={(r, i, unit, rank) => (
