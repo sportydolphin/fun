@@ -743,8 +743,8 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   /** The players to pick from: one player at a game, a season or a pitcher's inning, and a batter and
    *  a pitcher at a plate appearance. Absent draws no player pickers. */
   picks?: FinderPlayerPicks
-  /** The months the season on screen was played in (`finderMonths`), for the Month picker. Absent or
-   *  empty draws no picker; a span the search set still shows as its chip. */
+  /** The months the season on screen was played in (`finderMonths`), for the Month picker, empty
+   *  while the games load. Absent draws no When row; a span the search set still shows as its chip. */
   months?: number[]
 }) {
   const [allRows, setAllRows] = useState(false)
@@ -765,12 +765,12 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // so the picker never claims "Any month" over a span that is cutting the board.
   const spanMonth = finderSpanMonth(query)
   const spanCustom = (query.from || query.to) && spanMonth == null
-  const shownMonths = months?.length ? [...new Set([...months, ...(spanMonth ? [spanMonth] : [])])].sort((a, b) => a - b) : []
-  const monthOptions = shownMonths.length ? [
+  const shownMonths = [...new Set([...(months ?? []), ...(spanMonth ? [spanMonth] : [])])].sort((a, b) => a - b)
+  const monthOptions = [
     { value: '', label: 'Any month' },
     ...shownMonths.map(m => ({ value: String(m), label: FINDER_MONTH_NAMES[m - 1] })),
     ...(spanCustom ? [{ value: 'custom', label: describeFinderCuts(side, query).find(c => c.key === 'span')?.text ?? 'Custom' }] : []),
-  ] : []
+  ]
   const monthValue = spanCustom ? 'custom' : spanMonth ? String(spanMonth) : ''
   const lastOptions = [
     { value: '', label: 'Every game' },
@@ -996,7 +996,9 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
               ("since August", "last 10 games") these were search-only until Nov 2026, so a reader on
               the board could take one off but never put one on. A span the pickers cannot draw (a run
               of days) shows as "Custom" in the month picker, with its words, and stays its chip's. */}
-          {(monthOptions.length > 0) && (
+          {/* Drawn whenever the section offers months, even before its games are in: drawn only
+              once they arrived, the row pushed the examples down 80 to 100px mid-load (the sweep). */}
+          {months != null && (
             <Box sx={{ pt: 1.25, mt: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
               <SectionLabel>When</SectionLabel>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
