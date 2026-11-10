@@ -63,6 +63,16 @@ const tableMinRem = (stats: number, per: FinderPer = 'game') => per === 'season'
 /** The rail's width, and the tally's when it sits beside the table. Wide enough for a condition on
  *  one line (CONDITION_COLUMNS): at 22 the value and its ✕ wrapped under every row. */
 const RAIL_REM = 24
+/** The grain switch's words, and the word that leads a question asked at that grain. */
+const GRAIN_LABEL: Record<FinderPer, string> = { game: 'Single games', inning: 'Single innings', pa: 'Plate appearances', season: 'Season totals' }
+// More than two grains do not fit a phone's width at the long names, so the switch says them short.
+const GRAIN_SHORT: Record<FinderPer, string> = { game: 'Games', inning: 'Innings', pa: 'PAs', season: 'Seasons' }
+/** What one row is, for the counts and titles: "12 games", "Most innings matching". */
+const GRAIN_NOUN: Record<FinderPer, [string, string]> = {
+  game: ['game', 'games'], inning: ['inning', 'innings'], pa: ['plate appearance', 'plate appearances'], season: ['season', 'seasons'],
+}
+const GRAIN_LEAD: Record<FinderPer, string> = { game: '', inning: 'Inning: ', pa: 'PA: ', season: 'Season: ' }
+const DEFAULT_GRAINS: FinderPer[] = ['game', 'season']
 const TALLY_REM = 17
 const PANE_GAP_REM = 1.25
 /** What a season question searches, the same in both sections. */
@@ -260,7 +270,7 @@ function AskBox({ side, parse, onAsk, clubAbbr }: {
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
             <Box component="span" sx={{ fontWeight: 800, color: ACCENT_EDGE }}>Ask ›</Box>{' '}
-            {best.per === 'season' && 'Season: '}{describeFinderQuery(best.side, best)}
+            {GRAIN_LEAD[best.per]}{describeFinderQuery(best.side, best)}
             {scope && `, ${scope}`}
             {best.side !== side && ` (${best.side})`}
             {best.ignored.length > 0 && `. Ignored: ${best.ignored.join(' ')}`}
@@ -424,7 +434,7 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
     )
   }
   return (
-    <Box role="table" aria-label={season ? 'Matching seasons' : 'Matching games'} aria-busy={loading || undefined}>
+    <Box role="table" aria-label={season ? 'Matching seasons' : `Matching ${GRAIN_NOUN[query.per][1]}`} aria-busy={loading || undefined}>
       <Box role="rowgroup">
         <Box role="row" sx={{ ...rowSx, px: 0.5, pb: 0.75 }}>
           <Box role="columnheader" sx={{ ...plainHead, textAlign: 'center' }}>#</Box>
@@ -486,7 +496,7 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
                 )}
                 {!season && (
                   <Box role="cell" sx={{ whiteSpace: 'nowrap', fontSize: TYPE_SCALE.meta, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-                    {gameResult(r.game, r.teamId)}
+                    {r.inning?.event !== undefined ? r.inning.event ?? '—' : gameResult(r.game, r.teamId)}
                   </Box>
                 )}
                 {cols.map(c => {
@@ -530,7 +540,7 @@ function SeasonRow<P extends LeaguePlayer, G extends LeagueGame>({ row, i, rank,
 
 export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   side, query, onQuery, result, clubs, clubAbbr, loading = false, renderRow, rowParts, tallyParts,
-  sort, onSort, examples, stickyTop, parse, onAsk, accent,
+  sort, onSort, examples, stickyTop, parse, onAsk, accent, grains = DEFAULT_GRAINS,
 }: {
   side: FinderBoardSide
   /** Owned by the section, which mirrors it into the address bar. */
@@ -562,6 +572,9 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   onAsk?: (r: FinderReading) => void
   /** The section's accent for a season row's number, as its game rows use. */
   accent?: string
+  /** The grains this side can be asked at, in the switch's order. Single innings only where the
+   *  section reads its plays and the side is pitching (src/league/inningLines.ts). */
+  grains?: FinderPer[]
 }) {
   const [allRows, setAllRows] = useState(false)
   // FOLDED ONCE THERE IS AN ANSWER, wherever there is no rail. On a phone the form is a screen of
@@ -598,7 +611,10 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // who and where claims a wider search than it ran. The unasked question gets its own wording,
   // since "612 games where every game line" reads as a bug.
   const who = side === 'pitching' ? ['pitcher', 'pitchers'] : side === 'fielding' ? ['fielder', 'fielders'] : ['hitter', 'hitters']
-  const games_ = season ? (result.total === 1 ? who[0] : who[1]) : result.total === 1 ? 'game' : 'games'
+  const noun = GRAIN_NOUN[query.per]
+  const tallyTitle = `Most ${noun[1]} matching`
+  const games_ = season ? (result.total === 1 ? who[0] : who[1])
+    : result.total === 1 ? noun[0] : noun[1]
   const scopeText = scopeWords(query, clubAbbr)
   const total = result.total.toLocaleString()
   const summary = hasConditions
@@ -606,7 +622,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     : scopeText
       ? `${total} ${games_} ${scopeText}`
       : `${total} ${games_}`
-  const questionText = `${season ? 'Season: ' : ''}${describeFinderQuery(side, query)}${scopeText ? `, ${scopeText}` : ''}`
+  const questionText = `${GRAIN_LEAD[query.per]}${describeFinderQuery(side, query)}${scopeText ? `, ${scopeText}` : ''}`
   // SAID, because a bar the reader did not set is a filter they cannot see. The way past it is part
   // of the sentence, since "where is the 2-for-4 hitter" has an answer and it is one condition away.
   const qualifierNote = result.qualifier
@@ -624,7 +640,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // names no count the skeleton would have to guess.
   const moreLabel = season
     ? `Show more ${who[1]}`
-    : `Show ${loading || result.total > result.rows.length ? 'top' : 'all'} ${loading ? 50 : result.rows.length} games`
+    : `Show ${loading || result.total > result.rows.length ? 'top' : 'all'} ${loading ? 50 : result.rows.length} ${noun[1]}`
   const shownRows = allRows ? result.rows : result.rows.slice(0, RESULT_CAP)
   const ranks = finderRanks(side, result.rows, sort ?? { key: result.headlineField, desc: !finderLowerBetter(side, result.headlineField) })
 
@@ -682,7 +698,8 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
           display: 'flex', alignSelf: 'flex-start', p: 0.25, gap: 0.25,
           borderRadius: 999, border: '1px solid', borderColor: CARD_BORDER,
         }}>
-          {([['game', 'Single games'], ['season', 'Season totals']] as const).map(([per, label]) => {
+          {grains.map(per => {
+            const label = (grains.length > 2 ? GRAIN_SHORT : GRAIN_LABEL)[per]
             const on = query.per === per
             return (
               <Box key={per} role="radio" aria-checked={on} {...pressable(() => setPer(per))} sx={{
@@ -805,7 +822,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
             ...(season ? {} : { [tallyBeside]: { gridTemplateColumns: `minmax(0, 1fr) ${TALLY_REM}rem`, columnGap: `${PANE_GAP_REM}rem` } }),
           }}>
             {/* A no-break space while loading: a plain one collapses, and the line with it. */}
-            <SectionCard title={season ? 'Matching seasons' : 'Matching games'} subtitle={loading ? String.fromCharCode(160) : summary}>
+            <SectionCard title={season ? 'Matching seasons' : `Matching ${noun[1]}`} subtitle={loading ? String.fromCharCode(160) : summary}>
               {!loading && qualifierNote && (
                 <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', pb: 1 }}>{qualifierNote}</Typography>
               )}
@@ -861,9 +878,9 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
                 "of 11" beside a count is the player's appearances in the games searched, which is
                 what separates doing it a lot from playing a lot. */}
             {season ? null : loading
-              ? <LeaderCardSkeleton title="Most games matching" rows={TALLY_SHOWN} seeAll={false} splitWhen={tallySplit} />
+              ? <LeaderCardSkeleton title={tallyTitle} rows={TALLY_SHOWN} seeAll={false} splitWhen={tallySplit} />
               : onceEach ? (
-                <SectionCard bare title="Most games matching">
+                <SectionCard bare title={tallyTitle}>
                   <Typography sx={{ py: 1, fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.5 }}>
                     {result.tally.length === 1
                       ? `One ${who[0]}, once. Nobody has done it twice.`
@@ -871,7 +888,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
                   </Typography>
                 </SectionCard>
               )
-              : <LeaderCard title="Most games matching" empty="Nobody yet." items={tallyItems} splitWhen={tallySplit} />}
+              : <LeaderCard title={tallyTitle} empty="Nobody yet." items={tallyItems} splitWhen={tallySplit} />}
           </Box>
         </Box>
       </Box>

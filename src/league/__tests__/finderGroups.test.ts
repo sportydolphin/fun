@@ -3,7 +3,7 @@ import { defaultCondition, finderFieldGroups, finderFields, type FinderCondition
 
 describe('finder stat picker groups', () => {
   for (const side of ['hitting', 'pitching', 'fielding'] as const) {
-    for (const per of ['game', 'season'] as const) {
+    for (const per of ['game', 'season', 'inning'] as const) {
       it(`offers every ${side} field exactly once per ${per}`, () => {
         const grouped = finderFieldGroups(side, per).flatMap(g => g.fields.map(f => f.key))
         expect([...grouped].sort()).toEqual(finderFields(side, per).map(f => f.key).sort())
@@ -22,5 +22,9 @@ describe('defaultCondition', () => {
         expect(new Set(taken.map(c => c.field)).size).toBe(6)
       }
     }
+    const inning: FinderCondition[] = []
+    for (let i = 0; i < 6; i++) inning.push(defaultCondition('pitching', 'inning', inning))
+    expect(new Set(inning.map(c => c.field)).size).toBe(6)
+    expect(inning.every(c => finderFields('pitching', 'inning').some(f => f.key === c.field))).toBe(true)
   })
 })

@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.211.0',
+    date:    '2026-11-09',
+    changes: [
+      {
+        short: 'Find by the inning and the at-bat',
+        full:  'WPBL Find searches single innings (pitching) and single plate appearances (hitting and pitching): 3 strikeouts in an inning, immaculate and 1-2-3 innings, home runs on 0-2, bases-loaded walks, 10-pitch at-bats, walk-offs. Each row opens Game Center at that play, and search takes the question in words.',
+      },
+    ],
+  },
+  {
     version: '1.210.2',
     date:    '2026-11-09',
     changes: [

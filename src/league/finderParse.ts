@@ -105,7 +105,11 @@ add({ pitching: 'hbp' }, 'hit batters', 'hit batter', 'batters hit')
 add({ pitching: 'wp' }, 'wild pitches', 'wild pitch', 'wp')
 add({ pitching: 'bk' }, 'balks', 'balk', 'bk')
 add({ pitching: 'bf' }, 'batters faced', 'bf')
-add({ pitching: 'pitches' }, 'pitches', 'pitches thrown', 'pitch count')
+// A batter's pitches exist only on a plate appearance ("at-bats of 10 pitches"); a grain that has no
+// such field drops the reading (see WHICH GRAINS), so "100 pitches" stays the pitcher's.
+add({ hitting: 'pitches', pitching: 'pitches', lean: 'pitching' }, 'pitches', 'pitch count')
+add({ pitching: 'pitches' }, 'pitches thrown')
+add({ hitting: 'pitches' }, 'pitches seen')
 add({ pitching: 'strikes' }, 'strikes', 'strikes thrown')
 add({ pitching: 'baserunners' }, 'baserunners', 'base runners', 'baserunners allowed')
 // What only a season has.
@@ -232,6 +236,65 @@ const PITCHING_HINTS = ['pitcher', 'pitchers', 'pitching', 'pitched', 'thrown', 
 // The grain, said in words. Phrases first, so "in a season" is taken whole rather than leaving "in a".
 const SEASON_WORDS = /(?<![a-z])(on the season|this season|in a season|in the season|on the year|this year|in a year|for the season|for the year|season totals?|seasons?|totals?|year)(?![a-z])/g
 const GAME_WORDS = /(?<![a-z])(in a game|in one game|in a single game|single game|one game|a game|games?|nights?|outings?|starts?)(?![a-z])/
+// An inning, said in a way no count of innings pitched is: always with its article or "same",
+// "single", "per". "Inning" alone is innings pitched (STAT_ALIASES), so it is never read here bare.
+// "One inning" alone could be a reliever's one inning pitched, so "one" and "1" count only after "in".
+const INNING_WORDS = /(?<![a-z0-9])(?:(?:in|during)\s+(?:an|one|1|a single|a|the same)|an|a single|single|the same|per)\s+(?:inning|frame)(?![a-z])/g
+// The innings with names, each a whole question. Immaculate: three strikeouts on nine pitches, which
+// "nine or fewer" says exactly, since a strikeout takes three. 1-2-3: three up, three down, nobody on.
+// The numbers need "inning" after them, or any "1 2 3" typed would be read as one.
+const INNING_FEATS = /(?<![a-z0-9])(?:an?\s+)?(immaculate(?:\s+(?:innings?|frames?))?|(?:1-2-3|one[\s-]two[\s-]three)\s+(?:innings?|frames?))(?![a-z0-9])/g
+const ONE_TWO_THREE: FinderCondition[] = [
+  { field: 'bf', op: 'eq', value: 3 }, { field: 'outs', op: 'eq', value: 3 }, { field: 'baserunners', op: 'eq', value: 0 },
+]
+const featConditions = (feat: string): FinderCondition[] => (feat.startsWith('immaculate')
+  ? [{ field: 'so', op: 'gte', value: 3 }, { field: 'pitches', op: 'lte', value: 9 }]
+  : ONE_TWO_THREE)
+
+// ─── The plate-appearance grain, said in words ────────────────────────────────
+//
+// EACH PHRASE IS A SITUATION OR A SHAPE NO GAME LINE HAS, so saying it settles the grain: a count
+// ("on 0-2", "full count"), the bases loaded, the outs, a walk-off, a pitch count on one at-bat
+// ("10-pitch at-bat", "8-pitch walk"). Taken before the stats for the inning words' reason, and
+// because "0-2" left in would be read as a number. The event a question is about ("home run",
+// "walk") needs no number then, since a plate appearance holds one of it or none: read after the
+// stats, from what is left, so "2 home runs on 0-2" keeps its 2 and asks nothing sensible rather than
+// asking something else.
+const PA_WORDS_TO_N: Record<string, number> = { no: 0, none: 0, zero: 0, one: 1, two: 2 }
+const outsCount = (raw: string) => (raw in PA_WORDS_TO_N ? PA_WORDS_TO_N[raw] : Number(raw))
+const PA_EVENTS = '(?:walks?|strikeouts?|ks?|home runs?|homers?|hrs?|hits?|singles?|doubles?|triples?)'
+const PA_PHRASES: { re: RegExp; conditions: (m: RegExpExecArray) => FinderCondition[] }[] = [
+  { re: /(?<![a-z0-9])(?:a\s+)?(\d+)\+?\s+pitch\s+(?:at[\s-]?bats?|plate appearances?|pas?)(?![a-z])/g,
+    conditions: m => [{ field: 'pitches', op: 'gte', value: Number(m[1]) }] },
+  // "An 8-pitch walk": the count is taken and the event is left for the event words.
+  { re: new RegExp(`(?<![a-z0-9])(?:an?\\s+)?(\\d+)\\+?\\s+pitch(?=\\s+${PA_EVENTS}(?![a-z]))`, 'g'),
+    conditions: m => [{ field: 'pitches', op: 'gte', value: Number(m[1]) }] },
+  { re: /(?<![a-z0-9])(?:(?:on|in|with)\s+(?:an?\s+)?)?full\s+counts?(?![a-z])/g,
+    conditions: () => [{ field: 'balls', op: 'eq', value: 3 }, { field: 'scount', op: 'eq', value: 2 }] },
+  { re: /(?<![a-z0-9.])(?:(?:on|in|with)\s+(?:an?\s+)?)?([0-3])-([0-2])(?:\s+counts?)?(?![a-z0-9.-])/g,
+    conditions: m => [{ field: 'balls', op: 'eq', value: Number(m[1]) }, { field: 'scount', op: 'eq', value: Number(m[2]) }] },
+  { re: /(?<![a-z0-9])grand\s+slams?(?![a-z])/g,
+    conditions: () => [{ field: 'hr', op: 'gte', value: 1 }, { field: 'on', op: 'eq', value: 3 }] },
+  { re: /(?<![a-z0-9])(?:with\s+(?:the\s+)?)?bases[\s-]+(?:loaded|full)(?![a-z])/g,
+    conditions: () => [{ field: 'on', op: 'eq', value: 3 }] },
+  { re: /(?<![a-z0-9])walk[\s-]?offs?(?![a-z])/g,
+    conditions: () => [{ field: 'walkoff', op: 'eq', value: 1 }] },
+  { re: /(?<![a-z0-9])(?:with\s+)?([0-2]|no|none|zero|one|two)[\s-]+outs?(?![a-z])/g,
+    conditions: m => [{ field: 'paouts', op: 'eq', value: outsCount(m[1]) }] },
+  { re: /(?<![a-z0-9])(?:(?:in|during)\s+(?:an?|one|1|a single|the same)|per)\s+(?:at[\s-]?bat|plate appearance)(?![a-z])/g,
+    conditions: () => [] },
+]
+const EVENT_LEAN: Record<string, FinderBoardSide> = { so: 'pitching', hr: 'hitting', h: 'hitting', '2b': 'hitting', '3b': 'hitting', bb: 'hitting', hbp: 'hitting' }
+// The events a plate appearance can be, as words with no number beside them.
+const PA_EVENT_WORDS: { re: RegExp; field: string }[] = [
+  { re: /(?<![a-z])(?:hit by pitch(?:es)?|hbps?)(?![a-z])/g, field: 'hbp' },
+  { re: /(?<![a-z])(?:home runs?|homers?|hrs?|dingers?)(?![a-z])/g, field: 'hr' },
+  { re: /(?<![a-z])(?:walks?|walked|bbs?)(?![a-z])/g, field: 'bb' },
+  { re: /(?<![a-z])(?:strikeouts?|strike outs?|struck out|ks?|punchouts?)(?![a-z])/g, field: 'so' },
+  { re: /(?<![a-z])doubles?(?![a-z])/g, field: '2b' },
+  { re: /(?<![a-z])triples?(?![a-z])/g, field: '3b' },
+  { re: /(?<![a-z])hits?(?![a-z])/g, field: 'h' },
+]
 
 // HOW BIG A NUMBER ONE GAME CAN HOLD, per stat in its own unit (innings in outs). Above `max` nobody
 // has done it in a game, so the question can only be about a season; above `typical` it is a rare
@@ -441,11 +504,14 @@ function takeYear(rest: string): { rest: string; season: number | null } {
  *
  * `sides` are the ones the section's Find board has. Fielding is WPBL's alone until MLB stores
  * fielding lines, so it is asked for rather than assumed: offered to MLB, "2 errors" would be a
- * link to a board that cannot answer it.
+ * link to a board that cannot answer it. `innings` is the same kind of fact: only a section that
+ * reads its plays has the inning grain, and asked of one that does not, an inning question reads as
+ * nothing rather than as the game question it is not.
  */
 export function parseFinderText(
   text: string, clubs: readonly FinderClubAlias[] = [],
   sides: readonly FinderBoardSide[] = ['hitting', 'pitching'],
+  { plays = false }: { plays?: boolean } = {},
 ): ParsedFinder[] {
   const clubWords = new Set(clubs.flatMap(c => c.names.flatMap(n => normalize(n).split(' '))))
   let rest = ` ${wordedThresholds(fixStatTypos(normalize(text), clubWords))} `
@@ -453,6 +519,31 @@ export function parseFinderText(
   const year = takeYear(rest)
   rest = year.rest
   const season = year.season
+
+  // THE INNING GRAIN, taken before the stats because "inning" is also innings pitched ("5 innings, no
+  // walks"): left in, "in an inning" would read as nothing or as a stat. Only a phrase that cannot be
+  // a count of innings says it, so "5 innings" stays a start. The named feats are a whole question
+  // in a word and carry their own conditions, which is why they can stand with no number.
+  let inningHint = false
+  const feats: FinderCondition[] = []
+  rest = rest.replace(INNING_FEATS, (m: string, feat: string) => {
+    inningHint = true
+    feats.push(...featConditions(feat))
+    return ' '.repeat(m.length)
+  })
+  rest = rest.replace(INNING_WORDS, m => { inningHint = true; return ' '.repeat(m.length) })
+  let paHint = false
+  for (const { re, conditions } of PA_PHRASES) {
+    rest = rest.replace(re, (...args: unknown[]) => {
+      const m = args.slice(0, -2) as unknown as RegExpExecArray
+      paHint = true
+      feats.push(...conditions(m))
+      return ' '.repeat((args[0] as string).length)
+    })
+  }
+  // Both at once ("on 0-2 in an inning") is no one question, and a section that does not read its
+  // plays has neither grain: nothing, rather than the game question it is not.
+  if ((inningHint || paHint) && (!plays || (inningHint && paHint))) return []
 
   // `at` is where in the text it was written, so the conditions keep the reader's order: the first
   // one is the board's headline. Every match is blanked to spaces of its own length, which is what
@@ -503,7 +594,18 @@ export function parseFinderText(
   } else {
     rest = rest.replace(NUMBER_FIRST, numberFirst).replace(STAT_FIRST, statFirst)
   }
-  if (!pending.length && !forLine.seen) return []
+  // A plate appearance's event, named with no number: "a home run on 0-2" is one home run. After the
+  // stats, whose numbered events have gone, and before the venue, which would take the "home" of a
+  // home run for "at home".
+  if (paHint) {
+    for (const { re, field } of PA_EVENT_WORDS) {
+      rest = rest.replace(re, m => {
+        if (!feats.some(c => c.field === field)) feats.push({ field, op: 'gte', value: 1 })
+        return ' '.repeat(m.length)
+      })
+    }
+  }
+  if (!pending.length && !forLine.seen && !feats.length) return []
   pending.sort((x, y) => x.at - y.at)
 
   // Where, and against whom. Read after the stats, so "home runs" has already gone and cannot be
@@ -558,7 +660,12 @@ export function parseFinderText(
 
   const readings: { parsed: ParsedFinder; score: number }[] = []
   for (const side of sides) {
+    // An inning is a pitcher's alone (FinderPer), so "3 hits in an inning" is no question at all
+    // rather than a batter's game.
+    if (inningHint && side !== 'pitching') continue
+    if (paHint && side === 'fielding') continue
     const byField = new Map<string, FinderCondition>()
+    for (const c of feats) byField.set(c.op === 'eq' ? c.field : `${c.field}:${c.op}`, c)
     let ok = true
     let score = 0
     if (forLine.seen) {
@@ -604,10 +711,23 @@ export function parseFinderText(
     // since the board is already one season: a number that small keeps the game reading, offered first.
     const small = !pastTypical
     const grains: { per: FinderPer; bonus: number }[] = []
-    if (!seasonOnly && (gameHint || (seasonHint ? small : !pastMax))) grains.push({ per: 'game', bonus: 1 })
-    if (seasonOnly || (!gameHint && !forLine.seen && (seasonHint || (pastTypical && !none)))) grains.push({ per: 'season', bonus: 0 })
+    if (inningHint || paHint) {
+      // Said in words, so it is the only reading; a stat that grain cannot have ("an ERA in an
+      // inning", "a double for a pitcher") leaves none rather than a game question nobody asked.
+      const per: FinderPer = inningHint ? 'inning' : 'pa'
+      const keys = new Set(finderFields(side, per).map(f => f.key))
+      // The event leans the way a fan means it: a strikeout is the pitcher's, a home run the batter's.
+      const lean = conditions.some(c => EVENT_LEAN[c.field] === side) ? 1 : 0
+      if (conditions.length && conditions.every(c => keys.has(c.field))) grains.push({ per, bonus: 1 + lean })
+    } else {
+      if (!seasonOnly && (gameHint || (seasonHint ? small : !pastMax))) grains.push({ per: 'game', bonus: 1 })
+      if (seasonOnly || (!gameHint && !forLine.seen && (seasonHint || (pastTypical && !none)))) grains.push({ per: 'season', bonus: 0 })
+    }
 
     for (const { per, bonus } of grains) {
+      // Every condition must be one this grain can ask, or the link would match nothing.
+      const askable = new Set(finderFields(side, per).map(f => f.key))
+      if (!conditions.every(c => askable.has(c.field))) continue
       for (const teamId of teamIds) {
         for (const oppId of oppIds) {
           // A club cannot play itself, which is what "Chicago vs Chicago" would otherwise offer.

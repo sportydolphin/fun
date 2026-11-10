@@ -1,6 +1,12 @@
 import { useDark } from '../ui/useDark'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { runWpblFinder, validFinderSort, type FinderBoardSide, type FinderQuery, type FinderSort } from './derive/finder'
+import { conditionsForPer, type FinderPer, type FinderRow } from '../league/finder'
+import { requestPlay } from './entryUrl'
+import { inningPitchingLines, plateAppearanceLines } from '../league/inningLines'
+import { WPBL_LEAGUE } from './league'
+import { fetchWpblPlayLog, getCachedWpblPlayLog } from './api/plays'
+import { useWpblSeason } from './SeasonContext'
 import { wpblAccentFg, wpblFullName } from './constants'
 import { PlayerPortrait, TeamBadge } from './ui'
 import { useWpblGameLink, useWpblPlayerLink } from './LinkContext'
@@ -10,7 +16,7 @@ import { parseFinderText } from '../league/finderParse'
 import { navigate } from '../nav'
 import GameLineRow from './GameLineRow'
 import { useEraBasis } from './EraBasisContext'
-import { WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, wpblFinderHref } from './finderLink'
+import { WPBL_FINDER_CLUBS, WPBL_FINDER_OPTS, WPBL_FINDER_SIDES, wpblFinderHref } from './finderLink'
 import { wpblQualifiers } from './stats'
 import type { WpblBattingLine, WpblFieldingLine, WpblGame, WpblPitchingLine, WpblPlayer, WpblTeam } from './types'
 
@@ -40,6 +46,16 @@ const EXAMPLES: Record<FinderBoardSide, FinderExample[]> = {
     { label: '6+ IP, no runs', conditions: [{ field: 'ip', op: 'gte', value: 18 }, { field: 'r', op: 'eq', value: 0 }] },
     { label: '3+ IP, no hits', conditions: [{ field: 'ip', op: 'gte', value: 9 }, { field: 'h', op: 'eq', value: 0 }] },
     { label: '2+ wild pitches', conditions: [{ field: 'wp', op: 'gte', value: 2 }] },
+    { per: 'inning', label: '3+ strikeouts', conditions: [{ field: 'so', op: 'gte', value: 3 }] },
+    { per: 'inning', label: 'Immaculate', conditions: [{ field: 'so', op: 'gte', value: 3 }, { field: 'pitches', op: 'lte', value: 9 }] },
+    { per: 'inning', label: '1-2-3', conditions: [{ field: 'bf', op: 'eq', value: 3 }, { field: 'outs', op: 'eq', value: 3 }, { field: 'baserunners', op: 'eq', value: 0 }] },
+    { per: 'inning', label: '3+ runs', conditions: [{ field: 'r', op: 'gte', value: 3 }] },
+    { per: 'inning', label: '25+ pitches', conditions: [{ field: 'pitches', op: 'gte', value: 25 }] },
+    { per: 'pa', label: '10+ pitches', conditions: [{ field: 'pitches', op: 'gte', value: 10 }] },
+    { per: 'pa', label: 'Strikeout on 3-2', conditions: [{ field: 'so', op: 'gte', value: 1 }, { field: 'balls', op: 'eq', value: 3 }, { field: 'scount', op: 'eq', value: 2 }] },
+    { per: 'pa', label: 'Bases-loaded walks', conditions: [{ field: 'bb', op: 'gte', value: 1 }, { field: 'on', op: 'eq', value: 3 }] },
+    { per: 'pa', label: 'Home runs on 0-2', conditions: [{ field: 'hr', op: 'gte', value: 1 }, { field: 'balls', op: 'eq', value: 0 }, { field: 'scount', op: 'eq', value: 2 }] },
+    { per: 'pa', label: 'Walk-offs', conditions: [{ field: 'walkoff', op: 'eq', value: 1 }] },
     { per: 'season', label: 'ERA under 3.00', conditions: [{ field: 'era', op: 'lte', value: 299 }] },
     { per: 'season', label: 'WHIP under 1.20', conditions: [{ field: 'whip', op: 'lte', value: 119 }] },
     { per: 'season', label: '4+ wins', conditions: [{ field: 'w', op: 'gte', value: 4 }] },
@@ -52,6 +68,11 @@ const EXAMPLES: Record<FinderBoardSide, FinderExample[]> = {
     { label: '4+ RBI', conditions: [{ field: 'rbi', op: 'gte', value: 4 }] },
     { label: '2+ steals', conditions: [{ field: 'sb', op: 'gte', value: 2 }] },
     { label: 'On base 4+ times', conditions: [{ field: 'ob', op: 'gte', value: 4 }] },
+    { per: 'pa', label: '10+ pitches', conditions: [{ field: 'pitches', op: 'gte', value: 10 }] },
+    { per: 'pa', label: 'Home runs on 0-2', conditions: [{ field: 'hr', op: 'gte', value: 1 }, { field: 'balls', op: 'eq', value: 0 }, { field: 'scount', op: 'eq', value: 2 }] },
+    { per: 'pa', label: 'Bases-loaded hits', conditions: [{ field: 'h', op: 'gte', value: 1 }, { field: 'on', op: 'eq', value: 3 }] },
+    { per: 'pa', label: '2-out run-scoring hits', conditions: [{ field: 'h', op: 'gte', value: 1 }, { field: 'paouts', op: 'eq', value: 2 }, { field: 'runs', op: 'gte', value: 1 }] },
+    { per: 'pa', label: 'Walk-offs', conditions: [{ field: 'walkoff', op: 'eq', value: 1 }] },
     { per: 'season', label: '.300 hitters', conditions: [{ field: 'avg', op: 'gte', value: 300 }] },
     { per: 'season', label: '.900+ OPS', conditions: [{ field: 'ops', op: 'gte', value: 900 }] },
     { per: 'season', label: '3+ home runs', conditions: [{ field: 'hr', op: 'gte', value: 3 }] },
@@ -75,6 +96,14 @@ const EXAMPLES: Record<FinderBoardSide, FinderExample[]> = {
 /** Under the toolbar and the Stats controls bar, both pinned: StatsView's BOARD_TOP, which this
  *  lazy chunk cannot import without importing StatsView itself. */
 const STICKY_TOP = 'calc(var(--app-header-h, 0px) + var(--wpbl-stats-bar-h, 0px))'
+
+/** The grains each side can be asked at. Pitching alone has an inning (a batter's half-inning is one
+ *  trip to the plate), and a plate appearance has no fielder. */
+const GRAINS: Record<FinderBoardSide, FinderPer[]> = {
+  hitting: ['game', 'pa', 'season'],
+  pitching: ['game', 'inning', 'pa', 'season'],
+  fielding: ['game', 'season'],
+}
 
 export default function WpblFindView({
   side, teams, players, batting, pitching, fielding, games, query, onQuery, onOpenPlayer, onOpenGame,
@@ -109,9 +138,41 @@ export default function WpblFindView({
     const q = wpblQualifiers(teams, games, query.scope)
     return q.active ? { minPa: q.minPa, minOuts: q.minOuts, minG: q.minG } : null
   }, [teams, games, query.scope])
+  // THE PLAY-LOG GRAINS ARE THE ONE QUESTION HERE THAT COSTS A READ: a pitcher's half-innings and
+  // every plate appearance are built from the play log, which this board otherwise never touches, so
+  // it is read only once one of them is asked for, one season of it (fetchWpblPlayLog), and held with
+  // the season it was read for so a year picked from the menu reads again rather than cutting the old
+  // year to nothing.
+  const { season, cut } = useWpblSeason()
+  const grains = GRAINS[side]
+  const askInnings = query.per === 'inning' && grains.includes('inning')
+  const askPas = query.per === 'pa' && grains.includes('pa')
+  // Switched to a side without the grain on screen (Fielding has neither, Hitting has no innings),
+  // the board would have no grain lit and an empty list. The question goes back to single games,
+  // keeping what that grain can ask.
+  useEffect(() => {
+    if (!grains.includes(query.per)) onQuery({ ...query, per: 'game', conditions: conditionsForPer(side, 'game', query.conditions) })
+  }, [grains, side, query, onQuery])
+  const [playRead, setPlayRead] = useState(() => ({ season, plays: getCachedWpblPlayLog(season) }))
+  const plays = playRead.season === season ? playRead.plays : null
+  const askPlays = askInnings || askPas
+  useEffect(() => {
+    if (!askPlays || plays) return
+    let cancelled = false
+    // An empty log on failure, so the board says it found nothing rather than spinning for good.
+    fetchWpblPlayLog(season).then(p => { if (!cancelled) setPlayRead({ season, plays: p }) })
+      .catch(() => { if (!cancelled) setPlayRead({ season, plays: [] }) })
+    return () => { cancelled = true }
+  }, [askPlays, plays, season])
+  const innings = useMemo(
+    () => (askInnings && plays ? inningPitchingLines(WPBL_LEAGUE, cut(plays), games) : undefined),
+    [askInnings, plays, cut, games])
+  const plateAppearances = useMemo(
+    () => (askPas && plays ? plateAppearanceLines(WPBL_LEAGUE, cut(plays), games) : undefined),
+    [askPas, plays, cut, games])
   const result = useMemo(
-    () => runWpblFinder(side, batting, pitching, players, games, query, 50, sort, { eraInnings, qualify, fielding }),
-    [side, batting, pitching, fielding, players, games, query, sort, eraInnings, qualify])
+    () => runWpblFinder(side, batting, pitching, players, games, query, 50, sort, { eraInnings, qualify, fielding, innings, plateAppearances }),
+    [side, batting, pitching, fielding, players, games, query, sort, eraInnings, qualify, innings, plateAppearances])
   // A reading on this side is asked in place, which keeps the season and slice on screen; one on
   // the other side goes through the address, the way the search box sends it, since the side is
   // StatsView's to switch.
@@ -122,24 +183,35 @@ export default function WpblFindView({
   const clubs = useMemo(
     () => [...teams].sort((a, b) => a.abbr.localeCompare(b.abbr)).map(t => ({ value: t.id, label: wpblFullName(t) })),
     [teams])
+  // AN INNING ROW OPENS ITS INNING, not the top of the game: the answer to "three strikeouts in an
+  // inning" is those three at-bats. In the app the play is handed to Game Center (requestPlay); a
+  // new tab gets it as the `#play-N` fragment a link to one at-bat already uses.
+  const openRowGame = (r: FinderRow<WpblPlayer, WpblGame>) => (r.inning
+    ? (g: WpblGame) => { requestPlay(g.id, r.inning!.sequence); onOpenGame?.(g) }
+    : onOpenGame)
+  const rowGameLink = (r: FinderRow<WpblPlayer, WpblGame>) => {
+    const link = gameLink(r.game, openRowGame(r))
+    return r.inning && link.href ? { ...link, href: `${link.href}#play-${r.inning.sequence}` } : link
+  }
 
   return (
     <FinderBoard side={side} query={query} onQuery={onQuery} result={result} clubs={clubs}
       clubAbbr={id => teams.find(t => t.id === id)?.abbr ?? id}
       sort={sort} onSort={setSort} examples={EXAMPLES[side]} stickyTop={STICKY_TOP} accent={accent}
-      parse={text => parseFinderText(text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES)} onAsk={onAsk}
+      grains={grains} loading={askPlays && !plays}
+      parse={text => parseFinderText(text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS)} onAsk={onAsk}
       renderRow={(r, i, unit, rank) => (
         <GameLineRow key={r.key} rank={rank.rank} tied={rank.tied} name={r.name} player={r.player}
           teamId={r.teamId} game={r.game} detail={r.detail}
           value={r.headlineDisplay} unit={unit} accent={accent} divider={i > 0}
           nameOpens="game" emphasizeRank={false}
-          onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
+          onOpenPlayer={onOpenPlayer} onOpenGame={openRowGame(r)} />
       )}
       rowParts={r => ({
         portrait: <PlayerPortrait name={r.name} teamId={r.teamId} size={PORTRAIT_PX} />,
         club: r.teamId ? <TeamBadge team={{ id: r.teamId, abbr: r.teamId }} size={16} /> : undefined,
         playerLink: r.player ? playerLink(r.player, onOpenPlayer) : undefined,
-        gameLink: r.game ? gameLink(r.game, onOpenGame) : undefined,
+        gameLink: r.game ? rowGameLink(r) : undefined,
       })}
       tallyParts={t => ({
         key: t.player?.id ?? t.name,

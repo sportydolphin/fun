@@ -20,7 +20,7 @@ import { wpblGameCard } from '../ogCard'
 import { ModalShell, SegNav, TeamBadge, CopyLinkButton, pressable, FOCUS_RING, chromePx, TAPPABLE } from '../ui'
 import SwipeableViews from '../SwipeableViews'
 import type { WpblRunValuePlay } from '../types'
-import { ENTRY_HASH, PLAY_HASH_RE } from '../entryUrl'
+import { PLAY_HASH_RE, takeOpeningPlayHash } from '../entryUrl'
 import FeedDelayNote from '../FeedDelayNote'
 import { ExpandButton } from '../../ui/ExpandButton'
 import { typePx } from '../../ui/scale'
@@ -108,12 +108,15 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
   // guessed. `urlTab` is kept so the correction below can tell a stale link from the reader's
   // own choice.
   const urlTab = useRef(asTab(initialTab)).current
+  // Read once, at mount: the play this game was opened to (entryUrl.ts), whether by a link or by a
+  // row inside the app. Held here because the play-by-play pane remounts on the first refresh.
+  const [openingHash] = useState(() => takeOpeningPlayHash(seed.id))
   const [tab, setTab] = useState<Tab>(() =>
     // A LINK TO ONE AT-BAT LANDS ON THE LOG THAT HOLDS IT. Without this the fragment opened the
     // modal on the Recap and waited for the reader to find the right tab, which is the whole of
     // what the link was for. Under an explicit ?tab=, because that is the reader naming a tab
     // and this is only ever inferring one.
-    urlTab ?? (PLAY_HASH_RE.test(ENTRY_HASH) ? 'plays'
+    urlTab ?? (PLAY_HASH_RE.test(openingHash) ? 'plays'
       : seed.status === 'final' ? 'recap' : seed.status === 'live' ? 'live' : 'box'))
   const [boxTeam, setBoxTeam] = useState<'away' | 'home'>(() => (initialSide === 'home' ? 'home' : 'away'))
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
@@ -630,7 +633,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
                     </Box>
                   )
                 })() : v === 'plays' ? (
-                  <PlayByPlay plays={plays} teams={byId} game={game} names={names} swing={swing} onOpenPlayer={onOpenPlayer} />
+                  <PlayByPlay plays={plays} teams={byId} game={game} names={names} swing={swing} onOpenPlayer={onOpenPlayer} openingHash={openingHash} />
                 ) : v === 'pitch' ? (
                   <PitchData tracking={tracking} boxPitchers={boxPitchers} firstHit={firstHit} live={live} />
                 ) : null

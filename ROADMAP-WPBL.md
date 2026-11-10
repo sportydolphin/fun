@@ -1217,6 +1217,61 @@ hr") is dropped from the Find row, because Find cannot filter by player; the nam
 finds the player. And MLB has no regular-season page for a pairing of
 clubs, so "Cubs vs Cardinals" answers with their latest and next game only.
 
+## Find by the inning (Nov 9, 2026) 🎯🔬
+
+"Any pitcher with three strikeouts in an inning" is a Find question at a grain the board does not
+have yet. Decided: **no new page and no second results view.** Search stays the front door (the
+Find parser already turns a typed question into `?board=find&q=`), the Find board stays the answer,
+and the inning becomes a third grain beside game and season. Branch `feat/inning-finder`.
+
+The data holds up: on the 2026 log the plays' strikeouts match the box scores to one (330 against
+331), every play names its pitcher, and seven pitcher-innings had three strikeouts (none had four,
+and nobody threw an immaculate inning).
+
+1. ✅ **Inning lines** (Nov 9). `inningPitchingLines` in `src/league/inningLines.ts`: one line per
+   pitcher per half-inning, in the finder's own line shape, with BF, outs, K, BB, HBP, H, HR, R,
+   pitches and strikes. Outs are read off the next row (a double play and a caught stealing count),
+   a half with a pitching change is two lines, and R is the runs scored on the pitcher's watch, not
+   the runs charged. League-neutral; tests in `src/league/__tests__/inningLines.test.ts`.
+2. ✅ **The grain in the engine** (Nov 9). `FinderPer` gains `'inning'`, pitching side only;
+   `runFinder` takes the lines as `FinderOptions.innings`, the way it takes fielding, and searches
+   nothing on another side. The fields are the game line's own where they mean the same (K, BB, H,
+   R, pitches, baserunners), so a question keeps its conditions across grains, plus Inning and Outs
+   recorded. Columns: INN, BF, H, R, BB, K, P. `q=inning~so.gte.3` in the address. "1-2-3" and
+   "immaculate" are just conditions (outs 3, BF 3, baserunners 0; K 3+, pitches 9 or fewer).
+3. ✅ **The board** (Nov 9). Pitching's grain switch reads Single games, Single innings, Season
+   totals (`grains` on the shared `FinderBoard`, so MLB's is unchanged). FindView reads
+   `fetchWpblPlayLog(season)` only once the inning grain is picked, held with its season; the
+   postseason scope, corrections and finals only come through the existing paths (5 innings of 3+ K
+   in the regular season, 7 with the playoffs, which matches the database). Five examples:
+   3+ strikeouts, Immaculate, 1-2-3, 3+ runs, 25+ pitches. Switching to Hitting or Fielding drops
+   the question back to single games.
+4. ✅ **The parser** (Nov 9). "in an inning", "in one inning", "in a single inning", "per inning"
+   set the grain; "immaculate inning" and "1-2-3 inning" are their conditions with no number
+   needed. Read before the stats, since "inning" alone is innings pitched ("5 innings, no walks"
+   stays a start). Only a section that passes `{ innings: true }` gets inning readings, so MLB's
+   search offers none. The search row reads "Pitching, single innings".
+5. ✅ **The row** (Nov 9). An inning row opens Game Center on Play-by-Play, scrolled to the
+   pitcher's first batter of that half: in the app through `requestPlay` (entryUrl.ts, taken once
+   by the game it names), in a new tab through the `#play-N` fragment. The first batter, not the
+   first row, because substitutions are not drawn as rows. A run scoring on a balk mid-at-bat can
+   arrive as a row holding the count so far; it is no longer a batter faced (one row in 2026).
+6. ✅ **The plate-appearance grain** (Nov 9). `plateAppearanceLines` in the same module: one line
+   per trip to the plate, filed under the batter on Hitting and the pitcher on Pitching. It carries
+   the count before the last pitch (foul rule applied), pitches, fouls, outs and runners it began
+   with, runs on the play, the event as 0/1 fields under the game line's own keys, and walk-off.
+   No RBI and no earned runs, which the log cannot state. `q=pa~...`; the switch reads Games,
+   Innings, PAs, Seasons when there are more than two (fits 375px). Parser: "10-pitch at-bats",
+   "8-pitch walks", "home run on 0-2", "full count", "bases loaded", "grand slams", "walk-offs",
+   "2-out hits"; the event needs no number there, and a search row reads "0-2 count and Home runs
+   at least 1". Checked against the database (playoffs in): 6 at-bats of 10+ pitches, 22
+   bases-loaded walks, 7 grand slams. A hitting side at the inning grain was left out: a batter's
+   half-inning is nearly always one trip to the plate, which this grain already is.
+
+**MLB** gets steps 2 to 5 for free once its plays are mirrored (ROADMAP.md item 6): the engine takes
+a `League`, nothing in it is WPBL's. An MLB season is about 190k plays, too many for the browser, so
+there the lines are built in Postgres and only the matches are read.
+
 ## Where new things go (decided Aug 27, 2026)
 
 The section has four nouns: games, clubs, players, and **the league itself**. The fourth has

@@ -33,6 +33,28 @@ export function playHashSequence(hash: string): number | null {
 }
 
 /**
+ * A play asked for from inside the app, which no fragment can carry.
+ *
+ * An in-app open of a game (a Find row for one inning) rewrites the address without a fragment, for
+ * the reason at the top of this file, so `#play-N` on its href would reach a new tab and nothing
+ * else. The opener leaves the play here instead and Game Center takes it once, as it mounts, the way
+ * it reads ENTRY_HASH: keyed to the game, so a request can never land on a different one, and
+ * consumed, so opening the same game again later starts where any game starts.
+ */
+let requestedPlay: { gameId: string; hash: string } | null = null
+
+export function requestPlay(gameId: string, sequence: number): void {
+  requestedPlay = { gameId, hash: `#play-${sequence}` }
+}
+
+/** The fragment a game opens on: one asked for in-app for this game, or else the entry's. */
+export function takeOpeningPlayHash(gameId: string): string {
+  const asked = requestedPlay?.gameId === gameId ? requestedPlay.hash : null
+  requestedPlay = null
+  return asked ?? ENTRY_HASH
+}
+
+/**
  * The entry fragment, re-attached to the one URL it belongs to.
  *
  * PATH-MATCHED SO IT CANNOT LEAK. A fragment naming a play means nothing on Standings and less
