@@ -124,10 +124,11 @@ export function sideOn(side: Side, source: Source, mode: Mode = 'players'): bool
   if (side === 'overall') return source === 'leaders' || source === 'runs' || (source === 'season' && mode === 'players')
   return true
 }
-/** Where a board opens, and what an address with no `side` means on it. Run value answers Overall
- *  but still opens on Hitting: every link to it written before then meant Hitting. */
-export const defaultSide = (source: Source, mode: Mode = 'players'): Side =>
-  (sideOn('overall', source, mode) && source !== 'runs' ? 'overall' : 'hitting')
+/** Where a board opens, and what an address with no `side` means on it. Hitting everywhere, since
+ *  every board answers it: opening Leaders and Players on Overall meant the tab's first view
+ *  changed side from board to board (Nov 9, 2026). An old Overall link with no `side` now opens on
+ *  Hitting; the arguments stay so a board can open elsewhere again without touching the callers. */
+export const defaultSide = (_source?: Source, _mode?: Mode): Side => 'hitting'
 /** The side a linked column belongs to, for an address that names a column and no side: every link
  *  written before Overall existed, when a missing side meant Hitting. */
 export function sideOfSort(key: string): Side | undefined {

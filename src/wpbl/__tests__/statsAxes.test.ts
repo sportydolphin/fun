@@ -8,9 +8,9 @@ describe('which boards answer Overall', () => {
     expect(sideOn('overall', 'season', 'teams')).toBe(false)
   })
 
-  it('still opens Run value on Hitting, which every older link to it meant', () => {
+  it('opens every board on Hitting, which every board answers', () => {
     expect(defaultSide('runs')).toBe('hitting')
-    expect(defaultSide('leaders')).toBe('overall')
-    expect(defaultSide('season')).toBe('overall')
+    expect(defaultSide('leaders')).toBe('hitting')
+    expect(defaultSide('season')).toBe('hitting')
   })
 })
