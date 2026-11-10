@@ -27,6 +27,7 @@ import {
 } from '../routes'
 import { currentSeason, gamesInSeason, inSeason, seasonsOnRecord } from '../season'
 import { LEAGUE_ROW } from '../derive/playerSeasons'
+import { ageOn, parseRosterQuery } from '../rosterQuery'
 
 /** The empty result list, one array for good: the bridge compares by identity, and a fresh `[]`
  *  per publish would wake every subscriber to say nothing changed. */
@@ -255,6 +256,16 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
   }, [recentSearches, positionIndex])
   const matches = useMemo(() => {
     const raw = bridge.query.trim()
+    // "Lefties", "switch hitters", "youngest player": the roster answers, a player row each (rosterQuery.ts).
+    // Active players only, since the list is "who is in the league", not everyone ever signed.
+    const asked = parseRosterQuery(raw)
+    if (asked) {
+      const pitcher = (pl: WpblPlayer) => /(?:^|[^A-Z])(?:P|RHP|LHP|SP|RP|TWP)(?:[^A-Z]|$)/.test(displayPositionFromIndex(pl, positionIndex).label ?? '')
+      const list = players.filter(pl => pl.active && asked.keep(pl, pitcher(pl)))
+        .sort((a, b) => (asked.order === 'name' ? a.name.localeCompare(b.name)
+          : asked.order === 'youngest' ? (b.birth_date ?? '').localeCompare(a.birth_date ?? '') : (a.birth_date ?? '').localeCompare(b.birth_date ?? '')))
+      return { q: raw.toLowerCase(), players: list, teams: [] as WpblTeam[], forgiving: false, roster: asked }
+    }
     // A jersey number, answered before the name path and on a SINGLE character: "7" is a real
     // search and cannot mean anything else, since no name contains a digit. 21 of the league's
     // numbers are worn by more than one player, so this returns all of them, in league order so
@@ -284,7 +295,7 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
       t = fuzzyMatches(teams, q, tm => [`${tm.city} ${tm.name}`, tm.name, tm.city])
     }
     return { q, players: p, teams: t, forgiving }
-  }, [bridge.query, players, teams, tieWeight])
+  }, [bridge.query, players, teams, tieWeight, positionIndex])
 
   // The World Cup's players and editions, after the WPBL's own rows. Dev only until the World Cup
   // goes public: the build replaces the flag with false and drops the import with it.
@@ -301,7 +312,16 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
   useEffect(() => {
     if (!searchActive) return
     if (!matches && !worldCupRows.length) { updateSearchBridge({ resultRows: NO_ROWS }); return }
-    const playerRows = (matches?.players ?? []).slice(0, 6).map(p => buildPlayerRow(p, 'result'))
+    const today = new Date().toISOString().slice(0, 10)
+    const roster = matches && 'roster' in matches ? matches.roster : null
+    // A roster question's rows lead with what was asked: the age, or the hand.
+    const playerRows = (matches?.players ?? []).slice(0, 6).map(p => {
+      const row = buildPlayerRow(p, 'result')
+      if (!roster) return row
+      const note = roster.note === 'age' ? (p.birth_date ? `Age ${ageOn(p.birth_date, today)}` : null)
+        : roster.note === 'bats' ? (p.bats ? `Bats ${p.bats}` : null) : (p.throws ? `Throws ${p.throws}` : null)
+      return note ? { ...row, subtitle: [note, row.subtitle].filter(Boolean).join(' · ') } : row
+    })
     preloadPortraits((matches?.players ?? []).slice(6, 12).map(p => wpblPortraitSet(p.name)?.src))
     const teamRows = (matches?.teams ?? []).slice(0, 4).map(t => buildTeamRow(t, 'result'))
     const forgiving = matches?.forgiving ?? false

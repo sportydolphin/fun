@@ -184,7 +184,10 @@ export function parsePaRecord(text: string, filters: PaFilterReader): PaRecordQu
     rest = strip(rest).replace(ENDING, ' ').replace(/\s+/g, ' ').trim()
     // The title keeps the reader's own words for the filter, in the case they were typed. Only the
     // words outside the measure: "longest strikeout" is not "Longest strikeout strikeout".
-    const said = strip(outside).replace(/^(?:the|a|an|of|for|to)\s+/, '')
+    // Without the words still being typed, or "most fouls in a" is titled "...plate appearance in a".
+    const lead = strip(outside).replace(/^(?:the|a|an|of|for|to)\s+/, '')
+    const said = /^(?:(?:by|the|a|an|in|of|for|to|on)(?:\s+|$))*$/.test(lead) ? ''
+      : lead.replace(/(?:\s+(?:by|the|a|an|in|of|for|to|on))+$/, '')
     const at = said ? text.toLowerCase().indexOf(said) : -1
     const suffix = said ? (at >= 0 ? text.slice(at, at + said.length) : said) : ''
     rest = rest.replace(DANGLING, '').trim()

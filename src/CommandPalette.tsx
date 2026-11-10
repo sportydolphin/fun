@@ -259,7 +259,8 @@ const PAGE_WORDS: Record<string, string[]> = {
   'Stats': ['leaderboard', 'statistics'],
   'Playoff odds': ['odds', 'chances', 'projections', 'magic number'],
   'Postseason bracket': ['bracket', 'playoffs', 'postseason', 'world series'],
-  'Season recap': ['recap', 'review', 'year in review', 'champions'],
+  // WPBL's postseason lives here. Without "playoffs", the word fell through to MLB's bracket (Nov 2026).
+  'Season recap': ['recap', 'review', 'year in review', 'champions', 'championship', 'playoffs', 'postseason'],
   'Rules & glossary': ['rules', 'glossary', 'definitions'],
   'Compare players': ['compare', 'head to head', 'side by side'],
   'Batter vs pitcher': ['matchups', 'bvp', 'versus'],

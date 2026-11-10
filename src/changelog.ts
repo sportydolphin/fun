@@ -23,6 +23,28 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.224.0',
+    date:    '2026-11-10',
+    changes: [
+      {
+        short: 'Find: named games, streaks and the plays the log names',
+        full:  'Search and Find now know cycles, complete games, quality starts, perfect games, hitting and on-base streaks, hits in a row, leadoff home runs, pinch hits, bunt hits and infield hits. "Longest hitting streak" answers with the record and who holds it.',
+      },
+      {
+        short: 'Find: splits by month, by the last few games and by the arm',
+        full:  'Ask "hr since August", "avg in September", "Whitmore last game", "Queens last 10", "Hunters home record" or "avg vs lefties". A club’s games come back as its record, and a hitter’s line against left- or right-handed pitching is added up from every plate appearance. Each split shows as a chip on the board you can remove.',
+      },
+      {
+        short: 'Search: lefties, switch hitters, youngest and oldest',
+        full:  '"Lefties", "switch hitters", "left-handed hitters", "youngest player" and "oldest player" list the players, each row showing the hand or the age.',
+      },
+      {
+        short: 'Search: fewer wrong answers',
+        full:  '"Most double plays in a game" means the ones turned in the field, with grounding into one beside it. "Sato ERA vs Hunters" opens Sato’s season against them rather than reading ERA as an earned run, "playoffs" finds the season recap, and stat words like "bunt" and "late" no longer turn up a player with a similar name.',
+      },
+    ],
+  },
+  {
     version: '1.223.0',
     date:    '2026-11-10',
     changes: [

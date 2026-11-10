@@ -197,6 +197,14 @@ flowchart LR
   `finderNeedsPlays`), which MLB's board is never offered (`plays={false}`). A runner the log names only
   by name is matched to the batters that club sent up in that game (`runnerResolver`), which is how a
   player's times picked off and steals of home are counted.
+  **Cuts** (Nov 10, 2026): a span (`from`/`to`, `MMDD` within the board's season), the last N games
+  of the club or player asked (`last`), and the other player's arm (`hand`, off the roster's `bats` and
+  `throws`, a switch hitter standing opposite the pitcher's arm) ride inside `q` as `from.0801~last.10~hand.l`
+  (`encodeFinderQuery` / `decodeFinderCuts`), so no new param and no new carrying. The arm asks the
+  plate-appearance grain, and a hitter's season, which is then summed from those plate appearances.
+  A club's games with nothing asked answer as its record ("Hunters home record" reads 1–7). Complete
+  games are a club's only pitcher that day (`soloPitchers`), and the hitting and on-base streaks are set
+  on the game that ends each run (`markStreaks`), as the runs of plays are.
   Questions run from the box come back under Recent on this device
   ([`src/lib/recentQuestions.ts`](src/lib/recentQuestions.ts)), merged with the section's synced
   players and clubs by when each was opened; MLB's name lookups are kept ten minutes

@@ -1,5 +1,5 @@
 import type { FinderBoardSide, FinderCondition, FinderPer, FinderVenue } from './finder'
-import { isQuestionWord, parseClubScope, parseFinderText, parseRecordQuestion, type FinderClubAlias } from './finderParse'
+import { isQuestionWord, parseClubScope, parseFinderText, parseRecordQuestion, takeBareStat, type FinderClubAlias } from './finderParse'
 import { foldName } from '../lib/fuzzyName'
 
 /**
@@ -52,7 +52,15 @@ export interface PlayerQuestion {
   /** The player's most of one stat at a grain ("most hr in a game by Whitmore"): the condition is
    *  at least one, and Find's order is the answer. */
   record?: boolean
+  /** A span, the last N games or the other player's arm (`FinderQuery`), when said. */
+  from?: string | null
+  to?: string | null
+  last?: number | null
+  hand?: 'L' | 'R' | null
 }
+
+const cutsOf = (c: { from?: string | null; to?: string | null; last?: number | null; hand?: 'L' | 'R' | null }) =>
+  ({ from: c.from ?? null, to: c.to ?? null, last: c.last ?? null, hand: c.hand ?? null })
 
 const CONNECTORS = new Set(['vs', 'vs.', 'versus', 'v', 'v.', 'against', 'off', 'facing', 'faced', 'and', 'or', '&'])
 const MAX_READINGS = 4
@@ -158,7 +166,7 @@ export function parsePlayerQuestion(
         if (!plays(p, r.side)) continue
         const own = r.per === 'pa' ? (r.side === 'pitching' ? { pitcherId: id } : { batterId: id }) : { playerId: id }
         out.push({ ...blank, kind: 'player', side: r.side, per: r.per, conditions: r.conditions,
-          teamId: r.teamId, oppId: r.oppId, venue: r.venue, season: r.season, ...own })
+          teamId: r.teamId, oppId: r.oppId, venue: r.venue, season: r.season, ...cutsOf(r), ...own })
       }
     }
     return out.slice(0, MAX_READINGS)
@@ -184,18 +192,30 @@ export function parsePlayerQuestion(
 
   // ONLY WHO AND WHERE: "Sato vs hunters", "Whitmore at home". The player's games there, and the
   // season there beside it, on each side the player has lines on, the side they play most first.
-  const scope = parseClubScope(rest, clubs)
+  // A stat said bare ("Sato ERA vs Queens") picks the side, and asks the season there first, since
+  // that line is the one with the stat on it. Without this the stat was the leftover word that made it
+  // no question at all.
+  const bare = parseClubScope(rest, clubs) ? null : takeBareStat(rest)
+  const scope = parseClubScope(bare ? bare.rest : rest, clubs)
   if (!scope) return []
   for (const id of ids) {
     const p = byId.get(id)!
-    const own: FinderBoardSide[] = p.pitches && !p.hits ? ['pitching'] : p.hits && !p.pitches ? ['hitting']
+    const own: FinderBoardSide[] = bare ? bare.sides.filter(s => plays(p, s))
+      : p.pitches && !p.hits ? ['pitching'] : p.hits && !p.pitches ? ['hitting']
       : p.lean === 'pitching' ? ['pitching', 'hitting'] : ['hitting', 'pitching']
     for (const side of own.filter(s => sides.includes(s))) {
-      for (const per of scope.per ? [scope.per] : (['game', 'season'] as FinderPer[])) {
+      // Against one arm, a hitter's season (summed from the plate appearances) and a pitcher's plate
+      // appearances, which are the grains that know the arm (FinderQuery.hand).
+      const pers: FinderPer[] = scope.hand ? (side === 'hitting' ? ['season'] : opts.plays ? ['pa'] : [])
+        : scope.per ? [scope.per] : bare ? ['season', 'game']
+        // One game ("Whitmore last game") is that game's line; a season of it is the same line again.
+        : scope.last === 1 ? ['game'] : ['game', 'season']
+      for (const per of pers) {
         for (const teamId of scope.teamIds) {
           for (const oppId of scope.oppIds) {
             if (teamId && teamId === oppId) continue
-            out.push({ ...blank, kind: 'club', side, per, conditions: [], teamId, oppId, venue: scope.venue, season: scope.season, playerId: id })
+            const who = per === 'pa' ? (side === 'pitching' ? { pitcherId: id } : { batterId: id }) : { playerId: id }
+            out.push({ ...blank, kind: 'club', side, per, conditions: [], teamId, oppId, venue: scope.venue, season: scope.season, ...cutsOf(scope), ...who })
           }
         }
       }
