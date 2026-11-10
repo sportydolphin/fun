@@ -60,7 +60,7 @@ const FIRST: [string, string][] = [
   ['longest scoreless outing', 'record: Longest scoreless outing'],
   ['most innings pitched in a game', 'record: Longest outing'],
   // Records of one inning.
-  ['most strikeouts in an inning', 'find: Most strikeouts in an inning (Pitching, single innings)'],
+  ['most strikeouts in an inning', 'find: Most strikeouts in an inning by a pitcher (Pitching, single innings)'],
   ['most strikeouts inning', 'record: Most strikeouts in an inning'],
   ['strikeouts inning', 'record: Most strikeouts in an inning'],
   ['most runs in an inning', 'find: Most runs scored in an inning (Batting, single innings)'],
@@ -98,11 +98,11 @@ const FIRST: [string, string][] = [
   ['most runs by a team', 'team: Most runs scored by a team'],
   ['teams with 15 hits', 'find: Hits at least 15 (Batting, club games)'],
   ['teams that scored 10 runs', 'find: Runs scored at least 10 (Batting, club games)'],
-  ['shutouts', 'find: Runs allowed exactly 0 (Pitching, club games)'],
-  ['no-hitters', 'find: Hits allowed exactly 0 (Pitching, club games)'],
+  ['shutouts', 'find: Shutouts (Pitching, club games)'],
+  ['no-hitters', 'find: No-hitters (Pitching, club games)'],
   ['won by 10', 'find: Run margin at least +10 (Batting, club games)'],
   ['lost by 8', 'find: Run margin at most -8 (Batting, club games)'],
-  ['errorless games', 'find: Errors exactly 0 (Fielding, club games)'],
+  ['errorless games', 'find: Errorless games (Fielding, club games)'],
   // The club in the field by the inning, and the play log's counts over a game or a season.
   ['most errors in an inning', 'find: Most errors in an inning (Fielding, single innings)'],
   ['2 errors in an inning', 'find: Errors at least 2 (Fielding, single innings)'],
@@ -120,13 +120,13 @@ const FIRST: [string, string][] = [
   // A runner, named in the clause and matched to the batter it is.
   ['most times picked off', 'record: Most picked off'],
   ['picked off in a game', 'record: Most picked off in a game'],
-  ['steals of home', 'find: Steals of home at least 1 (Batting lines)'],
+  ['steals of home', 'find: Steals of home (Batting lines)'],
   ['most steals of home', 'record: Most steals of home'],
   // A player and a club or a place.
-  ['Sato vs hunters', 'find: Ayami Sato vs Hunters (Pitching lines)'],
-  ['sato vs boston', 'find: Ayami Sato vs Hunters (Pitching lines)'],
-  ['sato at boston', 'find: Ayami Sato vs Hunters, on the road (Pitching lines)'],
-  ['jaida lee at home', 'find: Jaida Lee at home (Batting lines)'],
+  ['Sato vs hunters', 'find: Ayami Sato vs Hunters (pitching games) (Pitching lines)'],
+  ['sato vs boston', 'find: Ayami Sato vs Hunters (pitching games) (Pitching lines)'],
+  ['sato at boston', 'find: Ayami Sato vs Hunters, on the road (pitching games) (Pitching lines)'],
+  ['jaida lee at home', 'find: Jaida Lee at home (games) (Batting lines)'],
   // A batter and a pitcher.
   ['lee vs schroder', 'matchup: Jaida Lee vs Alli Schroder'],
   ['lee off schroder', 'matchup: Jaida Lee vs Alli Schroder'],
@@ -157,25 +157,25 @@ const FIRST: [string, string][] = [
   // Counts in one game, with or without the filler words.
   ['3 hr game', 'find: Home runs at least 3 (Batting lines)'],
   ['3 hr in game', 'find: Home runs at least 3 (Batting lines)'],
-  ['5 k game', 'find: Strikeouts at least 5 (Pitching lines)'],
+  ['5 k game', 'find: Strikeouts at least 5 by a pitcher (Pitching lines)'],
   ['5 strikeouts no walks', 'find: Strikeouts at least 5 and Walks allowed exactly 0 (Pitching lines)'],
   ['5 k 0 bb', 'find: Strikeouts at least 5 and Walks allowed exactly 0 (Pitching lines)'],
   ['4-for-4', 'find: Hits exactly 4 and At-bats exactly 4 (Batting lines)'],
   ['2 hits vs sf at home', 'find: Hits at least 2 (Batting lines · vs SF · at home)'],
   ['5 innings no walks', 'find: Innings pitched at least 5.0 and Walks allowed exactly 0 (Pitching lines)'],
   // Innings and plate appearances.
-  ['3 strikeouts in an inning', 'find: Strikeouts at least 3 (Pitching, single innings)'],
-  ['3 strikeouts inning', 'find: Strikeouts at least 3 (Pitching, single innings)'],
-  ['immaculate inning', 'find: Strikeouts at least 3 and Pitches thrown at most 9 (Pitching, single innings)'],
-  ['comebacks', 'find: Down 1 or more and Took the lead (Batting, single innings)'],
-  ['two-out rallies', 'find: Two-out runs at least 2 (Batting, single innings)'],
+  ['3 strikeouts in an inning', 'find: Strikeouts at least 3 by a pitcher (Pitching, single innings)'],
+  ['3 strikeouts inning', 'find: Strikeouts at least 3 by a pitcher (Pitching, single innings)'],
+  ['immaculate inning', 'find: Immaculate innings (Pitching, single innings)'],
+  ['comebacks', 'find: Comebacks (Batting, single innings)'],
+  ['two-out rallies', 'find: Two-out rallies (Batting, single innings)'],
   ['hr on 0-2', 'find: 0-2 count and Home runs at least 1 (Batting, plate appearances)'],
   ['home run 0-2 count', 'find: 0-2 count and Home runs at least 1 (Batting, plate appearances)'],
-  ['walks bases loaded', 'find: Bases loaded and Walks at least 1 (Batting, plate appearances)'],
-  ['bases loaded walks', 'find: Bases loaded and Walks at least 1 (Batting, plate appearances)'],
-  ['grand slams 2026', 'find: Home runs at least 1 and Bases loaded (Batting, plate appearances · 2026)'],
-  ['hits risp', 'find: Runner in scoring position and Hits at least 1 (Batting, plate appearances)'],
-  ['walk-offs', 'find: Walk-off (Batting, plate appearances)'],
+  ['walks bases loaded', 'find: Bases-loaded walks (Batting, plate appearances)'],
+  ['bases loaded walks', 'find: Bases-loaded walks (Batting, plate appearances)'],
+  ['grand slams 2026', 'find: Grand slams (Batting, plate appearances · 2026)'],
+  ['hits risp', 'find: Hits with runners in scoring position (Batting, plate appearances)'],
+  ['walk-offs', 'find: Walk-offs (Batting, plate appearances)'],
   ['back-to-back home runs', 'find: Back-to-back home runs (Batting, plate appearances)'],
   ['5 strikeouts in a row', 'find: 5+ strikeouts in a row (Pitching, plate appearances)'],
   ['10 pitch at bats', 'find: Pitches seen at least 10 (Batting, plate appearances)'],
@@ -190,6 +190,21 @@ const FIRST: [string, string][] = [
 describe('the search bar corpus', () => {
   it.each(FIRST)('"%s" leads with %s', (text, first) => {
     expect(rows(text)[0]).toBe(first)
+  })
+
+  // The difference between two rows was at the end of a subtitle a phone cuts off (Nov 10, 2026 audit).
+  it('never offers two rows with the same title', () => {
+    for (const [text] of FIRST) {
+      const titles = rows(text).map(r => r.replace(/ \([^()]*\)$/, ''))
+      expect(titles.filter((t, i) => titles.indexOf(t) !== i), text).toEqual([])
+    }
+  })
+
+  // One plate appearance is one line on each side, so the pitchers' reading is the same plays.
+  it('offers one row for a plate-appearance event, and both sides once a club cuts it', () => {
+    expect(rows('grand slams')).toEqual(['find: Grand slams (Batting, plate appearances)'])
+    expect(rows('full count')).toEqual(['find: Full counts (Batting, plate appearances)'])
+    expect(rows('grand slams vs boston')).toHaveLength(2)
   })
 
   // Words that could mean either: both readings, the club's own total first.
