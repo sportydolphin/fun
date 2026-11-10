@@ -749,7 +749,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
         {/* WHO AND WHERE, kept apart from the conditions above because they are a different kind
             of question: those ask what happened in a game, these ask which games to look at. */}
         <Box sx={{ pt: 1.25, mt: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
-        <SectionLabel>Club and venue</SectionLabel>
+        <SectionLabel>Clubs</SectionLabel>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
           {/* The club and the venue read as one clause ("New York, at home"), so they stay on one
               row; the opponent is the one that wraps on a phone, before this pair may split. */}
@@ -826,7 +826,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
                     {season
                       ? `Searched the seasons of ${result.searched.toLocaleString()} ${result.searched === 1 ? who[0] : who[1]}.`
                       : `Searched ${result.searched.toLocaleString()} ${result.searched === 1 ? 'line' : 'lines'}${side === 'pitching' ? ' from pitchers who appeared' : side === 'fielding' ? ' from fielders who were in on a play' : ' from batters who came to the plate'}.`}
-                    {' '}Loosen a condition, or widen the club and venue.
+                    {' '}Loosen a condition, or widen the clubs.
                   </Typography>
                 </Box>
               ) : (

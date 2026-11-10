@@ -145,6 +145,7 @@ describe('the Fielding side', () => {
   it('returns to the side the reader chose once a board answers it again', async () => {
     draw()
     fireEvent.click(await screen.findByText('Players'))
+    fireEvent.click(screen.getByText('Overall'))
     expect(screen.getByText('Overall').getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(screen.getByText('Teams'))
     expect(screen.getByText('Hitting').getAttribute('aria-pressed')).toBe('true')
