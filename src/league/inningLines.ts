@@ -697,6 +697,12 @@ export interface PlayTotals {
   pko: number
   /** A runner's steals of home. */
   sbh: number
+  /** A batter's bunts (every one the text calls a bunt, a sacrifice or a hit or an out), bunt hits,
+   *  infield hits and hits as a pinch hitter: the plate appearance's own flags, summed. */
+  bunts: number
+  bunth: number
+  ifh: number
+  phh: number
 }
 
 /**
@@ -711,7 +717,7 @@ function buildPlayTotals(league: League, plays: RunValuePlay[], games: LeagueGam
   const at = (game: string, player: string) => {
     const key = `${game}|${player}`
     let t = out.get(key)
-    if (!t) { t = { pk: 0, pitches: 0, pko: 0, sbh: 0 }; out.set(key, t) }
+    if (!t) { t = { pk: 0, pitches: 0, pko: 0, sbh: 0, bunts: 0, bunth: 0, ifh: 0, phh: 0 }; out.set(key, t) }
     return t
   }
   const gameIds = new Set(games.map(g => g.id))
@@ -727,7 +733,14 @@ function buildPlayTotals(league: League, plays: RunValuePlay[], games: LeagueGam
     }
   }
   for (const l of plateAppearanceLines(league, plays, games)) {
-    if (l.batter_id) at(l.game_id, l.batter_id).pitches += l.pitches
+    if (!l.batter_id) continue
+    const t = at(l.game_id, l.batter_id)
+    t.pitches += l.pitches
+    const bunt = l.bunt ?? 0, hit = l.h > 0 ? 1 : 0
+    t.bunts += bunt
+    t.bunth += bunt && hit
+    t.ifh += l.ifh ?? 0
+    t.phh += (l.ph ?? 0) && hit
   }
   return out
 }

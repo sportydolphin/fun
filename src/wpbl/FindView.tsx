@@ -1,7 +1,7 @@
 import { useDark } from '../ui/useDark'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { runWpblFinder, validFinderSort, type FinderBoardSide, type FinderQuery, type FinderSort } from './derive/finder'
-import { conditionsForPer, finderNeedsPlays, hasPlayerFilter, type FinderPer, type FinderRow } from '../league/finder'
+import { conditionsForPer, finderMonths, finderNeedsPlays, hasPlayerFilter, type FinderPer, type FinderRow } from '../league/finder'
 import { boxScoreOf, requestBoxScore, requestPlay } from './entryUrl'
 import { clubFieldingInningLines, fieldingInningLines, inningPitchingLines, plateAppearanceLines, playTotals as buildPlayTotals, teamInningLines, type FielderSource } from '../league/inningLines'
 import { wpblFielderSource } from './fielders'
@@ -175,7 +175,8 @@ export default function WpblFindView({
   // it is read only once one of them is asked for, one season of it (fetchWpblPlayLog), and held with
   // the season it was read for so a year picked from the menu reads again rather than cutting the old
   // year to nothing.
-  const { season, cut } = useWpblSeason()
+  const { season, cut, seasonGames } = useWpblSeason()
+  const months = useMemo(() => finderMonths(seasonGames.filter(g => g.status === 'final')), [seasonGames])
   const grains = GRAINS[side]
   const askInnings = query.per === 'inning' && grains.includes('inning')
   // A hitter's season against one arm is summed from the plate appearances (FinderQuery.hand).
@@ -345,7 +346,7 @@ export default function WpblFindView({
       sort={sort} onSort={setSort} examples={examples} accent={accent}
       exampleCount={ex => exampleCounts.get(ex) ?? null} exampleHref={exampleHref}
       exampleCounted={plays || askPlays ? grains : ['game', 'season']}
-      grains={grains} loading={askPlays && (!plays || (askFielders && !fielders))} picks={picks}
+      grains={grains} loading={askPlays && (!plays || (askFielders && !fielders))} picks={picks} months={months}
       parse={text => parseFinderText(text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS)} onAsk={onAsk}
       renderRow={(r, i, unit, rank) => (
         <GameLineRow key={r.key} rank={rank.rank} tied={rank.tied} name={r.name} player={r.player}

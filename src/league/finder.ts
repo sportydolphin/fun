@@ -457,6 +457,13 @@ const HIT_FINE_FIELDS: Field<FineLine>[] = [
   // `runnerEvents`, a player's game and season off the play totals.
   { key: 'pk', label: 'Picked off', unit: 'PK', value: l => l.pk ?? 0, playOnly: true },
   { key: 'sbh', label: 'Steals of home', unit: 'SBH', value: l => l.sbh ?? 0, playOnly: true },
+  // "Most bunts" asked for a hitter's season and found nothing (Nov 2026): a bunt was a yes-or-no on
+  // one plate appearance, and no box score counts them. Each is that flag summed over a game, keyed
+  // apart from the plate appearance's own `bunt` / `ifh`, which mean "this one was".
+  { key: 'bunts', label: 'Bunts', unit: 'BUNT', value: l => (l as { bunts?: number }).bunts ?? 0, playOnly: true },
+  { key: 'bunth', label: 'Bunt hits', unit: 'BH', value: l => (l as { bunth?: number }).bunth ?? 0, playOnly: true },
+  { key: 'ifhs', label: 'Infield hits', unit: 'IFH', value: l => (l as { ifhs?: number }).ifhs ?? 0, playOnly: true },
+  { key: 'phh', label: 'Pinch hits', unit: 'PH', value: l => (l as { phh?: number }).phh ?? 0, playOnly: true },
   { key: 'r2', label: 'Two-out runs', unit: 'R2', value: l => l.r2, fineOnly: true },
   { key: 'trail', label: 'Trailing by', unit: 'DN', value: l => l.trail, fineOnly: true },
   { key: 'tooklead', label: 'Took the lead', unit: 'LEAD', value: l => l.tooklead, fineOnly: true },
@@ -525,8 +532,8 @@ export function finderFields(side: FinderBoardSide, per: FinderPer = 'game', pla
 // src/league/__tests__/finderGroups.test.ts.
 const FIELD_GROUPS: Record<FinderBoardSide, [string, string[]][]> = {
   hitting: [
-    ['Situation', ['inn', 'paouts', 'on', 'risp', 'walkoff', 'trail', 'tooklead', 'leadoff', 'ph']],
-    ['Batted ball', ['bunt', 'ifh']],
+    ['Situation', ['inn', 'paouts', 'on', 'risp', 'walkoff', 'trail', 'tooklead', 'leadoff', 'ph', 'phh']],
+    ['Batted ball', ['bunt', 'ifh', 'bunts', 'bunth', 'ifhs']],
     ['Count', ['balls', 'scount', 'pitches', 'fouls']],
     ['Hits', ['h', 'tb', 'hr', '1b', '2b', '3b', 'xbh']],
     ['Runs', ['rbi', 'r', 'runs', 'r2']],
@@ -796,7 +803,7 @@ export interface FinderOptions {
   clubFieldInnings?: FieldingInningLine[]
   /** A player's play-log counts in each game (`playTotals`), keyed `${game_id}|${player_id}`: what a
    *  game or a season knows of pickoffs and pitches seen. Without them those fields match nothing. */
-  playTotals?: Map<string, { pk: number; pitches: number; pko: number; sbh: number }>
+  playTotals?: Map<string, { pk: number; pitches: number; pko: number; sbh: number; bunts?: number; bunth?: number; ifh?: number; phh?: number }>
 }
 
 /** The play-only fields of a side, for a game or a season that has the play totals. */
@@ -1368,7 +1375,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
   const withTotals = totals
     ? batting.map(l => {
       const t = totals.get(`${l.game_id}|${l.player_id}`)
-      return { ...l, pitches: t?.pitches ?? 0, pk: t?.pko ?? 0, sbh: t?.sbh ?? 0 }
+      return { ...l, pitches: t?.pitches ?? 0, pk: t?.pko ?? 0, sbh: t?.sbh ?? 0, bunts: t?.bunts ?? 0, bunth: t?.bunth ?? 0, ifhs: t?.ifh ?? 0, phh: t?.phh ?? 0 }
     })
     : batting
   // The streaks run over every line handed in, before any cut: a streak through a game against
@@ -1476,6 +1483,35 @@ export function describeFinderCuts(side: FinderBoardSide, q: FinderCuts & { per?
   return out
 }
 const MONTH_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+export const FINDER_MONTH_NAMES = MONTH_FULL
+
+/** The month a span is, whole (1 to 12), or null when it is no span or not one whole month. The
+ *  board's month picker shows this; any other span is the chip's alone. */
+export function finderSpanMonth(q: Pick<FinderQuery, 'from' | 'to'>): number | null {
+  const { from, to } = q
+  if (!from || !to || from.length !== to.length || from.slice(0, -2) !== to.slice(0, -2)) return null
+  if (!from.endsWith('01') || Number(to.slice(-2)) < 28) return null
+  const m = Number(from.slice(-4, -2))
+  return m >= 1 && m <= 12 ? m : null
+}
+
+/** One whole month as a span, in `MMDD`: the board is one season, so no year. February ends on the
+ *  29th, which compares the same as the 28th in a year without one. */
+export function finderMonthSpan(month: number): Pick<FinderQuery, 'from' | 'to'> {
+  const end = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]
+  const mm = String(month).padStart(2, '0')
+  return { from: `${mm}01`, to: `${mm}${end}` }
+}
+
+/** The months the games were played in, in order, from `YYYY-MM-DD` dates. */
+export function finderMonths(games: Iterable<{ game_date: string }>): number[] {
+  const seen = new Set<number>()
+  for (const g of games) {
+    const m = Number(g.game_date.slice(5, 7))
+    if (m >= 1 && m <= 12) seen.add(m)
+  }
+  return [...seen].sort((a, b) => a - b)
+}
 
 /** Whether a `q` value asks fielding by the inning filed under the club (`FinderQuery.byClub`). */
 export function decodeFinderByClub(raw: string | null): boolean {

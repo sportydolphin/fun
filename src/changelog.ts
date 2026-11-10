@@ -23,6 +23,28 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.226.0',
+    date:    '2026-11-10',
+    changes: [
+      {
+        short: 'Find: pick a month or the last games',
+        full:  'Find has a When row: a month of the season, or a club’s or a player’s last 1, 5, 10, 15 or 20 games. Before, only the search box could set these.',
+      },
+      {
+        short: 'Search: a range of dates and a month on its own',
+        full:  'Search reads "hr aug 1 to aug 15", "avg between aug 1 and 15", "3 hits aug 1-15", "from august to september" and a month typed beside a stat, like "august hr".',
+      },
+      {
+        short: 'Most bunts, bunt hits, infield hits and pinch hits',
+        full:  '"Most bunts" ranks hitters by their bunts over the season, from the play-by-play. Bunt hits, infield hits and pinch hits work the same way, and "2 bunts in a game" finds those games.',
+      },
+      {
+        short: 'Search: more pages by name',
+        full:  'Data sources, Open data, Fan awards and the Charts board now come up in search, and pages answer to more of the words people use for them, like "download", "vote" and "graph".',
+      },
+    ],
+  },
+  {
     version: '1.225.0',
     date:    '2026-11-10',
     changes: [

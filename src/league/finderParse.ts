@@ -104,6 +104,13 @@ add({ hitting: '1b' }, 'singles')
 add({ hitting: 'xbh' }, 'extra base hits', 'extra base hit', 'xbh', 'xbhs', 'extra bases hits')
 add({ hitting: 'sf' }, 'sacrifice flies', 'sacrifice fly', 'sac flies', 'sac fly')
 add({ hitting: 'sh' }, 'sacrifice bunts', 'sacrifice bunt', 'sac bunts', 'sac bunt', 'sacrifice hits', 'sacrifices')
+// A batter's bunts and the kinds of hit no box score splits out, counted off the play log for a game
+// or a season ("most bunts", "most infield hits"). A plate appearance has these as yes-or-no flags,
+// read by PA_PHRASES before any alias. Not the singular "bunt", one letter from Kate Blunt.
+add({ hitting: 'bunts' }, 'bunts', 'bunt attempts', 'times bunted')
+add({ hitting: 'bunth' }, 'bunt hits', 'bunt hit', 'bunt singles')
+add({ hitting: 'ifhs' }, 'infield hits', 'infield hit', 'infield singles')
+add({ hitting: 'phh' }, 'pinch hits', 'pinch-hits')
 add({ hitting: 'gdp' }, 'gdp', 'gidp', 'grounded into double plays')
 // A batter grounds into one and a fielder turns one: the batter's by default, the fielder's on a
 // Fielding side when a word says so ("turned", "fielders").
@@ -347,7 +354,25 @@ const monthOf = (w: string) => MONTH_KEYS.indexOf(w.slice(0, 3)) + 1
 const DAYS_IN = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 const mmdd = (m: number, d: number) => `${String(m).padStart(2, '0')}${String(d).padStart(2, '0')}`
 const DAY_NUM = '(?:\\s+(\\d{1,2})(?:st|nd|rd|th)?)?'
+// The far end of a range: a month with or without a day ("sep 5", "september"), or a day alone that
+// borrows the first end's month ("aug 1-15").
+const RANGE_END = `(?:${MONTH_WORD}${DAY_NUM}|(\\d{1,2})(?:st|nd|rd|th)?)`
+// A month on its own beside a stat ("august hr", "avg september"). Whole names only, and never "may"
+// or "march", which are words before they are months; the short forms need their "in".
+const BARE_MONTH = /(?<![a-z0-9])(january|february|april|june|july|august|september|october|november|december)(?!\s*\d)(?![a-z])/g
 const SPAN_PHRASES: { re: RegExp; cut: (m: string[]) => { from?: string; to?: string } }[] = [
+  // A RANGE, both ends said: "aug 1 to aug 15", "between aug 1 and 15", "aug 1-15", "from august to
+  // september". First, so "from aug 1" does not take the start and leave "to aug 15" as a "through".
+  { re: new RegExp(`(?<![a-z])(?:(?:between|from)\\s+)?${MONTH_WORD}${DAY_NUM}\\s*(?:and|to|through|thru|until|-|–)\\s*${RANGE_END}(?![a-z0-9])`, 'g'),
+    cut: m => {
+      const a = monthOf(m[1])
+      const b = m[3] ? monthOf(m[3]) : a
+      const endDay = m[4] ? Number(m[4]) : m[5] ? Number(m[5]) : m[3] ? DAYS_IN[b - 1] : null
+      // "aug to" with nothing after is no range; neither is an end before the start ("aug 15-3").
+      if (endDay == null || endDay > 31) return {}
+      const from = mmdd(a, m[2] ? Number(m[2]) : 1), to = mmdd(b, endDay)
+      return to < from ? {} : { from, to }
+    } },
   { re: new RegExp(`(?<![a-z])(?:since|from|starting)\\s+${MONTH_WORD}${DAY_NUM}(?![a-z0-9])`, 'g'),
     cut: m => ({ from: mmdd(monthOf(m[1]), m[2] ? Number(m[2]) : 1) }) },
   { re: new RegExp(`(?<![a-z])after\\s+${MONTH_WORD}${DAY_NUM}(?![a-z0-9])`, 'g'),
@@ -367,6 +392,8 @@ const SPAN_PHRASES: { re: RegExp; cut: (m: string[]) => { from?: string; to?: st
     } },
   { re: new RegExp(`(?<![a-z])(?:in|during|for|throughout)\\s+(?:the\\s+month\\s+of\\s+)?${MONTH_WORD}(?!\\s*\\d)(?![a-z])`, 'g'),
     cut: m => ({ from: mmdd(monthOf(m[1]), 1), to: mmdd(monthOf(m[1]), DAYS_IN[monthOf(m[1]) - 1]) }) },
+  // Last, after every phrase with a preposition has taken its month.
+  { re: BARE_MONTH, cut: m => ({ from: mmdd(monthOf(m[1]), 1), to: mmdd(monthOf(m[1]), DAYS_IN[monthOf(m[1]) - 1]) }) },
 ]
 const LAST_GAMES = new RegExp(`(?<![a-z])(?:in\\s+)?(?:(?:the|their|her|his)\\s+)?(?:last|past|previous)\\s+(?:(${NUM_WORD})\\s+)?(?:games?|outings?|starts?)(?![a-z])`, 'g')
 const LAST_BARE = /(?<![a-z])(?:last|past)\s+(\d{1,2})(?![a-z0-9])/g
@@ -479,19 +506,20 @@ const PA_PHRASES: { re: RegExp; conditions: (m: RegExpExecArray) => FinderCondit
   // HOW THE TRIP BEGAN OR HOW THE BALL WAS HIT, each a flag on the plate appearance from the log's
   // words (inningLines.ts). Leading off the game is the first inning's; a leadoff anything else is any
   // half's. The plural "pinch hits" and "bunt hits" are hits; "pinch hitters" and "bunts" are every one.
+  // Not after a number: "2 bunts in a game" is a count, the stat aliases' (`bunts`), not one trip.
   { re: /(?<![a-z0-9])(?:leading\s+off\s+(?:the\s+|a\s+)?game|game[\s-]+opening)(?![a-z])/g,
     conditions: () => [{ field: 'leadoff', op: 'eq', value: 1 }, { field: 'inn', op: 'eq', value: 1 }] },
   { re: /(?<![a-z0-9])(?:lead[\s-]?off|leading\s+off(?:\s+(?:the|an?)\s+(?:inning|frame))?)(?![a-z])/g,
     conditions: () => [{ field: 'leadoff', op: 'eq', value: 1 }] },
-  { re: /(?<![a-z0-9])pinch[\s-]?hits(?![a-z])/g,
+  { re: /(?<![0-9]\s?)(?<![0-9]\+\s?)(?<![a-z0-9])pinch[\s-]?hits(?![a-z])/g,
     conditions: () => [{ field: 'ph', op: 'eq', value: 1 }, { field: 'h', op: 'gte', value: 1 }] },
   { re: /(?<![a-z0-9])pinch[\s-]?hit(?:ters?|ting)?(?![a-z])/g,
     conditions: () => [{ field: 'ph', op: 'eq', value: 1 }] },
-  { re: /(?<![a-z0-9])(?<!sac\s)(?<!sacrifice\s)bunt\s+(?:hits?|singles?)(?![a-z])/g,
+  { re: /(?<![0-9]\s?)(?<![0-9]\+\s?)(?<![a-z0-9])(?<!sac\s)(?<!sacrifice\s)bunt\s+(?:hits?|singles?)(?![a-z])/g,
     conditions: () => [{ field: 'bunt', op: 'eq', value: 1 }, { field: 'h', op: 'gte', value: 1 }] },
-  { re: /(?<![a-z0-9])infield\s+(?:hits?|singles?)(?![a-z])/g,
+  { re: /(?<![0-9]\s?)(?<![0-9]\+\s?)(?<![a-z0-9])infield\s+(?:hits?|singles?)(?![a-z])/g,
     conditions: () => [{ field: 'ifh', op: 'eq', value: 1 }] },
-  { re: /(?<![a-z0-9])(?<!sac\s)(?<!sacrifice\s)bunts?(?![a-z])/g,
+  { re: /(?<![0-9]\s?)(?<![0-9]\+\s?)(?<![a-z0-9])(?<!sac\s)(?<!sacrifice\s)bunts?(?![a-z])/g,
     conditions: () => [{ field: 'bunt', op: 'eq', value: 1 }] },
   { re: /(?<![a-z0-9])grand\s+slams?(?![a-z])/g,
     conditions: () => [{ field: 'hr', op: 'gte', value: 1 }, { field: 'on', op: 'eq', value: 3 }] },
