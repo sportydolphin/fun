@@ -178,7 +178,8 @@ export default function WpblFindView({
   const { season, cut } = useWpblSeason()
   const grains = GRAINS[side]
   const askInnings = query.per === 'inning' && grains.includes('inning')
-  const askPas = query.per === 'pa' && grains.includes('pa')
+  // A hitter's season against one arm is summed from the plate appearances (FinderQuery.hand).
+  const askPas = (query.per === 'pa' && grains.includes('pa')) || (query.per === 'season' && side === 'hitting' && !!query.hand)
   // Switched to a side without the grain on screen (Fielding has neither, Hitting has no innings),
   // the board would have no grain lit and an empty list. The question goes back to single games,
   // keeping what that grain can ask.

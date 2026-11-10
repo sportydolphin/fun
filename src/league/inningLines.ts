@@ -273,6 +273,21 @@ export interface PlateAppearanceLine {
   hrrow: number
   krow: number
   retired: number
+  /** HOW THE TRIP BEGAN OR HOW THE BALL WAS PUT IN PLAY, from the log's own words. Optional, so a line
+   *  built by hand (a test, an older reader) reads as none. `leadoff`: the half-inning's first plate
+   *  appearance. `ph`: the batter came in to pinch hit for it ("X pinch hit for Y." is the row before).
+   *  `bunt`: the narrative says bunt. `ifh`: a single to an infielder or the pitcher ("singled to
+   *  shortstop"). `sf` / `sh`: a sacrifice fly (the feed's `sacrifice`) or a sacrifice bunt (an out
+   *  written "SAC, bunt"), which a season against one arm needs to count at-bats. */
+  leadoff?: number
+  ph?: number
+  bunt?: number
+  ifh?: number
+  sf?: number
+  sh?: number
+  /** The batter's own hits in a row, across games, on the last of the run (`markHitRuns`). A walk, a
+   *  hit batter or a sacrifice neither extends the run nor ends it, the way the record book counts. */
+  hitrow?: number
 }
 
 /**
@@ -308,7 +323,31 @@ const EVENT_CODE: Record<string, string> = {
   sacrifice: 'SAC', out: 'Out',
 }
 const BASES: Record<string, number> = { single: 1, double: 2, triple: 3, home_run: 4 }
+// "X pinch hit for Y." is a row of its own before the pinch hitter's plate appearance.
+const PINCH_HIT = /^(.+?)\s+pinch[\s-]?hit\s+for\s/i
+const INFIELD_SINGLE = /\bsingled\s+to\s+(?:the\s+)?(?:pitcher|catcher|first\s+base|second\s+base|third\s+base|shortstop|p|c|1b|2b|3b|ss)\b/i
 const onBase = (v: string | null) => (v ? 1 : 0)
+
+/** Each batter's hits in a row across the plays handed in (`PlateAppearanceLine.hitrow`). */
+function markHitRuns(lines: PlateAppearanceLine[], gameById: ReadonlyMap<string, LeagueGame>) {
+  const order = (l: PlateAppearanceLine) => {
+    const g = gameById.get(l.game_id) as (LeagueGame & { start_time?: string | null }) | undefined
+    return `${g?.game_date ?? ''} ${g?.start_time ?? ''} ${l.game_id}`
+  }
+  const byBatter = new Map<string, PlateAppearanceLine[]>()
+  for (const l of lines) if (l.batter_id) byBatter.set(l.batter_id, [...(byBatter.get(l.batter_id) ?? []), l])
+  for (const list of byBatter.values()) {
+    list.sort((a, b) => (order(a) < order(b) ? -1 : order(a) > order(b) ? 1 : a.sequence - b.sequence))
+    let n = 0, last: PlateAppearanceLine | null = null
+    const close = () => { if (last && n > 0) last.hitrow = n; n = 0; last = null }
+    for (const l of list) {
+      if (l.h > 0) { n++; last = l; continue }
+      if (l.bb + l.hbp + (l.sf ?? 0) + (l.sh ?? 0) > 0) continue
+      close()
+    }
+    close()
+  }
+}
 
 /** Every plate appearance in the plays handed in. `games` says which club is in the field and how a
  *  game ended (for the walk-off); a play whose game is missing is skipped, as above. */
@@ -324,9 +363,23 @@ export function plateAppearanceLines(league: League, plays: RunValuePlay[], game
   const out: PlateAppearanceLine[] = []
   // The outs each plate appearance made, beside `out`, for who was retired.
   const outsMade: number[] = []
+  // The pinch hitters announced and not yet up, by game and half, and the halves already led off.
+  const pinch = new Map<string, Set<string>>()
+  const ledOff = new Set<string>()
   for (let i = 0; i < sorted.length; i++) {
     const p = sorted[i]
+    const named = (p.narrative ?? '').match(PINCH_HIT)
+    if (named) {
+      const key = halfKey(p)
+      pinch.set(key, new Set([...(pinch.get(key) ?? []), named[1].trim().toLowerCase()]))
+    }
     if (!league.isPlateAppearance(p) || partOfNext(p, sorted[i + 1])) continue
+    const text = p.narrative ?? ''
+    const waiting = pinch.get(halfKey(p))
+    const pinchName = waiting && [...waiting].find(n => text.toLowerCase().startsWith(n))
+    if (pinchName) waiting!.delete(pinchName)
+    const first = !ledOff.has(halfKey(p))
+    ledOff.add(halfKey(p))
     const g = gameById.get(p.game_id)!
     const seq = p.pitch_sequence ?? ''
     let balls = 0, scount = 0, strikes = 0, fouls = 0
@@ -358,8 +411,13 @@ export function plateAppearanceLines(league: League, plays: RunValuePlay[], game
       walkoff: homeWon && runs > 0 && p.half === 'bottom' && halfKey(p) === lastHalf.get(p.game_id)
         && lastRun.get(p.game_id) === p.sequence ? 1 : 0,
       hrrow: 0, krow: 0, retired: 0,
+      leadoff: first ? 1 : 0, ph: pinchName ? 1 : 0, bunt: /\bbunt/i.test(text) ? 1 : 0,
+      ifh: ev === 'single' && (INFIELD_SINGLE.test(text) || /\bbunt/i.test(text)) ? 1 : 0,
+      sf: ev === 'sacrifice' ? 1 : 0, sh: ev !== 'sacrifice' && /\bSAC\b/.test(text) && /\bbunt/i.test(text) ? 1 : 0,
+      hitrow: 0,
     })
   }
+  markHitRuns(out, gameById)
   markRuns(out, l => `${l.game_id}|${l.inning}|${l.half}`, l => l.hr > 0, 'hrrow')
   const byPitcher = (l: PlateAppearanceLine) => (l.pitcher_id ? `${l.game_id}|${l.pitcher_id}` : null)
   markRuns(out, byPitcher, l => l.so > 0, 'krow')

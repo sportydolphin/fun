@@ -10,8 +10,8 @@
 // shell's own `navigate()` is the whole integration, and the row is a real link that opens in a new
 // tab on a modified click like any other.
 
-import { describeFinderQuery, finderFields, type FinderSide } from './league/finder'
-import { parseClubPage, parseFinderText, parseGameQuery, parseLeaderText, parsePositionRank, parseRecordQuestion, parseRecordText, parseScopedRank, parseTeamRankText, rankField, rankLowerBetter, type ClubPagePart, type ParsedFinder, type ParsedLeader, type RankSide } from './league/finderParse'
+import { describeFinderCuts, describeFinderQuery, finderFields, type FinderBoardSide, type FinderPer, type FinderSide } from './league/finder'
+import { parseClubPage, parseClubRecord, parseFinderText, parseGameQuery, parseLeaderText, parsePositionRank, parseRecordQuestion, parseRecordText, parseScopedRank, parseTeamRankText, rankField, rankLowerBetter, type ClubPagePart, type ParsedFinder, type ParsedLeader, type RankSide } from './league/finderParse'
 import { MLB_FINDER_CLUBS, mlbFinderHref } from './mlb/finderLink'
 import { CURRENT_SEASON, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_ABBR } from './mlb/constants'
 import { MLB_GLOSSARY_PAGE, mlbClubById, mlbTeamPath, mlbUrlFor } from './mlb/routes'
@@ -112,6 +112,22 @@ const NAMED_QUESTIONS: [phrase: string, label: Partial<Record<Side, string>>][] 
   ['go-ahead innings', { hitting: 'Go-ahead innings' }],
   ['two-out rallies', { hitting: 'Two-out rallies' }],
   ['steals of home', { hitting: 'Steals of home' }],
+  ['perfect games', { pitching: 'Perfect games' }],
+  ['complete game shutouts', { pitching: 'Complete-game shutouts' }],
+  ['complete games', { pitching: 'Complete games' }],
+  ['quality starts', { pitching: 'Quality starts' }],
+  ['cycles', { hitting: 'Cycles' }],
+  ['hitting streaks', { hitting: 'Hitting streaks' }],
+  ['on-base streaks', { hitting: 'On-base streaks' }],
+  ['consecutive hits', { hitting: 'Hits in a row' }],
+  ['leadoff home runs', { hitting: 'Leadoff home runs', pitching: 'Leadoff home runs allowed' }],
+  ['leading off the game home runs', { hitting: 'Home runs leading off the game', pitching: 'Home runs allowed leading off the game' }],
+  ['pinch hits', { hitting: 'Pinch hits', pitching: 'Pinch hits allowed' }],
+  ['pinch hit home runs', { hitting: 'Pinch-hit home runs', pitching: 'Pinch-hit home runs allowed' }],
+  ['pinch hitters', { hitting: 'Pinch hitters', pitching: 'Pinch hitters faced' }],
+  ['bunt hits', { hitting: 'Bunt hits', pitching: 'Bunt hits allowed' }],
+  ['bunts', { hitting: 'Bunts', pitching: 'Bunts' }],
+  ['infield hits', { hitting: 'Infield hits', pitching: 'Infield hits allowed' }],
 ]
 
 type Question = Pick<ParsedFinder, 'side' | 'per' | 'conditions' | 'byClub'>
@@ -200,8 +216,14 @@ function dropPaTwins<T extends { parsed: ParsedFinder }>(rows: T[]): T[] {
   return kept
 }
 
+/** The cuts in words for a subtitle: "since Aug 1", "last 10 games", "vs LHP". */
+function cutBits(side: FinderBoardSide, p: Pick<ParsedFinder, 'from' | 'to' | 'last' | 'hand'> & { per?: FinderPer }): string[] {
+  // "Since Aug 1" reads "since Aug 1" mid-line; a month keeps its capital, and so does LHP.
+  return describeFinderCuts(side, p).map(c => c.text.replace(/^(Since|Through|Last|Vs)\b/, w => w.toLowerCase()))
+}
+
 /** Which lines a question searches, and any club, venue and year: "Pitching lines · vs SF · 2026". */
-function scopeBits(section: FinderSection, p: Pick<ParsedFinder, 'side' | 'per' | 'teamId' | 'oppId' | 'venue' | 'season' | 'byClub'>): string[] {
+function scopeBits(section: FinderSection, p: Pick<ParsedFinder, 'side' | 'per' | 'teamId' | 'oppId' | 'venue' | 'season' | 'byClub' | 'from' | 'to' | 'last' | 'hand'>): string[] {
   const sideWord = p.side === 'pitching' ? 'Pitching' : p.side === 'fielding' ? 'Fielding' : 'Batting'
   const bits = [p.per === 'season' ? `${sideWord}, season totals` : p.per === 'inning' ? `${sideWord}, ${p.byClub ? 'club innings' : 'single innings'}`
     : p.per === 'pa' ? `${sideWord}, plate appearances` : p.per === 'club' ? `${sideWord}, club games` : `${sideWord} lines`]
@@ -209,6 +231,7 @@ function scopeBits(section: FinderSection, p: Pick<ParsedFinder, 'side' | 'per' 
   if (p.oppId) bits.push(`vs ${clubLabel(section, p.oppId)}`)
   if (p.venue === 'home') bits.push('at home')
   if (p.venue === 'away') bits.push('on the road')
+  bits.push(...cutBits(p.side, p))
   if (p.season) bits.push(String(p.season))
   return bits
 }
@@ -230,11 +253,11 @@ export function playerQuestionRows(
     const asked = field ? `most ${field.label.toLowerCase()} in ${q.per === 'inning' ? 'an inning' : 'a game'}`
       : q.conditions.length ? questionTitle(section, q) : ''
     const where = [q.oppId && `vs ${club(q.oppId)}`, q.teamId && `for ${club(q.teamId)}`,
-      q.venue === 'home' ? 'at home' : q.venue === 'away' ? 'on the road' : null].filter(Boolean).join(', ')
+      q.venue === 'home' ? 'at home' : q.venue === 'away' ? 'on the road' : null, ...cutBits(q.side, q)].filter(Boolean).join(', ')
     const who = q.kind === 'matchup' ? `${name(q.batterId)} vs ${name(q.pitcherId)}` : name(q.playerId ?? q.batterId ?? q.pitcherId)
     const title = q.kind === 'club' ? [who, where].filter(Boolean).join(' ') : asked ? `${who}: ${asked}` : who
     // The club already said in a club row's title is not said again under it.
-    const bits = scopeBits(section, q.kind === 'club' ? { ...q, teamId: null, oppId: null, venue: 'any' } : q)
+    const bits = scopeBits(section, q.kind === 'club' ? { ...q, teamId: null, oppId: null, venue: 'any', from: null, to: null, last: null, hand: null } : q)
     return { key: `player-q-${href}`, title, subtitle: bits.join(' · '), href, matchup: q.kind === 'matchup', q }
   })
   // One player's question read at two grains, or on both sides: the grain, or the side and the grain.
@@ -249,7 +272,10 @@ export function finderSuggestions(section: FinderSection, text: string): FinderS
     ? parseFinderText(text, MLB_FINDER_CLUBS)
     : parseFinderText(record?.text ?? text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS)
       .filter(p => !record || (p.per === 'inning' && p.conditions.length === 1))
-  const rows = parsed.map(p => {
+  const rows = parsed
+    // MLB's board reads no cut off its address (src/mlb/views/FindView.tsx), so a cut there is no row.
+    .filter(p => section === 'wpbl' || !(p.from || p.to || p.last || p.hand))
+    .map(p => {
     const field = record ? finderFields(p.side, 'inning').find(f => f.key === p.conditions[0].field) : null
     const title = field ? `Most ${field.label.toLowerCase()} in an inning` : questionTitle(section, p)
     const bits = scopeBits(section, p)
@@ -259,7 +285,21 @@ export function finderSuggestions(section: FinderSection, text: string): FinderS
     const href = section === 'mlb' ? mlbFinderHref(p) : wpblFinderHref(p)
     return { key: `finder-${href}`, title, subtitle: bits.join(' · '), href, parsed: p }
   })
-  return distinctTitles(dropPaTwins(rows), r => [whose(r.parsed), GRAIN_PHRASE[r.parsed.per]])
+  return [...clubRecordRows(section, text), ...distinctTitles(dropPaTwins(rows), r => [whose(r.parsed), GRAIN_PHRASE[r.parsed.per]])]
+}
+
+/** "Hunters home record", "Queens last 10": the club's games there, whose answer is the record. */
+function clubRecordRows(section: FinderSection, text: string): FinderSuggestion[] {
+  if (section !== 'wpbl') return []
+  const r = parseClubRecord(text, WPBL_FINDER_CLUBS)
+  if (!r) return []
+  const parsed: ParsedFinder = { side: 'hitting', per: 'club', conditions: [], teamId: r.teamId, oppId: r.oppId, venue: r.venue,
+    ignored: [], season: r.season, from: r.from ?? null, to: r.to ?? null, last: r.last ?? null }
+  const name = WPBL_TEAMS[r.teamId]?.name ?? r.teamId
+  const where = [r.oppId && `vs ${WPBL_TEAMS[r.oppId]?.name ?? r.oppId}`, r.venue === 'home' ? 'at home' : r.venue === 'away' ? 'on the road' : null,
+    ...cutBits('hitting', parsed)].filter(Boolean)
+  const href = wpblFinderHref(parsed)
+  return [{ key: `finder-${href}`, title: `${name} record ${where.join(', ')}`.trim(), subtitle: ['Club games', r.season && String(r.season)].filter(Boolean).join(' · '), href, parsed }]
 }
 
 export interface LeaderSuggestion {
@@ -558,12 +598,23 @@ export function scopedRankSuggestions(section: FinderSection, text: string): Rec
   return parseScopedRank(text, sectionClubs(section)).flatMap(r => {
     const field = finderFields(r.side, 'season').find(f => f.key === r.field)
     if (!field) return []
-    const parsed = { ...r, per: 'season' as const, conditions: [{ field: r.field, op: 'gte' as const, value: 1 }], ignored: [] }
+    // MLB's board reads no cut off its address, so a cut there is no row.
+    if (section === 'mlb' && (r.from || r.to || r.last || r.hand)) return []
+    // A rate's low end can be the good one (ERA), so it asks for every season (at least 0) and the board
+    // ranks it; a count asks for at least one. A rate over a cut carries its own smaller bar.
+    const lower = rankLowerBetter(r.side, r.field)
+    const rate = !!r.bar
+    const conditions = [{ field: r.field, op: 'gte' as const, value: rate && lower ? 0 : 1 },
+      ...(r.bar ? [{ field: r.bar.field, op: 'gte' as const, value: r.bar.value }] : [])]
+    const parsed = { ...r, per: 'season' as const, conditions, ignored: [] }
     const href = section === 'mlb' ? mlbFinderHref(parsed) : wpblFinderHref(parsed)
     const where = [r.oppId && `vs ${clubLabel(section, r.oppId)}`, r.teamId && `for ${clubLabel(section, r.teamId)}`,
-      r.venue === 'home' ? 'at home' : r.venue === 'away' ? 'on the road' : null, r.season && String(r.season)].filter(Boolean)
+      r.venue === 'home' ? 'at home' : r.venue === 'away' ? 'on the road' : null, ...cutBits(r.side, { ...r, per: 'season' }),
+      r.season && String(r.season)].filter(Boolean)
+    const lead = rate ? (lower ? 'Lowest' : 'Highest') : 'Most'
     return [{
-      key: `scoped-${href}`, title: [`Most ${field.label.toLowerCase()}`, ...where].join(' '),
+      // "Highest batting average", "Highest OPS": an initialism keeps its capitals.
+      key: `scoped-${href}`, title: [`${lead} ${/^[A-Z]{2}/.test(field.label) ? field.label : field.label.toLowerCase()}`, ...where].join(' '),
       subtitle: `Find · ${r.side === 'pitching' ? 'Pitching' : 'Batting'}, season totals`, href,
     }]
   })

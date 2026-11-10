@@ -185,6 +185,48 @@ const FIRST: [string, string][] = [
   ['300 hitters', 'find: Batting average at least .300 (Batting, season totals)'],
   ['era between 2 and 3', 'find: ERA at least 2.00 and ERA at most 3.00 (Pitching, season totals)'],
   ['100 at bats', 'find: At-bats at least 100 (Batting, season totals)'],
+  // Wrong answers from the Nov 10, 2026 replay of logged misses. A double play in one game is the
+  // fielders' (the season ranking's GIDP stays beside it); "era" is no earned run ("er" then "a"); a
+  // half-typed tail stays out of a record's title.
+  ['most double plays in a game', 'record: Most double plays turned in a game'],
+  ['most dp in a game', 'record: Most double plays turned in a game'],
+  ['most grounded into double plays in a game', 'record: Most grounded into dp in a game'],
+  ['sato era vs hunters', 'find: Ayami Sato vs Hunters (seasons) (Pitching, season totals)'],
+  ['jaida lee hr at home', 'find: Jaida Lee at home (seasons) (Batting, season totals)'],
+  ['most fouls in a', 'record: Most fouls in a plate appearance'],
+  ['most fouls on', 'record: Most fouls in a plate appearance'],
+  // Named games, the plays the log names, and the streaks (Nov 10, 2026).
+  ['cycle', 'find: Cycles (Batting lines)'],
+  ['hit for the cycle', 'find: Cycles (Batting lines)'],
+  ['complete games', 'find: Complete games (Pitching lines)'],
+  ['complete game shutouts', 'find: Complete-game shutouts (Pitching lines)'],
+  ['5 complete games', 'find: Complete games at least 5 (Pitching, season totals)'],
+  ['quality starts', 'find: Quality starts (Pitching lines)'],
+  ['perfect games', 'find: Perfect games (Pitching, club games)'],
+  ['leadoff home runs', 'find: Leadoff home runs (Batting, plate appearances)'],
+  ['home runs leading off the game', 'find: Home runs leading off the game (Batting, plate appearances)'],
+  ['pinch hits', 'find: Pinch hits (Batting, plate appearances)'],
+  ['pinch hit home runs', 'find: Pinch-hit home runs (Batting, plate appearances)'],
+  ['bunt hits', 'find: Bunt hits (Batting, plate appearances)'],
+  ['infield hits', 'find: Infield hits (Batting, plate appearances)'],
+  ['longest hitting streak', 'find: Hitting streaks (Batting lines)'],
+  ['10 game hitting streaks', 'find: Hitting streak at least 10 (Batting lines)'],
+  ['on base streak', 'find: On-base streaks (Batting lines)'],
+  ['most consecutive hits', 'find: Hits in a row (Batting, plate appearances)'],
+  // The cuts: an arm, a span, the last N games, and a club's record.
+  ['avg vs lefties', 'leader: Highest batting average vs LHP'],
+  ['home runs off lhp', 'leader: Most home runs vs LHP'],
+  ['ops vs righties', 'leader: Highest OPS vs RHP'],
+  ['hr since august', 'leader: Most home runs since Aug 1'],
+  ['era in august', 'leader: Lowest ERA August'],
+  ['2 hits in september', 'find: Hits at least 2 (Batting lines · September)'],
+  ['3 strikeouts last 5 games', 'find: Strikeouts at least 3 by a pitcher (Pitching lines · last 5 games)'],
+  ['whitmore last game', 'find: Kelsie Whitmore last game (pitching games) (Pitching lines)'],
+  ['jaida lee in september', 'find: Jaida Lee September (games) (Batting lines)'],
+  ['jaida lee avg vs lefties', 'find: Jaida Lee vs LHP (Batting, season totals)'],
+  ['hunters home record', 'find: Hunters record at home (Club games)'],
+  ['queens last 10', 'find: Queens record last 10 games (Club games)'],
+  ['heights record vs queens', 'find: Heights record vs Queens (Club games)'],
 ]
 
 describe('the search bar corpus', () => {

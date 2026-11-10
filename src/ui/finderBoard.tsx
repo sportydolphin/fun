@@ -4,7 +4,7 @@ import { Box, Skeleton, Typography } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import {
   finderFieldGroups, finderUnit, finderColumns, defaultCondition, parseFinderValue, unparseFinderValue,
-  displayFinderValue, describeFinderQuery, describeFinderConditions, finderSpanText, finderSigned, finderLowerBetter, conditionsForPer, finderPlayerApplies, finderPlayerAt, hasPlayerFilter,
+  displayFinderValue, describeFinderQuery, describeFinderConditions, describeFinderCuts, finderSpanText, finderSigned, finderLowerBetter, conditionsForPer, finderPlayerApplies, finderPlayerAt, hasPlayerFilter,
   FINDER_OPS,
   type FinderCondition, type FinderOp, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
   type FinderBoardSide, type FinderSort, type FinderTally, type FinderVenue,
@@ -255,7 +255,7 @@ export interface FinderPlayerPicks {
 }
 
 /** The club, opponent, venue and players in words: "for NY, vs LA, at home, by K. Whitmore". */
-function scopeWords(side: FinderBoardSide, q: Pick<FinderQuery, 'teamId' | 'oppId' | 'venue' | 'per' | 'batterId' | 'pitcherId' | 'playerId' | 'byClub'>,
+function scopeWords(side: FinderBoardSide, q: Pick<FinderQuery, 'teamId' | 'oppId' | 'venue' | 'per' | 'batterId' | 'pitcherId' | 'playerId' | 'byClub' | 'from' | 'to' | 'last' | 'hand'>,
   clubAbbr: (id: string) => string, name: (id: string) => string = id => id): string {
   const pa = q.per === 'pa'
   return [
@@ -265,6 +265,8 @@ function scopeWords(side: FinderBoardSide, q: Pick<FinderQuery, 'teamId' | 'oppI
     q.venue === 'home' ? 'at home' : q.venue === 'away' ? 'on the road' : null,
     pa && q.batterId && `by ${name(q.batterId)}`,
     pa && q.pitcherId && `against ${name(q.pitcherId)}`,
+    // The span, the last N games and the arm, mid-sentence: "since Aug 1", "vs LHP". A month keeps its capital.
+    ...describeFinderCuts(side, q).map(c => c.text.replace(/^(Since|Through|Last|Vs)\b/, w => w.toLowerCase())),
   ].filter(Boolean).join(', ')
 }
 
@@ -861,6 +863,12 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     ...(playerHere && query.playerId ? [{ key: 'player', text: picks!.name(query.playerId), remove: () => onQuery({ ...query, playerId: null }) }] : []),
     ...(query.per === 'pa' && query.batterId ? [{ key: 'bat', text: `By ${picks?.name(query.batterId) ?? query.batterId}`, remove: () => onQuery({ ...query, batterId: null }) }] : []),
     ...(query.per === 'pa' && query.pitcherId ? [{ key: 'pit', text: `Against ${picks?.name(query.pitcherId) ?? query.pitcherId}`, remove: () => onQuery({ ...query, pitcherId: null }) }] : []),
+    // The span, the last N games and the arm, which only the search sets (the form has no picker for
+    // them), so each chip is also the only way to take one off.
+    ...describeFinderCuts(side, query).map(c => ({
+      key: c.key, text: c.text,
+      remove: () => onQuery(c.key === 'span' ? { ...query, from: null, to: null } : c.key === 'last' ? { ...query, last: null } : { ...query, hand: null }),
+    })),
   ]
 
   const question = (

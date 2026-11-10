@@ -268,6 +268,17 @@ describe('nameWords', () => {
     expect(nameWords('most home runs')).toBeNull()
   })
 
+  // Searched as names, these reached a player through the typo pass (Nov 10, 2026).
+  it('keeps baseball words that are no stat out of the name', () => {
+    expect(nameWords('bunt hits')).toBeNull()
+    expect(nameWords('late innings')).toBeNull()
+    expect(nameWords('average runs per game')).toBeNull()
+  })
+
+  it('reads "era" as the stat, never one earned run', () => {
+    expect(parseFinderText('era vs queens', [{ id: 'LA', names: ['Queens'] }], ['hitting', 'pitching'], { plays: true })).toEqual([])
+  })
+
   it('leaves a plain name, and initials, as typed', () => {
     expect(nameWords('Kelsie Whitmore')).toBeNull()
     expect(nameWords('R.J. Smith')).toBeNull()

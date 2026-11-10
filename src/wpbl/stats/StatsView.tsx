@@ -25,7 +25,7 @@ import {
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine } from '../types'
 import { isPostseasonGame, type SeasonScope } from '../season'
 import {
-  decodeFinderByClub, decodeFinderPer, decodeFinderQuery, encodeFinderQuery, finderFields, finderPlayerApplies,
+  decodeFinderByClub, decodeFinderCuts, decodeFinderPer, decodeFinderQuery, encodeFinderQuery, finderFields, finderPlayerApplies,
   type FinderBoardSide, type FinderQuery,
 } from '../derive/finder'
 import { track, EVENTS } from '../../lib/analytics'
@@ -232,6 +232,7 @@ export default function WpblStatsView({
     ),
     per: decodeFinderPer(fromUrl.find ?? null),
     byClub: decodeFinderByClub(fromUrl.find ?? null),
+    ...decodeFinderCuts(fromUrl.find ?? null),
     teamId: fromUrl.findTeam || null,
     oppId: fromUrl.findOpp || null,
     venue: fromUrl.findVenue ?? 'any',
@@ -667,6 +668,7 @@ export default function WpblStatsView({
         conditions: decodeFinderQuery(q.find ?? null, nextSide === 'overall' ? 'hitting' : nextSide),
         per: decodeFinderPer(q.find ?? null),
         byClub: decodeFinderByClub(q.find ?? null),
+        ...decodeFinderCuts(q.find ?? null),
         teamId: q.findTeam || null,
         oppId: q.findOpp || null,
         venue: q.findVenue ?? 'any',
