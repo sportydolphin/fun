@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.215.0',
+    date:    '2026-11-09',
+    changes: [
+      {
+        short: 'Find: one layout on every side',
+        full:  'Find draws the same way on Hitting, Pitching and Fielding: the question over the answers, with the same Games and Seasons switch. The search box has a search mark and an Ask button, and the results card defines every column behind its info dot. A leader card shortens all its names together.',
+      },
+    ],
+  },
+  {
     version: '1.214.0',
     date:    '2026-11-09',
     changes: [

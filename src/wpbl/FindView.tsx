@@ -101,9 +101,6 @@ const EXAMPLES: Record<FinderBoardSide, FinderExample[]> = {
   ],
 }
 
-/** Under the toolbar and the Stats controls bar, both pinned: StatsView's BOARD_TOP, which this
- *  lazy chunk cannot import without importing StatsView itself. */
-const STICKY_TOP = 'calc(var(--app-header-h, 0px) + var(--wpbl-stats-bar-h, 0px))'
 
 /** The grains each side can be asked at. An inning is a pitcher's on Pitching and a club's turn at the
  *  plate on Hitting; a plate appearance has no fielder. */
@@ -240,7 +237,7 @@ export default function WpblFindView({
   return (
     <FinderBoard side={side} query={query} onQuery={onQuery} result={result} clubs={clubs}
       clubAbbr={id => teams.find(t => t.id === id)?.abbr ?? id}
-      sort={sort} onSort={setSort} examples={EXAMPLES[side]} stickyTop={STICKY_TOP} accent={accent}
+      sort={sort} onSort={setSort} examples={EXAMPLES[side]} accent={accent}
       exampleCount={ex => exampleCounts?.get(ex.label) ?? null} exampleHref={exampleHref}
       exampleCounted={plays || askPlays ? grains : ['game', 'season']}
       grains={grains} loading={askPlays && !plays}

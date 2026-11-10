@@ -3,7 +3,8 @@ import { Box, Skeleton, Typography } from '@mui/material'
 import { SectionCard, CardLink, TYPE_SCALE } from './card'
 import { FOCUS_RING } from './interaction'
 import { chromePx } from './scale'
-import { useLineNameFit, nameAtStage } from './names'
+import { nameAtStage } from './names'
+import { NameColumn, useNameFit } from './NameText'
 
 // ONE LEADER CARD FOR BOTH STATS TABS. Until Oct 2026 MLB drew three tall raised cards of ten with
 // medals, a gradient header and a different accent per value, and WPBL a grid of bare cards of five
@@ -120,7 +121,7 @@ export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKe
     <SectionCard bare title={title} action={seeAll && <CardLink label="See all" href={seeAll.href} onClick={seeAll.onClick} />}>
       {items.length === 0
         ? <Typography sx={{ py: 1.5, color: 'text.secondary', fontSize: TYPE_SCALE.meta }}>{empty}</Typography>
-        : <Box sx={splitSx(splitWhen, half)}>
+        : <NameColumn names={items.map(it => it.name)}><Box sx={splitSx(splitWhen, half)}>
           {items.map((it, i) => {
             const lit = hoverKey === it.key
             const dimmed = hoverKey != null && !lit
@@ -160,17 +161,19 @@ export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKe
               </Box>
             )
           })}
-        </Box>}
+        </Box></NameColumn>}
     </SectionCard>
   )
 }
 
 /** A row's name, shortened to "F. Last" when the card is too narrow for it rather than cut off: four
  *  cards across a 1440 screen left "Ashton Lan…" on the hitting board, and longer names on every
- *  card at Large text. The ellipsis stays only as the net under the last stage (CLAUDE.md). */
+ *  card at Large text. The ellipsis stays only as the net under the last stage (CLAUDE.md).
+ *  EVERY ROW ON ONE STAGE (the card's NameColumn), so a card reads in one style: fitted row by row,
+ *  "K. Whitmore" sat over "Alexia Jorge" on Find's tally (Nov 9, 2026 audit). */
 function LeaderName({ name }: { name: string }) {
-  const { ref, stage } = useLineNameFit<HTMLParagraphElement>([name])
-  return <Typography ref={ref} title={stage > 0 ? name : undefined} sx={NAME_SX}>{nameAtStage(name, stage)}</Typography>
+  const { ref, stage } = useNameFit(name)
+  return <Typography ref={ref as React.Ref<HTMLParagraphElement>} title={stage > 0 ? name : undefined} sx={NAME_SX}>{nameAtStage(name, stage)}</Typography>
 }
 
 /** The card before its rows have landed: the real title, which needs no data, over ghost rows of
