@@ -4,6 +4,7 @@ import {
   finderColumns, validFinderSort, decodeFinderPer, EMPTY_FINDER_QUERY, type FinderQuery,
 } from '../derive/finder'
 import type { WpblBattingLine, WpblFieldingLine, WpblGame, WpblPitchingLine, WpblPlayer } from '../types'
+import type { InningPitchingLine, PlateAppearanceLine } from '../../league/inningLines'
 
 // The finder, and the ways a query engine lies without looking like it.
 //
@@ -474,5 +475,101 @@ describe('the fielding side', () => {
       .toBe('Errors exactly 0 and Total chances at least 8')
     expect(finderColumns('fielding', { conditions: [{ field: 'pb', op: 'gte', value: 1 }] }).map(c => c.key))
       .toEqual(['tc', 'po', 'a', 'e', 'dp', 'pb'])
+  })
+})
+
+describe('the finder, by the inning', () => {
+  const inn = (o: Partial<InningPitchingLine> = {}): InningPitchingLine => ({
+    id: Math.random().toString(36).slice(2), game_id: 'g1', player_id: 'a', team_id: 'NY', inning: 1, half: 'top', sequence: 0,
+    bf: 3, outs: 3, so: 0, bb: 0, hbp: 0, h: 0, hr: 0, r: 0, pitches: 12, strikes: 8, ...o,
+  })
+
+  it('finds three strikeouts in one inning, not across a game', () => {
+    // Five strikeouts in a game spread over three innings is not three in an inning, and a finder
+    // that summed the night would say it was.
+    const innings = [
+      inn({ player_id: 'a', inning: 1, so: 2 }), inn({ player_id: 'a', inning: 2, so: 2 }), inn({ player_id: 'a', inning: 3, so: 1 }),
+      inn({ player_id: 'b', inning: 4, half: 'bottom', team_id: 'LA', so: 3 }),
+    ]
+    const r = runWpblFinder('pitching', [], [], PLAYERS, [game()], q({ per: 'inning', conditions: [{ field: 'so', op: 'gte', value: 3 }] }),
+      50, null, { innings })
+    expect(names(r)).toEqual(['Ayami Sato'])
+    expect(r.rows[0].inning).toEqual({ inning: 4, half: 'bottom', sequence: 0 })
+    expect(r.rows[0].detail).toBe('Bottom 4th: 3 BF, 0 H, 0 R, 3 K, 12 pitches')
+    expect(r.tally[0]).toMatchObject({ games: 1, played: 1 })
+  })
+
+  it('asks an immaculate inning as two plain conditions', () => {
+    const innings = [inn({ so: 3, pitches: 9 }), inn({ so: 3, pitches: 13 })]
+    const r = runWpblFinder('pitching', [], [], PLAYERS, [game()], q({ per: 'inning', conditions: [
+      { field: 'so', op: 'gte', value: 3 }, { field: 'pitches', op: 'lte', value: 9 },
+    ] }), 50, null, { innings })
+    expect(r.total).toBe(1)
+  })
+
+  it('matches nothing on a field an inning cannot have, or on another side', () => {
+    const innings = [inn({ so: 3 })]
+    const ip = runWpblFinder('pitching', [], [], PLAYERS, [game()], q({ per: 'inning', conditions: [{ field: 'ip', op: 'gte', value: 0 }] }),
+      50, null, { innings })
+    expect(ip.total).toBe(0)
+    const hitting = runWpblFinder('hitting', [bat({ ab: 3, h: 3 })], [], PLAYERS, [game()], q({ per: 'inning' }), 50, null, { innings })
+    expect(hitting.total).toBe(0)
+  })
+
+  it('keeps the grain in the address and drops a game-only field', () => {
+    const raw = encodeFinderQuery({ per: 'inning', conditions: [{ field: 'so', op: 'gte', value: 3 }, { field: 'inn', op: 'gte', value: 6 }] })
+    expect(raw).toBe('inning~so.gte.3~inn.gte.6')
+    expect(decodeFinderPer(raw)).toBe('inning')
+    expect(decodeFinderQuery(raw, 'pitching')).toHaveLength(2)
+    expect(decodeFinderQuery('inning~ip.gte.3', 'pitching')).toEqual([])
+    expect(describeFinderQuery('pitching', { per: 'inning', conditions: [] })).toBe('every inning')
+    expect(finderColumns('pitching', { per: 'inning', conditions: [] }).map(c => c.key))
+      .toEqual(['inn', 'bf', 'h', 'r', 'bb', 'so', 'pitches'])
+  })
+})
+
+describe('the finder, by the plate appearance', () => {
+  const pa = (o: Partial<PlateAppearanceLine> = {}): PlateAppearanceLine => ({
+    id: Math.random().toString(36).slice(2), game_id: 'g1', sequence: 10, inning: 3, half: 'top',
+    batter_id: 'a', pitcher_id: 'b', batting_team: 'NY', fielding_team: 'LA', event: 'HR',
+    paouts: 0, on: 0, balls: 0, scount: 2, pitches: 4, strikes: 3, fouls: 1,
+    h: 1, doubles: 0, triples: 0, hr: 1, tb: 4, bb: 0, so: 0, hbp: 0, runs: 1, walkoff: 0, ...o,
+  })
+  const ask = (side: 'hitting' | 'pitching', conditions: FinderQuery['conditions'], plateAppearances: PlateAppearanceLine[]) =>
+    runWpblFinder(side, [], [], PLAYERS, [game()], q({ per: 'pa', conditions }), 50, null, { plateAppearances })
+
+  it('files one plate appearance under the batter on Hitting and the pitcher on Pitching', () => {
+    const lines = [pa(), pa({ balls: 1, scount: 1 })]
+    const onTwo = [{ field: 'hr', op: 'gte' as const, value: 1 }, { field: 'balls', op: 'eq' as const, value: 0 }, { field: 'scount', op: 'eq' as const, value: 2 }]
+    const hit = ask('hitting', onTwo, lines)
+    expect(names(hit)).toEqual(['Jaida Lee'])
+    expect(hit.rows[0]).toMatchObject({ teamId: 'NY', inning: { inning: 3, half: 'top', sequence: 10, event: 'HR' } })
+    expect(hit.rows[0].detail).toBe('Top 3rd, 0 out, bases empty, 0-2: HR, 1 run, 4 pitches')
+    const pit = ask('pitching', onTwo, lines)
+    expect(pit.rows[0]).toMatchObject({ name: 'Ayami Sato', teamId: 'LA' })
+  })
+
+  it('keeps the grain in the address, and no fielding side', () => {
+    const raw = encodeFinderQuery({ per: 'pa', conditions: [{ field: 'on', op: 'eq', value: 3 }, { field: 'bb', op: 'gte', value: 1 }] })
+    expect(raw).toBe('pa~on.eq.3~bb.gte.1')
+    expect(decodeFinderPer(raw)).toBe('pa')
+    expect(decodeFinderPer('pa.gte.4')).toBe('game')
+    expect(decodeFinderQuery(raw, 'hitting')).toHaveLength(2)
+    expect(decodeFinderQuery(raw, 'fielding')).toEqual([])
+    expect(finderColumns('hitting', { per: 'pa', conditions: [] }).map(c => c.key))
+      .toEqual(['inn', 'paouts', 'on', 'balls', 'scount', 'pitches', 'runs'])
+  })
+
+  it('reads a situation back the way it is said', () => {
+    const conditions = [
+      { field: 'balls', op: 'eq' as const, value: 0 }, { field: 'scount', op: 'eq' as const, value: 2 },
+      { field: 'hr', op: 'gte' as const, value: 1 }, { field: 'on', op: 'eq' as const, value: 3 },
+      { field: 'paouts', op: 'eq' as const, value: 2 }, { field: 'walkoff', op: 'eq' as const, value: 1 },
+    ]
+    expect(describeFinderQuery('hitting', { per: 'pa', conditions }))
+      .toBe('0-2 count and Home runs at least 1 and Bases loaded and 2 out and Walk-off')
+    // A range of counts, or the same fields on another grain, read field by field.
+    expect(describeFinderQuery('hitting', { per: 'pa', conditions: [{ field: 'balls', op: 'gte', value: 2 }] }))
+      .toBe('Balls in the count at least 2')
   })
 })

@@ -8,8 +8,10 @@
 //
 // IMPORTS NOTHING, which is the point of it being its own file. The list of words must stay a
 // superset of the parser's NUMBER_WORDS plus "without"; finderParse.test.ts holds it to that.
+// A few questions have no count in them at all, and the parser reads each as its own conditions:
+// "immaculate inning", "bases-loaded walks", "grand slams", "walk-offs", "full count".
 
-const COUNT_WORDS = /(?<![a-z])(zero|no|none|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|without|multi|double|triple)(?![a-z])/i
+const COUNT_WORDS = /(?<![a-z])(zero|no|none|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|without|multi|double|triple|immaculate|loaded|slams?|walk[\s-]?offs?|full)(?![a-z])/i
 
 export function mightBeFinderQuestion(text: string): boolean {
   return /\d/.test(text) || COUNT_WORDS.test(text)

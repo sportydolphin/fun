@@ -435,3 +435,72 @@ describe('parseFinderText on a section with a Fielding side', () => {
     expect(read('4-for-4').map(x => x.side)).toEqual(['hitting'])
   })
 })
+
+describe('parseFinderText: the inning grain', () => {
+  const inn = (t: string) => parseFinderText(t, CLUBS, ['hitting', 'pitching', 'fielding'], { plays: true })
+
+  it('reads "in an inning" as one pitcher half-inning, and only that', () => {
+    for (const t of ['3 strikeouts in an inning', '3 k in one inning', 'pitchers with 3 strikeouts in a single inning', '3+ ks per inning']) {
+      const r = inn(t)
+      expect(r.map(x => [x.side, x.per]), t).toEqual([['pitching', 'inning']])
+      expect(r[0].conditions, t).toEqual([{ field: 'so', op: 'gte', value: 3 }])
+    }
+  })
+
+  it('leaves innings pitched alone', () => {
+    const r = inn('5 innings no walks')
+    expect(r[0]).toMatchObject({ side: 'pitching', per: 'game' })
+    expect(r[0].conditions).toContainEqual({ field: 'ip', op: 'gte', value: 15 })
+    expect(inn('one inning no hits').every(x => x.per !== 'inning')).toBe(true)
+  })
+
+  it('reads the named innings as their conditions', () => {
+    expect(inn('immaculate inning')[0]).toMatchObject({ per: 'inning', conditions: [{ field: 'so', op: 'gte', value: 3 }, { field: 'pitches', op: 'lte', value: 9 }] })
+    expect(inn('immaculate innings vs SF')[0]).toMatchObject({ per: 'inning', oppId: 'SF' })
+    expect(inn('1-2-3 innings')[0].conditions.map(c => c.field)).toEqual(['bf', 'outs', 'baserunners'])
+    expect(inn('1 2 3 hits')).not.toContainEqual(expect.objectContaining({ per: 'inning' }))
+  })
+
+  it('offers nothing an inning cannot hold, and nothing to a section without the grain', () => {
+    // A batter has no inning grain, so three hits in an inning is the pitcher's three hits allowed.
+    expect(inn('3 hits in an inning').map(x => [x.side, x.per])).toEqual([['pitching', 'inning']])
+    expect(inn('era under 2 in an inning')).toEqual([])
+    expect(parseFinderText('3 strikeouts in an inning', CLUBS)).toEqual([])
+  })
+})
+
+describe('parseFinderText: the plate-appearance grain', () => {
+  const pa = (t: string) => parseFinderText(t, CLUBS, ['hitting', 'pitching', 'fielding'], { plays: true })
+  const best = (t: string) => pa(t)[0]
+
+  it('reads a count, the bases, the outs and a walk-off as one trip to the plate', () => {
+    expect(best('home run on 0-2')).toMatchObject({ side: 'hitting', per: 'pa', conditions: [
+      { field: 'balls', op: 'eq', value: 0 }, { field: 'scount', op: 'eq', value: 2 }, { field: 'hr', op: 'gte', value: 1 }] })
+    expect(best('strikeouts on a full count')).toMatchObject({ side: 'pitching', per: 'pa' })
+    expect(best('bases loaded walks').conditions).toEqual([{ field: 'on', op: 'eq', value: 3 }, { field: 'bb', op: 'gte', value: 1 }])
+    expect(best('grand slams').conditions).toEqual([{ field: 'hr', op: 'gte', value: 1 }, { field: 'on', op: 'eq', value: 3 }])
+    expect(best('walk-off hits').conditions).toEqual([{ field: 'walkoff', op: 'eq', value: 1 }, { field: 'h', op: 'gte', value: 1 }])
+    expect(best('2-out hits').conditions).toEqual([{ field: 'paouts', op: 'eq', value: 2 }, { field: 'h', op: 'gte', value: 1 }])
+  })
+
+  it('reads a pitch count on one at-bat, either side', () => {
+    expect(pa('10-pitch at-bats').map(r => [r.side, r.per])).toEqual([['hitting', 'pa'], ['pitching', 'pa']])
+    expect(best('10 pitch at bats').conditions).toEqual([{ field: 'pitches', op: 'gte', value: 10 }])
+    expect(best('8-pitch walks').conditions).toEqual([{ field: 'pitches', op: 'gte', value: 8 }, { field: 'bb', op: 'gte', value: 1 }])
+    expect(best('pitchers allowing 10 pitch at-bats')).toMatchObject({ side: 'pitching' })
+  })
+
+  it('leaves the game questions it looks like alone', () => {
+    expect(best('100 pitches')).toMatchObject({ side: 'pitching', per: 'game' })
+    expect(pa('100 pitches').every(r => r.side === 'pitching')).toBe(true)
+    expect(best('2 walks')).toMatchObject({ per: 'game' })
+    expect(best('4 for 4')).toMatchObject({ per: 'game' })
+  })
+
+  it('offers nothing to a section without the grain, or to the glove', () => {
+    expect(parseFinderText('home run on 0-2', CLUBS)).toEqual([])
+    // A word it cannot use is said back, as any unread word is, and no fielding reading is offered.
+    expect(pa('errors on 0-2').every(r => r.side !== 'fielding' && r.ignored.includes('errors'))).toBe(true)
+    expect(pa('home run on 0-2 in an inning')).toEqual([])
+  })
+})

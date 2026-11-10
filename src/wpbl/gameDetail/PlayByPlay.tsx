@@ -84,7 +84,7 @@ function PitchSequence({ seq, calledThirdStrike }: {
   )
 }
 
-export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
+export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer, openingHash = ENTRY_HASH }: {
   plays: WpblGamePlay[]; teams: Map<string, WpblTeam>; game: WpblGame
   /** This game's two rosters, by player id, so the batter each play opens with can be opened.
    *  Resolved on `batter_id` rather than by matching the printed name: the feed fills that
@@ -95,6 +95,9 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
    *  league-wide read the model needs has landed, and on a game too short to have one. */
   swing?: { sequence: number; label: string } | null
   onOpenPlayer?: (p: WpblPlayer) => void
+  /** The play the game was opened to, as Game Center took it at mount (entryUrl.ts): the entry
+   *  fragment, or a play asked for from inside the app. */
+  openingHash?: string
 }) {
   const playerLink = useWpblPlayerLink()
   // The league's Short of a play, where a clip has been pinned to it (wpbl_video_tags, matched on
@@ -289,7 +292,7 @@ export function PlayByPlay({ plays, teams, game, names, swing, onOpenPlayer }: {
   // string on the second. `ENTRY_HASH` is a constant and says the same thing both times.
   // `hashchange` then follows the address bar, which is what makes the `#` beside each play work
   // as its own confirmation that the link was taken.
-  const [linkHash, setLinkHash] = useState<string>(ENTRY_HASH)
+  const [linkHash, setLinkHash] = useState<string>(openingHash)
   useEffect(() => {
     const onHash = () => setLinkHash(window.location.hash)
     window.addEventListener('hashchange', onHash)
