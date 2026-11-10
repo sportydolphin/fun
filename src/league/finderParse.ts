@@ -87,7 +87,15 @@ add({ hitting: '3b' }, 'triples', 'triple', '3b')
 add({ hitting: 'rbi' }, 'rbi', 'rbis', 'runs batted in', 'ribbies')
 add({ hitting: 'r' }, 'runs scored')
 add({ hitting: 'sb' }, 'stolen bases', 'stolen base', 'steals', 'steal', 'sb', 'sbs', 'swipes')
-add({ hitting: 'cs' }, 'caught stealing', 'cs')
+add(both('cs', 'cs', 'hitting'), 'caught stealing', 'cs')
+// A runner picked off, or a pitcher's pickoffs: the play log's, so an inning's only.
+add(both('pk', 'pk', 'pitching'), 'pickoffs', 'pickoff', 'pick offs', 'pick off')
+add({ hitting: 'pk' }, 'picked off', 'times picked off')
+// Sums of the hit types. Not "1b", "sf" or "sh": first base, San Francisco and a typo come first.
+add({ hitting: '1b' }, 'singles')
+add({ hitting: 'xbh' }, 'extra base hits', 'extra base hit', 'xbh', 'xbhs', 'extra bases hits')
+add({ hitting: 'sf' }, 'sacrifice flies', 'sacrifice fly', 'sac flies', 'sac fly')
+add({ hitting: 'sh' }, 'sacrifice bunts', 'sacrifice bunt', 'sac bunts', 'sac bunt', 'sacrifice hits', 'sacrifices')
 add({ hitting: 'gdp' }, 'gdp', 'gidp', 'grounded into double plays')
 // A batter grounds into one and a fielder turns one: the batter's by default, the fielder's on a
 // Fielding side when a word says so ("turned", "fielders").
@@ -103,6 +111,7 @@ add({ pitching: 'bb' }, 'walks allowed', 'walks issued')
 add({ pitching: 'hr' }, 'home runs allowed', 'homers allowed', 'hr allowed', 'home runs given up')
 add({ pitching: 'hbp' }, 'hit batters', 'hit batter', 'batters hit')
 add({ pitching: 'wp' }, 'wild pitches', 'wild pitch', 'wp')
+add({ pitching: 'sb' }, 'stolen bases off', 'steals off')
 add({ pitching: 'bk' }, 'balks', 'balk', 'bk')
 add({ pitching: 'bf' }, 'batters faced', 'bf')
 // A batter's pitches exist only on a plate appearance ("at-bats of 10 pitches"); a grain that has no
@@ -505,9 +514,13 @@ const STAT_VOCAB: string[] = (() => {
   return [...words]
 })()
 
+// Words one slip from a stat word that are words of their own: "extras" is extra innings, not a
+// misspelled "extra" (base hits).
+const NOT_TYPOS = new Set(['extras'])
+
 function fixStatTypos(text: string, keep: ReadonlySet<string> = new Set()): string {
   return text.replace(/[a-z]{6,}/g, w => {
-    if (keep.has(w) || STAT_VOCAB.includes(w) || FILLER.has(w)) return w
+    if (keep.has(w) || STAT_VOCAB.includes(w) || FILLER.has(w) || NOT_TYPOS.has(w)) return w
     const max = w.length >= 9 ? 2 : 1
     let best: string | null = null, bestD = max + 1, tie = false
     for (const v of STAT_VOCAB) {
@@ -1180,9 +1193,11 @@ const BARE_GAME_SPAN = /(?<![a-z])(?:in\s+)?(?:games?|outings?|nights?)(?!\s+(?:
 
 /** A record asked of any stat, at a grain, narrowed by club, place and year (`parseRecordQuestion`). */
 export interface ParsedRecord {
-  side: FinderSide
+  side: FinderBoardSide
   field: string
-  per: 'game' | 'inning'
+  /** A season only where the caller asked for one (`season: true`): the stats tables rank a season,
+   *  so this is for the stats they have no column for ("most singles", "most errors"). */
+  per: 'game' | 'inning' | 'season'
   teamId: string | null
   oppId: string | null
   venue: FinderVenue
@@ -1197,30 +1212,58 @@ export interface ParsedRecord {
  * off first, so they narrow the record rather than making the words unreadable. Most only: the
  * fewest of something in one game is nearly always zero, which is no record anybody keeps.
  */
-export function parseRecordQuestion(text: string, clubs: readonly FinderClubAlias[]): ParsedRecord[] {
+export function parseRecordQuestion(text: string, clubs: readonly FinderClubAlias[], { season: seasons = false }: { season?: boolean } = {}): ParsedRecord[] {
   const clubWords = new Set(clubs.flatMap(c => c.names.flatMap(n => normalize(n).split(' '))))
   const year = takeYear(` ${fixStatTypos(normalize(text), clubWords)} `)
   const placed = takeVenue(year.rest, 'any')
   const clubbed = takeClubs(placed.rest, clubs, placed.venue)
   let rest = clubbed.rest
-  let per: 'game' | 'inning' | null = null
+  let per: 'game' | 'inning' | 'season' | null = null
   rest = rest.replace(INNING_SPAN, m => { per = 'inning'; return ' '.repeat(m.length) })
   rest = rest.replace(SINGLE_GAME_G, m => { per ??= 'game'; return ' '.repeat(m.length) })
   // THE GRAIN WORD ALONE, the way a search box is typed: "most walks game", "strikeouts inning". Not
   // innings pitched ("innings pitched", "5 innings"), and not "starts", which is a count of its own.
   rest = rest.replace(BARE_INNING_SPAN, m => { per ??= 'inning'; return ' '.repeat(m.length) })
   rest = rest.replace(BARE_GAME_SPAN, m => { per ??= 'game'; return ' '.repeat(m.length) })
+  // A SEASON, said or (with a lead word) left unsaid: "most singles in a season", "most errors". Only
+  // when the caller asks, since a season the stats tables can rank belongs to them.
+  if (seasons && !per) {
+    rest = rest.replace(SEASON_SPAN, m => { per = 'season'; return ' '.repeat(m.length) })
+    if (!per && /(?<![a-z])(most|highest|greatest|top|leaders?|leading)(?![a-z])/.test(rest)) per = 'season'
+  }
   if (!per) return []
-  const grain: 'game' | 'inning' = per
+  const grain: 'game' | 'inning' | 'season' = per
   rest = rest.replace(/(?<![a-z])(records?|highs?|bests?)(?![a-z])/g, ' ')
-  const read = parseLeaderText(rest).filter(p => !p.career && p.season == null && p.side !== 'overall' && p.dir !== 'asc')
+  const read: { side: FinderBoardSide; field: string }[] = parseLeaderText(rest)
+    .filter(p => !p.career && p.season == null && p.side !== 'overall' && p.dir !== 'asc')
+    .map(p => ({ side: p.side as FinderSide, field: p.field }))
+  // THE GLOVE, which no ranking reads (the stats tables rank no fielding count by a word): "most errors
+  // in a game", "most putouts". One fielding stat and nothing else, so "errors" in a longer question is
+  // left to the readers that know it.
+  if (!read.length) read.push(...fieldingStat(rest))
   // ONE SIDE: the ranking's first, which is the stat's own lean or the side a word named. "Most hr in
   // a game" is a batter's record; a pitcher's is asked as "most home runs allowed".
   return read.filter(p => p.side === read[0].side)
-    .filter(p => finderFields(p.side as FinderSide, grain).some(f => f.key === p.field))
+    .filter(p => grain !== 'season' || !RATE_FIELDS.has(p.field))
+    .filter(p => finderFields(p.side, grain).some(f => f.key === p.field && f.key !== 'g'))
     .flatMap(p => clubbed.teamIds.flatMap(teamId => clubbed.oppIds.flatMap(oppId => (teamId && teamId === oppId ? [] : [{
-      side: p.side as FinderSide, field: p.field, per: grain, teamId, oppId, venue: clubbed.venue, season: year.season,
+      side: p.side, field: p.field, per: grain, teamId, oppId, venue: clubbed.venue, season: year.season,
     }]))))
+}
+
+const SEASON_SPAN = /(?<![a-z])(?:in\s+(?:a|one)\s+(?:single\s+)?season|single[\s-]+season|on\s+the\s+season|in\s+a\s+year|seasons?)(?![a-z])/g
+const STAT_ONLY = new RegExp(`${B_START}(${alt(STAT_PHRASES)})${B_END}`, 'g')
+
+/** One fielding stat, with nothing but lead words and filler around it. */
+function fieldingStat(rest: string): { side: FinderBoardSide; field: string }[] {
+  // The fewest is no record (see above), and "worst" is the ranking's to read.
+  if (/(?<![a-z])(fewest|least|lowest|low|worst|bottom)(?![a-z])/.test(rest)) return []
+  const phrases: string[] = []
+  let left = rest.replace(STAT_ONLY, (_m: string, p: string) => { phrases.push(p); return ' ' })
+  for (const w of LEAD_WORDS) left = left.replace(w.re, ' ')
+  const words = left.split(/[^a-z0-9]+/).filter(w => w && !FILLER.has(w) && !LEADER_FILLER.has(w) && !FIELDING_HINTS.includes(w))
+  const fields = [...new Set(phrases.map(p => STAT_ALIASES[p]?.fielding).filter((f): f is string => !!f))]
+  return words.length || phrases.length !== 1 || fields.length !== 1 ? [] : [{ side: 'fielding', field: fields[0] }]
 }
 
 /** A season ranking against one club or at one place (`parseScopedRank`). */

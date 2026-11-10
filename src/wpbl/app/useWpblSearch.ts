@@ -100,7 +100,7 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
     if (!searchActive) return
     updateSearchBridge({ isRegistered: true, source: 'wpbl' })
     return () => {
-      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], suggestedRows: [], searching: false, clearRecentSearches: null, resolveCompare: null, resolveGames: null, resolveLeader: null, resolvePlayerStat: null, resolveFirsts: null, resolvePaRecord: null, resolvePlayerQuestion: null, seasonCount: null, resultsForgiving: { players: false, teams: false } })
+      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], suggestedRows: [], searching: false, clearRecentSearches: null, resolveCompare: null, resolveGames: null, resolveLeader: null, resolvePlayerStat: null, resolveFirsts: null, resolvePaRecord: null, resolvePlayerQuestion: null, resolveFindAnswer: null, seasonCount: null, resultsForgiving: { players: false, teams: false } })
       setSearchQuery('')
     }
   }, [searchActive])
@@ -480,9 +480,14 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
     }).filter(p => p.hits || p.pitches)
     return playerQuestionRows('wpbl', text, roster, id => teamById.get(id)?.name ?? id)
   }, [players, teamById])
+  // "7 times · last Sep 2" on every row that opens Find (src/wpbl/findAnswer.ts), read off the link.
+  const resolveFindAnswer = useCallback(async (href: string) => {
+    const { wpblFindAnswer } = await import('../findAnswer')
+    return wpblFindAnswer(href, { schedule: games, players, teams, eraInnings: eraBasis })
+  }, [games, players, teams, eraBasis])
   useEffect(() => {
-    if (searchActive) updateSearchBridge({ resolvePlayerStat, resolveLeader, resolveFirsts, resolvePaRecord, resolvePlayerQuestion })
-  }, [resolvePlayerStat, resolveLeader, resolveFirsts, resolvePaRecord, resolvePlayerQuestion, searchActive])
+    if (searchActive) updateSearchBridge({ resolvePlayerStat, resolveLeader, resolveFirsts, resolvePaRecord, resolvePlayerQuestion, resolveFindAnswer })
+  }, [resolvePlayerStat, resolveLeader, resolveFirsts, resolvePaRecord, resolvePlayerQuestion, resolveFindAnswer, searchActive])
 
   // The header search is on screen on every page in the section and was entirely unmeasured.
   // One event per SETTLED query, never per keystroke: a debounce, plus a per-mount set of

@@ -482,7 +482,7 @@ describe('the fielding side', () => {
 describe('the finder, by the inning', () => {
   const inn = (o: Partial<InningPitchingLine> = {}): InningPitchingLine => ({
     id: Math.random().toString(36).slice(2), game_id: 'g1', player_id: 'a', team_id: 'NY', inning: 1, half: 'top', sequence: 0,
-    bf: 3, outs: 3, so: 0, bb: 0, hbp: 0, h: 0, hr: 0, r: 0, pitches: 12, strikes: 8, ...o,
+    bf: 3, outs: 3, so: 0, bb: 0, hbp: 0, h: 0, hr: 0, r: 0, pitches: 12, strikes: 8, sb: 0, cs: 0, pk: 0, wp: 0, pb: 0, bk: 0, ...o,
   })
 
   it('finds three strikeouts in one inning, not across a game', () => {
@@ -652,7 +652,7 @@ describe('the finder, by the plate appearance', () => {
 describe('the finder, by a club half-inning', () => {
   const half = (o: Partial<TeamInningLine> = {}): TeamInningLine => ({
     id: Math.random().toString(36).slice(2), game_id: 'g1', team_id: 'NY', inning: 4, half: 'bottom', sequence: 30,
-    r: 0, h: 0, doubles: 0, triples: 0, hr: 0, tb: 0, bb: 0, so: 0, hbp: 0, ab: 3, sh: 0, sf: 0, r2: 0, trail: 0, tooklead: 0, ...o,
+    r: 0, h: 0, doubles: 0, triples: 0, hr: 0, tb: 0, bb: 0, so: 0, hbp: 0, ab: 3, sh: 0, sf: 0, r2: 0, trail: 0, tooklead: 0, sb: 0, cs: 0, pk: 0, ...o,
   })
   const clubName = (id: string) => ({ NY: 'New York Heights', LA: 'Los Angeles Queens' })[id] ?? id
 

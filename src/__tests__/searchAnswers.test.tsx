@@ -275,13 +275,14 @@ describe('MLB: the answer in the player row', () => {
 const row = (key: string, title: string): SearchResultRow =>
   ({ key, title, subtitle: 'CF · SF', avatar: { fallbackText: title[0] }, onSelect: vi.fn() })
 
-function Host({ results = [], resolveLeader, resolvePlayerStat }: {
+function Host({ results = [], resolveLeader, resolvePlayerStat, resolveFindAnswer }: {
   results?: SearchResultRow[]
   resolveLeader?: SearchBridgeState['resolveLeader']
   resolvePlayerStat?: SearchBridgeState['resolvePlayerStat']
+  resolveFindAnswer?: SearchBridgeState['resolveFindAnswer']
 }) {
   return <CommandPalette open onClose={() => {}} section="wpbl" results={results} idle={[]} searching={false}
-    resolveLeader={resolveLeader} resolvePlayerStat={resolvePlayerStat} />
+    resolveLeader={resolveLeader} resolvePlayerStat={resolvePlayerStat} resolveFindAnswer={resolveFindAnswer} />
 }
 
 describe('the palette', () => {
@@ -310,5 +311,17 @@ describe('the palette', () => {
 
     await user.keyboard('{Enter}')
     expect(getRecentQuestions('wpbl')[0]).toMatchObject({ title: 'Most home runs', subtitle: 'Leaders · Hitting · This season' })
+  })
+
+  it('says how often and when last in a Find row, read off its link, and keeps it out of Recent', async () => {
+    const user = userEvent.setup()
+    const resolveFindAnswer = vi.fn(async (href: string) => (href.includes('q=so.gte.5') ? '7 times · last Sep 2' : null))
+    render(<Host resolveFindAnswer={resolveFindAnswer} />)
+    await user.type(screen.getByRole('combobox'), '5 strikeouts no walks')
+    await waitFor(() => expect(screen.getAllByRole('option')[0]).toHaveTextContent(/Find · 7 times · last Sep 2 · /))
+    expect(resolveFindAnswer.mock.calls.every(c => (c as unknown[])[0] && String((c as unknown[])[0]).includes('board=find'))).toBe(true)
+
+    await user.keyboard('{Enter}')
+    expect(getRecentQuestions('wpbl')[0].subtitle).not.toMatch(/times/)
   })
 })

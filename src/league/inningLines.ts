@@ -62,9 +62,41 @@ export interface InningPitchingLine {
   pitches: number
   /** Every pitch that was not a ball or a hit batter: called, swinging, foul and in play. */
   strikes: number
+  /** What the runners did while this pitcher was on (see `runnerEvents`): bases stolen, runners caught
+   *  stealing and picked off, wild pitches, passed balls and balks. */
+  sb: number
+  cs: number
+  pk: number
+  wp: number
+  pb: number
+  bk: number
 }
 
 const HITS = new Set(['single', 'double', 'triple', 'home_run'])
+
+/**
+ * THE RUNNERS' PLAYS. A steal, a caught stealing, a pickoff, a wild pitch, a passed ball and a balk are
+ * usually a row of their own with no pitches, which neither the box score's inning nor the plate
+ * appearance sees, and sometimes a clause of a batter's row ("struck out; ... advanced to second on a
+ * wild pitch"). So they are read off every row's narrative, never inferred from the bases: steals and
+ * caught stealing by how many times the text says so, since a double steal is one row with two ("stole
+ * second; ... stole third") and the box score credits both; a wild pitch, a passed ball and a balk once
+ * per row, however many runners it moved. "Failed pickoff attempt" is a throw over and not a pickoff.
+ * Against 2026's box scores: 115 of 116 steals, 21 of 22 caught, 93 of 93 wild pitches, 18 of 24 balks
+ * (a balk with nobody moving leaves no row).
+ */
+export function runnerEvents(p: Pick<RunValuePlay, 'event_type' | 'narrative'>): { sb: number; cs: number; pk: number; wp: number; pb: number; bk: number } {
+  const text = (p.narrative ?? '').toLowerCase()
+  const count = (re: RegExp) => (text.match(re) ?? []).length
+  return {
+    sb: Math.max(p.event_type === 'stolen_base' ? 1 : 0, count(/\bstole\b/g)),
+    cs: Math.max(p.event_type === 'caught_stealing' ? 1 : 0, count(/caught stealing/g)),
+    pk: count(/\bpicked off\b/g),
+    wp: p.event_type === 'wild_pitch' || /wild pitch/.test(text) ? 1 : 0,
+    pb: p.event_type === 'passed_ball' || /passed ball/.test(text) ? 1 : 0,
+    bk: /\bbalk\b/.test(text) ? 1 : 0,
+  }
+}
 
 /** The half-inning a row belongs to, as one string. */
 const halfKey = (p: Pick<RunValuePlay, 'game_id' | 'inning' | 'half'>) => `${p.game_id}|${p.inning}|${p.half}`
@@ -141,12 +173,15 @@ export function inningPitchingLines(league: League, plays: RunValuePlay[], games
         team_id: p.half === 'top' ? g.home_team_id : g.away_team_id,
         inning: p.inning, half: p.half, sequence: p.sequence,
         bf: 0, outs: 0, so: 0, bb: 0, hbp: 0, h: 0, hr: 0, r: 0, pitches: 0, strikes: 0,
+        sb: 0, cs: 0, pk: 0, wp: 0, pb: 0, bk: 0,
       }
       lines.set(id, line)
     }
 
     line.outs += Math.max(0, outsAfter - p.outs)
     line.r += league.runsOnPlay(p)
+    const run = runnerEvents(p)
+    line.sb += run.sb; line.cs += run.cs; line.pk += run.pk; line.wp += run.wp; line.pb += run.pb; line.bk += run.bk
 
     if (partOfNext(p, next)) continue
     const seq = p.pitch_sequence ?? ''
@@ -375,6 +410,10 @@ export interface TeamInningLine {
   trail: number
   /** One when the club started the half level or behind and ended it in front. */
   tooklead: number
+  /** The club's runners: bases stolen, caught stealing and picked off (`runnerEvents`). */
+  sb: number
+  cs: number
+  pk: number
 }
 
 export function teamInningLines(league: League, plays: RunValuePlay[], games: LeagueGame[]): TeamInningLine[] {
@@ -405,10 +444,12 @@ export function teamInningLines(league: League, plays: RunValuePlay[], games: Le
         id, game_id: p.game_id, team_id: p.half === 'top' ? g.away_team_id : g.home_team_id,
         inning: p.inning, half: p.half, sequence: p.sequence,
         r: 0, h: 0, doubles: 0, triples: 0, hr: 0, tb: 0, bb: 0, so: 0, hbp: 0, ab: 0, sh: 0, sf: 0, r2: 0,
-        trail: Math.max(0, them - us), tooklead: 0,
+        trail: Math.max(0, them - us), tooklead: 0, sb: 0, cs: 0, pk: 0,
       }
     }
     const l = line!
+    const run = runnerEvents(p)
+    l.sb += run.sb; l.cs += run.cs; l.pk += run.pk
     const runs = league.runsOnPlay(p)
     l.r += runs
     if (p.outs === 2) l.r2 += runs

@@ -4,7 +4,7 @@ import { Box, Skeleton, Typography } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import {
   finderFieldGroups, finderUnit, finderColumns, defaultCondition, parseFinderValue, unparseFinderValue,
-  displayFinderValue, describeFinderQuery, describeFinderConditions, finderLowerBetter, conditionsForPer, finderPlayerApplies, finderPlayerAt, hasPlayerFilter,
+  displayFinderValue, describeFinderQuery, describeFinderConditions, finderSpanText, finderLowerBetter, conditionsForPer, finderPlayerApplies, finderPlayerAt, hasPlayerFilter,
   FINDER_OPS,
   type FinderCondition, type FinderOp, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
   type FinderBoardSide, type FinderSort, type FinderTally, type FinderVenue,
@@ -780,11 +780,15 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     : result.total === 1 ? noun[0] : noun[1]
   const scopeText = scopeWords(side, query, clubAbbr, picks?.name)
   const total = result.total.toLocaleString()
-  const summary = query.conditions.length > 0
+  // WHEN, beside how many: the first and the latest match across all of them, since the rows are the
+  // top fifty by the stat and "when did it last happen" is half of a yes-or-no question. On the same
+  // line rather than a line of its own, which the skeleton would have to guess the presence of.
+  const span = finderSpanText(result.span)
+  const summary = [query.conditions.length > 0
     ? `${total} ${games_} where ${describeFinderQuery(side, query)}${scopeText ? `, ${scopeText}` : ''}`
     : scopeText
       ? `${total} ${games_} ${scopeText}`
-      : `${total} ${games_}`
+      : `${total} ${games_}`, span].filter(Boolean).join(' · ')
   // SHOWN, because a bar the reader did not set is a filter they cannot see. A label with its
   // definition behind an InfoDot, as every other board's qualifier is, rather than two sentences of
   // instructions above the table (house rule: labels, not narration). The way past it stays in the

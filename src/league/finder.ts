@@ -1,6 +1,6 @@
 import { ipToOuts, outsToIp } from './innings'
 import type { InningPitchingLine, PlateAppearanceLine, TeamInningLine } from './inningLines'
-import { ordinal } from '../lib/format'
+import { ordinal, shortDate } from '../lib/format'
 import { scopedLines, type SeasonScope } from './season'
 import type { BattingGameLine, FieldingGameLine, LeagueGame, LeaguePlayer, PitchingGameLine } from './types'
 
@@ -177,6 +177,10 @@ const HIT_FIELDS: Field<BattingGameLine>[] = [
   { key: 'hr', label: 'Home runs', unit: 'HR', value: l => l.hr },
   { key: '2b', label: 'Doubles', unit: '2B', value: l => l.doubles },
   { key: '3b', label: 'Triples', unit: '3B', value: l => l.triples },
+  // Two sums the line does not carry and a reader asks for by name: "4 singles", "most extra-base
+  // hits in an inning". Read off the same four counts, so every grain that has them has these.
+  { key: '1b', label: 'Singles', unit: '1B', value: l => l.h - l.doubles - l.triples - l.hr },
+  { key: 'xbh', label: 'Extra-base hits', unit: 'XBH', value: l => l.doubles + l.triples + l.hr },
   { key: 'rbi', label: 'Runs batted in', unit: 'RBI', value: l => l.rbi },
   { key: 'r', label: 'Runs scored', unit: 'R', value: l => l.r },
   { key: 'bb', label: 'Walks', unit: 'BB', value: l => l.bb },
@@ -185,6 +189,8 @@ const HIT_FIELDS: Field<BattingGameLine>[] = [
   { key: 'sb', label: 'Stolen bases', unit: 'SB', value: l => l.sb },
   { key: 'cs', label: 'Caught stealing', unit: 'CS', value: l => l.cs },
   { key: 'gdp', label: 'Grounded into DP', unit: 'GDP', value: l => l.gdp ?? 0 },
+  { key: 'sf', label: 'Sacrifice flies', unit: 'SF', value: l => l.sf },
+  { key: 'sh', label: 'Sacrifice bunts', unit: 'SH', value: l => l.sh },
   { key: 'ob', label: 'Times on base', unit: 'TOB', value: l => l.h + l.bb + l.hbp },
   // The trips to the plate, summed the way `plateAppearances` does it. Sac hits are in, which
   // is the half every hand-rolled copy of this has dropped: see stats.ts.
@@ -298,11 +304,14 @@ const PIT_SEASON_FIELDS = pitSeasonFields(9)
 // outs), the decisions, and the box score's earned runs, wild pitches and balks, none of which the
 // play log credits to one half-inning. Two fields are its own: the outs, and which inning it was, so
 // "three strikeouts in the 7th or later" can be asked.
-const INNING_KEYS = new Set(['inn', 'outs', 'bf', 'so', 'bb', 'hbp', 'h', 'hr', 'r', 'pitches', 'strikes', 'baserunners'])
+const INNING_KEYS = new Set(['inn', 'outs', 'bf', 'so', 'bb', 'hbp', 'h', 'hr', 'r', 'pitches', 'strikes', 'baserunners',
+  // The runners' rows, which only the play log sees (`runnerEvents` in inningLines.ts).
+  'sb', 'cs', 'pk', 'wp', 'pb', 'bk'])
 // A CLUB'S HALF-INNING AT THE PLATE is Hitting's inning (src/league/inningLines.ts, `teamInningLines`): the
 // batting line's counts, plus the two-out runs and the score it began in, which is what a rally or a
 // comeback is.
-const HIT_INNING_KEYS = new Set(['inn', 'pa', 'r', 'h', '2b', '3b', 'hr', 'tb', 'bb', 'so', 'hbp', 'r2', 'trail', 'tooklead'])
+const HIT_INNING_KEYS = new Set(['inn', 'pa', 'ob', 'r', 'h', '1b', '2b', '3b', 'hr', 'xbh', 'tb', 'bb', 'so', 'hbp', 'sf', 'sh', 'r2', 'trail', 'tooklead',
+  'sb', 'cs', 'pk'])
 
 // ─── What a plate appearance can be asked about ───────────────────────────────
 //
@@ -314,7 +323,7 @@ const HIT_INNING_KEYS = new Set(['inn', 'pa', 'r', 'h', '2b', '3b', 'hr', 'tb', 
 // And the runs of plays a plate appearance ends (`hrrow`, `krow`, `retired`): a club's home runs in a
 // row on either side, and the pitcher's own two only on Pitching, since a batter has no streak in them.
 const HIT_PA_KEYS = new Set(['inn', 'paouts', 'on', 'risp', 'walkoff', 'balls', 'scount', 'pitches', 'fouls', 'runs',
-  'h', '2b', '3b', 'hr', 'tb', 'bb', 'so', 'hbp', 'hrrow'])
+  'h', '1b', '2b', '3b', 'hr', 'xbh', 'tb', 'bb', 'so', 'hbp', 'hrrow'])
 const PIT_PA_KEYS = new Set(['inn', 'paouts', 'on', 'risp', 'walkoff', 'balls', 'scount', 'pitches', 'strikes', 'fouls', 'runs',
   'h', 'hr', 'bb', 'so', 'hbp', 'hrrow', 'krow', 'retired'])
 
@@ -336,12 +345,19 @@ const PA_FIELDS: Field<FineLine>[] = [
 const PIT_FINE_FIELDS: Field<FineLine>[] = [
   INN_FIELD,
   { key: 'outs', label: 'Outs recorded', unit: 'OUTS', value: l => l.outs, fineOnly: true },
+  // The runners against the pitcher on the mound, an inning at a time: no box-score line carries them
+  // for a pitcher (stolen bases allowed is the catcher's), so they are inning-only.
+  { key: 'sb', label: 'Stolen bases allowed', unit: 'SB', value: l => l.sb, fineOnly: true },
+  { key: 'cs', label: 'Caught stealing', unit: 'CS', value: l => l.cs, fineOnly: true },
+  { key: 'pk', label: 'Pickoffs', unit: 'PK', value: l => l.pk, fineOnly: true },
+  { key: 'pb', label: 'Passed balls', unit: 'PB', value: l => l.pb, fineOnly: true },
   ...PA_FIELDS,
 ]
 // A pitcher's pitch count is already a box-score field; a batter's is only a plate appearance's.
 const HIT_FINE_FIELDS: Field<FineLine>[] = [
   INN_FIELD,
   { key: 'pitches', label: 'Pitches seen', unit: 'P', value: l => l.pitches, fineOnly: true },
+  { key: 'pk', label: 'Picked off', unit: 'PK', value: l => l.pk, fineOnly: true },
   { key: 'r2', label: 'Two-out runs', unit: 'R2', value: l => l.r2, fineOnly: true },
   { key: 'trail', label: 'Trailing by', unit: 'DN', value: l => l.trail, fineOnly: true },
   { key: 'tooklead', label: 'Took the lead', unit: 'LEAD', value: l => l.tooklead, fineOnly: true },
@@ -395,10 +411,11 @@ const FIELD_GROUPS: Record<FinderBoardSide, [string, string[]][]> = {
   hitting: [
     ['Situation', ['inn', 'paouts', 'on', 'risp', 'walkoff', 'trail', 'tooklead']],
     ['Count', ['balls', 'scount', 'pitches', 'fouls']],
-    ['Hits', ['h', 'tb', 'hr', '2b', '3b']],
+    ['Hits', ['h', 'tb', 'hr', '1b', '2b', '3b', 'xbh']],
     ['Runs', ['rbi', 'r', 'runs', 'r2']],
     ['On base', ['ob', 'bb', 'hbp', 'so']],
-    ['Running', ['sb', 'cs', 'gdp']],
+    ['Running', ['sb', 'cs', 'pk', 'gdp']],
+    ['Sacrifices', ['sf', 'sh']],
     ['Playing time', ['g', 'pa', 'ab']],
     ['Rates', ['avg', 'obp', 'slg', 'ops']],
     ['In a row', ['hrrow']],
@@ -411,6 +428,7 @@ const FIELD_GROUPS: Record<FinderBoardSide, [string, string[]][]> = {
     ['Strikeouts and walks', ['so', 'bb', 'hbp', 'wp', 'bk']],
     ['Allowed', ['h', 'r', 'er', 'hr', 'baserunners', 'runs']],
     ['Rates', ['era', 'whip']],
+    ['Runners', ['sb', 'cs', 'pk', 'pb']],
     ['In a row', ['krow', 'retired', 'hrrow']],
   ],
   fielding: [
@@ -602,6 +620,10 @@ export interface FinderResult<P extends LeaguePlayer = LeaguePlayer, G extends L
   /** Every match has the same value of the question's first stat, so the rows are in date order
    *  and `headlineField` is the next stat that tells them apart (FLAT_LEAD). False on a season. */
   flat: boolean
+  /** The first and the latest game with a match, across every match rather than the rows returned,
+   *  which are capped and ordered by the stat: "last did it" is the half of "has anyone ever" that a
+   *  ranked list of fifty cannot show. Null on a season, which has no one night, and on no match. */
+  span: { first: G; last: G } | null
 }
 
 /** What the section knows that the engine cannot: the innings an ERA is quoted per, and the
@@ -829,7 +851,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     gamesPlayed?: Map<string, number>,
   ): FinderResult<P, G> => {
     // A side with no field at this grain (Hitting by the inning) can ask nothing, and finds nothing.
-    if (!fields.length) return { rows: [], total: 0, searched: 0, tally: [], headlineField, qualifier: null, flat: false }
+    if (!fields.length) return { rows: [], total: 0, searched: 0, tally: [], headlineField, qualifier: null, flat: false, span: null }
     const byKey = new Map(fields.map(f => [f.key, f]))
     const head = byKey.get(headlineField) ?? fields[0]
     // THE SEARCHED COUNT EXCLUDES LINES THAT ARE NOT APPEARANCES. Ninety-seven of the season's
@@ -909,6 +931,15 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
       ? (FLAT_LEAD[side][query.per] ?? []).map(k => byKey.get(k)).find((f): f is Field<L> => !!f && f !== head && differs(f)) ?? head
       : head
 
+    let span: { first: G; last: G } | null = null
+    for (const m of season ? [] : matched) {
+      const g = gameById.get(m.line.game_id)
+      if (!g) continue
+      if (!span) { span = { first: g, last: g }; continue }
+      if (g.game_date < span.first.game_date) span.first = g
+      if (g.game_date > span.last.game_date) span.last = g
+    }
+
     // A SEASON HAS NO TALLY: each player is one row already, so "who did it most" is the list.
     const counts = new Map<string, number>()
     // The club a player matched for MOST OFTEN, so a traded player's tally is one row filed
@@ -962,6 +993,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
       headlineField: lead.key,
       qualifier,
       flat,
+      span,
     }
   }
 
@@ -1154,4 +1186,49 @@ export function describeFinderQuery(side: FinderBoardSide, q: Pick<FinderQuery, 
   return parts.length ? parts.join(' and ')
     : q.per === 'season' ? 'every season line' : q.per === 'inning' ? 'every inning'
     : q.per === 'pa' ? 'every plate appearance' : 'every game line'
+}
+
+/** When the matches happened: "Sep 2" for one night, "Jun 5 to Sep 2" for more, each with its year
+ *  once the two ends fall in different seasons. Empty on a season, which has no night. */
+export function finderSpanText(span: FinderResult['span']): string {
+  if (!span) return ''
+  const a = span.first.game_date, b = span.last.game_date
+  if (a === b) return shortDate(b)
+  const years = a.slice(0, 4) !== b.slice(0, 4)
+  const day = (iso: string) => (years ? `${shortDate(iso)}, ${iso.slice(0, 4)}` : shortDate(iso))
+  return `${day(a)} to ${day(b)}`
+}
+
+/**
+ * A Find question's answer in one line, for the search row: "7 times · last Sep 2 · most, Kelsie
+ * Whitmore (3)". "Has anyone ever" is answered by the count and the date before the row is opened,
+ * and "Never" is an answer too, which a link alone could not give. The leader only when someone did
+ * it more than once and somebody else did it too: a tally of ones names nobody in particular, and a
+ * tally of one is a player's own question ("Whitmore 2-hit games") naming them back.
+ *
+ * A RECORD IS ITS TOP NUMBER, not its count. "Most stolen bases in an inning" asks Find for at least
+ * one, ranked, and "72 times" is how many innings had a steal, an answer to nothing asked; the record
+ * is the first row: "Record 3 · Heights, Aug 5", or "Record 3 · 4 tied". A season's is the leader.
+ * Ties are counted over every match, so `result` must be uncapped for a record.
+ */
+export function finderAnswerText(result: FinderResult, side: FinderBoardSide, query: Pick<FinderQuery, 'per' | 'conditions'>): string {
+  if (result.total === 0) return 'Never'
+  const [only] = query.conditions
+  if (query.conditions.length === 1 && only.op === 'gte' && only.value === 1 && result.rows.length) {
+    const top = result.rows.reduce((m, r) => Math.max(m, r.values[only.field] ?? 0), 0)
+    const best = result.rows.filter(r => (r.values[only.field] ?? 0) === top)
+    const first = best[0]
+    const who = best.length > 1 ? `${best.length} tied`
+      : [first.name, first.game && shortDate(first.game.game_date)].filter(Boolean).join(', ')
+    return `${query.per === 'season' ? 'Leader' : 'Record'} ${displayFinderValue(side, only.field, top)} · ${who}`
+  }
+  if (query.per === 'season') {
+    const lead = result.rows[0]?.name
+    return [`${result.total.toLocaleString()} ${result.total === 1 ? 'season' : 'seasons'}`, lead && `first, ${lead}`].filter(Boolean).join(' · ')
+  }
+  const when = result.span ? shortDate(result.span.last.game_date) : ''
+  const count = result.total === 1 ? 'Once' : `${result.total.toLocaleString()} times`
+  const top = result.tally[0]
+  const most = top && top.games > 1 && result.tally.length > 1 && result.tally[1].games !== top.games ? `most, ${top.name} (${top.games})` : ''
+  return [count, when && (result.total === 1 ? when : `last ${when}`), most].filter(Boolean).join(' · ')
 }

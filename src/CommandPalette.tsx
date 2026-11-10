@@ -94,6 +94,12 @@ const PALETTE_RECENTS = 3
 /** How many player rows answer a stat typed beside a name. A common surname is several players, and
  *  on MLB each answer is a call, so only the rows a reader is likely to be choosing between. */
 const ANSWERED_ROWS = 3
+/** Rows that open Find and get their count, for the same reason: the first few are the choice. */
+const ANSWERED_FIND_ROWS = 4
+/** A row whose link is a Find question the section can count. A plate-appearance record's own rows
+ *  name their play already, and its "N tied" row's link asks a wider question than its title. */
+const findAnswerable = (i: { key: string; href?: string }) =>
+  !!i.href && i.href.includes('board=find') && !i.key.startsWith('parecord-')
 const QUESTION_KINDS = new Set<PickKind>(['leader', 'finder', 'definition'])
 const QUESTION_ICON: Record<RecentQuestion['kind'], React.ReactNode> = {
   leader: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
@@ -281,7 +287,7 @@ const GROUP_LABEL_SX = {
   fontSize: TYPE_SCALE.micro, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary',
 } as const
 
-export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames, resolveLeader, resolvePlayerStat, resolveFirsts, resolvePaRecord, resolvePlayerQuestion, seasonCount = null, actions = [] }: {
+export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames, resolveLeader, resolvePlayerStat, resolveFirsts, resolvePaRecord, resolvePlayerQuestion, resolveFindAnswer, seasonCount = null, actions = [] }: {
   open: boolean
   onClose: () => void
   section: NavSection
@@ -304,6 +310,8 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   resolvePaRecord?: SearchBridgeState['resolvePaRecord']
   /** "Sato vs hunters", "Whitmore off Schroder": Find questions naming players (WPBL only). */
   resolvePlayerQuestion?: SearchBridgeState['resolvePlayerQuestion']
+  /** "7 times · last Sep 2" for a row that opens Find, from the search bridge (WPBL only). */
+  resolveFindAnswer?: SearchBridgeState['resolveFindAnswer']
   /** How many seasons the section has on record, from the search bridge. */
   seasonCount?: number | null
   /** The site's own actions (theme, settings, feedback), from the shell. */
@@ -482,7 +490,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     setSearchQuery(nameWords(v) ?? v, typedSeason(v), typedPart(v))
   }
 
-  const groups = useMemo<Group[]>(() => {
+  const rawGroups = useMemo<Group[]>(() => {
     const q = text.trim().toLowerCase()
     const pageItem = (p: PageEntry, i: number, owner: NavSection = section): Item => ({
       key: `page-${p.href}-${i}`, kind: 'page', title: p.label,
@@ -664,6 +672,38 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     // trying it. Not while the section is still looking, or they flash in ahead of its rows.
     return found.length || searching ? found : [{ label: 'Try', grid: true, items: tryItems }]
   }, [text, results, idle, section, searching, compare, gameRows, liveRows, recentQs, rowPicks, leaderRows, peeks, answers, elsewhere, ownPlayers, actions, firsts, firstAsk, paRecords, paAsk, playerQs])
+
+  // HAS IT EVER HAPPENED, answered in the row: every row that opens Find says how often and when last
+  // ("Find · 7 times · last Sep 2 · ..."), so "has anyone ever" needs no tap, and "Never" is an
+  // answer the link alone could not give. Read off each row's link by the section, so the count is the
+  // board's own. Not a plate-appearance record's own rows, which already name the play. The first few
+  // only, the rows a reader is choosing between; the answer goes after the kind of row, where a long
+  // subtitle's cut cannot reach it, and Recent keeps the row without it, since it goes stale.
+  const findHrefs = useMemo(() => [...new Set(rawGroups.flatMap(g => g.items)
+    .filter(findAnswerable).map(i => i.href!))].slice(0, ANSWERED_FIND_ROWS).join(' '), [rawGroups])
+  const [findAnswers, setFindAnswers] = useState<{ text: string; byHref: Record<string, string> } | null>(null)
+  useEffect(() => {
+    if (!findHrefs || !resolveFindAnswer) return
+    let live = true
+    const t = setTimeout(() => {
+      Promise.all(findHrefs.split(' ').map(h => resolveFindAnswer(h).catch(() => null).then(a => [h, a] as const)))
+        .then(pairs => { if (live) setFindAnswers({ text, byHref: Object.fromEntries(pairs.filter((x): x is [string, string] => !!x[1])) }) })
+    }, 250)
+    return () => { live = false; clearTimeout(t) }
+  }, [text, findHrefs, resolveFindAnswer])
+  const groups = useMemo<Group[]>(() => {
+    const byHref = findAnswers && findAnswers.text === text ? findAnswers.byHref : null
+    if (!byHref) return rawGroups
+    return rawGroups.map(g => ({
+      ...g,
+      items: g.items.map(i => {
+        const answer = findAnswerable(i) ? byHref[i.href!] : undefined
+        if (!answer) return i
+        const [kind, ...rest] = i.subtitle?.split(' · ') ?? []
+        return { ...i, subtitle: [kind, answer, ...rest].filter(Boolean).join(' · '), recentSubtitle: i.recentSubtitle ?? i.subtitle }
+      }),
+    }))
+  }, [rawGroups, findAnswers, text])
 
   const flat = useMemo(() => groups.flatMap(g => g.items), [groups])
   // Rows that answer the text, as against the examples a miss falls back to.
