@@ -835,6 +835,10 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
       if (season) return nameOf(a).localeCompare(nameOf(b))
       const ad = dateOf(a), bd = dateOf(b)
       if (ad !== bd) return ad < bd ? -1 : 1
+      // Two plays or innings in one game go in the order they happened, which a yes-or-no answer's
+      // date-ordered log needs; the id alone put a game's 6th-inning homer before its 3rd's.
+      const as = (a.line as { sequence?: number }).sequence, bs = (b.line as { sequence?: number }).sequence
+      if (as != null && bs != null && as !== bs) return as - bs
       return a.line.id < b.line.id ? -1 : 1
     })
 
