@@ -16,8 +16,8 @@ import { chromePx, typePx } from './ui/scale'
 import { ICON_SIZE, TYPE_SCALE } from './ui/card'
 import { pressable } from './ui/interaction'
 import { SearchAvatar } from './ui/SearchAvatar'
-import { WPBL_NAV, wpblPathFor } from './wpbl/routes'
-import { WPBL_MORE_PAGES } from './wpbl/morePages'
+import { WPBL_NAV, WPBL_AWARDS_PATH, wpblPathFor } from './wpbl/routes'
+import { WPBL_FOOTER_PAGES } from './wpbl/morePages'
 import { MLB_NAV, MLB_VIEW_PATHS, MLB_MORE } from './mlb/routes'
 import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 
@@ -178,6 +178,7 @@ const BOARD_PAGES: Record<NavSection, PageEntry[]> = {
     { label: 'Bests', hint: 'Stats: the best single games', href: '/wpbl/stats?board=bests' },
     { label: 'Find', hint: 'Stats: search every box-score line', href: '/wpbl/stats?board=find' },
     { label: 'Run value', hint: 'Stats: runs and wins added', href: '/wpbl/stats?board=runs' },
+    { label: 'Charts', hint: 'Stats: two stats plotted', href: '/wpbl/stats?board=charts' },
     { label: 'Pitch by pitch', hint: 'Stats: the counts', href: '/wpbl/stats?board=pitches' },
     { label: 'Draft', hint: 'Stats: how the draft turned out', href: '/wpbl/stats?board=draft' },
   ],
@@ -200,7 +201,13 @@ const TAB_PAGES: Record<NavSection, PageEntry[]> = {
 }
 
 const MORE_PAGES: Record<NavSection, PageEntry[]> = {
-  wpbl: WPBL_MORE_PAGES.map(p => ({ label: p.label, hint: p.hint, href: p.href })),
+  // The footer's list, not the menu's: Data sources and Open data are kept out of the menu, and the
+  // menu's list left them unfindable here too, though PAGE_WORDS already named "Data sources".
+  // The ballot is a modal over Home with its own address, so neither list carries it.
+  wpbl: [
+    ...WPBL_FOOTER_PAGES.map(p => ({ label: p.label, hint: p.hint, href: p.href })),
+    { label: 'Fan awards', hint: 'Ballot and results', href: WPBL_AWARDS_PATH },
+  ],
   mlb: MLB_MORE.map(p => ({ label: p.label, hint: p.hint, href: p.href })),
 }
 
@@ -279,7 +286,12 @@ const PAGE_WORDS: Record<string, string[]> = {
   'Watch': ['videos', 'highlights', 'youtube', 'broadcasts'],
   'Photos': ['gallery', 'pictures'],
   'Reading': ['articles', 'news', 'writers'],
-  'Data sources': ['sources', 'api', 'data'],
+  'Data sources': ['sources', 'api', 'data', 'feeds'],
+  'Open data': ['download', 'csv', 'json', 'export', 'dataset'],
+  'Fan awards': ['awards', 'vote', 'voting', 'ballot', 'poll'],
+  'Charts': ['scatter', 'plot', 'graph', 'chart'],
+  'Scorigami': ['final scores', 'every score', 'unique scores'],
+  'Report cards': ['pythagorean', 'streaks', 'roster age'],
 }
 
 /** How well a page's name answers the query: a name that starts with it beats a word in it or a

@@ -1,7 +1,7 @@
 import { TeamLogo } from '../components/TeamLogo'
 import { useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { runFinder, validFinderSort, type FinderPer, type FinderQuery, type FinderSide, type FinderSort } from '../../league/finder'
+import { finderMonths, runFinder, validFinderSort, type FinderPer, type FinderQuery, type FinderSide, type FinderSort } from '../../league/finder'
 import { FinderBoard, type FinderExample, type FinderReading } from '../../ui/finderBoard'
 import { parseFinderText } from '../../league/finderParse'
 import { scopedGames } from '../../league/season'
@@ -103,6 +103,9 @@ export function MlbFindView({
     const teamGames = Math.min(...played.values())
     return { minPa: Math.round(MLB_QUALIFY_PA_PER_GAME * teamGames), minOuts: Math.round(MLB_QUALIFY_IP_PER_GAME * teamGames * 3) }
   }, [data, scoped.scope])
+  const months = useMemo(
+    () => finderMonths(scopedGames((data?.games ?? []).filter(g => g.status === 'final'), scoped.scope)),
+    [data, scoped.scope])
   const result = useMemo(
     () => runFinder(side, data?.batting ?? [], data?.pitching ?? [], data?.players ?? [], data?.games ?? [], scoped, 50, sort,
       { eraInnings: 9, qualify, clubName }),
@@ -146,7 +149,7 @@ export function MlbFindView({
           <FinderBoard side={side} query={query} onQuery={onQuery} result={result} clubs={CLUBS} loading={loading}
             clubAbbr={id => TEAM_ABBR[Number(id)] ?? id}
             sort={sort} onSort={setSort} examples={EXAMPLES[side]}
-            exampleCount={ex => exampleCounts?.get(ex.label) ?? null} exampleCounted={GRAINS} exampleHref={exampleHref} grains={GRAINS} plays={false}
+            exampleCount={ex => exampleCounts?.get(ex.label) ?? null} exampleCounted={GRAINS} exampleHref={exampleHref} grains={GRAINS} plays={false} months={months}
             parse={text => parseFinderText(text, MLB_FINDER_CLUBS)} onAsk={onAsk}
             renderRow={(r, i, unit, rank) => (
               <GameLineRow key={r.key} rank={rank.rank} tied={rank.tied} name={r.name} player={r.player} teamId={r.teamId}

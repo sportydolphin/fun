@@ -5,7 +5,7 @@ import SearchIcon from '@mui/icons-material/Search'
 import {
   finderFieldGroups, finderUnit, finderColumns, defaultCondition, parseFinderValue, unparseFinderValue,
   displayFinderValue, describeFinderQuery, describeFinderConditions, describeFinderCuts, finderSpanText, finderSigned, finderLowerBetter, conditionsForPer, finderPlayerApplies, finderPlayerAt, hasPlayerFilter,
-  FINDER_OPS,
+  FINDER_OPS, FINDER_MONTH_NAMES, finderSpanMonth, finderMonthSpan,
   type FinderCondition, type FinderOp, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
   type FinderBoardSide, type FinderSort, type FinderTally, type FinderVenue,
 } from '../league/finder'
@@ -696,7 +696,7 @@ function ExampleGrid({ side, grains, examples, count, counted, href, onPick }: {
 export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   side, query, onQuery, result, clubs, clubAbbr, loading = false, renderRow, rowParts, tallyParts,
   sort, onSort, examples, exampleCount, exampleCounted = [], exampleHref, parse, onAsk, accent, grains = DEFAULT_GRAINS, picks,
-  plays = true,
+  plays = true, months,
 }: {
   side: FinderBoardSide
   /** Owned by the section, which mirrors it into the address bar. */
@@ -743,6 +743,9 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   /** The players to pick from: one player at a game, a season or a pitcher's inning, and a batter and
    *  a pitcher at a plate appearance. Absent draws no player pickers. */
   picks?: FinderPlayerPicks
+  /** The months the season on screen was played in (`finderMonths`), for the Month picker, empty
+   *  while the games load. Absent draws no When row; a span the search set still shows as its chip. */
+  months?: number[]
 }) {
   const [allRows, setAllRows] = useState(false)
   // FOLDED ONCE THERE IS AN ANSWER. The form is a screen of selects above the list it produced, so a
@@ -757,6 +760,23 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   const hasConditions = query.conditions.length > 0 || hasPlayerFilter(side, query)
   const playerHere = !!picks && query.per !== 'pa' && finderPlayerApplies(side, query.per, query.byClub)
   const isFolded = folded && hasConditions
+
+  // The When pickers. A month the search set that the season on screen never played in still shows,
+  // so the picker never claims "Any month" over a span that is cutting the board.
+  const spanMonth = finderSpanMonth(query)
+  const spanCustom = (query.from || query.to) && spanMonth == null
+  const shownMonths = [...new Set([...(months ?? []), ...(spanMonth ? [spanMonth] : [])])].sort((a, b) => a - b)
+  const monthOptions = [
+    { value: '', label: 'Any month' },
+    ...shownMonths.map(m => ({ value: String(m), label: FINDER_MONTH_NAMES[m - 1] })),
+    ...(spanCustom ? [{ value: 'custom', label: describeFinderCuts(side, query).find(c => c.key === 'span')?.text ?? 'Custom' }] : []),
+  ]
+  const monthValue = spanCustom ? 'custom' : spanMonth ? String(spanMonth) : ''
+  const lastOptions = [
+    { value: '', label: 'Every game' },
+    ...[...new Set([1, 5, 10, 15, 20, ...(query.last ? [query.last] : [])])].sort((a, b) => a - b)
+      .map(n => ({ value: String(n), label: n === 1 ? 'Last game' : `Last ${n} games` })),
+  ]
 
   const setCondition = (i: number, c: FinderCondition) =>
     onQuery({ ...query, conditions: query.conditions.map((x, j) => (j === i ? c : x)) })
@@ -863,8 +883,8 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     ...(playerHere && query.playerId ? [{ key: 'player', text: picks!.name(query.playerId), remove: () => onQuery({ ...query, playerId: null }) }] : []),
     ...(query.per === 'pa' && query.batterId ? [{ key: 'bat', text: `By ${picks?.name(query.batterId) ?? query.batterId}`, remove: () => onQuery({ ...query, batterId: null }) }] : []),
     ...(query.per === 'pa' && query.pitcherId ? [{ key: 'pit', text: `Against ${picks?.name(query.pitcherId) ?? query.pitcherId}`, remove: () => onQuery({ ...query, pitcherId: null }) }] : []),
-    // The span, the last N games and the arm, which only the search sets (the form has no picker for
-    // them), so each chip is also the only way to take one off.
+    // The span, the last N games and the arm. A whole month and the last N have pickers under When; a
+    // span of days and the arm only the search sets, so their chip is the only way to take one off.
     ...describeFinderCuts(side, query).map(c => ({
       key: c.key, text: c.text,
       remove: () => onQuery(c.key === 'span' ? { ...query, from: null, to: null } : c.key === 'last' ? { ...query, last: null } : { ...query, hand: null }),
@@ -971,6 +991,25 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
               onChange={v => onQuery({ ...query, oppId: v || null })} />
           </Box>
           </Box>
+
+          {/* WHEN: a month of the season, and a club's or a player's last N games. Typed as words
+              ("since August", "last 10 games") these were search-only until Nov 2026, so a reader on
+              the board could take one off but never put one on. A span the pickers cannot draw (a run
+              of days) shows as "Custom" in the month picker, with its words, and stays its chip's. */}
+          {/* Drawn whenever the section offers months, even before its games are in: drawn only
+              once they arrived, the row pushed the examples down 80 to 100px mid-load (the sweep). */}
+          {months != null && (
+            <Box sx={{ pt: 1.25, mt: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
+              <SectionLabel>When</SectionLabel>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                <Picker label="Month" value={monthValue} options={monthOptions}
+                  onChange={v => onQuery(v === 'custom' ? query
+                    : { ...query, ...(v ? finderMonthSpan(Number(v)) : { from: null, to: null }) })} />
+                <Picker label="Last games" value={query.last ? String(query.last) : ''} options={lastOptions}
+                  onChange={v => onQuery({ ...query, last: v ? Number(v) : null })} />
+              </Box>
+            </Box>
+          )}
 
           {/* THE MATCHUP, only where a line names both players: a plate appearance. */}
           {picks && query.per === 'pa' && (
