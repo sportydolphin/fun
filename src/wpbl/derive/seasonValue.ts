@@ -3,6 +3,7 @@ import { buildRunExpectancy, playRunValues } from './runExpectancy'
 import { winProbModel, wpaLeaders, type WpaLine } from './winProbability'
 import { baserunningEvents, baserunningLeaders, runnerIds, type BaserunningLine, type BaserunningRuns } from './baserunning'
 import { centeredBaserunning, doublePlayRuns } from './war'
+import { leverageLines, leverageModel, type LeverageLine } from './leverage'
 import type { WpblBattingLine, WpblGame, WpblPlayer, WpblRunValuePlay } from '../types'
 
 /**
@@ -29,6 +30,10 @@ export interface SeasonValueBoards<P> {
   wpaPitching: WpaLine<P>[]
   /** BsR, best first. Hitting only: a pitcher's side of a steal is shared with the catcher. */
   bases: BaserunningRuns<P>[]
+  /** pLI and gmLI by player id, from the same win model. Optional so a board built by hand reads
+   *  as before: no leverage, a dash. */
+  leverageHitting?: Map<string, LeverageLine>
+  leveragePitching?: Map<string, LeverageLine>
 }
 
 export function seasonValueBoards(
@@ -41,12 +46,15 @@ export function seasonValueBoards(
   const idOf = runnerIds(plays, players)
   const model = winProbModel(plays, games)
   const table = buildRunExpectancy(plays, rv)
+  const lev = leverageModel(model, plays, rv)
   return {
     wpaHitting: wpaLeaders(model, plays, rv, players, 'hitting', idOf),
     wpaPitching: wpaLeaders(model, plays, rv, players, 'pitching'),
     bases: centeredBaserunning(
       baserunningLeaders(baserunningEvents(plays, rv, table, idOf), players), players, batting, games,
       doublePlayRuns(playRunValues(plays, rv, table), table)),
+    leverageHitting: leverageLines(lev, plays, rv, 'hitting'),
+    leveragePitching: leverageLines(lev, plays, rv, 'pitching'),
   }
 }
 
@@ -64,6 +72,9 @@ export interface PlayerSeasonValue {
   wpaPitching: BoardPlace | null
   /** With the counts the board prints under the name. */
   bases: (BoardPlace & { line: BaserunningLine<unknown> }) | null
+  /** Average leverage at the plate and on the mound, with the mound's gmLI; absent where none. */
+  leverageHitting?: LeverageLine | null
+  leveragePitching?: LeverageLine | null
 }
 
 function place<R>(rows: R[], value: (r: R) => number, mine: R | undefined): BoardPlace | null {
@@ -81,6 +92,8 @@ export function playerSeasonValue<P extends { id: string }>(boards: SeasonValueB
     wpaHitting: place(boards.wpaHitting, r => r.wpa, of(boards.wpaHitting)),
     wpaPitching: place(boards.wpaPitching, r => r.wpa, of(boards.wpaPitching)),
     bases: basesPlace && bases ? { ...basesPlace, line: bases } : null,
+    leverageHitting: boards.leverageHitting?.get(playerId) ?? null,
+    leveragePitching: boards.leveragePitching?.get(playerId) ?? null,
   }
 }
 

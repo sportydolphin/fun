@@ -1,5 +1,6 @@
 import { buildRunExpectancy, playRunValues, type RunValueGame } from './runExpectancy'
 import { winProbModel, wpaLeaders } from './winProbability'
+import { leverageLines, leverageModel } from './leverage'
 import { baserunningEvents, baserunningLeaders, runnerIds } from './baserunning'
 import { catcherArmLeaders, catcherIndex } from './catching'
 import { defenseIndex, fieldingLedger } from './fielding'
@@ -50,6 +51,13 @@ export interface WpblValueTotals {
   /** Catching: steal attempts against and runners thrown out, for the arm's sample. */
   armAtt: number
   armCs: number
+  /** Leverage, stored as sums so the row stays a count like every other stored figure: plate
+   *  appearances batted or faced and their leverage summed (pLI is the ratio), and relief
+   *  entries with the leverage at each (gmLI is the ratio). */
+  liPa: number
+  liSum: number
+  reliefApps: number
+  gmliSum: number
 }
 
 export interface PlayerValueSeason<P> { player: P; totals: WpblValueTotals }
@@ -57,6 +65,7 @@ export interface PlayerValueSeason<P> { player: P; totals: WpblValueTotals }
 const empty = (): WpblValueTotals => ({
   pa: 0, outs: 0, bat: 0, bsr: 0, gdp: 0, rng: 0, err: 0, dp: 0, ofArm: 0, cArm: 0, cBlk: 0, fld: 0,
   pos: 0, lgAdj: 0, rep: 0, pit: 0, batWar: 0, pitWar: 0, war: 0, wpa: 0, armAtt: 0, armCs: 0,
+  liPa: 0, liSum: 0, reliefApps: 0, gmliSum: 0,
 })
 
 /** The zero row, for a league line the Overall side has no rates to put in. */
@@ -114,6 +123,16 @@ export function playerValueSeasons(
   }
   for (const l of wpaLeaders(model, plays, rvGames, players, 'pitching')) {
     const r = row(l.player?.id); if (r) r.wpa += l.wpa
+  }
+  // Batting and pitching together, like WPA beside it: a two-way player's pLI is every plate
+  // appearance they were in.
+  const lev = leverageModel(model, plays, rvGames)
+  for (const side of ['hitting', 'pitching'] as const) {
+    for (const [id, l] of leverageLines(lev, plays, rvGames, side)) {
+      const r = row(id); if (!r) continue
+      r.liPa += l.pa; r.liSum += l.pli * l.pa
+      if (l.gmli != null) { r.reliefApps += l.reliefApps; r.gmliSum += l.gmli * l.reliefApps }
+    }
   }
   for (const a of arm) {
     const r = row(a.playerId); if (r) { r.armAtt += a.attempts; r.armCs += a.cs }
