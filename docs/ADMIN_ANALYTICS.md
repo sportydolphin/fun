@@ -18,6 +18,8 @@ tab?" doesn't mean opening the Supabase SQL editor.
 | SQL: the Search box card | [`20261014060457_add_admin_search_palette_rpc.sql`](../scripts/migrations/20261014060457_add_admin_search_palette_rpc.sql) + [`20261014183000_add_palette_missed_queries.sql`](../scripts/migrations/20261014183000_add_palette_missed_queries.sql) |
 | The search box and its events | [`src/CommandPalette.tsx`](../src/CommandPalette.tsx), opened from [`src/App.tsx`](../src/App.tsx) |
 | MLB Home card seen / used | [`src/mlb/components/TrackedCard.tsx`](../src/mlb/components/TrackedCard.tsx) |
+| SQL: Today, Returning / Engaged, Return rate, Sources, Since launch | [`20261111061433_admin_briefing_audience_and_traffic_sources.sql`](../scripts/migrations/20261111061433_admin_briefing_audience_and_traffic_sources.sql) |
+| Where a load came from (`landed`) | [`src/lib/landing.ts`](../src/lib/landing.ts), called from [`src/main.tsx`](../src/main.tsx) |
 | SQL: the Page speed card | [`20260927074721_add_admin_web_vitals_rpc.sql`](../scripts/migrations/20260927074721_add_admin_web_vitals_rpc.sql) |
 | Real-user timing capture | [`src/lib/webVitals.ts`](../src/lib/webVitals.ts), `trackOnExit` in [`src/lib/analytics.ts`](../src/lib/analytics.ts) |
 | Typed RPC wrappers + pure helpers | [`src/lib/analyticsAdmin.ts`](../src/lib/analyticsAdmin.ts) |
@@ -66,9 +68,57 @@ audited alongside the new events and two things came off it:
   adding seven event names on Aug 25 lifts it about a fifth with nothing changing in what
   anyone did, and the number was already on the page twice (the chart plots it per day, the
   Events card breaks it down). "Active today" and "Active 30d" were two tiles carrying three
-  numbers, and unlike their neighbors they ignore the range chips entirely. They are now one
-  tile whose sub-line names all three windows, so the fixed-window group cannot be mistaken for
-  something the filter moved.
+  numbers, and unlike their neighbors they ignore the range chips entirely. They became one
+  tile whose sub-line named all three windows. **Since Nov 11, 2026 the row is Browsers,
+  Returning and Engaged** (see "Today, sources and return rate" below): "Signed in" moved under
+  Accounts, at 0 to 5 users a day it said nothing about the day, and the fixed windows went to
+  the Today card, above the chips.
+
+**Today, sources and return rate** (Nov 11, 2026). On Nov 10 the page showed 106 browsers and
+nothing else, against a usual 10 to 30: not that it was unusual, not that 91 were new and 19 did
+anything, not where they came from. Four additions, one migration
+([`20261111061433_admin_briefing_audience_and_traffic_sources.sql`](../scripts/migrations/20261111061433_admin_briefing_audience_and_traffic_sources.sql)):
+
+- **Today** (`admin_briefing`), the first card, above the range chips it ignores. Browsers so far
+  against the median of the SAME HOURS of the last seven days (a whole-day median would make every
+  morning read low), new and returning, engaged, today's sources, and then only what needs the
+  owner: error screens on the running deploy (`runningBuild()` is passed in and matched against
+  `app_error`'s `build`), a pipeline that is not green, unhandled feedback. A quiet day has no
+  alert lines. Under a median of 5 there is no multiple, since 6 against 3 is not news.
+- **Engaged** means the browser did something beyond arriving. Impressions are not enough of a
+  rule: a comparison page records `wpbl_compare_viewed` on load and a video page records
+  `wpbl_highlight_played` (`from: 'link'`) on load, and over the 30 days to Nov 10, 2026 those
+  two were 300 browsers that never touched anything. `ARRIVALS` in `analyticsAdmin.ts` names them
+  (an `event:via` entry names one value), and `PASSIVE_EVENTS` (every non-action in `EVENT_INFO`
+  plus `ARRIVALS`) is SENT to each RPC as `passive`, so the list lives in one place.
+  `admin_event_engaged` also treats any `*_shown` / `*_seen` name as passive, because retired
+  impressions (`wpbl_bracket_shown`) are in the rows and not in the client's list; without that
+  rule 98% of September's new browsers read as engaged. **A new event that fires on page load is
+  an arrival**: add it to `ARRIVALS`, or every landing on that page counts as a reader.
+- **Returning** is first seen before the range starts. Raw rows go at 90 days, so "first seen"
+  means first seen since the oldest row; within two weeks of that line the tile says so. The
+  **Return rate** card (`admin_audience`'s `cohorts`) is each complete week's new browsers and the
+  share back on another day within 7 days, plus how many did anything on day one. Weeks within
+  two weeks of the history line are left out. The doc used to list retention as deliberately not
+  built; it was the clearest way to say the October traffic was mostly one-page visits.
+- **Sources** (`admin_traffic_sources`) reads `landed`, one row per page load from
+  [`src/lib/landing.ts`](../src/lib/landing.ts): the referrer's HOST only (a full URL can hold a
+  search or a private thread), `utm_source` (or `short` for this site's short links), whether it
+  opened as the installed app, and the landing route (`routeOf`, detail pages as `:id`). A load is
+  engaged when its browser did an engaged event within 30 minutes, since no other event carries a
+  page-load id. Names come from `sourceLabel` (hosts and Android packages to "Google", "Gmail",
+  "Instagram"...), and hosts under one name are summed. Ignores the league chips.
+  `landed` is not a page view, so the rule in `analytics.ts` against logging those stands.
+- **Since launch** (`admin_daily_trend`) is `events_daily`'s all-events rows, true distinct
+  browsers per UTC day back to Aug 5, 2026, with a 7-day mean. An RPC rather than a table read
+  only because a select stops at 1000 rows in silence.
+
+**Crawlers write nothing** (Nov 11, 2026). Google's renderer runs the page's JavaScript and keeps
+no storage, so every page it drew was a new "browser" with one event: the 218 single-page
+comparison visits and the Nov 10 run of one-off video pages have that shape. `silenced()` in
+`analytics.ts` now refuses a bot user agent (`isBotAgent`) alongside test runs, automation and
+the dev server: refused rather than flagged, like the test runs, so no RPC needs a filter. Counts
+before that date include them, so expect browsers to step down on it.
 
 **The Today range is a partial day, and the deltas know it.** `days_back = 1` means midnight-to-now
 in the reader's timezone, so the chip says "Today" rather than "24h": at 9am it covers nine
@@ -178,6 +228,10 @@ last two rows, which say what they take instead.
 | `admin_discord_funnel(days_back, tz)` | shown / joined / dismissed, **by distinct session** |
 | `admin_growth(days_back, tz)` | signups per day, user totals, push subscribers, reminder opt-ins |
 | `admin_mlb_usage(days_back, tz)` | MLB Home cards (`props->>'card'`, seen and used in browsers), tabs (`view` × `via`), and player / team opens by `from` |
+| `admin_briefing(tz, passive, build)` | today only: browsers, new, engaged and events so far; `pace`, browsers by this clock time on each of the last 7 days and their median; `errors`, today's error screens and those on `build`; today's `sources` from `landed`, and `sources_since` |
+| `admin_audience(days_back, tz, league, passive)` | the range's browsers, new (first seen in it) and engaged, against the previous window; `history_from`; and `cohorts`, each complete week's new browsers, how many came back within 7 days and how many did something on day one |
+| `admin_traffic_sources(days_back, tz, passive)` | `landed` rows by referrer host × `utm` × installed app, and by landing route: loads, browsers, new browsers, and browsers engaged within 30 minutes; `since` |
+| `admin_daily_trend(section)` | `events_daily`'s all-events rows for one league (or `all`): events, browsers, users per UTC day. **Takes no window**: it is the whole history |
 | `admin_web_vitals(days_back, tz)` | real page loads: p75 LCP / INP / CLS / FCP / TTFB and the share under Google's "good" line, by device and section with rollups (null = all); and `shifts`, the elements that were the largest layout shift of loads over CLS 0.1, by route, ranked by how many such loads each one was |
 | `admin_user_roster(days_back, tz)` | one row per account: identity + auth.users email/provider/last sign-in, windowed activity and its WPBL/MLB split, favorite club, notification opt-ins, push devices, game reminders, series picks, feedback count, roles, MLB pick record |
 | `admin_set_user_role(target, want, granted, why)` | grant or revoke a `user_roles` row |
@@ -417,5 +471,5 @@ line stopping an unauthenticated caller from reaching the guard.
   outright at 1d (see above), and genuinely worth fixing only by comparing against yesterday
   truncated to the same clock time, which is a change to `admin_analytics_overview` and
   `admin_event_counts` that would move every number already on the page.
-- Not built, deliberately: retention / returning-browser cohorts, a first-visit → signup
-  funnel, and CSV export.
+- Not built, deliberately: a first-visit → signup funnel and CSV export. Return rate by weekly
+  cohort was on this list until Nov 11, 2026.

@@ -258,6 +258,8 @@ export const EVENT_INFO: Record<string, EventInfo> = {
   // One per page load, carrying timings rather than a choice. Read by the Page speed card through
   // admin_web_vitals, never as a count.
   web_vitals:             I('Page speed report', 'Site health'),
+  // One per page load, carrying where it came from. Read by Sources and Today, never as a count.
+  landed:                 I('Arrived on the site', 'Site health'),
 
   wpbl_reading_collapsed: R('Reading collapsed', 'Reading & photos'),
   wpbl_photos_shown:      R('Archive shown on Home', 'Reading & photos'),
@@ -591,6 +593,186 @@ export function fetchGrowth(days: number, tz: string): Promise<Growth> {
   return callRpc('admin_growth', { days_back: days, tz }, EMPTY_GROWTH)
 }
 
+// ─── engaged: did something beyond arriving ───────────────────────────────────
+
+/**
+ * Events that fire because a page loaded, not because the reader chose anything. Each is an action
+ * in EVENT_INFO (it is one on the cards that read it), but a browser whose only rows are these did
+ * nothing: a comparison page drawing itself, a video page "playing" on arrival, the Stats tab's
+ * first board, a game's first tab. `event:via` (or `event:from`) names one value of an event.
+ * Over the 30 days to Nov 10, 2026 the first two alone were 300 browsers that never touched a thing.
+ */
+export const ARRIVALS = [
+  'wpbl_compare_viewed', 'mlb_compare_viewed',
+  'wpbl_highlight_played:link',
+  'wpbl_stats_board:open', 'wpbl_stats_board:return', 'wpbl_stats_board:link',
+  'wpbl_game_tab:open',
+  'wpbl_share_opened', 'mlb_share_opened',
+  'app_updated', 'app_error',
+] as const
+
+/**
+ * Everything that does NOT make a browser engaged: every impression and retired name, plus the
+ * arrivals above. Sent to admin_audience, admin_briefing and admin_traffic_sources, which also
+ * treat any `*_shown` / `*_seen` name as passive (retired impressions are still in the rows).
+ */
+export const PASSIVE_EVENTS: string[] = [
+  ...Object.entries(EVENT_INFO).filter(([, i]) => i.kind !== 'action').map(([n]) => n),
+  ...ARRIVALS,
+]
+
+// ─── today ───────────────────────────────────────────────────────────────────
+
+export interface LandingSource { ref: string | null; utm: string | null; app: boolean; browsers: number }
+export interface Briefing {
+  tz: string
+  date: string | null
+  browsers: number
+  /** First seen today (since the 90-day history line). */
+  new: number
+  engaged: number
+  events: number
+  /** Browsers by this clock time on each of the last seven days, and their median. */
+  pace: { median: number | null; days: number[] | null }
+  errors: { today: number; today_browsers: number; last_message: string | null; build: string | null; on_build: number | null }
+  sources: LandingSource[]
+  /** First `landed` row: null until the deploy that records them. */
+  sources_since: string | null
+}
+export const EMPTY_BRIEFING: Briefing = {
+  tz: 'UTC', date: null, browsers: 0, new: 0, engaged: 0, events: 0,
+  pace: { median: null, days: null },
+  errors: { today: 0, today_browsers: 0, last_message: null, build: null, on_build: null },
+  sources: [], sources_since: null,
+}
+
+export function fetchBriefing(tz: string, build: string | null): Promise<Briefing> {
+  return callRpc('admin_briefing', { tz, passive: PASSIVE_EVENTS, build }, EMPTY_BRIEFING)
+}
+
+/**
+ * Today against the median of the same hours on the last seven days, as a multiple, and whether
+ * that is far enough off to call out. Null under a median of 5: at 3 a day, 6 is "2x" and nothing.
+ */
+export function todayPace(browsers: number, median: number | null): { multiple: number; unusual: boolean } | null {
+  if (median == null || median < 5) return null
+  const multiple = browsers / median
+  return { multiple, unusual: multiple >= 2 || multiple <= 0.5 }
+}
+
+/** "6.2x" / "0.4x" / "12x". */
+export function formatMultiple(m: number): string {
+  return `${m >= 10 ? Math.round(m) : m.toFixed(1)}x`
+}
+
+// ─── new, returning, engaged ─────────────────────────────────────────────────
+
+export interface AudienceTotals { browsers: number; new: number; engaged: number }
+export interface Cohort { week: string; new: number; back: number; engaged: number }
+export interface Audience {
+  tz: string
+  /** The oldest raw row: "first seen" means first seen since this date. */
+  history_from: string | null
+  totals: AudienceTotals
+  prev: AudienceTotals
+  cohorts: Cohort[]
+}
+const EMPTY_AUDIENCE_TOTALS: AudienceTotals = { browsers: 0, new: 0, engaged: 0 }
+export const EMPTY_AUDIENCE: Audience = {
+  tz: 'UTC', history_from: null, totals: EMPTY_AUDIENCE_TOTALS, prev: EMPTY_AUDIENCE_TOTALS, cohorts: [],
+}
+
+export function fetchAudience(days: number, tz: string, league: LeagueFilter): Promise<Audience> {
+  return callRpc('admin_audience', { days_back: days, tz, league, passive: PASSIVE_EVENTS }, EMPTY_AUDIENCE)
+}
+
+// ─── where loads come from ───────────────────────────────────────────────────
+
+export interface SourceRow { ref: string | null; utm: string | null; app: boolean; loads: number; browsers: number; new: number; engaged: number }
+export interface RouteRow { route: string; loads: number; browsers: number; engaged: number }
+export interface TrafficSources { since: string | null; sources: SourceRow[]; routes: RouteRow[] }
+export const EMPTY_TRAFFIC_SOURCES: TrafficSources = { since: null, sources: [], routes: [] }
+
+export function fetchTrafficSources(days: number, tz: string): Promise<TrafficSources> {
+  return callRpc('admin_traffic_sources', { days_back: days, tz, passive: PASSIVE_EVENTS }, EMPTY_TRAFFIC_SOURCES)
+}
+
+// Hosts (and Android app packages, which arrive as the host of `android-app://`), and utm_source
+// values, by the name a person would give them. Matched on the host or any parent domain, so
+// `l.instagram.com` and `google.co.uk` find theirs. Anything unlisted shows as itself.
+const SOURCE_NAMES: Array<[RegExp, string]> = [
+  // Google's own apps before Google: their packages end in `google.android.<app>`.
+  [/^com\.google\.android\.gm$|^gmail$/, 'Gmail'],
+  [/(^|\.)youtube\.com$|^youtu\.be$|^com\.google\.android\.youtube$|^youtube$/, 'YouTube'],
+  [/(^|\.)google\.[a-z.]+$|^com\.google\.android\.googlequicksearchbox$|^google$/, 'Google'],
+  [/(^|\.)bing\.com$|^bing$/, 'Bing'],
+  [/(^|\.)duckduckgo\.com$/, 'DuckDuckGo'],
+  [/(^|\.)yahoo\.[a-z.]+$/, 'Yahoo'],
+  [/(^|\.)ecosia\.org$/, 'Ecosia'],
+  [/(^|\.)brave\.com$/, 'Brave Search'],
+  [/^(t\.co|x\.com|twitter\.com|mobile\.twitter\.com|x|twitter)$/, 'X'],
+  [/(^|\.)instagram\.com$|^com\.instagram\.android$|^(instagram|ig)$/, 'Instagram'],
+  [/(^|\.)facebook\.com$|^com\.facebook\.katana$|^(facebook|fb)$/, 'Facebook'],
+  [/(^|\.)threads\.(net|com)$|^threads$/, 'Threads'],
+  [/(^|\.)reddit\.com$|^com\.reddit\.frontpage$|^reddit$/, 'Reddit'],
+  [/(^|\.)bsky\.app$|^(bluesky|bsky)$/, 'Bluesky'],
+  [/(^|\.)discord(app)?\.com$|^com\.discord$|^discord$/, 'Discord'],
+  [/(^|\.)tiktok\.com$|^tiktok$/, 'TikTok'],
+  [/(^|\.)linkedin\.com$|^lnkd\.in$|^linkedin$/, 'LinkedIn'],
+  [/(^|\.)chatgpt\.com$|^chat\.openai\.com$|^chatgpt(\.com)?$/, 'ChatGPT'],
+  [/(^|\.)perplexity\.ai$/, 'Perplexity'],
+  [/(^|\.)claude\.ai$/, 'Claude'],
+]
+const knownSource = (s: string | null) => (s ? SOURCE_NAMES.find(([re]) => re.test(s))?.[1] ?? null : null)
+
+/**
+ * One `landed` row's source as a name. A tagged link (`utm_source`) outranks the referrer, since
+ * it says which post it was; this site's own short links are `short`. No referrer is the installed
+ * app when it opened as one, and "Direct" otherwise (typed, a bookmark, or a link that hides it).
+ */
+export function sourceLabel(ref: string | null, utm: string | null, app: boolean): string {
+  if (utm === 'short') return 'Short links'
+  if (utm) return knownSource(utm) ?? knownSource(ref) ?? utm
+  if (ref === 'self') return 'This site'
+  if (ref) return knownSource(ref) ?? ref
+  return app ? 'Installed app' : 'Direct'
+}
+
+export interface SourceGroup { label: string; loads: number; browsers: number; new: number; engaged: number }
+
+/**
+ * Rows merged by name, busiest first. Browsers are SUMMED across the hosts under one name, so a
+ * browser that came from google.com and google.ca in one window counts twice; across the hosts of
+ * one engine that is rare enough to accept rather than send the names to the database.
+ */
+export function groupSources(rows: Array<LandingSource & Partial<SourceRow>>): SourceGroup[] {
+  const m = new Map<string, SourceGroup>()
+  for (const r of rows) {
+    const label = sourceLabel(r.ref, r.utm, r.app)
+    const g = m.get(label) ?? { label, loads: 0, browsers: 0, new: 0, engaged: 0 }
+    g.loads += r.loads ?? 0; g.browsers += r.browsers; g.new += r.new ?? 0; g.engaged += r.engaged ?? 0
+    m.set(label, g)
+  }
+  return [...m.values()].sort((a, b) => b.browsers - a.browsers || a.label.localeCompare(b.label))
+}
+
+// ─── since launch ────────────────────────────────────────────────────────────
+
+/** `events_daily`'s all-events rows: true distinct browsers per UTC day, back to the first event. */
+export function fetchDailyTrend(league: LeagueFilter): Promise<DayPoint[]> {
+  return callRpc('admin_daily_trend', { section: league }, [])
+}
+
+/** A trailing mean over `n` days, null until there are `n` to average. */
+export function rollingMean(values: number[], n = 7): Array<number | null> {
+  let sum = 0
+  return values.map((v, i) => {
+    sum += v
+    if (i >= n) sum -= values[i - n]
+    return i >= n - 1 ? sum / n : null
+  })
+}
+
 export interface AnalyticsBundle {
   overview: Overview
   events: EventCount[]
@@ -604,6 +786,8 @@ export interface AnalyticsBundle {
   pages: PageUsage
   vitals: WebVitals
   mlb: MlbUsage
+  audience: Audience
+  sources: TrafficSources
 }
 
 /**
@@ -628,7 +812,9 @@ export function fetchAnalytics(
     fetchWebVitals(days, tz),
     fetchMlbUsage(days, tz),
     fetchPaletteStats(days, tz),
-  ]).then(([overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb, palette]) => ({
-    overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb, palette,
+    fetchAudience(days, tz, league),
+    fetchTrafficSources(days, tz),
+  ]).then(([overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb, palette, audience, sources]) => ({
+    overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb, palette, audience, sources,
   }))
 }

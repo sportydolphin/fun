@@ -3,7 +3,8 @@ import { render, screen, within, waitFor, fireEvent } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import {
   EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS, EMPTY_ENTRY_POINTS, EMPTY_SEARCH, EMPTY_PALETTE, EMPTY_PAGE_USAGE, EMPTY_WEB_VITALS, EMPTY_MLB_USAGE,
-  type AnalyticsBundle,
+  EMPTY_AUDIENCE, EMPTY_TRAFFIC_SOURCES, EMPTY_BRIEFING,
+  type AnalyticsBundle, type Briefing,
 } from '../lib/analyticsAdmin'
 
 // /admin is behind an owner gate, so it is the one page that cannot be checked by opening a
@@ -24,14 +25,23 @@ const bundle = (over: Partial<AnalyticsBundle> = {}): AnalyticsBundle => ({
   pages: EMPTY_PAGE_USAGE,
   vitals: EMPTY_WEB_VITALS,
   mlb: EMPTY_MLB_USAGE,
+  audience: EMPTY_AUDIENCE,
+  sources: EMPTY_TRAFFIC_SOURCES,
   ...over,
 })
 
 const fetchAnalytics = vi.fn(async () => bundle())
+const fetchBriefing = vi.fn(async (): Promise<Briefing> => EMPTY_BRIEFING)
+let openFeedback: number | null = 0
 
 vi.mock('../lib/analyticsAdmin', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../lib/analyticsAdmin')>()
-  return { ...actual, fetchAnalytics: (...a: unknown[]) => fetchAnalytics(...(a as [])) }
+  return {
+    ...actual,
+    fetchAnalytics: (...a: unknown[]) => fetchAnalytics(...(a as [])),
+    fetchBriefing: () => fetchBriefing(),
+    fetchDailyTrend: async () => [],
+  }
 })
 
 // The operational half reads tables directly rather than through an RPC wrapper, so the
@@ -51,6 +61,7 @@ vi.mock('../AdminPanel', async (importOriginal) => {
       reload: () => {},
     }),
     AdminTools: () => <div data-testid="admin-tools">tools</div>,
+    useOpenFeedback: () => openFeedback,
   }
 })
 
@@ -58,7 +69,7 @@ const { default: AdminPage } = await import('../AdminPage')
 
 const renderPage = () => render(<AdminPage />)
 
-beforeEach(() => { fetchAnalytics.mockClear() })
+beforeEach(() => { fetchAnalytics.mockClear(); fetchBriefing.mockReset(); fetchBriefing.mockResolvedValue(EMPTY_BRIEFING); openFeedback = 0 })
 
 describe('AdminPage groups', () => {
   it('opens on Audience, with the range filter that only applies there', async () => {
@@ -252,7 +263,7 @@ describe('AdminPage range filter', () => {
     renderPage()
     await screen.findByText('Activity')
 
-    await userEvent.click(screen.getByText('Today'))
+    await userEvent.click(screen.getByRole('button', { name: 'Today' }))
     // days_back is the first argument of fetchAnalytics(days, league, tz).
     // The mock is declared with no parameters (it only ever returns a bundle), so its
     // recorded calls type as empty tuples. The arguments are real; the cast says so.
@@ -268,7 +279,7 @@ describe('AdminPage range filter', () => {
     // 170 browsers against 100 is +70%, drawn on the tile and again on the event row.
     expect(screen.getAllByText('+70%').length).toBeGreaterThan(0)
 
-    await userEvent.click(screen.getByText('Today'))
+    await userEvent.click(screen.getByRole('button', { name: 'Today' }))
     // Today-so-far against all of yesterday would read negative every morning, so the whole
     // comparison stands down rather than showing a red arrow that means nothing.
     expect(screen.queryByText('+70%')).not.toBeInTheDocument()
@@ -300,5 +311,91 @@ describe('AdminPage retired cards', () => {
     expect(screen.queryByText(/Discord invite/)).not.toBeInTheDocument()
     // And the page must not be paying for the RPC behind it either.
     expect(screen.queryByText(/Sessions that saw the card/)).not.toBeInTheDocument()
+  })
+})
+
+describe('AdminPage Today', () => {
+  const today: Briefing = {
+    ...EMPTY_BRIEFING,
+    date: '2026-11-10', browsers: 106, new: 91, engaged: 19, events: 1240,
+    pace: { median: 15, days: [48, 29, 15, 10, 14, 9, 15] },
+  }
+
+  it('reads today against the median of the same hours, and says what kind of day it is', async () => {
+    fetchBriefing.mockResolvedValue(today)
+    renderPage()
+    expect(await screen.findByText('106')).toBeInTheDocument()
+    expect(screen.getByText('7.1x')).toBeInTheDocument()
+    expect(screen.getByText('Median by now: 15')).toBeInTheDocument()
+    expect(screen.getByText('15 returning')).toBeInTheDocument()
+    expect(screen.getByText('18% of browsers')).toBeInTheDocument()
+    // Before the deploy that records landings, the line says so rather than "no sources".
+    expect(screen.getByText('Not recorded yet')).toBeInTheDocument()
+  })
+
+  it('names sources by site, and lists only what needs the owner', async () => {
+    fetchBriefing.mockResolvedValue({
+      ...today,
+      sources_since: '2026-11-11',
+      sources: [
+        { ref: 'google.com', utm: null, app: false, browsers: 30 },
+        { ref: 'google.ca', utm: null, app: false, browsers: 4 },
+        { ref: null, utm: null, app: false, browsers: 12 },
+      ],
+      errors: { today: 2, today_browsers: 1, last_message: 'x is undefined', build: 'index-abc', on_build: 3 },
+    })
+    openFeedback = 2
+    renderPage()
+    expect(await screen.findByText('Google 34 · Direct 12')).toBeInTheDocument()
+    expect(screen.getByText(/3 on this deploy · 2 today, 1 browser/)).toBeInTheDocument()
+    await userEvent.click(screen.getByText('2 new'))
+    expect(screen.getByTestId('admin-tools')).toBeInTheDocument()
+  })
+
+  it('shows no alert lines on a quiet day', async () => {
+    fetchBriefing.mockResolvedValue(today)
+    renderPage()
+    await screen.findByText('106')
+    expect(screen.queryByText('Error screens')).not.toBeInTheDocument()
+    expect(screen.queryByText('Feedback')).not.toBeInTheDocument()
+    expect(screen.queryByText('Pipelines')).not.toBeInTheDocument()
+  })
+})
+
+describe('AdminPage audience', () => {
+  it('splits the range into returning and engaged browsers, against the window before', async () => {
+    fetchAnalytics.mockResolvedValue(bundle({
+      overview: { ...EMPTY_OVERVIEW, totals: { events: 900, browsers: 200, users: 3, signed_in_browsers: 4 } },
+      audience: {
+        ...EMPTY_AUDIENCE,
+        history_from: '2026-01-01',
+        totals: { browsers: 200, new: 150, engaged: 60 },
+        prev: { browsers: 100, new: 75, engaged: 30 },
+        cohorts: [{ week: '2026-10-26', new: 220, back: 2, engaged: 48 }],
+      },
+    }))
+    renderPage()
+    expect(await screen.findByText('Returning')).toBeInTheDocument()
+    expect(screen.getByText('150 new')).toBeInTheDocument()
+    expect(screen.getByText('30% of browsers')).toBeInTheDocument()
+    // 50 returning against 25, and 60 engaged against 30.
+    expect(screen.getAllByText('+100%').length).toBe(2)
+    expect(screen.getByText(/0.9% back within 7 days/)).toBeInTheDocument()
+  })
+
+  it('ranks sources by name, merging the hosts of one site', async () => {
+    fetchAnalytics.mockResolvedValue(bundle({
+      sources: {
+        since: '2026-11-11',
+        sources: [
+          { ref: 'l.instagram.com', utm: null, app: false, loads: 9, browsers: 8, new: 7, engaged: 4 },
+          { ref: null, utm: 'instagram', app: false, loads: 3, browsers: 3, new: 3, engaged: 1 },
+          { ref: 'bing.com', utm: null, app: false, loads: 2, browsers: 2, new: 2, engaged: 0 },
+        ],
+        routes: [{ route: '/wpbl/watch/:id', loads: 10, browsers: 9, engaged: 2 }],
+      },
+    }))
+    renderPage()
+    expect(await screen.findByText('Instagram: 11 browsers, 45% engaged')).toBeInTheDocument()
   })
 })

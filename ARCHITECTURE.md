@@ -378,7 +378,12 @@ flowchart LR
   **Raw rows are kept 90 days** (Oct 11, 2026): `events_maintain()` rolls each UTC day into
   `events_daily` (events, browsers and users per event per league, with the `'all'` rollups)
   before deleting anything, so past 90 days the daily counts survive and the per-row detail
-  does not. /admin's widest range is 90 days, so no card reads past the line.
+  does not. The range cards stop at the line; "Since launch" (`admin_daily_trend`) is the one
+  card that reads `events_daily`. **Every page load writes one `landed` row** (Nov 11, 2026,
+  [`src/lib/landing.ts`](src/lib/landing.ts)): the referrer's host, `utm_source`, installed-app
+  opens and the landing route, read by the Today and Sources cards. **Crawlers write nothing**:
+  `silenced()` refuses a bot user agent, because Google's renderer was a new "browser" on every
+  page it drew.
 - **Client libs** ([`src/lib/`](src/lib)): `supabase` (anon client), `analytics`
   (→ `events` table), `analyticsAdmin` (owner-only reads of it), `push`, `notifications`,
   `adminUsers`, `feedback`, `userActive`, `usernames`, `units`.
