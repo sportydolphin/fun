@@ -13,7 +13,7 @@ import { parseFirstText } from './league/firsts'
 import { linkTo, navigate } from './nav'
 import { track, EVENTS } from './lib/analytics'
 import { chromePx, typePx } from './ui/scale'
-import { ICON_SIZE, TYPE_SCALE } from './ui/card'
+import { ACCENT_EDGE, ICON_SIZE, TYPE_SCALE } from './ui/card'
 import { pressable } from './ui/interaction'
 import { SearchAvatar } from './ui/SearchAvatar'
 import { WPBL_NAV, WPBL_AWARDS_PATH, wpblPathFor } from './wpbl/routes'
@@ -230,31 +230,31 @@ const EXAMPLES: Record<NavSection, Example[]> = {
     { q: 'Whitmore', what: 'A player, by name or number, typos too', icon: ic(Person) },
     { q: 'Whitmore avg', what: 'A player’s stat, answered in the row', icon: ic(Person) },
     { q: 'Whitmore game log', what: 'A player’s page, opened at that part', icon: ic(Person) },
-    { q: 'most strikeouts', what: 'Rank every player, advanced stats too', icon: ic(Leaderboard) },
+    { q: 'Most strikeouts', what: 'Rank every player, advanced stats too', icon: ic(Leaderboard) },
     { q: 'SF team ERA', what: 'Rank the clubs', icon: ic(Groups) },
     { q: 'Firebells last game', what: 'A game, by club and day', icon: ic(SportsBaseball) },
     { q: 'Firebells vs Hunters', what: 'Two clubs’ season series', icon: ic(CompareArrows) },
     { q: 'Whitmore vs Ibarra', what: 'Two players side by side', icon: ic(CompareArrows) },
     { q: '5 strikeouts no walks', what: 'Every game line that matches', icon: ic(ManageSearch) },
-    { q: 'first home run', what: 'A league first, opened at the play', icon: ic(Flag) },
-    { q: 'longest at-bat', what: 'A plate-appearance record, opened at the play', icon: ic(EmojiEvents) },
+    { q: 'First home run', what: 'A league first, opened at the play', icon: ic(Flag) },
+    { q: 'Longest at-bat', what: 'A plate-appearance record, opened at the play', icon: ic(EmojiEvents) },
     { q: 'SF roster', what: 'A club’s page', icon: ic(Groups) },
-    { q: 'what is FIP', what: 'What a stat means', icon: ic(MenuBook) },
-    { q: 'standings', what: 'Any page on the site', icon: ic(Article) },
+    { q: 'What is FIP', what: 'What a stat means', icon: ic(MenuBook) },
+    { q: 'Standings', what: 'Any page on the site', icon: ic(Article) },
     { q: 'Ohtani', what: 'MLB players too', icon: ic(TravelExplore) },
   ],
   mlb: [
     { q: 'Ohtani', what: 'A player, active or retired, typos too', icon: ic(Person) },
-    { q: 'Ohtani hr', what: 'A player’s stat, answered in the row', icon: ic(Person) },
+    { q: 'Ohtani HR', what: 'A player’s stat, answered in the row', icon: ic(Person) },
     { q: 'Ohtani splits', what: 'A player’s page, opened at that part', icon: ic(Person) },
-    { q: 'most home runs', what: 'Rank every player, this year or all time', icon: ic(Leaderboard) },
+    { q: 'Most home runs', what: 'Rank every player, this year or all time', icon: ic(Leaderboard) },
     { q: 'Dodgers team ERA', what: 'Rank the clubs', icon: ic(Groups) },
     { q: 'Dodgers last game', what: 'A game, by club and day', icon: ic(SportsBaseball) },
     { q: 'Ohtani vs Betts', what: 'Two players side by side', icon: ic(CompareArrows) },
     { q: '10 strikeouts no walks', what: 'Every game line that matches', icon: ic(ManageSearch) },
     { q: 'Dodgers roster', what: 'A club’s page', icon: ic(Groups) },
-    { q: 'what is wRC+', what: 'What a stat means', icon: ic(MenuBook) },
-    { q: 'standings', what: 'Any page on the site', icon: ic(Article) },
+    { q: 'What is wRC+', what: 'What a stat means', icon: ic(MenuBook) },
+    { q: 'Standings', what: 'Any page on the site', icon: ic(Article) },
     { q: 'Kelsie Whitmore', what: 'WPBL players too', icon: ic(TravelExplore) },
   ],
 }
@@ -917,7 +917,11 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       maxWidth={false}
       aria-label="Search the site"
       sx={{ '& .MuiDialog-container': { alignItems: 'flex-start' } }}
-      slotProps={{ paper: { sx: {
+      slotProps={{
+        // A DEEPER SCRIM, softened. MUI's half-black barely changes a page that is already near black,
+        // so in the dark theme the results table behind read as part of the box (Nov 10, 2026 audit).
+        backdrop: { sx: { bgcolor: 'rgba(0, 0, 0, 0.62)', backdropFilter: 'blur(2px)' } },
+        paper: { sx: {
         width: `min(${chromePx(600)}, calc(100vw - 32px))`,
         // Near the top on a phone, so the rows sit above the on-screen keyboard rather than under it.
         m: 2, mt: { xs: 1.5, sm: '10vh' },
@@ -1001,14 +1005,16 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
                       : <Box sx={{ width: 32, height: 32, flexShrink: 0, borderRadius: 1.5, bgcolor: 'action.hover', color: 'text.secondary', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{item.icon}</Box>}
                     <Box sx={{ minWidth: 0 }}>
                       <Typography sx={{ fontWeight: 600, fontSize: TYPE_SCALE.body, lineHeight: 1.25 }}>{item.title}</Typography>
-                      {/* THE ANSWER ON A LINE OF ITS OWN, in full ink: it is what the row is for, and in
-                          the middle of the gray subtitle it read as one more label. "Never" stays in
-                          the secondary ink, the quieter answer. Held open while it is being asked. */}
+                      {/* THE ANSWER ON A LINE OF ITS OWN, in the accent: it is what the row is for, and in
+                          the middle of the gray subtitle it read as one more label. In full ink it still
+                          matched the name above it and read as a second title (Nov 10, 2026 audit).
+                          "Never" stays in the secondary ink, the quieter answer. Held open while it is
+                          being asked. */}
                       {(item.answer || item.pending) && (
                         <Typography sx={{
                           fontSize: TYPE_SCALE.meta, lineHeight: 1.3,
-                          fontWeight: item.answer === 'Never' ? 400 : 600,
-                          color: item.answer === 'Never' ? 'text.secondary' : 'text.primary',
+                          fontWeight: item.answer === 'Never' ? 400 : 700, fontVariantNumeric: 'tabular-nums',
+                          color: item.answer === 'Never' ? 'text.secondary' : ACCENT_EDGE,
                         }}>
                           {item.answer ?? '\u00a0'}
                         </Typography>

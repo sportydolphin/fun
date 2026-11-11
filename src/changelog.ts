@@ -38,6 +38,14 @@ export const CHANGELOG: ChangelogEntry[] = [
         short: 'Small phones: the top bar and Find fit',
         full:  'On a 320px phone the search button no longer sits on the MLB | WPBL switch, and Find’s Games to Seasons switch fits the card.',
       },
+      {
+        short: 'Find: the question card',
+        full:  'The card that holds a Find question is titled Question, so it is no longer a second thing called Search beside the toolbar’s. Once a question is set, the box offers to add to it instead of showing an example, and Add is a solid button.',
+      },
+      {
+        short: 'Search: answers stand out',
+        full:  'An answer in a search row, such as "11 HR · 2026", is in blue so it no longer reads as a second name, the page behind the search box is dimmed further, and the examples are in sentence case.',
+      },
     ],
   },
   {

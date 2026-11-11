@@ -181,8 +181,10 @@ function scopeWords(side: FinderBoardSide, q: Pick<FinderQuery, 'teamId' | 'oppI
  * anything happens, and a reading on the other side says so, because "5 strikeouts" is a
  * pitcher's line and a hitter's.
  */
-function AskBox({ side, parse, onAsk, clubAbbr }: {
+function AskBox({ side, parse, onAsk, clubAbbr, asking }: {
   side: FinderBoardSide
+  /** A question is already set, so the box adds to it rather than starting one. */
+  asking: boolean
   parse: (text: string) => FinderReading[]
   onAsk: (r: FinderReading) => void
   clubAbbr: (id: string) => string
@@ -207,7 +209,10 @@ function AskBox({ side, parse, onAsk, clubAbbr }: {
             position: 'absolute', left: chromePx(10), top: '50%', transform: 'translateY(-50%)',
             fontSize: chromePx(18), color: 'text.secondary', pointerEvents: 'none',
           }} />
-          <Box component="input" type="search" aria-label="Ask in words" placeholder="3 hits at home, 5 HR on the season"
+          <Box component="input" type="search" aria-label="Ask in words"
+            // AN EXAMPLE ONLY WHILE THE BOX IS THE WHOLE QUESTION. Kept above the chips it read as the
+            // question already asked, sitting over the one actually asked (Nov 10, 2026 audit).
+            placeholder={asking ? 'Add to it: vs LA, 2+ RBI' : '3 hits at home, 5 HR on the season'}
             value={text} enterKeyHint="search"
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setText(e.target.value); setDropped([]) }}
             onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); ask() } }}
@@ -972,8 +977,10 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     </ChipSurface>
   )
 
+  // "QUESTION", NOT "SEARCH": the toolbar's search is a different tool, and the card holding a
+  // question under the Find tab was the second thing on the screen called Search (Nov 10, 2026 audit).
   const question = (
-    <SectionCard title="Search" action={<CopyLink />}>
+    <SectionCard title="Question" action={<CopyLink />}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, pt: 0.5 }}>
         {/* THE GRAIN, first because it changes what every piece under it means: "3+ home runs" is a
             night or a body of work. The site's switch for a setting on the data, as Hitting / Pitching
@@ -997,14 +1004,16 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
                 conditions: v === 'club' ? query.conditions.filter(c => c.field !== 'pos') : query.conditions })} />
           </Box>
         )}
-        {parse && onAsk && <AskBox side={side} parse={parse} clubAbbr={clubAbbr} onAsk={onAsk} />}
+        {parse && onAsk && <AskBox side={side} parse={parse} clubAbbr={clubAbbr} onAsk={onAsk} asking={chips.length > 0} />}
         {/* THE QUESTION, A CHIP A PIECE: a tap opens that piece, its ✕ drops it, and "+ Add" offers a
             stat or a who, where or when. Every condition is AND, which the chips in one row say. */}
         <Box role="group" aria-label="Question" sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75 }}>
           {chips.map(c => <QuestionChip key={c.key} text={c.text} onRemove={c.remove} onEdit={c.open} />)}
           {canAdd && (
             <Box {...pressable(e => edit(e, { kind: 'add' }))} aria-haspopup="dialog" sx={{
-              ...textButtonSx, minHeight: chromePx(30), gap: 0.5, border: '1px dashed', borderColor: CARD_BORDER, color: 'text.primary',
+              // Solid, not dashed: a dashed chip read as an empty slot waiting to be filled rather than
+              // a button (Nov 10, 2026 audit). The accent ink says it acts, as Copy link does.
+              ...textButtonSx, minHeight: chromePx(30), gap: 0.5, border: '1px solid', borderColor: CARD_BORDER, color: ACCENT_EDGE,
               ...hoverOnly({ borderColor: ACCENT_EDGE }),
             }}>+ Add</Box>
           )}
