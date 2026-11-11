@@ -14,7 +14,7 @@ import React, { useEffect, useState } from 'react'
 import { Box, Drawer, Popover, Typography, useMediaQuery, useTheme } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import {
-  FINDER_OPS, finderFieldGroups, finderLowerBetter, finderSigned, parseFinderValue, unparseFinderValue,
+  FINDER_OPS, finderFieldGroups, finderLowerBetter, finderSigned, finderStep, parseFinderValue, unparseFinderValue,
   type FinderBoardSide, type FinderCondition, type FinderOp, type FinderPer,
 } from '../league/finder'
 import { ACCENT_EDGE, CARD_BORDER, SectionLabel, TYPE_SCALE } from './card'
@@ -176,13 +176,6 @@ export function startCondition(side: FinderBoardSide, field: string): FinderCond
   return { field, op: lower ? 'lte' : 'gte', value: parseFinderValue(side, field, raw) }
 }
 
-/** How far a press of − or + moves a value, in its stored unit: one out of an inning, a hundredth of a
- *  rate (.010 of an average, 0.10 of an ERA), one of any count. */
-function stepFor(side: FinderBoardSide, field: string): number {
-  if (field === 'ip') return 1
-  return unparseFinderValue(side, field, 1).includes('.') ? 10 : 1
-}
-
 const OP_ORDER: FinderOp[] = ['gte', 'eq', 'lte']
 
 /**
@@ -207,7 +200,7 @@ export function ConditionEditor({ side, per, plays, condition, onChange, onRemov
   const [draft, setDraft] = useState<string | null>(null)
   useEffect(() => { setDraft(null) }, [condition.field])
   const signed = finderSigned(side, condition.field)
-  const step = stepFor(side, condition.field)
+  const step = finderStep(side, condition.field)
   const bump = (d: number) => {
     setDraft(null)
     const next = condition.value + d * step

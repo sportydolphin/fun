@@ -680,6 +680,14 @@ export function unparseFinderValue(side: FinderBoardSide, fieldKey: string, v: n
   return f?.unparse ? f.unparse(v) : String(v)
 }
 
+/** How far one step moves a value, in its stored unit: one out of an inning, a hundredth of a rate
+ *  (.010 of an average, 0.10 of an ERA), one of any count. The board's − and +, and how a question
+ *  that found nothing is eased (finderNearMiss.ts). */
+export function finderStep(side: FinderBoardSide, fieldKey: string): number {
+  if (fieldKey === 'ip') return 1
+  return unparseFinderValue(side, fieldKey, 1).includes('.') ? 10 : 1
+}
+
 /** A stored number as it should be drawn. */
 export function displayFinderValue(side: FinderBoardSide, fieldKey: string, v: number): string {
   const f = fieldFor(side, fieldKey)

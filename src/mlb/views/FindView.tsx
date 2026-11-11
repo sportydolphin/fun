@@ -1,7 +1,7 @@
 import { TeamLogo } from '../components/TeamLogo'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { finderMonths, runFinder, validFinderSort, type FinderPer, type FinderQuery, type FinderSide, type FinderSort } from '../../league/finder'
+import { finderMonths, runFinder, validFinderSort, type FinderBoardSide, type FinderPer, type FinderQuery, type FinderSide, type FinderSort } from '../../league/finder'
 import { FinderBoard, type FinderExample, type FinderReading } from '../../ui/finderBoard'
 import { parseFinderText } from '../../league/finderParse'
 import { scopedGames } from '../../league/season'
@@ -117,6 +117,11 @@ export function MlbFindView({
     return new Map(EXAMPLES[side].map(ex => [ex.label,
       runFinder(side, data.batting, data.pitching, data.players, data.games, { ...scoped, per: ex.per ?? 'game', conditions: ex.conditions }, 0, null, opts).total]))
   }, [query.conditions.length, data, side, scoped, qualify])
+  // A question's count on either side, for the nearest questions a zero offers.
+  const countFor = useCallback((s: FinderBoardSide, q: FinderQuery): number | null => (data
+    ? runFinder(s, data.batting, data.pitching, data.players, data.games, { ...q, scope: scoped.scope }, 0, null, { eraInnings: 9, qualify, clubName }).total
+    : null), [data, scoped.scope, qualify])
+  const askOn = useCallback((s: FinderBoardSide, q: FinderQuery) => navigate(mlbFinderHref({ ...q, side: s, ignored: [], season: vizSeason })), [vizSeason])
   const exampleHref = (ex: FinderExample) => mlbFinderHref({
     side, per: ex.per ?? 'game', conditions: ex.conditions, teamId: query.teamId, oppId: query.oppId, venue: query.venue, ignored: [], season: vizSeason,
   })
@@ -149,7 +154,7 @@ export function MlbFindView({
             clubAbbr={id => TEAM_ABBR[Number(id)] ?? id}
             sort={sort} onSort={setSort} examples={EXAMPLES[side]}
             exampleCount={ex => exampleCounts?.get(ex.label) ?? null} exampleCounted={GRAINS} exampleHref={exampleHref} grains={GRAINS} plays={false} months={months}
-            parse={text => parseFinderText(text, MLB_FINDER_CLUBS)} onAsk={onAsk}
+            parse={text => parseFinderText(text, MLB_FINDER_CLUBS)} onAsk={onAsk} countFor={countFor} askOn={askOn}
                         rowParts={r => {
               const club = r.teamId ? Number(r.teamId) : 0
               const game = r.game
