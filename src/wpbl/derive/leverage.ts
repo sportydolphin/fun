@@ -3,6 +3,7 @@ import { gameWinProb, winProbability, type WinProbModel, type WinProbPoint } fro
 import { REGULATION_INNINGS } from '../innings'
 import { countsInStandings } from '../../league/season.ts'
 import type { WpblRunValuePlay } from '../types'
+import { isPlateAppearance } from '../league.ts'
 
 /**
  * Leverage index: how much the game can swing on the next plate appearance, against the average
@@ -205,7 +206,7 @@ export function leverageLines(
   let seen = new Map<string, Set<string>>()
   for (const pt of regularSeasonPoints(model.wp, plays, games)) {
     const p = pt.play
-    if (!p.pitch_sequence) continue
+    if (!isPlateAppearance(p)) continue
     if (pt.game.id !== gameId) { gameId = pt.game.id; seen = new Map() }
     const li = leverageOfPoint(model, pt)
     if (side === 'hitting') {

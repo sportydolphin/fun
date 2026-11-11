@@ -64,7 +64,8 @@
     "shot": "node scripts/shot.mjs",
     "size": "size-limit",
     "record-mlb-feed": "node scripts/run-ts.mjs scripts/record-mlb-feed.ts",
-    "field": "node scripts/run-ts.mjs scripts/show-field.ts"
+    "field": "node scripts/run-ts.mjs scripts/show-field.ts",
+    "event-audit": "node scripts/run-ts.mjs --env scripts/check-wpbl-event-counts.ts"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

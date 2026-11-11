@@ -23,6 +23,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.232.0',
+    date:    '2026-11-10',
+    changes: [
+      {
+        short: 'Plays that ended 0-0 are counted',
+        full:  'The league leaves the pitches off a plate appearance that ended without one recorded: every intentional walk, and some first-pitch hits, hit batters and sacrifices. Find, firsts and the inning and plate-appearance boards skipped those 52 trips of 2026 and now count them, matching the box scores.',
+      },
+      {
+        short: 'Search: firsts for balks, steals, pickoffs and more',
+        full:  'Search answers "first balk", "first stolen base", "first caught stealing", "first pickoff", "first wild pitch", "first passed ball", "first double play" and "first triple play", each opened at the play. Also: first single, sacrifice fly, sacrifice bunt, bunt hit, infield hit, pinch hit, pinch-hit home run, leadoff home run and steal of home.',
+      },
+    ],
+  },
+  {
     version: '1.231.0',
     date:    '2026-11-10',
     changes: [

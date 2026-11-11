@@ -1193,15 +1193,21 @@ worth doing:
    while the card's blocks land, since the first one measured scrolled and was then pushed 470px
    down. Not done: on a phone, a two-way player's other role's tab is not switched to, so "Ohtani
    pitch mix" there opens on whichever role is showing.
-9. **Spans and splits.** "hr since August", "avg at home 2026" as a Find link with a date range,
-   once the Find board takes one.
+9. **Spans and splits.** ✅ A month and a range of two dates (Nov 10, v1.226.0): "hr in august",
+   "aug 1-15", "between aug 1 and 15", and the Find board's When row takes a month or the last 1 to 20
+   games. Left: a series, a doubleheader and extra innings as a game filter.
 10. **Records and firsts.** ✅ Records (Oct 14, v1.162.0): "most hr in a game", "longest scoreless
     outing" open Bests at that card (`parseRecordText`), and the season ranking steps aside for
     single-game words. ✅ Firsts (Nov 9, v1.216.0): "first home run", "first grand slam of 2026",
     "firsts" (`parseFirstText`, `findFirsts` in `src/league/firsts.ts`). No page was built: the answer
     is the play, opened in Game Center through `requestPlay` as Find's inning rows are, so a first
-    needed only the plate-appearance lines. Play-log events only; a win, a save, a complete game and a
-    stolen base have no plate appearance to open. Next: a player's own firsts ("Whitmore first hr").
+    needed only the plate-appearance lines. ✅ The runners' plays (Nov 10, v1.232.0): "first balk",
+    "first stolen base", "first caught stealing", "first pickoff", "first wild pitch", "first passed
+    ball", "first double play", "first triple play", read off every row with `runnerEvents` (the
+    plate-appearance lines drop those rows), plus first single, sacrifice fly and bunt, bunt hit,
+    infield hit, pinch hit, pinch-hit and leadoff home run, steal of home. A bare "firsts" lists the
+    headline kinds only. A passed ball and a double play name the club. A win, a save and a complete
+    game have no single play to open. Next: a player's own firsts ("Whitmore first hr").
     ✅ Plate-appearance records (Nov 9, v1.216.0): "longest at-bat", "most fouls", "longest strikeout",
     "most pitches thrown to one batter", "most strikeouts in a row" and the rest (`parsePaRecord` in
     `src/league/paRecords.ts`). The measure is read there; every other word goes to the Find parser as
@@ -1253,7 +1259,8 @@ Still unanswered after these, in the order worth doing:
    "teams with 15 hits", "shutouts", "no-hitters", "blowouts", "won by 10", "lost by 8", "errorless
    games"; "most runs by a team" with no game said stays the team stats ranking. 2026: 18 runs is the
    most (Heights, Sep 3), one shutout, no no-hitter.
-6. **Spans**: a month, a series, a doubleheader, extra innings as a game filter (search item 9).
+6. **Spans**: ✅ a month and a date range (v1.226.0). Left: a series, a doubleheader, extra innings as
+   a game filter (search item 9).
 7. ✅ **Fielding by the inning** (v1.222.0). A fielder's half-inning: errors where the text charges one
    ("error by", "dropped", "muffed"), double plays, passed balls, steals allowed, and the position.
 8. ✅ **Pickoffs and pitches seen over a game or a season** (v1.222.0). `playTotals`, read only when a
@@ -1272,6 +1279,26 @@ Still unanswered after these, in the order worth doing:
    shortstop", "by a catcher", "at 2b").
 9. **Not answerable from the data**: intentional walks (11 recorded in 2026), left on base (never
    recorded), earned runs and RBI in an inning (the log cannot say).
+
+Shipped after this list, all Nov 10: answers in the box land sooner and the highlight stays on the row
+the reader saw (v1.223.0, #252); named games (cycles, complete games), streaks, splits by month, the
+last N games and which arm a pitcher throws, plus a replay of the logged misses (v1.224.0, #253); the
+answer on its own line, stat rows open the game, and keys typed before the palette loads are kept
+(v1.225.0, #254); a month and the last games on the board, date ranges in search, most bunts
+(v1.226.0, #255); every sacrifice bunt counted (v1.227.0, #256); verbs ("hit 2 home runs"), run
+homers, one-run games, a season against one pitcher or in one situation (`seasonFromPas`, v1.228.0,
+#257); a card per match on a phone (v1.229.0, #258); the question as chips (`src/ui/finderChips.tsx`,
+v1.230.0, #259); the nearest questions with an answer when one has none
+(`src/league/finderNearMiss.ts`, v1.231.0, #260); firsts for the runners' plays (v1.232.0).
+
+Accuracy (Nov 10, v1.232.0): every event the play log is read for is now counted against the box
+score, per player and game, on every pull request and nightly (docs/PLAY_VALIDATION.md §2b). Its first
+run found 52 plate appearances the readers dropped (0-0 trips with no pitch sequence), now counted, and
+that the box counts balks and passed balls once per runner moved.
+
+Still open, in the order worth doing: the rest of spans (item 6); a player's own firsts; MLB's search
+reading a name inside a question; near-misses on another side at a play-log grain (counted only where
+its lines are already in hand, so left out today).
 
 ## Search: names, records for every stat, looser wording (Nov 10, 2026) 🎯⚙️
 
@@ -1408,8 +1435,8 @@ Shipped Nov 9, 2026 as v1.211.0 (#239). Follow-ups, in the order taken:
     The cut comes before the count, so the tally's "of N" is trips in the matchup. A matchup with no
     stat asked is its log in date order. Pickers under Matchup list who came to the plate (and who
     pitched to them) in the plays on screen, under the club each did it for most; `bat` and `pit` in
-    the address, dropped with the grain. Not yet in the search bar: "Whitmore vs Schroder" opens the
-    two players' seasons side by side, with no Find row for their plate appearances.
+    the address, dropped with the grain. In the search bar since v1.219.0: "Whitmore vs Schroder"
+    leads with their plate appearances, the side-by-side compare second.
 11. **TrackMan fields** where a game has them, **win probability per plate appearance**, and **feat
     alerts** (immaculate innings, walk-offs) to Discord, Bluesky or Home.
 12. **Across seasons** once 2027 plays exist, and **MLB** once its plays are mirrored (below).

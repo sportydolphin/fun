@@ -2,6 +2,7 @@ import { plateAppearances, type WpblBattingTotals, type FipWeights } from '../st
 import type { PlayRunValue } from './runExpectancy'
 import { isSacBunt } from '../../league/sacrifice'
 import { sprayZone, type SprayZone } from './spray'
+import { isPlateAppearance } from '../league'
 
 /**
  * Linear weights from the league's own plays: wOBA and wRC+ for hitters, FIP for pitchers.
@@ -66,7 +67,7 @@ const BIP_EVENTS = new Set([
 export function fipWeights(values: PlayRunValue[], opts: { infieldFlies?: boolean } = {}): FipWeights | null {
   const acc = { hr: [0, 0], bb: [0, 0], k: [0, 0], bip: [0, 0] }
   for (const v of values) {
-    if (!v.play.pitch_sequence) continue
+    if (!isPlateAppearance(v.play)) continue
     const e = v.play.event_type
     const k = e === 'home_run' ? 'hr'
       : e === 'walk' || e === 'hit_by_pitch' ? 'bb'
@@ -103,8 +104,9 @@ export function wobaWeights(values: PlayRunValue[]): WobaWeights | null {
   for (const v of values) {
     // Plate appearances only. A stolen base or a wild pitch carries the batter's name too but is
     // not something the batter did, and a single "event" row without a pitch sequence is a
-    // runner advance the feed labeled after the play it happened on.
-    if (!v.play.pitch_sequence) continue
+    // runner advance the feed labeled after the play it happened on. Not the pitch sequence alone,
+    // which a 0-0 trip lacks (isPlateAppearance in ../league.ts).
+    if (!isPlateAppearance(v.play)) continue
     const e = v.play.event_type
     if (!e) continue
     // A sacrifice bunt is filed as the groundout it was (sacrifice.ts), so the rule above has to

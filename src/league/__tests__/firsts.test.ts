@@ -75,3 +75,43 @@ describe('findFirsts', () => {
     expect(run(['triple', 'walk']).map(f => f.kind)).toEqual(['walk'])
   })
 })
+
+// The runners' plays are rows of their own, which the plate-appearance lines leave out, so these are
+// read off the log itself: "first balk" offered nothing until they were.
+describe('firsts off the rows', () => {
+  it('reads the runners, the pitcher and the field', () => {
+    for (const [t, kind] of [['first balk', 'bk'], ['first stolen base', 'sb'], ['first steal', 'sb'], ['first caught stealing', 'cs'],
+      ['first pickoff', 'pk'], ['first wild pitch', 'wp'], ['first passed ball', 'pb'], ['first double play', 'dp'],
+      ['first triple play', 'tp'], ['first steal of home', 'sbh'], ['first sac fly', 'sf'], ['first sacrifice bunt', 'sh'],
+      ['first bunt hit', 'bunthit'], ['first infield hit', 'ifh'], ['first pinch hit', 'phit'], ['first pinch-hit home run', 'phhr'],
+      ['first leadoff home run', 'leadoffhr'], ['first single', 'single'], ['who committed the first balk?', 'bk']] as const)
+      expect(parseFirstText(t)?.kinds, t).toEqual([kind])
+  })
+
+  it('keeps "firsts" to the headline kinds', () => {
+    const kinds = parseFirstText('firsts')!.kinds
+    expect(kinds).toContain('bk')
+    expect(kinds).toContain('sb')
+    expect(kinds).not.toContain('tp')
+  })
+
+  const games = [game('g1', '2026-06-01')]
+  const plays = [
+    play({ batter_id: 'ann', batter_name: 'Ann Lee', event_type: 'single', first_base: 'Ann Lee' }),
+    play({ batter_id: 'ann', batter_name: 'Ann Lee', pitcher_id: 'ace', event_type: null, narrative: 'Ann Lee stole second.', pitch_sequence: null }),
+    play({ batter_id: 'bo', batter_name: 'Bo Diaz', pitcher_id: 'ace', event_type: null, narrative: 'Balk by Ace. Ann Lee advanced to third.', pitch_sequence: null }),
+    play({ batter_id: 'bo', batter_name: 'Bo Diaz', event_type: 'groundout', narrative: 'Bo Diaz grounded into double play ss to 2b to 1b.' }),
+  ]
+  const lines = plateAppearanceLines(WPBL_LEAGUE, plays, games)
+  const run = (kinds: Parameters<typeof findFirsts>[2]) => findFirsts(lines, games, kinds, g => g.game_date, plays)
+
+  it('names the runner off the clause, the pitcher for a balk, and the club in the field for a double play', () => {
+    expect(run(['sb'])[0]).toMatchObject({ playerId: 'ann', teamId: 'away', sequence: plays[1].sequence })
+    expect(run(['bk'])[0]).toMatchObject({ playerId: 'ace', teamId: 'home', sequence: plays[2].sequence })
+    expect(run(['dp'])[0]).toMatchObject({ playerId: null, teamId: 'home' })
+  })
+
+  it('finds nothing off the rows without the log', () => {
+    expect(findFirsts(lines, games, ['bk'], g => g.game_date)).toEqual([])
+  })
+})

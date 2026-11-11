@@ -52,6 +52,45 @@ Every check points at one game, half-inning and lineup slot. That is the whole v
 "watch fourteen games" into "check about thirty moments". **Read the output as candidates for a
 video pass, not as a list of confirmed errors.**
 
+### 2b. The diff that does work: our readers against the box score (Nov 10, 2026)
+
+The argument above is about the SCORER's mistakes, and it holds. It says nothing about OURS. Almost
+every play-log number on the site (Find, firsts, the inning and plate-appearance grains) is our code
+reading the scorer's text, and a phrasing it does not know undercounts in silence: sacrifice bunts
+written "SAC" with no "bunt" went uncounted until the owner caught them by hand. The box score counts
+the same events without our parsing, so a gap between the two is ours until shown otherwise.
+
+| Piece | File |
+|---|---|
+| The audit | `auditEventCounts` in [`src/wpbl/derive/eventAudit.ts`](../src/wpbl/derive/eventAudit.ts) |
+| The script | [`scripts/check-wpbl-event-counts.ts`](../scripts/check-wpbl-event-counts.ts) (`npm run event-audit`, `-- --archive`, `-- --update-baseline`) |
+| Accepted gaps, each with why | [`scripts/wpbl-event-baseline.json`](../scripts/wpbl-event-baseline.json) |
+| On every pull request | [`src/wpbl/__tests__/eventAudit.test.ts`](../src/wpbl/__tests__/eventAudit.test.ts), over the archived seasons |
+| Nightly, live | the last step of the job in section 5, which FAILS on a new gap |
+
+Compared per player and game: a batter's hits, doubles, triples, home runs, walks, strikeouts, hit
+batters, sacrifice flies and bunts; a pitcher's hits, home runs, walks, strikeouts, hit batters, wild
+pitches and balks. Per club and game: steals, caught stealing, passed balls. Double plays are left out,
+since the box credits every fielder in the chain.
+
+**What its first run found.** 41 gaps over 2026. 35 were ours: WPBL counted a row as a plate
+appearance only when it had a pitch sequence, and the feed leaves the sequence off a trip that ended
+0-0 with no pitch recorded, so 52 trips (11 singles, 3 doubles, 3 hit batters, both intentional walks,
+a sacrifice bunt and the outs) were missing from every play-log board. `isPlateAppearance` in
+[`src/wpbl/league.ts`](../src/wpbl/league.ts) now also reads the narrative's count, leaving out the
+runner placed on second in an extra inning and a dropped foul ball, which carry one too. The FIP and
+linear weights, relief leverage and fielding range read the same function.
+
+**The box score counts a balk and a passed ball once per RUNNER it moved**, not once per pitch as the
+rules do: in every 2026 game with one (12 of 12, 14 of 14) its figure is the runners the log says moved
+"on a balk" or "on a passed ball", while a wild pitch is once per pitch (33 of 33). So 2026's box has
+24 balks and 25 passed balls where the log has 18 balk pitches and 14 passed balls. The audit compares
+those two by the box's own rule; Find and firsts count the pitch. The season tables, which sum the
+box, carry the box's figure.
+
+The 6 gaps left are the scorer crediting a hit or a strikeout to different players in the two views
+(Aug 20, NY at BOS; Sep 3, NY at LA), each in the baseline with why, and candidates for a video pass.
+
 ---
 
 ## 3. The checks
