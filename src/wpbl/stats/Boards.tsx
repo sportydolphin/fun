@@ -101,7 +101,7 @@ export function LeadersPane({ side, valueSeasons, fielding, linesIn, leaderSeaso
 /** Every board past the season tables and Leaders: Bests, Find and the Analysis boards, each behind its
  *  own chunk. */
 export function BoardPane({ source, side, boardSide, findSide, teams, players, lines, fielding, linesIn, games,
-  scope, findQuery, setFindQuery, trackedOffered, charts, chartFilters, onOpenPlayer, onOpenGame, onOpenTeam }: {
+  scope, findQuery, setFindQuery, onFindSide, trackedOffered, charts, chartFilters, onOpenPlayer, onOpenGame, onOpenTeam }: {
   source: Source
   side: Side
   boardSide: BallSide
@@ -115,6 +115,7 @@ export function BoardPane({ source, side, boardSide, findSide, teams, players, l
   scope: SeasonScope
   findQuery: Omit<FinderQuery, 'scope'>
   setFindQuery: (q: Omit<FinderQuery, 'scope'>) => void
+  onFindSide: (s: FinderBoardSide) => void
   trackedOffered: boolean
   charts: ChartInputs | null
   chartFilters: ChartFilters
@@ -148,7 +149,7 @@ export function BoardPane({ source, side, boardSide, findSide, teams, players, l
       <Suspense fallback={<SubViewFallback />}>
         <WpblFindView side={findSide} teams={teams} players={players} batting={lines.batting}
           pitching={lines.pitching} fielding={fielding ?? []} games={games}
-          query={{ ...findQuery, scope }} onQuery={q => setFindQuery(q)}
+          query={{ ...findQuery, scope }} onQuery={q => setFindQuery(q)} onSide={onFindSide}
           onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
       </Suspense>
     </Box>

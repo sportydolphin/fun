@@ -1175,7 +1175,7 @@ export default function WpblStatsView({
       ) : source !== 'season' ? (
         <BoardPane source={source} side={side} boardSide={boardSide} findSide={findSide} teams={teams}
           players={players} lines={lines} fielding={fielding} linesIn={linesIn} games={games} scope={scope}
-          findQuery={findQuery} setFindQuery={setFindQuery} trackedOffered={trackedOffered} charts={chartInputs} chartFilters={chartFilters}
+          findQuery={findQuery} setFindQuery={setFindQuery} onFindSide={pickSide} trackedOffered={trackedOffered} charts={chartInputs} chartFilters={chartFilters}
           onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} onOpenTeam={onOpenTeam} />
       ) : (side === 'fielding' && fielding == null) || (side === 'overall' && valueSeasons == null) || (boardNeedsLines && !linesIn) ? (
         // Only if the side is picked before its read (started on mount) has landed, or the box-score

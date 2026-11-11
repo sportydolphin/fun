@@ -179,7 +179,7 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
             algorithm would take any overflow out of this one, and the switch would come out
             narrower on some boards than others. Wrapping is the better failure. */}
         <Box sx={{
-          flexShrink: 0, display: 'flex', alignItems: 'center', position: 'relative',
+          flexShrink: 0, display: source === 'find' ? 'none' : 'flex', alignItems: 'center', position: 'relative',
           minHeight: isNarrow ? 34 : undefined,
         }}>
           {/* Four sides at full padding are 273px, and beside the 90px Sort pill that is more than a
@@ -187,7 +187,9 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
               own on Players and Teams: a taller bar pinned over the board, and the board jumping a
               row on every move between Leaders and Players. Dense on a phone, and on a desktop as
               the last thing to give way once both selects have (useRowFit). */}
-          {isNarrow ? sidePill(true) : <Box ref={slotRef(2)} sx={{ display: 'flex' }}>{sidePill(!fits[2])}</Box>}
+          {/* Not on Find: a tool's first choice belongs in its form, so Find draws its own
+              Hitting / Pitching / Fielding in the Question card, without an Overall it cannot answer. */}
+          {source === 'find' ? null : isNarrow ? sidePill(true) : <Box ref={slotRef(2)} sx={{ display: 'flex' }}>{sidePill(!fits[2])}</Box>}
         </Box>
         {/* Desktop only. A phone's ranked list shows one stat, so there is nothing to switch; its
             full table carries the same switch in the footer, where the bar has no room left. */}

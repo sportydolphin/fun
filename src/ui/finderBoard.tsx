@@ -65,14 +65,25 @@ const COL = { rank: 2, player: 8, game: 5.25, result: 3.25, stat: 2.4, gap: 0.4 
 // give up, so the width where the tally moves in is where it was.
 const LINE_COL = { ...COL, player: 10, stat: 2.15 }
 const colsFor = (per: FinderPer) => (per === 'season' ? COL : LINE_COL)
+// A STAT COLUMN HOLDS ITS HEAD'S LONGEST WORD, sort mark included, and a two-word head wraps. Sized
+// for a number alone, "HR ROW ▾" ran straight into "INN" beside it on the PAs grain (Nov 10, 2026
+// audit). Widened to the whole head instead, the PAs table needed 1.2rem more and fell back to cards
+// at 800px. A head is micro type (0.68rem) in heavy capitals, measured at 0.48rem a letter, and " ▾"
+// takes 0.7rem: "ROW ▾" and "RBI ▾" sit at the floor, and only "BUNT", "OUTS" and "RISP" widen.
+const HEAD_CHAR_REM = 0.48
+const SORT_MARK_REM = 0.7
+const statRem = (per: FinderPer, unit: string) =>
+  Math.max(colsFor(per).stat, Math.max(...unit.split(' ').map(w => w.length)) * HEAD_CHAR_REM + SORT_MARK_REM)
 /** The table's narrowest, which is what the main column must hold before it is drawn: the fixed
  *  columns, the player column's floor, the gaps, and the card's padding and borders (2 x 16 chrome
  *  px, under 2.5rem at either scale). */
-const tableMinRem = (stats: number, per: FinderPer = 'game') => {
+const tableMinRem = (units: readonly string[], per: FinderPer = 'game') => {
   const c = colsFor(per)
+  const stats = units.length
+  const statsRem = units.reduce((sum, u) => sum + statRem(per, u), 0)
   return per === 'season'
-    ? c.rank + c.player + stats * c.stat + (stats + 1) * c.gap + 2.5
-    : c.rank + c.player + c.game + c.result + stats * c.stat + (stats + 3) * c.gap + 2.5
+    ? c.rank + c.player + statsRem + (stats + 1) * c.gap + 2.5
+    : c.rank + c.player + c.game + c.result + statsRem + (stats + 3) * c.gap + 2.5
 }
 /** A grain's name over its examples. */
 const GRAIN_LABEL: Record<FinderPer, string> = { game: 'Single games', club: 'Club games', inning: 'Single innings', pa: 'Plate appearances', season: 'Season totals' }
@@ -87,6 +98,7 @@ const GRAIN_NOUN: Record<FinderPer, [string, string]> = {
 const GRAIN_LEAD: Record<FinderPer, string> = { game: '', club: 'Club: ', inning: 'Inning: ', pa: 'PA: ', season: 'Season: ' }
 const DEFAULT_GRAINS: FinderPer[] = ['game', 'season']
 const DEFAULT_SIDES: FinderBoardSide[] = ['hitting', 'pitching']
+const SIDE_LABEL: Record<FinderBoardSide, string> = { hitting: 'Hitting', pitching: 'Pitching', fielding: 'Fielding' }
 const TALLY_REM = 17
 const PANE_GAP_REM = 1.25
 /** What a season question searches, the same in both sections. */
@@ -170,16 +182,23 @@ function scopeWords(side: FinderBoardSide, q: Pick<FinderQuery, 'teamId' | 'oppI
  * anything happens, and a reading on the other side says so, because "5 strikeouts" is a
  * pitcher's line and a hitter's.
  */
-function AskBox({ side, parse, onAsk, clubAbbr }: {
+function AskBox({ side, parse, onAsk, clubAbbr, asking }: {
   side: FinderBoardSide
+  /** A question is already set, so the box adds to it rather than starting one. */
+  asking: boolean
   parse: (text: string) => FinderReading[]
   onAsk: (r: FinderReading) => void
   clubAbbr: (id: string) => string
 }) {
   const [text, setText] = useState('')
+  // WHAT THE LAST QUESTION DROPPED, kept past the Ask. Said only in the preview, it vanished with the
+  // text the moment the chips appeared, and "2 hits at home vs Cleveland" became a list of every
+  // home game with nothing to say the club had been left out (Nov 10, 2026 audit).
+  const [dropped, setDropped] = useState<string[]>([])
   const readings = text.trim() ? parse(text) : []
   const best = readings.find(r => r.side === side) ?? readings[0] ?? null
-  const ask = () => { if (best) { onAsk(best); setText('') } }
+  const ask = () => { if (best) { onAsk(best); setDropped(asTyped(best.ignored, text)); setText('') } }
+  const showLine = !!text.trim() || dropped.length > 0
   const scope = best ? scopeWords(best.side, best, clubAbbr) : ''
   return (
     <Box>
@@ -191,11 +210,14 @@ function AskBox({ side, parse, onAsk, clubAbbr }: {
             position: 'absolute', left: chromePx(10), top: '50%', transform: 'translateY(-50%)',
             fontSize: chromePx(18), color: 'text.secondary', pointerEvents: 'none',
           }} />
-          <Box component="input" type="search" aria-label="Ask in words" placeholder="3 hits at home, 5 HR on the season"
+          <Box component="input" type="search" aria-label="Ask in words"
+            // AN EXAMPLE ONLY WHILE THE BOX IS THE WHOLE QUESTION. Kept above the chips it read as the
+            // question already asked, sitting over the one actually asked (Nov 10, 2026 audit).
+            placeholder={asking ? 'Add to it: vs LA, 2+ RBI' : '3 hits at home, 5 HR on the season'}
             value={text} enterKeyHint="search"
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setText(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setText(e.target.value); setDropped([]) }}
             onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); ask() } }}
-            sx={{ ...fieldSx, boxSizing: 'border-box', width: '100%', pl: `calc(${chromePx(10)} + ${chromePx(18)} + 0.5rem)`, pr: 1.5, fontWeight: 600, '&::placeholder': { color: 'text.secondary', opacity: 1 } }} />
+            sx={{ ...fieldSx, boxSizing: 'border-box', width: '100%', pl: `calc(${chromePx(10)} + ${chromePx(18)} + 0.5rem)`, pr: 1.5, fontWeight: 600, textOverflow: 'ellipsis', '&::placeholder': { color: 'text.secondary', opacity: 1 } }} />
         </Box>
         <Box {...pressable(ask)} aria-disabled={!best || undefined} sx={{
           ...textButtonSx, border: '1px solid', borderColor: best ? ACCENT_EDGE : CARD_BORDER,
@@ -205,8 +227,12 @@ function AskBox({ side, parse, onAsk, clubAbbr }: {
       {/* DRAWN ONLY WHILE THERE IS TEXT. Reserved always, it was a blank band between the box and
           the conditions that read as a gap in the form; it opens on the first keystroke, which is
           the reader's own input moving the page, and then holds its height while they type. */}
-      <Box aria-live="polite" sx={{ minHeight: '1.75rem', display: text.trim() ? 'flex' : 'none', alignItems: 'center', px: 0.5 }}>
-        {!text.trim() ? null : best ? (
+      <Box aria-live="polite" sx={{ minHeight: '1.75rem', display: showLine ? 'flex' : 'none', alignItems: 'center', px: 0.5 }}>
+        {!text.trim() ? (dropped.length > 0 && (
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            Ignored: {dropped.join(' ')}
+          </Typography>
+        )) : best ? (
           <Box {...pressable(ask)} sx={{
             ...FOCUS_RING, minWidth: 0, cursor: 'pointer', borderRadius: 1, px: 0.5, mx: -0.5,
             fontSize: TYPE_SCALE.meta, color: 'text.secondary', ...TAPPABLE,
@@ -216,7 +242,7 @@ function AskBox({ side, parse, onAsk, clubAbbr }: {
             {GRAIN_LEAD[best.per]}{describeFinderQuery(best.side, best)}
             {scope && `, ${scope}`}
             {best.side !== side && ` (${best.side})`}
-            {best.ignored.length > 0 && `. Ignored: ${best.ignored.join(' ')}`}
+            {best.ignored.length > 0 && `. Ignored: ${asTyped(best.ignored, text).join(' ')}`}
           </Box>
         ) : (
           <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -226,6 +252,13 @@ function AskBox({ side, parse, onAsk, clubAbbr }: {
       </Box>
     </Box>
   )
+}
+
+/** The parser's ignored words as the reader typed them: it lowercases, and "Ignored: cleveland" read
+ *  as a typo the reader had not made. */
+function asTyped(words: string[], text: string): string[] {
+  const escape = (w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return words.map(w => text.match(new RegExp(`(?<![\\p{L}\\p{N}])${escape(w)}(?![\\p{L}\\p{N}])`, 'iu'))?.[0] ?? w)
 }
 
 /** "Copy link", for the question: it is already the address, so a question is a thing to send. */
@@ -457,7 +490,7 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
   const c = colsFor(query.per)
   const template = [
     `${c.rank}rem`, `minmax(${c.player}rem, 1fr)`, ...(season ? [] : [`${c.game}rem`, `${c.result}rem`]),
-    ...cols.map(() => `${c.stat}rem`),
+    ...cols.map(col => `${statRem(query.per, col.unit)}rem`),
   ].join(' ')
   const rowSx = { display: 'grid', gridTemplateColumns: template, columnGap: `${c.gap}rem`, alignItems: 'center' } as const
   // No sort is the question's own order, which is its first stat from the good end: drawn as that.
@@ -478,13 +511,14 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
       <Box key={key} role="columnheader" aria-sort={on ? (active.desc ? 'descending' : 'ascending') : 'none'}
         sx={{ textAlign: align, minWidth: 0 }}>
         <Box component="button" type="button" title={title} onClick={() => press(key)} sx={{
-          all: 'unset', ...FOCUS_RING, cursor: 'pointer', borderRadius: 0.5, whiteSpace: 'nowrap',
-          fontSize: TYPE_SCALE.micro, fontWeight: 800,
+          all: 'unset', ...FOCUS_RING, cursor: 'pointer', borderRadius: 0.5,
+          display: 'inline-block', fontSize: TYPE_SCALE.micro, fontWeight: 800, lineHeight: 1.2,
           color: on || asked.includes(key) ? 'text.primary' : 'text.secondary',
           borderBottom: '2px solid', borderColor: on ? ACCENT_EDGE : 'transparent',
           ...hoverOnly({ color: 'text.primary' }),
         }}>
-          {label}{on ? (active.desc ? ' ▾' : ' ▴') : ''}
+          {/* The mark stays on its word's line (a no-break space), so a wrapped head reads "HR / ROW ▾". */}
+          {label}{on ? (active.desc ? ' ▾' : ' ▴') : ''}
         </Box>
       </Box>
     )
@@ -686,7 +720,7 @@ function ExampleGrid({ side, grains, examples, count, counted, href, onPick }: {
 export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   side, query, onQuery, result, clubs, clubAbbr, loading = false, rowParts, tallyParts,
   sort, onSort, examples, exampleCount, exampleCounted = [], exampleHref, parse, onAsk, grains = DEFAULT_GRAINS, picks,
-  plays = true, months, countFor, askOn, sides = DEFAULT_SIDES,
+  plays = true, months, countFor, askOn, sides = DEFAULT_SIDES, onSide,
 }: {
   side: FinderBoardSide
   /** Owned by the section, which mirrors it into the address bar. */
@@ -739,6 +773,9 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   askOn?: (side: FinderBoardSide, q: FinderQuery) => void
   /** The sides the section's board has, for a question that may belong on another. */
   sides?: FinderBoardSide[]
+  /** Switches the side, which the section owns (it is in the address). Given, the card draws the
+   *  side switch beside the grain's, and the section's bar leaves its own off. */
+  onSide?: (side: FinderBoardSide) => void
 }) {
   const [allRows, setAllRows] = useState(false)
   // ONE PIECE OF THE QUESTION OPEN AT A TIME (src/ui/finderChips.tsx), anchored to the chip it came from.
@@ -838,7 +875,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // every match was a different player, under a title promising a leader: the answer line says it
   // (`onceText`), and the card goes.
 
-  const tableRem = tableMinRem(finderColumns(side, query).length, query.per)
+  const tableRem = tableMinRem(finderColumns(side, query).map(col => col.unit), query.per)
   // WHAT EACH COLUMN IS. "R2", "RS" and "ON" are this board's own, and a header's `title` never shows
   // on a touchscreen, where the phone row leads with one of them ("3 RS"). One key per table, as a
   // definition behind the card's InfoDot, rather than a dot on every header.
@@ -944,13 +981,29 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     </ChipSurface>
   )
 
+  // "QUESTION", NOT "SEARCH": the toolbar's search is a different tool, and the card holding a
+  // question under the Find tab was the second thing on the screen called Search (Nov 10, 2026 audit).
   const question = (
-    <SectionCard title="Search" action={<CopyLink />}>
+    <SectionCard title="Question" action={<CopyLink />}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, pt: 0.5 }}>
-        {/* THE GRAIN, first because it changes what every piece under it means: "3+ home runs" is a
-            night or a body of work. The site's switch for a setting on the data, as Hitting / Pitching
-            is above the card. */}
-        <Box role="group" aria-label="Search by" sx={{ alignSelf: 'flex-start' }}>
+        {/* WHAT IS SEARCHED, THEN AT WHAT GRAIN, in one row: the two choices a game finder starts with
+            ("pitching, single games"), first because they change what every piece under them means.
+            The side was the Stats bar's switch until Nov 10, 2026, with Overall drawn there disabled
+            since Find has no both-ways line: a dead option on the first control of a tool, and a
+            question split between the bar and the card. The bar leaves it off on Find (onSide). */}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 1.5, rowGap: 1 }}>
+        {onSide && sides.length > 1 && (
+          <Box role="group" aria-label="Side" sx={{ alignSelf: 'flex-start', maxWidth: '100%' }}>
+            <PillGroup options={sides.map(s => ({ value: s, label: SIDE_LABEL[s] }))}
+              value={side} onChange={v => onSide(v as FinderBoardSide)} />
+          </Box>
+        )}
+        {/* THE FIVE GRAINS TAKE THE SWITCH'S DENSE PADDING ON A SMALL PHONE. At the full padding they
+            filled a 375px card to the pixel and cut "Seasons" to "Seaso" at 320 (Nov 10, 2026 audit). */}
+        <Box role="group" aria-label="Search by" sx={{
+          alignSelf: 'flex-start', maxWidth: '100%',
+          '@media (max-width:399.95px)': { '& [aria-pressed]': { px: 0.875 } },
+        }}>
           <PillGroup options={grains.map(per => ({ value: per, label: GRAIN_SHORT[per] }))}
             value={query.per} onChange={v => setPer(v as FinderPer)} />
         </Box>
@@ -964,14 +1017,17 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
                 conditions: v === 'club' ? query.conditions.filter(c => c.field !== 'pos') : query.conditions })} />
           </Box>
         )}
-        {parse && onAsk && <AskBox side={side} parse={parse} clubAbbr={clubAbbr} onAsk={onAsk} />}
+        </Box>
+        {parse && onAsk && <AskBox side={side} parse={parse} clubAbbr={clubAbbr} onAsk={onAsk} asking={chips.length > 0} />}
         {/* THE QUESTION, A CHIP A PIECE: a tap opens that piece, its ✕ drops it, and "+ Add" offers a
             stat or a who, where or when. Every condition is AND, which the chips in one row say. */}
         <Box role="group" aria-label="Question" sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75 }}>
           {chips.map(c => <QuestionChip key={c.key} text={c.text} onRemove={c.remove} onEdit={c.open} />)}
           {canAdd && (
             <Box {...pressable(e => edit(e, { kind: 'add' }))} aria-haspopup="dialog" sx={{
-              ...textButtonSx, minHeight: chromePx(30), gap: 0.5, border: '1px dashed', borderColor: CARD_BORDER, color: 'text.primary',
+              // Solid, not dashed: a dashed chip read as an empty slot waiting to be filled rather than
+              // a button (Nov 10, 2026 audit). The accent ink says it acts, as Copy link does.
+              ...textButtonSx, minHeight: chromePx(30), gap: 0.5, border: '1px solid', borderColor: CARD_BORDER, color: ACCENT_EDGE,
               ...hoverOnly({ borderColor: ACCENT_EDGE }),
             }}>+ Add</Box>
           )}

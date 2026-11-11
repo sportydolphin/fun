@@ -78,12 +78,14 @@ const EXAMPLES: Record<FinderSide, FinderExample[]> = {
 
 export function MlbFindView({
   boardTabs, isDesktop, lbGroup, sideSwitch, vizSeason, setVizSeason, gameScope, setGameScope, onOpenPlayer, onOpenGame,
-  query, onQuery,
+  query, onQuery, onSide,
 }: MlbLinesBoardProps & {
   /** Owned by the section, which mirrors it into the address. Its `scope` is ignored here: the
    *  section's Regular season / Playoffs / Both is the one control for that. */
   query: FinderQuery
   onQuery: (q: FinderQuery) => void
+  /** The section's side switch, drawn in the board's Question card instead of the bar above it. */
+  onSide?: (s: FinderBoardSide) => void
 }) {
   const side = lbGroup
   const { data, loading, failed } = useMlbSeasonLines(vizSeason)
@@ -138,9 +140,10 @@ export function MlbFindView({
   return (
     <Box sx={STATS_BOARD_ROOT_SX}>
       <StatsBar tabs={boardTabs} isDesktop={isDesktop}>
-        {/* A new side asks a new question: the old conditions name fields the other side may not
-            have (a hitter's TB, a pitcher's IP), so the switch clears them (pickSide in MlbStats). */}
-        <LinesBoardControls isDesktop={isDesktop} sideSwitch={sideSwitch} gameScope={gameScope} setGameScope={setGameScope}
+        {/* No side switch here: it is in the Question card (onSide), where a finder's first choice
+            goes. A new side asks a new question: the old conditions name fields the other side may
+            not have (a hitter's TB, a pitcher's IP), so the switch clears them (pickSide in MlbStats). */}
+        <LinesBoardControls isDesktop={isDesktop} sideSwitch={onSide ? null : sideSwitch} gameScope={gameScope} setGameScope={setGameScope}
           season={vizSeason} setSeason={setVizSeason} />
       </StatsBar>
 
@@ -154,7 +157,7 @@ export function MlbFindView({
             clubAbbr={id => TEAM_ABBR[Number(id)] ?? id}
             sort={sort} onSort={setSort} examples={EXAMPLES[side]}
             exampleCount={ex => exampleCounts?.get(ex.label) ?? null} exampleCounted={GRAINS} exampleHref={exampleHref} grains={GRAINS} plays={false} months={months}
-            parse={text => parseFinderText(text, MLB_FINDER_CLUBS)} onAsk={onAsk} countFor={countFor} askOn={askOn}
+            parse={text => parseFinderText(text, MLB_FINDER_CLUBS)} onAsk={onAsk} countFor={countFor} askOn={askOn} onSide={onSide}
                         rowParts={r => {
               const club = r.teamId ? Number(r.teamId) : 0
               const game = r.game

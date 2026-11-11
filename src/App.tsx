@@ -215,6 +215,9 @@ const isKnownPath = (p: string) =>
 // two read as one unit, and the wordmark is held back until the viewport can show it
 // without the ellipsis biting into it. See the toolbar brand block for the math.
 const BRAND_LOGO_H = 32
+/** Under 360px the bar is a mark, the league switch and four icons with nothing to give, so the
+ *  mark and the switch tighten instead of overlapping the icons. */
+const NARROW_BAR = '@media (max-width:359.95px)'
 // The section switch's WPBL fill. Its label is dark (#111), and each stop clears 4.5:1 against it:
 // Apple's indigo #5856d6 was the one that did not (3.3:1), so it is lifted to #8a88ff. index.html's
 // static copy of the bar repeats this gradient; change both.
@@ -1045,6 +1048,10 @@ function AppInner() {
                   // the mark lands at the same size on both and never scales twice.
                   display: 'block', height: `calc(${BRAND_LOGO_H}px * var(--app-chrome, 1))`, width: 'auto',
                   cursor: 'pointer', userSelect: 'none',
+                  // Smaller on the narrowest phones, with the switch's padding below: at 320px the
+                  // mark, the switch and the four icons came to 22px more than the bar, and the
+                  // search button sat on top of "WPBL" (Nov 10, 2026 audit).
+                  [NARROW_BAR]: { height: `${BRAND_LOGO_H - 4}px` },
                   ...(mode === 'dark' && { filter: 'invert(1)' }),
                 }}
               />
@@ -1093,7 +1100,7 @@ function AppInner() {
               position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', flexShrink: 0,
               // Twice the lockup's own gap: the switch is a control of its own, and at the lockup's
               // spacing it read as part of the name. See TOOLBAR SPACING below.
-              ml: 0.75,
+              ml: 0.75, [NARROW_BAR]: { ml: 0.25 },
               p: '2px', borderRadius: 999,
               border: '1px solid', borderColor: ACCENT_EDGE, bgcolor: `${ACCENT}14`,
             }}>
@@ -1171,6 +1178,7 @@ function AppInner() {
                       // Bigger than it was (0.66rem over 3px, about 20px tall in all): the switch is
                       // the only way to /mlb from the bar, and it was the smallest target on it.
                       px: 1.1, py: '5px', borderRadius: 999, userSelect: 'none',
+                      [NARROW_BAR]: { px: 0.6 },
                       cursor: active ? 'default' : 'pointer',
                       fontSize: TYPE_SCALE.meta, fontWeight: 800, letterSpacing: typePx(0.3), lineHeight: 1,
                       // Dark on the rainbow: white measured 1.5:1 on its yellow. With RAINBOW's

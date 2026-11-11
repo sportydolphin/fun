@@ -23,6 +23,36 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.232.1',
+    date:    '2026-11-10',
+    changes: [
+      {
+        short: 'Find: Hitting, Pitching and Fielding in the question',
+        full:  'Find’s Hitting, Pitching and Fielding switch is in the Question card, beside Games to Seasons, instead of the Stats bar, and no longer shows an Overall it cannot search.',
+      },
+      {
+        short: 'Find: long column heads wrap',
+        full:  'A long column head on Find, such as "HR ROW" on plate appearances, wraps onto two lines instead of running into the column beside it.',
+      },
+      {
+        short: 'Find: ignored words stay on screen',
+        full:  'Words Find did not understand stay listed under the box after you ask, as you typed them, so a dropped club or name is not lost when the question becomes chips.',
+      },
+      {
+        short: 'Small phones: the top bar and Find fit',
+        full:  'On a 320px phone the search button no longer sits on the MLB | WPBL switch, and Find’s Games to Seasons switch fits the card.',
+      },
+      {
+        short: 'Find: the question card',
+        full:  'The card that holds a Find question is titled Question, so it is no longer a second thing called Search beside the toolbar’s. Once a question is set, the box offers to add to it instead of showing an example, and Add is a solid button.',
+      },
+      {
+        short: 'Search: answers stand out',
+        full:  'An answer in a search row, such as "11 HR · 2026", is in blue so it no longer reads as a second name, the page behind the search box is dimmed further, and the examples are in sentence case.',
+      },
+    ],
+  },
+  {
     version: '1.232.0',
     date:    '2026-11-10',
     changes: [

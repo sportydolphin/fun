@@ -109,6 +109,8 @@ export const VIEW_OPTIONS = [{ value: 'standard', label: 'Standard' }, { value: 
 // to Nov 2026 pressing it opened Leaders on that side instead, and readers took that for a bug:
 // pressing Overall on Teams moved them off the board they had chosen. The disabled pill is in
 // `text.disabled`, not faded with opacity, and says which boards answer it on hover.
+// Find is the exception: a tool, not a board, so its sides are in its own Question card, without
+// Overall (Nov 10, 2026), and the bar leaves this switch off there.
 export const SIDES: { value: Side; label: string }[] = [
   { value: 'overall', label: 'Overall' },
   { value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }, { value: 'fielding', label: 'Fielding' },

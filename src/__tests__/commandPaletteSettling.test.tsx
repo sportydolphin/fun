@@ -42,7 +42,9 @@ describe('while the answers arrive', () => {
     await user.keyboard('{Enter}')
     expect(screen.getByRole('combobox')).toHaveValue('standingsqq')
     expect(await screen.findByText(/Nothing matches/)).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: /^Standings/ })).not.toBeInTheDocument()
+    // The page row is gone. The examples under "Nothing matches" include one typed "Standings", which
+    // is not the answer that was up, so it is told apart by its description.
+    expect(screen.queryByRole('option', { name: n => /^Standings/.test(n) && !/Any page on the site/.test(n) })).not.toBeInTheDocument()
   })
 
   it('asks for a Find row’s count once, and keeps it as the text moves on', async () => {
