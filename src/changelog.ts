@@ -27,6 +27,10 @@ export const CHANGELOG: ChangelogEntry[] = [
     date:    '2026-11-10',
     changes: [
       {
+        short: 'Find: Hitting, Pitching and Fielding in the question',
+        full:  'Find’s Hitting, Pitching and Fielding switch is in the Question card, beside Games to Seasons, instead of the Stats bar, and no longer shows an Overall it cannot search.',
+      },
+      {
         short: 'Find: long column heads wrap',
         full:  'A long column head on Find, such as "HR ROW" on plate appearances, wraps onto two lines instead of running into the column beside it.',
       },

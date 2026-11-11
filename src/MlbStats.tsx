@@ -558,7 +558,7 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
               }
               return board === 'bests'
                 ? <MlbBestsView {...lines} />
-                : <MlbFindView {...lines} query={state.findQuery} onQuery={state.setFindQuery} />
+                : <MlbFindView {...lines} query={state.findQuery} onQuery={state.setFindQuery} onSide={pickSide} />
             })()}
             {board === 'leaderboard' && (
               <LeaderboardView

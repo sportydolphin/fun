@@ -98,6 +98,7 @@ const GRAIN_NOUN: Record<FinderPer, [string, string]> = {
 const GRAIN_LEAD: Record<FinderPer, string> = { game: '', club: 'Club: ', inning: 'Inning: ', pa: 'PA: ', season: 'Season: ' }
 const DEFAULT_GRAINS: FinderPer[] = ['game', 'season']
 const DEFAULT_SIDES: FinderBoardSide[] = ['hitting', 'pitching']
+const SIDE_LABEL: Record<FinderBoardSide, string> = { hitting: 'Hitting', pitching: 'Pitching', fielding: 'Fielding' }
 const TALLY_REM = 17
 const PANE_GAP_REM = 1.25
 /** What a season question searches, the same in both sections. */
@@ -719,7 +720,7 @@ function ExampleGrid({ side, grains, examples, count, counted, href, onPick }: {
 export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   side, query, onQuery, result, clubs, clubAbbr, loading = false, rowParts, tallyParts,
   sort, onSort, examples, exampleCount, exampleCounted = [], exampleHref, parse, onAsk, grains = DEFAULT_GRAINS, picks,
-  plays = true, months, countFor, askOn, sides = DEFAULT_SIDES,
+  plays = true, months, countFor, askOn, sides = DEFAULT_SIDES, onSide,
 }: {
   side: FinderBoardSide
   /** Owned by the section, which mirrors it into the address bar. */
@@ -772,6 +773,9 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   askOn?: (side: FinderBoardSide, q: FinderQuery) => void
   /** The sides the section's board has, for a question that may belong on another. */
   sides?: FinderBoardSide[]
+  /** Switches the side, which the section owns (it is in the address). Given, the card draws the
+   *  side switch beside the grain's, and the section's bar leaves its own off. */
+  onSide?: (side: FinderBoardSide) => void
 }) {
   const [allRows, setAllRows] = useState(false)
   // ONE PIECE OF THE QUESTION OPEN AT A TIME (src/ui/finderChips.tsx), anchored to the chip it came from.
@@ -982,9 +986,18 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   const question = (
     <SectionCard title="Question" action={<CopyLink />}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, pt: 0.5 }}>
-        {/* THE GRAIN, first because it changes what every piece under it means: "3+ home runs" is a
-            night or a body of work. The site's switch for a setting on the data, as Hitting / Pitching
-            is above the card. */}
+        {/* WHAT IS SEARCHED, THEN AT WHAT GRAIN, in one row: the two choices a game finder starts with
+            ("pitching, single games"), first because they change what every piece under them means.
+            The side was the Stats bar's switch until Nov 10, 2026, with Overall drawn there disabled
+            since Find has no both-ways line: a dead option on the first control of a tool, and a
+            question split between the bar and the card. The bar leaves it off on Find (onSide). */}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 1.5, rowGap: 1 }}>
+        {onSide && sides.length > 1 && (
+          <Box role="group" aria-label="Side" sx={{ alignSelf: 'flex-start', maxWidth: '100%' }}>
+            <PillGroup options={sides.map(s => ({ value: s, label: SIDE_LABEL[s] }))}
+              value={side} onChange={v => onSide(v as FinderBoardSide)} />
+          </Box>
+        )}
         {/* THE FIVE GRAINS TAKE THE SWITCH'S DENSE PADDING ON A SMALL PHONE. At the full padding they
             filled a 375px card to the pixel and cut "Seasons" to "Seaso" at 320 (Nov 10, 2026 audit). */}
         <Box role="group" aria-label="Search by" sx={{
@@ -1004,6 +1017,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
                 conditions: v === 'club' ? query.conditions.filter(c => c.field !== 'pos') : query.conditions })} />
           </Box>
         )}
+        </Box>
         {parse && onAsk && <AskBox side={side} parse={parse} clubAbbr={clubAbbr} onAsk={onAsk} asking={chips.length > 0} />}
         {/* THE QUESTION, A CHIP A PIECE: a tap opens that piece, its ✕ drops it, and "+ Add" offers a
             stat or a who, where or when. Every condition is AND, which the chips in one row say. */}

@@ -136,7 +136,7 @@ const GRAINS: Record<FinderBoardSide, FinderPer[]> = {
 }
 
 export default function WpblFindView({
-  side, teams, players, batting, pitching, fielding, games, query, onQuery, onOpenPlayer, onOpenGame,
+  side, teams, players, batting, pitching, fielding, games, query, onQuery, onSide, onOpenPlayer, onOpenGame,
 }: {
   side: FinderBoardSide
   teams: WpblTeam[]
@@ -149,6 +149,8 @@ export default function WpblFindView({
   /** Owned by StatsView, which mirrors the conditions into the address bar. */
   query: FinderQuery
   onQuery: (q: FinderQuery) => void
+  /** StatsView's side switch, drawn in the board's Question card rather than the bar. */
+  onSide?: (s: FinderBoardSide) => void
   onOpenPlayer?: (p: WpblPlayer) => void
   onOpenGame?: (g: WpblGame) => void
 }) {
@@ -354,7 +356,7 @@ export default function WpblFindView({
       sort={sort} onSort={setSort} examples={examples}
       exampleCount={ex => exampleCounts.get(ex) ?? null} exampleHref={exampleHref}
       exampleCounted={plays || askPlays ? grains : ['game', 'season']}
-      countFor={countFor} askOn={askOn} sides={findSides}
+      countFor={countFor} askOn={askOn} sides={findSides} onSide={onSide}
       grains={grains} loading={askPlays && (!plays || (askFielders && !fielders))} picks={picks} months={months}
       parse={text => parseFinderText(text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS)} onAsk={onAsk}
             rowParts={r => ({
