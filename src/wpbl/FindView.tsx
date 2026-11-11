@@ -1,4 +1,3 @@
-import { useDark } from '../ui/useDark'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { runWpblFinder, validFinderSort, type FinderBoardSide, type FinderQuery, type FinderSort } from './derive/finder'
 import { conditionsForPer, finderMonths, finderNeedsPlays, hasPlayerFilter, seasonFromPas, type FinderPer, type FinderRow } from '../league/finder'
@@ -8,7 +7,7 @@ import { wpblFielderSource } from './fielders'
 import { WPBL_LEAGUE } from './league'
 import { fetchWpblPlayLog, getCachedWpblPlayLog } from './api/plays'
 import { useWpblSeason } from './SeasonContext'
-import { wpblAccentFg, wpblFullName } from './constants'
+import { wpblFullName } from './constants'
 import { PlayerPortrait, TeamBadge } from './ui'
 import { useWpblGameLink, useWpblPlayerLink } from './LinkContext'
 import { FinderBoard, type FinderExample, type FinderPlayerPicks, type FinderReading } from '../ui/finderBoard'
@@ -16,7 +15,6 @@ import { fitExamples } from '../ui/finderExamples'
 import { PORTRAIT_PX } from '../ui/leaders'
 import { parseFinderText } from '../league/finderParse'
 import { navigate } from '../nav'
-import GameLineRow from './GameLineRow'
 import { useEraBasis } from './EraBasisContext'
 import { WPBL_FINDER_CLUBS, WPBL_FINDER_OPTS, WPBL_FINDER_SIDES, wpblFinderHref } from './finderLink'
 import { wpblQualifiers } from './stats'
@@ -154,8 +152,6 @@ export default function WpblFindView({
   onOpenPlayer?: (p: WpblPlayer) => void
   onOpenGame?: (g: WpblGame) => void
 }) {
-  const isDark = useDark()
-  const accent = wpblAccentFg(isDark)
   const playerLink = useWpblPlayerLink()
   const gameLink = useWpblGameLink()
   // The table's column sort. Here rather than in the board because the engine sorts before it caps
@@ -344,19 +340,12 @@ export default function WpblFindView({
   return (
     <FinderBoard side={side} query={query} onQuery={onQuery} result={result} clubs={clubs}
       clubAbbr={id => teams.find(t => t.id === id)?.abbr ?? id}
-      sort={sort} onSort={setSort} examples={examples} accent={accent}
+      sort={sort} onSort={setSort} examples={examples}
       exampleCount={ex => exampleCounts.get(ex) ?? null} exampleHref={exampleHref}
       exampleCounted={plays || askPlays ? grains : ['game', 'season']}
       grains={grains} loading={askPlays && (!plays || (askFielders && !fielders))} picks={picks} months={months}
       parse={text => parseFinderText(text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS)} onAsk={onAsk}
-      renderRow={(r, i, unit, rank) => (
-        <GameLineRow key={r.key} rank={rank.rank} tied={rank.tied} name={r.name} player={r.player}
-          teamId={r.teamId} game={r.game} detail={r.detail}
-          value={r.headlineDisplay} unit={unit} accent={accent} divider={i > 0}
-          nameOpens="game" emphasizeRank={false} club={clubRows} opensPlay={!!r.inning}
-          onOpenPlayer={onOpenPlayer} onOpenGame={openRowGame(r)} />
-      )}
-      rowParts={r => ({
+            rowParts={r => ({
         portrait: clubRows && r.teamId ? <TeamBadge team={{ id: r.teamId, abbr: r.teamId }} size={PORTRAIT_PX} />
           : <PlayerPortrait name={r.name} teamId={r.teamId} size={PORTRAIT_PX} />,
         club: r.teamId && !clubRows ? <TeamBadge team={{ id: r.teamId, abbr: r.teamId }} size={16} /> : undefined,

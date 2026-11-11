@@ -686,11 +686,6 @@ export function displayFinderValue(side: FinderBoardSide, fieldKey: string, v: n
   return f?.display ? f.display(v) : String(v)
 }
 
-/** The unit label for a field, for the row's big number. */
-export function finderUnit(side: FinderBoardSide, fieldKey: string): string {
-  return fieldFor(side, fieldKey)?.unit ?? ''
-}
-
 // The box-score columns the desktop table always draws, in box-score order. Not every field: a
 // table of sixteen numbers is the raw feed, and the point of the line is its shape. Any field the
 // question asks about joins them (`finderColumns`), so "2+ balks" shows the balks.

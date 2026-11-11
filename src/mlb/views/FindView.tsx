@@ -11,7 +11,6 @@ import { MLB_QUALIFY_IP_PER_GAME, MLB_QUALIFY_PA_PER_GAME } from '../qualify'
 import { PORTRAIT_PX } from '../../ui/leaders'
 import { chromePx } from '../../ui/scale'
 import { StatsBar, STATS_BOARD_ROOT_SX } from './StatsBar'
-import GameLineRow from '../components/GameLineRow'
 import { PlayerHeadshot } from '../components/leaderboards'
 
 import { gameLink, playerLink } from '../lib/links'
@@ -151,12 +150,7 @@ export function MlbFindView({
             sort={sort} onSort={setSort} examples={EXAMPLES[side]}
             exampleCount={ex => exampleCounts?.get(ex.label) ?? null} exampleCounted={GRAINS} exampleHref={exampleHref} grains={GRAINS} plays={false} months={months}
             parse={text => parseFinderText(text, MLB_FINDER_CLUBS)} onAsk={onAsk}
-            renderRow={(r, i, unit, rank) => (
-              <GameLineRow key={r.key} rank={rank.rank} tied={rank.tied} name={r.name} player={r.player} teamId={r.teamId}
-                game={r.game} detail={r.detail} value={r.headlineDisplay} unit={unit} divider={i > 0}
-                nameOpens="game" emphasizeRank={false} club={clubRows} onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
-            )}
-            rowParts={r => {
+                        rowParts={r => {
               const club = r.teamId ? Number(r.teamId) : 0
               const game = r.game
               return {
