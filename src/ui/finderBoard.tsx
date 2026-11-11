@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import type { ExampleLadder } from './finderExamples'
 import { Box, Skeleton, Typography } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
@@ -18,6 +18,7 @@ import { LeaderCard, LeaderCardSkeleton, PORTRAIT_PX, printedRanks, type LeaderI
 import { FOCUS_RING, TAPPABLE, hoverOnly, pressable } from './interaction'
 import { NameColumn, NameText } from './NameText'
 import { chromePx } from './scale'
+import { finderNearMisses } from '../league/finderNearMiss'
 import { AddMenu, ChipSurface, ChoiceList, ConditionEditor, startCondition, type ChoiceGroup } from './finderChips'
 import { BOARD_COLUMN } from './layoutWidths'
 
@@ -85,6 +86,7 @@ const GRAIN_NOUN: Record<FinderPer, [string, string]> = {
 }
 const GRAIN_LEAD: Record<FinderPer, string> = { game: '', club: 'Club: ', inning: 'Inning: ', pa: 'PA: ', season: 'Season: ' }
 const DEFAULT_GRAINS: FinderPer[] = ['game', 'season']
+const DEFAULT_SIDES: FinderBoardSide[] = ['hitting', 'pitching']
 const TALLY_REM = 17
 const PANE_GAP_REM = 1.25
 /** What a season question searches, the same in both sections. */
@@ -684,7 +686,7 @@ function ExampleGrid({ side, grains, examples, count, counted, href, onPick }: {
 export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   side, query, onQuery, result, clubs, clubAbbr, loading = false, rowParts, tallyParts,
   sort, onSort, examples, exampleCount, exampleCounted = [], exampleHref, parse, onAsk, grains = DEFAULT_GRAINS, picks,
-  plays = true, months,
+  plays = true, months, countFor, askOn, sides = DEFAULT_SIDES,
 }: {
   side: FinderBoardSide
   /** Owned by the section, which mirrors it into the address bar. */
@@ -729,6 +731,14 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   /** The months the season on screen was played in (`finderMonths`), for the Month picker, empty
    *  while the games load. Absent draws no When row; a span the search set still shows as its chip. */
   months?: number[]
+  /** How many lines a question matches, on any side, from the same engine call that draws the board;
+   *  null where the section cannot count it without a read it has not done. For the nearest questions
+   *  a question that found nothing is offered (`finderNearMisses`). Absent offers none. */
+  countFor?: (side: FinderBoardSide, q: FinderQuery) => number | null
+  /** Asks a question on another side, which is the section's to switch (through the address). */
+  askOn?: (side: FinderBoardSide, q: FinderQuery) => void
+  /** The sides the section's board has, for a question that may belong on another. */
+  sides?: FinderBoardSide[]
 }) {
   const [allRows, setAllRows] = useState(false)
   // ONE PIECE OF THE QUESTION OPEN AT A TIME (src/ui/finderChips.tsx), anchored to the chip it came from.
@@ -890,6 +900,10 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     })),
   ]
   const canAdd = query.conditions.length < MAX_CONDITIONS
+  // Asked only once the answer is a zero, and only of sides the section can switch to.
+  const nearMisses = useMemo(() => (!loading && result.total === 0 && hasConditions && countFor
+    ? finderNearMisses(side, query, askOn ? sides : [side], countFor) : []),
+  [loading, result.total, hasConditions, countFor, side, query, askOn, sides])
   const clearAll = () => onQuery({ ...query, conditions: [], batterId: null, pitcherId: null, playerId: null,
     teamId: null, oppId: null, venue: 'any', from: null, to: null, last: null, hand: null })
   const anything = chips.length > 0
@@ -1026,6 +1040,29 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
                       ? (result.searched === 1 ? who[0] : who[1])
                       : (result.searched === 1 ? noun[0] : noun[1])} searched
                   </Typography>
+                  {/* THE NEAREST QUESTIONS WITH AN ANSWER, each with its count, so a zero is a place
+                      to go from rather than a dead end (src/league/finderNearMiss.ts). */}
+                  {nearMisses.length > 0 && (
+                    <Box role="group" aria-label="Closest" sx={{ pt: 1.75 }}>
+                      <SectionLabel>Closest</SectionLabel>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                        {nearMisses.map(m => {
+                          const many = m.total !== 1
+                          const unit = season ? whoFor(m.side, query.per, query.byClub)[many ? 1 : 0] : noun[many ? 1 : 0]
+                          return (
+                            <Box key={m.text} {...pressable(() => (m.side === side ? onQuery(m.query) : askOn?.(m.side, m.query)))} sx={{
+                              ...FOCUS_RING, display: 'inline-flex', alignItems: 'baseline', gap: 0.75, minHeight: chromePx(32), px: 1.25, py: 0.5,
+                              borderRadius: 999, border: '1px solid', borderColor: CARD_BORDER, cursor: 'pointer', userSelect: 'none',
+                              fontSize: TYPE_SCALE.meta, ...hoverOnly({ borderColor: ACCENT_EDGE }),
+                            }}>
+                              <Box component="span" sx={{ fontWeight: 800, color: ACCENT_EDGE }}>{m.text}</Box>
+                              <Box component="span" sx={{ color: 'text.secondary', fontWeight: 600, whiteSpace: 'nowrap' }}>{m.total.toLocaleString()} {unit}</Box>
+                            </Box>
+                          )
+                        })}
+                      </Box>
+                    </Box>
+                  )}
                 </Box>
               ) : (
                 <>

@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.231.0',
+    date:    '2026-11-10',
+    changes: [
+      {
+        short: 'Find: the closest questions when nothing matches',
+        full:  'A Find question with no matches offers the nearest ones that have some, each with its count: the same question on Pitching or Hitting, a number one step easier ("Strikeouts ≥ 7"), a condition dropped, or any opponent, club or month. Tap one to ask it.',
+      },
+    ],
+  },
+  {
     version: '1.230.0',
     date:    '2026-11-10',
     changes: [

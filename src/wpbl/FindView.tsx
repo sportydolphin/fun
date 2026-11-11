@@ -273,6 +273,17 @@ export default function WpblFindView({
   const result = useMemo(
     () => runWpblFinder(side, batting, pitching, players, games, query, 50, sort, { eraInnings, qualify, fielding, innings, plateAppearances, teamInnings, fieldInnings, clubFieldInnings, playTotals, clubName }),
     [side, batting, pitching, fielding, players, games, query, sort, eraInnings, qualify, innings, plateAppearances, teamInnings, fieldInnings, clubFieldInnings, playTotals, clubName])
+  // A QUESTION'S COUNT ON ANY SIDE, for the nearest questions a zero offers. This side counts with
+  // everything its board has read; another side only where its lines are in hand and no play-log
+  // grain or count is asked, since that would cost a read the board has not made.
+  const countFor = useCallback((s: FinderBoardSide, q: FinderQuery): number | null => {
+    if (s === side) return runWpblFinder(side, batting, pitching, players, games, q, 0, null, { eraInnings, qualify, fielding, innings, plateAppearances, teamInnings, fieldInnings, clubFieldInnings, playTotals, clubName }).total
+    if (q.per === 'inning' || q.per === 'pa' || finderNeedsPlays(s, q) || (s === 'fielding' && !fielding.length)) return null
+    return runWpblFinder(s, batting, pitching, players, games, q, 0, null, { eraInnings, qualify, fielding, clubName }).total
+  }, [side, batting, pitching, fielding, players, games, eraInnings, qualify, innings, plateAppearances, teamInnings, fieldInnings, clubFieldInnings, playTotals, clubName])
+  const askOn = useCallback((s: FinderBoardSide, q: FinderQuery) => navigate(wpblFinderHref({ ...q, side: s, ignored: [], season })), [season])
+  const findSides = WPBL_FINDER_SIDES as FinderBoardSide[]
+
   // THE EXAMPLES' COUNTS, for the board before a question: each one run in the scope on screen. A
   // play-log example counts only once the log is in hand (cached, or read for a play-log grain),
   // since the start screen must not cost the read the play-log grains are careful to defer.
@@ -343,6 +354,7 @@ export default function WpblFindView({
       sort={sort} onSort={setSort} examples={examples}
       exampleCount={ex => exampleCounts.get(ex) ?? null} exampleHref={exampleHref}
       exampleCounted={plays || askPlays ? grains : ['game', 'season']}
+      countFor={countFor} askOn={askOn} sides={findSides}
       grains={grains} loading={askPlays && (!plays || (askFielders && !fielders))} picks={picks} months={months}
       parse={text => parseFinderText(text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS)} onAsk={onAsk}
             rowParts={r => ({
