@@ -252,6 +252,11 @@ export const EVENTS = {
   // See lib/webVitals.ts.
   // The cls_* props name the largest shift: element, heading, its own score, load state, route.
   WEB_VITALS:          'web_vitals',          // props {lcp, fcp, ttfb, inp (ms), cls, device, section, conn, cls_target, cls_label, cls_shift, cls_state, cls_route}
+  // Where a page load came from, once per load. NOT A PAGE VIEW, so the rule at the top of this
+  // file stands: Cloudflare counts paths, but it cannot say which of our browsers a referrer sent,
+  // or whether they went on to do anything, which is what /admin's Sources card reads it for.
+  // Only the referrer's HOST is kept, never the URL it came from. See lib/landing.ts.
+  LANDED:              'landed',              // props {ref: host|null, utm: utm_source|null, app: installed app, route: landing route}
 } as const
 
 // A known event name, or any string (keeps call sites flexible without losing the
@@ -307,6 +312,23 @@ function automated(): boolean {
 }
 
 /**
+ * A crawler that runs the page's JavaScript says so in its user agent, not in `navigator.webdriver`.
+ * Google's renderer keeps no storage between pages, so every page it renders was a new "browser"
+ * on /admin: over the 30 days to Nov 10, 2026, 218 browsers did nothing but load one comparison
+ * page each and almost none sent a page-speed report, and a day of one-off video pages read as a
+ * sixfold traffic spike. Refused here rather than flagged, like the test runs, so no admin_*
+ * function needs a filter it could forget. The names are the crawlers that render JavaScript,
+ * plus the generic "something-bot/1.0" shape; a phone brand ending in "bot" has no slash after it.
+ */
+const BOT_AGENT = /[a-z]bot\/|googlebot|bingbot|bingpreview|yandex|baiduspider|duckduckbot|slurp|petalbot|bytespider|applebot|ahrefs|semrush|mj12bot|crawler|spider|headlesschrome|lighthouse|pagespeed|gtmetrix|google-inspectiontool|facebookexternalhit|embedly|prerender/i
+export function isBotAgent(ua: string | null | undefined): boolean {
+  return !!ua && BOT_AGENT.test(ua)
+}
+function crawler(): boolean {
+  try { return typeof navigator !== 'undefined' && isBotAgent(navigator.userAgent) } catch { return false }
+}
+
+/**
  * NOT FROM THE DEV SERVER EITHER, for the reason test runs are refused in `track`: `npm run dev`
  * talks to the production project, so every local session wrote real rows. Over the 14 days to
  * Oct 10, 2026 that was 234 of the 286 `app_error` rows, every one a hot-reload crash against
@@ -320,9 +342,9 @@ function devSilenced(): boolean {
   try { return localStorage.getItem('sdDevTrack') !== '1' } catch { return true }
 }
 
-/** Every reason a row must not be written: a test run, automation, or the dev server. */
+/** Every reason a row must not be written: a test run, automation, a crawler, or the dev server. */
 export function silenced(): boolean {
-  return import.meta.env.MODE === 'test' || automated() || devSilenced()
+  return import.meta.env.MODE === 'test' || automated() || crawler() || devSilenced()
 }
 
 export function trackImpression(event: EventName, props: Record<string, unknown> = {}, key = ''): void {

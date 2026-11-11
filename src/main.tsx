@@ -8,6 +8,7 @@ import { AppThemeProvider } from './ThemeContext'
 import { AppErrorBoundary } from './AppErrorBoundary'
 import { installStaleBuildRecovery } from './lib/staleBuild'
 import { startWebVitals } from './lib/webVitals'
+import { trackLanding } from './lib/landing'
 import { publishScrollbarWidth } from './lib/scrollbarWidth'
 import './styles.css'
 
@@ -16,6 +17,8 @@ import './styles.css'
 installStaleBuildRecovery()
 // Real readers' page-load timings, reported to /admin. See lib/webVitals.ts.
 startWebVitals()
+// Where this load came from, for /admin's Sources card. See lib/landing.ts.
+trackLanding()
 // Before the first paint, so the page widths that subtract it are right from the start.
 publishScrollbarWidth()
 

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { pressable } from './ui/interaction'
 import { Box, Typography, CircularProgress, IconButton } from '@mui/material'
 import { Refresh, ExpandMore } from '@mui/icons-material'
-import { StatRow, AdminTools, HealthGroup, HealthStrip, useOpsHealth } from './AdminPanel'
+import { StatRow, AdminTools, HealthGroup, HealthStrip, useOpsHealth, useOpenFeedback, healthStatuses } from './AdminPanel'
+import { runningBuild } from './lib/staleBuild'
 import AdminPhotos from './wpbl/AdminPhotos'
 import AdminClips from './wpbl/AdminClips'
 import AdminRosterMoves from './wpbl/AdminRosterMoves'
@@ -18,7 +19,10 @@ import {
   EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS, EMPTY_ENTRY_POINTS, EMPTY_SEARCH, EMPTY_PALETTE,
   EMPTY_PAGE_USAGE, groupActions, buildFunnels, eventInfo, PAGE_LABELS, prettyId,
   EMPTY_WEB_VITALS, vitalRating, formatVital, EMPTY_MLB_USAGE, mlbCardLabel,
+  EMPTY_AUDIENCE, EMPTY_TRAFFIC_SOURCES, EMPTY_BRIEFING, fetchBriefing, fetchDailyTrend,
+  todayPace, formatMultiple, groupSources, rollingMean,
 } from './lib/analyticsAdmin'
+import type { Audience, Briefing, TrafficSources } from './lib/analyticsAdmin'
 import type { LayoutShifts, VitalKey, VitalRating, WebVitalsRow } from './lib/analyticsAdmin'
 import type { AnalyticsBundle, LeagueFilter, DayPoint, PaletteStats } from './lib/analyticsAdmin'
 import { typePx } from './ui/scale'
@@ -95,6 +99,7 @@ const EMPTY_BUNDLE: AnalyticsBundle = {
   overview: EMPTY_OVERVIEW, events: [], tabs: [], statsBoards: EMPTY_STATS_BOARDS,
   entryPoints: EMPTY_ENTRY_POINTS, search: EMPTY_SEARCH, palette: EMPTY_PALETTE, players: [],
   growth: EMPTY_GROWTH, pages: EMPTY_PAGE_USAGE, vitals: EMPTY_WEB_VITALS, mlb: EMPTY_MLB_USAGE,
+  audience: EMPTY_AUDIENCE, sources: EMPTY_TRAFFIC_SOURCES,
 }
 
 // The three destinations the entry-point card reports, in the order they are worth reading:
@@ -502,6 +507,204 @@ function GroupLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
+// ─── today ───────────────────────────────────────────────────────────────────
+//
+// The first thing on the page, and the only card that answers "is today unusual". Fixed to today
+// in the owner's zone, so it sits ABOVE the range chips it ignores. Browsers are judged against the
+// same hours of the last seven days (a morning against mornings), and new, returning and engaged
+// say what kind of day it is: on Nov 10, 2026, 106 browsers was six times a normal day, and 91 of
+// them were new and only 19 did anything. Below that, only what needs the owner: error screens on
+// the running deploy, a pipeline that is not green, feedback waiting. A quiet day shows none.
+
+export interface TodayAlert { key: string; label: string; text: string; tone: 'warn' | 'bad' | 'info'; onOpen?: () => void }
+// Holds a sub-line's height while there is nothing to put in it, so the card does not move on load.
+const NBSP = ' '
+const TONE_COLOR: Record<TodayAlert['tone'], string> = { bad: 'error.main', warn: 'warning.main', info: 'primary.main' }
+
+function TodayStat({ label, value, badge, sub }: { label: string; value: string; badge?: React.ReactNode; sub: string }) {
+  return (
+    <Box sx={{ minWidth: 0 }}>
+      <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: typePx(0.8), textTransform: 'uppercase', color: 'text.secondary' }}>
+        {label}
+      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6, flexWrap: 'wrap' }}>
+        <Typography sx={{ fontSize: '1.35rem', fontWeight: 800, lineHeight: 1.15, fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
+        {badge}
+      </Box>
+      <Typography sx={{ fontSize: '0.66rem', color: 'text.secondary', mt: 0.2 }}>{sub}</Typography>
+    </Box>
+  )
+}
+
+function TodayCard({ b, ready, alerts }: { b: Briefing; ready: boolean; alerts: TodayAlert[] }) {
+  const pace = todayPace(b.browsers, b.pace.median)
+  const sources = useMemo(() => groupSources(b.sources).slice(0, 4), [b.sources])
+  const n = (v: number) => (ready ? formatCount(v) : '—')
+  return (
+    <Box sx={{ mb: 2, borderRadius: 2, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', px: 1.5, pt: 1.1, pb: 0.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.8 }}>
+        <Typography sx={{ fontSize: '0.88rem', fontWeight: 800 }}>Today</Typography>
+        <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>{b.date ? shortDate(b.date) : ''}</Typography>
+      </Box>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 1, mt: 0.75 }}>
+        <TodayStat label="Browsers" value={n(b.browsers)}
+          badge={ready && pace ? (
+            <Typography component="span" sx={{
+              fontSize: '0.72rem', fontWeight: 800,
+              color: pace.unusual ? (pace.multiple >= 1 ? 'warning.main' : 'error.main') : 'text.secondary',
+            }}>{formatMultiple(pace.multiple)}</Typography>
+          ) : undefined}
+          sub={b.pace.median != null ? `Median by now: ${Math.round(b.pace.median)}` : NBSP} />
+        <TodayStat label="New" value={n(b.new)} sub={ready ? `${formatCount(b.browsers - b.new)} returning` : NBSP} />
+        <TodayStat label="Engaged" value={n(b.engaged)} sub={ready ? `${formatShare(b.engaged, b.browsers)} of browsers` : NBSP} />
+      </Box>
+      <Box sx={{ mt: 1 }}>
+        <TodayLine label="Sources" text={!b.sources_since
+          ? 'Not recorded yet'
+          : sources.length === 0 ? 'No landings yet' : sources.map(s => `${s.label} ${s.browsers}`).join(' · ')} />
+        {alerts.map(a => <TodayLine key={a.key} label={a.label} text={a.text} tone={a.tone} onOpen={a.onOpen} />)}
+      </Box>
+    </Box>
+  )
+}
+
+function TodayLine({ label, text, tone, onOpen }: { label: string; text: string; tone?: TodayAlert['tone']; onOpen?: () => void }) {
+  return (
+    <Box {...(onOpen ? pressable(onOpen) : {})} sx={{
+      display: 'flex', alignItems: 'baseline', gap: 1, py: 0.6,
+      borderTop: '1px solid', borderColor: 'divider',
+      cursor: onOpen ? 'pointer' : 'default', '&:hover': onOpen ? { bgcolor: 'action.hover' } : undefined,
+    }}>
+      {tone && <Box aria-hidden sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: TONE_COLOR[tone], flexShrink: 0, alignSelf: 'center' }} />}
+      <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, flexShrink: 0 }}>{label}</Typography>
+      <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', minWidth: 0, overflowWrap: 'anywhere' }}>{text}</Typography>
+      {onOpen && <Typography aria-hidden sx={{ ml: 'auto', fontSize: '0.85rem', color: 'text.secondary' }}>›</Typography>}
+    </Box>
+  )
+}
+
+// ─── since launch ────────────────────────────────────────────────────────────
+//
+// Every day since the first event, from `events_daily` (whose all-events rows are true distinct
+// browsers, counted before the raw rows go at 90 days). The range chips stop at 90 days and at the
+// raw rows; this is the one view of the whole history. Days are UTC, as the rollup stores them,
+// and it ends yesterday. The faint line is each day, the solid one its 7-day mean.
+
+function TrendChart({ series }: { series: DayPoint[] }) {
+  const W = 640, H = 120, PAD = 6
+  const vals = series.map(d => d.browsers)
+  const mean = rollingMean(vals)
+  const max = Math.max(1, ...vals)
+  const x = (i: number) => (series.length > 1 ? (i / (series.length - 1)) * W : W / 2)
+  const y = (v: number) => PAD + (H - PAD * 2) * (1 - v / max)
+  const daily = vals.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
+  const avg = mean.map((v, i) => (v == null ? null : `${x(i).toFixed(1)},${y(v).toFixed(1)}`)).filter(Boolean).join(' ')
+  if (series.length < 2) {
+    return <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', px: 1.5, py: 2 }}>No days rolled up yet.</Typography>
+  }
+  const peak = series[vals.indexOf(Math.max(...vals))]
+  return (
+    <Box sx={{ px: 1.5, py: 1.25 }}>
+      <Box component="svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img"
+        aria-label={`Browsers per day from ${series[0].date} to ${series[series.length - 1].date}, peak ${peak.browsers} on ${peak.date}`}
+        sx={{ width: '100%', height: 120, display: 'block', color: 'text.disabled' }}>
+        {[0.25, 0.5, 0.75].map(f => (
+          <line key={f} x1={0} x2={W} y1={PAD + (H - PAD * 2) * f} y2={PAD + (H - PAD * 2) * f}
+            stroke="currentColor" strokeOpacity={0.15} strokeWidth={1} vectorEffect="non-scaling-stroke" />
+        ))}
+        <polyline points={daily} fill="none" stroke="#f59e0b" strokeOpacity={0.35} strokeWidth={1.5}
+          vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+        {avg && <polyline points={avg} fill="none" stroke="#f59e0b" strokeWidth={2.5}
+          vectorEffect="non-scaling-stroke" strokeLinejoin="round" />}
+      </Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+        <Typography sx={{ fontSize: '0.66rem', color: 'text.secondary' }}>{shortDate(series[0].date)}</Typography>
+        <Typography sx={{ fontSize: '0.66rem', color: 'text.secondary' }}>Browsers per UTC day · 7-day mean · peak {formatCount(peak.browsers)}</Typography>
+        <Typography sx={{ fontSize: '0.66rem', color: 'text.secondary' }}>{shortDate(series[series.length - 1].date)}</Typography>
+      </Box>
+    </Box>
+  )
+}
+
+/** "24 a day over the last 7, +12% on the 7 before". Null under two weeks of days. */
+function trendSummary(series: DayPoint[]): string | null {
+  if (series.length < 14) return null
+  const sum = (a: DayPoint[]) => a.reduce((n, d) => n + d.browsers, 0)
+  const last = sum(series.slice(-7)) / 7, before = sum(series.slice(-14, -7)) / 7
+  return `${Math.round(last)} a day over the last 7 · ${formatDelta(deltaPct(last, before))} on the 7 before`
+}
+
+// ─── sources ─────────────────────────────────────────────────────────────────
+//
+// Where page loads came from (the `landed` event, from Nov 11, 2026), each with the share of its
+// browsers that went on to do something within half an hour. A source that sends many browsers
+// and few that do anything is either the wrong audience or a crawler the filter does not know yet.
+// Ignores the league chips: a landing is before the reader has picked a section.
+
+function SourcesCard({ src, days }: { src: TrafficSources; days: number }) {
+  const groups = useMemo(() => groupSources(src.sources), [src.sources])
+  const maxG = Math.max(1, ...groups.map(g => g.browsers))
+  const maxR = Math.max(1, ...src.routes.map(r => r.browsers))
+  const lead = groups[0]
+  const summary = !src.since
+    ? 'Recorded from Nov 11, 2026'
+    : !lead ? `No landings ${rangeLabel(days)}`
+      : `${lead.label}: ${plural(lead.browsers, 'browser')}, ${formatShare(lead.engaged, lead.browsers)} engaged`
+  return (
+    <Fold title="Sources" summary={summary}>
+      <Box sx={{ px: 1.5, pb: 1 }}>
+        {groups.length === 0 ? (
+          <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', py: 1.5 }}>No landings in this range.</Typography>
+        ) : (<>
+          {groups.map(g => (
+            <MetricRow key={g.label} label={g.label} value={formatCount(g.browsers)}
+              bar={<Bar value={g.browsers} max={maxG} color="#60a5fa" />}
+              sub={`${plural(g.loads, 'load')} · ${formatCount(g.new)} new · ${formatShare(g.engaged, g.browsers)} engaged`} />
+          ))}
+          <GroupLabel>Landing pages</GroupLabel>
+          {src.routes.map(r => (
+            <MetricRow key={r.route} label={<Box component="span" sx={{ fontFamily: 'monospace', fontSize: '0.74rem' }}>{r.route}</Box>}
+              value={formatCount(r.browsers)} bar={<Bar value={r.browsers} max={maxR} color="#a78bfa" />}
+              sub={`${plural(r.loads, 'load')} · ${formatShare(r.engaged, r.browsers)} engaged`} />
+          ))}
+        </>)}
+      </Box>
+    </Fold>
+  )
+}
+
+// ─── return rate ─────────────────────────────────────────────────────────────
+//
+// Each week's new browsers, and how many came back on another day within 7 days. Only complete
+// weeks (every browser in it has had its 7 days), and none within two weeks of the 90-day history
+// line, where "first seen" mostly means "first seen since the raw rows began". "Engaged" here is
+// the share that did something on their first day, which is what separates a reader from a page
+// that was only rendered.
+
+function ReturnCard({ a }: { a: Audience }) {
+  const rows = a.cohorts
+  const total = rows.reduce((n, c) => n + c.new, 0)
+  const back = rows.reduce((n, c) => n + c.back, 0)
+  const summary = rows.length === 0
+    ? 'No complete weeks yet'
+    : `${formatShare(back, total)} back within 7 days · ${formatCount(total)} new browsers over ${plural(rows.length, 'week')}`
+  const maxShare = Math.max(0.01, ...rows.map(c => (c.new ? c.back / c.new : 0)))
+  return (
+    <Fold title="Return rate" summary={summary}>
+      <Box sx={{ px: 1.5, pb: 1 }}>
+        {rows.length === 0 ? (
+          <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', py: 1.5 }}>No complete weeks yet.</Typography>
+        ) : [...rows].reverse().map(c => (
+          <MetricRow key={c.week} label={`Week of ${shortDate(c.week)}`}
+            value={formatShare(c.back, c.new)}
+            bar={<Bar value={c.new ? c.back / c.new : 0} max={maxShare} color="#22c55e" />}
+            sub={`${formatCount(c.back)} of ${formatCount(c.new)} new · ${formatShare(c.engaged, c.new)} engaged on day one`} />
+        ))}
+      </Box>
+    </Fold>
+  )
+}
+
 // ─── the page ─────────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
@@ -518,6 +721,7 @@ export default function AdminPage() {
   // Read once for the whole page, not per group: the header strip summarizes it from
   // wherever you are, so it cannot wait for the Health group to mount.
   const health = useOpsHealth()
+  const feedbackNew = useOpenFeedback()
 
   const load = useCallback(() => {
     setLoading(true)
@@ -528,8 +732,56 @@ export default function AdminPage() {
 
   useEffect(() => load(), [load])
 
-  const { overview, events, tabs, statsBoards, entryPoints, search, palette, players, growth, pages, vitals, mlb } = data
+  // Today and the since-launch trend ignore the range chips, so they load on their own: changing
+  // the range must not re-read them, and Refresh must.
+  const [briefing, setBriefing] = useState<Briefing>(EMPTY_BRIEFING)
+  const [briefingReady, setBriefingReady] = useState(false)
+  const [briefingNonce, setBriefingNonce] = useState(0)
+  useEffect(() => {
+    let live = true
+    fetchBriefing(tz, runningBuild()).then(b => { if (live) { setBriefing(b); setBriefingReady(true) } })
+    return () => { live = false }
+  }, [tz, briefingNonce])
+  const [trend, setTrend] = useState<DayPoint[]>([])
+  useEffect(() => {
+    let live = true
+    fetchDailyTrend(league).then(t => { if (live) setTrend(t) })
+    return () => { live = false }
+  }, [league, briefingNonce])
+
+  // What needs the owner, in the order it does. Only what is true today is listed.
+  const alerts = useMemo<TodayAlert[]>(() => {
+    const out: TodayAlert[] = []
+    const e = briefing.errors
+    if ((e.on_build ?? 0) > 0 || e.today > 0) {
+      const parts = [
+        e.on_build ? `${e.on_build} on this deploy` : null,
+        e.today ? `${e.today} today, ${plural(e.today_browsers, 'browser')}` : null,
+        e.last_message ? `"${e.last_message.slice(0, 80)}"` : null,
+      ].filter(Boolean)
+      out.push({ key: 'errors', label: 'Error screens', text: parts.join(' · '), tone: 'bad' })
+    }
+    if (!health.loading) {
+      const off = healthStatuses(health).filter(st => st.tone === 'bad' || st.tone === 'warn')
+      if (off.length > 0) {
+        out.push({
+          key: 'pipelines', label: 'Pipelines', text: off.map(st => `${st.name} ${st.label.toLowerCase()}`).join(' · '),
+          tone: off.some(st => st.tone === 'bad') ? 'bad' : 'warn', onOpen: () => setGroup('health'),
+        })
+      }
+    }
+    if (feedbackNew) out.push({ key: 'feedback', label: 'Feedback', text: `${feedbackNew} new`, tone: 'info', onOpen: () => setGroup('tools') })
+    return out
+  }, [briefing.errors, health, feedbackNew])
+
+  const { overview, events, tabs, statsBoards, entryPoints, search, palette, players, growth, pages, vitals, mlb, audience, sources } = data
   const t = overview.totals, p = overview.prev
+  const at = audience.totals, ap = audience.prev
+  // Raw rows go at 90 days, so a range that starts within two weeks of the oldest one counts
+  // anyone last seen before it as new. The Returning tile says so rather than reading low.
+  const firstSeenSince = audience.history_from
+    && (Date.now() - new Date(`${audience.history_from}T00:00:00`).getTime()) / 86_400_000 < days + 14
+    ? audience.history_from : null
 
   // A range that reaches back before the first event would otherwise pad the chart with
   // blank days and quietly overstate how long we've been measuring.
@@ -606,7 +858,7 @@ export default function AdminPage() {
         </Box>
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {(loading || health.loading) && <CircularProgress size={14} />}
-          <IconButton size="small" onClick={() => { load(); health.reload() }} sx={{ color: 'text.secondary' }} aria-label="Refresh">
+          <IconButton size="small" onClick={() => { load(); health.reload(); setBriefingNonce(x => x + 1) }} sx={{ color: 'text.secondary' }} aria-label="Refresh">
             <Refresh sx={{ fontSize: '1.05rem' }} />
           </IconButton>
         </Box>
@@ -625,6 +877,8 @@ export default function AdminPage() {
       {group !== 'health' && <HealthStrip health={health} onOpen={() => setGroup('health')} />}
 
       {group === 'audience' && (<>
+      <TodayCard b={briefing} ready={briefingReady} alerts={alerts} />
+
       <Box sx={{ display: 'flex', gap: 0.6, mb: 1, flexWrap: 'wrap', alignItems: 'center' }}>
         {RANGES.map(r => (
           <Chip key={r.days} label={r.label} active={days === r.days} onClick={() => setDays(r.days)} />
@@ -658,17 +912,11 @@ export default function AdminPage() {
       )}
 
       {/* ── headline tiles ─────────────────────────────────────────────── */}
-      {/* Three, and each answers a different question. This row used to be five, which put two
-          different window semantics side by side under one range filter: Browsers/Events/Signed
-          in follow the chips above, while Active today / Active 30d are FIXED and ignore them.
-          Two of the five are gone:
-
-          - "Events" was a headline that instrumentation moves. Adding seven event names on Aug
-            25 lifts it about a fifth with no change in what anyone did, and the number is
-            already on the page twice (the chart plots it per day, the Events card breaks it
-            down). A volume count that a deploy can move is not a headline.
-          - "Active 30d" and "Active today" were two tiles carrying three numbers between them.
-            They are one fixed-window answer and now read as one tile that says so. */}
+      {/* Three, each a different question about the range: how many, how many came back, how
+          many did anything. "Signed in" sat here until Nov 11, 2026; at 0 to 5 users a day it
+          moved with nothing anyone did, and it is under Accounts now. "Active browsers" was the
+          fixed today / 7d / 30d read, which the Today card above answers better. Events are not
+          a headline either: a deploy that adds event names moves them. */}
       <Box sx={{
         display: 'grid', gap: 1, mb: 2.5,
         gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' },
@@ -676,15 +924,13 @@ export default function AdminPage() {
         <Tile label="Browsers" value={formatCount(t.browsers)}
           delta={comparable ? deltaPct(t.browsers, p.browsers) : undefined}
           sub={rangeLabel(days)} />
-        <Tile label="Signed in" value={formatShare(t.signed_in_browsers, t.browsers)}
-          delta={comparable ? deltaPct(t.signed_in_browsers, p.signed_in_browsers) : undefined}
-          sub={`${t.users} users, ${t.signed_in_browsers} browsers`} />
-        {/* Fixed windows, deliberately: these are the only numbers on the page the range chips
-            do not touch, so the sub-line names all three rather than letting the tile look like
-            it moved when the reader changed the range. */}
+        <Tile label="Returning" value={formatCount(at.browsers - at.new)}
+          delta={comparable ? deltaPct(at.browsers - at.new, ap.browsers - ap.new) : undefined}
+          sub={firstSeenSince ? `${formatCount(at.new)} new · first seen since ${shortDate(firstSeenSince)}` : `${formatCount(at.new)} new`} />
         <Box sx={{ gridColumn: { xs: 'span 2', sm: 'auto' }, display: 'grid' }}>
-        <Tile label="Active browsers" value={formatCount(overview.active.today)}
-          sub={`today · ${formatCount(overview.active.week)} in 7d · ${formatCount(overview.active.month)} in 30d`} />
+        <Tile label="Engaged" value={formatCount(at.engaged)}
+          delta={comparable ? deltaPct(at.engaged, ap.engaged) : undefined}
+          sub={`${formatShare(at.engaged, at.browsers)} of browsers`} />
         </Box>
       </Box>
 
@@ -693,6 +939,14 @@ export default function AdminPage() {
         summary={`${formatCount(t.browsers)} browsers, ${formatCount(t.events)} events ${rangeLabel(days)}`}>
         <ActivityChart series={overview.series} tz={overview.tz || tz} />
       </Fold>
+
+      <Fold title="Since launch" summary={trendSummary(trend) ?? 'Fills in as days are rolled up'}>
+        <TrendChart series={trend} />
+      </Fold>
+
+      <SourcesCard src={sources} days={days} />
+
+      <ReturnCard a={audience} />
 
       {/* ── Home cards: seen, then used ──────────────────────────────────── */}
       {/* The six impressions that used to head the Events card, each read against the action
@@ -1218,6 +1472,8 @@ export default function AdminPage() {
         <Box sx={{ px: 1.5, py: 0.5 }}>
           <StatRow label="Total users" sub={growth.deleted_users > 0 ? `${growth.deleted_users} deactivated` : undefined}
             value={<Typography sx={{ fontSize: '0.88rem', fontWeight: 800 }}>{growth.total_users}</Typography>} />
+          <StatRow label="Signed-in browsers" sub={`${plural(t.users, 'user')} ${rangeLabel(days)}`}
+            value={<Typography sx={{ fontSize: '0.88rem', fontWeight: 800 }}>{formatShare(t.signed_in_browsers, t.browsers)}</Typography>} />
           <StatRow label={`Signups ${rangeLabel(days)}`}
             value={<Typography sx={{ fontSize: '0.88rem', fontWeight: 800 }}>{growth.signups_window}</Typography>} />
           <StatRow label="Push subscribers" sub={plural(growth.push_devices, 'device')}

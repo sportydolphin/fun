@@ -730,6 +730,20 @@ function DrillRow({ emoji, label, badge, onClick }: {
   )
 }
 
+/** Feedback not yet handled, for the Today card. Null until read. The owner's select policy is
+ *  what lets this count every row rather than the reader's own. */
+export function useOpenFeedback(): number | null {
+  const [n, setN] = useState<number | null>(null)
+  useEffect(() => {
+    let live = true
+    Promise.resolve(supabase.from('feedback').select('*', { count: 'exact', head: true }).is('handled_at', null))
+      .then(({ count }) => { if (live) setN(count ?? 0) })
+      .catch(() => {})
+    return () => { live = false }
+  }, [])
+  return n
+}
+
 // The things the owner *does*: fire a test push, work the feedback queue, manage users. This began as a maxWidth="xs" dialog off the account menu, then
 // became the whole operational half of one long page; the freshness reads moved to
 // HealthGroup above, so what is left here is only the actions. Feedback and Users stay

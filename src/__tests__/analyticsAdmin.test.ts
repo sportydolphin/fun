@@ -164,3 +164,57 @@ describe('the event catalog', () => {
     expect(rows).toEqual([{ label: 'Bracket', verb: 'opened a series or club', seen: 820, used: 29 }])
   })
 })
+
+describe('engaged and sources', () => {
+  it('counts nothing as engagement that a page does by loading', async () => {
+    const { PASSIVE_EVENTS, ARRIVALS, EVENT_INFO: info } = await import('../lib/analyticsAdmin')
+    for (const a of ARRIVALS) expect(PASSIVE_EVENTS).toContain(a)
+    expect(PASSIVE_EVENTS).toContain('landed')
+    expect(PASSIVE_EVENTS).toContain('web_vitals')
+    expect(PASSIVE_EVENTS).not.toContain('wpbl_player_opened')
+    // An arrival names an event the catalog knows, or the value it carries.
+    for (const a of ARRIVALS) expect(a.split(':')[0] in info).toBe(true)
+  })
+
+  it('names a source by site, with a tagged link first and no referrer as direct or the app', async () => {
+    const { sourceLabel } = await import('../lib/analyticsAdmin')
+    expect(sourceLabel('google.co.uk', null, false)).toBe('Google')
+    expect(sourceLabel('com.google.android.googlequicksearchbox', null, false)).toBe('Google')
+    expect(sourceLabel('com.google.android.gm', null, false)).toBe('Gmail')
+    expect(sourceLabel('l.instagram.com', null, false)).toBe('Instagram')
+    expect(sourceLabel('t.co', null, false)).toBe('X')
+    expect(sourceLabel('example.org', null, false)).toBe('example.org')
+    expect(sourceLabel('t.co', 'bluesky', false)).toBe('Bluesky')
+    expect(sourceLabel(null, 'newsletter', false)).toBe('newsletter')
+    expect(sourceLabel(null, 'short', false)).toBe('Short links')
+    expect(sourceLabel('self', null, false)).toBe('This site')
+    expect(sourceLabel(null, null, true)).toBe('Installed app')
+    expect(sourceLabel(null, null, false)).toBe('Direct')
+  })
+
+  it('merges hosts under one name, busiest first', async () => {
+    const { groupSources } = await import('../lib/analyticsAdmin')
+    const g = groupSources([
+      { ref: 'google.com', utm: null, app: false, browsers: 5, loads: 6, new: 4, engaged: 2 },
+      { ref: 'bing.com', utm: null, app: false, browsers: 7, loads: 7, new: 7, engaged: 1 },
+      { ref: 'google.ca', utm: null, app: false, browsers: 3, loads: 3, new: 3, engaged: 3 },
+    ])
+    expect(g.map(x => [x.label, x.browsers, x.engaged])).toEqual([['Google', 8, 5], ['Bing', 7, 1]])
+  })
+
+  it('calls a day unusual at twice or half its usual pace, and only once there is a usual', async () => {
+    const { todayPace, formatMultiple } = await import('../lib/analyticsAdmin')
+    expect(todayPace(106, 15)).toEqual({ multiple: 106 / 15, unusual: true })
+    expect(todayPace(16, 15)?.unusual).toBe(false)
+    expect(todayPace(5, 15)?.unusual).toBe(true)
+    expect(todayPace(9, 3)).toBeNull()
+    expect(todayPace(9, null)).toBeNull()
+    expect(formatMultiple(106 / 15)).toBe('7.1x')
+    expect(formatMultiple(12.4)).toBe('12x')
+  })
+
+  it('averages a trailing week, and draws nothing before there is one', async () => {
+    const { rollingMean } = await import('../lib/analyticsAdmin')
+    expect(rollingMean([7, 7, 7, 7, 7, 7, 7, 14])).toEqual([null, null, null, null, null, null, 7, 8])
+  })
+})
