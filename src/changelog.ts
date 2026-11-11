@@ -23,6 +23,24 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.232.1',
+    date:    '2026-11-10',
+    changes: [
+      {
+        short: 'Find: long column heads wrap',
+        full:  'A long column head on Find, such as "HR ROW" on plate appearances, wraps onto two lines instead of running into the column beside it.',
+      },
+      {
+        short: 'Find: ignored words stay on screen',
+        full:  'Words Find did not understand stay listed under the box after you ask, as you typed them, so a dropped club or name is not lost when the question becomes chips.',
+      },
+      {
+        short: 'Small phones: the top bar and Find fit',
+        full:  'On a 320px phone the search button no longer sits on the MLB | WPBL switch, and Find’s Games to Seasons switch fits the card.',
+      },
+    ],
+  },
+  {
     version: '1.232.0',
     date:    '2026-11-10',
     changes: [
