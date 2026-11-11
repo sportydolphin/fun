@@ -314,10 +314,10 @@ const stripValueSx = { fontSize: TYPE_SCALE.body, fontVariantNumeric: 'tabular-n
 function CardSkeleton({ divider, season, stats }: { divider: boolean; season: boolean; stats: number }) {
   return (
     <Box aria-hidden sx={{
-      display: 'flex', alignItems: 'flex-start', gap: 1.25, px: 0.5, py: 0.85,
+      display: 'flex', alignItems: 'center', gap: 1.25, px: 0.5, py: 0.85,
       borderTop: divider ? '1px solid' : 'none', borderColor: 'divider',
     }}>
-      <Box sx={{ ...GAME_LINE_RANK_SX, lineHeight: 1.5 }}>&nbsp;</Box>
+      <Box sx={GAME_LINE_RANK_SX}>&nbsp;</Box>
       <Skeleton variant="circular" width={chromePx(PORTRAIT_PX)} height={chromePx(PORTRAIT_PX)} sx={{ flexShrink: 0 }} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{ fontSize: TYPE_SCALE.body }}><Skeleton width="55%" /></Typography>
@@ -362,12 +362,14 @@ function ResultCards<P extends LeaguePlayer, G extends LeagueGame>({ side, query
       const rowLink = season ? parts.playerLink : parts.gameLink
       const result = r.inning?.event !== undefined ? r.inning.event ?? '' : gameResult(r.game, r.teamId)
       return (
+        // THE RANK AND THE FACE ARE CENTERED ON THE CARD, as the table's row and the tally's are: pinned
+        // to its top they sat beside the name alone and left the stat strip hanging under nothing.
         <Box key={r.key} sx={{
-          position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 1.25, px: 0.5, py: 0.85, borderRadius: 1,
+          position: 'relative', display: 'flex', alignItems: 'center', gap: 1.25, px: 0.5, py: 0.85, borderRadius: 1,
           borderTop: i > 0 ? '1px solid' : 'none', borderColor: 'divider',
           ...(rowLink ? TAPPABLE : {}),
         }}>
-          <Box sx={{ ...GAME_LINE_RANK_SX, lineHeight: 1.5, color: 'text.secondary' }}>{rankText(ranks[i])}</Box>
+          <Box sx={{ ...GAME_LINE_RANK_SX, color: 'text.secondary' }}>{rankText(ranks[i])}</Box>
           {parts.portrait}
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
@@ -615,7 +617,8 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
 /** Who a row is, for the counts: a player on every side, and a club on Hitting by the inning, where
  *  a row is a club's half-inning at the plate. */
 function whoFor(side: FinderBoardSide, per: FinderPer, byClub = false): [string, string] {
-  if (per === 'club' || (per === 'inning' && (side === 'hitting' || (side === 'fielding' && byClub)))) return ['club', 'clubs']
+  if (per === 'club' || (per === 'season' && side === 'hitting' && byClub)
+    || (per === 'inning' && (side === 'hitting' || (side === 'fielding' && byClub)))) return ['club', 'clubs']
   return side === 'pitching' ? ['pitcher', 'pitchers'] : side === 'fielding' ? ['fielder', 'fielders'] : ['hitter', 'hitters']
 }
 
@@ -814,7 +817,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // every line ranks nobody.
   const setPer = (per: FinderPer) => {
     if (per === query.per) return
-    const kept = conditionsForPer(side, per, query.conditions, plays)
+    const kept = conditionsForPer(side, per, query.conditions, plays, per === 'season' && !!query.byClub)
     // The players go with the grain: a game's player is a plate appearance's batter or pitcher.
     onQuery({ ...finderPlayerAt(side, query, per), per, conditions: kept.length || per === 'game' ? kept : [defaultCondition(side, per)] })
   }
@@ -958,7 +961,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     <ChipSurface anchor={anchor} open={!!editing && (editing.kind !== 'cond' || editedConds.length > 0) && (editing.kind !== 'scope' || !!editedScope)}
       onClose={closeEditor} title={surfaceTitle} count={hasConditions ? countText : undefined}>
       {editing?.kind === 'add' && (
-        <AddMenu side={side} per={query.per} plays={plays}
+        <AddMenu side={side} per={query.per} plays={plays} byClub={!!query.byClub}
           scopes={scopes.filter(sc => !sc.text).map(sc => ({ key: sc.key, label: sc.label }))}
           onScope={key => setEditing({ kind: 'scope', key })}
           onStat={field => {
@@ -973,7 +976,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
       )}
       {editedConds.map((i, n) => (
         <Box key={i} sx={n > 0 ? { mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' } : undefined}>
-          <ConditionEditor side={side} per={query.per} plays={plays} condition={query.conditions[i]}
+          <ConditionEditor side={side} per={query.per} plays={plays} byClub={!!query.byClub} condition={query.conditions[i]}
             onChange={c => setCondition(i, c)}
             onRemove={() => { onQuery({ ...query, conditions: query.conditions.filter((_, j) => !editedConds.includes(j)) }); closeEditor() }} />
         </Box>
@@ -1015,6 +1018,16 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
               value={query.byClub ? 'club' : 'fielder'}
               onChange={v => onQuery({ ...query, byClub: v === 'club', playerId: v === 'club' ? null : query.playerId,
                 conditions: v === 'club' ? query.conditions.filter(c => c.field !== 'pos') : query.conditions })} />
+          </Box>
+        )}
+        {/* A SEASON AT THE PLATE IS A PLAYER'S OR A CLUB'S: a club's carries its two-out runs, which
+            no player's can, and "team avg with 2 outs" is the same cut filed under the club. */}
+        {side === 'hitting' && query.per === 'season' && (
+          <Box role="group" aria-label="Seasons by" sx={{ alignSelf: 'flex-start' }}>
+            <PillGroup options={[{ value: 'player', label: 'Players' }, { value: 'club', label: 'Clubs' }]}
+              value={query.byClub ? 'club' : 'player'}
+              onChange={v => onQuery({ ...query, byClub: v === 'club', playerId: v === 'club' ? null : query.playerId,
+                conditions: conditionsForPer(side, 'season', query.conditions, plays, v === 'club') })} />
           </Box>
         )}
         </Box>

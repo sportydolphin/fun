@@ -177,6 +177,8 @@ export default function WpblFindView({
   const months = useMemo(() => finderMonths(seasonGames.filter(g => g.status === 'final')), [seasonGames])
   const grains = GRAINS[side]
   const askInnings = query.per === 'inning' && grains.includes('inning')
+  // A club's season carries the two-out runs its half-innings scored.
+  const clubSeason = query.per === 'season' && side === 'hitting' && !!query.byClub
   // A hitter's season against one arm, one pitcher or in a situation is summed from the plate
   // appearances (`seasonFromPas`).
   const askPas = (query.per === 'pa' && grains.includes('pa')) || seasonFromPas(side, query)
@@ -190,7 +192,7 @@ export default function WpblFindView({
   const plays = playRead.season === season ? playRead.plays : null
   // A game or a season asking a count only the plays hold (pickoffs, pitches seen) reads them too.
   const askTotals = (query.per === 'game' || query.per === 'season') && finderNeedsPlays(side, query, sort)
-  const askPlays = askInnings || askPas || askTotals
+  const askPlays = askInnings || askPas || askTotals || clubSeason
   useEffect(() => {
     if (!askPlays || plays) return
     let cancelled = false
@@ -203,8 +205,8 @@ export default function WpblFindView({
     () => (askInnings && side === 'pitching' && plays ? inningPitchingLines(WPBL_LEAGUE, cut(plays), games) : undefined),
     [askInnings, side, plays, cut, games])
   const teamInnings = useMemo(
-    () => (askInnings && side === 'hitting' && plays ? teamInningLines(WPBL_LEAGUE, cut(plays), games) : undefined),
-    [askInnings, side, plays, cut, games])
+    () => (((askInnings && side === 'hitting') || clubSeason) && plays ? teamInningLines(WPBL_LEAGUE, cut(plays), games) : undefined),
+    [askInnings, clubSeason, side, plays, cut, games])
   // WHO WAS AT EACH POSITION, for a fielder's inning: the lineup cards, read once that is asked for.
   const askFielders = askInnings && side === 'fielding'
   const [fielders, setFielders] = useState<FielderSource | null>(null)
@@ -223,7 +225,7 @@ export default function WpblFindView({
     () => (askFielders && plays && fielders && query.byClub ? clubFieldingInningLines(cut(plays), games, fielders) : undefined),
     [askFielders, plays, fielders, query.byClub, cut, games])
   // A club's game, and a club's half-inning at the plate or (asked so) in the field: rows are clubs.
-  const clubRows = query.per === 'club' || (query.per === 'inning' && (side === 'hitting' || (side === 'fielding' && !!query.byClub)))
+  const clubRows = query.per === 'club' || clubSeason || (query.per === 'inning' && (side === 'hitting' || (side === 'fielding' && !!query.byClub)))
   // THE NICKNAME, NOT THE FULL NAME: every name column here steps a name down the way it does a
   // person's, so "Los Angeles Queens" came out "L. Queens", which reads as a player. One word has no
   // stage to step to, and four clubs never share a nickname.

@@ -23,6 +23,24 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.233.0',
+    date:    '2026-11-10',
+    changes: [
+      {
+        short: 'Search: two-out runs by team',
+        full:  'Searching "two out runs", "runs with 2 outs" or "two out runs team" ranks the clubs by runs scored with two outs, counting every run, including one home on a wild pitch. It used to list every two-out plate appearance.',
+      },
+      {
+        short: 'Find: club seasons',
+        full:  'Hitting season totals on Find have a Players and Clubs switch. A club season shows games, runs, two-out runs and the slash line, and can be cut by a situation, so "team avg with 2 outs" and "team hits with risp" rank the clubs.',
+      },
+      {
+        short: 'Find: rows centered on a phone',
+        full:  'On a phone, each Find result card centers its rank and photo or club logo instead of pinning them to the top.',
+      },
+    ],
+  },
+  {
     version: '1.232.1',
     date:    '2026-11-10',
     changes: [

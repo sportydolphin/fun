@@ -111,6 +111,41 @@ describe('cuts', () => {
     expect(risp.qualifier).toBeNull()
   })
 
+  // "two out runs team" (Nov 10, 2026): a club's season, its two-out runs off its half-innings, and
+  // "team avg with 2 outs" the same plate-appearance sum filed under the club.
+  it("sum a club's season, with its two-out runs, and cut it by a situation", () => {
+    const batting = [
+      bat({ game_id: 'g1', player_id: 'a', team_id: 'NY', h: 2, r: 2 }), bat({ game_id: 'g1', player_id: 'd', team_id: 'NY', h: 1, r: 1 }),
+      bat({ game_id: 'g3', player_id: 'a', team_id: 'NY', h: 1, r: 1 }), bat({ game_id: 'g1', player_id: 'b', team_id: 'LA', h: 1, r: 1 }),
+    ]
+    const half = (game_id: string, team_id: string, r2: number) => ({
+      id: `${game_id}|${team_id}|${r2}`, game_id, team_id, inning: 1, half: 'bottom' as const, sequence: 1, r: r2, h: 0, doubles: 0,
+      triples: 0, hr: 0, tb: 0, bb: 0, so: 0, hbp: 0, ab: 3, sh: 0, sf: 0, r2, trail: 0, tooklead: 0, sb: 0, sbh: 0, cs: 0, pk: 0,
+    })
+    const teamInnings = [half('g1', 'NY', 2), half('g3', 'NY', 1), half('g1', 'LA', 1), half('g1', 'LA', 0)]
+    const clubName = (id: string) => id
+    const r2 = runWpblFinder('hitting', batting, [], PLAYERS, GAMES,
+      q({ per: 'season', byClub: true, conditions: [{ field: 'r2', op: 'gte', value: 1 }] }), 50, null, { teamInnings, clubName })
+    expect(r2.rows.map(r => [r.name, r.values.r2, r.values.g, r.values.r, r.values.h])).toEqual([['NY', 3, 2, 4, 4], ['LA', 1, 1, 1, 1]])
+    expect(r2.rows[0].player).toBeNull()
+
+    const pas = [
+      pa({ batter_id: 'a', paouts: 2, h: 1, tb: 1 }), pa({ batter_id: 'd', paouts: 2, sequence: 2 }), pa({ batter_id: 'a', paouts: 0, h: 1, tb: 1, sequence: 3 }),
+      pa({ batter_id: 'b', batting_team: 'LA', fielding_team: 'NY', half: 'top', paouts: 2, sequence: 4 }),
+    ]
+    const twoOut = runWpblFinder('hitting', [], [], PLAYERS, GAMES,
+      q({ per: 'season', byClub: true, conditions: [{ field: 'avg', op: 'gte', value: 0 }, { field: 'paouts', op: 'eq', value: 2 }] }), 50, null, { plateAppearances: pas, clubName })
+    expect(twoOut.rows.map(r => [r.name, r.values.avg, r.values.pa])).toEqual([['NY', 500, 2], ['LA', 0, 1]])
+  })
+
+  it("carry a club's season in q", () => {
+    const raw = encodeFinderQuery(q({ per: 'season', byClub: true, conditions: [{ field: 'r2', op: 'gte', value: 1 }] }))
+    expect(raw).toBe('clubseason~r2.gte.1')
+    expect(decodeFinderQuery(raw, 'hitting')).toEqual([{ field: 'r2', op: 'gte', value: 1 }])
+    // A player's season has no two-out runs, so a hand-edited link keeps none.
+    expect(decodeFinderQuery('season~r2.gte.1', 'hitting')).toEqual([])
+  })
+
   it('ride in q and come back whole, beside conditions an older reader still reads', () => {
     const raw = encodeFinderQuery(q({ per: 'season', conditions: [{ field: 'hr', op: 'gte', value: 1 }], from: '0801', last: 10, hand: 'L' }))
     expect(raw).toBe('season~from.0801~last.10~hand.l~hr.gte.1')

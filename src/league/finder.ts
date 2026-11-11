@@ -97,9 +97,11 @@ export interface FinderQuery {
    *  club it faced). Either side can ask either: on Hitting a pitcher picks who batters faced, on
    *  Pitching a batter picks who pitchers faced, and with both set it is the head-to-head. Ignored at
    *  every other grain, and absent is everyone. */
-  /** FIELDING BY THE INNING, FILED UNDER THE CLUB rather than each fielder: a club's half-inning in the
-   *  field, every charge counted whether or not the log let it be placed on a fielder. `clubinning` at
-   *  the head of `q`. Ignored at every other grain. */
+  /** FILED UNDER THE CLUB rather than each player, where a grain has both. Fielding by the inning: a
+   *  club's half-inning in the field, every charge counted whether or not the log let it be placed on
+   *  a fielder (`clubinning` at the head of `q`). Hitting by the season: a club's season at the plate
+   *  (`clubseason`), its two-out runs, and the same cut by a situation ("team avg with 2 outs").
+   *  Ignored at every other grain. */
   byClub?: boolean
   batterId?: string | null
   pitcherId?: string | null
@@ -150,7 +152,7 @@ export function finderPitcherApplies(side: FinderBoardSide, per: FinderPer): boo
 
 /** Whether one player can be asked about at this grain on this side (see `FinderQuery.playerId`). */
 export function finderPlayerApplies(side: FinderBoardSide, per: FinderPer, byClub = false): boolean {
-  return per === 'game' || per === 'season' || (per === 'inning' && side !== 'hitting' && !(side === 'fielding' && byClub))
+  return per === 'game' || (per === 'season' && !(side === 'hitting' && byClub)) || (per === 'inning' && side !== 'hitting' && !(side === 'fielding' && byClub))
 }
 
 /** Whether a query asks about particular players at all: a matchup, or one player where it applies. */
@@ -531,20 +533,29 @@ function fineKeys(side: FinderBoardSide, per: 'inning' | 'pa'): Set<string> {
   return side === 'pitching' ? PIT_PA_KEYS : side === 'hitting' ? HIT_PA_KEYS : new Set()
 }
 
+// A CLUB'S SEASON AT THE PLATE: its box-score lines summed, its games, the rates, and the two-out runs
+// its half-innings scored (`TeamInningLine.r2`, every play, so a run home on a wild pitch counts),
+// which no player's season can carry: a run with two out belongs to the club. "Two out runs team"
+// asked for this and got every two-out plate appearance until Nov 10, 2026. No streaks and no
+// play-log counts per player (pitches seen, bunts), which are a batter's.
+const CLUB_SEASON_KEYS = new Set([...['pa', 'ab', 'r', 'h', '1b', '2b', '3b', 'hr', 'xbh', 'tb', 'rbi', 'bb', 'so', 'hbp', 'sb', 'cs', 'gdp', 'sf', 'sh', 'ob'],
+  'g', 'avg', 'obp', 'slg', 'ops', 'r2'])
+
 /** Whether a field can be asked at a grain. An inning is pitching only and a plate appearance has no
  *  fielding side, so those sides have no field there and the board offers them no such grain. */
-function askable(side: FinderBoardSide, f: Field<never>, per: FinderPer, plays = true): boolean {
+function askable(side: FinderBoardSide, f: Field<never>, per: FinderPer, plays = true, byClub = false): boolean {
   if (per === 'inning' || per === 'pa') return fineKeys(side, per).has(f.key)
   if (per === 'club') return CLUB_KEYS[side].has(f.key)
+  if (per === 'season' && byClub && side === 'hitting') return (CLUB_SEASON_KEYS.has(f.key) && (plays || f.key !== 'r2')) || (plays && SITUATION_KEYS.has(f.key))
   if (per === 'season' && side === 'hitting' && SITUATION_KEYS.has(f.key)) return plays
   return !f.fineOnly && !f.clubOnly && (plays || !f.playOnly) && (per === 'season' || !f.seasonOnly) && (per === 'game' || !f.gameOnly)
 }
 
 /** The fields one side can be asked about, in the order the pickers list them. A season can be
  *  asked everything a game can, and then its games and its rates. */
-export function finderFields(side: FinderBoardSide, per: FinderPer = 'game', plays = true): { key: string; label: string; unit: string }[] {
+export function finderFields(side: FinderBoardSide, per: FinderPer = 'game', plays = true, byClub = false): { key: string; label: string; unit: string }[] {
   return allFields(side)
-    .filter(f => askable(side, f, per, plays))
+    .filter(f => askable(side, f, per, plays, byClub))
     .map(f => ({ key: f.key, label: f.label, unit: f.unit }))
 }
 
@@ -593,8 +604,8 @@ const FIELD_GROUPS: Record<FinderBoardSide, [string, string[]][]> = {
 
 /** The same fields as `finderFields`, under the picker's headings. A group with nothing askable at
  *  this grain (the rates, for one game) is left out. */
-export function finderFieldGroups(side: FinderBoardSide, per: FinderPer = 'game', plays = true): { label: string; fields: { key: string; label: string }[] }[] {
-  const byKey = new Map(finderFields(side, per, plays).map(f => [f.key, f]))
+export function finderFieldGroups(side: FinderBoardSide, per: FinderPer = 'game', plays = true, byClub = false): { label: string; fields: { key: string; label: string }[] }[] {
+  const byKey = new Map(finderFields(side, per, plays, byClub).map(f => [f.key, f]))
   return FIELD_GROUPS[side]
     .map(([label, keys]) => ({ label, fields: keys.flatMap(k => byKey.get(k) ?? []) }))
     .filter(g => g.fields.length > 0)
@@ -616,8 +627,8 @@ const PA_MAX: Record<string, number> = { h: 1, '2b': 1, '3b': 1, hr: 1, bb: 1, s
 
 /** The conditions another grain can still ask: going back to single games drops every rate, and a
  *  plate appearance drops a floor no single trip to the plate can reach. */
-export function conditionsForPer(side: FinderBoardSide, per: FinderPer, conditions: FinderCondition[], plays = true): FinderCondition[] {
-  const known = new Set(finderFields(side, per, plays).map(f => f.key))
+export function conditionsForPer(side: FinderBoardSide, per: FinderPer, conditions: FinderCondition[], plays = true, byClub = false): FinderCondition[] {
+  const known = new Set(finderFields(side, per, plays, byClub).map(f => f.key))
   return conditions.filter(c => known.has(c.field)
     && !(per === 'pa' && c.op !== 'lte' && c.value > (PA_MAX[c.field] ?? Infinity)))
 }
@@ -721,6 +732,8 @@ const PIT_CLUB_COLUMNS = ['ip', 'h', 'r', 'er', 'bb', 'so', 'pitches', 'margin']
 const FLD_CLUB_COLUMNS = ['tc', 'po', 'a', 'e', 'dp', 'margin']
 const FLD_INNING_COLUMNS = ['inn', 'pos', 'po', 'a', 'e', 'dp']
 const HAND_SEASON_COLUMNS = ['g', 'pa', 'h', 'hr', 'bb', 'so', 'avg', 'obp', 'slg', 'ops']
+// A club's season: the runs and the two-out runs first, which is what a club's season is asked for.
+const CLUB_SEASON_COLUMNS = ['g', 'r', 'r2', 'h', 'hr', 'bb', 'so', 'sb', 'avg', 'ops']
 const COLUMNS: Record<FinderBoardSide, Record<FinderPer, string[]>> = {
   hitting: { game: HIT_COLUMNS, season: HIT_SEASON_COLUMNS, inning: HIT_INNING_COLUMNS, pa: PA_COLUMNS, club: HIT_CLUB_COLUMNS },
   pitching: { game: PIT_COLUMNS, season: PIT_SEASON_COLUMNS, inning: PIT_INNING_COLUMNS, pa: PA_COLUMNS, club: PIT_CLUB_COLUMNS },
@@ -734,7 +747,8 @@ export function finderColumns(side: FinderBoardSide, query: Pick<FinderQuery, 'c
   // summed from plate appearances carries no runs, RBI or steals, and its situation is a cut on the
   // trips rather than a number on the season, so it has no column either.
   const fromPas = seasonFromPas(side, { per: query.per ?? 'game', conditions: query.conditions, hand: query.hand, pitcherId: query.pitcherId })
-  const keys = (fromPas ? HAND_SEASON_COLUMNS : COLUMNS[side][query.per ?? 'game'])
+  const clubSeason = query.per === 'season' && !!query.byClub && side === 'hitting'
+  const keys = (fromPas ? HAND_SEASON_COLUMNS : clubSeason ? CLUB_SEASON_COLUMNS : COLUMNS[side][query.per ?? 'game'])
     .filter(k => !(query.byClub && k === 'pos'))
   for (const c of query.conditions) if (!keys.includes(c.field) && fieldFor(side, c.field) && !(fromPas && SITUATION_KEYS.has(c.field))) keys.push(c.field)
   return keys.map(k => { const f = fieldFor(side, k)!; return { key: k, unit: f.unit, label: f.label } })
@@ -842,11 +856,13 @@ const playFields = (side: FinderBoardSide): Field<never>[] => allFields(side).fi
  * season once it asks about (or is sorted by) a count only the plays hold. A section reads its plays
  * only on this, since a game question otherwise costs no read at all.
  */
-export function finderNeedsPlays(side: FinderBoardSide, q: Pick<FinderQuery, 'per' | 'conditions'> & { hand?: FinderQuery['hand']; pitcherId?: string | null }, sort: FinderSort | null = null): boolean {
+export function finderNeedsPlays(side: FinderBoardSide, q: Pick<FinderQuery, 'per' | 'conditions'> & { byClub?: boolean } & { hand?: FinderQuery['hand']; pitcherId?: string | null }, sort: FinderSort | null = null): boolean {
   if (q.per === 'inning' || q.per === 'pa') return true
   // A hitter's season against one arm, one pitcher or in a situation is summed from the plate appearances.
   if (seasonFromPas(side, q)) return true
   if (q.per === 'club') return false
+  // A club's season carries its two-out runs, which only the plays hold.
+  if (q.per === 'season' && q.byClub && side === 'hitting') return true
   const keys = new Set(playFields(side).map(f => f.key))
   return q.conditions.some(c => keys.has(c.field)) || (!!sort && keys.has(sort.key))
 }
@@ -1258,40 +1274,41 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
   }
 
   const qualify = opts.qualify ?? null
-  if (query.per === 'club') {
-    // A CLUB'S WHOLE GAME, filed under the club as its half-innings are: the side's lines of one game
-    // summed, then the result off the game row. Summed from the lines rather than read off the line
-    // score, so every field a player's line has is a club's too, and a club's game agrees with its
-    // players' lines by construction. The lines are cut (finals, the slice, the club, the opponent,
-    // the venue) before they are summed, inside `collect`, which sees the summed line's own club and
-    // game exactly as it sees a player's.
-    type Club = { id: string; game_id: string; player_id: string; team_id: string | null } & ClubGame
-    const sum = <L extends AnyLine>(lines: L[]): (L & Club)[] => {
-      const byClub = new Map<string, L[]>()
-      for (const l of lines) {
-        if (!l.team_id || !gameById.has(l.game_id)) continue
-        const key = `${l.game_id}|${l.team_id}`
-        const list = byClub.get(key)
-        if (list) list.push(l)
-        else byClub.set(key, [l])
-      }
-      return [...byClub.entries()].map(([key, list]) => {
-        const rows = list as unknown as Record<string, unknown>[]
-        const out: Record<string, unknown> = { ...rows[0], id: key, player_id: `${CLUB_KEY}${list[0].team_id}` }
-        for (const k of Object.keys(rows[0])) {
-          if (k === 'id' || k === 'game_id' || k === 'player_id' || k === 'team_id' || k === 'decision') continue
-          if (!rows.some(r => typeof r[k] === 'number')) continue
-          out[k] = rows.reduce((t, r) => t + (typeof r[k] === 'number' ? (r[k] as number) : 0), 0)
-        }
-        const g = gameById.get(list[0].game_id)!
-        const home = g.home_team_id === list[0].team_id
-        const us = (home ? g.home_score : g.away_score) ?? 0
-        const them = (home ? g.away_score : g.home_score) ?? 0
-        out.won = us > them ? 1 : 0
-        out.margin = us - them
-        return out as L & Club
-      })
+  // A CLUB'S WHOLE GAME, filed under the club as its half-innings are: the side's lines of one game
+  // summed, then the result off the game row. Summed from the lines rather than read off the line
+  // score, so every field a player's line has is a club's too, and a club's game agrees with its
+  // players' lines by construction. The lines are cut (finals, the slice, the club, the opponent,
+  // the venue) before they are summed, inside `collect`, which sees the summed line's own club and
+  // game exactly as it sees a player's. A club's season is these summed again.
+  type Club = { id: string; game_id: string; player_id: string; team_id: string | null } & ClubGame
+  const sum = <L extends AnyLine>(lines: L[]): (L & Club)[] => {
+    const byClub = new Map<string, L[]>()
+    for (const l of lines) {
+      if (!l.team_id || !gameById.has(l.game_id)) continue
+      const key = `${l.game_id}|${l.team_id}`
+      const list = byClub.get(key)
+      if (list) list.push(l)
+      else byClub.set(key, [l])
     }
+    return [...byClub.entries()].map(([key, list]) => {
+      const rows = list as unknown as Record<string, unknown>[]
+      const out: Record<string, unknown> = { ...rows[0], id: key, player_id: `${CLUB_KEY}${list[0].team_id}` }
+      for (const k of Object.keys(rows[0])) {
+        if (k === 'id' || k === 'game_id' || k === 'player_id' || k === 'team_id' || k === 'decision') continue
+        if (!rows.some(r => typeof r[k] === 'number')) continue
+        out[k] = rows.reduce((t, r) => t + (typeof r[k] === 'number' ? (r[k] as number) : 0), 0)
+      }
+      const g = gameById.get(list[0].game_id)!
+      const home = g.home_team_id === list[0].team_id
+      const us = (home ? g.home_score : g.away_score) ?? 0
+      const them = (home ? g.away_score : g.home_score) ?? 0
+      out.won = us > them ? 1 : 0
+      out.margin = us - them
+      return out as L & Club
+    })
+  }
+
+  if (query.per === 'club') {
     const fields = allFields(side).filter(f => askable(side, f, 'club'))
     const none = { field: 'pa' as const, own: [], min: undefined }
     if (side === 'pitching') {
@@ -1393,8 +1410,11 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
       if (!l.batter_id) continue
       if (query.pitcherId && l.pitcher_id !== query.pitcherId) continue
       if (!situationFields.every(({ c, f }) => !!f && passes(f.value(l), c))) continue
-      const key = `${l.game_id}|${l.batter_id}`
-      const n = nights.get(key) ?? { id: key, game_id: l.game_id, player_id: l.batter_id, team_id: l.batting_team,
+      // A club's season in the situation is its batters' trips, filed under the club.
+      const who = query.byClub ? (l.batting_team ? `${CLUB_KEY}${l.batting_team}` : null) : l.batter_id
+      if (!who) continue
+      const key = `${l.game_id}|${who}`
+      const n = nights.get(key) ?? { id: key, game_id: l.game_id, player_id: who, team_id: l.batting_team,
         ab: 0, r: 0, h: 0, doubles: 0, triples: 0, hr: 0, rbi: 0, bb: 0, so: 0, hbp: 0, sb: 0, cs: 0, sf: 0, sh: 0, tb: 0 }
       const sf = l.sf ?? 0, sh = l.sh ?? 0
       n.ab += 1 - l.bb - l.hbp - sf - sh > 0 ? 1 : 0
@@ -1407,8 +1427,18 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
       l => l.ab + l.bb + l.hbp + l.sf + l.sh > 0,
       // The season's bar is for a whole season; a cut this narrow brings its own (the search's rows
       // ask for a few plate appearances), so the board's is not put on top of it.
-      { field: 'pa', own: ['pa', 'ab'], min: query.hand && !query.pitcherId && !situation.length ? qualify?.minPa : undefined },
+      { field: 'pa', own: ['pa', 'ab'], min: query.hand && !query.pitcherId && !situation.length && !query.byClub ? qualify?.minPa : undefined },
       undefined, query.conditions.filter(c => !SITUATION_KEYS.has(c.field)))
+  }
+  if (season && query.byClub) {
+    // A CLUB'S SEASON: its games (`sum`), each with the two-out runs its half-innings scored, summed
+    // again by the club. No qualifier: every club has played its whole schedule.
+    const r2 = new Map<string, number>()
+    for (const l of opts.teamInnings ?? []) r2.set(`${l.game_id}|${l.team_id}`, (r2.get(`${l.game_id}|${l.team_id}`) ?? 0) + l.r2)
+    const clubGames = sum(batting).map(l => ({ ...l, r2: r2.get(l.id) ?? 0 }))
+    const fields = allFields(side).filter(f => askable(side, f, 'season', true, true))
+    return collect(clubGames, fields as unknown as Field<typeof clubGames[number]>[], hitSeasonDetail as unknown as (l: typeof clubGames[number]) => string,
+      l => l.ab + l.bb + l.hbp + l.sf + l.sh > 0, { field: 'pa', own: [], min: undefined })
   }
   const totals = opts.playTotals
   const withTotals = totals
@@ -1456,6 +1486,8 @@ const PA_TOKEN = 'pa'
 const CLUB_TOKEN = 'club'
 /** Fielding by the inning, filed under the club: `q=clubinning~e.gte.2`. */
 const CLUB_INNING_TOKEN = 'clubinning'
+/** Hitting by the season, filed under the club: `q=clubseason~r2.gte.1`. */
+const CLUB_SEASON_TOKEN = 'clubseason'
 
 // THE CUTS RIDE IN `q` TOO, each a word and a value (`from.0801~last.10~hand.l`), for the reason the
 // grain does: one param the board, the search and every carried link already handle. The decoder
@@ -1472,7 +1504,7 @@ export type FinderCuts = Pick<FinderQuery, 'from' | 'to' | 'last' | 'hand'>
 /** The query as a `q` value, or '' when it is asking for everything. */
 export function encodeFinderQuery(q: Pick<FinderQuery, 'conditions'> & { per?: FinderPer; byClub?: boolean } & FinderCuts): string {
   const parts = q.conditions.map(c => `${c.field}${PART_SEP}${c.op}${PART_SEP}${c.value}`)
-  const lead = q.per === 'season' ? [SEASON_TOKEN] : q.per === 'inning' ? [q.byClub ? CLUB_INNING_TOKEN : INNING_TOKEN] : q.per === 'pa' ? [PA_TOKEN]
+  const lead = q.per === 'season' ? [q.byClub ? CLUB_SEASON_TOKEN : SEASON_TOKEN] : q.per === 'inning' ? [q.byClub ? CLUB_INNING_TOKEN : INNING_TOKEN] : q.per === 'pa' ? [PA_TOKEN]
     : q.per === 'club' ? [CLUB_TOKEN] : []
   const cuts = [
     q.from && `${FROM_TOKEN}${PART_SEP}${q.from}`, q.to && `${TO_TOKEN}${PART_SEP}${q.to}`,
@@ -1552,15 +1584,17 @@ export function finderMonths(games: Iterable<{ game_date: string }>): number[] {
   return [...seen].sort((a, b) => a - b)
 }
 
-/** Whether a `q` value asks fielding by the inning filed under the club (`FinderQuery.byClub`). */
+/** Whether a `q` value asks fielding by the inning, or hitting by the season, filed under the club
+ *  (`FinderQuery.byClub`). */
 export function decodeFinderByClub(raw: string | null): boolean {
-  return raw?.split(COND_SEP)[0] === CLUB_INNING_TOKEN
+  const lead = raw?.split(COND_SEP)[0]
+  return lead === CLUB_INNING_TOKEN || lead === CLUB_SEASON_TOKEN
 }
 
 /** The grain a `q` value asks at. */
 export function decodeFinderPer(raw: string | null): FinderPer {
   const lead = raw?.split(COND_SEP)[0]
-  return lead === SEASON_TOKEN ? 'season' : lead === INNING_TOKEN || lead === CLUB_INNING_TOKEN ? 'inning' : lead === PA_TOKEN ? 'pa'
+  return lead === SEASON_TOKEN || lead === CLUB_SEASON_TOKEN ? 'season' : lead === INNING_TOKEN || lead === CLUB_INNING_TOKEN ? 'inning' : lead === PA_TOKEN ? 'pa'
     : lead === CLUB_TOKEN ? 'club' : 'game'
 }
 
@@ -1574,7 +1608,7 @@ export function decodeFinderPer(raw: string | null): FinderPer {
  */
 export function decodeFinderQuery(raw: string | null, side: FinderBoardSide): FinderCondition[] {
   if (!raw) return []
-  const known = new Set(finderFields(side, decodeFinderPer(raw)).map(f => f.key))
+  const known = new Set(finderFields(side, decodeFinderPer(raw), true, decodeFinderByClub(raw)).map(f => f.key))
   const ops = new Set(FINDER_OPS.map(o => o.op as string))
   const out: FinderCondition[] = []
   for (const part of raw.split(COND_SEP)) {
