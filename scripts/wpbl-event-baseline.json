@@ -1,0 +1,29 @@
+{
+  "about": "Gaps between our play-log readings and the box score that were read and accepted (scripts/check-wpbl-event-counts.ts). Each says why. A gap that is ours to fix is never accepted here.",
+  "accepted": [
+    {
+      "fingerprint": "5e8d6ef8-0bcc-4976-82b0-7e1ee303348d|batter|0d680c54-82ac-47e9-ae0d-e7fef2947800|h|2|1",
+      "why": "Aug 20, NY at BOS: the box gives the Heights 6 hits and the log 5, and the two credit Murphy, Yonetani and Eccles differently. A scorer's attribution, not a reader gap; a candidate for a video pass."
+    },
+    {
+      "fingerprint": "5e8d6ef8-0bcc-4976-82b0-7e1ee303348d|batter|c677026f-8113-4481-becc-13995c2a56de|h|2|3",
+      "why": "Aug 20, NY at BOS: the box gives the Heights 6 hits and the log 5, and the two credit Murphy, Yonetani and Eccles differently. A scorer's attribution, not a reader gap; a candidate for a video pass."
+    },
+    {
+      "fingerprint": "5e8d6ef8-0bcc-4976-82b0-7e1ee303348d|batter|dbc25b77-a599-4435-938a-98771be94a95|h|1|2",
+      "why": "Aug 20, NY at BOS: the box gives the Heights 6 hits and the log 5, and the two credit Murphy, Yonetani and Eccles differently. A scorer's attribution, not a reader gap; a candidate for a video pass."
+    },
+    {
+      "fingerprint": "5e8d6ef8-0bcc-4976-82b0-7e1ee303348d|pitcher|9b34b6d6-ecb4-4ece-9f71-8ee14b24d8c5|h|5|6",
+      "why": "Aug 20, NY at BOS: the box gives the Heights 6 hits and the log 5, and the two credit Murphy, Yonetani and Eccles differently. A scorer's attribution, not a reader gap; a candidate for a video pass."
+    },
+    {
+      "fingerprint": "eb72bb20-20ca-41f1-91cf-07e2a54f99ff|batter|0d680c54-82ac-47e9-ae0d-e7fef2947800|so|1|0",
+      "why": "Sep 3, NY at LA: the strikeout the box gives Narasaki the log gives Murphy, in the 7th the pbp validator already flags (docs/PLAY_VALIDATION.md). Not a reader gap."
+    },
+    {
+      "fingerprint": "eb72bb20-20ca-41f1-91cf-07e2a54f99ff|batter|c2c0093d-4394-48a7-9cca-e2fd2b82133b|so|0|1",
+      "why": "Sep 3, NY at LA: the strikeout the box gives Narasaki the log gives Murphy, in the 7th the pbp validator already flags (docs/PLAY_VALIDATION.md). Not a reader gap."
+    }
+  ]
+}

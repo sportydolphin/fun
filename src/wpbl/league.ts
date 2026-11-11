@@ -1,4 +1,4 @@
-import type { League, PitchKind } from '../league/types'
+import type { League, PitchKind, RunValuePlay } from '../league/types'
 import { REGULATION_INNINGS } from './innings'
 import { runsOnPlay } from './derive/playByPlay'
 
@@ -54,5 +54,23 @@ export const WPBL_LEAGUE: League = {
   // The feed's `runs_scored` leaves the batter out: a solo home run reads 0. See CLAUDE.md.
   runsOnPlay,
   // The feed's marker for one completed plate appearance (see buildRunExpectancy).
-  isPlateAppearance: p => !!p.pitch_sequence,
+  isPlateAppearance,
+}
+
+/**
+ * ONE COMPLETED PLATE APPEARANCE: a row with a pitch sequence, OR one whose narrative ends the trip
+ * on a count ("(0-0)"). The feed leaves the sequence off a trip that ended on the first pitch
+ * without one recorded, which is every intentional walk and some first-pitch hits, hit batters and
+ * sacrifices: read by the sequence alone, 52 plate appearances of 2026 (11 singles, 3 doubles, 3
+ * hit batters, both intentional walks, a sacrifice bunt) were missing from every play-log board, and
+ * the box score had them all (src/wpbl/derive/eventAudit.ts found it, Nov 10, 2026). A runner's row
+ * ("stole second.") never carries a count. Two rows with a count are not a trip: the runner placed
+ * on second to start an extra inning, and a dropped foul ball, after which the same batter goes on.
+ */
+const COUNT = /\(\d-\d(?: [A-Z]+)?\)/
+const NOT_A_TRIP = /\bplaced on (?:first|second|third)\b|\bdropped foul ball\b/i
+export function isPlateAppearance(p: Pick<RunValuePlay, 'pitch_sequence' | 'narrative'>): boolean {
+  if (p.pitch_sequence) return true
+  const text = p.narrative ?? ''
+  return COUNT.test(text) && !NOT_A_TRIP.test(text)
 }

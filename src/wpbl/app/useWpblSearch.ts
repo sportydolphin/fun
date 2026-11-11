@@ -422,19 +422,22 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
     ])
     // The season's own games, as the Find answers read them, so both share one build of the lines.
     const yearGames = seasonGames(games, season)
-    const lines = plateAppearanceLines(WPBL_LEAGUE, await fetchWpblPlayLog(season), yearGames)
-    return findFirsts(lines, yearGames, ask.kinds, g => `${g.game_date} ${g.start_time ?? ''}`).map(f => {
-      const game = yearGames.find(g => g.id === f.line.game_id)!
-      const sequence = f.line.sequence
+    const plays = await fetchWpblPlayLog(season)
+    const lines = plateAppearanceLines(WPBL_LEAGUE, plays, yearGames)
+    return findFirsts(lines, yearGames, ask.kinds, g => `${g.game_date} ${g.start_time ?? ''}`, plays).map(f => {
+      const game = yearGames.find(g => g.id === f.game_id)!
+      const sequence = f.sequence
+      // A passed ball, a double play and a runner the log cannot place have only a club to name.
+      const who = playersById.get(f.playerId ?? '')?.name ?? teamById.get(f.teamId ?? '')?.name
       return {
         key: `first-${f.kind}-${season}`,
         title: ask.season == null ? firstKind(f.kind).label : `${firstKind(f.kind).label} of ${season}`,
-        detail: [playersById.get(f.playerId ?? '')?.name, firstDate(game.game_date)].filter(Boolean).join(' · '),
+        detail: [who, firstDate(game.game_date)].filter(Boolean).join(' · '),
         href: `${wpblGamePath(game, teams, games)}#play-${sequence}`,
         open: () => requestPlay(game.id, sequence),
       }
     })
-  }, [games, playersById, teams])
+  }, [games, playersById, teamById, teams])
   // "longest at-bat", "most fouls in a PA" (src/league/paRecords.ts): ranked by the Find engine itself
   // over the same plate-appearance lines the board reads, so the record is the board's first row. Each
   // play that shares it, up to three, then the board for the rest.
