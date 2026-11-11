@@ -23,6 +23,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.230.0',
+    date:    '2026-11-10',
+    changes: [
+      {
+        short: 'Find: the question as chips',
+        full:  'Each piece of a Find question is a chip. Tap one to change it: the stat, at least, exactly or at most, and the number with − and + beside it. "+ Add" offers every stat with a search, and the club, opponent, home or away, month, last games and player. It opens beside the chip on a computer and as a sheet on a phone, and the count updates as you change it.',
+      },
+      {
+        short: 'Find: no form to scroll past',
+        full:  'The stack of dropdowns under the question is gone, so the matches start right under it.',
+      },
+    ],
+  },
+  {
     version: '1.229.0',
     date:    '2026-11-10',
     changes: [

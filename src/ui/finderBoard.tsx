@@ -2,11 +2,9 @@ import React, { useEffect, useRef, useState } from 'react'
 import type { ExampleLadder } from './finderExamples'
 import { Box, Skeleton, Typography } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
-import {
-  finderFieldGroups, finderColumns, defaultCondition, parseFinderValue, unparseFinderValue,
-  displayFinderValue, describeFinderQuery, describeFinderConditions, describeFinderCuts, finderSpanText, finderSigned, finderLowerBetter, conditionsForPer, finderPitcherApplies, finderPlayerApplies, finderPlayerAt, hasPlayerFilter,
-  FINDER_OPS, FINDER_MONTH_NAMES, finderSpanMonth, finderMonthSpan,
-  type FinderCondition, type FinderOp, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
+import { finderColumns, defaultCondition,
+  displayFinderValue, describeFinderQuery, describeFinderConditions, describeFinderCuts, finderSpanText, finderLowerBetter, conditionsForPer, finderPitcherApplies, finderPlayerApplies, finderPlayerAt, hasPlayerFilter, FINDER_MONTH_NAMES, finderSpanMonth, finderMonthSpan,
+  type FinderCondition, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
   type FinderBoardSide, type FinderSort, type FinderTally, type FinderVenue,
 } from '../league/finder'
 import { GAME_LINE_RANK_SX } from './gameLine'
@@ -20,6 +18,7 @@ import { LeaderCard, LeaderCardSkeleton, PORTRAIT_PX, printedRanks, type LeaderI
 import { FOCUS_RING, TAPPABLE, hoverOnly, pressable } from './interaction'
 import { NameColumn, NameText } from './NameText'
 import { chromePx } from './scale'
+import { AddMenu, ChipSurface, ChoiceList, ConditionEditor, startCondition, type ChoiceGroup } from './finderChips'
 import { BOARD_COLUMN } from './layoutWidths'
 
 // The Find board's body, for both sections: every game line that matches what you asked for. How
@@ -109,115 +108,6 @@ const textButtonSx = {
   color: 'text.secondary', fontSize: TYPE_SCALE.meta, fontWeight: 700,
   ...hoverOnly({ color: 'text.primary' }),
 } as const
-
-/**
- * A native `<select>`, which is the one place the boards do not use the chip idiom.
- *
- * A condition picks a stat out of sixteen, and then an operator, and then does it again on the next
- * row: chips would be a wall, and a sheet per control would be three taps to change a number. A
- * native select is one tap, gives a phone its own wheel picker, is keyboard- and
- * screen-reader-complete for free, and cannot render off the edge of the screen. Taller than a
- * filter chip (34px against 25) because this is a form a thumb fills in, not a row it glances at.
- *
- * Painted to match the chips around it rather than left at the UA default, which on Windows is a
- * gray 3D box that looks like a bug next to the rest of the bar.
- */
-function Picker({ value, onChange, options, groups, label, title, sx }: {
-  value: string
-  onChange: (v: string) => void
-  options?: { value: string; label: string }[]
-  /** Options under headings, for the stat picker. */
-  groups?: { label: string; options: { value: string; label: string }[] }[]
-  label: string
-  title?: string
-  sx?: object
-}) {
-  return (
-    <Box component="select" aria-label={label} title={title} value={value}
-      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onChange(e.target.value)}
-      sx={{
-        ...fieldSx,
-        appearance: 'none', WebkitAppearance: 'none',
-        // Room on the right for the caret drawn as a background image, so the arrow never sits on
-        // top of a long stat name.
-        backgroundImage: 'linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%)',
-        backgroundPosition: 'right 12px center, right 7px center',
-        backgroundSize: '5px 5px, 5px 5px',
-        backgroundRepeat: 'no-repeat',
-        // Capped at the row: a long club name on a phone otherwise runs past it.
-        minWidth: 0, maxWidth: '100%', flexShrink: 0, pl: 1.25, pr: 3, cursor: 'pointer',
-        textOverflow: 'ellipsis',
-        ...sx,
-      }}>
-      {options?.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-      {groups?.map(g => (
-        <optgroup key={g.label} label={g.label}>
-          {g.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </optgroup>
-      ))}
-    </Box>
-  )
-}
-
-/** A condition's four columns. ONE LINE AT EVERY WIDTH, which is the whole point: sized to their
- *  content, the four wrapped on a phone, leaving a value and a ✕ on a line
- *  of their own under every stat. The stat takes what is left; the comparison is a symbol, so its
- *  column is narrow and fixed, and every row's columns line up under the last. */
-const CONDITION_COLUMNS = `minmax(0, 1fr) 3rem 3.75rem ${chromePx(34)}`
-
-/** One `stat op value` row. `n` is the 1-based position, spoken into the labels so a screen reader
- *  with several conditions can tell the rows apart. */
-function ConditionRow({ side, per, plays, n, condition, onChange, onRemove }: {
-  side: FinderBoardSide
-  per: FinderPer
-  plays: boolean
-  n: number
-  condition: FinderCondition
-  onChange: (c: FinderCondition) => void
-  onRemove: () => void
-}) {
-  // WHAT THE READER TYPED, UNTIL THEY LEAVE THE BOX. The stored value is normalized (innings are
-  // outs), so a purely controlled input rewrites itself under the cursor: type "4" in the innings
-  // field and it becomes "4.0", and the next keystroke lands after the zero. Backspacing to empty is
-  // the other half, where the parse floors at 0 and the box refills with "0". The query itself
-  // updates on every keystroke either way: the draft is about what is DRAWN.
-  const [draft, setDraft] = useState<string | null>(null)
-  useEffect(() => { setDraft(null) }, [condition.field])
-  const op = FINDER_OPS.find(o => o.op === condition.op)
-  return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: CONDITION_COLUMNS, alignItems: 'center', columnGap: 0.75 }}>
-      <Picker label={`Stat, condition ${n}`} value={condition.field} sx={{ width: '100%' }}
-        groups={finderFieldGroups(side, per, plays).map(g => ({ label: g.label, options: g.fields.map(f => ({ value: f.key, label: f.label })) }))}
-        onChange={field => onChange({ ...condition, field })} />
-      {/* THE SYMBOL, with the words in the tooltip, the accessible name and the summary sentence
-          over the results. "at least" made this column as wide as the stat's. */}
-      <Picker label={`Comparison, condition ${n}: ${op?.label ?? ''}`} title={op?.label} value={condition.op}
-        sx={{ width: '100%', pl: 1, pr: 2.25, backgroundPosition: 'right 10px center, right 5px center' }}
-        options={FINDER_OPS.map(o => ({ value: o.op, label: o.symbol }))}
-        onChange={o => onChange({ ...condition, op: o as FinderOp })} />
-      {/* A TEXT INPUT, NOT type="number", and innings are why. "4.2" means four and two thirds in
-          this sport, so the value is parsed with `ipToOuts` rather than with Number, and a number
-          input's own stepper would offer 4.3, which is not an innings figure that exists.
-          `inputMode` still brings up the numeric keypad on a phone, except for a value that can be
-          below zero (a run margin), since a phone's decimal keypad has no minus. */}
-      <Box component="input" aria-label={`Value, condition ${n}`} inputMode={finderSigned(side, condition.field) ? 'text' : 'decimal'}
-        value={draft ?? unparseFinderValue(side, condition.field, condition.value)}
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-          setDraft(e.target.value)
-          onChange({ ...condition, value: parseFinderValue(side, condition.field, e.target.value) })
-        }}
-        onBlur={() => setDraft(null)}
-        sx={{ ...fieldSx, boxSizing: 'border-box', width: '100%', minWidth: 0, px: 0.75, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }} />
-      <Box {...pressable(onRemove)} aria-label={`Remove condition ${n}`} sx={{
-        ...FOCUS_RING,
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        width: chromePx(34), height: chromePx(34), borderRadius: 999, cursor: 'pointer', userSelect: 'none',
-        color: 'text.secondary', fontSize: TYPE_SCALE.body, fontWeight: 800,
-        ...hoverOnly({ color: 'text.primary', bgcolor: 'action.hover' }),
-      }}>✕</Box>
-    </Box>
-  )
-}
 
 /** A question worth one tap, offered as a chip. The section's own, since what counts as a long
  *  start differs between a seven-inning league and a nine-inning one. */
@@ -693,17 +583,24 @@ function whoFor(side: FinderBoardSide, per: FinderPer, byClub = false): [string,
   return side === 'pitching' ? ['pitcher', 'pitchers'] : side === 'fielding' ? ['fielder', 'fielders'] : ['hitter', 'hitters']
 }
 
-/** One piece of the question: its words open the form, its ✕ drops it. */
-function QuestionChip({ text, onRemove, onEdit }: { text: string; onRemove: () => void; onEdit: () => void }) {
+/** Which piece of the question is open: some conditions (a "0-2 count" chip is two), the add menu, or
+ *  one scope by its key. */
+type Editing = { kind: 'cond'; indices: number[] } | { kind: 'add' } | { kind: 'scope'; key: string }
+
+/** One who, where or when: its entry in "+ Add", its chip's words once set (null until then), and its list. */
+interface Scope { key: string; label: string; text: string | null; groups: ChoiceGroup[]; value: string; pick: (v: string) => void }
+
+/** One piece of the question: its words open its editor, its ✕ drops it. */
+function QuestionChip({ text, onRemove, onEdit }: { text: string; onRemove: () => void; onEdit?: (e: React.SyntheticEvent<HTMLElement>) => void }) {
   return (
     <Box sx={{
       display: 'inline-flex', alignItems: 'center', minWidth: 0, maxWidth: '100%', minHeight: chromePx(30),
       pl: 1.25, pr: 0.25, borderRadius: 999, border: '1px solid', borderColor: CARD_BORDER,
     }}>
-      <Box {...pressable(onEdit)} sx={{
-        ...FOCUS_RING, minWidth: 0, cursor: 'pointer', userSelect: 'none', borderRadius: 0.5,
+      <Box {...pressable(onEdit)} {...(onEdit ? { 'aria-haspopup': 'dialog' as const } : {})} sx={{
+        ...FOCUS_RING, minWidth: 0, cursor: onEdit ? 'pointer' : 'default', userSelect: 'none', borderRadius: 0.5,
         fontSize: TYPE_SCALE.meta, fontWeight: 700, overflowWrap: 'anywhere',
-        ...hoverOnly({ textDecoration: 'underline' }),
+        ...(onEdit ? hoverOnly({ textDecoration: 'underline' }) : {}),
       }}>{text}</Box>
       <Box {...pressable(onRemove)} aria-label={`Remove ${text}`} sx={{
         ...FOCUS_RING, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
@@ -834,29 +731,26 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   months?: number[]
 }) {
   const [allRows, setAllRows] = useState(false)
-  // FOLDED ONCE THERE IS AN ANSWER. The form is a screen of selects above the list it produced, so a
-  // question that arrived whole (a shared link, an example, the typed box) opens folded to its chips,
-  // and editing is one tap. A question being built from the pickers stays open, since folding it
-  // under the reader's thumb would be worse.
-  const [folded, setFolded] = useState(() => query.conditions.length > 0 || hasPlayerFilter(side, query))
+  // ONE PIECE OF THE QUESTION OPEN AT A TIME (src/ui/finderChips.tsx), anchored to the chip it came from.
+  const [editing, setEditing] = useState<Editing | null>(null)
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null)
+  const edit = (e: React.SyntheticEvent<HTMLElement>, what: Editing) => { setAnchor(e.currentTarget); setEditing(what) }
+  const closeEditor = () => setEditing(null)
   const clubOptions = (blank: string) => [{ value: '', label: blank }, ...clubs]
   // A PLAYER IS A QUESTION ON ITS OWN: "every trip to the plate between these two" or "every game
   // Sato pitched" asks no stat, and answers with the log rather than the examples.
   const hasConditions = query.conditions.length > 0 || hasPlayerFilter(side, query)
   const playerHere = !!picks && query.per !== 'pa' && finderPlayerApplies(side, query.per, query.byClub)
-  const isFolded = folded && hasConditions
 
-  // The When pickers. A month the search set that the season on screen never played in still shows,
-  // so the picker never claims "Any month" over a span that is cutting the board.
+  // The When lists. A month the search set that the season on screen never played in still shows, so
+  // the list never claims "Any month" over a span that is cutting the board. A run of days that is not
+  // a month is its own chip (`cutChips`).
   const spanMonth = finderSpanMonth(query)
-  const spanCustom = (query.from || query.to) && spanMonth == null
   const shownMonths = [...new Set([...(months ?? []), ...(spanMonth ? [spanMonth] : [])])].sort((a, b) => a - b)
   const monthOptions = [
     { value: '', label: 'Any month' },
     ...shownMonths.map(m => ({ value: String(m), label: FINDER_MONTH_NAMES[m - 1] })),
-    ...(spanCustom ? [{ value: 'custom', label: describeFinderCuts(side, query).find(c => c.key === 'span')?.text ?? 'Custom' }] : []),
   ]
-  const monthValue = spanCustom ? 'custom' : spanMonth ? String(spanMonth) : ''
   const lastOptions = [
     { value: '', label: 'Every game' },
     ...[...new Set([1, 5, 10, 15, 20, ...(query.last ? [query.last] : [])])].sort((a, b) => a - b)
@@ -865,10 +759,8 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
 
   const setCondition = (i: number, c: FinderCondition) =>
     onQuery({ ...query, conditions: query.conditions.map((x, j) => (j === i ? c : x)) })
-  const removeCondition = (i: number) => onQuery({ ...query, conditions: query.conditions.filter((_, j) => j !== i) })
   const season = query.per === 'season'
-  const addCondition = () => onQuery({ ...query, conditions: [...query.conditions, defaultCondition(side, query.per, query.conditions)] })
-  const askWhole = (ex: FinderExample) => { onQuery({ ...query, per: ex.per ?? 'game', conditions: ex.conditions }); setFolded(true) }
+  const askWhole = (ex: FinderExample) => onQuery({ ...query, per: ex.per ?? 'game', conditions: ex.conditions })
   // A switch of grain keeps every condition the other grain can ask. "3+ home runs" means something
   // over a season too, and is a better start than an empty form; a rate has no meaning in one game,
   // so going back to games drops it. Bare, a season opens on its headline rate, since a season of
@@ -951,37 +843,99 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   const stripStats = finderColumns(side, query).length
   const tableOnly = { display: 'none', [tableOn]: { display: 'block' } }
 
-  // THE QUESTION AS CHIPS, one per condition and one per club, venue or opponent set, each with its
-  // own ✕. Folded, the card used to be one sentence and an Edit link, and the grain switch and the
-  // clubs went with the rest of the form, so asking anything turned the card into a different board
-  // (Nov 9, 2026 audit). Now the grain stays, the question stays in pieces that can each be dropped,
-  // and Edit is for changing a number.
-  const chips: { key: string; text: string; remove: () => void }[] = [
+  // THE WHO, WHERE AND WHEN, each one list of choices: a chip once set, an entry in "+ Add" until then.
+  // `''` in a list is "any", which clears it.
+  const scopes: Scope[] = [
+    ...(playerHere ? [{ key: 'player', label: 'Player', text: query.playerId ? picks!.name(query.playerId) : null,
+      groups: [{ label: '', options: [{ value: '', label: 'Any player' }] }, ...picks!.players], value: query.playerId ?? '',
+      pick: (v: string) => onQuery({ ...query, playerId: v || null }) }] : []),
+    { key: 'team', label: 'Club', text: query.teamId ? `For ${clubAbbr(query.teamId)}` : null,
+      groups: [{ label: '', options: clubOptions('Any club') }], value: query.teamId ?? '', pick: v => onQuery({ ...query, teamId: v || null }) },
+    { key: 'opp', label: 'Opponent', text: query.oppId ? `Vs ${clubAbbr(query.oppId)}` : null,
+      groups: [{ label: '', options: clubOptions('Any opponent') }], value: query.oppId ?? '', pick: v => onQuery({ ...query, oppId: v || null }) },
+    { key: 'venue', label: 'Home or away', text: query.venue === 'home' ? 'At home' : query.venue === 'away' ? 'On the road' : null,
+      groups: [{ label: '', options: [{ value: 'any', label: 'Home or away' }, { value: 'home', label: 'At home' }, { value: 'away', label: 'On the road' }] }],
+      value: query.venue, pick: v => onQuery({ ...query, venue: (v || 'any') as FinderVenue }) },
+    ...(months != null ? [{ key: 'month', label: 'Month', text: spanMonth ? FINDER_MONTH_NAMES[spanMonth - 1] : null,
+      groups: [{ label: '', options: monthOptions }], value: spanMonth ? String(spanMonth) : '',
+      pick: (v: string) => onQuery({ ...query, ...(v ? finderMonthSpan(Number(v)) : { from: null, to: null }) }) },
+    { key: 'last', label: 'Last games', text: query.last ? (query.last === 1 ? 'Last game' : `Last ${query.last} games`) : null,
+      groups: [{ label: '', options: lastOptions }], value: query.last ? String(query.last) : '',
+      pick: (v: string) => onQuery({ ...query, last: v ? Number(v) : null }) }] : []),
+    // THE MATCHUP, only where a line names both players: a plate appearance. A hitter's season is
+    // summed from those, so it can be against one pitcher (`seasonFromPas`).
+    ...(picks && plays && query.per === 'pa' ? [{ key: 'bat', label: 'Batter', text: query.batterId ? `By ${picks.name(query.batterId)}` : null,
+      groups: [{ label: '', options: [{ value: '', label: 'Any batter' }] }, ...picks.batters], value: query.batterId ?? '',
+      pick: (v: string) => onQuery({ ...query, batterId: v || null }) }] : []),
+    ...(picks && plays && finderPitcherApplies(side, query.per) ? [{ key: 'pit', label: 'Pitcher', text: query.pitcherId ? `Against ${picks.name(query.pitcherId)}` : null,
+      groups: [{ label: '', options: [{ value: '', label: 'Any pitcher' }] }, ...picks.pitchers], value: query.pitcherId ?? '',
+      pick: (v: string) => onQuery({ ...query, pitcherId: v || null }) }] : []),
+  ]
+  // THE CUTS ONLY THE SEARCH SETS: a run of days and the other player's arm, whose chip is the one way
+  // to take them off. A whole month and the last N games are scopes above.
+  const cutChips = describeFinderCuts(side, query).filter(c => c.key === 'hand' || (c.key === 'span' && spanMonth == null))
+  const chips: { key: string; text: string; remove: () => void; open?: (e: React.SyntheticEvent<HTMLElement>) => void }[] = [
     ...describeFinderConditions(side, query, true).map(p => ({
       key: `c${p.indices.join('-')}`, text: p.text,
       remove: () => onQuery({ ...query, conditions: query.conditions.filter((_, j) => !p.indices.includes(j)) }),
+      open: (e: React.SyntheticEvent<HTMLElement>) => edit(e, { kind: 'cond', indices: p.indices }),
     })),
-    ...(query.teamId ? [{ key: 'team', text: `For ${clubAbbr(query.teamId)}`, remove: () => onQuery({ ...query, teamId: null }) }] : []),
-    ...(query.oppId ? [{ key: 'opp', text: `Vs ${clubAbbr(query.oppId)}`, remove: () => onQuery({ ...query, oppId: null }) }] : []),
-    ...(query.venue !== 'any' ? [{ key: 'venue', text: query.venue === 'home' ? 'At home' : 'On the road', remove: () => onQuery({ ...query, venue: 'any' as FinderVenue }) }] : []),
-    ...(playerHere && query.playerId ? [{ key: 'player', text: picks!.name(query.playerId), remove: () => onQuery({ ...query, playerId: null }) }] : []),
-    ...(query.per === 'pa' && query.batterId ? [{ key: 'bat', text: `By ${picks?.name(query.batterId) ?? query.batterId}`, remove: () => onQuery({ ...query, batterId: null }) }] : []),
-    ...(finderPitcherApplies(side, query.per) && query.pitcherId ? [{ key: 'pit', text: `Against ${picks?.name(query.pitcherId) ?? query.pitcherId}`, remove: () => onQuery({ ...query, pitcherId: null }) }] : []),
-    // The span, the last N games and the arm. A whole month and the last N have pickers under When; a
-    // span of days and the arm only the search sets, so their chip is the only way to take one off.
-    ...describeFinderCuts(side, query).map(c => ({
+    ...scopes.filter(sc => sc.text).map(sc => ({
+      key: sc.key, text: sc.text!, remove: () => sc.pick(''),
+      open: (e: React.SyntheticEvent<HTMLElement>) => edit(e, { kind: 'scope', key: sc.key }),
+    })),
+    ...cutChips.map(c => ({
       key: c.key, text: c.text,
-      remove: () => onQuery(c.key === 'span' ? { ...query, from: null, to: null } : c.key === 'last' ? { ...query, last: null } : { ...query, hand: null }),
+      remove: () => onQuery(c.key === 'span' ? { ...query, from: null, to: null } : { ...query, hand: null }),
     })),
   ]
+  const canAdd = query.conditions.length < MAX_CONDITIONS
+  const clearAll = () => onQuery({ ...query, conditions: [], batterId: null, pitcherId: null, playerId: null,
+    teamId: null, oppId: null, venue: 'any', from: null, to: null, last: null, hand: null })
+  const anything = chips.length > 0
+
+  // What the open editor is, and the count the sheet says as the edits land.
+  const editedScope = editing?.kind === 'scope' ? scopes.find(sc => sc.key === editing.key) ?? null : null
+  const editedConds = editing?.kind === 'cond' ? editing.indices.filter(i => i < query.conditions.length) : []
+  const surfaceTitle = editing?.kind === 'add' ? 'Add'
+    : editedScope ? editedScope.label
+    // The chip's own words, which change as the number does: the stat alone is the field under it.
+    : editedConds.length ? describeFinderConditions(side, query, true).find(p => p.indices.includes(editedConds[0]))?.text ?? ''
+    : ''
+  const countText = loading ? '' : `${total} ${games_}`
+  const editor = (
+    <ChipSurface anchor={anchor} open={!!editing && (editing.kind !== 'cond' || editedConds.length > 0) && (editing.kind !== 'scope' || !!editedScope)}
+      onClose={closeEditor} title={surfaceTitle} count={hasConditions ? countText : undefined}>
+      {editing?.kind === 'add' && (
+        <AddMenu side={side} per={query.per} plays={plays}
+          scopes={scopes.filter(sc => !sc.text).map(sc => ({ key: sc.key, label: sc.label }))}
+          onScope={key => setEditing({ kind: 'scope', key })}
+          onStat={field => {
+            if (!canAdd) return
+            onQuery({ ...query, conditions: [...query.conditions, startCondition(side, field)] })
+            setEditing({ kind: 'cond', indices: [query.conditions.length] })
+          }} />
+      )}
+      {editedScope && (
+        <ChoiceList groups={editedScope.groups} value={editedScope.value} searchLabel={`Find a ${editedScope.label.toLowerCase()}`}
+          onPick={v => { editedScope.pick(v); closeEditor() }} />
+      )}
+      {editedConds.map((i, n) => (
+        <Box key={i} sx={n > 0 ? { mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' } : undefined}>
+          <ConditionEditor side={side} per={query.per} plays={plays} condition={query.conditions[i]}
+            onChange={c => setCondition(i, c)}
+            onRemove={() => { onQuery({ ...query, conditions: query.conditions.filter((_, j) => !editedConds.includes(j)) }); closeEditor() }} />
+        </Box>
+      ))}
+    </ChipSurface>
+  )
 
   const question = (
     <SectionCard title="Search" action={<CopyLink />}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, pt: 0.5 }}>
-        {/* THE GRAIN, first because it changes what every control under it means: "3+ home runs" is a
-            night or a body of work. Drawn folded or open, so the card keeps its top either way. */}
-        {/* The site's switch for a setting on the data, the Hitting / Pitching one above the card:
-            a gray outlined pill of its own here read as a third kind of control (Nov 9, 2026 audit). */}
+        {/* THE GRAIN, first because it changes what every piece under it means: "3+ home runs" is a
+            night or a body of work. The site's switch for a setting on the data, as Hitting / Pitching
+            is above the card. */}
         <Box role="group" aria-label="Search by" sx={{ alignSelf: 'flex-start' }}>
           <PillGroup options={grains.map(per => ({ value: per, label: GRAIN_SHORT[per] }))}
             value={query.per} onChange={v => setPer(v as FinderPer)} />
@@ -996,120 +950,21 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
                 conditions: v === 'club' ? query.conditions.filter(c => c.field !== 'pos') : query.conditions })} />
           </Box>
         )}
-
-        {/* Folded: the question in chips, and the way back into the form. */}
-        {hasConditions && (
-          <Box role="group" aria-label="Question" sx={{
-            display: isFolded ? 'flex' : 'none',
-            alignItems: 'center', flexWrap: 'wrap', gap: 0.75,
-          }}>
-            {chips.map(c => <QuestionChip key={c.key} text={c.text} onRemove={c.remove} onEdit={() => setFolded(false)} />)}
-            <Box {...pressable(() => setFolded(false))} aria-expanded={false} sx={{ ...textButtonSx, ml: 'auto', color: ACCENT_EDGE }}>Edit</Box>
-          </Box>
-        )}
-
-        <Box sx={{
-          display: isFolded ? 'none' : 'flex',
-          flexDirection: 'column', gap: 1,
-        }}>
-          {parse && onAsk && (
-            <AskBox side={side} parse={parse} clubAbbr={clubAbbr} onAsk={r => { onAsk(r); setFolded(true) }} />
+        {parse && onAsk && <AskBox side={side} parse={parse} clubAbbr={clubAbbr} onAsk={onAsk} />}
+        {/* THE QUESTION, A CHIP A PIECE: a tap opens that piece, its ✕ drops it, and "+ Add" offers a
+            stat or a who, where or when. Every condition is AND, which the chips in one row say. */}
+        <Box role="group" aria-label="Question" sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75 }}>
+          {chips.map(c => <QuestionChip key={c.key} text={c.text} onRemove={c.remove} onEdit={c.open} />)}
+          {canAdd && (
+            <Box {...pressable(e => edit(e, { kind: 'add' }))} aria-haspopup="dialog" sx={{
+              ...textButtonSx, minHeight: chromePx(30), gap: 0.5, border: '1px dashed', borderColor: CARD_BORDER, color: 'text.primary',
+              ...hoverOnly({ borderColor: ACCENT_EDGE }),
+            }}>+ Add</Box>
           )}
-
-          {/* THE CONDITIONS READ AS A SENTENCE: "and" between rows, since every condition is AND and a
-              stack of identical rows said nothing about how they combine. */}
-          {query.conditions.map((c, i) => (
-            <React.Fragment key={i}>
-              {i > 0 && (
-                <Typography aria-hidden sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary', px: 0.5, mt: -0.5, mb: -0.5 }}>and</Typography>
-              )}
-              <ConditionRow side={side} per={query.per} plays={plays} n={i + 1} condition={c}
-                onChange={next => setCondition(i, next)} onRemove={() => removeCondition(i)} />
-            </React.Fragment>
-          ))}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-            {query.conditions.length < MAX_CONDITIONS && (
-              <Box {...pressable(addCondition)} sx={{
-                ...textButtonSx, gap: 0.5, border: '1px dashed', borderColor: CARD_BORDER,
-                ...hoverOnly({ borderColor: ACCENT_EDGE, color: 'text.primary' }),
-              }}>+ Add a condition</Box>
-            )}
-            {hasConditions && (
-              <Box {...pressable(() => { onQuery({ ...query, conditions: [], batterId: null, pitcherId: null, playerId: null }); setFolded(false) })} sx={textButtonSx}>Clear</Box>
-            )}
-            {hasConditions && (
-              <Box {...pressable(() => setFolded(true))} sx={{
-                ...textButtonSx, ml: 'auto', color: ACCENT_EDGE,
-              }}>Done</Box>
-            )}
-          </Box>
-
-          {/* ONE PLAYER, first because it narrows the most: "Sato's games" before "at home". */}
-          {playerHere && (
-            <Box sx={{ pt: 1.25, mt: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
-              <SectionLabel>Player</SectionLabel>
-              <Picker label="Player" value={query.playerId ?? ''} options={[{ value: '', label: 'Any player' }]}
-                groups={picks!.players} onChange={v => onQuery({ ...query, playerId: v || null })} />
-            </Box>
-          )}
-
-          {/* WHO AND WHERE, kept apart from the conditions above because they are a different kind
-              of question: those ask what happened in a game, these ask which games to look at. */}
-          <Box sx={{ pt: 1.25, mt: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
-          <SectionLabel>Clubs</SectionLabel>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-            {/* The club and the venue read as one clause ("New York, at home"), so they stay on one
-                row; the opponent is the one that wraps on a phone, before this pair may split. */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', maxWidth: '100%' }}>
-              <Picker label="Club" value={query.teamId ?? ''} options={clubOptions('Any club')}
-                onChange={v => onQuery({ ...query, teamId: v || null })} />
-              <Picker label="Home or away" value={query.venue}
-                options={[
-                  { value: 'any', label: 'Home or away' },
-                  { value: 'home', label: 'At home' },
-                  { value: 'away', label: 'On the road' },
-                ]}
-                onChange={v => onQuery({ ...query, venue: v as FinderVenue })} />
-            </Box>
-            <Picker label="Opponent" value={query.oppId ?? ''} options={clubOptions('Any opponent')}
-              onChange={v => onQuery({ ...query, oppId: v || null })} />
-          </Box>
-          </Box>
-
-          {/* WHEN: a month of the season, and a club's or a player's last N games. Typed as words
-              ("since August", "last 10 games") these were search-only until Nov 2026, so a reader on
-              the board could take one off but never put one on. A span the pickers cannot draw (a run
-              of days) shows as "Custom" in the month picker, with its words, and stays its chip's. */}
-          {/* Drawn whenever the section offers months, even before its games are in: drawn only
-              once they arrived, the row pushed the examples down 80 to 100px mid-load (the sweep). */}
-          {months != null && (
-            <Box sx={{ pt: 1.25, mt: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
-              <SectionLabel>When</SectionLabel>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-                <Picker label="Month" value={monthValue} options={monthOptions}
-                  onChange={v => onQuery(v === 'custom' ? query
-                    : { ...query, ...(v ? finderMonthSpan(Number(v)) : { from: null, to: null }) })} />
-                <Picker label="Last games" value={query.last ? String(query.last) : ''} options={lastOptions}
-                  onChange={v => onQuery({ ...query, last: v ? Number(v) : null })} />
-              </Box>
-            </Box>
-          )}
-
-          {/* THE MATCHUP, only where a line names both players: a plate appearance. A hitter's season
-              is summed from those, so it can be against one pitcher (`seasonFromPas`). */}
-          {picks && plays && finderPitcherApplies(side, query.per) && (
-            <Box sx={{ pt: 1.25, mt: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
-              <SectionLabel>Matchup</SectionLabel>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-                {query.per === 'pa' && <Picker label="Batter" value={query.batterId ?? ''} options={[{ value: '', label: 'Any batter' }]}
-                  groups={picks.batters} onChange={v => onQuery({ ...query, batterId: v || null })} />}
-                <Picker label="Pitcher" value={query.pitcherId ?? ''} options={[{ value: '', label: 'Any pitcher' }]}
-                  groups={picks.pitchers} onChange={v => onQuery({ ...query, pitcherId: v || null })} />
-              </Box>
-            </Box>
-          )}
+          {anything && <Box {...pressable(clearAll)} sx={{ ...textButtonSx, minHeight: chromePx(30), ml: 'auto' }}>Clear</Box>}
         </Box>
       </Box>
+      {editor}
     </SectionCard>
   )
 
