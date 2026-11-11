@@ -260,6 +260,26 @@ const FIRST: [string, string][] = [
   ['avg with the bases loaded', 'leader: Highest batting average with the bases loaded'],
   ['avg on 0-2', 'leader: Highest batting average on 0-2'],
   ['lee hr off whitmore', 'matchup: Jaida Lee vs Kelsie Whitmore: Home runs at least 1'],
+  // A RUN WITH TWO OUT IS THE CLUB'S, and "team" ranks the clubs (Nov 10, 2026: "two out runs team"
+  // listed every two-out plate appearance with both "runs" and "team" unused). The rules it showed:
+  // a stat and a situation in either order are one question ("two out runs", "runs with 2 outs");
+  // a word the reading would drop means the reading is wrong, not the word; and a team word turns a
+  // ranking into the clubs' one, a count in a situation included.
+  ['two out runs team', 'leader: Most two-out runs by a team'],
+  ['two out runs', 'leader: Most two-out runs by a team'],
+  ['2-out runs', 'leader: Most two-out runs by a team'],
+  ['runs with 2 outs', 'leader: Most two-out runs by a team'],
+  ['team runs with two outs', 'leader: Most two-out runs by a team'],
+  ['runs scored with two outs by team', 'leader: Most two-out runs by a team'],
+  ['two out runs vs boston', 'leader: Most two-out runs vs BOS by a team'],
+  ['boston two out runs', 'leader: Most two-out runs for BOS'],
+  ['innings with two out runs', 'find: Two-out runs at least 1 (Batting, single innings)'],
+  ['team avg with 2 outs', 'leader: Highest batting average with 2 outs by a team'],
+  ['team hits with risp', 'leader: Most hits with RISP by a team'],
+  ['team ops with runners on', 'leader: Highest OPS with runners on by a team'],
+  // A batter's runs driven in with two out stay the plays, and a rally stays the innings.
+  ['two out rbi', 'find: 2 out and Runs on the play at least 1 (Batting, plate appearances)'],
+  ['two out rally', 'find: Two-out rallies (Batting, single innings)'],
 ]
 
 describe('the search bar corpus', () => {

@@ -267,11 +267,19 @@ const GAME_WORDS = /(?<![a-z])(in a game|in one game|in a single game|single gam
 const INNING_WORDS = /(?<![a-z0-9])(?:(?:in|during)\s+(?:an|one|1|a single|a|the same)|an|a single|single|the same|per)\s+(?:inning|frame)(?![a-z])/g
 // A number written right before "inning", which makes it innings pitched ("5 innings", "6.1 inning").
 const BARE_INNING_COUNT = new RegExp(`(?<![a-z0-9.])(?:\\d+(?:\\.\\d+)?|${Object.keys(NUMBER_WORDS).join('|')})\\+?[\\s-]*(?:in\\s+)?$`)
+// TWO-OUT RUNS ARE A CLUB'S, said any way round: "two out runs", "2-out runs scored", "runs with two
+// outs". Read as one stat before the situations, which would take the "two out" as a cut on each trip
+// and leave the runs unasked, since a trip carries no runs scored: "two out runs team" listed every
+// two-out plate appearance until Nov 10, 2026. The club's half-innings count every run that scored
+// with two out, a wild pitch's too (`TeamInningLine.r2`).
+const TWO_OUT_RUNS = /(?<![a-z0-9])(?:(?:two|2)[\s-]+outs?[\s-]+runs?(?:\s+scored)?|runs?(?:\s+scored)?\s+(?:with\s+)?(?:two|2)[\s-]+outs?)(?![a-z])/g
 // A CLUB'S HALF-INNING, said the way a broadcast says it: "5-run innings", "innings with 3+ runs",
 // "two-out rallies", "comebacks", "go-ahead innings". Taken before the plate-appearance phrases, which
 // would read the "2 out" of a two-out rally as the outs of one at-bat. A count of runs reads on either
 // side (a club's big inning is a pitcher's bad one); a comeback or a rally is the club's alone.
 const TEAM_INNING_PHRASES: { re: RegExp; conditions: (m: string[]) => FinderCondition[] }[] = [
+  // "Two out runs" asked of one half-inning is the innings a club scored in with two out.
+  { re: TWO_OUT_RUNS, conditions: () => [{ field: 'r2', op: 'gte', value: 1 }] },
   { re: /(?<![a-z0-9])(?:two|2)[\s-]+outs?\s+rall(?:y|ies)(?![a-z])/g,
     conditions: () => [{ field: 'r2', op: 'gte', value: 2 }] },
   { re: /(?<![a-z0-9])(?:comebacks?|come[\s-]+from[\s-]+behind)(?:\s+(?:innings?|rall(?:y|ies)))?(?![a-z])/g,
@@ -1710,7 +1718,10 @@ export interface ParsedScopedRank {
   /** A rate over a cut is a few dozen plate appearances at most, so the season's bar would leave
    *  almost nobody; a smaller one of its own goes beside it, as a condition the board shows. */
   bar?: { field: 'pa' | 'ip'; value: number }
+  /** Clubs ranked rather than players ("team avg with 2 outs", "two out runs"): `FinderQuery.byClub`. */
+  byClub?: boolean
 }
+
 
 /**
  * "hr vs boston", "hits against the hunters", "most strikeouts at home 2026": who has the most of a
@@ -1727,13 +1738,39 @@ export function parseScopedRank(text: string, clubs: readonly FinderClubAlias[],
   // "avg vs lefties", "hr since August", "era in September": a cut narrows the season as a club does.
   const cut = takeCuts(year.rest)
   const { cuts } = cut
-  const sit = plays ? takeSituation(cut.rest, regulationInnings) : { rest: cut.rest, conditions: [] }
+  // "team", "by a club", "teams": the clubs ranked. Only where the plays are read, since a club's
+  // season beside its two-out runs is the Find board's, and only Hitting has one.
+  let byClub = false
+  let twoOut = false
+  let rest = cut.rest
+  if (plays) {
+    rest = rest.replace(TWO_OUT_RUNS, m => { twoOut = true; return ' '.repeat(m.length) })
+    rest = rest.replace(CLUB_WORDS, m => { byClub = true; return ' '.repeat(m.length) })
+  }
+  // A run with two out is the club's: no player's season can carry one, so the words alone rank clubs.
+  if (twoOut) byClub = true
+  const sit = plays ? takeSituation(rest, regulationInnings) : { rest, conditions: [] }
   const situated = sit.conditions.length > 0
   const narrowed = !!(cuts.from || cuts.to || cuts.last || cuts.hand) || situated
   const placed = takeVenue(sit.rest, 'any')
   const clubbed = takeClubs(placed.rest, clubs, placed.venue)
-  if (clubbed.oppIds[0] == null && clubbed.venue === 'any' && !narrowed) return []
-  const read = parseLeaderText(clubbed.rest.replace(SEASON_WORDS, ' '))
+  // A club's whole season with no cut is the Team stats board's (`parseTeamRankText`), all but its
+  // two-out runs, which no box score has.
+  if (clubbed.oppIds[0] == null && clubbed.venue === 'any' && !narrowed && !twoOut) return []
+  const left = clubbed.rest.replace(SEASON_WORDS, ' ')
+  if (twoOut) {
+    // Nothing else may be asked beside it: "two out runs and hits" is some other question.
+    // The fewest is a ranking the board's order cannot give from "at least one".
+    if (LEAD_WORDS.some(w => (w.want === 'less' || w.want === 'worst') && new RegExp(w.re.source).test(left))) return []
+    let words = left
+    for (const w of LEAD_WORDS) words = words.replace(w.re, ' ')
+    if (words.split(/[^a-z0-9]+/).some(w => w && !FILLER.has(w) && !LEADER_FILLER.has(w) && !HITTING_HINTS.includes(w))) return []
+    if (situated || cuts.hand) return []
+    return clubbed.teamIds.flatMap(teamId => clubbed.oppIds.flatMap(oppId => (teamId && teamId === oppId ? [] : [{
+      side: 'hitting' as const, field: 'r2', teamId, oppId, venue: clubbed.venue, season: year.season, ...cuts, byClub: true,
+    }])))
+  }
+  const read = parseLeaderText(left)
     .filter(p => !p.career && p.season == null && p.side !== 'overall' && p.dir !== 'asc')
     // A rate against one club stays out (see above); over a span, an arm or half the season's games
     // ("road avg", "home era", which offered nothing until Nov 10, 2026) it is the question.
@@ -1743,14 +1780,18 @@ export function parseScopedRank(text: string, clubs: readonly FinderClubAlias[],
     .filter(p => (!cuts.hand && !situated) || (p.side === 'hitting' && !cut.batters && PA_SEASON_KEYS.has(p.field)))
     // A count in a situation with no word for a ranking is its plays ("hits with risp", "bases loaded
     // walks"), which the plate-appearance reading answers; a rate there, or "most", is the leaders.
-    .filter(p => !situated || RATE_FIELDS.has(p.field) || p.dir != null)
-    .filter(p => finderFields(p.side as FinderSide, 'season').some(f => f.key === p.field && f.key !== 'g'))
+    // A club's count is a ranking either way: "team hits with risp" asks which club has the most.
+    .filter(p => !situated || byClub || RATE_FIELDS.has(p.field) || p.dir != null)
+    .filter(p => !byClub || p.side === 'hitting')
+    .filter(p => finderFields(p.side as FinderSide, 'season', true, byClub).some(f => f.key === p.field && f.key !== 'g'))
   return read.filter(p => p.side === read[0].side).flatMap(p => clubbed.teamIds.flatMap(teamId => clubbed.oppIds.flatMap(oppId =>
     (teamId && teamId === oppId ? [] : [{
       side: p.side as FinderSide, field: p.field, teamId, oppId, venue: clubbed.venue, season: year.season, ...cuts,
       ...(situated ? { situation: sit.conditions } : {}),
-      // Ten plate appearances, or five innings (stored as fifteen outs).
-      ...(RATE_FIELDS.has(p.field) ? { bar: p.side === 'pitching' ? { field: 'ip' as const, value: 15 } : { field: 'pa' as const, value: 10 } } : {}),
+      ...(byClub ? { byClub: true } : {}),
+      // Ten plate appearances, or five innings (stored as fifteen outs). A club comes up hundreds of
+      // times in any cut, so its rate needs no bar.
+      ...(RATE_FIELDS.has(p.field) && !byClub ? { bar: p.side === 'pitching' ? { field: 'ip' as const, value: 15 } : { field: 'pa' as const, value: 10 } } : {}),
     }]))))
 }
 

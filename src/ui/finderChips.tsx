@@ -154,8 +154,8 @@ export function ChoiceList({ groups, value, onPick, searchLabel }: {
 }
 
 /** The stats a side can ask at a grain, under the picker's headings. */
-export function statGroups(side: FinderBoardSide, per: FinderPer, plays: boolean): ChoiceGroup[] {
-  return finderFieldGroups(side, per, plays).map(g => ({ label: g.label, options: g.fields.map(f => ({ value: f.key, label: f.label })) }))
+export function statGroups(side: FinderBoardSide, per: FinderPer, plays: boolean, byClub = false): ChoiceGroup[] {
+  return finderFieldGroups(side, per, plays, byClub).map(g => ({ label: g.label, options: g.fields.map(f => ({ value: f.key, label: f.label })) }))
 }
 
 // ─── One condition ────────────────────────────────────────────────────────────
@@ -182,10 +182,12 @@ const OP_ORDER: FinderOp[] = ['gte', 'eq', 'lte']
  * One condition: its stat, which opens the list of stats; how it compares, as words; and its number,
  * with − and + beside the box, since a phone's keypad is the slow way to go from 5 to 6.
  */
-export function ConditionEditor({ side, per, plays, condition, onChange, onRemove, pickFirst = false }: {
+export function ConditionEditor({ side, per, plays, byClub = false, condition, onChange, onRemove, pickFirst = false }: {
   side: FinderBoardSide
   per: FinderPer
   plays: boolean
+  /** Filed under the club (`FinderQuery.byClub`), which a club's season asks different stats of. */
+  byClub?: boolean
   condition: FinderCondition
   onChange: (c: FinderCondition) => void
   onRemove: () => void
@@ -193,7 +195,7 @@ export function ConditionEditor({ side, per, plays, condition, onChange, onRemov
   pickFirst?: boolean
 }) {
   const [picking, setPicking] = useState(pickFirst)
-  const groups = statGroups(side, per, plays)
+  const groups = statGroups(side, per, plays, byClub)
   const label = groups.flatMap(g => g.options).find(o => o.value === condition.field)?.label ?? condition.field
   // WHAT THE READER TYPED, UNTIL THEY LEAVE THE BOX: the stored value is normalized (innings are
   // outs), so a purely controlled box would rewrite "4" as "4.0" under the cursor.
@@ -255,10 +257,11 @@ export interface ScopeEntry { key: string; label: string }
  * "+ Add": the stats, and the who, where and when not yet set, in one list. Picking a stat adds it
  * and opens its number; picking a scope opens its list.
  */
-export function AddMenu({ side, per, plays, scopes, onStat, onScope }: {
+export function AddMenu({ side, per, plays, byClub = false, scopes, onStat, onScope }: {
   side: FinderBoardSide
   per: FinderPer
   plays: boolean
+  byClub?: boolean
   scopes: ScopeEntry[]
   onStat: (field: string) => void
   onScope: (key: string) => void
@@ -273,7 +276,7 @@ export function AddMenu({ side, per, plays, scopes, onStat, onScope }: {
           </Box>
         </Box>
       )}
-      <ChoiceList groups={statGroups(side, per, plays)} value="" searchLabel="Find a stat" onPick={onStat} />
+      <ChoiceList groups={statGroups(side, per, plays, byClub)} value="" searchLabel="Find a stat" onPick={onStat} />
     </Box>
   )
 }
