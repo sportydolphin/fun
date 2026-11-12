@@ -4,7 +4,7 @@ import { Button, Typography, Box, CircularProgress, TextField, Switch, useMediaQ
 import {
   ChevronRight, ExpandMore, WarningAmber,
   PersonOutlined, SportsBaseballOutlined, NotificationsNoneOutlined,
-  AccessibilityNewOutlined, TuneOutlined, DeleteOutlineOutlined,
+  PaletteOutlined, BarChartOutlined, ScienceOutlined, DeleteOutlineOutlined,
 } from '@mui/icons-material'
 import { Team } from './mlb/types'
 import { TEAM_BG } from './mlb/constants'
@@ -219,117 +219,124 @@ interface PushState {
   setBusy: (b: boolean) => void
 }
 
-// ─── WPBL ───────────────────────────────────────────────────────────────────
+// ─── Notifications, one card for both leagues ───────────────────────────────
+//
+// Until Nov 12, 2026 each league's reminders sat behind a WPBL / MLB pill, so a reader looking
+// at WPBL could not see that MLB prediction reminders were still on, and the one control that
+// spanned both ("Stop all push") sat in a third place. Now every notification is in one card:
+// this device's push switch first, then each league's rows under its own subhead, the league the
+// reader came from first.
+//
+// The reason a switch is disabled (unsupported browser, blocked permission) is said once, on the
+// device row, rather than repeated on whichever reminder row happened to carry it.
+
+/** A league's name between its rows inside the Notifications card. */
+function CardSubhead({ children }: { children: React.ReactNode }) {
+  return (
+    <Box sx={{ px: 1.75, pt: 1.25, pb: 0.25, borderTop: '1px solid', borderColor: 'divider' }}>
+      <Typography sx={{
+        fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase',
+        letterSpacing: typePx(0.6), color: 'text.secondary',
+      }}>
+        {children}
+      </Typography>
+    </Box>
+  )
+}
+
+/** An error under the rows that caused it, inside the card. */
+function RowError({ children }: { children: React.ReactNode }) {
+  return <Box sx={{ px: 1.75, pb: 1.15 }}><ErrorNote>{children}</ErrorNote></Box>
+}
+
+/** Every push reminder needs a working subscription path; a bell-only alert does not. */
+function pushBlocked(push: PushState): boolean {
+  return !push.supported || !push.configured || push.perm === 'denied'
+}
 
 /**
- * The standing "remind me before every WPBL game" preference
- * (user_preferences.notify_wpbl_all_games), which until now lived ONLY on the next-game card
- * on the WPBL home tab. That is where the intent happens, so the switch stays there too. But
- * it is also the one notification a WPBL-only reader has, and Settings is where anyone goes
- * looking to turn a notification off. Both switches read and write the same preference.
+ * The WPBL reminders. "Game reminders" is the standing before-every-game preference
+ * (user_preferences.notify_wpbl_all_games), which also lives on the Home next-game card where the
+ * intent happens; both switches read and write the same preference. "Re-signings" is
+ * user_preferences.notify_wpbl_resigns, pushed by the Instagram watcher.
  */
-function WpblSection({ userId, push }: { userId: string; push: PushState }) {
-  const [on, setOn] = useState(getCachedAllGamesPref())
-  // The re-signing push (user_preferences.notify_wpbl_resigns). Settings is its only switch: it
-  // is news about the offseason rosters, with no single card where the intent happens.
+function WpblNotificationRows({ userId, push }: { userId: string; push: PushState }) {
+  const [games, setGames] = useState(getCachedAllGamesPref())
   const [resigns, setResigns] = useState(getCachedResignPref())
   const [err, setErr] = useState('')
 
   useEffect(() => {
-    setOn(getCachedAllGamesPref())
+    setGames(getCachedAllGamesPref())
     setResigns(getCachedResignPref())
-    fetchAllGamesPref(userId).then(pref => { if (pref !== null) setOn(pref) })
+    fetchAllGamesPref(userId).then(pref => { if (pref !== null) setGames(pref) })
     fetchResignPref(userId).then(pref => { if (pref !== null) setResigns(pref) })
   }, [userId])
 
-  const toggleResigns = async (next: boolean) => {
+  // One shape for both: write the preference (which subscribes the device when turning on), keep
+  // the switch where it was on failure, since claiming On while nothing can deliver is worse
+  // than showing that it failed.
+  const toggle = async (
+    next: boolean,
+    write: (userId: string, on: boolean) => Promise<string | null>,
+    apply: (on: boolean) => void,
+    events: [string, string],
+    props: Record<string, unknown>,
+  ) => {
     if (push.busy) return
     push.setBusy(true); setErr('')
-    const error = await setResignPref(userId, next)
+    const error = await write(userId, next)
     if (error) {
       setErr(error)
     } else {
-      setResigns(next)
+      apply(next)
       if (next) push.setSubscribed(true)
-      track(next ? EVENTS.WPBL_RESIGN_ALERTS_ON : EVENTS.WPBL_RESIGN_ALERTS_OFF, { source: 'settings' }, userId)
+      track(next ? events[0] : events[1], props, userId)
     }
     push.setPerm(notificationPermission())
     push.setBusy(false)
   }
 
-  const toggle = async (next: boolean) => {
-    if (push.busy) return
-    push.setBusy(true); setErr('')
-    const error = await setAllGamesPref(userId, next)
-    if (error) {
-      // Leave the switch where it was: claiming "on" while nothing can deliver is worse than
-      // showing that it failed.
-      setErr(error)
-    } else {
-      setOn(next)
-      if (next) push.setSubscribed(true)
-      track(next ? EVENTS.WPBL_GAME_REMINDER_ON : EVENTS.WPBL_GAME_REMINDER_OFF,
-        { scope: 'all', source: 'settings' }, userId)
-    }
-    push.setPerm(notificationPermission())
-    push.setBusy(false)
-  }
-
-  const blocked = !push.supported || !push.configured || push.perm === 'denied'
-  // Only the states a reader cannot act on without an explanation: a disabled switch with no
-  // reason is a dead control. The plain on/off description is dropped as an unnecessary caption.
-  let hint: string | undefined
-  if (!push.supported)             hint = 'This browser doesn’t support push notifications.'
-  else if (!push.configured)       hint = 'Notifications aren’t set up on this deployment yet.'
-  else if (push.perm === 'denied') hint = 'Blocked. Turn notifications back on for this site in your browser settings.'
-
+  const disabled = push.busy || pushBlocked(push)
   return (
     <>
-      <SettingsCard>
-        <Row
-          first
-          title="Game reminders"
-          hint={hint}
-          control={
-            <Switch
-              checked={on}
-              disabled={push.busy || blocked}
-              onChange={e => toggle(e.target.checked)}
-              slotProps={{ input: { 'aria-label': 'WPBL game reminders' } }}
-            />
-          }
-        />
-        {/* No hint of its own: the reason both switches are disabled is the same, said once above. */}
-        <Row
-          title="Re-signings"
-          control={
-            <Switch
-              checked={resigns}
-              disabled={push.busy || blocked}
-              onChange={e => toggleResigns(e.target.checked)}
-              slotProps={{ input: { 'aria-label': 'WPBL re-signing alerts' } }}
-            />
-          }
-        />
-      </SettingsCard>
-      {err && <ErrorNote>{err}</ErrorNote>}
+      <CardSubhead>WPBL</CardSubhead>
+      <Row
+        first
+        title="Game reminders"
+        control={
+          <Switch
+            checked={games}
+            disabled={disabled}
+            onChange={e => toggle(e.target.checked, setAllGamesPref, setGames,
+              [EVENTS.WPBL_GAME_REMINDER_ON, EVENTS.WPBL_GAME_REMINDER_OFF], { scope: 'all', source: 'settings' })}
+            slotProps={{ input: { 'aria-label': 'WPBL game reminders' } }}
+          />
+        }
+      />
+      <Row
+        title="Re-signings"
+        control={
+          <Switch
+            checked={resigns}
+            disabled={disabled}
+            onChange={e => toggle(e.target.checked, setResignPref, setResigns,
+              [EVENTS.WPBL_RESIGN_ALERTS_ON, EVENTS.WPBL_RESIGN_ALERTS_OFF], { source: 'settings' })}
+            slotProps={{ input: { 'aria-label': 'WPBL re-signing alerts' } }}
+          />
+        }
+      />
+      {err && <RowError>{err}</RowError>}
     </>
   )
 }
 
-// ─── MLB ────────────────────────────────────────────────────────────────────
-
-function MlbSection({ userId, push }: { userId: string; push: PushState }) {
-  const [teams, setTeams] = useState<Team[]>([])
-  const [loadingTeams, setLoadingTeams] = useState(false)
-  const [teamId, setTeamId] = useState<number | null>(null)
-  const [playerIds, setPlayerIds] = useState<number[]>([])
-  const [saving, setSaving] = useState(false)
-  const [pickerOpen, setPickerOpen] = useState(false)
-
-  // Pick reminders (daily "make your picks") and game-start reminders are two independent
-  // preferences. They used to share one flag with the push subscription itself, which is what
-  // let switching one off delete the subscription the others depend on.
+/**
+ * The MLB reminders. Prediction reminders (the daily "make your picks") and game-start reminders
+ * are two independent preferences; they used to share one flag with the push subscription itself,
+ * which is what let switching one off delete the subscription the others depend on. Milestone
+ * alerts are bell-only and device-local, so they never need push and stay usable without it.
+ */
+function MlbNotificationRows({ userId, push }: { userId: string; push: PushState }) {
   const [picks, setPicks] = useState(getLocalPickReminderPref())
   const [gsEnabled, setGsEnabled] = useState(false)
   const [gsLead, setGsLead] = useState(getLocalGameStartPref().leadMin)
@@ -337,10 +344,146 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
   const [err, setErr] = useState('')
 
   useEffect(() => {
+    // localStorage paints the right state on the first frame, then the account value confirms
+    // or corrects it. The correction is written back to localStorage rather than kept in React
+    // state alone, because the bell's picks-ready source reads the local value to decide whether
+    // to nudge: leaving it stale means switching the reminder off on one device leaves this one
+    // still nudging.
+    setPicks(getLocalPickReminderPref())
+    loadPickReminderPrefFromSupabase(userId).then(row => {
+      if (row !== null) { setPicks(row); setLocalPickReminderPref(row) }
+    })
+    setMilestones(getLocalMilestonePref())
+    const local = getLocalGameStartPref()
+    setGsEnabled(local.enabled)
+    setGsLead(local.leadMin)
+    loadGameStartPrefFromSupabase(userId).then(row => {
+      if (row) { setGsEnabled(row.enabled); setGsLead(row.leadMin) }
+    })
+  }, [userId])
+
+  /** Subscribes this device if it is not already; returns false (and says why) if that failed. */
+  const ensureSubscribed = async (): Promise<boolean> => {
+    if (await isSubscribed().catch(() => false)) return true
+    const error = await enablePush(userId)
+    if (error) {
+      setErr(error)
+      push.setSubscribed(await isSubscribed().catch(() => false))
+      return false
+    }
+    push.setSubscribed(true)
+    return true
+  }
+
+  const togglePicks = async (next: boolean) => {
+    if (push.busy) return
+    push.setBusy(true); setErr('')
+    // Turning it off clears the preference and NOTHING else: the same subscription carries every
+    // other reminder on the site.
+    if (!next || await ensureSubscribed()) {
+      setPicks(next)
+      setLocalPickReminderPref(next)
+      await savePickReminderPrefToSupabase(userId, next)
+    }
+    push.setPerm(notificationPermission())
+    push.setBusy(false)
+  }
+
+  const persistGameStart = (next: { enabled: boolean; leadMin: number }) => {
+    setLocalGameStartPref(next)
+    saveGameStartPrefToSupabase(userId, next)
+  }
+
+  // Until Nov 12, 2026 this switch recorded the wish without subscribing the device, so it could
+  // read On on a device that would never receive one.
+  const toggleGameStart = async (next: boolean) => {
+    if (push.busy) return
+    push.setBusy(true); setErr('')
+    if (!next || await ensureSubscribed()) {
+      setGsEnabled(next)
+      persistGameStart({ enabled: next, leadMin: gsLead })
+    }
+    push.setPerm(notificationPermission())
+    push.setBusy(false)
+  }
+
+  const disabled = push.busy || pushBlocked(push)
+  return (
+    <>
+      <CardSubhead>MLB</CardSubhead>
+      <Row
+        first
+        title="Prediction reminders"
+        control={
+          <Switch
+            checked={picks}
+            disabled={disabled}
+            onChange={e => togglePicks(e.target.checked)}
+            slotProps={{ input: { 'aria-label': 'MLB prediction reminders' } }}
+          />
+        }
+      />
+      <Row
+        title="Game start reminders"
+        control={
+          <Switch
+            checked={gsEnabled}
+            disabled={disabled}
+            onChange={e => toggleGameStart(e.target.checked)}
+            slotProps={{ input: { 'aria-label': 'MLB game start reminders' } }}
+          />
+        }
+      >
+        {gsEnabled && (
+          // Four fixed choices are a pill row, not a select: a dropdown wedged into a sentence
+          // wrapped onto two lines at 375px and stranded the control.
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mt: 1 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Lead time</Typography>
+            <PillGroup
+              options={[5, 10, 15, 30].map(m => ({ key: m, label: `${m}m` }))}
+              value={gsLead}
+              onChange={m => { setGsLead(m); persistGameStart({ enabled: gsEnabled, leadMin: m }) }}
+            />
+          </Box>
+        )}
+      </Row>
+      <Row
+        title={
+          <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+            Milestone alerts
+            {/* The one row here that is not a push, said where the difference matters: on a
+                device with notifications blocked, this is the switch that still works. */}
+            <InfoDot label="Where milestone alerts appear" text="In the bell on this site only. Never sent as a push." />
+          </Box>
+        }
+        control={
+          <Switch
+            checked={milestones}
+            onChange={e => { setMilestones(e.target.checked); setLocalMilestonePref(e.target.checked) }}
+            slotProps={{ input: { 'aria-label': 'MLB milestone alerts' } }}
+          />
+        }
+      />
+      {err && <RowError>{err}</RowError>}
+    </>
+  )
+}
+
+// ─── MLB club ───────────────────────────────────────────────────────────────
+
+/** The followed MLB club: not a notification, so it has its own card. */
+function MlbTeamCard({ userId }: { userId: string }) {
+  const [teams, setTeams] = useState<Team[]>([])
+  const [loadingTeams, setLoadingTeams] = useState(false)
+  const [teamId, setTeamId] = useState<number | null>(null)
+  const [playerIds, setPlayerIds] = useState<number[]>([])
+  const [saving, setSaving] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
+
+  useEffect(() => {
     setPickerOpen(false)
     setLoadingTeams(true)
     fetchAllTeams().then(setTeams).catch(() => setTeams([])).finally(() => setLoadingTeams(false))
-
     setPlayerIds(getLocalFollowedPlayerIds())
     setTeamId(getLocalFollowedTeamId())
     loadPrefsFromSupabase(userId).then(row => {
@@ -348,26 +491,6 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
         setTeamId(row.followed_team_id ?? null)
         setPlayerIds(row.followed_player_ids ?? [])
       }
-    })
-
-    // localStorage paints the right state on the first frame, then the account value confirms
-    // or corrects it. The correction is written back to localStorage rather than kept in
-    // React state alone, because the bell's picks-ready source reads the local value to
-    // decide whether to nudge: leaving it stale means switching the reminder off on one
-    // device leaves this one still nudging.
-    setPicks(getLocalPickReminderPref())
-    loadPickReminderPrefFromSupabase(userId).then(row => {
-      if (row !== null) { setPicks(row); setLocalPickReminderPref(row) }
-    })
-
-    // Bell-only and device-local, so there is no account value to reconcile against.
-    setMilestones(getLocalMilestonePref())
-
-    const local = getLocalGameStartPref()
-    setGsEnabled(local.enabled)
-    setGsLead(local.leadMin)
-    loadGameStartPrefFromSupabase(userId).then(row => {
-      if (row) { setGsEnabled(row.enabled); setGsLead(row.leadMin) }
     })
   }, [userId])
 
@@ -379,237 +502,102 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
     setSaving(false)
   }
 
-  const persistGameStart = (next: { enabled: boolean; leadMin: number }) => {
-    setLocalGameStartPref(next)
-    saveGameStartPrefToSupabase(userId, next)
-  }
-
-  // Turning game-start reminders on needs a delivery channel, exactly as prediction reminders
-  // do. Until Nov 12, 2026 this switch recorded the wish without subscribing the device, so it
-  // could read On on a device that would never receive one.
-  const toggleGameStart = async (next: boolean) => {
-    if (push.busy) return
-    setErr('')
-    if (next && !(await isSubscribed().catch(() => false))) {
-      push.setBusy(true)
-      const error = await enablePush(userId)
-      push.setPerm(notificationPermission())
-      push.setBusy(false)
-      if (error) {
-        setErr(error)
-        push.setSubscribed(await isSubscribed().catch(() => false))
-        return
-      }
-      push.setSubscribed(true)
-    }
-    setGsEnabled(next)
-    persistGameStart({ enabled: next, leadMin: gsLead })
-  }
-
-  const togglePicks = async (next: boolean) => {
-    if (push.busy) return
-    push.setBusy(true); setErr('')
-    if (next) {
-      // Turning it on still needs a delivery channel, so make sure this device is subscribed.
-      // Only record the preference if that succeeded, otherwise the switch would claim to be
-      // on while nothing could reach the reader.
-      const error = await enablePush(userId)
-      if (error) {
-        setErr(error)
-        push.setSubscribed(await isSubscribed().catch(() => false))
-      } else {
-        push.setSubscribed(true)
-        setPicks(true)
-        setLocalPickReminderPref(true)
-        await savePickReminderPrefToSupabase(userId, true)
-      }
-    } else {
-      // Turning it off clears the preference and NOTHING else. It deliberately does not
-      // unsubscribe: the same subscription carries game-start and WPBL reminders.
-      setPicks(false)
-      setLocalPickReminderPref(false)
-      await savePickReminderPrefToSupabase(userId, false)
-    }
-    push.setPerm(notificationPermission())
-    push.setBusy(false)
-  }
-
-  const blocked = !push.supported || !push.configured || push.perm === 'denied'
-  // As in WpblSection: keep only the reasons a switch is disabled, drop the on/off description.
-  let pickHint: string | undefined
-  if (!push.supported)             pickHint = 'This browser doesn’t support push notifications.'
-  else if (!push.configured)       pickHint = 'Notifications aren’t set up on this deployment yet.'
-  else if (push.perm === 'denied') pickHint = 'Blocked. Turn notifications back on for this site in your browser settings.'
-
   const selectedTeam = teams.find(t => t.id === teamId)
   const sortedTeams = [...teams].sort((a, b) => a.name.localeCompare(b.name))
 
   return (
-    <>
-      <SettingsCard>
-        {/* Preferred team. It used to carry its own PREFERRED TEAM section header for a
-            single row; inside the MLB block the heading is redundant. */}
-        <Row
-          first
-          title="Preferred team"
-          hint={saving ? 'Saving…' : undefined}
-          onClick={() => setPickerOpen(o => !o)}
-          control={
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-              {selectedTeam && (
-                <TeamLogo teamId={selectedTeam.id} abbr={selectedTeam.abbreviation} size={22} decorative />
-              )}
-              <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: selectedTeam ? 'text.primary' : 'text.disabled', whiteSpace: 'nowrap' }}>
-                {selectedTeam ? selectedTeam.abbreviation : loadingTeams ? 'Loading…' : 'Not set'}
-              </Typography>
-              <ExpandMore sx={{ color: 'text.disabled', transition: 'transform 0.15s', transform: pickerOpen ? 'rotate(180deg)' : 'none' }} />
-            </Box>
-          }
-        >
-          {pickerOpen && (
-            <Box sx={{ mt: 1.25 }}>
-              {loadingTeams ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
-                  <CircularProgress size={20} />
+    <SettingsCard>
+      <Row
+        first
+        title="Preferred team"
+        hint={saving ? 'Saving…' : undefined}
+        onClick={() => setPickerOpen(o => !o)}
+        control={
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+            {selectedTeam && (
+              <TeamLogo teamId={selectedTeam.id} abbr={selectedTeam.abbreviation} size={22} decorative />
+            )}
+            <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, color: selectedTeam ? 'text.primary' : 'text.secondary', whiteSpace: 'nowrap' }}>
+              {selectedTeam ? selectedTeam.abbreviation : loadingTeams ? 'Loading…' : 'Not set'}
+            </Typography>
+            <ExpandMore sx={{ color: 'text.secondary', transition: 'transform 0.15s', transform: pickerOpen ? 'rotate(180deg)' : 'none' }} />
+          </Box>
+        }
+      >
+        {pickerOpen && (
+          <Box sx={{ mt: 1.25 }}>
+            {loadingTeams ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                <CircularProgress size={20} />
+              </Box>
+            ) : (
+              <>
+                <Box sx={{
+                  display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(52px, 1fr))', gap: 0.5,
+                  maxHeight: 168, overflowY: 'auto', pr: 0.5,
+                }}>
+                  {sortedTeams.map(t => {
+                    const bg = TEAM_BG[t.id] ?? '#444'
+                    const selected = teamId === t.id
+                    return (
+                      <Box
+                        key={t.id}
+                        {...pressable(() => selectTeam(t.id))}
+                        aria-pressed={selected}
+                        aria-label={t.name}
+                        sx={{
+                          ...FOCUS_RING,
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.4,
+                          p: 0.75, borderRadius: 2, cursor: 'pointer', userSelect: 'none',
+                          border: '1.5px solid', borderColor: selected ? bg : 'transparent',
+                          bgcolor: selected ? `${bg}1a` : 'transparent',
+                          transition: 'all 0.15s',
+                          '&:hover': { borderColor: bg, bgcolor: `${bg}14` },
+                        }}
+                      >
+                        <TeamLogo teamId={t.id} abbr={t.abbreviation} size={28} decorative />
+                        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, lineHeight: 1.1, textAlign: 'center' }}>
+                          {t.abbreviation}
+                        </Typography>
+                      </Box>
+                    )
+                  })}
                 </Box>
-              ) : (
-                <>
-                  <Box sx={{
-                    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(52px, 1fr))', gap: 0.5,
-                    maxHeight: 168, overflowY: 'auto', pr: 0.5,
-                  }}>
-                    {sortedTeams.map(t => {
-                      const bg = TEAM_BG[t.id] ?? '#444'
-                      const selected = teamId === t.id
-                      return (
-                        <Box
-                          key={t.id}
-                          {...pressable(() => selectTeam(t.id))}
-                          aria-pressed={selected}
-                          aria-label={t.name}
-                          sx={{
-                            ...FOCUS_RING,
-                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.4,
-                            p: 0.75, borderRadius: 2, cursor: 'pointer', userSelect: 'none',
-                            border: '1.5px solid', borderColor: selected ? bg : 'transparent',
-                            bgcolor: selected ? `${bg}1a` : 'transparent',
-                            transition: 'all 0.15s',
-                            '&:hover': { borderColor: bg, bgcolor: `${bg}14` },
-                          }}
-                        >
-                          <TeamLogo teamId={t.id} abbr={t.abbreviation} size={28} decorative />
-                          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, lineHeight: 1.1, textAlign: 'center' }}>
-                            {t.abbreviation}
-                          </Typography>
-                        </Box>
-                      )
-                    })}
-                  </Box>
-                  {teamId != null && (
-                    <Typography
-                      {...pressable(() => selectTeam(null))}
-                      sx={{
-                        fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'error.main', cursor: 'pointer',
-                        mt: 1, display: 'inline-block', borderRadius: 1,
-                        '&:hover': { textDecoration: 'underline' }, ...FOCUS_RING,
-                      }}
-                    >
-                      Clear preferred team
-                    </Typography>
-                  )}
-                </>
-              )}
-            </Box>
-          )}
-        </Row>
-
-        <Row
-          title="Prediction reminders"
-          hint={pickHint}
-          control={
-            <Switch
-              checked={picks}
-              disabled={push.busy || blocked}
-              onChange={e => togglePicks(e.target.checked)}
-              slotProps={{ input: { 'aria-label': 'MLB prediction reminders' } }}
-            />
-          }
-        />
-
-        <Row
-          title="Game start reminders"
-          control={
-            <Switch
-              checked={gsEnabled}
-              // Blocked like the other push switches: with permission denied, turning it on can
-              // only fail. The reason is the hint on the row above.
-              disabled={push.busy || blocked}
-              onChange={e => toggleGameStart(e.target.checked)}
-              slotProps={{ input: { 'aria-label': 'MLB game start reminders' } }}
-            />
-          }
-        >
-          {gsEnabled && (
-            // Was "Remind me [10 min ▾] before first pitch": a sentence with a dropdown
-            // wedged into the middle of it, which wrapped onto two lines at 375px and left
-            // the control stranded. Four fixed choices are a pill row, not a select.
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mt: 1 }}>
-              <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Lead time</Typography>
-              <PillGroup
-                options={[5, 10, 15, 30].map(m => ({ key: m, label: `${m}m` }))}
-                value={gsLead}
-                onChange={m => { setGsLead(m); persistGameStart({ enabled: gsEnabled, leadMin: m }) }}
-              />
-            </Box>
-          )}
-        </Row>
-
-        <Row
-          title="Milestone alerts"
-          control={
-            <Switch
-              checked={milestones}
-              // No push permission involved: this one only ever lands in the bell, so it
-              // stays usable on a device that has denied or never granted notifications.
-              onChange={e => {
-                setMilestones(e.target.checked)
-                setLocalMilestonePref(e.target.checked)
-              }}
-              // slotProps.input, not inputProps: MUI v7 dropped the latter on Switch, so the
-              // neighboring rows here render with no accessible name at all. See the note in
-              // the settings-toggle test.
-              slotProps={{ input: { 'aria-label': 'MLB milestone alerts' } }}
-            />
-          }
-        />
-      </SettingsCard>
-      {err && <ErrorNote>{err}</ErrorNote>}
-    </>
+                {teamId != null && (
+                  <Typography
+                    {...pressable(() => selectTeam(null))}
+                    sx={{
+                      fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'error.main', cursor: 'pointer',
+                      mt: 1, display: 'inline-block', borderRadius: 1,
+                      '&:hover': { textDecoration: 'underline' }, ...FOCUS_RING,
+                    }}
+                  >
+                    Clear preferred team
+                  </Typography>
+                )}
+              </>
+            )}
+          </Box>
+        )}
+      </Row>
+    </SettingsCard>
   )
 }
 
 // ─── Dialog ─────────────────────────────────────────────────────────────────
 
-type League = 'wpbl' | 'mlb'
-
 export function SettingsDialog({ open, onClose, userId, email, currentUsername, onEditUsername, isWpbl = true }: Props) {
   const signedIn = !!userId
 
-  // Which league's settings are showing. Seeded from the section the reader came from, since
-  // whole point of the split is that someone who only follows the WPBL never has to scroll
-  // past thirty MLB crests to reach the two switches that apply to them.
-  const [league, setLeague] = useState<League>(isWpbl ? 'wpbl' : 'mlb')
-  useEffect(() => { if (open) setLeague(isWpbl ? 'wpbl' : 'mlb') }, [open, isWpbl])
-
-  const { changePassword, hasPassword } = useAuth()
+  const { changePassword, hasPassword, openAuthDialog } = useAuth()
   const { themePref, setThemePref } = useTheme()
   const { units, setUnits } = useUnits()
   const { basis: eraBasis, setBasis: setEraBasis } = useEraBasis()
   const { experiments, setExperiments } = useExperimentsSetting()
   const { swipeNav, setSwipeNav, textScale, setTextScale, reduceMotion, setReduceMotion } = useAccessibilitySettings()
 
-  // Two columns once there is room for them (signed-in only: a signed-out reader has just the two
-  // app cards and does not need the width). Keyed off MUI's md (900px), the same width the modal
+  // Two columns once there is room for them (signed-in only: a signed-out reader has a sign-in row
+  // and the app cards, and does not need the width). Keyed off MUI's md (900px), the same width the modal
   // widens at below, so the direction switch and the wider dialog land together.
   const twoCol = useMediaQuery('(min-width:900px)')
   const columns = signedIn && twoCol
@@ -699,17 +687,42 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
 
   if (!open) return null
 
+  // The league the reader came from leads inside Notifications; the other follows.
+  const leagueRows = signedIn ? [
+    <WpblNotificationRows key="wpbl" userId={userId!} push={push} />,
+    <MlbNotificationRows key="mlb" userId={userId!} push={push} />,
+  ] : []
+  if (!isWpbl) leagueRows.reverse()
+
+  // The device's push switch. The reminder switches below it are the account's and follow the
+  // reader to every device; this is whether THIS device receives them. Until Nov 12, 2026 it was a
+  // "Stop" link shown only while subscribed, which left every reminder reading On after it was
+  // pressed and then vanished. The reason push cannot work here is said once, on this row.
+  let deviceHint: string | undefined
+  if (!push.supported)             deviceHint = 'This browser doesn’t support push notifications.'
+  else if (!push.configured)       deviceHint = 'Notifications aren’t set up on this deployment yet.'
+  else if (perm === 'denied')      deviceHint = 'Blocked. Turn notifications back on for this site in your browser settings.'
+
+  const toggleDevice = async (next: boolean) => {
+    setBusy(true); setDeviceErr('')
+    if (next) {
+      const error = await enablePush(userId!)
+      if (error) setDeviceErr(error)
+    } else {
+      await disablePush(userId!)
+    }
+    setSubscribed(await isSubscribed().catch(() => false))
+    setPerm(notificationPermission())
+    setBusy(false)
+  }
+
   return (
-    // ModalShell, not MUI's Dialog: it is what every other modal on the site uses, so Settings
-    // now shares their card, hairline, backdrop and Esc/click-away behavior instead of
-    // landing as a flat gray slab. It also drops the DialogActions bar and its "DONE" button
-    // button, because every control here writes the moment you touch it and a commit-shaped button was
-    // promising a step that does not exist. The ✕ in the header is the way out.
+    // ModalShell, not MUI's Dialog: it is what every other modal on the site uses. No DONE button:
+    // every control here writes the moment it is touched, and the ✕ in the header is the way out.
     <ModalShell eyebrow="Settings" onClose={onClose} maxWidth={signedIn ? { xs: 460, md: 780 } : 460}>
-      {/* One column on a phone and for a signed-out reader (who has only the two app cards); two
-          side by side on a desktop once signed in, so the account and league blocks no longer sit
-          above a long scroll of the accessibility and app settings. The left column carries the
-          two that expand (account, league); the right carries the rest. */}
+      {/* One column on a phone and for a signed-out reader; two on a desktop once signed in. The
+          left column holds what belongs to the account (who you are, what reaches you, your club);
+          the right holds how the site looks and counts, which works signed out too. */}
       <Box sx={{ p: 2, display: 'flex', flexDirection: columns ? 'row' : 'column', gap: 2.5, alignItems: columns ? 'flex-start' : 'stretch' }}>
         <Box sx={columnSx}>
         {signedIn && (
@@ -719,6 +732,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
               <Row
                 first
                 title={currentUsername ? `@${currentUsername}` : (email || 'Set a username')}
+                hint={currentUsername && email ? email : undefined}
                 onClick={onEditUsername}
                 chevron
               />
@@ -797,121 +811,53 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
           </Box>
         )}
 
-        {/* League block. Only signed-in readers have league preferences: a preferred team and
-            push reminders both need an account, so signed-out visitors skip straight to the
-            app-wide settings and never see a switcher with nothing behind it. */}
+        <Box>
+          <SettingsLabel icon={<NotificationsNoneOutlined />}>Notifications</SettingsLabel>
+          <SettingsCard>
+            {signedIn ? (
+              <>
+                <Row
+                  first
+                  title="Push on this device"
+                  hint={deviceHint}
+                  control={
+                    <Switch
+                      checked={subscribed}
+                      disabled={busy || !!deviceHint}
+                      onChange={e => toggleDevice(e.target.checked)}
+                      slotProps={{ input: { 'aria-label': 'Push notifications on this device' } }}
+                    />
+                  }
+                />
+                {deviceErr && <RowError>{deviceErr}</RowError>}
+                {leagueRows}
+              </>
+            ) : (
+              // Every reminder is tied to an account (a push subscription is stored against one),
+              // which a signed-out reader had no way to learn here: the section simply was not drawn.
+              <Row
+                first
+                title="Sign in for reminders"
+                onClick={() => { onClose(); openAuthDialog('signin') }}
+                chevron
+              />
+            )}
+          </SettingsCard>
+        </Box>
+
         {signedIn && (
           <Box>
-            <SettingsLabel icon={<SportsBaseballOutlined />}>League</SettingsLabel>
-            <Box sx={{ mb: 1.25 }}>
-              <PillGroup
-                fullWidth
-                accent="var(--wpbl-accent-solid)"
-                options={[{ key: 'wpbl' as League, label: 'WPBL' }, { key: 'mlb' as League, label: 'MLB' }]}
-                value={league}
-                onChange={l => setLeague(l)}
-              />
-            </Box>
-            {league === 'wpbl'
-              ? <WpblSection userId={userId!} push={push} />
-              : <MlbSection userId={userId!} push={push} />}
+            <SettingsLabel icon={<SportsBaseballOutlined />}>MLB</SettingsLabel>
+            <MlbTeamCard userId={userId!} />
           </Box>
         )}
         </Box>
 
         <Box sx={columnSx}>
-        {/* Device-level, and deliberately outside both league blocks: one subscription delivers
-            every reminder on the site, so switching a single reminder off must not tear it down.
-            This is the only control that does.
-
-            A SWITCH THAT SHOWS THE DEVICE, NOT A ONE-WAY "STOP". The reminder switches are the
-            account's (they follow the reader to every device), and this row is whether THIS
-            device receives them. Until Nov 12, 2026 it was a "Stop" link shown only while
-            subscribed: pressing it left every reminder switch reading On, with nothing on screen
-            saying this device had stopped receiving them, and the row itself vanished, so the
-            way back was to switch some reminder off and on again. */}
-        {signedIn && push.supported && push.configured && (
-          <Box>
-            <SettingsLabel icon={<NotificationsNoneOutlined />}>This device</SettingsLabel>
-            <SettingsCard>
-              <Row
-                first
-                title="Push notifications"
-                hint={perm === 'denied'
-                  ? 'Blocked. Turn notifications back on for this site in your browser settings.'
-                  : undefined}
-                control={
-                  <Switch
-                    checked={subscribed}
-                    disabled={busy || perm === 'denied'}
-                    onChange={async e => {
-                      const next = e.target.checked
-                      setBusy(true); setDeviceErr('')
-                      if (next) {
-                        const error = await enablePush(userId!)
-                        if (error) setDeviceErr(error)
-                      } else {
-                        await disablePush(userId!)
-                      }
-                      setSubscribed(await isSubscribed().catch(() => false))
-                      setPerm(notificationPermission())
-                      setBusy(false)
-                    }}
-                    slotProps={{ input: { 'aria-label': 'Push notifications on this device' } }}
-                  />
-                }
-              />
-            </SettingsCard>
-            {deviceErr && <ErrorNote>{deviceErr}</ErrorNote>}
-          </Box>
-        )}
-
-        {/* Accessibility. Swipe and text size exist because the browser has no way to ask the
-            question for us; reduce motion is an explicit override of the OS `prefers-reduced-
-            motion` query, which the site still honors as the baseline (see src/styles.css). */}
+        {/* How the site looks and moves. Reduce motion is an explicit override of the OS
+            `prefers-reduced-motion` query, which the site still honors as the baseline. */}
         <Box>
-          <SettingsLabel icon={<AccessibilityNewOutlined />}>Accessibility</SettingsLabel>
-          <SettingsCard>
-            <Row
-              first
-              title="Text size"
-              control={
-                <PillGroup
-                  options={[{ key: 'default' as TextScale, label: 'Default' }, { key: 'large' as TextScale, label: 'Large' }]}
-                  value={textScale}
-                  onChange={setTextScale}
-                />
-              }
-            />
-            {/* Touch only: there is no swipe to disable on a mouse-only desktop, so the row is
-                hidden there rather than offering a switch that changes nothing a reader can feel. */}
-            {touch && (
-              <Row
-                title="Swipe between tabs"
-                control={
-                  <Switch
-                    checked={swipeNav}
-                    onChange={e => setSwipeNav(e.target.checked)}
-                    slotProps={{ input: { 'aria-label': 'Swipe between tabs' } }}
-                  />
-                }
-              />
-            )}
-            <Row
-              title="Reduce motion"
-              control={
-                <Switch
-                  checked={reduceMotion}
-                  onChange={e => setReduceMotion(e.target.checked)}
-                  slotProps={{ input: { 'aria-label': 'Reduce motion' } }}
-                />
-              }
-            />
-          </SettingsCard>
-        </Box>
-
-        <Box>
-          <SettingsLabel icon={<TuneOutlined />}>App</SettingsLabel>
+          <SettingsLabel icon={<PaletteOutlined />}>Display</SettingsLabel>
           <SettingsCard>
             <Row
               first
@@ -929,7 +875,43 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
               }
             />
             <Row
-              title="Default section"
+              title="Text size"
+              control={
+                <PillGroup
+                  options={[{ key: 'default' as TextScale, label: 'Default' }, { key: 'large' as TextScale, label: 'Large' }]}
+                  value={textScale}
+                  onChange={setTextScale}
+                />
+              }
+            />
+            <Row
+              title="Reduce motion"
+              control={
+                <Switch
+                  checked={reduceMotion}
+                  onChange={e => setReduceMotion(e.target.checked)}
+                  slotProps={{ input: { 'aria-label': 'Reduce motion' } }}
+                />
+              }
+            />
+            {/* Touch only: there is no swipe to disable on a mouse-only desktop. */}
+            {touch && (
+              <Row
+                title="Swipe between tabs"
+                control={
+                  <Switch
+                    checked={swipeNav}
+                    onChange={e => setSwipeNav(e.target.checked)}
+                    slotProps={{ input: { 'aria-label': 'Swipe between tabs' } }}
+                  />
+                }
+              />
+            )}
+            {/* Which section a bare visit to "/" opens on. Titled for what it does: it sat beside a
+                WPBL / MLB pill that switched which league's settings showed, and the two read as
+                the same control. */}
+            <Row
+              title="Start page"
               control={
                 <PillGroup
                   options={[
@@ -937,11 +919,18 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
                     { key: 'mlb' as DefaultSection, label: 'MLB' },
                   ]}
                   value={defaultSection}
-                  onChange={s => { setDefaultSection(s); setDefaultSectionState(s) }}
+                  onChange={sec => { setDefaultSection(sec); setDefaultSectionState(sec) }}
                 />
               }
             />
+          </SettingsCard>
+        </Box>
+
+        <Box>
+          <SettingsLabel icon={<BarChartOutlined />}>Stats</SettingsLabel>
+          <SettingsCard>
             <Row
+              first
               title="Measurement units"
               control={
                 <PillGroup
@@ -951,30 +940,28 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
                 />
               }
             />
-            {/* WPBL only, because it is the only section whose pitching rates we compute
-                ourselves; MLB's arrive from StatsAPI already divided.
-
-                NO HINT, deliberately. It carried a sentence explaining which of the two matched
-                the official site, which earned its place while the default disagreed with the
-                league: a reader arriving from a number they had seen there needed telling which
-                one they were looking at. Since Sep 3, 2026 the default IS the league's, so the
-                sentence was explaining a discrepancy that no longer exists to the readers who
-                never had one. The pills say Per 7 and Per 9, which is the whole of it. */}
-            {isWpbl && (
-              <Row
-                title="WPBL ERA basis"
-                control={
-                  <PillGroup
-                    options={[{ key: 7 as EraBasis, label: 'Per 7' }, { key: 9 as EraBasis, label: 'Per 9' }]}
-                    value={eraBasis}
-                    onChange={setEraBasis}
-                  />
-                }
-              />
-            )}
+            {/* WPBL only in what it changes (MLB's rates arrive from StatsAPI already divided), but
+                shown from both sections: it used to appear only when Settings was opened from WPBL,
+                so from MLB there was no way to reach it. No hint: since Sep 3, 2026 the default is
+                the league's own, and the pills say Per 7 and Per 9, which is the whole of it. */}
             <Row
-              // The definition sits behind an InfoDot rather than in a caption under the row: copy
-              // in a settings list is labels, not narration (the Oct 21, 2026 copy rule).
+              title="WPBL ERA basis"
+              control={
+                <PillGroup
+                  options={[{ key: 7 as EraBasis, label: 'Per 7' }, { key: 9 as EraBasis, label: 'Per 9' }]}
+                  value={eraBasis}
+                  onChange={setEraBasis}
+                />
+              }
+            />
+          </SettingsCard>
+        </Box>
+
+        <Box>
+          <SettingsLabel icon={<ScienceOutlined />}>Labs</SettingsLabel>
+          <SettingsCard>
+            <Row
+              first
               title={
                 <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
                   Experimental features
