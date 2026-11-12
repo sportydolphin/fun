@@ -37,7 +37,7 @@ import { OVR_COLS, hittingColumns, leagueLine, pitchingColumns, type Col } from 
 import { TABLE_CAP } from '../../ui/ExpandRow'
 import { printedRanks } from '../../ui/leaders'
 import { ActiveFilterChip } from '../../ui/FilterChip'
-import { parsePositionFilter, positionFilterDef, type PositionFilter } from '../../league/positionFilter'
+import { parsePositionFilter, positionFilterDef, positionOnSide, positionOptions, type PositionFilter } from '../../league/positionFilter'
 import type { Side, BallSide, Totals, Source, Mode, Group, View } from './axes'
 import { axesOf, VIEW_ORDER, sideOn, defaultSide, inView, orderForView, viewFor, defaultSort } from './axes'
 import { FLD_COLS, FLD_TEAM_COLS, statNames, cellText, CONTEXT_KEYS, OVERALL_PARTS, TEAM_RECORD_COLS, TEAM_RECORD_KEYS } from './columns'
@@ -246,6 +246,9 @@ export default function WpblStatsView({
   // A position or role, from the address only (the search writes it): the board has no picker for
   // it, so it shows as a chip that removes it. See src/league/positionFilter.ts.
   const [pos, setPos] = useState<PositionFilter | null>(() => parsePositionFilter(fromUrl.pos))
+  // The filter as this side takes it: "Starters" picked on Pitching is kept while Hitting is on screen,
+  // where it means nothing, and applies again on the way back.
+  const posOn = positionOnSide(pos, side)
   // One row and one integer (see fetchWpblTrackedGameCount), read so the chip row can decide
   // whether Tracked is worth offering without loading the tracking scan to find out. Null
   // until it answers, and null means "do not offer": showing the chip and then discovering it
@@ -692,6 +695,11 @@ export default function WpblStatsView({
     track(EVENTS.WPBL_STATS_FILTERED, { filter: 'team', on: id !== null, teamId: id, side })
     setTeamId(id)
   }
+  const filterPos = (p: PositionFilter | null) => {
+    track(EVENTS.WPBL_STATS_FILTERED, { filter: 'position', on: p !== null, pos: p, side })
+    setPos(p)
+  }
+  const posChoices = positionOptions(side)
   const toggleQualified = () => {
     track(EVENTS.WPBL_STATS_FILTERED, { filter: 'qualified', on: !qualified, side })
     setQualified(q => !q)
@@ -776,7 +784,7 @@ export default function WpblStatsView({
     // A hitter's season can be against one pitcher too ("avg off Whitmore").
     set('pit', finding && finderPitcherApplies(findSide, findQuery.per) ? findQuery.pitcherId ?? null : null)
     set('by', finding && finderPlayerApplies(findSide, findQuery.per, findQuery.byClub) ? findQuery.playerId ?? null : null)
-    set('pos', source === 'season' && mode === 'players' ? pos : null)
+    set('pos', source === 'season' && mode === 'players' ? posOn : null)
     // THE FILTERS, which a reload used to drop: a link to Boston's playoff pitchers opened on the
     // whole league's regular season. Named as MLB's address names them. `team` is Find's own
     // param on Find (above), so the filter only writes it on the other boards.
@@ -791,7 +799,7 @@ export default function WpblStatsView({
     const url = str ? `${window.location.pathname}?${str}` : window.location.pathname
     if (url === window.location.pathname + window.location.search) return
     window.history.replaceState(window.history.state, '', url)
-  }, [active, source, mode, side, findSide, sortKey, sortAsc, findQuery, scope, pos, teamId, qualified, qual.active, chartsClub, chartsEveryone, view, hasViews])
+  }, [active, source, mode, side, findSide, sortKey, sortAsc, findQuery, scope, posOn, teamId, qualified, qual.active, chartsClub, chartsEveryone, view, hasViews])
 
   const bestAsc = activeCol.lowerBetter ?? false
   const bestFirst = sortAsc === bestAsc
@@ -828,8 +836,8 @@ export default function WpblStatsView({
   const builtRows = useMemo<Row[]>(() => buildRows({
     mode, side, players, lines, fielding, valueSeasons, batSeasons, pitSeasons, teams, teamById, teamId,
     qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope,
-    positionIndex, pos, teamDp, armCs,
-  }), [mode, side, players, lines, fielding, valueSeasons, batSeasons, pitSeasons, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope, positionIndex, pos, teamDp, armCs])
+    positionIndex, pos: posOn, teamDp, armCs,
+  }), [mode, side, players, lines, fielding, valueSeasons, batSeasons, pitSeasons, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope, positionIndex, posOn, teamDp, armCs])
   // THE LIST DROPS A ROW WITH NO NUMBER FOR ITS ONE STAT. It shows that stat alone, so a pitcher
   // with no WAR was a name beside a dash, and with ten of them the board's tail was a column of
   // dashes. The table keeps them: there the row has fifteen other columns to read.
@@ -947,7 +955,7 @@ export default function WpblStatsView({
   // Overall has neither a qualifier nor a season slice, so neither can be "set" there.
   const overall = side === 'overall'
   const filtersSet = season !== current || (source === 'season'
-    ? teamId !== null || (!overall && (qualified !== qual.active || scope !== 'regular'))
+    ? teamId !== null || posOn !== null || (!overall && (qualified !== qual.active || scope !== 'regular'))
     : !overall && scope !== 'regular')
   // Whether the phone's sheet has a Filter tab: the club and the qualifying bar on Players, the
   // year once there is more than one, and the season slice wherever it does something (see the
@@ -1080,7 +1088,7 @@ export default function WpblStatsView({
     ]
     const indexed = rows.map((r, i) => ({ r, i }))
     const parts = ['wpbl', season, scope === 'regular' || overall ? null : scope, side, mode,
-      hasViews ? view : null, teamId, pos]
+      hasViews ? view : null, teamId, posOn]
     let how: string
     if (kind === 'copy') {
       how = (await copyText(toTsv(indexed, exportCols))) ? 'copy' : 'failed'
@@ -1156,11 +1164,14 @@ export default function WpblStatsView({
         view={view} switchView={switchView} canFilter={canFilter} sheetOpen={sheetOpen} setSheetOpen={setSheetOpen}
         activeCol={activeCol} filtersSet={filtersSet} hasPostseason={hasPostseason} overall={overall}
         scope={scope} setScope={setScope} teamId={teamId} teamChips={teamChips} filterTeam={filterTeam}
-        qualified={qualified} toggleQualified={toggleQualified} />
+        qualified={qualified} toggleQualified={toggleQualified} pos={posOn} posChoices={posChoices} filterPos={filterPos} />
 
-      {source === 'season' && mode === 'players' && pos && (
+      {/* ON A PHONE THE POSITION SAYS SO ABOVE THE TABLE: its picker is in the Filters sheet, and a
+          board of four catchers with nothing on screen saying why reads as a board missing players.
+          The desktop's own select already shows it. */}
+      {source === 'season' && mode === 'players' && posOn && isNarrow && (
         <Box sx={{ display: 'flex', mb: 1 }}>
-          <ActiveFilterChip label={positionFilterDef(pos).plural} onClear={() => setPos(null)} />
+          <ActiveFilterChip label={positionFilterDef(posOn).plural} onClear={() => filterPos(null)} />
         </Box>
       )}
 
@@ -1212,7 +1223,7 @@ export default function WpblStatsView({
               onPick={pickSort} onDirection={best => setSortAsc(best ? bestAsc : !bestAsc)} />
           ) : null}
           filter={canFilter ? (
-            <FilterBody teams={teamChips} teamId={teamId} onTeam={filterTeam}
+            <FilterBody teams={teamChips} teamId={teamId} onTeam={filterTeam} pos={posOn} posChoices={posChoices} onPos={filterPos}
               qualified={qualified} onQualified={toggleQualified}
               scope={hasPostseason && !overall ? scope : null} onScope={setScope}
               season={multiSeason ? season : null} seasons={seasons} onSeason={pickSeason}

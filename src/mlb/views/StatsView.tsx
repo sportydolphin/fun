@@ -11,7 +11,7 @@ import { typePx } from '../../ui/scale'
 import { NameText } from '../../ui/NameText'
 import { PillGroup } from '../../ui/PillGroup'
 import { ActiveFilterChip, FilterChip, FilterSelect } from '../../ui/FilterChip'
-import { matchesPositionFilter, positionFilterDef, type PositionFilter } from '../../league/positionFilter'
+import { matchesPositionFilter, parsePositionFilter, positionFilterDef, positionOnSide, positionOptions, type PositionFilter } from '../../league/positionFilter'
 import { CARD_BORDER, TYPE_SCALE } from '../../ui/card'
 import { pressable, FOCUS_RING } from '../../ui/interaction'
 import { ExportLinks, type ExportKind } from '../../ui/ExportLinks'
@@ -149,14 +149,16 @@ export function StatsView({
   // Every row with its advanced figures beside StatsAPI's, so a sort on either reads one line.
   // Narrowed to a position or role first, so the qualifier, the ranks and the count all speak of the
   // players on screen. The league line below still reads the whole pool, as it does for qualifying.
+  // The filter as this side takes it (positionOnSide): "Starters" waits while Hitting is on screen.
+  const whoOn = positionOnSide(who, lbGroup)
   const rows = useMemo(() => {
     if (!lbData) return null
-    const pool = who
-      ? lbData.filter(e => matchesPositionFilter(who, e.position,
+    const pool = whoOn
+      ? lbData.filter(e => matchesPositionFilter(whoOn, e.position,
         lbGroup === 'pitching' ? { g: Number(e.stat?.gamesPlayed ?? e.stat?.gamesPitched ?? 0), gs: Number(e.stat?.gamesStarted ?? 0) } : null))
       : lbData
     return withAdvanced(pool, lbGroup, saberMap, parkMap)
-  }, [lbData, lbGroup, saberMap, parkMap, who])
+  }, [lbData, lbGroup, saberMap, parkMap, whoOn])
 
   // ── What a reversed sort means in all-time mode ───────────────────────
   // The career pool is a union of per-stat *leaders*, not the ~22k-player
@@ -392,7 +394,7 @@ export function StatsView({
       )}
     </Box>
   )
-  const filtersSet = allTime || vizSeason !== CURRENT_SEASON || shownScope !== 'regular' || (activeDef.isRate && !allTime && !lbQualified)
+  const filtersSet = whoOn != null || allTime || vizSeason !== CURRENT_SEASON || shownScope !== 'regular' || (activeDef.isRate && !allTime && !lbQualified)
 
 
   return (
@@ -430,6 +432,16 @@ export function StatsView({
           </Box>
         </Box>
         <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0 }}>
+          {/* The position or role, as WPBL's board has it beside its clubs. */}
+          {setWho && (
+            <FilterSelect
+              ariaLabel="Position"
+              value={whoOn ?? ''}
+              options={[{ value: '', label: 'All positions' }, ...positionOptions(lbGroup).map(d => ({ value: d.key, label: d.plural }))]}
+              onChange={v => { setWho(parsePositionFilter(v)); setLbStatsLimit(50) }}
+              active={whoOn != null}
+            />
+          )}
           {/* A chip, the row's one control language (src/ui/FilterChip). */}
           <FilterSelect
             ariaLabel="Season"
@@ -456,9 +468,10 @@ export function StatsView({
       </Box>}
       </StatsBar>
 
-      {who && setWho && (
+      {/* On a phone the position says so above the table, its picker being in the Filters sheet. */}
+      {whoOn && setWho && !isDesktop && (
         <Box sx={{ display: 'flex', mb: 1 }}>
-          <ActiveFilterChip label={positionFilterDef(who).plural} onClear={() => setWho(null)} />
+          <ActiveFilterChip label={positionFilterDef(whoOn).plural} onClear={() => setWho(null)} />
         </Box>
       )}
 
@@ -749,7 +762,13 @@ export function StatsView({
             }}
             scope={shownScope} scopes={scopes} onScope={sc => { setGameScope(sc); setLbStatsLimit(50) }}
             canQualify={activeDef.isRate && !allTime} qualified={lbQualified}
-            onQualified={() => { setLbQualified(q => !q); setLbStatsLimit(50) }} />} />
+            onQualified={() => { setLbQualified(q => !q); setLbStatsLimit(50) }}
+            // The tiles are a fifth of the sheet wide, so a position is its abbreviation ("2B", "SP").
+            choices={setWho ? [{
+              title: 'Position', value: whoOn ?? '',
+              options: [{ value: '', label: 'All' }, ...positionOptions(lbGroup).map(d => ({ value: d.key, label: d.key }))],
+              onChange: v => { setWho(parsePositionFilter(v)); setLbStatsLimit(50) },
+            }] : undefined} />} />
       )}
     </Box>
   )

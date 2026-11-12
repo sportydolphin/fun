@@ -38,6 +38,28 @@ const BY_KEY = new Map(POSITION_FILTERS.map(d => [d.key, d]))
 
 export const positionFilterDef = (key: PositionFilter): PositionFilterDef => BY_KEY.get(key)!
 
+// THE PICKER'S CHOICES ON EACH SIDE. A hitter's positions on Hitting; the roles on Pitching, where
+// every row is a pitcher already, so "Pitchers" would filter nothing; the gloves on Fielding, the
+// pitcher's among them and the DH's not, since a DH has no fielding line; and every one on a player's
+// whole value (WPBL's Overall), which ranks the pitchers beside the hitters.
+const ON_SIDE: Record<'hitting' | 'pitching' | 'fielding' | 'overall', PositionFilter[]> = {
+  hitting: ['C', '1B', '2B', '3B', 'SS', 'IF', 'OF', 'DH'],
+  pitching: ['SP', 'RP'],
+  fielding: ['C', '1B', '2B', '3B', 'SS', 'IF', 'OF', 'P'],
+  overall: ['C', '1B', '2B', '3B', 'SS', 'IF', 'OF', 'DH', 'P'],
+}
+
+/** The positions a board's side can be narrowed to, in the picker's order. */
+export function positionOptions(side: 'hitting' | 'pitching' | 'fielding' | 'overall'): PositionFilterDef[] {
+  return ON_SIDE[side].map(positionFilterDef)
+}
+
+/** `filter` if the side offers it, else null: a filter picked on one side is kept while the reader
+ *  looks at another that cannot take it ("Starters" on Hitting), and applies again on the way back. */
+export function positionOnSide(filter: PositionFilter | null, side: 'hitting' | 'pitching' | 'fielding' | 'overall'): PositionFilter | null {
+  return filter && ON_SIDE[side].includes(filter) ? filter : null
+}
+
 /** `?pos=` as a filter, or null for anything the board does not know (a stale or hand-edited link
  *  opens the whole board rather than an empty one). */
 export function parsePositionFilter(raw: string | null | undefined): PositionFilter | null {

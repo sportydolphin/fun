@@ -6,6 +6,7 @@ import {
   TeamBadge, PillGroup,
   CARD_BORDER, pressable, FOCUS_RING } from '../ui'
 import type { WpblTeam } from '../types'
+import { parsePositionFilter, type PositionFilter, type PositionFilterDef } from '../../league/positionFilter'
 import type { SeasonScope } from '../season'
 import { SeasonMenu } from '../SeasonMenu'
 import type { Col } from '../statColumns'
@@ -20,7 +21,7 @@ import { PINNED_CHROME, fullBleedStickySx } from './layout'
 export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, analysisBoards, source, isNarrow,
   stuckMarkRef, barRef, barStuck, mode, side, pickSide, hasViews, view, switchView, canFilter, sheetOpen,
   setSheetOpen, activeCol, filtersSet, hasPostseason, overall, scope, setScope, teamId, teamChips, filterTeam,
-  qualified, toggleQualified }: {
+  qualified, toggleQualified, pos, posChoices, filterPos }: {
   newBoards?: ReadonlySet<string>
   activeBoard: string
   selectBoard: (k: string) => void
@@ -49,6 +50,10 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
   teamId: string | null
   teamChips: WpblTeam[]
   filterTeam: (id: string | null) => void
+  /** The position the players are narrowed to on this side, the side's choices, and the setter. */
+  pos: PositionFilter | null
+  posChoices: PositionFilterDef[]
+  filterPos: (p: PositionFilter | null) => void
   qualified: boolean
   toggleQualified: () => void
 }) {
@@ -311,6 +316,16 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
                 />
               )}
             </Box>
+            {/* ALWAYS A SELECT: up to nine choices, which as chips would push the clubs into their
+                own select at every desktop width. Named by the plural ("Catchers"), as the search's
+                rows and the phone's chip name it. */}
+            <FilterSelect
+              value={pos ?? ''}
+              options={[{ value: '', label: 'All positions' }, ...posChoices.map(d => ({ value: d.key, label: d.plural }))]}
+              onChange={v => filterPos(parsePositionFilter(v))}
+              active={pos !== null}
+              ariaLabel="Position"
+            />
             {!overall && (
               <>
                 <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: 'divider', mx: 0.25, flexShrink: 0 }} />
