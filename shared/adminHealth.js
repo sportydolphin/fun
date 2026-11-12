@@ -85,6 +85,21 @@ export const HEARTBEAT_CHECKS = [
   // enough to ride out GitHub's schedule slipping, short enough that a dead watcher cannot sit
   // through an announcement.
   { job: 'wpbl-news-watch', label: 'News watch', maxAgeMs: 12 * 60 * 60_000 },
+  // The two watchers pg_cron dispatches (every 15 and every 10 minutes), so 3h is a dozen missed
+  // runs: the dispatch token gone, or the workflow disabled. Each reports a source outage as a
+  // failure only after six hours blind, the same line its own Discord notice uses.
+  { job: 'wpbl-instagram-watch', label: 'Instagram watch', maxAgeMs: 3 * 60 * 60_000 },
+  { job: 'wpbl-shop-watch', label: 'Shop watch', maxAgeMs: 3 * 60 * 60_000 },
+  // Hourly on GitHub's own schedule, which this repo gets 5 to 7 times a day with gaps near 8h.
+  { job: 'wpbl-mention-watch', label: 'Mention watch', maxAgeMs: 14 * 60 * 60_000 },
+  // Daily on GitHub's schedule, which runs daily jobs 4 to 11 hours late.
+  { job: 'wpbl-discord-birthdays', label: 'Discord birthdays', maxAgeMs: 36 * 60 * 60_000 },
+  // Failure-only: each runs only when there is a game, a final or a new video to post about, so
+  // a quiet offseason month is not a stall.
+  { job: 'wpbl-bluesky-recaps', label: 'Bluesky recaps', maxAgeMs: null },
+  { job: 'wpbl-bluesky-game-start', label: 'Bluesky game start', maxAgeMs: null },
+  { job: 'wpbl-discord-recaps', label: 'Discord recaps', maxAgeMs: null },
+  { job: 'wpbl-discord-highlights', label: 'Discord highlights', maxAgeMs: null },
 ]
 
 /** Heartbeat job names written for a failed GitHub Actions run: `workflow:<workflow name>`. */

@@ -46,6 +46,7 @@
  */
 import { readFile, writeFile } from 'node:fs/promises'
 import { createClient } from '@supabase/supabase-js'
+import { runWithHeartbeat } from '../shared/heartbeat.js'
 // @ts-expect-error: no types installed for `ws`; it is only handed to supabase-js below.
 import ws from 'ws'
 import { Resvg } from '@resvg/resvg-js'
@@ -309,7 +310,7 @@ async function main() {
   }
 }
 
-main().catch(err => {
+runWithHeartbeat(supabase, 'wpbl-bluesky-recaps', main, { skip: DRY_RUN || !SERVICE_KEY }).catch(err => {
   console.error(`❌  ${err?.stack ?? err}`)
   process.exit(1)
 })
