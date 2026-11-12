@@ -26,6 +26,7 @@ vi.mock('../lib/supabase', () => ({
 vi.mock('../lib/usernames', () => ({
   usernameValidationMsg: () => '',
   isUsernameTaken: async () => false,
+  isUserDeactivated: async () => false,
 }))
 
 // No team crests: the grid is irrelevant here and each entry drags in a logo asset.
