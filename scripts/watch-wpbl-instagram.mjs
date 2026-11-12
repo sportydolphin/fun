@@ -51,6 +51,7 @@ import { createClient } from '@supabase/supabase-js'
 // handed to it outside a browser. Same line, same reason, as the sibling cron scripts.
 import ws from 'ws'
 import { pathToFileURL } from 'node:url'
+import { runWithHeartbeat } from '../shared/heartbeat.js'
 // The league's own 2026 rosters and the window, from the module the rosters page draws with.
 // Imported, not copied: a re-signing the watcher records and the page then ignores (a player
 // it thinks is on another club) would be a row on the site that shows nowhere. Node 24 strips
@@ -395,12 +396,14 @@ async function main() {
     // Every account failing is a token or app problem, not five outages at once. Said out loud
     // once it has lasted six hours; exit 0 either way, since a red X every fifteen minutes
     // teaches everyone to ignore the job.
-    if (!DRY_RUN && hoursSince((await lastGoodRun())?.ran_at) >= ERROR_QUIET_HOURS) {
+    const blindFor = DRY_RUN ? 0 : hoursSince((await lastGoodRun())?.ran_at)
+    if (blindFor >= ERROR_QUIET_HOURS) {
       await post(`⚠️ Instagram watcher has read nothing for six hours.\n\`${errors[0].slice(0, 300)}\``)
         .catch(e => console.error(`   Could not post the outage notice either: ${e.message}`))
     }
     await recordRun({ ok: false, error: errors.join(' | ').slice(0, 500) })
-    return
+    // Red on /admin (and a page) only past the same six hours: a short Meta outage heals itself.
+    return { ok: blindFor < ERROR_QUIET_HOURS, detail: `No account readable: ${errors[0]}` }
   }
 
   const known = DRY_RUN ? new Set() : await knownIds(rows.map(r => r.media_id))
@@ -482,10 +485,11 @@ async function main() {
     error: errors.length ? errors.join(' | ').slice(0, 500) : null,
   })
   if (DRY_RUN) console.log('\nDry run: nothing written, nothing sent.')
+  return { detail: `${rows.length} posts, ${announced} re-signing${announced === 1 ? '' : 's'} announced` }
 }
 
 if (IS_ENTRYPOINT) {
-  main().catch(err => {
+  runWithHeartbeat(supabase, 'wpbl-instagram-watch', main, { skip: DRY_RUN || TEST_POST || !process.env.SUPABASE_SERVICE_ROLE_KEY }).catch(err => {
     console.error(`❌  ${err?.stack ?? err}`)
     process.exit(1)
   })

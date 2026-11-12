@@ -80,6 +80,7 @@ import { createClient } from '@supabase/supabase-js'
 // line, same reason, as the sibling Discord scripts.
 import ws from 'ws'
 import { pathToFileURL } from 'node:url'
+import { runWithHeartbeat } from '../shared/heartbeat.js'
 
 // Run only when invoked directly. Imported (by the tests, which exercise the diff and the
 // message building without a database or a webhook) this file must define and not do.
@@ -815,8 +816,14 @@ async function main() {
   // Two independent sources, deliberately sequential and deliberately not sharing a failure.
   // The shop pass returns early on a store outage, so folding the auction check into it would
   // mean a Shopify 503 silently stopping the other watcher too.
-  await runShopWatch(snapshot)
-  await runAuctionWatch()
+  // Each pass says whether it could read its source, and the heartbeat carries both: either one
+  // blind is a watcher not doing its job, even though the run exits 0.
+  const shop = await runShopWatch(snapshot)
+  const auction = await runAuctionWatch()
+  const blind = [shop, auction].filter(r => r?.detail)
+  return blind.length
+    ? { ok: blind.every(r => r.ok !== false), detail: blind.map(r => r.detail).join(' | ') }
+    : undefined
 }
 
 /** The Shopify store: new merch, restocks, and the loud shortlist alerts. */
@@ -829,11 +836,12 @@ async function runShopWatch(snapshot) {
   } catch (err) {
     const message = String(err?.message ?? err)
     console.error(`⚠️   ${message}`)
+    let blindFor = 0
     if (!DRY_RUN) {
       // A failed check is not a failed job: the store 503s, a deploy blips, and the next run
       // ten minutes later is the retry. But silence is the dangerous state for a watcher, so
       // once the outage is old enough we say so, once.
-      const blindFor = await blindHours('shop')
+      blindFor = await blindHours('shop')
       if (blindFor >= ERROR_QUIET_HOURS) {
         await post(SHOP_WEBHOOK, outageMessage(blindFor, message), SHOP_MENTION).catch(e =>
           console.error(`   Could not post the outage notice either: ${e.message}`))
@@ -842,7 +850,8 @@ async function runShopWatch(snapshot) {
     }
     // Exit 0: this is an expected, self-healing condition, and a red X every ten minutes
     // teaches everyone to ignore the job.
-    return
+    // Red on /admin past the same six hours, never for a single blip.
+    return { ok: blindFor < ERROR_QUIET_HOURS, detail: `Shop: ${message}` }
   }
 
   const { newProducts, restocked, delisted } = diffCatalog(live, snapshot, { seeding })
@@ -991,8 +1000,9 @@ async function runAuctionWatch() {
   } catch (err) {
     const message = String(err?.message ?? err)
     console.error(`⚠️   ${message}`)
+    let blindFor = 0
     if (!DRY_RUN) {
-      const blindFor = await blindHours('auction')
+      blindFor = await blindHours('auction')
       if (blindFor >= ERROR_QUIET_HOURS) {
         await post(SHOP_WEBHOOK, outageMessage(blindFor, message, {
           label: 'Auction watcher', missed: 'a new lot',
@@ -1002,7 +1012,7 @@ async function runAuctionWatch() {
     }
     // Exit 0 for the same reason the shop pass does: this is expected and self-healing, and a
     // red X teaches everyone to ignore the job.
-    return
+    return { ok: blindFor < ERROR_QUIET_HOURS, detail: `Auction: ${message}` }
   }
 
   const { newLots } = diffLots(live, known, { seeding })
@@ -1025,7 +1035,7 @@ async function runAuctionWatch() {
 }
 
 if (IS_ENTRYPOINT) {
-  main().catch(async err => {
+  runWithHeartbeat(supabase, 'wpbl-shop-watch', main, { skip: DRY_RUN || STATUS || TEST_POST }).catch(async err => {
     console.error(err)
     // Checked BEFORE this run is recorded, or it would always find its own row.
     const gone = err?.webhookGone === true
