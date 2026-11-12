@@ -179,3 +179,14 @@ describe('playerIndex: one id per name', () => {
     expect(classifyCaption('Ashton Lansdell is running it back!', idx).player_ids).toEqual([ASHTON])
   })
 })
+
+describe('the re-signing push', () => {
+  it('names the player and club, and lands on the rosters page', async () => {
+    const { buildWpblResign } = await import('../../shared/notifications.js')
+    const n = buildWpblResign({ playerId: 'p1', playerName: 'Alexia Jorge', teamName: 'San Francisco Firebells', season: 2027 })
+    expect(n).toMatchObject({
+      id: 'wpbl-resign:p1', type: 'wpbl-resign',
+      title: 'Re-signed: Alexia Jorge', body: 'San Francisco Firebells, 2027', url: '/wpbl/rosters',
+    })
+  })
+})

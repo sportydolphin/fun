@@ -22,6 +22,8 @@ export const EVENTS = {
   DISCORD_DISMISSED:  'discord_dismissed',   // clicked the ✕ to dismiss the Discord invite card
   WPBL_GAME_REMINDER_ON:  'wpbl_game_reminder_on',  // opted into a pre-game push for a WPBL game
   WPBL_GAME_REMINDER_OFF: 'wpbl_game_reminder_off', // turned a WPBL game reminder back off
+  WPBL_RESIGN_ALERTS_ON:  'wpbl_resign_alerts_on',  // opted into a push for each re-signing
+  WPBL_RESIGN_ALERTS_OFF: 'wpbl_resign_alerts_off', // turned re-signing pushes back off
   WPBL_TAB_VIEWED:        'wpbl_tab_viewed',        // switched WPBL tab — props carry {view, via, from}
   WPBL_PLAYER_OPENED:     'wpbl_player_opened',     // opened a WPBL player page
   NEW_BADGE_SHOWN:        'new_badge_shown',        // a "new here" dot was rendered (impression), props {badge}

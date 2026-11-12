@@ -26,6 +26,7 @@ export const NOTIFICATION_TYPES: {
   GAME_START:      string
   MILESTONE:       string
   WPBL_GAME_START: string
+  WPBL_RESIGN:     string
   ADMIN_HEALTH:    string
 }
 
@@ -52,6 +53,13 @@ export function buildWpblGameStart(args: {
   gameId:         string
   matchup:        string
   minutesToStart: number
+}): NotificationPayload
+
+export function buildWpblResign(args: {
+  playerId:   string
+  playerName: string
+  teamName:   string
+  season:     number
 }): NotificationPayload
 
 export function buildAdminHealthAlert(args: {

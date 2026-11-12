@@ -41,11 +41,11 @@ jobs:
         with:
           node-version: '24'
 
-      # Only the two packages the script imports; versions still come from package-lock.json.
+      # Only the packages the script imports; versions still come from package-lock.json.
       - name: Install watcher dependencies
         uses: ./.github/actions/script-deps
         with:
-          packages: '@supabase/supabase-js ws'
+          packages: '@supabase/supabase-js ws web-push'
 
       - name: Check Instagram
         env:
@@ -58,4 +58,8 @@ jobs:
           DISCORD_RESIGN_WEBHOOK_URL: ${{ secrets.DISCORD_RESIGN_WEBHOOK_URL }}
           DISCORD_ALERTS_WEBHOOK_URL: ${{ secrets.DISCORD_ALERTS_WEBHOOK_URL }}
           DISCORD_RESIGN_MENTION: ${{ secrets.DISCORD_RESIGN_MENTION }}
+          # The readers' re-signing push (user_preferences.notify_wpbl_resigns).
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
         run: node scripts/watch-wpbl-instagram.mjs ${{ inputs.test_post && '--test-post' || '' }}
