@@ -1,0 +1,61 @@
+name: WPBL Instagram Watch
+
+# Reads the league's Instagram and the four clubs' for 2027 re-signings, stores every post in
+# wpbl_instagram_posts, and sends each re-signing to Discord once. The why, the token's 90-day
+# lapse and the matcher's rules are in scripts/watch-wpbl-instagram.mjs.
+#
+# PG_CRON DRIVES THIS, NOT THE SCHEDULE BELOW. This repo's schedule events run 5 to 7 times a
+# day whatever the cron says (measured Sep 7, 2026), and a re-signing heard of half a day late
+# has been on every fan account for hours. wpbl_nudge_instagram_watch fires a
+# repository_dispatch every 15 minutes; the hourly line below is only the backstop for an
+# expired dispatch token.
+#
+# A FAILED READ IS NOT A FAILED JOB. All five accounts failing is a token problem, recorded in
+# wpbl_instagram_watch_runs and said in Discord once it has lasted six hours. Scheduled workflows
+# are also disabled after 60 days without repository activity, which the job cannot report on
+# itself.
+
+on:
+  repository_dispatch:
+    types: [wpbl-instagram-watch]
+  schedule:
+    - cron: '7 * * * *'
+  workflow_dispatch:
+    inputs:
+      test_post:
+        description: 'Post a sample to the webhook to prove it works, then stop'
+        type: boolean
+        default: false
+
+concurrency:
+  group: wpbl-instagram-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      # Only the two packages the script imports; versions still come from package-lock.json.
+      - name: Install watcher dependencies
+        uses: ./.github/actions/script-deps
+        with:
+          packages: '@supabase/supabase-js ws'
+
+      - name: Check Instagram
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          # Both tables are RLS'd with no policies, so only the service role can write them.
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+          META_IG_USER_ID: ${{ secrets.META_IG_USER_ID }}
+          # Falls back to the alerts webhook when unset, so the job works before its channel does.
+          DISCORD_RESIGN_WEBHOOK_URL: ${{ secrets.DISCORD_RESIGN_WEBHOOK_URL }}
+          DISCORD_ALERTS_WEBHOOK_URL: ${{ secrets.DISCORD_ALERTS_WEBHOOK_URL }}
+          DISCORD_RESIGN_MENTION: ${{ secrets.DISCORD_RESIGN_MENTION }}
+        run: node scripts/watch-wpbl-instagram.mjs ${{ inputs.test_post && '--test-post' || '' }}
