@@ -23,6 +23,24 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.235.0',
+    date:    '2026-11-11',
+    changes: [
+      {
+        short: 'Search: clips',
+        full:  'Searching "Geldenhuis home run video", "Hunters highlights" or "walk-off clips" lists the matching clips, newest first. A first, last, milestone or record that has a clip of its play shows the clip just under it.',
+      },
+      {
+        short: 'Search: game records',
+        full:  'Searching "longest game", "highest-scoring game", "Hunters biggest win" or "Hunters biggest loss vs Queens" opens the game, with the score, regular season only.',
+      },
+      {
+        short: 'Search: streaks',
+        full:  'Searching "streaks", "Hunters streak" or "longest winning streak" gives each club’s current streak or longest run, and "Geldenhuis hitting streak" or "active hitting streaks" gives a player’s current and longest hitting or on-base streak.',
+      },
+    ],
+  },
+  {
     version: '1.234.0',
     date:    '2026-11-11',
     changes: [

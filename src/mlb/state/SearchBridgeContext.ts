@@ -71,7 +71,13 @@ export interface PlayAnswer {
   href: string
   /** Hands the play to the game about to open, since an in-app open drops the fragment. */
   open: () => void
+  /** The play it opens, when it opens one, for the clip pinned to it (a row of its own under it). */
+  play?: { gameId: string; sequence: number }
 }
+
+/** A group of answer rows the section reads from text alone: "Video", "Games", "Streaks". `icon`
+ *  names the row's glyph, so the shell draws it without the section importing an icon set. */
+export interface AnswerGroup { label: string; icon: 'video' | 'game' | 'streak'; rows: PlayAnswer[] }
 
 /** A stat typed beside a name ("Whitmore avg"): the column it means on each side the section's
  *  table has one for, the side the word leans to, and the span typed with it, if any. */
@@ -157,6 +163,9 @@ export interface SearchBridgeState {
    *  the board's own count. Null for a link that is not Find's, and null where the section does not
    *  answer (MLB, for now). */
   resolveFindAnswer: ((href: string) => Promise<FindAnswer | null>) | null
+  /** "Hunters highlights", "longest game", "Hunters streak": groups of rows the section reads off the
+   *  text with its own data (src/wpbl/searchMore.ts). Null where the section has none (MLB). */
+  resolveMore: ((text: string) => Promise<AnswerGroup[]>) | null
 }
 
 const DEFAULT: SearchBridgeState = {
@@ -183,6 +192,7 @@ const DEFAULT: SearchBridgeState = {
   resolveLeader: null,
   resolvePlayerStat: null,
   resolveFirsts: null,
+  resolveMore: null,
   resolvePaRecord: null,
   resolvePlayerQuestion: null,
   resolveFindAnswer: null,

@@ -8,7 +8,7 @@ import { useEraBasis } from '../EraBasisContext'
 import { wpblPortraitSet } from '../portraits'
 import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from '../positions'
 import { useSearchBridgeQuery, useSearchBridgeQuerySeason, updateSearchBridge, setSearchQuery, onFirstSearchFocus } from '../../mlb/state/SearchBridgeContext'
-import type { PlayAnswer, LeaderAsk, PlayerQuestionRow, PlayerStatAsk, SearchResultRow } from '../../mlb/state/SearchBridgeContext'
+import type { AnswerGroup, PlayAnswer, LeaderAsk, PlayerQuestionRow, PlayerStatAsk, SearchResultRow } from '../../mlb/state/SearchBridgeContext'
 import type { FirstQuestion } from '../../league/firsts'
 import type { PaRecordQuestion } from '../../league/paRecords'
 import { requestPlay } from '../entryUrl'
@@ -101,7 +101,7 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
     if (!searchActive) return
     updateSearchBridge({ isRegistered: true, source: 'wpbl' })
     return () => {
-      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], suggestedRows: [], searching: false, clearRecentSearches: null, resolveCompare: null, resolveGames: null, resolveLeader: null, resolvePlayerStat: null, resolveFirsts: null, resolvePaRecord: null, resolvePlayerQuestion: null, resolveFindAnswer: null, seasonCount: null, resultsForgiving: { players: false, teams: false } })
+      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], suggestedRows: [], searching: false, clearRecentSearches: null, resolveCompare: null, resolveGames: null, resolveLeader: null, resolvePlayerStat: null, resolveFirsts: null, resolveMore: null, resolvePaRecord: null, resolvePlayerQuestion: null, resolveFindAnswer: null, seasonCount: null, resultsForgiving: { players: false, teams: false } })
       setSearchQuery('')
     }
   }, [searchActive])
@@ -409,6 +409,17 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
     const peek = m.wpblLeaderPeek(ask, players, await loadBoard(season, m.boardNeeds({ [ask.side]: ask.sort })))
     return peek && { ...peek, season }
   }, [players, games, loadBoard])
+  // THE CLIP OF A PLAY, as a row of its own under the play's row: a row is a link, and a second link
+  // inside it would be one link in another. A clip read that fails costs the clips, not the answer.
+  const withClips = useCallback(async (rows: PlayAnswer[]): Promise<PlayAnswer[]> => {
+    if (!rows.some(r => r.play)) return rows
+    const { wpblPlayClips, clipRow } = await import('../searchMoreAnswers')
+    const clips = await wpblPlayClips().catch(() => new Map<string, never>())
+    return rows.flatMap(r => {
+      const clip = r.play ? clipRow(clips.get(`${r.play.gameId}|${r.play.sequence}`), r.key) : null
+      return clip ? [r, clip] : [r]
+    })
+  }, [])
   // "first home run", "first Hunters double", "last Hunters double", "Hunters 100th hit", "firsts": the
   // play it happened on (src/league/firsts.ts). Asked for every season, a first or an Nth walks the
   // seasons oldest first, carrying the count across them, and a last walks them newest first; each
@@ -495,11 +506,12 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
           detail: [who, firstDate(at.game_date)].filter(Boolean).join(' · '),
           href: `${wpblGamePath(at, teams, games)}#play-${sequence}`,
           open: () => requestPlay(at.id, sequence),
+          play: { gameId: at.id, sequence },
         })
       }
     }
-    return out
-  }, [games, players, playersById, teamById, teams])
+    return withClips(out)
+  }, [games, players, playersById, teamById, teams, withClips])
   // "longest at-bat", "most fouls in a PA" (src/league/paRecords.ts): ranked by the Find engine itself
   // over the same plate-appearance lines the board reads, so the record is the board's first row. Each
   // play that shares it, up to three, then the board for the rest.
@@ -537,6 +549,7 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
         detail: [who, measureText(measure, best), firstDate(game.game_date)].filter(Boolean).join(' · '),
         href: `${wpblGamePath(game, teams, games)}#play-${sequence}`,
         open: () => requestPlay(game.id, sequence),
+        play: { gameId: game.id, sequence },
       }]
     })
     // More than three share it: the board ranked by the same stat holds them all. A board shows one
@@ -550,8 +563,14 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
         open: () => {},
       })
     }
-    return answers
-  }, [games, players, playersById, teams, teamById])
+    return withClips(answers)
+  }, [games, players, playersById, teams, teamById, withClips])
+  // "Hunters highlights", "longest game", "Hunters streak" (src/wpbl/searchMore.ts): read off the text
+  // with the section's own data, loaded on the first ask.
+  const resolveMore = useCallback(async (text: string): Promise<AnswerGroup[]> => {
+    const { wpblMoreAnswers } = await import('../searchMoreAnswers')
+    return wpblMoreAnswers(text, { games, players, teams })
+  }, [games, players, teams])
   // "Sato vs hunters", "Whitmore off Schroder", "Whitmore 2-hit games" (src/league/playerQuestion.ts):
   // the roster with who has hit and who has pitched, from every season's lines, which decides who is
   // the batter in a matchup and which side a player's question is asked on.
@@ -572,8 +591,8 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
     return wpblFindAnswerWithTarget(href, { schedule: games, players, teams, eraInnings: eraBasis })
   }, [games, players, teams, eraBasis])
   useEffect(() => {
-    if (searchActive) updateSearchBridge({ resolvePlayerStat, resolveLeader, resolveFirsts, resolvePaRecord, resolvePlayerQuestion, resolveFindAnswer })
-  }, [resolvePlayerStat, resolveLeader, resolveFirsts, resolvePaRecord, resolvePlayerQuestion, resolveFindAnswer, searchActive])
+    if (searchActive) updateSearchBridge({ resolvePlayerStat, resolveLeader, resolveFirsts, resolvePaRecord, resolvePlayerQuestion, resolveFindAnswer, resolveMore })
+  }, [resolvePlayerStat, resolveLeader, resolveFirsts, resolvePaRecord, resolvePlayerQuestion, resolveFindAnswer, resolveMore, searchActive])
 
   // The header search is on screen on every page in the section and was entirely unmeasured.
   // One event per SETTLED query, never per keystroke: a debounce, plus a per-mount set of

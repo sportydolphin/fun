@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { Box, Dialog, IconButton, List, ListItemButton, Typography } from '@mui/material'
-import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups, SportsBaseball, MenuBook, Person, TravelExplore, EmojiEvents, Tune, Flag } from '@mui/icons-material'
-import { setSearchQuery, type CompareRow, type PlayAnswer, type LeaderPeek, type PlayerQuestionRow, type PlayerStatAsk, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
+import { ManageSearch, Search, Article, Close, Leaderboard, CompareArrows, Groups, SportsBaseball, MenuBook, Person, TravelExplore, EmojiEvents, Tune, Flag, PlayCircleOutlined, Timeline } from '@mui/icons-material'
+import { setSearchQuery, type AnswerGroup, type CompareRow, type PlayAnswer, type LeaderPeek, type PlayerQuestionRow, type PlayerStatAsk, type SearchBridgeState, type SearchResultRow } from './mlb/state/SearchBridgeContext'
 import type { NavSection } from './sectionNav'
 import { boardColumn, paRecordQuestion, peekText, positionRankSuggestions, recordSuggestions, scopedRankSuggestions, clubPageSuggestions, definitionSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs, teamRankSuggestions } from './finderSearch'
 import { otherSectionPlayer, type OtherSectionRow } from './otherSection'
@@ -104,6 +104,13 @@ const ANSWERED_ROWS = 3
 const ANSWERED_FIND_ROWS = 4
 /** A row whose link is a Find question the section can count. A plate-appearance record's own rows
  *  name their play already, and its "N tied" row's link asks a wider question than its title. */
+// THE CLIP UNDER A PLAY: the section's own row (`clip-` key), drawn as video under the play it shows.
+const isClip = (r: PlayAnswer) => r.key.startsWith('clip-')
+const clipItem = (r: PlayAnswer, kind: PickKind): Item => ({
+  key: r.key, kind, title: r.title, answer: r.detail, subtitle: 'Video', href: r.href, onOpen: r.open,
+  icon: <PlayCircleOutlined sx={{ fontSize: ICON_SIZE.md }} />,
+})
+
 // Not a milestone still to come, which links to Find but answers "7 so far · 93 to go" itself.
 const findAnswerable = (i: { key: string; href?: string }) =>
   !!i.href && i.href.includes('board=find') && !i.key.startsWith('parecord-') && !i.key.startsWith('first-')
@@ -358,7 +365,7 @@ const GROUP_LABEL_SX = {
   fontSize: TYPE_SCALE.micro, fontWeight: 700, textTransform: 'uppercase', letterSpacing: typePx(1), color: 'text.secondary',
 } as const
 
-export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames, resolveLeader, resolvePlayerStat, resolveFirsts, resolvePaRecord, resolvePlayerQuestion, resolveFindAnswer, seasonCount = null, actions = [], takeTypeahead }: {
+export default function CommandPalette({ open, onClose, section, results, idle, searching, resolveCompare, resolveGames, resolveLeader, resolvePlayerStat, resolveFirsts, resolvePaRecord, resolvePlayerQuestion, resolveFindAnswer, resolveMore, seasonCount = null, actions = [], takeTypeahead }: {
   open: boolean
   onClose: () => void
   section: NavSection
@@ -377,6 +384,8 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   resolvePlayerStat?: SearchBridgeState['resolvePlayerStat']
   /** "first home run", "firsts": the play each happened on, from the search bridge (WPBL only). */
   resolveFirsts?: SearchBridgeState['resolveFirsts']
+  /** "Hunters highlights", "longest game", "Hunters streak": groups the section reads off the text. */
+  resolveMore?: SearchBridgeState['resolveMore']
   /** "longest at-bat", "most fouls in a PA": the plays that hold it, from the search bridge (WPBL only). */
   resolvePaRecord?: SearchBridgeState['resolvePaRecord']
   /** "Sato vs hunters", "Whitmore off Schroder": Find questions naming players (WPBL only). */
@@ -445,6 +454,17 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     }, settle)
     return () => { live = false; clearTimeout(t) }
   }, [text, firstAsk, resolveFirsts, settle])
+  // Video, game records and streaks: the section reads the words, so every settled text is asked, and
+  // text that is none of them comes back empty without a read.
+  const [more, setMore] = useState<{ text: string; groups: AnswerGroup[] } | null>(null)
+  useEffect(() => {
+    if (!resolveMore || text.trim().length < 3) return
+    let live = true
+    const t = setTimeout(() => {
+      resolveMore(text).then(groups => { if (live) setMore({ text, groups }) }).catch(() => {})
+    }, settle)
+    return () => { live = false; clearTimeout(t) }
+  }, [text, resolveMore, settle])
 
   // A plate-appearance record, answered with its plays the same way.
   const paAsk = useMemo(() => (resolvePaRecord ? paRecordQuestion(section, text) : null), [text, section, resolvePaRecord])
@@ -665,7 +685,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       icon: <SportsBaseball sx={{ fontSize: ICON_SIZE.md }} />, onOpen: () => {},
     }] : []
     // A plate-appearance record opens its play; the "N tied" row after the plays opens Find.
-    const paRows: Item[] = (paRecords && paRecords.text === text ? paRecords.rows : []).map(r => ({
+    const paRows: Item[] = (paRecords && paRecords.text === text ? paRecords.rows : []).map(r => isClip(r) ? clipItem(r, 'record') : ({
       key: r.key, kind: 'record', title: r.title,
       ...(r.detail.startsWith('Find · ') ? { subtitle: r.detail } : { answer: r.detail, subtitle: 'Record · Play-by-play' }),
       href: r.href, icon: <EmojiEvents sx={{ fontSize: ICON_SIZE.md }} />, onOpen: r.open,
@@ -680,10 +700,19 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     // A first, a last and a milestone are the same row; the group says which was asked. One still to
     // come opens Find rather than a play, and says so.
     const firstGroup = firstAsk?.which === 'last' ? 'Latest' : typeof firstAsk?.which === 'number' ? 'Milestones' : 'Firsts'
-    const firstRows: Item[] = (firsts && firsts.text === text ? firsts.rows : []).map(f => ({
+    const firstRows: Item[] = (firsts && firsts.text === text ? firsts.rows : []).map(f => isClip(f) ? clipItem(f, 'first') : ({
       key: f.key, kind: 'first', title: f.title, answer: f.detail,
       subtitle: `${firstGroup} · ${f.href.includes('board=find') ? 'Find' : 'Play-by-play'}`, href: f.href,
       icon: <Flag sx={{ fontSize: ICON_SIZE.md }} />, onOpen: f.open,
+    }))
+    const moreGroups = (more && more.text === text ? more.groups : []).map(g => ({
+      label: g.label,
+      items: g.rows.map((r): Item => ({
+        key: r.key, kind: 'first', title: r.title, answer: r.detail, href: r.href, onOpen: r.open,
+        subtitle: g.icon === 'video' ? 'Video' : g.icon === 'game' ? 'Game Center' : 'Streak',
+        icon: g.icon === 'video' ? <PlayCircleOutlined sx={{ fontSize: ICON_SIZE.md }} />
+          : g.icon === 'game' ? <SportsBaseball sx={{ fontSize: ICON_SIZE.md }} /> : <Timeline sx={{ fontSize: ICON_SIZE.md }} />,
+      })),
     }))
     const acts: Item[] = q.length < 2 ? [] : actions
       .filter(a => [a.title.toLowerCase(), ...a.words].some(w => w.startsWith(q) || (q.length >= 4 && q.includes(w))))
@@ -751,6 +780,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       { label: 'Batter vs pitcher', items: matchupRows },
       { label: 'Compare', items: compared },
       { label: firstGroup, items: firstRows },
+      ...moreGroups,
       { label: 'Records', items: records },
       { label: 'Team stats', items: teamRanks },
       { label: 'Rankings', items: [...scopedRanks, ...leaders] },
@@ -768,7 +798,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
     // A miss ends on the examples, not a blank box: what the box does understand, one pick from
     // trying it. Not while the section is still looking, or they flash in ahead of its rows.
     return found.length || searching ? found : [{ label: 'Try', grid: true, items: tryItems }]
-  }, [text, results, idle, section, searching, compare, gameRows, liveRows, recentQs, rowPicks, leaderRows, peek, statKey, answerByKey, answerKeys, resolveLeader, resolvePlayerStat, elsewhere, ownPlayers, actions, firsts, firstAsk, paRecords, paAsk, playerQs])
+  }, [text, results, idle, section, searching, compare, gameRows, liveRows, recentQs, rowPicks, leaderRows, peek, statKey, answerByKey, answerKeys, resolveLeader, resolvePlayerStat, elsewhere, ownPlayers, actions, firsts, firstAsk, paRecords, paAsk, playerQs, more])
 
   // HAS IT EVER HAPPENED, answered in the row: every row that opens Find says how often and when last
   // ("Find · 7 times · last Sep 2 · ..."), so "has anyone ever" needs no tap, and "Never" is an
