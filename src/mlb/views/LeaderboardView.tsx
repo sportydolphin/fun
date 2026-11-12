@@ -4,7 +4,7 @@ import {
   Box, Typography, Popover,
 } from '@mui/material'
 import { LeaderboardEntry } from '../types'
-import { ACCENT, ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED, CURRENT_SEASON } from '../constants'
+import { ACCENT_TEXT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED, CURRENT_SEASON } from '../constants'
 import { filterQualified } from '../lib/utils'
 import { GAME_SCOPES, GAME_SCOPE_LABEL } from '../lib/gameScope'
 import type { GameScope } from '../lib/gameScope'
@@ -13,7 +13,8 @@ import { FilterChip, FilterSelect, filterChipSx } from '../../ui/FilterChip'
 import { playerLink } from '../lib/links'
 import { pressable } from '../../ui/interaction'
 import { mlbUrlFor } from '../routes'
-import { StatsFilterSheet, controlPill } from './StatsRankedList'
+import { StatsFilterSheet } from './StatsRankedList'
+import { SheetTrigger } from '../../ui/SheetTrigger'
 import { FieldingLeaders } from './FieldingLeaders'
 import { LeaderCard, LeaderCardSkeleton, LEADER_GRID_SX, LEADERS_SHOWN, PORTRAIT_PX, printedRanks } from '../../ui/leaders'
 
@@ -115,12 +116,9 @@ export function LeaderboardView({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
           {sideSwitch}
           <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Box {...pressable(() => setFiltersOpen(true))} aria-haspopup="dialog" aria-expanded={filtersOpen}
-              sx={controlPill(filtersSet || (canPick && !lbIsDefault))}>
-              Filters
-              {(filtersSet || (canPick && !lbIsDefault)) && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: ACCENT }} />}
-              <Box component="span" sx={{ fontSize: TYPE_SCALE.caption }}>▾</Box>
-            </Box>
+            <SheetTrigger label="Filters" set={filtersSet || (canPick && !lbIsDefault)} open={filtersOpen}
+              onOpen={() => setFiltersOpen(true)}
+              ariaLabel={`Filters${filtersSet || (canPick && !lbIsDefault) ? ', on' : ''}`} />
           </Box>
         </Box>
       )}

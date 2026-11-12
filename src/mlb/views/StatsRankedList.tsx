@@ -1,6 +1,7 @@
 import { TeamLogo } from '../components/TeamLogo'
 import React, { useEffect, useRef, useState } from 'react'
 import { ACCENT_EDGE, TYPE_SCALE } from '../../ui/card'
+import { SheetTrigger } from '../../ui/SheetTrigger'
 import { Box, Typography, Skeleton } from '@mui/material'
 import type { StatDef } from '../types'
 import { ACCENT, TEAM_SEASONS } from '../constants'
@@ -232,19 +233,6 @@ export function StatsRankedList({
   )
 }
 
-/** A phone control that opens a sheet ("Sort OPS ▾", "Filters ▾"). `on` lights it: the Sort pill
- *  always, Filters only when something is off its default, so a filter is never silently on.
- *  Shared by the Table and Leaders so the two boards' phone controls are one design. */
-export const controlPill = (on: boolean) => ({
-  ...FOCUS_RING,
-  display: 'inline-flex', alignItems: 'center', gap: 0.4, flexShrink: 0,
-  cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
-  minHeight: 34, px: 1.25, borderRadius: 999, fontSize: TYPE_SCALE.body, fontWeight: 700,
-  border: '1px solid', transition: 'all 0.15s',
-  borderColor: on ? ACCENT_EDGE : 'outline',
-  bgcolor: on ? `${ACCENT}12` : 'transparent',
-  color: on ? 'var(--wpbl-accent-fg)' : 'text.secondary',
-} as const)
 
 // ── The sheets ───────────────────────────────────────────────────────────────────────────
 //
@@ -474,7 +462,7 @@ export function StatsSortFilterSheet({ tab, onTab, group, clubs = false, sort, f
   return (
     <MlbSheet sheet eyebrow={eyebrow} onClose={onClose} maxWidth={480} footer={<SheetDone onClose={onClose} />}>
       <Box sx={{ px: 2, py: 1.75, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <PillGroup options={[{ value: 'sort', label: 'Sort' }, { value: 'filter', label: filtersSet ? 'Filter •' : 'Filter' }]}
+        <PillGroup fill options={[{ value: 'sort', label: 'Sort' }, { value: 'filter', label: 'Filter', dot: filtersSet }]}
           value={tab} onChange={v => onTab(v as 'sort' | 'filter')} />
         {tab === 'sort' ? sort : filter}
       </Box>
@@ -491,15 +479,10 @@ export function SortFilterPill({ label, bestFirst, filtersSet, open, onOpen }: {
   open: boolean
   onOpen: () => void
 }) {
+  // "Worst" replaces "Sort" when reversed: that is the state a reader forgets they set, and this
+  // is the only control they look at again.
   return (
-    <Box {...pressable(onOpen)} aria-haspopup="dialog" aria-expanded={open}
-      aria-label={`${bestFirst ? 'Sort' : 'Worst'} ${label}${filtersSet ? ', filters on' : ''}`} sx={controlPill(true)}>
-      {/* Reversed is the state a reader forgets they set, and the pill is the only control they look
-          at again. It replaces "Sort" rather than adding a word, which the row has no room for. */}
-      <Box component="span" sx={{ color: 'text.secondary', fontWeight: 700 }}>{bestFirst ? 'Sort' : 'Worst'}</Box>
-      {label}
-      {filtersSet && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: ACCENT }} />}
-      <Box component="span" sx={{ fontSize: TYPE_SCALE.caption }}>▾</Box>
-    </Box>
+    <SheetTrigger lead={bestFirst ? 'Sort' : 'Worst'} label={label} set={filtersSet} open={open} onOpen={onOpen}
+      ariaLabel={`${bestFirst ? 'Sort' : 'Worst'} ${label}${filtersSet ? ', filters on' : ''}`} />
   )
 }

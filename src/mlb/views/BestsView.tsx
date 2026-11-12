@@ -9,9 +9,8 @@ import { FilterChip, FilterSelect } from '../../ui/FilterChip'
 import { PORTRAIT_PX } from '../../ui/leaders'
 import { chromePx } from '../../ui/scale'
 import { StatsBar, STATS_BOARD_ROOT_SX } from './StatsBar'
-import { StatsFilterSheet, controlPill } from './StatsRankedList'
-import { pressable } from '../../ui/interaction'
-import { ACCENT } from '../constants'
+import { StatsFilterSheet } from './StatsRankedList'
+import { SheetTrigger } from '../../ui/SheetTrigger'
 import GameLineRow from '../components/GameLineRow'
 import { GAME_SCOPES, GAME_SCOPE_LABEL, type GameScope } from '../lib/gameScope'
 import { CURRENT_SEASON } from '../constants'
@@ -92,11 +91,8 @@ export function LinesBoardControls({ isDesktop, sideSwitch, gameScope, setGameSc
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
         {sideSwitch}
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
-          <Box {...pressable(() => setOpen(true))} aria-haspopup="dialog" aria-expanded={open} sx={controlPill(filtersSet)}>
-            Filters
-            {filtersSet && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: ACCENT }} />}
-            <Box component="span" sx={{ fontSize: TYPE_SCALE.caption }}>▾</Box>
-          </Box>
+          <SheetTrigger label="Filters" set={filtersSet} open={open} onOpen={() => setOpen(true)}
+            ariaLabel={`Filters${filtersSet ? ', on' : ''}`} />
         </Box>
         {open && (
           <StatsFilterSheet allTime={false} seasons={[...seasons].sort((a, b) => b - a)}
