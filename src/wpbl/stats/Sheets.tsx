@@ -191,7 +191,7 @@ export function StatsSheet({ tab, onTab, side, sort, filter, filtersSet, onClose
     <ModalShell sheet eyebrow={eyebrow} onClose={onClose} maxWidth={480} footer={<SheetDone onClose={onClose} />}>
       <Box sx={{ px: 2, py: 1.75, display: 'flex', flexDirection: 'column', gap: 2 }}>
         {sort && filter && (
-          <PillGroup options={[{ value: 'sort', label: 'Sort' }, { value: 'filter', label: filtersSet ? 'Filter •' : 'Filter' }]}
+          <PillGroup fill options={[{ value: 'sort', label: 'Sort' }, { value: 'filter', label: 'Filter', dot: filtersSet }]}
             value={shown} onChange={v => onTab(v as 'sort' | 'filter')} />
         )}
         {shown === 'sort' ? sort : filter}

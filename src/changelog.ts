@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.235.1',
+    date:    '2026-11-11',
+    changes: [
+      {
+        short: 'Stats on a phone: Sort and Filters',
+        full:  'On a phone, the Sort and Filters button on both stats pages matches the Hitting / Pitching switch beside it, and the Sort / Filter switch in its sheet spans the sheet.',
+      },
+    ],
+  },
+  {
     version: '1.235.0',
     date:    '2026-11-11',
     changes: [
