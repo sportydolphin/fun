@@ -39,6 +39,7 @@ import { PasswordChecklist } from './PasswordChecklist'
 import { useAccessibilitySettings, type TextScale } from './AccessibilityContext'
 import { track, EVENTS } from './lib/analytics'
 import { typePx } from './ui/scale'
+import { InfoDot } from './ui/InfoDot'
 import { ICON_SIZE, TYPE_SCALE } from './ui/card'
 
 interface Props {
@@ -131,7 +132,9 @@ function Row({ title, hint, control, onClick, chevron, first, children }: {
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
-        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, minWidth: 0 }}>{title}</Typography>
+        {/* A div, not Typography's default <p>: a title may carry an InfoDot, which is a div, and
+            a div inside a <p> is invalid HTML that React reports on every render. */}
+        <Typography component="div" sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, minWidth: 0 }}>{title}</Typography>
         <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
           {control}
           {chevron && <ChevronRight sx={{ color: 'text.disabled' }} />}
@@ -145,16 +148,6 @@ function Row({ title, hint, control, onClick, chevron, first, children }: {
       {children}
     </Box>
   )
-}
-
-/** One line under the league switch saying what that league's settings actually cover.
- *
- *  Without it, "Pick reminders" is a dead end for the majority of readers, who arrive from
- *  the WPBL section and have never seen the MLB predictions game. The row named a feature
- *  they had no way to recognize, in a block whose only clue was a three-letter pill. */
-const LEAGUE_BLURB: Record<'wpbl' | 'mlb', string> = {
-  wpbl: 'Reminders for Women’s Pro Baseball League games.',
-  mlb:  'Your club, plus reminders for MLB Predictions, the daily pick-the-winners game.',
 }
 
 /** The app's segmented pill, the one control this dialog already hand-rolled for units. Now
@@ -391,6 +384,28 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
     saveGameStartPrefToSupabase(userId, next)
   }
 
+  // Turning game-start reminders on needs a delivery channel, exactly as prediction reminders
+  // do. Until Nov 12, 2026 this switch recorded the wish without subscribing the device, so it
+  // could read On on a device that would never receive one.
+  const toggleGameStart = async (next: boolean) => {
+    if (push.busy) return
+    setErr('')
+    if (next && !(await isSubscribed().catch(() => false))) {
+      push.setBusy(true)
+      const error = await enablePush(userId)
+      push.setPerm(notificationPermission())
+      push.setBusy(false)
+      if (error) {
+        setErr(error)
+        push.setSubscribed(await isSubscribed().catch(() => false))
+        return
+      }
+      push.setSubscribed(true)
+    }
+    setGsEnabled(next)
+    persistGameStart({ enabled: next, leadMin: gsLead })
+  }
+
   const togglePicks = async (next: boolean) => {
     if (push.busy) return
     push.setBusy(true); setErr('')
@@ -526,11 +541,10 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
           control={
             <Switch
               checked={gsEnabled}
-              disabled={!push.supported || !push.configured}
-              onChange={e => {
-                setGsEnabled(e.target.checked)
-                persistGameStart({ enabled: e.target.checked, leadMin: gsLead })
-              }}
+              // Blocked like the other push switches: with permission denied, turning it on can
+              // only fail. The reason is the hint on the row above.
+              disabled={push.busy || blocked}
+              onChange={e => toggleGameStart(e.target.checked)}
               slotProps={{ input: { 'aria-label': 'MLB game start reminders' } }}
             />
           }
@@ -615,6 +629,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
   const [perm, setPerm] = useState<ReturnType<typeof notificationPermission>>('default')
   const [subscribed, setSubscribed] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [deviceErr, setDeviceErr] = useState('')
 
   // Change-password form, expanded inline in the Account card rather than opening a second
   // modal on top of this one.
@@ -641,6 +656,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
     if (!open) return
     setPerm(notificationPermission())
     setDeleteOpen(false); setDeleteConfirm(''); setDeleteErr(''); setDeleting(false)
+    setDeviceErr('')
     closePasswordForm()
     if (pushSupported()) isSubscribed().then(setSubscribed).catch(() => setSubscribed(false))
   }, [open])
@@ -796,9 +812,6 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
                 onChange={l => setLeague(l)}
               />
             </Box>
-            <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mb: 1.25, lineHeight: 1.45 }}>
-              {LEAGUE_BLURB[league]}
-            </Typography>
             {league === 'wpbl'
               ? <WpblSection userId={userId!} push={push} />
               : <MlbSection userId={userId!} push={push} />}
@@ -807,35 +820,49 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
         </Box>
 
         <Box sx={columnSx}>
-        {/* Device-level, and deliberately outside both league blocks: one subscription
-            delivers every reminder on the site, so switching a single one off must not tear it
-            down. This is the only control that does. */}
-        {signedIn && subscribed && (
+        {/* Device-level, and deliberately outside both league blocks: one subscription delivers
+            every reminder on the site, so switching a single reminder off must not tear it down.
+            This is the only control that does.
+
+            A SWITCH THAT SHOWS THE DEVICE, NOT A ONE-WAY "STOP". The reminder switches are the
+            account's (they follow the reader to every device), and this row is whether THIS
+            device receives them. Until Nov 12, 2026 it was a "Stop" link shown only while
+            subscribed: pressing it left every reminder switch reading On, with nothing on screen
+            saying this device had stopped receiving them, and the row itself vanished, so the
+            way back was to switch some reminder off and on again. */}
+        {signedIn && push.supported && push.configured && (
           <Box>
             <SettingsLabel icon={<NotificationsNoneOutlined />}>This device</SettingsLabel>
             <SettingsCard>
               <Row
                 first
-                title="Stop all push"
+                title="Push notifications"
+                hint={perm === 'denied'
+                  ? 'Blocked. Turn notifications back on for this site in your browser settings.'
+                  : undefined}
                 control={
-                  <Typography
-                    {...pressable(busy ? undefined : async () => {
-                      setBusy(true)
-                      await disablePush(userId!)
-                      setSubscribed(false)
+                  <Switch
+                    checked={subscribed}
+                    disabled={busy || perm === 'denied'}
+                    onChange={async e => {
+                      const next = e.target.checked
+                      setBusy(true); setDeviceErr('')
+                      if (next) {
+                        const error = await enablePush(userId!)
+                        if (error) setDeviceErr(error)
+                      } else {
+                        await disablePush(userId!)
+                      }
+                      setSubscribed(await isSubscribed().catch(() => false))
+                      setPerm(notificationPermission())
                       setBusy(false)
-                    })}
-                    sx={{
-                      fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'error.main',
-                      cursor: busy ? 'default' : 'pointer', borderRadius: 1, px: 0.5,
-                      '&:hover': { textDecoration: busy ? 'none' : 'underline' }, ...FOCUS_RING,
                     }}
-                  >
-                    {busy ? 'Working…' : 'Stop'}
-                  </Typography>
+                    slotProps={{ input: { 'aria-label': 'Push notifications on this device' } }}
+                  />
                 }
               />
             </SettingsCard>
+            {deviceErr && <ErrorNote>{deviceErr}</ErrorNote>}
           </Box>
         )}
 
@@ -946,8 +973,17 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
               />
             )}
             <Row
-              title="Experimental features"
-              hint="Try designs that are still being worked on. They may be rough, change without warning, or disappear. Nothing here affects your data."
+              // The definition sits behind an InfoDot rather than in a caption under the row: copy
+              // in a settings list is labels, not narration (the Oct 21, 2026 copy rule).
+              title={
+                <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+                  Experimental features
+                  <InfoDot
+                    label="What experimental features are"
+                    text="Designs still being worked on. They can change or disappear without notice, and never touch your data."
+                  />
+                </Box>
+              }
               control={
                 <Switch
                   checked={experiments}
