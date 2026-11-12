@@ -23,7 +23,10 @@ import {
   pushSupported, pushConfigured, notificationPermission,
   isSubscribed, enablePush, disablePush,
 } from './lib/push'
-import { getCachedAllGamesPref, fetchAllGamesPref, setAllGamesPref } from './wpbl/reminders'
+import {
+  getCachedAllGamesPref, fetchAllGamesPref, setAllGamesPref,
+  getCachedResignPref, fetchResignPref, setResignPref,
+} from './wpbl/reminders'
 import { ModalShell, pressable, FOCUS_RING } from './wpbl/ui'
 import { useTheme, type ThemePref } from './ThemeContext'
 import { getDefaultSection, setDefaultSection, type DefaultSection } from './lib/defaultSection'
@@ -234,12 +237,32 @@ interface PushState {
  */
 function WpblSection({ userId, push }: { userId: string; push: PushState }) {
   const [on, setOn] = useState(getCachedAllGamesPref())
+  // The re-signing push (user_preferences.notify_wpbl_resigns). Settings is its only switch: it
+  // is news about the offseason rosters, with no single card where the intent happens.
+  const [resigns, setResigns] = useState(getCachedResignPref())
   const [err, setErr] = useState('')
 
   useEffect(() => {
     setOn(getCachedAllGamesPref())
+    setResigns(getCachedResignPref())
     fetchAllGamesPref(userId).then(pref => { if (pref !== null) setOn(pref) })
+    fetchResignPref(userId).then(pref => { if (pref !== null) setResigns(pref) })
   }, [userId])
+
+  const toggleResigns = async (next: boolean) => {
+    if (push.busy) return
+    push.setBusy(true); setErr('')
+    const error = await setResignPref(userId, next)
+    if (error) {
+      setErr(error)
+    } else {
+      setResigns(next)
+      if (next) push.setSubscribed(true)
+      track(next ? EVENTS.WPBL_RESIGN_ALERTS_ON : EVENTS.WPBL_RESIGN_ALERTS_OFF, { source: 'settings' }, userId)
+    }
+    push.setPerm(notificationPermission())
+    push.setBusy(false)
+  }
 
   const toggle = async (next: boolean) => {
     if (push.busy) return
@@ -280,6 +303,18 @@ function WpblSection({ userId, push }: { userId: string; push: PushState }) {
               disabled={push.busy || blocked}
               onChange={e => toggle(e.target.checked)}
               slotProps={{ input: { 'aria-label': 'WPBL game reminders' } }}
+            />
+          }
+        />
+        {/* No hint of its own: the reason both switches are disabled is the same, said once above. */}
+        <Row
+          title="Re-signings"
+          control={
+            <Switch
+              checked={resigns}
+              disabled={push.busy || blocked}
+              onChange={e => toggleResigns(e.target.checked)}
+              slotProps={{ input: { 'aria-label': 'WPBL re-signing alerts' } }}
             />
           }
         />

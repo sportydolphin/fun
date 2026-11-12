@@ -32,6 +32,9 @@ export const NOTIFICATION_TYPES = {
   GAME_START:      'game-start',
   MILESTONE:       'milestone',
   WPBL_GAME_START: 'wpbl-game-start',
+  // A club re-signed a player for next season. Push-only, sent by scripts/watch-wpbl-instagram.mjs
+  // the moment it records the move, to readers with user_preferences.notify_wpbl_resigns.
+  WPBL_RESIGN:     'wpbl-resign',
   // Owner-only: a background pipeline broke. Push-only, sent by scripts/check-admin-health.mjs
   // so a red state reaches the owner without them opening /admin, the failure mode the Health
   // group's amber chip could not escape on its own.
@@ -74,6 +77,13 @@ export const NOTIFICATION_META = {
     // The WPBL section isn't wired into the MLB deep-link router, so a click lands
     // on the WPBL home where the next game is featured up top, the honest fallback.
     defaultUrl: '/wpbl',
+  },
+  [NOTIFICATION_TYPES.WPBL_RESIGN]: {
+    label:      'WPBL re-signings',
+    icon:       '✍️',
+    // The rosters page, where the player now sits among the club's re-signings and the count
+    // against its ten. The builder overrides nothing: the page is the context.
+    defaultUrl: '/wpbl/rosters',
   },
   [NOTIFICATION_TYPES.ADMIN_HEALTH]: {
     label:      'Site health alerts',
@@ -173,6 +183,26 @@ export function buildWpblGameStart({ gameId, matchup, minutesToStart }) {
 }
 
 /**
+ * A club re-signed a player for next season.
+ *
+ * One per player: the id carries the player, so a second post about the same signing (the
+ * league reposting the club's) replaces the first on the lock screen instead of stacking.
+ *
+ * @param {{ playerId: string, playerName: string, teamName: string, season: number }} args
+ */
+export function buildWpblResign({ playerId, playerName, teamName, season }) {
+  const meta = NOTIFICATION_META[NOTIFICATION_TYPES.WPBL_RESIGN]
+  return {
+    id:    `${NOTIFICATION_TYPES.WPBL_RESIGN}:${playerId}`,
+    type:  NOTIFICATION_TYPES.WPBL_RESIGN,
+    icon:  meta.icon,
+    title: `Re-signed: ${playerName}`,
+    body:  `${teamName}, ${season}`,
+    url:   meta.defaultUrl,
+  }
+}
+
+/**
  * A background pipeline broke, pushed to the owner only.
  *
  * One payload per problem `key`, so the push `tag` (id) is stable per problem: a re-page for a
@@ -265,6 +295,10 @@ export const SAMPLE_BUILDERS = {
   [NOTIFICATION_TYPES.WPBL_GAME_START]: () => ({
     ...buildWpblGameStart({ gameId: '0', matchup: 'Boston Hunters @ New York Heights', minutesToStart: 5 }),
     id: `${NOTIFICATION_TYPES.WPBL_GAME_START}:sample`,
+  }),
+  [NOTIFICATION_TYPES.WPBL_RESIGN]: () => ({
+    ...buildWpblResign({ playerId: '0', playerName: 'Lexi Hastings', teamName: 'Boston Hunters', season: 2027 }),
+    id: `${NOTIFICATION_TYPES.WPBL_RESIGN}:sample`,
   }),
 }
 
