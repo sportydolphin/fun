@@ -1,10 +1,8 @@
-import { ACCENT_EDGE, TYPE_SCALE } from '../../ui/card'
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { Box } from '@mui/material'
-import { WPBL_ACCENT } from '../constants'
+import { SheetTrigger } from '../../ui/SheetTrigger'
 import {
-  TeamBadge, PillGroup,
-  CARD_BORDER, pressable, FOCUS_RING } from '../ui'
+  TeamBadge, PillGroup } from '../ui'
 import type { WpblTeam } from '../types'
 import { parsePositionFilter, type PositionFilter, type PositionFilterDef } from '../../league/positionFilter'
 import type { SeasonScope } from '../season'
@@ -215,28 +213,13 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
             so in its own title, so there is no column to choose there. */}
         {isNarrow && (source === 'season' || canFilter) && (
           <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-            <Box {...pressable(() => setSheetOpen(source === 'season' ? 'sort' : 'filter'))}
-              aria-haspopup="dialog" aria-expanded={sheetOpen != null}
-              aria-label={source === 'season' ? `Sort ${activeCol.label}${filtersSet ? ', filters on' : ''}` : `Filters${filtersSet ? ', on' : ''}`}
-              sx={{
-                ...FOCUS_RING,
-                display: 'inline-flex', alignItems: 'center', gap: 0.4, flexShrink: 0,
-                cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
-                minHeight: 34, px: 1, borderRadius: 999, fontSize: TYPE_SCALE.body, fontWeight: 700,
-                border: '1px solid', transition: 'all 0.15s',
-                borderColor: source === 'season' || filtersSet ? ACCENT_EDGE : CARD_BORDER,
-                bgcolor: source === 'season' || filtersSet ? `${WPBL_ACCENT}12` : 'transparent',
-                color: source === 'season' || filtersSet ? 'var(--wpbl-accent-fg)' : 'text.secondary',
-              }}>
-              {source === 'season' ? (
-                <>
-                  <Box component="span" sx={{ color: 'text.secondary', fontWeight: 700 }}>Sort</Box>
-                  {activeCol.label}
-                </>
-              ) : 'Filters'}
-              {filtersSet && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: WPBL_ACCENT }} />}
-              <Box component="span" sx={{ fontSize: TYPE_SCALE.caption }}>▾</Box>
-            </Box>
+            <SheetTrigger
+              lead={source === 'season' ? 'Sort' : undefined}
+              label={source === 'season' ? activeCol.label : 'Filters'}
+              set={filtersSet} open={sheetOpen != null}
+              onOpen={() => setSheetOpen(source === 'season' ? 'sort' : 'filter')}
+              ariaLabel={source === 'season' ? `Sort ${activeCol.label}${filtersSet ? ', filters on' : ''}` : `Filters${filtersSet ? ', on' : ''}`}
+            />
           </Box>
         )}
 
