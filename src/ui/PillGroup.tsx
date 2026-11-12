@@ -19,20 +19,28 @@ import { VISUALLY_HIDDEN } from './heading'
 // thing that reads as "selected" at 0.68rem is color. Use `--wpbl-accent-solid`, never
 // WPBL_ACCENT. White on #60a5fa measures 2.37:1, and color contrast is absolute, so the raw
 // accent fails in dark mode too.
-export function PillGroup({ options, value, onChange, mb, dense }: {
+export function PillGroup({ options, value, onChange, mb, dense, fill }: {
   /** `disabled` keeps an option DRAWN and unpressable, for a choice the page in front of the reader
    *  cannot answer (Fielding on a board with no fielding): hiding it instead resizes the switch and
    *  slides everything after it, which is how one control came to sit in a different place on
    *  every board. `hint` says why: a tooltip on hover, focus and tap, and read with the label. */
-  options: { value: string; label: string; disabled?: boolean; hint?: string }[]
+  options: { value: string; label: string; disabled?: boolean; hint?: string; dot?: boolean }[]
   value: string
   onChange: (v: string) => void
   mb?: number
   /** Tighter side padding, for a phone row the pills share with another control. */
   dense?: boolean
+  /** Full width, the segments splitting it evenly: a switch that heads a sheet or a column. */
+  fill?: boolean
 }) {
   return (
-    <Box sx={{ display: 'inline-flex', bgcolor: 'action.hover', borderRadius: 999, p: '3px', mb }}>
+    // `fit-content` unless asked to fill. In a column flex parent (a sheet's body) an auto width
+    // stretches the track across the column while the pills stay packed at its left, an empty gray
+    // bar trailing the switch; that is how the phone's Sort / Filter sheet looked until Nov 2026.
+    <Box sx={{
+      display: fill ? 'flex' : 'inline-flex', bgcolor: 'action.hover', borderRadius: 999, p: '3px', mb,
+      width: fill ? '100%' : 'fit-content', maxWidth: '100%',
+    }}>
       {options.map(opt => {
         const on = opt.value === value
         const off = !!opt.disabled && !on
@@ -43,6 +51,7 @@ export function PillGroup({ options, value, onChange, mb, dense }: {
             {...(off ? { role: 'button', tabIndex: 0 } : pressable(() => onChange(opt.value)))}
             aria-pressed={on}
             aria-disabled={off || undefined}
+            aria-label={opt.dot ? `${opt.label}, set` : undefined}
             sx={{
               ...FOCUS_RING,
               px: dense ? 0.875 : 1.5, py: 0.4, borderRadius: 999, cursor: off ? 'not-allowed' : 'pointer',
@@ -65,6 +74,7 @@ export function PillGroup({ options, value, onChange, mb, dense }: {
               // one. That is the whole reason --app-chrome excludes --sd-text-scale.
               minHeight: chromePx(28),
               display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flex: fill ? 1 : undefined,
               fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.3),
               whiteSpace: 'nowrap', userSelect: 'none', transition: 'all 0.15s',
               bgcolor: on ? 'var(--wpbl-accent-solid)' : 'transparent',
@@ -74,6 +84,14 @@ export function PillGroup({ options, value, onChange, mb, dense }: {
           >
             {opt.label}
             {off && opt.hint && <span style={VISUALLY_HIDDEN}>, {opt.hint}</span>}
+            {/* Something behind this segment is set (a filter off its default). A drawn dot, not a
+                "•" in the label, which sat on the text's baseline and read as punctuation. */}
+            {opt.dot && (
+              <Box component="span" aria-hidden sx={{
+                width: 6, height: 6, ml: 0.6, borderRadius: '50%', flexShrink: 0,
+                bgcolor: on ? 'currentColor' : 'var(--wpbl-accent-solid)',
+              }} />
+            )}
           </Box>
         )
         // The reason, as a tooltip on hover and focus (and on a tap, on a touchscreen), rather than
