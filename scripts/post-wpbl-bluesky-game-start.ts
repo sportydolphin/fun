@@ -43,6 +43,7 @@
  * so any other key reads it as empty, which this job would take to mean nothing has been posted.
  */
 import { createClient } from '@supabase/supabase-js'
+import { runWithHeartbeat } from '../shared/heartbeat.js'
 // @ts-expect-error: no types installed for `ws`; it is only handed to supabase-js below.
 import ws from 'ws'
 import { buildGameStartPost } from '../src/wpbl/derive/blueskyGameStart'
@@ -266,7 +267,7 @@ async function closeMissed(candidates: { game: WpblGame; startMs: number }[], no
   else console.log(`Closed ${passed.length} game(s) whose window had passed.`)
 }
 
-main().catch(err => {
+runWithHeartbeat(supabase, 'wpbl-bluesky-game-start', main, { skip: DRY_RUN || !SERVICE_KEY }).catch(err => {
   console.error(`❌  ${err?.stack ?? err}`)
   process.exit(1)
 })

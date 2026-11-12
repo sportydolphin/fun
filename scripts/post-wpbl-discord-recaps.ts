@@ -36,6 +36,7 @@
  * runs on the anon key and says what it cannot see.
  */
 import { createClient } from '@supabase/supabase-js'
+import { runWithHeartbeat } from '../shared/heartbeat.js'
 // @ts-expect-error: no types installed for `ws`; it is only handed to supabase-js below.
 import ws from 'ws'
 import { buildRecap, leagueRecapContext } from '../src/wpbl/derive/recap'
@@ -304,4 +305,4 @@ async function main(): Promise<void> {
   else console.log(`Done: ${posted} posted, ${updated} updated, ${unchanged} unchanged${seeded ? `, ${seeded} recorded without posting` : ''}.`)
 }
 
-main().catch(err => { console.error('Fatal:', err); process.exit(1) })
+runWithHeartbeat(supabase, 'wpbl-discord-recaps', main, { skip: DRY_RUN || !SERVICE_KEY }).catch(err => { console.error('Fatal:', err); process.exit(1) })
