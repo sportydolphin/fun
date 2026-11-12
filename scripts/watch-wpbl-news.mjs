@@ -329,19 +329,50 @@ async function pushToOwner(n) {
   return sent
 }
 
+const sleep = ms => new Promise(r => setTimeout(r, ms))
+
+// How many times one message waits out a 429 before the run gives up on it.
+const DISCORD_RETRIES = 4
+
+/**
+ * One message, waiting out Discord's rate limit. A webhook allows about five posts in two
+ * seconds, and on Nov 12, 2026 the league cleared every player's status and club at once: 133
+ * changes, a dozen messages, a 429 partway through, and a red run. Worse, the messages that had
+ * landed were sent again by every retry, because a partial delivery records nothing.
+ */
+async function postOne(content) {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(DISCORD_WEBHOOK, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      // Never ping anyone from text the league or a news site wrote.
+      body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (res.status === 429 && attempt < DISCORD_RETRIES) {
+      // Discord says how long, in seconds, in the body and the header both.
+      const body = await res.json().catch(() => ({}))
+      const wait = Number(body.retry_after ?? res.headers.get('retry-after') ?? 2)
+      console.warn(`  ⏳ Discord rate limit; waiting ${wait}s`)
+      await sleep(Math.min(Math.max(wait, 0.5), 30) * 1000)
+      continue
+    }
+    // Pace by the bucket rather than by luck: when this post spent the last of it, wait for the
+    // reset before the next message instead of colliding with it.
+    if (res.headers.get('x-ratelimit-remaining') === '0') {
+      await sleep(Math.min(Number(res.headers.get('x-ratelimit-reset-after') ?? 1), 30) * 1000)
+    }
+    return res
+  }
+}
+
 /** Post the lines to the ops channel; true only when every message landed. */
 async function postToDiscord(header, lines) {
   if (!DISCORD_WEBHOOK) { console.warn('  ⚠️  No DISCORD_ALERTS_WEBHOOK_URL, so no Discord post.'); return false }
   let ok = true
   for (const content of chunkLines(header, lines)) {
     try {
-      const res = await fetch(DISCORD_WEBHOOK, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        // Never ping anyone from text the league or a news site wrote.
-        body: JSON.stringify({ content, allowed_mentions: { parse: [] } }),
-        signal: AbortSignal.timeout(15_000),
-      })
+      const res = await postOne(content)
       if (!res.ok) { ok = false; console.warn(`  ⚠️  Discord post failed (${res.status})`) }
     } catch (err) {
       ok = false
