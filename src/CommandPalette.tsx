@@ -9,7 +9,7 @@ import { requestSectionScroll } from './lib/sectionScroll'
 import { clearRecentQuestions, getRecentQuestions, getRowPicks, mergeRecent, recordRecentQuestion, recordRowPick, type RecentQuestion } from './lib/recentQuestions'
 import { nameWords, parseCompareText, parseGameQuery, todayIso, typedPart, typedSeason, typedStat } from './league/finderParse'
 import { mightBeFinderQuestion } from './finderGate'
-import { parseFirstText } from './league/firsts'
+import { firstFindText, parseFirstText } from './league/firsts'
 import { linkTo, navigate } from './nav'
 import { track, EVENTS } from './lib/analytics'
 import { chromePx, typePx } from './ui/scale'
@@ -104,8 +104,9 @@ const ANSWERED_ROWS = 3
 const ANSWERED_FIND_ROWS = 4
 /** A row whose link is a Find question the section can count. A plate-appearance record's own rows
  *  name their play already, and its "N tied" row's link asks a wider question than its title. */
+// Not a milestone still to come, which links to Find but answers "7 so far · 93 to go" itself.
 const findAnswerable = (i: { key: string; href?: string }) =>
-  !!i.href && i.href.includes('board=find') && !i.key.startsWith('parecord-')
+  !!i.href && i.href.includes('board=find') && !i.key.startsWith('parecord-') && !i.key.startsWith('first-')
 const QUESTION_KINDS = new Set<PickKind>(['leader', 'finder', 'definition'])
 const QUESTION_ICON: Record<RecentQuestion['kind'], React.ReactNode> = {
   leader: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
@@ -236,7 +237,8 @@ const EXAMPLES: Record<NavSection, Example[]> = {
     { q: 'Firebells vs Hunters', what: 'Two clubs’ season series', icon: ic(CompareArrows) },
     { q: 'Whitmore vs Ibarra', what: 'Two players side by side', icon: ic(CompareArrows) },
     { q: '5 strikeouts no walks', what: 'Every game line that matches', icon: ic(ManageSearch) },
-    { q: 'First home run', what: 'A league first, opened at the play', icon: ic(Flag) },
+    { q: 'Hunters doubles', what: 'Every one, oldest first', icon: ic(ManageSearch) },
+    { q: 'Hunters 100th hit', what: 'A first, last or Nth, opened at the play', icon: ic(Flag) },
     { q: 'Longest at-bat', what: 'A plate-appearance record, opened at the play', icon: ic(EmojiEvents) },
     { q: 'SF roster', what: 'A club’s page', icon: ic(Groups) },
     { q: 'What is FIP', what: 'What a stat means', icon: ic(MenuBook) },
@@ -431,7 +433,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
   // "SF vs NY sep 9", "Dodgers last night": the section's schedule answers, on the same terms as
   // the compare row above (kept with its text, a beat after the last key).
   // A first is answered or it is no row: its link is the play, which only the answer knows.
-  const firstAsk = useMemo(() => (resolveFirsts ? parseFirstText(text) : null), [text, resolveFirsts])
+  const firstAsk = useMemo(() => (resolveFirsts ? parseFirstText(text, sectionClubs(section)) : null), [text, resolveFirsts, section])
   const [firsts, setFirsts] = useState<{ text: string; rows: PlayAnswer[] } | null>(null)
   useEffect(() => {
     if (!firstAsk || !resolveFirsts) return
@@ -675,8 +677,12 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       icon: <EmojiEvents sx={{ fontSize: ICON_SIZE.md }} />,
       onOpen: () => { if (s.scrollTo) requestSectionScroll(s.scrollTo) },
     }))]
+    // A first, a last and a milestone are the same row; the group says which was asked. One still to
+    // come opens Find rather than a play, and says so.
+    const firstGroup = firstAsk?.which === 'last' ? 'Latest' : typeof firstAsk?.which === 'number' ? 'Milestones' : 'Firsts'
     const firstRows: Item[] = (firsts && firsts.text === text ? firsts.rows : []).map(f => ({
-      key: f.key, kind: 'first', title: f.title, answer: f.detail, subtitle: 'Firsts · Play-by-play', href: f.href,
+      key: f.key, kind: 'first', title: f.title, answer: f.detail,
+      subtitle: `${firstGroup} · ${f.href.includes('board=find') ? 'Find' : 'Play-by-play'}`, href: f.href,
       icon: <Flag sx={{ fontSize: ICON_SIZE.md }} />, onOpen: f.open,
     }))
     const acts: Item[] = q.length < 2 ? [] : actions
@@ -689,7 +695,11 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       onOpen: () => requestSectionScroll(s.scrollTo),
     }))
     // A ranking is never also a line question ("top 10 ops" is not "an OPS of at least 10").
-    const finder: Item[] = (!leaders.length && !firstAsk && !paAsk && mightBeFinderQuestion(text) ? finderSuggestions(section, text) : []).map(s => ({
+    // A club's first opens its play; beside it, the board of every one of them, the first at its top.
+    const firstFind = firstAsk ? firstFindText(firstAsk) : null
+    const findReadings = firstFind ? finderSuggestions(section, firstFind.text).filter(s => s.parsed.side === firstFind.side).slice(0, 1)
+      : !leaders.length && !firstAsk && !paAsk && mightBeFinderQuestion(text) ? finderSuggestions(section, text) : []
+    const finder: Item[] = findReadings.map(s => ({
       key: s.key, kind: 'finder', title: s.title, subtitle: `Find · ${s.subtitle}`, href: s.href,
       icon: <ManageSearch sx={{ fontSize: ICON_SIZE.md }} />,
       onOpen: () => {
@@ -740,7 +750,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       { label: 'Clubs', items: clubPages },
       { label: 'Batter vs pitcher', items: matchupRows },
       { label: 'Compare', items: compared },
-      { label: 'Firsts', items: firstRows },
+      { label: firstGroup, items: firstRows },
       { label: 'Records', items: records },
       { label: 'Team stats', items: teamRanks },
       { label: 'Rankings', items: [...scopedRanks, ...leaders] },

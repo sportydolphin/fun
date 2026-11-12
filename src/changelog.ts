@@ -23,6 +23,24 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.234.0',
+    date:    '2026-11-11',
+    changes: [
+      {
+        short: 'Search: a club’s count, every one',
+        full:  'Searching a club and a stat with no number, such as "Hunters doubles" or "home runs vs SF", opens Find with every one of them, oldest first, each its own plate appearance where the play log has it. The row shows how many, the last one and who has the most.',
+      },
+      {
+        short: 'Search: a club’s or a player’s firsts',
+        full:  'Searching "first Hunters double", "Boston’s first home run" or "Geldenhuis first hit" opens the play it happened on. A club’s first comes with its Find list beside it, and "Hunters firsts" lists them all.',
+      },
+      {
+        short: 'Search: lasts and milestones',
+        full:  'Searching "last Hunters double", "Geldenhuis last hit", "Hunters 10th double" or "100th strikeout" opens that play, regular season only. A milestone not reached yet says how many so far and how many to go, and opens the list of them on Find.',
+      },
+    ],
+  },
+  {
     version: '1.233.0',
     date:    '2026-11-10',
     changes: [

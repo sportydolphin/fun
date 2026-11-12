@@ -64,6 +64,8 @@ export interface ParsedFinder {
   to?: string | null
   last?: number | null
   hand?: 'L' | 'R' | null
+  /** The stat was said with no number ("Hunters doubles"), and read as at least one. */
+  bare?: boolean
 }
 
 /** One word or phrase for a stat, and the field it means on each side that records it. Whether a
@@ -1161,6 +1163,28 @@ export function parseFinderText(
       return ' '.repeat(m.length)
     })
   }
+  // A COUNT SAID WITH NO NUMBER: "Hunters doubles", "Whitmore home runs", "home runs vs SF". Every one
+  // of them, so at least one. Until Nov 11, 2026 a stat with no number beside it was no question, and
+  // "Hunters doubles" offered nothing. Exactly one counting stat: a rate has no "any of it", and two
+  // ("doubles and triples") could mean either or both. `bare` tells the search to want a who or a where
+  // with it, since a lone "doubles" is the definition's and the leaders' to answer.
+  let bare = false
+  if (!pending.length && !forLine.seen && !feats.length && !posCond && !inningHint && !paHint && !innSaid) {
+    const found: { alias: StatAlias; at: number; len: number }[] = []
+    rest.replace(STAT_ONLY, (m: string, p: string, at: number) => {
+      const alias = STAT_ALIASES[p]
+      if (alias && p.length > 1) found.push({ alias, at, len: m.length })
+      return m
+    })
+    const a = found.length === 1 ? found[0].alias : null
+    const fields = a ? [a.hitting, a.pitching, a.fielding, a.overall].filter((f): f is string => !!f) : []
+    if (fields.length && !fields.some(f => RATE_FIELDS.has(f) || f === 'ip' || f === 'pitches')) {
+      const { alias, at, len } = found[0]
+      pending.push({ alias, op: 'gte', raw: '1', shift: 0, at, bare: false })
+      rest = rest.slice(0, at) + ' '.repeat(len) + rest.slice(at + len)
+      bare = true
+    }
+  }
   if (!pending.length && !forLine.seen && !feats.length && !posCond) return []
   pending.sort((x, y) => x.at - y.at)
 
@@ -1260,6 +1284,12 @@ export function parseFinderText(
       // The event leans the way a fan means it: a strikeout is the pitcher's, a home run the batter's.
       const lean = conditions.some(c => EVENT_LEAN[c.field] === side) ? 1 : 0
       if (conditions.length && conditions.every(c => keys.has(c.field))) grains.push({ per, bonus: 1 + lean })
+    } else if (bare && !gameHint && !seasonHint) {
+      // EACH ONE, where the log can list them: every Hunters double is a plate appearance, and a game
+      // with two would be one row. A stat no plate appearance records (a steal, a pitcher's win) is
+      // the games it happened in.
+      const paKeys = new Set(finderFields(side, 'pa', plays).map(f => f.key))
+      grains.push({ per: plays && conditions.every(c => paKeys.has(c.field)) ? 'pa' : 'game', bonus: 1 })
     } else {
       if (!seasonOnly && (gameHint || (seasonHint ? small : !pastMax))) grains.push({ per: 'game', bonus: 1 })
       if (seasonOnly || (!gameHint && !forLine.seen && (seasonHint || (pastTypical && !none)))) grains.push({ per: 'season', bonus: 0 })
@@ -1289,7 +1319,7 @@ export function parseFinderText(
           if (teamId && teamId === oppId) continue
           // "By a team" with an inning on Fielding is the club's half in the field.
           const byClub = side === 'fielding' && per === 'inning' && clubHint && !posCond
-          readings.push({ parsed: { side, per, conditions, teamId, oppId, venue, ignored, season, ...(byClub ? { byClub } : {}), ...cuts }, score: score + bonus })
+          readings.push({ parsed: { side, per, conditions, teamId, oppId, venue, ignored, season, ...(byClub ? { byClub } : {}), ...(bare ? { bare } : {}), ...cuts }, score: score + bonus })
         }
       }
     }

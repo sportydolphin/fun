@@ -409,35 +409,97 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
     const peek = m.wpblLeaderPeek(ask, players, await loadBoard(season, m.boardNeeds({ [ask.side]: ask.sort })))
     return peek && { ...peek, season }
   }, [players, games, loadBoard])
-  // "first home run", "firsts": the play it happened on, from the play log of the season asked, or
-  // of the league's first season for a first ever (src/league/firsts.ts). The log and the engine
-  // load on the first ask; the log is the one Find and Run value read, so it is often in memory.
+  // "first home run", "first Hunters double", "last Hunters double", "Hunters 100th hit", "firsts": the
+  // play it happened on (src/league/firsts.ts). Asked for every season, a first or an Nth walks the
+  // seasons oldest first, carrying the count across them, and a last walks them newest first; each
+  // stops at the season that has it. The log and the engine load on the first ask; the log is the one
+  // Find and Run value read, so it is often in memory.
   const playersById = useMemo(() => new Map(players.map(p => [p.id, p])), [players])
   const resolveFirsts = useCallback(async (ask: FirstQuestion): Promise<PlayAnswer[]> => {
     const seasons = seasonsOnRecord(games)
-    const season = ask.season ?? seasons[seasons.length - 1]
-    if (season == null || !seasons.includes(season)) return []
-    const [{ fetchWpblPlayLog }, { plateAppearanceLines }, { findFirsts, firstKind }, { WPBL_LEAGUE }] = await Promise.all([
+    if (ask.season != null && !seasons.includes(ask.season)) return []
+    const oldest = [...seasons].sort((a, b) => a - b)
+    const years = ask.season != null ? [ask.season] : ask.which === 'last' ? oldest.reverse() : oldest
+    // A name as typed, on the roster: the whole name, else the surname. Two players can share one,
+    // and each gets a row.
+    let owners: (WpblPlayer | null)[] = [null]
+    if (ask.who) {
+      const who = foldName(ask.who)
+      const whole = players.filter(p => foldName(p.name) === who)
+      owners = (whole.length ? whole : players.filter(p => foldName(p.name).split(' ').pop() === who)).slice(0, 3)
+      if (!owners.length) return []
+    }
+    const [{ fetchWpblPlayLog }, { plateAppearanceLines }, firsts, { WPBL_LEAGUE }, { parseFinderText }, link, { scopedGames }] = await Promise.all([
       import('../api/plays'), import('../../league/inningLines'), import('../../league/firsts'), import('../league'),
+      import('../../league/finderParse'), import('../finderLink'), import('../../league/season'),
     ])
-    // The season's own games, as the Find answers read them, so both share one build of the lines.
-    const yearGames = seasonGames(games, season)
-    const plays = await fetchWpblPlayLog(season)
-    const lines = plateAppearanceLines(WPBL_LEAGUE, plays, yearGames)
-    return findFirsts(lines, yearGames, ask.kinds, g => `${g.game_date} ${g.start_time ?? ''}`, plays).map(f => {
-      const game = yearGames.find(g => g.id === f.game_id)!
-      const sequence = f.sequence
-      // A passed ball, a double play and a runner the log cannot place have only a club to name.
-      const who = playersById.get(f.playerId ?? '')?.name ?? teamById.get(f.teamId ?? '')?.name
-      return {
-        key: `first-${f.kind}-${season}`,
-        title: ask.season == null ? firstKind(f.kind).label : `${firstKind(f.kind).label} of ${season}`,
-        detail: [who, firstDate(game.game_date)].filter(Boolean).join(' · '),
-        href: `${wpblGamePath(game, teams, games)}#play-${sequence}`,
-        open: () => requestPlay(game.id, sequence),
+    const { occurrences, occurrenceTitle, firstKind } = firsts
+    // Each season's lines built once, whichever owners and kinds ask for it.
+    const built = new Map<number, Promise<{ yearGames: WpblGame[]; plays: Awaited<ReturnType<typeof fetchWpblPlayLog>>; lines: ReturnType<typeof plateAppearanceLines> }>>()
+    const season = (year: number) => {
+      let b = built.get(year)
+      if (!b) {
+        // The season's regular-season games, as the Find answers read them. The postseason is a slice of
+        // its own: counted in, the last Hunters double was a semifinal's, three days after the last one
+        // Find lists, and an Nth could land in October on a count the stats never reach.
+        const yearGames = scopedGames(seasonGames(games, year), 'regular')
+        b = fetchWpblPlayLog(year).then(plays => ({ yearGames, plays, lines: plateAppearanceLines(WPBL_LEAGUE, plays, yearGames) }))
+        built.set(year, b)
       }
-    })
-  }, [games, playersById, teamById, teams])
+      return b
+    }
+    // Every one of them on Find, for an Nth not reached yet: the board says how far there is to go.
+    const listHref = (kind: FirstQuestion['kinds'][number], owner: WpblPlayer | null): string | null => {
+      const def = firstKind(kind)
+      if (!def.find) return null
+      const side = def.by === 'pitcher' ? 'pitching' : 'hitting'
+      const read = parseFinderText(`${ask.teamId ?? ''} ${def.find}${ask.season ? ` ${ask.season}` : ''}`, link.WPBL_FINDER_CLUBS, link.WPBL_FINDER_SIDES, link.WPBL_FINDER_OPTS)
+        .find(r => r.side === side)
+      if (!read) return null
+      const who = !owner ? {} : read.per === 'pa' ? (side === 'pitching' ? { pitcherId: owner.id } : { batterId: owner.id }) : { playerId: owner.id }
+      return link.wpblFinderHref({ ...read, ...who })
+    }
+    const club = ask.teamId ? teamById.get(ask.teamId) : undefined
+    const out: PlayAnswer[] = []
+    for (const owner of owners) {
+      for (const kind of ask.kinds) {
+        let need = typeof ask.which === 'number' ? ask.which : 1
+        let found: ReturnType<typeof occurrences>[number] | null = null
+        let game: WpblGame | undefined
+        for (const year of years) {
+          const { yearGames, plays, lines } = await season(year)
+          const all = occurrences(lines, yearGames, kind, g => `${g.game_date} ${g.start_time ?? ''}`, plays,
+            { teamId: ask.teamId ?? null, playerId: owner?.id ?? null })
+          const hit = ask.which === 'last' ? all[all.length - 1] : all[need - 1]
+          if (hit) { found = hit; game = yearGames.find(g => g.id === hit.game_id); break }
+          need -= all.length
+        }
+        const named = occurrenceTitle(kind, ask.which, { club: club?.name, player: owner?.name })
+        const title = ask.season == null ? named : `${named} of ${ask.season}`
+        const key = `first-${kind}-${ask.which ?? 'first'}-${ask.season ?? 'ever'}-${owner?.id ?? ask.teamId ?? 'league'}`
+        if (!found || !game) {
+          // AN NTH STILL TO COME is an answer too: how many so far, opening the list of them.
+          const href = typeof ask.which === 'number' ? listHref(kind, owner) : null
+          if (href) out.push({ key, title, detail: `${(ask.which as number) - need} so far · ${need} to go`, href, open: () => {} })
+          continue
+        }
+        const { sequence } = found
+        const at = game
+        // Whose it was, unless the title already says: a passed ball, a double play and a runner the
+        // log cannot place have only a club to name. A player's own says who it came against.
+        const opp = found.teamId == null ? null : found.teamId === at.home_team_id ? at.away_team_id : at.home_team_id
+        const who = owner ? (opp ? `vs ${teamById.get(opp)?.abbr ?? opp}` : undefined)
+          : playersById.get(found.playerId ?? '')?.name ?? teamById.get(found.teamId ?? '')?.name
+        out.push({
+          key, title,
+          detail: [who, firstDate(at.game_date)].filter(Boolean).join(' · '),
+          href: `${wpblGamePath(at, teams, games)}#play-${sequence}`,
+          open: () => requestPlay(at.id, sequence),
+        })
+      }
+    }
+    return out
+  }, [games, players, playersById, teamById, teams])
   // "longest at-bat", "most fouls in a PA" (src/league/paRecords.ts): ranked by the Find engine itself
   // over the same plate-appearance lines the board reads, so the record is the board's first row. Each
   // play that shares it, up to three, then the board for the rest.

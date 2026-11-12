@@ -320,6 +320,17 @@ describe('the search bar corpus', () => {
     expect(rows('fewest errors in a game')).not.toContain('record: Most errors in a game')
   })
 
+  // A count with no number is every one of them once a club, a place or a year is beside it, each
+  // its own plate appearance where the log can list them (Nov 11, 2026). The club's total leads.
+  it('reads a club\'s count with no number as every one of them', () => {
+    expect(rows('hunters doubles')).toEqual(['team: Boston Hunters team doubles', 'find: Hunters doubles (Batting, plate appearances)'])
+    expect(rows('home runs vs sf')).toContain('find: Home runs vs Firebells (Batting, plate appearances)')
+    expect(rows('hunters stolen bases')).toContain('find: Hunters stolen bases (Batting lines)')
+    expect(rows('hunters strikeouts')).toContain('find: Hunters strikeouts by a pitcher (Pitching, plate appearances)')
+    // Alone, it is a word to define and a board to rank; beside a name, the player row's.
+    for (const t of ['doubles', 'home runs', 'lee doubles']) expect(rows(t).filter(r => r.startsWith('find:')), t).toEqual([])
+  })
+
   it('leaves names and clubs to the name search', () => {
     for (const t of ['jaida lee', 'lee hr', 'boston hunters']) expect(rows(t), t).toEqual([])
   })

@@ -1743,6 +1743,9 @@ export function finderAnswerText(result: FinderResult, side: FinderBoardSide, qu
     const top = result.rows.reduce((m, r) => Math.max(m, r.values[only.field] ?? 0), 0)
     const best = result.rows.filter(r => (r.values[only.field] ?? 0) === top)
     const first = best[0]
+    // ONE PLATE APPEARANCE HOLDS ONE DOUBLE, so "Hunters doubles" has no record in it, only every one,
+    // and read as one it said "Record 1 · 22 tied". Counted instead, like any other list.
+    if (query.per === 'pa' && top <= 1) return finderCountText(result)
     const who = best.length > 1 ? `${best.length} tied`
       : [first.name, first.game && shortDate(first.game.game_date)].filter(Boolean).join(', ')
     return `${query.per === 'season' ? 'Leader' : 'Record'} ${displayFinderValue(side, only.field, top)} · ${who}`
@@ -1762,6 +1765,11 @@ export function finderAnswerText(result: FinderResult, side: FinderBoardSide, qu
     const lead = result.rows[0]?.name
     return [`${result.total.toLocaleString()} ${result.total === 1 ? 'season' : 'seasons'}`, lead && `first, ${lead}`].filter(Boolean).join(' · ')
   }
+  return finderCountText(result)
+}
+
+/** "7 times · last Sep 2 · most, Kelsie Whitmore (3)": how often, when last, and who most. */
+function finderCountText(result: FinderResult): string {
   const when = result.span ? shortDate(result.span.last.game_date) : ''
   const count = result.total === 1 ? 'Once' : `${result.total.toLocaleString()} times`
   const top = result.tally[0]
