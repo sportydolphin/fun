@@ -26,6 +26,8 @@ import {
   ROSTER_EXPLAINER_URL, ROSTER_SEASON, CLUB_NAMES_2026,
 } from './offseason2027'
 import type { WpblPlayer, WpblRosterMove, WpblTeam } from './types'
+import { plateAppearances, type WpblBattingCounts, type WpblPitchingCounts } from './stats'
+import { outsToIp } from './innings'
 
 const SEASON_2026 = 2026
 
@@ -35,25 +37,52 @@ function dayLabel(iso: string): string {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
 }
 
-function fmtWar(v: number | undefined): string {
-  if (v == null) return '—'
-  // Rounded before the sign is read, or a −0.04 prints as "−0.0".
-  const r = Math.round(v * 10) / 10
-  return (r === 0 ? 0 : r).toFixed(1).replace(/^-/, '−')
+// PLAYING TIME, NOT WAR, beside each player still unsigned. WAR here read as a verdict on people
+// whose clubs were deciding whether to keep them, and on 30 games it is mostly noise. Games and PA
+// (or IP) say only how much each one played in 2026, which is the thing a reader checking a club's
+// choices wants first, and it judges nobody.
+
+/** A pitcher's label, in either vocabulary: the box score's 'P' or the roster's "RHP" / "LHP". */
+const PITCHER_LABEL = /^(P|[RL]HP)$/i
+
+/** How much one player played in 2026, on the side their position says they play. */
+interface Usage { g: number; pa: number; outs: number; pitcher: boolean }
+
+function usageOf(batting: WpblBattingCounts | undefined, pitching: WpblPitchingCounts | undefined, label: string): Usage | null {
+  // A two-way player shows the side the label files them under; the other side only when the
+  // filed one has no 2026 line at all.
+  const pitcher = PITCHER_LABEL.test(label) ? !!pitching || !batting : !batting && !!pitching
+  if (pitcher && pitching) return { g: pitching.g, pa: 0, outs: pitching.outs, pitcher: true }
+  if (batting) return { g: batting.g, pa: plateAppearances(batting), outs: 0, pitcher: false }
+  return null
 }
 
-/** Most valuable 2026 first, which is the order a club weighs them in; no line sorts last. */
-function byWar(ids: readonly string[], war: Map<string, number>): string[] {
-  return [...ids].sort((a, b) => (war.get(b) ?? -Infinity) - (war.get(a) ?? -Infinity))
+function fmtUsage(u: Usage | null): string {
+  if (!u) return '—'
+  return u.pitcher ? `${u.g} G · ${outsToIp(u.outs)} IP` : `${u.g} G · ${u.pa} PA`
 }
 
-interface Season2026 { war: Map<string, number>; pos: Map<string, string> }
+/** Hitters, then pitchers, each most-used first, since PA and IP do not compare; no line sorts last. */
+function byUsage(ids: readonly string[], usage: (id: string) => Usage | null): string[] {
+  const rank = (u: Usage | null) => (u ? (u.pitcher ? 1 : 0) : 2)
+  const amount = (u: Usage | null) => (u ? (u.pitcher ? u.outs : u.pa) : 0)
+  return [...ids].sort((a, b) => {
+    const ua = usage(a), ub = usage(b)
+    return rank(ua) - rank(ub) || amount(ub) - amount(ua)
+  })
+}
+
+interface Season2026 {
+  batting: Map<string, WpblBattingCounts>
+  pitching: Map<string, WpblPitchingCounts>
+  pos: Map<string, string>
+}
 
 export default function RostersPage({ onNavigate }: { onNavigate: (to: string) => void }) {
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   const [moves, setMoves] = useState<WpblRosterMove[] | null>(() => getCachedWpblRosterMoves())
-  const [season, setSeason] = useState<Season2026>({ war: new Map(), pos: new Map() })
+  const [season, setSeason] = useState<Season2026>({ batting: new Map(), pitching: new Map(), pos: new Map() })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -62,13 +91,15 @@ export default function RostersPage({ onNavigate }: { onNavigate: (to: string) =
       .then(([t, p, m, s]) => {
         if (cancelled) return
         setTeams(t); setPlayers(p); setMoves(m)
-        const war = new Map<string, number>(), pos = new Map<string, string>()
+        const batting = new Map<string, WpblBattingCounts>(), pitching = new Map<string, WpblPitchingCounts>()
+        const pos = new Map<string, string>()
         for (const row of s.rows) {
           if (row.scope !== 'regular') continue
-          if (row.value) war.set(row.player_id, row.value.war)
+          if (row.batting) batting.set(row.player_id, row.batting)
+          if (row.pitching) pitching.set(row.player_id, row.pitching)
           if (row.position) pos.set(row.player_id, row.position.position.toUpperCase())
         }
-        setSeason({ war, pos })
+        setSeason({ batting, pitching, pos })
       })
       .catch(() => { /* the cards below draw their empty state */ })
       .finally(() => { if (!cancelled) setLoading(false) })
@@ -81,6 +112,11 @@ export default function RostersPage({ onNavigate }: { onNavigate: (to: string) =
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const playerById = useMemo(() => new Map(players.map(p => [p.id, p])), [players])
   const boards = useMemo(() => rosterBoards(moves ?? []), [moves])
+  const labelOf = (id: string) => {
+    const p = playerById.get(id)
+    return season.pos.get(id) ?? (p ? listed(p) : '')
+  }
+  const usage = (id: string) => usageOf(season.batting.get(id), season.pitching.get(id), labelOf(id))
   const now = Date.now()
   const phase = resignPhase(now)
 
@@ -118,14 +154,14 @@ export default function RostersPage({ onNavigate }: { onNavigate: (to: string) =
                   })}
                 </>
               )}
-              <GroupLabel right="2026 WAR">{phase === 'closed' ? 'Draft eligible' : 'Not yet re-signed'}</GroupLabel>
-              {(loading ? ROSTERS_2026[board.teamId] ?? [] : byWar(board.unsigned, season.war)).map(id => {
+              <GroupLabel right="2026">{phase === 'closed' ? 'Draft eligible' : 'Not yet re-signed'}</GroupLabel>
+              {(loading ? ROSTERS_2026[board.teamId] ?? [] : byUsage(board.unsigned, usage)).map(id => {
                 const p = playerById.get(id)
                 if (loading || !p) return <RowSkeleton key={id} />
                 return (
                   <Row key={id} name={p.name} href={wpblPlayerPath(p, players)} onOpen={open}
-                    meta={season.pos.get(id) ?? listed(p)}
-                    right={fmtWar(season.war.get(id))} />
+                    meta={labelOf(id)}
+                    right={fmtUsage(usage(id))} />
                 )
               })}
               {!loading && board.unsigned.length === 0 && (
@@ -202,7 +238,7 @@ function RowSkeleton() {
     <Box sx={ROW}>
       <Box sx={META}><Skeleton width="80%" /></Box>
       <Box sx={{ ...NAME, flex: 1 }}><Skeleton width="55%" /></Box>
-      <Box sx={RIGHT}><Skeleton width={chromePx(24)} /></Box>
+      <Box sx={RIGHT}><Skeleton width="6.5em" /></Box>
     </Box>
   )
 }

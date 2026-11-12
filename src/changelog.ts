@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.235.2',
+    date:    '2026-11-11',
+    changes: [
+      {
+        short: '2027 Rosters: playing time',
+        full:  'Each player not yet re-signed shows 2026 games and plate appearances, or innings pitched, in place of WAR. Hitters first, then pitchers, most-used first.',
+      },
+    ],
+  },
+  {
     version: '1.235.0',
     date:    '2026-11-11',
     changes: [
