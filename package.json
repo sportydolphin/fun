@@ -56,6 +56,7 @@
     "tracking-watch": "node --env-file=.env scripts/watch-wpbl-tracking.mjs",
     "retro-sync": "node --env-file=.env scripts/sync-wpbl-retro.mjs",
     "mentions-watch": "node --env-file=.env scripts/watch-wpbl-mentions.mjs",
+    "instagram-watch": "node --env-file=.env scripts/watch-wpbl-instagram.mjs",
     "bluesky-recaps": "node scripts/run-ts.mjs --env scripts/post-wpbl-bluesky-recaps.ts",
     "bluesky-game-start": "node scripts/run-ts.mjs --env scripts/post-wpbl-bluesky-game-start.ts",
     "visual": "node scripts/run-ts.mjs --env scripts/make-visual.ts",
