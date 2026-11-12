@@ -165,6 +165,16 @@ function questionTitle(section: FinderSection, q: Question): string {
   return namedQuestions(section).get(signature(q)) ?? describeFinderQuery(q.side, q)
 }
 
+/** "Hunters doubles", "Home runs allowed": a count asked with no number is the stat's name, said for
+ *  the club when there is one, since "Doubles at least 1" reads as a threshold nobody typed. */
+function bareTitle(section: FinderSection, p: ParsedFinder): string {
+  const stat = questionTitle(section, p).replace(/ at least 1(?![0-9])/, '')
+  const name = (id: string) => (section === 'wpbl' ? WPBL_TEAMS[id]?.name ?? id : clubLabel(section, id))
+  const vs = p.oppId ? ` vs ${name(p.oppId)}` : ''
+  if (!p.teamId) return `${stat}${vs}`
+  return `${name(p.teamId)} ${stat.charAt(0).toLowerCase()}${stat.slice(1)}${vs}`
+}
+
 // TWO ROWS NEVER SHARE A TITLE. "3 strikeouts in an inning" offered "Strikeouts at least 3" twice (a
 // pitcher's inning, a club's half at the plate), "Sato vs Hunters" "Ayami Sato vs BOS" four times,
 // and the difference sat at the end of a subtitle a phone cuts off. Rows that collide take the first
@@ -289,10 +299,15 @@ export function finderSuggestions(section: FinderSection, text: string): FinderS
   const rows = parsed
     // MLB's board reads no cut off its address (src/mlb/views/FindView.tsx), so a cut there is no row.
     .filter(p => section === 'wpbl' || !(p.from || p.to || p.last || p.hand))
+    // A stat with no number ("Hunters doubles") wants a club, a place or a year beside it. Alone,
+    // "doubles" is a word to define and a board to rank, which the rows above answer, and a name
+    // beside it ("Whitmore doubles") is the player question's (playerQuestionRows).
+    .filter(p => !p.bare || (!p.ignored.length && !!(p.teamId || p.oppId || p.venue !== 'any' || p.season || p.from || p.to || p.last || p.hand)))
     .map(p => {
     const field = record ? finderFields(p.side, 'inning').find(f => f.key === p.conditions[0].field) : null
-    const title = field ? `Most ${field.label.toLowerCase()} in an inning` : questionTitle(section, p)
-    const bits = scopeBits(section, p)
+    const title = field ? `Most ${field.label.toLowerCase()} in an inning` : p.bare ? bareTitle(section, p) : questionTitle(section, p)
+    // A club the title already names is not said again under it.
+    const bits = scopeBits(section, p.bare ? { ...p, teamId: null, oppId: null } : p)
     // Said, not dropped: Find cannot ask about a named player, so "Whitmore 2 hr" is everyone's
     // two-homer games, and the row has to admit the name went unused.
     if (p.ignored.length) bits.push(`not used: ${p.ignored.join(' ')}`)

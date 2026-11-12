@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { findFirsts, parseFirstText } from '../firsts'
+import { findFirsts, firstFindText, occurrenceTitle, occurrences, ordinal, parseFirstText } from '../firsts'
 import { plateAppearanceLines } from '../inningLines'
 import type { LeagueGame, RunValuePlay } from '../types'
 import { WPBL_LEAGUE } from '../../wpbl/league'
@@ -113,5 +113,118 @@ describe('firsts off the rows', () => {
 
   it('finds nothing off the rows without the log', () => {
     expect(findFirsts(lines, games, ['bk'], g => g.game_date)).toEqual([])
+  })
+})
+
+// A club's or a player's first: "first Hunters double", "Whitmore first hit". The owner can be typed
+// before "first", between it and the play, or after "by" / "for", and it narrows the same search.
+describe('whose first', () => {
+  const clubs = [{ id: 'BOS', names: ['BOS', 'Boston', 'Hunters', 'Boston Hunters'] }, { id: 'SF', names: ['SF', 'San Francisco', 'Firebells'] }]
+  const ask = (t: string) => parseFirstText(t, clubs)
+
+  it('reads a club wherever it is typed', () => {
+    for (const t of ['first hunters double', 'hunters first double', "hunters' first double", "boston's first double",
+      'first double by the hunters', 'first double for boston', 'the first double in hunters history', 'who hit the hunters first double?'])
+      expect(ask(t), t).toEqual({ kinds: ['double'], season: null, teamId: 'BOS' })
+    expect(ask('first sf home run of 2026')).toEqual({ kinds: ['hr'], season: 2026, teamId: 'SF' })
+    expect(ask('hunters first double play')).toEqual({ kinds: ['dp'], season: null, teamId: 'BOS' })
+  })
+
+  it('hands any other owner on as a name for the section to find', () => {
+    expect(ask('whitmore first hit')).toEqual({ kinds: ['hit'], season: null, who: 'whitmore' })
+    expect(ask("Kelsie Whitmore's first home run")).toEqual({ kinds: ['hr'], season: null, who: 'Kelsie Whitmore' })
+    expect(ask('first walk by whitmore')).toEqual({ kinds: ['walk'], season: null, who: 'whitmore' })
+  })
+
+  it('keeps the league its own, and a play whose words hold a "by" whole', () => {
+    expect(ask('first wpbl home run')).toEqual({ kinds: ['hr'], season: null })
+    expect(ask('first hr in wpbl history')).toEqual({ kinds: ['hr'], season: null })
+    expect(ask('first hit by pitch')).toEqual({ kinds: ['hbp'], season: null })
+  })
+
+  it('lists a club\'s firsts, and gives up on two owners', () => {
+    expect(ask('hunters firsts')).toMatchObject({ teamId: 'BOS' })
+    expect(ask('whitmore firsts')).toBeNull()
+    expect(ask('first hunters double by whitmore')).toBeNull()
+  })
+
+  it('asks Find for every one beside a club\'s first, on the side it is credited to', () => {
+    expect(firstFindText({ kinds: ['double'], season: null, teamId: 'BOS' })).toEqual({ text: 'BOS doubles', side: 'hitting' })
+    expect(firstFindText({ kinds: ['so'], season: 2026, teamId: 'BOS' })).toEqual({ text: 'BOS strikeouts 2026', side: 'pitching' })
+    expect(firstFindText({ kinds: ['double'], season: null })).toBeNull()
+    expect(firstFindText({ kinds: ['double'], season: null, teamId: 'BOS', who: 'x' })).toBeNull()
+  })
+
+  // Two clubs, so the club's first is not the league's: the home side's first strikeout comes after the
+  // away side's, and a player's first is theirs even when someone else did it sooner.
+  const games = [game('g1', '2026-06-01'), game('g2', '2026-06-02')]
+  const plays = [
+    play({ game_id: 'g1', team_id: 'away', batter_id: 'a1', pitcher_id: 'hp', event_type: 'double' }),
+    play({ game_id: 'g1', team_id: 'home', half: 'bottom', batter_id: 'h1', pitcher_id: 'ap', event_type: 'strikeout' }),
+    play({ game_id: 'g2', team_id: 'home', half: 'bottom', batter_id: 'h2', pitcher_id: 'ap', event_type: 'double' }),
+    play({ game_id: 'g2', team_id: 'away', batter_id: 'a2', pitcher_id: 'hp', event_type: 'strikeout' }),
+    play({ game_id: 'g2', team_id: 'away', batter_id: 'a1', pitcher_id: 'hp', event_type: 'double' }),
+  ]
+  const lines = plateAppearanceLines(WPBL_LEAGUE, plays, games)
+  const run = (kinds: Parameters<typeof findFirsts>[2], owner: Parameters<typeof findFirsts>[5]) => findFirsts(lines, games, kinds, g => g.game_date, plays, owner)
+
+  it('narrows to a club, crediting a strikeout to the club in the field', () => {
+    expect(run(['double'], { teamId: 'home' })[0]).toMatchObject({ playerId: 'h2', game_id: 'g2' })
+    expect(run(['so'], { teamId: 'home' })[0]).toMatchObject({ playerId: 'hp', game_id: 'g2' })
+    expect(run(['so'], { teamId: 'away' })[0]).toMatchObject({ playerId: 'ap', game_id: 'g1' })
+  })
+
+  it('narrows to a player, and finds nothing they never did', () => {
+    expect(run(['double'], { playerId: 'h2' })[0]).toMatchObject({ game_id: 'g2' })
+    expect(run(['hr'], { playerId: 'h2' })).toEqual([])
+  })
+})
+
+// The last and the Nth ride the same reading: "last Hunters double", "Hunters 100th hit" (Nov 11, 2026).
+describe('lasts and milestones', () => {
+  const clubs = [{ id: 'BOS', names: ['BOS', 'Boston', 'Hunters'] }]
+  const ask = (t: string) => parseFirstText(t, clubs)
+
+  it('reads the last and the Nth, with an owner wherever it is typed', () => {
+    expect(ask('last hunters double')).toEqual({ kinds: ['double'], season: null, teamId: 'BOS', which: 'last' })
+    expect(ask('most recent home run')).toEqual({ kinds: ['hr'], season: null, which: 'last' })
+    expect(ask("whitmore's latest hit")).toEqual({ kinds: ['hit'], season: null, who: 'whitmore', which: 'last' })
+    expect(ask('hunters 100th hit')).toEqual({ kinds: ['hit'], season: null, teamId: 'BOS', which: 100 })
+    expect(ask('the 500th strikeout of 2026')).toEqual({ kinds: ['so'], season: 2026, which: 500 })
+    expect(ask('whitmore tenth home run')).toEqual({ kinds: ['hr'], season: null, who: 'whitmore', which: 10 })
+    expect(ask('1st home run')).toEqual({ kinds: ['hr'], season: null })
+  })
+
+  // An inning, a base, a count of games: Find's questions, which a first must not swallow.
+  it('leaves an inning, a base and a run of games alone', () => {
+    for (const t of ['3rd inning home runs', 'first inning hr', 'second base', 'last 10 games', 'queens last 10', 'last 10 home runs', 'hr in the 2nd inning', 'last inning'])
+      expect(ask(t), t).toBeNull()
+  })
+
+  it('titles each the way it is said', () => {
+    expect(occurrenceTitle('double', undefined, { club: 'Hunters' })).toBe('First Hunters double')
+    expect(occurrenceTitle('double', 'last', { club: 'Hunters' })).toBe('Last Hunters double')
+    expect(occurrenceTitle('hit', 100, { club: 'Hunters' })).toBe('Hunters 100th hit')
+    expect(occurrenceTitle('hr', 10, { player: 'Kelsie Whitmore' })).toBe("Kelsie Whitmore's 10th home run")
+    expect(occurrenceTitle('so', 1000, {})).toBe('1,000th strikeout')
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 101, 111].map(ordinal)).toEqual(['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '101st', '111th'])
+  })
+
+  // A double steal is two stolen bases on one row, so the Nth can be the second runner on it.
+  const games = [game('g1', '2026-06-01')]
+  const plays = [
+    play({ batter_id: 'ann', batter_name: 'Ann Lee', event_type: 'single', first_base: 'Ann Lee' }),
+    play({ batter_id: 'bo', batter_name: 'Bo Diaz', event_type: 'single', first_base: 'Bo Diaz', second_base: 'Ann Lee' }),
+    play({ batter_id: 'cy', batter_name: 'Cy Ray', event_type: null, pitch_sequence: null, narrative: 'Ann Lee stole third; Bo Diaz stole second.' }),
+    play({ batter_id: 'cy', batter_name: 'Cy Ray', event_type: 'double' }),
+  ]
+  const lines = plateAppearanceLines(WPBL_LEAGUE, plays, games)
+  const all = (kind: Parameters<typeof occurrences>[2]) => occurrences(lines, games, kind, g => g.game_date, plays)
+
+  it('counts each event, not each row, in the order they happened', () => {
+    expect(all('sb').map(f => f.playerId)).toEqual(['ann', 'bo'])
+    expect(all('hit').map(f => f.playerId)).toEqual(['ann', 'bo', 'cy'])
+    expect(all('hit')[2]).toMatchObject({ playerId: 'cy', sequence: plays[3].sequence })
+    expect(occurrences(lines, games, 'sb', g => g.game_date, plays, { playerId: 'bo' })).toHaveLength(1)
   })
 })

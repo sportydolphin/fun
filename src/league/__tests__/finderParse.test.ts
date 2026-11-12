@@ -12,6 +12,20 @@ const CLUBS: FinderClubAlias[] = [
 const first = (t: string) => parseFinderText(t, CLUBS)[0]
 
 describe('parseFinderText', () => {
+  it('reads one count with no number as at least one, each its own plate appearance where the log lists them', () => {
+    const clubs = [{ id: 'BOS', names: ['BOS', 'Boston', 'Hunters'] }]
+    const [hit] = parseFinderText('hunters doubles', clubs, ['hitting', 'pitching'], { plays: true })
+    expect(hit).toMatchObject({ side: 'hitting', per: 'pa', teamId: 'BOS', bare: true, conditions: [{ field: '2b', op: 'gte', value: 1 }] })
+    // Without the log, and for a stat no plate appearance records, the games.
+    expect(parseFinderText('hunters doubles', clubs)[0]).toMatchObject({ per: 'game', bare: true })
+    expect(parseFinderText('hunters stolen bases', clubs, ['hitting'], { plays: true })[0]).toMatchObject({ per: 'game', bare: true })
+    // A rate has no "any of it", and two stats could mean either.
+    expect(parseFinderText('hunters avg', clubs)).toEqual([])
+    expect(parseFinderText('hunters doubles and triples', clubs)).toEqual([])
+    // A number is still the number.
+    expect(parseFinderText('hunters 2 doubles', clubs)[0].bare).toBeUndefined()
+  })
+
   it('reads a bare count as at least, and leans strikeouts toward the pitcher', () => {
     const r = parseFinderText('5 strikeouts', CLUBS).filter(x => x.per === 'game')
     expect(r.map(x => x.side)).toEqual(['pitching', 'hitting'])

@@ -23,6 +23,11 @@
 
 const COUNT_WORDS = /(?<![a-z])(zero|no|none|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|without|multi|double|triple|immaculate|loaded|slams?|walk[\s-]?offs?|full|risp|scoring|empty|extras?|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|runners?|men|someone|somebody|comebacks?|behind|ahead|rall(?:y|ies)|lead|biggest|largest|back|b2b|straight|consecutive|successive|at[\s-]?bats?|plate\s+appearances?|shut[\s-]?outs?|blow[\s-]?outs?|errorless|stole\s+home|steals?\s+of\s+home|home\s+steals?|shortstops?|catchers?|(?:left|center|right)\s+field(?:ers?)?|perfect|complete|cg|quality|cycles?|streaks?|pinch|bunts?|infield|leadoff|lead\s+off|leading\s+off|lefties|lefty|righties|righty|southpaws?|[lr]hps?|(?:left|right)[\s-]?hand(?:ed|ers?)?|last|past|since|through|until|before|after|record|twice|solo|sombreros?|maddux(?:es)?|jan(?:uary)?|feb(?:ruary)?|march|april|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?![a-z])/i
 
+// A COUNT SAID WITH NO NUMBER ("Hunters doubles", "home runs vs SF"), which the parser reads as every
+// one of them once a club, a place or a year is beside it. The counting stats only: a rate has no
+// "any of it". Missing until Nov 11, 2026, so "Hunters doubles" never reached the parser.
+const COUNT_STATS = /(?<![a-z])(doubles|triples|singles|hits|home\s*runs?|homers?|hrs?|walks|strikeouts|ks|stolen\s+bases|steals|rbis?|runs|errors|wins|losses|saves|hbp|sac(?:rifice)?\s+(?:flies|bunts))(?![a-z])/i
+
 export function mightBeFinderQuestion(text: string): boolean {
-  return /\d/.test(text) || COUNT_WORDS.test(text)
+  return /\d/.test(text) || COUNT_WORDS.test(text) || COUNT_STATS.test(text)
 }

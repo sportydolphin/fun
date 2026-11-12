@@ -170,7 +170,7 @@ export function parsePlayerQuestion(
     const asked = raw.filter((_w, i) => !inSpan(i) && i !== spans[0].from - 1).join(' ')
     // A count: the batters with at least that many off them over the season.
     const counted = parseFinderText(`${asked} on the season`, clubs, ['hitting'], opts)
-      .filter(p => p.per === 'season' && !p.ignored.length && p.conditions.length && p.conditions.every(c => PA_SEASON_KEYS.has(c.field)))
+      .filter(p => p.per === 'season' && !p.bare && !p.ignored.length && p.conditions.length && p.conditions.every(c => PA_SEASON_KEYS.has(c.field)))
       .slice(0, 1)
     // A stat alone: who has the most off them. A rate brings its own small bar, five trips.
     const ranked = counted.length ? [] : parseLeaderText(asked)
@@ -194,7 +194,9 @@ export function parsePlayerQuestion(
   // A side the player has lines on: a pitcher's strikeouts, a hitter's hits. Fielding is anyone who plays.
   const plays = (p: RosterPlayer, side: FinderBoardSide) => (side === 'pitching' ? p.pitches : side === 'hitting' ? p.hits : p.hits || p.pitches)
 
-  const read = parseFinderText(rest, clubs, sides, opts).filter(p => !p.ignored.length && !(p.per === 'inning' && p.side === 'hitting'))
+  // Not a stat said with no number ("Lee hr"): the name search's row answers that with the player's
+  // total, and the record, against and line-vs-club readings below own the rest of its phrasings.
+  const read = parseFinderText(rest, clubs, sides, opts).filter(p => !p.ignored.length && !p.bare && !(p.per === 'inning' && p.side === 'hitting'))
   if (read.length) {
     for (const id of ids) {
       const p = byId.get(id)!
