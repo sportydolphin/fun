@@ -69,3 +69,54 @@ export async function setAllGamesPref(userId: string, on: boolean): Promise<stri
   setCachedAllGamesPref(on)
   return null
 }
+
+// ─── Re-signing opt-in ────────────────────────────────────────────────────────
+//
+// A push each time a club re-signs a player (user_preferences.notify_wpbl_resigns), sent by
+// scripts/watch-wpbl-instagram.mjs when it records the move. The same shape as the game opt-in
+// above: a column the sender can read, mirrored to localStorage for the first frame, and turning
+// it on runs enablePush() so a device that never granted permission is asked.
+
+const RESIGNS_KEY = 'wpbl_notify_resigns'
+
+export function getCachedResignPref(): boolean {
+  try { return localStorage.getItem(RESIGNS_KEY) === '1' } catch { return false }
+}
+
+function setCachedResignPref(on: boolean) {
+  try { localStorage.setItem(RESIGNS_KEY, on ? '1' : '0') } catch {}
+}
+
+/** null when the column isn't there yet, so the caller keeps whatever it had. */
+export async function fetchResignPref(userId: string): Promise<boolean | null> {
+  const { data, error } = await supabase
+    .from('user_preferences')
+    .select('notify_wpbl_resigns')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error || !data) return null
+  const on = !!(data as { notify_wpbl_resigns?: boolean }).notify_wpbl_resigns
+  setCachedResignPref(on)
+  return on
+}
+
+/** Returns an error string for the caller to show inline, or null on success. */
+export async function setResignPref(userId: string, on: boolean): Promise<string | null> {
+  if (on) {
+    const err = (await isSubscribed()) ? null : await enablePush(userId)
+    if (err) return err
+  }
+  const { error } = await supabase
+    .from('user_preferences')
+    .upsert({
+      user_id:             userId,
+      notify_wpbl_resigns: on,
+      updated_at:          new Date().toISOString(),
+    }, { onConflict: 'user_id' })
+  if (error) {
+    console.warn('[wpbl] setResignPref failed:', error.message)
+    return 'Couldn’t save that. Please try again.'
+  }
+  setCachedResignPref(on)
+  return null
+}

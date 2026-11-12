@@ -162,6 +162,8 @@ export const EVENT_INFO: Record<string, EventInfo> = {
   wpbl_game_calendar:     A('Added a game to a calendar', 'Games'),
   wpbl_game_reminder_on:  A('Turned a game reminder on', 'Games'),
   wpbl_game_reminder_off: A('Turned a game reminder off', 'Games'),
+  wpbl_resign_alerts_on:  A('Turned re-signing alerts on', 'Players & teams'),
+  wpbl_resign_alerts_off: A('Turned re-signing alerts off', 'Players & teams'),
 
   wpbl_player_opened:     A('Opened a player', 'Players & teams'),
   wpbl_team_opened:       A('Opened a team', 'Players & teams'),

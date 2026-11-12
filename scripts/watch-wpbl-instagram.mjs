@@ -44,6 +44,9 @@
  *   DISCORD_RESIGN_WEBHOOK_URL  where re-signings go. Falls back to DISCORD_ALERTS_WEBHOOK_URL
  *                               so the job is useful before its own channel exists.
  *   DISCORD_RESIGN_MENTION      optional user or role mention, e.g. "<@123…>".
+ *   VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT  for the readers' re-signing push.
+ *                               Without them the move is still recorded and announced; only
+ *                               the push is skipped, and the run says so.
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -52,6 +55,8 @@ import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import { pathToFileURL } from 'node:url'
 import { runWithHeartbeat } from '../shared/heartbeat.js'
+import webpush from 'web-push'
+import { buildWpblResign } from '../shared/notifications.js'
 // The league's own 2026 rosters and the window, from the module the rosters page draws with.
 // Imported, not copied: a re-signing the watcher records and the page then ignores (a player
 // it thinks is on another club) would be a row on the site that shows nowhere. Node 24 strips
@@ -77,6 +82,9 @@ const TOKEN = (process.env.META_ACCESS_TOKEN ?? '').trim()
 const IG_USER_ID = (process.env.META_IG_USER_ID ?? '').trim()
 const WEBHOOK = (process.env.DISCORD_RESIGN_WEBHOOK_URL || process.env.DISCORD_ALERTS_WEBHOOK_URL || '').trim()
 const MENTION = (process.env.DISCORD_RESIGN_MENTION ?? '').trim()
+const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY ?? process.env.VITE_VAPID_PUBLIC_KEY ?? ''
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY ?? ''
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:support@sportydolphin.fun'
 
 // Pinned rather than "latest": Meta retires a version two years after release and changes
 // field behavior between them, and a silent change in what business_discovery returns is the
@@ -328,6 +336,62 @@ async function post(content, mention = '') {
   if (!res.ok) throw new Error(`Discord ${res.status}: ${await res.text().catch(() => '')}`)
 }
 
+/**
+ * The readers' push for each newly recorded re-signing, to everyone with
+ * user_preferences.notify_wpbl_resigns. Sent only for a move this run wrote: a player already on
+ * the rosters was news when that row went in, and a second post about the same signing must not
+ * buzz a phone twice. Returns how many devices it reached. Never throws: a push outage must not
+ * stop the roster write or the Discord alert behind it.
+ */
+async function pushResigns(moves, nameOf) {
+  if (!moves.length || DRY_RUN) return 0
+  if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
+    console.warn('⚠️   No VAPID keys, so no re-signing push.')
+    return 0
+  }
+  try {
+    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE)
+    const { data: prefs, error: prefErr } = await supabase.from('user_preferences')
+      .select('user_id').eq('notify_wpbl_resigns', true)
+    if (prefErr) throw new Error(prefErr.message)
+    const users = (prefs ?? []).map(p => p.user_id)
+    if (!users.length) return 0
+    const { data: subs, error: subErr } = await supabase.from('push_subscriptions')
+      .select('endpoint, p256dh, auth').in('user_id', users)
+    if (subErr) throw new Error(subErr.message)
+    let sent = 0
+    for (const move of moves) {
+      const n = buildWpblResign({
+        playerId: move.player_id,
+        playerName: nameOf(move.player_id),
+        teamName: TEAM_NAMES[move.team_id] ?? move.team_id,
+        season: move.season,
+      })
+      // The wire shape every sender uses: `id` doubles as the tag, the emoji travels apart from
+      // `icon`, which sw.js keeps for the notification image.
+      const body = JSON.stringify({ id: n.id, type: n.type, title: n.title, body: n.body, url: n.url, emoji: n.icon, tag: n.id })
+      for (const s of subs ?? []) {
+        try {
+          await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, body)
+          sent++
+        } catch (err) {
+          const code = err?.statusCode
+          if (code === 404 || code === 410) {
+            await supabase.from('push_subscriptions').delete().eq('endpoint', s.endpoint)
+          } else {
+            console.warn(`   Push failed (${code ?? 'no status'}): ${err?.body ?? err?.message ?? err}`)
+          }
+        }
+      }
+    }
+    console.log(`Pushed ${moves.length} re-signing(s) to ${sent} device(s) for ${users.length} reader(s).`)
+    return sent
+  } catch (err) {
+    console.error(`   Re-signing push failed: ${err?.message ?? err}`)
+    return 0
+  }
+}
+
 // "Every row" needs paging and an order: PostgREST stops at 1000 without saying so.
 async function loadPlayers() {
   const rows = []
@@ -453,6 +517,7 @@ async function main() {
     }
     existing.push(...moves)
     const byId = new Map(row.player_ids.map((id, i) => [id, row.player_names[i]]))
+    await pushResigns(moves, id => byId.get(id) ?? 'A player')
     await post(resignMessage(row, { recorded: moves.map(m => byId.get(m.player_id)), skipped, already }), MENTION)
     if (!DRY_RUN) {
       // One at a time, so a webhook failure halfway leaves the rest queued, not lost.
