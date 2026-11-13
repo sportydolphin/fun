@@ -44,7 +44,8 @@ export {
   getCachedWpblFanPhotoIndex, fetchWpblFanPhotoIndex, type WpblFanPhotoRow, fetchWpblFanPhotoQueue,
   setFanPhotoApproved, updateFanPhoto, addFanPhotoSubject, removeFanPhotoSubject,
   upsertFanPhotoCategory, upsertFanPhotoFigure, findFanPhotoBySha, insertFanPhoto,
-  fetchFanPhotoContributors, createFanPhotoContributor, updateFanPhotoContributor
+  fetchFanPhotoContributors, createFanPhotoContributor, updateFanPhotoContributor,
+  fetchR2StorageSnapshots, type R2StorageSnapshot
 } from './api/photos'
 export {
   photoTagKey, fetchPhotosToTag, suggestPhotoTags, reportPhoto,

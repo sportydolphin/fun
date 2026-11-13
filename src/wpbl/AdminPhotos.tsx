@@ -12,6 +12,7 @@ import {
 } from './api'
 import { TagReviewProvider, useTagReview, useTagReviewContext, SuggestionChips, PhotoTaggingSection } from './AdminPhotoTagging'
 import { prepareForUpload, uploadPreparedPhoto } from './fanPhotoUpload'
+import AdminPhotoStorage from './AdminPhotoStorage'
 
 // The crop library and its stylesheet load only when Crop is pressed.
 const PhotoCropper = lazy(() => import('./PhotoCropper'))
@@ -1116,6 +1117,8 @@ export default function AdminPhotos() {
           </IconButton>
         </Box>
       </Box>
+
+      <AdminPhotoStorage />
 
       <UploadPanel categories={categories} contributors={contributors}
         onContributorsChanged={reloadContributors} onUploaded={load} />

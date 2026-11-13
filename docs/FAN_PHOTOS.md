@@ -330,9 +330,10 @@ suggestion here. See [`PHOTO_TAGGING.md`](PHOTO_TAGGING.md).
 
 ## Deliberately not building
 
-- **No fan-facing upload.** Fans sending photographs directly keeps the abuse surface, the
-  storage quota and the moderation queue at zero, and avoids a fourth write path to the database.
-  There are three and there is a reason there are three.
+- **No fan-facing upload** (until Nov 12, 2026). Fans sending photographs directly keeps the abuse
+  surface, the storage quota and the moderation queue at zero, and avoids a fourth write path to
+  the database. A fan asked for it; the plan that keeps those three small is
+  [`FAN_UPLOADS.md`](FAN_UPLOADS.md).
 - No face detection or auto-tagging.
 - No route per figure.
 - No print or merchandise rights. The permission being collected is for the site.
