@@ -14,6 +14,8 @@ import { accountUsage, formatBytes, ALERT_AT, R2_FREE_TIER, type Allowance } fro
 const BUCKET_LABELS: Record<string, string> = {
   'sportydolphin-wpbl-photos': 'Published photos',
   'sportydolphin-wpbl-photo-submissions': 'Submissions',
+  // scripts/watch-r2-storage.mjs files operations with no bucket (creating one, its rules) here.
+  '(account)': 'Account',
 }
 
 const METERS: Array<{ key: Allowance; label: string }> = [

@@ -75,6 +75,12 @@ query R2Usage($account: string!, $storageStart: Time!, $monthStart: Time!, $now:
   }
 }`
 
+// Account-level operations (creating a bucket, setting its rules) come back with no bucket name.
+// They still count against the free tier, so they keep a row of their own under a name that
+// cannot be a real bucket (R2 names are lowercase letters, digits and hyphens).
+const ACCOUNT_ROW = '(account)'
+const bucketOf = name => name || ACCOUNT_ROW
+
 async function readUsage(now) {
   const res = await fetch('https://api.cloudflare.com/client/v4/graphql', {
     method: 'POST',
@@ -99,11 +105,11 @@ async function readUsage(now) {
   // Newest first, so the first sample seen per bucket is the latest.
   const latest = new Map()
   for (const g of acct.storage ?? []) {
-    const b = g.dimensions.bucketName
+    const b = bucketOf(g.dimensions.bucketName)
     if (!latest.has(b)) latest.set(b, g.max)
   }
   const ops = sumOperations((acct.operations ?? []).map(g => ({
-    bucket: g.dimensions.bucketName, action: g.dimensions.actionType, requests: g.sum.requests,
+    bucket: bucketOf(g.dimensions.bucketName), action: g.dimensions.actionType, requests: g.sum.requests,
   })))
 
   const names = new Set([...latest.keys(), ...ops.keys()])
