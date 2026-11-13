@@ -1531,7 +1531,8 @@ that is also a complete game shows once, as the complete-game shutout.
 2. **The owner console** in `/admin`: every note of a live or finished game, by score, filtered by
    category and lens, the evidence one tap away, copy as a Bluesky post, mark as posted (and flagged
    if a correction later removes it). Find opened on the current situation. Not part of the
-   redesign, so it can ship this winter.
+   redesign, so it can ship this winter. **Built Nov 13, 2026** (`/admin` → Notes), all but opening Find on
+   the current situation, which is left for later.
 3. **Readers' notes in Game Center**: the top notes as a strip while a game is live and a section on
    a finished one. Built on the redesigned Game Center beside the live field, so it is built once.
 4. **Later**: hiding or promoting a note for readers (an owner-written table behind a writer

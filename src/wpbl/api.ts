@@ -57,3 +57,6 @@ export {
   getCachedWpblRosterMoves, fetchWpblRosterMoves, ROSTER_MOVES_CHANGED_EVENT,
   saveWpblRosterMove, deleteWpblRosterMove, type NewRosterMove
 } from './api/offseasonMoves'
+export {
+  type WpblNotePost, fetchWpblNotePosts, saveWpblNotePost, deleteWpblNotePost
+} from './api/notePosts'
