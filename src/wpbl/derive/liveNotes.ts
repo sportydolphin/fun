@@ -1,7 +1,7 @@
 import { liveNotes, type LiveNote, type NotePos, type NotesOptions, type PlayReading, type ThrowChain } from '../../league/liveNotes'
 import { WPBL_LEAGUE } from '../league'
 import { seasonOf } from '../season'
-import type { WpblGame, WpblGamePlay } from '../types'
+import type { WpblGame, WpblRunValuePlay } from '../types'
 import { defenseIndex, errorFielders, readDoublePlay } from './fielding'
 
 /**
@@ -17,7 +17,8 @@ import { defenseIndex, errorFielders, readDoublePlay } from './fielding'
 
 export interface WpblNotesInput {
   games: readonly WpblGame[]
-  plays: readonly WpblGamePlay[]
+  /** The play log's columns are enough (`fetchWpblPlayLog`); a game's full rows work too. */
+  plays: readonly WpblRunValuePlay[]
   /** Batting and pitching lines, with positions: who started where, and each player's club that day. */
   lines: readonly { game_id: string; player_id: string; team_id: string | null; position?: string | null }[]
   players: readonly { id: string; name: string }[]
@@ -71,4 +72,28 @@ export function wpblLiveNotes(input: WpblNotesInput, opts?: NotesOptions): Map<s
     read: p => readWpblPlay(p.narrative),
     fielderAt,
   }, opts)
+}
+
+/** Bluesky's cap, in characters (it counts graphemes; these notes are plain text). */
+const POST_MAX = 300
+/** The second line is worth posting only where it carries the history: the record a note beat, the
+ *  streak it passed. A rare note's "Last: 2026-08-29" is the console's, not the reader's. */
+const POST_DETAIL = new Set<LiveNote['category']>(['record', 'streak', 'situation', 'watch'])
+
+/** A note as a post: its words, the history line where it has one, and the play's link. */
+export function notePostText(note: LiveNote, url: string): string {
+  const tail = `\n\n${url}`
+  const full = note.detail && POST_DETAIL.has(note.category) ? `${note.text}\n${note.detail}` : note.text
+  if (full.length + tail.length <= POST_MAX) return full + tail
+  const room = POST_MAX - tail.length
+  return (note.text.length <= room ? note.text : `${note.text.slice(0, room - 1).trimEnd()}…`) + tail
+}
+
+/** What was posted about a game and is no longer true: the league corrected the play, and the
+ *  engine stopped producing the note. A post cannot be edited, so the owner has to see these. */
+export function postedButGone<P extends { note_key: string; game_id: string }>(
+  posts: readonly P[], gameId: string, notes: readonly LiveNote[],
+): P[] {
+  const live = new Set(notes.map(n => n.key))
+  return posts.filter(p => p.game_id === gameId && !live.has(p.note_key))
 }

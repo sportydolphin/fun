@@ -1524,7 +1524,7 @@ function AppInner() {
           )}
           {isWpblRostersPage(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-              <WpblRostersPage onNavigate={navigate} />
+              <WpblRostersPage onNavigate={navigateFromStandalone} />
             </Suspense>
           )}
           {isWpblSeasonPage(path) && (

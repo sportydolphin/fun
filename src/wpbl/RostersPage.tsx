@@ -6,8 +6,9 @@
 // every re-signed row, so a reader can check any claim the page makes.
 //
 // THE CARD SHAPE HOLDS WHILE LOADING. The 2026 rosters are a fixed list (offseason2027.ts), so the
-// skeleton draws every club's real row count; only the split between re-signed and unsigned waits on
-// the read, and it is reserved at none re-signed, the likeliest state on any given morning.
+// skeleton draws every club's real row count. The split between re-signed and unsigned comes from
+// the moves already in memory (Home's card reads them) when there are any, and otherwise is reserved
+// at none re-signed: a cold load after a club has re-signed someone still moves by that group.
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { SectionCard, TYPE_SCALE, TeamBadge, TAPPABLE, hoverOnly, chromePx } from './ui'
@@ -22,7 +23,7 @@ import { NameText } from '../ui/NameText'
 import { isModified } from '../nav'
 import { track, EVENTS } from '../lib/analytics'
 import {
-  rosterBoards, resignPhase, windowLine, ROSTERS_2026, DRAFT_ORDER_2027, MAX_RESIGNED,
+  rosterBoards, resignPhase, windowLine, DRAFT_ORDER_2027, MAX_RESIGNED,
   ROSTER_EXPLAINER_URL, ROSTER_SEASON, CLUB_NAMES_2026,
 } from './offseason2027'
 import type { WpblPlayer, WpblRosterMove, WpblTeam } from './types'
@@ -135,19 +136,19 @@ export default function RostersPage({ onNavigate }: { onNavigate: (to: string) =
             <SectionCard key={board.teamId} title={title}
               titleAdornment={team ? <TeamBadge team={team} size={22} /> : <Box sx={{ width: chromePx(22), height: chromePx(22) }} />}
               action={<Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: 'text.secondary' }}>
-                {loading ? 0 : board.resigned.length} of {MAX_RESIGNED} re-signed
+                {board.resigned.length} of {MAX_RESIGNED} re-signed
               </Typography>}>
-              {!loading && board.resigned.length > 0 && (
+              <Meter filled={board.resigned.length} />
+              {board.resigned.length > 0 && (
                 <>
                   <GroupLabel>Re-signed</GroupLabel>
                   {board.resigned.map(({ playerId, move }) => {
                     const p = playerById.get(playerId)
-                    if (!p) return null
+                    if (loading || !p) return <RowSkeleton key={playerId} />
                     return (
                       <Row key={playerId} name={p.name} href={wpblPlayerPath(p, players)} onOpen={open}
                         meta={season.pos.get(playerId) ?? listed(p)}
-                        right={<Box component="a" href={move.source_url} target="_blank" rel="noopener noreferrer"
-                          sx={{ color: 'text.secondary', textDecoration: 'none', ...hoverOnly({ textDecoration: 'underline' }) }}>
+                        right={<Box component="a" href={move.source_url} target="_blank" rel="noopener noreferrer" sx={DATE_LINK}>
                           {dayLabel(move.announced_on)}
                         </Box>} />
                     )
@@ -155,7 +156,7 @@ export default function RostersPage({ onNavigate }: { onNavigate: (to: string) =
                 </>
               )}
               <GroupLabel right="2026">{phase === 'closed' ? 'Draft eligible' : 'Not yet re-signed'}</GroupLabel>
-              {(loading ? ROSTERS_2026[board.teamId] ?? [] : byUsage(board.unsigned, usage)).map(id => {
+              {(loading ? board.unsigned : byUsage(board.unsigned, usage)).map(id => {
                 const p = playerById.get(id)
                 if (loading || !p) return <RowSkeleton key={id} />
                 return (
@@ -217,18 +218,38 @@ function GroupLabel({ children, right }: { children: React.ReactNode; right?: st
   )
 }
 
+// THE WHOLE ROW OPENS THE PLAYER, not just the name: the row already lights up on hover, and a tap on
+// the position or the playing time used to do nothing. One link (the name) stretched over the row by
+// its ::after, so there is still one real <a href> per player and no link nested in another; the
+// re-signed row's source date sits above the stretch (DATE_LINK) and stays its own link.
 function Row({ name, href, meta, right, onOpen }: {
   name: string; href: string; meta: string; right: React.ReactNode
   onOpen: (href: string, e: React.MouseEvent) => void
 }) {
   return (
-    <Box sx={{ ...ROW, ...TAPPABLE }}>
+    <Box sx={{ ...ROW, ...TAPPABLE, position: 'relative' }}>
       <Typography component="span" sx={META}>{meta}</Typography>
       <Box sx={{ minWidth: 0, flex: 1 }}>
-        <NameText name={name} component="span" sx={{ ...NAME, display: 'block', color: 'text.primary', textDecoration: 'none' }}
+        <NameText name={name} component="span"
+          sx={{ ...NAME, display: 'block', color: 'text.primary', textDecoration: 'none', '&::after': { content: '""', position: 'absolute', inset: 0 } }}
           linkProps={{ component: 'a', href, onClick: (e: React.MouseEvent) => onOpen(href, e) }} />
       </Box>
       <Box sx={RIGHT}>{right}</Box>
+    </Box>
+  )
+}
+
+/** A link inside a row, lifted above the row's stretched player link so it keeps its own target. */
+const DATE_LINK = { position: 'relative', zIndex: 1, color: 'text.secondary', textDecoration: 'none', ...hoverOnly({ textDecoration: 'underline' }) } as const
+
+/** The club's re-signings so far against the cap, one segment each. Drawn at 0 while loading, the
+ *  same box either way. Ornament: the "N of 10" beside the title carries the number. */
+function Meter({ filled }: { filled: number }) {
+  return (
+    <Box aria-hidden sx={{ display: 'grid', gridTemplateColumns: `repeat(${MAX_RESIGNED}, 1fr)`, gap: '3px', px: 0.75, pb: 1.25 }}>
+      {Array.from({ length: MAX_RESIGNED }, (_, i) => (
+        <Box key={i} sx={{ height: 6, borderRadius: '2px', bgcolor: i < filled ? 'primary.main' : 'divider' }} />
+      ))}
     </Box>
   )
 }

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { FIRST_KINDS, findFirsts } from '../../league/firsts'
 import { plateAppearanceLines } from '../../league/inningLines'
 import { PUBLIC_BAR, PUBLIC_CAP, type LiveNote } from '../../league/liveNotes'
-import { wpblLiveNotes, readWpblPlay } from '../derive/liveNotes'
+import { wpblLiveNotes, readWpblPlay, notePostText, postedButGone } from '../derive/liveNotes'
 import { WPBL_LEAGUE } from '../league'
 import { countsInStandings } from '../season'
 import { applyPlayCorrections, type WpblPlayCorrection } from '../playCorrections'
@@ -155,5 +155,33 @@ describe('readWpblPlay', () => {
     expect(readWpblPlay('Jua Park singled to left field, RBI (0-1 K); Skylar Kaplan advanced to third, out at home lf to 3b to c; Andreanne Leblanc scored.').chains)
       .toEqual([{ what: 'out', base: 'home', chain: ['lf', '3b', 'c'], how: null }])
     expect(readWpblPlay('Mo\'ne Davis reached first on an error by cf (0-1 K).').errors).toEqual(['cf'])
+  })
+})
+
+describe('posting a note', () => {
+  const record = all.find(n => n.category === 'record' && n.detail)!
+  const rare = all.find(n => n.category === 'rare' && n.detail)!
+  const url = 'https://sportydolphin.fun/wpbl/games/x#play-4'
+
+  it("keeps the history line for a record and drops a rare note's date", () => {
+    expect(notePostText(record, url)).toBe(`${record.text}\n${record.detail}\n\n${url}`)
+    expect(notePostText(rare, url)).toBe(`${rare.text}\n\n${url}`)
+  })
+
+  it('fits Bluesky and never cuts the link', () => {
+    const long = { ...record, text: 'x'.repeat(400) }
+    const text = notePostText(long, url)
+    expect(text.length).toBeLessThanOrEqual(300)
+    expect(text.endsWith(url)).toBe(true)
+  })
+
+  it('flags a post the engine no longer produces', () => {
+    const list = notes.get(record.game_id)!
+    const posts = [
+      { note_key: record.key, game_id: record.game_id },
+      { note_key: 'gone|after|a|correction', game_id: record.game_id },
+      { note_key: 'other|game', game_id: 'someone-else' },
+    ]
+    expect(postedButGone(posts, record.game_id, list).map(p => p.note_key)).toEqual(['gone|after|a|correction'])
   })
 })

@@ -422,6 +422,7 @@ flowchart TB
         t_vid["wpbl_videos<br/>(YouTube uploads; is_short from a probe or the length; length and views from the Data API)"]
         t_vtag["wpbl_video_tags<br/>(each Short's game, play, players, club)"]
         t_moves["wpbl_roster_moves<br/>(re-signings and the draft, by hand on /admin → Rosters, each with its source link)"]
+        t_npost["wpbl_note_posts<br/>(live notes posted to Bluesky, by key; owner-only, from /admin → Notes)"]
         t_hipost["wpbl_discord_highlight_posts<br/>(one post per reel)"]
         t_bpost["wpbl_discord_birthday_posts<br/>(one greeting per person per year)"]
         t_lineup["wpbl_lineup_history (VIEW)<br/>wpbl_pitching_usage (VIEW)"]
@@ -1084,7 +1085,7 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 - What a finished game looks like on a public timeline, and why it is an image rather than a table → [`src/wpbl/derive/blueskyRecap.ts`](src/wpbl/derive/blueskyRecap.ts) and [`scripts/post-wpbl-bluesky-recaps.ts`](scripts/post-wpbl-bluesky-recaps.ts)
 - What a game about to start looks like on a public timeline, and why it carries a wall clock rather than a countdown → [`src/wpbl/derive/blueskyGameStart.ts`](src/wpbl/derive/blueskyGameStart.ts) and [`scripts/post-wpbl-bluesky-game-start.ts`](scripts/post-wpbl-bluesky-game-start.ts)
 - Finding the people already asking where to follow a game (which platforms permit it, which need a credential, why a comment is judged differently from a post, and why the job never replies) → [`scripts/watch-wpbl-mentions.mjs`](scripts/watch-wpbl-mentions.mjs) and the "mention watcher" section of [`docs/DISCORD.md`](docs/DISCORD.md)
-- Live notes, every first, record, milestone and streak a game produces (the engine, WPBL's reader of the scorer's words, and the 2026 backtest that sets the public bar) → [`src/league/liveNotes.ts`](src/league/liveNotes.ts), [`src/wpbl/derive/liveNotes.ts`](src/wpbl/derive/liveNotes.ts) and [`scripts/live-notes.ts`](scripts/live-notes.ts), run as `npm run notes`
+- Live notes, every first, record, milestone and streak a game produces (the engine, WPBL's reader of the scorer's words, and the 2026 backtest that sets the public bar) → [`src/league/liveNotes.ts`](src/league/liveNotes.ts), [`src/wpbl/derive/liveNotes.ts`](src/wpbl/derive/liveNotes.ts) and [`scripts/live-notes.ts`](scripts/live-notes.ts), run as `npm run notes`; the owner console (every note of a game, filters, evidence, copy as a post, posted marks in `wpbl_note_posts`) → [`src/wpbl/AdminLiveNotes.tsx`](src/wpbl/AdminLiveNotes.tsx), `/admin` → Notes
 - Offseason Visuals, the share series for Bluesky and Reddit (the series frame, three output sizes, frames rendered with resvg and piped into ffmpeg, and a starter to copy) → [`scripts/visuals/kit.ts`](scripts/visuals/kit.ts), run by [`scripts/make-visual.ts`](scripts/make-visual.ts) as `npm run visual -- <slug>`; the list of ideas is in ROADMAP-WPBL.md
 - The three non-league feeds each live where a reader looks for them, not in one shared card: the
   writing on its own page (`/wpbl/reading`, [`src/wpbl/ReadingPage.tsx`](src/wpbl/ReadingPage.tsx)),

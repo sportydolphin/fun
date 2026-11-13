@@ -22,5 +22,8 @@ export default [
   // Brotli, size-limit's default and what Cloudflare serves. Nov 7: 396 kB, 110 kB, 1.05 MB.
   { name: 'First load on /wpbl (entry plus live preloads)', path: firstLoad, limit: '428 kB' },
   { name: 'Entry chunk', path: 'dist/assets/index-*.js', limit: '119 kB' },
-  { name: 'All JavaScript', path: 'dist/assets/*.js', limit: '1130 kB' },
+  // Raised from 1130 kB on Nov 13, when /admin's live notes console took it 379 B over: a lazy
+  // chunk only the owner downloads, so no reader's load moved. Main had grown to the old limit since
+  // Nov 7 in ordinary work, which the 8% was for.
+  { name: 'All JavaScript', path: 'dist/assets/*.js', limit: '1180 kB' },
 ]

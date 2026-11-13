@@ -8,6 +8,7 @@ import { runningBuild } from './lib/staleBuild'
 import AdminPhotos from './wpbl/AdminPhotos'
 import AdminClips from './wpbl/AdminClips'
 import AdminRosterMoves from './wpbl/AdminRosterMoves'
+import AdminLiveNotes from './wpbl/AdminLiveNotes'
 import AdminRoadmap from './AdminRoadmap'
 import { PlayerPortrait } from './wpbl/ui'
 // The gesture the win probability and standings charts already use. It lives under wpbl/
@@ -50,11 +51,12 @@ const palettePicked = (p: PaletteStats) => p.sections.reduce((n, s) => n + s.pic
 // whether the pipelines ran, and the things the owner operates. They share almost nothing:
 // the range and league filters below apply to the first and to nothing else, so they are
 // three groups rather than three runs of cards separated by nothing but a heading.
-type Group = 'audience' | 'health' | 'tools' | 'photos' | 'clips' | 'rosters' | 'roadmap'
+type Group = 'audience' | 'health' | 'tools' | 'notes' | 'photos' | 'clips' | 'rosters' | 'roadmap'
 const GROUPS: Array<{ value: Group; label: string }> = [
   { value: 'audience', label: 'Audience' },
   { value: 'health',   label: 'Health' },
   { value: 'tools',    label: 'Tools' },
+  { value: 'notes',    label: 'Notes' },
   { value: 'photos',   label: 'Photos' },
   { value: 'clips',    label: 'Clips' },
   { value: 'rosters',  label: 'Rosters' },
@@ -1663,6 +1665,8 @@ export default function AdminPage() {
       {group === 'health' && <Box sx={{ maxWidth: ADMIN_NARROW }}><HealthGroup health={health} /></Box>}
 
       {group === 'tools' && <Box sx={{ maxWidth: ADMIN_NARROW }}><AdminTools /></Box>}
+
+      {group === 'notes' && <AdminLiveNotes />}
 
       {group === 'photos' && <AdminPhotos />}
 
