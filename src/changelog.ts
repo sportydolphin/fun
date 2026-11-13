@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.238.1',
+    date:    '2026-11-13',
+    changes: [
+      {
+        short: 'Photos: a notice when yours are reviewed',
+        full:  'When a photo you submitted is published or declined, it shows in the bell, and on your phone if you turned on notifications, with the reason when one was given.',
+      },
+    ],
+  },
+  {
     version: '1.238.0',
     date:    '2026-11-13',
     changes: [

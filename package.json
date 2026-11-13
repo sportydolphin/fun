@@ -54,6 +54,7 @@
     "listen-tracking": "node --env-file=.env scripts/listen-wpbl-tracking.mjs",
     "news-watch": "node --env-file=.env scripts/watch-wpbl-news.mjs",
     "r2-storage": "node --env-file=.env scripts/watch-r2-storage.mjs",
+    "photo-notify": "node --env-file=.env scripts/notify-photo-submissions.mjs",
     "tracking-watch": "node --env-file=.env scripts/watch-wpbl-tracking.mjs",
     "retro-sync": "node --env-file=.env scripts/sync-wpbl-retro.mjs",
     "mentions-watch": "node --env-file=.env scripts/watch-wpbl-mentions.mjs",

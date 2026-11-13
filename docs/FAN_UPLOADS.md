@@ -129,7 +129,12 @@ guard, and the monitor is the net.
 4. **Launch.** Terms (the license a fan grants, content rules, age 13, takedown), privacy (what is
    stored), `delete-account`, the two notifications (to the owner on a submission, to the fan on a
    decision), the changelog, and the setup steps above. *Terms, privacy and `delete-account`
-   shipped with phase 3; the notifications are what is left.* `delete-account` marks the fan's
+   shipped with phase 3.* *The notifications shipped Nov 13, 2026*
+   (`20261113200000_photo_submission_notifications.sql`, `scripts/notify-photo-submissions.mjs`,
+   `src/wpbl/notifications/photoSubmissions.ts`): a trigger wakes a workflow through
+   `wpbl_dispatch_workflow` on every submission and decision, a pg_cron sweep every ten minutes
+   catches what the one-minute gate let through, and the bell derives both from the table. A
+   workflow rather than an edge function because it ships with a merge. `delete-account` marks the fan's
    contributor record withdrawn (unlinking the account) and unpublishes their photos, and deletes
    their submissions.
 
