@@ -17,7 +17,7 @@ import { chromePx } from '../ui/scale'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblPlayer, WpblPhotoFigure, WpblTeam } from './types'
 
-// /wpbl/photos/tag: one unpublished fan photo at a time, and anyone, signed in or not, says who is in
+// /wpbl/photos/tag: one published fan photo at a time (the untagged first), and anyone, signed in or not, says who is in
 // it. See docs/PHOTO_TAGGING.md. What this page sends are SUGGESTIONS: the owner confirms each one in
 // /admin before it becomes a tag, so the page promises exactly that and nothing more.
 //

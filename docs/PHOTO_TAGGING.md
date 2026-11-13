@@ -4,6 +4,23 @@
 build differs. Read [`FAN_PHOTOS.md`](FAN_PHOTOS.md) first: this extends its tables and inherits
 its traps.
 
+## Published first, tagged after (Nov 12, 2026)
+
+The owner's call, reversing "every photo in review is open" below.
+[`20261113080000_publish_credited_fan_photos.sql`](../scripts/migrations/20261113080000_publish_credited_fan_photos.sql):
+
+- **A photo with a photographer is public on arrival.** A `before insert` trigger sets `approved`
+  when the row has a credit and a contributor who has not withdrawn, so the `/admin` uploader and
+  the ingest script both publish on upload. A photo without one stays unpublished. All 116 photos
+  then in review were published. Insert only, so an update never re-publishes what the owner or a
+  withdrawal took down.
+- **The queue is published photos**, untagged first. `not approved` became `approved` in
+  `wpbl_photos_to_tag` and `wpbl_suggest_photo_tags`, so the queue never shows an image the gallery
+  would not, and a withdrawn photographer's photos leave it.
+- **The screen for crowds and children happens before upload**, since uploading is publishing. A
+  report takes a photo out of the tag queue only, not out of the gallery: the owner unpublishes it
+  from `/admin`.
+
 ## Open by default (Oct 21, 2026)
 
 The owner's call, reversing two decisions below ("an owner gate", and a photo leaving the queue at

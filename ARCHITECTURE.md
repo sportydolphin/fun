@@ -611,10 +611,11 @@ write it. Never on the edge cache's list. On WBSC's yes it is dropped for a publ
 [`docs/WBSC_INGEST.md`](docs/WBSC_INGEST.md).
 
 **Public photo tagging rides beside it without touching that gate** (built Oct 20, 2026, migration
-`20261020200000_public_photo_tagging.sql`, not yet applied). `wpbl_fan_photos.open_for_tagging` is
-the owner's switch; the unpublished photos it opens are readable only through the definer function
-`wpbl_photos_to_tag(p_key, p_limit, p_skip)`, which returns a narrow column list, never through the
-table's policy (widening `using (approved)` would publish them in the gallery). Strangers write
+`20261020200000_public_photo_tagging.sql`). Since Nov 12, 2026 (`20261113080000`) a photo with a
+credit and a photographer on file publishes itself on insert (trigger `wpbl_fan_photo_publish_credited`),
+and the tag queue serves published photos only. `wpbl_fan_photos.open_for_tagging` is the owner's
+per-photo switch; the queue is read through the definer function
+`wpbl_photos_to_tag(p_key, p_limit, p_skip)`, which returns a narrow column list. Strangers write
 through `wpbl_suggest_photo_tags` and `wpbl_report_photo` into `wpbl_photo_tag_suggestions` and
 `wpbl_photo_reports`, which have an owner policy and none for anon, the same footing as the award
 votes, so not a fourth write path. The limits key on a salted hash of the caller's address

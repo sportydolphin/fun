@@ -42,8 +42,8 @@ export function photoTagKey(): string {
 
 export type TagSubject = { player: string } | { figure: string } | { team: string }
 
-/** One photo in review, as the queue hands it out: the renders and the credit, who the owner has
- *  already tagged (tagging is shared, so a tagged photo stays in the queue until it is published),
+/** One published photo, as the queue hands it out: the renders and the credit, who it is already
+ *  tagged with (tagging is shared, so a tagged photo stays in the queue, after the untagged ones),
  *  and the queue's progress (how many are open, how many already have a name). */
 export interface PhotoToTag {
   id: string
