@@ -55,6 +55,10 @@ export {
   type PhotoTagSuggestion, type PhotoReport, type PhotoTagBlock, type PhotoTagReview,
 } from './api/photoTagging'
 export {
+  fetchPendingPhotoSubmissions, fetchSubmissionRender, approvePhotoSubmission, rejectPhotoSubmission,
+  blockPhotoUploader, daysLeft, type PhotoSubmission, type SubmissionSubject,
+} from './api/photoSubmissions'
+export {
   getCachedWpblRosterMoves, fetchWpblRosterMoves, ROSTER_MOVES_CHANGED_EVENT,
   saveWpblRosterMove, deleteWpblRosterMove, type NewRosterMove
 } from './api/offseasonMoves'

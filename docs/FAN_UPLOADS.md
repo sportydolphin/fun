@@ -108,10 +108,18 @@ guard, and the monitor is the net.
 
 1. **This plan and the storage monitor.** The table, the job, the `/admin` card, the 80% push.
    Ships first because it is useful already and needs nothing from the phases after.
+   *Shipped Nov 13, 2026.*
 2. **The database and the owner's review queue.** `wpbl_photo_submissions`, the blocks, the
    writer, the fan's own read, approve and reject (definer, owner-checked), the endpoint
    (`/api/fan-submission`, signed-in, private bucket, owner read), "Submitted" in `/admin`.
    Verified as `anon` and as a plain signed-in user, as the tagging functions were.
+   *Built Nov 13, 2026* (`20261113170000_fan_photo_submissions.sql`, `functions/api/fan-submission.ts`,
+   `AdminPhotoSubmissions.tsx`). The permission wording is a row in `wpbl_photo_upload_terms`, not
+   a constant in code. Approving drops a pick whose player was merged away while the photo waited:
+   the picks are ids inside jsonb, which `wpbl_merge_players` cannot see. **`delete-account` is not
+   taught about submissions yet** (phase 4): the rows cascade with the account, but an approved
+   photo stays up under a contributor whose `user_id` goes null. Nothing reaches a fan before the
+   phase 3 page, so no account can be in that state until then.
 3. **The public page.** `/wpbl/photos/submit` (the four places a route needs), the permission
    text, "Your submissions" with Remove, the gallery panel pointing to it instead of email, sweep
    fixtures, and component tests against mocked calls.
