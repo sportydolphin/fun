@@ -118,14 +118,20 @@ guard, and the monitor is the net.
    a constant in code. Approving drops a pick whose player was merged away while the photo waited:
    the picks are ids inside jsonb, which `wpbl_merge_players` cannot see. **`delete-account` is not
    taught about submissions yet** (phase 4): the rows cascade with the account, but an approved
-   photo stays up under a contributor whose `user_id` goes null. Nothing reaches a fan before the
-   phase 3 page, so no account can be in that state until then.
+   photo stays up under a contributor whose `user_id` goes null. *Closed in phase 3.*
 3. **The public page.** `/wpbl/photos/submit` (the four places a route needs), the permission
    text, "Your submissions" with Remove, the gallery panel pointing to it instead of email, sweep
    fixtures, and component tests against mocked calls.
+   *Built Nov 13, 2026* (`PhotoSubmitPage.tsx`), together with phase 4's terms, privacy and
+   `delete-account`, since the page could not go live without them. The picker is
+   `PhotoSubjectPicker.tsx`, shared with the tagging page. The gallery panel links the page first
+   and keeps the email for a fan who would rather not make an account.
 4. **Launch.** Terms (the license a fan grants, content rules, age 13, takedown), privacy (what is
    stored), `delete-account`, the two notifications (to the owner on a submission, to the fan on a
-   decision), the changelog, and the setup steps above.
+   decision), the changelog, and the setup steps above. *Terms, privacy and `delete-account`
+   shipped with phase 3; the notifications are what is left.* `delete-account` marks the fan's
+   contributor record withdrawn (unlinking the account) and unpublishes their photos, and deletes
+   their submissions.
 
 ## Out, each on purpose
 

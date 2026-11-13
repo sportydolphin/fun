@@ -8,7 +8,7 @@ import { TYPE_SCALE } from './ui/card'
 // to match how the site actually works (Supabase auth, a predictions game, feedback),
 // not boilerplate. Plain language, no legalese theater.
 
-const LAST_UPDATED = 'October 20, 2026'
+const LAST_UPDATED = 'November 13, 2026'
 const SITE = 'sportydolphin.fun'
 
 // Underlined, because these links sit inside sentences: the site blue measures 2.5:1 against the
@@ -81,6 +81,7 @@ export function PrivacyPolicy() {
         <><b>When you use your account.</b> If you set a username or display name, make picks in the predictions game, or follow players and teams, that information is stored and tied to your account so the site can show it back to you.</>,
         <><b>When you send feedback.</b> If you use the feedback form, the message you write is stored, along with your account email if you are signed in, so the operator can read and respond.</>,
         <><b>When you help name who is in a fan photo.</b> No account is needed. The site stores the names you pick for a photo, a random identifier kept in your browser, and a scrambled (salted and hashed) form of your connection's IP address, never the address itself. These are used only to review the suggestions and to stop spam and abuse, and are never shown to other visitors. If you are signed in, your account is noted beside your suggestions.</>,
+        <><b>When you submit photos.</b> You need an account. The site stores the photos you send (resized copies made on your device, without the location or camera details the original file carries), the name you ask to be credited as, any note and any names you pick for a photo, the date, and the wording of the permission you agreed to. Until a photo is approved it is kept privately and seen only by you and the operator. A photo that is not approved is deleted from storage within 30 days.</>,
         <><b>Basic technical data.</b> Like most websites, the hosting and database providers may process standard technical information (such as IP address and browser type) to run and secure the service.</>,
       ]} />
       <P>
@@ -219,11 +220,12 @@ export function DeleteAccount() {
         <>Your prediction history and prediction stats, including any streak or leaderboard standing.</>,
         <>Your Streak Survivor picks and record, and your postseason pick'em answers.</>,
         <>Your push notification subscriptions, so the site stops sending to your devices.</>,
+        <>Photos you submitted: ones still waiting for review are deleted, and published ones are taken off the site.</>,
       ]} />
 
       <H>What is kept, and why</H>
       <P>
-        Three things survive, and none is tied to you afterwards:
+        Four things survive, and none is tied to your account afterwards:
       </P>
       <Bullets items={[
         <><b>Anonymous usage counts.</b> Records of which pages and features were used have the
@@ -234,6 +236,9 @@ export function DeleteAccount() {
           does not vanish before it is fixed, but your name, account link and reply-to address
           are removed from it. If you would rather the message itself went too, say so in your
           email and it will be deleted.</>,
+        <><b>That you once gave permission for your photos.</b> Your submitted photos are taken off the
+          site, but the photographer record stays, marked with the date the permission ended, as the
+          record of why those photos were shown. It holds the credit name, not your account.</>,
         <><b>Photo tags you suggested.</b> A tag says who is in a public photo, not anything about
           you, so it stays for the photo, with the account link removed.</>,
       ]} />
@@ -301,9 +306,22 @@ export function TermsOfService() {
         'Submit abusive, hateful, or unlawful content through the feedback form.',
       ]} />
 
+      <H>Submitting photos</H>
+      <P>
+        You can send photos you took at Women's Pro Baseball League games from the photos page,
+        signed in. By sending them you confirm that you took them and that you are at least 13
+        years old, and you give {SITE} permission to show them on this website, credited to the
+        name you enter. That permission covers this website only: not social media, not print. You
+        keep the rights to your photos. Every photo is reviewed before it appears, and the operator
+        may decline or remove any photo. Do not send photos where a member of the public or a child
+        is the subject, or anything that is not from the league. You can withdraw a waiting photo or
+        take down a published one at any time from the same page, and deleting your account takes
+        all of them down.
+      </P>
+
       <H>Naming who is in fan photos</H>
       <P>
-        Anyone can suggest who is in a fan photo that has not been published yet. A suggestion is
+        Anyone can suggest who is in a published fan photo. A suggestion is
         not a tag: nothing appears on the site until the operator has checked it, and the operator
         may reject any suggestion or stop accepting them from anyone. Please suggest only people you
         actually recognize. If a photo should not be on the site at all (for example it shows a

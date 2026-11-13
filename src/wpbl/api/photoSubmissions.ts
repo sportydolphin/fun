@@ -4,7 +4,7 @@
 // the table's policy (the owner sees every row).
 import { supabase } from '../../lib/supabase'
 import { fetchAllPaged } from './core'
-import { prepareFromRender, uploadPreparedPhoto } from '../fanPhotoUpload'
+import { prepareFromRender, uploadPreparedPhoto, type PreparedPhoto } from '../fanPhotoUpload'
 
 export type SubmissionSubject = { player: string } | { figure: string } | { team: string }
 
@@ -93,4 +93,91 @@ export const SUBMISSION_EXPIRY_DAYS = 30
 export function daysLeft(createdAt: string, now = Date.now()): number {
   const age = (now - new Date(createdAt).getTime()) / 86_400_000
   return Math.max(0, Math.ceil(SUBMISSION_EXPIRY_DAYS - age))
+}
+
+// ─── The fan's calls (the submit page) ──────────────────────────────────────────
+
+export interface UploadTerms { version: number; body: string }
+
+/** The permission wording the fan agrees to, newest version. Public. Null on a failed read: the
+ *  page then cannot send, since agreeing to words it never showed would be no agreement. */
+export async function fetchUploadTerms(): Promise<UploadTerms | null> {
+  try {
+    const { data, error } = await supabase.from('wpbl_photo_upload_terms')
+      .select('version,body').order('version', { ascending: false }).limit(1).maybeSingle()
+    if (error) { console.error('fetchUploadTerms:', error); return null }
+    return data ?? null
+  } catch (e) {
+    console.error('fetchUploadTerms:', e)
+    return null
+  }
+}
+
+/** What the database said about one photo. `error` is ours: the request never got an answer. */
+export type SubmitAnswer = 'ok' | 'duplicate' | 'limited' | 'invalid' | 'signin' | 'error'
+
+/** Send one prepared photo to /api/fan-submission, which checks it with the database, stores it
+ *  in the private bucket and files it. */
+export async function submitPhoto(prepared: PreparedPhoto, fields: {
+  credit: string; note: string; subjects: SubmissionSubject[]; termsVersion: number
+}): Promise<SubmitAnswer> {
+  try {
+    const form = new FormData()
+    form.set('sha256', prepared.sha256)
+    form.set('card', prepared.card, 'card.webp')
+    form.set('full', prepared.full, 'full.webp')
+    form.set('width', String(prepared.width))
+    form.set('height', String(prepared.height))
+    form.set('credit', fields.credit)
+    form.set('note', fields.note)
+    form.set('subjects', JSON.stringify(fields.subjects))
+    form.set('terms_version', String(fields.termsVersion))
+    const res = await fetch('/api/fan-submission', {
+      method: 'POST', headers: { authorization: `Bearer ${await accessToken()}` }, body: form,
+    })
+    if (res.status === 401) return 'signin'
+    if (!res.ok) return 'error'
+    const { status } = await res.json() as { status?: string }
+    return (['ok', 'duplicate', 'limited', 'invalid', 'signin'] as const).find(s => s === status) ?? 'error'
+  } catch (e) {
+    console.error('submitPhoto:', e)
+    return 'error'
+  }
+}
+
+/** A fan's own submission, with the published photo's card when there is one. */
+export interface MySubmission extends Pick<PhotoSubmission, 'id' | 'status' | 'reject_reason' | 'created_at' | 'credit_name' | 'photo_id'> {
+  card_url: string | null
+}
+
+/** The signed-in fan's submissions, newest first. Filtered on the account as well as by RLS: the
+ *  owner's policy returns EVERY row, so without the filter the owner's own list would be everyone's.
+ *  A published one's card comes from the public photo row; a waiting one's from the endpoint. */
+export async function fetchMySubmissions(userId: string): Promise<MySubmission[] | null> {
+  try {
+    const { data, error } = await supabase.from('wpbl_photo_submissions')
+      .select('id,status,reject_reason,created_at,credit_name,photo_id')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(200)
+    if (error) { console.error('fetchMySubmissions:', error); return null }
+    const rows = (data ?? []) as Array<Omit<MySubmission, 'card_url'>>
+    const ids = rows.filter(r => r.status === 'approved' && r.photo_id).map(r => r.photo_id!)
+    const cards = new Map<string, string>()
+    if (ids.length > 0) {
+      const { data: photos } = await supabase.from('wpbl_fan_photos').select('id,card_url').in('id', ids)
+      for (const p of photos ?? []) cards.set(p.id as string, p.card_url as string)
+    }
+    return rows.map(r => ({ ...r, card_url: r.photo_id ? cards.get(r.photo_id) ?? null : null }))
+  } catch (e) {
+    console.error('fetchMySubmissions:', e)
+    return null
+  }
+}
+
+/** Take one down: a waiting photo leaves the queue; a published one is unpublished. */
+export async function removeMySubmission(id: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('wpbl_remove_my_photo_submission', { p_id: id })
+  if (error) { console.error('removeMySubmission:', error); return false }
+  return data === 'ok'
 }

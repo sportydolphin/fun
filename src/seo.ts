@@ -221,6 +221,14 @@ const ROUTES: Record<string, Seo> = {
       "Help put names to fan photographs from the Women's Pro Baseball League's first season. Pick who is in each photo; every name is checked before it goes up.",
     noindex: true,
   },
+  // A fan sending their own photos (docs/FAN_UPLOADS.md). A form behind sign-in, not content:
+  // noindex and out of the sitemap.
+  '/wpbl/photos/submit': {
+    title: "Submit WPBL photos | sportydolphin.fun",
+    description:
+      "Send your own photographs from Women's Pro Baseball League games. Each one is reviewed before it goes up, and every photo carries your credit.",
+    noindex: true,
+  },
 
   // One independent writer's coverage of the league, every post. Titled for the writer and the
   // league together, since a reader searching for either should land here, and plain that the

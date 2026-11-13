@@ -46,7 +46,7 @@ import {
   isWpblMatchupsPage,
   isWpblReadingPage,
   isWpblWatchPage,
-  isWpblPhotosPage, isWpblPhotoTagPage, WPBL_PHOTO_TAG_PAGE,
+  isWpblPhotosPage, isWpblPhotoTagPage, WPBL_PHOTO_TAG_PAGE, isWpblPhotoSubmitPage, WPBL_PHOTO_SUBMIT_PAGE,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug, teamSlug,
   wpblSeriesPath, wpblSeriesPaths, wpblSeriesSlugFromPath, findWpblSeriesPair, isWpblSeriesPage,
   WPBL_AWARDS_PATH, isWpblAwardsPage,
@@ -1029,6 +1029,31 @@ describe('/wpbl/photos/tag, naming who is in a photo', () => {
     expect(isWpblPhotosPage('/wpbl/photos/tag')).toBe(false)
     expect(wpblViewFromPath('/wpbl/photos/tag')).toBeNull()
     expect(wpblAppOwnsPath('/wpbl/photos/tag')).toBe(false)
+  })
+})
+
+// A fan sending their own photos (docs/FAN_UPLOADS.md): a form behind sign-in, so a real page for the
+// fans sent to it and invisible to search.
+describe('/wpbl/photos/submit, sending photos', () => {
+  it('has a 200 rewrite and a trailing-slash 301 in public/_redirects', () => {
+    expect(WPBL_PHOTO_SUBMIT_PAGE).toBe('/wpbl/photos/submit')
+    expect(redirects).toMatch(/^\/wpbl\/photos\/submit\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/wpbl\/photos\/submit\/\s+\/wpbl\/photos\/submit\s+301\s*$/m)
+  })
+
+  it('is noindexed and out of the sitemap', () => {
+    expect(seoSource).toMatch(/'\/wpbl\/photos\/submit':\s*\{[^}]*noindex: true/)
+    expect(sitemap).not.toContain('/wpbl/photos/submit')
+  })
+
+  it('is recognized as itself, apart from the gallery and the tag queue, and not as a tab', () => {
+    expect(isWpblPhotoSubmitPage('/wpbl/photos/submit')).toBe(true)
+    expect(isWpblPhotoSubmitPage('/wpbl/photos/submit/')).toBe(true)
+    expect(isWpblPhotoSubmitPage('/wpbl/photos')).toBe(false)
+    expect(isWpblPhotosPage('/wpbl/photos/submit')).toBe(false)
+    expect(isWpblPhotoTagPage('/wpbl/photos/submit')).toBe(false)
+    expect(wpblViewFromPath('/wpbl/photos/submit')).toBeNull()
+    expect(wpblAppOwnsPath('/wpbl/photos/submit')).toBe(false)
   })
 })
 
