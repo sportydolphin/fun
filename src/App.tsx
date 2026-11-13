@@ -50,7 +50,7 @@ import { setDeactivationHandler, resetActiveCache } from './lib/userActive'
 // see scripts/harden_admin_gate.sql), which reads the confirmed email from auth.users by
 // the verified auth.uid() and can't be spoofed by faking this client value. Shared with
 // the WPBL feature-flagged sections via src/lib/admin.ts.
-import { ADMIN_EMAIL } from './lib/admin'
+import { useIsAdmin } from './lib/admin'
 import { typePx } from './ui/scale'
 import { SectionActiveContext, SectionSearchContext } from './lib/panelActive'
 import { otherSectionPath } from './sectionSwitch'
@@ -467,7 +467,9 @@ function AppInner() {
   // Set (with a fresh key + the WPBL segment's screen coords) each time the switch flips to
   // WPBL, to fire the confetti pop from there; null once it finishes.
   const [confetti, setConfetti] = useState<{ key: number; x: number; y: number } | null>(null)
-  const isAdmin = user?.email === ADMIN_EMAIL
+  // useIsAdmin rather than the email alone, so the dev menu's owner view opens /admin under
+  // `npm run dev` too. Dead in a production build; the RPCs behind the page refuse anyone else.
+  const isAdmin = useIsAdmin()
   const isDesktop = useMediaQuery('(min-width: 600px)')
   // EACH SECTION STAYS MOUNTED ONCE VISITED, hidden while the reader is in the other one, so
   // switching between the two Homes swaps two drawn pages instead of tearing one down and building
@@ -1603,7 +1605,8 @@ function AppInner() {
           )}
           {path === '/admin' && !authLoading && isAdmin && (
             <Box>
-              <Box sx={{ maxWidth: 860, mx: 'auto', px: { xs: 1.5, sm: 3 }, mb: 2 }}>
+              {/* As wide as AdminPage's ADMIN_WIDE, so the link lines up with the page under it. */}
+              <Box sx={{ maxWidth: 1180, mx: 'auto', px: { xs: 1.5, sm: 3 }, mb: 2 }}>
                 <Box {...linkTo('/wpbl')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: TYPE_SCALE.body, fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>‹ Back to WPBL</Box>
               </Box>
               <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>

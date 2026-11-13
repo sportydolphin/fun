@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { pressable } from './ui/interaction'
 import { Box, Typography, CircularProgress, IconButton } from '@mui/material'
 import { Refresh, ExpandMore } from '@mui/icons-material'
-import { StatRow, AdminTools, HealthGroup, HealthStrip, useOpsHealth, useOpenFeedback, healthStatuses } from './AdminPanel'
+import { StatRow, AdminTools, HealthGroup, HealthStrip, useOpsHealth, useOpenFeedback, healthSummary } from './AdminPanel'
+import { PageTabs } from './ui/PageTabs'
 import { runningBuild } from './lib/staleBuild'
 import AdminPhotos from './wpbl/AdminPhotos'
 import AdminClips from './wpbl/AdminClips'
@@ -87,6 +88,46 @@ const RANGES: Array<{ days: number; label: string }> = [
   { days: 90, label: '90d' },
 ]
 
+// THE PAGE'S WIDTH. 860 held one column of cards, which left most of a desktop empty and made the
+// Audience group a single 20-card scroll. Audience lays its cards in two columns from md up; the
+// groups that are one list (Health, Tools, Rosters, Roadmap) stay at the reading width inside it.
+const ADMIN_WIDE = 1180
+const ADMIN_NARROW = 860
+
+// Audience's cards in four sections, each a question: who came, what they used on Home and the
+// offseason pages, how they found their way around, and how the site itself held up. The sticky
+// row links to each on a desktop.
+const SECTIONS = [
+  { id: 'traffic',  title: 'Traffic' },
+  { id: 'used',     title: 'Home and pages' },
+  { id: 'finding',  title: 'Navigation and search' },
+  { id: 'site',     title: 'Site and accounts' },
+] as const
+type SectionId = typeof SECTIONS[number]['id']
+
+/** A section's heading, with room above it for the pinned tabs and filters when a link lands on it. */
+function SectionHead({ id }: { id: SectionId }) {
+  const sec = SECTIONS.find(x => x.id === id)!
+  return (
+    <Typography id={`admin-${id}`} component="h2" sx={{
+      fontSize: '0.74rem', fontWeight: 800, letterSpacing: typePx(0.9), textTransform: 'uppercase',
+      color: 'text.secondary', mt: 3.5, mb: 1.25, scrollMarginTop: 'calc(var(--app-header-h, 0px) + 120px)',
+    }}>
+      {sec.title}
+    </Typography>
+  )
+}
+
+/** Two columns of cards from md up, one on a phone. Cards keep their own height (align start), so
+ *  opening one does not stretch its neighbor. */
+function SectionGrid({ children }: { children: React.ReactNode }) {
+  return (
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'repeat(2, minmax(0, 1fr))' }, columnGap: 1.5, alignItems: 'start' }}>
+      {children}
+    </Box>
+  )
+}
+
 /** "in 30 days" / "today": the range as it reads inside a tile's sub-line. */
 const rangeLabel = (days: number) => (days === 1 ? 'today so far' : `in ${days} days`)
 const LEAGUES: Array<{ value: LeagueFilter; label: string }> = [
@@ -99,7 +140,7 @@ const EMPTY_BUNDLE: AnalyticsBundle = {
   overview: EMPTY_OVERVIEW, events: [], tabs: [], statsBoards: EMPTY_STATS_BOARDS,
   entryPoints: EMPTY_ENTRY_POINTS, search: EMPTY_SEARCH, palette: EMPTY_PALETTE, players: [],
   growth: EMPTY_GROWTH, pages: EMPTY_PAGE_USAGE, vitals: EMPTY_WEB_VITALS, mlb: EMPTY_MLB_USAGE,
-  audience: EMPTY_AUDIENCE, sources: EMPTY_TRAFFIC_SOURCES,
+  audience: EMPTY_AUDIENCE, sources: EMPTY_TRAFFIC_SOURCES, funnels: [],
 }
 
 // The three destinations the entry-point card reports, in the order they are worth reading:
@@ -155,11 +196,20 @@ function Delta({ pct }: { pct: number | null }) {
 }
 
 /** A headline number with its change against the previous equal window. */
+/**
+ * True until the range's first read lands. Every card below the range chips is drawn from that
+ * one read, and before it they rendered the empty bundle as fact: "0 browsers", "No activity in
+ * this range", which reads as an outage rather than a page still loading (Nov 12, 2026). The cards
+ * keep their place and hide their contents, and each Fold says "Loading" instead.
+ */
+const RangePending = createContext(false)
+
 function Tile({ label, value, delta, sub }: {
   label: string; value: string; delta?: number | null; sub?: string
 }) {
+  const pending = useContext(RangePending)
   return (
-    <Box sx={{
+    <Box aria-busy={pending || undefined} sx={{
       p: 1.5, borderRadius: 2, border: '1px solid', borderColor: 'outline',
       bgcolor: 'background.paper', minWidth: 0,
     }}>
@@ -167,11 +217,11 @@ function Tile({ label, value, delta, sub }: {
         {label}
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.8, mt: 0.3, flexWrap: 'wrap' }}>
-        <Typography sx={{ fontSize: '1.35rem', fontWeight: 800, lineHeight: 1.1 }}>{value}</Typography>
-        {delta !== undefined && <Delta pct={delta} />}
+        <Typography sx={{ fontSize: '1.35rem', fontWeight: 800, lineHeight: 1.1 }}>{pending ? '—' : value}</Typography>
+        {delta !== undefined && !pending && <Delta pct={delta} />}
       </Box>
       {sub && (
-        <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.2 }}>{sub}</Typography>
+        <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.2, visibility: pending ? 'hidden' : undefined }}>{sub}</Typography>
       )}
     </Box>
   )
@@ -453,8 +503,9 @@ function Fold({ title, summary, defaultOpen = false, children }: {
   children: React.ReactNode
 }) {
   const [open, setOpen] = useState(defaultOpen)
+  const pending = useContext(RangePending)
   return (
-    <Box sx={{ mb: 1.25, borderRadius: 2, border: '1px solid', borderColor: 'outline', overflow: 'hidden' }}>
+    <Box aria-busy={pending || undefined} sx={{ mb: 1.25, borderRadius: 2, border: '1px solid', borderColor: 'outline', overflow: 'hidden' }}>
       <Box
         component="button" type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
         sx={{
@@ -467,7 +518,7 @@ function Fold({ title, summary, defaultOpen = false, children }: {
           <Typography sx={{ fontSize: '0.88rem', fontWeight: 800, lineHeight: 1.25 }}>{title}</Typography>
           {summary != null && (
             <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.35, mt: 0.25 }}>
-              {summary}
+              {pending ? 'Loading' : summary}
             </Typography>
           )}
         </Box>
@@ -476,7 +527,7 @@ function Fold({ title, summary, defaultOpen = false, children }: {
           transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 150ms ease',
         }} />
       </Box>
-      {open && <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>{children}</Box>}
+      {open && <Box sx={{ borderTop: '1px solid', borderColor: 'divider', visibility: pending ? 'hidden' : undefined }}>{children}</Box>}
     </Box>
   )
 }
@@ -707,10 +758,39 @@ function ReturnCard({ a }: { a: Audience }) {
 
 // ─── the page ─────────────────────────────────────────────────────────────────
 
+/**
+ * The group, range and league live in the address (`/admin?tab=health`, `?range=7&league=wpbl`),
+ * so a refresh, or a link from a Discord alert, opens where it means to rather than on Audience at
+ * 30 days. Replaced, never pushed: Back leaves the panel instead of stepping through filters.
+ */
+function readAdminQuery(): { group: Group; days: number; league: LeagueFilter } {
+  const q = new URLSearchParams(window.location.search)
+  const g = q.get('tab')
+  const d = Number(q.get('range'))
+  const l = q.get('league')
+  return {
+    group: GROUPS.some(x => x.value === g) ? g as Group : 'audience',
+    days: RANGES.some(r => r.days === d) ? d : 30,
+    league: LEAGUES.some(x => x.value === l) ? l as LeagueFilter : 'all',
+  }
+}
+
 export default function AdminPage() {
-  const [group, setGroup]   = useState<Group>('audience')
-  const [days, setDays]     = useState<number>(30)
-  const [league, setLeague] = useState<LeagueFilter>('all')
+  const [initial] = useState(readAdminQuery)
+  const [group, setGroup]   = useState<Group>(initial.group)
+  const [days, setDays]     = useState<number>(initial.days)
+  const [league, setLeague] = useState<LeagueFilter>(initial.league)
+  useEffect(() => {
+    const q = new URLSearchParams()
+    if (group !== 'audience') q.set('tab', group)
+    if (group === 'audience' && days !== 30) q.set('range', String(days))
+    if (group === 'audience' && league !== 'all') q.set('league', league)
+    const search = q.toString()
+    const next = window.location.pathname + (search ? `?${search}` : '') + window.location.hash
+    if (next !== window.location.pathname + window.location.search + window.location.hash) {
+      window.history.replaceState(window.history.state, '', next)
+    }
+  }, [group, days, league])
   const [data, setData]     = useState<AnalyticsBundle>(EMPTY_BUNDLE)
   const [loading, setLoading] = useState(true)
   // Long tail: 28 event names and counting, most of them near-zero. Show the head, and keep
@@ -722,6 +802,7 @@ export default function AdminPage() {
   // wherever you are, so it cannot wait for the Health group to mount.
   const health = useOpsHealth()
   const feedbackNew = useOpenFeedback()
+  const healthTone = health.loading ? 'ok' : healthSummary(health).worst
 
   const load = useCallback(() => {
     setLoading(true)
@@ -761,20 +842,12 @@ export default function AdminPage() {
       ].filter(Boolean)
       out.push({ key: 'errors', label: 'Error screens', text: parts.join(' · '), tone: 'bad' })
     }
-    if (!health.loading) {
-      const off = healthStatuses(health).filter(st => st.tone === 'bad' || st.tone === 'warn')
-      if (off.length > 0) {
-        out.push({
-          key: 'pipelines', label: 'Pipelines', text: off.map(st => `${st.name} ${st.label.toLowerCase()}`).join(' · '),
-          tone: off.some(st => st.tone === 'bad') ? 'bad' : 'warn', onOpen: () => setGroup('health'),
-        })
-      }
-    }
+    // Pipelines are not repeated here: the strip above every group names the ones that need a look.
     if (feedbackNew) out.push({ key: 'feedback', label: 'Feedback', text: `${feedbackNew} new`, tone: 'info', onOpen: () => setGroup('tools') })
     return out
-  }, [briefing.errors, health, feedbackNew])
+  }, [briefing.errors, feedbackNew])
 
-  const { overview, events, tabs, statsBoards, entryPoints, search, palette, players, growth, pages, vitals, mlb, audience, sources } = data
+  const { overview, events, tabs, statsBoards, entryPoints, search, palette, players, growth, pages, vitals, mlb, audience, sources, funnels: funnelCounts } = data
   const t = overview.totals, p = overview.prev
   const at = audience.totals, ap = audience.prev
   // Raw rows go at 90 days, so a range that starts within two weeks of the oldest one counts
@@ -816,7 +889,7 @@ export default function AdminPage() {
   }, [tabs])
   const maxTab = Math.max(1, ...tabTotals.values())
 
-  const funnels = useMemo(() => buildFunnels(events).sort((a, b) => b.seen - a.seen), [events])
+  const funnels = useMemo(() => buildFunnels(funnelCounts).sort((a, b) => b.seen - a.seen), [funnelCounts])
   // The card's headline is the card that CONVERTS best, not the one seen most: reach is mostly a
   // function of where on Home a card sits, and the rate is what a change to a card can move.
   const bestFunnel = useMemo(() => [...funnels].sort((a, b) => b.used / b.seen - a.used / a.seen)[0], [funnels])
@@ -849,47 +922,75 @@ export default function AdminPage() {
   const busiestTabs = useMemo(() => [...tabTotals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3), [tabTotals])
 
   return (
-    <Box sx={{ maxWidth: 860, mx: 'auto', px: { xs: 1.5, sm: 3 }, pb: 4 }}>
-      {/* ── header + filters ───────────────────────────────────────────── */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
-        <Typography sx={{ fontSize: '1.15rem', fontWeight: 800 }}>⚡ Admin</Typography>
-        <Box sx={{ px: 1, py: 0.2, borderRadius: 999, bgcolor: 'warning.main', opacity: 0.9 }}>
-          <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: '#000', letterSpacing: typePx(0.5) }}>OWNER</Typography>
+    <Box sx={{ maxWidth: ADMIN_WIDE, mx: 'auto', px: { xs: 1.5, sm: 3 }, pb: 6 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+        <Typography component="h1" sx={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: typePx(-0.2) }}>Admin</Typography>
+        <Box sx={{ px: 0.9, py: 0.15, borderRadius: 999, border: '1px solid', borderColor: 'outline' }}>
+          <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: 'text.secondary', letterSpacing: typePx(0.6) }}>OWNER</Typography>
         </Box>
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          {(loading || health.loading) && <CircularProgress size={14} />}
+          {(loading || health.loading) && <CircularProgress size={14} aria-label="Loading" />}
           <IconButton size="small" onClick={() => { load(); health.reload(); setBriefingNonce(x => x + 1) }} sx={{ color: 'text.secondary' }} aria-label="Refresh">
-            <Refresh sx={{ fontSize: '1.05rem' }} />
+            <Refresh sx={{ fontSize: '1.1rem' }} />
           </IconButton>
         </Box>
       </Box>
 
-      {/* ── group nav ──────────────────────────────────────────────────── */}
-      <Box sx={{ display: 'flex', gap: 0.6, mb: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        {GROUPS.map(g => (
-          <Chip key={g.value} label={g.label} active={group === g.value} onClick={() => setGroup(g.value)} />
-        ))}
+      {/* THE TABS, AND ON AUDIENCE ITS FILTERS, PINNED. The range and the league decide every
+          number below them, and on a 20-card page they used to scroll away after the first
+          screen, so a reader three cards down could not see which range they were reading. */}
+      <Box sx={{
+        position: 'sticky', top: 'var(--app-header-h, 0px)', zIndex: 6, mb: 2,
+        bgcolor: 'background.default', borderBottom: '1px solid', borderColor: 'divider',
+      }}>
+        <Box>
+          <Box>
+            <PageTabs mb={0} value={group} onChange={v => setGroup(v as Group)} options={GROUPS.map(g => ({
+              value: g.value, label: g.label,
+              ...(g.value === 'health' && healthTone !== 'ok' ? {
+                adornment: <Box component="span" aria-hidden sx={{ display: 'inline-block', width: 7, height: 7, ml: 0.6, borderRadius: '50%', bgcolor: healthTone === 'bad' ? 'error.main' : 'warning.main', verticalAlign: 'middle' }} />,
+                ariaLabel: `Health, ${healthTone === 'bad' ? 'a pipeline failed' : 'a pipeline needs a look'}`,
+              } : {}),
+              ...(g.value === 'tools' && feedbackNew ? {
+                adornment: <Box component="span" aria-hidden sx={{ ml: 0.6, px: 0.6, borderRadius: 999, bgcolor: 'primary.main', color: 'primary.contrastText', fontSize: '0.62rem', fontWeight: 800, verticalAlign: 'middle' }}>{feedbackNew}</Box>,
+                ariaLabel: `Tools, ${feedbackNew} new feedback`,
+              } : {}),
+            }))} />
+          </Box>
+        </Box>
+        {group === 'audience' && (
+          // One row that scrolls sideways on a phone rather than wrapping: two rows of chips
+          // pinned over a phone's page is a fifth of the screen.
+          <Box sx={{ display: 'flex', gap: 0.6, alignItems: 'center', py: 1, overflowX: 'auto', scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' } }}>
+            {RANGES.map(r => (
+              <Chip key={r.days} label={r.label} active={days === r.days} onClick={() => setDays(r.days)} />
+            ))}
+            <Box sx={{ width: '1px', alignSelf: 'stretch', my: 0.5, mx: 0.5, bgcolor: 'divider', flexShrink: 0 }} />
+            {LEAGUES.map(l => (
+              <Chip key={l.value} label={l.label} active={league === l.value} onClick={() => setLeague(l.value)} />
+            ))}
+            <Box sx={{ ml: 'auto', display: { xs: 'none', md: 'flex' }, gap: 1.5, pl: 2, flexShrink: 0 }}>
+              {SECTIONS.map(sec => (
+                <Box key={sec.id} component="a" href={`#admin-${sec.id}`}
+                  onClick={(e: React.MouseEvent) => { e.preventDefault(); document.getElementById(`admin-${sec.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}
+                  sx={{ fontSize: '0.74rem', fontWeight: 700, color: 'text.secondary', textDecoration: 'none', whiteSpace: 'nowrap', '&:hover': { color: 'text.primary' } }}>
+                  {sec.title}
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        )}
       </Box>
 
       {/* Pipeline health follows you across groups. It is the only thing on this page that is
-          ever urgent, and it used to be the furthest from the top. Redundant on the Health
-          group, which is the same four states with their detail, so it steps aside there. */}
+          ever urgent. Redundant on the Health group, which is the same states with their detail,
+          so it steps aside there. */}
       {group !== 'health' && <HealthStrip health={health} onOpen={() => setGroup('health')} />}
 
       {group === 'audience' && (<>
       <TodayCard b={briefing} ready={briefingReady} alerts={alerts} />
 
-      <Box sx={{ display: 'flex', gap: 0.6, mb: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-        {RANGES.map(r => (
-          <Chip key={r.days} label={r.label} active={days === r.days} onClick={() => setDays(r.days)} />
-        ))}
-        {/* A full-width break on a phone puts the leagues on a row of their own, rather than
-            letting MLB wrap alone under the other six; side by side from sm up. */}
-        <Box sx={{ flexBasis: { xs: '100%', sm: 'auto' }, width: { sm: 10 }, height: 0 }} />
-        {LEAGUES.map(l => (
-          <Chip key={l.value} label={l.label} active={league === l.value} onClick={() => setLeague(l.value)} />
-        ))}
-      </Box>
+      <RangePending.Provider value={loading && data === EMPTY_BUNDLE}>
 
       {/* Today-so-far against ALL of yesterday is a comparison that reads negative every
           morning and only catches up around midnight, so the Today range shows counts without
@@ -934,12 +1035,14 @@ export default function AdminPage() {
         </Box>
       </Box>
 
+      <SectionHead id="traffic" />
       {/* ── activity ───────────────────────────────────────────────────── */}
       <Fold title="Activity" defaultOpen
         summary={`${formatCount(t.browsers)} browsers, ${formatCount(t.events)} events ${rangeLabel(days)}`}>
         <ActivityChart series={overview.series} tz={overview.tz || tz} />
       </Fold>
 
+      <SectionGrid>
       <Fold title="Since launch" summary={trendSummary(trend) ?? 'Fills in as days are rolled up'}>
         <TrendChart series={trend} />
       </Fold>
@@ -948,9 +1051,13 @@ export default function AdminPage() {
 
       <ReturnCard a={audience} />
 
+      </SectionGrid>
+
+      <SectionHead id="used" />
+      <SectionGrid>
       {/* ── Home cards: seen, then used ──────────────────────────────────── */}
       {/* The six impressions that used to head the Events card, each read against the action
-          that says its card worked. See HOME_FUNNELS for why it is browsers on both sides. */}
+          that says its card worked. See HOME_FUNNELS for what counts as a use. */}
       <Fold title="Home cards: seen, then used" defaultOpen
         summary={!bestFunnel ? 'Nothing shown in this range'
           : `Best: ${bestFunnel.label}, ${formatShare(bestFunnel.used, bestFunnel.seen)} of those who saw it`}>
@@ -966,8 +1073,6 @@ export default function AdminPage() {
         </Box>
       </Fold>
 
-      {/* ── page speed ──────────────────────────────────────────────────── */}
-      <PageSpeedCard rows={vitals.rows} shifts={vitals.shifts} />
 
       {/* ── what people do ───────────────────────────────────────────────── */}
       <Fold title="What people do" defaultOpen
@@ -1027,14 +1132,14 @@ export default function AdminPage() {
                 <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary', mt: 0.5 }}>Reached</Typography>
               )}
               {b.sections.map(r => (
-                <MetricRow key={`s${r.section}`} label={r.section} value={formatCount(r.browsers)}
+                <MetricRow key={`s${r.section}`} label={prettyId(r.section)} value={formatCount(r.browsers)}
                   bar={<Bar value={r.browsers} max={b.reach} color="#60a5fa" />} />
               ))}
               {b.opens.length > 0 && (
                 <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary', mt: 1 }}>Left for</Typography>
               )}
               {b.opens.map(r => (
-                <MetricRow key={`o${r.section}|${r.kind}`} label={`${prettyId(r.section)} → ${r.kind}`}
+                <MetricRow key={`o${r.section}|${r.kind}`} label={r.section === '—' ? prettyId(r.kind) : `${prettyId(r.section)} → ${r.kind}`}
                   value={formatCount(r.browsers)} sub={plural(r.events, 'time')} />
               ))}
               {b.controls.length > 0 && (
@@ -1083,6 +1188,10 @@ export default function AdminPage() {
         </Box>
       </Fold>
 
+      </SectionGrid>
+
+      <SectionHead id="finding" />
+      <SectionGrid>
       {/* ── WPBL tabs ──────────────────────────────────────────────────── */}
       <Fold title="Tabs: how they're reached"
         summary={busiestTabs.length === 0 ? 'No tab switches in this range'
@@ -1466,6 +1575,12 @@ export default function AdminPage() {
           still there if the numbers are ever wanted again — it is just no longer a round trip
           on every load of this page. */}
 
+      </SectionGrid>
+
+      <SectionHead id="site" />
+      <SectionGrid>
+      <PageSpeedCard rows={vitals.rows} shifts={vitals.shifts} />
+
       {/* ── growth & notifications ─────────────────────────────────────── */}
       <Fold title="Accounts & notifications"
         summary={`${growth.total_users} users · ${growth.signups_window} signups ${rangeLabel(days)} · ${growth.push_users} on push`}>
@@ -1533,6 +1648,7 @@ export default function AdminPage() {
           )}
         </Box>
       </Fold>
+      </SectionGrid>
 
       <Typography sx={{ fontSize: '0.64rem', color: 'text.disabled', mt: 2 }}>
         "Browsers" counts distinct localStorage ids, not people: one person on a phone and a
@@ -1541,19 +1657,20 @@ export default function AdminPage() {
         behavior changed: search, team opens and the Game Center tabs all start Aug 25, 2026,
         and a window spanning that date is comparing a surface against its own silence.
       </Typography>
+      </RangePending.Provider>
       </>)}
 
-      {group === 'health' && <HealthGroup health={health} />}
+      {group === 'health' && <Box sx={{ maxWidth: ADMIN_NARROW }}><HealthGroup health={health} /></Box>}
 
-      {group === 'tools' && <AdminTools />}
+      {group === 'tools' && <Box sx={{ maxWidth: ADMIN_NARROW }}><AdminTools /></Box>}
 
       {group === 'photos' && <AdminPhotos />}
 
       {group === 'clips' && <AdminClips />}
 
-      {group === 'rosters' && <AdminRosterMoves />}
+      {group === 'rosters' && <Box sx={{ maxWidth: ADMIN_NARROW }}><AdminRosterMoves /></Box>}
 
-      {group === 'roadmap' && <AdminRoadmap />}
+      {group === 'roadmap' && <Box sx={{ maxWidth: ADMIN_NARROW }}><AdminRoadmap /></Box>}
     </Box>
   )
 }

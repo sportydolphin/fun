@@ -56,16 +56,26 @@ const TONE: Record<Tone, string> = {
   idle: '#94a3b8',
 }
 
+// The pill's words on a light page. The dark-mode colors above are bright enough to read on near
+// black and nowhere near 4.5:1 on white (the green is about 2.2:1), so light mode writes the same
+// four tones a step darker.
+const TONE_TEXT_LIGHT: Record<Tone, string> = {
+  ok:   '#15803d',
+  warn: '#c2410c',
+  bad:  '#b91c1c',
+  idle: '#475569',
+}
+
 export function StatusPill({ tone, label, title }: Status & { title?: string }) {
   const color = TONE[tone]
   return (
     <Box title={title} sx={{
-      display: 'inline-flex', alignItems: 'center', gap: 0.5,
+      display: 'inline-flex', alignItems: 'center', gap: 0.5, flexShrink: 0, whiteSpace: 'nowrap',
       px: 1, py: 0.25, borderRadius: 999,
       bgcolor: `${color}18`, border: '1px solid', borderColor: edge(color),
     }}>
       <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: color }} />
-      <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color }}>{label}</Typography>
+      <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: theme => theme.palette.mode === 'light' ? TONE_TEXT_LIGHT[tone] : color }}>{label}</Typography>
     </Box>
   )
 }
@@ -251,7 +261,7 @@ function TestNotificationSection() {
         </Button>
         {subscribedHere === false && status === 'idle' && (
           <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.75, lineHeight: 1.4 }}>
-            This device isn’t subscribed yet. Enable “Daily pick reminders” in Settings first. (The test still reaches any other device you’ve subscribed.)
+            This device isn’t subscribed. Turn on “Push on this device” in Settings, Notifications. The test still reaches every other subscribed device.
           </Typography>
         )}
         {msg && (
@@ -576,37 +586,52 @@ export function healthStatuses(h: OpsHealth): Array<Status & { key: string; name
   ]
 }
 
+/** The pipelines that need a look, and how many of the rest are fine or have not run yet. */
+export function healthSummary(h: OpsHealth) {
+  const all = healthStatuses(h)
+  const problems = all.filter(s => s.tone === 'warn' || s.tone === 'bad')
+  const idle = all.filter(s => s.tone === 'idle').length
+  return { problems, idle, ok: all.length - problems.length - idle, worst: problems.some(s => s.tone === 'bad') ? 'bad' as const : problems.length ? 'warn' as const : 'ok' as const }
+}
+
 /**
- * The four pipeline states, compact, for the page header.
+ * Pipeline health in one line, above whichever group is open.
  *
- * Sits above whichever group is open, so a dead pipeline never depends on scrolling to the
- * bottom of the page to be noticed, which is where all four of these used to live. Clicking
- * it opens the Health group, where the detail is.
+ * Above every group so a dead pipeline never waits on a scroll to be noticed. It names only what
+ * needs a look and counts the rest: eighteen name-and-pill pairs took half of a phone's first
+ * screen to say "fine" sixteen times (Nov 12, 2026). Clicking it opens the Health group.
  */
 export function HealthStrip({ health, onOpen }: { health: OpsHealth; onOpen: () => void }) {
-  if (health.loading) return null
+  const s = health.loading ? null : healthSummary(health)
+  const counts = s ? [s.ok ? `${s.ok} fresh` : '', s.idle ? `${s.idle} not run yet` : ''].filter(Boolean).join(' · ') : ''
   return (
     <Box
-      onClick={onOpen}
-      role="button"
-      tabIndex={0}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}
-      aria-label="Pipeline health: open the Health group"
+      component="button" type="button" onClick={onOpen}
+      aria-label={s?.problems.length ? `Pipelines: ${s.problems.map(p => `${p.name} ${p.label}`).join(', ')}. Open Health` : 'Pipelines: all fine. Open Health'}
       sx={{
-        // A tighter column gap packs the seven pipeline chips onto fewer rows, so the strip
-        // does not strand a lone "Recap sync" on a second line; rowGap keeps the wrapped lines
-        // from crowding when it still wraps on a narrow screen.
-        display: 'flex', flexWrap: 'wrap', columnGap: 0.75, rowGap: 0.75, mb: 1.5, cursor: 'pointer',
-        alignItems: 'center', userSelect: 'none', borderRadius: 1.5, p: 0.5, mx: -0.5,
+        all: 'unset', boxSizing: 'border-box', width: '100%', cursor: 'pointer',
+        display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 1, rowGap: 0.75,
+        minHeight: 42, px: 1.25, py: 0.75, mb: 2, borderRadius: 2,
+        border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper',
         '&:hover': { bgcolor: 'action.hover' },
+        '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
       }}
     >
-      {healthStatuses(health).map(st => (
-        <Box key={st.key} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.4 }}>
-          <Typography sx={{ fontSize: '0.66rem', fontWeight: 700, color: 'text.disabled' }}>{st.name}</Typography>
-          <StatusPill tone={st.tone} label={st.label} />
-        </Box>
-      ))}
+      <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: 'text.secondary', letterSpacing: typePx(0.6), textTransform: 'uppercase' }}>
+        Pipelines
+      </Typography>
+      {s && (s.problems.length === 0
+        ? <StatusPill tone="ok" label="All fine" />
+        : s.problems.map(st => (
+          <Box key={st.key} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography sx={{ fontSize: '0.72rem', fontWeight: 700 }}>{st.name}</Typography>
+            <StatusPill tone={st.tone} label={st.label} />
+          </Box>
+        )))}
+      <Typography sx={{ ml: 'auto', fontSize: '0.7rem', color: 'text.secondary', display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+        {counts}
+        <Box component="span" aria-hidden sx={{ fontSize: '0.9rem', lineHeight: 1 }}>›</Box>
+      </Typography>
     </Box>
   )
 }

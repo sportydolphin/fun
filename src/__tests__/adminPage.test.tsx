@@ -27,6 +27,7 @@ const bundle = (over: Partial<AnalyticsBundle> = {}): AnalyticsBundle => ({
   mlb: EMPTY_MLB_USAGE,
   audience: EMPTY_AUDIENCE,
   sources: EMPTY_TRAFFIC_SOURCES,
+  funnels: [],
   ...over,
 })
 
@@ -69,22 +70,33 @@ const { default: AdminPage } = await import('../AdminPage')
 
 const renderPage = () => render(<AdminPage />)
 
-beforeEach(() => { fetchAnalytics.mockClear(); fetchBriefing.mockReset(); fetchBriefing.mockResolvedValue(EMPTY_BRIEFING); openFeedback = 0 })
+// The group and range live in the address, so each test starts from a bare /admin.
+beforeEach(() => { window.history.replaceState(null, '', '/admin'); fetchAnalytics.mockClear(); fetchBriefing.mockReset(); fetchBriefing.mockResolvedValue(EMPTY_BRIEFING); openFeedback = 0 })
 
 describe('AdminPage groups', () => {
   it('opens on Audience, with the range filter that only applies there', async () => {
     renderPage()
     expect(await screen.findByText('Activity')).toBeInTheDocument()
     expect(screen.getByText('30d')).toBeInTheDocument()
-    expect(screen.queryByText('Pipelines')).not.toBeInTheDocument()
+    expect(screen.queryByText('WPBL ingest')).not.toBeInTheDocument()
     expect(screen.queryByTestId('admin-tools')).not.toBeInTheDocument()
   })
 
   it('shows pipeline health from the Audience group, so trouble needs no scrolling', async () => {
     renderPage()
     await screen.findByText('Activity')
-    expect(screen.getByText('Ingest')).toBeInTheDocument()
-    expect(screen.getByText('Fresh')).toBeInTheDocument()
+    // One line: what needs a look by name, the rest as counts. Here nothing does.
+    expect(screen.getByRole('button', { name: /Pipelines: all fine/ })).toBeInTheDocument()
+    expect(screen.getByText(/1 fresh/)).toBeInTheDocument()
+  })
+
+  it('keeps the open group and range in the address, so a refresh lands in the same place', async () => {
+    window.history.replaceState(null, '', '/admin?tab=tools')
+    renderPage()
+    expect(await screen.findByTestId('admin-tools')).toBeInTheDocument()
+    await userEvent.click(screen.getByText('Audience'))
+    await userEvent.click(await screen.findByText('7d'))
+    expect(window.location.search).toBe('?range=7')
   })
 
   it('swaps to Health, where the strip stands down and the detail takes over', async () => {
@@ -95,7 +107,7 @@ describe('AdminPage groups', () => {
     expect(screen.getByText('Pipelines')).toBeInTheDocument()
     expect(screen.getByText('WPBL ingest')).toBeInTheDocument()
     // The strip is the same four states; showing it above its own detail would be noise.
-    expect(screen.queryByLabelText('Pipeline health: open the Health group')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Open Health/ })).not.toBeInTheDocument()
     // The range chips belong to the audience numbers and mean nothing here.
     expect(screen.queryByText('30d')).not.toBeInTheDocument()
     expect(screen.queryByText('Activity')).not.toBeInTheDocument()
@@ -142,9 +154,19 @@ describe('AdminPage readable cards', () => {
   const ev = (event: string, events: number, browsers: number) =>
     ({ event, events, browsers, users: 0, prev_events: 0, prev_browsers: 0 })
 
+  // Before the first read lands the cards held the empty bundle and said so: "0 browsers", "No
+  // activity in this range" (Nov 12, 2026). They say Loading instead.
+  it('says Loading, not zero, before the range has been read', async () => {
+    fetchAnalytics.mockImplementationOnce(() => new Promise<AnalyticsBundle>(() => {}))
+    renderPage()
+    const header = await screen.findByRole('button', { name: /Activity/ })
+    expect(within(header).getByText('Loading')).toBeInTheDocument()
+    expect(screen.queryByText(/browsers, .* events/)).not.toBeInTheDocument()
+  })
+
   it('reads a Home impression against the action that says its card worked', async () => {
-    fetchAnalytics.mockResolvedValueOnce(bundle({ events: [
-      ev('wpbl_league_card_shown', 3000, 800), ev('wpbl_league_card_open', 30, 26),
+    fetchAnalytics.mockResolvedValueOnce(bundle({ funnels: [
+      { seen: 'wpbl_league_card_shown', seen_browsers: 800, used_browsers: 26 },
     ] }))
     renderPage()
     expect(await screen.findByText('League card')).toBeInTheDocument()
@@ -358,7 +380,6 @@ describe('AdminPage Today', () => {
     await screen.findByText('106')
     expect(screen.queryByText('Error screens')).not.toBeInTheDocument()
     expect(screen.queryByText('Feedback')).not.toBeInTheDocument()
-    expect(screen.queryByText('Pipelines')).not.toBeInTheDocument()
   })
 })
 

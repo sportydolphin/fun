@@ -6,7 +6,7 @@ import {
   fetchWpblVideos, fetchWpblVideoTags, fetchWpblSchedule, fetchWpblTeams, fetchWpblAllPlayers,
   fetchWpblGamePlays, fetchWpblGameLines, saveWpblVideoTag, deleteWpblVideoTag, fetchWpblAllRunValuePlays,
 } from './api'
-import { gameStartMs } from './constants'
+import { gameStartMs, wpblFullName } from './constants'
 import { clipLabel, ClipCaption, inningLabel } from './Watch'
 import { HighlightLightbox, VideoThumb, PLAYABLE_HOVER } from './Highlights'
 import type { WpblGame, WpblGamePlay, WpblPlayer, WpblRunValuePlay, WpblTeam, WpblVideo, WpblVideoTag } from './types'
@@ -130,6 +130,9 @@ export default function AdminClips() {
     const bits = [clipLabel(t, gameById, teamById)]
     const names = t.player_ids.map(id => playerById.get(id)?.name ?? '—')
     if (names.length) bits.push(names.join(', '))
+    // A club tag with no game and no player (a club's own post) named nothing else, so the row read
+    // "Club" over a bare dash. The club is the whole tag there; say which one.
+    else if (!t.game_id && t.team_id) { const c = teamById.get(t.team_id); bits.push(c ? wpblFullName(c) : t.team_id) }
     if (t.method === 'manual' && !t.game_id && !names.length && !t.team_id) bits.push('from no game')
     return bits.filter(Boolean).join(' · ') || '—'
   }
