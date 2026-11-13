@@ -114,8 +114,8 @@ export interface NotesOptions {
   publicCap?: number
 }
 
-/** Set from the 2026 backtest (`npm run notes -- --season`): about two and a half a game, none at
- *  all in a quiet one. At 60 it was three a game and let in a player's first pickoff; at 65, under two. */
+/** Set from the 2026 backtest (`npm run notes -- --season`): about two a game, none at all in a quiet
+ *  one. At 60 it was nearly three a game; at 65, under two. */
 export const PUBLIC_BAR = 62
 export const PUBLIC_CAP = 4
 
@@ -144,6 +144,8 @@ interface Fact {
   /** One player's view of a kind counted elsewhere (a catcher's runners caught stealing): its own
    *  league count would repeat that kind's. */
   playerOnly?: boolean
+  /** A club's own count (its wins): "the first win in WPBL history" says nothing, so no league lens. */
+  clubOnly?: boolean
 }
 
 const COMMON = new Set(['hit', 'single', 'walk', 'so', 'double', 'hbp', 'sb', 'ifh', 'wp', 'error', 'dp', 'cs', 'cs-c', 'ofa'])
@@ -154,6 +156,9 @@ const AGAINST: Record<string, string> = {
 const PAIR = new Set(['hr', 'slam', 'triple', 'walkoff'])
 /** Against the player who owns it: a first wild pitch is real, and no reader wants it shown. */
 const NEGATIVE = new Set(['cs', 'pb', 'wp', 'bk', 'error'])
+/** Rare in the league, ordinary for the player: a pickoff is a throw any pitcher or catcher makes, and
+ *  its league rarity would otherwise put every player's first one in front of readers. */
+const QUIET = new Set(['pk'])
 const MILESTONES = [5, 10, 20, 25, 50, 75, 100, 150, 200, 250, 300, 400, 500, 750, 1000, 1500, 2000, 2500, 5000]
 const PLAYER_LENSES = new Set<NoteLens>(['player', 'player-season', 'against'])
 
@@ -224,9 +229,12 @@ const RECORDS: Record<string, RecordDef> = {
 /** Games of a scope before it can hold a record ("most in a WPBL game" off three games is noise). */
 const RECORD_HISTORY = { reg: 10, post: 6, season: 10 }
 
-interface StreakDef { label: (n: number) => string; min: number; endsMin: number }
+/** `weight` lifts a kind whose record is worth more than its length says: three games in a row with a
+ *  home run is rarer than nine with a hit. */
+interface StreakDef { label: (n: number) => string; min: number; endsMin: number; weight?: number }
 const STREAKS: Record<string, StreakDef> = {
   hit: { label: n => `hit in ${n} straight games`, min: 6, endsMin: 8 },
+  hr: { label: n => `homered in ${n} straight games`, min: 3, endsMin: Infinity, weight: 6 },
   ob: { label: n => `reached base in ${n} straight games`, min: 10, endsMin: 12 },
   retired: { label: n => `${n} batters retired in a row`, min: 9, endsMin: Infinity },
   krow: { label: n => `${n} strikeouts in a row`, min: 4, endsMin: Infinity },
@@ -315,6 +323,10 @@ export function liveNotes<G extends LeagueGame>(src: NotesSource<G>, opts: Notes
 
     // ── Counted facts ──
     const lensesOf = (f: Fact): [NoteLens, string][] => {
+      if (f.clubOnly) {
+        if (!f.club) return []
+        return !post && season != null ? [['club', f.club], ['club-season', `${f.club}|${season}`]] : [['club', f.club]]
+      }
       if (f.playerOnly) {
         if (!f.owner) return []
         return !post && season != null ? [['player', f.owner], ['player-season', `${f.owner}|${season}`]] : [['player', f.owner]]
@@ -356,7 +368,7 @@ export function liveNotes<G extends LeagueGame>(src: NotesSource<G>, opts: Notes
     const counts = (f: Fact, lens: NoteLens, n: number): NoteCategory | null => {
       const narrow = lens === 'crew' || lens === 'pair' || lens === 'club-season' || lens === 'player-season'
       if (n === 1 && !(f.common && narrow && lens !== 'crew')) return 'first'
-      if (n <= 3 && !f.common && !narrow) return 'rare'
+      if (n <= 3 && !f.common && !narrow && !f.clubOnly) return 'rare'
       if (!MILESTONES.includes(n) || lens === 'crew' || lens === 'pair') return null
       const floor = PLAYER_LENSES.has(lens) ? (f.common ? 25 : 5) : (f.common ? 100 : 10)
       return n >= floor ? 'milestone' : null
@@ -372,9 +384,10 @@ export function liveNotes<G extends LeagueGame>(src: NotesSource<G>, opts: Notes
             : 22 + 8 * Math.log10(n) + (f.common ? -10 : 0)
           // A variant's own shape is nearly always new, and a player's view repeats a kind counted
           // elsewhere, so neither takes the bonus for a kind that rarely happens.
-          score += LENS_WEIGHT[lens] + (f.variant || f.playerOnly ? 0 : rarity(f.kind))
+          score += LENS_WEIGHT[lens] + (f.variant || f.playerOnly || f.clubOnly ? 0 : rarity(f.kind))
           if (f.variant && !PLAYER_LENSES.has(lens) && lens !== 'crew') score += VARIANT
           if (NEGATIVE.has(f.kind) && PLAYER_LENSES.has(lens)) score -= 15
+          if (QUIET.has(f.kind) && PLAYER_LENSES.has(lens)) score -= 8
           push({
             key: `${sig}|${n}`, group: `${sig}|${n}`, category, kind: f.kind, lens, text: textOf(f, lens, n),
             detail: s.last.length ? `Last: ${s.last[s.last.length - 1].date}` : null,
@@ -460,7 +473,7 @@ export function liveNotes<G extends LeagueGame>(src: NotesSource<G>, opts: Notes
         key: `streak|${kind}|${subject}|${g.id}|${n}`, group: `streak|${kind}|${subject}|${g.id}`, category: 'streak',
         kind: `streak:${kind}`, lens: 'league', text: `${who}: ${def.label(n)}${tail}`,
         detail: best > 0 ? `${L} best before: ${best}` : null, players, clubs, nth: null, before: [], beforeTotal: 0,
-        score: 28 + Math.min(15, n - def.min) + (n > best && best > 0 ? 32 : n === best ? 18 : 0), sequence,
+        score: 28 + (def.weight ?? 0) + Math.min(15, n - def.min) + (n > best && best > 0 ? 32 : n === best ? 18 : 0), sequence,
       })
     }
     const endStreak = (kind: string, subject: string, who: string, place: NotePlace, players: string[], clubs: string[]) => {
@@ -515,6 +528,7 @@ export function liveNotes<G extends LeagueGame>(src: NotesSource<G>, opts: Notes
     const met = new Set<string>()
     const firstHit = new Set<string>()
     const firstOn = new Set<string>()
+    const firstHr = new Set<string>()
     const batted = new Map<string, { team: string | null; last: number }>()
     const lastRowBy = new Map<string, number>()
     const inningEnds: { inning: number; away: number; home: number }[] = []
@@ -652,7 +666,9 @@ export function liveNotes<G extends LeagueGame>(src: NotesSource<G>, opts: Notes
           const mine = [b], clubs = batting ? [batting] : []
           if (line.h) {
             record('p.h', b, who, bump(`p.h|${b}`), mine, clubs)
-            if (!firstHit.has(b)) {
+            // A game streak is a regular-season run, as MLB keeps them: the postseason neither
+            // extends one nor ends it.
+            if (!post && !firstHit.has(b)) {
               firstHit.add(b)
               const n = (streakNow.get(`hit|${b}`) ?? 0) + 1
               streakNow.set(`hit|${b}`, n)
@@ -680,6 +696,12 @@ export function liveNotes<G extends LeagueGame>(src: NotesSource<G>, opts: Notes
             }
           }
           if (line.hr) { record('p.hr', b, who, bump(`p.hr|${b}`), mine, clubs); lead('hr', b, batting) }
+          if (line.hr && !post && !firstHr.has(b)) {
+            firstHr.add(b)
+            const n = (streakNow.get(`hr|${b}`) ?? 0) + 1
+            streakNow.set(`hr|${b}`, n)
+            streak('hr', b, who, n, mine, clubs)
+          }
           if (line.doubles) { record('p.2b', b, who, bump(`p.2b|${b}`), mine, clubs); lead('2b', b, batting) }
           if (line.triples) { record('p.3b', b, who, bump(`p.3b|${b}`), mine, clubs); lead('3b', b, batting) }
           if (line.h) lead('h', b, batting)
@@ -687,7 +709,7 @@ export function liveNotes<G extends LeagueGame>(src: NotesSource<G>, opts: Notes
           if (line.bb) { record('p.bb', b, who, bump(`p.bb|${b}`), mine, clubs); lead('bb', b, batting) }
           if (line.so) record('p.so', b, who, bump(`p.so|${b}`), mine, clubs)
           if (line.hbp) record('p.hbp', b, who, bump(`p.hbp|${b}`), mine, clubs)
-          if ((line.h || line.bb || line.hbp) && !firstOn.has(b)) {
+          if (!post && (line.h || line.bb || line.hbp) && !firstOn.has(b)) {
             firstOn.add(b)
             const n = (streakNow.get(`ob|${b}`) ?? 0) + 1
             streakNow.set(`ob|${b}`, n)
@@ -732,6 +754,11 @@ export function liveNotes<G extends LeagueGame>(src: NotesSource<G>, opts: Notes
           owner = runners(p).find(r => def.clause!.test(r.clause))?.id ?? null
           team = batting
         } else if (def.kind === 'pb' && fielding) owner = src.fielderAt?.(g.id, fielding, 'c', p.sequence) ?? null
+        // A pickoff belongs to whoever threw it: a catcher's snap throw is not the pitcher's.
+        if (def.kind === 'pk' && fielding) {
+          const from = reading.chains.find(c => c.how === 'pk')?.chain[0]
+          if (from && from !== 'p') owner = src.fielderAt?.(g.id, fielding, from, p.sequence) ?? null
+        }
         count({ kind: def.kind, noun: nounOf(def.label), common: COMMON.has(def.kind), owner, club: team, pitcher: null })
         if (def.kind === 'sb' && owner) {
           record('p.sb', owner, name(owner), bump(`p.sb|${owner}`), [owner], batting ? [batting] : [])
@@ -795,7 +822,8 @@ export function liveNotes<G extends LeagueGame>(src: NotesSource<G>, opts: Notes
         const down = winner === g.home_team_id ? deficit.home : deficit.away
         if (down > 0) record('g.comeback', g.id, `${club(winner)} came back from ${down} down`, down, [], [winner], lastSeq)
         const won = winner === g.home_team_id
-        for (const [team, result] of [[winner, 'win'], [loser, 'loss']] as const) {
+        count({ kind: post ? 'postwin' : 'win', noun: post ? 'postseason win' : 'win', common: false, owner: null, club: winner, pitcher: null, clubOnly: true }, lastSeq)
+        for (const [team, result] of post ? [] : [[winner, 'win'], [loser, 'loss']] as const) {
           const n = (streakNow.get(`${result}|${team}`) ?? 0) + 1
           endStreak(result === 'win' ? 'loss' : 'win', team, club(team), at(lastSeq), [], [team])
           streakNow.set(`${result}|${team}`, n)
@@ -818,8 +846,9 @@ export function liveNotes<G extends LeagueGame>(src: NotesSource<G>, opts: Notes
         }
       }
       // Streaks that did not survive the game.
-      for (const [b, info] of batted) {
+      for (const [b, info] of post ? [] : batted) {
         const where = at(lastRowBy.get(b) ?? lastSeq)
+        if (!firstHr.has(b)) endStreak('hr', b, name(b), where, [b], info.team ? [info.team] : [])
         if (!firstHit.has(b)) endStreak('hit', b, name(b), where, [b], info.team ? [info.team] : [])
         if (!firstOn.has(b)) endStreak('ob', b, name(b), where, [b], info.team ? [info.team] : [])
       }
@@ -870,6 +899,17 @@ export function liveNotes<G extends LeagueGame>(src: NotesSource<G>, opts: Notes
   return out
 }
 
+/** Kinds a reader would call one moment: a shutout that is also a complete game is one note, not
+ *  three. The more specific kind is listed first and wins a tie. */
+const FAMILY: Record<string, string> = {
+  'perfect-game': 'no-hit', 'no-hitter': 'no-hit',
+  'cg-shutout': 'cg', shutout: 'cg', cg: 'cg',
+  slam: 'hr', phhr: 'hr', leadoffhr: 'hr', hr: 'hr',
+  bunthit: 'hit', phit: 'hit', ifh: 'hit', single: 'hit', hit: 'hit',
+}
+const SPECIFIC = Object.keys(FAMILY)
+const specific = (kind: string) => { const i = SPECIFIC.indexOf(kind); return i < 0 ? SPECIFIC.length : i }
+
 /** Marks the notes a later one in their group replaced, then the few readers see. */
 function select(notes: LiveNote[], bar: number, cap: number) {
   const latest = new Map<string, LiveNote>()
@@ -880,11 +920,17 @@ function select(notes: LiveNote[], bar: number, cap: number) {
   }
   // One public note per thing a reader would call one moment: the widest lens of a play's fact.
   const shown = new Set<string>()
-  const ranked = notes.filter(n => !n.superseded && n.score >= bar).sort((a, b) => b.score - a.score || (a.sequence ?? -1) - (b.sequence ?? -1))
+  const ranked = notes.filter(n => !n.superseded && n.score >= bar)
+    .sort((a, b) => b.score - a.score || specific(a.kind) - specific(b.kind) || (a.sequence ?? -1) - (b.sequence ?? -1))
   let left = cap
   for (const n of ranked) {
     if (left <= 0) break
-    const moment = `${n.sequence}|${n.kind.split(':')[0]}|${n.players[0] ?? n.clubs[0] ?? ''}`
+    const kind = n.kind.split(':')[0]
+    // A family's notes name different owners (a shutout the club, a complete game its pitcher), so
+    // the moment is the club's.
+    const moment = FAMILY[kind]
+      ? `${n.sequence}|${FAMILY[kind]}|${n.clubs[0] ?? n.players[0] ?? ''}`
+      : `${n.sequence}|${kind}|${n.players[0] ?? n.clubs[0] ?? ''}`
     if (shown.has(moment)) continue
     shown.add(moment)
     n.public = true
