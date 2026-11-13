@@ -94,6 +94,8 @@ export const HEARTBEAT_CHECKS = [
   { job: 'wpbl-mention-watch', label: 'Mention watch', maxAgeMs: 14 * 60 * 60_000 },
   // Daily on GitHub's schedule, which runs daily jobs 4 to 11 hours late.
   { job: 'wpbl-discord-birthdays', label: 'Discord birthdays', maxAgeMs: 36 * 60 * 60_000 },
+  // The R2 storage watch, daily on GitHub's schedule, so the same 36h as the other daily job.
+  { job: 'r2-storage-watch', label: 'R2 storage watch', maxAgeMs: 36 * 60 * 60_000 },
   // Failure-only: each runs only when there is a game, a final or a new video to post about, so
   // a quiet offseason month is not a stall.
   { job: 'wpbl-bluesky-recaps', label: 'Bluesky recaps', maxAgeMs: null },
