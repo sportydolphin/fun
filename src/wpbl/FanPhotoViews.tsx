@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
-import { ModalShell, SectionCard, CARD_BORDER, CARD_FILL, useRailPaging, RailArrow, RailScroller, hoverOnly, chromePx, TextGhost, CARD_LINK_SX } from './ui'
+import { ModalShell, SectionCard, CARD_BORDER, useRailPaging, RailArrow, RailScroller, hoverOnly, chromePx, TextGhost, CARD_LINK_SX } from './ui'
 import { fanPhotoTeamName, type FanPhotoWithSubjects, type FanPhotoIndex } from './fanPhotos'
 import { SectionHead } from './cardParts'
 import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers, getCachedWpblFanPhotoIndex, getCachedWpblAllPlayers, FAN_PHOTOS_CHANGED_EVENT } from './api'
@@ -97,59 +97,44 @@ const SUBMIT_BODY = [
 export const FAN_PHOTO_SUBMIT_HREF =
   `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Photos for the WPBL gallery')}&body=${encodeURIComponent(SUBMIT_BODY)}`
 
-/** The ask. `line` is one quiet row under a rail (Home); `block` is a small panel under the full
- *  gallery, where a reader who has just scrolled every photo is the likeliest to have their own. */
-export function FanPhotoSubmitNote({ variant }: { variant: 'line' | 'block' }) {
-  // The submit page first (docs/FAN_UPLOADS.md); the email stays for a fan who would rather not
-  // make an account, and its pre-filled consent line is still the permission record for those.
-  const link = (label: string, href: 'page' | 'email' = 'page') => (
-    <Box component="a" {...(href === 'page' ? linkTo(WPBL_PHOTO_SUBMIT_PAGE) : { href: FAN_PHOTO_SUBMIT_HREF })} sx={{
-      color: 'primary.main', fontWeight: 700, textDecoration: 'none',
-      '&:hover': { textDecoration: 'underline' },
-      '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2, borderRadius: 0.5 },
-    }}>{label}</Box>
-  )
-  if (variant === 'line') {
-    return (
-      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 1 }}>
-        {link('Submit photos ›')}
-      </Typography>
-    )
-  }
+/**
+ * The two ways to add to the gallery, as one row: send your own photos, or name who is in the ones
+ * already up. At the TOP of the gallery and under the Home rail. They were three separate things
+ * until Nov 13, 2026: a "Photo tagging" card above the gallery, a "Your photos" panel under every
+ * photo (which nobody scrolled to), and a quiet text link under the Home rail. No fetch, so it
+ * draws the same in the loaded page and in both skeletons and moves nothing.
+ *
+ * The email stays as a small link for a fan who would rather not make an account; its pre-filled
+ * consent line is still the permission record for those (docs/FAN_UPLOADS.md).
+ */
+export function FanPhotoActions({ email = true, sx }: {
+  /** The email fallback. Off on Home, where the card is a rail, not the place to choose a channel. */
+  email?: boolean
+  sx?: Record<string, unknown>
+}) {
   return (
-    <Box sx={{ mt: 3, p: { xs: 1.75, sm: 2 }, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL }}>
-      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800 }}>Your photos</Typography>
-      <Typography sx={{ fontSize: TYPE_SCALE.body, mt: 0.75, lineHeight: 1.5 }}>
-        {link('Submit photos ›')}
-      </Typography>
-      {/* Its own line, so the address never wraps mid-way on a phone. */}
-      <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 0.5, lineHeight: 1.5 }}>
-        Or {link(`email ${CONTACT_EMAIL}`, 'email')}
-      </Typography>
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, ...sx }}>
+      <Box component="a" {...linkTo(WPBL_PHOTO_SUBMIT_PAGE)} sx={actionSx(true)}>Submit photos</Box>
+      <Box component="a" {...linkTo(WPBL_PHOTO_TAG_PAGE)} sx={actionSx(false)}>Tag players</Box>
+      {email && (
+        <Box component="a" href={FAN_PHOTO_SUBMIT_HREF} sx={{
+          fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary', textDecoration: 'underline',
+          '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2, borderRadius: 0.5 },
+        }}>Email photos</Box>
+      )}
     </Box>
   )
 }
 
-/**
- * The way into naming who is in the photos (/wpbl/photos/tag), at the TOP of the gallery. It sat at
- * the foot, under every photo, and drew only once a queue check came back; at 131 photos nobody
- * scrolled that far, and the owner could not find it. Every published photo is open now (the
- * 20261113 migration), so the queue is almost never empty and the card is drawn unconditionally:
- * no fetch, so it never arrives late and moves nothing. On the rare empty queue the page itself
- * says "Nothing to tag right now". The skeleton draws the same card. See docs/PHOTO_TAGGING.md.
- */
-export function FanPhotoTagInvite() {
-  return (
-    <Box sx={{
-      mb: 1.5, px: { xs: 1.5, sm: 2 }, py: 1.25, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL,
-      display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 1.5, rowGap: 0.25,
-    }}>
-      <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700 }}>Photo tagging</Typography>
-      <Box component="a" {...linkTo(WPBL_PHOTO_TAG_PAGE)} sx={{ ...CARD_LINK_SX, fontSize: TYPE_SCALE.body }}>
-        Tag players ›
-      </Box>
-    </Box>
-  )
+function actionSx(primary: boolean) {
+  return {
+    display: 'inline-flex', alignItems: 'center', minHeight: chromePx(36), px: 1.75, borderRadius: 999,
+    fontSize: TYPE_SCALE.body, fontWeight: 800, lineHeight: 1.2, textDecoration: 'none', border: '1px solid',
+    '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
+    ...(primary
+      ? { bgcolor: 'var(--wpbl-accent-solid)', borderColor: 'var(--wpbl-accent-solid)', color: '#fff' }
+      : { bgcolor: 'background.paper', borderColor: 'outline', color: 'text.primary', ...hoverOnly({ bgcolor: 'action.hover' }) }),
+  } as const
 }
 
 // ─── The lightbox ────────────────────────────────────────────────────────────────
@@ -671,7 +656,7 @@ export function FanPhotoHomeCardSkeleton() {
             </Box>
           ))}
         </Box>
-        <Skeleton variant="text" width="16rem" sx={{ fontSize: TYPE_SCALE.meta, mt: 1, maxWidth: '100%' }} />
+        <FanPhotoActions email={false} sx={{ mt: 1.25 }} />
       </SectionCard>
     </Box>
   )
@@ -753,7 +738,7 @@ export function FanPhotoHomeCard({ reserve = false }: {
         <Box sx={{ mx: { xs: -2, sm: 0 } }}>
           <FanPhotoStrip photos={shuffled.slice(0, HOME_RAIL_MAX)} resolveNames={resolveNames} from="home" autoScroll phoneInset={2} />
         </Box>
-        <FanPhotoSubmitNote variant="line" />
+        <FanPhotoActions email={false} sx={{ mt: 1.25 }} />
       </SectionCard>
     </Box>
   )

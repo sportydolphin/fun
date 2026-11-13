@@ -67,7 +67,9 @@ its first tag). [`20261021000000_photo_tagging_open_by_default.sql`](../scripts/
   Accepting tags the subject FIRST and marks the suggestions after, so a failed write never reads
   as accepted. Its reads fail soft to empty, so `/admin` works before the migration is applied.
 - **The way in** is a card at the foot of `/wpbl/photos`, drawn only while the queue holds a photo
-  (`FanPhotoTagInvite`). It draws nothing today, and nothing before the migration either.
+  (`FanPhotoTagInvite`). It draws nothing today, and nothing before the migration either. *Since
+  Nov 13, 2026 it is `FanPhotoActions`, "Submit photos" and "Tag players" at the top of the gallery
+  and under the Home rail, drawn always.*
 - **Seen and swept without the database:** `?devTagQueue` (dev only,
   [`devPhotoTagging.ts`](../src/wpbl/dev/devPhotoTagging.ts)) serves the published photos as a
   fake queue, `?devTagQueue=limited` answers every send "limited". The layout sweep runs the page
