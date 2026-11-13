@@ -18,8 +18,9 @@ const PhotoCropper = lazy(() => import('./PhotoCropper'))
 import { fanPhotoTeamName } from './fanPhotos'
 import type { WpblPlayer, WpblPhotoSubject, WpblPhotoFigure, WpblPhotoContributor, WpblTeam, WpblPhotoCategory } from './types'
 
-// The fan-photo curation tool. Bytes arrive by the ingest CLI (approved = false); this is where
-// they get their subjects, a caption and the approve toggle that makes them public. It never
+// The fan-photo curation tool. Bytes arrive by upload or the ingest CLI, and a photo with a
+// photographer is published on arrival (a database trigger); this is where they get their subjects, a
+// caption, and the toggle that unpublishes one. It never
 // touches R2. See docs/FAN_PHOTOS.md.
 //
 // Every write goes through the is_site_owner() RLS policy (api.ts), which is the real boundary;
@@ -450,11 +451,10 @@ function TagFields({ photo, subjects, lookups, runner, recent, onPicked }: {
   )
 }
 
-// Whether strangers can see this photo at /wpbl/photos/tag and suggest who is in it. Opening is, in
-// effect, publishing the image (the queue hands its URL to anyone), so the label says so; the screen
-// before it is the screen before Publish (docs/FAN_PHOTOS.md: crowds, children, the photographer's
-// permission). A photo leaves the public queue by itself once it has a subject or a category.
-const OPEN_WARNING = 'Anyone can then see it (unpublished) and suggest names. Screen it first: no clear foreground strangers or children, and the photographer agreed to it.'
+// Whether strangers can suggest who is in this photo at /wpbl/photos/tag. The queue serves published
+// photos only (20261113080000), so opening shows nobody anything the gallery does not already show;
+// the screen for crowds and children happens before upload, since a credited upload publishes itself.
+const OPEN_WARNING = 'Anyone can then suggest who is in it at /wpbl/photos/tag.'
 
 function OpenForTaggingToggle({ photo, runner }: { photo: WpblFanPhotoRow; runner: Runner }) {
   const { review, reload } = useTagReviewContext()
@@ -756,8 +756,8 @@ function CategoryAdder({ count, onAdded }: { count: number; onAdded: () => void 
 
 // Upload from the browser: pick a contributor (the permission record), then pick photos. Each
 // file is hashed, checked against the library so the same shot is never uploaded twice, rendered
-// to webp in a canvas (EXIF dropped), sent to R2 through the owner-gated endpoint, and inserted
-// as an unpublished row. The CLI ingest still exists for a laptop and a big drop folder; this is
+// to webp in a canvas (EXIF dropped), sent to R2 through the owner-gated endpoint, and inserted.
+// A credited row publishes itself (a database trigger, 20261113080000). The CLI ingest still exists for a laptop and a big drop folder; this is
 // the from-a-phone path. See docs/FAN_PHOTOS.md.
 type UploadRow = { name: string; status: 'preparing' | 'uploading' | 'duplicate' | 'done' | 'error'; msg?: string }
 const STATUS_COLOR: Record<UploadRow['status'], string> = {

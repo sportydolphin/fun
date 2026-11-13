@@ -310,8 +310,8 @@ export async function findFanPhotoBySha(sha256: string): Promise<{ id: string; a
 }
 
 /** Insert a fan photo row after its renders are in R2. Returns the new id, or null on failure.
- *  Lands `approved = false` by the column default: an uploaded photo is still just a queue
- *  entry until it is tagged and published. */
+ *  A row with a credit and a photographer on file lands published, by a database trigger
+ *  (20261113080000); one without stays unpublished until the owner publishes it. */
 export async function insertFanPhoto(row: {
   sha256: string; storage_path: string; card_url: string; full_url: string
   width: number | null; height: number | null; credit: string | null; contributor_id: string | null

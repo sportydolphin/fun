@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.237.0',
+    date:    '2026-11-12',
+    changes: [
+      {
+        short: 'Photos: 116 more in the gallery',
+        full:  'Every fan photo with a photographer credit is in the gallery now, named or not, and new ones appear as soon as they are uploaded. Anyone can name who is in them from Photo tagging at the top of the gallery.',
+      },
+    ],
+  },
+  {
     version: '1.236.0',
     date:    '2026-11-11',
     changes: [

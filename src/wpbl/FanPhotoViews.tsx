@@ -133,8 +133,8 @@ export function FanPhotoSubmitNote({ variant }: { variant: 'line' | 'block' }) {
 /**
  * The way into naming who is in the photos (/wpbl/photos/tag), at the TOP of the gallery. It sat at
  * the foot, under every photo, and drew only once a queue check came back; at 131 photos nobody
- * scrolled that far, and the owner could not find it. Every photo in review is open now (the
- * 20261021 migration), so the queue is almost never empty and the card is drawn unconditionally:
+ * scrolled that far, and the owner could not find it. Every published photo is open now (the
+ * 20261113 migration), so the queue is almost never empty and the card is drawn unconditionally:
  * no fetch, so it never arrives late and moves nothing. On the rare empty queue the page itself
  * says "Nothing to tag right now". The skeleton draws the same card. See docs/PHOTO_TAGGING.md.
  */
