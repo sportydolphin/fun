@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  groupActions, buildFunnels, eventInfo, EVENT_INFO,
+  groupActions, buildFunnels, HOME_FUNNELS, eventInfo, EVENT_INFO,
   deltaPct, formatDelta, formatCount, formatShare,
   trimLeadingEmpty, prettyEvent, seriesPoints, shortDate,
 } from '../lib/analyticsAdmin'
@@ -157,11 +157,16 @@ describe('the event catalog', () => {
 
   it('reads each Home card as browsers that saw it against browsers that used it', () => {
     const rows = buildFunnels([
-      ev('wpbl_bracket_shown', 3000, 820), ev('wpbl_bracket_series', 48, 29), ev('wpbl_bracket_team', 27, 22),
-      ev('discord_joined', 13, 13),
+      { seen: 'wpbl_bracket_shown', seen_browsers: 820, used_browsers: 41 },
+      { seen: 'discord_shown', seen_browsers: 0, used_browsers: 0 },
     ])
-    // Two ways to use the bracket: the larger browser count stands in, never a sum.
-    expect(rows).toEqual([{ label: 'Bracket', verb: 'opened a series or club', seen: 820, used: 29 }])
+    // A card nobody saw in the range is left out rather than drawn at 0 of 0.
+    expect(rows).toEqual([{ label: 'Bracket', verb: 'opened a series or club', seen: 820, used: 41 }])
+  })
+
+  it('counts the Compare card only from Home', () => {
+    // The card read 220% while opens from a player page counted as the card working (Nov 12, 2026).
+    expect(HOME_FUNNELS.find(f => f.label === 'Compare card')?.from).toEqual(['home'])
   })
 })
 

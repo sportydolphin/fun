@@ -13,7 +13,8 @@ tab?" doesn't mean opening the Supabase SQL editor.
 | Piece | File |
 |---|---|
 | SQL: nine `security definer` RPCs | [`20260816195705_add_admin_analytics_rpcs.sql`](../scripts/migrations/20260816195705_add_admin_analytics_rpcs.sql) + [`20260820064501_add_admin_wpbl_stats_board_rpc.sql`](../scripts/migrations/20260820064501_add_admin_wpbl_stats_board_rpc.sql) + [`20260825065648_add_admin_wpbl_entry_point_and_search_rpcs.sql`](../scripts/migrations/20260825065648_add_admin_wpbl_entry_point_and_search_rpcs.sql) |
-| SQL: the offseason pages card | [`20260925013201_admin_wpbl_page_usage_rpc.sql`](../scripts/migrations/20260925013201_admin_wpbl_page_usage_rpc.sql) |
+| SQL: the offseason pages card | [`20260925013201_admin_wpbl_page_usage_rpc.sql`](../scripts/migrations/20260925013201_admin_wpbl_page_usage_rpc.sql), sections merged in [`20261113062858_admin_home_funnels_and_merged_page_sections.sql`](../scripts/migrations/20261113062858_admin_home_funnels_and_merged_page_sections.sql) |
+| SQL: Home cards, seen then used | `admin_home_funnels` in the same file |
 | SQL: the MLB card | [`20260928073655_admin_mlb_usage_rpc.sql`](../scripts/migrations/20260928073655_admin_mlb_usage_rpc.sql) |
 | SQL: the Search box card | [`20261014060457_add_admin_search_palette_rpc.sql`](../scripts/migrations/20261014060457_add_admin_search_palette_rpc.sql) + [`20261014183000_add_palette_missed_queries.sql`](../scripts/migrations/20261014183000_add_palette_missed_queries.sql) |
 | The search box and its events | [`src/CommandPalette.tsx`](../src/CommandPalette.tsx), opened from [`src/App.tsx`](../src/App.tsx) |
@@ -144,11 +145,14 @@ answer in its header, because the page is mostly read on a phone and nine open t
 through all of them to reach one. The raw event list became the last, closed card ("All events");
 above it, `EVENT_INFO` in `analyticsAdmin.ts` labels every event name, files it under an area, and
 marks it an action, an impression or retired. Impressions are read in "Home cards: seen, then
-used" as the first half of a pair (`HOME_FUNNELS`, browsers on both sides), actions in "What
+used" as the first half of a pair (`HOME_FUNNELS`, counted by `admin_home_funnels`: a use counts
+only from a browser that saw the card, and only from the card where the event carries `from`), actions in "What
 people do", and retired names only in the raw list. **Add a new event to `EVENT_INFO` when you add
 it to `EVENTS`**: an unlabeled one still shows under "Other" with its raw name, and
 `analyticsAdmin.test.ts` fails until it has a label. "Offseason pages" reads the three
-`wpbl_page_*` events through `admin_wpbl_page_usage`. "MLB: what gets used" reads the five `mlb_*`
+`wpbl_page_*` events through `admin_wpbl_page_usage`, which folds a section's spellings to one key
+(`admin_page_section_key`): the events carry the heading text, so a recased or renamed heading
+split its row in two until Nov 12, 2026. A renamed heading needs its old name in that key's list. "MLB: what gets used" reads the five `mlb_*`
 events through `admin_mlb_usage` (Sep 28, 2026): each Home card as used over seen, how tabs are
 reached, and where players and teams are opened from. It ignores the league chips, since it is MLB
 by definition, and it exists to decide what MLB keeps as it is aligned with WPBL (ROADMAP.md).
@@ -224,6 +228,7 @@ last two rows, which say what they take instead.
 | `admin_wpbl_entry_points(days_back, tz)` | `props->>'from'` for player / team / game opens, plus Game Center tab × via |
 | `admin_wpbl_search(days_back, tz, lim)` | the header-search funnel, what was picked, and the queries that matched nothing |
 | `admin_search_palette(days_back, tz)` | the search box in both sections, per section: opens, picks that left it, closes with nothing (after typing, and offered nothing), how it was opened (`via`), picks by kind with average row and top-row share, stat questions by side, and WPBL queries that read as one |
+| `admin_home_funnels(days_back, tz, funnels)` | per funnel passed in (`HOME_FUNNELS`): browsers that fired the impression, and those of them who fired a use, from the card where `from` is given |
 | `admin_top_players(days_back, lim, tz)` | `props->>'playerId'` joined to `wpbl_players` |
 | `admin_discord_funnel(days_back, tz)` | shown / joined / dismissed, **by distinct session** |
 | `admin_growth(days_back, tz)` | signups per day, user totals, push subscribers, reminder opt-ins |

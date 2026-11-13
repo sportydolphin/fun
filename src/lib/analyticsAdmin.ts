@@ -311,15 +311,18 @@ export function groupActions(events: EventCount[]): ActionGroup[] {
  * Sep 25, 2026, so their event counts are inflated for any window reaching back past it, while a
  * browser is a browser either way.
  *
- * `used` is the action that says the card worked. Where a card has two (the bracket opens a
- * series or a club), the larger browser count stands in, since browsers cannot be summed.
+ * `used` is the action that says the card worked, counted only for a browser that also saw the
+ * card in the range, and only from the card itself where the event says where it came from
+ * (`from`). Counted against every browser that fired it, the Compare card read 220% (11 of 5) on
+ * Nov 12, 2026: all 11 opened Compare from a player page, the More menu or a matchup. The counting
+ * is `admin_home_funnels`, which takes this list as its argument.
  */
-export const HOME_FUNNELS: Array<{ label: string; seen: string; used: string[]; verb: string }> = [
+export const HOME_FUNNELS: Array<{ label: string; seen: string; used: string[]; from?: string[]; verb: string }> = [
   { label: 'Fan awards',   seen: 'wpbl_award_shown',       used: ['wpbl_award_open'],                             verb: 'opened it' },
   { label: 'Bracket',      seen: 'wpbl_bracket_shown',     used: ['wpbl_bracket_series', 'wpbl_bracket_team'],    verb: 'opened a series or club' },
   { label: 'Season card',  seen: 'wpbl_season_card_shown', used: ['wpbl_season_card_open'],                       verb: 'opened the recap' },
   { label: 'League card',  seen: 'wpbl_league_card_shown', used: ['wpbl_league_card_open'],                       verb: 'opened it' },
-  { label: 'Compare card', seen: 'wpbl_compare_shown',     used: ['wpbl_compare_opened'],                         verb: 'opened Compare' },
+  { label: 'Compare card', seen: 'wpbl_compare_shown',     used: ['wpbl_compare_opened'], from: ['home'],      verb: 'opened Compare' },
   { label: 'Player cards', seen: 'wpbl_home_players_shown', used: ['wpbl_home_player_open'],                     verb: 'opened a player' },
   { label: 'Latest post',  seen: 'wpbl_reading_shown',     used: ['wpbl_article_opened', 'wpbl_reading_archive'], verb: 'opened a post' },
   { label: 'Watch card',   seen: 'wpbl_watch_shown',       used: ['wpbl_watch_open'],                             verb: 'played a clip or opened Watch' },
@@ -327,12 +330,19 @@ export const HOME_FUNNELS: Array<{ label: string; seen: string; used: string[]; 
 ]
 
 export interface FunnelRow { label: string; verb: string; seen: number; used: number }
+/** One funnel as `admin_home_funnels` counts it, keyed by its impression event. */
+export interface HomeFunnelCount { seen: string; seen_browsers: number; used_browsers: number }
 
-export function buildFunnels(events: EventCount[]): FunnelRow[] {
-  const br = new Map(events.map(e => [e.event, e.browsers]))
+export function buildFunnels(counts: HomeFunnelCount[]): FunnelRow[] {
+  const by = new Map(counts.map(c => [c.seen, c]))
   return HOME_FUNNELS
-    .map(f => ({ label: f.label, verb: f.verb, seen: br.get(f.seen) ?? 0, used: Math.max(0, ...f.used.map(u => br.get(u) ?? 0)) }))
+    .map(f => ({ label: f.label, verb: f.verb, seen: by.get(f.seen)?.seen_browsers ?? 0, used: by.get(f.seen)?.used_browsers ?? 0 }))
     .filter(r => r.seen > 0)
+}
+
+export function fetchHomeFunnels(days: number, tz: string): Promise<HomeFunnelCount[]> {
+  const funnels = HOME_FUNNELS.map(f => ({ seen: f.seen, used: f.used, ...(f.from ? { from: f.from } : {}) }))
+  return callRpc('admin_home_funnels', { days_back: days, tz, funnels }, [])
 }
 
 /** Readable names for the page ids and the snake_case section / control ids the pages send. */
@@ -790,6 +800,7 @@ export interface AnalyticsBundle {
   mlb: MlbUsage
   audience: Audience
   sources: TrafficSources
+  funnels: HomeFunnelCount[]
 }
 
 /**
@@ -816,7 +827,8 @@ export function fetchAnalytics(
     fetchPaletteStats(days, tz),
     fetchAudience(days, tz, league),
     fetchTrafficSources(days, tz),
-  ]).then(([overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb, palette, audience, sources]) => ({
-    overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb, palette, audience, sources,
+    fetchHomeFunnels(days, tz),
+  ]).then(([overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb, palette, audience, sources, funnels]) => ({
+    overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb, palette, audience, sources, funnels,
   }))
 }
