@@ -12,7 +12,8 @@ import { devFanPhotosOn, DEV_FAN_PHOTOS_EVENT, mockFanPhotos } from './dev/devFa
 import { track, EVENTS } from '../lib/analytics'
 import { CONTACT_EMAIL } from '../lib/contact'
 import { useReducedMotion } from '../AccessibilityContext'
-import { TYPE_SCALE } from '../ui/card'
+import { TYPE_SCALE, ICON_SIZE } from '../ui/card'
+import { AddPhotoAlternateOutlined, SellOutlined } from '@mui/icons-material'
 
 // How many published photos before the Home card earns its slot, and the most it shows in the
 // rail. The threshold is deliberately not small: a card on the front page has to look like a
@@ -107,18 +108,27 @@ export const FAN_PHOTO_SUBMIT_HREF =
  * The email stays as a small link for a fan who would rather not make an account; its pre-filled
  * consent line is still the permission record for those (docs/FAN_UPLOADS.md).
  */
-export function FanPhotoActions({ email = true, sx }: {
+export function FanPhotoActions({ email = true, size = 'md', sx }: {
   /** The email fallback. Off on Home, where the card is a rail, not the place to choose a channel. */
   email?: boolean
+  /** `sm` under the Home rail, where the photos are the card and the actions sit under them as a
+   *  footnote; `md` at the top of the gallery. Both are outlined: a filled block on Home outweighed
+   *  the photos above it (Nov 13, 2026). */
+  size?: 'sm' | 'md'
   sx?: Record<string, unknown>
 }) {
+  const icon = { fontSize: size === 'sm' ? ICON_SIZE.sm : ICON_SIZE.md, flexShrink: 0 }
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, ...sx }}>
-      <Box component="a" {...linkTo(WPBL_PHOTO_SUBMIT_PAGE)} sx={actionSx(true)}>Submit photos</Box>
-      <Box component="a" {...linkTo(WPBL_PHOTO_TAG_PAGE)} sx={actionSx(false)}>Tag players</Box>
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: size === 'sm' ? 0.75 : 1, ...sx }}>
+      <Box component="a" {...linkTo(WPBL_PHOTO_SUBMIT_PAGE)} sx={actionSx(true, size)}>
+        <AddPhotoAlternateOutlined aria-hidden sx={icon} />Submit photos
+      </Box>
+      <Box component="a" {...linkTo(WPBL_PHOTO_TAG_PAGE)} sx={actionSx(false, size)}>
+        <SellOutlined aria-hidden sx={icon} />Tag players
+      </Box>
       {email && (
         <Box component="a" href={FAN_PHOTO_SUBMIT_HREF} sx={{
-          fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary', textDecoration: 'underline',
+          fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary', textDecoration: 'underline', ml: 0.5,
           '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2, borderRadius: 0.5 },
         }}>Email photos</Box>
       )}
@@ -126,14 +136,20 @@ export function FanPhotoActions({ email = true, sx }: {
   )
 }
 
-function actionSx(primary: boolean) {
+/** An outlined pill with a leading icon. Submit carries the section's accent in its outline and
+ *  text, Tag the neutral outline, so the two read as a pair with one lead. The accent is the same
+ *  ink the section uses for text, so the outline clears 3:1 in both themes (src/CLAUDE.md). */
+function actionSx(primary: boolean, size: 'sm' | 'md') {
   return {
-    display: 'inline-flex', alignItems: 'center', minHeight: chromePx(36), px: 1.75, borderRadius: 999,
-    fontSize: TYPE_SCALE.body, fontWeight: 800, lineHeight: 1.2, textDecoration: 'none', border: '1px solid',
+    display: 'inline-flex', alignItems: 'center', gap: 0.6, borderRadius: 999, border: '1px solid',
+    minHeight: chromePx(size === 'sm' ? 30 : 36), px: size === 'sm' ? 1.25 : 1.6,
+    fontSize: size === 'sm' ? TYPE_SCALE.meta : TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.2,
+    textDecoration: 'none', whiteSpace: 'nowrap', bgcolor: 'background.paper',
+    ...hoverOnly({ bgcolor: 'action.hover' }),
     '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
     ...(primary
-      ? { bgcolor: 'var(--wpbl-accent-solid)', borderColor: 'var(--wpbl-accent-solid)', color: '#fff' }
-      : { bgcolor: 'background.paper', borderColor: 'outline', color: 'text.primary', ...hoverOnly({ bgcolor: 'action.hover' }) }),
+      ? { borderColor: 'var(--wpbl-accent-fg)', color: 'var(--wpbl-accent-fg)' }
+      : { borderColor: 'outline', color: 'text.primary' }),
   } as const
 }
 
@@ -656,7 +672,7 @@ export function FanPhotoHomeCardSkeleton() {
             </Box>
           ))}
         </Box>
-        <FanPhotoActions email={false} sx={{ mt: 1.25 }} />
+        <FanPhotoActions email={false} size="sm" sx={{ mt: 1 }} />
       </SectionCard>
     </Box>
   )
@@ -738,7 +754,7 @@ export function FanPhotoHomeCard({ reserve = false }: {
         <Box sx={{ mx: { xs: -2, sm: 0 } }}>
           <FanPhotoStrip photos={shuffled.slice(0, HOME_RAIL_MAX)} resolveNames={resolveNames} from="home" autoScroll phoneInset={2} />
         </Box>
-        <FanPhotoActions email={false} sx={{ mt: 1.25 }} />
+        <FanPhotoActions email={false} size="sm" sx={{ mt: 1 }} />
       </SectionCard>
     </Box>
   )
