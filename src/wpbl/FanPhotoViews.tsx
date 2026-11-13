@@ -5,7 +5,7 @@ import { fanPhotoTeamName, type FanPhotoWithSubjects, type FanPhotoIndex } from 
 import { SectionHead } from './cardParts'
 import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers, getCachedWpblFanPhotoIndex, getCachedWpblAllPlayers, FAN_PHOTOS_CHANGED_EVENT } from './api'
 import type { WpblPlayer } from './types'
-import { WPBL_PHOTOS_PAGE, WPBL_PHOTO_TAG_PAGE } from './routes'
+import { WPBL_PHOTOS_PAGE, WPBL_PHOTO_TAG_PAGE, WPBL_PHOTO_SUBMIT_PAGE } from './routes'
 import { useCanEditFanPhotos } from './fanPhotoGate'
 import { linkTo } from '../nav'
 import { devFanPhotosOn, DEV_FAN_PHOTOS_EVENT, mockFanPhotos } from './dev/devFanPhotos'
@@ -100,8 +100,10 @@ export const FAN_PHOTO_SUBMIT_HREF =
 /** The ask. `line` is one quiet row under a rail (Home); `block` is a small panel under the full
  *  gallery, where a reader who has just scrolled every photo is the likeliest to have their own. */
 export function FanPhotoSubmitNote({ variant }: { variant: 'line' | 'block' }) {
-  const link = (label: string) => (
-    <Box component="a" href={FAN_PHOTO_SUBMIT_HREF} sx={{
+  // The submit page first (docs/FAN_UPLOADS.md); the email stays for a fan who would rather not
+  // make an account, and its pre-filled consent line is still the permission record for those.
+  const link = (label: string, href: 'page' | 'email' = 'page') => (
+    <Box component="a" {...(href === 'page' ? linkTo(WPBL_PHOTO_SUBMIT_PAGE) : { href: FAN_PHOTO_SUBMIT_HREF })} sx={{
       color: 'primary.main', fontWeight: 700, textDecoration: 'none',
       '&:hover': { textDecoration: 'underline' },
       '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2, borderRadius: 0.5 },
@@ -117,14 +119,12 @@ export function FanPhotoSubmitNote({ variant }: { variant: 'line' | 'block' }) {
   return (
     <Box sx={{ mt: 3, p: { xs: 1.75, sm: 2 }, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL }}>
       <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800 }}>Your photos</Typography>
-      <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 0.5, lineHeight: 1.5 }}>
-        Took photos at a WPBL game? Send them in and they could be featured here and on the players'
-        pages, always credited to you.
-      </Typography>
-      {/* Its own line: run on at the end of the sentence it wrapped mid-address on a phone, and
-          the address is the one thing in this panel a reader has to act on. */}
       <Typography sx={{ fontSize: TYPE_SCALE.body, mt: 0.75, lineHeight: 1.5 }}>
-        {link(`Email ${CONTACT_EMAIL}`)}
+        {link('Submit photos ›')}
+      </Typography>
+      {/* Its own line, so the address never wraps mid-way on a phone. */}
+      <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 0.5, lineHeight: 1.5 }}>
+        Or {link(`email ${CONTACT_EMAIL}`, 'email')}
       </Typography>
     </Box>
   )

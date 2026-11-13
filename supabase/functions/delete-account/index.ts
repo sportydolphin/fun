@@ -46,8 +46,29 @@ Deno.serve(async (req) => {
   // never reaches them. The audit of Nov 8, 2026 found the last three missing from this list:
   // a deleted account's Streak Survivor history and pick'em answers outlived it.
   //
+  // A fan's own photos come down with the account (docs/FAN_UPLOADS.md decision 6): their
+  // contributor record is marked withdrawn and every photo of theirs unpublished, the same act as
+  // a withdrawal in /admin. Their submissions would cascade with the sign-in anyway; they are
+  // deleted here so the list below reads as everything this does. The contributor record itself
+  // stays, withdrawn, because it is the permission record for photos that were up until today.
+  const { data: contributor, error: contributorErr } = await admin
+    .from('wpbl_photo_contributors').select('id').eq('user_id', user.id).maybeSingle()
+  if (contributorErr) {
+    console.error('delete-account contributor lookup failed', user.id, contributorErr.message)
+    return new Response(JSON.stringify({ error: 'Cleanup failed; the account was not deleted.' }), {
+      status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    })
+  }
+  const today = new Date().toISOString().slice(0, 10)
+
   // A NEW TABLE THAT STORES A USER ID GOES HERE, and on /delete-account (LegalPages.tsx).
   const steps = await Promise.all([
+    admin.from('wpbl_photo_submissions').delete().eq('user_id', user.id),
+    ...(contributor ? [
+      admin.from('wpbl_fan_photos').update({ approved: false, open_for_tagging: false, updated_at: new Date().toISOString() })
+        .eq('contributor_id', contributor.id),
+      admin.from('wpbl_photo_contributors').update({ withdrawn_on: today, user_id: null }).eq('id', contributor.id),
+    ] : []),
     admin.from('usernames').delete().eq('user_id', user.id),
     admin.from('user_preferences').delete().eq('user_id', user.id),
     admin.from('prediction_stats').delete().eq('user_id', user.id),

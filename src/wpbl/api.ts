@@ -57,6 +57,8 @@ export {
 export {
   fetchPendingPhotoSubmissions, fetchSubmissionRender, approvePhotoSubmission, rejectPhotoSubmission,
   blockPhotoUploader, daysLeft, type PhotoSubmission, type SubmissionSubject,
+  fetchUploadTerms, submitPhoto, fetchMySubmissions, removeMySubmission,
+  type UploadTerms, type SubmitAnswer, type MySubmission,
 } from './api/photoSubmissions'
 export {
   getCachedWpblRosterMoves, fetchWpblRosterMoves, ROSTER_MOVES_CHANGED_EVENT,

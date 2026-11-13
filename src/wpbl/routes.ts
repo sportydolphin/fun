@@ -737,6 +737,15 @@ export const WPBL_PHOTO_TAG_PAGE = `${WPBL_PHOTOS_PAGE}/tag`
 export const isWpblPhotoTagPage = (pathname: string) =>
   pathname.replace(/\/+$/, '') === WPBL_PHOTO_TAG_PAGE
 
+// ─── Submitting photos ──────────────────────────────────────────────────────────
+//
+// A signed-in fan sends their own photos for review (docs/FAN_UPLOADS.md). A form, not content:
+// noindex and out of the sitemap, reached from the gallery's Your photos panel.
+export const WPBL_PHOTO_SUBMIT_PAGE = `${WPBL_PHOTOS_PAGE}/submit`
+
+export const isWpblPhotoSubmitPage = (pathname: string) =>
+  pathname.replace(/\/+$/, '') === WPBL_PHOTO_SUBMIT_PAGE
+
 // ─── The Reading page ──────────────────────────────────────────────────────────
 //
 // A seventh sibling: one writer's coverage of the league, every post, with a club filter. Its own

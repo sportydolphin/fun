@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.238.0',
+    date:    '2026-11-13',
+    changes: [
+      {
+        short: 'Photos: submit your own',
+        full:  'Signed in, you can send your own photos from WPBL games at Submit photos, from the Your photos panel under the gallery. Say who is in each one if you know, and each is reviewed before it goes up, credited to the name you choose. Your submissions are listed on the same page, where you can withdraw one or take a published one down.',
+      },
+    ],
+  },
+  {
     version: '1.237.0',
     date:    '2026-11-12',
     changes: [
