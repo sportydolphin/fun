@@ -5,7 +5,7 @@ import { ChipRow, FilterChip, filterChipSx } from '../ui/FilterChip'
 import { pressable, hoverOnly, FOCUS_RING } from '../ui/interaction'
 import { NameText } from '../ui/NameText'
 import { chromePx } from '../ui/scale'
-import { FanPhotoGrid, FanPhotoGridSkeleton, FanPhotoSubmitNote, FanPhotoTagInvite, useFanPhotosVersion } from './FanPhotoViews'
+import { FanPhotoGrid, FanPhotoGridSkeleton, FanPhotoActions, useFanPhotosVersion } from './FanPhotoViews'
 import { TextGhost } from './ui'
 import { fetchWpblFanPhotoIndex, fetchWpblAllPlayers, fetchWpblPhotos, getCachedWpblPhotos } from './api'
 import { ArchiveGrid } from './Photos'
@@ -126,12 +126,12 @@ export default function PhotosGalleryPage() {
         <GallerySkeleton />
       ) : total === 0 && archive.length === 0 ? (
         <Box sx={{ py: 6, textAlign: 'center' }}>
-          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary' }}>No photos yet.</Typography>
-          <FanPhotoSubmitNote variant="block" />
+          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mb: 2 }}>No photos yet.</Typography>
+          <FanPhotoActions sx={{ justifyContent: 'center' }} />
         </Box>
       ) : (
         <>
-          <FanPhotoTagInvite />
+          <FanPhotoActions sx={{ mb: 1.5 }} />
           {/* Category first (Fan signs, the archive), then who is in them within it. "This season"
               is every photo from 2026, which is what the gallery opens on. */}
           {(categoryChips.length > 0 || archive.length > 0) && (
@@ -158,7 +158,6 @@ export default function PhotosGalleryPage() {
           {showingArchive
             ? <Box sx={{ mt: 1 }}><ArchiveGrid photos={archive} /></Box>
             : <FanPhotoGrid photos={shown} resolveNames={resolveNames} from="gallery" />}
-          <FanPhotoSubmitNote variant="block" />
         </>
       )}
     </WpblPage>
@@ -177,7 +176,7 @@ function GallerySkeleton() {
   )
   return (
     <Box aria-hidden>
-      <FanPhotoTagInvite />
+      <FanPhotoActions sx={{ mb: 1.5 }} />
       <ChipRow mb={1}>
         {['This season (000)', 'Fan Sign (0)', 'Fans (0)', 'From the archive (00)'].map((l, i) => chip(l, i === 0))}
       </ChipRow>

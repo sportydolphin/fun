@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.238.2',
+    date:    '2026-11-13',
+    changes: [
+      {
+        short: 'Photos: Submit and Tag up top',
+        full:  'Submit photos and Tag players are two buttons at the top of the gallery and under the photos on Home.',
+      },
+    ],
+  },
+  {
     version: '1.238.1',
     date:    '2026-11-13',
     changes: [
