@@ -49,6 +49,7 @@ vi.mock('../api', () => ({
   fetchWpblTeams: vi.fn(async () => teams),
   fetchFanPhotoContributors: vi.fn(async () => contributors),
   fetchR2StorageSnapshots: vi.fn(async () => []),
+  fetchPendingPhotoSubmissions: vi.fn(async () => []),
   updateFanPhotoContributor: (...a: unknown[]) => updateFanPhotoContributor(...a),
   setFanPhotoApproved: (...a: unknown[]) => setFanPhotoApproved(...a),
   addFanPhotoSubject: (...a: unknown[]) => addFanPhotoSubject(...a),

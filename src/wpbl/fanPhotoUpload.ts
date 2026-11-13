@@ -65,6 +65,20 @@ export async function prepareForUpload(file: File): Promise<PreparedPhoto> {
   }
 }
 
+/** Make both renders again from an existing render, keeping the original's hash. Used when the
+ *  owner approves a fan's photo: the canvas carries no metadata, so whatever the fan's browser
+ *  sent, only pixels reach the public bucket (docs/FAN_UPLOADS.md decision 3). */
+export async function prepareFromRender(render: Blob, sha256: string): Promise<PreparedPhoto> {
+  const bitmap = await createImageBitmap(render)
+  try {
+    const card = await toWebp(bitmap, CARD_MAX)
+    const full = await toWebp(bitmap, FULL_MAX)
+    return { sha256, card: card.blob, full: full.blob, width: full.width, height: full.height }
+  } finally {
+    bitmap.close()
+  }
+}
+
 export interface UploadedLocation {
   storage_path: string
   card_url: string

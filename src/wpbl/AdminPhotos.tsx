@@ -13,6 +13,7 @@ import {
 import { TagReviewProvider, useTagReview, useTagReviewContext, SuggestionChips, PhotoTaggingSection } from './AdminPhotoTagging'
 import { prepareForUpload, uploadPreparedPhoto } from './fanPhotoUpload'
 import AdminPhotoStorage from './AdminPhotoStorage'
+import AdminPhotoSubmissions from './AdminPhotoSubmissions'
 
 // The crop library and its stylesheet load only when Crop is pressed.
 const PhotoCropper = lazy(() => import('./PhotoCropper'))
@@ -1117,6 +1118,8 @@ export default function AdminPhotos() {
           </IconButton>
         </Box>
       </Box>
+
+      <AdminPhotoSubmissions players={playersById} figures={figuresByKey} teams={teams} onPublished={load} />
 
       <AdminPhotoStorage />
 
