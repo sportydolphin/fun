@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.236.0',
+    date:    '2026-11-11',
+    changes: [
+      {
+        short: 'Stats: a position filter',
+        full:  'The Players table on both WPBL and MLB has a Position menu beside the clubs: catchers to designated hitters, infielders and outfielders on Hitting, starters and relievers on Pitching. On a phone it is in the Filters sheet. The address keeps it, so a filtered table can be shared. On a narrow desktop window the clubs, position and Qualified move into a Filters button.',
+      },
+    ],
+  },
+  {
     version: '1.235.2',
     date:    '2026-11-11',
     changes: [

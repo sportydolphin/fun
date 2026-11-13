@@ -4,6 +4,7 @@ import { SheetTrigger } from '../../ui/SheetTrigger'
 import {
   TeamBadge, PillGroup } from '../ui'
 import type { WpblTeam } from '../types'
+import { parsePositionFilter, type PositionFilter, type PositionFilterDef } from '../../league/positionFilter'
 import type { SeasonScope } from '../season'
 import { SeasonMenu } from '../SeasonMenu'
 import type { Col } from '../statColumns'
@@ -18,7 +19,7 @@ import { PINNED_CHROME, fullBleedStickySx } from './layout'
 export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, analysisBoards, source, isNarrow,
   stuckMarkRef, barRef, barStuck, mode, side, pickSide, hasViews, view, switchView, canFilter, sheetOpen,
   setSheetOpen, activeCol, filtersSet, hasPostseason, overall, scope, setScope, teamId, teamChips, filterTeam,
-  qualified, toggleQualified }: {
+  qualified, toggleQualified, pos, posChoices, filterPos }: {
   newBoards?: ReadonlySet<string>
   activeBoard: string
   selectBoard: (k: string) => void
@@ -47,12 +48,16 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
   teamId: string | null
   teamChips: WpblTeam[]
   filterTeam: (id: string | null) => void
+  /** The position the players are narrowed to on this side, the side's choices, and the setter. */
+  pos: PositionFilter | null
+  posChoices: PositionFilterDef[]
+  filterPos: (p: PositionFilter | null) => void
   qualified: boolean
   toggleQualified: () => void
 }) {
-  // [0] the club chips, [1] the season slice, [2] the side switch's padding: the order they give
-  // way in. With all three, Players on Hitting is one line from 960px (1200px at Large text).
-  const { rowRef, slotRef, fits } = useRowFit(3, !isNarrow)
+  // [0] the club chips, [1] the season slice, [2] the side switch's padding, [3] the view switch's
+  // padding, [4] the desktop filters folding into the Filters sheet: the order they give way in.
+  const { rowRef, slotRef, fits } = useRowFit(5, !isNarrow)
   const sidePill = (dense: boolean) => (
     <PillGroup
       options={SIDES.map(o => !sideOn(o.value, source, mode)
@@ -192,8 +197,10 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
         {/* Desktop only. A phone's ranked list shows one stat, so there is nothing to switch; its
             full table carries the same switch in the footer, where the bar has no room left. */}
         {source === 'season' && !isNarrow && hasViews && (
-          <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
-            <PillGroup options={VIEW_OPTIONS} value={view} onChange={v => switchView(v as View)} />
+          /* Dense once both selects and the side switch have given way (slot 3), before the filters
+              fold into their sheet (slot 4). */
+          <Box ref={slotRef(3)} sx={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+            <PillGroup options={VIEW_OPTIONS} value={view} onChange={v => switchView(v as View)} dense={!fits[3]} />
           </Box>
         )}
 
@@ -266,9 +273,19 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
           </Box>
         )}
 
-        {/* Desktop: the filters themselves, no sheet in the way. */}
-        {source === 'season' && mode === 'players' && !isNarrow && (
-          <Box sx={{ ml: 'auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+        {/* Desktop: the filters themselves, no sheet in the way, until even their selects do not
+            fit. Then, as the last thing to give way (slot 4), they fold into the phone's Filters
+            pill and sheet. The Position menu took the row at 960 to 1031px of controls in 900px
+            with every other slot already compact, and the filters wrapped onto a second line
+            under the pinned bar (Nov 12, 2026). */}
+        {source === 'season' && mode === 'players' && !isNarrow && !fits[4] && (
+          <Box ref={slotRef(4)} sx={{ ml: 'auto', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            <SheetTrigger label="Filters" set={filtersSet} open={sheetOpen != null}
+              onOpen={() => setSheetOpen('filter')} ariaLabel={`Filters${filtersSet ? ', on' : ''}`} />
+          </Box>
+        )}
+        {source === 'season' && mode === 'players' && !isNarrow && fits[4] && (
+          <Box ref={slotRef(4)} sx={{ ml: 'auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75 }}>
             {/* CHIPS WHEN THEY FIT, A SELECT WHEN THEY DO NOT, decided by measuring the row. This
                 was a CSS breakpoint (chips from `lg`), sized to the row as it stood; then Overall
                 added a fourth side and the row came to 1315px in a 1260px column, and the clubs
@@ -294,6 +311,16 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
                 />
               )}
             </Box>
+            {/* ALWAYS A SELECT: up to nine choices, which as chips would push the clubs into their
+                own select at every desktop width. Named by the plural ("Catchers"), as the search's
+                rows and the phone's chip name it. */}
+            <FilterSelect
+              value={pos ?? ''}
+              options={[{ value: '', label: 'All positions' }, ...posChoices.map(d => ({ value: d.key, label: d.plural }))]}
+              onChange={v => filterPos(parsePositionFilter(v))}
+              active={pos !== null}
+              ariaLabel="Position"
+            />
             {!overall && (
               <>
                 <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: 'divider', mx: 0.25, flexShrink: 0 }} />
