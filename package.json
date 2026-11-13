@@ -66,6 +66,7 @@
     "size": "size-limit",
     "record-mlb-feed": "node scripts/run-ts.mjs scripts/record-mlb-feed.ts",
     "field": "node scripts/run-ts.mjs scripts/show-field.ts",
+    "notes": "node scripts/run-ts.mjs scripts/live-notes.ts",
     "event-audit": "node scripts/run-ts.mjs --env scripts/check-wpbl-event-counts.ts"
   },
   "dependencies": {
