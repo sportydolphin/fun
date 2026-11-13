@@ -143,6 +143,10 @@ Stats controls.
     from late February while the WPBL feed is quiet; WPBL wires to it against the 2027 feed.
     The engine, apart from the drawing, started Nov 8 (docs/LIVE_FIELD.md).
     *ROADMAP-WPBL, "From the Nov 1, 2026 brainstorm".*
+13a. **Live notes** (decided Nov 10, 2026): every first, record, milestone and streak a game produces,
+    all of them in /admin and the top few for readers. The engine and its backtest first (works on the
+    frozen 2026 files), then the owner console this winter, then the readers' strip on the redesigned
+    Game Center beside the live field. WPBL only. *ROADMAP-WPBL, "Live notes".*
 
 ## Spring 2027
 

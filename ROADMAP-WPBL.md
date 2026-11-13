@@ -1481,6 +1481,59 @@ is 11.5.
 - **MLB.** The engine is WPBL-bound through its win model. MLB's Game Center draws its own win
   probability from the feed; an LI there would come from MLB's published tables, not this code.
 
+## Live notes (Nov 10, 2026) 🎯🔬
+
+The live game companion: as a game is played, every first, record, milestone, streak and rarity
+it produces, each with the earlier plays that prove it. **The owner sees all of them; readers see
+only the few that score highest.** WPBL only until MLB is scoped. Bluesky posts made from them stay
+manual, since a post cannot be edited and the league corrects plays.
+
+**One engine, three surfaces.** A pure function over the play log, rerun on every poll, so a note a
+correction removes simply stops being produced. It reads what Find reads (`plateAppearanceLines`,
+`runnerEvents`, `FIRST_KINDS`, the fielding readers) so a note cannot disagree with a Find answer or
+a first. History is every earlier game, the frozen 2026 files included, so "first in WPBL history"
+holds in 2027 without reading every season live. Notes the public does not see are hidden, not
+private: the engine runs in the browser for everyone, and only the selection differs.
+
+**What it notices** (the admin list is meant to be as wide as the log allows):
+
+- **Counted facts at every lens.** Each play yields facts (a home run, a 6-4-3 double play, a
+  runner thrown out at home 7-2, a pinch-hit homer, an error at short), and each fact is counted at
+  every lens it has: the league ever, the postseason, the season, the club, the player's career and
+  season, the pitcher it came against, the batter and pitcher pair, and the **crew**, the exact
+  defenders in the chain ("first 6-4-3 double play from these three"). The first, second and third
+  time at a lens are notes; so are round numbers (the 10th, the 100th).
+- **Records in a game, an inning, a plate appearance**: a player's hits, homers, walks, steals, a
+  pitcher's strikeouts and pitches, a club's runs and hits, the longest plate appearance. New,
+  tied, or the nth time.
+- **Watches**: a no-hitter or a perfect game through each inning, a cycle one hit type away, extra
+  innings.
+- **Streaks**: hitting and on-base streaks across games, batters retired and strikeouts in a row,
+  homers in a row, a club's wins in a row.
+- **Situations**: "down 4 after 5 innings: clubs are 1–12", from every earlier line score.
+- **Matchups**: the batter against this pitcher, before the trip.
+- **Leaders**: takes or ties the league lead in a counting stat.
+- **The final**: the score's first time (Scorigami), comebacks, margins, shutouts, no-hitters.
+
+**Scoring.** Category, lens (the league ever counts most, a player's season least), how often the
+kind happens (a first single is common, a first triple is not), which time it is, and whether it is
+a new record. A later note in the same group (a no-hitter through 5, then through 6) replaces the
+earlier one. Readers see the top few at or above the public bar.
+
+**Order of work.**
+
+1. **The engine and a backtest**, on the frozen 2026 files: `npm run notes` prints every note of a
+   game or the whole season and how many clear the public bar, which is how the bar is tuned. The
+   tests run all 40 finals.
+2. **The owner console** in `/admin`: every note of a live or finished game, by score, filtered by
+   category and lens, the evidence one tap away, copy as a Bluesky post, mark as posted (and flagged
+   if a correction later removes it). Find opened on the current situation. Not part of the
+   redesign, so it can ship this winter.
+3. **Readers' notes in Game Center**: the top notes as a strip while a game is live and a section on
+   a finished one. Built on the redesigned Game Center beside the live field, so it is built once.
+4. **Later**: hiding or promoting a note for readers (an owner-written table behind a writer
+   function), push for the top tier, win probability swings, MLB.
+
 ## Where new things go (decided Aug 27, 2026)
 
 The section has four nouns: games, clubs, players, and **the league itself**. The fourth has
