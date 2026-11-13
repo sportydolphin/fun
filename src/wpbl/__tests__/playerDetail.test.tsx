@@ -445,21 +445,15 @@ describe('PlayerDetail: league ranks', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Fewer stats' }))
   })
 
-  // The retraction has to reach the reader who only looks at the big number, so the sample
-  // line under the rates names the gap too. Pinned because the two are computed in different
-  // places (`battingMeta` and `RankProgress`) off the same `ranks.qualifiers`, and they must be
-  // the SAME number: the sample line printed the threshold while the rail printed the distance
-  // to it, so a player one plate appearance short of the leaderboard was told "29 PA to
-  // qualify" under her headline and "1 more PA" at the foot of the rail.
-  it('names the same shortfall on the sample line as in the rail', async () => {
+  // The caption under the rates says only that the sample is small; the distance to the bar is
+  // the rail's, once. Both used to print it, and the two were computed in different places.
+  it('flags a player under the bar as a small sample and leaves the gap to the rail', async () => {
     lines.batting = [bat({ ab: 4, h: 2, tb: 3 })]
     show(player())
     await waitFor(() => expect(battingShown()).toBe(true))
-    const onHero = screen.getAllByText(/\d+ PA from qualifying/)
-    expect(onHero.length).toBeGreaterThan(0)
-    const gap = (el: HTMLElement, re: RegExp) => (el.textContent ?? '').match(re)?.[1]
-    const inRail = screen.getByText(/more PA to rank against qualified batters/i)
-    expect(gap(onHero[0], /(\d+) PA from qualifying/)).toBe(gap(inRail, /(\d+) more PA/))
+    expect(screen.getAllByText(/Small sample/).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/from qualifying/)).toBeNull()
+    expect(screen.getByText(/more PA to rank against qualified batters/i)).toBeTruthy()
   })
 
   // No season row under the log on the regular season: the season line a few inches above is the

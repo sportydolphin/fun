@@ -197,9 +197,11 @@ export function usePitchProfiles({ player, players, teams, games, season, scope 
  * on the ground. What is left of the pitch profile once its headline rates moved into the season's
  * Plate discipline table, where they sit in the same table as every other rate on the card.
  */
-export default function PitchProfileBlock({ side, profile }: {
+export default function PitchProfileBlock({ side, profile, legend = true }: {
   side: Side
   profile: PitchProfilePair | null | undefined
+  /** False under a second pitch mix on the same page, which shares the first one's key. */
+  legend?: boolean
 }) {
   const dark = useDark()
   const amber = amberFor(dark)
@@ -208,17 +210,21 @@ export default function PitchProfileBlock({ side, profile }: {
   if (!profile) return null
   const { me, league } = profile
   const outs = me.groundOuts + me.airOuts
-  const coverage = `${me.pitches} pitches ${side === 'pitching' ? 'to' : 'across'} ${me.pa} ${side === 'pitching' ? 'batters' : 'plate appearances'}`
+  // Pitches only. The PA or batters-faced count is on the season line above, and the one here
+  // counts only plate appearances with pitch data, so it could read one short of that line.
+  const coverage = `${me.pitches} pitches`
 
   return (
     <Box sx={{ mt: BLOCK_GAP }}>
       <SectionHead title="Pitch mix" part="pitches" caption={coverage} />
       <MixRows me={me.counts} league={league.counts} side={side} better={better} amber={amber} />
-      <Typography sx={{ mt: 0.5, fontSize: TYPE_SCALE.caption, color: 'text.disabled' }}>
-        Share of pitches {side === 'pitching' ? 'thrown' : 'seen'} · Tick: league ·{' '}
-        <Box component="span" sx={{ color: better, fontWeight: 700 }}>Blue</Box>: better ·{' '}
-        <Box component="span" sx={{ color: amber, fontWeight: 700 }}>Amber</Box>: worse
-      </Typography>
+      {legend && (
+        <Typography sx={{ mt: 0.5, fontSize: TYPE_SCALE.caption, color: 'text.disabled' }}>
+          Share of pitches {side === 'pitching' ? 'thrown' : 'seen'} · Tick: league ·{' '}
+          <Box component="span" sx={{ color: better, fontWeight: 700 }}>Blue</Box>: better ·{' '}
+          <Box component="span" sx={{ color: amber, fontWeight: 700 }}>Amber</Box>: worse
+        </Typography>
+      )}
       {/* OUTS IN PLAY, AND IT SAYS SO. A hit in the play text reads "singled to center field"
           whatever it was, so only the outs can be sorted into ground and air. See battedOutKind. */}
       {outs >= 10 && (

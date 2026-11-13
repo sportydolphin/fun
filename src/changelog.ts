@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.238.3',
+    date:    '2026-11-13',
+    changes: [
+      {
+        short: 'Players: no repeated counts',
+        full:  'Player pages show PA, IP and the distance to qualifying once each. The line under Batting or Pitching reads "Small sample" or nothing, Pitch mix shows the pitch count, and hit locations show the count their shares are of. A two-way player\'s page shows the Pitch mix key once.',
+      },
+    ],
+  },
+  {
     version: '1.238.2',
     date:    '2026-11-13',
     changes: [

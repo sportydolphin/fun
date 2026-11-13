@@ -372,9 +372,13 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
           </Box>
         )}
         {/* THE DENOMINATOR, because the field shows shares and a share with no count behind it
-            cannot be judged: 100% of one ball and 44% of thirty-two look equally confident. */}
+            cannot be judged: 100% of one ball and 44% of thirty-two look equally confident. Only
+            the count the shares are of: what could not be placed is on the source line below, so
+            "64 of 64 placed" said nothing, and on Hits it read "22 of 64" as if 42 were missing. */}
         <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 0.75, display: 'block' }}>
-          {placedInMode} of {profile.hits + profile.outs} batted {profile.hits + profile.outs === 1 ? 'ball' : 'balls'} placed
+          {placedInMode} {mode === 'hits' ? (placedInMode === 1 ? 'hit' : 'hits')
+            : mode === 'outs' ? (placedInMode === 1 ? 'out' : 'outs')
+              : placedInMode === 1 ? 'batted ball' : 'batted balls'}
         </Typography>
       </Box>
       </Box>

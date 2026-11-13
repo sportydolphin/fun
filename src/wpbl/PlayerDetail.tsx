@@ -9,7 +9,6 @@ import { wpblAccent, wpblColor, wpblSecondary, wpblFullName, outsToIp } from './
 import { ModalShell, AfterShellEnters, PlayerPortrait, CopyLinkButton, SegNav, chromePx, hoverOnly, CARD_BORDER } from './ui'
 import { ExpandButton } from '../ui/ExpandButton'
 import { DetailPageBar } from './DetailPageBar'
-import { WpblVisuallyHiddenH1 } from './PageHeading'
 import { PLAYER_PAGE_W } from './layoutWidths'
 import { SectionHead, useRankInk } from './cardParts'
 import {
@@ -532,7 +531,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   const battingPane = {
     hasLog: battingLog.length > 0,
     /** Between the season line and the log: how the season was hit, from every pitch seen. */
-    profile: <PitchProfileBlock side="batting" profile={pitchProfiles?.batting} />,
+    profile: (legend = true) => <PitchProfileBlock side="batting" profile={pitchProfiles?.batting} legend={legend} />,
     /** Under the profile: her line against every pitcher she has faced. */
     matchups: <MatchupTable player={player} side="batting" lines={matchups?.vsPitchers ?? []} players={players} scope={scope} accent={color} />,
     line: (scopeControl?: React.ReactNode, caption = true) => (
@@ -587,7 +586,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   const pitchingPane = {
     hasLog: pitchingLog.length > 0 || seasonPitchLocs.length > 0,
     /** Between the season line and the log: how the season was pitched, from every pitch thrown. */
-    profile: <PitchProfileBlock side="pitching" profile={pitchProfiles?.pitching} />,
+    profile: (legend = true) => <PitchProfileBlock side="pitching" profile={pitchProfiles?.pitching} legend={legend} />,
     /** Under the profile: what every batter she has faced did against her. */
     matchups: <MatchupTable player={player} side="pitching" lines={matchups?.vsBatters ?? []} players={players} scope={scope} accent={color} />,
     line: (scopeControl?: React.ReactNode, caption = true) => (
@@ -659,7 +658,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     const logCells = r === 'pitching' ? ['W', '5.0', '5', '2', '2', '1', '2', '5', '80'] : ['CF', '4', '1', '1', '1', '1', '1', '1', '1', '1', '1', '2']
     return {
       hasLog: true,
-      profile: null,
+      profile: () => null,
       matchups: null,
       extras: null,
       season: null,
@@ -770,7 +769,9 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
             profile and the charts, which explain the numbers above them. */}
         {pane.log}
         {pane.matchups}
-        {pane.profile}
+        {/* One color key per page: a two-way player's second pitch mix is a scroll below the
+            first, under the same key, so printing it again only repeated it. */}
+        {pane.profile(first || !pitchProfiles?.[roles[0]])}
         {pane.extras}
       </Box>
     )
@@ -880,7 +881,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
             sheet has finished rising instead of during it. See AfterShellEnters. */}
         <AfterShellEnters>
           {pane.matchups}
-          {pane.profile}
+          {pane.profile()}
           {pane.extras}
           {/* Fielding is behind All stats (see statSummary), except for a defensive-only cameo,
               which has no season table to put it under. */}
@@ -1062,7 +1063,6 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   // panel does not, and the band below already carries the name.
   if (layout === 'page') return (
     <Box component="article" sx={{ width: PLAYER_PAGE_W, ml: `calc((100% - ${PLAYER_PAGE_W}) / 2)`, pb: 4 }}>
-      <WpblVisuallyHiddenH1>{player.name}</WpblVisuallyHiddenH1>
       <DetailPageBar onBack={onClose} eyebrow={team ? wpblFullName(team) : 'Player'} actions={actions} />
       <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: CARD_BORDER, borderRadius: 3, overflow: 'hidden' }}>
         {body}
