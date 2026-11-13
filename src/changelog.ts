@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.238.4',
+    date:    '2026-11-13',
+    changes: [
+      {
+        short: 'About the league: clubs as a table',
+        full:  'The clubs on About the league are a table of badge, name and regular-season record, in standings order. The country filters are plain square tags.',
+      },
+    ],
+  },
+  {
     version: '1.238.3',
     date:    '2026-11-13',
     changes: [
