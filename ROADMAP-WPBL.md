@@ -1508,8 +1508,10 @@ private: the engine runs in the browser for everyone, and only the selection dif
   tied, or the nth time.
 - **Watches**: a no-hitter or a perfect game through each inning, a cycle one hit type away, extra
   innings.
-- **Streaks**: hitting and on-base streaks across games, batters retired and strikeouts in a row,
-  homers in a row, a club's wins in a row.
+- **Streaks**: hitting, on-base and home run streaks across games, batters retired and strikeouts in
+  a row, homers in a row, a club's wins in a row. Game streaks are regular season only, as MLB keeps
+  them: the postseason neither extends one nor ends it.
+- **A club's own history**: its first win, its 10th, its 50th, its first postseason win.
 - **Situations**: "down 4 after 5 innings: clubs are 1–12", from every earlier line score.
 - **Matchups**: the batter against this pitcher, before the trip.
 - **Leaders**: takes or ties the league lead in a counting stat.
@@ -1518,7 +1520,8 @@ private: the engine runs in the browser for everyone, and only the selection dif
 **Scoring.** Category, lens (the league ever counts most, a player's season least), how often the
 kind happens (a first single is common, a first triple is not), which time it is, and whether it is
 a new record. A later note in the same group (a no-hitter through 5, then through 6) replaces the
-earlier one. Readers see the top few at or above the public bar.
+earlier one. Readers see the top few at or above the public bar, one for each moment: a shutout
+that is also a complete game shows once, as the complete-game shutout.
 
 **Order of work.**
 

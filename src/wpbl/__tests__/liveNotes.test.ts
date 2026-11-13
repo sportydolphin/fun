@@ -6,6 +6,7 @@ import { plateAppearanceLines } from '../../league/inningLines'
 import { PUBLIC_BAR, PUBLIC_CAP, type LiveNote } from '../../league/liveNotes'
 import { wpblLiveNotes, readWpblPlay } from '../derive/liveNotes'
 import { WPBL_LEAGUE } from '../league'
+import { countsInStandings } from '../season'
 import { applyPlayCorrections, type WpblPlayCorrection } from '../playCorrections'
 import type { WpblGame, WpblGamePlay } from '../types'
 
@@ -90,6 +91,35 @@ describe('live notes: the 2026 season replayed', () => {
     expect(all.filter(n => n.text === 'First shutout in WPBL history')).toHaveLength(1)
     expect(all.some(n => n.kind.startsWith('dp:') && n.lens === 'crew')).toBe(true)
     expect(all.some(n => n.kind.startsWith('ofa:') && n.lens === 'league')).toBe(true)
+  })
+
+  // MLB keeps game streaks to the regular season, and a playoff game counted would also put four
+  // clubs' series into a league-wide "longest" that no regular-season run could match.
+  it('keeps game streaks out of the postseason', () => {
+    const byId = new Map(games.map(g => [g.id, g]))
+    const game = all.filter(n => /^streak(?:-end)?:(?:hit|ob|hr|win|loss)$/.test(n.kind))
+    expect(game.length).toBeGreaterThan(20)
+    for (const n of game) expect(countsInStandings(byId.get(n.game_id)!), n.key).toBe(true)
+  })
+
+  it('shows one moment once, by its most specific kind', () => {
+    const last = (notes.get(games.find(g => g.id.startsWith('cfa6c463'))!.id) ?? []).filter(n => n.public)
+    expect(last.filter(n => /shutout|complete game/.test(n.text)).map(n => n.text)).toEqual(['First complete-game shutout in WPBL history'])
+  })
+
+  it('credits a pickoff to the fielder who threw it', () => {
+    const chain = all.find(n => n.kind.startsWith('pk:2') && n.lens === 'league')!
+    const mine = all.find(n => n.kind === 'pk' && n.lens === 'player' && n.game_id === chain.game_id && n.sequence === chain.sequence)!
+    const row = plays.find(p => p.game_id === chain.game_id && p.sequence === chain.sequence)!
+    expect(mine.players[0]).not.toBe(row.pitcher_id)
+    const crew = all.find(n => n.kind === chain.kind && n.lens === 'crew' && n.game_id === chain.game_id && n.sequence === chain.sequence)!
+    expect(mine.players[0]).toBe(crew.players[0])
+  })
+
+  it("counts each club's wins in its own history only", () => {
+    const firsts = all.filter(n => n.kind === 'win' && n.nth === 1 && n.lens === 'club')
+    expect(firsts).toHaveLength(teams.length)
+    expect(all.some(n => n.kind === 'win' && n.lens === 'league')).toBe(false)
   })
 
   // A live game is the same walk with fewer plays: whatever a page showed mid-game, the finished
