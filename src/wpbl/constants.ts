@@ -3,6 +3,11 @@ import bostonLogo from './logos/boston.webp'
 import laLogo from './logos/la.webp'
 import nyLogo from './logos/ny.webp'
 import sfLogo from './logos/sf.webp'
+import bostonMark from './logos/boston-mark.webp'
+import laMark from './logos/la-mark.webp'
+import nyMark from './logos/ny-mark.webp'
+import sfMark from './logos/sf-mark.webp'
+import { localeDate, localeTime } from '../lib/dateFormat'
 
 // Section accent: deliberately the SAME blue as the MLB app's ACCENT (see
 // src/mlb/constants.ts; keep the two in sync). The leagues share one nav-slider / UI
@@ -171,6 +176,20 @@ export function wpblLogo(teamId: string | null | undefined): string | null {
   return WPBL_TEAMS[teamId]?.logo ?? null
 }
 
+// The club's mark as a one-color shape, for TeamMark: white where the mark is, transparent
+// elsewhere, so a CSS mask can print it in any color (Nov 5, 2026). Made from the logos by keeping
+// the light pixels, so dark linework inside the art (the ball's stitches, the hawk's feathers) stays
+// a gap rather than filling in. Boston's hawk, cut off its green tile, is fine linework that
+// thinned to a faint texture at 20 to 28px, so its silhouette's outline is drawn around it: a firm
+// contour with the feathers inside, the way the Firebells' bell is drawn. A solid silhouette held up
+// at 20px but was the one filled shape among four line marks (owner's call, Nov 5, 2026); the Firebells' bell and the
+// Heights' tower and ball drop the flanking "S F" and "N Y", which at 20px were specks beside the
+// symbol and repeat the abbreviation the mark always sits next to.
+const WPBL_MARKS: Record<string, string> = { BOS: bostonMark, LA: laMark, NY: nyMark, SF: sfMark }
+export function wpblMark(teamId: string | null | undefined): string | null {
+  return (teamId && WPBL_MARKS[teamId]) || null
+}
+
 // Whether the logo image fills the badge (has its own background) vs. sits centered.
 export function wpblLogoFill(teamId: string | null | undefined): boolean {
   if (!teamId) return false
@@ -203,7 +222,7 @@ export function formatGameTime(gameDate: string, startTime: string | null | unde
   const offset = new Date(ref.toLocaleString('en-US', { timeZone: 'UTC' })).getTime()
     - new Date(ref.toLocaleString('en-US', { timeZone: WPBL_TZ })).getTime()
   const real = new Date(naive + offset)
-  return real.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', ...(withZone ? { timeZoneName: 'short' } : {}) })
+  return localeTime(real, [], { hour: 'numeric', minute: '2-digit', ...(withZone ? { timeZoneName: 'short' } : {}) })
 }
 
 // Whole days from today to a game's date: negative in the past, 0 today. Compared on the
@@ -222,7 +241,7 @@ export function relativeDayLabel(gameDate: string): string {
   if (diff === 0) return 'Today'
   if (diff === 1) return 'Tomorrow'
   if (diff === -1) return 'Yesterday'
-  return date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+  return localeDate(date, [], { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
 /** The same label with the weekday dropped ("Aug 20"), for places measured in single digits of
@@ -236,7 +255,7 @@ export function relativeDayShort(gameDate: string): string {
   const { diff, date } = dayOffset(gameDate)
   if (diff === 0) return 'Today'
   if (diff === -1) return 'Yesterday'
-  return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+  return localeDate(date, [], { month: 'short', day: 'numeric' })
 }
 
 // The true UTC instant (epoch ms) of a game's first pitch, treating the stored wall

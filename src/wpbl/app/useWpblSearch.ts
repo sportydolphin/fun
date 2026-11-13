@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   fetchWpblAllLines, fetchWpblPlayerSeasons,
 } from '../api'
@@ -7,7 +7,7 @@ import type { WpblBoard } from '../searchAnswers'
 import { useEraBasis } from '../EraBasisContext'
 import { wpblPortraitSet } from '../portraits'
 import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from '../positions'
-import { useSearchBridge, updateSearchBridge, setSearchQuery, onFirstSearchFocus } from '../../mlb/state/SearchBridgeContext'
+import { useSearchBridgeQuery, useSearchBridgeQuerySeason, updateSearchBridge, setSearchQuery, onFirstSearchFocus } from '../../mlb/state/SearchBridgeContext'
 import type { LeaderAsk, PlayerStatAsk, SearchResultRow } from '../../mlb/state/SearchBridgeContext'
 import { useWpblRecents } from '../recentSearches'
 import { foldName, fuzzyMatches } from '../../lib/fuzzyName'
@@ -45,25 +45,44 @@ function preloadPortraits(urls: readonly (string | undefined)[]): void {
 /** How many WAR leaders an empty box suggests: the palette's recents cap (PALETTE_RECENTS). */
 const SUGGESTED_PLAYERS = 3
 
-/** The section's half of the toolbar search: it registers as the owner while on screen, and answers
- *  the query with players, clubs, games, comparisons and stat answers. Returns the year a picked
- *  player's card should open on, for the one player it was picked for. */
-export function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, games, openPlayer, selectTeam }: {
+/** The year a picked player's card should open on, for the one player it was picked for. */
+export type OpeningSeason = { playerId: string; season: number | 'career' } | null
+
+interface WpblSearchProps {
   searchActive: boolean
   players: WpblPlayer[]
   teams: WpblTeam[]
   games: WpblGame[]
   openPlayer: (p: WpblPlayer, from?: string) => void
   selectTeam: (t: WpblTeam | null, from?: string) => void
-}) {
+  /** WpblApp's own setter, called in the same batch as openPlayer, so the card mounts on the year. */
+  setOpeningSeason: (s: OpeningSeason) => void
+}
+
+/**
+ * The hook below as a component that draws nothing, which is the point of it. The hook reads the
+ * typed query, so whatever calls it re-renders on every keystroke; called in WpblApp's body, that
+ * was the whole section and every visited tab under it (Home, Schedule), about 4s of CPU for a
+ * short search on a throttled phone (Nov 6, 2026). Here only this re-renders.
+ */
+export const WpblSearch = memo(function WpblSearch(props: WpblSearchProps) {
+  useWpblSearch(props)
+  return null
+})
+
+/** The section's half of the toolbar search: it registers as the owner while on screen, and answers
+ *  the query with players, clubs, games, comparisons and stat answers. */
+function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, games, openPlayer, selectTeam, setOpeningSeason }: WpblSearchProps) {
   // Toolbar search bridge: WpblApp owns the shared header search while /wpbl is on screen.
-  const bridge = useSearchBridge()
+  // The two fields this reads, not the whole bridge: this hook publishes resultRows to the bridge
+  // itself, so a whole-bridge subscription woke it (and, before WpblSearch, all of WpblApp with
+  // every tab under it) a second time for each keystroke, to hear its own answer.
+  const bridge = { query: useSearchBridgeQuery(), querySeason: useSearchBridgeQuerySeason() }
   // "Whitmore 2026" in the search: the year the picked player's card opens on, for that player
   // only. The card keeps its year to itself (PlayerDetail's pickedSeason), so this is how a year
   // reaches it; any other open of any player passes nothing and the card picks its own.
   const querySeasonRef = useRef(bridge.querySeason)
   querySeasonRef.current = bridge.querySeason
-  const [openingSeason, setOpeningSeason] = useState<{ playerId: string; season: number | 'career' } | null>(null)
 
   // ── Toolbar search ─────────────────────────────────────────────────────────────
   // Register as the search owner for the shared header while /wpbl is mounted, and hand
@@ -196,7 +215,7 @@ export function useWpblSearch({ searchActive, players: livePlayers, teams: liveT
         recordRecent({ type: 'player', id: p.id, name: p.name }); setSearchQuery(''); openPlayerRef.current(p, 'search')
       },
     }
-  }, [teamById, positionIndex, recordRecent])
+  }, [teamById, positionIndex, recordRecent, setOpeningSeason])
 
   const buildTeamRow = useCallback((t: WpblTeam, source: 'result' | 'recent'): SearchResultRow => ({
     key: `team-${t.id}`,
@@ -423,6 +442,4 @@ export function useWpblSearch({ searchActive, players: livePlayers, teams: liveT
     const handle = idle(() => preloadPortraits(urls))
     return () => cancel(handle)
   }, [recentSearches, leaders, players, searchActive])
-
-  return { openingSeason }
 }

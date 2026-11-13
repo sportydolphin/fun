@@ -313,7 +313,12 @@ export function useMlbState() {
   // Seeded from `sort=` so a Leaders card's link (and a shared address) lands on its stat.
   const [lbFullscreen, setLbFullscreen] = useState<LbFullscreenState | null>(() => boardSortFor(landing?.lb ?? 'hitting', landing?.sort, landing?.dir))
   const [lbStatsLimit, setLbStatsLimit] = useState(50)
-  const [lbQualified, setLbQualified] = useState(true)
+  // On the address as `who=all` when off, so a reload keeps the part-timers the reader asked for.
+  const [lbQualified, setLbQualified] = useState(() => !(landing?.view === 'stats' && landing.qualified === false))
+  // Players' Standard or Advanced, on the address as `cols=advanced`. The board also moves it to
+  // whichever view holds the sort, so a link sorted by wRC+ needs no `cols`.
+  const [statsTableView, setStatsTableView] = useState<'standard' | 'advanced'>(
+    () => (landing?.view === 'stats' && landing.advanced ? 'advanced' : 'standard'))
   // All-time (career) mode for the Stats tab only, kept separate from vizSeason so
   // it never leaks into the Leaderboard/Viz tabs, which share vizSeason.
   // Regular season, postseason or both, for the Leaders and Table boards. On the URL as `games=`.
@@ -330,6 +335,11 @@ export function useMlbState() {
   // The Players table's position or role ("best catcher" in the search), on the address as `pos`.
   const [statsWho, setStatsWho] = useState<PositionFilter | null>(() => parsePositionFilter(landing?.who))
   const [fieldingClub, setFieldingClub] = useState<number | null>(landing?.club ?? null)
+  // Fielding's Qualified chip. Null is the board's own default, which depends on the club (one
+  // club's fielders open on everyone); a choice the reader made is held here because the address
+  // carries it and Back restores it.
+  const [fieldingQualified, setFieldingQualified] = useState<boolean | null>(
+    landing?.view === 'fielding' ? landing.qualified ?? null : null)
   // ─── Find (views/FindView) ─────────────────────────────────────────────────
   // The question, held here because the address carries it and Back restores it. Its `scope` is
   // unused: the section's Regular season / Playoffs / Both stands in for it.
@@ -636,6 +646,8 @@ export function useMlbState() {
     if (view === 'stats' && sortParam) s.sort = sortParam
     if (view === 'stats' && dirParam) s.dir = dirParam
     if (view === 'stats' && statsWho) s.who = statsWho
+    if (view === 'stats' && !lbQualified) s.qualified = false
+    if (view === 'stats' && statsTableView === 'advanced') s.advanced = true
     // A grid sort carries `asc` only when it is turned round, so its presence is the direction.
     const gridDir = (g: GridSort | null) => (g?.asc != null ? (g.asc ? 'asc' : 'desc') : null)
     if (view === 'teamStats' && teamGridSort) {
@@ -647,6 +659,7 @@ export function useMlbState() {
       if (gridDir(fieldingSort)) s.dir = gridDir(fieldingSort)
       if (fieldingPos !== 'all') s.pos = fieldingPos
       if (fieldingClub != null) s.club = fieldingClub
+      if (fieldingQualified != null && fieldingQualified !== (fieldingClub == null)) s.qualified = fieldingQualified
     }
     if (view === 'find') {
       s.find = encodeFinderQuery(findQuery) || null
@@ -655,7 +668,7 @@ export function useMlbState() {
       s.findVenue = findQuery.venue === 'any' ? null : findQuery.venue
     }
     return s
-  }, [player, team, playerSeason, view, lbGroup, statsFielding, statsAllTime, lbGameScope, sortParam, dirParam, vizSeason, teamGridSort, fieldingSort, fieldingPos, fieldingClub, findQuery, scoresDate, statsWho])
+  }, [player, team, playerSeason, view, lbGroup, statsFielding, statsAllTime, lbGameScope, sortParam, dirParam, vizSeason, teamGridSort, fieldingSort, fieldingPos, fieldingClub, findQuery, scoresDate, statsWho, lbQualified, fieldingQualified, statsTableView])
 
   // Stamp the active entry with the latest snapshot of the current view right before
   // pushing a new one, so Back returns here with the exact sub-state (e.g. the season
@@ -729,6 +742,7 @@ export function useMlbState() {
     if (!allTime) setVizSeason(season)
     setLbFullscreen({ def, group, sortKey: statKey, sortAsc: def.lowerIsBetter ?? false, entries: [] })
     setLbQualified(true)
+    setStatsTableView('standard')
     setLbStatsLimit(500)
     setStatsHighlightPlayerId(from?.playerId ?? player?.id ?? null)
     setStatsHighlightStatKey(statKey)
@@ -755,6 +769,7 @@ export function useMlbState() {
     setStatsWho(null)
     setLbFullscreen(next)
     setLbQualified(true)
+    setStatsTableView('standard')
     setLbStatsLimit(50)
     setStatsHighlightPlayerId(null)
     setStatsHighlightStatKey(null)
@@ -925,12 +940,15 @@ export function useMlbState() {
         setFieldingSort(gridSortFor(snap.sort, snap.dir, gridDefaultSort('fielding', group, snap.club ?? null)))
         setFieldingPos(snap.pos ?? 'all')
         setFieldingClub(snap.club ?? null)
+        setFieldingQualified(snap.qualified ?? null)
       }
       if (snap.view !== 'leaderboard' && snap.view !== 'stats') return
       setLbGameScope(snap.games ?? 'regular')
       if (snap.view === 'stats') {
         setStatsAllTime(!!snap.allTime)
         setStatsWho(parsePositionFilter(snap.who))
+        setLbQualified(snap.qualified !== false)
+        setStatsTableView(snap.advanced ? 'advanced' : 'standard')
         setLbFullscreen(boardSortFor(group, snap.sort, snap.dir))
       }
     }
@@ -1078,6 +1096,7 @@ export function useMlbState() {
     lbFullscreen, setLbFullscreen, openStatsBoard,
     lbStatsLimit, setLbStatsLimit,
     lbQualified, setLbQualified,
+    statsTableView, setStatsTableView,
     statsAllTime, setStatsAllTime,
     lbGameScope, setLbGameScope,
     handleLbPlayerClick,
@@ -1096,6 +1115,7 @@ export function useMlbState() {
     fieldingPos, setFieldingPos,
     statsWho, setStatsWho,
     fieldingClub, setFieldingClub,
+    fieldingQualified, setFieldingQualified,
     gridHighlightId, setGridHighlightId,
     openGridBoard,
 

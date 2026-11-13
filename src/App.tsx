@@ -13,7 +13,6 @@ import { MLB_PLAYER_PARTS, PLAYER_PART_LABEL, WPBL_PLAYER_PARTS, playerPartKey }
 import type { PaletteAction, PaletteIdleGroup } from './CommandPalette'
 import { HEADSHOT, TEAM_BG, TEAM_ABBR } from './mlb/constants'
 import { useTheme } from './ThemeContext'
-import { DevSettings, MobilePreviewHost } from './dev/DevSettings'
 import { isInsideDeviceFrame } from './mlb/dev/devDevice'
 import { isMlbPath, isMlbSection, isMlbGlossaryPage, isMlbComparePage, isMlbPostseasonPage, MLB_PATH_EVENT } from './mlb/routes'
 import { preloadMlbViewFor } from './mlb/views/lazyViews'
@@ -71,6 +70,15 @@ const MlbStats = lazy(() => withLoadTimeout(() => loadMlb()))
 // stays out of the MLB and landing bundles.
 const loadWpbl = () => import('./wpbl/WpblApp')
 const WpblApp = lazy(() => withLoadTimeout(loadWpbl))
+
+// THE DEV MENU IS A DYNAMIC IMPORT, never a static one, even though every use is gated on DEV.
+// The gate removes DevSettings' own code, but the bundler assigns modules to chunks by the import
+// graph before that, so everything DevSettings imports (the whole WPBL read layer, run expectancy,
+// WAR, MLB's live drama) was placed in the entry chunk: 25 KB gzipped, a sixth of it, that every
+// reader parsed before first paint and an /mlb reader never used (Nov 6, 2026). main.tsx loads the
+// module before the first render in dev, so these resolve at once there.
+const DevSettings = import.meta.env.DEV ? lazy(() => import('./dev/DevSettings').then(m => ({ default: m.DevSettings }))) : null
+const MobilePreviewHost = import.meta.env.DEV ? lazy(() => import('./dev/DevSettings').then(m => ({ default: m.MobilePreviewHost }))) : null
 
 /** Pull the OTHER section's chunk in before it is asked for.
  *
@@ -1158,7 +1166,7 @@ function AppInner() {
                 simulation, notification tester, simulated login, and (on /mlb) the
                 MLB simulators. Renders on every section, so the mobile toggle works
                 in WPBL too. See src/dev/DevSettings.tsx. Never in a production build. */}
-            {import.meta.env.DEV && <DevSettings showMlbTools={isMlbPath(path)} showWpblTools={isWpblSection(path)} />}
+            {import.meta.env.DEV && DevSettings && <Suspense fallback={null}><DevSettings showMlbTools={isMlbPath(path)} showWpblTools={isWpblSection(path)} /></Suspense>}
 
           {user ? (
             <ClickAwayListener onClickAway={() => setAccountOpen(false)}>
@@ -1301,7 +1309,7 @@ function AppInner() {
 
       {/* Dev-only: re-render the whole app inside a simulated phone viewport. At the
           app root (not inside a section) so the device toggle covers MLB and WPBL. */}
-      {import.meta.env.DEV && !isInsideDeviceFrame && <MobilePreviewHost />}
+      {import.meta.env.DEV && MobilePreviewHost && !isInsideDeviceFrame && <Suspense fallback={null}><MobilePreviewHost /></Suspense>}
 
       {/* This box held MLB's `zoom: 1.4` until Oct 2026, the last `zoom` on the site. Both
           sections now scale from the root (styles.css), toolbar and portaled sheets included,

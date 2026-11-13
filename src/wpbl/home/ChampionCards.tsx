@@ -20,6 +20,7 @@ import { ordinal } from '../../lib/format'
 import { trophyPalette } from '../../ui/trophy'
 import { AGATE_SX, MEDIA_RADIUS, HEADLINE_SX } from '../../ui/card'
 import { championPhoto, type FanPhotoIndex, type FanPhotoWithSubjects } from '../fanPhotos'
+import { localeDate } from '../../lib/dateFormat'
 
 /**
  * Next game, when the only games left are ones the league has dated and not yet published.
@@ -308,7 +309,7 @@ function RecapButton({ children }: { children: React.ReactNode }) {
  *  A game still to come has no winner to name, so it shows its date in a neutral bar. That is the
  *  in-progress body; a phone's column is about 60px, so the date and time wrap rather than hide. The
  *  full line is each column's accessible name. Shared by the in-progress and the champion bodies. */
-function SeriesGameLog({ log, teams, onOpenGame, championId, bars = true }: {
+function SeriesGameLog({ log, teams, onOpenGame, championId }: {
   log: WpblGame[]; teams: Map<string, WpblTeam>; onOpenGame: (g: WpblGame) => void
   /** A decided final: the champion's wins get the strong bar and the rival's the quiet one, in ink
    *  rather than club color (Nov 4, 2026). The lead already sits under the club strip and the
@@ -316,8 +317,6 @@ function SeriesGameLog({ log, teams, onOpenGame, championId, bars = true }: {
    *  The series still reads at a glance as won, won, lost, lost, won. Absent while the final is on,
    *  where neither club is the subject and each keeps its own color. */
   championId?: string
-  /** False on Home's lead, which rules the row once above it and lets the ink alone say who won. */
-  bars?: boolean
 }) {
   const isDark = useDark()
   const gameLink = useWpblGameLink()
@@ -340,7 +339,7 @@ function SeriesGameLog({ log, teams, onOpenGame, championId, bars = true }: {
           <Box key={g.id} {...gameLink(g, onOpenGame)} aria-label={label} sx={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.15, minWidth: 0,
             pt: 0.6, pb: 0.5, textAlign: 'center',
-            ...(bars ? { borderTop: '3px solid', borderTopColor: ink } : null),
+            borderTop: '3px solid', borderTopColor: ink,
             textDecoration: 'none', color: 'inherit', cursor: 'pointer',
             transition: 'background 0.12s',
             ...hoverOnly({ bgcolor: 'action.hover' }), ...FOCUS_RING,
@@ -450,6 +449,18 @@ function useChampionPhoto(championId: string, finals: WpblGame[]): FanPhotoWithS
   )
 }
 
+/** A no-break space: holds a line's height with nothing in it. */
+const NBSP = ' '
+
+/** The lead photo's caption: the curator's, else "Los Angeles Queens, Sep 21". */
+function photoCaption(photo: FanPhotoWithSubjects, champion: WpblTeam): string {
+  if (photo.caption?.trim()) return photo.caption.trim()
+  const day = photo.taken_on
+    ? localeDate(new Date(`${photo.taken_on}T12:00:00Z`), 'en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+    : null
+  return day ? `${wpblFullName(champion)}, ${day}` : wpblFullName(champion)
+}
+
 /** The lead's label column: a stage of the road, or "Star of the final". Regular weight: a label as
  *  bold as the figure beside it stops reading as a label. */
 const LEAD_LABEL_SX = { fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 } as const
@@ -457,29 +468,27 @@ const LEAD_LABEL_SX = { fontSize: TYPE_SCALE.meta, color: 'text.secondary', line
 /**
  * THE OFFSEASON HOME'S LEAD, AS A FRONT PAGE RUNS ONE (Nov 4, 2026, ROADMAP-UI.md's third audit): the
  * title photo large on the left with its credit under it, and beside it the kicker, the club's name
- * as the headline, the road to the title as three lines of agate, the final's five games, and the
- * Star. On the page's own ground in both themes, with no box around either half.
+ * as the headline, the road to the title as three lines of agate, and the Star. The final's games
+ * are the line score under it (SeriesLineScore). On the page's own ground in both themes, with no box
+ * around either half.
  *
  * WHY NOT THE BAR AND THE PANEL IT REPLACES: the photo was a 16:5 strip over a black bar, beside a
  * gray filled panel of another height with a blank stretch above the Star. Two boxes that did not
  * line up, the only filled card left on the page, a headline at 40px, and a light theme that was
- * still dark across the top. The five bars over the games had no key, so they said nothing; the
- * champion's wins are now its bold ink and the rival's the secondary ink.
+ * still dark across the top.
  *
  * THE PHOTO IS A FIXED 3:2 AT EVERY WIDTH, so the skeleton can reserve it and its read landing late
  * moves nothing. It holds the club's mark on its primary until the photo has loaded, or for good when
  * there is no photo (a dev-simulated champion, or a final nobody photographed).
  */
-function ChampionLead({ champion, teams, played, path, star, starPlayer, starLoading, recap, onOpenGame, onOpenPlayer, year }: {
+function ChampionLead({ champion, played, path, star, starPlayer, starLoading, recap, onOpenPlayer, year }: {
   champion: WpblTeam
-  teams: Map<string, WpblTeam>
   played: WpblGame[]
   path: TitlePathStep[]
   star: SeriesStar | null | undefined
   starPlayer: WpblPlayer | null
   starLoading: boolean
   recap: RecapLinkProps
-  onOpenGame: (g: WpblGame) => void
   onOpenPlayer: (p: WpblPlayer) => void
   year?: number | null
 }) {
@@ -490,11 +499,8 @@ function ChampionLead({ champion, teams, played, path, star, starPlayer, starLoa
   const field = wpblColor(champion.id)
   const playerLink = useWpblPlayerLink()
   return (
-    <Box sx={{
-      display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 7fr) minmax(0, 5fr)' },
-      columnGap: 3, rowGap: 1.5, alignItems: 'start',
-    }}>
-      <Box component="figure" sx={{ m: 0, minWidth: 0 }}>
+    <Box sx={LEAD_GRID_SX}>
+      <Box component="figure" sx={{ m: 0, minWidth: 0, gridArea: 'photo' }}>
         <RecapLink recap={recap} label={year != null ? `${year} season recap` : 'Season recap'} sx={{ gap: 0, borderRadius: MEDIA_RADIUS }}>
           <Box sx={{ position: 'relative', overflow: 'hidden', bgcolor: field, aspectRatio: '3 / 2', borderRadius: MEDIA_RADIUS }}>
             {logo && (
@@ -507,7 +513,14 @@ function ChampionLead({ champion, teams, played, path, star, starPlayer, starLoa
             )}
             {photo && (
               // Decorative: the link already says where it goes, and the headline beside it says who won.
-              <Box component="img" src={photo.full_url} alt="" aria-hidden onLoad={() => setShown(photo.id)} sx={{
+              // THE PAGE'S LARGEST PAINT, so it goes first and at the size drawn (Nov 5, 2026): it was the
+              // 1600px render at default priority on every screen, behind the gallery's first tile. The
+              // column is 7/12 of Home's width from md (about half the window; 900 is
+              // MUI's md), the full width below.
+              <Box component="img" src={photo.full_url} alt="" aria-hidden onLoad={() => setShown(photo.id)}
+                srcSet={`${photo.card_url} 800w, ${photo.full_url} 1600w`}
+                sizes="(min-width: 900px) 55vw, 100vw"
+                fetchPriority="high" loading="eager" sx={{
                 position: 'absolute', inset: 0, width: '100%', height: '100%',
                 objectFit: 'cover', objectPosition: 'center 35%',
                 opacity: loaded ? 1 : 0, transition: 'opacity 0.3s',
@@ -515,15 +528,23 @@ function ChampionLead({ champion, teams, played, path, star, starPlayer, starLoa
             )}
           </Box>
         </RecapLink>
-        {/* The credit under the picture, as the gallery prints it, not a chip over the photo. One line
-            held even before the photo lands, so the column does not grow by it. */}
-        <Typography component="figcaption" noWrap sx={{ ...AGATE_SX, mt: 0.5, fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.4 }}>
-          {photo?.credit ? `Photo: ${photo.credit}` : ' '}
-        </Typography>
+        {/* A CAPTION AND A CREDIT, as a paper prints a photo (Nov 6, 2026): what the picture is on the
+            left, who took it on the right in the quieter ink. The credit alone was a byline with no
+            caption. The curator's caption when there is one, else the club and the day. One line held
+            even before the photo lands, so the column does not grow by it; the credit never gives way. */}
+        <Box component="figcaption" sx={{ display: 'flex', gap: 1.5, alignItems: 'baseline', mt: 0.5, minWidth: 0 }}>
+          <Typography noWrap sx={{ ...AGATE_SX, flex: 1, minWidth: 0, fontSize: TYPE_SCALE.meta, lineHeight: 1.4 }}>
+            {photo ? photoCaption(photo, champion) : NBSP}
+          </Typography>
+          {photo?.credit && (
+            <Typography noWrap sx={{ ...AGATE_SX, flexShrink: 0, fontWeight: 500, fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.4 }}>
+              Photo: {photo.credit}
+            </Typography>
+          )}
+        </Box>
       </Box>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <RecapLink recap={recap} sx={{ gap: 0.25 }}>
+      <RecapLink recap={recap} sx={{ gap: 0.25, gridArea: 'head', minWidth: 0 }}>
           <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 900, letterSpacing: typePx(1), textTransform: 'uppercase', color: 'var(--wpbl-medal-1)' }}>
             {year != null ? `${year} WPBL Champions` : 'WPBL Champions'}
           </Typography>
@@ -533,11 +554,12 @@ function ChampionLead({ champion, teams, played, path, star, starPlayer, starLoa
           <Typography component="p" sx={{ ...HEADLINE_SX, fontSize: { xs: TYPE_SCALE.hero, md: '2.75rem', lg: TYPE_SCALE.lead }, lineHeight: 1.0, textWrap: 'balance' }}>
             {wpblFullName(champion)}
           </Typography>
-        </RecapLink>
+      </RecapLink>
 
+      <Box sx={{ display: 'flex', flexDirection: 'column', minWidth: 0, gridArea: 'body' }}>
         {/* The road, one line per stage, as an agate column prints a club's postseason. */}
         {path.length > 0 && (
-          <RecapLink recap={recap} sx={{ gap: 0, mt: 2 }}>
+          <RecapLink recap={recap} sx={{ gap: 0, mt: { xs: 0.5, md: 2 } }}>
             {path.map(step => (
               <Box key={step.stage} sx={{
                 display: 'grid', gridTemplateColumns: 'minmax(0, 6rem) minmax(0, 3.5rem) minmax(0, 1fr)', alignItems: 'baseline', columnGap: 1,
@@ -553,12 +575,7 @@ function ChampionLead({ champion, teams, played, path, star, starPlayer, starLoa
           </RecapLink>
         )}
 
-        {/* The final's games, each its own box score, under the road's last line, which names it. */}
-        {played.length > 0 && (
-          <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 0.25 }}>
-            <SeriesGameLog log={played} teams={teams} onOpenGame={onOpenGame} championId={champion.id} bars={false} />
-          </Box>
-        )}
+        {/* NO ROW OF THE FINAL'S GAMES: the line score under the lead carries them (SeriesLineScore). */}
 
         {/* THE STAR OF THE FINAL, a real link to the player page, since a player page is what readers
             open most. Its read lands after first paint, so the row holds its place in the same shape
@@ -605,11 +622,25 @@ function ChampionLead({ champion, teams, played, path, star, starPlayer, starLoa
   )
 }
 
-/** The lead's text column at its loaded height, for the skeleton: the kicker, a headline of one
- *  line on a phone and two in the narrower desktop column, the road, the games, the Star and the
- *  recap link. Measured at 375, 760, 960, 1280 and 1440 in Newsreader (Nov 4, 2026). In rem, since
- *  all of it is type. */
-const LEAD_TEXT_H = { xs: '19.57rem', md: '22.76rem', lg: '24.26rem' } as const
+/**
+ * The lead's three parts: the head (kicker and headline), the photo and the body (the road, the Star,
+ * the recap link). From md the photo takes seven columns and the head sits over the body beside it.
+ * ON A PHONE THE HEAD COMES FIRST (Nov 5, 2026): under a full-width 3:2 photo, the masthead and the
+ * strip, "Los Angeles Queens" started about 680px down a 812px screen, so the first screen was a
+ * picture with no story. A paper's front page runs its headline over the art for the same reason.
+ */
+const LEAD_GRID_SX = {
+  display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 7fr) minmax(0, 5fr)' },
+  gridTemplateAreas: { xs: '"head" "photo" "body"', md: '"photo head" "photo body"' },
+  gridTemplateRows: { md: 'auto 1fr' },
+  columnGap: 3, rowGap: { xs: 1.5, md: 0 }, alignItems: 'start',
+} as const
+
+/** The head and the body at their loaded heights, for the skeleton: a headline of one line on a
+ *  phone and two in the narrower desktop column; the road, the Star and the recap link. Measured at
+ *  375, 960 and 1440 in Newsreader (Nov 5, 2026). In rem, since all of it is type. */
+const LEAD_HEAD_H = { xs: '3.395rem', md: '6.645rem', lg: '8.145rem' } as const
+const LEAD_BODY_H = { xs: '12.9rem', md: '13.6rem' } as const
 
 /** Home's lead before the season's read lands, in the loaded lead's own wrapper and grid: the photo
  *  is the same 3:2 box at the same column width, so it reserves itself exactly at every width, and
@@ -618,18 +649,20 @@ export function ChampionLeadSkeleton() {
   return (
     <SectionCard title="Season" fill headingHidden>
       <Box aria-hidden sx={{ p: 0.5, mx: -0.5 }}>
-        <Box sx={{
-          display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 7fr) minmax(0, 5fr)' },
-          columnGap: 3, rowGap: 1.5, alignItems: 'start',
-        }}>
-          <Box sx={{ minWidth: 0 }}>
+        <Box sx={LEAD_GRID_SX}>
+          <Box sx={{ minWidth: 0, gridArea: 'photo' }}>
             <Skeleton variant="rectangular" sx={{ width: '100%', height: 'auto', aspectRatio: '3 / 2' }} />
-            <Typography sx={{ ...AGATE_SX, mt: 0.5, fontSize: TYPE_SCALE.meta, lineHeight: 1.4 }}>{'\u00a0'}</Typography>
+            <Typography sx={{ ...AGATE_SX, mt: 0.5, fontSize: TYPE_SCALE.meta, lineHeight: 1.4 }}>{' '}</Typography>
           </Box>
-          <Box sx={{ minWidth: 0, minHeight: LEAD_TEXT_H }}>
+          {/* HEIGHT, NOT minHeight: the two text bars' line boxes run about 16px past the measured head
+              on a phone, which moved everything under the lead by that much on load. Hidden only once
+              the final's line score sat right under it (Nov 6, 2026); the old strip's skeleton
+              happened to be as much short. */}
+          <Box sx={{ minWidth: 0, gridArea: 'head', height: LEAD_HEAD_H, overflow: 'hidden' }}>
             <Skeleton variant="text" width="45%" sx={{ fontSize: TYPE_SCALE.micro }} />
             <Skeleton variant="text" width="85%" sx={{ fontSize: { xs: TYPE_SCALE.hero, md: '2.75rem', lg: TYPE_SCALE.lead } }} />
           </Box>
+          <Box sx={{ minWidth: 0, gridArea: 'body', minHeight: LEAD_BODY_H }} />
         </Box>
       </Box>
     </SectionCard>
@@ -672,9 +705,9 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
   const starPlayer = star ? players.find(p => p.id === star.playerId) ?? null : null
   const starLoading = star === undefined || (!!star && !starPlayer && players.length === 0)
   if (lead) {
-    return <ChampionLead champion={champion} teams={teams} played={played} path={path}
+    return <ChampionLead champion={champion} played={played} path={path}
       star={star} starPlayer={starPlayer} starLoading={starLoading} recap={recap}
-      onOpenGame={onOpenGame} onOpenPlayer={onOpenPlayer} year={year} />
+      onOpenPlayer={onOpenPlayer} year={year} />
   }
   const logo = wpblLogo(champion.id)
   const stageSx = {

@@ -12,6 +12,7 @@ import { SectionCard, TYPE_SCALE, AGATE_SX, TITLE_SX, titleSize } from '../../ui
 import { hoverOnly, FOCUS_RING } from '../../ui/interaction'
 import { track, trackImpression, EVENTS } from '../../lib/analytics'
 import type { WpblArticle, WpblGameRecap, WpblVideo } from '../types'
+import { localeDate } from '../../lib/dateFormat'
 
 /**
  * HOME'S HEADLINE LIST (Nov 4, 2026, docs/design-references/ANALYSIS.md). Eleven of the fourteen
@@ -43,6 +44,8 @@ export interface LatestItem {
   href: string
   external: boolean
   onOpen?: () => void
+  /** A league video's id, so Watch's Videos shelf can leave out what this list already runs. */
+  videoId?: string
 }
 
 /** Emoji off a title, for a list set as headlines; the Watch page keeps the uploader's own text. */
@@ -59,7 +62,7 @@ export function latestWhen(iso: string, now = Date.now()): string {
   const diff = Math.round((day(today) - day(d)) / 86_400_000)
   if (diff === 0) return 'Today'
   if (diff === 1) return 'Yesterday'
-  return d.toLocaleDateString('en-US', d.getFullYear() === today.getFullYear()
+  return localeDate(d, 'en-US', d.getFullYear() === today.getFullYear()
     ? { month: 'short', day: 'numeric' }
     : { month: 'short', day: 'numeric', year: 'numeric' })
 }
@@ -73,7 +76,7 @@ export function latestItems(articles: readonly WpblArticle[], videos: readonly W
       key: `v:${v.video_id}`, kind: 'video', at: v.published_at,
       title: headlineText(v.title) || videoKindName(v),
       label: credit ? `${videoKindName(v)} · ${credit.name}` : videoKindName(v),
-      href: wpblWatchVideoPath(v.video_id), external: false,
+      href: wpblWatchVideoPath(v.video_id), external: false, videoId: v.video_id,
     })
   }
   for (const a of articles.slice(0, PER_KIND)) {
@@ -134,8 +137,10 @@ const LIST_SX = {
 } as const
 const META_SX = { ...AGATE_SX, fontSize: TYPE_SCALE.meta, fontWeight: 500, color: 'text.secondary', lineHeight: 1.3 } as const
 
-export function LatestCard() {
-  // Null until each read answers; a failed read counts as answered with nothing.
+/** The list, read once for the page: Home hands it to LatestCard and its video ids to Watch, which
+ *  would otherwise run the same two videos again a screen lower. Null until all three reads answer;
+ *  a failed read counts as answered with nothing. */
+export function useLatestItems(): LatestItem[] | null {
   const [articles, setArticles] = useState<WpblArticle[] | null>(() => getCachedWpblArticles())
   const [videos, setVideos] = useState<WpblVideo[] | null>(() => getCachedWpblVideos())
   const [recaps, setRecaps] = useState<WpblGameRecap[] | null>(() => getCachedWpblRecaps())
@@ -147,10 +152,12 @@ export function LatestCard() {
     return () => { live = false }
   }, [])
   const settled = articles !== null && videos !== null && recaps !== null
-  const items = useMemo(
+  return useMemo(
     () => settled ? latestItems(articles, videos, recaps) : null,
     [settled, articles, videos, recaps])
+}
 
+export function LatestCard({ items }: { items: LatestItem[] | null }) {
   const shown = useRef(false)
   useEffect(() => {
     if (shown.current || !items?.length) return

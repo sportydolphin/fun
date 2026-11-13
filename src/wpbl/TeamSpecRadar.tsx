@@ -492,7 +492,9 @@ export function TeamSpecReadout({ specs, teamId, kLabel, scaleK }: {
 export function TeamSpecPlaceholder({ minGames, ready = true }: { minGames: number | null; ready?: boolean }) {
   const waiting = !ready
   return (
-    <Box sx={{
+    // aria-busy while the lines are in flight, as the Home skeletons do: it tells assistive tech
+    // the box is mid-update, and it is what the layout sweep waits on before it measures the page.
+    <Box aria-busy={waiting || undefined} sx={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       gap: 0.5, py: 3, px: 2, borderRadius: 2, border: '1px dashed', borderColor: CARD_BORDER,
     }}>

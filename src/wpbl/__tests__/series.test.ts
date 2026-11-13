@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { seriesContext, seriesContexts, postseasonRounds, pairKey } from '../derive/series'
+import { seriesContext, seriesContexts, postseasonRounds, pairKey, seriesTileLine } from '../derive/series'
 import type { WpblGame, WpblTeam } from '../types'
 
 // Series state, tested against a postseason that has not happened.
@@ -232,5 +232,37 @@ describe('seriesContexts', () => {
     }
     // And the regular-season game is not in it at all.
     expect(bulk.has(all[4].id)).toBe(false)
+  })
+})
+
+// The score strip's eyebrow (Home step 1, Nov 5, 2026): a tile 8.5rem wide whose one line may not
+// wrap, so the abbreviation and the singular verb, and nothing before a game is decided.
+describe('seriesTileLine', () => {
+  const tile = (g: WpblGame, all: WpblGame[]) => seriesTileLine(ctx(g, all)!, g.home_team_id, g.away_team_id)
+
+  it('names the club ahead, by its abbreviation', () => {
+    // Both clubs won a semifinal, so this pairing is the best-of-five championship.
+    const semis = [post('2026-09-09', 'LA', 'NY', 3, 1), post('2026-09-09', 'SF', 'BOS', 3, 1)]
+    const g1 = post('2026-09-16', 'LA', 'SF', 7, 6)
+    const g2 = post('2026-09-17', 'LA', 'SF', 11, 7)
+    const g3 = post('2026-09-19', 'SF', 'LA', 10, 5)
+    const all = [...semis, g1, g2, g3]
+    expect(tile(g1, all)).toBe('G1 · LA leads 1–0')
+    expect(tile(g3, all)).toBe('G3 · LA leads 2–1')
+  })
+
+  it('calls a level series tied', () => {
+    const all = [post('2026-09-16', 'LA', 'SF', 7, 6), post('2026-09-17', 'LA', 'SF', 2, 3)]
+    expect(tile(all[1], all)).toBe('G2 · Tied 1–1')
+  })
+
+  it('says wins on the clincher, and only there', () => {
+    const all = [post('2026-09-09', 'SF', 'NY', 4, 1), post('2026-09-10', 'SF', 'NY', 5, 2)]
+    expect(tile(all[1], all)).toBe('G2 · SF wins 2–0')
+  })
+
+  it('stays within the tile, which was sized for "Final · Yesterday"', () => {
+    const all = [post('2026-09-09', 'BOS', 'NY', 4, 1), post('2026-09-10', 'BOS', 'NY', 5, 2)]
+    expect(tile(all[1], all)!.length).toBeLessThanOrEqual('Final · Yesterday'.length)
   })
 })

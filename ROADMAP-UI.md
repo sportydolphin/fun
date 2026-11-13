@@ -13,7 +13,7 @@
 
 ---
 
-## Where it landed (Nov 4, 2026)
+## Where it landed (Nov 5, 2026)
 
 A sports page, not an app dashboard: **one metaphor, the newspaper**, and whatever does not fit it
 goes (Nov 4, seventh pass). Where this and the original brief below disagree, this wins.
@@ -68,10 +68,15 @@ goes (Nov 4, seventh pass). Where this and the original brief below disagree, th
   a serif for headlines, a sans for names and agate is how a sports page is set.
 - **The lead is a front page**: the title photo at 3:2 in seven columns of twelve with its credit
   under it, and beside it a gold kicker, the club's full name as the headline at `lead`, the road
-  as agate lines, the final's games (the champion's wins in bold ink, no bars), the Star and
-  "Season recap ›". No black bar, no gray panel (`ChampionLead` in `home/ChampionCards.tsx`).
+  as agate lines, the Star and "Season recap ›". No black bar, no gray panel (`ChampionLead` in
+  `home/ChampionCards.tsx`).
+- **One score strip for every phase** (Nov 5, `Scoreboard`): the games are the first line of Home
+  all year. In season the window round now; in the postseason each final says where its series
+  stands ("G3 · LA leads 2–1"); in the offseason the final's games, sharing the row, as MLB.com and
+  Savant run theirs all winter. No result tile before them: the lead names the champion once. Never "No games", never next season's games before
+  they are public.
 
-## Handoff (Nov 4, 2026)
+## Handoff (Nov 5, 2026)
 
 Where the work is, for whoever picks it up.
 
@@ -102,7 +107,7 @@ Where the work is, for whoever picks it up.
   there, since a third of the row cut "New York Heights · RHP · #29". Two new events,
   `wpbl_latest_shown` and `wpbl_latest_open`, in the admin funnel. Typecheck, lint, the tests (3,512)
   and the sweep on `/wpbl` (`--shift --ellipsis`) are clean. Not taken from the study yet: the score
-  strip's offseason state (the final's games, as MLB.com and Savant do) waits on step 1; sections
+  strip's offseason state (the final's games, as MLB.com and Savant do; taken Nov 5); sections
   inset their content 16px from their rule on a phone, which the references do not (done for Home in
   the tenth pass); Watch's clips carry no date.
 - **The last commit of work is the sixth pass on Home** (`ff012f33`, from the Nov 4 visual audit):
@@ -120,24 +125,94 @@ Where the work is, for whoever picks it up.
   touches `stats/ControlBar.tsx` and `stats/RankedList.tsx`, which `redesign` also changed: expect
   a small conflict, whichever lands second.
 - **Home is not done, and does not go to `main` until the owner is satisfied with it** (owner's
-  call, Nov 4). The branch still merges whole; the other pages wait until Home is settled. Home's
-  remaining steps, in order (the owner took 3 onward first; 1 and 2 are after):
-  1. The in-season and postseason Home: the scoreboard strip, Next game, the bracket and the final
-     in progress are still the old cards. Built against the dev simulation and 2026's data.
-  2. A reason to come back in the offseason: ~~a "Today" line~~ the Latest list, Nov 4 (ninth
-     pass, below). Left: the champion lead receding as the winter goes on.
-  3. ~~Type~~ Done Nov 4: Newsreader for headlines and titles, Inter for figures.
-  4. ~~Ragged desktop pairs~~ Done Nov 4: Reading takes a fourth post from `lg` with its credit
-     under the posts, the leaders a 72 face and 34 rows, the award rows more room; each pair now ends
-     within about 40px of the other at 1440. The lead's headline steps to 2.75rem between md and lg.
-  5. A phone pass: headline over the photo or under it, the room under the Discord row, the
-     footer's length, Watch's clipped clip titles. (The masthead is one line since Nov 4.)
-  6. Light mode: an equal, or a translation of dark. With the jerseys gone from the masthead, the
-     top of the light page is light; what is left dark is the club marks' own fills.
-  7. Fan award shares need a head ("Share of votes"); edge states (no photo, awards coming down, a
-     small sign).
-  8. The lead photo's weight (responsive sizes, an early fetch) and the skeleton-to-content fade.
-  9. Lift Home's pieces into `src/ui/` (the lead, agate lines, print headshots, the two tiers).
+  call, Nov 4). The branch still merges whole; the other pages wait until Home is settled.
+  Done so far: type (Newsreader for headlines and titles, Inter for figures), level desktop pairs
+  (each pair ends within about 40px of the other at 1440), the Latest list as the offseason's
+  reason to come back, and the score strip for every phase (below). Home's remaining steps, in
+  order (re-planned Nov 5: the in-season page comes before the phone and light passes, since both
+  review the finished layout of every phase and would otherwise be done twice):
+  1. **The in-season and postseason Home.** Built against the dev simulation and 2026's data.
+     - ~~The score strip, one component for every phase~~ Done Nov 5 (eleventh pass, below).
+     - The page: the old two-column subgrid of cards gives way to the offseason's grammar, a lead
+       and then the news row. In season the lead is the latest final (its score as the headline,
+       the recap, the Star) and Next game moves into the news row; in the postseason the bracket is
+       a section, the pick'em lock unchanged. The masthead becomes a compact standings line in the
+       lead's column, so the page never stacks two strips. `NextGameCard` loses its `mx: -2` band,
+       so `FlushSections` covers the whole page and stops being opt-in. The Discord row gets a
+       desktop place.
+  2. **Hierarchy and density on the offseason page** (`ANALYSIS.md` items 3, 4, 7, 9): the heavy
+     tier held to three (the lead, Latest, the leaders), Spotlight in the minor tier, the minor
+     heading quieter (small letterspaced caps); a date on clips and photos; club marks on Latest
+     rows; the first screen's links counted by the sweep at 1440 and 375 (ten is the target).
+  3. **Edge states**: ~~fan award shares need a head~~ ("Vote share", Nov 5); no photo, awards
+     coming down, a small sign.
+  4. **The champion lead receding as the winter goes on.** Needs the owner's trigger: when the award
+     results leave Home, a date, or never.
+  5. **A phone pass** across all three phases: nav, strip, photo, ~~headline~~ (over the photo,
+     Nov 5), Latest, then the sections; the room under the Discord row, the footer's length, Watch's clipped
+     clip titles.
+  6. **Light mode** designed as an equal, not a translation of dark, and which theme a new visitor
+     gets (11 of the 14 references are light).
+  7. **The lead photo's weight**: ~~responsive sizes, an early fetch~~ (Nov 5); the
+     skeleton-to-content fade.
+  8. **Lift Home's pieces into `src/ui/`**, as the kit for the next pages: the two heading tiers,
+     `FlushSections`, agate lines, the print headshot, the lead, the score strip (the Scores tab's
+     too) and Latest as a general headline list (Game Center's play list is the same shape).
+  - **The gate before any other page**: the owner signs off, and the sweep (`--shift --ellipsis`,
+    and `--text large`) is clean on `/wpbl` in all three phases through the dev simulation.
+- **The eleventh pass** (Nov 5, Home step 1, the score strip): one strip for every phase. In the
+  offseason it is back, as the champion's tile (gold "2026 Champions", the series score, a link to
+  the recap) and the final's games in order, under the heading "Championship"; the lead's row of
+  the final's games is gone, and its text column's reserve is re-measured (`LEAD_TEXT_H`). In the
+  postseason a final's eyebrow is the series state in place of the date ("G3 · LA leads 2–1",
+  `seriesTileLine` in `derive/series.ts`, with the final and its date as the tile's tooltip); an
+  upcoming game keeps its date and time. In season nothing changed. The offseason skeleton reserves
+  the strip with its real heading. Typecheck, lint, the tests and the sweep on `/wpbl` and
+  `/wpbl/season` (`--shift --ellipsis`) are clean.
+- **The twelfth pass** (Nov 5, from the fourth audit; on #195's branch). #195's red layout check was
+  axe on `/wpbl/league` in light mode: the glass bottom bar's labels (`tabInkLight`) fell to 3.74:1
+  where a solid club block showed through; the ink is now `#454a52`, 4.75:1 even over black. Home:
+  the strip's "2026 Champions" tile is gone (with the masthead's "Champions" and the lead's kicker it
+  was the third statement of one result in the first screen), and its five games share the row up
+  to 12rem each; the lead's headline sits over the photo on a phone (it started 680px down an 812
+  screen), with the skeleton split into head and body heights (`LEAD_HEAD_H`, `LEAD_BODY_H`); the
+  lead photo has a `srcset` and high priority, and the gallery rail on Home is lazy (its first tile
+  was fetched at high priority, ahead of the lead); Watch's Videos shelf skips what Latest already
+  lists (`useLatestItems`, Watch's `skip`); the star sign grid runs down each column, so "Next:
+  Sagittarius" heads the second instead of sitting beside Dec 1; the award shares have a "Vote
+  share" head. **The page frame**: `PAGE_FRAME_W` in `src/ui/layoutWidths.ts`, 1260px with a 32px
+  margin past the phone column, shared by Home, Scores, Game Center and both Stats tabs. Stats took
+  `100vw - 24px` up to 1540, so its title sat 5px from the window at 1440; its table fits all 24
+  columns down to 1000px, so the frame costs it nothing. At 1440 every one of those pages starts at
+  83px, at 1280 at 25px (was about 5). The 720 column pages (Standings, Teams, the league page, a
+  player page) still start at 263 at 1440: they move onto the frame as each is migrated.
+- **Club marks, bare** (Nov 5; on #195's branch). Every WPBL club mark now prints alone in the
+  club's color (`TeamMark` in `src/wpbl/ui.tsx`, one-color masks in `src/wpbl/logos/*-mark.webp`),
+  with no disc or ring, everywhere `TeamBadge` drew one: `TeamBadge` routes to it, and on a club's
+  own block the mark takes the block's ink. Dark mode uses the secondary (5.2 to 9.5:1), light the
+  `wpblField` fill (3.2 to 8.2:1). New York is cropped to the tower and ball, San Francisco to the
+  bell without its letters, and Boston's hawk is an outline plus its own linework so it reads as
+  line art beside the bell (the owner turned down a filled silhouette). MLB keeps its badges.
+- **The thirteenth pass** (Nov 6, 2026, the newspaper pass on everything above Latest; uncommitted
+  in `../fun-redesign` until the owner looks). The first screen said "LA won" four times. The
+  offseason strip of five framed tiles is gone: the final is a **line score under the lead**
+  (`SeriesLineScore`), a column per game that links to it, the champion's row on top whoever won the
+  game, and the series total behind a heavy rule; it fits 375 without scrolling. The lead now follows
+  the masthead directly, so a phone's headline starts about 330px higher. The `Scoreboard` lost its
+  offseason mode (in season and the postseason it is unchanged). **The masthead has a dateline**
+  (`Dateline` in `ClubRail.tsx`): the date and the edition ("Offseason", "Postseason", "Regular
+  season", "Preseason") between the nameplate's heavy rule and the standings line, which keeps only
+  its hairline. The lead skeleton's head is a fixed height now (it ran 16px long on a phone, hidden
+  until now by the old strip). Sweep `--shift --ellipsis` on `/wpbl` and `/wpbl/season` at 375, 960
+  and 1440, and `--text large`, clean. Its small fixes, the same day: the rail drops "Champions"
+  and prints games back from `sm`; the score strip's winner caret is gone; the lead photo has a
+  caption (the curator's, else the club and the day) with the credit set right; a pitching line reads
+  in box-score order everywhere (`pitchingStatline`: IP, ER, K, which also changes new recap posts).
+  The dateline's right side labels the standings line ("2026 regular season" once the postseason
+  starts, "Standings" before), so "1 Firebells" no longer reads against a lead that crowns the Queens.
+  Still open: the curator's caption on the title photo is "Championship Group Photo", which reads as
+  a file name (a data edit, not code), and the lead photo still sits on its placeholder for seconds
+  (Home step 7).
 - **Proposed for after Home (waiting on the owner):** the player page next, before the Stats
   leaders board (readers open it most, and it still draws the rounded portrait and a club band);
   and the jersey as the one club recipe, since Home no longer draws a `wpblField` block.

@@ -12,6 +12,21 @@
       "autoPort": true
     },
     {
+      "name": "redesign-lan",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "../fun-redesign",
+        "run",
+        "dev",
+        "--",
+        "--host",
+        "--port",
+        "5190"
+      ],
+      "port": 5190
+    },
+    {
       "name": "vite-dev-lan",
       "runtimeExecutable": "npm",
       "runtimeArgs": [

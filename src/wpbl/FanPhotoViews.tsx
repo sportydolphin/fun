@@ -496,10 +496,13 @@ export function FanPhotoStrip({ photos, resolveNames, from, autoScroll = false, 
   // Each tile as wide as its photo is at the rail's height, so a portrait and a landscape shot sit
   // side by side at their own shapes.
   //
-  // THE FIRST TILES ARE NOT LAZY. On Home the rail's first photo is the page's largest image, and
-  // marked `loading="lazy"` it waited for layout before its request even began: five seconds into
-  // Lighthouse's mobile run, which made it an eleven-second largest paint. Three tiles fill the
-  // rail on any screen; the rest (and the whole loop copy) stay lazy.
+  // THE FIRST TILES ARE NOT LAZY on a player page or in Game Center, where the rail is near the top:
+  // marked `loading="lazy"` a tile waited for layout before its request even began. Three tiles fill
+  // the rail on any screen; the rest (and the whole loop copy) stay lazy.
+  //
+  // ON HOME (`autoScroll`) ALL OF THEM ARE LAZY (Nov 5, 2026). The rail's first photo was once Home's
+  // largest image and went out at high priority; since the lead photo it sits two screens down, and
+  // at high priority it was fetched ahead of the lead, which is the page's largest paint now.
   const tiles = (copy: boolean) => photos.map((p, i) => {
     const a = railTileAspect(p.width, p.height)
     return (
@@ -511,7 +514,7 @@ export function FanPhotoStrip({ photos, resolveNames, from, autoScroll = false, 
         ...(drifting ? { transform: `translateX(calc(var(${DRIFT_VAR}, 0) * -1px))`, willChange: 'transform' } : {}),
       }}>
         <PhotoCard photo={p} names={resolveNames(p)} onOpen={() => open(p)} frame="rail" focusable={!copy} subject={subject}
-          priority={copy || i >= 3 ? undefined : i === 0 && autoScroll ? 'high' : 'eager'} />
+          priority={copy || autoScroll || i >= 3 ? undefined : 'eager'} />
       </Box>
     )
   })

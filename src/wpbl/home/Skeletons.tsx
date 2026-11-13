@@ -11,7 +11,8 @@ import type { WpblTeam } from '../types'
 import { offseasonByCalendar } from '../offseasonCalendar'
 import { SECTION_GAP, HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, NEWS_ROW_SX, homeWideSx } from './shared'
 import { LatestSkeleton } from './LatestCard'
-import { ClubRailSkeleton } from './ClubRail'
+import { ClubRailSkeleton, Dateline } from './ClubRail'
+import { SeriesLineScore } from './SeriesLineScore'
 import { ChampionLeadSkeleton } from './ChampionCards'
 
 // Skeletons shaped like the real rows, so a card reserves its final height while its
@@ -24,6 +25,30 @@ import { ChampionLeadSkeleton } from './ChampionCards'
 
 
 const SKELETON_GAME_CHIPS = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+
+/** The score strip's row of tiles, built from the same box GameChip is (8.5rem wide, p:1, a 20px
+ *  badge per row) rather than given a height, so it tracks the desktop chrome scale and the reader's
+ *  text size the way the real one does. */
+function StripChipsSkeleton() {
+  return (
+    <Box sx={{ display: 'flex', gap: 1, pb: 0.5, overflow: 'hidden' }}>
+      {SKELETON_GAME_CHIPS.map(i => (
+        <Box key={i} sx={{
+          flexShrink: 0, width: '8.5rem', p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
+          borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL,
+        }}>
+          <Skeleton variant="text" width="70%" sx={{ fontSize: TYPE_SCALE.micro }} />
+          {[0, 1].map(r => (
+            <Box key={r} sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+              <Skeleton variant="circular" width={chromePx(20)} height={chromePx(20)} sx={{ flexShrink: 0 }} />
+              <Skeleton variant="text" sx={{ flex: 1, fontSize: TYPE_SCALE.body }} />
+            </Box>
+          ))}
+        </Box>
+      ))}
+    </Box>
+  )
+}
 
 /**
  * A card that is not here yet: the SectionCard chrome with its title bar, over a reserved
@@ -94,7 +119,7 @@ export function WpblHomeSkeleton() {
               not the same height as the h1, which the chips beside it used to hide and the rail under
               it does not. */}
           <Typography sx={HOME_TITLE_SX}><Skeleton sx={{ width: { xs: '16rem', md: '22rem' }, maxWidth: '100%' }} /></Typography>
-        <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><ClubRailSkeleton /></Box>
+        <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><Dateline phase={null} label={null} /><ClubRailSkeleton /></Box>
       </Box>
 
       {/* Scoreboard: its heading, then the chip strip. The chips are built from the same box
@@ -103,22 +128,7 @@ export function WpblHomeSkeleton() {
           real one does. */}
       <Box sx={{ mb: SECTION_GAP }}>
         <Skeleton variant="text" width="6.5rem" sx={{ fontSize: TYPE_SCALE.display, lineHeight: 1.2, mb: 1 }} />
-        <Box sx={{ display: 'flex', gap: 1, pb: 0.5, overflow: 'hidden' }}>
-          {SKELETON_GAME_CHIPS.map(i => (
-            <Box key={i} sx={{
-              flexShrink: 0, width: '8.5rem', p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
-              borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: CARD_FILL,
-            }}>
-              <Skeleton variant="text" width="70%" sx={{ fontSize: TYPE_SCALE.micro }} />
-              {[0, 1].map(r => (
-                <Box key={r} sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                  <Skeleton variant="circular" width={chromePx(20)} height={chromePx(20)} sx={{ flexShrink: 0 }} />
-                  <Skeleton variant="text" sx={{ flex: 1, fontSize: TYPE_SCALE.body }} />
-                </Box>
-              ))}
-            </Box>
-          ))}
-        </Box>
+        <StripChipsSkeleton />
       </Box>
 
       {/* The two card columns. Same grid, same 1fr 1fr, same single 1.5 gap and the same
@@ -194,18 +204,22 @@ function OffseasonHomeSkeleton() {
   const awards = awardsResultsShowOnHome()
   return (
     <Box role="status" aria-busy="true" aria-label="Loading the Women's Pro Baseball League home page" sx={homeWideSx}>
-      <Box sx={{ mb: { xs: 0, sm: HEADER_GAP } }}>
+      <Box sx={{ mb: { xs: 1.5, sm: HEADER_GAP } }}>
           {/* The title's own line box (HOME_TITLE_SX) with the bar inside it: a bare text skeleton is
               not the same height as the h1, which the chips beside it used to hide and the rail under
               it does not. */}
           <Typography sx={HOME_TITLE_SX}><Skeleton sx={{ width: { xs: '16rem', md: '22rem' }, maxWidth: '100%' }} /></Typography>
-        <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><ClubRailSkeleton /></Box>
+        <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><Dateline phase="Offseason" label={null} /><ClubRailSkeleton /></Box>
       </Box>
 
-      {/* The lead: the champion's photo and its text column, in the loaded lead's own grid. */}
+      {/* The lead: the champion's photo and its text column, in the loaded lead's own grid. Then the
+          final's line score, which draws its own empty grid at the loaded height. */}
       <FlushSections>
       <Box sx={{ mt: 3 }}>
         <ChampionLeadSkeleton />
+      </Box>
+      <Box sx={{ mt: 3 }}>
+        <SeriesLineScore games={[]} teams={EMPTY_TEAMS} championId={null} onOpenGame={NO_OPEN} />
       </Box>
       {awards && (
         <Box sx={{ mt: 3 }}>

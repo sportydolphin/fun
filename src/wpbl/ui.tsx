@@ -10,7 +10,7 @@ import { printedRanks } from '../ui/leaders'
 import React, { useEffect, useLayoutEffect, useMemo, useCallback, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import type { Theme, SxProps } from '@mui/material'
-import { wpblAccentFg, wpblColor, wpblField, wpblSecondary, wpblLogo, wpblLogoFill } from './constants'
+import { wpblAccentFg, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblMark, wpblField } from './constants'
 import { wpblPortraitSet, type WpblPortraitSet } from './portraits'
 import type { WpblTeam, WpblPlayer } from './types'
 import { scrollBehavior } from '../lib/motion'
@@ -142,8 +142,12 @@ export function FittedName({ name, className, sx, wrapperSx, fitKey }: {
   // squeeze this. The recap's star columns take their width from the flex row that holds all
   // three, and measure the same either way, so switching them is a change with no effect and
   // no test to notice if that stopped being true. Left to the callers that need it.
+  // `overflowX: 'clip'` FOR THE MEASURING COPY (Nov 5, 2026): out of flow, it adds nothing to the
+  // column's width but still counts toward the page's, so a long name in the right-hand column of
+  // Home's star sign card made a 375 phone scroll sideways. `clip`, not `hidden`, so the wrapper
+  // does not become a scroll container; the name itself is noWrap and clips its own text anyway.
   return (
-    <Box sx={{ position: 'relative', ...wrapperSx }}>
+    <Box sx={{ position: 'relative', overflowX: 'clip', ...wrapperSx }}>
       <Typography ref={ref} className={className} noWrap title={stage > 0 ? name : undefined} sx={sx}>
         {stages[stage]}
       </Typography>
@@ -310,6 +314,11 @@ export function TeamBadge({ team, size = 34, ring, onFill }: {
    *  white ink came out gray and fell to 2.5:1 on the block (Nov 4, 2026). */
   onFill?: boolean
 }) {
+  // A club with a one-color mark prints it bare (TeamMark, below) on every WPBL surface: the
+  // redesign dropped the ringed disc site-wide, not only on Home (owner's call, Nov 5, 2026). On a
+  // club's own block the mark takes that block's ink, since its own color is the block. The disc
+  // stays only for a club without a mark, so a new club still draws something.
+  if (wpblMark(team.id)) return <TeamMark team={team} size={size} ink={onFill ? ring : undefined} decorative={false} />
   return (
     <ClubBadge size={size} alt={team.abbr} src={wpblLogo(team.id) ?? undefined}
       bg={wpblColor(team.id)}
@@ -317,6 +326,44 @@ export function TeamBadge({ team, size = 34, ring, onFill }: {
       // primary on the dark page is under 1.5:1), and the ring is the badge's edge. CLAUDE.md, "Borders".
       ring={onFill && ring ? ring : edge(ring ?? wpblSecondary(team.id))}
       fit={wpblLogoFill(team.id) ? 'cover' : 'contain'} logoScale={0.65} />
+  )
+}
+
+/**
+ * A club's mark printed bare, in the club's own color: no disc, no ring (Nov 5, 2026, the redesign).
+ *
+ * WHY NOT THE BADGE. TeamBadge puts every mark on its club's near-black primary inside a ring, so
+ * four clubs side by side were four dark discs told apart by a 2px edge, and at 20px the white
+ * knockout inside thinned to a smudge. It is the app idiom the redesign moved away from (Home's
+ * faces and pictures are square, with no rings). MLB.com's score strip, Savant and the printed page
+ * run the mark alone, and MLB publishes every mark "on dark" and "on light" for that reason.
+ *
+ * ONE COLOR PER THEME, THE CLUB'S. The logo's alpha is the shape (a CSS mask) and the fill is the
+ * club's: its bright secondary on the dark page (5.2 to 9.5:1), its block color (wpblField) on the
+ * light one (3.2 to 8.2:1; a mark is a graphic, so 3:1). Los Angeles's two-tone crown and Q print in
+ * one gold, as a mark does in spot color. Decorative by default: a mark always sits beside the
+ * club's name or abbreviation.
+ */
+export function TeamMark({ team, size = 24, decorative = true, ink: given }: {
+  team: Pick<WpblTeam, 'id' | 'abbr'>; size?: number; decorative?: boolean
+  /** The mark sits on a club's block: that block's ink, already measured against it. */
+  ink?: string
+}) {
+  const isDark = useDark()
+  const mark = wpblMark(team.id)
+  const ink = given ?? (isDark ? wpblSecondary(team.id) : wpblField(team.id, false).fill)
+  const box = chromePx(size)
+  if (!mark) {
+    return (
+      <Typography aria-hidden={decorative || undefined} sx={{
+        width: box, flexShrink: 0, textAlign: 'center', fontSize: TYPE_SCALE.nano, fontWeight: 800, color: ink, lineHeight: 1,
+      }}>{team.abbr.slice(0, 3)}</Typography>
+    )
+  }
+  const mask = `url(${mark}) center / contain no-repeat`
+  return (
+    <Box role={decorative ? undefined : 'img'} aria-hidden={decorative || undefined} aria-label={decorative ? undefined : team.abbr}
+      sx={{ width: box, height: box, flexShrink: 0, bgcolor: ink, mask, WebkitMask: mask }} />
   )
 }
 

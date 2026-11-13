@@ -59,8 +59,8 @@ Dated things left:
 - **Spring 2027, before the first game**: re-verify every feed assumption in CLAUDE.md's Traps
   before trusting a season total. The league minted new team and player ids for the postseason,
   changed the ERA basis mid-season and caps `/games` silently; any of those can change again over
-  a winter. `wpbl-postseason-check` still only warns when its secrets are missing, and should fail
-  the way the archive and sitemap jobs now do before it is relied on again.
+  a winter. ✅ `wpbl-postseason-check` fails on missing secrets the way the archive and sitemap
+  jobs do (Nov 6).
 
 *(The September clock, which counted down to Sep 6 and Sep 22 and graded the list through the
 season, is retired; it is in git history.)*
@@ -228,10 +228,14 @@ item 2 describes, which is why that item comes first.
    Vite 8 also splits the entry into about 60 preloaded chunks where Rollup made one, about 5%
    more initial JavaScript; left at the default, since hand-written chunk groups once blanked the
    page.
-7. **Rehearse the spring.** Replay the archived 2026 feed through `wpbl-ingest` into a scratch
+7. ✅ **Rehearse the spring.** *Built Nov 6, 2026 as `npm run rehearse` (scripts/rehearse-wpbl-feed.ts):
+   no scratch schema, because the archive holds our tables rather than the raw feed. It runs the live
+   feed through `transform.ts`, the ingest's rules with the database taken out, and diffs every row
+   with `archive/`. The 2026 baseline matches row for row except TrackMan, whose `/activity`
+   endpoint now answers `401 missing api key`.* The plan as written: Replay the archived 2026 feed through `wpbl-ingest` into a scratch
    schema and diff it against the mirror, so the feed re-verification on the clock above is a run
-   rather than a reading of CLAUDE.md. Same item as the clock's: make `wpbl-postseason-check` fail
-   on missing secrets.
+   rather than a reading of CLAUDE.md. (`wpbl-postseason-check` failing on missing secrets, once part
+   of this item, is ✅ done Nov 6.)
 8. **Open data, and something to embed** 🎯. A `/wpbl/data` page offering the 2026 season as CSV
    (and Retrosheet-style event files where RetroWPBL's permission covers it), credited, and an
    embeddable standings and box-score widget for the two writers. Links are the brake on search
@@ -321,8 +325,8 @@ and the reasoning; where the two disagree, `/admin` is the order.
 
 **P2**
 - **iOS** ([docs/IOS.md](docs/IOS.md)): a much bigger build than Play, done before the season.
-- Spring readiness: the feed rehearsal, `wpbl-postseason-check` failing on missing secrets, the
-  Traps re-verified, the Bluesky rethink.
+- Spring readiness: the Traps re-verified (run `npm run rehearse` when the feed wakes), the Bluesky
+  rethink. The rehearsal and `wpbl-postseason-check` failing on missing secrets are ✅ done Nov 6.
 
 **P3**
 - `/wpbl/data` and the embeddable widget (ops item 8).

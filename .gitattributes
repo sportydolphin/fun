@@ -1,0 +1,4 @@
+# Every text file is LF in the repo and in the working tree, on every platform.
+# Without this, Git for Windows (core.autocrlf=true) checked files out as CRLF, and a
+# script matching conflict markers line by line missed them and committed them.
+* text=auto eol=lf

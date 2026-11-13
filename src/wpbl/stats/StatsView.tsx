@@ -6,7 +6,7 @@ import {
   getCachedWpblAllPlayers, getCachedWpblAllLines, wpblStatsCacheAgeMs,
   fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays,
   fetchWpblRunEnvironment, getCachedWpblRunEnvironment,
-  fetchWpblAllFielding, getCachedWpblAllFielding, fetchWpblSchedule,
+  fetchWpblAllFielding, getCachedWpblAllFielding,
   fetchWpblPlayerSeasons, getCachedWpblPlayerSeasons,
 } from '../api'
 import { buildRunExpectancy, playRunValues } from '../derive/runExpectancy'
@@ -23,7 +23,7 @@ import {
   type WpblBattingTotals, type WpblPitchingTotals,
 } from '../stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine } from '../types'
-import { currentSeason, isPostseasonGame, type SeasonScope } from '../season'
+import { isPostseasonGame, type SeasonScope } from '../season'
 import {
   decodeFinderPer, decodeFinderQuery, encodeFinderQuery, finderFields,
   type FinderBoardSide, type FinderQuery,
@@ -39,7 +39,7 @@ import { ActiveFilterChip } from '../../ui/FilterChip'
 import { parsePositionFilter, positionFilterDef, type PositionFilter } from '../../league/positionFilter'
 import type { Side, BallSide, Totals, Source, Mode, Group, View } from './axes'
 import { axesOf, VIEW_ORDER, sideOn, defaultSide, inView, orderForView, viewFor, defaultSort } from './axes'
-import { FLD_COLS, FLD_TEAM_COLS, statNames, cellText, CONTEXT_KEYS } from './columns'
+import { FLD_COLS, FLD_TEAM_COLS, statNames, cellText, CONTEXT_KEYS, WAR_HALVES } from './columns'
 import { teamDoublePlays } from '../derive/fielding'
 import { ANALYSIS_TABS, ANALYSIS_SOURCES } from './boardTabs'
 import { STATS_PATH, boardParam, axesFromQuery } from './address'
@@ -51,7 +51,7 @@ import { StatsSheet, SortBody, FilterBody } from './Sheets'
 import { StatList } from './RankedList'
 import { SeasonTable } from './SeasonTable'
 import { ControlBar } from './ControlBar'
-import { LeadersPane, BoardPane, type ChartInputs } from './Boards'
+import { LeadersPane, BoardPane, type ChartInputs, type ChartFilters } from './Boards'
 import { buildRows } from './rows'
 import { useBoardLayout } from './useBoardLayout'
 
@@ -70,33 +70,8 @@ import { useBoardLayout } from './useBoardLayout'
 // every arrival 'open' and leave the two names measuring nothing.
 let statsOpened = false
 
-/** Every read the Stats tab makes on mounting, started early. The tab cannot mount until the
- *  section's teams and schedule are in (WpblApp's `loading`), and none of these reads needs either
- *  of them to FETCH, only to aggregate, so a reader landing on /wpbl/stats waited one whole Supabase
- *  round trip (about 650ms) before the slowest reads on the site had even started. Each fetcher
- *  shares an in-flight request (`once` in api/core.ts), so the tab's own effects pick these up rather
- *  than asking twice. Failures are the tab's to handle when it asks; here they are dropped. */
-export function warmStatsReads(picked: number | null): void {
-  const drop = () => { /* the tab's own read reports it */ }
-  fetchWpblAllPlayers().catch(drop)
-  fetchWpblAllFielding().catch(drop)
-  fetchWpblTrackedGameCount().catch(drop)
-  // The year's stored seasons first (derive/playerSeasons.ts), which is all the boards the tab
-  // opens on need when they are current: the box-score lines and the play log, the two heaviest
-  // reads in the section, are started only when they are not. Both wait for the schedule (already
-  // in flight for the section) to say which year that is when the address does not.
-  fetchWpblSchedule()
-    .then(async games => {
-      const year = picked ?? currentSeason(games)
-      if (year != null && (await fetchWpblPlayerSeasons(year)).current) return
-      fetchWpblAllLines().catch(drop)
-      // The priced row rather than the play log for the weights; the play log for the Overall side,
-      // which the tab opens on.
-      fetchWpblRunEnvironment().catch(drop)
-      fetchWpblAllRunValuePlays(year).catch(drop)
-    })
-    .catch(drop)
-}
+// warmStatsReads lives in ./warmReads, so WpblApp can start these reads without importing this tab.
+export { warmStatsReads } from './warmReads'
 
 
 // How much of the list a phone gets before it asks. Ten is a leaderboard; thirty-four is a
@@ -252,7 +227,9 @@ export default function WpblStatsView({
     oppId: fromUrl.findOpp || null,
     venue: fromUrl.findVenue ?? 'any',
   }))
-  const [teamId, setTeamId] = useState<string | null>(null)
+  // Matched to a club once the clubs load (below): a link's `?team=` is the club's id in lower case.
+  // Not on a Charts link, whose `team` and `who` are the chart's own (chartsClub below).
+  const [teamId, setTeamId] = useState<string | null>(() => (fromUrl.source === 'charts' ? null : fromUrl.team ?? null))
   // A position or role, from the address only (the search writes it): the board has no picker for
   // it, so it shows as a chip that removes it. See src/league/positionFilter.ts.
   const [pos, setPos] = useState<PositionFilter | null>(() => parsePositionFilter(fromUrl.pos))
@@ -304,14 +281,17 @@ export default function WpblStatsView({
    * qualifier cannot activate and the top of every board is whoever went 2-for-3 last night.
    * The playoffs are worth having, as a slice a reader asks for.
    */
-  const [scope, setScope] = useState<SeasonScope>('regular')
+  const [scope, setScope] = useState<SeasonScope>(() => fromUrl.games ?? 'regular')
 
   /** Only offer the switch once there is a postseason to switch to. */
   const hasPostseason = useMemo(
     () => games.some(g => isPostseasonGame(g) && g.status === 'final'), [games])
   // A postseason that has not started yet must not strand a reader on an empty board if the
   // scope was set from a previous session or a re-render.
-  useEffect(() => { if (!hasPostseason && scope !== 'regular') setScope('regular') }, [hasPostseason, scope])
+  //
+  // ONLY ONCE THERE ARE GAMES TO ASK. Before they load, every season looks like one with no
+  // postseason, and a `?games=post` link would be reset to the regular season on its way in.
+  useEffect(() => { if (games.length && !hasPostseason && scope !== 'regular') setScope('regular') }, [games.length, hasPostseason, scope])
 
   const qual = useMemo(() => wpblQualifiers(teams, games, scope), [teams, games, scope])
   // Games that have actually been played, which is what the tracked count has to be a share
@@ -336,15 +316,25 @@ export default function WpblStatsView({
   // The position each player has actually been playing, for the leaderboard sublabels.
   const positionIndex = useMemo(
     () => (stored ? stored.positions : buildPositionIndex(lines.batting, games)), [stored, lines.batting, games])
-  const [qualified, setQualified] = useState(() => qual.active)
+  const [qualified, setQualified] = useState(() => (fromUrl.source === 'charts' || !fromUrl.everyone) && qual.active)
+  // The Charts board's Qualified and club chips. Their own state, not `qualified` and `teamId`:
+  // a chart's club is a highlight over the whole league rather than a filter on the rows, and the
+  // chart's bar is the regular season's whatever slice the tables show. Read from the address only
+  // when it names Charts, where the writer below puts them.
+  const chartsLink = fromUrl.source === 'charts'
+  const [chartsEveryone, setChartsEveryone] = useState(() => chartsLink && !!fromUrl.everyone)
+  const [chartsClub, setChartsClub] = useState<string | null>(() => (chartsLink ? fromUrl.team ?? null : null))
+  const chartFilters = useMemo<ChartFilters>(() => ({
+    everyone: chartsEveryone, setEveryone: setChartsEveryone, club: chartsClub, setClub: setChartsClub,
+  }), [chartsEveryone, chartsClub])
   // `defaultSort` validates the key it is handed and falls back to the board's own default, so
   // a stale or hand-edited ?sort= lands on a sensible column rather than an empty sort.
   const [sortKey, setSortKey] = useState(() => defaultSort(side, fromUrl.sortKey ?? focus?.sortKey).key)
   const [sortAsc, setSortAsc] = useState(
     () => fromUrl.sortAsc ?? defaultSort(side, fromUrl.sortKey ?? focus?.sortKey).asc)
-  // Not in the address bar: it follows the sort, which is. A link sorted by wRC+ opens on
-  // Advanced because that is the only view with wRC+ in it.
-  const [view, setView] = useState<View>(() => viewFor(side, sortKey, 'standard'))
+  // On the address as `cols=advanced`, and it follows the sort as well: a link sorted by wRC+
+  // opens on Advanced because that is the only view with wRC+ in it.
+  const [view, setView] = useState<View>(() => viewFor(side, sortKey, fromUrl.advanced ? 'advanced' : 'standard'))
   // Whatever moved the sort (the Rank by sheet, a link, a side switch), the sorted column has to
   // be on screen, or the board is ranked by a number nobody can see.
   useEffect(() => { setView(v => viewFor(side, sortKey, v)) }, [side, sortKey])
@@ -574,6 +564,17 @@ export default function WpblStatsView({
   const cols = (side === 'hitting' ? hitCols : side === 'fielding' ? (mode === 'teams' ? FLD_TEAM_COLS : FLD_COLS) : side === 'overall' ? OVR_COLS : pitCols) as Col<Totals>[]
   const activeCol = cols.find(c => c.key === sortKey) ?? cols[0]
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+  // A link's `?team=` is lower case and may name no club at all (a hand-edited or stale link).
+  // Matched once the clubs are in, and dropped if nothing matches: a filter on a club that is not
+  // there would show an empty board with nothing on it to say why.
+  useEffect(() => {
+    if (!teamId || !teams.length || teamById.has(teamId)) return
+    setTeamId(teams.find(t => t.id.toLowerCase() === teamId.toLowerCase())?.id ?? null)
+  }, [teamId, teams, teamById])
+  useEffect(() => {
+    if (!chartsClub || !teams.length || teamById.has(chartsClub)) return
+    setChartsClub(teams.find(t => t.id.toLowerCase() === chartsClub.toLowerCase())?.id ?? null)
+  }, [chartsClub, teams, teamById])
 
   // On phones the sorted column is pinned right after the name (a second frozen column) so
   // rank → name → its ranking value are always adjacent and the table can rest at its
@@ -737,11 +738,21 @@ export default function WpblStatsView({
     set('opp', finding ? findQuery.oppId : null)
     set('venue', finding && findQuery.venue !== 'any' ? findQuery.venue : null)
     set('pos', source === 'season' && mode === 'players' ? pos : null)
+    // THE FILTERS, which a reload used to drop: a link to Boston's playoff pitchers opened on the
+    // whole league's regular season. Named as MLB's address names them. `team` is Find's own
+    // param on Find (above), so the filter only writes it on the other boards.
+    set('games', scope === 'postseason' ? 'post' : scope === 'all' ? 'all' : null)
+    const charting = source === 'charts'
+    if (!finding) set('team', charting ? chartsClub?.toLowerCase() ?? null : teamId ? teamId.toLowerCase() : null)
+    // Only when it differs from how the board opens: Qualified is the default once the bar is live.
+    set('who', source === 'season' && !qualified && qual.active ? 'all' : charting && chartsEveryone ? 'all' : null)
+    // Standard is the default, and a sort on an Advanced column says Advanced already.
+    set('cols', source === 'season' && hasViews && view === 'advanced' && viewFor(side, sortKey, 'standard') !== 'advanced' ? 'advanced' : null)
     const str = q.toString()
     const url = str ? `${window.location.pathname}?${str}` : window.location.pathname
     if (url === window.location.pathname + window.location.search) return
     window.history.replaceState(window.history.state, '', url)
-  }, [active, source, mode, side, sortKey, sortAsc, findQuery, scope, pos])
+  }, [active, source, mode, side, sortKey, sortAsc, findQuery, scope, pos, teamId, qualified, qual.active, chartsClub, chartsEveryone, view, hasViews])
 
   const bestAsc = activeCol.lowerBetter ?? false
   const bestFirst = sortAsc === bestAsc
@@ -848,13 +859,11 @@ export default function WpblStatsView({
     setSource(target)
     setMode(nextMode)
   }
-  /** The side switch. A side this board cannot answer goes to Leaders, which answers every side,
-   *  rather than doing nothing: "Fielding" pressed on Find means "show me fielding". */
+  /** The side switch. A side this board cannot answer is drawn disabled and does nothing. It used to
+   *  open Leaders on that side, which read as the tab jumping on its own: a reader on Teams who
+   *  pressed Overall landed on a different board than the one they had picked (Nov 2026). */
   const pickSide = (s: Side) => {
-    if (sideOn(s, source, mode)) { switchSide(s); return }
-    logBoard('source', { source: 'leaders', mode, side: s })
-    switchSide(s, false)
-    setSource('leaders')
+    if (sideOn(s, source, mode)) switchSide(s)
   }
 
   // The Leaders board's rows: the same aggregates as the Players table, before its sort, its club
@@ -898,13 +907,15 @@ export default function WpblStatsView({
   const canFilter = (source === 'season' && mode === 'players') || multiSeason
     || ((source === 'leaders' || source === 'season' || source === 'bests' || source === 'find') && hasPostseason && !overall)
 
-  // The three context stats: the preference list minus whatever is already the big number.
+  // The three context stats: the preference list minus whatever is already the big number. Overall
+  // hands the list its whole preference order, since most of a row's candidates there are a dash or
+  // an echo (StatList), and the list keeps the first two that are neither.
   const contextCols = useMemo(() => (
     CONTEXT_KEYS[side][activeCol.rate ? 'rate' : 'counting']
       .filter(k => k !== sortKey)
       .map(k => cols.find(c => c.key === k))
       .filter((c): c is Col<Totals> => !!c)
-      .slice(0, 3)
+      .slice(0, side === 'overall' ? undefined : 3)
   ), [side, sortKey, cols, activeCol])
 
   const pickedId = picked && mode === 'players' && picked.side === side && picked.sortKey === sortKey ? picked.id : null
@@ -1073,7 +1084,7 @@ export default function WpblStatsView({
       ) : source !== 'season' ? (
         <BoardPane source={source} side={side} boardSide={boardSide} findSide={findSide} teams={teams}
           players={players} lines={lines} fielding={fielding} linesIn={linesIn} games={games} scope={scope}
-          findQuery={findQuery} setFindQuery={setFindQuery} trackedOffered={trackedOffered} charts={chartInputs}
+          findQuery={findQuery} setFindQuery={setFindQuery} trackedOffered={trackedOffered} charts={chartInputs} chartFilters={chartFilters}
           onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} onOpenTeam={onOpenTeam} />
       ) : (side === 'fielding' && fielding == null) || (side === 'overall' && valueSeasons == null) || (boardNeedsLines && !linesIn) ? (
         // Only if the side is picked before its read (started on mount) has landed, or the box-score
@@ -1089,7 +1100,8 @@ export default function WpblStatsView({
         // meant. The control bar above is sticky, so the sort control stays reachable anyway.
         <StatList listRef={listRef} mode={mode} activeCol={activeCol} leagueCell={leagueCell} sortAsc={sortAsc}
           visibleRows={visibleRows} ranks={ranks} pickedId={pickedId} pickedRef={pickedRef} pickedTint={pickedTint}
-          contextCols={contextCols} contextCap={side === 'overall' ? 2 : 3} rows={rows} listCap={listCap} capped={capped} noun={noun}
+          contextCols={contextCols} contextCap={side === 'overall' ? 2 : 3}
+          echo={side === 'overall' ? WAR_HALVES : undefined} rows={rows} listCap={listCap} capped={capped} noun={noun}
           setExpanded={setExpanded} collapse={collapse} boardFooter={boardFooter} />
       ) : (
         <SeasonTable listRef={listRef} pinActive={pinActive} scrollRef={scrollRef} boardPinned={boardPinned}

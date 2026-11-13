@@ -166,10 +166,15 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
         }}>
           <PillGroup
             options={SIDES.map(o => !sideOn(o.value, source, mode)
-              ? { ...o, hint: o.value === 'overall' ? 'Overall is on Leaders and Players: opens Leaders' : 'Fielding is on Leaders, Players and Teams: opens Leaders' }
+              ? { ...o, disabled: true, hint: o.value === 'overall' ? 'Leaders and Players only' : 'Leaders, Players, Teams and Find only' }
               : o)}
             value={side}
             onChange={v => pickSide(v as Side)}
+            // Four sides at full padding are 273px, and beside the 90px Sort pill that is more than a
+            // 375px phone's 351px row, so from Overall's arrival the pill wrapped onto a row of its
+            // own on Players and Teams: a taller bar pinned over the board, and the board jumping a
+            // row on every move between Leaders and Players.
+            dense={isNarrow}
           />
         </Box>
         {/* Desktop only. A phone's ranked list shows one stat, so there is nothing to switch; its
@@ -198,7 +203,7 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
                 ...FOCUS_RING,
                 display: 'inline-flex', alignItems: 'center', gap: 0.4, flexShrink: 0,
                 cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
-                minHeight: 34, px: 1.25, borderRadius: 999, fontSize: TYPE_SCALE.body, fontWeight: 700,
+                minHeight: 34, px: 1, borderRadius: 999, fontSize: TYPE_SCALE.body, fontWeight: 700,
                 border: '1px solid', transition: 'all 0.15s',
                 borderColor: source === 'season' || filtersSet ? ACCENT_EDGE : CARD_BORDER,
                 bgcolor: source === 'season' || filtersSet ? `${WPBL_ACCENT}12` : 'transparent',

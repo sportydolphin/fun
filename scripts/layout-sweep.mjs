@@ -55,6 +55,16 @@
  *    CLAUDE.md ("a fixed px size") is why: the seeding race sat behind the flag through the whole
  *    desktop rebuild and carried four scale bugs into September.
  *
+ * 5. BEHAVIOR (--behavior), in place of the checks above. On every stats board with filters, at
+ *    desktop width: change the filters, reload, and check every one held; then go somewhere else
+ *    inside the app and come Back, and leave the app and come Back, and check again. Until Nov 2026
+ *    (sportydolphin/fun#201) WPBL's club, Playoffs and Qualified lived in component state only, so a
+ *    reload or a shared link dropped them, and nothing but a person clicking through saw it. The
+ *    boards and the clicks are BEHAVIOR_BOARDS; a board's state is every pressed control and every
+ *    select's value (probeControls), so a filter added to a listed board is covered without a
+ *    change here. Its reads are in the fixture like any page's, and every --record runs this pass
+ *    too (on the boards among its routes), so re-recording keeps them.
+ *
  * Usage:
  *   npm run dev                                   # in another terminal
  *   npm run sweep                                 # overflow, every page, every size
@@ -70,6 +80,7 @@
  *   npm run sweep -- --replay --shift --cpu 4      # CI's slower machine, to reproduce its timing
  *   npm run sweep -- --replay --shift --shots out  # save both frames of every case that shifts
  *   npm run sweep -- --replay --shift --shard 2/8  # the second of eight slices, as CI runs it
+ *   npm run sweep -- --replay --behavior          # filters survive a reload and Back (CI's `layout behavior`)
  *
  * Exits 1 when anything is reported. CI runs it on every pull request (the `layout` job).
  */
@@ -168,11 +179,32 @@ const DEFAULT_ROUTES = [
   // the page's spinner letting the contract draw first and then jump a screen down (0.39 on a phone).
   '/mlb/players/francisco-lindor-596019', '/mlb/players/tarik-skubal-669373',
 ]
+// THE BOARDS --behavior checks, and the filters it changes on each: a string clicks the pressable
+// control with exactly that text, `{ select, value }` picks an option in the select of that label.
+// Every board here has filters a reader sets and expects to find again; the side tabs (Hitting,
+// Pitching) are in the steps too, since a reload that lands on the wrong side loses the rest with it.
+const BEHAVIOR_BOARDS = [
+  { route: '/wpbl/stats?board=players&side=hitting', steps: ['Playoffs', 'LA', '✓ Qualified'] },
+  { route: '/wpbl/stats?board=players&side=fielding', steps: ['Both', 'NY', '✓ Qualified'] },
+  { route: '/wpbl/stats?board=teams', steps: ['Pitching', 'Playoffs', 'Advanced'] },
+  { route: '/wpbl/stats?side=hitting', steps: ['Pitching', 'Both'] },
+  { route: '/mlb/stats', steps: ['Pitching', '✓ Qualified', 'Advanced', { select: 'Season', value: '2025' }] },
+  { route: '/wpbl/stats?board=charts', steps: ['Pitching', 'Qualified', 'BOS'] },
+  { route: '/mlb/fielding', steps: ['SS', 'Both', '✓ Qualified'] },
+  { route: '/mlb/leaders', steps: ['Pitching', 'Both', { select: 'Season', value: '2025' }] },
+  { route: '/mlb/team-stats', steps: ['Pitching', 'Playoffs'] },
+]
+const BEHAVIOR = flag('behavior')
 // The leading slash is optional because Git Bash rewrites an argument that starts with one into a
 // Windows path (/wpbl becomes C:/Program Files/Git/wpbl) before node ever sees it.
 const ALL_ROUTES = opt('routes', '')
   ? opt('routes', '').split(',').map(r => (r.startsWith('/') ? r : `/${r}`))
-  : DEFAULT_ROUTES
+  : BEHAVIOR ? BEHAVIOR_BOARDS.map(b => b.route) : DEFAULT_ROUTES
+// Every record runs the behavior pass as well, on the boards among its routes (all of them on a
+// full record). A full record replaces the fixture, and without this it would drop the reads only a
+// changed filter makes; a merge of one board's route records what its filters read along with it,
+// so the one command a failed replay prints covers both passes.
+const RUN_BEHAVIOR = BEHAVIOR || RECORD
 // --shard i/n: every n-th route from the i-th, so CI can split the sweep across parallel jobs. By
 // ROUTE rather than by page load, so each job warms only the routes it sweeps: warming all of them
 // took a minute and a half of a thirteen-minute job before it was split.
@@ -602,6 +634,52 @@ const settle = async (page, ms) => {
   await page.waitForTimeout(ms)
 }
 
+// WHAT STILL SAYS "LOADING", visible on the page: index.html's boot line (the app has not mounted),
+// an MUI skeleton or spinner, or a box marked aria-busy (a card's own loading branch).
+const LOADING_SELECTOR = '#sd-boot-status, .MuiSkeleton-root, .MuiCircularProgress-root, [aria-busy="true"]'
+function probeLoading(selector) {
+  return [...document.querySelectorAll(selector)].filter(el => {
+    const r = el.getBoundingClientRect()
+    if (!(r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden')) return false
+    // A shimmer laid over a picture that has not loaded is not the page loading: its box is the
+    // picture's, already reserved, and a lazy image below the fold never loads in a page nobody
+    // scrolls (the fan-photo rail on a player page sat there for good).
+    if (el.parentElement?.querySelector(':scope > img, :scope > picture')) return false
+    // Nor is an infinite list's edge, which loads the next stretch only as the reader nears it
+    // (the MLB scores timeline). It marks itself so this does not have to guess.
+    return !el.closest('[data-load-edge]')
+  }).map(el => {
+    if (el.id) return `#${el.id}`
+    // Named by the nearest thing a person would recognize: an aria-label on it or above it, else
+    // the heading of the section it sits in, so a finding says WHICH skeleton is stuck.
+    const kind = el.matches('.MuiSkeleton-root') ? 'skeleton' : el.matches('.MuiCircularProgress-root') ? 'spinner' : 'aria-busy'
+    const labeled = el.closest('[aria-label]')?.getAttribute('aria-label')
+    let heading = null
+    for (let n = el; n && n !== document.body && !heading; n = n.parentElement) {
+      heading = n.querySelector('h1, h2, h3, [role="heading"]')?.textContent.trim().slice(0, 40) || null
+    }
+    return `${kind} in ${labeled ? `[${labeled}]` : heading ? `"${heading}"` : 'page'}`
+  })
+}
+
+/**
+ * Waits until nothing on the page says it is loading, and returns what still does if it never
+ * stops. NETWORK IDLE IS NOT "LOADED". Under four parallel pages Vite serves a lazy chunk or a
+ * page's second read late, and the probe ran on whatever was there: on Nov 6, 2026 about half of
+ * one slice's team-page cases measured a page with no heading yet, or its spec box still loading,
+ * and passed. That hid "HUNTERS" spilling its fill for as long as the readout lost the race, and
+ * a sweep that quietly checks less is the failure this file exists to remove. So a page still
+ * loading after the wait is a finding, not a pass.
+ */
+async function waitForContent(page, ms = 10_000) {
+  const until = Date.now() + ms
+  for (;;) {
+    const left = await page.evaluate(probeLoading, LOADING_SELECTOR)
+    if (!left.length || Date.now() > until) return left
+    await page.waitForTimeout(150)
+  }
+}
+
 async function runCase(browser, route, width, text, { warm = false } = {}) {
   const ctx = await browser.newContext({
     viewport: { width, height: HEIGHT[width] ?? 900 },
@@ -666,10 +744,12 @@ async function runCase(browser, route, width, text, { warm = false } = {}) {
     }
     await page.goto(`${BASE}${route}`, { waitUntil: 'domcontentloaded' })
     await settle(page, 600)
+    const stillLoading = await waitForContent(page)
     await recordImages(page)
     const o = await page.evaluate(probeOverflow, ELLIPSIS)
     result.pageOverflow = o.pageOverflow
     result.issues = o.issues
+    if (stillLoading.length) result.issues.push({ kind: 'loading', px: 0, text: [...new Set(stillLoading)].join(', '), where: 'still loading after 10s' })
     // Both themes, on the same load: the theme follows the device until a reader picks one, so
     // flipping the emulated scheme re-renders the page in the other one without a second visit.
     // ON THE DEFAULT TEXT SIZE ONLY. A color, a contrast ratio or a control's name is the same at
@@ -708,6 +788,122 @@ async function runCase(browser, route, width, text, { warm = false } = {}) {
   return result
 }
 
+/** A board's state as a reader sees it: every pressed control and every select's value, in the
+ *  page's main column (not the header's menus). Plain DOM, run in the page. */
+function probeControls() {
+  const shown = el => el.getBoundingClientRect().width > 0 && !el.closest('[aria-hidden="true"]')
+  const name = el => (el.textContent ?? '').trim().replace(/\s+/g, ' ')
+  const pressed = [...document.querySelectorAll('[aria-pressed="true"]')].filter(shown).map(name)
+  const selects = [...document.querySelectorAll('select')].filter(shown)
+    .map(s => `${s.getAttribute('aria-label') ?? s.name ?? 'select'}=${s.value}`)
+  return [...pressed, ...selects].sort()
+}
+
+/** Where a board goes for the Back checks: the section's first tab that is not this board. */
+const AWAY = { wpbl: '/wpbl/schedule', mlb: '/mlb/scores' }
+
+/**
+ * One board: set its filters, then reload, then leave inside the app and come Back, then leave the
+ * app and come Back, comparing the board's state with the one the reader set after each. Returns
+ * the findings as lines; none is a pass.
+ */
+async function runBehavior(browser, { route, steps }) {
+  const width = 1440
+  const ctx = await browser.newContext({ viewport: { width, height: HEIGHT[width] }, serviceWorkers: 'block' })
+  await wireContext(ctx, route)
+  const page = await ctx.newPage()
+  const lines = []
+  // The address with its params sorted: the app writes them in the order the filters were set, and
+  // a reload writes them in its own, which is the same address.
+  const state = async () => {
+    const u = new URL(page.url())
+    u.searchParams.sort()
+    return { url: `${u.pathname}${u.search}`, controls: await page.evaluate(probeControls) }
+  }
+  const away = AWAY[route.split('/')[1]]
+  try {
+    await page.goto(`${BASE}${route}`, { waitUntil: 'domcontentloaded' })
+    await settle(page, 600)
+    const start = await state()
+    for (const step of steps) {
+      // Matched on the whole text, so "Playoffs" is not the "Playoffs" inside a longer label.
+      const target = typeof step === 'string'
+        ? page.locator('[aria-pressed]').filter({ hasText: new RegExp(`^\\s*${step.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`) }).first()
+        : page.locator(`select[aria-label="${step.select}"]`).first()
+      // A board draws its filters once its data lands, which on a cold or slow run is well after
+      // the network first goes quiet.
+      if (!(await target.waitFor({ state: 'visible', timeout: 15_000 }).then(() => true, () => false))) {
+        lines.push(`  no control "${typeof step === 'string' ? step : step.select}" to change; the board changed, so fix BEHAVIOR_BOARDS`)
+        continue
+      }
+      if (typeof step === 'string') await target.click()
+      else await target.selectOption(step.value)
+      await settle(page, 400)
+    }
+    await recordImages(page)
+    const set = await state()
+    if (set.controls.join() === start.controls.join()) lines.push('  the filters did not change the board, so nothing was checked')
+    const same = now => now.url === set.url && now.controls.join() === set.controls.join()
+    const compare = async label => {
+      // Asked again for up to 10s, for the same reason as the wait above: a board whose filters
+      // have not drawn yet has lost nothing.
+      let now = await state()
+      for (let t = 0; t < 20 && !same(now); t++) {
+        await page.waitForTimeout(500)
+        now = await state()
+      }
+      const lost = set.controls.filter(c => !now.controls.includes(c))
+      const gained = now.controls.filter(c => !set.controls.includes(c))
+      if (lost.length || gained.length) {
+        lines.push(`  ${label}: lost ${lost.map(c => `"${c}"`).join(', ') || 'nothing'}; now ${gained.map(c => `"${c}"`).join(', ') || 'nothing new'}`)
+        lines.push(`    address ${set.url} became ${now.url}`)
+      } else if (now.url !== set.url) {
+        lines.push(`  ${label}: the address ${set.url} became ${now.url}`)
+      }
+    }
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await settle(page, 600)
+    await compare('after a reload')
+    // Inside the app: a real link, so the app's own router pushes the entry and Back is a popstate.
+    const link = page.locator(`a[href="${away}"]`).first()
+    if (await link.count()) {
+      await link.click()
+      await page.waitForURL(u => u.pathname === away, { timeout: 10_000 })
+      await settle(page, 400)
+      await page.goBack({ waitUntil: 'domcontentloaded' })
+      await settle(page, 600)
+      await compare(`after ${away} and Back`)
+    } else {
+      lines.push(`  no link to ${away} on the board, so Back inside the app was not checked`)
+    }
+    // Out of the app and back in: a fresh document from history, the way a reader comes back
+    // from another site or a closed tab's restore.
+    await page.goto(`${BASE}${away}`, { waitUntil: 'domcontentloaded' })
+    await settle(page, 400)
+    await page.goBack({ waitUntil: 'domcontentloaded' })
+    await settle(page, 600)
+    await compare('after leaving the page and Back')
+  } catch (err) {
+    lines.push(`  ERROR ${String(err?.message ?? err).split('\n')[0]}`)
+  } finally {
+    await ctx.close()
+  }
+  return { route, steps, lines }
+}
+
+/** The --behavior report. Returns the number of findings. */
+function reportBehavior(results) {
+  let problems = 0
+  for (const r of results) {
+    if (!r.lines.length) continue
+    problems += r.lines.filter(l => !l.startsWith('    ')).length
+    const changed = r.steps.map(s => (typeof s === 'string' ? s : `${s.select} ${s.value}`)).join(', ')
+    console.log(`\n${r.route}  (changed: ${changed})`)
+    for (const l of r.lines) console.log(l)
+  }
+  return problems
+}
+
 async function main() {
   try {
     const res = await fetch(BASE)
@@ -732,6 +928,28 @@ async function main() {
   // (CI, always) that lands inside the first cases: a skeleton snapshot taken before anything has
   // rendered, or a page reloaded between the two snapshots, reads as a layout shift.
   for (const r of ROUTES) await runCase(browser, r, WIDTHS[WIDTHS.length - 1], 'default', { warm: true })
+
+  const boards = BEHAVIOR || opt('routes', '') ? BEHAVIOR_BOARDS.filter(b => ROUTES.includes(b.route)) : BEHAVIOR_BOARDS
+  if (BEHAVIOR && !boards.length) {
+    console.error(`--behavior checks only these boards: ${BEHAVIOR_BOARDS.map(b => b.route).join(', ')}`)
+    process.exit(2)
+  }
+  const behavior = []
+  if (RUN_BEHAVIOR) {
+    let nextBoard = 0
+    await Promise.all(Array.from({ length: CONCURRENCY }, async () => {
+      while (nextBoard < boards.length) behavior.push(await runBehavior(browser, boards[nextBoard++]))
+    }))
+    const at = r => boards.findIndex(b => b.route === r.route)
+    behavior.sort((a, b) => at(a) - at(b))
+  }
+  if (BEHAVIOR) {
+    await browser.close()
+    if (RECORD) saveFixture()
+    const problems = reportBehavior(behavior) + reportMisses()
+    console.log(problems ? `\n${problems} finding(s) across ${behavior.length} board(s).` : `\nClean: ${behavior.length} board(s) kept their filters.`)
+    process.exit(problems ? 1 : 0)
+  }
 
   const cases = ROUTES.flatMap(r => WIDTHS.flatMap(w => TEXT.map(t => [r, w, t])))
   const results = []
@@ -770,7 +988,7 @@ async function main() {
       const k = `${i.kind}|${i.text}`
       if (seen.has(k)) continue
       seen.add(k)
-      const measure = i.kind === 'border' ? `${i.px.toFixed(2)}:1` : i.kind === 'a11y' ? '' : `${String(i.px).padStart(4)}px`
+      const measure = i.kind === 'border' ? `${i.px.toFixed(2)}:1` : i.kind === 'a11y' || i.kind === 'loading' ? '' : `${String(i.px).padStart(4)}px`
       lines.push([`${caseKey}|${k}`, `  ${i.kind.padEnd(9)} ${measure}  "${i.text}"  (${i.where})`])
     }
     if (r.shifts.length) {
@@ -808,18 +1026,22 @@ async function main() {
       for (const g of gone) console.log(`  ${g}`)
     }
   }
-  if (fixture.misses.size) {
-    problems += fixture.misses.size
-    console.log(`\n${fixture.misses.size} request(s) not in the fixture, so those pages were swept with less on them`)
-    console.log('than they draw. A query changed, so record what is missing (needs .env), and commit the fixture:')
-    // Without the leading slash, which Git Bash would rewrite into a Windows path.
-    const routes = [...new Set([...fixture.misses.values()].flatMap(r => [...r]))].map(r => r.replace(/^\//, ''))
-    console.log(`\n  npm run sweep:record -- --merge --routes ${routes.join(',')}\n`)
-    console.log('or run the "Sweep: record" workflow on the branch (docs/CI.md). The reads:')
-    for (const m of [...fixture.misses.keys()].sort()) console.log(`  ${m.length > 200 ? `${m.slice(0, 200)}…` : m}`)
-  }
+  problems += reportMisses()
   console.log(problems ? `\n${problems} finding(s) across ${results.length} page loads.` : `\nClean: ${results.length} page loads.`)
   process.exit(problems ? 1 : 0)
+}
+
+/** What a replay asked for and the fixture lacked, with the command that records it. */
+function reportMisses() {
+  if (!fixture.misses.size) return 0
+  console.log(`\n${fixture.misses.size} request(s) not in the fixture, so those pages were swept with less on them`)
+  console.log('than they draw. A query changed, so record what is missing (needs .env), and commit the fixture:')
+  // Without the leading slash, which Git Bash would rewrite into a Windows path.
+  const routes = [...new Set([...fixture.misses.values()].flatMap(r => [...r]))].map(r => r.replace(/^\//, ''))
+  console.log(`\n  npm run sweep:record -- --merge --routes ${routes.join(',')}\n`)
+  console.log('or run the "Sweep: record" workflow on the branch (docs/CI.md). The reads:')
+  for (const m of [...fixture.misses.keys()].sort()) console.log(`  ${m.length > 200 ? `${m.slice(0, 200)}…` : m}`)
+  return fixture.misses.size
 }
 
 main().catch(err => { console.error(err); process.exit(2) })

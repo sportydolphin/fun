@@ -43,7 +43,7 @@ export const STATS_PATH = '/wpbl/stats'
  * the target is this tab. See `playFragmentFor` in entryUrl.ts for the related case of the URL
  * fragment, which needs capturing rather than carrying.
  */
-export const STATS_URL_PARAMS = ['board', 'side', 'sort', 'dir', 'q', 'team', 'opp', 'venue', 'pos'] as const
+export const STATS_URL_PARAMS = ['board', 'side', 'sort', 'dir', 'q', 'team', 'opp', 'venue', 'pos', 'games', 'who', 'cols'] as const
 
 
 /** Copy this board's params from one query onto another, leaving everything else alone.
@@ -91,6 +91,15 @@ export function axesFromQuery(): {
   source?: Source; mode?: Mode; side?: Side; sortKey?: string; sortAsc?: boolean
   find?: string | null; findTeam?: string | null; findOpp?: string | null; findVenue?: FinderVenue
   pos?: string | null
+  /** The board's filters, named as MLB's address names them (`games`, `team`), so one reader's
+   *  habit works in both sections. `team` is the Find board's club on Find and the filter
+   *  everywhere else; the two never share a board. */
+  games?: 'postseason' | 'all'
+  team?: string | null
+  everyone?: boolean
+  /** Advanced rather than Standard columns on Players and Teams. `cols`, because `view` is the
+   *  section's legacy tab param (`?view=tracking`), and MLB spells it the same. */
+  advanced?: boolean
 } {
   if (typeof window === 'undefined') return {}
   // Only on the stats tab. A player modal opened from here owns the path, and the axes on it
@@ -121,5 +130,9 @@ export function axesFromQuery(): {
     findVenue: venue === 'home' || venue === 'away' ? (venue as FinderVenue) : undefined,
     // A position or role on the players board ("best catcher" in the search).
     pos: q.get('pos'),
+    games: q.get('games') === 'post' ? 'postseason' : q.get('games') === 'all' ? 'all' : undefined,
+    team: board?.source === 'find' ? null : q.get('team'),
+    everyone: q.get('who') === 'all',
+    advanced: q.get('cols') === 'advanced',
   }
 }

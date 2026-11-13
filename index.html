@@ -38,6 +38,33 @@
       })();
     </script>
     <script>
+      // THE WPBL SECTION'S FIRST THREE READS, STARTED NOW rather than once every bundle has loaded
+      // and run, which on a cold phone load is seconds later. The client claims these by URL in
+      // src/lib/edgeFetch.ts; src/lib/earlyReads.ts says why, and its test pins this list to it.
+      // Signed-out only (a stored session means the client's reads skip the edge cache), and only
+      // on the section's own addresses.
+      (function () {
+        try {
+          var p = location.pathname;
+          if (!(p === '/' || /^\/wpbl(\/|$)/.test(p)) || typeof fetch !== 'function') return;
+          for (var i = 0; i < localStorage.length; i++) {
+            if (/^sb-.*-auth-token$/.test(localStorage.key(i) || '')) return;
+          }
+          var reads = {};
+          [
+            '/rest/v1/wpbl_teams?select=*&order=sort_order.asc',
+            '/rest/v1/wpbl_games?select=*&order=game_date.asc',
+            '/rest/v1/wpbl_players?select=*'
+          ].forEach(function (path) {
+            // The header the client sends, so this shares the client's entry in the edge cache.
+            reads[path] = fetch('/api/sb' + path, { headers: { 'Accept-Profile': 'public' } });
+            reads[path].catch(function () { /* the client asks again */ });
+          });
+          window.__sdEarlyReads = reads;
+        } catch (e) { /* the client reads as it always did */ }
+      })();
+    </script>
+    <script>
       // THE ONE FAILURE lib/staleBuild.ts CANNOT CATCH: THE ENTRY SCRIPT NEVER RUNS. It takes dozens
       // of chunks, and if any one fails the browser runs none of them, so nothing else in the app
       // exists to notice. A deploy is when this happens: every changed file has to come from the
@@ -218,7 +245,7 @@
 
     <link rel="preload" href="/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/BarlowCondensed-700.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="/fonts/Newsreader-600.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/Newsreader-600-display.woff2" as="font" type="font/woff2" crossorigin />
     <!-- Open the connection to Supabase before any JS asks for it. Every view's first read
          (teams + schedule gate the whole section) is a cross-origin CORS fetch to this origin,
          so warming DNS + TLS here takes that round trip off the critical path. Vite substitutes

@@ -629,6 +629,8 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
                 setPosition={state.setFieldingPos}
                 club={state.fieldingClub}
                 setClub={state.setFieldingClub}
+                qualified={state.fieldingQualified}
+                setQualified={state.setFieldingQualified}
                 highlightId={state.gridHighlightId}
                 setHighlightId={state.setGridHighlightId}
               />
@@ -687,6 +689,8 @@ function MlbStats({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
                 setLbStatsLimit={state.setLbStatsLimit}
                 lbQualified={state.lbQualified}
                 setLbQualified={state.setLbQualified}
+                tableView={state.statsTableView}
+                setTableView={state.setStatsTableView}
                 isDesktop={isDesktop}
                 canHover={canHover}
                 handleLbPlayerClick={state.handleLbPlayerClick}

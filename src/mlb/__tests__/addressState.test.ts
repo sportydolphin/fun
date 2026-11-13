@@ -28,6 +28,9 @@ describe('reading every address the section writes', () => {
     { view: 'stats', lb: 'pitching', allTime: false, season: null, games: 'regular', sort: null, dir: 'desc' },
     { view: 'teamStats', lb: 'pitching', allTime: false, season: PAST, games: 'post', sort: 'whip', dir: 'desc' },
     { view: 'fielding', lb: 'hitting', allTime: false, season: null, games: 'all', sort: null, dir: 'asc', pos: 'SS', club: 136 },
+    // Qualified off on Players, and on for one club's fielders (whose board opens on everyone).
+    { view: 'stats', lb: 'pitching', allTime: false, season: null, games: 'regular', sort: null, dir: null, qualified: false },
+    { view: 'fielding', lb: 'hitting', allTime: false, season: null, games: 'regular', sort: null, dir: null, pos: null, club: 136, qualified: true },
     { view: 'viz', lb: 'hitting', allTime: false, season: PAST },
   ]
   it('is the inverse of mlbUrlFor', () => {

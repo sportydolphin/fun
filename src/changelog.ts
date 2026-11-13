@@ -36,7 +36,11 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'WPBL Home',
-        full:  'The season’s champion leads WPBL Home with a photo of the title celebration over the club’s name, beside the road to the title and the final’s games. The four clubs sit under the page title as a standings line. Under the lead, a Latest list of the newest videos, posts and recaps, with dates, beside Player Spotlight and the leaders; Reading, Watch, the gallery, the fan award winners and the star sign card follow under smaller headings. The Discord invite is a plain row, and Submit photos sits by the gallery’s heading.',
+        full:  'The season’s champion leads WPBL Home with a photo of the title celebration over the club’s name, beside the road to the title. Above it, the scores strip shows the champion and the final’s games all winter. The four clubs sit under the page title as a standings line. Under the lead, a Latest list of the newest videos, posts and recaps, with dates, beside Player Spotlight and the leaders; Reading, Watch, the gallery, the fan award winners and the star sign card follow under smaller headings. The Discord invite is a plain row, and Submit photos sits by the gallery’s heading.',
+      },
+      {
+        short: 'Scores strip',
+        full:  'A postseason final on WPBL Home’s scores strip shows where its series stands, such as “G3 · LA leads 2–1”, in place of its date.',
       },
       {
         short: 'Clubs',
@@ -65,6 +69,48 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         short: 'MLB Home',
         full:  'With nothing followed, MLB Home shows one Following card with + Team and + Player in place of two empty cards.',
+      },
+    ],
+  },
+  {
+    version: '1.207.3',
+    date:    '2026-11-06',
+    changes: [
+      {
+        short: 'More filters in links',
+        full:  "Standard or Advanced on the Players and Teams boards, and the WPBL Charts board's Qualified and club, now hold through a reload, a shared link or Back.",
+      },
+    ],
+  },
+  {
+    version: '1.207.2',
+    date:    '2026-11-06',
+    changes: [
+      {
+        short: 'Stats filters in links',
+        full:  'A WPBL Stats board keeps its club, Playoffs or Both, and Everyone through a reload or a shared link. On both leagues, Everyone on the Players and Fielding boards does too.',
+      },
+      {
+        short: 'Sheets and screen readers',
+        full:  'Every sheet and dialog is announced as a dialog with its name, takes focus as it opens, keeps Tab inside it, and gives focus back when it closes. A player card is named for the player.',
+      },
+    ],
+  },
+  {
+    version: '1.207.1',
+    date:    '2026-11-06',
+    changes: [
+      {
+        short: 'WPBL Stats sides',
+        full:  'Overall and Fielding are grayed out on the WPBL Stats boards that have no such table, and pressing them no longer opens Leaders.',
+      },
+      {
+        short: 'WPBL Stats on phones',
+        full:  'The Hitting, Pitching, Fielding and Overall switch and the Sort button share one row on a phone again.',
+      },
+      {
+        short: 'WPBL Overall table',
+        full:  'The Overall table has no empty League avg row. On a phone, a player who only bats or only pitches shows Bat or Pit runs under the name in place of Pos WAR or Pit WAR, which repeated the WAR beside it.',
       },
     ],
   },

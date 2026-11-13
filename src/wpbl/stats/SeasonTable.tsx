@@ -59,6 +59,7 @@ export function SeasonTable({ listRef, pinActive, scrollRef, boardPinned, hideSi
   collapse: () => void
   boardFooter: React.ReactNode
 }) {
+  const hasLeague = !!activeCol.rate || scrollCols.some(c => c.rate)
   // NO text-transform. The column labels are already written in capitals, and the two that are
   // not (wOBA, wRC+) are spelled that way on purpose: the lowercase w is part of the name. Only
   // the Player/Team heading is set in capitals, on its own cell.
@@ -222,8 +223,10 @@ export function SeasonTable({ listRef, pinActive, scrollRef, boardPinned, hideSi
             </Box>
             {/* Row two: the league. "League avg" right-aligned in the name column, because it is
                 a row label for the figures to its right: flush left it sat a column-width away
-                from the number it names. A rate only, for the reason leagueCell gives. */}
-            <Box component="tr">
+                from the number it names. A rate only, for the reason leagueCell gives, so a board
+                with no rate on it (Overall, where every figure is already against the average) draws
+                no row at all: it was a "League avg" label over a row of blanks. */}
+            {hasLeague && <Box component="tr">
               <Box component="th" data-swipe-handle="" sx={{
                 ...thBase, ...HEAD_LEAGUE_SX, left: 0, zIndex: 4, textAlign: 'right', px: 1,
                 backgroundImage: HEAD_LEAGUE_TINT,
@@ -246,7 +249,7 @@ export function SeasonTable({ listRef, pinActive, scrollRef, boardPinned, hideSi
                     : HEAD_LEAGUE_TINT,
                 }}><span data-league-head="">{leagueCell(c)}</span></Box>
               ))}
-            </Box>
+            </Box>}
           </Box>
           <Box component="tbody">
             {visibleRows.map((r, i) => {

@@ -28,6 +28,7 @@ import { birthDateSettled } from '../derive/discordBirthdays'
 import { awardManagerWinner, awardWinner, localIsoDate, playerOfTheDay, spotlightStories, signSeason, nextSignSeason, signGlyph, type SignBirthday } from '../derive/homePlayers'
 import { useWpblSeason } from '../SeasonContext'
 import { usePhoneLayout } from '../../ui/ModalShell'
+import { localeDate } from '../../lib/dateFormat'
 
 // The offseason Home's player cards. See derive/homePlayers.ts for why these and how each picks; this file only draws them. Every player in them is a real <a href> to the player page
 // (useWpblPlayerLink), which is both the point of the cards and what lets a crawler follow them.
@@ -85,7 +86,7 @@ const LABEL_SX = {
 
 /** "Thu, Oct 16" for a 'YYYY-MM-DD'. Noon, so no zone can move it onto another day. */
 function shortDate(iso: string, withYear = false): string {
-  return new Date(`${iso}T12:00:00`).toLocaleDateString('en-US', withYear
+  return localeDate(new Date(`${iso}T12:00:00`), 'en-US', withYear
     ? { month: 'short', day: 'numeric', year: 'numeric' }
     : { weekday: 'short', month: 'short', day: 'numeric' })
 }
@@ -653,7 +654,10 @@ export function FanAwardWinnersCard({ players, teams, onOpenPlayer, onOpenTeam, 
   }
   const failed = rows?.length === 0 || (!!rosterFailed && !rows)
   return (
+    // The share's column head in the heading row, over the figures (Nov 5, 2026): a bare "41%" at the
+    // far end of a 600px line read as a number with nothing to say what it counted.
     <SectionCard title={`${AWARDS_SEASON} Fan Award Winners`} fill
+      action={failed ? undefined : <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>Vote share</Typography>}
       titleLink={linkPress(WPBL_AWARDS_PATH, () => { trackCardLink('winners', 'all'); onOpenAwards?.() })}>
       {failed ? <NoDataRows /> : Array.from({ length: SEASON_ROWS }, (_, i) => {
         const r = rows?.[i]
@@ -750,7 +754,7 @@ const DATE_TILE = 36
 function DateTile({ b, isDark }: { b: SignBirthday | null; isDark: boolean }) {
   const today = b?.offset === 0
   const field = today ? wpblField(b.player.team_id, isDark) : null
-  const month = b?.date ? new Date(`${b.date}T12:00:00`).toLocaleDateString('en-US', { month: 'short' }) : ''
+  const month = b?.date ? localeDate(new Date(`${b.date}T12:00:00`), 'en-US', { month: 'short' }) : ''
   const day = b?.date ? String(Number(b.date.slice(8, 10))) : b ? '—' : ''
   const ink = field ? field.ink : b && b.offset != null && b.offset < 0 ? 'text.secondary' : 'text.primary'
   return (
@@ -787,6 +791,10 @@ export function StarSignCard({ players, teams, games, onOpenPlayer }: {
   const upNext = nextRoom > 0 && next.players.length > 0 ? next.players.slice(0, nextRoom) : []
   const range = `${shortMonthDay(sign.from)} – ${shortMonthDay(sign.to)}`
   const columns = Object.fromEntries(Object.entries(SIGN_COLUMNS).map(([bp, n]) => [bp, `repeat(${n}, minmax(0, 1fr))`]))
+  // DOWN EACH COLUMN, THEN ACROSS, as a paper runs a list (Nov 5, 2026). Filled across, the "Next"
+  // divider took one cell of a row while the cell beside it already held the next sign's first
+  // player (Dec 1 beside "Next: Sagittarius"), and the dates zigzagged between the columns.
+  const rows = Object.fromEntries(Object.entries(SIGN_COLUMNS).map(([bp, n]) => [bp, `repeat(${Math.ceil(SIGN_CAP / n)}, auto)`]))
   return (
     // The sign's glyph large beside the range, as a horoscope column heads itself; it was a 12px
     // glyph in the meta line.
@@ -796,7 +804,7 @@ export function StarSignCard({ players, teams, games, onOpenPlayer }: {
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{range}</Typography>
       </Box>
     }>
-      <Box sx={{ display: 'grid', gridTemplateColumns: columns, columnGap: 1.5, rowGap: 0.25 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: columns, gridTemplateRows: rows, gridAutoFlow: 'column', columnGap: 1.5, rowGap: 0.25 }}>
         {Array.from({ length: SIGN_CAP }, (_, i) => {
           if (upNext.length && i === shown.length) {
             return (
@@ -857,5 +865,5 @@ export function StarSignCard({ players, teams, games, onOpenPlayer }: {
 
 /** 'MM-DD' as "Sep 23". */
 function shortMonthDay(md: string): string {
-  return new Date(`2026-${md}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return localeDate(new Date(`2026-${md}T12:00:00`), 'en-US', { month: 'short', day: 'numeric' })
 }
