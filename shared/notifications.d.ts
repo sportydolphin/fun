@@ -28,6 +28,8 @@ export const NOTIFICATION_TYPES: {
   WPBL_GAME_START: string
   WPBL_RESIGN:     string
   ADMIN_HEALTH:    string
+  WPBL_PHOTOS_WAITING: string
+  WPBL_PHOTO_DECIDED:  string
 }
 
 export const NOTIFICATION_META: Record<string, NotificationMeta>
@@ -81,6 +83,15 @@ export function buildMilestoneNear(args: {
   remaining:  number
   target:     number
   kind:       string
+}): NotificationPayload
+
+export function buildPhotosWaiting(args: { count: number }): NotificationPayload
+
+export function buildPhotoDecided(args: {
+  key:       string
+  published: number
+  declined:  number
+  reason?:   string | null
 }): NotificationPayload
 
 export const SAMPLE_BUILDERS: Record<string, () => NotificationPayload>

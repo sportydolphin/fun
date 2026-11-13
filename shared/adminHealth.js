@@ -102,6 +102,8 @@ export const HEARTBEAT_CHECKS = [
   { job: 'wpbl-bluesky-game-start', label: 'Bluesky game start', maxAgeMs: null },
   { job: 'wpbl-discord-recaps', label: 'Discord recaps', maxAgeMs: null },
   { job: 'wpbl-discord-highlights', label: 'Discord highlights', maxAgeMs: null },
+  // Failure-only: it runs only when a fan submits or the owner decides, so quiet is normal.
+  { job: 'wpbl-photo-submissions', label: 'Photo submission notices', maxAgeMs: null },
 ]
 
 /** Heartbeat job names written for a failed GitHub Actions run: `workflow:<workflow name>`. */

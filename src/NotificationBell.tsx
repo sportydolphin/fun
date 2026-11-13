@@ -21,6 +21,7 @@ import { picksReadySource } from './mlb/notifications/picksReady'
 import { gameStartSource } from './mlb/notifications/gameStart'
 import { milestoneSource } from './mlb/notifications/milestones'
 import { wpblGameStartSource } from './wpbl/notifications/gameStart'
+import { photosWaitingSource, photoDecidedSource } from './wpbl/notifications/photoSubmissions'
 import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 import { useForegroundInterval } from './lib/foregroundInterval'
 import { typePx } from './ui/scale'
@@ -31,6 +32,8 @@ registerNotificationSource(picksReadySource)
 registerNotificationSource(gameStartSource)
 registerNotificationSource(milestoneSource)
 registerNotificationSource(wpblGameStartSource)
+registerNotificationSource(photosWaitingSource)
+registerNotificationSource(photoDecidedSource)
 
 const REFRESH_MS = 5 * 60_000
 

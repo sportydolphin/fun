@@ -39,6 +39,12 @@ export const NOTIFICATION_TYPES = {
   // so a red state reaches the owner without them opening /admin, the failure mode the Health
   // group's amber chip could not escape on its own.
   ADMIN_HEALTH:    'admin-health',
+  // Owner-only: fans' photos are waiting for review (docs/FAN_UPLOADS.md). Pushed by
+  // scripts/notify-photo-submissions.mjs; in the bell from src/wpbl/notifications/photoSubmissions.ts.
+  WPBL_PHOTOS_WAITING: 'wpbl-photos-waiting',
+  // A fan's photo was published or declined. Same sender and bell file. Not behind a preference:
+  // it answers something the fan did, the way a receipt does, and it comes once per decision.
+  WPBL_PHOTO_DECIDED:  'wpbl-photo-decided',
 }
 
 // Per-type metadata. `label` is user-facing (settings, grouping); `defaultUrl`
@@ -92,6 +98,18 @@ export const NOTIFICATION_META = {
     // wired into the MLB deep-link router, so this is the honest landing spot rather than an
     // `open=` intent nothing claims.
     defaultUrl: '/admin',
+  },
+  [NOTIFICATION_TYPES.WPBL_PHOTOS_WAITING]: {
+    label:      'Photo submissions',
+    icon:       '📷',
+    // The Photos group, whose first section is Submitted.
+    defaultUrl: '/admin?tab=photos',
+  },
+  [NOTIFICATION_TYPES.WPBL_PHOTO_DECIDED]: {
+    label:      'Your submitted photos',
+    icon:       '📷',
+    // The submit page, whose "Your submissions" list shows each one's state and any reason.
+    defaultUrl: '/wpbl/photos/submit',
   },
 }
 
@@ -279,6 +297,49 @@ export function buildMilestoneNear({ playerId, playerName, statLabel, remaining,
 // Ids are suffixed `:sample` so a test can never collide with (or worse,
 // overwrite the read state of) a real notification of the same type.
 
+/**
+ * Fans' photos waiting for the owner. One id for the whole queue, so each new push REPLACES the
+ * last on the lock screen and the bell shows one line with the current count.
+ * @param {{ count: number }} args
+ */
+export function buildPhotosWaiting({ count }) {
+  const meta = NOTIFICATION_META[NOTIFICATION_TYPES.WPBL_PHOTOS_WAITING]
+  return {
+    id:    `${NOTIFICATION_TYPES.WPBL_PHOTOS_WAITING}:queue`,
+    type:  NOTIFICATION_TYPES.WPBL_PHOTOS_WAITING,
+    icon:  meta.icon,
+    title: count === 1 ? '1 photo to review' : `${count} photos to review`,
+    body:  'Submitted by fans, waiting in Photos.',
+    url:   meta.defaultUrl,
+  }
+}
+
+/**
+ * The owner decided on a fan's photos. `key` scopes the id: a submission id for one photo in the
+ * bell, a batch key for a push that covers several.
+ * @param {{ key: string, published: number, declined: number, reason?: string | null }} args
+ */
+export function buildPhotoDecided({ key, published, declined, reason }) {
+  const meta = NOTIFICATION_META[NOTIFICATION_TYPES.WPBL_PHOTO_DECIDED]
+  const n = published + declined
+  const title = declined === 0
+    ? (published === 1 ? 'Your photo is up' : `${published} of your photos are up`)
+    : published === 0
+      ? (declined === 1 ? "Your photo wasn't published" : `${declined} of your photos weren't published`)
+      : `${published} published, ${declined} not`
+  const body = declined === 0
+    ? `In the WPBL gallery, credited to you.`
+    : declined === 1 && n === 1 && reason ? `Reason: ${reason}` : 'See Your submissions for details.'
+  return {
+    id:    `${NOTIFICATION_TYPES.WPBL_PHOTO_DECIDED}:${key}`,
+    type:  NOTIFICATION_TYPES.WPBL_PHOTO_DECIDED,
+    icon:  meta.icon,
+    title,
+    body,
+    url:   meta.defaultUrl,
+  }
+}
+
 export const SAMPLE_BUILDERS = {
   [NOTIFICATION_TYPES.PICKS_READY]: () => ({
     ...buildPicksReady({ date: todayISO(), remaining: 7, total: 12 }),
@@ -299,6 +360,10 @@ export const SAMPLE_BUILDERS = {
   [NOTIFICATION_TYPES.WPBL_RESIGN]: () => ({
     ...buildWpblResign({ playerId: '0', playerName: 'Lexi Hastings', teamName: 'Boston Hunters', season: 2027 }),
     id: `${NOTIFICATION_TYPES.WPBL_RESIGN}:sample`,
+  }),
+  [NOTIFICATION_TYPES.WPBL_PHOTO_DECIDED]: () => ({
+    ...buildPhotoDecided({ key: 'sample', published: 1, declined: 0 }),
+    id: `${NOTIFICATION_TYPES.WPBL_PHOTO_DECIDED}:sample`,
   }),
 }
 

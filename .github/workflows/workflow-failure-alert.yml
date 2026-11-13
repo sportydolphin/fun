@@ -52,6 +52,7 @@ on:
       - WPBL Mirror Drift Check
       - WPBL News Watch
       - R2 Storage Watch
+      - Photo Submissions Notify
       - WPBL Play-by-Play Validation
       - WPBL play gap fill
       - WPBL postseason marking check
