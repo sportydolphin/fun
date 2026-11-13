@@ -1218,7 +1218,9 @@ export default function WpblStatsView({
       {sheetOpen && (
         <StatsSheet tab={source === 'season' ? sheetOpen : 'filter'} onTab={setSheetOpen} side={side}
           onClose={() => setSheetOpen(null)}
-          sort={source === 'season' ? (
+          // No Sort tab on a desktop, where the sheet opens only once the filters fold into it
+          // and the column headers already sort.
+          sort={source === 'season' && isNarrow ? (
             <SortBody cols={cols} sortKey={sortKey} side={side} eraBasis={eraBasis} bestFirst={bestFirst}
               onPick={pickSort} onDirection={best => setSortAsc(best ? bestAsc : !bestAsc)} />
           ) : null}

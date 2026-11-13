@@ -28,7 +28,17 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'Stats: a position filter',
-        full:  'The Players table on both WPBL and MLB has a Position menu beside the clubs: catchers to designated hitters, infielders and outfielders on Hitting, starters and relievers on Pitching. On a phone it is in the Filters sheet. The address keeps it, so a filtered table can be shared.',
+        full:  'The Players table on both WPBL and MLB has a Position menu beside the clubs: catchers to designated hitters, infielders and outfielders on Hitting, starters and relievers on Pitching. On a phone it is in the Filters sheet. The address keeps it, so a filtered table can be shared. On a narrow desktop window the clubs, position and Qualified move into a Filters button.',
+      },
+    ],
+  },
+  {
+    version: '1.235.2',
+    date:    '2026-11-11',
+    changes: [
+      {
+        short: '2027 Rosters: playing time',
+        full:  'Each player not yet re-signed shows 2026 games and plate appearances, or innings pitched, in place of WAR. Hitters first, then pitchers, most-used first.',
       },
     ],
   },
