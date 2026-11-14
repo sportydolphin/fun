@@ -436,7 +436,7 @@ flowchart TB
         t_runenv["wpbl_run_environment<br/>(priced wOBA/FIP weights, one row)"]
         t_pseasons["wpbl_player_seasons<br/>(every player's season totals + WAR, per year and slice)<br/>+ wpbl_player_season_stamp (VIEW: inputs' fingerprint)"]
         t_board["wpbl_discord_board_state<br/>(the board's message id)"]
-        t_wbsc["wbsc_world_cup_lines<br/>(World Cup lines per WPBL player; OWNER-ONLY reads)"]
+        t_wbsc["wbsc_world_cup_lines<br/>(World Cup lines per WPBL player; public reads, edge-cached)"]
         t_recap["wpbl_discord_recap_posts<br/>(posted box scores + hash)"]
         t_pround["wpbl_predict_rounds<br/>(Discord predictions: one per half-inning asked)"]
         t_ppick["wpbl_predict_picks<br/>(one pick per person per round)"]
@@ -602,13 +602,14 @@ supply the gallery's subject and category filters). This is fan photography of t
 shown on player pages, and is NOT the Commons archive above. See
 [`docs/FAN_PHOTOS.md`](docs/FAN_PHOTOS.md).
 
-**`wbsc_world_cup_lines` is readable by the owner alone**, `using (is_site_owner())`, and `anon`
-holds no grant on it at all. It is the World Cup preview on WPBL player pages
-([`player/WorldCup.tsx`](src/wpbl/player/WorldCup.tsx)), WBSC's numbers, which may not be published
-until WBSC says so. The client's `useIsAdmin` only saves everyone else a refused request; this
-policy is the gate. Written by `npm run wbsc -- --upload` over `SUPABASE_DB_URL` from the gitignored
-`archive/wbsc/international.json`, the way migrations are applied, so no key a browser holds can
-write it. Never on the edge cache's list. On WBSC's yes it is dropped for a public file. See
+**`wbsc_world_cup_lines` is public** (migration 20261114045004; owner-only from Nov 2 to Nov 13,
+2026). It is the World Cup table on WPBL player pages ([`player/WorldCup.tsx`](src/wpbl/player/WorldCup.tsx)),
+WBSC's box scores summed per event, shown on implied permission (ROADMAP-WOMENS-BASEBALL.md, "The
+rollout in phases"). On the edge cache's list, since every reader sees the same rows. Written by
+`npm run wbsc -- --upload` over `SUPABASE_DB_URL` from the gitignored `archive/wbsc/international.json`,
+the way migrations are applied, so no key a browser holds can write it. Its shape, without the
+numbers, ships in the bundle as `src/intl/wpblWorldCups.json` so the page draws the table empty
+before the read lands. On a "no" from WBSC: empty the table and purge the edge cache. See
 [`docs/WBSC_INGEST.md`](docs/WBSC_INGEST.md).
 
 **Public photo tagging rides beside it without touching that gate** (built Oct 20, 2026, migration

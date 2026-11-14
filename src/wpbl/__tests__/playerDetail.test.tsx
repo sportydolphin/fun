@@ -64,7 +64,7 @@ const lines = { batting: [] as WpblBattingLine[], pitching: [] as WpblPitchingLi
 
 // The fan-photo strip is owner-gated through useAuth, and this page renders with no AuthProvider.
 vi.mock('../fanPhotoGate', () => ({ useCanEditFanPhotos: () => false }))
-// The World Cup preview is owner-gated the same way (worldCupPreview.test.tsx covers it).
+// Any other owner-gated piece of the page draws as it would for a reader.
 vi.mock('../../lib/admin', () => ({ useIsAdmin: () => false }))
 
 vi.mock('../api', async (importOriginal) => {

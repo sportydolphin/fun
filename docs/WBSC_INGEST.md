@@ -7,6 +7,11 @@ group stage and one game each from 2016, 2018, 2023 and 2024.
 
 ## The gate: built now, published after permission
 
+**Since Nov 13, 2026, the player page's rows are public** (ROADMAP-WOMENS-BASEBALL.md, "The
+rollout in phases", phase 1): `wbsc_world_cup_lines` is readable by everyone, and the shape of each
+player's table is committed as `src/intl/wpblWorldCups.json`. Everything else below still holds
+until phase 3 puts `archive/wbsc/site/` into git.
+
 WBSC has been asked whether the site may show its data; there is no answer yet. **This repository
 is public**, so committing WBSC's data to it is publishing it, the same as putting it on the site.
 Until WBSC says yes:
@@ -356,12 +361,13 @@ imported, a WBSC player not in that event, someone off the WPBL roster, or two W
 WPBL player in one event, and nothing is written. A linked player on an event's roster who played
 no game in it gets no row and a line in the run log. Run it again after every `--confirm`.
 
-**The owner's preview.** `npm run wbsc -- --upload` puts the file into `wbsc_world_cup_lines`,
-which RLS lets only the site owner read, replacing the whole table in one transaction. The WPBL
-player page draws a World Cup section from it for the owner, signed in, and for nobody else
-([`player/WorldCup.tsx`](../src/wpbl/player/WorldCup.tsx)). Under `npm run dev` there is no owner
-session to read it with, so the dev menu's **Owner view** draws the owner UI and the section reads
-`international.json` from the dev server instead ([`vite-plugin-wbsc-dev.mjs`](../scripts/vite-plugin-wbsc-dev.mjs),
+**The player page's rows.** `npm run wbsc -- --upload` puts the file into `wbsc_world_cup_lines`,
+replacing the whole table in one transaction. Owner-only from Nov 2, public since Nov 13, 2026: the
+WPBL player page draws a World Cup section from it for every reader
+([`player/WorldCup.tsx`](../src/wpbl/player/WorldCup.tsx)). `--international` also rewrites
+`src/intl/wpblWorldCups.json`, the shape the page draws empty while it reads; commit it in the same
+pull request as the upload, or the table is drawn at the wrong size until the rows land. Under
+`npm run dev` the section reads `international.json` from the dev server first ([`vite-plugin-wbsc-dev.mjs`](../scripts/vite-plugin-wbsc-dev.mjs),
 serve only and loopback only). So after every `--confirm`:
 
 ```bash

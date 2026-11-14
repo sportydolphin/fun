@@ -13,7 +13,7 @@ export const ADMIN_EMAIL = 'snichols246@gmail.com'
  * in the dev preview without the owner's real session there, which would carry real owner powers
  * over the production database. Dead in every production build. It draws owner UI and grants
  * nothing: an owner-only table or RPC still answers this browser as the signed-out reader it is,
- * which is why the World Cup preview reads its rows from the dev server (vite-plugin-wbsc-dev.mjs).
+ * which is why the World Cup pages read their files from the dev server (vite-plugin-wbsc-dev.mjs).
  */
 const DEV_FORCE_OWNER: boolean = (() => {
   try {

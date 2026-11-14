@@ -729,7 +729,7 @@ function AccessControls() {
         value={owner ? 'on' : 'real'}
         onChange={v => { writeFlag(FORCE_OWNER_KEY, v === 'on' ? '1' : null); window.location.reload() }}
       />
-      <Typography sx={note}>Draws owner-gated UI. Owner-only database reads still come back empty, except the World Cup preview, which reads the local archive. Reloads.</Typography>
+      <Typography sx={note}>Draws owner-gated UI. Owner-only database reads still come back empty. Reloads.</Typography>
 
       <Typography sx={{ ...heading, mt: 1.5 }}>Tester role</Typography>
       <PillGroup
