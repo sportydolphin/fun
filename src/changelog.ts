@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.239.0',
+    date:    '2026-11-13',
+    changes: [
+      {
+        short: 'World Cup lines on player pages',
+        full:  'A WPBL player who has played in the Women’s Baseball World Cup has a World Cup table on their page: batting and pitching for each event since 2010, from WBSC’s box scores. Each event opens on wbsc.org. WBSC is listed on Data sources.',
+      },
+    ],
+  },
+  {
     version: '1.238.4',
     date:    '2026-11-13',
     changes: [

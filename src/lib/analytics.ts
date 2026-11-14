@@ -194,6 +194,8 @@ export const EVENTS = {
   // readers actually build is the only evidence there is about what to link to.
   WPBL_COMPARE_VIEWED: 'wpbl_compare_viewed', // a pair page rendered, props {a, b, season}
   WPBL_COMPARE_OPENED: 'wpbl_compare_opened', // opened the compare tool, props {from, playerId?, pair?}
+  // The World Cup table on a WPBL player page, read in April 2027 (ROADMAP-PRIORITIES item 19).
+  WPBL_WORLD_CUP_OPENED: 'wpbl_world_cup_opened', // opened a World Cup row (wbsc.org until the section is public), props {playerId, event}
   // Home's Compare card, which took the Leaders board's quadrant and shipped with no telemetry
   // at all: the only card in the feed that could not report whether it was seen or used, the
   // exact silence every other card here carries an impression to avoid. SHOWN is the

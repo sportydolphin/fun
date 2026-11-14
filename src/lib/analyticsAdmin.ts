@@ -169,6 +169,7 @@ export const EVENT_INFO: Record<string, EventInfo> = {
   wpbl_team_opened:       A('Opened a team', 'Players & teams'),
   wpbl_player_role:       A('Switched hitting / pitching on a player', 'Players & teams'),
   wpbl_compare_opened:    A('Opened Compare', 'Players & teams'),
+  wpbl_world_cup_opened:  A('Opened a World Cup row', 'Players & teams'),
   wpbl_compare_viewed:    A('Viewed a comparison', 'Players & teams'),
 
   wpbl_tab_viewed:        A('Switched tab', 'Stats'),

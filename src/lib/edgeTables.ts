@@ -52,6 +52,8 @@ export const EDGE_TABLES: Readonly<Record<string, EdgeTier>> = {
   // The MLB lines mirror, packed one row per season. Written nightly (scripts/sync-mlb-lines.mjs),
   // and the biggest read on the site, so the one that most wants the edge.
   mlb_season_lines: 'slow',
+  // Each linked WPBL player's World Cups, written by hand (`npm run wbsc -- --upload`).
+  wbsc_world_cup_lines: 'slow',
 
   wpbl_games: 'live',
   wpbl_site_games: 'live',

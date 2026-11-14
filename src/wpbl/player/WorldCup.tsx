@@ -1,38 +1,46 @@
 import { useEffect, useState } from 'react'
-import { Typography } from '@mui/material'
+import { Box, Typography } from '@mui/material'
 import { supabase } from '../../lib/supabase'
-import { useIsAdmin } from '../../lib/admin'
+import { EVENTS, track } from '../../lib/analytics'
 import { RoleHeading } from '../../ui/playerCard'
 import { safe } from '../api/core'
 import { ERA_BASIS_CANONICAL } from '../stats'
 import { useEraBasis } from '../EraBasisContext'
-import type { InternationalEvent } from '../../intl/wbsc/international'
+import type { InternationalBatting, InternationalEvent, InternationalPitching } from '../../intl/wbsc/international'
+import type { WorldCupShape } from '../../intl/wbsc/worldCupShapes'
 import { editionSlugOf } from '../../intl/wbsc/editions'
 import { WorldCupCareerTables } from '../../intl/WorldCupCareer'
+import SHAPES from '../../intl/wpblWorldCups.json'
 import { navigate } from '../../nav'
 
 export { eventLabel } from '../../intl/WorldCupCareer'
 
-// THE PLAYER'S WORLD CUPS, AS THE OWNER'S PREVIEW (ROADMAP-WOMENS-BASEBALL.md, stage 1).
+// THE PLAYER'S WORLD CUPS (ROADMAP-WOMENS-BASEBALL.md, "The rollout in phases", phase 1).
 //
-// TWO GATES, AND ONLY ONE OF THEM IS REAL. `useIsAdmin` keeps everyone else from asking at all,
-// which saves them a refused request; it hides nothing, since this file ships to every reader. The
-// data is what WBSC has not yet said may be published, so it lives in `wbsc_world_cup_lines`, which
-// RLS lets only the site owner read (migration 20261102200647). Drop the `useIsAdmin` check and the
-// table still answers no one else. On WBSC's yes the rows move into a public file and both go.
+// Public since Nov 13, 2026, on implied permission: the rows are WBSC's box scores summed per
+// event, in `wbsc_world_cup_lines`, which every reader reads through the edge cache. A "no" from
+// WBSC empties that table, and the section then draws nothing (see `WorldCupSection`).
 //
 // The tables themselves are src/intl/WorldCupCareer.tsx, shared with the World Cup's own player
 // pages so the two read alike.
 
-/** The player's World Cup rows: null while unread, and for anyone but the owner. */
+const shapes = SHAPES as Record<string, WorldCupShape>
+
+/** Whether the player has World Cup rows, known before any read. */
+export const hasWorldCup = (playerId: string): boolean => Object.prototype.hasOwnProperty.call(shapes, playerId)
+
+const NONE: InternationalEvent[] = []
+
+/** The player's World Cup rows: null while unread, empty for a player with none. */
 export function useWorldCupEvents(playerId: string): InternationalEvent[] | null {
-  const owner = useIsAdmin()
+  const listed = hasWorldCup(playerId)
   const [read, setRead] = useState<{ id: string; events: InternationalEvent[] } | null>(null)
   useEffect(() => {
-    if (!owner) return
+    // A player the shapes do not list has no rows, so nothing is asked.
+    if (!listed) return
     let alive = true
-    // Under `npm run dev`, this machine's own archive first (vite-plugin-wbsc-dev.mjs): the dev
-    // menu's Owner view holds no session the table would answer.
+    // Under `npm run dev`, this machine's own archive first (vite-plugin-wbsc-dev.mjs), so a row
+    // being reviewed shows before it is uploaded.
     const local = import.meta.env.DEV
       ? fetch(`/__dev/wbsc-world-cup/${encodeURIComponent(playerId)}`)
         .then(r => (r.ok ? r.json() as Promise<{ events: InternationalEvent[] }> : null))
@@ -43,24 +51,57 @@ export function useWorldCupEvents(playerId: string): InternationalEvent[] | null
       .then(rows => rows[0] ?? { events: [] }))
       .then(row => { if (alive) setRead({ id: playerId, events: row.events }) })
     return () => { alive = false }
-  }, [owner, playerId])
-  return owner && read?.id === playerId ? read.events : null
+  }, [listed, playerId])
+  if (!listed) return NONE
+  return read?.id === playerId ? read.events : null
 }
 
 // Under `npm run dev` a row opens the edition's own page (src/intl/WorldCupPage.tsx), which exists
-// nowhere else yet; everywhere else it opens the event on wbsc.org.
-const openEvent = (e: InternationalEvent) => () => {
+// nowhere else until phase 3; everywhere else it opens the event on wbsc.org.
+const openEvent = (playerId: string) => (e: InternationalEvent) => () => {
+  track(EVENTS.WPBL_WORLD_CUP_OPENED, { playerId, event: e.event_key })
   const slug = import.meta.env.DEV ? editionSlugOf(e.event_key) : null
   if (slug) navigate(`/world-cup/${slug}`)
   else window.open(e.url, '_blank', 'noopener')
 }
 
+const hrefOf = import.meta.env.DEV
+  ? (e: InternationalEvent) => { const slug = editionSlugOf(e.event_key); return slug ? `/world-cup/${slug}` : null }
+  : undefined
+
+// The samples the empty table is drawn from: typical widths, so each column comes out the size
+// the real figures make it (StatLogTable's `placeholder`).
+const SAMPLE_BATTING: InternationalBatting = {
+  g: 5, pa: 20, ab: 16, r: 3, h: 5, doubles: 1, triples: 0, hr: 0, rbi: 3, bb: 3, ibb: 0, so: 3,
+  hbp: 1, sb: 1, cs: 0, sf: 0, sh: 0, gdp: 0, tb: 6,
+}
+const SAMPLE_PITCHING: InternationalPitching = {
+  g: 3, gs: 2, outs: 30, bf: 45, h: 9, r: 5, er: 4, bb: 4, so: 8, hr: 0, hbp: 1, wp: 1, bk: 0,
+  pitches: 160, strikes: 100, w: 1, l: 1, sv: 0,
+}
+function sampleEvents(shape: WorldCupShape): InternationalEvent[] {
+  const n = Math.max(shape.batting, shape.pitching)
+  return Array.from({ length: n }, (_, i): InternationalEvent => ({
+    event_key: `2024-womens-baseball-world-cup-${i}`, event: '', year: 2024, team_id: 'AAA',
+    wbsc_name: '', wbsc_id: '', url: '',
+    batting: i < shape.batting ? SAMPLE_BATTING : null,
+    pitching: i < shape.pitching ? SAMPLE_PITCHING : null,
+    games: [],
+  }))
+}
+
+const SOURCE_LINK_SX = {
+  color: 'inherit', textDecoration: 'underline',
+  '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
+} as const
+
 /**
  * The section, from rows the page read once with `useWorldCupEvents`: a two-way player's card
  * draws a pane per role, and each would otherwise ask for the same rows.
  */
-export function WorldCupSection({ events, playerName, accent, first = false }: {
+export function WorldCupSection({ events, playerId, playerName, accent, first = false }: {
   events: InternationalEvent[] | null
+  playerId: string
   /** The roster's name, beside which WBSC's is worth printing only when it differs. */
   playerName: string
   accent: string
@@ -68,24 +109,30 @@ export function WorldCupSection({ events, playerName, accent, first = false }: {
   first?: boolean
 }) {
   const { fmtEra } = useEraBasis()
-  if (!events?.length) return null
+  const shape = shapes[playerId]
+  // Read and empty: the table was emptied after this build (a takedown), so nothing is drawn.
+  if (!shape || (events && !events.length)) return null
+  const placeholder = events == null
 
   // The name each row was matched under, so a wrong link is visible to whoever reads the page. Not
-  // when it is the roster's own name: "WBSC name: Ayami Sato" under Ayami Sato says nothing.
-  const names = [...new Set(events.map(e => e.wbsc_name))]
+  // when it is the roster's own name: "WBSC name: Ayami Sato" under Ayami Sato says nothing. Taken
+  // from the shape while loading, so the line is there from the first frame too.
+  const names = events ? [...new Set(events.map(e => e.wbsc_name))] : shape.names
   const sameName = names.length === 1 && names[0] === playerName
 
   return (
-    <>
-      <RoleHeading title="World Cup" caption="Owner preview" first={first} />
+    <Box aria-busy={placeholder || undefined}>
+      <RoleHeading title="World Cup" first={first} caption={
+        <>Source:{' '}<Box component="a" href="https://www.wbsc.org" target="_blank" rel="noopener" sx={SOURCE_LINK_SX}>WBSC</Box></>
+      } />
       {/* Stored on the league's basis, as every ERA on the site, so the reader's setting rescales it. */}
-      <WorldCupCareerTables events={events} accent={accent} eraBasis={ERA_BASIS_CANONICAL} fmtEra={fmtEra} onOpen={openEvent}
-        hrefOf={e => { const slug = editionSlugOf(e.event_key); return slug ? `/world-cup/${slug}` : null }} />
+      <WorldCupCareerTables events={events ?? sampleEvents(shape)} placeholder={placeholder} accent={accent}
+        eraBasis={ERA_BASIS_CANONICAL} fmtEra={fmtEra} onOpen={openEvent(playerId)} hrefOf={hrefOf} />
       {!sameName && (
         <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 1 }}>
           WBSC name: {names.join(' · ')}
         </Typography>
       )}
-    </>
+    </Box>
   )
 }

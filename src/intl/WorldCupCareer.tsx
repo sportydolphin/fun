@@ -27,7 +27,7 @@ const sumOf = <T extends object>(rows: readonly T[]): T =>
     return acc
   }, {} as T)
 
-export function WorldCupCareerTables({ events, accent, eraBasis, fmtEra, onOpen, hrefOf, markOf, total = false }: {
+export function WorldCupCareerTables({ events, accent, eraBasis, fmtEra, onOpen, hrefOf, markOf, total = false, placeholder = false }: {
   /** An event with neither batting nor pitching is a 2004 to 2008 roster (no box scores survive),
    *  listed in a table of its own with the roster's position. */
   events: (InternationalEvent & { roster_position?: string | null })[]
@@ -45,8 +45,12 @@ export function WorldCupCareerTables({ events, accent, eraBasis, fmtEra, onOpen,
   markOf?: (e: InternationalEvent) => ReactNode
   /** A Total row under two or more events. */
   total?: boolean
+  /** The loading state: `events` are samples, drawn as bars of their widths (StatLogTable's
+   *  `placeholder`), with no links and nothing to open. */
+  placeholder?: boolean
 }) {
   const lead = (e: InternationalEvent) => {
+    if (placeholder) return ['2024 Group A', 'AAA']
     const href = hrefOf?.(e)
     const mark = markOf?.(e)
     const name = href
@@ -55,6 +59,7 @@ export function WorldCupCareerTables({ events, accent, eraBasis, fmtEra, onOpen,
     return [mark ? <Box key="event" component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.75 }}>{name}{mark}</Box> : name, e.team_id]
   }
   const open = (e: InternationalEvent) => {
+    if (placeholder) return undefined
     const href = hrefOf?.(e)
     const go = onOpen(e)
     return () => { if (!href || window.location.pathname !== href) go() }
@@ -82,13 +87,13 @@ export function WorldCupCareerTables({ events, accent, eraBasis, fmtEra, onOpen,
       {batting.length > 0 && (
         <StatLogTable title="Batting" leadHeaders={['Event', 'Team']} totalsLabel={batTotal ? 'Total' : ''} totals={batTotal} accent={accent} noun={['event', 'events']}
           statHeaders={['G', 'PA', 'AB', 'R', 'H', '2B', '3B', 'HR', 'RBI', 'SB', 'BB', 'SO', 'AVG', 'OBP', 'SLG', 'OPS']}
-          rows={batting} />
+          rows={batting} placeholder={placeholder} />
       )}
       {pitching.length > 0 && (
         <Box sx={{ mt: batting.length > 0 ? 2.5 : 0 }}>
           <StatLogTable title="Pitching" leadHeaders={['Event', 'Team']} totalsLabel={pitTotal ? 'Total' : ''} totals={pitTotal} accent={accent} noun={['event', 'events']}
             statHeaders={['G', 'GS', 'W-L', 'SV', 'IP', 'H', 'R', 'ER', 'BB', 'SO', 'HR', 'ERA']}
-            rows={pitching} />
+            rows={pitching} placeholder={placeholder} />
         </Box>
       )}
       {rostered.length > 0 && (

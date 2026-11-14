@@ -119,7 +119,11 @@ Stats controls.
     league list, with MLB one click away in it. Hard stop on Mar 15; if it is not settled by then it waits
     for October 2027 rather than land under the season. *ROADMAP-WOMENS-BASEBALL, "The plan",
     stage 3.*
-11. **The World Cup goes public, after the redesign** (second of the three; decided Nov 7, 2026). It publishes
+11. **The World Cup goes public, in four phases, independent of the redesign** (Nov 13, 2026, replacing
+   the Nov 7 order below): WPBL player pages first, then the national team across the WPBL, the
+   section unindexed, then search and indexing. Phase 1 shipped Nov 13; no notice goes to WBSC (owner).
+   *ROADMAP-WOMENS-BASEBALL, "The rollout in phases".*
+   The Nov 7 plan, kept for its list: **the World Cup goes public, after the redesign** (second of the three; decided Nov 7, 2026). It publishes
    on implied permission, the footing the WPBL feed is on: WBSC's reply is no longer the gate, and
    a "no" still ends it. In order, once the redesign is on `main`: the pages in the new look, their
    loading states and the sweep, the audit's polish (the gray "TPE" badge, leader portraits, a
@@ -127,8 +131,8 @@ Stats controls.
    (`archive/wbsc/` into git with a size budget, `_redirects`, `_routes.json` and their 404 guards,
    `seo.ts`, the sitemap reading `indexable`, the dev flags removed), with the safeguards: our own
    play text only, every game credited and linked to wbsc.org, no WBSC video, photos or marks, and
-   a Sources entry with a takedown contact. Owner: the WBSC notice (not a request) offering removal
-   goes out before the switch. 2004 to 2008 as results-only editions ✅ Nov 7, 2026.
+   a Sources entry with a takedown contact. No notice goes to WBSC (owner, Nov 13, 2026).
+   2004 to 2008 as results-only editions ✅ Nov 7, 2026.
    *ROADMAP-WOMENS-BASEBALL, "The plan", stage 2.*
 12. **The apps, Android and iOS** (third of the three; after the World Cup, decided Nov 8, 2026).
     Android first: the code is done and only Play's own process is left (account, upload, listing,

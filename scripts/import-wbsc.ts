@@ -8,7 +8,7 @@
  *   npm run wbsc -- --review            review them in the browser (wbsc-review.ts; --no-open)
  *   npm run wbsc -- --confirm           move the reviewed ones into the crosswalk
  *   npm run wbsc -- --international     international.json for the player page, from the crosswalk
- *   npm run wbsc -- --upload            that file into the owner-only table the preview reads
+ *   npm run wbsc -- --upload            that file into the table the player page reads
  *   npm run wbsc -- --same              the same player across World Cups: rules decide, the rest to review
  *   npm run wbsc -- --confirm-same      move the reviewed answers into same-person.json
  *   npm run wbsc -- --people            people.json, one person per player across every competition
@@ -41,6 +41,7 @@ import { inertiaFromHtml } from '../src/intl/wbsc/page'
 import { isFinal, transformGame, validateGame } from '../src/intl/wbsc/game'
 import type { WbscBattingLine, WbscGame, WbscPlayer } from '../src/intl/wbsc/game'
 import { buildInternational, type International, type InternationalEventInput } from '../src/intl/wbsc/international'
+import { worldCupShapes } from '../src/intl/wbsc/worldCupShapes'
 import { buildPeople, type PeopleWpblPlayer, type Person } from '../src/intl/people'
 import type { PersonLookup } from '../src/intl/wbsc/editionLeaders'
 import { wpblPlayerPath } from '../src/wpbl/routes'
@@ -454,6 +455,7 @@ const CROSSWALK = join(OUT_DIR, 'crosswalk.json')
 const REVIEW = join(OUT_DIR, 'crosswalk-review.json')
 const ROSTER = 'archive/wpbl/wpbl_players.json'
 const INTERNATIONAL = join(OUT_DIR, 'international.json')
+const WORLD_CUP_SHAPES = 'src/intl/wpblWorldCups.json'
 const PEOPLE = join(OUT_DIR, 'people.json')
 const SAME_PERSON = join(OUT_DIR, 'same-person.json')
 const SAME_REVIEW = join(OUT_DIR, 'same-person-review.json')
@@ -556,15 +558,18 @@ function buildInternationalFile(): boolean {
   }
   for (const u of unplayed) console.log(`  unplayed ${u.wbsc_name} → ${u.wpbl_name}, on ${u.event_key}'s roster and in none of its games`)
   writeJson(INTERNATIONAL, international)
+  // Committed, unlike everything else here: the player page draws its table empty from it before
+  // the rows arrive (src/intl/wbsc/worldCupShapes.ts). Run --upload after, so the two agree.
+  writeJson(WORLD_CUP_SHAPES, worldCupShapes(international))
   const rows = Object.values(international).reduce((n, p) => n + p.events.length, 0)
   console.log(`${INTERNATIONAL}: ${Object.keys(international).length} WPBL players, ${rows} event rows, from ${crosswalk.links.length} links.`)
+  console.log(`${WORLD_CUP_SHAPES} rewritten: commit it, and run --upload.`)
   return true
 }
 
-// ── The owner's preview ─────────────────────────────────────────────────────────
+// ── The player page's rows ──────────────────────────────────────────────────────
 //
-// international.json into `wbsc_world_cup_lines`, which only the site owner can read (see its
-// migration, 20261102200647). Over SUPABASE_DB_URL, as the migrations are applied: the table has
+// international.json into `wbsc_world_cup_lines`, which every reader reads (20261114045004). Over SUPABASE_DB_URL, as the migrations are applied: the table has
 // no write policy, and no key that ships to a browser can write it. The whole table is replaced
 // in one transaction, so a player whose links were taken back loses their rows too.
 
@@ -589,7 +594,7 @@ async function uploadInternational(): Promise<boolean> {
     await client.end()
   }
   const rows = Object.values(international).reduce((n, p) => n + p.events.length, 0)
-  console.log(`wbsc_world_cup_lines: ${Object.keys(international).length} players, ${rows} event rows. Readable by the site owner only.`)
+  console.log(`wbsc_world_cup_lines: ${Object.keys(international).length} players, ${rows} event rows. Every reader reads it, through the edge cache.`)
   return true
 }
 
