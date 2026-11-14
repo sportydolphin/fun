@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box, Dialog, IconButton, Typography } from '@mui/material'
+import { Close as CloseIcon } from '@mui/icons-material'
 import { Section } from '../AdminPanel'
 import { TYPE_SCALE } from '../ui/card'
 import { pressable } from '../ui/interaction'
@@ -33,27 +34,54 @@ function Action({ label, tone, disabled, onClick }: {
   )
 }
 
-/** The private render, fetched with the owner's token (an <img src> cannot send one). */
-function Thumb({ id }: { id: string }) {
+/** A private render as an object URL, fetched with the owner's token (an <img src> cannot send one). */
+function useRender(id: string, variant: 'card' | 'full') {
   const [src, setSrc] = useState<string | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
   useEffect(() => {
     let url: string | null = null
     let live = true
-    fetchSubmissionRender(id, 'card')
+    fetchSubmissionRender(id, variant)
       .then(b => { if (!live) return; url = URL.createObjectURL(b); setSrc(url) })
       .catch(e => { if (live) setFailed((e as Error).message) })
     return () => { live = false; if (url) URL.revokeObjectURL(url) }
-  }, [id])
+  }, [id, variant])
+  return { src, failed }
+}
+
+/** The whole screen, so a judgment call on a phone is not made from a 120px thumbnail. The full
+ *  render is fetched only on open; the card render already in hand fills in while it loads. */
+function FullView({ id, preview, onClose }: { id: string; preview: string | null; onClose: () => void }) {
+  const { src } = useRender(id, 'full')
   return (
-    <Box sx={{
-      width: THUMB_W, height: THUMB_H, flexShrink: 0, borderRadius: 1, overflow: 'hidden', bgcolor: 'action.hover',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      {src ? <Box component="img" src={src} alt="" sx={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-        : failed ? <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', px: 1, textAlign: 'center' }}>{failed}</Typography>
-        : null}
-    </Box>
+    <Dialog open fullScreen onClose={onClose} slotProps={{ paper: { sx: { bgcolor: '#000' } } }}>
+      <Box {...pressable(onClose)} aria-label="Close" sx={{
+        width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out',
+      }}>
+        {(src ?? preview) && <Box component="img" src={src ?? preview ?? undefined} alt="" sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />}
+      </Box>
+      <IconButton aria-label="Close" onClick={onClose} sx={{ position: 'absolute', top: 8, right: 8, color: '#fff', bgcolor: 'rgba(0,0,0,0.5)' }}>
+        <CloseIcon />
+      </IconButton>
+    </Dialog>
+  )
+}
+
+function Thumb({ id }: { id: string }) {
+  const { src, failed } = useRender(id, 'card')
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <Box {...(src ? pressable(() => setOpen(true)) : {})} aria-label={src ? 'View full screen' : undefined} sx={{
+        width: THUMB_W, height: THUMB_H, flexShrink: 0, borderRadius: 1, overflow: 'hidden', bgcolor: 'action.hover',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: src ? 'zoom-in' : 'default',
+      }}>
+        {src ? <Box component="img" src={src} alt="" sx={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+          : failed ? <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', px: 1, textAlign: 'center' }}>{failed}</Typography>
+          : null}
+      </Box>
+      {open && <FullView id={id} preview={src} onClose={() => setOpen(false)} />}
+    </>
   )
 }
 
