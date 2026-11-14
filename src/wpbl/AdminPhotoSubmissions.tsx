@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Box, Dialog, IconButton, Typography } from '@mui/material'
+import {
+  Box, Checkbox, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, IconButton, TextField, Typography,
+} from '@mui/material'
 import { Close as CloseIcon } from '@mui/icons-material'
 import { Section } from '../AdminPanel'
 import { TYPE_SCALE } from '../ui/card'
@@ -13,7 +15,7 @@ import type { WpblPlayer, WpblPhotoFigure, WpblTeam } from './types'
 
 // /admin → Photos → Submitted: fans' photos waiting in the private bucket (docs/FAN_UPLOADS.md,
 // phase 2). Approve re-renders the photo in this browser and publishes it; Reject keeps it out
-// with a reason the fan will see; Block stops the account and rejects all it has waiting. The
+// with a reason, and the owner chooses whether the fan is notified; Block stops the account and rejects all it has waiting. The
 // fan's picks are shown as they sent them and become suggestions on approval, never tags.
 
 const THUMB_W = 120
@@ -31,6 +33,31 @@ function Action({ label, tone, disabled, onClick }: {
       bgcolor: filled ? 'primary.main' : 'background.paper',
       color: filled ? 'primary.contrastText' : tone === 'danger' ? 'error.main' : 'text.secondary',
     }}>{label}</Box>
+  )
+}
+
+/** Reject with a reason, and choose whether the photographer is told. Unticked, nothing reaches
+ *  their bell or phone (a duplicate is not worth a "declined" push); the decision and reason still
+ *  show on their own submissions list. */
+function RejectDialog({ name, onCancel, onReject }: {
+  name: string; onCancel: () => void; onReject: (reason: string, notify: boolean) => void
+}) {
+  const [reason, setReason] = useState('')
+  const [notify, setNotify] = useState(true)
+  return (
+    <Dialog open onClose={onCancel} fullWidth maxWidth="xs">
+      <DialogTitle sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700 }}>Reject photo from {name}</DialogTitle>
+      <DialogContent>
+        <TextField autoFocus fullWidth size="small" label="Reason" value={reason} sx={{ mt: 1 }}
+          onChange={e => setReason(e.target.value)} slotProps={{ htmlInput: { maxLength: 300 } }} />
+        <FormControlLabel sx={{ mt: 1 }} label="Notify photographer"
+          control={<Checkbox checked={notify} onChange={e => setNotify(e.target.checked)} />} />
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2, gap: 0.75 }}>
+        <Action label="Cancel" tone="plain" disabled={false} onClick={onCancel} />
+        <Action label="Reject" tone="danger" disabled={false} onClick={() => onReject(reason, notify)} />
+      </DialogActions>
+    </Dialog>
   )
 }
 
@@ -114,10 +141,10 @@ export default function AdminPhotoSubmissions({ players, figures, teams, onPubli
     }
   }
   const approve = (s: PhotoSubmission) => act(s.id, () => approvePhotoSubmission(s), true)
-  const reject = (s: PhotoSubmission) => {
-    const reason = window.prompt('Reason (the photographer sees it):', '')
-    if (reason === null) return
-    act(s.id, () => rejectPhotoSubmission(s.id, reason))
+  const [rejecting, setRejecting] = useState<PhotoSubmission | null>(null)
+  const reject = (s: PhotoSubmission, reason: string, notify: boolean) => {
+    setRejecting(null)
+    act(s.id, () => rejectPhotoSubmission(s.id, reason, notify))
   }
   const block = (s: PhotoSubmission) => {
     if (!window.confirm(`Block ${s.credit_name} from uploading? Everything they have waiting is rejected.`)) return
@@ -126,6 +153,10 @@ export default function AdminPhotoSubmissions({ players, figures, teams, onPubli
 
   return (
     <Section title={`Submitted (${rows?.length ?? 0})`}>
+      {rejecting && (
+        <RejectDialog name={rejecting.credit_name} onCancel={() => setRejecting(null)}
+          onReject={(reason, notify) => reject(rejecting, reason, notify)} />
+      )}
       {error && (
         <Typography role="alert" sx={{ px: 1.5, py: 1, fontSize: TYPE_SCALE.body, color: 'error.main', borderBottom: '1px solid', borderColor: 'divider' }}>
           {error}
@@ -164,7 +195,7 @@ export default function AdminPhotoSubmissions({ players, figures, teams, onPubli
               )}
               <Box sx={{ display: 'flex', gap: 0.75, mt: 1, flexWrap: 'wrap' }}>
                 <Action label={busy === s.id ? 'Working…' : 'Approve'} tone="primary" disabled={disabled} onClick={() => approve(s)} />
-                <Action label="Reject" tone="plain" disabled={disabled} onClick={() => reject(s)} />
+                <Action label="Reject" tone="plain" disabled={disabled} onClick={() => setRejecting(s)} />
                 <Action label="Block" tone="danger" disabled={disabled} onClick={() => block(s)} />
               </Box>
             </Box>

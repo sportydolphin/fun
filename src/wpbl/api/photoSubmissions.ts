@@ -75,8 +75,9 @@ export async function approvePhotoSubmission(sub: PhotoSubmission): Promise<stri
   return data as string
 }
 
-export async function rejectPhotoSubmission(id: string, reason: string): Promise<boolean> {
-  const { error } = await supabase.rpc('wpbl_reject_photo_submission', { p_id: id, p_reason: reason })
+/** `notify` false rejects quietly: no push and no bell line; the fan's own list still shows it. */
+export async function rejectPhotoSubmission(id: string, reason: string, notify = true): Promise<boolean> {
+  const { error } = await supabase.rpc('wpbl_reject_photo_submission', { p_id: id, p_reason: reason, p_notify: notify })
   if (error) { console.error('rejectPhotoSubmission:', error); return false }
   return true
 }
