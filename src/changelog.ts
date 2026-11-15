@@ -23,6 +23,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.240.0',
+    date:    '2026-11-14',
+    changes: [
+      {
+        short: '2027 Rosters: club counts, countdown and clearer cards',
+        full:  'The 2027 Rosters page has a row of every club’s re-signed count at the top, each opening that club’s card, and the days left in the re-signing window. Each card’s meter is in the club’s color, with the re-signed players’ positions under it, and each group has column headers: Announced for re-signings, PA / IP for 2026 playing time.',
+      },
+      {
+        short: 'Home: re-signing countdown',
+        full:  'The 2027 Rosters card on Home counts down to the end of the re-signing window. The 2026 Season card centers its season, semifinal and final scores.',
+      },
+    ],
+  },
+  {
     version: '1.239.0',
     date:    '2026-11-13',
     changes: [
