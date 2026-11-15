@@ -193,6 +193,67 @@ export function gameAlerts(games, nowMs) {
   ]
 }
 
+// ─── Crashes on readers' screens ───────────────────────────────────────────────
+//
+// AppErrorBoundary records an `app_error` event whenever it draws the error screen, and until
+// Nov 2026 those only reached the /admin briefing, so a deploy that broke a page for every reader
+// would sit there until the owner happened to open it. The pipeline checks above cannot see a
+// page that throws on someone's phone.
+//
+// It pages per MESSAGE, not on a total, because one-off crashes from odd browsers add up over a
+// day without being one problem; a broken deploy throws the same text for everyone who opens the
+// page. Three separate browsers keeps the owner's own phone and laptop from paging alone.
+//
+// Only a production build counts, read as a `build` stamp (runningBuild() answers null off a
+// production bundle). Most of October's error rows came from `npm run dev` on localhost, a
+// half-saved file throwing "is not defined", before track() refused the dev server; those rows
+// carry no build, and anything like them must never page.
+//
+// Stale-build errors never page: they are a reader holding an old tab across a deploy, which
+// staleBuild.ts recovers by reloading. `kind: 'stale'` marks them, and the message test catches
+// the shapes that arrive as `crash` anyway (a canceled vite:preloadError leaves the lazy import
+// resolved to undefined, which React reports as reading `default` of nothing).
+
+export const CRASH_WINDOW_MS = 24 * 60 * 60_000
+export const CRASH_BROWSERS = 3
+
+const STALE_MESSAGE = /dynamically imported module|importing a module script failed|_result\b.*\b(default|undefined)|reading 'default'/i
+
+/**
+ * @param {Array<{ session_id: string, created_at: string,
+ *   props?: { kind?: string, message?: string, build?: string } | null }>} errors
+ *   Recent `app_error` events.
+ * @param {number} nowMs
+ * @returns {HealthAlert[]}
+ */
+export function crashAlerts(errors, nowMs) {
+  /** @type {Map<string, { browsers: Set<string>, builds: Set<string> }>} */
+  const byMessage = new Map()
+  for (const e of errors ?? []) {
+    const p = e.props ?? {}
+    const message = String(p.message ?? '').trim()
+    if (p.kind !== 'crash' || !p.build || !message || STALE_MESSAGE.test(message)) continue
+    if (nowMs - Date.parse(e.created_at) > CRASH_WINDOW_MS) continue
+    const m = byMessage.get(message) ?? { browsers: new Set(), builds: new Set() }
+    m.browsers.add(e.session_id)
+    m.builds.add(p.build)
+    byMessage.set(message, m)
+  }
+  const spikes = [...byMessage].filter(([, m]) => m.browsers.size >= CRASH_BROWSERS)
+    .sort((a, b) => b[1].browsers.size - a[1].browsers.size)
+  if (spikes.length === 0) return []
+  // The messages are the signature: the same bug pages once (the sender's 12h reminder covers
+  // "still crashing"), and a second bug re-pages.
+  const line = ([message, m]) =>
+    `"${message}" on ${m.browsers.size} browsers (${[...m.builds].join(', ')})`
+  return [{
+    key: 'app-crash',
+    signature: spikes.map(([message]) => message).sort().join('|'),
+    title: `Site crashing${spikes.length > 1 ? ` (${spikes.length} errors)` : ''}`,
+    body: `${spikes.slice(0, 3).map(line).join('; ')} in the last 24 hours.`,
+  }]
+}
+
 /**
  * @typedef {Object} HealthAlert
  * @property {string} key        Stable id for the kind of problem (dedupe scope).
@@ -324,6 +385,7 @@ export function healthAlerts(rows, nowMs = Date.now()) {
   }
 
   out.push(...gameAlerts(rows?.games, nowMs))
+  out.push(...crashAlerts(rows?.appErrors, nowMs))
 
   return out
 }
