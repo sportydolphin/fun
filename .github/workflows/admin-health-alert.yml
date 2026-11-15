@@ -9,11 +9,11 @@ on:
   repository_dispatch:
     types: [admin-health]
   schedule:
-    # Backstop only (see above). Months 3-10 mirror the other season workflows: off-season the
-    # ingest and nightly jobs are idle, so there is nothing to break; the check exits immediately
-    # when every pipeline is healthy, so a stray pass is cheap, and workflow_dispatch covers a
-    # manual one.
-    - cron: '*/15 * * 3-10 *'
+    # Backstop in season (see above), and the only driver off it, since the pg_cron nudge is
+    # gated to game dates. Year-round since Nov 2026: the crash check watches deploys, which ship
+    # all winter, and the nightly jobs and the four-a-day ingest floor run all winter too. The
+    # check exits immediately when everything is healthy, so a pass is cheap.
+    - cron: '*/15 * * * *'
   workflow_dispatch:
     inputs:
       mode:

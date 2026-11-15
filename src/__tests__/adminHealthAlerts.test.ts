@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { healthAlerts, nearGameWindow, INGEST_STALE_MS, INGEST_STALE_OFFSEASON_MS, VALIDATION_STALE_MS, HEARTBEAT_CHECKS, WORKFLOW_JOB_PREFIX, WORKFLOW_FAILURE_WINDOW_MS, centralStartMs } from '../../shared/adminHealth.js'
+import { healthAlerts, nearGameWindow, INGEST_STALE_MS, INGEST_STALE_OFFSEASON_MS, VALIDATION_STALE_MS, HEARTBEAT_CHECKS, WORKFLOW_JOB_PREFIX, WORKFLOW_FAILURE_WINDOW_MS, centralStartMs, CRASH_WINDOW_MS, CRASH_BROWSERS } from '../../shared/adminHealth.js'
 
 // The thresholds ARE the feature: a job that quietly broke while still looking fine is the
 // whole failure mode, and paging on an expected state (a "behind" TrackMan feed, a nightly
@@ -202,5 +202,61 @@ describe('healthAlerts: game states', () => {
     expect(two.title).toContain('(2)')
     expect(two.body).toContain('bos at sf 2026-09-12')
     expect(healthAlerts({ games: [game()] }, NOW + 60_000)[0].signature).toBe(one.signature)
+  })
+})
+
+describe('healthAlerts: crashes', () => {
+  // The Oct 2026 shape: a build missing an import throws the same message for everyone who opens
+  // the page. One reader, or a pile of unrelated one-offs, must not page; a stale tab never does.
+  const crash = (session: string, over: Record<string, unknown> = {}, props: Record<string, unknown> = {}) => ({
+    session_id: session, created_at: ago(60 * 60_000),
+    props: { kind: 'crash', where: 'page', message: 'useShellZ is not defined', build: 'index-AbC123', ...props },
+    ...over,
+  })
+  const crashKeys = (appErrors: ReturnType<typeof crash>[]) => healthAlerts({ appErrors }, NOW).map(a => a.key)
+
+  it(`pages when one message reaches ${CRASH_BROWSERS} browsers`, () => {
+    const [alert] = healthAlerts({ appErrors: [crash('a'), crash('b'), crash('c')] }, NOW)
+    expect(alert.key).toBe('app-crash')
+    expect(alert.body).toContain('"useShellZ is not defined" on 3 browsers (index-AbC123)')
+  })
+
+  it('counts browsers, not screens', () => {
+    expect(crashKeys([crash('a'), crash('a'), crash('a'), crash('b')])).toEqual([])
+  })
+
+  it('does not add unrelated one-off crashes together', () => {
+    expect(crashKeys([crash('a', {}, { message: 'x' }), crash('b', {}, { message: 'y' }), crash('c', {}, { message: 'z' })])).toEqual([])
+  })
+
+  it('ignores stale-build errors, however they are labeled', () => {
+    const stale = [
+      { kind: 'stale', message: 'useShellZ is not defined' },
+      { message: 'Failed to fetch dynamically imported module: https://sportydolphin.fun/assets/WpblApp-x.js' },
+      { message: 'Importing a module script failed.' },
+      { message: "undefined is not an object (evaluating 'B._result.default')" },
+      { message: 'can\'t access property "default", e._result is undefined' },
+      { message: "Cannot read properties of undefined (reading 'default')" },
+    ]
+    for (const props of stale) expect(crashKeys([crash('a', {}, props), crash('b', {}, props), crash('c', {}, props)])).toEqual([])
+  })
+
+  it('ignores crashes with no build stamp (the dev server)', () => {
+    const dev = { build: null, message: "The requested module 'http://localhost:5173/src/ui/x.tsx' doesn't provide an export named: 'y'" }
+    expect(crashKeys([crash('a', {}, dev), crash('b', {}, dev), crash('c', {}, dev)])).toEqual([])
+  })
+
+  it('forgets crashes older than the window', () => {
+    const old = { created_at: ago(CRASH_WINDOW_MS + 60_000) }
+    expect(crashKeys([crash('a', old), crash('b', old), crash('c')])).toEqual([])
+  })
+
+  it('holds the signature while the same bug persists and changes it for a new one', () => {
+    const three = (props = {}) => [crash('a', {}, props), crash('b', {}, props), crash('c', {}, props)]
+    const [one] = healthAlerts({ appErrors: three() }, NOW)
+    expect(healthAlerts({ appErrors: [...three(), crash('d')] }, NOW)[0].signature).toBe(one.signature)
+    const [two] = healthAlerts({ appErrors: [...three(), ...three({ message: 'teamLink is not defined' })] }, NOW)
+    expect(two.signature).not.toBe(one.signature)
+    expect(two.title).toContain('(2 errors)')
   })
 })

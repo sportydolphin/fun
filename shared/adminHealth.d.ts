@@ -60,6 +60,17 @@ export const FINAL_NO_BOX_MS: number
 export function centralStartMs(gameDate: string, startTime?: string | null): number
 export function gameAlerts(games: GameStateRow[] | null | undefined, nowMs: number): HealthAlert[]
 
+/** A recent `app_error` event (subset the crash check reads). */
+export interface AppErrorRow {
+  session_id: string
+  created_at: string
+  props?: { kind?: string; message?: string; build?: string; where?: string } | null
+}
+
+export const CRASH_WINDOW_MS: number
+export const CRASH_BROWSERS: number
+export function crashAlerts(errors: AppErrorRow[] | null | undefined, nowMs: number): HealthAlert[]
+
 export const INGEST_STALE_MS: number
 export const INGEST_STALE_OFFSEASON_MS: number
 export function nearGameWindow(nowMs: number): { from: string; to: string }
@@ -75,6 +86,7 @@ export function healthAlerts(
     heartbeats?: Heartbeat[]
     nearGame?: boolean
     games?: GameStateRow[] | null
+    appErrors?: AppErrorRow[] | null
   },
   nowMs?: number,
 ): HealthAlert[]
