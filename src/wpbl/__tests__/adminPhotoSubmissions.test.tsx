@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import type { PhotoSubmission } from '../api'
 import type { WpblPlayer, WpblTeam } from '../types'
 
 // The review queue for fans' photos. Pinned: each control reaches the right call (approve, reject
-// with the reason typed, block behind a confirm), a no at the prompt does nothing, a failure is
+// with the reason typed and the Notify choice, block behind a confirm), a cancel does nothing, a failure is
 // shown rather than swallowed, and the fan's picks read as names.
 
 const sub = (id: string, extra: Partial<PhotoSubmission> = {}): PhotoSubmission => ({
@@ -76,12 +76,26 @@ describe('AdminPhotoSubmissions', () => {
 
   it('rejects with the reason typed, and does nothing on cancel', async () => {
     mount()
-    const prompt = vi.spyOn(window, 'prompt').mockReturnValueOnce(null).mockReturnValueOnce('Not a WPBL game')
     fireEvent.click(await screen.findByText('Reject'))
+    fireEvent.click(within(screen.getByRole('dialog')).getByText('Cancel'))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     expect(rejectPhotoSubmission).not.toHaveBeenCalled()
+
     fireEvent.click(screen.getByText('Reject'))
-    await waitFor(() => expect(rejectPhotoSubmission).toHaveBeenCalledWith('s1', 'Not a WPBL game'))
-    prompt.mockRestore()
+    const dialog = screen.getByRole('dialog')
+    fireEvent.change(within(dialog).getByLabelText('Reason'), { target: { value: 'Not a WPBL game' } })
+    fireEvent.click(within(dialog).getByText('Reject'))
+    await waitFor(() => expect(rejectPhotoSubmission).toHaveBeenCalledWith('s1', 'Not a WPBL game', true))
+  })
+
+  it('rejects quietly with Notify unticked', async () => {
+    mount()
+    fireEvent.click(await screen.findByText('Reject'))
+    const dialog = screen.getByRole('dialog')
+    fireEvent.change(within(dialog).getByLabelText('Reason'), { target: { value: 'Duplicate' } })
+    fireEvent.click(within(dialog).getByLabelText('Notify photographer'))
+    fireEvent.click(within(dialog).getByText('Reject'))
+    await waitFor(() => expect(rejectPhotoSubmission).toHaveBeenCalledWith('s1', 'Duplicate', false))
   })
 
   it('blocks the account only after a confirm', async () => {
