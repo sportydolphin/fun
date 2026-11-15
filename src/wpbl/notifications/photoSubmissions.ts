@@ -45,6 +45,8 @@ export const photoDecidedSource: NotificationSource = {
       .select('id,status,reject_reason')
       .eq('user_id', ctx.userId)
       .in('status', ['approved', 'rejected'])
+      // A quiet rejection (the owner unticked Notify) stays out of the bell as well as the push.
+      .eq('fan_notify', true)
       .gte('decided_at', since)
       .order('decided_at', { ascending: false })
       .limit(20)
