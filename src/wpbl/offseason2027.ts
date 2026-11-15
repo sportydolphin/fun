@@ -150,6 +150,53 @@ export function windowLine(now: number): string {
   return `Re-signing window closed ${windowDate(RESIGN_WINDOW.closes)}`
 }
 
+/** The days left in an open window, counted in ET calendar days to the closing date, so it turns
+ *  over at midnight where the deadline is set: "6 days left" on Nov 14, "Last day" on Nov 20. Null
+ *  outside the window, when there is nothing to count down to. */
+export function windowCountdown(now: number): string | null {
+  if (resignPhase(now) !== 'open') return null
+  const days = etDay(RESIGN_WINDOW.closes) - etDay(now)
+  if (days <= 0) return 'Last day'
+  return days === 1 ? '1 day left' : `${days} days left`
+}
+
+/** The time left in an open window to the minute, for Home's countdown: "6d 14h 32m", and under a
+ *  day "14h 32m". Null outside the window. */
+export function windowTimeLeft(now: number): string | null {
+  if (resignPhase(now) !== 'open') return null
+  const mins = Math.max(0, Math.floor((RESIGN_WINDOW.closes - now) / 60_000))
+  const d = Math.floor(mins / 1440), h = Math.floor((mins % 1440) / 60), m = mins % 60
+  return d > 0 ? `${d}d ${h}h ${m}m` : `${h}h ${m}m`
+}
+
+/** A moment's ET calendar date as a whole day number, for counting days between two dates. */
+function etDay(ms: number): number {
+  const [m, d, y] = new Date(ms).toLocaleDateString('en-US', { timeZone: 'America/New_York' }).split('/').map(Number)
+  return Date.UTC(y, m - 1, d) / 86_400_000
+}
+
+// Positions folded to the groups a roster is built from, in the order a lineup card lists them. A
+// label outside these (an empty one, or something the feed has never sent) is left out rather than
+// guessed at.
+const POSITION_GROUPS: readonly [string, string, RegExp][] = [
+  ['pitcher', 'pitchers', /^(P|[RL]HP|SP|RP)$/],
+  ['catcher', 'catchers', /^C$/],
+  ['infielder', 'infielders', /^(1B|2B|3B|SS|IF)$/],
+  ['outfielder', 'outfielders', /^(LF|CF|RF|OF)$/],
+  ['designated hitter', 'designated hitters', /^DH$/],
+  ['utility player', 'utility players', /^(UT|UTL|UTIL)$/],
+]
+
+/** Position labels as one line of group counts, spelled out: "3 pitchers, 1 catcher, 2 infielders".
+ *  Spelled out because the abbreviated form ("1 OF") read as "1 of". Empty for none. */
+export function positionMix(labels: readonly string[]): string {
+  return POSITION_GROUPS
+    .map(([one, many, re]) => [one, many, labels.filter(l => re.test(l.trim().toUpperCase())).length] as const)
+    .filter(([, , n]) => n > 0)
+    .map(([one, many, n]) => `${n} ${n === 1 ? one : many}`)
+    .join(', ')
+}
+
 export interface ClubBoard {
   teamId: string
   /** Re-signed, newest announcement first. */

@@ -7,6 +7,7 @@
 //
 // It changes with the offseason (ROADMAP-PRIORITIES has the phases): the draft, free agency and
 // Opening Day each add a line here once the league publishes them, never before.
+import { useEffect, useState } from 'react'
 import { Box, Skeleton, Typography } from '@mui/material'
 import type { WpblPlayer, WpblRosterMove, WpblTeam } from '../types'
 import { SectionCard, TeamBadge, TYPE_SCALE, TAPPABLE, FOCUS_RING, hoverOnly, chromePx } from '../ui'
@@ -16,7 +17,7 @@ import { UNSTYLED_LINK, linkTo } from '../../nav'
 import { NameLine } from '../../ui/NameText'
 import { track, EVENTS } from '../../lib/analytics'
 import { useWpblRosterMoves } from '../useRosterMoves'
-import { rosterBoards, windowLine, MAX_RESIGNED, ROSTER_SEASON, CLUB_NAMES_2026 } from '../offseason2027'
+import { rosterBoards, windowLine, windowTimeLeft, MAX_RESIGNED, ROSTER_SEASON, CLUB_NAMES_2026 } from '../offseason2027'
 
 const BADGE = 28
 
@@ -41,9 +42,7 @@ export function RostersCardView({ teams, players, moves }: {
         All rosters ›
       </Box>
     }>
-      <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3, mb: 0.5 }}>
-        {windowLine(Date.now())}
-      </Typography>
+      <WindowLine />
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: 1.5 }}>
         {boards.map(board => {
           const team = teams.get(board.teamId)
@@ -77,5 +76,22 @@ export function RostersCardView({ teams, players, moves }: {
         })}
       </Box>
     </SectionCard>
+  )
+}
+
+// A COUNTDOWN WHILE THE WINDOW IS OPEN, the dates otherwise. The deadline is what a reader checking
+// in wants from this card; the dates are on the rosters page. Ticks each minute, the smallest unit it
+// shows, in a line the same height either way so nothing below it moves.
+function WindowLine() {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(id)
+  }, [])
+  const left = windowTimeLeft(now)
+  return (
+    <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3, mb: 0.5, fontVariantNumeric: 'tabular-nums' }}>
+      {left ? <>Re-signing closes in <Box component="span" sx={{ color: 'text.primary', fontWeight: 700 }}>{left}</Box></> : windowLine(now)}
+    </Typography>
   )
 }

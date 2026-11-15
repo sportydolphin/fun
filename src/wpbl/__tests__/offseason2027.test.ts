@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   ROSTERS_2026, DRAFT_ORDER_2027, RESIGN_WINDOW, rosterBoards, rosterStatus, resignPhase, club2026,
+  windowCountdown, windowTimeLeft, positionMix,
 } from '../offseason2027'
 import { rosterFact } from '../useRosterMoves'
 import type { WpblRosterMove } from '../types'
@@ -40,6 +41,31 @@ describe('the re-signing window', () => {
     expect(resignPhase(RESIGN_WINDOW.opens)).toBe('open')
     expect(resignPhase(Date.parse('2026-11-21T04:59:00Z'))).toBe('open')
     expect(resignPhase(Date.parse('2026-11-21T05:00:00Z'))).toBe('closed')
+  })
+
+  it('counts down in ET calendar days, and says nothing outside the window', () => {
+    expect(windowCountdown(Date.parse('2026-11-09T13:59:00Z'))).toBeNull()
+    expect(windowCountdown(Date.parse('2026-11-14T17:00:00Z'))).toBe('6 days left')
+    // 11 p.m. ET on Nov 19 is already Nov 20 in UTC; the count follows ET.
+    expect(windowCountdown(Date.parse('2026-11-20T04:00:00Z'))).toBe('1 day left')
+    expect(windowCountdown(Date.parse('2026-11-20T15:00:00Z'))).toBe('Last day')
+    expect(windowCountdown(Date.parse('2026-11-21T05:00:00Z'))).toBeNull()
+  })
+})
+
+describe('windowTimeLeft', () => {
+  it('counts to the closing minute, dropping days under one, and is null outside the window', () => {
+    expect(windowTimeLeft(Date.parse('2026-11-14T17:00:00Z'))).toBe('6d 11h 59m')
+    expect(windowTimeLeft(Date.parse('2026-11-20T20:00:00Z'))).toBe('8h 59m')
+    expect(windowTimeLeft(Date.parse('2026-11-09T13:59:00Z'))).toBeNull()
+    expect(windowTimeLeft(Date.parse('2026-11-21T05:00:00Z'))).toBeNull()
+  })
+})
+
+describe('positionMix', () => {
+  it('folds labels to groups in lineup-card order and drops what it does not know', () => {
+    expect(positionMix(['CF', 'RHP', 'SS', 'P', 'C', 'LHP', '1B', ''])).toBe('3 pitchers, 1 catcher, 2 infielders, 1 outfielder')
+    expect(positionMix([])).toBe('')
   })
 })
 
