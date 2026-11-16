@@ -155,6 +155,9 @@ const RESIGN_WORDING = [
   /\brunning it back\b/,
   /\b(is|are|will be) (back|returning)\b/,
   /\breturns? (to|with|for)\b/,
+  // "Kylee Lahners will remain with the New York Heights in 2027" (Nov 16, 2026) said nothing
+  // else, and sat in the table as 'other' until this line.
+  /\b(remains?|remaining|stays?|staying) with\b/,
 ]
 
 // A different league's contracts, announced by the same accounts in the same words

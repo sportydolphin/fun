@@ -45,6 +45,10 @@ describe('classifyCaption: real re-signings', () => {
     expect(classifyCaption('Kelsie Whitmore is back with the Firebells for 2027!', index).kind).toBe('resign')
   })
 
+  it('catches "will remain with"', () => {
+    expect(classifyCaption('Beth Greenwood will remain with the New York Heights in 2027.', index).kind).toBe('resign')
+  })
+
   it('names every player in a joint announcement', () => {
     const v = classifyCaption('Re-signed: Ashton Lansdell and Denae Benites.', index)
     expect(v.player_names.sort()).toEqual(['Ashton Lansdell', 'Denae Benites'])
