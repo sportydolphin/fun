@@ -10,6 +10,7 @@ import AdminClips from './wpbl/AdminClips'
 import AdminRosterMoves from './wpbl/AdminRosterMoves'
 import AdminLiveNotes from './wpbl/AdminLiveNotes'
 import AdminRoadmap from './AdminRoadmap'
+import { SupabaseUsage } from './AdminUsage'
 import { PlayerPortrait } from './wpbl/ui'
 // The gesture the win probability and standings charts already use. It lives under wpbl/
 // because `data-swipe-lock` exists for that section's tab pager, but nothing in it is
@@ -1662,7 +1663,7 @@ export default function AdminPage() {
       </RangePending.Provider>
       </>)}
 
-      {group === 'health' && <Box sx={{ maxWidth: ADMIN_NARROW }}><HealthGroup health={health} /></Box>}
+      {group === 'health' && <Box sx={{ maxWidth: ADMIN_NARROW }}><HealthGroup health={health}><SupabaseUsage /></HealthGroup></Box>}
 
       {group === 'tools' && <Box sx={{ maxWidth: ADMIN_NARROW }}><AdminTools /></Box>}
 

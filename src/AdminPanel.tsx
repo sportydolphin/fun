@@ -197,7 +197,7 @@ export function Section({ title, children }: { title: string; children: React.Re
 
 // ─── Quick link button ────────────────────────────────────────────────────────
 
-function QuickLink({ label, href, emoji }: { label: string; href: string; emoji: string }) {
+export function QuickLink({ label, href, emoji }: { label: string; href: string; emoji: string }) {
   return (
     <Box
       component="a" href={href} target="_blank" rel="noopener noreferrer"
@@ -642,7 +642,7 @@ export function HealthStrip({ health, onOpen }: { health: OpsHealth; onOpen: () 
  * Replaced four separate Sections that spent four headers and four borders on four single
  * lines, in an order that put the every-two-minutes job below the once-a-day ones.
  */
-export function HealthGroup({ health }: { health: OpsHealth }) {
+export function HealthGroup({ health, children }: { health: OpsHealth; children?: React.ReactNode }) {
   const { payroll, ingest, nearGame, validation, tracking, heartbeats, loading } = health
   if (loading) {
     return (
@@ -717,6 +717,8 @@ export function HealthGroup({ health }: { health: OpsHealth }) {
           })}
         </Box>
       </Section>
+
+      {children}
 
       <Section title="Quick Links">
         <QuickLink emoji="🔄" label="GitHub Actions: run workflows" href="https://github.com/sportydolphin/fun/actions" />
