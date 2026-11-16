@@ -42,13 +42,18 @@ const EVENT: InternationalEvent = {
   games: [],
 }
 
+// An event's stage is its own span (it drops under the year on a phone), so the name is matched on
+// the innermost element that holds all of it.
+const eventName = (label: string) => (_: string, el: Element | null) =>
+  el?.textContent === label && el.firstElementChild?.textContent !== label
+
 beforeEach(() => { reads.calls = []; reads.rows = []; reads.hold = false })
 
 describe('World Cup section', () => {
   it('draws every reader a row per event, with the WBSC name it matched and the credit', async () => {
     reads.rows = [{ events: [EVENT] }]
     render(<Card id="p1" />)
-    await waitFor(() => expect(screen.getAllByText('2023 Group A')).toHaveLength(2))
+    await waitFor(() => expect(screen.getAllByText(eventName('2023 Group A'))).toHaveLength(2))
     expect(reads.calls).toEqual(['wbsc_world_cup_lines:p1'])
     expect(screen.getByText('.375')).toBeTruthy() // 6 for 16
     expect(screen.getByText('4.2')).toBeTruthy() // 14 outs
@@ -64,7 +69,7 @@ describe('World Cup section', () => {
     expect(container.querySelector('[aria-busy="true"]')).toBeTruthy()
     expect(screen.getByText('Batting')).toBeTruthy()
     expect(screen.getByText('Pitching')).toBeTruthy()
-    expect(screen.queryByText('2023 Group A')).toBeNull()
+    expect(screen.queryByText(eventName('2023 Group A'))).toBeNull()
     // The name line is in the empty state too, so it does not arrive with the rows.
     expect(screen.getByText(/Dana Lee-Ann Quill/)).toBeTruthy()
   })
@@ -72,7 +77,7 @@ describe('World Cup section', () => {
   it('leaves out the WBSC name when it is the roster name', async () => {
     reads.rows = [{ events: [{ ...EVENT, wbsc_name: 'Dana Quill' }] }]
     render(<Card id="p3" />)
-    await waitFor(() => expect(screen.getAllByText('2023 Group A')).toHaveLength(2))
+    await waitFor(() => expect(screen.getAllByText(eventName('2023 Group A'))).toHaveLength(2))
     expect(screen.queryByText(/WBSC name/)).toBeNull()
   })
 
