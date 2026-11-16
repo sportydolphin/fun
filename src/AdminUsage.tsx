@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Box, Typography, IconButton } from '@mui/material'
 import { Refresh } from '@mui/icons-material'
 import { supabase } from './lib/supabase'
+import { TYPE_SCALE } from './ui/card'
 import { StatRow, Section, StatusPill, QuickLink } from './AdminPanel'
 import {
   dashboardLinks, estimate, formatBytes, formatCount, formatShare, formatUsd, PLAN_LABELS, PLAN_TERMS, shareTone,
@@ -15,7 +16,7 @@ import type { Part, UsageReport } from '../supabase/functions/admin-usage/normal
 
 type Load = { state: 'loading' } | { state: 'error'; error: string } | { state: 'ready'; report: UsageReport }
 
-const value = (s: string) => <Typography sx={{ fontSize: '0.88rem', fontWeight: 800 }}>{s}</Typography>
+const value = (s: string) => <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800 }}>{s}</Typography>
 
 const PARTS = ['project', 'plan', 'addons', 'disk', 'database', 'requests', 'quota'] as const
 
@@ -111,7 +112,7 @@ export function SupabaseUsage() {
                   <StatRow label="Estimated monthly" sub="List prices, before overage" value={value(formatUsd(e.total))} />
                   {e.lines.filter(l => l.amount !== 0).map(l => (
                     <StatRow key={l.label} label={<Box component="span" sx={{ pl: 1.5, fontWeight: 500 }}>{l.label}</Box>}
-                      value={<Typography sx={{ fontSize: '0.8rem', fontWeight: 600 }}>{formatUsd(l.amount)}</Typography>} />
+                      value={<Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600 }}>{formatUsd(l.amount)}</Typography>} />
                   ))}
                 </>)
               })()}
@@ -162,7 +163,7 @@ export function SupabaseUsage() {
           <Box sx={{ px: 1.5 }}>
             {r.database.data.tables.map(t => (
               <StatRow key={t.name} label={t.name.replace(/^public\./, '')}
-                value={<Typography sx={{ fontSize: '0.8rem', fontWeight: 600 }}>{formatBytes(t.bytes)}</Typography>} />
+                value={<Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600 }}>{formatBytes(t.bytes)}</Typography>} />
             ))}
           </Box>
         </Section>
