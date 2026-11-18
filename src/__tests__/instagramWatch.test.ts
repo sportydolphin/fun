@@ -45,6 +45,15 @@ describe('classifyCaption: real re-signings', () => {
     expect(classifyCaption('Kelsie Whitmore is back with the Firebells for 2027!', index).kind).toBe('resign')
   })
 
+  it('catches "staying in" with the season', () => {
+    expect(classifyCaption('She’s backkkk!! 👏 Beth Greenwood is staying in the nest in 2027. 🪹🦅', index).kind).toBe('resign')
+    expect(classifyCaption('Beth Greenwood is staying in Australia this winter.', index).kind).toBe('other')
+  })
+
+  it('refuses a jersey post that names a player', () => {
+    expect(classifyCaption('They’re back. 👏 Official home, away, and Denae Benites player jerseys are available now.', index).kind).toBe('other')
+  })
+
   it('catches "will remain with"', () => {
     expect(classifyCaption('Beth Greenwood will remain with the New York Heights in 2027.', index).kind).toBe('resign')
   })
