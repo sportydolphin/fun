@@ -158,6 +158,11 @@ const RESIGN_WORDING = [
   // "Kylee Lahners will remain with the New York Heights in 2027" (Nov 16, 2026) said nothing
   // else, and sat in the table as 'other' until this line.
   /\b(remains?|remaining|stays?|staying) with\b/,
+  // "Ticara Geldenhuis is staying in the nest in 2027" (Nov 18, 2026) missed the line above.
+  // "Staying in" alone would read "staying in Australia this winter" as a signing, so the
+  // sentence must also name the season. A bare "back" is no help: "They're back" opens the
+  // jersey posts, and one of those names a player.
+  /\b(remains?|remaining|stays?|staying) in\b[^.!?]*\b2027\b/,
 ]
 
 // A different league's contracts, announced by the same accounts in the same words
