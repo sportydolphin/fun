@@ -76,7 +76,7 @@ describe('/mlb/glossary as a page', () => {
 
   it('has its own title and FAQ markup built from the rules themselves', () => {
     expect(seoSource).toContain('[MLB_GLOSSARY_PAGE]: {')
-    expect(seoSource).toContain('MLB_RULES.map')
+    expect(seoSource).toContain('faq(m.MLB_RULES)')
   })
 
   // The toolbar's More menu is not in the DOM until opened; the footer is the crawlable link.
