@@ -219,15 +219,75 @@ export function classifyCaption(caption, index) {
   const none = { kind: 'other', player_ids: [], player_names: [] }
   if (!text || NOT_OURS.test(text)) return none
   if (!RESIGN_WORDING.some(re => re.test(text))) return none
-  const folded = fold(text)
-  // A Set, since a caption with both "Valerie Perez" and "Val Perez" hits one entry twice.
-  const named = [...new Set([...index.entries()].filter(([key]) => folded.includes(key)).map(([, v]) => v))]
+  const named = namedIn(text, index)
   if (!named.length) return none
   return {
     kind: 'resign',
     player_ids: named.map(n => n.id),
     player_names: named.map(n => n.name),
   }
+}
+
+/** The index entries a caption names. A Set, since "Valerie Perez" and "Val Perez" are one entry. */
+function namedIn(text, index) {
+  const folded = fold(text)
+  return [...new Set([...index.entries()].filter(([key]) => folded.includes(key)).map(([, v]) => v))]
+}
+
+// ─── Review: the loose net ──────────────────────────────────────────────────
+
+// Anything that might be a club keeping a player. Far too loose to record from, which is the
+// point: these only go to Discord for a person to look at.
+const LOOSE_WORDING = /\b(back|return\w*|stay\w*|remain\w*|re-?sign\w*|sign\w*|re-?up\w*|contract|extend\w*|extension|commit\w*|retain\w*|keep\w*|kept|again|another (year|season)|next (year|season)|run(ning)? it back|lock(ed)? in|here to stay|welcome back|2027)\b/
+
+// A caption this short leaves the announcement to the image, which no API reads.
+const SHORT_CAPTION = 60
+
+/**
+ * Last names of 2026-rostered players, folded, to the full names that carry them. Captions
+ * often name a player by surname alone after the first line ("Perez will bring her wealth of
+ * talent"), and a review ping is cheap, so a shared surname lists everyone who has it.
+ */
+export function rosterSurnames(players) {
+  const out = new Map()
+  for (const p of players) {
+    if (!ROSTER_IDS.has(p.id)) continue
+    const last = fold(String(p.name).trim().split(/\s+/).pop())
+    if (last.length < 4) continue
+    const names = out.get(last) ?? new Set()
+    names.add(p.name)
+    out.set(last, names)
+  }
+  return out
+}
+
+/**
+ * Whether a post the strict rules did not record should go to Discord for review, and the
+ * players it might be about. Only inside the re-signing window (main checks that), and never a
+ * Banana Ball post. Owner's call on Nov 19, 2026, after two re-signings sat unrecorded: during
+ * the window a false ping costs a glance, a miss costs readers the news.
+ */
+export function needsReview(caption, index, surnames) {
+  const raw = String(caption ?? '')
+  const text = raw.replace(/[‘’]/g, "'").toLowerCase()
+  if (NOT_OURS.test(text)) return null
+  const names = new Set(namedIn(text, index).map(n => n.name))
+  const words = new Set(text.normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[^a-z0-9]+/))
+  for (const [last, full] of surnames) if (words.has(last)) for (const n of full) names.add(n)
+  const why = names.size || LOOSE_WORDING.test(text) || raw.trim().length < SHORT_CAPTION
+  return why ? { player_names: [...names] } : null
+}
+
+export function reviewMessage(row, names) {
+  const team = row.team_id ? TEAM_NAMES[row.team_id] : row.account
+  const caption = String(row.caption ?? '').replace(/\s+/g, ' ').trim()
+  return [
+    `🔎 **Possible re-signing, not recorded**, ${team}`,
+    `Players: ${names.length ? names.join(', ') : 'none named'}`,
+    caption ? `> ${caption.length > 300 ? `${caption.slice(0, 300)}…` : caption}` : '> (no caption)',
+    'Record from /admin if it is one.',
+    row.permalink,
+  ].join('\n')
 }
 
 /** Every player on a 2026 roster, by id. A re-signing can only be of one of these. */
@@ -472,7 +532,9 @@ async function main() {
   if (!supabase) throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.')
   if (!TOKEN || !IG_USER_ID) throw new Error('META_ACCESS_TOKEN and META_IG_USER_ID are required.')
 
-  const index = playerIndex(await loadPlayers())
+  const players = await loadPlayers()
+  const index = playerIndex(players)
+  const surnames = rosterSurnames(players)
   const rows = []
   const errors = []
   for (const account of ACCOUNTS) {
@@ -558,6 +620,35 @@ async function main() {
   }
   if (announced) console.log(`Announced ${announced}.`)
 
+  // The loose net, inside the window only. Read from the rows in view rather than the table, so a
+  // post is judged on its current caption; flagged_at makes it one ping per post.
+  const inWindow = (iso) => { const t = Date.parse(iso); return t >= RESIGN_WINDOW.opens && t <= RESIGN_WINDOW.closes }
+  const review = rows
+    .filter(r => r.kind !== 'resign' && r.posted_at >= cutoff && inWindow(r.posted_at))
+    .map(r => ({ row: r, hit: needsReview(r.caption, index, surnames) }))
+    .filter(x => x.hit)
+  let flagged = 0
+  if (review.length) {
+    let open = new Set(review.map(x => x.row.media_id))
+    if (!DRY_RUN) {
+      const { data, error } = await supabase.from('wpbl_instagram_posts')
+        .select('media_id').in('media_id', [...open]).is('flagged_at', null)
+      if (error) throw new Error(`Reading flagged posts: ${error.message}`)
+      open = new Set(data.map(r => r.media_id))
+    }
+    for (const { row, hit } of review) {
+      if (!open.has(row.media_id)) continue
+      await post(reviewMessage(row, hit.player_names), MENTION)
+      if (!DRY_RUN) {
+        const { error } = await supabase.from('wpbl_instagram_posts')
+          .update({ flagged_at: new Date().toISOString() }).eq('media_id', row.media_id)
+        if (error) throw new Error(`Marking ${row.media_id} flagged: ${error.message}`)
+      }
+      flagged++
+    }
+  }
+  if (flagged) console.log(`Flagged ${flagged} for review.`)
+
   let token_warned = false
   try {
     const days = await tokenDaysLeft()
@@ -579,7 +670,7 @@ async function main() {
     error: errors.length ? errors.join(' | ').slice(0, 500) : null,
   })
   if (DRY_RUN) console.log('\nDry run: nothing written, nothing sent.')
-  return { detail: `${rows.length} posts, ${announced} re-signing${announced === 1 ? '' : 's'} announced` }
+  return { detail: `${rows.length} posts, ${announced} re-signing${announced === 1 ? '' : 's'} announced, ${flagged} flagged` }
 }
 
 if (IS_ENTRYPOINT) {
