@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest'
 // would keep passing while the script drifted.
 import {
   classifyCaption, playerIndex, fold, toRows, resignMessage, tokenWarning, ACCOUNTS, plannedMoves, etDate,
+  needsReview, rosterSurnames, reviewMessage,
 } from '../../scripts/watch-wpbl-instagram.mjs'
 
 // The watcher has two ways to be useless. Too loose, and the league's teaser posts ("who do you
@@ -229,5 +230,50 @@ describe('the re-signing push', () => {
       id: 'wpbl-resign:p1', type: 'wpbl-resign',
       title: 'Re-signed: Alexia Jorge', body: 'San Francisco Firebells, 2027', url: '/wpbl/rosters',
     })
+  })
+})
+
+describe('needsReview: the loose net during the window', () => {
+  // Real roster ids, since a surname only counts for a player on a 2026 roster.
+  const roster = [
+    { id: '69a50af7-c4ed-4758-b2e6-cceaf9d83473', name: 'Valerie Perez' },
+    { id: '1142dad3-3520-48f2-94ea-78346f4d177c', name: 'Denae Benites' },
+    { id: 'not-rostered', name: 'Somebody Longname' },
+  ]
+  const idx = playerIndex(roster)
+  const sur = rosterSurnames(roster)
+  const review = (c: string) => needsReview(c, idx, sur)
+
+  it('flags a surname alone', () => {
+    expect(review('Perez brings her leadership to New York again.')?.player_names).toEqual(['Valerie Perez'])
+  })
+
+  it('flags return wording that names nobody', () => {
+    expect(review('Welcome back, number twelve! See you in 2027.')?.player_names).toEqual([])
+  })
+
+  it('flags a caption that leaves it to the image', () => {
+    expect(review('Just a little lore drop for the timeline. 😉')).not.toBeNull()
+  })
+
+  it('lets a plain sponsor or event post go by', () => {
+    expect(review('The WPBL is proud to partner with Aerial Performance Skincare. Aerial creates beauty products for women in motion.')).toBeNull()
+    expect(review('Join us on December 4th from 5-8pm to celebrate the first-ever WPBL Champions: the Los Angeles Queens.')).toBeNull()
+  })
+
+  it('never flags Banana Ball', () => {
+    expect(review('Heights fans, keep an eye on the dugout during Firefighters games throughout the 2027 Banana Ball World Tour: Val Perez!')).toBeNull()
+  })
+
+  it('ignores the surname of a player on no 2026 roster', () => {
+    expect(review('Longname was great at the clinic today, thank you all for coming out to see us.')).toBeNull()
+  })
+
+  it('says what it is and where to record it', () => {
+    const msg = reviewMessage({ team_id: 'NY', account: 'wpbl_heights', caption: 'Perez  is\nback', permalink: 'https://www.instagram.com/p/x/' }, ['Valerie Perez'])
+    expect(msg).toContain('Possible re-signing, not recorded**, New York Heights')
+    expect(msg).toContain('Players: Valerie Perez')
+    expect(msg).toContain('> Perez is back')
+    expect(msg.endsWith('https://www.instagram.com/p/x/')).toBe(true)
   })
 })
