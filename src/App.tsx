@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
 import { ACCENT_EDGE } from './ui/card'
+import { loadWpbl, wpblAppFactory } from './sectionLoad'
 import { createPortal } from 'react-dom'
 import { Typography, Box, IconButton, AppBar, Toolbar, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery } from '@mui/material'
 import {
@@ -68,8 +69,8 @@ const loadMlb = (path = window.location.pathname, search = window.location.searc
 const MlbStats = lazy(() => withLoadTimeout(() => loadMlb()))
 // WPBL: a separate top-level league section (its own data + views). Lazy so it
 // stays out of the MLB and landing bundles.
-const loadWpbl = () => import('./wpbl/WpblApp')
-const WpblApp = lazy(() => withLoadTimeout(loadWpbl))
+// main.tsx loads it before the first render on the section's own paths; see sectionLoad.ts.
+const WpblApp = lazy(() => wpblAppFactory(() => withLoadTimeout(loadWpbl)))
 
 // THE DEV MENU IS A DYNAMIC IMPORT, never a static one, even though every use is gated on DEV.
 // The gate removes DevSettings' own code, but the bundler assigns modules to chunks by the import
@@ -1580,11 +1581,11 @@ function AppInner() {
           )}
           {keepWpbl && (
             <KeptSection active={rendersWpblApp(path)} search={navSection === 'wpbl'}>
-              {/* A SCREEN TALL, NOT A SPINNER TALL. React.lazy suspends for at least a tick even
-                  with the chunk preloaded, so this is always the first thing painted on /wpbl, and at
-                  spinner height it put the footer halfway up the screen for that frame. The
-                  section's skeleton then shoved it off, which was nearly all of the page's 0.18
-                  layout shift on load. */}
+              {/* A SCREEN TALL, NOT A SPINNER TALL. Loading /wpbl no longer shows this (main.tsx
+                  waits for the chunk and sectionLoad.ts hands it over without suspending), but a
+                  switch from /mlb or a chunk slower than that wait still does. At spinner height it
+                  put the footer halfway up the screen for that frame, and the section's skeleton
+                  then shoved it off: nearly all of the page's 0.18 layout shift on load. */}
               <Suspense fallback={<Box sx={{ minHeight: '100vh' }} />}>
                 {/* On mobile the WPBL tabs swipe, so the footer rides inside each tab pane (see
                     WpblApp) instead of sitting shared below them. The shared one is suppressed

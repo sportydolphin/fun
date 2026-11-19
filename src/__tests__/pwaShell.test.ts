@@ -20,6 +20,8 @@ import headersSource from '../../public/_headers?raw'
 import indexHtml from '../../index.html?raw'
 import appSource from '../App.tsx?raw'
 import staleBuildSource from '../lib/staleBuild.ts?raw'
+import toolbarNavSource from '../ToolbarNav.tsx?raw'
+import { TYPE_SCALE } from '../ui/card'
 import { WPBL_NAV } from '../wpbl/routes'
 import { MLB_NAV } from '../mlb/routes'
 
@@ -445,6 +447,18 @@ describe('the toolbar placeholder in index.html', () => {
   it("draws each section's tabs with the labels the real bar uses", () => {
     expect(indexHtml).toContain(`['${WPBL_NAV.map(n => n.label).join("', '")}']`)
     expect(indexHtml).toContain(`['${MLB_NAV.map(n => n.label).join("', '")}']`)
+  })
+
+  // The bar's type is copied as px at a 16px root, and the copy drifted once: the real tabs moved to
+  // TYPE_SCALE.body and the static ones stayed at 13.6px, so every desktop refresh slid the tabs
+  // 19px left as React replaced the bar (Nov 18, 2026). The real bar reads these two tokens.
+  it('sizes the switch and the tabs from the type scale the real bar uses', () => {
+    const px = (rem: string) => `${parseFloat(rem) * 16}px`
+    expect(appSource).toContain('fontSize: TYPE_SCALE.meta, fontWeight: 800')
+    expect(toolbarNavSource).toContain('fontSize: TYPE_SCALE.body, fontWeight: 600')
+    expect(indexHtml).toContain(`font: 800 calc(${px(TYPE_SCALE.meta)} * var(--sd-s)`)
+    expect(indexHtml).toContain(`font: 600 calc(${px(TYPE_SCALE.body)} * var(--sd-s)`)
+    expect(indexHtml).toContain(`font-size: calc(${px(TYPE_SCALE.caption)} * var(--sd-s)`)
   })
 
   // Where the tabs move from their own row up beside the brand.
