@@ -112,6 +112,15 @@ export const WPBL_SOURCES: readonly WpblSource[] = [
     basis: 'Mirrored with explicit permission, granted September 2026. Every card links straight to the post, with a byline on all of them. The writing is theirs.',
   },
   {
+    name: 'The Two Way Replay',
+    url: 'https://thetwowayreplay.substack.com',
+    kind: 'writing',
+    who: 'Austin Klewan, writing about the WPBL from Los Angeles on their own Substack.',
+    uses: 'For the stories they gave permission for: a headline, a dek, a cover image and a date. The article itself is never stored or shown here.',
+    seenOn: 'The Reading page, the latest post on Home, the story card on a game, and the “written about” lists on players.',
+    basis: 'Mirrored with explicit permission, granted November 2026, story by story. Every card links straight to the post, with a byline on all of them. The writing is theirs.',
+  },
+  {
     name: 'RetroWPBL',
     url: 'https://github.com/exu6jh/RetroWPBL',
     kind: 'data',

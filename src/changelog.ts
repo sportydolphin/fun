@@ -23,6 +23,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.241.0',
+    date:    '2026-11-17',
+    changes: [
+      {
+        short: 'Reading: Austin Klewan',
+        full:  'Austin Klewan’s story on the re-signing window, from The Two Way Replay, is on the Reading page and the pages of the players it names, with permission and a byline.',
+      },
+      {
+        short: 'Player cards: Avg row',
+        full:  'The league average row under a player’s stat tables is labeled Avg.',
+      },
+    ],
+  },
+  {
     version: '1.240.0',
     date:    '2026-11-14',
     changes: [

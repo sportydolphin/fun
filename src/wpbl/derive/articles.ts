@@ -18,15 +18,21 @@
 
 import type { WpblGame, WpblPlayer, WpblTeam } from '../types.ts'
 
-/** Substack rejects a `limit` above 50, so both endpoints below are read a page at a time.
- *  She is under fifty posts today, but the job should not quietly start losing her back
- *  catalog on the day she passes it. */
+/** The profile endpoint rejects a `limit` above 50, so it is read a page at a time. */
 export const ARCHIVE_PAGE_SIZE = 50
+
+/** The publication archive's own cap, which is lower. By Nov 17, 2026 Substack had moved this
+ *  endpoint from `offset` to `cursor` paging: it now refuses any `offset` (0 included) and any
+ *  `limit` above 25, so the old `limit=50&offset=0` read failed on every publication and only
+ *  the profile list was getting through. */
+export const PUBLICATION_ARCHIVE_PAGE_SIZE = 25
 
 // ─── Publications ───────────────────────────────────────────────────────────────
 
 /** A mirrored post as the list endpoints describe it, reduced to what an inclusion rule reads. */
 export interface ListedPost {
+  /** Substack's post id, for a source featured post by post rather than by rule. */
+  id?: number
   title: string
   subtitle?: string | null
   tags: readonly string[]
@@ -34,7 +40,7 @@ export interface ListedPost {
 
 export interface SubstackSource {
   /** Stored on every row (`wpbl_articles.source`), and what a card looks its credit up by. */
-  key: 'towards' | 'rising-fastball'
+  key: 'towards' | 'rising-fastball' | 'two-way-replay'
   /** The PUBLICATION subdomain, not the author handle. */
   host: string
   /** The author on substack.com, for the profile endpoint that lists their whole history
@@ -81,6 +87,20 @@ export const SOURCES: readonly SubstackSource[] = [
     photoSource: 'https://substack-post-media.s3.amazonaws.com/public/images/3651b34a-e12f-451d-a9c7-fee394cd9e37_1024x1024.jpeg',
     includes: (post, players) => isRisingFastballWpblPost(post, players),
   },
+  {
+    key: 'two-way-replay',
+    host: 'thetwowayreplay.substack.com',
+    authorUserId: 32661056,
+    // Substack's byline says only "The Two Way Replay", which would credit the publication to
+    // itself ("The Two Way Replay for The Two Way Replay"). The writer's own name, per the owner.
+    authorName: 'Austin Klewan',
+    publicationName: 'The Two Way Replay',
+    // The profile bio is three slash-separated fragments, not a sentence, so it is summarized.
+    bio: 'Writes about the WPBL from Los Angeles.',
+    bioIsQuote: false,
+    photoSource: 'https://substack-post-media.s3.amazonaws.com/public/images/ef472554-2b58-416c-a188-191cfa362723_1176x1177.png',
+    includes: post => isTwoWayReplayWpblPost(post),
+  },
 ]
 
 export const DEFAULT_SOURCE = SOURCES[0]
@@ -91,8 +111,9 @@ export function sourceOf(key: string | null | undefined): SubstackSource {
   return SOURCES.find(s => s.key === key) ?? DEFAULT_SOURCE
 }
 
-export const archiveUrlFor = (host: string, offset: number) =>
-  `https://${host}/api/v1/archive?sort=new&limit=${ARCHIVE_PAGE_SIZE}&offset=${offset}`
+export const archiveUrlFor = (host: string, cursor?: string) =>
+  `https://${host}/api/v1/archive?sort=new&limit=${PUBLICATION_ARCHIVE_PAGE_SIZE}` +
+  `${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`
 export const profilePostsUrlFor = (userId: number, cursor?: string) =>
   `https://substack.com/api/v1/profile/posts?profile_user_id=${userId}` +
   `&limit=${ARCHIVE_PAGE_SIZE}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`
@@ -201,6 +222,17 @@ export function isWpblPost(tags: readonly string[]): boolean {
 export function isRisingFastballWpblPost(post: ListedPost, players: readonly WpblPlayer[]): boolean {
   if (/^\s*WPBL\b/i.test(post.title)) return true
   return matchPlayers(`${post.title} ${post.subtitle ?? ''}`, players).length > 0
+}
+
+/** The Two Way Replay posts we have permission to feature, by Substack post id. Permission was
+ *  given for one story, not the publication, so this is a list rather than a rule: a new post
+ *  goes on it only when its own permission has been given. */
+export const TWO_WAY_REPLAY_POSTS: ReadonlySet<number> = new Set([
+  224490681, // Predicting WPBL's Exclusive Player Re-Signing Window (Nov 12, 2026)
+])
+
+export function isTwoWayReplayWpblPost(post: ListedPost): boolean {
+  return post.id !== undefined && TWO_WAY_REPLAY_POSTS.has(post.id)
 }
 
 // Japanese script anywhere in a title or dek: the Japanese-language editions of English posts.

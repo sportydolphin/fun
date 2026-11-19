@@ -370,7 +370,7 @@ describe('PlayerDetail: league ranks', () => {
     expect(headsOf()).toEqual(['Season', 'G', 'PA', 'HR', 'AVG', 'OBP', 'SLG', 'OPS', 'wOBA', 'wRC+', 'WAR'])
     const rows = Array.from(lineTable()?.querySelectorAll('tbody tr') ?? [])
     expect(rows[0].querySelector('td')?.textContent).toBe('2026')
-    expect(rows[1].querySelector('td')?.textContent).toBe('League avg')
+    expect(rows[1].querySelector('td')?.textContent).toBe('Avg')
   })
 
   // The rest of the line is one tap away, and the choice is the reader's: kept for the next card.
