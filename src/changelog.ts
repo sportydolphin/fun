@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.242.0',
+    date:    '2026-11-19',
+    changes: [
+      {
+        short: 'Batter vs pitcher: search and +H',
+        full:  'The batter vs pitcher board has a player search and a +H column, hits above a league-average batter in the same at-bats, which is what the edge boards sort by. Tied rows share a rank.',
+      },
+    ],
+  },
+  {
     version: '1.241.0',
     date:    '2026-11-17',
     changes: [
