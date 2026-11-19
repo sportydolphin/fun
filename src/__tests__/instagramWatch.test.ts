@@ -41,6 +41,34 @@ describe('classifyCaption: real re-signings', () => {
     expect(v.player_names).toEqual(['Alexia Jorge'])
   })
 
+  it('reads a player named by a short first name', () => {
+    // The Heights wrote "Val", the league's list says "Valerie" (Nov 19, 2026).
+    const idx = playerIndex([...players, { id: 'val', name: 'Valerie Perez' }])
+    const v = classifyCaption(
+      'Val Perez will be back at it with the Heights in 2027. 💪 Perez will bring her wealth of talent back to the Heights.',
+      idx,
+    )
+    expect(v.kind).toBe('resign')
+    expect(v.player_ids).toEqual(['val'])
+    expect(classifyCaption('Valerie Perez, also known as Val Perez, is back with the Heights!', idx).player_ids).toEqual(['val'])
+  })
+
+  it('reads "back to <club> in 2027"', () => {
+    const idx = playerIndex([...players, { id: 'ayuri', name: 'Ayuri Shimano' }])
+    const v = classifyCaption('Ayuri Shimano will bring her power, speed, and versatility back to LA in 2027. 🌴 Always a Queen!', idx)
+    expect(v.player_ids).toEqual(['ayuri'])
+    expect(classifyCaption('Time to go back to basics, Ayuri Shimano. See you in 2027.', idx).kind).toBe('other')
+  })
+
+  it('ignores a short first name two players share', () => {
+    const idx = playerIndex([
+      { id: 'a', name: 'Alexandra Moreno' },
+      { id: 'b', name: 'Alexis Moreno' },
+    ])
+    expect(classifyCaption('Alex Moreno is back with the Queens!', idx).kind).toBe('other')
+    expect(classifyCaption('Alexis Moreno is back with the Queens!', idx).player_ids).toEqual(['b'])
+  })
+
   it('catches the wording without the word "re-sign"', () => {
     expect(classifyCaption('Kelsie Whitmore is back with the Firebells for 2027!', index).kind).toBe('resign')
   })
