@@ -281,11 +281,13 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer }: {
 
   return (
     <SectionCard title="Player Spotlight" fill action={
-      // A birthday says so here rather than as a line over the name, which would make the header a
-      // line taller on the days it applies and move the card under a reader as the roster lands.
-      pick?.reason === 'birthday'
-        ? <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)' }}>Birthday today</Typography>
-        : <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{shortDate(today)}</Typography>
+      // The header's link, as on the leaders and winners cards beside it. It was a footer row under
+      // the season strip, a line of height spent on one link that a phone scrolls past. Held
+      // invisible until the pick lands, so the header does not change width under the reader.
+      player
+        // Without the player link's inline `color: inherit`, which beats the sx and drew it white.
+        ? <CardLink link={{ ...link(player), ...{ style: undefined } }} label="Full profile ›" />
+        : <Box aria-hidden sx={{ visibility: 'hidden', fontSize: TYPE_SCALE.meta, fontWeight: 800 }}>Full profile ›</Box>
     }>
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 1.5 }}>
         {/* ONE STRUCTURE, LOADED OR NOT: the same boxes with placeholder content, so the header
@@ -315,6 +317,11 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer }: {
                 {player
                   ? [team ? wpblFullName(team) : null, position].filter(Boolean).join(' · ')
                   : <Skeleton width="70%" />}
+                {/* On this one line rather than a line of its own, which would make the header a
+                    line taller on the days it applies and move the card under a reader. */}
+                {pick?.reason === 'birthday' && (
+                  <Box component="span" sx={{ fontWeight: 800, color: 'var(--wpbl-accent-fg)' }}> · Birthday today</Box>
+                )}
               </Typography>
             </Box>
           </Box>
@@ -337,17 +344,6 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer }: {
         </Box>
 
         {player ? <SeasonStrip player={player} lines={own} games={games} /> : <SeasonStrip player={{} as WpblPlayer} lines={null} games={games} />}
-
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', minHeight: '1.4em' }}>
-          {player && (
-            <Box {...link(player)} sx={{
-              ...UNSTYLED_LINK, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
-              ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
-            }}>
-              Full profile ›
-            </Box>
-          )}
-        </Box>
       </Box>
     </SectionCard>
   )
