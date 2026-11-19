@@ -5,7 +5,7 @@
 @font-face {
   font-family: 'Inter';
   font-style: normal;
-  font-weight: 100 900; /* variable range */
+  font-weight: 300 900; /* the file's weight range; scripts/subset-inter.mjs */
   font-display: swap;
   src: url('/fonts/InterVariable.woff2') format('woff2');
 }

@@ -64,8 +64,14 @@ const GameDetailModal = lazy(() => import('./gameDetail/GameDetailModal'))
  * gesture. Warmed here, the sheet is simply there on the first frame and the fallback below is a
  * formality.
  */
-function usePreloadGameDetail() {
+function usePreloadGameDetail(dataIn: boolean) {
   useEffect(() => {
+    // NOT BEFORE THE SECTION'S DATA. Idle came the moment the section mounted, because a phone
+    // waiting on the network has an idle main thread, so these chunks (about 90 KB) went out
+    // beside the schedule and roster reads Home was waiting on and slowed them. Measured with Chrome
+    // throttled to 1.6 Mbps (Nov 18, 2026) they started 0.3s after the skeleton. `dataIn` is the
+    // section's own `loading` flag going false, which a failed read reaches too (its 10s reveal).
+    if (!dataIn) return
     // The player card too: it is reached from every leaderboard, roster and box score, and cold its
     // chunk cost the first open a fetch, a Suspense tick and a parse before the sheet could move.
     // And the four tabs beside Home (TAB_LOADERS), for the same reason: a tap should find them here.
@@ -76,7 +82,7 @@ function usePreloadGameDetail() {
     const hasRIC = typeof window.requestIdleCallback === 'function'
     const id = hasRIC ? window.requestIdleCallback(warm, { timeout: 2000 }) : window.setTimeout(warm, 800)
     return () => { if (hasRIC) window.cancelIdleCallback(id as number); else window.clearTimeout(id as number) }
-  }, [])
+  }, [dataIn])
 }
 const PlayerDetailModal = lazy(() => import('./PlayerDetail'))
 
@@ -648,7 +654,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     if (detailPlayer && playerAsPanel) window.history.go(-2)
     else window.history.back()
   }, [detailPlayer, playerAsPanel])
-  usePreloadGameDetail()
+  usePreloadGameDetail(!loading)
 
   // Full roster of every player, loaded once: the pool the header search filters over.
   useEffect(() => { fetchWpblAllPlayers().then(setPlayers).catch(() => {}) }, [])

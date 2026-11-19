@@ -166,7 +166,8 @@ pg_cron) · GitHub Actions for cron · installable PWA · Cloudflare at `sportyd
   work. The others are `ROADMAP-WPBL.md` (shipped log in `docs/roadmap-log/`), `ROADMAP.md` (MLB),
   `ROADMAP-UI.md` (the redesign) and `ROADMAP-WOMENS-BASEBALL.md`.
 - [docs/](docs/): read the one that guards what you touch BEFORE touching it. `CI.md` (`ci.yml`,
-  test config, lint, the sweep), `ADMIN_ANALYTICS.md` (`events`, `admin_*` RPCs, its security
+  test config, lint, the sweep), `LOADING.md` (everything that makes a cold load fast, and how to
+  measure it; read it before proposing a speedup), `ADMIN_ANALYTICS.md` (`events`, `admin_*` RPCs, its security
   section), `WAR.md` (`derive/war.ts`, `derive/fielding.ts`), `COMMONS_PHOTOS.md`, `WBSC_INGEST.md`
   (`scripts/import-wbsc.ts`, `src/intl/`), `ANDROID.md` (`manifest.webmanifest`, `sw.js`,
   `assetlinks.json`), `IOS.md` (`apple-app-site-association` and its `_headers` rule, live with a

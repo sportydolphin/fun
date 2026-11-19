@@ -20,7 +20,18 @@ if (firstLoad.length === 0) throw new Error('size-limit: no dist/index.html scri
 
 export default [
   // Brotli, size-limit's default and what Cloudflare serves. Nov 7: 396 kB, 110 kB, 1.05 MB.
-  { name: 'First load on /wpbl (entry plus live preloads)', path: firstLoad, limit: '428 kB' },
+  //
+  // THE FIRST LOAD IS HELD CLOSER, about 4% over the 372 kB measured on Nov 18, 2026, once the auth
+  // client stopped loading for signed-out readers (src/lib/supabase.ts). At 8% it
+  // had 32 kB of room, and the search parser (league/finderParse.ts and league/finder.ts, about
+  // 30 kB brotlied) sat in that room for weeks without failing anything, loaded by every reader for
+  // a search few of them typed. `npm run analyze` lists what is in this load, largest first.
+  { name: 'First load on /wpbl (entry plus live preloads)', path: firstLoad, limit: '387 kB' },
+  // The page itself, which since Nov 18, 2026 also carries the entry stylesheet (inlined, so the
+  // first paint waits on nothing else) and the static toolbar and titles. Every byte of it arrives
+  // before anything can draw, and the URLs of the reads it starts for Home (src/lib/earlyReads.ts).
+  // 10.8 kB that day.
+  { name: 'index.html', path: 'dist/index.html', limit: '11.6 kB' },
   { name: 'Entry chunk', path: 'dist/assets/index-*.js', limit: '119 kB' },
   // Raised from 1130 kB on Nov 13, when /admin's live notes console took it 379 B over: a lazy
   // chunk only the owner downloads, so no reader's load moved. Main had grown to the old limit since

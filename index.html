@@ -51,28 +51,42 @@
       })();
     </script>
     <script>
-      // THE WPBL SECTION'S FIRST THREE READS, STARTED NOW rather than once every bundle has loaded
-      // and run, which on a cold phone load is seconds later. The client claims these by URL in
-      // src/lib/edgeFetch.ts; src/lib/earlyReads.ts says why, and its test pins this list to it.
-      // Signed-out only (a stored session means the client's reads skip the edge cache), and only
-      // on the section's own addresses.
+      // THE WPBL SECTION'S FIRST READS, STARTED NOW rather than once every bundle has loaded and
+      // run, which on a cold phone load is seconds later. The client claims these by URL in
+      // src/lib/edgeFetch.ts; src/lib/earlyReads.ts says why, and its test pins both lists here to it.
+      // Signed-out only (a stored session means the client's reads skip the edge cache), and only on
+      // the section's own addresses. Home adds its own reads at low priority (HOME_EARLY_READS).
       (function () {
         try {
-          var p = location.pathname;
-          if (!(p === '/' || /^\/wpbl(\/|$)/.test(p)) || typeof fetch !== 'function') return;
+          var p = window.__sdOpens || location.pathname;
+          if (!/^\/wpbl(\/|$)/.test(p) || typeof fetch !== 'function') return;
           for (var i = 0; i < localStorage.length; i++) {
             if (/^sb-.*-auth-token$/.test(localStorage.key(i) || '')) return;
           }
           var reads = {};
+          var start = function (priority) {
+            return function (path) {
+              // The header the client sends, so this shares the client's entry in the edge cache.
+              reads[path] = fetch('/api/sb' + path, { headers: { 'Accept-Profile': 'public' }, priority: priority });
+              reads[path].catch(function () { /* the client asks again */ });
+            };
+          };
           [
             '/rest/v1/wpbl_teams?select=*&order=sort_order.asc',
             '/rest/v1/wpbl_games?select=*&order=game_date.asc',
-            '/rest/v1/wpbl_players?select=*'
-          ].forEach(function (path) {
-            // The header the client sends, so this shares the client's entry in the edge cache.
-            reads[path] = fetch('/api/sb' + path, { headers: { 'Accept-Profile': 'public' } });
-            reads[path].catch(function () { /* the client asks again */ });
-          });
+            '/rest/v1/wpbl_players?select=*',
+            '/rest/v1/wpbl_site_games?select=event_id%2Cgame_date%2Cstart_time%2Ctitle%2Cstatus%2Chome_team_id%2Caway_team_id%2Chome_score%2Caway_score%2Cround%2Cseries_key%2Cgame_number%2Curl%2Cticket_url&order=game_date.asc%2Cevent_id.asc'
+          ].forEach(start('auto'));
+          if (p === '/wpbl') [
+            '/rest/v1/wpbl_pitch_tracking?select=game_id&order=activity_id.asc&offset=0&limit=1000',
+            '/rest/v1/wpbl_articles?select=post_id%2Csource%2Cslug%2Curl%2Ctitle%2Csubtitle%2Ccover_url%2Cpublished_at%2Cword_count%2Cvideo_count%2Cgame_id%2Cteam_ids%2Cplayer_ids&order=published_at.desc%2Cpost_id.desc',
+            '/rest/v1/wpbl_videos?select=video_id%2Cchannel_id%2Ctitle%2Cpublished_at%2Cthumbnail_url%2Ckind%2Cgame_id%2Caway_hint%2Chome_hint%2Cgame_date_hint%2Cis_short%2Cregion_allowed%2Cregion_blocked%2Cduration_seconds%2Cview_count&order=published_at.desc%2Cvideo_id.asc&offset=0&limit=1000',
+            '/rest/v1/wpbl_fan_photos?select=id%2Ccard_url%2Cfull_url%2Cwidth%2Cheight%2Ccaption%2Ccredit%2Ctaken_on%2Cgame_id%2Csort_order%2Ccategory_key%2Capproved&approved=eq.true&order=sort_order.asc.nullslast%2Ccreated_at.asc%2Cid.asc&offset=0&limit=1000',
+            '/rest/v1/wpbl_photo_subjects?select=id%2Cphoto_id%2Cplayer_id%2Cfigure_key%2Cteam_id&order=photo_id.asc%2Cid.asc&offset=0&limit=1000',
+            '/rest/v1/wpbl_photo_figures?select=key%2Cname%2Ckind%2Cblurb%2Cteam_id&order=name.asc%2Ckey.asc&offset=0&limit=1000',
+            '/rest/v1/wpbl_photo_categories?select=key%2Cname%2Cblurb%2Csort_order&order=sort_order.asc.nullslast%2Cname.asc',
+            '/rest/v1/wpbl_roster_moves?select=id%2Cseason%2Ckind%2Cplayer_id%2Cplayer_name%2Cteam_id%2Cdraft_round%2Cdraft_pick%2Cannounced_on%2Csource_url&order=announced_on.desc%2Cid.desc'
+          ].forEach(start('low'));
           window.__sdEarlyReads = reads;
         } catch (e) { /* the client reads as it always did */ }
       })();
