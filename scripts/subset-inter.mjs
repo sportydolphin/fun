@@ -25,7 +25,12 @@ import subsetFont from 'subset-font'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SRC  = path.join(ROOT, 'scripts/fonts/InterVariable-full.woff2')
-const OUT  = path.join(ROOT, 'public/fonts/InterVariable.woff2')
+// A NEW NAME FOR EVERY NEW FILE. /fonts/* is served `immutable` for a year (public/_headers), so
+// Cloudflare's cache and every browser that has the file keep it under its URL for that long: the
+// Nov 18, 2026 trim (104 KB to 66 KB) deployed under the old name and the edge went on serving the
+// old file. Bump the suffix here, then in index.html's preload and src/styles.css's @font-face
+// (pinned together in pwaShell.test.ts).
+const OUT  = path.join(ROOT, 'public/fonts/InterVariable-v2.woff2')
 
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => String.fromCodePoint(from + i)).join('')
 

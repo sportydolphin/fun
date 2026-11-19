@@ -13,7 +13,7 @@
  *   1080x1920  stories (the top and bottom 250px stay clear of the app's own chrome)
  *
  * Type is Inter, the site's face. resvg reads TTF rather than the site's variable WOFF2, so the
- * first run cuts static weights out of public/fonts/InterVariable.woff2 with Python's fontTools
+ * first run cuts static weights out of public/fonts/InterVariable-v2.woff2 with Python's fontTools
  * into node_modules/.cache.
  *
  * Run through scripts/make-visual.ts (`npm run visual -- <slug> --n <number>`).
@@ -233,7 +233,7 @@ export function ensureFonts(): string[] {
 from fontTools.ttLib import TTFont
 from fontTools.varLib.instancer import instantiateVariableFont
 for w in [${WEIGHTS.join(',')}]:
-    f = TTFont('public/fonts/InterVariable.woff2')
+    f = TTFont('public/fonts/InterVariable-v2.woff2')
     axes = {a.axisTag for a in f['fvar'].axes}
     inst = instantiateVariableFont(f, {'wght': w, **({'opsz': 14} if 'opsz' in axes else {})})
     inst.flavor = None

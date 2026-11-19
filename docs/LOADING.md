@@ -29,6 +29,10 @@ tighten or extend what is there.
   rules pages build their FAQ markup from them), and the owner's winners poster.
 - **The font's unused OpenType features and weights under 300.** [`scripts/subset-inter.mjs`](../scripts/subset-inter.mjs)
   (`npm run subset-font`) says which features stay; a new `font-feature-settings` needs adding there.
+  **A changed font file needs a new name.** `/fonts/*` is cached `immutable` for a year, so Cloudflare
+  went on serving the old 104 KB file after the trim deployed; it moved to `InterVariable-v2.woff2`.
+  The same holds, for a day, for anything else in `public/` with a `max-age` in `_headers` (the
+  logo): a new version under the old URL reaches readers only as their caches expire.
 
 ## Checks and tools
 
