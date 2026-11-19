@@ -3,8 +3,8 @@
 Mirroring independent writers' WPBL coverage into the section, so a reader who has just
 looked at a box score can go read what someone thought about that game.
 
-**Two writers since Sep 25, 2026.** Everything below was written for the first, and all of it
-holds for both; section 10 is what is different about the second. Each publication is one entry
+**Three writers since Nov 17, 2026.** Everything below was written for the first, and all of it
+holds for all three; sections 10 and 11 are what is different about the others. Each publication is one entry
 in `SOURCES` ([`derive/articles.ts`](../src/wpbl/derive/articles.ts)): host, credit, photo and
 its own rule for which posts count. Every row in `wpbl_articles` carries its `source`, and every
 card looks its byline up from it.
@@ -381,4 +381,22 @@ everywhere else here.
 **The credit.** Every card names the writer. The byline bio for this writer is third person, so
 it is summarized in our words rather than quoted (`bioIsQuote: false`): the quotation marks on
 mary's exist to keep a first-person "I" from reading as ours, and there is no "I" here.
+
+## 11. The third writer: The Two Way Replay
+
+[*The Two Way Replay*](https://thetwowayreplay.substack.com) by **Austin Klewan**, a WPBL blog
+from Los Angeles. **Permission granted November 2026 for one story**, on the same terms. `source = 'two-way-replay'`.
+
+**Only the posts given permission count**, listed by Substack post id in `TWO_WAY_REPLAY_POSTS`.
+Permission was for one story, "Predicting WPBL's Exclusive Player Re-Signing Window", not the
+publication. Another post goes on the list only once its own permission is given.
+
+**The credit is the writer's name, not Substack's byline.** The byline reads "The Two Way Replay",
+which would print as "The Two Way Replay for The Two Way Replay". The owner supplied the name.
+
+**The archive API moved to cursor paging (found Nov 17, 2026).** It now refuses any `offset`, 0
+included, and any `limit` above 25, and answers `{ posts, nextCursor }`. Until the fix every archive
+read failed and the sync ran on the profile list alone, which for The Rising Fastball is the newest
+46 of 152 posts. Nothing was lost (rows not listed are left alone), but older posts stopped being
+re-matched.
 

@@ -417,7 +417,7 @@ export function StatTable({ title, caption, part, row, league, reserveRanks, pla
             {league && (
               <Box component="tr" sx={{ bgcolor: 'action.hover' }}>
                 <Box component="td" sx={{ ...tdSx, ...LEAD_SX, ...LEAD_TINT_SX, textAlign: 'left', color: 'text.secondary' }}>
-                  League avg
+                  Avg
                 </Box>
                 {row.cols.map(c => (
                   <Box component="td" key={c.label} sx={{ ...tdSx, color: 'text.secondary' }}>

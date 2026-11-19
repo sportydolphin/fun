@@ -13,9 +13,9 @@ import { useNewSince } from './newSince'
 import { typePx } from '../ui/scale'
 import { TYPE_SCALE } from '../ui/card'
 
-// /wpbl/reading: everything two independent writers have written about the league, newest first:
-// mary mustard's towards a more perfect game and D.A. Espinoza's The Rising Fastball, both featured
-// with permission.
+// /wpbl/reading: everything the independent writers have written about the league, newest first:
+// mary mustard's towards a more perfect game, D.A. Espinoza's The Rising Fastball and Austin Klewan's
+// The Two Way Replay, all featured with permission.
 //
 // ONE FEED WITH A WRITER FILTER, not a section per writer. A reader comes here for the league, and
 // the newest post is the answer to "anything new" whoever wrote it; the writer chips are for the
@@ -125,7 +125,7 @@ export default function ReadingPage() {
             </Box>
             {writers.length > 1 && (
               <ChipRow mb={1}>
-                <FilterChip active={writer === 'all'} onClick={() => pickWriter('all')}>{`Both writers (${articles.length})`}</FilterChip>
+                <FilterChip active={writer === 'all'} onClick={() => pickWriter('all')}>{`All writers (${articles.length})`}</FilterChip>
                 {writers.map(w => (
                   <FilterChip key={w.src.key}
                     active={writer === w.src.key} onClick={() => pickWriter(w.src.key)}>{`${w.src.authorName} (${w.count})`}</FilterChip>
@@ -185,7 +185,7 @@ function ReadingSkeleton() {
       </Box>
       <Box aria-hidden>
         <ChipRow mb={1}>
-          <FilterChip active onClick={() => {}}>Both writers {count}</FilterChip>
+          <FilterChip active onClick={() => {}}>All writers {count}</FilterChip>
           {SOURCES.map(src => <FilterChip key={src.key} active={false} onClick={() => {}}>{src.authorName} {count}</FilterChip>)}
         </ChipRow>
         <ChipRow mb={1.75}>
