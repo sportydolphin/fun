@@ -12,7 +12,17 @@
 // the auth storage key (`sb-<project ref>-auth-token`) and the auth defaults below. And every
 // request carries the reader's own token when there is one, the anon key otherwise, exactly as
 // `fetchWithAuth` in supabase-js does, or RLS answers a signed-in reader as anon.
-import { AuthClient } from '@supabase/auth-js'
+//
+// THE AUTH CLIENT LOADS ONLY FOR A READER WHO MAY BE SIGNED IN. `@supabase/auth-js` was about
+// 40 KB of the JavaScript every reader downloaded before Home could draw (170 KB before compressing,
+// the third largest thing in that load after react-dom and MUI), and most readers have never signed
+// in. `auth` below is a stand-in with the same methods: with no session in storage and no sign-in
+// answer in the address it says "no session" on the spot and the REST client sends the anon key, as
+// the real one would. Anything that can change that (a sign-in, a sign-up, a reset, OAuth, another
+// tab signing in) loads the real client first and hands it every listener registered so far, so
+// AuthContext hears SIGNED_IN as before. A reader with a stored session, or arriving from an OAuth
+// or email link, gets the real client at once, built exactly as it always was.
+import type { AuthChangeEvent, Session } from '@supabase/auth-js'
 import { PostgrestClient } from '@supabase/postgrest-js'
 import type { RealtimeChannel, RealtimeClient } from '@supabase/realtime-js'
 import { edgeFetch } from './edgeFetch'
@@ -29,19 +39,69 @@ const baseFetch: Fetch = import.meta.env.PROD && typeof window !== 'undefined'
   ? edgeFetch(supabaseUrl, supabaseKey, window.location.origin, (input, init) => fetch(input, init))
   : (input, init) => fetch(input, init)
 
+// The client's type, without importing the module: the import is what this file exists to delay.
+type AuthApi = InstanceType<typeof import('@supabase/auth-js')['AuthClient']>
+type AuthListener = (event: AuthChangeEvent, session: Session | null) => void
+
+/** True when the real auth client has anything to find: a stored session, or the answer of an
+ *  OAuth or email link in the address (implicit flow, so `#access_token=` or an error). */
+function mayBeSignedIn(storageKey: string): boolean {
+  try { if (localStorage.getItem(storageKey)) return true } catch { /* storage off: no stored session */ }
+  if (typeof window === 'undefined') return false
+  const { hash, search } = window.location
+  return /(?:^|[#&?])(access_token|refresh_token|error_description)=/.test(`${hash}&${search}`)
+}
+
 function createSiteClient(url: string, key: string, customFetch: Fetch) {
   const base = new URL(url.endsWith('/') ? url : `${url}/`)
-  const auth = new AuthClient({
-    url: new URL('auth/v1', base).href,
-    headers: { Authorization: `Bearer ${key}`, apikey: key },
-    storageKey: `sb-${base.hostname.split('.')[0]}-auth-token`,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-    flowType: 'implicit',
-    fetch: customFetch,
-    hasCustomAuthorizationHeader: false,
+  const storageKey = `sb-${base.hostname.split('.')[0]}-auth-token`
+
+  // The real client, built on first need. Listeners registered before it existed are handed over
+  // the moment it does; their unsubscribes work either side of that.
+  let real: AuthApi | null = null
+  let loading: Promise<AuthApi> | null = null
+  const pending = new Set<{ cb: AuthListener; off?: () => void }>()
+  const loadAuth = (): Promise<AuthApi> => loading ??= import('@supabase/auth-js').then(({ AuthClient }) => {
+    real = new AuthClient({
+      url: new URL('auth/v1', base).href,
+      headers: { Authorization: `Bearer ${key}`, apikey: key },
+      storageKey,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      flowType: 'implicit',
+      fetch: customFetch,
+      hasCustomAuthorizationHeader: false,
+    })
+    for (const l of pending) l.off = real.onAuthStateChange(l.cb).data.subscription.unsubscribe
+    return real
   })
+  if (mayBeSignedIn(storageKey)) void loadAuth()
+  // Signed in from another tab: the real client would have heard the storage event; this one loads
+  // it, and it reads the new session and tells the listeners.
+  if (typeof window !== 'undefined') {
+    window.addEventListener('storage', e => { if (e.key === storageKey && e.newValue && !real) void loadAuth() })
+  }
+  const withAuth = <A extends unknown[], R>(pick: (a: AuthApi) => (...args: A) => Promise<R>) =>
+    async (...args: A): Promise<R> => { const a = await loadAuth(); return pick(a).apply(a, args) }
+
+  const auth = {
+    getSession: (): ReturnType<AuthApi['getSession']> =>
+      real || loading ? loadAuth().then(a => a.getSession())
+        : Promise.resolve({ data: { session: null }, error: null }),
+    onAuthStateChange(cb: AuthListener): { data: { subscription: { unsubscribe: () => void } } } {
+      if (real) return real.onAuthStateChange(cb)
+      const l: { cb: AuthListener; off?: () => void } = { cb }
+      pending.add(l)
+      return { data: { subscription: { unsubscribe: () => { pending.delete(l); l.off?.() } } } }
+    },
+    signInWithPassword: withAuth(a => a.signInWithPassword),
+    signInWithOAuth: withAuth(a => a.signInWithOAuth),
+    signUp: withAuth(a => a.signUp),
+    signOut: withAuth(a => a.signOut),
+    resetPasswordForEmail: withAuth(a => a.resetPasswordForEmail),
+    updateUser: withAuth(a => a.updateUser),
+  }
 
   const accessToken = async (): Promise<string> => {
     const { data } = await auth.getSession()

@@ -91,19 +91,26 @@ the commit-message rule in CLAUDE.md (why, not what; no em dashes).
 
 `npm run size` runs [size-limit](https://github.com/ai/size-limit) on the build, with the
 budgets in [`.size-limit.js`](../.size-limit.js), brotli sizes, about 8% over what `main`
-measured on Nov 7, 2026:
+measured, except the first load, which is held to about 4%:
 
-| Budget | Nov 7 | Limit |
+| Budget | Measured | Limit |
 |---|---|---|
-| First load on `/wpbl`: the entry plus every live modulepreload in `index.html` | 396 kB | 428 kB |
-| The entry chunk | 110 kB | 119 kB |
-| All JavaScript | 1.05 MB | 1.13 MB |
+| First load on `/wpbl`: the entry plus every live modulepreload in `index.html` | 372 kB (Nov 18) | 387 kB |
+| `index.html`, which carries the inlined entry stylesheet, the static toolbar and titles, and the early reads' URLs | 10.8 kB (Nov 18) | 11.6 kB |
+| The entry chunk | 110 kB (Nov 7) | 119 kB |
+| All JavaScript | 1.15 MB (Nov 18) | 1.18 MB |
 
 The first-load list is read out of `dist/index.html`, so it follows the preload plugin by itself;
-the MLB links inside `<template>` are cut out first because no WPBL reader fetches them. A failure
-means something grew: find it with `npx vite-bundle-visualizer` or by comparing `dist/assets`
-against `main`. Raising a limit is fine when the growth is wanted; say why in the pull request.
-Run `npm run build` first, or the config throws.
+the MLB links inside `<template>` are cut out first because no WPBL reader fetches them. The first
+load is held closer than the rest because 8% was 32 kB of room, and the search parser (about 30 kB)
+lived in it unnoticed until Nov 18, 2026.
+
+A failure means something grew. **`npm run analyze`** finds it: the same production build, plus a
+printed list of every module in the first load, largest first (packages summed), and a treemap of
+every chunk at `node_modules/.cache/analyze/stats.html`
+([`scripts/vite.analyze.config.mjs`](../scripts/vite.analyze.config.mjs)). Run it on `main` and on
+the branch and compare the lists. Raising a limit is fine when the growth is wanted; say why in the
+pull request. Run `npm run build` before `npm run size`, or the config throws.
 
 ## The tests
 

@@ -45,10 +45,26 @@ const KEEP = [
   '─═│▲▼▾●▶◀▸★☆✓✔✕✖✗✘✎♥', // box drawing, shapes, ticks
 ].join('')
 
+// THE OPENTYPE FEATURES THE SITE USES, and no others. Upstream Inter carries forty: thirteen
+// character variants, eight stylistic sets, fractions, superscripts, a slashed zero and more, none
+// of which any style here turns on (the one opt-in anywhere is `tabular-nums`, which is tnum). Kept
+// whole they were 35 KB of the 104 KB file, and that file is preloaded at the highest priority on
+// every cold load. The rest are what text needs to shape correctly: kerning, ligatures and contextual
+// alternates, composition and marks for accented names, language forms, and the figure styles.
+// Turning a new one on in CSS (`font-feature-settings: 'zero'`) needs it added here first, or it
+// silently does nothing.
+const KEEP_FEATURES = ['kern', 'liga', 'calt', 'ccmp', 'locl', 'mark', 'mkmk', 'rlig', 'tnum', 'pnum', 'lnum', 'case']
+
 const src = await readFile(SRC)
-// Keep the weight axis intact: the theme uses 100–900 from this one file, and dropping
-// fvar/gvar would collapse every weight to a single master.
-const out = await subsetFont(src, KEEP, { targetFormat: 'woff2', variationAxes: { wght: { min: 100, max: 900 } } })
+// The weight axis stays variable, from 300: nothing on the site asks for lighter (src/styles.css
+// declares the same range), and dropping fvar/gvar would collapse every weight to one master. The
+// optical-size axis stays whole too. Pinning it would cut another 23 KB, but the large titles would
+// lose the display cut they draw in now, a visible change rather than a saving.
+const out = await subsetFont(src, KEEP, {
+  targetFormat: 'woff2',
+  keepFeatures: KEEP_FEATURES,
+  variationAxes: { wght: { min: 300, max: 900 } },
+})
 await writeFile(OUT, out)
 
 const pct = (1 - out.length / src.length) * 100
