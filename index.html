@@ -4,6 +4,9 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- The browser's and the installed app's bar color, set to the page's own color by the script
+         below (and kept in step by ThemeContext). Above the script so it exists when that runs. -->
+    <meta name="theme-color" content="#0f1115" />
     <script>
       // Stamp the theme onto <html> BEFORE first paint, so a dark-mode user never
       // sees a flash of the light palette while React boots. Mirrors ThemeContext:
@@ -18,6 +21,10 @@
           var r = document.documentElement;
           r.setAttribute('data-theme', t);
           r.style.colorScheme = t; // native form controls + scrollbars match too
+          // The bar above the page in the page's color: --bg-color in styles.css for each theme.
+          // It was slate navy in both, a stripe over the light page and a near miss on the dark.
+          var tc = document.querySelector('meta[name="theme-color"]');
+          if (tc) tc.setAttribute('content', t === 'dark' ? '#0f1115' : '#f6f7f9');
         } catch (e) { /* storage off: fall through to CSS defaults */ }
         // The section's desktop scale, for the same reason: App.tsx sets this attribute in a layout
         // effect, which is too late for the toolbar placeholder below, so on a refresh the bar
@@ -159,6 +166,12 @@
       @media (min-width: 600px) { .sd-shell { padding: 0 calc(24px * var(--sd-s)); } }
       @media (min-width: 900px) { :root[data-app-scale] .sd-bar, :root[data-app-scale] .sd-frame { --sd-s: var(--app-scale-desktop, 1); } }
       [data-theme="dark"] .sd-bar { border-bottom-color: rgba(255,255,255,0.22); }
+      /* HIGH PRIORITY AND ITS OWN WIDTH. As an ordinary image it queued behind the hundred module
+         preloads above, and on a throttled phone it landed at 4.7s, leaving a phone's bar (which
+         has no wordmark) empty on the left for the whole load. The width and height attributes
+         are the file's (312x168, cut from 400x216 at 16 KB to 3 KB on Nov 18, 2026, still 3x the
+         404 page's 56px): they give the box its aspect before the image decodes, so the wordmark
+         beside it does not start at the bar's edge and jump right. */
       .sd-shell img { display: block; height: calc(32px * var(--sd-s)); width: auto; }
       [data-theme="dark"] .sd-shell img { filter: invert(1); }
       /* THE NAME AS TEXT, not only the logo, at the widths the real wordmark shows (960px, or 1200px
@@ -208,28 +221,33 @@
          brand group does not put between itself and the tabs. */
       @media (min-width: 1024px) { .sd-bar .sd-shell nav { display: flex; margin-left: calc(8px * var(--sd-s)); } }
 
-      /* HOME DRAWN EMPTY: its title where the loaded page puts it, so a slow load shows the site's
-         page rather than a blank under the bar, and the section's skeleton lands on it unmoved.
-         Home only, the address nearly every visit opens; other pages show the bar alone. Every
-         number is the real page's, in the same units as the bar: App.tsx's page area (padding 2),
-         WpblApp's column (720px, 4px under the bar on a phone), homeWideSx's breakout above 900px
-         (HOME_W, centered), Home's header row (as tall as a club chip from 600px, title centered in
-         it) and TAB_TITLE_SX. A screen tall, like the page it stands for: the loaded page always
-         scrolls, and a classic scrollbar arriving with it narrowed the centered column by half its
-         width. Measured against the loaded page at 375, 760, 960 and 1440. */
-      .sd-frame { box-sizing: border-box; min-height: 100vh; padding: calc(16px * var(--sd-s)); }
+      /* THE TAB DRAWN EMPTY: its title where the loaded page puts it, so a slow load shows the
+         page being opened rather than a blank under the bar, and the tab's skeleton (which draws the
+         same words) lands on it unmoved. WPBL's five tabs, the addresses nearly every visit opens;
+         other pages show the bar alone. Every number is the real page's, in the bar's units:
+         App.tsx's page area (padding 2), WpblApp's column (720px, 4px under the bar on a phone),
+         TAB_TITLE_SX, and the width each tab gives its title. Home and Scores break out to HOME_W
+         above 900px (homeWideSx, WpblApp's contentW), and Home's title is centered in a row as tall
+         as a club chip from 600px. Stats bleeds to HOME_W at every width (fullBleedSx), whose
+         gutter is --sd-page-gutter. Standings and Teams stay in the column. A screen tall, like the
+         page it stands for: the loaded page always scrolls, and a classic scrollbar arriving with it
+         narrowed a centered column by half its width. Measured against the loaded pages at 375,
+         760, 960 and 1440. */
+      .sd-frame { --sd-gut: 12px; box-sizing: border-box; min-height: 100vh; padding: calc(16px * var(--sd-s)); }
+      .sd-frame { --sd-w: min(1260px, calc(100vw - var(--sd-scrollbar-w, 0px) - 2 * var(--sd-gut))); }
       .sd-col { max-width: 720px; margin: 4px auto 0; }
+      .sd-bleed { width: var(--sd-w); margin-left: calc(50% - var(--sd-w) / 2); }
       .sd-h1 { margin: 0; font: 800 calc(16.8px * var(--sd-s) * var(--sd-t, 1))/1.15 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
         letter-spacing: calc(-0.3px * var(--sd-s) * var(--sd-t, 1)); color: rgba(0,0,0,0.87); }
       [data-theme="dark"] .sd-h1 { color: #fff; }
       @media (min-width: 600px) {
+        .sd-frame { --sd-gut: calc(24px * var(--sd-s)); }
         .sd-col { margin-top: 0; }
         .sd-hrow { display: flex; align-items: center; min-height: calc(24px * var(--sd-s) + 8px); }
       }
       @media (min-width: 900px) {
         .sd-col { max-width: calc(720px * var(--sd-s)); }
-        .sd-home { position: relative; left: 50%; transform: translateX(-50%);
-          width: min(1260px, calc(100vw - var(--sd-scrollbar-w, 0px) - 48px * var(--sd-s))); }
+        .sd-home { position: relative; left: 50%; transform: translateX(-50%); width: var(--sd-w); }
         .sd-h1 { font-size: calc(24px * var(--sd-s) * var(--sd-t, 1)); }
       }
     </style>
@@ -307,7 +325,6 @@
          so only a plain socket is one they can reuse. -->
     <link rel="preconnect" href="https://photos.sportydolphin.fun" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#0f172a" />
     <!-- Icons, all generated by scripts/make-brand-icons.py. Three slots, three files,
          because none of them can stand in for another:
          - the SVG is what a modern browser puts in the tab strip;
@@ -330,7 +347,7 @@
          its name, with no login required. This is what Google's OAuth homepage
          verification reads. React replaces this content once it mounts. -->
     <div id="app">
-      <div class="sd-bar" aria-hidden="true"><div class="sd-shell"><img src="/logo-mark.png" alt="" /><span class="sd-wm">sportydolphin</span></div></div>
+      <div class="sd-bar" aria-hidden="true"><div class="sd-shell"><img src="/logo-mark.png" alt="" width="312" height="168" fetchpriority="high" /><span class="sd-wm">sportydolphin</span></div></div>
       <script>
         // The switch and the tabs for the section this URL opens, with the lit one lit. The labels
         // are WPBL_NAV and MLB_NAV (src/wpbl/routes.ts, src/mlb/routes.ts), and the lit tab is the
@@ -343,8 +360,12 @@
           var tabs = sec === 'wpbl'
             ? ['Home', 'Scores', 'Standings', 'Stats', 'Teams']
             : ['Home', 'Scores', 'Standings', 'Stats', 'Teams'];
+          // The tab each WPBL address opens, by its label: Scores lives at /wpbl/schedule, so the
+          // label cannot be read off the path (it was, and Scores was never lit here).
+          var wpblTab = { '/wpbl': 'Home', '/wpbl/schedule': 'Scores', '/wpbl/standings': 'Standings',
+            '/wpbl/stats': 'Stats', '/wpbl/teams': 'Teams' }[p];
           var lit = sec === 'wpbl'
-            ? (p === '/wpbl' ? 'Home' : (p.match(/^\/wpbl\/(schedule|standings|stats|teams)$/) || [])[1])
+            ? wpblTab
             : (p === '/mlb' ? 'Home' : /^\/mlb\/(leaders|stats|charts)$/.test(p) ? 'Stats'
               : /^\/mlb\/teams(\/|$)/.test(p) ? 'Teams' : (p.match(/^\/mlb\/(scores|standings)$/) || [])[1]);
           lit = lit && lit.charAt(0).toUpperCase() + lit.slice(1);
@@ -354,11 +375,13 @@
           bar.firstChild.insertAdjacentHTML('beforeend',
             '<span class="sd-sw"><b' + (sec === 'mlb' ? ' class="on"' : '') + '>MLB</b><b' + (sec === 'wpbl' ? ' class="on rb"' : '') + '>WPBL</b></span><nav>' + nav + '</nav>');
           bar.insertAdjacentHTML('beforeend', '<nav class="sd-row">' + nav + '</nav>');
-          if (p === '/wpbl') {
-            bar.insertAdjacentHTML('afterend', '<div class="sd-frame" aria-hidden="true"><div class="sd-col"><div class="sd-home">'
-              + '<div class="sd-hrow"><p class="sd-h1">Women\'s Pro Baseball League</p></div></div></div></div>');
+          if (sec === 'wpbl' && wpblTab) {
+            var home = wpblTab === 'Home';
+            var box = home ? 'sd-home sd-hrow' : wpblTab === 'Scores' ? 'sd-home' : wpblTab === 'Stats' ? 'sd-bleed' : '';
+            bar.insertAdjacentHTML('afterend', '<div class="sd-frame" aria-hidden="true"><div class="sd-col"><div class="' + box + '">'
+              + '<p class="sd-h1">' + (home ? "Women's Pro Baseball League" : 'WPBL ' + wpblTab) + '</p></div></div></div>');
             // The scrollbar the frame just brought, published as lib/scrollbarWidth.ts does, since
-            // the breakout width subtracts it and that module has not run yet.
+            // the widths above subtract it and that module has not run yet.
             var root = document.documentElement;
             root.style.setProperty('--sd-scrollbar-w', Math.max(0, window.innerWidth - root.clientWidth) + 'px');
           }

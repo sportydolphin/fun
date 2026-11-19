@@ -1045,6 +1045,11 @@ function AppInner() {
                 component="img"
                 src="/logo-mark.png"
                 alt="sportydolphin"
+                // The file's own size, for its aspect ratio only (CSS sets the height): without it
+                // the mark is 0 wide until it decodes, and the wordmark beside it starts a logo to the left.
+                width={312}
+                height={168}
+                fetchPriority="high"
                 sx={{
                   // Art, so it rides --app-chrome like every other badge. That covers the
                   // section whose root is scaled; on the other one the bar's own `zoom` covers

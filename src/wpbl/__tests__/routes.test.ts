@@ -737,7 +737,7 @@ describe('/wpbl/glossary, the rules page', () => {
   // rather than written out, and this pins that it stays that way.
   it('declares FAQPage structured data built from the rules themselves', () => {
     expect(seoSource).toContain("'@type': 'FAQPage'")
-    expect(seoSource).toContain('WPBL_RULES.map')
+    expect(seoSource).toContain('faq(m.WPBL_RULES)')
   })
 })
 

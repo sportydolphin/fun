@@ -15,9 +15,8 @@ import { requestPlay } from '../entryUrl'
 import { useWpblRecents } from '../recentSearches'
 import { foldName, fuzzyMatches } from '../../lib/fuzzyName'
 import { gameRow } from '../../lib/gameRow'
-import { pickGames, todayIso, type GameQuery } from '../../league/finderParse'
+import type { GameQuery } from '../../league/finderParse'
 import { useAuth } from '../../AuthContext'
-import { wpblSearchedProps } from '../searchAnalytics'
 import { jerseyQuery, jerseyOf, rankHeaderMatches } from '../playerSearch'
 import { readSearchIndex, saveSearchIndex } from '../searchIndex'
 import type { WpblTeam, WpblPlayer, WpblGame } from '../types'
@@ -353,7 +352,11 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
   }, [resolveCompare, searchActive])
 
   // "SF vs NY sep 9", "Firebells last night" in the palette, from the schedule already in hand.
+  // The parser's own module, fetched here rather than imported: it and league/finder.ts were 135 KB
+  // of the JavaScript every reader downloaded before Home could draw, for a search nobody had typed.
+  // A GameQuery only exists once the palette's lazy parse has run, so this is already loaded.
   const resolveGames = useCallback(async (q: GameQuery) => {
+    const { pickGames, todayIso } = await import('../../league/finderParse')
     const [first, second] = q.clubs
     const plays = (g: WpblGame, ids: string[]) => ids.includes(g.home_team_id) || ids.includes(g.away_team_id)
     const pool = games.filter(g => plays(g, first) && (!second || plays(g, second)))
@@ -609,8 +612,9 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
     const { q, players: pl, teams: tm } = matches
     const id = setTimeout(() => {
       loggedQueries.current.add(q)
-      // The miss rule, and why a stat question is not one, are in searchAnalytics.ts.
-      track(EVENTS.WPBL_SEARCHED, wpblSearchedProps(q, pl.length, tm.length))
+      // The miss rule, and why a stat question is not one, are in searchAnalytics.ts. Loaded here,
+      // not imported: it reads the query with the whole finder parser (see resolveGames).
+      void import('../searchAnalytics').then(m => track(EVENTS.WPBL_SEARCHED, m.wpblSearchedProps(q, pl.length, tm.length)), () => {})
     }, 700)
     return () => clearTimeout(id)
   }, [matches, searchActive])

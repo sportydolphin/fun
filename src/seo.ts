@@ -6,10 +6,9 @@
 // exist. Googlebot renders JS and reads what this hook sets on route change; index.html
 // still carries sensible defaults for non-JS crawlers and social unfurlers.
 import { useEffect, useState } from 'react'
-import { WPBL_RULES } from './wpbl/glossary'
+import type { GlossaryRule } from './league/glossary'
 import { wpblWatchVideoIdFromPath } from './wpbl/routes'
 import { MLB_CLUBS, MLB_TEAMS_BASE, MLB_VIEW_PATHS, MLB_GLOSSARY_PAGE, MLB_COMPARE_BASE, mlbGamePkFromPath, mlbSeriesFromPath, mlbPostseasonSeasonFromPath } from './mlb/routes'
-import { MLB_RULES } from './mlb/statGlossary'
 
 const SITE = 'https://sportydolphin.fun'
 
@@ -28,7 +27,22 @@ interface Seo {
    *  differently: the rules page is a real FAQPage, and a list of questions nothing else on
    *  the web answers is the one thing here with a shot at a rich result. */
   jsonLd?: Record<string, unknown>
+  /** The same, built from a module fetched when the route opens. The two rules pages build theirs
+   *  from the glossaries, and imported here those (and league/glossary under them) rode in the
+   *  JavaScript every page loads before it can draw, for two pages. */
+  jsonLdLoad?: () => Promise<Record<string, unknown>>
 }
+
+/** A rules page's FAQ markup, from the rules the page itself shows. */
+const faq = (rules: readonly GlossaryRule[]): Record<string, unknown> => ({
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: rules.map(r => ({
+    '@type': 'Question',
+    name: r.question,
+    acceptedAnswer: { '@type': 'Answer', text: r.note ? `${r.answer} ${r.note}` : r.answer },
+  })),
+})
 
 const DEFAULT: Seo = {
   title: 'sportydolphin.fun: MLB & WPBL baseball stats',
@@ -249,18 +263,10 @@ const ROUTES: Record<string, Seo> = {
     title: "WPBL Rules & Stats Glossary | sportydolphin.fun",
     description:
       "How the Women's Pro Baseball League works: seven-inning games, how a pitcher qualifies for a win, why ERA is per 7, and what every stat on a WPBL box score means.",
-    jsonLd: {
-      '@context': 'https://schema.org',
-      '@type': 'FAQPage',
-      // Built from WPBL_RULES rather than restated, so the markup a crawler reads and the
-      // page a reader sees cannot drift apart. The note goes in the answer because that is
-      // where the honesty lives: two of these are not the league's own words.
-      mainEntity: WPBL_RULES.map(r => ({
-        '@type': 'Question',
-        name: r.question,
-        acceptedAnswer: { '@type': 'Answer', text: r.note ? `${r.answer} ${r.note}` : r.answer },
-      })),
-    },
+    // Built from WPBL_RULES rather than restated, so the markup a crawler reads and the
+    // page a reader sees cannot drift apart. The note goes in the answer because that is
+    // where the honesty lives: two of these are not the league's own words.
+    jsonLdLoad: () => import('./wpbl/glossary').then(m => faq(m.WPBL_RULES)),
   },
   // The comparison picker. The PAIR pages are titled from the two names and registered
   // through setDynamicSeo, since a static map keyed on the path cannot describe 6,903 of
@@ -361,15 +367,7 @@ const ROUTES: Record<string, Seo> = {
     title: 'MLB Rules & Stats Glossary: wins, saves, qualifying, WAR | sportydolphin.fun',
     description:
       'How an MLB pitcher earns a win or a save, who qualifies for a batting title, extra innings and the postseason format, and what every stat means, from AVG and OPS to WAR, wRC+ and xwOBA.',
-    jsonLd: {
-      '@context': 'https://schema.org',
-      '@type': 'FAQPage',
-      mainEntity: MLB_RULES.map(r => ({
-        '@type': 'Question',
-        name: r.question,
-        acceptedAnswer: { '@type': 'Answer', text: r.note ? `${r.answer} ${r.note}` : r.answer },
-      })),
-    },
+    jsonLdLoad: () => import('./mlb/statGlossary').then(m => faq(m.MLB_RULES)),
   },
   // The picker, as WPBL's is: the one compare URL knowable in advance and the only one in the
   // sitemap. A pair is titled from two names through setDynamicSeo (ComparePage.tsx).
@@ -554,11 +552,17 @@ export function useSeo(path: string) {
     // claiming to be an FAQ about the WPBL's rules. Its own id keeps it clear of the site-wide
     // graph baked into index.html, which must survive every navigation untouched.
     const LD_ID = 'sd-route-jsonld'
-    const existing = document.getElementById(LD_ID)
-    if (seo.jsonLd) {
+    const write = (ld: Record<string, unknown>) => {
+      const existing = document.getElementById(LD_ID)
       const el = existing ?? Object.assign(document.createElement('script'), { id: LD_ID, type: 'application/ld+json' })
-      el.textContent = JSON.stringify(seo.jsonLd)
+      el.textContent = JSON.stringify(ld)
       if (!existing) document.head.appendChild(el)
-    } else existing?.remove()
+    }
+    document.getElementById(LD_ID)?.remove()
+    if (seo.jsonLd) write(seo.jsonLd)
+    // A route left before its markup arrives must not have it written over the next one.
+    let current = true
+    seo.jsonLdLoad?.().then(ld => { if (current) write(ld) }, () => { /* the page stands without it */ })
+    return () => { current = false }
   }, [path, dynamicVersion])
 }
