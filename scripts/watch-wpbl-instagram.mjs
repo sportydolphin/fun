@@ -163,6 +163,9 @@ const RESIGN_WORDING = [
   // sentence must also name the season. A bare "back" is no help: "They're back" opens the
   // jersey posts, and one of those names a player.
   /\b(remains?|remaining|stays?|staying) in\b[^.!?]*\b2027\b/,
+  // "Ayuri Shimano will bring her power, speed, and versatility back to LA in 2027" (Nov 18,
+  // 2026). Same guard as above: "back to basics" and "back in stock" never name the season.
+  /\bback (to|with|in)\b[^.!?]*\b2027\b/,
 ]
 
 // A different league's contracts, announced by the same accounts in the same words
@@ -188,6 +191,23 @@ export function playerIndex(players) {
   for (const entry of byName.values()) {
     entry.id = entry.ids.find(id => ROSTER_IDS.has(id)) ?? entry.ids[0]
   }
+  // Short first names. "Val Perez will be back at it with the Heights in 2027" (Nov 19, 2026)
+  // named Valerie Perez and matched nothing. Every first-name prefix of three letters or more is
+  // a key too, unless two people share it: a nickname that could be either is no name at all.
+  const nick = new Map()
+  for (const [full, entry] of byName) {
+    const parts = String(entry.name).trim().split(/\s+/)
+    if (parts.length < 2) continue
+    const first = fold(parts[0])
+    const rest = fold(parts.slice(1).join(''))
+    for (let n = 3; n < first.length; n++) {
+      const key = first.slice(0, n) + rest
+      if (key.length < 8 || byName.has(key)) continue
+      const seen = nick.get(key)
+      nick.set(key, seen === undefined || seen === full ? full : null)
+    }
+  }
+  for (const [key, full] of nick) if (full) byName.set(key, byName.get(full))
   return byName
 }
 
@@ -200,7 +220,8 @@ export function classifyCaption(caption, index) {
   if (!text || NOT_OURS.test(text)) return none
   if (!RESIGN_WORDING.some(re => re.test(text))) return none
   const folded = fold(text)
-  const named = [...index.entries()].filter(([key]) => folded.includes(key)).map(([, v]) => v)
+  // A Set, since a caption with both "Valerie Perez" and "Val Perez" hits one entry twice.
+  const named = [...new Set([...index.entries()].filter(([key]) => folded.includes(key)).map(([, v]) => v))]
   if (!named.length) return none
   return {
     kind: 'resign',
