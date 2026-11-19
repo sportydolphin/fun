@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { headToHead, batterPitcherMatchups, classifyPa, playerMatchups, edgeOf, matchupBoard, type WpblMatchupPlay } from '../derive/matchups'
+import { headToHead, batterPitcherMatchups, classifyPa, playerMatchups, edgeOf, matchupBoard, boardRanks, matchupLeagueAvg, hitsAboveAvg, type WpblMatchupPlay } from '../derive/matchups'
 import type { WpblGame } from '../types'
 
 // `headToHead` backs the four-by-four grid on the Teams tab. It is asymmetric by design,
@@ -253,5 +253,25 @@ describe('matchupBoard', () => {
 
   it('orders the most-faced board by plate appearances and keeps every pair', () => {
     expect(matchupBoard(lines, 'faced').map(l => l.batterId)).toEqual(['b5', 'b1', 'b4', 'b2', 'b3'])
+  })
+
+  // Two identical 4-for-4s were numbered 2 and 3, a verdict the figures beside them did not make.
+  it('gives rows the board calls equal one rank, as a stat table does', () => {
+    const tied = batterPitcherMatchups([
+      ...many(['t1', 'Ann'], ['p7', 'Xia'], ['single', 'single', 'single', 'single', 'single']),
+      ...many(['t2', 'Bo'], ['p7', 'Xia'], ['single', 'single', 'single', 'single', 'walk']),
+      ...many(['t3', 'Cy'], ['p6', 'Wen'], ['single', 'single', 'single', 'single', 'walk']),
+      ...many(['t4', 'Di'], ['p6', 'Wen'], ['single', 'single', 'single', 'groundout']),
+      ...many(['t5', 'Ed'], ['p5', 'Vi'], Array(20).fill('groundout')),
+    ], [reg])
+    const board = matchupBoard(tied, 'batter')
+    expect(board.map(l => l.batterId)).toEqual(['t1', 't2', 't3', 't4'])
+    expect(boardRanks(board, 'batter', matchupLeagueAvg(tied))).toEqual([1, 2, 2, 4])
+  })
+
+  it('measures +H against every hit over every at-bat in the lines', () => {
+    const avg = matchupLeagueAvg(lines)
+    expect(avg).toBeCloseTo(5 / 21)
+    expect(hitsAboveAvg({ h: 2, ab: 3 }, avg)).toBeCloseTo(2 - 3 * 5 / 21)
   })
 })

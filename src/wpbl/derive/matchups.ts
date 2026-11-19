@@ -193,16 +193,44 @@ export type MatchupBoardView = 'pitcher' | 'batter' | 'faced'
  * appearances first, the duels the league kept staging rather than the loudest ones.
  */
 export function matchupBoard(lines: WpblMatchupLine[], view: MatchupBoardView): WpblMatchupLine[] {
-  const tie = (a: WpblMatchupLine, b: WpblMatchupLine) =>
-    b.pa - a.pa || a.batterName.localeCompare(b.batterName) || a.pitcherName.localeCompare(b.pitcherName)
-  if (view === 'faced') return [...lines].sort(tie)
+  const names = (a: WpblMatchupLine, b: WpblMatchupLine) =>
+    a.batterName.localeCompare(b.batterName) || a.pitcherName.localeCompare(b.pitcherName)
+  const order = boardOrder(view, matchupLeagueAvg(lines))
+  const pool = view === 'faced' ? [...lines] : lines.filter(l => l.edge === view)
+  return pool.sort((a, b) => order(a, b) || names(a, b))
+}
+
+/** The league average the edge boards measure against: every hit over every at-bat in the lines. */
+export function matchupLeagueAvg(lines: readonly WpblMatchupLine[]): number {
   const ab = lines.reduce((n, l) => n + l.ab, 0)
-  const leagueAvg = ab > 0 ? lines.reduce((n, l) => n + l.h, 0) / ab : 0.25
-  const margin = (l: WpblMatchupLine) => l.h - leagueAvg * l.ab
-  if (view === 'pitcher') {
-    return lines.filter(l => l.edge === 'pitcher').sort((a, b) => margin(a) - margin(b) || b.so - a.so || tie(a, b))
-  }
-  return lines.filter(l => l.edge === 'batter').sort((a, b) => margin(b) - margin(a) || b.hr - a.hr || tie(a, b))
+  return ab > 0 ? lines.reduce((n, l) => n + l.h, 0) / ab : 0.25
+}
+
+/** Hits above what a batter hitting `leagueAvg` would have had in the same at-bats: the edge
+ *  boards' sort key, which the board prints so the order explains itself. */
+export const hitsAboveAvg = (l: Pick<WpblMatchupLine, 'h' | 'ab'>, leagueAvg: number): number =>
+  l.h - leagueAvg * l.ab
+
+/** A board's order without the alphabetical last resort, so two rows it calls equal can share a rank. */
+function boardOrder(view: MatchupBoardView, leagueAvg: number) {
+  const margin = (l: WpblMatchupLine) => hitsAboveAvg(l, leagueAvg)
+  if (view === 'faced') return (a: WpblMatchupLine, b: WpblMatchupLine) => b.pa - a.pa
+  if (view === 'pitcher') return (a: WpblMatchupLine, b: WpblMatchupLine) => margin(a) - margin(b) || b.so - a.so || b.pa - a.pa
+  return (a: WpblMatchupLine, b: WpblMatchupLine) => margin(b) - margin(a) || b.hr - a.hr || b.pa - a.pa
+}
+
+/**
+ * Each row's rank on a board, ties sharing one ("1, 2, 2, 4"), as a stat table prints them.
+ *
+ * Numbered 1 to n, two identical 4-for-4s read as second and third, a verdict the figures beside
+ * them do not support. Names break the tie in the list's order and nowhere else. `board` is the
+ * list as drawn (a club filter included); `leagueAvg` is the one `matchupBoard` sorted with.
+ */
+export function boardRanks(board: readonly WpblMatchupLine[], view: MatchupBoardView, leagueAvg: number): number[] {
+  const order = boardOrder(view, leagueAvg)
+  const ranks: number[] = []
+  board.forEach((l, i) => { ranks.push(i > 0 && order(board[i - 1], l) === 0 ? ranks[i - 1] : i + 1) })
+  return ranks
 }
 
 // One player's duels from both sides of the plate, most-faced first, for the player page.
