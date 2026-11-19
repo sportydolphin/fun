@@ -23,6 +23,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.243.0',
+    date:    '2026-11-19',
+    changes: [
+      {
+        short: 'Compare: no lead over a player who never batted or pitched',
+        full:  'On a comparison, a player with no plate appearances or no innings shows a dash on that card, and nobody is highlighted as leading it.',
+      },
+      {
+        short: 'Compare: search without accents',
+        full:  'The player search on both compare pages finds names with accents when you type them without, so "bedard" finds Day-Bédard.',
+      },
+    ],
+  },
+  {
     version: '1.242.0',
     date:    '2026-11-19',
     changes: [

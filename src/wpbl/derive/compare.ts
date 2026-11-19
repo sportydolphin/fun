@@ -150,6 +150,27 @@ function playedRow(
 
 const ip = (v: number | null): string => (v == null ? '—' : outsToIp(v))
 
+/**
+ * A side that has not done this at all: its figures become no figures, and nobody leads a row.
+ *
+ * RULE 1 HELD FOR THE RATES AND NOT FOR THE COUNTS. A pitcher who never batted has a null AVG but
+ * zero hits, so the batting card marked the hitter as leading nine counting rows against nobody,
+ * and on the pitching card, where fewer walks wins, a hitter with no innings led BB 0 to 3. Zero
+ * here is not a result, it is the absence of a season, so it prints as one. The playing-time rows
+ * keep their zeros: "0 PA" is the one true thing to say about that side.
+ */
+function absentSide(rows: WpblCompareRow[], side: WpblCompareSide): WpblCompareRow[] {
+  return rows.map(r => ({ ...r, [side]: null, [`${side}Text`]: '—', leader: null }))
+}
+
+/** `absentSide` for whichever of the two has no plate appearances (or no innings) in a group. */
+const absentWhere = (aAbsent: boolean, bAbsent: boolean) => (rows: WpblCompareRow[]): WpblCompareRow[] => {
+  let out = rows
+  if (aAbsent) out = absentSide(out, 'a')
+  if (bAbsent) out = absentSide(out, 'b')
+  return out
+}
+
 function battingRows(a: WpblBattingTotals, b: WpblBattingTotals) {
   // First, and untickable. See `playedRow`.
   const playingTime = [
@@ -313,30 +334,32 @@ export function buildWpblComparison(
   const bPa = plateAppearances(bBat)
   if (aPa > 0 || bPa > 0) {
     const { playingTime, rate, counting } = battingRows(aBat, bBat)
+    const absent = absentWhere(aPa === 0, bPa === 0)
     groups.push({
       key: 'batting',
       label: 'Batting',
       playingTime,
       qualified: { a: q.active && aPa >= q.minPa, b: q.active && bPa >= q.minPa },
       barText: q.active ? `${q.minPa} PA` : null,
-      rate,
-      counting,
-      value: valueRows([['wpa', 'WPA', 2, v => v.wpaHitting], ['bsr', 'BsR', 1, v => v.bases]]),
+      rate: absent(rate),
+      counting: absent(counting),
+      value: absent(valueRows([['wpa', 'WPA', 2, v => v.wpaHitting], ['bsr', 'BsR', 1, v => v.bases]])),
     })
   }
 
   // On outs, for the reason above: a line with no innings in it is not a pitching season.
   if (aPit.outs > 0 || bPit.outs > 0) {
     const { playingTime, rate, counting } = pitchingRows(aPit, bPit, basis)
+    const absent = absentWhere(aPit.outs === 0, bPit.outs === 0)
     groups.push({
       key: 'pitching',
       label: 'Pitching',
       playingTime,
       qualified: { a: q.active && aPit.outs >= q.minOuts, b: q.active && bPit.outs >= q.minOuts },
       barText: q.active ? `${outsToIp(q.minOuts)} IP` : null,
-      rate,
-      counting,
-      value: valueRows([['wpa', 'WPA', 2, v => v.wpaPitching]]),
+      rate: absent(rate),
+      counting: absent(counting),
+      value: absent(valueRows([['wpa', 'WPA', 2, v => v.wpaPitching]])),
     })
   }
 

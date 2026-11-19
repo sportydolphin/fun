@@ -19,7 +19,7 @@ import { SectionCard, TextGhost, TYPE_SCALE } from '../ui/card'
 import { chromePx } from '../ui/scale'
 import {
   CompareHead, CompareHeadSkeleton, CompareBlocksCard, CompareBlocksSkeleton, HeadToHeadCard, HeadToHeadSkeleton,
-  ComparePicker, CompareAgainLink, duelLine, HEAD_CARD, VS_SX, PICK_SLOT, GHOST_HEAD_NAME,
+  ComparePicker, CompareAgainLink, duelLine, HEAD_CARD, VS_SX, PICK_SLOT, PICK_SLOT_LABEL, GHOST_HEAD_NAME,
   type ComparePick, type HeadToHeadView,
 } from '../ui/compare'
 import { fetchMlbBio, peekMlbBio, fetchSeasonBundle, fetchCareer, type MlbBio, type SeasonBundle } from './playerProfile'
@@ -173,7 +173,7 @@ function Picker({ candidates, season, onPick, skeleton }: {
       skeleton={skeleton}
       limit={PICK_LIMIT}
       limitNote={`First ${PICK_LIMIT} by playing time`}
-      emptyText={`Nobody by that name with a ${season} line.`}
+      emptyText={`No ${season} players`}
       onPick={key => { const c = byId.get(key); if (c) onPick(c) }}
     />
   )
@@ -338,7 +338,7 @@ export default function MlbComparePage({ path, onNavigate }: { path: string; onN
           <Box sx={HEAD_CARD}>
             <CompareHeadSkeleton withChange={target.kind === 'pair'} />
             <Typography aria-hidden sx={VS_SX}>vs</Typography>
-            {target.kind === 'pair' ? <CompareHeadSkeleton withChange /> : <Box sx={PICK_SLOT}>Pick somebody below</Box>}
+            {target.kind === 'pair' ? <CompareHeadSkeleton withChange /> : <Box sx={PICK_SLOT}>{PICK_SLOT_LABEL}</Box>}
           </Box>
           {target.kind === 'pair'
             ? <>
@@ -371,7 +371,7 @@ export default function MlbComparePage({ path, onNavigate }: { path: string; onN
             {target.kind === 'pair'
               ? <Head id={target.b} side={b} current={current} onNavigate={onNavigate}
                   onClear={() => onNavigate(inSeason(mlbCompareStartPath({ id: target.a, fullName: aName })))} />
-              : <Box sx={PICK_SLOT}>Pick somebody below</Box>}
+              : <Box sx={PICK_SLOT}>{PICK_SLOT_LABEL}</Box>}
           </Box>
         )}
 
