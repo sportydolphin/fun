@@ -22,9 +22,15 @@
         // The section's desktop scale, for the same reason: App.tsx sets this attribute in a layout
         // effect, which is too late for the toolbar placeholder below, so on a refresh the bar
         // painted at 1 and then grew by a quarter when React took over. 1.25 is DESKTOP_SCALE in
-        // App.tsx (pinned together in pwaShell.test.ts); `/` is the shell for /wpbl.
-        var p = location.pathname;
-        var sec = p === '/' || /^\/wpbl(\/|$)/.test(p) ? 'wpbl' : /^\/mlb(\/|$)/.test(p) ? 'mlb' : null;
+        // App.tsx (pinned together in pwaShell.test.ts). `/` opens the reader's default section
+        // (lib/defaultSection.ts, the same key), so an MLB-first reader's bar is MLB's from the start.
+        var p = location.pathname.replace(/\/+$/, '') || '/';
+        if (p === '/') {
+          p = '/wpbl';
+          try { if (localStorage.getItem('defaultSection') === 'mlb') p = '/mlb'; } catch (e) { /* WPBL */ }
+        }
+        window.__sdOpens = p;
+        var sec = /^\/wpbl(\/|$)/.test(p) ? 'wpbl' : /^\/mlb(\/|$)/.test(p) ? 'mlb' : null;
         if (sec) {
           document.documentElement.setAttribute('data-app-scale', sec);
           document.documentElement.style.setProperty('--app-scale-desktop', '1.25');
@@ -87,8 +93,7 @@
           if (!line || line.querySelector('button')) return;
           line.textContent = 'Could not load ';
           line.setAttribute('role', 'alert');
-          line.style.opacity = '1';
-          line.parentNode.style.cssText += ';animation:none;opacity:1';
+          document.getElementById('app').classList.add('sd-failed');
           var b = document.createElement('button');
           b.type = 'button';
           b.textContent = 'Reload';
@@ -112,14 +117,27 @@
       })();
     </script>
     <style>
-      /* The static #app fallback below exists for crawlers, Google's OAuth homepage
-         verification, and no-JS / slow loads. On a normal load React mounts within a
-         beat and replaces it, so keep it invisible at first to avoid a flash of this
-         text, then fade it in only if it is somehow still on screen after ~1.2s (JS
-         slow, failed, or disabled). The text is in the DOM from the first byte, so
-         verification and crawlers still read it regardless of this opacity. */
-      #app > main { opacity: 0; animation: sd-fallback-in 0.25s ease-out 1.2s forwards; }
-      @keyframes sd-fallback-in { to { opacity: 1; } }
+      /* THE TEXT IN <main> BELOW IS FOR WHAT DOES NOT RUN THE APP: crawlers, Google's OAuth homepage
+         verification, no JavaScript, and a load that failed. It is in the DOM from the first byte,
+         so they read it whatever its display. A reader whose load is merely slow no longer sees it:
+         it used to fade in at 1.2s, which on a cold phone load was most loads, and the page then
+         swapped a centered paragraph for Home, a different page entirely. That reader gets the
+         frame instead (.sd-frame, below). It shows when the boot guard gives up (.sd-failed, with
+         its Reload button) and under <noscript>. */
+      /* styles.css's own reset, here too: under `npm run dev` that sheet arrives by JavaScript, and
+         until then the bar and the frame sat 8px in, which made the dev server's first frames lie. */
+      body { margin: 0; }
+      #app > main { display: none; }
+      #app.sd-failed > main { display: block; }
+      #app.sd-failed > .sd-frame { display: none; }
+      /* Its own inks, per theme: a failed load is often a deploy, when styles.css may be one of
+         the files that did not arrive, and the heading used to fall back to #111 on the dark page. */
+      #app > main h1 { color: rgba(0,0,0,0.87); }
+      #app > main p { color: rgba(0,0,0,0.6); }
+      #app > main a { color: #1565c0; }
+      [data-theme="dark"] #app > main h1 { color: #fff; }
+      [data-theme="dark"] #app > main p { color: rgba(255,255,255,0.7); }
+      [data-theme="dark"] #app > main a { color: #60a5fa; }
 
       /* THE TOOLBAR'S SHAPE, PAINTED FROM THE FIRST BYTE. The text above stays hidden for a beat on
          purpose, so until React mounted there was nothing on screen at all: Lighthouse's mobile run
@@ -134,11 +152,12 @@
          a quarter the moment React replaced it. The scale is recomputed here as --sd-s rather than
          read from --app-chrome, so it holds before the stylesheet does and under `npm run dev`,
          where the stylesheet arrives by JavaScript. Borders are the theme's `divider`. */
-      .sd-bar { --sd-s: 1; border-bottom: 1px solid rgba(0,0,0,0.20); }
+      .sd-bar, .sd-frame { --sd-s: 1; }
+      .sd-bar { border-bottom: 1px solid rgba(0,0,0,0.20); }
       .sd-shell { box-sizing: content-box; height: calc(48px * var(--sd-s));
         display: flex; align-items: center; gap: calc(6px * var(--sd-s)); padding: 0 calc(16px * var(--sd-s)); }
       @media (min-width: 600px) { .sd-shell { padding: 0 calc(24px * var(--sd-s)); } }
-      @media (min-width: 900px) { :root[data-app-scale] .sd-bar { --sd-s: var(--app-scale-desktop, 1); } }
+      @media (min-width: 900px) { :root[data-app-scale] .sd-bar, :root[data-app-scale] .sd-frame { --sd-s: var(--app-scale-desktop, 1); } }
       [data-theme="dark"] .sd-bar { border-bottom-color: rgba(255,255,255,0.22); }
       .sd-shell img { display: block; height: calc(32px * var(--sd-s)); width: auto; }
       [data-theme="dark"] .sd-shell img { filter: invert(1); }
@@ -157,18 +176,25 @@
          Above a phone the tabs sit beside the brand from 1024px (TOOLBAR_NAV_INLINE_MIN) and in a
          40px row of their own below it; on a phone they are the bottom bar, which has no copy
          here because nothing sits under it to be pushed. The icons on the right are not copied:
-         they appear in place without moving anything. */
+         they appear in place without moving anything.
+         The type sizes are TYPE_SCALE's (meta for the switch, body for the tabs, caption for the
+         caret) at a 16px root, pinned in pwaShell.test.ts: the tabs here were 13.6px after the real
+         ones had moved to 12.8, and on a desktop refresh every tab slid 19px left as React took
+         over. The switch's edge is ACCENT_EDGE's two values, solid: a faded edge fails 3:1. */
       .sd-bar .sd-sw { display: grid; grid-template-columns: 1fr 1fr; flex-shrink: 0; margin-left: calc(6px * var(--sd-s)); padding: 2px; border-radius: 999px;
-        border: 1px solid #60a5fa55; background: #60a5fa14; }
+        border: 1px solid #1565c0; background: #60a5fa14; }
+      [data-theme="dark"] .sd-bar .sd-sw { border-color: #60a5fa; }
       .sd-bar .sd-sw b { padding: 5px calc(8.8px * var(--sd-s)); border-radius: 999px; text-align: center; letter-spacing: calc(0.3px * var(--sd-s) * var(--sd-t, 1));
-        font: 800 calc(12px * var(--sd-s) * var(--sd-t, 1))/1 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        font: 800 calc(11.52px * var(--sd-s) * var(--sd-t, 1))/1 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
         color: rgba(0,0,0,0.6); }
       .sd-bar .sd-sw b.on { color: #fff; background: #1565c0; }
       .sd-bar .sd-sw b.on.rb { background: linear-gradient(90deg, #ff3b30, #ff9500, #ffcc00, #34c759, #007aff, #8a88ff, #af52de, #ff3b30);
         background-size: 200% 100%; color: #111; }
+      /* NARROW_BAR in App.tsx: the switch tightens to fit the narrowest phones. */
+      @media (max-width: 359.95px) { .sd-bar .sd-sw { margin-left: 2px; } .sd-bar .sd-sw b { padding: 5px 4.8px; } }
       .sd-bar nav { display: none; align-self: stretch; }
       .sd-bar nav i { position: relative; display: inline-flex; align-items: center; gap: calc(4px * var(--sd-s));
-        padding: 0 calc(10px * var(--sd-s)); font: 600 calc(13.6px * var(--sd-s) * var(--sd-t, 1))/1.5 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        padding: 0 calc(10px * var(--sd-s)); font: 600 calc(12.8px * var(--sd-s) * var(--sd-t, 1))/1.5 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
         font-style: normal; white-space: nowrap; color: rgba(0,0,0,0.6); }
       .sd-bar nav i.on { color: rgba(0,0,0,0.87); }
       .sd-bar nav i.on::after { content: ''; position: absolute; left: calc(10px * var(--sd-s)); right: calc(10px * var(--sd-s)); bottom: 0; height: 3px;
@@ -181,7 +207,33 @@
       /* 14px from the brand in the real bar, less the shell's own 6px gap, which the real bar's
          brand group does not put between itself and the tabs. */
       @media (min-width: 1024px) { .sd-bar .sd-shell nav { display: flex; margin-left: calc(8px * var(--sd-s)); } }
+
+      /* HOME DRAWN EMPTY: its title where the loaded page puts it, so a slow load shows the site's
+         page rather than a blank under the bar, and the section's skeleton lands on it unmoved.
+         Home only, the address nearly every visit opens; other pages show the bar alone. Every
+         number is the real page's, in the same units as the bar: App.tsx's page area (padding 2),
+         WpblApp's column (720px, 4px under the bar on a phone), homeWideSx's breakout above 900px
+         (HOME_W, centered), Home's header row (as tall as a club chip from 600px, title centered in
+         it) and TAB_TITLE_SX. A screen tall, like the page it stands for: the loaded page always
+         scrolls, and a classic scrollbar arriving with it narrowed the centered column by half its
+         width. Measured against the loaded page at 375, 760, 960 and 1440. */
+      .sd-frame { box-sizing: border-box; min-height: 100vh; padding: calc(16px * var(--sd-s)); }
+      .sd-col { max-width: 720px; margin: 4px auto 0; }
+      .sd-h1 { margin: 0; font: 800 calc(16.8px * var(--sd-s) * var(--sd-t, 1))/1.15 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        letter-spacing: calc(-0.3px * var(--sd-s) * var(--sd-t, 1)); color: rgba(0,0,0,0.87); }
+      [data-theme="dark"] .sd-h1 { color: #fff; }
+      @media (min-width: 600px) {
+        .sd-col { margin-top: 0; }
+        .sd-hrow { display: flex; align-items: center; min-height: calc(24px * var(--sd-s) + 8px); }
+      }
+      @media (min-width: 900px) {
+        .sd-col { max-width: calc(720px * var(--sd-s)); }
+        .sd-home { position: relative; left: 50%; transform: translateX(-50%);
+          width: min(1260px, calc(100vw - var(--sd-scrollbar-w, 0px) - 48px * var(--sd-s))); }
+        .sd-h1 { font-size: calc(24px * var(--sd-s) * var(--sd-t, 1)); }
+      }
     </style>
+    <noscript><style>#app > main { display: block; }</style></noscript>
     <title>sportydolphin.fun: MLB & WPBL baseball stats</title>
     <meta name="description" content="sportydolphin.fun is a free baseball stats site for Major League Baseball and the Women's Pro Baseball League. Live scores, player and team stats, standings, and a predictions game. No sign-in required to browse." />
     <!-- NO <link rel="canonical"> HERE, AND THERE MUST NEVER BE ONE. This file is served
@@ -287,12 +339,12 @@
           var sec = document.documentElement.getAttribute('data-app-scale');
           var bar = document.querySelector('.sd-bar');
           if (!sec || !bar) return;
-          var p = location.pathname.replace(/\/+$/, '') || '/';
+          var p = window.__sdOpens || location.pathname;
           var tabs = sec === 'wpbl'
             ? ['Home', 'Scores', 'Standings', 'Stats', 'Teams']
             : ['Home', 'Scores', 'Standings', 'Stats', 'Teams'];
           var lit = sec === 'wpbl'
-            ? (p === '/' || p === '/wpbl' ? 'Home' : (p.match(/^\/wpbl\/(schedule|standings|stats|teams)$/) || [])[1])
+            ? (p === '/wpbl' ? 'Home' : (p.match(/^\/wpbl\/(schedule|standings|stats|teams)$/) || [])[1])
             : (p === '/mlb' ? 'Home' : /^\/mlb\/(leaders|stats|charts)$/.test(p) ? 'Stats'
               : /^\/mlb\/teams(\/|$)/.test(p) ? 'Teams' : (p.match(/^\/mlb\/(scores|standings)$/) || [])[1]);
           lit = lit && lit.charAt(0).toUpperCase() + lit.slice(1);
@@ -302,21 +354,29 @@
           bar.firstChild.insertAdjacentHTML('beforeend',
             '<span class="sd-sw"><b' + (sec === 'mlb' ? ' class="on"' : '') + '>MLB</b><b' + (sec === 'wpbl' ? ' class="on rb"' : '') + '>WPBL</b></span><nav>' + nav + '</nav>');
           bar.insertAdjacentHTML('beforeend', '<nav class="sd-row">' + nav + '</nav>');
+          if (p === '/wpbl') {
+            bar.insertAdjacentHTML('afterend', '<div class="sd-frame" aria-hidden="true"><div class="sd-col"><div class="sd-home">'
+              + '<div class="sd-hrow"><p class="sd-h1">Women\'s Pro Baseball League</p></div></div></div></div>');
+            // The scrollbar the frame just brought, published as lib/scrollbarWidth.ts does, since
+            // the breakout width subtracts it and that module has not run yet.
+            var root = document.documentElement;
+            root.style.setProperty('--sd-scrollbar-w', Math.max(0, window.innerWidth - root.clientWidth) + 'px');
+          }
         })();
       </script>
       <main style="max-width:640px;margin:72px auto;padding:0 24px;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;">
-        <h1 style="font-size:1.9rem;font-weight:800;margin:0 0 12px;color:var(--text-color,#111);">sportydolphin.fun</h1>
-        <p style="font-size:1.05rem;line-height:1.6;color:var(--text-color,#374151);opacity:0.85;margin:0 0 16px;">
+        <h1 style="font-size:1.9rem;font-weight:800;margin:0 0 12px;">sportydolphin.fun</h1>
+        <p style="font-size:1.05rem;line-height:1.6;margin:0 0 16px;">
           A free baseball stats site for Major League Baseball and the Women's Pro Baseball
           League. Browse live scores, player and team stats, standings, and a predictions
           game. No sign-in is required to look around; signing in with Google is optional and
           only used to save your predictions and preferences.
         </p>
-        <p id="sd-boot-status" style="font-size:0.9rem;color:var(--text-color,#6b7280);opacity:0.6;margin:0 0 16px;">Loading the app…</p>
+        <p id="sd-boot-status" style="font-size:0.9rem;margin:0 0 16px;">Loading the app…</p>
         <p style="font-size:0.9rem;margin:0;">
-          <a href="/privacy" style="color:var(--link-color,#2563eb);text-decoration:none;">Privacy Policy</a>
+          <a href="/privacy" style="text-decoration:none;">Privacy Policy</a>
           &nbsp;·&nbsp;
-          <a href="/terms" style="color:var(--link-color,#2563eb);text-decoration:none;">Terms of Service</a>
+          <a href="/terms" style="text-decoration:none;">Terms of Service</a>
         </p>
       </main>
     </div>

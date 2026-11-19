@@ -10,6 +10,9 @@ import { installStaleBuildRecovery } from './lib/staleBuild'
 import { startWebVitals } from './lib/webVitals'
 import { trackLanding } from './lib/landing'
 import { publishScrollbarWidth } from './lib/scrollbarWidth'
+import { loadWpbl } from './sectionLoad'
+import { wpblAppOwnsPath } from './wpbl/routes'
+import { defaultSectionPath } from './lib/defaultSection'
 import './styles.css'
 
 // Before anything can lazy-load: a page left open across a deploy asks for chunks that no longer
@@ -26,6 +29,9 @@ publishScrollbarWidth()
 // the html2canvas capture can be eyeballed without a closed ballot or vote data. Dead in prod.
 const awardsPreview = import.meta.env.DEV
   && new URLSearchParams(window.location.search).has('awardsPreview')
+
+// How long the first render waits for the WPBL chunk; see `sectionReady` below.
+const SECTION_WAIT_MS = 3000
 
 const rootEl = document.getElementById('app')
 if (rootEl) {
@@ -44,6 +50,15 @@ if (rootEl) {
     // happen before the section's first read. App.tsx imports it lazily (see the note there), so it
     // is loaded here and the first render waits for it. The build drops the branch.
     const devReady: Promise<unknown> = import.meta.env.DEV ? import('./dev/DevSettings') : Promise.resolve()
+    // THE SECTION'S CHUNK BEFORE THE FIRST RENDER, on the section's own paths. Rendered without it,
+    // React cleared index.html's static page and painted the section's empty Suspense fallback
+    // until the chunk arrived: a toolbar over a blank screen on every cold load. Waiting keeps the
+    // static page up instead, and sectionLoad.ts lets the section render its skeleton at once. The
+    // static bar is not interactive, so the wait is capped: past it, the fallback is the lesser harm.
+    const opens = window.location.pathname === '/' ? defaultSectionPath() : window.location.pathname
+    const sectionReady: Promise<unknown> = wpblAppOwnsPath(opens)
+      ? Promise.race([loadWpbl().catch(() => { /* lazy() asks again and reports it */ }), new Promise(r => setTimeout(r, SECTION_WAIT_MS))])
+      : Promise.resolve()
     const render = () => root.render(
       <AppThemeProvider>
         <CssBaseline />
@@ -52,7 +67,7 @@ if (rootEl) {
         </AppErrorBoundary>
       </AppThemeProvider>
     )
-    const boot = import.meta.env.DEV ? () => { void devReady.then(render, render) } : render
+    const boot = () => { void Promise.allSettled([devReady, sectionReady]).then(render) }
     // ONE FRAME FIRST, so index.html's toolbar shell is on screen before React's first render
     // takes the main thread. That render is a long uninterrupted task on a phone, and started at
     // once it ran through the frame the shell was due in: production's first paint landed at 2.4s,

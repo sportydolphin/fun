@@ -1,5 +1,5 @@
-import { Box, Skeleton } from '@mui/material'
-import { chromePx, CARD_BORDER, CARD_FILL, TYPE_SCALE } from '../ui'
+import { Box, Skeleton, Typography } from '@mui/material'
+import { chromePx, CARD_BORDER, CARD_FILL, TYPE_SCALE, TAB_TITLE_SX } from '../ui'
 // The dismissal key and the dev-only undo. Their own module so the dev settings menu can reach
 // the undo without dragging this file into the main bundle. See discordInvite.ts.
 import { DISCORD_DISMISS_KEY } from '../discordInvite'
@@ -60,6 +60,13 @@ export function CardSkeleton({ minHeight, titleWidth = '7rem', lines = 3 }: {
   )
 }
 
+/** The page's title, in words rather than a bar: it needs no data, and index.html draws these same
+ *  words in this place before any module runs, so a bar here flashed gray between two copies of the
+ *  title. A div, not WpblHome's heading tag: the loaded page owns the h1. */
+function HomeTitle() {
+  return <Typography component="div" sx={TAB_TITLE_SX}>Women's Pro Baseball League</Typography>
+}
+
 export function WpblHomeSkeleton() {
   // THE OFFSEASON HOME IS A DIFFERENT PAGE, and a skeleton of the in-season one swapped for it
   // moved everything: the scoreboard strip became the taller gallery and the two-by-two grid a
@@ -85,7 +92,7 @@ export function WpblHomeSkeleton() {
         mb: { xs: 0, sm: HEADER_GAP },
       }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Skeleton variant="text" sx={{ width: { xs: '16rem', md: '22rem' }, fontSize: { xs: TYPE_SCALE.heading, md: TYPE_SCALE.page }, lineHeight: 1.15, maxWidth: '100%' }} />
+          <HomeTitle />
         </Box>
         <Box sx={{ display: { xs: 'none', sm: 'flex' }, flexWrap: 'wrap', gap: 0.75, flexShrink: 0 }}>
           {SKELETON_CLUB_CHIPS.map(i => (
@@ -202,7 +209,7 @@ function OffseasonHomeSkeleton() {
         mb: { xs: 0, sm: HEADER_GAP },
       }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Skeleton variant="text" sx={{ width: { xs: '16rem', md: '22rem' }, fontSize: { xs: TYPE_SCALE.heading, md: TYPE_SCALE.page }, lineHeight: 1.15, maxWidth: '100%' }} />
+          <HomeTitle />
         </Box>
         <Box sx={{ display: { xs: 'none', sm: 'flex' }, flexWrap: 'wrap', gap: 0.75, flexShrink: 0 }}>
           {SKELETON_CLUB_CHIPS.map(i => (
