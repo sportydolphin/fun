@@ -1,7 +1,7 @@
 import { PlayerPortrait, TeamBadge } from './ui'
 import { GameLineFrame, formatGameLineLabel } from '../ui/gameLine'
 import { useWpblGameLink, useWpblPlayerLink } from './LinkContext'
-import { boxScoreOf, requestBoxScore } from './entryUrl'
+import { boxLineOf, boxScoreOf, requestBoxScore } from './entryUrl'
 import type { WpblGame, WpblPlayer } from './types'
 
 // One box-score line drawn as a row, for WPBL's Bests and Find: the shared frame (src/ui/gameLine.tsx,
@@ -22,7 +22,7 @@ export function gameLineLabel(game: WpblGame | null, teamId: string | null): str
 
 export default function GameLineRow({
   rank, tied, name, player, teamId, game, detail, value, unit, accent, divider, onOpenPlayer, onOpenGame,
-  nameOpens = 'player', emphasizeRank = true, club = false, opensPlay = false,
+  nameOpens = 'player', emphasizeRank = true, club = false, opensPlay = false, side = 'hitting',
 }: {
   /** The row's place in the list. Omitted draws no number at all. */
   rank?: number
@@ -55,6 +55,8 @@ export default function GameLineRow({
   /** `onOpenGame` opens the game at one play (Find's innings and plate appearances), so the row does
    *  not ask for the box score over it. */
   opensPlay?: boolean
+  /** The board's side, so the box score outlines the pitching line of a pitching record. */
+  side?: 'hitting' | 'pitching'
 }) {
   const playerLink = useWpblPlayerLink()
   const gameLink = useWpblGameLink()
@@ -62,8 +64,9 @@ export default function GameLineRow({
   const link = (() => {
     if (!game) return undefined
     if (opensPlay) return gameLink(game, onOpenGame)
-    const box = boxScoreOf(game, teamId)
-    const built = gameLink(game, onOpenGame && ((g: WpblGame) => { requestBoxScore(g.id, box.side); onOpenGame(g) }))
+    const line = boxLineOf(player, side)
+    const box = boxScoreOf(game, teamId, line)
+    const built = gameLink(game, onOpenGame && ((g: WpblGame) => { requestBoxScore(g.id, box.side, line); onOpenGame(g) }))
     return built.href ? { ...built, href: `${built.href}${box.query}` } : built
   })()
   return (

@@ -236,7 +236,7 @@ function AskBox({ side, parse, onAsk, clubAbbr, name, asking, answer, names }: {
   const scope = best ? scopeWords(best.side, best, clubAbbr, name) : ''
   // A RANKING IS SAID AS ONE: "Highest batting average, vs LHP", where the board's statement of the same
   // question ("AVG at least .001, PA at least 10") reads as a filter nobody asked for.
-  const ranked = best?.rank ? rankWords(best.side, best.per, best.rank, !!best.byClub) : ''
+  const ranked = best?.rank ? rankWords(best.side, best.per, best.rank, !!best.byClub, best.conditions) : ''
   const stated = ranked || (best && (best.conditions.length || !scope) ? describeFinderQuery(best.side, best) : '')
   const said = best ? [stated, scope].filter(Boolean).join(', ') : ''
   const lead = ranked ? '' : best ? GRAIN_LEAD[best.per] : ''
@@ -318,13 +318,21 @@ function AskBox({ side, parse, onAsk, clubAbbr, name, asking, answer, names }: {
   )
 }
 
-/** A ranking in words, the way the search titles it: "Highest batting average", "Most walks in a game". */
-function rankWords(side: FinderBoardSide, per: FinderPer, rank: { lead: string; field: string }, byClub: boolean): string {
+/** A ranking in words, the way the search titles it: "Highest batting average", "Most walks in a game",
+ *  then what cuts it ("Most home runs, bases loaded"). Without the cut, "most grand slams" and "most hr
+ *  with risp" both previewed as the plain leaderboard they are not. The bar a rate brings (`pa`, `ip`)
+ *  is the board's business, not the question's. */
+function rankWords(side: FinderBoardSide, per: FinderPer, rank: { lead: string; field: string }, byClub: boolean,
+  conditions: FinderQuery['conditions'] = []): string {
   const label = finderFields(side, per, true, byClub).find(f => f.key === rank.field)?.label ?? rank.field
   // An initialism keeps its capitals: "Highest OPS", "Lowest ERA".
   const stat = /^[A-Z]{2}/.test(label) ? label : label.toLowerCase()
   const at = per === 'game' ? ' in a game' : per === 'inning' ? ' in an inning' : per === 'pa' ? ' in a plate appearance' : ''
-  return `${rank.lead} ${stat}${at}${byClub ? ' by a club' : ''}`
+  const cuts = conditions.filter(c => c.field !== rank.field && c.field !== 'pa' && c.field !== 'ip')
+  // Mid-sentence, so lower case, except an initialism ("RISP").
+  const cut = cuts.length ? describeFinderConditions(side, { per, conditions: cuts })
+    .map(p => (/^[A-Z]{2}/.test(p.text) ? p.text : p.text.charAt(0).toLowerCase() + p.text.slice(1))) : []
+  return [`${rank.lead} ${stat}${at}${byClub ? ' by a club' : ''}`, ...cut].join(', ')
 }
 
 /**

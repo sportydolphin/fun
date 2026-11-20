@@ -32,7 +32,7 @@ const pit = (o: Partial<WpblPitchingLine>): WpblPitchingLine => ({
 const pa = (o: Partial<PlateAppearanceLine>): PlateAppearanceLine => ({
   id: Math.random().toString(36).slice(2), game_id: 'g1', sequence: 1, inning: 1, half: 'bottom', batter_id: 'a', pitcher_id: 'b',
   batting_team: 'NY', fielding_team: 'LA', event: null, paouts: 0, on: 0, risp: 0, balls: 0, scount: 0, pitches: 3, strikes: 2,
-  fouls: 0, h: 0, doubles: 0, triples: 0, hr: 0, tb: 0, bb: 0, so: 0, hbp: 0, runs: 0, walkoff: 0, hrrow: 0, krow: 0, retired: 0, ...o,
+  fouls: 0, h: 0, doubles: 0, triples: 0, hr: 0, tb: 0, bb: 0, so: 0, hbp: 0, runs: 0, rbi: 0, walkoff: 0, hrrow: 0, krow: 0, retired: 0, ...o,
 })
 const q = (o: Partial<FinderQuery>): FinderQuery => ({ ...EMPTY_FINDER_QUERY, ...o })
 
@@ -109,6 +109,26 @@ describe('cuts', () => {
       q({ per: 'season', conditions: [{ field: 'avg', op: 'gte', value: 1 }, { field: 'risp', op: 'eq', value: 1 }] }), 50, null, opts)
     expect(risp.rows[0].values.avg).toBe(667)
     expect(risp.qualifier).toBeNull()
+  })
+
+  // "most 2 out rbi", "most grand slams", "most walk-off hits": the RBI a season of trips sums are the
+  // scorer's, and a walk-off, a leadoff or a pinch hitter cuts the trips like a situation does.
+  it('sum the RBI and the event flags of the trips that fit', () => {
+    const pas = [
+      pa({ batter_id: 'a', paouts: 2, rbi: 2, runs: 2, h: 1, tb: 1 }), pa({ batter_id: 'a', paouts: 1, rbi: 1, runs: 1, sequence: 2 }),
+      pa({ batter_id: 'a', paouts: 2, rbi: 0, runs: 1, sequence: 3 }),
+      pa({ batter_id: 'a', on: 3, hr: 1, h: 1, tb: 4, rbi: 4, runs: 4, sequence: 4, walkoff: 1 }),
+    ]
+    const opts = { plateAppearances: pas }
+    const twoOut = runWpblFinder('hitting', [], [], PLAYERS, GAMES,
+      q({ per: 'season', conditions: [{ field: 'rbi', op: 'gte', value: 1 }, { field: 'paouts', op: 'eq', value: 2 }] }), 50, null, opts)
+    expect(twoOut.rows.map(r => [r.name, r.values.rbi])).toEqual([['Jaida Lee', 2]])
+    const slams = runWpblFinder('hitting', [], [], PLAYERS, GAMES,
+      q({ per: 'season', conditions: [{ field: 'hr', op: 'gte', value: 1 }, { field: 'on', op: 'eq', value: 3 }] }), 50, null, opts)
+    expect(slams.rows.map(r => r.values.hr)).toEqual([1])
+    const walkoffHits = runWpblFinder('hitting', [], [], PLAYERS, GAMES,
+      q({ per: 'season', conditions: [{ field: 'h', op: 'gte', value: 1 }, { field: 'walkoff', op: 'eq', value: 1 }] }), 50, null, opts)
+    expect(walkoffHits.rows.map(r => r.values.h)).toEqual([1])
   })
 
   // "two out runs team" (Nov 10, 2026): a club's season, its two-out runs off its half-innings, and

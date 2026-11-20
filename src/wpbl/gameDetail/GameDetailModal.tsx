@@ -20,7 +20,8 @@ import { wpblGameCard } from '../ogCard'
 import { ModalShell, SegNav, TeamBadge, CopyLinkButton, pressable, FOCUS_RING, chromePx, TAPPABLE } from '../ui'
 import SwipeableViews from '../SwipeableViews'
 import type { WpblRunValuePlay } from '../types'
-import { PLAY_HASH_RE, takeOpening } from '../entryUrl'
+import { PLAY_HASH_RE, lineHashLine, takeOpening } from '../entryUrl'
+import { BOX_FOCUS_ATTR } from '../../ui/gameCenter'
 import FeedDelayNote from '../FeedDelayNote'
 import { ExpandButton } from '../../ui/ExpandButton'
 import { typePx } from '../../ui/scale'
@@ -128,6 +129,36 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => cached?.lines ?? { batting: [], pitching: [] })
   const [plays, setPlays] = useState<WpblGamePlay[]>(() => cached?.plays ?? [])
+  // THE LINE A STAT LINK CAME FROM, outlined for a moment the way the play log outlines a linked
+  // play (`#line-<player>`, entryUrl.ts): a box score is twenty rows, and a reader who tapped one
+  // number on Find or Bests should not have to hunt for whose it was. Scrolled to until it holds
+  // still, for the same two reasons as the play log: the rows do not exist until the lines land,
+  // and the pane can remount on the first refresh. Then let go, so it never fights the reader.
+  const [focusLine, setFocusLine] = useState(() => lineHashLine(openingHash))
+  const hasBoxLines = lines.batting.length + lines.pitching.length > 0
+  useEffect(() => {
+    if (!focusLine || !hasBoxLines) return
+    let raf = 0
+    let frames = 0
+    let held = 0
+    let lastTop = NaN
+    const settle = () => {
+      // Both clubs are in the DOM and one is hidden below `lg`, so the row that counts is the one
+      // with a box.
+      const el = [...document.querySelectorAll<HTMLElement>(`[${BOX_FOCUS_ATTR}]`)].find(e => e.getClientRects().length > 0)
+      if (el) {
+        const top = el.getBoundingClientRect().top
+        if (Math.abs(top - lastTop) < 1) held++
+        else { held = 0; el.scrollIntoView({ block: 'center' }) }
+        lastTop = top
+        if (held >= 3) return
+      }
+      if (frames++ < 90) raf = requestAnimationFrame(settle)
+    }
+    raf = requestAnimationFrame(settle)
+    const off = setTimeout(() => setFocusLine(null), 2600)
+    return () => { cancelAnimationFrame(raf); clearTimeout(off) }
+  }, [focusLine, hasBoxLines])
   // The freshest plays and box lines, for reload's mid-reinsert guard. Both are a MIRROR the
   // ingest deletes and reinserts wholesale each pass (CLAUDE.md), and reload runs on every
   // realtime change to them, so a fetch can land in the empty gap between the delete and the
@@ -588,6 +619,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
                       pitching={lines.pitching.filter(p => p.team_id === team.id)}
                       names={names}
                       onOpenPlayer={onOpenPlayer}
+                      focusLine={focusLine}
                     />
                   )
                   return (
@@ -658,6 +690,7 @@ export default function GameDetailModal({ game: seed, initialTab, initialSide, t
           pitching={lines.pitching.filter(p => p.team_id === team.id)}
           names={names}
           onOpenPlayer={onOpenPlayer}
+          focusLine={focusLine}
         />
       )}
     />

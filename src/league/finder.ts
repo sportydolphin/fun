@@ -136,12 +136,21 @@ export function hasMatchup(q: Pick<FinderQuery, 'per' | 'batterId' | 'pitcherId'
 // night. "avg with risp" and "hr off whitmore" offered nothing, or the plays with the average dropped,
 // until Nov 10, 2026. Only the situation a trip began in cuts that way, not how it ended.
 export const SITUATION_KEYS: ReadonlySet<string> = new Set(['inn', 'paouts', 'on', 'risp', 'balls', 'scount'])
-/** What such a season can count truthfully: a plate appearance carries no runs scored, RBI or steals. */
-export const PA_SEASON_KEYS: ReadonlySet<string> = new Set(['g', 'pa', 'ab', 'h', '1b', '2b', '3b', 'hr', 'xbh', 'tb', 'bb', 'so', 'hbp', 'sf', 'sh', 'avg', 'obp', 'slg', 'ops'])
+/** Every flag a hitter's season can be cut by: where a trip began, and three things about the trip
+ *  that are not its result, so "most leadoff home runs", "most walk-off hits" and "most grand slams"
+ *  (a home run with the bases loaded) rank players by summing the trips that were one. Until Nov 2026
+ *  those listed every such plate appearance, a list a reader then counted by hand. The parser's
+ *  situations stay `SITUATION_KEYS`: a leadoff or a walk-off said beside a stat is an event, read as
+ *  one, and only "most" turns it into a ranking (`finderAskReadings`). */
+export const PA_CUT_KEYS: ReadonlySet<string> = new Set([...SITUATION_KEYS, 'leadoff', 'walkoff', 'ph'])
+/** What such a season can count truthfully: a plate appearance carries no runs scored or steals. Its
+ *  RBI are the scorer's own, off the narrative (`PlateAppearanceLine.rbi`), which is what lets "most
+ *  two-out RBI" rank anyone: until Nov 2026 it listed the two-out plays a run scored on. */
+export const PA_SEASON_KEYS: ReadonlySet<string> = new Set(['g', 'pa', 'ab', 'h', '1b', '2b', '3b', 'hr', 'xbh', 'tb', 'rbi', 'bb', 'so', 'hbp', 'sf', 'sh', 'avg', 'obp', 'slg', 'ops'])
 
 /** Whether a question's season is summed from plate appearances (see SITUATION_KEYS). */
 export function seasonFromPas(side: FinderBoardSide, q: Pick<FinderQuery, 'per' | 'conditions'> & { hand?: FinderQuery['hand']; pitcherId?: string | null }): boolean {
-  return side === 'hitting' && q.per === 'season' && (!!q.hand || !!q.pitcherId || q.conditions.some(c => SITUATION_KEYS.has(c.field)))
+  return side === 'hitting' && q.per === 'season' && (!!q.hand || !!q.pitcherId || q.conditions.some(c => PA_CUT_KEYS.has(c.field)))
 }
 
 /** Whether the pitcher a query names can be asked at its grain: the matchup's plate appearance, and a
@@ -437,7 +446,7 @@ const POS_FIELD: Field<{ pos: number }> = { key: 'pos', label: 'Position', unit:
 // row on either side, and the pitcher's own two only on Pitching, since a batter has no streak in them.
 // And what the log says of how the trip began or how the ball was hit: leading off the half, a pinch
 // hitter's, a bunt, an infield hit. `hitrow` is the batter's own hits in a row, across games.
-const HIT_PA_KEYS = new Set(['inn', 'paouts', 'on', 'risp', 'walkoff', 'balls', 'scount', 'pitches', 'fouls', 'runs',
+const HIT_PA_KEYS = new Set(['inn', 'paouts', 'on', 'risp', 'walkoff', 'balls', 'scount', 'pitches', 'fouls', 'runs', 'rbi',
   'h', '1b', '2b', '3b', 'hr', 'xbh', 'tb', 'bb', 'so', 'hbp', 'hrrow', 'leadoff', 'ph', 'bunt', 'ifh', 'hitrow'])
 const PIT_PA_KEYS = new Set(['inn', 'paouts', 'on', 'risp', 'walkoff', 'balls', 'scount', 'pitches', 'strikes', 'fouls', 'runs',
   'h', 'hr', 'bb', 'so', 'hbp', 'hrrow', 'krow', 'retired', 'leadoff', 'ph', 'bunt', 'ifh'])
@@ -547,7 +556,7 @@ function askable(side: FinderBoardSide, f: Field<never>, per: FinderPer, plays =
   if (per === 'inning' || per === 'pa') return fineKeys(side, per).has(f.key)
   if (per === 'club') return CLUB_KEYS[side].has(f.key)
   if (per === 'season' && byClub && side === 'hitting') return (CLUB_SEASON_KEYS.has(f.key) && (plays || f.key !== 'r2')) || (plays && SITUATION_KEYS.has(f.key))
-  if (per === 'season' && side === 'hitting' && SITUATION_KEYS.has(f.key)) return plays
+  if (per === 'season' && side === 'hitting' && PA_CUT_KEYS.has(f.key)) return plays
   return !f.fineOnly && !f.clubOnly && (plays || !f.playOnly) && (per === 'season' || !f.seasonOnly) && (per === 'game' || !f.gameOnly)
 }
 
@@ -623,7 +632,7 @@ export function finderLowerBetter(side: FinderBoardSide, key: string): boolean {
 // THE MOST ONE PLATE APPEARANCE CAN HOLD of a field it shares with a game: one of any event, four
 // total bases, four runs. "Strikeouts at least 5" carried from single games to plate appearances
 // matched nothing and showed 0, which read as an answer (Nov 10, 2026).
-const PA_MAX: Record<string, number> = { h: 1, '2b': 1, '3b': 1, hr: 1, bb: 1, so: 1, hbp: 1, tb: 4, runs: 4, leadoff: 1, ph: 1, bunt: 1, ifh: 1 }
+const PA_MAX: Record<string, number> = { h: 1, '2b': 1, '3b': 1, hr: 1, bb: 1, so: 1, hbp: 1, tb: 4, runs: 4, rbi: 4, leadoff: 1, ph: 1, bunt: 1, ifh: 1 }
 
 /** The conditions another grain can still ask: going back to single games drops every rate, and a
  *  plate appearance drops a floor no single trip to the plate can reach. */
@@ -731,7 +740,7 @@ const HIT_CLUB_COLUMNS = ['pa', 'h', 'r', 'hr', 'bb', 'so', 'sb', 'margin']
 const PIT_CLUB_COLUMNS = ['ip', 'h', 'r', 'er', 'bb', 'so', 'pitches', 'margin']
 const FLD_CLUB_COLUMNS = ['tc', 'po', 'a', 'e', 'dp', 'margin']
 const FLD_INNING_COLUMNS = ['inn', 'pos', 'po', 'a', 'e', 'dp']
-const HAND_SEASON_COLUMNS = ['g', 'pa', 'h', 'hr', 'bb', 'so', 'avg', 'obp', 'slg', 'ops']
+const HAND_SEASON_COLUMNS = ['g', 'pa', 'h', 'hr', 'rbi', 'bb', 'so', 'avg', 'obp', 'slg', 'ops']
 // A club's season: the runs and the two-out runs first, which is what a club's season is asked for.
 const CLUB_SEASON_COLUMNS = ['g', 'r', 'r2', 'h', 'hr', 'bb', 'so', 'sb', 'avg', 'ops']
 const COLUMNS: Record<FinderBoardSide, Record<FinderPer, string[]>> = {
@@ -744,13 +753,13 @@ const COLUMNS: Record<FinderBoardSide, Record<FinderPer, string[]>> = {
  *  that the line lacks, in the order asked. */
 export function finderColumns(side: FinderBoardSide, query: Pick<FinderQuery, 'conditions'> & { per?: FinderPer; byClub?: boolean; hand?: FinderQuery['hand']; pitcherId?: string | null }): { key: string; unit: string; label: string }[] {
   // A club's half-inning in the field is every position, so it has no position column. A season
-  // summed from plate appearances carries no runs, RBI or steals, and its situation is a cut on the
+  // summed from plate appearances carries no runs scored or steals, and its situation is a cut on the
   // trips rather than a number on the season, so it has no column either.
   const fromPas = seasonFromPas(side, { per: query.per ?? 'game', conditions: query.conditions, hand: query.hand, pitcherId: query.pitcherId })
   const clubSeason = query.per === 'season' && !!query.byClub && side === 'hitting'
   const keys = (fromPas ? HAND_SEASON_COLUMNS : clubSeason ? CLUB_SEASON_COLUMNS : COLUMNS[side][query.per ?? 'game'])
     .filter(k => !(query.byClub && k === 'pos'))
-  for (const c of query.conditions) if (!keys.includes(c.field) && fieldFor(side, c.field) && !(fromPas && SITUATION_KEYS.has(c.field))) keys.push(c.field)
+  for (const c of query.conditions) if (!keys.includes(c.field) && fieldFor(side, c.field) && !(fromPas && PA_CUT_KEYS.has(c.field))) keys.push(c.field)
   return keys.map(k => { const f = fieldFor(side, k)!; return { key: k, unit: f.unit, label: f.label } })
 }
 
@@ -1400,10 +1409,10 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
   }
   // A HITTER'S SEASON AGAINST ONE ARM, ONE PITCHER OR IN ONE SITUATION is summed from the plate
   // appearances that fit (SITUATION_KEYS), a game line per night, since no box-score line splits by
-  // any of them. Only what a plate appearance says: no runs scored, RBI or steals, which the board's
-  // columns for it leave out (`finderColumns`).
+  // any of them. Only what a plate appearance says: no runs scored or steals, which the board's columns
+  // for it leave out (`finderColumns`).
   if (seasonFromPas(side, query)) {
-    const situation = query.conditions.filter(c => SITUATION_KEYS.has(c.field))
+    const situation = query.conditions.filter(c => PA_CUT_KEYS.has(c.field))
     const situationFields = situation.map(c => ({ c, f: fieldFor(side, c.field) as unknown as Field<PlateAppearanceLine> | null }))
     const nights = new Map<string, BattingGameLine>()
     for (const l of byHand(opts.plateAppearances ?? [])) {
@@ -1419,7 +1428,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
       const sf = l.sf ?? 0, sh = l.sh ?? 0
       n.ab += 1 - l.bb - l.hbp - sf - sh > 0 ? 1 : 0
       n.h += l.h; n.doubles += l.doubles; n.triples += l.triples; n.hr += l.hr; n.tb += l.tb
-      n.bb += l.bb; n.so += l.so; n.hbp += l.hbp; n.sf += sf; n.sh += sh
+      n.bb += l.bb; n.so += l.so; n.hbp += l.hbp; n.sf += sf; n.sh += sh; n.rbi += l.rbi
       nights.set(key, n)
     }
     return collect([...nights.values()], [...HIT_FIELDS, ...HIT_SEASON_FIELDS] as Field<BattingGameLine>[],
@@ -1428,7 +1437,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
       // The season's bar is for a whole season; a cut this narrow brings its own (the search's rows
       // ask for a few plate appearances), so the board's is not put on top of it.
       { field: 'pa', own: ['pa', 'ab'], min: query.hand && !query.pitcherId && !situation.length && !query.byClub ? qualify?.minPa : undefined },
-      undefined, query.conditions.filter(c => !SITUATION_KEYS.has(c.field)))
+      undefined, query.conditions.filter(c => !PA_CUT_KEYS.has(c.field)))
   }
   if (season && query.byClub) {
     // A CLUB'S SEASON: its games (`sum`), each with the two-out runs its half-innings scored, summed

@@ -5,15 +5,18 @@ import { useWpblPlayerLink } from '../LinkContext'
 import { BoxTable, BOX_POS_SX } from '../../ui/gameCenter'
 import { usePhoneLayout, wpblFeatureName } from '../ui'
 import type { WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine } from '../types'
+import type { BoxLine } from '../entryUrl'
 import { BAT_COLS, PIT_COLS, buildBattingRows, BOX_NAME_MAX } from './shared'
 import { TYPE_SCALE } from '../../ui/card'
 
-export function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
+export function TeamBox({ team, batting, pitching, names, onOpenPlayer, focusLine = null }: {
   team: WpblTeam
   batting: WpblBattingLine[]
   pitching: WpblPitchingLine[]
   names: Map<string, WpblPlayer>
   onOpenPlayer?: (p: WpblPlayer) => void
+  /** The line a link landed on (`#line-`), outlined. */
+  focusLine?: BoxLine | null
 }) {
   const isDark = useDark()
   const isMobile = usePhoneLayout()
@@ -48,11 +51,13 @@ export function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
   if (battingRows.length === 0 && pitching.length === 0) return null
 
   // A name opens the player where the roster knows who it is; the feed's id is all a line has.
-  const nameFor = (playerId: string) => {
+  const nameFor = (playerId: string, table: BoxLine['table']) => {
     const p = names.get(playerId)
     return {
       name: p ? boxName(p.name) : '—',
       nameProps: p && onOpenPlayer ? playerLink(p, onOpenPlayer) as Record<string, unknown> : undefined,
+      // Through the name map, because a line carries the feed's id and the link the site's.
+      focus: focusLine?.table === table && (p?.id ?? playerId) === focusLine.playerId,
     }
   }
   return (
@@ -63,7 +68,7 @@ export function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
             head="Batting" dense={isMobile} rule={color} hoverColor={color}
             cols={batCols.map(c => ({ key: c.key as string, label: c.label, bold: c.key === 'h' }))}
             rows={battingRows.map(({ b, isSub }) => ({
-              key: b.id, isSub, ...nameFor(b.player_id),
+              key: b.id, isSub, ...nameFor(b.player_id, 'batting'),
               suffix: b.position ? <Typography component="span" sx={BOX_POS_SX}>{b.position}</Typography> : null,
               cells: batCols.map(c => Number(b[c.key]) || 0),
             }))}
@@ -80,7 +85,7 @@ export function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
           head="Pitching" dense={isMobile} rule={color} hoverColor={color}
           cols={[{ key: 'ip', label: 'IP', bold: true, w: 32 }, ...PIT_COLS.map(c => ({ key: c.key as string, label: c.label }))]}
           rows={pitching.map(p => ({
-            key: p.id, ...nameFor(p.player_id),
+            key: p.id, ...nameFor(p.player_id, 'pitching'),
             suffix: p.decision ? <Typography component="span" sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color, lineHeight: 1 }}>({p.decision})</Typography> : null,
             cells: [outsToIp(p.outs), ...PIT_COLS.map(c => (p[c.key] == null ? null : Number(p[c.key])))],
           }))}

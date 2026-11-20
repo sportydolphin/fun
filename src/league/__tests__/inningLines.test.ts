@@ -106,6 +106,19 @@ describe('inningPitchingLines', () => {
 })
 
 describe('plateAppearanceLines', () => {
+  // The scorer's own RBI, off the narrative: summed per batter, the runs on the play gave 2026 586 RBI
+  // against the box scores' 552, every one of the extra a run an error or a double play let in.
+  it('reads the RBI the scorer wrote, not the runs that scored', () => {
+    const [two, err, solo, none] = plateAppearanceLines(WPBL_LEAGUE, [
+      play({ batter_id: 'b1', event_type: 'single', pitch_sequence: 'P', runs_scored: 2, narrative: 'Ann Lee singled to left field, 2 RBI (0-0); Bo Diaz scored; Cy Fox scored.' }),
+      play({ batter_id: 'b2', event_type: 'single', pitch_sequence: 'P', runs_scored: 2, narrative: 'Ann Lee singled to shortstop, RBI (0-0); Bo Diaz scored on a throwing error by ss; Cy Fox scored.' }),
+      play({ batter_id: 'b3', event_type: 'home_run', pitch_sequence: 'P', runs_scored: 0, narrative: 'Ann Lee homered to left field, RBI (0-0).' }),
+      play({ batter_id: 'b4', event_type: 'unknown', pitch_sequence: 'P', runs_scored: 1, narrative: 'Ann Lee reached first on an error by 3b (0-0); Bo Diaz scored, unearned.' }),
+    ], [game()])
+    expect([two.rbi, err.rbi, solo.rbi, none.rbi]).toEqual([2, 1, 1, 0])
+    expect([two.runs, err.runs, solo.runs, none.runs]).toEqual([2, 2, 1, 1])
+  })
+
   it('reads the count before the last pitch, with the foul rule', () => {
     // B, K, F, F, F, then in play: 1-2 when the ball was hit, since a foul with two strikes is no strike.
     const [pa] = plateAppearanceLines(WPBL_LEAGUE, [play({ batter_id: 'kim', event_type: 'home_run', pitch_sequence: 'BKFFFP' })], [game()])

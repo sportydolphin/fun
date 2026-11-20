@@ -23,6 +23,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.247.0',
+    date:    '2026-11-20',
+    changes: [
+      {
+        short: 'Box score: the line you came for is outlined',
+        full:  'A game opened from a row on Find or Bests lands on the box score scrolled to that player’s line, outlined for a moment, the way a linked play is in the play-by-play.',
+      },
+      {
+        short: 'Find and search: RBI by situation, and "most" rankings',
+        full:  'RBI now count by situation: "most 2 out RBI", "most RBI with RISP", "most RBI vs lefties" each rank the hitters. "Most grand slams", "most walk-off hits", "most leadoff home runs" and the like rank the hitters too, instead of listing every play. Each RBI is the official scorer’s, so a run in on an error or a double play is not one.',
+      },
+    ],
+  },
+  {
     version: '1.246.0',
     date:    '2026-11-20',
     changes: [

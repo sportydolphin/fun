@@ -241,7 +241,7 @@ const FIRST: [string, string][] = [
   ['2 run homer', 'find: Two-run home runs (Batting, plate appearances)'],
   ['solo home runs', 'find: Solo home runs (Batting, plate appearances)'],
   ['first pitch home runs', 'find: First-pitch home runs (Batting, plate appearances)'],
-  ['two out rbi', 'find: 2 out and Runs on the play at least 1 (Batting, plate appearances)'],
+  ['two out rbi', 'find: Two-out RBI (Batting, plate appearances)'],
   ['walk off wins', 'find: Walk-offs (Batting, plate appearances)'],
   ['one run games', 'find: One-run games (Batting, club games)'],
   ['one run losses', 'find: One-run losses (Batting, club games)'],
@@ -278,7 +278,21 @@ const FIRST: [string, string][] = [
   ['team hits with risp', 'leader: Most hits with RISP by a team'],
   ['team ops with runners on', 'leader: Highest OPS with runners on by a team'],
   // A batter's runs driven in with two out stay the plays, and a rally stays the innings.
-  ['two out rbi', 'find: 2 out and Runs on the play at least 1 (Batting, plate appearances)'],
+  ['two out rbi', 'find: Two-out RBI (Batting, plate appearances)'],
+  // "MOST" OF A KIND OF PLATE APPEARANCE RANKS THE HITTERS (Nov 20, 2026): the RBI are the scorer's,
+  // read off each play, so a season of them can be cut by the situation, and "most grand slams" sums
+  // each hitter's bases-loaded home runs. Before, each listed the plays and left the counting to you.
+  ['most 2 out rbi', 'leader: Most runs batted in with 2 outs'],
+  ['two out rbi leaders', 'leader: Most two-out RBI'],
+  ['most rbi with risp', 'leader: Most runs batted in with RISP'],
+  ['most rbi with the bases loaded', 'leader: Most runs batted in with the bases loaded'],
+  ['most rbi vs rhp', 'leader: Most runs batted in vs RHP'],
+  ['most grand slams', 'leader: Most grand slams'],
+  ['most two run homers', 'leader: Most two-run home runs'],
+  ['most leadoff home runs', 'leader: Most leadoff home runs'],
+  ['most walk-off hits', 'leader: Most walk-off hits'],
+  ['most pinch hit home runs', 'leader: Most pinch-hit home runs'],
+  ['grand slams', 'find: Grand slams (Batting, plate appearances)'],
   ['two out rally', 'find: Two-out rallies (Batting, single innings)'],
 ]
 
