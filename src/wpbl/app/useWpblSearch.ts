@@ -492,8 +492,9 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
         const title = ask.season == null ? named : `${named} of ${ask.season}`
         const key = `first-${kind}-${ask.which ?? 'first'}-${ask.season ?? 'ever'}-${owner?.id ?? ask.teamId ?? 'league'}`
         if (!found || !game) {
-          // AN NTH STILL TO COME is an answer too: how many so far, opening the list of them.
-          const href = typeof ask.which === 'number' ? listHref(kind, owner) : null
+          // AN NTH STILL TO COME is an answer too: how many so far, opening the list of them. Not on a
+          // bare ask ("Hunters 100th"), which names every headline kind and would list each one's count.
+          const href = typeof ask.which === 'number' && !ask.bare ? listHref(kind, owner) : null
           if (href) out.push({ key, title, detail: `${(ask.which as number) - need} so far · ${need} to go`, href, open: () => {} })
           continue
         }

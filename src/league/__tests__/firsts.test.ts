@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { findFirsts, firstFindText, occurrenceTitle, occurrences, ordinal, parseFirstText } from '../firsts'
+import { FIRST_KINDS, findFirsts, firstFindText, occurrenceTitle, occurrences, ordinal, parseFirstText } from '../firsts'
 import { plateAppearanceLines } from '../inningLines'
 import type { LeagueGame, RunValuePlay } from '../types'
 import { WPBL_LEAGUE } from '../../wpbl/league'
@@ -193,6 +193,16 @@ describe('lasts and milestones', () => {
     expect(ask('the 500th strikeout of 2026')).toEqual({ kinds: ['so'], season: 2026, which: 500 })
     expect(ask('whitmore tenth home run')).toEqual({ kinds: ['hr'], season: null, who: 'whitmore', which: 10 })
     expect(ask('1st home run')).toEqual({ kinds: ['hr'], season: null })
+  })
+
+  // Logged misses of Nov 2026: the reader was one word from an answer and the box offered nothing.
+  it('reads an owner and an order word with no play yet as every headline kind', () => {
+    const listed = FIRST_KINDS.filter(k => k.listed).map(k => k.kind)
+    expect(ask('hunters 100th')).toEqual({ kinds: listed, season: null, teamId: 'BOS', which: 100, bare: true })
+    expect(ask('hunters first')).toEqual({ kinds: listed, season: null, teamId: 'BOS', bare: true })
+    expect(ask('first whitmore')).toEqual({ kinds: listed, season: null, who: 'whitmore', bare: true })
+    expect(ask('hunters last 2026')).toEqual({ kinds: listed, season: 2026, teamId: 'BOS', which: 'last', bare: true })
+    for (const t of ['first', 'last', 'hunters last 10']) expect(ask(t), t).toBeNull()
   })
 
   // An inning, a base, a count of games: Find's questions, which a first must not swallow.

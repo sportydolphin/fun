@@ -101,7 +101,11 @@ export const firstKind = (kind: FirstKind): KindDef => KIND_BY_ID.get(kind)!
  *  `teamId` is a club the words named ("first Hunters double"); `who` is any other owner, as typed
  *  ("Whitmore first hit"), for the section to find on its roster. Neither is set for the league's.
  *  `which` is the last one ("last Hunters double") or the Nth ("Hunters 100th hit"); absent is the first. */
-export interface FirstQuestion { kinds: FirstKind[]; season: number | null; teamId?: string; who?: string; which?: 'last' | number }
+export interface FirstQuestion {
+  kinds: FirstKind[]; season: number | null; teamId?: string; who?: string; which?: 'last' | number
+  /** No play was typed ("Hunters 100th"): every headline kind, of which only those found are rows. */
+  bare?: boolean
+}
 
 // The question around a first that names nobody: "who hit the", "the wpbl's", "when was the".
 const PREAMBLE = /^\s*(?:(?:who|what|when|where)\s+(?:hit|had|got|threw|recorded|was|were|turned|stole|committed|did)\s+)?(?:the\s+)?(?:(?:wpbl|league)(?:['’]s)?\s*)?$/i
@@ -153,7 +157,9 @@ export function parseFirstText(text: string, clubs: readonly { id: string; names
     const club = clubs.find(c => c.names.some(n => fold(n) === fold(own[1])))
     if (club) return { kinds: FIRST_KINDS.filter(k => k.listed).map(k => k.kind), season: own[2] ? Number(own[2]) : null, teamId: club.id }
   }
-  const t = text.replace(/\?\s*$/, '').trim()
+  // The trailing space lets an order word end the text ("Hunters 100th"), which ORDER_WORD needs a
+  // space after.
+  const t = `${text.replace(/\?\s*$/, '').trim()} `
   const lead = t.match(ORDER_WORD)
   if (!lead) return null
   const which = whichOf(lead[2], lead[3])
@@ -162,8 +168,9 @@ export function parseFirstText(text: string, clubs: readonly { id: string; names
   const pre = PREAMBLE.test(lead[1]) ? '' : lead[1].replace(/^\s*(?:(?:who|what|when|where)\s+\S+\s+)?(?:the\s+)?/i, '').replace(/['’]s?\s*$/, '').trim()
   let rest = t.slice(lead[0].length).toLowerCase().trim()
   let season: number | null = null
-  const s = rest.match(SEASON_TAIL)
-  if (s) { season = Number(s[1]); rest = rest.slice(0, s.index).trim() }
+  // A space in front, so a year with no play before it ("Hunters last 2026") is still the season.
+  const s = ` ${rest}`.match(SEASON_TAIL)
+  if (s) { season = Number(s[1]); rest = ` ${rest}`.slice(0, s.index).trim() }
   let post = ''
   // "in Hunters history": the club's history, said where the league's would be.
   const hist = rest.match(IN_HISTORY)
@@ -193,7 +200,25 @@ export function parseFirstText(text: string, clubs: readonly { id: string; names
     if (club) return { ...q, teamId: club.id }
     return owner.length >= 2 ? { ...q, who: owners[0].replace(/['’]s?$/, '').trim() } : null
   }
-  return null
+  return bareOwner(pre, rest, post, season, which, clubs)
+}
+
+/**
+ * An owner and an order word with no play yet: "Hunters 100th", "first Whitmore", "Hunters last". The
+ * headline kinds for that owner, `bare` so the section keeps only the ones that happened. Until Nov 20,
+ * 2026 these offered nothing while the reader was one word from an answer ("hunters 100th" was a
+ * logged miss). Only one place may hold the owner, and never a grain or a count ("first inning").
+ */
+function bareOwner(pre: string, rest: string, post: string, season: number | null, which: FirstQuestion['which'],
+  clubs: readonly { id: string; names: string[] }[]): FirstQuestion | null {
+  const owners = [pre, rest, post].filter(Boolean)
+  if (owners.length !== 1 || NOT_AN_OWNER.test(owners[0])) return null
+  const owner = fold(owners[0])
+  if (owner.length < 3 || owner === 'wpbl' || owner === 'league') return null
+  const q: FirstQuestion = { kinds: FIRST_KINDS.filter(k => k.listed).map(k => k.kind), season, bare: true, ...(which != null ? { which } : {}) }
+  const club = clubs.find(c => c.names.some(n => fold(n) === owner || `${fold(n)}s` === owner))
+  if (club) return { ...q, teamId: club.id }
+  return /^[a-z][a-z .'’-]*$/.test(owner) ? { ...q, who: owners[0].replace(/['’]s?$/, '').trim() } : null
 }
 
 /** One of them: the play it happened on, and whose it was. */

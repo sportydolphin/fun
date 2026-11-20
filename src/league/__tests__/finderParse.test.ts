@@ -287,6 +287,10 @@ describe('nameWords', () => {
     expect(nameWords('bunt hits')).toBeNull()
     expect(nameWords('late innings')).toBeNull()
     expect(nameWords('average runs per game')).toBeNull()
+    // The Nov 20, 2026 probe: each reached a World Cup player or Team USA the same way.
+    for (const t of ['triple play', 'highest wpa play', 'triple crown', 'home runs by month', 'most hits in a week', 'team ops', 'team defense', 'record in extra innings'])
+      expect(nameWords(t), t).toBeNull()
+    expect(nameWords('hunters runs per game')).toBe('hunters')
   })
 
   it('reads "era" as the stat, never one earned run', () => {

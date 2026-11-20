@@ -1458,8 +1458,11 @@ export function nameWords(text: string): string | null {
 
 // Baseball words no stat phrase takes, left beside a stat. Searched as a name they reached a player
 // through the typo pass: "bunt hits" was Kate Blunt's hits, "late innings" Kate Blunt's innings and
-// "average runs per game" Valerie Perez (Nov 10, 2026).
-const NOT_NAMES = /^(?:per|bunts?|late|early|infield|pinch|blown|quality|leadoff)$/
+// "average runs per game" Valerie Perez (Nov 10, 2026). The Nov 20 probe found more of the same, all
+// through the World Cup's typo pass: "triple play" and "highest wpa play" were Kamila Plata, "triple
+// crown" Bailey Brown, "home runs by month" a Montoya, "most hits in a week" Maud Werkman, and "team
+// ops" Team USA. No WPBL player's name holds one of these words.
+const NOT_NAMES = /^(?:per|bunts?|late|early|infield|pinch|blown|quality|leadoff|plays?|crown|months?|weeks?|teams?|clubs?|record|extra|defense)$/
 
 // ─── Two players ──────────────────────────────────────────────────────────────
 
