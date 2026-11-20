@@ -19,6 +19,7 @@ import { WPBL_FINDER_CLUBS, WPBL_FINDER_OPTS, WPBL_FINDER_SIDES, wpblFinderHref 
 import { WPBL_TEAMS } from './wpbl/constants'
 import { WPBL_GLOSSARY_PAGE, wpblSeriesPath, wpblTeamPath } from './wpbl/routes'
 import { askedTerms, glossaryTermKey } from './league/glossary'
+import { inningRecord, recordFinder, scopedRankFinder } from './league/finderAsk'
 import { parsePaRecord, type PaRecordQuestion } from './league/paRecords'
 import { parsePlayerQuestion, type RosterPlayer } from './league/playerQuestion'
 import { positionFilterDef } from './league/positionFilter'
@@ -68,19 +69,6 @@ export function paRecordQuestion(section: FinderSection, text: string): PaRecord
     // A club alone ("Firebells") reads as no condition, which is fine: the record is theirs.
     return p ? { conditions: p.conditions, teamId: p.teamId, oppId: p.oppId, venue: p.venue } : null
   })
-}
-
-// "most runs in an inning", "biggest innings": the inning record, which neither the leaders (season
-// totals) nor the Bests boards (one game) hold. The Find board already lists its matches highest
-// first by the question's stat, so "at least 1, in an inning" IS that ranking. WPBL only: MLB has no
-// play log to cut into innings.
-const INNING_MOST = /^\s*(?:what\s+(?:is|was|were|are)\s+)?(?:the\s+)?(?:most|highest|greatest)\s+(.+?)\s+in\s+(?:an?|one|a\s+single)\s+(?:half[\s-]+)?inning\s*\??\s*$/i
-const BIGGEST_INNING = /^\s*(?:the\s+)?(?:biggest|largest)\s+innings?\s*\??\s*$/i
-
-function inningRecord(text: string): { text: string; stat: string } | null {
-  if (BIGGEST_INNING.test(text)) return { text: '1+ runs in an inning', stat: 'runs' }
-  const m = text.match(INNING_MOST)
-  return m ? { text: `1+ ${m[1]} in an inning`, stat: m[1] } : null
 }
 
 // ─── Titles in the reader's words ─────────────────────────────────────────────
@@ -602,7 +590,7 @@ export function recordSuggestions(section: FinderSection, text: string): RecordS
     const bests = board && r.side !== 'fielding' && !r.teamId && !r.oppId && r.venue === 'any' && r.season == null
     if (bests && (!field || section === 'mlb')) return bestsRow(r.side as FinderSide, board)
     if (!field) return []
-    const parsed = { ...r, conditions: [{ field: r.field, op: 'gte' as const, value: 1 }], ignored: [] }
+    const parsed = recordFinder(r)
     const href = section === 'mlb' ? mlbFinderHref({ ...parsed, side: r.side === 'pitching' ? 'pitching' : 'hitting' }) : wpblFinderHref(parsed)
     if (seen.has(href)) return []
     seen.add(href)
@@ -652,22 +640,16 @@ function situationWords(situation: FinderCondition[]): string[] {
 export function scopedRankSuggestions(section: FinderSection, text: string): RecordSuggestion[] {
   return parseScopedRank(text, sectionClubs(section), section === 'wpbl' ? WPBL_FINDER_OPTS : {}).flatMap(r => {
     const field = finderFields(r.side, 'season', true, !!r.byClub).find(f => f.key === r.field)
-    if (!field) return []
+    const parsed = scopedRankFinder(r)
+    if (!field || !parsed) return []
     // MLB's board reads no cut off its address, so a cut there is no row.
     if (section === 'mlb' && (r.from || r.to || r.last || r.hand || r.byClub)) return []
-    // A rate's low end can be the good one (ERA), so it asks for every season (at least 0) and the board
-    // ranks it; a count asks for at least one. A rate over a cut carries its own smaller bar.
-    const lower = rankLowerBetter(r.side, r.field)
-    const rate = !!r.bar || (!!r.byClub && ['avg', 'obp', 'slg', 'ops'].includes(r.field))
     const situation = r.situation ?? []
-    const conditions = [{ field: r.field, op: 'gte' as const, value: rate && lower ? 0 : 1 },
-      ...(r.bar ? [{ field: r.bar.field, op: 'gte' as const, value: r.bar.value }] : []), ...situation]
-    const parsed = { ...r, per: 'season' as const, conditions, ignored: [] }
     const href = section === 'mlb' ? mlbFinderHref(parsed) : wpblFinderHref(parsed)
     const where = [...situationWords(situation), r.oppId && `vs ${clubLabel(section, r.oppId)}`, r.teamId && `for ${clubLabel(section, r.teamId)}`,
       r.venue === 'home' ? 'at home' : r.venue === 'away' ? 'on the road' : null, ...cutBits(r.side, { ...r, per: 'season' }),
       r.season && String(r.season), r.byClub && !r.teamId && 'by a team'].filter(Boolean)
-    const lead = rate ? (lower ? 'Lowest' : 'Highest') : 'Most'
+    const lead = parsed.rank!.lead
     return [{
       // "Highest batting average", "Highest OPS": an initialism keeps its capitals.
       key: `scoped-${href}`, title: [`${lead} ${/^[A-Z]{2}/.test(field.label) ? field.label : field.label.toLowerCase()}`, ...where].join(' '),

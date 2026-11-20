@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { EMPTY_FINDER_QUERY } from '../../league/finder'
 import { parseFinderText } from '../../league/finderParse'
-import { parsePlayerQuestion } from '../../league/playerQuestion'
-import { askedFinderQuery, WPBL_FINDER_CLUBS, WPBL_FINDER_OPTS, WPBL_FINDER_SIDES, wpblFinderRoster } from '../finderLink'
+import { nameSuggestions } from '../../league/playerQuestion'
+import { recordSuggestions, scopedRankSuggestions } from '../../finderSearch'
+import { askedFinderQuery, WPBL_FINDER_CLUBS, WPBL_FINDER_OPTS, WPBL_FINDER_SIDES, wpblAskReadings, wpblFinderHref, wpblFinderRoster } from '../finderLink'
 
 // The Find board's own "Ask in words" box. It read no names until Nov 19, 2026: "hondras vs rhp" was
 // not a question at all, and "hondras hits vs rhp" asked everyone's hits with the name ignored. It also
@@ -14,8 +15,7 @@ const ROSTER = wpblFinderRoster(
   [{ player_id: 'h', ab: 4, bb: 1, hbp: 0, sf: 0, sh: 0 }],
   [{ player_id: 'w', bf: 20, outs: 15 }],
 )
-const read = (text: string) => parsePlayerQuestion(text, ROSTER, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS)
-  .map(q => ({ ...q, ignored: [] }))
+const read = (text: string) => wpblAskReadings(text, ROSTER)
 
 describe('wpblFinderRoster', () => {
   it('knows who hit and who pitched, and leaves out anyone with no line', () => {
@@ -44,5 +44,46 @@ describe('askedFinderQuery', () => {
   it('keeps the player picked on the board when the typed question names none', () => {
     const r = parseFinderText('3 hits', WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS)[0]
     expect(askedFinderQuery({ ...EMPTY_FINDER_QUERY, playerId: 'h', hand: 'L' }, r)).toMatchObject({ playerId: 'h', hand: null })
+  })
+})
+
+describe('a ranking or a record in the Find box', () => {
+  const href = (text: string) => { const r = read(text)[0]; return r ? `${r.rank?.lead ?? ''} ${wpblFinderHref(r)}` : null }
+
+  it('reads what the search reads as a ranking, the same question both ways', () => {
+    expect(href('avg vs lefties')).toBe('Highest /wpbl/stats?board=find&side=hitting&q=season~hand.l~avg.gte.1~pa.gte.10')
+    expect(href('era at home')).toBe('Lowest /wpbl/stats?board=find&side=pitching&q=season~era.gte.0~ip.gte.15&venue=home')
+    // The search's row opens the very link the box asks: one reader, not two copies.
+    for (const text of ['avg vs lefties', 'era at home', 'hr vs boston']) {
+      expect(scopedRankSuggestions('wpbl', text)[0].href).toBe(wpblFinderHref(read(text)[0]))
+    }
+  })
+
+  it('reads a record at any grain, and a season one as the leaders', () => {
+    expect(href('most walks in a game')).toBe('Most /wpbl/stats?board=find&side=hitting&q=bb.gte.1')
+    expect(href('most hr in an inning')).toBe('Most /wpbl/stats?board=find&side=hitting&q=inning~hr.gte.1')
+    expect(href('most hr')).toBe('Most /wpbl/stats?board=find&side=hitting&q=season~hr.gte.1')
+    expect(recordSuggestions('wpbl', 'most walks in a game')[0].href).toBe(wpblFinderHref(read('most walks in a game')[0]))
+  })
+
+  it('leaves a plain question plain', () => {
+    expect(href('3 hits')).toBe(' /wpbl/stats?board=find&side=hitting&q=h.gte.3')
+  })
+})
+
+describe('nameSuggestions', () => {
+  const roster = wpblFinderRoster(
+    [{ id: 'h', name: 'Amira Hondras' }, { id: 's1', name: 'Ayami Sato' }, { id: 's2', name: 'Kana Sato' }],
+    [{ player_id: 'h', ab: 4, bb: 0, hbp: 0, sf: 0, sh: 0 }, { player_id: 's1', ab: 4, bb: 0, hbp: 0, sf: 0, sh: 0 }, { player_id: 's2', ab: 4, bb: 0, hbp: 0, sf: 0, sh: 0 }],
+    [],
+  )
+  const names = (text: string) => nameSuggestions(text, roster, WPBL_FINDER_CLUBS).map(n => n.text)
+
+  it('finishes a name being typed', () => expect(names('hond')).toEqual(['Amira Hondras']))
+  it('catches a slip in a surname', () => expect(names('hondars vs rhp')).toEqual(['Amira Hondras vs rhp']))
+  it('offers each player a shared surname could be', () => expect(names('sato 2 hits')).toEqual(['Ayami Sato 2 hits', 'Kana Sato 2 hits']))
+  it('leaves a whole name, and a question word, alone', () => {
+    expect(names('hondras vs rhp')).toEqual([])
+    expect(names('hits')).toEqual([])
   })
 })

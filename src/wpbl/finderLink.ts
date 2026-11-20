@@ -5,7 +5,8 @@
 
 import type { FinderClubAlias, ParsedFinder } from '../league/finderParse'
 import { encodeFinderQuery, type FinderBoardSide, type FinderQuery } from '../league/finder'
-import type { RosterPlayer } from '../league/playerQuestion'
+import { finderAskReadings } from '../league/finderAsk'
+import { parsePlayerQuestion, type RosterPlayer } from '../league/playerQuestion'
 import type { FinderReading } from '../ui/finderBoard'
 import type { WpblBattingLine, WpblPitchingLine, WpblPlayer } from './types'
 import { WPBL_TEAMS } from './constants'
@@ -76,4 +77,17 @@ export function askedFinderQuery(query: FinderQuery, r: FinderReading): FinderQu
     ...(named ? { playerId: r.playerId ?? null, batterId: r.batterId ?? null, pitcherId: r.pitcherId ?? null }
       : r.per === 'pa' ? {} : { batterId: null, pitcherId: null }),
   }
+}
+
+/**
+ * Every reading of a typed question, best first, the way WPBL's Find box reads it: a name first
+ * ("Hondras vs RHP" is her season, not everyone's with her name ignored), then a ranking, a record
+ * and the plain question (src/league/finderAsk.ts), which the search's own rows are built from too.
+ */
+export function wpblAskReadings(text: string, roster: readonly RosterPlayer[]): FinderReading[] {
+  return [
+    ...parsePlayerQuestion(text, roster, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS)
+      .map(({ rank, ...q }) => ({ ...q, ignored: [], ...(rank ? { rank: { lead: rank.rate ? 'Highest' as const : 'Most' as const, field: rank.field } } : {}) })),
+    ...finderAskReadings(text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS),
+  ]
 }
