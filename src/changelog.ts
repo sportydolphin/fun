@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.243.1',
+    date:    '2026-11-19',
+    changes: [
+      {
+        short: 'Search: opens faster on phones',
+        full:  'The search opens on the first tap on a phone, without waiting to load, and its box slides into place on wider screens.',
+      },
+    ],
+  },
+  {
     version: '1.243.0',
     date:    '2026-11-19',
     changes: [

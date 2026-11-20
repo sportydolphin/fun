@@ -957,17 +957,31 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       maxWidth={false}
       aria-label="Search the site"
       sx={{ '& .MuiDialog-container': { alignItems: 'flex-start' } }}
+      // Quicker than MUI's 225/195: the box answers a tap, and a long fade reads as lag.
+      transitionDuration={{ enter: 180, exit: 120 }}
       slotProps={{
         // A DEEPER SCRIM, softened. MUI's half-black barely changes a page that is already near black,
         // so in the dark theme the results table behind read as part of the box (Nov 10, 2026 audit).
-        backdrop: { sx: { bgcolor: 'rgba(0, 0, 0, 0.62)', backdropFilter: 'blur(2px)' } },
-        paper: { sx: {
+        // The blur only under a mouse: on a phone it redrew the whole page through a filter on every
+        // frame of the fade, which is where the open stuttered, and 2px under 62% black barely shows.
+        backdrop: { sx: { bgcolor: 'rgba(0, 0, 0, 0.62)', '@media (hover: hover) and (pointer: fine)': { backdropFilter: 'blur(2px)' } } },
+        paper: { sx: theme => ({
+        // A SHORT DROP INTO PLACE above a phone. Not on a phone: the keyboard rises in the same moment
+        // and moves the viewport, so a box also sliding there reads as two motions fighting; the fade
+        // alone is calmer. Opening only; the close is the quick fade.
+        '@keyframes cmdkIn': {
+          from: { transform: 'translateY(-6px) scale(0.985)' },
+          to: { transform: 'none' },
+        },
+        [`${theme.breakpoints.up('sm')} and (prefers-reduced-motion: no-preference)`]: {
+          animation: 'cmdkIn 180ms cubic-bezier(0.2, 0, 0, 1)',
+        },
         width: `min(${chromePx(600)}, calc(100vw - 32px))`,
         // Near the top on a phone, so the rows sit above the on-screen keyboard rather than under it.
         m: 2, mt: { xs: 1.5, sm: '10vh' },
         maxHeight: { xs: 'min(75vh, calc(100dvh - 24px))', sm: '75vh' },
         borderRadius: 3, overflow: 'hidden', display: 'flex', flexDirection: 'column',
-      } } }}
+      }) } }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pl: 2, pr: 1, py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
         <Search sx={{ fontSize: ICON_SIZE.md, color: 'text.secondary', flexShrink: 0 }} />
