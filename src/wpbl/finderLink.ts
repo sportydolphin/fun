@@ -4,7 +4,7 @@
 // section imports the other to get at it.
 
 import type { FinderClubAlias, ParsedFinder } from '../league/finderParse'
-import { encodeFinderQuery, type FinderBoardSide, type FinderQuery } from '../league/finder'
+import { encodeFinderQuery, finderCutsOf, type FinderBoardSide, type FinderQuery } from '../league/finder'
 import { finderAskReadings } from '../league/finderAsk'
 import { parsePlayerQuestion, type RosterPlayer } from '../league/playerQuestion'
 import type { FinderReading } from '../ui/finderBoard'
@@ -75,7 +75,7 @@ export function askedFinderQuery(query: FinderQuery, r: FinderReading): FinderQu
   const named = r.playerId !== undefined || r.batterId !== undefined || r.pitcherId !== undefined
   return {
     ...query, per: r.per, conditions: r.conditions, teamId: r.teamId, oppId: r.oppId, venue: r.venue, byClub: !!r.byClub,
-    from: r.from ?? null, to: r.to ?? null, last: r.last ?? null, hand: r.hand ?? null,
+    ...finderCutsOf(r),
     ...(named ? { playerId: r.playerId ?? null, batterId: r.batterId ?? null, pitcherId: r.pitcherId ?? null }
       : r.per === 'pa' ? {} : { batterId: null, pitcherId: null }),
   }

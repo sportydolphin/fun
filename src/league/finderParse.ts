@@ -1,4 +1,4 @@
-import { finderFields, finderLowerBetter, parseFinderValue, PA_SEASON_KEYS, SITUATION_KEYS } from './finder'
+import { FINDER_STRETCH_MAX, finderFields, finderStretchBar, finderLowerBetter, parseFinderValue, PA_CUT_KEYS, PA_SEASON_KEYS, SITUATION_KEYS } from './finder'
 import type { FinderBoardSide, FinderCondition, FinderOp, FinderPer, FinderSide, FinderVenue } from './finder'
 import { editDistance } from '../lib/fuzzyName'
 import type { PlayerPart } from '../lib/playerParts'
@@ -64,6 +64,10 @@ export interface ParsedFinder {
   to?: string | null
   last?: number | null
   hand?: 'L' | 'R' | null
+  /** Extra-inning games, a doubleheader's, or a stretch of N straight games (`FinderQuery`), when said. */
+  extra?: boolean | null
+  dh?: 'any' | 1 | 2 | null
+  stretch?: number | null
   /** The stat was said with no number ("Hunters doubles"), and read as at least one. */
   bare?: boolean
   /** The postseason was asked for ("triples in the playoffs"): the board's Playoffs slice. */
@@ -452,7 +456,28 @@ const LAST_BARE = /(?<![a-z])(?:last|past)\s+(\d{1,2})(?![a-z0-9])/g
 // a pitcher's question.
 const HAND_PHRASE = /(?<![a-z])(?:vs|versus|against|off|facing|from|of)\s+(?:(?:a|the)\s+)?(?:(left|right)[\s-]?hand(?:ed|ers?)?(?:\s+(pitchers?|pitching|throwers?|starters?|batters?|hitters?|hitting))?|(lefties|lefty|lefthanders?|southpaws?|lhps?|righties|righty|righthanders?|rhps?))(?![a-z])/g
 
-type Cuts = { from?: string; to?: string; last?: number; hand?: 'L' | 'R'; post?: boolean }
+// A GAME THAT WENT TO EXTRAS, as against a play made in extras. "Extra inning games", "games that went
+// to extras" and "extra inning wins" are the whole game (`FinderQuery.extra`); "in extras" beside a play
+// is still the inning cut (INN_PHRASES), which reads only what is left after these.
+const EXTRA_GAMES = /(?<![a-z])(?:in\s+)?(?:extra[\s-]+innings?|extras)[\s-]+(?:games?|contests?)(?![a-z])|(?<![a-z])(?:(?:in\s+)?games?\s+(?:that\s+)?)?went\s+(?:to\s+)?(?:extra(?:[\s-]+innings?)?|extras)(?![a-z])/g
+const EXTRA_DECISIONS = /(?<![a-z])extra[\s-]+innings?(?=\s+(?:wins?|loss(?:es)?|saves?|decisions?)(?![a-z]))/g
+// A DOUBLEHEADER'S GAMES: the nightcap, the opener, or either. In that order, so "game 2 of a
+// doubleheader" is not read as any doubleheader with a 2 left over.
+const DH_WORD = '(?:double[\\s-]?headers?|twin[\\s-]?bills?)'
+const DH_PHRASES: { re: RegExp; dh: 'any' | 1 | 2 }[] = [
+  { re: new RegExp(`(?<![a-z])(?:in\\s+)?(?:the\\s+)?(?:nightcaps?|(?:second|2nd)\\s+games?\\s+of\\s+(?:an?\\s+|the\\s+)?${DH_WORD}|games?\\s+(?:2|two)\\s+of\\s+(?:an?\\s+|the\\s+)?${DH_WORD}|${DH_WORD}\\s+nightcaps?)(?![a-z0-9])`, 'g'), dh: 2 },
+  { re: new RegExp(`(?<![a-z])(?:in\\s+)?(?:the\\s+)?(?:(?:first|1st)\\s+games?\\s+of\\s+(?:an?\\s+|the\\s+)?${DH_WORD}|games?\\s+(?:1|one)\\s+of\\s+(?:an?\\s+|the\\s+)?${DH_WORD}|${DH_WORD}\\s+openers?)(?![a-z0-9])`, 'g'), dh: 1 },
+  { re: new RegExp(`(?<![a-z])(?:in\\s+)?(?:an?\\s+|the\\s+)?${DH_WORD}(?:\\s+games?)?(?![a-z])`, 'g'), dh: 'any' },
+]
+// A STRETCH OF N GAMES IN A ROW: "in 5 games", "over a 10 game span", "5-game stretch", "in any 7
+// straight games". Read after the last N games, so "in the last 5 games" is that cut. Two games at
+// least, and no more than the engine sums (FINDER_STRETCH_MAX).
+const STRETCH_PHRASES = [
+  new RegExp(`(?<![a-z0-9])(?:(?:in|over|across|during|within)\\s+)?(?:an?\\s+|any\\s+)?(${NUM_WORD})[\\s-]+(?:straight[\\s-]+|consecutive[\\s-]+)?games?[\\s-]+(?:span|stretch|window|run)s?(?![a-z])`, 'g'),
+  new RegExp(`(?<![a-z0-9])(?:in|over|across|during|within)\\s+(?:any\\s+)?(${NUM_WORD})[\\s-]+(?:straight[\\s-]+|consecutive[\\s-]+)?games?(?![a-z])`, 'g'),
+]
+
+type Cuts = { from?: string; to?: string; last?: number; hand?: 'L' | 'R'; post?: boolean; extra?: boolean; dh?: 'any' | 1 | 2; stretch?: number }
 
 // "in the playoffs", "postseason", "playoff games": the postseason slice, which every board and the
 // Find answers already read from the address (`games=post`). Asked for in the Nov 20, 2026 probe
@@ -486,14 +511,25 @@ function takeCuts(rest: string): { rest: string; cuts: Cuts; batters: boolean } 
     return blank(m)
   })
   rest = rest.replace(LAST_BARE, (m: string, n: string) => { cuts.last = Number(n); return blank(m) })
+  for (const re of STRETCH_PHRASES) {
+    rest = rest.replace(re, (m: string, n: string) => {
+      const v = n in NUMBER_WORDS ? NUMBER_WORDS[n] : Number(n)
+      if (!(v > 1 && v <= FINDER_STRETCH_MAX)) return m
+      cuts.stretch = v
+      return blank(m)
+    })
+  }
+  rest = rest.replace(EXTRA_GAMES, m => { cuts.extra = true; return blank(m) })
+  rest = rest.replace(EXTRA_DECISIONS, m => { cuts.extra = true; return blank(m) })
+  for (const { re, dh } of DH_PHRASES) rest = rest.replace(re, m => { cuts.dh ??= dh; return blank(m) })
   rest = rest.replace(PLAYOFF_WORDS, m => { cuts.post = true; return blank(m) })
   return { rest, cuts, batters }
 }
 
-/** Whether `text` says a cut (a span, the last N games, a hand). */
+/** Whether `text` says a cut (a span, the last N games, a hand, a kind of game, a stretch). */
 export function saysCut(text: string): boolean {
   const c = takeCuts(` ${normalize(text)} `).cuts
-  return !!(c.from || c.to || c.last || c.hand || c.post)
+  return !!(c.from || c.to || c.last || c.hand || c.post || c.extra || c.dh || c.stretch)
 }
 
 const FIELD_POSITION_WORDS = /(?<![a-z0-9])(?:(?:at|playing|by\s+(?:a|an|the)|from\s+(?:a|the)|among)\s+)?(catchers?|first\s+base(?:m[ae]n)?|second\s+base(?:m[ae]n)?|third\s+base(?:m[ae]n)?|shortstops?|left\s+field(?:ers?)?|center\s+field(?:ers?)?|right\s+field(?:ers?)?|(?<=(?:at|playing)\s+)(?:c|1b|2b|3b|ss|lf|cf|rf))(?![a-z0-9])/g
@@ -953,7 +989,9 @@ export function parseClubScope(text: string, clubs: readonly FinderClubAlias[]):
   rest = rest.replace(SEASON_WORDS, m => { per = 'season'; return ' '.repeat(m.length) })
   if (GAME_WORDS.test(rest)) per ??= 'game'
   const cuts = cut.cuts
-  const named = c.teamIds[0] != null || c.oppIds[0] != null || c.venue !== 'any' || !!(cuts.from || cuts.to || cuts.last || cuts.hand)
+  // A stretch needs a stat to be the best of.
+  if (cuts.stretch) return null
+  const named = c.teamIds[0] != null || c.oppIds[0] != null || c.venue !== 'any' || !!(cuts.from || cuts.to || cuts.last || cuts.hand || cuts.extra || cuts.dh)
   const left = rest.split(/[^a-z0-9]+/).filter(w => w && !FILLER.has(w) && !['off', 'faced', 'log', 'logs'].includes(w))
   return named && !left.length ? { teamIds: c.teamIds, oppIds: c.oppIds, venue: c.venue, season: year.season, per, ...cuts } : null
 }
@@ -968,7 +1006,7 @@ export function parseClubRecord(text: string, clubs: readonly FinderClubAlias[])
   { teamId: string; oppId: string | null; venue: FinderVenue; season: number | null } & Cuts | null {
   const year = takeYear(` ${normalize(text)} `)
   const cut = takeCuts(year.rest)
-  if (cut.cuts.hand) return null
+  if (cut.cuts.hand || cut.cuts.stretch) return null
   const v = takeVenue(cut.rest, 'any')
   const c = takeClubs(v.rest, clubs, v.venue)
   let rest = c.rest
@@ -977,8 +1015,8 @@ export function parseClubRecord(text: string, clubs: readonly FinderClubAlias[])
   const teamId = c.teamIds.length === 1 ? c.teamIds[0] : null
   const oppId = c.oppIds.length === 1 ? c.oppIds[0] : null
   if (!teamId || teamId === oppId) return null
-  const { from, to, last, post } = cut.cuts
-  const narrowed = !!(from || to || (last && last > 1) || post) || c.venue !== 'any' || (said && !!oppId)
+  const { from, to, last, post, extra, dh } = cut.cuts
+  const narrowed = !!(from || to || (last && last > 1) || post || extra || dh) || c.venue !== 'any' || (said && !!oppId)
   const left = rest.split(/[^a-z0-9]+/).filter(w => w && !FILLER.has(w) && !SEASON_WORDS_SET.has(w))
   return narrowed && !left.length ? { teamId, oppId, venue: c.venue, season: year.season, ...cut.cuts } : null
 }
@@ -1347,6 +1385,11 @@ export function parseFinderText(
         ...(side === 'hitting' && !paHint && !inningHint && !clubHint ? [{ per: 'season' as FinderPer, bonus: 1 }] : []),
         ...(paOk && !inningHint && !clubHint ? [{ per: 'pa' as FinderPer, bonus: paHint ? 2 : 0 }] : []),
       ]
+    }
+    // A STRETCH OF N GAMES is a player's season cut to its best run (FinderQuery.stretch), so the season
+    // grain alone, and never with a cut only plate appearances can make (an arm, a situation).
+    if (cuts.stretch) {
+      grains = side !== 'fielding' && !cuts.hand && !conditions.some(c => PA_CUT_KEYS.has(c.field)) && !paHint && !inningHint && !clubHint && !gameFeat && !innSaid ? [{ per: 'season', bonus: 1 }] : []
     }
     // A BATTER'S PITCHES OVER A GAME OR A SEASON are asked as "pitches seen": "100 pitches" bare is a
     // pitcher's count, and a batter's season of it would only crowd that reading.
@@ -1785,6 +1828,10 @@ export function bareStatText(text: string): boolean {
 export function parseRecordQuestion(text: string, clubs: readonly FinderClubAlias[], { season: seasons = false, plays = false }: { season?: boolean; plays?: boolean } = {}): ParsedRecord[] {
   const clubWords = new Set(clubs.flatMap(c => c.names.flatMap(n => normalize(n).split(' '))))
   const year = takeYear(` ${fixStatTypos(normalize(text), clubWords)} `)
+  // A stretch of games or a kind of game is a cut a record carries no room for: "most hr in 5 games"
+  // read here was "most hr in a game" with a 5 left over. The ranking reads them (`parseScopedRank`).
+  const kind = takeCuts(year.rest).cuts
+  if (kind.stretch || kind.extra || kind.dh) return []
   const placed = takeVenue(year.rest, 'any')
   const clubbed = takeClubs(placed.rest, clubs, placed.venue)
   let rest = clubbed.rest
@@ -1890,6 +1937,10 @@ export interface ParsedScopedRank {
   to?: string
   last?: number
   hand?: 'L' | 'R'
+  /** Extra-inning games, a doubleheader's, or the best stretch of N games (`FinderQuery`), when said. */
+  extra?: boolean
+  dh?: 'any' | 1 | 2
+  stretch?: number
   /** Where each trip began ("with RISP", "2 out"), which sums the season from those plate
    *  appearances (`seasonFromPas`). Only where the caller reads its plays. */
   situation?: FinderCondition[]
@@ -1929,7 +1980,9 @@ export function parseScopedRank(text: string, clubs: readonly FinderClubAlias[],
   if (twoOut) byClub = true
   const sit = plays ? takeSituation(rest, regulationInnings) : { rest, conditions: [] }
   const situated = sit.conditions.length > 0
-  const narrowed = !!(cuts.from || cuts.to || cuts.last || cuts.hand) || situated
+  const narrowed = !!(cuts.from || cuts.to || cuts.last || cuts.hand || cuts.extra || cuts.dh || cuts.stretch) || situated
+  // A stretch is summed from the box scores, which no arm or situation cuts (`finderStretchApplies`).
+  if (cuts.stretch && (cuts.hand || situated || byClub)) return []
   const placed = takeVenue(sit.rest, 'any')
   const clubbed = takeClubs(placed.rest, clubs, placed.venue)
   // A club's whole season with no cut is the Team stats board's (`parseTeamRankText`), all but its
@@ -1969,7 +2022,9 @@ export function parseScopedRank(text: string, clubs: readonly FinderClubAlias[],
       ...(byClub ? { byClub: true } : {}),
       // Ten plate appearances, or five innings (stored as fifteen outs). A club comes up hundreds of
       // times in any cut, so its rate needs no bar.
-      ...(RATE_FIELDS.has(p.field) && !byClub ? { bar: p.side === 'pitching' ? { field: 'ip' as const, value: 15 } : { field: 'pa' as const, value: 10 } } : {}),
+      // A stretch's is the engine's own, so many a game of it (`finderStretchBar`).
+      ...(RATE_FIELDS.has(p.field) && !byClub ? { bar: cuts.stretch ? finderStretchBar(p.side as FinderSide, cuts.stretch)
+        : p.side === 'pitching' ? { field: 'ip' as const, value: 15 } : { field: 'pa' as const, value: 10 } } : {}),
     }]))))
 }
 

@@ -30,7 +30,7 @@ import { mlbSnapshotFromUrl, isMlbSheetPath, mlbUrlFor, isMlbView, isMlbSeasonVi
 import type { MlbView, MlbSnapshot, MlbFieldingPosition } from '../routes'
 import { parsePositionFilter, type PositionFilter } from '../../league/positionFilter'
 import { gridDefaultSort, type GridSort } from '../lib/seasonGrid'
-import { decodeFinderPer, decodeFinderQuery, encodeFinderQuery, EMPTY_FINDER_QUERY, type FinderQuery } from '../../league/finder'
+import { decodeFinderCuts, decodeFinderPer, decodeFinderQuery, encodeFinderQuery, EMPTY_FINDER_QUERY, type FinderQuery } from '../../league/finder'
 import type { GameScope } from '../lib/gameScope'
 import type { TeamCardInnerProps } from '../components/cards'
 import { HITTING_ADVANCED_DEFS, PITCHING_ADVANCED_DEFS } from '../lib/advanced'
@@ -138,6 +138,9 @@ function findQueryOf(snap: MlbSnapshot | null): FinderQuery {
     ...EMPTY_FINDER_QUERY,
     conditions: decodeFinderQuery(snap.find ?? null, snap.lb ?? 'hitting'),
     per: decodeFinderPer(snap.find ?? null),
+    // The month, the last N games, a kind of game and a stretch ride in `q` (encodeFinderQuery). Until
+    // Nov 20, 2026 they were written and never read back, so a refresh dropped the board's Month.
+    ...decodeFinderCuts(snap.find ?? null),
     teamId: snap.findTeam != null ? String(snap.findTeam) : null,
     oppId: snap.findOpp != null ? String(snap.findOpp) : null,
     venue: snap.findVenue ?? 'any',

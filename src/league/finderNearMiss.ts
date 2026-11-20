@@ -92,6 +92,9 @@ export function finderNearMisses(
     [!!query.last, 'Every game', { last: null }],
     [!!(query.from || query.to), 'Whole season', { from: null, to: null }],
     [!!query.hand, 'Either arm', { hand: null }],
+    [!!query.extra, 'Any game', { extra: null }],
+    [!!query.dh, 'Any game', { dh: null }],
+    [!!query.stretch && query.per === 'season', 'Whole season', { stretch: null }],
   ]
   for (const [set, text, change] of scopes) if (set) offer(text, side, { ...query, ...change })
   return out.slice(0, max)

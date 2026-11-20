@@ -173,6 +173,66 @@ describe('cuts', () => {
     expect(decodeFinderQuery(raw, 'hitting')).toEqual([{ field: 'hr', op: 'gte', value: 1 }])
   })
 
+  it('keep extra-inning games, off the line score or, with none, off the outs the pitchers got', () => {
+    const line = (n: number) => Array.from({ length: n }, (_, i) => ({ inning: i + 1, runs: 0 }))
+    const games = [
+      game('g1', '2026-08-01', { home_line: line(7), away_line: line(7) } as Partial<WpblGame>),
+      game('g2', '2026-08-02', { home_line: line(8), away_line: line(8) } as Partial<WpblGame>),
+      // A six-inning game is short, not long.
+      game('g3', '2026-08-03', { home_line: line(6), away_line: line(6) } as Partial<WpblGame>),
+      // No line score (MLB's mirrored games): 24 outs by the home staff is past seven innings.
+      game('g4', '2026-08-04'),
+    ]
+    const batting = games.map(g => bat({ game_id: g.id, h: 1 }))
+    const pitching = [pit({ game_id: 'g4', player_id: 'c', team_id: 'NY', outs: 24 }), pit({ game_id: 'g4', team_id: 'LA', outs: 21 })]
+    const r = runWpblFinder('hitting', batting, pitching, PLAYERS, games, q({ conditions: [{ field: 'h', op: 'gte', value: 1 }], extra: true }))
+    expect(r.rows.map(x => x.game?.id).sort()).toEqual(['g2', 'g4'])
+  })
+
+  it("keep a doubleheader's games, the opener and the nightcap by first pitch", () => {
+    const games = [
+      game('g1', '2026-08-08', { start_time: '6:30 PM' } as Partial<WpblGame>),
+      game('g2', '2026-08-08', { start_time: '1:00 PM' } as Partial<WpblGame>),
+      // The same date between other clubs is no doubleheader.
+      game('g3', '2026-08-08', { home_team_id: 'SF', away_team_id: 'BOS' }),
+      game('g4', '2026-08-09'),
+    ]
+    const batting = games.map(g => bat({ game_id: g.id, h: 1, team_id: g.home_team_id }))
+    const ask = (dh: FinderQuery['dh']) => runWpblFinder('hitting', batting, [], PLAYERS, games, q({ conditions: [{ field: 'h', op: 'gte', value: 1 }], dh }))
+      .rows.map(x => x.game?.id).sort()
+    expect(ask('any')).toEqual(['g1', 'g2'])
+    expect(ask(1)).toEqual(['g2'])
+    expect(ask(2)).toEqual(['g1'])
+  })
+
+  it("rank each player's best stretch of N straight games, with a bar of its own for a rate", () => {
+    const games = ['01', '02', '03', '04', '05', '06'].map((d, i) => game(`s${i}`, `2026-08-${d}`))
+    const hr = [0, 2, 1, 0, 3, 0]
+    const batting = [
+      ...games.map((g, i) => bat({ game_id: g.id, player_id: 'a', hr: hr[i], h: hr[i], tb: hr[i] * 4 })),
+      // Three games only: no three-game stretch past them, and a 2-for-2 is no average to rank.
+      ...games.slice(0, 2).map(g => bat({ game_id: g.id, player_id: 'd', ab: 1, h: 1 })),
+    ]
+    const r = runWpblFinder('hitting', batting, [], PLAYERS, games, q({ per: 'season', stretch: 3, conditions: [{ field: 'hr', op: 'gte', value: 1 }] }))
+    // 2+1+0, 1+0+3, 0+3+0: the best run is the second to fourth games' 4, the latest on a tie.
+    expect(r.rows.map(x => [x.name, x.values.hr, x.values.g, x.stretch?.first.id, x.stretch?.last.id])).toEqual([['Jaida Lee', 4, 3, 's2', 's4']])
+    expect(r.rows[0].detail).toMatch(/^Aug 3 to Aug 5 · /)
+    const avg = runWpblFinder('hitting', batting, [], PLAYERS, games, q({ per: 'season', stretch: 2, conditions: [{ field: 'avg', op: 'gte', value: 1 }] }))
+    expect(avg.qualifier).toEqual({ field: 'pa', min: 4 })
+    expect(avg.rows.map(x => x.name)).toEqual(['Jaida Lee'])
+  })
+
+  it('ride in q too', () => {
+    const raw = encodeFinderQuery(q({ per: 'season', conditions: [{ field: 'hr', op: 'gte', value: 1 }], extra: true, dh: 2, stretch: 5 }))
+    expect(raw).toBe('season~extra.1~dh.2~stretch.5~hr.gte.1')
+    expect(decodeFinderCuts(raw)).toEqual({ extra: true, dh: 2, stretch: 5 })
+    expect(decodeFinderCuts('dh.a~stretch.1~stretch.99')).toEqual({ dh: 'any' })
+    expect(describeFinderCuts('hitting', { per: 'season', extra: true, dh: 'any', stretch: 5 }).map(c => c.text))
+      .toEqual(['Extra innings', 'Doubleheaders', '5-game stretch'])
+    // A stretch is a season's: a game has none.
+    expect(describeFinderCuts('hitting', { per: 'game', stretch: 5 })).toEqual([])
+  })
+
   it('read as chips, a whole month as its name', () => {
     expect(describeFinderCuts('hitting', { per: 'season', from: '0901', to: '0930', hand: 'L', last: 5 }).map(c => c.text))
       .toEqual(['September', 'Last 5 games', 'Vs LHP'])

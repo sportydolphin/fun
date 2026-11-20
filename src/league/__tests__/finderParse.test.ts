@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { finderAskReadings } from '../finderAsk'
 import { nameWords, parseClubPage, parseGameQuery, pickGames, parseCompareText, typedPart, typedSeason, parseFinderText, parseLeaderText, parseLeagueText, typedStat, type FinderClubAlias } from '../finderParse'
 
 const CLUBS: FinderClubAlias[] = [
@@ -650,5 +651,44 @@ describe('the best of a kind, and where a player ranks', () => {
     expect(typedStat('where does sato rank')).toEqual({ overall: 'war' })
     expect(typedStat('whitmore hr rank')).toEqual(expect.objectContaining({ hitting: 'hr' }))
     expect(nameWords('most hr by hitters')).toBeNull()
+  })
+})
+
+describe('kinds of game and stretches', () => {
+  const wpbl = (t: string) => parseFinderText(t, CLUBS, ['hitting', 'pitching', 'fielding'], { plays: true, regulationInnings: 7 })
+
+  it('reads a game that went to extras as the game, and extras beside a play as the inning', () => {
+    expect(wpbl('home runs in extra inning games')[0]).toMatchObject({ extra: true, conditions: [{ field: 'hr', op: 'gte', value: 1 }] })
+    expect(wpbl('2 hits in games that went to extras')[0]).toMatchObject({ extra: true, per: 'game' })
+    expect(wpbl('extra inning wins')[0]).toMatchObject({ extra: true, side: 'pitching' })
+    const play = wpbl('home run in extras')[0]
+    expect(play.extra).toBeUndefined()
+    expect(play.conditions).toContainEqual({ field: 'inn', op: 'gte', value: 8 })
+  })
+
+  it("reads a doubleheader's games, the nightcap and the opener before either", () => {
+    expect(first('3 hits in doubleheaders')).toMatchObject({ dh: 'any' })
+    expect(first('3 hits in game 2 of a doubleheader')).toMatchObject({ dh: 2, ignored: [] })
+    expect(first('10 strikeouts in the nightcap')).toMatchObject({ dh: 2 })
+    expect(first('3 hits in the first game of a twin bill')).toMatchObject({ dh: 1, ignored: [] })
+  })
+
+  it('reads a stretch of N games as the season grain, never the last N', () => {
+    expect(wpbl('5 hr in 10 games')[0]).toMatchObject({ per: 'season', stretch: 10, conditions: [{ field: 'hr', op: 'gte', value: 5 }] })
+    expect(wpbl('8 hits over a 5 game span')[0]).toMatchObject({ per: 'season', stretch: 5 })
+    expect(wpbl('.400 avg in a 10-game stretch')[0]).toMatchObject({ per: 'season', stretch: 10 })
+    expect(wpbl('3 hr in 5 straight games')[0]).toMatchObject({ stretch: 5 })
+    // The last N games is its own cut, and a streak is a game's.
+    expect(wpbl('3 hr in the last 5 games')[0]).toMatchObject({ last: 5 })
+    expect(wpbl('3 hr in the last 5 games')[0].stretch).toBeUndefined()
+    expect(wpbl('10 game hitting streak')[0].stretch).toBeUndefined()
+  })
+
+  it('ranks the most over a stretch, and never reads it as a one-game record', () => {
+    const asks = finderAskReadings('most hr in 5 games', CLUBS, ['hitting', 'pitching'], { plays: true, regulationInnings: 7 })
+    expect(asks[0]).toMatchObject({ per: 'season', stretch: 5, rank: { lead: 'Most', field: 'hr' } })
+    expect(asks.some(a => a.per === 'game')).toBe(false)
+    expect(finderAskReadings('best avg over 10 games', CLUBS, ['hitting'], {})[0]).toMatchObject({ stretch: 10, rank: { lead: 'Highest', field: 'avg' } })
+    expect(finderAskReadings('most strikeouts in extra inning games', CLUBS, ['hitting', 'pitching'], {})[0]).toMatchObject({ per: 'season', extra: true })
   })
 })
