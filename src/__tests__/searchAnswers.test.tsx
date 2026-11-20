@@ -24,7 +24,7 @@ import CommandPalette from '../CommandPalette'
 import { nameWords, typedStat } from '../league/finderParse'
 import { leaderSuggestions, peekText } from '../finderSearch'
 import { getRecentQuestions } from '../lib/recentQuestions'
-import { boardNeeds, buildWpblBoard, wpblLeaderPeek, wpblPlayerAnswer, type WpblBoard, type WpblLines } from '../wpbl/searchAnswers'
+import { boardNeeds, buildWpblBoard, wpblLeaderPeek, wpblLeagueAnswers, wpblPlayerAnswer, type WpblBoard, type WpblLines } from '../wpbl/searchAnswers'
 import { mlbLeaderPeek, mlbPlayerAnswer } from '../mlb/searchAnswers'
 import { fetchAllTimeLeaderboardData, fetchLeaderboardData } from '../mlb/api'
 import { fetchParkFactors, fetchSeasonSabermetrics } from '../mlb/apiSeasonStats'
@@ -86,7 +86,7 @@ describe('peekText', () => {
 
 const teams = [{ id: 'SF' }, { id: 'LA' }] as WpblTeam[]
 const game = (id: string, game_date: string): WpblGame =>
-  ({ id, game_date, status: 'final', home_team_id: 'SF', away_team_id: 'LA', game_type: 'regular', counts_in_standings: true } as WpblGame)
+  ({ id, game_date, status: 'final', home_team_id: 'SF', away_team_id: 'LA', home_score: 1, away_score: 0, game_type: 'regular', counts_in_standings: true } as WpblGame)
 // Two 2026 games, so the bar is in force (6 PA, 9 outs), and a 2025 game the year cut must leave out.
 const games = [game('old', '2025-07-01'), game('g1', '2026-06-01'), game('g2', '2026-06-02')]
 const player = (id: string, name: string) => ({ id, name, team_id: 'SF' } as WpblPlayer)
@@ -341,5 +341,26 @@ describe('the palette', () => {
     const recent = getRecentQuestions('wpbl')[0]
     expect(recent.href).toContain('board=find')
     expect(recent.subtitle).toMatch(/^Find · /)
+  })
+})
+
+// The Nov 20, 2026 probe: "where does Whitmore rank in HR" and "league batting average" offered
+// nothing, or the leaders.
+describe('WPBL: a place on the board, and the league line', () => {
+  it("says where the player sits, tied, and not under the bar", () => {
+    expect(wpblPlayerAnswer(players[0], ask({ hitting: 'avg' }), board(2026), players)).toBe('.429 AVG · 2026 · 1st')
+    expect(wpblPlayerAnswer(players[0], ask({ hitting: 'hr' }), board(2026), players)).toBe('2 HR · 2026 · T-1st')
+    expect(wpblPlayerAnswer(players[2], ask({ hitting: 'avg' }), board(2026), players)).toBe('1.000 AVG · 2026')
+  })
+
+  it("reads the league's own line, a count per club game, and the line with no stat", () => {
+    const b = board(2026)
+    expect(wpblLeagueAnswers({ columns: { hitting: 'avg' }, lean: 'hitting', perGame: false }, b))
+      .toEqual([expect.objectContaining({ title: 'League AVG', detail: '.333 · 2026', href: '/wpbl/stats?board=teams&side=hitting&sort=avg&season=2026' })])
+    // Five home runs over two finals, four club games.
+    expect(wpblLeagueAnswers({ columns: { hitting: 'hr', pitching: 'hr' }, lean: 'hitting', perGame: true }, b))
+      .toEqual([expect.objectContaining({ title: 'HR per team game', detail: '1.25 · 2026' })])
+    expect(wpblLeagueAnswers({ columns: { hitting: 'avg' }, lean: 'hitting', perGame: true }, b)).toEqual([])
+    expect(wpblLeagueAnswers({ columns: {}, lean: null, perGame: false }, b).map(r => r.title)).toEqual(['League hitting', 'League pitching'])
   })
 })

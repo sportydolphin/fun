@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nameWords, parseClubPage, parseGameQuery, pickGames, parseCompareText, typedPart, typedSeason, parseFinderText, parseLeaderText, type FinderClubAlias } from '../finderParse'
+import { nameWords, parseClubPage, parseGameQuery, pickGames, parseCompareText, typedPart, typedSeason, parseFinderText, parseLeaderText, parseLeagueText, type FinderClubAlias } from '../finderParse'
 
 const CLUBS: FinderClubAlias[] = [
   { id: 'CHC', names: ['Cubs', 'Chicago'] },
@@ -599,5 +599,22 @@ describe('parseFinderText: a club half-inning', () => {
 
   it('leaves a two-out at-bat to the plate appearance', () => {
     expect(read('2-out hits')[0]).toEqual(['hitting', 'pa', 'paouts.eq.2 h.gte.1'])
+  })
+})
+
+// The Nov 20, 2026 probe: each opened the leaders, or offered nothing.
+describe('parseLeagueText', () => {
+  it("reads the league's figure, a count per game and the whole line", () => {
+    expect(parseLeagueText('league batting average')).toMatchObject({ alias: { hitting: 'avg' }, kind: 'league' })
+    expect(parseLeagueText('league average era')).toMatchObject({ alias: { pitching: 'era' }, kind: 'league' })
+    expect(parseLeagueText('average runs per game')).toMatchObject({ alias: { hitting: 'r' }, kind: 'perGame' })
+    expect(parseLeagueText('how many home runs were hit')).toMatchObject({ alias: { hitting: 'hr' }, kind: 'league' })
+    expect(parseLeagueText('total home runs 2026')).toMatchObject({ kind: 'league', season: 2026 })
+    expect(parseLeagueText('league averages')).toMatchObject({ alias: null, kind: 'league' })
+  })
+  it('leaves the rankings and a plain stat to the leaders', () => {
+    for (const t of ['league leaders', 'most hr', 'batting average', 'avg', 'era leaders', 'whitmore total hr'])
+      expect(parseLeagueText(t), t).toBeNull()
+    expect(parseLeaderText('league batting average')).toEqual([])
   })
 })

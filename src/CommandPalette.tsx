@@ -296,7 +296,7 @@ const PAGE_WORDS: Record<string, string[]> = {
   'Scores': ['schedule', 'scoreboard', 'results', 'fixtures', 'calendar', 'games today'],
   'Standings': ['table', 'wild card', 'wildcard', 'division', 'race', 'seeding', 'games back'],
   'Teams': ['clubs', 'rosters'],
-  'Stats': ['leaderboard', 'statistics'],
+  'Stats': ['leaderboard', 'statistics', 'league leaders', 'leaders'],
   'Playoff odds': ['odds', 'chances', 'projections', 'magic number'],
   'Postseason bracket': ['bracket', 'playoffs', 'postseason', 'world series'],
   // WPBL's postseason lives here. Without "playoffs", the word fell through to MLB's bracket (Nov 2026).
@@ -727,10 +727,10 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       label: g.label,
       items: g.rows.map((r): Item => ({
         key: r.key, kind: 'first', title: r.title, answer: r.detail, href: r.href, onOpen: r.open,
-        subtitle: g.icon === 'video' ? 'Video' : g.icon === 'game' ? 'Game Center' : g.icon === 'standings' ? 'Standings' : 'Streak',
+        subtitle: g.icon === 'video' ? 'Video' : g.icon === 'game' ? 'Game Center' : g.icon === 'standings' ? 'Standings' : g.icon === 'league' ? 'League' : 'Streak',
         icon: g.icon === 'video' ? <PlayCircleOutlined sx={{ fontSize: ICON_SIZE.md }} />
           : g.icon === 'game' ? <SportsBaseball sx={{ fontSize: ICON_SIZE.md }} />
-          : g.icon === 'standings' ? <Leaderboard sx={{ fontSize: ICON_SIZE.md }} /> : <Timeline sx={{ fontSize: ICON_SIZE.md }} />,
+          : g.icon === 'standings' || g.icon === 'league' ? <Leaderboard sx={{ fontSize: ICON_SIZE.md }} /> : <Timeline sx={{ fontSize: ICON_SIZE.md }} />,
       })),
     }))
     const acts: Item[] = q.length < 2 ? [] : actions

@@ -413,7 +413,7 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
     const m = await import('../searchAnswers')
     const season = m.askedSeason(ask.season, games)
     if (season === undefined) return null
-    return m.wpblPlayerAnswer(player, ask, await loadBoard(season, m.boardNeeds(ask.columns)))
+    return m.wpblPlayerAnswer(player, ask, await loadBoard(season, m.boardNeeds(ask.columns)), players)
   }, [players, games, loadBoard])
   const resolveLeader = useCallback(async (ask: LeaderAsk) => {
     const m = await import('../searchAnswers')
@@ -422,6 +422,26 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
     const peek = m.wpblLeaderPeek(ask, players, await loadBoard(season, m.boardNeeds({ [ask.side]: ask.sort })))
     return peek && { ...peek, season }
   }, [players, games, loadBoard])
+  // "league batting average", "total home runs", "runs per game" (parseLeagueText): the league's own
+  // line off the same board the leader rows read, so a league ERA is on the reader's basis.
+  const leagueAnswers = useCallback(async (text: string): Promise<PlayAnswer[]> => {
+    const [{ parseLeagueText }, { boardColumn }] = await Promise.all([import('../../league/finderParse'), import('../../finderSearch')])
+    const ask = parseLeagueText(text)
+    if (!ask) return []
+    const m = await import('../searchAnswers')
+    const season = m.askedSeason(ask.season, games)
+    if (season === undefined) return []
+    const columns: Partial<Record<'hitting' | 'pitching', string>> = {}
+    for (const side of ['hitting', 'pitching'] as const) {
+      const field = ask.alias?.[side]
+      const col = field ? boardColumn('wpbl', side, field) : null
+      if (col) columns[side] = col
+    }
+    if (ask.alias && !Object.keys(columns).length) return []
+    const lean = ask.alias?.lean === 'pitching' || (!ask.alias?.hitting && ask.alias?.pitching) ? 'pitching' : ask.alias ? 'hitting' : null
+    const board = await loadBoard(season, m.boardNeeds(columns))
+    return m.wpblLeagueAnswers({ columns, lean, perGame: ask.kind === 'perGame' }, board).map(r => ({ ...r, open: () => {} }))
+  }, [games, loadBoard])
   // THE CLIP OF A PLAY, as a row of its own under the play's row: a row is a link, and a second link
   // inside it would be one link in another. A clip read that fails costs the clips, not the answer.
   const withClips = useCallback(async (rows: PlayAnswer[]): Promise<PlayAnswer[]> => {
@@ -582,9 +602,10 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
   // "Hunters highlights", "longest game", "Hunters streak" (src/wpbl/searchMore.ts): read off the text
   // with the section's own data, loaded on the first ask.
   const resolveMore = useCallback(async (text: string): Promise<AnswerGroup[]> => {
-    const { wpblMoreAnswers } = await import('../searchMoreAnswers')
-    return wpblMoreAnswers(text, { games, players, teams })
-  }, [games, players, teams])
+    const [{ wpblMoreAnswers }, league] = await Promise.all([import('../searchMoreAnswers'), leagueAnswers(text)])
+    const more = await wpblMoreAnswers(text, { games, players, teams })
+    return league.length ? [{ label: 'League', icon: 'league', rows: league }, ...more] : more
+  }, [games, players, teams, leagueAnswers])
   // "Sato vs hunters", "Whitmore off Schroder", "Whitmore 2-hit games" (src/league/playerQuestion.ts):
   // the roster with who has hit and who has pitched, from every season's lines, which decides who is
   // the batter in a matchup and which side a player's question is asked on.

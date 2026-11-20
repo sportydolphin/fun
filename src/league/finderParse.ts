@@ -1385,6 +1385,8 @@ const COUNTED_STAT = new RegExp(`${B_START}(?:${Object.keys(NUMBER_WORDS).filter
 export function parseLeaderText(text: string): ParsedLeader[] {
   let rest = ` ${fixStatTypos(normalize(text))} `
   if (!rest.trim()) return []
+  // "league batting average" is the league's figure (parseLeagueText), not the leaders'.
+  if (parseLeagueText(text)) return []
   // "Most hr in a game" is a single-game record (parseRecordText), not the season board: answering
   // it with the season's home run leaders reads as a right answer to a question nobody asked.
   if (SINGLE_GAME.test(rest)) return []
@@ -1461,8 +1463,9 @@ export function nameWords(text: string): string | null {
 // "average runs per game" Valerie Perez (Nov 10, 2026). The Nov 20 probe found more of the same, all
 // through the World Cup's typo pass: "triple play" and "highest wpa play" were Kamila Plata, "triple
 // crown" Bailey Brown, "home runs by month" a Montoya, "most hits in a week" Maud Werkman, and "team
-// ops" Team USA. No WPBL player's name holds one of these words.
-const NOT_NAMES = /^(?:per|bunts?|late|early|infield|pinch|blown|quality|leadoff|plays?|crown|months?|weeks?|teams?|clubs?|record|extra|defense)$/
+// ops" Team USA, and "where does Whitmore rank in hr" asked for a player called "does whitmore". No
+// WPBL player's name holds one of these words.
+const NOT_NAMES = /^(?:per|bunts?|late|early|infield|pinch|blown|quality|leadoff|plays?|crown|months?|weeks?|teams?|clubs?|record|extra|defense|does|do|stand|stands|place|wide)$/
 
 // ─── Two players ──────────────────────────────────────────────────────────────
 
@@ -1512,6 +1515,55 @@ export function typedStat(text: string): StatAlias | null {
   const aliases = new Set<StatAlias>()
   for (const m of rest.matchAll(STAT_ANY)) if (m[1].length >= 2) aliases.add(aliasOf(m[1]))
   return aliases.size === 1 ? [...aliases][0] : null
+}
+
+/** A figure for the whole league rather than a ranking of its players: "league batting average",
+ *  "total home runs", "how many home runs were hit", "runs per game", "average OPS". */
+export interface LeagueStatAsk {
+  /** One stat, or null for the league's line as a whole ("league averages", "league stats"). */
+  alias: StatAlias | null
+  /** The league's figure, or a count per team per game. */
+  kind: 'league' | 'perGame'
+  season: number | null
+}
+
+// What makes a stat the league's: the word itself, a total, a count asked for, a per-game rate, or an
+// average put in front of a stat that is not one already ("average ERA", not "batting average").
+const LEAGUE_CUE = /(?<![a-z])(league[\s-]?wide|league|total|totals|combined|altogether|in all|all teams|how many|overall)(?![a-z])/
+const PER_GAME = /(?<![a-z])(?:per|a|each|every)\s+(?:team\s+)?game(?![a-z])|(?<![a-z])(?:r|hr|k|so|h|bb)\/g(?![a-z])/
+const SOFT_PHRASES = new Set(['average', 'avg', 'hit', 'hits'])
+const AVERAGE_FIRST = /^\s*(?:the\s+)?(?:avg|average)\s+(?!$)/
+const LEAGUE_FILLER = /(?<![a-z])(?:the|a|an|of|in|on|by|for|what|whats|what's|is|was|were|are|did|do|does|has|have|been|there|hit|thrown|struck|out|stolen|scored|allowed|issued|drawn|so|far|this|season|year|game|games|team|teams|player|players|wpbl|mlb|stats?|averages?|avg|numbers?|line|rate|leaguewide)(?![a-z])/g
+
+/**
+ * The league figure in `text`, or null. Never with a ranking word ("league leaders", "most hr" are the
+ * board's), a number or a name. Before Nov 20, 2026 "league batting average" and "total home runs 2026"
+ * opened the batting-average and home-run leaders, a right answer to a question nobody asked.
+ */
+export function parseLeagueText(text: string): LeagueStatAsk | null {
+  let rest = ` ${fixStatTypos(normalize(text))} `
+  const perGame = PER_GAME.test(rest)
+  const cue = LEAGUE_CUE.test(rest) || perGame || AVERAGE_FIRST.test(rest)
+  if (!cue) return null
+  if (LEAD_WORDS.some(w => new RegExp(w.re.source).test(rest))) return null
+  const year = takeYear(rest)
+  rest = year.rest.replace(PER_GAME, ' ').replace(LEAGUE_CUE, ' ').replace(new RegExp(LEAGUE_CUE.source, 'g'), ' ')
+  // "batting average" is a stat; a leading "average" is the word asking for the league's.
+  const phrases = new Set<string>()
+  rest = rest.replace(STAT_ANY, (_m: string, p: string) => { phrases.add(p); return ' ' })
+  rest = rest.replace(AVERAGE_FIRST, ' ').replace(LEAGUE_FILLER, ' ')
+  if (/[a-z0-9]/.test(rest)) return null
+  // Words that are a stat alone and only the question's grammar beside another: "average" in "average
+  // ERA" and "hit" in "home runs were hit". "Average" alone is the league's whole line, not its AVG.
+  const soft = [...phrases].filter(p => SOFT_PHRASES.has(p))
+  if (soft.length < phrases.size || soft.every(p => p === 'average')) for (const p of soft) phrases.delete(p)
+  const aliases = [...new Set([...phrases].map(aliasOf))]
+  if (aliases.length > 1) return null
+  const alias = aliases[0] ?? null
+  // A line with no stat is the league's averages; it needs the word "league" or "averages".
+  if (!alias && (perGame || !/(?<![a-z])(?:league|averages?)(?![a-z])/.test(text.toLowerCase()))) return null
+  if (alias?.overall && !alias.hitting && !alias.pitching) return null
+  return { alias, kind: perGame ? 'perGame' : 'league', season: year.season }
 }
 
 /**
