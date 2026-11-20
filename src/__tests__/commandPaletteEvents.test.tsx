@@ -56,7 +56,7 @@ describe('the search box', () => {
 
     await user.keyboard('{Enter}')
     expect(onSelect).toHaveBeenCalledOnce()
-    expect(named('command_palette_picked')).toEqual([{ section: 'wpbl', kind: 'recent', rank: 0, typed: 0, top: true }])
+    expect(named('command_palette_picked')).toEqual([{ section: 'wpbl', kind: 'recent', rank: 0, typed: 0, top: true, title: 'Kelsie Whitmore' }])
     await waitFor(() => expect(screen.queryByRole('combobox')).not.toBeInTheDocument())
     // A pick is the open's outcome, so there is no dismissal behind it.
     expect(named('command_palette_dismissed')).toEqual([])
@@ -95,7 +95,7 @@ describe('the search box', () => {
     await user.click(find[1])
     expect(window.location.search).toContain('side=hitting')
     const picks = named('command_palette_picked')
-    expect(picks[1]).toEqual({ section: 'wpbl', kind: 'finder', rank: 1, typed: 21, top: false })
+    expect(picks[1]).toEqual({ section: 'wpbl', kind: 'finder', rank: 1, typed: 21, top: false, title: 'Strikeouts at least 5 and Walks exactly 0' })
     expect(named('search_finder_picked')).toEqual([{
       section: 'wpbl', side: 'hitting', conditions: 2, clubs: 0, venue: 'any', ignored: 0, from: 'palette',
     }])
@@ -121,7 +121,7 @@ describe('the search box', () => {
     const list = screen.getByRole('listbox')
     await user.click(within(list).getByRole('option', { name: /Bravo/ }))
     expect(onSelect).toHaveBeenCalledOnce()
-    expect(named('command_palette_picked')).toEqual([{ section: 'wpbl', kind: 'result', rank: 1, typed: 2, top: false }])
+    expect(named('command_palette_picked')).toEqual([{ section: 'wpbl', kind: 'result', rank: 1, typed: 2, top: false, title: 'Bravo' }])
   })
 
   it('finds a page by name, and a page pick is a page', async () => {
@@ -130,7 +130,7 @@ describe('the search box', () => {
     await user.type(input(), 'stand')
     await user.keyboard('{Enter}')
     expect(window.location.pathname).toBe('/wpbl/standings')
-    expect(named('command_palette_picked')).toEqual([{ section: 'wpbl', kind: 'page', rank: 0, typed: 5, top: true }])
+    expect(named('command_palette_picked')).toEqual([{ section: 'wpbl', kind: 'page', rank: 0, typed: 5, top: true, title: 'Standings' }])
   })
 
   it('has a close button for a reader with no Escape key, and closing with it is a dismissal', async () => {

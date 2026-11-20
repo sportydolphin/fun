@@ -937,6 +937,10 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       section, kind: item.kind, rank: flat.indexOf(item), typed,
       // Whether the palette's own top row was the one taken, which is what the ordering is for.
       top: flat[0] === item,
+      // The row's own label (a player's name, "Most strikeouts"), so /admin's Search tab can say
+      // what was searched for. It is the site's text, never the reader's: what they typed stays
+      // unrecorded on any search that got an answer (docs/ADMIN_ANALYTICS.md section 3).
+      title: item.title.slice(0, 60),
       // Found only by the forgiving pass: a search the typo would otherwise have lost. Absent, not
       // false, on every other pick, so the event stays as it was for those.
       ...(item.forgiving ? { forgiving: true } : {}),
