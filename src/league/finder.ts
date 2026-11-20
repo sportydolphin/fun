@@ -1761,6 +1761,14 @@ export function finderAnswerText(result: FinderResult, side: FinderBoardSide, qu
     const top = result.rows[0]
     return `Leader ${displayFinderValue(side, only.field, top.values[only.field] ?? 0)} · ${top.name}`
   }
+  // ONE SEASON IS ITS LINE. "Hondras vs RHP" read "1 season · first, Amira Hondras", which said whose
+  // season it was and nothing of how it went.
+  if (query.per === 'season' && result.total === 1 && result.rows.length === 1 && side !== 'fielding') {
+    const v = result.rows[0].values
+    const bits: [string, string][] = side === 'pitching' ? [['era', 'ERA'], ['ip', 'IP'], ['so', 'K']] : [['avg', 'AVG'], ['ops', 'OPS'], ['pa', 'PA']]
+    const line = bits.filter(([k]) => v[k] != null).map(([k, unit]) => `${displayFinderValue(side, k, v[k])} ${unit}`)
+    if (line.length) return line.join(' · ')
+  }
   if (query.per === 'season') {
     const lead = result.rows[0]?.name
     return [`${result.total.toLocaleString()} ${result.total === 1 ? 'season' : 'seasons'}`, lead && `first, ${lead}`].filter(Boolean).join(' · ')

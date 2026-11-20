@@ -13,11 +13,10 @@ import { useWpblGameLink, useWpblPlayerLink } from './LinkContext'
 import { FinderBoard, type FinderExample, type FinderPlayerPicks, type FinderReading } from '../ui/finderBoard'
 import { fitExamples } from '../ui/finderExamples'
 import { PORTRAIT_PX } from '../ui/leaders'
-import { parseFinderText } from '../league/finderParse'
-import { parsePlayerQuestion } from '../league/playerQuestion'
 import { navigate } from '../nav'
 import { useEraBasis } from './EraBasisContext'
-import { askedFinderQuery, WPBL_FINDER_CLUBS, WPBL_FINDER_OPTS, WPBL_FINDER_SIDES, wpblFinderHref, wpblFinderRoster } from './finderLink'
+import { nameSuggestions } from '../league/playerQuestion'
+import { askedFinderQuery, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, wpblAskReadings, wpblFinderHref, wpblFinderRoster } from './finderLink'
 import { wpblQualifiers } from './stats'
 import type { WpblBattingLine, WpblFieldingLine, WpblGame, WpblPitchingLine, WpblPlayer, WpblTeam } from './types'
 
@@ -174,7 +173,7 @@ export default function WpblFindView({
   // it is read only once one of them is asked for, one season of it (fetchWpblPlayLog), and held with
   // the season it was read for so a year picked from the menu reads again rather than cutting the old
   // year to nothing.
-  const { season, cut, seasonGames } = useWpblSeason()
+  const { season, cut, seasonGames, schedule } = useWpblSeason()
   const months = useMemo(() => finderMonths(seasonGames.filter(g => g.status === 'final')), [seasonGames])
   const grains = GRAINS[side]
   const askInnings = query.per === 'inning' && grains.includes('inning')
@@ -334,12 +333,13 @@ export default function WpblFindView({
   // screen as the site search reads it. Without it the box took the name for nothing and asked the
   // rest of the question of everyone.
   const roster = useMemo(() => wpblFinderRoster(players, batting, pitching), [players, batting, pitching])
-  // The players' readings first, so "Hondras hits" is her hits rather than everyone's with her name
-  // ignored, which the plain reading still offers behind it.
-  const parse = (text: string): FinderReading[] => [
-    ...parsePlayerQuestion(text, roster, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS).map(q => ({ ...q, ignored: [] })),
-    ...parseFinderText(text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS),
-  ]
+  const parse = (text: string) => wpblAskReadings(text, roster)
+  // THE ANSWER BEFORE THE ASK, read off the link the reading would open, through the same resolver
+  // the search's rows use (findAnswer.ts), so the line under the box and the board it opens agree.
+  const askAnswer = useCallback((r: FinderReading) => import('./findAnswer')
+    .then(m => m.wpblFindAnswer(wpblFinderHref({ ...r, season: r.season ?? season }), { schedule, players, teams, eraInnings })),
+  [season, schedule, players, teams, eraInnings])
+  const askNames = (text: string) => nameSuggestions(text, roster, WPBL_FINDER_CLUBS)
   const clubs = useMemo(
     () => [...teams].sort((a, b) => a.abbr.localeCompare(b.abbr)).map(t => ({ value: t.id, label: wpblFullName(t) })),
     [teams])
@@ -369,7 +369,7 @@ export default function WpblFindView({
       exampleCounted={plays || askPlays ? grains : ['game', 'season']}
       countFor={countFor} askOn={askOn} sides={findSides} onSide={onSide}
       grains={grains} loading={askPlays && (!plays || (askFielders && !fielders))} picks={picks} months={months}
-      parse={parse} onAsk={onAsk}
+      parse={parse} onAsk={onAsk} askAnswer={askAnswer} askNames={askNames}
             rowParts={r => ({
         portrait: clubRows && r.teamId ? <TeamBadge team={{ id: r.teamId, abbr: r.teamId }} size={PORTRAIT_PX} />
           : <PlayerPortrait name={r.name} teamId={r.teamId} size={PORTRAIT_PX} />,

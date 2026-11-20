@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import type { ExampleLadder } from './finderExamples'
 import { Box, Skeleton, Typography } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
-import { finderColumns, defaultCondition,
+import { finderColumns, finderFields, defaultCondition,
   displayFinderValue, describeFinderQuery, describeFinderConditions, describeFinderCuts, finderSpanText, finderLowerBetter, conditionsForPer, finderPitcherApplies, finderPlayerApplies, finderPlayerAt, hasPlayerFilter, FINDER_MONTH_NAMES, finderSpanMonth, finderMonthSpan,
   type FinderCondition, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
   type FinderBoardSide, type FinderSort, type FinderTally, type FinderVenue,
@@ -157,6 +157,8 @@ export interface FinderReading {
   playerId?: string | null
   batterId?: string | null
   pitcherId?: string | null
+  /** Asked as a ranking ("Highest batting average vs LHP"), which the preview says in those words. */
+  rank?: { lead: 'Most' | 'Highest' | 'Lowest'; field: string }
 }
 
 type PickGroups = { label: string; options: { value: string; label: string }[] }[]
@@ -195,7 +197,7 @@ function scopeWords(side: FinderBoardSide, q: Pick<FinderQuery, 'teamId' | 'oppI
  * anything happens, and a reading on the other side says so, because "5 strikeouts" is a
  * pitcher's line and a hitter's.
  */
-function AskBox({ side, parse, onAsk, clubAbbr, name, asking }: {
+function AskBox({ side, parse, onAsk, clubAbbr, name, asking, answer, names }: {
   side: FinderBoardSide
   /** A question is already set, so the box adds to it rather than starting one. */
   asking: boolean
@@ -204,8 +206,13 @@ function AskBox({ side, parse, onAsk, clubAbbr, name, asking }: {
   clubAbbr: (id: string) => string
   /** A player id to the name the preview says back ("by Amira Hondras"). */
   name?: (id: string) => string
+  /** The reading's answer before it is asked ("Leader .412 · Amira Hondras"), or null for none. */
+  answer?: (r: FinderReading) => Promise<string | null>
+  /** The players the words may mean, with the words rewritten to name them (`nameSuggestions`). */
+  names?: (text: string) => { id: string; name: string; text: string }[]
 }) {
   const [text, setText] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
   // WHAT THE LAST QUESTION DROPPED, kept past the Ask. Said only in the preview, it vanished with the
   // text the moment the chips appeared, and "2 hits at home vs Cleveland" became a list of every
   // home game with nothing to say the club had been left out (Nov 10, 2026 audit).
@@ -217,7 +224,15 @@ function AskBox({ side, parse, onAsk, clubAbbr, name, asking }: {
   // A question that is only a player and a cut ("Hondras vs RHP") has no stat to describe, so the
   // preview is the scope alone: "every season line, by Amira Hondras" buried the player, who is the question.
   const scope = best ? scopeWords(best.side, best, clubAbbr, name) : ''
-  const said = best ? [best.conditions.length || !scope ? describeFinderQuery(best.side, best) : '', scope].filter(Boolean).join(', ') : ''
+  // A RANKING IS SAID AS ONE: "Highest batting average, vs LHP", where the board's statement of the same
+  // question ("AVG at least .001, PA at least 10") reads as a filter nobody asked for.
+  const ranked = best?.rank ? rankWords(best.side, best.per, best.rank, !!best.byClub) : ''
+  const stated = ranked || (best && (best.conditions.length || !scope) ? describeFinderQuery(best.side, best) : '')
+  const said = best ? [stated, scope].filter(Boolean).join(', ') : ''
+  const lead = ranked ? '' : best ? GRAIN_LEAD[best.per] : ''
+  const answered = useReadingAnswer(best, answer)
+  const offered = names && text.trim() ? names(text) : []
+  const take = (t: string) => { setText(`${t} `); setDropped([]); inputRef.current?.focus() }
   return (
     <Box>
       {/* A SEARCH BOX THAT LOOKS LIKE ONE: the mark and the button. Bare, its example placeholder read
@@ -228,7 +243,7 @@ function AskBox({ side, parse, onAsk, clubAbbr, name, asking }: {
             position: 'absolute', left: chromePx(10), top: '50%', transform: 'translateY(-50%)',
             fontSize: chromePx(18), color: 'text.secondary', pointerEvents: 'none',
           }} />
-          <Box component="input" type="search" aria-label="Ask in words"
+          <Box component="input" ref={inputRef} type="search" aria-label="Ask in words"
             // AN EXAMPLE ONLY WHILE THE BOX IS THE WHOLE QUESTION. Kept above the chips it read as the
             // question already asked, sitting over the one actually asked (Nov 10, 2026 audit).
             placeholder={asking ? 'Add to it: vs LA, 2+ RBI' : '3 hits at home, 5 HR on the season'}
@@ -257,7 +272,7 @@ function AskBox({ side, parse, onAsk, clubAbbr, name, asking }: {
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
             <Box component="span" sx={{ fontWeight: 800, color: ACCENT_EDGE }}>Ask ›</Box>{' '}
-            {GRAIN_LEAD[best.per]}{said}
+            {lead}{said}
             {best.side !== side && ` (${best.side})`}
             {best.ignored.length > 0 && `. Ignored: ${asTyped(best.ignored, text).join(' ')}`}
           </Box>
@@ -267,8 +282,61 @@ function AskBox({ side, parse, onAsk, clubAbbr, name, asking }: {
           </Typography>
         )}
       </Box>
+      {/* THE ANSWER ON A LINE OF ITS OWN, so a long one ("7 times · last Sep 2 · most, Kelsie Whitmore
+          (3)") wraps rather than cutting a name, and the question above it keeps its room. Held while
+          the reading is being answered, so the line does not open under the reader's typing. */}
+      {answer && text.trim() && best && (
+        <Typography aria-live="polite" sx={{ minHeight: '1.5rem', px: 0.5, fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.primary' }}>
+          {answered ?? ''}
+        </Typography>
+      )}
+      {offered.length > 0 && (
+        <Box role="group" aria-label="Players" sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, px: 0.5, pb: 0.5 }}>
+          {offered.map(o => (
+            <Box key={o.id} {...pressable(() => take(o.text))} sx={{
+              ...FOCUS_RING, ...TAPPABLE, display: 'inline-flex', alignItems: 'center', minWidth: 0, maxWidth: '100%',
+              minHeight: chromePx(30), px: 1.25, borderRadius: 999, border: '1px solid', borderColor: ACCENT_EDGE,
+              color: ACCENT_EDGE, fontSize: TYPE_SCALE.meta, fontWeight: 700, cursor: 'pointer',
+            }}>
+              <NameText name={o.name} component="span" sx={{ fontSize: 'inherit', fontWeight: 'inherit', color: 'inherit' }} />
+            </Box>
+          ))}
+        </Box>
+      )}
     </Box>
   )
+}
+
+/** A ranking in words, the way the search titles it: "Highest batting average", "Most walks in a game". */
+function rankWords(side: FinderBoardSide, per: FinderPer, rank: { lead: string; field: string }, byClub: boolean): string {
+  const label = finderFields(side, per, true, byClub).find(f => f.key === rank.field)?.label ?? rank.field
+  // An initialism keeps its capitals: "Highest OPS", "Lowest ERA".
+  const stat = /^[A-Z]{2}/.test(label) ? label : label.toLowerCase()
+  const at = per === 'game' ? ' in a game' : per === 'inning' ? ' in an inning' : per === 'pa' ? ' in a plate appearance' : ''
+  return `${rank.lead} ${stat}${at}${byClub ? ' by a club' : ''}`
+}
+
+/**
+ * The answer to the reading on screen, asked once the typing pauses, and kept by question so going
+ * back over a word does not ask again. Undefined while it is being asked.
+ */
+function useReadingAnswer(r: FinderReading | null, answer: ((r: FinderReading) => Promise<string | null>) | undefined): string | null | undefined {
+  const key = r ? JSON.stringify(r) : ''
+  const done = useRef(new Map<string, string | null>())
+  const [, bump] = useState(0)
+  const latest = useRef(r)
+  latest.current = r
+  useEffect(() => {
+    if (!key || !answer || done.current.has(key)) return
+    let live = true
+    const t = setTimeout(() => {
+      const asked = latest.current
+      if (!asked) return
+      answer(asked).catch(() => null).then(a => { done.current.set(key, a); if (live) bump(n => n + 1) })
+    }, 300)
+    return () => { live = false; clearTimeout(t) }
+  }, [key, answer])
+  return key ? done.current.get(key) : undefined
 }
 
 /** The parser's ignored words as the reader typed them: it lowercases, and "Ignored: cleveland" read
@@ -739,7 +807,7 @@ function ExampleGrid({ side, grains, examples, count, counted, href, onPick }: {
 
 export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   side, query, onQuery, result, clubs, clubAbbr, loading = false, rowParts, tallyParts,
-  sort, onSort, examples, exampleCount, exampleCounted = [], exampleHref, parse, onAsk, grains = DEFAULT_GRAINS, picks,
+  sort, onSort, examples, exampleCount, exampleCounted = [], exampleHref, parse, onAsk, askAnswer, askNames, grains = DEFAULT_GRAINS, picks,
   plays = true, months, countFor, askOn, sides = DEFAULT_SIDES, onSide,
 }: {
   side: FinderBoardSide
@@ -773,6 +841,10 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   /** The question typed as words. The box is drawn only when both are given. */
   parse?: (text: string) => FinderReading[]
   onAsk?: (r: FinderReading) => void
+  /** The typed question's answer before it is asked, from the section's own lines. */
+  askAnswer?: (r: FinderReading) => Promise<string | null>
+  /** The players the typed words may mean, offered to pick. */
+  askNames?: (text: string) => { id: string; name: string; text: string }[]
   /** The grains this side can be asked at, in the switch's order. Single innings only where the
    *  section reads its plays and the side is pitching (src/league/inningLines.ts). */
   grains?: FinderPer[]
@@ -1048,7 +1120,8 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
           </Box>
         )}
         </Box>
-        {parse && onAsk && <AskBox side={side} parse={parse} clubAbbr={clubAbbr} name={picks?.name} onAsk={onAsk} asking={chips.length > 0} />}
+        {parse && onAsk && <AskBox side={side} parse={parse} clubAbbr={clubAbbr} name={picks?.name} onAsk={onAsk} asking={chips.length > 0}
+          answer={askAnswer} names={askNames} />}
         {/* THE QUESTION, A CHIP A PIECE: a tap opens that piece, its ✕ drops it, and "+ Add" offers a
             stat or a who, where or when. Every condition is AND, which the chips in one row say. */}
         <Box role="group" aria-label="Question" sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75 }}>

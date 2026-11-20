@@ -1,6 +1,6 @@
 import { PA_SEASON_KEYS, type FinderBoardSide, type FinderCondition, type FinderPer, type FinderVenue } from './finder'
 import { isQuestionWord, parseClubScope, parseFinderText, parseLeaderText, parseRecordQuestion, takeBareStat, type FinderClubAlias } from './finderParse'
-import { foldName } from '../lib/fuzzyName'
+import { editDistance, foldName } from '../lib/fuzzyName'
 
 /**
  * A Find question that names players: "Sato vs hunters", "Whitmore off Schroder", "Whitmore 2-hit
@@ -262,4 +262,52 @@ export function parsePlayerQuestion(
     }
   }
   return out.slice(0, MAX_READINGS)
+}
+
+/** A name the typed words may mean, and the words with it written in full. */
+export interface NameSuggestion { id: string; name: string; text: string }
+
+/**
+ * The players a typed question may be reaching for, so a name is picked rather than spelled. A
+ * question reads a name only whole or by its exact surname (`findNames`), so "hond" and "hondra"
+ * asked everyone and said nothing about why, and "Sato" picked one of two Satos with no way to say
+ * which. Three shapes, at most `max`: the last word typed so far is the start of a name ("hond"); a
+ * word is a slip from a surname ("hondars", by `editDistance`); a surname is shared, so each holder is
+ * offered whole. A word that is part of a question ("hits", a club) is never read as a name, and a
+ * name already typed whole and alone is left be.
+ */
+export function nameSuggestions(text: string, roster: readonly RosterPlayer[], clubs: readonly FinderClubAlias[], max = 3): NameSuggestion[] {
+  const raw = text.trim().split(/\s+/).filter(Boolean)
+  if (!raw.length) return []
+  const words = raw.map(w => foldName(w))
+  const clubWords = new Set(clubs.flatMap(c => c.names.flatMap(n => foldName(n).split(' '))))
+  const spans = findNames(words, raw, roster, clubWords)
+  const shared = new Set(spans.flatMap(s => (s.whole || s.ids.length === 1 ? [] : s.ids)))
+  const taken = spans.filter(s => s.whole || s.ids.length === 1)
+  const inTaken = (i: number) => taken.some(s => i >= s.from && i < s.to)
+  const writeIn = (i: number, name: string) => [...raw.slice(0, i), name, ...raw.slice(i + 1)].join(' ')
+  const out: NameSuggestion[] = []
+  const add = (p: RosterPlayer, i: number) => {
+    if (out.length < max && !out.some(o => o.id === p.id)) out.push({ id: p.id, name: p.name, text: writeIn(i, p.name) })
+  }
+  const last = raw.length - 1
+  const open = /\s$/.test(text) ? -1 : last
+  const surnameOf = (p: RosterPlayer) => { const parts = foldName(p.name).split(' '); return parts[parts.length - 1] }
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i]
+    if (inTaken(i) || w.length < 2 || clubWords.has(w)) continue
+    // A surname two players share: each of them, whole.
+    if (shared.size) { for (const p of roster) if (shared.has(p.id) && surnameOf(p) === w) add(p, i) }
+    if (isQuestionWord(w)) continue
+    // Still being typed: the start of a first name or a surname, three letters at least.
+    if (i === open && w.length >= 3) {
+      for (const p of roster) if (foldName(p.name).split(' ').some(part => part.startsWith(w) && part !== w)) add(p, i)
+    }
+    // A slip: one edit in a short surname, two in a long one, never under four letters.
+    if (w.length >= 4) {
+      const allow = w.length < 7 ? 1 : 2
+      for (const p of roster) { const s = surnameOf(p); if (s !== w && editDistance(w, s, allow) <= allow) add(p, i) }
+    }
+  }
+  return out
 }
