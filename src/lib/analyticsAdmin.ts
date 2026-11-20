@@ -833,3 +833,75 @@ export function fetchAnalytics(
     overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb, palette, audience, sources, funnels,
   }))
 }
+
+// ─── The Search tab (admin_search_log) ────────────────────────────────────────
+// What people search for and whether the box answered, as one call. One finished search is one
+// open of the box ending in a pick that left it or a close after typing; an open closed with
+// nothing typed is counted in `opened` and nowhere else.
+
+export type SearchResult = 'picked' | 'closed' | 'nothing'
+export type SearchSection = 'all' | 'wpbl' | 'mlb'
+
+export interface SearchLogRow {
+  at: string
+  section: string
+  result: SearchResult
+  kind: string | null
+  /** The picked row's label. Null on a close, and on picks before Nov 20, 2026 that were not a
+   *  WPBL player or club. */
+  title: string | null
+  /** What was typed, kept only when the box offered nothing for it. */
+  q: string | null
+  player_id: string | null
+  team_id: string | null
+  typed: number | null
+  rank: number | null
+  shown: number | null
+  top: boolean
+  forgiving: boolean
+  /** A short hash of the browser id, enough to follow one reader down the list. */
+  browser: string
+  me: boolean
+  user: string | null
+}
+
+export interface SearchLog {
+  excluded_browsers: number
+  totals: {
+    opened: number; opened_browsers: number; searches: number; browsers: number
+    picked: number; closed: number; nothing: number; top_row: number; forgiving: number
+    avg_rank: number | null; avg_typed: number | null
+  }
+  daily: Array<{ day: string; picked: number; closed: number; nothing: number }>
+  kinds: Array<{ section: string; kind: string; events: number; browsers: number; avg_rank: number | null; top: number }>
+  players: Array<{ id: string; name: string; team_id: string | null; events: number; browsers: number; last_at: string }>
+  picks: Array<{ section: string; kind: string; title: string; events: number; browsers: number; last_at: string }>
+  missed: Array<{ section: string; q: string; events: number; browsers: number; last_at: string }>
+  recent: SearchLogRow[]
+}
+
+export const EMPTY_SEARCH_LOG: SearchLog = {
+  excluded_browsers: 0,
+  totals: { opened: 0, opened_browsers: 0, searches: 0, browsers: 0, picked: 0, closed: 0, nothing: 0, top_row: 0, forgiving: 0, avg_rank: null, avg_typed: null },
+  daily: [], kinds: [], players: [], picks: [], missed: [], recent: [],
+}
+
+/** `meSessions` is this browser's own id: it is the owner's even on a visit that never signed in. */
+export function fetchSearchLog(days: number, tz: string, excludeMe: boolean, section: SearchSection, meSessions: string[] = [], lim = 500): Promise<SearchLog> {
+  return callRpc('admin_search_log', { days_back: days, tz, exclude_me: excludeMe, me_sessions: meSessions, lim, sect: section }, EMPTY_SEARCH_LOG)
+}
+
+/** What the palette's `kind` means, as the Search tab labels it. */
+export const SEARCH_KIND_LABELS: Record<string, string> = {
+  result: 'Player or club', recent: 'Recent', suggestion: 'Suggested', page: 'Page', finder: 'Find',
+  leader: 'Ranking', team_rank: 'Club ranking', record: 'Record', first: 'First', compare: 'Compare',
+  matchup: 'Matchup', game: 'Game', club_page: 'Club page', definition: 'Definition', action: 'Setting',
+  other_section: 'Other section',
+}
+
+export const searchKindLabel = (k: string | null | undefined): string => (k && SEARCH_KIND_LABELS[k]) || (k ?? '—')
+
+/** Answered over finished searches: a pick that left the box. */
+export function answerRate(t: SearchLog['totals']): number | null {
+  return t.searches > 0 ? t.picked / t.searches : null
+}

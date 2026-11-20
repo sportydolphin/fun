@@ -17,6 +17,8 @@ tab?" doesn't mean opening the Supabase SQL editor.
 | SQL: Home cards, seen then used | `admin_home_funnels` in the same file |
 | SQL: the MLB card | [`20260928073655_admin_mlb_usage_rpc.sql`](../scripts/migrations/20260928073655_admin_mlb_usage_rpc.sql) |
 | SQL: the Search box card | [`20261014060457_add_admin_search_palette_rpc.sql`](../scripts/migrations/20261014060457_add_admin_search_palette_rpc.sql) + [`20261014183000_add_palette_missed_queries.sql`](../scripts/migrations/20261014183000_add_palette_missed_queries.sql) |
+| SQL: the Search tab | [`20261120091845_add_admin_search_log_rpc.sql`](../scripts/migrations/20261120091845_add_admin_search_log_rpc.sql) + [`20261120092204_admin_search_log_takes_a_section.sql`](../scripts/migrations/20261120092204_admin_search_log_takes_a_section.sql) |
+| The Search tab | [`src/AdminSearch.tsx`](../src/AdminSearch.tsx), tested in [`adminSearch.test.tsx`](../src/__tests__/adminSearch.test.tsx) |
 | The search box and its events | [`src/CommandPalette.tsx`](../src/CommandPalette.tsx), opened from [`src/App.tsx`](../src/App.tsx) |
 | MLB Home card seen / used | [`src/mlb/components/TrackedCard.tsx`](../src/mlb/components/TrackedCard.tsx) |
 | SQL: Today, Returning / Engaged, Return rate, Sources, Since launch | [`20261111061433_admin_briefing_audience_and_traffic_sources.sql`](../scripts/migrations/20261111061433_admin_briefing_audience_and_traffic_sources.sql) |
@@ -44,6 +46,10 @@ folded into this page (`AdminPanel.tsx` now exports `AdminTools`, the same secti
 the dialog chrome removed); the ⚡ Admin menu item navigates here. Feedback and Users are
 still modals, but they're drill-downs opened *from* the page. If you add an admin feature,
 it goes on this page. Don't start a second surface.
+
+**The Search tab** (Nov 20, 2026) is its own group, beside Audience, because the owner is about half
+of every search event and the Audience cards count them all. It reads `admin_search_log` alone, with
+its own range, section and "Exclude me" chips (on by default, remembered per browser).
 
 **Three groups, not one scroll** (Aug 20, 2026). The page had grown to seventeen stacked
 cards mixing three unrelated jobs, with the range and league filters at the top implying they
@@ -228,6 +234,7 @@ last two rows, which say what they take instead.
 | `admin_wpbl_entry_points(days_back, tz)` | `props->>'from'` for player / team / game opens, plus Game Center tab × via |
 | `admin_wpbl_search(days_back, tz, lim)` | the header-search funnel, what was picked, and the queries that matched nothing |
 | `admin_search_palette(days_back, tz)` | the search box in both sections, per section: opens, picks that left it, closes with nothing (after typing, and offered nothing), how it was opened (`via`), picks by kind with average row and top-row share, stat questions by side, and WPBL queries that read as one |
+| `admin_search_log(days_back, tz, exclude_me, me_sessions, lim, sect)` | the Search tab: one row per finished search (a pick that left the box, or a close after typing) as totals, a gap-filled daily series by outcome, picks by kind, WPBL players by searches, picked rows by `title`, text that found nothing, and the newest `lim` searches as a log. `exclude_me` drops every browser ever signed in as the caller plus `me_sessions` (the client sends its own id); `sect` is `all`, `wpbl` or `mlb` |
 | `admin_home_funnels(days_back, tz, funnels)` | per funnel passed in (`HOME_FUNNELS`): browsers that fired the impression, and those of them who fired a use, from the card where `from` is given |
 | `admin_top_players(days_back, lim, tz)` | `props->>'playerId'` joined to `wpbl_players` |
 | `admin_discord_funnel(days_back, tz)` | shown / joined / dismissed, **by distinct session** |
@@ -276,7 +283,9 @@ them are load-bearing:
   query matched nothing (no player, club, Find reading, ranking or pair), and since Oct 14, 2026
   `command_palette_dismissed` keeps it, in both sections, when the box was closed having offered
   no row at all for what was typed; `admin_search_palette` lists those as `missed`. Both drop it
-  otherwise and cap it at 40 characters. That asymmetry is the point: a query that matched is already described by
+  otherwise and cap it at 40 characters. Since Nov 20, 2026 `command_palette_picked` carries `title`, the
+  picked row's own label (a player's name, "Most strikeouts"): the site's text, not the reader's, which is what
+  lets the Search tab's log say what a search found without recording what was typed. That asymmetry is the point: a query that matched is already described by
   whichever row the reader picked, so keeping it would be collecting freeform user text for
   nothing, while a query that matched nothing is the only thing on this dashboard that names a
   specific thing to go and fix. Do not "make it consistent" by logging every query.

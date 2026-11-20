@@ -10,6 +10,7 @@ import AdminClips from './wpbl/AdminClips'
 import AdminRosterMoves from './wpbl/AdminRosterMoves'
 import AdminLiveNotes from './wpbl/AdminLiveNotes'
 import AdminRoadmap from './AdminRoadmap'
+import AdminSearch from './AdminSearch'
 import { SupabaseUsage } from './AdminUsage'
 import { PlayerPortrait } from './wpbl/ui'
 // The gesture the win probability and standings charts already use. It lives under wpbl/
@@ -52,9 +53,10 @@ const palettePicked = (p: PaletteStats) => p.sections.reduce((n, s) => n + s.pic
 // whether the pipelines ran, and the things the owner operates. They share almost nothing:
 // the range and league filters below apply to the first and to nothing else, so they are
 // three groups rather than three runs of cards separated by nothing but a heading.
-type Group = 'audience' | 'health' | 'tools' | 'notes' | 'photos' | 'clips' | 'rosters' | 'roadmap'
+type Group = 'audience' | 'search' | 'health' | 'tools' | 'notes' | 'photos' | 'clips' | 'rosters' | 'roadmap'
 const GROUPS: Array<{ value: Group; label: string }> = [
   { value: 'audience', label: 'Audience' },
+  { value: 'search',   label: 'Search' },
   { value: 'health',   label: 'Health' },
   { value: 'tools',    label: 'Tools' },
   { value: 'notes',    label: 'Notes' },
@@ -1664,6 +1666,8 @@ export default function AdminPage() {
       </>)}
 
       {group === 'health' && <Box sx={{ maxWidth: ADMIN_NARROW }}><HealthGroup health={health}><SupabaseUsage /></HealthGroup></Box>}
+
+      {group === 'search' && <AdminSearch />}
 
       {group === 'tools' && <Box sx={{ maxWidth: ADMIN_NARROW }}><AdminTools /></Box>}
 
