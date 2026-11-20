@@ -23,6 +23,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.248.0',
+    date:    '2026-11-20',
+    changes: [
+      {
+        short: 'Search: Suggestions',
+        full:  'The empty search box’s Try list is now Suggestions, with more kinds of question: splits, batter vs pitcher, rankings by position, situation or kind of play, records for a game, an inning and an at-bat, and club records. Each is labeled by its kind.',
+      },
+      {
+        short: 'Search: a page typed by its name comes first',
+        full:  'Typing a page’s name, like "Standings", opens with that page rather than a player whose name looks like it.',
+      },
+    ],
+  },
+  {
     version: '1.247.0',
     date:    '2026-11-20',
     changes: [

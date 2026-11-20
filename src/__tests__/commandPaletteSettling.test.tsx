@@ -36,7 +36,7 @@ describe('while the answers arrive', () => {
     await user.type(screen.getByRole('combobox'), 'standings')
     expect(screen.getByRole('option', { name: /Standings/ })).toBeInTheDocument()
     await user.type(screen.getByRole('combobox'), 'qq')
-    // Still the last answer, not the fifteen examples, and no "Nothing matches" yet.
+    // Still the last answer, not the suggestions, and no "Nothing matches" yet.
     expect(screen.getByRole('option', { name: /Standings/ })).toBeInTheDocument()
     expect(screen.queryByText(/Nothing matches/)).not.toBeInTheDocument()
     await user.keyboard('{Enter}')
@@ -44,7 +44,7 @@ describe('while the answers arrive', () => {
     expect(await screen.findByText(/Nothing matches/)).toBeInTheDocument()
     // The page row is gone. The examples under "Nothing matches" include one typed "Standings", which
     // is not the answer that was up, so it is told apart by its description.
-    expect(screen.queryByRole('option', { name: n => /^Standings/.test(n) && !/Any page on the site/.test(n) })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: n => /^Standings/.test(n) && !/^Standings\s*Page$/.test(n) })).not.toBeInTheDocument()
   })
 
   it('asks for a Find row’s count once, and keeps it as the text moves on', async () => {
@@ -72,5 +72,27 @@ describe('while the answers arrive', () => {
     await act(() => sleep(0))
     await user.type(box, 'ngs')
     expect(box.value).toBe('standings')
+  })
+})
+
+// "Standings" on MLB led with Garrett Stallings, a forgiving name match, above the page it named
+// (Nov 20, 2026). A page typed by its full name leads, unless someone is called exactly that.
+describe('a page typed by its name', () => {
+  afterEach(() => cleanup())
+  const stallings = { key: 'p1', title: 'Garrett Stallings', subtitle: 'P | MIL', avatar: { kind: 'initials', text: 'GS' }, onSelect: () => {}, forgiving: true } as never
+
+  it('leads over a name that only looks like it', async () => {
+    const user = userEvent.setup()
+    render(<CommandPalette open onClose={() => {}} section="mlb" results={[stallings]} idle={[]} searching={false} />)
+    await user.type(screen.getByRole('combobox'), 'standings')
+    await waitFor(() => expect(screen.getAllByRole('option')[0]).toHaveTextContent(/^Standings/))
+  })
+
+  it('stays under a player whose name it is', async () => {
+    const user = userEvent.setup()
+    const named = { ...(stallings as object), title: 'Standings' } as never
+    render(<CommandPalette open onClose={() => {}} section="mlb" results={[named]} idle={[]} searching={false} />)
+    await user.type(screen.getByRole('combobox'), 'standings')
+    await waitFor(() => expect(screen.getAllByRole('option')[0]).toHaveTextContent(/P \| MIL/))
   })
 })
