@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.245.0',
+    date:    '2026-11-20',
+    changes: [
+      {
+        short: 'Find: a stat table on phones',
+        full:  'On a phone, Find’s answers are a table: a row a match, the rank and name pinned at the left, and the stats in columns that scroll sideways. A game’s date and result sit under the name.',
+      },
+    ],
+  },
+  {
     version: '1.244.0',
     date:    '2026-11-20',
     changes: [

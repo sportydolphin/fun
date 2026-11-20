@@ -10,10 +10,9 @@ import { finderColumns, finderFields, defaultCondition,
   type FinderCondition, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
   type FinderBoardSide, type FinderSort, type FinderTally, type FinderVenue,
 } from '../league/finder'
-import { GAME_LINE_RANK_SX } from './gameLine'
 import { shortDate } from '../lib/format'
 import type { LeagueGame, LeaguePlayer } from '../league/types'
-import { SectionCard, SectionLabel, TYPE_SCALE, CARD_BORDER, ACCENT_EDGE } from './card'
+import { SectionCard, SectionLabel, TYPE_SCALE, CARD_BORDER, CARD_FILL, ACCENT_EDGE } from './card'
 import { ExpandRow } from './ExpandRow'
 import { PillGroup } from './PillGroup'
 import { InfoDot } from './InfoDot'
@@ -67,6 +66,12 @@ const COL = { rank: 2, player: 8, game: 5.25, result: 3.25, stat: 2.4, gap: 0.4 
 // ("T. Maximiliana" on PAs, "N. Yonetani" on games, Nov 9, 2026). The floor rises by what the stats
 // give up, so the width where the tally moves in is where it was.
 const LINE_COL = { ...COL, player: 10, stat: 2.15 }
+/** The phone table's gap between columns, tighter than the full table's. */
+const PHONE_GAP_REM = 0.5
+// THE SAME LINE HEIGHTS LOADING AND LOADED, so the rows do not change height when they land: the
+// placeholders took the type's default and stood 1.6px taller a row than the names that replaced them.
+const PHONE_NAME_LH = 1.4
+const PHONE_GAME_LH = 1.35
 const colsFor = (per: FinderPer) => (per === 'season' ? COL : LINE_COL)
 // A STAT COLUMN HOLDS ITS HEAD'S LONGEST WORD, sort mark included, and a two-word head wraps. Sized
 // for a number alone, "HR ROW ▾" ran straight into "INN" beside it on the PAs grain (Nov 10, 2026
@@ -397,145 +402,6 @@ function askedFirst(side: FinderBoardSide, query: FinderQuery): { key: string; u
   return cols.map((c, i) => ({ c, i })).sort((a, b) => rank(a.c.key) - rank(b.c.key) || a.i - b.i).map(x => x.c)
 }
 
-// A CARD'S STAT STRIP: one row of labeled cells, as many as the width holds, the rest cut whole (rows
-// after the first are zero tall). The asked columns come first, so what is cut is never the answer.
-const STRIP_CELL_REM = 2.6
-const stripSx = {
-  display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${STRIP_CELL_REM}rem, 1fr))`,
-  gridTemplateRows: 'auto', gridAutoRows: 0, overflow: 'hidden', columnGap: 0.5, mt: 0.5,
-} as const
-const stripLabelSx = { fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary', whiteSpace: 'nowrap', lineHeight: 1.3 } as const
-const stripValueSx = { fontSize: TYPE_SCALE.body, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', lineHeight: 1.3 } as const
-
-/**
- * THE CARDS' COLUMN HEADS, ONCE, over the list rather than a label in every card: each card was a
- * row of "G PA H HR RBI" over its own numbers, which on ten cards is ten header rows and nothing that
- * reads down a column. Built from the cards' own boxes (rank, face, then the strip on the same grid),
- * so each head sits exactly over its numbers and the same columns are cut.
- */
-function CardHeads({ cols, asked, ranked }: { cols: { key: string; unit: string; label: string }[]; asked: string[]; ranked: boolean }) {
-  return (
-    <Box aria-hidden sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.25, px: 0.5, pb: 0.5 }}>
-      {ranked && <Box sx={GAME_LINE_RANK_SX} />}
-      <Box sx={{ width: chromePx(PORTRAIT_PX), flexShrink: 0 }} />
-      <Box sx={{ ...stripSx, flex: 1, minWidth: 0, mt: 0 }}>
-        {cols.map(c => (
-          <Box key={c.key} title={c.label} sx={{ ...stripLabelSx, color: asked.includes(c.key) ? 'text.primary' : 'text.secondary' }}>{c.unit}</Box>
-        ))}
-      </Box>
-    </Box>
-  )
-}
-
-/** A result card's ghost, the same box as `ResultCards`' card, so nothing moves when the rows land. */
-function CardSkeleton({ divider, season, stats }: { divider: boolean; season: boolean; stats: number }) {
-  return (
-    <Box aria-hidden sx={{
-      display: 'flex', alignItems: 'center', gap: 1.25, px: 0.5, py: 0.85,
-      borderTop: divider ? '1px solid' : 'none', borderColor: 'divider',
-    }}>
-      <Box sx={GAME_LINE_RANK_SX}>&nbsp;</Box>
-      <Skeleton variant="circular" width={chromePx(PORTRAIT_PX)} height={chromePx(PORTRAIT_PX)} sx={{ flexShrink: 0 }} />
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: TYPE_SCALE.body }}><Skeleton width="55%" /></Typography>
-        {!season && <Typography sx={{ fontSize: TYPE_SCALE.meta }}><Skeleton width="45%" /></Typography>}
-        <Box sx={stripSx}>
-          {Array.from({ length: stats }, (_, i) => (
-            <Box key={i} sx={stripValueSx}><Skeleton width="1.6rem" /></Box>
-          ))}
-        </Box>
-      </Box>
-    </Box>
-  )
-}
-
-/**
- * THE LIST, WHERE THE TABLE DOES NOT FIT: a card per match, built from the table's own columns and
- * links. Until Nov 10, 2026 a phone drew each match as a sentence ("Win, 3.2 IP, 1 H, 1 R, 0 BB, 6 K")
- * beside one big number, and on a yes-or-no answer that number was not the stat asked: "Strikeouts
- * at least 6" listed every row as "3.2 IP", since every row's strikeouts were the same. Now the line is
- * a strip of labeled cells, the asked stats first and in the accent, and the night and its result
- * read as the table's Game and Result columns do.
- */
-function ResultCards<P extends LeaguePlayer, G extends LeagueGame>({ side, query, rows, ranks, clubAbbr, rowParts }: {
-  side: FinderBoardSide
-  query: FinderQuery
-  rows: FinderRow<P, G>[]
-  ranks: RankMark[]
-  clubAbbr: (id: string) => string
-  rowParts: (row: FinderRow<P, G>) => FinderRowParts
-}) {
-  const cols = askedFirst(side, query)
-  const asked = query.conditions.map(c => c.field)
-  const season = query.per === 'season'
-  const stretched = { '&::after': { content: '""', position: 'absolute', inset: 0, borderRadius: 1 } } as const
-  // A lone answer has no place to number: "1" beside the only row said nothing and cost its width.
-  const ranked = rows.length > 1
-  return (
-    <>
-    <CardHeads cols={cols} asked={asked} ranked={ranked} />
-    <NameColumn names={rows.map(r => r.name)}>{rows.map((r, i) => {
-      const parts = rowParts(r)
-      const label = gameLabel(r.game, r.teamId, clubAbbr)
-      const rowLink = season ? parts.playerLink : parts.gameLink
-      const result = r.inning?.event !== undefined ? r.inning.event ?? '' : gameResult(r.game, r.teamId)
-      return (
-        // THE RANK AND THE FACE ARE CENTERED ON THE CARD, as the table's row and the tally's are: pinned
-        // to its top they sat beside the name alone and left the stat strip hanging under nothing.
-        <Box key={r.key} sx={{
-          position: 'relative', display: 'flex', alignItems: 'center', gap: 1.25, px: 0.5, py: 0.85, borderRadius: 1,
-          borderTop: i > 0 ? '1px solid' : 'none', borderColor: 'divider',
-          ...(rowLink ? TAPPABLE : {}),
-        }}>
-          {ranked && <Box sx={{ ...GAME_LINE_RANK_SX, color: 'text.secondary' }}>{rankText(ranks[i])}</Box>}
-          {parts.portrait}
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-              {/* Raised over the row's stretched game link, so the name still opens the player. On a
-                  season card the name IS the card's link, stretched over it. */}
-              <NameText name={r.name} linkProps={parts.playerLink} sx={{
-                ...(season ? {} : { position: 'relative', zIndex: 1 }),
-                minWidth: 0, textDecoration: 'none', color: 'inherit',
-                fontSize: TYPE_SCALE.body, fontWeight: 700,
-                ...(parts.playerLink ? hoverOnly({ textDecoration: 'underline' }) : {}),
-                ...(season && parts.playerLink ? stretched : {}),
-              }} />
-              {parts.club && <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', flexShrink: 0 }}>{parts.club}</Box>}
-            </Box>
-            {!season && (
-              <Typography component="div" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', minWidth: 0 }}>
-                {parts.gameLink ? (
-                  <Box component="a" {...parts.gameLink} sx={{
-                    ...FOCUS_RING, color: ACCENT_EDGE, fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap',
-                    ...stretched, ...hoverOnly({ textDecoration: 'underline' }),
-                  }}>{label}</Box>
-                ) : <Box component="span" sx={{ whiteSpace: 'nowrap' }}>{label}</Box>}
-                {result && result !== '—' ? ` · ${result}` : ''}
-              </Typography>
-            )}
-            {/* The heads are drawn once above the list (CardHeads); each value still carries its
-                label for a screen reader, which hears the card and not the heads. */}
-            <Box role="list" aria-label="Line" sx={stripSx}>
-              {cols.map(c => {
-                const isAsked = asked.includes(c.key)
-                return (
-                  <Box key={c.key} role="listitem" title={c.label} sx={{ minWidth: 0 }}>
-                    <Box component="span" sx={visuallyHidden}>{c.unit} </Box>
-                    <Box sx={{ ...stripValueSx, fontWeight: isAsked ? 800 : 500, color: isAsked ? ACCENT_EDGE : 'text.primary' }}>
-                      {displayFinderValue(side, c.key, r.values[c.key] ?? 0)}
-                    </Box>
-                  </Box>
-                )
-              })}
-            </Box>
-          </Box>
-        </Box>
-      )
-    })}</NameColumn>
-    </>
-  )
-}
-
 /** What a section hands the table for one row: its face, its club mark, and its two links. */
 export interface FinderRowParts {
   portrait: React.ReactNode
@@ -720,6 +586,142 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
                     <Box key={c.key} role="cell" sx={{
                       textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
                       fontSize: first ? TYPE_SCALE.title : TYPE_SCALE.body,
+                      fontWeight: isAsked ? 800 : 500,
+                      color: first ? ACCENT_EDGE : isAsked ? 'text.primary' : 'text.secondary',
+                    }}>
+                      {displayFinderValue(side, c.key, r.values[c.key] ?? 0)}
+                    </Box>
+                  )
+                })}
+              </Box>
+            )
+          })}</NameColumn>}
+      </Box>
+    </Box>
+  )
+}
+
+/**
+ * THE TABLE ON A PHONE, where the full one does not fit. Until Nov 20, 2026 a phone drew a card per
+ * match: a 32px face, the name, then a strip of labeled numbers under it, about 135px a player, with
+ * the labels either repeated in every card or drawn once with the name line between them and their
+ * numbers. This is a stat table instead, a row a match: the rank and the name (stepped to "F. Last"
+ * as the room needs) stay pinned at the left, the asked stats come first, and the rest scroll sideways
+ * under the pinned column, as the Players table does on a phone. No faces: at 32px one costs the
+ * width of a whole stat column. A game's night and result ride under the name, since a Game column
+ * would push every stat off the screen.
+ */
+function PhoneTable<P extends LeaguePlayer, G extends LeagueGame>({
+  side, query, rows, ranks, sort, onSort, headlineField, clubAbbr, rowParts, loading,
+}: {
+  side: FinderBoardSide
+  query: FinderQuery
+  rows: FinderRow<P, G>[]
+  ranks: RankMark[]
+  sort: FinderSort | null
+  onSort: (s: FinderSort | null) => void
+  headlineField: string
+  clubAbbr: (id: string) => string
+  rowParts: (row: FinderRow<P, G>) => FinderRowParts
+  loading: boolean
+}) {
+  const cols = askedFirst(side, query)
+  const asked = query.conditions.map(c => c.field)
+  const season = query.per === 'season'
+  // The pinned column: the rank, then the name. A night's line ("Aug 2 at BOS · W 5–2") under the name
+  // needs a little more than a name alone. A FIXED WIDTH, never "at least": each row is its own grid,
+  // and a column that grew to its name put "Kelsie Whitmore" row's numbers out of line with the rest.
+  // A name too long for it steps to "F. Last" (NameText).
+  const leadRem = season ? 9.5 : 10.5
+  const template = [`${leadRem}rem`, ...cols.map(col => `${statRem(query.per, col.unit)}rem`)].join(' ')
+  const rowSx = {
+    display: 'grid', gridTemplateColumns: template, columnGap: `${PHONE_GAP_REM}rem`, alignItems: 'center',
+    width: 'max-content', minWidth: '100%', pr: 0.5,
+  } as const
+  // Pinned over the columns that scroll under it, so it carries the card's own fill.
+  const pinned = { position: 'sticky', left: 0, zIndex: 1, bgcolor: CARD_FILL, alignSelf: 'stretch', display: 'flex', alignItems: 'center', minWidth: 0, pr: 0.75 } as const
+  const best = (key: string) => !finderLowerBetter(side, key)
+  const active: FinderSort = sort ?? { key: headlineField, desc: best(headlineField) }
+  const press = (key: string) => onSort({ key, desc: active.key === key ? !active.desc : best(key) })
+  const ranked = loading || rows.length > 1
+  // Room for "T-10" on one line.
+  const rankSx = { width: '2.25rem', flexShrink: 0, whiteSpace: 'nowrap', textAlign: 'center', fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' } as const
+  const headSx = { fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary', whiteSpace: 'nowrap', lineHeight: 1.2 } as const
+  const stretched = { '&::after': { content: '""', position: 'absolute', inset: 0 } } as const
+  return (
+    <Box role="table" aria-label={season ? 'Matching seasons' : `Matching ${GRAIN_NOUN[query.per][1]}`} aria-busy={loading || undefined}
+      sx={{ overflowX: 'auto', overscrollBehaviorX: 'contain' }}>
+      <Box role="rowgroup">
+        <Box role="row" sx={{ ...rowSx, alignItems: 'end', pb: 0.5 }}>
+          <Box role="columnheader" sx={{ ...pinned, ...headSx, alignItems: 'flex-end' }}>
+            {ranked && <Box component="span" sx={{ ...rankSx, fontSize: TYPE_SCALE.micro }}>#</Box>}
+            <Box component="span" sx={{ pl: ranked ? 0.5 : 0.75 }}>{whoFor(side, query.per, query.byClub)[0] === 'club' ? 'Club' : 'Player'}</Box>
+          </Box>
+          {cols.map(c => {
+            const on = active.key === c.key
+            return (
+              <Box key={c.key} role="columnheader" aria-sort={on ? (active.desc ? 'descending' : 'ascending') : 'none'} sx={{ textAlign: 'right' }}>
+                <Box component="button" type="button" title={c.label} onClick={() => press(c.key)} sx={{
+                  all: 'unset', ...FOCUS_RING, ...headSx, cursor: 'pointer', borderRadius: 0.5,
+                  color: on || asked.includes(c.key) ? 'text.primary' : 'text.secondary',
+                  borderBottom: '2px solid', borderColor: on ? ACCENT_EDGE : 'transparent',
+                }}>
+                  {c.unit}{on ? (active.desc ? ' ▾' : ' ▴') : ''}
+                </Box>
+              </Box>
+            )
+          })}
+        </Box>
+      </Box>
+      <Box role="rowgroup">
+        {loading
+          ? Array.from({ length: RESULT_CAP }, (_, i) => (
+            <Box key={i} role="row" aria-hidden sx={{ ...rowSx, borderTop: '1px solid', borderColor: 'divider' }}>
+              <Box sx={{ ...pinned, py: 0.75 }}>
+                <Box sx={rankSx}>&nbsp;</Box>
+                <Box sx={{ flex: 1, pl: 0.5 }}>
+                  <Typography sx={{ fontSize: TYPE_SCALE.meta, lineHeight: PHONE_NAME_LH }}><Skeleton width="70%" /></Typography>
+                  {!season && <Typography sx={{ fontSize: TYPE_SCALE.micro, lineHeight: PHONE_GAME_LH }}><Skeleton width="80%" /></Typography>}
+                </Box>
+              </Box>
+              {cols.map(c => <Typography key={c.key} sx={{ fontSize: TYPE_SCALE.body }}><Skeleton /></Typography>)}
+            </Box>
+          ))
+          : <NameColumn names={rows.map(r => r.name)}>{rows.map((r, i) => {
+            const parts = rowParts(r)
+            const label = gameLabel(r.game, r.teamId, clubAbbr)
+            const result = r.inning?.event !== undefined ? r.inning.event ?? '' : gameResult(r.game, r.teamId)
+            return (
+              <Box key={r.key} role="row" sx={{ ...rowSx, position: 'relative', borderTop: '1px solid', borderColor: 'divider' }}>
+                <Box role="cell" sx={{ ...pinned, py: 0.75 }}>
+                  {ranked && <Box sx={rankSx}>{rankText(ranks[i])}</Box>}
+                  <Box sx={{ flex: 1, minWidth: 0, pl: ranked ? 0.5 : 0.75 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+                      <NameText name={r.name} linkProps={parts.playerLink} sx={{
+                        minWidth: 0, textDecoration: 'none', color: 'inherit', fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: PHONE_NAME_LH,
+                        ...(parts.playerLink ? hoverOnly({ textDecoration: 'underline' }) : {}),
+                      }} />
+                      {parts.club && <Box sx={{ display: 'flex', flexShrink: 0 }}>{parts.club}</Box>}
+                    </Box>
+                    {!season && (
+                      <Typography component="div" noWrap sx={{ fontSize: TYPE_SCALE.micro, color: 'text.secondary', lineHeight: PHONE_GAME_LH }}>
+                        {parts.gameLink ? (
+                          <Box component="a" {...parts.gameLink} sx={{
+                            ...FOCUS_RING, position: 'relative', color: ACCENT_EDGE, fontWeight: 700, textDecoration: 'none',
+                            ...stretched, ...hoverOnly({ textDecoration: 'underline' }),
+                          }}>{label}</Box>
+                        ) : label}
+                        {result && result !== '—' ? ` · ${result}` : ''}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+                {cols.map(c => {
+                  const first = c.key === asked[0]
+                  const isAsked = asked.includes(c.key)
+                  return (
+                    <Box key={c.key} role="cell" sx={{
+                      textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', fontSize: TYPE_SCALE.body,
                       fontWeight: isAsked ? 800 : 500,
                       color: first ? ACCENT_EDGE : isAsked ? 'text.primary' : 'text.secondary',
                     }}>
@@ -1021,7 +1023,6 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // across a wide desktop is ten names with a screen of nothing between each and its count.
   const tallySplit = `@container finder-main (min-width: ${2 * TALLY_REM + 2}rem) and (max-width: ${besideRem - 0.01}rem)`
   const listOnly = { display: 'block', [tableOn]: { display: 'none' } }
-  const stripStats = finderColumns(side, query).length
   const tableOnly = { display: 'none', [tableOn]: { display: 'block' } }
 
   // THE WHO, WHERE AND WHEN, each one list of choices: a chip once set, an entry in "+ Add" until then.
@@ -1193,6 +1194,10 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     </SectionCard>
   )
 
+  const phoneTable = (
+    <PhoneTable side={side} query={query} rows={shownRows} ranks={ranks} sort={shownSort} onSort={onSort}
+      headlineField={result.headlineField} clubAbbr={clubAbbr} rowParts={rowParts} loading={loading} />
+  )
   const table = (
     <ResultTable side={side} query={query} rows={shownRows} ranks={ranks} sort={shownSort} onSort={onSort}
       headlineField={result.headlineField} clubAbbr={clubAbbr} rowParts={rowParts} loading={loading} />
@@ -1235,10 +1240,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
               )}
               {loading ? (
                 <>
-                  <Box sx={listOnly}>
-                    <CardHeads cols={askedFirst(side, query)} asked={query.conditions.map(c => c.field)} ranked />
-                    {Array.from({ length: RESULT_CAP }, (_, i) => <CardSkeleton key={i} divider={i > 0} season={season} stats={stripStats} />)}
-                  </Box>
+                  <Box sx={listOnly}>{phoneTable}</Box>
                   <Box sx={tableOnly}>{table}</Box>
                   {/* The expand row a season's worth of matches always brings, so the card does not grow
                       by it when they land and push the tally under it on a phone. */}
@@ -1284,7 +1286,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
                       paint is already the right one: a measured switch would paint the list and then
                       replace it. */}
                   <Box sx={listOnly}>
-                    <ResultCards side={side} query={query} rows={shownRows} ranks={ranks} clubAbbr={clubAbbr} rowParts={rowParts} />
+                    {phoneTable}
                   </Box>
                   <Box sx={tableOnly}>{table}</Box>
                   {result.rows.length > RESULT_CAP && (
