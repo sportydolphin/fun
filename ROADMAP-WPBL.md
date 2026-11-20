@@ -1300,6 +1300,25 @@ Still open, in the order worth doing: the rest of spans (item 6); a player's own
 reading a name inside a question; near-misses on another side at a play-log grain (counted only where
 its lines are already in hand, so left out today).
 
+## Search: the gaps a 268-phrasing probe found (Nov 20, 2026) 🎯⚙️
+
+A probe ran 268 questions a fan might type through the live box; 156 answered. Shipped the same day as
+v1.249.0, in six steps: stat words no longer reach a stranger through the typo pass (`NOT_NAMES`) and a
+half-typed milestone answers ("Hunters 100th"); bio, birthday, draft and jersey questions; standings;
+the league's own line and a player's place on every stat answer; the Pitch by pitch rates and every
+column by name ("best whiff rate", "k/9", "leverage", "best baserunner"); the playoffs as a cut, the
+lineup spot ("cleanup hitters", "batting 9th"), the biggest plays by win probability and leverage, and
+two-way players. ARCHITECTURE's Search entry names the modules.
+
+Still open, in the order worth doing:
+
+1. **MLB parity**: the league line, standings, playoffs and lineup spot are WPBL's alone.
+2. **Columns the tables do not have**: BB/K, opponent average, blown saves, holds (none in the feed).
+3. **Spans and pace** ("most hr in 5 games", "Whitmore on pace"), once 2027 games exist.
+4. **"Hunters runs per game"** and other club per-game figures.
+5. **Plays named in words** ("inside the park home run", "triple play" without "first").
+6. **Next game and yesterday** say nothing in the offseason; a row naming opening day once it is public.
+
 ## Search: names, records for every stat, looser wording (Nov 10, 2026) 🎯⚙️
 
 A probe of about 30 phrasings found the misses: "most walks in a game" offers nothing (no Bests card
