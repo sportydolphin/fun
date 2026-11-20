@@ -618,3 +618,20 @@ describe('parseLeagueText', () => {
     expect(parseLeaderText('league batting average')).toEqual([])
   })
 })
+
+// The Nov 20, 2026 probe: columns the tables had that no word reached.
+describe('the rest of the columns, by name', () => {
+  it('reads them as rankings and beside a name', () => {
+    expect(parseLeaderText('stolen base percentage')).toMatchObject([{ side: 'hitting', field: 'sbPct' }])
+    expect(parseLeaderText('k/9')).toMatchObject([{ side: 'pitching', field: 'k9' }])
+    expect(parseLeaderText('k/7 leaders')).toMatchObject([{ side: 'pitching', field: 'k9' }])
+    expect(parseLeaderText('lowest bb/9')).toMatchObject([{ side: 'pitching', field: 'bbPct', dir: 'asc' }])
+    expect(parseLeaderText('hr per 9')).toMatchObject([{ side: 'pitching', field: 'hr9' }])
+    expect(parseLeaderText('leverage')).toMatchObject([{ side: 'overall', field: 'pli' }])
+    expect(nameWords('whitmore k/9')).toBe('whitmore')
+  })
+  it('keeps a count of strikeouts a count', () => {
+    expect(parseLeaderText('5 k')).toEqual([])
+    expect(parseLeaderText('9 strikeouts')).toEqual([])
+  })
+})

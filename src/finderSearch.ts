@@ -11,7 +11,7 @@
 // tab on a modified click like any other.
 
 import { describeFinderConditions, describeFinderCuts, describeFinderQuery, finderFields, type FinderBoardSide, type FinderCondition, type FinderPer, type FinderSide } from './league/finder'
-import { parseClubPage, parseClubRecord, parseFinderText, parseGameQuery, parseLeaderText, parsePositionRank, parseRecordQuestion, parseRecordText, parseScopedRank, parseTeamRankText, rankField, rankLowerBetter, type ClubPagePart, type ParsedFinder, type ParsedLeader, type RankSide } from './league/finderParse'
+import { bareStatText, parseClubPage, parseClubRecord, parseFinderText, parseGameQuery, parseLeaderText, parsePositionRank, parseRecordQuestion, parseRecordText, parseScopedRank, parseTeamRankText, rankField, rankLowerBetter, type ClubPagePart, type ParsedFinder, type ParsedLeader, type RankSide } from './league/finderParse'
 import { MLB_FINDER_CLUBS, mlbFinderHref } from './mlb/finderLink'
 import { CURRENT_SEASON, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_ABBR } from './mlb/constants'
 import { MLB_GLOSSARY_PAGE, mlbClubById, mlbTeamPath, mlbUrlFor } from './mlb/routes'
@@ -346,9 +346,9 @@ const HIT_ADVANCED = 'opsPlus wrcPlus woba iso babip kPct bbPct'
 const PIT_ADVANCED = 'eraPlus fip kbb kPct bbPct babip'
 const BOARD_COLUMNS: Record<FinderSection, Record<RankSide, Record<string, string>>> = {
   wpbl: {
-    hitting: SAME(`avg obp slg ops hr rbi r h sb cs 2b 3b tb bb so hbp gdp pa ab g ${HIT_ADVANCED}`),
-    pitching: { ...SAME(`era whip w l sv so ip h r er bb hr hbp wp bk bf gs g ${PIT_ADVANCED}`), pitches: 'p' },
-    overall: SAME('war wpa'),
+    hitting: SAME(`avg obp slg ops hr rbi r h sb cs 2b 3b tb bb so hbp gdp pa ab g xbh ibb sf sh sbPct ${HIT_ADVANCED}`),
+    pitching: { ...SAME(`era whip w l sv so ip h r er bb hr hbp wp bk bf gs g kbbPct strikePct k9 hr9 ${PIT_ADVANCED}`), pitches: 'p' },
+    overall: SAME('war wpa pli gmli bsr fld batWar pitWar'),
   },
   mlb: {
     hitting: { ...SAME(`g pa ab r h 2b 3b hr rbi sb cs bb avg obp slg ops tb gdp hbp ${HIT_ADVANCED}`), so: 'k' },
@@ -555,6 +555,8 @@ const BEST_BOARDS: Record<FinderSide, Record<string, { key: string; label: strin
  * in a game") offered nothing at all (Nov 10, 2026 probe).
  */
 export function recordSuggestions(section: FinderSection, text: string): RecordSuggestion[] {
+  // A stat typed bare is the season's most only when Find has no reading of its own.
+  if (bareStatText(text) && finderSuggestions(section, text).length) return []
   const seen = new Set<string>()
   const bestsRow = (s: FinderSide, board: { key: string; label: string }): RecordSuggestion[] => {
     if (seen.has(board.key)) return []

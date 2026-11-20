@@ -602,9 +602,14 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
   // "Hunters highlights", "longest game", "Hunters streak" (src/wpbl/searchMore.ts): read off the text
   // with the section's own data, loaded on the first ask.
   const resolveMore = useCallback(async (text: string): Promise<AnswerGroup[]> => {
-    const [{ wpblMoreAnswers }, league] = await Promise.all([import('../searchMoreAnswers'), leagueAnswers(text)])
-    const more = await wpblMoreAnswers(text, { games, players, teams })
-    return league.length ? [{ label: 'League', icon: 'league', rows: league }, ...more] : more
+    const ctx = { games, players, teams }
+    const [{ wpblMoreAnswers }, { wpblPitchRateAnswers }, league] = await Promise.all([import('../searchMoreAnswers'), import('../searchPitchRates'), leagueAnswers(text)])
+    const [more, pitch] = await Promise.all([wpblMoreAnswers(text, ctx), wpblPitchRateAnswers(text, ctx).catch(() => [])])
+    return [
+      ...(pitch.length ? [{ label: 'Pitch by pitch', icon: 'pitches' as const, rows: pitch }] : []),
+      ...(league.length ? [{ label: 'League', icon: 'league' as const, rows: league }] : []),
+      ...more,
+    ]
   }, [games, players, teams, leagueAnswers])
   // "Sato vs hunters", "Whitmore off Schroder", "Whitmore 2-hit games" (src/league/playerQuestion.ts):
   // the roster with who has hit and who has pitched, from every season's lines, which decides who is

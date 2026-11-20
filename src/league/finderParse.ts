@@ -187,6 +187,23 @@ addRank({ pitching: 'fip' }, 'fip', 'fielding independent pitching')
 addRank({ pitching: 'kbb' }, 'k/bb', 'k bb', 'strikeout to walk', 'strikeout to walk ratio')
 addRank({ overall: 'war' }, 'war', 'wins above replacement')
 addRank({ overall: 'wpa' }, 'wpa', 'win probability added')
+// Columns the tables already had that no word reached (the Nov 20, 2026 probe: "stolen base
+// percentage", "strike percentage", "k/9", "leverage" and the rest offered nothing or a definition).
+// K/9 and HR/9 are the table's per-basis columns whatever the basis is called (normalize writes every
+// spelling as one word); BB/9 is BB%, which the table keeps in its place on purpose (stats.ts, `hr9`).
+addRank({ hitting: 'sbPct' }, 'sb%', 'sb pct', 'stolen base percentage', 'stolen base pct', 'stolen base success rate', 'sb success rate', 'steal success rate', 'steal percentage', 'success rate stealing')
+addRank({ pitching: 'strikePct' }, 'strike%', 'str%', 'strike pct', 'strike percentage', 'strike rate', 'strikes thrown percentage')
+addRank({ pitching: 'kbbPct' }, 'k-bb%', 'k bb%', 'k minus bb', 'k-bb')
+addRank({ pitching: 'k9' }, 'kpernine', 'strikeouts per inning')
+addRank({ pitching: 'hr9' }, 'hrpernine')
+addRank({ pitching: 'bbPct' }, 'bbpernine')
+addRank({ hitting: 'ibb' }, 'ibb', 'intentional walks', 'intentional walk', 'intentional bases on balls')
+addRank({ overall: 'pli' }, 'pli', 'leverage', 'leverage index', 'average leverage')
+addRank({ overall: 'gmli' }, 'gmli', 'reliever leverage', 'leverage when entering', 'entering leverage')
+addRank({ overall: 'bsr' }, 'bsr', 'baserunning', 'base running', 'baserunning runs', 'base running runs')
+addRank({ overall: 'fld' }, 'fld', 'fielding runs', 'defensive runs', 'defensive value', 'glove runs')
+addRank({ overall: 'batWar' }, 'pos war', 'position war', 'position player war', 'batting war', 'offensive war')
+addRank({ overall: 'pitWar' }, 'pit war', 'pitching war', 'pitcher war')
 
 /** How a season figure is named and which end is the good one, where the finder does not know it. */
 const RANK_FIELDS: Record<string, { label: string; rate: boolean; lowerBetter?: RankSide[] }> = {
@@ -195,6 +212,13 @@ const RANK_FIELDS: Record<string, { label: string; rate: boolean; lowerBetter?: 
   kPct: { label: 'K%', rate: true, lowerBetter: ['hitting'] }, bbPct: { label: 'BB%', rate: true, lowerBetter: ['pitching'] },
   eraPlus: { label: 'ERA+', rate: true }, fip: { label: 'FIP', rate: true, lowerBetter: ['pitching'] },
   kbb: { label: 'K/BB', rate: true }, war: { label: 'WAR', rate: false }, wpa: { label: 'WPA', rate: false },
+  sbPct: { label: 'SB%', rate: true }, strikePct: { label: 'strike rate', rate: true }, kbbPct: { label: 'K-BB%', rate: true },
+  // The basis (per 7 or per 9) is the reader's, which a title here cannot know, so these say what
+  // the figure is measured over instead.
+  k9: { label: 'K rate by innings', rate: true }, hr9: { label: 'HR rate by innings', rate: true, lowerBetter: ['pitching'] },
+  ibb: { label: 'intentional walks', rate: false }, pli: { label: 'leverage (pLI)', rate: true }, gmli: { label: 'gmLI', rate: true },
+  bsr: { label: 'baserunning runs', rate: false }, fld: { label: 'fielding runs', rate: false },
+  batWar: { label: 'position player WAR', rate: false }, pitWar: { label: 'pitching WAR', rate: false },
 }
 
 /** Whether a ranked column's good end is the low one, for the box-score stats and these alike. */
@@ -734,6 +758,11 @@ function normalize(text: string): string {
     // "most k's" found nothing (Nov 10, 2026): the apostrophe left "k" and "s" apart. Only after a
     // stat's letters, so a name keeps its own ("O'Neil").
     .replace(/(?<![a-z])(k|hr|rbi|sb|bb|so|hbp|2b|3b|xbh|cg|dp|ip|ab|pa|gs|qs)['’]s(?![a-z])/g, '$1s')
+    // "k/9", "hr per 7", "bb/9": a per-innings rate, written with a number that is no count. Rewritten
+    // to a word, since a digit anywhere makes the ranking reader stand down ("5 k" is a game line).
+    .replace(/(?<![a-z0-9])(k|so|strikeouts?|hr|home\s*runs?|bb|walks?)\s*(?:\/|per)\s*(?:9|7|nine|seven)(?:\s+innings?)?(?![a-z0-9])/g,
+      (_m: string, w: string) => (/^(?:k|so|s)/.test(w) ? ' kpernine ' : /^h/.test(w) ? ' hrpernine ' : ' bbpernine '))
+    .replace(/(?<![a-z0-9])(k|hr|bb)[79](?![a-z0-9])/g, (_m: string, w: string) => ` ${w === 'k' ? 'k' : w}pernine `)
     // "caught stealing twice": a count like any other.
     .replace(/(?<![a-z])twice(?![a-z])/g, '2 times')
     .replace(/\s+/g, ' ')
@@ -1695,6 +1724,14 @@ export interface ParsedRecord {
  * off first, so they narrow the record rather than making the words unreadable. Most only: the
  * fewest of something in one game is nearly always zero, which is no record anybody keeps.
  */
+const isBare = (rest: string) => rest.trim().length >= 6 && !rest.replace(STAT_ANY, ' ').replace(/(?<![a-z])(?:the|all)(?![a-z])/g, ' ').trim()
+
+/** Whether `text` is a stat and nothing else ("pickoffs"), which the season record reads only when
+ *  nothing else does: "pinch hits" and "bunt hits" are Find's plate appearances first. */
+export function bareStatText(text: string): boolean {
+  return isBare(` ${fixStatTypos(normalize(text))} `)
+}
+
 export function parseRecordQuestion(text: string, clubs: readonly FinderClubAlias[], { season: seasons = false, plays = false }: { season?: boolean; plays?: boolean } = {}): ParsedRecord[] {
   const clubWords = new Set(clubs.flatMap(c => c.names.flatMap(n => normalize(n).split(' '))))
   const year = takeYear(` ${fixStatTypos(normalize(text), clubWords)} `)
@@ -1719,6 +1756,11 @@ export function parseRecordQuestion(text: string, clubs: readonly FinderClubAlia
   if (seasons && !per) {
     rest = rest.replace(SEASON_SPAN, m => { per = 'season'; return ' '.repeat(m.length) })
     if (!per && /(?<![a-z])(most|highest|greatest|top|leaders?|leading)(?![a-z])/.test(rest)) per = 'season'
+    // A stat typed bare, as a ranking is ("pickoffs", "double plays turned"): the season's most, which
+    // is how a bare stat with a column already reads. Long phrases only, so a stat's letters on the
+    // way to a name ("so", "ab") are never one. Both offered nothing until Nov 20, 2026.
+    // The whole text, so a club or a year beside it ("hunters doubles") stays the readers' who know them.
+    if (!per && bareStatText(text)) per = 'season'
   }
   if (!per) return []
   const grain: 'game' | 'inning' | 'season' | 'club' = per

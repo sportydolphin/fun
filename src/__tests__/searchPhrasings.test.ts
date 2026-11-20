@@ -119,3 +119,12 @@ describe('play-log questions from the search bar', () => {
     expect(finderSuggestions('mlb', 'most runs in an inning').every(f => f.parsed.per !== 'inning')).toBe(true)
   })
 })
+
+// The Nov 20, 2026 probe: a stat with no column, typed bare, offered nothing where "most" found it.
+describe('a bare stat the tables have no column for', () => {
+  it('reads as the season record', () => {
+    expect(recordSuggestions('wpbl', 'pickoffs')[0]).toMatchObject({ title: 'Most pickoffs' })
+    expect(recordSuggestions('wpbl', 'double plays turned')[0]).toMatchObject({ title: 'Most double plays turned' })
+    expect(recordSuggestions('wpbl', 'so')).toEqual([])
+  })
+})
