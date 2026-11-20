@@ -578,15 +578,8 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
   // the roster with who has hit and who has pitched, from every season's lines, which decides who is
   // the batter in a matchup and which side a player's question is asked on.
   const resolvePlayerQuestion = useCallback(async (text: string): Promise<PlayerQuestionRow[]> => {
-    const [{ playerQuestionRows }, lines] = await Promise.all([import('../../finderSearch'), fetchWpblAllLines()])
-    const pa = new Map<string, number>(), bf = new Map<string, number>()
-    for (const l of lines.batting) pa.set(l.player_id, (pa.get(l.player_id) ?? 0) + l.ab + l.bb + l.hbp + l.sf + l.sh)
-    for (const l of lines.pitching) bf.set(l.player_id, (bf.get(l.player_id) ?? 0) + Math.max(l.bf ?? 0, l.outs))
-    const roster = players.map(p => {
-      const trips = pa.get(p.id) ?? 0, faced = bf.get(p.id) ?? 0
-      return { id: p.id, name: p.name, hits: trips > 0, pitches: faced > 0, lean: faced > trips ? 'pitching' as const : 'hitting' as const }
-    }).filter(p => p.hits || p.pitches)
-    return playerQuestionRows('wpbl', text, roster, id => teamById.get(id)?.name ?? id)
+    const [{ playerQuestionRows }, { wpblFinderRoster }, lines] = await Promise.all([import('../../finderSearch'), import('../finderLink'), fetchWpblAllLines()])
+    return playerQuestionRows('wpbl', text, wpblFinderRoster(players, lines.batting, lines.pitching), id => teamById.get(id)?.name ?? id)
   }, [players, teamById])
   // "7 times · last Sep 2" on every row that opens Find (src/wpbl/findAnswer.ts), read off the link.
   const resolveFindAnswer = useCallback(async (href: string) => {
