@@ -38,6 +38,8 @@ export function wpblFinderHref(p: Omit<ParsedFinder, 'season' | 'ignored'> & {
   if (p.batterId) params.set('bat', p.batterId)
   if (p.pitcherId) params.set('pit', p.pitcherId)
   if (p.season) params.set('season', String(p.season))
+  // The board's Playoffs slice, which the Find answers read off the same param (findAnswer.ts).
+  if (p.post) params.set('games', 'post')
   // The finder's grammar is URL-safe on purpose (see encodeFinderQuery), so undo the escaping
   // URLSearchParams gives `~`: the address should read the way the board writes it.
   return `/wpbl/stats?${params.toString().replace(/%7E/gi, '~')}`

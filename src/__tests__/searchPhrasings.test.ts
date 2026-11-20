@@ -128,3 +128,18 @@ describe('a bare stat the tables have no column for', () => {
     expect(recordSuggestions('wpbl', 'so')).toEqual([])
   })
 })
+
+// The Nov 20, 2026 probe: "triples in playoffs" (a logged miss on Nov 13) and "playoff hr leaders".
+describe('the postseason, asked for', () => {
+  it("opens the board's Playoffs slice", () => {
+    expect(leaderSuggestions('wpbl', 'playoff hr leaders')[0]).toMatchObject({
+      href: '/wpbl/stats?board=players&side=hitting&sort=hr&games=post', span: 'This season playoffs', ask: expect.objectContaining({ post: true }),
+    })
+    expect(leaderSuggestions('mlb', 'playoff hr leaders')).toEqual([])
+    expect(findTitles('2 hits in the playoffs')[0]).toBeDefined()
+    expect(finderSuggestions('wpbl', '2 hits in the playoffs')[0].href).toContain('games=post')
+  })
+  it('reads "batting 9th" as the lineup, never the 9th inning', () => {
+    expect(finderSuggestions('wpbl', 'batting 9th')).toEqual([])
+  })
+})

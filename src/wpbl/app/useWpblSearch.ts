@@ -396,11 +396,12 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
   const { fmtEra, basis: eraBasis } = useEraBasis()
   const loadBoard = useMemo(() => {
     const boards = new Map<string, Promise<WpblBoard>>()
-    return (season: number | null, need: { weights: boolean; plays: boolean }) => {
-      const key = `${season}|${need.weights}|${need.plays}`
+    return (season: number | null, need: { weights: boolean; plays: boolean }, post = false) => {
+      const key = `${season}|${need.weights}|${need.plays}|${post}`
       let board = boards.get(key)
       if (!board) {
-        board = import('../searchAnswers').then(m => m.loadWpblBoard({ season, schedule: games, players, teams, fmtEra, eraBasis }, need))
+        const scope = post ? 'postseason' as const : 'regular' as const
+        board = import('../searchAnswers').then(m => m.loadWpblBoard({ season, schedule: games, players, teams, fmtEra, eraBasis, scope }, need))
         boards.set(key, board)
         board.catch(() => { if (boards.get(key) === board) boards.delete(key) })
       }
@@ -413,13 +414,13 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
     const m = await import('../searchAnswers')
     const season = m.askedSeason(ask.season, games)
     if (season === undefined) return null
-    return m.wpblPlayerAnswer(player, ask, await loadBoard(season, m.boardNeeds(ask.columns)), players)
+    return m.wpblPlayerAnswer(player, ask, await loadBoard(season, m.boardNeeds(ask.columns), !!ask.post), players)
   }, [players, games, loadBoard])
   const resolveLeader = useCallback(async (ask: LeaderAsk) => {
     const m = await import('../searchAnswers')
     const season = m.askedSeason(ask.career ? 'career' : ask.season, games)
     if (season === undefined) return null
-    const peek = m.wpblLeaderPeek(ask, players, await loadBoard(season, m.boardNeeds({ [ask.side]: ask.sort })))
+    const peek = m.wpblLeaderPeek(ask, players, await loadBoard(season, m.boardNeeds({ [ask.side]: ask.sort }), !!ask.post))
     return peek && { ...peek, season }
   }, [players, games, loadBoard])
   // "league batting average", "total home runs", "runs per game" (parseLeagueText): the league's own
@@ -439,8 +440,8 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
     }
     if (ask.alias && !Object.keys(columns).length) return []
     const lean = ask.alias?.lean === 'pitching' || (!ask.alias?.hitting && ask.alias?.pitching) ? 'pitching' : ask.alias ? 'hitting' : null
-    const board = await loadBoard(season, m.boardNeeds(columns))
-    return m.wpblLeagueAnswers({ columns, lean, perGame: ask.kind === 'perGame' }, board).map(r => ({ ...r, open: () => {} }))
+    const board = await loadBoard(season, m.boardNeeds(columns), !!ask.post)
+    return m.wpblLeagueAnswers({ columns, lean, perGame: ask.kind === 'perGame', post: !!ask.post }, board).map(r => ({ ...r, open: () => {} }))
   }, [games, loadBoard])
   // THE CLIP OF A PLAY, as a row of its own under the play's row: a row is a link, and a second link
   // inside it would be one link in another. A clip read that fails costs the clips, not the answer.
@@ -603,14 +604,18 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
   // with the section's own data, loaded on the first ask.
   const resolveMore = useCallback(async (text: string): Promise<AnswerGroup[]> => {
     const ctx = { games, players, teams }
-    const [{ wpblMoreAnswers }, { wpblPitchRateAnswers }, league] = await Promise.all([import('../searchMoreAnswers'), import('../searchPitchRates'), leagueAnswers(text)])
-    const [more, pitch] = await Promise.all([wpblMoreAnswers(text, ctx), wpblPitchRateAnswers(text, ctx).catch(() => [])])
+    const [{ wpblMoreAnswers }, { wpblPitchRateAnswers }, { wpblLineupAnswers }, { wpblBigPlayAnswers }, league] = await Promise.all([
+      import('../searchMoreAnswers'), import('../searchPitchRates'), import('../searchLineup'), import('../searchBigPlays'), leagueAnswers(text)])
+    const [more, pitch, lineup, big] = await Promise.all([wpblMoreAnswers(text, ctx), wpblPitchRateAnswers(text, ctx).catch(() => []),
+      wpblLineupAnswers(text, ctx).catch(() => []), wpblBigPlayAnswers(text, ctx).then(withClips).catch(() => [])])
     return [
+      ...(big.length ? [{ label: 'Plays', icon: 'game' as const, rows: big }] : []),
+      ...(lineup.length ? [{ label: 'Lineup', icon: 'lineup' as const, rows: lineup }] : []),
       ...(pitch.length ? [{ label: 'Pitch by pitch', icon: 'pitches' as const, rows: pitch }] : []),
       ...(league.length ? [{ label: 'League', icon: 'league' as const, rows: league }] : []),
       ...more,
     ]
-  }, [games, players, teams, leagueAnswers])
+  }, [games, players, teams, leagueAnswers, withClips])
   // "Sato vs hunters", "Whitmore off Schroder", "Whitmore 2-hit games" (src/league/playerQuestion.ts):
   // the roster with who has hit and who has pitched, from every season's lines, which decides who is
   // the batter in a matchup and which side a player's question is asked on.

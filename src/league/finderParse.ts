@@ -66,6 +66,8 @@ export interface ParsedFinder {
   hand?: 'L' | 'R' | null
   /** The stat was said with no number ("Hunters doubles"), and read as at least one. */
   bare?: boolean
+  /** The postseason was asked for ("triples in the playoffs"): the board's Playoffs slice. */
+  post?: boolean
 }
 
 /** One word or phrase for a stat, and the field it means on each side that records it. Whether a
@@ -450,7 +452,17 @@ const LAST_BARE = /(?<![a-z])(?:last|past)\s+(\d{1,2})(?![a-z0-9])/g
 // a pitcher's question.
 const HAND_PHRASE = /(?<![a-z])(?:vs|versus|against|off|facing|from|of)\s+(?:(?:a|the)\s+)?(?:(left|right)[\s-]?hand(?:ed|ers?)?(?:\s+(pitchers?|pitching|throwers?|starters?|batters?|hitters?|hitting))?|(lefties|lefty|lefthanders?|southpaws?|lhps?|righties|righty|righthanders?|rhps?))(?![a-z])/g
 
-type Cuts = { from?: string; to?: string; last?: number; hand?: 'L' | 'R' }
+type Cuts = { from?: string; to?: string; last?: number; hand?: 'L' | 'R'; post?: boolean }
+
+// "in the playoffs", "postseason", "playoff games": the postseason slice, which every board and the
+// Find answers already read from the address (`games=post`). Asked for in the Nov 20, 2026 probe
+// ("triples in playoffs" was a logged miss on Nov 13).
+const PLAYOFF_WORDS = /(?<![a-z])(?:(?:in|during|of|for)\s+(?:the\s+)?)?(?:playoffs?|post[\s-]?season)(?:\s+(?:games?|stats?|totals?|play))?(?![a-z])/g
+
+/** Whether `text` asks about the postseason. */
+export function typedPostseason(text: string): boolean {
+  return new RegExp(PLAYOFF_WORDS.source).test(` ${normalize(text)} `)
+}
 
 /** The cuts said in `rest`, and `rest` without them. `batters`: the hand was a batter's. */
 function takeCuts(rest: string): { rest: string; cuts: Cuts; batters: boolean } {
@@ -474,13 +486,14 @@ function takeCuts(rest: string): { rest: string; cuts: Cuts; batters: boolean } 
     return blank(m)
   })
   rest = rest.replace(LAST_BARE, (m: string, n: string) => { cuts.last = Number(n); return blank(m) })
+  rest = rest.replace(PLAYOFF_WORDS, m => { cuts.post = true; return blank(m) })
   return { rest, cuts, batters }
 }
 
 /** Whether `text` says a cut (a span, the last N games, a hand). */
 export function saysCut(text: string): boolean {
   const c = takeCuts(` ${normalize(text)} `).cuts
-  return !!(c.from || c.to || c.last || c.hand)
+  return !!(c.from || c.to || c.last || c.hand || c.post)
 }
 
 const FIELD_POSITION_WORDS = /(?<![a-z0-9])(?:(?:at|playing|by\s+(?:a|an|the)|from\s+(?:a|the)|among)\s+)?(catchers?|first\s+base(?:m[ae]n)?|second\s+base(?:m[ae]n)?|third\s+base(?:m[ae]n)?|shortstops?|left\s+field(?:ers?)?|center\s+field(?:ers?)?|right\s+field(?:ers?)?|(?<=(?:at|playing)\s+)(?:c|1b|2b|3b|ss|lf|cf|rf))(?![a-z0-9])/g
@@ -964,8 +977,8 @@ export function parseClubRecord(text: string, clubs: readonly FinderClubAlias[])
   const teamId = c.teamIds.length === 1 ? c.teamIds[0] : null
   const oppId = c.oppIds.length === 1 ? c.oppIds[0] : null
   if (!teamId || teamId === oppId) return null
-  const { from, to, last } = cut.cuts
-  const narrowed = !!(from || to || (last && last > 1)) || c.venue !== 'any' || (said && !!oppId)
+  const { from, to, last, post } = cut.cuts
+  const narrowed = !!(from || to || (last && last > 1) || post) || c.venue !== 'any' || (said && !!oppId)
   const left = rest.split(/[^a-z0-9]+/).filter(w => w && !FILLER.has(w) && !SEASON_WORDS_SET.has(w))
   return narrowed && !left.length ? { teamId, oppId, venue: c.venue, season: year.season, ...cut.cuts } : null
 }
@@ -1390,6 +1403,8 @@ export interface ParsedLeader {
   /** Every season summed ("all time", "career"): the board across a whole history, not one year.
    *  Beats a year typed beside it, since "career hr 2024" can only mean the career. */
   career: boolean
+  /** The postseason's board ("playoff hr leaders"). */
+  post?: boolean
 }
 
 // "top" and "best" mean the board's own order; "most" and "fewest" mean the numbers' order, which
@@ -1422,6 +1437,8 @@ export function parseLeaderText(text: string): ParsedLeader[] {
   const span = takeCareer(rest)
   const year = takeYear(span.rest)
   rest = year.rest
+  let post = false
+  rest = rest.replace(PLAYOFF_WORDS, () => { post = true; return ' ' })
   const career = span.career
   const season = career ? null : year.season
   rest = rest.replace(TOP_N, (_m: string, w: string) => ` ${w} `)
@@ -1460,7 +1477,7 @@ export function parseLeaderText(text: string): ParsedLeader[] {
       : want === 'less' ? 'asc'
       : want === 'worst' ? (lowerBetter ? 'desc' : 'asc')
       : null
-    return { side, field, dir, season, career }
+    return { side, field, dir, season, career, ...(post ? { post } : {}) }
   })
 }
 
@@ -1475,6 +1492,7 @@ export function nameWords(text: string): string | null {
   const year = takeYear(span.rest)
   let rest = year.rest
   let found = year.season != null || span.career || part.part != null
+  rest = rest.replace(PLAYOFF_WORDS, () => { found = true; return ' ' })
   rest = rest.replace(STAT_ANY, (m: string, p: string) => {
     if (p.length < 2) return m
     found = true
@@ -1554,6 +1572,8 @@ export interface LeagueStatAsk {
   /** The league's figure, or a count per team per game. */
   kind: 'league' | 'perGame'
   season: number | null
+  /** The playoffs' line ("league era in the playoffs"). */
+  post?: boolean
 }
 
 // What makes a stat the league's: the word itself, a total, a count asked for, a per-game rate, or an
@@ -1576,7 +1596,8 @@ export function parseLeagueText(text: string): LeagueStatAsk | null {
   if (!cue) return null
   if (LEAD_WORDS.some(w => new RegExp(w.re.source).test(rest))) return null
   const year = takeYear(rest)
-  rest = year.rest.replace(PER_GAME, ' ').replace(LEAGUE_CUE, ' ').replace(new RegExp(LEAGUE_CUE.source, 'g'), ' ')
+  let post = false
+  rest = year.rest.replace(PLAYOFF_WORDS, () => { post = true; return ' ' }).replace(PER_GAME, ' ').replace(LEAGUE_CUE, ' ').replace(new RegExp(LEAGUE_CUE.source, 'g'), ' ')
   // "batting average" is a stat; a leading "average" is the word asking for the league's.
   const phrases = new Set<string>()
   rest = rest.replace(STAT_ANY, (_m: string, p: string) => { phrases.add(p); return ' ' })
@@ -1592,7 +1613,7 @@ export function parseLeagueText(text: string): LeagueStatAsk | null {
   // A line with no stat is the league's averages; it needs the word "league" or "averages".
   if (!alias && (perGame || !/(?<![a-z])(?:league|averages?)(?![a-z])/.test(text.toLowerCase()))) return null
   if (alias?.overall && !alias.hitting && !alias.pitching) return null
-  return { alias, kind: perGame ? 'perGame' : 'league', season: year.season }
+  return { alias, kind: perGame ? 'perGame' : 'league', season: year.season, ...(post ? { post } : {}) }
 }
 
 /**

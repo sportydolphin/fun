@@ -19,7 +19,7 @@
 
 import { OVR_COLS, hittingColumns, leagueLine, pitchingColumns, type Col, type WpblLeagueLine } from './statColumns'
 import { aggregateBatting, aggregatePitching, plateAppearances, wpblQualifiers, type EraBasis, type FipWeights, type WpblBattingTotals, type WpblPitchingTotals } from './stats'
-import { currentSeason, gamesInSeason, inSeason, seasonOf, standingsFinals } from './season'
+import { countsInStandings, currentSeason, gamesInSeason, inSeason, seasonOf, standingsFinals, type SeasonScope } from './season'
 import { fetchWpblAllLines, fetchWpblAllRunValuePlays, fetchWpblPlayerSeasons, fetchWpblRunEnvironment } from './api'
 import { viewPlayerSeasons, type PlayerSeasonsView } from './derive/playerSeasons'
 import { compareRows } from './leaderOrder'
@@ -71,6 +71,9 @@ export interface WpblBoardInput {
   plays: WpblRunValuePlay[] | null
   fmtEra: (v: number | null) => string
   eraBasis: EraBasis
+  /** The slice: the regular season (the table's default) or the playoffs ("playoff hr leaders"). WAR
+   *  is regular season only, like every engine it is built from, so a playoff board has none. */
+  scope?: SeasonScope
 }
 
 /** The board for one span, from data already read. Pure, so a test can hand it everything. */
@@ -85,13 +88,14 @@ export function buildWpblBoard(i: WpblBoardInput): WpblBoard {
   const values = !current && plays?.length ? playRunValues(plays, games, buildRunExpectancy(plays, games)) : null
   const wWeights = current ? i.env!.woba_weights : values ? wobaWeights(values) : null
   const fWeights = current ? i.env!.fip_weights : values ? fipWeights(values) : null
-  const value = plays?.length
+  const scope = i.scope ?? 'regular'
+  const value = plays?.length && scope === 'regular'
     ? new Map(playerValueSeasons(plays, games, i.players, lines).seasons.map(s => [s.player.id, s.totals]))
     : null
   return board(i, games, {
-    batting: new Map(aggregateBatting(i.players, lines.batting, games).map(s => [s.player.id, s.totals])),
-    pitching: new Map(aggregatePitching(i.players, lines.pitching, games).map(s => [s.player.id, s.totals])),
-    league: leagueLine(lines.batting, lines.pitching, games, 'regular'),
+    batting: new Map(aggregateBatting(i.players, lines.batting, games, scope).map(s => [s.player.id, s.totals])),
+    pitching: new Map(aggregatePitching(i.players, lines.pitching, games, scope).map(s => [s.player.id, s.totals])),
+    league: leagueLine(lines.batting, lines.pitching, games, scope),
     wWeights, fWeights, value,
   })
 }
@@ -99,17 +103,18 @@ export function buildWpblBoard(i: WpblBoardInput): WpblBoard {
 /** The same board from a season's stored rows (derive/playerSeasons.ts), already known current. */
 export function storedWpblBoard(i: Omit<WpblBoardInput, 'lines' | 'env' | 'plays'>, stored: PlayerSeasonsView): WpblBoard {
   const games = i.season == null ? i.schedule : gamesInSeason(i.schedule, i.season)
+  const scope = i.scope ?? 'regular'
   return board(i, games, {
-    batting: new Map(stored.batting('regular').map(s => [s.player.id, s.totals])),
-    pitching: new Map(stored.pitching('regular').map(s => [s.player.id, s.totals])),
-    league: stored.league('regular'),
+    batting: new Map(stored.batting(scope).map(s => [s.player.id, s.totals])),
+    pitching: new Map(stored.pitching(scope).map(s => [s.player.id, s.totals])),
+    league: stored.league(scope),
     wWeights: stored.weights.woba, fWeights: stored.weights.fip,
-    value: new Map(stored.value.map(s => [s.player.id, s.totals])),
+    value: scope === 'regular' ? new Map(stored.value.map(s => [s.player.id, s.totals])) : null,
   })
 }
 
 function board(
-  i: Pick<WpblBoardInput, 'season' | 'teams' | 'fmtEra' | 'eraBasis'>,
+  i: Pick<WpblBoardInput, 'season' | 'teams' | 'fmtEra' | 'eraBasis' | 'scope'>,
   games: WpblGame[],
   d: {
     batting: Map<string, WpblBattingTotals>; pitching: Map<string, WpblPitchingTotals>; league: WpblLeagueLine
@@ -118,7 +123,7 @@ function board(
 ): WpblBoard {
   const ctx = { league: d.league, wWeights: d.wWeights, fWeights: d.fWeights, fmtEra: i.fmtEra, eraBasis: i.eraBasis }
   return {
-    span: i.season == null ? 'career' : String(i.season),
+    span: `${i.season == null ? 'career' : String(i.season)}${i.scope === 'postseason' ? ' playoffs' : ''}`,
     batting: d.batting, pitching: d.pitching, value: d.value,
     weights: { woba: d.wWeights, fip: d.fWeights },
     columns: {
@@ -127,9 +132,10 @@ function board(
       overall: OVR_COLS as Col<Totals>[],
     },
     // The bar is measured in the span's own games, as the table measures it in the season on screen.
-    qual: wpblQualifiers(i.teams, games),
+    qual: wpblQualifiers(i.teams, games, i.scope ?? 'regular'),
     league: d.league,
-    teamGames: standingsFinals(games).length * 2,
+    // Club games in the slice: the regular season's finals, or the playoffs' decided games.
+    teamGames: (i.scope === 'postseason' ? games.filter(g => g.status === 'final' && !countsInStandings(g)).length : standingsFinals(games).length) * 2,
   }
 }
 
@@ -267,12 +273,14 @@ export interface WpblLeagueAnswer { key: string; title: string; detail: string; 
  * game is the count over club games; a rate has no per-game form and offers nothing. With no stat it
  * is the league's line on each side. `columns` is the board column per side, or none for the line.
  */
-export function wpblLeagueAnswers(ask: { columns: Partial<Record<'hitting' | 'pitching', string>>; lean: 'hitting' | 'pitching' | null; perGame: boolean },
+export function wpblLeagueAnswers(ask: { columns: Partial<Record<'hitting' | 'pitching', string>>; lean: 'hitting' | 'pitching' | null; perGame: boolean; post?: boolean },
   board: WpblBoard): WpblLeagueAnswer[] {
   const span = board.span
+  const year = span.split(' ')[0]
   const hrefFor = (side: 'hitting' | 'pitching', sort?: string) => {
     const params = new URLSearchParams({ board: 'teams', side, ...(sort ? { sort } : {}) })
-    if (span !== 'career') params.set('season', span)
+    if (year !== 'career') params.set('season', year)
+    if (ask.post) params.set('games', 'post')
     return `/wpbl/stats?${params}`
   }
   const totals = { hitting: board.league.batting as Totals, pitching: board.league.pitching as Totals }
