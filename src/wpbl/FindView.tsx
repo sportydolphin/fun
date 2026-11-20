@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { runWpblFinder, validFinderSort, type FinderBoardSide, type FinderQuery, type FinderSort } from './derive/finder'
 import { conditionsForPer, finderMonths, finderNeedsPlays, hasPlayerFilter, seasonFromPas, type FinderPer, type FinderRow } from '../league/finder'
-import { boxScoreOf, requestBoxScore, requestPlay } from './entryUrl'
+import { boxLineOf, boxScoreOf, requestBoxScore, requestPlay } from './entryUrl'
 import { clubFieldingInningLines, fieldingInningLines, inningPitchingLines, plateAppearanceLines, playTotals as buildPlayTotals, teamInningLines, type FielderSource } from '../league/inningLines'
 import { wpblFielderSource } from './fielders'
 import { WPBL_LEAGUE } from './league'
@@ -358,8 +358,9 @@ export default function WpblFindView({
       const link = gameLink(r.game, openRowGame(r))
       return link.href ? { ...link, href: `${link.href}#play-${r.inning.sequence}` } : link
     }
-    const box = r.game ? boxScoreOf(r.game, r.teamId) : null
-    const link = gameLink(r.game, onOpenGame && ((g: WpblGame) => { if (box) requestBoxScore(g.id, box.side); onOpenGame(g) }))
+    const line = boxLineOf(r.player, side)
+    const box = r.game ? boxScoreOf(r.game, r.teamId, line) : null
+    const link = gameLink(r.game, onOpenGame && ((g: WpblGame) => { if (box) requestBoxScore(g.id, box.side, line); onOpenGame(g) }))
     return box && link.href ? { ...link, href: `${link.href}${box.query}` } : link
   }
 

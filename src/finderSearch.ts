@@ -19,7 +19,7 @@ import { WPBL_FINDER_CLUBS, WPBL_FINDER_OPTS, WPBL_FINDER_SIDES, wpblFinderHref 
 import { WPBL_TEAMS } from './wpbl/constants'
 import { WPBL_GLOSSARY_PAGE, wpblSeriesPath, wpblTeamPath } from './wpbl/routes'
 import { askedTerms, glossaryTermKey } from './league/glossary'
-import { inningRecord, recordFinder, scopedRankFinder } from './league/finderAsk'
+import { asksForMost, inningRecord, paRankFinder, recordFinder, scopedRankFinder } from './league/finderAsk'
 import { parsePaRecord, type PaRecordQuestion } from './league/paRecords'
 import { parsePlayerQuestion, type RosterPlayer } from './league/playerQuestion'
 import { positionFilterDef } from './league/positionFilter'
@@ -95,6 +95,9 @@ const NAMED_QUESTIONS: [phrase: string, label: Partial<Record<Side, string>>][] 
   ['back-to-back-to-back home runs', { hitting: 'Back-to-back-to-back home runs', pitching: 'Back-to-back-to-back home runs allowed' }],
   ['back-to-back home runs', { hitting: 'Back-to-back home runs', pitching: 'Back-to-back home runs allowed' }],
   ['walk-off home runs', { hitting: 'Walk-off home runs', pitching: 'Walk-off home runs allowed' }],
+  ['walk-off hits', { hitting: 'Walk-off hits', pitching: 'Walk-off hits allowed' }],
+  ['two out rbi', { hitting: 'Two-out RBI' }],
+  ['rbi with risp', { hitting: 'RBI with runners in scoring position' }],
   ['bases loaded walks', { hitting: 'Bases-loaded walks', pitching: 'Bases-loaded walks allowed' }],
   ['full count', { hitting: 'Full counts', pitching: 'Full counts' }],
   ['hits with risp', { hitting: 'Hits with runners in scoring position', pitching: 'Hits allowed with runners in scoring position' }],
@@ -638,7 +641,7 @@ function situationWords(situation: FinderCondition[]): string[] {
  * either could be meant.
  */
 export function scopedRankSuggestions(section: FinderSection, text: string): RecordSuggestion[] {
-  return parseScopedRank(text, sectionClubs(section), section === 'wpbl' ? WPBL_FINDER_OPTS : {}).flatMap(r => {
+  const rows = parseScopedRank(text, sectionClubs(section), section === 'wpbl' ? WPBL_FINDER_OPTS : {}).flatMap(r => {
     const field = finderFields(r.side, 'season', true, !!r.byClub).find(f => f.key === r.field)
     const parsed = scopedRankFinder(r)
     if (!field || !parsed) return []
@@ -655,6 +658,32 @@ export function scopedRankSuggestions(section: FinderSection, text: string): Rec
       key: `scoped-${href}`, title: [`${lead} ${/^[A-Z]{2}/.test(field.label) ? field.label : field.label.toLowerCase()}`, ...where].join(' '),
       subtitle: `Find · ${r.side === 'pitching' ? 'Pitching' : r.byClub ? 'Clubs' : 'Batting'}, season totals`, href,
     }]
+  })
+  return [...rows, ...paRankSuggestions(section, text).filter(p => !rows.some(r => r.href === p.href))]
+}
+
+/**
+ * "most grand slams", "most walk-off hits", "two out rbi leaders": who has the most of a kind of plate
+ * appearance, as the hitters' season summed from those trips (`paRankFinder`). Titled by the kind's
+ * own name where it has one ("Most grand slams"), else by the stat and where the trips began. WPBL
+ * only, since MLB has no play log.
+ */
+function paRankSuggestions(section: FinderSection, text: string): RecordSuggestion[] {
+  if (section !== 'wpbl' || !asksForMost(text)) return []
+  return parseFinderText(text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS).flatMap(p => {
+    const parsed = paRankFinder(p)
+    // The ranking word itself is the one word the plain reading may leave ("two out rbi leaders").
+    if (!parsed || !p.ignored.every(w => /^(?:most|leaders?|leading|top)$/.test(w))) return []
+    const field = finderFields('hitting', 'season').find(f => f.key === parsed.rank!.field)
+    if (!field) return []
+    const named = namedQuestions(section).get(signature(p))
+    const where = [p.oppId && `vs ${clubLabel(section, p.oppId)}`, p.teamId && `for ${clubLabel(section, p.teamId)}`,
+      p.venue === 'home' ? 'at home' : p.venue === 'away' ? 'on the road' : null, p.season && String(p.season)].filter(Boolean)
+    const what = named
+      ? named.charAt(0).toLowerCase() + named.slice(1)
+      : [field.label.toLowerCase(), ...situationWords(parsed.conditions.slice(1))].join(' ')
+    const href = wpblFinderHref(parsed)
+    return [{ key: `scoped-${href}`, title: [`Most ${what}`, ...where].join(' '), subtitle: 'Find · Batting, season totals', href }]
   })
 }
 

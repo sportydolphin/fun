@@ -68,7 +68,7 @@ describe('auditEventCounts', () => {
   const games: LeagueGame[] = [{ id: 'g', game_date: '2026-08-01', status: 'final', game_type: 'R', counts_in_standings: true,
     home_team_id: 'home', away_team_id: 'away', home_score: 0, away_score: 0 }]
   const box = (over: object) => ({ game_id: 'g', player_id: 'b', team_id: 'away', h: 0, doubles: 0, triples: 0, hr: 0, bb: 0,
-    so: 0, hbp: 0, sb: 0, cs: 0, sf: 0, sh: 0, ...over })
+    so: 0, hbp: 0, sb: 0, cs: 0, sf: 0, sh: 0, rbi: 0, ...over })
   const pit = (over: object) => ({ game_id: 'g', player_id: 'p', team_id: 'home', h: 0, hr: 0, bb: 0, so: 0, hbp: 0, wp: 0, bk: 0, ...over })
 
   it('reports an event the box counts and the log does not', () => {

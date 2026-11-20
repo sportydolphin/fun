@@ -604,7 +604,7 @@ const INN_PHRASES: { re: RegExp; condition: (m: string[], regulation: number) =>
     } },
 ]
 const EVENT_LEAN: Record<string, FinderBoardSide> = { so: 'pitching', hr: 'hitting', hrrow: 'hitting', h: 'hitting', '2b': 'hitting', '3b': 'hitting', bb: 'hitting', hbp: 'hitting',
-  leadoff: 'hitting', ph: 'hitting', bunt: 'hitting', ifh: 'hitting', hitrow: 'hitting', '1b': 'hitting', runs: 'hitting' }
+  leadoff: 'hitting', ph: 'hitting', bunt: 'hitting', ifh: 'hitting', hitrow: 'hitting', '1b': 'hitting', runs: 'hitting', rbi: 'hitting' }
 // The events a plate appearance can be, as words with no number beside them.
 const PA_EVENT_WORDS: { re: RegExp; field: string }[] = [
   { re: /(?<![a-z])(?:hit by pitch(?:es)?|hbps?)(?![a-z])/g, field: 'hbp' },
@@ -615,8 +615,9 @@ const PA_EVENT_WORDS: { re: RegExp; field: string }[] = [
   { re: /(?<![a-z])triples?(?![a-z])/g, field: '3b' },
   { re: /(?<![a-z])singles?(?![a-z])/g, field: '1b' },
   { re: /(?<![a-z])hits?(?![a-z])/g, field: 'h' },
-  // A plate appearance's RBI are the runs its play scored ("two-out rbi").
-  { re: /(?<![a-z])(?:rbis?|runs batted in)(?![a-z])/g, field: 'runs' },
+  // A plate appearance's RBI are the scorer's ("two-out rbi"), never the runs on the play: an error or a
+  // double play scores runs nobody drove in (`PlateAppearanceLine.rbi`).
+  { re: /(?<![a-z])(?:rbis?|runs batted in)(?![a-z])/g, field: 'rbi' },
 ]
 
 // HOW BIG A NUMBER ONE GAME CAN HOLD, per stat in its own unit (innings in outs). Above `max` nobody
@@ -1806,7 +1807,7 @@ export function parseScopedRank(text: string, clubs: readonly FinderClubAlias[],
     // ("road avg", "home era", which offered nothing until Nov 10, 2026) it is the question.
     .filter(p => !RATE_FIELDS.has(p.field) || narrowed || (clubbed.venue !== 'any' && clubbed.oppIds[0] == null))
     // Only a hitter's season is summed by the arm or the situation (`seasonFromPas`), and only what a
-    // plate appearance says: no runs, RBI or steals, which would come out zero for everyone.
+    // plate appearance says: no runs scored or steals, which would come out zero for everyone.
     .filter(p => (!cuts.hand && !situated) || (p.side === 'hitting' && !cut.batters && PA_SEASON_KEYS.has(p.field)))
     // A count in a situation with no word for a ranking is its plays ("hits with risp", "bases loaded
     // walks"), which the plate-appearance reading answers; a rate there, or "most", is the leaders.
