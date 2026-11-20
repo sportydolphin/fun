@@ -4,7 +4,10 @@
 // section imports the other to get at it.
 
 import type { FinderClubAlias, ParsedFinder } from '../league/finderParse'
-import { encodeFinderQuery, type FinderBoardSide } from '../league/finder'
+import { encodeFinderQuery, type FinderBoardSide, type FinderQuery } from '../league/finder'
+import type { RosterPlayer } from '../league/playerQuestion'
+import type { FinderReading } from '../ui/finderBoard'
+import type { WpblBattingLine, WpblPitchingLine, WpblPlayer } from './types'
 import { WPBL_TEAMS } from './constants'
 import { REGULATION_INNINGS } from './innings'
 
@@ -37,4 +40,40 @@ export function wpblFinderHref(p: Omit<ParsedFinder, 'season' | 'ignored'> & {
   // The finder's grammar is URL-safe on purpose (see encodeFinderQuery), so undo the escaping
   // URLSearchParams gives `~`: the address should read the way the board writes it.
   return `/wpbl/stats?${params.toString().replace(/%7E/gi, '~')}`
+}
+
+/**
+ * Who has hit and who has pitched, for a name in a typed question ("Hondras vs RHP", "Whitmore off
+ * Schroder"): whether a name is the batter or the pitcher in a matchup, and which side one player's
+ * question is asked on, is read off the lines handed in. The search and the board's own box both
+ * read names against this, so a name means the same player and the same side in both.
+ */
+export function wpblFinderRoster(
+  players: readonly Pick<WpblPlayer, 'id' | 'name'>[],
+  batting: readonly Pick<WpblBattingLine, 'player_id' | 'ab' | 'bb' | 'hbp' | 'sf' | 'sh'>[],
+  pitching: readonly Pick<WpblPitchingLine, 'player_id' | 'bf' | 'outs'>[],
+): RosterPlayer[] {
+  const pa = new Map<string, number>(), bf = new Map<string, number>()
+  for (const l of batting) pa.set(l.player_id, (pa.get(l.player_id) ?? 0) + l.ab + l.bb + l.hbp + l.sf + l.sh)
+  for (const l of pitching) bf.set(l.player_id, (bf.get(l.player_id) ?? 0) + Math.max(l.bf ?? 0, l.outs))
+  return players.map(p => {
+    const trips = pa.get(p.id) ?? 0, faced = bf.get(p.id) ?? 0
+    return { id: p.id, name: p.name, hits: trips > 0, pitches: faced > 0, lean: faced > trips ? 'pitching' as const : 'hitting' as const }
+  }).filter(p => p.hits || p.pitches)
+}
+
+/**
+ * The board's question once a typed reading on its own side is asked. A typed question is a whole
+ * question: its stat, club, place, span and arm replace the board's. Only the players outlive it when
+ * it names none, and a matchup only at the grain that asks it. Until Nov 19, 2026 the span and the
+ * arm were dropped here, so "2 hits vs rhp" said "vs RHP" in the preview and then asked every pitcher.
+ */
+export function askedFinderQuery(query: FinderQuery, r: FinderReading): FinderQuery {
+  const named = r.playerId !== undefined || r.batterId !== undefined || r.pitcherId !== undefined
+  return {
+    ...query, per: r.per, conditions: r.conditions, teamId: r.teamId, oppId: r.oppId, venue: r.venue, byClub: !!r.byClub,
+    from: r.from ?? null, to: r.to ?? null, last: r.last ?? null, hand: r.hand ?? null,
+    ...(named ? { playerId: r.playerId ?? null, batterId: r.batterId ?? null, pitcherId: r.pitcherId ?? null }
+      : r.per === 'pa' ? {} : { batterId: null, pitcherId: null }),
+  }
 }

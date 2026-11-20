@@ -14,9 +14,10 @@ import { FinderBoard, type FinderExample, type FinderPlayerPicks, type FinderRea
 import { fitExamples } from '../ui/finderExamples'
 import { PORTRAIT_PX } from '../ui/leaders'
 import { parseFinderText } from '../league/finderParse'
+import { parsePlayerQuestion } from '../league/playerQuestion'
 import { navigate } from '../nav'
 import { useEraBasis } from './EraBasisContext'
-import { WPBL_FINDER_CLUBS, WPBL_FINDER_OPTS, WPBL_FINDER_SIDES, wpblFinderHref } from './finderLink'
+import { askedFinderQuery, WPBL_FINDER_CLUBS, WPBL_FINDER_OPTS, WPBL_FINDER_SIDES, wpblFinderHref, wpblFinderRoster } from './finderLink'
 import { wpblQualifiers } from './stats'
 import type { WpblBattingLine, WpblFieldingLine, WpblGame, WpblPitchingLine, WpblPlayer, WpblTeam } from './types'
 
@@ -326,11 +327,19 @@ export default function WpblFindView({
   // the other side goes through the address, the way the search box sends it, since the side is
   // StatsView's to switch.
   const onAsk = (r: FinderReading) => {
-    // A matchup outlives a typed question only at the grain that asks it.
-    if (r.side === side) onQuery({ ...query, per: r.per, conditions: r.conditions, teamId: r.teamId, oppId: r.oppId, venue: r.venue,
-      ...(r.per === 'pa' ? {} : { batterId: null, pitcherId: null }) })
+    if (r.side === side && (r.season == null || r.season === season)) onQuery(askedFinderQuery(query, r))
     else navigate(wpblFinderHref(r))
   }
+  // A name in a typed question ("Hondras vs RHP", "Sato vs hunters"), read against the lines on
+  // screen as the site search reads it. Without it the box took the name for nothing and asked the
+  // rest of the question of everyone.
+  const roster = useMemo(() => wpblFinderRoster(players, batting, pitching), [players, batting, pitching])
+  // The players' readings first, so "Hondras hits" is her hits rather than everyone's with her name
+  // ignored, which the plain reading still offers behind it.
+  const parse = (text: string): FinderReading[] => [
+    ...parsePlayerQuestion(text, roster, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS).map(q => ({ ...q, ignored: [] })),
+    ...parseFinderText(text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS),
+  ]
   const clubs = useMemo(
     () => [...teams].sort((a, b) => a.abbr.localeCompare(b.abbr)).map(t => ({ value: t.id, label: wpblFullName(t) })),
     [teams])
@@ -360,7 +369,7 @@ export default function WpblFindView({
       exampleCounted={plays || askPlays ? grains : ['game', 'season']}
       countFor={countFor} askOn={askOn} sides={findSides} onSide={onSide}
       grains={grains} loading={askPlays && (!plays || (askFielders && !fielders))} picks={picks} months={months}
-      parse={text => parseFinderText(text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS)} onAsk={onAsk}
+      parse={parse} onAsk={onAsk}
             rowParts={r => ({
         portrait: clubRows && r.teamId ? <TeamBadge team={{ id: r.teamId, abbr: r.teamId }} size={PORTRAIT_PX} />
           : <PlayerPortrait name={r.name} teamId={r.teamId} size={PORTRAIT_PX} />,

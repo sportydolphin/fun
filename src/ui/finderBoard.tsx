@@ -144,6 +144,19 @@ export interface FinderReading {
   venue: FinderVenue
   /** Words that were not understood, said back so a dropped name is visible. */
   ignored: string[]
+  /** A year typed with the question, or null (or absent) for the board's own season. */
+  season?: number | null
+  /** The rest of `FinderQuery`, where the reading says it: a club's rows, a span, an arm and the
+   *  players a name in the question picked (src/league/playerQuestion.ts). Absent leaves the board's own
+   *  players as they are; the section decides what the rest means. */
+  byClub?: boolean
+  from?: string | null
+  to?: string | null
+  last?: number | null
+  hand?: 'L' | 'R' | null
+  playerId?: string | null
+  batterId?: string | null
+  pitcherId?: string | null
 }
 
 type PickGroups = { label: string; options: { value: string; label: string }[] }[]
@@ -182,13 +195,15 @@ function scopeWords(side: FinderBoardSide, q: Pick<FinderQuery, 'teamId' | 'oppI
  * anything happens, and a reading on the other side says so, because "5 strikeouts" is a
  * pitcher's line and a hitter's.
  */
-function AskBox({ side, parse, onAsk, clubAbbr, asking }: {
+function AskBox({ side, parse, onAsk, clubAbbr, name, asking }: {
   side: FinderBoardSide
   /** A question is already set, so the box adds to it rather than starting one. */
   asking: boolean
   parse: (text: string) => FinderReading[]
   onAsk: (r: FinderReading) => void
   clubAbbr: (id: string) => string
+  /** A player id to the name the preview says back ("by Amira Hondras"). */
+  name?: (id: string) => string
 }) {
   const [text, setText] = useState('')
   // WHAT THE LAST QUESTION DROPPED, kept past the Ask. Said only in the preview, it vanished with the
@@ -199,7 +214,10 @@ function AskBox({ side, parse, onAsk, clubAbbr, asking }: {
   const best = readings.find(r => r.side === side) ?? readings[0] ?? null
   const ask = () => { if (best) { onAsk(best); setDropped(asTyped(best.ignored, text)); setText('') } }
   const showLine = !!text.trim() || dropped.length > 0
-  const scope = best ? scopeWords(best.side, best, clubAbbr) : ''
+  // A question that is only a player and a cut ("Hondras vs RHP") has no stat to describe, so the
+  // preview is the scope alone: "every season line, by Amira Hondras" buried the player, who is the question.
+  const scope = best ? scopeWords(best.side, best, clubAbbr, name) : ''
+  const said = best ? [best.conditions.length || !scope ? describeFinderQuery(best.side, best) : '', scope].filter(Boolean).join(', ') : ''
   return (
     <Box>
       {/* A SEARCH BOX THAT LOOKS LIKE ONE: the mark and the button. Bare, its example placeholder read
@@ -239,8 +257,7 @@ function AskBox({ side, parse, onAsk, clubAbbr, asking }: {
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
             <Box component="span" sx={{ fontWeight: 800, color: ACCENT_EDGE }}>Ask ›</Box>{' '}
-            {GRAIN_LEAD[best.per]}{describeFinderQuery(best.side, best)}
-            {scope && `, ${scope}`}
+            {GRAIN_LEAD[best.per]}{said}
             {best.side !== side && ` (${best.side})`}
             {best.ignored.length > 0 && `. Ignored: ${asTyped(best.ignored, text).join(' ')}`}
           </Box>
@@ -1031,7 +1048,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
           </Box>
         )}
         </Box>
-        {parse && onAsk && <AskBox side={side} parse={parse} clubAbbr={clubAbbr} onAsk={onAsk} asking={chips.length > 0} />}
+        {parse && onAsk && <AskBox side={side} parse={parse} clubAbbr={clubAbbr} name={picks?.name} onAsk={onAsk} asking={chips.length > 0} />}
         {/* THE QUESTION, A CHIP A PIECE: a tap opens that piece, its ✕ drops it, and "+ Add" offers a
             stat or a who, where or when. Every condition is AND, which the chips in one row say. */}
         <Box role="group" aria-label="Question" sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75 }}>
