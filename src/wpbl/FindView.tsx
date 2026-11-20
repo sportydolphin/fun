@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { runWpblFinder, validFinderSort, type FinderBoardSide, type FinderQuery, type FinderSort } from './derive/finder'
 import { conditionsForPer, finderMonths, finderNeedsPlays, hasPlayerFilter, seasonFromPas, type FinderPer, type FinderRow } from '../league/finder'
 import { boxScoreOf, requestBoxScore, requestPlay } from './entryUrl'
@@ -136,7 +136,7 @@ const GRAINS: Record<FinderBoardSide, FinderPer[]> = {
 }
 
 export default function WpblFindView({
-  side, teams, players, batting, pitching, fielding, games, query, onQuery, onSide, onOpenPlayer, onOpenGame,
+  side, teams, players, batting, pitching, fielding, games, query, onQuery, onSide, onOpenPlayer, onOpenGame, filters,
 }: {
   side: FinderBoardSide
   teams: WpblTeam[]
@@ -153,6 +153,8 @@ export default function WpblFindView({
   onSide?: (s: FinderBoardSide) => void
   onOpenPlayer?: (p: WpblPlayer) => void
   onOpenGame?: (g: WpblGame) => void
+  /** StatsView's Filters trigger on a phone, drawn in the Question card's header. */
+  filters?: ReactNode
 }) {
   const playerLink = useWpblPlayerLink()
   const gameLink = useWpblGameLink()
@@ -367,7 +369,7 @@ export default function WpblFindView({
       sort={sort} onSort={setSort} examples={examples}
       exampleCount={ex => exampleCounts.get(ex) ?? null} exampleHref={exampleHref}
       exampleCounted={plays || askPlays ? grains : ['game', 'season']}
-      countFor={countFor} askOn={askOn} sides={findSides} onSide={onSide}
+      countFor={countFor} askOn={askOn} sides={findSides} onSide={onSide} filters={filters} seasonLabel={String(season)}
       grains={grains} loading={askPlays && (!plays || (askFielders && !fielders))} picks={picks} months={months}
       parse={parse} onAsk={onAsk} askAnswer={askAnswer} askNames={askNames}
             rowParts={r => ({

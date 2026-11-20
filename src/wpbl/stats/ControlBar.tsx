@@ -166,8 +166,10 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
           hand already is. The boards keep their own columns underneath. */}
       {/* data-one-row: the layout sweep fails any width at or above the number where this row's
           children stop sharing one line. See useClubChipsFit for what gives way first. */}
+      {/* NOT ON FIND ON A PHONE, where it would hold nothing: the side switch and the Filters trigger
+          are both in Find's Question card there (StatsView's findFilters). */}
       <Box ref={rowRef} data-one-row="960" sx={{
-        display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, rowGap: 1, pb: { xs: 1, sm: 1.5 },
+        display: source === 'find' && isNarrow ? 'none' : 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, rowGap: 1, pb: { xs: 1, sm: 1.5 },
       }}>
         {/* Two things, both about the switch staying put as the reader moves between boards on
             a phone.
@@ -213,7 +215,7 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
 
             NO SORT ON LEADERS, BESTS OR FIND. Each of their boards ranks by its own stat and says
             so in its own title, so there is no column to choose there. */}
-        {isNarrow && (source === 'season' || canFilter) && (
+        {isNarrow && (source === 'season' || (canFilter && source !== 'find')) && (
           <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
             <SheetTrigger
               lead={source === 'season' ? 'Sort' : undefined}

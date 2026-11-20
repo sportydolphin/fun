@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import type { ExampleLadder } from './finderExamples'
 import { Box, Skeleton, Typography } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
+import LinkIcon from '@mui/icons-material/Link'
+import CheckIcon from '@mui/icons-material/Check'
+import { FilterSelect } from './FilterChip'
 import { finderColumns, finderFields, defaultCondition,
   displayFinderValue, describeFinderQuery, describeFinderConditions, describeFinderCuts, finderSpanText, finderLowerBetter, conditionsForPer, finderPitcherApplies, finderPlayerApplies, finderPlayerAt, hasPlayerFilter, FINDER_MONTH_NAMES, finderSpanMonth, finderMonthSpan,
   type FinderCondition, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
@@ -90,7 +93,9 @@ const GRAIN_LABEL: Record<FinderPer, string> = { game: 'Single games', club: 'Cl
 // THE SWITCH SAYS THEM SHORT ON EVERY SIDE. More than two do not fit a phone at the long names, and
 // until Nov 9, 2026 a side with two (Fielding, MLB) said "Single games / Season totals" while the
 // sides with four said "Games / Seasons" for the same two choices.
-const GRAIN_SHORT: Record<FinderPer, string> = { game: 'Games', club: 'Clubs', inning: 'Innings', pa: 'PAs', season: 'Seasons' }
+// "CLUB GAMES", NOT "CLUBS": a hitting season asks Players or Clubs right after this switch, and two
+// "Clubs" a row apart meant two different things (a club's game, a club's season).
+const GRAIN_SHORT: Record<FinderPer, string> = { game: 'Games', club: 'Club games', inning: 'Innings', pa: 'PAs', season: 'Seasons' }
 /** What one row is, for the counts and titles: "12 games", "Most innings matching". */
 const GRAIN_NOUN: Record<FinderPer, [string, string]> = {
   game: ['game', 'games'], club: ['club game', 'club games'], inning: ['inning', 'innings'], pa: ['plate appearance', 'plate appearances'], season: ['season', 'seasons'],
@@ -246,7 +251,8 @@ function AskBox({ side, parse, onAsk, clubAbbr, name, asking, answer, names }: {
           <Box component="input" ref={inputRef} type="search" aria-label="Ask in words"
             // AN EXAMPLE ONLY WHILE THE BOX IS THE WHOLE QUESTION. Kept above the chips it read as the
             // question already asked, sitting over the one actually asked (Nov 10, 2026 audit).
-            placeholder={asking ? 'Add to it: vs LA, 2+ RBI' : '3 hits at home, 5 HR on the season'}
+            // Short enough for a 375px phone beside the Ask button, where the longer ones were cut.
+            placeholder={asking ? 'Add: vs LA, 2+ RBI' : '3 hits at home, 5 HR'}
             value={text} enterKeyHint="search"
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setText(e.target.value); setDropped([]) }}
             onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); ask() } }}
@@ -346,6 +352,9 @@ function asTyped(words: string[], text: string): string[] {
   return words.map(w => text.match(new RegExp(`(?<![\\p{L}\\p{N}])${escape(w)}(?![\\p{L}\\p{N}])`, 'iu'))?.[0] ?? w)
 }
 
+/** Read by a screen reader, drawn nowhere. */
+const visuallyHidden = { position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' } as const
+
 /** "Copy link", for the question: it is already the address, so a question is a thing to send. */
 function CopyLink() {
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
@@ -360,15 +369,18 @@ function CopyLink() {
     if (!navigator.clipboard) { done('failed'); return }
     navigator.clipboard.writeText(window.location.href).then(() => done('copied'), () => done('failed'))
   }
+  // AN ICON, so the header has room for Filters beside it on a phone. The words are still the
+  // button's name, and what happened is said to a screen reader and in the tooltip.
+  const words = state === 'copied' ? 'Copied' : state === 'failed' ? 'Can’t copy' : 'Copy link'
   return (
-    <Box {...pressable(copy)} aria-live="polite" sx={{
-      ...FOCUS_RING, fontSize: TYPE_SCALE.meta, fontWeight: 700, color: ACCENT_EDGE, cursor: 'pointer',
-      py: 0.5, px: 0.5, whiteSpace: 'nowrap', borderRadius: 1, userSelect: 'none',
-      // The widest of its three words, so the header does not shift as it changes.
-      minWidth: '5.5em', textAlign: 'right',
-      ...hoverOnly({ textDecoration: 'underline' }),
+    <Box component="button" type="button" onClick={copy} aria-label={words} title={words} sx={{
+      all: 'unset', ...FOCUS_RING, position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      width: chromePx(34), height: chromePx(34), borderRadius: 999, cursor: 'pointer', flexShrink: 0,
+      color: state === 'failed' ? 'text.secondary' : ACCENT_EDGE,
+      ...hoverOnly({ bgcolor: 'action.hover' }),
     }}>
-      {state === 'copied' ? 'Copied' : state === 'failed' ? 'Can’t copy' : 'Copy link'}
+      {state === 'copied' ? <CheckIcon sx={{ fontSize: chromePx(20) }} /> : <LinkIcon sx={{ fontSize: chromePx(20) }} />}
+      <Box component="span" aria-live="polite" sx={visuallyHidden}>{state === 'idle' ? '' : words}</Box>
     </Box>
   )
 }
@@ -395,6 +407,26 @@ const stripSx = {
 const stripLabelSx = { fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary', whiteSpace: 'nowrap', lineHeight: 1.3 } as const
 const stripValueSx = { fontSize: TYPE_SCALE.body, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', lineHeight: 1.3 } as const
 
+/**
+ * THE CARDS' COLUMN HEADS, ONCE, over the list rather than a label in every card: each card was a
+ * row of "G PA H HR RBI" over its own numbers, which on ten cards is ten header rows and nothing that
+ * reads down a column. Built from the cards' own boxes (rank, face, then the strip on the same grid),
+ * so each head sits exactly over its numbers and the same columns are cut.
+ */
+function CardHeads({ cols, asked, ranked }: { cols: { key: string; unit: string; label: string }[]; asked: string[]; ranked: boolean }) {
+  return (
+    <Box aria-hidden sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.25, px: 0.5, pb: 0.5 }}>
+      {ranked && <Box sx={GAME_LINE_RANK_SX} />}
+      <Box sx={{ width: chromePx(PORTRAIT_PX), flexShrink: 0 }} />
+      <Box sx={{ ...stripSx, flex: 1, minWidth: 0, mt: 0 }}>
+        {cols.map(c => (
+          <Box key={c.key} title={c.label} sx={{ ...stripLabelSx, color: asked.includes(c.key) ? 'text.primary' : 'text.secondary' }}>{c.unit}</Box>
+        ))}
+      </Box>
+    </Box>
+  )
+}
+
 /** A result card's ghost, the same box as `ResultCards`' card, so nothing moves when the rows land. */
 function CardSkeleton({ divider, season, stats }: { divider: boolean; season: boolean; stats: number }) {
   return (
@@ -409,10 +441,7 @@ function CardSkeleton({ divider, season, stats }: { divider: boolean; season: bo
         {!season && <Typography sx={{ fontSize: TYPE_SCALE.meta }}><Skeleton width="45%" /></Typography>}
         <Box sx={stripSx}>
           {Array.from({ length: stats }, (_, i) => (
-            <Box key={i}>
-              <Box sx={stripLabelSx}><Skeleton width="1.4rem" /></Box>
-              <Box sx={stripValueSx}><Skeleton width="1.6rem" /></Box>
-            </Box>
+            <Box key={i} sx={stripValueSx}><Skeleton width="1.6rem" /></Box>
           ))}
         </Box>
       </Box>
@@ -440,7 +469,11 @@ function ResultCards<P extends LeaguePlayer, G extends LeagueGame>({ side, query
   const asked = query.conditions.map(c => c.field)
   const season = query.per === 'season'
   const stretched = { '&::after': { content: '""', position: 'absolute', inset: 0, borderRadius: 1 } } as const
+  // A lone answer has no place to number: "1" beside the only row said nothing and cost its width.
+  const ranked = rows.length > 1
   return (
+    <>
+    <CardHeads cols={cols} asked={asked} ranked={ranked} />
     <NameColumn names={rows.map(r => r.name)}>{rows.map((r, i) => {
       const parts = rowParts(r)
       const label = gameLabel(r.game, r.teamId, clubAbbr)
@@ -454,7 +487,7 @@ function ResultCards<P extends LeaguePlayer, G extends LeagueGame>({ side, query
           borderTop: i > 0 ? '1px solid' : 'none', borderColor: 'divider',
           ...(rowLink ? TAPPABLE : {}),
         }}>
-          <Box sx={{ ...GAME_LINE_RANK_SX, color: 'text.secondary' }}>{rankText(ranks[i])}</Box>
+          {ranked && <Box sx={{ ...GAME_LINE_RANK_SX, color: 'text.secondary' }}>{rankText(ranks[i])}</Box>}
           {parts.portrait}
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
@@ -480,12 +513,14 @@ function ResultCards<P extends LeaguePlayer, G extends LeagueGame>({ side, query
                 {result && result !== '—' ? ` · ${result}` : ''}
               </Typography>
             )}
+            {/* The heads are drawn once above the list (CardHeads); each value still carries its
+                label for a screen reader, which hears the card and not the heads. */}
             <Box role="list" aria-label="Line" sx={stripSx}>
               {cols.map(c => {
                 const isAsked = asked.includes(c.key)
                 return (
                   <Box key={c.key} role="listitem" title={c.label} sx={{ minWidth: 0 }}>
-                    <Box sx={{ ...stripLabelSx, color: isAsked ? 'text.primary' : 'text.secondary' }}>{c.unit}</Box>
+                    <Box component="span" sx={visuallyHidden}>{c.unit} </Box>
                     <Box sx={{ ...stripValueSx, fontWeight: isAsked ? 800 : 500, color: isAsked ? ACCENT_EDGE : 'text.primary' }}>
                       {displayFinderValue(side, c.key, r.values[c.key] ?? 0)}
                     </Box>
@@ -497,6 +532,7 @@ function ResultCards<P extends LeaguePlayer, G extends LeagueGame>({ side, query
         </Box>
       )
     })}</NameColumn>
+    </>
   )
 }
 
@@ -647,7 +683,7 @@ function ResultTable<P extends LeaguePlayer, G extends LeagueGame>({
                 ...(rowLink ? TAPPABLE : {}),
               }}>
                 <Box role="cell" sx={{ textAlign: 'center', fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-                  {rankText(ranks[i])}
+                  {rows.length > 1 ? rankText(ranks[i]) : ''}
                 </Box>
                 <Box role="cell" sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
                   {parts.portrait}
@@ -756,7 +792,7 @@ function ExampleGrid({ side, grains, examples, count, counted, href, onPick }: {
     .filter(g => g.list.length > 0)
     .map(g => ({ ...g, counted: counted.includes(g.per) }))
   return (
-    <SectionCard title="Examples">
+    <SectionCard title="Examples" frameless>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 0.5 }}>
         {groups.map(g => (
           <Box key={g.per}>
@@ -808,7 +844,7 @@ function ExampleGrid({ side, grains, examples, count, counted, href, onPick }: {
 export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   side, query, onQuery, result, clubs, clubAbbr, loading = false, rowParts, tallyParts,
   sort, onSort, examples, exampleCount, exampleCounted = [], exampleHref, parse, onAsk, askAnswer, askNames, grains = DEFAULT_GRAINS, picks,
-  plays = true, months, countFor, askOn, sides = DEFAULT_SIDES, onSide,
+  plays = true, months, countFor, askOn, sides = DEFAULT_SIDES, onSide, filters, seasonLabel,
 }: {
   side: FinderBoardSide
   /** Owned by the section, which mirrors it into the address bar. */
@@ -868,6 +904,12 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   /** Switches the side, which the section owns (it is in the address). Given, the card draws the
    *  side switch beside the grain's, and the section's bar leaves its own off. */
   onSide?: (side: FinderBoardSide) => void
+  /** The section's Filters trigger, drawn in the Question card's header (on a phone, where the
+   *  section's bar has nothing else to hold on Find). */
+  filters?: React.ReactNode
+  /** The year on screen ("2026"), said with a season question's count: a season row has no date of
+   *  its own, so nothing on the answer said which season it was. */
+  seasonLabel?: string
 }) {
   const [allRows, setAllRows] = useState(false)
   // ONE PIECE OF THE QUESTION OPEN AT A TIME (src/ui/finderChips.tsx), anchored to the chip it came from.
@@ -930,7 +972,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   const onceText = !season && onceEach
     ? (result.tally.length === 1 ? `1 ${who[0]}` : `${result.tally.length.toLocaleString()} ${who[1]}, once each`)
     : ''
-  const summary = [`${total} ${games_}`, span, onceText].filter(Boolean).join(' · ')
+  const summary = [`${total} ${games_}`, season ? seasonLabel : null, span, onceText].filter(Boolean).join(' · ')
   // SHOWN, because a bar the reader did not set is a filter they cannot see. A label with its
   // definition behind an InfoDot, as every other board's qualifier is, rather than two sentences of
   // instructions above the table (house rule: labels, not narration). The way past it stays in the
@@ -1073,55 +1115,65 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     </ChipSurface>
   )
 
+  // THE SECOND "BY" SWITCH, where the grain has both: fielding by the inning is a fielder's or a
+  // club's (the log places most plays on a fielder, and a club's half counts every one), and a season
+  // at the plate is a player's or a club's (a club's carries its two-out runs, which no player's can).
+  const byClub = side === 'fielding' && query.per === 'inning'
+    ? { label: 'Innings by', options: [{ value: 'fielder', label: 'Fielders' }, { value: 'club', label: 'Clubs' }], value: query.byClub ? 'club' : 'fielder',
+      pick: (v: string) => onQuery({ ...query, byClub: v === 'club', playerId: v === 'club' ? null : query.playerId,
+        conditions: v === 'club' ? query.conditions.filter(c => c.field !== 'pos') : query.conditions }) }
+    : side === 'hitting' && query.per === 'season'
+      ? { label: 'Seasons by', options: [{ value: 'player', label: 'Players' }, { value: 'club', label: 'Clubs' }], value: query.byClub ? 'club' : 'player',
+        pick: (v: string) => onQuery({ ...query, byClub: v === 'club', playerId: v === 'club' ? null : query.playerId,
+          conditions: conditionsForPer(side, 'season', query.conditions, plays, v === 'club') }) }
+      : null
+  const sideOptions = sides.map(s => ({ value: s, label: SIDE_LABEL[s] }))
+  const grainOptions = grains.map(per => ({ value: per, label: GRAIN_SHORT[per] }))
+  const sideHere = !!onSide && sides.length > 1
+
   // "QUESTION", NOT "SEARCH": the toolbar's search is a different tool, and the card holding a
   // question under the Find tab was the second thing on the screen called Search (Nov 10, 2026 audit).
   const question = (
-    <SectionCard title="Question" action={<CopyLink />}>
+    <SectionCard title="Question" frameless action={
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>{filters}<CopyLink /></Box>
+    }>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, pt: 0.5 }}>
         {/* WHAT IS SEARCHED, THEN AT WHAT GRAIN, in one row: the two choices a game finder starts with
             ("pitching, single games"), first because they change what every piece under them means.
             The side was the Stats bar's switch until Nov 10, 2026, with Overall drawn there disabled
             since Find has no both-ways line: a dead option on the first control of a tool, and a
-            question split between the bar and the card. The bar leaves it off on Find (onSide). */}
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', columnGap: 1.5, rowGap: 1 }}>
-        {onSide && sides.length > 1 && (
-          <Box role="group" aria-label="Side" sx={{ alignSelf: 'flex-start', maxWidth: '100%' }}>
-            <PillGroup options={sides.map(s => ({ value: s, label: SIDE_LABEL[s] }))}
-              value={side} onChange={v => onSide(v as FinderBoardSide)} />
-          </Box>
-        )}
-        {/* THE FIVE GRAINS TAKE THE SWITCH'S DENSE PADDING ON A SMALL PHONE. At the full padding they
-            filled a 375px card to the pixel and cut "Seasons" to "Seaso" at 320 (Nov 10, 2026 audit). */}
-        <Box role="group" aria-label="Search by" sx={{
-          alignSelf: 'flex-start', maxWidth: '100%',
-          '@media (max-width:399.95px)': { '& [aria-pressed]': { px: 0.875 } },
-        }}>
-          <PillGroup options={grains.map(per => ({ value: per, label: GRAIN_SHORT[per] }))}
-            value={query.per} onChange={v => setPer(v as FinderPer)} />
+            question split between the bar and the card. The bar leaves it off on Find (onSide).
+            ON A PHONE, ONE LINE OF MENUS: the three switches as pills were three rows of different
+            widths, a third of the screen before the first answer. A native select is the phone's
+            own picker, and "Hitting, Seasons, Players" reads as the question it is. */}
+        <Box sx={{ display: { xs: 'flex', sm: 'none' }, flexWrap: 'wrap', alignItems: 'center', gap: 0.75 }}>
+          {sideHere && <FilterSelect value={side} options={sideOptions} onChange={v => onSide!(v as FinderBoardSide)} active={false} ariaLabel="Side" />}
+          <FilterSelect value={query.per} options={grainOptions} onChange={v => setPer(v as FinderPer)} active={false} ariaLabel="Search by" />
+          {byClub && <FilterSelect value={byClub.value} options={byClub.options} onChange={byClub.pick} active={false} ariaLabel={byClub.label} />}
         </Box>
-        {/* FIELDING BY THE INNING IS A FIELDER'S OR A CLUB'S: the log places most plays on a fielder,
-            and a club's half counts every one. The second switch only where the grain has both. */}
-        {side === 'fielding' && query.per === 'inning' && (
-          <Box role="group" aria-label="Innings by" sx={{ alignSelf: 'flex-start' }}>
-            <PillGroup options={[{ value: 'fielder', label: 'Fielders' }, { value: 'club', label: 'Clubs' }]}
-              value={query.byClub ? 'club' : 'fielder'}
-              onChange={v => onQuery({ ...query, byClub: v === 'club', playerId: v === 'club' ? null : query.playerId,
-                conditions: v === 'club' ? query.conditions.filter(c => c.field !== 'pos') : query.conditions })} />
+        <Box sx={{ display: { xs: 'none', sm: 'flex' }, flexWrap: 'wrap', alignItems: 'center', columnGap: 1.5, rowGap: 1 }}>
+          {sideHere && (
+            <Box role="group" aria-label="Side" sx={{ alignSelf: 'flex-start', maxWidth: '100%' }}>
+              <PillGroup options={sideOptions} value={side} onChange={v => onSide!(v as FinderBoardSide)} />
+            </Box>
+          )}
+          <Box role="group" aria-label="Search by" sx={{ alignSelf: 'flex-start', maxWidth: '100%' }}>
+            <PillGroup options={grainOptions} value={query.per} onChange={v => setPer(v as FinderPer)} />
           </Box>
-        )}
-        {/* A SEASON AT THE PLATE IS A PLAYER'S OR A CLUB'S: a club's carries its two-out runs, which
-            no player's can, and "team avg with 2 outs" is the same cut filed under the club. */}
-        {side === 'hitting' && query.per === 'season' && (
-          <Box role="group" aria-label="Seasons by" sx={{ alignSelf: 'flex-start' }}>
-            <PillGroup options={[{ value: 'player', label: 'Players' }, { value: 'club', label: 'Clubs' }]}
-              value={query.byClub ? 'club' : 'player'}
-              onChange={v => onQuery({ ...query, byClub: v === 'club', playerId: v === 'club' ? null : query.playerId,
-                conditions: conditionsForPer(side, 'season', query.conditions, plays, v === 'club') })} />
-          </Box>
-        )}
+          {byClub && (
+            <Box role="group" aria-label={byClub.label} sx={{ alignSelf: 'flex-start' }}>
+              <PillGroup options={byClub.options} value={byClub.value} onChange={byClub.pick} />
+            </Box>
+          )}
         </Box>
-        {parse && onAsk && <AskBox side={side} parse={parse} clubAbbr={clubAbbr} name={picks?.name} onAsk={onAsk} asking={chips.length > 0}
-          answer={askAnswer} names={askNames} />}
+        {/* THE BOX FIRST ON A PHONE: typing the question is how a phone starts one, and the menus
+            above are how it is corrected. */}
+        {parse && onAsk && (
+          <Box sx={{ order: { xs: -1, sm: 0 } }}>
+            <AskBox side={side} parse={parse} clubAbbr={clubAbbr} name={picks?.name} onAsk={onAsk} asking={chips.length > 0}
+              answer={askAnswer} names={askNames} />
+          </Box>
+        )}
         {/* THE QUESTION, A CHIP A PIECE: a tap opens that piece, its ✕ drops it, and "+ Add" offers a
             stat or a who, where or when. Every condition is AND, which the chips in one row say. */}
         <Box role="group" aria-label="Question" sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75 }}>
@@ -1173,7 +1225,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
             ...(season ? {} : { [tallyBeside]: { gridTemplateColumns: `minmax(0, 1fr) ${TALLY_REM}rem`, columnGap: `${PANE_GAP_REM}rem` } }),
           }}>
             {/* A no-break space while loading: a plain one collapses, and the line with it. */}
-            <SectionCard title={season ? 'Matching seasons' : `Matching ${noun[1]}`} subtitle={loading ? String.fromCharCode(160) : summary}
+            <SectionCard frameless title={season ? 'Matching seasons' : `Matching ${noun[1]}`} subtitle={loading ? String.fromCharCode(160) : summary}
               titleAdornment={<InfoDot label="Columns" text={columnKey} />}>
               {!loading && qualifier && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, pb: 1 }}>
@@ -1183,7 +1235,10 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
               )}
               {loading ? (
                 <>
-                  <Box sx={listOnly}>{Array.from({ length: RESULT_CAP }, (_, i) => <CardSkeleton key={i} divider={i > 0} season={season} stats={stripStats} />)}</Box>
+                  <Box sx={listOnly}>
+                    <CardHeads cols={askedFirst(side, query)} asked={query.conditions.map(c => c.field)} ranked />
+                    {Array.from({ length: RESULT_CAP }, (_, i) => <CardSkeleton key={i} divider={i > 0} season={season} stats={stripStats} />)}
+                  </Box>
                   <Box sx={tableOnly}>{table}</Box>
                   {/* The expand row a season's worth of matches always brings, so the card does not grow
                       by it when they land and push the tally under it on a phone. */}

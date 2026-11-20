@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 import { Box } from '@mui/material'
 import type { PlayerValueSeason } from '../derive/playerValue'
 import {
@@ -101,7 +101,7 @@ export function LeadersPane({ side, valueSeasons, fielding, linesIn, leaderSeaso
 /** Every board past the season tables and Leaders: Bests, Find and the Analysis boards, each behind its
  *  own chunk. */
 export function BoardPane({ source, side, boardSide, findSide, teams, players, lines, fielding, linesIn, games,
-  scope, findQuery, setFindQuery, onFindSide, trackedOffered, charts, chartFilters, onOpenPlayer, onOpenGame, onOpenTeam }: {
+  scope, findQuery, setFindQuery, onFindSide, findFilters, trackedOffered, charts, chartFilters, onOpenPlayer, onOpenGame, onOpenTeam }: {
   source: Source
   side: Side
   boardSide: BallSide
@@ -116,6 +116,8 @@ export function BoardPane({ source, side, boardSide, findSide, teams, players, l
   findQuery: Omit<FinderQuery, 'scope'>
   setFindQuery: (q: Omit<FinderQuery, 'scope'>) => void
   onFindSide: (s: FinderBoardSide) => void
+  /** The phone's Filters trigger, which Find draws in its Question card rather than in the bar. */
+  findFilters?: ReactNode
   trackedOffered: boolean
   charts: ChartInputs | null
   chartFilters: ChartFilters
@@ -149,7 +151,7 @@ export function BoardPane({ source, side, boardSide, findSide, teams, players, l
       <Suspense fallback={<SubViewFallback />}>
         <WpblFindView side={findSide} teams={teams} players={players} batting={lines.batting}
           pitching={lines.pitching} fielding={fielding ?? []} games={games}
-          query={{ ...findQuery, scope }} onQuery={q => setFindQuery(q)} onSide={onFindSide}
+          query={{ ...findQuery, scope }} onQuery={q => setFindQuery(q)} onSide={onFindSide} filters={findFilters}
           onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
       </Suspense>
     </Box>

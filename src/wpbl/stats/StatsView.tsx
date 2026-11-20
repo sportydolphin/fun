@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { SheetTrigger } from '../../ui/SheetTrigger'
 import { TYPE_SCALE } from '../../ui/card'
 import { Box, Typography, useMediaQuery } from '@mui/material'
 import {
@@ -962,6 +963,11 @@ export default function WpblStatsView({
   // chips below) once there is a postseason.
   const canFilter = (source === 'season' && mode === 'players') || multiSeason
     || ((source === 'leaders' || source === 'season' || source === 'bests' || source === 'find') && hasPostseason && !overall)
+  // FIND'S FILTERS GO IN ITS QUESTION CARD ON A PHONE. The bar held nothing else on Find there (its
+  // side switch is the card's), so the trigger stood alone on a row of its own above the card.
+  const findFilters = isNarrow && source === 'find' && canFilter
+    ? <SheetTrigger label="Filters" set={filtersSet} open={sheetOpen != null} onOpen={() => setSheetOpen('filter')} ariaLabel={`Filters${filtersSet ? ', on' : ''}`} />
+    : null
 
   // The three context stats: the preference list minus whatever is already the big number.
   //
@@ -1186,7 +1192,7 @@ export default function WpblStatsView({
       ) : source !== 'season' ? (
         <BoardPane source={source} side={side} boardSide={boardSide} findSide={findSide} teams={teams}
           players={players} lines={lines} fielding={fielding} linesIn={linesIn} games={games} scope={scope}
-          findQuery={findQuery} setFindQuery={setFindQuery} onFindSide={pickSide} trackedOffered={trackedOffered} charts={chartInputs} chartFilters={chartFilters}
+          findQuery={findQuery} setFindQuery={setFindQuery} onFindSide={pickSide} findFilters={findFilters} trackedOffered={trackedOffered} charts={chartInputs} chartFilters={chartFilters}
           onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} onOpenTeam={onOpenTeam} />
       ) : (side === 'fielding' && fielding == null) || (side === 'overall' && valueSeasons == null) || (boardNeedsLines && !linesIn) ? (
         // Only if the side is picked before its read (started on mount) has landed, or the box-score
