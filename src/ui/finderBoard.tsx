@@ -7,6 +7,7 @@ import CheckIcon from '@mui/icons-material/Check'
 import { FilterSelect } from './FilterChip'
 import { finderColumns, finderFields, defaultCondition,
   displayFinderValue, describeFinderQuery, describeFinderConditions, describeFinderCuts, finderSpanText, finderLowerBetter, conditionsForPer, finderPitcherApplies, finderPlayerApplies, finderPlayerAt, hasPlayerFilter, FINDER_MONTH_NAMES, finderSpanMonth, finderMonthSpan,
+  finderCutsOf, finderDhText, finderStretchApplies, finderStretchText,
   type FinderCondition, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
   type FinderBoardSide, type FinderSort, type FinderTally, type FinderVenue,
 } from '../league/finder'
@@ -68,6 +69,8 @@ const COL = { rank: 2, player: 8, game: 5.25, result: 3.25, stat: 2.4, gap: 0.4 
 // ("T. Maximiliana" on PAs, "N. Yonetani" on games, Nov 9, 2026). The floor rises by what the stats
 // give up, so the width where the tally moves in is where it was.
 const LINE_COL = { ...COL, player: 10, stat: 2.15 }
+// A STRETCH'S GAMES, "Aug 13 to Sep 22" at the meta size: sixteen characters, about 0.5rem each.
+const STRETCH_COL_REM = 8.25
 // THE SAME LINE HEIGHTS LOADING AND LOADED, so the rows do not change height when they land: the
 // placeholders took the type's default and stood 1.6px taller a row than the names that replaced them.
 const NAME_LH = 1.4
@@ -85,12 +88,12 @@ const statRem = (per: FinderPer, unit: string) =>
 /** The table's narrowest, which is what the main column must hold before it is drawn: the fixed
  *  columns, the player column's floor, the gaps, and the card's padding and borders (2 x 16 chrome
  *  px, under 2.5rem at either scale). */
-const tableMinRem = (units: readonly string[], per: FinderPer = 'game') => {
+const tableMinRem = (units: readonly string[], per: FinderPer = 'game', stretched = false) => {
   const c = colsFor(per)
   const stats = units.length
   const statsRem = units.reduce((sum, u) => sum + statRem(per, u), 0)
   return per === 'season'
-    ? c.rank + c.player + statsRem + (stats + 1) * c.gap + 2.5
+    ? c.rank + c.player + statsRem + (stats + 1) * c.gap + 2.5 + (stretched ? STRETCH_COL_REM + c.gap : 0)
     : c.rank + c.player + c.game + c.result + statsRem + (stats + 3) * c.gap + 2.5
 }
 /** A grain's name over its examples. */
@@ -164,6 +167,9 @@ export interface FinderReading {
   to?: string | null
   last?: number | null
   hand?: 'L' | 'R' | null
+  extra?: boolean | null
+  dh?: 'any' | 1 | 2 | null
+  stretch?: number | null
   playerId?: string | null
   batterId?: string | null
   pitcherId?: string | null
@@ -184,7 +190,7 @@ export interface FinderPlayerPicks {
 }
 
 /** The club, opponent, venue and players in words: "for NY, vs LA, at home, by K. Whitmore". */
-function scopeWords(side: FinderBoardSide, q: Pick<FinderQuery, 'teamId' | 'oppId' | 'venue' | 'per' | 'batterId' | 'pitcherId' | 'playerId' | 'byClub' | 'from' | 'to' | 'last' | 'hand'>,
+function scopeWords(side: FinderBoardSide, q: Pick<FinderQuery, 'teamId' | 'oppId' | 'venue' | 'per' | 'batterId' | 'pitcherId' | 'playerId' | 'byClub' | 'from' | 'to' | 'last' | 'hand' | 'extra' | 'dh' | 'stretch'>,
   clubAbbr: (id: string) => string, name: (id: string) => string = id => id): string {
   const pa = q.per === 'pa'
   const against = finderPitcherApplies(side, q.per)
@@ -196,7 +202,10 @@ function scopeWords(side: FinderBoardSide, q: Pick<FinderQuery, 'teamId' | 'oppI
     pa && q.batterId && `by ${name(q.batterId)}`,
     against && q.pitcherId && `against ${name(q.pitcherId)}`,
     // The span, the last N games and the arm, mid-sentence: "since Aug 1", "vs LHP". A month keeps its capital.
-    ...describeFinderCuts(side, q).map(c => c.text.replace(/^(Since|Through|Last|Vs)\b/, w => w.toLowerCase())),
+    // A kind of game and a stretch: "in extra innings", "in a 5-game stretch".
+    ...describeFinderCuts(side, q).map(c => (c.key === 'stretch' ? `in a ${c.text}`
+      : c.key === 'extra' || c.key === 'dh' ? `in ${c.text.toLowerCase()}`
+      : c.text.replace(/^(Since|Through|Last|Vs)\b/, w => w.toLowerCase()))),
   ].filter(Boolean).join(', ')
 }
 
@@ -491,6 +500,9 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
   const asked = query.conditions.map(c => c.field)
   // A SEASON ROW IS A PLAYER, so it has no night and no result.
   const season = query.per === 'season'
+  // A STRETCH ROW IS A RUN OF GAMES, and says which: a column on a wide table, a line under the name on
+  // a narrow one, the way a game row says its night. Off the query, so the loading rows have it too.
+  const stretched = season && !!query.stretch && finderStretchApplies(side, query)
   const best = (key: string) => !finderLowerBetter(side, key)
   const active: FinderSort = sort ?? { key: headlineField, desc: best(headlineField) }
   const press = (key: string) => onSort({ key, desc: active.key === key ? !active.desc : best(key) })
@@ -579,6 +591,7 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
             </Box>
             {!season && sortHead('date', 'GAME', 'Sort by date', { ...wideOnly, textAlign: 'left', width: `${widths.game}rem` })}
             {!season && plainHead('RESULT', { ...wideOnly, width: `${widths.result + FIGURE_SLACK_REM}rem` })}
+            {stretched && plainHead('GAMES', { ...wideOnly, width: `${STRETCH_COL_REM}rem` })}
             {cols.map(c => sortHead(c.key, c.unit, c.label, { width: `${statRem(query.per, c.unit) + FIGURE_SLACK_REM}rem` }))}
           </Box>
         </Box>
@@ -591,12 +604,13 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
                     <Box sx={rankSx}>&nbsp;</Box>
                     <Box sx={{ flex: 1, pl: 0.5 }}>
                       <Typography sx={{ fontSize: TYPE_SCALE.meta, lineHeight: NAME_LH }}><Skeleton width="70%" /></Typography>
-                      {!season && <Typography sx={{ fontSize: TYPE_SCALE.micro, lineHeight: NIGHT_LH, ...narrowOnly }}><Skeleton width="80%" /></Typography>}
+                      {(!season || stretched) && <Typography sx={{ fontSize: TYPE_SCALE.micro, lineHeight: NIGHT_LH, ...narrowOnly }}><Skeleton width="80%" /></Typography>}
                     </Box>
                   </Box>
                 </Box>
                 {!season && <Box component="td" sx={{ ...cellSx, ...wideOnly }}><Skeleton /></Box>}
                 {!season && <Box component="td" sx={{ ...cellSx, ...wideOnly }}><Skeleton /></Box>}
+                {stretched && <Box component="td" sx={{ ...cellSx, ...wideOnly }}><Skeleton /></Box>}
                 {cols.map(c => <Box component="td" key={c.key} sx={cellSx}><Skeleton /></Box>)}
               </Box>
             ))
@@ -621,11 +635,17 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
                             {night(r, parts)}{result && result !== '—' ? ` · ${result}` : ''}
                           </Typography>
                         )}
+                        {stretched && (
+                          <Typography component="div" noWrap sx={{ fontSize: TYPE_SCALE.micro, color: 'text.secondary', lineHeight: NIGHT_LH, ...narrowOnly }}>
+                            {finderSpanText(r.stretch ?? null) || '—'}
+                          </Typography>
+                        )}
                       </Box>
                     </Box>
                   </Box>
                   {!season && <Box component="td" sx={{ ...cellSx, ...wideOnly, textAlign: 'left', fontSize: TYPE_SCALE.meta }}>{night(r, parts)}</Box>}
                   {!season && <Box component="td" sx={{ ...cellSx, ...wideOnly, textAlign: 'left', fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{result}</Box>}
+                  {stretched && <Box component="td" sx={{ ...cellSx, ...wideOnly, textAlign: 'left', fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{finderSpanText(r.stretch ?? null) || '—'}</Box>}
                   {cols.map(c => {
                     const first = c.key === asked[0]
                     const isAsked = asked.includes(c.key)
@@ -756,7 +776,7 @@ function ExampleGrid({ side, grains, examples, count, counted, href, onPick }: {
 export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   side, query, onQuery, result, clubs, clubAbbr, loading = false, rowParts, tallyParts,
   sort, onSort, examples, exampleCount, exampleCounted = [], exampleHref, parse, onAsk, askAnswer, askNames, grains = DEFAULT_GRAINS, picks,
-  plays = true, months, countFor, askOn, sides = DEFAULT_SIDES, onSide, filters, seasonLabel,
+  plays = true, months, kinds, countFor, askOn, sides = DEFAULT_SIDES, onSide, filters, seasonLabel,
 }: {
   side: FinderBoardSide
   /** Owned by the section, which mirrors it into the address bar. */
@@ -805,6 +825,10 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   /** The months the season on screen was played in (`finderMonths`), for the Month picker, empty
    *  while the games load. Absent draws no When row; a span the search set still shows as its chip. */
   months?: number[]
+  /** Whether the season on screen had extra-inning games and doubleheaders (`finderGameKinds`), so the
+   *  pickers offer only a kind of game that was played. Absent offers neither; a cut the search set
+   *  still shows as its chip. */
+  kinds?: { extra: boolean; dh: boolean }
   /** How many lines a question matches, on any side, from the same engine call that draws the board;
    *  null where the section cannot count it without a read it has not done. For the nearest questions
    *  a question that found nothing is offered (`finderNearMisses`). Absent offers none. */
@@ -848,6 +872,13 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     { value: '', label: 'Every game' },
     ...[...new Set([1, 5, 10, 15, 20, ...(query.last ? [query.last] : [])])].sort((a, b) => a - b)
       .map(n => ({ value: String(n), label: n === 1 ? 'Last game' : `Last ${n} games` })),
+  ]
+  // A STRETCH, where the grain sums one (`finderStretchApplies`): a player's season cut to its best run.
+  const stretchHere = finderStretchApplies(side, query)
+  const stretchOptions = [
+    { value: '', label: 'Whole season' },
+    ...[...new Set([3, 5, 7, 10, 15, 20, ...(query.stretch ? [query.stretch] : [])])].sort((a, b) => a - b)
+      .map(n => ({ value: String(n), label: finderStretchText(n) })),
   ]
 
   const setCondition = (i: number, c: FinderCondition) =>
@@ -921,7 +952,8 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // every match was a different player, under a title promising a leader: the answer line says it
   // (`onceText`), and the card goes.
 
-  const tableRem = tableMinRem(finderColumns(side, query).map(col => col.unit), query.per)
+  const tableRem = tableMinRem(finderColumns(side, query).map(col => col.unit), query.per,
+    query.per === 'season' && !!query.stretch && finderStretchApplies(side, query))
   // WHAT EACH COLUMN IS. "R2", "RS" and "ON" are this board's own, and a header's `title` never shows
   // on a touchscreen, where the phone row leads with one of them ("3 RS"). One key per table, as a
   // definition behind the card's InfoDot, rather than a dot on every header.
@@ -952,6 +984,16 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     { key: 'last', label: 'Last games', text: query.last ? (query.last === 1 ? 'Last game' : `Last ${query.last} games`) : null,
       groups: [{ label: '', options: lastOptions }], value: query.last ? String(query.last) : '',
       pick: (v: string) => onQuery({ ...query, last: v ? Number(v) : null }) }] : []),
+    ...(kinds?.extra ? [{ key: 'extra', label: 'Extra innings', text: query.extra ? 'Extra innings' : null,
+      groups: [{ label: '', options: [{ value: '', label: 'Any game' }, { value: '1', label: 'Extra innings' }] }], value: query.extra ? '1' : '',
+      pick: (v: string) => onQuery({ ...query, extra: v ? true : null }) }] : []),
+    ...(kinds?.dh ? [{ key: 'dh', label: 'Doubleheaders', text: query.dh ? finderDhText(query.dh) : null,
+      groups: [{ label: '', options: [{ value: '', label: 'Any game' }, ...(['any', 1, 2] as const).map(d => ({ value: String(d), label: finderDhText(d) }))] }],
+      value: query.dh ? String(query.dh) : '',
+      pick: (v: string) => onQuery({ ...query, dh: v === 'any' ? 'any' : v === '1' ? 1 : v === '2' ? 2 : null }) }] : []),
+    ...(stretchHere ? [{ key: 'stretch', label: 'Stretch', text: query.stretch ? finderStretchText(query.stretch) : null,
+      groups: [{ label: '', options: stretchOptions }], value: query.stretch ? String(query.stretch) : '',
+      pick: (v: string) => onQuery({ ...query, stretch: v ? Number(v) : null }) }] : []),
     // THE MATCHUP, only where a line names both players: a plate appearance. A hitter's season is
     // summed from those, so it can be against one pitcher (`seasonFromPas`).
     ...(picks && plays && query.per === 'pa' ? [{ key: 'bat', label: 'Batter', text: query.batterId ? `By ${picks.name(query.batterId)}` : null,
@@ -963,7 +1005,9 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   ]
   // THE CUTS ONLY THE SEARCH SETS: a run of days and the other player's arm, whose chip is the one way
   // to take them off. A whole month and the last N games are scopes above.
-  const cutChips = describeFinderCuts(side, query).filter(c => c.key === 'hand' || (c.key === 'span' && spanMonth == null))
+  // A kind of game or a stretch is a scope where its picker is drawn, and a chip of its own where not.
+  const cutChips = describeFinderCuts(side, query).filter(c => c.key === 'hand' || (c.key === 'span' && spanMonth == null)
+    || (c.key === 'extra' && !kinds?.extra) || (c.key === 'dh' && !kinds?.dh))
   const chips: { key: string; text: string; remove: () => void; open?: (e: React.SyntheticEvent<HTMLElement>) => void }[] = [
     ...describeFinderConditions(side, query, true).map(p => ({
       key: `c${p.indices.join('-')}`, text: p.text,
@@ -976,7 +1020,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     })),
     ...cutChips.map(c => ({
       key: c.key, text: c.text,
-      remove: () => onQuery(c.key === 'span' ? { ...query, from: null, to: null } : { ...query, hand: null }),
+      remove: () => onQuery(c.key === 'span' ? { ...query, from: null, to: null } : { ...query, [c.key]: null }),
     })),
   ]
   const canAdd = query.conditions.length < MAX_CONDITIONS
@@ -985,7 +1029,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
     ? finderNearMisses(side, query, askOn ? sides : [side], countFor) : []),
   [loading, result.total, hasConditions, countFor, side, query, askOn, sides])
   const clearAll = () => onQuery({ ...query, conditions: [], batterId: null, pitcherId: null, playerId: null,
-    teamId: null, oppId: null, venue: 'any', from: null, to: null, last: null, hand: null })
+    teamId: null, oppId: null, venue: 'any', ...finderCutsOf({}) })
   const anything = chips.length > 0
 
   // What the open editor is, and the count the sheet says as the edits land.

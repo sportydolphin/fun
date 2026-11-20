@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { runWpblFinder, validFinderSort, type FinderBoardSide, type FinderQuery, type FinderSort } from './derive/finder'
-import { conditionsForPer, finderMonths, finderNeedsPlays, hasPlayerFilter, seasonFromPas, type FinderPer, type FinderRow } from '../league/finder'
+import { conditionsForPer, finderGameKinds, finderMonths, finderNeedsPlays, hasPlayerFilter, seasonFromPas, type FinderPer, type FinderRow } from '../league/finder'
 import { boxLineOf, boxScoreOf, requestBoxScore, requestPlay } from './entryUrl'
 import { clubFieldingInningLines, fieldingInningLines, inningPitchingLines, plateAppearanceLines, playTotals as buildPlayTotals, teamInningLines, type FielderSource } from '../league/inningLines'
 import { wpblFielderSource } from './fielders'
@@ -177,6 +177,11 @@ export default function WpblFindView({
   // year to nothing.
   const { season, cut, seasonGames, schedule } = useWpblSeason()
   const months = useMemo(() => finderMonths(seasonGames.filter(g => g.status === 'final')), [seasonGames])
+  // Which kinds of game the season had, so the board offers a picker only for one that was played.
+  const kinds = useMemo(() => {
+    const k = finderGameKinds(seasonGames, [], WPBL_LEAGUE.regulationInnings)
+    return { extra: k.extra.size > 0, dh: k.dh.size > 0 }
+  }, [seasonGames])
   const grains = GRAINS[side]
   const askInnings = query.per === 'inning' && grains.includes('inning')
   // A club's season carries the two-out runs its half-innings scored.
@@ -371,7 +376,7 @@ export default function WpblFindView({
       exampleCount={ex => exampleCounts.get(ex) ?? null} exampleHref={exampleHref}
       exampleCounted={plays || askPlays ? grains : ['game', 'season']}
       countFor={countFor} askOn={askOn} sides={findSides} onSide={onSide} filters={filters} seasonLabel={String(season)}
-      grains={grains} loading={askPlays && (!plays || (askFielders && !fielders))} picks={picks} months={months}
+      grains={grains} loading={askPlays && (!plays || (askFielders && !fielders))} picks={picks} months={months} kinds={kinds}
       parse={parse} onAsk={onAsk} askAnswer={askAnswer} askNames={askNames}
             rowParts={r => ({
         portrait: clubRows && r.teamId ? <TeamBadge team={{ id: r.teamId, abbr: r.teamId }} size={PORTRAIT_PX} />

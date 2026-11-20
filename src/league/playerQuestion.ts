@@ -1,4 +1,4 @@
-import { PA_SEASON_KEYS, type FinderBoardSide, type FinderCondition, type FinderPer, type FinderVenue } from './finder'
+import { finderCutsOf, PA_SEASON_KEYS, type FinderBoardSide, type FinderCondition, type FinderPer, type FinderVenue } from './finder'
 import { isQuestionWord, parseClubScope, parseFinderText, parseLeaderText, parseRecordQuestion, takeBareStat, type FinderClubAlias } from './finderParse'
 import { editDistance, foldName } from '../lib/fuzzyName'
 
@@ -60,10 +60,13 @@ export interface PlayerQuestion {
   to?: string | null
   last?: number | null
   hand?: 'L' | 'R' | null
+  /** Extra-inning games, a doubleheader's, or the best stretch of N games (`FinderQuery`). */
+  extra?: boolean | null
+  dh?: 'any' | 1 | 2 | null
+  stretch?: number | null
 }
 
-const cutsOf = (c: { from?: string | null; to?: string | null; last?: number | null; hand?: 'L' | 'R' | null }) =>
-  ({ from: c.from ?? null, to: c.to ?? null, last: c.last ?? null, hand: c.hand ?? null })
+const cutsOf = finderCutsOf
 
 const CONNECTORS = new Set(['vs', 'vs.', 'versus', 'v', 'v.', 'against', 'off', 'facing', 'faced', 'and', 'or', '&'])
 // The words that make the one player named the pitcher being faced: "3 hits off Whitmore".

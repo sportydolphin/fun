@@ -1,7 +1,7 @@
 import { TeamLogo } from '../components/TeamLogo'
 import { useCallback, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { finderMonths, runFinder, validFinderSort, type FinderBoardSide, type FinderPer, type FinderQuery, type FinderSide, type FinderSort } from '../../league/finder'
+import { finderCutsOf, finderGameKinds, finderMonths, runFinder, validFinderSort, type FinderBoardSide, type FinderPer, type FinderQuery, type FinderSide, type FinderSort } from '../../league/finder'
 import { FinderBoard, type FinderExample, type FinderReading } from '../../ui/finderBoard'
 import { parseFinderText } from '../../league/finderParse'
 import { scopedGames } from '../../league/season'
@@ -107,6 +107,13 @@ export function MlbFindView({
   const months = useMemo(
     () => finderMonths(scopedGames((data?.games ?? []).filter(g => g.status === 'final'), scoped.scope)),
     [data, scoped.scope])
+  // Which kinds of game the slice had. MLB's mirrored games carry no line score, so extras are read
+  // off the pitching lines (`finderGameKinds`).
+  const kinds = useMemo(() => {
+    if (!data) return undefined
+    const k = finderGameKinds(scopedGames(data.games, scoped.scope), data.pitching)
+    return { extra: k.extra.size > 0, dh: k.dh.size > 0 }
+  }, [data, scoped.scope])
   const result = useMemo(
     () => runFinder(side, data?.batting ?? [], data?.pitching ?? [], data?.players ?? [], data?.games ?? [], scoped, 50, sort,
       { eraInnings: 9, qualify, clubName }),
@@ -130,7 +137,8 @@ export function MlbFindView({
   // A reading on this side is asked in place, keeping the season on screen; the other side goes
   // through the address, as the search box sends it, since the side is the section's to switch.
   const onAsk = (r: FinderReading) => {
-    if (r.side === side) onQuery({ ...query, per: r.per, conditions: r.conditions, teamId: r.teamId, oppId: r.oppId, venue: r.venue })
+    // The cuts go with it ("10 strikeouts in extra innings"), as on WPBL's board (askedFinderQuery).
+    if (r.side === side) onQuery({ ...query, per: r.per, conditions: r.conditions, teamId: r.teamId, oppId: r.oppId, venue: r.venue, ...finderCutsOf(r) })
     else navigate(mlbFinderHref(r))
   }
   const mirrored = MLB_LINES_SEASONS.includes(vizSeason)
@@ -156,7 +164,7 @@ export function MlbFindView({
           <FinderBoard side={side} query={query} onQuery={onQuery} result={result} clubs={CLUBS} loading={loading}
             clubAbbr={id => TEAM_ABBR[Number(id)] ?? id}
             sort={sort} onSort={setSort} examples={EXAMPLES[side]} seasonLabel={String(vizSeason)}
-            exampleCount={ex => exampleCounts?.get(ex.label) ?? null} exampleCounted={GRAINS} exampleHref={exampleHref} grains={GRAINS} plays={false} months={months}
+            exampleCount={ex => exampleCounts?.get(ex.label) ?? null} exampleCounted={GRAINS} exampleHref={exampleHref} grains={GRAINS} plays={false} months={months} kinds={kinds}
             parse={text => parseFinderText(text, MLB_FINDER_CLUBS)} onAsk={onAsk} countFor={countFor} askOn={askOn} onSide={onSide}
                         rowParts={r => {
               const club = r.teamId ? Number(r.teamId) : 0

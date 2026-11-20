@@ -6,7 +6,7 @@
 // answered nothing to any of them (Nov 19, 2026). The conversions live here, league-neutral, so the
 // same words make the same question in both places, and neither has a copy to drift.
 
-import { finderFields, PA_CUT_KEYS, PA_SEASON_KEYS, type FinderBoardSide } from './finder'
+import { finderCutsOf, finderFields, PA_CUT_KEYS, PA_SEASON_KEYS, type FinderBoardSide } from './finder'
 import { parseFinderText, parseRecordQuestion, parseScopedRank, rankLowerBetter, type FinderClubAlias, type ParsedFinder, type ParsedRecord, type ParsedScopedRank } from './finderParse'
 
 /** A Find question read off words, with how a ranking was asked when it was one. */
@@ -49,7 +49,7 @@ export function scopedRankFinder(r: ParsedScopedRank): FinderAsk | null {
     ...(r.bar ? [{ field: r.bar.field, op: 'gte' as const, value: r.bar.value }] : []), ...(r.situation ?? [])]
   return {
     side: r.side, per: 'season', conditions, teamId: r.teamId, oppId: r.oppId, venue: r.venue, season: r.season, ignored: [],
-    from: r.from ?? null, to: r.to ?? null, last: r.last ?? null, hand: r.hand ?? null,
+    ...finderCutsOf(r),
     ...(r.byClub ? { byClub: true } : {}),
     rank: { lead: rate ? (lower ? 'Lowest' : 'Highest') : 'Most', field: r.field },
   }
@@ -97,7 +97,8 @@ export function paRankFinder(p: ParsedFinder): FinderAsk | null {
 }
 
 const sameQuestion = (a: ParsedFinder, b: ParsedFinder) => a.side === b.side && a.per === b.per && !!a.byClub === !!b.byClub
-  && a.teamId === b.teamId && a.oppId === b.oppId && a.venue === b.venue && a.season === b.season && (a.hand ?? null) === (b.hand ?? null)
+  && a.teamId === b.teamId && a.oppId === b.oppId && a.venue === b.venue && a.season === b.season
+  && JSON.stringify(finderCutsOf(a)) === JSON.stringify(finderCutsOf(b))
   && JSON.stringify(a.conditions) === JSON.stringify(b.conditions)
 
 /**

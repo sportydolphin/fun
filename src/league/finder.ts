@@ -117,6 +117,17 @@ export interface FinderQuery {
    *  both players, so it asks that grain, and a hitter's season, which is then summed from those plate
    *  appearances ("avg vs lefties"). Ignored at every other grain. */
   hand?: 'L' | 'R' | null
+  /** GAMES THAT WENT PAST THE LEAGUE'S REGULATION LENGTH (`FinderOptions.regulationInnings`): "home
+   *  runs in extra inning games". The whole game, unlike "in extras" said of a play, which is the
+   *  inning cut (`inn`). Absent is every game. */
+  extra?: boolean | null
+  /** GAMES OF A DOUBLEHEADER: two or more finals between the same two clubs on one date, numbered in
+   *  the order they were played. `any` is either game, 1 the opener, 2 the nightcap. */
+  dh?: 'any' | 1 | 2 | null
+  /** A STRETCH OF N STRAIGHT GAMES, at the season grain: each player's best run of N games in a row
+   *  (of the games they played, after every other cut), by the question's first stat. "Most home
+   *  runs in 5 games", "best avg over 10 games". Hitting and Pitching only. Absent is the season. */
+  stretch?: number | null
   /** ONE PLAYER'S LINES: the player each match is filed under, at a game, a season or a pitcher's
    *  inning. Not at a plate appearance, where the matchup's batter (Hitting) or pitcher (Pitching) is
    *  the same thing and the board swaps one for the other with the grain (`finderPlayerAt`), and not
@@ -788,6 +799,8 @@ export interface FinderRow<P extends LeaguePlayer = LeaguePlayer, G extends Leag
    *  Center opens on (the pitcher's first batter, or the plate appearance itself). On a plate
    *  appearance, `event` is what happened ("HR", "K"). Null on the other grains. */
   inning: { inning: number; half: 'top' | 'bottom'; sequence: number; event?: string | null } | null
+  /** The first and last game of a stretch row's run (`FinderQuery.stretch`). Absent on every other. */
+  stretch?: { first: G; last: G }
   /** The value of the first condition's field, which is what the row is measured by. */
   headline: number
   headlineDisplay: string
@@ -833,6 +846,8 @@ export interface FinderResult<P extends LeaguePlayer = LeaguePlayer, G extends L
 export interface FinderOptions {
   /** Seven in WPBL (or the reader's choice; see EraBasisContext), nine in MLB. */
   eraInnings?: number
+  /** The league's regulation length (`League.regulationInnings`), for `FinderQuery.extra`. Nine if absent. */
+  regulationInnings?: number
   /** The season's bar for a rate title, in plate appearances, outs and (for a fielder) games.
    *  Absent applies none. */
   qualify?: { minPa: number; minOuts: number; minG?: number } | null
@@ -1004,6 +1019,62 @@ function inSpan(gameDate: string, from: string | null | undefined, to: string | 
 /** A game's place in the season, for the last N: its date, then its first pitch. */
 const gameOrder = (g: LeagueGame & { start_time?: string | null }): string => `${g.game_date} ${g.start_time ?? ''} ${g.id}`
 
+/**
+ * WHICH FINALS WENT TO EXTRAS AND WHICH WERE PART OF A DOUBLEHEADER, for `FinderQuery.extra` and `dh`.
+ *
+ * A game's length is its line score's when it has one (WPBL's `innings` column is never filled, and
+ * MLB's mirrored games carry no line score at all). Without one it is read off the pitching lines:
+ * a club whose pitchers got more than the regulation's outs was in the field past the last
+ * regulation inning, which only happens in extras, whoever won. A shortened game (WPBL's six-inning
+ * Aug 19, 2026) is neither.
+ *
+ * A doubleheader is the same two clubs twice on one date, in the order `gameOrder` gives: the first
+ * pitch, then the id, which for MLB's game pks is the order StatsAPI scheduled them.
+ */
+export function finderGameKinds(
+  games: readonly LeagueGame[], pitching: readonly PitchingGameLine[], regulationInnings = 9,
+): { extra: Set<string>; dh: Map<string, number> } {
+  const finals = games.filter(g => g.status === 'final')
+  const outs = new Map<string, number>()
+  for (const l of pitching) {
+    if (!l.team_id) continue
+    const k = `${l.game_id}|${l.team_id}`
+    outs.set(k, (outs.get(k) ?? 0) + l.outs)
+  }
+  const extra = new Set<string>()
+  const pairs = new Map<string, LeagueGame[]>()
+  for (const g of finals) {
+    const lined = Math.max(g.home_line?.length ?? 0, g.away_line?.length ?? 0)
+    const pitched = Math.max(outs.get(`${g.id}|${g.home_team_id}`) ?? 0, outs.get(`${g.id}|${g.away_team_id}`) ?? 0)
+    if (lined ? lined > regulationInnings : pitched > regulationInnings * 3) extra.add(g.id)
+    const k = `${g.game_date}|${[g.home_team_id, g.away_team_id].sort().join('|')}`
+    const list = pairs.get(k)
+    if (list) list.push(g)
+    else pairs.set(k, [g])
+  }
+  const dh = new Map<string, number>()
+  for (const list of pairs.values()) {
+    if (list.length < 2) continue
+    list.sort((a, b) => gameOrder(a).localeCompare(gameOrder(b))).forEach((g, i) => dh.set(g.id, i + 1))
+  }
+  return { extra, dh }
+}
+
+// A RATE OVER A STRETCH needs a bar of its own: the season's rate-title bar is for a whole season,
+// and with none, the best average over five games is a pinch hitter's 2-for-2. Two plate
+// appearances a game, or an inning a game for a pitcher, is a regular's stretch and not a cameo's.
+// A plate appearances or innings condition replaces it, as it replaces the season's.
+const STRETCH_PA_PER_GAME = 2
+const STRETCH_OUTS_PER_GAME = 3
+/** The longest stretch a question may ask, which also keeps the window sums cheap. */
+export const FINDER_STRETCH_MAX = 30
+
+/** A rate's bar over a stretch of `n` games, as the condition a ranking typed in words carries, so
+ *  the board shows it as a chip the reader can change. Innings are in outs, as the engine keeps them. */
+export function finderStretchBar(side: FinderSide, n: number): { field: 'pa' | 'ip'; value: number } {
+  return side === 'pitching' ? { field: 'ip', value: STRETCH_OUTS_PER_GAME * n } : { field: 'pa', value: STRETCH_PA_PER_GAME * n }
+}
+
 const passes = (v: number, c: FinderCondition): boolean =>
   c.op === 'gte' ? v >= c.value : c.op === 'lte' ? v <= c.value : v === c.value
 
@@ -1076,6 +1147,8 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     (id.startsWith(CLUB_KEY) && opts.clubName ? opts.clubName(id.slice(CLUB_KEY.length)) : null)
   const season = query.per === 'season'
   const headlineField = query.conditions[0]?.field ?? (side === 'pitching' ? 'so' : side === 'fielding' ? 'tc' : 'h')
+  // Read only when asked: it walks every pitching line.
+  const kinds = query.extra || query.dh ? finderGameKinds(finals, pitching, opts.regulationInnings) : null
 
   // Every filter that is about the GAME rather than the line, applied once per line because a
   // line's club is its own and not the roster's. `oppId` and `venue` both need the game row,
@@ -1088,6 +1161,11 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     if (query.venue === 'home' && !home) return false
     if (query.venue === 'away' && home) return false
     if (!inSpan(g.game_date, query.from, query.to)) return false
+    if (kinds && query.extra && !kinds.extra.has(g.id)) return false
+    if (kinds && query.dh) {
+      const n = kinds.dh.get(g.id)
+      if (!n || (query.dh !== 'any' && n !== query.dh)) return false
+    }
     return true
   }
 
@@ -1134,6 +1212,9 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     // The conditions asked of each line, which a season summed from plate appearances hands in
     // without its situation (already spent cutting the trips).
     conds: FinderCondition[] = query.conditions,
+    // Whether this path's season can be asked as a stretch (`FinderQuery.stretch`): a player's own
+    // box-score lines, Hitting's or Pitching's.
+    stretchable = false,
   ): FinderResult<P, G> => {
     // A side with no field at this grain (Hitting by the inning) can ask nothing, and finds nothing.
     if (!fields.length) return { rows: [], total: 0, searched: 0, tally: [], headlineField, qualifier: null, flat: false, span: null }
@@ -1153,14 +1234,60 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     // A season sums every line, a night in the field without a trip to the plate included, so its
     // games played agree with the Players table's; a season that never came to the plate is dropped
     // after the sum, for the reason above. A fielder's games are the games played, as above.
-    const candidates = season
-      ? seasonLines(cut).filter(played).map(l => (gamesPlayed?.has(l.player_id) ? { ...l, g: gamesPlayed.get(l.player_id)! } : l))
-      : pool
-
+    const stretchN = season && stretchable && query.stretch && query.stretch > 1 ? Math.min(query.stretch, FINDER_STRETCH_MAX) : 0
     const asksRate = season && conds.some(c => byKey.get(c.field)?.rate)
     const ownBar = conds.some(c => bar.own.includes(c.field))
-    const qualifier = asksRate && !ownBar && bar.min ? { field: bar.field, min: bar.min } : null
+    const stretchBar = bar.field === 'pa' ? STRETCH_PA_PER_GAME * stretchN : bar.field === 'ip' ? STRETCH_OUTS_PER_GAME * stretchN : 0
+    const qualifier = stretchN
+      ? (asksRate && !ownBar && stretchBar ? { field: bar.field, min: stretchBar } : null)
+      : asksRate && !ownBar && bar.min ? { field: bar.field, min: bar.min } : null
     const barField = byKey.get(bar.field)!
+    const fits = (line: L): boolean => {
+      if (qualifier && barField.value(line) < qualifier.min) return false
+      for (const c of conds) {
+        const f = byKey.get(c.field)
+        // An unknown field is a hand-edited link, and dropping the condition would answer a
+        // different question than the one the URL asks. Match nothing instead. A rate on a game
+        // question is the same thing.
+        if (!f || (f.seasonOnly && !season) || !passes(f.value(line), c)) return false
+      }
+      return true
+    }
+
+    // A STRETCH: each player's games in the order played, every run of N in a row summed the way a
+    // season is, and the best run that fits kept, by the question's first stat (the latest on a tie).
+    // Over the games played, after every cut: "best 5 games at home" is five home games in a row of
+    // the player's home games. A player with fewer than N games has no stretch.
+    const runs = new Map<string, { first: G; last: G }>()
+    const stretches = (): L[] => {
+      const byPlayer = new Map<string, L[]>()
+      for (const l of pool) {
+        const list = byPlayer.get(l.player_id)
+        if (list) list.push(l)
+        else byPlayer.set(l.player_id, [l])
+      }
+      const out: L[] = []
+      for (const [id, list] of byPlayer) {
+        if (list.length < stretchN) continue
+        list.sort((a, b) => gameOrder(gameById.get(a.game_id)!).localeCompare(gameOrder(gameById.get(b.game_id)!)))
+        let best: { line: L; v: number; at: number } | null = null
+        for (let i = 0; i + stretchN <= list.length; i++) {
+          const line = seasonLines(list.slice(i, i + stretchN))[0] as unknown as L
+          if (!fits(line)) continue
+          const v = head.value(line)
+          if (!best || (head.lowerBetter ? v <= best.v : v >= best.v)) best = { line, v, at: i }
+        }
+        if (!best) continue
+        runs.set(id, { first: gameById.get(list[best.at].game_id)!, last: gameById.get(list[best.at + stretchN - 1].game_id)! })
+        out.push(best.line)
+      }
+      return out
+    }
+
+    const candidates = stretchN ? stretches()
+      : season
+        ? seasonLines(cut).filter(played).map(l => (gamesPlayed?.has(l.player_id) ? { ...l, g: gamesPlayed.get(l.player_id)! } : l))
+        : pool
 
     // A MATCHUP OR ONE PLAYER WITH NOTHING ELSE ASKED IS A LOG: every trip to the plate between the
     // two, or every game the player played, in the order they happened, the way a player page lists a
@@ -1169,16 +1296,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     const log = !season && conds.length === 0 && (hasMatchup(query) || !!subject)
     const matched: { line: L; head: number }[] = []
     for (const line of candidates) {
-      if (qualifier && barField.value(line) < qualifier.min) continue
-      let ok = true
-      for (const c of conds) {
-        const f = byKey.get(c.field)
-        // An unknown field is a hand-edited link, and dropping the condition would answer a
-        // different question than the one the URL asks. Match nothing instead. A rate on a game
-        // question is the same thing.
-        if (!f || (f.seasonOnly && !season) || !passes(f.value(line), c)) { ok = false; break }
-      }
-      if (ok) matched.push({ line, head: head.value(line) })
+      if (fits(line)) matched.push({ line, head: head.value(line) })
     }
 
     // SORTED BEFORE THE CAP, so a table re-sorted by another column shows the top fifty BY THAT
@@ -1256,7 +1374,9 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
       rows: matched.slice(0, limit).map(({ line, head: h }) => {
         const v = lead === head ? h : lead.value(line)
         const p = playerById.get(line.player_id) ?? null
+        const run = stretchN ? runs.get(line.player_id) : undefined
         return {
+          ...(run ? { stretch: run } : {}),
           key: line.id,
           player: p,
           name: p?.name ?? clubNamed(line.player_id) ?? '—',
@@ -1267,7 +1387,8 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
             : null,
           headline: v,
           headlineDisplay: lead.display ? lead.display(v) : String(v),
-          detail: detail(line),
+          // A stretch says which games: "Aug 8 to Aug 16 · 9 for 20, 3 HR".
+          detail: run ? `${finderSpanText(run)} · ${detail(line)}` : detail(line),
           values: Object.fromEntries(fields.map(f => [f.key, f.value(line)])),
         }
       }),
@@ -1405,7 +1526,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     return collect(lines, [...PIT_FIELDS, ...seasonFields, ...(totals ? playFields(side) : [])] as Field<DecidedPitching>[],
       season ? pitSeasonDetail(era) as (l: DecidedPitching) => string : pitDetail,
       l => l.outs > 0 || (l.bf ?? 0) > 0,
-      { field: 'ip', own: ['ip', 'bf'], min: qualify?.minOuts })
+      { field: 'ip', own: ['ip', 'bf'], min: qualify?.minOuts }, undefined, query.conditions, true)
   }
   // A HITTER'S SEASON AGAINST ONE ARM, ONE PITCHER OR IN ONE SITUATION is summed from the plate
   // appearances that fit (SITUATION_KEYS), a game line per night, since no box-score line splits by
@@ -1462,7 +1583,13 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
   return collect(lines, [...HIT_FIELDS, ...(season ? [] : HIT_STREAK_FIELDS), ...HIT_SEASON_FIELDS, ...(totals ? playFields(side) : [])] as Field<BattingGameLine>[],
     season ? hitSeasonDetail as (l: BattingGameLine) => string : hitDetail,
     l => l.ab + l.bb + l.hbp + l.sf + l.sh > 0,
-    { field: 'pa', own: ['pa', 'ab'], min: qualify?.minPa })
+    { field: 'pa', own: ['pa', 'ab'], min: qualify?.minPa }, undefined, query.conditions, true)
+}
+
+/** Whether a query's stretch can be asked: a player's season on Hitting or Pitching, from the box
+ *  scores (not one summed from plate appearances, and not a club's). */
+export function finderStretchApplies(side: FinderBoardSide, q: Pick<FinderQuery, 'per' | 'conditions' | 'byClub' | 'hand' | 'pitcherId'>): boolean {
+  return q.per === 'season' && side !== 'fielding' && !q.byClub && !seasonFromPas(side, q)
 }
 
 // ─── The query in the address bar ─────────────────────────────────────────────
@@ -1506,9 +1633,25 @@ const FROM_TOKEN = 'from'
 const TO_TOKEN = 'to'
 const LAST_TOKEN = 'last'
 const HAND_TOKEN = 'hand'
+/** `extra.1`: extra-inning games. */
+const EXTRA_TOKEN = 'extra'
+/** `dh.a`, `dh.1`, `dh.2`: a doubleheader's games, either, the opener, the nightcap. */
+const DH_TOKEN = 'dh'
+/** `stretch.5`: the best five games in a row. */
+const STRETCH_TOKEN = 'stretch'
 
 /** The cuts a query carries in `q`. */
-export type FinderCuts = Pick<FinderQuery, 'from' | 'to' | 'last' | 'hand'>
+export type FinderCuts = Pick<FinderQuery, 'from' | 'to' | 'last' | 'hand' | 'extra' | 'dh' | 'stretch'>
+
+/** The cuts of anything that carries them, each null when absent: what a parsed question hands a query. */
+export function finderCutsOf(c: FinderCuts): Required<{ [K in keyof FinderCuts]: FinderCuts[K] | null }> {
+  return { from: c.from ?? null, to: c.to ?? null, last: c.last ?? null, hand: c.hand ?? null,
+    extra: c.extra ?? null, dh: c.dh ?? null, stretch: c.stretch ?? null }
+}
+
+/** Whether anything carries a cut at all. */
+export const hasFinderCut = (c: FinderCuts): boolean =>
+  !!(c.from || c.to || c.last || c.hand || c.extra || c.dh || c.stretch)
 
 /** The query as a `q` value, or '' when it is asking for everything. */
 export function encodeFinderQuery(q: Pick<FinderQuery, 'conditions'> & { per?: FinderPer; byClub?: boolean } & FinderCuts): string {
@@ -1518,6 +1661,8 @@ export function encodeFinderQuery(q: Pick<FinderQuery, 'conditions'> & { per?: F
   const cuts = [
     q.from && `${FROM_TOKEN}${PART_SEP}${q.from}`, q.to && `${TO_TOKEN}${PART_SEP}${q.to}`,
     q.last && q.last > 0 && `${LAST_TOKEN}${PART_SEP}${q.last}`, q.hand && `${HAND_TOKEN}${PART_SEP}${q.hand.toLowerCase()}`,
+    q.extra && `${EXTRA_TOKEN}${PART_SEP}1`, q.dh && `${DH_TOKEN}${PART_SEP}${q.dh === 'any' ? 'a' : q.dh}`,
+    q.stretch && q.stretch > 1 && `${STRETCH_TOKEN}${PART_SEP}${q.stretch}`,
   ].filter((x): x is string => !!x)
   return [...lead, ...cuts, ...parts].join(COND_SEP)
 }
@@ -1531,9 +1676,19 @@ export function decodeFinderCuts(raw: string | null): FinderCuts {
     if ((word === FROM_TOKEN || word === TO_TOKEN) && /^(\d{4}|\d{8})$/.test(value)) out[word] = value
     else if (word === LAST_TOKEN && /^\d{1,3}$/.test(value) && Number(value) > 0) out.last = Number(value)
     else if (word === HAND_TOKEN && (value === 'l' || value === 'r')) out.hand = value === 'l' ? 'L' : 'R'
+    else if (word === EXTRA_TOKEN && value === '1') out.extra = true
+    else if (word === DH_TOKEN && (value === 'a' || value === '1' || value === '2')) out.dh = value === 'a' ? 'any' : Number(value) as 1 | 2
+    else if (word === STRETCH_TOKEN && /^\d{1,2}$/.test(value) && Number(value) > 1 && Number(value) <= FINDER_STRETCH_MAX) out.stretch = Number(value)
   }
   return out
 }
+
+/** A doubleheader cut in words: "Doubleheaders", "Doubleheader openers", "Doubleheader nightcaps". */
+export const finderDhText = (dh: NonNullable<FinderQuery['dh']>): string =>
+  dh === 'any' ? 'Doubleheaders' : dh === 1 ? 'Doubleheader openers' : 'Doubleheader nightcaps'
+
+/** A stretch in words: "5-game stretch". */
+export const finderStretchText = (n: number): string => `${n}-game stretch`
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const spanDay = (d: string) => {
@@ -1542,12 +1697,14 @@ const spanDay = (d: string) => {
   return d.length === 8 ? `${day}, ${d.slice(0, 4)}` : day
 }
 
+export type FinderCutKey = 'span' | 'last' | 'hand' | 'extra' | 'dh' | 'stretch'
+
 /**
  * Each cut in words, for a chip with its own remove: "Aug 1 to Aug 31", "Since Aug 1", "Last 10
  * games", "Vs LHP" (or "Vs left-handed batters" on Pitching). A whole month reads as the month.
  */
-export function describeFinderCuts(side: FinderBoardSide, q: FinderCuts & { per?: FinderPer }): { key: 'span' | 'last' | 'hand'; text: string }[] {
-  const out: { key: 'span' | 'last' | 'hand'; text: string }[] = []
+export function describeFinderCuts(side: FinderBoardSide, q: FinderCuts & { per?: FinderPer }): { key: FinderCutKey; text: string }[] {
+  const out: { key: FinderCutKey; text: string }[] = []
   if (q.from || q.to) {
     const month = q.from && q.to && q.from.length === q.to.length && q.from.slice(0, -2) === q.to.slice(0, -2)
       && q.from.endsWith('01') && Number(q.to.slice(-2)) >= 28
@@ -1556,6 +1713,10 @@ export function describeFinderCuts(side: FinderBoardSide, q: FinderCuts & { per?
       : q.from && q.to ? `${spanDay(q.from)} to ${spanDay(q.to)}` : q.from ? `Since ${spanDay(q.from)}` : `Through ${spanDay(q.to!)}` })
   }
   if (q.last) out.push({ key: 'last', text: q.last === 1 ? 'Last game' : `Last ${q.last} games` })
+  if (q.extra) out.push({ key: 'extra', text: 'Extra innings' })
+  if (q.dh) out.push({ key: 'dh', text: finderDhText(q.dh) })
+  // Only where the grain reads it: a season.
+  if (q.stretch && q.per === 'season' && side !== 'fielding') out.push({ key: 'stretch', text: finderStretchText(q.stretch) })
   // Only where the grain reads it: a plate appearance, or a hitter's season.
   if (q.hand && (q.per === 'pa' || (q.per === 'season' && side === 'hitting'))) {
     out.push({ key: 'hand', text: side === 'pitching' ? `Vs ${q.hand === 'L' ? 'left' : 'right'}-handed batters` : `Vs ${q.hand}HP` })

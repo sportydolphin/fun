@@ -101,6 +101,7 @@ export async function wpblFindAnswerWithTarget(href: string, ctx: FindContext): 
   const q = wpblQualifiers(ctx.teams, games, query.scope)
   const result = runFinder(side, cut(lines.batting), cut(lines.pitching), ctx.players, games, query, Infinity, null, {
     eraInnings: ctx.eraInnings,
+    regulationInnings: WPBL_LEAGUE.regulationInnings,
     qualify: q.active ? { minPa: q.minPa, minOuts: q.minOuts, minG: q.minG } : null,
     fielding: cut(fielding),
     innings: log && query.per === 'inning' && side === 'pitching' ? inningPitchingLines(WPBL_LEAGUE, log, games) : undefined,

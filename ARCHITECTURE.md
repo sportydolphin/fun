@@ -202,6 +202,12 @@ flowchart LR
   `throws`, a switch hitter standing opposite the pitcher's arm) ride inside `q` as `from.0801~last.10~hand.l`
   (`encodeFinderQuery` / `decodeFinderCuts`), so no new param and no new carrying. The arm asks the
   plate-appearance grain, and a hitter's season, which is then summed from those plate appearances.
+  Three more (Nov 20, 2026): extra-inning games (`extra.1`) and a doubleheader's games (`dh.a`,
+  `dh.1`, `dh.2`), both from `finderGameKinds` (a game's length off its line score, or off the outs
+  its pitchers got where there is none, as on MLB's mirror; a doubleheader is the same two clubs twice
+  on one date), and a stretch (`stretch.5`): each player's best run of N games in a row at the season
+  grain, by the first stat, with a rate bar per game of it (`finderStretchBar`). MLB's board reads the
+  cuts off its address too (`findQueryOf`), all but the arm, which needs the play log.
   A club's games with nothing asked answer as its record ("Hunters home record" reads 1–7). Complete
   games are a club's only pitcher that day (`soloPitchers`), and the hitting and on-base streaks are set
   on the game that ends each run (`markStreaks`), as the runs of plays are.

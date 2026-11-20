@@ -1195,7 +1195,7 @@ worth doing:
    pitch mix" there opens on whichever role is showing.
 9. **Spans and splits.** ✅ A month and a range of two dates (Nov 10, v1.226.0): "hr in august",
    "aug 1-15", "between aug 1 and 15", and the Find board's When row takes a month or the last 1 to 20
-   games. Left: a series, a doubleheader and extra innings as a game filter.
+   games. ✅ Extra innings, a doubleheader and a stretch of N games (Nov 20, v1.250.0).
 10. **Records and firsts.** ✅ Records (Oct 14, v1.162.0): "most hr in a game", "longest scoreless
     outing" open Bests at that card (`parseRecordText`), and the season ranking steps aside for
     single-game words. ✅ Firsts (Nov 9, v1.216.0): "first home run", "first grand slam of 2026",
@@ -1259,8 +1259,9 @@ Still unanswered after these, in the order worth doing:
    "teams with 15 hits", "shutouts", "no-hitters", "blowouts", "won by 10", "lost by 8", "errorless
    games"; "most runs by a team" with no game said stays the team stats ranking. 2026: 18 runs is the
    most (Heights, Sep 3), one shutout, no no-hitter.
-6. **Spans**: ✅ a month and a date range (v1.226.0). Left: a series, a doubleheader, extra innings as
-   a game filter (search item 9).
+6. **Spans**: ✅ a month and a date range (v1.226.0). ✅ Extra innings and a doubleheader as a game
+   filter, and a stretch of N games in a row (Nov 20, v1.250.0). A series is dropped: the WPBL's
+   regular season has none.
 7. ✅ **Fielding by the inning** (v1.222.0). A fielder's half-inning: errors where the text charges one
    ("error by", "dropped", "muffed"), double plays, passed balls, steals allowed, and the position.
 8. ✅ **Pickoffs and pitches seen over a game or a season** (v1.222.0). `playTotals`, read only when a
@@ -1296,7 +1297,7 @@ score, per player and game, on every pull request and nightly (docs/PLAY_VALIDAT
 run found 52 plate appearances the readers dropped (0-0 trips with no pitch sequence), now counted, and
 that the box counts balks and passed balls once per runner moved.
 
-Still open, in the order worth doing: the rest of spans (item 6); a player's own firsts; MLB's search
+Still open, in the order worth doing: a player's own firsts; MLB's search
 reading a name inside a question; near-misses on another side at a play-log grain (counted only where
 its lines are already in hand, so left out today).
 
@@ -1314,7 +1315,7 @@ Still open, in the order worth doing:
 
 1. **MLB parity**: the league line, standings, playoffs and lineup spot are WPBL's alone.
 2. **Columns the tables do not have**: BB/K, opponent average, blown saves, holds (none in the feed).
-3. **Spans and pace** ("most hr in 5 games", "Whitmore on pace"), once 2027 games exist.
+3. **Pace** ("Whitmore on pace"), once 2027 games exist. ✅ Spans ("most hr in 5 games", Nov 20, v1.250.0).
 4. **"Hunters runs per game"** and other club per-game figures.
 5. **Plays named in words** ("inside the park home run", "triple play" without "first").
 6. **Next game and yesterday** say nothing in the offseason; a row naming opening day once it is public.

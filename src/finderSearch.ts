@@ -10,7 +10,7 @@
 // shell's own `navigate()` is the whole integration, and the row is a real link that opens in a new
 // tab on a modified click like any other.
 
-import { describeFinderConditions, describeFinderCuts, describeFinderQuery, finderFields, type FinderBoardSide, type FinderCondition, type FinderPer, type FinderSide } from './league/finder'
+import { describeFinderConditions, describeFinderCuts, describeFinderQuery, finderCutsOf, finderFields, hasFinderCut, type FinderBoardSide, type FinderCondition, type FinderPer, type FinderSide } from './league/finder'
 import { parseLineupSpot } from './league/lineupSpot'
 import { bareStatText, parseClubPage, parseClubRecord, parseFinderText, parseGameQuery, parseLeaderText, parsePositionRank, parseRecordQuestion, parseRecordText, parseScopedRank, parseTeamRankText, rankField, rankLowerBetter, type ClubPagePart, type ParsedFinder, type ParsedLeader, type RankSide } from './league/finderParse'
 import { MLB_FINDER_CLUBS, mlbFinderHref } from './mlb/finderLink'
@@ -228,14 +228,17 @@ function dropPaTwins<T extends { parsed: ParsedFinder }>(rows: T[]): T[] {
 }
 
 /** The cuts in words for a subtitle: "since Aug 1", "last 10 games", "vs LHP". */
-function cutBits(side: FinderBoardSide, p: Pick<ParsedFinder, 'from' | 'to' | 'last' | 'hand' | 'post'> & { per?: FinderPer }): string[] {
-  // "Since Aug 1" reads "since Aug 1" mid-line; a month keeps its capital, and so does LHP.
-  return [...describeFinderCuts(side, p).map(c => c.text.replace(/^(Since|Through|Last|Vs)\b/, w => w.toLowerCase())),
+function cutBits(side: FinderBoardSide, p: Pick<ParsedFinder, 'from' | 'to' | 'last' | 'hand' | 'post' | 'extra' | 'dh' | 'stretch'> & { per?: FinderPer }): string[] {
+  // "Since Aug 1" reads "since Aug 1" mid-line; a month keeps its capital, and so does LHP. A kind of
+  // game and a stretch read after a stat: "Most home runs in a 5-game stretch", "in extra innings".
+  return [...describeFinderCuts(side, p).map(c => (c.key === 'stretch' ? `in a ${c.text}`
+    : c.key === 'extra' || c.key === 'dh' ? `in ${c.text.toLowerCase()}`
+    : c.text.replace(/^(Since|Through|Last|Vs)\b/, w => w.toLowerCase()))),
     ...(p.post ? ['playoffs'] : [])]
 }
 
 /** Which lines a question searches, and any club, venue and year: "Pitching lines · vs SF · 2026". */
-function scopeBits(section: FinderSection, p: Pick<ParsedFinder, 'side' | 'per' | 'teamId' | 'oppId' | 'venue' | 'season' | 'byClub' | 'from' | 'to' | 'last' | 'hand' | 'post'>): string[] {
+function scopeBits(section: FinderSection, p: Pick<ParsedFinder, 'side' | 'per' | 'teamId' | 'oppId' | 'venue' | 'season' | 'byClub' | 'from' | 'to' | 'last' | 'hand' | 'post' | 'extra' | 'dh' | 'stretch'>): string[] {
   const sideWord = p.side === 'pitching' ? 'Pitching' : p.side === 'fielding' ? 'Fielding' : 'Batting'
   const bits = [p.per === 'season' ? `${sideWord}, season totals` : p.per === 'inning' ? `${sideWord}, ${p.byClub ? 'club innings' : 'single innings'}`
     : p.per === 'pa' ? `${sideWord}, plate appearances` : p.per === 'club' ? `${sideWord}, club games` : `${sideWord} lines`]
@@ -274,7 +277,7 @@ export function playerQuestionRows(
       : null
     const title = off ?? (q.kind === 'club' ? [who, where].filter(Boolean).join(' ') : asked ? `${who}: ${asked}` : who)
     // The club already said in a club row's title is not said again under it.
-    const bits = scopeBits(section, q.kind === 'club' ? { ...q, teamId: null, oppId: null, venue: 'any', from: null, to: null, last: null, hand: null } : q)
+    const bits = scopeBits(section, q.kind === 'club' ? { ...q, teamId: null, oppId: null, venue: 'any', ...finderCutsOf({}) } : q)
     return { key: `player-q-${href}`, title, subtitle: bits.join(' · '), href, matchup: q.kind === 'matchup', q }
   })
   // One player's question read at two grains, or on both sides: the grain, or the side and the grain.
@@ -292,12 +295,12 @@ export function finderSuggestions(section: FinderSection, text: string): FinderS
     : parseFinderText(record?.text ?? text, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, WPBL_FINDER_OPTS)
       .filter(p => !record || (p.per === 'inning' && p.conditions.length === 1))
   const rows = parsed
-    // MLB's board reads no cut off its address (src/mlb/views/FindView.tsx), so a cut there is no row.
-    .filter(p => section === 'wpbl' || !(p.from || p.to || p.last || p.hand || p.post))
+    // MLB has no play log to cut by the arm, and its Playoffs slice is the section's, not the link's.
+    .filter(p => section === 'wpbl' || !(p.hand || p.post))
     // A stat with no number ("Hunters doubles") wants a club, a place or a year beside it. Alone,
     // "doubles" is a word to define and a board to rank, which the rows above answer, and a name
     // beside it ("Whitmore doubles") is the player question's (playerQuestionRows).
-    .filter(p => !p.bare || (!p.ignored.length && !!(p.teamId || p.oppId || p.venue !== 'any' || p.season || p.from || p.to || p.last || p.hand)))
+    .filter(p => !p.bare || (!p.ignored.length && !!(p.teamId || p.oppId || p.venue !== 'any' || p.season || hasFinderCut(p))))
     .map(p => {
     const field = record ? finderFields(p.side, 'inning').find(f => f.key === p.conditions[0].field) : null
     const title = field ? `Most ${field.label.toLowerCase()} in an inning` : p.bare ? bareTitle(section, p) : questionTitle(section, p)
@@ -318,7 +321,7 @@ function clubRecordRows(section: FinderSection, text: string): FinderSuggestion[
   const r = parseClubRecord(text, WPBL_FINDER_CLUBS)
   if (!r) return []
   const parsed: ParsedFinder = { side: 'hitting', per: 'club', conditions: [], teamId: r.teamId, oppId: r.oppId, venue: r.venue,
-    ignored: [], season: r.season, from: r.from ?? null, to: r.to ?? null, last: r.last ?? null, ...((r as { post?: boolean }).post ? { post: true } : {}) }
+    ignored: [], season: r.season, ...finderCutsOf(r), ...((r as { post?: boolean }).post ? { post: true } : {}) }
   const name = WPBL_TEAMS[r.teamId]?.name ?? r.teamId
   const where = [r.oppId && `vs ${WPBL_TEAMS[r.oppId]?.name ?? r.oppId}`, r.venue === 'home' ? 'at home' : r.venue === 'away' ? 'on the road' : null,
     ...cutBits('hitting', parsed)].filter(Boolean)
@@ -654,8 +657,8 @@ export function scopedRankSuggestions(section: FinderSection, text: string): Rec
     const field = finderFields(r.side, 'season', true, !!r.byClub).find(f => f.key === r.field)
     const parsed = scopedRankFinder(r)
     if (!field || !parsed) return []
-    // MLB's board reads no cut off its address, so a cut there is no row.
-    if (section === 'mlb' && (r.from || r.to || r.last || r.hand || r.byClub)) return []
+    // MLB has no play log to cut by the arm or sum a club's season from.
+    if (section === 'mlb' && (r.hand || r.byClub)) return []
     const situation = r.situation ?? []
     const href = section === 'mlb' ? mlbFinderHref(parsed) : wpblFinderHref(parsed)
     const where = [...situationWords(situation), r.oppId && `vs ${clubLabel(section, r.oppId)}`, r.teamId && `for ${clubLabel(section, r.teamId)}`,
