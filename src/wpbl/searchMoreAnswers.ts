@@ -1,4 +1,4 @@
-// The rows for searchMore.ts's three questions: the reads, and the words each row says. Split from
+// The rows for searchMore.ts's four questions: the reads, and the words each row says. Split from
 // the parsers so those stay pure and a test needs no database. Loaded on the first ask.
 
 import { fetchWpblAllLines, fetchWpblVideoTags, fetchWpblVideos } from './api'
@@ -6,15 +6,16 @@ import { fetchWpblPlayLog } from './api/plays'
 import { plateAppearanceLines, type PlateAppearanceLine } from '../league/inningLines'
 import { WPBL_LEAGUE } from './league'
 import { WPBL_FINDER_CLUBS } from './finderLink'
-import { currentSeason, inSeason, seasonGames } from './season'
+import { countsInStandings, currentSeason, inSeason, seasonGames, standingsFinals } from './season'
 import { regularSeasonLines } from '../league/season'
 import { foldName } from '../lib/fuzzyName'
 import { videoKindName } from './videoChannels'
 import { wpblGamePath, wpblPlayerPath, wpblTeamPath, wpblWatchVideoPath } from './routes'
 import {
-  clipsByPlay, clubRuns, gameMeasureLabel, gameRecord, matchClips, parseGameRecord, parseStreakAsk, parseVideoAsk,
-  playerRuns, type ClubRun,
+  clipsByPlay, clubRuns, gameMeasureLabel, gameRecord, matchClips, parseGameRecord, parseStandingsAsk, parseStreakAsk, parseVideoAsk,
+  playerRuns, type ClubRun, type StandingsAsk,
 } from './searchMore'
+import { pythagenpat } from './derive/seriesOdds'
 import type { AnswerGroup, PlayAnswer } from '../mlb/state/SearchBridgeContext'
 import type { RunValuePlay } from '../league/types'
 import type { WpblGame, WpblPlayer, WpblTeam, WpblVideo } from './types'
@@ -61,7 +62,94 @@ export async function wpblMoreAnswers(text: string, ctx: MoreContext): Promise<A
     const rows = streak.kind === 'club' ? clubStreakRows(streak, ctx) : await playerStreakRows(streak, ctx)
     if (rows.length) out.push({ label: 'Streaks', icon: 'streak', rows })
   }
+  const standings = parseStandingsAsk(text, WPBL_FINDER_CLUBS)
+  if (standings) {
+    const rows = standingsRows(standings, ctx)
+    if (rows.length) out.push({ label: 'Standings', icon: 'standings', rows })
+  }
   return out
+}
+
+// ─── Standings ─────────────────────────────────────────────────────────────────
+
+interface ClubLine { teamId: string; w: number; l: number; homeW: number; homeL: number; roadW: number; roadL: number; rf: number; ra: number; left: number }
+
+/** Each club's season off the same finals the standings count, plus what is still to play. */
+function clubLines(games: readonly WpblGame[], teams: readonly WpblTeam[], season: number): ClubLine[] {
+  const year = games.filter(g => g.game_date.startsWith(String(season)))
+  const finals = standingsFinals(year)
+  const done = new Set(finals.map(g => g.id))
+  const by = new Map(teams.map(t => [t.id, { teamId: t.id, w: 0, l: 0, homeW: 0, homeL: 0, roadW: 0, roadL: 0, rf: 0, ra: 0, left: 0 }]))
+  for (const g of finals) {
+    const homeWon = g.home_score! > g.away_score!
+    const home = by.get(g.home_team_id), away = by.get(g.away_team_id)
+    if (home) { home.rf += g.home_score!; home.ra += g.away_score!; if (homeWon) { home.w++; home.homeW++ } else { home.l++; home.homeL++ } }
+    if (away) { away.rf += g.away_score!; away.ra += g.home_score!; if (homeWon) { away.l++; away.roadL++ } else { away.w++; away.roadW++ } }
+  }
+  for (const g of year) {
+    if (done.has(g.id) || g.status === 'final' || !countsInStandings(g) || /cancel|postpon|suspend/i.test(g.status ?? '')) continue
+    for (const id of [g.home_team_id, g.away_team_id]) { const c = by.get(id); if (c) c.left++ }
+  }
+  return [...by.values()].filter(c => c.w + c.l + c.left > 0)
+}
+
+const pctText = (w: number, l: number) => (w + l ? (w / (w + l)).toFixed(3).replace(/^0/, '') : '.000')
+const signed = (n: number) => (n > 0 ? `+${n}` : String(n))
+
+/** "best record", "road records", "Hunters run differential": a row per club, best first, or the one
+ *  club asked about. Best or worst alone is the top of that order, ties listed. */
+function standingsRows(ask: StandingsAsk, ctx: MoreContext): PlayAnswer[] {
+  const season = ask.season ?? currentSeason(ctx.games)
+  if (season == null) return []
+  const lines = clubLines(ctx.games, ctx.teams, season)
+  if (!lines.some(c => c.w + c.l > 0)) return []
+  const team = (id: string) => ctx.teams.find(t => t.id === id)
+  const of = ask.season ? ` · ${ask.season}` : ''
+  const m = ask.measure
+  // What the clubs are ordered by, highest first, and what each row says.
+  const value = (c: ClubLine): number => m === 'home' ? (c.homeW + c.homeL ? c.homeW / (c.homeW + c.homeL) : 0)
+    : m === 'road' ? (c.roadW + c.roadL ? c.roadW / (c.roadW + c.roadL) : 0)
+    : m === 'rundiff' ? c.rf - c.ra
+    : m === 'pythag' ? pythagenpat(c.rf, c.ra, c.w + c.l)
+    : m === 'remaining' ? c.left
+    : c.w + c.l ? c.w / (c.w + c.l) : 0
+  const say = (c: ClubLine): string => {
+    const g = c.w + c.l
+    if (m === 'home') return `${c.homeW}–${c.homeL} at home · ${pctText(c.homeW, c.homeL)}`
+    if (m === 'road') return `${c.roadW}–${c.roadL} on the road · ${pctText(c.roadW, c.roadL)}`
+    if (m === 'rundiff') return `${signed(c.rf - c.ra)} · ${c.rf} scored, ${c.ra} allowed`
+    if (m === 'pythag') {
+      const xw = Math.round(pythagenpat(c.rf, c.ra, g) * g)
+      return `${xw}–${g - xw} expected · ${c.w}–${c.l} actual`
+    }
+    if (m === 'remaining') return c.left ? `${c.left} ${c.left === 1 ? 'game' : 'games'} left` : 'No games left'
+    return `${c.w}–${c.l} · ${pctText(c.w, c.l)}`
+  }
+  const label: Record<typeof m, string> = {
+    record: 'record', pct: 'win percentage', home: 'home record', road: 'road record', rundiff: 'run differential',
+    pythag: 'Pythagorean record', remaining: 'games left',
+  }
+  // After the last game every club reads "No games left": one row says it.
+  if (m === 'remaining' && !ask.teamId && lines.every(c => !c.left)) {
+    return [{ key: `standings-remaining-${season}`, title: 'Games left', detail: `None · ${season} regular season complete`, href: '/wpbl/standings', open: noop }]
+  }
+  let ranked = [...lines].sort((a, b) => value(b) - value(a) || (team(a.teamId)?.name ?? '').localeCompare(team(b.teamId)?.name ?? ''))
+  if (ask.pick === 'worst') ranked.reverse()
+  if (ask.teamId) ranked = ranked.filter(c => c.teamId === ask.teamId)
+  else if (ask.pick) ranked = ranked.filter(c => value(c) === value(ranked[0])).slice(0, MAX_TIED)
+  const standingsHref = '/wpbl/standings'
+  return ranked.slice(0, 4).map(c => {
+    const t = team(c.teamId)
+    const name = t?.name ?? c.teamId
+    const title = ask.pick ? `${ask.pick === 'best' ? 'Best' : 'Worst'} ${label[m]}` : `${name} ${label[m]}`
+    return {
+      key: `standings-${m}-${ask.pick ?? 'all'}-${c.teamId}-${season}`,
+      title,
+      detail: `${ask.pick ? `${name} · ` : ''}${say(c)}${of}`,
+      href: ask.teamId && t ? wpblTeamPath(t, ctx.teams) : standingsHref,
+      open: noop,
+    }
+  })
 }
 
 // ─── Video ─────────────────────────────────────────────────────────────────────

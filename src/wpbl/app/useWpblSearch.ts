@@ -26,7 +26,7 @@ import {
 } from '../routes'
 import { currentSeason, inSeason, seasonGames, seasonsOnRecord } from '../season'
 import { LEAGUE_ROW } from '../derive/playerSeasons'
-import { ageOn, parseRosterQuery } from '../rosterQuery'
+import { parsePlayerFact, parseRosterQuery, rosterNote, rosterOrder } from '../rosterQuery'
 
 /** The empty result list, one array for good: the bridge compares by identity, and a fresh `[]`
  *  per publish would wake every subscriber to say nothing changed. */
@@ -257,13 +257,23 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
     const raw = bridge.query.trim()
     // "Lefties", "switch hitters", "youngest player": the roster answers, a player row each (rosterQuery.ts).
     // Active players only, since the list is "who is in the league", not everyone ever signed.
-    const asked = parseRosterQuery(raw)
+    const today = new Date().toISOString().slice(0, 10)
+    // The palette hands names only, with a typed year taken off as the season ("born in 2000" arrives
+    // as "born in"), so a roster question is read with the year put back first.
+    const year = typeof bridge.querySeason === 'number' ? bridge.querySeason : null
+    const asked = (year != null ? parseRosterQuery(`${raw} ${year}`, today) : null) ?? parseRosterQuery(raw, today)
     if (asked) {
       const pitcher = (pl: WpblPlayer) => /(?:^|[^A-Z])(?:P|RHP|LHP|SP|RP|TWP)(?:[^A-Z]|$)/.test(displayPositionFromIndex(pl, positionIndex).label ?? '')
-      const list = players.filter(pl => pl.active && asked.keep(pl, pitcher(pl)))
-        .sort((a, b) => (asked.order === 'name' ? a.name.localeCompare(b.name)
-          : asked.order === 'youngest' ? (b.birth_date ?? '').localeCompare(a.birth_date ?? '') : (a.birth_date ?? '').localeCompare(b.birth_date ?? '')))
-      return { q: raw.toLowerCase(), players: list, teams: [] as WpblTeam[], forgiving: false, roster: asked }
+      const list = rosterOrder(players.filter(pl => pl.active && asked.keep(pl, pitcher(pl))), asked.order, today)
+      // An empty list falls through to the name search: "from" or a round nobody fits is more likely
+      // a name than a question with no answer.
+      if (list.length) return { q: raw.toLowerCase(), players: list, teams: [] as WpblTeam[], forgiving: false, roster: asked.note }
+    }
+    // "Whitmore hometown", "how old is Sato": the player's own row, leading with the fact.
+    const fact = parsePlayerFact(raw)
+    if (fact) {
+      const found = rankHeaderMatches(fact.name, players, tieWeight)
+      if (found.length) return { q: foldName(fact.name), players: found, teams: [] as WpblTeam[], forgiving: false, roster: fact.note }
     }
     // A jersey number, answered before the name path and on a SINGLE character: "7" is a real
     // search and cannot mean anything else, since no name contains a digit. 21 of the league's
@@ -294,7 +304,7 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
       t = fuzzyMatches(teams, q, tm => [`${tm.city} ${tm.name}`, tm.name, tm.city])
     }
     return { q, players: p, teams: t, forgiving }
-  }, [bridge.query, players, teams, tieWeight, positionIndex])
+  }, [bridge.query, bridge.querySeason, players, teams, tieWeight, positionIndex])
 
   // The World Cup's players and editions, after the WPBL's own rows. Dev only until the World Cup
   // goes public: the build replaces the flag with false and drops the import with it.
@@ -317,8 +327,8 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
     const playerRows = (matches?.players ?? []).slice(0, 6).map(p => {
       const row = buildPlayerRow(p, 'result')
       if (!roster) return row
-      const note = roster.note === 'age' ? (p.birth_date ? `Age ${ageOn(p.birth_date, today)}` : null)
-        : roster.note === 'bats' ? (p.bats ? `Bats ${p.bats}` : null) : (p.throws ? `Throws ${p.throws}` : null)
+      // The row already prints the shirt number, so a number question needs no note of its own.
+      const note = roster === 'number' ? null : rosterNote(roster, p, today)
       return note ? { ...row, subtitle: [note, row.subtitle].filter(Boolean).join(' · ') } : row
     })
     preloadPortraits((matches?.players ?? []).slice(6, 12).map(p => wpblPortraitSet(p.name)?.src))

@@ -727,9 +727,10 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       label: g.label,
       items: g.rows.map((r): Item => ({
         key: r.key, kind: 'first', title: r.title, answer: r.detail, href: r.href, onOpen: r.open,
-        subtitle: g.icon === 'video' ? 'Video' : g.icon === 'game' ? 'Game Center' : 'Streak',
+        subtitle: g.icon === 'video' ? 'Video' : g.icon === 'game' ? 'Game Center' : g.icon === 'standings' ? 'Standings' : 'Streak',
         icon: g.icon === 'video' ? <PlayCircleOutlined sx={{ fontSize: ICON_SIZE.md }} />
-          : g.icon === 'game' ? <SportsBaseball sx={{ fontSize: ICON_SIZE.md }} /> : <Timeline sx={{ fontSize: ICON_SIZE.md }} />,
+          : g.icon === 'game' ? <SportsBaseball sx={{ fontSize: ICON_SIZE.md }} />
+          : g.icon === 'standings' ? <Leaderboard sx={{ fontSize: ICON_SIZE.md }} /> : <Timeline sx={{ fontSize: ICON_SIZE.md }} />,
       })),
     }))
     const acts: Item[] = q.length < 2 ? [] : actions

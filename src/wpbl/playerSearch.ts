@@ -64,7 +64,8 @@ export function editDistance(a: string, b: string, max = 2): number {
  * roster is 2 characters), and it stops a stray year or a game id reading as a jersey.
  */
 export function jerseyQuery(query: string): string | null {
-  const m = /^#?\s*(\d{1,2})$/.exec(query.trim())
+  // "number 22", "no. 7", "who wears 7", "jersey 3": the Nov 20, 2026 probe found the words offered nothing.
+  const m = /^(?:#|(?:who wears|wearing|wears|jersey|uniform|number|no\.?)\s*(?:number\s*|no\.?\s*|#)?)?\s*(\d{1,2})$/i.exec(query.trim())
   // Compared as a number, so "07" and "7" are the same shirt.
   return m ? String(Number(m[1])) : null
 }
