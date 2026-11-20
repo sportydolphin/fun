@@ -621,6 +621,24 @@ function AppInner() {
   // while the other typed. One box now does all of it, on every width.
   const [paletteOpen, setPaletteOpen] = useState(false)
   const paletteMounted = useOpenedOnce(paletteOpen)
+  // A PHONE HAS NO HOVER, so the field's prefetch fired only on the tap itself, and the first open
+  // waited on the network with nothing on screen. iOS also raises the keyboard only for a focus
+  // inside the tap, which a box that arrives after a download is not. Warm it once the page has
+  // drawn, as the other section is warmed above. Not skipped for Save-Data: unlike the other
+  // section, the search is the control most readers do touch.
+  useEffect(() => {
+    if (!searchShown) return
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback
+    let idle: number | null = null
+    const t = window.setTimeout(() => {
+      if (ric) idle = ric(prefetchPalette, { timeout: 2000 })
+      else prefetchPalette()
+    }, 2500)
+    return () => {
+      window.clearTimeout(t)
+      if (idle != null) (window as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback?.(idle)
+    }
+  }, [searchShown])
   const closePalette = useCallback(() => setPaletteOpen(false), [])
   // Which section's search this is. The bridge says once a section has registered; the route says
   // before that.
