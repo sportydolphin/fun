@@ -137,7 +137,7 @@ describe('the search box', () => {
     const user = userEvent.setup()
     render(<Host />)
     await user.click(screen.getByRole('button', { name: 'Close search' }))
-    await waitFor(() => expect(named('command_palette_dismissed')).toEqual([{ section: 'wpbl', typed: 0, shown: 16 }]))
+    await waitFor(() => expect(named('command_palette_dismissed')).toEqual([{ section: 'wpbl', typed: 0, shown: 26 }]))
   })
 
   it('offers the compare page for "A vs B" once the section finds both, and counts the pick', async () => {
@@ -242,7 +242,7 @@ describe('a search that finds nothing', () => {
     render(<Host />)
     await user.type(input(), 'zzyzx')
     expect(await screen.findByText(/Nothing matches/)).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Try' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Suggestions' })).toBeInTheDocument()
     await user.keyboard('{Enter}')
     await user.keyboard('{Tab}')
     expect(input()).toHaveValue('zzyzx')

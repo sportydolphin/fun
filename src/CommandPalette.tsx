@@ -233,38 +233,56 @@ const ic = (Icon: typeof Search) => <Icon sx={{ fontSize: ICON_SIZE.md }} />
 //
 // Names are durable ones: WPBL's are the first season's, which stay on record; MLB's are not
 // Yankees, per CLAUDE.md. No year anywhere, which would go stale every spring.
+//
+// A RANGE, NOT A SAMPLE (Nov 20, 2026). Sixteen rows showed one of each kind and hid most of what the box
+// reads: a split, a matchup, a position, a situation, a kind of play, a record at each grain. Each row
+// now names its kind in a label, grouped players, rankings, records, plays, games and clubs, the site.
 const EXAMPLES: Record<NavSection, Example[]> = {
   wpbl: [
-    { q: 'Whitmore', what: 'A player, by name or number, typos too', icon: ic(Person) },
-    { q: 'Whitmore avg', what: 'A player’s stat, answered in the row', icon: ic(Person) },
-    { q: 'Whitmore game log', what: 'A player’s page, opened at that part', icon: ic(Person) },
-    { q: 'Most strikeouts', what: 'Rank every player, advanced stats too', icon: ic(Leaderboard) },
-    { q: 'SF team ERA', what: 'Rank the clubs', icon: ic(Groups) },
-    { q: 'Firebells last game', what: 'A game, by club and day', icon: ic(SportsBaseball) },
-    { q: 'Firebells vs Hunters', what: 'Two clubs’ season series', icon: ic(CompareArrows) },
-    { q: 'Whitmore vs Ibarra', what: 'Two players side by side', icon: ic(CompareArrows) },
-    { q: '5 strikeouts no walks', what: 'Every game line that matches', icon: ic(ManageSearch) },
-    { q: 'Hunters doubles', what: 'Every one, oldest first', icon: ic(ManageSearch) },
-    { q: 'Hunters 100th hit', what: 'A first, last or Nth, opened at the play', icon: ic(Flag) },
-    { q: 'Longest at-bat', what: 'A plate-appearance record, opened at the play', icon: ic(EmojiEvents) },
-    { q: 'SF roster', what: 'A club’s page', icon: ic(Groups) },
-    { q: 'What is FIP', what: 'What a stat means', icon: ic(MenuBook) },
-    { q: 'Standings', what: 'Any page on the site', icon: ic(Article) },
-    { q: 'Ohtani', what: 'MLB players too', icon: ic(TravelExplore) },
+    { q: 'Whitmore', what: 'Player', icon: ic(Person) },
+    { q: 'Whitmore avg', what: 'Player stat', icon: ic(Person) },
+    { q: 'Hondras vs RHP', what: 'Player split', icon: ic(Person) },
+    { q: 'Benites last 5 games', what: 'Recent games', icon: ic(Person) },
+    { q: 'Hondras vs Whitmore', what: 'Batter vs pitcher', icon: ic(CompareArrows) },
+    { q: 'Whitmore vs Ibarra', what: 'Compare players', icon: ic(CompareArrows) },
+    { q: 'Most strikeouts', what: 'Leaderboard', icon: ic(Leaderboard) },
+    { q: 'Best catcher', what: 'By position', icon: ic(Leaderboard) },
+    { q: 'Road ERA', what: 'Home or road', icon: ic(Leaderboard) },
+    { q: 'Avg with RISP', what: 'By situation', icon: ic(Leaderboard) },
+    { q: 'Most 2 out RBI', what: 'RBI by situation', icon: ic(Leaderboard) },
+    { q: 'Most grand slams', what: 'By kind of play', icon: ic(Leaderboard) },
+    { q: 'SF team ERA', what: 'Club rankings', icon: ic(Groups) },
+    { q: 'Most hits in a game', what: 'Single-game record', icon: ic(EmojiEvents) },
+    { q: 'Most runs in an inning', what: 'Inning record', icon: ic(EmojiEvents) },
+    { q: 'Longest at-bat', what: 'At-bat record', icon: ic(EmojiEvents) },
+    { q: 'Hunters 100th hit', what: 'Firsts and milestones', icon: ic(Flag) },
+    { q: '5 strikeouts no walks', what: 'Game lines', icon: ic(ManageSearch) },
+    { q: 'Walk-off home runs', what: 'Every play', icon: ic(ManageSearch) },
+    { q: 'Firebells last game', what: 'Game', icon: ic(SportsBaseball) },
+    { q: 'Firebells vs Hunters', what: 'Season series', icon: ic(CompareArrows) },
+    { q: 'Queens last 10', what: 'Club record', icon: ic(Groups) },
+    { q: 'SF roster', what: 'Club page', icon: ic(Groups) },
+    { q: 'What is FIP', what: 'Definition', icon: ic(MenuBook) },
+    { q: 'Standings', what: 'Page', icon: ic(Article) },
+    { q: 'Ohtani', what: 'MLB player', icon: ic(TravelExplore) },
   ],
   mlb: [
-    { q: 'Ohtani', what: 'A player, active or retired, typos too', icon: ic(Person) },
-    { q: 'Ohtani HR', what: 'A player’s stat, answered in the row', icon: ic(Person) },
-    { q: 'Ohtani splits', what: 'A player’s page, opened at that part', icon: ic(Person) },
-    { q: 'Most home runs', what: 'Rank every player, this year or all time', icon: ic(Leaderboard) },
-    { q: 'Dodgers team ERA', what: 'Rank the clubs', icon: ic(Groups) },
-    { q: 'Dodgers last game', what: 'A game, by club and day', icon: ic(SportsBaseball) },
-    { q: 'Ohtani vs Betts', what: 'Two players side by side', icon: ic(CompareArrows) },
-    { q: '10 strikeouts no walks', what: 'Every game line that matches', icon: ic(ManageSearch) },
-    { q: 'Dodgers roster', what: 'A club’s page', icon: ic(Groups) },
-    { q: 'What is wRC+', what: 'What a stat means', icon: ic(MenuBook) },
-    { q: 'Standings', what: 'Any page on the site', icon: ic(Article) },
-    { q: 'Kelsie Whitmore', what: 'WPBL players too', icon: ic(TravelExplore) },
+    { q: 'Ohtani', what: 'Player', icon: ic(Person) },
+    { q: 'Ohtani HR', what: 'Player stat', icon: ic(Person) },
+    { q: 'Ohtani splits', what: 'Player page', icon: ic(Person) },
+    { q: 'Ohtani vs Betts', what: 'Compare players', icon: ic(CompareArrows) },
+    { q: 'Most home runs', what: 'Leaderboard', icon: ic(Leaderboard) },
+    { q: 'Best shortstop', what: 'By position', icon: ic(Leaderboard) },
+    { q: 'Dodgers vs Giants', what: 'Head to head', icon: ic(CompareArrows) },
+    { q: 'Road ERA', what: 'Home or road', icon: ic(Leaderboard) },
+    { q: 'Dodgers team ERA', what: 'Club rankings', icon: ic(Groups) },
+    { q: 'Most strikeouts in a game', what: 'Single-game record', icon: ic(EmojiEvents) },
+    { q: '10 strikeouts no walks', what: 'Game lines', icon: ic(ManageSearch) },
+    { q: 'Dodgers last game', what: 'Game', icon: ic(SportsBaseball) },
+    { q: 'Dodgers roster', what: 'Club page', icon: ic(Groups) },
+    { q: 'What is wRC+', what: 'Definition', icon: ic(MenuBook) },
+    { q: 'Playoff odds', what: 'Page', icon: ic(Article) },
+    { q: 'Kelsie Whitmore', what: 'WPBL player', icon: ic(TravelExplore) },
   ],
 }
 
@@ -609,12 +627,12 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       },
     })
 
-    const tryItems: Item[] = EXAMPLES[section].map(ex => ({
+    const suggestionItems: Item[] = EXAMPLES[section].map(ex => ({
       key: `ex-${ex.q}`, kind: 'example' as const, title: ex.q, subtitle: ex.what, icon: ex.icon,
       onOpen: () => { change(ex.q); inputRef.current?.focus() },
     }))
-    // "?" is a question about the box itself: the whole of the Try list, with nothing else around it.
-    if (q === '?') return [{ label: 'What the search understands', grid: true, items: tryItems }]
+    // "?" is a question about the box itself: the whole of the Suggestions list, with nothing else around it.
+    if (q === '?') return [{ label: 'What the search understands', grid: true, items: suggestionItems }]
 
     if (!q) {
       // Recent is the section's players and clubs and this device's questions, as one list.
@@ -627,7 +645,7 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       return [
         { label: 'Recent', items: recent, onClear: clearRecent },
         ...idle.filter(g => g !== sectionRecent).map(g => ({ label: g.label, items: g.rows.map(rowItem(g.kind)), onClear: g.onClear })),
-        { label: 'Try', grid: true, items: tryItems },
+        { label: 'Suggestions', grid: true, items: suggestionItems },
       ].filter(g => g.items.length)
     }
 
@@ -768,11 +786,19 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       .slice(0, 3)
       .map((x, i) => pageItem(x.p, i, otherSide))
 
+    // A PAGE NAMED IN FULL IS THE ANSWER. "Standings" on MLB led with Garrett Stallings, a fuzzy name
+    // match, and left the page under every player (Nov 20, 2026). Typed exactly as a page is called
+    // (its name or a word in PAGE_WORDS), the page goes first, unless a player or club has that very name.
+    const namesPage = sectionPages(section).some(p => p.label.toLowerCase() === q || PAGE_WORDS[p.label]?.includes(q))
+    const namesResult = results.some(r => r.title.toLowerCase() === q)
+    const pagesGroup = { label: 'Pages', items: pages }
+    const pagesFirst = namesPage && !namesResult && pages.length > 0
     // A term asked about in words ("what is OPS") is the answer; typed bare ("ops") it is more
     // likely the board, so it waits behind the rankings and the Find readings.
     const glossary = { label: 'Glossary', items: definitions }
     const found = [
       { label: 'Live now', items: liveGames },
+      ...(pagesFirst ? [pagesGroup] : []),
       ...(defined.asked ? [glossary] : []),
       { label: 'Games', items: games },
       { label: 'Matchups', items: matchups },
@@ -792,12 +818,12 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
         return { ...rowItem('result')(r), answer: (k != null && answerByKey[k]) || undefined, pending: asked && !(k in answerByKey) }
       }) },
       { label: section === 'mlb' ? 'In the WPBL' : 'In MLB', items: [...other, ...otherPages] },
-      { label: 'Pages', items: pages },
+      ...(pagesFirst ? [] : [pagesGroup]),
       { label: 'Actions', items: acts },
     ].filter(g => g.items.length)
     // A miss ends on the examples, not a blank box: what the box does understand, one pick from
     // trying it. Not while the section is still looking, or they flash in ahead of its rows.
-    return found.length || searching ? found : [{ label: 'Try', grid: true, items: tryItems }]
+    return found.length || searching ? found : [{ label: 'Suggestions', grid: true, items: suggestionItems }]
   }, [text, results, idle, section, searching, compare, gameRows, liveRows, recentQs, rowPicks, leaderRows, peek, statKey, answerByKey, answerKeys, resolveLeader, resolvePlayerStat, elsewhere, ownPlayers, actions, firsts, firstAsk, paRecords, paAsk, playerQs, more])
 
   // HAS IT EVER HAPPENED, answered in the row: every row that opens Find says how often and when last
