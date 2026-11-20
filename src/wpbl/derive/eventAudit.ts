@@ -34,7 +34,7 @@ import { WPBL_LEAGUE } from '../league'
 
 export interface BoxBatting { game_id: string; player_id: string; team_id: string | null
   h: number; doubles: number; triples: number; hr: number; bb: number; so: number; hbp: number
-  sb: number; cs: number; sf: number | null; sh: number | null }
+  sb: number; cs: number; sf: number | null; sh: number | null; rbi: number }
 export interface BoxPitching { game_id: string; player_id: string; team_id: string | null
   h: number; hr: number; bb: number; so: number; hbp: number | null; wp: number | null; bk: number | null }
 export interface BoxFielding { game_id: string; player_id: string; team_id: string | null; pb: number | null }
@@ -53,7 +53,7 @@ export interface EventFinding {
   box: number
 }
 
-const BATTER_EVENTS = ['h', 'doubles', 'triples', 'hr', 'bb', 'so', 'hbp', 'sf', 'sh'] as const
+const BATTER_EVENTS = ['h', 'doubles', 'triples', 'hr', 'bb', 'so', 'hbp', 'sf', 'sh', 'rbi'] as const
 const PITCHER_EVENTS = ['h', 'hr', 'bb', 'so', 'hbp', 'wp'] as const
 /** Runners moved on the play, the way the box score counts balks and passed balls (see above). */
 const runnersOn = (p: RunValuePlay, re: RegExp) => ((p.narrative ?? '').toLowerCase().match(re) ?? []).length

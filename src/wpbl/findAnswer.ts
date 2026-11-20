@@ -13,7 +13,7 @@ import { clubFieldingInningLines, fieldingInningLines, inningPitchingLines, plat
 import type { SeasonScope } from '../league/season'
 import { fetchWpblAllFielding, fetchWpblAllLines } from './api'
 import { fetchWpblPlayLog, type WpblLogPlay } from './api/plays'
-import { boxScoreOf, requestBoxScore, requestPlay } from './entryUrl'
+import { boxLineOf, boxScoreOf, requestBoxScore, requestPlay } from './entryUrl'
 import { wpblGamePath } from './routes'
 import type { FindAnswer } from '../mlb/state/SearchBridgeContext'
 import { WPBL_LEAGUE } from './league'
@@ -123,8 +123,9 @@ export async function wpblFindAnswerWithTarget(href: string, ctx: FindContext): 
     if (at != null) {
       target = { href: `${path}#play-${at}`, play: true, open: () => requestPlay(game.id, at) }
     } else {
-      const box = boxScoreOf(game, row.teamId)
-      target = { href: `${path}${box.query}`, play: false, open: () => requestBoxScore(game.id, box.side) }
+      const line = boxLineOf(row.player, side)
+      const box = boxScoreOf(game, row.teamId, line)
+      target = { href: `${path}${box.query}`, play: false, open: () => requestBoxScore(game.id, box.side, line) }
     }
   }
   return { text: finderAnswerText(result, side, query), target }

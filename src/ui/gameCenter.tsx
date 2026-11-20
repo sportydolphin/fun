@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box, Typography, type Theme } from '@mui/material'
 import { FOCUS_RING, hoverOnly, pressable } from './interaction'
 import { chromePx, typePx } from './scale'
 import { nameAtStage, useLineNameFit } from './names'
@@ -35,7 +35,12 @@ export interface BoxRow {
   isSub?: boolean
   /** One per column; null draws the dash a missing value is. */
   cells: (number | string | null)[]
+  /** The line a link landed on: outlined, the way the play log outlines a linked play. */
+  focus?: boolean
 }
+
+/** The attribute on the row a link landed on, for the scroll that brings it into view. */
+export const BOX_FOCUS_ATTR = 'data-box-focus'
 
 /**
  * Cap for the shrink-to-fit name column, IN REM, because it is reserving room for a name: a px
@@ -157,7 +162,17 @@ export function BoxTable({ head, cols, rows, totals, rule, dense, hoverColor }: 
         </Box>
         <Box component="tbody">
           {rows.map(r => (
-            <Box component="tr" key={r.key} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
+            <Box component="tr" key={r.key} {...(r.focus ? { [BOX_FOCUS_ATTR]: '' } : {})} sx={{
+              borderTop: '1px solid', borderColor: 'divider',
+              // DRAWN ON THE CELLS, NOT THE ROW. An outline on the row is painted under the sticky
+              // name cell, whose opaque fill hid its left edge, and outside the table's scroller,
+              // which clips it; an inset shadow on each cell is inside both.
+              ...(r.focus ? {
+                '& > td': { boxShadow: (t: Theme) => `inset 0 2px 0 ${t.palette.primary.main}, inset 0 -2px 0 ${t.palette.primary.main}` },
+                '& > td:first-of-type': { boxShadow: (t: Theme) => `inset 2px 0 0 ${t.palette.primary.main}, inset 0 2px 0 ${t.palette.primary.main}, inset 0 -2px 0 ${t.palette.primary.main}` },
+                '& > td:last-of-type': { boxShadow: (t: Theme) => `inset -2px 0 0 ${t.palette.primary.main}, inset 0 2px 0 ${t.palette.primary.main}, inset 0 -2px 0 ${t.palette.primary.main}` },
+              } : {}),
+            }}>
               {nameCell(r)}
               {r.cells.map((v, i) => <StatCell key={cols[i]?.key ?? i} dense={dense} bold={cols[i]?.bold}>{v ?? '—'}</StatCell>)}
             </Box>

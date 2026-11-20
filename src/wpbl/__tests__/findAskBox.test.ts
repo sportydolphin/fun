@@ -87,3 +87,25 @@ describe('nameSuggestions', () => {
     expect(names('hits')).toEqual([])
   })
 })
+
+// "most 2 out rbi" listed the two-out plays a run scored on (Nov 20, 2026): the RBI were the runs on
+// the play, which no season could sum, and "most grand slams" listed the slams. Each is now the
+// hitters' season of those trips, ranked; without "most" it stays the plays.
+describe('"most" of a kind of plate appearance', () => {
+  const first = (text: string) => wpblFinderHref(read(text)[0])
+  it('ranks the hitters by RBI in a situation', () => {
+    expect(first('most 2 out rbi')).toContain('q=season~rbi.gte.1~paouts.eq.2')
+    expect(first('two out rbi leaders')).toContain('q=season~rbi.gte.1~paouts.eq.2')
+    expect(first('most rbi with risp')).toContain('q=season~rbi.gte.1~risp.eq.1')
+  })
+  it('ranks the hitters by a kind of trip', () => {
+    expect(first('most grand slams')).toContain('q=season~hr.gte.1~on.eq.3')
+    expect(first('most walk-off hits')).toContain('q=season~h.gte.1~walkoff.eq.1')
+    expect(first('most leadoff home runs')).toContain('q=season~hr.gte.1~leadoff.eq.1')
+  })
+  it('keeps the plays without a word for a ranking, and counts RBI, not runs', () => {
+    expect(first('two out rbi')).toContain('q=pa~paouts.eq.2~rbi.gte.1')
+    expect(first('grand slams')).toContain('q=pa~hr.gte.1~on.eq.3')
+    expect(first('home runs leading off the game')).toContain('q=pa~')
+  })
+})

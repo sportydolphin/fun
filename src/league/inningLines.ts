@@ -220,8 +220,9 @@ function buildInningPitchingLines(league: League, plays: RunValuePlay[], games: 
  *
  * WHAT IT CARRIES is what the play log states for one plate appearance and nothing it would have to
  * guess: the event, the outs and runners it began with, the pitches, and the runs that scored on it
- * (`League.runsOnPlay`, never the column). No RBI, since the log does not say which runs a batter
- * drove in (an error or a wild pitch on the same play scores runs that are not), and no earned runs.
+ * (`League.runsOnPlay`, never the column). The RBI are the scorer's, written into the narrative
+ * ("2 RBI"), since the runs on a play include any an error or a double play let in (`rbiOnPlay`). No
+ * earned runs.
  *
  * A WALK-OFF is the last run of a game the home side won, scored in the bottom of its last half.
  * The bottom of a game's last inning is only played while the home side is not ahead, so any home
@@ -263,6 +264,8 @@ export interface PlateAppearanceLine {
   hbp: number
   /** Runs that scored on the play. */
   runs: number
+  /** The runs the batter drove in (`rbiOnPlay`): the runs on the play, less any the rules deny. */
+  rbi: number
   walkoff: number
   /**
    * RUNS OF PLAYS, each counted ONCE, on the run's last plate appearance and zero everywhere else, so
@@ -350,6 +353,15 @@ function markHitRuns(lines: PlateAppearanceLine[], gameById: ReadonlyMap<string,
   }
 }
 
+// THE SCORER'S OWN WORD, read off the narrative: "singled to left field, 2 RBI", "walked, RBI".
+// Not the runs on the play, which credit a batter with every run an error, a wild pitch or a double
+// play let in: summed per batter that way, 2026 read 586 RBI against the box scores' 552.
+const RBI_CLAUSE = /\b(?:(\d+)\s+)?RBI\b/
+function rbiOnPlay(p: RunValuePlay, runs: number): number {
+  const m = RBI_CLAUSE.exec(p.narrative ?? '')
+  return m ? Math.min(Number(m[1] ?? 1), runs) : 0
+}
+
 /** Every plate appearance in the plays handed in. `games` says which club is in the field and how a
  *  game ended (for the walk-off); a play whose game is missing is skipped, as above. */
 function buildPlateAppearanceLines(league: League, plays: RunValuePlay[], games: LeagueGame[]): PlateAppearanceLine[] {
@@ -408,7 +420,7 @@ function buildPlateAppearanceLines(league: League, plays: RunValuePlay[], games:
       h: HITS.has(ev) ? 1 : 0, doubles: ev === 'double' ? 1 : 0, triples: ev === 'triple' ? 1 : 0,
       hr: ev === 'home_run' ? 1 : 0, tb: BASES[ev] ?? 0,
       bb: ev === 'walk' ? 1 : 0, so: ev === 'strikeout' ? 1 : 0, hbp: ev === 'hit_by_pitch' ? 1 : 0,
-      runs,
+      runs, rbi: rbiOnPlay(p, runs),
       walkoff: homeWon && runs > 0 && p.half === 'bottom' && halfKey(p) === lastHalf.get(p.game_id)
         && lastRun.get(p.game_id) === p.sequence ? 1 : 0,
       hrrow: 0, krow: 0, retired: 0,

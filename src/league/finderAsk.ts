@@ -6,7 +6,7 @@
 // answered nothing to any of them (Nov 19, 2026). The conversions live here, league-neutral, so the
 // same words make the same question in both places, and neither has a copy to drift.
 
-import { finderFields, type FinderBoardSide } from './finder'
+import { finderFields, PA_CUT_KEYS, PA_SEASON_KEYS, type FinderBoardSide } from './finder'
 import { parseFinderText, parseRecordQuestion, parseScopedRank, rankLowerBetter, type FinderClubAlias, type ParsedFinder, type ParsedRecord, type ParsedScopedRank } from './finderParse'
 
 /** A Find question read off words, with how a ranking was asked when it was one. */
@@ -64,6 +64,38 @@ export function recordFinder(r: ParsedRecord): FinderAsk {
   }
 }
 
+// "most grand slams", "two out rbi leaders", "most walk-off hits": a word for a ranking.
+// Not "leading off", which is where a trip began ("home runs leading off the game").
+const RANK_WORD = /(?<![a-z])(?:most|leaders?|leading(?!\s+off)|top)(?![a-z])/
+const FEWEST_WORD = /(?<![a-z])(?:fewest|least|lowest)(?![a-z])/
+
+/** Whether words ask for the most of something, not the fewest. */
+export function asksForMost(text: string): boolean {
+  const t = text.toLowerCase()
+  return RANK_WORD.test(t) && !FEWEST_WORD.test(t)
+}
+
+/**
+ * A plate-appearance question asked as a ranking, as the hitters' season that answers it: "most grand
+ * slams" is each hitter's home runs over the trips with the bases loaded, highest first. The plain
+ * reading of those words is every such trip, which lists the plays and leaves the counting to the
+ * reader. Only one stat a season of trips can sum (`PA_SEASON_KEYS`), with at least one other condition
+ * and every other one a cut (`PA_CUT_KEYS`); anything else stays the plays. Null when it is not that.
+ */
+export function paRankFinder(p: ParsedFinder): FinderAsk | null {
+  if (p.side !== 'hitting' || p.per !== 'pa') return null
+  const stats = p.conditions.filter(c => !PA_CUT_KEYS.has(c.field))
+  // With no cut it is the stat's own leaderboard ("most k's"), which the leaders already answer.
+  if (stats.length === p.conditions.length) return null
+  if (stats.length !== 1 || stats[0].op !== 'gte' || !PA_SEASON_KEYS.has(stats[0].field)) return null
+  const field = stats[0].field
+  return {
+    ...p, per: 'season', bare: undefined,
+    conditions: [{ field, op: 'gte', value: 1 }, ...p.conditions.filter(c => PA_CUT_KEYS.has(c.field))],
+    rank: { lead: 'Most', field },
+  }
+}
+
 const sameQuestion = (a: ParsedFinder, b: ParsedFinder) => a.side === b.side && a.per === b.per && !!a.byClub === !!b.byClub
   && a.teamId === b.teamId && a.oppId === b.oppId && a.venue === b.venue && a.season === b.season && (a.hand ?? null) === (b.hand ?? null)
   && JSON.stringify(a.conditions) === JSON.stringify(b.conditions)
@@ -89,6 +121,10 @@ export function finderAskReadings(text: string, clubs: readonly FinderClubAlias[
       if (finderFields(r.side, r.per).some(f => f.key === r.field)) add(recordFinder(r))
     }
   }
-  for (const p of parseFinderText(text, clubs, sides, opts)) add(p)
+  const plain = parseFinderText(text, clubs, sides, opts)
+  if (opts.plays && asksForMost(text)) {
+    for (const p of plain) add(paRankFinder(p))
+  }
+  for (const p of plain) add(p)
   return out
 }
