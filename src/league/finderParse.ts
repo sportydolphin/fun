@@ -1426,9 +1426,31 @@ const STAT_ANY = new RegExp(`${B_START}(${alt(RANK_PHRASES)})${B_END}`, 'g')
 // "one" is filler everywhere else (Nov 10, 2026).
 const COUNTED_STAT = new RegExp(`${B_START}(?:${Object.keys(NUMBER_WORDS).filter(w => !['a', 'an'].includes(w)).join('|')})[\\s-]+(?:${alt(STAT_PHRASES)})${B_END}`)
 
+// "Best baserunner", "best hitter", "best fielder", "best pitcher", "most valuable player": a kind of
+// player rather than a stat, each the column that measures it (FanGraphs' choices: wRC+ for a hitter,
+// the run columns for the bases and the glove, WAR for the whole player). All offered nothing before
+// Nov 20, 2026. Whole phrases only, so "most hr by hitters" keeps its hint.
+const PLAYER_KINDS: { re: RegExp; side: RankSide; field: string }[] = [
+  { re: /^(?:the\s+)?(?:best|top|fastest)\s+(?:base\s*runners?|runners?\s+on\s+the\s+bases|base\s*stealers?)$/, side: 'overall', field: 'bsr' },
+  { re: /^(?:the\s+)?(?:best|top)\s+(?:fielders?|defenders?|defensive\s+players?|gloves?)$/, side: 'overall', field: 'fld' },
+  { re: /^(?:the\s+)?(?:best|top)\s+(?:hitters?|batters?|bats?)$/, side: 'hitting', field: 'wrcPlus' },
+  { re: /^(?:the\s+)?(?:best|top)\s+(?:pitchers?|arms?)$/, side: 'overall', field: 'pitWar' },
+  { re: /^(?:the\s+)?(?:best|top)\s+(?:players?|position\s+players?)$|^(?:the\s+)?most\s+valuable(?:\s+players?)?$|^mvp(?:\s+race)?$/, side: 'overall', field: 'war' },
+]
+
 export function parseLeaderText(text: string): ParsedLeader[] {
   let rest = ` ${fixStatTypos(normalize(text))} `
   if (!rest.trim()) return []
+  {
+    // The kind of player, with a year or the playoffs beside it.
+    const y = takeYear(rest)
+    let post = false
+    const bare = y.rest.replace(PLAYOFF_WORDS, () => { post = true; return ' ' }).replace(/\s+/g, ' ').trim()
+    const kind = PLAYER_KINDS.find(k => k.re.test(bare))
+    if (kind && !(post && kind.side === 'overall')) {
+      return [{ side: kind.side, field: kind.field, dir: null, season: y.season, career: false, ...(post ? { post } : {}) }]
+    }
+  }
   // "league batting average" is the league's figure (parseLeagueText), not the leaders'.
   if (parseLeagueText(text)) return []
   // "Most hr in a game" is a single-game record (parseRecordText), not the season board: answering
@@ -1493,6 +1515,8 @@ export function nameWords(text: string): string | null {
   let rest = year.rest
   let found = year.season != null || span.career || part.part != null
   rest = rest.replace(PLAYOFF_WORDS, () => { found = true; return ' ' })
+  // "Whitmore rank", "where does Sato rank": the name, asked where it stands (typedStat reads WAR).
+  rest = rest.replace(RANK_ASKED, () => { found = true; return ' ' })
   rest = rest.replace(STAT_ANY, (m: string, p: string) => {
     if (p.length < 2) return m
     found = true
@@ -1512,7 +1536,7 @@ export function nameWords(text: string): string | null {
 // crown" Bailey Brown, "home runs by month" a Montoya, "most hits in a week" Maud Werkman, and "team
 // ops" Team USA, and "where does Whitmore rank in hr" asked for a player called "does whitmore". No
 // WPBL player's name holds one of these words.
-const NOT_NAMES = /^(?:per|bunts?|late|early|infield|pinch|blown|quality|leadoff|plays?|crown|months?|weeks?|teams?|clubs?|record|extra|defense|does|do|stand|stands|place|wide)$/
+const NOT_NAMES = /^(?:per|bunts?|late|early|infield|pinch|blown|quality|leadoff|plays?|crown|months?|weeks?|teams?|clubs?|record|extra|defense|does|do|stand|stands|place|wide|hitters?|batters?|pitchers?)$/
 
 // ─── Two players ──────────────────────────────────────────────────────────────
 
@@ -1561,8 +1585,13 @@ export function typedStat(text: string): StatAlias | null {
   const { rest } = takePart(` ${fixStatTypos(normalize(text))} `)
   const aliases = new Set<StatAlias>()
   for (const m of rest.matchAll(STAT_ANY)) if (m[1].length >= 2) aliases.add(aliasOf(m[1]))
+  // A rank asked with no stat is the whole player's: WAR, where a section has it.
+  if (!aliases.size && new RegExp(RANK_ASKED.source).test(rest)) return RANK_ALIASES.war
   return aliases.size === 1 ? [...aliases][0] : null
 }
+
+// "rank", "ranking", "where does X stand": a place on the board, asked for.
+const RANK_ASKED = /(?<![a-z])(?:ranks?|ranked|rankings?|standing|stands?)(?![a-z])/g
 
 /** A figure for the whole league rather than a ranking of its players: "league batting average",
  *  "total home runs", "how many home runs were hit", "runs per game", "average OPS". */

@@ -77,7 +77,7 @@ export interface PlayAnswer {
 
 /** A group of answer rows the section reads from text alone: "Video", "Games", "Streaks". `icon`
  *  names the row's glyph, so the shell draws it without the section importing an icon set. */
-export interface AnswerGroup { label: string; icon: 'video' | 'game' | 'streak' | 'standings' | 'league' | 'pitches' | 'lineup'; rows: PlayAnswer[] }
+export interface AnswerGroup { label: string; icon: 'video' | 'game' | 'streak' | 'standings' | 'league' | 'pitches' | 'lineup' | 'roster'; rows: PlayAnswer[] }
 
 /** A stat typed beside a name ("Whitmore avg"): the column it means on each side the section's
  *  table has one for, the side the word leans to, and the span typed with it, if any. */

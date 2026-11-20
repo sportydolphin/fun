@@ -6,6 +6,7 @@ import { fetchWpblPlayLog } from './api/plays'
 import { plateAppearanceLines, type PlateAppearanceLine } from '../league/inningLines'
 import { WPBL_LEAGUE } from './league'
 import { WPBL_FINDER_CLUBS } from './finderLink'
+import { plateAppearances } from './stats'
 import { countsInStandings, currentSeason, inSeason, seasonGames, standingsFinals } from './season'
 import { regularSeasonLines } from '../league/season'
 import { foldName } from '../lib/fuzzyName'
@@ -62,12 +63,47 @@ export async function wpblMoreAnswers(text: string, ctx: MoreContext): Promise<A
     const rows = streak.kind === 'club' ? clubStreakRows(streak, ctx) : await playerStreakRows(streak, ctx)
     if (rows.length) out.push({ label: 'Streaks', icon: 'streak', rows })
   }
+  const twoWay = text.toLowerCase().trim().match(/^(?:the\s+)?(?:two[\s-]?way|2[\s-]way)(?:\s+(?:players?|stars?))?(?:\s+(20\d\d))?$/)
+  if (twoWay) {
+    const rows = await twoWayRows(twoWay[1] ? Number(twoWay[1]) : null, ctx)
+    if (rows.length) out.push({ label: 'Two-way players', icon: 'roster', rows })
+  }
   const standings = parseStandingsAsk(text, WPBL_FINDER_CLUBS)
   if (standings) {
     const rows = standingsRows(standings, ctx)
     if (rows.length) out.push({ label: 'Standings', icon: 'standings', rows })
   }
   return out
+}
+
+// ─── Two-way players ───────────────────────────────────────────────────────────
+
+/** "Two-way players": everyone who batted and pitched in the season's regular-season games, the most
+ *  of both first, off the box-score lines, the same lines the boards sum. Offered nothing until Nov
+ *  20, 2026, though two-way players are common in this league. */
+async function twoWayRows(asked: number | null, ctx: MoreContext): Promise<PlayAnswer[]> {
+  const season = asked ?? currentSeason(ctx.games)
+  if (season == null) return []
+  const lines = await fetchWpblAllLines()
+  const games = ctx.games
+  const bat = regularSeasonLines(inSeason(lines.batting, games, season), games)
+  const pit = regularSeasonLines(inSeason(lines.pitching, games, season), games)
+  const pa = new Map<string, number>()
+  for (const l of bat) pa.set(l.player_id, (pa.get(l.player_id) ?? 0) + plateAppearances(l))
+  const outs = new Map<string, number>()
+  for (const l of pit) outs.set(l.player_id, (outs.get(l.player_id) ?? 0) + (l.outs ?? 0))
+  const byId = new Map(ctx.players.map(p => [p.id, p]))
+  return [...outs].filter(([id, o]) => o > 0 && (pa.get(id) ?? 0) > 0 && byId.has(id))
+    .map(([id, o]) => ({ player: byId.get(id)!, pa: pa.get(id)!, outs: o }))
+    .sort((a, b) => Math.min(b.pa, b.outs) - Math.min(a.pa, a.outs) || a.player.name.localeCompare(b.player.name))
+    .slice(0, 6)
+    .map(({ player, pa: n, outs: o }) => ({
+      key: `two-way-${player.id}-${season}`,
+      title: player.name,
+      detail: `${n} PA · ${Math.floor(o / 3)}${o % 3 ? `.${o % 3}` : ''} IP · ${season}`,
+      href: wpblPlayerPath(player, ctx.players),
+      open: noop,
+    }))
 }
 
 // ─── Standings ─────────────────────────────────────────────────────────────────

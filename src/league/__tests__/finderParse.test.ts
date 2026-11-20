@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nameWords, parseClubPage, parseGameQuery, pickGames, parseCompareText, typedPart, typedSeason, parseFinderText, parseLeaderText, parseLeagueText, type FinderClubAlias } from '../finderParse'
+import { nameWords, parseClubPage, parseGameQuery, pickGames, parseCompareText, typedPart, typedSeason, parseFinderText, parseLeaderText, parseLeagueText, typedStat, type FinderClubAlias } from '../finderParse'
 
 const CLUBS: FinderClubAlias[] = [
   { id: 'CHC', names: ['Cubs', 'Chicago'] },
@@ -633,5 +633,22 @@ describe('the rest of the columns, by name', () => {
   it('keeps a count of strikeouts a count', () => {
     expect(parseLeaderText('5 k')).toEqual([])
     expect(parseLeaderText('9 strikeouts')).toEqual([])
+  })
+})
+
+// The Nov 20, 2026 probe: a kind of player, and a rank asked with no stat.
+describe('the best of a kind, and where a player ranks', () => {
+  it('reads each kind as the column that measures it', () => {
+    expect(parseLeaderText('best baserunner')).toMatchObject([{ side: 'overall', field: 'bsr' }])
+    expect(parseLeaderText('best fielders')).toMatchObject([{ side: 'overall', field: 'fld' }])
+    expect(parseLeaderText('best hitter 2026')).toMatchObject([{ side: 'hitting', field: 'wrcPlus', season: 2026 }])
+    expect(parseLeaderText('best pitcher')).toMatchObject([{ side: 'overall', field: 'pitWar' }])
+    expect(parseLeaderText('mvp')).toMatchObject([{ side: 'overall', field: 'war' }])
+  })
+  it('answers a rank with no stat as WAR', () => {
+    expect(nameWords('whitmore rank')).toBe('whitmore')
+    expect(typedStat('where does sato rank')).toEqual({ overall: 'war' })
+    expect(typedStat('whitmore hr rank')).toEqual(expect.objectContaining({ hitting: 'hr' }))
+    expect(nameWords('most hr by hitters')).toBeNull()
   })
 })
