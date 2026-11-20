@@ -172,25 +172,36 @@ const RESIGN_WORDING = [
 // ("Denae is returning to Bananaland!"). Refused whatever else the caption says.
 const NOT_OURS = /\bbanana ?(ball|land)|bananaland|world tour\b/
 
+/** Lowercase, accents off, every run of other characters one space, padded so a name can be
+ *  looked for as whole words: " jua park " is in " ... jua park will return ... ". */
+const words = (s) => ` ${String(s ?? '')
+  .normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()} `
+
 /**
- * Builds the name index once per run: folded full name to the players who carry it. Names
- * shorter than eight folded letters are left out, since a short one could sit inside a longer
- * word of the folded caption.
+ * Builds the name index once per run: folded full name to the players who carry it. A name
+ * shorter than eight folded letters could sit inside a longer word of the folded caption
+ * ("moli" in "among lions"), so those go in `short` instead and match only as whole words, as
+ * written or as the handle. Dropping them outright missed "Jua Park will return to the San
+ * Francisco Firebells in 2027" (Nov 20, 2026).
  */
 export function playerIndex(players) {
   const byName = new Map()
+  const short = new Map()
   for (const p of players) {
     const key = fold(p.name)
-    if (key.length < 8) continue
-    const entry = byName.get(key) ?? { name: p.name, ids: [] }
+    if (!key) continue
+    const home = key.length < 8 ? short : byName
+    const entry = home.get(key) ?? { name: p.name, ids: [], spaced: words(p.name).trim() }
     entry.ids.push(p.id)
-    byName.set(key, entry)
+    home.set(key, entry)
   }
   // One id per name. wpbl_players can hold two rows for one person until they are merged, and
   // the one on the league's 2026 list is the one the rosters page knows.
-  for (const entry of byName.values()) {
+  for (const entry of [...byName.values(), ...short.values()]) {
     entry.id = entry.ids.find(id => ROSTER_IDS.has(id)) ?? entry.ids[0]
   }
+  byName.short = short
   // Short first names. "Val Perez will be back at it with the Heights in 2027" (Nov 19, 2026)
   // named Valerie Perez and matched nothing. Every first-name prefix of three letters or more is
   // a key too, unless two people share it: a nickname that could be either is no name at all.
@@ -231,7 +242,12 @@ export function classifyCaption(caption, index) {
 /** The index entries a caption names. A Set, since "Valerie Perez" and "Val Perez" are one entry. */
 function namedIn(text, index) {
   const folded = fold(text)
-  return [...new Set([...index.entries()].filter(([key]) => folded.includes(key)).map(([, v]) => v))]
+  const spaced = words(text)
+  const long = [...index.entries()].filter(([key]) => folded.includes(key)).map(([, v]) => v)
+  const short = [...(index.short ?? new Map()).entries()]
+    .filter(([key, v]) => spaced.includes(` ${v.spaced} `) || spaced.includes(` ${key} `))
+    .map(([, v]) => v)
+  return [...new Set([...long, ...short])]
 }
 
 // ─── Review: the loose net ──────────────────────────────────────────────────

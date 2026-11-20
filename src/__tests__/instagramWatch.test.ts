@@ -111,9 +111,20 @@ describe('classifyCaption: what it must refuse', () => {
       .toBe('other')
   })
 
-  it('skips names too short to match safely inside a folded caption', () => {
-    // "moli" sits inside plenty of folded words; a two-part name this short is left out.
+  it('matches a short name only as whole words', () => {
+    // "moli" sits inside plenty of folded words, so a name this short never matches folded.
     expect(index.has(fold('Mo Li'))).toBe(false)
+    expect(classifyCaption('Among lions, the Firebells are back with the Bay in 2027!', index).kind).toBe('other')
+    expect(classifyCaption('Mo Li will return to the San Francisco Firebells in 2027!', index).player_names).toEqual(['Mo Li'])
+    expect(classifyCaption('Captain moli is back with the Firebells in 2027!', index).player_names).toEqual(['Mo Li'])
+  })
+
+  it('reads the Jua Park post (Nov 20, 2026)', () => {
+    const idx = playerIndex([{ id: 'park', name: 'Jua Park' }])
+    const v = classifyCaption(
+      'The South Korean star is back for more. 🌉 A productive hitter and versatile defender, Jua Park will return to the San Francisco Firebells in 2027! Welcome back!!',
+      idx)
+    expect(v).toEqual({ kind: 'resign', player_ids: ['park'], player_names: ['Jua Park'] })
   })
 
   it('treats a missing caption as nothing', () => {
