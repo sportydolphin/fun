@@ -23,6 +23,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.248.1',
+    date:    '2026-11-20',
+    changes: [
+      {
+        short: 'Rosters: pitchers all read P',
+        full:  'On the 2027 rosters page, a pitcher labeled from the club’s roster listing reads P like the rest, not RHP or LHP. A player who both hit and pitched in 2026 without a main position reads UTL.',
+      },
+    ],
+  },
+  {
     version: '1.248.0',
     date:    '2026-11-20',
     changes: [

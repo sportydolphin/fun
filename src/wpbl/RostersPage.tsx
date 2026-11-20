@@ -120,7 +120,13 @@ export default function RostersPage({ onNavigate }: { onNavigate: (to: string) =
   const boards = useMemo(() => rosterBoards(moves ?? []), [moves])
   const labelOf = (id: string) => {
     const p = playerById.get(id)
-    return season.pos.get(id) ?? (p ? listed(p) : '')
+    const played = season.pos.get(id)
+    if (played) return played
+    // Both a batting and a pitching line with no majority position is a two-way player who moved
+    // around (Jill Albayati: 6 games at 3B, 5 at P, 4 in LF). The roster's first role would file
+    // them as a pitcher on a page that counts pitchers.
+    if (season.batting.has(id) && season.pitching.has(id)) return 'UTL'
+    return p ? listed(p) : ''
   }
   const usage = (id: string) => usageOf(season.batting.get(id), season.pitching.get(id), labelOf(id))
   const isDark = useDark()
@@ -349,7 +355,9 @@ function RowSkeleton({ columns }: { columns: readonly Column[] }) {
 }
 
 /** The roster's own listing, first role only: "RHP, UTL" is two labels in a column sized for one,
- *  and the first is the one the club filed the player under. Only for a player with no 2026 line. */
+ *  and the first is the one the club filed the player under. Only for a player with no 2026 line.
+ *  "RHP" / "LHP" read as "P" so the column matches the box score's labels above and below it. */
 function listed(p: WpblPlayer): string {
-  return (p.position ?? '').split(',')[0].trim()
+  const first = (p.position ?? '').split(',')[0].trim()
+  return PITCHER_LABEL.test(first) ? 'P' : first
 }
