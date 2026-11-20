@@ -1,8 +1,9 @@
-// Three more kinds of question the search box answers on WPBL, each with rows of its own:
+// Four more kinds of question the search box answers on WPBL, each with rows of its own:
 //
 //   VIDEO   "Geldenhuis home run video", "Hunters highlights", "walk-off clips"
 //   GAMES   "longest game", "Hunters biggest win", "highest-scoring game vs Queens"
 //   STREAKS "Hunters streak", "longest winning streak", "Whitmore hitting streak", "active hitting streaks"
+//   STANDINGS "best record", "road records", "best run differential", "Pythagorean record"
 //
 // THE WORDS ARE READ HERE, NOT IN THE SHELL. Each answer needs the section's own data (the clips and
 // their tags, the schedule, the box-score lines), so the palette hands the text to the section's
@@ -291,4 +292,49 @@ export function playerRuns(lines: readonly WpblBattingLine[], when: (l: WpblBatt
     } else run = { count: 0, from: null, to: null }
   }
   return { current: run, longest, last }
+}
+
+// ─── Standings ─────────────────────────────────────────────────────────────────
+
+export type StandingsMeasure = 'record' | 'home' | 'road' | 'rundiff' | 'pythag' | 'remaining' | 'pct'
+
+export interface StandingsAsk {
+  measure: StandingsMeasure
+  /** 'best' or 'worst' is one answer (ties listed); null ranks every club. */
+  pick: 'best' | 'worst' | null
+  teamId?: string
+  season: number | null
+}
+
+const STANDINGS_WORDS: [RegExp, StandingsMeasure][] = [
+  [/(?<![a-z])(?:home\s+records?|records?\s+at\s+home)(?![a-z])/, 'home'],
+  [/(?<![a-z])(?:road\s+records?|away\s+records?|records?\s+(?:on\s+the\s+road|away))(?![a-z])/, 'road'],
+  [/(?<![a-z])(?:run\s+diff(?:erential)?|run\s+margin|(?<![0-9])rd)(?![a-z])/, 'rundiff'],
+  [/(?<![a-z])(?:pythag(?:orean|enpat)?(?:\s+(?:record|wins|win\s*%|expectation))?|expected\s+(?:record|wins|w-l))(?![a-z])/, 'pythag'],
+  [/(?<![a-z])(?:games\s+(?:left|remaining|to\s+play)|remaining\s+games|games\s+to\s+go)(?![a-z])/, 'remaining'],
+  [/(?<![a-z])(?:win(?:ning)?\s*(?:%|pct|percentage))(?![a-z%])/, 'pct'],
+  [/(?<![a-z])(?:records?|w-l|win-loss)(?![a-z])/, 'record'],
+]
+
+/**
+ * "best record", "worst record", "home record", "road records", "best run differential", "Pythagorean
+ * record", "Hunters run differential", "games remaining". A club's own home or road record is Find's
+ * ("Hunters home record" ranks its club games), so with a club named only the measures Find has no
+ * grain for are read here. Before Nov 20, 2026 the unscoped ones offered nothing or MLB's charts.
+ */
+export function parseStandingsAsk(text: string, clubs: Clubs): StandingsAsk | null {
+  const t = fold(text.replace(/\?\s*$/, ''))
+  const hit = STANDINGS_WORDS.find(([re]) => re.test(t))
+  if (!hit) return null
+  const [re, measure] = hit
+  let rest = t.replace(re, ' ')
+  const pick = /(?<![a-z])(?:best|top|highest|most|leading)(?![a-z])/.test(rest) ? 'best'
+    : /(?<![a-z])(?:worst|lowest|fewest|bottom)(?![a-z])/.test(rest) ? 'worst' : null
+  rest = rest.replace(/(?<![a-z])(?:best|top|highest|most|leading|worst|lowest|fewest|bottom|who\s+has|which\s+(?:team|club)\s+has|team|teams|club|clubs|standings|wpbl)(?![a-z])/g, ' ')
+  const owners = takeOwners(rest, clubs)
+  if (!owners || owners.oppId || owners.words.length) return null
+  // "records" alone is the Bests page's word; a record question here says best or worst.
+  if ((measure === 'record' || measure === 'pct') && !pick) return null
+  if (owners.teamId && (measure === 'home' || measure === 'road' || measure === 'record' || measure === 'pct')) return null
+  return { measure, pick: owners.teamId ? null : pick, ...(owners.teamId ? { teamId: owners.teamId } : {}), season: owners.season }
 }

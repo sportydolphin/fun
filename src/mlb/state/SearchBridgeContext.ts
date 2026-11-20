@@ -34,7 +34,7 @@ export interface CompareRow {
 
 /** A ranking typed in the box, in the section's own stats-table terms: `sort` is the column key
  *  the row's link sorts on, so the peek ranks exactly what the link opens. */
-export interface LeaderAsk { side: RankSide; sort: string; dir: 'asc' | 'desc' | null; season: number | null; career: boolean }
+export interface LeaderAsk { side: RankSide; sort: string; dir: 'asc' | 'desc' | null; season: number | null; career: boolean; post?: boolean }
 
 /** Who leads a ranking, as the stats table would put them first. `others` is how many share the
  *  lead on the number as printed. */
@@ -77,11 +77,11 @@ export interface PlayAnswer {
 
 /** A group of answer rows the section reads from text alone: "Video", "Games", "Streaks". `icon`
  *  names the row's glyph, so the shell draws it without the section importing an icon set. */
-export interface AnswerGroup { label: string; icon: 'video' | 'game' | 'streak'; rows: PlayAnswer[] }
+export interface AnswerGroup { label: string; icon: 'video' | 'game' | 'streak' | 'standings' | 'league' | 'pitches' | 'lineup' | 'roster'; rows: PlayAnswer[] }
 
 /** A stat typed beside a name ("Whitmore avg"): the column it means on each side the section's
  *  table has one for, the side the word leans to, and the span typed with it, if any. */
-export interface PlayerStatAsk { columns: Partial<Record<RankSide, string>>; lean: FinderSide | null; season: number | 'career' | null }
+export interface PlayerStatAsk { columns: Partial<Record<RankSide, string>>; lean: FinderSide | null; season: number | 'career' | null; post?: boolean }
 
 // A self-describing toolbar search result. Produced by whichever section owns search
 // so the always-loaded toolbar can render it WITHOUT statically importing that section's

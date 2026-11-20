@@ -214,6 +214,17 @@ flowchart LR
   through [`src/lib/sectionScroll.ts`](src/lib/sectionScroll.ts), a one-shot request rather than a
   `#hash`, which both sections' address writers would drop. Open ideas are in "Search: what's next"
   in [ROADMAP-WPBL.md](ROADMAP-WPBL.md).
+  **The Nov 20, 2026 additions** (v1.249.0), WPBL unless said: the roster answers bio questions
+  (hometown, age, settled birthdays, draft slot, number) as player rows (`src/wpbl/rosterQuery.ts`);
+  `resolveMore` also answers standings (`parseStandingsAsk` in `src/wpbl/searchMore.ts`), the league's
+  own line (`parseLeagueText`, the board's `league` and `teamGames`), the Pitch by pitch rates
+  (`src/wpbl/searchPitchRates.ts`, ranked by the board's `rankBy`), a lineup spot
+  (`src/league/lineupSpot.ts`, answered off `wpbl_lineup_history` in `src/wpbl/searchLineup.ts`), the
+  biggest single plays by win probability or leverage (`src/wpbl/searchBigPlays.ts`) and two-way
+  players. A player's stat answer carries their place (`rankedRows`, the leader peek's own ranking).
+  The playoffs are a cut (`post`, written as `games=post`, which the boards and `findAnswer` already
+  read); the answers load the postseason board (`WpblBoardInput.scope`). MLB offers no playoff row,
+  since its tables keep no such slice.
 - **WPBL tab pager:** [`src/wpbl/SwipeableViews.tsx`](src/wpbl/SwipeableViews.tsx),
   finger-tracking mobile swipe with keep-alive + idle neighbor pre-warming. Two scroll
   models via its `mode` prop: `window` for the section's own tabs (the page scrolls; each

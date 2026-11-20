@@ -11,7 +11,8 @@
 // tab on a modified click like any other.
 
 import { describeFinderConditions, describeFinderCuts, describeFinderQuery, finderFields, type FinderBoardSide, type FinderCondition, type FinderPer, type FinderSide } from './league/finder'
-import { parseClubPage, parseClubRecord, parseFinderText, parseGameQuery, parseLeaderText, parsePositionRank, parseRecordQuestion, parseRecordText, parseScopedRank, parseTeamRankText, rankField, rankLowerBetter, type ClubPagePart, type ParsedFinder, type ParsedLeader, type RankSide } from './league/finderParse'
+import { parseLineupSpot } from './league/lineupSpot'
+import { bareStatText, parseClubPage, parseClubRecord, parseFinderText, parseGameQuery, parseLeaderText, parsePositionRank, parseRecordQuestion, parseRecordText, parseScopedRank, parseTeamRankText, rankField, rankLowerBetter, type ClubPagePart, type ParsedFinder, type ParsedLeader, type RankSide } from './league/finderParse'
 import { MLB_FINDER_CLUBS, mlbFinderHref } from './mlb/finderLink'
 import { CURRENT_SEASON, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_ABBR } from './mlb/constants'
 import { MLB_GLOSSARY_PAGE, mlbClubById, mlbTeamPath, mlbUrlFor } from './mlb/routes'
@@ -227,13 +228,14 @@ function dropPaTwins<T extends { parsed: ParsedFinder }>(rows: T[]): T[] {
 }
 
 /** The cuts in words for a subtitle: "since Aug 1", "last 10 games", "vs LHP". */
-function cutBits(side: FinderBoardSide, p: Pick<ParsedFinder, 'from' | 'to' | 'last' | 'hand'> & { per?: FinderPer }): string[] {
+function cutBits(side: FinderBoardSide, p: Pick<ParsedFinder, 'from' | 'to' | 'last' | 'hand' | 'post'> & { per?: FinderPer }): string[] {
   // "Since Aug 1" reads "since Aug 1" mid-line; a month keeps its capital, and so does LHP.
-  return describeFinderCuts(side, p).map(c => c.text.replace(/^(Since|Through|Last|Vs)\b/, w => w.toLowerCase()))
+  return [...describeFinderCuts(side, p).map(c => c.text.replace(/^(Since|Through|Last|Vs)\b/, w => w.toLowerCase())),
+    ...(p.post ? ['playoffs'] : [])]
 }
 
 /** Which lines a question searches, and any club, venue and year: "Pitching lines · vs SF · 2026". */
-function scopeBits(section: FinderSection, p: Pick<ParsedFinder, 'side' | 'per' | 'teamId' | 'oppId' | 'venue' | 'season' | 'byClub' | 'from' | 'to' | 'last' | 'hand'>): string[] {
+function scopeBits(section: FinderSection, p: Pick<ParsedFinder, 'side' | 'per' | 'teamId' | 'oppId' | 'venue' | 'season' | 'byClub' | 'from' | 'to' | 'last' | 'hand' | 'post'>): string[] {
   const sideWord = p.side === 'pitching' ? 'Pitching' : p.side === 'fielding' ? 'Fielding' : 'Batting'
   const bits = [p.per === 'season' ? `${sideWord}, season totals` : p.per === 'inning' ? `${sideWord}, ${p.byClub ? 'club innings' : 'single innings'}`
     : p.per === 'pa' ? `${sideWord}, plate appearances` : p.per === 'club' ? `${sideWord}, club games` : `${sideWord} lines`]
@@ -282,6 +284,8 @@ export function playerQuestionRows(
 
 /** Every reading of `text` as a question for this section's Find board, best first. */
 export function finderSuggestions(section: FinderSection, text: string): FinderSuggestion[] {
+  // "Batting 9th" is the lineup's 9th spot, not the 9th inning (src/league/lineupSpot.ts).
+  if (parseLineupSpot(text)) return []
   const record = section === 'wpbl' ? inningRecord(text) : null
   const parsed = section === 'mlb'
     ? parseFinderText(text, MLB_FINDER_CLUBS)
@@ -289,7 +293,7 @@ export function finderSuggestions(section: FinderSection, text: string): FinderS
       .filter(p => !record || (p.per === 'inning' && p.conditions.length === 1))
   const rows = parsed
     // MLB's board reads no cut off its address (src/mlb/views/FindView.tsx), so a cut there is no row.
-    .filter(p => section === 'wpbl' || !(p.from || p.to || p.last || p.hand))
+    .filter(p => section === 'wpbl' || !(p.from || p.to || p.last || p.hand || p.post))
     // A stat with no number ("Hunters doubles") wants a club, a place or a year beside it. Alone,
     // "doubles" is a word to define and a board to rank, which the rows above answer, and a name
     // beside it ("Whitmore doubles") is the player question's (playerQuestionRows).
@@ -314,7 +318,7 @@ function clubRecordRows(section: FinderSection, text: string): FinderSuggestion[
   const r = parseClubRecord(text, WPBL_FINDER_CLUBS)
   if (!r) return []
   const parsed: ParsedFinder = { side: 'hitting', per: 'club', conditions: [], teamId: r.teamId, oppId: r.oppId, venue: r.venue,
-    ignored: [], season: r.season, from: r.from ?? null, to: r.to ?? null, last: r.last ?? null }
+    ignored: [], season: r.season, from: r.from ?? null, to: r.to ?? null, last: r.last ?? null, ...((r as { post?: boolean }).post ? { post: true } : {}) }
   const name = WPBL_TEAMS[r.teamId]?.name ?? r.teamId
   const where = [r.oppId && `vs ${WPBL_TEAMS[r.oppId]?.name ?? r.oppId}`, r.venue === 'home' ? 'at home' : r.venue === 'away' ? 'on the road' : null,
     ...cutBits('hitting', parsed)].filter(Boolean)
@@ -346,9 +350,9 @@ const HIT_ADVANCED = 'opsPlus wrcPlus woba iso babip kPct bbPct'
 const PIT_ADVANCED = 'eraPlus fip kbb kPct bbPct babip'
 const BOARD_COLUMNS: Record<FinderSection, Record<RankSide, Record<string, string>>> = {
   wpbl: {
-    hitting: SAME(`avg obp slg ops hr rbi r h sb cs 2b 3b tb bb so hbp gdp pa ab g ${HIT_ADVANCED}`),
-    pitching: { ...SAME(`era whip w l sv so ip h r er bb hr hbp wp bk bf gs g ${PIT_ADVANCED}`), pitches: 'p' },
-    overall: SAME('war wpa'),
+    hitting: SAME(`avg obp slg ops hr rbi r h sb cs 2b 3b tb bb so hbp gdp pa ab g xbh ibb sf sh sbPct ${HIT_ADVANCED}`),
+    pitching: { ...SAME(`era whip w l sv so ip h r er bb hr hbp wp bk bf gs g kbbPct strikePct k9 hr9 ${PIT_ADVANCED}`), pitches: 'p' },
+    overall: SAME('war wpa pli gmli bsr fld batWar pitWar'),
   },
   mlb: {
     hitting: { ...SAME(`g pa ab r h 2b 3b hr rbi sb cs bb avg obp slg ops tb gdp hbp ${HIT_ADVANCED}`), so: 'k' },
@@ -411,6 +415,8 @@ export function leaderSuggestions(section: FinderSection, text: string, opts: Le
     const sort = BOARD_COLUMNS[section][p.side][p.field]
     if (!sort) return []
     let href: string
+    // MLB's tables read no postseason slice off the address, so a playoff ranking there is no row.
+    if (p.post && section === 'mlb') return []
     if (p.career && section === 'mlb') {
       const order = p.dir ?? (rankLowerBetter(p.side, p.field) ? 'asc' : 'desc')
       if (p.side === 'overall' || !MLB_CAREER_RANKABLE[p.side][p.field]?.orders.includes(order)) return []
@@ -428,15 +434,16 @@ export function leaderSuggestions(section: FinderSection, text: string, opts: Le
       const params = new URLSearchParams({ board: 'players', side: p.side, sort })
       if (p.dir) params.set('dir', p.dir)
       if (p.season) params.set('season', String(p.season))
+      if (p.post) params.set('games', 'post')
       href = `/wpbl/stats?${params}`
     }
     // The year by number wherever the shell knows it: MLB's is the calendar's, and WPBL's arrives
     // with the leader (LeaderPeek.season), which is the newest season with a final.
     const span = p.career ? (section === 'mlb' ? 'All time' : 'All time, one season so far')
-      : String(p.season ?? (section === 'mlb' ? CURRENT_SEASON : 'This season'))
+      : `${p.season ?? (section === 'mlb' ? CURRENT_SEASON : 'This season')}${p.post ? ' playoffs' : ''}`
     const sideLabel = p.side === 'pitching' ? 'Pitching' : p.side === 'overall' ? 'Overall' : 'Hitting'
     const subtitle = [sideLabel, span].join(' · ')
-    const ask = { side: p.side, sort, dir: p.dir, season: p.season, career: p.career }
+    const ask = { side: p.side, sort, dir: p.dir, season: p.season, career: p.career, ...(p.post ? { post: true } : {}) }
     return [{ key: `leader-${href}`, title: leaderTitle(p), subtitle, side: sideLabel, span, href, parsed: p, ask }]
   })
   // "most strikeouts" ranks the pitchers and the batters: "Most strikeouts by a pitcher", "by a batter".
@@ -555,6 +562,8 @@ const BEST_BOARDS: Record<FinderSide, Record<string, { key: string; label: strin
  * in a game") offered nothing at all (Nov 10, 2026 probe).
  */
 export function recordSuggestions(section: FinderSection, text: string): RecordSuggestion[] {
+  // A stat typed bare is the season's most only when Find has no reading of its own.
+  if (bareStatText(text) && finderSuggestions(section, text).length) return []
   const seen = new Set<string>()
   const bestsRow = (s: FinderSide, board: { key: string; label: string }): RecordSuggestion[] => {
     if (seen.has(board.key)) return []

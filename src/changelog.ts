@@ -23,6 +23,36 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.249.0',
+    date:    '2026-11-20',
+    changes: [
+      {
+        short: 'Search: bios, birthdays and the draft',
+        full:  'Ask about a player’s hometown, age, birthday, draft slot or number ("Whitmore hometown", "how old is Sato"), or for a list: "players from Canada", "Australians", "birthdays this month", "born in 2000", "first round picks", "who wears 7", "two-way players".',
+      },
+      {
+        short: 'Search: standings and league figures',
+        full:  '"Best record", "road records", "best run differential", "Pythagorean record" and "games remaining" answer from the standings. "League batting average", "league ERA", "runs per game" and "how many home runs were hit" give the league’s own line.',
+      },
+      {
+        short: 'Search: where a player ranks',
+        full:  'A player’s stat in the search box now says their place on the board, like "11 HR · 2026 · T-1st". "Whitmore rank" gives their WAR and its place.',
+      },
+      {
+        short: 'Search: whiff rate and more stats by name',
+        full:  'The Pitch by pitch rates answer by name: whiff rate, swinging strike rate, contact rate, first-pitch strike rate, putaway rate, pitches per plate appearance. So do SB%, strike rate, K-BB%, K/9, HR/9, BB/9, leverage, baserunning and fielding runs, and "best baserunner", "best fielder", "best hitter", "best pitcher" and "MVP".',
+      },
+      {
+        short: 'Search: the playoffs, the batting order and the biggest plays',
+        full:  'Add "playoffs" to a question ("triples in the playoffs", "playoff hr leaders", "Whitmore playoff hr") to read the postseason. "Cleanup hitters", "batting 9th" and "Hunters leadoff hitter" show who started in that spot and how they hit there. "Biggest play", "highest WPA play", "Hunters biggest hit" and "highest leverage at-bats" open the play itself.',
+      },
+      {
+        short: 'Search: fewer wrong answers',
+        full:  'Stat questions no longer turn up an unrelated player: "triple play" and "triple crown" used to find names that looked alike. Half-typed milestones answer too: "Hunters 100th", "first Whitmore".',
+      },
+    ],
+  },
+  {
     version: '1.248.1',
     date:    '2026-11-20',
     changes: [

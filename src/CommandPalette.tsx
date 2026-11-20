@@ -7,7 +7,7 @@ import { boardColumn, paRecordQuestion, peekText, positionRankSuggestions, recor
 import { otherSectionPlayer, type OtherSectionRow } from './otherSection'
 import { requestSectionScroll } from './lib/sectionScroll'
 import { clearRecentQuestions, getRecentQuestions, getRowPicks, mergeRecent, recordRecentQuestion, recordRowPick, type RecentQuestion } from './lib/recentQuestions'
-import { nameWords, parseCompareText, parseGameQuery, todayIso, typedPart, typedSeason, typedStat } from './league/finderParse'
+import { nameWords, parseCompareText, parseGameQuery, todayIso, typedPart, typedPostseason, typedSeason, typedStat } from './league/finderParse'
 import { mightBeFinderQuestion } from './finderGate'
 import { firstFindText, parseFirstText } from './league/firsts'
 import { linkTo, navigate } from './nav'
@@ -296,7 +296,7 @@ const PAGE_WORDS: Record<string, string[]> = {
   'Scores': ['schedule', 'scoreboard', 'results', 'fixtures', 'calendar', 'games today'],
   'Standings': ['table', 'wild card', 'wildcard', 'division', 'race', 'seeding', 'games back'],
   'Teams': ['clubs', 'rosters'],
-  'Stats': ['leaderboard', 'statistics'],
+  'Stats': ['leaderboard', 'statistics', 'league leaders', 'leaders'],
   'Playoff odds': ['odds', 'chances', 'projections', 'magic number'],
   'Postseason bracket': ['bracket', 'playoffs', 'postseason', 'world series'],
   // WPBL's postseason lives here. Without "playoffs", the word fell through to MLB's bracket (Nov 2026).
@@ -548,7 +548,10 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       const col = alias[side] ? boardColumn(section, side, alias[side]) : null
       if (col) columns[side] = col
     }
-    return Object.keys(columns).length ? { columns, lean: alias.lean ?? null, season: typedSeason(text) } : null
+    if (!Object.keys(columns).length) return null
+    // "Whitmore playoff hr": the postseason's line, on WPBL, the one section whose boards keep it.
+    const post = section === 'wpbl' && typedPostseason(text)
+    return { columns, lean: alias.lean ?? null, season: typedSeason(text), ...(post ? { post } : {}) }
   }, [text, section])
   // The question goes in the key, since one row is asked "avg" and then "hr" as the reader types.
   const statKey = statAsk ? JSON.stringify(statAsk) : null
@@ -683,7 +686,8 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
         // The answer on its line, then which table it opens and which year. The year the leader was
         // read for wins over the guess made before it.
         answer: p ? peekText(p) : undefined, pending: !!resolveLeader && !(s.key in peek),
-        subtitle: [`${s.side} stats`, peekSpan(p) ?? s.span].join(' · '),
+        // The slice rides along: a playoff ranking's year reads "2026 playoffs", not the season's.
+        subtitle: [`${s.side} stats`, peekSpan(p) ? `${peekSpan(p)}${s.parsed.post ? ' playoffs' : ''}` : s.span].join(' · '),
         icon: <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />,
         onOpen: () => {},
       } as Item
@@ -727,9 +731,11 @@ export default function CommandPalette({ open, onClose, section, results, idle, 
       label: g.label,
       items: g.rows.map((r): Item => ({
         key: r.key, kind: 'first', title: r.title, answer: r.detail, href: r.href, onOpen: r.open,
-        subtitle: g.icon === 'video' ? 'Video' : g.icon === 'game' ? 'Game Center' : 'Streak',
+        subtitle: g.icon === 'video' ? 'Video' : g.icon === 'game' ? 'Game Center' : g.icon === 'standings' ? 'Standings' : g.icon === 'league' ? 'League' : g.icon === 'pitches' ? 'Pitch by pitch' : g.icon === 'lineup' ? 'Lineup' : g.icon === 'roster' ? 'Player' : 'Streak',
         icon: g.icon === 'video' ? <PlayCircleOutlined sx={{ fontSize: ICON_SIZE.md }} />
-          : g.icon === 'game' ? <SportsBaseball sx={{ fontSize: ICON_SIZE.md }} /> : <Timeline sx={{ fontSize: ICON_SIZE.md }} />,
+          : g.icon === 'game' ? <SportsBaseball sx={{ fontSize: ICON_SIZE.md }} />
+          : g.icon === 'standings' || g.icon === 'league' || g.icon === 'pitches' || g.icon === 'lineup' ? <Leaderboard sx={{ fontSize: ICON_SIZE.md }} />
+          : g.icon === 'roster' ? <Person sx={{ fontSize: ICON_SIZE.md }} /> : <Timeline sx={{ fontSize: ICON_SIZE.md }} />,
       })),
     }))
     const acts: Item[] = q.length < 2 ? [] : actions

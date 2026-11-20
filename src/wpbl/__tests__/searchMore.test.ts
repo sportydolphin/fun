@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clipsByPlay, clubRuns, gameRecord, matchClips, parseGameRecord, parseStreakAsk, parseVideoAsk, playerRuns } from '../searchMore'
+import { clipsByPlay, clubRuns, gameRecord, matchClips, parseGameRecord, parseStandingsAsk, parseStreakAsk, parseVideoAsk, playerRuns } from '../searchMore'
 import type { WpblBattingLine, WpblGame, WpblVideo, WpblVideoTag } from '../types'
 
 // Three questions the search box reads with the section's own data: clips, a game's records and
@@ -113,3 +113,23 @@ describe('clips', () => {
     expect([...clipsByPlay(videos, tags).keys()]).toEqual(['g1|4', 'g1|9'])
   })
 })
+
+describe('standings questions', () => {
+  const ask = (t: string) => parseStandingsAsk(t, CLUBS)
+  // The Nov 20, 2026 probe: each offered nothing, or MLB's charts.
+  it('reads the best and worst, home and road, run differential and the expected record', () => {
+    expect(ask('best record')).toEqual({ measure: 'record', pick: 'best', season: null })
+    expect(ask('worst record 2026')).toEqual({ measure: 'record', pick: 'worst', season: 2026 })
+    expect(ask('road records')).toEqual({ measure: 'road', pick: null, season: null })
+    expect(ask('best home record')).toEqual({ measure: 'home', pick: 'best', season: null })
+    expect(ask('best run differential')).toEqual({ measure: 'rundiff', pick: 'best', season: null })
+    expect(ask('pythagorean record')).toEqual({ measure: 'pythag', pick: null, season: null })
+    expect(ask('hunters run differential')).toEqual({ measure: 'rundiff', pick: null, teamId: 'BOS', season: null })
+    expect(ask('games remaining')).toEqual({ measure: 'remaining', pick: null, season: null })
+  })
+  it("leaves Find's club records and other questions alone", () => {
+    for (const t of ['hunters home record', 'hunters record vs queens', 'record in one-run games', 'records', '3rd inning', 'most hr record'])
+      expect(ask(t), t).toBeNull()
+  })
+})
+

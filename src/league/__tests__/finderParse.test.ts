@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nameWords, parseClubPage, parseGameQuery, pickGames, parseCompareText, typedPart, typedSeason, parseFinderText, parseLeaderText, type FinderClubAlias } from '../finderParse'
+import { nameWords, parseClubPage, parseGameQuery, pickGames, parseCompareText, typedPart, typedSeason, parseFinderText, parseLeaderText, parseLeagueText, typedStat, type FinderClubAlias } from '../finderParse'
 
 const CLUBS: FinderClubAlias[] = [
   { id: 'CHC', names: ['Cubs', 'Chicago'] },
@@ -287,6 +287,10 @@ describe('nameWords', () => {
     expect(nameWords('bunt hits')).toBeNull()
     expect(nameWords('late innings')).toBeNull()
     expect(nameWords('average runs per game')).toBeNull()
+    // The Nov 20, 2026 probe: each reached a World Cup player or Team USA the same way.
+    for (const t of ['triple play', 'highest wpa play', 'triple crown', 'home runs by month', 'most hits in a week', 'team ops', 'team defense', 'record in extra innings'])
+      expect(nameWords(t), t).toBeNull()
+    expect(nameWords('hunters runs per game')).toBe('hunters')
   })
 
   it('reads "era" as the stat, never one earned run', () => {
@@ -595,5 +599,56 @@ describe('parseFinderText: a club half-inning', () => {
 
   it('leaves a two-out at-bat to the plate appearance', () => {
     expect(read('2-out hits')[0]).toEqual(['hitting', 'pa', 'paouts.eq.2 h.gte.1'])
+  })
+})
+
+// The Nov 20, 2026 probe: each opened the leaders, or offered nothing.
+describe('parseLeagueText', () => {
+  it("reads the league's figure, a count per game and the whole line", () => {
+    expect(parseLeagueText('league batting average')).toMatchObject({ alias: { hitting: 'avg' }, kind: 'league' })
+    expect(parseLeagueText('league average era')).toMatchObject({ alias: { pitching: 'era' }, kind: 'league' })
+    expect(parseLeagueText('average runs per game')).toMatchObject({ alias: { hitting: 'r' }, kind: 'perGame' })
+    expect(parseLeagueText('how many home runs were hit')).toMatchObject({ alias: { hitting: 'hr' }, kind: 'league' })
+    expect(parseLeagueText('total home runs 2026')).toMatchObject({ kind: 'league', season: 2026 })
+    expect(parseLeagueText('league averages')).toMatchObject({ alias: null, kind: 'league' })
+  })
+  it('leaves the rankings and a plain stat to the leaders', () => {
+    for (const t of ['league leaders', 'most hr', 'batting average', 'avg', 'era leaders', 'whitmore total hr'])
+      expect(parseLeagueText(t), t).toBeNull()
+    expect(parseLeaderText('league batting average')).toEqual([])
+  })
+})
+
+// The Nov 20, 2026 probe: columns the tables had that no word reached.
+describe('the rest of the columns, by name', () => {
+  it('reads them as rankings and beside a name', () => {
+    expect(parseLeaderText('stolen base percentage')).toMatchObject([{ side: 'hitting', field: 'sbPct' }])
+    expect(parseLeaderText('k/9')).toMatchObject([{ side: 'pitching', field: 'k9' }])
+    expect(parseLeaderText('k/7 leaders')).toMatchObject([{ side: 'pitching', field: 'k9' }])
+    expect(parseLeaderText('lowest bb/9')).toMatchObject([{ side: 'pitching', field: 'bbPct', dir: 'asc' }])
+    expect(parseLeaderText('hr per 9')).toMatchObject([{ side: 'pitching', field: 'hr9' }])
+    expect(parseLeaderText('leverage')).toMatchObject([{ side: 'overall', field: 'pli' }])
+    expect(nameWords('whitmore k/9')).toBe('whitmore')
+  })
+  it('keeps a count of strikeouts a count', () => {
+    expect(parseLeaderText('5 k')).toEqual([])
+    expect(parseLeaderText('9 strikeouts')).toEqual([])
+  })
+})
+
+// The Nov 20, 2026 probe: a kind of player, and a rank asked with no stat.
+describe('the best of a kind, and where a player ranks', () => {
+  it('reads each kind as the column that measures it', () => {
+    expect(parseLeaderText('best baserunner')).toMatchObject([{ side: 'overall', field: 'bsr' }])
+    expect(parseLeaderText('best fielders')).toMatchObject([{ side: 'overall', field: 'fld' }])
+    expect(parseLeaderText('best hitter 2026')).toMatchObject([{ side: 'hitting', field: 'wrcPlus', season: 2026 }])
+    expect(parseLeaderText('best pitcher')).toMatchObject([{ side: 'overall', field: 'pitWar' }])
+    expect(parseLeaderText('mvp')).toMatchObject([{ side: 'overall', field: 'war' }])
+  })
+  it('answers a rank with no stat as WAR', () => {
+    expect(nameWords('whitmore rank')).toBe('whitmore')
+    expect(typedStat('where does sato rank')).toEqual({ overall: 'war' })
+    expect(typedStat('whitmore hr rank')).toEqual(expect.objectContaining({ hitting: 'hr' }))
+    expect(nameWords('most hr by hitters')).toBeNull()
   })
 })

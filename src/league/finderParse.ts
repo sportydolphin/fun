@@ -66,6 +66,8 @@ export interface ParsedFinder {
   hand?: 'L' | 'R' | null
   /** The stat was said with no number ("Hunters doubles"), and read as at least one. */
   bare?: boolean
+  /** The postseason was asked for ("triples in the playoffs"): the board's Playoffs slice. */
+  post?: boolean
 }
 
 /** One word or phrase for a stat, and the field it means on each side that records it. Whether a
@@ -187,6 +189,23 @@ addRank({ pitching: 'fip' }, 'fip', 'fielding independent pitching')
 addRank({ pitching: 'kbb' }, 'k/bb', 'k bb', 'strikeout to walk', 'strikeout to walk ratio')
 addRank({ overall: 'war' }, 'war', 'wins above replacement')
 addRank({ overall: 'wpa' }, 'wpa', 'win probability added')
+// Columns the tables already had that no word reached (the Nov 20, 2026 probe: "stolen base
+// percentage", "strike percentage", "k/9", "leverage" and the rest offered nothing or a definition).
+// K/9 and HR/9 are the table's per-basis columns whatever the basis is called (normalize writes every
+// spelling as one word); BB/9 is BB%, which the table keeps in its place on purpose (stats.ts, `hr9`).
+addRank({ hitting: 'sbPct' }, 'sb%', 'sb pct', 'stolen base percentage', 'stolen base pct', 'stolen base success rate', 'sb success rate', 'steal success rate', 'steal percentage', 'success rate stealing')
+addRank({ pitching: 'strikePct' }, 'strike%', 'str%', 'strike pct', 'strike percentage', 'strike rate', 'strikes thrown percentage')
+addRank({ pitching: 'kbbPct' }, 'k-bb%', 'k bb%', 'k minus bb', 'k-bb')
+addRank({ pitching: 'k9' }, 'kpernine', 'strikeouts per inning')
+addRank({ pitching: 'hr9' }, 'hrpernine')
+addRank({ pitching: 'bbPct' }, 'bbpernine')
+addRank({ hitting: 'ibb' }, 'ibb', 'intentional walks', 'intentional walk', 'intentional bases on balls')
+addRank({ overall: 'pli' }, 'pli', 'leverage', 'leverage index', 'average leverage')
+addRank({ overall: 'gmli' }, 'gmli', 'reliever leverage', 'leverage when entering', 'entering leverage')
+addRank({ overall: 'bsr' }, 'bsr', 'baserunning', 'base running', 'baserunning runs', 'base running runs')
+addRank({ overall: 'fld' }, 'fld', 'fielding runs', 'defensive runs', 'defensive value', 'glove runs')
+addRank({ overall: 'batWar' }, 'pos war', 'position war', 'position player war', 'batting war', 'offensive war')
+addRank({ overall: 'pitWar' }, 'pit war', 'pitching war', 'pitcher war')
 
 /** How a season figure is named and which end is the good one, where the finder does not know it. */
 const RANK_FIELDS: Record<string, { label: string; rate: boolean; lowerBetter?: RankSide[] }> = {
@@ -195,6 +214,13 @@ const RANK_FIELDS: Record<string, { label: string; rate: boolean; lowerBetter?: 
   kPct: { label: 'K%', rate: true, lowerBetter: ['hitting'] }, bbPct: { label: 'BB%', rate: true, lowerBetter: ['pitching'] },
   eraPlus: { label: 'ERA+', rate: true }, fip: { label: 'FIP', rate: true, lowerBetter: ['pitching'] },
   kbb: { label: 'K/BB', rate: true }, war: { label: 'WAR', rate: false }, wpa: { label: 'WPA', rate: false },
+  sbPct: { label: 'SB%', rate: true }, strikePct: { label: 'strike rate', rate: true }, kbbPct: { label: 'K-BB%', rate: true },
+  // The basis (per 7 or per 9) is the reader's, which a title here cannot know, so these say what
+  // the figure is measured over instead.
+  k9: { label: 'K rate by innings', rate: true }, hr9: { label: 'HR rate by innings', rate: true, lowerBetter: ['pitching'] },
+  ibb: { label: 'intentional walks', rate: false }, pli: { label: 'leverage (pLI)', rate: true }, gmli: { label: 'gmLI', rate: true },
+  bsr: { label: 'baserunning runs', rate: false }, fld: { label: 'fielding runs', rate: false },
+  batWar: { label: 'position player WAR', rate: false }, pitWar: { label: 'pitching WAR', rate: false },
 }
 
 /** Whether a ranked column's good end is the low one, for the box-score stats and these alike. */
@@ -426,7 +452,17 @@ const LAST_BARE = /(?<![a-z])(?:last|past)\s+(\d{1,2})(?![a-z0-9])/g
 // a pitcher's question.
 const HAND_PHRASE = /(?<![a-z])(?:vs|versus|against|off|facing|from|of)\s+(?:(?:a|the)\s+)?(?:(left|right)[\s-]?hand(?:ed|ers?)?(?:\s+(pitchers?|pitching|throwers?|starters?|batters?|hitters?|hitting))?|(lefties|lefty|lefthanders?|southpaws?|lhps?|righties|righty|righthanders?|rhps?))(?![a-z])/g
 
-type Cuts = { from?: string; to?: string; last?: number; hand?: 'L' | 'R' }
+type Cuts = { from?: string; to?: string; last?: number; hand?: 'L' | 'R'; post?: boolean }
+
+// "in the playoffs", "postseason", "playoff games": the postseason slice, which every board and the
+// Find answers already read from the address (`games=post`). Asked for in the Nov 20, 2026 probe
+// ("triples in playoffs" was a logged miss on Nov 13).
+const PLAYOFF_WORDS = /(?<![a-z])(?:(?:in|during|of|for)\s+(?:the\s+)?)?(?:playoffs?|post[\s-]?season)(?:\s+(?:games?|stats?|totals?|play))?(?![a-z])/g
+
+/** Whether `text` asks about the postseason. */
+export function typedPostseason(text: string): boolean {
+  return new RegExp(PLAYOFF_WORDS.source).test(` ${normalize(text)} `)
+}
 
 /** The cuts said in `rest`, and `rest` without them. `batters`: the hand was a batter's. */
 function takeCuts(rest: string): { rest: string; cuts: Cuts; batters: boolean } {
@@ -450,13 +486,14 @@ function takeCuts(rest: string): { rest: string; cuts: Cuts; batters: boolean } 
     return blank(m)
   })
   rest = rest.replace(LAST_BARE, (m: string, n: string) => { cuts.last = Number(n); return blank(m) })
+  rest = rest.replace(PLAYOFF_WORDS, m => { cuts.post = true; return blank(m) })
   return { rest, cuts, batters }
 }
 
 /** Whether `text` says a cut (a span, the last N games, a hand). */
 export function saysCut(text: string): boolean {
   const c = takeCuts(` ${normalize(text)} `).cuts
-  return !!(c.from || c.to || c.last || c.hand)
+  return !!(c.from || c.to || c.last || c.hand || c.post)
 }
 
 const FIELD_POSITION_WORDS = /(?<![a-z0-9])(?:(?:at|playing|by\s+(?:a|an|the)|from\s+(?:a|the)|among)\s+)?(catchers?|first\s+base(?:m[ae]n)?|second\s+base(?:m[ae]n)?|third\s+base(?:m[ae]n)?|shortstops?|left\s+field(?:ers?)?|center\s+field(?:ers?)?|right\s+field(?:ers?)?|(?<=(?:at|playing)\s+)(?:c|1b|2b|3b|ss|lf|cf|rf))(?![a-z0-9])/g
@@ -734,6 +771,11 @@ function normalize(text: string): string {
     // "most k's" found nothing (Nov 10, 2026): the apostrophe left "k" and "s" apart. Only after a
     // stat's letters, so a name keeps its own ("O'Neil").
     .replace(/(?<![a-z])(k|hr|rbi|sb|bb|so|hbp|2b|3b|xbh|cg|dp|ip|ab|pa|gs|qs)['’]s(?![a-z])/g, '$1s')
+    // "k/9", "hr per 7", "bb/9": a per-innings rate, written with a number that is no count. Rewritten
+    // to a word, since a digit anywhere makes the ranking reader stand down ("5 k" is a game line).
+    .replace(/(?<![a-z0-9])(k|so|strikeouts?|hr|home\s*runs?|bb|walks?)\s*(?:\/|per)\s*(?:9|7|nine|seven)(?:\s+innings?)?(?![a-z0-9])/g,
+      (_m: string, w: string) => (/^(?:k|so|s)/.test(w) ? ' kpernine ' : /^h/.test(w) ? ' hrpernine ' : ' bbpernine '))
+    .replace(/(?<![a-z0-9])(k|hr|bb)[79](?![a-z0-9])/g, (_m: string, w: string) => ` ${w === 'k' ? 'k' : w}pernine `)
     // "caught stealing twice": a count like any other.
     .replace(/(?<![a-z])twice(?![a-z])/g, '2 times')
     .replace(/\s+/g, ' ')
@@ -935,8 +977,8 @@ export function parseClubRecord(text: string, clubs: readonly FinderClubAlias[])
   const teamId = c.teamIds.length === 1 ? c.teamIds[0] : null
   const oppId = c.oppIds.length === 1 ? c.oppIds[0] : null
   if (!teamId || teamId === oppId) return null
-  const { from, to, last } = cut.cuts
-  const narrowed = !!(from || to || (last && last > 1)) || c.venue !== 'any' || (said && !!oppId)
+  const { from, to, last, post } = cut.cuts
+  const narrowed = !!(from || to || (last && last > 1) || post) || c.venue !== 'any' || (said && !!oppId)
   const left = rest.split(/[^a-z0-9]+/).filter(w => w && !FILLER.has(w) && !SEASON_WORDS_SET.has(w))
   return narrowed && !left.length ? { teamId, oppId, venue: c.venue, season: year.season, ...cut.cuts } : null
 }
@@ -1361,6 +1403,8 @@ export interface ParsedLeader {
   /** Every season summed ("all time", "career"): the board across a whole history, not one year.
    *  Beats a year typed beside it, since "career hr 2024" can only mean the career. */
   career: boolean
+  /** The postseason's board ("playoff hr leaders"). */
+  post?: boolean
 }
 
 // "top" and "best" mean the board's own order; "most" and "fewest" mean the numbers' order, which
@@ -1382,15 +1426,41 @@ const STAT_ANY = new RegExp(`${B_START}(${alt(RANK_PHRASES)})${B_END}`, 'g')
 // "one" is filler everywhere else (Nov 10, 2026).
 const COUNTED_STAT = new RegExp(`${B_START}(?:${Object.keys(NUMBER_WORDS).filter(w => !['a', 'an'].includes(w)).join('|')})[\\s-]+(?:${alt(STAT_PHRASES)})${B_END}`)
 
+// "Best baserunner", "best hitter", "best fielder", "best pitcher", "most valuable player": a kind of
+// player rather than a stat, each the column that measures it (FanGraphs' choices: wRC+ for a hitter,
+// the run columns for the bases and the glove, WAR for the whole player). All offered nothing before
+// Nov 20, 2026. Whole phrases only, so "most hr by hitters" keeps its hint.
+const PLAYER_KINDS: { re: RegExp; side: RankSide; field: string }[] = [
+  { re: /^(?:the\s+)?(?:best|top|fastest)\s+(?:base\s*runners?|runners?\s+on\s+the\s+bases|base\s*stealers?)$/, side: 'overall', field: 'bsr' },
+  { re: /^(?:the\s+)?(?:best|top)\s+(?:fielders?|defenders?|defensive\s+players?|gloves?)$/, side: 'overall', field: 'fld' },
+  { re: /^(?:the\s+)?(?:best|top)\s+(?:hitters?|batters?|bats?)$/, side: 'hitting', field: 'wrcPlus' },
+  { re: /^(?:the\s+)?(?:best|top)\s+(?:pitchers?|arms?)$/, side: 'overall', field: 'pitWar' },
+  { re: /^(?:the\s+)?(?:best|top)\s+(?:players?|position\s+players?)$|^(?:the\s+)?most\s+valuable(?:\s+players?)?$|^mvp(?:\s+race)?$/, side: 'overall', field: 'war' },
+]
+
 export function parseLeaderText(text: string): ParsedLeader[] {
   let rest = ` ${fixStatTypos(normalize(text))} `
   if (!rest.trim()) return []
+  {
+    // The kind of player, with a year or the playoffs beside it.
+    const y = takeYear(rest)
+    let post = false
+    const bare = y.rest.replace(PLAYOFF_WORDS, () => { post = true; return ' ' }).replace(/\s+/g, ' ').trim()
+    const kind = PLAYER_KINDS.find(k => k.re.test(bare))
+    if (kind && !(post && kind.side === 'overall')) {
+      return [{ side: kind.side, field: kind.field, dir: null, season: y.season, career: false, ...(post ? { post } : {}) }]
+    }
+  }
+  // "league batting average" is the league's figure (parseLeagueText), not the leaders'.
+  if (parseLeagueText(text)) return []
   // "Most hr in a game" is a single-game record (parseRecordText), not the season board: answering
   // it with the season's home run leaders reads as a right answer to a question nobody asked.
   if (SINGLE_GAME.test(rest)) return []
   const span = takeCareer(rest)
   const year = takeYear(span.rest)
   rest = year.rest
+  let post = false
+  rest = rest.replace(PLAYOFF_WORDS, () => { post = true; return ' ' })
   const career = span.career
   const season = career ? null : year.season
   rest = rest.replace(TOP_N, (_m: string, w: string) => ` ${w} `)
@@ -1429,7 +1499,7 @@ export function parseLeaderText(text: string): ParsedLeader[] {
       : want === 'less' ? 'asc'
       : want === 'worst' ? (lowerBetter ? 'desc' : 'asc')
       : null
-    return { side, field, dir, season, career }
+    return { side, field, dir, season, career, ...(post ? { post } : {}) }
   })
 }
 
@@ -1444,6 +1514,9 @@ export function nameWords(text: string): string | null {
   const year = takeYear(span.rest)
   let rest = year.rest
   let found = year.season != null || span.career || part.part != null
+  rest = rest.replace(PLAYOFF_WORDS, () => { found = true; return ' ' })
+  // "Whitmore rank", "where does Sato rank": the name, asked where it stands (typedStat reads WAR).
+  rest = rest.replace(RANK_ASKED, () => { found = true; return ' ' })
   rest = rest.replace(STAT_ANY, (m: string, p: string) => {
     if (p.length < 2) return m
     found = true
@@ -1458,8 +1531,12 @@ export function nameWords(text: string): string | null {
 
 // Baseball words no stat phrase takes, left beside a stat. Searched as a name they reached a player
 // through the typo pass: "bunt hits" was Kate Blunt's hits, "late innings" Kate Blunt's innings and
-// "average runs per game" Valerie Perez (Nov 10, 2026).
-const NOT_NAMES = /^(?:per|bunts?|late|early|infield|pinch|blown|quality|leadoff)$/
+// "average runs per game" Valerie Perez (Nov 10, 2026). The Nov 20 probe found more of the same, all
+// through the World Cup's typo pass: "triple play" and "highest wpa play" were Kamila Plata, "triple
+// crown" Bailey Brown, "home runs by month" a Montoya, "most hits in a week" Maud Werkman, and "team
+// ops" Team USA, and "where does Whitmore rank in hr" asked for a player called "does whitmore". No
+// WPBL player's name holds one of these words.
+const NOT_NAMES = /^(?:per|bunts?|late|early|infield|pinch|blown|quality|leadoff|plays?|crown|months?|weeks?|teams?|clubs?|record|extra|defense|does|do|stand|stands|place|wide|hitters?|batters?|pitchers?)$/
 
 // ─── Two players ──────────────────────────────────────────────────────────────
 
@@ -1508,7 +1585,64 @@ export function typedStat(text: string): StatAlias | null {
   const { rest } = takePart(` ${fixStatTypos(normalize(text))} `)
   const aliases = new Set<StatAlias>()
   for (const m of rest.matchAll(STAT_ANY)) if (m[1].length >= 2) aliases.add(aliasOf(m[1]))
+  // A rank asked with no stat is the whole player's: WAR, where a section has it.
+  if (!aliases.size && new RegExp(RANK_ASKED.source).test(rest)) return RANK_ALIASES.war
   return aliases.size === 1 ? [...aliases][0] : null
+}
+
+// "rank", "ranking", "where does X stand": a place on the board, asked for.
+const RANK_ASKED = /(?<![a-z])(?:ranks?|ranked|rankings?|standing|stands?)(?![a-z])/g
+
+/** A figure for the whole league rather than a ranking of its players: "league batting average",
+ *  "total home runs", "how many home runs were hit", "runs per game", "average OPS". */
+export interface LeagueStatAsk {
+  /** One stat, or null for the league's line as a whole ("league averages", "league stats"). */
+  alias: StatAlias | null
+  /** The league's figure, or a count per team per game. */
+  kind: 'league' | 'perGame'
+  season: number | null
+  /** The playoffs' line ("league era in the playoffs"). */
+  post?: boolean
+}
+
+// What makes a stat the league's: the word itself, a total, a count asked for, a per-game rate, or an
+// average put in front of a stat that is not one already ("average ERA", not "batting average").
+const LEAGUE_CUE = /(?<![a-z])(league[\s-]?wide|league|total|totals|combined|altogether|in all|all teams|how many|overall)(?![a-z])/
+const PER_GAME = /(?<![a-z])(?:per|a|each|every)\s+(?:team\s+)?game(?![a-z])|(?<![a-z])(?:r|hr|k|so|h|bb)\/g(?![a-z])/
+const SOFT_PHRASES = new Set(['average', 'avg', 'hit', 'hits'])
+const AVERAGE_FIRST = /^\s*(?:the\s+)?(?:avg|average)\s+(?!$)/
+const LEAGUE_FILLER = /(?<![a-z])(?:the|a|an|of|in|on|by|for|what|whats|what's|is|was|were|are|did|do|does|has|have|been|there|hit|thrown|struck|out|stolen|scored|allowed|issued|drawn|so|far|this|season|year|game|games|team|teams|player|players|wpbl|mlb|stats?|averages?|avg|numbers?|line|rate|leaguewide)(?![a-z])/g
+
+/**
+ * The league figure in `text`, or null. Never with a ranking word ("league leaders", "most hr" are the
+ * board's), a number or a name. Before Nov 20, 2026 "league batting average" and "total home runs 2026"
+ * opened the batting-average and home-run leaders, a right answer to a question nobody asked.
+ */
+export function parseLeagueText(text: string): LeagueStatAsk | null {
+  let rest = ` ${fixStatTypos(normalize(text))} `
+  const perGame = PER_GAME.test(rest)
+  const cue = LEAGUE_CUE.test(rest) || perGame || AVERAGE_FIRST.test(rest)
+  if (!cue) return null
+  if (LEAD_WORDS.some(w => new RegExp(w.re.source).test(rest))) return null
+  const year = takeYear(rest)
+  let post = false
+  rest = year.rest.replace(PLAYOFF_WORDS, () => { post = true; return ' ' }).replace(PER_GAME, ' ').replace(LEAGUE_CUE, ' ').replace(new RegExp(LEAGUE_CUE.source, 'g'), ' ')
+  // "batting average" is a stat; a leading "average" is the word asking for the league's.
+  const phrases = new Set<string>()
+  rest = rest.replace(STAT_ANY, (_m: string, p: string) => { phrases.add(p); return ' ' })
+  rest = rest.replace(AVERAGE_FIRST, ' ').replace(LEAGUE_FILLER, ' ')
+  if (/[a-z0-9]/.test(rest)) return null
+  // Words that are a stat alone and only the question's grammar beside another: "average" in "average
+  // ERA" and "hit" in "home runs were hit". "Average" alone is the league's whole line, not its AVG.
+  const soft = [...phrases].filter(p => SOFT_PHRASES.has(p))
+  if (soft.length < phrases.size || soft.every(p => p === 'average')) for (const p of soft) phrases.delete(p)
+  const aliases = [...new Set([...phrases].map(aliasOf))]
+  if (aliases.length > 1) return null
+  const alias = aliases[0] ?? null
+  // A line with no stat is the league's averages; it needs the word "league" or "averages".
+  if (!alias && (perGame || !/(?<![a-z])(?:league|averages?)(?![a-z])/.test(text.toLowerCase()))) return null
+  if (alias?.overall && !alias.hitting && !alias.pitching) return null
+  return { alias, kind: perGame ? 'perGame' : 'league', season: year.season, ...(post ? { post } : {}) }
 }
 
 /**
@@ -1640,6 +1774,14 @@ export interface ParsedRecord {
  * off first, so they narrow the record rather than making the words unreadable. Most only: the
  * fewest of something in one game is nearly always zero, which is no record anybody keeps.
  */
+const isBare = (rest: string) => rest.trim().length >= 6 && !rest.replace(STAT_ANY, ' ').replace(/(?<![a-z])(?:the|all)(?![a-z])/g, ' ').trim()
+
+/** Whether `text` is a stat and nothing else ("pickoffs"), which the season record reads only when
+ *  nothing else does: "pinch hits" and "bunt hits" are Find's plate appearances first. */
+export function bareStatText(text: string): boolean {
+  return isBare(` ${fixStatTypos(normalize(text))} `)
+}
+
 export function parseRecordQuestion(text: string, clubs: readonly FinderClubAlias[], { season: seasons = false, plays = false }: { season?: boolean; plays?: boolean } = {}): ParsedRecord[] {
   const clubWords = new Set(clubs.flatMap(c => c.names.flatMap(n => normalize(n).split(' '))))
   const year = takeYear(` ${fixStatTypos(normalize(text), clubWords)} `)
@@ -1664,6 +1806,11 @@ export function parseRecordQuestion(text: string, clubs: readonly FinderClubAlia
   if (seasons && !per) {
     rest = rest.replace(SEASON_SPAN, m => { per = 'season'; return ' '.repeat(m.length) })
     if (!per && /(?<![a-z])(most|highest|greatest|top|leaders?|leading)(?![a-z])/.test(rest)) per = 'season'
+    // A stat typed bare, as a ranking is ("pickoffs", "double plays turned"): the season's most, which
+    // is how a bare stat with a column already reads. Long phrases only, so a stat's letters on the
+    // way to a name ("so", "ab") are never one. Both offered nothing until Nov 20, 2026.
+    // The whole text, so a club or a year beside it ("hunters doubles") stays the readers' who know them.
+    if (!per && bareStatText(text)) per = 'season'
   }
   if (!per) return []
   const grain: 'game' | 'inning' | 'season' | 'club' = per

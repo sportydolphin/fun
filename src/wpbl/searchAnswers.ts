@@ -19,7 +19,7 @@
 
 import { OVR_COLS, hittingColumns, leagueLine, pitchingColumns, type Col, type WpblLeagueLine } from './statColumns'
 import { aggregateBatting, aggregatePitching, plateAppearances, wpblQualifiers, type EraBasis, type FipWeights, type WpblBattingTotals, type WpblPitchingTotals } from './stats'
-import { currentSeason, gamesInSeason, inSeason, seasonOf } from './season'
+import { countsInStandings, currentSeason, gamesInSeason, inSeason, seasonOf, standingsFinals, type SeasonScope } from './season'
 import { fetchWpblAllLines, fetchWpblAllRunValuePlays, fetchWpblPlayerSeasons, fetchWpblRunEnvironment } from './api'
 import { viewPlayerSeasons, type PlayerSeasonsView } from './derive/playerSeasons'
 import { compareRows } from './leaderOrder'
@@ -49,6 +49,10 @@ export interface WpblBoard {
    *  player card's playoffs). Null where they could not be read, when the columns dash. */
   weights: { woba: WobaWeights | null; fip: FipWeights | null }
   qual: ReturnType<typeof wpblQualifiers>
+  /** The whole league's regular-season line, the one the plus columns are measured against. */
+  league: WpblLeagueLine
+  /** Club games played: two per counted final, the per-game figures' denominator. */
+  teamGames: number
 }
 
 /** Every column the league's run values feed, which is what decides whether they are needed. */
@@ -67,6 +71,9 @@ export interface WpblBoardInput {
   plays: WpblRunValuePlay[] | null
   fmtEra: (v: number | null) => string
   eraBasis: EraBasis
+  /** The slice: the regular season (the table's default) or the playoffs ("playoff hr leaders"). WAR
+   *  is regular season only, like every engine it is built from, so a playoff board has none. */
+  scope?: SeasonScope
 }
 
 /** The board for one span, from data already read. Pure, so a test can hand it everything. */
@@ -81,13 +88,14 @@ export function buildWpblBoard(i: WpblBoardInput): WpblBoard {
   const values = !current && plays?.length ? playRunValues(plays, games, buildRunExpectancy(plays, games)) : null
   const wWeights = current ? i.env!.woba_weights : values ? wobaWeights(values) : null
   const fWeights = current ? i.env!.fip_weights : values ? fipWeights(values) : null
-  const value = plays?.length
+  const scope = i.scope ?? 'regular'
+  const value = plays?.length && scope === 'regular'
     ? new Map(playerValueSeasons(plays, games, i.players, lines).seasons.map(s => [s.player.id, s.totals]))
     : null
   return board(i, games, {
-    batting: new Map(aggregateBatting(i.players, lines.batting, games).map(s => [s.player.id, s.totals])),
-    pitching: new Map(aggregatePitching(i.players, lines.pitching, games).map(s => [s.player.id, s.totals])),
-    league: leagueLine(lines.batting, lines.pitching, games, 'regular'),
+    batting: new Map(aggregateBatting(i.players, lines.batting, games, scope).map(s => [s.player.id, s.totals])),
+    pitching: new Map(aggregatePitching(i.players, lines.pitching, games, scope).map(s => [s.player.id, s.totals])),
+    league: leagueLine(lines.batting, lines.pitching, games, scope),
     wWeights, fWeights, value,
   })
 }
@@ -95,17 +103,18 @@ export function buildWpblBoard(i: WpblBoardInput): WpblBoard {
 /** The same board from a season's stored rows (derive/playerSeasons.ts), already known current. */
 export function storedWpblBoard(i: Omit<WpblBoardInput, 'lines' | 'env' | 'plays'>, stored: PlayerSeasonsView): WpblBoard {
   const games = i.season == null ? i.schedule : gamesInSeason(i.schedule, i.season)
+  const scope = i.scope ?? 'regular'
   return board(i, games, {
-    batting: new Map(stored.batting('regular').map(s => [s.player.id, s.totals])),
-    pitching: new Map(stored.pitching('regular').map(s => [s.player.id, s.totals])),
-    league: stored.league('regular'),
+    batting: new Map(stored.batting(scope).map(s => [s.player.id, s.totals])),
+    pitching: new Map(stored.pitching(scope).map(s => [s.player.id, s.totals])),
+    league: stored.league(scope),
     wWeights: stored.weights.woba, fWeights: stored.weights.fip,
-    value: new Map(stored.value.map(s => [s.player.id, s.totals])),
+    value: scope === 'regular' ? new Map(stored.value.map(s => [s.player.id, s.totals])) : null,
   })
 }
 
 function board(
-  i: Pick<WpblBoardInput, 'season' | 'teams' | 'fmtEra' | 'eraBasis'>,
+  i: Pick<WpblBoardInput, 'season' | 'teams' | 'fmtEra' | 'eraBasis' | 'scope'>,
   games: WpblGame[],
   d: {
     batting: Map<string, WpblBattingTotals>; pitching: Map<string, WpblPitchingTotals>; league: WpblLeagueLine
@@ -114,7 +123,7 @@ function board(
 ): WpblBoard {
   const ctx = { league: d.league, wWeights: d.wWeights, fWeights: d.fWeights, fmtEra: i.fmtEra, eraBasis: i.eraBasis }
   return {
-    span: i.season == null ? 'career' : String(i.season),
+    span: `${i.season == null ? 'career' : String(i.season)}${i.scope === 'postseason' ? ' playoffs' : ''}`,
     batting: d.batting, pitching: d.pitching, value: d.value,
     weights: { woba: d.wWeights, fip: d.fWeights },
     columns: {
@@ -123,7 +132,10 @@ function board(
       overall: OVR_COLS as Col<Totals>[],
     },
     // The bar is measured in the span's own games, as the table measures it in the season on screen.
-    qual: wpblQualifiers(i.teams, games),
+    qual: wpblQualifiers(i.teams, games, i.scope ?? 'regular'),
+    league: d.league,
+    // Club games in the slice: the regular season's finals, or the playoffs' decided games.
+    teamGames: (i.scope === 'postseason' ? games.filter(g => g.status === 'final' && !countsInStandings(g)).length : standingsFinals(games).length) * 2,
   }
 }
 
@@ -177,12 +189,56 @@ function cell(col: Col<Totals>, t: Totals): string {
   return v == null ? '—' : String(v)
 }
 
+type Ranked = { id: string; name: string; totals: Totals; sample: number; v: number }
+
+/** Every player the stats table would list for this sort, in its order: the qualified pool when the
+ *  bar is in force, nulls dropped, ties to the bigger sample. The one ranking the leader peek and a
+ *  player's rank both read, so "leads with 11" and "1st" cannot disagree. */
+function rankedRows(board: WpblBoard, players: readonly WpblPlayer[], side: RankSide, col: Col<Totals>, dir: 'asc' | 'desc' | null): Ranked[] {
+  const { qual } = board
+  type Row = Omit<Ranked, 'v'> & { qualified: boolean }
+  const byId = new Map(players.map(p => [p.id, p]))
+  const rowsOf = <T extends Totals>(m: Map<string, T>, sample: (t: T) => number, qualified: (t: T) => boolean): Row[] =>
+    [...m].flatMap(([id, t]) => {
+      const p = byId.get(id)
+      return p ? [{ id, name: p.name, totals: t as Totals, sample: sample(t), qualified: qualified(t) }] : []
+    })
+  // No qualifier on Overall: every figure there is a total against an average player.
+  const rows = side === 'overall'
+    ? rowsOf(board.value ?? new Map<string, WpblValueTotals>(), t => t.pa + t.outs, () => true)
+    : side === 'hitting'
+    ? rowsOf(board.batting, t => plateAppearances(t), t => plateAppearances(t) >= qual.minPa)
+    : rowsOf(board.pitching, t => t.outs, t => t.outs >= qual.minOuts)
+  // The table's qualified chip starts lit whenever the bar is in force, and filters every sort.
+  const pool = qual.active ? rows.filter(r => r.qualified) : rows
+  const asc = dir ? dir === 'asc' : !!col.lowerBetter
+  return pool
+    .map(r => ({ ...r, v: col.value(r.totals) }))
+    .filter((r): r is typeof r & { v: number } => r.v != null)
+    .sort((a, b) => compareRows(a.v, b.v, asc, a.sample, b.sample, a.name, b.name))
+}
+
+/** "1st", "T-3rd": a place on the board, tied when another row prints the same figure. */
+function placeText(ranked: Ranked[], col: Col<Totals>, id: string): string | null {
+  const at = ranked.findIndex(r => r.id === id)
+  if (at < 0) return null
+  const shown = cell(col, ranked[at].totals)
+  const first = ranked.findIndex(r => cell(col, r.totals) === shown)
+  const tied = ranked.filter(r => cell(col, r.totals) === shown).length > 1
+  const n = first + 1
+  const ten = n % 100
+  const suffix = ten >= 11 && ten <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th'
+  return `${tied ? 'T-' : ''}${n}${suffix}`
+}
+
 /**
- * ".312 AVG · 2026" for one player, or null when they have no such number on the board. A word that
- * names a stat on both sides ("strikeouts") is read on the side the player has lines on, and on the
- * word's lean when they have both: two-way players are common in this league.
+ * ".312 AVG · 2026 · 3rd" for one player, or null when they have no such number on the board. A word
+ * that names a stat on both sides ("strikeouts") is read on the side the player has lines on, and on
+ * the word's lean when they have both: two-way players are common in this league. The place is the
+ * player's row on the board the leader row opens; a player under the qualifying bar has none, which
+ * is the table's rule too. Asked for in the Nov 20, 2026 probe ("where does Whitmore rank in HR").
  */
-export function wpblPlayerAnswer(player: WpblPlayer, ask: PlayerStatAsk, board: WpblBoard): string | null {
+export function wpblPlayerAnswer(player: WpblPlayer, ask: PlayerStatAsk, board: WpblBoard, players: readonly WpblPlayer[] = []): string | null {
   const own = { hitting: board.batting.get(player.id), pitching: board.pitching.get(player.id), overall: board.value?.get(player.id) }
   const sides = (['hitting', 'pitching', 'overall'] as const).filter(s => ask.columns[s] && own[s])
   const side = sides.length > 1 ? (sides.includes('overall') ? 'overall' : ask.lean ?? 'hitting') : sides[0]
@@ -190,34 +246,16 @@ export function wpblPlayerAnswer(player: WpblPlayer, ask: PlayerStatAsk, board: 
   const col = column(board, side, ask.columns[side]!)
   if (!col) return null
   const value = cell(col, own[side]!)
-  return value === '—' ? null : `${value} ${col.label} · ${board.span}`
+  if (value === '—') return null
+  const place = players.length ? placeText(rankedRows(board, players, side, col, null), col, player.id) : null
+  return [`${value} ${col.label}`, board.span, place].filter(Boolean).join(' · ')
 }
 
 /** Who tops the stats table the row links to, ranked as that table ranks. */
 export function wpblLeaderPeek(ask: LeaderAsk, players: WpblPlayer[], board: WpblBoard): LeaderPeek | null {
   const col = column(board, ask.side, ask.sort)
   if (!col) return null
-  const { qual } = board
-  type Row = { name: string; totals: Totals; sample: number; qualified: boolean }
-  const byId = new Map(players.map(p => [p.id, p]))
-  const rowsOf = <T extends Totals>(m: Map<string, T>, sample: (t: T) => number, qualified: (t: T) => boolean): Row[] =>
-    [...m].flatMap(([id, t]) => {
-      const p = byId.get(id)
-      return p ? [{ name: p.name, totals: t as Totals, sample: sample(t), qualified: qualified(t) }] : []
-    })
-  // No qualifier on Overall: every figure there is a total against an average player.
-  const rows = ask.side === 'overall'
-    ? rowsOf(board.value ?? new Map<string, WpblValueTotals>(), t => t.pa + t.outs, () => true)
-    : ask.side === 'hitting'
-    ? rowsOf(board.batting, t => plateAppearances(t), t => plateAppearances(t) >= qual.minPa)
-    : rowsOf(board.pitching, t => t.outs, t => t.outs >= qual.minOuts)
-  // The table's qualified chip starts lit whenever the bar is in force, and filters every sort.
-  const pool = qual.active ? rows.filter(r => r.qualified) : rows
-  const asc = ask.dir ? ask.dir === 'asc' : !!col.lowerBetter
-  const ranked = pool
-    .map(r => ({ ...r, v: col.value(r.totals) }))
-    .filter((r): r is typeof r & { v: number } => r.v != null)
-    .sort((a, b) => compareRows(a.v, b.v, asc, a.sample, b.sample, a.name, b.name))
+  const ranked = rankedRows(board, players, ask.side, col, ask.dir ?? null)
   const top = ranked[0]
   if (!top) return null
   const value = cell(col, top.totals)
@@ -225,4 +263,55 @@ export function wpblLeaderPeek(ask: LeaderAsk, players: WpblPlayer[], board: Wpb
   const others = ranked.slice(1).filter(r => cell(col, r.totals) === value).length
   return { name: top.name, others, value }
 }
+
+/** One league figure: what the row says, and the board it opens. */
+export interface WpblLeagueAnswer { key: string; title: string; detail: string; href: string }
+
+/**
+ * "League AVG .247 · 2026", "HR per team game 0.85 · 2026": the league's own line, through the same
+ * column the table prints, so a league ERA is on the reader's ERA basis like every other. A count per
+ * game is the count over club games; a rate has no per-game form and offers nothing. With no stat it
+ * is the league's line on each side. `columns` is the board column per side, or none for the line.
+ */
+export function wpblLeagueAnswers(ask: { columns: Partial<Record<'hitting' | 'pitching', string>>; lean: 'hitting' | 'pitching' | null; perGame: boolean; post?: boolean },
+  board: WpblBoard): WpblLeagueAnswer[] {
+  const span = board.span
+  const year = span.split(' ')[0]
+  const hrefFor = (side: 'hitting' | 'pitching', sort?: string) => {
+    const params = new URLSearchParams({ board: 'teams', side, ...(sort ? { sort } : {}) })
+    if (year !== 'career') params.set('season', year)
+    if (ask.post) params.set('games', 'post')
+    return `/wpbl/stats?${params}`
+  }
+  const totals = { hitting: board.league.batting as Totals, pitching: board.league.pitching as Totals }
+  const sides = (Object.keys(ask.columns) as ('hitting' | 'pitching')[])
+  if (!sides.length) {
+    // The line itself: the slash line and the run environment.
+    const pick = (side: 'hitting' | 'pitching', keys: string[]) => keys.flatMap(k => {
+      const col = column(board, side, k)
+      const v = col ? cell(col, totals[side]) : '—'
+      return v === '—' ? [] : [`${v} ${col!.label}`]
+    })
+    const bat = pick('hitting', ['avg', 'obp', 'slg', 'ops'])
+    const pit = pick('pitching', ['era', 'whip', 'k9'])
+    return [
+      ...(bat.length ? [{ key: `league-line-hitting-${span}`, title: 'League hitting', detail: `${bat.join(' · ')} · ${span}`, href: hrefFor('hitting') }] : []),
+      ...(pit.length ? [{ key: `league-line-pitching-${span}`, title: 'League pitching', detail: `${pit.join(' · ')} · ${span}`, href: hrefFor('pitching') }] : []),
+    ]
+  }
+  const side = sides.length > 1 ? (ask.lean ?? 'hitting') : sides[0]
+  const col = column(board, side, ask.columns[side]!)
+  if (!col) return []
+  if (ask.perGame) {
+    const v = col.value(totals[side])
+    if (RATE_COLUMNS.has(col.key) || v == null || !board.teamGames) return []
+    return [{ key: `league-pg-${side}-${col.key}-${span}`, title: `${col.label} per team game`, detail: `${(v / board.teamGames).toFixed(2)} · ${span}`, href: hrefFor(side, col.key) }]
+  }
+  const shown = cell(col, totals[side])
+  if (shown === '—') return []
+  return [{ key: `league-${side}-${col.key}-${span}`, title: `League ${col.label}`, detail: `${shown} · ${span}`, href: hrefFor(side, col.key) }]
+}
+
+// Figures that are already a rate, so a per-game form of them means nothing.
+const RATE_COLUMNS = new Set(['avg', 'obp', 'slg', 'ops', 'era', 'whip', 'k9', 'bb9', 'hr9', 'kbb', 'babip', 'iso', 'woba', 'wrcPlus', 'opsPlus', 'eraPlus', 'fip', 'kPct', 'bbPct', 'sbPct', 'kbbPct', 'strikePct'])
 
