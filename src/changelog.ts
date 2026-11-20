@@ -23,6 +23,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.244.0',
+    date:    '2026-11-20',
+    changes: [
+      {
+        short: 'Find: a shorter question on phones',
+        full:  'On a phone, the Find board asks Hitting, Games and Players in one row of menus, with the typed question first and Filters beside it, so the answers start on the first screen. Column labels sit once above the list, a season answer names its year, and a single answer has no rank.',
+      },
+      {
+        short: 'Find: Club games',
+        full:  'The grain for a club’s whole game is called Club games, so it no longer shares a name with the Clubs choice for seasons.',
+      },
+    ],
+  },
+  {
     version: '1.243.1',
     date:    '2026-11-19',
     changes: [

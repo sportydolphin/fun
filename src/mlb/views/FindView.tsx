@@ -155,7 +155,7 @@ export function MlbFindView({
         <Box sx={{ pt: { xs: 1.5, sm: 2 } }}>
           <FinderBoard side={side} query={query} onQuery={onQuery} result={result} clubs={CLUBS} loading={loading}
             clubAbbr={id => TEAM_ABBR[Number(id)] ?? id}
-            sort={sort} onSort={setSort} examples={EXAMPLES[side]}
+            sort={sort} onSort={setSort} examples={EXAMPLES[side]} seasonLabel={String(vizSeason)}
             exampleCount={ex => exampleCounts?.get(ex.label) ?? null} exampleCounted={GRAINS} exampleHref={exampleHref} grains={GRAINS} plays={false} months={months}
             parse={text => parseFinderText(text, MLB_FINDER_CLUBS)} onAsk={onAsk} countFor={countFor} askOn={askOn} onSide={onSide}
                         rowParts={r => {
