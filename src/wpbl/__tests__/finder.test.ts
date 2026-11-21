@@ -568,14 +568,14 @@ describe('the finder, by the plate appearance', () => {
       { field: 'paouts', op: 'eq' as const, value: 2 }, { field: 'walkoff', op: 'eq' as const, value: 1 },
     ]
     expect(describeFinderQuery('hitting', { per: 'pa', conditions }))
-      .toBe('0-2 count and Home runs at least 1 and Bases loaded and 2 out and Walk-off')
+      .toBe('0-2 count and Home run and Bases loaded and 2 out and Walk-off')
     // A range of counts, or the same fields on another grain, read field by field.
     expect(describeFinderQuery('hitting', { per: 'pa', conditions: [{ field: 'balls', op: 'gte', value: 2 }] }))
       .toBe('Balls in the count at least 2')
     expect(describeFinderQuery('pitching', { per: 'inning', conditions: [{ field: 'so', op: 'gte', value: 3 }, { field: 'inn', op: 'gte', value: 6 }] }))
       .toBe('Strikeouts at least 3 and 6th inning or later')
     expect(describeFinderQuery('hitting', { per: 'pa', conditions: [{ field: 'h', op: 'gte', value: 1 }, { field: 'risp', op: 'eq', value: 1 }] }))
-      .toBe('Hits at least 1 and Runner in scoring position')
+      .toBe('Hit and Runner in scoring position')
   })
 
   // The search card's chips: one per phrase, and a phrase made of two conditions drops both.
@@ -585,10 +585,13 @@ describe('the finder, by the plate appearance', () => {
       { field: 'on', op: 'eq' as const, value: 3 }, { field: 'scount', op: 'eq' as const, value: 2 },
     ]
     expect(describeFinderConditions('hitting', { per: 'pa', conditions }, true)).toEqual([
-      { text: 'Home runs ≥ 1', indices: [0] },
+      { text: 'Home run', indices: [0] },
       { text: '0-2 count', indices: [1, 3] },
       { text: 'Bases loaded', indices: [2] },
     ])
+    // A plate appearance is one event: the walk the board's own "Bases-loaded walks" asks reads "Walk".
+    expect(describeFinderConditions('hitting', { per: 'pa', conditions: [{ field: 'bb', op: 'gte', value: 1 }, { field: 'so', op: 'eq', value: 0 }] }, true)
+      .map(c => c.text)).toEqual(['Walk', 'Not a strikeout'])
   })
 
   // A YES-OR-NO QUESTION. Every home run is HR 1, so ranking by it ties everyone and leads every row

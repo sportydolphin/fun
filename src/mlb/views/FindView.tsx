@@ -4,6 +4,7 @@ import { Box, Typography } from '@mui/material'
 import { finderCutsOf, finderGameKinds, finderMonths, runFinder, validFinderSort, type FinderBoardSide, type FinderPer, type FinderQuery, type FinderSide, type FinderSort } from '../../league/finder'
 import { FinderBoard, type FinderExample, type FinderReading } from '../../ui/finderBoard'
 import { parseFinderText } from '../../league/finderParse'
+import { addToFinderQuestion, boardQuestion } from '../../league/finderAsk'
 import { scopedGames } from '../../league/season'
 import { navigate } from '../../nav'
 import { MLB_FINDER_CLUBS, mlbFinderHref } from '../finderLink'
@@ -134,6 +135,12 @@ export function MlbFindView({
   const exampleHref = (ex: FinderExample) => mlbFinderHref({
     side, per: ex.per ?? 'game', conditions: ex.conditions, teamId: query.teamId, oppId: query.oppId, venue: query.venue, ignored: [], season: vizSeason,
   })
+  // Under a question the box adds to it (`addToFinderQuestion`): "vs Boston" keeps the stats asked.
+  const parse = (text: string): FinderReading[] => {
+    const readings = parseFinderText(text, MLB_FINDER_CLUBS)
+    const base = boardQuestion(side, query, vizSeason)
+    return base ? addToFinderQuestion<FinderReading>(base as FinderReading, text, MLB_FINDER_CLUBS, readings) : readings
+  }
   // A reading on this side is asked in place, keeping the season on screen; the other side goes
   // through the address, as the search box sends it, since the side is the section's to switch.
   const onAsk = (r: FinderReading) => {
@@ -165,7 +172,7 @@ export function MlbFindView({
             clubAbbr={id => TEAM_ABBR[Number(id)] ?? id}
             sort={sort} onSort={setSort} examples={EXAMPLES[side]} seasonLabel={String(vizSeason)}
             exampleCount={ex => exampleCounts?.get(ex.label) ?? null} exampleCounted={GRAINS} exampleHref={exampleHref} grains={GRAINS} plays={false} months={months} kinds={kinds}
-            parse={text => parseFinderText(text, MLB_FINDER_CLUBS)} onAsk={onAsk} countFor={countFor} askOn={askOn} onSide={onSide}
+            parse={parse} onAsk={onAsk} countFor={countFor} askOn={askOn} onSide={onSide}
                         rowParts={r => {
               const club = r.teamId ? Number(r.teamId) : 0
               const game = r.game

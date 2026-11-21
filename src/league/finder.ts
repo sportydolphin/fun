@@ -1791,6 +1791,13 @@ export function decodeFinderQuery(raw: string | null, side: FinderBoardSide): Fi
   return out
 }
 
+/** A plate appearance's outcomes, each a 0 or a 1 on its line, as the event and as its absence. */
+const PA_EVENT_SAID: Record<string, [string, string]> = {
+  h: ['Hit', 'No hit'], '1b': ['Single', 'Not a single'], '2b': ['Double', 'Not a double'], '3b': ['Triple', 'Not a triple'],
+  hr: ['Home run', 'Not a home run'], xbh: ['Extra-base hit', 'Not an extra-base hit'], bb: ['Walk', 'Not a walk'],
+  so: ['Strikeout', 'Not a strikeout'], hbp: ['Hit by pitch', 'Not hit by pitch'],
+}
+
 const RUN_WORDS: Record<string, (v: number) => string> = {
   hrrow: v => (v === 2 ? 'Back-to-back home runs' : v === 3 ? 'Back-to-back-to-back home runs' : `${v}+ home runs in a row`),
   krow: v => `${v}+ strikeouts in a row`,
@@ -1809,7 +1816,7 @@ export function describeFinderConditions(
   const labels = new Map(allFields(side).map(f => [f.key, f]))
   // A PLATE APPEARANCE'S SITUATION READS THE WAY IT IS SAID. "Balls in the count exactly 0 and Strikes
   // in the count exactly 2" is "0-2 count", and the runners, outs and walk-off have the same short
-  // names, so a search row states "Home runs at least 1, 0-2 count" rather than a paragraph. Only the
+  // names, so a search row states "Home run, 0-2 count" rather than a paragraph. Only the
   // exact forms: a range of counts still reads field by field.
   // A hitter's season cut by a situation (`seasonFromPas`) says it the same way: "Batting average,
   // runner in scoring position".
@@ -1841,6 +1848,12 @@ export function describeFinderConditions(
     // A run of plays reads as the run: "Back-to-back home runs", "5+ strikeouts in a row".
     if (q.per === 'pa' && c.op === 'gte' && RUN_WORDS[c.field]) return one(RUN_WORDS[c.field](c.value))
     if (c.field === 'inn' && (fine || q.per === 'inning')) return one(innWords[c.op](c.value))
+    // A PLATE APPEARANCE IS ONE EVENT, so its yes-or-no fields read as the event: "Walk", not "Walks
+    // ≥ 1", which asked a count of something that happens once (Nov 20, 2026).
+    const yes = (c.op === 'gte' || c.op === 'eq') && c.value === 1
+    const no = (c.op === 'eq' || c.op === 'lte') && c.value === 0
+    if (q.per === 'pa' && PA_EVENT_SAID[c.field] && (yes || no)) return one(PA_EVENT_SAID[c.field][yes ? 0 : 1])
+    if (q.per === 'pa' && said[c.field] && c.op === 'gte' && c.value === 1) return one(said[c.field](1))
     if (c.op === 'eq' && said[c.field]) return one(said[c.field](c.value))
     const f = labels.get(c.field)
     const op = FINDER_OPS.find(o => o.op === c.op)
