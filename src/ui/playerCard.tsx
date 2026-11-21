@@ -204,12 +204,14 @@ const sectionSx = CARD_SECTION_SX
  * there. That is every WPBL player until the league plays a second year, so on that side this is
  * a heading today and a picker the day a 2027 line lands, with nothing to switch on.
  */
-export function SeasonPicker<C extends boolean = false>({ label, season, seasons, career, onChange }: {
+export function SeasonPicker<C extends boolean = false>({ label, season, seasons, career, careerLabel = 'Career', onChange }: {
   label: string
   season: C extends true ? number | 'career' : number
   seasons: number[]
   /** Offer the whole career as a first option. Not for one season, where it is that season again. */
   career?: C
+  /** The first option's name: "Career" on a player, "All seasons" on a league board. */
+  careerLabel?: string
   onChange: (s: C extends true ? number | 'career' : number) => void
 }) {
   if (seasons.length < 2) return <Typography sx={{ ...sectionSx, mb: 0 }}>{label}</Typography>
@@ -230,7 +232,7 @@ export function SeasonPicker<C extends boolean = false>({ label, season, seasons
           onChange((v === 'career' ? v : Number(v)) as Parameters<typeof onChange>[0])
         }}
         sx={{ position: 'absolute', inset: 0, width: '100%', opacity: 0, cursor: 'pointer', font: 'inherit' }}>
-        {career && <option value="career">Career</option>}
+        {career && <option value="career">{careerLabel}</option>}
         {seasons.map(s => <option key={s} value={s}>{s}</option>)}
       </Box>
     </Box>

@@ -19,7 +19,7 @@ import { PINNED_CHROME, fullBleedStickySx } from './layout'
 export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, analysisBoards, source, isNarrow,
   stuckMarkRef, barRef, barStuck, mode, side, pickSide, hasViews, view, switchView, canFilter, sheetOpen,
   setSheetOpen, activeCol, filtersSet, hasPostseason, overall, scope, setScope, teamId, teamChips, filterTeam,
-  qualified, toggleQualified, pos, posChoices, filterPos }: {
+  qualified, toggleQualified, pos, posChoices, filterPos, allSeasons = false }: {
   newBoards?: ReadonlySet<string>
   activeBoard: string
   selectBoard: (k: string) => void
@@ -54,6 +54,8 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
   filterPos: (p: PositionFilter | null) => void
   qualified: boolean
   toggleQualified: () => void
+  /** The board on screen can show every season at once (see StatsView's `boardTakesAll`). */
+  allSeasons?: boolean
 }) {
   // [0] the club chips, [1] the season slice, [2] the side switch's padding, [3] the view switch's
   // padding, [4] the desktop filters folding into the Filters sheet: the order they give way in.
@@ -246,7 +248,7 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
             behind the bar. They are in the Filters sheet there, which is what they are. */}
         {/* THE YEAR, on every board, since every board sums one: before the season slice, because it
             is the wider cut of the two. Not drawn at all until there is a second year to pick. */}
-        {!isNarrow && <SeasonMenu sx={{ flexShrink: 0, alignItems: 'center' }} />}
+        {!isNarrow && <SeasonMenu all={allSeasons} sx={{ flexShrink: 0, alignItems: 'center' }} />}
         {/* DRAWN ON EVERY BOARD once there is a postseason, and disabled where the board cannot
             take the slice: removed instead, the desktop bar reflowed every time the side or the board
             changed (Nov 7, 2026 audit). Overall is the regular season's, so that chip stays lit. */}

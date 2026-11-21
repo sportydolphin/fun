@@ -208,11 +208,44 @@ const BEHAVIOR_BOARDS = [
   { route: '/mlb/team-stats', steps: ['Pitching', 'Playoffs'] },
 ]
 const BEHAVIOR = flag('behavior')
+// --seasons: the WPBL with a second season, from the dev fake 2027 (src/wpbl/dev/devSecondSeason.ts:
+// every 2026 regular-season game moved a year on, the first 40% of them played). The league has one
+// season until spring 2027, so every season menu, "All seasons" and each board's two-year shape
+// (a Year column, years on dates, career totals) has never been on a swept page; this sweeps them
+// before the first 2027 final puts them in front of readers. Each page is swept on the default year
+// (2027), on 2026 and on every season, which the pages without that choice read as 2027.
+const SEASONS = flag('seasons')
+const SEASON_PICKS = ['', 'season=2026', 'season=all']
+const withPick = (route, pick) => (pick ? `${route}${route.includes('?') ? '&' : '?'}${pick}` : route)
+const SEASON_ROUTES = [
+  // Every board on Stats that can show every season, and Overall, which cannot.
+  '/wpbl/stats', '/wpbl/stats?board=players&side=hitting', '/wpbl/stats?board=players&side=pitching',
+  '/wpbl/stats?board=players&side=fielding', '/wpbl/stats?board=players&side=overall',
+  '/wpbl/stats?board=teams', '/wpbl/stats?board=bests', '/wpbl/stats?board=charts',
+  // Find at each shape a second season changes: season rows (a Year column), a career, game rows
+  // (a year on every date), a stretch (dates beside the year) and a play-log grain.
+  '/wpbl/stats?board=find&q=season~hr.gte.1', '/wpbl/stats?board=find&q=season~career.1~avg.gte.300',
+  '/wpbl/stats?board=find&q=hr.gte.2', '/wpbl/stats?board=find&q=season~stretch.5~hr.gte.1',
+  '/wpbl/stats?board=find&side=pitching&q=inning~so.gte.3',
+  // Every other page with a season menu.
+  '/wpbl/standings', '/wpbl/teams', '/wpbl/teams/hunters', '/wpbl/series/firebells-vs-queens',
+  // The season recap, which keeps to the last finished season whatever is picked.
+  //
+  // NOT HOME, NOR A PLAYER PAGE (which draws Home under it on a phone): Home picks its in-season or
+  // offseason shape by the calendar, the fixture's clock is November 2026, and the fake 2027 has
+  // games played in August 2027, so its loading frame is the offseason and its page the season, a
+  // jump no reader can meet. Home in season is swept once the fixture is recorded during one.
+  '/wpbl/season',
+].flatMap(r => (r.startsWith('/wpbl/stats') || ['/wpbl/standings', '/wpbl/teams', '/wpbl/teams/hunters', '/wpbl/series/firebells-vs-queens'].includes(r)
+  ? SEASON_PICKS.map(p => withPick(r, p)) : [r]))
+// The fake 2027's map is built from the schedule and remembered in this key; a stub turns the
+// overlay on, and a first load of a page that reads the schedule fills it in (runCase).
+const SEASONS_KEY = 'sd:dev-second-season'
 // The leading slash is optional because Git Bash rewrites an argument that starts with one into a
 // Windows path (/wpbl becomes C:/Program Files/Git/wpbl) before node ever sees it.
 const ALL_ROUTES = opt('routes', '')
   ? opt('routes', '').split(',').map(r => (r.startsWith('/') ? r : `/${r}`))
-  : BEHAVIOR ? BEHAVIOR_BOARDS.map(b => b.route) : DEFAULT_ROUTES
+  : BEHAVIOR ? BEHAVIOR_BOARDS.map(b => b.route) : SEASONS ? SEASON_ROUTES : DEFAULT_ROUTES
 // Every record runs the behavior pass as well, on the boards among its routes (all of them on a
 // full record). A full record replaces the fixture, and without this it would drop the reads only a
 // changed filter makes; a merge of one board's route records what its filters read along with it,
@@ -737,10 +770,24 @@ async function runCase(browser, route, width, text, { warm = false } = {}) {
       localStorage.setItem('sd_photo_tag_key', 'layout-sweep-fixed-photo-tag-key')
     } catch { /* private mode */ }
   }, [text === 'large' ? 'large' : 'default', EXPERIMENTS])
+  if (SEASONS) {
+    await ctx.addInitScript(key => {
+      try { if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ source: {}, played: {} })) } catch { /* private mode */ }
+    }, SEASONS_KEY)
+  }
   const page = await ctx.newPage()
   if (CPU > 1) await (await ctx.newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: CPU })
   const result = { route, width, text, pageOverflow: 0, issues: [], shifts: [], error: null }
   try {
+    // THE FAKE 2027 NEEDS THE SCHEDULE FIRST: its clones are built from it, and the line reads of a
+    // first load can land before it, leaving 2027 with games and no lines. One load of the schedule
+    // page fills the map in, and every load after it starts with the whole second season.
+    if (SEASONS) {
+      await page.goto(`${BASE}/wpbl/schedule`, { waitUntil: 'domcontentloaded' })
+      await page.waitForFunction(key => {
+        try { return Object.keys(JSON.parse(localStorage.getItem(key)).source).length > 0 } catch { return false }
+      }, SEASONS_KEY, { timeout: 15_000 })
+    }
     if (warm) {
       await page.goto(`${BASE}${route}`, { waitUntil: 'domcontentloaded' })
       await settle(page, 300)
@@ -1018,7 +1065,7 @@ async function main() {
     // Each line carries the key it is known by in the baseline. A shift is keyed on the page and
     // size alone: which piece of text moves first varies from run to run, the fact that the
     // skeleton is the wrong size does not.
-    const caseKey = `${r.route}${EXPERIMENTS ? ' +experiments' : ''}|${r.width}|${r.text}`
+    const caseKey = `${r.route}${EXPERIMENTS ? ' +experiments' : ''}${SEASONS ? ' +seasons' : ''}|${r.width}|${r.text}`
     if (r.error) lines.push([null, `  ERROR ${r.error}`])
     if (r.pageOverflow > 0) lines.push([`${caseKey}|page`, `  page scrolls sideways by ${r.pageOverflow}px`])
     // One line per distinct thing: a repeated row would otherwise print once per row.
@@ -1045,7 +1092,7 @@ async function main() {
     }
   }
   if (BASELINE) {
-    const covered = new Set(results.map(r => `${r.route}${EXPERIMENTS ? ' +experiments' : ''}|${r.width}|${r.text}`))
+    const covered = new Set(results.map(r => `${r.route}${EXPERIMENTS ? ' +experiments' : ''}${SEASONS ? ' +seasons' : ''}|${r.width}|${r.text}`))
     const caseOf = k => k.split('|').slice(0, 3).join('|')
     // A shift key at Large text names a check runCase no longer makes, so this run neither clears
     // it nor calls it fixed. The keys still carry the text size, so an entry made before then reads.

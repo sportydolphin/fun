@@ -1,5 +1,6 @@
+import { useContext } from 'react'
 import { PlayerPortrait, TeamBadge } from './ui'
-import { GameLineFrame, formatGameLineLabel } from '../ui/gameLine'
+import { GameLineFrame, GameYearContext, formatGameLineLabel } from '../ui/gameLine'
 import { useWpblGameLink, useWpblPlayerLink } from './LinkContext'
 import { boxLineOf, boxScoreOf, requestBoxScore } from './entryUrl'
 import type { WpblGame, WpblPlayer } from './types'
@@ -14,10 +15,10 @@ import type { WpblGame, WpblPlayer } from './types'
 // tests.
 
 /** How the game a line came from is labeled: "Aug 12 vs LA". */
-export function gameLineLabel(game: WpblGame | null, teamId: string | null): string | null {
+export function gameLineLabel(game: WpblGame | null, teamId: string | null, withYear = false): string | null {
   if (!game) return null
   const home = teamId != null && game.home_team_id === teamId
-  return formatGameLineLabel(game.game_date, home, home ? game.away_team_id : game.home_team_id)
+  return formatGameLineLabel(game.game_date, home, home ? game.away_team_id : game.home_team_id, withYear)
 }
 
 export default function GameLineRow({
@@ -60,6 +61,7 @@ export default function GameLineRow({
 }) {
   const playerLink = useWpblPlayerLink()
   const gameLink = useWpblGameLink()
+  const withYear = useContext(GameYearContext)
   // A LINE OPENS ITS BOX SCORE, on its own club, not the game's Recap: the line is what the row was.
   const link = (() => {
     if (!game) return undefined
@@ -73,7 +75,7 @@ export default function GameLineRow({
     <GameLineFrame
       rank={rank} tied={tied} emphasizeRank={emphasizeRank} name={name} detail={detail} value={value} unit={unit} divider={divider}
       accent={accent}
-      label={gameLineLabel(game, teamId)}
+      label={gameLineLabel(game, teamId, withYear)}
       portrait={club && teamId ? <TeamBadge team={{ id: teamId, abbr: teamId }} size={32} /> : <PlayerPortrait name={name} teamId={teamId} size={32} />}
       club={teamId && !club ? <TeamBadge team={{ id: teamId, abbr: teamId }} size={16} /> : undefined}
       rowLink={nameOpens === 'game' ? link : undefined}

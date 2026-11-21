@@ -34,7 +34,7 @@ import {
 } from './routes'
 import { publishSectionNav, clearSectionNav } from '../sectionNav'
 import { WpblLinkProvider } from './LinkContext'
-import { WpblSeasonProvider } from './SeasonContext'
+import { WpblSeasonProvider, type WpblSeasonPick } from './SeasonContext'
 import { WPBL_MORE_PAGES } from './morePages'
 import { MoreSheet as SharedMoreSheet } from '../ui/MoreMenu'
 import { useForegroundInterval } from '../lib/foregroundInterval'
@@ -179,7 +179,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   const [playerPage, setPlayerPage] = useState<boolean>(() => !!seed().playerPage)
   // The season the reader picked, null for the current one. A ref beside it so `stamp` and
   // `urlFor` read the newest pick without joining every navigation callback's dependencies.
-  const [pickedSeason, setPickedSeason] = useState<number | null>(() => seed().season ?? null)
+  const [pickedSeason, setPickedSeason] = useState<WpblSeasonPick | null>(() => seed().season ?? null)
   const pickedSeasonRef = useRef(pickedSeason)
   pickedSeasonRef.current = pickedSeason
   /** The snapshot with the year it was taken in, for storing: see WpblSnap.season. */
@@ -566,7 +566,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   }, [apply, stamp, urlFor])
   // A season picked from any tab's menu. Its own history entry, since `?season=2026` is a different
   // page from the current year's and Back should undo the pick; whatever is open over the page stays.
-  const pickSeason = useCallback((season: number | null) => {
+  const pickSeason = useCallback((season: WpblSeasonPick | null) => {
     push({ view, team: selectedTeam, game: detailGame, player: detailPlayer, awards: awardsOpen, gamePage, playerPage, season })
   }, [push, view, selectedTeam, detailGame, detailPlayer, awardsOpen, gamePage, playerPage])
   // A panel on screen right now, which a click on the page swaps rather than stacks on.

@@ -18,7 +18,7 @@ import { useEraBasis } from './EraBasisContext'
 import { nameSuggestions } from '../league/playerQuestion'
 import { addToFinderQuestion, boardQuestion } from '../league/finderAsk'
 import { askedFinderQuery, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, wpblAskReadings, wpblFinderHref, wpblFinderRoster } from './finderLink'
-import { wpblQualifiers } from './stats'
+import { wpblFinderQualify } from './finderQualify'
 import type { WpblBattingLine, WpblFieldingLine, WpblGame, WpblPitchingLine, WpblPlayer, WpblTeam } from './types'
 
 // The Find board: every game line in the league that matches what you asked for.
@@ -164,19 +164,20 @@ export default function WpblFindView({
   const [sortPick, setSort] = useState<FinderSort | null>(null)
   const sort = validFinderSort(side, query, sortPick)
   // A season's ERA on the basis the reader has the site set to, so a number here matches the one
-  // beside it on every other board. The bar for a rate is the leaderboards' own (wpblQualifiers),
-  // over the schedule on screen, which StatsView has already cut to one year.
+  // beside it on every other board. The bar for a rate is the leaderboards' own (wpblQualifiers):
+  // the year on screen's, or over every season a career's and each year's own (finderQualify.ts).
   const { basis: eraInnings } = useEraBasis()
-  const qualify = useMemo(() => {
-    const q = wpblQualifiers(teams, games, query.scope)
-    return q.active ? { minPa: q.minPa, minOuts: q.minOuts, minG: q.minG } : null
-  }, [teams, games, query.scope])
+  const { season, all, cut, seasonGames, schedule } = useWpblSeason(undefined, { all: true })
+  // The season a link from here carries, so a question asked over every season stays there.
+  const linkSeason = all ? 'all' as const : season
+  const { qualify, qualifyFor } = useMemo(
+    () => wpblFinderQualify(teams, all ? schedule : games, all ? 'all' : null, query.scope, !!query.career),
+    [teams, all, schedule, games, query.scope, query.career])
   // THE PLAY-LOG GRAINS ARE THE ONE QUESTION HERE THAT COSTS A READ: a pitcher's half-innings and
   // every plate appearance are built from the play log, which this board otherwise never touches, so
   // it is read only once one of them is asked for, one season of it (fetchWpblPlayLog), and held with
   // the season it was read for so a year picked from the menu reads again rather than cutting the old
-  // year to nothing.
-  const { season, cut, seasonGames, schedule } = useWpblSeason()
+  // year to nothing. Over every season `season` is null, which reads every season's log.
   const months = useMemo(() => finderMonths(seasonGames.filter(g => g.status === 'final')), [seasonGames])
   // Which kinds of game the season had, so the board offers a picker only for one that was played.
   const kinds = useMemo(() => {
@@ -283,17 +284,17 @@ export default function WpblFindView({
     }
   }, [side, batting, pitching, fielding, plateAppearances, players, teams, query.playerId, query.batterId, query.pitcherId])
   const result = useMemo(
-    () => runWpblFinder(side, batting, pitching, players, games, query, 50, sort, { eraInnings, qualify, fielding, innings, plateAppearances, teamInnings, fieldInnings, clubFieldInnings, playTotals, clubName }),
-    [side, batting, pitching, fielding, players, games, query, sort, eraInnings, qualify, innings, plateAppearances, teamInnings, fieldInnings, clubFieldInnings, playTotals, clubName])
+    () => runWpblFinder(side, batting, pitching, players, games, query, 50, sort, { eraInnings, qualify, qualifyFor, fielding, innings, plateAppearances, teamInnings, fieldInnings, clubFieldInnings, playTotals, clubName }),
+    [side, batting, pitching, fielding, players, games, query, sort, eraInnings, qualify, qualifyFor, innings, plateAppearances, teamInnings, fieldInnings, clubFieldInnings, playTotals, clubName])
   // A QUESTION'S COUNT ON ANY SIDE, for the nearest questions a zero offers. This side counts with
   // everything its board has read; another side only where its lines are in hand and no play-log
   // grain or count is asked, since that would cost a read the board has not made.
   const countFor = useCallback((s: FinderBoardSide, q: FinderQuery): number | null => {
-    if (s === side) return runWpblFinder(side, batting, pitching, players, games, q, 0, null, { eraInnings, qualify, fielding, innings, plateAppearances, teamInnings, fieldInnings, clubFieldInnings, playTotals, clubName }).total
+    if (s === side) return runWpblFinder(side, batting, pitching, players, games, q, 0, null, { eraInnings, qualify, qualifyFor, fielding, innings, plateAppearances, teamInnings, fieldInnings, clubFieldInnings, playTotals, clubName }).total
     if (q.per === 'inning' || q.per === 'pa' || finderNeedsPlays(s, q) || (s === 'fielding' && !fielding.length)) return null
-    return runWpblFinder(s, batting, pitching, players, games, q, 0, null, { eraInnings, qualify, fielding, clubName }).total
-  }, [side, batting, pitching, fielding, players, games, eraInnings, qualify, innings, plateAppearances, teamInnings, fieldInnings, clubFieldInnings, playTotals, clubName])
-  const askOn = useCallback((s: FinderBoardSide, q: FinderQuery) => navigate(wpblFinderHref({ ...q, side: s, ignored: [], season })), [season])
+    return runWpblFinder(s, batting, pitching, players, games, q, 0, null, { eraInnings, qualify, qualifyFor, fielding, clubName }).total
+  }, [side, batting, pitching, fielding, players, games, eraInnings, qualify, qualifyFor, innings, plateAppearances, teamInnings, fieldInnings, clubFieldInnings, playTotals, clubName])
+  const askOn = useCallback((s: FinderBoardSide, q: FinderQuery) => navigate(wpblFinderHref({ ...q, side: s, ignored: [], season: linkSeason })), [linkSeason])
   const findSides = WPBL_FINDER_SIDES as FinderBoardSide[]
 
   // THE EXAMPLES' COUNTS, for the board before a question: each one run in the scope on screen. A
@@ -316,7 +317,7 @@ export default function WpblFindView({
   // Each laddered example at the highest bar the slice reaches (src/ui/finderExamples.ts), so a tile
   // names what happened rather than "0 games". Before a count is possible, the examples as written.
   const fitted = useMemo(() => {
-    const opts = { eraInnings, qualify, fielding, innings: exInnings, plateAppearances: exPas, teamInnings: exTeamInnings, fieldInnings: exFieldInnings, clubName }
+    const opts = { eraInnings, qualify, qualifyFor, fielding, innings: exInnings, plateAppearances: exPas, teamInnings: exTeamInnings, fieldInnings: exFieldInnings, clubName }
     return fitExamples(EXAMPLES[side], ex => {
       if (!startScreen) return null
       const per = ex.per ?? 'game'
@@ -324,11 +325,11 @@ export default function WpblFindView({
         || (per === 'inning' && !(side === 'pitching' ? exInnings : side === 'fielding' ? exFieldInnings : exTeamInnings))
       return missing ? null : runWpblFinder(side, batting, pitching, players, games, { ...query, per, conditions: ex.conditions, batterId: null, pitcherId: null, playerId: null }, 0, null, opts).total
     })
-  }, [startScreen, side, batting, pitching, players, games, query, eraInnings, qualify, fielding, exInnings, exPas, exTeamInnings, exFieldInnings, clubName])
+  }, [startScreen, side, batting, pitching, players, games, query, eraInnings, qualify, qualifyFor, fielding, exInnings, exPas, exTeamInnings, exFieldInnings, clubName])
   const examples = useMemo(() => fitted.map(f => f.ex), [fitted])
   const exampleCounts = useMemo(() => new Map(fitted.map(f => [f.ex, f.n])), [fitted])
   const exampleHref = (ex: FinderExample) => wpblFinderHref({
-    side, per: ex.per ?? 'game', conditions: ex.conditions, teamId: query.teamId, oppId: query.oppId, venue: query.venue, ignored: [], season,
+    side, per: ex.per ?? 'game', conditions: ex.conditions, teamId: query.teamId, oppId: query.oppId, venue: query.venue, ignored: [], season: linkSeason,
   })
   // A reading on this side is asked in place, which keeps the season and slice on screen; one on
   // the other side goes through the address, the way the search box sends it, since the side is
@@ -350,8 +351,8 @@ export default function WpblFindView({
   // THE ANSWER BEFORE THE ASK, read off the link the reading would open, through the same resolver
   // the search's rows use (findAnswer.ts), so the line under the box and the board it opens agree.
   const askAnswer = useCallback((r: FinderReading) => import('./findAnswer')
-    .then(m => m.wpblFindAnswer(wpblFinderHref({ ...r, season: r.season ?? season }), { schedule, players, teams, eraInnings })),
-  [season, schedule, players, teams, eraInnings])
+    .then(m => m.wpblFindAnswer(wpblFinderHref({ ...r, season: r.season ?? linkSeason }), { schedule, players, teams, eraInnings })),
+  [linkSeason, schedule, players, teams, eraInnings])
   const askNames = (text: string) => nameSuggestions(text, roster, WPBL_FINDER_CLUBS)
   const clubs = useMemo(
     () => [...teams].sort((a, b) => a.abbr.localeCompare(b.abbr)).map(t => ({ value: t.id, label: wpblFullName(t) })),
@@ -381,7 +382,7 @@ export default function WpblFindView({
       sort={sort} onSort={setSort} examples={examples}
       exampleCount={ex => exampleCounts.get(ex) ?? null} exampleHref={exampleHref}
       exampleCounted={plays || askPlays ? grains : ['game', 'season']}
-      countFor={countFor} askOn={askOn} sides={findSides} onSide={onSide} filters={filters} seasonLabel={String(season)}
+      countFor={countFor} askOn={askOn} sides={findSides} onSide={onSide} filters={filters} seasonLabel={all ? 'All seasons' : String(season)}
       grains={grains} loading={askPlays && (!plays || (askFielders && !fielders))} picks={picks} months={months} kinds={kinds}
       parse={parse} onAsk={onAsk} askAnswer={askAnswer} askNames={askNames}
             rowParts={r => ({

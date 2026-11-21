@@ -4,7 +4,7 @@ import { navBack, navigate, isModified } from '../nav'
 import { TYPE_SCALE } from './card'
 import { hoverOnly, FOCUS_RING } from './interaction'
 import { panelShiftSx, useSidePanelOpen } from './ModalShell'
-import { typePx } from './scale'
+import { chromePx, typePx } from './scale'
 import { titleCaseNode } from '../lib/format'
 
 // The shell every STANDALONE page wears: in WPBL the league, the season recap, scorigami, the
@@ -20,7 +20,7 @@ import { titleCaseNode } from '../lib/format'
 // Shared since Oct 9, 2026 (it was WPBL's alone), so the section's own parts come in as props:
 // where Back goes and what it says, and whether the title is the page's <h1>.
 
-export default function StandalonePage({ title, standfirst, maxWidth = '56.25rem', back, trail, headingTag = 'h1', children }: {
+export default function StandalonePage({ title, standfirst, maxWidth = '56.25rem', back, trail, headingTag = 'h1', aside, children }: {
   /** The page's own name, rendered as `headingTag`: its <h1>, or a <div> while a modal owns the
    *  heading (harmless on these pages, which are never under a modal, and correct if one ever is). */
   title: React.ReactNode
@@ -36,9 +36,22 @@ export default function StandalonePage({ title, standfirst, maxWidth = '56.25rem
    *  toolbar say nothing about the level between. A phone has the Back pill instead. */
   trail?: { href: string; label: string }[]
   headingTag?: 'h1' | 'div'
+  /** A control at the title's right (a season menu), in a row held at a pill's height whether or not
+   *  it draws anything: a menu that appears only once the data says there is a choice then lands
+   *  beside the title instead of pushing the page down a line when it does. */
+  aside?: React.ReactNode
   children: React.ReactNode
 }) {
   const panelOpen = useSidePanelOpen()
+  // Inside the aside's row the row carries the margin, and the title takes what the control leaves.
+  const heading = (inRow: 0 | 1) => (
+    <Typography component={headingTag} sx={{
+      fontSize: TYPE_SCALE.page, fontWeight: 800, letterSpacing: typePx(-0.3), lineHeight: 1.2,
+      mb: inRow ? 0 : standfirst ? 0.5 : 3, ...(inRow ? { minWidth: 0 } : {}),
+    }}>
+      {titleCaseNode(title)}
+    </Typography>
+  )
   return (
     // NO SIDE PADDING OF ITS OWN ON A PHONE. The shell already pads every page 16px a side (App.tsx),
     // and this added another 16, so the standalone pages read in a 311px column on a 375px phone
@@ -90,12 +103,15 @@ export default function StandalonePage({ title, standfirst, maxWidth = '56.25rem
         </Box>
       )}
 
-      <Typography component={headingTag} sx={{
-        fontSize: TYPE_SCALE.page, fontWeight: 800, letterSpacing: typePx(-0.3), lineHeight: 1.2,
-        mb: standfirst ? 0.5 : 3,
-      }}>
-        {titleCaseNode(title)}
-      </Typography>
+      {aside === undefined ? heading(0) : (
+        <Box sx={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', columnGap: 1.5, flexWrap: 'wrap',
+          minHeight: `calc(${chromePx(28)} + 6px)`, mb: standfirst ? 0.5 : 3,
+        }}>
+          {heading(1)}
+          {aside}
+        </Box>
+      )}
       {standfirst && (
         <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.body, lineHeight: 1.5, mb: 3 }}>
           {standfirst}

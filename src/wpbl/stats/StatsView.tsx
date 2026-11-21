@@ -33,6 +33,7 @@ import { track, EVENTS } from '../../lib/analytics'
 import { useWpblPlayerLink } from '../LinkContext'
 import { TabTitle } from '../PageHeading'
 import { useWpblSeason } from '../SeasonContext'
+import { GameYearContext } from '../../ui/gameLine'
 import { useEraBasis } from '../EraBasisContext'
 import { OVR_COLS, hittingColumns, leagueLine, pitchingColumns, type Col } from '../statColumns'
 import { TABLE_CAP } from '../../ui/ExpandRow'
@@ -141,46 +142,6 @@ export default function WpblStatsView({
    *  real href either way and keeps working under a modified click. */
   onOpenGame?: (g: WpblGame) => void
 }) {
-  // ONE SEASON. Every read below holds every game the league has played, so each is cut to the
-  // year on screen before anything sums it, and `games` from here down is that year's schedule:
-  // the qualifying bar, the postseason switch and the run environment all measure one season.
-  const { season, current, seasons, pick: pickSeason, cut, seasonGames: games } = useWpblSeason(allGames)
-  const multiSeason = seasons.length > 1
-  // Seed from the shared session cache so swiping back to this tab (SwipeableViews
-  // unmounts it on the way out) repaints instantly instead of flashing the spinner.
-  const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
-  const [allLines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
-    () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })
-  const lines = useMemo(
-    () => ({ batting: cut(allLines.batting), pitching: cut(allLines.pitching) }), [allLines, cut])
-  // Whether each read has answered. The lines are read only when something on screen needs them:
-  // see `wantLines` below.
-  const [playersIn, setPlayersIn] = useState(() => getCachedWpblAllPlayers() != null)
-  const [linesIn, setLinesIn] = useState(() => getCachedWpblAllLines() != null)
-  // EVERY PLAYER'S SEASON, STORED (derive/playerSeasons.ts): the Players and Leaders boards and the
-  // Overall side are built from these rows whenever they describe the inputs as they stand, and the
-  // box-score lines and the play log are then never read for them. When they do not (a game went
-  // final or a play was corrected since the job last ran), everything below reads and builds
-  // exactly as it did before the table existed. Held with the season it was read for, like the play
-  // log, so a year picked from the menu reads its own.
-  const [storedRead, setStoredRead] = useState(() => ({ season, read: season == null ? null : getCachedWpblPlayerSeasons(season) }))
-  const storedHere = storedRead.season === season ? storedRead.read : null
-  useEffect(() => {
-    if (season == null) return
-    let cancelled = false
-    fetchWpblPlayerSeasons(season).then(r => { if (!cancelled) setStoredRead({ season, read: r }) })
-    return () => { cancelled = true }
-  }, [season])
-  const storedCurrent = !!storedHere?.current
-  // Settled once the read has answered either way; until then neither heavy read is started.
-  const storedSettled = season == null || storedHere != null
-  const stored = useMemo(
-    () => (storedCurrent && playersIn ? viewPlayerSeasons(storedHere!.rows, players) : null),
-    [storedCurrent, storedHere, playersIn, players])
-  // Null until it lands. Read on mount but never awaited by the table: only the Fielding side
-  // draws it, and the most-read tab's first paint should not wait on a side most visits never open.
-  const [allFielding, setFielding] = useState<WpblFieldingLine[] | null>(() => getCachedWpblAllFielding())
-  const fielding = useMemo(() => (allFielding ? cut(allFielding) : null), [allFielding, cut])
   // The name column is a fixed width, so the default character threshold is the wrong test: it
   // would let a 12-character "Jamie Mackay" through whole to be cut to "Jamie Mac…" while a
   // 13-character "Denae Benites" became "D. Benites". 0 abbreviates every phone row alike.
@@ -221,6 +182,54 @@ export default function WpblStatsView({
   // Find answers Fielding as well, which no other board past the season tables does.
   const findSide: FinderBoardSide = side === 'fielding' ? 'fielding' : boardSide
   const [mode, setMode] = useState<Mode>(fromUrl.mode ?? 'players')
+  // ONE SEASON, OR EVERY ONE. Every read below holds every game the league has played, so each is
+  // cut to the year on screen before anything sums it, and `games` from here down is that year's
+  // schedule: the qualifying bar, the postseason switch and the run environment all measure it.
+  // EVERY SEASON (`?season=all`) is honored by the boards that rank lines or players: the Players
+  // and Teams tables (career totals), Leaders, Bests, Find and Charts, and not on Overall, whose run
+  // values are fit to one season's league. There the cut keeps every row, `games` is the whole
+  // schedule, and the qualifying bar (wpblQualifiers, which scales with the games) is a career's.
+  // The stored seasons are one year each, so every season is summed from the box-score lines.
+  const boardTakesAll = side !== 'overall'
+    && (source === 'season' || source === 'leaders' || source === 'bests' || source === 'find' || source === 'charts')
+  const { season, all: everySeason, current, seasons, pick: pickSeason, cut, seasonGames: games } =
+    useWpblSeason(allGames, { all: boardTakesAll })
+  const multiSeason = seasons.length > 1
+  // Seed from the shared session cache so swiping back to this tab (SwipeableViews
+  // unmounts it on the way out) repaints instantly instead of flashing the spinner.
+  const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
+  const [allLines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
+    () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })
+  const lines = useMemo(
+    () => ({ batting: cut(allLines.batting), pitching: cut(allLines.pitching) }), [allLines, cut])
+  // Whether each read has answered. The lines are read only when something on screen needs them:
+  // see `wantLines` below.
+  const [playersIn, setPlayersIn] = useState(() => getCachedWpblAllPlayers() != null)
+  const [linesIn, setLinesIn] = useState(() => getCachedWpblAllLines() != null)
+  // EVERY PLAYER'S SEASON, STORED (derive/playerSeasons.ts): the Players and Leaders boards and the
+  // Overall side are built from these rows whenever they describe the inputs as they stand, and the
+  // box-score lines and the play log are then never read for them. When they do not (a game went
+  // final or a play was corrected since the job last ran), everything below reads and builds
+  // exactly as it did before the table existed. Held with the season it was read for, like the play
+  // log, so a year picked from the menu reads its own.
+  const [storedRead, setStoredRead] = useState(() => ({ season, read: season == null ? null : getCachedWpblPlayerSeasons(season) }))
+  const storedHere = storedRead.season === season ? storedRead.read : null
+  useEffect(() => {
+    if (season == null) return
+    let cancelled = false
+    fetchWpblPlayerSeasons(season).then(r => { if (!cancelled) setStoredRead({ season, read: r }) })
+    return () => { cancelled = true }
+  }, [season])
+  const storedCurrent = !!storedHere?.current
+  // Settled once the read has answered either way; until then neither heavy read is started.
+  const storedSettled = season == null || storedHere != null
+  const stored = useMemo(
+    () => (storedCurrent && playersIn ? viewPlayerSeasons(storedHere!.rows, players) : null),
+    [storedCurrent, storedHere, playersIn, players])
+  // Null until it lands. Read on mount but never awaited by the table: only the Fielding side
+  // draws it, and the most-read tab's first paint should not wait on a side most visits never open.
+  const [allFielding, setFielding] = useState<WpblFieldingLine[] | null>(() => getCachedWpblAllFielding())
+  const fielding = useMemo(() => (allFielding ? cut(allFielding) : null), [allFielding, cut])
   // THE FIND BOARD'S QUESTION, seeded from the address bar exactly once, like the axes above.
   // `scope` is NOT held in here: the season slice is a control the whole tab shares (the chips
   // in the bar, the sheet on a phone), and duplicating it would give the board two answers to
@@ -492,7 +501,9 @@ export default function WpblStatsView({
   const rvPlays = useMemo(() => (allRvPlays ? cut(allRvPlays) : null), [allRvPlays, cut])
   // Overall is built from the play log itself, so it asks whatever the priced row says. Neither is
   // asked while the stored seasons may yet answer both.
-  const needPlays = !rvPlays && storedSettled && !storedCurrent && ((runEnvAsked && !runEnvCurrent) || side === 'overall' || side === 'fielding')
+  // Never over every season: the run values are fit to one season's league, so Overall does not
+  // take that pick, and Fielding's play-log columns (range, throw-outs) dash there.
+  const needPlays = !everySeason && !rvPlays && storedSettled && !storedCurrent && ((runEnvAsked && !runEnvCurrent) || side === 'overall' || side === 'fielding')
   useEffect(() => {
     if (!needPlays) return
     let cancelled = false
@@ -1052,7 +1063,9 @@ export default function WpblStatsView({
   // shut: a board counting the playoffs looks exactly like one counting the season, for the
   // reader most likely to have set it by accident. The pill's dot says only that SOMETHING is
   // not the default; this is the line that says what.
-  const scopeWord = overall ? `${season ?? ''} season`.trim()
+  const scopeWord = everySeason
+    ? (scope === 'postseason' ? 'All playoffs' : scope === 'all' ? 'All seasons + playoffs' : 'All seasons')
+    : overall ? `${season ?? ''} season`.trim()
     : scope === 'postseason' ? `${season ?? ''} playoffs`.trim()
     : scope === 'all' ? `${season ?? ''} season + playoffs`.trim()
     : `${season ?? ''} season`.trim()
@@ -1093,7 +1106,7 @@ export default function WpblStatsView({
       ...viewCols.map(c => ({ label: c.label, cell: ({ r }: { r: Row }) => cellText(c, r.totals) })),
     ]
     const indexed = rows.map((r, i) => ({ r, i }))
-    const parts = ['wpbl', season, scope === 'regular' || overall ? null : scope, side, mode,
+    const parts = ['wpbl', everySeason ? 'all-seasons' : season, scope === 'regular' || overall ? null : scope, side, mode,
       hasViews ? view : null, teamId, posOn]
     let how: string
     if (kind === 'copy') {
@@ -1138,6 +1151,8 @@ export default function WpblStatsView({
   }
 
   return (
+    // Every game date says its year while the boards span seasons (Bests, Find).
+    //
     // STRETCHED TO FILL THE TAB, which is what gives the pinned board somewhere to stay pinned.
     //
     // A sticky element stops sticking when its containing block runs out, and the board is the
@@ -1150,6 +1165,7 @@ export default function WpblStatsView({
     // much room to hold its position as the tab had going spare.
     //
     // Inert wherever the parent is not a flex container, which is every other caller.
+    <GameYearContext.Provider value={everySeason}>
     <Box sx={{ flexGrow: 1 }}>
       {/* The page's one <h1>: /wpbl/stats, the section's most-searched term. It sits above the
           sticky control bar and scrolls away with the content, leaving the bar to pin; the
@@ -1170,7 +1186,8 @@ export default function WpblStatsView({
         view={view} switchView={switchView} canFilter={canFilter} sheetOpen={sheetOpen} setSheetOpen={setSheetOpen}
         activeCol={activeCol} filtersSet={filtersSet} hasPostseason={hasPostseason} overall={overall}
         scope={scope} setScope={setScope} teamId={teamId} teamChips={teamChips} filterTeam={filterTeam}
-        qualified={qualified} toggleQualified={toggleQualified} pos={posOn} posChoices={posChoices} filterPos={filterPos} />
+        qualified={qualified} toggleQualified={toggleQualified} pos={posOn} posChoices={posChoices} filterPos={filterPos}
+        allSeasons={boardTakesAll} />
 
       {/* ON A PHONE THE POSITION SAYS SO ABOVE THE TABLE: its picker is in the Filters sheet, and a
           board of four catchers with nothing on screen saying why reads as a board missing players.
@@ -1234,7 +1251,8 @@ export default function WpblStatsView({
             <FilterBody teams={teamChips} teamId={teamId} onTeam={filterTeam} pos={posOn} posChoices={posChoices} onPos={filterPos}
               qualified={qualified} onQualified={toggleQualified}
               scope={hasPostseason && !overall ? scope : null} onScope={setScope}
-              season={multiSeason ? season : null} seasons={seasons} onSeason={pickSeason}
+              season={multiSeason ? (everySeason ? 'all' : season) : null} seasons={seasons} onSeason={pickSeason}
+              offerAll={boardTakesAll}
               showWho={source === 'season' && mode === 'players'} showQualified={!overall}
               bar={qual.active ? qualBar : null} />
           ) : null}
@@ -1242,5 +1260,6 @@ export default function WpblStatsView({
       )}
 
     </Box>
+    </GameYearContext.Provider>
   )
 }

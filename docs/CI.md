@@ -17,7 +17,8 @@ squash-merged, and Cloudflare deploys whatever lands. The ruleset requires two c
 `layout 1/8` to `layout 8/8` are the layout sweep split by route, run in parallel, `layout
 experiments` sweeps the flag-gated routes beside them in about a minute, and `layout behavior`
 checks that board filters survive a reload and Back ([below](#filters-survive-a-reload-and-back)),
-also in about a minute. Four slices took about 9
+also in about a minute. `layout seasons-1` and `seasons-2` sweep the pages a second season changes
+([below](#a-second-season)). Four slices took about 9
 minutes each on Oct 14, 2026, nearly all of it the sweep's fixed waits; eight slices, and the
 loading-shift check at the default text size only, brought that down without shortening a wait.
 A slice takes 2 to 6 minutes, and the slowest one sets the pull request's time: 4m22s to 5m44s
@@ -270,6 +271,7 @@ Flags worth knowing:
 | `--cpu 4` | slow Chrome down to CI's speed |
 | `--shots dir` | save the before and after frame of every case that shifts |
 | `--behavior` | the filter check below, in place of the layout checks |
+| `--seasons` | the WPBL with a second season (below), on its own list of routes |
 
 The sweep needs a dev server built the way CI builds it. With a real `.env` the app talks to the
 real project; for a replay, start one with the placeholder settings:
@@ -277,6 +279,24 @@ real project; for a replay, start one with the placeholder settings:
 ```bash
 VITE_SUPABASE_URL=http://127.0.0.1:54321 VITE_SUPABASE_ANON_KEY=sweep-anon-key VITE_VAPID_PUBLIC_KEY=sweep-vapid-key npx vite --port 5180
 npm run sweep -- --base http://localhost:5180 --replay --shift --baseline
+```
+
+## A second season
+
+The league has one season until spring 2027, so the layouts a second one brings (the season menus,
+"All seasons" on Stats, a Year column in Find, a year on every date, career totals) are on no page
+the sweep sees. `--seasons` turns on the dev fake 2027 (`src/wpbl/dev/devSecondSeason.ts`, every
+2026 regular-season game moved a year on, the first 40% played) and sweeps `SEASON_ROUTES`: each
+Stats board, Find at every shape the year changes, Standings, the clubs, a series and the season
+recap, the ones with a season menu on the default year, on `season=2026` and on `season=all`. Not
+Home: it picks its season or offseason shape by the calendar, and the fixture's clock is the
+offseason while the fake 2027 has played games, a mix no reader meets. All
+the checks run, the wrapped-row one included, so a control the wider "All seasons" pill pushes onto
+a second line fails it. CI runs it as `layout seasons-1` and `seasons-2`. Its reads are in the same
+fixture; a page that starts reading something new for 2027 records with
+
+```bash
+npm run sweep -- --seasons --record --merge --text default
 ```
 
 ## Filters survive a reload and Back

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { createContext } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TYPE_SCALE } from './card'
 import { shortDate } from '../lib/format'
@@ -31,10 +31,24 @@ import { useNameFit } from './NameText'
  *  format across the site outranks the four characters it saved. `home` must come off the LINE's club, the club
  *  played for that day: the roster's means "now", and would put a traded player on the wrong side
  *  of "vs". */
-export function formatGameLineLabel(gameDate: string, home: boolean, opp: string | null | undefined): string {
-  const date = shortDate(gameDate)
+export function formatGameLineLabel(gameDate: string, home: boolean, opp: string | null | undefined, withYear = false): string {
+  const date = gameDateText(gameDate, withYear)
   return opp ? `${date} ${home ? 'vs' : 'at'} ${opp}` : date
 }
+
+/** "Aug 12", or "Aug 12, 2026" once a board's rows span more than one season. */
+export function gameDateText(gameDate: string, withYear: boolean): string {
+  const date = shortDate(gameDate)
+  return withYear && date ? `${date}, ${gameDate.slice(0, 4)}` : date
+}
+
+/**
+ * THE YEAR ON EVERY GAME DATE, for a board showing every season at once. Within one season "Aug 12"
+ * is a date; across two it is two dates, and a record book that cannot say which August it means
+ * is wrong in a way nothing flags. A context rather than a prop because the rows that print a date
+ * sit several components below the board that knows the seasons (Bests, Find).
+ */
+export const GameYearContext = createContext(false)
 
 /** The rank's box, shared with the skeletons that stand in for these rows so the two cannot drift.
  *  The leader cards' rank (leaders.tsx): the meta size, wide enough for "T-10" (1.85rem), in rem so

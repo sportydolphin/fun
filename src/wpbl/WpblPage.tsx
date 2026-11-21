@@ -13,6 +13,7 @@ export default function WpblPage(props: {
   title: React.ReactNode
   standfirst?: React.ReactNode
   maxWidth?: number | string
+  aside?: React.ReactNode
   children: React.ReactNode
 }) {
   const headingTag = useWpblHeadingTag()

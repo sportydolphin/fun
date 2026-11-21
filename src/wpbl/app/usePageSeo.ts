@@ -10,6 +10,7 @@ import { wpblGameCard } from '../ogCard'
 import { setDynamicSeo, wpblSeasonSeo, WPBL_ROUTES_SEASON } from '../../seo'
 import { currentSeason, seasonsOnRecord } from '../season'
 import { SEASON_VIEWS } from './snapshot'
+import type { WpblSeasonPick } from '../SeasonContext'
 
 /** The page's title and description whenever the path alone cannot say them: a player, a game, or a
  *  tab showing a year other than the one seo.ts is written for. */
@@ -23,14 +24,15 @@ export function usePageSeo({ active, detailPlayer, detailGame, players, games, t
   teams: WpblTeam[]
   view: WpblView
   awardsOpen: boolean
-  pickedSeason: number | null
+  pickedSeason: WpblSeasonPick | null
   selectedTeam: WpblTeam | null
 }) {
   // The current season and the reader's pick, resolved the way useWpblSeason resolves them, for the
   // tags below: this component owns the provider, so it cannot read the hook's answer.
   const seasonNow = useMemo(() => currentSeason(games), [games])
   const seasonOptions = useMemo(() => seasonsOnRecord(games), [games])
-  const seasonPicked = pickedSeason != null && pickedSeason !== seasonNow && seasonOptions.includes(pickedSeason)
+  // Every season at once is no year, so it keeps the tags of the current one.
+  const seasonPicked = typeof pickedSeason === 'number' && pickedSeason !== seasonNow && seasonOptions.includes(pickedSeason)
     ? pickedSeason : null
 
   // A player page is titled with the player's name and a game page with its final score,

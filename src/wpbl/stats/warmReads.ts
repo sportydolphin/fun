@@ -12,7 +12,7 @@ import { currentSeason } from '../season'
  *  round trip (about 650ms) before the slowest reads on the site had even started. Each fetcher
  *  shares an in-flight request (`once` in api/core.ts), so the tab's own effects pick these up rather
  *  than asking twice. Failures are the tab's to handle when it asks; here they are dropped. */
-export function warmStatsReads(picked: number | null): void {
+export function warmStatsReads(picked: number | 'all' | null): void {
   const drop = () => { /* the tab's own read reports it */ }
   fetchWpblAllPlayers().catch(drop)
   fetchWpblAllFielding().catch(drop)
@@ -23,13 +23,15 @@ export function warmStatsReads(picked: number | null): void {
   // in flight for the section) to say which year that is when the address does not.
   fetchWpblSchedule()
     .then(async games => {
-      const year = picked ?? currentSeason(games)
+      // Every season has no stored rows to read: the boards sum the lines, so those are warmed.
+      const year = picked === 'all' ? null : picked ?? currentSeason(games)
       if (year != null && (await fetchWpblPlayerSeasons(year)).current) return
       fetchWpblAllLines().catch(drop)
       // The priced row rather than the play log for the weights; the play log for the Overall side,
       // which the tab opens on.
       fetchWpblRunEnvironment().catch(drop)
-      fetchWpblAllRunValuePlays(year).catch(drop)
+      // Not over every season, which the Overall side does not show (its models are one season's).
+      if (picked !== 'all') fetchWpblAllRunValuePlays(year).catch(drop)
     })
     .catch(drop)
 }

@@ -98,7 +98,7 @@ first when you are working on what the line describes, even from somewhere else 
 - A player's feed id is not the player, and a player's club is a fact about a date: names come from `fetchWpblAllPlayers`, clubs from the line.
 - A series being played is not "upcoming" (the pick'em lock).
 - `live_state` is the feed's last word: clamp the count, detect the break between halves.
-- Every bulk read is every season: `cut` before summing; the play log is the one per-season read.
+- Every bulk read is every season: `cut` before summing; the play log is the one per-season read. "All seasons" only where a surface asks (`{ all: true }`).
 - `LIVE_GAME_COLUMNS` must list every column that can change mid-game.
 - Rate-title gates are plate appearances (`plateAppearances()`), never `ab`.
 - `era` / `k9` follow `ERA_BASIS_CANONICAL`; never a literal 7 or 9.

@@ -34,7 +34,18 @@ export function fetchWpblTeams(): Promise<WpblTeam[]> {
 // The last good schedule the section fetched, for the same synchronous seed. `lastGoodSchedule`
 // is what fetchWpblSchedule already keeps for its empty-read guard, so this exposes it rather
 // than holding a second copy.
-export function getCachedWpblSchedule(): WpblGame[] | null { seedSchedule(); return lastGoodSchedule }
+//
+// THROUGH THE READ OVERLAY, as the live read is: a dev overlay that adds games (the fake 2027)
+// otherwise drew every loading frame from the real schedule and then swapped in its own, a jump no
+// production reader sees (Home flipped from the offseason to the season under the layout sweep's
+// --seasons pass). Held by identity, so a caller seeding state gets the same array each time.
+let overlaid: { from: WpblGame[]; to: WpblGame[] } | null = null
+export function getCachedWpblSchedule(): WpblGame[] | null {
+  seedSchedule()
+  if (!lastGoodSchedule || !readOverlay) return lastGoodSchedule
+  if (overlaid?.from !== lastGoodSchedule) overlaid = { from: lastGoodSchedule, to: readOverlay.schedule(lastGoodSchedule) }
+  return overlaid.to
+}
 
 /**
  * An empty schedule read never replaces a good one.

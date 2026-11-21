@@ -128,6 +128,10 @@ export interface FinderQuery {
    *  (of the games they played, after every other cut), by the question's first stat. "Most home
    *  runs in 5 games", "best avg over 10 games". Hitting and Pitching only. Absent is the season. */
   stretch?: number | null
+  /** EVERY SEASON SUMMED INTO ONE ROW, at the season grain: a career. Without it, lines from more than
+   *  one year make one row per player per year, so "most home runs in a season" over every season is a
+   *  list of seasons and not of careers. Ignored at every other grain, and a no-op on one year's lines. */
+  career?: boolean | null
   /** ONE PLAYER'S LINES: the player each match is filed under, at a game, a season or a pitcher's
    *  inning. Not at a plate appearance, where the matchup's batter (Hitting) or pitcher (Pitching) is
    *  the same thing and the board swaps one for the other with the grain (`finderPlayerAt`), and not
@@ -801,6 +805,10 @@ export interface FinderRow<P extends LeaguePlayer = LeaguePlayer, G extends Leag
   inning: { inning: number; half: 'top' | 'bottom'; sequence: number; event?: string | null } | null
   /** The first and last game of a stretch row's run (`FinderQuery.stretch`). Absent on every other. */
   stretch?: { first: G; last: G }
+  /** The year of a season row, when the lines searched held more than one (a career row has none).
+   *  Absent on one year's lines, where the board already names the year, and on every other grain,
+   *  whose game carries its date. */
+  season?: number
   /** The value of the first condition's field, which is what the row is measured by. */
   headline: number
   headlineDisplay: string
@@ -851,6 +859,10 @@ export interface FinderOptions {
   /** The season's bar for a rate title, in plate appearances, outs and (for a fielder) games.
    *  Absent applies none. */
   qualify?: { minPa: number; minOuts: number; minG?: number } | null
+  /** EACH YEAR'S OWN BAR, for season rows split by year: a season of 2026 is held to 2026's bar,
+   *  not to `qualify`, which over every season is a career's and which no single season could
+   *  reach. Used wherever `qualify` would be, on a row that carries its year. */
+  qualifyFor?: (year: number) => { minPa: number; minOuts: number; minG?: number } | null
   /** The fielding lines, for the Fielding side. Here rather than beside the other two because only a
    *  section that stores them has that side; asked without them, it searches nothing. */
   fielding?: FieldingGameLine[]
@@ -1080,20 +1092,31 @@ const passes = (v: number, c: FinderCondition): boolean =>
 
 type AnyLine = { id: string; player_id: string; team_id: string | null; game_id: string }
 
+/** The key a season line is filed under: the player, and the year when the lines hold several. */
+const seasonKey = (playerId: string, year: number | null): string => (year == null ? playerId : `${playerId}@${year}`)
+
 /** Each player's lines summed into one, with `g` the lines in it and the club the most of them were
  *  played for. Every number on the line is summed, so a column added to the line type is summed too
  *  without anyone remembering to add it here; a null (a night the feed did not count pitches) adds
- *  nothing. */
-function seasonLines<L extends AnyLine>(lines: L[]): (L & { g: number })[] {
-  const byPlayer = new Map<string, L[]>()
+ *  nothing.
+ *
+ *  ONE LINE PER PLAYER PER YEAR when `yearOf` is given, since every bulk read holds every season and a
+ *  "season" summed across two of them is a number no season ever had. The id is the player's alone on
+ *  one year's lines, which keeps every row key from before there was a second season. */
+function seasonLines<L extends AnyLine>(lines: L[], yearOf: ((l: L) => number | null) | null = null): (L & { g: number; season?: number })[] {
+  const years = yearOf ? new Set(lines.map(yearOf)) : null
+  const split = !!years && years.size > 1
+  const byPlayer = new Map<string, { year: number | null; list: L[] }>()
   for (const l of lines) {
-    const list = byPlayer.get(l.player_id)
-    if (list) list.push(l)
-    else byPlayer.set(l.player_id, [l])
+    const year = split ? yearOf!(l) : null
+    const key = seasonKey(l.player_id, year)
+    const group = byPlayer.get(key)
+    if (group) group.list.push(l)
+    else byPlayer.set(key, { year, list: [l] })
   }
-  return [...byPlayer.entries()].map(([playerId, list]) => {
+  return [...byPlayer.entries()].map(([key, { year, list }]) => {
     const rows = list as unknown as Record<string, unknown>[]
-    const sum: Record<string, unknown> = { ...rows[0], id: playerId, game_id: '' }
+    const sum: Record<string, unknown> = { ...rows[0], id: key, game_id: '' }
     for (const key of Object.keys(rows[0])) {
       if (key === 'id' || key === 'game_id' || key === 'player_id' || key === 'team_id') continue
       if (!rows.some(r => typeof r[key] === 'number')) continue
@@ -1104,7 +1127,8 @@ function seasonLines<L extends AnyLine>(lines: L[]): (L & { g: number })[] {
     // Ties broken on the club id, so the badge is deterministic rather than insertion-ordered.
     sum.team_id = [...clubs.entries()].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])))[0][0]
     sum.g = list.length
-    return sum as L & { g: number }
+    if (year != null) sum.season = year
+    return sum as L & { g: number; season?: number }
   })
 }
 
@@ -1116,9 +1140,11 @@ function seasonLines<L extends AnyLine>(lines: L[]): (L & { g: number })[] {
  * whether it belongs to the slice being asked about, and a half-finished line is not a
  * performance yet.
  *
- * A SEASON IS WHATEVER LINES IT IS HANDED, so the caller cuts them to one year first, as both
- * sections already do for every board (CLAUDE.md, "every WPBL bulk read is every season"). Handed
- * two years, a season row is both of them summed, and nothing here can tell.
+ * A SEASON IS ONE YEAR OF WHATEVER LINES IT IS HANDED. Both sections cut their boards to one year
+ * (CLAUDE.md, "every WPBL bulk read is every season"), but a board over every season hands them all
+ * in, and a season row summed across two years would be a total no season ever had: so a season
+ * row is one player's one year (`season` on the row once there are several), and `query.career`
+ * is the one question that sums them. The rate bar in `opts.qualify` is the caller's to scale.
  *
  * A RATE IS QUALIFIED unless the reader set their own bar. A season question with an average, an
  * OPS, an ERA or a WHIP in it keeps only the players over the league's rate-title bar
@@ -1146,6 +1172,14 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
   const clubNamed = (id: string): string | null =>
     (id.startsWith(CLUB_KEY) && opts.clubName ? opts.clubName(id.slice(CLUB_KEY.length)) : null)
   const season = query.per === 'season'
+  // The year a line was played in, off its game, which splits a season row by year; null on a career,
+  // which is every year in one row.
+  const yearOfGame = (gameId: string): number | null => {
+    const y = Number(gameById.get(gameId)?.game_date.slice(0, 4))
+    return y > 0 ? y : null
+  }
+  const yearOf = season && !query.career ? (l: AnyLine) => yearOfGame(l.game_id) : null
+  const yearOfRow = (l: AnyLine): number => (l as { season?: number }).season ?? 0
   const headlineField = query.conditions[0]?.field ?? (side === 'pitching' ? 'so' : side === 'fielding' ? 'tc' : 'h')
   // Read only when asked: it walks every pitching line.
   const kinds = query.extra || query.dh ? finderGameKinds(finals, pitching, opts.regulationInnings) : null
@@ -1209,6 +1243,9 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     lines: L[], fields: Field<L>[], detail: (l: L) => string, played: (l: L) => boolean,
     bar: { field: 'pa' | 'ip' | 'g'; own: string[]; min: number | undefined },
     gamesPlayed?: Map<string, number>,
+    // The same games played for a season line, keyed as it is filed (`seasonKey`): a fielder's games
+    // in each year, which `gamesPlayed` (every year, for the tally) cannot give a row of one year.
+    seasonPlayed?: Map<string, number>,
     // The conditions asked of each line, which a season summed from plate appearances hands in
     // without its situation (already spent cutting the trips).
     conds: FinderCondition[] = query.conditions,
@@ -1242,8 +1279,16 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
       ? (asksRate && !ownBar && stretchBar ? { field: bar.field, min: stretchBar } : null)
       : asksRate && !ownBar && bar.min ? { field: bar.field, min: bar.min } : null
     const barField = byKey.get(bar.field)!
+    // A row of one year among several is held to that year's bar, where the section gives one.
+    const minFor = (line: L): number => {
+      const year = (line as { season?: number }).season
+      if (!qualifier || stretchN || year == null || !opts.qualifyFor) return qualifier?.min ?? 0
+      const q = opts.qualifyFor(year)
+      const min = bar.field === 'pa' ? q?.minPa : bar.field === 'ip' ? q?.minOuts : q?.minG
+      return min ?? 0
+    }
     const fits = (line: L): boolean => {
-      if (qualifier && barField.value(line) < qualifier.min) return false
+      if (qualifier && barField.value(line) < minFor(line)) return false
       for (const c of conds) {
         const f = byKey.get(c.field)
         // An unknown field is a hand-edited link, and dropping the condition would answer a
@@ -1258,13 +1303,17 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     // season is, and the best run that fits kept, by the question's first stat (the latest on a tie).
     // Over the games played, after every cut: "best 5 games at home" is five home games in a row of
     // the player's home games. A player with fewer than N games has no stretch.
+    // A stretch is the best run within one season, unless the question is a career's, where five
+    // games in a row may run from one September into the next May: they are five games in a row.
     const runs = new Map<string, { first: G; last: G }>()
     const stretches = (): L[] => {
       const byPlayer = new Map<string, L[]>()
+      const split = !!yearOf && new Set(pool.map(yearOf)).size > 1
       for (const l of pool) {
-        const list = byPlayer.get(l.player_id)
+        const key = seasonKey(l.player_id, split ? yearOf!(l) : null)
+        const list = byPlayer.get(key)
         if (list) list.push(l)
-        else byPlayer.set(l.player_id, [l])
+        else byPlayer.set(key, [l])
       }
       const out: L[] = []
       for (const [id, list] of byPlayer) {
@@ -1272,7 +1321,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
         list.sort((a, b) => gameOrder(gameById.get(a.game_id)!).localeCompare(gameOrder(gameById.get(b.game_id)!)))
         let best: { line: L; v: number; at: number } | null = null
         for (let i = 0; i + stretchN <= list.length; i++) {
-          const line = seasonLines(list.slice(i, i + stretchN))[0] as unknown as L
+          const line = { ...seasonLines(list.slice(i, i + stretchN))[0], id, ...(split ? { season: yearOf!(list[0]) } : {}) } as unknown as L
           if (!fits(line)) continue
           const v = head.value(line)
           if (!best || (head.lowerBetter ? v <= best.v : v >= best.v)) best = { line, v, at: i }
@@ -1286,7 +1335,10 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
 
     const candidates = stretchN ? stretches()
       : season
-        ? seasonLines(cut).filter(played).map(l => (gamesPlayed?.has(l.player_id) ? { ...l, g: gamesPlayed.get(l.player_id)! } : l))
+        ? seasonLines<L>(cut, yearOf).filter(played).map(l => {
+          const g = seasonPlayed?.get(l.id) ?? gamesPlayed?.get(l.player_id)
+          return g != null ? { ...l, g } : l
+        })
         : pool
 
     // A MATCHUP OR ONE PLAYER WITH NOTHING ELSE ASKED IS A LOG: every trip to the plate between the
@@ -1317,7 +1369,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
         if (c) return c * dir
       }
       if (!log && a.head !== b.head) return highFirst(a.head, b.head) * (head.lowerBetter ? -1 : 1)
-      if (season) return nameOf(a).localeCompare(nameOf(b))
+      if (season) return nameOf(a).localeCompare(nameOf(b)) || yearOfRow(b.line) - yearOfRow(a.line)
       const ad = dateOf(a), bd = dateOf(b)
       if (ad !== bd) return ad < bd ? -1 : 1
       // Two plays or innings in one game go in the order they happened, which a yes-or-no answer's
@@ -1374,9 +1426,11 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
       rows: matched.slice(0, limit).map(({ line, head: h }) => {
         const v = lead === head ? h : lead.value(line)
         const p = playerById.get(line.player_id) ?? null
-        const run = stretchN ? runs.get(line.player_id) : undefined
+        const run = stretchN ? runs.get(line.id) : undefined
+        const year = season ? (line as { season?: number }).season : undefined
         return {
           ...(run ? { stretch: run } : {}),
+          ...(year != null ? { season: year } : {}),
           key: line.id,
           player: p,
           name: p?.name ?? clubNamed(line.player_id) ?? '—',
@@ -1510,10 +1564,21 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
       else nights.set(l.player_id, new Set([l.game_id]))
     }
     const played = new Map([...nights].map(([id, set]) => [id, set.size]))
+    // Each year's games too, filed as a season line split by year is; on one year's lines the line is
+    // filed under the player alone, finds nothing here, and takes `played`, which is that year.
+    const byYear = new Map<string, number>()
+    if (yearOf) {
+      for (const [id, set] of nights) {
+        for (const gameId of set) {
+          const k = seasonKey(id, yearOfGame(gameId))
+          byYear.set(k, (byYear.get(k) ?? 0) + 1)
+        }
+      }
+    }
     return collect(fielding, [...FLD_FIELDS, ...FLD_SEASON_FIELDS] as Field<FieldingGameLine>[],
       season ? fldSeasonDetail as (l: FieldingGameLine) => string : fldDetail,
       l => l.po + l.a + l.e + l.dp + l.pb + l.sba + l.ci > 0,
-      { field: 'g', own: ['g', 'tc'], min: qualify?.minG }, played)
+      { field: 'g', own: ['g', 'tc'], min: qualify?.minG }, played, byYear)
   }
   if (side === 'pitching') {
     const seasonFields = pitSeasonFields(opts.eraInnings ?? 9)
@@ -1526,7 +1591,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     return collect(lines, [...PIT_FIELDS, ...seasonFields, ...(totals ? playFields(side) : [])] as Field<DecidedPitching>[],
       season ? pitSeasonDetail(era) as (l: DecidedPitching) => string : pitDetail,
       l => l.outs > 0 || (l.bf ?? 0) > 0,
-      { field: 'ip', own: ['ip', 'bf'], min: qualify?.minOuts }, undefined, query.conditions, true)
+      { field: 'ip', own: ['ip', 'bf'], min: qualify?.minOuts }, undefined, undefined, query.conditions, true)
   }
   // A HITTER'S SEASON AGAINST ONE ARM, ONE PITCHER OR IN ONE SITUATION is summed from the plate
   // appearances that fit (SITUATION_KEYS), a game line per night, since no box-score line splits by
@@ -1558,7 +1623,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
       // The season's bar is for a whole season; a cut this narrow brings its own (the search's rows
       // ask for a few plate appearances), so the board's is not put on top of it.
       { field: 'pa', own: ['pa', 'ab'], min: query.hand && !query.pitcherId && !situation.length && !query.byClub ? qualify?.minPa : undefined },
-      undefined, query.conditions.filter(c => !PA_CUT_KEYS.has(c.field)))
+      undefined, undefined, query.conditions.filter(c => !PA_CUT_KEYS.has(c.field)))
   }
   if (season && query.byClub) {
     // A CLUB'S SEASON: its games (`sum`), each with the two-out runs its half-innings scored, summed
@@ -1583,7 +1648,7 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
   return collect(lines, [...HIT_FIELDS, ...(season ? [] : HIT_STREAK_FIELDS), ...HIT_SEASON_FIELDS, ...(totals ? playFields(side) : [])] as Field<BattingGameLine>[],
     season ? hitSeasonDetail as (l: BattingGameLine) => string : hitDetail,
     l => l.ab + l.bb + l.hbp + l.sf + l.sh > 0,
-    { field: 'pa', own: ['pa', 'ab'], min: qualify?.minPa }, undefined, query.conditions, true)
+    { field: 'pa', own: ['pa', 'ab'], min: qualify?.minPa }, undefined, undefined, query.conditions, true)
 }
 
 /** Whether a query's stretch can be asked: a player's season on Hitting or Pitching, from the box
@@ -1639,19 +1704,21 @@ const EXTRA_TOKEN = 'extra'
 const DH_TOKEN = 'dh'
 /** `stretch.5`: the best five games in a row. */
 const STRETCH_TOKEN = 'stretch'
+/** `career.1`: every season summed into one row. */
+const CAREER_TOKEN = 'career'
 
 /** The cuts a query carries in `q`. */
-export type FinderCuts = Pick<FinderQuery, 'from' | 'to' | 'last' | 'hand' | 'extra' | 'dh' | 'stretch'>
+export type FinderCuts = Pick<FinderQuery, 'from' | 'to' | 'last' | 'hand' | 'extra' | 'dh' | 'stretch' | 'career'>
 
 /** The cuts of anything that carries them, each null when absent: what a parsed question hands a query. */
 export function finderCutsOf(c: FinderCuts): Required<{ [K in keyof FinderCuts]: FinderCuts[K] | null }> {
   return { from: c.from ?? null, to: c.to ?? null, last: c.last ?? null, hand: c.hand ?? null,
-    extra: c.extra ?? null, dh: c.dh ?? null, stretch: c.stretch ?? null }
+    extra: c.extra ?? null, dh: c.dh ?? null, stretch: c.stretch ?? null, career: c.career ?? null }
 }
 
 /** Whether anything carries a cut at all. */
 export const hasFinderCut = (c: FinderCuts): boolean =>
-  !!(c.from || c.to || c.last || c.hand || c.extra || c.dh || c.stretch)
+  !!(c.from || c.to || c.last || c.hand || c.extra || c.dh || c.stretch || c.career)
 
 /** The query as a `q` value, or '' when it is asking for everything. */
 export function encodeFinderQuery(q: Pick<FinderQuery, 'conditions'> & { per?: FinderPer; byClub?: boolean } & FinderCuts): string {
@@ -1663,6 +1730,7 @@ export function encodeFinderQuery(q: Pick<FinderQuery, 'conditions'> & { per?: F
     q.last && q.last > 0 && `${LAST_TOKEN}${PART_SEP}${q.last}`, q.hand && `${HAND_TOKEN}${PART_SEP}${q.hand.toLowerCase()}`,
     q.extra && `${EXTRA_TOKEN}${PART_SEP}1`, q.dh && `${DH_TOKEN}${PART_SEP}${q.dh === 'any' ? 'a' : q.dh}`,
     q.stretch && q.stretch > 1 && `${STRETCH_TOKEN}${PART_SEP}${q.stretch}`,
+    q.career && `${CAREER_TOKEN}${PART_SEP}1`,
   ].filter((x): x is string => !!x)
   return [...lead, ...cuts, ...parts].join(COND_SEP)
 }
@@ -1678,6 +1746,7 @@ export function decodeFinderCuts(raw: string | null): FinderCuts {
     else if (word === HAND_TOKEN && (value === 'l' || value === 'r')) out.hand = value === 'l' ? 'L' : 'R'
     else if (word === EXTRA_TOKEN && value === '1') out.extra = true
     else if (word === DH_TOKEN && (value === 'a' || value === '1' || value === '2')) out.dh = value === 'a' ? 'any' : Number(value) as 1 | 2
+    else if (word === CAREER_TOKEN && value === '1') out.career = true
     else if (word === STRETCH_TOKEN && /^\d{1,2}$/.test(value) && Number(value) > 1 && Number(value) <= FINDER_STRETCH_MAX) out.stretch = Number(value)
   }
   return out
@@ -1697,7 +1766,7 @@ const spanDay = (d: string) => {
   return d.length === 8 ? `${day}, ${d.slice(0, 4)}` : day
 }
 
-export type FinderCutKey = 'span' | 'last' | 'hand' | 'extra' | 'dh' | 'stretch'
+export type FinderCutKey = 'span' | 'last' | 'hand' | 'extra' | 'dh' | 'stretch' | 'career'
 
 /**
  * Each cut in words, for a chip with its own remove: "Aug 1 to Aug 31", "Since Aug 1", "Last 10
@@ -1716,6 +1785,7 @@ export function describeFinderCuts(side: FinderBoardSide, q: FinderCuts & { per?
   if (q.extra) out.push({ key: 'extra', text: 'Extra innings' })
   if (q.dh) out.push({ key: 'dh', text: finderDhText(q.dh) })
   // Only where the grain reads it: a season.
+  if (q.career && q.per === 'season') out.push({ key: 'career', text: 'Career' })
   if (q.stretch && q.per === 'season' && side !== 'fielding') out.push({ key: 'stretch', text: finderStretchText(q.stretch) })
   // Only where the grain reads it: a plate appearance, or a hitter's season.
   if (q.hand && (q.per === 'pa' || (q.per === 'season' && side === 'hitting'))) {
@@ -1915,6 +1985,9 @@ const STREAK_FIELDS = new Set(['hstreak', 'obstreak', 'hitrow'])
 
 export function finderAnswerText(result: FinderResult, side: FinderBoardSide, query: Pick<FinderQuery, 'per' | 'conditions'>): string {
   if (result.total === 0) return 'Never'
+  // ACROSS SEASONS A DATE SAYS ITS YEAR, and a season says which one: "Sep 2" of which year.
+  const day = answerDay(result)
+  const whose = (r: FinderRow) => (r.season != null ? `${r.name}, ${r.season}` : r.name)
   // A CLUB'S GAMES WITH NOTHING ASKED ARE ITS RECORD: "Hunters at home", "Queens last 10" read "6–4".
   // Every match is counted, so `result` must be uncapped here too.
   if (query.per === 'club' && query.conditions.length === 0) {
@@ -1930,19 +2003,19 @@ export function finderAnswerText(result: FinderResult, side: FinderBoardSide, qu
     // and read as one it said "Record 1 · 22 tied". Counted instead, like any other list.
     if (query.per === 'pa' && top <= 1) return finderCountText(result)
     const who = best.length > 1 ? `${best.length} tied`
-      : [first.name, first.game && shortDate(first.game.game_date)].filter(Boolean).join(', ')
+      : [whose(first), first.game && day(first.game.game_date)].filter(Boolean).join(', ')
     return `${query.per === 'season' ? 'Leader' : 'Record'} ${displayFinderValue(side, only.field, top)} · ${who}`
   }
   // A batter's hits in a row are asked as two or more ("consecutive hits"), and the answer is the longest.
   if (query.conditions.length === 1 && only.field === 'hitrow' && only.op === 'gte' && result.rows.length) {
     const top = result.rows[0]
-    return `Record ${top.values.hitrow} · ${[top.name, top.game && shortDate(top.game.game_date)].filter(Boolean).join(', ')}`
+    return `Record ${top.values.hitrow} · ${[top.name, top.game && day(top.game.game_date)].filter(Boolean).join(', ')}`
   }
   // A RANKED SEASON WITH A BAR BESIDE IT ("avg vs lefties" asks avg and at least 10 PA): the first row is
   // the leader, in the order the board ranks it.
   if (query.per === 'season' && only?.op === 'gte' && only.value <= 1 && result.rows.length) {
     const top = result.rows[0]
-    return `Leader ${displayFinderValue(side, only.field, top.values[only.field] ?? 0)} · ${top.name}`
+    return `Leader ${displayFinderValue(side, only.field, top.values[only.field] ?? 0)} · ${whose(top)}`
   }
   // ONE SEASON IS ITS LINE. "Hondras vs RHP" read "1 season · first, Amira Hondras", which said whose
   // season it was and nothing of how it went.
@@ -1953,15 +2026,22 @@ export function finderAnswerText(result: FinderResult, side: FinderBoardSide, qu
     if (line.length) return line.join(' · ')
   }
   if (query.per === 'season') {
-    const lead = result.rows[0]?.name
+    const lead = result.rows[0] && whose(result.rows[0])
     return [`${result.total.toLocaleString()} ${result.total === 1 ? 'season' : 'seasons'}`, lead && `first, ${lead}`].filter(Boolean).join(' · ')
   }
   return finderCountText(result)
 }
 
+/** "Sep 2", or "Sep 2, 2026" when the matches span more than one season. */
+function answerDay(result: FinderResult): (iso: string) => string {
+  const span = result.span
+  const years = (!!span && span.first.game_date.slice(0, 4) !== span.last.game_date.slice(0, 4)) || result.rows.some(r => r.season != null)
+  return iso => (years ? `${shortDate(iso)}, ${iso.slice(0, 4)}` : shortDate(iso))
+}
+
 /** "7 times · last Sep 2 · most, Kelsie Whitmore (3)": how often, when last, and who most. */
 function finderCountText(result: FinderResult): string {
-  const when = result.span ? shortDate(result.span.last.game_date) : ''
+  const when = result.span ? answerDay(result)(result.span.last.game_date) : ''
   const count = result.total === 1 ? 'Once' : `${result.total.toLocaleString()} times`
   const top = result.tally[0]
   const most = top && top.games > 1 && result.tally.length > 1 && result.tally[1].games !== top.games ? `most, ${top.name} (${top.games})` : ''
