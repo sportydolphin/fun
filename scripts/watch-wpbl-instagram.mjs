@@ -61,7 +61,7 @@ import { buildWpblResign } from '../shared/notifications.js'
 // Imported, not copied: a re-signing the watcher records and the page then ignores (a player
 // it thinks is on another club) would be a row on the site that shows nowhere. Node 24 strips
 // the types itself; the module has no runtime imports, so nothing else comes with it.
-import { ROSTERS_2026, ROSTER_SEASON, RESIGN_WINDOW, MAX_RESIGNED, club2026 } from '../src/wpbl/offseason2027.ts'
+import { ROSTERS_2026, ROSTER_SEASON, MAX_RESIGNED, club2026, inResignAnnouncements } from '../src/wpbl/offseason2027.ts'
 
 // Run only when invoked directly; the tests import the matcher and the message builder.
 const IS_ENTRYPOINT = process.argv[1] != null
@@ -319,7 +319,8 @@ export const etDate = (iso) =>
  * The rosters on Home and the rosters page read that table, so a row here is public the moment
  * it is written. Each rule below is a way a right-looking caption could still put a wrong name on
  * the site, and a player who fails one is announced in Discord for a person to record by hand:
- *   - the post falls outside the re-signing window (a "running it back" in March is something else);
+ *   - the post falls outside the announcements: the window plus the days clubs kept revealing
+ *     their picks after it (a "running it back" in March is something else);
  *   - the player is not on a 2026 roster, or not on the posting club's (the league account may post
  *     for any club, a club only for its own);
  *   - the player is already recorded (by hand, or by an earlier run);
@@ -331,14 +332,14 @@ export function plannedMoves(row, existing) {
   const skipped = []
   const already = []
   const at = Date.parse(row.posted_at)
-  const inWindow = at >= RESIGN_WINDOW.opens && at <= RESIGN_WINDOW.closes
+  const inWindow = inResignAnnouncements(at)
   const counts = {}
   for (const m of existing) counts[m.team_id] = (counts[m.team_id] ?? 0) + 1
   row.player_ids.forEach((id, i) => {
     const name = row.player_names[i] ?? id
     const team = club2026(id)
     if (existing.some(m => m.player_id === id)) return already.push(name)
-    if (!inWindow) return skipped.push(`${name}: posted outside the re-signing window`)
+    if (!inWindow) return skipped.push(`${name}: posted outside the re-signing announcements`)
     if (!team) return skipped.push(`${name}: not on a 2026 roster`)
     if (row.team_id && row.team_id !== team) return skipped.push(`${name}: on ${team}'s 2026 roster, posted by ${row.account}`)
     if ((counts[team] ?? 0) >= MAX_RESIGNED) return skipped.push(`${name}: ${team} already has ${MAX_RESIGNED}`)
@@ -636,9 +637,9 @@ async function main() {
   }
   if (announced) console.log(`Announced ${announced}.`)
 
-  // The loose net, inside the window only. Read from the rows in view rather than the table, so a
+  // The loose net, inside the announcements only. Read from the rows in view rather than the table, so a
   // post is judged on its current caption; flagged_at makes it one ping per post.
-  const inWindow = (iso) => { const t = Date.parse(iso); return t >= RESIGN_WINDOW.opens && t <= RESIGN_WINDOW.closes }
+  const inWindow = (iso) => inResignAnnouncements(Date.parse(iso))
   const review = rows
     .filter(r => r.kind !== 'resign' && r.posted_at >= cutoff && inWindow(r.posted_at))
     .map(r => ({ row: r, hit: needsReview(r.caption, index, surnames) }))
