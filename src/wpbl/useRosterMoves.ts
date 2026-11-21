@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchWpblRosterMoves, getCachedWpblRosterMoves, ROSTER_MOVES_CHANGED_EVENT } from './api'
-import { rosterStatus, ROSTER_SEASON, club2026 } from './offseason2027'
+import { rosterStatus, ROSTER_SEASON, club2026, CLUB_CITIES } from './offseason2027'
 import type { WpblRosterMove } from './types'
 
 /** Every recorded roster move, null until the first read lands; redraws after an owner write. */
@@ -30,6 +30,7 @@ export function rosterFact(playerId: string, moves: readonly WpblRosterMove[] | 
   if (!status) return null
   if (moves == null) return { label, value: '—', inline: `${label}: …` }
   const value = status.kind === 're-signed' ? 'Re-signed'
+    : status.kind === 'traded' ? `Traded to ${CLUB_CITIES[status.teamId] ?? status.teamId}`
     : status.kind === 'unsigned' ? 'Not yet re-signed'
       : 'Draft eligible'
   return { label, value, inline: `${label}: ${value.charAt(0).toLowerCase()}${value.slice(1)}` }

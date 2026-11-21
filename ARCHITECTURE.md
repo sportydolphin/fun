@@ -438,7 +438,7 @@ flowchart TB
         t_wsent["wpbl_game_start_sent"]
         t_vid["wpbl_videos<br/>(YouTube uploads; is_short from a probe or the length; length and views from the Data API)"]
         t_vtag["wpbl_video_tags<br/>(each Short's game, play, players, club)"]
-        t_moves["wpbl_roster_moves<br/>(re-signings and the draft, by hand on /admin → Rosters, each with its source link)"]
+        t_moves["wpbl_roster_moves<br/>(re-signings, trades and the draft, by hand on /admin → Rosters, each with its source link)"]
         t_npost["wpbl_note_posts<br/>(live notes posted to Bluesky, by key; owner-only, from /admin → Notes)"]
         t_hipost["wpbl_discord_highlight_posts<br/>(one post per reel)"]
         t_bpost["wpbl_discord_birthday_posts<br/>(one greeting per person per year)"]

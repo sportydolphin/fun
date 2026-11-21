@@ -24,6 +24,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.253.0',
+    date:    '2026-11-21',
+    changes: [
+      {
+        short: 'WPBL: Transactions on Home',
+        full:  'Home lists every 2027 roster move, newest first, in place of the season card. A trade shows each player and pick under the club that got it: Boston gets Alyssa Zettlemoyer, New York gets a 2027 6th-round pick. The rosters page and player page show the trade too.',
+      },
+    ],
+  },
+  {
     version: '1.252.0',
     date:    '2026-11-21',
     changes: [

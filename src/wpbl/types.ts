@@ -177,10 +177,16 @@ export interface WpblVideo {
 export interface WpblRosterMove {
   id: number
   season: number
-  kind: 're-signed' | 'drafted' | 'signed' | 'released'
+  kind: 're-signed' | 'drafted' | 'signed' | 'released' | 'traded'
   player_id: string | null
   player_name: string | null
+  /** The club the move is for; on a trade, the club that gets the player. */
   team_id: string
+  /** A trade only: the club that gives the player up. `draft_round`/`draft_pick` are then the pick
+   *  that went back to it. Null on every other kind (the table enforces both). */
+  from_team_id: string | null
+  /** A trade only: shared by every row of one trade (a player-for-player deal is two rows). */
+  trade_id: string | null
   draft_round: number | null
   draft_pick: number | null
   announced_on: string

@@ -35,6 +35,7 @@ import { mvpRace } from '../derive/mvpRace'
 import { WatchCard } from '../Watch'
 import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard } from './PlayerCards'
 import { RostersCard } from './RostersCard'
+import { TransactionsCard } from './TransactionsCard'
 import type { WpblRunValuePlay } from '../types'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame, WpblBattingLine, WpblPitchingLine } from '../types'
 import { typePx } from '../../ui/scale'
@@ -526,8 +527,9 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           </Box>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
             <PlayerSpotlightCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} />
-            <NextGameCard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} players={players} onOpenPlayer={onOpenPlayer}
-              devForceRecap={devForceRecap} devChampion={devChampTeam} />
+            {/* The moves took the season card's place on Nov 21, 2026 (TransactionsCard says why);
+                the champion is still on the recap page, and in season the card below still draws. */}
+            <TransactionsCard teams={teamMap} players={players} onOpenPlayer={onOpenPlayer} />
           </Box>
           {/* The award results, for the days they stay up after the final (AWARDS_RESULTS_UNTIL). */}
           {seasonCards.length > 0 && <Box sx={{ mt: 1.5 }}>{seasonCards}</Box>}

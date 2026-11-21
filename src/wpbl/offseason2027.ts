@@ -50,6 +50,11 @@ export const CLUB_NAMES_2026: Readonly<Record<string, string>> = {
   BOS: 'Boston Hunters', NY: 'New York Heights', SF: 'San Francisco Firebells', LA: 'Los Angeles Queens',
 }
 
+/** The clubs by city, for a line that already says what kind of thing it is ("Traded to Boston"). */
+export const CLUB_CITIES: Readonly<Record<string, string>> = {
+  BOS: 'Boston', NY: 'New York', SF: 'San Francisco', LA: 'Los Angeles',
+}
+
 /** Each club's 2026 roster, in the order the league listed it. Keyed by `wpbl_teams.id`. */
 export const ROSTERS_2026: Readonly<Record<string, readonly string[]>> = {
   BOS: [
@@ -170,15 +175,6 @@ export function windowCountdown(now: number): string | null {
   return days === 1 ? '1 day left' : `${days} days left`
 }
 
-/** The time left in an open window to the minute, for Home's countdown: "6d 14h 32m", and under a
- *  day "14h 32m". Null outside the window. */
-export function windowTimeLeft(now: number): string | null {
-  if (resignPhase(now) !== 'open') return null
-  const mins = Math.max(0, Math.floor((RESIGN_WINDOW.closes - now) / 60_000))
-  const d = Math.floor(mins / 1440), h = Math.floor((mins % 1440) / 60), m = mins % 60
-  return d > 0 ? `${d}d ${h}h ${m}m` : `${h}h ${m}m`
-}
-
 /** A moment's ET calendar date as a whole day number, for counting days between two dates. */
 function etDay(ms: number): number {
   const [m, d, y] = new Date(ms).toLocaleDateString('en-US', { timeZone: 'America/New_York' }).split('/').map(Number)
@@ -209,41 +205,139 @@ export function positionMix(labels: readonly string[]): string {
 
 export interface ClubBoard {
   teamId: string
-  /** Re-signed, newest announcement first. */
-  resigned: { playerId: string; move: WpblRosterMove }[]
+  /** On the 2027 roster: re-signed, or acquired by trade (`from` set, `move` the trade). Newest first.
+   *  These are what counts toward the 10. */
+  resigned: { playerId: string; move: WpblRosterMove; from?: string }[]
+  /** 2026 players the club traded away, newest first; `move` is the trade that took them. */
+  tradedAway: { playerId: string; move: WpblRosterMove }[]
   /** The rest of the 2026 roster, in the league's order. After the window these are draft-eligible. */
   unsigned: string[]
 }
 
+interface Placement { teamId: string; move: WpblRosterMove; from?: string }
+
+const byNewest = (a: WpblRosterMove, b: WpblRosterMove) => b.announced_on.localeCompare(a.announced_on) || b.id - a.id
+
 /**
- * Each club's re-signings against its 2026 roster. A move for a player not on that club's 2026 list
- * is ignored here rather than shown: a re-signing can only be of the club's own player, so one that
- * is not is a data-entry slip, and the admin form is where it shows.
+ * Where each 2026 player stands for 2027: re-signed by their club, then moved by each trade in the
+ * order announced. A re-signing by a club the player was not on is a data-entry slip and is ignored
+ * here (the admin form is where it shows), as is a trade from a club that does not hold the player.
+ * A trade of a player nobody re-signed still places them: a club can only trade a player it holds.
  */
+function placements(moves: readonly WpblRosterMove[]): Map<string, Placement> {
+  const out = new Map<string, Placement>()
+  for (const m of moves) {
+    if (m.season !== ROSTER_SEASON || m.kind !== 're-signed' || !m.player_id) continue
+    if (club2026(m.player_id) !== m.team_id) continue
+    const had = out.get(m.player_id)
+    if (!had || byNewest(m, had.move) < 0) out.set(m.player_id, { teamId: m.team_id, move: m })
+  }
+  const trades = moves.filter(m => m.season === ROSTER_SEASON && m.kind === 'traded' && m.player_id && m.from_team_id)
+    .sort((a, b) => -byNewest(a, b))
+  for (const t of trades) {
+    const holder = out.get(t.player_id!)?.teamId ?? club2026(t.player_id!)
+    if (holder !== t.from_team_id) continue
+    out.set(t.player_id!, { teamId: t.team_id, move: t, from: t.from_team_id! })
+  }
+  return out
+}
+
+/** Each club's 2027 roster so far against its 2026 one. */
 export function rosterBoards(moves: readonly WpblRosterMove[]): ClubBoard[] {
-  const resignings = moves.filter(m => m.season === ROSTER_SEASON && m.kind === 're-signed' && m.player_id)
+  const placed = [...placements(moves)].map(([playerId, p]) => ({ playerId, ...p }))
   return DRAFT_ORDER_2027.map(teamId => {
     const roster = ROSTERS_2026[teamId] ?? []
-    const mine = resignings
-      .filter(m => m.team_id === teamId && roster.includes(m.player_id!))
-      .sort((a, b) => b.announced_on.localeCompare(a.announced_on) || b.id - a.id)
-    const kept = new Set(mine.map(m => m.player_id!))
+    const mine = placed.filter(p => p.teamId === teamId).sort((a, b) => byNewest(a.move, b.move))
+    const gone = placed.filter(p => p.teamId !== teamId && roster.includes(p.playerId) && p.move.kind === 'traded')
+      .sort((a, b) => byNewest(a.move, b.move))
+    const taken = new Set(placed.map(p => p.playerId))
     return {
       teamId,
-      resigned: mine.map(m => ({ playerId: m.player_id!, move: m })),
-      unsigned: roster.filter(id => !kept.has(id)),
+      resigned: mine.map(({ playerId, move, from }) => from ? { playerId, move, from } : { playerId, move }),
+      tradedAway: gone.map(({ playerId, move }) => ({ playerId, move })),
+      unsigned: roster.filter(id => !taken.has(id)),
     }
   })
 }
 
+export type RosterStatus =
+  | { kind: 're-signed'; teamId: string; move: WpblRosterMove }
+  | { kind: 'traded'; teamId: string; from: string; move: WpblRosterMove }
+  | { kind: 'unsigned' | 'draft-eligible'; teamId: string }
+
 /** A player's 2027 status line, for the player page: null when there is nothing to say. */
-export function rosterStatus(playerId: string, moves: readonly WpblRosterMove[], now: number):
-  { kind: 're-signed'; teamId: string; move: WpblRosterMove } | { kind: 'unsigned' | 'draft-eligible'; teamId: string } | null {
+export function rosterStatus(playerId: string, moves: readonly WpblRosterMove[], now: number): RosterStatus | null {
   const team = club2026(playerId)
   if (!team) return null
-  const move = moves.find(m => m.season === ROSTER_SEASON && m.kind === 're-signed' && m.player_id === playerId && m.team_id === team)
-  if (move) return { kind: 're-signed', teamId: team, move }
+  const p = placements(moves).get(playerId)
+  if (p?.from) return { kind: 'traded', teamId: p.teamId, from: p.from, move: p.move }
+  if (p) return { kind: 're-signed', teamId: p.teamId, move: p.move }
   const phase = resignPhase(now)
   if (phase === 'before') return null
   return { kind: phase === 'open' ? 'unsigned' : 'draft-eligible', teamId: team }
+}
+
+/** 6 → "6th". */
+function ordinal(n: number): string {
+  const t = n % 100
+  if (t >= 11 && t <= 13) return `${n}th`
+  return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`
+}
+
+/** What a move was, as Home's transactions list says it: "Re-signed", "Traded from New York",
+ *  "Drafted, 2nd round, 6th pick". A trade's pick is a leg of its own (`transactions`). */
+export function moveLabel(m: WpblRosterMove): string {
+  switch (m.kind) {
+    case 're-signed': return 'Re-signed'
+    case 'traded': return `Traded from ${CLUB_CITIES[m.from_team_id ?? ''] ?? m.from_team_id}`
+    case 'drafted': return m.draft_round
+      ? `Drafted, ${ordinal(m.draft_round)} round${m.draft_pick ? `, ${ordinal(m.draft_pick)} pick` : ''}`
+      : 'Drafted'
+    case 'signed': return 'Signed'
+    case 'released': return 'Released'
+  }
+}
+
+/** One thing that changed hands, drawn as one row under the club that got it: a player (any move),
+ *  or a draft pick that went back in a trade. */
+export type TransactionLeg =
+  | { kind: 'player'; move: WpblRosterMove }
+  | { kind: 'pick'; move: WpblRosterMove; round: number; to: string; from: string }
+
+/** One announcement: a single move, or every leg of one trade. */
+export interface Transaction { key: string; announced_on: string; trade: boolean; legs: TransactionLeg[] }
+
+/** "6th-round pick". */
+export const pickLabel = (round: number): string => `${ordinal(round)}-round pick`
+
+/**
+ * This offseason's moves as announcements, newest first. A TRADE IS ONE ANNOUNCEMENT, its rows
+ * grouped by `trade_id`, and each thing that changed hands is its own leg under the club that got
+ * it: the player to the receiving club, and the pick on a player's row (`draft_round`) to the club
+ * that gave the player up. So "Zettlemoyer for a 6th" reads as two rows, Boston's and New York's,
+ * and a player-for-player deal as one row each way.
+ */
+export function transactions(moves: readonly WpblRosterMove[]): Transaction[] {
+  const groups = new Map<string, WpblRosterMove[]>()
+  for (const m of moves) {
+    if (m.season !== ROSTER_SEASON) continue
+    const key = m.kind === 'traded' && m.trade_id ? `t:${m.trade_id}` : `m:${m.id}`
+    const g = groups.get(key)
+    if (g) g.push(m); else groups.set(key, [m])
+  }
+  const out: Transaction[] = []
+  for (const [key, rows] of groups) {
+    rows.sort((a, b) => a.id - b.id)
+    const legs: TransactionLeg[] = []
+    for (const m of rows) {
+      legs.push({ kind: 'player', move: m })
+      if (m.kind === 'traded' && m.draft_round && m.from_team_id) {
+        legs.push({ kind: 'pick', move: m, round: m.draft_round, to: m.from_team_id, from: m.team_id })
+      }
+    }
+    const newest = rows.reduce((a, b) => (byNewest(a, b) <= 0 ? a : b))
+    out.push({ key, announced_on: newest.announced_on, trade: rows[0].kind === 'traded', legs })
+  }
+  const newestId = (t: Transaction) => Math.max(...t.legs.map(l => l.move.id))
+  return out.sort((a, b) => b.announced_on.localeCompare(a.announced_on) || newestId(b) - newestId(a))
 }

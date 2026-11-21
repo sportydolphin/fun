@@ -7,6 +7,7 @@ import { awardsResultsShowOnHome } from '../awards'
 import { FanPhotoHomeCardSkeleton } from '../FanPhotoViews'
 import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard } from './PlayerCards'
 import { RostersCardView } from './RostersCard'
+import { TransactionsCardView } from './TransactionsCard'
 import type { WpblTeam } from '../types'
 import { offseasonByCalendar } from '../offseasonCalendar'
 import { SECTION_GAP, HEADER_GAP, homeWideSx } from './shared'
@@ -194,7 +195,7 @@ const EMPTY_TEAMS = new Map<string, WpblTeam>()
 const NO_OPEN = () => {}
 
 /** The offseason Home with nothing in it, mirroring the loaded page block for block (see
- *  WpblHome's render): the header, Player Spotlight beside the season card, the award results while
+ *  WpblHome's render): the header, Player Spotlight beside the transactions, the award results while
  *  they are up, the leaders beside the fan award winners, the gallery, the star sign card, Reading beside Watch, the Discord invite on a
  *  phone, and the league line. Heights measured off the real page. */
 function OffseasonHomeSkeleton() {
@@ -228,10 +229,7 @@ function OffseasonHomeSkeleton() {
           real card rather than a guess at its height. */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
         <PlayerSpotlightCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
-        {/* The champion card's own height, measured at 375, 760, 960 and 1440 (Oct 30, 2026): one
-            number per scale, since its rows stack the same way at every width. Taller here than the
-            card puts the row out of step with Player Spotlight, which then moves on load. */}
-        <CardSkeleton minHeight={{ xs: '24.5rem', md: '24.4rem' }} titleWidth="6rem" lines={5} />
+        <TransactionsCardView teams={EMPTY_TEAMS} players={[]} moves={null} onOpenPlayer={NO_OPEN} />
       </Box>
       {awards && (
         <Box sx={{ mt: 1.5 }}>
