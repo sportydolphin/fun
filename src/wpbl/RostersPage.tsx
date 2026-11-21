@@ -161,12 +161,31 @@ export default function RostersPage({ onNavigate }: { onNavigate: (to: string) =
                     {loading ? '' : positionMix(board.resigned.map(r => labelOf(r.playerId)))}
                   </Typography>
                   <SectionHead title="Re-signed" columns={RESIGNED_COLS} />
-                  {board.resigned.map(({ playerId, move }) => {
+                  {board.resigned.map(({ playerId, move, from }) => {
+                    const p = playerById.get(playerId)
+                    if (loading || !p) return <RowSkeleton key={playerId} columns={RESIGNED_COLS} />
+                    // A player traded in counts toward the 10 like a re-signing (the league's post
+                    // says the trade was agreed inside the window); the note says where they came from.
+                    return (
+                      <Row key={playerId} name={p.name} href={wpblPlayerPath(p, players)} onOpen={open}
+                        meta={season.pos.get(playerId) ?? listed(p)} note={from ? `From ${from}` : undefined} columns={RESIGNED_COLS}
+                        cells={[<Box key="d" component="a" href={move.source_url} target="_blank" rel="noopener noreferrer" sx={DATE_LINK}>
+                          {dayLabel(move.announced_on)}
+                        </Box>]} />
+                    )
+                  })}
+                </>
+              )}
+              {board.tradedAway.length > 0 && (
+                <>
+                  <SectionHead title="Traded" columns={RESIGNED_COLS} />
+                  {board.tradedAway.map(({ playerId, move }) => {
                     const p = playerById.get(playerId)
                     if (loading || !p) return <RowSkeleton key={playerId} columns={RESIGNED_COLS} />
                     return (
                       <Row key={playerId} name={p.name} href={wpblPlayerPath(p, players)} onOpen={open}
-                        meta={season.pos.get(playerId) ?? listed(p)} columns={RESIGNED_COLS}
+                        meta={season.pos.get(playerId) ?? listed(p)} note={`To ${move.team_id}`}
+                        columns={RESIGNED_COLS}
                         cells={[<Box key="d" component="a" href={move.source_url} target="_blank" rel="noopener noreferrer" sx={DATE_LINK}>
                           {dayLabel(move.announced_on)}
                         </Box>]} />
@@ -309,17 +328,23 @@ const COLUMN_HEAD = { fontSize: TYPE_SCALE.micro, fontWeight: 600, color: 'text.
 // the position or the playing time used to do nothing. One link (the name) stretched over the row by
 // its ::after, so there is still one real <a href> per player and no link nested in another; the
 // re-signed row's source date sits above the stretch (DATE_LINK) and stays its own link.
-function Row({ name, href, meta, columns, cells, onOpen }: {
-  name: string; href: string; meta: string; columns: readonly Column[]; cells: React.ReactNode[]
+// A TRADE'S NOTE ("From NY") SITS ON THE NAME'S LINE, not in the position column, which is sized
+// for "UTL" and wrapped a sentence into five lines, nor on a second line, which would make the row
+// taller than its skeleton. The name measures the room the note leaves and shortens to fit.
+function Row({ name, href, meta, note, columns, cells, onOpen }: {
+  name: string; href: string; meta: string; note?: string; columns: readonly Column[]; cells: React.ReactNode[]
   onOpen: (href: string, e: React.MouseEvent) => void
 }) {
   return (
     <Box sx={{ ...ROW, ...TAPPABLE, position: 'relative' }}>
       <Typography component="span" sx={META}>{meta}</Typography>
-      <Box sx={{ minWidth: 0, flex: 1 }}>
-        <NameText name={name} component="span"
-          sx={{ ...NAME, display: 'block', color: 'text.primary', textDecoration: 'none', '&::after': { content: '""', position: 'absolute', inset: 0 } }}
-          linkProps={{ component: 'a', href, onClick: (e: React.MouseEvent) => onOpen(href, e) }} />
+      <Box sx={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'baseline', gap: 0.75 }}>
+        <Box sx={{ minWidth: 0, flex: note ? '0 1 auto' : 1 }}>
+          <NameText name={name} component="span"
+            sx={{ ...NAME, display: 'block', color: 'text.primary', textDecoration: 'none', '&::after': { content: '""', position: 'absolute', inset: 0 } }}
+            linkProps={{ component: 'a', href, onClick: (e: React.MouseEvent) => onOpen(href, e) }} />
+        </Box>
+        {note && <Typography component="span" noWrap sx={{ flexShrink: 0, fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{note}</Typography>}
       </Box>
       <Cells columns={columns}>{(_, i) => cells[i]}</Cells>
     </Box>

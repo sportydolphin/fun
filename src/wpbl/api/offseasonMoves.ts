@@ -2,7 +2,7 @@ import { supabase } from '../../lib/supabase'
 import type { WpblRosterMove } from '../types'
 import { safe, once, isFreshSlow, ownerWrite } from './core'
 
-// Roster moves (wpbl_roster_moves): the re-signings, and later the draft and free agency, recorded
+// Roster moves (wpbl_roster_moves): the re-signings and trades, and later the draft and free agency, recorded
 // by hand from /admin. One small table, read whole: a season is at most a few dozen rows per club.
 
 let movesCache: { data: WpblRosterMove[]; at: number } | null = null
@@ -12,7 +12,7 @@ export function getCachedWpblRosterMoves(): WpblRosterMove[] | null { return mov
 /** Fired after an owner write, so an open rosters page or player card redraws without a reload. */
 export const ROSTER_MOVES_CHANGED_EVENT = 'wpbl:roster-moves-changed'
 
-const COLUMNS = 'id,season,kind,player_id,player_name,team_id,draft_round,draft_pick,announced_on,source_url'
+const COLUMNS = 'id,season,kind,player_id,player_name,team_id,from_team_id,trade_id,draft_round,draft_pick,announced_on,source_url'
 
 export function fetchWpblRosterMoves(): Promise<WpblRosterMove[]> {
   if (isFreshSlow(movesCache)) return Promise.resolve(movesCache!.data)
