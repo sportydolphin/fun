@@ -34,7 +34,7 @@ export interface MorePage {
 
 export const WPBL_MORE_PAGES: MorePage[] = [
   // First while the clubs are building 2027: it is the one page here that changes week to week.
-  { group: 'Season',    href: WPBL_ROSTERS_PAGE,   label: '2027 rosters', hint: 'Re-signings, draft', footerLabel: 'WPBL 2027 rosters' },
+  { group: 'Season',    href: WPBL_ROSTERS_PAGE,   label: '2027 rosters', hint: 'Re-signings, trades, draft', footerLabel: 'WPBL 2027 rosters' },
   { group: 'Season',    href: WPBL_SEASON_PAGE,   label: 'Season recap', hint: 'Regular season and postseason', footerLabel: 'Season recap' },
   { group: 'Season',    href: WPBL_WATCH_PAGE,     label: 'Watch',             hint: 'Highlights, condensed games, clips', footerLabel: 'WPBL video' },
   { group: 'Season',    href: WPBL_PHOTOS_PAGE,    label: 'Photos',            hint: "Fan photos, women's baseball archive", footerLabel: 'WPBL photos' },

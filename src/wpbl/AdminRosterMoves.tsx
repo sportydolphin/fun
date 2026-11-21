@@ -4,9 +4,9 @@ import { ChipRow, FilterChip } from '../ui/FilterChip'
 import { CARD_BORDER, TYPE_SCALE } from './ui'
 import { fetchWpblTeams, fetchWpblAllPlayers, saveWpblRosterMove, deleteWpblRosterMove } from './api'
 import { useWpblRosterMoves } from './useRosterMoves'
-import { DRAFT_ORDER_2027, ROSTERS_2026, ROSTER_SEASON, MAX_RESIGNED, rosterBoards, rosterStatus } from './offseason2027'
+import { DRAFT_ORDER_2027, ROSTERS_2026, ROSTER_SEASON, MAX_RESIGNED, rosterBoards, rosterStatus, isPickRow } from './offseason2027'
 import { wpblFullName } from './constants'
-import type { WpblPlayer, WpblTeam } from './types'
+import type { WpblPlayer, WpblRosterMove, WpblTeam } from './types'
 
 // /admin → Rosters: record each 2027 re-signing as the league or a club announces it. The news watch
 // pages the owner when something moves; this is where it becomes a row on /wpbl/rosters.
@@ -14,6 +14,16 @@ import type { WpblPlayer, WpblTeam } from './types'
 // THE LINK AND DATE ARE SET ONCE, ABOVE THE LIST, because the league tends to announce a club's
 // re-signings together: paste the post, then mark each name in it. A move cannot be saved without
 // an https link (the table refuses one too), since every row on the public page cites its source.
+
+/** The trade form's two non-player choices in its "Gives" list. */
+const PICK = '__pick'
+const UNLISTED = '__unlisted'
+
+/** A trade row as the form lists it: the player, or "Round 6 pick". */
+function legName(m: WpblRosterMove, playerById: Map<string, WpblPlayer>): string {
+  if (isPickRow(m)) return `Round ${m.draft_round} pick`
+  return playerById.get(m.player_id ?? '')?.name ?? m.player_name ?? '?'
+}
 
 function todayEt(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
@@ -52,13 +62,15 @@ export default function AdminRosterMoves() {
     setBusy(null)
     if (!ok) setError('Not saved. The console has the reason.')
   }
-  // A TRADE IS RECORDED ONE PLAYER AT A TIME, FROM THE CLUB THAT GIVES THE PLAYER UP: the chips above
-  // pick that club, the player comes from whoever it holds now, and the round is the pick that came
-  // back to it. A player-for-player deal is two saves, the second with "Part of" set to the first,
-  // so both rows share a trade_id and Home draws them as one trade. Same link and date as a re-signing.
+  // A TRADE IS RECORDED ONE THING AT A TIME, FROM THE CLUB THAT GIVES IT UP: the chips above pick
+  // that club, and each save is one player (from the club's list, or a name typed for someone not
+  // in wpbl_players yet) or one of its picks, to the club in "To". The trade's other legs are more
+  // saves with "Part of" set to the first, which may mean switching the chips to the other club:
+  // Zettlemoyer for a 6th is New York's player to Boston, then Boston's 6th-round pick to New York.
   const [tradePlayer, setTradePlayer] = useState('')
   const [tradeTo, setTradeTo] = useState('')
   const [tradeRound, setTradeRound] = useState('')
+  const [tradeName, setTradeName] = useState('')
   const [tradeGroup, setTradeGroup] = useState('')
   const holdable = useMemo(() => {
     const all = Object.values(ROSTERS_2026).flat()
@@ -73,21 +85,25 @@ export default function AdminRosterMoves() {
     const byGroup = new Map<string, string[]>()
     for (const m of moves ?? []) {
       if (m.season !== ROSTER_SEASON || m.kind !== 'traded' || !m.trade_id) continue
-      const name = playerById.get(m.player_id ?? '')?.name ?? m.player_name ?? '?'
+      const name = legName(m, playerById)
       byGroup.set(m.trade_id, [...(byGroup.get(m.trade_id) ?? []), `${name} (${m.from_team_id} to ${m.team_id})`])
     }
     return [...byGroup]
   }, [moves, playerById])
-  const roundOk = tradeRound === '' || /^[1-9]\d?$/.test(tradeRound)
+  const legKind = tradePlayer === PICK ? 'pick' : tradePlayer === UNLISTED ? 'name' : tradePlayer ? 'player' : null
+  const roundOk = /^([1-9]|10)$/.test(tradeRound)
+  const legOk = legKind === 'player' || (legKind === 'name' && tradeName.trim() !== '') || (legKind === 'pick' && roundOk)
   const trade = async () => {
     setBusy('trade'); setError(null)
     const ok = await saveWpblRosterMove({
-      season: ROSTER_SEASON, kind: 'traded', player_id: tradePlayer, player_name: null, team_id: tradeTo,
-      from_team_id: club, trade_id: tradeGroup || crypto.randomUUID(), draft_round: tradeRound ? Number(tradeRound) : null, draft_pick: null,
+      season: ROSTER_SEASON, kind: 'traded',
+      player_id: legKind === 'player' ? tradePlayer : null, player_name: legKind === 'name' ? tradeName.trim() : null,
+      team_id: tradeTo, from_team_id: club, trade_id: tradeGroup || crypto.randomUUID(),
+      draft_round: legKind === 'pick' ? Number(tradeRound) : null, draft_pick: null,
       announced_on: day, source_url: source.trim(),
     })
     setBusy(null)
-    if (ok) { setTradePlayer(''); setTradeTo(''); setTradeRound(''); setTradeGroup('') } else setError('Not saved. The console has the reason.')
+    if (ok) { setTradePlayer(''); setTradeTo(''); setTradeRound(''); setTradeName(''); setTradeGroup('') } else setError('Not saved. The console has the reason.')
   }
   const undo = async (id: number, playerId: string) => {
     setBusy(playerId); setError(null)
@@ -149,26 +165,32 @@ export default function AdminRosterMoves() {
           Trade from {teamById.get(club) ? wpblFullName(teamById.get(club)!) : club}
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5 }}>
-          <TextField select size="small" label="Player" value={tradePlayer} onChange={e => setTradePlayer(e.target.value)} sx={{ flex: 1 }}>
+          <TextField select size="small" label="Gives" value={tradePlayer} onChange={e => setTradePlayer(e.target.value)} sx={{ flex: 1 }}>
             {holdable.map(id => <MenuItem key={id} value={id}>{playerById.get(id)?.name ?? id}</MenuItem>)}
+            <MenuItem value={UNLISTED}>Player not listed</MenuItem>
+            <MenuItem value={PICK}>Draft pick</MenuItem>
           </TextField>
+          {legKind === 'name' && (
+            <TextField size="small" label="Name" value={tradeName} onChange={e => setTradeName(e.target.value)} sx={{ width: 180 }} />
+          )}
+          {legKind === 'pick' && (
+            <TextField size="small" label="Round" value={tradeRound} onChange={e => setTradeRound(e.target.value.trim())}
+              error={tradeRound !== '' && !roundOk} sx={{ width: 90 }} />
+          )}
           <TextField select size="small" label="To" value={tradeTo} onChange={e => setTradeTo(e.target.value)} sx={{ minWidth: 160 }}>
             {DRAFT_ORDER_2027.filter(id => id !== club).map(id => <MenuItem key={id} value={id}>{teamById.get(id)?.name ?? id}</MenuItem>)}
           </TextField>
-          <TextField size="small" label="Pick round back" value={tradeRound} onChange={e => setTradeRound(e.target.value.trim())}
-            error={!roundOk} sx={{ width: 150 }} />
           <TextField select size="small" label="Part of" value={tradeGroup} onChange={e => setTradeGroup(e.target.value)} sx={{ minWidth: 160 }}>
             <MenuItem value="">New trade</MenuItem>
             {tradeGroups.map(([id, legs]) => <MenuItem key={id} value={id}>{legs.join(', ')}</MenuItem>)}
           </TextField>
-          <Button variant="outlined" disabled={!sourceOk || !day || !tradePlayer || !tradeTo || !roundOk || busy === 'trade'}
+          <Button variant="outlined" disabled={!sourceOk || !day || !legOk || !tradeTo || busy === 'trade'}
             onClick={trade}>Save trade</Button>
         </Box>
         {trades.map(t => (
           <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, borderTop: '1px solid', borderColor: 'divider', pt: 0.75 }}>
             <Typography sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body }}>
-              {playerById.get(t.player_id ?? '')?.name ?? t.player_name}: {t.from_team_id} to {t.team_id}
-              {t.draft_round ? `, round ${t.draft_round} pick back` : ''}
+              {legName(t, playerById)}: {t.from_team_id} to {t.team_id}
             </Typography>
             <Box component="a" href={t.source_url} target="_blank" rel="noopener noreferrer"
               sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{t.announced_on}</Box>

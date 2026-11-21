@@ -6,7 +6,8 @@
 // ONE ROW PER THING THAT CHANGED HANDS, under the club that got it. A trade is its rows together,
 // dated once with no rule between them, so "Zettlemoyer for a 6th"
 // reads as Boston getting the player and New York getting the pick, and a player-for-player deal
-// reads one row each way. The legs come from `transactions` in offseason2027.ts.
+// reads one row each way. A trade's later rows show ⇄ in the date column, and a pick carries the
+// small badge of the club it came from. The legs come from `transactions` in offseason2027.ts.
 //
 // FIXED ROWS, so the card is the same height loaded or not, whatever the moves: the skeleton is this
 // card with `moves` null, and a season with fewer moves than ROWS fills the rest with invisible slots.
@@ -22,6 +23,8 @@ import { transactions, moveLabel, pickLabel, CLUB_CITIES, ROSTER_SEASON, type Tr
 
 const ROWS = 8
 const BADGE = 22
+/** The giving club's badge beside a traded pick: ornament, under the line's height. */
+const PICK_BADGE = 14
 
 type OpenPlayer = (p: WpblPlayer) => void
 
@@ -74,7 +77,7 @@ export function TransactionsCardView({ teams, players, moves, onOpenPlayer }: {
           if (!slot) return <TransactionRow key={i} hidden={!(i === 0 && rows.length === 0)} empty={i === 0} />
           const { leg } = slot
           if (leg.kind === 'pick') {
-            return <TransactionRow key={slot.key} slot={slot} team={teams.get(leg.to)}
+            return <TransactionRow key={slot.key} slot={slot} team={teams.get(leg.to)} titleBadge={teams.get(leg.from)}
               title={`${ROSTER_SEASON} ${pickLabel(leg.round)}`} sub={`Traded from ${CLUB_CITIES[leg.from] ?? leg.from}`} />
           }
           const m = leg.move
@@ -95,8 +98,8 @@ export function TransactionsCardView({ teams, players, moves, onOpenPlayer }: {
  *  slot that holds the card at ROWS rows while there are fewer legs than that. Every line has a fixed
  *  height, so the skeleton and the loaded row are the same box. A player's line is `name` (fitted,
  *  and a link); a pick's is `title`. */
-function TransactionRow({ slot, name, title, sub, team, link, hidden, empty }: {
-  slot?: Slot; name?: string; title?: string; sub?: string; team?: WpblTeam; link?: object | null
+function TransactionRow({ slot, name, title, titleBadge, sub, team, link, hidden, empty }: {
+  slot?: Slot; name?: string; title?: string; titleBadge?: WpblTeam; sub?: string; team?: WpblTeam; link?: object | null
   hidden?: boolean; empty?: boolean
 }) {
   const line = { lineHeight: 1.3, height: '1.3em', minWidth: 0 } as const
@@ -114,16 +117,23 @@ function TransactionRow({ slot, name, title, sub, team, link, hidden, empty }: {
           ...line, flexShrink: 0, width: '3.25rem', fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary',
           fontVariantNumeric: 'tabular-nums',
         }}>
-          {slot ? (slot.date ? dayLabel(slot.date) : '') : empty ? '' : <Skeleton variant="text" width="80%" />}
+          {/* A trade's later rows carry ⇄ where the date would be, so its sides read as a pair. */}
+          {slot ? (slot.date ? dayLabel(slot.date) : <Box component="span" aria-hidden sx={{ pl: '0.1rem' }}>⇄</Box>)
+            : empty ? '' : <Skeleton variant="text" width="80%" />}
         </Typography>
         {team
           ? <TeamBadge team={team} size={BADGE} />
           : <Box sx={{ flexShrink: 0, width: chromePx(BADGE), height: chromePx(BADGE) }} />}
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography component="div" noWrap={!!title} sx={{ ...line, fontSize: TYPE_SCALE.body, fontWeight: 700 }}>
+          <Typography component="div" sx={{ ...line, fontSize: TYPE_SCALE.body, fontWeight: 700 }}>
             {slot && name
               ? <FittedName name={name} sx={{ font: 'inherit' }} wrapperSx={{ minWidth: 0 }} />
-              : slot && title ? title
+              : slot && title
+                ? <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+                  {/* The club the pick came from, small, so "New York gets Boston's pick" reads at a glance. */}
+                  {titleBadge && <TeamBadge team={titleBadge} size={PICK_BADGE} />}
+                  <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</Box>
+                </Box>
                 : empty ? 'No moves yet' : <Skeleton variant="text" width="55%" />}
           </Typography>
           <Typography noWrap component="div" sx={{ ...line, fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>

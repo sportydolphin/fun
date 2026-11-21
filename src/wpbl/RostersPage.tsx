@@ -15,7 +15,7 @@ import { SectionCard, TYPE_SCALE, TeamBadge, TAPPABLE, FOCUS_RING, hoverOnly, ch
 import WpblPage from './WpblPage'
 import {
   fetchWpblTeams, fetchWpblAllPlayers, fetchWpblRosterMoves, fetchWpblPlayerSeasons,
-  getCachedWpblRosterMoves, ROSTER_MOVES_CHANGED_EVENT,
+  getCachedWpblRosterMoves, getStoredWpblRosterMoves, ROSTER_MOVES_CHANGED_EVENT,
 } from './api'
 import { wpblFullName, wpblAccent } from './constants'
 import { useDark } from '../ui/useDark'
@@ -25,8 +25,8 @@ import { isModified } from '../nav'
 import { track, EVENTS } from '../lib/analytics'
 import { scrollBehavior } from '../lib/motion'
 import {
-  rosterBoards, resignPhase, windowLine, windowCountdown, positionMix, DRAFT_ORDER_2027, MAX_RESIGNED,
-  ROSTER_EXPLAINER_URL, ROSTER_SEASON, CLUB_NAMES_2026,
+  rosterBoards, resignPhase, positionMix, tradedPicks, DRAFT_ORDER_2027, DRAFT_ROUNDS, MAX_RESIGNED,
+  ROSTER_EXPLAINER_URL, ROSTER_SEASON, CLUB_NAMES_2026, CLUB_CITIES, pickLabel,
 } from './offseason2027'
 import type { WpblPlayer, WpblRosterMove, WpblTeam } from './types'
 import type { ClubBoard } from './offseason2027'
@@ -117,7 +117,10 @@ export default function RostersPage({ onNavigate }: { onNavigate: (to: string) =
 
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const playerById = useMemo(() => new Map(players.map(p => [p.id, p])), [players])
-  const boards = useMemo(() => rosterBoards(moves ?? []), [moves])
+  // Until the read lands, the split comes from this browser's last read (`getStoredWpblRosterMoves`),
+  // so a returning reader's cards keep their shape; the rows are skeletons either way.
+  const boards = useMemo(() => rosterBoards(moves ?? getStoredWpblRosterMoves() ?? []), [moves])
+  const picks = useMemo(() => tradedPicks(moves ?? []), [moves])
   const labelOf = (id: string) => {
     const p = playerById.get(id)
     const played = season.pos.get(id)
@@ -132,7 +135,6 @@ export default function RostersPage({ onNavigate }: { onNavigate: (to: string) =
   const isDark = useDark()
   const now = Date.now()
   const phase = resignPhase(now)
-  const countdown = windowCountdown(now)
 
   const open = (href: string, e: React.MouseEvent) => {
     track(EVENTS.WPBL_PAGE_OPEN, { page: 'rosters', kind: 'player' })
@@ -140,7 +142,7 @@ export default function RostersPage({ onNavigate }: { onNavigate: (to: string) =
   }
 
   return (
-    <WpblPage title={`${ROSTER_SEASON} Rosters`} standfirst={countdown ? `${windowLine(now)} (${countdown})` : windowLine(now)}>
+    <WpblPage title={`${ROSTER_SEASON} Rosters`}>
       <Summary boards={boards} teamById={teamById} isDark={isDark} />
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, alignItems: 'start' }}>
         {boards.map(board => {
@@ -220,7 +222,22 @@ export default function RostersPage({ onNavigate }: { onNavigate: (to: string) =
               {DRAFT_ORDER_2027.map(id => teamById.get(id)?.city ?? id).join(', ')}, every round
             </Box>
             <Box component="dt" sx={{ color: 'text.secondary', fontWeight: 700 }}>Rounds</Box>
-            <Box component="dd" sx={{ m: 0 }}>10</Box>
+            <Box component="dd" sx={{ m: 0 }}>{DRAFT_ROUNDS}</Box>
+            {/* Every pick that changed hands, from the trades: the order above is whose pick it
+                was, not who makes it. Only drawn once there is one, so a load never adds a line
+                to a card that had none. */}
+            {picks.length > 0 && (
+              <>
+                <Box component="dt" sx={{ color: 'text.secondary', fontWeight: 700 }}>Traded picks</Box>
+                <Box component="dd" sx={{ m: 0 }}>
+                  {picks.map(pk => (
+                    <Box key={`${pk.round}:${pk.original}`}>
+                      {pickLabel(pk.round).replace('-round pick', ' round')}: {CLUB_CITIES[pk.original] ?? pk.original}'s pick to {CLUB_CITIES[pk.holder] ?? pk.holder}
+                    </Box>
+                  ))}
+                </Box>
+              </>
+            )}
             <Box component="dt" sx={{ color: 'text.secondary', fontWeight: 700 }}>Date</Box>
             <Box component="dd" sx={{ m: 0 }}>Not announced</Box>
             <Box component="dt" sx={{ color: 'text.secondary', fontWeight: 700 }}>Source</Box>

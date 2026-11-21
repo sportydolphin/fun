@@ -100,7 +100,7 @@ describe('one Notifications card for both leagues', () => {
 
   it('shows WPBL and MLB reminders together, with no league switch to hide either', async () => {
     openSettings(true)
-    await screen.findByLabelText('WPBL re-signing alerts')
+    await screen.findByLabelText('WPBL roster move alerts')
     expect(screen.getByLabelText('MLB prediction reminders')).toBeInTheDocument()
   })
 

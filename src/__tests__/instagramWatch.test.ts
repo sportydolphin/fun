@@ -3,8 +3,9 @@ import { describe, it, expect } from 'vitest'
 // would keep passing while the script drifted.
 import {
   classifyCaption, playerIndex, fold, toRows, resignMessage, tokenWarning, ACCOUNTS, plannedMoves, etDate,
-  needsReview, rosterSurnames, reviewMessage,
+  needsReview, rosterSurnames, reviewMessage, tradeMessage, repeatsTrade, tradePushes,
 } from '../../scripts/watch-wpbl-instagram.mjs'
+import { ROSTERS_2026 } from '../wpbl/offseason2027'
 
 // The watcher has two ways to be useless. Too loose, and the league's teaser posts ("who do you
 // hope to see re-signed??") read as signings; too tight, and a real one is missed during a ten-day
@@ -215,9 +216,23 @@ describe('plannedMoves: what reaches the rosters', () => {
     expect(skipped[0]).toContain('not on a 2026 roster')
   })
 
+  const row = (over: Record<string, unknown>) => ({
+    id: 1, season: 2027, kind: 're-signed', player_name: null, from_team_id: null, trade_id: null,
+    draft_round: null, announced_on: '2026-11-12', ...over,
+  })
+  const LA_OTHERS = ROSTERS_2026.LA.filter(id => id !== ASHTON)
+
   it('stops at ten per club', () => {
-    const ten = Array.from({ length: 10 }, (_, i) => ({ player_id: `x${i}`, team_id: 'LA' }))
+    const ten = LA_OTHERS.slice(0, 10).map((id, i) => row({ id: i + 1, player_id: id, team_id: 'LA' }))
     expect(plannedMoves(resign(), ten).skipped[0]).toContain('already has 10')
+  })
+
+  it('counts a player traded in toward the ten, and one traded away out of it', () => {
+    const nine = LA_OTHERS.slice(0, 9).map((id, i) => row({ id: i + 1, player_id: id, team_id: 'LA' }))
+    const inbound = row({ id: 50, kind: 'traded', player_id: ROSTERS_2026.SF[0], team_id: 'LA', from_team_id: 'SF', trade_id: 't' })
+    expect(plannedMoves(resign(), [...nine, inbound]).skipped[0]).toContain('already has 10')
+    const outbound = row({ id: 51, kind: 'traded', player_id: LA_OTHERS[0], team_id: 'SF', from_team_id: 'LA', trade_id: 'u', announced_on: '2026-11-13' })
+    expect(plannedMoves(resign(), [...nine, inbound, outbound]).moves).toHaveLength(1)
   })
 
   it('says in Discord what was added and what was not', () => {
@@ -292,5 +307,38 @@ describe('needsReview: the loose net during the window', () => {
     expect(msg).toContain('Players: Valerie Perez')
     expect(msg).toContain('> Perez is back')
     expect(msg.endsWith('https://www.instagram.com/p/x/')).toBe(true)
+  })
+})
+
+// The first trade, Nov 21, 2026, as the league and both clubs posted it.
+describe('trades: flagged, never recorded', () => {
+  const ZETT = 'ff1f001e-32ac-442d-b3aa-6bde77fec86c'
+  const index = playerIndex([{ id: ZETT, name: 'Alyssa Zettlemoyer' }])
+
+  it('reads all three posts as a trade, even the one that says re-signing', () => {
+    for (const caption of [
+      'Prior to the close of the Exclusive Player Re-signing Window, the New York Heights agreed to trade C/IF Alyssa Zettlemoyer to the Boston Hunters in exchange for Boston’s 6th round draft pick.',
+      'We have traded C/IF Alyssa Zettlemoyer to the Boston Hunters in exchange for a 6th round pick.',
+      'We’re excited to welcome Alyssa Zettlemoyer to the Boston Hunters! In exchange for Zettlemoyer joining the Hunters in 2027, New York Heights will receive our 6th round draft pick.',
+    ]) expect(classifyCaption(caption, index)).toMatchObject({ kind: 'trade', player_ids: [ZETT] })
+    expect(classifyCaption('Alyssa Zettlemoyer trading cards are in the shop!', index).kind).toBe('other')
+  })
+
+  it('pings once per trade, however many accounts post it', () => {
+    const post = (at: string, ids = [ZETT]) => ({ posted_at: at, player_ids: ids })
+    expect(repeatsTrade(post('2026-11-21T21:13:25Z'), [post('2026-11-21T21:13:02Z')])).toBe(true)
+    expect(repeatsTrade(post('2026-11-28T21:13:25Z'), [post('2026-11-21T21:13:02Z')])).toBe(false)
+    expect(repeatsTrade(post('2026-11-21T21:13:25Z', ['x']), [post('2026-11-21T21:13:02Z')])).toBe(false)
+    expect(tradeMessage({ team_id: 'BOS', player_names: ['Alyssa Zettlemoyer'], permalink: 'https://x' }))
+      .toContain('Trade: Alyssa Zettlemoyer**, posted by Boston Hunters')
+  })
+
+  it('pushes a recorded trade as who got what', () => {
+    const base = { season: 2027, kind: 'traded', player_name: null, trade_id: 't1', draft_pick: null, announced_on: '2026-11-21', source_url: 'https://x' }
+    const [n] = tradePushes([
+      { ...base, id: 34, player_id: ZETT, team_id: 'BOS', from_team_id: 'NY', draft_round: null },
+      { ...base, id: 35, player_id: null, team_id: 'NY', from_team_id: 'BOS', draft_round: 6 },
+    ], () => 'Alyssa Zettlemoyer')
+    expect(n).toMatchObject({ id: 'wpbl-trade:t1', title: 'Trade: Boston and New York', body: 'Boston gets Alyssa Zettlemoyer. New York gets a 2027 6th-round pick.' })
   })
 })

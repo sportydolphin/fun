@@ -35,6 +35,9 @@ export const NOTIFICATION_TYPES = {
   // A club re-signed a player for next season. Push-only, sent by scripts/watch-wpbl-instagram.mjs
   // the moment it records the move, to readers with user_preferences.notify_wpbl_resigns.
   WPBL_RESIGN:     'wpbl-resign',
+  // A trade between clubs, once it is recorded from /admin. Push-only, sent by the same watcher to
+  // the same readers (the setting is "Roster moves"), one per trade.
+  WPBL_TRADE:      'wpbl-trade',
   // Owner-only: a background pipeline broke. Push-only, sent by scripts/check-admin-health.mjs
   // so a red state reaches the owner without them opening /admin, the failure mode the Health
   // group's amber chip could not escape on its own.
@@ -85,10 +88,16 @@ export const NOTIFICATION_META = {
     defaultUrl: '/wpbl',
   },
   [NOTIFICATION_TYPES.WPBL_RESIGN]: {
-    label:      'WPBL re-signings',
+    label:      'WPBL roster moves',
     icon:       '✍️',
     // The rosters page, where the player now sits among the club's re-signings and the count
     // against its ten. The builder overrides nothing: the page is the context.
+    defaultUrl: '/wpbl/rosters',
+  },
+  [NOTIFICATION_TYPES.WPBL_TRADE]: {
+    label:      'WPBL trades',
+    icon:       '🔁',
+    // The rosters page, where the player sits on the new club and the traded picks are listed.
     defaultUrl: '/wpbl/rosters',
   },
   [NOTIFICATION_TYPES.ADMIN_HEALTH]: {
@@ -216,6 +225,24 @@ export function buildWpblResign({ playerId, playerName, teamName, season }) {
     icon:  meta.icon,
     title: `Re-signed: ${playerName}`,
     body:  `${teamName}, ${season}`,
+    url:   meta.defaultUrl,
+  }
+}
+
+/**
+ * A trade between clubs. One per trade: the id carries the trade, so a re-send replaces itself.
+ *
+ * @param {{ tradeId: string, title: string, body: string }} args
+ *   title: "Trade: Boston and New York". body: who got what, built by the watcher.
+ */
+export function buildWpblTrade({ tradeId, title, body }) {
+  const meta = NOTIFICATION_META[NOTIFICATION_TYPES.WPBL_TRADE]
+  return {
+    id:    `${NOTIFICATION_TYPES.WPBL_TRADE}:${tradeId}`,
+    type:  NOTIFICATION_TYPES.WPBL_TRADE,
+    icon:  meta.icon,
+    title,
+    body,
     url:   meta.defaultUrl,
   }
 }
@@ -364,6 +391,10 @@ export const SAMPLE_BUILDERS = {
   [NOTIFICATION_TYPES.WPBL_RESIGN]: () => ({
     ...buildWpblResign({ playerId: '0', playerName: 'Lexi Hastings', teamName: 'Boston Hunters', season: 2027 }),
     id: `${NOTIFICATION_TYPES.WPBL_RESIGN}:sample`,
+  }),
+  [NOTIFICATION_TYPES.WPBL_TRADE]: () => ({
+    ...buildWpblTrade({ tradeId: 'sample', title: 'Trade: Boston and New York', body: 'Boston gets Alyssa Zettlemoyer. New York gets a 2027 6th-round pick.' }),
+    id: `${NOTIFICATION_TYPES.WPBL_TRADE}:sample`,
   }),
   [NOTIFICATION_TYPES.WPBL_PHOTO_DECIDED]: () => ({
     ...buildPhotoDecided({ key: 'sample', published: 1, declined: 0 }),

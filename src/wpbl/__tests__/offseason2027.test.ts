@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   ROSTERS_2026, DRAFT_ORDER_2027, RESIGN_WINDOW, rosterBoards, rosterStatus, resignPhase, club2026,
-  windowCountdown, positionMix, moveLabel, transactions, pickLabel,
+  positionMix, moveLabel, transactions, pickLabel, tradedPicks, isPickRow,
 } from '../offseason2027'
 import { rosterFact } from '../useRosterMoves'
 import type { WpblRosterMove } from '../types'
@@ -43,15 +43,6 @@ describe('the re-signing window', () => {
     expect(resignPhase(Date.parse('2026-11-21T04:59:00Z'))).toBe('open')
     expect(resignPhase(Date.parse('2026-11-21T05:00:00Z'))).toBe('closed')
   })
-
-  it('counts down in ET calendar days, and says nothing outside the window', () => {
-    expect(windowCountdown(Date.parse('2026-11-09T13:59:00Z'))).toBeNull()
-    expect(windowCountdown(Date.parse('2026-11-14T17:00:00Z'))).toBe('6 days left')
-    // 11 p.m. ET on Nov 19 is already Nov 20 in UTC; the count follows ET.
-    expect(windowCountdown(Date.parse('2026-11-20T04:00:00Z'))).toBe('1 day left')
-    expect(windowCountdown(Date.parse('2026-11-20T15:00:00Z'))).toBe('Last day')
-    expect(windowCountdown(Date.parse('2026-11-21T05:00:00Z'))).toBeNull()
-  })
 })
 
 describe('positionMix', () => {
@@ -84,7 +75,9 @@ describe('rosterBoards', () => {
 describe('trades', () => {
   // The real one: New York re-signed Zettlemoyer, then traded Zettlemoyer to Boston for a 6th-round pick.
   const resign = () => move({ player_id: ZETT, team_id: 'NY', announced_on: '2026-11-20' })
-  const trade = () => move({ kind: 'traded', player_id: ZETT, team_id: 'BOS', from_team_id: 'NY', trade_id: 't1', draft_round: 6, announced_on: '2026-11-21' })
+  // One asset per row: the player New York to Boston, and Boston's 6th-round pick back.
+  const trade = () => move({ kind: 'traded', player_id: ZETT, team_id: 'BOS', from_team_id: 'NY', trade_id: 't1', announced_on: '2026-11-21' })
+  const pick = () => move({ kind: 'traded', player_id: null, team_id: 'NY', from_team_id: 'BOS', trade_id: 't1', draft_round: 6, announced_on: '2026-11-21' })
 
   it('moves a re-signed player to the club that got them, counted there and listed as traded at home', () => {
     const boards = rosterBoards([resign(), trade()])
@@ -117,11 +110,31 @@ describe('trades', () => {
   })
 
   it('makes a trade one announcement, each thing that changed hands a leg under the club that got it', () => {
-    const t = trade(), r = resign()
-    const list = transactions([r, t, move({ season: 2028 })])
+    const r = resign()
+    const list = transactions([pick(), r, trade(), move({ season: 2028 })])
     expect(list.map(x => x.trade)).toEqual([true, false])
     expect(list[0].legs.map(l => l.kind === 'pick' ? ['pick', l.to, l.from, l.round] : ['player', l.move.team_id]))
       .toEqual([['player', 'BOS'], ['pick', 'NY', 'BOS', 6]])
+  })
+
+  it('moves picks through the draft, and ignores a pick the giver could not hold', () => {
+    expect(tradedPicks([trade(), pick()])).toEqual([{ round: 6, original: 'BOS', holder: 'NY' }])
+    // New York trades a 6th to Los Angeles, then another to San Francisco. A club holding two picks
+    // in a round gives its own first; the post rarely says which, and the order is what matters.
+    const flip = move({ kind: 'traded', player_id: null, team_id: 'LA', from_team_id: 'NY', trade_id: 't9', draft_round: 6, announced_on: '2026-11-25' })
+    const own = move({ kind: 'traded', player_id: null, team_id: 'SF', from_team_id: 'NY', trade_id: 't9', draft_round: 6, announced_on: '2026-11-26' })
+    expect(tradedPicks([pick(), flip, own])).toEqual([
+      { round: 6, original: 'BOS', holder: 'SF' }, { round: 6, original: 'NY', holder: 'LA' },
+    ])
+    const impossible = move({ kind: 'traded', player_id: null, team_id: 'SF', from_team_id: 'BOS', trade_id: 't8', draft_round: 6, announced_on: '2026-11-30' })
+    expect(tradedPicks([pick(), impossible])).toEqual([{ round: 6, original: 'BOS', holder: 'NY' }])
+  })
+
+  it('draws a player not yet in the database by name, and leaves the rosters alone', () => {
+    const named = move({ kind: 'traded', player_id: null, player_name: 'New Draftee', team_id: 'SF', from_team_id: 'LA', trade_id: 't7' })
+    expect(isPickRow(named)).toBe(false)
+    expect(transactions([named])[0].legs[0].kind).toBe('player')
+    expect(rosterBoards([named]).every(b => b.resigned.length === 0)).toBe(true)
   })
 
   it('groups a player-for-player deal by trade_id, one leg each way', () => {
