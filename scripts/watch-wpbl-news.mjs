@@ -310,7 +310,7 @@ async function pushToOwner(n) {
   if (!VAPID_PUBLIC || !VAPID_PRIVATE) { console.warn('  ⚠️  No VAPID keys, so no push.'); return 0 }
   const subs = await ownerSubscriptions()
   if (subs.length === 0) console.warn('  ⚠️  The owner has no push subscriptions.')
-  const body = JSON.stringify({ id: n.id, type: n.type, title: n.title, body: n.body, url: n.url, emoji: n.icon, tag: n.id })
+  const body = JSON.stringify({ id: n.id, type: n.type, title: n.title, body: n.body, url: n.url, emoji: n.icon, tag: n.tag ?? n.id })
   let sent = 0
   for (const s of subs) {
     try {

@@ -12,10 +12,12 @@ describe('the catalog entries', () => {
     expect(NOTIFICATION_META[NOTIFICATION_TYPES.WPBL_PHOTO_DECIDED].defaultUrl).toBe('/wpbl/photos/submit')
   })
 
-  it('keeps one id for the owner\'s queue whatever the count', () => {
-    expect(buildPhotosWaiting({ count: 1 }).id).toBe(buildPhotosWaiting({ count: 9 }).id)
-    expect(buildPhotosWaiting({ count: 1 }).title).toBe('1 photo to review')
-    expect(buildPhotosWaiting({ count: 3 }).title).toBe('3 photos to review')
+  it('keeps one lock-screen slot for the queue, and a new id for each new photo', () => {
+    expect(buildPhotosWaiting({ count: 1, newestId: 'a' }).tag).toBe(buildPhotosWaiting({ count: 9, newestId: 'b' }).tag)
+    expect(buildPhotosWaiting({ count: 1, newestId: 'a' }).id).toBe(buildPhotosWaiting({ count: 9, newestId: 'a' }).id)
+    expect(buildPhotosWaiting({ count: 1, newestId: 'a' }).id).not.toBe(buildPhotosWaiting({ count: 2, newestId: 'b' }).id)
+    expect(buildPhotosWaiting({ count: 1, newestId: 'a' }).title).toBe('1 photo to review')
+    expect(buildPhotosWaiting({ count: 3, newestId: 'a' }).title).toBe('3 photos to review')
   })
 
   it('words a fan\'s decisions for each mix', () => {
@@ -56,12 +58,13 @@ describe('the bell sources', () => {
   })
 
   it('count waiting rows that are not the reader\'s, and retract at zero', async () => {
-    result = { count: 2, error: null }
+    result = { count: 2, data: [{ id: 'p9' }], error: null }
     const out = await photosWaitingSource.evaluate({ userId: 'owner' })
     expect(out[0].title).toBe('2 photos to review')
+    expect(out[0].id).toBe('wpbl-photos-waiting:p9')
     expect(calls).toContainEqual(['eq', ['status', 'pending']])
     expect(calls).toContainEqual(['neq', ['user_id', 'owner']])
-    result = { count: 0, error: null }
+    result = { count: 0, data: [], error: null }
     expect(await photosWaitingSource.evaluate({ userId: 'owner' })).toEqual([])
   })
 

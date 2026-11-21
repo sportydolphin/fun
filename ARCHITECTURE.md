@@ -825,6 +825,7 @@ would stop updating all winter. Every one of them has `workflow_dispatch` for an
 | `wpbl-bluesky-start-nudge` | `*/5 * * * *` | `wpbl_nudge_bluesky_game_start()` → `{event_type:"wpbl-bluesky-game-start"}`, when a scheduled game's first pitch (site-calendar start over the feed's) is between 12 min ago and 40 min away and it has not been posted. Coarse on purpose; the poster re-checks with the full start-time correction and is the only decider. A distinct event type from the push reminder's `wpbl-game-start`, so the two fire independently. **A late reminder is a wrong one**, so the window errs wide: a missed nudge falls to the schedule backstop, a wrongly-timed permanent post cannot be taken back |
 | `events-maintain` | `23 9 * * *` | `events_maintain()`: roll every complete UTC day of `events` into `events_daily`, then delete raw rows older than 90 days. Never deletes a day it has not rolled up. In [`20261011034522_events_rollup_and_retention.sql`](scripts/migrations/20261011034522_events_rollup_and_retention.sql), not `wpbl_cron.sql`, as is the next one |
 | `cron-history-prune` | `41 9 * * *` | Delete `cron.job_run_details` older than 7 days. pg_cron logs every run of every job and never forgets one; it reached 49 MB by Oct 2026 |
+| `notification-state-prune` | `23 4 * * *` | Delete `notification_state` rows untouched for 30 days (the bell keeps 14). In [`20261121004940_notification_state_sync.sql`](scripts/migrations/20261121004940_notification_state_sync.sql) |
 
 
 **All five of these nudges share `wpbl_dispatch_workflow(event, key, gap)`**, which holds the Vault
@@ -861,6 +862,15 @@ flowchart LR
 ```
 
 De-dupe guards (`game_start_sent`, `wpbl_game_start_sent`) keep each reminder to one send.
+
+**The bell's read and dismissed marks sync per account** through `notification_state`
+(`user_id`, `notification_id`, `read_at`, `dismissed_at`): readable by its owner, written only through
+`notification_state_mark(ids, dismiss)`, which only moves a mark forward, so two devices writing at
+once cannot undo each other. [`src/lib/notifications.ts`](src/lib/notifications.ts) queues each mark
+in an outbox until it lands, pulls the account's marks on every bell refresh (mount, every 5 min,
+and whenever the tab comes back), merges with other tabs on every write, and closes OS banners for
+notifications already read. There is no Realtime channel: a browser picks up another's marks when it
+is next looked at, which is when they matter, without a socket open on every page.
 Setup walkthrough: [`docs/PUSH_NOTIFICATIONS.md`](docs/PUSH_NOTIFICATIONS.md).
 
 ---

@@ -474,7 +474,7 @@ async function pushResigns(moves, nameOf) {
       })
       // The wire shape every sender uses: `id` doubles as the tag, the emoji travels apart from
       // `icon`, which sw.js keeps for the notification image.
-      const body = JSON.stringify({ id: n.id, type: n.type, title: n.title, body: n.body, url: n.url, emoji: n.icon, tag: n.id })
+      const body = JSON.stringify({ id: n.id, type: n.type, title: n.title, body: n.body, url: n.url, emoji: n.icon, tag: n.tag ?? n.id })
       for (const s of subs ?? []) {
         try {
           await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, body)

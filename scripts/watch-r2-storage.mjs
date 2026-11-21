@@ -135,7 +135,7 @@ async function pushToOwner(db, n) {
     `select s.endpoint, s.p256dh, s.auth from public.push_subscriptions s
        join auth.users u on u.id = s.user_id where lower(u.email) = lower($1)`, [OWNER_EMAIL])
   if (subs.length === 0) console.warn('  ⚠️  The owner has no push subscriptions.')
-  const body = JSON.stringify({ id: n.id, type: n.type, title: n.title, body: n.body, url: n.url, emoji: n.icon, tag: n.id })
+  const body = JSON.stringify({ id: n.id, type: n.type, title: n.title, body: n.body, url: n.url, emoji: n.icon, tag: n.tag ?? n.id })
   let sent = 0
   for (const s of subs) {
     try {

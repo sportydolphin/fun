@@ -48,7 +48,7 @@ const db = new pg.Client({ connectionString: DB_URL, ssl: { rejectUnauthorized: 
 
 /** Push one payload to these subscriptions; returns how many took it. Prunes expired ones. */
 async function push(subs, n) {
-  const body = JSON.stringify({ id: n.id, type: n.type, title: n.title, body: n.body, url: n.url, emoji: n.icon, tag: n.id })
+  const body = JSON.stringify({ id: n.id, type: n.type, title: n.title, body: n.body, url: n.url, emoji: n.icon, tag: n.tag ?? n.id })
   let sent = 0
   for (const s of subs) {
     try {
@@ -84,9 +84,18 @@ async function notifyOwner() {
   const { rows: fresh } = await db.query(
     `select id from public.wpbl_photo_submissions where status = 'pending' and owner_notified_at is null`)
   if (fresh.length === 0) return 'owner: nothing new'
-  const { rows: [{ n }] } = await db.query(
-    `select count(*)::int as n from public.wpbl_photo_submissions where status = 'pending'`)
-  const payload = buildPhotosWaiting({ count: n })
+  // The owner's own uploads are left out, as the bell's twin leaves them out: the same count and
+  // the same newest photo give the push and the bell row one id, so they collapse into one line.
+  const { rows: [{ n, newest }] } = await db.query(
+    `select count(*)::int as n, (array_agg(s.id::text order by s.created_at desc))[1] as newest
+       from public.wpbl_photo_submissions s join auth.users u on u.id = s.user_id
+      where s.status = 'pending' and lower(u.email) <> lower($1)`, [OWNER_EMAIL])
+  if (n === 0) {
+    await db.query(`update public.wpbl_photo_submissions set owner_notified_at = now() where id = any($1::uuid[])`,
+      [fresh.map(r => r.id)])
+    return 'owner: only the owner's own uploads are new'
+  }
+  const payload = buildPhotosWaiting({ count: n, newestId: newest })
   console.log(`📷 Owner: ${payload.title} (${fresh.length} new)`)
   if (DRY_RUN) return `owner: would push "${payload.title}"`
 

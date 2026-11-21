@@ -3,6 +3,7 @@ import type { Session, User } from '@supabase/auth-js'
 import { supabase } from './lib/supabase'
 import { usernameValidationMsg, isUsernameTaken } from './lib/usernames'
 import { passwordProblem } from './lib/passwordPolicy'
+import { forgetNotifications } from './lib/notifications'
 
 const AuthDialogs = lazy(() => import('./AuthDialogs'))
 
@@ -296,6 +297,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setRecovery(true)
       } else if (event === 'SIGNED_OUT') {
         prevUserId = null
+        // The bell's store is per browser. Left behind, it would hand the next account here the
+        // last one's pushes (admin alerts included); the account's own marks come back from the server.
+        forgetNotifications()
         // Don't clobber a more specific toast (e.g. 'deleted') already staged.
         if (!sessionStorage.getItem('sdAuthToast')) sessionStorage.setItem('sdAuthToast', 'out')
         window.location.replace(window.location.pathname)
