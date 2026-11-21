@@ -189,6 +189,10 @@ const DEFAULT_ROUTES = [
   // A player page, one of each role. None was swept until Oct 20, 2026, when the field reports found
   // the page's spinner letting the contract draw first and then jump a screen down (0.39 on a phone).
   '/mlb/players/francisco-lindor-596019', '/mlb/players/tarik-skubal-669373',
+  // WPBL's player page with stats: a two-way player (both role panes, clips, World Cup) and a
+  // reliever with a batting cameo. The sitemap sample above is the first player listed, who has no
+  // stats, so until Nov 21, 2026 the sweep only ever saw the "No stats" card.
+  '/wpbl/players/kelsie-whitmore', '/wpbl/players/meggie-meidlinger',
 ]
 // THE BOARDS --behavior checks, and the filters it changes on each: a string clicks the pressable
 // control with exactly that text, `{ select, value }` picks an option in the select of that label.

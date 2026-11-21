@@ -716,6 +716,16 @@ export const BATTING_BEST = new Set(['R', 'H', '2B', '3B', 'HR', 'RBI', 'SB', 'T
 export const PITCHING_BEST = new Set(['IP', 'SO'])
 
 /**
+ * The least a game needs in a column before it can be that column's best. One is not a big night
+ * for hits, runs, RBI, doubles, steals or strikeouts: a hitter whose only double came in one game
+ * got a heavy "1" with a dot under it, which read as a stray period rather than a standout. A home
+ * run or a triple is an event in one, so those keep the floor of 1. IP is compared as a number, so
+ * 2 means two full innings.
+ */
+const BEST_FLOOR: Record<string, number> = { HR: 1, '3B': 1 }
+const BEST_FLOOR_DEFAULT = 2
+
+/**
  * The best value in a column, if marking it would actually say something.
  *
  * Three ways a column declines to have a best, and all three are about not spending color on
@@ -853,7 +863,7 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
     statHeaders.forEach((h, j) => {
       if (!best.has(h)) return
       const top = bestInColumn(rows.map(r => r.cells[j]))
-      if (top != null) out.set(j, top)
+      if (top != null && top >= (BEST_FLOOR[h] ?? BEST_FLOOR_DEFAULT)) out.set(j, top)
     })
     return out
   }, [best, statHeaders, rows])
@@ -1093,6 +1103,8 @@ export const tdSx = { ...TYPE.body, py: 0.55, px: { xs: 0.22, sm: 0.85 }, textAl
 
 /** The longest meta fact kept on one line: "Bats R, throws R" fits the band's text column at 320px. */
 const META_KEEP_WHOLE = 18
+/** The room each meta fact's separator dot takes, which is also how far the row is pulled left. */
+const META_SEP = '1em'
 
 /** White text on the band, as WPBL measured it against its wash (see BAND_WASH in PlayerDetail). */
 const BAND_INK = { name: '#fff', meta: 'rgba(255,255,255,0.88)', line: 'rgba(255,255,255,0.75)' }
@@ -1165,16 +1177,24 @@ export function PlayerBand({ bandRef, background, stripe, portrait, name, nameAs
             {badge}
           </Box>
           {meta && (
-            <Typography sx={{ fontSize: TYPE_SCALE.body, color: ink.meta, mt: 0.25 }}>
+            <Typography component="div" sx={{ fontSize: TYPE_SCALE.body, color: ink.meta, mt: 0.25, overflow: 'hidden' }}>
               {/* Breaks only between facts. A phone split "Age 24" and "Bats R, throws R" across
                   two lines. A long part ("Third base (listed second base)") may still wrap inside,
-                  or held whole it would overflow the band at 320px. */}
-              {meta.split(' · ').map((part, i) => (
-                <React.Fragment key={i}>
-                  {i > 0 && ' · '}
-                  <Box component="span" sx={part.length <= META_KEEP_WHOLE ? { whiteSpace: 'nowrap' } : undefined}>{part}</Box>
-                </React.Fragment>
-              ))}
+                  or held whole it would overflow the band at 320px.
+                  EACH SEPARATOR LEADS ITS FACT, and the row is pulled left by one separator's width
+                  under a clip, so the dot of whichever fact starts a line is cut off. As inline text
+                  the dot stayed on the line above and a phone read "#3 · Center field / Pitcher ·". */}
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', ml: `-${META_SEP}` }}>
+                {meta.split(' · ').map((part, i) => (
+                  <Box key={i} component="span" sx={{
+                    position: 'relative', minWidth: 0, pl: META_SEP,
+                    ...(part.length <= META_KEEP_WHOLE ? { whiteSpace: 'nowrap' } : {}),
+                  }}>
+                    <Box component="span" sx={{ position: 'absolute', left: 0, width: META_SEP, textAlign: 'center' }}>·</Box>
+                    {part}
+                  </Box>
+                ))}
+              </Box>
             </Typography>
           )}
           {/* Separate lines, not one run-on: joined with a separator the draft line wraps

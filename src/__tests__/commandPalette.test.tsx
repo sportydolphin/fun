@@ -60,6 +60,10 @@ const Mounted = () => (
 )
 
 const PALETTE_INPUT = { name: 'Search players, clubs, pages or a stat question' }
+// The palette is a lazy chunk, and the first test to open it pays for the import. Under a full
+// related run on a busy machine that took past findBy's 1s default, and the pre-push hook failed
+// on main about half the time (Nov 21, 2026). Waiting longer costs nothing when it is fast.
+const PALETTE_WAIT = { timeout: 5000 }
 const opens = () => track.mock.calls.filter(c => c[0] === 'command_palette_opened').map(c => c[1])
 
 async function ready() {
@@ -76,7 +80,7 @@ describe('opening the search box', () => {
     await ready()
 
     await user.keyboard('{Control>}k{/Control}')
-    expect(await screen.findByRole('combobox', PALETTE_INPUT)).toHaveFocus()
+    expect(await screen.findByRole('combobox', PALETTE_INPUT, PALETTE_WAIT)).toHaveFocus()
     expect(opens()).toEqual([{ section: 'wpbl', via: 'shortcut' }])
 
     await user.keyboard('{Control>}k{/Control}')
@@ -88,7 +92,7 @@ describe('opening the search box', () => {
     const user = userEvent.setup()
     await ready()
     await user.keyboard('/')
-    await screen.findByRole('combobox', PALETTE_INPUT)
+    await screen.findByRole('combobox', PALETTE_INPUT, PALETTE_WAIT)
     expect(opens()).toEqual([{ section: 'wpbl', via: 'slash' }])
   })
 
@@ -103,7 +107,7 @@ describe('opening the search box', () => {
     expect(document.querySelector('header input')).toBeNull()
 
     await user.click((field ?? icon)!)
-    await screen.findByRole('combobox', PALETTE_INPUT)
+    await screen.findByRole('combobox', PALETTE_INPUT, PALETTE_WAIT)
     expect(opens()).toEqual([{ section: 'wpbl', via: field ? 'field' : 'icon' }])
   })
 
@@ -112,7 +116,7 @@ describe('opening the search box', () => {
     await ready()
     noted.mockClear()
     await user.keyboard('{Control>}k{/Control}')
-    await screen.findByRole('combobox', PALETTE_INPUT)
+    await screen.findByRole('combobox', PALETTE_INPUT, PALETTE_WAIT)
     expect(noted).toHaveBeenCalledOnce()
   })
 
@@ -120,7 +124,7 @@ describe('opening the search box', () => {
     const user = userEvent.setup()
     await ready()
     await user.keyboard('{Control>}k{/Control}')
-    await screen.findByRole('combobox', PALETTE_INPUT)
+    await screen.findByRole('combobox', PALETTE_INPUT, PALETTE_WAIT)
     await user.keyboard('5 strikeouts no walks')
 
     const options = await screen.findAllByRole('option', { name: /Strikeouts at least 5/ })
