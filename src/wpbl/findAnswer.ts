@@ -19,14 +19,14 @@ import type { FindAnswer } from '../mlb/state/SearchBridgeContext'
 import { WPBL_LEAGUE } from './league'
 import { wpblFielderSource } from './fielders'
 import { currentSeason, seasonCut, seasonGames, seasonsOnRecord } from './season'
-import { wpblQualifiers } from './stats'
+import { wpblFinderQualify } from './finderQualify'
 import type { WpblFieldingLine, WpblGame, WpblPlayer, WpblTeam } from './types'
 
 export interface FindAsk {
   side: FinderBoardSide
   query: FinderQuery
-  /** The year the link names, or null for the board's own default. */
-  season: number | null
+  /** The year the link names, `'all'` for every season, or null for the board's own default. */
+  season: number | 'all' | null
 }
 
 /** The question a WPBL Find link asks, or null when it is not one. The same params StatsView reads. */
@@ -46,7 +46,7 @@ export function findAskFromHref(href: string, teams: readonly Pick<WpblTeam, 'id
   const year = Number(p.get('season'))
   return {
     side,
-    season: Number.isInteger(year) && year > 0 ? year : null,
+    season: p.get('season') === 'all' ? 'all' : Number.isInteger(year) && year > 0 ? year : null,
     query: {
       conditions: decodeFinderQuery(raw, side),
       per: decodeFinderPer(raw),
@@ -83,26 +83,29 @@ export async function wpblFindAnswerWithTarget(href: string, ctx: FindContext): 
   const ask = findAskFromHref(href, ctx.teams)
   if (!ask) return null
   const { side, query } = ask
-  const season = ask.season ?? currentSeason(ctx.schedule)
-  if (season == null || !seasonsOnRecord(ctx.schedule).includes(season)) return null
+  const seasons = seasonsOnRecord(ctx.schedule)
+  // EVERY SEASON, as the board reads it (SeasonContext): only once there are two, and every row kept.
+  const every = ask.season === 'all' && seasons.length > 1
+  const season = every ? null : typeof ask.season === 'number' ? ask.season : currentSeason(ctx.schedule)
+  if (!every && (season == null || !seasons.includes(season))) return null
   // Cut against the WHOLE schedule, never one season's games (src/wpbl/CLAUDE.md). Both keep their
   // identity from one call to the next, so the play-log lines are built once a season, not once a row.
-  const cut = <T extends { game_id: string }>(rows: T[]): T[] => seasonCut(rows, ctx.schedule, season)
-  const games = seasonGames(ctx.schedule, season)
+  const cut = <T extends { game_id: string }>(rows: T[]): T[] => (season == null ? rows : seasonCut(rows, ctx.schedule, season))
+  const games = season == null ? ctx.schedule : seasonGames(ctx.schedule, season)
   const fine = finderNeedsPlays(side, query)
   const [lines, fielding, plays] = await Promise.all([
     fetchWpblAllLines(),
     side === 'fielding' ? fetchWpblAllFielding() : Promise.resolve<WpblFieldingLine[]>([]),
+    // Null reads every season's log.
     fine ? fetchWpblPlayLog(season) : Promise.resolve<WpblLogPlay[] | null>(null),
   ])
   const log = plays ? cut(plays) : null
   const fielders = log && query.per === 'inning' && side === 'fielding'
     ? await wpblFielderSource(ctx.teams, ctx.players, [lines.batting, lines.pitching, fielding]) : null
-  const q = wpblQualifiers(ctx.teams, games, query.scope)
   const result = runFinder(side, cut(lines.batting), cut(lines.pitching), ctx.players, games, query, Infinity, null, {
     eraInnings: ctx.eraInnings,
     regulationInnings: WPBL_LEAGUE.regulationInnings,
-    qualify: q.active ? { minPa: q.minPa, minOuts: q.minOuts, minG: q.minG } : null,
+    ...wpblFinderQualify(ctx.teams, every ? ctx.schedule : games, every ? 'all' : null, query.scope, !!query.career),
     fielding: cut(fielding),
     innings: log && query.per === 'inning' && side === 'pitching' ? inningPitchingLines(WPBL_LEAGUE, log, games) : undefined,
     // A club's season carries its two-out runs, off its half-innings.

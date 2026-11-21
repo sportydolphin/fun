@@ -205,7 +205,7 @@ export function StatsSheet({ tab, onTab, side, sort, filter, filtersSet, onClose
 //
 // Rows rather than tiles: there are only seven, and a club wants its badge and its whole name
 // rather than three letters.
-export function FilterBody({ teams, teamId, onTeam, pos, posChoices, onPos, qualified, onQualified, scope, onScope, season, seasons, onSeason, showWho, showQualified = true, bar }: {
+export function FilterBody({ teams, teamId, onTeam, pos, posChoices, onPos, qualified, onQualified, scope, onScope, season, seasons, onSeason, offerAll = false, showWho, showQualified = true, bar }: {
   teams: WpblTeam[]
   teamId: string | null
   onTeam: (id: string | null) => void
@@ -219,10 +219,12 @@ export function FilterBody({ teams, teamId, onTeam, pos, posChoices, onPos, qual
    *  rather than when it is set to the regular season. */
   scope: SeasonScope | null
   onScope: (s: SeasonScope) => void
-  /** Null with one season on record, when there is no year to choose. */
-  season: number | null
+  /** Null with one season on record, when there is no year to choose; `'all'` for every season. */
+  season: number | 'all' | null
   seasons: number[]
-  onSeason: (s: number) => void
+  onSeason: (s: number | 'all') => void
+  /** The board can show every season at once, so "All seasons" leads the years. */
+  offerAll?: boolean
   /** Only the player board has a per-player population to filter. */
   showWho: boolean
   /** False on a side with no qualifying bar (Overall), where the choice would do nothing. */
@@ -238,6 +240,7 @@ export function FilterBody({ teams, teamId, onTeam, pos, posChoices, onPos, qual
       {season != null && (
         <SheetGroup title="Season">
           <Box sx={rows}>
+            {offerAll && <OptionRow label="All seasons" on={season === 'all'} onClick={() => onSeason('all')} />}
             {seasons.map(y => <OptionRow key={y} label={String(y)} on={season === y} onClick={() => onSeason(y)} />)}
           </Box>
         </SheetGroup>

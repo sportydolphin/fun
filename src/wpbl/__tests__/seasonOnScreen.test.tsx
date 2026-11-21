@@ -30,7 +30,7 @@ describe('the current season', () => {
   })
 })
 
-const wrap = (picked: number | null, schedule: WpblGame[]) => ({ children }: { children: ReactNode }) => (
+const wrap = (picked: number | 'all' | null, schedule: WpblGame[]) => ({ children }: { children: ReactNode }) => (
   <WpblSeasonProvider picked={picked} onPick={() => {}} schedule={schedule}>{children}</WpblSeasonProvider>
 )
 
@@ -56,6 +56,19 @@ describe('useWpblSeason', () => {
     // unknown and counted in the newest year, which is exactly the leak the cut exists to stop.
     const { result } = renderHook(() => useWpblSeason([inSeason[2]]), { wrapper: wrap(null, inSeason) })
     expect(result.current.cut(lines).map(l => l.game_id)).toEqual(['c'])
+  })
+
+  it('shows every season only where a surface asks for it, and only with two of them', () => {
+    const every = renderHook(() => useWpblSeason(undefined, { all: true }), { wrapper: wrap('all', inSeason) })
+    expect(every.result.current).toMatchObject({ all: true, allPicked: true, season: null })
+    expect(every.result.current.cut(lines)).toBe(lines)
+    expect(every.result.current.seasonGames).toHaveLength(inSeason.length)
+    // Standings and the like read the pick as the current season, and say that year.
+    const one = renderHook(() => useWpblSeason(), { wrapper: wrap('all', inSeason) })
+    expect(one.result.current).toMatchObject({ all: false, allPicked: true, season: 2027 })
+    // With one season on record there is nothing to put together.
+    const single = renderHook(() => useWpblSeason(undefined, { all: true }), { wrapper: wrap('all', offseason) })
+    expect(single.result.current).toMatchObject({ all: false, season: 2026 })
   })
 
   it('hands back the same array when the cut drops nothing', () => {

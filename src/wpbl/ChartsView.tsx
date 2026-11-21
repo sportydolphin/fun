@@ -99,8 +99,9 @@ export default function WpblChartsView({ side, teams, players, games, batting, p
   const pitchMins = useMemo(() => pitchQualifiers(qual.active ? qual.teamGames : 0), [qual])
 
   // The play log, only for the pitch-by-pitch chart on Hitting. Same read and cache as Pitch by
-  // pitch, held with the season it was read for so a year picked from the menu reads afresh.
-  const { season, cut } = useWpblSeason()
+  // pitch, held with the season it was read for so a year picked from the menu reads afresh. Over
+  // every season, as the dots are (StatsView's `boardTakesAll`), `season` is null and reads them all.
+  const { season, cut } = useWpblSeason(undefined, { all: true })
   const wantPitches = side === 'hitting'
   const [read, setRead] = useState(() => ({ season, plays: getCachedWpblAllPitchPlays(season) }))
   const allPlays = read.season === season ? read.plays : null

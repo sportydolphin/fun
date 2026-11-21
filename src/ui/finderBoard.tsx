@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ExampleLadder } from './finderExamples'
 import { Box, Skeleton, Typography } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
@@ -11,7 +11,6 @@ import { finderColumns, finderFields, defaultCondition,
   type FinderCondition, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
   type FinderBoardSide, type FinderSort, type FinderTally, type FinderVenue,
 } from '../league/finder'
-import { shortDate } from '../lib/format'
 import type { LeagueGame, LeaguePlayer } from '../league/types'
 import { SectionCard, SectionLabel, TYPE_SCALE, CARD_BORDER, CARD_FILL, ACCENT_EDGE } from './card'
 import { ExpandRow } from './ExpandRow'
@@ -26,6 +25,7 @@ import type { Theme } from '@mui/material/styles'
 import { finderNearMisses } from '../league/finderNearMiss'
 import { AddMenu, ChipSurface, ChoiceList, ConditionEditor, startCondition, type ChoiceGroup } from './finderChips'
 import { BOARD_COLUMN } from './layoutWidths'
+import { GameYearContext, gameDateText } from './gameLine'
 
 // The Find board's body, for both sections: every game line that matches what you asked for. How
 // often has anyone struck out five in a game, who has gone four for four more than once, has a
@@ -71,6 +71,10 @@ const COL = { rank: 2, player: 8, game: 5.25, result: 3.25, stat: 2.4, gap: 0.4 
 const LINE_COL = { ...COL, player: 10, stat: 2.15 }
 // A STRETCH'S GAMES, "Aug 13 to Sep 22" at the meta size: sixteen characters, about 0.5rem each.
 const STRETCH_COL_REM = 8.25
+// EVERY SEASON AT ONCE (GameYearContext): a season row's year in a column of its own ("2026"), and
+// the year on every game's date (", 2026", about six characters more in the Game column).
+const YEAR_COL_REM = 3
+const GAME_YEAR_REM = 3
 // THE SAME LINE HEIGHTS LOADING AND LOADED, so the rows do not change height when they land: the
 // placeholders took the type's default and stood 1.6px taller a row than the names that replaced them.
 const NAME_LH = 1.4
@@ -88,13 +92,13 @@ const statRem = (per: FinderPer, unit: string) =>
 /** The table's narrowest, which is what the main column must hold before it is drawn: the fixed
  *  columns, the player column's floor, the gaps, and the card's padding and borders (2 x 16 chrome
  *  px, under 2.5rem at either scale). */
-const tableMinRem = (units: readonly string[], per: FinderPer = 'game', stretched = false) => {
+const tableMinRem = (units: readonly string[], per: FinderPer = 'game', stretched = false, years = false, yearCol = false) => {
   const c = colsFor(per)
   const stats = units.length
   const statsRem = units.reduce((sum, u) => sum + statRem(per, u), 0)
   return per === 'season'
-    ? c.rank + c.player + statsRem + (stats + 1) * c.gap + 2.5 + (stretched ? STRETCH_COL_REM + c.gap : 0)
-    : c.rank + c.player + c.game + c.result + statsRem + (stats + 3) * c.gap + 2.5
+    ? c.rank + c.player + statsRem + (stats + 1) * c.gap + 2.5 + (stretched ? STRETCH_COL_REM + c.gap : 0) + (yearCol ? YEAR_COL_REM + c.gap : 0)
+    : c.rank + c.player + c.game + c.result + statsRem + (stats + 3) * c.gap + 2.5 + (years ? GAME_YEAR_REM : 0)
 }
 /** A grain's name over its examples. */
 const GRAIN_LABEL: Record<FinderPer, string> = { game: 'Single games', club: 'Club games', inning: 'Single innings', pa: 'Plate appearances', season: 'Season totals' }
@@ -438,10 +442,11 @@ function gameResult(game: LeagueGame | null, teamId: string | null): string {
   return `${us > them ? 'W' : us < them ? 'L' : 'T'} ${us}–${them}`
 }
 
-/** "Aug 2 at BOS", the game a line came from, with home or away off the line's own club. */
-function gameLabel(game: LeagueGame | null, teamId: string | null, clubAbbr: (id: string) => string): string {
+/** "Aug 2 at BOS", the game a line came from, with home or away off the line's own club, and the
+ *  year once the board spans seasons ("Aug 2, 2026 at BOS"). */
+function gameLabel(game: LeagueGame | null, teamId: string | null, clubAbbr: (id: string) => string, withYear = false): string {
   if (!game) return ''
-  const date = shortDate(game.game_date)
+  const date = gameDateText(game.game_date, withYear)
   const home = teamId != null && game.home_team_id === teamId
   return `${date} ${home ? 'vs' : 'at'} ${clubAbbr(home ? game.away_team_id : game.home_team_id)}`
 }
@@ -503,6 +508,10 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
   // A STRETCH ROW IS A RUN OF GAMES, and says which: a column on a wide table, a line under the name on
   // a narrow one, the way a game row says its night. Off the query, so the loading rows have it too.
   const stretched = season && !!query.stretch && finderStretchApplies(side, query)
+  // EVERY SEASON AT ONCE: the year on each game's date, and a season row's year beside its name, since
+  // a row of one season is no longer the board's only season. A career row is every year, so has none.
+  const years = useContext(GameYearContext)
+  const yearCol = season && years && !query.career
   const best = (key: string) => !finderLowerBetter(side, key)
   const active: FinderSort = sort ?? { key: headlineField, desc: best(headlineField) }
   const press = (key: string) => onSort({ key, desc: active.key === key ? !active.desc : best(key) })
@@ -560,7 +569,7 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
     )
   }
   const night = (r: FinderRow<P, G>, parts: FinderRowParts) => {
-    const label = gameLabel(r.game, r.teamId, clubAbbr)
+    const label = gameLabel(r.game, r.teamId, clubAbbr, years)
     return parts.gameLink ? (
       <Box component="a" {...parts.gameLink} data-row-open="" sx={{
         ...FOCUS_RING, color: ACCENT_EDGE, fontWeight: 700, textDecoration: 'none', ...hoverOnly({ textDecoration: 'underline' }),
@@ -593,7 +602,8 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
               {ranked && <Box component="span" sx={{ ...rankSx, fontSize: 'inherit', color: 'inherit' }}>#</Box>}
               <Box component="span" sx={{ pl: ranked ? 0.5 : 0 }}>{whoFor(side, query.per, query.byClub)[0] === 'club' ? 'CLUB' : 'PLAYER'}</Box>
             </Box>
-            {!season && sortHead('date', 'GAME', 'Sort by date', { ...wideOnly, textAlign: 'left', width: `${widths.game}rem` })}
+            {yearCol && plainHead('YEAR', { ...wideOnly, width: `${YEAR_COL_REM}rem` })}
+            {!season && sortHead('date', 'GAME', 'Sort by date', { ...wideOnly, textAlign: 'left', width: `${widths.game + (years ? GAME_YEAR_REM : 0)}rem` })}
             {!season && plainHead('RESULT', { ...wideOnly, width: `${widths.result + FIGURE_SLACK_REM}rem` })}
             {stretched && plainHead('GAMES', { ...wideOnly, width: `${STRETCH_COL_REM}rem` })}
             {cols.map(c => sortHead(c.key, c.unit, c.label, { width: `${statRem(query.per, c.unit) + FIGURE_SLACK_REM}rem` }))}
@@ -608,10 +618,11 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
                     <Box sx={rankSx}>&nbsp;</Box>
                     <Box sx={{ flex: 1, pl: 0.5 }}>
                       <Typography sx={{ fontSize: TYPE_SCALE.meta, lineHeight: NAME_LH }}><Skeleton width="70%" /></Typography>
-                      {(!season || stretched) && <Typography sx={{ fontSize: TYPE_SCALE.micro, lineHeight: NIGHT_LH, ...narrowOnly }}><Skeleton width="80%" /></Typography>}
+                      {(!season || stretched || yearCol) && <Typography sx={{ fontSize: TYPE_SCALE.micro, lineHeight: NIGHT_LH, ...narrowOnly }}><Skeleton width="80%" /></Typography>}
                     </Box>
                   </Box>
                 </Box>
+                {yearCol && <Box component="td" sx={{ ...cellSx, ...wideOnly }}><Skeleton /></Box>}
                 {!season && <Box component="td" sx={{ ...cellSx, ...wideOnly }}><Skeleton /></Box>}
                 {!season && <Box component="td" sx={{ ...cellSx, ...wideOnly }}><Skeleton /></Box>}
                 {stretched && <Box component="td" sx={{ ...cellSx, ...wideOnly }}><Skeleton /></Box>}
@@ -646,14 +657,15 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
                             {night(r, parts)}{result && result !== '—' ? ` · ${result}` : ''}
                           </Typography>
                         )}
-                        {stretched && (
+                        {(stretched || yearCol) && (
                           <Typography component="div" noWrap sx={{ fontSize: TYPE_SCALE.micro, color: 'text.secondary', lineHeight: NIGHT_LH, ...narrowOnly }}>
-                            {finderSpanText(r.stretch ?? null) || '—'}
+                            {[yearCol ? (r.season ?? '—') : null, stretched ? finderSpanText(r.stretch ?? null) || '—' : null].filter(x => x != null).join(' · ')}
                           </Typography>
                         )}
                       </Box>
                     </Box>
                   </Box>
+                  {yearCol && <Box component="td" sx={{ ...cellSx, ...wideOnly, textAlign: 'left', fontSize: TYPE_SCALE.meta }}>{r.season ?? '—'}</Box>}
                   {!season && <Box component="td" sx={{ ...cellSx, ...wideOnly, textAlign: 'left', fontSize: TYPE_SCALE.meta }}>{night(r, parts)}</Box>}
                   {!season && <Box component="td" sx={{ ...cellSx, ...wideOnly, textAlign: 'left', fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{result}</Box>}
                   {stretched && <Box component="td" sx={{ ...cellSx, ...wideOnly, textAlign: 'left', fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{finderSpanText(r.stretch ?? null) || '—'}</Box>}
@@ -886,6 +898,9 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   ]
   // A STRETCH, where the grain sums one (`finderStretchApplies`): a player's season cut to its best run.
   const stretchHere = finderStretchApplies(side, query)
+  // EVERY SEASON AT ONCE (GameYearContext): a season question is each season or a career.
+  const everySeason = useContext(GameYearContext)
+  const careerHere = everySeason && query.per === 'season'
   const stretchOptions = [
     { value: '', label: 'Whole season' },
     ...[...new Set([3, 5, 7, 10, 15, 20, ...(query.stretch ? [query.stretch] : [])])].sort((a, b) => a - b)
@@ -964,7 +979,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // (`onceText`), and the card goes.
 
   const tableRem = tableMinRem(finderColumns(side, query).map(col => col.unit), query.per,
-    query.per === 'season' && !!query.stretch && finderStretchApplies(side, query))
+    query.per === 'season' && !!query.stretch && finderStretchApplies(side, query), everySeason, careerHere && !query.career)
   // WHAT EACH COLUMN IS. "R2", "RS" and "ON" are this board's own, and a header's `title` never shows
   // on a touchscreen, where the phone row leads with one of them ("3 RS"). One key per table, as a
   // definition behind the card's InfoDot, rather than a dot on every header.
@@ -1002,6 +1017,9 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
       groups: [{ label: '', options: [{ value: '', label: 'Any game' }, ...(['any', 1, 2] as const).map(d => ({ value: String(d), label: finderDhText(d) }))] }],
       value: query.dh ? String(query.dh) : '',
       pick: (v: string) => onQuery({ ...query, dh: v === 'any' ? 'any' : v === '1' ? 1 : v === '2' ? 2 : null }) }] : []),
+    ...(careerHere ? [{ key: 'career', label: 'Seasons', text: query.career ? 'Career' : null,
+      groups: [{ label: '', options: [{ value: '', label: 'Each season' }, { value: '1', label: 'Career' }] }], value: query.career ? '1' : '',
+      pick: (v: string) => onQuery({ ...query, career: v ? true : null }) }] : []),
     ...(stretchHere ? [{ key: 'stretch', label: 'Stretch', text: query.stretch ? finderStretchText(query.stretch) : null,
       groups: [{ label: '', options: stretchOptions }], value: query.stretch ? String(query.stretch) : '',
       pick: (v: string) => onQuery({ ...query, stretch: v ? Number(v) : null }) }] : []),
@@ -1018,7 +1036,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // to take them off. A whole month and the last N games are scopes above.
   // A kind of game or a stretch is a scope where its picker is drawn, and a chip of its own where not.
   const cutChips = describeFinderCuts(side, query).filter(c => c.key === 'hand' || (c.key === 'span' && spanMonth == null)
-    || (c.key === 'extra' && !kinds?.extra) || (c.key === 'dh' && !kinds?.dh))
+    || (c.key === 'extra' && !kinds?.extra) || (c.key === 'dh' && !kinds?.dh) || (c.key === 'career' && !careerHere))
   const chips: { key: string; text: string; remove: () => void; open?: (e: React.SyntheticEvent<HTMLElement>) => void }[] = [
     ...describeFinderConditions(side, query, true).map(p => ({
       key: `c${p.indices.join('-')}`, text: p.text,

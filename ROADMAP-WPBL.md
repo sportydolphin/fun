@@ -1155,10 +1155,10 @@ worth doing:
 2. ✅ **Career and all-time** (Oct 14). "most hr all time", "career era leaders", "Whitmore
    career". MLB links its all-time board, but only on the sorts it fetches: it is the top 100 on a
    fixed list of career sorts, so "fewest hr all time" would rank the home run leaders and offers
-   no row. WPBL has no every-season table, so its all-time row is the one-season table while there
-   is one season and nothing after; an every-season board is what would take that further. A
-   player opens on the career from either section (WPBL's card shows its one season until there
-   is a second).
+   no row. WPBL's all-time row is the one-season table while there is one season; from the second,
+   the Stats boards read every season at once ("Find over every season", below), and search opening
+   them for "all time" is that section's step 4. A player opens on the career from either section
+   (WPBL's card shows its one season until there is a second).
 3. ✅ **The answer in the row** (Oct 14, v1.160.0). "Whitmore avg" puts ".312 AVG · 2026" in front
    of the player row's subtitle, for the first three player rows (`typedStat` in finderParse.ts,
    `resolvePlayerStat` on the bridge). A word for both sides ("strikeouts") is read on the side the
@@ -1300,6 +1300,40 @@ that the box counts balks and passed balls once per runner moved.
 Still open, in the order worth doing: a player's own firsts; MLB's search
 reading a name inside a question; near-misses on another side at a play-log grain (counted only where
 its lines are already in hand, so left out today).
+
+## Find over every season, before 2027 (Nov 20, 2026) 🎯⚙️
+
+Every board on Stats was cut to the one season picked in the menu, so nothing could answer "most
+home runs in a game, ever" or "Whitmore career" across years. The feed returns in spring 2027 and
+these must work the day the first 2027 final lands. Built and checked against the dev fake 2027
+(`dev/devSecondSeason.ts`, dev settings), since there is no second season to look at yet; nothing
+changes on the site until there is one.
+
+1. ✅ **The engine** (Nov 20). Handed lines from several years, `runFinder`'s season grain keeps one
+   row per player per year (`season` on the row) instead of summing them, and `career` (`career.1`
+   in `q`) sums every year into one. A stretch stays inside one season unless it is a career's. A
+   fielder's games are counted per year, and each year's row is held to that year's rate bar
+   (`qualifyFor`; the bar over every season is a career's, which no one season reaches). The answer
+   line names the year of a date or a season once the matches span more than one. One year's lines
+   come out exactly as before. Tests in `src/wpbl/__tests__/finderSeasons.test.ts`.
+2. ✅ **All seasons on Stats** (Nov 21). `?season=all` (`WpblSeasonPick` in `SeasonContext.tsx`),
+   offered first in the season menu and the phone's Filters sheet once there are two seasons, and
+   read by every Stats board that ranks lines or players: Players and Teams (career totals),
+   Leaders, Bests, Find and Charts. Not Overall, whose run values are fit to one season's league,
+   and not Standings, a club page or anything else, which read the pick as the current year and
+   name it in their menu. The stored seasons are one year each, so these boards sum the box-score
+   lines; the rate bar scales with the games, so it is a career's. Find offers "Each season" or
+   "Career" (Seasons, under + Add), shows a Year column on season rows, reads every season's play
+   log for the inning and plate-appearance grains, and keeps "all" on every link it builds; its
+   answer line (`findAnswer.ts`) reads `season=all` the same way, through the same bars
+   (`finderQualify.ts`).
+3. ✅ **Bests over every season** (Nov 21): the record book all-time, every date with its year
+   (`GameYearContext` in `src/ui/gameLine.tsx`, which Find's dates use too).
+4. **Search**: "all time", "career", "ever" and "in any season" open that scope; "in 2026" picks the
+   year. A player's own career line in the answer row.
+5. **Overall over every season**: WAR and run value summed per season and then added, rather than
+   one model fit across years. Fielding's play-log columns (range, throw-outs) dash over every
+   season until then.
 
 ## Search: the gaps a 268-phrasing probe found (Nov 20, 2026) 🎯⚙️
 

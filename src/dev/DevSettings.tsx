@@ -17,7 +17,7 @@
 
 import { pressable } from '../ui/interaction'
 import React, { lazy, Suspense, useSyncExternalStore } from 'react'
-import { Box, Typography, Popover, Tooltip, Divider, Button, Slider } from '@mui/material'
+import { Box, Typography, Popover, Tooltip, Divider, Button, Slider, type Theme } from '@mui/material'
 import { Settings } from '@mui/icons-material'
 import { useAuth, simulateDevLogin } from '../AuthContext'
 import { useTheme, DARK_PAGES, SURFACE_CHOICES, DEFAULT_SURFACES, type DarkPage, type SurfacePrefs } from '../ThemeContext'
@@ -127,6 +127,9 @@ const btn = { textTransform: 'none', fontWeight: 600 } as const
 /** A group label, so a long menu can be scanned for the section you want. Letter spacing is
  *  typePx(0.8) written out: Rolldown keeps a module-level call it cannot prove pure, which left
  *  this object in the production bundle after the menu itself was gone. */
+/** The badge's orange: warning.main in the dark theme, warning.dark in the light one. */
+const warnTone = (t: Theme) => (t.palette.mode === 'light' ? t.palette.warning.dark : t.palette.warning.main)
+
 const group = { fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05rem', color: 'text.disabled', mb: 1 } as const
 
 export function DevSettings({ showMlbTools, showWpblTools }: { showMlbTools: boolean; showWpblTools: boolean }) {
@@ -143,9 +146,11 @@ export function DevSettings({ showMlbTools, showWpblTools }: { showMlbTools: boo
             position: 'relative', flexShrink: 0, mr: 0.25,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: 28, height: 28, borderRadius: '50%', cursor: 'pointer',
-            color: anchor || on ? 'warning.main' : 'text.disabled',
-            border: '1px solid', borderColor: anchor || on ? 'warning.main' : 'outline',
-            '&:hover': { color: 'warning.main', borderColor: 'warning.main' },
+            // The darker orange in the light theme: warning.main is 2.9:1 on white, under the 3:1 an
+            // outline needs, and the layout sweep's --seasons pass runs with an override on.
+            color: anchor || on ? warnTone : 'text.disabled',
+            border: '1px solid', borderColor: anchor || on ? warnTone : 'outline',
+            '&:hover': { color: warnTone, borderColor: warnTone },
             transition: 'color 0.15s, border-color 0.15s',
           }}
         >

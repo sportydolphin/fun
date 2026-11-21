@@ -24,7 +24,9 @@ export const WPBL_FINDER_CLUBS: FinderClubAlias[] = Object.values(WPBL_TEAMS).ma
 
 /** The Find board asking `p`. */
 export function wpblFinderHref(p: Omit<ParsedFinder, 'season' | 'ignored'> & {
-  season?: number | null; ignored?: string[]; playerId?: string | null; batterId?: string | null; pitcherId?: string | null
+  season?: number | 'all' | null; ignored?: string[]; playerId?: string | null; batterId?: string | null; pitcherId?: string | null
+  /** Every season summed into one row (`FinderQuery.career`), carried in `q` with the other cuts. */
+  career?: boolean | null
 }): string {
   const params = new URLSearchParams({ board: 'find', side: p.side })
   // No `q` for a game question with no stat ("Sato vs hunters"), which is the board's default grain.
