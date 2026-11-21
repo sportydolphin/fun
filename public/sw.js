@@ -110,7 +110,9 @@ self.addEventListener('push', (event) => {
     payload = { body: event.data ? event.data.text() : '' }
   }
 
-  const title = payload.title || '⚾ MLB Picks'
+  // Every sender sets a title. The fallback is the site, not a section: it read "MLB Picks" from
+  // before WPBL existed, which was wrong for most of what is sent now.
+  const title = payload.title || 'sportydolphin'
   const options = {
     body:    payload.body || '',
     // Both of these are rasters on purpose. Notification images are drawn by the OS, not
@@ -122,7 +124,10 @@ self.addEventListener('push', (event) => {
     badge:   payload.badge || '/badge-96.png',
     tag:     payload.tag || 'mlb-notification',
     renotify: true,
-    data:    { url: payload.url || '/mlb?view=home' },
+    // The bell's id, which is not always the tag (the photo queue keeps one tag while its id
+    // moves). The page reads it to close a banner already read elsewhere, and a click sends it
+    // back so the bell marks that notification read.
+    data:    { url: payload.url || '/wpbl', id: payload.id || payload.tag || 'mlb-notification' },
   }
 
   // Show the OS notification, and forward the payload to any open tab so the
@@ -133,7 +138,7 @@ self.addEventListener('push', (event) => {
   // an emoji. Senders put the emoji in `emoji` and leave `icon` for the image,
   // and the translation happens right here.
   const forClient = {
-    id:    payload.id || options.tag,
+    id:    options.data.id,
     type:  payload.type || 'push',
     title: title,
     body:  options.body,
@@ -153,18 +158,24 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const target = (event.notification.data && event.notification.data.url) || '/mlb?view=home'
+  const data = event.notification.data || {}
+  const target = data.url || '/wpbl'
+  const id = data.id || event.notification.tag
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Focus an already-open app tab if we have one. Focusing alone would throw
-      // away the notification's `open=` action, so hand the target url to the page
-      // — it parses the action and opens the right thing (src/mlb/state/deepLink.ts).
-      for (const client of clientList) {
-        if (client.url.includes('/mlb') && 'focus' in client) {
-          if (client.postMessage) client.postMessage({ type: 'notification-click', url: target })
-          return client.focus()
-        }
+      // Focus an already-open app tab if we have one, preferring one in the section the target is
+      // in. Any tab on the site will do: it used to be only a tab under /mlb, so tapping a WPBL push
+      // with the site open on /wpbl (the default section) opened a second window. Focusing alone
+      // would throw away the notification's `open=` action, so hand the target url to the page,
+      // which parses it and opens the right thing (src/mlb/state/deepLink.ts), and the id, which
+      // marks it read in the bell.
+      const section = target.split('/')[1] || ''
+      const ours = clientList.filter((c) => c.url.startsWith(self.registration.scope) && 'focus' in c)
+      const client = ours.find((c) => new URL(c.url).pathname.split('/')[1] === section) || ours[0]
+      if (client) {
+        if (client.postMessage) client.postMessage({ type: 'notification-click', url: target, id })
+        return client.focus()
       }
       // Otherwise open a new one.
       if (self.clients.openWindow) return self.clients.openWindow(target)

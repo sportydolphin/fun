@@ -113,6 +113,18 @@ Other ways to test the real reminder:
 > Also check OS focus/Do-Not-Disturb and site notification permission if a test
 > reports "sent" but nothing appears.
 
+## Read state across devices
+
+The bell's read and dismissed marks follow a signed-in account (`notification_state`, ARCHITECTURE §6).
+Two things depend on the push payload carrying the bell's `id`:
+
+- `sw.js` stores it in the notification's `data.id`, so a page can close a banner whose notification
+  was read on any device, and a click sends it back to mark the bell row read.
+- A payload's `tag` may differ from its `id` (`buildPhotosWaiting` keeps one lock-screen slot while its
+  id names the newest photo). Senders send `tag: n.tag ?? n.id`.
+
+A push tapped with no tab open opens a new window and is not marked read until the bell is opened.
+
 ## Notes & limitations
 
 - **iOS/iPadOS:** Web Push only works when the app is **installed to the Home

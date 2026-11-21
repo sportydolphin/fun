@@ -91,7 +91,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
 // ─── Push plumbing (same shape as send-wpbl-game-start.mjs) ─────────────────────
 
 function toPushPayload(n) {
-  return { id: n.id, type: n.type, title: n.title, body: n.body, url: n.url, emoji: n.icon, tag: n.id }
+  return { id: n.id, type: n.type, title: n.title, body: n.body, url: n.url, emoji: n.icon, tag: n.tag ?? n.id }
 }
 
 /** The owner's push subscriptions, resolved from the same email is_site_owner() uses. */

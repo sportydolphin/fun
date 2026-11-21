@@ -24,12 +24,17 @@ export const photosWaitingSource: NotificationSource = {
     // Dynamic: the bell is in the always-loaded toolbar, and the client is already loaded by then,
     // but keeping the import here keeps this file out of the entry chunk's static graph.
     const { supabase } = await import('../../lib/supabase')
-    const { count, error } = await supabase.from('wpbl_photo_submissions')
-      .select('id', { count: 'exact', head: true })
+    // The newest waiting photo names the line (buildPhotosWaiting says why), so one row comes back
+    // along with the count.
+    const { data, count, error } = await supabase.from('wpbl_photo_submissions')
+      .select('id', { count: 'exact' })
       .eq('status', 'pending')
       .neq('user_id', ctx.userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
     if (error) throw error
-    return count ? [buildPhotosWaiting({ count })] : []
+    const newestId = data?.[0]?.id as string | undefined
+    return count && newestId ? [buildPhotosWaiting({ count, newestId })] : []
   },
 }
 

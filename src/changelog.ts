@@ -24,6 +24,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.251.0',
+    date:    '2026-11-21',
+    changes: [
+      {
+        short: 'Notifications: read and dismissed sync',
+        full:  'Signed in, a notification read or dismissed in one browser is read or dismissed in every other one, and two open tabs no longer bring back what the other dismissed. A push banner whose notification was already read here or elsewhere closes, and opening one from the lock screen marks it read.',
+      },
+      {
+        short: 'Notifications: fixes',
+        full:  'Tapping a WPBL push with the site open goes to that tab instead of opening a new window. A dismissed "photos to review" line comes back when a new photo arrives. Turning push off in one browser no longer turns it off on your other devices. Signing out clears the bell.',
+      },
+    ],
+  },
+  {
     version: '1.250.0',
     date:    '2026-11-20',
     changes: [

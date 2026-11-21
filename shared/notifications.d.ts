@@ -13,6 +13,8 @@ export interface NotificationPayload {
   body:  string
   /** In-app path a click should land on. */
   url:   string
+  /** Web Push `tag` when it is not the id: one lock-screen slot for a line whose id moves. */
+  tag?:  string
 }
 
 export interface NotificationMeta {
@@ -85,7 +87,7 @@ export function buildMilestoneNear(args: {
   kind:       string
 }): NotificationPayload
 
-export function buildPhotosWaiting(args: { count: number }): NotificationPayload
+export function buildPhotosWaiting(args: { count: number; newestId: string }): NotificationPayload
 
 export function buildPhotoDecided(args: {
   key:       string

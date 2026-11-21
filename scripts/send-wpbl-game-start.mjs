@@ -110,7 +110,7 @@ function gameStartMs(gameDate, startTime) {
  * travels as `emoji` (sw.js keeps `icon` for the OS notification image).
  */
 function toPushPayload(n) {
-  return { id: n.id, type: n.type, title: n.title, body: n.body, url: n.url, emoji: n.icon, tag: n.id }
+  return { id: n.id, type: n.type, title: n.title, body: n.body, url: n.url, emoji: n.icon, tag: n.tag ?? n.id }
 }
 
 async function sendToUser(subs, payload) {

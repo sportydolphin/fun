@@ -298,14 +298,18 @@ export function buildMilestoneNear({ playerId, playerName, statLabel, remaining,
 // overwrite the read state of) a real notification of the same type.
 
 /**
- * Fans' photos waiting for the owner. One id for the whole queue, so each new push REPLACES the
- * last on the lock screen and the bell shows one line with the current count.
- * @param {{ count: number }} args
+ * Fans' photos waiting for the owner. One `tag` for the whole queue, so each new push REPLACES the
+ * last on the lock screen. The id names the newest waiting photo: with one id for the queue, a
+ * single dismissal tombstoned the line for 14 days and every photo sent after it went unseen in the
+ * bell. Keyed on the newest rather than the count, so a review that shrinks the queue does not
+ * bring back a line the owner dismissed.
+ * @param {{ count: number, newestId: string }} args
  */
-export function buildPhotosWaiting({ count }) {
+export function buildPhotosWaiting({ count, newestId }) {
   const meta = NOTIFICATION_META[NOTIFICATION_TYPES.WPBL_PHOTOS_WAITING]
   return {
-    id:    `${NOTIFICATION_TYPES.WPBL_PHOTOS_WAITING}:queue`,
+    id:    `${NOTIFICATION_TYPES.WPBL_PHOTOS_WAITING}:${newestId}`,
+    tag:   `${NOTIFICATION_TYPES.WPBL_PHOTOS_WAITING}:queue`,
     type:  NOTIFICATION_TYPES.WPBL_PHOTOS_WAITING,
     icon:  meta.icon,
     title: count === 1 ? '1 photo to review' : `${count} photos to review`,
