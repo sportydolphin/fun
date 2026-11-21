@@ -28,6 +28,16 @@ export const RESIGN_WINDOW = {
   closes: Date.parse('2026-11-21T04:59:59Z'),
 } as const
 
+/** The last moment a club's post can still be a re-signing: Nov 30, 11:59 p.m. ET. Clubs locked
+ *  their choices by the window's close but kept revealing them after it (Madison Willan on Nov 21;
+ *  the league said "over the weekend"), so the watch must not judge a post by the window alone.
+ *  A cap stays because a "running it back" post in March is something else. */
+export const RESIGN_ANNOUNCEMENTS_UNTIL = Date.parse('2026-12-01T04:59:59Z')
+
+/** Whether a club's post at `ms` can announce a re-signing. */
+export const inResignAnnouncements = (ms: number): boolean =>
+  ms >= RESIGN_WINDOW.opens && ms <= RESIGN_ANNOUNCEMENTS_UNTIL
+
 export const ROSTER_EXPLAINER_URL =
   'https://www.womensprobaseballleague.com/2026/11/09/2027-wpbl-roster-composition-explainer/'
 

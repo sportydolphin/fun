@@ -204,6 +204,12 @@ describe('plannedMoves: what reaches the rosters', () => {
     expect(plannedMoves(resign({ posted_at: '2027-03-01T15:00:00Z' }), []).moves).toEqual([])
   })
 
+  it('records a re-signing a club reveals after the window closes', () => {
+    // Madison Willan's post, Nov 21, 2026, the morning after the deadline.
+    expect(plannedMoves(resign({ posted_at: '2026-11-21T15:46:56Z' }), []).moves).toHaveLength(1)
+    expect(plannedMoves(resign({ posted_at: '2026-12-01T05:00:00Z' }), []).moves).toEqual([])
+  })
+
   it('refuses a player on no 2026 roster', () => {
     const { skipped } = plannedMoves(resign({ player_ids: ['00000000-0000-0000-0000-000000000009'], player_names: ['New Name'] }), [])
     expect(skipped[0]).toContain('not on a 2026 roster')
