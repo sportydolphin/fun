@@ -17,7 +17,7 @@ squash-merged, and Cloudflare deploys whatever lands. The ruleset requires two c
 `layout 1/8` to `layout 8/8` are the layout sweep split by route, run in parallel, `layout
 experiments` sweeps the flag-gated routes beside them in about a minute, and `layout behavior`
 checks that board filters survive a reload and Back ([below](#filters-survive-a-reload-and-back)),
-also in about a minute. `layout seasons-1` and `seasons-2` sweep the pages a second season changes
+also in about a minute. `layout seasons-1` to `seasons-6` sweep the pages a second season changes
 ([below](#a-second-season)). Four slices took about 9
 minutes each on Oct 14, 2026, nearly all of it the sweep's fixed waits; eight slices, and the
 loading-shift check at the default text size only, brought that down without shortening a wait.
@@ -292,7 +292,7 @@ recap, the ones with a season menu on the default year, on `season=2026` and on 
 Home: it picks its season or offseason shape by the calendar, and the fixture's clock is the
 offseason while the fake 2027 has played games, a mix no reader meets. All
 the checks run, the wrapped-row one included, so a control the wider "All seasons" pill pushes onto
-a second line fails it. CI runs it as `layout seasons-1` and `seasons-2`. Its reads are in the same
+a second line fails it. CI runs it as `layout seasons-1` to `seasons-6`. Its reads are in the same
 fixture; a page that starts reading something new for 2027 records with
 
 ```bash
