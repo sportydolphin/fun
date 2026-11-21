@@ -24,6 +24,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.254.0',
+    date:    '2026-11-21',
+    changes: [
+      {
+        short: 'WPBL player page: clips under the game log',
+        full:  'Clips now sit right under the game log on a phone and a desktop, where they were at the bottom of a phone card and above the log on a desktop. The line under a player\'s name no longer ends a row on a dot, a pitcher with a few at-bats shows "0-for-1" instead of a slash line, and a best game needs at least two of a stat (one home run or triple still counts).',
+      },
+    ],
+  },
+  {
     version: '1.253.0',
     date:    '2026-11-21',
     changes: [

@@ -224,6 +224,8 @@ describe('PlayerDetail: when the role tabs exist', () => {
     await waitFor(() => expect(pitchingShown()).toBe(true))
     expect(rolePills()).toHaveLength(0)
     expect(screen.getByText('Also batted')).toBeInTheDocument()
+    // Four at-bats are a count, not a slash line: ".250/.250/.250, 1-for-4" said one fact four times.
+    expect(screen.getByText('1-for-4')).toBeInTheDocument()
     expect(screen.queryByText('Two-way')).not.toBeInTheDocument()
   })
 

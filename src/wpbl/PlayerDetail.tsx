@@ -598,8 +598,10 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     season: (
       <>
         {battingCameo && (
+          // The slash line only from a handful of plate appearances up: over one at-bat it printed
+          // ".000/.000/.000, 0-for-1", three rates restating the one fact after them.
           <CameoBlock label="Also batted"
-            text={`${fmtRate(bt.avg)}/${fmtRate(bt.obp)}/${fmtRate(bt.slg)}, ${bt.h}-for-${bt.ab}${bt.hr ? `, ${bt.hr} HR` : ''}`} />
+            text={`${plateAppearances(bt) >= CAMEO_RATES_PA ? `${fmtRate(bt.avg)}/${fmtRate(bt.obp)}/${fmtRate(bt.slg)}, ` : ''}${bt.h}-for-${bt.ab}${bt.bb ? `, ${bt.bb} BB` : ''}${bt.hr ? `, ${bt.hr} HR` : ''}`} />
         )}
         {ranks && ranks.pitReason !== 'ok' && (
           <RankProgress reason={ranks.pitReason} have={pt.outs} need={ranks.qualifiers.minOuts}
@@ -734,8 +736,8 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
    *   1. THE SEASON: the picker and Regular / Playoffs / Both, page-level because they re-slice
    *      every number below.
    *   2. A SECTION PER ROLE under a real heading (RoleHeading) carrying the sample: the season as a
-   *      stat table with All stats under it, the clips after the first role's table (right under
-   *      what they illustrate), then the game log, the matchups, the pitch profile and the charts.
+   *      stat table with All stats under it, then the game log, the clips (under the first role's
+   *      log), the matchups, the pitch profile and the charts.
    *      Then Fielding as a section of its own, then the photos and the reading.
    *
    * THE SAME ORDER AS A PHONE'S PANE, block for block, so the card is one card at two widths.
@@ -756,10 +758,6 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
       <Box key={r}>
         <RoleHeading title={roleName(r)} caption={roleMeta(r)} first={first} />
         {pane.line(undefined, false)}
-        {/* The clips under the first role's season, which is what they illustrate. Drawn only once
-            the page knows whether there are any (see deskSkeleton): a row of posters arriving late
-            here would push every section under it down by its own height. */}
-        {first && !deskSkeleton && hasClips && <PlayerClips playerId={player.id} />}
         {/* THE CAMEO AND THE QUALIFYING METER: without them a desktop reader of a below-the-bar
             player meets four unranked rates and no word about why, and a two-way cameo loses the
             one line saying the player also pitched. Capped to a reading measure, because both are
@@ -768,6 +766,12 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
         {/* WHAT SHE DID, THEN HOW: the games, her record against each opponent, then the pitch
             profile and the charts, which explain the numbers above them. */}
         {pane.log}
+        {/* THE CLIPS UNDER THE FIRST ROLE'S GAME LOG, the phone's place for them too. They sat between
+            the season table and the log until Nov 2026, where one poster from a player with a single
+            clip was a 300px row with nothing beside it, pushing the log below the fold. Drawn only
+            once the page knows whether there are any (see deskSkeleton): a row of posters arriving
+            late would push every section under it down by its own height. */}
+        {first && !deskSkeleton && hasClips && <PlayerClips playerId={player.id} />}
         {pane.matchups}
         {/* One color key per page: a two-way player's second pitch mix is a scroll below the
             first, under the same key, so printing it again only repeated it. */}
@@ -881,6 +885,9 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
         {/* Everything under the log is below the first screen of a phone, so it mounts once the
             sheet has finished rising instead of during it. See AfterShellEnters. */}
         <AfterShellEnters>
+          {/* Right under the log, as on a desktop. They were last on a phone, under the charts, the
+              World Cup and the gallery, the place the desktop had moved them out of. */}
+          <PlayerClips playerId={player.id} />
           {pane.matchups}
           {pane.profile()}
           {pane.extras}
@@ -893,7 +900,6 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
               is the most interesting thing on the page. Renders nothing when nobody has written
               about the player, which is most of the roster. */}
           <FanPhotoPlayerStrip playerId={player.id} players={players} />
-          <PlayerClips playerId={player.id} />
           <WrittenAbout articles={writtenAbout} title={`Written about ${player.name}`} accent={color} wide />
         </AfterShellEnters>
       </Box>
@@ -1111,3 +1117,5 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
 }
 
 const sectionSx = CARD_SECTION_SX
+/** Plate appearances before a pitcher's batting cameo prints a slash line. */
+const CAMEO_RATES_PA = 5
