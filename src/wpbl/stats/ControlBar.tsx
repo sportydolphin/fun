@@ -369,6 +369,11 @@ const SCOPES = [['regular', 'Regular season'], ['postseason', 'Playoffs'], ['all
  * parts (the window, the reader's text size, a font arriving). A remembered width that has gone
  * stale costs one more pass, never a loop: drawn, it is measured again and remembered right.
  */
+/** Room a row keeps free before it counts as fitting; see `measure` in useRowFit. Not more: at 24
+ *  the one-season Players bar at 1440 already gave its Regular, Playoffs and Both chips up for a
+ *  select, a change to today's bar that this margin is not for. */
+const ROW_MARGIN_PX = 12
+
 function useRowFit(count: number, enabled: boolean) {
   // State rather than a ref, so the observer below follows the row if it is ever remounted rather
   // than staying on a detached one that never hears the window resize again.
@@ -387,8 +392,14 @@ function useRowFit(count: number, enabled: boolean) {
       const gap = parseFloat(getComputedStyle(row).columnGap) || 0
       const shown = ([...row.children] as HTMLElement[]).filter(k => k.offsetWidth > 0)
       const used = shown.reduce((s, k) => s + width(k), 0) + gap * Math.max(0, shown.length - 1)
-      // Half a pixel of slack for sub-pixel widths that sum a hair over the row they fit in.
-      const room = width(row) + 0.5
+      // Half a pixel of slack for sub-pixel widths that sum a hair over the row they fit in, less a
+      // margin: the controls are still growing for a moment as the board's data lands (the filters'
+      // labels), and a row that fits by four pixels at the measure wraps a frame later, before the
+      // next one. "All seasons" at 1440 sat exactly there: 1,259 of 1,261, then a wrap (Nov 21, 2026).
+      // Only on a row that has been laid out: one with no width (a test's DOM) would have less than
+      // no room and fold every control away.
+      const rowW = width(row)
+      const room = rowW + 0.5 - (rowW > 0 ? ROW_MARGIN_PX : 0)
       const drawn = (i: number) => slots.current[i] != null
       // WRAPPED IS NOT FITTING, whatever the widths add up to: a control that may shrink (`minWidth:
       // 0`) sums to less than the row while the browser has already put it on a second line. CI's
