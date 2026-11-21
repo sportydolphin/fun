@@ -16,6 +16,7 @@ import { PORTRAIT_PX } from '../ui/leaders'
 import { navigate } from '../nav'
 import { useEraBasis } from './EraBasisContext'
 import { nameSuggestions } from '../league/playerQuestion'
+import { addToFinderQuestion, boardQuestion } from '../league/finderAsk'
 import { askedFinderQuery, WPBL_FINDER_CLUBS, WPBL_FINDER_SIDES, wpblAskReadings, wpblFinderHref, wpblFinderRoster } from './finderLink'
 import { wpblQualifiers } from './stats'
 import type { WpblBattingLine, WpblFieldingLine, WpblGame, WpblPitchingLine, WpblPlayer, WpblTeam } from './types'
@@ -340,7 +341,12 @@ export default function WpblFindView({
   // screen as the site search reads it. Without it the box took the name for nothing and asked the
   // rest of the question of everyone.
   const roster = useMemo(() => wpblFinderRoster(players, batting, pitching), [players, batting, pitching])
-  const parse = (text: string) => wpblAskReadings(text, roster)
+  // Under a question the box adds to it (`addToFinderQuestion`): "for BOS" keeps the walks.
+  const parse = (text: string) => {
+    const readings = wpblAskReadings(text, roster)
+    const base = boardQuestion(side, query, season)
+    return base ? addToFinderQuestion(base as FinderReading, text, WPBL_FINDER_CLUBS, readings) : readings
+  }
   // THE ANSWER BEFORE THE ASK, read off the link the reading would open, through the same resolver
   // the search's rows use (findAnswer.ts), so the line under the box and the board it opens agree.
   const askAnswer = useCallback((r: FinderReading) => import('./findAnswer')

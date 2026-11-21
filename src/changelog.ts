@@ -24,6 +24,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.252.0',
+    date:    '2026-11-21',
+    changes: [
+      {
+        short: 'Find: a plate appearance opens its play',
+        full:  'On PAs and Innings, a tap anywhere on a row opens that play in Play-by-Play. The name still opens the player.',
+      },
+      {
+        short: 'Find: add to the question',
+        full:  'Under a question, the box adds what you type: "for BOS" or "2+ RBI" keeps the rest of the question instead of replacing it. A plate appearance’s outcome reads as the event: "Walk", "Home run", "Not a strikeout".',
+      },
+    ],
+  },
+  {
     version: '1.251.0',
     date:    '2026-11-21',
     changes: [

@@ -562,10 +562,14 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
   const night = (r: FinderRow<P, G>, parts: FinderRowParts) => {
     const label = gameLabel(r.game, r.teamId, clubAbbr)
     return parts.gameLink ? (
-      <Box component="a" {...parts.gameLink} sx={{
+      <Box component="a" {...parts.gameLink} data-row-open="" sx={{
         ...FOCUS_RING, color: ACCENT_EDGE, fontWeight: 700, textDecoration: 'none', ...hoverOnly({ textDecoration: 'underline' }),
       }}>{label}</Box>
     ) : label
+  }
+  const openRow = (e: React.MouseEvent<HTMLElement>) => {
+    if ((e.target as Element).closest('a, button')) return
+    e.currentTarget.querySelector<HTMLAnchorElement>('a[data-row-open]')?.click()
   }
   const resultOf = (r: FinderRow<P, G>) => (r.inning?.event !== undefined ? r.inning.event ?? '—' : gameResult(r.game, r.teamId))
   return (
@@ -618,7 +622,14 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
               const parts = rowParts(r)
               const result = resultOf(r)
               return (
-                <Box component="tr" key={r.key} sx={{ ...hoverOnly({ '& td': { backgroundImage: (t: Theme) => `linear-gradient(${t.palette.action.hover}, ${t.palette.action.hover})` } }) }}>
+                // A PLATE APPEARANCE OR AN INNING OPENS ON A TAP ANYWHERE IN ITS ROW: the play is the
+                // answer, and only the game's date led to it, a small target on a row that reads as one
+                // thing (Nov 20, 2026). The tap follows that link, so a keyboard has the same thing
+                // through it, and the name keeps opening the player.
+                <Box component="tr" key={r.key} onClick={r.inning && parts.gameLink ? openRow : undefined} sx={{
+                  ...(r.inning && parts.gameLink ? { cursor: 'pointer' } : {}),
+                  ...hoverOnly({ '& td': { backgroundImage: (t: Theme) => `linear-gradient(${t.palette.action.hover}, ${t.palette.action.hover})` } }),
+                }}>
                   <Box component="td" sx={{ ...cellSx, ...pinnedSx }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
                       {ranked && <Box sx={rankSx}>{rankText(ranks[i])}</Box>}

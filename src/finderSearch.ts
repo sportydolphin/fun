@@ -160,7 +160,9 @@ function questionTitle(section: FinderSection, q: Question): string {
 /** "Hunters doubles", "Home runs allowed": a count asked with no number is the stat's name, said for
  *  the club when there is one, since "Doubles at least 1" reads as a threshold nobody typed. */
 function bareTitle(section: FinderSection, p: ParsedFinder): string {
-  const stat = questionTitle(section, p).replace(/ at least 1(?![0-9])/, '')
+  // A plate appearance names its event in the singular ("Double"); a title for all of them is the
+  // stat's plural name, read off the conditions with no grain.
+  const stat = (p.per === 'pa' ? describeFinderQuery(p.side, { conditions: p.conditions }) : questionTitle(section, p)).replace(/ at least 1(?![0-9])/, '')
   const name = (id: string) => (section === 'wpbl' ? WPBL_TEAMS[id]?.name ?? id : clubLabel(section, id))
   const vs = p.oppId ? ` vs ${name(p.oppId)}` : ''
   if (!p.teamId) return `${stat}${vs}`

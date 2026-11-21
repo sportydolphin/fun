@@ -132,13 +132,13 @@ const FIRST: [string, string][] = [
   ['lee off schroder', 'matchup: Jaida Lee vs Alli Schroder'],
   ['schroder vs lee', 'matchup: Jaida Lee vs Alli Schroder'],
   ['whitmore facing schroder', 'matchup: Kelsie Whitmore vs Alli Schroder'],
-  ['lee home runs off schroder', 'matchup: Jaida Lee vs Alli Schroder: Home runs at least 1'],
+  ['lee home runs off schroder', 'matchup: Jaida Lee vs Alli Schroder: Home run'],
   // One player's question.
   ['jaida lee 3 hit games', 'find: Jaida Lee: Hits at least 3 (Batting lines)'],
   ['lee 2 hr games', 'find: Jaida Lee: Home runs at least 2 (Batting lines)'],
   ['schroder 3 strikeouts in an inning', 'find: Alli Schroder: Strikeouts at least 3 (Pitching, single innings)'],
   ['schroder strikeouts inning', 'find: Alli Schroder: most strikeouts in an inning (Pitching, single innings)'],
-  ['lee home runs on 0-2', 'find: Jaida Lee: 0-2 count and Home runs at least 1 (Batting, plate appearances)'],
+  ['lee home runs on 0-2', 'find: Jaida Lee: 0-2 count and Home run (Batting, plate appearances)'],
   ['most hr in a game by jaida lee', 'find: Jaida Lee: most home runs in a game (Batting lines)'],
   ['most walks in a game by lee', 'find: Jaida Lee: most walks in a game (Batting lines)'],
   // A stat against a club or at a place, with no number.
@@ -169,8 +169,8 @@ const FIRST: [string, string][] = [
   ['immaculate inning', 'find: Immaculate innings (Pitching, single innings)'],
   ['comebacks', 'find: Comebacks (Batting, single innings)'],
   ['two-out rallies', 'find: Two-out rallies (Batting, single innings)'],
-  ['hr on 0-2', 'find: 0-2 count and Home runs at least 1 (Batting, plate appearances)'],
-  ['home run 0-2 count', 'find: 0-2 count and Home runs at least 1 (Batting, plate appearances)'],
+  ['hr on 0-2', 'find: 0-2 count and Home run (Batting, plate appearances)'],
+  ['home run 0-2 count', 'find: 0-2 count and Home run (Batting, plate appearances)'],
   ['walks bases loaded', 'find: Bases-loaded walks (Batting, plate appearances)'],
   ['bases loaded walks', 'find: Bases-loaded walks (Batting, plate appearances)'],
   ['grand slams 2026', 'find: Grand slams (Batting, plate appearances · 2026)'],
@@ -179,8 +179,8 @@ const FIRST: [string, string][] = [
   ['back-to-back home runs', 'find: Back-to-back home runs (Batting, plate appearances)'],
   ['5 strikeouts in a row', 'find: 5+ strikeouts in a row (Pitching, plate appearances)'],
   ['10 pitch at bats', 'find: Pitches seen at least 10 (Batting, plate appearances)'],
-  ['hr at bat', 'find: Home runs at least 1 (Batting, plate appearances)'],
-  ['walks plate appearance', 'find: Walks at least 1 (Batting, plate appearances)'],
+  ['hr at bat', 'find: Home run (Batting, plate appearances)'],
+  ['walks plate appearance', 'find: Walk (Batting, plate appearances)'],
   // Seasons.
   ['300 hitters', 'find: Batting average at least .300 (Batting, season totals)'],
   ['era between 2 and 3', 'find: ERA at least 2.00 and ERA at most 3.00 (Pitching, season totals)'],
@@ -259,7 +259,7 @@ const FIRST: [string, string][] = [
   ['ops with 2 outs', 'leader: Highest OPS with 2 outs'],
   ['avg with the bases loaded', 'leader: Highest batting average with the bases loaded'],
   ['avg on 0-2', 'leader: Highest batting average on 0-2'],
-  ['lee hr off whitmore', 'matchup: Jaida Lee vs Kelsie Whitmore: Home runs at least 1'],
+  ['lee hr off whitmore', 'matchup: Jaida Lee vs Kelsie Whitmore: Home run'],
   // A RUN WITH TWO OUT IS THE CLUB'S, and "team" ranks the clubs (Nov 10, 2026: "two out runs team"
   // listed every two-out plate appearance with both "runs" and "team" unused). The rules it showed:
   // a stat and a situation in either order are one question ("two out runs", "runs with 2 outs");

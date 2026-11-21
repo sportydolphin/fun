@@ -6,8 +6,8 @@
 // answered nothing to any of them (Nov 19, 2026). The conversions live here, league-neutral, so the
 // same words make the same question in both places, and neither has a copy to drift.
 
-import { finderCutsOf, finderFields, PA_CUT_KEYS, PA_SEASON_KEYS, type FinderBoardSide } from './finder'
-import { parseFinderText, parseRecordQuestion, parseScopedRank, rankLowerBetter, type FinderClubAlias, type ParsedFinder, type ParsedRecord, type ParsedScopedRank } from './finderParse'
+import { conditionsForPer, finderCutsOf, finderFields, hasFinderCut, hasPlayerFilter, PA_CUT_KEYS, PA_SEASON_KEYS, type FinderBoardSide, type FinderQuery } from './finder'
+import { parseClubScope, parseFinderText, parseRecordQuestion, parseScopedRank, rankLowerBetter, type FinderClubAlias, type ParsedFinder, type ParsedRecord, type ParsedScopedRank } from './finderParse'
 
 /** A Find question read off words, with how a ranking was asked when it was one. */
 export interface FinderAsk extends ParsedFinder {
@@ -128,4 +128,60 @@ export function finderAskReadings(text: string, clubs: readonly FinderClubAlias[
   }
   for (const p of plain) add(p)
   return out
+}
+
+/** The parts of a question `addToFinderQuestion` reads and writes: a reading, or the board's own query. */
+type AddableQuestion = Pick<ParsedFinder, 'side' | 'per' | 'conditions' | 'teamId' | 'oppId' | 'venue' | 'ignored'>
+  & { season?: number | null; byClub?: boolean; rank?: unknown; playerId?: string | null; batterId?: string | null; pitcherId?: string | null }
+  & Partial<Pick<ParsedFinder, 'from' | 'to' | 'last' | 'hand' | 'extra' | 'dh' | 'stretch'>>
+
+/**
+ * WHAT A PHRASE TYPED UNDER A QUESTION ADDS TO IT, best first, ahead of `readings` (the phrase read on
+ * its own, which stays offered for a reader who meant a new question). The box says "Add: vs LA, 2+
+ * RBI" once a question is set, but every reading replaced the question whole: "2+ RBI" under "Bases
+ * loaded, walk" threw the walk away, and "for BOS" read as nothing at all, since a club alone names no
+ * stat (Nov 20, 2026). A who or where alone (`parseClubScope`) sets that and keeps the rest; a stat
+ * the question's grain can ask joins its conditions, replacing one on the same stat. A ranking, a
+ * named player or another side is a new question, and is left as it reads.
+ */
+export function addToFinderQuestion<R extends AddableQuestion>(
+  base: R, text: string, clubs: readonly FinderClubAlias[], readings: R[],
+): R[] {
+  const scope = parseClubScope(text, clubs)
+  const cutsOf = (r: Partial<AddableQuestion>) => finderCutsOf(r as Parameters<typeof finderCutsOf>[0])
+  const merge = (r: Partial<AddableQuestion>, conditions: R['conditions']): R => {
+    const own = cutsOf(r), was = cutsOf(base)
+    const cuts = Object.fromEntries(Object.entries(own).map(([k, v]) => [k, v ?? was[k as keyof typeof was]]))
+    return {
+      ...base, ...cuts, conditions, ignored: r.ignored ?? [],
+      teamId: r.teamId ?? base.teamId, oppId: r.oppId ?? base.oppId,
+      venue: r.venue && r.venue !== 'any' ? r.venue : base.venue,
+      season: r.season ?? base.season,
+    }
+  }
+  if (scope && scope.teamIds.length === 1 && scope.oppIds.length === 1 && (!scope.per || scope.per === base.per)) {
+    const { teamIds, oppIds, venue, season, per: _per, ...cuts } = scope
+    return [merge({ ...cuts, teamId: teamIds[0], oppId: oppIds[0], venue, season, ignored: [] }, base.conditions), ...readings]
+  }
+  const added: R[] = []
+  for (const r of readings) {
+    if (r.side !== base.side || r.rank || r.playerId || r.batterId || r.pitcherId || !!r.byClub !== !!base.byClub) continue
+    // A stat read at another grain ("2+ RBI" is a game's) joins a plate appearance when one can have it.
+    if (r.per !== base.per && conditionsForPer(base.side, base.per, r.conditions, true, !!base.byClub).length !== r.conditions.length) continue
+    const asked = new Set(r.conditions.map(c => c.field))
+    const conditions = [...base.conditions.filter(c => !asked.has(c.field)), ...r.conditions].slice(0, 6)
+    added.push(merge(r, conditions))
+    break
+  }
+  return [...added, ...readings]
+}
+
+/** The question on a board as a reading `addToFinderQuestion` can add to, or null while nothing is
+ *  asked (the start screen), where a typed phrase is a new question. */
+export function boardQuestion(side: FinderBoardSide, q: FinderQuery, season: number | null = null): AddableQuestion | null {
+  const asked = q.conditions.length > 0 || !!q.teamId || !!q.oppId || q.venue !== 'any' || hasFinderCut(q) || hasPlayerFilter(side, q)
+  return asked ? {
+    side, per: q.per, conditions: q.conditions, teamId: q.teamId, oppId: q.oppId, venue: q.venue, byClub: !!q.byClub,
+    ...finderCutsOf(q), season, ignored: [],
+  } : null
 }

@@ -125,8 +125,10 @@ export function axesFromQuery(): {
     // The Find board's question. Decoded against the side the URL names, since the fields
     // differ between the two and a hitting condition means nothing on a pitching board.
     find: q.get('q'),
-    findTeam: q.get('team'),
-    findOpp: q.get('opp'),
+    // A club's id is its upper-case abbreviation; a hand-typed `team=bos` matched no line and read
+    // "For bos" over an empty answer.
+    findTeam: q.get('team')?.toUpperCase() ?? null,
+    findOpp: q.get('opp')?.toUpperCase() ?? null,
     // The matchup's two players, by id: a plate-appearance question only (see FinderQuery).
     findBatter: q.get('bat'),
     // One player's lines (`by`, since `player` already opens a player).
