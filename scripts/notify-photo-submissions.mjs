@@ -93,7 +93,7 @@ async function notifyOwner() {
   if (n === 0) {
     await db.query(`update public.wpbl_photo_submissions set owner_notified_at = now() where id = any($1::uuid[])`,
       [fresh.map(r => r.id)])
-    return 'owner: only the owner's own uploads are new'
+    return "owner: only the owner's own uploads are new"
   }
   const payload = buildPhotosWaiting({ count: n, newestId: newest })
   console.log(`📷 Owner: ${payload.title} (${fresh.length} new)`)
