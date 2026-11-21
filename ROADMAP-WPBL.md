@@ -1922,9 +1922,12 @@ four clubs move to their home cities and two expansion clubs join; none of it is
 - **Fantasy (to explore)** 🎮. A free season-long game scored by run value, so it rewards what the
   site already measures. Only with enough players to draft from (six clubs is about 180). Different
   from the pick'em, which picks games. The largest build here.
-- **Projections and a season simulator (to explore)** 🔬. WPBL projections with heavy regression,
-  World Cup lines as a prior for the players who have them, projected standings and odds, "sim this
-  matchup". The offseason gets something that changes. Must say plainly how noisy 30 games is.
+- **Projections and a season simulator (started Nov 20, 2026)** 🔬. Owner-only on /admin →
+  Projections until the rosters fill out: returning production per club and player projections
+  ([`derive/projections.ts`](src/wpbl/derive/projections.ts)). Next steps follow the rosters, in
+  ROADMAP-PRIORITIES item 23: replacement level and team strength after the draft, projected
+  standings at 20 a club, the simulator and "sim this matchup" on the real schedule. Must say
+  plainly how noisy 30 games is.
 
 ---
 

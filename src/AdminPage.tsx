@@ -8,6 +8,7 @@ import { runningBuild } from './lib/staleBuild'
 import AdminPhotos from './wpbl/AdminPhotos'
 import AdminClips from './wpbl/AdminClips'
 import AdminRosterMoves from './wpbl/AdminRosterMoves'
+import AdminProjections from './wpbl/AdminProjections'
 import AdminLiveNotes from './wpbl/AdminLiveNotes'
 import AdminRoadmap from './AdminRoadmap'
 import AdminSearch from './AdminSearch'
@@ -53,7 +54,7 @@ const palettePicked = (p: PaletteStats) => p.sections.reduce((n, s) => n + s.pic
 // whether the pipelines ran, and the things the owner operates. They share almost nothing:
 // the range and league filters below apply to the first and to nothing else, so they are
 // three groups rather than three runs of cards separated by nothing but a heading.
-type Group = 'audience' | 'search' | 'health' | 'tools' | 'notes' | 'photos' | 'clips' | 'rosters' | 'roadmap'
+type Group = 'audience' | 'search' | 'health' | 'tools' | 'notes' | 'photos' | 'clips' | 'rosters' | 'projections' | 'roadmap'
 const GROUPS: Array<{ value: Group; label: string }> = [
   { value: 'audience', label: 'Audience' },
   { value: 'search',   label: 'Search' },
@@ -63,6 +64,7 @@ const GROUPS: Array<{ value: Group; label: string }> = [
   { value: 'photos',   label: 'Photos' },
   { value: 'clips',    label: 'Clips' },
   { value: 'rosters',  label: 'Rosters' },
+  { value: 'projections', label: 'Projections' },
   { value: 'roadmap',  label: 'Roadmap' },
 ]
 
@@ -1678,6 +1680,8 @@ export default function AdminPage() {
       {group === 'clips' && <AdminClips />}
 
       {group === 'rosters' && <Box sx={{ maxWidth: ADMIN_NARROW }}><AdminRosterMoves /></Box>}
+
+      {group === 'projections' && <AdminProjections />}
 
       {group === 'roadmap' && <Box sx={{ maxWidth: ADMIN_NARROW }}><AdminRoadmap /></Box>}
     </Box>

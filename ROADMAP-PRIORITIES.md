@@ -187,8 +187,20 @@ agency (a `signed` kind, same count); then the schedule, when the card becomes O
     writers. The links it earns are the SEO brake.
 22. **Fantasy** (to explore): a free season-long game scored by run value. Only with enough players
     to draft from.
-23. **Projections and a season simulator** (to explore): WPBL projections with heavy regression and
-    World Cup lines as a prior, projected standings, "sim this matchup".
+23. **Projections and a season simulator** (started Nov 20, 2026, owner-only on /admin → Projections):
+    returning production per club, and player projections regressed by points measured from the
+    season's own talent spread, World Cup lines translated and weighted, a simulated season's range.
+    Grows with the rosters, each step when the league fills them in, not on a date:
+    - **each roster move**: nothing to do, the tab reads `wpbl_roster_moves`; check that the
+      re-signed, drafted and signed players all project (a drafted player with no WPBL or World Cup
+      line projects as league average and should read as such);
+    - **the draft** (10 rounds): a replacement-level prior for players with no line, so a club's
+      depth is not priced at league average; team strength as projected runs over a depth chart;
+    - **rosters at 20**: projected standings and odds from team strength (`seriesOdds`, the
+      bracket), and the call on going public, with a plain line on how noisy a 15-game club season is;
+    - **the schedule and club count**: the season simulator on the real schedule (expansion
+      clubs included), then "sim this matchup".
+    Revisit the World Cup weight each time the overlap grows: the model card shows its correlation.
 
 ## Later, when there is room
 
