@@ -83,7 +83,7 @@ describe('re-signing alerts switch', () => {
 
   it('sits in WPBL settings, off until the reader opts in', async () => {
     openWpblSettings()
-    const sw = await screen.findByLabelText('WPBL re-signing alerts')
+    const sw = await screen.findByLabelText('WPBL roster move alerts')
     expect(sw).not.toBeChecked()
     expect(sw).not.toBeDisabled()
   })
@@ -91,7 +91,7 @@ describe('re-signing alerts switch', () => {
   it('writes the pref the watcher reads, and turns back off', async () => {
     const user = userEvent.setup()
     openWpblSettings()
-    const sw = await screen.findByLabelText('WPBL re-signing alerts')
+    const sw = await screen.findByLabelText('WPBL roster move alerts')
     await user.click(sw)
     await waitFor(() => expect(localStorage.getItem('wpbl_notify_resigns')).toBe('1'))
     // Independent of the game reminder beside it.

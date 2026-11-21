@@ -24,6 +24,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.255.0',
+    date:    '2026-11-21',
+    changes: [
+      {
+        short: 'WPBL: traded picks and trade alerts',
+        full:  'The 2027 draft card on the rosters page lists every pick that changed hands. Transactions on Home marks a trade with ⇄ and shows the club each traded pick came from. Trades can now include picks on their own and players new to the league. The Roster moves setting (formerly Re-signings) also sends a push for each trade.',
+      },
+      {
+        short: 'WPBL: rosters page',
+        full:  'The re-signing window line is gone from the rosters page, and the page keeps its shape while it loads on a return visit.',
+      },
+    ],
+  },
+  {
     version: '1.254.0',
     date:    '2026-11-21',
     changes: [

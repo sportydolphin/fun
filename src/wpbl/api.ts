@@ -61,7 +61,7 @@ export {
   type UploadTerms, type SubmitAnswer, type MySubmission,
 } from './api/photoSubmissions'
 export {
-  getCachedWpblRosterMoves, fetchWpblRosterMoves, ROSTER_MOVES_CHANGED_EVENT,
+  getCachedWpblRosterMoves, getStoredWpblRosterMoves, fetchWpblRosterMoves, ROSTER_MOVES_CHANGED_EVENT,
   saveWpblRosterMove, deleteWpblRosterMove, type NewRosterMove
 } from './api/offseasonMoves'
 export {

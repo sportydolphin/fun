@@ -161,7 +161,7 @@ describe('copy', () => {
 
   it('has no caption under the league switch or the experimental row', async () => {
     openSettings(true)
-    await screen.findByLabelText('WPBL re-signing alerts')
+    await screen.findByLabelText('WPBL roster move alerts')
     expect(screen.queryByText(/Reminders for Women’s Pro Baseball League games/)).toBeNull()
     expect(screen.queryByText(/Try designs that are still being worked on/)).toBeNull()
     expect(screen.getByLabelText('What experimental features are')).toBeInTheDocument()

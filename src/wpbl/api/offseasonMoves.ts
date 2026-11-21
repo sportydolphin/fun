@@ -9,6 +9,25 @@ let movesCache: { data: WpblRosterMove[]; at: number } | null = null
 
 export function getCachedWpblRosterMoves(): WpblRosterMove[] | null { return movesCache?.data ?? null }
 
+// THIS BROWSER'S LAST READ, kept only as a shape hint for the rosters page's loading state: which
+// players sit above "Draft eligible" decides where every row below it lands, and nothing else can
+// know that before the read. Never drawn as data. Missing, unreadable or blocked storage just
+// means a first visit's shape (nobody re-signed).
+const STORE_KEY = 'sd:wpbl-roster-moves'
+
+export function getStoredWpblRosterMoves(): WpblRosterMove[] | null {
+  try {
+    const v: unknown = JSON.parse(localStorage.getItem(STORE_KEY) ?? 'null')
+    return Array.isArray(v) ? (v as WpblRosterMove[]) : null
+  } catch { return null }
+}
+
+function storeMoves(data: WpblRosterMove[]) {
+  // A failed read also answers [], so an empty answer never replaces a good snapshot.
+  if (!data.length) return
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(data)) } catch { /* storage off or full */ }
+}
+
 /** Fired after an owner write, so an open rosters page or player card redraws without a reload. */
 export const ROSTER_MOVES_CHANGED_EVENT = 'wpbl:roster-moves-changed'
 
@@ -25,6 +44,7 @@ export function fetchWpblRosterMoves(): Promise<WpblRosterMove[]> {
     // An empty table is the ordinary state on the window's first morning, so it is cached like any
     // other answer; a failed read also returns [], and the next mount simply asks again.
     movesCache = { data, at: Date.now() }
+    storeMoves(data)
     return data
   })
 }

@@ -33,6 +33,12 @@
  * plannedMoves refuse is announced with the reason, for a person to record or ignore, and a wrong
  * row is deleted from /admin the same way.
  *
+ * TRADES ARE FLAGGED, NEVER RECORDED. A trade post ('trade') names who moved but not reliably in
+ * which direction or for what, and a wrong trade row moves a player between clubs on the site. So
+ * it goes to Discord once (one ping per trade, though the league and both clubs post it) for a
+ * person to record from /admin. Once recorded, the run pushes it to readers: the browser cannot
+ * send a push, so every traded row with no `pushed_at` is sent here and stamped.
+ *
  * Usage:
  *   npm run instagram-watch                 # read, record, announce what is due
  *   npm run instagram-watch -- --dry-run    # read and classify; writes nothing, posts nothing
@@ -56,12 +62,14 @@ import ws from 'ws'
 import { pathToFileURL } from 'node:url'
 import { runWithHeartbeat } from '../shared/heartbeat.js'
 import webpush from 'web-push'
-import { buildWpblResign } from '../shared/notifications.js'
+import { buildWpblResign, buildWpblTrade } from '../shared/notifications.js'
 // The league's own 2026 rosters and the window, from the module the rosters page draws with.
 // Imported, not copied: a re-signing the watcher records and the page then ignores (a player
 // it thinks is on another club) would be a row on the site that shows nowhere. Node 24 strips
 // the types itself; the module has no runtime imports, so nothing else comes with it.
-import { ROSTERS_2026, ROSTER_SEASON, MAX_RESIGNED, club2026, inResignAnnouncements } from '../src/wpbl/offseason2027.ts'
+import {
+  ROSTERS_2026, ROSTER_SEASON, MAX_RESIGNED, CLUB_CITIES, club2026, inResignAnnouncements, rosterBoards, transactions, pickLabel,
+} from '../src/wpbl/offseason2027.ts'
 
 // Run only when invoked directly; the tests import the matcher and the message builder.
 const IS_ENTRYPOINT = process.argv[1] != null
@@ -168,6 +176,18 @@ const RESIGN_WORDING = [
   /\bback (to|with|in)\b[^.!?]*\b2027\b/,
 ]
 
+// A trade, in the words the league and the clubs used for the first one (Nov 21, 2026): "We have
+// traded ...", "agreed to trade ...", "In exchange for ...". Checked BEFORE the re-signing wording,
+// since the league's post said "Prior to the close of the Exclusive Player Re-signing Window".
+// "Trade" alone is not enough: "trading cards" and "trade show" are merch posts.
+const TRADE_WORDING = [
+  /\btraded\b/,
+  /\bagreed? to trade\b/,
+  /\btrade (with|for|to|of)\b/,
+  /\bin exchange for\b/,
+  /\bacquired?\b/,
+]
+
 // A different league's contracts, announced by the same accounts in the same words
 // ("Denae is returning to Bananaland!"). Refused whatever else the caption says.
 const NOT_OURS = /\bbanana ?(ball|land)|bananaland|world tour\b/
@@ -223,17 +243,18 @@ export function playerIndex(players) {
 }
 
 /**
- * 'resign' with the players it names, or 'other'. Pure, and the reason the tests exist.
+ * 'trade' or 'resign' with the players it names, or 'other'. Pure, and the reason the tests exist.
  */
 export function classifyCaption(caption, index) {
   const text = String(caption ?? '').replace(/[‘’]/g, "'").toLowerCase()
   const none = { kind: 'other', player_ids: [], player_names: [] }
   if (!text || NOT_OURS.test(text)) return none
-  if (!RESIGN_WORDING.some(re => re.test(text))) return none
+  const trade = TRADE_WORDING.some(re => re.test(text))
+  if (!trade && !RESIGN_WORDING.some(re => re.test(text))) return none
   const named = namedIn(text, index)
   if (!named.length) return none
   return {
-    kind: 'resign',
+    kind: trade ? 'trade' : 'resign',
     player_ids: named.map(n => n.id),
     player_names: named.map(n => n.name),
   }
@@ -325,7 +346,7 @@ export const etDate = (iso) =>
  *     for any club, a club only for its own);
  *   - the player is already recorded (by hand, or by an earlier run);
  *   - the club already has its ten.
- * Pure: `existing` is this season's re-signings, passed in so the tests need no database.
+ * Pure: `existing` is this season's roster moves (every kind), passed in so the tests need no database.
  */
 export function plannedMoves(row, existing) {
   const moves = []
@@ -333,8 +354,10 @@ export function plannedMoves(row, existing) {
   const already = []
   const at = Date.parse(row.posted_at)
   const inWindow = inResignAnnouncements(at)
-  const counts = {}
-  for (const m of existing) counts[m.team_id] = (counts[m.team_id] ?? 0) + 1
+  // Each club's 2027 roster so far as the site counts it: its re-signings plus anyone traded in,
+  // less anyone traded away. Counting re-signing rows alone would let a club that traded for a
+  // player go past its ten.
+  const counts = Object.fromEntries(rosterBoards(existing).map(b => [b.teamId, b.resigned.length]))
   row.player_ids.forEach((id, i) => {
     const name = row.player_names[i] ?? id
     const team = club2026(id)
@@ -388,6 +411,45 @@ export function resignMessage(row, { recorded = [], skipped = [], already = [] }
   if (skipped.length) lines.push(`Not added: ${skipped.join('; ')}`)
   lines.push(row.permalink)
   return lines.join('\n')
+}
+
+/** A trade post, for a person to record. One line, the players and the link. */
+export function tradeMessage(row) {
+  const team = row.team_id ? TEAM_NAMES[row.team_id] : row.account
+  return [
+    `🔁 **Trade: ${row.player_names.join(', ')}**, posted by ${team}`,
+    'Not recorded. Record from /admin → Rosters (each player and pick is its own save).',
+    row.permalink,
+  ].join('\n')
+}
+
+/**
+ * Whether a trade post repeats one already announced: the league and both clubs post the same
+ * trade within minutes, and one ping is enough. Same player, within three days. Pure.
+ */
+export function repeatsTrade(row, announced) {
+  const at = Date.parse(row.posted_at)
+  return announced.some(a => Math.abs(Date.parse(a.posted_at) - at) <= 3 * 86_400_000
+    && a.player_ids.some(id => row.player_ids.includes(id)))
+}
+
+/**
+ * Each recorded trade as the readers' push: one per trade_id, "Boston gets Alyssa Zettlemoyer. New
+ * York gets a 2027 6th-round pick." Pure: `rows` are traded rows, `nameOf` maps a player id.
+ */
+export function tradePushes(rows, nameOf) {
+  const city = (id) => CLUB_CITIES[id] ?? id
+  return transactions(rows).filter(t => t.trade).map(t => {
+    const gets = t.legs.map(l => `${city(l.kind === 'pick' ? l.to : l.move.team_id)} gets ${l.kind === 'pick'
+      ? `a ${ROSTER_SEASON} ${pickLabel(l.round)}`
+      : (l.move.player_id ? nameOf(l.move.player_id) : l.move.player_name) ?? 'a player'}`)
+    const clubs = [...new Set(t.legs.map(l => city(l.kind === 'pick' ? l.to : l.move.team_id)))]
+    return buildWpblTrade({
+      tradeId: t.legs[0].move.trade_id ?? String(t.legs[0].move.id),
+      title: `Trade: ${clubs.join(' and ')}`,
+      body: `${gets.join('. ')}.`,
+    })
+  })
 }
 
 export function tokenWarning(daysLeft) {
@@ -450,10 +512,23 @@ async function post(content, mention = '') {
  * stop the roster write or the Discord alert behind it.
  */
 async function pushResigns(moves, nameOf) {
-  if (!moves.length || DRY_RUN) return 0
+  return sendPush(moves.map(move => buildWpblResign({
+    playerId: move.player_id,
+    playerName: nameOf(move.player_id),
+    teamName: TEAM_NAMES[move.team_id] ?? move.team_id,
+    season: move.season,
+  })), 're-signing')
+}
+
+/** The push for each notification to every reader with notify_wpbl_resigns (Settings, "Roster
+ *  moves"). Returns how many devices it reached, or null when it could not try (no keys, dry run),
+ *  so a caller that stamps rows as pushed leaves them for a run that can. Never throws. */
+async function sendPush(notifications, what) {
+  if (!notifications.length) return 0
+  if (DRY_RUN) return null
   if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
-    console.warn('⚠️   No VAPID keys, so no re-signing push.')
-    return 0
+    console.warn(`⚠️   No VAPID keys, so no ${what} push.`)
+    return null
   }
   try {
     webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE)
@@ -466,13 +541,7 @@ async function pushResigns(moves, nameOf) {
       .select('endpoint, p256dh, auth').in('user_id', users)
     if (subErr) throw new Error(subErr.message)
     let sent = 0
-    for (const move of moves) {
-      const n = buildWpblResign({
-        playerId: move.player_id,
-        playerName: nameOf(move.player_id),
-        teamName: TEAM_NAMES[move.team_id] ?? move.team_id,
-        season: move.season,
-      })
+    for (const n of notifications) {
       // The wire shape every sender uses: `id` doubles as the tag, the emoji travels apart from
       // `icon`, which sw.js keeps for the notification image.
       const body = JSON.stringify({ id: n.id, type: n.type, title: n.title, body: n.body, url: n.url, emoji: n.icon, tag: n.tag ?? n.id })
@@ -490,10 +559,10 @@ async function pushResigns(moves, nameOf) {
         }
       }
     }
-    console.log(`Pushed ${moves.length} re-signing(s) to ${sent} device(s) for ${users.length} reader(s).`)
+    console.log(`Pushed ${notifications.length} ${what}(s) to ${sent} device(s) for ${users.length} reader(s).`)
     return sent
   } catch (err) {
-    console.error(`   Re-signing push failed: ${err?.message ?? err}`)
+    console.error(`   ${what} push failed: ${err?.message ?? err}`)
     return 0
   }
 }
@@ -604,12 +673,13 @@ async function main() {
     due = data
   }
 
-  // This season's re-signings, read once and grown as the loop records more, so two posts about
-  // one player in a run record one row.
+  // This season's roster moves, every kind (the cap counts trades), read once and grown as the
+  // loop records more, so two posts about one player in a run record one row.
   const existing = []
   {
     const { data, error } = await supabase.from('wpbl_roster_moves')
-      .select('player_id, team_id').eq('season', ROSTER_SEASON).eq('kind', 're-signed')
+      .select('id, season, kind, player_id, player_name, team_id, from_team_id, trade_id, draft_round, announced_on')
+      .eq('season', ROSTER_SEASON)
     if (error) throw new Error(`Reading roster moves: ${error.message}`)
     existing.push(...data)
   }
@@ -637,11 +707,53 @@ async function main() {
   }
   if (announced) console.log(`Announced ${announced}.`)
 
+  // Trade posts: one Discord ping per trade, for a person to record.
+  let trades = 0
+  {
+    let queue = rows.filter(r => r.kind === 'trade' && r.posted_at >= cutoff)
+    const done = []
+    if (!DRY_RUN) {
+      const { data, error } = await supabase.from('wpbl_instagram_posts')
+        .select('media_id, account, team_id, permalink, player_ids, player_names, posted_at, announced_at')
+        .eq('kind', 'trade').gte('posted_at', cutoff).order('posted_at', { ascending: true })
+      if (error) throw new Error(`Reading trade posts: ${error.message}`)
+      queue = data.filter(r => !r.announced_at)
+      done.push(...data.filter(r => r.announced_at))
+    }
+    for (const row of queue) {
+      if (!repeatsTrade(row, done)) { await post(tradeMessage(row), MENTION); trades++ }
+      done.push(row)
+      if (!DRY_RUN) {
+        const { error } = await supabase.from('wpbl_instagram_posts')
+          .update({ announced_at: new Date().toISOString() }).eq('media_id', row.media_id)
+        if (error) throw new Error(`Marking ${row.media_id} announced: ${error.message}`)
+      }
+    }
+    if (trades) console.log(`Flagged ${trades} trade(s).`)
+  }
+
+  // Recorded trades the readers have not been pushed yet (recorded from /admin since the last run).
+  if (!DRY_RUN) {
+    const { data, error } = await supabase.from('wpbl_roster_moves')
+      .select('id, season, kind, player_id, player_name, team_id, from_team_id, trade_id, draft_round, announced_on')
+      .eq('kind', 'traded').is('pushed_at', null)
+    if (error) throw new Error(`Reading unpushed trades: ${error.message}`)
+    if (data.length) {
+      const nameOf = new Map(players.map(p => [p.id, p.name]))
+      const sent = await sendPush(tradePushes(data, id => nameOf.get(id)), 'trade')
+      if (sent !== null) {
+        const { error: stampErr } = await supabase.from('wpbl_roster_moves')
+          .update({ pushed_at: new Date().toISOString() }).in('id', data.map(r => r.id))
+        if (stampErr) throw new Error(`Marking trades pushed: ${stampErr.message}`)
+      }
+    }
+  }
+
   // The loose net, inside the announcements only. Read from the rows in view rather than the table, so a
   // post is judged on its current caption; flagged_at makes it one ping per post.
   const inWindow = (iso) => inResignAnnouncements(Date.parse(iso))
   const review = rows
-    .filter(r => r.kind !== 'resign' && r.posted_at >= cutoff && inWindow(r.posted_at))
+    .filter(r => r.kind === 'other' && r.posted_at >= cutoff && inWindow(r.posted_at))
     .map(r => ({ row: r, hit: needsReview(r.caption, index, surnames) }))
     .filter(x => x.hit)
   let flagged = 0
@@ -687,7 +799,7 @@ async function main() {
     error: errors.length ? errors.join(' | ').slice(0, 500) : null,
   })
   if (DRY_RUN) console.log('\nDry run: nothing written, nothing sent.')
-  return { detail: `${rows.length} posts, ${announced} re-signing${announced === 1 ? '' : 's'} announced, ${flagged} flagged` }
+  return { detail: `${rows.length} posts, ${announced} re-signing${announced === 1 ? '' : 's'} announced, ${trades} trade${trades === 1 ? '' : 's'}, ${flagged} flagged` }
 }
 
 if (IS_ENTRYPOINT) {

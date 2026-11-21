@@ -257,8 +257,9 @@ function pushBlocked(push: PushState): boolean {
 /**
  * The WPBL reminders. "Game reminders" is the standing before-every-game preference
  * (user_preferences.notify_wpbl_all_games), which also lives on the Home next-game card where the
- * intent happens; both switches read and write the same preference. "Re-signings" is
- * user_preferences.notify_wpbl_resigns, pushed by the Instagram watcher.
+ * intent happens; both switches read and write the same preference. "Roster moves" is
+ * user_preferences.notify_wpbl_resigns (named when it covered re-signings only), pushed by the
+ * Instagram watcher for re-signings and trades.
  */
 function WpblNotificationRows({ userId, push }: { userId: string; push: PushState }) {
   const [games, setGames] = useState(getCachedAllGamesPref())
@@ -314,14 +315,14 @@ function WpblNotificationRows({ userId, push }: { userId: string; push: PushStat
         }
       />
       <Row
-        title="Re-signings"
+        title="Roster moves"
         control={
           <Switch
             checked={resigns}
             disabled={disabled}
             onChange={e => toggle(e.target.checked, setResignPref, setResigns,
               [EVENTS.WPBL_RESIGN_ALERTS_ON, EVENTS.WPBL_RESIGN_ALERTS_OFF], { source: 'settings' })}
-            slotProps={{ input: { 'aria-label': 'WPBL re-signing alerts' } }}
+            slotProps={{ input: { 'aria-label': 'WPBL roster move alerts' } }}
           />
         }
       />
