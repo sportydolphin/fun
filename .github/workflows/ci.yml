@@ -158,12 +158,13 @@ jobs:
   # about a minute, alone. It also takes two `npm run shot` pictures, so the command that replaces
   # the preview pane is known to work on Linux, and keeps them as an artifact to look at.
   #
-  # The six seasons slices sweep every page with a season menu against the dev fake 2027 (--seasons):
+  # The eight seasons slices sweep every page with a season menu against the dev fake 2027 (--seasons):
   # each Stats board, Standings, the clubs and a series, on the default year, on 2026 and on every
   # season. The league has one season until spring 2027, so without them the two-season layouts (the
-  # menu, "All seasons", a Year column, years on dates) would first be looked at by a reader. Six,
-  # because two ran past the 12-minute limit: each case first loads the schedule page to build the
-  # fake year, so a seasons case costs more than a regular one.
+  # menu, "All seasons", a Year column, years on dates) would first be looked at by a reader. Eight,
+  # because each case first loads the schedule page to build the fake year, so a seasons case costs
+  # more than a regular one: two slices ran past the 12-minute limit, and six ran 8 to 12 minutes,
+  # the slowest finishing four seconds after the limit (Nov 21, 2026).
   #
   # SKIPPED STEP BY STEP, NOT AS A JOB, when `changes` says the pull request touches no UI. A
   # skipped job reports `skipped`, which fails the `layout` test below; a job whose steps all skip
@@ -180,7 +181,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, experiments, behavior, seasons-1, seasons-2, seasons-3, seasons-4, seasons-5, seasons-6]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, experiments, behavior, seasons-1, seasons-2, seasons-3, seasons-4, seasons-5, seasons-6, seasons-7, seasons-8]
     env:
       SWEEP: ${{ needs.changes.outputs.sweep }}
       VITE_SUPABASE_URL: 'http://127.0.0.1:54321'
@@ -216,7 +217,7 @@ jobs:
         if: ${{ env.SWEEP == 'true' && startsWith(matrix.shard, 'seasons') }}
         env:
           SHARD: ${{ matrix.shard }}
-        run: npm run sweep -- --replay --shift --baseline --shots sweep-shots --seasons --shard "${SHARD#seasons-}/6"
+        run: npm run sweep -- --replay --shift --baseline --shots sweep-shots --seasons --shard "${SHARD#seasons-}/8"
 
       # The one place a flag-gated layout gets looked at. Name the routes that draw something
       # behind the flag; as of this writing that is the steal card on Run value, and nothing else.
