@@ -19,7 +19,7 @@ import { PINNED_CHROME, fullBleedStickySx } from './layout'
 export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, analysisBoards, source, isNarrow,
   stuckMarkRef, barRef, barStuck, mode, side, pickSide, hasViews, view, switchView, canFilter, sheetOpen,
   setSheetOpen, activeCol, filtersSet, hasPostseason, overall, scope, setScope, teamId, teamChips, filterTeam,
-  qualified, toggleQualified, pos, posChoices, filterPos, allSeasons = false }: {
+  qualified, toggleQualified, pos, posChoices, filterPos, allSeasons = false, multiSeason = false }: {
   newBoards?: ReadonlySet<string>
   activeBoard: string
   selectBoard: (k: string) => void
@@ -56,10 +56,13 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
   toggleQualified: () => void
   /** The board on screen can show every season at once (see StatsView's `boardTakesAll`). */
   allSeasons?: boolean
+  /** There is a second season, so the season menu draws (and can fold into the Filters sheet). */
+  multiSeason?: boolean
 }) {
   // [0] the club chips, [1] the season slice, [2] the side switch's padding, [3] the view switch's
-  // padding, [4] the desktop filters folding into the Filters sheet: the order they give way in.
-  const { rowRef, slotRef, fits } = useRowFit(5, !isNarrow)
+  // padding, [4] the desktop filters folding into the Filters sheet, [5] the season menu folding into
+  // that sheet too: the order they give way in.
+  const { rowRef, slotRef, fits } = useRowFit(6, !isNarrow)
   const sidePill = (dense: boolean) => (
     <PillGroup
       options={SIDES.map(o => !sideOn(o.value, source, mode)
@@ -248,7 +251,17 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
             behind the bar. They are in the Filters sheet there, which is what they are. */}
         {/* THE YEAR, on every board, since every board sums one: before the season slice, because it
             is the wider cut of the two. Not drawn at all until there is a second year to pick. */}
-        {!isNarrow && <SeasonMenu all={allSeasons} sx={{ flexShrink: 0, alignItems: 'center' }} />}
+        {/* THE VERY LAST TO GIVE WAY (slot 5), and only where the Filters pill is drawn, whose sheet
+            lists the seasons too: at 960 on Players, "All seasons" took the row to about 920px of
+            controls in 900 with every other slot already compact (Nov 21, 2026). Its compact form is
+            an empty box, so the row can measure the room to bring it back. */}
+        {/* Folded, the box is `display: contents` and holds nothing, so it is no flex item and adds no
+            gap: an empty item would take the row's 8px gap and nudge every control after it. */}
+        {!isNarrow && (source === 'season' && mode === 'players' && multiSeason ? (
+          <Box ref={slotRef(5)} sx={{ display: fits[5] ? 'flex' : 'contents', alignItems: 'center', flexShrink: 0 }}>
+            {fits[5] && <SeasonMenu all={allSeasons} sx={{ flexShrink: 0, alignItems: 'center' }} />}
+          </Box>
+        ) : <SeasonMenu all={allSeasons} sx={{ flexShrink: 0, alignItems: 'center' }} />)}
         {/* DRAWN ON EVERY BOARD once there is a postseason, and disabled where the board cannot
             take the slice: removed instead, the desktop bar reflowed every time the side or the board
             changed (Nov 7, 2026 audit). Overall is the regular season's, so that chip stays lit. */}
@@ -377,9 +390,18 @@ function useRowFit(count: number, enabled: boolean) {
       // Half a pixel of slack for sub-pixel widths that sum a hair over the row they fit in.
       const room = width(row) + 0.5
       const drawn = (i: number) => slots.current[i] != null
-      if (used > room) {
+      // WRAPPED IS NOT FITTING, whatever the widths add up to: a control that may shrink (`minWidth:
+      // 0`) sums to less than the row while the browser has already put it on a second line. CI's
+      // layout sweep caught exactly that on Players with "All seasons" in the row (Nov 21, 2026).
+      const boxes = shown.map(k => k.getBoundingClientRect())
+      const wrapped = boxes.some(a => boxes.some(b => b.top >= a.bottom - 1))
+      if (used > room || wrapped) {
         const i = prev.findIndex((full, j) => full && drawn(j))
-        return i < 0 ? prev : prev.map((v, j) => (j === i ? false : v))
+        if (i < 0) return prev
+        // Remember the room it did not fit in, so the widths alone cannot bring it straight back
+        // and flip the row between the two every render.
+        if (wrapped) widths.current[i].full = Math.max(widths.current[i].full || 0, room - used + width(slots.current[i]!) + 1)
+        return prev.map((v, j) => (j === i ? false : v))
       }
       for (let i = prev.length - 1; i >= 0; i--) {
         if (prev[i] || !drawn(i)) continue
@@ -392,12 +414,17 @@ function useRowFit(count: number, enabled: boolean) {
   }, [row])
   // No dependency list on purpose: every render can change what is on the row.
   useLayoutEffect(() => { if (enabled) measure() })
+  // EVERY CHILD, INCLUDING ONE ADDED LATER. The season menu draws nothing until the schedule says
+  // there is a second year, and it renders on its own context, not through this bar: a child that
+  // arrived after the observer was set up was never watched, so its width never asked for a measure.
   useLayoutEffect(() => {
     if (!enabled || !row || typeof ResizeObserver === 'undefined') return
     const ro = new ResizeObserver(measure)
-    ro.observe(row)
-    for (const k of row.children) ro.observe(k)
-    return () => ro.disconnect()
+    const watch = () => { ro.observe(row); for (const k of row.children) ro.observe(k) }
+    watch()
+    const mo = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => { watch(); measure() })
+    mo?.observe(row, { childList: true })
+    return () => { ro.disconnect(); mo?.disconnect() }
   }, [enabled, row, measure])
   const slotRef = useCallback((i: number) => (el: HTMLDivElement | null) => { slots.current[i] = el }, [])
   return { rowRef, slotRef, fits }

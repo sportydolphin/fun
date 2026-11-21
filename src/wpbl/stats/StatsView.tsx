@@ -1187,7 +1187,7 @@ export default function WpblStatsView({
         activeCol={activeCol} filtersSet={filtersSet} hasPostseason={hasPostseason} overall={overall}
         scope={scope} setScope={setScope} teamId={teamId} teamChips={teamChips} filterTeam={filterTeam}
         qualified={qualified} toggleQualified={toggleQualified} pos={posOn} posChoices={posChoices} filterPos={filterPos}
-        allSeasons={boardTakesAll} />
+        allSeasons={boardTakesAll} multiSeason={multiSeason} />
 
       {/* ON A PHONE THE POSITION SAYS SO ABOVE THE TABLE: its picker is in the Filters sheet, and a
           board of four catchers with nothing on screen saying why reads as a board missing players.
