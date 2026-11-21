@@ -22,16 +22,10 @@ alter table public.wpbl_roster_moves add constraint wpbl_roster_moves_check
   check (player_id is not null or nullif(trim(player_name), '') is not null
          or (kind = 'traded' and draft_round is not null));
 
-alter table public.wpbl_roster_moves drop constraint if exists wpbl_roster_moves_trade_check;
-alter table public.wpbl_roster_moves add constraint wpbl_roster_moves_trade_check
-  check (case when kind = 'traded'
-              then from_team_id is not null and from_team_id <> team_id
-                   -- A player row carries no pick: the pick is its own row.
-                   and (player_id is null and nullif(trim(player_name), '') is null) = (draft_round is not null)
-              else from_team_id is null end);
-
 -- The Nov 21, 2026 trade in the new shape: Zettlemoyer New York to Boston, and Boston's 6th-round
--- pick Boston to New York, one trade_id.
+-- pick Boston to New York, one trade_id. Between dropping the old trade check (which wants a player
+-- on every traded row) and adding the new one (which the old shape fails).
+alter table public.wpbl_roster_moves drop constraint if exists wpbl_roster_moves_trade_check;
 do $$
 declare t public.wpbl_roster_moves;
 begin
@@ -43,6 +37,13 @@ begin
       (t.season, 'traded', null, null, t.from_team_id, t.team_id, t.trade_id, t.draft_round, t.draft_pick, t.announced_on, t.source_url, t.pushed_at);
   end loop;
 end $$;
+
+alter table public.wpbl_roster_moves add constraint wpbl_roster_moves_trade_check
+  check (case when kind = 'traded'
+              then from_team_id is not null and from_team_id <> team_id
+                   -- A player row carries no pick: the pick is its own row.
+                   and (player_id is null and nullif(trim(player_name), '') is null) = (draft_round is not null)
+              else from_team_id is null end);
 
 -- The watch now files a trade post as 'trade', to flag it once and never record from it.
 alter table public.wpbl_instagram_posts drop constraint if exists wpbl_instagram_posts_kind_check;
