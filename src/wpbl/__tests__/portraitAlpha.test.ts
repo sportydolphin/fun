@@ -33,6 +33,15 @@ function hasAlpha(buf: Buffer): boolean {
 }
 
 describe('the bundled portraits', () => {
+  // How `npm run portraits` knows a portrait is out of date: one with no source can never be.
+  // A failure here means a face was added by hand; import it with that command instead.
+  it('each record the one league photo they came from', () => {
+    const sources: Record<string, { slug: string }> =
+      JSON.parse(readFileSync(join(process.cwd(), 'scripts/wpbl-portrait-sources.json'), 'utf8'))
+    const slugs = readdirSync(dir('portraits')).filter(f => f.endsWith('.webp')).map(f => f.slice(0, -5))
+    expect(Object.values(sources).map(s => s.slug).sort()).toEqual(slugs.sort())
+  })
+
   const faces = (folder: string) => readdirSync(dir(folder)).filter(f => f.endsWith('.webp'))
 
   for (const folder of ['portraits', 'managers']) {

@@ -22,7 +22,7 @@ export const FAILURES_BEFORE_RED: number
 export function diffSource<T extends NewsItem>(
   prev: Map<string, string>,
   items: T[],
-  opts: { seeded: boolean },
+  opts: { seeded: boolean; misread?: string },
 ): { added: T[]; changed: Array<T & { before: string }>; seeding: boolean }
 
 export function isLoud(source: string, item: Partial<NewsItem>): boolean
@@ -31,3 +31,9 @@ export function decodeEntities(s: unknown): string
 export function describe(source: string, kind: string, item: NewsItem): string
 export function chunkLines(header: string, lines: string[], cap?: number): string[]
 export function pushSummary(loud: NewsReport[]): { title: string; body: string } | null
+
+export const MISREAD_PLAYER: string
+export function acfValue(raw: unknown): string | number | null
+export function playerItems(rows: unknown[], clubs: Map<string, string>): NewsItem[]
+export function headshotIds(rows: unknown[]): number[]
+export function headshotItems(rows: unknown[], media: unknown[]): NewsItem[]

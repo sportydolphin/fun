@@ -10,8 +10,8 @@
  *
  * WHO HEARS WHAT. The stats feed (a new season, club or game) and the league's own club and venue
  * records push to the owner's phone: those change what the ingest does and what the site may say.
- * Everything else (posts, pages, player status, the website calendar, promos, partners, YouTube,
- * press coverage) goes to the ops Discord channel as a quiet digest. Which sources are loud is
+ * Everything else (posts, pages, player status and headshots, the website calendar, promos,
+ * partners, YouTube, press coverage) goes to the ops Discord channel as a quiet digest. Which sources are loud is
  * LOUD_SOURCES in shared/newsWatch.js, beside its tests. A website calendar game in a later year
  * than the season we hold is loud too: that is the next schedule.
  *
@@ -45,7 +45,7 @@ import pg from 'pg'
 import webpush from 'web-push'
 import {
   diffSource, isLoud, isNextSeasonDate, decodeEntities, describe, chunkLines, pushSummary,
-  FAILURES_BEFORE_RED,
+  playerItems, headshotIds, headshotItems, MISREAD_PLAYER, FAILURES_BEFORE_RED,
 } from '../shared/newsWatch.js'
 import { buildLeagueNewsAlert } from '../shared/notifications.js'
 
@@ -61,6 +61,8 @@ const KNOWN_SEASON_YEAR = 2026
 // Press coverage older than this is not news, however recently Google surfaced it.
 const NEWS_MAX_AGE_MS = 14 * 24 * 60 * 60_000
 // "WPBL" alone is also the World Pickleball League, hence the full name and the exclusion.
+// A stored value that was our bug, per source: moving off it is not reported (diffSource).
+const MISREAD = { 'site-player': MISREAD_PLAYER }
 const NEWS_QUERIES = ['"Women\'s Pro Baseball League"', 'WPBL baseball -pickleball']
 
 const OWNER_EMAIL = 'snichols246@gmail.com' // mirrors public.is_site_owner(), as check-admin-health does
@@ -181,17 +183,24 @@ const SOURCES = {
     ...(await wpSimple('wpbl_video')()).map(i => ({ ...i, key: `wpbl_video:${i.key}` })),
   ],
   'site-player': async () => {
-    // Status and club are where a re-signing, a release or a new signing shows first: the
-    // league edits a player's record before it writes anything about it.
+    // A release, a trade or a new signing edits these. A re-signing does not: none of the 37 in
+    // November 2026 moved a status or a club, so the Instagram watch is what hears those.
     const teams = new Map((await wpAll('wpbl_team', 'id,title')).map(t => [String(t.id), wpTitle(t)]))
-    const rows = await wpAll('wpbl_player', 'id,link,title,acf.player_status,acf.team_post')
-    return rows.map(r => {
-      const status = r.acf?.player_status?.value || 'no status'
-      const teamId = String(r.acf?.team_post?.value ?? '')
-      const club = teams.get(teamId) ?? (teamId ? `club ${teamId}` : 'no club')
-      const now = `${status}, ${club}`
-      return { key: String(r.id), fingerprint: now, title: wpTitle(r), url: r.link, note: now }
-    })
+    return playerItems(await wpAll('wpbl_player', 'id,link,title,acf.player_status,acf.team_post'), teams)
+  },
+  'site-headshot': async () => {
+    // Our portraits are bundled copies, so a new photo reaches the site only when a person runs
+    // scripts/wpbl-portraits.py. Eighteen sat unnoticed for up to six weeks in fall 2026.
+    const rows = await wpAll('wpbl_player', 'id,title,acf.headshot')
+    const ids = headshotIds(rows)
+    const media = []
+    for (let i = 0; i < ids.length; i += 100) {
+      const batch = ids.slice(i, i + 100).join(',')
+      const { json } = await fetchJson(`${WP}/media?per_page=100&include=${batch}&_fields=id,date,modified,source_url`)
+      if (!Array.isArray(json)) throw new Error('media: expected an array')
+      media.push(...json)
+    }
+    return headshotItems(rows, media)
   },
   'site-calendar': async () => {
     const { json } = await fetchJson(`${SITE}/wp-json/wpbl/v1/calendar-events`)
@@ -336,8 +345,8 @@ const DISCORD_RETRIES = 4
 
 /**
  * One message, waiting out Discord's rate limit. A webhook allows about five posts in two
- * seconds, and on Nov 12, 2026 the league cleared every player's status and club at once: 133
- * changes, a dozen messages, a 429 partway through, and a red run. Worse, the messages that had
+ * seconds, and on Nov 12, 2026 a change in the league's field shape (acfValue in
+ * shared/newsWatch.js) read as 133 changes: a dozen messages, a 429 partway through, and a red run. Worse, the messages that had
  * landed were sent again by every retry, because a partial delivery records nothing.
  */
 async function postOne(content) {
@@ -427,7 +436,7 @@ async function main() {
       if (r.status === 'rejected') { failures.push({ name, message: String(r.reason?.message ?? r.reason) }); return }
       const { items } = r.value
       const seeded = Boolean(sources.get(name)?.seeded_at) && !RESEED
-      const { added, changed, seeding } = diffSource(bySource.get(name) ?? new Map(), items, { seeded })
+      const { added, changed, seeding } = diffSource(bySource.get(name) ?? new Map(), items, { seeded, misread: MISREAD[name] })
       reads.push({ name, items })
       if (seeding) console.log(`🌱 ${name}: ${RESEED ? 'reseeded' : 'first read, seeded'} with ${items.length} item(s)`)
       for (const item of added) reports.push({ source: name, kind: 'added', item })

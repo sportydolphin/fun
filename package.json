@@ -48,6 +48,7 @@
     "check-postseason": "node scripts/run-ts.mjs --env scripts/check-wpbl-postseason.ts",
     "restock-watch": "node --env-file=.env scripts/watch-wpbl-restock.mjs",
     "commons-sync": "node --env-file=.env scripts/sync-wpbl-commons.mjs",
+    "portraits": "python scripts/wpbl-portraits.py",
     "prepare-fan-photos": "python scripts/prepare-fan-photos.py",
     "ingest-fan-photos": "node --env-file=.env scripts/ingest-fan-photos.mjs",
     "site-calendar": "node --env-file=.env scripts/sync-wpbl-site-calendar.mjs",

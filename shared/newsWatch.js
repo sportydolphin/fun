@@ -3,7 +3,7 @@
 //
 // WHY THIS EXISTS. Between seasons the league announces things in places the ingest never reads:
 // a WordPress post (the 2027 roster explainer, Nov 8, 2026), a new page (the 2027 draft
-// application, the same day), a player record whose status flips on a re-signing, a YouTube
+// application, the same day), a player record whose status, club or headshot changes, a YouTube
 // Short (2027 confirmed, Nov 7). Each was found by a person happening to look. The stats feed
 // itself will carry the 2027 season one day with no announcement at all. This watches every one.
 //
@@ -31,16 +31,91 @@ export const LOUD_SOURCES = new Set([
  * @param {{ seeded: boolean }} opts  seeded: the store has a record of this source at all
  * @returns {{ added: object[], changed: object[], seeding: boolean }}
  */
-export function diffSource(prev, items, { seeded }) {
+export function diffSource(prev, items, { seeded, misread }) {
   const added = []
   const changed = []
   for (const item of items) {
     const before = prev.get(item.key)
     if (before === undefined) added.push(item)
-    else if (before !== item.fingerprint) changed.push({ ...item, before })
+    // `misread` is a value an older reader stored by mistake: moving off it is our repair, not news.
+    else if (before !== item.fingerprint && before !== misread) changed.push({ ...item, before })
   }
   if (!seeded) return { added: [], changed: [], seeding: true }
   return { added, changed, seeding: false }
+}
+
+// ─── The league's player records ──────────────────────────────────────────────
+//
+// AN ACF FIELD HAS COME IN TWO SHAPES. It was `{ value: 'signed' }` until Nov 11, 2026 and the
+// plain `'signed'` since Nov 12, with nothing announced. The reader took `.value` and fell back to
+// "no status, no club", so the switch went out as 130 changes, was taken for the league clearing
+// every record, and the source was blind for ten days while reporting healthy. So: read both
+// shapes, and throw on anything else. A thrown read is a failed source, which goes red; a fallback
+// is a green run that has stopped watching.
+
+/** What the broken reader stored for every player. No reader writes it now (see playerItems). */
+export const MISREAD_PLAYER = 'no status, no club'
+
+/** An ACF field's value in either shape, or null when the league left it empty. */
+export function acfValue(raw) {
+  const v = raw !== null && typeof raw === 'object' && 'value' in raw ? raw.value : raw
+  if (v === null || v === undefined || v === '' || v === false) return null
+  if (typeof v === 'string' || typeof v === 'number') return v
+  throw new Error(`an ACF field changed shape: ${JSON.stringify(raw).slice(0, 80)}`)
+}
+
+/**
+ * One item per player record: status and club.
+ *
+ * @param {Array<any>} rows  wpbl_player records
+ * @param {Map<string, string>} clubs  team post id -> club
+ */
+export function playerItems(rows, clubs) {
+  const read = rows.map(r => ({ r, status: acfValue(r.acf?.player_status), team: acfValue(r.acf?.team_post) }))
+  // One empty record is the league's business. Every one empty is a field we can no longer read.
+  for (const field of /** @type {const} */ (['status', 'team'])) {
+    if (read.length && read.every(p => p[field] === null)) throw new Error(`no player record has a ${field}: the field moved`)
+  }
+  return read.map(({ r, status, team }) => {
+    const club = team === null ? 'no club' : clubs.get(String(team)) ?? `club ${team}`
+    // "status blank", never "no status": that spelling is MISREAD_PLAYER's and must not recur.
+    const now = `${status ?? 'status blank'}, ${club}`
+    return { key: String(r.id), fingerprint: now, title: decodeEntities(r.title?.rendered ?? r.id), url: r.link, note: now }
+  })
+}
+
+/** The media ids the player records name as headshots. */
+export function headshotIds(rows) {
+  const ids = rows.map(r => acfValue(r.acf?.headshot)).filter(v => v !== null).map(Number)
+  if (ids.some(id => !Number.isSafeInteger(id))) throw new Error('a headshot is no longer a media id')
+  if (rows.length && ids.length === 0) throw new Error('no player record has a headshot: the field moved')
+  return [...new Set(ids)]
+}
+
+/**
+ * One item per player with a headshot. The media record is the signal: the player's own `modified`
+ * did not move when the league replaced 17 headshots on Oct 9, 2026. A player with none has no
+ * item, so a first photo reads as "New".
+ *
+ * @param {Array<any>} rows  wpbl_player records
+ * @param {Array<any>} media  the media records behind headshotIds(rows)
+ */
+export function headshotItems(rows, media) {
+  const byId = new Map(media.map(m => [Number(m.id), m]))
+  const items = []
+  for (const r of rows) {
+    const m = byId.get(Number(acfValue(r.acf?.headshot)))
+    if (!m) continue // none, or a private or deleted attachment
+    items.push({
+      key: String(r.id),
+      fingerprint: `${m.id}|${m.modified}`,
+      title: decodeEntities(r.title?.rendered ?? r.id),
+      url: m.source_url,
+      note: `uploaded ${String(m.date).slice(0, 10)}, import with \`npm run portraits -- ${r.id}\``,
+    })
+  }
+  if (rows.length && items.length === 0) throw new Error('no headshot resolved to a media record')
+  return items
 }
 
 /** Whether a reported item belongs on the phone. A source can also mark one item loud. */
@@ -83,6 +158,7 @@ export const SOURCE_LABELS = {
   'site-page':        'league page',
   'site-transaction': 'league transaction',
   'site-player':      'league player',
+  'site-headshot':    'league headshot',
   'site-team':        'league club',
   'site-venue':       'league venue',
   'site-calendar':    'league calendar game',
