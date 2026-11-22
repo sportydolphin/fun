@@ -460,7 +460,7 @@ flowchart TB
         t_pwin["wpbl_predict_winners<br/>(one winner per game)"]
         t_corr["wpbl_play_corrections<br/>(OUR fixes, not the feed's)"]
         t_rev["wpbl_game_revisions<br/>(what the league changed after final; append-only)"]
-        t_moves["wpbl_player_team_changes<br/>(trades the ingest spotted)"]
+        t_moves["wpbl_player_team_changes<br/>(trades the ingest spotted, and recorded trades)"]
         t_restock["wpbl_restock_watch<br/>(shortlist: shout about these)"]
         t_shopp["wpbl_shop_products<br/>+ wpbl_shop_variants<br/>(catalog snapshot)"]
         t_shopr["wpbl_shop_watch_runs<br/>(watcher health, per source)"]
@@ -512,7 +512,7 @@ changes club, flags both ACTIVE and links them with nothing, so `wpbl_players.ap
 every id a person has ever had (`api_id` is whichever is current) and the ingest matches on
 any of them. `team_as_of` records the date of the newest box score that placed her on
 `team_id`, which is what stops a re-read of an old game from undoing a trade, and every move
-the ingest makes on its own is logged to `wpbl_player_team_changes`. Historical team is never
+the ingest makes on its own is logged to `wpbl_player_team_changes`. A `traded` row in `wpbl_roster_moves` moves the player too (trigger `wpbl_apply_trade`): `team_id` goes to the receiving club and `team_as_of` to the announcement date, so no older box score can move them back, and the move is logged with reason `roster move`. Historical team is never
 read off the roster row: box-score lines and plays each carry the club that game was played
 for, and that is what the game logs and team pages use.
 
