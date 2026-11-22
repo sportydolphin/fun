@@ -119,3 +119,12 @@ What the league feed does that it never says, and what the ingest does about it.
   undecided bracket game's box score has `''` for both club ids. **The import is a bare
   `'valibot'`**, mapped in this folder's `deno.json`; a test fails if its version leaves
   `package.json`'s, and `denoGraph.test.ts` fails on any bare import the map lacks.
+
+- **The league website's player fields changed shape in silence.** News Watch read
+  `acf.player_status.value` and `acf.team_post.value`. On Nov 12, 2026 both became plain values,
+  the fallback turned every player into "no status, no club", and the 130 changes were taken for
+  the league clearing its records: the fix that day was to Discord's rate limit. The source then
+  watched nothing for ten days with a green run. `acfValue` in
+  [`shared/newsWatch.js`](../../../shared/newsWatch.js) reads both shapes and throws on a third,
+  and a field empty on every record fails the source. Anything new reading `acf.*` goes through it,
+  and 130 identical changes at once is a broken reader until the raw response says otherwise.

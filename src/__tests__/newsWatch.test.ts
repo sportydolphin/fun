@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  chunkLines, decodeEntities, diffSource, isLoud, isNextSeasonDate, pushSummary,
+  MISREAD_PLAYER, acfValue, chunkLines, decodeEntities, describe as describeReport, diffSource, headshotIds,
+  headshotItems, isLoud, isNextSeasonDate, playerItems, pushSummary,
 } from '../../shared/newsWatch.js'
 
 const item = (key: string, fingerprint = key, extra = {}) => ({ key, fingerprint, title: `T${key}`, ...extra })
@@ -36,7 +37,7 @@ describe('isLoud', () => {
   })
 
   it('keeps posts, pages, players and press quiet unless an item says otherwise', () => {
-    for (const s of ['site-post', 'site-page', 'site-player', 'news', 'youtube']) {
+    for (const s of ['site-post', 'site-page', 'site-player', 'site-headshot', 'news', 'youtube']) {
       expect(isLoud(s, item('1'))).toBe(false)
     }
     expect(isLoud('site-calendar', item('1', '1', { loud: true }))).toBe(true)
@@ -94,5 +95,58 @@ describe('pushSummary', () => {
     expect(pushSummary([{ source: 'feed-season', kind: 'added', item: { title: 'WPBL 2027' } }])!.title)
       .toBe('WPBL: new feed season')
     expect(pushSummary([])).toBeNull()
+  })
+})
+
+describe('league player records', () => {
+  const clubs = new Map([['5222', 'Los Angeles']])
+  // As the league answered on Nov 22, 2026, and as it did until Nov 11.
+  const plain = { id: 2089, title: { rendered: 'Ayuri Shimano' }, link: 'u', acf: { player_status: 'signed', team_post: 5222, headshot: 8029 } }
+  const wrapped = { ...plain, acf: { player_status: { value: 'signed' }, team_post: { value: 5222 }, headshot: { value: 8029 } } }
+  const media = (id: number, modified = '2026-10-09T13:55:21') =>
+    ({ id, modified, date: '2026-10-09T13:55:21', source_url: `https://league/${id}.webp` })
+
+  it('reads both shapes of field to the same item', () => {
+    expect(playerItems([plain], clubs)[0].fingerprint).toBe('signed, Los Angeles')
+    expect(playerItems([wrapped], clubs)).toEqual(playerItems([plain], clubs))
+    expect(headshotIds([wrapped])).toEqual([8029])
+  })
+
+  it('fails the read on a third shape, never falling back to empty', () => {
+    expect(() => acfValue({ slug: 'signed' })).toThrow(/shape/)
+    expect(() => acfValue(['signed'])).toThrow(/shape/)
+    expect(() => headshotIds([{ ...plain, acf: { headshot: 'photo.webp' } }])).toThrow(/media id/)
+  })
+
+  it('fails the read when a field is empty on every record', () => {
+    expect(() => playerItems([{ ...plain, acf: { team_post: 5222 } }], clubs)).toThrow(/status/)
+    expect(() => playerItems([{ ...plain, acf: { player_status: 'signed' } }], clubs)).toThrow(/team/)
+    expect(() => headshotIds([{ ...plain, acf: {} }])).toThrow(/headshot/)
+    expect(() => headshotItems([plain], [])).toThrow(/media record/)
+  })
+
+  it('allows one empty record, and never spells it like the misread', () => {
+    const empty = { id: 2, title: { rendered: 'B' }, acf: { player_status: '', team_post: null } }
+    const item = playerItems([plain, empty], clubs)[1]
+    expect(item.fingerprint).toBe('status blank, no club')
+    expect(item.fingerprint).not.toBe(MISREAD_PLAYER)
+  })
+
+  it('repairs the misread in silence, then reports the next real change', () => {
+    const opts = { seeded: true, misread: MISREAD_PLAYER }
+    const items = playerItems([plain], clubs)
+    expect(diffSource(new Map([['2089', MISREAD_PLAYER]]), items, opts).changed).toEqual([])
+    expect(diffSource(new Map([['2089', 'drafted, Los Angeles']]), items, opts).changed).toHaveLength(1)
+  })
+
+  it('reports a swapped photo, an edited one and a first one', () => {
+    const before = new Map<string, string>(headshotItems([plain], [media(8029)]).map(i => [i.key, i.fingerprint]))
+    const diff = (row: object, m: object) => diffSource(before, headshotItems([row], [m]), { seeded: true })
+    expect(diff(plain, media(8029)).changed).toEqual([])
+    expect(diff(plain, media(8029, '2026-12-01T00:00:00')).changed).toHaveLength(1)
+    const swapped = diff({ ...plain, acf: { headshot: 9001 } }, media(9001)).changed
+    expect(describeReport('site-headshot', 'changed', swapped[0]))
+      .toBe('Changed league headshot: Ayuri Shimano: uploaded 2026-10-09, import with `npm run portraits -- 2089`')
+    expect(diff({ ...plain, id: 3000 }, media(8029)).added).toHaveLength(1)
   })
 })

@@ -2,6 +2,7 @@
 // (512×512, smart-cropped), mirroring how team logos are bundled in ./logos (see
 // constants.ts). Vite emits each as a hashed asset URL, fetched on demand.
 //
+// A player's newer league photo comes in through `npm run portraits` (scripts/wpbl-portraits.py).
 // Files are named by a normalized slug of the player's DB `name`; we resolve a player to
 // their portrait by slugifying that name the same way, so no per-name mapping is needed.
 // The alias table is a fallback for any future roster name whose DB spelling can't be

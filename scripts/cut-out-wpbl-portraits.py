@@ -14,8 +14,9 @@ of her was the only one on the page wearing no color. Nothing about that is visi
 type checker or a test that only counts files, which is why it sat there for months.
 
 IN PLACE, AND THE FILE IS ITS OWN SOURCE. This is the opposite of make-wpbl-manager-portraits,
-which rebuilds its output from a published graphic every run: there is no upstream to re-fetch
-here, the 512 square IS the original, and git is the only copy of what went in. So the pass is
+which rebuilds its output from a published graphic every run: nothing is re-fetched here, the
+512 square is the input, and git is the only copy of what went in. (A newer photo from the
+league comes in through wpbl-portraits.py, which borrows `alpha` from this file.) So the pass is
 idempotent by construction (a file that already carries alpha is skipped, not re-keyed) and
 `--check` exists to see the list before anything is written.
 

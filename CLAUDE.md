@@ -109,6 +109,7 @@ first when you are working on what the line describes, even from somewhere else 
 
 [`supabase/functions/wpbl-ingest/CLAUDE.md`](supabase/functions/wpbl-ingest/CLAUDE.md), the feed and the ingest:
 - `wpbl_game_plays` is a mirror: corrections go in `wpbl_play_corrections`. `wpbl_game_revisions` is the opposite, append-only and irreplaceable.
+- The league website's ACF fields change shape in silence (`acfValue`): a reader throws, never falls back to empty.
 - A club's feed id is not the club (`api_ids`, adoption by exact name); any `summary.errors` entry is a failed run (`ok: false`).
 - `feed-contract.ts` checks every `/games` and box score read; a break is reported, not skipped, and `deno.json` pins valibot to `package.json`.
 - The postseason is a separate presto season with no timezone twins; the league's own calendar outranks the feed's start times.

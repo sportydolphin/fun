@@ -39,6 +39,15 @@ FOLDERS = [ROOT / "src" / "wpbl" / "portraits", ROOT / "src" / "wpbl" / "manager
 SIZE = 128
 
 
+def write_thumb(src: Path, dest: Path) -> None:
+    """One thumb. scripts/wpbl-portraits.py calls this for the faces it imports."""
+    im = Image.open(src).convert("RGBA")
+    # LANCZOS and the alpha kept: these are cut-outs, and a thumb that lost its
+    # transparency would draw a white square inside the club-colored ring, which is
+    # the exact bug the cut-out pass exists to fix.
+    im.resize((SIZE, SIZE), Image.LANCZOS).save(dest, "WEBP", quality=82, method=6)
+
+
 def main() -> None:
     force = "--force" in sys.argv
     built = skipped = 0
@@ -51,11 +60,7 @@ def main() -> None:
             if not force and dest.exists() and dest.stat().st_mtime >= src.stat().st_mtime:
                 skipped += 1
                 continue
-            im = Image.open(src).convert("RGBA")
-            # LANCZOS and the alpha kept: these are cut-outs, and a thumb that lost its
-            # transparency would draw a white square inside the club-colored ring, which is
-            # the exact bug the cut-out pass exists to fix.
-            im.resize((SIZE, SIZE), Image.LANCZOS).save(dest, "WEBP", quality=82, method=6)
+            write_thumb(src, dest)
             built += 1
         # A thumb whose source is gone is a file nothing can reach and a name that will confuse
         # the next person to look. The sources are the roster, so this follows a deletion.
