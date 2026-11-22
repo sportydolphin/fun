@@ -24,6 +24,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.259.0',
+    date:    '2026-11-22',
+    changes: [
+      {
+        short: 'Side panel: scrollbar at the screen edge',
+        full:  'On a desktop, the scrollbar at the right edge of the screen scrolls the open player or game panel, where it scrolled the page behind it. The page still scrolls with the wheel.',
+      },
+    ],
+  },
+  {
     version: '1.258.0',
     date:    '2026-11-22',
     changes: [

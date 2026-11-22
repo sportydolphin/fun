@@ -10,7 +10,10 @@ export function publishScrollbarWidth(): void {
   const root = document.documentElement
   let last = -1
   const publish = () => {
-    const w = Math.max(0, window.innerWidth - root.clientWidth)
+    // Plus the padding that stands in for a hidden bar (ui/scrollLock.ts): the page still has that
+    // much less room, and a column told otherwise widens under the reader as a panel opens.
+    const standIn = parseFloat(document.body?.style.paddingRight ?? '') || 0
+    const w = Math.max(0, window.innerWidth - root.clientWidth) + standIn
     if (w === last) return
     last = w
     root.style.setProperty('--sd-scrollbar-w', `${w}px`)

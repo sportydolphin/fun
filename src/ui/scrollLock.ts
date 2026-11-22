@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useLayoutEffect } from 'react'
 
 // Ref-counted page scroll lock: while anything is laid over the page, the page behind it must not
 // scroll. Counted so stacked overlays (a game, then a player) release it only when the last one
@@ -10,10 +10,15 @@ import { useEffect } from 'react'
 // the sheet was still up, so the page scrolled under it. That lock also set only <body>, which is
 // not the scroller here (see below), so it never froze anything to begin with.
 let scrollLockCount = 0
-const savedScroll = { htmlOverflow: '', bodyOverflow: '', bodyPaddingRight: '' }
+const savedScroll = { htmlOverflow: '', bodyOverflow: '' }
 
-function lockBodyScroll() {
-  if (scrollLockCount++ === 0) {
+// The lock and the side panel both take the page's scrollbar away, and either can outlast the
+// other, so its stand-in padding has one count: it goes only when neither needs it.
+let gapHolders = 0
+let savedPaddingRight = ''
+
+function holdScrollbarGap() {
+  if (gapHolders++ === 0) {
     // The viewport scroller is <html> here (not <body>), so lock both to cover
     // whichever element actually scrolls. Compensate the removed scrollbar width
     // on <body> so the page doesn't jump sideways when the bar disappears.
@@ -28,12 +33,22 @@ function lockBodyScroll() {
     // compensate for anyway.
     const rawGap = window.innerWidth - document.documentElement.clientWidth
     const gap = rawGap > 0 && rawGap <= 40 ? rawGap : 0
+    savedPaddingRight = document.body.style.paddingRight
+    if (gap > 0) document.body.style.paddingRight = `${gap}px`
+  }
+}
+
+function releaseScrollbarGap() {
+  if (--gapHolders === 0) document.body.style.paddingRight = savedPaddingRight
+}
+
+function lockBodyScroll() {
+  if (scrollLockCount++ === 0) {
+    holdScrollbarGap()
     savedScroll.htmlOverflow = document.documentElement.style.overflow
     savedScroll.bodyOverflow = document.body.style.overflow
-    savedScroll.bodyPaddingRight = document.body.style.paddingRight
     document.documentElement.style.overflow = 'hidden'
     document.body.style.overflow = 'hidden'
-    if (gap > 0) document.body.style.paddingRight = `${gap}px`
   }
 }
 
@@ -42,7 +57,7 @@ function unlockBodyScroll() {
     scrollLockCount = 0
     document.documentElement.style.overflow = savedScroll.htmlOverflow
     document.body.style.overflow = savedScroll.bodyOverflow
-    document.body.style.paddingRight = savedScroll.bodyPaddingRight
+    releaseScrollbarGap()
   }
 }
 
@@ -54,4 +69,29 @@ export function useScrollLock(active: boolean = true) {
     lockBodyScroll()
     return unlockBodyScroll
   }, [active])
+}
+
+let hiddenBarCount = 0
+let savedScrollbarWidth = ''
+
+/** Hide the page's scrollbar but leave the page scrollable, for a side panel on the right edge.
+ *  With both bars showing, the page's is the one on the screen edge, so dragging what looks like
+ *  the panel's scrollbar scrolled the page behind it (Nov 22, 2026). A layout effect, so the panel's
+ *  first frame is already on the edge and a swap never flashes the bar back. */
+export function useHidePageScrollbar() {
+  useLayoutEffect(() => {
+    // Without support the bar stays, and padding for it would narrow the page for nothing.
+    if (!globalThis.CSS?.supports?.('scrollbar-width', 'none')) return
+    const root = document.documentElement
+    if (hiddenBarCount++ === 0) {
+      holdScrollbarGap()
+      savedScrollbarWidth = root.style.scrollbarWidth
+      root.style.scrollbarWidth = 'none'
+    }
+    return () => {
+      if (--hiddenBarCount > 0) return
+      root.style.scrollbarWidth = savedScrollbarWidth
+      releaseScrollbarGap()
+    }
+  }, [])
 }
