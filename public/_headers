@@ -28,8 +28,8 @@
 # are NOT hashed, because the Pages function that writes a shared player's og:image has
 # to predict them from the player's name, so they can be overwritten in place by a later
 # deploy. Cache them hard but not immutably: a week, then a revalidation that is almost
-# always a cheap 304. A week also bounds how long an unfurler that caches by URL can keep
-# showing the old club after a trade, which is what regenerating the cards changes.
+# always a cheap 304. og:image adds the card's etag as ?v= (cardUrl in functions/wpbl/index.ts),
+# so a regenerated card gets a new URL and does not wait out the week.
 /cards/*
   Cache-Control: public, max-age=604800
 /portraits/*

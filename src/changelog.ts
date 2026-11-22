@@ -24,6 +24,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.260.0',
+    date:    '2026-11-22',
+    changes: [
+      {
+        short: 'WPBL portraits: 18 new team photos',
+        full:  "Eighteen players have the league's newer photos in their club's cap and uniform, including Ayuri Shimano, whose photo was cut off at the chin. Their link preview cards have the new photos too.",
+      },
+    ],
+  },
+  {
     version: '1.259.0',
     date:    '2026-11-22',
     changes: [
