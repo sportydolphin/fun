@@ -1,5 +1,5 @@
-// Home's way into the 2027 rosters: each club's re-signed count out of the 10 it may keep, and its
-// newest re-signing. Until this card the rosters page was reachable only from the More menu and the
+// Home's way into the 2027 rosters: each club's kept count out of the 10 it may keep, and its
+// newest addition. Kept, not re-signed: a player traded for counts toward the 10 (Boston, Nov 21, 2026). Until this card the rosters page was reachable only from the More menu and the
 // footer, while the window it tracks lasts twelve days.
 //
 // ONE ROW PER CLUB, ALWAYS TWO LINES, so the card is the same height loaded or not and whatever the
@@ -47,8 +47,8 @@ export function RostersCardView({ teams, players, moves }: {
         {boards.map(board => {
           const team = teams.get(board.teamId)
           const name = team ? wpblFullName(team) : CLUB_NAMES_2026[board.teamId] ?? board.teamId
-          const newest = board.resigned[0]
-          const newestName = newest ? (byId.get(newest.playerId)?.name ?? newest.move.player_name ?? null) : null
+          const newest = board.newest
+          const newestName = newest ? (byId.get(newest.key)?.name ?? newest.name) : null
           return (
             <Box key={board.teamId} {...linkTo(WPBL_ROSTERS_PAGE, () => trackLink(board.teamId))} sx={{
               ...UNSTYLED_LINK, display: 'flex', alignItems: 'center', gap: 1, minWidth: 0,
@@ -66,10 +66,10 @@ export function RostersCardView({ teams, players, moves }: {
                         render={n => `Newest: ${n(newestName)}`} />
                     : <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>None yet</Typography>}
               </Box>
-              <Typography aria-label={`${moves == null ? 0 : board.resigned.length} of ${MAX_RESIGNED} re-signed`} sx={{
+              <Typography aria-label={`${moves == null ? 0 : board.kept.length} of ${MAX_RESIGNED} kept`} sx={{
                 flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1.3,
               }}>
-                {moves == null ? 0 : board.resigned.length}/{MAX_RESIGNED}
+                {moves == null ? 0 : board.kept.length}/{MAX_RESIGNED}
               </Typography>
             </Box>
           )

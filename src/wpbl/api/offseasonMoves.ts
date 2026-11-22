@@ -10,7 +10,7 @@ let movesCache: { data: WpblRosterMove[]; at: number } | null = null
 export function getCachedWpblRosterMoves(): WpblRosterMove[] | null { return movesCache?.data ?? null }
 
 // THIS BROWSER'S LAST READ, kept only as a shape hint for the rosters page's loading state: which
-// players sit above "Draft eligible" decides where every row below it lands, and nothing else can
+// players a move has placed decides where every row below it lands, and nothing else can
 // know that before the read. Never drawn as data. Missing, unreadable or blocked storage just
 // means a first visit's shape (nobody re-signed).
 const STORE_KEY = 'sd:wpbl-roster-moves'

@@ -412,7 +412,7 @@ export interface ClubReturning {
   war: { back: number; total: number } | null
 }
 
-/** What share of each club's 2026 the re-signed players hold. A player is filed under the club
+/** What share of each club's 2026 the players it still holds account for. A player is filed under the club
  *  their lines were for, the club that held their rights to re-sign. */
 export function returningProduction(rows: ClubShareInput[], back: ReadonlySet<string>): ClubReturning[] {
   const by = new Map<string, ClubReturning & { warOk: boolean }>()
