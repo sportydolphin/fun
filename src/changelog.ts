@@ -24,6 +24,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.260.1',
+    date:    '2026-11-22',
+    changes: [
+      {
+        short: 'WPBL portraits: two recropped',
+        full:  "Chloe Atkinson's and Luciana Moreno's portraits are framed like the rest of the roster. Atkinson's was small and low in the frame, and Moreno's was cut off at the chin.",
+      },
+    ],
+  },
+  {
     version: '1.260.0',
     date:    '2026-11-22',
     changes: [
