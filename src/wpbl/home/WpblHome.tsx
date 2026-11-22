@@ -33,7 +33,7 @@ import { FanPhotoHomeCard } from '../FanPhotoViews'
 import { buildRunExpectancy, playRunValues } from '../derive/runExpectancy'
 import { mvpRace } from '../derive/mvpRace'
 import { WatchCard } from '../Watch'
-import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard } from './PlayerCards'
+import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard, HOME_2026_ROW } from './PlayerCards'
 import { RostersCard } from './RostersCard'
 import { TransactionsCard } from './TransactionsCard'
 import type { WpblRunValuePlay } from '../types'
@@ -534,12 +534,12 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           {/* The award results, for the days they stay up after the final (AWARDS_RESULTS_UNTIL). */}
           {seasonCards.length > 0 && <Box sx={{ mt: 1.5 }}>{seasonCards}</Box>}
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
+          {HOME_2026_ROW && <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
             <SeasonLeadersCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer}
               rosterFailed={!loadingLeaders && players.length === 0} />
             <FanAwardWinnersCard players={players} teams={teamMap} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} onOpenAwards={onOpenAwards}
               rosterFailed={!loadingLeaders && players.length === 0} />
-          </Box>
+          </Box>}
 
           {/* Fan photos: with no games left, the one block besides the player cards that changes
               from one visit to the next, and the rail reshuffles every load. */}

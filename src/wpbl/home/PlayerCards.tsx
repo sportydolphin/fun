@@ -464,6 +464,15 @@ function TiedRow({ players, link, meta, aside }: {
 }
 
 /**
+ * Whether the offseason Home draws the 2026 row: the leaders and the fan award winners. Off from
+ * Nov 22, 2026, while the 2027 rosters are built: both cards were the same names every visit for
+ * months, a screen of phone between the rosters and the gallery, and each has a page one tap away
+ * (Stats, Awards). Home and its skeleton both read this, so turning it back on cannot leave the
+ * skeleton a row taller or shorter than the page.
+ */
+export const HOME_2026_ROW = false
+
+/**
  * The season's leaders in the headline stats, off the stored season rows: the one small read that
  * can rank the league, so the offseason Home still never touches the box-score lines. Rows that have
  * gone stale read "No data" rather than bringing those lines back; a correction leaves them stale

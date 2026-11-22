@@ -5,7 +5,7 @@ import { chromePx, CARD_BORDER, CARD_FILL, TYPE_SCALE, TAB_TITLE_SX } from '../u
 import { DISCORD_DISMISS_KEY } from '../discordInvite'
 import { awardsResultsShowOnHome } from '../awards'
 import { FanPhotoHomeCardSkeleton } from '../FanPhotoViews'
-import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard } from './PlayerCards'
+import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard, HOME_2026_ROW } from './PlayerCards'
 import { RostersCardView } from './RostersCard'
 import { TransactionsCardView } from './TransactionsCard'
 import type { WpblTeam } from '../types'
@@ -237,10 +237,10 @@ function OffseasonHomeSkeleton() {
         </Box>
       )}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
+      {HOME_2026_ROW && <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
         <SeasonLeadersCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
         <FanAwardWinnersCard players={[]} teams={EMPTY_TEAMS} onOpenPlayer={NO_OPEN} onOpenTeam={NO_OPEN} />
-      </Box>
+      </Box>}
 
       <FanPhotoHomeCardSkeleton />
 

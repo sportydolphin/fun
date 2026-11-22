@@ -24,6 +24,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.257.0',
+    date:    '2026-11-22',
+    changes: [
+      {
+        short: 'WPBL Home: 2026 leaders and award winners off',
+        full:  'The offseason Home no longer shows the 2026 leaders and fan award winners while the 2027 rosters are built. Both are on the Stats and Awards pages.',
+      },
+    ],
+  },
+  {
     version: '1.256.0',
     date:    '2026-11-22',
     changes: [
