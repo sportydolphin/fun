@@ -81,12 +81,11 @@ describe('trades', () => {
   const trade = () => move({ kind: 'traded', player_id: ZETT, team_id: 'BOS', from_team_id: 'NY', trade_id: 't1', announced_on: '2026-11-21' })
   const pick = () => move({ kind: 'traded', player_id: null, team_id: 'NY', from_team_id: 'BOS', trade_id: 't1', draft_round: 6, announced_on: '2026-11-21' })
 
-  it('moves a re-signed player to the club that got them, counted there and listed as traded at home', () => {
+  it('moves a re-signed player to the club that got them, counted there and off the board of the club they left', () => {
     const boards = rosterBoards([resign(), trade()])
     const ny = boards.find(b => b.teamId === 'NY')!, bos = boards.find(b => b.teamId === 'BOS')!
     expect(ny.kept).toHaveLength(0)
     expect(ny.unsigned).not.toContain(ZETT)
-    expect(ny.tradedAway.map(t => t.playerId)).toEqual([ZETT])
     expect(bos.kept.map(r => [r.playerId, r.from])).toEqual([[ZETT, 'NY']])
   })
 
@@ -199,7 +198,6 @@ describe('the draft, signings and releases', () => {
     expect(board('BOS', moves).drafted.map(p => p.key)).toEqual([DIANA])
     expect(board('BOS', moves).kept).toEqual([])
     expect(board('LA', moves).unsigned).not.toContain(DIANA)
-    expect(board('LA', moves).tradedAway).toEqual([])
     expect(rosterFact(DIANA, moves, AFTER)?.value).toBe('Drafted by Boston')
   })
 

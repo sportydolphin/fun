@@ -24,6 +24,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.258.0',
+    date:    '2026-11-22',
+    changes: [
+      {
+        short: 'WPBL rosters: shorter club cards',
+        full:  'Draft eligible and Not announced start collapsed with a player count, and open on a tap. On a wide screen the cards stack in two columns with no gaps between them. A traded player is listed only by the club that got them, marked with the club they came from.',
+      },
+    ],
+  },
+  {
     version: '1.257.0',
     date:    '2026-11-22',
     changes: [
