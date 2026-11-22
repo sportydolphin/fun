@@ -4,11 +4,12 @@ import { ChipRow, FilterChip } from '../ui/FilterChip'
 import { CARD_BORDER, TYPE_SCALE } from './ui'
 import { fetchWpblTeams, fetchWpblAllPlayers, saveWpblRosterMove, deleteWpblRosterMove } from './api'
 import { useWpblRosterMoves } from './useRosterMoves'
-import { DRAFT_ORDER_2027, ROSTERS_2026, ROSTER_SEASON, MAX_RESIGNED, rosterBoards, rosterStatus, isPickRow } from './offseason2027'
+import { DRAFT_ORDER_2027, ROSTERS_2026, ROSTER_SEASON, MAX_RESIGNED, rosterBoards, isPickRow } from './offseason2027'
+import AdminRosterMoveForm from './AdminRosterMoveForm'
 import { wpblFullName } from './constants'
 import type { WpblPlayer, WpblRosterMove, WpblTeam } from './types'
 
-// /admin → Rosters: record each 2027 re-signing as the league or a club announces it. The news watch
+// /admin → Rosters: record each 2027 move as the league or a club announces it. The news watch
 // pages the owner when something moves; this is where it becomes a row on /wpbl/rosters.
 //
 // THE LINK AND DATE ARE SET ONCE, ABOVE THE LIST, because the league tends to announce a club's
@@ -51,7 +52,7 @@ export default function AdminRosterMoves() {
   const resignedIds = new Map((moves ?? []).filter(m => m.season === ROSTER_SEASON && m.kind === 're-signed' && m.team_id === club && m.player_id)
     .map(m => [m.player_id!, m]))
   const sourceOk = /^https:\/\/\S+$/.test(source.trim())
-  const full = (board?.resigned.length ?? 0) >= MAX_RESIGNED
+  const full = (board?.kept.length ?? 0) >= MAX_RESIGNED
 
   const resign = async (playerId: string) => {
     setBusy(playerId); setError(null)
@@ -72,13 +73,15 @@ export default function AdminRosterMoves() {
   const [tradeRound, setTradeRound] = useState('')
   const [tradeName, setTradeName] = useState('')
   const [tradeGroup, setTradeGroup] = useState('')
+  // Everyone the club can trade: who it holds, picks and typed names included, and the 2026 players
+  // no move has placed, who are still its to trade.
   const holdable = useMemo(() => {
-    const all = Object.values(ROSTERS_2026).flat()
-    return all.filter(id => {
-      // Unsigned players report their 2026 club, so this is everyone the club holds now.
-      return rosterStatus(id, moves ?? [], Date.now())?.teamId === club
-    })
-  }, [moves, club])
+    if (!board) return []
+    return [
+      ...[...board.kept, ...board.drafted, ...board.signed],
+      ...board.unsigned.map(id => ({ key: id, playerId: id, name: null })),
+    ]
+  }, [board])
   const trades = (moves ?? []).filter(m => m.season === ROSTER_SEASON && m.kind === 'traded'
     && (m.team_id === club || m.from_team_id === club))
   const tradeGroups = useMemo(() => {
@@ -90,14 +93,16 @@ export default function AdminRosterMoves() {
     }
     return [...byGroup]
   }, [moves, playerById])
-  const legKind = tradePlayer === PICK ? 'pick' : tradePlayer === UNLISTED ? 'name' : tradePlayer ? 'player' : null
+  const given = holdable.find(p => p.key === tradePlayer)
+  const legKind = tradePlayer === PICK ? 'pick' : tradePlayer === UNLISTED ? 'name' : given ? 'player' : null
   const roundOk = /^([1-9]|10)$/.test(tradeRound)
   const legOk = legKind === 'player' || (legKind === 'name' && tradeName.trim() !== '') || (legKind === 'pick' && roundOk)
   const trade = async () => {
     setBusy('trade'); setError(null)
     const ok = await saveWpblRosterMove({
       season: ROSTER_SEASON, kind: 'traded',
-      player_id: legKind === 'player' ? tradePlayer : null, player_name: legKind === 'name' ? tradeName.trim() : null,
+      player_id: legKind === 'player' ? given?.playerId ?? null : null,
+      player_name: legKind === 'name' ? tradeName.trim() : legKind === 'player' ? given?.name ?? null : null,
       team_id: tradeTo, from_team_id: club, trade_id: tradeGroup || crypto.randomUUID(),
       draft_round: legKind === 'pick' ? Number(tradeRound) : null, draft_pick: null,
       announced_on: day, source_url: source.trim(),
@@ -116,7 +121,7 @@ export default function AdminRosterMoves() {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <ChipRow mb={0}>
         {DRAFT_ORDER_2027.map(id => {
-          const n = rosterBoards(moves ?? []).find(b => b.teamId === id)?.resigned.length ?? 0
+          const n = rosterBoards(moves ?? []).find(b => b.teamId === id)?.kept.length ?? 0
           return (
             <FilterChip key={id} active={club === id} onClick={() => setClub(id)}>
               {teamById.get(id)?.name ?? id} {n}/{MAX_RESIGNED}
@@ -160,13 +165,17 @@ export default function AdminRosterMoves() {
         })}
       </Box>
 
+      <AdminRosterMoveForm key={club} club={club} moves={moves ?? []} players={players}
+        clubName={teamById.get(club) ? wpblFullName(teamById.get(club)!) : club}
+        source={sourceOk ? source.trim() : ''} day={day} />
+
       <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, p: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700 }}>
           Trade from {teamById.get(club) ? wpblFullName(teamById.get(club)!) : club}
         </Typography>
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5 }}>
-          <TextField select size="small" label="Gives" value={tradePlayer} onChange={e => setTradePlayer(e.target.value)} sx={{ flex: 1 }}>
-            {holdable.map(id => <MenuItem key={id} value={id}>{playerById.get(id)?.name ?? id}</MenuItem>)}
+          <TextField select size="small" label="Gives" value={legKind ? tradePlayer : ''} onChange={e => setTradePlayer(e.target.value)} sx={{ flex: 1 }}>
+            {holdable.map(p => <MenuItem key={p.key} value={p.key}>{playerById.get(p.key)?.name ?? p.name ?? p.key}</MenuItem>)}
             <MenuItem value={UNLISTED}>Player not listed</MenuItem>
             <MenuItem value={PICK}>Draft pick</MenuItem>
           </TextField>

@@ -1,12 +1,12 @@
-// /wpbl/rosters: each club's 2027 roster as it is built. Today that is the re-signing window: who
-// each club has kept of the 10 it may, out of the 2026 roster the league published.
+// /wpbl/rosters: each club's 2027 roster as it is built: who it has kept of the 10 it may, out of the
+// 2026 roster the league published, then whom it drafts, signs and releases.
 //
 // THE MOVES ARE RECORDED BY HAND (wpbl_roster_moves, /admin → Rosters), each with the link that
 // announced it, because the league publishes them nowhere a script can read. The source link is on
-// every re-signed row, so a reader can check any claim the page makes.
+// every placed row, so a reader can check any claim the page makes.
 //
 // THE CARD SHAPE HOLDS WHILE LOADING. The 2026 rosters are a fixed list (offseason2027.ts), so the
-// skeleton draws every club's real row count. The split between re-signed and unsigned comes from
+// skeleton draws every club's real row count. The split between placed and unplaced comes from
 // the moves already in memory (Home's card reads them) when there are any, and otherwise is reserved
 // at none re-signed: a cold load after a club has re-signed someone still moves by that group.
 import { useEffect, useMemo, useState } from 'react'
@@ -25,11 +25,11 @@ import { isModified } from '../nav'
 import { track, EVENTS } from '../lib/analytics'
 import { scrollBehavior } from '../lib/motion'
 import {
-  rosterBoards, resignPhase, positionMix, tradedPicks, DRAFT_ORDER_2027, DRAFT_ROUNDS, MAX_RESIGNED,
+  rosterBoards, unplacedStatus, UNPLACED_LABELS, positionMix, tradedPicks, DRAFT_ORDER_2027, DRAFT_ROUNDS, MAX_RESIGNED,
   ROSTER_EXPLAINER_URL, ROSTER_SEASON, CLUB_NAMES_2026, CLUB_CITIES, pickLabel,
 } from './offseason2027'
 import type { WpblPlayer, WpblRosterMove, WpblTeam } from './types'
-import type { ClubBoard } from './offseason2027'
+import type { BoardPlayer, ClubBoard } from './offseason2027'
 import { plateAppearances, type WpblBattingCounts, type WpblPitchingCounts } from './stats'
 import { outsToIp } from './innings'
 
@@ -134,12 +134,30 @@ export default function RostersPage({ onNavigate }: { onNavigate: (to: string) =
   const usage = (id: string) => usageOf(season.batting.get(id), season.pitching.get(id), labelOf(id))
   const isDark = useDark()
   const now = Date.now()
-  const phase = resignPhase(now)
 
   const open = (href: string, e: React.MouseEvent) => {
     track(EVENTS.WPBL_PAGE_OPEN, { page: 'rosters', kind: 'player' })
     if (!isModified(e)) { e.preventDefault(); onNavigate(href) }
   }
+
+  // A group of players a move placed: each row dated, and linked to the post that announced it.
+  const placedRows = (title: string, rows: readonly BoardPlayer[], noteOf?: (r: BoardPlayer) => string | undefined) => rows.length > 0 && (
+    <>
+      <SectionHead title={title} columns={PLACED_COLS} />
+      {rows.map(r => {
+        const p = r.playerId ? playerById.get(r.playerId) : undefined
+        const name = p?.name ?? r.name
+        if (loading || !name) return <RowSkeleton key={r.key} columns={PLACED_COLS} />
+        return (
+          <Row key={r.key} name={name} href={p && wpblPlayerPath(p, players)} onOpen={open}
+            meta={p ? season.pos.get(p.id) ?? listed(p) : ''} note={noteOf?.(r)} columns={PLACED_COLS}
+            cells={[<Box key="d" component="a" href={r.move.source_url} target="_blank" rel="noopener noreferrer" sx={DATE_LINK}>
+              {dayLabel(r.move.announced_on)}
+            </Box>]} />
+        )
+      })}
+    </>
+  )
 
   return (
     <WpblPage title={`${ROSTER_SEASON} Rosters`}>
@@ -152,50 +170,25 @@ export default function RostersPage({ onNavigate }: { onNavigate: (to: string) =
             <SectionCard key={board.teamId} id={cardId(board.teamId)} title={title}
               titleAdornment={team ? <TeamBadge team={team} size={22} /> : <Box sx={{ width: chromePx(22), height: chromePx(22) }} />}
               action={<Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-                {board.resigned.length} of {MAX_RESIGNED} re-signed
+                {board.kept.length} of {MAX_RESIGNED} kept
               </Typography>}>
-              <Meter filled={board.resigned.length} color={wpblAccent(board.teamId, isDark)} variant="card" />
-              {board.resigned.length > 0 && (
-                <>
-                  {/* What the filled segments are made of, under the meter they fill. Its line is
-                      reserved while the positions load, so the rows below do not move. */}
-                  <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary', lineHeight: 1.3, minHeight: '1.3em', px: 0.75, mt: -0.75, mb: 1.25 }}>
-                    {loading ? '' : positionMix(board.resigned.map(r => labelOf(r.playerId)))}
-                  </Typography>
-                  <SectionHead title="Re-signed" columns={RESIGNED_COLS} />
-                  {board.resigned.map(({ playerId, move, from }) => {
-                    const p = playerById.get(playerId)
-                    if (loading || !p) return <RowSkeleton key={playerId} columns={RESIGNED_COLS} />
-                    // A player traded in counts toward the 10 like a re-signing (the league's post
-                    // says the trade was agreed inside the window); the note says where they came from.
-                    return (
-                      <Row key={playerId} name={p.name} href={wpblPlayerPath(p, players)} onOpen={open}
-                        meta={season.pos.get(playerId) ?? listed(p)} note={from ? `From ${from}` : undefined} columns={RESIGNED_COLS}
-                        cells={[<Box key="d" component="a" href={move.source_url} target="_blank" rel="noopener noreferrer" sx={DATE_LINK}>
-                          {dayLabel(move.announced_on)}
-                        </Box>]} />
-                    )
-                  })}
-                </>
+              <Meter filled={board.kept.length} color={wpblAccent(board.teamId, isDark)} variant="card" />
+              {board.kept.length > 0 && (
+                // What the filled segments are made of, under the meter they fill. Its line is
+                // reserved while the positions load, so the rows below do not move.
+                <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary', lineHeight: 1.3, minHeight: '1.3em', px: 0.75, mt: -0.75, mb: 1.25 }}>
+                  {loading ? '' : positionMix(board.kept.map(r => labelOf(r.key)))}
+                </Typography>
               )}
-              {board.tradedAway.length > 0 && (
-                <>
-                  <SectionHead title="Traded" columns={RESIGNED_COLS} />
-                  {board.tradedAway.map(({ playerId, move }) => {
-                    const p = playerById.get(playerId)
-                    if (loading || !p) return <RowSkeleton key={playerId} columns={RESIGNED_COLS} />
-                    return (
-                      <Row key={playerId} name={p.name} href={wpblPlayerPath(p, players)} onOpen={open}
-                        meta={season.pos.get(playerId) ?? listed(p)} note={`To ${move.team_id}`}
-                        columns={RESIGNED_COLS}
-                        cells={[<Box key="d" component="a" href={move.source_url} target="_blank" rel="noopener noreferrer" sx={DATE_LINK}>
-                          {dayLabel(move.announced_on)}
-                        </Box>]} />
-                    )
-                  })}
-                </>
-              )}
-              <SectionHead title={phase === 'closed' ? 'Draft eligible' : 'Not yet re-signed'} columns={UNSIGNED_COLS} />
+              {/* A player traded in counts toward the 10 like a re-signing (the league's post says the
+                  trade was agreed inside the window), so the group is "Kept" and the note says from where. */}
+              {placedRows('Kept', board.kept, r => r.from && `From ${r.from}`)}
+              {placedRows('Signed', board.signed, r => r.from && `From ${r.from}`)}
+              {placedRows('Drafted, not signed', board.drafted,
+                r => r.from ? `From ${r.from}` : r.move.draft_round ? `Rd ${r.move.draft_round}` : undefined)}
+              {placedRows('Traded', board.tradedAway, r => `To ${r.move.team_id}`)}
+              {placedRows('Released', board.released)}
+              <SectionHead title={UNPLACED_LABELS[unplacedStatus(board.kept.length, now)]} columns={UNSIGNED_COLS} />
               {(loading ? board.unsigned : byUsage(board.unsigned, usage)).map(id => {
                 const p = playerById.get(id)
                 if (loading || !p) return <RowSkeleton key={id} columns={UNSIGNED_COLS} />
@@ -269,10 +262,10 @@ function Summary({ boards, teamById, isDark }: { boards: ClubBoard[]; teamById: 
     <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: { xs: 0.75, sm: 1 }, mb: 2 }}>
       {boards.map(board => {
         const team = teamById.get(board.teamId)
-        const n = board.resigned.length
+        const n = board.kept.length
         return (
           <Box key={board.teamId} component="button" type="button" onClick={() => jump(board.teamId)}
-            aria-label={`${team ? wpblFullName(team) : CLUB_NAMES_2026[board.teamId] ?? board.teamId}: ${n} of ${MAX_RESIGNED} re-signed`}
+            aria-label={`${team ? wpblFullName(team) : CLUB_NAMES_2026[board.teamId] ?? board.teamId}: ${n} of ${MAX_RESIGNED} kept`}
             sx={{
               all: 'unset', boxSizing: 'border-box', cursor: 'pointer', minWidth: 0,
               display: 'flex', flexDirection: 'column', gap: 0.75, p: 1,
@@ -306,7 +299,7 @@ function Summary({ boards, teamById, isDark }: { boards: ClubBoard[]; teamById: 
 // were. The position count is a line of its own under the meter, spelled out. Fixed widths in rem (they hold type, so they grow with it) keep each column straight down
 // the card and its header straight above it.
 interface Column { header: string; width: string }
-const RESIGNED_COLS: readonly Column[] = [{ header: 'Announced', width: '4.75rem' }]
+const PLACED_COLS: readonly Column[] = [{ header: 'Announced', width: '4.75rem' }]
 // One playing-time column, not G beside it: a narrow games column sat alone mid-row, and PA or IP
 // already says how much each player played.
 const UNSIGNED_COLS: readonly Column[] = [{ header: 'PA / IP', width: '4.75rem' }]
@@ -344,22 +337,26 @@ const COLUMN_HEAD = { fontSize: TYPE_SCALE.micro, fontWeight: 600, color: 'text.
 // THE WHOLE ROW OPENS THE PLAYER, not just the name: the row already lights up on hover, and a tap on
 // the position or the playing time used to do nothing. One link (the name) stretched over the row by
 // its ::after, so there is still one real <a href> per player and no link nested in another; the
-// re-signed row's source date sits above the stretch (DATE_LINK) and stays its own link.
+// placed row's source date sits above the stretch (DATE_LINK) and stays its own link.
 // A TRADE'S NOTE ("From NY") SITS ON THE NAME'S LINE, not in the position column, which is sized
 // for "UTL" and wrapped a sentence into five lines, nor on a second line, which would make the row
 // taller than its skeleton. The name measures the room the note leaves and shortens to fit.
 function Row({ name, href, meta, note, columns, cells, onOpen }: {
-  name: string; href: string; meta: string; note?: string; columns: readonly Column[]; cells: React.ReactNode[]
+  name: string; href?: string; meta: string; note?: string; columns: readonly Column[]; cells: React.ReactNode[]
   onOpen: (href: string, e: React.MouseEvent) => void
 }) {
   return (
-    <Box sx={{ ...ROW, ...TAPPABLE, position: 'relative' }}>
+    <Box sx={{ ...ROW, ...(href ? TAPPABLE : {}), position: 'relative' }}>
       <Typography component="span" sx={META}>{meta}</Typography>
       <Box sx={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'baseline', gap: 0.75 }}>
         <Box sx={{ minWidth: 0, flex: note ? '0 1 auto' : 1 }}>
           <NameText name={name} component="span"
-            sx={{ ...NAME, display: 'block', color: 'text.primary', textDecoration: 'none', '&::after': { content: '""', position: 'absolute', inset: 0 } }}
-            linkProps={{ component: 'a', href, onClick: (e: React.MouseEvent) => onOpen(href, e) }} />
+            sx={{
+              ...NAME, display: 'block', color: 'text.primary', textDecoration: 'none',
+              ...(href ? { '&::after': { content: '""', position: 'absolute', inset: 0 } } : {}),
+            }}
+            // No page to open for a player who is not in wpbl_players yet.
+            linkProps={href ? { component: 'a', href, onClick: (e: React.MouseEvent) => onOpen(href, e) } : undefined} />
         </Box>
         {note && <Typography component="span" noWrap sx={{ flexShrink: 0, fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{note}</Typography>}
       </Box>
@@ -371,7 +368,7 @@ function Row({ name, href, meta, note, columns, cells, onOpen }: {
 /** A link inside a row, lifted above the row's stretched player link so it keeps its own target. */
 const DATE_LINK = { position: 'relative', zIndex: 1, color: 'text.secondary', textDecoration: 'none', ...hoverOnly({ textDecoration: 'underline' }) } as const
 
-/** The club's re-signings so far against the cap, one segment each. Drawn at 0 while loading, the
+/** The players the club has kept so far against the cap, one segment each. Drawn at 0 while loading, the
  *  same box either way. Ornament: the "N of 10" beside the title carries the number. Filled in the
  *  club's accent, not its primary: every primary is near-black and vanishes on the dark page, and
  *  the accent is the variant tuned to read as a bar fill in both themes. */

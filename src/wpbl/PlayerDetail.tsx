@@ -44,7 +44,7 @@ import { createBandStore, BandAwareEyebrow, useBandObserver } from './player/ban
 import { usePlayerAwards, usePlayerLines, usePlayerMatchupPlays, useLeagueReads, usePlayerBoard } from './player/usePlayerReads'
 import { usePlayerSeason } from './player/usePlayerSeason'
 import { useWpblRosterMoves, rosterFact } from './useRosterMoves'
-import { club2026 } from './offseason2027'
+import { getStoredWpblRosterMoves } from './api'
 import { ICON_SIZE, TYPE_SCALE } from '../ui/card'
 import { shortDate } from '../lib/format'
 
@@ -107,7 +107,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   const awards = usePlayerAwards(player.id)
   // Next season's status (re-signed, or not yet), for the 70 players on the league's 2026 rosters.
   // The read is skipped for everyone else, which is most of a future season's cards.
-  const rosterMoves = useWpblRosterMoves(club2026(player.id) != null)
+  const rosterMoves = useWpblRosterMoves()
 
 
   /**
@@ -375,7 +375,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   const draft = player.draft_round
     ? `Round ${player.draft_round}${player.draft_pick ? `, pick ${player.draft_pick}` : ''}`
     : null
-  const next = rosterFact(player.id, rosterMoves, Date.now())
+  const next = rosterFact(player.id, rosterMoves, Date.now(), getStoredWpblRosterMoves())
   const facts: BandFact[] = [
     ...(player.hometown ? [{ label: 'Hometown', value: player.hometown }] : []),
     ...(draft ? [{ label: 'Drafted', value: draft, inline: `Drafted ${draft.charAt(0).toLowerCase()}${draft.slice(1)}` }] : []),

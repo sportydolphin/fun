@@ -9,8 +9,8 @@
 // Perez and Caitlin Eynon, listed by the league as Gabbie, Val and Caitlyn). It never changes: it is
 // the 2026 roster as it stood when the window opened.
 //
-// No date beyond the window's is here, because none is published: the draft, the combine and free
-// agency have no dates yet (memory: next season, confirmed only).
+// No date beyond the window's is here, because no exact day is published for the draft, the combine or
+// free agency: the league has given windows only (the calendar in ROADMAP-PRIORITIES).
 
 import type { WpblRosterMove } from './types'
 
@@ -172,78 +172,161 @@ export function positionMix(labels: readonly string[]): string {
     .join(', ')
 }
 
+/**
+ * How a club holds a player for 2027:
+ * - 'kept': re-signed or traded for, the ones that count toward the 10;
+ * - 'drafted': picked and not yet under contract, for which the league allows two weeks;
+ * - 'signed': under contract since, as a pick or a free agent;
+ * - 'released': let go, held by nobody until another move places them.
+ */
+type Standing = 'kept' | 'drafted' | 'signed' | 'released'
+
+/** One player on a club's card. `playerId` is null for a player with no row in wpbl_players yet. */
+export interface BoardPlayer {
+  key: string
+  playerId: string | null
+  /** The typed name, for a player with no id. */
+  name: string | null
+  /** The move that put them where they are. */
+  move: WpblRosterMove
+  /** The club that traded them here. */
+  from?: string
+}
+
 export interface ClubBoard {
   teamId: string
-  /** On the 2027 roster: re-signed, or acquired by trade (`from` set, `move` the trade). Newest first.
-   *  These are what counts toward the 10. */
-  resigned: { playerId: string; move: WpblRosterMove; from?: string }[]
-  /** 2026 players the club traded away, newest first; `move` is the trade that took them. */
-  tradedAway: { playerId: string; move: WpblRosterMove }[]
-  /** The rest of the 2026 roster, in the league's order. After the window these are draft-eligible. */
+  /** Re-signed, or acquired by trade (`from` set, `move` the trade). These count toward the 10. */
+  kept: BoardPlayer[]
+  /** Picked and not yet signed. */
+  drafted: BoardPlayer[]
+  signed: BoardPlayer[]
+  /** Let go by this club and not placed since. */
+  released: BoardPlayer[]
+  /** 2026 players the club traded away; `move` is the trade that took them. */
+  tradedAway: BoardPlayer[]
+  /** The club's most recent addition of any kind still on it. */
+  newest: BoardPlayer | null
+  /** 2026 players no move has placed, in the league's order. `unplacedStatus` says what they are. */
   unsigned: string[]
 }
 
-interface Placement { teamId: string; move: WpblRosterMove; from?: string }
+interface Placement extends BoardPlayer { teamId: string; standing: Standing }
 
 const byNewest = (a: WpblRosterMove, b: WpblRosterMove) => b.announced_on.localeCompare(a.announced_on) || b.id - a.id
 
+/** Who a move is about: the player's id, or the typed name for someone without one. Null for a pick. */
+export function moveKey(m: Pick<WpblRosterMove, 'player_id' | 'player_name'>): string | null {
+  if (m.player_id) return m.player_id
+  const name = (m.player_name ?? '').trim().replace(/\s+/g, ' ').toLowerCase()
+  return name ? `name:${name}` : null
+}
+
 /**
- * Where each 2026 player stands for 2027: re-signed by their club, then moved by each trade in the
- * order announced. A re-signing by a club the player was not on is a data-entry slip and is ignored
- * here (the admin form is where it shows), as is a trade from a club that does not hold the player.
- * A trade of a player nobody re-signed still places them: a club can only trade a player it holds.
+ * Where each player stands for 2027: re-signed by their 2026 club, then every other move in the order
+ * announced. RE-SIGNINGS GO FIRST WHATEVER THEIR DATE, because clubs agreed them inside the window and
+ * revealed some after trades that came later.
+ *
+ * A move the rules make impossible is a data-entry slip and changes nothing (the admin form lists
+ * every row): a re-signing by another club, a trade or release by a club that does not hold the
+ * player, a pick or signing of a player another club has under contract. Two allowances: a trade of
+ * a player nobody re-signed still places them (a club can only trade a player it holds), and a pick
+ * who has not signed may sign elsewhere, since a pick left unsigned becomes a free agent.
  */
 function placements(moves: readonly WpblRosterMove[]): Map<string, Placement> {
+  const season = moves.filter(m => m.season === ROSTER_SEASON)
   const out = new Map<string, Placement>()
-  for (const m of moves) {
-    if (m.season !== ROSTER_SEASON || m.kind !== 're-signed' || !m.player_id) continue
-    if (club2026(m.player_id) !== m.team_id) continue
+  const put = (key: string, m: WpblRosterMove, standing: Standing, from?: string) => out.set(key, {
+    key, playerId: m.player_id, name: m.player_id ? null : m.player_name?.trim() ?? null,
+    teamId: m.team_id, standing, move: m, ...(from ? { from } : {}),
+  })
+  for (const m of season) {
+    if (m.kind !== 're-signed' || !m.player_id || club2026(m.player_id) !== m.team_id) continue
     const had = out.get(m.player_id)
-    if (!had || byNewest(m, had.move) < 0) out.set(m.player_id, { teamId: m.team_id, move: m })
+    if (!had || byNewest(m, had.move) < 0) put(m.player_id, m, 'kept')
   }
-  const trades = moves.filter(m => m.season === ROSTER_SEASON && m.kind === 'traded' && m.player_id && m.from_team_id)
-    .sort((a, b) => -byNewest(a, b))
-  for (const t of trades) {
-    const holder = out.get(t.player_id!)?.teamId ?? club2026(t.player_id!)
-    if (holder !== t.from_team_id) continue
-    out.set(t.player_id!, { teamId: t.team_id, move: t, from: t.from_team_id! })
+  for (const m of season.filter(x => x.kind !== 're-signed').sort((a, b) => -byNewest(a, b))) {
+    const key = moveKey(m)
+    if (!key) continue   // a traded pick: tradedPicks reads those
+    const at = out.get(key)
+    const held = at && at.standing !== 'released' ? at : null
+    switch (m.kind) {
+      case 'traded': {
+        // Until a move says otherwise a 2026 player is their club's to trade.
+        const holder = at ? held?.teamId : m.player_id ? club2026(m.player_id) : null
+        if (m.from_team_id && holder === m.from_team_id) put(key, m, held?.standing ?? 'kept', m.from_team_id)
+        break
+      }
+      case 'drafted':
+        if (!held) put(key, m, 'drafted')
+        break
+      case 'signed':
+        if (!held || held.standing === 'drafted') put(key, m, 'signed')
+        break
+      case 'released':
+        if (held?.teamId === m.team_id) put(key, m, 'released')
+        break
+    }
   }
   return out
 }
 
-/** Each club's 2027 roster so far against its 2026 one. */
+/** Each club's 2027 roster so far against its 2026 one, every group newest first. */
 export function rosterBoards(moves: readonly WpblRosterMove[]): ClubBoard[] {
-  const placed = [...placements(moves)].map(([playerId, p]) => ({ playerId, ...p }))
+  const placed = placements(moves)
+  const all = [...placed.values()].sort((a, b) => byNewest(a.move, b.move))
   return DRAFT_ORDER_2027.map(teamId => {
     const roster = ROSTERS_2026[teamId] ?? []
-    const mine = placed.filter(p => p.teamId === teamId).sort((a, b) => byNewest(a.move, b.move))
-    const gone = placed.filter(p => p.teamId !== teamId && roster.includes(p.playerId) && p.move.kind === 'traded')
-      .sort((a, b) => byNewest(a.move, b.move))
-    const taken = new Set(placed.map(p => p.playerId))
+    const here = all.filter(p => p.teamId === teamId)
     return {
       teamId,
-      resigned: mine.map(({ playerId, move, from }) => from ? { playerId, move, from } : { playerId, move }),
-      tradedAway: gone.map(({ playerId, move }) => ({ playerId, move })),
-      unsigned: roster.filter(id => !taken.has(id)),
+      kept: here.filter(p => p.standing === 'kept'),
+      drafted: here.filter(p => p.standing === 'drafted'),
+      signed: here.filter(p => p.standing === 'signed'),
+      released: here.filter(p => p.standing === 'released'),
+      tradedAway: all.filter(p => p.standing === 'kept' && p.from && p.teamId !== teamId && roster.includes(p.key)),
+      newest: here.find(p => p.standing !== 'released') ?? null,
+      unsigned: roster.filter(id => !placed.has(id)),
     }
   })
 }
 
+export type UnplacedStatus = 'unsigned' | 'not-announced' | 'draft-eligible'
+
+/**
+ * What a 2026 player no move has placed is, given how many their club has kept. THE WINDOW CLOSING
+ * DOES NOT MAKE THEM DRAFT ELIGIBLE: clubs revealed re-signings for days after it, and from Nov 21
+ * to 22, 2026 the page called players eligible hours before their clubs announced them. They are
+ * eligible once the club has its 10, or once announcements end.
+ */
+export function unplacedStatus(kept: number, now: number): UnplacedStatus {
+  if (resignPhase(now) !== 'closed') return 'unsigned'
+  return kept < MAX_RESIGNED && inResignAnnouncements(now) ? 'not-announced' : 'draft-eligible'
+}
+
+export const UNPLACED_LABELS: Readonly<Record<UnplacedStatus, string>> = {
+  'unsigned': 'Not yet re-signed', 'not-announced': 'Not announced', 'draft-eligible': 'Draft eligible',
+}
+
 export type RosterStatus =
-  | { kind: 're-signed'; teamId: string; move: WpblRosterMove }
+  | { kind: 're-signed' | 'drafted' | 'signed' | 'released'; teamId: string; move: WpblRosterMove }
   | { kind: 'traded'; teamId: string; from: string; move: WpblRosterMove }
-  | { kind: 'unsigned' | 'draft-eligible'; teamId: string }
+  | { kind: UnplacedStatus; teamId: string }
 
 /** A player's 2027 status line, for the player page: null when there is nothing to say. */
 export function rosterStatus(playerId: string, moves: readonly WpblRosterMove[], now: number): RosterStatus | null {
-  const team = club2026(playerId)
-  if (!team) return null
-  const p = placements(moves).get(playerId)
+  const placed = placements(moves)
+  const p = placed.get(playerId)
   if (p?.from) return { kind: 'traded', teamId: p.teamId, from: p.from, move: p.move }
-  if (p) return { kind: 're-signed', teamId: p.teamId, move: p.move }
-  const phase = resignPhase(now)
-  if (phase === 'before') return null
-  return { kind: phase === 'open' ? 'unsigned' : 'draft-eligible', teamId: team }
+  if (p) return { kind: p.standing === 'kept' ? 're-signed' : p.standing, teamId: p.teamId, move: p.move }
+  const team = club2026(playerId)
+  if (!team || resignPhase(now) === 'before') return null
+  const kept = [...placed.values()].filter(x => x.teamId === team && x.standing === 'kept').length
+  return { kind: unplacedStatus(kept, now), teamId: team }
+}
+
+/** Every player some club holds now, by key: the ones on a 2027 roster, signed or not. */
+export function heldPlayers(moves: readonly WpblRosterMove[]): Map<string, string> {
+  return new Map([...placements(moves)].filter(([, p]) => p.standing !== 'released').map(([key, p]) => [key, p.teamId]))
 }
 
 /** 6 → "6th". */
@@ -254,7 +337,7 @@ function ordinal(n: number): string {
 }
 
 /** What a player's move was, as Home's transactions list says it: "Re-signed", "Traded from New
- *  York", "Drafted, 2nd round, 6th pick". A traded pick is its own leg (`transactions`). */
+ *  York", "Drafted, 2nd round, 3rd pick" (the pick is counted within its round, as in wpbl_players). A traded pick is its own leg (`transactions`). */
 export function moveLabel(m: WpblRosterMove): string {
   switch (m.kind) {
     case 're-signed': return 'Re-signed'
@@ -316,15 +399,9 @@ export const DRAFT_ROUNDS = 10
 /** A pick that has changed hands: its round, the club whose pick it was, and who holds it now. */
 export interface TradedPick { round: number; original: string; holder: string }
 
-/**
- * The 2027 picks that are not where the draft order put them, by round, then by draft order.
- * Each club starts with its own pick in every round; each pick row moves one of the giving club's
- * picks in that round to the receiving club, in the order announced, preferring the giver's own
- * pick when it holds more than one. A pick row the giver could not have held is ignored, the way
- * the rosters ignore a trade from a club that does not hold the player.
- */
-export function tradedPicks(moves: readonly WpblRosterMove[]): TradedPick[] {
-  const holder = new Map<string, string>()   // `${round}:${original}` → club holding it
+/** Who holds each of the draft's 40 picks, keyed `round:original club`. */
+function pickHolders(moves: readonly WpblRosterMove[]): Map<string, string> {
+  const holder = new Map<string, string>()
   for (let r = 1; r <= DRAFT_ROUNDS; r++) for (const t of DRAFT_ORDER_2027) holder.set(`${r}:${t}`, t)
   const picks = moves.filter(m => m.season === ROSTER_SEASON && isPickRow(m)).sort((a, b) => -byNewest(a, b))
   for (const m of picks) {
@@ -334,6 +411,35 @@ export function tradedPicks(moves: readonly WpblRosterMove[]): TradedPick[] {
       : DRAFT_ORDER_2027.map(t => `${r}:${t}`).find(k => holder.get(k) === m.from_team_id)
     if (key) holder.set(key, m.team_id)
   }
+  return holder
+}
+
+/** One pick: `pick` is its place within the round. */
+export interface DraftPick { round: number; pick: number; original: string }
+
+/** The picks a club holds and has not used, in draft order. */
+export function openPicks(moves: readonly WpblRosterMove[], teamId: string): DraftPick[] {
+  const holder = pickHolders(moves)
+  const used = new Set(moves.filter(m => m.season === ROSTER_SEASON && m.kind === 'drafted')
+    .map(m => `${m.draft_round}:${m.draft_pick}`))
+  const out: DraftPick[] = []
+  for (let round = 1; round <= DRAFT_ROUNDS; round++) {
+    DRAFT_ORDER_2027.forEach((original, i) => {
+      if (holder.get(`${round}:${original}`) === teamId && !used.has(`${round}:${i + 1}`)) out.push({ round, pick: i + 1, original })
+    })
+  }
+  return out
+}
+
+/**
+ * The 2027 picks that are not where the draft order put them, by round, then by draft order.
+ * Each club starts with its own pick in every round; each pick row moves one of the giving club's
+ * picks in that round to the receiving club, in the order announced, preferring the giver's own
+ * pick when it holds more than one. A pick row the giver could not have held is ignored, the way
+ * the rosters ignore a trade from a club that does not hold the player.
+ */
+export function tradedPicks(moves: readonly WpblRosterMove[]): TradedPick[] {
+  const holder = pickHolders(moves)
   const out: TradedPick[] = []
   for (let r = 1; r <= DRAFT_ROUNDS; r++) {
     for (const t of DRAFT_ORDER_2027) {

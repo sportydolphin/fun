@@ -24,6 +24,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.256.0',
+    date:    '2026-11-22',
+    changes: [
+      {
+        short: 'WPBL rosters: Not announced',
+        full:  'A 2026 player whose club has not finished announcing re-signings reads Not announced, on the rosters page and the player page. Draft eligible waits until the club has its 10 or announcements end. A club’s count of 10 reads kept, since it includes players traded for: Boston has 7, six re-signed and one by trade.',
+      },
+      {
+        short: 'WPBL rosters: draft picks, signings and releases',
+        full:  'The 2027 rosters and player pages show players drafted and not yet signed, signed or released, as the league announces them.',
+      },
+    ],
+  },
+  {
     version: '1.255.0',
     date:    '2026-11-21',
     changes: [

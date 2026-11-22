@@ -10,7 +10,7 @@ import { fetchWpblAllPlayers, fetchWpblPlayerSeasons, fetchWpblTeams } from './a
 import { useWpblRosterMoves } from './useRosterMoves'
 import { useEraBasis } from './EraBasisContext'
 import { fmtPct, fmtRate } from './stats'
-import { DRAFT_ORDER_2027, ROSTERS_2026, ROSTER_SEASON, club2026 } from './offseason2027'
+import { DRAFT_ORDER_2027, ROSTERS_2026, ROSTER_SEASON, club2026, heldPlayers } from './offseason2027'
 import { LEAGUE_ROW, type WpblPlayerSeasonRow } from './derive/playerSeasons'
 import {
   BAT_KEYS, PIT_KEYS, addEvents, batEvents, pitEvents, posterior, projectHitter, projectPitcher,
@@ -34,7 +34,7 @@ const WC_WEIGHTS = [
   { value: 1, label: 'World Cup in full' },
 ]
 
-type Show = 'back' | 'all'
+type Show = 'rostered' | 'all'
 
 interface WcRow { wpbl_player_id: string; events: InternationalEvent[] }
 
@@ -56,7 +56,7 @@ export default function AdminProjections() {
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [wc, setWc] = useState<WcRow[]>([])
   const [weight, setWeight] = useState(0.5)
-  const [show, setShow] = useState<Show>('back')
+  const [show, setShow] = useState<Show>('rostered')
   const moves = useWpblRosterMoves()
   const { fmtEra } = useEraBasis()
 
@@ -76,9 +76,11 @@ export default function AdminProjections() {
     return () => { alive = false }
   }, [])
 
-  const back = useMemo(() => new Set(
-    (moves ?? []).filter(m => m.season === ROSTER_SEASON && m.kind === 're-signed' && m.player_id).map(m => m.player_id!),
-  ), [moves])
+  const held = useMemo(() => heldPlayers(moves ?? []), [moves])
+  // Back with a club is not back in the league: a player drafted or traded elsewhere is on a 2027
+  // roster and is still production their 2026 club lost.
+  const back = useMemo(() => new Set([...held].filter(([id, team]) => club2026(id) === team).map(([id]) => id)), [held])
+  const clubOf = (id: string) => held.get(id) ?? club2026(id)
 
   const model = useMemo(() => {
     if (!rows) return null
@@ -110,7 +112,7 @@ export default function AdminProjections() {
   const hitters = useMemo(() => {
     if (!model) return []
     const ids = new Set([...model.bat.keys(), ...[...model.cup].filter(([, c]) => c.bat).map(([id]) => id)])
-    return [...ids].filter(id => byId.has(id) && (show === 'all' || back.has(id))).map(id => {
+    return [...ids].filter(id => byId.has(id) && (show === 'all' || held.has(id))).map(id => {
       const c = model.cup.get(id)?.bat ?? null
       const post = posterior(BAT_KEYS, model.batModel, model.bat.get(id) ?? null,
         c ? { events: c, translation: model.batT, weight } : null)
@@ -119,12 +121,12 @@ export default function AdminProjections() {
         { n: model.hitterN, seed: hash(id) })
       return { id, own: post.own, wc: post.wc, p }
     }).filter(h => h.own >= 10 || h.wc >= 10).sort((a, b) => (b.p.wrcPlus ?? 0) - (a.p.wrcPlus ?? 0))
-  }, [model, byId, back, show, weight])
+  }, [model, byId, held, show, weight])
 
   const pitchers = useMemo(() => {
     if (!model) return []
     const ids = new Set([...model.pit.keys(), ...[...model.cup].filter(([, c]) => c.pit).map(([id]) => id)])
-    return [...ids].filter(id => byId.has(id) && (show === 'all' || back.has(id))).map(id => {
+    return [...ids].filter(id => byId.has(id) && (show === 'all' || held.has(id))).map(id => {
       const c = model.cup.get(id)?.pit ?? null
       const post = posterior(PIT_KEYS, model.pitModel, model.pit.get(id) ?? null,
         c ? { events: c, translation: model.pitT, weight } : null)
@@ -133,11 +135,11 @@ export default function AdminProjections() {
         { n: model.pitcherN, seed: hash(id) })
       return { id, own: post.own, wc: post.wc, p }
     }).filter(h => h.own >= 10 || h.wc >= 10).sort((a, b) => (a.p.fip ?? 99) - (b.p.fip ?? 99))
-  }, [model, byId, back, show, weight])
+  }, [model, byId, held, show, weight])
 
   const returning = useMemo(() => {
     if (!model) return []
-    // The whole 2026 roster, so a player who never got into a game still counts toward "Signed".
+    // The whole 2026 roster, so a player who never got into a game still counts toward "Back".
     const stored = new Map(model.own.map(r => [r.player_id, r]))
     const input = DRAFT_ORDER_2027.flatMap(team => (ROSTERS_2026[team] ?? []).map(id => {
       const r = stored.get(id)
@@ -150,8 +152,8 @@ export default function AdminProjections() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Card title="Returning production" info={`Each club's ${FROM} regular season held by the players it has re-signed for ${ROSTER_SEASON}. A player counts for the club that held their rights.`}>
-        <Table cols={['Club', 'Signed', 'PA', 'IP', 'WAR back', 'WAR']} widths="minmax(6rem, 1fr) repeat(5, 4.5rem)"
+      <Card title="Returning production" info={`Each club's ${FROM} regular season held by the players still with it for ${ROSTER_SEASON}. A player counts for their ${FROM} club.`}>
+        <Table cols={['Club', 'Back', 'PA', 'IP', 'WAR back', 'WAR']} widths="minmax(6rem, 1fr) repeat(5, 4.5rem)"
           rows={returning.map(c => [
             teamName(c.teamId), `${c.back}/${c.players}`, pct(c.pa.back, c.pa.total), pct(c.outs.back, c.outs.total),
             // WAR, not a share of it: a club's total can sit at or under zero, where a share means nothing.
@@ -160,7 +162,7 @@ export default function AdminProjections() {
       </Card>
 
       <ChipRow mb={0}>
-        <FilterChip active={show === 'back'} onClick={() => setShow('back')}>Re-signed</FilterChip>
+        <FilterChip active={show === 'rostered'} onClick={() => setShow('rostered')}>{ROSTER_SEASON} rosters</FilterChip>
         <FilterChip active={show === 'all'} onClick={() => setShow('all')}>All</FilterChip>
       </ChipRow>
       <ChipRow mb={0}>
@@ -173,7 +175,7 @@ export default function AdminProjections() {
         <Table cols={['Player', 'Club', 'PA', 'WC PA', 'AVG/OBP/SLG', 'wRC+', 'Range', 'Own']}
           widths="minmax(8rem, 1.4fr) 4.5rem 3rem 3.5rem 8.5rem 3rem 5.5rem 3rem"
           rows={hitters.map(h => [
-            <NameText key="n" name={byId.get(h.id)?.name ?? h.id} sx={{ fontSize: 'inherit' }} />, teamName(club2026(h.id)),
+            <NameText key="n" name={byId.get(h.id)?.name ?? h.id} sx={{ fontSize: 'inherit' }} />, teamName(clubOf(h.id)),
             String(h.own), h.wc ? String(h.wc) : '—',
             `${fmtRate(h.p.avg)}/${fmtRate(h.p.obp)}/${fmtRate(h.p.slg)}`,
             h.p.wrcPlus == null ? '—' : String(Math.round(h.p.wrcPlus)),
@@ -186,7 +188,7 @@ export default function AdminProjections() {
         <Table cols={['Player', 'Club', 'BF', 'WC BF', 'K%', 'BB%', 'FIP', 'Range', 'Own']}
           widths="minmax(8rem, 1.4fr) 4.5rem 3rem 3.5rem 3.5rem 3.5rem 3.5rem 6rem 3rem"
           rows={pitchers.map(h => [
-            <NameText key="n" name={byId.get(h.id)?.name ?? h.id} sx={{ fontSize: 'inherit' }} />, teamName(club2026(h.id)),
+            <NameText key="n" name={byId.get(h.id)?.name ?? h.id} sx={{ fontSize: 'inherit' }} />, teamName(clubOf(h.id)),
             String(h.own), h.wc ? String(h.wc) : '—', fmtPct(h.p.kPct), fmtPct(h.p.bbPct), fmtEra(h.p.fip),
             h.p.fipRange ? `${fmtEra(h.p.fipRange.p10)}–${fmtEra(h.p.fipRange.p90)}` : '—',
             `${Math.round(100 * h.p.ownShare)}%`,

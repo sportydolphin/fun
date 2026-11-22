@@ -55,6 +55,37 @@
 - ✅ **`wpbl-postseason-check`** is green: every run through Oct 31 passed, and its schedule only
   covers September and October.
 
+## The 2027 offseason calendar
+
+Set Nov 22, 2026, from the league's own posts. Only these may be said on the site; an exact day waits
+until the league publishes one.
+
+| When | What | Source |
+|---|---|---|
+| Nov 9 to 20 | Exclusive re-signing window, closed | [Explainer](https://www.womensprobaseballleague.com/2026/11/09/2027-wpbl-roster-composition-explainer/) |
+| To Nov 30 | Re-signings still being revealed | Our cutoff (`RESIGN_ANNOUNCEMENTS_UNTIL`), not the league's |
+| **Dec 15, 11:59 p.m. ET** | Draft applications close | [Application](https://www.womensprobaseballleague.com/2027-player-draft-application/) |
+| By Jan 22, 2027 | Applicants hear whether they are eligible | Application |
+| Late Feb to early Mar | Draft combine, no day or place yet | Application |
+| Feb to Mar | The draft: 10 rounds, no day yet | [League post](https://www.instagram.com/p/DfiQ0QdiP-i/) |
+| Two weeks, start not stated | For a pick to sign, then they are a free agent | Explainer |
+| After the draft | Free agency up to 20 players, no dates yet | Explainer |
+| Not announced | Schedule, Opening Day, venues | |
+
+What that asks of the site, in order, each done before its date:
+
+- ✅ **The roster model** (Nov 22): drafted and unsigned, signed and released, newcomers by name, each
+  entered from /admin → Rosters; "Not announced" until a club's reveals end.
+- **The draft hub on `/wpbl/rosters`** (by Dec 15): these dates and the application link, the 40-pick
+  board with traded picks, the eligible pool with 2026 lines, each club's positions.
+- **Newcomers** (January): how a player with no feed id gets a page and a World Cup link, how a move
+  recorded by name joins that player's id, and how both later merge with the feed's player.
+- **Draft night** (by mid-February): fast pick entry, a push per pick, a live board, rehearsed on a
+  fake draft.
+- **Before free agency**: a migration for `wpbl_roster_moves_one_per_player`, which allows one row of
+  a kind per player and so refuses a second signing or release in one offseason. Also the roster
+  count toward 20, without a hard cap: New York's 10 kept and 11 picks already come to 21.
+
 ## Now: November, while the Figma file is finished
 
 Set Nov 6, 2026. The `redesign` branch (`../fun-redesign`) is paused on the owner's Figma pass, so
@@ -176,10 +207,10 @@ that is confirmed. Detail in *ROADMAP-WPBL, "From the Nov 1, 2026 brainstorm".*
 
 **Home's 2027 Rosters card** ([`home/RostersCard.tsx`](src/wpbl/home/RostersCard.tsx), shipped Nov 9,
 2026 for the re-signing window) grows one phase at a time, each only once the league publishes it:
-the draft and combine dates (`DRAFT_DATE` / `COMBINE_DATE` in `offseason2027.ts`, null until then);
-the draft itself (a `drafted` move kind in /admin, picks by round, each club's count toward 20); free
-agency (a `signed` kind, same count); then the schedule, when the card becomes Opening Day and
-`offseasonByCalendar` starts turning Home back.
+the draft and combine dates; the draft itself (picks by round, each club's count toward 20); free
+agency (the same count); then the schedule, when the card becomes Opening Day and
+`offseasonByCalendar` starts turning Home back. The move kinds and the dates so far are in "The
+2027 offseason calendar" at the top.
 
 20. **The home-park era** (build): park factors from our own run-expectancy table, home and road
     splits, a page per venue, road trips. None of it could exist while every game was in Springfield.
@@ -191,7 +222,7 @@ agency (a `signed` kind, same count); then the schedule, when the card becomes O
     returning production per club, and player projections regressed by points measured from the
     season's own talent spread, World Cup lines translated and weighted, a simulated season's range.
     Grows with the rosters, each step when the league fills them in, not on a date:
-    - **each roster move**: nothing to do, the tab reads `wpbl_roster_moves`; check that the
+    - **each roster move**: nothing to do, the tab reads `heldPlayers` (every kind of move); check that the
       re-signed, drafted and signed players all project (a drafted player with no WPBL or World Cup
       line projects as league average and should read as such);
     - **the draft** (10 rounds): a replacement-level prior for players with no line, so a club's

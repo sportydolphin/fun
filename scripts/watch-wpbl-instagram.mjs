@@ -357,7 +357,7 @@ export function plannedMoves(row, existing) {
   // Each club's 2027 roster so far as the site counts it: its re-signings plus anyone traded in,
   // less anyone traded away. Counting re-signing rows alone would let a club that traded for a
   // player go past its ten.
-  const counts = Object.fromEntries(rosterBoards(existing).map(b => [b.teamId, b.resigned.length]))
+  const counts = Object.fromEntries(rosterBoards(existing).map(b => [b.teamId, b.kept.length]))
   row.player_ids.forEach((id, i) => {
     const name = row.player_names[i] ?? id
     const team = club2026(id)

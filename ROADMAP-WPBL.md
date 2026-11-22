@@ -43,7 +43,8 @@ spring against the new feed rather than now against a guess of it. **Everything 
 is durable or it is nothing**: the question for each item is whether it is a reason to open
 `/wpbl` in November.
 
-Dated things left:
+Dated things left (the league's own offseason dates, applications through free agency, are in
+[ROADMAP-PRIORITIES.md](ROADMAP-PRIORITIES.md), "The 2027 offseason calendar"):
 
 - ~~**Oct 1, 2026**: the fan-award results come off Home and the season card goes full width.~~ ✅
   *Happens on its own at `AWARDS_RESULTS_UNTIL` in `awards.ts`; nothing to do.*
