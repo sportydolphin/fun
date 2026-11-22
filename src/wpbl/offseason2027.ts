@@ -202,8 +202,6 @@ export interface ClubBoard {
   signed: BoardPlayer[]
   /** Let go by this club and not placed since. */
   released: BoardPlayer[]
-  /** 2026 players the club traded away; `move` is the trade that took them. */
-  tradedAway: BoardPlayer[]
   /** The club's most recent addition of any kind still on it. */
   newest: BoardPlayer | null
   /** 2026 players no move has placed, in the league's order. `unplacedStatus` says what they are. */
@@ -283,7 +281,6 @@ export function rosterBoards(moves: readonly WpblRosterMove[]): ClubBoard[] {
       drafted: here.filter(p => p.standing === 'drafted'),
       signed: here.filter(p => p.standing === 'signed'),
       released: here.filter(p => p.standing === 'released'),
-      tradedAway: all.filter(p => p.standing === 'kept' && p.from && p.teamId !== teamId && roster.includes(p.key)),
       newest: here.find(p => p.standing !== 'released') ?? null,
       unsigned: roster.filter(id => !placed.has(id)),
     }
