@@ -639,6 +639,13 @@ function fieldFor(side: FinderBoardSide, key: string): Field<never> | null {
   return allFields(side).find(f => f.key === key) ?? null
 }
 
+/** Whether this field prints as a plain count ("12") rather than a formatted figure (".300", "45.1",
+ *  "+3", "SS"), which is what sizes its column. */
+export function finderPlainCount(side: FinderBoardSide, key: string): boolean {
+  const f = fieldFor(side, key)
+  return !!f && !f.rate && !f.display
+}
+
 /** Whether the low end of this field is the good end (ERA, WHIP), so a list ordered by it starts there. */
 export function finderLowerBetter(side: FinderBoardSide, key: string): boolean {
   return !!fieldFor(side, key)?.lowerBetter
