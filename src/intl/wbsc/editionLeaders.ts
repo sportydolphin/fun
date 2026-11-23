@@ -13,6 +13,7 @@
 
 import type { PitchingGameLine } from '../../league/types'
 import { WBSC_LEAGUE } from '../league'
+import { avgOf, opsOf, perInnings } from '../../league/rates'
 import type { WbscBattingLine, WbscGame } from './game'
 
 const PA_PER_TEAM_GAME = 2.4
@@ -155,22 +156,18 @@ export function editionLeaders(input: LeaderInput, people: PersonLookup): { lead
     return { stat, rows: shown.slice(0, TOP).map(r => r.row) }
   }
 
-  const obp = (t: { h: number; bb: number; hbp: number; ab: number; sf: number }) => {
-    const d = t.ab + t.bb + t.hbp + t.sf
-    return d > 0 ? (t.h + t.bb + t.hbp) / d : null
-  }
   const qualified = (t: { pa: number }, team: string) => t.pa >= minPa(team)
   const any = () => true
   const leaders: EditionLeaders = {
     batting: [
-      board('AVG' as const, bat, t => (t.ab > 0 ? t.h / t.ab : null), qualified, false, t => t.pa),
-      board('OPS' as const, bat, t => { const o = obp(t); return o == null || t.ab === 0 ? null : o + t.tb / t.ab }, qualified, false, t => t.pa),
+      board('AVG' as const, bat, t => avgOf(t), qualified, false, t => t.pa),
+      board('OPS' as const, bat, t => opsOf(t), qualified, false, t => t.pa),
       board('HR' as const, bat, t => t.hr, any),
       board('RBI' as const, bat, t => t.rbi, any),
     ],
     pitching: [
       // Per seven innings, the World Cup's own game, as everything WBSC publishes is.
-      board('ERA' as const, pit, t => (t.outs > 0 ? (t.er * WBSC_LEAGUE.regulationInnings * 3) / t.outs : null), (t, team) => t.outs >= minOuts(team), true, t => t.outs),
+      board('ERA' as const, pit, t => perInnings(t.er, t.outs, WBSC_LEAGUE.regulationInnings), (t, team) => t.outs >= minOuts(team), true, t => t.outs),
       board('SO' as const, pit, t => t.so, any),
       board('W' as const, pit, t => t.w, any),
     ],
