@@ -24,7 +24,7 @@ Pick by target; skip the rest. Run independent ones in parallel, long ones in th
 | A diff or branch | `/code-review` at the effort the user asked for (default `medium`) |
 | UI, a page | `npm run sweep -- --routes <routes> --shift` (overflow, loading shift, 3:1 outlines, axe, chart text), `--ellipsis` for cut names, `--behavior` for stats boards with filters. Replay setup in docs/CI.md, "The layout sweep" |
 | Loading, bundle size | `npm run size`, `npm run analyze`; read docs/LOADING.md first and measure on production, never `vite preview` |
-| WPBL data | `npm run event-audit` (play log vs box score), `npm run check-drift`, `npm run check-retro`, `npm run check-roster-forks`, `npm run validate-pbp`, `npm run check-postseason`. All need `.env` |
+| WPBL data | `npm run event-audit` (play log vs box score), `npm run check-drift`, `npm run check-retro`, `npm run check-league-stats` (slow, reads the league site), `npm run check-roster-forks`, `npm run validate-pbp`, `npm run check-postseason`. All need `.env` |
 | Database, security | Supabase MCP `get_advisors` (security and performance), scripts/migrations/CLAUDE.md (SELECT policies, `security definer` callers, `anon` grants), `/security-review` for a diff, docs/ADMIN_ANALYTICS.md for `admin_*` |
 | Pages Functions, routing | `npm run check-functions`, `src/wpbl/__tests__/routes.test.ts`, functions/CLAUDE.md |
 | Copy | `npx vitest run src/__tests__/houseRules.test.ts`, plus a read against the House rules (labels not narration, no em dashes, American spelling, no softball framing) |
