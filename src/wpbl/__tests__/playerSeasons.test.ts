@@ -23,11 +23,11 @@ vi.mock('../api', () => api)
 import { cleanSchedule } from '../gameOver'
 import { applyPlayCorrections, type WpblPlayCorrection } from '../playCorrections'
 import { currentSeason, gamesInSeason, inSeason, type SeasonScope } from '../season'
-import { aggregateBatting, aggregatePitching, type EraBasis } from '../stats'
+import { aggregateBatting, aggregatePitching, seasonClubs, type EraBasis } from '../stats'
 import { leagueLine } from '../statColumns'
 import { buildPositionIndex } from '../positions'
 import {
-  buildPlayerSeasonRows, playerSeasonsCurrent, viewPlayerSeasons, LEAGUE_ROW, PLAYER_SEASONS_VERSION,
+  buildPlayerSeasonRows, playerSeasonsCurrent, storedSeasonClubs, viewPlayerSeasons, LEAGUE_ROW, PLAYER_SEASONS_VERSION,
   type WpblPlayerSeasonRow,
 } from '../derive/playerSeasons'
 import { buildWpblBoard, loadWpblBoard, storedWpblBoard, wpblLeaderPeek, wpblPlayerAnswer, type WpblBoard } from '../searchAnswers'
@@ -199,5 +199,18 @@ describe('the search board', () => {
     expect(api.fetchWpblPlayerSeasons).toHaveBeenCalledWith(season)
     expect(api.fetchWpblAllLines).not.toHaveBeenCalled()
     expect(board.span).toBe('career')
+  })
+})
+
+// The season's clubs ride on the league row, since the boards that read stored rows never read the
+// lines. Both paths must name the same club for every player, or a board's club chip would hold
+// different players depending on whether the hourly job had run.
+describe('the season clubs', () => {
+  it('stores the club the lines give each player', () => {
+    const fromLinesClubs = seasonClubs(
+      inSeason(lines.batting, schedule, season), inSeason(lines.pitching, schedule, season), players)
+    expect(fromLinesClubs.size).toBeGreaterThan(0)
+    expect(storedSeasonClubs(rows)).toEqual(fromLinesClubs)
+    expect(view.clubs).toEqual(fromLinesClubs)
   })
 })

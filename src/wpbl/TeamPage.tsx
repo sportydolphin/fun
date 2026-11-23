@@ -155,8 +155,11 @@ function ScheduleRow({ game, teamId, teamById, onOpenGame }: {
 }
 
 // One "top N by stat" mini-list within the leaders card.
-function LeaderList({ label, note, rows, accent, onOpenPlayer }: {
+function LeaderList({ label, note, rows, accent, teamId, onOpenPlayer }: {
   label: string
+  /** The club the lists are built from. The portrait rings in it, not the roster's club: a player
+   *  traded since played these games here, and the roster's `team_id` is where they are now. */
+  teamId: string
   /** The qualifying bar, on the lists that have one. Only the RATE stats do, so this appears
    *  beside OPS and ERA and not beside home runs: a reader who cannot find a .900 hitter on
    *  this board deserves to be told why rather than left to think the page is wrong. */
@@ -179,7 +182,7 @@ function LeaderList({ label, note, rows, accent, onOpenPlayer }: {
           borderRadius: 1, ...TAPPABLE, ...FOCUS_RING,
         }}>
           <Typography sx={{ width: '0.875rem', fontSize: TYPE_SCALE.meta, fontWeight: 800, color: i === 0 ? accent : 'text.disabled' }}>{i + 1}</Typography>
-          <PlayerPortrait name={r.player.name} teamId={r.player.team_id} size={20} />
+          <PlayerPortrait name={r.player.name} teamId={teamId} size={20} />
           <FittedName name={r.player.name} wrapperSx={{ flex: 1, minWidth: 0 }} sx={{ fontSize: TYPE_SCALE.body, fontWeight: i === 0 ? 700 : 600 }} />
           <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, fontVariantNumeric: 'tabular-nums', minWidth: '2.5rem', textAlign: 'right' }}>{r.value}</Typography>
         </Box>
@@ -892,12 +895,12 @@ export default function TeamPage({ team, teams, games: allGames, onBack, onAllTe
               pitching leaders in one pass. */}
           {hitLeaders.some(b => b.rows.length) && (
             <SectionCard id={sectionAnchorId('leaders')} title="Hitting leaders" subtitle="Season">
-              {hitLeaders.map(b => <LeaderList key={b.label} label={b.label} note={'note' in b ? b.note : undefined} rows={b.rows} accent={accent} onOpenPlayer={onOpenPlayer} />)}
+              {hitLeaders.map(b => <LeaderList key={b.label} label={b.label} note={'note' in b ? b.note : undefined} rows={b.rows} accent={accent} teamId={team.id} onOpenPlayer={onOpenPlayer} />)}
             </SectionCard>
           )}
           {pitLeaders.some(b => b.rows.length) && (
             <SectionCard title="Pitching leaders" subtitle="Season">
-              {pitLeaders.map(b => <LeaderList key={b.label} label={b.label} note={'note' in b ? b.note : undefined} rows={b.rows} accent={accent} onOpenPlayer={onOpenPlayer} />)}
+              {pitLeaders.map(b => <LeaderList key={b.label} label={b.label} note={'note' in b ? b.note : undefined} rows={b.rows} accent={accent} teamId={team.id} onOpenPlayer={onOpenPlayer} />)}
             </SectionCard>
           )}
 

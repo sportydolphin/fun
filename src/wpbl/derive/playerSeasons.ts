@@ -20,7 +20,7 @@
 // No runtime imports beyond pure modules, so the job's esbuild bundle never reaches the supabase
 // client or a Vite asset.
 import {
-  aggregateBatting, aggregatePitching, battingFromCounts, pitchingFromCounts, sumBatting, sumPitching,
+  aggregateBatting, aggregatePitching, battingFromCounts, pitchingFromCounts, seasonClubs, sumBatting, sumPitching,
   BATTING_COUNT_KEYS, PITCHING_COUNT_KEYS,
   type FipWeights, type WpblBatSeason, type WpblBattingCounts, type WpblBattingTotals, type WpblPitSeason,
   type WpblPitchingCounts, type WpblPitchingTotals,
@@ -36,7 +36,7 @@ import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer, WpblRunVa
 /** Bumped whenever what a row means changes (a count added, the WAR engine reworked). A reader
  *  only trusts rows written by the version it was built with, so a deploy that changes the shape
  *  falls back to the lines until the job has rewritten every row, rather than misreading them. */
-export const PLAYER_SEASONS_VERSION = 4
+export const PLAYER_SEASONS_VERSION = 5
 
 /** The `player_id` of the row holding the whole league's line and the season's weights. */
 export const LEAGUE_ROW = 'league'
@@ -51,6 +51,10 @@ export interface WpblSeasonWeights {
   /** Double plays each club turned in this row's scope. It lives on the league row because it is
    *  the one club figure that needs the play log, which the Teams board otherwise never reads. */
   teamDp?: Record<string, number>
+  /** Each player's club for the season (`seasonClubs`), on the regular row's league line only. Here
+   *  for the reason teamDp is: the boards that read stored rows never read the lines it comes from,
+   *  and the roster's `team_id` is where a player is now, not where the season was played. */
+  clubs?: Record<string, string>
 }
 
 export interface WpblPlayerSeasonRow {
@@ -112,6 +116,7 @@ export function buildPlayerSeasonRows(i: PlayerSeasonInput): Omit<WpblPlayerSeas
   const weights: WpblSeasonWeights = { woba: values ? wobaWeights(values) : null, fip: values ? fipWeights(values) : null }
   const value = plays.length ? playerValueSeasons(plays, games, i.players, { batting, pitching }).seasons : []
   const positions = buildPositionIndex(batting, games)
+  const clubs = Object.fromEntries(seasonClubs(batting, pitching, i.players))
 
   const base = { season: i.season, stamp: i.stamp, version: PLAYER_SEASONS_VERSION }
   const out: Omit<WpblPlayerSeasonRow, 'season_rows'>[] = []
@@ -122,7 +127,10 @@ export function buildPlayerSeasonRows(i: PlayerSeasonInput): Omit<WpblPlayerSeas
       batting: pick(sumBatting(batting, games, scope), BATTING_COUNT_KEYS),
       pitching: pick(sumPitching(pitching, games, scope), PITCHING_COUNT_KEYS),
       value: null, position: null,
-      weights: { ...(regular ? weights : { woba: null, fip: null }), teamDp: Object.fromEntries(teamDoublePlays(plays, games, scope)) },
+      weights: {
+        ...(regular ? { ...weights, clubs } : { woba: null, fip: null }),
+        teamDp: Object.fromEntries(teamDoublePlays(plays, games, scope)),
+      },
     })
     const rows = new Map<string, Omit<WpblPlayerSeasonRow, 'season_rows'>>()
     const row = (id: string) => {
@@ -159,7 +167,15 @@ export interface PlayerSeasonsView {
   value: PlayerValueSeason<WpblPlayer>[]
   positions: Map<string, PrimaryPosition>
   weights: WpblSeasonWeights
+  /** Each player's club for the season (`seasonClubs`). */
+  clubs: Map<string, string>
   teamDp(scope: SeasonScope): Map<string, number>
+}
+
+/** Each player's club for the season, off the regular row's league line (`seasonClubs`). */
+export function storedSeasonClubs(rows: readonly WpblPlayerSeasonRow[]): Map<string, string> {
+  const league = rows.find(r => r.player_id === LEAGUE_ROW && r.scope === 'regular')
+  return new Map(Object.entries(league?.weights?.clubs ?? {}))
 }
 
 /** Rows (already known current) as the boards' inputs. A row for a player the roster no longer
@@ -209,6 +225,7 @@ export function viewPlayerSeasons(rows: WpblPlayerSeasonRow[], players: WpblPlay
     }),
     positions: new Map(regular.flatMap(r => (r.position ? [[r.player_id, r.position] as const] : []))),
     weights: league.weights ?? { woba: null, fip: null },
+    clubs: storedSeasonClubs(rows),
     teamDp: scope => {
       const out = new Map<string, number>()
       for (const s of scope === 'all' ? STORED_SCOPES : [scope]) {

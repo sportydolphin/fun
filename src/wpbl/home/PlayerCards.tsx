@@ -7,8 +7,8 @@ import { currentSeason } from '../season'
 import { useWpblPlayerLink, useWpblTeamLink } from '../LinkContext'
 import { wpblManagerPortraitSet, type WpblPortraitSet } from '../portraits'
 import { SectionCard, TeamBadge, PlayerPortrait, FittedName, TYPE_SCALE, TAPPABLE, FOCUS_RING, hoverOnly } from '../ui'
-import { sumBatting, sumPitching, plateAppearances, isBattingGame, fmtRate, wpblQualifiers } from '../stats'
-import { viewPlayerSeasons } from '../derive/playerSeasons'
+import { sumBatting, sumPitching, plateAppearances, isBattingGame, fmtRate, wpblQualifiers, withSeasonClubs } from '../stats'
+import { storedSeasonClubs, viewPlayerSeasons } from '../derive/playerSeasons'
 import { hittingColumns, OVR_COLS, pitchingColumns } from '../statColumns'
 import { LEADER_CARDS, leadersFor, type LeaderCol, type LeaderSeason, type LeaderSide, type LeaderTotals } from '../LeadersBoard'
 import { STATS_PATH } from '../stats/address'
@@ -485,7 +485,12 @@ export function SeasonLeadersCard({ players, teams, games, onOpenPlayer, rosterF
 }) {
   const { basis: eraBasis, fmtEra } = useEraBasis()
   const { season, seasonGames } = useWpblSeason(games, { current: true })
-  const link = useTrackedPlayerLink('leaders', onOpenPlayer)
+  // The player page is about now, so a click hands it the roster's own record, not the relabeled one.
+  const openRoster = useMemo(() => {
+    const byId = new Map(players.map(p => [p.id, p]))
+    return (p: WpblPlayer) => onOpenPlayer(byId.get(p.id) ?? p)
+  }, [players, onOpenPlayer])
+  const link = useTrackedPlayerLink('leaders', openRoster)
   const [read, setRead] = useState<WpblPlayerSeasonsRead | null>(null)
   useEffect(() => {
     if (season == null) return
@@ -498,7 +503,9 @@ export function SeasonLeadersCard({ players, teams, games, onOpenPlayer, rosterF
 
   const rows = useMemo(() => {
     if (!read?.current || players.length === 0 || teams.size === 0) return null
-    const view = viewPlayerSeasons(read.rows, players)
+    // Each leader wears the club they played the season for, not the roster's: that is where they
+    // are now, and the offseason moves it (`seasonClubs` in stats.ts).
+    const view = viewPlayerSeasons(read.rows, withSeasonClubs(players, storedSeasonClubs(read.rows)))
     const ctx = { league: view.league('regular'), wWeights: view.weights.woba, fWeights: view.weights.fip, fmtEra, eraBasis }
     const qual = wpblQualifiers([...teams.values()], seasonGames)
     const batting = view.batting('regular'), pitching = view.pitching('regular')

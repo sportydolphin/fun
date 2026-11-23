@@ -497,6 +497,53 @@ export const fmtSigned = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `\u22
 // Group every box-score line by player and total it, attaching the player. One entry
 // per player who has logged at least one line; the home view ranks these per stat.
 
+/** Each player's club over the lines handed in: the one they played the most games for.
+ *
+ *  A roster row's `team_id` is where a player is NOW, and the offseason moves it. In November
+ *  2026 Alyssa Zettlemoyer was traded to Boston, and the 2026 Players board filed her whole New
+ *  York season under Boston, a club she has never played a game for. Every board that names a
+ *  club for a season's figures takes it from here; the roster stays the answer for "now".
+ *
+ *  One club per player, not a row per club: the stored season rows hold one total per player,
+ *  so a split line would exist on one read path and not the other. A tie goes to the club the
+ *  roster holds now, when it is one of them (a traded player's newer club), then to the id, so
+ *  the answer never depends on the order the lines arrived in. Both slices count: the club is a
+ *  fact about the season, not about the scope chips. */
+export function seasonClubs(
+  batting: readonly Pick<WpblBattingLine, 'player_id' | 'team_id' | 'game_id'>[],
+  pitching: readonly Pick<WpblPitchingLine, 'player_id' | 'team_id' | 'game_id'>[],
+  players: readonly Pick<WpblPlayer, 'id' | 'team_id'>[],
+): Map<string, string> {
+  const gamesBy = new Map<string, Map<string, Set<string>>>()
+  for (const l of [...batting, ...pitching]) {
+    if (!l.team_id) continue
+    let clubs = gamesBy.get(l.player_id)
+    if (!clubs) gamesBy.set(l.player_id, clubs = new Map())
+    let ids = clubs.get(l.team_id)
+    if (!ids) clubs.set(l.team_id, ids = new Set())
+    ids.add(l.game_id)
+  }
+  const now = new Map(players.map(p => [p.id, p.team_id]))
+  const out = new Map<string, string>()
+  for (const [pid, clubs] of gamesBy) {
+    const isNow = (club: string) => Number(club === now.get(pid))
+    const ranked = [...clubs].map(([club, ids]) => ({ club, n: ids.size }))
+      .sort((a, b) => b.n - a.n || isNow(b.club) - isNow(a.club) || (a.club < b.club ? -1 : a.club > b.club ? 1 : 0))
+    out.set(pid, ranked[0].club)
+  }
+  return out
+}
+
+/** The players as a season's boards should label them: `team_id` replaced by `seasonClubs`'s
+ *  answer, the same object where it already agrees or the player has no line. A board handed
+ *  these must open the roster's own record when a row is clicked: the player page is about now. */
+export function withSeasonClubs<P extends Pick<WpblPlayer, 'id' | 'team_id'>>(players: P[], clubs: ReadonlyMap<string, string>): P[] {
+  return players.map(p => {
+    const club = clubs.get(p.id)
+    return club && club !== p.team_id ? { ...p, team_id: club } : p
+  })
+}
+
 export interface WpblBatSeason { player: WpblPlayer; totals: WpblBattingTotals }
 export interface WpblPitSeason { player: WpblPlayer; totals: WpblPitchingTotals }
 export interface WpblFldSeason { player: WpblPlayer; totals: WpblFieldingTotals }
