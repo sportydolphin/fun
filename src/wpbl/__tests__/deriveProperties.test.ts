@@ -10,6 +10,7 @@ import { defenseIndex, fieldingLedger } from '../derive/fielding'
 import { warSeason, type WarInput } from '../derive/war'
 import { BATTING_COUNT_KEYS, aggregateBatting, sumBatting, sumPitching } from '../stats'
 import { applyPlayCorrections, type WpblPlayCorrection } from '../playCorrections'
+import { countsInStandings } from '../../league/season'
 import { printedRanks } from '../../ui/leaders'
 import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer, WpblRunValuePlay } from '../types'
 
@@ -116,7 +117,9 @@ for (const season of archivedSeasons()) {
   const games = archiveTable<WpblGame>('wpbl_games', [season])
   const batting = archiveTable<WpblBattingLine>('wpbl_batting_lines', [season])
   const pitching = archiveTable<WpblPitchingLine>('wpbl_pitching_lines', [season])
-  const postseason = new Set(games.filter(g => g.counts_in_standings === false).map(g => g.id))
+  // By `countsInStandings`, never by the flag alone: 2026's postseason rows carry
+  // `counts_in_standings: true`, so a set built from the flag is empty and the check is vacuous.
+  const postseason = new Set(games.filter(g => !countsInStandings(g)).map(g => g.id))
 
   describe(`season totals add up, ${season}`, () => {
     // Any split of the season's lines, summed in two halves, gives the whole: a total that is not
@@ -150,6 +153,7 @@ for (const season of archivedSeasons()) {
     })
 
     it('keeps the postseason out of every regular-season total', () => {
+      expect(postseason.size, 'no postseason game found, so this checks nothing').toBeGreaterThan(0)
       const regularOnly = batting.filter(l => !postseason.has(l.game_id))
       expect(sumBatting(batting, games)).toEqual(sumBatting(regularOnly, games))
       expect(sumPitching(pitching, games)).toEqual(sumPitching(pitching.filter(l => !postseason.has(l.game_id)), games))
