@@ -36,6 +36,7 @@
     "subset-font": "node scripts/subset-inter.mjs",
     "validate-pbp": "node --env-file=.env scripts/validate-wpbl-pbp.mjs",
     "check-drift": "node --env-file=.env scripts/check-wpbl-drift.mjs",
+    "check-league-stats": "node scripts/run-ts.mjs --env scripts/check-wpbl-league-stats.ts",
     "check-retro": "node --env-file=.env scripts/check-wpbl-retro-stats.mjs",
     "check-roster-forks": "node --env-file=.env scripts/check-wpbl-roster-forks.mjs",
     "fill-play-gaps": "node --env-file=.env scripts/fill-wpbl-play-gaps.mjs",
