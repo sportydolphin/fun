@@ -44,6 +44,7 @@
 
 import pg from 'pg'
 import { pathToFileURL } from 'node:url'
+import { fetchEventFiles, fetchSeasonFiles } from './check-wpbl-retro-stats.mjs'
 
 const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
@@ -52,9 +53,6 @@ const REPO = 'exu6jh/RetroWPBL'
 // alldata/ since Oct 9, 2026: see the RAW in check-wpbl-retro-stats.mjs.
 const RAW = `https://raw.githubusercontent.com/${REPO}/main/alldata`
 const API = `https://api.github.com/repos/${REPO}`
-
-// Their event files are per home team, one file per club for the season.
-const EVENT_FILES = ['2026BSH.EVW', '2026LAQ.EVW', '2026NYH.EVW', '2026SFF.EVW']
 
 /** Their club codes to ours. Hard-coded rather than fuzzy-matched: four clubs, and a wrong
  *  guess here silently attaches one game's weather to a different game. */
@@ -210,7 +208,7 @@ export function surnameFromId(id, last) {
   return hit ? words.slice(words.indexOf(hit)).join(' ') : last
 }
 
-export function parseNames(umpiresCsv, biofileCsv) {
+export function parseNames(umpiresCsvs, biofileCsv) {
   const out = new Map()
   // biofile: PLAYERID,LAST,FIRST,NICKNAME,…
   for (const line of biofileCsv.split(/\r?\n/).slice(1)) {
@@ -218,10 +216,12 @@ export function parseNames(umpiresCsv, biofileCsv) {
     const [id, last, first] = cells
     if (id && last) out.set(id, `${first} ${surnameFromId(id, last)}`.trim())
   }
-  // UMPIRES2026.txt: ID,last,first. Anything it knows that the biofile does not.
-  for (const line of umpiresCsv.split(/\r?\n/).slice(1)) {
-    const [id, last, first] = line.split(',').map((c) => (c ?? '').trim())
-    if (id && last && !out.has(id)) out.set(id, `${first} ${surnameFromId(id, last)}`.trim())
+  // UMPIRES<year>.txt, one a season: ID,last,first. Anything they know that the biofile does not.
+  for (const csv of [umpiresCsvs].flat()) {
+    for (const line of csv.split(/\r?\n/).slice(1)) {
+      const [id, last, first] = line.split(',').map((c) => (c ?? '').trim())
+      if (id && last && !out.has(id)) out.set(id, `${first} ${surnameFromId(id, last)}`.trim())
+    }
   }
   return out
 }
@@ -250,13 +250,15 @@ async function main() {
     process.exit(1)
   }
 
-  const [umpCsv, bioCsv, commit, ...files] = await Promise.all([
-    fetchText(`${RAW}/umpires/UMPIRES2026.txt`),
+  // Every season's files (fetchSeasonFiles): naming 2026's alone would never sync a later game.
+  const [umpires, bioCsv, commit, events] = await Promise.all([
+    fetchSeasonFiles('umpires', (y) => `UMPIRES${y}.txt`),
     fetchText(`${RAW}/biodata/biofile.csv`),
     headCommit(),
-    ...EVENT_FILES.map((f) => fetchText(`${RAW}/events/${f}`)),
+    fetchEventFiles(),
   ])
-  const names = parseNames(umpCsv, bioCsv)
+  const files = events.texts
+  const names = parseNames(umpires.texts, bioCsv)
   // NEVER FALLS BACK TO THE ID. An id is not a name, and the first version of this shipped
   // "herpe701" onto a game page because it treated one as an acceptable substitute. An
   // unresolved official is dropped and counted, which is visible in the run log and invisible

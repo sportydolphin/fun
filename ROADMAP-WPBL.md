@@ -285,8 +285,9 @@ and the reasoning; where the two disagree, `/admin` is the order.
 - *P3.* Prefetch on link hover or visibility. ~~Archive old MLB line tables to R2~~ (done Nov 8,
   2026: [docs/MLB_LINES_ARCHIVE.md](docs/MLB_LINES_ARCHIVE.md)). Replace `html2canvas` (unmaintained) with `modern-screenshot` or
   `html-to-image`. `@tanstack/react-virtual` for the stats table and Watch once two seasons double
-  the rows. `fast-check` property tests for `derive/` (WAR sums, `runsOnPlay`, base-state
-  transitions). A DuckDB-WASM SQL sandbox on the open-data page, over the frozen season files.
+  the rows. ~~`fast-check` property tests for `derive/`~~ (done Nov 23, 2026:
+  `deriveProperties.test.ts`, with `rankAgreement.test.ts` holding the card's ranks to the boards,
+  both over every archived season). A DuckDB-WASM SQL sandbox on the open-data page, over the frozen season files.
 
 **P0**
 - **Multiple seasons** (✅ built Oct 13; the spring leftovers are below). Every WPBL surface assumes one season: year menus, career totals,

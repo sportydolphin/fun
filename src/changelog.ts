@@ -24,6 +24,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.260.2',
+    date:    '2026-11-23',
+    changes: [
+      {
+        short: 'WPBL player cards: ranks match the boards',
+        full:  "A rank on a player card now matches the Leaders cards and the Players board it opens. Counting stats are ranked against everyone who played, not only qualified players, and players tied on the printed figure share a place. Four 2026 cards read 5th in steals where the board has all four tied for 6th.",
+      },
+    ],
+  },
+  {
     version: '1.260.1',
     date:    '2026-11-22',
     changes: [

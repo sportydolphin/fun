@@ -62,7 +62,7 @@
 
 import pg from 'pg'
 import { pathToFileURL } from 'node:url'
-import { RAW, EVENT_FILES, fetchText, parseGames } from './check-wpbl-retro-stats.mjs'
+import { fetchEventFiles, parseGames } from './check-wpbl-retro-stats.mjs'
 
 const DRY_RUN = process.argv.includes('--dry-run')
 const gameIx = process.argv.indexOf('--game')
@@ -534,7 +534,8 @@ async function main() {
     process.exit(2)
   }
 
-  const files = await Promise.all(EVENT_FILES.map(f => fetchText(`${RAW}/events/${f}`)))
+  // Every season's files (see fetchEventFiles): naming 2026's alone would never fill a later game.
+  const { texts: files } = await fetchEventFiles()
   const theirGames = files.flatMap(parseGames)
   const byKey = new Map()
   for (const g of theirGames) {
