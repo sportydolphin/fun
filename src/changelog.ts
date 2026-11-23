@@ -24,6 +24,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.260.5',
+    date:    '2026-11-23',
+    changes: [
+      {
+        short: 'WPBL stats: each season under the club it was played for',
+        full:  "A player traded since the season now reads under the club they played it for on the Stats boards, Charts, Home, the tracking leaders, team leaders and the fan awards. Alyssa Zettlemoyer's 2026 season is back under New York.",
+      },
+    ],
+  },
+  {
     version: '1.260.4',
     date:    '2026-11-23',
     changes: [

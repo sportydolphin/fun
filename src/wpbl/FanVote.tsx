@@ -20,6 +20,7 @@ import type {
 } from './types'
 import { useWpblSeason } from './SeasonContext'
 import { inSeason } from './season'
+import { seasonClubs, withSeasonClubs } from './stats'
 import { ICON_SIZE } from '../ui/card'
 import { markFanAwardsEngaged, useFanAwardsEngaged } from './fanVote/engaged'
 import { useFanVote } from './fanVote/useFanVote'
@@ -138,7 +139,7 @@ export function FanAwardsCta({ onOpen, now = () => Date.now() }: {
 }
 
 export default function FanVoteCard({
-  players, teams, games, batting, pitching, race, plays = [], onOpenPlayer, onOpenTeam,
+  players: roster, teams, games, batting, pitching, race, plays = [], onOpenPlayer, onOpenTeam,
   fill, now = () => Date.now(),
   open: openProp, onOpen, onClose, sheetOnly, settled = true,
 }: {
@@ -215,6 +216,14 @@ export default function FanVoteCard({
     return () => { cancelled = true }
   }, [allFielding.length])
 
+  // Every card names the club the player had in the award's season (`seasonClubs`), off the
+  // season's lines this card is handed. The roster's `team_id` is where they are now, and the
+  // offseason moves it: a player traded after the season would wear the new club on the ballot,
+  // and a shortlist pinned to the club they played for would stop finding them.
+  const players = useMemo(() => withSeasonClubs(roster, seasonClubs(batting, pitching, roster)), [roster, batting, pitching])
+  const rosterById = useMemo(() => new Map(roster.map(p => [p.id, p])), [roster])
+  // The player page is about now, so a click hands it the roster's own record.
+  const openPlayer = useMemo(() => onOpenPlayer && ((p: WpblPlayer) => onOpenPlayer(rosterById.get(p.id) ?? p)), [onOpenPlayer, rosterById])
   const entries = useMemo(() => {
     const awards = fanVoteAwards()
     return buildAwardBallot({ players, teams, games, batting, pitching, fielding, mvp: race, plays })
@@ -297,7 +306,7 @@ export default function FanVoteCard({
       <FanVoteSheet entries={entries} players={players} teams={teams} state={state} closed={closed}
         testerPreview={testerPreview} voterCount={voterCount}
         loading={pending && !(settled && !drawable)} failed={settled && !drawable}
-        onClose={() => setOpen(false)} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} />
+        onClose={() => setOpen(false)} onOpenPlayer={openPlayer} onOpenTeam={onOpenTeam} />
     )
   }
 
@@ -306,7 +315,7 @@ export default function FanVoteCard({
   const sheet = open && (
     <FanVoteSheet entries={entries} players={players} teams={teams} state={state} closed={closed}
       testerPreview={testerPreview} voterCount={voterCount}
-      onClose={() => setOpen(false)} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} />
+      onClose={() => setOpen(false)} onOpenPlayer={openPlayer} onOpenTeam={onOpenTeam} />
   )
 
   return (

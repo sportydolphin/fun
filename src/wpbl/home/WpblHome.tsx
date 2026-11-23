@@ -16,7 +16,7 @@ import { useForegroundInterval } from '../../lib/foregroundInterval'
 import PlayoffBracket from '../PlayoffBracket'
 import { postseasonScheduleRows, buildBracket, championResult, championBannerUntil } from '../derive/bracket'
 import {
-  aggregateBatting, wpblQualifiers,
+  aggregateBatting, seasonClubs, withSeasonClubs, wpblQualifiers,
 } from '../stats'
 // The dismissal key and the dev-only undo. Their own module so the dev settings menu can reach
 // the undo without dragging this file into the main bundle. See discordInvite.ts.
@@ -208,7 +208,10 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   }, liveGame ? 60000 : null)
 
   // The league's batting seasons: the pool the compare preview draws its pair from.
-  const batSeasons = useMemo(() => aggregateBatting(players, lines.batting, seasonGames), [players, lines.batting, seasonGames])
+  // Labeled with the club each player had this season, not the roster's, which the offseason moves.
+  const batSeasons = useMemo(
+    () => aggregateBatting(withSeasonClubs(players, seasonClubs(lines.batting, lines.pitching, players)), lines.batting, seasonGames),
+    [players, lines, seasonGames])
 
   // Only enforce the PA / IP rate qualifier once every team has played 2+ games.
   const qual = useMemo(() => wpblQualifiers(teams, seasonGames), [teams, seasonGames])

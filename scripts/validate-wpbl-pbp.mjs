@@ -89,15 +89,18 @@ const sql = {
   // the box score credits Maggie Foxx 3-for-3 and the play log has nothing for her.
   missingBatters: `
     with pbp as (select game_id, batter_id from wpbl_game_plays where batter_id is not null group by 1,2),
-         box as (select game_id, player_id, sum(ab) ab, sum(h) h, sum(bb) bb, sum(hbp) hbp,
-                        sum(sf) sf, sum(sh) sh
+         -- The club off the box-score line, never the roster's: team_id on a player is where
+         -- they are now, so an offseason trade relabeled an old game, and the team is part of a
+         -- finding's fingerprint, so an accepted finding came back as new (Nov 2026).
+         box as (select game_id, player_id, max(team_id) team_id, sum(ab) ab, sum(h) h, sum(bb) bb,
+                        sum(hbp) hbp, sum(sf) sf, sum(sh) sh
                  from wpbl_batting_lines group by 1,2)
     select g.game_date::text as game_date, t.abbr as team, pl.name as player,
            b.ab, b.h, b.bb
     from box b
     join wpbl_players pl on pl.id = b.player_id
     join wpbl_games g on g.id = b.game_id
-    left join wpbl_teams t on t.id = pl.team_id
+    left join wpbl_teams t on t.id = b.team_id
     left join pbp p on p.game_id = b.game_id and p.batter_id = b.player_id
     where p.batter_id is null
       and b.ab + b.bb + b.hbp + b.sf + b.sh > 0
@@ -265,7 +268,8 @@ const sql = {
       select p.game_id, p.batter_id, count(*) as pa
       from wpbl_game_plays p where p.batter_id is not null and ${PA_FILTER} group by 1,2
     ), box as (
-      select game_id, player_id, sum(ab + bb + hbp + sf + sh) as pa
+      -- The club off the line, as in missingBatters above.
+      select game_id, player_id, max(team_id) as team_id, sum(ab + bb + hbp + sf + sh) as pa
       from wpbl_batting_lines group by 1,2
     )
     select g.game_date::text as game_date, t.abbr as team, pl.name as player,
@@ -274,7 +278,7 @@ const sql = {
     join pbp p on p.game_id = b.game_id and p.batter_id = b.player_id
     join wpbl_players pl on pl.id = b.player_id
     join wpbl_games g on g.id = b.game_id
-    left join wpbl_teams t on t.id = pl.team_id
+    left join wpbl_teams t on t.id = b.team_id
     where b.pa <> p.pa
     order by g.game_date, abs(b.pa - p.pa) desc`,
 }

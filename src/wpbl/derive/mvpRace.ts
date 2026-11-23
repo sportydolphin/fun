@@ -44,6 +44,9 @@ export interface MvpCandidate {
    * game log: it is a live claim about who is having the best season, so the badge should be
    * the shirt the player is wearing while the race is on. The roster row answers that; the play
    * only knows the club they were with that day, and is the fallback for someone off the roster.
+   * Only while the roster's club is one the plays have them playing for: once the offseason moves
+   * a player (Alyssa Zettlemoyer, New York to Boston, November 2026) the roster names a club that
+   * was never in the race, and the club most of their plays were for answers instead.
    */
   teamId: string | null
   /** Runs created at the plate. */
@@ -100,7 +103,7 @@ export function mvpRace(
   const byId = new Map(players.map(p => [p.id, p]))
   const dateOf = new Map(games.map(g => [g.id, g.game_date]))
 
-  interface Acc extends Omit<MvpCandidate, 'curve' | 'twoWay'> { perDate: Map<string, number> }
+  interface Acc extends Omit<MvpCandidate, 'curve' | 'twoWay'> { perDate: Map<string, number>; clubPlays: Map<string, number> }
   const rows = new Map<string, Acc>()
   const dates = new Set<string>()
 
@@ -115,11 +118,12 @@ export function mvpRace(
       const player = id ? byId.get(id) ?? null : null
       r = {
         key, player, name,
-        teamId: player?.team_id ?? playTeamId,
-        bat: 0, arm: 0, total: 0, pa: 0, bf: 0, perDate: new Map(),
+        teamId: null,
+        bat: 0, arm: 0, total: 0, pa: 0, bf: 0, perDate: new Map(), clubPlays: new Map(),
       }
       rows.set(key, r)
     }
+    if (playTeamId) r.clubPlays.set(playTeamId, (r.clubPlays.get(playTeamId) ?? 0) + 1)
     return r
   }
 
@@ -153,9 +157,14 @@ export function mvpRace(
       const curve: number[] = []
       let running = 0
       for (const d of axis) { running += r.perDate.get(d) ?? 0; curve.push(running) }
-      const { perDate: _drop, ...rest } = r
+      const { perDate: _drop, clubPlays, ...rest } = r
       return {
         ...rest,
+        // The roster's club when the plays show them playing for it (see `teamId`), else the club
+        // most of their plays were for. The second is the offseason: a player traded after the
+        // race ended never wore the new club in it.
+        teamId: r.player?.team_id && clubPlays.has(r.player.team_id) ? r.player.team_id
+          : [...clubPlays].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0]?.[0] ?? r.player?.team_id ?? null,
         twoWay: r.pa >= TWO_WAY_MIN_PA && r.bf >= TWO_WAY_MIN_BF,
         curve,
       }

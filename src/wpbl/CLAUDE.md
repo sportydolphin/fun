@@ -58,7 +58,12 @@ Loaded when you read anything under `src/wpbl/`. The feed and ingest traps (ids,
   **`team_id` on a roster row means "now", never "then"**: a game log, a team page, or a Hall
   of Firsts badge must take the club off the box-score line or the play, both of which carry
   the team that game was played for, or a traded player's July reads as if she spent it
-  somewhere she had not arrived yet. **And it is not only the club: it is whether she is on the
+  somewhere she had not arrived yet. **A season board is the same**: in November 2026 the
+  offseason trade of Alyssa Zettlemoyer filed her whole New York 2026 under Boston on the Players
+  board, Charts and Home. A board that names a club for a season's figures labels its players with
+  `seasonClubs` / `withSeasonClubs` ([`stats.ts`](stats.ts); stored on the league row of
+  `wpbl_player_seasons` for the boards that never read the lines) and opens the roster's own record
+  on a click. **And it is not only the club: it is whether she is on the
   sheet at all.** A line carries a `player_id` and nothing else, so any name map built from the
   two clubs' CURRENT rosters simply omits her and every name falls through to `'—'`. Game
   Center did this until Sep 6, 2026: the pitcher who threw six innings and won NY 14-2 on Sep 4

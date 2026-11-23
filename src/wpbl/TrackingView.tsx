@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { NameText } from '../ui/NameText'
 import { edge } from '../ui/card'
 import { Box, Typography, CircularProgress } from '@mui/material'
@@ -7,6 +7,8 @@ import {
   getCachedWpblAllTracking, getCachedWpblAllPlayers, getCachedWpblAllLines, wpblTrackingCacheAgeMs,
 } from './api'
 import { aggregateTracking } from './tracking'
+import { seasonClubs, withSeasonClubs } from './stats'
+import type { WpblBattingLine } from './types'
 import type { WpblSeasonGame } from './season'
 import type { TrackingBoard, VeloLeader, SpinLeader, BattedBall } from './tracking'
 
@@ -14,6 +16,7 @@ type TrackingRows = {
   track: Parameters<typeof aggregateTracking>[0]
   players: Parameters<typeof aggregateTracking>[1]
   pitching: Parameters<typeof aggregateTracking>[2]
+  batting: WpblBattingLine[]
 }
 import { WPBL_ACCENT } from './constants'
 import { SectionCard, LeaderRow, leaderPlaces, CARD_BORDER, chromePx } from './ui'
@@ -77,13 +80,23 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
   // grew later never reached it.
   const [rows, setRows] = useState<TrackingRows | null>(() => {
     const tr = getCachedWpblAllTracking(), pl = getCachedWpblAllPlayers(), ln = getCachedWpblAllLines()
-    return tr && pl && ln ? { track: tr, players: pl, pitching: ln.pitching } : null
+    return tr && pl && ln ? { track: tr, players: pl, pitching: ln.pitching, batting: ln.batting } : null
   })
   // Cut to the year on screen first: the tracking rows and the lines are every season's.
   const { cut } = useWpblSeason()
   const board = useMemo<TrackingBoard | null>(
-    () => (rows ? aggregateTracking(cut(rows.track), rows.players, cut(rows.pitching), games) : null),
+    () => {
+      if (!rows) return null
+      const pitching = cut(rows.pitching)
+      // Each leader wears the club they threw or hit for that season (`seasonClubs`), not the
+      // roster's, which is where they are now and moves in the offseason.
+      const players = withSeasonClubs(rows.players, seasonClubs(cut(rows.batting), pitching, rows.players))
+      return aggregateTracking(cut(rows.track), players, pitching, games)
+    },
     [rows, games, cut])
+  // The player page is about now, so a click hands it the roster's own record, not the relabeled one.
+  const rosterById = useMemo(() => new Map((rows?.players ?? []).map(p => [p.id, p])), [rows])
+  const openPlayer = useCallback((p: WpblPlayer) => onOpenPlayer(rosterById.get(p.id) ?? p), [onOpenPlayer, rosterById])
   const [loading, setLoading] = useState(
     () => !(getCachedWpblAllTracking() && getCachedWpblAllPlayers() && getCachedWpblAllLines()))
 
@@ -97,7 +110,7 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
     Promise.all([fetchWpblAllTracking(), fetchWpblAllPlayers(), fetchWpblAllLines()])
       .then(([track, players, lines]) => {
         if (cancelled) return
-        setRows({ track, players, pitching: lines.pitching })
+        setRows({ track, players, pitching: lines.pitching, batting: lines.batting })
         setLoading(false)
       })
       .catch(() => { if (!cancelled) setLoading(false) })
@@ -169,7 +182,7 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
               ? <EmptyState title="No velocity data" />
               : board.veloLeaders.slice(0, 10).map((l: VeloLeader, i, top) => (
                   <LeaderRow key={l.player?.id ?? l.name} {...leaderPlaces(top.map(x => fmtSpeed(x.maxVelo, units)))[i]} player={l.player} name={l.name} teamId={l.teamId}
-                    value={fmtSpeed(l.maxVelo, units)} unit={speedUnit(units)} sub={`avg ${fmtSpeed(l.avgVelo, units)} · ${l.count} pitches`} accent={accent} onOpen={onOpenPlayer} />
+                    value={fmtSpeed(l.maxVelo, units)} unit={speedUnit(units)} sub={`avg ${fmtSpeed(l.avgVelo, units)} · ${l.count} pitches`} accent={accent} onOpen={openPlayer} />
                 ))}
           </SectionCard>
 
@@ -179,7 +192,7 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
             ]} />}>
               {board.spinLeaders.slice(0, 8).map((l: SpinLeader, i, top) => (
                 <LeaderRow key={l.player?.id ?? l.name} {...leaderPlaces(top.map(x => String(Math.round(x.avgSpin))))[i]} player={l.player} name={l.name} teamId={l.teamId}
-                  value={String(Math.round(l.avgSpin))} unit="rpm" sub={`max ${Math.round(l.maxSpin)} · ${l.count} pitches`} accent={accent} onOpen={onOpenPlayer} />
+                  value={String(Math.round(l.avgSpin))} unit="rpm" sub={`max ${Math.round(l.maxSpin)} · ${l.count} pitches`} accent={accent} onOpen={openPlayer} />
               ))}
             </SectionCard>
           )}
@@ -195,7 +208,7 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
               ]} />}>
                 {board.hardestHits.slice(0, 10).map((b: BattedBall, i, top) => (
                   <LeaderRow key={i} {...leaderPlaces(top.map(x => fmtSpeed(x.exit ?? 0, units)))[i]} player={b.player} name={b.name} teamId={b.teamId}
-                    value={fmtSpeed(b.exit ?? 0, units)} unit={speedUnit(units)} accent={accent} onOpen={onOpenPlayer}
+                    value={fmtSpeed(b.exit ?? 0, units)} unit={speedUnit(units)} accent={accent} onOpen={openPlayer}
                     sub={[b.hitType, b.distance != null ? `${fmtDistance(b.distance, units)} ${distanceUnit(units)}` : null].filter(Boolean).join(' · ') || undefined} />
                 ))}
               </SectionCard>
@@ -207,7 +220,7 @@ export default function WpblTrackingView({ side, games, onOpenPlayer }: {
                 ]} />}>
                   {board.longestHits.slice(0, 10).map((b: BattedBall, i, top) => (
                     <LeaderRow key={i} {...leaderPlaces(top.map(x => fmtDistance(x.distance!, units)))[i]} player={b.player} name={b.name} teamId={b.teamId}
-                      value={fmtDistance(b.distance!, units)} unit={distanceUnit(units)} accent={accent} onOpen={onOpenPlayer}
+                      value={fmtDistance(b.distance!, units)} unit={distanceUnit(units)} accent={accent} onOpen={openPlayer}
                       sub={[b.hitType, b.exit != null ? `${fmtSpeed(b.exit, units)} ${speedUnit(units)} EV` : null].filter(Boolean).join(' · ') || undefined} />
                   ))}
                 </SectionCard>

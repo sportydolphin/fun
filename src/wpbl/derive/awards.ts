@@ -394,13 +394,13 @@ function mvpSlate({ mvp, players, batting, games }: AwardBallotInput): AwardCand
   // The hand-swaps run LAST, on the finished slate. See WPBL_MVP_SWAPS: the race still decides
   // who is on this question, and this changes one named tile for another named tile.
   return swapNominees(WPBL_MVP_SWAPS, players, bats,
-    oncePerClub(mvp.field.filter(c => c.bat >= c.arm), c => c.player?.team_id ?? c.teamId).map(c => ({
+    oncePerClub(mvp.field.filter(c => c.bat >= c.arm), c => c.teamId ?? c.player?.team_id ?? null).map(c => ({
     // The race keys an unrostered name as `name:<lowercased>`, and that key is what gets
     // stored. It is stable for as long as the play log spells her the same way, which is the
     // best any vote for somebody with no roster row can do.
     key: c.player?.id ?? c.key,
     name: c.name,
-    teamId: c.player?.team_id ?? c.teamId,
+    teamId: c.teamId ?? c.player?.team_id ?? null,
     playerId: c.player?.id ?? null,
     // NO RUN-VALUE SENTENCE HERE EITHER. `line` only draws when a candidate has no stats at all,
     // so a sentence here would be the one path still putting "runs added" on screen. Empty rather

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { SheetTrigger } from '../../ui/SheetTrigger'
 import { TYPE_SCALE } from '../../ui/card'
 import { Box, Typography, useMediaQuery } from '@mui/material'
@@ -13,13 +13,13 @@ import {
 import { buildRunExpectancy, playRunValues } from '../derive/runExpectancy'
 import { playerValueSeasons, EMPTY_VALUE_TOTALS } from '../derive/playerValue'
 import { runEnvironmentCurrent } from '../derive/runEnvironment'
-import { viewPlayerSeasons } from '../derive/playerSeasons'
+import { storedSeasonClubs, viewPlayerSeasons } from '../derive/playerSeasons'
 import { wobaWeights, fipWeights } from '../derive/linearWeights'
 import { trackingWorthShowing } from '../tracking'
 import { WPBL_ACCENT, outsToIp, wpblFullName } from '../constants'
 import { buildPositionIndex } from '../positions'
 import {
-  aggregateBatting, aggregatePitching, aggregateFielding, catcherSteals, sumFielding,
+  aggregateBatting, aggregatePitching, aggregateFielding, catcherSteals, seasonClubs, sumFielding, withSeasonClubs,
   wpblQualifiers,
   type WpblBattingTotals, type WpblPitchingTotals,
 } from '../stats'
@@ -197,7 +197,7 @@ export default function WpblStatsView({
   const multiSeason = seasons.length > 1
   // Seed from the shared session cache so swiping back to this tab (SwipeableViews
   // unmounts it on the way out) repaints instantly instead of flashing the spinner.
-  const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
+  const [roster, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
   const [allLines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })
   const lines = useMemo(
@@ -223,6 +223,17 @@ export default function WpblStatsView({
   const storedCurrent = !!storedHere?.current
   // Settled once the read has answered either way; until then neither heavy read is started.
   const storedSettled = season == null || storedHere != null
+  // THE BOARDS' PLAYERS CARRY THEIR CLUB FOR THE SEASON ON SCREEN, not the roster's: `team_id` on a
+  // roster row is where a player is now, and the offseason moves it (`seasonClubs` in stats.ts).
+  // Off the stored rows when they describe the year, which is when the lines are never read, else
+  // off the lines. Every club chip, label, portrait ring and chart color below reads it from here.
+  const clubs = useMemo(() => (storedCurrent
+    ? storedSeasonClubs(storedHere!.rows)
+    : seasonClubs(lines.batting, lines.pitching, roster)), [storedCurrent, storedHere, lines, roster])
+  const players = useMemo(() => withSeasonClubs(roster, clubs), [roster, clubs])
+  const rosterById = useMemo(() => new Map(roster.map(p => [p.id, p])), [roster])
+  // A row opens the player page, which is about now: hand it the roster's record, not the relabeled one.
+  const openPlayer = useCallback((p: WpblPlayer) => onOpenPlayer(rosterById.get(p.id) ?? p), [onOpenPlayer, rosterById])
   const stored = useMemo(
     () => (storedCurrent && playersIn ? viewPlayerSeasons(storedHere!.rows, players) : null),
     [storedCurrent, storedHere, playersIn, players])
@@ -847,9 +858,9 @@ export default function WpblStatsView({
 
   const builtRows = useMemo<Row[]>(() => buildRows({
     mode, side, players, lines, fielding, valueSeasons, batSeasons, pitSeasons, teams, teamById, teamId,
-    qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope,
+    qualified, qual, activeCol, sortAsc, onOpenPlayer: openPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope,
     positionIndex, pos: posOn, teamDp, armCs,
-  }), [mode, side, players, lines, fielding, valueSeasons, batSeasons, pitSeasons, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope, positionIndex, posOn, teamDp, armCs])
+  }), [mode, side, players, lines, fielding, valueSeasons, batSeasons, pitSeasons, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, openPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope, positionIndex, posOn, teamDp, armCs])
   // THE LIST DROPS A ROW WITH NO NUMBER FOR ITS ONE STAT. It shows that stat alone, so a pitcher
   // with no WAR was a name beside a dash, and with ten of them the board's tail was a column of
   // dashes. The table keeps them: there the row has fifteen other columns to read.
@@ -1205,12 +1216,12 @@ export default function WpblStatsView({
       {source === 'leaders' ? (
         <LeadersPane side={side} valueSeasons={valueSeasons} fielding={fielding} linesIn={linesIn}
           leaderSeasons={leaderSeasons} hitCols={hitCols} pitCols={pitCols} qual={qual}
-          onOpenPlayer={onOpenPlayer} seeAll={seeAll} seeAllHref={seeAllHref} />
+          onOpenPlayer={openPlayer} seeAll={seeAll} seeAllHref={seeAllHref} />
       ) : source !== 'season' ? (
         <BoardPane source={source} side={side} boardSide={boardSide} findSide={findSide} teams={teams}
           players={players} lines={lines} fielding={fielding} linesIn={linesIn} games={games} scope={scope}
           findQuery={findQuery} setFindQuery={setFindQuery} onFindSide={pickSide} findFilters={findFilters} trackedOffered={trackedOffered} charts={chartInputs} chartFilters={chartFilters}
-          onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} onOpenTeam={onOpenTeam} />
+          onOpenPlayer={openPlayer} onOpenGame={onOpenGame} onOpenTeam={onOpenTeam} />
       ) : (side === 'fielding' && fielding == null) || (side === 'overall' && valueSeasons == null) || (boardNeedsLines && !linesIn) ? (
         // Only if the side is picked before its read (started on mount) has landed, or the box-score
         // lines a board needs and the stored seasons do not carry.

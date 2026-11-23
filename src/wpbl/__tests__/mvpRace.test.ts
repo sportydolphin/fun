@@ -171,13 +171,25 @@ describe('identity', () => {
     expect(race.field[0].key).toBe('name:unrostered')
   })
 
-  // The badge beside her name is the shirt she is wearing now, which is the roster row. The
-  // play only knows the club she was with that day, and is the fallback for someone the
-  // roster has no row for at all.
-  it('takes the club from the roster, not from the play', () => {
-    const values = [priced(1, { batter_id: 'p1', batter_name: 'Traded', team_id: 'NY', pitcher_id: null, pitcher_name: null })]
+  // The badge beside a name is the shirt worn now, the roster row, as long as the plays have the
+  // player in that shirt: traded mid-season, the newer club. The play is the fallback for someone
+  // the roster has no row for at all.
+  it('takes the club from the roster when the player played for it', () => {
+    const values = [
+      priced(1, { batter_id: 'p1', batter_name: 'Traded', team_id: 'NY', pitcher_id: null, pitcher_name: null }),
+      priced(1, { batter_id: 'p1', batter_name: 'Traded', team_id: 'NY', pitcher_id: null, pitcher_name: null }),
+      priced(1, { batter_id: 'p1', batter_name: 'Traded', team_id: 'LA', pitcher_id: null, pitcher_name: null }),
+    ]
     const race = mvpRace(values, [player('p1', 'Traded', 'LA')], GAMES)
     expect(race.field[0].teamId).toBe('LA')
+  })
+
+  // Traded after the season (Alyssa Zettlemoyer, New York to Boston, November 2026): the roster
+  // names a club that was never in the race, so the plays' club answers.
+  it('takes the club from the plays when the roster names a club the player never played for', () => {
+    const values = [priced(1, { batter_id: 'p1', batter_name: 'Traded', team_id: 'NY', pitcher_id: null, pitcher_name: null })]
+    const race = mvpRace(values, [player('p1', 'Traded', 'LA')], GAMES)
+    expect(race.field[0].teamId).toBe('NY')
   })
 
   it('falls back to the play club when there is no roster row', () => {
