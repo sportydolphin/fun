@@ -6,7 +6,7 @@ import LinkIcon from '@mui/icons-material/Link'
 import CheckIcon from '@mui/icons-material/Check'
 import { FilterSelect } from './FilterChip'
 import { finderColumns, finderFields, defaultCondition,
-  displayFinderValue, describeFinderQuery, describeFinderConditions, describeFinderCuts, finderSpanText, finderLowerBetter, conditionsForPer, finderPitcherApplies, finderPlayerApplies, finderPlayerAt, hasPlayerFilter, FINDER_MONTH_NAMES, finderSpanMonth, finderMonthSpan,
+  displayFinderValue, describeFinderQuery, describeFinderConditions, describeFinderCuts, finderSpanText, finderLowerBetter, finderPlainCount,conditionsForPer, finderPitcherApplies, finderPlayerApplies, finderPlayerAt, hasPlayerFilter, FINDER_MONTH_NAMES, finderSpanMonth, finderMonthSpan,
   finderCutsOf, finderDhText, finderStretchApplies, finderStretchText,
   type FinderCondition, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
   type FinderBoardSide, type FinderSort, type FinderTally, type FinderVenue,
@@ -87,15 +87,20 @@ const colsFor = (per: FinderPer) => (per === 'season' ? COL : LINE_COL)
 // takes 0.7rem: "ROW ▾" and "RBI ▾" sit at the floor, and only "BUNT", "OUTS" and "RISP" widen.
 const HEAD_CHAR_REM = 0.48
 const SORT_MARK_REM = 0.7
-const statRem = (per: FinderPer, unit: string) =>
-  Math.max(colsFor(per).stat, Math.max(...unit.split(' ').map(w => w.length)) * HEAD_CHAR_REM + SORT_MARK_REM)
+// A PLAIN COUNT IS THREE DIGITS AT MOST ("712" PA), 1.35rem at the body size with the cell's padding,
+// so its floor sits under a rate's (".300", "1.155"). Every column at the rate's floor left a G or an
+// HR column two thirds empty, and a phone saw four stats of twelve where it now sees six (Nov 23, 2026).
+const COUNT_STAT_REM = 1.7
+const statRem = (per: FinderPer, unit: string, count = false) =>
+  Math.max(count ? Math.min(COUNT_STAT_REM, colsFor(per).stat) : colsFor(per).stat,
+    Math.max(...unit.split(' ').map(w => w.length)) * HEAD_CHAR_REM + SORT_MARK_REM)
 /** The table's narrowest, which is what the main column must hold before it is drawn: the fixed
  *  columns, the player column's floor, the gaps, and the card's padding and borders (2 x 16 chrome
  *  px, under 2.5rem at either scale). */
-const tableMinRem = (units: readonly string[], per: FinderPer = 'game', stretched = false, years = false, yearCol = false) => {
+const tableMinRem = (units: readonly { unit: string; count: boolean }[], per: FinderPer = 'game', stretched = false, years = false, yearCol = false) => {
   const c = colsFor(per)
   const stats = units.length
-  const statsRem = units.reduce((sum, u) => sum + statRem(per, u), 0)
+  const statsRem = units.reduce((sum, u) => sum + statRem(per, u.unit, u.count), 0)
   return per === 'season'
     ? c.rank + c.player + statsRem + (stats + 1) * c.gap + 2.5 + (stretched ? STRETCH_COL_REM + c.gap : 0) + (yearCol ? YEAR_COL_REM + c.gap : 0)
     : c.rank + c.player + c.game + c.result + statsRem + (stats + 3) * c.gap + 2.5 + (years ? GAME_YEAR_REM : 0)
@@ -530,12 +535,14 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
   const headSx = {
     position: 'sticky', top: 0, zIndex: 2, bgcolor: CARD_FILL,
     fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.4), color: 'text.disabled',
-    textAlign: 'right', whiteSpace: 'nowrap', verticalAlign: 'bottom', py: 0.75, px: 0.75,
+    // CENTERED, figures and heads alike, as a stat table reads: right-aligned, each number sat
+    // against its column's far edge and away from its own head (Nov 23, 2026).
+    textAlign: 'center', whiteSpace: 'nowrap', verticalAlign: 'bottom', py: 0.75, px: 0.75,
     // The rule as an inset shadow: a sticky cell leaves a collapsed border behind as it moves.
     boxShadow: (t: Theme) => `inset 0 -1px 0 ${t.palette.divider}`,
   } as const
   const cellSx = {
-    py: 0.6, px: 0.75, textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums',
+    py: 0.6, px: 0.75, textAlign: 'center', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums',
     borderTop: '1px solid', borderColor: 'divider', fontSize: TYPE_SCALE.body,
   } as const
   // Opaque, or the figures scroll through the name; above the stat cells and under the header. Its
@@ -558,12 +565,15 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
     return (
       <Box component="th" scope="col" key={key} aria-sort={on ? (active.desc ? 'descending' : 'ascending') : undefined} sx={{ ...headSx, ...extra }}>
         <Box component="button" type="button" title={title} onClick={() => press(key)} sx={{
-          all: 'unset', ...FOCUS_RING, cursor: 'pointer', borderRadius: 0.5,
+          all: 'unset', ...FOCUS_RING, position: 'relative', cursor: 'pointer', borderRadius: 0.5,
           color: on || asked.includes(key) ? 'text.primary' : 'inherit',
           borderBottom: '2px solid', borderColor: on ? ACCENT_EDGE : 'transparent',
           ...hoverOnly({ color: 'text.primary' }),
         }}>
-          {label}{on ? (active.desc ? ' ▾' : ' ▴') : ''}
+          {label}
+          {/* The mark hangs past the label, in the room `SORT_MARK_REM` keeps, so the label itself
+              stays centered over its figures whichever column the list is in order by. */}
+          {on && <Box component="span" aria-hidden sx={{ position: 'absolute', left: '100%', pl: 0.25 }}>{active.desc ? '▾' : '▴'}</Box>}
         </Box>
       </Box>
     )
@@ -606,7 +616,7 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
             {!season && sortHead('date', 'GAME', 'Sort by date', { ...wideOnly, textAlign: 'left', width: `${widths.game + (years ? GAME_YEAR_REM : 0)}rem` })}
             {!season && plainHead('RESULT', { ...wideOnly, width: `${widths.result + FIGURE_SLACK_REM}rem` })}
             {stretched && plainHead('GAMES', { ...wideOnly, width: `${STRETCH_COL_REM}rem` })}
-            {cols.map(c => sortHead(c.key, c.unit, c.label, { width: `${statRem(query.per, c.unit) + FIGURE_SLACK_REM}rem` }))}
+            {cols.map(c => sortHead(c.key, c.unit, c.label, { width: `${statRem(query.per, c.unit, finderPlainCount(side, c.key)) + FIGURE_SLACK_REM}rem` }))}
           </Box>
         </Box>
         <Box component="tbody">
@@ -978,7 +988,7 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // every match was a different player, under a title promising a leader: the answer line says it
   // (`onceText`), and the card goes.
 
-  const tableRem = tableMinRem(finderColumns(side, query).map(col => col.unit), query.per,
+  const tableRem = tableMinRem(finderColumns(side, query).map(col => ({ unit: col.unit, count: finderPlainCount(side, col.key) })), query.per,
     query.per === 'season' && !!query.stretch && finderStretchApplies(side, query), everySeason, careerHere && !query.career)
   // WHAT EACH COLUMN IS. "R2", "RS" and "ON" are this board's own, and a header's `title` never shows
   // on a touchscreen, where the phone row leads with one of them ("3 RS"). One key per table, as a
