@@ -565,19 +565,33 @@ export function FanAwardWinnersCard({ players, teams, onOpenPlayer, onOpenTeam, 
   /** The roster's read has answered with nothing: there is nobody to name, and never will be. */
   rosterFailed?: boolean
 }) {
-  const link = useTrackedPlayerLink('winners', onOpenPlayer)
+  // The player page is about now, so a click hands it the roster's own record, not the relabeled one.
+  const openRoster = useMemo(() => {
+    const byId = new Map(players.map(p => [p.id, p]))
+    return (p: WpblPlayer) => onOpenPlayer(byId.get(p.id) ?? p)
+  }, [players, onOpenPlayer])
+  const link = useTrackedPlayerLink('winners', openRoster)
   const teamLink = useWpblTeamLink()
   const [results, setResults] = useState<AwardResults | null>(() => getCachedWpblAwardResults())
+  // EACH WINNER WEARS THE CLUB THEY WON IT FOR. The award is about the season, and the roster's
+  // `team_id` is where a player is now, which the offseason moves. The club comes off the stored
+  // season rows (`storedSeasonClubs`), the read the Leaders card beside this one already makes, so
+  // it costs nothing; a stale or failed read still carries it, and an empty one leaves the roster's.
+  const [clubs, setClubs] = useState<Map<string, string> | null>(null)
   const ready = players.length > 0
   useEffect(() => {
     if (!ready) return
     let live = true
     fetchWpblAwardResults().then(r => { if (live) setResults(r) })
+    fetchWpblPlayerSeasons(AWARDS_SEASON)
+      .then(r => { if (live) setClubs(storedSeasonClubs(r.rows)) })
+      .catch(() => { if (live) setClubs(new Map()) })
     return () => { live = false }
   }, [ready])
 
   const rows = useMemo(() => {
-    if (!results || !ready) return null
+    if (!results || !ready || !clubs) return null
+    const seasonPlayers = withSeasonClubs(players, clubs)
     const share = (id: string, key: string) => {
       const total = awardVoteCount(results, id)
       return total > 0 ? Math.round(((results[id]?.[key] ?? 0) / total) * 100) : 0
@@ -587,10 +601,10 @@ export function FanAwardWinnersCard({ players, teams, onOpenPlayer, onOpenTeam, 
         const manager = awardManagerWinner(results, id)
         return manager ? [{ id, title, manager, pct: share(id, manager.key) }] : []
       }
-      const player = awardWinner(results, id, players)
+      const player = awardWinner(results, id, seasonPlayers)
       return player ? [{ id, title, player, pct: share(id, player.id) }] : []
     })
-  }, [results, ready, players])
+  }, [results, ready, players, clubs])
   useShown('winners', !!rows?.length)
 
   const openAt = (id: string) => () => {
