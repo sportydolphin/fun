@@ -24,6 +24,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.260.4',
+    date:    '2026-11-23',
+    changes: [
+      {
+        short: 'WPBL rosters: re-signings final',
+        full:  'Every club has finished announcing re-signings. Boston kept 7, so its other 2026 players read Draft eligible in place of Not announced.',
+      },
+    ],
+  },
+  {
     version: '1.260.3',
     date:    '2026-11-23',
     changes: [

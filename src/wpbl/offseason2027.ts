@@ -28,11 +28,13 @@ export const RESIGN_WINDOW = {
   closes: Date.parse('2026-11-21T04:59:59Z'),
 } as const
 
-/** The last moment a club's post can still be a re-signing: Nov 30, 11:59 p.m. ET. Clubs locked
+/** The last moment a club's post can still be a re-signing: Nov 22, 11:59 p.m. ET. Clubs locked
  *  their choices by the window's close but kept revealing them after it (Madison Willan on Nov 21;
  *  the league said "over the weekend"), so the watch must not judge a post by the window alone.
- *  A cap stays because a "running it back" post in March is something else. */
-export const RESIGN_ANNOUNCEMENTS_UNTIL = Date.parse('2026-12-01T04:59:59Z')
+ *  It was Nov 30, our own guess, until every club including Boston (7 kept) was confirmed final on
+ *  Nov 23; moving it up is what turns Boston's "Not announced" into "Draft eligible". A cap stays
+ *  because a "running it back" post in March is something else. */
+export const RESIGN_ANNOUNCEMENTS_UNTIL = Date.parse('2026-11-23T04:59:59Z')
 
 /** Whether a club's post at `ms` can announce a re-signing. */
 export const inResignAnnouncements = (ms: number): boolean =>

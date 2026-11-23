@@ -63,7 +63,7 @@ until the league publishes one.
 | When | What | Source |
 |---|---|---|
 | Nov 9 to 20 | Exclusive re-signing window, closed | [Explainer](https://www.womensprobaseballleague.com/2026/11/09/2027-wpbl-roster-composition-explainer/) |
-| To Nov 30 | Re-signings still being revealed | Our cutoff (`RESIGN_ANNOUNCEMENTS_UNTIL`), not the league's |
+| Nov 21 to 22 | Re-signings revealed after the window; all final, Boston at 7 (confirmed Nov 23) | Club posts (`RESIGN_ANNOUNCEMENTS_UNTIL`) |
 | **Dec 15, 11:59 p.m. ET** | Draft applications close | [Application](https://www.womensprobaseballleague.com/2027-player-draft-application/) |
 | By Jan 22, 2027 | Applicants hear whether they are eligible | Application |
 | Late Feb to early Mar | Draft combine, no day or place yet | Application |
