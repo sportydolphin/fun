@@ -9,6 +9,7 @@ import { Box } from '@mui/material'
 import { linkTo, UNSTYLED_LINK } from '../nav'
 import { StatLogTable, type StatLogRow } from '../ui/playerCard'
 import { outsToIp } from '../league/innings'
+import { avgOf, obpOf, opsOf, perInnings, slgOf } from '../league/rates'
 import type { ReactNode } from 'react'
 import type { InternationalBatting, InternationalEvent, InternationalPitching } from './wbsc/international'
 
@@ -81,13 +82,11 @@ export function WorldCupCareerTables({ events, accent, eraBasis, fmtEra, onOpen,
     return () => { if (!href || window.location.pathname !== href) go() }
   }
   const batCells = (b: InternationalBatting) => {
-    const obp = b.ab + b.bb + b.hbp + b.sf > 0 ? (b.h + b.bb + b.hbp) / (b.ab + b.bb + b.hbp + b.sf) : null
-    const slg = b.ab > 0 ? b.tb / b.ab : null
     return [b.g, b.pa, b.ab, b.r, b.h, b.doubles, b.triples, b.hr, b.rbi, b.sb, b.bb, b.so,
-      fmtRate(b.ab > 0 ? b.h / b.ab : null), fmtRate(obp), fmtRate(slg), fmtRate(obp != null && slg != null ? obp + slg : null)]
+      fmtRate(avgOf(b)), fmtRate(obpOf(b)), fmtRate(slgOf(b)), fmtRate(opsOf(b))]
   }
   const pitCells = (p: InternationalPitching) => {
-    const era = p.outs > 0 ? (p.er * eraBasis * 3) / p.outs : null
+    const era = perInnings(p.er, p.outs, eraBasis)
     return [p.g, p.gs, `${p.w}-${p.l}`, p.sv, outsToIp(p.outs), p.h, p.r, p.er, p.bb, p.so, p.hr, fmtEra(era)]
   }
   const batLines = events.flatMap(e => (e.batting ? [{ e, b: e.batting }] : []))

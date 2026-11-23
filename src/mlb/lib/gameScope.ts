@@ -26,6 +26,8 @@ export const CAREER_POST_MIN_IP = 40
 // how to rebuild is DROPPED rather than carried over from one half: a regular-season BABIP
 // printed under "All" is wrong in a way nobody would ever catch, and a dash is merely absent.
 
+import { avgOf, obpOf, opsOf, perInnings, slgOf, totalBasesOf, whipOf } from '../../league/rates'
+
 const NOT_A_COUNT = new Set(['age'])
 
 const rate3 = (num: number, den: number): string | null => {
@@ -34,6 +36,8 @@ const rate3 = (num: number, den: number): string | null => {
   return v.startsWith('0.') ? v.slice(1) : v
 }
 const rate2 = (v: number | null): string | null => v == null || !isFinite(v) ? null : v.toFixed(2)
+/** A rate already computed (src/league/rates.ts), printed the way `rate3` prints one. */
+const fmt3 = (v: number | null): string | null => (v == null ? null : rate3(v, 1))
 const n = (s: any, k: string): number => Number(s?.[k] ?? 0) || 0
 
 /** Outs from a line: StatsAPI's `outs` when present, else parsed from "6.2"-style innings. */
@@ -57,13 +61,13 @@ export function combineStatLines(a: any, b: any): any {
   const ab = n(out, 'atBats'), h = n(out, 'hits'), bb = n(out, 'baseOnBalls')
   const hbp = n(out, 'hitByPitch'), sf = n(out, 'sacFlies')
   const tb = out.totalBases != null ? n(out, 'totalBases')
-    : h + n(out, 'doubles') + 2 * n(out, 'triples') + 3 * n(out, 'homeRuns')
-  out.avg = rate3(h, ab)
-  out.obp = rate3(h + bb + hbp, ab + bb + hbp + sf)
-  out.slg = rate3(tb, ab)
-  // OBP plus SLG at full precision, rounded once: adding the two rounded strings is off by a
-  // point about one time in three.
-  out.ops = ab ? rate3((h + bb + hbp) / (ab + bb + hbp + sf) + tb / ab, 1) : null
+    : totalBasesOf({ h, doubles: n(out, 'doubles'), triples: n(out, 'triples'), hr: n(out, 'homeRuns') })
+  const line = { h, bb, hbp, ab, sf, tb }
+  out.avg = fmt3(avgOf(line))
+  out.obp = fmt3(obpOf(line))
+  out.slg = fmt3(slgOf(line))
+  // OBP plus SLG at full precision, rounded once (`opsOf`).
+  out.ops = fmt3(opsOf(line))
   const sb = n(out, 'stolenBases'), cs = n(out, 'caughtStealing')
   out.stolenBasePercentage = rate3(sb, sb + cs)
 
@@ -72,9 +76,9 @@ export function combineStatLines(a: any, b: any): any {
     const outs = outsOf(a) + outsOf(b)
     out.outs = outs
     out.inningsPitched = `${Math.floor(outs / 3)}.${outs % 3}`
-    const per9 = (count: number) => outs ? rate2(count * 27 / outs) : null
+    const per9 = (count: number) => rate2(perInnings(count, outs, 9))
     out.era = per9(n(out, 'earnedRuns'))
-    out.whip = outs ? rate2((bb + h) * 3 / outs) : null
+    out.whip = rate2(whipOf({ h, bb, outs }))
     out.strikeoutsPer9Inn = per9(n(out, 'strikeOuts'))
     out.walksPer9Inn = per9(bb)
     out.hitsPer9Inn = per9(h)

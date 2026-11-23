@@ -1,5 +1,6 @@
 import type { LeaderboardEntry, StatDef } from '../types'
-import { parseIP } from './utils'
+import { avgOf, obpOf, perInnings, slgOf, totalBasesOf, whipOf } from '../../league/rates'
+import { ipToOuts } from '../../league/innings'
 
 // The arithmetic of the Stats board, kept out of the component so the phone's ranked list and
 // the desktop grid are provably ranking the same rows, and so a test can reach it.
@@ -96,17 +97,16 @@ export function leagueLine(entries: LeaderboardEntry[], group: StatsGroup): Reco
   const sum = (k: string) => entries.reduce((n, e) => n + (Number((e.stat as Record<string, unknown>)?.[k]) || 0), 0)
   if (group === 'hitting') {
     const ab = sum('atBats'), h = sum('hits'), bb = sum('baseOnBalls'), hbp = sum('hitByPitch'), sf = sum('sacFlies')
-    const tb = h + sum('doubles') + 2 * sum('triples') + 3 * sum('homeRuns')
-    const obpDen = ab + bb + hbp + sf
-    if (!ab || !obpDen) return null
-    const obp = (h + bb + hbp) / obpDen, slg = tb / ab
-    return { avg: apiRate(h / ab, 3), obp: apiRate(obp, 3), slg: apiRate(slg, 3), ops: apiRate(obp + slg, 3) }
+    const tb = totalBasesOf({ h, doubles: sum('doubles'), triples: sum('triples'), hr: sum('homeRuns') })
+    const line = { h, bb, hbp, ab, sf, tb }
+    const avg = avgOf(line), obp = obpOf(line), slg = slgOf(line)
+    if (avg == null || obp == null || slg == null) return null
+    return { avg: apiRate(avg, 3), obp: apiRate(obp, 3), slg: apiRate(slg, 3), ops: apiRate(obp + slg, 3) }
   }
-  const ip = entries.reduce((n, e) => n + parseIP((e.stat as Record<string, unknown>)?.inningsPitched), 0)
-  if (!ip) return null
-  return {
-    era: apiRate(9 * sum('earnedRuns') / ip, 2),
-    whip: apiRate((sum('baseOnBalls') + sum('hits')) / ip, 2),
-    strikeoutsPer9Inn: apiRate(9 * sum('strikeOuts') / ip, 2),
-  }
+  // Outs, not decimal innings: "6.2" is 20 outs (src/league/rates.ts).
+  const outs = entries.reduce((n, e) => n + ipToOuts((e.stat as Record<string, unknown>)?.inningsPitched as string), 0)
+  const era = perInnings(sum('earnedRuns'), outs, 9), whip = whipOf({ h: sum('hits'), bb: sum('baseOnBalls'), outs })
+  const k9 = perInnings(sum('strikeOuts'), outs, 9)
+  if (era == null || whip == null || k9 == null) return null
+  return { era: apiRate(era, 2), whip: apiRate(whip, 2), strikeoutsPer9Inn: apiRate(k9, 2) }
 }

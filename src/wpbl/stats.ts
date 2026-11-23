@@ -1,3 +1,4 @@
+import { avgOf, obpOf, opsOf, perInnings, slgOf, totalBasesOf, whipOf } from '../league/rates'
 import type { WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblGame, WpblTeam } from './types'
 import { countsInStandings, scopedLines, isPostseasonGame,
   type WpblSeasonGame, type SeasonScope } from './season'
@@ -122,13 +123,12 @@ function sumBattingRaw(lines: WpblBattingLine[]): WpblBattingTotals {
 /** The rates from the counts. Every batting total on the site is built here. */
 export function battingFromCounts(c: WpblBattingCounts): WpblBattingTotals {
   const t = { ...c }
-  const singles = t.h - t.doubles - t.triples - t.hr
-  const tb = singles + 2 * t.doubles + 3 * t.triples + 4 * t.hr
-  const obDen = t.ab + t.bb + t.hbp + t.sf // now that the feed reports sac flies
-  const avg = t.ab > 0 ? t.h / t.ab : null
-  const obp = obDen > 0 ? (t.h + t.bb + t.hbp) / obDen : null
-  const slg = t.ab > 0 ? tb / t.ab : null
-  const ops = obp != null && slg != null ? obp + slg : null
+  // The site's one definition of each (src/league/rates.ts), shared with MLB and the World Cup.
+  const tb = totalBasesOf(t)
+  const avg = avgOf(t)
+  const obp = obpOf(t)
+  const slg = slgOf({ tb, ab: t.ab })
+  const ops = opsOf({ ...t, tb })
   const iso = avg != null && slg != null ? slg - avg : null
   // SF stays in the denominator (a fly ball caught is a ball in play) and SH stays out, the
   // standard definition; a bunt is a sacrifice rather than an attempt to reach.
@@ -308,11 +308,10 @@ function sumPitchingRaw(lines: WpblPitchingLine[]): WpblPitchingTotals {
 export function pitchingFromCounts(c: WpblPitchingCounts): WpblPitchingTotals {
   // `sh` defaults for a stored season row written before it was a count (PLAYER_SEASONS_VERSION 3).
   const t = { ...c, sh: c.sh ?? 0 }
-  const ip = t.outs / 3
   // On ERA_BASIS_CANONICAL, the league's own basis; see there for why it is not a setting.
-  const era = ip > 0 ? (t.er * ERA_BASIS_CANONICAL) / ip : null
-  const whip = ip > 0 ? (t.bb + t.h) / ip : null
-  const k9 = ip > 0 ? (t.so * ERA_BASIS_CANONICAL) / ip : null
+  const era = perInnings(t.er, t.outs, ERA_BASIS_CANONICAL)
+  const whip = whipOf(t)
+  const k9 = perInnings(t.so, t.outs, ERA_BASIS_CANONICAL)
   // Null, not Infinity, on a staff that hasn't issued a walk: the ratio genuinely doesn't
   // exist, and fmtTwo renders null as the no-value dash rather than a nonsense number.
   const kbb = t.bb > 0 ? t.so / t.bb : null
@@ -320,7 +319,7 @@ export function pitchingFromCounts(c: WpblPitchingCounts): WpblPitchingTotals {
   const kPct = t.bf > 0 ? t.so / t.bf : null
   const bbPct = t.bf > 0 ? t.bb / t.bf : null
   const kbbPct = kPct != null && bbPct != null ? kPct - bbPct : null
-  const hr9 = ip > 0 ? (t.hr * ERA_BASIS_CANONICAL) / ip : null
+  const hr9 = perInnings(t.hr, t.outs, ERA_BASIS_CANONICAL)
   const bip = t.bf - t.bb - t.hbp - t.so - t.hr - t.sh
   const babip = bip > 0 ? (t.h - t.hr) / bip : null
   return { ...t, era, whip, k9, kbb, strikePct, kPct, bbPct, kbbPct, hr9, babip }

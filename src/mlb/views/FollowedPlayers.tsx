@@ -10,6 +10,8 @@ import {
 import { searchPlayers, fetchRecentGames, fetchRosterMoves, fetchServedSuspensionIds, RosterMove } from '../api'
 import { MOVE_STYLE } from './RosterMoves'
 import { parseIP } from '../lib/utils'
+import { opsOf, perInnings } from '../../league/rates'
+import { hittingCounts, pitchingCounts } from '../lib/statCounts'
 import { fetchSuggestions, SuggestionChip, SuggestionPlayer } from './SuggestedPlayers'
 import { defaultBorder, useTextTone } from '../lib/colorUtils'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
@@ -124,24 +126,14 @@ function computeSparkSeries(games: RecentGameEntry[], isPitcher: boolean): numbe
     for (let i = W - 1; i < recent.length; i++) {
       const win = recent.slice(i - W + 1, i + 1)
       if (isPitcher) {
-        const er = win.reduce((s, x) => s + Number(x.pitching?.earnedRuns ?? 0), 0)
-        const ip = win.reduce((s, x) => s + parseIP(x.pitching?.inningsPitched ?? '0'), 0)
-        if (ip <= 0) continue
-        out.push(-(er * 9) / ip)              // negate: lower ERA plots higher
+        const t = pitchingCounts(win.map(x => x.pitching))
+        const era = perInnings(t.er, t.outs, 9)
+        if (era == null) continue
+        out.push(-era)                        // negate: lower ERA plots higher
       } else {
-        const h   = win.reduce((s, x) => s + Number(x.hitting?.hits        ?? 0), 0)
-        const ab  = win.reduce((s, x) => s + Number(x.hitting?.atBats      ?? 0), 0)
-        const bb  = win.reduce((s, x) => s + Number(x.hitting?.baseOnBalls ?? 0), 0)
-        const hbp = win.reduce((s, x) => s + Number(x.hitting?.hitByPitch  ?? 0), 0)
-        const sf  = win.reduce((s, x) => s + Number(x.hitting?.sacFlies    ?? 0), 0)
-        const tb  = win.reduce((s, x) => {
-          const hx = x.hitting; if (!hx) return s
-          return s + Number(hx.hits ?? 0) + Number(hx.doubles ?? 0) + 2 * Number(hx.triples ?? 0) + 3 * Number(hx.homeRuns ?? 0)
-        }, 0)
-        if (ab <= 0) continue
-        const denom = ab + bb + hbp + sf
-        const obp = denom > 0 ? (h + bb + hbp) / denom : 0
-        out.push(obp + tb / ab)               // OPS = OBP + SLG
+        const ops = opsOf(hittingCounts(win.map(x => x.hitting)))
+        if (ops == null) continue
+        out.push(ops)
       }
     }
     return out
@@ -167,24 +159,11 @@ function fetchLeagueAverages() {
           fetch(`${base}&group=hitting`).then(r => r.json()),
           fetch(`${base}&group=pitching`).then(r => r.json()),
         ])
-        const hitSplits = (hitRes?.stats ?? []).flatMap((s: any) => s.splits ?? [])
-        let h = 0, ab = 0, bb = 0, hbp = 0, sf = 0, tb = 0
-        hitSplits.forEach((sp: any) => {
-          const st = sp.stat ?? {}
-          h += Number(st.hits ?? 0);        ab  += Number(st.atBats ?? 0)
-          bb += Number(st.baseOnBalls ?? 0); hbp += Number(st.hitByPitch ?? 0)
-          sf += Number(st.sacFlies ?? 0);    tb  += Number(st.totalBases ?? 0)
-        })
-        const denom = ab + bb + hbp + sf
-        const ops = ab > 0 ? (denom > 0 ? (h + bb + hbp) / denom : 0) + tb / ab : null
-
-        const pitSplits = (pitRes?.stats ?? []).flatMap((s: any) => s.splits ?? [])
-        let er = 0, ip = 0
-        pitSplits.forEach((sp: any) => {
-          const st = sp.stat ?? {}
-          er += Number(st.earnedRuns ?? 0); ip += parseIP(st.inningsPitched ?? '0')
-        })
-        const eraNeg = ip > 0 ? -(er * 9) / ip : null
+        const statsOf = (res: any) => (res?.stats ?? []).flatMap((s: any) => s.splits ?? []).map((sp: any) => sp.stat)
+        const ops = opsOf(hittingCounts(statsOf(hitRes)))
+        const lg = pitchingCounts(statsOf(pitRes))
+        const era = perInnings(lg.er, lg.outs, 9)
+        const eraNeg = era == null ? null : -era
 
         return { ops, eraNeg }
       } catch { return { ops: null, eraNeg: null } }

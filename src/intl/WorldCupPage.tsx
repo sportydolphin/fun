@@ -22,6 +22,7 @@ import { CARD_BORDER, SectionCard, TYPE_SCALE } from '../ui/card'
 import { linkTo, navigate, UNSTYLED_LINK } from '../nav'
 import { countryName } from './countries'
 import { flagOf } from './flags'
+import { avgOf, obpOf, opsOf, perInnings, slgOf } from '../league/rates'
 import { InfoDot } from '../ui/InfoDot'
 import { ClubBadge } from '../ui/ClubBadge'
 import { LEADER_GRID_SX, LeaderCard, PORTRAIT_PX, printedRanks } from '../ui/leaders'
@@ -564,18 +565,16 @@ function RosterList({ roster }: { roster: TeamRoster }) {
 function RosterTables({ roster }: { roster: TeamRoster }) {
   if (roster.players) return <RosterList roster={roster} />
   const batting: StatLogRow[] = roster.batting.map(b => {
-    const obp = b.ab + b.bb + b.hbp + b.sf > 0 ? (b.h + b.bb + b.hbp) / (b.ab + b.bb + b.hbp + b.sf) : null
-    const slg = b.ab > 0 ? b.tb / b.ab : null
     return {
       lead: [playerLead(b.name, b.path)],
       cells: [b.g, b.pa, b.ab, b.r, b.h, b.doubles, b.triples, b.hr, b.rbi, b.sb, b.bb, b.so,
-        rate(b.ab > 0 ? b.h / b.ab : null), rate(obp), rate(slg), rate(obp != null && slg != null ? obp + slg : null)],
+        rate(avgOf(b)), rate(obpOf(b)), rate(slgOf(b)), rate(opsOf(b))],
     }
   })
   const pitching: StatLogRow[] = roster.pitching.map(p => ({
     lead: [playerLead(p.name, p.path)],
     cells: [p.g, p.gs, `${p.w}-${p.l}`, p.sv, outsToIp(p.outs), p.h, p.r, p.er, p.bb, p.so,
-      fmtTwo(p.outs > 0 ? (p.er * WBSC_LEAGUE.regulationInnings * 3) / p.outs : null)],
+      fmtTwo(perInnings(p.er, p.outs, WBSC_LEAGUE.regulationInnings))],
   }))
   // One card holding both tables, as a player's World Cup card does (WorldCupCareer.tsx).
   return (

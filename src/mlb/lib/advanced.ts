@@ -1,5 +1,7 @@
 import type { LeaderboardEntry, StatDef } from '../types'
 import { fmt, fmtDecimal, parseIP } from './utils'
+import { obpOf, perInnings, slgOf } from '../../league/rates'
+import { ipToOuts } from '../../league/innings'
 
 // THE ADVANCED VIEW OF MLB'S STATS TABLE, WPBL's (VIEW_ORDER in src/wpbl/stats/axes.ts) column for
 // column, so the Standard / Advanced switch means the same thing in both sections.
@@ -44,20 +46,20 @@ function hittingLine(s: Stat): Derived {
   const d2 = n(s, 'doubles'), d3 = n(s, 'triples'), sb = n(s, 'stolenBases'), cs = n(s, 'caughtStealing')
   const tb = s?.totalBases != null ? n(s, 'totalBases') : h + d2 + 2 * d3 + 3 * hr
   return {
-    obp: ratio(h + bb + hbp, ab + bb + hbp + sf), slg: ratio(tb, ab),
+    obp: obpOf({ h, bb, hbp, ab, sf }) ?? undefined, slg: slgOf({ tb, ab }) ?? undefined,
     bbPct: ratio(bb, pa), kPct: ratio(k, pa), iso: ratio(tb - h, ab), xbh: d2 + d3 + hr,
     babip: ratio(h - hr, ab - k - hr + sf), sbPct: ratio(sb, sb + cs),
   }
 }
 
 function pitchingLine(s: Stat): Derived {
-  const ip = parseIP(s?.inningsPitched), bf = n(s, 'battersFaced'), k = n(s, 'strikeOuts'), bb = n(s, 'baseOnBalls')
+  const ip = parseIP(s?.inningsPitched), outs = ipToOuts(s?.inningsPitched as string), bf = n(s, 'battersFaced'), k = n(s, 'strikeOuts'), bb = n(s, 'baseOnBalls')
   const hbp = n(s, 'hitBatsmen'), hr = n(s, 'homeRuns'), h = n(s, 'hits'), ab = n(s, 'atBats'), sf = n(s, 'sacFlies')
   const kPct = ratio(k, bf), bbPct = ratio(bb, bf)
   return {
-    ip, era: ip > 0 ? 9 * n(s, 'earnedRuns') / ip : undefined,
+    ip, era: perInnings(n(s, 'earnedRuns'), outs, 9) ?? undefined,
     kPct, bbPct, kbbPct: kPct != null && bbPct != null ? kPct - bbPct : undefined,
-    kbb: ratio(k, bb), hr9: ip > 0 ? 9 * hr / ip : undefined,
+    kbb: ratio(k, bb), hr9: perInnings(hr, outs, 9) ?? undefined,
     strikePct: ratio(n(s, 'strikes'), n(s, 'numberOfPitches')),
     babip: ratio(h - hr, ab - k - hr + sf),
     fipCore: ip > 0 ? (13 * hr + 3 * (bb + hbp) - 2 * k) / ip : undefined,

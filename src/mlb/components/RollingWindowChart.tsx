@@ -7,6 +7,12 @@ import { fetchLeagueStatsBySeason, tooltipAnchorSx, useChartViewWidth, useTouchS
 import { chromePx, typePx } from '../../ui/scale'
 import { useSeasonPhase, isSeasonOver } from '../seasonPhase'
 import { ipToOuts } from '../../league/innings'
+import { opsOf, perInnings } from '../../league/rates'
+import { hittingCounts, pitchingCounts } from '../lib/statCounts'
+
+// A run of games summed into counts (lib/statCounts.ts), so the rates come from src/league/rates.ts.
+const hittingOf = (games: RecentGameEntry[]) => hittingCounts(games.map(g => g.hitting))
+const eraOf = (games: RecentGameEntry[]) => { const t = pitchingCounts(games.map(g => g.pitching)); return perInnings(t.er, t.outs, 9) }
 import { TYPE_SCALE } from '../../ui/card'
 
 /** "73.2" from 221 outs, the box score's own spelling of innings. */
@@ -50,19 +56,11 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
     fetchLeagueStatsBySeason(season, isPitcher ? 'pitching' : 'hitting').then(all => {
       if (cancelled) return
       if (!isPitcher) {
-        const lgH   = all.reduce((s, x) => s + Number(x.hits ?? 0), 0)
-        const lgAB  = all.reduce((s, x) => s + Number(x.atBats ?? 0), 0)
-        const lgBB  = all.reduce((s, x) => s + Number(x.baseOnBalls ?? 0), 0)
-        const lgHBP = all.reduce((s, x) => s + Number(x.hitByPitch ?? 0), 0)
-        const lgSF  = all.reduce((s, x) => s + Number(x.sacFlies ?? 0), 0)
-        const lgTB  = all.reduce((s, x) =>
-          s + Number(x.hits ?? 0) + Number(x.doubles ?? 0) + 2*Number(x.triples ?? 0) + 3*Number(x.homeRuns ?? 0), 0)
-        const denom = lgAB + lgBB + lgHBP + lgSF
-        if (denom > 0 && lgAB > 0) setLeagueAvg((lgH + lgBB + lgHBP) / denom + lgTB / lgAB)
+        const ops = opsOf(hittingCounts(all))
+        if (ops != null) setLeagueAvg(ops)
       } else {
-        const lgER = all.reduce((s, x) => s + Number(x.earnedRuns ?? 0), 0)
-        const lgIP = all.reduce((s, x) => s + parseIP(x.inningsPitched ?? '0'), 0)
-        if (lgIP > 0) setLeagueAvg((lgER * 9) / lgIP)
+        const lg = pitchingCounts(all), era = perInnings(lg.er, lg.outs, 9)
+        if (era != null) setLeagueAvg(era)
       }
     }).catch(() => {})
     return () => { cancelled = true }
@@ -109,24 +107,12 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
   })()
   const seasonStat = officialStat ?? (() => {
     if (!isPitcher) {
-      const h   = chrono.reduce((s, x) => s + Number(x.hitting?.hits          ?? 0), 0)
-      const ab  = chrono.reduce((s, x) => s + Number(x.hitting?.atBats        ?? 0), 0)
-      const bb  = chrono.reduce((s, x) => s + Number(x.hitting?.baseOnBalls   ?? 0), 0)
-      const hbp = chrono.reduce((s, x) => s + Number(x.hitting?.hitByPitch    ?? 0), 0)
-      const sf  = chrono.reduce((s, x) => s + Number(x.hitting?.sacFlies      ?? 0), 0)
-      const tb  = chrono.reduce((s, x) => {
-        const hx = x.hitting; if (!hx) return s
-        return s + Number(hx.hits ?? 0) + Number(hx.doubles ?? 0) + 2*Number(hx.triples ?? 0) + 3*Number(hx.homeRuns ?? 0)
-      }, 0)
-      const denom = ab + bb + hbp + sf
-      const ops   = denom > 0 && ab > 0 ? (h + bb + hbp) / denom + tb / ab : null
+      const ops   = opsOf(hittingOf(chrono))
       const pa    = chrono.reduce((s, x) => s + Number(x.hitting?.plateAppearances ?? 0), 0)
       return { stat: ops, volume: String(pa), volumeLabel: 'PA' as const }
     } else {
-      const er = chrono.reduce((s, x) => s + Number(x.pitching?.earnedRuns     ?? 0), 0)
-      const ip = chrono.reduce((s, x) => s + parseIP(x.pitching?.inningsPitched ?? '0'), 0)
       const outs = chrono.reduce((s, x) => s + ipToOuts(x.pitching?.inningsPitched), 0)
-      return { stat: ip > 0 ? (er * 9) / ip : null, volume: outsIp(outs), volumeLabel: 'IP' as const }
+      return { stat: eraOf(chrono), volume: outsIp(outs), volumeLabel: 'IP' as const }
     }
   })()
 
@@ -136,27 +122,14 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
         // Hitters: fixed 10-game window
         if (i < HIT_WINDOW - 1) return null
         const win = chrono.slice(i - HIT_WINDOW + 1, i + 1)
-        const h   = win.reduce((s, x) => s + Number(x.hitting?.hits ?? 0), 0)
-        const ab  = win.reduce((s, x) => s + Number(x.hitting?.atBats ?? 0), 0)
-        const bb  = win.reduce((s, x) => s + Number(x.hitting?.baseOnBalls ?? 0), 0)
-        const hbp = win.reduce((s, x) => s + Number(x.hitting?.hitByPitch ?? 0), 0)
-        const sf  = win.reduce((s, x) => s + Number(x.hitting?.sacFlies ?? 0), 0)
-        const tb  = win.reduce((s, x) => {
-          const hx = x.hitting; if (!hx) return s
-          return s + Number(hx.hits ?? 0) + Number(hx.doubles ?? 0) + 2*Number(hx.triples ?? 0) + 3*Number(hx.homeRuns ?? 0)
-        }, 0)
-        const denom = ab + bb + hbp + sf
-        const obp = denom > 0 ? (h + bb + hbp) / denom : 0
-        const slg = ab > 0 ? tb / ab : 0
-        const value = ab > 0 ? obp + slg : null
+        const value = opsOf(hittingOf(win))
         return { date: g.date, opp: g.opponentAbbr, isHome: g.isHome, value, size: HIT_WINDOW, ip: null as number | null }
       } else if (isStarter) {
         // SP: fixed 5-start window
         if (i < SP_WINDOW - 1) return null
         const win = chrono.slice(i - SP_WINDOW + 1, i + 1)
-        const er  = win.reduce((s, x) => s + Number(x.pitching?.earnedRuns ?? 0), 0)
         const ip  = win.reduce((s, x) => s + parseIP(x.pitching?.inningsPitched ?? '0'), 0)
-        const value = ip > 0 ? (er * 9) / ip : null
+        const value = eraOf(win)
         return { date: g.date, opp: g.opponentAbbr, isHome: g.isHome, value, size: SP_WINDOW, ip }
       } else {
         // RP: rolling ~15-inning window: go back until we've accumulated RP_IP_TARGET IP
@@ -169,9 +142,8 @@ export function RollingWindowChart({ games, isPitcher, season, official, onGameS
           if (winIP >= RP_IP_TARGET) break
         }
         const win = chrono.slice(winStart, i + 1)
-        const er  = win.reduce((s, x) => s + Number(x.pitching?.earnedRuns ?? 0), 0)
         const ip  = win.reduce((s, x) => s + parseIP(x.pitching?.inningsPitched ?? '0'), 0)
-        const value = ip > 0 ? (er * 9) / ip : null
+        const value = eraOf(win)
         return { date: g.date, opp: g.opponentAbbr, isHome: g.isHome, value, size: win.length, ip }
       }
     })
