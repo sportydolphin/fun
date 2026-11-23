@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 // The .mjs job imported rather than reimplemented: the event grammar IS the check, and a copy
 // living here would keep passing while the script it mirrors drifted.
-import { batting, parseGames, diffBatters } from '../../scripts/check-wpbl-retro-stats.mjs'
+import { batting, parseGames, diffBatters, retroSeasons, eventFilesFor, fetchSeasonFiles } from '../../scripts/check-wpbl-retro-stats.mjs'
 
 // This audit is only worth having if its reading of a Retrosheet event is right. Every case
 // below is a code that actually appears in RetroWPBL's 2026 files, counted over all four of
@@ -144,5 +144,33 @@ describe('pairBatters', () => {
     ])
     const out = diffBatters(theirs(), twoFranks)
     expect(out.some(f => /not in our box score/.test(f.issue))).toBe(true)
+  })
+})
+
+// Every season, not 2026's four files: on the first 2027 game a 2026-only list compared nothing new
+// and still printed "Every batter agrees".
+describe('fetchSeasonFiles', () => {
+  const notFound = (url: string) => Object.assign(new Error(`${url} → 404`), { status: 404 })
+
+  it('reads every season from the first to this one', () => {
+    expect(retroSeasons(new Date('2026-11-23T00:00:00Z'))).toEqual([2026])
+    expect(retroSeasons(new Date('2028-03-01T00:00:00Z'))).toEqual([2026, 2027, 2028])
+    expect(eventFilesFor(2027)).toEqual(['2027BSH.EVW', '2027LAQ.EVW', '2027NYH.EVW', '2027SFF.EVW'])
+  })
+
+  it('takes a missing current season as not started yet', async () => {
+    const get = async (url: string) => { if (url.includes('/2027')) throw notFound(url); return url }
+    const r = await fetchSeasonFiles('events', eventFilesFor, { now: new Date('2027-01-10T00:00:00Z'), get })
+    expect(r.texts).toHaveLength(4)
+    expect(r.pending).toEqual(eventFilesFor(2027))
+  })
+
+  // An earlier season's file going missing is the repository moving (alldata/, Oct 9, 2026).
+  it('fails on a missing earlier season, and on anything but a 404', async () => {
+    const now = new Date('2027-06-01T00:00:00Z')
+    const gone = async (url: string) => { if (url.includes('/2026')) throw notFound(url); return url }
+    await expect(fetchSeasonFiles('events', eventFilesFor, { now, get: gone })).rejects.toThrow('404')
+    const down = async (url: string) => { throw Object.assign(new Error(`${url} → 500`), { status: 500 }) }
+    await expect(fetchSeasonFiles('events', eventFilesFor, { now, get: down })).rejects.toThrow('500')
   })
 })

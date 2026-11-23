@@ -315,23 +315,14 @@ export function computeWpblPlayerRanks(
   const inBatField = batField.some(s => s.player.id === playerId)
   const inPitField = pitField.some(s => s.player.id === playerId)
 
-  // AGAINST THE FIELD THE PLAYER IS ALREADY BEING COMPARED TO, whichever that is, and this is
-  // the whole reason there is one comparison block on the card instead of two.
-  //
-  // Ranking counts against everyone who has played, on the reasoning that a count needs no
-  // qualifying bar, is true to the stat and produces a card with "Against the league" over four
-  // rate rows and 31 qualified batters, and a second block three rows below headed "Where they
-  // rank" over two counting rows and 68 batters. Two headings that mean the same sentence in
-  // English, over the same geometry, differing only by a population the reader has no reason to
-  // be holding. The distinction is real in the code and is not a thing to make a reader carry.
-  //
-  // So the population follows the player. A qualified batter is ranked on everything against
-  // the qualified field, and their counting rows merge into the strip they already have under
-  // its existing footnote. A batter BELOW the bar has no rate rows to merge into, and their
-  // counts are ranked against everyone who has played, because the qualified field is precisely
-  // the one they are not in. Each card states its own population once and no card shows two.
-  const batCountField = inBatField ? batField : batSeasons
-  const pitCountField = inPitField ? pitField : pitSeasons
+  // COUNTS AGAINST EVERYONE WHO PLAYED, qualified or not, because that is the field the Leaders
+  // cards and the Players board rank a count in, and a count's rank on the card opens that board
+  // (PlayerDetail's `rankFor`). Until Nov 23, 2026 a qualified player's counts were ranked against
+  // the qualified field only, so their counting rows could merge into a rate strip that the card
+  // no longer draws, and on the 2026 season four cards said "5th" in steals under a link that
+  // opened the board with all four at T-6. `rankAgreement.test.ts` holds the card to the boards.
+  const batCountField = batSeasons
+  const pitCountField = pitSeasons
   const battingCounts = rankOne(playerId, batCountField, WPBL_BAT_COUNT_RANK_DEFS, batValue)
   const pitchingCounts = rankOne(playerId, pitCountField, WPBL_PIT_COUNT_RANK_DEFS, pitValue)
   // The K rate's heading moves with the basis, so it is stamped here rather than left on the
@@ -384,13 +375,19 @@ function rankOne<T extends { player: WpblPlayer; totals: unknown }>(
     if (values.length === 0) continue
 
     // Ties share the better rank, matching the leaderboards: two players on .400 are both
-    // 1st, and the next is 3rd.
+    // 1st, and the next is 3rd. A tie is judged on the figure AS PRINTED, the boards' rule
+    // (`printedRanks`): .3126 and .3131 both print .313, and a card calling one of them 2nd
+    // under a board calling both T-1 is the two disagreeing about the same row. A value that
+    // prints the same as the subject's is neither better nor worse.
+    const fmt = FORMAT[def.key] ?? String
+    const shown = fmt(mine)
+    const same = (v: number) => fmt(v) === shown
     const better = def.better === 'high'
-      ? values.filter(v => v > mine).length
-      : values.filter(v => v < mine).length
+      ? values.filter(v => v > mine && !same(v)).length
+      : values.filter(v => v < mine && !same(v)).length
     const worse = def.better === 'high'
-      ? values.filter(v => v < mine).length
-      : values.filter(v => v > mine).length
+      ? values.filter(v => v < mine && !same(v)).length
+      : values.filter(v => v > mine && !same(v)).length
 
     // Share of the field this player beats. Everyone tied with the player sits at the MIDPOINT
     // of their own block rather than at its bottom, which is where `worse / (n - 1)` alone puts
