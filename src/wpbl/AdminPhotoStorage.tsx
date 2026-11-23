@@ -66,7 +66,7 @@ export default function AdminPhotoStorage() {
             </Box>
             <Box role="meter" aria-label={`${m.label}, share of the free tier`}
               aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(Math.min(share, 1) * 100)}
-              sx={{ mt: 0.75, height: 8, borderRadius: 4, border: '1px solid', borderColor: 'outline', overflow: 'hidden' }}>
+              sx={{ mt: 0.75, height: 8, borderRadius: 999, border: '1px solid', borderColor: 'outline', overflow: 'hidden' }}>
               <Box sx={{ height: '100%', width: `${Math.min(share, 1) * 100}%`, bgcolor: warn ? 'warning.main' : 'primary.main' }} />
             </Box>
           </Box>

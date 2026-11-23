@@ -252,7 +252,8 @@ def main() -> None:
         # A box on one line, so a person reading or diffing the file sees a face per few lines.
         text = re.sub(r"\[\s+([^\[\]]*?)\s+\]", lambda m: "[" + re.sub(r"\s+", " ", m.group(1)) + "]",
                       json.dumps(manifest, indent=1, ensure_ascii=False))
-        MANIFEST.write_text(text + "\n", "utf-8")
+        # newline="\n": on Windows write_text turns every \n into CRLF, which the repo never holds.
+        MANIFEST.write_text(text + "\n", "utf-8", newline="\n")
         subprocess.run([sys.executable, str(ROOT / "scripts" / "make-wpbl-portrait-thumbs.py")], check=True)
 
     with_issues = [(s, e["issues"]) for s, _, e in built if e["issues"]]

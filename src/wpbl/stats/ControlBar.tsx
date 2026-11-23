@@ -1,5 +1,4 @@
 import { SHADOW } from '../../ui/color'
-import { ACCENT_EDGE, TYPE_SCALE } from '../../ui/card'
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { Box } from '@mui/material'
 import { SheetTrigger } from '../../ui/SheetTrigger'

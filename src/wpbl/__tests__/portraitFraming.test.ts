@@ -60,14 +60,14 @@ const ISSUES = new Set(['no-face', 'upscaled', 'clamped', 'gap-under', 'cut-top'
  *   fringe     a light edge from the white key, visible on a dark club color
  */
 const KNOWN_ISSUES: Record<string, string[]> = {
+  'addisyn-baird': ['held'],
   'amira-hondras': ['upscaled'],
   'ayaka-yamamoto': ['held'],
-  'ayuri-shimano': ['gap-under', 'held'],
   'braidy-birdsall': ['fringe', 'held'],
-  'chloe-atkinson': ['held'],
+  'claire-o-sullivan': ['held'],
   'clara-rice': ['held'],
+  'diana-ibarra': ['held'],
   'elodie-o-sullivan': ['fringe'],
-  'emi-saiki': ['upscaled'],
   'emily-baxter': ['fringe', 'held'],
   'hyeonah-kim': ['held'],
   'jua-park': ['held'],
@@ -86,11 +86,11 @@ const KNOWN_ISSUES: Record<string, string[]> = {
   'micaela-minner': ['held'],
   'milanyela-cortez': ['clamped', 'upscaled'],
   'natsuki-yonetani': ['held'],
-  'olivia-bricker': ['gap-under', 'held'],
   'rio-obitsu': ['held'],
-  'rosi-del-castillo': ['fringe', 'held'],
+  'rosi-del-castillo': ['held'],
   'sarah-edwards': ['held'],
   'scrappy-hopkins': ['clamped', 'upscaled'],
+  'suzuka-yamamoto': ['held'],
   'thaima-maximiliana': ['clamped', 'upscaled'],
   'zoe-falardeau': ['clamped', 'upscaled'],
 }
@@ -150,8 +150,6 @@ describe('the bundled portraits are framed by one rule', () => {
  * photo, correct `kit_club`, or add the player below with why.
  */
 const KNOWN_KIT_MISMATCHES: Record<string, string> = {
-  // New York in the photo, on the Los Angeles roster; the only photo the league has published.
-  'diana-ibarra': 'NY in the photo, LA on the roster',
 }
 
 describe('the club in each photo is the club on the roster', () => {

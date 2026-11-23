@@ -76,15 +76,31 @@ goes (Nov 4, seventh pass). Where this and the original brief below disagree, th
   Savant run theirs all winter. No result tile before them: the lead names the champion once. Never "No games", never next season's games before
   they are public.
 
-## Handoff (Nov 5, 2026)
+## Handoff (Nov 22, 2026)
 
 Where the work is, for whoever picks it up.
 
-- **Branch `redesign`**, checked out in its own worktree at `../fun-redesign` (beside this repo).
-  Pushed to `origin/redesign`, up to date with `main` as of `c6ac96c2` (#194), no pull request
-  yet: it merges to `main` in one piece when the redesign is complete, as v1.208.0. That entry in
-  `src/changelog.ts` is written as of Nov 4; set its date, and its version if `main` has taken
-  1.208.0 by then, at the merge.
+- **Branch `redesign`**, checked out in its own worktree at `../fun-redesign` (beside this repo),
+  on local `redesign-pass` (PR #195's head plus the passes below). Merged with `main` on Nov 22,
+  2026 (`21206711`, 145 commits): it merges to `main` in one piece when the redesign is complete.
+  Its changelog entry is 1.261.0, dated Nov 3; set both at the merge.
+- **The Nov 22 merge and the offseason Home's new lead** (committed, not pushed, waiting on the
+  owner's look). Main's version won where it had rebuilt what the redesign only restyled: the page
+  gutter is the toolbar's (`--sd-page-gutter`, so `PAGE_FRAME_W` and the 32px `DESKTOP_GUTTER` are
+  gone), the League page's clubs are main's ruled table (with the agate record), the gallery keeps
+  main's Submit and Tag buttons under the rail (the header's "Submit photos ›" went). Main's 21
+  newer league photos are sources in `art/wpbl-portraits/` now, framed by the rule, with their
+  `kit_club` checked by eye (Ibarra's new photo is in LA's kit, so the last mismatch is gone).
+  index.html's static bar and title follow the redesign (neutral switch, red underline, the title
+  in Barlow capitals). **The offseason Home follows main's Nov 21-22 content calls**: the 2027
+  rosters lead (`RostersCard`, a box-score line per club with the kept count in the display face)
+  with Transactions and Latest beside them and Spotlight under (`OFFSEASON_LEAD_SX`; on a phone
+  rosters, the moves, Latest, Spotlight); the leaders and the award winners are off
+  (`HOME_2026_ROW`); the champion lead and the final's line score are gone from the page (the
+  masthead's line still marks the champion in gold, and the recap page has the rest).
+  `ChampionLead`, `ChampionLeadSkeleton` and `SeriesLineScore` are kept, unused, in case the owner
+  wants the champion back. Sweep `--shift --ellipsis` on `/wpbl` clean; typecheck, lint and the
+  tests clean.
 - **The seventh and eighth passes are committed on top of it** (Nov 4, from the third audit). Seventh
   (`636ecfc0`): the lead rebuilt as a front page (`ChampionLead`, and `ChampionLeadSkeleton`
   reserving it), Spotlight as a section instead of a trading card, square `print` faces across Home,

@@ -37,7 +37,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'WPBL Home',
-        full:  'The season’s champion leads WPBL Home with a photo of the title celebration over the club’s name, beside the road to the title. Above it, the scores strip shows the champion and the final’s games all winter. The four clubs sit under the page title as a standings line. Under the lead, a Latest list of the newest videos, posts and recaps, with dates, beside Player Spotlight and the leaders; Reading, Watch, the gallery, the fan award winners and the star sign card follow under smaller headings. The Discord invite is a plain row, and Submit photos sits by the gallery’s heading.',
+        full:  'In the offseason, WPBL Home leads with the 2027 rosters: each club’s kept count and newest signing, with Transactions and a Latest list of the newest videos, posts and recaps beside them, and Player Spotlight under the rosters. In season the latest final leads, with its recap, its Star and the box line, beside Next game, the standings and Latest. The four clubs sit under the page title as a standings line. Reading, Watch, the gallery and the star sign card follow under smaller headings, and the Discord invite is a plain row.',
       },
       {
         short: 'Scores strip',

@@ -6,17 +6,17 @@ import { SECTION_COLUMN_GAP, useSectionTier, useSectionInset, MinorSections, Flu
 import { DISCORD_DISMISS_KEY } from '../discordInvite'
 import { awardsResultsShowOnHome } from '../awards'
 import { FanPhotoHomeCardSkeleton } from '../FanPhotoViews'
-import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard } from './PlayerCards'
+import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard, HOME_2026_ROW } from './PlayerCards'
+import { RostersCardView } from './RostersCard'
+import { TransactionsCardView } from './TransactionsCard'
 import type { WpblTeam } from '../types'
 import { offseasonByCalendar } from '../offseasonCalendar'
 import { devSecondSeasonOn } from '../dev/devSecondSeason'
-import { SECTION_GAP, HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, NEWS_ROW_SX, LEAD_ROW_SX, SIDE_COLUMN_SX, PAIR_ROW_SX, homeWideSx } from './shared'
+import { SECTION_GAP, HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, LEAD_ROW_SX, OFFSEASON_LEAD_SX, SIDE_COLUMN_SX, PAIR_ROW_SX, homeWideSx } from './shared'
 import { LeadSection, RecapLeadSkeleton } from './GameLead'
 import { StandingsSection } from './StandingsSection'
 import { LatestSkeleton } from './LatestCard'
 import { ClubRailSkeleton, Dateline } from './ClubRail'
-import { SeriesLineScore } from './SeriesLineScore'
-import { ChampionLeadSkeleton } from './ChampionCards'
 
 // Skeletons shaped like the real rows, so a card reserves its final height while its
 // data loads and doesn't grow/jump when the data lands. Replaces the old centered
@@ -207,29 +207,30 @@ function OffseasonHomeSkeleton() {
         <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><Dateline phase="Offseason" label={null} /><ClubRailSkeleton /></Box>
       </Box>
 
-      {/* The lead: the champion's photo and its text column, in the loaded lead's own grid. Then the
-          final's line score, which draws its own empty grid at the loaded height. */}
+      {/* The lead row: the rosters and the moves draw themselves with no moves (`moves` null), and
+          Spotlight its own empty state, so each placeholder is the real section at its loaded height.
+          The same grid as the loaded page (OFFSEASON_LEAD_SX). */}
       <FlushSections>
-      <Box sx={{ mt: 3 }}>
-        <ChampionLeadSkeleton />
-      </Box>
-      <Box sx={{ mt: 3 }}>
-        <SeriesLineScore games={[]} teams={EMPTY_TEAMS} championId={null} onOpenGame={NO_OPEN} />
+      <Box sx={{ ...OFFSEASON_LEAD_SX, mt: 3 }}>
+        <Box sx={{ gridArea: 'rosters', minWidth: 0 }}><RostersCardView teams={EMPTY_TEAMS} players={[]} moves={null} /></Box>
+        <Box sx={{ ...SIDE_COLUMN_SX, gridArea: 'news' }}>
+          <TransactionsCardView teams={EMPTY_TEAMS} players={[]} moves={null} onOpenPlayer={NO_OPEN} />
+          <LatestSkeleton column />
+        </Box>
+        <Box sx={{ gridArea: 'spotlight', minWidth: 0 }}>
+          <PlayerSpotlightCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
+        </Box>
       </Box>
       {awards && (
         <Box sx={{ mt: 3 }}>
           <CardSkeleton minHeight={{ xs: '16.7rem', md: '21.6rem' }} titleWidth="5.5rem" lines={4} />
         </Box>
       )}
-
-      {/* The news row: Latest's own placeholder, then the player cards, which draw their own empty
-          state (no players yet), so the placeholder is the real card rather than a guess at its
-          height. The same grid as the loaded page (NEWS_ROW_SX). */}
-      <Box sx={{ ...NEWS_ROW_SX, columnGap: SECTION_COLUMN_GAP }}>
-        <LatestSkeleton />
-        <PlayerSpotlightCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
-        <SeasonLeadersCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
-      </Box>
+      {HOME_2026_ROW && (
+        <Box sx={{ mt: 3 }}>
+          <SeasonLeadersCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
+        </Box>
+      )}
       <MinorSections>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
           <CardSkeleton minHeight={READING_CARD_SKELETON_H} titleWidth="4.5rem" lines={0} />
@@ -238,10 +239,14 @@ function OffseasonHomeSkeleton() {
 
         <FanPhotoHomeCardSkeleton />
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
-          <FanAwardWinnersCard players={[]} teams={EMPTY_TEAMS} onOpenPlayer={NO_OPEN} onOpenTeam={NO_OPEN} />
-          <StarSignCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
-        </Box>
+        {HOME_2026_ROW
+          ? (
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
+              <FanAwardWinnersCard players={[]} teams={EMPTY_TEAMS} onOpenPlayer={NO_OPEN} onOpenTeam={NO_OPEN} />
+              <StarSignCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
+            </Box>
+          )
+          : <Box sx={{ mt: 3 }}><StarSignCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} /></Box>}
       </MinorSections>
       </FlushSections>
 

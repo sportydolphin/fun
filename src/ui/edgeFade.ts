@@ -1,3 +1,4 @@
+import { INK } from './color'
 import { useLayoutEffect, useState, type RefObject } from 'react'
 
 /** How wide the fade is: about one stat column, so the column it covers reads as cut by the edge. */
@@ -30,6 +31,6 @@ export function useEdgeFade(ref: RefObject<HTMLElement | null>): { maskImage?: s
     return () => { el.removeEventListener('scroll', sync); ro?.disconnect() }
   }, [ref])
   if (!more) return {}
-  const mask = `linear-gradient(to right, #000 calc(100% - ${FADE_PX}px), transparent 100%)`
+  const mask = `linear-gradient(to right, ${INK.black} calc(100% - ${FADE_PX}px), transparent 100%)`
   return { maskImage: mask, WebkitMaskImage: mask }
 }

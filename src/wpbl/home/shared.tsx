@@ -136,6 +136,15 @@ export const LEAD_ROW_SX = {
   columnGap: 4, rowGap: 3, alignItems: 'start',
 } as const
 
+/** The offseason lead (Nov 22, 2026): the rosters in LEAD_ROW_SX's seven columns with Spotlight under
+ *  them, and the news (Transactions, then Latest) in the five beside both. On a phone the moves follow
+ *  the rosters they change, and Spotlight comes after the news. */
+export const OFFSEASON_LEAD_SX = {
+  ...LEAD_ROW_SX,
+  gridTemplateAreas: { xs: '"rosters" "news" "spotlight"', md: '"rosters news" "spotlight news"' },
+  gridTemplateRows: { md: 'auto 1fr' },
+} as const
+
 /** The column beside the in-season lead: its sections a section's gap apart. */
 export const SIDE_COLUMN_SX = { display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 } as const
 

@@ -26,7 +26,9 @@ import { FanPhotoHomeCard } from '../FanPhotoViews'
 import { buildRunExpectancy, playRunValues } from '../derive/runExpectancy'
 import { mvpRace } from '../derive/mvpRace'
 import { WatchCard } from '../Watch'
-import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard } from './PlayerCards'
+import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard, HOME_2026_ROW } from './PlayerCards'
+import { RostersCard } from './RostersCard'
+import { TransactionsCard } from './TransactionsCard'
 import type { WpblRunValuePlay } from '../types'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame, WpblBattingLine, WpblPitchingLine } from '../types'
 import { useWpblSeason } from '../SeasonContext'
@@ -34,12 +36,11 @@ import { offseasonByCalendar, nextOpeningDay, rememberNextOpeningDay } from '../
 import { regularSeasonOver } from '../season'
 import { seriesContexts } from '../derive/series'
 import { localIsoDate } from '../derive/homePlayers'
-import { HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, NEWS_ROW_SX, LEAD_ROW_SX, SIDE_COLUMN_SX, PAIR_ROW_SX, homeWideSx } from './shared'
+import { HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, LEAD_ROW_SX, OFFSEASON_LEAD_SX, SIDE_COLUMN_SX, PAIR_ROW_SX, homeWideSx } from './shared'
 import { ClubRail, Dateline } from './ClubRail'
-import { SeriesLineScore } from './SeriesLineScore'
 import { type MatchupPreviewArg, Scoreboard } from './Scoreboard'
 import { NextGameCard } from './NextGameCard'
-import { gameYear, devChampionPick, ChampionBanner, useChampionFinal } from './ChampionCards'
+import { gameYear, devChampionPick, ChampionBanner } from './ChampionCards'
 import { useNewTrackingBatch, NewTrackingBanner } from './TrackingBanner'
 import { DiscordCard } from './DiscordCard'
 import { ReadingHomeCard } from './ReadingCards'
@@ -243,8 +244,6 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // The Star of the final, so Player Spotlight never headlines the player the season card's foot
   // already names. The same derivation the card makes (the same games and dev champion), so the two
   // agree; undefined while its read is out, which Spotlight waits on rather than swap players.
-  const { star: finalStar, finalLog } = useChampionFinal(teamMap, seasonGames, devForceRecap ? devChampTeam : null)
-  const spotlightAvoid = finalStar === undefined ? undefined : finalStar?.playerId ?? null
 
   // Whether the final is decided, the switch every offseason change on this page keys on. A
   // dev-simulated champion counts, so the offseason preview shows the offseason Home.
@@ -303,17 +302,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // one year's postseason.
   const seriesById = useMemo(() => seriesContexts(seasonGames, teamMap), [seasonGames, teamMap])
 
-  // The final's games, for the line score under the lead. A dev-simulated champion that did not play
-  // in the real final has no series to draw, so the box stays off for it rather than crediting it
-  // with another club's games.
   const championId = devChampTeam?.id ?? realChampion?.champion.id ?? null
-  const finalGames = useMemo<WpblGame[] | null>(() => {
-    if (!seasonDone || !championId) return null
-    const played = finalLog.filter(g => g.status === 'final' && g.home_score != null && g.away_score != null)
-    const first = played[0]
-    if (!first || (first.home_team_id !== championId && first.away_team_id !== championId)) return null
-    return played
-  }, [seasonDone, championId, finalLog])
   // Next year's opener, for the skeleton's guess on a later load (see offseasonByCalendar).
   const opener = nextOpeningDay(schedule, current)
   useEffect(() => { rememberNextOpeningDay(opener) }, [opener])
@@ -514,51 +503,39 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           series={seriesById} />
       )}
 
-      {/* THE OFFSEASON HOME LEADS WITH THE CHAMPION, full width (Nov 3, 2026, ROADMAP-UI.md's audit).
-          Eight sections of one weight in pairs gave the page no story; a sports front page has one
-          lead and then the rest. The lead keeps a player in the first screen through its Star of the
-          final, a real player link, which is why Player Spotlight could move down: until then it sat
-          beside the season card so a player page was one tap from the top (a player page is what
-          readers open most). Below the lead, in pairs (see the note on them below). None of them costs a box-score read: they
-          select from the roster the page already holds, the stored season rows and the award tally,
-          and Player Spotlight reads its one player's lines. */}
-      {/* Print columns (FlushSections): each section's text flush with its rule. The offseason Home
-          only, since the in-season cards still bleed a band to the old card edge (NextGameCard's
-          `mx: -2`) and are rebuilt in Home step 1. */}
+      {/* THE OFFSEASON HOME LEADS WITH THE 2027 ROSTERS (Nov 22, 2026, on main the day before): the
+          one WPBL story that changes from week to week while the clubs are built. The champion, the
+          page's lead from Nov 3, is in the masthead's standings line and on the recap page; the
+          final's line score went with it. The grammar is the in-season page's: the lead in seven
+          columns of twelve and, beside it, one column of the news (Transactions, then Latest).
+          Spotlight follows the rosters in the lead column, so a player page is still one tap from
+          the first screen (a player page is what readers open most). None of it costs a box-score
+          read: the moves, the roster the page already holds and Spotlight's one player's lines. */}
       {seasonDone && (
         <FlushSections>
-          <Box sx={{ mt: 3 }}>
-            <NextGameCard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} players={players} onOpenPlayer={onOpenPlayer}
-              devForceRecap={devForceRecap} devChampion={devChampTeam} lead />
-          </Box>
-          {/* The final's box, under the story it belongs to. */}
-          {finalGames && (
-            <Box sx={{ mt: 3 }}>
-              <SeriesLineScore games={finalGames} teams={teamMap} championId={championId} onOpenGame={onOpenGame} />
+          <Box sx={{ ...OFFSEASON_LEAD_SX, mt: 3 }}>
+            <Box sx={{ gridArea: 'rosters', minWidth: 0 }}><RostersCard teams={teamMap} players={players} /></Box>
+            <Box sx={{ ...SIDE_COLUMN_SX, gridArea: 'news' }}>
+              <TransactionsCard teams={teamMap} players={players} onOpenPlayer={onOpenPlayer} />
+              <LatestCard items={latest} column />
             </Box>
-          )}
+            <Box sx={{ gridArea: 'spotlight', minWidth: 0 }}>
+              <PlayerSpotlightCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} />
+            </Box>
+          </Box>
           {/* The award results, for the days they stay up after the final (AWARDS_RESULTS_UNTIL). */}
           {ballot && <Box sx={{ mt: 3 }}>{ballot}</Box>}
+          {/* The 2026 leaders, off while the rosters are built (HOME_2026_ROW). */}
+          {HOME_2026_ROW && (
+            <Box sx={{ mt: 3 }}>
+              <SeasonLeadersCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer}
+                rosterFailed={!loadingLeaders && players.length === 0} />
+            </Box>
+          )}
 
-          {/* THE NEWS ROW, three columns from lg: Latest, Spotlight, the leaders (Nov 4, 2026,
-              docs/design-references/ANALYSIS.md). Latest is first in the DOM and on screen at every
-              width, as a newspaper's "What's News" column runs down the left of its front page: on a
-              phone it is straight under the lead, and between md and lg it spans the row above the
-              pair, its rows in two columns. Spotlight and the leaders were a pair of about one height
-              until then, and still are below lg. */}
-          <Box sx={{ ...NEWS_ROW_SX, columnGap: SECTION_COLUMN_GAP }}>
-            <LatestCard items={latest} />
-            <PlayerSpotlightCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} avoid={spotlightAvoid} />
-            <SeasonLeadersCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer}
-              rosterFailed={!loadingLeaders && players.length === 0} />
-          </Box>
-
-          {/* THREE TIERS, NOT ONE (Nov 4, 2026): the lead, then Spotlight and the leaders under the
-              heavy rule, then everything a reader browses rather than reads as news in the quieter
-              tier (MinorSections). With one heading style for all nine the page had no order. */}
-          {/* In order of what changes between visits (Nov 4, 2026): Reading and Watch get new posts and
-              clips all offseason, the gallery reshuffles every load, and the award results and the
-              star sign card hold for weeks, so they close the page. The sign card sat above all three. */}
+          {/* What a reader browses rather than reads as news, in the quieter tier (MinorSections), in
+              order of what changes between visits: Reading and Watch get new posts and clips all
+              offseason, the gallery reshuffles every load, and the star sign card holds for weeks. */}
           <MinorSections>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
               <ReadingHomeCard teamById={teamMap} />
@@ -568,12 +545,16 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
             {/* Fan photos: the rail alone. A lead photo over it made the gallery a screen tall. */}
             <FanPhotoHomeCard reserve />
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
-              <FanAwardWinnersCard players={players} teams={teamMap} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} onOpenAwards={onOpenAwards}
-                rosterFailed={!loadingLeaders && players.length === 0} />
-              {/* The players born under the sign whose season it is, each with their birthday. */}
-              <StarSignCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} />
-            </Box>
+            {HOME_2026_ROW
+              ? (
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
+                  <FanAwardWinnersCard players={players} teams={teamMap} onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam} onOpenAwards={onOpenAwards}
+                    rosterFailed={!loadingLeaders && players.length === 0} />
+                  <StarSignCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} />
+                </Box>
+              )
+              // Full width alone, so the names sit four abreast on a desktop rather than in a column.
+              : <Box sx={{ mt: 3 }}><StarSignCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} /></Box>}
           </MinorSections>
         </FlushSections>
       )}

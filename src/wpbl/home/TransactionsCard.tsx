@@ -13,7 +13,8 @@
 // card with `moves` null, and a season with fewer moves than ROWS fills the rest with invisible slots.
 import { Box, Skeleton, Typography } from '@mui/material'
 import type { WpblPlayer, WpblRosterMove, WpblTeam } from '../types'
-import { SectionCard, TeamBadge, FittedName, TYPE_SCALE, TAPPABLE, FOCUS_RING, hoverOnly, chromePx } from '../ui'
+import { SectionCard, TeamBadge, FittedName, TYPE_SCALE, TAPPABLE, FOCUS_RING, chromePx } from '../ui'
+import { AGATE_SX } from '../../ui/card'
 import { WPBL_ROSTERS_PAGE } from '../routes'
 import { UNSTYLED_LINK, linkTo } from '../../nav'
 import { track, EVENTS } from '../../lib/analytics'
@@ -62,14 +63,8 @@ export function TransactionsCardView({ teams, players, moves, onOpenPlayer }: {
   const byId = new Map(players.map(p => [p.id, p]))
   const rows = moves == null ? null : slots(moves)
   return (
-    <SectionCard title="Transactions" action={
-      <Box {...linkTo(WPBL_ROSTERS_PAGE, () => track(EVENTS.WPBL_HOME_CARD_LINK, { card: 'transactions', target: 'all' }))} sx={{
-        ...UNSTYLED_LINK, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
-        ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
-      }}>
-        All rosters ›
-      </Box>
-    }>
+    // The heading opens the rosters page, as every section's heading opens more of itself.
+    <SectionCard title="Transactions" titleLink={linkTo(WPBL_ROSTERS_PAGE, () => track(EVENTS.WPBL_HOME_CARD_LINK, { card: 'transactions', target: 'all' }))}>
       <Box component="ol" sx={{ listStyle: 'none', m: 0, p: 0 }}>
         {Array.from({ length: ROWS }, (_, i) => {
           if (rows == null) return <TransactionRow key={i} />
@@ -114,8 +109,7 @@ function TransactionRow({ slot, name, title, titleBadge, sub, team, link, hidden
         borderRadius: 2, px: 0.75, mx: -0.75, py: 0.625, ...(link ? { ...TAPPABLE, ...FOCUS_RING } : {}),
       }}>
         <Typography component="div" sx={{
-          ...line, flexShrink: 0, width: '3.25rem', fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary',
-          fontVariantNumeric: 'tabular-nums',
+          ...line, ...AGATE_SX, flexShrink: 0, width: '3.25rem', fontSize: TYPE_SCALE.meta, color: 'text.secondary',
         }}>
           {/* A trade's later rows carry ⇄ where the date would be, so its sides read as a pair. */}
           {slot ? (slot.date ? dayLabel(slot.date) : <Box component="span" aria-hidden sx={{ pl: '0.1rem' }}>⇄</Box>)

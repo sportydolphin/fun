@@ -1,3 +1,4 @@
+import { INK } from '../ui/color'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import WpblPage, { SectionHeading } from './WpblPage'
@@ -81,7 +82,7 @@ function Pill({ children, onClick, primary, disabled }: {
         px: 2, py: 1.1, minHeight: chromePx(44), borderRadius: 999, cursor: disabled ? 'default' : 'pointer',
         border: '1px solid', ...FOCUS_RING,
         ...(primary
-          ? { bgcolor: 'var(--wpbl-accent-solid)', borderColor: 'var(--wpbl-accent-solid)', color: '#fff' }
+          ? { bgcolor: 'var(--wpbl-accent-solid)', borderColor: 'var(--wpbl-accent-solid)', color: INK.white }
           : { bgcolor: 'background.paper', borderColor: 'outline', color: 'text.primary', ...hoverOnly({ bgcolor: 'action.hover' }) }),
         ...(disabled ? { bgcolor: 'action.disabledBackground', borderColor: 'outline', color: 'text.secondary' } : {}),
       }}>
@@ -112,7 +113,7 @@ const FIELD_SX = {
 /** A thumbnail box of one fixed size, so a picture arriving moves nothing. */
 function ThumbBox({ src, alt }: { src: string | null; alt: string }) {
   return (
-    <Box sx={{ width: THUMB, height: THUMB, flexShrink: 0, borderRadius: 1.5, overflow: 'hidden', bgcolor: 'action.hover' }}>
+    <Box sx={{ width: THUMB, height: THUMB, flexShrink: 0, borderRadius: 2, overflow: 'hidden', bgcolor: 'action.hover' }}>
       {src && <Box component="img" src={src} alt={alt} sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
     </Box>
   )

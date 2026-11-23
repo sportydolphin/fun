@@ -9,7 +9,8 @@
 // Opening Day each add a line here once the league publishes them, never before.
 import { Box, Skeleton, Typography } from '@mui/material'
 import type { WpblPlayer, WpblRosterMove, WpblTeam } from '../types'
-import { SectionCard, TeamBadge, TYPE_SCALE, TAPPABLE, FOCUS_RING, hoverOnly, chromePx } from '../ui'
+import { SectionCard, TeamBadge, TYPE_SCALE, TAPPABLE, FOCUS_RING, chromePx } from '../ui'
+import { AGATE_SX, DISPLAY_FONT } from '../../ui/card'
 import { wpblFullName } from '../constants'
 import { WPBL_ROSTERS_PAGE } from '../routes'
 import { UNSTYLED_LINK, linkTo } from '../../nav'
@@ -18,7 +19,7 @@ import { track, EVENTS } from '../../lib/analytics'
 import { useWpblRosterMoves } from '../useRosterMoves'
 import { rosterBoards, MAX_RESIGNED, ROSTER_SEASON, CLUB_NAMES_2026 } from '../offseason2027'
 
-const BADGE = 28
+const BADGE = 32
 
 const trackLink = (target: string) => track(EVENTS.WPBL_HOME_CARD_LINK, { card: 'rosters', target })
 
@@ -33,44 +34,46 @@ export function RostersCardView({ teams, players, moves }: {
   const boards = rosterBoards(moves ?? [])
   const byId = new Map(players.map(p => [p.id, p]))
   return (
-    <SectionCard title={`${ROSTER_SEASON} Rosters`} action={
-      <Box {...linkTo(WPBL_ROSTERS_PAGE, () => trackLink('all'))} sx={{
-        ...UNSTYLED_LINK, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
-        ...hoverOnly({ textDecoration: 'underline' }), ...FOCUS_RING,
-      }}>
-        All rosters ›
-      </Box>
-    }>
-      {/* The wide gap between columns keeps a club's count with its own row: at 1.5 the "7/10" sat
-          nearer the next club's badge than its own name, and read as that club's. */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: { xs: 1.5, md: 6 } }}>
+    // The offseason Home's lead since the redesign's merge with main (Nov 22, 2026), in place of the
+    // champion: the heading opens the rosters page, the way every section's heading opens more of
+    // itself, so no "All rosters" link sits in the action slot.
+    <SectionCard title={`${ROSTER_SEASON} Rosters`} titleLink={linkTo(WPBL_ROSTERS_PAGE, () => trackLink('all'))}>
+      {/* ROWS AS BOX-SCORE LINES, one club each under a hairline: the mark, the club and its newest
+          signing, and the kept count in the display face, since it is the one figure a reader comes
+          for and it reads as a score does. One column at every width: two side by side put a count
+          nearer the next club's mark than its own name. */}
+      <Box component="ol" sx={{ listStyle: 'none', m: 0, p: 0 }}>
         {boards.map(board => {
           const team = teams.get(board.teamId)
           const name = team ? wpblFullName(team) : CLUB_NAMES_2026[board.teamId] ?? board.teamId
           const newest = board.newest
           const newestName = newest ? (byId.get(newest.key)?.name ?? newest.name) : null
+          const kept = moves == null ? 0 : board.kept.length
           return (
-            <Box key={board.teamId} {...linkTo(WPBL_ROSTERS_PAGE, () => trackLink(board.teamId))} sx={{
-              ...UNSTYLED_LINK, display: 'flex', alignItems: 'center', gap: 1, minWidth: 0,
-              borderRadius: 2, px: 0.75, mx: -0.75, py: { xs: 0.75, md: 0.5 }, ...TAPPABLE, ...FOCUS_RING,
-            }}>
-              {team
-                ? <TeamBadge team={team} size={BADGE} />
-                : <Box sx={{ flexShrink: 0, width: chromePx(BADGE), height: chromePx(BADGE) }} />}
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography noWrap sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.3 }}>{name}</Typography>
-                {moves == null
-                  ? <Skeleton variant="text" width="50%" sx={{ fontSize: TYPE_SCALE.meta, lineHeight: 1.3 }} />
-                  : newestName
-                    ? <NameLine names={[newestName]} sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}
-                        render={n => `Newest: ${n(newestName)}`} />
-                    : <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>None yet</Typography>}
-              </Box>
-              <Typography aria-label={`${moves == null ? 0 : board.kept.length} of ${MAX_RESIGNED} kept`} sx={{
-                flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1.3,
+            <Box component="li" key={board.teamId} sx={{ borderTop: '1px solid', borderColor: 'divider', '&:first-of-type': { borderTop: 0 } }}>
+              <Box {...linkTo(WPBL_ROSTERS_PAGE, () => trackLink(board.teamId))} sx={{
+                ...UNSTYLED_LINK, display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0,
+                borderRadius: 2, px: 0.75, mx: -0.75, py: 1, ...TAPPABLE, ...FOCUS_RING,
               }}>
-                {moves == null ? 0 : board.kept.length}/{MAX_RESIGNED}
-              </Typography>
+                {team
+                  ? <TeamBadge team={team} size={BADGE} />
+                  : <Box sx={{ flexShrink: 0, width: chromePx(BADGE), height: chromePx(BADGE) }} />}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography noWrap sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.3 }}>{name}</Typography>
+                  {moves == null
+                    ? <Skeleton variant="text" width="50%" sx={{ fontSize: TYPE_SCALE.meta, lineHeight: 1.3 }} />
+                    : newestName
+                      ? <NameLine names={[newestName]} sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}
+                          render={n => `Newest: ${n(newestName)}`} />
+                      : <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.3 }}>None yet</Typography>}
+                </Box>
+                <Typography aria-label={`${kept} of ${MAX_RESIGNED} kept`} sx={{
+                  flexShrink: 0, fontFamily: DISPLAY_FONT, fontWeight: 700, fontSize: TYPE_SCALE.page, lineHeight: 1,
+                  fontVariantNumeric: 'tabular-nums',
+                }}>
+                  {kept}<Box component="span" sx={{ ...AGATE_SX, fontSize: TYPE_SCALE.meta, color: 'text.secondary', ml: 0.25 }}>/{MAX_RESIGNED}</Box>
+                </Typography>
+              </Box>
             </Box>
           )
         })}

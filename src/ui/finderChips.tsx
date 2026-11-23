@@ -33,7 +33,7 @@ const textButtonSx = {
 /** A square-cornered field, as the board's own (a field is square, a chip is round). */
 const fieldSx = {
   ...FOCUS_RING,
-  boxSizing: 'border-box', minHeight: chromePx(38), borderRadius: 1.5, border: '1px solid', borderColor: CARD_BORDER,
+  boxSizing: 'border-box', minHeight: chromePx(38), borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
   bgcolor: 'background.paper', color: 'text.primary', fontFamily: 'inherit',
   fontSize: TYPE_SCALE.body, fontWeight: 700,
 } as const
