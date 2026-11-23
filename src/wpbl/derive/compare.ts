@@ -126,12 +126,9 @@ function row(
   return { key, label, better, a, b, aText: fmt(a), bText: fmt(b), leader }
 }
 
-/** K%, over plate appearances. The same definition percentiles.ts ranks on, sac bunts
- *  included, so a hitter's compare row and her own page's bar cannot disagree. */
-function strikeoutRate(t: WpblBattingTotals): number | null {
-  const pa = plateAppearances(t)
-  return pa > 0 ? t.so / pa : null
-}
+/** K%, the totals' own (`battingFromCounts`): the number percentiles.ts ranks on and the board's
+ *  K% column prints, so a compare row and the player's own page cannot disagree. */
+const strikeoutRate = (t: WpblBattingTotals): number | null => t.kPct
 
 /**
  * A playing-time row: shown, but never won.

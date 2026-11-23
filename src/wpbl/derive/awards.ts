@@ -636,11 +636,12 @@ function toughestOutSlate({ players, batting, games, teams }: AwardBallotInput):
     .map(b => ({ ...b, pa: plateAppearances(b.totals) }))
     .filter(b => b.pa >= bar)
   return rows
-    .sort((a, b) => a.totals.so / a.pa - b.totals.so / b.pa || byName(a.player, b.player))
+    // The totals' own K% (`battingFromCounts`); the bar keeps every row's plate appearances above 0.
+    .sort((a, b) => a.totals.kPct! - b.totals.kPct! || byName(a.player, b.player))
     .slice(0, SHORTLIST)
     .map(b => playerCandidate(
       b.player,
-      `Struck out in ${((b.totals.so / b.pa) * 100).toFixed(1)}% of ${b.pa} trips`,
+      `Struck out in ${(b.totals.kPct! * 100).toFixed(1)}% of ${b.pa} trips`,
     ))
 }
 

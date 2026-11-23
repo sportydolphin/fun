@@ -32,6 +32,15 @@ describe('boxscoreRows', () => {
       expect(out.gamePatch[`${team.side}_score`]).toBe(Number(team.totals.runs))
     }
     expect(out.plays.length).toBe(box.plays.length)
+    // At-bats, sacrifice bunts and flies against each pitcher (`ab`, `sha`, `sfa`), summing to the
+    // club's own pitching totals. Pitcher BABIP needs `sh`: a bunt is not a ball in play.
+    for (const team of box.teams) {
+      const mine = out.pitching.filter(r => r.team_id === team.id)
+      expect(mine.length).toBeGreaterThan(0)
+      for (const [ours, feed] of [['ab', 'ab'], ['sh', 'sha'], ['sf', 'sfa']]) {
+        expect(mine.reduce((a, r) => a + Number(r[ours]), 0), ours).toBe(Number(team.totals.pitching[feed]))
+      }
+    }
     // Total bases is ours, not the feed's: one per single, two per double and so on.
     for (const r of out.batting) {
       const h = Number(r.h), d = Number(r.doubles), t = Number(r.triples), hr = Number(r.hr)

@@ -32,6 +32,7 @@ export function getCachedWpblAllLines(): WpblLinesResult | null { seedLines(); r
 export const PITCHING_LINE_COLUMN_NAMES = [
   'id', 'game_id', 'player_id', 'team_id', 'outs', 'bf', 'h', 'r', 'er', 'bb', 'so', 'hr',
   'pitches', 'decision', 'gs', 'hbp', 'ibb', 'wp', 'bk', 'strikes', 'doubles', 'triples',
+  'ab', 'sh', 'sf',
 ] as const
 const PITCHING_LINE_COLUMNS = PITCHING_LINE_COLUMN_NAMES.join(',')
 

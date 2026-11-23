@@ -351,7 +351,7 @@ export function pitCounts(e: Events<PitKey>, league: WpblPitchingCounts): WpblPi
   const outs = (e.n - h - e.bb) * outsPer
   return {
     g: 0, outs, h, r: 0, er: 0, bb: e.bb - hbp, so: e.k, hr: e.hr, w: 0, l: 0, s: 0, bf: e.n,
-    pitches: 0, strikes: 0, gs: 0, hbp, wp: 0, bk: 0,
+    pitches: 0, strikes: 0, gs: 0, hbp, wp: 0, bk: 0, sh: 0,
   }
 }
 

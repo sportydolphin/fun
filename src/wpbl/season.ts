@@ -56,15 +56,22 @@ export function standingsStartMin(t: string | null | undefined): number {
   return h * 60 + Number(m[2])
 }
 
-/** Every decisive regular-season final, in the order they were played. */
-export function standingsFinals<T extends WpblResultGame>(games: T[]): T[] {
+/** Every decisive final in `games`, in the order they were played: the one rule for which games
+ *  are a result. The Teams board takes it over its own slice (a season, its postseason, both); the
+ *  standings take it over the regular season. Until Nov 23, 2026 the board kept its own loop, which
+ *  counted a 0-0 placeholder's runs that the standings left out. */
+export function decidedFinals<T extends WpblResultGame>(games: T[]): T[] {
   return games
     .filter(g => g.status === 'final' && g.home_score != null && g.away_score != null
       && g.home_score !== g.away_score)
-    .filter(countsInStandings)
     .sort((a, b) => a.game_date !== b.game_date
       ? (a.game_date < b.game_date ? -1 : 1)
       : standingsStartMin(a.start_time) - standingsStartMin(b.start_time))
+}
+
+/** Every decisive regular-season final, in the order they were played. */
+export function standingsFinals<T extends WpblResultGame>(games: T[]): T[] {
+  return decidedFinals(games.filter(countsInStandings))
 }
 
 // ─── Which year ─────────────────────────────────────────────────────────────────

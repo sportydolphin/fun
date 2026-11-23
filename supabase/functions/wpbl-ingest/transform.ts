@@ -331,6 +331,9 @@ export async function boxscoreRows(
           pitches: pit.pitches != null ? n(pit.pitches) : null, decision,
           gs: n(pit.gs), hbp: n(pit.hbp), ibb: n(pit.ibb), wp: n(pit.wp), bk: n(pit.bk),
           strikes: n(pit.strikes), doubles: n(pit.double), triples: n(pit.triple),
+          // Against the pitcher: a sacrifice bunt is not a ball in play, so BABIP needs `sh`
+          // (migration 20261123090000). The feed omits a zero, which `n` reads as 0.
+          ab: n(pit.ab), sh: n(pit.sha), sf: n(pit.sfa),
         })
       }
 

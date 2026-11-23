@@ -11,7 +11,7 @@ const LEAGUE_BAT: WpblBattingCounts = {
 }
 const LEAGUE_PIT: WpblPitchingCounts = {
   g: 300, outs: 2520, h: 1000, r: 900, er: 780, bb: 650, so: 480, hr: 110, w: 60, l: 60, s: 20, bf: 4200,
-  pitches: 0, strikes: 0, gs: 120, hbp: 80, wp: 60, bk: 5,
+  pitches: 0, strikes: 0, gs: 120, hbp: 80, wp: 60, bk: 5, sh: 0,
 }
 const WOBA = { bb: 0.4, hbp: 0.42, single: 0.6, double: 0.95, triple: 1.2, hr: 1.5, n: { bb: 1, hbp: 1, single: 1, double: 1, triple: 1, hr: 1, out: 1 } }
 const FIP = { hr: 1.6, bb: 0.4, k: -0.35 }
