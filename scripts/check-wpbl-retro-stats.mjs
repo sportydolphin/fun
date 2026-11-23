@@ -48,10 +48,58 @@ import { pathToFileURL } from 'node:url'
 // download layout. The old top-level paths 404, which reads as a failed fetch and turns this,
 // the retro sync and the gap fill red together; if they all go red at once, check here first.
 export const RAW = 'https://raw.githubusercontent.com/exu6jh/RetroWPBL/main/alldata'
-export const EVENT_FILES = ['2026BSH.EVW', '2026LAQ.EVW', '2026NYH.EVW', '2026SFF.EVW']
 /** Their club codes to ours. Hard-coded for the reason sync-wpbl-retro hard-codes it: four
  *  clubs, and a wrong guess silently attributes one club's game to another. */
 const TEAM_CODES = Object.freeze({ BSH: 'BOS', LAQ: 'LA', NYH: 'NY', SFF: 'SF' })
+
+/** The first season RetroWPBL transcribed. */
+export const FIRST_RETRO_SEASON = 2026
+
+/**
+ * Every season from the first to this one, by the UTC calendar.
+ *
+ * EVERY SEASON, NOT ONE. Until Nov 23, 2026 the three RetroWPBL scripts named the four 2026 files
+ * outright, so on the first 2027 game this check would have compared 2026 again, matched none of
+ * the new games, and printed "Every batter agrees" over a season it never read. A year whose files
+ * do not exist yet is `fetchEventFiles`' business, not this list's.
+ */
+export function retroSeasons(now = new Date()) {
+  const out = []
+  for (let y = FIRST_RETRO_SEASON; y <= now.getUTCFullYear(); y++) out.push(y)
+  return out
+}
+
+/** One season's event files, one per club, in their naming (`2026BSH.EVW`). */
+export const eventFilesFor = (year) => Object.keys(TEAM_CODES).map(code => `${year}${code}.EVW`)
+
+/**
+ * Fetch `${RAW}/<dir>/<name>` for every season `nameFor` names, as `{ texts, pending }`.
+ *
+ * A 404 ON THE CURRENT SEASON IS A TRANSCRIPTION NOT STARTED: one person cannot start a file
+ * before its club has played, so January's 2027 files are missing by design, and that season's
+ * names come back in `pending` for the run log. A 404 on an EARLIER season is the repository
+ * moving under us (it did, to alldata/, on Oct 9, 2026) and still fails the run, as every other
+ * failed fetch does. Shared by the stats check, the retro sync and the play-gap fill, so the three
+ * cannot disagree about which seasons exist.
+ */
+export async function fetchSeasonFiles(dir, nameFor, { now = new Date(), get = fetchText } = {}) {
+  const current = now.getUTCFullYear()
+  const texts = [], pending = []
+  for (const year of retroSeasons(now)) {
+    const names = [nameFor(year)].flat()
+    const got = await Promise.all(names.map(async name => {
+      try { return await get(`${RAW}/${dir}/${name}`) } catch (err) {
+        if (year === current && err?.status === 404) { pending.push(name); return null }
+        throw err
+      }
+    }))
+    for (const t of got) if (t != null) texts.push(t)
+  }
+  return { texts, pending }
+}
+
+/** Every season's event files. See `fetchSeasonFiles`. */
+export const fetchEventFiles = (opts) => fetchSeasonFiles('events', eventFilesFor, opts)
 
 const JSON_OUT = process.argv.includes('--json')
 const UPDATE_BASELINE = process.argv.includes('--update-baseline')
@@ -314,9 +362,9 @@ const OURS_SQL = `
   where g.status = 'final'
   group by 1, 2, 3`
 
-export const fetchText = async (url) => {
+export async function fetchText(url) {
   const res = await fetch(url, { headers: { 'user-agent': 'sportydolphin.fun retro stats check' } })
-  if (!res.ok) throw new Error(`${url} → ${res.status}`)
+  if (!res.ok) throw Object.assign(new Error(`${url} → ${res.status}`), { status: res.status })
   return res.text()
 }
 
@@ -327,10 +375,10 @@ async function main() {
     process.exit(2)
   }
 
-  const files = await Promise.all(EVENT_FILES.map(f => fetchText(`${RAW}/events/${f}`)))
+  const { texts: files, pending } = await fetchEventFiles()
   const theirGames = files.flatMap(parseGames)
-  // One id-to-name table over every game in every file: a player keeps her id all season, and
-  // the game that happens to name her is not always the game she appears in.
+  // One id-to-name table over every game in every file: a player keeps one id, and the game that
+  // happens to name them is not always the game they appear in.
   const allNames = new Map()
   for (const g of theirGames) for (const [id, nm] of g.names) if (!allNames.has(id)) allNames.set(id, nm)
 
@@ -350,6 +398,7 @@ async function main() {
   }
 
   const report = []
+  const matched = new Set()
   let compared = 0, notTranscribed = 0, unknownEvents = []
   for (const g of theirGames) {
     const date = (g.info.date ?? '').replace(/\//g, '-')
@@ -359,6 +408,7 @@ async function main() {
     const ours = ourGames.get(`${date}|${home}`)
     if (!ours) { notTranscribed++; continue }
     compared++
+    matched.add(`${date}|${home}`)
     const { batters, unknown } = battingFromGame(g, allNames)
     if (unknown.length) unknownEvents.push({ game: g.id, events: [...new Set(unknown)] })
     const findings = diffBatters(batters, ours)
@@ -393,8 +443,13 @@ async function main() {
   if (JSON_OUT) {
     console.log(JSON.stringify({ generated_at: new Date().toISOString(), compared, report: fresh, unknownEvents }, null, 2))
   } else {
+    // OURS WITHOUT THEIRS, said out loud. The source lags and that is normal, but a run that
+    // compares nothing new must not read like a run that found nothing wrong.
+    const untranscribed = ONE_DATE ? 0 : [...ourGames.keys()].filter(k => !matched.has(k)).length
     console.log(`Compared ${compared} games against RetroWPBL.` +
-      (notTranscribed ? ` ${notTranscribed} of their games matched none of ours.` : ''))
+      (notTranscribed ? ` ${notTranscribed} of their games matched none of ours.` : '') +
+      (untranscribed ? ` ${untranscribed} of our finals are not transcribed yet.` : ''))
+    if (pending.length) console.log(`  Not started yet: ${pending.join(', ')}`)
     for (const u of unknownEvents) {
       console.log(`\n  ${u.game}: event codes this script does not know: ${u.events.join(', ')}`)
     }

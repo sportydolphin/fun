@@ -182,6 +182,20 @@ describe('computeWpblPlayerRanks: edges', () => {
     expect(r.batting.find(x => x.key === 'avg')!.rank).toBe(1)
   })
 
+  // The boards tie on the printed figure (`printedRanks`), so the card must too: .31325 and
+  // .31263 both print .313, and the board calls them T-1.
+  it('ties on the figure as printed, not the raw value', () => {
+    const players = [player('a'), player('b'), player('c')]
+    const lines = [
+      bat('a', { ab: 166, h: 52, tb: 60 }), // .31325
+      bat('b', { ab: 483, h: 151, tb: 170 }), // .31263
+      bat('c', { ab: 40, h: 8, tb: 10 }),
+    ]
+    const r = computeWpblPlayerRanks('b', players, TEAMS, GAMES, lines, [])
+    expect(r.batting.find(x => x.key === 'avg')).toMatchObject({ rank: 1, display: '.313' })
+    expect(computeWpblPlayerRanks('c', players, TEAMS, GAMES, lines, []).batting.find(x => x.key === 'avg')!.rank).toBe(3)
+  })
+
   // A ratio with a zero denominator is the BEST possible control, so ranking it last (or
   // drawing an empty bar) would say the opposite of the truth. It drops out instead.
   it('drops K/BB for a pitcher who has walked nobody rather than ranking her worst', () => {
@@ -270,13 +284,10 @@ describe('computeWpblPlayerRanks: counting ranks', () => {
     expect(sb).toMatchObject({ rank: 1, of: 3, display: '9' })
   })
 
-  // THE POPULATION FOLLOWS THE PLAYER, and this pair is the reason there is one comparison
-  // block on the card rather than two. Counts were briefly always ranked against everyone who
-  // had played, which is defensible on its own and produced a card carrying "Against the
-  // league" over 31 qualified batters and, three rows below, a second identically-drawn strip
-  // headed "Where she ranks" over 68. Two headings meaning the same sentence, differing by a
-  // population a reader has no reason to be tracking.
-  it('ranks a qualified player against the field she is already being shown against', () => {
+  // A count's rank is against everyone who played, as on the Leaders cards and the Players board
+  // the rank opens. Against the qualified field instead, this hitter read "1st in HR" over a
+  // board that puts the below-bar slugger first (2026: four "5th in SB" cards over a board at T-6).
+  it('ranks a qualified player\'s counts against everyone who has played', () => {
     const players = [player('a'), player('b'), player('c')]
     const lines = [
       bat('a', { ab: 40, h: 12, tb: 16, hr: 3 }),
@@ -285,14 +296,12 @@ describe('computeWpblPlayerRanks: counting ranks', () => {
     ]
     const r = computeWpblPlayerRanks('a', players, TEAMS, GAMES, lines, [])
     expect(r.batReason).toBe('ok')
-    // One population, so the merged strip can print one line under it.
-    expect(r.batCountOf).toBe(r.batOf)
-    expect(r.batCountOf).toBe(2)
-    expect(r.battingCounts.find(x => x.label === 'HR')).toMatchObject({ rank: 1, of: 2 })
+    expect(r.batOf).toBe(2)
+    expect(r.batCountOf).toBe(3)
+    expect(r.battingCounts.find(x => x.label === 'HR')).toMatchObject({ rank: 2, of: 3 })
   })
 
-  // And the other half of the same rule. The qualified field is the one field a below-bar
-  // player is definitionally not in, so hers is everyone who has played.
+  // A below-bar player is ranked against the same field.
   it('ranks a below-bar player against everyone who has played', () => {
     const players = [player('a'), player('b'), player('c')]
     const lines = [
