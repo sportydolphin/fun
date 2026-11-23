@@ -11,16 +11,13 @@ import { LiveHero } from '../Live'
 import { useForegroundInterval } from '../../lib/foregroundInterval'
 import PlayoffBracket from '../PlayoffBracket'
 import { postseasonScheduleRows, buildBracket, championResult, championBannerUntil } from '../derive/bracket'
-import {
-  aggregateBatting, wpblQualifiers,
-} from '../stats'
 // The dismissal key and the dev-only undo. Their own module so the dev settings menu can reach
 // the undo without dragging this file into the main bundle. See discordInvite.ts.
 import { DISCORD_DISMISS_KEY, DISCORD_DEV_SHOW_EVENT } from '../discordInvite'
 // Dev only: the settings gear can force the championship banner on with a random winner. Its own
 // module for the bundle reason in discordInvite.ts; the whole listener is DEV-guarded below.
 import { DEV_CHAMPION_EVENT, devChampionState, type DevChampionState } from '../dev/devChampion'
-import { LastGameCard } from '../RecapCard'
+import { latestFinal } from '../RecapCard'
 import { WpblMatchupPreview } from '../GamePreview'
 import { mvpRaceIsWorthDrawing } from '../MvpRace'
 import FanVoteCard, { FanAwardsCta } from '../FanVote'
@@ -37,7 +34,7 @@ import { offseasonByCalendar, nextOpeningDay, rememberNextOpeningDay } from '../
 import { regularSeasonOver } from '../season'
 import { seriesContexts } from '../derive/series'
 import { localIsoDate } from '../derive/homePlayers'
-import { HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, NEWS_ROW_SX, homeWideSx } from './shared'
+import { HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, NEWS_ROW_SX, LEAD_ROW_SX, SIDE_COLUMN_SX, PAIR_ROW_SX, homeWideSx } from './shared'
 import { ClubRail, Dateline } from './ClubRail'
 import { SeriesLineScore } from './SeriesLineScore'
 import { type MatchupPreviewArg, Scoreboard } from './Scoreboard'
@@ -45,11 +42,17 @@ import { NextGameCard } from './NextGameCard'
 import { gameYear, devChampionPick, ChampionBanner, useChampionFinal } from './ChampionCards'
 import { useNewTrackingBatch, NewTrackingBanner } from './TrackingBanner'
 import { DiscordCard } from './DiscordCard'
-import { LatestReadingCard, ReadingHomeCard } from './ReadingCards'
-import { LatestCard, useLatestItems } from './LatestCard'
-import { LeagueCard } from './LeagueCard'
-import { ComparePreviewCard } from './ComparePreviewCard'
+import { ReadingHomeCard } from './ReadingCards'
+import { LatestCard, useLatestItems, type LatestItem } from './LatestCard'
 import { CardSkeleton, WATCH_CARD_SKELETON_H } from './Skeletons'
+import { RecapLead, LiveLead, LeadSection } from './GameLead'
+import { StandingsSection } from './StandingsSection'
+import { useWpblGameLink } from '../LinkContext'
+import { wpblGamePath } from '../routes'
+import { buildRecap, leagueRecapContext } from '../derive/recap'
+import { seriesContext } from '../derive/series'
+import { gameStartMs } from '../constants'
+import { pressable } from '../ui'
 
 // WPBL home dashboard: the scoreboard strip, then a card feed in two columns from md up and one
 // column on a phone. Everything on it is derived from data the section already caches: the
@@ -203,12 +206,6 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
       .catch(() => { /* keep last-good */ })
   }, liveGame ? 60000 : null)
 
-  // The league's batting seasons: the pool the compare preview draws its pair from.
-  const batSeasons = useMemo(() => aggregateBatting(players, lines.batting, seasonGames), [players, lines.batting, seasonGames])
-
-  // Only enforce the PA / IP rate qualifier once every team has played 2+ games.
-  const qual = useMemo(() => wpblQualifiers(teams, seasonGames), [teams, seasonGames])
-
   // Standings order for the bracket below. Its own memo rather than a prop threaded down from
   // StandingsCard: both call `computeStandings` on the same two arrays, so they cannot
   // disagree, and hoisting it would put the table's data in the page's scope for one consumer.
@@ -254,7 +251,51 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   const realChampion = useMemo(() => bracket ? championResult(bracket) : null, [bracket])
   const seasonDone = !!realChampion || !!devChampTeam
   // Latest's list, read here so Watch's Videos shelf can leave out the videos Latest already runs.
-  const latest = useLatestItems()
+  // New-tracking batch: fires when the set of tracked games grows since last seen. A banner over the
+  // offseason page; in season a row in Latest, the page's one list of what is new.
+  const { newCount: newTrackingCount, ack: ackTracking } = useNewTrackingBatch(trackedGameIds)
+  const viewTracking = () => { ackTracking(); onViewTracking() }
+
+  // THE IN-SEASON LEAD: the latest final of the season on screen (RecapLead), or the live game while
+  // one is on. Null in the preseason, where Next game leads instead.
+  const leadGame = useMemo(() => seasonDone ? null : latestFinal(seasonGames), [seasonDone, seasonGames])
+
+  // Latest's in-season rows, besides the section's reads: each recent final's headline, linked to its
+  // game, and a new tracking batch. The lead's own game is left out: it is the story above the list.
+  const gameLink = useWpblGameLink()
+  const recapCtx = useMemo(() => leagueRecapContext(games), [games])
+  const latestExtra = useMemo<LatestItem[]>(() => {
+    if (seasonDone) return []
+    const out: LatestItem[] = []
+    if (newTrackingCount > 0) {
+      out.push({
+        key: 'tracking', kind: 'tracking', at: new Date().toISOString(),
+        title: `Pitch tracking for ${newTrackingCount} more ${newTrackingCount === 1 ? 'game' : 'games'}`,
+        label: 'Tracking', href: '/wpbl/stats', external: false,
+        link: { component: 'a', href: '/wpbl/stats', ...pressable(viewTracking) },
+      })
+    }
+    const finals = seasonGames
+      .filter(g => g.status === 'final' && g.home_score != null && g.away_score != null && g.id !== leadGame?.id)
+      .map(g => ({ g, ms: gameStartMs(g.game_date, g.start_time) ?? Date.parse(`${g.game_date}T12:00:00Z`) }))
+      .sort((a, b) => b.ms - a.ms)
+      .slice(0, 3)
+    for (const { g, ms } of finals) {
+      const recap = buildRecap(g, teamMap, [], [], [], () => '', recapCtx, seriesContext(g, seasonGames, teamMap))
+      const away = teamMap.get(g.away_team_id), home = teamMap.get(g.home_team_id)
+      if (!recap || !away || !home) continue
+      out.push({
+        key: `f:${g.id}`, kind: 'final', at: new Date(ms).toISOString(), title: recap.headline,
+        label: `Final · ${away.abbr} ${g.away_score}, ${home.abbr} ${g.home_score}`,
+        href: wpblGamePath(g, teams, games), external: false,
+        link: gameLink(g, onOpenGame) as Record<string, unknown>,
+      })
+    }
+    return out
+    // `viewTracking` is rebuilt every render; the row only needs the count to change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seasonDone, newTrackingCount, seasonGames, leadGame, teamMap, recapCtx, teams, games, gameLink, onOpenGame])
+  const latest = useLatestItems(latestExtra)
   const latestVideos = useMemo(() => new Set(latest?.flatMap(i => i.videoId ? [i.videoId] : []) ?? []), [latest])
 
   // Each postseason game's series, so the strip's postseason finals say where the series stands.
@@ -339,7 +380,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
    */
   const bracketCard = standingsRows.length > 0 && seasonGames.some(g => g.status === 'final')
     ? (
-      <Box sx={{ mt: 1.5 }}>
+      <Box sx={{ mt: 3 }}>
         <PlayoffBracket rows={standingsRows} games={seasonGames} onOpenTeam={onOpenTeam}
           onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} from="home" />
       </Box>
@@ -380,71 +421,21 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
     return mvpRace(playRunValues(plays, seasonGames, table), players, seasonGames)
   }, [plays, players, seasonGames])
 
-  // New-tracking batch banner: fires when the set of tracked games grows since last seen.
-  const { newCount: newTrackingCount, ack: ackTracking } = useNewTrackingBatch(trackedGameIds)
-  const viewTracking = () => { ackTracking(); onViewTracking() }
-
-  // Built here rather than inline because the right column renders its two cards in one of two
-  // ORDERS (see the note there), and the same element has to be the same element in both so its
-  // key can carry it across the swap without a remount. The key matters twice as much here: the
-  // compare card holds a per-mount seed, so a remount would re-deal the pair mid-visit.
-  const compareCard = (
-    <ComparePreviewCard
-      key="leaders"
-      batSeasons={batSeasons}
-      qual={qual}
-      teams={teams}
-      players={players}
-      loading={loadingLeaders}
-    />
-  )
-
-  // ONCE THERE IS A CHAMPION THE TOP GRID DROPS TO THE TWO CARDS ABOUT HOW IT ENDED: the season
-  // card (the way into the recap) and the awards results. Last game is the final's last game,
-  // already in the season card's game log, and it would sit frozen on that game until the next
-  // season. Compare is the one card here not about the season at all, and the Stats tab and every
-  // player page still reach it.
-  const seasonCards = (!awardsResultsShowOnHome()
-    // Past the results window: the ballot's slot gives way, exactly as it does when there
-    // is no race to draw. Compare takes row 1 and an empty cell takes row 2, so the season
-    // column collapses to what Next game needs rather than holding a slot for a card that
-    // is not coming back.
-    ? [compareCard, <Box key="mvp-empty" />]
+  // THE FAN BALLOT, while the award results are on Home: the race seeds its MVP and Pitcher
+  // shortlists, so it waits on the play log, which is fetched last and on purpose. STILL IN FLIGHT IS
+  // NOT THE SAME AS NOTHING TO DRAW: the slot holds a placeholder until the log answers, so nothing
+  // under it moves when the ballot lands. In season it is a minor section; in the offseason it sits
+  // under the lead while the results are up. Compare left Home with the in-season redesign (Nov 13,
+  // 2026): it is not news, and the Stats tab and every player page still reach it.
+  const ballot = !awardsResultsShowOnHome() ? null
     : mvpRaceIsWorthDrawing(race)
-    ? [
-      /* It spends whatever slack the row gives it on the chart, which is the one child
-         that gets better with height; see the note on RaceChart's `fill`. */
-      /* THE FAN BALLOT, not an MVP race card. The race is a number already on the Stats tab
-          and on the player pages it ranks, so here it only seeds the ballot's MVP and Pitcher
-          shortlists. The ballot asks something the section cannot answer on its own, and it
-          keeps working after the feed stops and everything else here freezes. */
-      /* Keyed `mvp`, the key the placeholder and the empty cell below also use, so the slot
-          keeps one identity across all three branches and the compare card beside it is never
-          remounted. */
-      <FanVoteCard key="mvp" players={players} teams={teams} games={seasonGames}
-        batting={lines.batting} pitching={lines.pitching} race={race} plays={plays}
-        onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam}
-        open={awardsOpen} onOpen={onOpenAwards} onClose={onCloseAwards} fill />,
-      compareCard,
-    ]
-    // STILL IN FLIGHT IS NOT THE SAME AS NOTHING TO DRAW. The play log is fetched last and on
-    // purpose (it is the one read allowed to be slow), so for the second or so after the page paints
-    // there is no race yet. Treating that like "no race" would put Compare in row 1 for that second
-    // and move it when the race arrives, sliding it down the screen under the reader. Holding the
-    // slot costs a placeholder and settles the layout once.
-    //
-    // THE PLACEHOLDER MUST NOT BE TALLER THAN Next game. On desktop this slot is row 1 of a subgrid
-    // whose other column is Next game (~16.4rem), so Next game already sets the row height; a taller
-    // placeholder inflates row 1 while the play log is in flight and lets it COLLAPSE the instant the
-    // ballot lands, which is the jump the slot exists to prevent. On a phone the two are stacked, so
-    // this matches the ballot's own ~16rem instead.
-    : !playsSettled
-      ? [<CardSkeleton key="mvp" minHeight={{ xs: '16rem', md: '16rem' }} titleWidth="5.5rem" lines={4} />, compareCard]
-      // Answered, and there is genuinely no race to draw (a season too young). Compare takes row 1 and
-      // an empty grid cell takes row 2, so the row collapses to whatever Next game needs rather than
-      // reserving a slot for a card that is never coming.
-      : [compareCard, <Box key="mvp-empty" />])
-    .filter(c => !seasonDone || (c !== compareCard && c.key !== 'mvp-empty'))
+      ? <FanVoteCard key="mvp" players={players} teams={teams} games={seasonGames}
+          batting={lines.batting} pitching={lines.pitching} race={race} plays={plays}
+          onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam}
+          open={awardsOpen} onOpen={onOpenAwards} onClose={onCloseAwards} fill />
+      : !playsSettled
+        ? <CardSkeleton key="mvp" minHeight={{ xs: '16rem', md: '16rem' }} titleWidth="5.5rem" lines={4} />
+        : null
 
   return (
     <Box sx={homeWideSx}>
@@ -480,8 +471,10 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
           Women's Pro Baseball League
         </Typography>
         <Box sx={{ mt: MASTHEAD_RAIL_GAP }}>
-          <Dateline phase={phase} label={railLabel} />
-          <ClubRail teams={teams} standings={standingsRows} onOpenTeam={onOpenTeam} championId={championId} />
+          <Dateline phase={phase} label={seasonDone ? railLabel : null} />
+          {/* In season the standings are a table beside the lead (StandingsSection): the score strip
+              is the page's first line then, and two strips stacked at the top is one too many. */}
+          {seasonDone && <ClubRail teams={teams} standings={standingsRows} onOpenTeam={onOpenTeam} championId={championId} />}
         </Box>
       </Box>
 
@@ -500,13 +493,14 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
         />
       )}
 
-      {/* A new pitch-tracking batch was just published: point readers to the Tracked board */}
-      {newTrackingCount > 0 && (
+      {/* A new pitch-tracking batch was just published: point readers to the Tracked board. In season
+          it is a row in Latest instead. */}
+      {seasonDone && newTrackingCount > 0 && (
         <NewTrackingBanner count={newTrackingCount} onView={viewTracking} onDismiss={ackTracking} />
       )}
 
-      {/* Live game hero: the one in-progress game, front and center */}
-      {liveGame && <LiveHero game={liveGame} teams={teams} players={players} onOpen={() => onOpenGame(liveGame)} />}
+      {/* Live game hero over the offseason page (an exhibition); in season the live game is the lead. */}
+      {seasonDone && liveGame && <LiveHero game={liveGame} teams={teams} players={players} onOpen={() => onOpenGame(liveGame)} />}
 
       {/* Scoreboard. The postseason rows come from the calendar the league published, and each
           one retires itself the day the feed carries a real game on its date.
@@ -544,7 +538,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
             </Box>
           )}
           {/* The award results, for the days they stay up after the final (AWARDS_RESULTS_UNTIL). */}
-          {seasonCards.length > 0 && <Box sx={{ mt: 3 }}>{seasonCards}</Box>}
+          {ballot && <Box sx={{ mt: 3 }}>{ballot}</Box>}
 
           {/* THE NEWS ROW, three columns from lg: Latest, Spotlight, the leaders (Nov 4, 2026,
               docs/design-references/ANALYSIS.md). Latest is first in the DOM and on screen at every
@@ -584,130 +578,74 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
         </FlushSections>
       )}
 
-      {!seasonDone && bracketLeads && bracketCard}
+      {/* THE IN-SEASON HOME (Nov 13, 2026, ROADMAP-UI.md Home step 1): the offseason's grammar, a lead
+          and then the rest, in print columns. Four framed cards of one weight in a two-column grid gave
+          the page no story and bled Next game's club band past every column.
 
-      {/* THE BRACKET LEADS THE PAGE UNTIL THE POSTSEASON HAS A GAME IN IT.
-          Full width and outside the grid below on purpose either way: three series boxes side
-          by side need the room, and the two columns down there share row boundaries through
-          subgrid, which a third card of a different shape would break.
+          The lead is the live game while one is on, else the latest final (RecapLead), else, before
+          the season's first final, Next game with its tale of the tape. Beside it from md, one column:
+          Next game, the standings, Latest. Then Spotlight and the leaders, then the minor tier.
 
-          It normally sits under the season's cards, so it does not displace Next game and its
-          countdown. Between the last regular-season game and the first postseason one that
-          ordering is wrong: Last game is a regular-season final nobody is waiting on, the
-          bracket is the only thing on the page about what happens next, and it carries the
-          pick'em, which has a deadline. The moment a postseason game is final, Last game IS that
-          game and wins the argument again, and this puts itself back without anyone deciding to.
+          THE BRACKET LEADS between the last regular-season game and the first postseason final (see
+          bracketLeads): Last game is then a regular-season final nobody is waiting on, the bracket is
+          the only thing about what happens next, and it carries the pick'em, which has a deadline. */}
+      {!seasonDone && (
+        <FlushSections>
+          {bracketLeads && bracketCard}
+          <Box sx={{ ...LEAD_ROW_SX, mt: 3 }}>
+            <Box sx={{ minWidth: 0 }}>
+              {/* The live game over the latest final's story: the column beside it is three sections
+                  tall, and the last result is still the news of the day under a game in progress. */}
+              {liveGame && <LeadSection title="Live"><LiveLead game={liveGame} teams={teamMap} players={players} onOpenGame={onOpenGame} /></LeadSection>}
+              {leadGame
+                ? (
+                  <Box sx={{ mt: liveGame ? 3 : 0 }}>
+                    <LeadSection><RecapLead game={leadGame} games={games} teams={teamMap} players={players} onOpenGame={onOpenGame} onOpenPlayer={onOpenPlayer} art={!liveGame} /></LeadSection>
+                  </Box>
+                )
+                : !liveGame && (
+                  <NextGameCard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} players={players} onOpenPlayer={onOpenPlayer}
+                    devForceRecap={devForceRecap} devChampion={devChampTeam} preview />
+                )}
+            </Box>
+            <Box sx={SIDE_COLUMN_SX}>
+              {(liveGame || leadGame) && (
+                <NextGameCard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} players={players} onOpenPlayer={onOpenPlayer}
+                  devForceRecap={devForceRecap} devChampion={devChampTeam} />
+              )}
+              <StandingsSection teams={teams} standings={standingsRows} onOpenTeam={onOpenTeam} />
+              <LatestCard items={latest} column />
+            </Box>
+          </Box>
 
-          Keyed on a postseason FINAL rather than on the calendar, so a rain-out moves it too. */}
-      {/* Two columns: today's games on the left, the season's cards on the right.
+          <Box sx={{ ...PAIR_ROW_SX, columnGap: SECTION_COLUMN_GAP }}>
+            <PlayerSpotlightCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer} />
+            <SeasonLeadersCard players={players} teams={teamMap} games={games} onOpenPlayer={onOpenPlayer}
+              rosterFailed={!loadingLeaders && players.length === 0} />
+          </Box>
 
-          EVEN TRACKS, not three up. Three columns at this page's width give each card about
-          317px, which clips club and player names; two at about 490px clip nothing. A tidier
-          bottom edge is not worth reading "Meggie Meidling…".
-
-          SUBGRID, so the two columns share their ROW boundaries. As two independent flex
-          columns they would agree only at the top, and the ragged bottom edge would leave a
-          notch under the shorter column. The parent declares two rows; each column spans both
-          and re-uses them, so row 1 is max(Next game, ballot) in BOTH columns and row 2 is
-          max(Last game, Compare). The bottom edge is flush by construction rather than by luck
-          of the content.
-
-          Every card in here is `fill`, and the shorter one in each row places the difference
-          deliberately (see the `mt: 'auto'` in NextGameCard and LastGameCard, and the body
-          distribution in ComparePreviewCard). Without that, stretching a card would just move
-          the ragged edge inside it.
-
-          NO `order` VALUES, which is the reason for subgrid rather than four bare grid items.
-          Four items in one grid would align rows for free, but the single mobile column would
-          then interleave the two columns, and fixing that needs `order` at one breakpoint: a
-          second numbering scheme to keep in step with DOM order by hand. Keeping the columns as
-          real elements means mobile is plain DOM order, and the columns drop back to flex below md.
-
-          Subgrid is Chrome 117 / Safari 16 / Firefox 71. Where it is missing the declaration
-          is dropped and each column falls back to its own two auto rows: degraded, not broken.
-
-          In-season only: the offseason Home draws its own rows above. */}
-      {!seasonDone && <Box sx={{
-        display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-        gridTemplateRows: { md: 'auto auto' },
-        // Its OWN top margin, rather than living off the scoreboard's bottom one. Every block in this
-        // stack brings its own margin, and a block that depends on its neighbor for its spacing breaks
-        // the next time something (the Discord invite) is inserted between them. Margins collapse, so a
-        // dismissed invite still leaves 12px here rather than 24.
-        mt: 1.5,
-        // One gap in both directions, and it is Home's gap: 1.5 is the step between the scoreboard and
-        // this grid, between this grid and the league card, and between the two cards stacked in each
-        // column. With the cards sharing row boundaries, a wider column gap crossing narrower row gaps
-        // reads as two grids rather than one.
-        gap: 1.5,
-      }}>
-        {/* Today's games. */}
-        <Box sx={{
-          minWidth: 0, gap: 1.5,
-          display: { xs: 'flex', md: 'grid' }, flexDirection: 'column',
-          gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
-        }}>
-          <NextGameCard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} players={players} onOpenPlayer={onOpenPlayer}
-            devForceRecap={devForceRecap} devChampion={devChampTeam} />
-          <LastGameCard games={games} teams={teamMap} players={players} onOpenGame={onOpenGame} onOpenPlayer={onOpenPlayer} />
-        </Box>
-
-        {/* The season's cards.
-
-            NO STANDINGS TABLE: it is a whole tab of its own, in the nav that is on screen the
-            entire time, and a miniature copy spends a phone's screen on the one card every reader
-            already knows where to find. Home still computes `computeStandings` for the bracket
-            below. */}
-        <Box sx={{
-          minWidth: 0, gap: 1.5,
-          display: { xs: 'flex', md: 'grid' }, flexDirection: 'column',
-          gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
-        }}>
-          {/* THE BALLOT LEADS THIS COLUMN, SO IT IS THE ONE SEASON CARD ABOVE THE FOLD on a
-              desktop. Row 1 pairs it with Next game and row 2 pairs Compare with Last game.
-
-              KEYED, because the ballot waits on the play log (its shortlists come from the MVP race)
-              and the slot contents change when that lands, about a second after first paint.
-              Without stable keys React reconciles by position and remounts the compare card, which
-              holds a per-mount seed and would re-deal its pair mid-visit. */}
-          {seasonCards}
-        </Box>
-      </Box>}
-
-      {/* Discord invite, mobile only, and under the games: above them it pushed Next game down a
-          phone's first screen for a promo. Hidden at md+ because the desktop feed is a two-column
-          subgrid with shared row boundaries that a loose card would break; a desktop home for it
-          is a later job. */}
-      {!discordDismissed && (
-        <Box sx={{ display: { xs: 'block', md: 'none' }, mt: seasonDone ? 3 : 1.5 }}>
-          {seasonDone
-            ? <FlushSections><DiscordCard onDismiss={() => setDiscordDismissed(true)} /></FlushSections>
-            : <DiscordCard onDismiss={() => setDiscordDismissed(true)} />}
-        </Box>
+          {/* What a reader browses rather than reads as news, in the quieter tier. The ballot while it
+              is open, the bracket as it stands, then Reading, Watch and the gallery. */}
+          <MinorSections>
+            {ballot && <Box sx={{ mt: 3 }}>{ballot}</Box>}
+            {!bracketLeads && bracketCard}
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
+              <ReadingHomeCard teamById={teamMap} />
+              <WatchCard from="home" compact skip={latestVideos} placeholder={<CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />} />
+            </Box>
+            <FanPhotoHomeCard />
+            {/* The Discord row at every width now: the desktop grid it would have broken is gone. */}
+            {!discordDismissed && (
+              <Box sx={{ mt: 3 }}><DiscordCard onDismiss={() => setDiscordDismissed(true)} /></Box>
+            )}
+          </MinorSections>
+        </FlushSections>
       )}
 
-      {/* Its ordinary home, under the season's numbers. See bracketLeads. */}
-      {/* Not in the offseason: the season card carries the final's games and the recap carries the
-          whole bracket, and here it was 400px of a picture that will not change until spring. */}
-      {!seasonDone && !bracketLeads && bracketCard}
-
-      {/* The latest post, then About the league: two single lines, last on the page at both
-          breakpoints, since everything above is about games. Both carry their own impression
-          events so the reach of each can be read rather than assumed. */}
-      {/* Fan photos during a season, once there are enough (see HOME_MIN_PHOTOS). Above The league
-          and below everything about the games, the explore-and-relive zone. In the offseason it
-          moves to the top instead (see above). Renders nothing, and adds no gap, until the
-          threshold is met. */}
-      {!seasonDone && <FanPhotoHomeCard />}
-
-      {/* Not in the offseason: there it was a heading with nothing under it at the foot of the page
-          (Nov 3, 2026), and the footer's Reference list links the same page. */}
-      {!seasonDone && (
-        <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          <WatchCard from="home" />
-          <LatestReadingCard />
-          <LeagueCard />
+      {/* The offseason's Discord row, phone only, at the foot of the page. */}
+      {seasonDone && !discordDismissed && (
+        <Box sx={{ display: { xs: 'block', md: 'none' }, mt: 3 }}>
+          <FlushSections><DiscordCard onDismiss={() => setDiscordDismissed(true)} /></FlushSections>
         </Box>
       )}
 

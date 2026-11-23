@@ -253,6 +253,7 @@ Flags worth knowing:
 | `--cpu 4` | slow Chrome down to CI's speed |
 | `--shots dir` | save the before and after frame of every case that shifts |
 | `--behavior` | the filter check below, in place of the layout checks |
+| `--storage file.json` | seed localStorage before each load (`{ "key": "value" }`), for a dev simulation such as the fake 2027 season; never in CI |
 
 The sweep needs a dev server built the way CI builds it. With a real `.env` the app talks to the
 real project; for a replay, start one with the placeholder settings:

@@ -9,7 +9,10 @@ import { FanPhotoHomeCardSkeleton } from '../FanPhotoViews'
 import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard } from './PlayerCards'
 import type { WpblTeam } from '../types'
 import { offseasonByCalendar } from '../offseasonCalendar'
-import { SECTION_GAP, HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, NEWS_ROW_SX, homeWideSx } from './shared'
+import { devSecondSeasonOn } from '../dev/devSecondSeason'
+import { SECTION_GAP, HEADER_GAP, MASTHEAD_RAIL_GAP, HOME_TITLE_SX, NEWS_ROW_SX, LEAD_ROW_SX, SIDE_COLUMN_SX, PAIR_ROW_SX, homeWideSx } from './shared'
+import { LeadSection, RecapLeadSkeleton } from './GameLead'
+import { StandingsSection } from './StandingsSection'
 import { LatestSkeleton } from './LatestCard'
 import { ClubRailSkeleton, Dateline } from './ClubRail'
 import { SeriesLineScore } from './SeriesLineScore'
@@ -99,7 +102,9 @@ export function WpblHomeSkeleton() {
   // THE OFFSEASON HOME IS A DIFFERENT PAGE, and a skeleton of the in-season one swapped for it
   // moved everything: the scoreboard strip became the taller gallery and the two-by-two grid a
   // single row, which measured 0.19 of layout shift on load, most of it above the fold.
-  if (offseasonByCalendar()) return <OffseasonHomeSkeleton />
+  // The dev menu's fake 2027 is a season in progress whatever the calendar says, so its loading state
+  // is the in-season one. DEV first, so production drops the check and the module with it.
+  if (offseasonByCalendar() && !(import.meta.env.DEV && devSecondSeasonOn())) return <OffseasonHomeSkeleton />
   let discordDismissed = false
   try { discordDismissed = localStorage.getItem(DISCORD_DISMISS_KEY) === '1' } catch { /* storage off */ }
 
@@ -111,76 +116,65 @@ export function WpblHomeSkeleton() {
     <Box role="status" aria-busy="true" aria-label="Loading the Women's Pro Baseball League home page" sx={homeWideSx}>
       {/* The h1 row, and the club chips that sit beside it from sm up. Same flex, same gaps,
           so the heading lands on the pixel it is about to occupy. */}
-      {/* No margin under it on a phone, where the loaded row has 12px: the scoreboard block below
-          makes up the difference, and the two measure the same at 375px. Check any change to
-          either against the loaded page (see "Loading states" in CLAUDE.md). */}
-      <Box sx={{ mb: { xs: 0, sm: HEADER_GAP } }}>
+      {/* The loaded masthead's own margin. Check any change against the loaded page (see "Loading
+          states" in CLAUDE.md). */}
+      <Box sx={{ mb: { xs: 1.5, sm: HEADER_GAP } }}>
           {/* The title's own line box (HOME_TITLE_SX) with the bar inside it: a bare text skeleton is
               not the same height as the h1, which the chips beside it used to hide and the rail under
               it does not. */}
           <Typography sx={HOME_TITLE_SX}><Skeleton sx={{ width: { xs: '16rem', md: '22rem' }, maxWidth: '100%' }} /></Typography>
-        <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><Dateline phase={null} label={null} /><ClubRailSkeleton /></Box>
+        {/* No standings line in season: the table is beside the lead (StandingsSection). */}
+        <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><Dateline phase={null} label={null} /></Box>
       </Box>
 
       {/* Scoreboard: its heading, then the chip strip. The chips are built from the same box
           GameChip is (8.5rem wide, p:1, a 20px badge per row) rather than given a height, so
           the strip tracks both the desktop chrome scale and the reader's text size the way the
           real one does. */}
-      <Box sx={{ mb: SECTION_GAP }}>
-        <Skeleton variant="text" width="6.5rem" sx={{ fontSize: TYPE_SCALE.display, lineHeight: 1.2, mb: 1 }} />
+      {/* The strip's heading is not drawn on a phone (Scoreboard), and its margin is 12px there. */}
+      <Box sx={{ mb: { xs: 1.5, sm: SECTION_GAP } }}>
+        <Skeleton variant="text" width="6.5rem" sx={{ fontSize: TYPE_SCALE.display, lineHeight: 1.2, mb: 1, display: { xs: 'none', sm: 'block' } }} />
         <StripChipsSkeleton />
       </Box>
 
-      {/* The two card columns. Same grid, same 1fr 1fr, same single 1.5 gap and the same
-          subgrid rows as the loaded page. The ratio here was 1.4fr 1fr with two different
-          gaps, which is a layout Home has not had for some time. */}
-      <Box sx={{
-        display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-        gridTemplateRows: { md: 'auto auto' },
-        mt: 1.5, gap: 1.5,
-      }}>
-        <Box sx={{
-          minWidth: 0, gap: 1.5,
-          display: { xs: 'flex', md: 'grid' }, flexDirection: 'column',
-          gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
-        }}>
-          <CardSkeleton minHeight={{ xs: '15.5rem', md: '16.4rem' }} titleWidth="6rem" lines={5} />
-          {/* Last Game and the bracket are both COLLAPSED on a phone by default, which is why
-              their two reserves are so far apart: 3.45rem is the header of a shut card. The md
-              figure is the SUBGRID row, not this card: row 2 is max(Last game, Compare) and
-              Compare is the taller at ~19rem, so a reserve sized to Last game alone would leave
-              the loaded page taller than its own placeholder. */}
-          <CardSkeleton minHeight={{ xs: '3.45rem', md: '19rem' }} titleWidth="6rem" lines={0} />
+      {/* The in-season page below the strip (WpblHome, Nov 13, 2026): the lead row, Spotlight beside the
+          leaders, then the minor tier. The standings and the player cards draw their own empty state,
+          so the placeholder is the real section rather than a guess at its height. */}
+      <FlushSections>
+        <Box sx={{ ...LEAD_ROW_SX, mt: 3 }}>
+          <Box sx={{ minWidth: 0 }}><LeadSection><RecapLeadSkeleton /></LeadSection></Box>
+          <Box sx={SIDE_COLUMN_SX}>
+            <CardSkeleton minHeight={NEXT_GAME_H} titleWidth="6rem" lines={3} />
+            <StandingsSection teams={[]} standings={[]} onOpenTeam={NO_OPEN} />
+            <LatestSkeleton column />
+          </Box>
         </Box>
-        <Box sx={{
-          minWidth: 0, gap: 1.5,
-          display: { xs: 'flex', md: 'grid' }, flexDirection: 'column',
-          gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
-        }}>
-          <CardSkeleton minHeight={{ xs: '16rem', md: '16rem' }} titleWidth="5.5rem" lines={4} />
-          <CardSkeleton minHeight={{ xs: '19rem', md: '19rem' }} titleWidth="4.5rem" lines={4} />
+        <Box sx={{ ...PAIR_ROW_SX, columnGap: SECTION_COLUMN_GAP }}>
+          <PlayerSpotlightCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
+          <SeasonLeadersCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
         </Box>
-      </Box>
-
-      {!discordDismissed && (
-        <Box sx={{ display: { xs: 'block', md: 'none' }, mt: 1.5 }}>
-          <CardSkeleton minHeight="3.55rem" titleWidth="6rem" lines={0} />
-        </Box>
-      )}
-
-      <Box sx={{ mt: 1.5 }}>
-        <CardSkeleton minHeight={{ xs: '3.45rem', md: '24rem' }} titleWidth="8rem" lines={0} />
-      </Box>
-      <Box sx={{ mt: 1.5 }}>
-        <CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />
-      </Box>
-      <Box sx={{ mt: 1.5 }}>
-        <CardSkeleton minHeight={{ xs: '6rem', md: '4.7rem' }} titleWidth="5rem" lines={1} />
-      </Box>
+        <MinorSections>
+          {awardsResultsShowOnHome() && (
+            <Box sx={{ mt: 3 }}><CardSkeleton minHeight={{ xs: '16rem', md: '16rem' }} titleWidth="5.5rem" lines={4} /></Box>
+          )}
+          {/* The bracket, shut on a phone. */}
+          <Box sx={{ mt: 3 }}><CardSkeleton minHeight={{ xs: '3.45rem', md: '24rem' }} titleWidth="8rem" lines={0} /></Box>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: SECTION_COLUMN_GAP, rowGap: 3, mt: 3 }}>
+            <CardSkeleton minHeight={READING_CARD_SKELETON_H} titleWidth="4.5rem" lines={0} />
+            <CardSkeleton minHeight={WATCH_CARD_SKELETON_H} titleWidth="4rem" lines={0} />
+          </Box>
+          {!discordDismissed && (
+            <Box sx={{ mt: 3 }}><CardSkeleton minHeight="55px" titleWidth="6rem" lines={0} /></Box>
+          )}
+        </MinorSections>
+      </FlushSections>
     </Box>
   )
 }
+
+/** Next game beside the lead, loaded: the heading, the time, two club lines and the reminder row.
+ *  12.3rem at 375, 960 and 1440 (Nov 13, 2026): all of it is type. */
+const NEXT_GAME_H = '12.3rem'
 
 // The Reading and Watch cards' heights, which share a row from `md` up and stretch to the taller.
 // Below `md` each is full width: Reading as three rows, Watch as four 9:16 posters, which is why

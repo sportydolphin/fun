@@ -1,4 +1,3 @@
-import { useDark } from '../../ui/useDark'
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, Switch } from '@mui/material'
 import { NotificationsActiveOutlined, NotificationsNoneOutlined, EventAvailableOutlined } from '@mui/icons-material'
@@ -7,9 +6,10 @@ import { pushSupported, pushConfigured, notificationPermission } from '../../lib
 import { getCachedAllGamesPref, fetchAllGamesPref, setAllGamesPref } from '../reminders'
 import { computeStandings, countsInStandings,
 } from '../api'
-import { wpblSurface, wpblFullName, formatGameTime, gameStartMs, relativeDayLabel } from '../constants'
+import { wpblFullName, formatGameTime, gameStartMs, relativeDayLabel } from '../constants'
 import { useWpblGameLink } from '../LinkContext'
-import { SectionCard, TeamBadge, TAPPABLE, pressable, TYPE_SCALE, ICON_SIZE, CLUB_BAND, cardFooterBand } from '../ui'
+import { SectionCard, TeamMark, TAPPABLE, pressable, TYPE_SCALE, ICON_SIZE } from '../ui'
+import { AGATE_SX } from '../../ui/card'
 import { type PostseasonScheduleRow } from '../derive/bracket'
 import { track, EVENTS } from '../../lib/analytics'
 import FeedDelayNote from '../FeedDelayNote'
@@ -67,7 +67,6 @@ function GameReminderRow({ game, away, home, startMs }: {
   game: WpblGame; away?: WpblTeam; home?: WpblTeam; startMs: number | null
 }) {
   const { user, openAuthDialog } = useAuth()
-  const isDark     = useDark()
   const supported  = pushSupported()
   const configured = pushConfigured()
 
@@ -121,7 +120,7 @@ function GameReminderRow({ game, away, home, startMs }: {
     return (
       <Box
         {...pressable(() => { track(EVENTS.WPBL_GAME_CALENDAR, { gameId: game.id }); downloadIcs(`wpbl-${game.id}.ics`, makeGameIcs(game, title, startMs)) })}
-        sx={{ ...cardFooterBand(isDark), cursor: 'pointer', ...TAPPABLE }}
+        sx={{ ...REMINDER_ROW_SX, cursor: 'pointer', ...TAPPABLE }}
       >
         <EventAvailableOutlined sx={{ fontSize: ICON_SIZE.md, flexShrink: 0, color: 'var(--wpbl-accent-fg)' }} />
         <Typography noWrap title="Saves the game with a 30-min heads-up before first pitch."
@@ -163,7 +162,7 @@ function GameReminderRow({ game, away, home, startMs }: {
   return (
     <Box
       {...pressable(!user ? () => openAuthDialog('signin') : undefined)}
-      sx={{ ...cardFooterBand(isDark), ...(!user ? { cursor: 'pointer', ...TAPPABLE } : {}) }}
+      sx={{ ...REMINDER_ROW_SX, ...(!user ? { cursor: 'pointer', ...TAPPABLE } : {}) }}
     >
       <Icon sx={{ fontSize: ICON_SIZE.md, flexShrink: 0, color: on ? 'var(--wpbl-accent-fg)' : 'text.disabled' }} />
       {/* THE OFFER IS BOLD, A STATUS IS NOT. "All games, 30 min early" is a thing to do and
@@ -331,7 +330,14 @@ export function nextGameContext(
  * Sizes on this card come from `TYPE_SCALE`, like the rest of the page. The scale, and the test
  * that keeps a raw rem literal out of this file, live in ui.tsx.
  */
-export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, players, onOpenPlayer, devForceRecap, devChampion, lead }: {
+/** The reminder row under Next game: a hairline over it, on the column's own ground. It was a
+ *  recessed band bled to the old card's edge (`cardFooterBand`), which print columns have no edge for. */
+const REMINDER_ROW_SX = {
+  mt: 1.25, pt: 1.25, borderTop: '1px solid', borderColor: 'divider',
+  display: 'flex', alignItems: 'center', gap: 1,
+} as const
+
+export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, players, onOpenPlayer, devForceRecap, devChampion, lead, preview }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>
   /** For the season card's Star of the final, once this slot has become it. */
   players: WpblPlayer[]; onOpenPlayer: (p: WpblPlayer) => void
@@ -345,9 +351,10 @@ export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, p
   devChampion?: WpblTeam | null
   /** The page's lead, full width: the season card lays itself out in two columns on a desktop. */
   lead?: boolean
+  /** The tale of the tape under the matchup: the preseason lead only. */
+  preview?: boolean
 }) {
   const gameLink = useWpblGameLink()
-  const isDark = useDark()
   const next = useMemo(() => {
     const now = Date.now()
     const upcoming = games
@@ -395,7 +402,7 @@ export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, p
   // so the pivot happens the moment the final goes live and nothing has to be deleted or dated.
   if (!next) {
     return nextPostseasonRow(postRows)
-      ? <NextPostseasonCard rows={postRows} teams={teams} games={seasonGames} />
+      ? <NextPostseasonCard rows={postRows} teams={teams} games={seasonGames} preview={preview} />
       : <SeasonRecapPreviewCard teams={teams} games={seasonGames} onOpenGame={onOpenGame} players={players} onOpenPlayer={onOpenPlayer} lead={lead} />
   }
   const g = next.g
@@ -437,12 +444,11 @@ export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, p
       // belongs to the band and each row is just a field of color inside it. Two separately shaped
       // pills with a gap between them read as unrelated chips that happen to be stacked, the opposite
       // of what a fixture is.
-      <Box sx={{
-        display: 'flex', alignItems: 'center', gap: 1,
-        px: 2, py: 1,
-        bgcolor: t ? wpblSurface(t.id, isDark) : 'transparent',
-      }}>
-        {t && <TeamBadge team={t} size={30} />}
+      // NO CLUB-COLOR BAND since Nov 13, 2026 (Home step 1): the in-season page is print columns
+      // (FlushSections), and a band bled 16px past the column on both sides to reach the old card's
+      // edge. The mark carries the club's color, as on every other row of the page.
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, py: 0.6 }}>
+        {t && <TeamMark team={t} size={30} />}
         {/* NO "@", AND NOTHING IN ITS PLACE. Inline it pushes only one of the two names out of
             line, and given a reserved slot it becomes a column of mostly nothing on a card whose
             whole point is two big names.
@@ -470,7 +476,7 @@ export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, p
             these two numbers sit on a club tint, where a low-alpha grey on a light club tint
             goes muddy rather than quiet. */}
         {record && (
-          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'text.secondary', flexShrink: 0 }}>
+          <Typography sx={{ ...AGATE_SX, fontSize: TYPE_SCALE.meta, color: 'text.secondary', flexShrink: 0 }}>
             {record}
           </Typography>
         )}
@@ -493,18 +499,6 @@ export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, p
          at a large text scale on a narrow phone this would otherwise break "Next game" onto
          two lines. Wrapping inside the slot puts the clock under the date instead, which is
          the pair that can afford to stack. */
-      action={
-        <Box sx={{
-          display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end',
-          alignItems: 'baseline', columnGap: 0.75, rowGap: 0.2,
-        }}>
-          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary' }}>
-            {dateLabel}{timeLabel ? `, ${timeLabel}` : ''}
-          </Typography>
-          <Countdown target={next.ms} />
-        </Box>
-      }
-      actionWraps
       fill
     >
       {/* Laid out as LastGameCard is, tier for tier: the two team rows, then one line at
@@ -537,7 +531,16 @@ export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, p
             The rows get that padding back as `px: 2` so the club names stay on the text
             column: a name that starts left of the series line under it would trade one
             accident for another. */}
-        <Box sx={CLUB_BAND}>
+        {/* WHEN, AS THE FIRST LINE UNDER THE HEADING (Nov 13, 2026). It was the header's action, which
+            wrapped under the date in the narrow column beside the in-season lead and changed the
+            section's height with the length of the countdown. One line here, always. */}
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, minWidth: 0, mb: 0.5 }}>
+          <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary', minWidth: 0 }}>
+            {dateLabel}{timeLabel ? `, ${timeLabel}` : ''}
+          </Typography>
+          <Countdown target={next.ms} />
+        </Box>
+        <Box>
           {teamRow(away)}
           {teamRow(home)}
         </Box>
@@ -585,7 +588,9 @@ export function NextGameCard({ games, teams, postseason: postRows, onOpenGame, p
             already filled, so on this page it is arithmetic on data in hand. It renders nothing
             at all until there is something to compare, so the season's opening days get the
             card without an empty frame. */}
-        {away && home && (
+        {/* Only where Next game has the room: the preseason lead. Beside the in-season lead it is
+            one column of three, and Game Center draws the full comparison one tap away. */}
+        {preview && away && home && (
           <Box sx={{ mt: 1.5 }}>
             <WpblGamePreview away={away} home={home} teams={[...teams.values()]} games={games} compact />
           </Box>

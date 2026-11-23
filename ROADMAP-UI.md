@@ -131,15 +131,10 @@ Where the work is, for whoever picks it up.
   reason to come back, and the score strip for every phase (below). Home's remaining steps, in
   order (re-planned Nov 5: the in-season page comes before the phone and light passes, since both
   review the finished layout of every phase and would otherwise be done twice):
-  1. **The in-season and postseason Home.** Built against the dev simulation and 2026's data.
-     - ~~The score strip, one component for every phase~~ Done Nov 5 (eleventh pass, below).
-     - The page: the old two-column subgrid of cards gives way to the offseason's grammar, a lead
-       and then the news row. In season the lead is the latest final (its score as the headline,
-       the recap, the Star) and Next game moves into the news row; in the postseason the bracket is
-       a section, the pick'em lock unchanged. The masthead becomes a compact standings line in the
-       lead's column, so the page never stacks two strips. `NextGameCard` loses its `mx: -2` band,
-       so `FlushSections` covers the whole page and stops being opt-in. The Discord row gets a
-       desktop place.
+  1. ~~**The in-season and postseason Home.**~~ Done Nov 13 (fourteenth pass, below), waiting on
+     the owner's look. Not seen on a screen: the preseason lead and the bracket leading the
+     postseason, which the dev simulation cannot reach (the fake 2027 is 40% played, and its
+     regular season is never over).
   2. **Hierarchy and density on the offseason page** (`ANALYSIS.md` items 3, 4, 7, 9): the heavy
      tier held to three (the lead, Latest, the leaders), Spotlight in the minor tier, the minor
      heading quieter (small letterspaced caps); a date on clips and photos; club marks on Latest
@@ -213,6 +208,34 @@ Where the work is, for whoever picks it up.
   Still open: the curator's caption on the title photo is "Championship Group Photo", which reads as
   a file name (a data edit, not code), and the lead photo still sits on its placeholder for seconds
   (Home step 7).
+- **The fourteenth pass** (Nov 13, 2026, Home step 1, the in-season page; uncommitted in
+  `../fun-redesign` until the owner looks). The in-season Home takes the offseason's grammar, in
+  print columns (`FlushSections`) from the strip down. The order: the masthead (title and dateline,
+  no standings line in season), the score strip, then the lead row, seven columns and five
+  (`LEAD_ROW_SX`). **The lead** is the live game while one is on (`LiveLead`: a red kicker with the
+  inning, the clubs and runs at headline size, the inning table, the situation, who is up), else the
+  latest final (`RecapLead` in `home/GameLead.tsx`: the kicker, the recap's headline in Newsreader,
+  its first sentence as the deck, a 16:9 art box, the R H E line, the Star, "Full recap ›"), and
+  under a live game that final follows without its art. The art is a photo from the game, else the
+  league's video of it (a link to Watch), else the winner's mark and the score on the winner's
+  color; the box is fixed, so the skeleton reserves it. In the postseason the kicker carries the
+  series ("Final · G3 · LA leads 2–1"). Before the season's first final Next game is the lead, with
+  its tale of the tape. **Beside the lead**: Next game (no club band now; the time is the first line
+  of its body, since in the header it wrapped in the narrow column), the standings as a four-row
+  agate table (`StandingsSection`: place, club, W, L, GB, Strk, each row a link to the club,
+  nicknames below lg), and Latest in one column, which in season also lists each recent final's
+  headline and a new tracking batch (the tracking banner is gone in season). Then Spotlight beside
+  the leaders, then the minor tier: the ballot while it is open, the bracket, Reading beside
+  Watch, the gallery, and the Discord row at every width. Gone from the in-season page: the
+  two-column subgrid, Last game, Compare (still on Stats and every player page), the latest Reading
+  row and About the league (both in Latest and the footer). `NextPostseasonCard` and the final's
+  in-progress band lost their bleed too. The live red as text is `LIVE_TEXT` (the deeper red on the
+  light page; the strip's "Live" was 3.76:1). The sweep takes `--storage file.json` to seed
+  localStorage, which is how the in-season and live pages were swept:
+  `{"sd:dev-second-season":"{\"source\":{},\"played\":{}}"}` for the fake 2027, plus
+  `wpbl_dev_live_sim` for a live game. Sweep `--shift --ellipsis` on `/wpbl` clean in the offseason,
+  in season and live, at both text sizes, but for the dev gear's own outline. `/wpbl/season` shows
+  eleven "F. Last" names cut at 960, a page this pass did not touch.
 - **Proposed for after Home (waiting on the owner):** the player page next, before the Stats
   leaders board (readers open it most, and it still draws the rounded portrait and a club band);
   and the jersey as the one club recipe, since Home no longer draws a `wpblField` block.

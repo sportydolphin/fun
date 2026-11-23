@@ -126,3 +126,20 @@ export const NEWS_ROW_SX = {
   gridTemplateColumns: { xs: '1fr', md: '1fr 1fr', lg: '1fr 1fr 1fr' },
   '& > :first-of-type': { gridColumn: { md: '1 / -1', lg: 'auto' } },
 } as const
+
+/** The in-season lead row (Nov 13, 2026): the lead in seven columns of twelve and, beside it, one
+ *  column of Next game, the standings and Latest; stacked in that order on a phone. The offseason
+ *  lead's own grid is the same seven and five (LEAD_GRID_SX in ChampionCards), so the two phases
+ *  share their left edge and their gutter. */
+export const LEAD_ROW_SX = {
+  display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 7fr) minmax(0, 5fr)' },
+  columnGap: 4, rowGap: 3, alignItems: 'start',
+} as const
+
+/** The column beside the in-season lead: its sections a section's gap apart. */
+export const SIDE_COLUMN_SX = { display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 } as const
+
+/** Spotlight and the leaders under the in-season lead row, a pair from md. */
+export const PAIR_ROW_SX = {
+  display: 'grid', rowGap: 3, mt: 3, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+} as const

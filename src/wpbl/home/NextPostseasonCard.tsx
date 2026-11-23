@@ -1,10 +1,10 @@
-import { useDark } from '../../ui/useDark'
 import { useMemo } from 'react'
 import { Box, Typography } from '@mui/material'
 import { computeStandings,
 } from '../api'
-import { wpblSurface, wpblFullName, formatGameTime, gameStartMs, relativeDayLabel } from '../constants'
-import { SectionCard, TeamBadge, CARD_BORDER, TYPE_SCALE, CLUB_BAND } from '../ui'
+import { wpblFullName, formatGameTime, gameStartMs, relativeDayLabel } from '../constants'
+import { SectionCard, TeamMark, CARD_BORDER, TYPE_SCALE } from '../ui'
+import { AGATE_SX } from '../../ui/card'
 import { postseasonSlots, BEST_OF, type PostseasonScheduleRow, type PostseasonSlot } from '../derive/bracket'
 import { WpblGamePreview } from '../GamePreview'
 import type { WpblTeam, WpblGame } from '../types'
@@ -32,11 +32,11 @@ export function nextPostseasonRow(rows: PostseasonScheduleRow[]): { r: Postseaso
   return dated.find(x => x.ms >= now - 3 * 3600000) ?? dated[0] ?? null
 }
 
-export function NextPostseasonCard({ rows, teams, games }: {
+export function NextPostseasonCard({ rows, teams, games, preview }: {
   rows: PostseasonScheduleRow[]; teams: Map<string, WpblTeam>; games: WpblGame[]
+  /** The tale of the tape: only where the card has the room (NextGameCard's `preview`). */
+  preview?: boolean
 }) {
-  const isDark = useDark()
-
   const next = useMemo(() => nextPostseasonRow(rows), [rows])
 
   const recordOf = useMemo(() => {
@@ -53,11 +53,10 @@ export function NextPostseasonCard({ rows, teams, games }: {
   const slotRow = (p: PostseasonSlot, i: number) => {
     const record = p.team ? recordOf(p.team.id) : null
     return (
-      <Box key={i} sx={{
-        display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1,
-        bgcolor: p.team ? wpblSurface(p.team.id, isDark) : 'transparent',
-      }}>
-        {p.team ? <TeamBadge team={p.team} size={30} /> : (
+      // No club band, as Next game has none since Nov 13, 2026: print columns have no card edge to
+      // bleed it to. The mark carries the club's color.
+      <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.25, py: 0.6 }}>
+        {p.team ? <TeamMark team={p.team} size={30} /> : (
           // The empty seat, sized exactly like a badge so the row does not shift under the
           // reader on the day the seed settles. The scoreboard chip's shape, one size up.
           <Box aria-hidden sx={{
@@ -75,10 +74,7 @@ export function NextPostseasonCard({ rows, teams, games }: {
           {p.team ? wpblFullName(p.team) : p.label}
         </Typography>
         {record && (
-          <Typography sx={{
-            fontSize: TYPE_SCALE.meta, fontWeight: 600, fontVariantNumeric: 'tabular-nums',
-            color: 'text.secondary', flexShrink: 0,
-          }}>{record}</Typography>
+          <Typography sx={{ ...AGATE_SX, fontSize: TYPE_SCALE.meta, color: 'text.secondary', flexShrink: 0 }}>{record}</Typography>
         )}
         <Box sx={{ flex: 1, minWidth: 0 }} />
       </Box>
@@ -88,12 +84,14 @@ export function NextPostseasonCard({ rows, teams, games }: {
   return (
     <SectionCard
       title="Next game"
-      action={
-        <Box sx={{
-          display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end',
-          alignItems: 'baseline', columnGap: 0.75, rowGap: 0.2,
-        }}>
-          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary' }}>
+      fill
+    >
+      {/* Not a link and not `TAPPABLE`: see the header. Everything else is the real card's
+          layout, tier for tier, because the two are the same card on different days. */}
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', p: 0.5, mx: -0.5 }}>
+        {/* When, the first line under the heading, as on Next game: one line in a narrow column. */}
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, minWidth: 0, mb: 0.5 }}>
+          <Typography noWrap sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary', minWidth: 0 }}>
             {/* CONVERTED, like every other clock in the section. `r.time` is the league's CENTRAL
                 wall clock (see PostseasonGame in derive/bracket.ts), so printed raw it would tell a
                 Pacific reader 6:00 PM for a 4:00 PM start, and contradict the schedule strip, which
@@ -102,14 +100,7 @@ export function NextPostseasonCard({ rows, teams, games }: {
           </Typography>
           <Countdown target={next.ms} />
         </Box>
-      }
-      actionWraps
-      fill
-    >
-      {/* Not a link and not `TAPPABLE`: see the header. Everything else is the real card's
-          layout, tier for tier, because the two are the same card on different days. */}
-      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', p: 0.5, mx: -0.5 }}>
-        <Box sx={CLUB_BAND}>
+        <Box>
           {slots.map(slotRow)}
         </Box>
 
@@ -142,7 +133,7 @@ export function NextPostseasonCard({ rows, teams, games }: {
         {/* The tale of the tape, when both seats are filled. It takes its two clubs as `away`
             and `home` and draws them left and right without ever printing either word, so the
             order above is a safe thing to hand it whether or not that order is away-at-home. */}
-        {slots[0].team && slots[1].team && (
+        {preview && slots[0].team && slots[1].team && (
           <Box sx={{ mt: 1.5 }}>
             <WpblGamePreview away={slots[0].team} home={slots[1].team} teams={[...teams.values()]} games={games} compact />
           </Box>

@@ -36,7 +36,7 @@ const CLIP_WINDOW_MS = 7 * 86_400_000
 
 export interface LatestItem {
   key: string
-  kind: 'video' | 'reading' | 'recap' | 'clips'
+  kind: 'video' | 'reading' | 'recap' | 'clips' | 'final' | 'tracking'
   title: string
   /** What and whose: "Compilation", "Reading · The Rising Fastball". */
   label: string
@@ -46,6 +46,9 @@ export interface LatestItem {
   onOpen?: () => void
   /** A league video's id, so Watch's Videos shelf can leave out what this list already runs. */
   videoId?: string
+  /** Link props made by the caller (a game's own link, the tracking board's press), used in place
+   *  of `href` for a row the section's router opens rather than a path. `href` stays the address. */
+  link?: Record<string, unknown>
 }
 
 /** Emoji off a title, for a list set as headlines; the Watch page keeps the uploader's own text. */
@@ -68,8 +71,9 @@ export function latestWhen(iso: string, now = Date.now()): string {
 }
 
 /** The list, newest first, from the three reads. Pure, so the mix can be tested without a page. */
-export function latestItems(articles: readonly WpblArticle[], videos: readonly WpblVideo[], recaps: readonly WpblGameRecap[], now = Date.now()): LatestItem[] {
-  const items: LatestItem[] = []
+export function latestItems(articles: readonly WpblArticle[], videos: readonly WpblVideo[], recaps: readonly WpblGameRecap[], now = Date.now(), extra: readonly LatestItem[] = []): LatestItem[] {
+  // In season the page adds its own rows: each final's headline and a new tracking batch (WpblHome).
+  const items: LatestItem[] = [...extra]
   for (const v of videos.filter(v => v.is_short !== true).slice(0, PER_KIND)) {
     const credit = videoCredit(v)
     items.push({
@@ -140,7 +144,7 @@ const META_SX = { ...AGATE_SX, fontSize: TYPE_SCALE.meta, fontWeight: 500, color
 /** The list, read once for the page: Home hands it to LatestCard and its video ids to Watch, which
  *  would otherwise run the same two videos again a screen lower. Null until all three reads answer;
  *  a failed read counts as answered with nothing. */
-export function useLatestItems(): LatestItem[] | null {
+export function useLatestItems(extra: readonly LatestItem[] = NO_EXTRA): LatestItem[] | null {
   const [articles, setArticles] = useState<WpblArticle[] | null>(() => getCachedWpblArticles())
   const [videos, setVideos] = useState<WpblVideo[] | null>(() => getCachedWpblVideos())
   const [recaps, setRecaps] = useState<WpblGameRecap[] | null>(() => getCachedWpblRecaps())
@@ -153,11 +157,20 @@ export function useLatestItems(): LatestItem[] | null {
   }, [])
   const settled = articles !== null && videos !== null && recaps !== null
   return useMemo(
-    () => settled ? latestItems(articles, videos, recaps) : null,
-    [settled, articles, videos, recaps])
+    () => settled ? latestItems(articles, videos, recaps, Date.now(), extra) : null,
+    [settled, articles, videos, recaps, extra])
 }
 
-export function LatestCard({ items }: { items: LatestItem[] | null }) {
+const NO_EXTRA: readonly LatestItem[] = []
+
+/** One column at every width: beside the in-season lead, where the list is a third of the page,
+ *  not the row across it that the offseason splits into two columns between md and lg. */
+const COLUMN_LIST_SX = {
+  ...LIST_SX, gridTemplateColumns: 'minmax(0, 1fr)', gridAutoFlow: 'row', gridTemplateRows: 'none',
+  [`& > :nth-of-type(${LATEST_COUNT / 2 + 1})`]: { borderTop: '1px solid', borderColor: 'divider' },
+} as const
+
+export function LatestCard({ items, column }: { items: LatestItem[] | null; column?: boolean }) {
   const shown = useRef(false)
   useEffect(() => {
     if (shown.current || !items?.length) return
@@ -167,10 +180,10 @@ export function LatestCard({ items }: { items: LatestItem[] | null }) {
   // Answered, and there is nothing new anywhere: no section rather than an empty one.
   if (items && items.length === 0) return null
 
-  if (!items) return <LatestSkeleton />
+  if (!items) return <LatestSkeleton column={column} />
   return (
     <SectionCard title="Latest" fill>
-      <Box component="ul" sx={LIST_SX}>
+      <Box component="ul" sx={column ? COLUMN_LIST_SX : LIST_SX}>
         {items.map(item => <LatestRow key={item.key} item={item} />)}
       </Box>
     </SectionCard>
@@ -179,10 +192,10 @@ export function LatestCard({ items }: { items: LatestItem[] | null }) {
 
 /** The list before its reads land, in the loaded section's own box: the heading and the fixed row
  *  slots. Also the offseason Home skeleton's copy of it (Skeletons.tsx), so the two cannot differ. */
-export function LatestSkeleton() {
+export function LatestSkeleton({ column }: { column?: boolean } = {}) {
   return (
     <SectionCard title="Latest" fill>
-      <Box aria-hidden sx={LIST_SX}>
+      <Box aria-hidden sx={column ? COLUMN_LIST_SX : LIST_SX}>
         {Array.from({ length: LATEST_COUNT }, (_, i) => (
           <Box key={i} sx={ROW_SX}>
             <Skeleton variant="text" width={['90%', '75%', '85%', '70%'][i % 4]} sx={{ fontSize: TITLE_SIZE, lineHeight: TITLE_LH }} />
@@ -196,7 +209,10 @@ export function LatestSkeleton() {
 
 function LatestRow({ item }: { item: LatestItem }) {
   const opened = () => { track(EVENTS.WPBL_LATEST_OPEN, { kind: item.kind }); item.onOpen?.() }
-  const link = item.external
+  const given = item.link as { onClick?: (e: React.MouseEvent) => void } | undefined
+  const link = given
+    ? { ...given, onClick: (e: React.MouseEvent) => { opened(); given.onClick?.(e) } }
+    : item.external
     ? { component: 'a' as const, href: item.href, target: '_blank', rel: 'noopener noreferrer', onClick: opened }
     : linkTo(item.href, opened)
   const when = latestWhen(item.at)

@@ -111,6 +111,14 @@ const CONCURRENCY = Number(opt('concurrency', '4'))
 // that trips the request timeout and renders "No teams" (CLAUDE.md, loading states).
 const SLOW_MS = Number(opt('slow', '2500'))
 const EXPERIMENTS = flag('experiments')
+// --storage file.json: localStorage entries ({ key: string }) set before every load. For a dev
+// simulation the page reads from storage (the fake 2027 season, the live-game replay), which is
+// the only way to sweep the in-season Home outside a season. Never in CI: a replay fixture is
+// recorded without them.
+const STORAGE = (() => {
+  const file = opt('storage', '')
+  return file ? JSON.parse(fs.readFileSync(file, 'utf8')) : {}
+})()
 // CPU slowdown (Chrome's own throttling). A shift that depends on what is still loading when the
 // first snapshot is taken can show on CI's runner and never on a fast desktop; this brings it home.
 const CPU = Number(opt('cpu', '1'))
@@ -690,15 +698,16 @@ async function runCase(browser, route, width, text, { warm = false } = {}) {
     serviceWorkers: 'block',
   })
   await wireContext(ctx, route)
-  await ctx.addInitScript(([scale, experiments]) => {
+  await ctx.addInitScript(([scale, experiments, storage]) => {
     try {
+      for (const [k, v] of Object.entries(storage)) localStorage.setItem(k, v)
       localStorage.setItem('a11yTextScale', scale)
       if (experiments) localStorage.setItem('experimentalFeatures', '1')
       // The photo-tagging key is random per browser and rides in the queue call's POST body, which
       // is part of a recorded request's key: unpinned, every run asks a question the fixture lacks.
       localStorage.setItem('sd_photo_tag_key', 'layout-sweep-fixed-photo-tag-key')
     } catch { /* private mode */ }
-  }, [text === 'large' ? 'large' : 'default', EXPERIMENTS])
+  }, [text === 'large' ? 'large' : 'default', EXPERIMENTS, STORAGE])
   const page = await ctx.newPage()
   if (CPU > 1) await (await ctx.newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: CPU })
   const result = { route, width, text, pageOverflow: 0, issues: [], shifts: [], error: null }

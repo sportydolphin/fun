@@ -1,4 +1,3 @@
-import { HUE } from '../../ui/color'
 import { SECTION_HEADING_SX } from '../../ui/card'
 import { useDark } from '../../ui/useDark'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -11,6 +10,7 @@ import { postseasonSlots, type PostseasonScheduleRow, type PostseasonSlot } from
 import { seriesTileLine, type SeriesContext } from '../derive/series'
 import type { WpblTeam, WpblGame } from '../types'
 import { SECTION_GAP } from './shared'
+import { LIVE_TEXT } from '../Live'
 
 function GameChip({ game, teams, series, onOpen }: {
   game: WpblGame; teams: Map<string, WpblTeam>
@@ -79,7 +79,7 @@ function GameChip({ game, teams, series, onOpen }: {
     }}>
       <Typography sx={{
         fontSize: TYPE_SCALE.micro, fontWeight: 800, 
-        color: live ? HUE.red : 'text.secondary',
+        color: live ? LIVE_TEXT : 'text.secondary',
         // Never wrap: a second line here would make finals taller than upcoming chips and
         // break the strip's alignment. Ellipsis is the backstop for an unforeseen long label.
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',

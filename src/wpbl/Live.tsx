@@ -4,7 +4,7 @@ import { NameLine } from '../ui/NameText'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { pressable } from '../ui/interaction'
 import { edge, TYPE_SCALE } from '../ui/card'
-import { Box, Typography } from '@mui/material'
+import { Box, Typography, type Theme } from '@mui/material'
 import { supabase } from '../lib/supabase'
 import { fetchWpblGameLive, LIVE_POLL_MS } from './api'
 import { settleGame } from './gameOver'
@@ -30,6 +30,9 @@ export type { Situation, LineScores }
 /** The section's live red. Home's scoreboard chip and the LIVE hero already use it; exported so
  *  Game Center's header can say the same thing in the same color. */
 export const LIVE_RED = HUE.red
+/** The live red as TEXT: HUE.red is 3.8:1 on the light page, under the 4.5 a label needs, so the
+ *  light theme takes the deeper red (6.5:1). A dot or a fill keeps LIVE_RED. */
+export const LIVE_TEXT = (t: Theme) => (t.palette.mode === 'dark' ? HUE.red : HUE.redDark)
 
 // Poll + realtime-subscribe one game's row while it is live, so score + situation stay
 // fresh. Seeded by the passed-in game; returns the freshest copy.
@@ -187,6 +190,29 @@ export function LiveBanner({ state, away, home, lines, players, sourceUpdatedAt 
       {/* Last, and pushed to the end of the row: it is a caveat on everything to its left, and
           a reader who is not questioning what they see should never be stopped by it. */}
       <Box sx={{ ml: 'auto' }}><FeedAge at={sourceUpdatedAt} /></Box>
+    </Box>
+  )
+}
+
+/** Who is up and who is pitching, as two labeled lines: the in-season Home's live lead. Here rather
+ *  than there because the live situation is the one surface that spells a feed name to the roster
+ *  (see rosterSpelling.test.ts). */
+export function LiveMatchup({ s, players }: { s: Situation; players: WpblPlayer[] }) {
+  const label = { fontSize: TYPE_SCALE.meta, color: 'text.secondary' } as const
+  return (
+    <Box sx={{ minWidth: 0 }}>
+      {s.batterName && (
+        <Typography noWrap sx={{ fontSize: TYPE_SCALE.body }}>
+          <Box component="span" sx={label}>At bat </Box>
+          <Box component="span" sx={{ fontWeight: 700 }}>{canonicalFeedName(s.batterName, players)}</Box>
+        </Typography>
+      )}
+      {s.pitcherName && (
+        <Typography noWrap sx={{ fontSize: TYPE_SCALE.body }}>
+          <Box component="span" sx={label}>Pitching </Box>
+          <Box component="span" sx={{ fontWeight: 700 }}>{canonicalFeedName(s.pitcherName, players)}</Box>
+        </Typography>
+      )}
     </Box>
   )
 }

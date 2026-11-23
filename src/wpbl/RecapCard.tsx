@@ -240,7 +240,7 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
 
 // ── Compact last-game card (Home): self-fetches the latest final's box + plays ────
 
-function latestFinal(games: WpblGame[]): WpblGame | null {
+export function latestFinal(games: WpblGame[]): WpblGame | null {
   const finals = games.filter(g => g.status === 'final' && g.home_score != null && g.away_score != null && g.home_score !== g.away_score)
   if (finals.length === 0) return null
   return finals.sort((a, b) => a.game_date !== b.game_date ? (a.game_date < b.game_date ? 1 : -1)

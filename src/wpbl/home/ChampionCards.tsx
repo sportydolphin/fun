@@ -236,8 +236,9 @@ function ChampionshipInProgressBody({ series, teams, log, recap, onOpenGame }: {
           }}>Championship · in progress</Typography>
         </Box>
 
-        {/* The two clubs and the series score, in the section's club-band treatment. */}
-        <Box sx={CLUB_BAND}>
+        {/* The two clubs and the series score, in the section's club-band treatment. Not bled past
+            the column (CLUB_BAND's mx): the page is print columns since Nov 13, 2026. */}
+        <Box sx={{ ...CLUB_BAND, mx: 0 }}>
           {clubRow(home, series.home.wins, series.home.wins > series.away.wins)}
           {clubRow(away, series.away.wins, series.away.wins > series.home.wins)}
         </Box>

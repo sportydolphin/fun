@@ -695,8 +695,10 @@ describe('/wpbl/awards, the fan ballot', () => {
   // The offseason Home draws its own rows (Player of the day, the season card, the gallery...), so
   // the ballot has to be among them too, or the season ending would drop it in silence.
   it('is drawn by the offseason Home as well as the in-season one', () => {
-    // The offseason branch is wrapped in FlushSections (print columns) since Nov 4, 2026.
-    expect(homeSource).toMatch(/\{seasonDone && \(\s*<(?:FlushSections)?>[\s\S]*?\{seasonCards\.length > 0 &&/)
+    // The offseason branch is wrapped in FlushSections (print columns) since Nov 4, 2026, and the
+    // ballot is one element both branches draw since Nov 13, 2026 (the in-season redesign).
+    expect(homeSource).toMatch(/\{seasonDone && \(\s*<(?:FlushSections)?>[\s\S]*?\{ballot && /)
+    expect(homeSource).toMatch(/\{!seasonDone && \(\s*<FlushSections>[\s\S]*?\{ballot && /)
   })
 })
 
