@@ -55,6 +55,17 @@
   "to_team_id": "NY"
  },
  {
+  "detected_at": "2026-11-22T22:30:00.079007+00:00",
+  "feed_api_id": null,
+  "from_team_id": "NY",
+  "game_date": "2026-11-21",
+  "game_id": null,
+  "id": "4a3c1bf8-a000-429a-82f5-2f4656797d72",
+  "player_id": "ff1f001e-32ac-442d-b3aa-6bde77fec86c",
+  "reason": "roster move",
+  "to_team_id": "BOS"
+ },
+ {
   "detected_at": "2026-09-03T22:46:06.855305+00:00",
   "feed_api_id": null,
   "from_team_id": "NY",
