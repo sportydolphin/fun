@@ -452,6 +452,11 @@ export interface WpblPitchingLine {
   strikes: number            // strikes thrown
   doubles: number            // 2B allowed
   triples: number            // 3B allowed
+  /** At-bats, sacrifice bunts and sacrifice flies against. Null on a row written before the
+   *  columns existed (migration 20261123090000) and not yet backfilled. */
+  ab?: number | null
+  sh?: number | null
+  sf?: number | null
   /** Absent from the bulk season reads, which omit it: nothing in the section reads it and
    *  it is 12% of the payload. The per-game reads still return it. */
   created_at?: string

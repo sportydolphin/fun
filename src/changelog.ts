@@ -24,6 +24,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.260.3',
+    date:    '2026-11-23',
+    changes: [
+      {
+        short: 'WPBL: pitcher BABIP leaves out sacrifice bunts',
+        full:  "Pitcher BABIP no longer counts a sacrifice bunt as a ball in play, matching hitter BABIP. The 2026 league figure now reads the same from both sides.",
+      },
+      {
+        short: 'Find: no rate without a denominator',
+        full:  "A season with no at-bats, or no outs and nothing allowed, shows a dash for its rates in Find, as on the Players board, instead of .000 or 0.00. It no longer matches a question about that rate.",
+      },
+    ],
+  },
+  {
     version: '1.260.2',
     date:    '2026-11-23',
     changes: [

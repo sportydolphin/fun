@@ -246,6 +246,9 @@ export interface WpblPitchingTotals {
    *  an outing was, not only what it gave up. `gs` separates a starter from a reliever, which
    *  nothing else here does. */
   bf: number; pitches: number; strikes: number; gs: number; hbp: number; wp: number; bk: number
+  /** Sacrifice bunts against: not a ball in play, so out of `babip`. 0 on a line written before
+   *  the column existed (migration 20261123090000), which is the old arithmetic. */
+  sh: number
   /** Share of pitches thrown for strikes. The one rate the pitch counts make possible, and
    *  the closest thing to a command number the box score can give. Null before a pitch. */
   strikePct: number | null
@@ -271,8 +274,9 @@ export interface WpblPitchingTotals {
    *  `bbPct` measures the same thing without charging a pitcher for the extra batters that hits
    *  allowed bring to the plate. */
   hr9: number | null
-  /** BABIP against. Slightly low: the pitching line has no SF or SH, so those sit in the
-   *  denominator as if they were balls in play that became outs. */
+  /** BABIP against, on the batting side's definition: sacrifice flies are balls in play and
+   *  sacrifice bunts are not. Until Nov 23, 2026 the line had no `sh`, every bunt counted, and the
+   *  league read .368 here against .371 on Hitting for the same balls. */
   babip: number | null
 }
 
@@ -281,18 +285,18 @@ export function sumPitching(lines: WpblPitchingLine[], games: WpblSeasonGame[], 
 }
 
 /** The counting half of a pitching line; see `BATTING_COUNT_KEYS`. */
-export const PITCHING_COUNT_KEYS = ['g', 'outs', 'h', 'r', 'er', 'bb', 'so', 'hr', 'w', 'l', 's', 'bf', 'pitches', 'strikes', 'gs', 'hbp', 'wp', 'bk'] as const
+export const PITCHING_COUNT_KEYS = ['g', 'outs', 'h', 'r', 'er', 'bb', 'so', 'hr', 'w', 'l', 's', 'bf', 'pitches', 'strikes', 'gs', 'hbp', 'wp', 'bk', 'sh'] as const
 export type WpblPitchingCounts = Pick<WpblPitchingTotals, typeof PITCHING_COUNT_KEYS[number]>
 
 /** The arithmetic alone; see `sumBattingRaw`. */
 function sumPitchingRaw(lines: WpblPitchingLine[]): WpblPitchingTotals {
-  const t = { g: lines.length, outs: 0, h: 0, r: 0, er: 0, bb: 0, so: 0, hr: 0, w: 0, l: 0, s: 0, bf: 0, pitches: 0, strikes: 0, gs: 0, hbp: 0, wp: 0, bk: 0 }
+  const t = { g: lines.length, outs: 0, h: 0, r: 0, er: 0, bb: 0, so: 0, hr: 0, w: 0, l: 0, s: 0, bf: 0, pitches: 0, strikes: 0, gs: 0, hbp: 0, wp: 0, bk: 0, sh: 0 }
   for (const l of lines) {
     t.outs += l.outs; t.h += l.h; t.r += l.r; t.er += l.er; t.bb += l.bb; t.so += l.so; t.hr += l.hr
     // Nullish-coalesced, unlike the fields above: these are newer columns on the feed's line
     // and an older mirrored row can carry null where a fresh one carries 0.
     t.bf += l.bf ?? 0; t.pitches += l.pitches ?? 0; t.strikes += l.strikes ?? 0
-    t.gs += l.gs ?? 0; t.hbp += l.hbp ?? 0; t.wp += l.wp ?? 0; t.bk += l.bk ?? 0
+    t.gs += l.gs ?? 0; t.hbp += l.hbp ?? 0; t.wp += l.wp ?? 0; t.bk += l.bk ?? 0; t.sh += l.sh ?? 0
     if (l.decision === 'W') t.w++
     else if (l.decision === 'L') t.l++
     else if (l.decision === 'S') t.s++
@@ -302,7 +306,8 @@ function sumPitchingRaw(lines: WpblPitchingLine[]): WpblPitchingTotals {
 
 /** The rates from the counts; see `battingFromCounts`. */
 export function pitchingFromCounts(c: WpblPitchingCounts): WpblPitchingTotals {
-  const t = { ...c }
+  // `sh` defaults for a stored season row written before it was a count (PLAYER_SEASONS_VERSION 3).
+  const t = { ...c, sh: c.sh ?? 0 }
   const ip = t.outs / 3
   // On ERA_BASIS_CANONICAL, the league's own basis; see there for why it is not a setting.
   const era = ip > 0 ? (t.er * ERA_BASIS_CANONICAL) / ip : null
@@ -316,7 +321,7 @@ export function pitchingFromCounts(c: WpblPitchingCounts): WpblPitchingTotals {
   const bbPct = t.bf > 0 ? t.bb / t.bf : null
   const kbbPct = kPct != null && bbPct != null ? kPct - bbPct : null
   const hr9 = ip > 0 ? (t.hr * ERA_BASIS_CANONICAL) / ip : null
-  const bip = t.bf - t.bb - t.hbp - t.so - t.hr
+  const bip = t.bf - t.bb - t.hbp - t.so - t.hr - t.sh
   const babip = bip > 0 ? (t.h - t.hr) / bip : null
   return { ...t, era, whip, k9, kbb, strikePct, kPct, bbPct, kbbPct, hr9, babip }
 }

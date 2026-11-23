@@ -8,7 +8,7 @@ import {
   type WpblBattingTotals, type WpblPitchingTotals, type WpblFieldingTotals,
 } from '../stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine } from '../types'
-import { scopedGames, scopedLines, type SeasonScope } from '../season'
+import { decidedFinals, scopedGames, scopedLines, type SeasonScope } from '../season'
 import type { TeamRecord } from './columns'
 import { useWpblPlayerLink } from '../LinkContext'
 import type { Col } from '../statColumns'
@@ -55,12 +55,12 @@ export function buildRows({ mode, side, players, lines, fielding, valueSeasons, 
     // Each club's record over the same slice as the rest of its row: the decided finals in this
     // season (`games` is the year on screen) and this scope.
     const records = new Map<string, TeamRecord>()
-    for (const g of scopedGames(games, scope)) {
-      if (g.status !== 'final' || g.home_score == null || g.away_score == null) continue
-      for (const [id, us, them] of [[g.home_team_id, g.home_score, g.away_score], [g.away_team_id, g.away_score, g.home_score]] as const) {
+    // The standings' rule for what a result is (`decidedFinals`), over this slice.
+    for (const g of decidedFinals(scopedGames(games, scope))) {
+      for (const [id, us, them] of [[g.home_team_id, g.home_score!, g.away_score!], [g.away_team_id, g.away_score!, g.home_score!]] as const) {
         const r = records.get(id) ?? { w: 0, l: 0, rs: 0, ra: 0 }
         if (us > them) r.w++
-        else if (us < them) r.l++
+        else r.l++
         r.rs += us; r.ra += them
         records.set(id, r)
       }

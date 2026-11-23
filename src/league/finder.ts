@@ -388,9 +388,13 @@ function markStreaks<G extends LeagueGame>(lines: BattingGameLine[], gameById: R
 type SeasonBatting = BattingGameLine & { g: number }
 type SeasonPitching = DecidedPitching & { g: number }
 
-const ratio = (num: number, den: number) => (den > 0 ? num / den : 0)
+// NO DENOMINATOR IS NO VALUE, NOT ZERO: NaN, which passes no condition, sorts last either way
+// (`missingLast`) and prints a dash. It was 0 until Nov 23, 2026, so a hitter with walks and no
+// at-bats read AVG .000 and OPS 1.000 here while the Players board showed a dash, and "OPS at least
+// 1.000" named them.
+const ratio = (num: number, den: number) => (den > 0 ? num / den : NaN)
 const thousandths = (v: number) => Math.round(v * 1000)
-const showThousandths = (v: number) => (v / 1000).toFixed(3).replace(/^0(?=\.)/, '')
+const showThousandths = (v: number) => (Number.isFinite(v) ? (v / 1000).toFixed(3).replace(/^0(?=\.)/, '') : '—')
 /** ".300", "0.300" and "300" all mean the same average: nothing a reader types under 5 is thousandths. */
 const parseThousandths = (raw: string) => { const n = Number(raw.trim()); return n < 5 ? Math.round(n * 1000) : Math.round(n) }
 const hundredths = (v: number) => Math.round(v * 100)
@@ -411,13 +415,14 @@ const HIT_SEASON_FIELDS: Field<SeasonBatting>[] = [
 ]
 
 /** The pitching rates, on the ERA basis the section reads in (seven or nine innings; see stats.ts).
- *  Runs or runners with no outs recorded is no finite rate: it sorts last and never passes. */
+ *  Runs or runners with no outs recorded is no finite rate: it sorts last and never passes. No outs
+ *  and nothing allowed is no rate at all (NaN, a dash), as on the Players board, not a 0.00. */
 const pitSeasonFields = (eraInnings: number): Field<SeasonPitching>[] => [
   { key: 'g', label: 'Games pitched', unit: 'G', value: l => l.g, seasonOnly: true },
   { key: 'era', label: 'ERA', unit: 'ERA', ...RATE2,
-    value: l => (l.outs > 0 ? hundredths((l.er * eraInnings * 3) / l.outs) : l.er > 0 ? Infinity : 0) },
+    value: l => (l.outs > 0 ? hundredths((l.er * eraInnings * 3) / l.outs) : l.er > 0 ? Infinity : NaN) },
   { key: 'whip', label: 'WHIP', unit: 'WHIP', ...RATE2,
-    value: l => (l.outs > 0 ? hundredths(((l.h + l.bb) * 3) / l.outs) : l.h + l.bb > 0 ? Infinity : 0) },
+    value: l => (l.outs > 0 ? hundredths(((l.h + l.bb) * 3) / l.outs) : l.h + l.bb > 0 ? Infinity : NaN) },
 ]
 /** For labels and parsing, where the basis plays no part. */
 const PIT_SEASON_FIELDS = pitSeasonFields(9)
@@ -1367,15 +1372,23 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
     const sortField = sort && sort.key !== 'date' ? byKey.get(sort.key) ?? null : null
     const dir = sort?.desc === false ? -1 : 1
     const highFirst = (av: number, bv: number) => (av === bv ? 0 : av < bv ? 1 : -1)
+    // A rate with no denominator (NaN) goes last whichever way the board is sorted, so it is
+    // decided before the direction multiplies in. NaN compares unequal to itself, which would
+    // otherwise make the comparator disagree with itself.
+    const missingLast = (av: number, bv: number) => Number.isNaN(av) === Number.isNaN(bv) ? 0 : Number.isNaN(av) ? 1 : -1
     matched.sort((a, b) => {
       if (sort?.key === 'date' && !season) {
         const ad = dateOf(a), bd = dateOf(b)
         if (ad !== bd) return (ad < bd ? 1 : -1) * dir
       } else if (sortField) {
-        const c = highFirst(sortField.value(a.line), sortField.value(b.line))
+        const av = sortField.value(a.line), bv = sortField.value(b.line)
+        const m = missingLast(av, bv)
+        if (m) return m
+        const c = Number.isNaN(av) ? 0 : highFirst(av, bv)
         if (c) return c * dir
       }
-      if (!log && a.head !== b.head) return highFirst(a.head, b.head) * (head.lowerBetter ? -1 : 1)
+      if (!log && missingLast(a.head, b.head)) return missingLast(a.head, b.head)
+      if (!log && a.head !== b.head && !Number.isNaN(a.head)) return highFirst(a.head, b.head) * (head.lowerBetter ? -1 : 1)
       if (season) return nameOf(a).localeCompare(nameOf(b)) || yearOfRow(b.line) - yearOfRow(a.line)
       const ad = dateOf(a), bd = dateOf(b)
       if (ad !== bd) return ad < bd ? -1 : 1

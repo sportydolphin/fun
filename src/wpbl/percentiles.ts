@@ -267,12 +267,9 @@ export function computeWpblPlayerRanks(
       case 'slg': return t.slg
       case 'ops': return t.ops
       case 'hr':  return t.hr
-      // K% over plate appearances, sac bunts included: leaving them out of the denominator reads a
-      // bunter's rate a shade high.
-      case 'k%': {
-        const pa = plateAppearances(t)
-        return pa > 0 ? t.so / pa : null
-      }
+      // The totals' own K% (`battingFromCounts`), over plate appearances with sac bunts in, so the
+      // strip, Compare and the board's K% column are one number.
+      case 'k%': return t.kPct
       // The counting stats, prefixed so they cannot collide with a rate key: 'hr' is already
       // taken above and means the same number ranked against a different field, which is
       // exactly the sort of near-miss that would land silently.
