@@ -418,6 +418,15 @@ export function PlayerSpotlightCard({ players, teams, games, onOpenPlayer, avoid
 
 // ─── The season's leaders and award winners ─────────────────────────────────────
 
+/**
+ * Whether the offseason Home draws the 2026 row: the leaders and the fan award winners. Off from
+ * Nov 22, 2026, while the 2027 rosters are built: both cards were the same names every visit for
+ * months, a screen of phone between the rosters and the gallery, and each has a page one tap away
+ * (Stats, Awards). Home and its skeleton both read this, so turning it back on cannot leave the
+ * skeleton a row taller or shorter than the page.
+ */
+export const HOME_2026_ROW = false
+
 /** The award winners' rows, fixed so the card does not move when its read lands. Five because the
  *  ballot has five awards; the leaders board draws five places for the same reason. */
 const SEASON_ROWS = 5

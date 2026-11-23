@@ -17,3 +17,30 @@ export async function recordHeartbeat(supabase, job, ok, detail = null) {
   })
   if (error) console.error(`  heartbeat write failed (non-fatal) for ${job}: ${error.message}`)
 }
+
+/**
+ * Runs a job's `main` and records how it went, so a cron script joins the /admin Health group
+ * with one line at its entrypoint instead of a heartbeat call at every exit.
+ *
+ * `main` may return `{ ok: false, detail }` for a run that finished without throwing but did not
+ * do its job (every source down, say): the watchers deliberately exit 0 then, so the workflow
+ * stays green, and without this the panel would call that run Fresh. A throw records a failure
+ * with the message and is rethrown, so each script's own crash handling is unchanged.
+ *
+ * `skip` is for runs that are not the job: a dry run, a status read, a test post, or a local run
+ * on the anon key, which RLS would refuse anyway.
+ */
+export async function runWithHeartbeat(supabase, job, main, { skip = false } = {}) {
+  let result
+  try {
+    result = await main()
+  } catch (err) {
+    if (!skip && supabase) await recordHeartbeat(supabase, job, false, String(err?.message ?? err).slice(0, 300))
+    throw err
+  }
+  if (!skip && supabase) {
+    const ok = result?.ok !== false
+    await recordHeartbeat(supabase, job, ok, result?.detail ? String(result.detail).slice(0, 300) : null)
+  }
+  return result
+}

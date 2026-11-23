@@ -1,6 +1,7 @@
 import { OVR_COLS, hittingColumns, pitchingColumns, type Col, type WpblLeagueLine } from '../statColumns'
-import { plateAppearances, type EraBasis, type WpblBattingTotals, type WpblPitchingTotals } from '../stats'
+import { plateAppearances, fmtRate, type EraBasis, type WpblBattingTotals, type WpblFieldingTotals, type WpblPitchingTotals } from '../stats'
 import { fmtRunValue } from '../../league/runExpectancy'
+import { fmtLeverage } from '../derive/leverage'
 import type { SeasonScope } from '../season'
 import type { WpblBoard } from '../searchAnswers'
 import type { BoardPlace, PlayerSeasonValue } from '../derive/seasonValue'
@@ -97,6 +98,12 @@ export function wpblRoleTables(role: Role, i: WpblTablesInput): RoleTables {
     }
   }
   const count = (label: string, value: number | string): StatCol => ranked(label, { label, value })
+  // Unranked: a high leverage index is a fact about the spots a player was put in, not a skill,
+  // so a "1st of 74" beside it would read as praise.
+  const liCell = (label: string, li: number | null | undefined): StatCol => {
+    const pending = i.valueOn && !i.value
+    return { label, term: label, value: pending ? '0.00' : i.valueOn ? fmtLeverage(li) : '—', pending }
+  }
 
   if (role === 'pitching') {
     const cols = pitchingColumns(ctx)
@@ -121,6 +128,8 @@ export function wpblRoleTables(role: Role, i: WpblTablesInput): RoleTables {
         p('kPct', false, '00.0%'), p('bbPct', false, '00.0%'), p('kbbPct', false, '00.0%'), p('kbb'),
         p('babip', false, '.000'), sideWar,
         valueCell('WPA', 'WPA', i.value?.wpaPitching, 2, '+0.00'),
+        liCell('pLI', i.value?.leveragePitching?.pli),
+        ...(i.value?.leveragePitching?.gmli != null ? [liCell('gmLI', i.value.leveragePitching.gmli)] : []),
       ],
     }
   }
@@ -152,6 +161,7 @@ export function wpblRoleTables(role: Role, i: WpblTablesInput): RoleTables {
       valueCell('BsR', 'BsR', i.value?.bases, 1, '+0.0'),
       runs('fld', 'Fld'),
       valueCell('WPA', 'WPA', i.value?.wpaHitting, 2, '+0.00'),
+      liCell('pLI', i.value?.leverageHitting?.pli),
     ],
   }
 }
@@ -194,4 +204,22 @@ export function wpblDisciplineCols(role: Role, profiles: Record<Role, PitchProfi
     pending,
     league: pair ? show(key, pair.league[key]) : null,
   }))
+}
+
+/**
+ * THE FIELDING TABLE's columns, in the season tables' dialect. PB, DP and SBA only when there are
+ * any: a catcher's columns on a left fielder's line would be a row of zeros about a job she never had.
+ * The loading state (`totals` null) reserves the four every fielder has.
+ */
+export function wpblFieldingCols(totals: WpblFieldingTotals | null): StatCol[] {
+  if (!totals) return [['FPCT', '.000'], ['E', '0'], ['PO', '00'], ['A', '00']].map(([label, value]) => ({ label, value }))
+  return [
+    { label: 'FPCT', value: fmtRate(totals.fpct) },
+    { label: 'E', value: totals.e },
+    { label: 'PO', value: totals.po },
+    { label: 'A', value: totals.a },
+    ...(totals.dp ? [{ label: 'DP', value: totals.dp }] : []),
+    ...(totals.pb ? [{ label: 'PB', value: totals.pb }] : []),
+    ...(totals.sba ? [{ label: 'SBA', value: totals.sba }] : []),
+  ]
 }

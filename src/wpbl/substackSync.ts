@@ -123,23 +123,23 @@ async function get(url: string, accept: string, log: (s: string) => void): Promi
 
 /** Every post, from the publication's own archive endpoint. */
 async function fetchPublicationArchive(src: SubstackSource, log: (s: string) => void): Promise<ArchivePost[]> {
-  // PAGED BY WHAT CAME BACK, AND ENDED BY AN EMPTY PAGE. Substack answers the FIRST page with
-  // 23 posts whatever `limit` asks for, then full pages after it (measured Sep 25, 2026: offsets
-  // 0, 23, 46 return 23, 50, 50). This loop used to stop at the first page shorter than the
-  // limit, which is always the first page, so every archive read ended at 23 posts and looked
-  // like a publication that small.
+  // CURSOR PAGED since Nov 2026: the endpoint answers `{ posts, nextCursor }` and refuses any
+  // `offset`. A bare list is still accepted, as one page, in case it ever reverts. Never stop on
+  // a short page: in Sep 2026 the first page came back short whatever `limit` asked for, and a
+  // loop that stopped there read every publication as 23 posts long.
   const byId = new Map<number, ArchivePost>()
-  let offset = 0
+  let cursor: string | undefined
   for (let guard = 0; guard < 40; guard++) {
-    const raw = await get(archiveUrlFor(src.host, offset), 'application/json', log)
-    const json: unknown = JSON.parse(raw)
-    if (!Array.isArray(json)) throw new Error('Archive API did not return a list')
-    const page = json as ArchivePost[]
+    const json: unknown = JSON.parse(await get(archiveUrlFor(src.host, cursor), 'application/json', log))
+    const body = json as { posts?: ArchivePost[]; nextCursor?: string | null; errors?: unknown }
+    const page = Array.isArray(json) ? json as ArchivePost[] : body.posts
+    if (!page) throw new Error(`Archive API did not return posts: ${JSON.stringify(body.errors ?? json).slice(0, 120)}`)
     const before = byId.size
     for (const p of page) byId.set(p.id, p)
-    // No new ids ends it too, so an API that ignored `offset` could not loop.
-    if (page.length === 0 || byId.size === before) break
-    offset += page.length
+    // No new ids ends it too, so a cursor the API ignored could not loop.
+    const next = Array.isArray(json) ? null : body.nextCursor
+    if (!next || byId.size === before) break
+    cursor = next
   }
   return [...byId.values()]
 }
@@ -242,7 +242,7 @@ async function syncSource(src: SubstackSource, ctx: Context): Promise<{ result: 
   // onto a paywall, which is not what either writer agreed to have featured.
   const listed = archive.filter(p => (p.audience ?? 'everyone') === 'everyone')
   const wpblPosts = dropTranslations(listed).filter(p => src.includes({
-    title: p.title, subtitle: p.subtitle, tags: (p.postTags ?? []).map(t => t?.name ?? ''),
+    id: p.id, title: p.title, subtitle: p.subtitle, tags: (p.postTags ?? []).map(t => t?.name ?? ''),
   }, players))
   log(`⚾  ${wpblPosts.length} about the league (${archive.length - wpblPosts.length} skipped: other beats, translations)`)
   const base: SourceResult = { source: src.key, list, totalPosts: archive.length, wpblPosts: 0, bodiesAvailable: 0, matchedToGame: 0 }

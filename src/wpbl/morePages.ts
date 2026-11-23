@@ -1,6 +1,7 @@
 import {
   WPBL_SEASON_PAGE, WPBL_READING_PAGE, WPBL_WATCH_PAGE, WPBL_PHOTOS_PAGE, WPBL_LEAGUE_PAGE, WPBL_SCORIGAMI_PAGE, WPBL_MATCHUPS_PAGE,
-  WPBL_COMPARE_BASE, WPBL_PLAYERS_INDEX, WPBL_GLOSSARY_PAGE, WPBL_SOURCES_PAGE,
+  WPBL_COMPARE_BASE, WPBL_PLAYERS_INDEX, WPBL_GLOSSARY_PAGE, WPBL_SOURCES_PAGE, WPBL_DATA_PAGE,
+  WPBL_ROSTERS_PAGE,
 } from './routes'
 import { EVENTS } from '../lib/analytics'
 
@@ -32,7 +33,9 @@ export interface MorePage {
 }
 
 export const WPBL_MORE_PAGES: MorePage[] = [
-  { group: 'Season',    href: WPBL_SEASON_PAGE,    label: 'Season recap', hint: 'Regular season and postseason', footerLabel: 'Season recap' },
+  // First while the clubs are building 2027: it is the one page here that changes week to week.
+  { group: 'Season',    href: WPBL_ROSTERS_PAGE,   label: '2027 rosters', hint: 'Re-signings, trades, draft', footerLabel: 'WPBL 2027 rosters' },
+  { group: 'Season',    href: WPBL_SEASON_PAGE,   label: 'Season recap', hint: 'Regular season and postseason', footerLabel: 'Season recap' },
   { group: 'Season',    href: WPBL_WATCH_PAGE,     label: 'Watch',             hint: 'Highlights, condensed games, clips', footerLabel: 'WPBL video' },
   { group: 'Season',    href: WPBL_PHOTOS_PAGE,    label: 'Photos',            hint: "Fan photos, women's baseball archive", footerLabel: 'WPBL photos' },
   { group: 'Season',    href: WPBL_READING_PAGE,   label: 'Reading',           hint: 'mary mustard, D.A. Espinoza', footerLabel: 'WPBL reading' },
@@ -58,9 +61,10 @@ export const WPBL_MORE_PAGES: MorePage[] = [
   { group: 'Reference', href: WPBL_GLOSSARY_PAGE,  label: 'Rules & glossary',  hint: 'Rules, stat definitions' },
 ]
 
-/** The footer's list: the menu's pages plus Data sources, which a reader rarely wants and a
- *  crawler must still reach (the API docs hang off it). Not in the menu for that reason. */
+/** The footer's list: the menu's pages plus Data sources and Open data, which a reader rarely wants
+ *  and a crawler must still reach (the API docs hang off the first). Not in the menu for that reason. */
 export const WPBL_FOOTER_PAGES: MorePage[] = [
   ...WPBL_MORE_PAGES,
   { group: 'Reference', href: WPBL_SOURCES_PAGE, label: 'Data sources', hint: 'Feeds and APIs' },
+  { group: 'Reference', href: WPBL_DATA_PAGE, label: 'Open data', hint: 'CSV and JSON', footerLabel: 'WPBL data download' },
 ]

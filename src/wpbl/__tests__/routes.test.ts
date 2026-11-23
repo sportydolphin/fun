@@ -39,12 +39,14 @@ import {
   wpblGameSlug, wpblGamePath, wpblGameSlugFromPath, findWpblGameBySlug, isWpblLeaguePage,
   isWpblGlossaryPage,
   isWpblSourcesPage,
+  isWpblDataPage,
+  isWpblRostersPage,
   isWpblSeasonPage, wpblSeasonYearFromPath, WPBL_RECAP_YEARS,
   isWpblScorigamiPage,
   isWpblMatchupsPage,
   isWpblReadingPage,
   isWpblWatchPage,
-  isWpblPhotosPage, isWpblPhotoTagPage, WPBL_PHOTO_TAG_PAGE,
+  isWpblPhotosPage, isWpblPhotoTagPage, WPBL_PHOTO_TAG_PAGE, isWpblPhotoSubmitPage, WPBL_PHOTO_SUBMIT_PAGE,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug, teamSlug,
   wpblSeriesPath, wpblSeriesPaths, wpblSeriesSlugFromPath, findWpblSeriesPair, isWpblSeriesPage,
   WPBL_AWARDS_PATH, isWpblAwardsPage,
@@ -738,7 +740,43 @@ describe('/wpbl/glossary, the rules page', () => {
   // rather than written out, and this pins that it stays that way.
   it('declares FAQPage structured data built from the rules themselves', () => {
     expect(seoSource).toContain("'@type': 'FAQPage'")
-    expect(seoSource).toContain('WPBL_RULES.map')
+    expect(seoSource).toContain('faq(m.WPBL_RULES)')
+  })
+})
+
+describe('/wpbl/data, the open-data page', () => {
+  it('has a 200 rewrite, a trailing-slash 301, a title and a sitemap entry', () => {
+    expect(redirects).toMatch(/^\/wpbl\/data\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/wpbl\/data\/\s+\/wpbl\/data\s+301\s*$/m)
+    expect(seoSource).toMatch(/'\/wpbl\/data':\s*\{[^}]*title:/)
+    expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/data</loc>')
+  })
+
+  it('is recognized as itself and not as a tab, and the footer links it', () => {
+    expect(isWpblDataPage('/wpbl/data')).toBe(true)
+    expect(isWpblDataPage('/wpbl/data/')).toBe(true)
+    expect(isWpblDataPage('/wpbl/data/2026')).toBe(false)
+    expect(wpblViewFromPath('/wpbl/data')).toBeNull()
+    expect(wpblAppOwnsPath('/wpbl/data')).toBe(false)
+    expectInFooter('WPBL_DATA_PAGE')
+  })
+})
+
+describe('/wpbl/rosters, the next season\'s rosters', () => {
+  it('has a 200 rewrite, a trailing-slash 301, a title and a sitemap entry', () => {
+    expect(redirects).toMatch(/^\/wpbl\/rosters\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/wpbl\/rosters\/\s+\/wpbl\/rosters\s+301\s*$/m)
+    expect(seoSource).toMatch(/'\/wpbl\/rosters':\s*\{[^}]*title:/)
+    expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/rosters</loc>')
+  })
+
+  it('is recognized as itself and not as a tab, and the footer links it', () => {
+    expect(isWpblRostersPage('/wpbl/rosters')).toBe(true)
+    expect(isWpblRostersPage('/wpbl/rosters/')).toBe(true)
+    expect(isWpblRostersPage('/wpbl/rosters/2027')).toBe(false)
+    expect(wpblViewFromPath('/wpbl/rosters')).toBeNull()
+    expect(wpblAppOwnsPath('/wpbl/rosters')).toBe(false)
+    expectInFooter('WPBL_ROSTERS_PAGE')
   })
 })
 
@@ -994,6 +1032,31 @@ describe('/wpbl/photos/tag, naming who is in a photo', () => {
     expect(isWpblPhotosPage('/wpbl/photos/tag')).toBe(false)
     expect(wpblViewFromPath('/wpbl/photos/tag')).toBeNull()
     expect(wpblAppOwnsPath('/wpbl/photos/tag')).toBe(false)
+  })
+})
+
+// A fan sending their own photos (docs/FAN_UPLOADS.md): a form behind sign-in, so a real page for the
+// fans sent to it and invisible to search.
+describe('/wpbl/photos/submit, sending photos', () => {
+  it('has a 200 rewrite and a trailing-slash 301 in public/_redirects', () => {
+    expect(WPBL_PHOTO_SUBMIT_PAGE).toBe('/wpbl/photos/submit')
+    expect(redirects).toMatch(/^\/wpbl\/photos\/submit\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/wpbl\/photos\/submit\/\s+\/wpbl\/photos\/submit\s+301\s*$/m)
+  })
+
+  it('is noindexed and out of the sitemap', () => {
+    expect(seoSource).toMatch(/'\/wpbl\/photos\/submit':\s*\{[^}]*noindex: true/)
+    expect(sitemap).not.toContain('/wpbl/photos/submit')
+  })
+
+  it('is recognized as itself, apart from the gallery and the tag queue, and not as a tab', () => {
+    expect(isWpblPhotoSubmitPage('/wpbl/photos/submit')).toBe(true)
+    expect(isWpblPhotoSubmitPage('/wpbl/photos/submit/')).toBe(true)
+    expect(isWpblPhotoSubmitPage('/wpbl/photos')).toBe(false)
+    expect(isWpblPhotosPage('/wpbl/photos/submit')).toBe(false)
+    expect(isWpblPhotoTagPage('/wpbl/photos/submit')).toBe(false)
+    expect(wpblViewFromPath('/wpbl/photos/submit')).toBeNull()
+    expect(wpblAppOwnsPath('/wpbl/photos/submit')).toBe(false)
   })
 })
 

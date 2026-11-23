@@ -26,8 +26,22 @@ describe('single-game records', () => {
     expect(leaderSuggestions('mlb', 'most hr in a game')).toEqual([])
     expect(recordSuggestions('wpbl', 'longest scoreless outing')[0]).toMatchObject({ scrollTo: 'best-scoreless' })
   })
-  it('offers nothing for a record no card keeps, or for the low end', () => {
-    expect(recordSuggestions('mlb', 'most walks in a game')).toEqual([])
+  // A record no card keeps is Find's: at least one, ranked highest first, so the record is its first
+  // row. Before Nov 10, 2026 "most walks in a game" offered nothing.
+  it('answers a record no card keeps on Find, ranked', () => {
+    expect(recordSuggestions('wpbl', 'most walks in a game')).toEqual([
+      expect.objectContaining({ title: 'Most walks in a game', href: '/wpbl/stats?board=find&side=hitting&q=bb.gte.1' }),
+    ])
+    expect(recordSuggestions('wpbl', 'most walks issued in a game')[0]).toMatchObject({ title: 'Most walks allowed in a game' })
+    expect(recordSuggestions('mlb', 'most walks in a game')[0]).toMatchObject({ title: 'Most walks in a game' })
+  })
+  it('narrows a record by club, place and year, which a Bests card cannot', () => {
+    expect(recordSuggestions('wpbl', 'most hits in a game vs boston')[0]).toMatchObject({
+      title: 'Most hits in a game vs BOS', href: '/wpbl/stats?board=find&side=hitting&q=h.gte.1&opp=BOS',
+    })
+    expect(recordSuggestions('wpbl', 'most strikeouts in an inning 2026')[0]).toMatchObject({ href: expect.stringContaining('q=inning~so.gte.1') })
+  })
+  it('offers nothing for the low end', () => {
     expect(recordSuggestions('mlb', 'fewest hr in a game')).toEqual([])
   })
   it('leaves a season ranking alone', () => {
@@ -66,5 +80,66 @@ describe('the position filter', () => {
     expect(matchesPositionFilter('SP', 'P', { g: 10, gs: 5 })).toBe(true)
     expect(matchesPositionFilter('RP', 'P', { g: 10, gs: 4 })).toBe(true)
     expect(matchesPositionFilter('RP', 'P', null)).toBe(false)
+  })
+})
+
+describe('play-log questions from the search bar', () => {
+  // The palette asks the gate before it loads the parser, so a phrase the gate drops never reaches Find.
+  it('lets through the questions with no count in them', async () => {
+    const { mightBeFinderQuestion } = await import('../finderGate')
+    for (const q of ['hits with runners on', 'comebacks', 'go-ahead innings', 'come from behind', 'two-out rallies', 'biggest innings', 'hits with risp', 'bases-loaded walks',
+      'back-to-back home runs', 'consecutive strikeouts', 'strikeouts in a row']) {
+      expect(mightBeFinderQuestion(q), q).toBe(true)
+      expect(finderSuggestions('wpbl', q).length, q).toBeGreaterThan(0)
+    }
+  })
+  it('opens a comeback on the club innings', () => {
+    expect(finderSuggestions('wpbl', 'comebacks')[0].href).toBe('/wpbl/stats?board=find&side=hitting&q=inning~trail.gte.1~tooklead.eq.1')
+  })
+  it('reads the most in an inning as the inning grain, which lists the biggest first', () => {
+    expect(finderSuggestions('wpbl', 'most strikeouts in an inning')[0]).toMatchObject({
+      title: 'Most strikeouts in an inning by a pitcher', href: '/wpbl/stats?board=find&side=pitching&q=inning~so.gte.1',
+    })
+    expect(findTitles('biggest innings')).toEqual(['Most runs scored in an inning', 'Most runs allowed in an inning'])
+    expect(findTitles('what was the most hits in a single inning?')[0]).toBe('Most hits in an inning')
+  })
+  it('reads runs of plays as the plate appearance that ends them', () => {
+    expect(finderSuggestions('wpbl', 'back-to-back home runs')[0]).toMatchObject({
+      title: 'Back-to-back home runs', href: '/wpbl/stats?board=find&side=hitting&q=pa~hrrow.gte.2',
+    })
+    expect(findTitles('3 straight home runs')[0]).toBe('Back-to-back-to-back home runs')
+    expect(findTitles('five strikeouts in a row')).toEqual(['5+ strikeouts in a row'])
+    for (const q of ['retired 10 straight', 'retired ten in a row', '10 straight batters retired']) {
+      expect(finderSuggestions('wpbl', q)[0]?.href, q).toBe('/wpbl/stats?board=find&side=pitching&q=pa~retired.gte.10')
+    }
+    // Not in a row, so still a game.
+    expect(finderSuggestions('wpbl', '3 home runs')[0].parsed.per).toBe('game')
+  })
+  it('leaves MLB alone, which has no innings to search', () => {
+    expect(finderSuggestions('mlb', 'most runs in an inning').every(f => f.parsed.per !== 'inning')).toBe(true)
+  })
+})
+
+// The Nov 20, 2026 probe: a stat with no column, typed bare, offered nothing where "most" found it.
+describe('a bare stat the tables have no column for', () => {
+  it('reads as the season record', () => {
+    expect(recordSuggestions('wpbl', 'pickoffs')[0]).toMatchObject({ title: 'Most pickoffs' })
+    expect(recordSuggestions('wpbl', 'double plays turned')[0]).toMatchObject({ title: 'Most double plays turned' })
+    expect(recordSuggestions('wpbl', 'so')).toEqual([])
+  })
+})
+
+// The Nov 20, 2026 probe: "triples in playoffs" (a logged miss on Nov 13) and "playoff hr leaders".
+describe('the postseason, asked for', () => {
+  it("opens the board's Playoffs slice", () => {
+    expect(leaderSuggestions('wpbl', 'playoff hr leaders')[0]).toMatchObject({
+      href: '/wpbl/stats?board=players&side=hitting&sort=hr&games=post', span: 'This season playoffs', ask: expect.objectContaining({ post: true }),
+    })
+    expect(leaderSuggestions('mlb', 'playoff hr leaders')).toEqual([])
+    expect(findTitles('2 hits in the playoffs')[0]).toBeDefined()
+    expect(finderSuggestions('wpbl', '2 hits in the playoffs')[0].href).toContain('games=post')
+  })
+  it('reads "batting 9th" as the lineup, never the 9th inning', () => {
+    expect(finderSuggestions('wpbl', 'batting 9th')).toEqual([])
   })
 })

@@ -162,17 +162,22 @@ export const EVENT_INFO: Record<string, EventInfo> = {
   wpbl_game_calendar:     A('Added a game to a calendar', 'Games'),
   wpbl_game_reminder_on:  A('Turned a game reminder on', 'Games'),
   wpbl_game_reminder_off: A('Turned a game reminder off', 'Games'),
+  wpbl_resign_alerts_on:  A('Turned roster move alerts on', 'Players & teams'),
+  wpbl_resign_alerts_off: A('Turned roster move alerts off', 'Players & teams'),
 
   wpbl_player_opened:     A('Opened a player', 'Players & teams'),
   wpbl_team_opened:       A('Opened a team', 'Players & teams'),
   wpbl_player_role:       A('Switched hitting / pitching on a player', 'Players & teams'),
   wpbl_compare_opened:    A('Opened Compare', 'Players & teams'),
+  wpbl_world_cup_opened:  A('Opened a World Cup row', 'Players & teams'),
   wpbl_compare_viewed:    A('Viewed a comparison', 'Players & teams'),
 
   wpbl_tab_viewed:        A('Switched tab', 'Stats'),
   wpbl_stats_board:       A('Stats board on screen', 'Stats'),
   wpbl_stats_sorted:      A('Sorted a stats column', 'Stats'),
   wpbl_stats_filtered:    A('Filtered stats', 'Stats'),
+  wpbl_data_downloaded:   A('Downloaded a data file', 'Stats'),
+  wpbl_stats_exported:    A('Exported a stats board', 'Stats'),
 
   wpbl_page_section_seen: A('Reached a section of a page', 'Pages'),
   wpbl_page_open:         A('Left a page for a game, player or team', 'Pages'),
@@ -242,6 +247,7 @@ export const EVENT_INFO: Record<string, EventInfo> = {
   mlb_tab_viewed:         A('Switched MLB tab', 'MLB'),
   mlb_player_opened:      A('Opened an MLB player', 'MLB'),
   mlb_team_opened:        A('Opened an MLB team', 'MLB'),
+  mlb_stats_exported:     A('Exported the MLB stats board', 'MLB'),
   mlb_share_copied:       A('Copied an MLB link', 'MLB'),
   mlb_compare_opened:     A('Opened MLB Compare', 'MLB'),
   mlb_compare_viewed:     A('Viewed an MLB comparison', 'MLB'),
@@ -257,6 +263,8 @@ export const EVENT_INFO: Record<string, EventInfo> = {
   // One per page load, carrying timings rather than a choice. Read by the Page speed card through
   // admin_web_vitals, never as a count.
   web_vitals:             I('Page speed report', 'Site health'),
+  // One per page load, carrying where it came from. Read by Sources and Today, never as a count.
+  landed:                 I('Arrived on the site', 'Site health'),
 
   wpbl_reading_collapsed: R('Reading collapsed', 'Reading & photos'),
   wpbl_photos_shown:      R('Archive shown on Home', 'Reading & photos'),
@@ -306,15 +314,18 @@ export function groupActions(events: EventCount[]): ActionGroup[] {
  * Sep 25, 2026, so their event counts are inflated for any window reaching back past it, while a
  * browser is a browser either way.
  *
- * `used` is the action that says the card worked. Where a card has two (the bracket opens a
- * series or a club), the larger browser count stands in, since browsers cannot be summed.
+ * `used` is the action that says the card worked, counted only for a browser that also saw the
+ * card in the range, and only from the card itself where the event says where it came from
+ * (`from`). Counted against every browser that fired it, the Compare card read 220% (11 of 5) on
+ * Nov 12, 2026: all 11 opened Compare from a player page, the More menu or a matchup. The counting
+ * is `admin_home_funnels`, which takes this list as its argument.
  */
-export const HOME_FUNNELS: Array<{ label: string; seen: string; used: string[]; verb: string }> = [
+export const HOME_FUNNELS: Array<{ label: string; seen: string; used: string[]; from?: string[]; verb: string }> = [
   { label: 'Fan awards',   seen: 'wpbl_award_shown',       used: ['wpbl_award_open'],                             verb: 'opened it' },
   { label: 'Bracket',      seen: 'wpbl_bracket_shown',     used: ['wpbl_bracket_series', 'wpbl_bracket_team'],    verb: 'opened a series or club' },
   { label: 'Season card',  seen: 'wpbl_season_card_shown', used: ['wpbl_season_card_open'],                       verb: 'opened the recap' },
   { label: 'League card',  seen: 'wpbl_league_card_shown', used: ['wpbl_league_card_open'],                       verb: 'opened it' },
-  { label: 'Compare card', seen: 'wpbl_compare_shown',     used: ['wpbl_compare_opened'],                         verb: 'opened Compare' },
+  { label: 'Compare card', seen: 'wpbl_compare_shown',     used: ['wpbl_compare_opened'], from: ['home'],      verb: 'opened Compare' },
   { label: 'Player cards', seen: 'wpbl_home_players_shown', used: ['wpbl_home_player_open'],                     verb: 'opened a player' },
   { label: 'Latest post',  seen: 'wpbl_reading_shown',     used: ['wpbl_article_opened', 'wpbl_reading_archive'], verb: 'opened a post' },
   { label: 'Watch card',   seen: 'wpbl_watch_shown',       used: ['wpbl_watch_open'],                             verb: 'played a clip or opened Watch' },
@@ -323,12 +334,19 @@ export const HOME_FUNNELS: Array<{ label: string; seen: string; used: string[]; 
 ]
 
 export interface FunnelRow { label: string; verb: string; seen: number; used: number }
+/** One funnel as `admin_home_funnels` counts it, keyed by its impression event. */
+export interface HomeFunnelCount { seen: string; seen_browsers: number; used_browsers: number }
 
-export function buildFunnels(events: EventCount[]): FunnelRow[] {
-  const br = new Map(events.map(e => [e.event, e.browsers]))
+export function buildFunnels(counts: HomeFunnelCount[]): FunnelRow[] {
+  const by = new Map(counts.map(c => [c.seen, c]))
   return HOME_FUNNELS
-    .map(f => ({ label: f.label, verb: f.verb, seen: br.get(f.seen) ?? 0, used: Math.max(0, ...f.used.map(u => br.get(u) ?? 0)) }))
+    .map(f => ({ label: f.label, verb: f.verb, seen: by.get(f.seen)?.seen_browsers ?? 0, used: by.get(f.seen)?.used_browsers ?? 0 }))
     .filter(r => r.seen > 0)
+}
+
+export function fetchHomeFunnels(days: number, tz: string): Promise<HomeFunnelCount[]> {
+  const funnels = HOME_FUNNELS.map(f => ({ seen: f.seen, used: f.used, ...(f.from ? { from: f.from } : {}) }))
+  return callRpc('admin_home_funnels', { days_back: days, tz, funnels }, [])
 }
 
 /** Readable names for the page ids and the snake_case section / control ids the pages send. */
@@ -591,6 +609,186 @@ export function fetchGrowth(days: number, tz: string): Promise<Growth> {
   return callRpc('admin_growth', { days_back: days, tz }, EMPTY_GROWTH)
 }
 
+// ─── engaged: did something beyond arriving ───────────────────────────────────
+
+/**
+ * Events that fire because a page loaded, not because the reader chose anything. Each is an action
+ * in EVENT_INFO (it is one on the cards that read it), but a browser whose only rows are these did
+ * nothing: a comparison page drawing itself, a video page "playing" on arrival, the Stats tab's
+ * first board, a game's first tab. `event:via` (or `event:from`) names one value of an event.
+ * Over the 30 days to Nov 10, 2026 the first two alone were 300 browsers that never touched a thing.
+ */
+export const ARRIVALS = [
+  'wpbl_compare_viewed', 'mlb_compare_viewed',
+  'wpbl_highlight_played:link',
+  'wpbl_stats_board:open', 'wpbl_stats_board:return', 'wpbl_stats_board:link',
+  'wpbl_game_tab:open',
+  'wpbl_share_opened', 'mlb_share_opened',
+  'app_updated', 'app_error',
+] as const
+
+/**
+ * Everything that does NOT make a browser engaged: every impression and retired name, plus the
+ * arrivals above. Sent to admin_audience, admin_briefing and admin_traffic_sources, which also
+ * treat any `*_shown` / `*_seen` name as passive (retired impressions are still in the rows).
+ */
+export const PASSIVE_EVENTS: string[] = [
+  ...Object.entries(EVENT_INFO).filter(([, i]) => i.kind !== 'action').map(([n]) => n),
+  ...ARRIVALS,
+]
+
+// ─── today ───────────────────────────────────────────────────────────────────
+
+export interface LandingSource { ref: string | null; utm: string | null; app: boolean; browsers: number }
+export interface Briefing {
+  tz: string
+  date: string | null
+  browsers: number
+  /** First seen today (since the 90-day history line). */
+  new: number
+  engaged: number
+  events: number
+  /** Browsers by this clock time on each of the last seven days, and their median. */
+  pace: { median: number | null; days: number[] | null }
+  errors: { today: number; today_browsers: number; last_message: string | null; build: string | null; on_build: number | null }
+  sources: LandingSource[]
+  /** First `landed` row: null until the deploy that records them. */
+  sources_since: string | null
+}
+export const EMPTY_BRIEFING: Briefing = {
+  tz: 'UTC', date: null, browsers: 0, new: 0, engaged: 0, events: 0,
+  pace: { median: null, days: null },
+  errors: { today: 0, today_browsers: 0, last_message: null, build: null, on_build: null },
+  sources: [], sources_since: null,
+}
+
+export function fetchBriefing(tz: string, build: string | null): Promise<Briefing> {
+  return callRpc('admin_briefing', { tz, passive: PASSIVE_EVENTS, build }, EMPTY_BRIEFING)
+}
+
+/**
+ * Today against the median of the same hours on the last seven days, as a multiple, and whether
+ * that is far enough off to call out. Null under a median of 5: at 3 a day, 6 is "2x" and nothing.
+ */
+export function todayPace(browsers: number, median: number | null): { multiple: number; unusual: boolean } | null {
+  if (median == null || median < 5) return null
+  const multiple = browsers / median
+  return { multiple, unusual: multiple >= 2 || multiple <= 0.5 }
+}
+
+/** "6.2x" / "0.4x" / "12x". */
+export function formatMultiple(m: number): string {
+  return `${m >= 10 ? Math.round(m) : m.toFixed(1)}x`
+}
+
+// ─── new, returning, engaged ─────────────────────────────────────────────────
+
+export interface AudienceTotals { browsers: number; new: number; engaged: number }
+export interface Cohort { week: string; new: number; back: number; engaged: number }
+export interface Audience {
+  tz: string
+  /** The oldest raw row: "first seen" means first seen since this date. */
+  history_from: string | null
+  totals: AudienceTotals
+  prev: AudienceTotals
+  cohorts: Cohort[]
+}
+const EMPTY_AUDIENCE_TOTALS: AudienceTotals = { browsers: 0, new: 0, engaged: 0 }
+export const EMPTY_AUDIENCE: Audience = {
+  tz: 'UTC', history_from: null, totals: EMPTY_AUDIENCE_TOTALS, prev: EMPTY_AUDIENCE_TOTALS, cohorts: [],
+}
+
+export function fetchAudience(days: number, tz: string, league: LeagueFilter): Promise<Audience> {
+  return callRpc('admin_audience', { days_back: days, tz, league, passive: PASSIVE_EVENTS }, EMPTY_AUDIENCE)
+}
+
+// ─── where loads come from ───────────────────────────────────────────────────
+
+export interface SourceRow { ref: string | null; utm: string | null; app: boolean; loads: number; browsers: number; new: number; engaged: number }
+export interface RouteRow { route: string; loads: number; browsers: number; engaged: number }
+export interface TrafficSources { since: string | null; sources: SourceRow[]; routes: RouteRow[] }
+export const EMPTY_TRAFFIC_SOURCES: TrafficSources = { since: null, sources: [], routes: [] }
+
+export function fetchTrafficSources(days: number, tz: string): Promise<TrafficSources> {
+  return callRpc('admin_traffic_sources', { days_back: days, tz, passive: PASSIVE_EVENTS }, EMPTY_TRAFFIC_SOURCES)
+}
+
+// Hosts (and Android app packages, which arrive as the host of `android-app://`), and utm_source
+// values, by the name a person would give them. Matched on the host or any parent domain, so
+// `l.instagram.com` and `google.co.uk` find theirs. Anything unlisted shows as itself.
+const SOURCE_NAMES: Array<[RegExp, string]> = [
+  // Google's own apps before Google: their packages end in `google.android.<app>`.
+  [/^com\.google\.android\.gm$|^gmail$/, 'Gmail'],
+  [/(^|\.)youtube\.com$|^youtu\.be$|^com\.google\.android\.youtube$|^youtube$/, 'YouTube'],
+  [/(^|\.)google\.[a-z.]+$|^com\.google\.android\.googlequicksearchbox$|^google$/, 'Google'],
+  [/(^|\.)bing\.com$|^bing$/, 'Bing'],
+  [/(^|\.)duckduckgo\.com$/, 'DuckDuckGo'],
+  [/(^|\.)yahoo\.[a-z.]+$/, 'Yahoo'],
+  [/(^|\.)ecosia\.org$/, 'Ecosia'],
+  [/(^|\.)brave\.com$/, 'Brave Search'],
+  [/^(t\.co|x\.com|twitter\.com|mobile\.twitter\.com|x|twitter)$/, 'X'],
+  [/(^|\.)instagram\.com$|^com\.instagram\.android$|^(instagram|ig)$/, 'Instagram'],
+  [/(^|\.)facebook\.com$|^com\.facebook\.katana$|^(facebook|fb)$/, 'Facebook'],
+  [/(^|\.)threads\.(net|com)$|^threads$/, 'Threads'],
+  [/(^|\.)reddit\.com$|^com\.reddit\.frontpage$|^reddit$/, 'Reddit'],
+  [/(^|\.)bsky\.app$|^(bluesky|bsky)$/, 'Bluesky'],
+  [/(^|\.)discord(app)?\.com$|^com\.discord$|^discord$/, 'Discord'],
+  [/(^|\.)tiktok\.com$|^tiktok$/, 'TikTok'],
+  [/(^|\.)linkedin\.com$|^lnkd\.in$|^linkedin$/, 'LinkedIn'],
+  [/(^|\.)chatgpt\.com$|^chat\.openai\.com$|^chatgpt(\.com)?$/, 'ChatGPT'],
+  [/(^|\.)perplexity\.ai$/, 'Perplexity'],
+  [/(^|\.)claude\.ai$/, 'Claude'],
+]
+const knownSource = (s: string | null) => (s ? SOURCE_NAMES.find(([re]) => re.test(s))?.[1] ?? null : null)
+
+/**
+ * One `landed` row's source as a name. A tagged link (`utm_source`) outranks the referrer, since
+ * it says which post it was; this site's own short links are `short`. No referrer is the installed
+ * app when it opened as one, and "Direct" otherwise (typed, a bookmark, or a link that hides it).
+ */
+export function sourceLabel(ref: string | null, utm: string | null, app: boolean): string {
+  if (utm === 'short') return 'Short links'
+  if (utm) return knownSource(utm) ?? knownSource(ref) ?? utm
+  if (ref === 'self') return 'This site'
+  if (ref) return knownSource(ref) ?? ref
+  return app ? 'Installed app' : 'Direct'
+}
+
+export interface SourceGroup { label: string; loads: number; browsers: number; new: number; engaged: number }
+
+/**
+ * Rows merged by name, busiest first. Browsers are SUMMED across the hosts under one name, so a
+ * browser that came from google.com and google.ca in one window counts twice; across the hosts of
+ * one engine that is rare enough to accept rather than send the names to the database.
+ */
+export function groupSources(rows: Array<LandingSource & Partial<SourceRow>>): SourceGroup[] {
+  const m = new Map<string, SourceGroup>()
+  for (const r of rows) {
+    const label = sourceLabel(r.ref, r.utm, r.app)
+    const g = m.get(label) ?? { label, loads: 0, browsers: 0, new: 0, engaged: 0 }
+    g.loads += r.loads ?? 0; g.browsers += r.browsers; g.new += r.new ?? 0; g.engaged += r.engaged ?? 0
+    m.set(label, g)
+  }
+  return [...m.values()].sort((a, b) => b.browsers - a.browsers || a.label.localeCompare(b.label))
+}
+
+// ─── since launch ────────────────────────────────────────────────────────────
+
+/** `events_daily`'s all-events rows: true distinct browsers per UTC day, back to the first event. */
+export function fetchDailyTrend(league: LeagueFilter): Promise<DayPoint[]> {
+  return callRpc('admin_daily_trend', { section: league }, [])
+}
+
+/** A trailing mean over `n` days, null until there are `n` to average. */
+export function rollingMean(values: number[], n = 7): Array<number | null> {
+  let sum = 0
+  return values.map((v, i) => {
+    sum += v
+    if (i >= n) sum -= values[i - n]
+    return i >= n - 1 ? sum / n : null
+  })
+}
+
 export interface AnalyticsBundle {
   overview: Overview
   events: EventCount[]
@@ -604,6 +802,9 @@ export interface AnalyticsBundle {
   pages: PageUsage
   vitals: WebVitals
   mlb: MlbUsage
+  audience: Audience
+  sources: TrafficSources
+  funnels: HomeFunnelCount[]
 }
 
 /**
@@ -628,7 +829,82 @@ export function fetchAnalytics(
     fetchWebVitals(days, tz),
     fetchMlbUsage(days, tz),
     fetchPaletteStats(days, tz),
-  ]).then(([overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb, palette]) => ({
-    overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb, palette,
+    fetchAudience(days, tz, league),
+    fetchTrafficSources(days, tz),
+    fetchHomeFunnels(days, tz),
+  ]).then(([overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb, palette, audience, sources, funnels]) => ({
+    overview, events, tabs, statsBoards, entryPoints, search, players, growth, pages, vitals, mlb, palette, audience, sources, funnels,
   }))
+}
+
+// ─── The Search tab (admin_search_log) ────────────────────────────────────────
+// What people search for and whether the box answered, as one call. One finished search is one
+// open of the box ending in a pick that left it or a close after typing; an open closed with
+// nothing typed is counted in `opened` and nowhere else.
+
+export type SearchResult = 'picked' | 'closed' | 'nothing'
+export type SearchSection = 'all' | 'wpbl' | 'mlb'
+
+export interface SearchLogRow {
+  at: string
+  section: string
+  result: SearchResult
+  kind: string | null
+  /** The picked row's label. Null on a close, and on picks before Nov 20, 2026 that were not a
+   *  WPBL player or club. */
+  title: string | null
+  /** What was typed, kept only when the box offered nothing for it. */
+  q: string | null
+  player_id: string | null
+  team_id: string | null
+  typed: number | null
+  rank: number | null
+  shown: number | null
+  top: boolean
+  forgiving: boolean
+  /** A short hash of the browser id, enough to follow one reader down the list. */
+  browser: string
+  me: boolean
+  user: string | null
+}
+
+export interface SearchLog {
+  excluded_browsers: number
+  totals: {
+    opened: number; opened_browsers: number; searches: number; browsers: number
+    picked: number; closed: number; nothing: number; top_row: number; forgiving: number
+    avg_rank: number | null; avg_typed: number | null
+  }
+  daily: Array<{ day: string; picked: number; closed: number; nothing: number }>
+  kinds: Array<{ section: string; kind: string; events: number; browsers: number; avg_rank: number | null; top: number }>
+  players: Array<{ id: string; name: string; team_id: string | null; events: number; browsers: number; last_at: string }>
+  picks: Array<{ section: string; kind: string; title: string; events: number; browsers: number; last_at: string }>
+  missed: Array<{ section: string; q: string; events: number; browsers: number; last_at: string }>
+  recent: SearchLogRow[]
+}
+
+export const EMPTY_SEARCH_LOG: SearchLog = {
+  excluded_browsers: 0,
+  totals: { opened: 0, opened_browsers: 0, searches: 0, browsers: 0, picked: 0, closed: 0, nothing: 0, top_row: 0, forgiving: 0, avg_rank: null, avg_typed: null },
+  daily: [], kinds: [], players: [], picks: [], missed: [], recent: [],
+}
+
+/** `meSessions` is this browser's own id: it is the owner's even on a visit that never signed in. */
+export function fetchSearchLog(days: number, tz: string, excludeMe: boolean, section: SearchSection, meSessions: string[] = [], lim = 500): Promise<SearchLog> {
+  return callRpc('admin_search_log', { days_back: days, tz, exclude_me: excludeMe, me_sessions: meSessions, lim, sect: section }, EMPTY_SEARCH_LOG)
+}
+
+/** What the palette's `kind` means, as the Search tab labels it. */
+export const SEARCH_KIND_LABELS: Record<string, string> = {
+  result: 'Player or club', recent: 'Recent', suggestion: 'Suggested', page: 'Page', finder: 'Find',
+  leader: 'Ranking', team_rank: 'Club ranking', record: 'Record', first: 'First', compare: 'Compare',
+  matchup: 'Matchup', game: 'Game', club_page: 'Club page', definition: 'Definition', action: 'Setting',
+  other_section: 'Other section',
+}
+
+export const searchKindLabel = (k: string | null | undefined): string => (k && SEARCH_KIND_LABELS[k]) || (k ?? '—')
+
+/** Answered over finished searches: a pick that left the box. */
+export function answerRate(t: SearchLog['totals']): number | null {
+  return t.searches > 0 ? t.picked / t.searches : null
 }

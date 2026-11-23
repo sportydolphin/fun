@@ -222,8 +222,11 @@ function SeriesBody({ A, B, clubs, teams, games: allGames, players, lines: allLi
   return (
     <WpblPage
       title={`${A.name} vs ${B.name}`}
+      // BESIDE THE TITLE, not on a line of its own: the schedule that says there is a second season
+      // lands with the box scores, so a menu on its own line pushed the whole page down by its
+      // height the moment the page loaded (the layout sweep's --seasons pass).
+      aside={<SeasonMenu />}
     >
-      <SeasonMenu label="season" sx={{ mb: 1.5 }} />
       {/* ── The record ─────────────────────────────────────────────────── */}
       <Box sx={{
         display: 'grid', alignItems: 'center',

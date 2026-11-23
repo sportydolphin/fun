@@ -26,7 +26,7 @@
  */
 import { WPBL_AWARDS_CREDIT } from './awards'
 
-export type SourceKind = 'league' | 'writing' | 'data' | 'photography' | 'collaboration'
+export type SourceKind = 'league' | 'international' | 'writing' | 'data' | 'photography' | 'collaboration'
 
 export interface WpblSource {
   name: string
@@ -112,6 +112,15 @@ export const WPBL_SOURCES: readonly WpblSource[] = [
     basis: 'Mirrored with explicit permission, granted September 2026. Every card links straight to the post, with a byline on all of them. The writing is theirs.',
   },
   {
+    name: 'The Two Way Replay',
+    url: 'https://thetwowayreplay.substack.com',
+    kind: 'writing',
+    who: 'Austin Klewan, writing about the WPBL from Los Angeles on their own Substack.',
+    uses: 'For the stories they gave permission for: a headline, a dek, a cover image and a date. The article itself is never stored or shown here.',
+    seenOn: 'The Reading page, the latest post on Home, the story card on a game, and the “written about” lists on players.',
+    basis: 'Mirrored with explicit permission, granted November 2026, story by story. Every card links straight to the post, with a byline on all of them. The writing is theirs.',
+  },
+  {
     name: 'RetroWPBL',
     url: 'https://github.com/exu6jh/RetroWPBL',
     kind: 'data',
@@ -135,6 +144,18 @@ export const WPBL_SOURCES: readonly WpblSource[] = [
     basis: 'A collaboration rather than a source. The credit stays true however the traffic runs between a site and a channel covering the same league.',
   },
   {
+    // NOT BY PERMISSION, AND THE BASIS SAYS SO. WBSC was asked and has not answered; the World Cup
+    // is shown on the footing the WPBL feed is on (ROADMAP-WOMENS-BASEBALL.md, "The rollout in
+    // phases"). A "no" from WBSC removes it, which is what the Corrections card below offers.
+    name: 'WBSC',
+    url: 'https://www.wbsc.org',
+    kind: 'international',
+    who: 'The World Baseball Softball Confederation, which runs the Women’s Baseball World Cup.',
+    uses: 'World Cup box scores since 2010, read from wbsc.org and the archived IBAF pages, summed into one line per player per event.',
+    seenOn: 'The World Cup table on a WPBL player’s page, each event linked to its page on wbsc.org.',
+    basis: 'Public box scores, read as published and credited on every table. No WBSC video, photos or marks. This site is not affiliated with WBSC.',
+  },
+  {
     name: 'Wikimedia Commons',
     url: 'https://commons.wikimedia.org',
     kind: 'photography',
@@ -151,6 +172,11 @@ export const SOURCE_GROUPS: readonly { kind: SourceKind; label: string; blurb: s
     kind: 'league',
     label: 'League publications',
     blurb: 'Most of the numbers here are pulled from what the league publishes.',
+  },
+  {
+    kind: 'international',
+    label: 'International play',
+    blurb: 'The World Cup lines on WPBL players’ pages.',
   },
   {
     kind: 'writing',

@@ -113,7 +113,16 @@ Loaded when you read anything under `src/wpbl/`. The feed and ingest traps (ids,
   (`currentSeason`), so a published 2027 schedule does not blank the boards before Opening Day.
   Home, previews and the share and Discord cards pin to it; the tabs follow the reader's
   `?season=`; the ballot pins to `AWARDS_SEASON`; batter vs pitcher and the win model use every
-  season on purpose. `__tests__/seasonOnScreen.test.tsx` fails any file that reads a league-wide
+  season on purpose. **Every season at once** (`?season=all`, "All seasons" in the menu once there
+  are two) is honored only where a surface asks with `useWpblSeason(…, { all: true })`: the Stats
+  boards that rank lines or players (Players, Teams, Leaders, Bests, Find, Charts), never Overall,
+  whose run values are fit to one season's league, and never Standings or a club. Everywhere else
+  the pick reads as the current year. There `season` is null, `cut` keeps every row, the stored
+  seasons are skipped (they are one year each) and the totals are summed from the lines, so the
+  qualifying bar (`wpblQualifiers`, which scales with the games) is a career's. Find keeps one row
+  per player per YEAR unless the question asks `career`, and holds each year's row to that year's
+  bar (`finderQualify.ts`); `GameYearContext` puts the year on every game date while it is on.
+  `__tests__/seasonOnScreen.test.tsx` fails any file that reads a league-wide
   table without cutting it or saying why. **The play log is the exception that reads one year:**
   every play read is a filter over `fetchWpblPlayLog(season)` in api/plays.ts, which asks the database
   for that season alone (`null` is every season). Pass the season on screen, keep the `cut` anyway

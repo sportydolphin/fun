@@ -20,10 +20,12 @@ export function mlbGameLineLabel(game: MlbLineGame | null, teamId: string | null
 }
 
 export default function GameLineRow({
-  rank, name, player, teamId, game, detail, value, unit, divider, onOpenPlayer, onOpenGame,
-  nameOpens = 'player', emphasizeRank = true,
+  rank, tied, name, player, teamId, game, detail, value, unit, divider, onOpenPlayer, onOpenGame,
+  nameOpens = 'player', emphasizeRank = true, club: clubRow = false,
 }: {
   rank?: number
+  /** Another row shares the rank ("T-3"). */
+  tied?: boolean
   name: string
   player: MlbLinePlayer | null
   /** The club played for THAT DAY, off the line. */
@@ -40,18 +42,22 @@ export default function GameLineRow({
   nameOpens?: 'player' | 'game'
   /** The accent on the top three, where `rank` is a real standing rather than a list position. */
   emphasizeRank?: boolean
+  /** The row is a club's game rather than a player's (Find's club grain): the club's logo stands where
+   *  the headshot goes, and is not repeated beside the name. */
+  club?: boolean
 }) {
   const club = teamId ? Number(teamId) : 0
   const openGame = game && onOpenGame ? () => onOpenGame(game.gamePk) : undefined
   const link = game ? gameLink(game.gamePk, openGame) : undefined
   return (
     <GameLineFrame
-      rank={rank} emphasizeRank={emphasizeRank} name={name} detail={detail} value={value} unit={unit} divider={divider}
+      rank={rank} tied={tied} emphasizeRank={emphasizeRank} name={name} detail={detail} value={value} unit={unit} divider={divider}
       label={mlbGameLineLabel(game, teamId)}
       portrait={player
         ? <PlayerHeadshot variant="ring" playerId={player.playerId} name={name} teamId={club || undefined} size={PORTRAIT_PX} />
+        : clubRow && club > 0 ? <TeamLogo teamId={club} abbr={TEAM_ABBR[club] ?? ''} size={PORTRAIT_PX} />
         : <Box sx={{ width: PORTRAIT_PX, flexShrink: 0 }} />}
-      club={club > 0 ? <TeamLogo teamId={club} abbr={TEAM_ABBR[club] ?? ''} size={16} /> : undefined}
+      club={club > 0 && !clubRow ? <TeamLogo teamId={club} abbr={TEAM_ABBR[club] ?? ''} size={16} /> : undefined}
       rowLink={nameOpens === 'game' ? link : undefined}
       nameLink={player ? playerLink(player.playerId, name, onOpenPlayer) : undefined}
       gameLink={link}

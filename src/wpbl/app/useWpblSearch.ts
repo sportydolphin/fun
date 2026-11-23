@@ -8,13 +8,15 @@ import { useEraBasis } from '../EraBasisContext'
 import { wpblPortraitSet } from '../portraits'
 import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from '../positions'
 import { useSearchBridgeQuery, useSearchBridgeQuerySeason, updateSearchBridge, setSearchQuery, onFirstSearchFocus } from '../../mlb/state/SearchBridgeContext'
-import type { LeaderAsk, PlayerStatAsk, SearchResultRow } from '../../mlb/state/SearchBridgeContext'
+import type { AnswerGroup, PlayAnswer, LeaderAsk, PlayerQuestionRow, PlayerStatAsk, SearchResultRow } from '../../mlb/state/SearchBridgeContext'
+import type { FirstQuestion } from '../../league/firsts'
+import type { PaRecordQuestion } from '../../league/paRecords'
+import { requestPlay } from '../entryUrl'
 import { useWpblRecents } from '../recentSearches'
 import { foldName, fuzzyMatches } from '../../lib/fuzzyName'
 import { gameRow } from '../../lib/gameRow'
-import { pickGames, todayIso, type GameQuery } from '../../league/finderParse'
+import type { GameQuery } from '../../league/finderParse'
 import { useAuth } from '../../AuthContext'
-import { wpblSearchedProps } from '../searchAnalytics'
 import { jerseyQuery, jerseyOf, rankHeaderMatches } from '../playerSearch'
 import { readSearchIndex, saveSearchIndex } from '../searchIndex'
 import type { WpblTeam, WpblPlayer, WpblGame } from '../types'
@@ -22,12 +24,16 @@ import { track, EVENTS } from '../../lib/analytics'
 import {
   wpblGamePath, wpblComparePath,
 } from '../routes'
-import { currentSeason, inSeason, seasonsOnRecord } from '../season'
+import { currentSeason, inSeason, seasonGames, seasonsOnRecord } from '../season'
 import { LEAGUE_ROW } from '../derive/playerSeasons'
+import { parsePlayerFact, parseRosterQuery, rosterNote, rosterOrder } from '../rosterQuery'
 
 /** The empty result list, one array for good: the bridge compares by identity, and a fresh `[]`
  *  per publish would wake every subscriber to say nothing changed. */
 const NO_ROWS: SearchResultRow[] = []
+
+/** "May 30, 2026": the day a first happened, read as a calendar date, not a moment. */
+const firstDate = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
 /** Fetches portrait thumbnails into the browser's cache ahead of the rows that show them, once
  *  each. A row draws its avatar the moment it renders, so a picture only arrives early if it was
@@ -94,7 +100,7 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
     if (!searchActive) return
     updateSearchBridge({ isRegistered: true, source: 'wpbl' })
     return () => {
-      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], suggestedRows: [], searching: false, clearRecentSearches: null, resolveCompare: null, resolveGames: null, resolveLeader: null, resolvePlayerStat: null, seasonCount: null, resultsForgiving: { players: false, teams: false } })
+      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], suggestedRows: [], searching: false, clearRecentSearches: null, resolveCompare: null, resolveGames: null, resolveLeader: null, resolvePlayerStat: null, resolveFirsts: null, resolveMore: null, resolvePaRecord: null, resolvePlayerQuestion: null, resolveFindAnswer: null, seasonCount: null, resultsForgiving: { players: false, teams: false } })
       setSearchQuery('')
     }
   }, [searchActive])
@@ -249,6 +255,26 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
   }, [recentSearches, positionIndex])
   const matches = useMemo(() => {
     const raw = bridge.query.trim()
+    // "Lefties", "switch hitters", "youngest player": the roster answers, a player row each (rosterQuery.ts).
+    // Active players only, since the list is "who is in the league", not everyone ever signed.
+    const today = new Date().toISOString().slice(0, 10)
+    // The palette hands names only, with a typed year taken off as the season ("born in 2000" arrives
+    // as "born in"), so a roster question is read with the year put back first.
+    const year = typeof bridge.querySeason === 'number' ? bridge.querySeason : null
+    const asked = (year != null ? parseRosterQuery(`${raw} ${year}`, today) : null) ?? parseRosterQuery(raw, today)
+    if (asked) {
+      const pitcher = (pl: WpblPlayer) => /(?:^|[^A-Z])(?:P|RHP|LHP|SP|RP|TWP)(?:[^A-Z]|$)/.test(displayPositionFromIndex(pl, positionIndex).label ?? '')
+      const list = rosterOrder(players.filter(pl => pl.active && asked.keep(pl, pitcher(pl))), asked.order, today)
+      // An empty list falls through to the name search: "from" or a round nobody fits is more likely
+      // a name than a question with no answer.
+      if (list.length) return { q: raw.toLowerCase(), players: list, teams: [] as WpblTeam[], forgiving: false, roster: asked.note }
+    }
+    // "Whitmore hometown", "how old is Sato": the player's own row, leading with the fact.
+    const fact = parsePlayerFact(raw)
+    if (fact) {
+      const found = rankHeaderMatches(fact.name, players, tieWeight)
+      if (found.length) return { q: foldName(fact.name), players: found, teams: [] as WpblTeam[], forgiving: false, roster: fact.note }
+    }
     // A jersey number, answered before the name path and on a SINGLE character: "7" is a real
     // search and cannot mean anything else, since no name contains a digit. 21 of the league's
     // numbers are worn by more than one player, so this returns all of them, in league order so
@@ -278,7 +304,7 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
       t = fuzzyMatches(teams, q, tm => [`${tm.city} ${tm.name}`, tm.name, tm.city])
     }
     return { q, players: p, teams: t, forgiving }
-  }, [bridge.query, players, teams, tieWeight])
+  }, [bridge.query, bridge.querySeason, players, teams, tieWeight, positionIndex])
 
   // The World Cup's players and editions, after the WPBL's own rows. Dev only until the World Cup
   // goes public: the build replaces the flag with false and drops the import with it.
@@ -295,7 +321,16 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
   useEffect(() => {
     if (!searchActive) return
     if (!matches && !worldCupRows.length) { updateSearchBridge({ resultRows: NO_ROWS }); return }
-    const playerRows = (matches?.players ?? []).slice(0, 6).map(p => buildPlayerRow(p, 'result'))
+    const today = new Date().toISOString().slice(0, 10)
+    const roster = matches && 'roster' in matches ? matches.roster : null
+    // A roster question's rows lead with what was asked: the age, or the hand.
+    const playerRows = (matches?.players ?? []).slice(0, 6).map(p => {
+      const row = buildPlayerRow(p, 'result')
+      if (!roster) return row
+      // The row already prints the shirt number, so a number question needs no note of its own.
+      const note = roster === 'number' ? null : rosterNote(roster, p, today)
+      return note ? { ...row, subtitle: [note, row.subtitle].filter(Boolean).join(' · ') } : row
+    })
     preloadPortraits((matches?.players ?? []).slice(6, 12).map(p => wpblPortraitSet(p.name)?.src))
     const teamRows = (matches?.teams ?? []).slice(0, 4).map(t => buildTeamRow(t, 'result'))
     const forgiving = matches?.forgiving ?? false
@@ -327,7 +362,11 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
   }, [resolveCompare, searchActive])
 
   // "SF vs NY sep 9", "Firebells last night" in the palette, from the schedule already in hand.
+  // The parser's own module, fetched here rather than imported: it and league/finder.ts were 135 KB
+  // of the JavaScript every reader downloaded before Home could draw, for a search nobody had typed.
+  // A GameQuery only exists once the palette's lazy parse has run, so this is already loaded.
   const resolveGames = useCallback(async (q: GameQuery) => {
+    const { pickGames, todayIso } = await import('../../league/finderParse')
     const [first, second] = q.clubs
     const plays = (g: WpblGame, ids: string[]) => ids.includes(g.home_team_id) || ids.includes(g.away_team_id)
     const pool = games.filter(g => plays(g, first) && (!second || plays(g, second)))
@@ -357,11 +396,12 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
   const { fmtEra, basis: eraBasis } = useEraBasis()
   const loadBoard = useMemo(() => {
     const boards = new Map<string, Promise<WpblBoard>>()
-    return (season: number | null, need: { weights: boolean; plays: boolean }) => {
-      const key = `${season}|${need.weights}|${need.plays}`
+    return (season: number | null, need: { weights: boolean; plays: boolean }, post = false) => {
+      const key = `${season}|${need.weights}|${need.plays}|${post}`
       let board = boards.get(key)
       if (!board) {
-        board = import('../searchAnswers').then(m => m.loadWpblBoard({ season, schedule: games, players, teams, fmtEra, eraBasis }, need))
+        const scope = post ? 'postseason' as const : 'regular' as const
+        board = import('../searchAnswers').then(m => m.loadWpblBoard({ season, schedule: games, players, teams, fmtEra, eraBasis, scope }, need))
         boards.set(key, board)
         board.catch(() => { if (boards.get(key) === board) boards.delete(key) })
       }
@@ -374,18 +414,223 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
     const m = await import('../searchAnswers')
     const season = m.askedSeason(ask.season, games)
     if (season === undefined) return null
-    return m.wpblPlayerAnswer(player, ask, await loadBoard(season, m.boardNeeds(ask.columns)))
+    return m.wpblPlayerAnswer(player, ask, await loadBoard(season, m.boardNeeds(ask.columns), !!ask.post), players)
   }, [players, games, loadBoard])
   const resolveLeader = useCallback(async (ask: LeaderAsk) => {
     const m = await import('../searchAnswers')
     const season = m.askedSeason(ask.career ? 'career' : ask.season, games)
     if (season === undefined) return null
-    const peek = m.wpblLeaderPeek(ask, players, await loadBoard(season, m.boardNeeds({ [ask.side]: ask.sort })))
+    const peek = m.wpblLeaderPeek(ask, players, await loadBoard(season, m.boardNeeds({ [ask.side]: ask.sort }), !!ask.post))
     return peek && { ...peek, season }
   }, [players, games, loadBoard])
+  // "league batting average", "total home runs", "runs per game" (parseLeagueText): the league's own
+  // line off the same board the leader rows read, so a league ERA is on the reader's basis.
+  const leagueAnswers = useCallback(async (text: string): Promise<PlayAnswer[]> => {
+    const [{ parseLeagueText }, { boardColumn }] = await Promise.all([import('../../league/finderParse'), import('../../finderSearch')])
+    const ask = parseLeagueText(text)
+    if (!ask) return []
+    const m = await import('../searchAnswers')
+    const season = m.askedSeason(ask.season, games)
+    if (season === undefined) return []
+    const columns: Partial<Record<'hitting' | 'pitching', string>> = {}
+    for (const side of ['hitting', 'pitching'] as const) {
+      const field = ask.alias?.[side]
+      const col = field ? boardColumn('wpbl', side, field) : null
+      if (col) columns[side] = col
+    }
+    if (ask.alias && !Object.keys(columns).length) return []
+    const lean = ask.alias?.lean === 'pitching' || (!ask.alias?.hitting && ask.alias?.pitching) ? 'pitching' : ask.alias ? 'hitting' : null
+    const board = await loadBoard(season, m.boardNeeds(columns), !!ask.post)
+    return m.wpblLeagueAnswers({ columns, lean, perGame: ask.kind === 'perGame', post: !!ask.post }, board).map(r => ({ ...r, open: () => {} }))
+  }, [games, loadBoard])
+  // THE CLIP OF A PLAY, as a row of its own under the play's row: a row is a link, and a second link
+  // inside it would be one link in another. A clip read that fails costs the clips, not the answer.
+  const withClips = useCallback(async (rows: PlayAnswer[]): Promise<PlayAnswer[]> => {
+    if (!rows.some(r => r.play)) return rows
+    const { wpblPlayClips, clipRow } = await import('../searchMoreAnswers')
+    const clips = await wpblPlayClips().catch(() => new Map<string, never>())
+    return rows.flatMap(r => {
+      const clip = r.play ? clipRow(clips.get(`${r.play.gameId}|${r.play.sequence}`), r.key) : null
+      return clip ? [r, clip] : [r]
+    })
+  }, [])
+  // "first home run", "first Hunters double", "last Hunters double", "Hunters 100th hit", "firsts": the
+  // play it happened on (src/league/firsts.ts). Asked for every season, a first or an Nth walks the
+  // seasons oldest first, carrying the count across them, and a last walks them newest first; each
+  // stops at the season that has it. The log and the engine load on the first ask; the log is the one
+  // Find and Run value read, so it is often in memory.
+  const playersById = useMemo(() => new Map(players.map(p => [p.id, p])), [players])
+  const resolveFirsts = useCallback(async (ask: FirstQuestion): Promise<PlayAnswer[]> => {
+    const seasons = seasonsOnRecord(games)
+    if (ask.season != null && !seasons.includes(ask.season)) return []
+    const oldest = [...seasons].sort((a, b) => a - b)
+    const years = ask.season != null ? [ask.season] : ask.which === 'last' ? oldest.reverse() : oldest
+    // A name as typed, on the roster: the whole name, else the surname. Two players can share one,
+    // and each gets a row.
+    let owners: (WpblPlayer | null)[] = [null]
+    if (ask.who) {
+      const who = foldName(ask.who)
+      const whole = players.filter(p => foldName(p.name) === who)
+      owners = (whole.length ? whole : players.filter(p => foldName(p.name).split(' ').pop() === who)).slice(0, 3)
+      if (!owners.length) return []
+    }
+    const [{ fetchWpblPlayLog }, { plateAppearanceLines }, firsts, { WPBL_LEAGUE }, { parseFinderText }, link, { scopedGames }] = await Promise.all([
+      import('../api/plays'), import('../../league/inningLines'), import('../../league/firsts'), import('../league'),
+      import('../../league/finderParse'), import('../finderLink'), import('../../league/season'),
+    ])
+    const { occurrences, occurrenceTitle, firstKind } = firsts
+    // Each season's lines built once, whichever owners and kinds ask for it.
+    const built = new Map<number, Promise<{ yearGames: WpblGame[]; plays: Awaited<ReturnType<typeof fetchWpblPlayLog>>; lines: ReturnType<typeof plateAppearanceLines> }>>()
+    const season = (year: number) => {
+      let b = built.get(year)
+      if (!b) {
+        // The season's regular-season games, as the Find answers read them. The postseason is a slice of
+        // its own: counted in, the last Hunters double was a semifinal's, three days after the last one
+        // Find lists, and an Nth could land in October on a count the stats never reach.
+        const yearGames = scopedGames(seasonGames(games, year), 'regular')
+        b = fetchWpblPlayLog(year).then(plays => ({ yearGames, plays, lines: plateAppearanceLines(WPBL_LEAGUE, plays, yearGames) }))
+        built.set(year, b)
+      }
+      return b
+    }
+    // Every one of them on Find, for an Nth not reached yet: the board says how far there is to go.
+    const listHref = (kind: FirstQuestion['kinds'][number], owner: WpblPlayer | null): string | null => {
+      const def = firstKind(kind)
+      if (!def.find) return null
+      const side = def.by === 'pitcher' ? 'pitching' : 'hitting'
+      const read = parseFinderText(`${ask.teamId ?? ''} ${def.find}${ask.season ? ` ${ask.season}` : ''}`, link.WPBL_FINDER_CLUBS, link.WPBL_FINDER_SIDES, link.WPBL_FINDER_OPTS)
+        .find(r => r.side === side)
+      if (!read) return null
+      const who = !owner ? {} : read.per === 'pa' ? (side === 'pitching' ? { pitcherId: owner.id } : { batterId: owner.id }) : { playerId: owner.id }
+      return link.wpblFinderHref({ ...read, ...who })
+    }
+    const club = ask.teamId ? teamById.get(ask.teamId) : undefined
+    const out: PlayAnswer[] = []
+    for (const owner of owners) {
+      for (const kind of ask.kinds) {
+        let need = typeof ask.which === 'number' ? ask.which : 1
+        let found: ReturnType<typeof occurrences>[number] | null = null
+        let game: WpblGame | undefined
+        for (const year of years) {
+          const { yearGames, plays, lines } = await season(year)
+          const all = occurrences(lines, yearGames, kind, g => `${g.game_date} ${g.start_time ?? ''}`, plays,
+            { teamId: ask.teamId ?? null, playerId: owner?.id ?? null })
+          const hit = ask.which === 'last' ? all[all.length - 1] : all[need - 1]
+          if (hit) { found = hit; game = yearGames.find(g => g.id === hit.game_id); break }
+          need -= all.length
+        }
+        const named = occurrenceTitle(kind, ask.which, { club: club?.name, player: owner?.name })
+        const title = ask.season == null ? named : `${named} of ${ask.season}`
+        const key = `first-${kind}-${ask.which ?? 'first'}-${ask.season ?? 'ever'}-${owner?.id ?? ask.teamId ?? 'league'}`
+        if (!found || !game) {
+          // AN NTH STILL TO COME is an answer too: how many so far, opening the list of them. Not on a
+          // bare ask ("Hunters 100th"), which names every headline kind and would list each one's count.
+          const href = typeof ask.which === 'number' && !ask.bare ? listHref(kind, owner) : null
+          if (href) out.push({ key, title, detail: `${(ask.which as number) - need} so far · ${need} to go`, href, open: () => {} })
+          continue
+        }
+        const { sequence } = found
+        const at = game
+        // Whose it was, unless the title already says: a passed ball, a double play and a runner the
+        // log cannot place have only a club to name. A player's own says who it came against.
+        const opp = found.teamId == null ? null : found.teamId === at.home_team_id ? at.away_team_id : at.home_team_id
+        const who = owner ? (opp ? `vs ${teamById.get(opp)?.abbr ?? opp}` : undefined)
+          : playersById.get(found.playerId ?? '')?.name ?? teamById.get(found.teamId ?? '')?.name
+        out.push({
+          key, title,
+          detail: [who, firstDate(at.game_date)].filter(Boolean).join(' · '),
+          href: `${wpblGamePath(at, teams, games)}#play-${sequence}`,
+          open: () => requestPlay(at.id, sequence),
+          play: { gameId: at.id, sequence },
+        })
+      }
+    }
+    return withClips(out)
+  }, [games, players, playersById, teamById, teams, withClips])
+  // "longest at-bat", "most fouls in a PA" (src/league/paRecords.ts): ranked by the Find engine itself
+  // over the same plate-appearance lines the board reads, so the record is the board's first row. Each
+  // play that shares it, up to three, then the board for the rest.
+  const resolvePaRecord = useCallback(async (ask: PaRecordQuestion): Promise<PlayAnswer[]> => {
+    const seasons = seasonsOnRecord(games)
+    const season = ask.season === 'all' ? null : ask.season ?? currentSeason(games)
+    if (season != null && !seasons.includes(season)) return []
+    const [{ fetchWpblPlayLog }, { plateAppearanceLines }, { runFinder }, { measureText }, { WPBL_LEAGUE }, { wpblFinderHref }] = await Promise.all([
+      import('../api/plays'), import('../../league/inningLines'), import('../../league/finder'), import('../../league/paRecords'),
+      import('../league'), import('../finderLink'),
+    ])
+    const pool = season == null ? games : seasonGames(games, season)
+    const lines = plateAppearanceLines(WPBL_LEAGUE, await fetchWpblPlayLog(season), pool)
+    const { measure } = ask
+    const result = runFinder(measure.side, [], [], players, pool,
+      { conditions: ask.conditions, teamId: ask.teamId, oppId: ask.oppId, venue: ask.venue, scope: ask.scope, per: 'pa' },
+      Infinity, null, { plateAppearances: lines })
+    const best = result.rows[0]?.values[measure.field]
+    if (!best) return []
+    const tied = result.rows.filter(r => r.values[measure.field] === best)
+    const lineById = new Map(lines.map(l => [l.id, l]))
+    const name = (id: string | null) => (id ? playersById.get(id)?.name : undefined)
+    const answers: PlayAnswer[] = tied.slice(0, 3).flatMap(r => {
+      if (!r.game || !r.inning) return []
+      const line = lineById.get(`${r.game.id}|${r.inning.sequence}`)
+      if (!line) return []
+      // Whose it was: both sides of one plate appearance; the pitcher alone for a run of outs or
+      // strikeouts; the club for its home runs in a row, which several batters share.
+      const who = measure.field === 'hrrow' ? teamById.get(line.batting_team ?? '')?.name
+        : measure.side === 'pitching' && measure.field !== 'pitches' && measure.field !== 'strikes' ? name(line.pitcher_id)
+        : [name(line.batter_id), name(line.pitcher_id)].filter(Boolean).join(' vs ')
+      const game = r.game, sequence = r.inning.sequence
+      return [{
+        key: `parecord-${game.id}-${sequence}`, title: ask.title,
+        detail: [who, measureText(measure, best), firstDate(game.game_date)].filter(Boolean).join(' · '),
+        href: `${wpblGamePath(game, teams, games)}#play-${sequence}`,
+        open: () => requestPlay(game.id, sequence),
+        play: { gameId: game.id, sequence },
+      }]
+    })
+    // More than three share it: the board ranked by the same stat holds them all. A board shows one
+    // season, so an every-season record offers the plays only.
+    if (tied.length > 3 && season != null) {
+      const href = wpblFinderHref({ side: measure.side, per: 'pa', conditions: ask.conditions, teamId: ask.teamId, oppId: ask.oppId, venue: ask.venue, ignored: [], season })
+      answers.push({
+        key: `parecord-tied-${href}`, title: `${tied.length} tied at ${measureText(measure, best)}`,
+        detail: `Find · ${ask.title}`,
+        href: ask.scope === 'regular' ? href : `${href}&games=${ask.scope === 'postseason' ? 'post' : 'all'}`,
+        open: () => {},
+      })
+    }
+    return withClips(answers)
+  }, [games, players, playersById, teams, teamById, withClips])
+  // "Hunters highlights", "longest game", "Hunters streak" (src/wpbl/searchMore.ts): read off the text
+  // with the section's own data, loaded on the first ask.
+  const resolveMore = useCallback(async (text: string): Promise<AnswerGroup[]> => {
+    const ctx = { games, players, teams }
+    const [{ wpblMoreAnswers }, { wpblPitchRateAnswers }, { wpblLineupAnswers }, { wpblBigPlayAnswers }, league] = await Promise.all([
+      import('../searchMoreAnswers'), import('../searchPitchRates'), import('../searchLineup'), import('../searchBigPlays'), leagueAnswers(text)])
+    const [more, pitch, lineup, big] = await Promise.all([wpblMoreAnswers(text, ctx), wpblPitchRateAnswers(text, ctx).catch(() => []),
+      wpblLineupAnswers(text, ctx).catch(() => []), wpblBigPlayAnswers(text, ctx).then(withClips).catch(() => [])])
+    return [
+      ...(big.length ? [{ label: 'Plays', icon: 'game' as const, rows: big }] : []),
+      ...(lineup.length ? [{ label: 'Lineup', icon: 'lineup' as const, rows: lineup }] : []),
+      ...(pitch.length ? [{ label: 'Pitch by pitch', icon: 'pitches' as const, rows: pitch }] : []),
+      ...(league.length ? [{ label: 'League', icon: 'league' as const, rows: league }] : []),
+      ...more,
+    ]
+  }, [games, players, teams, leagueAnswers, withClips])
+  // "Sato vs hunters", "Whitmore off Schroder", "Whitmore 2-hit games" (src/league/playerQuestion.ts):
+  // the roster with who has hit and who has pitched, from every season's lines, which decides who is
+  // the batter in a matchup and which side a player's question is asked on.
+  const resolvePlayerQuestion = useCallback(async (text: string): Promise<PlayerQuestionRow[]> => {
+    const [{ playerQuestionRows }, { wpblFinderRoster }, lines] = await Promise.all([import('../../finderSearch'), import('../finderLink'), fetchWpblAllLines()])
+    return playerQuestionRows('wpbl', text, wpblFinderRoster(players, lines.batting, lines.pitching), id => teamById.get(id)?.name ?? id)
+  }, [players, teamById])
+  // "7 times · last Sep 2" on every row that opens Find (src/wpbl/findAnswer.ts), read off the link.
+  const resolveFindAnswer = useCallback(async (href: string) => {
+    const { wpblFindAnswerWithTarget } = await import('../findAnswer')
+    return wpblFindAnswerWithTarget(href, { schedule: games, players, teams, eraInnings: eraBasis })
+  }, [games, players, teams, eraBasis])
   useEffect(() => {
-    if (searchActive) updateSearchBridge({ resolvePlayerStat, resolveLeader })
-  }, [resolvePlayerStat, resolveLeader, searchActive])
+    if (searchActive) updateSearchBridge({ resolvePlayerStat, resolveLeader, resolveFirsts, resolvePaRecord, resolvePlayerQuestion, resolveFindAnswer, resolveMore })
+  }, [resolvePlayerStat, resolveLeader, resolveFirsts, resolvePaRecord, resolvePlayerQuestion, resolveFindAnswer, resolveMore, searchActive])
 
   // The header search is on screen on every page in the section and was entirely unmeasured.
   // One event per SETTLED query, never per keystroke: a debounce, plus a per-mount set of
@@ -402,8 +647,9 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
     const { q, players: pl, teams: tm } = matches
     const id = setTimeout(() => {
       loggedQueries.current.add(q)
-      // The miss rule, and why a stat question is not one, are in searchAnalytics.ts.
-      track(EVENTS.WPBL_SEARCHED, wpblSearchedProps(q, pl.length, tm.length))
+      // The miss rule, and why a stat question is not one, are in searchAnalytics.ts. Loaded here,
+      // not imported: it reads the query with the whole finder parser (see resolveGames).
+      void import('../searchAnalytics').then(m => track(EVENTS.WPBL_SEARCHED, m.wpblSearchedProps(q, pl.length, tm.length)), () => {})
     }, 700)
     return () => clearTimeout(id)
   }, [matches, searchActive])

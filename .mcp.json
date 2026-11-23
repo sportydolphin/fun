@@ -14,6 +14,10 @@
       "env": {
         "UV_PYTHON_DOWNLOADS": "never"
       }
+    },
+    "supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=jyqswdnbwwkmgvfkexiw&read_only=true&features=database,docs,debugging"
     }
   }
 }

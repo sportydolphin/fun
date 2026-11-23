@@ -13,6 +13,8 @@ export interface NotificationPayload {
   body:  string
   /** In-app path a click should land on. */
   url:   string
+  /** Web Push `tag` when it is not the id: one lock-screen slot for a line whose id moves. */
+  tag?:  string
 }
 
 export interface NotificationMeta {
@@ -26,7 +28,10 @@ export const NOTIFICATION_TYPES: {
   GAME_START:      string
   MILESTONE:       string
   WPBL_GAME_START: string
+  WPBL_RESIGN:     string
   ADMIN_HEALTH:    string
+  WPBL_PHOTOS_WAITING: string
+  WPBL_PHOTO_DECIDED:  string
 }
 
 export const NOTIFICATION_META: Record<string, NotificationMeta>
@@ -54,7 +59,20 @@ export function buildWpblGameStart(args: {
   minutesToStart: number
 }): NotificationPayload
 
+export function buildWpblResign(args: {
+  playerId:   string
+  playerName: string
+  teamName:   string
+  season:     number
+}): NotificationPayload
+
 export function buildAdminHealthAlert(args: {
+  key:   string
+  title: string
+  body:  string
+}): NotificationPayload
+
+export function buildLeagueNewsAlert(args: {
   key:   string
   title: string
   body:  string
@@ -67,6 +85,15 @@ export function buildMilestoneNear(args: {
   remaining:  number
   target:     number
   kind:       string
+}): NotificationPayload
+
+export function buildPhotosWaiting(args: { count: number; newestId: string }): NotificationPayload
+
+export function buildPhotoDecided(args: {
+  key:       string
+  published: number
+  declined:  number
+  reason?:   string | null
 }): NotificationPayload
 
 export const SAMPLE_BUILDERS: Record<string, () => NotificationPayload>

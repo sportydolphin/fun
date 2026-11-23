@@ -1,7 +1,25 @@
-import type { ReactNode } from 'react'
+import { createContext, useContext, type ReactNode, type RefObject } from 'react'
 import { Typography } from '@mui/material'
 import type { SxProps, Theme } from '@mui/material'
-import { nameAtStage, useLineNameFit } from './names'
+import { nameAtStage, useColumnNameFit, useLineNameFit } from './names'
+
+type ColumnFit = ReturnType<typeof useColumnNameFit<HTMLElement>>
+const NameColumnContext = createContext<ColumnFit | null>(null)
+
+/** Every `NameText` (and game-line row) inside shares ONE stage, the longest any of them needs,
+ *  so a column of names reads in one style rather than "D. Benites" above "Emi Saiki". `names`
+ *  is every name in the column, in any order: a change to it starts the fit over. */
+export function NameColumn({ names, children }: { names: string[]; children: ReactNode }) {
+  const fit = useColumnNameFit<HTMLElement>(names)
+  return <NameColumnContext.Provider value={fit}>{children}</NameColumnContext.Provider>
+}
+
+/** The column's fit when inside a `NameColumn`, else this one name's own. */
+export function useNameFit(name: string): { ref: ColumnFit['ref'] | RefObject<HTMLElement>; stage: number } {
+  const column = useContext(NameColumnContext)
+  const own = useLineNameFit<HTMLElement>([name])
+  return column ?? own
+}
 
 /** One person's name on one line, stepped down to "F. Last" when it does not fit and only then
  *  cut with an ellipsis (CLAUDE.md). A component rather than the hook alone so a row drawn inside
@@ -16,7 +34,7 @@ export function NameText({ name, sx, component = 'p', className, linkProps }: {
   component?: 'p' | 'span'
   className?: string
 }) {
-  const fit = useLineNameFit<HTMLElement>([name])
+  const fit = useNameFit(name)
   return (
     <Typography ref={fit.ref} component={component} className={className} noWrap {...linkProps} sx={sx}>
       {nameAtStage(name, fit.stage)}

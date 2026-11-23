@@ -1,0 +1,478 @@
+// /wpbl/rosters: each club's 2027 roster as it is built: who it has kept of the 10 it may, out of the
+// 2026 roster the league published, then whom it drafts, signs and releases.
+//
+// THE MOVES ARE RECORDED BY HAND (wpbl_roster_moves, /admin → Rosters), each with the link that
+// announced it, because the league publishes them nowhere a script can read. The source link is on
+// every placed row, so a reader can check any claim the page makes.
+//
+// THE CARD SHAPE HOLDS WHILE LOADING. The split between placed and unplaced comes from the moves
+// already in memory (Home's card reads them) or this browser's last read. A first visit after the
+// window closed has neither, and draws CLOSED_SHAPE: the collapsed lists no longer hold the height,
+// and the page grew by 2,000px without it.
+import { useEffect, useMemo, useState } from 'react'
+import { Box, Typography, Skeleton, useMediaQuery, useTheme } from '@mui/material'
+import { SectionCard, TYPE_SCALE, TeamBadge, TAPPABLE, FOCUS_RING, hoverOnly, chromePx } from './ui'
+import WpblPage from './WpblPage'
+import {
+  fetchWpblTeams, fetchWpblAllPlayers, fetchWpblRosterMoves, fetchWpblPlayerSeasons,
+  getCachedWpblRosterMoves, getStoredWpblRosterMoves, ROSTER_MOVES_CHANGED_EVENT,
+} from './api'
+import { wpblFullName, wpblAccent } from './constants'
+import { useDark } from '../ui/useDark'
+import { wpblPlayerPath } from './routes'
+import { NameText } from '../ui/NameText'
+import { isModified } from '../nav'
+import { track, EVENTS } from '../lib/analytics'
+import { scrollBehavior } from '../lib/motion'
+import {
+  rosterBoards, unplacedStatus, UNPLACED_LABELS, positionMix, tradedPicks, DRAFT_ORDER_2027, DRAFT_ROUNDS, MAX_RESIGNED,
+  ROSTER_EXPLAINER_URL, ROSTER_SEASON, CLUB_NAMES_2026, CLUB_CITIES, pickLabel, resignPhase,
+} from './offseason2027'
+import type { WpblPlayer, WpblRosterMove, WpblTeam } from './types'
+import type { BoardPlayer, ClubBoard } from './offseason2027'
+import { plateAppearances, type WpblBattingCounts, type WpblPitchingCounts } from './stats'
+import { outsToIp } from './innings'
+
+const SEASON_2026 = 2026
+
+/** Each club's kept group as the window closed (Nov 21, 2026, the trade included), for a first
+ *  visit's skeleton only: a move after it costs that visit a row of shift until this is updated.
+ *  `mix` is drawn invisible on every load, because the longer position lines wrap at 375 and 960
+ *  and the shorter ones do not, so no one height fits all four. */
+const CLOSED_SHAPE: Record<string, { kept: number; mix: string }> = {
+  BOS: { kept: 7, mix: '2 infielders, 3 outfielders, 2 utility players' },
+  NY: { kept: 10, mix: '2 pitchers, 1 catcher, 3 infielders, 2 outfielders, 2 utility players' },
+  SF: { kept: 10, mix: '1 pitcher, 2 catchers, 4 infielders, 2 outfielders, 1 utility player' },
+  LA: { kept: 10, mix: '3 pitchers, 2 catchers, 3 infielders, 2 outfielders' },
+}
+
+/** An announcement date ('YYYY-MM-DD') as "Nov 12". */
+function dayLabel(iso: string): string {
+  const d = new Date(`${iso}T12:00:00Z`)
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+}
+
+// PLAYING TIME, NOT WAR, beside each player still unsigned. WAR here read as a verdict on people
+// whose clubs were deciding whether to keep them, and on 30 games it is mostly noise. PA (or IP)
+// says only how much each one played in 2026, which is the thing a reader checking a club's choices
+// wants first, and it judges nobody.
+
+/** A pitcher's label, in either vocabulary: the box score's 'P' or the roster's "RHP" / "LHP". */
+const PITCHER_LABEL = /^(P|[RL]HP)$/i
+
+/** How much one player played in 2026, on the side their position says they play. */
+interface Usage { g: number; pa: number; outs: number; pitcher: boolean }
+
+function usageOf(batting: WpblBattingCounts | undefined, pitching: WpblPitchingCounts | undefined, label: string): Usage | null {
+  // A two-way player shows the side the label files them under; the other side only when the
+  // filed one has no 2026 line at all.
+  const pitcher = PITCHER_LABEL.test(label) ? !!pitching || !batting : !batting && !!pitching
+  if (pitcher && pitching) return { g: pitching.g, pa: 0, outs: pitching.outs, pitcher: true }
+  if (batting) return { g: batting.g, pa: plateAppearances(batting), outs: 0, pitcher: false }
+  return null
+}
+
+/** The amount column: PA for a hitter, IP for a pitcher. The unit stays on the value because the
+ *  one column holds both. */
+function fmtAmount(u: Usage | null): string {
+  if (!u) return '—'
+  return u.pitcher ? `${outsToIp(u.outs)} IP` : `${u.pa} PA`
+}
+
+/** Hitters, then pitchers, each most-used first, since PA and IP do not compare; no line sorts last. */
+function byUsage(ids: readonly string[], usage: (id: string) => Usage | null): string[] {
+  const rank = (u: Usage | null) => (u ? (u.pitcher ? 1 : 0) : 2)
+  const amount = (u: Usage | null) => (u ? (u.pitcher ? u.outs : u.pa) : 0)
+  return [...ids].sort((a, b) => {
+    const ua = usage(a), ub = usage(b)
+    return rank(ua) - rank(ub) || amount(ub) - amount(ua)
+  })
+}
+
+interface Season2026 {
+  batting: Map<string, WpblBattingCounts>
+  pitching: Map<string, WpblPitchingCounts>
+  pos: Map<string, string>
+}
+
+export default function RostersPage({ onNavigate }: { onNavigate: (to: string) => void }) {
+  const [teams, setTeams] = useState<WpblTeam[]>([])
+  const [players, setPlayers] = useState<WpblPlayer[]>([])
+  const [moves, setMoves] = useState<WpblRosterMove[] | null>(() => getCachedWpblRosterMoves())
+  const [season, setSeason] = useState<Season2026>({ batting: new Map(), pitching: new Map(), pos: new Map() })
+  const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set())
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([fetchWpblTeams(), fetchWpblAllPlayers(), fetchWpblRosterMoves(), fetchWpblPlayerSeasons(SEASON_2026)])
+      .then(([t, p, m, s]) => {
+        if (cancelled) return
+        setTeams(t); setPlayers(p); setMoves(m)
+        const batting = new Map<string, WpblBattingCounts>(), pitching = new Map<string, WpblPitchingCounts>()
+        const pos = new Map<string, string>()
+        for (const row of s.rows) {
+          if (row.scope !== 'regular') continue
+          if (row.batting) batting.set(row.player_id, row.batting)
+          if (row.pitching) pitching.set(row.player_id, row.pitching)
+          if (row.position) pos.set(row.player_id, row.position.position.toUpperCase())
+        }
+        setSeason({ batting, pitching, pos })
+      })
+      .catch(() => { /* the cards below draw their empty state */ })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    // An owner recording a move in another tab of /admin, or on this device: redraw from a fresh read.
+    const onChange = () => { fetchWpblRosterMoves().then(m => { if (!cancelled) setMoves(m) }) }
+    window.addEventListener(ROSTER_MOVES_CHANGED_EVENT, onChange)
+    return () => { cancelled = true; window.removeEventListener(ROSTER_MOVES_CHANGED_EVENT, onChange) }
+  }, [])
+
+  const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+  const playerById = useMemo(() => new Map(players.map(p => [p.id, p])), [players])
+  // Until the read lands, the split comes from this browser's last read (`getStoredWpblRosterMoves`),
+  // so a returning reader's cards keep their shape; the rows are skeletons either way.
+  const shapeMoves = useMemo(() => moves ?? getStoredWpblRosterMoves(), [moves])
+  const boards = useMemo(() => rosterBoards(shapeMoves ?? []), [shapeMoves])
+  const picks = useMemo(() => tradedPicks(moves ?? []), [moves])
+  const labelOf = (id: string) => {
+    const p = playerById.get(id)
+    const played = season.pos.get(id)
+    if (played) return played
+    // Both a batting and a pitching line with no majority position is a two-way player who moved
+    // around (Jill Albayati: 6 games at 3B, 5 at P, 4 in LF). The roster's first role would file
+    // them as a pitcher on a page that counts pitchers.
+    if (season.batting.has(id) && season.pitching.has(id)) return 'UTL'
+    return p ? listed(p) : ''
+  }
+  const usage = (id: string) => usageOf(season.batting.get(id), season.pitching.get(id), labelOf(id))
+  const isDark = useDark()
+  const now = Date.now()
+  const closed = resignPhase(now) === 'closed'
+  const twoColumns = useMediaQuery(useTheme().breakpoints.up('md'), { noSsr: true })
+  const reserving = loading && !shapeMoves && closed
+  const keptRows = boards.map(b => (reserving && CLOSED_SHAPE[b.teamId]?.kept) || b.kept.length)
+
+  const toggle = (teamId: string) => setExpanded(prev => {
+    const next = new Set(prev)
+    if (!next.delete(teamId)) next.add(teamId)
+    return next
+  })
+
+  const open = (href: string, e: React.MouseEvent) => {
+    track(EVENTS.WPBL_PAGE_OPEN, { page: 'rosters', kind: 'player' })
+    if (!isModified(e)) { e.preventDefault(); onNavigate(href) }
+  }
+
+  // A group of players a move placed: each row dated, and linked to the post that announced it.
+  const placedRows = (title: string, rows: readonly BoardPlayer[], noteOf?: (r: BoardPlayer) => string | undefined) => rows.length > 0 && (
+    <>
+      <SectionHead title={title} columns={PLACED_COLS} />
+      {rows.map(r => {
+        const p = r.playerId ? playerById.get(r.playerId) : undefined
+        const name = p?.name ?? r.name
+        if (loading || !name) return <RowSkeleton key={r.key} columns={PLACED_COLS} />
+        return (
+          <Row key={r.key} name={name} href={p && wpblPlayerPath(p, players)} onOpen={open}
+            meta={p ? season.pos.get(p.id) ?? listed(p) : ''} note={noteOf?.(r)} columns={PLACED_COLS}
+            cells={[<Box key="d" component="a" href={r.move.source_url} target="_blank" rel="noopener noreferrer" sx={DATE_LINK}>
+              {dayLabel(r.move.announced_on)}
+            </Box>]} />
+        )
+      })}
+    </>
+  )
+
+  const clubCards = boards.map((board, i) => {
+    const kept = keptRows[i]
+    // Both closed-window groups start collapsed, Not announced and Draft eligible. While the
+    // window is open, who is still unsigned is the news.
+    const collapsible = closed && board.unsigned.length > 0
+    const showUnsigned = !collapsible || expanded.has(board.teamId)
+    const team = teamById.get(board.teamId)
+    const title = team ? wpblFullName(team) : CLUB_NAMES_2026[board.teamId] ?? board.teamId
+    return (
+      <SectionCard key={board.teamId} id={cardId(board.teamId)} title={title}
+        titleAdornment={team ? <TeamBadge team={team} size={22} /> : <Box sx={{ width: chromePx(22), height: chromePx(22) }} />}
+        action={<Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, fontVariantNumeric: 'tabular-nums', visibility: reserving ? 'hidden' : undefined }}>
+          {kept} of {MAX_RESIGNED} kept
+        </Typography>}>
+        <Meter filled={board.kept.length} color={wpblAccent(board.teamId, isDark)} variant="card" />
+        {kept > 0 && (
+          // What the filled segments are made of, under the meter they fill. Its line is
+          // reserved while the positions load, so the rows below do not move.
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary', lineHeight: 1.3, minHeight: '1.3em', px: 0.75, mt: -0.75, mb: 1.25 }}>
+            {!loading ? positionMix(board.kept.map(r => labelOf(r.key)))
+              : closed && <Box component="span" aria-hidden sx={{ visibility: 'hidden' }}>{CLOSED_SHAPE[board.teamId]?.mix}</Box>}
+          </Typography>
+        )}
+        {/* A player traded in counts toward the 10 like a re-signing (the league's post says the
+            trade was agreed inside the window), so the group is "Kept" and the note says from where. */}
+        {reserving ? (
+          <>
+            <SectionHead title="Kept" columns={PLACED_COLS} />
+            {Array.from({ length: kept }, (_, n) => <RowSkeleton key={n} columns={PLACED_COLS} />)}
+          </>
+        ) : placedRows('Kept', board.kept, r => r.from && `From ${r.from}`)}
+        {placedRows('Signed', board.signed, r => r.from && `From ${r.from}`)}
+        {placedRows('Drafted, not signed', board.drafted,
+          r => r.from ? `From ${r.from}` : r.move.draft_round ? `Rd ${r.move.draft_round}` : undefined)}
+        {placedRows('Released', board.released)}
+        <SectionHead title={UNPLACED_LABELS[unplacedStatus(kept, now)]} columns={UNSIGNED_COLS}
+          toggle={collapsible ? {
+            expanded: showUnsigned,
+            count: loading ? undefined : board.unsigned.length,
+            onToggle: () => toggle(board.teamId),
+          } : undefined} />
+        {showUnsigned && (loading ? board.unsigned : byUsage(board.unsigned, usage)).map(id => {
+          const p = playerById.get(id)
+          if (loading || !p) return <RowSkeleton key={id} columns={UNSIGNED_COLS} />
+          const u = usage(id)
+          return (
+            <Row key={id} name={p.name} href={wpblPlayerPath(p, players)} onOpen={open}
+              meta={labelOf(id)} columns={UNSIGNED_COLS}
+              cells={[fmtAmount(u)]} />
+          )
+        })}
+        {!loading && board.unsigned.length === 0 && (
+          <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', px: 0.75, py: 0.75 }}>None</Typography>
+        )}
+      </SectionCard>
+    )
+  })
+
+  const draftCard = (
+    <SectionCard key="draft" title={`${ROSTER_SEASON} WPBL Draft`}>
+      <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 1.5, rowGap: 0.75, fontSize: TYPE_SCALE.body }}>
+        <Box component="dt" sx={{ color: 'text.secondary', fontWeight: 700 }}>Order</Box>
+        <Box component="dd" sx={{ m: 0 }}>
+          {DRAFT_ORDER_2027.map(id => teamById.get(id)?.city ?? id).join(', ')}, every round
+        </Box>
+        <Box component="dt" sx={{ color: 'text.secondary', fontWeight: 700 }}>Rounds</Box>
+        <Box component="dd" sx={{ m: 0 }}>{DRAFT_ROUNDS}</Box>
+        {/* Every pick that changed hands, from the trades: the order above is whose pick it
+            was, not who makes it. Only drawn once there is one, so a load never adds a line
+            to a card that had none. */}
+        {picks.length > 0 && (
+          <>
+            <Box component="dt" sx={{ color: 'text.secondary', fontWeight: 700 }}>Traded picks</Box>
+            <Box component="dd" sx={{ m: 0 }}>
+              {picks.map(pk => (
+                <Box key={`${pk.round}:${pk.original}`}>
+                  {pickLabel(pk.round).replace('-round pick', ' round')}: {CLUB_CITIES[pk.original] ?? pk.original}'s pick to {CLUB_CITIES[pk.holder] ?? pk.holder}
+                </Box>
+              ))}
+            </Box>
+          </>
+        )}
+        <Box component="dt" sx={{ color: 'text.secondary', fontWeight: 700 }}>Date</Box>
+        <Box component="dd" sx={{ m: 0 }}>Not announced</Box>
+        <Box component="dt" sx={{ color: 'text.secondary', fontWeight: 700 }}>Source</Box>
+        <Box component="dd" sx={{ m: 0 }}>
+          <Box component="a" href={ROSTER_EXPLAINER_URL} target="_blank" rel="noopener noreferrer"
+            sx={{ color: 'primary.main', fontWeight: 700, textDecoration: 'none', ...hoverOnly({ textDecoration: 'underline' }) }}>
+            2027 Roster Composition Explainer
+          </Box>
+        </Box>
+      </Box>
+    </SectionCard>
+  )
+
+  // TWO STACKS, NOT A GRID OF ROWS, on a wide screen: in a grid the shorter club left a hole as tall
+  // as the difference, and expanding one list opened another beside it. The draft card fills out
+  // whichever stack is shorter collapsed, so expanding a list never moves it across the page. Split
+  // in the markup rather than with CSS `order`, so tab order follows the screen at every width.
+  // A card's height is counted in rows, with one more for each group's heading.
+  const cardRows = boards.map((b, i) =>
+    [keptRows[i], b.signed.length, b.drafted.length, b.released.length].reduce((sum, n) => (n ? sum + n + 1 : sum), 0))
+  const sideRows = (side: number) => cardRows.reduce((sum, n, i) => (i % 2 === side ? sum + n : sum), 0)
+  const draftSide = sideRows(1) < sideRows(0) ? 1 : 0
+  const stacks = twoColumns
+    ? [0, 1].map(side => [...clubCards.filter((_, i) => i % 2 === side), side === draftSide && draftCard])
+    : [[...clubCards, draftCard]]
+
+  return (
+    <WpblPage title={`${ROSTER_SEASON} Rosters`}>
+      <Summary boards={boards} teamById={teamById} isDark={isDark} />
+      <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${stacks.length}, minmax(0, 1fr))`, gap: 2, alignItems: 'start' }}>
+        {stacks.map((cards, i) => (
+          <Box key={i} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>{cards}</Box>
+        ))}
+      </Box>
+    </WpblPage>
+  )
+}
+
+const cardId = (teamId: string) => `rosters-${teamId.toLowerCase()}`
+
+// EVERY CLUB'S COUNT IN ONE PLACE, above the cards: on a phone the cards stack, so without this the
+// fourth club's count is three rosters down. Each tile scrolls to its club's card. A button, not a
+// link: it moves within the page and changes no address (lib/sectionScroll.ts says why a hash
+// cannot ride WPBL's addresses). Drawn from the same boards as the cards, so it holds its shape
+// while loading the way they do; a badge not yet loaded keeps its box.
+function Summary({ boards, teamById, isDark }: { boards: ClubBoard[]; teamById: Map<string, WpblTeam>; isDark: boolean }) {
+  const jump = (teamId: string) => {
+    document.getElementById(cardId(teamId))?.scrollIntoView({ block: 'start', behavior: scrollBehavior() })
+  }
+  return (
+    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: { xs: 0.75, sm: 1 }, mb: 2 }}>
+      {boards.map(board => {
+        const team = teamById.get(board.teamId)
+        const n = board.kept.length
+        return (
+          <Box key={board.teamId} component="button" type="button" onClick={() => jump(board.teamId)}
+            aria-label={`${team ? wpblFullName(team) : CLUB_NAMES_2026[board.teamId] ?? board.teamId}: ${n} of ${MAX_RESIGNED} kept`}
+            sx={{
+              all: 'unset', boxSizing: 'border-box', cursor: 'pointer', minWidth: 0,
+              display: 'flex', flexDirection: 'column', gap: 0.75, p: 1,
+              border: '1px solid', borderColor: 'outline', borderRadius: 2, bgcolor: 'background.paper',
+              ...TAPPABLE, ...FOCUS_RING,
+            }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+              {team ? <TeamBadge team={team} size={20} /> : <Box sx={{ width: chromePx(20), height: chromePx(20), flexShrink: 0 }} />}
+              {/* Four tiles across a phone leave no room for the abbreviation beside the count; the
+                  badge names the club there, and the label names it to a screen reader. */}
+              <Typography component="span" sx={{ display: { xs: 'none', sm: 'inline' }, fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary' }}>
+                {board.teamId}
+              </Typography>
+              <Typography component="span" sx={{ ml: 'auto', fontSize: TYPE_SCALE.body, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+                {n}<Box component="span" sx={{ color: 'text.secondary', fontWeight: 600 }}>/{MAX_RESIGNED}</Box>
+              </Typography>
+            </Box>
+            <Meter filled={n} color={wpblAccent(board.teamId, isDark)} variant="tile" />
+          </Box>
+        )
+      })}
+    </Box>
+  )
+}
+
+// THE CARD HAS THREE KINDS OF TEXT, AND EACH HAS ONE LOOK. A section title (uppercase, primary ink)
+// names a group of players; a column header (normal case, secondary ink, right-aligned over its
+// values) names what a column holds; a value sits under its header at a fixed width. Until Nov 14,
+// 2026 the section titles, their right-hand notes ("1 OF", "2026") and the values all shared the
+// secondary micro style, so "1 OF" read as "1 of" and nothing said what "Nov 13" or "15 G · 58 PA"
+// were. The position count is a line of its own under the meter, spelled out. Fixed widths in rem (they hold type, so they grow with it) keep each column straight down
+// the card and its header straight above it.
+interface Column { header: string; width: string }
+const PLACED_COLS: readonly Column[] = [{ header: 'Announced', width: '4.75rem' }]
+// One playing-time column, not G beside it: a narrow games column sat alone mid-row, and PA or IP
+// already says how much each player played.
+const UNSIGNED_COLS: readonly Column[] = [{ header: 'PA / IP', width: '4.75rem' }]
+
+// One definition each for a row and its skeleton, so the two cannot drift apart.
+const ROW = {
+  display: 'flex', alignItems: 'center', gap: 1, px: 0.75, py: 0.6, minHeight: chromePx(36),
+  borderRadius: 1, fontSize: TYPE_SCALE.body,
+} as const
+const NAME = { fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.3 } as const
+const META = { fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary', width: '3em', flexShrink: 0 } as const
+const CELL = { flexShrink: 0, textAlign: 'right', fontSize: TYPE_SCALE.meta, fontWeight: 600, fontVariantNumeric: 'tabular-nums' } as const
+
+function Cells({ columns, children }: { columns: readonly Column[]; children: (c: Column, i: number) => React.ReactNode }) {
+  return (
+    <Box sx={{ ml: 'auto', display: 'flex', gap: 1, flexShrink: 0 }}>
+      {columns.map((c, i) => <Box key={c.header} sx={{ ...CELL, width: c.width }}>{children(c, i)}</Box>)}
+    </Box>
+  )
+}
+
+interface Toggle { expanded: boolean; count?: number; onToggle: () => void }
+
+/** A group's title, with its column headers on the same line over their values. With a toggle the
+ *  whole line is the target: the button stretches over it by its ::after, as a Row's link does, so
+ *  the column header stays out of the button's name. No column header over a collapsed group. */
+function SectionHead({ title, columns, toggle }: { title: string; columns: readonly Column[]; toggle?: Toggle }) {
+  return (
+    <Box sx={toggle
+      ? { ...ROW, ...TAPPABLE, position: 'relative', mt: 1 }
+      : { display: 'flex', alignItems: 'baseline', gap: 1, px: 0.75, pt: 1.5, pb: 0.25, '&:first-of-type': { pt: 0 } }}>
+      <Typography component="h3" sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', flexShrink: 0 }}>
+        {toggle ? (
+          <Box component="button" type="button" onClick={toggle.onToggle} aria-expanded={toggle.expanded}
+            sx={{
+              all: 'unset', cursor: 'pointer', display: 'flex', gap: 0.75,
+              '&::after': { content: '""', position: 'absolute', inset: 0, borderRadius: 1 },
+              '&:focus-visible::after': FOCUS_RING['&:focus-visible'],
+            }}>
+            {title}
+            {toggle.count !== undefined && <Box component="span" sx={{ color: 'text.secondary' }}>{toggle.count}</Box>}
+            <span aria-hidden>{toggle.expanded ? '▴' : '▾'}</span>
+          </Box>
+        ) : title}
+      </Typography>
+      {toggle?.expanded !== false && (
+        <Cells columns={columns}>{c => <Typography component="span" sx={COLUMN_HEAD}>{c.header}</Typography>}</Cells>
+      )}
+    </Box>
+  )
+}
+const COLUMN_HEAD = { fontSize: TYPE_SCALE.micro, fontWeight: 600, color: 'text.secondary' } as const
+
+// THE WHOLE ROW OPENS THE PLAYER, not just the name: the row already lights up on hover, and a tap on
+// the position or the playing time used to do nothing. One link (the name) stretched over the row by
+// its ::after, so there is still one real <a href> per player and no link nested in another; the
+// placed row's source date sits above the stretch (DATE_LINK) and stays its own link.
+// A TRADE IS SHOWN ONLY BY THE CLUB THAT GOT THE PLAYER: this page is who is on each 2027 roster, and
+// Home's Transactions card has both sides. A "Traded" group under the old club listed the player twice.
+// A TRADE'S NOTE ("From NY") SITS ON THE NAME'S LINE, not in the position column, which is sized
+// for "UTL" and wrapped a sentence into five lines, nor on a second line, which would make the row
+// taller than its skeleton. The name measures the room the note leaves and shortens to fit.
+function Row({ name, href, meta, note, columns, cells, onOpen }: {
+  name: string; href?: string; meta: string; note?: string; columns: readonly Column[]; cells: React.ReactNode[]
+  onOpen: (href: string, e: React.MouseEvent) => void
+}) {
+  return (
+    <Box sx={{ ...ROW, ...(href ? TAPPABLE : {}), position: 'relative' }}>
+      <Typography component="span" sx={META}>{meta}</Typography>
+      <Box sx={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'baseline', gap: 0.75 }}>
+        <Box sx={{ minWidth: 0, flex: note ? '0 1 auto' : 1 }}>
+          <NameText name={name} component="span"
+            sx={{
+              ...NAME, display: 'block', color: 'text.primary', textDecoration: 'none',
+              ...(href ? { '&::after': { content: '""', position: 'absolute', inset: 0 } } : {}),
+            }}
+            // No page to open for a player who is not in wpbl_players yet.
+            linkProps={href ? { component: 'a', href, onClick: (e: React.MouseEvent) => onOpen(href, e) } : undefined} />
+        </Box>
+        {note && <Typography component="span" noWrap sx={{ flexShrink: 0, fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{note}</Typography>}
+      </Box>
+      <Cells columns={columns}>{(_, i) => cells[i]}</Cells>
+    </Box>
+  )
+}
+
+/** A link inside a row, lifted above the row's stretched player link so it keeps its own target. */
+const DATE_LINK = { position: 'relative', zIndex: 1, color: 'text.secondary', textDecoration: 'none', ...hoverOnly({ textDecoration: 'underline' }) } as const
+
+/** The players the club has kept so far against the cap, one segment each. Drawn at 0 while loading, the
+ *  same box either way. Ornament: the "N of 10" beside the title carries the number. Filled in the
+ *  club's accent, not its primary: every primary is near-black and vanishes on the dark page, and
+ *  the accent is the variant tuned to read as a bar fill in both themes. */
+function Meter({ filled, color, variant }: { filled: number; color: string; variant: 'card' | 'tile' }) {
+  const compact = variant === 'tile'
+  return (
+    <Box aria-hidden sx={{ display: 'grid', gridTemplateColumns: `repeat(${MAX_RESIGNED}, 1fr)`, gap: compact ? '2px' : '3px', ...(compact ? {} : { px: 0.75, pb: 1.5 }) }}>
+      {Array.from({ length: MAX_RESIGNED }, (_, i) => (
+        <Box key={i} sx={{ height: compact ? 4 : 6, borderRadius: compact ? '1px' : '2px', bgcolor: i < filled ? color : 'divider' }} />
+      ))}
+    </Box>
+  )
+}
+
+function RowSkeleton({ columns }: { columns: readonly Column[] }) {
+  return (
+    <Box sx={ROW}>
+      <Box sx={META}><Skeleton width="80%" /></Box>
+      <Box sx={{ ...NAME, flex: 1 }}><Skeleton width="55%" /></Box>
+      <Cells columns={columns}>{() => <Skeleton />}</Cells>
+    </Box>
+  )
+}
+
+/** The roster's own listing, first role only: "RHP, UTL" is two labels in a column sized for one,
+ *  and the first is the one the club filed the player under. Only for a player with no 2026 line.
+ *  "RHP" / "LHP" read as "P" so the column matches the box score's labels above and below it. */
+function listed(p: WpblPlayer): string {
+  const first = (p.position ?? '').split(',')[0].trim()
+  return PITCHER_LABEL.test(first) ? 'P' : first
+}

@@ -3,7 +3,6 @@ import { sumBatting, sumPitching, sumFielding, plateAppearances, isBattingGame }
 import { scopedLines, type SeasonScope } from '../season'
 import { computeWpblPlayerRanks } from '../percentiles'
 import type { EraBasis } from '../stats'
-import { outsToIp } from '../constants'
 
 import { positionsPlayed, leadsWithPitching, playedPosition } from '../positions'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine } from '../types'
@@ -119,38 +118,17 @@ export function usePlayerSeason({ player, players, teams, games, seasonGames, se
   //
   // THE RETRACTION SITS WITH THE CLAIM. This line runs directly under the headline rates, the
   // largest type on the card: a 6 AB player's `1.292` is set large, and a caveat a column away
-  // in small gray type is not one a reader meets before believing the number. Naming the actual
-  // bar here also says how far off the player is and what they are off from, in the same glance
-  // as the figure it qualifies.
+  // in small gray type is not one a reader meets before believing the number.
   //
-  // The league's own bar is preferred over the local one whenever ranks have loaded, so this
-  // line and the rail below it cannot disagree about whether the player counts. `BAT_SMALL_AB`
-  // and `PIT_SMALL_OUTS` stay as the fallback for the window before `fetchWpblAllLines` lands
-  // and for a season too young to have set a bar at all, where there is no number to name yet.
+  // The caption is the verdict only. PA, IP, games and the record are columns of the line, and
+  // the distance to the bar is the `RankProgress` meter's job ("1 more PA"); printing either here
+  // too put the same fact on the card twice. Under the league's bar is a small sample by
+  // definition, so the two can never disagree about whether the player counts. `BAT_SMALL_AB`
+  // and `PIT_SMALL_OUTS` cover the window before `fetchWpblAllLines` lands and a season too
+  // young to have set a bar at all.
   const BAT_SMALL_AB = 25, PIT_SMALL_OUTS = 30 // < ~25 AB / < 10.0 IP reads as small sample
-  const qual = ranks?.qualifiers
-  // THE GAP, NOT THE BAR. `RankProgress` at the foot of the rail prints the distance to the bar
-  // ("1 more PA"), so printing the threshold here ("29 PA to qualify") would give one fact two
-  // numbers on one card, with the bigger one under the headline where it reads as a quantity
-  // still owed. Twenty-nine of anything also sounds like a season away in a league that plays
-  // fifteen games.
-  //
-  // The gap is the better retraction anyway. The bar's job here is to disown the large number
-  // above it, and "1 PA from qualifying" does that while saying the more interesting thing: the
-  // player is about to count. The meter below still draws the arithmetic; this is its headline.
-  const paGap = qual ? Math.max(0, qual.minPa - plateAppearances(bt)) : 0
-  const outsGap = qual ? Math.max(0, qual.minOuts - pt.outs) : 0
-  // Falling through to 'small sample' on a zero gap is deliberate rather than defensive: it
-  // cannot happen while this line and `computeWpblPlayerRanks` agree on the bar, and if they
-  // ever stop agreeing, a vaguer caveat is a better failure than "0 PA from qualifying".
-  const battingMeta = `${plateAppearances(bt)} PA`
-    + (ranks?.batReason === 'below-bar' && paGap > 0 ? ` · ${paGap} PA from qualifying`
-      : bt.ab < BAT_SMALL_AB ? ' · small sample' : '')
-  // No IP here: it is a column on the pitching line now. The gap to the bar is still
-  // measured in innings, because that is the unit the bar is set in.
-  // Games and the record are columns of the line, so the caption keeps only the sample's verdict.
-  const pitchingMeta = ranks?.pitReason === 'below-bar' && outsGap > 0 ? `${outsToIp(outsGap)} IP from qualifying`
-    : pt.outs < PIT_SMALL_OUTS ? 'Small sample' : ''
+  const battingMeta = ranks?.batReason === 'below-bar' || bt.ab < BAT_SMALL_AB ? 'Small sample' : ''
+  const pitchingMeta = ranks?.pitReason === 'below-bar' || pt.outs < PIT_SMALL_OUTS ? 'Small sample' : ''
   return {
     bt, pt, ft, battingLog, pitchingLog, hasPostseason, hasBatting, hasPitching, hasSeasonBatting, hasSeasonPitching,
     hasFielding, fieldedPositions, ranks, valueOn, myValue, ranksPending, batRankPool, pitRankPool,

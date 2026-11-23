@@ -11,9 +11,12 @@ import { typePx } from '../../ui/scale'
 import { NameText } from '../../ui/NameText'
 import { PillGroup } from '../../ui/PillGroup'
 import { ActiveFilterChip, FilterChip, FilterSelect } from '../../ui/FilterChip'
-import { matchesPositionFilter, positionFilterDef, type PositionFilter } from '../../league/positionFilter'
+import { matchesPositionFilter, parsePositionFilter, positionFilterDef, positionOnSide, positionOptions, type PositionFilter } from '../../league/positionFilter'
 import { CARD_BORDER, TYPE_SCALE } from '../../ui/card'
 import { pressable, FOCUS_RING } from '../../ui/interaction'
+import { ExportLinks, type ExportKind } from '../../ui/ExportLinks'
+import { track, EVENTS } from '../../lib/analytics'
+import { copyText, downloadCsv, exportFilename, toCsv, toTsv, type ExportCol } from '../../ui/exportTable'
 import { sortBoard, ascFor, isBestFirst, leagueLine } from '../lib/statsBoard'
 import { printedRanks } from '../../ui/leaders'
 import { ExpandRow, TABLE_CAP } from '../../ui/ExpandRow'
@@ -146,14 +149,16 @@ export function StatsView({
   // Every row with its advanced figures beside StatsAPI's, so a sort on either reads one line.
   // Narrowed to a position or role first, so the qualifier, the ranks and the count all speak of the
   // players on screen. The league line below still reads the whole pool, as it does for qualifying.
+  // The filter as this side takes it (positionOnSide): "Starters" waits while Hitting is on screen.
+  const whoOn = positionOnSide(who, lbGroup)
   const rows = useMemo(() => {
     if (!lbData) return null
-    const pool = who
-      ? lbData.filter(e => matchesPositionFilter(who, e.position,
+    const pool = whoOn
+      ? lbData.filter(e => matchesPositionFilter(whoOn, e.position,
         lbGroup === 'pitching' ? { g: Number(e.stat?.gamesPlayed ?? e.stat?.gamesPitched ?? 0), gs: Number(e.stat?.gamesStarted ?? 0) } : null))
       : lbData
     return withAdvanced(pool, lbGroup, saberMap, parkMap)
-  }, [lbData, lbGroup, saberMap, parkMap, who])
+  }, [lbData, lbGroup, saberMap, parkMap, whoOn])
 
   // ── What a reversed sort means in all-time mode ───────────────────────
   // The career pool is a union of per-stat *leaders*, not the ~22k-player
@@ -347,6 +352,27 @@ export function StatsView({
     allTime ? whoWord : activeDef.isRate && !lbQualified ? 'everyone' : null,
     allTime || shownScope !== 'regular' || vizSeason !== CURRENT_SEASON ? scopeWord : null,
   ].filter(Boolean).join(' · ')
+  // THE BOARD AS A FILE, WPBL's rule: every row in the board's order, the view's columns, each cell
+  // as the table prints it, and the name in full rather than the column's "F. Last".
+  const exportBoard = async (kind: ExportKind): Promise<boolean> => {
+    const indexed = rankedAll.map((e, i) => ({ e, i }))
+    const cols: ExportCol<{ e: LeaderboardEntry; i: number }>[] = [
+      { label: 'Rank', cell: ({ i }) => ranks[i]?.rank ?? null },
+      { label: 'Player', cell: ({ e }) => e.playerName },
+      { label: 'Team', cell: ({ e }) => e.teamAbbr || null },
+      { label: 'Pos', cell: ({ e }) => e.position ?? null },
+      ...statDefs.map(d => ({ label: d.label, cell: ({ e }: { e: LeaderboardEntry }) => d.format(d.getValue(e.stat)) })),
+    ]
+    let how: string
+    if (kind === 'copy') {
+      how = (await copyText(toTsv(indexed, cols))) ? 'copy' : 'failed'
+    } else {
+      const parts = ['mlb', allTime ? 'career' : vizSeason, shownScope === 'regular' ? null : shownScope, lbGroup, shownView, who]
+      how = await downloadCsv(toCsv(indexed, cols), exportFilename(parts, 'csv'))
+    }
+    track(EVENTS.MLB_STATS_EXPORTED, { kind, how, group: lbGroup, view: shownView, rows: indexed.length })
+    return how !== 'failed'
+  }
   const boardFoot = (n: number | null, shown?: number) => (
     <Box ref={footRef} sx={{ ...TABLE_FOOT_SX, flexWrap: phoneTable ? 'wrap' : undefined }}>
       {phoneTable
@@ -358,16 +384,17 @@ export function StatsView({
           <PillGroup options={VIEW_OPTIONS} value={shownView} onChange={v => switchView(v as TableView)} />
         </Box>
       )}
+      {n != null && n > 0 && <ExportLinks onExport={exportBoard} isNarrow={!isDesktop} />}
       {!isDesktop && (
         <Box {...pressable(toggleFullTable)} sx={{
-          ...FOCUS_RING, ml: 'auto', flexShrink: 0, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
+          ...FOCUS_RING, ml: n != null && n > 0 ? 0.5 : 'auto', flexShrink: 0, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
           minHeight: 34, px: 1.25, display: 'inline-flex', alignItems: 'center', borderRadius: 999,
           border: '1px solid', borderColor: CARD_BORDER, fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)',
         }}>{fullTable ? 'Ranked list' : 'Full table'}</Box>
       )}
     </Box>
   )
-  const filtersSet = allTime || vizSeason !== CURRENT_SEASON || shownScope !== 'regular' || (activeDef.isRate && !allTime && !lbQualified)
+  const filtersSet = whoOn != null || allTime || vizSeason !== CURRENT_SEASON || shownScope !== 'regular' || (activeDef.isRate && !allTime && !lbQualified)
 
 
   return (
@@ -405,6 +432,16 @@ export function StatsView({
           </Box>
         </Box>
         <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0 }}>
+          {/* The position or role, as WPBL's board has it beside its clubs. */}
+          {setWho && (
+            <FilterSelect
+              ariaLabel="Position"
+              value={whoOn ?? ''}
+              options={[{ value: '', label: 'All positions' }, ...positionOptions(lbGroup).map(d => ({ value: d.key, label: d.plural }))]}
+              onChange={v => { setWho(parsePositionFilter(v)); setLbStatsLimit(50) }}
+              active={whoOn != null}
+            />
+          )}
           {/* A chip, the row's one control language (src/ui/FilterChip). */}
           <FilterSelect
             ariaLabel="Season"
@@ -431,9 +468,10 @@ export function StatsView({
       </Box>}
       </StatsBar>
 
-      {who && setWho && (
+      {/* On a phone the position says so above the table, its picker being in the Filters sheet. */}
+      {whoOn && setWho && !isDesktop && (
         <Box sx={{ display: 'flex', mb: 1 }}>
-          <ActiveFilterChip label={positionFilterDef(who).plural} onClear={() => setWho(null)} />
+          <ActiveFilterChip label={positionFilterDef(whoOn).plural} onClear={() => setWho(null)} />
         </Box>
       )}
 
@@ -724,7 +762,13 @@ export function StatsView({
             }}
             scope={shownScope} scopes={scopes} onScope={sc => { setGameScope(sc); setLbStatsLimit(50) }}
             canQualify={activeDef.isRate && !allTime} qualified={lbQualified}
-            onQualified={() => { setLbQualified(q => !q); setLbStatsLimit(50) }} />} />
+            onQualified={() => { setLbQualified(q => !q); setLbStatsLimit(50) }}
+            // The tiles are a fifth of the sheet wide, so a position is its abbreviation ("2B", "SP").
+            choices={setWho ? [{
+              title: 'Position', value: whoOn ?? '',
+              options: [{ value: '', label: 'All' }, ...positionOptions(lbGroup).map(d => ({ value: d.key, label: d.key }))],
+              onChange: v => { setWho(parsePositionFilter(v)); setLbStatsLimit(50) },
+            }] : undefined} />} />
       )}
     </Box>
   )

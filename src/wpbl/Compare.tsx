@@ -32,7 +32,7 @@ import type { WpblMatchupPlay } from './derive/matchups'
 import { SectionCard, TeamBadge, PlayerPortrait, chromePx, TextGhost } from './ui'
 import {
   CompareHead, CompareHeadSkeleton, CompareBlocksCard, CompareBlocksSkeleton, HeadToHeadCard, HeadToHeadSkeleton,
-  ComparePicker, CompareAgainLink, duelLine, HEAD_CARD, VS_SX, PICK_SLOT, GHOST_HEAD_NAME,
+  ComparePicker, CompareAgainLink, duelLine, HEAD_CARD, VS_SX, PICK_SLOT, PICK_SLOT_LABEL, GHOST_HEAD_NAME,
   type ComparePick, type HeadToHeadView,
 } from '../ui/compare'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
@@ -146,6 +146,22 @@ function PlayerPicker({ candidates, teams, positionOf, onPick, skeleton }: {
 }
 
 // ─── The page ─────────────────────────────────────────────────────────────────
+
+/**
+ * The names a compare address spells, for the loading page: "emi-saiki-vs-ayami-sato" gives
+ * "Emi Saiki" and "Ayami Sato". A shared name's 8-character id suffix is dropped.
+ *
+ * WHY THE SKELETON NEEDS THEM: its title was "Firstn Lastnm vs Firstn Lastnm", two lines on a phone,
+ * and most real pairs fit on one, so every card under it jumped 29px up when the roster landed.
+ * Accents are not in the slug, which costs a ghost a sliver of width and never a line.
+ */
+export function namesFromCompareSlug(slug: string): string[] {
+  const name = (part: string) => part.split('-')
+    .filter((w, i, all) => !(i === all.length - 1 && i > 0 && /^[0-9a-f]{8}$/.test(w)))
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+  const at = slug.toLowerCase().indexOf(WPBL_COMPARE_JOIN)
+  return (at < 0 ? [slug] : [slug.slice(0, at), slug.slice(at + WPBL_COMPARE_JOIN.length)]).map(name)
+}
 
 /**
  * ONE SEASON'S PAIR, the current one unless the address names another (`?season=2026`), with the
@@ -323,19 +339,20 @@ function ComparePageBody({ path, onNavigate }: {
   const skeleton = loading && players.length === 0
   const shape = !slug ? 'none' : slug.toLowerCase().includes(WPBL_COMPARE_JOIN) ? 'pair' : 'single'
   if (skeleton) {
+    const [ghostA = GHOST_HEAD_NAME, ghostB = GHOST_HEAD_NAME] = slug ? namesFromCompareSlug(slug) : []
     return (
       <WpblPage
         maxWidth={chromePx(560)}
-        title={shape === 'pair' ? <TextGhost>{GHOST_HEAD_NAME} vs {GHOST_HEAD_NAME}</TextGhost> : 'Compare players'}
-        standfirst={shape === 'single' ? <>vs <TextGhost>{GHOST_HEAD_NAME}</TextGhost></> : undefined}
+        title={shape === 'pair' ? <TextGhost>{ghostA} vs {ghostB}</TextGhost> : 'Compare players'}
+        standfirst={shape === 'single' ? <>vs <TextGhost>{ghostA}</TextGhost></> : undefined}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
           {shape === 'pair' && <SeasonMenu label="season" />}
           {shape !== 'none' && (
             <Box sx={HEAD_CARD}>
-              <CompareHeadSkeleton withChange={shape === 'pair'} />
+              <CompareHeadSkeleton withChange={shape === 'pair'} name={ghostA} />
               <Typography aria-hidden sx={VS_SX}>vs</Typography>
-              {shape === 'pair' ? <CompareHeadSkeleton withChange /> : <Box sx={PICK_SLOT}>Pick somebody below</Box>}
+              {shape === 'pair' ? <CompareHeadSkeleton withChange name={ghostB} /> : <Box sx={PICK_SLOT}>{PICK_SLOT_LABEL}</Box>}
             </Box>
           )}
           {shape === 'pair' ? (
@@ -394,9 +411,7 @@ function ComparePageBody({ path, onNavigate }: {
               onClear={() => onNavigate(wpblCompareStartPath(pair[0], players))}
             />
           ) : (
-            <Box sx={PICK_SLOT}>
-              Pick somebody below
-            </Box>
+            <Box sx={PICK_SLOT}>{PICK_SLOT_LABEL}</Box>
           )}
         </Box>
       )}

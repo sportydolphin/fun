@@ -1,0 +1,58 @@
+name: WPBL News Watch
+
+on:
+  schedule:
+    # Every 3 hours, year-round. Between seasons the league announces things in posts, pages,
+    # player records and Shorts that no other job reads, and the stats feed will carry the next
+    # season with no announcement at all. Daily would sit on a schedule release for most of a
+    # day; each run is a few dozen small GETs, so there is nothing to save by going slower.
+    - cron: '20 */3 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'normal = check and alert. dry-run = report only. status = each source''s last read. reseed = record everything as seen, silently. test = send one sample push and Discord post.'
+        required: true
+        default: 'status'
+        type: choice
+        options: [status, dry-run, normal, reseed, test]
+
+concurrency:
+  group: wpbl-news-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      # `pg` rather than the supabase client: the state, the owner's push subscriptions and the
+      # heartbeat are all a few queries on SUPABASE_DB_URL, as in the tracking watch.
+      - name: Install dependencies
+        uses: ./.github/actions/script-deps
+        with:
+          packages: 'pg web-push'
+
+      - name: Check every league source
+        env:
+          SUPABASE_DB_URL:            ${{ secrets.SUPABASE_DB_URL }}
+          VAPID_PUBLIC_KEY:           ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY:          ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT:              ${{ secrets.VAPID_SUBJECT }}
+          # The ops channel, never a fan one: this is the owner's news desk.
+          DISCORD_ALERTS_WEBHOOK_URL: ${{ secrets.DISCORD_ALERTS_WEBHOOK_URL }}
+          MODE:                       ${{ inputs.mode }}
+        # A scheduled run has no `inputs`, so MODE is empty and falls through to the real check.
+        run: |
+          case "$MODE" in
+            status)   node scripts/watch-wpbl-news.mjs --status ;;
+            dry-run)  node scripts/watch-wpbl-news.mjs --dry-run ;;
+            reseed)   node scripts/watch-wpbl-news.mjs --reseed ;;
+            test)     node scripts/watch-wpbl-news.mjs --test ;;
+            *)        node scripts/watch-wpbl-news.mjs ;;
+          esac

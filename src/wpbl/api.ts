@@ -44,7 +44,8 @@ export {
   getCachedWpblFanPhotoIndex, fetchWpblFanPhotoIndex, type WpblFanPhotoRow, fetchWpblFanPhotoQueue,
   setFanPhotoApproved, updateFanPhoto, addFanPhotoSubject, removeFanPhotoSubject,
   upsertFanPhotoCategory, upsertFanPhotoFigure, findFanPhotoBySha, insertFanPhoto,
-  fetchFanPhotoContributors, createFanPhotoContributor, updateFanPhotoContributor
+  fetchFanPhotoContributors, createFanPhotoContributor, updateFanPhotoContributor,
+  fetchR2StorageSnapshots, type R2StorageSnapshot
 } from './api/photos'
 export {
   photoTagKey, fetchPhotosToTag, suggestPhotoTags, reportPhoto,
@@ -53,3 +54,16 @@ export {
   type PhotoToTag, type TagSubject, type TagAnswer, type ReportReason,
   type PhotoTagSuggestion, type PhotoReport, type PhotoTagBlock, type PhotoTagReview,
 } from './api/photoTagging'
+export {
+  fetchPendingPhotoSubmissions, fetchSubmissionRender, approvePhotoSubmission, rejectPhotoSubmission,
+  blockPhotoUploader, daysLeft, type PhotoSubmission, type SubmissionSubject,
+  fetchUploadTerms, submitPhoto, fetchMySubmissions, removeMySubmission,
+  type UploadTerms, type SubmitAnswer, type MySubmission,
+} from './api/photoSubmissions'
+export {
+  getCachedWpblRosterMoves, getStoredWpblRosterMoves, fetchWpblRosterMoves, ROSTER_MOVES_CHANGED_EVENT,
+  saveWpblRosterMove, deleteWpblRosterMove, type NewRosterMove
+} from './api/offseasonMoves'
+export {
+  type WpblNotePost, fetchWpblNotePosts, saveWpblNotePost, deleteWpblNotePost
+} from './api/notePosts'

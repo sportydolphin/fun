@@ -43,7 +43,8 @@ spring against the new feed rather than now against a guess of it. **Everything 
 is durable or it is nothing**: the question for each item is whether it is a reason to open
 `/wpbl` in November.
 
-Dated things left:
+Dated things left (the league's own offseason dates, applications through free agency, are in
+[ROADMAP-PRIORITIES.md](ROADMAP-PRIORITIES.md), "The 2027 offseason calendar"):
 
 - ~~**Oct 1, 2026**: the fan-award results come off Home and the season card goes full width.~~ ✅
   *Happens on its own at `AWARDS_RESULTS_UNTIL` in `awards.ts`; nothing to do.*
@@ -240,6 +241,8 @@ item 2 describes, which is why that item comes first.
    (and Retrosheet-style event files where RetroWPBL's permission covers it), credited, and an
    embeddable standings and box-score widget for the two writers. Links are the brake on search
    (#3), and a dataset and a widget are the two things other sites link to without being asked.
+   The JSON is published since Nov 7, 2026 at `/data/wpbl/index.json`; the page and the CSV since
+   Nov 8 (`/wpbl/data`). The widget is left.
 9. **Google Play.** A signed build works on a device; what is left is Play's own process
    ([docs/ANDROID.md](docs/ANDROID.md)).
 
@@ -274,11 +277,13 @@ and the reasoning; where the two disagree, `/admin` is the order.
   included. The partition test replays the migrations rather than `supabase gen types`, so CI needs
   no database; it found `tracking_checked_at` in neither list (ingest-only, now named as such).
   Deployed Oct 20, 2026; the first run under it was clean (`ok: true`, 40 games, no errors).
-- *P2, cheap now.* Freeze past seasons as static JSON (R2 or `/data/2026/*.json`, immutable
-  cache), which also becomes the open-data download. A `size-limit` bundle budget in CI. `knip`
-  for dead exports and files.
-- *P3.* Prefetch on link hover or visibility. Archive old MLB line tables to R2 or Parquet before
-  the 8 GB disk fills. Replace `html2canvas` (unmaintained) with `modern-screenshot` or
+- ✅ *P2, Nov 7, 2026.* Past seasons frozen as static JSON: the weekly `archive/` in git, now
+  published at `/data/wpbl/` (`index.json` first) as the open-data download. The site keeps
+  reading Supabase behind Cloudflare's cache; switching it to the files would touch every bulk
+  read to save little on a season this small. A `size-limit` bundle budget in CI
+  ([docs/CI.md](docs/CI.md#bundle-budgets)). `knip` was already in.
+- *P3.* Prefetch on link hover or visibility. ~~Archive old MLB line tables to R2~~ (done Nov 8,
+  2026: [docs/MLB_LINES_ARCHIVE.md](docs/MLB_LINES_ARCHIVE.md)). Replace `html2canvas` (unmaintained) with `modern-screenshot` or
   `html-to-image`. `@tanstack/react-virtual` for the stats table and Watch once two seasons double
   the rows. `fast-check` property tests for `derive/` (WAR sums, `runsOnPlay`, base-state
   transitions). A DuckDB-WASM SQL sandbox on the open-data page, over the frozen season files.
@@ -1151,10 +1156,10 @@ worth doing:
 2. ✅ **Career and all-time** (Oct 14). "most hr all time", "career era leaders", "Whitmore
    career". MLB links its all-time board, but only on the sorts it fetches: it is the top 100 on a
    fixed list of career sorts, so "fewest hr all time" would rank the home run leaders and offers
-   no row. WPBL has no every-season table, so its all-time row is the one-season table while there
-   is one season and nothing after; an every-season board is what would take that further. A
-   player opens on the career from either section (WPBL's card shows its one season until there
-   is a second).
+   no row. WPBL's all-time row is the one-season table while there is one season; from the second,
+   the Stats boards read every season at once ("Find over every season", below), and search opening
+   them for "all time" is that section's step 4. A player opens on the career from either section
+   (WPBL's card shows its one season until there is a second).
 3. ✅ **The answer in the row** (Oct 14, v1.160.0). "Whitmore avg" puts ".312 AVG · 2026" in front
    of the player row's subtitle, for the first three player rows (`typedStat` in finderParse.ts,
    `resolvePlayerStat` on the bridge). A word for both sides ("strikeouts") is read on the side the
@@ -1189,11 +1194,28 @@ worth doing:
    while the card's blocks land, since the first one measured scrolled and was then pushed 470px
    down. Not done: on a phone, a two-way player's other role's tab is not switched to, so "Ohtani
    pitch mix" there opens on whichever role is showing.
-9. **Spans and splits.** "hr since August", "avg at home 2026" as a Find link with a date range,
-   once the Find board takes one.
+9. **Spans and splits.** ✅ A month and a range of two dates (Nov 10, v1.226.0): "hr in august",
+   "aug 1-15", "between aug 1 and 15", and the Find board's When row takes a month or the last 1 to 20
+   games. ✅ Extra innings, a doubleheader and a stretch of N games (Nov 20, v1.250.0).
 10. **Records and firsts.** ✅ Records (Oct 14, v1.162.0): "most hr in a game", "longest scoreless
     outing" open Bests at that card (`parseRecordText`), and the season ranking steps aside for
-    single-game words. Firsts wait for a page to link: there is no Hall of Firsts yet.
+    single-game words. ✅ Firsts (Nov 9, v1.216.0): "first home run", "first grand slam of 2026",
+    "firsts" (`parseFirstText`, `findFirsts` in `src/league/firsts.ts`). No page was built: the answer
+    is the play, opened in Game Center through `requestPlay` as Find's inning rows are, so a first
+    needed only the plate-appearance lines. ✅ The runners' plays (Nov 10, v1.232.0): "first balk",
+    "first stolen base", "first caught stealing", "first pickoff", "first wild pitch", "first passed
+    ball", "first double play", "first triple play", read off every row with `runnerEvents` (the
+    plate-appearance lines drop those rows), plus first single, sacrifice fly and bunt, bunt hit,
+    infield hit, pinch hit, pinch-hit and leadoff home run, steal of home. A bare "firsts" lists the
+    headline kinds only. A passed ball and a double play name the club. A win, a save and a complete
+    game have no single play to open. Next: a player's own firsts ("Whitmore first hr").
+    ✅ Plate-appearance records (Nov 9, v1.216.0): "longest at-bat", "most fouls", "longest strikeout",
+    "most pitches thrown to one batter", "most strikeouts in a row" and the rest (`parsePaRecord` in
+    `src/league/paRecords.ts`). The measure is read there; every other word goes to the Find parser as
+    a plate-appearance filter, and the Find engine ranks, so the record is the board's first row. Each
+    opens its play; a record shared by more than three plays lists three, then Find. Regular season
+    unless the playoffs are named. TrackMan records (fastest pitch, hardest hit, longest home run) wait
+    for more than two games of TrackMan data.
 11. ✅ **Questions in Recent** (Oct 14). A ranking, a Find question or a glossary term run from the
     box comes back in Recent, merged with the players and clubs by when each was opened
     (`src/lib/recentQuestions.ts`). On this device only: the sections' synced recents are typed as
@@ -1209,9 +1231,367 @@ worth doing:
     shares a call in flight, and keeps no failure.
 
 Two limits to keep in mind rather than fix. A player's name inside a Find question ("Whitmore 2
-hr") is dropped from the Find row, because Find cannot filter by player; the name search beside it
-finds the player. And MLB has no regular-season page for a pairing of
+hr") was dropped from the Find row until Nov 10 (v1.219.0), when search began reading names against
+the roster (step 2 below). MLB's search still drops it. And MLB has no regular-season page for a pairing of
 clubs, so "Cubs vs Cardinals" answers with their latest and next game only.
+
+## Search: every stat at every grain (Nov 10, 2026) 🎯⚙️
+
+A probe of 42 stat words in 15 phrasings each ("most X in an inning", "3 X in a game", "most X by a
+team", ...) found 360 of 630 with no row; "most stolen bases in an inning" was the one a reader asked.
+
+1. ✅ **The answer in the row** (v1.221.0). Every row that opens Find says how often and when last, or
+   the record itself ("Record 4 · Heights, Sep 4"); the board's summary line gives the first and latest
+   date. `src/wpbl/findAnswer.ts`, `finderAnswerText` and `finderSpanText` in `src/league/finder.ts`.
+2. ✅ **The runners by the inning** (v1.221.0). Steals, caught stealing, pickoffs, wild pitches, passed
+   balls and balks, read off every row's narrative (`runnerEvents`), on a pitcher's and a club's
+   half-inning. Against the box scores: 115 of 116 steals, 21 of 22 caught, 93 of 93 wild pitches, 18
+   of 24 balks.
+3. ✅ **New fields** (v1.221.0). Singles and extra-base hits at every grain, sacrifice flies and bunts
+   at a game, a season and a club's inning, times on base on a club's inning.
+4. ✅ **Records with no ranking** (v1.221.0). Fielding ("most errors in a game") and season counts the
+   tables have no column for ("most singles", "most errors"), as Find, only where no ranking row
+   answers. "Fewest" stays no record.
+
+Still unanswered after these, in the order worth doing:
+
+5. ✅ **A club's game as a grain** (v1.222.0). `club` beside the player's game, on every side and in
+   MLB: the side's lines summed per game in the engine, with `won` and a signed `margin`. "By a team",
+   "teams with 15 hits", "shutouts", "no-hitters", "blowouts", "won by 10", "lost by 8", "errorless
+   games"; "most runs by a team" with no game said stays the team stats ranking. 2026: 18 runs is the
+   most (Heights, Sep 3), one shutout, no no-hitter.
+6. **Spans**: ✅ a month and a date range (v1.226.0). ✅ Extra innings and a doubleheader as a game
+   filter, and a stretch of N games in a row (Nov 20, v1.250.0). A series is dropped: the WPBL's
+   regular season has none.
+7. ✅ **Fielding by the inning** (v1.222.0). A fielder's half-inning: errors where the text charges one
+   ("error by", "dropped", "muffed"), double plays, passed balls, steals allowed, and the position.
+8. ✅ **Pickoffs and pitches seen over a game or a season** (v1.222.0). `playTotals`, read only when a
+   question asks for them (`finderNeedsPlays`). A runner is named in the log by name alone, so
+   `runnerResolver` matches the clause to the batters that club sent up in that game (every runner
+   batted first): times picked off and steals of home are a player's too (6 of 6 pickoffs resolve).
+   A pinch runner who never batted stays unnamed.
+8b. ✅ **A fielder by position** (v1.222.0). "error by ss" names a position, so `fieldingInningLines`
+   tracks who holds each one: the lineup cards' starters (`src/wpbl/fielders.ts`), every change the log
+   writes ("Jua Park to 2b for Amanda Gianelloni"), and the play's own pitcher at P. Against 2026's box
+   scores, every error and double play it places is on the right fielder: 144 of 149 errors placed
+   (none wrong), 170 of 174 double plays (one wrong). Putouts and assists are read off the same
+   clauses (`outsIn`): 1,604 of 1,642 putouts and 636 of 667 assists on the right fielder, 7 credits
+   more than the box gives. A club's half in the field is a second switch on the grain (`byClub`,
+   `clubinning` in the address, "by a team" in search), and a position is asked in words ("errors at
+   shortstop", "by a catcher", "at 2b").
+9. **Not answerable from the data**: intentional walks (11 recorded in 2026), left on base (never
+   recorded), earned runs and RBI in an inning (the log cannot say).
+
+Shipped after this list, all Nov 10: answers in the box land sooner and the highlight stays on the row
+the reader saw (v1.223.0, #252); named games (cycles, complete games), streaks, splits by month, the
+last N games and which arm a pitcher throws, plus a replay of the logged misses (v1.224.0, #253); the
+answer on its own line, stat rows open the game, and keys typed before the palette loads are kept
+(v1.225.0, #254); a month and the last games on the board, date ranges in search, most bunts
+(v1.226.0, #255); every sacrifice bunt counted (v1.227.0, #256); verbs ("hit 2 home runs"), run
+homers, one-run games, a season against one pitcher or in one situation (`seasonFromPas`, v1.228.0,
+#257); a card per match on a phone (v1.229.0, #258); the question as chips (`src/ui/finderChips.tsx`,
+v1.230.0, #259); the nearest questions with an answer when one has none
+(`src/league/finderNearMiss.ts`, v1.231.0, #260); firsts for the runners' plays (v1.232.0).
+
+Accuracy (Nov 10, v1.232.0): every event the play log is read for is now counted against the box
+score, per player and game, on every pull request and nightly (docs/PLAY_VALIDATION.md §2b). Its first
+run found 52 plate appearances the readers dropped (0-0 trips with no pitch sequence), now counted, and
+that the box counts balks and passed balls once per runner moved.
+
+Still open, in the order worth doing: a player's own firsts; MLB's search
+reading a name inside a question; near-misses on another side at a play-log grain (counted only where
+its lines are already in hand, so left out today).
+
+## Find over every season, before 2027 (Nov 20, 2026) 🎯⚙️
+
+Every board on Stats was cut to the one season picked in the menu, so nothing could answer "most
+home runs in a game, ever" or "Whitmore career" across years. The feed returns in spring 2027 and
+these must work the day the first 2027 final lands. Built and checked against the dev fake 2027
+(`dev/devSecondSeason.ts`, dev settings), since there is no second season to look at yet; nothing
+changes on the site until there is one.
+
+1. ✅ **The engine** (Nov 20). Handed lines from several years, `runFinder`'s season grain keeps one
+   row per player per year (`season` on the row) instead of summing them, and `career` (`career.1`
+   in `q`) sums every year into one. A stretch stays inside one season unless it is a career's. A
+   fielder's games are counted per year, and each year's row is held to that year's rate bar
+   (`qualifyFor`; the bar over every season is a career's, which no one season reaches). The answer
+   line names the year of a date or a season once the matches span more than one. One year's lines
+   come out exactly as before. Tests in `src/wpbl/__tests__/finderSeasons.test.ts`.
+2. ✅ **All seasons on Stats** (Nov 21). `?season=all` (`WpblSeasonPick` in `SeasonContext.tsx`),
+   offered first in the season menu and the phone's Filters sheet once there are two seasons, and
+   read by every Stats board that ranks lines or players: Players and Teams (career totals),
+   Leaders, Bests, Find and Charts. Not Overall, whose run values are fit to one season's league,
+   and not Standings, a club page or anything else, which read the pick as the current year and
+   name it in their menu. The stored seasons are one year each, so these boards sum the box-score
+   lines; the rate bar scales with the games, so it is a career's. Find offers "Each season" or
+   "Career" (Seasons, under + Add), shows a Year column on season rows, reads every season's play
+   log for the inning and plate-appearance grains, and keeps "all" on every link it builds; its
+   answer line (`findAnswer.ts`) reads `season=all` the same way, through the same bars
+   (`finderQualify.ts`).
+3. ✅ **Bests over every season** (Nov 21): the record book all-time, every date with its year
+   (`GameYearContext` in `src/ui/gameLine.tsx`, which Find's dates use too).
+4. **Search**: "all time", "career", "ever" and "in any season" open that scope; "in 2026" picks the
+   year. A player's own career line in the answer row.
+5. **Overall over every season**: WAR and run value summed per season and then added, rather than
+   one model fit across years. Fielding's play-log columns (range, throw-outs) dash over every
+   season until then.
+
+## Search: the gaps a 268-phrasing probe found (Nov 20, 2026) 🎯⚙️
+
+A probe ran 268 questions a fan might type through the live box; 156 answered. Shipped the same day as
+v1.249.0, in six steps: stat words no longer reach a stranger through the typo pass (`NOT_NAMES`) and a
+half-typed milestone answers ("Hunters 100th"); bio, birthday, draft and jersey questions; standings;
+the league's own line and a player's place on every stat answer; the Pitch by pitch rates and every
+column by name ("best whiff rate", "k/9", "leverage", "best baserunner"); the playoffs as a cut, the
+lineup spot ("cleanup hitters", "batting 9th"), the biggest plays by win probability and leverage, and
+two-way players. ARCHITECTURE's Search entry names the modules.
+
+Still open, in the order worth doing:
+
+1. **MLB parity**: the league line, standings, playoffs and lineup spot are WPBL's alone.
+2. **Columns the tables do not have**: BB/K, opponent average, blown saves, holds (none in the feed).
+3. **Pace** ("Whitmore on pace"), once 2027 games exist. ✅ Spans ("most hr in 5 games", Nov 20, v1.250.0).
+4. **"Hunters runs per game"** and other club per-game figures.
+5. **Plays named in words** ("inside the park home run", "triple play" without "first").
+6. **Next game and yesterday** say nothing in the offseason; a row naming opening day once it is public.
+
+## Search: names, records for every stat, looser wording (Nov 10, 2026) 🎯⚙️
+
+A probe of about 30 phrasings found the misses: "most walks in a game" offers nothing (no Bests card
+for walks), "most walks game" opens the SEASON leaders, "Sato vs hunters" reads as two players,
+"whitmore off sato", "strikeouts inning", "hr at home" and "most pitches at bat" offer nothing, and
+"hr vs boston" opens Boston's own home-run ranking. The root of most of them was that Find could not
+ask about one player, so a name was dropped. Four pull requests, in this order (decided Nov 10):
+
+1. ✅ **One player in Find** (Nov 10, v1.218.0). `playerId` on the query (`by` in the address, since
+   `player` opens a player), at a game, a season and a pitcher's inning; at a plate appearance it is
+   the matchup's batter (Hitting) or pitcher (Pitching), and `finderPlayerAt` swaps one for the other
+   when the grain changes. Not at a club's half-inning, which is nobody's. A Player picker over the
+   clubs; a player with nothing asked is their game log in date order.
+2. ✅ **Names in the search bar** (Nov 10, v1.219.0), with the matchup reading.
+   `parsePlayerQuestion` in `src/league/playerQuestion.ts` finds roster names (whole, or the surname
+   when it is no question word or club word, a possessive only with its apostrophe), takes them out,
+   and hands the rest to the Find parser unchanged; a club-only rest is `parseClubScope`. The roster
+   comes from the section through the search bridge (`resolvePlayerQuestion`), with who has hit and
+   who has pitched off every season's lines, and the side a two-way player plays most for a
+   club-only question. In the palette a batter-vs-pitcher row leads the compare row, a player's
+   question leads Find, and the Find readings that would drop the name go. A player and a club is no
+   compare lookup any more ("hunters" found a player). "Sato vs hunters" / "at Boston" / "against LA": the player's games against the club in
+   date order, and a second row with their season against it. "Whitmore vs Sato" / "off" / "facing"
+   with one batter and one pitcher: their plate appearances first, the side-by-side compare second.
+   "Whitmore 2-hit games": the question narrowed to the player. WPBL only; MLB's search later.
+3. ✅ **"Most X" for every stat and grain** (Nov 10, v1.219.0). `parseRecordQuestion` in
+   finderParse.ts reads the club, place, year and grain ("in a game", "in an inning") off first, then
+   the stat as a ranking, on one side (the stat's lean, or the side a word like "allowed" names). The
+   Bests card where one keeps it and nothing narrows it, else Find at that grain asking for at least
+   one, ranked highest first, so the record is the first row. A player's own record goes through the
+   player reader. Bare "most X in an inning" stays the Find reading's (`inningRecord`, which also
+   knows "biggest innings"). Asked for: "most walks in a game", "most strikeouts in
+   an inning", "most pitches in an at-bat", "most hr in a game by Whitmore", "most hits vs Boston".
+4. ✅ **Looser wording** (Nov 10, v1.220.0). Records take the grain word bare
+   (`BARE_GAME_SPAN`, `BARE_INNING_SPAN`; never "innings pitched", "games played" or a number before
+   "innings"), and the season ranking steps aside for a bare "game" once a stat is read. The
+   plate-appearance grain and its records read "at bat" with or without "in an" (not after a number:
+   "100 at bats" is a count), and the search bar's gate passes those words. A stat with an opponent or
+   a place and no number is `parseScopedRank`: Find's season grain asking for at least one, beside
+   the club-total row, counts only (a rate against one club is a few dozen plate appearances).
+   "Home runs" is never read as "at home" any more, whichever reader takes the place first. The
+   corpus is `src/__tests__/searchCorpus.test.ts`, every phrasing pinned to the row the palette puts
+   first. One part of the plan was wrong and was left out: Hitting's row for "3 strikeouts in an
+   inning" is a club's half-inning with 3 strikeouts, which can happen, so it stays. Also fixed:
+   switching Find to plate appearances drops a floor one trip cannot reach ("5+ strikeouts"), which
+   had matched nothing and read as 0. Planned as: Grain words count wherever they sit ("most walks game", "strikeouts inning",
+   "hr at bat"); "in", "at", "on", "vs" are optional where nothing hangs on them, kept where they
+   mean something ("in the 7th", "at home", "on 0-2"). "hr vs boston" offers both readings. No row
+   for a side that can never match ("3 strikeouts in an inning" on Hitting). A corpus of about 80
+   phrasings, each with the row it must open first, every miss above among them.
+
+## Find by the inning (Nov 9, 2026) 🎯🔬
+
+"Any pitcher with three strikeouts in an inning" is a Find question at a grain the board does not
+have yet. Decided: **no new page and no second results view.** Search stays the front door (the
+Find parser already turns a typed question into `?board=find&q=`), the Find board stays the answer,
+and the inning becomes a third grain beside game and season. Branch `feat/inning-finder`.
+
+The data holds up: on the 2026 log the plays' strikeouts match the box scores to one (330 against
+331), every play names its pitcher, and seven pitcher-innings had three strikeouts (none had four,
+and nobody threw an immaculate inning).
+
+1. ✅ **Inning lines** (Nov 9). `inningPitchingLines` in `src/league/inningLines.ts`: one line per
+   pitcher per half-inning, in the finder's own line shape, with BF, outs, K, BB, HBP, H, HR, R,
+   pitches and strikes. Outs are read off the next row (a double play and a caught stealing count),
+   a half with a pitching change is two lines, and R is the runs scored on the pitcher's watch, not
+   the runs charged. League-neutral; tests in `src/league/__tests__/inningLines.test.ts`.
+2. ✅ **The grain in the engine** (Nov 9). `FinderPer` gains `'inning'`, pitching side only;
+   `runFinder` takes the lines as `FinderOptions.innings`, the way it takes fielding, and searches
+   nothing on another side. The fields are the game line's own where they mean the same (K, BB, H,
+   R, pitches, baserunners), so a question keeps its conditions across grains, plus Inning and Outs
+   recorded. Columns: INN, BF, H, R, BB, K, P. `q=inning~so.gte.3` in the address. "1-2-3" and
+   "immaculate" are just conditions (outs 3, BF 3, baserunners 0; K 3+, pitches 9 or fewer).
+3. ✅ **The board** (Nov 9). Pitching's grain switch reads Single games, Single innings, Season
+   totals (`grains` on the shared `FinderBoard`, so MLB's is unchanged). FindView reads
+   `fetchWpblPlayLog(season)` only once the inning grain is picked, held with its season; the
+   postseason scope, corrections and finals only come through the existing paths (5 innings of 3+ K
+   in the regular season, 7 with the playoffs, which matches the database). Five examples:
+   3+ strikeouts, Immaculate, 1-2-3, 3+ runs, 25+ pitches. Switching to Hitting or Fielding drops
+   the question back to single games.
+4. ✅ **The parser** (Nov 9). "in an inning", "in one inning", "in a single inning", "per inning"
+   set the grain; "immaculate inning" and "1-2-3 inning" are their conditions with no number
+   needed. Read before the stats, since "inning" alone is innings pitched ("5 innings, no walks"
+   stays a start). Only a section that passes `{ innings: true }` gets inning readings, so MLB's
+   search offers none. The search row reads "Pitching, single innings".
+5. ✅ **The row** (Nov 9). An inning row opens Game Center on Play-by-Play, scrolled to the
+   pitcher's first batter of that half: in the app through `requestPlay` (entryUrl.ts, taken once
+   by the game it names), in a new tab through the `#play-N` fragment. The first batter, not the
+   first row, because substitutions are not drawn as rows. A run scoring on a balk mid-at-bat can
+   arrive as a row holding the count so far; it is no longer a batter faced (one row in 2026).
+6. ✅ **The plate-appearance grain** (Nov 9). `plateAppearanceLines` in the same module: one line
+   per trip to the plate, filed under the batter on Hitting and the pitcher on Pitching. It carries
+   the count before the last pitch (foul rule applied), pitches, fouls, outs and runners it began
+   with, runs on the play, the event as 0/1 fields under the game line's own keys, and walk-off.
+   No RBI and no earned runs, which the log cannot state. `q=pa~...`; the switch reads Games,
+   Innings, PAs, Seasons when there are more than two (fits 375px). Parser: "10-pitch at-bats",
+   "8-pitch walks", "home run on 0-2", "full count", "bases loaded", "grand slams", "walk-offs",
+   "2-out hits"; the event needs no number there, and a search row reads "0-2 count and Home runs
+   at least 1". Checked against the database (playoffs in): 6 at-bats of 10+ pitches, 22
+   bases-loaded walks, 7 grand slams. A hitting side at the inning grain was left out: a batter's
+   half-inning is nearly always one trip to the plate, which this grain already is.
+
+Shipped Nov 9, 2026 as v1.211.0 (#239). Follow-ups, in the order taken:
+
+7. ✅ **Runners in scoring position and which inning** (Nov 9, v1.211.1). A `risp` field on the plate
+   appearance; "with risp", "with runners in scoring position", "bases empty", "with runners on".
+   Which inning in words at either grain: "in the 7th", "first inning", "5th or later", "after the
+   6th", "before the 3rd", "extra innings" (past the league's regulation length, which the parser is
+   now told). A count beside it is a pitcher's inning, an event with no number a plate appearance.
+   Both play-log grains are in the layout sweep's routes (the play log was already recorded).
+8. ✅ **Club half-innings** (Nov 9). Hitting's inning grain is a club's turn at the plate
+   (`teamInningLines`): the batting counts, two-out runs (`r2`), how far it trailed as the half began
+   (`trail`) and whether it took the lead (`tooklead`). Rows and tally are clubs, with the club's
+   mark where a portrait goes and "Club" over the column. Search: "5-run innings", "innings with 4+
+   runs", "two-out rallies", "comebacks", "go-ahead innings"; a run count reads on either side, the
+   club first. Database check (playoffs in): 26 innings of 5+ runs (the most, 10), 59 with 2+
+   two-out runs; 23 comebacks in the regular season. The score is the log's running sum, so a game
+   with missing plays can misread a lead from that point.
+9. ✅ **Runs of plays** (Nov 9, v1.213.0). Three plate-appearance fields, each set only on a run's
+   last plate appearance so a run matches once and the board's own order lists the longest first:
+   `hrrow` (a club's home runs in a row within the half, both sides), `krow` and `retired` (the
+   pitcher's, within the game, across innings). Retired is read off the outs, not the event: an out
+   made and the batter not on (no hit, walk, HBP or fielder's choice), since infield flies and errors
+   both arrive as `unknown`. Search: "back-to-back home runs", "b2b hr", "3 straight home runs", "5
+   strikeouts in a row", "retired 10 straight", "9 straight outs". The search bar's gate also passes
+   "comebacks", "go-ahead innings", "with runners on", and "most runs in an inning" / "biggest innings"
+   open the inning grain, which already ranks highest first. 2026 (regular season): one back-to-back
+   (two with the playoffs), three runs of 3+ strikeouts (the most, 4), and 9 retired is the longest.
+   A run's row opens Game Center at its last plate appearance, not its first.
+10. ✅ **Matchup filter** (Nov 10, v1.218.0). `batterId` and `pitcherId` on the query, asked at the
+    plate-appearance grain only (the one line that names both players), on either side: a pitcher on
+    Hitting is who batters faced, a batter on Pitching who pitchers faced, both is the head-to-head.
+    The cut comes before the count, so the tally's "of N" is trips in the matchup. A matchup with no
+    stat asked is its log in date order. Pickers under Matchup list who came to the plate (and who
+    pitched to them) in the plays on screen, under the club each did it for most; `bat` and `pit` in
+    the address, dropped with the grain. In the search bar since v1.219.0: "Whitmore vs Schroder"
+    leads with their plate appearances, the side-by-side compare second.
+11. **TrackMan fields** where a game has them, **win probability per plate appearance**, and **feat
+    alerts** (immaculate innings, walk-offs) to Discord, Bluesky or Home.
+12. **Across seasons** once 2027 plays exist, and **MLB** once its plays are mirrored (below).
+
+Known limits: inning R is runs on the pitcher's watch, not charged runs; no RBI or earned runs on a
+plate appearance; the 658 plays the feed calls `unknown` count as plate appearances with no event;
+a walk-off on a wild pitch or balk is not one (it is no plate appearance); an inning row opens at
+the pitcher's first batter, not the strikeouts.
+
+**MLB** gets steps 2 to 5 for free once its plays are mirrored (ROADMAP.md item 6): the engine takes
+a `League`, nothing in it is WPBL's. An MLB season is about 190k plays, too many for the browser, so
+there the lines are built in Postgres and only the matches are read.
+
+## Leverage index (Nov 9, 2026) 🔬
+
+✅ **The engine and three surfaces shipped Nov 9, 2026** (see the log):
+[`derive/leverage.ts`](src/wpbl/derive/leverage.ts), Tango's definition with this league's own
+transitions priced by the win model. LI on every play of the win probability chart, pLI and gmLI on
+the player page's Advanced tables and on the Stats table's Overall side. Checked against the play
+log: the average plate appearance is 1.00, the bases-loaded, two-out, down-one last of the seventh
+is 11.5.
+
+**What it could do next**, cheapest first. Each reads numbers that are already computed.
+
+- **The play-by-play.** A small LI beside each plate appearance, or a mark on the ones at 2.0 and up.
+  The rows and the model are already on the page.
+- **Live games.** The current batter's LI in the live strip and on Home's live card: the one number
+  that says "tune in now". `leverageIndex` takes the state `deriveSituation` already reads.
+- **Search and Find.** "highest leverage plays", "biggest spots of 2026", "Whitmore's at-bats at LI
+  2+". A Find condition on LI fits the play grain beside the base-out and score filters.
+- **Clutch.** WPA divided by pLI, less WPA/LI (context-neutral wins): FanGraphs' Clutch. Needs
+  `wpaLeaders` to also sum WPA/LI per play, which is one more field on the same walk. Two seasons of
+  this league is still a small sample; label it as a record, not a skill.
+- **Bullpen use.** Per club, relievers ranked by gmLI: who a manager trusts. A small card on the team
+  page, and the shape of a postseason preview.
+- **Compare.** pLI and gmLI on the two-player table; the boards it reads already carry them.
+- **Watch.** Rank clips by the LI of their play as well as by the swing: a strikeout that ended a
+  bases-loaded tie is the clip a fan wants, and it moves win probability less than a homer in the
+  third.
+- **Share and Discord cards.** "LI 4.2" on a recap's swing of the game. The cards read stored numbers,
+  so this waits until leverage is stored per play, if ever.
+- **MLB.** The engine is WPBL-bound through its win model. MLB's Game Center draws its own win
+  probability from the feed; an LI there would come from MLB's published tables, not this code.
+
+## Live notes (Nov 10, 2026) 🎯🔬
+
+The live game companion: as a game is played, every first, record, milestone, streak and rarity
+it produces, each with the earlier plays that prove it. **The owner sees all of them; readers see
+only the few that score highest.** WPBL only until MLB is scoped. Bluesky posts made from them stay
+manual, since a post cannot be edited and the league corrects plays.
+
+**One engine, three surfaces.** A pure function over the play log, rerun on every poll, so a note a
+correction removes simply stops being produced. It reads what Find reads (`plateAppearanceLines`,
+`runnerEvents`, `FIRST_KINDS`, the fielding readers) so a note cannot disagree with a Find answer or
+a first. History is every earlier game, the frozen 2026 files included, so "first in WPBL history"
+holds in 2027 without reading every season live. Notes the public does not see are hidden, not
+private: the engine runs in the browser for everyone, and only the selection differs.
+
+**What it notices** (the admin list is meant to be as wide as the log allows):
+
+- **Counted facts at every lens.** Each play yields facts (a home run, a 6-4-3 double play, a
+  runner thrown out at home 7-2, a pinch-hit homer, an error at short), and each fact is counted at
+  every lens it has: the league ever, the postseason, the season, the club, the player's career and
+  season, the pitcher it came against, the batter and pitcher pair, and the **crew**, the exact
+  defenders in the chain ("first 6-4-3 double play from these three"). The first, second and third
+  time at a lens are notes; so are round numbers (the 10th, the 100th).
+- **Records in a game, an inning, a plate appearance**: a player's hits, homers, walks, steals, a
+  pitcher's strikeouts and pitches, a club's runs and hits, the longest plate appearance. New,
+  tied, or the nth time.
+- **Watches**: a no-hitter or a perfect game through each inning, a cycle one hit type away, extra
+  innings.
+- **Streaks**: hitting, on-base and home run streaks across games, batters retired and strikeouts in
+  a row, homers in a row, a club's wins in a row. Game streaks are regular season only, as MLB keeps
+  them: the postseason neither extends one nor ends it.
+- **A club's own history**: its first win, its 10th, its 50th, its first postseason win.
+- **Situations**: "down 4 after 5 innings: clubs are 1–12", from every earlier line score.
+- **Matchups**: the batter against this pitcher, before the trip.
+- **Leaders**: takes or ties the league lead in a counting stat.
+- **The final**: the score's first time (Scorigami), comebacks, margins, shutouts, no-hitters.
+
+**Scoring.** Category, lens (the league ever counts most, a player's season least), how often the
+kind happens (a first single is common, a first triple is not), which time it is, and whether it is
+a new record. A later note in the same group (a no-hitter through 5, then through 6) replaces the
+earlier one. Readers see the top few at or above the public bar, one for each moment: a shutout
+that is also a complete game shows once, as the complete-game shutout.
+
+**Order of work.**
+
+1. **The engine and a backtest**, on the frozen 2026 files: `npm run notes` prints every note of a
+   game or the whole season and how many clear the public bar, which is how the bar is tuned. The
+   tests run all 40 finals.
+2. **The owner console** in `/admin`: every note of a live or finished game, by score, filtered by
+   category and lens, the evidence one tap away, copy as a Bluesky post, mark as posted (and flagged
+   if a correction later removes it). Find opened on the current situation. Not part of the
+   redesign, so it can ship this winter. **Built Nov 13, 2026** (`/admin` → Notes), all but opening Find on
+   the current situation, which is left for later.
+3. **Readers' notes in Game Center**: the top notes as a strip while a game is live and a section on
+   a finished one. Built on the redesigned Game Center beside the live field, so it is built once.
+4. **Later**: hiding or promoting a note for readers (an owner-written table behind a writer
+   function), push for the top tier, win probability swings, MLB.
 
 ## Where new things go (decided Aug 27, 2026)
 
@@ -1280,7 +1660,7 @@ reasons.
 **3. Base-out state plus `runsOnPlay()` gives run expectancy for free.** ✅ *shipped as the Run
 value board, Aug 23, 2026, behind the experiments switch: see the log*. Every play stores outs and all three bases, and
 summing runs chronologically reconstructs the score at each play. So RE24, and a WPA-shaped
-leverage number, are derivable from our own 1,527 plays with no new field and no new table.
+leverage number (✅ *shipped Nov 9, 2026: see Leverage index above*), are derivable from our own 1,527 plays with no new field and no new table.
 The table it produced is itself the finding: nobody on and nobody out is worth **1.13 runs** in
 this league against roughly 0.5 in the majors, which is what makes a borrowed table unusable
 here.
@@ -1548,6 +1928,13 @@ is drawn from data, not illustrated.
 MLB is the only live data to build against this winter. Done before MLB's Opening Day in late
 March; the WPBL wires to it against the 2027 feed in the spring.
 
+**The engine first, Nov 8, 2026** ([docs/LIVE_FIELD.md](docs/LIVE_FIELD.md)): the timeline model,
+its invariants and the MLB adapter, built apart from the drawing so the redesign does not redo it.
+Every finished 2026 regular-season game (2,383) passes; 14 recorded games are the fixtures.
+The WPBL adapter reads all 40 finals of 2026 to the line score, with six guessed moves in the
+season. `advance()` handles live polling and `npm run field` prints a timeline. Left: the drawing,
+with the redesign.
+
 ### Consider before next season: a weekly email digest 🎯
 
 Push drew 12 subscriptions across the season; the Discord invite converted 7.7%. Email is the other
@@ -1570,9 +1957,12 @@ four clubs move to their home cities and two expansion clubs join; none of it is
 - **Fantasy (to explore)** 🎮. A free season-long game scored by run value, so it rewards what the
   site already measures. Only with enough players to draft from (six clubs is about 180). Different
   from the pick'em, which picks games. The largest build here.
-- **Projections and a season simulator (to explore)** 🔬. WPBL projections with heavy regression,
-  World Cup lines as a prior for the players who have them, projected standings and odds, "sim this
-  matchup". The offseason gets something that changes. Must say plainly how noisy 30 games is.
+- **Projections and a season simulator (started Nov 20, 2026)** 🔬. Owner-only on /admin →
+  Projections until the rosters fill out: returning production per club and player projections
+  ([`derive/projections.ts`](src/wpbl/derive/projections.ts)). Next steps follow the rosters, in
+  ROADMAP-PRIORITIES item 23: replacement level and team strength after the draft, projected
+  standings at 20 a club, the simulator and "sim this matchup" on the real schedule. Must say
+  plainly how noisy 30 games is.
 
 ---
 
@@ -1755,6 +2145,7 @@ The dated log of what shipped lives in [`docs/roadmap-log/`](docs/roadmap-log/),
 newest first. A new entry goes at the top of the current month's file (start a new file when the month
 turns). The changelog in [`src/changelog.ts`](src/changelog.ts) holds the per-version detail.
 
+- [Nov 2026](docs/roadmap-log/wpbl-2026-11.md)
 - [Oct 2026](docs/roadmap-log/wpbl-2026-10.md)
 - [Sep 2026](docs/roadmap-log/wpbl-2026-09.md)
 - [Aug 2026](docs/roadmap-log/wpbl-2026-08.md)

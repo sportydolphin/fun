@@ -91,13 +91,14 @@ export async function disablePush(userId: string): Promise<string | null> {
   if (!pushSupported()) return null
   const reg = await navigator.serviceWorker.getRegistration()
   const sub = reg ? await reg.pushManager.getSubscription() : null
+  // Only this browser's row. With no subscription here there is nothing of this browser's to remove:
+  // this used to delete every row for the account instead, so switching push off in a browser that
+  // never had it on stopped it on the reader's phone too. A stale row elsewhere is pruned by the
+  // senders when the push service answers 404 or 410.
   if (sub) {
     const endpoint = sub.endpoint
     await sub.unsubscribe().catch(() => { /* best effort */ })
-    await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint)
-  } else {
-    // No local subscription to key off: clear any rows we have for this user.
-    await supabase.from('push_subscriptions').delete().eq('user_id', userId)
+    await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint).eq('user_id', userId)
   }
   return null
 }

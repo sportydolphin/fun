@@ -40,12 +40,12 @@ const GROUPS: { key: string; label: string; keys: string[] }[] = [
   {
     key: 'batting', label: 'Batting',
     keys: ['AVG', 'OBP', 'SLG', 'OPS', 'OPS+', 'wOBA', 'wRC+', 'ISO', 'BABIP', 'PA', 'AB', 'H', '2B', '3B', 'XBH', 'HR', 'R',
-      'RBI', 'BB', 'IBB', 'SO', 'K%', 'BB%', 'P/PA', 'Swing%', 'Contact%', 'Whiff%', 'SwStr%', 'CStr%', 'SB', 'CS', 'SB%', 'BsR', 'WPA', 'TB', 'HBP', 'GDP', 'SF', 'SH', 'LOB'],
+      'RBI', 'BB', 'IBB', 'SO', 'K%', 'BB%', 'P/PA', 'Swing%', 'Contact%', 'Whiff%', 'SwStr%', 'CStr%', 'SB', 'CS', 'SB%', 'BsR', 'WPA', 'pLI', 'LI', 'TB', 'HBP', 'GDP', 'SF', 'SH', 'LOB'],
   },
   {
     key: 'pitching', label: 'Pitching',
     keys: ['ERA', 'ERA+', 'FIP', 'WHIP', 'W-L', 'SV', 'IP', 'ER', 'BF', 'GS', 'K/7', 'K/9', 'HR/7',
-      'HR/9', 'K/BB', 'K%', 'BB%', 'K-BB%', 'Strike%', 'STR%', 'F-Strike%', 'SwStr%', 'Putaway%', 'BABIP', 'WPA', 'WP', 'BK', 'P', 'DEC'],
+      'HR/9', 'K/BB', 'K%', 'BB%', 'K-BB%', 'Strike%', 'STR%', 'F-Strike%', 'SwStr%', 'Putaway%', 'BABIP', 'WPA', 'pLI', 'gmLI', 'WP', 'BK', 'P', 'DEC'],
   },
   {
     key: 'fielding', label: 'Fielding',
@@ -53,7 +53,7 @@ const GROUPS: { key: string; label: string; keys: string[] }[] = [
   },
   {
     key: 'overall', label: 'Overall',
-    keys: ['WAR', 'Bat', 'Fld', 'Pos', 'Rep', 'C Arm', 'C Blk'],
+    keys: ['WAR', 'Bat', 'Fld', 'Pos adj', 'Rep', 'C Arm', 'C Blk'],
   },
 ]
 

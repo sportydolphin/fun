@@ -1,4 +1,26 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(npm run typecheck)",
+      "Bash(npm run lint)",
+      "Bash(npm run test)",
+      "Bash(npm run knip)",
+      "Bash(npx vitest run *)",
+      "Bash(npx vitest related --run *)",
+      "Bash(npx tsc --noEmit *)",
+      "Bash(npx knip)",
+      "Bash(node scripts/house-rules.mjs *)",
+      "mcp__ccd_pr__get_status",
+      "mcp__Claude_Browser__find",
+      "mcp__Claude_Browser__get_page_text",
+      "mcp__Claude_Browser__read_page",
+      "mcp__Claude_Browser__read_console_messages",
+      "mcp__Claude_Browser__read_network_requests",
+      "mcp__Claude_Browser__tabs_context",
+      "mcp__Claude_Browser__preview_list",
+      "mcp__Claude_Browser__preview_logs"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -25,6 +47,16 @@
       }
     ],
     "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/house-rules.mjs --hook",
+            "timeout": 15
+          }
+        ]
+      },
       {
         "matcher": "Bash|PowerShell",
         "hooks": [

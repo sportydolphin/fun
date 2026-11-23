@@ -98,6 +98,13 @@ export function CardSkeleton({ minHeight, titleWidth = '7rem', lines = 3, headin
   )
 }
 
+/** The page's title, in words rather than a bar: it needs no data, and index.html draws these same
+ *  words in this place before any module runs, so a bar here flashed gray between two copies of the
+ *  title. A div, not WpblHome's heading tag: the loaded page owns the h1. */
+function HomeTitle() {
+  return <Typography component="div" sx={HOME_TITLE_SX}>Women's Pro Baseball League</Typography>
+}
+
 export function WpblHomeSkeleton() {
   // THE OFFSEASON HOME IS A DIFFERENT PAGE, and a skeleton of the in-season one swapped for it
   // moved everything: the scoreboard strip became the taller gallery and the two-by-two grid a
@@ -119,10 +126,7 @@ export function WpblHomeSkeleton() {
       {/* The loaded masthead's own margin. Check any change against the loaded page (see "Loading
           states" in CLAUDE.md). */}
       <Box sx={{ mb: { xs: 1.5, sm: HEADER_GAP } }}>
-          {/* The title's own line box (HOME_TITLE_SX) with the bar inside it: a bare text skeleton is
-              not the same height as the h1, which the chips beside it used to hide and the rail under
-              it does not. */}
-          <Typography sx={HOME_TITLE_SX}><Skeleton sx={{ width: { xs: '16rem', md: '22rem' }, maxWidth: '100%' }} /></Typography>
+          <HomeTitle />
         {/* No standings line in season: the table is beside the lead (StandingsSection). */}
         <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><Dateline phase={null} label={null} /></Box>
       </Box>
@@ -199,10 +203,7 @@ function OffseasonHomeSkeleton() {
   return (
     <Box role="status" aria-busy="true" aria-label="Loading the Women's Pro Baseball League home page" sx={homeWideSx}>
       <Box sx={{ mb: { xs: 1.5, sm: HEADER_GAP } }}>
-          {/* The title's own line box (HOME_TITLE_SX) with the bar inside it: a bare text skeleton is
-              not the same height as the h1, which the chips beside it used to hide and the rail under
-              it does not. */}
-          <Typography sx={HOME_TITLE_SX}><Skeleton sx={{ width: { xs: '16rem', md: '22rem' }, maxWidth: '100%' }} /></Typography>
+          <HomeTitle />
         <Box sx={{ mt: MASTHEAD_RAIL_GAP }}><Dateline phase="Offseason" label={null} /><ClubRailSkeleton /></Box>
       </Box>
 

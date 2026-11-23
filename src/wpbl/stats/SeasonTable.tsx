@@ -122,6 +122,11 @@ export function SeasonTable({ listRef, pinActive, scrollRef, boardPinned, hideSi
       scrollMarginTop: BOARD_TOP,
       border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden',
       ...fullBleedStickyCardSx,
+      // ABOVE A PHONE, AS WIDE AS ITS COLUMNS, left-aligned under the board tabs. Stretched to the
+      // bleed, Overall's eleven columns spread over 1540px with a 410px name column, and the numbers
+      // sat a hand's width from the names they belonged to (Nov 7, 2026 audit). A table wider than
+      // the bleed (hitting Standard) still scrolls inside it.
+      ...(!pinActive && { width: 'fit-content', maxWidth: fullBleedStickyCardSx.width }),
     }}>
       <Box sx={{ position: 'relative' }}>
       {/* On a phone, a capped inner scroll so the column headers stay sticky (top:0) as you
@@ -169,7 +174,7 @@ export function SeasonTable({ listRef, pinActive, scrollRef, boardPinned, hideSi
           },
         }),
       }}>
-        <Box component="table" sx={{ borderCollapse: 'collapse', minWidth: '100%', fontVariantNumeric: 'tabular-nums' }}>
+        <Box component="table" sx={{ borderCollapse: 'collapse', minWidth: pinActive ? '100%' : undefined, fontVariantNumeric: 'tabular-nums' }}>
           <Box component="thead">
             <Box component="tr">
               {/* TWO ROWS, the labels and then the league (src/ui/statsTableHead.ts). On a phone
@@ -203,7 +208,7 @@ export function SeasonTable({ listRef, pinActive, scrollRef, boardPinned, hideSi
                   <Box component="th" key={c.key} {...headProps(c)}
                     data-active={active ? 'true' : undefined}
                     sx={{
-                      ...thBase, ...HEAD_LABEL_SX, ...HEAD_FOCUS, textAlign: 'center', cursor: 'pointer', minWidth: '2.375rem',
+                      ...thBase, ...HEAD_LABEL_SX, ...HEAD_FOCUS, textAlign: 'center', cursor: 'pointer', minWidth: '2.875rem',
                       color: active ? 'var(--wpbl-accent-fg)' : 'text.disabled',
                       // The sorted column's tint rides on backgroundImage over the opaque
                       // paper thBase already sets. As a bgcolor it would REPLACE that paper

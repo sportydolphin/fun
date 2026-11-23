@@ -53,6 +53,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Bundle budgets on the build above (.size-limit.js). Nothing else here notices a big import
+      # landing in every phone's first load.
+      - name: Bundle size
+        run: npm run size
+
       # THE CODE THE APP BUILD NEVER SEES. Everything below deploys or runs somewhere other than the
       # site, and each one used to fail only there: a Pages Function at Cloudflare's upload (which
       # leaves the old deploy serving), a cron script at its next scheduled run, an edge function at
@@ -153,6 +158,14 @@ jobs:
   # about a minute, alone. It also takes two `npm run shot` pictures, so the command that replaces
   # the preview pane is known to work on Linux, and keeps them as an artifact to look at.
   #
+  # The eight seasons slices sweep every page with a season menu against the dev fake 2027 (--seasons):
+  # each Stats board, Standings, the clubs and a series, on the default year, on 2026 and on every
+  # season. The league has one season until spring 2027, so without them the two-season layouts (the
+  # menu, "All seasons", a Year column, years on dates) would first be looked at by a reader. Eight,
+  # because each case first loads the schedule page to build the fake year, so a seasons case costs
+  # more than a regular one: two slices ran past the 12-minute limit, and six ran 8 to 12 minutes,
+  # the slowest finishing four seconds after the limit (Nov 21, 2026).
+  #
   # SKIPPED STEP BY STEP, NOT AS A JOB, when `changes` says the pull request touches no UI. A
   # skipped job reports `skipped`, which fails the `layout` test below; a job whose steps all skip
   # reports success, so `layout` still goes green and the pull request still merges.
@@ -161,14 +174,14 @@ jobs:
   # for 14 minutes before it failed and needed a rerun; at 25 a stall held the pull request for
   # longer than the whole sweep takes. Raise it with the slices, never to cover a hang.
   layout-shard:
-    name: layout ${{ matrix.shard }}${{ (matrix.shard != 'experiments' && matrix.shard != 'behavior') && '/8' || '' }}
+    name: layout ${{ matrix.shard }}${{ (matrix.shard != 'experiments' && matrix.shard != 'behavior' && !startsWith(matrix.shard, 'seasons')) && '/8' || '' }}
     needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 12
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, experiments, behavior]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, experiments, behavior, seasons-1, seasons-2, seasons-3, seasons-4, seasons-5, seasons-6, seasons-7, seasons-8]
     env:
       SWEEP: ${{ needs.changes.outputs.sweep }}
       VITE_SUPABASE_URL: 'http://127.0.0.1:54321'
@@ -197,8 +210,14 @@ jobs:
           cat vite.log; exit 1
 
       - name: Sweep
-        if: ${{ env.SWEEP == 'true' && matrix.shard != 'experiments' && matrix.shard != 'behavior' }}
+        if: ${{ env.SWEEP == 'true' && matrix.shard != 'experiments' && matrix.shard != 'behavior' && !startsWith(matrix.shard, 'seasons') }}
         run: npm run sweep -- --replay --shift --baseline --shots sweep-shots --shard ${{ matrix.shard }}/8
+
+      - name: Sweep with a second season
+        if: ${{ env.SWEEP == 'true' && startsWith(matrix.shard, 'seasons') }}
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: npm run sweep -- --replay --shift --baseline --shots sweep-shots --seasons --shard "${SHARD#seasons-}/8"
 
       # The one place a flag-gated layout gets looked at. Name the routes that draw something
       # behind the flag; as of this writing that is the steal card on Run value, and nothing else.

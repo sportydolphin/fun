@@ -41,15 +41,48 @@ Deno.serve(async (req) => {
   // Admin client (service role): only ever acts on the verified caller's own id.
   const admin = createClient(supabaseUrl, serviceRoleKey)
 
-  // Clean up app tables first. Most of these are set up with
-  // `on delete cascade` already, but deleting explicitly here means this
-  // function doesn't silently fail to clean up if any table isn't.
-  await Promise.all([
+  // Clean up app tables first. Some cascade from auth.users, but several hold the id in a plain
+  // text column with no foreign key (usernames, survivor_*, wpbl_award_votes), so the cascade
+  // never reaches them. The audit of Nov 8, 2026 found the last three missing from this list:
+  // a deleted account's Streak Survivor history and pick'em answers outlived it.
+  //
+  // A fan's own photos come down with the account (docs/FAN_UPLOADS.md decision 6): their
+  // contributor record is marked withdrawn and every photo of theirs unpublished, the same act as
+  // a withdrawal in /admin. Their submissions would cascade with the sign-in anyway; they are
+  // deleted here so the list below reads as everything this does. The contributor record itself
+  // stays, withdrawn, because it is the permission record for photos that were up until today.
+  const { data: contributor, error: contributorErr } = await admin
+    .from('wpbl_photo_contributors').select('id').eq('user_id', user.id).maybeSingle()
+  if (contributorErr) {
+    console.error('delete-account contributor lookup failed', user.id, contributorErr.message)
+    return new Response(JSON.stringify({ error: 'Cleanup failed; the account was not deleted.' }), {
+      status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    })
+  }
+  const today = new Date().toISOString().slice(0, 10)
+
+  // A NEW TABLE THAT STORES A USER ID GOES HERE, and on /delete-account (LegalPages.tsx).
+  const steps = await Promise.all([
+    admin.from('wpbl_photo_submissions').delete().eq('user_id', user.id),
+    ...(contributor ? [
+      admin.from('wpbl_fan_photos').update({ approved: false, open_for_tagging: false, updated_at: new Date().toISOString() })
+        .eq('contributor_id', contributor.id),
+      admin.from('wpbl_photo_contributors').update({ withdrawn_on: today, user_id: null }).eq('id', contributor.id),
+    ] : []),
     admin.from('usernames').delete().eq('user_id', user.id),
     admin.from('user_preferences').delete().eq('user_id', user.id),
     admin.from('prediction_stats').delete().eq('user_id', user.id),
     admin.from('game_predictions').delete().eq('user_id', user.id),
     admin.from('push_subscriptions').delete().eq('user_id', user.id),
+    admin.from('survivor_picks').delete().eq('user_id', user.id),
+    admin.from('survivor_stats').delete().eq('user_id', user.id),
+    // The pick'em keys its rows on the user id; the awards ballot keys on a browser key that
+    // was never tied to an account (see SeriesPicks.tsx), so this reaches only the picks.
+    admin.from('wpbl_award_votes').delete().eq('voter_key', user.id),
+    // A photo tag describes a public photo, not the person, so it stays in the moderation queue
+    // with the account link cut, as feedback does below. Its browser key and ip hash were
+    // never tied to the account.
+    admin.from('wpbl_photo_tag_suggestions').update({ user_id: null }).eq('user_id', user.id),
 
     // ANONYMIZED, NOT DELETED, and these two are the reason this list is not just the
     // cascade. `events.user_id` and `feedback.user_id` are plain uuid columns with NO foreign
@@ -68,6 +101,18 @@ Deno.serve(async (req) => {
     admin.from('events').update({ user_id: null }).eq('user_id', user.id),
     admin.from('feedback').update({ user_id: null, email: null }).eq('user_id', user.id),
   ])
+
+  // Stop before the auth user if any cleanup failed. These calls resolve with an error rather
+  // than throw, and this used to ignore them: a failed step still deleted the sign-in, which
+  // left rows under an id nobody can sign in as again, so a retry from Settings was impossible.
+  // Stopping here keeps the account, and the reader can simply try again.
+  const failed = steps.map(s => s.error).filter(Boolean)
+  if (failed.length) {
+    console.error('delete-account cleanup failed', user.id, failed.map(e => e!.message))
+    return new Response(JSON.stringify({ error: 'Cleanup failed; the account was not deleted.' }), {
+      status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    })
+  }
 
   const { error: deleteErr } = await admin.auth.admin.deleteUser(user.id)
   if (deleteErr) {

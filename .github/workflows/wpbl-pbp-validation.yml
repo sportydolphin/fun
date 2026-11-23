@@ -42,10 +42,11 @@ jobs:
       # Only `pg` is needed. `npm ci` would pull the whole frontend toolchain this script never
       # imports; the version is read from package-lock.json so there is still one source of truth.
       # Same approach as the reminder workflows.
-      - name: Install validator dependency
+      - name: Install validator dependencies
         uses: ./.github/actions/script-deps
         with:
-          packages: 'pg'
+          # esbuild bundles the event audit below (scripts/run-ts.mjs).
+          packages: 'pg esbuild'
 
       - name: Validate play-by-play
         env:
@@ -56,3 +57,13 @@ jobs:
         # --record writes the run row and always exits 0, including when the run itself throws,
         # so a broken job still reports rather than leaving the panel showing the last good run.
         run: node scripts/validate-wpbl-pbp.mjs --baseline scripts/wpbl-pbp-baseline.json --record
+
+      # Our own readings of the play log against the box score (scripts/check-wpbl-event-counts.ts).
+      # Unlike the step above, THIS ONE FAILS on a new gap: its baseline is small and every entry in
+      # it says why, so a new gap is either a phrasing our readers miss (sacrifice bunts written
+      # "SAC", 0-0 trips with no pitch sequence) or a play the league left out, and both want a person.
+      # A red run pages through workflow-failure-alert.yml, which already lists this workflow.
+      - name: Count events against the box score
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: npm run event-audit

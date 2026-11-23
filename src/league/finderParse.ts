@@ -1,4 +1,4 @@
-import { finderFields, finderLowerBetter, parseFinderValue } from './finder'
+import { FINDER_STRETCH_MAX, finderFields, finderStretchBar, finderLowerBetter, parseFinderValue, PA_CUT_KEYS, PA_SEASON_KEYS, SITUATION_KEYS } from './finder'
 import type { FinderBoardSide, FinderCondition, FinderOp, FinderPer, FinderSide, FinderVenue } from './finder'
 import { editDistance } from '../lib/fuzzyName'
 import type { PlayerPart } from '../lib/playerParts'
@@ -48,6 +48,8 @@ export interface ParsedFinder {
   side: FinderBoardSide
   per: FinderPer
   conditions: FinderCondition[]
+  /** Fielding by the inning, filed under the club ("most errors in an inning by a team"). */
+  byClub?: boolean
   teamId: string | null
   oppId: string | null
   venue: FinderVenue
@@ -57,6 +59,19 @@ export interface ParsedFinder {
   ignored: string[]
   /** A year typed with the question ("3 hr games 2025"), or null for the board's own season. */
   season: number | null
+  /** A span of the season, the last N games, or the other player's hand (`FinderQuery`), when said. */
+  from?: string | null
+  to?: string | null
+  last?: number | null
+  hand?: 'L' | 'R' | null
+  /** Extra-inning games, a doubleheader's, or a stretch of N straight games (`FinderQuery`), when said. */
+  extra?: boolean | null
+  dh?: 'any' | 1 | 2 | null
+  stretch?: number | null
+  /** The stat was said with no number ("Hunters doubles"), and read as at least one. */
+  bare?: boolean
+  /** The postseason was asked for ("triples in the playoffs"): the board's Playoffs slice. */
+  post?: boolean
 }
 
 /** One word or phrase for a stat, and the field it means on each side that records it. Whether a
@@ -87,7 +102,23 @@ add({ hitting: '3b' }, 'triples', 'triple', '3b')
 add({ hitting: 'rbi' }, 'rbi', 'rbis', 'runs batted in', 'ribbies')
 add({ hitting: 'r' }, 'runs scored')
 add({ hitting: 'sb' }, 'stolen bases', 'stolen base', 'steals', 'steal', 'sb', 'sbs', 'swipes')
-add({ hitting: 'cs' }, 'caught stealing', 'cs')
+add(both('cs', 'cs', 'hitting'), 'caught stealing', 'cs')
+// A runner picked off, or a pitcher's pickoffs: the play log's, so an inning's only.
+add(both('pk', 'pk', 'pitching'), 'pickoffs', 'pickoff', 'pick offs', 'pick off')
+add({ hitting: 'pk' }, 'picked off', 'times picked off')
+add({ hitting: 'sbh' }, 'steals of home', 'steal of home', 'stole home', 'stolen bases of home', 'home steals')
+// Sums of the hit types. Not "1b", "sf" or "sh": first base, San Francisco and a typo come first.
+add({ hitting: '1b' }, 'singles')
+add({ hitting: 'xbh' }, 'extra base hits', 'extra base hit', 'xbh', 'xbhs', 'extra bases hits')
+add({ hitting: 'sf' }, 'sacrifice flies', 'sacrifice fly', 'sac flies', 'sac fly')
+add({ hitting: 'sh' }, 'sacrifice bunts', 'sacrifice bunt', 'sac bunts', 'sac bunt', 'sacrifice hits', 'sacrifices')
+// A batter's bunts and the kinds of hit no box score splits out, counted off the play log for a game
+// or a season ("most bunts", "most infield hits"). A plate appearance has these as yes-or-no flags,
+// read by PA_PHRASES before any alias. Not the singular "bunt", one letter from Kate Blunt.
+add({ hitting: 'bunts' }, 'bunts', 'bunt attempts', 'times bunted')
+add({ hitting: 'bunth' }, 'bunt hits', 'bunt hit', 'bunt singles')
+add({ hitting: 'ifhs' }, 'infield hits', 'infield hit', 'infield singles')
+add({ hitting: 'phh' }, 'pinch hits', 'pinch-hits')
 add({ hitting: 'gdp' }, 'gdp', 'gidp', 'grounded into double plays')
 // A batter grounds into one and a fielder turns one: the batter's by default, the fielder's on a
 // Fielding side when a word says so ("turned", "fielders").
@@ -103,9 +134,14 @@ add({ pitching: 'bb' }, 'walks allowed', 'walks issued')
 add({ pitching: 'hr' }, 'home runs allowed', 'homers allowed', 'hr allowed', 'home runs given up')
 add({ pitching: 'hbp' }, 'hit batters', 'hit batter', 'batters hit')
 add({ pitching: 'wp' }, 'wild pitches', 'wild pitch', 'wp')
+add({ pitching: 'sb' }, 'stolen bases off', 'steals off')
 add({ pitching: 'bk' }, 'balks', 'balk', 'bk')
 add({ pitching: 'bf' }, 'batters faced', 'bf')
-add({ pitching: 'pitches' }, 'pitches', 'pitches thrown', 'pitch count')
+// A batter's pitches exist only on a plate appearance ("at-bats of 10 pitches"); a grain that has no
+// such field drops the reading (see WHICH GRAINS), so "100 pitches" stays the pitcher's.
+add({ hitting: 'pitches', pitching: 'pitches', lean: 'pitching' }, 'pitches', 'pitch count')
+add({ pitching: 'pitches' }, 'pitches thrown')
+add({ hitting: 'pitches' }, 'pitches seen')
 add({ pitching: 'strikes' }, 'strikes', 'strikes thrown')
 add({ pitching: 'baserunners' }, 'baserunners', 'base runners', 'baserunners allowed')
 // What only a season has.
@@ -121,6 +157,7 @@ add({ pitching: 'l' }, 'losses', 'loss')
 add({ pitching: 'sv' }, 'saves', 'save', 'sv', 'svs')
 add({ pitching: 'hld' }, 'holds', 'hold', 'hld')
 add({ pitching: 'gs' }, 'games started', 'starts', 'start', 'gs')
+add({ pitching: 'cg' }, 'complete games', 'complete game', 'cg', 'cgs')
 add({ hitting: 'g' }, 'games played', 'gp')
 add({ pitching: 'g' }, 'appearances', 'games pitched', 'outings pitched')
 // The glove. No bare "a" or "e", which are words and initials before they are stats.
@@ -156,6 +193,23 @@ addRank({ pitching: 'fip' }, 'fip', 'fielding independent pitching')
 addRank({ pitching: 'kbb' }, 'k/bb', 'k bb', 'strikeout to walk', 'strikeout to walk ratio')
 addRank({ overall: 'war' }, 'war', 'wins above replacement')
 addRank({ overall: 'wpa' }, 'wpa', 'win probability added')
+// Columns the tables already had that no word reached (the Nov 20, 2026 probe: "stolen base
+// percentage", "strike percentage", "k/9", "leverage" and the rest offered nothing or a definition).
+// K/9 and HR/9 are the table's per-basis columns whatever the basis is called (normalize writes every
+// spelling as one word); BB/9 is BB%, which the table keeps in its place on purpose (stats.ts, `hr9`).
+addRank({ hitting: 'sbPct' }, 'sb%', 'sb pct', 'stolen base percentage', 'stolen base pct', 'stolen base success rate', 'sb success rate', 'steal success rate', 'steal percentage', 'success rate stealing')
+addRank({ pitching: 'strikePct' }, 'strike%', 'str%', 'strike pct', 'strike percentage', 'strike rate', 'strikes thrown percentage')
+addRank({ pitching: 'kbbPct' }, 'k-bb%', 'k bb%', 'k minus bb', 'k-bb')
+addRank({ pitching: 'k9' }, 'kpernine', 'strikeouts per inning')
+addRank({ pitching: 'hr9' }, 'hrpernine')
+addRank({ pitching: 'bbPct' }, 'bbpernine')
+addRank({ hitting: 'ibb' }, 'ibb', 'intentional walks', 'intentional walk', 'intentional bases on balls')
+addRank({ overall: 'pli' }, 'pli', 'leverage', 'leverage index', 'average leverage')
+addRank({ overall: 'gmli' }, 'gmli', 'reliever leverage', 'leverage when entering', 'entering leverage')
+addRank({ overall: 'bsr' }, 'bsr', 'baserunning', 'base running', 'baserunning runs', 'base running runs')
+addRank({ overall: 'fld' }, 'fld', 'fielding runs', 'defensive runs', 'defensive value', 'glove runs')
+addRank({ overall: 'batWar' }, 'pos war', 'position war', 'position player war', 'batting war', 'offensive war')
+addRank({ overall: 'pitWar' }, 'pit war', 'pitching war', 'pitcher war')
 
 /** How a season figure is named and which end is the good one, where the finder does not know it. */
 const RANK_FIELDS: Record<string, { label: string; rate: boolean; lowerBetter?: RankSide[] }> = {
@@ -164,6 +218,13 @@ const RANK_FIELDS: Record<string, { label: string; rate: boolean; lowerBetter?: 
   kPct: { label: 'K%', rate: true, lowerBetter: ['hitting'] }, bbPct: { label: 'BB%', rate: true, lowerBetter: ['pitching'] },
   eraPlus: { label: 'ERA+', rate: true }, fip: { label: 'FIP', rate: true, lowerBetter: ['pitching'] },
   kbb: { label: 'K/BB', rate: true }, war: { label: 'WAR', rate: false }, wpa: { label: 'WPA', rate: false },
+  sbPct: { label: 'SB%', rate: true }, strikePct: { label: 'strike rate', rate: true }, kbbPct: { label: 'K-BB%', rate: true },
+  // The basis (per 7 or per 9) is the reader's, which a title here cannot know, so these say what
+  // the figure is measured over instead.
+  k9: { label: 'K rate by innings', rate: true }, hr9: { label: 'HR rate by innings', rate: true, lowerBetter: ['pitching'] },
+  ibb: { label: 'intentional walks', rate: false }, pli: { label: 'leverage (pLI)', rate: true }, gmli: { label: 'gmLI', rate: true },
+  bsr: { label: 'baserunning runs', rate: false }, fld: { label: 'fielding runs', rate: false },
+  batWar: { label: 'position player WAR', rate: false }, pitWar: { label: 'pitching WAR', rate: false },
 }
 
 /** Whether a ranked column's good end is the low one, for the box-score stats and these alike. */
@@ -222,16 +283,415 @@ const FILLER = new Set([
   'a', 'an', 'the', 'and', 'or', 'with', 'of', 'in', 'on', 'game', 'games', 'line', 'lines', 'who', 'had',
   'has', 'have', 'did', 'got', 'any', 'anyone', 'anybody', 'player', 'players', 'times', 'time', 'find',
   'show', 'me', 'all', 'every', 'how', 'many', 'most', 'when', 'where', 'what', 'which', 'were', 'was',
-  'is', 'are', 'least', 'than', 'more', 'fewer', 'less', 'only', 'single', 'one',
+  'is', 'are', 'least', 'than', 'more', 'fewer', 'less', 'only', 'single', 'one', 'that', 'scored',
   // A club's lead word with no club after it: the club itself is what gets reported.
   'vs', 'v', 'versus', 'against', 'facing', 'at', 'for', 'by',
 ])
 
-const PITCHING_HINTS = ['pitcher', 'pitchers', 'pitching', 'pitched', 'thrown', 'allowed', 'start', 'starts', 'starter', 'starters', 'outing', 'outings']
+const PITCHING_HINTS = ['pitcher', 'pitchers', 'pitching', 'pitched', 'thrown', 'threw', 'allowed', 'start', 'starts', 'starter', 'starters', 'outing', 'outings']
 
 // The grain, said in words. Phrases first, so "in a season" is taken whole rather than leaving "in a".
 const SEASON_WORDS = /(?<![a-z])(on the season|this season|in a season|in the season|on the year|this year|in a year|for the season|for the year|season totals?|seasons?|totals?|year)(?![a-z])/g
 const GAME_WORDS = /(?<![a-z])(in a game|in one game|in a single game|single game|one game|a game|games?|nights?|outings?|starts?)(?![a-z])/
+// An inning, said in a way no count of innings pitched is: always with its article or "same",
+// "single", "per". "Inning" alone is innings pitched (STAT_ALIASES), so it is never read here bare.
+// "One inning" alone could be a reliever's one inning pitched, so "one" and "1" count only after "in".
+const INNING_WORDS = /(?<![a-z0-9])(?:(?:in|during)\s+(?:an|one|1|a single|a|the same)|an|a single|single|the same|per)\s+(?:inning|frame)(?![a-z])/g
+// A number written right before "inning", which makes it innings pitched ("5 innings", "6.1 inning").
+const BARE_INNING_COUNT = new RegExp(`(?<![a-z0-9.])(?:\\d+(?:\\.\\d+)?|${Object.keys(NUMBER_WORDS).join('|')})\\+?[\\s-]*(?:in\\s+)?$`)
+// TWO-OUT RUNS ARE A CLUB'S, said any way round: "two out runs", "2-out runs scored", "runs with two
+// outs". Read as one stat before the situations, which would take the "two out" as a cut on each trip
+// and leave the runs unasked, since a trip carries no runs scored: "two out runs team" listed every
+// two-out plate appearance until Nov 10, 2026. The club's half-innings count every run that scored
+// with two out, a wild pitch's too (`TeamInningLine.r2`).
+const TWO_OUT_RUNS = /(?<![a-z0-9])(?:(?:two|2)[\s-]+outs?[\s-]+runs?(?:\s+scored)?|runs?(?:\s+scored)?\s+(?:with\s+)?(?:two|2)[\s-]+outs?)(?![a-z])/g
+// A CLUB'S HALF-INNING, said the way a broadcast says it: "5-run innings", "innings with 3+ runs",
+// "two-out rallies", "comebacks", "go-ahead innings". Taken before the plate-appearance phrases, which
+// would read the "2 out" of a two-out rally as the outs of one at-bat. A count of runs reads on either
+// side (a club's big inning is a pitcher's bad one); a comeback or a rally is the club's alone.
+const TEAM_INNING_PHRASES: { re: RegExp; conditions: (m: string[]) => FinderCondition[] }[] = [
+  // "Two out runs" asked of one half-inning is the innings a club scored in with two out.
+  { re: TWO_OUT_RUNS, conditions: () => [{ field: 'r2', op: 'gte', value: 1 }] },
+  { re: /(?<![a-z0-9])(?:two|2)[\s-]+outs?\s+rall(?:y|ies)(?![a-z])/g,
+    conditions: () => [{ field: 'r2', op: 'gte', value: 2 }] },
+  { re: /(?<![a-z0-9])(?:comebacks?|come[\s-]+from[\s-]+behind)(?:\s+(?:innings?|rall(?:y|ies)))?(?![a-z])/g,
+    conditions: () => [{ field: 'trail', op: 'gte', value: 1 }, { field: 'tooklead', op: 'eq', value: 1 }] },
+  { re: /(?<![a-z0-9])(?:go[\s-]+ahead|lead[\s-]+changing)\s+(?:innings?|rall(?:y|ies))(?![a-z])/g,
+    conditions: () => [{ field: 'tooklead', op: 'eq', value: 1 }] },
+  { re: /(?<![a-z0-9])(\d+)\+?[\s-]+runs?\s+(?:innings?|frames?)(?![a-z])/g,
+    conditions: m => [{ field: 'r', op: 'gte', value: Number(m[1]) }] },
+  { re: /(?<![a-z0-9])(?:innings?|frames?)\s+(?:with|of|where)(?![a-z])/g,
+    conditions: () => [] },
+]
+
+// The innings with names, each a whole question. Immaculate: three strikeouts on nine pitches, which
+// "nine or fewer" says exactly, since a strikeout takes three. 1-2-3: three up, three down, nobody on.
+// The numbers need "inning" after them, or any "1 2 3" typed would be read as one.
+const INNING_FEATS = /(?<![a-z0-9])(?:an?\s+)?(immaculate(?:\s+(?:innings?|frames?))?|(?:1-2-3|one[\s-]two[\s-]three)\s+(?:innings?|frames?))(?![a-z0-9])/g
+const ONE_TWO_THREE: FinderCondition[] = [
+  { field: 'bf', op: 'eq', value: 3 }, { field: 'outs', op: 'eq', value: 3 }, { field: 'baserunners', op: 'eq', value: 0 },
+]
+const featConditions = (feat: string): FinderCondition[] => (feat.startsWith('immaculate')
+  ? [{ field: 'so', op: 'gte', value: 3 }, { field: 'pitches', op: 'lte', value: 9 }]
+  : ONE_TWO_THREE)
+
+// ─── A club's whole game, said in words ───────────────────────────────────────
+//
+// "BY A TEAM" IS THE GRAIN: "most runs in a game by a team", "teams with 15 hits", "club games with 3
+// errors". Without it the same words are a player's line, which is the commoner question, so the club
+// is read only when it is said. The named feats are a club's game by definition (a no-hitter is the
+// staff's, a blowout the score's) and carry their own side and conditions.
+const CLUB_WORDS = /(?<![a-z])(?:(?:by|for|from)\s+(?:a|one|the|either|any)\s+(?:team|club)|as\s+a\s+(?:team|club)|(?:teams?|clubs?)(?:\s+games?)?)(?![a-z])/g
+const CLUB_FEATS: { re: RegExp; side: FinderBoardSide; conditions: (m: string[]) => FinderCondition[] }[] = [
+  // Nobody reached on a hit, a walk or a hit batter. A runner on an error alone would still pass, which
+  // the pitching line cannot see; the league has had no perfect game for that to matter yet.
+  { re: /(?<![a-z])perfect\s+games?(?![a-z])/g, side: 'pitching', conditions: () => [{ field: 'baserunners', op: 'eq', value: 0 }] },
+  { re: /(?<![a-z])(?:combined\s+)?no[\s-]?hitters?|no[\s-]hit\s+games?(?![a-z])/g, side: 'pitching', conditions: () => [{ field: 'h', op: 'eq', value: 0 }] },
+  { re: /(?<![a-z0-9])(one|two|1|2)[\s-]hitters?(?![a-z])/g, side: 'pitching',
+    conditions: m => [{ field: 'h', op: 'eq', value: m[1] === 'one' || m[1] === '1' ? 1 : 2 }] },
+  { re: /(?<![a-z])shut[\s-]?outs?(?![a-z])/g, side: 'pitching', conditions: () => [{ field: 'r', op: 'eq', value: 0 }] },
+  { re: /(?<![a-z])blow[\s-]?outs?(?![a-z])/g, side: 'hitting', conditions: () => [{ field: 'margin', op: 'gte', value: 10 }] },
+  { re: /(?<![a-z])(?:won|wins?|winning|victories)\s+by\s+(?:at\s+least\s+)?(\d+)\+?(?:\s+or\s+more)?(?:\s+runs?)?(?![a-z0-9])/g, side: 'hitting',
+    conditions: m => [{ field: 'margin', op: 'gte', value: Number(m[1]) }] },
+  { re: /(?<![a-z])(?:lost|loss(?:es)?|losing)\s+by\s+(?:at\s+least\s+)?(\d+)\+?(?:\s+or\s+more)?(?:\s+runs?)?(?![a-z0-9])/g, side: 'hitting',
+    conditions: m => [{ field: 'margin', op: 'lte', value: -Number(m[1]) }] },
+  { re: /(?<![a-z])errorless\s+(?:games?|wins?)(?![a-z])/g, side: 'fielding', conditions: () => [{ field: 'e', op: 'eq', value: 0 }] },
+  // "One-run games" were a run scored (Nov 10, 2026). A win or a loss by N is the margin; a game of
+  // either is a margin of one each way, which is every one-run game since a final cannot be tied.
+  { re: /(?<![a-z0-9])(one|two|three|1|2|3)[\s-]+runs?\s+(wins?|victories|loss(?:es)?|defeats?|games?)(?![a-z])/g, side: 'hitting',
+    conditions: m => {
+      const n = m[1] in NUMBER_WORDS ? NUMBER_WORDS[m[1]] : Number(m[1])
+      if (/^(?:win|vic)/.test(m[2])) return [{ field: 'margin', op: 'eq', value: n }]
+      if (/^(?:los|def)/.test(m[2])) return [{ field: 'margin', op: 'eq', value: -n }]
+      return n === 1 ? [{ field: 'margin', op: 'gte', value: -1 }, { field: 'margin', op: 'lte', value: 1 }] : []
+    } },
+]
+
+// ─── A player's game with a name ──────────────────────────────────────────────
+//
+// THE NAMED GAMES A BOX SCORE CAN SAY, each a whole question in words and a player's single game by
+// definition: a cycle, a complete game, a quality start, and the streaks that end on a game (finder.ts,
+// `markStreaks`). Read before the stats, which would take "games" or "hitting" for something else, and
+// before the club's feats, so a complete-game shutout is the pitcher's and not the staff's. A count in
+// front of "complete games" is a season's ("5 complete games"), left to the stats.
+const NUM_WORD = `(?:\\d+|${Object.keys(NUMBER_WORDS).join('|')})`
+const GAME_FEATS: { re: RegExp; side: FinderBoardSide; conditions: (m: string[]) => FinderCondition[] }[] = [
+  { re: /(?<![a-z])(?:complete[\s-]+games?|cg)\s+shut[\s-]?outs?(?![a-z])/g, side: 'pitching',
+    conditions: () => [{ field: 'cg', op: 'gte', value: 1 }, { field: 'r', op: 'eq', value: 0 }] },
+  { re: new RegExp(`(?<![a-z0-9])(?<!${NUM_WORD}\\s)(?:complete[\\s-]+games?|cgs?)(?![a-z])`, 'g'), side: 'pitching',
+    conditions: () => [{ field: 'cg', op: 'gte', value: 1 }] },
+  // Six innings and three earned runs at most, the definition every league prints.
+  { re: /(?<![a-z])(?:quality[\s-]+starts?|qs)(?![a-z])/g, side: 'pitching',
+    conditions: () => [{ field: 'gs', op: 'gte', value: 1 }, { field: 'ip', op: 'gte', value: 18 }, { field: 'er', op: 'lte', value: 3 }] },
+  // A Maddux: a complete-game shutout on fewer than 100 pitches.
+  { re: /(?<![a-z])maddux(?:es|s)?(?![a-z])/g, side: 'pitching',
+    conditions: () => [{ field: 'cg', op: 'gte', value: 1 }, { field: 'r', op: 'eq', value: 0 }, { field: 'pitches', op: 'lte', value: 99 }] },
+  // Four strikeouts in a game is a golden sombrero, five a platinum one.
+  { re: /(?<![a-z])(golden|platinum)\s+sombreros?(?![a-z])/g, side: 'hitting',
+    conditions: m => [{ field: 'so', op: 'gte', value: m[1] === 'golden' ? 4 : 5 }] },
+  { re: /(?<![a-z])(?:hit\s+for\s+the\s+cycle|(?:hitting\s+for\s+)?(?:the\s+)?cycles?)(?![a-z])/g, side: 'hitting',
+    conditions: () => [{ field: '1b', op: 'gte', value: 1 }, { field: '2b', op: 'gte', value: 1 }, { field: '3b', op: 'gte', value: 1 }, { field: 'hr', op: 'gte', value: 1 }] },
+  { re: new RegExp(`(?<![a-z0-9])(${NUM_WORD})\\+?[\\s-]+games?\\s+(hitting|on[\\s-]+base)\\s+streaks?(?![a-z])`, 'g'), side: 'hitting',
+    conditions: m => [{ field: /^hit/.test(m[2]) ? 'hstreak' : 'obstreak', op: 'gte', value: m[1] in NUMBER_WORDS ? NUMBER_WORDS[m[1]] : Number(m[1]) }] },
+  { re: /(?<![a-z])(?:(?:longest|best)\s+)?(hitting|on[\s-]+base)\s+streaks?(?![a-z])/g, side: 'hitting',
+    conditions: m => [{ field: /^hit/.test(m[1]) ? 'hstreak' : 'obstreak', op: 'gte', value: 1 }] },
+]
+
+// ─── Cuts: when, how recently, and against which arm ──────────────────────────
+//
+// A SPAN, THE LAST N GAMES AND THE OTHER PLAYER'S HAND are cuts on the lines rather than conditions on
+// one (`FinderQuery.from` and the rest), so they are taken out of the words first, whatever else is
+// asked. A month is the board's own season ("in September"); a year beside it is the season's, read
+// as every question reads one.
+const MONTH_WORD = '(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)'
+const MONTH_KEYS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+const monthOf = (w: string) => MONTH_KEYS.indexOf(w.slice(0, 3)) + 1
+const DAYS_IN = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+const mmdd = (m: number, d: number) => `${String(m).padStart(2, '0')}${String(d).padStart(2, '0')}`
+const DAY_NUM = '(?:\\s+(\\d{1,2})(?:st|nd|rd|th)?)?'
+// The far end of a range: a month with or without a day ("sep 5", "september"), or a day alone that
+// borrows the first end's month ("aug 1-15").
+const RANGE_END = `(?:${MONTH_WORD}${DAY_NUM}|(\\d{1,2})(?:st|nd|rd|th)?)`
+// A month on its own beside a stat ("august hr", "avg september"). Whole names only, and never "may"
+// or "march", which are words before they are months; the short forms need their "in".
+const BARE_MONTH = /(?<![a-z0-9])(january|february|april|june|july|august|september|october|november|december)(?!\s*\d)(?![a-z])/g
+const SPAN_PHRASES: { re: RegExp; cut: (m: string[]) => { from?: string; to?: string } }[] = [
+  // A RANGE, both ends said: "aug 1 to aug 15", "between aug 1 and 15", "aug 1-15", "from august to
+  // september". First, so "from aug 1" does not take the start and leave "to aug 15" as a "through".
+  { re: new RegExp(`(?<![a-z])(?:(?:between|from)\\s+)?${MONTH_WORD}${DAY_NUM}\\s*(?:and|to|through|thru|until|-|–)\\s*${RANGE_END}(?![a-z0-9])`, 'g'),
+    cut: m => {
+      const a = monthOf(m[1])
+      const b = m[3] ? monthOf(m[3]) : a
+      const endDay = m[4] ? Number(m[4]) : m[5] ? Number(m[5]) : m[3] ? DAYS_IN[b - 1] : null
+      // "aug to" with nothing after is no range; neither is an end before the start ("aug 15-3").
+      if (endDay == null || endDay > 31) return {}
+      const from = mmdd(a, m[2] ? Number(m[2]) : 1), to = mmdd(b, endDay)
+      return to < from ? {} : { from, to }
+    } },
+  { re: new RegExp(`(?<![a-z])(?:since|from|starting)\\s+${MONTH_WORD}${DAY_NUM}(?![a-z0-9])`, 'g'),
+    cut: m => ({ from: mmdd(monthOf(m[1]), m[2] ? Number(m[2]) : 1) }) },
+  { re: new RegExp(`(?<![a-z])after\\s+${MONTH_WORD}${DAY_NUM}(?![a-z0-9])`, 'g'),
+    cut: m => {
+      const mo = monthOf(m[1])
+      if (!m[2]) return { from: mmdd(mo % 12 + 1, 1) }
+      const d = Number(m[2])
+      return { from: d >= DAYS_IN[mo - 1] ? mmdd(mo % 12 + 1, 1) : mmdd(mo, d + 1) }
+    } },
+  { re: new RegExp(`(?<![a-z])(?:through|thru|until|till|up\\s+to)\\s+${MONTH_WORD}${DAY_NUM}(?![a-z0-9])`, 'g'),
+    cut: m => ({ to: mmdd(monthOf(m[1]), m[2] ? Number(m[2]) : DAYS_IN[monthOf(m[1]) - 1]) }) },
+  { re: new RegExp(`(?<![a-z])before\\s+${MONTH_WORD}${DAY_NUM}(?![a-z0-9])`, 'g'),
+    cut: m => {
+      const mo = monthOf(m[1])
+      const d = m[2] ? Number(m[2]) : 1
+      return { to: d > 1 ? mmdd(mo, d - 1) : mmdd(mo === 1 ? 12 : mo - 1, DAYS_IN[(mo + 10) % 12]) }
+    } },
+  { re: new RegExp(`(?<![a-z])(?:in|during|for|throughout)\\s+(?:the\\s+month\\s+of\\s+)?${MONTH_WORD}(?!\\s*\\d)(?![a-z])`, 'g'),
+    cut: m => ({ from: mmdd(monthOf(m[1]), 1), to: mmdd(monthOf(m[1]), DAYS_IN[monthOf(m[1]) - 1]) }) },
+  // Last, after every phrase with a preposition has taken its month.
+  { re: BARE_MONTH, cut: m => ({ from: mmdd(monthOf(m[1]), 1), to: mmdd(monthOf(m[1]), DAYS_IN[monthOf(m[1]) - 1]) }) },
+]
+const LAST_GAMES = new RegExp(`(?<![a-z])(?:in\\s+)?(?:(?:the|their|her|his)\\s+)?(?:last|past|previous)\\s+(?:(${NUM_WORD})\\s+)?(?:games?|outings?|starts?)(?![a-z])`, 'g')
+const LAST_BARE = /(?<![a-z])(?:last|past)\s+(\d{1,2})(?![a-z0-9])/g
+// "vs lefties", "against left-handed pitching", "off LHP", "vs left-handed batters". Batters make it
+// a pitcher's question.
+const HAND_PHRASE = /(?<![a-z])(?:vs|versus|against|off|facing|from|of)\s+(?:(?:a|the)\s+)?(?:(left|right)[\s-]?hand(?:ed|ers?)?(?:\s+(pitchers?|pitching|throwers?|starters?|batters?|hitters?|hitting))?|(lefties|lefty|lefthanders?|southpaws?|lhps?|righties|righty|righthanders?|rhps?))(?![a-z])/g
+
+// A GAME THAT WENT TO EXTRAS, as against a play made in extras. "Extra inning games", "games that went
+// to extras" and "extra inning wins" are the whole game (`FinderQuery.extra`); "in extras" beside a play
+// is still the inning cut (INN_PHRASES), which reads only what is left after these.
+const EXTRA_GAMES = /(?<![a-z])(?:in\s+)?(?:extra[\s-]+innings?|extras)[\s-]+(?:games?|contests?)(?![a-z])|(?<![a-z])(?:(?:in\s+)?games?\s+(?:that\s+)?)?went\s+(?:to\s+)?(?:extra(?:[\s-]+innings?)?|extras)(?![a-z])/g
+const EXTRA_DECISIONS = /(?<![a-z])extra[\s-]+innings?(?=\s+(?:wins?|loss(?:es)?|saves?|decisions?)(?![a-z]))/g
+// A DOUBLEHEADER'S GAMES: the nightcap, the opener, or either. In that order, so "game 2 of a
+// doubleheader" is not read as any doubleheader with a 2 left over.
+const DH_WORD = '(?:double[\\s-]?headers?|twin[\\s-]?bills?)'
+const DH_PHRASES: { re: RegExp; dh: 'any' | 1 | 2 }[] = [
+  { re: new RegExp(`(?<![a-z])(?:in\\s+)?(?:the\\s+)?(?:nightcaps?|(?:second|2nd)\\s+games?\\s+of\\s+(?:an?\\s+|the\\s+)?${DH_WORD}|games?\\s+(?:2|two)\\s+of\\s+(?:an?\\s+|the\\s+)?${DH_WORD}|${DH_WORD}\\s+nightcaps?)(?![a-z0-9])`, 'g'), dh: 2 },
+  { re: new RegExp(`(?<![a-z])(?:in\\s+)?(?:the\\s+)?(?:(?:first|1st)\\s+games?\\s+of\\s+(?:an?\\s+|the\\s+)?${DH_WORD}|games?\\s+(?:1|one)\\s+of\\s+(?:an?\\s+|the\\s+)?${DH_WORD}|${DH_WORD}\\s+openers?)(?![a-z0-9])`, 'g'), dh: 1 },
+  { re: new RegExp(`(?<![a-z])(?:in\\s+)?(?:an?\\s+|the\\s+)?${DH_WORD}(?:\\s+games?)?(?![a-z])`, 'g'), dh: 'any' },
+]
+// A STRETCH OF N GAMES IN A ROW: "in 5 games", "over a 10 game span", "5-game stretch", "in any 7
+// straight games". Read after the last N games, so "in the last 5 games" is that cut. Two games at
+// least, and no more than the engine sums (FINDER_STRETCH_MAX).
+const STRETCH_PHRASES = [
+  new RegExp(`(?<![a-z0-9])(?:(?:in|over|across|during|within)\\s+)?(?:an?\\s+|any\\s+)?(${NUM_WORD})[\\s-]+(?:straight[\\s-]+|consecutive[\\s-]+)?games?[\\s-]+(?:span|stretch|window|run)s?(?![a-z])`, 'g'),
+  new RegExp(`(?<![a-z0-9])(?:in|over|across|during|within)\\s+(?:any\\s+)?(${NUM_WORD})[\\s-]+(?:straight[\\s-]+|consecutive[\\s-]+)?games?(?![a-z])`, 'g'),
+]
+
+type Cuts = { from?: string; to?: string; last?: number; hand?: 'L' | 'R'; post?: boolean; extra?: boolean; dh?: 'any' | 1 | 2; stretch?: number }
+
+// "in the playoffs", "postseason", "playoff games": the postseason slice, which every board and the
+// Find answers already read from the address (`games=post`). Asked for in the Nov 20, 2026 probe
+// ("triples in playoffs" was a logged miss on Nov 13).
+const PLAYOFF_WORDS = /(?<![a-z])(?:(?:in|during|of|for)\s+(?:the\s+)?)?(?:playoffs?|post[\s-]?season)(?:\s+(?:games?|stats?|totals?|play))?(?![a-z])/g
+
+/** Whether `text` asks about the postseason. */
+export function typedPostseason(text: string): boolean {
+  return new RegExp(PLAYOFF_WORDS.source).test(` ${normalize(text)} `)
+}
+
+/** The cuts said in `rest`, and `rest` without them. `batters`: the hand was a batter's. */
+function takeCuts(rest: string): { rest: string; cuts: Cuts; batters: boolean } {
+  const cuts: Cuts = {}
+  let batters = false
+  const blank = (m: string) => ' '.repeat(m.length)
+  rest = rest.replace(HAND_PHRASE, (m: string, side?: string, who?: string, word?: string) => {
+    const left = side ? side === 'left' : /^(?:left|lhp|south)/.test(word ?? '')
+    cuts.hand = left ? 'L' : 'R'
+    if (who && /^(?:batter|hitter)/.test(who)) batters = true
+    return blank(m)
+  })
+  for (const { re, cut } of SPAN_PHRASES) {
+    rest = rest.replace(re, (...args: unknown[]) => {
+      Object.assign(cuts, cut(args.slice(0, -2) as string[]))
+      return blank(args[0] as string)
+    })
+  }
+  rest = rest.replace(LAST_GAMES, (m: string, n?: string) => {
+    cuts.last = n == null ? 1 : n in NUMBER_WORDS ? NUMBER_WORDS[n] : Number(n)
+    return blank(m)
+  })
+  rest = rest.replace(LAST_BARE, (m: string, n: string) => { cuts.last = Number(n); return blank(m) })
+  for (const re of STRETCH_PHRASES) {
+    rest = rest.replace(re, (m: string, n: string) => {
+      const v = n in NUMBER_WORDS ? NUMBER_WORDS[n] : Number(n)
+      if (!(v > 1 && v <= FINDER_STRETCH_MAX)) return m
+      cuts.stretch = v
+      return blank(m)
+    })
+  }
+  rest = rest.replace(EXTRA_GAMES, m => { cuts.extra = true; return blank(m) })
+  rest = rest.replace(EXTRA_DECISIONS, m => { cuts.extra = true; return blank(m) })
+  for (const { re, dh } of DH_PHRASES) rest = rest.replace(re, m => { cuts.dh ??= dh; return blank(m) })
+  rest = rest.replace(PLAYOFF_WORDS, m => { cuts.post = true; return blank(m) })
+  return { rest, cuts, batters }
+}
+
+/** Whether `text` says a cut (a span, the last N games, a hand, a kind of game, a stretch). */
+export function saysCut(text: string): boolean {
+  const c = takeCuts(` ${normalize(text)} `).cuts
+  return !!(c.from || c.to || c.last || c.hand || c.post || c.extra || c.dh || c.stretch)
+}
+
+const FIELD_POSITION_WORDS = /(?<![a-z0-9])(?:(?:at|playing|by\s+(?:a|an|the)|from\s+(?:a|the)|among)\s+)?(catchers?|first\s+base(?:m[ae]n)?|second\s+base(?:m[ae]n)?|third\s+base(?:m[ae]n)?|shortstops?|left\s+field(?:ers?)?|center\s+field(?:ers?)?|right\s+field(?:ers?)?|(?<=(?:at|playing)\s+)(?:c|1b|2b|3b|ss|lf|cf|rf))(?![a-z0-9])/g
+const fieldPositionNumber = (word: string): number => {
+  const w = word.replace(/\s+/g, ' ')
+  const table: [RegExp, number][] = [[/^(catcher|c$)/, 2], [/^(first|1b)/, 3], [/^(second|2b)/, 4], [/^(third|3b)/, 5],
+    [/^(shortstop|ss)/, 6], [/^(left|lf)/, 7], [/^(center|cf)/, 8], [/^(right|rf)/, 9]]
+  return table.find(([re]) => re.test(w))?.[1] ?? 0
+}
+const STEALS_OF_HOME = /(?<![a-z0-9])(?:(\d+|one|two|three)\s+)?(?:steals?\s+of\s+home|stole\s+home|home\s+steals?)(?![a-z])/g
+
+// ─── The plate-appearance grain, said in words ────────────────────────────────
+//
+// EACH PHRASE IS A SITUATION OR A SHAPE NO GAME LINE HAS, so saying it settles the grain: a count
+// ("on 0-2", "full count"), the bases loaded, the outs, a walk-off, a pitch count on one at-bat
+// ("10-pitch at-bat", "8-pitch walk"). Taken before the stats for the inning words' reason, and
+// because "0-2" left in would be read as a number. The event a question is about ("home run",
+// "walk") needs no number then, since a plate appearance holds one of it or none: read after the
+// stats, from what is left, so "2 home runs on 0-2" keeps its 2 and asks nothing sensible rather than
+// asking something else.
+const PA_WORDS_TO_N: Record<string, number> = { no: 0, none: 0, zero: 0, one: 1, two: 2 }
+const outsCount = (raw: string) => (raw in PA_WORDS_TO_N ? PA_WORDS_TO_N[raw] : Number(raw))
+const PA_EVENTS = '(?:walks?|strikeouts?|ks?|home runs?|homers?|hrs?|hits?|singles?|doubles?|triples?)'
+// RUNS OF PLAYS: "back-to-back home runs", "5 straight strikeouts", "retired 10 in a row". Each is a
+// field on the plate appearance that ends the run (inningLines.ts, `markRuns`), so saying one settles
+// that grain. First in the list, so "3 home runs in a row" is never three home runs in a game, and
+// with no number a run is two. Retired needs its number: "retired in a row" names no run worth asking.
+const RUN_N = `(\\d+|${Object.keys(NUMBER_WORDS).filter(w => NUMBER_WORDS[w] >= 2).join('|')})`
+const IN_A_ROW = '(?:straight|consecutive|successive)'
+const ROW_TAIL = '\\s+in\\s+a\\s+row'
+const HR_WORDS = '(?:home\\s+runs?|homers?|hrs?|jacks?|dingers?)'
+const K_WORDS = '(?:strikeouts?|strike\\s+outs?|ks?|punchouts?)'
+const BATTERS = '(?:batters?|hitters?|outs)'
+const runCount = (raw: string | undefined, fallback: number) => (raw == null ? fallback : raw in NUMBER_WORDS ? NUMBER_WORDS[raw] : Number(raw))
+const runPhrases = (words: string, field: string): { re: RegExp; conditions: (m: RegExpExecArray) => FinderCondition[] }[] => [
+  // "3 straight strikeouts", "straight strikeouts".
+  { re: new RegExp(`(?<![a-z0-9])(?:${RUN_N}\\s+)?${IN_A_ROW}\\s+${words}(?![a-z])`, 'g'),
+    conditions: m => [{ field, op: 'gte', value: runCount(m[1], 2) }] },
+  // "3 strikeouts in a row", "strikeouts in a row".
+  { re: new RegExp(`(?<![a-z0-9])(?:${RUN_N}\\s+)?${words}${ROW_TAIL}(?![a-z])`, 'g'),
+    conditions: m => [{ field, op: 'gte', value: runCount(m[1], 2) }] },
+]
+const RUN_PHRASES: { re: RegExp; conditions: (m: RegExpExecArray) => FinderCondition[] }[] = [
+  { re: new RegExp(`(?<![a-z0-9])back[\\s-]+to[\\s-]+back[\\s-]+to[\\s-]+back\\s+${HR_WORDS}(?![a-z])`, 'g'),
+    conditions: () => [{ field: 'hrrow', op: 'gte', value: 3 }] },
+  { re: new RegExp(`(?<![a-z0-9])(?:back[\\s-]+to[\\s-]+back|b2b)\\s+${HR_WORDS}(?![a-z])`, 'g'),
+    conditions: () => [{ field: 'hrrow', op: 'gte', value: 2 }] },
+  ...runPhrases(HR_WORDS, 'hrrow'),
+  ...runPhrases(K_WORDS, 'krow'),
+  // A batter's own hits in a row, across games ("most consecutive hits", "5 straight hits").
+  ...runPhrases('(?:base\\s+)?hits?', 'hitrow'),
+  // "retired 10 straight", "retired the next 9 in a row", "10 straight batters retired", "10 straight outs".
+  { re: new RegExp(`(?<![a-z0-9])retir(?:ed|es|ing)\\s+(?:the\\s+)?(?:last\\s+|next\\s+)?${RUN_N}\\s+(?:${IN_A_ROW}|in\\s+a\\s+row)(?:\\s+${BATTERS})?(?![a-z])`, 'g'),
+    conditions: m => [{ field: 'retired', op: 'gte', value: runCount(m[1], 2) }] },
+  { re: new RegExp(`(?<![a-z0-9])(?:retir(?:ed|es|ing)\\s+)?${RUN_N}\\s+${IN_A_ROW}\\s+${BATTERS}(?:\\s+retired)?(?![a-z])`, 'g'),
+    conditions: m => [{ field: 'retired', op: 'gte', value: runCount(m[1], 2) }] },
+  { re: new RegExp(`(?<![a-z0-9])${RUN_N}\\s+${BATTERS}\\s+retired${ROW_TAIL}(?![a-z])`, 'g'),
+    conditions: m => [{ field: 'retired', op: 'gte', value: runCount(m[1], 2) }] },
+]
+
+const PA_PHRASES: { re: RegExp; conditions: (m: RegExpExecArray) => FinderCondition[] }[] = [
+  ...RUN_PHRASES,
+  { re: /(?<![a-z0-9])(?:a\s+)?(\d+)\+?\s+pitch\s+(?:at[\s-]?bats?|plate appearances?|pas?)(?![a-z])/g,
+    conditions: m => [{ field: 'pitches', op: 'gte', value: Number(m[1]) }] },
+  // "An 8-pitch walk": the count is taken and the event is left for the event words.
+  { re: new RegExp(`(?<![a-z0-9])(?:an?\\s+)?(\\d+)\\+?\\s+pitch(?=\\s+${PA_EVENTS}(?![a-z]))`, 'g'),
+    conditions: m => [{ field: 'pitches', op: 'gte', value: Number(m[1]) }] },
+  { re: /(?<![a-z0-9])(?:(?:on|in|with)\s+(?:an?\s+)?)?full\s+counts?(?![a-z])/g,
+    conditions: () => [{ field: 'balls', op: 'eq', value: 3 }, { field: 'scount', op: 'eq', value: 2 }] },
+  { re: /(?<![a-z0-9.])(?:(?:on|in|with)\s+(?:an?\s+)?)?([0-3])-([0-2])(?:\s+counts?)?(?![a-z0-9.-])/g,
+    conditions: m => [{ field: 'balls', op: 'eq', value: Number(m[1]) }, { field: 'scount', op: 'eq', value: Number(m[2]) }] },
+  // HOW THE TRIP BEGAN OR HOW THE BALL WAS HIT, each a flag on the plate appearance from the log's
+  // words (inningLines.ts). Leading off the game is the first inning's; a leadoff anything else is any
+  // half's. The plural "pinch hits" and "bunt hits" are hits; "pinch hitters" and "bunts" are every one.
+  // Not after a number: "2 bunts in a game" is a count, the stat aliases' (`bunts`), not one trip.
+  { re: /(?<![a-z0-9])(?:leading\s+off\s+(?:the\s+|a\s+)?game|game[\s-]+opening)(?![a-z])/g,
+    conditions: () => [{ field: 'leadoff', op: 'eq', value: 1 }, { field: 'inn', op: 'eq', value: 1 }] },
+  { re: /(?<![a-z0-9])(?:lead[\s-]?off|leading\s+off(?:\s+(?:the|an?)\s+(?:inning|frame))?)(?![a-z])/g,
+    conditions: () => [{ field: 'leadoff', op: 'eq', value: 1 }] },
+  { re: /(?<![0-9]\s?)(?<![0-9]\+\s?)(?<![a-z0-9])pinch[\s-]?hits(?![a-z])/g,
+    conditions: () => [{ field: 'ph', op: 'eq', value: 1 }, { field: 'h', op: 'gte', value: 1 }] },
+  { re: /(?<![a-z0-9])pinch[\s-]?hit(?:ters?|ting)?(?![a-z])/g,
+    conditions: () => [{ field: 'ph', op: 'eq', value: 1 }] },
+  { re: /(?<![0-9]\s?)(?<![0-9]\+\s?)(?<![a-z0-9])(?<!sac\s)(?<!sacrifice\s)bunt\s+(?:hits?|singles?)(?![a-z])/g,
+    conditions: () => [{ field: 'bunt', op: 'eq', value: 1 }, { field: 'h', op: 'gte', value: 1 }] },
+  { re: /(?<![0-9]\s?)(?<![0-9]\+\s?)(?<![a-z0-9])infield\s+(?:hits?|singles?)(?![a-z])/g,
+    conditions: () => [{ field: 'ifh', op: 'eq', value: 1 }] },
+  { re: /(?<![0-9]\s?)(?<![0-9]\+\s?)(?<![a-z0-9])(?<!sac\s)(?<!sacrifice\s)bunts?(?![a-z])/g,
+    conditions: () => [{ field: 'bunt', op: 'eq', value: 1 }] },
+  // "2-run homers", "solo shots": the runners on when it left, as a grand slam is the bases loaded.
+  // Left to the stats, "2 run homer" was two runs scored and the homer went unused (Nov 10, 2026).
+  { re: new RegExp(`(?<![a-z0-9])(?:(solo)|(one|two|three|four|[1-4])[\\s-]+runs?)\\s+(?:${HR_WORDS}|shots?|blasts?)(?![a-z])`, 'g'),
+    conditions: m => [{ field: 'hr', op: 'gte', value: 1 },
+      { field: 'on', op: 'eq', value: m[1] ? 0 : (m[2] in NUMBER_WORDS ? NUMBER_WORDS[m[2]] : Number(m[2])) - 1 }] },
+  // A first-pitch swing is an 0-0 count, said either way ("first pitch home runs", "on the first pitch").
+  { re: new RegExp(`(?<![a-z0-9])(?:on\\s+(?:the\\s+)?first[\\s-]+pitch|first[\\s-]+pitch(?=\\s+${PA_EVENTS}(?![a-z])))(?![a-z])`, 'g'),
+    conditions: () => [{ field: 'balls', op: 'eq', value: 0 }, { field: 'scount', op: 'eq', value: 0 }] },
+  { re: /(?<![a-z0-9])grand\s+slams?(?![a-z])/g,
+    conditions: () => [{ field: 'hr', op: 'gte', value: 1 }, { field: 'on', op: 'eq', value: 3 }] },
+  { re: /(?<![a-z0-9])(?:with\s+(?:the\s+)?)?bases[\s-]+(?:loaded|full)(?![a-z])/g,
+    conditions: () => [{ field: 'on', op: 'eq', value: 3 }] },
+  // "Walk-off wins" are the walk-offs: the win is what a walk-off is.
+  { re: /(?<![a-z0-9])walk[\s-]?offs?(?:\s+(?:wins?|victories|games?))?(?![a-z])/g,
+    conditions: () => [{ field: 'walkoff', op: 'eq', value: 1 }] },
+  { re: /(?<![a-z0-9])(?:with\s+)?([0-2]|no|none|zero|one|two)[\s-]+outs?(?![a-z])/g,
+    conditions: m => [{ field: 'paouts', op: 'eq', value: outsCount(m[1]) }] },
+  { re: /(?<![a-z0-9])(?:with\s+)?(?:(?:runners?|men|someone|somebody)\s+in\s+scoring\s+position|risp)(?![a-z])/g,
+    conditions: () => [{ field: 'risp', op: 'eq', value: 1 }] },
+  { re: /(?<![a-z0-9])(?:with\s+(?:the\s+)?bases\s+empty|with\s+nobody\s+on|bases\s+empty)(?![a-z])/g,
+    conditions: () => [{ field: 'on', op: 'eq', value: 0 }] },
+  { re: /(?<![a-z0-9])with\s+(?:runners?|men|someone|somebody)\s+on(?:\s+base)?(?![a-z])/g,
+    conditions: () => [{ field: 'on', op: 'gte', value: 1 }] },
+  { re: /(?<![a-z0-9])(?:(?:in|during)\s+(?:an?|one|1|a single|the same)|per)\s+(?:at[\s-]?bat|plate appearance)(?![a-z])/g,
+    conditions: () => [] },
+  // The grain word alone, as a search box is typed ("hr at bat", "walks plate appearance"). Not after
+  // a number, which makes it a count of at-bats ("100 at bats").
+  { re: /(?<![0-9]\s?)(?<![a-z0-9])(?:in\s+)?(?:at[\s-]?bats?|plate appearances?)(?![a-z])/g,
+    conditions: () => [] },
+]
+
+// WHICH INNING, in words: "in the 7th", "7th inning or later", "after the 5th", "in extra innings".
+// Either play-log grain can ask it, so it settles neither on its own: a count beside it ("3
+// strikeouts in the 7th") is a pitcher's inning, an event with no number ("a home run in the 7th")
+// is a plate appearance. Extra innings are the league's own, past its regulation length, which is
+// why the parser is told that length rather than assuming nine.
+const ORDINAL_WORDS: Record<string, number> = {
+  first: 1, second: 2, third: 3, fourth: 4, fifth: 5, sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10, eleventh: 11, twelfth: 12,
+}
+const ORD = `(\\d{1,2})(?:st|nd|rd|th)`
+const ORD_WORD = `(${Object.keys(ORDINAL_WORDS).join('|')})`
+const INN_PHRASES: { re: RegExp; condition: (m: string[], regulation: number) => FinderCondition }[] = [
+  { re: /(?<![a-z0-9])(?:in\s+)?(?:extra\s+(?:innings?|frames?)|extras)(?![a-z])/g,
+    condition: (_m, regulation) => ({ field: 'inn', op: 'gte', value: regulation + 1 }) },
+  { re: new RegExp(`(?<![a-z0-9])(after|before)\\s+the\\s+(?:${ORD}|${ORD_WORD})(?:\\s+(?:inning|frame))?(?![a-z])`, 'g'),
+    condition: m => {
+      const v = m[2] ? Number(m[2]) : ORDINAL_WORDS[m[3]]
+      return m[1] === 'after' ? { field: 'inn', op: 'gte', value: v + 1 } : { field: 'inn', op: 'lte', value: v - 1 }
+    } },
+  { re: new RegExp(`(?<![a-z0-9])(?:(?:in|during|through)\\s+(?:the\\s+)?)?(?:${ORD}(?:\\s+(?:inning|frame))?|${ORD_WORD}\\s+(?:inning|frame))(?:\\s+or\\s+(later|after|beyond|earlier|before))?(?![a-z])`, 'g'),
+    condition: m => {
+      const v = m[1] ? Number(m[1]) : ORDINAL_WORDS[m[2]]
+      const later = m[3] === 'later' || m[3] === 'after' || m[3] === 'beyond'
+      const earlier = m[3] === 'earlier' || m[3] === 'before' || /^through/.test(m[0])
+      return { field: 'inn', op: later ? 'gte' : earlier ? 'lte' : 'eq', value: v }
+    } },
+]
+const EVENT_LEAN: Record<string, FinderBoardSide> = { so: 'pitching', hr: 'hitting', hrrow: 'hitting', h: 'hitting', '2b': 'hitting', '3b': 'hitting', bb: 'hitting', hbp: 'hitting',
+  leadoff: 'hitting', ph: 'hitting', bunt: 'hitting', ifh: 'hitting', hitrow: 'hitting', '1b': 'hitting', runs: 'hitting', rbi: 'hitting' }
+// The events a plate appearance can be, as words with no number beside them.
+const PA_EVENT_WORDS: { re: RegExp; field: string }[] = [
+  { re: /(?<![a-z])(?:hit by pitch(?:es)?|hbps?)(?![a-z])/g, field: 'hbp' },
+  { re: /(?<![a-z])(?:home runs?|homers?|hrs?|dingers?)(?![a-z])/g, field: 'hr' },
+  { re: /(?<![a-z])(?:walks?|walked|bbs?)(?![a-z])/g, field: 'bb' },
+  { re: /(?<![a-z])(?:strikeouts?|strike outs?|struck out|ks?|punchouts?)(?![a-z])/g, field: 'so' },
+  { re: /(?<![a-z])doubles?(?![a-z])/g, field: '2b' },
+  { re: /(?<![a-z])triples?(?![a-z])/g, field: '3b' },
+  { re: /(?<![a-z])singles?(?![a-z])/g, field: '1b' },
+  { re: /(?<![a-z])hits?(?![a-z])/g, field: 'h' },
+  // A plate appearance's RBI are the scorer's ("two-out rbi"), never the runs on the play: an error or a
+  // double play scores runs nobody drove in (`PlateAppearanceLine.rbi`).
+  { re: /(?<![a-z])(?:rbis?|runs batted in)(?![a-z])/g, field: 'rbi' },
+]
 
 // HOW BIG A NUMBER ONE GAME CAN HOLD, per stat in its own unit (innings in outs). Above `max` nobody
 // has done it in a game, so the question can only be about a season; above `typical` it is a rare
@@ -251,7 +711,7 @@ const GAME_LIMITS: Record<FinderBoardSide, Record<string, { typical: number; max
     pitches: { typical: 125, max: 175 }, strikes: { typical: 85, max: 125 }, baserunners: { typical: 14, max: 30 },
     // A decision or a start is once a game at most.
     w: { typical: 1, max: 1 }, l: { typical: 1, max: 1 }, sv: { typical: 1, max: 1 }, hld: { typical: 1, max: 1 },
-    gs: { typical: 1, max: 1 },
+    gs: { typical: 1, max: 1 }, cg: { typical: 1, max: 1 },
   },
   fielding: {
     tc: { typical: 12, max: 22 }, po: { typical: 12, max: 21 }, a: { typical: 6, max: 12 }, e: { typical: 2, max: 4 },
@@ -264,9 +724,11 @@ const FIELDING_HINTS = ['fielder', 'fielders', 'fielding', 'defense', 'defence',
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const alt = (xs: string[]) => xs.map(esc).join('|')
 
-// A number word must be followed by a space, or "a" would read "ab" as one of something. A decimal
-// is any length, and may drop its leading zero (".300"): `valueFor` decides which stats take one.
-const NUM = `(\\d+(?:\\.\\d+)?|\\.\\d+|(?:${alt(Object.keys(NUMBER_WORDS))})(?=\\s))`
+// A number word must be followed by a space, or "a" would read "ab" as one of something, and preceded
+// by one, or "era" reads as one earned run ("er" then "a"), which is how "Sato ERA vs Queens" became
+// "Earned runs at least 1" (Nov 10, 2026). A decimal is any length, and may drop its leading zero
+// (".300"): `valueFor` decides which stats take one.
+const NUM = `(\\d+(?:\\.\\d+)?|\\.\\d+|(?<![a-z])(?:${alt(Object.keys(NUMBER_WORDS))})(?=\\s))`
 const RATE = '(\\.\\d+|0\\.\\d+)'
 const PREFIX = `(?:(${alt(PREFIX_OPS.map(p => p.words))})\\s*)?`
 const SUFFIX = `(?:\\s*(${alt(SUFFIX_OPS.map(p => p.words))}))?`
@@ -304,7 +766,26 @@ function wordedThresholds(rest: string): string {
     .replace(statBetween, (_m: string, stat: string, lo: string, hi: string) => `${stat} at least ${lo} and ${stat} at most ${hi}`)
 }
 
+const AND_BARE = new RegExp(`${B_START}(?:${STAT}(?=\\s+and\\s)|(?<=\\sand\\s+)${STAT})${B_END}`, 'g')
 const FOR_LINE = /(?<![a-z0-9])(\d+)\s*(?:-|\s)\s*for\s*(?:-|\s)\s*(\d+)(?![a-z0-9])/g
+
+// THE VERBS A LINE IS TOLD IN, rewritten to the stat they mean before any pass reads them. Left in,
+// "hit 2 home runs" was two hits (the verb is also the stat), "drove in 5 runs" five runs scored and
+// "gave up 3 home runs" the batters' home runs first (Nov 10, 2026 probe).
+const VERB_NUM = `(\\d+|${Object.keys(NUMBER_WORDS).join('|')})`
+const NOT_HITS = new RegExp(`${B_START}hit\\s+(?=(?:${alt(PREFIX_OPS.map(p => p.words))}\\s*)?${VERB_NUM}\\+?\\s+(?!hits?${B_END}|h${B_END}|times?${B_END})(?:${alt(STAT_PHRASES)})${B_END})`, 'g')
+function spokenVerbs(rest: string): string {
+  return rest
+    .replace(NOT_HITS, ' ')
+    .replace(new RegExp(`${B_START}(?:drove|drives?|driving)\\s+in\\s+${VERB_NUM}(?:\\s+(?:runs?|rbis?))?${B_END}`, 'g'), ' $1 rbi ')
+    .replace(/(?<![a-z])(?:(?:gave|gives?|giving)\s+up|surrender(?:ed|s)?|yield(?:ed|s)?)(?![a-z])/g, ' allowed ')
+    .replace(new RegExp(`${B_START}(?:stole|steals?|swiped)\\s+${VERB_NUM}\\s+(?:bases|bags)${B_END}`, 'g'), ' $1 stolen bases ')
+    .replace(new RegExp(`${B_START}walked\\s+${VERB_NUM}\\s+(?:batters|hitters)${B_END}`, 'g'), ' $1 walks allowed ')
+    .replace(new RegExp(`${B_START}walked\\s+${VERB_NUM}\\s+times?${B_END}`, 'g'), ' $1 walks ')
+    // A pitcher strikes batters out; a batter strikes out N times, which STAT_FIRST already reads.
+    .replace(new RegExp(`${B_START}(?:struck|strikes?|striking)\\s+out\\s+${VERB_NUM}\\s+(?:batters|hitters)${B_END}`, 'g'), ' $1 strikeouts pitcher ')
+    .replace(new RegExp(`${B_START}(?:struck|strikes?|striking)\\s+out\\s+${VERB_NUM}(?!\\s+times?${B_END})${B_END}`, 'g'), ' $1 strikeouts ')
+}
 
 /** Lowercase, accents folded, the comparison glyphs spelled the ASCII way, and the hyphenated
  *  forms a box score is talked about in taken apart: "3-hit game" is "3 hit game", "multi-homer" is
@@ -323,6 +804,16 @@ function normalize(text: string): string {
     .replace(/(?<![a-z0-9])triple[- ]?digits?(?![a-z])/g, '100+')
     .replace(/(?<![a-z0-9])sub-(?=[\d.])/g, 'sub ')
     .replace(/(\d)-(?=[a-z])/g, '$1 ')
+    // "most k's" found nothing (Nov 10, 2026): the apostrophe left "k" and "s" apart. Only after a
+    // stat's letters, so a name keeps its own ("O'Neil").
+    .replace(/(?<![a-z])(k|hr|rbi|sb|bb|so|hbp|2b|3b|xbh|cg|dp|ip|ab|pa|gs|qs)['’]s(?![a-z])/g, '$1s')
+    // "k/9", "hr per 7", "bb/9": a per-innings rate, written with a number that is no count. Rewritten
+    // to a word, since a digit anywhere makes the ranking reader stand down ("5 k" is a game line).
+    .replace(/(?<![a-z0-9])(k|so|strikeouts?|hr|home\s*runs?|bb|walks?)\s*(?:\/|per)\s*(?:9|7|nine|seven)(?:\s+innings?)?(?![a-z0-9])/g,
+      (_m: string, w: string) => (/^(?:k|so|s)/.test(w) ? ' kpernine ' : /^h/.test(w) ? ' hrpernine ' : ' bbpernine '))
+    .replace(/(?<![a-z0-9])(k|hr|bb)[79](?![a-z0-9])/g, (_m: string, w: string) => ` ${w === 'k' ? 'k' : w}pernine `)
+    // "caught stealing twice": a count like any other.
+    .replace(/(?<![a-z])twice(?![a-z])/g, '2 times')
     .replace(/\s+/g, ' ')
     .trim()
 }
@@ -350,9 +841,13 @@ const STAT_VOCAB: string[] = (() => {
   return [...words]
 })()
 
+// Words one slip from a stat word that are words of their own: "extras" is extra innings, not a
+// misspelled "extra" (base hits).
+const NOT_TYPOS = new Set(['extras'])
+
 function fixStatTypos(text: string, keep: ReadonlySet<string> = new Set()): string {
   return text.replace(/[a-z]{6,}/g, w => {
-    if (keep.has(w) || STAT_VOCAB.includes(w) || FILLER.has(w)) return w
+    if (keep.has(w) || STAT_VOCAB.includes(w) || FILLER.has(w) || NOT_TYPOS.has(w)) return w
     const max = w.length >= 9 ? 2 : 1
     let best: string | null = null, bestD = max + 1, tie = false
     for (const v of STAT_VOCAB) {
@@ -433,6 +928,116 @@ function takeYear(rest: string): { rest: string; season: number | null } {
 }
 
 /**
+ * The clubs in `rest`, each in its ROLE, and every club the name could mean: a city two clubs share
+ * ("Chicago") is every one of them, and each becomes a reading of its own rather than a guess. A
+ * name that means one club is the ordinary case of the same thing. "vs", "against" and "facing" name
+ * the opponent; "at Boston" is a road game in Boston, the opponent and the venue with it; any other
+ * mention is the club played for. Each match is blanked to spaces of its own length.
+ */
+function takeClubs(rest: string, clubs: readonly FinderClubAlias[], venue: FinderVenue):
+  { rest: string; teamIds: (string | null)[]; oppIds: (string | null)[]; venue: FinderVenue } {
+  let teamIds: (string | null)[] = [null]
+  let oppIds: (string | null)[] = [null]
+  const byName = new Map<string, string[]>()
+  for (const c of clubs) {
+    for (const raw of c.names) {
+      const name = normalize(raw)
+      if (!name) continue
+      const ids = byName.get(name) ?? []
+      if (!ids.includes(c.id)) ids.push(c.id)
+      byName.set(name, ids)
+    }
+  }
+  const names = [...byName.keys()].sort((a, b) => b.length - a.length)
+  if (names.length) {
+    const clubRe = new RegExp(`(?<![a-z0-9])(?:(vs\\.?|versus|against|v\\.?|facing|faced|off|at|for|by|with)\\s+)?(?:the\\s+)?(${alt(names)})(?![a-z0-9])`, 'g')
+    rest = rest.replace(clubRe, (m: string, lead: string | undefined, name: string) => {
+      const ids = byName.get(name)!
+      if (lead && /^(vs|versus|against|v|facing|faced|off)/.test(lead)) oppIds = ids
+      else if (lead === 'at') { oppIds = ids; if (venue === 'any') venue = 'away' }
+      else teamIds = ids
+      return ' '.repeat(m.length)
+    })
+  }
+  return { rest, teamIds, oppIds, venue }
+}
+
+/** The venue words in `rest`, blanked, and the venue they name. */
+function takeVenue(rest: string, venue: FinderVenue): { rest: string; venue: FinderVenue } {
+  // Never the "home" of a home run or home plate, which a reader who has not taken the stats out
+  // first would read as "at home": "home runs off Boston" was the runs scored at home (Nov 10, 2026).
+  // Nor the base stolen: "steals of home" is a count, not a split.
+  rest = rest.replace(/(?<![a-z])(at home|home games?|(?<!(?:of|stole|steals?|stealing)\s+)home(?![\s-]*(?:runs?|rs?|plate|team)(?![a-z])))(?![a-z])/g, () => { venue = 'home'; return ' ' })
+  rest = rest.replace(/(?<![a-z])(on the road|road games?|road|away games?|away)(?![a-z])/g, () => { venue = 'away'; return ' ' })
+  return { rest, venue }
+}
+
+/**
+ * A question that is only WHO AND WHERE: "vs Boston", "at the Firebells", "for LA at home 2026". What
+ * is left once a player's name is taken out of "Sato vs hunters", which the Find parser reads as no
+ * question since it names no stat. Null when anything else is left, or when no club or venue is named.
+ */
+export function parseClubScope(text: string, clubs: readonly FinderClubAlias[]):
+  { teamIds: (string | null)[]; oppIds: (string | null)[]; venue: FinderVenue; season: number | null; per: FinderPer | null } & Cuts | null {
+  const year = takeYear(` ${normalize(text)} `)
+  // A span, the last N games or an arm is a scope too: "Whitmore in September", "Whitmore last game".
+  const cut = takeCuts(year.rest)
+  const v = takeVenue(cut.rest, 'any')
+  const c = takeClubs(v.rest, clubs, v.venue)
+  let rest = c.rest
+  let per: FinderPer | null = null
+  rest = rest.replace(SEASON_WORDS, m => { per = 'season'; return ' '.repeat(m.length) })
+  if (GAME_WORDS.test(rest)) per ??= 'game'
+  const cuts = cut.cuts
+  // A stretch needs a stat to be the best of.
+  if (cuts.stretch) return null
+  const named = c.teamIds[0] != null || c.oppIds[0] != null || c.venue !== 'any' || !!(cuts.from || cuts.to || cuts.last || cuts.hand || cuts.extra || cuts.dh)
+  const left = rest.split(/[^a-z0-9]+/).filter(w => w && !FILLER.has(w) && !['off', 'faced', 'log', 'logs'].includes(w))
+  return named && !left.length ? { teamIds: c.teamIds, oppIds: c.oppIds, venue: c.venue, season: year.season, per, ...cuts } : null
+}
+
+/**
+ * A CLUB'S RECORD in some of its games: "Hunters home record", "Queens last 10", "Firebells in August",
+ * "Heights record vs Queens". Find's club games with nothing asked, whose answer is the won-lost record
+ * (`finderAnswerText`). Needs one club and something that narrows its games, since the club alone is
+ * its page and "Firebells last game" is the game itself.
+ */
+export function parseClubRecord(text: string, clubs: readonly FinderClubAlias[]):
+  { teamId: string; oppId: string | null; venue: FinderVenue; season: number | null } & Cuts | null {
+  const year = takeYear(` ${normalize(text)} `)
+  const cut = takeCuts(year.rest)
+  if (cut.cuts.hand || cut.cuts.stretch) return null
+  const v = takeVenue(cut.rest, 'any')
+  const c = takeClubs(v.rest, clubs, v.venue)
+  let rest = c.rest
+  let said = false
+  rest = rest.replace(/(?<![a-z])(?:records?|w\s*l|won\s+lost|results?|wins\s+and\s+losses)(?![a-z])/g, m => { said = true; return ' '.repeat(m.length) })
+  const teamId = c.teamIds.length === 1 ? c.teamIds[0] : null
+  const oppId = c.oppIds.length === 1 ? c.oppIds[0] : null
+  if (!teamId || teamId === oppId) return null
+  const { from, to, last, post, extra, dh } = cut.cuts
+  const narrowed = !!(from || to || (last && last > 1) || post || extra || dh) || c.venue !== 'any' || (said && !!oppId)
+  const left = rest.split(/[^a-z0-9]+/).filter(w => w && !FILLER.has(w) && !SEASON_WORDS_SET.has(w))
+  return narrowed && !left.length ? { teamId, oppId, venue: c.venue, season: year.season, ...cut.cuts } : null
+}
+const SEASON_WORDS_SET = new Set(['season', 'year', 'this', 'games', 'game'])
+
+/**
+ * Whether a word is one a question is made of rather than part of a name: a stat, a filler word, a
+ * side or a grain, a lead word, a number. A player's surname that is one of these ("Walker" is not,
+ * "Home" would be) is never matched alone, only with the first name, so a question word is never
+ * taken for a player.
+ */
+export function isQuestionWord(word: string): boolean {
+  const w = normalize(word)
+  if (!w || /\d/.test(w)) return true
+  if (FILLER.has(w) || LEADER_FILLER.has(w) || PITCHING_HINTS.includes(w) || HITTING_HINTS.includes(w) || FIELDING_HINTS.includes(w)) return true
+  if (/^(innings?|frames?|seasons?|year|career|home|road|away|first|last|off|faced|versus|records?|longest|shortest|straight|row|consecutive|retired|count|full|bases|loaded|empty|outs?|walk|offs?|runners?|scoring|position|extra|grand|slams?|back|immaculate|comebacks?|rall(?:y|ies)|highest|lowest|fewest|top|best|worst|leaders?|least)$/.test(w)) return true
+  STAT_ANY.lastIndex = 0
+  return STAT_ANY.test(` ${w} `)
+}
+
+/**
  * Every reading of `text` as a finder question, best first, or an empty list when it is not one.
  *
  * One reading per side, and per club when a name could mean more than one (two Chicagos, two
@@ -441,18 +1046,117 @@ function takeYear(rest: string): { rest: string; season: number | null } {
  *
  * `sides` are the ones the section's Find board has. Fielding is WPBL's alone until MLB stores
  * fielding lines, so it is asked for rather than assumed: offered to MLB, "2 errors" would be a
- * link to a board that cannot answer it.
+ * link to a board that cannot answer it. `innings` is the same kind of fact: only a section that
+ * reads its plays has the inning grain, and asked of one that does not, an inning question reads as
+ * nothing rather than as the game question it is not.
  */
 export function parseFinderText(
   text: string, clubs: readonly FinderClubAlias[] = [],
   sides: readonly FinderBoardSide[] = ['hitting', 'pitching'],
+  { plays = false, regulationInnings = 9 }: { plays?: boolean; regulationInnings?: number } = {},
 ): ParsedFinder[] {
   const clubWords = new Set(clubs.flatMap(c => c.names.flatMap(n => normalize(n).split(' '))))
-  let rest = ` ${wordedThresholds(fixStatTypos(normalize(text), clubWords))} `
+  let rest = ` ${wordedThresholds(spokenVerbs(fixStatTypos(normalize(text), clubWords)))} `
   if (!rest.trim()) return []
   const year = takeYear(rest)
   rest = year.rest
   const season = year.season
+  const cut = takeCuts(rest)
+  rest = cut.rest
+  const { cuts } = cut
+
+  // THE INNING GRAIN, taken before the stats because "inning" is also innings pitched ("5 innings, no
+  // walks"): left in, "in an inning" would read as nothing or as a stat. Only a phrase that cannot be
+  // a count of innings says it, so "5 innings" stays a start. The named feats are a whole question
+  // in a word and carry their own conditions, which is why they can stand with no number.
+  let inningHint = false
+  const feats: FinderCondition[] = []
+  rest = rest.replace(INNING_FEATS, (m: string, feat: string) => {
+    inningHint = true
+    feats.push(...featConditions(feat))
+    return ' '.repeat(m.length)
+  })
+  rest = rest.replace(INNING_WORDS, m => { inningHint = true; return ' '.repeat(m.length) })
+  for (const { re, conditions } of TEAM_INNING_PHRASES) {
+    rest = rest.replace(re, (...args: unknown[]) => {
+      inningHint = true
+      feats.push(...conditions(args.slice(0, -2) as string[]))
+      return ' '.repeat((args[0] as string).length)
+    })
+  }
+  let paHint = false
+  for (const { re, conditions } of PA_PHRASES) {
+    rest = rest.replace(re, (...args: unknown[]) => {
+      const m = args.slice(0, -2) as unknown as RegExpExecArray
+      paHint = true
+      feats.push(...conditions(m))
+      return ' '.repeat((args[0] as string).length)
+    })
+  }
+  // A CLUB'S GAME: its named feats first (they hold numbers "won by 10" would otherwise give a stat),
+  // then the words that say the club. Not with an inning, which on Hitting is a club's already.
+  let clubHint = false
+  let featSide: FinderBoardSide | null = cut.batters ? 'pitching' : null
+  // A PLAYER'S NAMED GAME first (see GAME_FEATS), which settles the grain at a single game.
+  let gameFeat = false
+  for (const { re, side, conditions } of GAME_FEATS) {
+    rest = rest.replace(re, (...args: unknown[]) => {
+      gameFeat = true
+      featSide = side
+      feats.push(...conditions(args.slice(0, -2) as string[]))
+      return ' '.repeat((args[0] as string).length)
+    })
+  }
+  for (const { re, side, conditions } of CLUB_FEATS) {
+    rest = rest.replace(re, (...args: unknown[]) => {
+      clubHint = true
+      featSide = side
+      feats.push(...conditions(args.slice(0, -2) as string[]))
+      return ' '.repeat((args[0] as string).length)
+    })
+  }
+  rest = rest.replace(CLUB_WORDS, m => { clubHint = true; return ' '.repeat(m.length) })
+  // A RELIEVER is a pitcher who did not start: "relievers with 3 ks" said "not used: relievers".
+  let reliever = false
+  rest = rest.replace(/(?<![a-z])(?:relief\s+pitchers?|relievers?|bullpen|closers?)(?![a-z])/g, m => { reliever = true; return ' '.repeat(m.length) })
+  // A FIELDING POSITION ("errors at shortstop", "by a catcher", "at 2b"): only a fielder's inning knows
+  // where a play was made, so naming one asks Fielding by the inning. The abbreviations only after
+  // "at" or "playing", since a bare "2b" is a double and "ss" could start a name.
+  let posCond: FinderCondition | null = null
+  rest = rest.replace(FIELD_POSITION_WORDS, (m: string, word: string) => {
+    const n = fieldPositionNumber(word)
+    if (!n) return m
+    posCond = { field: 'pos', op: 'eq', value: n }
+    featSide = 'fielding'
+    inningHint = true
+    return ' '.repeat(m.length)
+  })
+  // A STEAL OF HOME needs no number ("steals of home" is any), and is read whole before the stats,
+  // which would take "steals" alone and leave "home" for the venue.
+  rest = rest.replace(STEALS_OF_HOME, (m: string, n: string | undefined) => {
+    feats.push({ field: 'sbh', op: 'gte', value: n ? Number(NUMBER_WORDS[n] ?? n) : 1 })
+    return ' '.repeat(m.length)
+  })
+  let innSaid = false
+  for (const { re, condition } of INN_PHRASES) {
+    rest = rest.replace(re, (...args: unknown[]) => {
+      innSaid = true
+      feats.push(condition(args.slice(0, -2) as string[], regulationInnings))
+      return ' '.repeat((args[0] as string).length)
+    })
+  }
+  // A BARE "INNING" AFTER A COUNT IS THE GRAIN TOO: "3 strikeouts inning", "3 strikeout innings", "2 hr
+  // inning", the way a search box is typed. Read as innings pitched only with its own number right
+  // before it ("5 innings, no walks") or "pitched" after it. Missed, the question fell back to a game
+  // and said "not used: inning". After the named innings above, which take "7th inning" whole.
+  rest = rest.replace(/(?<![a-z0-9])(?:in\s+)?(?:innings?|frames?)(?![a-z])/g, (m: string, at: number, all: string) => {
+    if (BARE_INNING_COUNT.test(all.slice(0, at)) || /^\s+pitched/.test(all.slice(at + m.length))) return m
+    inningHint = true
+    return ' '.repeat(m.length)
+  })
+  // Both at once ("on 0-2 in an inning") is no one question, and a section that does not read its
+  // plays has neither grain: nothing, rather than the game question it is not.
+  if ((inningHint || paHint || innSaid) && (!plays || (inningHint && paHint))) return []
 
   // `at` is where in the text it was written, so the conditions keep the reader's order: the first
   // one is the board's headline. Every match is blanked to spaces of its own length, which is what
@@ -503,42 +1207,78 @@ export function parseFinderText(
   } else {
     rest = rest.replace(NUMBER_FIRST, numberFirst).replace(STAT_FIRST, statFirst)
   }
-  if (!pending.length && !forLine.seen) return []
+  // "hr and a triple": a count stat with no number of its own, joined by "and" to one that has, is
+  // one of it. Left, the home run went unused and the row asked for triples alone (Nov 10, 2026).
+  if (pending.length) {
+    rest = rest.replace(AND_BARE, (m: string, a: string | undefined, b: string | undefined, at: number) => {
+      const alias = STAT_ALIASES[a ?? b ?? '']
+      if (!alias || Object.values(alias).some(f => RATE_FIELDS.has(f) || f === 'ip')) return m
+      pending.push({ alias, op: 'gte', raw: '1', shift: 0, at, bare: false })
+      return ' '.repeat(m.length)
+    })
+  }
+  // An inning named with nothing else to say which grain: a count is a pitcher's inning ("3
+  // strikeouts in the 7th"), anything else a plate appearance ("a home run in the 7th").
+  if (innSaid && !inningHint && !paHint) {
+    if (pending.length) inningHint = true
+    else paHint = true
+  }
+  // A plate appearance's event, named with no number: "a home run on 0-2" is one home run. After the
+  // stats, whose numbered events have gone, and before the venue, which would take the "home" of a
+  // home run for "at home".
+  if (paHint) {
+    for (const { re, field } of PA_EVENT_WORDS) {
+      rest = rest.replace(re, m => {
+        if (!feats.some(c => c.field === field)) feats.push({ field, op: 'gte', value: 1 })
+        return ' '.repeat(m.length)
+      })
+    }
+  }
+  if (reliever && pending.length) featSide = 'pitching'
+  // "Errors at shortstop": a fielding stat said with no number beside a position is any of it.
+  if (posCond && !pending.length) {
+    rest = rest.replace(STAT_ONLY, (m: string, p: string) => {
+      const alias = STAT_ALIASES[p]
+      if (!alias?.fielding) return m
+      feats.push({ field: alias.fielding, op: 'gte', value: 1 })
+      return ' '.repeat(m.length)
+    })
+  }
+  // A COUNT SAID WITH NO NUMBER: "Hunters doubles", "Whitmore home runs", "home runs vs SF". Every one
+  // of them, so at least one. Until Nov 11, 2026 a stat with no number beside it was no question, and
+  // "Hunters doubles" offered nothing. Exactly one counting stat: a rate has no "any of it", and two
+  // ("doubles and triples") could mean either or both. `bare` tells the search to want a who or a where
+  // with it, since a lone "doubles" is the definition's and the leaders' to answer.
+  let bare = false
+  if (!pending.length && !forLine.seen && !feats.length && !posCond && !inningHint && !paHint && !innSaid) {
+    const found: { alias: StatAlias; at: number; len: number }[] = []
+    rest.replace(STAT_ONLY, (m: string, p: string, at: number) => {
+      const alias = STAT_ALIASES[p]
+      if (alias && p.length > 1) found.push({ alias, at, len: m.length })
+      return m
+    })
+    const a = found.length === 1 ? found[0].alias : null
+    const fields = a ? [a.hitting, a.pitching, a.fielding, a.overall].filter((f): f is string => !!f) : []
+    if (fields.length && !fields.some(f => RATE_FIELDS.has(f) || f === 'ip' || f === 'pitches')) {
+      const { alias, at, len } = found[0]
+      pending.push({ alias, op: 'gte', raw: '1', shift: 0, at, bare: false })
+      rest = rest.slice(0, at) + ' '.repeat(len) + rest.slice(at + len)
+      bare = true
+    }
+  }
+  if (!pending.length && !forLine.seen && !feats.length && !posCond) return []
   pending.sort((x, y) => x.at - y.at)
 
   // Where, and against whom. Read after the stats, so "home runs" has already gone and cannot be
   // taken for "at home".
-  let venue: FinderVenue = 'any'
-  rest = rest.replace(/(?<![a-z])(at home|home games?|home)(?![a-z])/g, () => { venue = 'home'; return ' ' })
-  rest = rest.replace(/(?<![a-z])(on the road|road games?|road|away games?|away)(?![a-z])/g, () => { venue = 'away'; return ' ' })
+  const placed = takeVenue(rest, 'any')
+  rest = placed.rest
+  let venue: FinderVenue = placed.venue
 
-  // Each mention of a club is a ROLE and every club the name could mean: a city two clubs share
-  // ("Chicago") is every one of them, and each becomes a reading of its own below rather than a
-  // guess. A name that means one club is the ordinary case of the same thing.
-  let teamIds: (string | null)[] = [null]
-  let oppIds: (string | null)[] = [null]
-  const byName = new Map<string, string[]>()
-  for (const c of clubs) {
-    for (const raw of c.names) {
-      const name = normalize(raw)
-      if (!name) continue
-      const ids = byName.get(name) ?? []
-      if (!ids.includes(c.id)) ids.push(c.id)
-      byName.set(name, ids)
-    }
-  }
-  const names = [...byName.keys()].sort((a, b) => b.length - a.length)
-  if (names.length) {
-    const clubRe = new RegExp(`(?<![a-z0-9])(?:(vs\\.?|versus|against|v\\.?|facing|at|for|by|with)\\s+)?(?:the\\s+)?(${alt(names)})(?![a-z0-9])`, 'g')
-    rest = rest.replace(clubRe, (m: string, lead: string | undefined, name: string) => {
-      const ids = byName.get(name)!
-      if (lead && /^(vs|versus|against|v|facing)/.test(lead)) oppIds = ids
-      // "at Boston" is a road game in Boston: the opponent, and the venue with it.
-      else if (lead === 'at') { oppIds = ids; if (venue === 'any') venue = 'away' }
-      else teamIds = ids
-      return ' '.repeat(m.length)
-    })
-  }
+  const clubbed = takeClubs(rest, clubs, venue)
+  rest = clubbed.rest
+  venue = clubbed.venue
+  const { teamIds, oppIds } = clubbed
 
   // The grain, from what is left: the stats and clubs are gone, so "home runs" cannot be "runs" here
   // and "games played" has already been read as a stat.
@@ -558,7 +1298,12 @@ export function parseFinderText(
 
   const readings: { parsed: ParsedFinder; score: number }[] = []
   for (const side of sides) {
+    // An inning is a pitcher's on Pitching and a club's turn at the plate on Hitting, and Fielding has
+    // none: the grain check below drops a side whose fields cannot ask it.
+    if (paHint && side === 'fielding') continue
+    if (featSide && side !== featSide) continue
     const byField = new Map<string, FinderCondition>()
+    for (const c of feats) byField.set(c.op === 'eq' ? c.field : `${c.field}:${c.op}`, c)
     let ok = true
     let score = 0
     if (forLine.seen) {
@@ -585,6 +1330,9 @@ export function parseFinderText(
       if (!sides.some(o => o !== side && p.alias[o])) score += 2
       else if (p.alias.lean === side) score += 1
     }
+    // The position goes after the stats, so the stat leads the list rather than a column of SS.
+    if (posCond) byField.set('pos', posCond)
+    if (reliever && pending.length) byField.set('gs', { field: 'gs', op: 'eq', value: 0 })
     if (!ok) continue
     if (hinted[side]) score += 3
     // The engine reads at most six conditions off a link (decodeFinderQuery).
@@ -592,7 +1340,7 @@ export function parseFinderText(
 
     // WHICH GRAINS. A field only a season has settles it; so does a word for either. Otherwise the
     // biggest number decides, against what one game can hold (GAME_LIMITS).
-    const gameKeys = new Set(finderFields(side, 'game').map(f => f.key))
+    const gameKeys = new Set(finderFields(side, 'game', plays).map(f => f.key))
     const seasonOnly = conditions.some(c => !gameKeys.has(c.field))
     const limits = GAME_LIMITS[side]
     const floors = conditions.filter(c => c.op !== 'lte' && limits[c.field])
@@ -603,16 +1351,61 @@ export function parseFinderText(
     // "3 hits this season" is far more often "3-hit games this season" than a season of three hits,
     // since the board is already one season: a number that small keeps the game reading, offered first.
     const small = !pastTypical
-    const grains: { per: FinderPer; bonus: number }[] = []
-    if (!seasonOnly && (gameHint || (seasonHint ? small : !pastMax))) grains.push({ per: 'game', bonus: 1 })
-    if (seasonOnly || (!gameHint && !forLine.seen && (seasonHint || (pastTypical && !none)))) grains.push({ per: 'season', bonus: 0 })
+    let grains: { per: FinderPer; bonus: number }[] = []
+    if (gameFeat && !clubHint && !inningHint && !paHint) {
+      grains.push({ per: 'game', bonus: 1 })
+    } else if (clubHint && !inningHint && !paHint) {
+      const keys = new Set(finderFields(side, 'club').map(f => f.key))
+      if (conditions.length && conditions.every(c => keys.has(c.field))) grains.push({ per: 'club', bonus: 1 })
+    } else if (inningHint || paHint) {
+      // Said in words, so it is the only reading; a stat that grain cannot have ("an ERA in an
+      // inning", "a double for a pitcher") leaves none rather than a game question nobody asked.
+      const per: FinderPer = inningHint ? 'inning' : 'pa'
+      const keys = new Set(finderFields(side, per).map(f => f.key))
+      // The event leans the way a fan means it: a strikeout is the pitcher's, a home run the batter's.
+      const lean = conditions.some(c => EVENT_LEAN[c.field] === side) ? 1 : 0
+      if (conditions.length && conditions.every(c => keys.has(c.field))) grains.push({ per, bonus: 1 + lean })
+    } else if (bare && !gameHint && !seasonHint) {
+      // EACH ONE, where the log can list them: every Hunters double is a plate appearance, and a game
+      // with two would be one row. A stat no plate appearance records (a steal, a pitcher's win) is
+      // the games it happened in.
+      const paKeys = new Set(finderFields(side, 'pa', plays).map(f => f.key))
+      grains.push({ per: plays && conditions.every(c => paKeys.has(c.field)) ? 'pa' : 'game', bonus: 1 })
+    } else {
+      if (!seasonOnly && (gameHint || (seasonHint ? small : !pastMax))) grains.push({ per: 'game', bonus: 1 })
+      if (seasonOnly || (!gameHint && !forLine.seen && (seasonHint || (pastTypical && !none)))) grains.push({ per: 'season', bonus: 0 })
+    }
 
+    // AGAINST ONE ARM, only a plate appearance knows who threw (FinderQuery.hand): a hitter's season,
+    // summed from those, and the plate appearances themselves, where each condition is one a single
+    // trip to the plate can meet. A game or an inning mixes arms, so it is no reading.
+    if (cuts.hand) {
+      const paOk = plays && conditions.every(c => c.op === 'lte' || c.value <= 1)
+      grains = [
+        ...(side === 'hitting' && !paHint && !inningHint && !clubHint ? [{ per: 'season' as FinderPer, bonus: 1 }] : []),
+        ...(paOk && !inningHint && !clubHint ? [{ per: 'pa' as FinderPer, bonus: paHint ? 2 : 0 }] : []),
+      ]
+    }
+    // A STRETCH OF N GAMES is a player's season cut to its best run (FinderQuery.stretch), so the season
+    // grain alone, and never with a cut only plate appearances can make (an arm, a situation).
+    if (cuts.stretch) {
+      grains = side !== 'fielding' && !cuts.hand && !conditions.some(c => PA_CUT_KEYS.has(c.field)) && !paHint && !inningHint && !clubHint && !gameFeat && !innSaid ? [{ per: 'season', bonus: 1 }] : []
+    }
+    // A BATTER'S PITCHES OVER A GAME OR A SEASON are asked as "pitches seen": "100 pitches" bare is a
+    // pitcher's count, and a batter's season of it would only crowd that reading.
+    const barePitches = side === 'hitting' && pending.some(p => p.alias.hitting === 'pitches' && p.alias.pitching)
     for (const { per, bonus } of grains) {
+      if (barePitches && (per === 'game' || per === 'season')) continue
+      // Every condition must be one this grain can ask, or the link would match nothing.
+      const askable = new Set(finderFields(side, per, plays).map(f => f.key))
+      if (!conditions.every(c => askable.has(c.field))) continue
       for (const teamId of teamIds) {
         for (const oppId of oppIds) {
           // A club cannot play itself, which is what "Chicago vs Chicago" would otherwise offer.
           if (teamId && teamId === oppId) continue
-          readings.push({ parsed: { side, per, conditions, teamId, oppId, venue, ignored, season }, score: score + bonus })
+          // "By a team" with an inning on Fielding is the club's half in the field.
+          const byClub = side === 'fielding' && per === 'inning' && clubHint && !posCond
+          readings.push({ parsed: { side, per, conditions, teamId, oppId, venue, ignored, season, ...(byClub ? { byClub } : {}), ...(bare ? { bare } : {}), ...cuts }, score: score + bonus })
         }
       }
     }
@@ -653,6 +1446,8 @@ export interface ParsedLeader {
   /** Every season summed ("all time", "career"): the board across a whole history, not one year.
    *  Beats a year typed beside it, since "career hr 2024" can only mean the career. */
   career: boolean
+  /** The postseason's board ("playoff hr leaders"). */
+  post?: boolean
 }
 
 // "top" and "best" mean the board's own order; "most" and "fewest" mean the numbers' order, which
@@ -670,24 +1465,58 @@ const LEADER_FILLER = new Set(['league', 'leaderboard', 'leaderboards', 'board',
 // Every stat a ranking or a name can carry: the box-score ones and the season figures above.
 const STAT_ANY = new RegExp(`${B_START}(${alt(RANK_PHRASES)})${B_END}`, 'g')
 
+// A count in words is a count too: "one run games" was ranked as the most runs in a game, since
+// "one" is filler everywhere else (Nov 10, 2026).
+const COUNTED_STAT = new RegExp(`${B_START}(?:${Object.keys(NUMBER_WORDS).filter(w => !['a', 'an'].includes(w)).join('|')})[\\s-]+(?:${alt(STAT_PHRASES)})${B_END}`)
+
+// "Best baserunner", "best hitter", "best fielder", "best pitcher", "most valuable player": a kind of
+// player rather than a stat, each the column that measures it (FanGraphs' choices: wRC+ for a hitter,
+// the run columns for the bases and the glove, WAR for the whole player). All offered nothing before
+// Nov 20, 2026. Whole phrases only, so "most hr by hitters" keeps its hint.
+const PLAYER_KINDS: { re: RegExp; side: RankSide; field: string }[] = [
+  { re: /^(?:the\s+)?(?:best|top|fastest)\s+(?:base\s*runners?|runners?\s+on\s+the\s+bases|base\s*stealers?)$/, side: 'overall', field: 'bsr' },
+  { re: /^(?:the\s+)?(?:best|top)\s+(?:fielders?|defenders?|defensive\s+players?|gloves?)$/, side: 'overall', field: 'fld' },
+  { re: /^(?:the\s+)?(?:best|top)\s+(?:hitters?|batters?|bats?)$/, side: 'hitting', field: 'wrcPlus' },
+  { re: /^(?:the\s+)?(?:best|top)\s+(?:pitchers?|arms?)$/, side: 'overall', field: 'pitWar' },
+  { re: /^(?:the\s+)?(?:best|top)\s+(?:players?|position\s+players?)$|^(?:the\s+)?most\s+valuable(?:\s+players?)?$|^mvp(?:\s+race)?$/, side: 'overall', field: 'war' },
+]
+
 export function parseLeaderText(text: string): ParsedLeader[] {
   let rest = ` ${fixStatTypos(normalize(text))} `
   if (!rest.trim()) return []
+  {
+    // The kind of player, with a year or the playoffs beside it.
+    const y = takeYear(rest)
+    let post = false
+    const bare = y.rest.replace(PLAYOFF_WORDS, () => { post = true; return ' ' }).replace(/\s+/g, ' ').trim()
+    const kind = PLAYER_KINDS.find(k => k.re.test(bare))
+    if (kind && !(post && kind.side === 'overall')) {
+      return [{ side: kind.side, field: kind.field, dir: null, season: y.season, career: false, ...(post ? { post } : {}) }]
+    }
+  }
+  // "league batting average" is the league's figure (parseLeagueText), not the leaders'.
+  if (parseLeagueText(text)) return []
   // "Most hr in a game" is a single-game record (parseRecordText), not the season board: answering
   // it with the season's home run leaders reads as a right answer to a question nobody asked.
   if (SINGLE_GAME.test(rest)) return []
   const span = takeCareer(rest)
   const year = takeYear(span.rest)
   rest = year.rest
+  let post = false
+  rest = rest.replace(PLAYOFF_WORDS, () => { post = true; return ' ' })
   const career = span.career
   const season = career ? null : year.season
   rest = rest.replace(TOP_N, (_m: string, w: string) => ` ${w} `)
   let want: 'best' | 'worst' | 'more' | 'less' | null = null
   for (const w of LEAD_WORDS) rest = rest.replace(w.re, () => { want ??= w.want; return ' ' })
-  if (/\d/.test(rest)) return []
+  if (/\d/.test(rest) || COUNTED_STAT.test(rest)) return []
 
   const phrases = new Set<string>()
   rest = rest.replace(STAT_ANY, (_m: string, p: string) => { phrases.add(p); return ' ' })
+  // "most walks game" is the record of one game (parseRecordQuestion), not the season board, for the
+  // reason "in a game" is above. The word alone counts once the stat has been read, so "games played"
+  // stays the ranking it is.
+  if (phrases.size && /(?<![a-z])(games?|outings?|nights?)(?![a-z])/.test(rest)) return []
   const aliases = [...new Set([...phrases].map(aliasOf))]
   if (aliases.length !== 1) return []
   const alias = aliases[0]
@@ -713,7 +1542,7 @@ export function parseLeaderText(text: string): ParsedLeader[] {
       : want === 'less' ? 'asc'
       : want === 'worst' ? (lowerBetter ? 'desc' : 'asc')
       : null
-    return { side, field, dir, season, career }
+    return { side, field, dir, season, career, ...(post ? { post } : {}) }
   })
 }
 
@@ -728,6 +1557,9 @@ export function nameWords(text: string): string | null {
   const year = takeYear(span.rest)
   let rest = year.rest
   let found = year.season != null || span.career || part.part != null
+  rest = rest.replace(PLAYOFF_WORDS, () => { found = true; return ' ' })
+  // "Whitmore rank", "where does Sato rank": the name, asked where it stands (typedStat reads WAR).
+  rest = rest.replace(RANK_ASKED, () => { found = true; return ' ' })
   rest = rest.replace(STAT_ANY, (m: string, p: string) => {
     if (p.length < 2) return m
     found = true
@@ -736,9 +1568,18 @@ export function nameWords(text: string): string | null {
   if (!found) return null
   for (const w of LEAD_WORDS) rest = rest.replace(w.re, ' ')
   rest = rest.replace(SEASON_WORDS, ' ')
-  const words = rest.split(/\s+/).filter(w => w && !/^[\d.+]+$/.test(w) && !FILLER.has(w) && !LEADER_FILLER.has(w))
+  const words = rest.split(/\s+/).filter(w => w && !/^[\d.+]+$/.test(w) && !FILLER.has(w) && !LEADER_FILLER.has(w) && !NOT_NAMES.test(w))
   return words.length ? words.join(' ') : null
 }
+
+// Baseball words no stat phrase takes, left beside a stat. Searched as a name they reached a player
+// through the typo pass: "bunt hits" was Kate Blunt's hits, "late innings" Kate Blunt's innings and
+// "average runs per game" Valerie Perez (Nov 10, 2026). The Nov 20 probe found more of the same, all
+// through the World Cup's typo pass: "triple play" and "highest wpa play" were Kamila Plata, "triple
+// crown" Bailey Brown, "home runs by month" a Montoya, "most hits in a week" Maud Werkman, and "team
+// ops" Team USA, and "where does Whitmore rank in hr" asked for a player called "does whitmore". No
+// WPBL player's name holds one of these words.
+const NOT_NAMES = /^(?:per|bunts?|late|early|infield|pinch|blown|quality|leadoff|plays?|crown|months?|weeks?|teams?|clubs?|record|extra|defense|does|do|stand|stands|place|wide|hitters?|batters?|pitchers?)$/
 
 // ─── Two players ──────────────────────────────────────────────────────────────
 
@@ -787,7 +1628,83 @@ export function typedStat(text: string): StatAlias | null {
   const { rest } = takePart(` ${fixStatTypos(normalize(text))} `)
   const aliases = new Set<StatAlias>()
   for (const m of rest.matchAll(STAT_ANY)) if (m[1].length >= 2) aliases.add(aliasOf(m[1]))
+  // A rank asked with no stat is the whole player's: WAR, where a section has it.
+  if (!aliases.size && new RegExp(RANK_ASKED.source).test(rest)) return RANK_ALIASES.war
   return aliases.size === 1 ? [...aliases][0] : null
+}
+
+// "rank", "ranking", "where does X stand": a place on the board, asked for.
+const RANK_ASKED = /(?<![a-z])(?:ranks?|ranked|rankings?|standing|stands?)(?![a-z])/g
+
+/** A figure for the whole league rather than a ranking of its players: "league batting average",
+ *  "total home runs", "how many home runs were hit", "runs per game", "average OPS". */
+export interface LeagueStatAsk {
+  /** One stat, or null for the league's line as a whole ("league averages", "league stats"). */
+  alias: StatAlias | null
+  /** The league's figure, or a count per team per game. */
+  kind: 'league' | 'perGame'
+  season: number | null
+  /** The playoffs' line ("league era in the playoffs"). */
+  post?: boolean
+}
+
+// What makes a stat the league's: the word itself, a total, a count asked for, a per-game rate, or an
+// average put in front of a stat that is not one already ("average ERA", not "batting average").
+const LEAGUE_CUE = /(?<![a-z])(league[\s-]?wide|league|total|totals|combined|altogether|in all|all teams|how many|overall)(?![a-z])/
+const PER_GAME = /(?<![a-z])(?:per|a|each|every)\s+(?:team\s+)?game(?![a-z])|(?<![a-z])(?:r|hr|k|so|h|bb)\/g(?![a-z])/
+const SOFT_PHRASES = new Set(['average', 'avg', 'hit', 'hits'])
+const AVERAGE_FIRST = /^\s*(?:the\s+)?(?:avg|average)\s+(?!$)/
+const LEAGUE_FILLER = /(?<![a-z])(?:the|a|an|of|in|on|by|for|what|whats|what's|is|was|were|are|did|do|does|has|have|been|there|hit|thrown|struck|out|stolen|scored|allowed|issued|drawn|so|far|this|season|year|game|games|team|teams|player|players|wpbl|mlb|stats?|averages?|avg|numbers?|line|rate|leaguewide)(?![a-z])/g
+
+/**
+ * The league figure in `text`, or null. Never with a ranking word ("league leaders", "most hr" are the
+ * board's), a number or a name. Before Nov 20, 2026 "league batting average" and "total home runs 2026"
+ * opened the batting-average and home-run leaders, a right answer to a question nobody asked.
+ */
+export function parseLeagueText(text: string): LeagueStatAsk | null {
+  let rest = ` ${fixStatTypos(normalize(text))} `
+  const perGame = PER_GAME.test(rest)
+  const cue = LEAGUE_CUE.test(rest) || perGame || AVERAGE_FIRST.test(rest)
+  if (!cue) return null
+  if (LEAD_WORDS.some(w => new RegExp(w.re.source).test(rest))) return null
+  const year = takeYear(rest)
+  let post = false
+  rest = year.rest.replace(PLAYOFF_WORDS, () => { post = true; return ' ' }).replace(PER_GAME, ' ').replace(LEAGUE_CUE, ' ').replace(new RegExp(LEAGUE_CUE.source, 'g'), ' ')
+  // "batting average" is a stat; a leading "average" is the word asking for the league's.
+  const phrases = new Set<string>()
+  rest = rest.replace(STAT_ANY, (_m: string, p: string) => { phrases.add(p); return ' ' })
+  rest = rest.replace(AVERAGE_FIRST, ' ').replace(LEAGUE_FILLER, ' ')
+  if (/[a-z0-9]/.test(rest)) return null
+  // Words that are a stat alone and only the question's grammar beside another: "average" in "average
+  // ERA" and "hit" in "home runs were hit". "Average" alone is the league's whole line, not its AVG.
+  const soft = [...phrases].filter(p => SOFT_PHRASES.has(p))
+  if (soft.length < phrases.size || soft.every(p => p === 'average')) for (const p of soft) phrases.delete(p)
+  const aliases = [...new Set([...phrases].map(aliasOf))]
+  if (aliases.length > 1) return null
+  const alias = aliases[0] ?? null
+  // A line with no stat is the league's averages; it needs the word "league" or "averages".
+  if (!alias && (perGame || !/(?<![a-z])(?:league|averages?)(?![a-z])/.test(text.toLowerCase()))) return null
+  if (alias?.overall && !alias.hitting && !alias.pitching) return null
+  return { alias, kind: perGame ? 'perGame' : 'league', season: year.season, ...(post ? { post } : {}) }
+}
+
+/**
+ * One stat said bare beside who and where ("era vs queens", "avg at home"): the text without it, and
+ * the sides it is kept on, its lean first. Null for no stat or more than one. A player's line against
+ * a club shows every stat, so the stat only says which side to open.
+ */
+export function takeBareStat(text: string): { rest: string; sides: FinderSide[] } | null {
+  const aliases = new Set<StatAlias>()
+  const rest = ` ${fixStatTypos(normalize(text))} `.replace(STAT_ANY, (m: string, p: string) => {
+    if (p.length < 2) return m
+    aliases.add(aliasOf(p))
+    return ' '
+  })
+  if (aliases.size !== 1) return null
+  const alias = [...aliases][0]
+  const order: FinderSide[] = alias.lean === 'pitching' ? ['pitching', 'hitting'] : ['hitting', 'pitching']
+  const sides = order.filter(s => alias[s])
+  return sides.length ? { rest, sides } : null
 }
 
 /** The span a player row should open on: the year typed anywhere in `text` ("ohtani 2023"), read
@@ -870,6 +1787,245 @@ export function parseRecordText(text: string): { side: RankSide; field: string }
   return parseLeaderText(rest.replace(SINGLE_GAME_G, ' ').replace(/(?<![a-z])(records?|highs?|bests?)(?![a-z])/g, ' '))
     .filter(p => !p.career && p.side !== 'overall' && p.dir !== 'asc')
     .map(p => ({ side: p.side, field: p.field }))
+}
+
+// An inning said as a record's span: "in an inning", "in one frame", "in a half inning".
+const INNING_SPAN = /(?<![a-z])(?:in\s+(?:an|one|a single|a)\s+(?:half[\s-]+)?(?:inning|frame)|per\s+inning)(?![a-z])/g
+const BARE_INNING_SPAN = /(?<![0-9.]\s?)(?<![a-z])(?:in\s+)?(?:innings?|frames?)(?!\s+pitched)(?![a-z])/g
+const BARE_GAME_SPAN = /(?<![a-z])(?:in\s+)?(?:games?|outings?|nights?)(?!\s+(?:played|started|log))(?![a-z])/g
+
+/** A record asked of any stat, at a grain, narrowed by club, place and year (`parseRecordQuestion`). */
+export interface ParsedRecord {
+  side: FinderBoardSide
+  field: string
+  /** A season only where the caller asked for one (`season: true`): the stats tables rank a season,
+   *  so this is for the stats they have no column for ("most singles", "most errors"). */
+  per: 'game' | 'inning' | 'season' | 'club'
+  /** Fielding by the inning, the club's half rather than a fielder's. */
+  byClub?: boolean
+  teamId: string | null
+  oppId: string | null
+  venue: FinderVenue
+  season: number | null
+}
+
+/**
+ * "most walks in a game", "most strikeouts in an inning vs Boston", "most hits in a game at home
+ * 2026": the most of any stat in one game or one inning. Unlike `parseRecordText`, which answers only
+ * the records a Bests card keeps, any stat the Find board can rank at that grain is a record here,
+ * since Find ranks highest first and its first row is the record. The club, place and year are read
+ * off first, so they narrow the record rather than making the words unreadable. Most only: the
+ * fewest of something in one game is nearly always zero, which is no record anybody keeps.
+ */
+const isBare = (rest: string) => rest.trim().length >= 6 && !rest.replace(STAT_ANY, ' ').replace(/(?<![a-z])(?:the|all)(?![a-z])/g, ' ').trim()
+
+/** Whether `text` is a stat and nothing else ("pickoffs"), which the season record reads only when
+ *  nothing else does: "pinch hits" and "bunt hits" are Find's plate appearances first. */
+export function bareStatText(text: string): boolean {
+  return isBare(` ${fixStatTypos(normalize(text))} `)
+}
+
+export function parseRecordQuestion(text: string, clubs: readonly FinderClubAlias[], { season: seasons = false, plays = false }: { season?: boolean; plays?: boolean } = {}): ParsedRecord[] {
+  const clubWords = new Set(clubs.flatMap(c => c.names.flatMap(n => normalize(n).split(' '))))
+  const year = takeYear(` ${fixStatTypos(normalize(text), clubWords)} `)
+  // A stretch of games or a kind of game is a cut a record carries no room for: "most hr in 5 games"
+  // read here was "most hr in a game" with a 5 left over. The ranking reads them (`parseScopedRank`).
+  const kind = takeCuts(year.rest).cuts
+  if (kind.stretch || kind.extra || kind.dh) return []
+  const placed = takeVenue(year.rest, 'any')
+  const clubbed = takeClubs(placed.rest, clubs, placed.venue)
+  let rest = clubbed.rest
+  let per: 'game' | 'inning' | 'season' | 'club' | null = null
+  rest = rest.replace(INNING_SPAN, m => { per = 'inning'; return ' '.repeat(m.length) })
+  rest = rest.replace(SINGLE_GAME_G, m => { per ??= 'game'; return ' '.repeat(m.length) })
+  // THE GRAIN WORD ALONE, the way a search box is typed: "most walks game", "strikeouts inning". Not
+  // innings pitched ("innings pitched", "5 innings"), and not "starts", which is a count of its own.
+  rest = rest.replace(BARE_INNING_SPAN, m => { per ??= 'inning'; return ' '.repeat(m.length) })
+  rest = rest.replace(BARE_GAME_SPAN, m => { per ??= 'game'; return ' '.repeat(m.length) })
+  // A SEASON, said or (with a lead word) left unsaid: "most singles in a season", "most errors". Only
+  // when the caller asks, since a season the stats tables can rank belongs to them.
+  // "By a team" makes a game record a club's ("most runs in a game by a team"). With no grain said it
+  // is the club's season, which the team stats table ranks ("most runs by a team"), so nothing here.
+  let byClub = false
+  rest = rest.replace(CLUB_WORDS, m => { byClub = true; return ' '.repeat(m.length) })
+  if (byClub && per === 'game') per = 'club'
+  if (byClub && !per) return []
+  if (seasons && !per) {
+    rest = rest.replace(SEASON_SPAN, m => { per = 'season'; return ' '.repeat(m.length) })
+    if (!per && /(?<![a-z])(most|highest|greatest|top|leaders?|leading)(?![a-z])/.test(rest)) per = 'season'
+    // A stat typed bare, as a ranking is ("pickoffs", "double plays turned"): the season's most, which
+    // is how a bare stat with a column already reads. Long phrases only, so a stat's letters on the
+    // way to a name ("so", "ab") are never one. Both offered nothing until Nov 20, 2026.
+    // The whole text, so a club or a year beside it ("hunters doubles") stays the readers' who know them.
+    if (!per && bareStatText(text)) per = 'season'
+  }
+  if (!per) return []
+  const grain: 'game' | 'inning' | 'season' | 'club' = per
+  rest = rest.replace(/(?<![a-z])(records?|highs?|bests?)(?![a-z])/g, ' ')
+  const read: { side: FinderBoardSide; field: string }[] = parseLeaderText(rest)
+    .filter(p => !p.career && p.season == null && p.side !== 'overall' && p.dir !== 'asc')
+    .map(p => ({ side: p.side as FinderSide, field: p.field }))
+  // THE GLOVE, which no ranking reads (the stats tables rank no fielding count by a word): "most errors
+  // in a game", "most putouts". One fielding stat and nothing else, so "errors" in a longer question is
+  // left to the readers that know it.
+  if (!read.length) read.push(...fieldingStat(rest))
+  // ONE SIDE: the ranking's first, which is the stat's own lean or the side a word named. "Most hr in
+  // a game" is a batter's record; a pitcher's is asked as "most home runs allowed".
+  const sided = read.filter(p => p.side === read[0].side)
+  // EXCEPT A DOUBLE PLAY, which the rankings lean to the batter (a season of "double plays" is the
+  // GIDP column) but a record of one game or inning means the ones turned: "most double plays in a
+  // game" offered only grounded-into (Nov 10, 2026). The fielders' first, the batter's beside it.
+  const turned = sided[0]?.field === 'gdp' && grain !== 'season'
+    && !/(?<![a-z])(?:grounded|grounds?|hit\s+into|gidp|gdp)(?![a-z])/.test(rest)
+  return (turned ? [{ side: 'fielding' as FinderBoardSide, field: 'dp' }, ...sided] : sided)
+    .filter(p => grain !== 'season' || !RATE_FIELDS.has(p.field))
+    .filter(p => finderFields(p.side, grain, plays).some(f => f.key === p.field && f.key !== 'g'))
+    .flatMap(p => clubbed.teamIds.flatMap(teamId => clubbed.oppIds.flatMap(oppId => (teamId && teamId === oppId ? [] : [{
+      side: p.side, field: p.field, per: grain, teamId, oppId, venue: clubbed.venue, season: year.season,
+      ...(byClub && grain === 'inning' && p.side === 'fielding' ? { byClub: true } : {}),
+    }]))))
+}
+
+const SEASON_SPAN = /(?<![a-z])(?:in\s+(?:a|one)\s+(?:single\s+)?season|single[\s-]+season|on\s+the\s+season|in\s+a\s+year|seasons?)(?![a-z])/g
+const STAT_ONLY = new RegExp(`${B_START}(${alt(STAT_PHRASES)})${B_END}`, 'g')
+
+/** One fielding stat, with nothing but lead words and filler around it. */
+function fieldingStat(rest: string): { side: FinderBoardSide; field: string }[] {
+  // The fewest is no record (see above), and "worst" is the ranking's to read.
+  if (/(?<![a-z])(fewest|least|lowest|low|worst|bottom)(?![a-z])/.test(rest)) return []
+  const phrases: string[] = []
+  let left = rest.replace(STAT_ONLY, (_m: string, p: string) => { phrases.push(p); return ' ' })
+  for (const w of LEAD_WORDS) left = left.replace(w.re, ' ')
+  const words = left.split(/[^a-z0-9]+/).filter(w => w && !FILLER.has(w) && !LEADER_FILLER.has(w) && !FIELDING_HINTS.includes(w))
+  const fields = [...new Set(phrases.map(p => STAT_ALIASES[p]?.fielding).filter((f): f is string => !!f))]
+  return words.length || phrases.length !== 1 || fields.length !== 1 ? [] : [{ side: 'fielding', field: fields[0] }]
+}
+
+// A SITUATION A RANKING IS CUT BY: "avg with risp", "ops with 2 outs", "hr on 0-2", "avg in the 9th".
+// The plate-appearance phrases whose every condition is where a trip began (SITUATION_KEYS), so a
+// hitter's season is summed from those trips. Anything else they read ("grand slams", a walk-off) is
+// an event, not a cut, and stays in the words.
+function takeSituation(rest: string, regulationInnings: number): { rest: string; conditions: FinderCondition[] } {
+  const conditions: FinderCondition[] = []
+  for (const { re, conditions: read } of PA_PHRASES) {
+    rest = rest.replace(re, (...args: unknown[]) => {
+      const got = read(args.slice(0, -2) as unknown as RegExpExecArray)
+      if (!got.length || !got.every(c => SITUATION_KEYS.has(c.field))) return args[0] as string
+      conditions.push(...got)
+      return ' '.repeat((args[0] as string).length)
+    })
+  }
+  for (const { re, condition } of INN_PHRASES) {
+    rest = rest.replace(re, (...args: unknown[]) => {
+      conditions.push(condition(args.slice(0, -2) as string[], regulationInnings))
+      return ' '.repeat((args[0] as string).length)
+    })
+  }
+  return { rest, conditions }
+}
+
+/** A season ranking against one club or at one place (`parseScopedRank`). */
+export interface ParsedScopedRank {
+  side: FinderSide
+  field: string
+  teamId: string | null
+  oppId: string | null
+  venue: FinderVenue
+  season: number | null
+  /** A span, the last N games or an arm (`FinderQuery`), when said. */
+  from?: string
+  to?: string
+  last?: number
+  hand?: 'L' | 'R'
+  /** Extra-inning games, a doubleheader's, or the best stretch of N games (`FinderQuery`), when said. */
+  extra?: boolean
+  dh?: 'any' | 1 | 2
+  stretch?: number
+  /** Where each trip began ("with RISP", "2 out"), which sums the season from those plate
+   *  appearances (`seasonFromPas`). Only where the caller reads its plays. */
+  situation?: FinderCondition[]
+  /** A rate over a cut is a few dozen plate appearances at most, so the season's bar would leave
+   *  almost nobody; a smaller one of its own goes beside it, as a condition the board shows. */
+  bar?: { field: 'pa' | 'ip'; value: number }
+  /** Clubs ranked rather than players ("team avg with 2 outs", "two out runs"): `FinderQuery.byClub`. */
+  byClub?: boolean
+}
+
+
+/**
+ * "hr vs boston", "hits against the hunters", "most strikeouts at home 2026": who has the most of a
+ * stat against one club, or at home or on the road, which no stats table can say (it has no split by
+ * opponent) and which the Find board's season grain is, since it sums each player's lines after the
+ * club, opponent and venue cut. A count stat only: a rate against one club is a few dozen plate
+ * appearances, under any bar. Needs an opponent or a place; the club alone ("Boston hr") is the
+ * team's total, which `parseTeamRankText` answers.
+ */
+export function parseScopedRank(text: string, clubs: readonly FinderClubAlias[],
+  { plays = false, regulationInnings = 9 }: { plays?: boolean; regulationInnings?: number } = {}): ParsedScopedRank[] {
+  const clubWords = new Set(clubs.flatMap(c => c.names.flatMap(n => normalize(n).split(' '))))
+  const year = takeYear(` ${fixStatTypos(normalize(text), clubWords)} `)
+  // "avg vs lefties", "hr since August", "era in September": a cut narrows the season as a club does.
+  const cut = takeCuts(year.rest)
+  const { cuts } = cut
+  // "team", "by a club", "teams": the clubs ranked. Only where the plays are read, since a club's
+  // season beside its two-out runs is the Find board's, and only Hitting has one.
+  let byClub = false
+  let twoOut = false
+  let rest = cut.rest
+  if (plays) {
+    rest = rest.replace(TWO_OUT_RUNS, m => { twoOut = true; return ' '.repeat(m.length) })
+    rest = rest.replace(CLUB_WORDS, m => { byClub = true; return ' '.repeat(m.length) })
+  }
+  // A run with two out is the club's: no player's season can carry one, so the words alone rank clubs.
+  if (twoOut) byClub = true
+  const sit = plays ? takeSituation(rest, regulationInnings) : { rest, conditions: [] }
+  const situated = sit.conditions.length > 0
+  const narrowed = !!(cuts.from || cuts.to || cuts.last || cuts.hand || cuts.extra || cuts.dh || cuts.stretch) || situated
+  // A stretch is summed from the box scores, which no arm or situation cuts (`finderStretchApplies`).
+  if (cuts.stretch && (cuts.hand || situated || byClub)) return []
+  const placed = takeVenue(sit.rest, 'any')
+  const clubbed = takeClubs(placed.rest, clubs, placed.venue)
+  // A club's whole season with no cut is the Team stats board's (`parseTeamRankText`), all but its
+  // two-out runs, which no box score has.
+  if (clubbed.oppIds[0] == null && clubbed.venue === 'any' && !narrowed && !twoOut) return []
+  const left = clubbed.rest.replace(SEASON_WORDS, ' ')
+  if (twoOut) {
+    // Nothing else may be asked beside it: "two out runs and hits" is some other question.
+    // The fewest is a ranking the board's order cannot give from "at least one".
+    if (LEAD_WORDS.some(w => (w.want === 'less' || w.want === 'worst') && new RegExp(w.re.source).test(left))) return []
+    let words = left
+    for (const w of LEAD_WORDS) words = words.replace(w.re, ' ')
+    if (words.split(/[^a-z0-9]+/).some(w => w && !FILLER.has(w) && !LEADER_FILLER.has(w) && !HITTING_HINTS.includes(w))) return []
+    if (situated || cuts.hand) return []
+    return clubbed.teamIds.flatMap(teamId => clubbed.oppIds.flatMap(oppId => (teamId && teamId === oppId ? [] : [{
+      side: 'hitting' as const, field: 'r2', teamId, oppId, venue: clubbed.venue, season: year.season, ...cuts, byClub: true,
+    }])))
+  }
+  const read = parseLeaderText(left)
+    .filter(p => !p.career && p.season == null && p.side !== 'overall' && p.dir !== 'asc')
+    // A rate against one club stays out (see above); over a span, an arm or half the season's games
+    // ("road avg", "home era", which offered nothing until Nov 10, 2026) it is the question.
+    .filter(p => !RATE_FIELDS.has(p.field) || narrowed || (clubbed.venue !== 'any' && clubbed.oppIds[0] == null))
+    // Only a hitter's season is summed by the arm or the situation (`seasonFromPas`), and only what a
+    // plate appearance says: no runs scored or steals, which would come out zero for everyone.
+    .filter(p => (!cuts.hand && !situated) || (p.side === 'hitting' && !cut.batters && PA_SEASON_KEYS.has(p.field)))
+    // A count in a situation with no word for a ranking is its plays ("hits with risp", "bases loaded
+    // walks"), which the plate-appearance reading answers; a rate there, or "most", is the leaders.
+    // A club's count is a ranking either way: "team hits with risp" asks which club has the most.
+    .filter(p => !situated || byClub || RATE_FIELDS.has(p.field) || p.dir != null)
+    .filter(p => !byClub || p.side === 'hitting')
+    .filter(p => finderFields(p.side as FinderSide, 'season', true, byClub).some(f => f.key === p.field && f.key !== 'g'))
+  return read.filter(p => p.side === read[0].side).flatMap(p => clubbed.teamIds.flatMap(teamId => clubbed.oppIds.flatMap(oppId =>
+    (teamId && teamId === oppId ? [] : [{
+      side: p.side as FinderSide, field: p.field, teamId, oppId, venue: clubbed.venue, season: year.season, ...cuts,
+      ...(situated ? { situation: sit.conditions } : {}),
+      ...(byClub ? { byClub: true } : {}),
+      // Ten plate appearances, or five innings (stored as fifteen outs). A club comes up hundreds of
+      // times in any cut, so its rate needs no bar.
+      // A stretch's is the engine's own, so many a game of it (`finderStretchBar`).
+      ...(RATE_FIELDS.has(p.field) && !byClub ? { bar: cuts.stretch ? finderStretchBar(p.side as FinderSide, cuts.stretch)
+        : p.side === 'pitching' ? { field: 'ip' as const, value: 15 } : { field: 'pa' as const, value: 10 } } : {}),
+    }]))))
 }
 
 // ─── A ranking among one position or role ─────────────────────────────────────

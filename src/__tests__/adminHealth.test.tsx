@@ -159,19 +159,27 @@ describe('heartbeatStatus', () => {
 })
 
 describe('HealthStrip', () => {
-  it('renders nothing while the read is in flight, rather than four idle pills', () => {
-    // Four gray "Not yet run" pills on every page load would be a lie that resolves itself,
-    // and the eye would learn to skip the strip before it ever said anything true.
-    const { container } = render(<HealthStrip health={{ ...EMPTY, loading: true }} onOpen={() => {}} />)
-    expect(container).toBeEmptyDOMElement()
+  it('draws no status while the read is in flight, rather than a row of idle pills', () => {
+    // Gray "Not yet run" on every page load would be a lie that resolves itself, and the eye would
+    // learn to skip the strip before it ever said anything true. The box keeps its place.
+    render(<HealthStrip health={{ ...EMPTY, loading: true }} onOpen={() => {}} />)
+    expect(screen.getByText('Pipelines')).toBeInTheDocument()
+    expect(screen.queryByText('All fine')).not.toBeInTheDocument()
+    expect(screen.queryByText(/not run yet/)).not.toBeInTheDocument()
   })
 
-  it('names every pipeline so the strip is readable without the detail below it', () => {
+  it('says all fine in one pill when nothing needs a look, and counts the rest', () => {
     render(<HealthStrip health={{ ...EMPTY, ingest: ingest() }} onOpen={() => {}} />)
-    for (const name of ['Ingest', 'TrackMan', 'Scoring', 'Payrolls']) {
-      expect(screen.getByText(name)).toBeInTheDocument()
-    }
-    expect(screen.getByText('Fresh')).toBeInTheDocument()
+    expect(screen.getByText('All fine')).toBeInTheDocument()
+    expect(screen.getByText(/^1 fresh · \d+ not run yet/)).toBeInTheDocument()
+  })
+
+  it('names only the pipelines that need a look', () => {
+    render(<HealthStrip health={{ ...EMPTY, ingest: ingest({ ok: false }) }} onOpen={() => {}} />)
+    expect(screen.getByText('Ingest')).toBeInTheDocument()
+    expect(screen.getByText('Failed')).toBeInTheDocument()
+    expect(screen.queryByText('TrackMan')).not.toBeInTheDocument()
+    expect(screen.queryByText('All fine')).not.toBeInTheDocument()
   })
 })
 

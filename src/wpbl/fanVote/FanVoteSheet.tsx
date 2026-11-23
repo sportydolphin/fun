@@ -1,9 +1,8 @@
 import { INK } from '../../ui/color'
-import { useMemo } from 'react'
+import { lazy, Suspense, useMemo } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { ModalShell, pressable, FOCUS_RING, TAPPABLE, TYPE_SCALE } from '../ui'
-import { type ShareCardData } from '../awardShareCard'
-import AwardsWinnersExport from '../AwardsWinnersExport'
+import type { ShareCardData } from '../awardShareCard'
 import { useEraBasis } from '../EraBasisContext'
 import { useSectionScroll } from '../../lib/sectionScroll'
 import { fanVoteAwards, AWARDS_CLOSE_LABEL, WPBL_AWARDS_CREDIT, awardsCreditLine } from '../awards'
@@ -11,6 +10,11 @@ import type { AwardBallotEntry } from '../derive/awards'
 import type { WpblPlayer, WpblTeam } from '../types'
 import type { FanVoteState } from './useFanVote'
 import { AwardQuestion } from './AwardQuestion'
+
+// Fetched when the sheet draws it, not imported: it and the card capture under it were 23 KB of the
+// JavaScript every reader loaded before Home could draw (Home imports this sheet), and it draws
+// nothing for anyone but the owner.
+const AwardsWinnersExport = lazy(() => import('../AwardsWinnersExport'))
 import { winnerShareData, AwardResult } from './AwardResult'
 
 // ─── the sheet ───────────────────────────────────────────────────────────────────
@@ -106,7 +110,7 @@ export function FanVoteSheet({ entries, players, teams, state, closed, testerPre
         {/* Owner-only, and it renders nothing for anyone else (the gate lives inside the component,
             so this file stays free of the role check the ballot must never carry). One poster of
             every winner, in the same card art as the per-result Share button. */}
-        {closed && <AwardsWinnersExport winners={winners} />}
+        {closed && <Suspense fallback={null}><AwardsWinnersExport winners={winners} /></Suspense>}
         {/* THE WALL, AND IT STANDS BEHIND THE QUESTIONS RATHER THAN IN FRONT OF THEM. A reader
             who is not signed in still gets the whole ballot: every category, every nominee,
             every figure, and the tally on anything already decided. What they cannot do is

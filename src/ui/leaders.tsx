@@ -3,7 +3,8 @@ import { Box, Skeleton, Typography } from '@mui/material'
 import { SectionCard, TYPE_SCALE, SECTION_COLUMN_GAP } from './card'
 import { FOCUS_RING, linkPress } from './interaction'
 import { chromePx } from './scale'
-import { useLineNameFit, nameAtStage } from './names'
+import { nameAtStage } from './names'
+import { NameColumn, useNameFit } from './NameText'
 
 // ONE LEADER CARD FOR BOTH STATS TABS. Until Oct 2026 MLB drew three tall raised cards of ten with
 // medals, a gradient header and a different accent per value, and WPBL a grid of bare cards of five
@@ -90,12 +91,19 @@ const splitSx = (when: string | undefined, half: number) => when ? {
     gridAutoFlow: 'column', gridTemplateRows: `repeat(${half}, auto)`,
   },
 } : undefined
+/** A row past `phoneRows`, hidden below `sm`. CSS rather than a measured width, so the first paint
+ *  is already right and the skeleton can say the same thing in the same way. */
+const phoneHide = (phoneRows: number | undefined, i: number) =>
+  phoneRows != null && i >= phoneRows ? { display: { xs: 'none', sm: 'flex' } } : {}
 /** The second column's first row heads its column, so it has no rule above it. */
 const splitRule = (when: string | undefined, i: number, half: number) =>
   when && i === half ? { [when]: { borderTop: 'none' } } : {}
 
-export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKey, onHover, splitWhen }: {
+export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKey, onHover, splitWhen, phoneRows }: {
   title: string
+  /** The rows a phone shows, the rest one tap away on "See all". Nine cards of five stacked were a
+   *  3,200px scroll on WPBL's phone board (Nov 7, 2026 audit). */
+  phoneRows?: number
   /** A media or container query under which the rows run down two columns rather than one. For a
    *  card stretched across a wide page (Find's tally under its table), where one column is a list
    *  of names with a screen of nothing between each and its number. */
@@ -115,7 +123,7 @@ export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKe
     <SectionCard bare title={title} titleLink={seeAll ? linkPress(seeAll.href, seeAll.onClick) : undefined}>
       {items.length === 0
         ? <Typography sx={{ py: 1.5, color: 'text.secondary', fontSize: TYPE_SCALE.meta }}>{empty}</Typography>
-        : <Box sx={splitSx(splitWhen, half)}>
+        : <NameColumn names={items.map(it => it.name)}><Box sx={splitSx(splitWhen, half)}>
           {items.map((it, i) => {
             const lit = hoverKey === it.key
             const dimmed = hoverKey != null && !lit
@@ -127,6 +135,7 @@ export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKe
                 sx={{
                   ...ROW_SX, ...rule(i), ...FOCUS_RING,
                   ...splitRule(splitWhen, i, half),
+                  ...phoneHide(phoneRows, i),
                   cursor: it.linkProps ? 'pointer' : 'default',
                   opacity: dimmed ? 0.35 : 1,
                   transition: 'opacity 0.18s, background-color 0.18s',
@@ -140,10 +149,13 @@ export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKe
                   <LeaderName name={it.name} />
                   {it.badge}
                 </Box>
-                <Box sx={VALUE_SX}>
+                {/* THE NOTE GOES UNDER THE VALUE, not beside it. Beside, "of 104" took about 50px from
+                    the name in Find's 17rem tally and cut even "F. Last" ("J. Leguizamon" by 25px at
+                    1440, Nov 9, 2026); stacked, the two lines are still shorter than the face. */}
+                <Box sx={{ ...VALUE_SX, ...(it.valueNote ? { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.25 } : {}) }}>
                   {it.value}
                   {it.valueNote && (
-                    <Box component="span" sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', ml: 0.5 }}>
+                    <Box component="span" sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', lineHeight: 1 }}>
                       {it.valueNote}
                     </Box>
                   )}
@@ -151,23 +163,27 @@ export function LeaderCard({ title, seeAll, items, empty = 'Nobody yet', hoverKe
               </Box>
             )
           })}
-        </Box>}
+        </Box></NameColumn>}
     </SectionCard>
   )
 }
 
 /** A row's name, shortened to "F. Last" when the card is too narrow for it rather than cut off: four
  *  cards across a 1440 screen left "Ashton Lan…" on the hitting board, and longer names on every
- *  card at Large text. The ellipsis stays only as the net under the last stage (CLAUDE.md). */
+ *  card at Large text. The ellipsis stays only as the net under the last stage (CLAUDE.md).
+ *  EVERY ROW ON ONE STAGE (the card's NameColumn), so a card reads in one style: fitted row by row,
+ *  "K. Whitmore" sat over "Alexia Jorge" on Find's tally (Nov 9, 2026 audit). */
 function LeaderName({ name }: { name: string }) {
-  const { ref, stage } = useLineNameFit<HTMLParagraphElement>([name])
-  return <Typography ref={ref} title={stage > 0 ? name : undefined} sx={NAME_SX}>{nameAtStage(name, stage)}</Typography>
+  const { ref, stage } = useNameFit(name)
+  return <Typography ref={ref as React.Ref<HTMLParagraphElement>} title={stage > 0 ? name : undefined} sx={NAME_SX}>{nameAtStage(name, stage)}</Typography>
 }
 
 /** The card before its rows have landed: the real title, which needs no data, over ghost rows of
  *  the loaded row's box, so nothing moves when the names arrive. */
-export function LeaderCardSkeleton({ title, rows = LEADERS_SHOWN, seeAll = true, splitWhen }: {
+export function LeaderCardSkeleton({ title, rows = LEADERS_SHOWN, seeAll = true, splitWhen, phoneRows }: {
   title: string
+  /** The loaded card's `phoneRows`. */
+  phoneRows?: number
   /** The rows the loaded card will have. */
   rows?: number
   /** Whether the loaded card has a "See all" link, so the title line is the same height. */
@@ -181,7 +197,7 @@ export function LeaderCardSkeleton({ title, rows = LEADERS_SHOWN, seeAll = true,
     <SectionCard bare title={title} titleLink={seeAll ? { 'aria-hidden': true } : undefined}>
       <Box sx={splitSx(splitWhen, half)}>
         {Array.from({ length: rows }, (_, i) => (
-          <Box key={i} sx={{ ...ROW_SX, ...rule(i), ...splitRule(splitWhen, i, half) }}>
+          <Box key={i} sx={{ ...ROW_SX, ...rule(i), ...splitRule(splitWhen, i, half), ...phoneHide(phoneRows, i) }}>
             <Box sx={RANK_SX}>&nbsp;</Box>
             <Skeleton variant="circular" width={chromePx(PORTRAIT_PX)} height={chromePx(PORTRAIT_PX)} sx={{ flexShrink: 0 }} />
             <Typography sx={{ ...NAME_SX, flex: 1 }}><Skeleton width="60%" /></Typography>
@@ -194,10 +210,12 @@ export function LeaderCardSkeleton({ title, rows = LEADERS_SHOWN, seeAll = true,
 }
 
 /** Competition ranks over values already in rank order, judged on the text AS PRINTED (two
- *  hitters at .400 share a place even if the fourth decimal differs), with the tie marked. */
+ *  hitters at .400 share a place even if the fourth decimal differs), with the tie marked. The one
+ *  rank rule for every board in both sections (leader cards, the season tables, Find). A dash is
+ *  never a tie: it is the absence of a number. */
 export function printedRanks(texts: string[]): { rank: number; tied: boolean }[] {
   const out: { rank: number; tied: boolean }[] = []
-  texts.forEach((t, i) => { out.push({ rank: i > 0 && texts[i - 1] === t ? out[i - 1].rank : i + 1, tied: false }) })
+  texts.forEach((t, i) => { out.push({ rank: i > 0 && t !== '—' && texts[i - 1] === t ? out[i - 1].rank : i + 1, tied: false }) })
   out.forEach((r, i) => { r.tied = (i > 0 && out[i - 1].rank === r.rank) || (i + 1 < out.length && out[i + 1].rank === r.rank) })
   return out
 }

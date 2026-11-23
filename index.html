@@ -4,6 +4,9 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- The browser's and the installed app's bar color, set to the page's own color by the script
+         below (and kept in step by ThemeContext). Above the script so it exists when that runs. -->
+    <meta name="theme-color" content="#0f1115" />
     <script>
       // Stamp the theme onto <html> BEFORE first paint, so a dark-mode user never
       // sees a flash of the light palette while React boots. Mirrors ThemeContext:
@@ -18,13 +21,23 @@
           var r = document.documentElement;
           r.setAttribute('data-theme', t);
           r.style.colorScheme = t; // native form controls + scrollbars match too
+          // The bar above the page in the page's color: --bg-color in styles.css for each theme.
+          // It was slate navy in both, a stripe over the light page and a near miss on the dark.
+          var tc = document.querySelector('meta[name="theme-color"]');
+          if (tc) tc.setAttribute('content', t === 'dark' ? '#0f1115' : '#f6f7f9');
         } catch (e) { /* storage off: fall through to CSS defaults */ }
         // The section's desktop scale, for the same reason: App.tsx sets this attribute in a layout
         // effect, which is too late for the toolbar placeholder below, so on a refresh the bar
         // painted at 1 and then grew by a quarter when React took over. 1.25 is DESKTOP_SCALE in
-        // App.tsx (pinned together in pwaShell.test.ts); `/` is the shell for /wpbl.
-        var p = location.pathname;
-        var sec = p === '/' || /^\/wpbl(\/|$)/.test(p) ? 'wpbl' : /^\/mlb(\/|$)/.test(p) ? 'mlb' : null;
+        // App.tsx (pinned together in pwaShell.test.ts). `/` opens the reader's default section
+        // (lib/defaultSection.ts, the same key), so an MLB-first reader's bar is MLB's from the start.
+        var p = location.pathname.replace(/\/+$/, '') || '/';
+        if (p === '/') {
+          p = '/wpbl';
+          try { if (localStorage.getItem('defaultSection') === 'mlb') p = '/mlb'; } catch (e) { /* WPBL */ }
+        }
+        window.__sdOpens = p;
+        var sec = /^\/wpbl(\/|$)/.test(p) ? 'wpbl' : /^\/mlb(\/|$)/.test(p) ? 'mlb' : null;
         if (sec) {
           document.documentElement.setAttribute('data-app-scale', sec);
           document.documentElement.style.setProperty('--app-scale-desktop', '1.25');
@@ -38,28 +51,42 @@
       })();
     </script>
     <script>
-      // THE WPBL SECTION'S FIRST THREE READS, STARTED NOW rather than once every bundle has loaded
-      // and run, which on a cold phone load is seconds later. The client claims these by URL in
-      // src/lib/edgeFetch.ts; src/lib/earlyReads.ts says why, and its test pins this list to it.
-      // Signed-out only (a stored session means the client's reads skip the edge cache), and only
-      // on the section's own addresses.
+      // THE WPBL SECTION'S FIRST READS, STARTED NOW rather than once every bundle has loaded and
+      // run, which on a cold phone load is seconds later. The client claims these by URL in
+      // src/lib/edgeFetch.ts; src/lib/earlyReads.ts says why, and its test pins both lists here to it.
+      // Signed-out only (a stored session means the client's reads skip the edge cache), and only on
+      // the section's own addresses. Home adds its own reads at low priority (HOME_EARLY_READS).
       (function () {
         try {
-          var p = location.pathname;
-          if (!(p === '/' || /^\/wpbl(\/|$)/.test(p)) || typeof fetch !== 'function') return;
+          var p = window.__sdOpens || location.pathname;
+          if (!/^\/wpbl(\/|$)/.test(p) || typeof fetch !== 'function') return;
           for (var i = 0; i < localStorage.length; i++) {
             if (/^sb-.*-auth-token$/.test(localStorage.key(i) || '')) return;
           }
           var reads = {};
+          var start = function (priority) {
+            return function (path) {
+              // The header the client sends, so this shares the client's entry in the edge cache.
+              reads[path] = fetch('/api/sb' + path, { headers: { 'Accept-Profile': 'public' }, priority: priority });
+              reads[path].catch(function () { /* the client asks again */ });
+            };
+          };
           [
             '/rest/v1/wpbl_teams?select=*&order=sort_order.asc',
             '/rest/v1/wpbl_games?select=*&order=game_date.asc',
-            '/rest/v1/wpbl_players?select=*'
-          ].forEach(function (path) {
-            // The header the client sends, so this shares the client's entry in the edge cache.
-            reads[path] = fetch('/api/sb' + path, { headers: { 'Accept-Profile': 'public' } });
-            reads[path].catch(function () { /* the client asks again */ });
-          });
+            '/rest/v1/wpbl_players?select=*',
+            '/rest/v1/wpbl_site_games?select=event_id%2Cgame_date%2Cstart_time%2Ctitle%2Cstatus%2Chome_team_id%2Caway_team_id%2Chome_score%2Caway_score%2Cround%2Cseries_key%2Cgame_number%2Curl%2Cticket_url&order=game_date.asc%2Cevent_id.asc'
+          ].forEach(start('auto'));
+          if (p === '/wpbl') [
+            '/rest/v1/wpbl_pitch_tracking?select=game_id&order=activity_id.asc&offset=0&limit=1000',
+            '/rest/v1/wpbl_articles?select=post_id%2Csource%2Cslug%2Curl%2Ctitle%2Csubtitle%2Ccover_url%2Cpublished_at%2Cword_count%2Cvideo_count%2Cgame_id%2Cteam_ids%2Cplayer_ids&order=published_at.desc%2Cpost_id.desc',
+            '/rest/v1/wpbl_videos?select=video_id%2Cchannel_id%2Ctitle%2Cpublished_at%2Cthumbnail_url%2Ckind%2Cgame_id%2Caway_hint%2Chome_hint%2Cgame_date_hint%2Cis_short%2Cregion_allowed%2Cregion_blocked%2Cduration_seconds%2Cview_count&order=published_at.desc%2Cvideo_id.asc&offset=0&limit=1000',
+            '/rest/v1/wpbl_fan_photos?select=id%2Ccard_url%2Cfull_url%2Cwidth%2Cheight%2Ccaption%2Ccredit%2Ctaken_on%2Cgame_id%2Csort_order%2Ccategory_key%2Capproved&approved=eq.true&order=sort_order.asc.nullslast%2Ccreated_at.asc%2Cid.asc&offset=0&limit=1000',
+            '/rest/v1/wpbl_photo_subjects?select=id%2Cphoto_id%2Cplayer_id%2Cfigure_key%2Cteam_id&order=photo_id.asc%2Cid.asc&offset=0&limit=1000',
+            '/rest/v1/wpbl_photo_figures?select=key%2Cname%2Ckind%2Cblurb%2Cteam_id&order=name.asc%2Ckey.asc&offset=0&limit=1000',
+            '/rest/v1/wpbl_photo_categories?select=key%2Cname%2Cblurb%2Csort_order&order=sort_order.asc.nullslast%2Cname.asc',
+            '/rest/v1/wpbl_roster_moves?select=id%2Cseason%2Ckind%2Cplayer_id%2Cplayer_name%2Cteam_id%2Cfrom_team_id%2Ctrade_id%2Cdraft_round%2Cdraft_pick%2Cannounced_on%2Csource_url&order=announced_on.desc%2Cid.desc'
+          ].forEach(start('low'));
           window.__sdEarlyReads = reads;
         } catch (e) { /* the client reads as it always did */ }
       })();
@@ -87,8 +114,7 @@
           if (!line || line.querySelector('button')) return;
           line.textContent = 'Could not load ';
           line.setAttribute('role', 'alert');
-          line.style.opacity = '1';
-          line.parentNode.style.cssText += ';animation:none;opacity:1';
+          document.getElementById('app').classList.add('sd-failed');
           var b = document.createElement('button');
           b.type = 'button';
           b.textContent = 'Reload';
@@ -112,14 +138,27 @@
       })();
     </script>
     <style>
-      /* The static #app fallback below exists for crawlers, Google's OAuth homepage
-         verification, and no-JS / slow loads. On a normal load React mounts within a
-         beat and replaces it, so keep it invisible at first to avoid a flash of this
-         text, then fade it in only if it is somehow still on screen after ~1.2s (JS
-         slow, failed, or disabled). The text is in the DOM from the first byte, so
-         verification and crawlers still read it regardless of this opacity. */
-      #app > main { opacity: 0; animation: sd-fallback-in 0.25s ease-out 1.2s forwards; }
-      @keyframes sd-fallback-in { to { opacity: 1; } }
+      /* THE TEXT IN <main> BELOW IS FOR WHAT DOES NOT RUN THE APP: crawlers, Google's OAuth homepage
+         verification, no JavaScript, and a load that failed. It is in the DOM from the first byte,
+         so they read it whatever its display. A reader whose load is merely slow no longer sees it:
+         it used to fade in at 1.2s, which on a cold phone load was most loads, and the page then
+         swapped a centered paragraph for Home, a different page entirely. That reader gets the
+         frame instead (.sd-frame, below). It shows when the boot guard gives up (.sd-failed, with
+         its Reload button) and under <noscript>. */
+      /* styles.css's own reset, here too: under `npm run dev` that sheet arrives by JavaScript, and
+         until then the bar and the frame sat 8px in, which made the dev server's first frames lie. */
+      body { margin: 0; }
+      #app > main { display: none; }
+      #app.sd-failed > main { display: block; }
+      #app.sd-failed > .sd-frame { display: none; }
+      /* Its own inks, per theme: a failed load is often a deploy, when styles.css may be one of
+         the files that did not arrive, and the heading used to fall back to #111 on the dark page. */
+      #app > main h1 { color: rgba(0,0,0,0.87); }
+      #app > main p { color: rgba(0,0,0,0.6); }
+      #app > main a { color: #b3261e; }
+      [data-theme="dark"] #app > main h1 { color: #fff; }
+      [data-theme="dark"] #app > main p { color: rgba(255,255,255,0.7); }
+      [data-theme="dark"] #app > main a { color: #f26b5b; }
 
       /* THE TOOLBAR'S SHAPE, PAINTED FROM THE FIRST BYTE. The text above stays hidden for a beat on
          purpose, so until React mounted there was nothing on screen at all: Lighthouse's mobile run
@@ -134,12 +173,19 @@
          a quarter the moment React replaced it. The scale is recomputed here as --sd-s rather than
          read from --app-chrome, so it holds before the stylesheet does and under `npm run dev`,
          where the stylesheet arrives by JavaScript. Borders are the theme's `divider`. */
-      .sd-bar { --sd-s: 1; border-bottom: 1px solid rgba(0,0,0,0.20); }
+      .sd-bar, .sd-frame { --sd-s: 1; }
+      .sd-bar { border-bottom: 1px solid rgba(0,0,0,0.20); }
       .sd-shell { box-sizing: content-box; height: calc(48px * var(--sd-s));
         display: flex; align-items: center; gap: calc(6px * var(--sd-s)); padding: 0 calc(16px * var(--sd-s)); }
       @media (min-width: 600px) { .sd-shell { padding: 0 calc(24px * var(--sd-s)); } }
-      @media (min-width: 900px) { :root[data-app-scale] .sd-bar { --sd-s: var(--app-scale-desktop, 1); } }
+      @media (min-width: 900px) { :root[data-app-scale] .sd-bar, :root[data-app-scale] .sd-frame { --sd-s: var(--app-scale-desktop, 1); } }
       [data-theme="dark"] .sd-bar { border-bottom-color: rgba(255,255,255,0.22); }
+      /* HIGH PRIORITY AND ITS OWN WIDTH. As an ordinary image it queued behind the hundred module
+         preloads above, and on a throttled phone it landed at 4.7s, leaving a phone's bar (which
+         has no wordmark) empty on the left for the whole load. The width and height attributes
+         are the file's (312x168, cut from 400x216 at 16 KB to 3 KB on Nov 18, 2026, still 3x the
+         404 page's 56px): they give the box its aspect before the image decodes, so the wordmark
+         beside it does not start at the bar's edge and jump right. */
       .sd-shell img { display: block; height: calc(32px * var(--sd-s)); width: auto; }
       [data-theme="dark"] .sd-shell img { filter: invert(1); }
       /* THE NAME AS TEXT, not only the logo, at the widths the real wordmark shows (960px, or 1200px
@@ -157,18 +203,24 @@
          Above a phone the tabs sit beside the brand from 1024px (TOOLBAR_NAV_INLINE_MIN) and in a
          40px row of their own below it; on a phone they are the bottom bar, which has no copy
          here because nothing sits under it to be pushed. The icons on the right are not copied:
-         they appear in place without moving anything. */
+         they appear in place without moving anything.
+         The type sizes are TYPE_SCALE's (meta for the switch, body for the tabs, caption for the
+         caret) at a 16px root, pinned in pwaShell.test.ts: the tabs here were 13.6px after the real
+         ones had moved to 12.8, and on a desktop refresh every tab slid 19px left as React took
+         over. The switch's edge is ACCENT_EDGE's two values, solid: a faded edge fails 3:1. */
       .sd-bar .sd-sw { display: grid; grid-template-columns: 1fr 1fr; flex-shrink: 0; margin-left: calc(6px * var(--sd-s)); padding: 2px; border-radius: 999px;
-        border: 1px solid rgba(0,0,0,0.44); background: rgba(0,0,0,0.04); }
+        border: 1px solid var(--sd-card-border, rgba(0,0,0,0.44)); background: rgba(0,0,0,0.04); }
+      [data-theme="dark"] .sd-bar .sd-sw { border-color: var(--sd-card-border, rgba(255,255,255,0.36)); background: rgba(255,255,255,0.08); }
       .sd-bar .sd-sw b { padding: 5px calc(8.8px * var(--sd-s)); border-radius: 999px; text-align: center; letter-spacing: calc(0.3px * var(--sd-s) * var(--sd-t, 1));
-        font: 800 calc(12px * var(--sd-s) * var(--sd-t, 1))/1 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        font: 800 calc(11.52px * var(--sd-s) * var(--sd-t, 1))/1 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
         color: rgba(0,0,0,0.6); }
       .sd-bar .sd-sw b.on { color: #111; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.25); }
-      [data-theme="dark"] .sd-bar .sd-sw { border-color: rgba(255,255,255,0.36); background: rgba(255,255,255,0.08); }
       [data-theme="dark"] .sd-bar .sd-sw b.on { background: #e6e6e9; box-shadow: none; }
+      /* NARROW_BAR in App.tsx: the switch tightens to fit the narrowest phones. */
+      @media (max-width: 359.95px) { .sd-bar .sd-sw { margin-left: 2px; } .sd-bar .sd-sw b { padding: 5px 4.8px; } }
       .sd-bar nav { display: none; align-self: stretch; }
       .sd-bar nav i { position: relative; display: inline-flex; align-items: center; gap: calc(4px * var(--sd-s));
-        padding: 0 calc(10px * var(--sd-s)); font: 600 calc(13.6px * var(--sd-s) * var(--sd-t, 1))/1.5 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        padding: 0 calc(10px * var(--sd-s)); font: 600 calc(12.8px * var(--sd-s) * var(--sd-t, 1))/1.5 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
         font-style: normal; white-space: nowrap; color: rgba(0,0,0,0.6); }
       .sd-bar nav i.on { color: rgba(0,0,0,0.87); }
       .sd-bar nav i.on::after { content: ''; position: absolute; left: calc(10px * var(--sd-s)); right: calc(10px * var(--sd-s)); bottom: 0; height: 3px;
@@ -181,7 +233,40 @@
       /* 14px from the brand in the real bar, less the shell's own 6px gap, which the real bar's
          brand group does not put between itself and the tabs. */
       @media (min-width: 1024px) { .sd-bar .sd-shell nav { display: flex; margin-left: calc(8px * var(--sd-s)); } }
+
+      /* THE TAB DRAWN EMPTY: its title where the loaded page puts it, so a slow load shows the
+         page being opened rather than a blank under the bar, and the tab's skeleton (which draws the
+         same words) lands on it unmoved. WPBL's five tabs, the addresses nearly every visit opens;
+         other pages show the bar alone. Every number is the real page's, in the bar's units:
+         App.tsx's page area (padding 2), WpblApp's column (720px, 4px under the bar on a phone),
+         TAB_TITLE_SX, and the width each tab gives its title. Home and Scores break out to HOME_W
+         above 900px (homeWideSx, WpblApp's contentW), and Home's title is centered in a row as tall
+         as a club chip from 600px. Stats bleeds to HOME_W at every width (fullBleedSx), whose
+         gutter is --sd-page-gutter. Standings and Teams stay in the column. A screen tall, like the
+         page it stands for: the loaded page always scrolls, and a classic scrollbar arriving with it
+         narrowed a centered column by half its width. Measured against the loaded pages at 375,
+         760, 960 and 1440. */
+      .sd-frame { --sd-gut: 12px; box-sizing: border-box; min-height: 100vh; padding: calc(16px * var(--sd-s)); }
+      .sd-frame { --sd-w: min(1260px, calc(100vw - var(--sd-scrollbar-w, 0px) - 2 * var(--sd-gut))); }
+      .sd-col { max-width: 720px; margin: 4px auto 0; }
+      .sd-bleed { width: var(--sd-w); margin-left: calc(50% - var(--sd-w) / 2); }
+      .sd-h1 { margin: 0; font: 700 calc(16.8px * var(--sd-s) * var(--sd-t, 1))/1.15 'Barlow Condensed', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        color: rgba(0,0,0,0.87); }
+      /* HOME_TITLE_SX: Home's masthead sets the league's name in capitals. */
+      .sd-home .sd-h1 { text-transform: uppercase; letter-spacing: 0.02em; }
+      [data-theme="dark"] .sd-h1 { color: #fff; }
+      @media (min-width: 600px) {
+        .sd-frame { --sd-gut: calc(24px * var(--sd-s)); }
+        .sd-col { margin-top: 0; }
+        .sd-hrow { display: flex; align-items: center; min-height: calc(24px * var(--sd-s) + 8px); }
+      }
+      @media (min-width: 900px) {
+        .sd-col { max-width: calc(720px * var(--sd-s)); }
+        .sd-home { position: relative; left: 50%; transform: translateX(-50%); width: var(--sd-w); }
+        .sd-h1 { font-size: calc(24px * var(--sd-s) * var(--sd-t, 1)); }
+      }
     </style>
+    <noscript><style>#app > main { display: block; }</style></noscript>
     <title>sportydolphin.fun: MLB & WPBL baseball stats</title>
     <meta name="description" content="sportydolphin.fun is a free baseball stats site for Major League Baseball and the Women's Pro Baseball League. Live scores, player and team stats, standings, and a predictions game. No sign-in required to browse." />
     <!-- NO <link rel="canonical"> HERE, AND THERE MUST NEVER BE ONE. This file is served
@@ -243,7 +328,7 @@
     }
     </script>
 
-    <link rel="preload" href="/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/InterVariable-v2.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/BarlowCondensed-700.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/Newsreader-600-display.woff2" as="font" type="font/woff2" crossorigin />
     <!-- Open the connection to Supabase before any JS asks for it. Every view's first read
@@ -257,7 +342,6 @@
          so only a plain socket is one they can reuse. -->
     <link rel="preconnect" href="https://photos.sportydolphin.fun" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#0f172a" />
     <!-- Icons, all generated by scripts/make-brand-icons.py. Three slots, three files,
          because none of them can stand in for another:
          - the SVG is what a modern browser puts in the tab strip;
@@ -280,7 +364,7 @@
          its name, with no login required. This is what Google's OAuth homepage
          verification reads. React replaces this content once it mounts. -->
     <div id="app">
-      <div class="sd-bar" aria-hidden="true"><div class="sd-shell"><img src="/logo-mark.png" alt="" /><span class="sd-wm">sportydolphin</span></div></div>
+      <div class="sd-bar" aria-hidden="true"><div class="sd-shell"><img src="/logo-mark.png" alt="" width="312" height="168" fetchpriority="high" /><span class="sd-wm">sportydolphin</span></div></div>
       <script>
         // The switch and the tabs for the section this URL opens, with the lit one lit. The labels
         // are WPBL_NAV and MLB_NAV (src/wpbl/routes.ts, src/mlb/routes.ts), and the lit tab is the
@@ -289,12 +373,16 @@
           var sec = document.documentElement.getAttribute('data-app-scale');
           var bar = document.querySelector('.sd-bar');
           if (!sec || !bar) return;
-          var p = location.pathname.replace(/\/+$/, '') || '/';
+          var p = window.__sdOpens || location.pathname;
           var tabs = sec === 'wpbl'
             ? ['Home', 'Scores', 'Standings', 'Stats', 'Teams']
             : ['Home', 'Scores', 'Standings', 'Stats', 'Teams'];
+          // The tab each WPBL address opens, by its label: Scores lives at /wpbl/schedule, so the
+          // label cannot be read off the path (it was, and Scores was never lit here).
+          var wpblTab = { '/wpbl': 'Home', '/wpbl/schedule': 'Scores', '/wpbl/standings': 'Standings',
+            '/wpbl/stats': 'Stats', '/wpbl/teams': 'Teams' }[p];
           var lit = sec === 'wpbl'
-            ? (p === '/' || p === '/wpbl' ? 'Home' : (p.match(/^\/wpbl\/(schedule|standings|stats|teams)$/) || [])[1])
+            ? wpblTab
             : (p === '/mlb' ? 'Home' : /^\/mlb\/(leaders|stats|charts)$/.test(p) ? 'Stats'
               : /^\/mlb\/teams(\/|$)/.test(p) ? 'Teams' : (p.match(/^\/mlb\/(scores|standings)$/) || [])[1]);
           lit = lit && lit.charAt(0).toUpperCase() + lit.slice(1);
@@ -304,21 +392,31 @@
           bar.firstChild.insertAdjacentHTML('beforeend',
             '<span class="sd-sw"><b' + (sec === 'mlb' ? ' class="on"' : '') + '>MLB</b><b' + (sec === 'wpbl' ? ' class="on"' : '') + '>WPBL</b></span><nav>' + nav + '</nav>');
           bar.insertAdjacentHTML('beforeend', '<nav class="sd-row">' + nav + '</nav>');
+          if (sec === 'wpbl' && wpblTab) {
+            var home = wpblTab === 'Home';
+            var box = home ? 'sd-home sd-hrow' : wpblTab === 'Scores' ? 'sd-home' : wpblTab === 'Stats' ? 'sd-bleed' : '';
+            bar.insertAdjacentHTML('afterend', '<div class="sd-frame" aria-hidden="true"><div class="sd-col"><div class="' + box + '">'
+              + '<p class="sd-h1">' + (home ? "Women's Pro Baseball League" : 'WPBL ' + wpblTab) + '</p></div></div></div>');
+            // The scrollbar the frame just brought, published as lib/scrollbarWidth.ts does, since
+            // the widths above subtract it and that module has not run yet.
+            var root = document.documentElement;
+            root.style.setProperty('--sd-scrollbar-w', Math.max(0, window.innerWidth - root.clientWidth) + 'px');
+          }
         })();
       </script>
       <main style="max-width:640px;margin:72px auto;padding:0 24px;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;">
-        <h1 style="font-size:1.9rem;font-weight:800;margin:0 0 12px;color:var(--text-color,#111);">sportydolphin.fun</h1>
-        <p style="font-size:1.05rem;line-height:1.6;color:var(--text-color,#374151);opacity:0.85;margin:0 0 16px;">
+        <h1 style="font-size:1.9rem;font-weight:800;margin:0 0 12px;">sportydolphin.fun</h1>
+        <p style="font-size:1.05rem;line-height:1.6;margin:0 0 16px;">
           A free baseball stats site for Major League Baseball and the Women's Pro Baseball
           League. Browse live scores, player and team stats, standings, and a predictions
           game. No sign-in is required to look around; signing in with Google is optional and
           only used to save your predictions and preferences.
         </p>
-        <p id="sd-boot-status" style="font-size:0.9rem;color:var(--text-color,#6b7280);opacity:0.6;margin:0 0 16px;">Loading the app…</p>
+        <p id="sd-boot-status" style="font-size:0.9rem;margin:0 0 16px;">Loading the app…</p>
         <p style="font-size:0.9rem;margin:0;">
-          <a href="/privacy" style="color:var(--link-color,#b3261e);text-decoration:none;">Privacy Policy</a>
+          <a href="/privacy" style="text-decoration:none;">Privacy Policy</a>
           &nbsp;·&nbsp;
-          <a href="/terms" style="color:var(--link-color,#b3261e);text-decoration:none;">Terms of Service</a>
+          <a href="/terms" style="text-decoration:none;">Terms of Service</a>
         </p>
       </main>
     </div>

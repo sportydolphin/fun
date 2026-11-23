@@ -4,7 +4,7 @@
 // The CSS ellipsis stays only as the net under the last stage. Shared by both sections, which is
 // why it lives here: WPBL's FittedName and NameText / NameLine are built on it.
 
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 
 // Surname particles that belong to the name that follows them. "Rosi del Castillo" must
 // never shorten to "R. Castillo": the particle is part of the surname, not a separate word.
@@ -61,6 +61,60 @@ export function nameAtStage(name: string, stage: number): string {
  */
 export function useLineNameFit<T extends HTMLElement>(names: string[]): { ref: RefObject<T>; stage: number } {
   return useStageFit<T>(names.join('|'), Math.max(0, ...names.map(n => nameStages(n).length - 1)))
+}
+
+/**
+ * ONE stage for a whole COLUMN of names, the longest any row needs. Fitting each row on its own
+ * drew "D. Benites" above "Emi Saiki" in the same column of Find (Nov 7, 2026 audit): each row was
+ * right by itself and the column read as two styles. Pass `ref` to every name in the column; each
+ * must be `white-space: nowrap` with its overflow clipped. The stage steps down while ANY of them
+ * overflows, and starts over from the full names when the names change or any of them gets wider.
+ * Callers usually reach this through `NameColumn` rather than directly.
+ */
+export function useColumnNameFit<T extends HTMLElement>(names: string[]): { ref: (el: T | null) => (() => void) | undefined; stage: number } {
+  const key = names.join('|')
+  const maxStage = Math.max(0, ...names.map(n => nameStages(n).length - 1))
+  const els = useRef(new Set<T>())
+  const widths = useRef(new Map<T, number>())
+  const [stage, setStage] = useState(0)
+  const [, remeasure] = useState(0)
+  const ro = useRef<ResizeObserver | null>(null)
+  if (ro.current == null && typeof ResizeObserver !== 'undefined') {
+    ro.current = new ResizeObserver(entries => {
+      let wider = false, narrower = false
+      for (const e of entries) {
+        const el = e.target as T
+        const w = el.clientWidth
+        const was = widths.current.get(el) ?? w
+        if (w > was + 1) wider = true
+        else if (w < was - 1) narrower = true
+        widths.current.set(el, w)
+      }
+      if (wider) setStage(0)
+      else if (narrower) remeasure(n => n + 1)
+    })
+  }
+  // No disconnect on unmount: every ref's cleanup unobserves its own element, which leaves the
+  // observer watching nothing.
+  useLayoutEffect(() => { setStage(0) }, [key])
+  // After every render on purpose, as in useStageFit: it stops at the last stage.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => {
+    if (stage < maxStage && [...els.current].some(overflows)) setStage(stage + 1)
+  })
+  // A React 19 ref callback with a cleanup: a row that leaves the column stops counting.
+  const ref = useCallback((el: T | null) => {
+    if (!el) return undefined
+    els.current.add(el)
+    widths.current.set(el, el.clientWidth)
+    ro.current?.observe(el)
+    return () => {
+      els.current.delete(el)
+      widths.current.delete(el)
+      ro.current?.unobserve(el)
+    }
+  }, [])
+  return { ref, stage }
 }
 
 /**

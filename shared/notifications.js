@@ -32,10 +32,22 @@ export const NOTIFICATION_TYPES = {
   GAME_START:      'game-start',
   MILESTONE:       'milestone',
   WPBL_GAME_START: 'wpbl-game-start',
+  // A club re-signed a player for next season. Push-only, sent by scripts/watch-wpbl-instagram.mjs
+  // the moment it records the move, to readers with user_preferences.notify_wpbl_resigns.
+  WPBL_RESIGN:     'wpbl-resign',
+  // A trade between clubs, once it is recorded from /admin. Push-only, sent by the same watcher to
+  // the same readers (the setting is "Roster moves"), one per trade.
+  WPBL_TRADE:      'wpbl-trade',
   // Owner-only: a background pipeline broke. Push-only, sent by scripts/check-admin-health.mjs
   // so a red state reaches the owner without them opening /admin, the failure mode the Health
   // group's amber chip could not escape on its own.
   ADMIN_HEALTH:    'admin-health',
+  // Owner-only: fans' photos are waiting for review (docs/FAN_UPLOADS.md). Pushed by
+  // scripts/notify-photo-submissions.mjs; in the bell from src/wpbl/notifications/photoSubmissions.ts.
+  WPBL_PHOTOS_WAITING: 'wpbl-photos-waiting',
+  // A fan's photo was published or declined. Same sender and bell file. Not behind a preference:
+  // it answers something the fan did, the way a receipt does, and it comes once per decision.
+  WPBL_PHOTO_DECIDED:  'wpbl-photo-decided',
 }
 
 // Per-type metadata. `label` is user-facing (settings, grouping); `defaultUrl`
@@ -75,6 +87,19 @@ export const NOTIFICATION_META = {
     // on the WPBL home where the next game is featured up top, the honest fallback.
     defaultUrl: '/wpbl',
   },
+  [NOTIFICATION_TYPES.WPBL_RESIGN]: {
+    label:      'WPBL roster moves',
+    icon:       '✍️',
+    // The rosters page, where the player now sits among the club's re-signings and the count
+    // against its ten. The builder overrides nothing: the page is the context.
+    defaultUrl: '/wpbl/rosters',
+  },
+  [NOTIFICATION_TYPES.WPBL_TRADE]: {
+    label:      'WPBL trades',
+    icon:       '🔁',
+    // The rosters page, where the player sits on the new club and the traded picks are listed.
+    defaultUrl: '/wpbl/rosters',
+  },
   [NOTIFICATION_TYPES.ADMIN_HEALTH]: {
     label:      'Site health alerts',
     icon:       '🚨',
@@ -82,6 +107,18 @@ export const NOTIFICATION_META = {
     // wired into the MLB deep-link router, so this is the honest landing spot rather than an
     // `open=` intent nothing claims.
     defaultUrl: '/admin',
+  },
+  [NOTIFICATION_TYPES.WPBL_PHOTOS_WAITING]: {
+    label:      'Photo submissions',
+    icon:       '📷',
+    // The Photos group, whose first section is Submitted.
+    defaultUrl: '/admin?tab=photos',
+  },
+  [NOTIFICATION_TYPES.WPBL_PHOTO_DECIDED]: {
+    label:      'Your submitted photos',
+    icon:       '📷',
+    // The submit page, whose "Your submissions" list shows each one's state and any reason.
+    defaultUrl: '/wpbl/photos/submit',
   },
 }
 
@@ -173,6 +210,44 @@ export function buildWpblGameStart({ gameId, matchup, minutesToStart }) {
 }
 
 /**
+ * A club re-signed a player for next season.
+ *
+ * One per player: the id carries the player, so a second post about the same signing (the
+ * league reposting the club's) replaces the first on the lock screen instead of stacking.
+ *
+ * @param {{ playerId: string, playerName: string, teamName: string, season: number }} args
+ */
+export function buildWpblResign({ playerId, playerName, teamName, season }) {
+  const meta = NOTIFICATION_META[NOTIFICATION_TYPES.WPBL_RESIGN]
+  return {
+    id:    `${NOTIFICATION_TYPES.WPBL_RESIGN}:${playerId}`,
+    type:  NOTIFICATION_TYPES.WPBL_RESIGN,
+    icon:  meta.icon,
+    title: `Re-signed: ${playerName}`,
+    body:  `${teamName}, ${season}`,
+    url:   meta.defaultUrl,
+  }
+}
+
+/**
+ * A trade between clubs. One per trade: the id carries the trade, so a re-send replaces itself.
+ *
+ * @param {{ tradeId: string, title: string, body: string }} args
+ *   title: "Trade: Boston and New York". body: who got what, built by the watcher.
+ */
+export function buildWpblTrade({ tradeId, title, body }) {
+  const meta = NOTIFICATION_META[NOTIFICATION_TYPES.WPBL_TRADE]
+  return {
+    id:    `${NOTIFICATION_TYPES.WPBL_TRADE}:${tradeId}`,
+    type:  NOTIFICATION_TYPES.WPBL_TRADE,
+    icon:  meta.icon,
+    title,
+    body,
+    url:   meta.defaultUrl,
+  }
+}
+
+/**
  * A background pipeline broke, pushed to the owner only.
  *
  * One payload per problem `key`, so the push `tag` (id) is stable per problem: a re-page for a
@@ -190,6 +265,24 @@ export function buildAdminHealthAlert({ key, title, body }) {
     id:    `${NOTIFICATION_TYPES.ADMIN_HEALTH}:${key}`,
     type:  NOTIFICATION_TYPES.ADMIN_HEALTH,
     icon:  meta.icon,
+    title,
+    body,
+    url:   meta.defaultUrl,
+  }
+}
+
+/**
+ * League news for the owner (scripts/watch-wpbl-news.mjs): the stats feed carrying a new season,
+ * club or game, or the league adding a club or venue. Rides the admin-health type on purpose: it
+ * is owner-only like those pages, so it needs no reader preference, bell entry or deep link.
+ * The key keeps each run's push distinct, so one never replaces the last on the lock screen.
+ */
+export function buildLeagueNewsAlert({ key, title, body }) {
+  const meta = NOTIFICATION_META[NOTIFICATION_TYPES.ADMIN_HEALTH]
+  return {
+    id:    `${NOTIFICATION_TYPES.ADMIN_HEALTH}:news:${key}`,
+    type:  NOTIFICATION_TYPES.ADMIN_HEALTH,
+    icon:  '📰',
     title,
     body,
     url:   meta.defaultUrl,
@@ -231,6 +324,53 @@ export function buildMilestoneNear({ playerId, playerName, statLabel, remaining,
 // Ids are suffixed `:sample` so a test can never collide with (or worse,
 // overwrite the read state of) a real notification of the same type.
 
+/**
+ * Fans' photos waiting for the owner. One `tag` for the whole queue, so each new push REPLACES the
+ * last on the lock screen. The id names the newest waiting photo: with one id for the queue, a
+ * single dismissal tombstoned the line for 14 days and every photo sent after it went unseen in the
+ * bell. Keyed on the newest rather than the count, so a review that shrinks the queue does not
+ * bring back a line the owner dismissed.
+ * @param {{ count: number, newestId: string }} args
+ */
+export function buildPhotosWaiting({ count, newestId }) {
+  const meta = NOTIFICATION_META[NOTIFICATION_TYPES.WPBL_PHOTOS_WAITING]
+  return {
+    id:    `${NOTIFICATION_TYPES.WPBL_PHOTOS_WAITING}:${newestId}`,
+    tag:   `${NOTIFICATION_TYPES.WPBL_PHOTOS_WAITING}:queue`,
+    type:  NOTIFICATION_TYPES.WPBL_PHOTOS_WAITING,
+    icon:  meta.icon,
+    title: count === 1 ? '1 photo to review' : `${count} photos to review`,
+    body:  'Submitted by fans, waiting in Photos.',
+    url:   meta.defaultUrl,
+  }
+}
+
+/**
+ * The owner decided on a fan's photos. `key` scopes the id: a submission id for one photo in the
+ * bell, a batch key for a push that covers several.
+ * @param {{ key: string, published: number, declined: number, reason?: string | null }} args
+ */
+export function buildPhotoDecided({ key, published, declined, reason }) {
+  const meta = NOTIFICATION_META[NOTIFICATION_TYPES.WPBL_PHOTO_DECIDED]
+  const n = published + declined
+  const title = declined === 0
+    ? (published === 1 ? 'Your photo is up' : `${published} of your photos are up`)
+    : published === 0
+      ? (declined === 1 ? "Your photo wasn't published" : `${declined} of your photos weren't published`)
+      : `${published} published, ${declined} not`
+  const body = declined === 0
+    ? `In the WPBL gallery, credited to you.`
+    : declined === 1 && n === 1 && reason ? `Reason: ${reason}` : 'See Your submissions for details.'
+  return {
+    id:    `${NOTIFICATION_TYPES.WPBL_PHOTO_DECIDED}:${key}`,
+    type:  NOTIFICATION_TYPES.WPBL_PHOTO_DECIDED,
+    icon:  meta.icon,
+    title,
+    body,
+    url:   meta.defaultUrl,
+  }
+}
+
 export const SAMPLE_BUILDERS = {
   [NOTIFICATION_TYPES.PICKS_READY]: () => ({
     ...buildPicksReady({ date: todayISO(), remaining: 7, total: 12 }),
@@ -247,6 +387,18 @@ export const SAMPLE_BUILDERS = {
   [NOTIFICATION_TYPES.WPBL_GAME_START]: () => ({
     ...buildWpblGameStart({ gameId: '0', matchup: 'Boston Hunters @ New York Heights', minutesToStart: 5 }),
     id: `${NOTIFICATION_TYPES.WPBL_GAME_START}:sample`,
+  }),
+  [NOTIFICATION_TYPES.WPBL_RESIGN]: () => ({
+    ...buildWpblResign({ playerId: '0', playerName: 'Lexi Hastings', teamName: 'Boston Hunters', season: 2027 }),
+    id: `${NOTIFICATION_TYPES.WPBL_RESIGN}:sample`,
+  }),
+  [NOTIFICATION_TYPES.WPBL_TRADE]: () => ({
+    ...buildWpblTrade({ tradeId: 'sample', title: 'Trade: Boston and New York', body: 'Boston gets Alyssa Zettlemoyer. New York gets a 2027 6th-round pick.' }),
+    id: `${NOTIFICATION_TYPES.WPBL_TRADE}:sample`,
+  }),
+  [NOTIFICATION_TYPES.WPBL_PHOTO_DECIDED]: () => ({
+    ...buildPhotoDecided({ key: 'sample', published: 1, declined: 0 }),
+    id: `${NOTIFICATION_TYPES.WPBL_PHOTO_DECIDED}:sample`,
   }),
 }
 

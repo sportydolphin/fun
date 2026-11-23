@@ -22,6 +22,8 @@ export const EVENTS = {
   DISCORD_DISMISSED:  'discord_dismissed',   // clicked the ✕ to dismiss the Discord invite card
   WPBL_GAME_REMINDER_ON:  'wpbl_game_reminder_on',  // opted into a pre-game push for a WPBL game
   WPBL_GAME_REMINDER_OFF: 'wpbl_game_reminder_off', // turned a WPBL game reminder back off
+  WPBL_RESIGN_ALERTS_ON:  'wpbl_resign_alerts_on',  // opted into a push for each re-signing
+  WPBL_RESIGN_ALERTS_OFF: 'wpbl_resign_alerts_off', // turned re-signing pushes back off
   WPBL_TAB_VIEWED:        'wpbl_tab_viewed',        // switched WPBL tab — props carry {view, via, from}
   WPBL_PLAYER_OPENED:     'wpbl_player_opened',     // opened a WPBL player page
   NEW_BADGE_SHOWN:        'new_badge_shown',        // a "new here" dot was rendered (impression), props {badge}
@@ -93,6 +95,8 @@ export const EVENTS = {
   WPBL_STATS_BOARD:    'wpbl_stats_board',    // a Stats board is on screen, props {side, source, mode, via}
   WPBL_STATS_SORTED:   'wpbl_stats_sorted',   // tapped a column header, props {key, asc, side, mode}
   WPBL_STATS_FILTERED: 'wpbl_stats_filtered', // team chip or Qualified, props {filter, on, teamId?}
+  WPBL_DATA_DOWNLOADED: 'wpbl_data_downloaded', // a file on /wpbl/data, props {table: <folder>/<table>, format: csv|json}
+  WPBL_STATS_EXPORTED: 'wpbl_stats_exported', // CSV or Copy at a board's foot, props {kind: csv|copy, how: download|share|copy|canceled|failed, side, mode, view, rows}
 
   // RETIRED when the standalone seeding card folded into the bracket (the seeding race now
   // renders inside PlayoffBracket, which carries wpbl_bracket_shown / wpbl_bracket_team below).
@@ -160,7 +164,7 @@ export const EVENTS = {
   // still fire on a pick underneath these: `wpbl_search_picked`, and `mlb_player_opened` /
   // `mlb_team_opened` from `header_search` or `recent`, so those series run on unbroken.
   COMMAND_PALETTE_OPENED:    'command_palette_opened',    // props {section, via: 'field' | 'icon' | 'slash' | 'shortcut'}
-  COMMAND_PALETTE_PICKED:    'command_palette_picked',    // props {section, kind: 'club_page' | 'game' | 'matchup' | 'compare' | 'finder' | 'leader' | 'definition' | 'result' | 'recent' | 'suggestion' | 'page' | 'example', rank, typed, top, forgiving?}
+  COMMAND_PALETTE_PICKED:    'command_palette_picked',    // props {section, kind: 'club_page' | 'game' | 'matchup' | 'compare' | 'finder' | 'leader' | 'definition' | 'result' | 'recent' | 'suggestion' | 'page' | 'example', rank, typed, top, title, forgiving?}; `title` is the row's own label, since Nov 20, 2026
   COMMAND_PALETTE_DISMISSED: 'command_palette_dismissed', // closed with no pick, props {section, typed, shown, q?}; `q` only when the box offered nothing for the text
   COMMAND_PALETTE_RECENTS_CLEARED: 'command_palette_recents_cleared', // props {section}
   // A stat question typed as words ("5 strikeouts no walks") and opened on the Find board. Fires
@@ -194,6 +198,8 @@ export const EVENTS = {
   // readers actually build is the only evidence there is about what to link to.
   WPBL_COMPARE_VIEWED: 'wpbl_compare_viewed', // a pair page rendered, props {a, b, season}
   WPBL_COMPARE_OPENED: 'wpbl_compare_opened', // opened the compare tool, props {from, playerId?, pair?}
+  // The World Cup table on a WPBL player page, read in April 2027 (ROADMAP-PRIORITIES item 19).
+  WPBL_WORLD_CUP_OPENED: 'wpbl_world_cup_opened', // opened a World Cup row (wbsc.org until the section is public), props {playerId, event}
   // Home's Compare card, which took the Leaders board's quadrant and shipped with no telemetry
   // at all: the only card in the feed that could not report whether it was seen or used, the
   // exact silence every other card here carries an impression to avoid. SHOWN is the
@@ -231,6 +237,7 @@ export const EVENTS = {
   MLB_TAB_VIEWED:      'mlb_tab_viewed',      // switched MLB tab, props {view, via: pill|link, from}
   MLB_PLAYER_OPENED:   'mlb_player_opened',   // opened an MLB player, props {playerId, from}
   MLB_TEAM_OPENED:     'mlb_team_opened',     // opened an MLB team, props {teamId, from}
+  MLB_STATS_EXPORTED:  'mlb_stats_exported',  // CSV or Copy at the Stats board's foot, props {kind: csv|copy, how, group, view, rows}
   // Short links (/m/<code>), the MLB half of the WPBL pair above: made, and landed from.
   MLB_SHARE_COPIED:    'mlb_share_copied',    // tapped Copy link, props {kind: series|game|player, path}
   MLB_SHARE_OPENED:    'mlb_share_opened',    // arrived via a short link, props {kind}
@@ -253,6 +260,11 @@ export const EVENTS = {
   // See lib/webVitals.ts.
   // The cls_* props name the largest shift: element, heading, its own score, load state, route.
   WEB_VITALS:          'web_vitals',          // props {lcp, fcp, ttfb, inp (ms), cls, device, section, conn, cls_target, cls_label, cls_shift, cls_state, cls_route}
+  // Where a page load came from, once per load. NOT A PAGE VIEW, so the rule at the top of this
+  // file stands: Cloudflare counts paths, but it cannot say which of our browsers a referrer sent,
+  // or whether they went on to do anything, which is what /admin's Sources card reads it for.
+  // Only the referrer's HOST is kept, never the URL it came from. See lib/landing.ts.
+  LANDED:              'landed',              // props {ref: host|null, utm: utm_source|null, app: installed app, route: landing route}
 } as const
 
 // A known event name, or any string (keeps call sites flexible without losing the
@@ -308,6 +320,23 @@ function automated(): boolean {
 }
 
 /**
+ * A crawler that runs the page's JavaScript says so in its user agent, not in `navigator.webdriver`.
+ * Google's renderer keeps no storage between pages, so every page it renders was a new "browser"
+ * on /admin: over the 30 days to Nov 10, 2026, 218 browsers did nothing but load one comparison
+ * page each and almost none sent a page-speed report, and a day of one-off video pages read as a
+ * sixfold traffic spike. Refused here rather than flagged, like the test runs, so no admin_*
+ * function needs a filter it could forget. The names are the crawlers that render JavaScript,
+ * plus the generic "something-bot/1.0" shape; a phone brand ending in "bot" has no slash after it.
+ */
+const BOT_AGENT = /[a-z]bot\/|googlebot|bingbot|bingpreview|yandex|baiduspider|duckduckbot|slurp|petalbot|bytespider|applebot|ahrefs|semrush|mj12bot|crawler|spider|headlesschrome|lighthouse|pagespeed|gtmetrix|google-inspectiontool|facebookexternalhit|embedly|prerender/i
+export function isBotAgent(ua: string | null | undefined): boolean {
+  return !!ua && BOT_AGENT.test(ua)
+}
+function crawler(): boolean {
+  try { return typeof navigator !== 'undefined' && isBotAgent(navigator.userAgent) } catch { return false }
+}
+
+/**
  * NOT FROM THE DEV SERVER EITHER, for the reason test runs are refused in `track`: `npm run dev`
  * talks to the production project, so every local session wrote real rows. Over the 14 days to
  * Oct 10, 2026 that was 234 of the 286 `app_error` rows, every one a hot-reload crash against
@@ -321,9 +350,9 @@ function devSilenced(): boolean {
   try { return localStorage.getItem('sdDevTrack') !== '1' } catch { return true }
 }
 
-/** Every reason a row must not be written: a test run, automation, or the dev server. */
+/** Every reason a row must not be written: a test run, automation, a crawler, or the dev server. */
 export function silenced(): boolean {
-  return import.meta.env.MODE === 'test' || automated() || devSilenced()
+  return import.meta.env.MODE === 'test' || automated() || crawler() || devSilenced()
 }
 
 export function trackImpression(event: EventName, props: Record<string, unknown> = {}, key = ''): void {

@@ -1,6 +1,8 @@
 import { plateAppearances, type WpblBattingTotals, type FipWeights } from '../stats'
 import type { PlayRunValue } from './runExpectancy'
+import { isSacBunt } from '../../league/sacrifice'
 import { sprayZone, type SprayZone } from './spray'
+import { isPlateAppearance } from '../league'
 
 /**
  * Linear weights from the league's own plays: wOBA and wRC+ for hitters, FIP for pitchers.
@@ -30,8 +32,8 @@ export interface WobaWeights {
 
 /** Every event the feed uses for a batter put out, strikeouts included. A fielder's choice is
  *  an out for the batter's purposes: the trip cost the side an out, whoever it was charged to.
- *  `sacrifice` is left out on purpose: it is fly balls and bunts together, and both are outs
- *  made on purpose in a situation that flatters them, which would drag the baseline up. */
+ *  Sacrifices are left out on purpose: `sacrifice` (the fly) and a bunt marked "SAC" are outs made
+ *  on purpose in a situation that flatters them, which would drag the baseline up. */
 const OUT_EVENTS = new Set([
   'strikeout', 'groundout', 'flyout', 'popup', 'lineout', 'foul_out', 'out', 'fielders_choice',
 ])
@@ -65,7 +67,7 @@ const BIP_EVENTS = new Set([
 export function fipWeights(values: PlayRunValue[], opts: { infieldFlies?: boolean } = {}): FipWeights | null {
   const acc = { hr: [0, 0], bb: [0, 0], k: [0, 0], bip: [0, 0] }
   for (const v of values) {
-    if (!v.play.pitch_sequence) continue
+    if (!isPlateAppearance(v.play)) continue
     const e = v.play.event_type
     const k = e === 'home_run' ? 'hr'
       : e === 'walk' || e === 'hit_by_pitch' ? 'bb'
@@ -102,10 +104,14 @@ export function wobaWeights(values: PlayRunValue[]): WobaWeights | null {
   for (const v of values) {
     // Plate appearances only. A stolen base or a wild pitch carries the batter's name too but is
     // not something the batter did, and a single "event" row without a pitch sequence is a
-    // runner advance the feed labeled after the play it happened on.
-    if (!v.play.pitch_sequence) continue
+    // runner advance the feed labeled after the play it happened on. Not the pitch sequence alone,
+    // which a 0-0 trip lacks (isPlateAppearance in ../league.ts).
+    if (!isPlateAppearance(v.play)) continue
     const e = v.play.event_type
     if (!e) continue
+    // A sacrifice bunt is filed as the groundout it was (sacrifice.ts), so the rule above has to
+    // look past the event type to keep it out.
+    if (isSacBunt(v.play)) continue
     if (OUT_EVENTS.has(e)) { outSum += v.value; n.out++; continue }
     const k = EVENT_KEY[e]
     if (!k) continue

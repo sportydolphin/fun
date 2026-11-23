@@ -5,7 +5,8 @@
 // GENERATED, and never edited here: scripts/frame-wpbl-portraits.py builds each one from the
 // photo in art/wpbl-portraits/ by one framing rule, so faces from different shoots sit at one
 // size side by side. A new or better photo goes in that folder; `portraitFraming.test.ts` fails
-// on a 512 that was not built from the source that is there.
+// on a 512 that was not built from the source that is there. A newer league photo comes in
+// through `npm run portraits` (scripts/wpbl-portraits.py).
 //
 // Files are named by a normalized slug of the player's DB `name`; we resolve a player to
 // their portrait by slugifying that name the same way, so no per-name mapping is needed.

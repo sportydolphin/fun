@@ -20,7 +20,10 @@ import headersSource from '../../public/_headers?raw'
 import indexHtml from '../../index.html?raw'
 import appSource from '../App.tsx?raw'
 import staleBuildSource from '../lib/staleBuild.ts?raw'
-import { WPBL_NAV } from '../wpbl/routes'
+import toolbarNavSource from '../ToolbarNav.tsx?raw'
+import { TYPE_SCALE } from '../ui/card'
+import { DEFAULT_SURFACES, resolveSurfaces } from '../ThemeContext'
+import { WPBL_NAV, wpblPathFor } from '../wpbl/routes'
 import { MLB_NAV } from '../mlb/routes'
 
 const manifest = JSON.parse(manifestSource) as {
@@ -44,6 +47,17 @@ describe('the web app manifest, as the Android build reads it', () => {
     expect(manifest.display).toBe('standalone')
     expect(manifest.theme_color).toMatch(/^#[0-9a-f]{6}$/i)
     expect(manifest.background_color).toMatch(/^#[0-9a-f]{6}$/i)
+  })
+
+  // The launch screen and the bar over the page, in the page's own color. Both were slate navy
+  // (#0f172a) until Nov 18, 2026, which matched neither theme: a dark stripe over the light page
+  // and a near miss on the dark one, then a visible change of shade as the app drew.
+  it('opens in the dark page color, and index.html sets the bar to each theme page', () => {
+    const light = resolveSurfaces(DEFAULT_SURFACES, 'light').page
+    const dark = resolveSurfaces(DEFAULT_SURFACES, 'dark').page
+    expect(manifest.background_color).toBe(dark)
+    expect(manifest.theme_color).toBe(dark)
+    expect(indexHtml).toContain(`t === 'dark' ? '${dark}' : '${light}'`)
   })
 
   // The scope is what the wrapper will open WITHOUT handing off to a browser tab. A scope
@@ -445,6 +459,25 @@ describe('the toolbar placeholder in index.html', () => {
   it("draws each section's tabs with the labels the real bar uses", () => {
     expect(indexHtml).toContain(`['${WPBL_NAV.map(n => n.label).join("', '")}']`)
     expect(indexHtml).toContain(`['${MLB_NAV.map(n => n.label).join("', '")}']`)
+  })
+
+  // The bar's type is copied as px at a 16px root, and the copy drifted once: the real tabs moved to
+  // TYPE_SCALE.body and the static ones stayed at 13.6px, so every desktop refresh slid the tabs
+  // 19px left as React replaced the bar (Nov 18, 2026). The real bar reads these two tokens.
+  it('sizes the switch and the tabs from the type scale the real bar uses', () => {
+    const px = (rem: string) => `${parseFloat(rem) * 16}px`
+    expect(appSource).toContain('fontSize: TYPE_SCALE.meta, fontWeight: 800')
+    expect(toolbarNavSource).toContain('fontSize: TYPE_SCALE.body, fontWeight: 600')
+    expect(indexHtml).toContain(`font: 800 calc(${px(TYPE_SCALE.meta)} * var(--sd-s)`)
+    expect(indexHtml).toContain(`font: 600 calc(${px(TYPE_SCALE.body)} * var(--sd-s)`)
+    expect(indexHtml).toContain(`font-size: calc(${px(TYPE_SCALE.caption)} * var(--sd-s)`)
+  })
+
+  // The static page under the bar draws the opened tab's title, keyed on its address. Scores lives
+  // at /wpbl/schedule, so the map is written out rather than derived, and nothing else notices if a
+  // tab moves: the title would simply stop drawing (or draw on the wrong page) until React took over.
+  it('knows each WPBL tab by the address the real app gives it', () => {
+    for (const n of WPBL_NAV) expect(indexHtml).toContain(`'${wpblPathFor(n.key)}': '${n.label}'`)
   })
 
   // Where the tabs move from their own row up beside the brand.

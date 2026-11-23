@@ -7,7 +7,8 @@ import { LeadersBoardSkeleton } from '../LeadersBoard'
 import { defaultSide } from './axes'
 import { ANALYSIS_TABS, ANALYSIS_SOURCES, boardTabOptions } from './boardTabs'
 import { axesFromQuery } from './address'
-import { fullBleedSx, fullBleedStickySx } from './layout'
+import { fullBleedSx, fullBleedStickySx, useShortStatsPage } from './layout'
+import { getCachedWpblTeams } from '../api'
 
 // The loaded desktop board: two header rows, TABLE_CAP body rows (each with a 1px rule), the
 // "Show all" row, the footer and the card's two borders. A sideways scrollbar, where the platform
@@ -17,6 +18,10 @@ const DESKTOP_BOARD_SKELETON = `calc(${TABLE_CAP} * (1.56rem + ${chromePx(8.06)}
 // The header's league row, which a board with no rate on it (Overall) does not draw (SeasonTable).
 // Measured at 15.05px on the 16px root and 18.69px on the desktop's 20px.
 const LEAGUE_ROW = `(0.66rem + ${chromePx(4.5)})`
+// The Teams board: one row per club, no "Show all" row, the same head and foot. Four clubs until the
+// cache says otherwise.
+const teamsBoardSkeleton = (clubs: number) => `calc(${clubs} * (1.56rem + ${chromePx(8.06)} + 1px)`
+  + ` + 0.64rem + ${chromePx(28.36)} + 0.99rem + ${chromePx(16.8)} + 2px)`
 
 // Placeholder while a sub-tab's chunk arrives. These views render in place under the group
 // bar, so a centered spinner in the content area is what the reader already sees while their
@@ -39,6 +44,9 @@ export function StatsSkeleton({ newBoards }: { newBoards?: ReadonlySet<string> }
   const source = q.source ?? 'leaders'
   const analysis = ANALYSIS_SOURCES.has(source)
   const board = source === 'season' ? (q.mode ?? 'players') : analysis ? 'analysis' : source
+  // The Teams board lifts the section's screen-tall floor (useShortStatsPage); so does its skeleton,
+  // or the footer would sit a screen down and then jump up when the four rows landed.
+  useShortStatsPage(board === 'teams')
   return (
     <Box sx={{ flexGrow: 1 }}>
       <TabTitle sx={{ ...fullBleedSx, mb: 1 }}>WPBL Stats</TabTitle>
@@ -65,7 +73,11 @@ export function StatsSkeleton({ newBoards }: { newBoards?: ReadonlySet<string> }
         // type plus chrome, so the box tracks the reader's text size: measured at two text scales.
         <Skeleton variant="rounded" sx={{
           ...fullBleedSx, borderRadius: 2, mt: '-1px',
-          height: { xs: '593px', sm: (q.side ?? defaultSide(source, q.mode)) === 'overall' ? `calc(${DESKTOP_BOARD_SKELETON} - ${LEAGUE_ROW})` : DESKTOP_BOARD_SKELETON },
+          height: {
+            xs: '593px',
+            sm: board === 'teams' ? teamsBoardSkeleton(getCachedWpblTeams()?.length || 4)
+              : (q.side ?? defaultSide(source, q.mode)) === 'overall' ? `calc(${DESKTOP_BOARD_SKELETON} - ${LEAGUE_ROW})` : DESKTOP_BOARD_SKELETON,
+          },
         }} />
       )}
     </Box>

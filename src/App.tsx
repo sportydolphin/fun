@@ -1,6 +1,7 @@
 import { INK, SURFACE } from './ui/color'
 import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
 import { ACCENT_EDGE } from './ui/card'
+import { loadWpbl, wpblAppFactory } from './sectionLoad'
 import { Typography, Box, IconButton, AppBar, Toolbar, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery, type Theme } from '@mui/material'
 import {
   AccountCircle, Search, DarkModeOutlined, LightModeOutlined, SettingsOutlined, LogoutOutlined, LoginOutlined,
@@ -36,7 +37,7 @@ import { supabase } from './lib/supabase'
 import { useSeo } from './seo'
 // Import-free by design, so naming it here does not drag the lazy WPBL chunk into the
 // entry bundle. See the note at the top of that file.
-import { wpblPlayerSlugFromPath, wpblGameSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, isWpblGlossaryPage, isWpblSourcesPage, isWpblSeasonPage, isWpblScorigamiPage, isWpblMatchupsPage, isWpblPhotosPage, isWpblPhotoTagPage, isWpblReadingPage, isWpblWatchPage, isWpblWatchVideoPage, isWpblComparePage, isWpblSeriesPage, wpblAppOwnsPath, wpblGamePath, WPBL_PATH_EVENT } from './wpbl/routes'
+import { wpblPlayerSlugFromPath, wpblGameSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, isWpblGlossaryPage, isWpblSourcesPage, isWpblDataPage, isWpblRostersPage, isWpblSeasonPage, isWpblScorigamiPage, isWpblMatchupsPage, isWpblPhotosPage, isWpblPhotoTagPage, isWpblPhotoSubmitPage, isWpblReadingPage, isWpblWatchPage, isWpblWatchVideoPage, isWpblComparePage, isWpblSeriesPage, wpblAppOwnsPath, wpblGamePath, WPBL_PATH_EVENT } from './wpbl/routes'
 import type { WpblGame, WpblTeam } from './wpbl/types'
 import { jerseyQuery } from './wpbl/playerSearch'
 import { defaultSectionPath } from './lib/defaultSection'
@@ -50,7 +51,7 @@ import { setDeactivationHandler, resetActiveCache } from './lib/userActive'
 // see scripts/harden_admin_gate.sql), which reads the confirmed email from auth.users by
 // the verified auth.uid() and can't be spoofed by faking this client value. Shared with
 // the WPBL feature-flagged sections via src/lib/admin.ts.
-import { ADMIN_EMAIL } from './lib/admin'
+import { useIsAdmin } from './lib/admin'
 import { typePx } from './ui/scale'
 import { SectionActiveContext, SectionSearchContext } from './lib/panelActive'
 import { otherSectionPath } from './sectionSwitch'
@@ -68,8 +69,8 @@ const loadMlb = (path = window.location.pathname, search = window.location.searc
 const MlbStats = lazy(() => withLoadTimeout(() => loadMlb()))
 // WPBL: a separate top-level league section (its own data + views). Lazy so it
 // stays out of the MLB and landing bundles.
-const loadWpbl = () => import('./wpbl/WpblApp')
-const WpblApp = lazy(() => withLoadTimeout(loadWpbl))
+// main.tsx loads it before the first render on the section's own paths; see sectionLoad.ts.
+const WpblApp = lazy(() => wpblAppFactory(() => withLoadTimeout(loadWpbl)))
 
 // THE DEV MENU IS A DYNAMIC IMPORT, never a static one, even though every use is gated on DEV.
 // The gate removes DevSettings' own code, but the bundler assigns modules to chunks by the import
@@ -110,6 +111,8 @@ const MlbGlossaryPage = lazy(() => import('./mlb/GlossaryPage'))
 const MlbPostseasonPage = lazy(() => import('./mlb/PostseasonPage'))
 const MlbComparePage = lazy(() => import('./mlb/ComparePage'))
 const WpblSourcesPage = lazy(() => import('./wpbl/SourcesPage'))
+const WpblDataPage = lazy(() => import('./wpbl/DataPage'))
+const WpblRostersPage = lazy(() => import('./wpbl/RostersPage'))
 // THE WORLD CUP IS DEV ONLY until it goes public (src/intl/WorldCupPage.tsx says what that takes).
 // `import.meta.env.DEV` is false in a production build, so the bundler drops the page and the route
 // with it: no reader can reach it, and nothing WBSC-shaped ships. No `_redirects` lines yet either.
@@ -123,6 +126,7 @@ const WpblMatchupsPage = lazy(() => import('./wpbl/MatchupsPage'))
 const WpblSeriesPage = lazy(() => import('./wpbl/SeriesPage'))
 const WpblPhotosGallery = lazy(() => import('./wpbl/PhotosGalleryPage'))
 const WpblPhotoTagPage = lazy(() => import('./wpbl/PhotoTagPage'))
+const WpblPhotoSubmitPage = lazy(() => import('./wpbl/PhotoSubmitPage'))
 const WpblReadingPage = lazy(() => import('./wpbl/ReadingPage'))
 const WpblWatchPage = lazy(() => import('./wpbl/WatchPage'))
 // The game modal, hovering over a standalone page (see GameOverlayHost). Lazy so GameDetail's
@@ -153,7 +157,12 @@ const FeedbackDialog = lazy(() => import('./FeedbackDialog').then(m => ({ defaul
 const UsernameDialog = lazy(() => import('./UsernameDialog').then(m => ({ default: m.UsernameDialog })))
 const DeactivatedDialog = lazy(() => import('./DeactivatedDialog').then(m => ({ default: m.DeactivatedDialog })))
 const ChangelogDialogs = lazy(() => import('./ChangelogDialogs'))
-const CommandPalette = lazy(() => import('./CommandPalette'))
+// The search box's chunk, asked for the moment a pointer or the focus reaches the field or its icon
+// (a touch lands a pointerdown before its click), so the box is usually in hand by the click. "/" and
+// Ctrl+K have no such warning; the shell's typeahead buffer below covers them.
+const loadPalette = () => import('./CommandPalette')
+const prefetchPalette = () => { loadPalette().catch(() => {}) }
+const CommandPalette = lazy(loadPalette)
 
 // Latch a dialog's "has ever been open" flag.
 //
@@ -198,7 +207,7 @@ const rendersWpblApp = wpblAppOwnsPath
  *  its pages had no tabs on a desktop, no bottom bar on a phone and neither league lit in the switch. */
 const isWpblSection = (p: string) =>
   rendersWpblApp(p) || p === '/wpbl/api' || isWorldCupPath(p) || isWpblLeaguePage(p) || isWpblGlossaryPage(p)
-  || isWpblSourcesPage(p) || isWpblSeasonPage(p) || isWpblScorigamiPage(p) || isWpblMatchupsPage(p) || isWpblPhotosPage(p) || isWpblPhotoTagPage(p) || isWpblReadingPage(p) || isWpblWatchPage(p) || isWpblWatchVideoPage(p) || isWpblPlayersIndex(p) || isWpblComparePage(p) || isWpblSeriesPage(p)
+  || isWpblSourcesPage(p) || isWpblDataPage(p) || isWpblRostersPage(p) || isWpblSeasonPage(p) || isWpblScorigamiPage(p) || isWpblMatchupsPage(p) || isWpblPhotosPage(p) || isWpblPhotoTagPage(p) || isWpblPhotoSubmitPage(p) || isWpblReadingPage(p) || isWpblWatchPage(p) || isWpblWatchVideoPage(p) || isWpblPlayersIndex(p) || isWpblComparePage(p) || isWpblSeriesPage(p)
 /** Whether some page draws this path; anything else gets the in-app 404. */
 const isKnownPath = (p: string) =>
   isWpblSection(p) || isMlbSection(p) || p === '/' || p === '/admin' || p === '/privacy' || p === '/terms' || p === '/delete-account'
@@ -208,8 +217,11 @@ const isKnownPath = (p: string) =>
 // two read as one unit, and the wordmark is held back until the viewport can show it
 // without the ellipsis biting into it. See the toolbar brand block for the math.
 const BRAND_LOGO_H = 32
+/** Under 360px the bar is a mark, the league switch and four icons with nothing to give, so the
+ *  mark and the switch tighten instead of overlapping the icons. */
+const NARROW_BAR = '@media (max-width:359.95px)'
 // The section switch's lit half: one neutral thumb with dark ink, the same in both sections. It was
-// a panning rainbow on WPBL and the accent blue on MLB until Nov 3, 2026; both competed with the blue
+// a panning rainbow on WPBL and the accent blue on MLB until Nov 3, 2026; both competed with the
 // underline of the active tab beside it, and the rainbow was the loudest thing on the bar for the
 // least important choice on it (ROADMAP-UI.md, the audit). Navigation chrome stays neutral so color
 // is left to the content. index.html's static copy of the bar repeats these; change both.
@@ -399,7 +411,9 @@ function AppInner() {
   const changelogMounted   = useOpenedOnce(changelogOpen)
   const [authToast,        setAuthToast]         = useState<'in' | 'out' | 'deleted' | null>(null)
   const accountBtnRef = useRef<HTMLButtonElement>(null)
-  const isAdmin = user?.email === ADMIN_EMAIL
+  // useIsAdmin rather than the email alone, so the dev menu's owner view opens /admin under
+  // `npm run dev` too. Dead in a production build; the RPCs behind the page refuse anyone else.
+  const isAdmin = useIsAdmin()
   const isDesktop = useMediaQuery('(min-width: 600px)')
   // EACH SECTION STAYS MOUNTED ONCE VISITED, hidden while the reader is in the other one, so
   // switching between the two Homes swaps two drawn pages instead of tearing one down and building
@@ -549,14 +563,55 @@ function AppInner() {
   // while the other typed. One box now does all of it, on every width.
   const [paletteOpen, setPaletteOpen] = useState(false)
   const paletteMounted = useOpenedOnce(paletteOpen)
+  // A PHONE HAS NO HOVER, so the field's prefetch fired only on the tap itself, and the first open
+  // waited on the network with nothing on screen. iOS also raises the keyboard only for a focus
+  // inside the tap, which a box that arrives after a download is not. Warm it once the page has
+  // drawn, as the other section is warmed above. Not skipped for Save-Data: unlike the other
+  // section, the search is the control most readers do touch.
+  useEffect(() => {
+    if (!searchShown) return
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback
+    let idle: number | null = null
+    const t = window.setTimeout(() => {
+      if (ric) idle = ric(prefetchPalette, { timeout: 2000 })
+      else prefetchPalette()
+    }, 2500)
+    return () => {
+      window.clearTimeout(t)
+      if (idle != null) (window as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback?.(idle)
+    }
+  }, [searchShown])
   const closePalette = useCallback(() => setPaletteOpen(false), [])
   // Which section's search this is. The bridge says once a section has registered; the route says
   // before that.
   const searchSection: 'wpbl' | 'mlb' = bridge.source ?? (isMlbSection(path) ? 'mlb' : 'wpbl')
   // `via` is how it was opened, which the palette cannot know for itself and is the first question
   // about it: does anyone find the shortcut, or is it all the field.
+  // KEYS TYPED BEFORE THE BOX IS THERE. The first open waits on the palette's chunk, and a reader who
+  // presses "/" and types straight on used to lose every letter of that wait. From each open until
+  // the palette takes them (`takeTypeahead`, in its open effect), printable keys and Backspace are
+  // kept here instead of going to the page. A later open, with the chunk in hand, is taken in the
+  // same commit, before any key can arrive. Taking stops the keeping but leaves the text until the
+  // close, so a second run of the open effect (StrictMode runs each twice) reads the same letters.
+  const typeahead = useRef({ text: '', keeping: false })
+  const takeTypeahead = useCallback(() => { typeahead.current.keeping = false; return typeahead.current.text }, [])
+  useEffect(() => {
+    if (!paletteOpen) { typeahead.current = { text: '', keeping: false }; return }
+    const onKey = (e: KeyboardEvent) => {
+      const buf = typeahead.current
+      if (!buf.keeping || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return
+      if (e.key.length === 1) buf.text += e.key
+      else if (e.key === 'Backspace') buf.text = buf.text.slice(0, -1)
+      else return
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [paletteOpen])
   const openPalette = useCallback((via: 'field' | 'icon' | 'slash' | 'shortcut') => {
     if (paletteOpen) return
+    typeahead.current = { text: '', keeping: true }
     // The sections load their search data on the first focus of the search (onFirstSearchFocus),
     // which used to be the field's; opening the palette is that moment now.
     noteSearchFocus()
@@ -950,6 +1005,11 @@ function AppInner() {
                 component="img"
                 src="/logo-mark.png"
                 alt="sportydolphin"
+                // The file's own size, for its aspect ratio only (CSS sets the height): without it
+                // the mark is 0 wide until it decodes, and the wordmark beside it starts a logo to the left.
+                width={312}
+                height={168}
+                fetchPriority="high"
                 sx={{
                   // Art, so it rides --app-chrome like every other badge. That covers the
                   // section whose root is scaled; on the other one the bar's own `zoom` covers
@@ -957,6 +1017,10 @@ function AppInner() {
                   // the mark lands at the same size on both and never scales twice.
                   display: 'block', height: `calc(${BRAND_LOGO_H}px * var(--app-chrome, 1))`, width: 'auto',
                   cursor: 'pointer', userSelect: 'none',
+                  // Smaller on the narrowest phones, with the switch's padding below: at 320px the
+                  // mark, the switch and the four icons came to 22px more than the bar, and the
+                  // search button sat on top of "WPBL" (Nov 10, 2026 audit).
+                  [NARROW_BAR]: { height: `${BRAND_LOGO_H - 4}px` },
                   ...(mode === 'dark' && { filter: 'invert(1)' }),
                 }}
               />
@@ -1003,7 +1067,7 @@ function AppInner() {
               position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', flexShrink: 0,
               // Twice the lockup's own gap: the switch is a control of its own, and at the lockup's
               // spacing it read as part of the name. See TOOLBAR SPACING below.
-              ml: 0.75,
+              ml: 0.75, [NARROW_BAR]: { ml: 0.25 },
               p: '2px', borderRadius: 999,
               border: '1px solid', borderColor: 'outline', bgcolor: 'action.hover',
             }}>
@@ -1056,6 +1120,7 @@ function AppInner() {
                       // Bigger than it was (0.66rem over 3px, about 20px tall in all): the switch is
                       // the only way to /mlb from the bar, and it was the smallest target on it.
                       px: 1.1, py: '5px', borderRadius: 999, userSelect: 'none',
+                      [NARROW_BAR]: { px: 0.6 },
                       cursor: active ? 'default' : 'pointer',
                       fontSize: TYPE_SCALE.meta, fontWeight: 800, letterSpacing: typePx(0.3), lineHeight: 1,
                       color: active ? SWITCH_INK : 'text.secondary',
@@ -1101,6 +1166,9 @@ function AppInner() {
               component="button"
               type="button"
               onClick={() => openPalette('field')}
+              onPointerEnter={prefetchPalette}
+              onPointerDown={prefetchPalette}
+              onFocus={prefetchPalette}
               aria-label="Search players, clubs, pages or a stat question"
               aria-keyshortcuts="Control+K Meta+K /"
               aria-haspopup="dialog"
@@ -1155,7 +1223,8 @@ function AppInner() {
             {/* Search icon wherever the field is folded away (a phone, or beside the tabs on a
                 narrower desktop). Opens the same palette. */}
             {searchShown && searchCollapsed && (
-              <IconButton size="small" aria-label="Search" aria-haspopup="dialog" onClick={() => openPalette('icon')} sx={{ color: 'text.secondary' }}>
+              <IconButton size="small" aria-label="Search" aria-haspopup="dialog" onClick={() => openPalette('icon')}
+                onPointerEnter={prefetchPalette} onPointerDown={prefetchPalette} onFocus={prefetchPalette} sx={{ color: 'text.secondary' }}>
                 <Search />
               </IconButton>
             )}
@@ -1324,7 +1393,9 @@ function AppInner() {
             on its way the footer painted a third of the way down and was then shoved off: CI's
             slower runner caught it on Compare and the Glossary, a fast desktop never did. Both
             sections already hold themselves this tall. */}
-        <Box sx={{ p: 2, minHeight: '100dvh' }}>
+        {/* Not under WPBL's Teams board above a phone, which is four rows and draws its skeleton at
+            that height (src/wpbl/stats/layout.ts, useShortStatsPage). */}
+        <Box sx={{ p: 2, minHeight: '100dvh', 'html[data-stats-short] &': { '@media (min-width: 600px)': { minHeight: 0 } } }}>
           {/* The page area's own boundary, under the toolbar: a crash here keeps the toolbar and
               its section switch working, and moving to another path clears it. */}
           <AppErrorBoundary inline where="page" resetKey={path}>
@@ -1383,6 +1454,16 @@ function AppInner() {
               <WpblSourcesPage onNavigate={navigate} />
             </Suspense>
           )}
+          {isWpblDataPage(path) && (
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <WpblDataPage onNavigate={navigate} />
+            </Suspense>
+          )}
+          {isWpblRostersPage(path) && (
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <WpblRostersPage onNavigate={navigateFromStandalone} />
+            </Suspense>
+          )}
           {isWpblSeasonPage(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
               <WpblSeasonPage path={path} onNavigate={navigateFromStandalone} onOpenGame={openOverlayGame} />
@@ -1413,6 +1494,11 @@ function AppInner() {
               <WpblPhotoTagPage />
             </Suspense>
           )}
+          {isWpblPhotoSubmitPage(path) && (
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <WpblPhotoSubmitPage />
+            </Suspense>
+          )}
           {isWpblReadingPage(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
               <WpblReadingPage />
@@ -1430,11 +1516,11 @@ function AppInner() {
           )}
           {keepWpbl && (
             <KeptSection active={rendersWpblApp(path)} search={navSection === 'wpbl'}>
-              {/* A SCREEN TALL, NOT A SPINNER TALL. React.lazy suspends for at least a tick even
-                  with the chunk preloaded, so this is always the first thing painted on /wpbl, and at
-                  spinner height it put the footer halfway up the screen for that frame. The
-                  section's skeleton then shoved it off, which was nearly all of the page's 0.18
-                  layout shift on load. */}
+              {/* A SCREEN TALL, NOT A SPINNER TALL. Loading /wpbl no longer shows this (main.tsx
+                  waits for the chunk and sectionLoad.ts hands it over without suspending), but a
+                  switch from /mlb or a chunk slower than that wait still does. At spinner height it
+                  put the footer halfway up the screen for that frame, and the section's skeleton
+                  then shoved it off: nearly all of the page's 0.18 layout shift on load. */}
               <Suspense fallback={<Box sx={{ minHeight: '100vh' }} />}>
                 {/* On mobile the WPBL tabs swipe, so the footer rides inside each tab pane (see
                     WpblApp) instead of sitting shared below them. The shared one is suppressed
@@ -1461,7 +1547,8 @@ function AppInner() {
           )}
           {path === '/admin' && !authLoading && isAdmin && (
             <Box>
-              <Box sx={{ maxWidth: 860, mx: 'auto', px: { xs: 1.5, sm: 3 }, mb: 2 }}>
+              {/* As wide as AdminPage's ADMIN_WIDE, so the link lines up with the page under it. */}
+              <Box sx={{ maxWidth: 1180, mx: 'auto', px: { xs: 1.5, sm: 3 }, mb: 2 }}>
                 <Box {...linkTo('/wpbl')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: TYPE_SCALE.body, fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'outline', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>‹ Back to WPBL</Box>
               </Box>
               <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
@@ -1590,8 +1677,8 @@ function AppInner() {
           <CommandPalette open={paletteOpen} onClose={closePalette} section={searchSection}
             results={paletteResults} idle={paletteIdle} searching={bridge.searching}
             resolveCompare={bridge.resolveCompare} resolveGames={bridge.resolveGames}
-            resolveLeader={bridge.resolveLeader} resolvePlayerStat={bridge.resolvePlayerStat} seasonCount={bridge.seasonCount}
-            actions={paletteActions} />
+            resolveLeader={bridge.resolveLeader} resolvePlayerStat={bridge.resolvePlayerStat} resolveFirsts={bridge.resolveFirsts} resolveMore={bridge.resolveMore} resolvePaRecord={bridge.resolvePaRecord} resolvePlayerQuestion={bridge.resolvePlayerQuestion} resolveFindAnswer={bridge.resolveFindAnswer} seasonCount={bridge.seasonCount}
+            actions={paletteActions} takeTypeahead={takeTypeahead} />
         </Suspense>
       )}
 

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 import { Box } from '@mui/material'
 import type { PlayerValueSeason } from '../derive/playerValue'
 import {
@@ -14,7 +14,7 @@ import {
 import { OVR_COLS, type Col } from '../statColumns'
 import { LeadersBoard, LeadersBoardSkeleton } from '../LeadersBoard'
 import type { Side, BallSide, Source } from './axes'
-import { FLD_COLS } from './columns'
+import { FLD_COLS, FLD_RANGE_COL } from './columns'
 import { fullBleedSx } from './layout'
 import { SubViewFallback } from './Skeleton'
 
@@ -50,6 +50,9 @@ export interface ChartFilters {
   setClub: (id: string | null) => void
 }
 
+/** The Fielding side's leader columns: the table's, and the Range Runs card's. */
+const LEADER_FLD_COLS = [...FLD_COLS, FLD_RANGE_COL]
+
 /** The Leaders board on whichever side is showing, or that side's skeleton until its read lands. */
 export function LeadersPane({ side, valueSeasons, fielding, linesIn, leaderSeasons, hitCols, pitCols, qual,
   onOpenPlayer, seeAll, seeAllHref }: {
@@ -80,7 +83,7 @@ export function LeadersPane({ side, valueSeasons, fielding, linesIn, leaderSeaso
           )
         ) : side === 'fielding' ? (
           fielding == null || !linesIn ? <LeadersBoardSkeleton side="fielding" /> : (
-            <LeadersBoard side="fielding" cols={FLD_COLS} seasons={leaderSeasons.fielding} qual={qual}
+            <LeadersBoard side="fielding" cols={LEADER_FLD_COLS} seasons={leaderSeasons.fielding} qual={qual}
               onOpenPlayer={onOpenPlayer} onSeeAll={seeAll} seeAllHref={seeAllHref} />
           )
         ) : side === 'hitting' ? (
@@ -98,7 +101,7 @@ export function LeadersPane({ side, valueSeasons, fielding, linesIn, leaderSeaso
 /** Every board past the season tables and Leaders: Bests, Find and the Analysis boards, each behind its
  *  own chunk. */
 export function BoardPane({ source, side, boardSide, findSide, teams, players, lines, fielding, linesIn, games,
-  scope, findQuery, setFindQuery, trackedOffered, charts, chartFilters, onOpenPlayer, onOpenGame, onOpenTeam }: {
+  scope, findQuery, setFindQuery, onFindSide, findFilters, trackedOffered, charts, chartFilters, onOpenPlayer, onOpenGame, onOpenTeam }: {
   source: Source
   side: Side
   boardSide: BallSide
@@ -112,6 +115,9 @@ export function BoardPane({ source, side, boardSide, findSide, teams, players, l
   scope: SeasonScope
   findQuery: Omit<FinderQuery, 'scope'>
   setFindQuery: (q: Omit<FinderQuery, 'scope'>) => void
+  onFindSide: (s: FinderBoardSide) => void
+  /** The phone's Filters trigger, which Find draws in its Question card rather than in the bar. */
+  findFilters?: ReactNode
   trackedOffered: boolean
   charts: ChartInputs | null
   chartFilters: ChartFilters
@@ -145,7 +151,7 @@ export function BoardPane({ source, side, boardSide, findSide, teams, players, l
       <Suspense fallback={<SubViewFallback />}>
         <WpblFindView side={findSide} teams={teams} players={players} batting={lines.batting}
           pitching={lines.pitching} fielding={fielding ?? []} games={games}
-          query={{ ...findQuery, scope }} onQuery={q => setFindQuery(q)}
+          query={{ ...findQuery, scope }} onQuery={q => setFindQuery(q)} onSide={onFindSide} filters={findFilters}
           onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} />
       </Suspense>
     </Box>
@@ -183,7 +189,7 @@ export function BoardPane({ source, side, boardSide, findSide, teams, players, l
     // nothing on a phone, where the cap never binds, and a centered column on a desktop.
     <Box sx={fullBleedSx}>
       <Suspense fallback={<SubViewFallback />}>
-        <WpblRunValueView side={boardSide} teams={teams} games={games} battingLines={lines.batting}
+        <WpblRunValueView side={side === 'overall' ? 'overall' : boardSide} teams={teams} games={games} battingLines={lines.batting}
           onOpenPlayer={onOpenPlayer} />
       </Suspense>
     </Box>

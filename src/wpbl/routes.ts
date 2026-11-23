@@ -635,6 +635,27 @@ export const WPBL_SOURCES_PAGE = `${WPBL_BASE}/sources`
 export const isWpblSourcesPage = (pathname: string) =>
   pathname.replace(/\/+$/, '') === WPBL_SOURCES_PAGE
 
+// ─── The open-data page ──────────────────────────────────────────────────────────
+//
+// The season as CSV and JSON (DataPage.tsx), beside the sources page it credits. Its own path for
+// the reason the sources page has one: a dataset is cited and linked by URL. No tab; the footer is
+// the crawl path, and the sources page links it.
+export const WPBL_DATA_PAGE = `${WPBL_BASE}/data`
+
+export const isWpblDataPage = (pathname: string) =>
+  pathname.replace(/\/+$/, '') === WPBL_DATA_PAGE
+
+// ─── The next season's rosters ─────────────────────────────────────────────────
+//
+// Each club's re-signings against its 2026 roster (RostersPage.tsx, offseason2027.ts), then the
+// draft and free agency as the league runs them. A page and not a tab: it matters for a few weeks a
+// year, and the More menu and footer reach it. One path for every offseason, so a link shared now
+// still lands next November; the year is on the page.
+export const WPBL_ROSTERS_PAGE = `${WPBL_BASE}/rosters`
+
+export const isWpblRostersPage = (pathname: string) =>
+  pathname.replace(/\/+$/, '') === WPBL_ROSTERS_PAGE
+
 // ─── The season recap page ─────────────────────────────────────────────────────
 //
 // A fourth sibling, on the same footing as the league, glossary and sources pages: a real path
@@ -715,6 +736,15 @@ export const WPBL_PHOTO_TAG_PAGE = `${WPBL_PHOTOS_PAGE}/tag`
 
 export const isWpblPhotoTagPage = (pathname: string) =>
   pathname.replace(/\/+$/, '') === WPBL_PHOTO_TAG_PAGE
+
+// ─── Submitting photos ──────────────────────────────────────────────────────────
+//
+// A signed-in fan sends their own photos for review (docs/FAN_UPLOADS.md). A form, not content:
+// noindex and out of the sitemap, reached from the gallery's Your photos panel.
+export const WPBL_PHOTO_SUBMIT_PAGE = `${WPBL_PHOTOS_PAGE}/submit`
+
+export const isWpblPhotoSubmitPage = (pathname: string) =>
+  pathname.replace(/\/+$/, '') === WPBL_PHOTO_SUBMIT_PAGE
 
 // ─── The Reading page ──────────────────────────────────────────────────────────
 //

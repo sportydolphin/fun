@@ -8,7 +8,7 @@ import { wpblPathFor, wpblViewFromPath, normalizeWpblView,
   type WpblView,
 } from '../routes'
 import { playFragmentFor } from '../entryUrl'
-import { seasonFromSearch } from '../SeasonContext'
+import { seasonFromSearch, type WpblSeasonPick } from '../SeasonContext'
 
 // A navigable WPBL location, persisted in history.state.wpbl so browser Back unwinds the
 // section one step at a time (tab → team detail → game/player modal) instead of leaping
@@ -49,12 +49,12 @@ export type WpblSnap = {
    */
   playerPage?: boolean
   /**
-   * The year on screen, or null for the current one (see SeasonContext). ABSENT is not null: an
+   * The year on screen, `'all'` for every season, or null for the current one (see SeasonContext). ABSENT is not null: an
    * entry written before this field existed, or one built by a call site that has no reason to know
    * the year (opening a game), leaves the reader's pick alone rather than resetting it, and `stamp`
    * fills it in before the entry is stored, so Back always restores the year it left.
    */
-  season?: number | null
+  season?: WpblSeasonPick | null
 }
 export const normalizeView = normalizeWpblView
 export const HOME_SNAP: WpblSnap = { view: 'home', team: null, game: null, player: null, awards: false }
@@ -114,7 +114,7 @@ export function wpblUrlFor(s: WpblSnap, { players, games, teams, pickedSeason }:
   games: WpblGame[]
   teams: WpblTeam[]
   /** The season the reader picked, for a snapshot that does not carry its own. */
-  pickedSeason: number | null
+  pickedSeason: WpblSeasonPick | null
 }): string {
   const q = new URLSearchParams()
   if (s.game) q.set('game', s.game.id) // deep-linkable game center

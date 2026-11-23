@@ -1,0 +1,353 @@
+import { describe, it, expect } from 'vitest'
+import { clubFieldingInningLines, fieldingInningLines, inningPitchingLines, plateAppearanceLines, playTotals, runnerEvents, teamInningLines } from '../inningLines'
+import type { LeagueGame, RunValuePlay } from '../types'
+import { WPBL_LEAGUE } from '../../wpbl/league'
+
+// The inning lines are the finder's third grain, so every number on one is a number a reader can
+// ask about. These pin the parts that are not a plain count: outs read off the next row, a half
+// split between pitchers, a walk-off, and the club in the field.
+
+const game = (over: Partial<LeagueGame> = {}): LeagueGame => ({
+  id: 'g1', game_date: '2026-08-10', status: 'final', game_type: 'R', counts_in_standings: true,
+  home_team_id: 'home', away_team_id: 'away', home_score: 0, away_score: 1, ...over,
+})
+
+let sequence = 0
+const play = (over: Partial<RunValuePlay>): RunValuePlay => ({
+  game_id: 'g1', sequence: sequence++, inning: 1, half: 'top', team_id: 'away',
+  batter_id: 'b', batter_name: 'Batter', pitcher_id: 'p1', pitcher_name: 'Starter',
+  outs: 0, first_base: '', second_base: '', third_base: '', event_type: null, runs_scored: 0,
+  narrative: null, pitch_sequence: null, ...over,
+})
+const k0 = () => play({ outs: 0, event_type: 'strikeout', pitch_sequence: 'KSS' })
+const k = (outs: number, seq = 'KSS', over: Partial<RunValuePlay> = {}) =>
+  play({ outs, event_type: 'strikeout', pitch_sequence: seq, ...over })
+
+describe('inningPitchingLines', () => {
+  it('counts an immaculate inning as three strikeouts on nine strikes', () => {
+    const plays = [k(0, 'KSS'), k(1, 'SKS'), k(2, 'KKS'), play({ half: 'bottom', team_id: 'home', outs: 0, event_type: 'groundout', pitch_sequence: 'P', pitcher_id: 'q' })]
+    const [line] = inningPitchingLines(WPBL_LEAGUE, plays, [game()])
+    expect(line).toMatchObject({ player_id: 'p1', inning: 1, half: 'top', so: 3, bf: 3, outs: 3, pitches: 9, strikes: 9 })
+  })
+
+  it('files the line under the club in the field, not the one batting', () => {
+    const lines = inningPitchingLines(WPBL_LEAGUE, [
+      k(0), play({ half: 'bottom', team_id: 'home', pitcher_id: 'q', event_type: 'walk', pitch_sequence: 'BBBB' }),
+    ], [game()])
+    expect(lines.find(l => l.half === 'top')!.team_id).toBe('home')
+    expect(lines.find(l => l.half === 'bottom')!.team_id).toBe('away')
+  })
+
+  it('splits a half-inning between pitchers and credits each with their own plays', () => {
+    const plays = [
+      play({ outs: 0, event_type: 'walk', pitch_sequence: 'BBBB' }),
+      k(0),
+      k(1, 'SSS', { pitcher_id: 'p2', pitcher_name: 'Reliever' }),
+      k(2, 'KKS', { pitcher_id: 'p2', pitcher_name: 'Reliever' }),
+      play({ half: 'bottom', team_id: 'home', pitcher_id: 'q', event_type: 'groundout', pitch_sequence: 'P' }),
+    ]
+    const lines = inningPitchingLines(WPBL_LEAGUE, plays, [game()])
+    expect(lines.find(l => l.player_id === 'p1')).toMatchObject({ so: 1, bb: 1, bf: 2, outs: 1, pitches: 7, strikes: 3 })
+    expect(lines.find(l => l.player_id === 'p2')).toMatchObject({ so: 2, bf: 2, outs: 2 })
+    // Each line opens Game Center on its own pitcher's first play, not the inning's.
+    expect(lines.find(l => l.player_id === 'p1')!.sequence).toBe(plays[0].sequence)
+    expect(lines.find(l => l.player_id === 'p2')!.sequence).toBe(plays[2].sequence)
+  })
+
+  it('reads a double play and a caught stealing off the next row', () => {
+    const plays = [
+      play({ outs: 0, event_type: 'single', pitch_sequence: 'P' }),
+      play({ outs: 0, event_type: 'groundout', pitch_sequence: 'BP' }),
+      play({ outs: 2, event_type: 'single', pitch_sequence: 'P' }),
+      play({ outs: 2, event_type: 'caught_stealing', pitch_sequence: null }),
+      play({ half: 'bottom', team_id: 'home', pitcher_id: 'q', event_type: 'groundout', pitch_sequence: 'P' }),
+    ]
+    const line = inningPitchingLines(WPBL_LEAGUE, plays, [game()]).find(l => l.player_id === 'p1')!
+    expect(line).toMatchObject({ bf: 3, h: 2, outs: 3, pitches: 4 })
+  })
+
+  it('credits no out to the play that ends a game on a walk-off', () => {
+    const plays = [
+      play({ half: 'bottom', team_id: 'home', outs: 1, event_type: 'home_run', pitch_sequence: 'BP', runs_scored: 0 }),
+    ]
+    const [line] = inningPitchingLines(WPBL_LEAGUE, plays, [game({ home_score: 1, away_score: 0 })])
+    // WPBL's feed leaves the batter out of `runs_scored`, so the solo home run's run comes from
+    // the league's `runsOnPlay`, never the raw column.
+    expect(line).toMatchObject({ outs: 0, h: 1, hr: 1, r: 1, team_id: 'away' })
+  })
+
+  it('takes the last half-inning of a game the home side lost to end on three outs', () => {
+    const plays = [play({ half: 'bottom', team_id: 'home', outs: 2, event_type: 'flyout', pitch_sequence: 'P' })]
+    const [line] = inningPitchingLines(WPBL_LEAGUE, plays, [game()])
+    expect(line.outs).toBe(1)
+  })
+
+  it('opens on the first at-bat, past a substitution, and counts a mid-at-bat row once', () => {
+    const plays = [
+      play({ outs: 0, event_type: 'unknown', narrative: 'Reliever to p.', pitch_sequence: null }),
+      play({ outs: 0, batter_id: 'kim', event_type: 'single', pitch_sequence: 'KP' }),
+      // The balk that scores a run mid-at-bat, then the same batter's whole at-bat.
+      play({ outs: 0, batter_id: 'lee', event_type: 'unknown', pitch_sequence: 'BB', runs_scored: 1 }),
+      play({ outs: 0, batter_id: 'lee', event_type: 'walk', pitch_sequence: 'BBBB' }),
+      play({ half: 'bottom', team_id: 'home', pitcher_id: 'q', event_type: 'groundout', pitch_sequence: 'P' }),
+    ]
+    const line = inningPitchingLines(WPBL_LEAGUE, plays, [game()]).find(l => l.player_id === 'p1')!
+    expect(line.sequence).toBe(plays[1].sequence)
+    expect(line).toMatchObject({ bf: 2, pitches: 6, bb: 1, r: 1 })
+  })
+
+  it('skips a play whose game is not held, and one with no pitcher', () => {
+    const lines = inningPitchingLines(WPBL_LEAGUE, [
+      k(0, 'KSS', { game_id: 'elsewhere' }),
+      k(0, 'KSS', { pitcher_id: null }),
+    ], [game()])
+    expect(lines).toEqual([])
+  })
+})
+
+describe('plateAppearanceLines', () => {
+  // The scorer's own RBI, off the narrative: summed per batter, the runs on the play gave 2026 586 RBI
+  // against the box scores' 552, every one of the extra a run an error or a double play let in.
+  it('reads the RBI the scorer wrote, not the runs that scored', () => {
+    const [two, err, solo, none] = plateAppearanceLines(WPBL_LEAGUE, [
+      play({ batter_id: 'b1', event_type: 'single', pitch_sequence: 'P', runs_scored: 2, narrative: 'Ann Lee singled to left field, 2 RBI (0-0); Bo Diaz scored; Cy Fox scored.' }),
+      play({ batter_id: 'b2', event_type: 'single', pitch_sequence: 'P', runs_scored: 2, narrative: 'Ann Lee singled to shortstop, RBI (0-0); Bo Diaz scored on a throwing error by ss; Cy Fox scored.' }),
+      play({ batter_id: 'b3', event_type: 'home_run', pitch_sequence: 'P', runs_scored: 0, narrative: 'Ann Lee homered to left field, RBI (0-0).' }),
+      play({ batter_id: 'b4', event_type: 'unknown', pitch_sequence: 'P', runs_scored: 1, narrative: 'Ann Lee reached first on an error by 3b (0-0); Bo Diaz scored, unearned.' }),
+    ], [game()])
+    expect([two.rbi, err.rbi, solo.rbi, none.rbi]).toEqual([2, 1, 1, 0])
+    expect([two.runs, err.runs, solo.runs, none.runs]).toEqual([2, 2, 1, 1])
+  })
+
+  it('reads the count before the last pitch, with the foul rule', () => {
+    // B, K, F, F, F, then in play: 1-2 when the ball was hit, since a foul with two strikes is no strike.
+    const [pa] = plateAppearanceLines(WPBL_LEAGUE, [play({ batter_id: 'kim', event_type: 'home_run', pitch_sequence: 'BKFFFP' })], [game()])
+    expect(pa).toMatchObject({ balls: 1, scount: 2, pitches: 6, fouls: 3, strikes: 5, hr: 1, h: 1, tb: 4, event: 'HR', runs: 1 })
+    const [k] = plateAppearanceLines(WPBL_LEAGUE, [k0()], [game()])
+    expect(k).toMatchObject({ balls: 0, scount: 2, so: 1, event: 'K' })
+  })
+
+  it('reads the outs and runners it began with, and files both clubs', () => {
+    const [pa] = plateAppearanceLines(WPBL_LEAGUE, [play({ outs: 2, first_base: 'A', second_base: '', third_base: 'C', event_type: 'walk', pitch_sequence: 'BBBB' })], [game()])
+    expect(pa).toMatchObject({ paouts: 2, on: 2, risp: 1, bb: 1, batting_team: 'away', fielding_team: 'home', balls: 3, scount: 0 })
+  })
+
+  it('skips rows that are not a plate appearance, and the start of the next one', () => {
+    const pas = plateAppearanceLines(WPBL_LEAGUE, [
+      play({ event_type: 'stolen_base', pitch_sequence: null }),
+      play({ batter_id: 'lee', event_type: 'unknown', pitch_sequence: 'BB', runs_scored: 1 }),
+      play({ batter_id: 'lee', event_type: 'walk', pitch_sequence: 'BBBB' }),
+    ], [game()])
+    expect(pas).toHaveLength(1)
+    expect(pas[0].bb).toBe(1)
+  })
+
+  it('marks the walk-off, and only the play that won it', () => {
+    const plays = [
+      play({ half: 'bottom', team_id: 'home', outs: 0, event_type: 'single', pitch_sequence: 'P' }),
+      play({ half: 'bottom', team_id: 'home', outs: 0, event_type: 'double', pitch_sequence: 'BP', runs_scored: 1 }),
+      play({ half: 'bottom', team_id: 'home', outs: 0, event_type: 'unknown', narrative: 'Sub to pr.', pitch_sequence: null }),
+    ]
+    const pas = plateAppearanceLines(WPBL_LEAGUE, plays, [game({ home_score: 1, away_score: 0 })])
+    expect(pas.map(p => p.walkoff)).toEqual([0, 1])
+    expect(plateAppearanceLines(WPBL_LEAGUE, plays, [game({ home_score: 1, away_score: 3 })]).every(p => p.walkoff === 0)).toBe(true)
+  })
+
+  // Each a different batter: one batter's rows in a row with the same pitches read as one at-bat.
+  let n = 0
+  const up = () => ({ batter_id: `b${n++}` })
+
+  it('counts a run of home runs once, on its last plate appearance, and never across a half', () => {
+    const hr = (over: Partial<RunValuePlay> = {}) => play({ event_type: 'home_run', pitch_sequence: 'P', ...up(), ...over })
+    const pas = plateAppearanceLines(WPBL_LEAGUE, [
+      hr(), hr(), hr(), k(0),
+      hr({ outs: 1 }),
+      // A new half: the club batting changed, so this is no fourth in a row.
+      hr({ half: 'bottom', team_id: 'home', pitcher_id: 'q' }),
+    ], [game()])
+    expect(pas.map(p => p.hrrow)).toEqual([0, 0, 3, 0, 1, 1])
+  })
+
+  it("runs a pitcher's strikeouts and batters retired across innings, and an error ends the retired run", () => {
+    const pas = plateAppearanceLines(WPBL_LEAGUE, [
+      k(0, 'KSS', up()), k(1, 'KSS', up()), k(2, 'KSS', up()),
+      play({ half: 'bottom', team_id: 'home', pitcher_id: 'q', event_type: 'groundout', pitch_sequence: 'P', ...up() }),
+      play({ inning: 2, outs: 0, event_type: 'flyout', pitch_sequence: 'P', ...up() }),
+      // An infield fly arrives as `unknown`, and is an out all the same.
+      play({ inning: 2, outs: 1, event_type: 'unknown', pitch_sequence: 'B', narrative: 'Ann infield fly to ss.', ...up() }),
+      // Safe on an error: also `unknown`, but no out was made.
+      play({ inning: 2, outs: 2, event_type: 'unknown', pitch_sequence: 'P', narrative: 'Bea reached first on an error by 3b.', ...up() }),
+      k(2, 'SSS', { inning: 2, ...up() }),
+    ], [game()])
+    const mine = pas.filter(p => p.pitcher_id === 'p1')
+    expect(mine.map(p => p.krow)).toEqual([0, 0, 3, 0, 0, 0, 1])
+    expect(mine.map(p => p.retired)).toEqual([0, 0, 0, 0, 5, 0, 1])
+  })
+})
+
+describe('teamInningLines', () => {
+  it('files a half-inning under the club batting, with its two-out runs', () => {
+    const plays = [
+      play({ outs: 0, event_type: 'single', pitch_sequence: 'P' }),
+      play({ outs: 0, event_type: 'strikeout', pitch_sequence: 'KSS' }),
+      play({ outs: 1, event_type: 'walk', pitch_sequence: 'BBBB' }),
+      play({ outs: 1, event_type: 'flyout', pitch_sequence: 'P' }),
+      play({ outs: 2, event_type: 'home_run', pitch_sequence: 'BP', runs_scored: 2 }),
+      play({ outs: 2, event_type: 'groundout', pitch_sequence: 'P' }),
+      play({ half: 'bottom', team_id: 'home', pitcher_id: 'q', event_type: 'groundout', pitch_sequence: 'P' }),
+    ]
+    const [top] = teamInningLines(WPBL_LEAGUE, plays, [game()])
+    expect(top).toMatchObject({ team_id: 'away', half: 'top', r: 3, r2: 3, h: 2, hr: 1, tb: 5, bb: 1, so: 1, ab: 5, sequence: plays[0].sequence })
+    // Plate appearances as the finder sums them on a batting line.
+    expect(top.ab + top.bb + top.hbp + top.sf + top.sh).toBe(6)
+  })
+
+  it('reads the score the half began in, and whether it took the lead', () => {
+    const plays = [
+      play({ inning: 1, half: 'top', outs: 0, event_type: 'home_run', pitch_sequence: 'P' }),
+      play({ inning: 1, half: 'top', outs: 0, event_type: 'home_run', pitch_sequence: 'P' }),
+      play({ inning: 1, half: 'bottom', team_id: 'home', pitcher_id: 'q', outs: 0, event_type: 'home_run', pitch_sequence: 'P' }),
+      play({ inning: 2, half: 'top', outs: 0, event_type: 'groundout', pitch_sequence: 'P' }),
+      play({ inning: 2, half: 'bottom', team_id: 'home', pitcher_id: 'q', outs: 0, event_type: 'double', pitch_sequence: 'P' }),
+      play({ inning: 2, half: 'bottom', team_id: 'home', pitcher_id: 'q', outs: 0, event_type: 'home_run', pitch_sequence: 'P', runs_scored: 1 }),
+    ]
+    const lines = teamInningLines(WPBL_LEAGUE, plays, [game({ home_score: 3, away_score: 2 })])
+    expect(lines.map(l => [l.inning, l.half, l.r, l.trail, l.tooklead])).toEqual([
+      [1, 'top', 2, 0, 1], [1, 'bottom', 1, 2, 0], [2, 'top', 0, 0, 0], [2, 'bottom', 2, 1, 1],
+    ])
+  })
+})
+
+// The runners' rows: no pitches and no batter's event, so only the narrative and the row's own event
+// say what happened, and the box score's counts are what they must add up to.
+describe('the runners rows', () => {
+  it('counts both steals of a double steal, and a pickoff but not a throw over', () => {
+    expect(runnerEvents({ event_type: 'stolen_base', narrative: 'Ashton Lansdell stole second; Ayuri Shimano stole third.' }).sb).toBe(2)
+    expect(runnerEvents({ event_type: 'out', narrative: 'Denver Bryant advanced to second; Hyeonah Kim out at second c to ss, picked off.' }).pk).toBe(1)
+    expect(runnerEvents({ event_type: 'unknown', narrative: 'Mo Davis Failed pickoff attempt.' }).pk).toBe(0)
+    expect(runnerEvents({ event_type: 'unknown', narrative: 'Andreanne Leblanc advanced to second on a balk.' }).bk).toBe(1)
+  })
+
+  it('credits them to the pitcher on the mound and the club batting', () => {
+    const plays = [
+      play({ outs: 0, event_type: 'single', pitch_sequence: 'P' }),
+      play({ outs: 0, event_type: 'stolen_base', narrative: 'Runner stole second.' }),
+      play({ outs: 0, event_type: 'wild_pitch', narrative: 'Runner advanced to third on a wild pitch.' }),
+      k(0, 'KSS', { batter_id: 'b2' }), k(1, 'KSS', { batter_id: 'b3' }), k(2, 'KSS', { batter_id: 'b4' }),
+    ]
+    const [pitcher] = inningPitchingLines(WPBL_LEAGUE, plays, [game()])
+    expect(pitcher).toMatchObject({ sb: 1, wp: 1, cs: 0, so: 3, bf: 4 })
+    const [club] = teamInningLines(WPBL_LEAGUE, plays, [game()])
+    expect(club).toMatchObject({ team_id: 'away', sb: 1, cs: 0, h: 1 })
+  })
+})
+
+
+// A fielder's half-inning: the position the log charges, placed on whoever held it at that play.
+describe('fieldingInningLines', () => {
+  const src = (extra: { game_id: string; team_id: string; player_id: string; position: string; started: boolean }[] = []) => ({
+    starts: [
+      { game_id: 'g1', team_id: 'home', player_id: 'ss1', position: 'ss', started: true },
+      { game_id: 'g1', team_id: 'home', player_id: 'lf1', position: 'lf/p', started: true },
+      { game_id: 'g1', team_id: 'home', player_id: '2b1', position: '2b', started: true },
+      { game_id: 'g1', team_id: 'home', player_id: '1b1', position: '1b', started: true },
+      ...extra,
+    ],
+    byName: (n: string) => ({ 'Jua Park': 'park', 'Lee Fox': 'lf1' } as Record<string, string>)[n] ?? null,
+    teamOf: (_g: string, p: string) => (['park', 'lf1', 'ss1', '2b1', '1b1'].includes(p) ? 'home' : null),
+  })
+
+  it('charges each error once to the fielder at that position, and every fielder in a double play', () => {
+    const plays = [
+      play({ outs: 0, event_type: 'unknown', narrative: 'Jo Doe reached on a throwing error by ss, advanced to second on the error.' }),
+      play({ outs: 0, event_type: 'unknown', narrative: 'Al Roe reached first on a dropped fly by lf.' }),
+      play({ outs: 0, event_type: 'groundout', pitch_sequence: 'P', narrative: 'Bo Poe grounded into double play ss to 2b to 1b.' }),
+    ]
+    const lines = fieldingInningLines(plays, [game()], src())
+    const by = (id: string) => lines.find(l => l.player_id === id)
+    expect(by('ss1')).toMatchObject({ team_id: 'home', pos: 6, e: 1, dp: 1 })
+    expect(by('lf1')).toMatchObject({ pos: 7, e: 1, dp: 0 })
+    expect(by('2b1')).toMatchObject({ dp: 1 })
+    expect(by('1b1')).toMatchObject({ dp: 1 })
+  })
+
+  it('follows a change in the field, and gives the mound to the pitcher of the play', () => {
+    const plays = [
+      play({ event_type: 'unknown', narrative: 'Jua Park to ss for Sam Ess.' }),
+      play({ outs: 0, event_type: 'unknown', narrative: 'Jo Doe reached on an error by ss.' }),
+      play({ outs: 0, event_type: 'unknown', pitcher_id: 'pit', narrative: 'Al Roe safe on a throwing error by p.' }),
+    ]
+    const lines = fieldingInningLines(plays, [game()], src())
+    expect(lines.find(l => l.player_id === 'park')).toMatchObject({ e: 1, pos: 6 })
+    expect(lines.find(l => l.player_id === 'ss1')).toBeUndefined()
+    expect(lines.find(l => l.player_id === 'pit')).toMatchObject({ e: 1, pos: 1 })
+  })
+
+  it('reads putouts and assists the way the box score credits them', () => {
+    const plays = [
+      play({ outs: 0, event_type: 'flyout', pitch_sequence: 'P', narrative: 'Jo Doe flied out to lf (0-0).' }),
+      play({ outs: 1, event_type: 'groundout', pitch_sequence: 'P', narrative: 'Al Roe grounded out to ss (1-0 B).' }),
+      play({ outs: 2, event_type: 'out', pitch_sequence: 'P', narrative: 'Bo Poe grounded into double play ss to 2b to 1b (0-0); Cy Loe out on the play.' }),
+    ]
+    const by = (id: string) => fieldingInningLines(plays, [game()], src()).find(l => l.player_id === id)
+    expect(by('lf1')).toMatchObject({ po: 1, a: 0 })
+    // A ground ball to short: her assist, first base's putout. In the 6-4-3, short and second assist,
+    // second and first put out.
+    expect(by('ss1')).toMatchObject({ po: 0, a: 2 })
+    expect(by('2b1')).toMatchObject({ po: 1, a: 1 })
+    expect(by('1b1')).toMatchObject({ po: 2, a: 0 })
+  })
+
+  it('counts every charge on the club’s line, placed or not', () => {
+    const plays = [
+      play({ outs: 0, event_type: 'unknown', narrative: 'Jo Doe reached on an error by cf.' }),
+      play({ outs: 0, event_type: 'unknown', narrative: 'Al Roe reached on a throwing error by ss.' }),
+    ]
+    expect(clubFieldingInningLines(plays, [game()], src())).toEqual([expect.objectContaining({ team_id: 'home', e: 2, pos: 0 })])
+  })
+
+  it('credits nobody at a position it cannot place', () => {
+    const plays = [play({ outs: 0, event_type: 'unknown', narrative: 'Jo Doe reached on an error by cf.' })]
+    expect(fieldingInningLines(plays, [game()], src())).toEqual([])
+  })
+})
+
+describe('the runner a clause names', () => {
+  it('is the batter of that club and game whose name the clause starts with, the longest first', () => {
+    const plays = [
+      play({ batter_id: 'k1', batter_name: 'Kim', event_type: 'single', pitch_sequence: 'P' }),
+      play({ batter_id: 'k2', batter_name: 'Hyeonah Kim', event_type: 'single', pitch_sequence: 'P' }),
+      play({ batter_id: 'd1', batter_name: 'Denver Bryant', event_type: 'walk', pitch_sequence: 'BBBB' }),
+      play({ event_type: 'out', narrative: 'Denver Bryant advanced to second; Hyeonah Kim out at second c to ss, picked off.' }),
+    ]
+    const totals = playTotals(WPBL_LEAGUE, plays, [game()])
+    expect(totals.get('g1|k2')).toMatchObject({ pko: 1 })
+    expect(totals.get('g1|k1')?.pko ?? 0).toBe(0)
+    expect(totals.get('g1|d1')?.pko ?? 0).toBe(0)
+  })
+
+  it('reads accents either way, and a steal of home', () => {
+    const plays = [
+      play({ batter_id: 'm1', batter_name: 'Maïka Dumais', event_type: 'single', pitch_sequence: 'P' }),
+      play({ event_type: 'stolen_base', narrative: 'Maika Dumais stole home.' }),
+    ]
+    expect(playTotals(WPBL_LEAGUE, plays, [game()]).get('g1|m1')).toMatchObject({ sbh: 1 })
+  })
+
+  it('names nobody for a runner who never batted', () => {
+    const plays = [play({ event_type: 'out', narrative: 'Pinch Runner out at first p to 1b, picked off.' })]
+    expect([...playTotals(WPBL_LEAGUE, plays, [game()]).values()].some(t => t.pko > 0)).toBe(false)
+  })
+})
+
+describe('playTotals', () => {
+  it('credits a pickoff to the pitcher and the pitches to the batter', () => {
+    const plays = [
+      play({ outs: 0, event_type: 'walk', pitch_sequence: 'BBFBB', batter_id: 'x' }),
+      play({ outs: 0, event_type: 'out', narrative: 'Runner out at first p to 1b, picked off.' }),
+    ]
+    const totals = playTotals(WPBL_LEAGUE, plays, [game()])
+    expect(totals.get('g1|x')).toMatchObject({ pitches: 5 })
+    expect(totals.get('g1|p1')).toMatchObject({ pk: 1 })
+  })
+})

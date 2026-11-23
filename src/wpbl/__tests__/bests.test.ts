@@ -76,6 +76,8 @@ describe('the single-game records board', () => {
     ]
     const rows = board(wpblBestGames('pitching', [], lines, [A, B, C], games), 'so').rows
     expect(rows.map(r => r.rank)).toEqual([1, 1, 3])
+    // Marked, so the card draws "T-1" as Leaders does rather than repeating a bare 1.
+    expect(rows.map(r => r.tied)).toEqual([true, true, false])
     // The shorter outing leads among equals: the tiebreak orders the rows without changing
     // either rank.
     expect(rows[0].name).toBe('Jaida Lee')
@@ -93,6 +95,7 @@ describe('the single-game records board', () => {
     const rows = board(wpblBestGames('pitching', [], lines, [A, B], games), 'so').rows
     expect(rows).toHaveLength(6)
     expect(rows.map(r => r.rank)).toEqual([1, 2, 2, 2, 2, 2])
+    expect(rows.map(r => r.tied)).toEqual([false, true, true, true, true, true])
   })
 
   it('keeps a postseason line out of the regular-season record, and vice versa', () => {

@@ -30,7 +30,7 @@ describe('the current season', () => {
   })
 })
 
-const wrap = (picked: number | null, schedule: WpblGame[]) => ({ children }: { children: ReactNode }) => (
+const wrap = (picked: number | 'all' | null, schedule: WpblGame[]) => ({ children }: { children: ReactNode }) => (
   <WpblSeasonProvider picked={picked} onPick={() => {}} schedule={schedule}>{children}</WpblSeasonProvider>
 )
 
@@ -58,6 +58,19 @@ describe('useWpblSeason', () => {
     expect(result.current.cut(lines).map(l => l.game_id)).toEqual(['c'])
   })
 
+  it('shows every season only where a surface asks for it, and only with two of them', () => {
+    const every = renderHook(() => useWpblSeason(undefined, { all: true }), { wrapper: wrap('all', inSeason) })
+    expect(every.result.current).toMatchObject({ all: true, allPicked: true, season: null })
+    expect(every.result.current.cut(lines)).toBe(lines)
+    expect(every.result.current.seasonGames).toHaveLength(inSeason.length)
+    // Standings and the like read the pick as the current season, and say that year.
+    const one = renderHook(() => useWpblSeason(), { wrapper: wrap('all', inSeason) })
+    expect(one.result.current).toMatchObject({ all: false, allPicked: true, season: 2027 })
+    // With one season on record there is nothing to put together.
+    const single = renderHook(() => useWpblSeason(undefined, { all: true }), { wrapper: wrap('all', offseason) })
+    expect(single.result.current).toMatchObject({ all: false, season: 2026 })
+  })
+
   it('hands back the same array when the cut drops nothing', () => {
     // Derivations cached on the league arrays' identity (the win model) must keep hitting.
     const only2026 = [{ game_id: 'a' }, { game_id: 'b' }]
@@ -69,13 +82,13 @@ describe('useWpblSeason', () => {
 // ─── Every bulk read is cut, or says why not ────────────────────────────────────
 //
 // The failure this whole module guards against is silent: a board handed two seasons sums them.
-// So any file that reads a league-wide table has to cut it (useWpblSeason, or inSeason), or be on
-// the list below with the reason it should not. NOT_YET held the surfaces still to convert while
+// So any file that reads a league-wide table has to cut it (useWpblSeason, inSeason or seasonCut), or
+// be on the list below with the reason it should not. NOT_YET held the surfaces still to convert while
 // the multiple-seasons work was under way; it is empty now, and a file only goes back on it with a
 // plan to take it off before the next season's first final.
 
 const BULK_READ = /\b(fetchWpbl|getCachedWpbl)(AllLines|AllPlays|AllRunValuePlays|AllPitchPlays|AllMatchupPlays|AllFielding|BattedBalls|AllTracking|ScoreCardLines)\b/
-const CUTS = /\buseWpblSeason\b|\binSeason\(/
+const CUTS = /\buseWpblSeason\b|\b(?:inSeason|seasonCut)\(/
 
 const EXEMPT: Record<string, string> = {
   // Every season on purpose.
@@ -84,6 +97,7 @@ const EXEMPT: Record<string, string> = {
   'src/wpbl/WinProbView.tsx': 'the win model is how games go, and a new year has too few plays to train one',
   'src/wpbl/gameDetail/GameDetailModal.tsx': 'the same win model, for the swing of the game',
   'src/wpbl/ScoreCardNotes.tsx': 'grouped by game for each card, never summed across games',
+  'src/wpbl/AdminLiveNotes.tsx': "a note's history is every earlier game, and the lines only place fielders, never summed",
   'src/wpbl/AdminClips.tsx': 'lists single home runs with no clip, for the owner, and sums nothing',
   'src/wpbl/watch/useWatchRankings.ts': 'ranks single games and plays across a catalog with no season on screen, and sums nothing',
   'src/wpbl/WpblApp.tsx': 'warms the reads Home makes, into the cache, and sums nothing',

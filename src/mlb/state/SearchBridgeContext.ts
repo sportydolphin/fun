@@ -3,6 +3,8 @@ import type { RecentSearchItem } from '../storage/recentSearches'
 import type { GameQuery, RankSide } from '../../league/finderParse'
 import type { FinderSide } from '../../league/finder'
 import type { PlayerPart } from '../../lib/playerParts'
+import type { FirstQuestion } from '../../league/firsts'
+import type { PaRecordQuestion } from '../../league/paRecords'
 export type { RecentSearchItem } from '../storage/recentSearches'
 
 export interface PlayerBridgeItem {
@@ -32,7 +34,7 @@ export interface CompareRow {
 
 /** A ranking typed in the box, in the section's own stats-table terms: `sort` is the column key
  *  the row's link sorts on, so the peek ranks exactly what the link opens. */
-export interface LeaderAsk { side: RankSide; sort: string; dir: 'asc' | 'desc' | null; season: number | null; career: boolean }
+export interface LeaderAsk { side: RankSide; sort: string; dir: 'asc' | 'desc' | null; season: number | null; career: boolean; post?: boolean }
 
 /** Who leads a ranking, as the stats table would put them first. `others` is how many share the
  *  lead on the number as printed. */
@@ -43,9 +45,43 @@ export interface LeaderPeek {
   season?: number | null
 }
 
+/** A question answered with one play: a first, or a plate-appearance record. Also the row that
+ *  stands for the rest of a shared record, which opens the Find board instead of a play. */
+/** A Find question that names players ("Sato vs hunters", "Whitmore off Schroder"), as a row. A
+ *  matchup is a batter against a pitcher; the rest are one player's question. */
+export interface PlayerQuestionRow {
+  key: string; title: string; subtitle: string; href: string
+  matchup: boolean
+}
+
+/** A Find row's answer ("7 times · last Sep 2"), and the one night or play it names, if it names one,
+ *  which the row then opens instead of the board. */
+export interface FindAnswer {
+  text: string
+  target: { href: string; play: boolean; open: () => void } | null
+}
+
+export interface PlayAnswer {
+  key: string
+  /** "First home run", "Longest at-bat". */
+  title: string
+  /** "Kelsie Whitmore · May 30, 2026", what the row says under its title. */
+  detail: string
+  /** The game at that play (`#play-N`), for a new tab and for Recent; or the Find board. */
+  href: string
+  /** Hands the play to the game about to open, since an in-app open drops the fragment. */
+  open: () => void
+  /** The play it opens, when it opens one, for the clip pinned to it (a row of its own under it). */
+  play?: { gameId: string; sequence: number }
+}
+
+/** A group of answer rows the section reads from text alone: "Video", "Games", "Streaks". `icon`
+ *  names the row's glyph, so the shell draws it without the section importing an icon set. */
+export interface AnswerGroup { label: string; icon: 'video' | 'game' | 'streak' | 'standings' | 'league' | 'pitches' | 'lineup' | 'roster'; rows: PlayAnswer[] }
+
 /** A stat typed beside a name ("Whitmore avg"): the column it means on each side the section's
  *  table has one for, the side the word leans to, and the span typed with it, if any. */
-export interface PlayerStatAsk { columns: Partial<Record<RankSide, string>>; lean: FinderSide | null; season: number | 'career' | null }
+export interface PlayerStatAsk { columns: Partial<Record<RankSide, string>>; lean: FinderSide | null; season: number | 'career' | null; post?: boolean }
 
 // A self-describing toolbar search result. Produced by whichever section owns search
 // so the always-loaded toolbar can render it WITHOUT statically importing that section's
@@ -114,6 +150,22 @@ export interface SearchBridgeState {
   /** The answer to a stat typed beside a name, for one player row (its `key`): ".312 AVG · 2026".
    *  Null when the player has no such number in the span. */
   resolvePlayerStat: ((rowKey: string, ask: PlayerStatAsk) => Promise<string | null>) | null
+  /** "first home run", "firsts": each first asked, from the section's play log. Null where the
+   *  section has no play log (MLB). */
+  resolveFirsts: ((ask: FirstQuestion) => Promise<PlayAnswer[]>) | null
+  /** "longest at-bat", "most fouls in a PA": the play that holds it, each of up to three that share
+   *  it, then the Find board for the rest. Null where the section has no play log (MLB). */
+  resolvePaRecord: ((ask: PaRecordQuestion) => Promise<PlayAnswer[]>) | null
+  /** A Find question naming players, read against the section's roster. Null where the section has
+   *  none to offer (MLB, until its Find takes a player). */
+  resolvePlayerQuestion: ((text: string) => Promise<PlayerQuestionRow[]>) | null
+  /** What a Find link answers, in one line ("7 times · last Sep 2"), read off the link itself so it is
+   *  the board's own count. Null for a link that is not Find's, and null where the section does not
+   *  answer (MLB, for now). */
+  resolveFindAnswer: ((href: string) => Promise<FindAnswer | null>) | null
+  /** "Hunters highlights", "longest game", "Hunters streak": groups of rows the section reads off the
+   *  text with its own data (src/wpbl/searchMore.ts). Null where the section has none (MLB). */
+  resolveMore: ((text: string) => Promise<AnswerGroup[]>) | null
 }
 
 const DEFAULT: SearchBridgeState = {
@@ -139,6 +191,11 @@ const DEFAULT: SearchBridgeState = {
   resolveGames: null,
   resolveLeader: null,
   resolvePlayerStat: null,
+  resolveFirsts: null,
+  resolveMore: null,
+  resolvePaRecord: null,
+  resolvePlayerQuestion: null,
+  resolveFindAnswer: null,
 }
 
 let _state: SearchBridgeState = { ...DEFAULT }

@@ -22,7 +22,10 @@ import {
   fetchWpblAllMatchupPlays, getCachedWpblAllMatchupPlays, fetchWpblSchedule, getCachedWpblSchedule,
   fetchWpblTeams, getCachedWpblTeams, fetchWpblAllPlayers, getCachedWpblAllPlayers,
 } from './api'
-import { batterPitcherMatchups, matchupBoard, type MatchupBoardView, type WpblMatchupLine } from './derive/matchups'
+import {
+  batterPitcherMatchups, matchupBoard, matchupLeagueAvg, hitsAboveAvg, boardRanks,
+  type MatchupBoardView, type WpblMatchupLine,
+} from './derive/matchups'
 import { scopedGames, type SeasonScope } from './season'
 import { fmtRate } from './stats'
 import { wpblComparePath, isWpblMatchupsPage } from './routes'
@@ -31,21 +34,22 @@ import { NameText } from '../ui/NameText'
 import { WPBL_TEAMS } from './constants'
 import { ShowMoreButton, SECTION_CAPTION_SX, useRankInk } from './cardParts'
 import WpblPage from './WpblPage'
-import { track, EVENTS } from '../lib/analytics'
+import { track, trackImpression, EVENTS } from '../lib/analytics'
 import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 import { typePx } from '../ui/scale'
 import { isModified } from '../nav'
+import { foldName } from '../lib/fuzzyName'
 
 // ONE VOCABULARY across every surface that shows a matchup: "batter" (never "hitter"), "matchup"
 // (never "duel" or "pair"), "edge" for who has had the better of it, "lopsided" for how much. The
 // first cut mixed all of them and called the boards "Hitters own" / "Pitchers own", which read as
 // slang on a tab. Short labels still: three full-size pills have to fit a 375px phone, and
-// "Batter's edge / Pitcher's edge / Most faced" did not. The line under the control says the
-// order, as a label; what an edge is lives in the definitions at the foot of the page.
-const VIEWS: { value: MatchupBoardView; label: string; blurb: string }[] = [
-  { value: 'batter', label: 'Batter edge', blurb: 'Most lopsided first' },
-  { value: 'pitcher', label: 'Pitcher edge', blurb: 'Most lopsided first' },
-  { value: 'faced', label: 'Most faced', blurb: 'Most PA first' },
+// "Batter's edge / Pitcher's edge / Most faced" did not. The order is the lit column (+H, or PA
+// on Most faced); what an edge is lives in the definitions at the foot of the page.
+const VIEWS: { value: MatchupBoardView; label: string }[] = [
+  { value: 'batter', label: 'Batter edge' },
+  { value: 'pitcher', label: 'Pitcher edge' },
+  { value: 'faced', label: 'Most faced' },
 ]
 
 /** Rows before "Show more". A board is a list to scan, and past a couple of dozen rows the reader
@@ -55,7 +59,20 @@ const PREVIEW = 25
 // H-AB AS ONE COLUMN ("4-5"), the way a box score and a broadcast print a hitter's day: two
 // columns for it pushed the table to 370px against a 343px phone column once the row's chevron
 // was added, and "4-5" is read as one fact anyway.
-const HEADS = ['PA', 'H-AB', 'HR', 'BB', 'SO', 'AVG'] as const
+//
+// +H LAST, AND LIT: it is what the edge boards sort by. With only AVG lit, a 5-for-7 (.714) sat
+// between two 1.000s and read as a misordering, because the order was a number the page never
+// showed. Most faced lights PA instead, its own sort.
+const HEADS = ['PA', 'H-AB', 'HR', 'BB', 'SO', 'AVG', '+H'] as const
+type Head = typeof HEADS[number]
+/** Right-aligned, so the decimal points stack. */
+const RIGHT: ReadonlySet<Head> = new Set(['AVG', '+H'])
+
+/** "+2.6", "−1.4", "0.0": one decimal, a real minus, no sign on what rounds to nothing. */
+const fmtMargin = (m: number): string => {
+  const s = Math.abs(m).toFixed(1)
+  return s === '0.0' ? s : `${m > 0 ? '+' : '−'}${s}`
+}
 
 /** The row's leading name, which the row underlines on hover. A class rather than
  *  `span:first-of-type`, which also matched the "vs" on the second line. */
@@ -75,7 +92,7 @@ type Club = 'all' | string // a lowercased club abbreviation, as the address bar
  * reader had been on "Pitcher edge": the right depth of the wrong list. Anything the URL does not
  * recognize falls back to the default, so a stale or hand-typed link still opens a board.
  */
-export interface MatchupsUrlState { view: MatchupBoardView; club: Club; scope: SeasonScope; expanded: boolean }
+export interface MatchupsUrlState { view: MatchupBoardView; club: Club; scope: SeasonScope; q: string; expanded: boolean }
 
 export function readMatchupsUrlState(search: string, historyState: unknown): MatchupsUrlState {
   const q = new URLSearchParams(search)
@@ -84,6 +101,7 @@ export function readMatchupsUrlState(search: string, historyState: unknown): Mat
     view: VIEWS.some(x => x.value === v) ? v as MatchupBoardView : 'batter',
     club: q.get('club')?.toLowerCase() || 'all',
     scope: s === 'postseason' || s === 'all' ? s : 'regular',
+    q: q.get('q') ?? '',
     // "Show more" rides on the history ENTRY, not the URL: it is where the reader had scrolled to,
     // which Back should restore, not something a pasted link should carry.
     expanded: (historyState as { wpblMatchupsExpanded?: unknown } | null)?.wpblMatchupsExpanded === true,
@@ -92,14 +110,26 @@ export function readMatchupsUrlState(search: string, historyState: unknown): Mat
 
 /** The query string for a board, keeping any parameter this page does not own. Only what differs
  *  from the default is written, so the plain page keeps a bare /wpbl/matchups. */
-export function matchupsSearch(search: string, { view, club, scope }: Omit<MatchupsUrlState, 'expanded'>): string {
+export function matchupsSearch(search: string, { view, club, scope, q: text = '' }: Omit<MatchupsUrlState, 'expanded' | 'q'> & { q?: string }): string {
   const q = new URLSearchParams(search)
   const set = (k: string, v: string | null) => { if (v == null) q.delete(k); else q.set(k, v) }
   set('board', view === 'batter' ? null : view)
   set('club', club === 'all' ? null : club)
   set('scope', scope === 'regular' ? null : scope)
+  set('q', text.trim() ? text : null)
   const str = q.toString()
   return str ? `?${str}` : ''
+}
+
+/**
+ * Whether a matchup answers what was typed: every word lands in one of the two names, accents
+ * folded ("bedard" finds Day-Bédard), so "saiki sato" narrows to that one matchup.
+ */
+export function matchupMatches(l: Pick<WpblMatchupLine, 'batterName' | 'pitcherName'>, query: string): boolean {
+  const words = foldName(query).split(' ').filter(Boolean)
+  if (words.length === 0) return true
+  const hay = foldName(`${l.batterName} ${l.pitcherName}`)
+  return words.every(w => hay.includes(w))
 }
 
 export default function WpblMatchupsPage({ onNavigate }: {
@@ -117,6 +147,7 @@ export default function WpblMatchupsPage({ onNavigate }: {
   const [club, setClub] = useState<Club>(initial.club)
   const [scope, setScope] = useState<SeasonScope>(initial.scope)
   const [expanded, setExpanded] = useState(initial.expanded)
+  const [query, setQuery] = useState(initial.q)
 
   useEffect(() => {
     let cancelled = false
@@ -155,10 +186,10 @@ export default function WpblMatchupsPage({ onNavigate }: {
    */
   useEffect(() => {
     if (!isWpblMatchupsPage(window.location.pathname)) return
-    const url = window.location.pathname + matchupsSearch(window.location.search, { view, club, scope })
+    const url = window.location.pathname + matchupsSearch(window.location.search, { view, club, scope, q: query })
     const state = { ...window.history.state, wpblMatchupsExpanded: expanded }
     window.history.replaceState(state, '', url)
-  }, [view, club, scope, expanded])
+  }, [view, club, scope, query, expanded])
 
   const lines = useMemo(
     () => (plays ? batterPitcherMatchups(plays, games, { scope: effScope }) : []),
@@ -168,6 +199,14 @@ export default function WpblMatchupsPage({ onNavigate }: {
     return clubId == null ? all : all.filter(l => l.batterTeamIds.includes(clubId) || l.pitcherTeamIds.includes(clubId))
   }, [lines, view, clubId])
   const mostMet = useMemo(() => lines.reduce((m, l) => Math.max(m, l.pa), 0), [lines])
+  // The same average `matchupBoard` sorted with: every line in the slice, not just the club's.
+  const leagueAvg = useMemo(() => matchupLeagueAvg(lines), [lines])
+  // A search narrows the board without renumbering it: a row keeps the rank it holds on the board,
+  // so "Saiki" shows where that matchup stands rather than a 1 it has not earned.
+  const rows = useMemo(() => {
+    const ranks = boardRanks(board, view, leagueAvg)
+    return board.map((l, i) => ({ l, rank: ranks[i] })).filter(r => matchupMatches(r.l, query))
+  }, [board, view, leagueAvg, query])
 
   const playerById = useMemo(() => new Map(players.map(p => [p.id, p])), [players])
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
@@ -180,16 +219,16 @@ export default function WpblMatchupsPage({ onNavigate }: {
   // 500px up the screen and threw it 1,100 to 1,600px down when the table landed.
   const skeleton = loading && !plays
 
-  const shown = expanded ? board : board.slice(0, PREVIEW)
-  const hidden = board.length - Math.min(board.length, PREVIEW)
-  const blurb = VIEWS.find(v => v.value === view)!.blurb
+  const shown = expanded ? rows : rows.slice(0, PREVIEW)
+  const hidden = rows.length - Math.min(rows.length, PREVIEW)
   const pitcherFirst = view === 'pitcher'
+  const litHead: Head = view === 'faced' ? 'PA' : '+H'
 
   /** A name in the matchup cell. Plain text: the whole cell is the link (see the row). A real name
    *  is fitted, "F. Last" before an ellipsis (CLAUDE.md); the skeleton's ghost is drawn as it is. */
   const nameSx = (strong: boolean) => ({
     // On desktop the second name has a column of its own and reads at full size beside the first.
-    fontSize: strong ? TYPE_SCALE.body : { xs: TYPE_SCALE.meta, md: TYPE_SCALE.body },
+    fontSize: strong ? TYPE_SCALE.body : { xs: TYPE_SCALE.meta, lg: TYPE_SCALE.body },
     fontWeight: strong ? 700 : 600,
     color: strong ? 'text.primary' : 'text.secondary',
     minWidth: 0,
@@ -208,22 +247,36 @@ export default function WpblMatchupsPage({ onNavigate }: {
   }
 
   const cells = (l: WpblMatchupLine): (string | number)[] =>
-    [l.pa, `${l.h}-${l.ab}`, l.hr, l.bb, l.so, l.avg == null ? '—' : fmtRate(l.avg)]
+    [l.pa, `${l.h}-${l.ab}`, l.hr, l.bb, l.so, l.avg == null ? '—' : fmtRate(l.avg), fmtMargin(hitsAboveAvg(l, leagueAvg))]
+
+  // Regular / Playoffs / Both, beside the count it changes rather than in the toolbar: in the
+  // toolbar it was a third full-width row on a phone, and the first matchup started 360px down.
+  const scopeNav = (hasPostseason || skeleton) && (
+    <SegNav
+      options={[
+        { value: 'regular', label: 'Regular' },
+        { value: 'postseason', label: 'Playoffs' },
+        { value: 'all', label: 'Both' },
+      ]}
+      value={effScope}
+      onChange={pick(v => setScope(v as SeasonScope))}
+      mb={0}
+      size="sm"
+    />
+  )
 
   return (
     <WpblPage
       title="Batter vs pitcher"
-      // The sample floor, as a label (house rule, Oct 21, 2026: labels, not narration). A sentence
-      // about the page pushed the boards below the fold on a phone.
-      standfirst="3+ PA"
+      // Narrower than the standalone default: at 900px the two name columns took the slack and
+      // left a gap the width of a name between the pitcher and PA. 48rem still holds the board and
+      // club controls on one row and the longest name in full.
+      maxWidth="48rem"
     >
       <>
-        {/* ONE TOOLBAR, NOT THREE FLOATING PILLS. The board used to sit centered on its own line,
-            with the club and season filters pinned to opposite edges below it, so the three
-            controls shared no edge with each other or with the title. Now: on a phone, one
-            column of full-width controls (`fill`), which also puts the board choice under the
-            thumb; from `sm` up, one row with the board on the title's left edge and the two
-            filters on the table's right edge, wrapping as a unit when the row is too narrow. */}
+        {/* ONE TOOLBAR, NOT FLOATING PILLS. On a phone, a column of full-width controls (`fill`),
+            which also puts the board choice under the thumb; from `sm` up, one row with the board
+            on the title's left edge and the clubs on the table's right edge. */}
         <Box sx={{
           display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, flexWrap: 'wrap',
           alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between',
@@ -236,36 +289,52 @@ export default function WpblMatchupsPage({ onNavigate }: {
             mb={0}
             fill
           />
-          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'stretch', sm: 'center' }, gap: 1 }}>
-            <SegNav
-              options={[{ value: 'all', label: 'All clubs' }, ...clubs.map(t => ({ value: t.abbr.toLowerCase(), label: t.abbr }))]}
-              value={club}
-              onChange={pick(setClub)}
-              mb={0}
-              size="sm"
-              fill
-            />
-            {(hasPostseason || skeleton) && (
-              <SegNav
-                options={[
-                  { value: 'regular', label: 'Regular' },
-                  { value: 'postseason', label: 'Playoffs' },
-                  { value: 'all', label: 'Both' },
-                ]}
-                value={effScope}
-                onChange={pick(v => setScope(v as SeasonScope))}
-                mb={0}
-                size="sm"
-                fill
-              />
-            )}
-          </Box>
+          <SegNav
+            options={[{ value: 'all', label: 'All clubs' }, ...clubs.map(t => ({ value: t.abbr.toLowerCase(), label: t.abbr }))]}
+            value={club}
+            onChange={pick(setClub)}
+            mb={0}
+            size="sm"
+            fill
+          />
+          {/* A NAME, NOT A CLUB, is what most readers arrive with: "how has Saiki done against
+              Sato". The club filter was the only way in, which left a 300-row board to scroll.
+              Last in the row, so it takes the room the two controls leave and wraps to a line of
+              its own where there is none. */}
+          <Box
+            component="input"
+            value={query}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+              setQuery(e.target.value)
+              setExpanded(false)
+              // Once per load: every keystroke is a change, and "did anyone search" is the question.
+              if (e.target.value) trackImpression(EVENTS.WPBL_PAGE_CONTROL, { page: 'matchups', control: 'search' }, 'matchups|search')
+            }}
+            type="search"
+            placeholder="Search players"
+            aria-label="Search players"
+            sx={{
+              flex: { sm: '1 1 10rem' }, minWidth: 0, font: 'inherit', fontSize: TYPE_SCALE.meta,
+              color: 'text.primary', bgcolor: 'background.paper',
+              border: '1px solid', borderColor: 'outline', borderRadius: 999,
+              px: 1.5, py: 0.6, outline: 'none',
+              '&::placeholder': { color: 'text.disabled' },
+              '&:focus': { borderColor: 'text.secondary' },
+              '@media (pointer: coarse)': { py: 0.9 },
+              ...FOCUS_RING,
+            }}
+          />
         </Box>
-        <Typography sx={{ ...SECTION_CAPTION_SX, mb: 1 }}>
-          {skeleton ? <TextGhost>000 matchups</TextGhost> : <>{board.length} {board.length === 1 ? 'matchup' : 'matchups'}</>} · {blurb}
-        </Typography>
+        {/* The count and the sample floor, a label (house rule, Oct 21, 2026). The floor was the
+            page's standfirst and a line in the notes as well; once, here, is enough. */}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 1, rowGap: 0.5, mb: 1 }}>
+          <Typography sx={{ ...SECTION_CAPTION_SX, mb: 0 }}>
+            {skeleton ? <TextGhost>000 matchups</TextGhost> : <>{rows.length} {rows.length === 1 ? 'matchup' : 'matchups'}</>} · 3+ PA
+          </Typography>
+          {scopeNav}
+        </Box>
 
-        {!skeleton && board.length === 0 ? (
+        {!skeleton && rows.length === 0 ? (
           <Typography sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.body, py: 3 }}>No matchups</Typography>
         ) : (
           // Edge to edge on a phone, with the first and last cells taking the gutter back, as the
@@ -282,13 +351,13 @@ export default function WpblMatchupsPage({ onNavigate }: {
                 <Box component="tr">
                   <Box component="th" sx={{ ...thSx, ...rankSx }}>#</Box>
                   <Box component="th" sx={{ ...thSx, ...matchupCellSx }}>
-                    <Box sx={{ display: { xs: 'block', md: 'none' } }}>{pitcherFirst ? 'Pitcher vs batter' : 'Batter vs pitcher'}</Box>
-                    <Box sx={{ display: { xs: 'none', md: 'grid' }, ...pairGridSx }}>
+                    <Box sx={{ display: { xs: 'block', lg: 'none' } }}>{pitcherFirst ? 'Pitcher vs batter' : 'Batter vs pitcher'}</Box>
+                    <Box sx={{ display: { xs: 'none', lg: 'grid' }, ...pairGridSx }}>
                       <span>{pitcherFirst ? 'Pitcher' : 'Batter'}</span>
                       <span>{pitcherFirst ? 'Batter' : 'Pitcher'}</span>
                     </Box>
                   </Box>
-                  {HEADS.map(h => <Box component="th" key={h} sx={{ ...thSx, ...statColSx(h), ...(h === 'AVG' ? { textAlign: 'right' } : {}) }}>{h}</Box>)}
+                  {HEADS.map(h => <Box component="th" key={h} sx={{ ...thSx, ...statColSx(h), ...(RIGHT.has(h) ? { textAlign: 'right' } : {}) }}>{h}</Box>)}
                 </Box>
               </Box>
               <Box component="tbody" aria-hidden={skeleton || undefined}>
@@ -296,36 +365,33 @@ export default function WpblMatchupsPage({ onNavigate }: {
                   <Box component="tr" key={i} sx={i % 2 === 1 ? { bgcolor: 'action.hover' } : undefined}>
                     <Box component="td" sx={{ ...tdSx, ...rankSx, color: 'text.disabled', fontSize: TYPE_SCALE.meta }}><TextGhost hidden>{i + 1}</TextGhost></Box>
                     <Box component="td" sx={{ ...tdSx, ...matchupCellSx }}>
-                      <Box sx={{ display: { xs: 'block', md: 'grid' }, ...pairGridSx }}>
+                      <Box sx={{ display: { xs: 'block', lg: 'grid' }, ...pairGridSx }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
                           <Skeleton variant="circular" width={16} height={16} sx={{ flexShrink: 0 }} />
                           {name(<TextGhost>{GHOST_NAME[0]}</TextGhost>, true)}
                         </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, mt: { xs: 0.25, md: 0 } }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, mt: { xs: 0.25, lg: 0 } }}>
                           <Skeleton variant="circular" width={16} height={16} sx={{ flexShrink: 0 }} />
-                          <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', flexShrink: 0, display: { md: 'none' } }}>vs</Typography>
+                          <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', flexShrink: 0, display: { lg: 'none' } }}>vs</Typography>
                           {name(<TextGhost>{GHOST_NAME[1]}</TextGhost>, false)}
                         </Box>
                       </Box>
                     </Box>
                     {HEADS.map(h => (
-                      <Box component="td" key={h} sx={{ ...tdSx, ...statColSx(h), ...(h === 'AVG' ? { textAlign: 'right' } : {}) }}>
+                      <Box component="td" key={h} sx={{ ...tdSx, ...statColSx(h), ...(RIGHT.has(h) ? { textAlign: 'right' } : {}) }}>
                         {/* The widest figure each column takes on the default board, so the columns are their
                           loaded widths: a table sizes its columns to what is in them. */}
-                          <TextGhost>{h === 'AVG' ? '1.000' : h === 'H-AB' ? '4-5' : '5'}</TextGhost>
+                          <TextGhost>{h === 'AVG' ? '1.000' : h === '+H' ? '+3.2' : h === 'H-AB' ? '4-5' : '5'}</TextGhost>
                       </Box>
                     ))}
                   </Box>
                 ))}
-                {shown.map((l, i) => {
+                {shown.map(({ l, rank }, i) => {
                   const b = playerById.get(l.batterId), p = playerById.get(l.pitcherId)
                   // The owner on the left, as in the row: the compare path keeps the order it was built in.
                   const pairHref = b && p && players.length > 0
                     ? (pitcherFirst ? wpblComparePath(p, b, players) : wpblComparePath(b, p, players))
                     : null
-                  // The verdict this board is about, in the rank blue and bold: the average on
-                  // an edge board, nothing on the neutral one.
-                  const lit = view !== 'faced'
                   const open = (e: React.MouseEvent) => {
                     track(EVENTS.WPBL_COMPARE_OPENED, { from: 'matchups', pair: true })
                     if (pairHref && !isModified(e)) { e.preventDefault(); onNavigate(pairHref) }
@@ -358,7 +424,7 @@ export default function WpblMatchupsPage({ onNavigate }: {
                           chevron for the pair did not fit a phone: the chevron's column alone
                           pushed the table 27px past a 343px column. On this page the row IS the
                           matchup, so that is what a tap on it opens. */}
-                      <Box component="td" sx={{ ...tdSx, ...rankSx, color: 'text.disabled', fontSize: TYPE_SCALE.meta }}>{i + 1}</Box>
+                      <Box component="td" sx={{ ...tdSx, ...rankSx, color: 'text.disabled', fontSize: TYPE_SCALE.meta }}>{rank}</Box>
                       <Box component="td" sx={{ ...tdSx, ...matchupCellSx }}>
                         <Box
                           component={pairHref ? 'a' : 'div'}
@@ -371,7 +437,7 @@ export default function WpblMatchupsPage({ onNavigate }: {
                             // One matchup per line on desktop, the two names in columns of their
                             // own: stacked, each row spent two lines of height on a 900px table
                             // whose figures sat in 100px columns of air.
-                            display: { xs: 'block', md: 'grid' }, ...pairGridSx,
+                            display: { xs: 'block', lg: 'grid' }, ...pairGridSx,
                             textDecoration: 'none', color: 'inherit', borderRadius: 1,
                             ...(pairHref ? FOCUS_RING : {}),
                           }}
@@ -383,25 +449,26 @@ export default function WpblMatchupsPage({ onNavigate }: {
                             {badge(pitcherFirst ? l.pitcherTeamIds : l.batterTeamIds)}
                             {name(pitcherFirst ? l.pitcherName : l.batterName, true)}
                           </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, mt: { xs: 0.25, md: 0 } }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, mt: { xs: 0.25, lg: 0 } }}>
                             {badge(pitcherFirst ? l.batterTeamIds : l.pitcherTeamIds)}
                             {/* The column header says it on desktop. */}
-                            <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', flexShrink: 0, display: { md: 'none' } }}>vs</Typography>
+                            <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', flexShrink: 0, display: { lg: 'none' } }}>vs</Typography>
                             {name(pitcherFirst ? l.batterName : l.pitcherName, false)}
                           </Box>
                         </Box>
                       </Box>
                       {cells(l).map((c, j) => {
-                        const isAvg = HEADS[j] === 'AVG'
+                        const h = HEADS[j]
                         return (
-                          <Box component="td" key={HEADS[j]} sx={{
+                          <Box component="td" key={h} sx={{
                             ...tdSx,
-                            ...statColSx(HEADS[j]),
+                            ...statColSx(h),
                             // Right-aligned, so the decimal points stack: centered, "1.000" sat
                             // half a digit left of the ".800" under it.
-                            ...(isAvg ? { textAlign: 'right' } : {}),
+                            ...(RIGHT.has(h) ? { textAlign: 'right' } : {}),
                             ...(c === 0 ? { color: 'text.disabled' } : {}),
-                            ...(isAvg && lit ? { color: ink, fontWeight: 800 } : {}),
+                            // The board's sort, in the rank blue and bold.
+                            ...(h === litHead ? { color: ink, fontWeight: 800 } : {}),
                           }}>{c}</Box>
                         )
                       })}
@@ -431,19 +498,19 @@ export default function WpblMatchupsPage({ onNavigate }: {
           '& dt:first-of-type': { mt: 0 },
           '& dd': { m: 0 },
         }}>
-          <dt>Sample</dt>
-          <dd>3+ PA{skeleton
-            ? <TextGhost> · Most met: 9</TextGhost>
-            : mostMet > 0 ? ` · Most met: ${mostMet}` : ''}</dd>
+          <dt>+H</dt>
+          <dd>
+            Hits above a {skeleton ? <TextGhost>.353</TextGhost> : fmtRate(leagueAvg)} batter in the same at-bats.
+            The edge boards&apos; order.
+          </dd>
           <dt>Batter edge</dt>
           <dd>.500 or better over three or more at-bats, two home runs, or a home run with a .333 average.</dd>
           <dt>Pitcher edge</dt>
           <dd>.150 or lower over three or more at-bats, with no home runs.</dd>
-          <dt>Order</dt>
-          <dd>
-            Hits above what a league-average batter would have had in the same at-bats, most first.
-            Logos: the club each player was on for these at-bats.
-          </dd>
+          <dt>Most met</dt>
+          <dd>{skeleton ? <TextGhost>10 PA</TextGhost> : mostMet > 0 ? `${mostMet} PA` : '—'}</dd>
+          <dt>Logos</dt>
+          <dd>The club each player was on for these at-bats.</dd>
         </Box>
       </>
     </WpblPage>
@@ -459,7 +526,9 @@ const thSx = {
 const rankSx = { display: { xs: 'none', md: 'table-cell' }, width: '2.25rem', textAlign: 'right', pl: 0.5, pr: 1.25 } as const
 /** The matchup cell, which takes the phone's left gutter back (see the table wrapper). */
 const matchupCellSx = { textAlign: 'left', pl: { xs: 2, sm: 0.5, md: 0 } } as const
-/** The two names as two equal columns on desktop, shared by the header so the labels sit over them. */
+/** The two names as two equal columns from `lg`, shared by the header so the labels sit over them.
+ *  `lg`, not `md`: with +H added, a 960px screen at Large text left each name column too narrow
+ *  for "E. Day-Bédard", so up to `lg` the names stack as they do on a phone. */
 const pairGridSx = { gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', columnGap: 2, alignItems: 'center' } as const
 /**
  * A fixed width for each figure on desktop, sized to its widest value plus air, so the name columns
@@ -468,7 +537,7 @@ const pairGridSx = { gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', colum
  * `rem`, because each box reserves room for a number (see "A fixed px size" in CLAUDE.md).
  */
 const statColSx = (h: string) =>
-  ({ width: { md: h === 'AVG' ? '4.25rem' : h === 'H-AB' ? '3.75rem' : '3rem' } }) as const
+  ({ width: { md: h === 'AVG' ? '4.25rem' : h === 'H-AB' || h === '+H' ? '3.75rem' : '3rem' } }) as const
 const tdSx = {
   fontSize: TYPE_SCALE.body, fontWeight: 600, py: 0.75, px: { xs: 0.3, sm: 0.85 }, textAlign: 'center',
   borderTop: '1px solid', borderColor: 'divider', whiteSpace: 'nowrap', verticalAlign: 'middle',

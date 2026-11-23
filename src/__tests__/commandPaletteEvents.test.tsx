@@ -56,7 +56,7 @@ describe('the search box', () => {
 
     await user.keyboard('{Enter}')
     expect(onSelect).toHaveBeenCalledOnce()
-    expect(named('command_palette_picked')).toEqual([{ section: 'wpbl', kind: 'recent', rank: 0, typed: 0, top: true }])
+    expect(named('command_palette_picked')).toEqual([{ section: 'wpbl', kind: 'recent', rank: 0, typed: 0, top: true, title: 'Kelsie Whitmore' }])
     await waitFor(() => expect(screen.queryByRole('combobox')).not.toBeInTheDocument())
     // A pick is the open's outcome, so there is no dismissal behind it.
     expect(named('command_palette_dismissed')).toEqual([])
@@ -75,10 +75,11 @@ describe('the search box', () => {
     const user = userEvent.setup()
     render(<Host />)
     await user.type(input(), 'zzyzx')
+    // The miss message waits for the text to settle (MISS_SETTLE_MS), so it is read before the close.
+    expect(await screen.findByText(/Nothing matches/)).toBeInTheDocument()
     await user.keyboard('{Escape}')
     await waitFor(() => expect(named('command_palette_dismissed')).toEqual([{ section: 'wpbl', typed: 5, shown: 0, q: 'zzyzx' }]))
     expect(named('command_palette_picked')).toEqual([])
-    expect(screen.getByText(/Nothing matches/)).toBeInTheDocument()
   })
 
   it('counts an example as a pick that keeps the box open, so a second pick can follow', async () => {
@@ -94,7 +95,7 @@ describe('the search box', () => {
     await user.click(find[1])
     expect(window.location.search).toContain('side=hitting')
     const picks = named('command_palette_picked')
-    expect(picks[1]).toEqual({ section: 'wpbl', kind: 'finder', rank: 1, typed: 21, top: false })
+    expect(picks[1]).toEqual({ section: 'wpbl', kind: 'finder', rank: 1, typed: 21, top: false, title: 'Strikeouts at least 5 and Walks exactly 0' })
     expect(named('search_finder_picked')).toEqual([{
       section: 'wpbl', side: 'hitting', conditions: 2, clubs: 0, venue: 'any', ignored: 0, from: 'palette',
     }])
@@ -120,7 +121,7 @@ describe('the search box', () => {
     const list = screen.getByRole('listbox')
     await user.click(within(list).getByRole('option', { name: /Bravo/ }))
     expect(onSelect).toHaveBeenCalledOnce()
-    expect(named('command_palette_picked')).toEqual([{ section: 'wpbl', kind: 'result', rank: 1, typed: 2, top: false }])
+    expect(named('command_palette_picked')).toEqual([{ section: 'wpbl', kind: 'result', rank: 1, typed: 2, top: false, title: 'Bravo' }])
   })
 
   it('finds a page by name, and a page pick is a page', async () => {
@@ -129,14 +130,14 @@ describe('the search box', () => {
     await user.type(input(), 'stand')
     await user.keyboard('{Enter}')
     expect(window.location.pathname).toBe('/wpbl/standings')
-    expect(named('command_palette_picked')).toEqual([{ section: 'wpbl', kind: 'page', rank: 0, typed: 5, top: true }])
+    expect(named('command_palette_picked')).toEqual([{ section: 'wpbl', kind: 'page', rank: 0, typed: 5, top: true, title: 'Standings' }])
   })
 
   it('has a close button for a reader with no Escape key, and closing with it is a dismissal', async () => {
     const user = userEvent.setup()
     render(<Host />)
     await user.click(screen.getByRole('button', { name: 'Close search' }))
-    await waitFor(() => expect(named('command_palette_dismissed')).toEqual([{ section: 'wpbl', typed: 0, shown: 13 }]))
+    await waitFor(() => expect(named('command_palette_dismissed')).toEqual([{ section: 'wpbl', typed: 0, shown: 26 }]))
   })
 
   it('offers the compare page for "A vs B" once the section finds both, and counts the pick', async () => {
@@ -228,5 +229,40 @@ describe('the search box', () => {
     expect(resolveCompare).not.toHaveBeenCalled()
     await user.keyboard('{Enter}')
     expect(named('command_palette_picked')[0]).toMatchObject({ kind: 'game', rank: 0 })
+  })
+})
+
+// The three misses on /admin's "Offered nothing for" list in Oct and Nov 2026, each answered now.
+describe('a search that finds nothing', () => {
+  beforeEach(() => { track.mockClear(); localStorage.clear(); window.history.replaceState({}, '', '/wpbl') })
+  afterEach(() => { cleanup() })
+
+  it('falls back to the examples, and Enter keeps what was typed', async () => {
+    const user = userEvent.setup()
+    render(<Host />)
+    await user.type(input(), 'zzyzx')
+    expect(await screen.findByText(/Nothing matches/)).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Suggestions' })).toBeInTheDocument()
+    await user.keyboard('{Enter}')
+    await user.keyboard('{Tab}')
+    expect(input()).toHaveValue('zzyzx')
+    expect(named('command_palette_picked')).toEqual([])
+  })
+
+  it('finds WPBL fielding, a side of Leaders', async () => {
+    const user = userEvent.setup()
+    render(<Host />)
+    await user.type(input(), 'fielding')
+    expect(screen.getByRole('option', { name: /Fielding/ })).toHaveAttribute('href', '/wpbl/stats?board=leaders&side=fielding')
+  })
+
+  it('offers the other section’s page by name when this one has none', async () => {
+    const user = userEvent.setup()
+    render(<CommandPalette open onClose={() => {}} section="mlb" results={[]} idle={[]} searching={false} />)
+    await user.type(input(), 'scorigami')
+    const opt = screen.getByRole('option', { name: /Scorigami/ })
+    expect(opt).toHaveAttribute('href', '/wpbl/scorigami')
+    expect(opt).toHaveTextContent('WPBL')
+    expect(screen.queryByText(/Nothing matches/)).not.toBeInTheDocument()
   })
 })

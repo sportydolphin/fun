@@ -33,6 +33,91 @@ export function playHashSequence(hash: string): number | null {
 }
 
 /**
+ * A play asked for from inside the app, which no fragment can carry.
+ *
+ * An in-app open of a game (a Find row for one inning) rewrites the address without a fragment, for
+ * the reason at the top of this file, so `#play-N` on its href would reach a new tab and nothing
+ * else. The opener leaves the play here instead and Game Center takes it once, as it mounts, the way
+ * it reads ENTRY_HASH: keyed to the game, so a request can never land on a different one, and
+ * used up a moment after it is first taken, so opening the same game again later starts where any
+ * game starts.
+ */
+let requestedPlay: { gameId: string; hash: string; box: BoxSide | null; takenAt: number | null } | null = null
+
+/** Which club's box score a game opens on. */
+export type BoxSide = 'away' | 'home'
+
+/** How long a taken request still answers the same game. Game Center can mount twice as it opens
+ *  (the remount above), and a link from search reached it that way: the first mount took the play
+ *  and the second opened on the Recap (Nov 9, 2026). A reader who closes the game and opens it again
+ *  takes longer than this. */
+const REMOUNT_MS = 3000
+
+export function requestPlay(gameId: string, sequence: number): void {
+  requestedPlay = { gameId, hash: `#play-${sequence}`, box: null, takenAt: null }
+}
+
+/**
+ * A game opened from a stat, at the box score that holds the line, on the club that line was for.
+ *
+ * A FINAL OPENS ON ITS RECAP, which is right for a game looked up as a game (a score, the schedule,
+ * "Firebells last game") and wrong for one reached through a number: a reader who tapped "4 HR" on
+ * Bests or a row on Find came for that line, and the Recap made them find the Box Score tab and then
+ * the right club. The same one-shot, game-keyed hand-off as `requestPlay`; a link that leaves the app
+ * carries `?tab=box` (and `&side=home`) instead, which a cold open already reads.
+ */
+export function requestBoxScore(gameId: string, side: BoxSide, line?: BoxLine | null): void {
+  requestedPlay = { gameId, hash: lineHash(line), box: side, takenAt: null }
+}
+
+/** One player's line in a box score: whose, and which table, since a two-way player has a row in
+ *  each and a strikeout record is the pitching one. */
+export interface BoxLine { playerId: string; table: 'batting' | 'pitching' }
+
+/** The line a Find or Bests row stands for: its player, in the pitching table on the pitching side
+ *  and the batting table otherwise (a fielder's line is the batting row the position sits on). */
+export function boxLineOf(player: { id: string } | null | undefined, side: string): BoxLine | null {
+  return player ? { playerId: player.id, table: side === 'pitching' ? 'pitching' : 'batting' } : null
+}
+
+/** A player's line in the box score, the way `#play-N` names one at-bat: the row a stat came from,
+ *  outlined for a moment where it lands, so a reader who tapped one line of twenty is shown which.
+ *  Keyed by the site's player id, never the feed's, which changes when a player changes club. */
+export const LINE_HASH_RE = /^#line-(pitching-)?([\w-]+)$/
+
+function lineHash(line: BoxLine | null | undefined): string {
+  return line ? `#line-${line.table === 'pitching' ? 'pitching-' : ''}${line.playerId}` : ''
+}
+
+/** The line a fragment names, or null when it is not a line. */
+export function lineHashLine(hash: string): BoxLine | null {
+  const m = LINE_HASH_RE.exec(hash ?? '')
+  return m ? { playerId: m[2], table: m[1] ? 'pitching' : 'batting' } : null
+}
+
+/** What a game opens on: a play or a box score asked for in-app for this game, or else the entry's
+ *  fragment. */
+export function takeOpening(gameId: string, now = Date.now()): { hash: string; box: BoxSide | null } {
+  const r = requestedPlay
+  const live = r && r.gameId === gameId && (r.takenAt == null || now - r.takenAt < REMOUNT_MS)
+  if (!live) { requestedPlay = null; return { hash: ENTRY_HASH, box: null } }
+  r.takenAt ??= now
+  return { hash: r.hash, box: r.box }
+}
+
+/** The fragment a game opens on (`takeOpening`'s hash). */
+export function takeOpeningPlayHash(gameId: string, now = Date.now()): string {
+  return takeOpening(gameId, now).hash
+}
+
+/** The box score of `teamId`'s side of `game`, for a line from that game: the side, and the query
+ *  (plus the player's `#line-` fragment) a link to the game carries for a new tab. */
+export function boxScoreOf(game: { home_team_id: string }, teamId: string | null, line?: BoxLine | null): { side: BoxSide; query: string } {
+  const side: BoxSide = teamId != null && teamId === game.home_team_id ? 'home' : 'away'
+  return { side, query: `${side === 'home' ? '?tab=box&side=home' : '?tab=box'}${lineHash(line)}` }
+}
+
+/**
  * The entry fragment, re-attached to the one URL it belongs to.
  *
  * PATH-MATCHED SO IT CANNOT LEAK. A fragment naming a play means nothing on Standings and less

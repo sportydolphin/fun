@@ -15,6 +15,7 @@ import { hoverOnly, FOCUS_RING } from './interaction'
 import { chromePx, typePx } from './scale'
 import { NameText } from './NameText'
 import { isModified } from '../nav'
+import { foldName } from '../lib/fuzzyName'
 
 /** Modified clicks are left to the browser, so open-in-new-tab works on an internal link. */
 /** Which side of the page. 'a' is always the left column and the first player in the URL. */
@@ -52,7 +53,8 @@ export const VS_SX = {
   fontSize: MICRO_TEXT, fontWeight: 800, 
   color: 'text.disabled',
 } as const
-/** The empty slot beside the one player chosen so far. */
+/** The empty slot beside the one player chosen so far. Its words are `PICK_SLOT_LABEL`. */
+export const PICK_SLOT_LABEL = 'Player 2'
 export const PICK_SLOT = {
   flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
   minHeight: chromePx(96), color: 'text.disabled', fontSize: TYPE_SCALE.body,
@@ -120,13 +122,14 @@ export function CompareHead({ name, href, portrait, badge, subline, onNavigate, 
   )
 }
 
-/** A CompareHead before anyone has said who it is: the same column, empty. */
-export function CompareHeadSkeleton({ withChange }: { withChange?: boolean }) {
+/** A CompareHead before anyone has said who it is: the same column, empty. `name` is the name the
+ *  address already spells, when it does, so the ghost wraps where the real name will. */
+export function CompareHeadSkeleton({ withChange, name = GHOST_HEAD_NAME }: { withChange?: boolean; name?: string }) {
   return (
     <Box aria-hidden sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75, minWidth: 0, flex: 1 }}>
       <Skeleton variant="circular" width={chromePx(64)} height={chromePx(64)} />
       <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1.2 }}>
-        <TextGhost>{GHOST_HEAD_NAME}</TextGhost>
+        <TextGhost>{name}</TextGhost>
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, maxWidth: '100%' }}>
         <Skeleton variant="circular" width={chromePx(18)} height={chromePx(18)} sx={{ flexShrink: 0 }} />
@@ -404,7 +407,7 @@ const PICK_ROW = {
  * was typed. `limit` caps the rows drawn with no query (a league of 1,500 is not a list anybody
  * scrolls), and says so under them, since a silent cap would hide players with no sign they exist.
  */
-export function ComparePicker({ candidates, onPick, skeleton, limit, limitNote, emptyText = 'Nobody by that name.' }: {
+export function ComparePicker({ candidates, onPick, skeleton, limit, limitNote, emptyText = 'No players' }: {
   candidates: ComparePick[]
   onPick: (key: string) => void
   /** Nothing has arrived: the box full of empty rows, which it always is once it has. */
@@ -415,13 +418,15 @@ export function ComparePicker({ candidates, onPick, skeleton, limit, limitNote, 
 }) {
   const [q, setQ] = useState('')
   const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase()
+    // Accents folded both ways: "bedard" finds Day-Bédard, "rodriguez" finds Rodríguez. Lowercased
+    // only, it found nobody, and a reader cannot be expected to type the accent.
+    const needle = foldName(q)
     if (!needle) return candidates
-    const hits = candidates.filter(c => c.name.toLowerCase().includes(needle))
+    const hits = candidates.map(c => ({ c, name: foldName(c.name) })).filter(x => x.name.includes(needle))
     return [
-      ...hits.filter(c => c.name.toLowerCase().startsWith(needle)),
-      ...hits.filter(c => !c.name.toLowerCase().startsWith(needle)),
-    ]
+      ...hits.filter(x => x.name.startsWith(needle)),
+      ...hits.filter(x => !x.name.startsWith(needle)),
+    ].map(x => x.c)
   }, [candidates, q])
   const shown = limit != null ? filtered.slice(0, limit) : filtered
   // Drawn while loading too, when a cap is set: the list it explains will always be capped once
@@ -436,16 +441,23 @@ export function ComparePicker({ candidates, onPick, skeleton, limit, limitNote, 
         placeholder="Search players"
         size="small"
         fullWidth
-        slotProps={{ input: {
-          startAdornment: (
-            <InputAdornment position="start"><SearchIcon sx={{ fontSize: ICON_SIZE.md }} /></InputAdornment>
-          ),
-        } }}
+        slotProps={{
+          // A placeholder is gone the moment someone types, so it is not the field's name.
+          htmlInput: { 'aria-label': 'Search players' },
+          input: {
+            startAdornment: (
+              <InputAdornment position="start"><SearchIcon sx={{ fontSize: ICON_SIZE.md }} /></InputAdornment>
+            ),
+          },
+        }}
         sx={{ mb: 1.5 }}
       />
       <Box sx={{
+        // ONE COLUMN AT EVERY WIDTH. The page is 560px, and in two columns each row had about 250px
+        // for a badge, the name, a position and the PA/IP figure: "B. Espinoza-Molina" was cut 36px
+        // short at the Large text size even after shortening to F. Last.
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+        gridTemplateColumns: '1fr',
         gap: 0.5,
         maxHeight: chromePx(420),
         overflowY: 'auto',

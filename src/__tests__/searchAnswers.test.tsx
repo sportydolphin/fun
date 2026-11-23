@@ -24,7 +24,7 @@ import CommandPalette from '../CommandPalette'
 import { nameWords, typedStat } from '../league/finderParse'
 import { leaderSuggestions, peekText } from '../finderSearch'
 import { getRecentQuestions } from '../lib/recentQuestions'
-import { boardNeeds, buildWpblBoard, wpblLeaderPeek, wpblPlayerAnswer, type WpblBoard, type WpblLines } from '../wpbl/searchAnswers'
+import { boardNeeds, buildWpblBoard, wpblLeaderPeek, wpblLeagueAnswers, wpblPlayerAnswer, type WpblBoard, type WpblLines } from '../wpbl/searchAnswers'
 import { mlbLeaderPeek, mlbPlayerAnswer } from '../mlb/searchAnswers'
 import { fetchAllTimeLeaderboardData, fetchLeaderboardData } from '../mlb/api'
 import { fetchParkFactors, fetchSeasonSabermetrics } from '../mlb/apiSeasonStats'
@@ -86,7 +86,7 @@ describe('peekText', () => {
 
 const teams = [{ id: 'SF' }, { id: 'LA' }] as WpblTeam[]
 const game = (id: string, game_date: string): WpblGame =>
-  ({ id, game_date, status: 'final', home_team_id: 'SF', away_team_id: 'LA', game_type: 'regular', counts_in_standings: true } as WpblGame)
+  ({ id, game_date, status: 'final', home_team_id: 'SF', away_team_id: 'LA', home_score: 1, away_score: 0, game_type: 'regular', counts_in_standings: true } as WpblGame)
 // Two 2026 games, so the bar is in force (6 PA, 9 outs), and a 2025 game the year cut must leave out.
 const games = [game('old', '2025-07-01'), game('g1', '2026-06-01'), game('g2', '2026-06-02')]
 const player = (id: string, name: string) => ({ id, name, team_id: 'SF' } as WpblPlayer)
@@ -275,25 +275,26 @@ describe('MLB: the answer in the player row', () => {
 const row = (key: string, title: string): SearchResultRow =>
   ({ key, title, subtitle: 'CF · SF', avatar: { fallbackText: title[0] }, onSelect: vi.fn() })
 
-function Host({ results = [], resolveLeader, resolvePlayerStat }: {
+function Host({ results = [], resolveLeader, resolvePlayerStat, resolveFindAnswer }: {
   results?: SearchResultRow[]
   resolveLeader?: SearchBridgeState['resolveLeader']
   resolvePlayerStat?: SearchBridgeState['resolvePlayerStat']
+  resolveFindAnswer?: SearchBridgeState['resolveFindAnswer']
 }) {
   return <CommandPalette open onClose={() => {}} section="wpbl" results={results} idle={[]} searching={false}
-    resolveLeader={resolveLeader} resolvePlayerStat={resolvePlayerStat} />
+    resolveLeader={resolveLeader} resolvePlayerStat={resolvePlayerStat} resolveFindAnswer={resolveFindAnswer} />
 }
 
 describe('the palette', () => {
   afterEach(() => { cleanup(); localStorage.clear() })
 
-  it('puts the answer in front of the player row\'s subtitle', async () => {
+  it('puts the answer on its own line in the player row', async () => {
     const user = userEvent.setup()
     const resolvePlayerStat = vi.fn(async () => '.429 AVG · 2026')
     render(<Host results={[row('player-p1', 'Kelsie Whitmore'), row('team-SF', 'San Francisco')]} resolvePlayerStat={resolvePlayerStat} />)
     await user.type(screen.getByRole('combobox'), 'whitmore avg')
     // A beat after the last key, as the compare row asks.
-    await waitFor(() => expect(screen.getByRole('option', { name: /Kelsie Whitmore/ })).toHaveTextContent('.429 AVG · 2026 · CF · SF'))
+    await waitFor(() => expect(screen.getByRole('option', { name: /Kelsie Whitmore/ })).toHaveTextContent('Kelsie Whitmore.429 AVG · 2026CF · SF'))
     // Only player rows are asked, and with the table's column on each side the word means.
     expect(resolvePlayerStat).toHaveBeenCalledWith('player-p1', { columns: { hitting: 'avg' }, lean: null, season: null })
     expect(resolvePlayerStat.mock.calls.every(c => (c as unknown[])[0] === 'player-p1')).toBe(true)
@@ -305,10 +306,61 @@ describe('the palette', () => {
     render(<Host resolveLeader={resolveLeader} />)
     await user.type(screen.getByRole('combobox'), 'most hr')
     // "hr" is a hitting board and a pitching one ("home runs allowed"); the hitting one comes first.
-    await waitFor(() => expect(screen.getAllByRole('option')[0]).toHaveTextContent('Most home runsLeaders · Hitting · This season · Kelsie Whitmore leads with 9'))
+    // The answer on its own line under the title, then the table it opens and the year.
+    await waitFor(() => expect(screen.getAllByRole('option')[0]).toHaveTextContent('Most home runsKelsie Whitmore leads with 9Hitting stats · This season'))
     expect(resolveLeader).toHaveBeenCalledWith({ side: 'hitting', sort: 'hr', dir: 'desc', season: null, career: false })
 
     await user.keyboard('{Enter}')
-    expect(getRecentQuestions('wpbl')[0]).toMatchObject({ title: 'Most home runs', subtitle: 'Leaders · Hitting · This season' })
+    expect(getRecentQuestions('wpbl')[0]).toMatchObject({ title: 'Most home runs', subtitle: 'Hitting stats · This season' })
+  })
+
+  it('says how often and when last in a Find row, read off its link, and keeps it out of Recent', async () => {
+    const user = userEvent.setup()
+    const resolveFindAnswer = vi.fn(async (href: string) => (href.includes('q=so.gte.5') ? { text: '7 times · last Sep 2', target: null } : null))
+    render(<Host resolveFindAnswer={resolveFindAnswer} />)
+    await user.type(screen.getByRole('combobox'), '5 strikeouts no walks')
+    await waitFor(() => expect(screen.getAllByRole('option')[0]).toHaveTextContent(/7 times · last Sep 2Find · /))
+    expect(resolveFindAnswer.mock.calls.every(c => (c as unknown[])[0] && String((c as unknown[])[0]).includes('board=find'))).toBe(true)
+
+    await user.keyboard('{Enter}')
+    expect(getRecentQuestions('wpbl')[0].subtitle).not.toMatch(/times/)
+  })
+
+  it('opens the one night a Find answer names, at its box score, and keeps the question in Recent', async () => {
+    const user = userEvent.setup()
+    const open = vi.fn()
+    const resolveFindAnswer = vi.fn(async (href: string) => (href.includes('q=so.gte.5')
+      ? { text: 'Once · Aug 22', target: { href: '/wpbl/games/2026-08-22-queens-at-firebells?tab=box&side=home', play: false, open } } : null))
+    render(<Host resolveFindAnswer={resolveFindAnswer} />)
+    await user.type(screen.getByRole('combobox'), '5 strikeouts no walks')
+    await waitFor(() => expect(screen.getAllByRole('option')[0]).toHaveTextContent(/Once · Aug 22Box score · /))
+    expect(screen.getAllByRole('option')[0]).toHaveAttribute('href', '/wpbl/games/2026-08-22-queens-at-firebells?tab=box&side=home')
+
+    await user.keyboard('{Enter}')
+    expect(open).toHaveBeenCalled()
+    const recent = getRecentQuestions('wpbl')[0]
+    expect(recent.href).toContain('board=find')
+    expect(recent.subtitle).toMatch(/^Find · /)
+  })
+})
+
+// The Nov 20, 2026 probe: "where does Whitmore rank in HR" and "league batting average" offered
+// nothing, or the leaders.
+describe('WPBL: a place on the board, and the league line', () => {
+  it("says where the player sits, tied, and not under the bar", () => {
+    expect(wpblPlayerAnswer(players[0], ask({ hitting: 'avg' }), board(2026), players)).toBe('.429 AVG · 2026 · 1st')
+    expect(wpblPlayerAnswer(players[0], ask({ hitting: 'hr' }), board(2026), players)).toBe('2 HR · 2026 · T-1st')
+    expect(wpblPlayerAnswer(players[2], ask({ hitting: 'avg' }), board(2026), players)).toBe('1.000 AVG · 2026')
+  })
+
+  it("reads the league's own line, a count per club game, and the line with no stat", () => {
+    const b = board(2026)
+    expect(wpblLeagueAnswers({ columns: { hitting: 'avg' }, lean: 'hitting', perGame: false }, b))
+      .toEqual([expect.objectContaining({ title: 'League AVG', detail: '.333 · 2026', href: '/wpbl/stats?board=teams&side=hitting&sort=avg&season=2026' })])
+    // Five home runs over two finals, four club games.
+    expect(wpblLeagueAnswers({ columns: { hitting: 'hr', pitching: 'hr' }, lean: 'hitting', perGame: true }, b))
+      .toEqual([expect.objectContaining({ title: 'HR per team game', detail: '1.25 · 2026' })])
+    expect(wpblLeagueAnswers({ columns: { hitting: 'avg' }, lean: 'hitting', perGame: true }, b)).toEqual([])
+    expect(wpblLeagueAnswers({ columns: {}, lean: null, perGame: false }, b).map(r => r.title)).toEqual(['League hitting', 'League pitching'])
   })
 })

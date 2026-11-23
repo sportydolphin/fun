@@ -1,0 +1,78 @@
+diff a/src/wpbl/home/Skeletons.tsx b/src/wpbl/home/Skeletons.tsx	(rejected hunks)
+@@ -1,11 +1,13 @@
+-import { Box, Skeleton } from '@mui/material'
+-import { chromePx, CARD_BORDER, CARD_FILL, TYPE_SCALE } from '../ui'
++import { Box, Skeleton, Typography } from '@mui/material'
++import { chromePx, CARD_BORDER, CARD_FILL, TYPE_SCALE, TAB_TITLE_SX } from '../ui'
+ // The dismissal key and the dev-only undo. Their own module so the dev settings menu can reach
+ // the undo without dragging this file into the main bundle. See discordInvite.ts.
+ import { DISCORD_DISMISS_KEY } from '../discordInvite'
+ import { awardsResultsShowOnHome } from '../awards'
+ import { FanPhotoHomeCardSkeleton } from '../FanPhotoViews'
+-import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard } from './PlayerCards'
++import { FanAwardWinnersCard, PlayerSpotlightCard, SeasonLeadersCard, StarSignCard, HOME_2026_ROW } from './PlayerCards'
++import { RostersCardView } from './RostersCard'
++import { TransactionsCardView } from './TransactionsCard'
+ import type { WpblTeam } from '../types'
+ import { offseasonByCalendar } from '../offseasonCalendar'
+ import { SECTION_GAP, HEADER_GAP, homeWideSx } from './shared'
+@@ -84,7 +93,7 @@ export function WpblHomeSkeleton() {
+         mb: { xs: 0, sm: HEADER_GAP },
+       }}>
+         <Box sx={{ flex: 1, minWidth: 0 }}>
+-          <Skeleton variant="text" sx={{ width: { xs: '16rem', md: '22rem' }, fontSize: { xs: TYPE_SCALE.heading, md: TYPE_SCALE.page }, lineHeight: 1.15, maxWidth: '100%' }} />
++          <HomeTitle />
+         </Box>
+         <Box sx={{ display: { xs: 'none', sm: 'flex' }, flexWrap: 'wrap', gap: 0.75, flexShrink: 0 }}>
+           {SKELETON_CLUB_CHIPS.map(i => (
+@@ -186,7 +195,7 @@ const EMPTY_TEAMS = new Map<string, WpblTeam>()
+ const NO_OPEN = () => {}
+ 
+ /** The offseason Home with nothing in it, mirroring the loaded page block for block (see
+- *  WpblHome's render): the header, Player Spotlight beside the season card, the award results while
++ *  WpblHome's render): the header, Player Spotlight beside the transactions, the award results while
+  *  they are up, the leaders beside the fan award winners, the gallery, the star sign card, Reading beside Watch, the Discord invite on a
+  *  phone, and the league line. Heights measured off the real page. */
+ function OffseasonHomeSkeleton() {
+@@ -201,7 +210,7 @@ function OffseasonHomeSkeleton() {
+         mb: { xs: 0, sm: HEADER_GAP },
+       }}>
+         <Box sx={{ flex: 1, minWidth: 0 }}>
+-          <Skeleton variant="text" sx={{ width: { xs: '16rem', md: '22rem' }, fontSize: { xs: TYPE_SCALE.heading, md: TYPE_SCALE.page }, lineHeight: 1.15, maxWidth: '100%' }} />
++          <HomeTitle />
+         </Box>
+         <Box sx={{ display: { xs: 'none', sm: 'flex' }, flexWrap: 'wrap', gap: 0.75, flexShrink: 0 }}>
+           {SKELETON_CLUB_CHIPS.map(i => (
+@@ -212,14 +221,15 @@ function OffseasonHomeSkeleton() {
+         </Box>
+       </Box>
+ 
++      <Box sx={{ mt: 1.5 }}>
++        <RostersCardView teams={EMPTY_TEAMS} players={[]} moves={null} />
++      </Box>
++
+       {/* The player cards draw their own empty state (no players yet), so the placeholder is the
+           real card rather than a guess at its height. */}
+       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
+         <PlayerSpotlightCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
+-        {/* The champion card's own height, measured at 375, 760, 960 and 1440 (Oct 30, 2026): one
+-            number per scale, since its rows stack the same way at every width. Taller here than the
+-            card puts the row out of step with Player Spotlight, which then moves on load. */}
+-        <CardSkeleton minHeight={{ xs: '24.5rem', md: '24.4rem' }} titleWidth="6rem" lines={5} />
++        <TransactionsCardView teams={EMPTY_TEAMS} players={[]} moves={null} onOpenPlayer={NO_OPEN} />
+       </Box>
+       {awards && (
+         <Box sx={{ mt: 1.5 }}>
+@@ -227,10 +237,10 @@ function OffseasonHomeSkeleton() {
+         </Box>
+       )}
+ 
+-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
++      {HOME_2026_ROW && <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5, mt: 1.5 }}>
+         <SeasonLeadersCard players={[]} teams={EMPTY_TEAMS} games={[]} onOpenPlayer={NO_OPEN} />
+         <FanAwardWinnersCard players={[]} teams={EMPTY_TEAMS} onOpenPlayer={NO_OPEN} onOpenTeam={NO_OPEN} />
+-      </Box>
++      </Box>}
+ 
+       <FanPhotoHomeCardSkeleton />
+ 

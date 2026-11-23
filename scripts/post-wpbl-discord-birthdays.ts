@@ -40,6 +40,7 @@
  * on the anon key and says what it cannot see.
  */
 import { createClient } from '@supabase/supabase-js'
+import { runWithHeartbeat } from '../shared/heartbeat.js'
 // @ts-expect-error: no types installed for `ws`; it is only handed to supabase-js below.
 import ws from 'ws'
 import { birthdaysOn, buildBirthdayMessage } from '../src/wpbl/derive/discordBirthdays'
@@ -205,4 +206,4 @@ async function main(): Promise<void> {
   console.log(`✅  Posted ${toGreet.length} birthday(s) for ${today}: ${toGreet.map(p => p.name).join(', ')}`)
 }
 
-main().catch(err => { console.error('❌ ', err.message); process.exit(1) })
+runWithHeartbeat(supabase, 'wpbl-discord-birthdays', main, { skip: DRY_RUN || !SERVICE_KEY }).catch(err => { console.error('❌ ', err.message); process.exit(1) })

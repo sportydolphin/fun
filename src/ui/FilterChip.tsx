@@ -3,6 +3,8 @@ import { Box } from '@mui/material'
 import { pressable, hoverOnly, FOCUS_RING } from './interaction'
 import { CARD_BORDER, ACCENT_EDGE, TYPE_SCALE, BRAND } from './card'
 import { chromePx } from './scale'
+import { TapTip } from './TapTip'
+import { VISUALLY_HIDDEN } from './heading'
 
 // A FILTER on the board in front of the reader: a club, a slice of the season, the qualifying
 // bar. Moved out of WPBL's StatsView in Oct 2026 for MLB's stats table, which drew its qualifying
@@ -34,8 +36,34 @@ export const filterChipSx = (active: boolean) => ({
   '@media (pointer: coarse)': { py: 0.7 },
 }) as const
 
-/** `dot` marks a chip with something new behind it (newSince.ts). */
-export function FilterChip({ active, onClick, children, dot }: { active: boolean; onClick: () => void; children: React.ReactNode; dot?: boolean }) {
+/** `dot` marks a chip with something new behind it (newSince.ts). `disabled` keeps a chip DRAWN
+ *  where the board cannot take it, so a row of filters is the same shape on every board: a dotted
+ *  edge and the disabled ink, unpressable but focusable, with `hint` saying why as a tooltip on
+ *  hover, focus and tap. `active` still shows what the board does read (Overall's regular season). */
+export function FilterChip({ active, onClick, children, dot, disabled = false, hint }: {
+  active: boolean
+  onClick: () => void
+  children: React.ReactNode
+  dot?: boolean
+  disabled?: boolean
+  hint?: string
+}) {
+  if (disabled) {
+    const chip = (
+      <Box role="button" tabIndex={0} aria-pressed={active} aria-disabled sx={{
+        ...filterChipSx(active), cursor: 'not-allowed', borderStyle: 'dotted',
+        // Disabled controls are exempt from the 3:1 edge and 4.5:1 text floors (src/CLAUDE.md), and
+        // the dotted edge is what tells them apart from a chip that is simply off. A lit one keeps
+        // its accent: it is still the slice the board reads, only not one the reader can change.
+        ...(active ? {} : { bgcolor: 'transparent', borderColor: 'text.disabled', color: 'text.disabled' }),
+        '&:hover': {},
+      }}>
+        {children}
+        {hint && <span style={VISUALLY_HIDDEN}>, {hint}</span>}
+      </Box>
+    )
+    return hint ? <TapTip title={hint} sx={{ display: 'flex', cursor: 'not-allowed' }}>{chip}</TapTip> : chip
+  }
   return (
     <Box {...pressable(onClick)} aria-pressed={active} sx={filterChipSx(active)}>
       {children}
@@ -75,19 +103,26 @@ export function ChipRow({ mb, children }: { mb: number; children: React.ReactNod
 
 /** A chip that picks one of many (a season), as a native select so the list is the platform's.
  *  Lit while it is off its default, as a filter chip is while it is on. */
-export function FilterSelect({ value, options, onChange, active, ariaLabel }: {
+export function FilterSelect({ value, options, onChange, active, ariaLabel, disabled = false, hint }: {
   value: string
   options: { value: string; label: string }[]
   onChange: (v: string) => void
   active: boolean
   ariaLabel: string
+  /** As on FilterChip: drawn, unpickable, with `hint` saying why. */
+  disabled?: boolean
+  hint?: string
 }) {
   return (
-    <Box sx={{ ...filterChipSx(active), position: 'relative', p: 0, '&:focus-within': { borderColor: ACCENT_EDGE } }}>
-      <Box component="select" value={value} aria-label={ariaLabel} onChange={e => onChange((e.target as HTMLSelectElement).value)}
+    <Box title={disabled ? hint : undefined} sx={{
+      ...filterChipSx(active), position: 'relative', p: 0, '&:focus-within': { borderColor: ACCENT_EDGE },
+      ...(disabled ? { cursor: 'not-allowed', bgcolor: 'transparent', borderColor: 'text.disabled', color: 'text.disabled' } : {}),
+    }}>
+      <Box component="select" value={value} aria-label={disabled && hint ? `${ariaLabel}, ${hint}` : ariaLabel} disabled={disabled}
+        onChange={e => onChange((e.target as HTMLSelectElement).value)}
         sx={{
           appearance: 'none', border: 'none', outline: 'none', bgcolor: 'transparent', color: 'inherit',
-          font: 'inherit', cursor: 'pointer', borderRadius: 999,
+          font: 'inherit', cursor: disabled ? 'not-allowed' : 'pointer', borderRadius: 999,
           // The chip's own padding, with room on the right for the caret drawn over it.
           py: 0.4, pl: 1, pr: 2.25,
           '& option': { color: 'text.primary', bgcolor: 'background.paper' },

@@ -36,7 +36,7 @@ import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPlayer, WpblRunVa
 /** Bumped whenever what a row means changes (a count added, the WAR engine reworked). A reader
  *  only trusts rows written by the version it was built with, so a deploy that changes the shape
  *  falls back to the lines until the job has rewritten every row, rather than misreading them. */
-export const PLAYER_SEASONS_VERSION = 2
+export const PLAYER_SEASONS_VERSION = 3
 
 /** The `player_id` of the row holding the whole league's line and the season's weights. */
 export const LEAGUE_ROW = 'league'

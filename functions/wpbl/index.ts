@@ -478,18 +478,25 @@ async function resolvePlayer(playerId: string, env: Env, url: URL): Promise<Reso
 // unmatched path falls through to the SPA's index.html with a 200, and aiming og:image at
 // a page of HTML is worse than shipping no image at all. The check is answered by
 // Cloudflare's own asset store, not the network.
+//
+// THE VERSION IS THE FILE'S ETAG. The path is stable and cached for a week, by Cloudflare and by
+// every unfurler that keys on the image URL, so without it a regenerated card (a new photo, a new
+// club) keeps unfurling as the old one until that week runs out.
 async function cardUrl(path: string, env: Env, url: URL): Promise<string | null> {
   // No binding to check against (a local runner, a future platform change): point at it
   // anyway rather than drop the image for every player.
+  let version = ''
   if (env.ASSETS) {
     try {
       const res = await env.ASSETS.fetch(new Request(`${url.origin}${path}`, { method: 'HEAD' }))
       if (!res.ok || !(res.headers.get('content-type') || '').startsWith('image/')) return null
+      const tag = (res.headers.get('etag') || '').replace(/^W\//, '').replace(/[^a-z0-9]/gi, '').slice(0, 10)
+      if (tag) version = `?v=${tag}`
     } catch {
       return null
     }
   }
   // Absolute and canonical: unfurlers resolve og:image against the origin they fetched,
   // and a link may be pasted from a deploy-preview host.
-  return `${SITE}${path}`
+  return `${SITE}${path}${version}`
 }

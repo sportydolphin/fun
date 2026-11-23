@@ -6,6 +6,8 @@ import {
   type GameWinProb, type WinProbPoint,
 } from './derive/winProbability'
 import { parsePlay } from './derive/playByPlay'
+import { fmtLeverage, leverageModel, leverageOfPoint } from './derive/leverage'
+import type { RunValueGame } from './derive/runExpectancy'
 import { wpblAccent } from './constants'
 import { WinProbChart, WinProbFrame, type Readout } from '../ui/winProbChart'
 import { WIN_PROB_INFO } from './winProbInfo'
@@ -54,11 +56,17 @@ export default function WinProbView({ game, teams, plays, games }: Props) {
     return () => { cancelled = true }
   }, [league])
 
-  const wp = useMemo<GameWinProb | null>(() => {
+  const priced = useMemo<{ wp: GameWinProb; li: number[] } | null>(() => {
     if (!league || plays.length === 0) return null
-    const model = winProbModel(league, games.length > 0 ? games : [game])
-    return gameWinProb(model, plays as WpblRunValuePlay[], game)
+    const schedule = games.length > 0 ? games : [game]
+    const model = winProbModel(league, schedule)
+    const wp = gameWinProb(model, plays as WpblRunValuePlay[], game)
+    // Leverage rides the same model, so the stakes it prints and the swing the line draws are
+    // priced by one set of numbers.
+    const lev = leverageModel(model, league, schedule as RunValueGame[])
+    return { wp, li: wp.points.map(pt => leverageOfPoint(lev, pt)) }
   }, [league, plays, game, games])
+  const wp = priced?.wp ?? null
 
   // NOTHING HERE IS ALLOWED TO CHANGE HEIGHT ONCE IT HAS PAINTED. This card sits at the top
   // of the recap, so anything that arrives late pushes the rest of the tab down, and it
@@ -71,11 +79,15 @@ export default function WinProbView({ game, teams, plays, games }: Props) {
       away={teams.get(game.away_team_id)?.abbr ?? 'AWAY'} home={teams.get(game.home_team_id)?.abbr ?? 'HOME'} />
   }
   if (!wp || wp.points.length < 2) return null
-  return <WinProbCard game={game} teams={teams} wp={wp} />
+  return <WinProbCard game={game} teams={teams} wp={wp} li={priced?.li ?? []} />
 }
 
 /** Split out so the model work above stays in one place and this stays drawing. */
-function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, WpblTeam>; wp: GameWinProb }) {
+function WinProbCard({ game, teams, wp, li }: {
+  game: WpblGame; teams: Map<string, WpblTeam>; wp: GameWinProb
+  /** Leverage index of each point's starting state, by index. */
+  li: number[]
+}) {
   // The curated foreground colors, not the primaries. Every club in this league is
   // near-black (BOS #00281e, LA #000000, NY #091b47, SF #2d1747), which is fine behind a logo
   // and useless for two areas that have to be told apart: the primaries draw Los Angeles in
@@ -104,7 +116,7 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
       now={now}
       accent="var(--wpbl-accent-fg)"
       marks={restIdx >= 0 ? [{ index: restIdx, color: 'var(--wpbl-accent-solid)' }] : []}
-      readout={(i, canHover) => i != null ? scrubReadout(pts[i], game, teams)
+      readout={(i, canHover) => i != null ? scrubReadout(pts[i], game, teams, li[i])
         : resting ? restingReadout(resting, game, teams, canHover, resting === wp.decisive)
         : null}
     />
@@ -169,6 +181,8 @@ export function scrubReadout(
   pt: WinProbPoint,
   game: WpblGame,
   teams: Map<string, WpblTeam>,
+  /** The leverage index the play began at, when the model has one. */
+  li?: number,
 ): Readout {
   const p = pt.play
   const away = teams.get(game.away_team_id)?.abbr ?? 'AWAY'
@@ -180,7 +194,9 @@ export function scrubReadout(
     ...play,
     // The scoreboard as the play left it. 60% at 1-0 and 60% at 8-7 are not the same game,
     // and the win figure alone cannot tell them apart.
-    note: `${away} ${pt.awayScore}, ${home} ${pt.homeScore}`,
+    // The stakes beside it: the same swing means more at LI 3 than at 0.3, and this is the
+    // number that says which it was before the play happened.
+    note: `${away} ${pt.awayScore}, ${home} ${pt.homeScore}${li == null ? '' : ` · LI ${fmtLeverage(li)}`}`,
   }
 }
 

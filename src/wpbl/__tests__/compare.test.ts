@@ -154,6 +154,24 @@ it('shows pitcher walks beside strikeouts and highlights the fewer', () => {
   expect(bb.leader).toBe('a')  // 4 walks beats 15
 })
 
+// Ayami Sato against Natsuki Yonetani, Nov 2026: the hitter, with no innings, "led" the pitching
+// card's BB 0 to 3, and on the batting card led nine counting rows against a pitcher with no PA.
+it('names no leader against a side that never batted or never pitched', () => {
+  const c = build({
+    teams, games: schedule(10),
+    batting: [bat({ player_id: 'b', ab: 30, h: 10, bb: 8, r: 5 })],
+    pitching: [pit({ player_id: 'a', outs: 60, bb: 3, so: 17 })],
+  })
+  for (const g of c.groups) {
+    const absent = g.key === 'batting' ? 'a' : 'b'
+    const rows = [...g.counting, ...g.rate, ...g.value]
+    expect(rows.every(r => r.leader === null)).toBe(true)
+    expect(rows.every(r => r[`${absent}Text`] === '—')).toBe(true)
+    // Playing time still says how much: zero is the true answer there.
+    expect(g.playingTime.every(r => r[`${absent}Text`] !== '—')).toBe(true)
+  }
+})
+
 describe('the season totals', () => {
   // The standing trap: a box-score line carries only a game_id, so it cannot say for itself
   // whether it belongs in a season total. `buildWpblComparison` takes the schedule for exactly

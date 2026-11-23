@@ -183,7 +183,8 @@ export interface League {
    * the run-value boards credit. A league function because the marker differs: WPBL and MLB give
    * every plate appearance a pitch sequence and nothing else one, but a World Cup scored without
    * pitches (all of 2018, and 2016 where the scorer left the count out) has plate appearances with
-   * none, and read by the sequence those games measured nothing at all.
+   * none, and read by the sequence those games measured nothing at all. WPBL also leaves the sequence
+   * off a trip that ended on a 0-0 count, so its marker reads the narrative's count too.
    */
-  isPlateAppearance(p: Pick<RunValuePlay, 'event_type' | 'pitch_sequence'>): boolean
+  isPlateAppearance(p: Pick<RunValuePlay, 'event_type' | 'pitch_sequence' | 'narrative'>): boolean
 }

@@ -17,12 +17,11 @@
 // EVERY PLAYER NAME IS STILL A REAL LINK IN THE DOCUMENT. The hometown lists are hidden with
 // `display: none` rather than unmounted when their country is not picked, so the 118 anchors this
 // page carries (the same crawl path PlayersIndex.tsx exists for) are always there to follow.
-import { useDark } from '../ui/useDark'
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { fetchWpblAllPlayers, fetchWpblTeams, fetchWpblSchedule, computeStandings, countsInStandings } from './api'
-import { FOCUS_RING, TAPPABLE, TeamBadge, TYPE_SCALE, CARD_BORDER, hoverOnly, pressable, TextGhost, chromePx } from './ui'
-import { wpblField, wpblFullName } from './constants'
+import { FOCUS_RING, TAPPABLE, TeamBadge, TYPE_SCALE, CARD_BORDER, pressable, TextGhost, chromePx } from './ui'
+import { wpblFullName } from './constants'
 import { AGATE_SX } from '../ui/card'
 import { byCountry, placeOf } from './derive/hometowns'
 import { buildBracket, championResult } from './derive/bracket'
@@ -33,7 +32,6 @@ import { track, EVENTS } from '../lib/analytics'
 import { isModified } from '../nav'
 
 export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string) => void }) {
-  const dark = useDark()
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [games, setGames] = useState<WpblGame[]>([])
@@ -142,15 +140,13 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
         {loading && (
           <>
             <SectionHeading>The clubs</SectionHeading>
-            <Box aria-hidden sx={CLUB_GRID}>
+            <Box aria-hidden sx={CLUB_TABLE}>
+              <Box sx={CLUB_HEAD}><span>Club</span><span>W–L</span></Box>
               {Array.from({ length: 4 }, (_, i) => (
-                <Box key={i} sx={{ ...CLUB_CARD, bgcolor: 'action.hover' }}>
-                  <Skeleton variant="circular" width={chromePx(36)} height={chromePx(36)} sx={{ flexShrink: 0 }} />
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography sx={CLUB_NAME}><Skeleton width="65%" /></Typography>
-                    <Typography sx={CLUB_RECORD}><Skeleton width="45%" /></Typography>
-                  </Box>
-                  <Box sx={CLUB_CHEVRON}>›</Box>
+                <Box key={i} sx={CLUB_ROW}>
+                  <Skeleton variant="circular" width={chromePx(28)} height={chromePx(28)} sx={{ flexShrink: 0 }} />
+                  <Typography sx={{ ...CLUB_NAME, flex: 1 }}><TextGhost>Los Angeles Nickname</TextGhost></Typography>
+                  <Typography sx={CLUB_RECORD}><TextGhost>10–5</TextGhost></Typography>
                 </Box>
               ))}
             </Box>
@@ -171,28 +167,26 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
         {teams.length > 0 && (
           <>
             <SectionHeading seen="league">The clubs</SectionHeading>
-            <Box sx={CLUB_GRID}>
-              {[...teams].sort((a, b) => a.city.localeCompare(b.city)).map(t => {
+            {/* A RULED TABLE, NOT CARDS. Four bordered cards with a club-color stripe down each
+                left edge read as template filler; a plain list with row rules is how a stat page
+                sets four clubs, and the badge already carries the club's color. Ordered by the
+                regular-season table, city as the tiebreak (and the whole order before a game). */}
+            <Box sx={CLUB_TABLE}>
+              <Box aria-hidden sx={CLUB_HEAD}><span>Club</span><span>W–L</span></Box>
+              {[...teams].sort((a, b) => {
+                const ra = standings.findIndex(x => x.team.id === a.id)
+                const rb = standings.findIndex(x => x.team.id === b.id)
+                return perClub && ra !== rb ? ra - rb : a.city.localeCompare(b.city)
+              }).map(t => {
                 const record = recordOf(t.id)
-                // The club as a block of its own color (Nov 4, 2026), as on Home and the Teams tab
-                // (wpblField). It was an outlined card with the club's color as a left-edge stripe.
-                const field = wpblField(t.id, dark)
                 return (
                   <Box key={t.id} {...link(wpblTeamPath(t, teams))} sx={{
-                    ...FOCUS_RING, ...CLUB_CARD, bgcolor: field.fill,
-                    textDecoration: 'none', color: field.ink,
-                    ...hoverOnly({ filter: 'brightness(1.12)' }),
+                    ...FOCUS_RING, ...CLUB_ROW, ...TAPPABLE,
+                    textDecoration: 'none', color: 'text.primary',
                   }}>
-                    <TeamBadge team={t} size={36} ring={field.ink} onFill />
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography sx={{ ...CLUB_NAME, color: field.ink }}>{wpblFullName(t)}</Typography>
-                      {record && (
-                        <Typography sx={{ ...CLUB_RECORD, color: field.ink }}>
-                          {record} in the regular season
-                        </Typography>
-                      )}
-                    </Box>
-                    <Box aria-hidden sx={{ ...CLUB_CHEVRON, color: field.ink }}>›</Box>
+                    <TeamBadge team={t} size={28} />
+                    <Typography sx={{ ...CLUB_NAME, flex: 1, minWidth: 0 }}>{wpblFullName(t)}</Typography>
+                    <Typography sx={CLUB_RECORD}>{record ?? '—'}</Typography>
                   </Box>
                 )
               })}
@@ -281,16 +275,22 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
 }
 
 // Shared by the loaded blocks and their skeletons, so the two cannot drift apart.
-const CLUB_GRID = { display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } } as const
-const CLUB_CARD = {
-  display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: 1.25,
+// Capped so the record sits near the name on a desktop rather than a screen's width away.
+const CLUB_TABLE = { maxWidth: chromePx(520), mb: 1 } as const
+const CLUB_HEAD = {
+  display: 'flex', justifyContent: 'space-between', px: 1, pb: 0.5,
+  borderBottom: '1px solid', borderColor: 'divider',
+  fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'text.secondary',
 } as const
-const CLUB_NAME = { fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1.2 } as const
-const CLUB_RECORD = { ...AGATE_SX, fontSize: TYPE_SCALE.meta, color: 'text.secondary' } as const
-const CLUB_CHEVRON = { color: 'text.disabled', fontSize: TYPE_SCALE.display } as const
+const CLUB_ROW = {
+  display: 'flex', alignItems: 'center', gap: 1.25, px: 1, py: 1,
+  borderBottom: '1px solid', borderColor: 'divider',
+} as const
+const CLUB_NAME = { fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.3 } as const
+const CLUB_RECORD = { ...AGATE_SX, fontSize: TYPE_SCALE.body, fontWeight: 600 } as const
 const CHIP = {
   display: 'inline-flex', alignItems: 'center', gap: 0.6,
-  px: 1.25, py: 0.55, borderRadius: 999, border: '1px solid',
+  px: 1, py: 0.5, borderRadius: 1, border: '1px solid',
 } as const
 const CHIP_NAME = { fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'inherit' } as const
 const CHIP_COUNT = { fontSize: TYPE_SCALE.meta, fontWeight: 700, fontVariantNumeric: 'tabular-nums' } as const

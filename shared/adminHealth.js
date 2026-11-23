@@ -81,6 +81,29 @@ export const HEARTBEAT_CHECKS = [
   // death there is missed game reminders.
   { job: 'wpbl-game-start', label: 'Game-start push', maxAgeMs: null },
   { job: 'wpbl-recaps-sync', label: 'Recap sync', maxAgeMs: null },
+  // The league news watch runs every 3 hours year-round, so 12h is several missed runs: long
+  // enough to ride out GitHub's schedule slipping, short enough that a dead watcher cannot sit
+  // through an announcement.
+  { job: 'wpbl-news-watch', label: 'News watch', maxAgeMs: 12 * 60 * 60_000 },
+  // The two watchers pg_cron dispatches (every 15 and every 10 minutes), so 3h is a dozen missed
+  // runs: the dispatch token gone, or the workflow disabled. Each reports a source outage as a
+  // failure only after six hours blind, the same line its own Discord notice uses.
+  { job: 'wpbl-instagram-watch', label: 'Instagram watch', maxAgeMs: 3 * 60 * 60_000 },
+  { job: 'wpbl-shop-watch', label: 'Shop watch', maxAgeMs: 3 * 60 * 60_000 },
+  // Hourly on GitHub's own schedule, which this repo gets 5 to 7 times a day with gaps near 8h.
+  { job: 'wpbl-mention-watch', label: 'Mention watch', maxAgeMs: 14 * 60 * 60_000 },
+  // Daily on GitHub's schedule, which runs daily jobs 4 to 11 hours late.
+  { job: 'wpbl-discord-birthdays', label: 'Discord birthdays', maxAgeMs: 36 * 60 * 60_000 },
+  // The R2 storage watch, daily on GitHub's schedule, so the same 36h as the other daily job.
+  { job: 'r2-storage-watch', label: 'R2 storage watch', maxAgeMs: 36 * 60 * 60_000 },
+  // Failure-only: each runs only when there is a game, a final or a new video to post about, so
+  // a quiet offseason month is not a stall.
+  { job: 'wpbl-bluesky-recaps', label: 'Bluesky recaps', maxAgeMs: null },
+  { job: 'wpbl-bluesky-game-start', label: 'Bluesky game start', maxAgeMs: null },
+  { job: 'wpbl-discord-recaps', label: 'Discord recaps', maxAgeMs: null },
+  { job: 'wpbl-discord-highlights', label: 'Discord highlights', maxAgeMs: null },
+  // Failure-only: it runs only when a fan submits or the owner decides, so quiet is normal.
+  { job: 'wpbl-photo-submissions', label: 'Photo submission notices', maxAgeMs: null },
 ]
 
 /** Heartbeat job names written for a failed GitHub Actions run: `workflow:<workflow name>`. */
@@ -168,6 +191,67 @@ export function gameAlerts(games, nowMs) {
     ...alert('game-final-no-box', noBox, 'WPBL final has no box score',
       'is final with no batting lines. Game Center is empty under the score.'),
   ]
+}
+
+// ─── Crashes on readers' screens ───────────────────────────────────────────────
+//
+// AppErrorBoundary records an `app_error` event whenever it draws the error screen, and until
+// Nov 2026 those only reached the /admin briefing, so a deploy that broke a page for every reader
+// would sit there until the owner happened to open it. The pipeline checks above cannot see a
+// page that throws on someone's phone.
+//
+// It pages per MESSAGE, not on a total, because one-off crashes from odd browsers add up over a
+// day without being one problem; a broken deploy throws the same text for everyone who opens the
+// page. Three separate browsers keeps the owner's own phone and laptop from paging alone.
+//
+// Only a production build counts, read as a `build` stamp (runningBuild() answers null off a
+// production bundle). Most of October's error rows came from `npm run dev` on localhost, a
+// half-saved file throwing "is not defined", before track() refused the dev server; those rows
+// carry no build, and anything like them must never page.
+//
+// Stale-build errors never page: they are a reader holding an old tab across a deploy, which
+// staleBuild.ts recovers by reloading. `kind: 'stale'` marks them, and the message test catches
+// the shapes that arrive as `crash` anyway (a canceled vite:preloadError leaves the lazy import
+// resolved to undefined, which React reports as reading `default` of nothing).
+
+export const CRASH_WINDOW_MS = 24 * 60 * 60_000
+export const CRASH_BROWSERS = 3
+
+const STALE_MESSAGE = /dynamically imported module|importing a module script failed|_result\b.*\b(default|undefined)|reading 'default'/i
+
+/**
+ * @param {Array<{ session_id: string, created_at: string,
+ *   props?: { kind?: string, message?: string, build?: string } | null }>} errors
+ *   Recent `app_error` events.
+ * @param {number} nowMs
+ * @returns {HealthAlert[]}
+ */
+export function crashAlerts(errors, nowMs) {
+  /** @type {Map<string, { browsers: Set<string>, builds: Set<string> }>} */
+  const byMessage = new Map()
+  for (const e of errors ?? []) {
+    const p = e.props ?? {}
+    const message = String(p.message ?? '').trim()
+    if (p.kind !== 'crash' || !p.build || !message || STALE_MESSAGE.test(message)) continue
+    if (nowMs - Date.parse(e.created_at) > CRASH_WINDOW_MS) continue
+    const m = byMessage.get(message) ?? { browsers: new Set(), builds: new Set() }
+    m.browsers.add(e.session_id)
+    m.builds.add(p.build)
+    byMessage.set(message, m)
+  }
+  const spikes = [...byMessage].filter(([, m]) => m.browsers.size >= CRASH_BROWSERS)
+    .sort((a, b) => b[1].browsers.size - a[1].browsers.size)
+  if (spikes.length === 0) return []
+  // The messages are the signature: the same bug pages once (the sender's 12h reminder covers
+  // "still crashing"), and a second bug re-pages.
+  const line = ([message, m]) =>
+    `"${message}" on ${m.browsers.size} browsers (${[...m.builds].join(', ')})`
+  return [{
+    key: 'app-crash',
+    signature: spikes.map(([message]) => message).sort().join('|'),
+    title: `Site crashing${spikes.length > 1 ? ` (${spikes.length} errors)` : ''}`,
+    body: `${spikes.slice(0, 3).map(line).join('; ')} in the last 24 hours.`,
+  }]
 }
 
 /**
@@ -301,6 +385,7 @@ export function healthAlerts(rows, nowMs = Date.now()) {
   }
 
   out.push(...gameAlerts(rows?.games, nowMs))
+  out.push(...crashAlerts(rows?.appErrors, nowMs))
 
   return out
 }

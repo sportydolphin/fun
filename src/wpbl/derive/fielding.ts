@@ -2,7 +2,7 @@ import { reOf, type PlayRunValue, type ReTable } from './runExpectancy.ts'
 import { catcherIndex, type CatcherSourceLine } from './catching.ts'
 import { OUTFIELD_ZONES, sprayZone, type SprayZone } from './spray.ts'
 import type { RunnerEvent } from './baserunning.ts'
-import { PITCH_CODES } from '../league.ts'
+import { isPlateAppearance, PITCH_CODES } from '../league.ts'
 import { scopedLines, type SeasonScope, type WpblSeasonGame } from '../season.ts'
 import type { WpblRunValuePlay } from '../types'
 
@@ -409,7 +409,7 @@ export function fieldingLedger(
 
     // Range: a plate appearance that put the ball in play, and the zone it went to.
     const e = p.event_type ?? ''
-    if (p.pitch_sequence && (BIP_OUT.has(e) || BIP_HIT.has(e)) && charged.length === 0) {
+    if (isPlateAppearance(p) && (BIP_OUT.has(e) || BIP_HIT.has(e)) && charged.length === 0) {
       coverage.bip++
       const zone = sprayZone(p.narrative)
       if (zone) {

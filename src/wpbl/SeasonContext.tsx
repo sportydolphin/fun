@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { navigate } from '../nav'
 import type { GameKeyed } from '../league/season.ts'
 import type { WpblGame } from './types'
-import { currentSeason, gamesInSeason, inSeason, seasonsOnRecord } from './season'
+import { currentSeason, seasonCut, seasonGames as seasonSlice, seasonsOnRecord } from './season'
 
 // THE SEASON ON SCREEN, for the whole section.
 //
@@ -18,11 +18,21 @@ import { currentSeason, gamesInSeason, inSeason, seasonsOnRecord } from './seaso
 //
 // WITHOUT A PROVIDER (a test, a card rendered outside the section) it is the current season of the
 // schedule handed in, which is also what a reader who never touches the menu sees.
+//
+// EVERY SEASON AT ONCE (`'all'`, `?season=all`) is a pick only some surfaces can show: the boards
+// that rank lines or players (Find, Bests, Leaders, the Players and Teams tables, Charts), where a
+// career or an all-time record means something. They ask for it with `{ all: true }`; everything
+// else (Standings, a club's page, the run-value models, which are fit to one season's league) reads
+// the pick as the current season, and its menu names that year. Offered only once there are two
+// seasons, since with one it is that season again.
+
+/** A year, or every season at once. */
+export type WpblSeasonPick = number | 'all'
 
 interface SeasonContextValue {
-  /** The year the reader picked, or null for "the current one". */
-  picked: number | null
-  pick: (season: number | null) => void
+  /** The year the reader picked, `'all'` for every season, or null for "the current one". */
+  picked: WpblSeasonPick | null
+  pick: (season: WpblSeasonPick | null) => void
   /** The WHOLE schedule, every year. Held here rather than taken from each caller, because a
    *  caller handed one season's games (a board under Stats gets the cut schedule) would match
    *  every other year's lines to nothing, and `inSeason` counts an unmatched line in the newest
@@ -33,8 +43,8 @@ interface SeasonContextValue {
 const SeasonContext = createContext<SeasonContextValue | null>(null)
 
 export function WpblSeasonProvider({ picked, onPick, schedule, children }: {
-  picked: number | null
-  onPick: (season: number | null) => void
+  picked: WpblSeasonPick | null
+  onPick: (season: WpblSeasonPick | null) => void
   schedule: WpblGame[]
   children: ReactNode
 }) {
@@ -42,9 +52,12 @@ export function WpblSeasonProvider({ picked, onPick, schedule, children }: {
   return <SeasonContext.Provider value={value}>{children}</SeasonContext.Provider>
 }
 
-/** `?season=2026` off the address, or null. Checked against the schedule in useWpblSeason. */
-export function seasonFromSearch(search: string): number | null {
-  const y = Number(new URLSearchParams(search).get('season'))
+/** `?season=2026` (or `?season=all`) off the address, or null. Checked against the schedule in
+ *  useWpblSeason. */
+export function seasonFromSearch(search: string): WpblSeasonPick | null {
+  const raw = new URLSearchParams(search).get('season')
+  if (raw === 'all') return 'all'
+  const y = Number(raw)
   return Number.isInteger(y) && y > 1900 ? y : null
 }
 
@@ -61,7 +74,7 @@ export function WpblAddressSeasonProvider({ schedule, children }: { schedule: Wp
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
-  const onPick = useCallback((season: number | null) => {
+  const onPick = useCallback((season: WpblSeasonPick | null) => {
     const q = new URLSearchParams(window.location.search)
     if (season == null) q.delete('season'); else q.set('season', String(season))
     const s = q.toString()
@@ -71,14 +84,21 @@ export function WpblAddressSeasonProvider({ schedule, children }: { schedule: Wp
 }
 
 export interface WpblSeasonView {
-  /** The year on screen. Null only before the schedule has a single dated game. */
+  /** The year on screen. Null before the schedule has a single dated game, and on a surface showing
+   *  every season (`all`), where a per-season read given null reads them all (fetchWpblPlayLog). */
   season: number | null
+  /** This surface shows every season: it asked for `{ all: true }` and the reader picked it. `cut`
+   *  then keeps every row and `seasonGames` is the whole schedule. */
+  all: boolean
+  /** The reader picked every season, whether or not this surface can show it: what the menu says. */
+  allPicked: boolean
   /** The year a reader who never picks sees: the newest with a final (see currentSeason). */
   current: number | null
   /** Every year on offer, newest first. One entry means there is no choice to draw. */
   seasons: number[]
-  /** Pick a year; the current one (or null) clears the pick, so the address loses `?season=`. */
-  pick: (season: number | null) => void
+  /** Pick a year or `'all'`; the current year (or null) clears the pick, so the address loses
+   *  `?season=`. */
+  pick: (season: WpblSeasonPick | null) => void
   /** Cut any game-keyed rows (lines, plays, pitches) to the year on screen. */
   cut: <T extends GameKeyed>(rows: T[]) => T[]
   /** That year's schedule, for whatever measures a season by its games (standings, the bars). */
@@ -102,28 +122,34 @@ export function useWpblSeason(fallback: WpblGame[] = NO_GAMES, opts?: {
   /** Always the current season, whatever the reader picked: Home, which is "now" on every visit,
    *  and the cards on it, which a year picked on Stats must not rewind. */
   current?: boolean
+  /** This surface can show every season at once, so a pick of `'all'` is honored here. */
+  all?: boolean
 }): WpblSeasonView {
   const ctx = useContext(SeasonContext)
   const games = ctx?.schedule ?? fallback
   const seasons = useMemo(() => seasonsOnRecord(games), [games])
   const current = seasons.length ? currentSeason(games) : null
+  // Every season is a pick only with two of them; with one it is that season, under its year.
+  const allPicked = !opts?.current && ctx?.picked === 'all' && seasons.length > 1
+  const all = allPicked && !!opts?.all
   // A pick the schedule does not hold (a stale `?season=1999`, or a year read before the schedule
   // landed) falls back to the current year rather than drawing an empty one.
-  const season = !opts?.current && ctx?.picked != null && seasons.includes(ctx.picked) ? ctx.picked : current
+  const picked = ctx?.picked
+  const season = all ? null
+    : !opts?.current && typeof picked === 'number' && seasons.includes(picked) ? picked : current
   const rawPick = ctx?.pick ?? noPick
-  const pick = useCallback((s: number | null) => rawPick(s === current ? null : s), [rawPick, current])
+  const pick = useCallback((s: WpblSeasonPick | null) => rawPick(s === current ? null : s), [rawPick, current])
   const cut = useCallback(
     <T extends GameKeyed>(rows: T[]): T[] => {
-      if (season == null) return rows
       // The same array back when nothing was dropped, which is every read while the league has one
-      // season: several derivations (the win model, run expectancy) are cached on the identity of
-      // the shared league arrays, and a fresh copy of the same rows would miss every one of them.
-      const out = inSeason(rows, games, season)
-      return out.length === rows.length ? rows : out
+      // season: several derivations (the win model, run expectancy, the play-log lines) are cached
+      // on the identity of the shared league arrays, and a fresh copy of the same rows would miss
+      // every one of them.
+      return season == null ? rows : seasonCut(rows, games, season)
     },
     [games, season])
   const seasonGames = useMemo(
-    () => (season == null ? games : gamesInSeason(games, season)),
+    () => (season == null ? games : seasonSlice(games, season)),
     [games, season])
-  return { season, current, seasons, pick, cut, seasonGames, schedule: games }
+  return { season, all, allPicked, current, seasons, pick, cut, seasonGames, schedule: games }
 }

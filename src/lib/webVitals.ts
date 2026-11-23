@@ -34,7 +34,7 @@ const section = (p: string) => (p.startsWith('/mlb') ? 'mlb' : p.startsWith('/wp
 
 /** A detail page's slug is not the page: every player would be a row of its own on /admin, each
  *  with one load. The collections that take an id collapse to `:id`; everything else is its path. */
-const DETAIL = new Set(['players', 'games', 'teams', 'compare', 'postseason'])
+const DETAIL = new Set(['players', 'games', 'teams', 'compare', 'postseason', 'watch'])
 export function routeOf(pathname: string): string {
   const parts = pathname.split('/').filter(Boolean)
   if (parts.length > 2 && DETAIL.has(parts[1])) return `/${parts[0]}/${parts[1]}/:id`

@@ -27,12 +27,14 @@
  *   node --env-file=.env scripts/sync-mlb-lines.mjs                  this season, new and recent
  *   node --env-file=.env scripts/sync-mlb-lines.mjs --season 2026 --all
  *   node --env-file=.env scripts/sync-mlb-lines.mjs --dry-run --limit 5
+ *   node --env-file=.env scripts/sync-mlb-lines.mjs --season 2026 --all --unfreeze   undo a freeze
  *
  * Required env: SUPABASE_DB_URL (not needed for --dry-run).
  */
 
 import pg from 'pg'
 import { pathToFileURL } from 'node:url'
+import { MLB_LINES_FROZEN_THROUGH } from '../shared/mlbLinesArchive.js'
 
 const API = 'https://statsapi.mlb.com/api/v1'
 /** Regular season and the four postseason rounds. Spring training and exhibitions are not MLB's record. */
@@ -221,6 +223,14 @@ async function main() {
   const all = process.argv.includes('--all')
   const season = Number(argValue('--season') ?? new Date().getUTCFullYear())
   const limit = Number(argValue('--limit') ?? Infinity)
+  // A frozen season's lines live on R2 and its rows were deleted (scripts/freeze-mlb-lines.mjs).
+  // A pass with --all, or a scorer's change in the last three days, would write them back into
+  // Postgres beside the file, where no board reads them and the space is spent again. In November
+  // the default season is the frozen one, and a manual run of the workflow goes through.
+  if (season <= MLB_LINES_FROZEN_THROUGH && !process.argv.includes('--unfreeze')) {
+    console.log(`${season} is frozen (MLB_LINES_FROZEN_THROUGH = ${MLB_LINES_FROZEN_THROUGH}); nothing to do. --unfreeze reads it back.`)
+    return
+  }
   if (!dryRun && !process.env.SUPABASE_DB_URL) {
     console.error('Set SUPABASE_DB_URL before running (or pass --dry-run)')
     process.exit(1)

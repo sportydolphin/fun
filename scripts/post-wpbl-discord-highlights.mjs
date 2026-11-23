@@ -50,6 +50,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
+import { runWithHeartbeat } from '../shared/heartbeat.js'
 // supabase-js builds a realtime client even though nothing here subscribes, and Node < 22
 // has no global WebSocket, so it needs `ws` handed to it or it throws at construction.
 // Same line, same reason, as the sibling Discord/reminder scripts.
@@ -384,5 +385,5 @@ async function main() {
 }
 
 if (IS_ENTRYPOINT) {
-  main().catch(err => { console.error('❌ ', err.message); process.exit(1) })
+  runWithHeartbeat(supabase, 'wpbl-discord-highlights', main, { skip: DRY_RUN || !SERVICE_KEY }).catch(err => { console.error('❌ ', err.message); process.exit(1) })
 }

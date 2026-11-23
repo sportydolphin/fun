@@ -10,7 +10,7 @@ import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine,
 //     roster is not asked to tap past a pill that does nothing,
 //   - a cameo does not earn a tab, it folds into the primary pane as a line,
 //   - only the active role is mounted, which is the whole point of the change,
-//   - fielding is one small line under a heading, last among the stats, not a hero card.
+//   - fielding is the last of the full season tables, behind All stats, not a section of its own.
 //
 // The ranking maths is covered in percentiles.test.ts. Layout is not tested here and cannot
 // be: jsdom does no layout, so the clipping this replaced was measured in a real browser.
@@ -64,7 +64,7 @@ const lines = { batting: [] as WpblBattingLine[], pitching: [] as WpblPitchingLi
 
 // The fan-photo strip is owner-gated through useAuth, and this page renders with no AuthProvider.
 vi.mock('../fanPhotoGate', () => ({ useCanEditFanPhotos: () => false }))
-// The World Cup preview is owner-gated the same way (worldCupPreview.test.tsx covers it).
+// Any other owner-gated piece of the page draws as it would for a reader.
 vi.mock('../../lib/admin', () => ({ useIsAdmin: () => false }))
 
 vi.mock('../api', async (importOriginal) => {
@@ -224,6 +224,8 @@ describe('PlayerDetail: when the role tabs exist', () => {
     await waitFor(() => expect(pitchingShown()).toBe(true))
     expect(rolePills()).toHaveLength(0)
     expect(screen.getByText('Also batted')).toBeInTheDocument()
+    // Four at-bats are a count, not a slash line: ".250/.250/.250, 1-for-4" said one fact four times.
+    expect(screen.getByText('1-for-4')).toBeInTheDocument()
     expect(screen.queryByText('Two-way')).not.toBeInTheDocument()
   })
 
@@ -290,33 +292,42 @@ describe('PlayerDetail: what the tabs actually do', () => {
 })
 
 describe('PlayerDetail: fielding', () => {
-  // A one-row table, shown whole, since Oct 2026: it was a run-on sentence of figures, and before
-  // that a bordered panel that hid PO, A and DP behind a tap.
-  it('shows the whole line as a table under a heading, with nothing to open', async () => {
-    lines.batting = [bat({ ab: 30, h: 12, tb: 18 })]
-    lines.fielding = [field({ po: 9, a: 10, e: 1, dp: 2 })]
-    show(player())
-
-    await waitFor(() => expect(battingShown()).toBe(true))
-    expect(screen.getByText('Fielding')).toBeInTheDocument()
+  // One more season table behind All stats since Nov 2026. It was a section of its own after the
+  // charts, a one-row table at its own width, far down a phone's sheet.
+  const openAll = () => fireEvent.click(screen.getByRole('button', { name: 'All stats' }))
+  const closeAll = () => fireEvent.click(screen.getByRole('button', { name: 'Fewer stats' }))
+  const fieldingBy = () => {
     const table = screen.getByText('FPCT').closest('table')!
     const heads = Array.from(table.querySelectorAll('th')).map(th => th.textContent)
     const cells = Array.from(table.querySelectorAll('td')).map(td => td.textContent)
-    const by = Object.fromEntries(heads.map((h, i) => [h, cells[i]]))
-    expect(by).toMatchObject({ E: '1', PO: '9', A: '10', DP: '2' })
-    expect(heads).not.toContain('PB')
-    expect(screen.queryByRole('button', { name: /fielding/i })).not.toBeInTheDocument()
-  })
+    return { heads, by: Object.fromEntries(heads.map((h, i) => [h, cells[i]])) }
+  }
 
-  // What she did, then how, then the least reliable number: the game log leads the blocks
-  // under the season line and fielding closes them. See desktopRoleBlock.
-  it('comes after the game log', async () => {
+  it('is a season table behind All stats, after Advanced', async () => {
     lines.batting = [bat({ ab: 30, h: 12, tb: 18 })]
-    lines.fielding = [field({ po: 9, a: 10 })]
+    lines.fielding = [field({ po: 9, a: 10, e: 1, dp: 2 })]
     show(player())
     await waitFor(() => expect(battingShown()).toBe(true))
-    const log = screen.getByText('Game log'), fielding = screen.getByText('Fielding')
-    expect(log.compareDocumentPosition(fielding) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByText('Fielding')).not.toBeInTheDocument()
+    openAll()
+    const { heads, by } = fieldingBy()
+    expect(by).toMatchObject({ E: '1', PO: '9', A: '10', DP: '2' })
+    expect(heads[0]).toBe('Season')
+    expect(heads).not.toContain('PB')
+    const adv = screen.getByText('Advanced'), fielding = screen.getByText('Fielding')
+    expect(adv.compareDocumentPosition(fielding) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    closeAll()
+  })
+
+  // A pitcher who never bats fields as a pitcher: the table rides the only role there is.
+  it('sits under pitching for a pitcher who does not bat', async () => {
+    lines.pitching = [pit()]
+    lines.fielding = [field({ po: 2, a: 5 })]
+    show(player({ position: 'RHP' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'All stats' })).toBeInTheDocument())
+    openAll()
+    expect(screen.getByText('FPCT')).toBeInTheDocument()
+    closeAll()
   })
 
   it('renders nothing at all for a player with no defensive record', async () => {
@@ -361,7 +372,7 @@ describe('PlayerDetail: league ranks', () => {
     expect(headsOf()).toEqual(['Season', 'G', 'PA', 'HR', 'AVG', 'OBP', 'SLG', 'OPS', 'wOBA', 'wRC+', 'WAR'])
     const rows = Array.from(lineTable()?.querySelectorAll('tbody tr') ?? [])
     expect(rows[0].querySelector('td')?.textContent).toBe('2026')
-    expect(rows[1].querySelector('td')?.textContent).toBe('League avg')
+    expect(rows[1].querySelector('td')?.textContent).toBe('Avg')
   })
 
   // The rest of the line is one tap away, and the choice is the reader's: kept for the next card.
@@ -436,21 +447,15 @@ describe('PlayerDetail: league ranks', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Fewer stats' }))
   })
 
-  // The retraction has to reach the reader who only looks at the big number, so the sample
-  // line under the rates names the gap too. Pinned because the two are computed in different
-  // places (`battingMeta` and `RankProgress`) off the same `ranks.qualifiers`, and they must be
-  // the SAME number: the sample line printed the threshold while the rail printed the distance
-  // to it, so a player one plate appearance short of the leaderboard was told "29 PA to
-  // qualify" under her headline and "1 more PA" at the foot of the rail.
-  it('names the same shortfall on the sample line as in the rail', async () => {
+  // The caption under the rates says only that the sample is small; the distance to the bar is
+  // the rail's, once. Both used to print it, and the two were computed in different places.
+  it('flags a player under the bar as a small sample and leaves the gap to the rail', async () => {
     lines.batting = [bat({ ab: 4, h: 2, tb: 3 })]
     show(player())
     await waitFor(() => expect(battingShown()).toBe(true))
-    const onHero = screen.getAllByText(/\d+ PA from qualifying/)
-    expect(onHero.length).toBeGreaterThan(0)
-    const gap = (el: HTMLElement, re: RegExp) => (el.textContent ?? '').match(re)?.[1]
-    const inRail = screen.getByText(/more PA to rank against qualified batters/i)
-    expect(gap(onHero[0], /(\d+) PA from qualifying/)).toBe(gap(inRail, /(\d+) more PA/))
+    expect(screen.getAllByText(/Small sample/).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/from qualifying/)).toBeNull()
+    expect(screen.getByText(/more PA to rank against qualified batters/i)).toBeTruthy()
   })
 
   // No season row under the log on the regular season: the season line a few inches above is the

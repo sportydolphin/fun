@@ -392,6 +392,9 @@ export const AppThemeProvider: React.FC<AppThemeProviderProps> = ({ children }) 
     root.style.setProperty('--bg-color', surfaces.page);
     root.style.setProperty('--card-bg', surfaces.card);
     root.style.setProperty('--sd-card-border', surfaces.cardBorder);
+    // The browser's bar over the page, which index.html set for the first paint: without this a
+    // switch of theme left it the old page's color.
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', surfaces.page);
   }, [surfaces.page, surfaces.card, surfaces.cardBorder]);
 
   const setThemePref = (p: ThemePref) => {

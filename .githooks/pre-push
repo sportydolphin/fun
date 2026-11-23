@@ -1,0 +1,23 @@
+#!/bin/sh
+# The fast half of CI before a branch leaves the machine: the typecheck (about 2s with tsgo) and
+# the tests that import a changed file (`vitest related`). A red `check` costs a CI run and a
+# round trip; this catches the common case locally. Lint, the full suite and the layout sweep
+# stay CI's.
+#
+# Skipped in CI: `npm ci` runs `prepare`, which points git at these hooks, so the scheduled jobs
+# that push generated files would otherwise typecheck on every push. SKIP_PREPUSH=1 or
+# `git push --no-verify` skips it by hand.
+[ -n "$CI" ] && exit 0
+[ -n "$SKIP_PREPUSH" ] && exit 0
+[ -d node_modules ] || exit 0
+
+base=$(git merge-base HEAD origin/main 2>/dev/null) || exit 0
+changed=$(git diff --name-only --diff-filter=ACMR "$base" HEAD -- 'src/*' 'shared/*' | grep -E '\.(ts|tsx|js|mjs)$')
+
+echo "pre-push: typecheck (SKIP_PREPUSH=1 skips)"
+npm run --silent typecheck || exit 1
+
+[ -z "$changed" ] && exit 0
+echo "pre-push: tests related to $(echo "$changed" | wc -l | tr -d ' ') changed file(s)"
+# shellcheck disable=SC2086
+exec npx vitest related --run --passWithNoTests $changed

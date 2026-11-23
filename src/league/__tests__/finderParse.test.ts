@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { nameWords, parseClubPage, parseGameQuery, pickGames, parseCompareText, typedPart, typedSeason, parseFinderText, parseLeaderText, type FinderClubAlias } from '../finderParse'
+import { finderAskReadings } from '../finderAsk'
+import { nameWords, parseClubPage, parseGameQuery, pickGames, parseCompareText, typedPart, typedSeason, parseFinderText, parseLeaderText, parseLeagueText, typedStat, type FinderClubAlias } from '../finderParse'
 
 const CLUBS: FinderClubAlias[] = [
   { id: 'CHC', names: ['Cubs', 'Chicago'] },
@@ -12,6 +13,20 @@ const CLUBS: FinderClubAlias[] = [
 const first = (t: string) => parseFinderText(t, CLUBS)[0]
 
 describe('parseFinderText', () => {
+  it('reads one count with no number as at least one, each its own plate appearance where the log lists them', () => {
+    const clubs = [{ id: 'BOS', names: ['BOS', 'Boston', 'Hunters'] }]
+    const [hit] = parseFinderText('hunters doubles', clubs, ['hitting', 'pitching'], { plays: true })
+    expect(hit).toMatchObject({ side: 'hitting', per: 'pa', teamId: 'BOS', bare: true, conditions: [{ field: '2b', op: 'gte', value: 1 }] })
+    // Without the log, and for a stat no plate appearance records, the games.
+    expect(parseFinderText('hunters doubles', clubs)[0]).toMatchObject({ per: 'game', bare: true })
+    expect(parseFinderText('hunters stolen bases', clubs, ['hitting'], { plays: true })[0]).toMatchObject({ per: 'game', bare: true })
+    // A rate has no "any of it", and two stats could mean either.
+    expect(parseFinderText('hunters avg', clubs)).toEqual([])
+    expect(parseFinderText('hunters doubles and triples', clubs)).toEqual([])
+    // A number is still the number.
+    expect(parseFinderText('hunters 2 doubles', clubs)[0].bare).toBeUndefined()
+  })
+
   it('reads a bare count as at least, and leans strikeouts toward the pitcher', () => {
     const r = parseFinderText('5 strikeouts', CLUBS).filter(x => x.per === 'game')
     expect(r.map(x => x.side)).toEqual(['pitching', 'hitting'])
@@ -90,7 +105,6 @@ describe('parseFinderText', () => {
     expect(parseFinderText('Kelsie Whitmore', CLUBS)).toEqual([])
     expect(parseFinderText('7', CLUBS)).toEqual([])
     expect(parseFinderText('a b', CLUBS)).toEqual([])
-    expect(parseFinderText('no hitter', CLUBS)).toEqual([])
     expect(parseFinderText('', CLUBS)).toEqual([])
   })
 
@@ -269,6 +283,21 @@ describe('nameWords', () => {
     expect(nameWords('most home runs')).toBeNull()
   })
 
+  // Searched as names, these reached a player through the typo pass (Nov 10, 2026).
+  it('keeps baseball words that are no stat out of the name', () => {
+    expect(nameWords('bunt hits')).toBeNull()
+    expect(nameWords('late innings')).toBeNull()
+    expect(nameWords('average runs per game')).toBeNull()
+    // The Nov 20, 2026 probe: each reached a World Cup player or Team USA the same way.
+    for (const t of ['triple play', 'highest wpa play', 'triple crown', 'home runs by month', 'most hits in a week', 'team ops', 'team defense', 'record in extra innings'])
+      expect(nameWords(t), t).toBeNull()
+    expect(nameWords('hunters runs per game')).toBe('hunters')
+  })
+
+  it('reads "era" as the stat, never one earned run', () => {
+    expect(parseFinderText('era vs queens', [{ id: 'LA', names: ['Queens'] }], ['hitting', 'pitching'], { plays: true })).toEqual([])
+  })
+
   it('leaves a plain name, and initials, as typed', () => {
     expect(nameWords('Kelsie Whitmore')).toBeNull()
     expect(nameWords('R.J. Smith')).toBeNull()
@@ -433,5 +462,233 @@ describe('parseFinderText on a section with a Fielding side', () => {
   it('leaves the hitting and pitching readings as they were', () => {
     expect(read('5 strikeouts').filter(x => x.per === 'game').map(x => x.side)).toEqual(['pitching', 'hitting'])
     expect(read('4-for-4').map(x => x.side)).toEqual(['hitting'])
+  })
+})
+
+describe('parseFinderText: the inning grain', () => {
+  const inn = (t: string) => parseFinderText(t, CLUBS, ['hitting', 'pitching', 'fielding'], { plays: true })
+
+  it('reads "in an inning" as one pitcher half-inning, and only that', () => {
+    for (const t of ['3 strikeouts in an inning', '3 k in one inning', 'pitchers with 3 strikeouts in a single inning', '3+ ks per inning']) {
+      const r = inn(t)
+      // A pitcher's first: a strikeout leans that way. A club striking out three times is the other reading.
+      expect(r.map(x => [x.side, x.per])[0], t).toEqual(['pitching', 'inning'])
+      expect(r.every(x => x.per === 'inning'), t).toBe(true)
+      expect(r[0].conditions, t).toEqual([{ field: 'so', op: 'gte', value: 3 }])
+    }
+  })
+
+  it('reads a bare "inning" after a count as the grain, the way a search box is typed', () => {
+    for (const t of ['3 strikeouts inning', '3 strikeout innings', '3 k inning', 'three strikeout inning', '3 strikeouts in inning']) {
+      const r = inn(t)
+      expect(r[0], t).toMatchObject({ side: 'pitching', per: 'inning', conditions: [{ field: 'so', op: 'gte', value: 3 }], ignored: [] })
+    }
+    expect(inn('2 hr inning')[0]).toMatchObject({ side: 'hitting', per: 'inning' })
+  })
+
+  it('leaves innings pitched alone', () => {
+    const r = inn('5 innings no walks')
+    expect(r[0]).toMatchObject({ side: 'pitching', per: 'game' })
+    expect(r[0].conditions).toContainEqual({ field: 'ip', op: 'gte', value: 15 })
+    expect(inn('one inning no hits').every(x => x.per !== 'inning')).toBe(true)
+    expect(inn('6 innings pitched')[0]).toMatchObject({ per: 'game', conditions: [{ field: 'ip', op: 'gte', value: 18 }] })
+    expect(inn('3 strikeouts in 5 innings')[0]).toMatchObject({ per: 'game' })
+    expect(inn('6.1 innings')[0].per).not.toBe('inning')
+  })
+
+  it('reads the named innings as their conditions', () => {
+    expect(inn('immaculate inning')[0]).toMatchObject({ per: 'inning', conditions: [{ field: 'so', op: 'gte', value: 3 }, { field: 'pitches', op: 'lte', value: 9 }] })
+    expect(inn('immaculate innings vs SF')[0]).toMatchObject({ per: 'inning', oppId: 'SF' })
+    expect(inn('1-2-3 innings')[0].conditions.map(c => c.field)).toEqual(['bf', 'outs', 'baserunners'])
+    expect(inn('1 2 3 hits')).not.toContainEqual(expect.objectContaining({ per: 'inning' }))
+  })
+
+  it('offers nothing an inning cannot hold, and nothing to a section without the grain', () => {
+    // Three hits in an inning is a club's inning first and a pitcher's three allowed second.
+    expect(inn('3 hits in an inning').map(x => [x.side, x.per])).toEqual([['hitting', 'inning'], ['pitching', 'inning']])
+    expect(inn('era under 2 in an inning')).toEqual([])
+    expect(parseFinderText('3 strikeouts in an inning', CLUBS)).toEqual([])
+  })
+})
+
+describe('parseFinderText: the plate-appearance grain', () => {
+  const pa = (t: string) => parseFinderText(t, CLUBS, ['hitting', 'pitching', 'fielding'], { plays: true })
+  const best = (t: string) => pa(t)[0]
+
+  it('reads a count, the bases, the outs and a walk-off as one trip to the plate', () => {
+    expect(best('home run on 0-2')).toMatchObject({ side: 'hitting', per: 'pa', conditions: [
+      { field: 'balls', op: 'eq', value: 0 }, { field: 'scount', op: 'eq', value: 2 }, { field: 'hr', op: 'gte', value: 1 }] })
+    expect(best('strikeouts on a full count')).toMatchObject({ side: 'pitching', per: 'pa' })
+    expect(best('bases loaded walks').conditions).toEqual([{ field: 'on', op: 'eq', value: 3 }, { field: 'bb', op: 'gte', value: 1 }])
+    expect(best('grand slams').conditions).toEqual([{ field: 'hr', op: 'gte', value: 1 }, { field: 'on', op: 'eq', value: 3 }])
+    expect(best('walk-off hits').conditions).toEqual([{ field: 'walkoff', op: 'eq', value: 1 }, { field: 'h', op: 'gte', value: 1 }])
+    expect(best('2-out hits').conditions).toEqual([{ field: 'paouts', op: 'eq', value: 2 }, { field: 'h', op: 'gte', value: 1 }])
+  })
+
+  it('reads a pitch count on one at-bat, either side', () => {
+    expect(pa('10-pitch at-bats').map(r => [r.side, r.per])).toEqual([['hitting', 'pa'], ['pitching', 'pa']])
+    expect(best('10 pitch at bats').conditions).toEqual([{ field: 'pitches', op: 'gte', value: 10 }])
+    expect(best('8-pitch walks').conditions).toEqual([{ field: 'pitches', op: 'gte', value: 8 }, { field: 'bb', op: 'gte', value: 1 }])
+    expect(best('pitchers allowing 10 pitch at-bats')).toMatchObject({ side: 'pitching' })
+  })
+
+  it('leaves the game questions it looks like alone', () => {
+    expect(best('100 pitches')).toMatchObject({ side: 'pitching', per: 'game' })
+    expect(pa('100 pitches').every(r => r.side === 'pitching')).toBe(true)
+    expect(best('2 walks')).toMatchObject({ per: 'game' })
+    expect(best('4 for 4')).toMatchObject({ per: 'game' })
+  })
+
+  it('offers nothing to a section without the grain, or to the glove', () => {
+    expect(parseFinderText('home run on 0-2', CLUBS)).toEqual([])
+    // A word it cannot use is said back, as any unread word is, and no fielding reading is offered.
+    expect(pa('errors on 0-2').every(r => r.side !== 'fielding' && r.ignored.includes('errors'))).toBe(true)
+    expect(pa('home run on 0-2 in an inning')).toEqual([])
+  })
+})
+
+describe('parseFinderText: situations and the inning in words', () => {
+  const wpbl = (t: string) => parseFinderText(t, CLUBS, ['hitting', 'pitching', 'fielding'], { plays: true, regulationInnings: 7 })
+  const best = (t: string) => wpbl(t)[0]
+  const conds = (t: string) => best(t)?.conditions.map(c => `${c.field}.${c.op}.${c.value}`)
+
+  it('reads runners in scoring position and empty bases', () => {
+    expect(best('hits with runners in scoring position')).toMatchObject({ side: 'hitting', per: 'pa' })
+    expect(conds('hits with risp')).toEqual(['risp.eq.1', 'h.gte.1'])
+    expect(conds('home runs with the bases empty')).toEqual(['on.eq.0', 'hr.gte.1'])
+    expect(conds('walks with runners on')).toEqual(['on.gte.1', 'bb.gte.1'])
+  })
+
+  it('reads which inning, and picks the grain from what is beside it', () => {
+    expect(best('3 strikeouts in the 7th')).toMatchObject({ side: 'pitching', per: 'inning' })
+    expect(conds('3 strikeouts in the 7th')).toEqual(['inn.eq.7', 'so.gte.3'])
+    expect(best('home runs in the 1st inning')).toMatchObject({ side: 'hitting', per: 'pa' })
+    expect(conds('home runs in the first inning')).toEqual(['inn.eq.1', 'hr.gte.1'])
+    expect(conds('strikeouts in the 5th or later')).toEqual(['inn.gte.5', 'so.gte.1'])
+    expect(conds('hits after the 6th')).toEqual(['inn.gte.7', 'h.gte.1'])
+    expect(conds('walks before the 3rd')).toEqual(['inn.lte.2', 'bb.gte.1'])
+  })
+
+  it('takes extra innings from the league', () => {
+    expect(conds('home runs in extra innings')).toEqual(['inn.gte.8', 'hr.gte.1'])
+    expect(parseFinderText('home runs in extras', CLUBS, ['hitting', 'pitching'], { plays: true })[0].conditions[0])
+      .toEqual({ field: 'inn', op: 'gte', value: 10 })
+  })
+
+  it('leaves innings pitched alone, and offers MLB nothing', () => {
+    expect(best('7 innings no walks')).toMatchObject({ per: 'game' })
+    expect(parseFinderText('home runs in the 7th', CLUBS)).toEqual([])
+  })
+})
+
+describe('parseFinderText: a club half-inning', () => {
+  const wpbl = (t: string) => parseFinderText(t, CLUBS, ['hitting', 'pitching', 'fielding'], { plays: true, regulationInnings: 7 })
+  const read = (t: string) => wpbl(t).map(r => [r.side, r.per, r.conditions.map(c => `${c.field}.${c.op}.${c.value}`).join(' ')])
+
+  it('reads big innings on either side, the club first', () => {
+    expect(read('5-run innings')).toEqual([['hitting', 'inning', 'r.gte.5'], ['pitching', 'inning', 'r.gte.5']])
+    expect(read('innings with 4+ runs')[0]).toEqual(['hitting', 'inning', 'r.gte.4'])
+    expect(read('pitchers allowing 4 run innings')[0]).toEqual(['pitching', 'inning', 'r.gte.4'])
+  })
+
+  it('reads comebacks and rallies as the club alone', () => {
+    expect(read('comeback innings')).toEqual([['hitting', 'inning', 'trail.gte.1 tooklead.eq.1']])
+    expect(read('two-out rallies')).toEqual([['hitting', 'inning', 'r2.gte.2']])
+    expect(read('go-ahead innings vs SF')).toEqual([['hitting', 'inning', 'tooklead.eq.1']])
+    expect(wpbl('go-ahead innings vs SF')[0].oppId).toBe('SF')
+  })
+
+  it('leaves a two-out at-bat to the plate appearance', () => {
+    expect(read('2-out hits')[0]).toEqual(['hitting', 'pa', 'paouts.eq.2 h.gte.1'])
+  })
+})
+
+// The Nov 20, 2026 probe: each opened the leaders, or offered nothing.
+describe('parseLeagueText', () => {
+  it("reads the league's figure, a count per game and the whole line", () => {
+    expect(parseLeagueText('league batting average')).toMatchObject({ alias: { hitting: 'avg' }, kind: 'league' })
+    expect(parseLeagueText('league average era')).toMatchObject({ alias: { pitching: 'era' }, kind: 'league' })
+    expect(parseLeagueText('average runs per game')).toMatchObject({ alias: { hitting: 'r' }, kind: 'perGame' })
+    expect(parseLeagueText('how many home runs were hit')).toMatchObject({ alias: { hitting: 'hr' }, kind: 'league' })
+    expect(parseLeagueText('total home runs 2026')).toMatchObject({ kind: 'league', season: 2026 })
+    expect(parseLeagueText('league averages')).toMatchObject({ alias: null, kind: 'league' })
+  })
+  it('leaves the rankings and a plain stat to the leaders', () => {
+    for (const t of ['league leaders', 'most hr', 'batting average', 'avg', 'era leaders', 'whitmore total hr'])
+      expect(parseLeagueText(t), t).toBeNull()
+    expect(parseLeaderText('league batting average')).toEqual([])
+  })
+})
+
+// The Nov 20, 2026 probe: columns the tables had that no word reached.
+describe('the rest of the columns, by name', () => {
+  it('reads them as rankings and beside a name', () => {
+    expect(parseLeaderText('stolen base percentage')).toMatchObject([{ side: 'hitting', field: 'sbPct' }])
+    expect(parseLeaderText('k/9')).toMatchObject([{ side: 'pitching', field: 'k9' }])
+    expect(parseLeaderText('k/7 leaders')).toMatchObject([{ side: 'pitching', field: 'k9' }])
+    expect(parseLeaderText('lowest bb/9')).toMatchObject([{ side: 'pitching', field: 'bbPct', dir: 'asc' }])
+    expect(parseLeaderText('hr per 9')).toMatchObject([{ side: 'pitching', field: 'hr9' }])
+    expect(parseLeaderText('leverage')).toMatchObject([{ side: 'overall', field: 'pli' }])
+    expect(nameWords('whitmore k/9')).toBe('whitmore')
+  })
+  it('keeps a count of strikeouts a count', () => {
+    expect(parseLeaderText('5 k')).toEqual([])
+    expect(parseLeaderText('9 strikeouts')).toEqual([])
+  })
+})
+
+// The Nov 20, 2026 probe: a kind of player, and a rank asked with no stat.
+describe('the best of a kind, and where a player ranks', () => {
+  it('reads each kind as the column that measures it', () => {
+    expect(parseLeaderText('best baserunner')).toMatchObject([{ side: 'overall', field: 'bsr' }])
+    expect(parseLeaderText('best fielders')).toMatchObject([{ side: 'overall', field: 'fld' }])
+    expect(parseLeaderText('best hitter 2026')).toMatchObject([{ side: 'hitting', field: 'wrcPlus', season: 2026 }])
+    expect(parseLeaderText('best pitcher')).toMatchObject([{ side: 'overall', field: 'pitWar' }])
+    expect(parseLeaderText('mvp')).toMatchObject([{ side: 'overall', field: 'war' }])
+  })
+  it('answers a rank with no stat as WAR', () => {
+    expect(nameWords('whitmore rank')).toBe('whitmore')
+    expect(typedStat('where does sato rank')).toEqual({ overall: 'war' })
+    expect(typedStat('whitmore hr rank')).toEqual(expect.objectContaining({ hitting: 'hr' }))
+    expect(nameWords('most hr by hitters')).toBeNull()
+  })
+})
+
+describe('kinds of game and stretches', () => {
+  const wpbl = (t: string) => parseFinderText(t, CLUBS, ['hitting', 'pitching', 'fielding'], { plays: true, regulationInnings: 7 })
+
+  it('reads a game that went to extras as the game, and extras beside a play as the inning', () => {
+    expect(wpbl('home runs in extra inning games')[0]).toMatchObject({ extra: true, conditions: [{ field: 'hr', op: 'gte', value: 1 }] })
+    expect(wpbl('2 hits in games that went to extras')[0]).toMatchObject({ extra: true, per: 'game' })
+    expect(wpbl('extra inning wins')[0]).toMatchObject({ extra: true, side: 'pitching' })
+    const play = wpbl('home run in extras')[0]
+    expect(play.extra).toBeUndefined()
+    expect(play.conditions).toContainEqual({ field: 'inn', op: 'gte', value: 8 })
+  })
+
+  it("reads a doubleheader's games, the nightcap and the opener before either", () => {
+    expect(first('3 hits in doubleheaders')).toMatchObject({ dh: 'any' })
+    expect(first('3 hits in game 2 of a doubleheader')).toMatchObject({ dh: 2, ignored: [] })
+    expect(first('10 strikeouts in the nightcap')).toMatchObject({ dh: 2 })
+    expect(first('3 hits in the first game of a twin bill')).toMatchObject({ dh: 1, ignored: [] })
+  })
+
+  it('reads a stretch of N games as the season grain, never the last N', () => {
+    expect(wpbl('5 hr in 10 games')[0]).toMatchObject({ per: 'season', stretch: 10, conditions: [{ field: 'hr', op: 'gte', value: 5 }] })
+    expect(wpbl('8 hits over a 5 game span')[0]).toMatchObject({ per: 'season', stretch: 5 })
+    expect(wpbl('.400 avg in a 10-game stretch')[0]).toMatchObject({ per: 'season', stretch: 10 })
+    expect(wpbl('3 hr in 5 straight games')[0]).toMatchObject({ stretch: 5 })
+    // The last N games is its own cut, and a streak is a game's.
+    expect(wpbl('3 hr in the last 5 games')[0]).toMatchObject({ last: 5 })
+    expect(wpbl('3 hr in the last 5 games')[0].stretch).toBeUndefined()
+    expect(wpbl('10 game hitting streak')[0].stretch).toBeUndefined()
+  })
+
+  it('ranks the most over a stretch, and never reads it as a one-game record', () => {
+    const asks = finderAskReadings('most hr in 5 games', CLUBS, ['hitting', 'pitching'], { plays: true, regulationInnings: 7 })
+    expect(asks[0]).toMatchObject({ per: 'season', stretch: 5, rank: { lead: 'Most', field: 'hr' } })
+    expect(asks.some(a => a.per === 'game')).toBe(false)
+    expect(finderAskReadings('best avg over 10 games', CLUBS, ['hitting'], {})[0]).toMatchObject({ stretch: 10, rank: { lead: 'Highest', field: 'avg' } })
+    expect(finderAskReadings('most strikeouts in extra inning games', CLUBS, ['hitting', 'pitching'], {})[0]).toMatchObject({ per: 'season', extra: true })
   })
 })

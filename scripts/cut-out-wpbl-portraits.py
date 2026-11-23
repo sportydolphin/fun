@@ -16,8 +16,10 @@ type checker or a test that only counts files, which is why it sat there for mon
 IN PLACE, ON THE SOURCE. It keys art/wpbl-portraits/<slug>.webp, the photo as it came in, and
 scripts/frame-wpbl-portraits.py builds the bundled 512 from that (since Nov 2026; before then
 this keyed the bundled file itself). There is no upstream to re-fetch, and git is the only copy
-of what went in. So the pass is idempotent by construction (a file that already carries alpha is
-skipped, not re-keyed) and `--check` exists to see the list before anything is written.
+of what went in. (A newer photo from the league comes in through wpbl-portraits.py, which
+borrows `alpha` from this file.) So the pass is idempotent by construction (a file that already
+carries alpha is skipped, not re-keyed) and `--check` exists to see the list before anything is
+written.
 
 WHY A THRESHOLD AND NOT rembg. A segmentation model is the right tool when the background is a
 scene, which is what the manager script is up against. These are seamless white, and against

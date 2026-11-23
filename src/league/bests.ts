@@ -47,6 +47,9 @@ export interface BestRow<P extends LeaguePlayer = LeaguePlayer, G extends League
    *  league playing 30 games ties constantly, the strikeout record is held jointly, and a board
    *  numbering those 1, 2 would assert an order the numbers do not support. */
   rank: number
+  /** Another row shares this rank, drawn "T-2" as the leader cards draw it. Counts the rows past
+   *  the cap too: a last row tied with ones counted under it is still a tie. */
+  tied: boolean
   value: number
   /** The value as drawn. Separate from `value` because innings are stored in outs. */
   display: string
@@ -112,7 +115,9 @@ const HIT_CATS: Category<BattingGameLine>[] = [
       .filter(Boolean).join(', '),
   },
   {
-    key: 'rbi', label: 'Runs batted in', unit: 'RBI',
+    // "RBIs", the leader card's title (MLB's `leaderLabel`), so one stat reads the same on Leaders
+    // and Bests beside it.
+    key: 'rbi', label: 'RBIs', unit: 'RBI',
     value: l => (l.rbi > 0 ? l.rbi : null),
     tiebreak: l => l.tb,
     detail: l => [`${l.h}-for-${l.ab}`, l.hr > 0 && plural(l.hr, 'HR', 'HR')].filter(Boolean).join(', '),
@@ -229,6 +234,7 @@ function rankRows<L extends RankableLine, P extends LeaguePlayer, G extends Leag
     const player = players.get(line.player_id) ?? null
     out.push({
       rank,
+      tied: false,
       value,
       display: cat.display ? cat.display(value) : String(value),
       detail: cat.detail(line),
@@ -241,6 +247,10 @@ function rankRows<L extends RankableLine, P extends LeaguePlayer, G extends Leag
       key: line.id,
     })
   }
+  out.forEach((r, i) => {
+    r.tied = (i > 0 && out[i - 1].rank === r.rank) || (i + 1 < out.length && out[i + 1].rank === r.rank)
+      || (i === out.length - 1 && more > 0)
+  })
   return { rows: out, more }
 }
 

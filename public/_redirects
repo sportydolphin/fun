@@ -34,12 +34,15 @@
 /wpbl/league/    /wpbl/league     301
 /wpbl/glossary/  /wpbl/glossary   301
 /wpbl/sources/   /wpbl/sources    301
+/wpbl/data/      /wpbl/data       301
+/wpbl/rosters/   /wpbl/rosters    301
 /wpbl/season/    /wpbl/season     301
 /wpbl/season/2026/ /wpbl/season/2026 301
 /wpbl/scorigami/ /wpbl/scorigami  301
 /wpbl/matchups/  /wpbl/matchups   301
 /wpbl/photos/    /wpbl/photos     301
 /wpbl/photos/tag/  /wpbl/photos/tag  301
+/wpbl/photos/submit/  /wpbl/photos/submit  301
 /wpbl/reading/   /wpbl/reading    301
 /wpbl/watch/     /wpbl/watch      301
 /wpbl/compare/   /wpbl/compare    301
@@ -140,6 +143,8 @@
 # Same, and for the same reason: see WPBL_GLOSSARY_PAGE in src/wpbl/routes.ts.
 /wpbl/glossary   /  200
 /wpbl/sources    /  200
+/wpbl/data       /  200
+/wpbl/rosters    /  200
 # The season recap. Not a tab: see WPBL_SEASON_PAGE in src/wpbl/routes.ts. One line per finished
 # season (WPBL_RECAP_YEARS), not a wildcard, so a year with no season answers a real 404.
 /wpbl/season     /  200
@@ -152,6 +157,8 @@
 /wpbl/photos     /  200
 # Naming who is in a fan photo. Not a tab: see WPBL_PHOTO_TAG_PAGE in src/wpbl/routes.ts.
 /wpbl/photos/tag  /  200
+# A fan sending their own photos. Not a tab: see WPBL_PHOTO_SUBMIT_PAGE in src/wpbl/routes.ts.
+/wpbl/photos/submit  /  200
 # One writer's coverage of the league. Not a tab: see WPBL_READING_PAGE in src/wpbl/routes.ts.
 /wpbl/reading    /  200
 # Every video of the league. Not a tab: see WPBL_WATCH_PAGE in src/wpbl/routes.ts.

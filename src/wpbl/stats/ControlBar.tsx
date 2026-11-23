@@ -1,11 +1,12 @@
 import { SHADOW } from '../../ui/color'
 import { ACCENT_EDGE, TYPE_SCALE } from '../../ui/card'
+import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { Box } from '@mui/material'
-import { WPBL_ACCENT } from '../constants'
+import { SheetTrigger } from '../../ui/SheetTrigger'
 import {
-  TeamBadge, PillGroup,
-  CARD_BORDER, pressable, FOCUS_RING } from '../ui'
+  TeamBadge, PillGroup } from '../ui'
 import type { WpblTeam } from '../types'
+import { parsePositionFilter, type PositionFilter, type PositionFilterDef } from '../../league/positionFilter'
 import type { SeasonScope } from '../season'
 import { SeasonMenu } from '../SeasonMenu'
 import type { Col } from '../statColumns'
@@ -20,7 +21,7 @@ import { PINNED_CHROME, fullBleedStickySx } from './layout'
 export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, analysisBoards, source, isNarrow,
   stuckMarkRef, barRef, barStuck, mode, side, pickSide, hasViews, view, switchView, canFilter, sheetOpen,
   setSheetOpen, activeCol, filtersSet, hasPostseason, overall, scope, setScope, teamId, teamChips, filterTeam,
-  qualified, toggleQualified }: {
+  qualified, toggleQualified, pos, posChoices, filterPos, allSeasons = false, multiSeason = false }: {
   newBoards?: ReadonlySet<string>
   activeBoard: string
   selectBoard: (k: string) => void
@@ -49,9 +50,34 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
   teamId: string | null
   teamChips: WpblTeam[]
   filterTeam: (id: string | null) => void
+  /** The position the players are narrowed to on this side, the side's choices, and the setter. */
+  pos: PositionFilter | null
+  posChoices: PositionFilterDef[]
+  filterPos: (p: PositionFilter | null) => void
   qualified: boolean
   toggleQualified: () => void
+  /** The board on screen can show every season at once (see StatsView's `boardTakesAll`). */
+  allSeasons?: boolean
+  /** There is a second season, so the season menu draws (and can fold into the Filters sheet). */
+  multiSeason?: boolean
 }) {
+  // [0] the club chips, [1] the season slice, [2] the side switch's padding, [3] the view switch's
+  // padding, [4] the desktop filters folding into the Filters sheet, [5] the season menu folding into
+  // that sheet too: the order they give way in.
+  const { rowRef, slotRef, fits } = useRowFit(6, !isNarrow)
+  const sidePill = (dense: boolean) => (
+    <PillGroup
+      options={SIDES.map(o => !sideOn(o.value, source, mode)
+        ? { ...o, disabled: true, hint: o.value === 'overall' ? 'Leaders, Players and Run value only' : 'Leaders, Players, Teams and Find only' }
+        : o)}
+      value={side}
+      onChange={v => pickSide(v as Side)}
+      dense={dense}
+    />
+  )
+  const takesSlice = source === 'leaders' || source === 'season' || source === 'bests' || source === 'find'
+  const scopeOff = !takesSlice || overall
+  const scopeHint = !takesSlice ? 'Leaders, Players, Teams, Bests and Find only' : overall ? 'Regular season only' : undefined
   /* ROW ONE: WHICH BOARD. One row of underline tabs, because that is what they are:
       tapping one replaces the screen. Drawn differently from the team filter and the
       qualified toggle on purpose, so a different page and a filter on this one never
@@ -145,8 +171,12 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
           right on Bests and back again on Players, so "where is Hitting/Pitching" had a different
           answer per board; a control the reader reaches for on every board has to be where their
           hand already is. The boards keep their own columns underneath. */}
-      <Box sx={{
-        display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, rowGap: 1, pb: { xs: 1, sm: 1.5 },
+      {/* data-one-row: the layout sweep fails any width at or above the number where this row's
+          children stop sharing one line. See useClubChipsFit for what gives way first. */}
+      {/* NOT ON FIND ON A PHONE, where it would hold nothing: the side switch and the Filters trigger
+          are both in Find's Question card there (StatsView's findFilters). */}
+      <Box ref={rowRef} data-one-row="960" sx={{
+        display: source === 'find' && isNarrow ? 'none' : 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, rowGap: 1, pb: { xs: 1, sm: 1.5 },
       }}>
         {/* Two things, both about the switch staying put as the reader moves between boards on
             a phone.
@@ -161,27 +191,25 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
             algorithm would take any overflow out of this one, and the switch would come out
             narrower on some boards than others. Wrapping is the better failure. */}
         <Box sx={{
-          flexShrink: 0, display: 'flex', alignItems: 'center',
+          flexShrink: 0, display: source === 'find' ? 'none' : 'flex', alignItems: 'center', position: 'relative',
           minHeight: isNarrow ? 34 : undefined,
         }}>
-          <PillGroup
-            options={SIDES.map(o => !sideOn(o.value, source, mode)
-              ? { ...o, disabled: true, hint: o.value === 'overall' ? 'Leaders and Players only' : 'Leaders, Players, Teams and Find only' }
-              : o)}
-            value={side}
-            onChange={v => pickSide(v as Side)}
-            // Four sides at full padding are 273px, and beside the 90px Sort pill that is more than a
-            // 375px phone's 351px row, so from Overall's arrival the pill wrapped onto a row of its
-            // own on Players and Teams: a taller bar pinned over the board, and the board jumping a
-            // row on every move between Leaders and Players.
-            dense={isNarrow}
-          />
+          {/* Four sides at full padding are 273px, and beside the 90px Sort pill that is more than a
+              375px phone's 351px row, so from Overall's arrival the pill wrapped onto a row of its
+              own on Players and Teams: a taller bar pinned over the board, and the board jumping a
+              row on every move between Leaders and Players. Dense on a phone, and on a desktop as
+              the last thing to give way once both selects have (useRowFit). */}
+          {/* Not on Find: a tool's first choice belongs in its form, so Find draws its own
+              Hitting / Pitching / Fielding in the Question card, without an Overall it cannot answer. */}
+          {source === 'find' ? null : isNarrow ? sidePill(true) : <Box ref={slotRef(2)} sx={{ display: 'flex' }}>{sidePill(!fits[2])}</Box>}
         </Box>
         {/* Desktop only. A phone's ranked list shows one stat, so there is nothing to switch; its
             full table carries the same switch in the footer, where the bar has no room left. */}
         {source === 'season' && !isNarrow && hasViews && (
-          <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
-            <PillGroup options={VIEW_OPTIONS} value={view} onChange={v => switchView(v as View)} />
+          /* Dense once both selects and the side switch have given way (slot 3), before the filters
+              fold into their sheet (slot 4). */
+          <Box ref={slotRef(3)} sx={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+            <PillGroup options={VIEW_OPTIONS} value={view} onChange={v => switchView(v as View)} dense={!fits[3]} />
           </Box>
         )}
 
@@ -194,30 +222,15 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
 
             NO SORT ON LEADERS, BESTS OR FIND. Each of their boards ranks by its own stat and says
             so in its own title, so there is no column to choose there. */}
-        {isNarrow && (source === 'season' || canFilter) && (
+        {isNarrow && (source === 'season' || (canFilter && source !== 'find')) && (
           <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-            <Box {...pressable(() => setSheetOpen(source === 'season' ? 'sort' : 'filter'))}
-              aria-haspopup="dialog" aria-expanded={sheetOpen != null}
-              aria-label={source === 'season' ? `Sort ${activeCol.label}${filtersSet ? ', filters on' : ''}` : `Filters${filtersSet ? ', on' : ''}`}
-              sx={{
-                ...FOCUS_RING,
-                display: 'inline-flex', alignItems: 'center', gap: 0.4, flexShrink: 0,
-                cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
-                minHeight: 34, px: 1, borderRadius: 999, fontSize: TYPE_SCALE.body, fontWeight: 700,
-                border: '1px solid', transition: 'all 0.15s',
-                borderColor: source === 'season' || filtersSet ? ACCENT_EDGE : CARD_BORDER,
-                bgcolor: source === 'season' || filtersSet ? `${WPBL_ACCENT}12` : 'transparent',
-                color: source === 'season' || filtersSet ? 'var(--wpbl-accent-fg)' : 'text.secondary',
-              }}>
-              {source === 'season' ? (
-                <>
-                  <Box component="span" sx={{ color: 'text.secondary', fontWeight: 700 }}>Sort</Box>
-                  {activeCol.label}
-                </>
-              ) : 'Filters'}
-              {filtersSet && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: WPBL_ACCENT }} />}
-              <Box component="span" sx={{ fontSize: TYPE_SCALE.caption }}>▾</Box>
-            </Box>
+            <SheetTrigger
+              lead={source === 'season' ? 'Sort' : undefined}
+              label={source === 'season' ? activeCol.label : 'Filters'}
+              set={filtersSet} open={sheetOpen != null}
+              onOpen={() => setSheetOpen(source === 'season' ? 'sort' : 'filter')}
+              ariaLabel={source === 'season' ? `Sort ${activeCol.label}${filtersSet ? ', filters on' : ''}` : `Filters${filtersSet ? ', on' : ''}`}
+            />
           </Box>
         )}
 
@@ -240,44 +253,93 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
             behind the bar. They are in the Filters sheet there, which is what they are. */}
         {/* THE YEAR, on every board, since every board sums one: before the season slice, because it
             is the wider cut of the two. Not drawn at all until there is a second year to pick. */}
-        {!isNarrow && <SeasonMenu sx={{ flexShrink: 0, alignItems: 'center' }} />}
-        {(source === 'leaders' || source === 'season' || source === 'bests' || source === 'find') && hasPostseason && !isNarrow && !overall && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-            {/* "Both" rather than "All", which is what this option is: the team filter sitting
-                immediately to its right already has an "All" chip, and two chips reading All
-                side by side in one row is a coin toss about which one a tap changes. */}
-            {([['regular', 'Regular season'], ['postseason', 'Playoffs'], ['all', 'Both']] as const)
-              .map(([k, label]) => (
-                <Chip key={k} active={scope === k} onClick={() => setScope(k)}>{label}</Chip>
-              ))}
+        {/* THE VERY LAST TO GIVE WAY (slot 5), and only where the Filters pill is drawn, whose sheet
+            lists the seasons too: at 960 on Players, "All seasons" took the row to about 920px of
+            controls in 900 with every other slot already compact (Nov 21, 2026). Its compact form is
+            an empty box, so the row can measure the room to bring it back. */}
+        {/* Folded, the box is `display: contents` and holds nothing, so it is no flex item and adds no
+            gap: an empty item would take the row's 8px gap and nudge every control after it. */}
+        {!isNarrow && (source === 'season' && mode === 'players' && multiSeason ? (
+          <Box ref={slotRef(5)} sx={{ display: fits[5] ? 'flex' : 'contents', alignItems: 'center', flexShrink: 0 }}>
+            {fits[5] && <SeasonMenu all={allSeasons} sx={{ flexShrink: 0, alignItems: 'center' }} />}
+          </Box>
+        ) : <SeasonMenu all={allSeasons} sx={{ flexShrink: 0, alignItems: 'center' }} />)}
+        {/* DRAWN ON EVERY BOARD once there is a postseason, and disabled where the board cannot
+            take the slice: removed instead, the desktop bar reflowed every time the side or the board
+            changed (Nov 7, 2026 audit). Overall is the regular season's, so that chip stays lit. */}
+        {/* A select when the row is short of room, after the clubs have already given way. */}
+        {hasPostseason && !isNarrow && (
+          <Box ref={slotRef(1)} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+            {fits[1] ? SCOPES.map(([k, label]) => (
+              /* "Both" rather than "All", which is what this option is: the team filter sitting
+                  immediately to its right already has an "All" chip, and two chips reading All
+                  side by side in one row is a coin toss about which one a tap changes. */
+              <Chip key={k} active={takesSlice && (overall ? k === 'regular' : scope === k)} onClick={() => setScope(k)}
+                disabled={scopeOff} hint={scopeHint}>
+                {label}
+              </Chip>
+            )) : (
+              <FilterSelect
+                value={overall || !takesSlice ? 'regular' : scope}
+                options={SCOPES.map(([value, label]) => ({ value, label }))}
+                onChange={v => setScope(v as SeasonScope)}
+                active={!scopeOff && scope !== 'regular'}
+                disabled={scopeOff}
+                hint={scopeHint}
+                ariaLabel="Season slice"
+              />
+            )}
           </Box>
         )}
 
-        {/* Desktop: the filters themselves, no sheet in the way. */}
-        {source === 'season' && mode === 'players' && !isNarrow && (
-          <Box sx={{ ml: 'auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            {/* ONE CHIP BELOW `lg`. The whole row measures 1164px with the five club chips, so under
-                1200 they wrapped onto a second line and the table started 42px lower than MLB's,
-                whose thirty clubs were never chips. A select there, the way MLB picks its season;
-                both are drawn and CSS picks, so nothing is measured and nothing moves on load. */}
-            <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', gap: 0.75 }}>
-              <Chip active={teamId === null} onClick={() => filterTeam(null)}>All</Chip>
-              {teamChips.map(t => (
-                <Chip key={t.id} active={teamId === t.id} onClick={() => filterTeam(teamId === t.id ? null : t.id)}>
-                  <TeamBadge team={t} size={16} />
-                  <Box component="span" sx={{ ml: 0.5 }}>{t.abbr}</Box>
-                </Chip>
-              ))}
+        {/* Desktop: the filters themselves, no sheet in the way, until even their selects do not
+            fit. Then, as the last thing to give way (slot 4), they fold into the phone's Filters
+            pill and sheet. The Position menu took the row at 960 to 1031px of controls in 900px
+            with every other slot already compact, and the filters wrapped onto a second line
+            under the pinned bar (Nov 12, 2026). */}
+        {source === 'season' && mode === 'players' && !isNarrow && !fits[4] && (
+          <Box ref={slotRef(4)} sx={{ ml: 'auto', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            <SheetTrigger label="Filters" set={filtersSet} open={sheetOpen != null}
+              onOpen={() => setSheetOpen('filter')} ariaLabel={`Filters${filtersSet ? ', on' : ''}`} />
+          </Box>
+        )}
+        {source === 'season' && mode === 'players' && !isNarrow && fits[4] && (
+          <Box ref={slotRef(4)} sx={{ ml: 'auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            {/* CHIPS WHEN THEY FIT, A SELECT WHEN THEY DO NOT, decided by measuring the row. This
+                was a CSS breakpoint (chips from `lg`), sized to the row as it stood; then Overall
+                added a fourth side and the row came to 1315px in a 1260px column, and the clubs
+                wrapped onto a second line at every desktop width (Nov 9, 2026). Any fixed width is
+                wrong the next time a control joins the row, so the row is measured instead, in
+                layout effects, before anything paints (useRowFit). */}
+            <Box ref={slotRef(0)} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              {fits[0] ? <>
+                <Chip active={teamId === null} onClick={() => filterTeam(null)}>All</Chip>
+                {teamChips.map(t => (
+                  <Chip key={t.id} active={teamId === t.id} onClick={() => filterTeam(teamId === t.id ? null : t.id)}>
+                    <TeamBadge team={t} size={16} />
+                    <Box component="span" sx={{ ml: 0.5 }}>{t.abbr}</Box>
+                  </Chip>
+                ))}
+              </> : (
+                <FilterSelect
+                  value={teamId ?? ''}
+                  options={[{ value: '', label: 'All clubs' }, ...teamChips.map(t => ({ value: t.id, label: t.abbr }))]}
+                  onChange={v => filterTeam(v || null)}
+                  active={teamId !== null}
+                  ariaLabel="Club"
+                />
+              )}
             </Box>
-            <Box sx={{ display: { xs: 'flex', lg: 'none' } }}>
-              <FilterSelect
-                value={teamId ?? ''}
-                options={[{ value: '', label: 'All clubs' }, ...teamChips.map(t => ({ value: t.id, label: t.abbr }))]}
-                onChange={v => filterTeam(v || null)}
-                active={teamId !== null}
-                ariaLabel="Club"
-              />
-            </Box>
+            {/* ALWAYS A SELECT: up to nine choices, which as chips would push the clubs into their
+                own select at every desktop width. Named by the plural ("Catchers"), as the search's
+                rows and the phone's chip name it. */}
+            <FilterSelect
+              value={pos ?? ''}
+              options={[{ value: '', label: 'All positions' }, ...posChoices.map(d => ({ value: d.key, label: d.plural }))]}
+              onChange={v => filterPos(parsePositionFilter(v))}
+              active={pos !== null}
+              ariaLabel="Position"
+            />
             {!overall && (
               <>
                 <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: 'divider', mx: 0.25, flexShrink: 0 }} />
@@ -295,3 +357,88 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
 
 // Small pill used for the team filter + qualified toggle.
 const Chip = FilterChip
+
+const SCOPES = [['regular', 'Regular season'], ['postseason', 'Playoffs'], ['all', 'Both']] as const
+
+/**
+ * Which of the row's controls are drawn full (`fits[i]` true) and which in their compact form, so
+ * the row stays one line. Index order is the order they give way in, and the reverse of the order
+ * they come back. One form of each is drawn at a time (two would put every chip on the page twice),
+ * so each form's width is remembered from the last time it was drawn, and each pass moves one step:
+ * collapse the next control while the row overflows, bring the last one back when its remembered
+ * width fits. Every pass is a layout effect, so the reader only sees where it settles. Re-measured
+ * on every render (a side switch adds or drops Qualified) and on any resize of the row or its
+ * parts (the window, the reader's text size, a font arriving). A remembered width that has gone
+ * stale costs one more pass, never a loop: drawn, it is measured again and remembered right.
+ */
+/** Room a row keeps free before it counts as fitting; see `measure` in useRowFit. Not more: at 24
+ *  the one-season Players bar at 1440 already gave its Regular, Playoffs and Both chips up for a
+ *  select, a change to today's bar that this margin is not for. */
+const ROW_MARGIN_PX = 12
+
+function useRowFit(count: number, enabled: boolean) {
+  // State rather than a ref, so the observer below follows the row if it is ever remounted rather
+  // than staying on a detached one that never hears the window resize again.
+  const [row, rowRef] = useState<HTMLDivElement | null>(null)
+  const slots = useRef<(HTMLDivElement | null)[]>(Array.from({ length: count }, () => null))
+  const widths = useRef(Array.from({ length: count }, () => ({ full: NaN, compact: NaN })))
+  const [fits, setFits] = useState<boolean[]>(() => Array.from({ length: count }, () => true))
+  const measure = useCallback(() => {
+    if (!row) return
+    const width = (el: Element) => el.getBoundingClientRect().width
+    setFits(prev => {
+      prev.forEach((full, i) => {
+        const slot = slots.current[i]
+        if (slot) widths.current[i][full ? 'full' : 'compact'] = width(slot)
+      })
+      const gap = parseFloat(getComputedStyle(row).columnGap) || 0
+      const shown = ([...row.children] as HTMLElement[]).filter(k => k.offsetWidth > 0)
+      const used = shown.reduce((s, k) => s + width(k), 0) + gap * Math.max(0, shown.length - 1)
+      // Half a pixel of slack for sub-pixel widths that sum a hair over the row they fit in, less a
+      // margin: the controls are still growing for a moment as the board's data lands (the filters'
+      // labels), and a row that fits by four pixels at the measure wraps a frame later, before the
+      // next one. "All seasons" at 1440 sat exactly there: 1,259 of 1,261, then a wrap (Nov 21, 2026).
+      // Only on a row that has been laid out: one with no width (a test's DOM) would have less than
+      // no room and fold every control away.
+      const rowW = width(row)
+      const room = rowW + 0.5 - (rowW > 0 ? ROW_MARGIN_PX : 0)
+      const drawn = (i: number) => slots.current[i] != null
+      // WRAPPED IS NOT FITTING, whatever the widths add up to: a control that may shrink (`minWidth:
+      // 0`) sums to less than the row while the browser has already put it on a second line. CI's
+      // layout sweep caught exactly that on Players with "All seasons" in the row (Nov 21, 2026).
+      const boxes = shown.map(k => k.getBoundingClientRect())
+      const wrapped = boxes.some(a => boxes.some(b => b.top >= a.bottom - 1))
+      if (used > room || wrapped) {
+        const i = prev.findIndex((full, j) => full && drawn(j))
+        if (i < 0) return prev
+        // Remember the room it did not fit in, so the widths alone cannot bring it straight back
+        // and flip the row between the two every render.
+        if (wrapped) widths.current[i].full = Math.max(widths.current[i].full || 0, room - used + width(slots.current[i]!) + 1)
+        return prev.map((v, j) => (j === i ? false : v))
+      }
+      for (let i = prev.length - 1; i >= 0; i--) {
+        if (prev[i] || !drawn(i)) continue
+        const { full, compact } = widths.current[i]
+        // A full width never seen is tried once; drawn, it is measured and remembered.
+        return Number.isNaN(full) || used - compact + full <= room ? prev.map((v, j) => (j === i ? true : v)) : prev
+      }
+      return prev
+    })
+  }, [row])
+  // No dependency list on purpose: every render can change what is on the row.
+  useLayoutEffect(() => { if (enabled) measure() })
+  // EVERY CHILD, INCLUDING ONE ADDED LATER. The season menu draws nothing until the schedule says
+  // there is a second year, and it renders on its own context, not through this bar: a child that
+  // arrived after the observer was set up was never watched, so its width never asked for a measure.
+  useLayoutEffect(() => {
+    if (!enabled || !row || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(measure)
+    const watch = () => { ro.observe(row); for (const k of row.children) ro.observe(k) }
+    watch()
+    const mo = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => { watch(); measure() })
+    mo?.observe(row, { childList: true })
+    return () => { ro.disconnect(); mo?.disconnect() }
+  }, [enabled, row, measure])
+  const slotRef = useCallback((i: number) => (el: HTMLDivElement | null) => { slots.current[i] = el }, [])
+  return { rowRef, slotRef, fits }
+}

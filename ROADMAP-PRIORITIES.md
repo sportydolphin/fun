@@ -1,7 +1,7 @@
 # Priorities: every roadmap in one order
 
 > Set **Oct 16, 2026**; realigned **Nov 1, 2026** around the site becoming women's baseball; the November list reset
-> **Nov 6** while the redesign waits on Figma. One
+> **Nov 6** while the redesign waits on Figma; the three large items set in order **Nov 8**. One
 > list across the four roadmaps, so nobody has to merge them in their head:
 > [ROADMAP-WPBL.md](ROADMAP-WPBL.md) (WPBL, plus the site-wide ops list and search),
 > [ROADMAP.md](ROADMAP.md) (MLB), [ROADMAP-WOMENS-BASEBALL.md](ROADMAP-WOMENS-BASEBALL.md) (the World
@@ -27,6 +27,9 @@
 4. **Measure before building more.** Items below that wait on a read of `events` say so.
 5. **One person.** Owner-only work (Figma, Play's console, the crosswalk review, outreach) runs beside
    the code, not in its place.
+6. **Three large items, one after another** (set Nov 8, 2026): the redesign, then the World Cup in
+   public, then the apps (Android and iOS). Each starts once the one before it is on `main`. The
+   season's deadlines (rule 1, item 8, the live field) still outrank all three.
 
 ## Done since Oct 16
 
@@ -52,6 +55,37 @@
 - ✅ **`wpbl-postseason-check`** is green: every run through Oct 31 passed, and its schedule only
   covers September and October.
 
+## The 2027 offseason calendar
+
+Set Nov 22, 2026, from the league's own posts. Only these may be said on the site; an exact day waits
+until the league publishes one.
+
+| When | What | Source |
+|---|---|---|
+| Nov 9 to 20 | Exclusive re-signing window, closed | [Explainer](https://www.womensprobaseballleague.com/2026/11/09/2027-wpbl-roster-composition-explainer/) |
+| To Nov 30 | Re-signings still being revealed | Our cutoff (`RESIGN_ANNOUNCEMENTS_UNTIL`), not the league's |
+| **Dec 15, 11:59 p.m. ET** | Draft applications close | [Application](https://www.womensprobaseballleague.com/2027-player-draft-application/) |
+| By Jan 22, 2027 | Applicants hear whether they are eligible | Application |
+| Late Feb to early Mar | Draft combine, no day or place yet | Application |
+| Feb to Mar | The draft: 10 rounds, no day yet | [League post](https://www.instagram.com/p/DfiQ0QdiP-i/) |
+| Two weeks, start not stated | For a pick to sign, then they are a free agent | Explainer |
+| After the draft | Free agency up to 20 players, no dates yet | Explainer |
+| Not announced | Schedule, Opening Day, venues | |
+
+What that asks of the site, in order, each done before its date:
+
+- ✅ **The roster model** (Nov 22): drafted and unsigned, signed and released, newcomers by name, each
+  entered from /admin → Rosters; "Not announced" until a club's reveals end.
+- **The draft hub on `/wpbl/rosters`** (by Dec 15): these dates and the application link, the 40-pick
+  board with traded picks, the eligible pool with 2026 lines, each club's positions.
+- **Newcomers** (January): how a player with no feed id gets a page and a World Cup link, how a move
+  recorded by name joins that player's id, and how both later merge with the feed's player.
+- **Draft night** (by mid-February): fast pick entry, a push per pick, a live board, rehearsed on a
+  fake draft.
+- **Before free agency**: a migration for `wpbl_roster_moves_one_per_player`, which allows one row of
+  a kind per player and so refuses a second signing or release in one offseason. Also the roster
+  count toward 20, without a hard cap: New York's 10 kept and 11 picks already come to 21.
+
 ## Now: November, while the Figma file is finished
 
 Set Nov 6, 2026. The `redesign` branch (`../fun-redesign`) is paused on the owner's Figma pass, so
@@ -61,40 +95,40 @@ to change only if the change is small; anything larger waits so it is not built 
 
 1. ~~**The Stats phone bar, landed once.**~~ ✅ Nov 6: #198 merged; the other copy is parked in a stash.
 2. ~~**#195 into `redesign` conflicts.**~~ ✅ Nov 6: #195 is mergeable into `redesign` again.
-3. **The World Cup goes public** (large). Since Nov 2 it publishes on implied permission, the
-   footing the WPBL feed is on: WBSC's reply is no longer the gate, and a "no" still ends it. Owner:
-   send WBSC a notice (not a request) by Nov 10 offering removal. Code: the public switch rebuilt
-   on `main` from its list (`archive/wbsc/` into git with a size budget, `_redirects`,
-   `_routes.json` and their 404 guards, `seo.ts`, the sitemap reading `indexable`, the dev flags
-   removed), plus the safeguards: our own play text only, every game credited and linked to
-   wbsc.org, no WBSC video, photos or marks, and a Sources entry with a takedown contact. Then the
-   audit's polish (the gray "TPE" badge, leader portraits, a title per page, small header
-   contrast). Loading states and the sweep on these routes wait for the redesign's look.
-   *ROADMAP-WOMENS-BASEBALL, stage 2, "What is left" items 2 and 4.*
+3. ~~**The World Cup goes public.**~~ Moved to after the redesign (decided Nov 7, 2026): it
+   publishes once the redesign is on `main`, so its pages launch in the new look and are not
+   restyled in public. See Winter, item 11. *ROADMAP-WOMENS-BASEBALL, stage 2, "What is left".*
 4. ~~**The feed rehearsal**~~ ✅ Nov 6 as `npm run rehearse` (#200); see Winter, item 8.
-5. **Google Play release.** Only Play's own process is left. Owner. *ROADMAP-WPBL ops item 9;
-   docs/ANDROID.md.*
+5. ~~**Google Play release.**~~ Moved to after the World Cup (decided Nov 8, 2026), with iOS as one
+   apps phase. See Winter, item 12.
 6. **The Figma file, finished**, including the women's baseball shell: the league list (MLB in it,
    after the women's competitions) and whether `/` earns a front page. Then the redesign resumes at
    Home's step 1, the in-season and postseason Home. Owner. *ROADMAP-UI.md, "Handoff";
    ROADMAP-WOMENS-BASEBALL, stage 3.*
-7. **Past seasons frozen as static JSON** (also the open-data download) and a `size-limit` bundle
-   budget in CI (medium; moved up from the winter). *ROADMAP-WPBL, engineering backlog P2.*
+7. ~~**Past seasons frozen as static JSON** (also the open-data download) and a `size-limit` bundle
+   budget in CI.~~ ✅ Nov 7: `archive/` published at `/data/wpbl/`, the budgets in
+   `.size-limit.js`. *ROADMAP-WPBL, engineering backlog P2.*
 
 **Small, any time this month:**
 
-- Photo tagging: confirm `ip_hash` is filling on the first real suggestions. *docs/PHOTO_TAGGING.md.*
+- ~~Photo tagging: confirm `ip_hash` is filling on the first real suggestions.~~ ✅ Nov 7: the one
+  suggestion so far (Oct 21) carries it. *docs/PHOTO_TAGGING.md.*
 - The backup's private key into a password manager. Owner. *docs/BACKUPS.md.*
 - **MLB as one league among several**: read "MLB: what gets used" on `/admin` and decide what MLB
   keeps on its own pages. *ROADMAP.md, "Handoff" and item 7 of the second pass.*
 - `/admin` → Roadmap: reseed it from this file or retire it.
 - **Search examples from use**, from late November, once "Offered nothing for" has a few weeks of
   v1.207.0 in it. *ROADMAP-WPBL, "Search: what's next" item 13.*
-- The dupe and orphan audit of players and games, and the portrait-rights ask to the league.
+- ~~The dupe and orphan audit of players and games~~ ✅ Nov 7, clean: 40 finals, each with a box
+  score and plays; 118 players, no shared names or feed ids; every line, play and fielding row
+  names a known player and game. Rerun once the 2027 feed starts adding rows. Left: the
+  portrait-rights ask to the league (owner).
   *ROADMAP-WPBL, "Ongoing hygiene & ops".*
 
-**Not now, because the redesign would redo it:** the live field, the live files on the type
-scale, World Cup loading states and their sweep, and anything on Home or the WPBL Stats controls.
+**Not now, because the redesign would redo it:** the live field's drawing (its engine is
+under way, Nov 8: docs/LIVE_FIELD.md), the live files on the type
+scale, the World Cup's loading states, sweep and public switch, and anything on Home or the WPBL
+Stats controls.
 
 ## Winter: December to March, all of it before the 2027 season
 
@@ -108,21 +142,46 @@ scale, World Cup loading states and their sweep, and anything on Home or the WPB
    - ~~the column-partition test for `LIVE_GAME_COLUMNS` and the line column lists~~ ✅ done Oct 17;
    - every Trap in CLAUDE.md re-verified against the 2027 feed once it speaks.
    *ROADMAP-WPBL, ops item 7, Priorities P0 and P2, engineering backlog.*
-9. **World Cup stage 2, finished**: loading states and the sweep on its routes once the redesign's
-   look is settled, and optionally 2004 to 2008 as results-only editions. The pages themselves and
-   the public switch are November's item 3. *ROADMAP-WOMENS-BASEBALL, "The plan", stage 2.*
-10. **The live field**, in Game Center on both leagues, before MLB's Opening Day in late March: an
-   animated diamond with runners, the count and pitch location. Built on MLB first, because spring
-   training is live from late February while the WPBL feed is quiet; WPBL wires to it against the
-   2027 feed. *ROADMAP-WPBL, "From the Nov 1, 2026 brainstorm".*
-11. **iOS.** A much bigger build than Play, done before the season. *docs/IOS.md.*
-12. **UI overhaul, phases 2 and 3**: the `redesign` branch is this work. Home first, then WPBL page
-    by page while its feed is quiet, then MLB; it merges to `main` in one piece as v1.208.0. Stops in March so the sweep baselines are
-    settled before the season. *ROADMAP-UI.md, Phases 2 and 3.*
-13. **The women's baseball shell (stage 3)**, built with phase 3 in February and March: the
+9. **UI overhaul, phases 2 and 3** (first of the three large items): the `redesign` branch is this
+   work, resumed once the Figma file is done. Home first, then WPBL page by page while its feed is
+   quiet, then MLB; it merges to `main` in one piece as v1.208.0. Stops in March so the sweep
+   baselines are settled before the season. *ROADMAP-UI.md, "Handoff", Phases 2 and 3.*
+10. **The women's baseball shell (stage 3)**, built with phase 3 in February and March: the
     league list, with MLB one click away in it. Hard stop on Mar 15; if it is not settled by then it waits
     for October 2027 rather than land under the season. *ROADMAP-WOMENS-BASEBALL, "The plan",
     stage 3.*
+11. **The World Cup goes public, in four phases, independent of the redesign** (Nov 13, 2026, replacing
+   the Nov 7 order below): WPBL player pages first, then the national team across the WPBL, the
+   section unindexed, then search and indexing. Phase 1 shipped Nov 13; no notice goes to WBSC (owner).
+   *ROADMAP-WOMENS-BASEBALL, "The rollout in phases".*
+   The Nov 7 plan, kept for its list: **the World Cup goes public, after the redesign** (second of the three; decided Nov 7, 2026). It publishes
+   on implied permission, the footing the WPBL feed is on: WBSC's reply is no longer the gate, and
+   a "no" still ends it. In order, once the redesign is on `main`: the pages in the new look, their
+   loading states and the sweep, the audit's polish (the gray "TPE" badge, leader portraits, a
+   title per page, small header contrast), then the public switch rebuilt on `main` from its list
+   (`archive/wbsc/` into git with a size budget, `_redirects`, `_routes.json` and their 404 guards,
+   `seo.ts`, the sitemap reading `indexable`, the dev flags removed), with the safeguards: our own
+   play text only, every game credited and linked to wbsc.org, no WBSC video, photos or marks, and
+   a Sources entry with a takedown contact. No notice goes to WBSC (owner, Nov 13, 2026).
+   2004 to 2008 as results-only editions ✅ Nov 7, 2026.
+   *ROADMAP-WOMENS-BASEBALL, "The plan", stage 2.*
+12. **The apps, Android and iOS** (third of the three; after the World Cup, decided Nov 8, 2026).
+    Android first: the code is done and only Play's own process is left (account, upload, listing,
+    then 12 testers for 14 days, the long pole). Owner. iOS is a much bigger build: the home-screen
+    PWA on a real iPhone first (it might end the project), then the Team ID, the auth rewrite with
+    Sign in with Apple, the Capacitor build on a Mac, APNs, Live Activities. If it cannot ship
+    before the season, it waits rather than land under it (rule 1). *ROADMAP-WPBL ops item 9;
+    docs/ANDROID.md; docs/IOS.md.*
+13. **The live field**, in Game Center on both leagues, before MLB's Opening Day in late March: an
+    animated diamond with runners, the count and pitch location. It runs on its date, not in the
+    queue above: built on the redesigned Game Center, on MLB first, because spring training is live
+    from late February while the WPBL feed is quiet; WPBL wires to it against the 2027 feed.
+    The engine, apart from the drawing, started Nov 8 (docs/LIVE_FIELD.md).
+    *ROADMAP-WPBL, "From the Nov 1, 2026 brainstorm".*
+13a. **Live notes** (decided Nov 10, 2026): every first, record, milestone and streak a game produces,
+    all of them in /admin and the top few for readers. The engine and its backtest first (works on the
+    frozen 2026 files), then the owner console this winter, then the readers' strip on the redesigned
+    Game Center beside the live field. WPBL only. *ROADMAP-WPBL, "Live notes".*
 
 ## Spring 2027
 
@@ -146,14 +205,33 @@ Started by the announcement (teams, cities, dates), not by the calendar: each ne
 of 2027. Reports say the four clubs move to their home cities and two expansion clubs join; none of
 that is confirmed. Detail in *ROADMAP-WPBL, "From the Nov 1, 2026 brainstorm".*
 
+**Home's 2027 Rosters card** ([`home/RostersCard.tsx`](src/wpbl/home/RostersCard.tsx), shipped Nov 9,
+2026 for the re-signing window) grows one phase at a time, each only once the league publishes it:
+the draft and combine dates; the draft itself (picks by round, each club's count toward 20); free
+agency (the same count); then the schedule, when the card becomes Opening Day and
+`offseasonByCalendar` starts turning Home back. The move kinds and the dates so far are in "The
+2027 offseason calendar" at the top.
+
 20. **The home-park era** (build): park factors from our own run-expectancy table, home and road
     splits, a page per venue, road trips. None of it could exist while every game was in Springfield.
 21. **The press box** (build): game notes before every game, the pack a club hands broadcasters and
     writers. The links it earns are the SEO brake.
 22. **Fantasy** (to explore): a free season-long game scored by run value. Only with enough players
     to draft from.
-23. **Projections and a season simulator** (to explore): WPBL projections with heavy regression and
-    World Cup lines as a prior, projected standings, "sim this matchup".
+23. **Projections and a season simulator** (started Nov 20, 2026, owner-only on /admin → Projections):
+    returning production per club, and player projections regressed by points measured from the
+    season's own talent spread, World Cup lines translated and weighted, a simulated season's range.
+    Grows with the rosters, each step when the league fills them in, not on a date:
+    - **each roster move**: nothing to do, the tab reads `heldPlayers` (every kind of move); check that the
+      re-signed, drafted and signed players all project (a drafted player with no WPBL or World Cup
+      line projects as league average and should read as such);
+    - **the draft** (10 rounds): a replacement-level prior for players with no line, so a club's
+      depth is not priced at league average; team strength as projected runs over a depth chart;
+    - **rosters at 20**: projected standings and odds from team strength (`seriesOdds`, the
+      bracket), and the call on going public, with a plain line on how noisy a 15-game club season is;
+    - **the schedule and club count**: the season simulator on the real schedule (expansion
+      clubs included), then "sim this matchup".
+    Revisit the World Cup weight each time the overlap grows: the model card shows its correlation.
 
 ## Later, when there is room
 
@@ -165,12 +243,12 @@ that is confirmed. Detail in *ROADMAP-WPBL, "From the Nov 1, 2026 brainstorm".*
 - **MLB depth**: plays and pitches mirrored (2026 alone, measured against the database
   ceiling first), Pitch by pitch and Run value on MLB, fielding lines for Find; the Hot Stove
   follow-up after December's read. *ROADMAP.md, second pass item 6; "From the Oct 10 audit".*
-- `/wpbl/data` and the embeddable standings and box-score widget (ops item 8), then a DuckDB-WASM
+- The embeddable standings and box-score widget (ops item 8; `/wpbl/data` shipped Nov 8), then a DuckDB-WASM
   sandbox over the frozen season files.
-- The rest of the engineering backlog's P3: prefetch on hover, MLB line tables to R2 before the
-  ceiling, `html2canvas` replaced, virtualized tables, `fast-check` tests for `derive/`.
+- The rest of the engineering backlog's P3: prefetch on hover, `html2canvas` replaced, virtualized tables, `fast-check` tests for `derive/`.
 - MLB Draft board; Tracked on MLB, if ever.
-- Search: spans and splits (needs a date range on Find); firsts (needs a page to link).
+- Search: a player's own firsts. Spans ✅ (months and date ranges Nov 10, v1.226.0; extra innings,
+  doubleheaders and stretches Nov 20, v1.250.0; no series, which the WPBL regular season lacks). Firsts ✅ (Nov 9, v1.216.0; runners' plays Nov 10, v1.232.0).
 - The Visuals list, the data-mining backlog, portrait rights. *ROADMAP-WPBL.*
 - UI overhaul phases 4 (motion) and 5 (styling engine).
 

@@ -12,7 +12,9 @@
  * WHAT IT PAGES ON is decided in shared/adminHealth.js (and unit-tested there): a failed or
  * stalled ingest, the "unmapped team" ok:true-with-errors trap, and the nightly scoring job
  * failing or going missing, and a recent game left in the wrong state (never started, stuck live,
- * final with no box score) however healthy the runs look. TrackMan "behind" and nightly findings are expected and never page.
+ * final with no box score) however healthy the runs look, and the same error screen drawn for
+ * several readers in a day (a broken deploy). TrackMan "behind" and nightly findings are expected
+ * and never page.
  *
  * DEDUPE. admin_alert_state remembers the signature it last paged per problem, so a persistent
  * outage pages ONCE, not every run; a changed problem (a new kind of ingest error) re-pages,
@@ -35,7 +37,7 @@
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import webpush from 'web-push'
-import { healthAlerts, nearGameWindow, WORKFLOW_JOB_PREFIX } from '../shared/adminHealth.js'
+import { healthAlerts, nearGameWindow, WORKFLOW_JOB_PREFIX, CRASH_WINDOW_MS } from '../shared/adminHealth.js'
 import { recordHeartbeat } from '../shared/heartbeat.js'
 import { buildAdminHealthAlert } from '../shared/notifications.js'
 
@@ -60,8 +62,8 @@ const DRY_RUN = process.argv.includes('--dry-run')
 const TEST    = process.argv.includes('--test')
 // Set by .github/workflows/workflow-failure-alert.yml: record that workflow's failure as a
 // heartbeat, then run the normal check, which pages it. Paging from here rather than from the
-// workflow keeps ONE dedupe table and one push path; and it pages at once, year-round, where the
-// scheduled check above only runs in season.
+// workflow keeps ONE dedupe table and one push path, and it pages at once rather than on the
+// next scheduled check.
 const FAILED_WORKFLOW = process.env.FAILED_WORKFLOW ?? ''
 
 // THE SECOND CHANNEL: the ops webhook watch-wpbl-tracking.mjs already posts to, never a fan
@@ -89,7 +91,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
 // ─── Push plumbing (same shape as send-wpbl-game-start.mjs) ─────────────────────
 
 function toPushPayload(n) {
-  return { id: n.id, type: n.type, title: n.title, body: n.body, url: n.url, emoji: n.icon, tag: n.id }
+  return { id: n.id, type: n.type, title: n.title, body: n.body, url: n.url, emoji: n.icon, tag: n.tag ?? n.id }
 }
 
 /** The owner's push subscriptions, resolved from the same email is_site_owner() uses. */
@@ -197,6 +199,18 @@ async function recentGames() {
   return (games ?? []).map(g => g.status === 'final' ? { ...g, has_lines: boxed.has(g.id) } : g)
 }
 
+// The last day's error screens, for the crash check in shared/adminHealth.js. A failed read
+// answers [], like recentGames: this check adds to the pipeline alerts and must never cost one.
+async function recentAppErrors() {
+  const since = new Date(Date.now() - CRASH_WINDOW_MS).toISOString()
+  const { data, error } = await supabase.from('events')
+    .select('session_id, created_at, props')
+    .eq('event', 'app_error').gte('created_at', since)
+    .order('created_at', { ascending: false }).limit(1000)
+  if (error) { console.warn(`⚠️  Reading app_error events failed: ${error.message}`); return [] }
+  return data ?? []
+}
+
 // ─── Test mode────────────────────────────────────────────────────────────────
 
 async function runTest() {
@@ -219,15 +233,16 @@ async function main() {
     await recordHeartbeat(supabase, `${WORKFLOW_JOB_PREFIX}${FAILED_WORKFLOW}`, false, process.env.FAILED_RUN_URL || null)
   }
 
-  const [ingest, validation, heartbeats, near, games] = await Promise.all([
+  const [ingest, validation, heartbeats, near, games, appErrors] = await Promise.all([
     latestRun('wpbl_ingest_runs', 'ran_at, ok, error_count, errors'),
     latestRun('wpbl_pbp_validation_runs', 'ran_at, ok'),
     fetchHeartbeats(),
     nearGame(),
     recentGames(),
+    recentAppErrors(),
   ])
 
-  const alerts = healthAlerts({ ingest, validation, heartbeats, nearGame: near, games })
+  const alerts = healthAlerts({ ingest, validation, heartbeats, nearGame: near, games, appErrors })
 
   // Prior dedupe state. If the table is missing (migration not applied) we alert WITHOUT
   // dedupe rather than going silent (a noisy alert is recoverable, a missed outage is the

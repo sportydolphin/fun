@@ -5,6 +5,7 @@ import { WPBL_ACCENT, wpblFullName } from '../constants'
 import {
   TeamBadge, ModalShell, SectionLabel, PillGroup,
   CARD_BORDER, pressable, FOCUS_RING, hoverOnly } from '../ui'
+import type { PositionFilter, PositionFilterDef } from '../../league/positionFilter'
 import type { WpblTeam } from '../types'
 import type { SeasonScope } from '../season'
 import type { EraBasis } from '../stats'
@@ -192,7 +193,7 @@ export function StatsSheet({ tab, onTab, side, sort, filter, filtersSet, onClose
     <ModalShell sheet eyebrow={eyebrow} onClose={onClose} maxWidth={480} footer={<SheetDone onClose={onClose} />}>
       <Box sx={{ px: 2, py: 1.75, display: 'flex', flexDirection: 'column', gap: 2 }}>
         {sort && filter && (
-          <PillGroup options={[{ value: 'sort', label: 'Sort' }, { value: 'filter', label: filtersSet ? 'Filter •' : 'Filter' }]}
+          <PillGroup fill options={[{ value: 'sort', label: 'Sort' }, { value: 'filter', label: 'Filter', dot: filtersSet }]}
             value={shown} onChange={v => onTab(v as 'sort' | 'filter')} />
         )}
         {shown === 'sort' ? sort : filter}
@@ -205,20 +206,26 @@ export function StatsSheet({ tab, onTab, side, sort, filter, filtersSet, onClose
 //
 // Rows rather than tiles: there are only seven, and a club wants its badge and its whole name
 // rather than three letters.
-export function FilterBody({ teams, teamId, onTeam, qualified, onQualified, scope, onScope, season, seasons, onSeason, showWho, showQualified = true, bar }: {
+export function FilterBody({ teams, teamId, onTeam, pos, posChoices, onPos, qualified, onQualified, scope, onScope, season, seasons, onSeason, offerAll = false, showWho, showQualified = true, bar }: {
   teams: WpblTeam[]
   teamId: string | null
   onTeam: (id: string | null) => void
+  /** The position the players are narrowed to, this side's choices, and the setter. */
+  pos: PositionFilter | null
+  posChoices: PositionFilterDef[]
+  onPos: (p: PositionFilter | null) => void
   qualified: boolean
   onQualified: () => void
   /** Null when no postseason game has finished, which is when the choice does not exist yet
    *  rather than when it is set to the regular season. */
   scope: SeasonScope | null
   onScope: (s: SeasonScope) => void
-  /** Null with one season on record, when there is no year to choose. */
-  season: number | null
+  /** Null with one season on record, when there is no year to choose; `'all'` for every season. */
+  season: number | 'all' | null
   seasons: number[]
-  onSeason: (s: number) => void
+  onSeason: (s: number | 'all') => void
+  /** The board can show every season at once, so "All seasons" leads the years. */
+  offerAll?: boolean
   /** Only the player board has a per-player population to filter. */
   showWho: boolean
   /** False on a side with no qualifying bar (Overall), where the choice would do nothing. */
@@ -234,6 +241,7 @@ export function FilterBody({ teams, teamId, onTeam, qualified, onQualified, scop
       {season != null && (
         <SheetGroup title="Season">
           <Box sx={rows}>
+            {offerAll && <OptionRow label="All seasons" on={season === 'all'} onClick={() => onSeason('all')} />}
             {seasons.map(y => <OptionRow key={y} label={String(y)} on={season === y} onClick={() => onSeason(y)} />)}
           </Box>
         </SheetGroup>
@@ -262,6 +270,16 @@ export function FilterBody({ teams, teamId, onTeam, qualified, onQualified, scop
             <OptionRow key={t.id} label={wpblFullName(t)} on={teamId === t.id}
               icon={<TeamBadge team={t} size={28} />}
               onClick={() => onTeam(teamId === t.id ? null : t.id)} />
+          ))}
+        </Box>
+      </SheetGroup>
+
+      {/* After the club: a narrower cut of who is listed, and a longer list, so it sits below. */}
+      <SheetGroup title="Position">
+        <Box sx={rows}>
+          <OptionRow label="All positions" on={pos === null} onClick={() => onPos(null)} />
+          {posChoices.map(d => (
+            <OptionRow key={d.key} label={d.plural} on={pos === d.key} onClick={() => onPos(pos === d.key ? null : d.key)} />
           ))}
         </Box>
       </SheetGroup>

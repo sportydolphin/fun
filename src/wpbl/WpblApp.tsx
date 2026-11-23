@@ -34,7 +34,7 @@ import {
 } from './routes'
 import { publishSectionNav, clearSectionNav } from '../sectionNav'
 import { WpblLinkProvider } from './LinkContext'
-import { WpblSeasonProvider } from './SeasonContext'
+import { WpblSeasonProvider, type WpblSeasonPick } from './SeasonContext'
 import { WPBL_MORE_PAGES } from './morePages'
 import { MoreSheet as SharedMoreSheet } from '../ui/MoreMenu'
 import { useForegroundInterval } from '../lib/foregroundInterval'
@@ -64,8 +64,14 @@ const GameDetailModal = lazy(() => import('./gameDetail/GameDetailModal'))
  * gesture. Warmed here, the sheet is simply there on the first frame and the fallback below is a
  * formality.
  */
-function usePreloadGameDetail() {
+function usePreloadGameDetail(dataIn: boolean) {
   useEffect(() => {
+    // NOT BEFORE THE SECTION'S DATA. Idle came the moment the section mounted, because a phone
+    // waiting on the network has an idle main thread, so these chunks (about 90 KB) went out
+    // beside the schedule and roster reads Home was waiting on and slowed them. Measured with Chrome
+    // throttled to 1.6 Mbps (Nov 18, 2026) they started 0.3s after the skeleton. `dataIn` is the
+    // section's own `loading` flag going false, which a failed read reaches too (its 10s reveal).
+    if (!dataIn) return
     // The player card too: it is reached from every leaderboard, roster and box score, and cold its
     // chunk cost the first open a fetch, a Suspense tick and a parse before the sheet could move.
     // And the four tabs beside Home (TAB_LOADERS), for the same reason: a tap should find them here.
@@ -76,7 +82,7 @@ function usePreloadGameDetail() {
     const hasRIC = typeof window.requestIdleCallback === 'function'
     const id = hasRIC ? window.requestIdleCallback(warm, { timeout: 2000 }) : window.setTimeout(warm, 800)
     return () => { if (hasRIC) window.cancelIdleCallback(id as number); else window.clearTimeout(id as number) }
-  }, [])
+  }, [dataIn])
 }
 const PlayerDetailModal = lazy(() => import('./PlayerDetail'))
 
@@ -173,7 +179,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   const [playerPage, setPlayerPage] = useState<boolean>(() => !!seed().playerPage)
   // The season the reader picked, null for the current one. A ref beside it so `stamp` and
   // `urlFor` read the newest pick without joining every navigation callback's dependencies.
-  const [pickedSeason, setPickedSeason] = useState<number | null>(() => seed().season ?? null)
+  const [pickedSeason, setPickedSeason] = useState<WpblSeasonPick | null>(() => seed().season ?? null)
   const pickedSeasonRef = useRef(pickedSeason)
   pickedSeasonRef.current = pickedSeason
   /** The snapshot with the year it was taken in, for storing: see WpblSnap.season. */
@@ -357,6 +363,14 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   const pendingGameSlug = useRef<string | null>(
     window.history.state?.wpbl ? null : wpblGameSlugFromPath(window.location.pathname),
   )
+  /**
+   * A game path pushed from inside the site with no snapshot: a search row ("Firebells last game",
+   * "first home run") is a plain link through `navigate`. The cold-load effect below opens it, as
+   * the panel over the tab the reader is on, and `linkTick` wakes that effect, since nothing it
+   * reads has changed. Until Nov 9, 2026 the address moved and nothing opened.
+   */
+  const gameLinkInApp = useRef(false)
+  const [linkTick, setLinkTick] = useState(0)
   /**
    * Which board a shared game link asked for, captured HERE rather than read by GameDetail.
    *
@@ -552,7 +566,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   }, [apply, stamp, urlFor])
   // A season picked from any tab's menu. Its own history entry, since `?season=2026` is a different
   // page from the current year's and Back should undo the pick; whatever is open over the page stays.
-  const pickSeason = useCallback((season: number | null) => {
+  const pickSeason = useCallback((season: WpblSeasonPick | null) => {
     push({ view, team: selectedTeam, game: detailGame, player: detailPlayer, awards: awardsOpen, gamePage, playerPage, season })
   }, [push, view, selectedTeam, detailGame, detailPlayer, awardsOpen, gamePage, playerPage])
   // A panel on screen right now, which a click on the page swaps rather than stacks on.
@@ -640,7 +654,7 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
     if (detailPlayer && playerAsPanel) window.history.go(-2)
     else window.history.back()
   }, [detailPlayer, playerAsPanel])
-  usePreloadGameDetail()
+  usePreloadGameDetail(!loading)
 
   // Full roster of every player, loaded once: the pool the header search filters over.
   useEffect(() => { fetchWpblAllPlayers().then(setPlayers).catch(() => {}) }, [])
@@ -695,16 +709,19 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   useEffect(() => {
     const id = pendingGameId.current
     const slug = pendingGameSlug.current
-    if ((!id && !slug) || detailGame || games.length === 0) return
+    const inApp = gameLinkInApp.current
+    if ((!id && !slug) || (detailGame && !inApp) || games.length === 0) return
     if (slug && teams.length === 0) return
     pendingGameId.current = null
     pendingGameSlug.current = null
+    gameLinkInApp.current = false
     setLandingPage(null)
     const g = slug ? findWpblGameBySlug(slug, games, teams) : games.find(gm => gm.id === id)
     if (!g) return
     // A game arrived at, rather than opened from a row, is the full page. See WpblSnap.gamePage.
-    openFromLink({ view, team: selectedTeam, game: g, player: detailPlayer, gamePage: true })
-  }, [games, teams, detailGame, view, selectedTeam, detailPlayer, openFromLink])
+    // One opened by a link inside the site is the panel, like a row on the page.
+    openFromLink({ view, team: selectedTeam, game: g, player: inApp ? null : detailPlayer, gamePage: !inApp })
+  }, [games, teams, detailGame, view, selectedTeam, detailPlayer, openFromLink, linkTick])
 
   // Open the player named by the URL, once the roster is available. Two spellings: the
   // canonical /wpbl/players/<slug> path, and the legacy ?player=<uuid> that shared links and
@@ -827,7 +844,16 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
       // No snapshot means nobody in the section pushed this entry, so the address is all there is
       // to go on. It was Home, which was right only while every way in from outside was /wpbl;
       // the league switch now lands on the tab the reader was on in MLB.
-      apply((e.state?.wpbl as WpblSnap | undefined) ?? snapFromLocation())
+      const snap = e.state?.wpbl as WpblSnap | undefined
+      const gameSlug = snap ? null : wpblGameSlugFromPath(window.location.pathname)
+      if (gameSlug) {
+        pendingGameSlug.current = gameSlug
+        gameLinkInApp.current = true
+        arrivedByInAppLink.current = true
+        setLinkTick(t => t + 1)
+        return
+      }
+      apply(snap ?? snapFromLocation())
     }
     window.addEventListener('popstate', onPop)
     return () => {
@@ -921,6 +947,11 @@ function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
           by five thousand pixels. */}
       <Box sx={{
         minHeight: { xs: 'calc(100dvh - 24px)', sm: '100dvh' },
+        // Except under the Stats tab's Teams board, which is four rows and draws its skeleton at that
+        // height, so there is no jump for the floor to prevent (stats/layout.ts, useShortStatsPage).
+        // `html`, not `:root`, and a plain media query: stylis reads a leading `:root` as a pseudo-class
+        // of this box (`.css-x:root[...]`), and that matches nothing.
+        'html[data-stats-short] &': { '@media (min-width: 600px)': { minHeight: 0 } },
         // Scroll room under the floating bar, plus the device's own safe-area inset, so the
         // last card in a tab can always be scrolled clear of it.
         pb: bottomNav ? `calc(${BOTTOM_NAV_SPACE} + env(safe-area-inset-bottom, 0px))` : 0,

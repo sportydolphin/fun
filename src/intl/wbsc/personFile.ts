@@ -14,6 +14,7 @@ import type { PitchingGameLine } from '../../league/types'
 import type { WbscBattingLine, WbscGame } from './game'
 import { sumBatting, sumPitching, type InternationalEvent, type InternationalGame } from './international'
 import { boxScoreUrl } from './ibaf'
+import type { CompendiumExtras } from './compendium'
 
 export interface PersonEventInput {
   key: string
@@ -24,9 +25,13 @@ export interface PersonEventInput {
   games: readonly WbscGame[]
   batting: readonly WbscBattingLine[]
   pitching: readonly PitchingGameLine[]
+  /** A results-only event's rosters (2004 to 2008): being on one is the whole of an appearance. */
+  compendium?: CompendiumExtras | null
 }
 
 export interface WorldCupPersonEvent extends InternationalEvent {
+  /** The position a 2004 to 2008 roster gives, for an event with no box score; absent otherwise. */
+  roster_position?: string | null
   /** The edition page this event is part of, when it has one. */
   edition: string | null
   /** Every game the person played in the event, with their line in it, for the page's game log. */
@@ -52,7 +57,8 @@ export interface WorldCupPersonFile {
   slug: string
   name: string
   country: string | null
-  /** Oldest first; only the events the person played a game in. */
+  /** Oldest first; the events the person played a game in, and 2004 to 2008's rosters they were on,
+   *  which have no stats or games (`batting` and `pitching` null, `log` empty). */
   events: WorldCupPersonEvent[]
   /** The position the person played most, as WBSC writes it ("SS"); "P" for one who only pitched.
    *  A pinch hitter's or runner's turn does not count. */
@@ -127,9 +133,19 @@ export function buildPersonFile(
   const out: WorldCupPersonEvent[] = []
   const allBatting: WbscBattingLine[] = []
   let pitched = false
+  let rosterPosition: string | null = null
   for (const id of person.wbsc) {
     const ev = events.get(id.event_key)
     if (!ev) continue
+    const rostered = ev.compendium?.rosters.flatMap(r => r.players.map(p => ({ ...p, team: r.team }))).find(p => p.id === id.wbsc_id)
+    if (rostered) {
+      rosterPosition = rostered.position ?? rosterPosition
+      out.push({
+        event_key: ev.key, event: ev.name, year: ev.year, team_id: rostered.team, wbsc_name: person.name, wbsc_id: id.wbsc_id,
+        url: ev.source, batting: null, pitching: null, games: [], edition: editionOf(ev.key), log: [], roster_position: rostered.position,
+      })
+      continue
+    }
     const batting = ev.batting.filter(l => l.player_id === id.wbsc_id)
     const pitching = ev.pitching.filter(l => l.player_id === id.wbsc_id)
     const played = new Set([...batting, ...pitching].map(l => l.game_id))
@@ -166,7 +182,7 @@ export function buildPersonFile(
       url: ev.source, batting: sumBatting(batting), pitching: sumPitching(pitching), games, edition: editionOf(ev.key), log,
     })
   }
-  out.sort((a, b) => cmp(a.games[0]?.game_date ?? '', b.games[0]?.game_date ?? '') || cmp(a.event_key, b.event_key))
+  out.sort((a, b) => a.year - b.year || cmp(a.games[0]?.game_date ?? '', b.games[0]?.game_date ?? '') || cmp(a.event_key, b.event_key))
   const medals: WorldCupPersonFile['medals'] = []
   for (const e of out) {
     const medal = e.edition ? medalOf(e.edition, e.team_id) : null
@@ -174,7 +190,8 @@ export function buildPersonFile(
   }
   return {
     slug, name: person.name, country: person.country, events: out,
-    position: primaryPosition(allBatting, pitched), medals, indexable: isIndexable(out),
+    // A roster's position stands in only for someone with no box score at all.
+    position: primaryPosition(allBatting, pitched) ?? rosterPosition, medals, indexable: isIndexable(out),
   }
 }
 

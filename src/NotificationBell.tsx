@@ -22,6 +22,7 @@ import { picksReadySource } from './mlb/notifications/picksReady'
 import { gameStartSource } from './mlb/notifications/gameStart'
 import { milestoneSource } from './mlb/notifications/milestones'
 import { wpblGameStartSource } from './wpbl/notifications/gameStart'
+import { photosWaitingSource, photoDecidedSource } from './wpbl/notifications/photoSubmissions'
 import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 import { useForegroundInterval } from './lib/foregroundInterval'
 import { ICON_SIZE, TYPE_SCALE } from './ui/card'
@@ -31,6 +32,8 @@ registerNotificationSource(picksReadySource)
 registerNotificationSource(gameStartSource)
 registerNotificationSource(milestoneSource)
 registerNotificationSource(wpblGameStartSource)
+registerNotificationSource(photosWaitingSource)
+registerNotificationSource(photoDecidedSource)
 
 const REFRESH_MS = 5 * 60_000
 
@@ -90,6 +93,9 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
         addEventNotification(e.data.payload)
       }
       if (e.data?.type === 'notification-click' && typeof e.data.url === 'string') {
+        // Opening it from the lock screen is reading it, on this device and (through the sync)
+        // every other one.
+        if (typeof e.data.id === 'string') markRead(e.data.id)
         const link = parseDeepLink(e.data.url)
         if (link) requestDeepLink(link)
         onNavigate(e.data.url)

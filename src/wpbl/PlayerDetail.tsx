@@ -10,7 +10,6 @@ import { wpblAccent, wpblColor, wpblSecondary, wpblFullName, outsToIp } from './
 import { ModalShell, AfterShellEnters, PlayerPortrait, CopyLinkButton, SegNav, chromePx, hoverOnly, CARD_BORDER } from './ui'
 import { ExpandButton } from '../ui/ExpandButton'
 import { DetailPageBar } from './DetailPageBar'
-import { WpblVisuallyHiddenH1 } from './PageHeading'
 import { PLAYER_PAGE_W } from './layoutWidths'
 import { SectionHead, useRankInk } from './cardParts'
 import {
@@ -22,7 +21,7 @@ import { WrittenAbout } from './Reading'
 import { aboutPlayerFirst } from './derive/articles'
 import { FanPhotoPlayerStrip } from './FanPhotoViews'
 import { PlayerClips, usePlayerHasClips } from './Watch'
-import { WorldCupSection, useWorldCupEvents } from './player/WorldCup'
+import { WorldCupSection, hasWorldCup, useWorldCupEvents } from './player/WorldCup'
 import { PitchLocationCard } from './PitchLocation'
 import SprayChart from './SprayChart'
 import PitchProfileBlock, { usePitchProfiles } from './PitchProfile'
@@ -37,7 +36,7 @@ import { track, EVENTS } from '../lib/analytics'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
 import { useSectionScroll } from '../lib/sectionScroll'
 import { leagueLine, OVR_COLS } from './statColumns'
-import { wpblRoleTables, wpblDisciplineCols, seasonLead, row as statRow, type RankFor } from './player/statTables'
+import { wpblRoleTables, wpblDisciplineCols, wpblFieldingCols, seasonLead, row as statRow, type RankFor } from './player/statTables'
 import {
   statTip, gamePosition, type Role, RankProgress, FieldingLine, MatchupTable, CompareChip,
   BAND_WASH, BAND_WASH_FLOOR, SENTENCE_W, CARD_RANK_BAR,
@@ -45,6 +44,8 @@ import {
 import { createBandStore, BandAwareEyebrow, useBandObserver } from './player/bandStore'
 import { usePlayerAwards, usePlayerLines, usePlayerMatchupPlays, useLeagueReads, usePlayerBoard } from './player/usePlayerReads'
 import { usePlayerSeason } from './player/usePlayerSeason'
+import { useWpblRosterMoves, rosterFact } from './useRosterMoves'
+import { getStoredWpblRosterMoves } from './api'
 import { ICON_SIZE, TYPE_SCALE } from '../ui/card'
 import { shortDate } from '../lib/format'
 
@@ -105,6 +106,9 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
 
   // The fan awards this player won, for the ribbon under their name. See usePlayerAwards.
   const awards = usePlayerAwards(player.id)
+  // Next season's status (re-signed, or not yet), for the 70 players on the league's 2026 rosters.
+  // The read is skipped for everyone else, which is most of a future season's cards.
+  const rosterMoves = useWpblRosterMoves()
 
 
   /**
@@ -369,9 +373,11 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   const draft = player.draft_round
     ? `Round ${player.draft_round}${player.draft_pick ? `, pick ${player.draft_pick}` : ''}`
     : null
+  const next = rosterFact(player.id, rosterMoves, Date.now(), getStoredWpblRosterMoves())
   const facts: BandFact[] = [
     ...(player.hometown ? [{ label: 'Hometown', value: player.hometown }] : []),
     ...(draft ? [{ label: 'Drafted', value: draft, inline: `Drafted ${draft.charAt(0).toLowerCase()}${draft.slice(1)}` }] : []),
+    ...(next ? [next] : []),
   ]
 
   // ── the two panes ──────────────────────────────────────────────────────────
@@ -455,10 +461,20 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   const statSummary = (r: Role, placeholder = false) => {
     const t = tables(r)
     const discipline = wpblDisciplineCols(r, pitchProfiles)
+    // FIELDING IS THE LAST OF THE FULL TABLES, behind All stats with Standard and Advanced. It was a
+    // section of its own after the charts: a one-row table at its own width, the only stat block on
+    // the card outside the season tables, and so far down a phone's sheet that a reader who wanted
+    // it scrolled past the clips' rail to get there. A season line in the field is one more line of
+    // the season. It goes under the role that does the fielding, the batting side for anyone who
+    // bats (a two-way player's chances come mostly off the mound), and is drawn once, since a
+    // desktop shows both roles. The loading state reserves it on the one role it draws.
+    const fieldsHere = placeholder || (hasFielding && r === (pitcherFirst && !twoWay ? 'pitching' : 'batting'))
     return (
       <StatSummary accent={color} league reserveRanks={scope === 'regular' && !career} placeholder={placeholder}
         summary={statRow(lead, t.summary)} standard={statRow(lead, t.standard)} advanced={statRow(lead, t.advanced)}
-        discipline={discipline ? statRow(lead, discipline) : null} />
+        discipline={discipline ? statRow(lead, discipline) : null}
+        fielding={fieldsHere ? statRow(lead, wpblFieldingCols(placeholder ? null : ft)) : null}
+        fieldingCaption={twoWay && fieldedPositions.length > 0 ? fieldedPositions.join(', ').toUpperCase() : undefined} />
     )
   }
 
@@ -513,7 +529,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   const battingPane = {
     hasLog: battingLog.length > 0,
     /** Between the season line and the log: how the season was hit, from every pitch seen. */
-    profile: <PitchProfileBlock side="batting" profile={pitchProfiles?.batting} />,
+    profile: (legend = true) => <PitchProfileBlock side="batting" profile={pitchProfiles?.batting} legend={legend} />,
     /** Under the profile: her line against every pitcher she has faced. */
     matchups: <MatchupTable player={player} side="batting" lines={matchups?.vsPitchers ?? []} players={players} scope={scope} accent={color} />,
     line: (scopeControl?: React.ReactNode, caption = true) => (
@@ -568,7 +584,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   const pitchingPane = {
     hasLog: pitchingLog.length > 0 || seasonPitchLocs.length > 0,
     /** Between the season line and the log: how the season was pitched, from every pitch thrown. */
-    profile: <PitchProfileBlock side="pitching" profile={pitchProfiles?.pitching} />,
+    profile: (legend = true) => <PitchProfileBlock side="pitching" profile={pitchProfiles?.pitching} legend={legend} />,
     /** Under the profile: what every batter she has faced did against her. */
     matchups: <MatchupTable player={player} side="pitching" lines={matchups?.vsBatters ?? []} players={players} scope={scope} accent={color} />,
     line: (scopeControl?: React.ReactNode, caption = true) => (
@@ -580,8 +596,10 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     season: (
       <>
         {battingCameo && (
+          // The slash line only from a handful of plate appearances up: over one at-bat it printed
+          // ".000/.000/.000, 0-for-1", three rates restating the one fact after them.
           <CameoBlock label="Also batted"
-            text={`${fmtRate(bt.avg)}/${fmtRate(bt.obp)}/${fmtRate(bt.slg)}, ${bt.h}-for-${bt.ab}${bt.hr ? `, ${bt.hr} HR` : ''}`} />
+            text={`${plateAppearances(bt) >= CAMEO_RATES_PA ? `${fmtRate(bt.avg)}/${fmtRate(bt.obp)}/${fmtRate(bt.slg)}, ` : ''}${bt.h}-for-${bt.ab}${bt.bb ? `, ${bt.bb} BB` : ''}${bt.hr ? `, ${bt.hr} HR` : ''}`} />
         )}
         {ranks && ranks.pitReason !== 'ok' && (
           <RankProgress reason={ranks.pitReason} have={pt.outs} need={ranks.qualifiers.minOuts}
@@ -640,7 +658,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     const logCells = r === 'pitching' ? ['W', '5.0', '5', '2', '2', '1', '2', '5', '80'] : ['CF', '4', '1', '1', '1', '1', '1', '1', '1', '1', '1', '2']
     return {
       hasLog: true,
-      profile: null,
+      profile: () => null,
       matchups: null,
       extras: null,
       season: null,
@@ -716,8 +734,8 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
    *   1. THE SEASON: the picker and Regular / Playoffs / Both, page-level because they re-slice
    *      every number below.
    *   2. A SECTION PER ROLE under a real heading (RoleHeading) carrying the sample: the season as a
-   *      stat table with All stats under it, the clips after the first role's table (right under
-   *      what they illustrate), then the game log, the matchups, the pitch profile and the charts.
+   *      stat table with All stats under it, then the game log, the clips (under the first role's
+   *      log), the matchups, the pitch profile and the charts.
    *      Then Fielding as a section of its own, then the photos and the reading.
    *
    * THE SAME ORDER AS A PHONE'S PANE, block for block, so the card is one card at two widths.
@@ -738,10 +756,6 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
       <Box key={r}>
         <RoleHeading title={roleName(r)} caption={roleMeta(r)} first={first} />
         {pane.line(undefined, false)}
-        {/* The clips under the first role's season, which is what they illustrate. Drawn only once
-            the page knows whether there are any (see deskSkeleton): a row of posters arriving late
-            here would push every section under it down by its own height. */}
-        {first && !deskSkeleton && hasClips && <PlayerClips playerId={player.id} />}
         {/* THE CAMEO AND THE QUALIFYING METER: without them a desktop reader of a below-the-bar
             player meets four unranked rates and no word about why, and a two-way cameo loses the
             one line saying the player also pitched. Capped to a reading measure, because both are
@@ -750,8 +764,16 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
         {/* WHAT SHE DID, THEN HOW: the games, her record against each opponent, then the pitch
             profile and the charts, which explain the numbers above them. */}
         {pane.log}
+        {/* THE CLIPS UNDER THE FIRST ROLE'S GAME LOG, the phone's place for them too. They sat between
+            the season table and the log until Nov 2026, where one poster from a player with a single
+            clip was a 300px row with nothing beside it, pushing the log below the fold. Drawn only
+            once the page knows whether there are any (see deskSkeleton): a row of posters arriving
+            late would push every section under it down by its own height. */}
+        {first && !deskSkeleton && hasClips && <PlayerClips playerId={player.id} />}
         {pane.matchups}
-        {pane.profile}
+        {/* One color key per page: a two-way player's second pitch mix is a scroll below the
+            first, under the same key, so printing it again only repeated it. */}
+        {pane.profile(first || !pitchProfiles?.[roles[0]])}
         {pane.extras}
       </Box>
     )
@@ -831,11 +853,12 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   // Pinned on a desktop (a dialog is not short of height), and pinned while there is nothing to
   // scroll (loading, or a player with no stats), since a scroller around a spinner buys nothing.
   const noStats = !loading && !hasBatting && !hasPitching && !hasFielding
-  // The owner's World Cup preview (player/WorldCup.tsx); null for everyone else. Read here, once,
-  // because a two-way card draws it in each role's pane, and because a player with no WPBL line is
-  // exactly the one whose card is otherwise empty.
+  // The player's World Cups (player/WorldCup.tsx). Read here, once, because a two-way card draws
+  // it in each role's pane, and because a player with no WPBL line is exactly the one whose card
+  // is otherwise empty. Whether there are any is known before the read, so the section is drawn
+  // empty from the first frame rather than arriving late.
   const worldCup = useWorldCupEvents(player.id)
-  const worldCupSection = (first = false) => <WorldCupSection events={worldCup} playerName={player.name} accent={color} first={first} />
+  const worldCupSection = (first = false) => <WorldCupSection events={worldCup} playerId={player.id} playerName={player.name} accent={color} first={first} />
   const bandPinned = wide || noStats
   useBandObserver(bandEls, setBandHidden, bandPinned, player.id, twoWay, pitcherFirst, loading)
 
@@ -861,18 +884,21 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
         {/* Everything under the log is below the first screen of a phone, so it mounts once the
             sheet has finished rising instead of during it. See AfterShellEnters. */}
         <AfterShellEnters>
+          {/* Right under the log, as on a desktop. They were last on a phone, under the charts, the
+              World Cup and the gallery, the place the desktop had moved them out of. */}
+          <PlayerClips playerId={player.id} />
           {pane.matchups}
-          {pane.profile}
+          {pane.profile()}
           {pane.extras}
-          {/* Last among the stats, as on the desktop: see desktopRoleBlock. */}
-          {hasFielding && <FieldingLine ft={ft} positions={showTabs ? fieldedPositions : undefined} />}
+          {/* Fielding is behind All stats (see statSummary), except for a defensive-only cameo,
+              which has no season table to put it under. */}
+          {hasFielding && !hasBatting && !hasPitching && <FieldingLine ft={ft} />}
           {worldCupSection()}
           {/* Rendered even for a player with no line yet (see the no-stats branch below): someone
               who has been written about but has not logged a game is exactly the case where this
               is the most interesting thing on the page. Renders nothing when nobody has written
               about the player, which is most of the roster. */}
           <FanPhotoPlayerStrip playerId={player.id} players={players} />
-          <PlayerClips playerId={player.id} />
           <WrittenAbout articles={writtenAbout} title={`Written about ${player.name}`} accent={color} wide />
         </AfterShellEnters>
       </Box>
@@ -952,7 +978,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
           (see skeletonPane), so the card has its finished shape from the first frame. */}
       {noStats ? (
         <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', p: 2 }}>
-          {worldCup?.length ? worldCupSection(true) : (
+          {hasWorldCup(player.id) && worldCup?.length !== 0 ? worldCupSection(true) : (
             <Box sx={{ textAlign: 'center', py: 5, color: 'text.secondary' }}>
               <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700 }}>No stats</Typography>
             </Box>
@@ -1003,14 +1029,10 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
             <Box sx={{ minHeight: 0, overflowY: 'auto', px: 2, pt: 2, pb: 2 }}>
               {desktopCaption}
               {roles.map((r, i) => desktopRoleBlock(r, i === 0))}
-              {/* Fielding belongs to the PLAYER, not to a role, so it is its own section, once. On
-                  a two-way card its totals are the mound work and the outfield work added
-                  together, which the caption says. LAST among the stats: it is the least reliable
-                  number on the card. */}
-              {!deskSkeleton && hasFielding && (
+              {/* Fielding is behind All stats (see statSummary), except for a defensive-only cameo. */}
+              {!deskSkeleton && hasFielding && !hasBatting && !hasPitching && (
                 <>
-                  <RoleHeading title="Fielding" part="fielding"
-                    caption={twoWay && fieldedPositions.length > 0 ? fieldedPositions.join(', ').toUpperCase() : undefined} />
+                  <RoleHeading title="Fielding" part="fielding" />
                   <FieldingLine ft={ft} bare />
                 </>
               )}
@@ -1047,7 +1069,6 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
   // panel does not, and the band below already carries the name.
   if (layout === 'page') return (
     <Box component="article" sx={{ width: PLAYER_PAGE_W, ml: `calc((100% - ${PLAYER_PAGE_W}) / 2)`, pb: 4 }}>
-      <WpblVisuallyHiddenH1>{player.name}</WpblVisuallyHiddenH1>
       <DetailPageBar onBack={onClose} eyebrow={team ? wpblFullName(team) : 'Player'} actions={actions} />
       <Box sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: CARD_BORDER, borderRadius: 3, overflow: 'hidden' }}>
         {body}
@@ -1095,3 +1116,5 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
 }
 
 const sectionSx = CARD_SECTION_SX
+/** Plate appearances before a pitcher's batting cameo prints a slash line. */
+const CAMEO_RATES_PA = 5

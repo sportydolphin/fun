@@ -50,7 +50,9 @@ machine, and the hand work (`crosswalk.json`, `same-person.json`) is backed up t
 OneDrive (`sportydolphin-wbsc-backup`, the Nov 3 copies are the current ones). Stage 1 is built as
 the owner's preview: the World Cup rows on WPBL player pages (125 rows over 52 players, 2012 on),
 readable by the owner alone, and the person registry (885 people). Stage 2's pages are built in dev
-(see stage 2 for what is left). Release is on implied permission since Nov 2 (stage 0, below); the public switch is next.
+(see stage 2 for what is left). Release is on implied permission since Nov 2 (stage 0, below), and
+waits for the redesign (decided Nov 7, 2026): the World Cup goes public once the redesign is on
+`main`, so its pages launch in the new look rather than being restyled in public.
 
 **Waiting on:** replies to the owner's outreach (WBSC for permission; Baseball Prospectus and
 RetroWPBL as neighbors, see [Neighbors](#neighbors)). Record each reply here, with its date.
@@ -61,6 +63,99 @@ ran the import: `.wbsc-cache/` (the downloaded pages) and `archive/wbsc/` (the o
 crosswalk, the same-person decisions and the registry). The one copy off that machine is
 `wbsc_world_cup_lines` in Supabase, which only the site owner can read, for the preview
 ([ARCHITECTURE.md](ARCHITECTURE.md), the database section).
+
+## The rollout in phases (Nov 13, 2026)
+
+**This replaces "after the redesign" as the World Cup's timing** (Nov 7 and 8 decisions in
+ROADMAP-PRIORITIES.md, items 3 and 11). The World Cup goes public in four phases, none of them
+waiting on the redesign. Each phase ships on its own, and the next starts once the one before has
+had a week in public with no correction to its data. A "no" from WBSC at any point ends every
+phase: the table emptied, the files deleted, the code kept for another source.
+
+**The cost of not waiting:** phase 3's pages launch in today's look and are restyled when the
+redesign reaches them. Phases 1 and 2 touch only the player page's World Cup section, which the
+redesign branch carries unchanged, so they cost it nothing.
+
+### Phase 1. The World Cup on WPBL player pages
+
+The 52 WPBL players with a confirmed crosswalk link see their World Cup rows, as the owner does
+today. No new routes, no data in git.
+
+**Shipped Nov 13, 2026**: migration 20261114045004 applied, then the branch
+`world-cup/player-pages` merged.
+
+**No notice to WBSC** (owner, Nov 13, 2026). Leagues and federations asked before have not
+answered, so none is sent: WBSC can reach the owner through the Corrections path on Data sources,
+and a request to remove is honored. Players' families have asked for these lines to be shown.
+
+**The work:**
+1. **Open `wbsc_world_cup_lines` to every reader.** A migration replacing the owner-only policy
+   with `for select to anon, authenticated using (true)`, the write revokes kept. It then answers
+   every reader alike, so it goes on the edge cache's list (functions/CLAUDE.md). Stays a table
+   rather than a file: one row per player is one small read, and nothing enters git until phase 3.
+2. **Drop the owner gate** in [`player/WorldCup.tsx`](src/wpbl/player/WorldCup.tsx): the
+   `useIsAdmin` check, the "Owner preview" caption, and the comments about the gate.
+3. **No layout shift.** Today the section appears after its read, which pushes the page down. Ship
+   a small index in the bundle (the 52 WPBL ids, each with its number of World Cups) built by
+   `npm run wbsc -- --international`, so the page knows before the read whether the section exists
+   and how many rows to draw empty. A player with none reads nothing. Checked with
+   `npm run sweep -- --shift` and `--ellipsis` on a two-way player, a hitter and a pitcher.
+4. **Links that go somewhere in production.** An event's name linked to `/world-cup/<slug>`, a route
+   that exists only under `npm run dev`. Until phase 3 the name is plain text in production and the
+   row's tap opens the event on wbsc.org; the `href` comes back with phase 3's switch.
+5. **Credit and takedown.** A "Source: WBSC" line under the section linking to wbsc.org, and a World
+   Cup entry on the Data sources page with the takedown contact.
+6. ~~**Data integrity.**~~ Not needed as a new check: `buildInternational` already sums each
+   event's totals from the box-score lines, every one of which the importer checked four ways, and
+   fails the whole build on any link it cannot resolve.
+7. **Measure.** An `events` row when a reader opens a World Cup row, for the April read
+   (ROADMAP-PRIORITIES item 19).
+8. Tests: `worldCupPreview.test.tsx` rewritten for a public section (no admin, the index, the empty
+   rows); ARCHITECTURE's table entry and the migration's own header updated; a changelog entry.
+
+**Done when** a signed-out reader on a phone sees a WPBL player's World Cups with no shift, every
+link opens a real page, and the Data sources page names WBSC.
+
+### Phase 2. The national team across the WPBL
+
+Small, from the same rows: the player's country (flag and code) in the WPBL player page's bio line,
+and "World Cups" beside it; the country on the Players list as a column or filter. Each is a
+reading of `wbsc_world_cup_lines` or the phase 1 index, so no new data. Skip anything the redesign
+is rebuilding (the Stats controls, Home).
+
+### Phase 3. The World Cup section, unindexed
+
+`/world-cup`, every edition, every game with our own play by play, and a page for every player:
+stage 2's pages, built and dev only today (stage 2, "What is left"). In public, but `noindex` and
+out of the sitemap, so a mistake is fixed before a search engine keeps it.
+
+- **The data enters git.** `archive/wbsc/site/` (1,154 files, about 15 MB) and `people.json` out of
+  `.gitignore`; `.wbsc-cache/`, the crosswalk and the review files stay ignored. A size budget in
+  CI per event folder. `fetchSite` reads the committed files from `/data/wbsc/` (as `archive/` is
+  published at `/data/wpbl/`) instead of `/__dev/wbsc-site/`.
+- **Routes:** the `WORLD_CUP_ROUTES` and `morePages.ts` dev flags removed; two `_redirects` lines
+  each with its 404 guard, the `_routes.json` entry, `routes.ts` and `seo.ts` (functions/CLAUDE.md).
+- **Loading states and the sweep** on every World Cup route, in today's look.
+- **The audit's polish:** Chinese Taipei's gray badge, WPBL portraits in the leader cards, a title
+  per page, the box score's small headers at 3:1.
+- **Safeguards:** our own play text only, every game credited and linked to wbsc.org, no WBSC
+  video, photos or marks.
+- Phase 1's links switch from wbsc.org to the edition pages.
+- At this point `wbsc_world_cup_lines` can go, the player page reading the committed file
+  instead; or it stays, if one row per player is still the smaller read.
+- ARCHITECTURE's routes and data sections, CLAUDE.md's "What it is", the changelog.
+
+**Done when** every World Cup since 2004 has its page in production and every name on them is a
+link.
+
+### Phase 4. Search and indexing
+
+The World Cup in the site's search (built, dev only, step 14), the sitemap reading `indexable`
+(two World Cups, or 10 PA and BF together: 497 of 633 pages), the robots tag lifted on those pages,
+JSON-LD and share cards. Then watch Search Console for a month before anything else is indexed.
+
+**After the four:** the league list in the shell stays with the redesign (stage 3), and the 2027
+Finals live (stage 4) on their own schedule.
 
 ## Pick up here: stage 0
 
@@ -86,14 +181,15 @@ In order. Each step says what done looks like; the commands are in
    [docs/WBSC_INGEST.md](docs/WBSC_INGEST.md#build-order). 2012 and 2014 followed on Nov 3, 2026
    (36 and 24 games) after a reader noticed Ayami Sato's 2012 pitching was missing, and 2010 the same
    day from IBAF's own stats pages in the Wayback Machine (41 games, box scores and play-by-play).
-   2004 to 2008 survive only as results, rosters and Canada's box scores.
+   2004 to 2008 survive only as results, rosters and Canada's box scores; their results followed
+   on Nov 7, 2026 (57 games, results-only editions).
 4. ✅ **Re-measure the provisional numbers** (Nov 2, 2026): the pitch-board bars in
    `src/intl/league.ts`, now from every event.
 5. ✅ **Build `international.json`** (Nov 2, 2026), the one file a WPBL player page will read: per
    WPBL player, each event's batting and pitching totals and the games behind them, from the
    confirmed crosswalk. After every `--confirm`: `--international`, `--upload` (the owner's
    preview), `--same` and `--people`. All of it stays gitignored like the rest.
-6. **The public switch** (implied permission, Nov 2): take `archive/wbsc/` out of `.gitignore` (the cache stays
+6. **The public switch** (implied permission, Nov 2; after the redesign lands on `main`, Nov 7): take `archive/wbsc/` out of `.gitignore` (the cache stays
    ignored), add a size budget for it in CI, commit the data, and publish stage 1 below: the World
    Cup rows read a public file instead of `wbsc_world_cup_lines`, that table is dropped, and the
    `useIsAdmin` check in [`player/WorldCup.tsx`](src/wpbl/player/WorldCup.tsx) goes. On a "no":
@@ -236,8 +332,8 @@ The steps are under [Pick up here](#pick-up-here-stage-0). Two additions:
   Nov 10 to a different WBSC contact (communications and the women's baseball commission), with
   screenshots of what the World Cup rows on a player page would show.
 - **Implied permission, decided Nov 2, 2026.** WBSC's reply is no longer the gate: the World Cup
-  publishes on the footing the WPBL feed is on, unless WBSC objects. The second email becomes a
-  notice offering removal, not a request. Safeguards: our own play text, never WBSC's scorer
+  publishes on the footing the WPBL feed is on, unless WBSC objects. No notice is sent (owner,
+  Nov 13, 2026): WBSC can reach the owner, and a removal request is honored. Safeguards: our own play text, never WBSC's scorer
   sentences; every game credited and linked to wbsc.org; no WBSC video, photos or marks; a Sources
   entry with a takedown contact. A "no" still ends the WBSC data (delete `.wbsc-cache/`,
   `archive/wbsc/` and the table) and leaves the registry, the shell and the design to serve the
@@ -283,15 +379,16 @@ it, so it is designed for the developmental league and the AAGPBL as much as for
   by play followed too (step 12), then a page for every player outside the WPBL, all drawn with
   WPBL's own pieces (step 13). On Nov 3 a visual audit led to the navigation, edition, game and
   player page work in the table above (sportydolphin/fun#189 to #192).
-  **What is left, in order** (Nov 3, 2026):
+  **What is left, in order** (Nov 3, 2026; since Nov 7 all of it but item 3, now done, waits for the
+  redesign to land on `main`):
   1. Loading states and the layout sweep: every World Cup page drawn empty while it loads, and
      `npm run sweep -- --shift` and `--ellipsis` clean on these routes. Held until the look is settled.
   2. Polish from the audit: Chinese Taipei's gray "TPE" badge, WPBL players' portraits in the
      leader cards, a title per page, the box score's small gray headers checked for contrast.
-  3. Optional: 2004 to 2008 as editions with results, final standings and medals only (no player
-     stats: what survives game by game is Canada's box scores alone). The sources are IBAF's
-     2004 to 2010 compendium (`ibaf.org/doc/.../2010 - Mundial Femenino - Estadísticas.pdf`, in the
-     Wayback Machine) and the results Wikipedia carries.
+  3. ✅ 2004 to 2008 as editions with results, final standings, medals, rosters and IBAF's awards
+     (Nov 7, 2026), the rosters joined to the later World Cups by the same-person rules: no
+     player stats, as what survives game by game is Canada's box scores alone. From IBAF's 2004 to
+     2010 compendium; see docs/WBSC_INGEST.md, "2004 to 2008, results only".
   4. The public switch. A first cut is parked on the local branch `world-cup-stage2` (commit
      dce1c95c, never pushed: it carries `archive/wbsc/`). It predates everything above, so the
      switch is rebuilt on `main` from its list: `archive/wbsc/` out of `.gitignore` with a size

@@ -1,6 +1,8 @@
+import { useContext } from 'react'
 import { PlayerPortrait, TeamBadge } from './ui'
-import { GameLineFrame, formatGameLineLabel } from '../ui/gameLine'
+import { GameLineFrame, GameYearContext, formatGameLineLabel } from '../ui/gameLine'
 import { useWpblGameLink, useWpblPlayerLink } from './LinkContext'
+import { boxLineOf, boxScoreOf, requestBoxScore } from './entryUrl'
 import type { WpblGame, WpblPlayer } from './types'
 
 // One box-score line drawn as a row, for WPBL's Bests and Find: the shared frame (src/ui/gameLine.tsx,
@@ -13,18 +15,20 @@ import type { WpblGame, WpblPlayer } from './types'
 // tests.
 
 /** How the game a line came from is labeled: "Aug 12 vs LA". */
-export function gameLineLabel(game: WpblGame | null, teamId: string | null): string | null {
+export function gameLineLabel(game: WpblGame | null, teamId: string | null, withYear = false): string | null {
   if (!game) return null
   const home = teamId != null && game.home_team_id === teamId
-  return formatGameLineLabel(game.game_date, home, home ? game.away_team_id : game.home_team_id)
+  return formatGameLineLabel(game.game_date, home, home ? game.away_team_id : game.home_team_id, withYear)
 }
 
 export default function GameLineRow({
-  rank, name, player, teamId, game, detail, value, unit, accent, divider, onOpenPlayer, onOpenGame,
-  nameOpens = 'player', emphasizeRank = true,
+  rank, tied, name, player, teamId, game, detail, value, unit, accent, divider, onOpenPlayer, onOpenGame,
+  nameOpens = 'player', emphasizeRank = true, club = false, opensPlay = false, side = 'hitting',
 }: {
   /** The row's place in the list. Omitted draws no number at all. */
   rank?: number
+  /** Another row shares the rank ("T-3"). */
+  tied?: boolean
   name: string
   player: WpblPlayer | null
   /** The club played for THAT DAY, off the line. Never the roster's, which means "now". */
@@ -46,17 +50,34 @@ export default function GameLineRow({
   /** Color the top three ranks in the accent. Off where `rank` is just a list position (Find)
    *  rather than a real standing (Bests), where the accent would assert a ranking that is not one. */
   emphasizeRank?: boolean
+  /** The row is a club rather than a player (Find's club half-innings): the club's mark stands where
+   *  the portrait would, and there is no second, smaller one beside the name. */
+  club?: boolean
+  /** `onOpenGame` opens the game at one play (Find's innings and plate appearances), so the row does
+   *  not ask for the box score over it. */
+  opensPlay?: boolean
+  /** The board's side, so the box score outlines the pitching line of a pitching record. */
+  side?: 'hitting' | 'pitching'
 }) {
   const playerLink = useWpblPlayerLink()
   const gameLink = useWpblGameLink()
-  const link = game ? gameLink(game, onOpenGame) : undefined
+  const withYear = useContext(GameYearContext)
+  // A LINE OPENS ITS BOX SCORE, on its own club, not the game's Recap: the line is what the row was.
+  const link = (() => {
+    if (!game) return undefined
+    if (opensPlay) return gameLink(game, onOpenGame)
+    const line = boxLineOf(player, side)
+    const box = boxScoreOf(game, teamId, line)
+    const built = gameLink(game, onOpenGame && ((g: WpblGame) => { requestBoxScore(g.id, box.side, line); onOpenGame(g) }))
+    return built.href ? { ...built, href: `${built.href}${box.query}` } : built
+  })()
   return (
     <GameLineFrame
-      rank={rank} emphasizeRank={emphasizeRank} name={name} detail={detail} value={value} unit={unit} divider={divider}
+      rank={rank} tied={tied} emphasizeRank={emphasizeRank} name={name} detail={detail} value={value} unit={unit} divider={divider}
       accent={accent}
-      label={gameLineLabel(game, teamId)}
-      portrait={<PlayerPortrait name={name} teamId={teamId} size={32} />}
-      club={teamId ? <TeamBadge team={{ id: teamId, abbr: teamId }} size={16} /> : undefined}
+      label={gameLineLabel(game, teamId, withYear)}
+      portrait={club && teamId ? <TeamBadge team={{ id: teamId, abbr: teamId }} size={32} /> : <PlayerPortrait name={name} teamId={teamId} size={32} />}
+      club={teamId && !club ? <TeamBadge team={{ id: teamId, abbr: teamId }} size={16} /> : undefined}
       rowLink={nameOpens === 'game' ? link : undefined}
       nameLink={player ? playerLink(player, onOpenPlayer) : undefined}
       gameLink={link}

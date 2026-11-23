@@ -1,16 +1,27 @@
-// The empty box's "Try" rows are the search's manual, and each one promises an answer. A parser
+// The empty box's Suggestions are the search's manual, and each one promises an answer. A parser
 // change that stops one answering would leave the manual teaching a phrasing that finds nothing,
 // which nobody would report. Each example is pinned to the row it is there to show; the plain names
 // and the page are answered by the sections' own searches and the page list, not by a parser here.
 
 import { describe, expect, it } from 'vitest'
 import { PALETTE_EXAMPLES } from '../CommandPalette'
-import { clubPageSuggestions, definitionSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, sectionClubs, teamRankSuggestions } from '../finderSearch'
+import { clubPageSuggestions, definitionSuggestions, finderSuggestions, leaderSuggestions, matchupSuggestions, playerQuestionRows, positionRankSuggestions, recordSuggestions, scopedRankSuggestions, sectionClubs, teamRankSuggestions } from '../finderSearch'
 import { mightBeFinderQuestion } from '../finderGate'
 import { parseCompareText, parseGameQuery, typedPart, typedStat } from '../league/finderParse'
 import type { NavSection } from '../sectionNav'
+import { parseFirstText } from '../league/firsts'
+import { paRecordQuestion } from '../finderSearch'
 
-type Shows = 'name' | 'stat' | 'part' | 'leader' | 'team' | 'game' | 'series' | 'compare' | 'find' | 'club' | 'term' | 'page'
+type Shows = 'name' | 'stat' | 'part' | 'leader' | 'team' | 'game' | 'series' | 'compare' | 'find' | 'first' | 'pa_record' | 'club' | 'term' | 'page'
+  | 'player' | 'matchup' | 'position' | 'scoped' | 'record'
+
+// The names a player question reads in the examples. The live box reads every player; this is the floor.
+const ROSTER = [
+  { id: 'kw', name: 'Kelsie Whitmore', hits: true, pitches: true, lean: 'pitching' as const },
+  { id: 'jl', name: 'Jaida Lee', hits: true, pitches: false },
+  { id: 'ah', name: 'Amira Hondras', hits: true, pitches: false },
+  { id: 'db', name: 'Denae Benites', hits: true, pitches: false },
+]
 
 const answers: Record<Shows, (s: NavSection, q: string) => boolean> = {
   name: () => true,
@@ -23,13 +34,22 @@ const answers: Record<Shows, (s: NavSection, q: string) => boolean> = {
   series: (s, q) => matchupSuggestions(s, q).length > 0,
   compare: (_s, q) => !!parseCompareText(q),
   find: (s, q) => mightBeFinderQuestion(q) && finderSuggestions(s, q).length > 0,
+  // The row itself needs the play log; WPBL's resolver answers every kind the parser reads.
+  first: (s, q) => s === 'wpbl' && !!parseFirstText(q, sectionClubs(s)),
+  pa_record: (s, q) => !!paRecordQuestion(s, q),
   club: (s, q) => clubPageSuggestions(s, q).length > 0,
   term: (s, q) => definitionSuggestions(s, q).rows.length > 0,
+  player: (s, q) => playerQuestionRows(s, q, ROSTER, id => id).some(r => !r.matchup),
+  matchup: (s, q) => playerQuestionRows(s, q, ROSTER, id => id).some(r => r.matchup),
+  position: (s, q) => positionRankSuggestions(s, q).length > 0,
+  scoped: (s, q) => scopedRankSuggestions(s, q).length > 0,
+  record: (s, q) => recordSuggestions(s, q).length > 0,
 }
 
 const SHOWS: Record<NavSection, Shows[]> = {
-  wpbl: ['name', 'stat', 'part', 'leader', 'team', 'game', 'series', 'compare', 'find', 'club', 'term', 'page', 'name'],
-  mlb: ['name', 'stat', 'part', 'leader', 'team', 'game', 'compare', 'find', 'club', 'term', 'page', 'name'],
+  wpbl: ['name', 'stat', 'player', 'player', 'matchup', 'compare', 'leader', 'position', 'scoped', 'scoped', 'scoped', 'scoped', 'team',
+    'record', 'find', 'pa_record', 'first', 'find', 'find', 'game', 'series', 'find', 'club', 'term', 'page', 'name'],
+  mlb: ['name', 'stat', 'part', 'compare', 'leader', 'position', 'game', 'scoped', 'team', 'record', 'find', 'game', 'club', 'term', 'page', 'name'],
 }
 
 describe('the empty search box examples', () => {

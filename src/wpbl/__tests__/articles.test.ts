@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   TEAM_BODY_MENTIONS, countVideos, isWpblPost, matchGame, matchPlayers, matchTeams,
   parseFeed, parseTitleScore, readMinutes,
-  isRisingFastballWpblPost, dropTranslations, teamsInTitle, sourceOf, SOURCES, coverAt, imageCover, aboutPlayerFirst,
+  isRisingFastballWpblPost, isTwoWayReplayWpblPost, archiveUrlFor, dropTranslations, teamsInTitle, sourceOf, SOURCES, coverAt, imageCover, aboutPlayerFirst,
 } from '../derive/articles'
 import type { WpblGame, WpblPlayer, WpblTeam } from '../types'
 
@@ -296,6 +296,18 @@ describe('The Rising Fastball', () => {
     // Only a first-person bio is quoted; see AuthorByline.
     expect(sourceOf('rising-fastball').bioIsQuote).toBe(false)
     expect(sourceOf('towards').bioIsQuote).toBe(true)
+    expect(sourceOf('two-way-replay').authorName).toBe('Austin Klewan')
+  })
+
+  it('takes only the Two Way Replay posts given permission', () => {
+    expect(isTwoWayReplayWpblPost({ ...post('Predicting WPBL’s Exclusive Player Re-Signing Window'), id: 224490681 })).toBe(true)
+    expect(isTwoWayReplayWpblPost({ ...post('Gigi Schiano Shows No Fear On The Mound'), id: 213083011 })).toBe(false)
+    expect(isTwoWayReplayWpblPost(post('Predicting WPBL’s Exclusive Player Re-Signing Window'))).toBe(false)
+  })
+
+  it('reads the publication archive by cursor, never by offset', () => {
+    expect(archiveUrlFor('x.substack.com')).toBe('https://x.substack.com/api/v1/archive?sort=new&limit=25')
+    expect(archiveUrlFor('x.substack.com', 'a=b')).toBe('https://x.substack.com/api/v1/archive?sort=new&limit=25&cursor=a%3Db')
   })
 })
 

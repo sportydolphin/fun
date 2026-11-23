@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { EARLY_READS, EARLY_READS_GLOBAL, takeEarlyRead } from '../lib/earlyReads'
+import { EARLY_READS, EARLY_READS_GLOBAL, HOME_EARLY_READS, takeEarlyRead } from '../lib/earlyReads'
 import { edgeFetch } from '../lib/edgeFetch'
 import { edgeTable } from '../lib/edgeTables'
 import html from '../../index.html?raw'
@@ -24,24 +24,41 @@ afterEach(() => {
 describe('early reads', () => {
   it('index.html starts exactly the listed reads', () => {
     const started = [...html.matchAll(/'(\/rest\/v1\/[^']+)'/g)].map(m => m[1])
-    expect(started).toEqual([...EARLY_READS])
+    expect(started).toEqual([...EARLY_READS, ...HOME_EARLY_READS])
     expect(html).toContain(`window.${EARLY_READS_GLOBAL} = reads`)
   })
 
   it('lists only tables the edge cache serves', () => {
-    for (const path of EARLY_READS) expect(edgeTable(path.split('?')[0])).toBeTruthy()
+    for (const path of [...EARLY_READS, ...HOME_EARLY_READS]) expect(edgeTable(path.split('?')[0])).toBeTruthy()
   })
 
   it('are the URLs the api functions build', async () => {
     const asked: string[] = []
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
-      const u = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url)
+      // Relative too: the videos read asks /api/geo for the reader's country alongside its rows.
+      const u = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, ORIGIN)
       asked.push(`${u.pathname}${u.search}`)
       return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } })
     }))
     const api = await import('../wpbl/api')
-    await Promise.all([api.fetchWpblTeams(), api.fetchWpblSchedule(), api.fetchWpblAllPlayers()])
-    for (const path of EARLY_READS) expect(asked).toContain(path)
+    const { fetchWpblTrackedGameIds } = await import('../wpbl/api/tracking')
+    const { fetchWpblArticles, fetchWpblVideos } = await import('../wpbl/api/media')
+    const photos = await import('../wpbl/api/photos')
+    const { fetchWpblRosterMoves } = await import('../wpbl/api/offseasonMoves')
+    await Promise.all([
+      api.fetchWpblTeams(), api.fetchWpblSchedule(), api.fetchWpblAllPlayers(), api.fetchWpblSiteGames(),
+      fetchWpblTrackedGameIds(), fetchWpblArticles(), fetchWpblVideos(), photos.fetchWpblFanPhotos(),
+      photos.fetchWpblFanPhotoSubjects(), photos.fetchWpblFanPhotoFigures(), photos.fetchWpblFanPhotoCategories(),
+      fetchWpblRosterMoves(),
+    ])
+    for (const path of [...EARLY_READS, ...HOME_EARLY_READS]) expect(asked).toContain(path)
+  })
+
+  // Home's extra reads compete with the code Home is waiting on, so they go out at low priority,
+  // and only on Home's address: another tab never asks for them.
+  it("starts Home's own reads at low priority, on Home only", () => {
+    expect(html).toContain("].forEach(start('low'))")
+    expect(html).toContain("if (p === '/wpbl') [")
   })
 
   it('edgeFetch answers from an early read once, then asks the network', async () => {

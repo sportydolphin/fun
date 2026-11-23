@@ -17,7 +17,7 @@ import { TYPE_SCALE_LEGACY } from './typeScaleLegacy'
 // the list is the record of how far this has got.
 const ADOPTED = [
   ...['WpblHome', 'shared', 'Scoreboard', 'NextGameCard', 'NextPostseasonCard', 'ChampionCards', 'TrackingBanner',
-    'DiscordCard', 'ReadingCards', 'LeagueCard', 'ComparePreviewCard', 'Skeletons', 'PlayerCards'].map(f => `src/wpbl/home/${f}.tsx`),
+    'DiscordCard', 'ReadingCards', 'LeagueCard', 'ComparePreviewCard', 'Skeletons', 'PlayerCards', 'TransactionsCard'].map(f => `src/wpbl/home/${f}.tsx`),
   'src/wpbl/MvpRace.tsx',
   'src/wpbl/GamePreview.tsx',
   'src/wpbl/RecapCard.tsx',

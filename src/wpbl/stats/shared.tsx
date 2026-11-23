@@ -6,6 +6,9 @@ import type { WpblTeam } from '../types'
 import type { WpblPlayerLinkProps } from '../LinkContext'
 import type { Totals, Source, View } from './axes'
 import { VIEW_OPTIONS } from './axes'
+import { ExportLinks, type ExportKind } from '../../ui/ExportLinks'
+
+export type { ExportKind }
 
 /** A row's place on the board: its number, and whether it shares it. */
 export interface RankMark { n: number; tied: boolean }
@@ -43,14 +46,14 @@ export interface Row {
   totals: Totals
   qualified: boolean
   onClick?: () => void
-  /** Players only: the props that make this row's name a real <a href> to her page.
+  /** Players only: the props that make this row's name a real <a href> to the player's page.
    *  A team row has no URL to point at, so it stays a plain onClick. */
   link?: WpblPlayerLinkProps
 }
 
 /** The board's foot: the population in words and, on a phone, the way into the grid and back. Shared
  *  by the ranked list and the table so the count and the view switch cannot drift apart. */
-export function BoardFooter({ footText, phoneTable, hasViews, view, switchView, isNarrow, source, toggleFullTable, fullTable }: {
+export function BoardFooter({ footText, phoneTable, hasViews, view, switchView, isNarrow, source, toggleFullTable, fullTable, onExport }: {
   footText: string
   phoneTable: boolean
   hasViews: boolean
@@ -60,6 +63,8 @@ export function BoardFooter({ footText, phoneTable, hasViews, view, switchView, 
   source: Source
   toggleFullTable: () => void
   fullTable: boolean
+  /** The board as a file or as pasteable cells; only the Players and Teams table offers it. */
+  onExport?: (kind: ExportKind) => Promise<boolean>
 }) {
   return (
     <Box data-board-foot="" sx={{
@@ -86,9 +91,10 @@ export function BoardFooter({ footText, phoneTable, hasViews, view, switchView, 
           <PillGroup options={VIEW_OPTIONS} value={view} onChange={v => switchView(v as View)} />
         </Box>
       )}
+      {onExport && <ExportLinks onExport={onExport} isNarrow={isNarrow} />}
       {isNarrow && source === 'season' && (
         <Box {...pressable(toggleFullTable)} sx={{
-          ...FOCUS_RING, ml: 'auto', flexShrink: 0, cursor: 'pointer', whiteSpace: 'nowrap',
+          ...FOCUS_RING, ml: onExport ? 0.5 : 'auto', flexShrink: 0, cursor: 'pointer', whiteSpace: 'nowrap',
           display: 'inline-flex', alignItems: 'center', gap: 0.4,
           minHeight: 34, px: 1.25, borderRadius: 999,
           border: '1px solid', borderColor: CARD_BORDER,

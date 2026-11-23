@@ -9,7 +9,7 @@ import { ThemeProvider, createTheme, useTheme, type Theme } from '@mui/material/
 import { useSwipeNav } from '../AccessibilityContext'
 import { pressable } from './interaction'
 import { chromePx } from './scale'
-import { useScrollLock } from './scrollLock'
+import { useHidePageScrollbar, useScrollLock } from './scrollLock'
 
 // The modal shell both league sections open their detail views in: a portalled overlay, a centered
 // card on a desktop and, with `sheet`, a bottom sheet on a phone that can be dragged down to close.
@@ -670,7 +670,8 @@ const PANEL_THEME = (outer: Theme): Theme => ({ ...outer, breakpoints: PANEL_BRE
  * for something a reader opens over and over from a list (a leaderboard, a roster): it dims the
  * list, covers it, and has to be closed before the next row can be opened. So this has no scrim
  * and no click-outside dismissal, it does not lock the page's scroll, and it does not trap focus.
- * The page stays scrollable and clickable beside it, and opening another row swaps the panel's
+ * The page stays scrollable and clickable beside it, though its scrollbar is hidden so the one on
+ * the screen's edge is the panel's (see useHidePageScrollbar). Opening another row swaps the panel's
  * content in place (the caller replaces the history entry rather than pushing one, so Back still
  * closes the panel rather than walking every row the reader looked at).
  *
@@ -772,6 +773,7 @@ function SidePanelShell({ eyebrow, label, onClose, actions, footer, openKey, onB
   // Tell any page that moves aside (see useSidePanelOpen). A layout effect, so a swap's unmount and
   // mount land in one commit and the page never sees a frame with no panel and slides back.
   useLayoutEffect(() => { bumpOpenPanels(1); return () => bumpOpenPanels(-1) }, [])
+  useHidePageScrollbar()
   // A swap, not an opening: no slide. Before paint, so the first frame is already still.
   useLayoutEffect(() => {
     if (performance.now() - lastPanelGoneAt < 50 && panelRef.current) panelRef.current.style.animation = 'none'

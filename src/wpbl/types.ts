@@ -171,6 +171,29 @@ export interface WpblVideo {
 }
 
 /**
+ * One move toward a club's next roster (wpbl_roster_moves), recorded by hand from /admin with the
+ * link that announced it. `player_name` stands in only for someone not in wpbl_players yet.
+ */
+export interface WpblRosterMove {
+  id: number
+  season: number
+  kind: 're-signed' | 'drafted' | 'signed' | 'released' | 'traded'
+  player_id: string | null
+  player_name: string | null
+  /** The club the move is for; on a trade, the club that gets the player. */
+  team_id: string
+  /** A trade only: the club that gives the player up. `draft_round`/`draft_pick` are then the pick
+   *  that went back to it. Null on every other kind (the table enforces both). */
+  from_team_id: string | null
+  /** A trade only: shared by every row of one trade (a player-for-player deal is two rows). */
+  trade_id: string | null
+  draft_round: number | null
+  draft_pick: number | null
+  announced_on: string
+  source_url: string
+}
+
+/**
  * What one Short shows (wpbl_video_tags), matched from its title against play-by-play by
  * scripts/wpbl-clip-tags.mjs. `method` is how sure: 'play' pins the at-bat, 'game' the game only,
  * 'player' and 'team' no game at all. The play is (game_id, play_sequence), never a play uuid,

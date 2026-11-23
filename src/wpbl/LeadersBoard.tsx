@@ -5,6 +5,7 @@ import { useWpblPlayerLink } from './LinkContext'
 import { LeaderCard, LeaderCardSkeleton, LEADER_GRID_SX, LEADERS_SHOWN, PORTRAIT_PX, printedRanks } from '../ui/leaders'
 import { plateAppearances, type WpblBattingTotals, type WpblPitchingTotals, type WpblFieldingTotals } from './stats'
 import { compareRows } from './leaderOrder'
+import { useEraBasis } from './EraBasisContext'
 import type { WpblPlayer } from './types'
 import type { WpblValueTotals } from './derive/playerValue'
 
@@ -46,34 +47,40 @@ export interface LeaderQual { active: boolean; minPa: number; minOuts: number; m
  *  boards' cards read alike across the league switch. Runs and FIP have no MLB card; they follow the
  *  same style. The strikeout rate names the reader's basis ("K per 7"), as MLB's says "K per 9". */
 export const LEADER_CARDS: Record<LeaderSide, { key: string; title?: string }[]> = {
-  // The whole game in one board, one question: who was best. WAR first, then its two halves, then
-  // the runs it is made of. Wins added is not here: it prices plays by the score, so beside WAR it
-  // read as a rival total rather than a different question. It is the last column on Players and
-  // has its boards on Run value. MLB has no equivalent board, so these titles follow the house
-  // style rather than a counterpart.
+  // NINE CARDS A SIDE, three rows of the three-wide grid; eight left a hole in the last row (Nov 7,
+  // 2026 audit). The whole game in one board, one question: who was best. WAR first, then Wins Added
+  // as the second opinion, priced by the score, then Pitching WAR and the runs WAR is made of.
+  // Position Player WAR was here until then, and its top five were WAR's. MLB has no equivalent
+  // board, so these titles follow the house style rather than a counterpart.
   overall: [
-    { key: 'war', title: 'WAR' }, { key: 'batWar', title: 'Position Player WAR' },
+    { key: 'war', title: 'WAR' }, { key: 'wpa', title: 'Wins Added' },
     { key: 'pitWar', title: 'Pitching WAR' }, { key: 'bat', title: 'Batting Runs' },
     { key: 'bsr', title: 'Baserunning Runs' }, { key: 'fld', title: 'Fielding Runs' },
     { key: 'rng', title: 'Range Runs' }, { key: 'pit', title: 'Pitching Runs' },
+    { key: 'pos', title: 'Positional Adjustment' },
   ],
   hitting: [
     { key: 'avg', title: 'Batting Average' }, { key: 'obp', title: 'On-Base %' },
     { key: 'ops', title: 'OPS' }, { key: 'hr', title: 'Home Runs' },
     { key: 'rbi', title: 'RBIs' }, { key: 'r', title: 'Runs' },
     { key: 'h', title: 'Hits' }, { key: 'sb', title: 'Stolen Bases' },
+    // The WPBL drew more walks than it struck out in 2026, 277 to 269.
+    { key: 'bb', title: 'Walks' },
   ],
   pitching: [
     { key: 'era', title: 'ERA' }, { key: 'whip', title: 'WHIP' },
     { key: 'so', title: 'Strikeouts' }, { key: 'w', title: 'Wins' },
     { key: 'sv', title: 'Saves' }, { key: 'ip', title: 'Innings Pitched' },
     { key: 'k9' }, { key: 'fip', title: 'FIP' },
+    { key: 'kbb', title: 'K/BB' },
   ],
-  // One row of four. Errors and the catcher's columns are left off: a fewest-errors card is led by
-  // whoever played least, and a catcher's card ranks four people.
+  // Two rows of three. Errors are left off: a fewest-errors card is led by whoever played least.
+  // Range Runs is the WAR engine's (FLD_RANGE_COL). Caught Stealing % is a rate, so it ranks only
+  // fielders over the games bar, which leaves the catchers who caught.
   fielding: [
     { key: 'fpct', title: 'Fielding %' }, { key: 'a', title: 'Assists' },
     { key: 'po', title: 'Putouts' }, { key: 'dp', title: 'Double Plays' },
+    { key: 'rngRuns', title: 'Range Runs' }, { key: 'csPct', title: 'Caught Stealing %' },
   ],
 }
 
@@ -130,7 +137,7 @@ export function LeadersBoard<T extends LeaderTotals>({ side, cols, seasons, qual
         return (
           <LeaderCard key={card.key} title={titleFor(card, col)}
             seeAll={{ href: seeAllHref(card.key), onClick: () => onSeeAll(card.key) }}
-            hoverKey={hover} onHover={setHover}
+            hoverKey={hover} onHover={setHover} phoneRows={PHONE_ROWS}
             items={leadersFor(seasons, col, side, qual).map(r => ({
               key: r.player.id, rank: r.rank, tied: r.tied, name: r.player.name, value: r.text,
               // No club badge beside the name: the portrait's ring is already the club's color, and in
@@ -146,10 +153,16 @@ export function LeadersBoard<T extends LeaderTotals>({ side, cols, seasons, qual
 
 /** The board before the season's lines have landed: the real titles over ghost rows, for the side
  *  the address asks for (Hitting, unless it says otherwise). */
+/** Rows a card shows on a phone, the rest behind "See all". */
+const PHONE_ROWS = 3
+
 export function LeadersBoardSkeleton({ side = 'hitting' }: { side?: LeaderSide }) {
+  // The strikeout rate's card has no fixed title: it names the reader's basis, so the ghost asks the
+  // same context the loaded card's column does. It drew its key, "k9", until Nov 2026.
+  const { kLabel } = useEraBasis()
   return (
     <Box aria-hidden sx={LEADER_GRID_SX}>
-      {LEADER_CARDS[side].map(card => <LeaderCardSkeleton key={card.key} title={card.title ?? card.key} />)}
+      {LEADER_CARDS[side].map(card => <LeaderCardSkeleton key={card.key} title={titleFor(card, { label: card.key === 'k9' ? kLabel : card.key })} phoneRows={PHONE_ROWS} />)}
     </Box>
   )
 }

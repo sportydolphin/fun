@@ -11,13 +11,14 @@ squash-merged, and Cloudflare deploys whatever lands. The ruleset requires two c
 
 | Check | Job in `ci.yml` | What it runs | Typical time |
 |---|---|---|---|
-| `check` | `check` | `npm ci`, typecheck, lint, the tests, the production build, then the code the build never sees (below) | about 3 min |
+| `check` | `check` | `npm ci`, typecheck, lint, the tests, the production build, the bundle budgets (`npm run size`, [below](#bundle-budgets)), then the code the build never sees (below) | about 3 min |
 | `layout` | `layout` | nothing itself: passes only if every `layout` slice did | seconds |
 
 `layout 1/8` to `layout 8/8` are the layout sweep split by route, run in parallel, `layout
 experiments` sweeps the flag-gated routes beside them in about a minute, and `layout behavior`
 checks that board filters survive a reload and Back ([below](#filters-survive-a-reload-and-back)),
-also in about a minute. Four slices took about 9
+also in about a minute. `layout seasons-1` to `seasons-8` sweep the pages a second season changes
+([below](#a-second-season)). Four slices took about 9
 minutes each on Oct 14, 2026, nearly all of it the sweep's fixed waits; eight slices, and the
 loading-shift check at the default text size only, brought that down without shortening a wait.
 A slice takes 2 to 6 minutes, and the slowest one sets the pull request's time: 4m22s to 5m44s
@@ -80,12 +81,37 @@ Other checks on a pull request:
 
 - `Cloudflare Pages`: builds a preview of the branch. Useful, not required.
 - `Supabase Preview`: skipped; there is no branch database.
-- There is deliberately **no** `Workers Builds` check. The production Worker builds `main` only;
-  see "Cloudflare builds" below.
+- There is deliberately **no** `Workers Builds` check: production is the Pages project. See
+  "Cloudflare builds" below.
 
 Open a pull request with `gh pr create --fill && gh pr merge --auto --squash`. It merges itself
 once both required checks pass. The title and body become the commit on `main`, so they follow
 the commit-message rule in CLAUDE.md (why, not what; no em dashes).
+
+## Bundle budgets
+
+`npm run size` runs [size-limit](https://github.com/ai/size-limit) on the build, with the
+budgets in [`.size-limit.js`](../.size-limit.js), brotli sizes, about 8% over what `main`
+measured, except the first load, which is held to about 4%:
+
+| Budget | Measured | Limit |
+|---|---|---|
+| First load on `/wpbl`: the entry plus every live modulepreload in `index.html` | 372 kB (Nov 18) | 387 kB |
+| `index.html`, which carries the inlined entry stylesheet, the static toolbar and titles, and the early reads' URLs | 10.8 kB (Nov 18) | 11.6 kB |
+| The entry chunk | 110 kB (Nov 7) | 119 kB |
+| All JavaScript | 1.15 MB (Nov 18) | 1.18 MB |
+
+The first-load list is read out of `dist/index.html`, so it follows the preload plugin by itself;
+the MLB links inside `<template>` are cut out first because no WPBL reader fetches them. The first
+load is held closer than the rest because 8% was 32 kB of room, and the search parser (about 30 kB)
+lived in it unnoticed until Nov 18, 2026.
+
+A failure means something grew. **`npm run analyze`** finds it: the same production build, plus a
+printed list of every module in the first load, largest first (packages summed), and a treemap of
+every chunk at `node_modules/.cache/analyze/stats.html`
+([`scripts/vite.analyze.config.mjs`](../scripts/vite.analyze.config.mjs)). Run it on `main` and on
+the branch and compare the lists. Raising a limit is fine when the growth is wanted; say why in the
+pull request. Run `npm run build` before `npm run size`, or the config throws.
 
 ## The tests
 
@@ -165,6 +191,12 @@ allowed is the "no value" glyph: a whole string, `>—<`, or a whole table cell.
 before Oct 22, 2026 and the legacy `scripts/*.sql` are history and are left out. The scanner and
 its word lists are in `src/test/houseRules.ts`; an English word wrongly caught by the `-ise`
 ending goes on its allow list there.
+
+The same scanner runs earlier on fewer files through `scripts/house-rules.mjs`: on each file Claude
+Code edits (a PostToolUse hook in `.claude/settings.json`, which hands the findings back in the same
+turn) and on the staged files at commit (`.githooks/pre-commit`). `.githooks/pre-push` adds the
+typecheck and `vitest related` on the branch's changed files. Every hook exits early under `CI`,
+since `npm ci` installs them there too and the scheduled jobs push.
 
 ## Dead code
 
@@ -254,6 +286,7 @@ Flags worth knowing:
 | `--shots dir` | save the before and after frame of every case that shifts |
 | `--behavior` | the filter check below, in place of the layout checks |
 | `--storage file.json` | seed localStorage before each load (`{ "key": "value" }`), for a dev simulation such as the fake 2027 season; never in CI |
+| `--seasons` | the WPBL with a second season (below), on its own list of routes |
 
 The sweep needs a dev server built the way CI builds it. With a real `.env` the app talks to the
 real project; for a replay, start one with the placeholder settings:
@@ -261,6 +294,24 @@ real project; for a replay, start one with the placeholder settings:
 ```bash
 VITE_SUPABASE_URL=http://127.0.0.1:54321 VITE_SUPABASE_ANON_KEY=sweep-anon-key VITE_VAPID_PUBLIC_KEY=sweep-vapid-key npx vite --port 5180
 npm run sweep -- --base http://localhost:5180 --replay --shift --baseline
+```
+
+## A second season
+
+The league has one season until spring 2027, so the layouts a second one brings (the season menus,
+"All seasons" on Stats, a Year column in Find, a year on every date, career totals) are on no page
+the sweep sees. `--seasons` turns on the dev fake 2027 (`src/wpbl/dev/devSecondSeason.ts`, every
+2026 regular-season game moved a year on, the first 40% played) and sweeps `SEASON_ROUTES`: each
+Stats board, Find at every shape the year changes, Standings, the clubs, a series and the season
+recap, the ones with a season menu on the default year, on `season=2026` and on `season=all`. Not
+Home: it picks its season or offseason shape by the calendar, and the fixture's clock is the
+offseason while the fake 2027 has played games, a mix no reader meets. All
+the checks run, the wrapped-row one included, so a control the wider "All seasons" pill pushes onto
+a second line fails it. CI runs it as `layout seasons-1` to `seasons-8`. Its reads are in the same
+fixture; a page that starts reading something new for 2027 records with
+
+```bash
+npm run sweep -- --seasons --record --merge --text default
 ```
 
 ## Filters survive a reload and Back
@@ -309,14 +360,15 @@ a slow phone would see, or the sweep misreading something, which is a sweep bug 
 
 ## Cloudflare builds
 
-Two Cloudflare projects deploy this repo, both named `fun`:
+One Cloudflare project deploys this repo: the **Pages project** `fun` (`fun-ege.pages.dev`). It
+builds every branch, gives each pull request its preview, and deploys `main` to
+`sportydolphin.fun`.
 
-- the **Worker** (route `*.sportydolphin.fun/*`), which serves production, deploying `main` with
-  `npx wrangler deploy`;
-- the **Pages project** (`fun-ege.pages.dev`), which builds every branch and gives each pull
-  request its preview.
-
-The Worker's "Builds for non-production branches" is **off**, since Oct 9, 2026. A branch build
-runs `npx wrangler versions upload`, which needs a Wrangler config the repo does not have, so
-with it on every pull request carried a red check that meant nothing. Turn it back on only with
-a Wrangler config in the same change.
+A standalone **Worker**, also `fun`, deployed `main` with `npx wrangler deploy` until Nov 8,
+2026, when it was deleted with its route. It served nothing: the route `*.sportydolphin.fun/*`
+never matches the apex, `www` is redirected by a zone rule before Workers run, and `photos.`
+had its own carve-out (docs/FAN_PHOTOS.md). It was assets-only, so its zero invocations proved
+nothing; the zone's per-host status counts did (`www` only ever answered 301). Its branch builds
+ran `npx wrangler versions upload`, which needs a Wrangler config the repo does not have, and were
+red on every pull request until turned off on Oct 9, 2026. Bring a Worker back only with a
+Wrangler config in the same change.

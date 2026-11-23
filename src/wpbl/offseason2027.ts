@@ -1,0 +1,448 @@
+// The road to the 2027 rosters, as the league laid it out on Nov 9, 2026 in its "2027 WPBL Roster
+// Composition Explainer". Everything here is what that post says; nothing is inferred.
+//
+// THE 2026 ROSTERS ARE THE LEAGUE'S LIST, NOT OURS. A club may re-sign only from its 2026 roster, and
+// the post names all 70 players. Our own `wpbl_players` cannot stand in for it: its `status` column
+// says "Signed" for 60 of them and "Drafted" for players the league counts as rostered, and its
+// `team_id` is "now", which the first re-signing elsewhere would move. So the list is pinned here by
+// player id, matched by name on Nov 9 (three under their full first names: Gabrielle Haas, Valerie
+// Perez and Caitlin Eynon, listed by the league as Gabbie, Val and Caitlyn). It never changes: it is
+// the 2026 roster as it stood when the window opened.
+//
+// No date beyond the window's is here, because no exact day is published for the draft, the combine or
+// free agency: the league has given windows only (the calendar in ROADMAP-PRIORITIES).
+
+import type { WpblRosterMove } from './types'
+
+export const ROSTER_SEASON = 2027
+
+/** How many of its 2026 players a club may keep. */
+export const MAX_RESIGNED = 10
+
+/** The 2027 roster size: up to 10 re-signed, 10 drafted, the rest from free agency. */
+export const ROSTER_SIZE = 20
+
+/** Nov 9, 9:00 a.m. ET to Nov 20, 11:59 p.m. ET (both EST, UTC-5). */
+export const RESIGN_WINDOW = {
+  opens: Date.parse('2026-11-09T14:00:00Z'),
+  closes: Date.parse('2026-11-21T04:59:59Z'),
+} as const
+
+/** The last moment a club's post can still be a re-signing: Nov 30, 11:59 p.m. ET. Clubs locked
+ *  their choices by the window's close but kept revealing them after it (Madison Willan on Nov 21;
+ *  the league said "over the weekend"), so the watch must not judge a post by the window alone.
+ *  A cap stays because a "running it back" post in March is something else. */
+export const RESIGN_ANNOUNCEMENTS_UNTIL = Date.parse('2026-12-01T04:59:59Z')
+
+/** Whether a club's post at `ms` can announce a re-signing. */
+export const inResignAnnouncements = (ms: number): boolean =>
+  ms >= RESIGN_WINDOW.opens && ms <= RESIGN_ANNOUNCEMENTS_UNTIL
+
+export const ROSTER_EXPLAINER_URL =
+  'https://www.womensprobaseballleague.com/2026/11/09/2027-wpbl-roster-composition-explainer/'
+
+/** The 2027 draft order, every round (a linear draft): Boston, New York, San Francisco, Los Angeles. */
+export const DRAFT_ORDER_2027 = ['BOS', 'NY', 'SF', 'LA'] as const
+
+/** The four clubs as the explainer names them: the card titles from the first paint, before the
+ *  clubs read lands, so a title never changes under the reader. */
+export const CLUB_NAMES_2026: Readonly<Record<string, string>> = {
+  BOS: 'Boston Hunters', NY: 'New York Heights', SF: 'San Francisco Firebells', LA: 'Los Angeles Queens',
+}
+
+/** The clubs by city, for a line that already says what kind of thing it is ("Traded to Boston"). */
+export const CLUB_CITIES: Readonly<Record<string, string>> = {
+  BOS: 'Boston', NY: 'New York', SF: 'San Francisco', LA: 'Los Angeles',
+}
+
+/** Each club's 2026 roster, in the order the league listed it. Keyed by `wpbl_teams.id`. */
+export const ROSTERS_2026: Readonly<Record<string, readonly string[]>> = {
+  BOS: [
+    'bede0e76-5f3b-481f-8970-27c87100cf92', // Hyeonah Kim
+    'fcd8d5a1-1c4b-4b67-9ad9-c7ba7c55b767', // Alli Schroder
+    '4b51c3fa-02a9-42ad-bde9-15cb993b74d3', // Raine Padgham
+    '8d2247b5-dc50-42c5-9397-0a75bb7aec94', // Lexi Hastings
+    '8d6f2f81-c06b-4ba4-a567-4c6f92b1d049', // Kate Blunt
+    '0804b1b9-5e38-46e3-a315-84f346728810', // Denver Bryant
+    '9c5549a7-9f10-4278-a84d-81fb6e80cb86', // Ticara Geldenhuis
+    'a278e279-9e77-448d-b3a1-6284930434d6', // Suzuka Yamamoto
+    '92d4e669-c64f-4f91-8782-498de8167a0a', // Maïka Dumais
+    'bfbf0385-a657-403a-bb55-39c621480945', // Gigi Schiano
+    '4711afcf-b100-4a1b-9d61-68ea705ebb91', // Maria José Valenzuela
+    '18019f8d-ab94-4907-ae5b-2b45c7aeb379', // Molly Paddison
+    'f14902db-382c-4eb0-8c27-b85bcb30e083', // Beth Greenwood
+    '07a2c53e-55ad-43f7-a8f2-a2348e9184e8', // Sabrina Robinson
+    'a1e5b560-edad-45f1-9416-d1a9675f0253', // Gabrielle Haas
+    '1cee2f7f-4db1-4972-9ffc-477954c7eab3', // Paloma Benach
+    '44bab7d0-a089-4b49-ab40-cbcf3254e579', // Edith De Leija
+    '9b34b6d6-ecb4-4ece-9f71-8ee14b24d8c5', // Olivia Bricker
+  ],
+  NY: [
+    '183f0df8-1a02-46a4-84c5-90f54638cab8', // Kylee Lahners
+    '1142dad3-3520-48f2-94ea-78346f4d177c', // Denae Benites
+    '0d5608f1-e966-4c4d-b495-5f770792cf21', // Rakyung Kim
+    '69a50af7-c4ed-4758-b2e6-cceaf9d83473', // Valerie Perez
+    '0e35359f-568d-476c-958e-b064e207f98d', // Jaida Lee
+    '5d6c54f5-fc55-466a-a998-6de6a71069d7', // London Studer
+    '3d9e02a6-e25d-45d6-a1bb-dec4ed8ae238', // Keira Izumi
+    '2f152cdb-59b0-4174-954a-33fcf0ca635e', // Emi Saiki
+    'c677026f-8113-4481-becc-13995c2a56de', // Natsuki Yonetani
+    'ff1f001e-32ac-442d-b3aa-6bde77fec86c', // Alyssa Zettlemoyer
+    'e7e6d277-d3cc-4e63-a4b2-f1e487271cd6', // Madison Willan
+    'dbc25b77-a599-4435-938a-98771be94a95', // Claire Eccles
+    'c2c0093d-4394-48a7-9cca-e2fd2b82133b', // Suzu Narasaki
+    'ed10bc24-6e46-4baf-a2d0-9d97f61c7c6a', // Elodie Ciamarro
+    '1c2e91cc-34d5-4e55-af10-dea215382ac0', // Jacqui Reynolds
+    'ea0925c9-1c81-44e5-9c86-fe0f12650161', // Claire O'Sullivan
+    '0d680c54-82ac-47e9-ae0d-e7fef2947800', // Katherine Murphy
+  ],
+  LA: [
+    '4d34311c-b7d6-44da-9614-b5ad954ddc59', // Ayami Sato
+    '030a471e-8821-481c-a1e1-aa3f3789e46e', // Ashton Lansdell
+    '288b2108-b1c2-4185-b108-3dc838aae072', // Mo'ne Davis
+    'bcdea34a-c9f1-41c6-b9f8-66360cb33bee', // Meggie Meidlinger
+    'c48feb41-9526-460a-8f4f-ae5ac4f708fe', // Thaima Maximiliana
+    '4939d32c-ba47-4586-b224-e658c5ac2309', // Jamie Mackay
+    '75339f9c-e932-4af0-ae61-faf032be0cc1', // Samaria Benítez
+    '8b3b62b9-067c-4491-bf0a-296604f24e53', // Maggie Foxx
+    'b086f8bc-b388-43fd-8fdf-a2aec9a461ed', // Michelle Roche
+    '53604e8c-0c0c-4ea8-b531-a4a6035754d6', // Caitlin Eynon
+    'aa131d4c-e81a-4fe5-b497-3d317b4e9200', // Sarah Edwards
+    '7254031e-8d7b-4383-abac-38b93d9367db', // Diana Ibarra
+    '943cf741-2671-4b65-a425-4db63511e0d8', // Brittany Apgar
+    '6d7b3ded-045e-4e4e-8028-5c52f68b4e7c', // Amira Hondras
+    '8e089c3d-fb97-4c6c-a67e-03007a6e4110', // Isabella Villarreal
+    '47f9e26e-902a-4417-9863-8475342d8361', // Ayuri Shimano
+    'e26bb4c3-b408-4780-bbe9-5a775703c063', // Adelaide Frank
+    '2b20ed64-3b05-486c-b10d-d46a69d20c60', // Addisyn Baird
+  ],
+  SF: [
+    '4e6a118d-d3ab-485c-bedf-20c6446d7aa6', // Kelsie Whitmore
+    'e3fd76c1-cb78-49dd-aaa6-6539de34fb5e', // Amanda Gianelloni
+    'a3e2fed6-6ce7-497e-9a75-00890c296473', // Joely Leguizamon
+    '62eacc29-4f39-47a9-813a-2af511d966da', // Jill Albayati
+    '714e2edf-ecb8-4093-a2bb-acd7e162a1a7', // Samantha Gutierrez
+    '86d64944-a010-49ec-9d52-b6e0bce342f3', // Ayaka Yamamoto
+    'e0b033fd-7a99-4f4a-bfb4-fdb08ef02fa4', // Niki Eckert
+    'd7cbd347-2d86-4475-9795-e7cba7c41048', // Andréanne Leblanc
+    '7c45753e-a682-4cad-b5ae-78d9321a9bc8', // Jua Park
+    '9e22846e-a73a-4202-a359-1a71138c5105', // Alexia Jorge
+    '8864bf37-ab58-48df-964e-3d6a5f0322d5', // Ela Day-Bédard
+    'e824584c-dc60-4bff-a5f2-55592016bbe4', // Rosi del Castillo
+    '5bec741f-1040-413f-845d-797eb267bda7', // Liz Gilder
+    '2b5cf290-d11d-4676-8a67-38c74aa3ba52', // Skylar Kaplan
+    'c506e491-dad8-4f43-b380-0140029fccfe', // Hinano Beppu
+    '1d724ef6-4fab-486e-9ad8-34cef2ecf09d', // Jordan Eyster
+    '0fa7be6b-989e-44fd-ad0a-ddd50845a6d0', // Peyton Coria
+  ],
+}
+
+/** Which club a player was on in 2026, by the league's list. */
+export function club2026(playerId: string): string | null {
+  for (const [team, ids] of Object.entries(ROSTERS_2026)) if (ids.includes(playerId)) return team
+  return null
+}
+
+export type WindowPhase = 'before' | 'open' | 'closed'
+
+export function resignPhase(now: number): WindowPhase {
+  if (now < RESIGN_WINDOW.opens) return 'before'
+  return now <= RESIGN_WINDOW.closes ? 'open' : 'closed'
+}
+
+// Positions folded to the groups a roster is built from, in the order a lineup card lists them. A
+// label outside these (an empty one, or something the feed has never sent) is left out rather than
+// guessed at.
+const POSITION_GROUPS: readonly [string, string, RegExp][] = [
+  ['pitcher', 'pitchers', /^(P|[RL]HP|SP|RP)$/],
+  ['catcher', 'catchers', /^C$/],
+  ['infielder', 'infielders', /^(1B|2B|3B|SS|IF)$/],
+  ['outfielder', 'outfielders', /^(LF|CF|RF|OF)$/],
+  ['designated hitter', 'designated hitters', /^DH$/],
+  ['utility player', 'utility players', /^(UT|UTL|UTIL)$/],
+]
+
+/** Position labels as one line of group counts, spelled out: "3 pitchers, 1 catcher, 2 infielders".
+ *  Spelled out because the abbreviated form ("1 OF") read as "1 of". Empty for none. */
+export function positionMix(labels: readonly string[]): string {
+  return POSITION_GROUPS
+    .map(([one, many, re]) => [one, many, labels.filter(l => re.test(l.trim().toUpperCase())).length] as const)
+    .filter(([, , n]) => n > 0)
+    .map(([one, many, n]) => `${n} ${n === 1 ? one : many}`)
+    .join(', ')
+}
+
+/**
+ * How a club holds a player for 2027:
+ * - 'kept': re-signed or traded for, the ones that count toward the 10;
+ * - 'drafted': picked and not yet under contract, for which the league allows two weeks;
+ * - 'signed': under contract since, as a pick or a free agent;
+ * - 'released': let go, held by nobody until another move places them.
+ */
+type Standing = 'kept' | 'drafted' | 'signed' | 'released'
+
+/** One player on a club's card. `playerId` is null for a player with no row in wpbl_players yet. */
+export interface BoardPlayer {
+  key: string
+  playerId: string | null
+  /** The typed name, for a player with no id. */
+  name: string | null
+  /** The move that put them where they are. */
+  move: WpblRosterMove
+  /** The club that traded them here. */
+  from?: string
+}
+
+export interface ClubBoard {
+  teamId: string
+  /** Re-signed, or acquired by trade (`from` set, `move` the trade). These count toward the 10. */
+  kept: BoardPlayer[]
+  /** Picked and not yet signed. */
+  drafted: BoardPlayer[]
+  signed: BoardPlayer[]
+  /** Let go by this club and not placed since. */
+  released: BoardPlayer[]
+  /** The club's most recent addition of any kind still on it. */
+  newest: BoardPlayer | null
+  /** 2026 players no move has placed, in the league's order. `unplacedStatus` says what they are. */
+  unsigned: string[]
+}
+
+interface Placement extends BoardPlayer { teamId: string; standing: Standing }
+
+const byNewest = (a: WpblRosterMove, b: WpblRosterMove) => b.announced_on.localeCompare(a.announced_on) || b.id - a.id
+
+/** Who a move is about: the player's id, or the typed name for someone without one. Null for a pick. */
+export function moveKey(m: Pick<WpblRosterMove, 'player_id' | 'player_name'>): string | null {
+  if (m.player_id) return m.player_id
+  const name = (m.player_name ?? '').trim().replace(/\s+/g, ' ').toLowerCase()
+  return name ? `name:${name}` : null
+}
+
+/**
+ * Where each player stands for 2027: re-signed by their 2026 club, then every other move in the order
+ * announced. RE-SIGNINGS GO FIRST WHATEVER THEIR DATE, because clubs agreed them inside the window and
+ * revealed some after trades that came later.
+ *
+ * A move the rules make impossible is a data-entry slip and changes nothing (the admin form lists
+ * every row): a re-signing by another club, a trade or release by a club that does not hold the
+ * player, a pick or signing of a player another club has under contract. Two allowances: a trade of
+ * a player nobody re-signed still places them (a club can only trade a player it holds), and a pick
+ * who has not signed may sign elsewhere, since a pick left unsigned becomes a free agent.
+ */
+function placements(moves: readonly WpblRosterMove[]): Map<string, Placement> {
+  const season = moves.filter(m => m.season === ROSTER_SEASON)
+  const out = new Map<string, Placement>()
+  const put = (key: string, m: WpblRosterMove, standing: Standing, from?: string) => out.set(key, {
+    key, playerId: m.player_id, name: m.player_id ? null : m.player_name?.trim() ?? null,
+    teamId: m.team_id, standing, move: m, ...(from ? { from } : {}),
+  })
+  for (const m of season) {
+    if (m.kind !== 're-signed' || !m.player_id || club2026(m.player_id) !== m.team_id) continue
+    const had = out.get(m.player_id)
+    if (!had || byNewest(m, had.move) < 0) put(m.player_id, m, 'kept')
+  }
+  for (const m of season.filter(x => x.kind !== 're-signed').sort((a, b) => -byNewest(a, b))) {
+    const key = moveKey(m)
+    if (!key) continue   // a traded pick: tradedPicks reads those
+    const at = out.get(key)
+    const held = at && at.standing !== 'released' ? at : null
+    switch (m.kind) {
+      case 'traded': {
+        // Until a move says otherwise a 2026 player is their club's to trade.
+        const holder = at ? held?.teamId : m.player_id ? club2026(m.player_id) : null
+        if (m.from_team_id && holder === m.from_team_id) put(key, m, held?.standing ?? 'kept', m.from_team_id)
+        break
+      }
+      case 'drafted':
+        if (!held) put(key, m, 'drafted')
+        break
+      case 'signed':
+        if (!held || held.standing === 'drafted') put(key, m, 'signed')
+        break
+      case 'released':
+        if (held?.teamId === m.team_id) put(key, m, 'released')
+        break
+    }
+  }
+  return out
+}
+
+/** Each club's 2027 roster so far against its 2026 one, every group newest first. */
+export function rosterBoards(moves: readonly WpblRosterMove[]): ClubBoard[] {
+  const placed = placements(moves)
+  const all = [...placed.values()].sort((a, b) => byNewest(a.move, b.move))
+  return DRAFT_ORDER_2027.map(teamId => {
+    const roster = ROSTERS_2026[teamId] ?? []
+    const here = all.filter(p => p.teamId === teamId)
+    return {
+      teamId,
+      kept: here.filter(p => p.standing === 'kept'),
+      drafted: here.filter(p => p.standing === 'drafted'),
+      signed: here.filter(p => p.standing === 'signed'),
+      released: here.filter(p => p.standing === 'released'),
+      newest: here.find(p => p.standing !== 'released') ?? null,
+      unsigned: roster.filter(id => !placed.has(id)),
+    }
+  })
+}
+
+export type UnplacedStatus = 'unsigned' | 'not-announced' | 'draft-eligible'
+
+/**
+ * What a 2026 player no move has placed is, given how many their club has kept. THE WINDOW CLOSING
+ * DOES NOT MAKE THEM DRAFT ELIGIBLE: clubs revealed re-signings for days after it, and from Nov 21
+ * to 22, 2026 the page called players eligible hours before their clubs announced them. They are
+ * eligible once the club has its 10, or once announcements end.
+ */
+export function unplacedStatus(kept: number, now: number): UnplacedStatus {
+  if (resignPhase(now) !== 'closed') return 'unsigned'
+  return kept < MAX_RESIGNED && inResignAnnouncements(now) ? 'not-announced' : 'draft-eligible'
+}
+
+export const UNPLACED_LABELS: Readonly<Record<UnplacedStatus, string>> = {
+  'unsigned': 'Not yet re-signed', 'not-announced': 'Not announced', 'draft-eligible': 'Draft eligible',
+}
+
+export type RosterStatus =
+  | { kind: 're-signed' | 'drafted' | 'signed' | 'released'; teamId: string; move: WpblRosterMove }
+  | { kind: 'traded'; teamId: string; from: string; move: WpblRosterMove }
+  | { kind: UnplacedStatus; teamId: string }
+
+/** A player's 2027 status line, for the player page: null when there is nothing to say. */
+export function rosterStatus(playerId: string, moves: readonly WpblRosterMove[], now: number): RosterStatus | null {
+  const placed = placements(moves)
+  const p = placed.get(playerId)
+  if (p?.from) return { kind: 'traded', teamId: p.teamId, from: p.from, move: p.move }
+  if (p) return { kind: p.standing === 'kept' ? 're-signed' : p.standing, teamId: p.teamId, move: p.move }
+  const team = club2026(playerId)
+  if (!team || resignPhase(now) === 'before') return null
+  const kept = [...placed.values()].filter(x => x.teamId === team && x.standing === 'kept').length
+  return { kind: unplacedStatus(kept, now), teamId: team }
+}
+
+/** Every player some club holds now, by key: the ones on a 2027 roster, signed or not. */
+export function heldPlayers(moves: readonly WpblRosterMove[]): Map<string, string> {
+  return new Map([...placements(moves)].filter(([, p]) => p.standing !== 'released').map(([key, p]) => [key, p.teamId]))
+}
+
+/** 6 → "6th". */
+function ordinal(n: number): string {
+  const t = n % 100
+  if (t >= 11 && t <= 13) return `${n}th`
+  return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`
+}
+
+/** What a player's move was, as Home's transactions list says it: "Re-signed", "Traded from New
+ *  York", "Drafted, 2nd round, 3rd pick" (the pick is counted within its round, as in wpbl_players). A traded pick is its own leg (`transactions`). */
+export function moveLabel(m: WpblRosterMove): string {
+  switch (m.kind) {
+    case 're-signed': return 'Re-signed'
+    case 'traded': return `Traded from ${CLUB_CITIES[m.from_team_id ?? ''] ?? m.from_team_id}`
+    case 'drafted': return m.draft_round
+      ? `Drafted, ${ordinal(m.draft_round)} round${m.draft_pick ? `, ${ordinal(m.draft_pick)} pick` : ''}`
+      : 'Drafted'
+    case 'signed': return 'Signed'
+    case 'released': return 'Released'
+  }
+}
+
+/** One thing that changed hands, drawn as one row under the club that got it: a player (any move),
+ *  or a draft pick traded on its own row. */
+export type TransactionLeg =
+  | { kind: 'player'; move: WpblRosterMove }
+  | { kind: 'pick'; move: WpblRosterMove; round: number; to: string; from: string }
+
+/** One announcement: a single move, or every leg of one trade. */
+export interface Transaction { key: string; announced_on: string; trade: boolean; legs: TransactionLeg[] }
+
+/** "6th-round pick". */
+export const pickLabel = (round: number): string => `${ordinal(round)}-round pick`
+
+/** Whether a traded row moves a pick rather than a player (it names nobody). */
+export const isPickRow = (m: WpblRosterMove): boolean =>
+  m.kind === 'traded' && !m.player_id && !(m.player_name ?? '').trim() && m.draft_round != null
+
+/**
+ * This offseason's moves as announcements, newest first. A TRADE IS ONE ANNOUNCEMENT, its rows
+ * grouped by `trade_id`, and each row is one thing moving from `from_team_id` to `team_id`: a
+ * player, or a pick (`isPickRow`). So "Zettlemoyer for a 6th" reads as two legs, Boston's and New
+ * York's, and a player-for-player deal as one leg each way. Within a trade, players come first.
+ */
+export function transactions(moves: readonly WpblRosterMove[]): Transaction[] {
+  const groups = new Map<string, WpblRosterMove[]>()
+  for (const m of moves) {
+    if (m.season !== ROSTER_SEASON) continue
+    const key = m.kind === 'traded' && m.trade_id ? `t:${m.trade_id}` : `m:${m.id}`
+    const g = groups.get(key)
+    if (g) g.push(m); else groups.set(key, [m])
+  }
+  const out: Transaction[] = []
+  for (const [key, rows] of groups) {
+    rows.sort((a, b) => Number(isPickRow(a)) - Number(isPickRow(b)) || a.id - b.id)
+    const legs: TransactionLeg[] = rows.map(m => isPickRow(m)
+      ? { kind: 'pick', move: m, round: m.draft_round!, to: m.team_id, from: m.from_team_id! }
+      : { kind: 'player', move: m })
+    const newest = rows.reduce((a, b) => (byNewest(a, b) <= 0 ? a : b))
+    out.push({ key, announced_on: newest.announced_on, trade: rows[0].kind === 'traded', legs })
+  }
+  const newestId = (t: Transaction) => Math.max(...t.legs.map(l => l.move.id))
+  return out.sort((a, b) => b.announced_on.localeCompare(a.announced_on) || newestId(b) - newestId(a))
+}
+
+/** How many rounds the 2027 draft has (the explainer). */
+export const DRAFT_ROUNDS = 10
+
+/** A pick that has changed hands: its round, the club whose pick it was, and who holds it now. */
+export interface TradedPick { round: number; original: string; holder: string }
+
+/** Who holds each of the draft's 40 picks, keyed `round:original club`. */
+function pickHolders(moves: readonly WpblRosterMove[]): Map<string, string> {
+  const holder = new Map<string, string>()
+  for (let r = 1; r <= DRAFT_ROUNDS; r++) for (const t of DRAFT_ORDER_2027) holder.set(`${r}:${t}`, t)
+  const picks = moves.filter(m => m.season === ROSTER_SEASON && isPickRow(m)).sort((a, b) => -byNewest(a, b))
+  for (const m of picks) {
+    const r = m.draft_round!
+    const own = `${r}:${m.from_team_id}`
+    const key = holder.get(own) === m.from_team_id ? own
+      : DRAFT_ORDER_2027.map(t => `${r}:${t}`).find(k => holder.get(k) === m.from_team_id)
+    if (key) holder.set(key, m.team_id)
+  }
+  return holder
+}
+
+/** One pick: `pick` is its place within the round. */
+export interface DraftPick { round: number; pick: number; original: string }
+
+/** The picks a club holds and has not used, in draft order. */
+export function openPicks(moves: readonly WpblRosterMove[], teamId: string): DraftPick[] {
+  const holder = pickHolders(moves)
+  const used = new Set(moves.filter(m => m.season === ROSTER_SEASON && m.kind === 'drafted')
+    .map(m => `${m.draft_round}:${m.draft_pick}`))
+  const out: DraftPick[] = []
+  for (let round = 1; round <= DRAFT_ROUNDS; round++) {
+    DRAFT_ORDER_2027.forEach((original, i) => {
+      if (holder.get(`${round}:${original}`) === teamId && !used.has(`${round}:${i + 1}`)) out.push({ round, pick: i + 1, original })
+    })
+  }
+  return out
+}
+
+/**
+ * The 2027 picks that are not where the draft order put them, by round, then by draft order.
+ * Each club starts with its own pick in every round; each pick row moves one of the giving club's
+ * picks in that round to the receiving club, in the order announced, preferring the giver's own
+ * pick when it holds more than one. A pick row the giver could not have held is ignored, the way
+ * the rosters ignore a trade from a club that does not hold the player.
+ */
+export function tradedPicks(moves: readonly WpblRosterMove[]): TradedPick[] {
+  const holder = pickHolders(moves)
+  const out: TradedPick[] = []
+  for (let r = 1; r <= DRAFT_ROUNDS; r++) {
+    for (const t of DRAFT_ORDER_2027) {
+      const h = holder.get(`${r}:${t}`)!
+      if (h !== t) out.push({ round: r, original: t, holder: h })
+    }
+  }
+  return out
+}

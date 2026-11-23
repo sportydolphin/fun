@@ -1,9 +1,10 @@
-import React from 'react'
+import React, { createContext } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TYPE_SCALE } from './card'
 import { shortDate } from '../lib/format'
 import { TAPPABLE } from './interaction'
-import { nameAtStage, useLineNameFit } from './names'
+import { nameAtStage } from './names'
+import { useNameFit } from './NameText'
 
 // One line of a box score, drawn as a row: who, in which game, and the number it is here for.
 //
@@ -22,30 +23,54 @@ import { nameAtStage, useLineNameFit } from './names'
 // one anchor and the name and date are plain text inside it: the tap target is the row rather than
 // two words in it.
 //
-// THE GAME LINK COMES FIRST ON THE SECOND LINE, ahead of the rest of the box-score line. The line
-// truncates with an ellipsis on a narrow phone, and whatever sits at the end of it is what
-// disappears: with the detail first, the LINK is what a 375px screen at the Large text setting
-// eats. Put the destination where it survives and let the supporting detail be the part that goes.
+// THE GAME LINK COMES FIRST ON THE SECOND LINE, ahead of the rest of the box-score line, and holds
+// together. The rest WRAPS: it used to end in an ellipsis on a phone, "3-for-4, 3 HR, 6 …", six or
+// seven rows a board at 375 (Nov 7, 2026 audit), and the part a reader came for was the part cut.
 
 /** "Aug 12 vs LA". There was a compact "8/12" for Bests and Find until Oct 21, 2026: one date
  *  format across the site outranks the four characters it saved. `home` must come off the LINE's club, the club
  *  played for that day: the roster's means "now", and would put a traded player on the wrong side
  *  of "vs". */
-export function formatGameLineLabel(gameDate: string, home: boolean, opp: string | null | undefined): string {
-  const date = shortDate(gameDate)
+export function formatGameLineLabel(gameDate: string, home: boolean, opp: string | null | undefined, withYear = false): string {
+  const date = gameDateText(gameDate, withYear)
   return opp ? `${date} ${home ? 'vs' : 'at'} ${opp}` : date
 }
+
+/** "Aug 12", or "Aug 12, 2026" once a board's rows span more than one season. */
+export function gameDateText(gameDate: string, withYear: boolean): string {
+  const date = shortDate(gameDate)
+  return withYear && date ? `${date}, ${gameDate.slice(0, 4)}` : date
+}
+
+/**
+ * THE YEAR ON EVERY GAME DATE, for a board showing every season at once. Within one season "Aug 12"
+ * is a date; across two it is two dates, and a record book that cannot say which August it means
+ * is wrong in a way nothing flags. A context rather than a prop because the rows that print a date
+ * sit several components below the board that knows the seasons (Bests, Find).
+ */
+export const GameYearContext = createContext(false)
+
+/** The rank's box, shared with the skeletons that stand in for these rows so the two cannot drift.
+ *  The leader cards' rank (leaders.tsx): the meta size, wide enough for "T-10" (1.85rem), in rem so
+ *  it grows with Large text. At the body size "T-10" needed 2.25rem, and every rem the rank takes
+ *  comes out of the game line beside it on a phone. */
+export const GAME_LINE_RANK_SX = {
+  width: '2rem', flexShrink: 0, textAlign: 'center', whiteSpace: 'nowrap',
+  fontSize: TYPE_SCALE.meta, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+} as const
 
 /** Link props as each section's link helpers build them: a real `<a href>` that preventDefaults
  *  into the section's opener, or nothing where there is nowhere to go. */
 type LinkProps = object
 
 export function GameLineFrame({
-  rank, emphasizeRank = true, portrait, name, club, label, detail, value, unit, divider,
+  rank, tied = false, emphasizeRank = true, portrait, name, club, label, detail, value, unit, divider,
   accent = 'var(--wpbl-accent-fg)', rowLink, nameLink, gameLink,
 }: {
   /** The row's place in the list. Omitted draws no number at all. */
   rank?: number
+  /** Another row shares the rank: drawn "T-3", as the leader cards and the season table draw it. */
+  tied?: boolean
   /** Color the top three ranks in the accent. Off where `rank` is just a list position (Find)
    *  rather than a real standing (Bests), where the accent would assert a ranking that is not one. */
   emphasizeRank?: boolean
@@ -71,7 +96,7 @@ export function GameLineFrame({
   /** Player mode only: the date's own anchor. */
   gameLink?: LinkProps
 }) {
-  const fit = useLineNameFit<HTMLElement>([name])
+  const fit = useNameFit(name)
   const rowIsLink = !!rowLink
   // Hover only where there is a pointer: a touch browser fires hover on tap and then leaves it
   // there, so a scrolled list keeps whichever row the finger started on lit.
@@ -84,10 +109,7 @@ export function GameLineFrame({
       ...(rowIsLink ? { cursor: 'pointer', borderRadius: 1, ...TAPPABLE } : {}),
     }}>
       {rank != null && (
-        <Box sx={{
-          width: '1.5rem', textAlign: 'center', fontSize: TYPE_SCALE.body, fontWeight: 800, flexShrink: 0,
-          color: emphasizeRank && rank <= 3 ? accent : 'text.disabled', fontVariantNumeric: 'tabular-nums',
-        }}>{rank}</Box>
+        <Box sx={{ ...GAME_LINE_RANK_SX, color: emphasizeRank && rank <= 3 ? accent : 'text.disabled' }}>{tied ? `T-${rank}` : rank}</Box>
       )}
       {portrait}
       <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -100,13 +122,10 @@ export function GameLineFrame({
           }}>{nameAtStage(name, fit.stage)}</Typography>
           {club}
         </Box>
-        <Typography component="div" sx={{
-          fontSize: TYPE_SCALE.meta, color: 'text.secondary',
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-        }}>
+        <Typography component="div" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>
           {label && (
             <Box component="span" {...(rowIsLink ? {} : gameLink)} sx={{
-              textDecoration: 'none', fontWeight: 700, color: accent,
+              textDecoration: 'none', fontWeight: 700, color: accent, whiteSpace: 'nowrap',
               ...(rowIsLink ? {} : underline),
             }}>{label}</Box>
           )}

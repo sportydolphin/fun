@@ -761,7 +761,7 @@ function ChampionRecapBody({ champion, series, teams, log, path, star, players, 
       {path.length > 0 && (
         <RecapLink recap={recap} sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 1 }}>
           {path.map(step => (
-            <Box key={step.stage} sx={{ minWidth: 0 }}>
+            <Box key={step.stage} sx={{ minWidth: 0, textAlign: 'center' }}>
               <Typography sx={stageSx}>{step.stage}</Typography>
               <Typography sx={{
                 fontFamily: DISPLAY_FONT, fontSize: TYPE_SCALE.display, fontWeight: 900, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums',

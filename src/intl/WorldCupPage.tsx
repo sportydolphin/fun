@@ -38,8 +38,9 @@ import type { Medal, PersonGameLine, WorldCupPersonFile } from './wbsc/personFil
 import type { InternationalEvent } from './wbsc/international'
 import type { EditionLeaders, WpblInField } from './wbsc/editionLeaders'
 import type { WorldCupGameFile } from './wbsc/gameFile'
+import { compendiumYearOf } from './wbsc/compendium'
 import type { TeamRoster } from './wbsc/editionLeaders'
-import { editionSlugOf, editionTitle, type Medals, type StandingRow, type WorldCupEdition, type WorldCupGame, type WorldCupGroup, type WorldCupIndexEntry, type WorldCupStage } from './wbsc/editions'
+import { editionSlugOf, editionTitle, type EditionAwards, type Medals, type StandingRow, type WorldCupEdition, type WorldCupGame, type WorldCupGroup, type WorldCupIndexEntry, type WorldCupStage } from './wbsc/editions'
 
 
 function useSiteFile<T>(file: string): { file: string; data: T | null } | null {
@@ -56,8 +57,11 @@ const years = (ys: number[]) => (ys.length > 1 ? `${ys[0]}–${String(ys[ys.leng
 
 /** 'https://www.wbsc.org/en/events/2023-ix-womens-baseball-world-cup-group-a/schedule-and-results'
  *  reads '2023 Group A', the Finals '2024 Finals', a one-event edition its year. 2010 is IBAF's
- *  stats pages in the Wayback Machine (src/intl/wbsc/ibaf.ts), which read '2010'. */
+ *  stats pages in the Wayback Machine (src/intl/wbsc/ibaf.ts), which read '2010'; 2004 to 2008 its
+ *  compendium's page for that year. */
 function sourceLabel(url: string): string {
+  const compendium = compendiumYearOf(url)
+  if (compendium) return String(compendium)
   if (isIbaf(url)) return '2010'
   const key = url.split('/events/')[1]?.split('/')[0] ?? ''
   const tail = (key.split('world-cup')[1] ?? '').replace(/^-/, '').replace('group-stage-', '')
@@ -65,7 +69,8 @@ function sourceLabel(url: string): string {
   return [key.slice(0, 4), ...words].join(' ')
 }
 
-const isIbaf = (url: string) => url.includes('ibaf.prod.kgroup.eu')
+// 2004 to 2008 link to IBAF's compendium (src/intl/wbsc/compendium.ts), on ibaf.org.
+const isIbaf = (url: string) => url.includes('ibaf.prod.kgroup.eu') || url.includes('ibaf.org')
 
 /** Who published a source: IBAF ran the World Cup until 2013, when it merged into WBSC. */
 const publisher = (url: string) => (isIbaf(url) ? 'IBAF' : 'WBSC')
@@ -229,8 +234,8 @@ function Standings({ rows, slug }: { rows: StandingRow[]; slug: string }) {
 function Result({ g, slug, withYear = false }: { g: WorldCupGame; slug: string; withYear?: boolean }) {
   const awayWon = g.away_score > g.home_score
   return (
-    // A forfeit has no box score, so no page to open.
-    <Box {...(g.forfeit ? {} : linkTo(`/world-cup/${slug}/games/${g.wbsc_game_id}`))} sx={{
+    // A forfeit has no box score, nor does a results-only game (2004 to 2008), so no page to open.
+    <Box {...(!g.page ? {} : linkTo(`/world-cup/${slug}/games/${g.wbsc_game_id}`))} sx={{
       ...UNSTYLED_LINK, display: 'grid',
       // The teams column stops at a phone's width, so on a desktop the score stays beside the name.
       gridTemplateColumns: `${withYear ? 5.5 : 3.5}rem minmax(0, 14rem) minmax(3.5rem, 1fr)`, alignItems: 'center', columnGap: 1.5,
@@ -249,7 +254,7 @@ function Result({ g, slug, withYear = false }: { g: WorldCupGame; slug: string; 
         ))}
       </Box>
       <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', textAlign: 'right' }}>
-        {g.forfeit ? 'Forfeit' : g.innings === 7 ? 'Final' : `F/${g.innings}`}
+        {g.forfeit ? 'Forfeit' : g.innings === null || g.innings === 7 ? 'Final' : `F/${g.innings}`}
       </Typography>
     </Box>
   )
@@ -299,6 +304,51 @@ function Leaders({ leaders }: { leaders: EditionLeaders }) {
             }))} />
         )
       })}
+    </Box>
+  )
+}
+
+/** IBAF's titles for its award leaders (2004 to 2008), one card each. */
+const AWARD_TITLE: Record<string, string> = {
+  AVG: 'Batting Average', HR: 'Home Runs', RBI: 'RBIs', R: 'Runs', SB: 'Stolen Bases', ERA: 'ERA',
+  'W-L': 'Win Percentage', Defense: 'Fielding',
+}
+
+function AwardLeaders({ awards }: { awards: EditionAwards }) {
+  const [hover, setHover] = useState<string | null>(null)
+  return (
+    <Box sx={LEADER_GRID_SX} onMouseLeave={() => setHover(null)}>
+      {awards.leaders.map(l => (
+        <LeaderCard key={l.stat} title={AWARD_TITLE[l.stat] ?? l.stat} hoverKey={hover} onHover={setHover}
+          items={[{
+            key: l.path ?? `${l.name}-${l.team}`, rank: 1, tied: false, name: l.name, value: l.value,
+            portrait: <CountryBadge team={l.team} size={PORTRAIT_PX} />,
+            linkProps: l.path ? linkTo(l.path) : undefined,
+          }]} />
+      ))}
+    </Box>
+  )
+}
+
+/** The MVP, the champion's manager, then IBAF's all-tournament team by position. */
+function AllTournament({ awards }: { awards: EditionAwards }) {
+  const rows: { label: string; name: string; path: string | null; team: string }[] = [
+    { label: 'MVP', ...awards.mvp },
+    { label: 'Manager', name: awards.manager.name, path: null, team: awards.manager.team },
+    ...awards.all_tournament.map(x => ({ label: x.position, name: x.name, path: x.path, team: x.team })),
+  ]
+  return (
+    <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0, fontSize: TYPE_SCALE.body }}>
+      {rows.map((r, i) => (
+        <Box component="li" key={`${r.label}-${r.name}`} sx={{
+          display: 'grid', gridTemplateColumns: '4.5rem minmax(0, 1fr) auto', columnGap: 1.5, alignItems: 'center', py: 0.75,
+          borderTop: i ? '1px solid' : 'none', borderColor: 'divider',
+        }}>
+          <Box component="span" sx={{ color: 'text.secondary', fontSize: TYPE_SCALE.meta }}>{r.label}</Box>
+          <Box sx={{ minWidth: 0 }}><PlayerName name={r.name} path={r.path} /></Box>
+          <CountryBadge team={r.team} size={18} />
+        </Box>
+      ))}
     </Box>
   )
 }
@@ -396,6 +446,11 @@ function Overview({ e }: { e: WorldCupEdition }) {
           ))}
         </SectionCard>
       ))}
+      {e.awards && (
+        <SectionCard title="All-tournament team">
+          <AllTournament awards={e.awards} />
+        </SectionCard>
+      )}
       {e.wpbl.length > 0 && (
         <SectionCard title="WPBL players">
           <WpblPlayers teams={e.wpbl} />
@@ -463,9 +518,11 @@ function Edition({ slug, tab }: { slug: string; tab: EditionTab }) {
             <Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
                 <Typography component="h2" sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 700 }}>Leaders</Typography>
-                <InfoDot label="Qualified" text="Batting average and OPS: 2.4 plate appearances per team game. ERA: 2.4 outs per team game, per 7 innings." />
+                {e.awards
+                  ? <InfoDot label="Leaders" text="IBAF's award leaders, from its 2004 to 2010 compendium." />
+                  : <InfoDot label="Qualified" text="AVG and OPS: 2.4 plate appearances per team game. ERA: 2.4 outs per team game. ERA is per 7 innings." />}
               </Box>
-              <Leaders leaders={e.leaders} />
+              {e.awards ? <AwardLeaders awards={e.awards} /> : <Leaders leaders={e.leaders} />}
             </Box>
           )}
           {tab === 'teams' && <Teams e={e} />}
@@ -488,7 +545,25 @@ function playerLead(name: string, path: string | null) {
     : name
 }
 
+/** A results-only edition's roster (2004 to 2008): names and positions, then the staff. */
+function RosterList({ roster }: { roster: TeamRoster }) {
+  const players: StatLogRow[] = (roster.players ?? []).map(p => ({ lead: [playerLead(p.name, p.path)], cells: [p.position ?? '—'] }))
+  const staff: StatLogRow[] = (roster.staff ?? []).map(s => ({ lead: [s.name], cells: [s.role] }))
+  return (
+    <SectionCard title="Players">
+      <StatLogTable title="Roster" leadHeaders={['Player']} statHeaders={['Pos']} rows={players} accent={ACCENT}
+        noun={['player', 'players']} leadSx={PLAYER_LEAD_SX} />
+      {staff.length > 0 && (
+        <Box sx={{ mt: 2.5 }}>
+          <StatLogTable title="Staff" leadHeaders={['Name']} statHeaders={['Role']} rows={staff} accent={ACCENT} noun={['person', 'people']} />
+        </Box>
+      )}
+    </SectionCard>
+  )
+}
+
 function RosterTables({ roster }: { roster: TeamRoster }) {
+  if (roster.players) return <RosterList roster={roster} />
   const batting: StatLogRow[] = roster.batting.map(b => {
     const obp = b.ab + b.bb + b.hbp + b.sf > 0 ? (b.h + b.bb + b.hbp) / (b.ab + b.bb + b.hbp + b.sf) : null
     const slg = b.ab > 0 ? b.tb / b.ab : null
@@ -800,8 +875,8 @@ function GamePage({ slug, id }: { slug: string; id: string }) {
   const g = read?.data
   // The matchup, as a schedule names a game; the score is the header card's.
   const title = g ? `${countryName(g.away)} at ${countryName(g.home)}` : 'Game'
-  // The games either side in the order played, skipping forfeits, which have no page.
-  const played = edition?.data ? allGames(edition.data).filter(x => !x.forfeit) : []
+  // The games either side in the order played, skipping the ones with no page.
+  const played = edition?.data ? allGames(edition.data).filter(x => x.page) : []
   const at = played.findIndex(x => String(x.wbsc_game_id) === id)
   const prev = at > 0 ? played[at - 1] : null
   const next = at >= 0 && at < played.length - 1 ? played[at + 1] : null

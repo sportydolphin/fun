@@ -69,6 +69,7 @@ import { createClient } from '@supabase/supabase-js'
 // line, same reason, as the sibling cron scripts.
 import ws from 'ws'
 import { pathToFileURL } from 'node:url'
+import { runWithHeartbeat } from '../shared/heartbeat.js'
 
 // Run only when invoked directly. Imported (by the tests, which exercise the matching and the
 // message building without a database or a webhook) this file must define and not do.
@@ -1035,14 +1036,15 @@ async function main() {
     // Nothing to be blind about: this is an unfinished setup, not an outage, and posting an
     // alarm about it every six hours would train everyone to ignore the alarm that matters.
     console.log('No source has credentials, so there was nothing to search. See the hints above.')
-    return
+    return { ok: false, detail: 'No source has credentials' }
   }
 
   if (errors.length === asked) {
+    let blindFor = 0
     if (!DRY_RUN) {
       // Every source down is the one state a watcher cannot report by staying quiet, so once
       // the outage is old enough we say so, once.
-      const blindFor = hoursSince((await lastGoodRun())?.ran_at)
+      blindFor = hoursSince((await lastGoodRun())?.ran_at)
       if (blindFor >= ERROR_QUIET_HOURS) {
         await post(outageMessage(blindFor, errors)).catch(e =>
           console.error(`   Could not post the outage notice either: ${e.message}`))
@@ -1050,8 +1052,9 @@ async function main() {
       await recordRun({ ok: false, error: errors.join(' | ').slice(0, 500) })
     }
     // Exit 0: expected and self-healing, and a red X every hour teaches everyone to
-    // ignore the job.
-    return
+    // ignore the job. The heartbeat turns red past the same six hours, which is where /admin
+    // looks; a shorter outage heals itself and would only teach the pager to be ignored.
+    return { ok: blindFor < ERROR_QUIET_HOURS, detail: `Every source down: ${errors[0] ?? ''}` }
   }
 
   const hits = toHits(results, DRY_RUN ? [] : await loadKnownIds())
@@ -1115,7 +1118,7 @@ async function main() {
 }
 
 if (IS_ENTRYPOINT) {
-  main().catch(err => {
+  runWithHeartbeat(supabase, 'wpbl-mention-watch', main, { skip: DRY_RUN || STATUS || TEST_POST }).catch(err => {
     console.error(`❌  ${err?.stack ?? err}`)
     process.exit(1)
   })

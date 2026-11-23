@@ -310,8 +310,8 @@ export async function findFanPhotoBySha(sha256: string): Promise<{ id: string; a
 }
 
 /** Insert a fan photo row after its renders are in R2. Returns the new id, or null on failure.
- *  Lands `approved = false` by the column default: an uploaded photo is still just a queue
- *  entry until it is tagged and published. */
+ *  A row with a credit and a photographer on file lands published, by a database trigger
+ *  (20261113080000); one without stays unpublished until the owner publishes it. */
 export async function insertFanPhoto(row: {
   sha256: string; storage_path: string; card_url: string; full_url: string
   width: number | null; height: number | null; credit: string | null; contributor_id: string | null
@@ -378,4 +378,40 @@ export async function updateFanPhotoContributor(
   }
   invalidateWpblFanPhotos()
   return true
+}
+
+/** One bucket on one day, from the daily R2 storage watch (scripts/watch-r2-storage.mjs). */
+export interface R2StorageSnapshot {
+  day: string
+  bucket: string
+  object_count: number
+  payload_bytes: number
+  metadata_bytes: number
+  class_a_month: number
+  class_b_month: number
+}
+
+/** The last `days` of snapshots, newest first, for /admin's Storage card. Owner-only (RLS); a
+ *  short window, a few rows per day, so it never nears PostgREST's 1000-row cap. Fails soft to
+ *  empty, so the card reads "No data" before the migration or the job's first run. */
+export async function fetchR2StorageSnapshots(days = 31): Promise<R2StorageSnapshot[]> {
+  try {
+    const since = new Date(Date.now() - days * 24 * 60 * 60_000).toISOString().slice(0, 10)
+    const { data, error } = await supabase.from('r2_storage_snapshots')
+      .select('day,bucket,object_count,payload_bytes,metadata_bytes,class_a_month,class_b_month')
+      .gte('day', since)
+      .order('day', { ascending: false })
+      .order('bucket', { ascending: true })
+    if (error) { console.error('fetchR2StorageSnapshots:', error); return [] }
+    // bigint columns can arrive as strings; the card does arithmetic on them.
+    return (data ?? []).map(r => ({
+      ...r,
+      object_count: Number(r.object_count), payload_bytes: Number(r.payload_bytes),
+      metadata_bytes: Number(r.metadata_bytes), class_a_month: Number(r.class_a_month),
+      class_b_month: Number(r.class_b_month),
+    }))
+  } catch (e) {
+    console.error('fetchR2StorageSnapshots:', e)
+    return []
+  }
 }

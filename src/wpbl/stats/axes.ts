@@ -78,7 +78,7 @@ export const VIEW_ORDER: Record<Side, Record<View, readonly string[]>> = {
   // position, pitching), then WAR last, the one-number answer, with wins added after it as the
   // second opinion. Advanced takes the glove apart and shows the two adjustments every row carries.
   overall: {
-    standard: ['pa', 'ip', 'bat', 'bsr', 'fld', 'pos', 'pit', 'batWar', 'pitWar', 'war', 'wpa'],
+    standard: ['pa', 'ip', 'bat', 'bsr', 'fld', 'pos', 'pit', 'batWar', 'pitWar', 'war', 'wpa', 'pli', 'gmli'],
     advanced: ['pa', 'ip', 'rng', 'err', 'dp', 'ofArm', 'cArm', 'cBlk', 'fld', 'gdp', 'lgAdj', 'rep', 'war'],
   },
   hitting: {
@@ -109,6 +109,8 @@ export const VIEW_OPTIONS = [{ value: 'standard', label: 'Standard' }, { value: 
 // to Nov 2026 pressing it opened Leaders on that side instead, and readers took that for a bug:
 // pressing Overall on Teams moved them off the board they had chosen. The disabled pill is in
 // `text.disabled`, not faded with opacity, and says which boards answer it on hover.
+// Find is the exception: a tool, not a board, so its sides are in its own Question card, without
+// Overall (Nov 10, 2026), and the bar leaves this switch off there.
 export const SIDES: { value: Side; label: string }[] = [
   { value: 'overall', label: 'Overall' },
   { value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }, { value: 'fielding', label: 'Fielding' },
@@ -120,12 +122,15 @@ export const SIDES: { value: Side; label: string }[] = [
  *  club's wins added is just its record. */
 export function sideOn(side: Side, source: Source, mode: Mode = 'players'): boolean {
   if (side === 'fielding') return source === 'season' || source === 'leaders' || source === 'find'
-  if (side === 'overall') return source === 'leaders' || (source === 'season' && mode === 'players')
+  // Run value too, as both ways: a player's batting and pitching in runs and wins (Nov 2026).
+  if (side === 'overall') return source === 'leaders' || source === 'runs' || (source === 'season' && mode === 'players')
   return true
 }
-/** Where a board opens, and what an address with no `side` means on it. */
-export const defaultSide = (source: Source, mode: Mode = 'players'): Side =>
-  (sideOn('overall', source, mode) ? 'overall' : 'hitting')
+/** Where a board opens, and what an address with no `side` means on it. Hitting everywhere, since
+ *  every board answers it: opening Leaders and Players on Overall meant the tab's first view
+ *  changed side from board to board (Nov 9, 2026). An old Overall link with no `side` now opens on
+ *  Hitting; the arguments stay so a board can open elsewhere again without touching the callers. */
+export const defaultSide = (_source?: Source, _mode?: Mode): Side => 'hitting'
 /** The side a linked column belongs to, for an address that names a column and no side: every link
  *  written before Overall existed, when a missing side meant Hitting. */
 export function sideOfSort(key: string): Side | undefined {
@@ -161,10 +166,12 @@ export function viewFor(side: Side, key: string, current: View): View {
 // ERA basis) are not in HIT_COLS / PIT_COLS, so without this list a shared `?sort=fip` link was
 // "unknown" and landed on ERA. Each maps to its `lowerBetter`. A key added to hitCols / pitCols
 // and not here still renders and sorts on click, it just cannot be linked to.
+// A club's record (TEAM_RECORD_COLS), which leads the Teams board on every side but Overall.
+const TEAM_RECORD_SORTS = { teamWl: false, teamRs: false, teamRa: true, teamDiff: false }
 const DERIVED_SORTS: Record<Side, Record<string, boolean>> = {
-  hitting: { lob: false, opsPlus: false, woba: false, wrcPlus: false },
-  pitching: { eraPlus: false, fip: true, k9: false, hr9: true },
-  fielding: {},
+  hitting: { lob: false, opsPlus: false, woba: false, wrcPlus: false, ...TEAM_RECORD_SORTS },
+  pitching: { eraPlus: false, fip: true, k9: false, hr9: true, ...TEAM_RECORD_SORTS },
+  fielding: { ...TEAM_RECORD_SORTS },
   overall: {},
 }
 // The column each side opens on. ONE NAME, read by the cold load, the side switch and the view
