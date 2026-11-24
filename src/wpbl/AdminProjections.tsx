@@ -77,9 +77,6 @@ export default function AdminProjections() {
   }, [])
 
   const held = useMemo(() => heldPlayers(moves ?? []), [moves])
-  // Back with a club is not back in the league: a player drafted or traded elsewhere is on a 2027
-  // roster and is still production their 2026 club lost.
-  const back = useMemo(() => new Set([...held].filter(([id, team]) => club2026(id) === team).map(([id]) => id)), [held])
   const clubOf = (id: string) => held.get(id) ?? club2026(id)
 
   const model = useMemo(() => {
@@ -146,18 +143,19 @@ export default function AdminProjections() {
       const pa = r?.batting ? batEvents(r.batting).n : 0
       return { teamId: team, playerId: id, pa, outs: r?.pitching?.outs ?? 0, war: rows?.current ? r?.value?.war ?? 0 : null }
     }))
-    const out = returningProduction(input, back)
+    const out = returningProduction(input, held)
     return DRAFT_ORDER_2027.flatMap(id => out.filter(c => c.teamId === id))
-  }, [model, back, rows])
+  }, [model, held, rows])
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Card title="Returning production" info={`Each club's ${FROM} regular season held by the players still with it for ${ROSTER_SEASON}. A player counts for their ${FROM} club.`}>
-        <Table cols={['Club', 'Back', 'PA', 'IP', 'WAR back', 'WAR']} widths="minmax(6rem, 1fr) repeat(5, 4.5rem)"
+      <Card title="Returning production" info={`Each club's ${FROM} regular season held by the players still with it for ${ROSTER_SEASON}. Added: players from another club's ${FROM} roster, and their WAR there.`}>
+        <Table cols={['Club', 'Back', 'PA', 'IP', 'WAR back', 'WAR', 'Added', 'WAR added']} widths="minmax(6rem, 1fr) repeat(7, 4.5rem)"
           rows={returning.map(c => [
             teamName(c.teamId), `${c.back}/${c.players}`, pct(c.pa.back, c.pa.total), pct(c.outs.back, c.outs.total),
             // WAR, not a share of it: a club's total can sit at or under zero, where a share means nothing.
             c.war ? c.war.back.toFixed(1) : '—', c.war ? c.war.total.toFixed(1) : '—',
+            String(c.added.players), c.added.war == null ? '—' : c.added.war.toFixed(1),
           ])} />
       </Card>
 

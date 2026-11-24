@@ -111,8 +111,22 @@ describe('returningProduction', () => {
       { teamId: 'BOS', playerId: 'b', pa: 50, outs: 60, war: 0.5 },
       { teamId: 'SF', playerId: 'c', pa: 80, outs: 0, war: null },
     ]
-    const [bos, sf] = returningProduction(rows, new Set(['a']))
+    const [bos, sf] = returningProduction(rows, new Map([['a', 'BOS']]))
     expect(bos).toMatchObject({ players: 2, back: 1, pa: { back: 100, total: 150 }, outs: { back: 0, total: 60 }, war: { back: 1.5, total: 2 } })
+    expect(bos.added).toEqual({ players: 0, pa: 0, outs: 0, war: 0 })
     expect(sf.war).toBeNull()
+  })
+
+  it('counts a traded player as a loss to the old club and an addition to the new one', () => {
+    const rows = [
+      { teamId: 'NY', playerId: 'z', pa: 90, outs: 30, war: 1.2 },
+      { teamId: 'NY', playerId: 'y', pa: 40, outs: 0, war: 0.3 },
+      { teamId: 'BOS', playerId: 'b', pa: 60, outs: 0, war: 0.4 },
+    ]
+    const out = returningProduction(rows, new Map([['z', 'BOS'], ['y', 'NY'], ['b', 'BOS']]))
+    const ny = out.find(c => c.teamId === 'NY')!
+    const bos = out.find(c => c.teamId === 'BOS')!
+    expect(ny).toMatchObject({ back: 1, pa: { back: 40, total: 130 }, added: { players: 0 } })
+    expect(bos).toMatchObject({ players: 1, back: 1, pa: { back: 60, total: 60 }, added: { players: 1, pa: 90, outs: 30, war: 1.2 } })
   })
 })
