@@ -85,6 +85,9 @@ vi.mock('../api', async (importOriginal) => {
     // seasons and no priced row, so it builds from the lines above, as it does when both are stale.
     fetchWpblPlayerSeasons: () => Promise.reject(new Error('not in tests')),
     fetchWpblRunEnvironment: () => Promise.resolve(null),
+    // The splits table's read: no plays, so the table omits itself, as for a player the log never names.
+    fetchWpblPlayLog: () => Promise.resolve([]),
+    getCachedWpblPlayLog: () => [],
   }
 })
 
@@ -555,7 +558,7 @@ describe('PlayerDetail: the game log', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /show 5 more games/i }))
     expect(logRows(container)).toHaveLength(10)
-    expect(screen.queryByRole('button', { name: /show \d+ more/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /show \d+ more games?/i })).not.toBeInTheDocument()
   })
 
   // Folding back up was deliberately missing until Sep 28, 2026, on the grounds that it would
@@ -580,7 +583,7 @@ describe('PlayerDetail: the game log', () => {
     lines.batting = [bat({ game_id: 'g0', ab: 4, h: 2, tb: 3 }), bat({ game_id: 'g1', ab: 3, h: 1, tb: 1 })]
     show(player())
     await waitFor(() => expect(battingShown()).toBe(true))
-    expect(screen.queryByRole('button', { name: /show \d+ more/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /show \d+ more games?/i })).not.toBeInTheDocument()
   })
 
   it('opens the game a row is about', async () => {
