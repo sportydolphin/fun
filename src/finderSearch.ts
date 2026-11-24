@@ -402,7 +402,7 @@ export interface LeaderOptions {
   seasonCount?: number | null
 }
 
-function leaderTitle(p: ParsedLeader): string {
+export function leaderTitle(p: ParsedLeader): string {
   const desc = p.dir ? p.dir === 'desc' : !rankLowerBetter(p.side, p.field)
   // A season figure keeps its own spelling: "Highest wRC+", "Most WAR".
   const own = rankField(p.field)

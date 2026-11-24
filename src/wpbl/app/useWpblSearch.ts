@@ -604,11 +604,13 @@ function useWpblSearch({ searchActive, players: livePlayers, teams: liveTeams, g
   // with the section's own data, loaded on the first ask.
   const resolveMore = useCallback(async (text: string): Promise<AnswerGroup[]> => {
     const ctx = { games, players, teams }
-    const [{ wpblMoreAnswers }, { wpblPitchRateAnswers }, { wpblLineupAnswers }, { wpblBigPlayAnswers }, league] = await Promise.all([
-      import('../searchMoreAnswers'), import('../searchPitchRates'), import('../searchLineup'), import('../searchBigPlays'), leagueAnswers(text)])
-    const [more, pitch, lineup, big] = await Promise.all([wpblMoreAnswers(text, ctx), wpblPitchRateAnswers(text, ctx).catch(() => []),
-      wpblLineupAnswers(text, ctx).catch(() => []), wpblBigPlayAnswers(text, ctx).then(withClips).catch(() => [])])
+    const [{ wpblMoreAnswers }, { wpblPitchRateAnswers }, { wpblLineupAnswers }, { wpblBigPlayAnswers }, { wpblRosterAnswers }, league] = await Promise.all([
+      import('../searchMoreAnswers'), import('../searchPitchRates'), import('../searchLineup'), import('../searchBigPlays'), import('../searchRoster'), leagueAnswers(text)])
+    const [more, pitch, lineup, big, rosters] = await Promise.all([wpblMoreAnswers(text, ctx), wpblPitchRateAnswers(text, ctx).catch(() => []),
+      wpblLineupAnswers(text, ctx).catch(() => []), wpblBigPlayAnswers(text, ctx).then(withClips).catch(() => []),
+      wpblRosterAnswers(text, ctx).catch(() => [])])
     return [
+      ...(rosters.length ? [{ label: '2027 rosters', icon: 'roster' as const, rows: rosters }] : []),
       ...(big.length ? [{ label: 'Plays', icon: 'game' as const, rows: big }] : []),
       ...(lineup.length ? [{ label: 'Lineup', icon: 'lineup' as const, rows: lineup }] : []),
       ...(pitch.length ? [{ label: 'Pitch by pitch', icon: 'pitches' as const, rows: pitch }] : []),

@@ -24,6 +24,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.264.0',
+    date:    '2026-11-24',
+    changes: [
+      {
+        short: 'WPBL Stats: filter by 2027 roster',
+        full:  "The 2026 Players board has a 2027 filter: one club's 2027 roster, any club, or a status such as Re-signed, Traded or Draft eligible. New statuses and clubs appear as the draft and free agency add them. Search answers it too: try \"draft eligible hr\" or \"Boston 2027 roster\".",
+      },
+    ],
+  },
+  {
     version: '1.263.1',
     date:    '2026-11-24',
     changes: [

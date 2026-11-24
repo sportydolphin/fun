@@ -10,6 +10,15 @@ import { ExportLinks, type ExportKind } from '../../ui/ExportLinks'
 
 export type { ExportKind }
 
+/** The 2027 roster filter as the bar and the sheet draw it. `value` is the address's `roster=`
+ *  value, '' for none. Each choice carries the select's words ("2027: Boston"), the sheet's, which
+ *  sit under a "2027" heading ("Boston Hunters"), and the club for the sheet's badge. */
+export interface RosterControl {
+  value: string
+  choices: { value: string; label: string; sheetLabel: string; group?: string; team?: WpblTeam }[]
+  onChange: (value: string) => void
+}
+
 /** A row's place on the board: its number, and whether it shares it. */
 export interface RankMark { n: number; tied: boolean }
 

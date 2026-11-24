@@ -103,31 +103,58 @@ export function ChipRow({ mb, children }: { mb: number; children: React.ReactNod
 
 /** A chip that picks one of many (a season), as a native select so the list is the platform's.
  *  Lit while it is off its default, as a filter chip is while it is on. */
-export function FilterSelect({ value, options, onChange, active, ariaLabel, disabled = false, hint }: {
+export function FilterSelect({ value, options, onChange, active, ariaLabel, disabled = false, hint, fitChoice = false }: {
   value: string
-  options: { value: string; label: string }[]
+  /** `group` sorts an option under a heading in the open list (an `<optgroup>`); options with the
+   *  same group should be adjacent. Ungrouped options render as they are. */
+  options: { value: string; label: string; group?: string }[]
   onChange: (v: string) => void
   active: boolean
   ariaLabel: string
   /** As on FilterChip: drawn, unpickable, with `hint` saying why. */
   disabled?: boolean
   hint?: string
+  /** As wide as the choice showing, not the widest choice. A native select is always as wide as its
+   *  longest option, which for a list that grows after the first paint (the 2027 rosters' clubs and
+   *  statuses) means a chip that widens under the reader when the read lands, and one wide enough
+   *  for "Not yet re-signed" while it says "All". The words are drawn in a span and the select
+   *  lies over them, unpainted, so the list, the keyboard and the screen reader are still native. */
+  fitChoice?: boolean
 }) {
+  // Runs of the same group, in order, so the list reads as the caller wrote it.
+  const runs: { group?: string; items: typeof options }[] = []
+  for (const o of options) {
+    const last = runs[runs.length - 1]
+    if (last && last.group === o.group) last.items.push(o)
+    else runs.push({ group: o.group, items: [o] })
+  }
+  const opt = (o: (typeof options)[number]) => <option key={o.value} value={o.value}>{o.label}</option>
+  const pad = { py: 0.4, pl: 1, pr: 2.25 } as const
   return (
     <Box title={disabled ? hint : undefined} sx={{
       ...filterChipSx(active), position: 'relative', p: 0, '&:focus-within': { borderColor: ACCENT_EDGE },
       ...(disabled ? { cursor: 'not-allowed', bgcolor: 'transparent', borderColor: 'text.disabled', color: 'text.disabled' } : {}),
     }}>
+      {fitChoice && (
+        <Box component="span" aria-hidden sx={{ ...pad, display: 'block', whiteSpace: 'nowrap' }}>
+          {options.find(o => o.value === value)?.label ?? ''}
+        </Box>
+      )}
       <Box component="select" value={value} aria-label={disabled && hint ? `${ariaLabel}, ${hint}` : ariaLabel} disabled={disabled}
         onChange={e => onChange((e.target as HTMLSelectElement).value)}
         sx={{
           appearance: 'none', border: 'none', outline: 'none', bgcolor: 'transparent', color: 'inherit',
           font: 'inherit', cursor: disabled ? 'not-allowed' : 'pointer', borderRadius: 999,
           // The chip's own padding, with room on the right for the caret drawn over it.
-          py: 0.4, pl: 1, pr: 2.25,
-          '& option': { color: 'text.primary', bgcolor: 'background.paper' },
+          ...pad,
+          // Over the span, the whole chip its target, its own text unpainted (the span draws it).
+          // Transparent ink rather than opacity, so the open list's options keep theirs.
+          ...(fitChoice ? { position: 'absolute', inset: 0, width: '100%', color: 'transparent' } : {}),
+          '& option, & optgroup': { color: 'text.primary', bgcolor: 'background.paper' },
         }}>
-        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        {runs.map(r => r.group
+          ? <optgroup key={`g:${r.group}`} label={r.group}>{r.items.map(opt)}</optgroup>
+          : r.items.map(opt))}
       </Box>
       <Box component="span" aria-hidden sx={{ position: 'absolute', right: chromePx(8), fontSize: TYPE_SCALE.caption, pointerEvents: 'none' }}>▾</Box>
     </Box>
