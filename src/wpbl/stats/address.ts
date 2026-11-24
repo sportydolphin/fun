@@ -43,7 +43,7 @@ export const STATS_PATH = '/wpbl/stats'
  * the target is this tab. See `playFragmentFor` in entryUrl.ts for the related case of the URL
  * fragment, which needs capturing rather than carrying.
  */
-export const STATS_URL_PARAMS = ['board', 'side', 'sort', 'dir', 'q', 'team', 'opp', 'venue', 'by', 'bat', 'pit', 'pos', 'games', 'who', 'cols'] as const
+export const STATS_URL_PARAMS = ['board', 'side', 'sort', 'dir', 'q', 'team', 'opp', 'venue', 'by', 'bat', 'pit', 'pos', 'games', 'who', 'cols', 'roster'] as const
 
 
 /** Copy this board's params from one query onto another, leaving everything else alone.
@@ -100,6 +100,8 @@ export function axesFromQuery(): {
   /** Advanced rather than Standard columns on Players and Teams. `cols`, because `view` is the
    *  section's legacy tab param (`?view=tracking`), and MLB spells it the same. */
   advanced?: boolean
+  /** The 2027 roster filter's value, as `parseRosterFilter` reads it. */
+  roster?: string | null
 } {
   if (typeof window === 'undefined') return {}
   // Only on the stats tab. A player modal opened from here owns the path, and the axes on it
@@ -141,5 +143,6 @@ export function axesFromQuery(): {
     team: board?.source === 'find' ? null : q.get('team'),
     everyone: q.get('who') === 'all',
     advanced: q.get('cols') === 'advanced',
+    roster: q.get('roster'),
   }
 }

@@ -13,13 +13,14 @@ import type { TeamRecord } from './columns'
 import { useWpblPlayerLink } from '../LinkContext'
 import type { Col } from '../statColumns'
 import { matchesPositionFilter, type PositionFilter } from '../../league/positionFilter'
+import { matchesRosterFilter, type RosterFilter, type RosterStatus } from '../offseason2027'
 import type { Side, Totals, Mode } from './axes'
 import type { Row } from './shared'
 
 /** The table's rows, sorted: one per player on Players (any side), one per club on Teams. */
 export function buildRows({ mode, side, players, lines, fielding, valueSeasons, batSeasons, pitSeasons, teams,
   teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, lobByGameTeam,
-  games, scope, positionIndex, pos, teamDp, armCs }: {
+  games, scope, positionIndex, pos, teamDp, armCs, roster = null, rosterStatuses = null }: {
   mode: Mode
   side: Side
   players: WpblPlayer[]
@@ -47,7 +48,12 @@ export function buildRows({ mode, side, players, lines, fielding, valueSeasons, 
   teamDp: Map<string, number> | null
   /** Runners thrown out per catcher, regular season, null until they are to hand. */
   armCs: Map<string, number> | null
+  /** The 2027 roster filter and every player's status. A filter with no statuses yet lists nobody:
+   *  StatsView draws the board's loading state until they land, so that is never on screen. */
+  roster?: RosterFilter | null
+  rosterStatuses?: ReadonlyMap<string, RosterStatus> | null
 }): Row[] {
+  const onRoster = (id: string) => !roster || (!!rosterStatuses && matchesRosterFilter(roster, rosterStatuses.get(id)))
   let built: Row[]
   let stealsMemo: ReturnType<typeof catcherSteals> | null = null
   const steals = () => (stealsMemo ??= catcherSteals(fielding ?? [], lines.batting, games, scope))
@@ -128,6 +134,7 @@ export function buildRows({ mode, side, players, lines, fielding, valueSeasons, 
     // small number rather than an extreme one, and the bar would only hide the bench.
     let list = valueSeasons ?? []
     if (teamId) list = list.filter(s => s.player.team_id === teamId)
+    if (roster) list = list.filter(s => onRoster(s.player.id))
     if (pos) list = list.filter(s => matchesPositionFilter(pos, displayPositionFromIndex(s.player, positionIndex).label))
     built = list.map(s => ({
       key: s.player.id, team: teamById.get(s.player.team_id),
@@ -150,6 +157,7 @@ export function buildRows({ mode, side, players, lines, fielding, valueSeasons, 
       : pitSeasons.map(s => ({ player: s.player, totals: s.totals as Totals, qualified: s.totals.outs >= qual.minOuts }))
     let list = seasons
     if (teamId) list = list.filter(s => s.player.team_id === teamId)
+    if (roster) list = list.filter(s => onRoster(s.player.id))
     if (pos) {
       list = list.filter(s => matchesPositionFilter(pos, displayPositionFromIndex(s.player, positionIndex).label,
         side === 'pitching' ? s.totals as WpblPitchingTotals : null))

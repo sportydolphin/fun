@@ -14,12 +14,13 @@ import type { Side, Totals, Source, Mode, View } from './axes'
 import { VIEW_OPTIONS, SIDES, sideOn } from './axes'
 import { boardTabOptions } from './boardTabs'
 import { PINNED_CHROME, fullBleedStickySx } from './layout'
+import type { RosterControl } from './shared'
 
 /** Which board, which side, and how to cut it: the board rows and the pinned control bar under them. */
 export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, analysisBoards, source, isNarrow,
   stuckMarkRef, barRef, barStuck, mode, side, pickSide, hasViews, view, switchView, canFilter, sheetOpen,
   setSheetOpen, activeCol, filtersSet, hasPostseason, overall, scope, setScope, teamId, teamChips, filterTeam,
-  qualified, toggleQualified, pos, posChoices, filterPos, allSeasons = false, multiSeason = false }: {
+  qualified, toggleQualified, pos, posChoices, filterPos, roster = null, allSeasons = false, multiSeason = false }: {
   newBoards?: ReadonlySet<string>
   activeBoard: string
   selectBoard: (k: string) => void
@@ -52,6 +53,8 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
   pos: PositionFilter | null
   posChoices: PositionFilterDef[]
   filterPos: (p: PositionFilter | null) => void
+  /** The 2027 roster filter, null on a board or a season that does not offer it. */
+  roster?: RosterControl | null
   qualified: boolean
   toggleQualified: () => void
   /** The board on screen can show every season at once (see StatsView's `boardTakesAll`). */
@@ -338,6 +341,18 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
               active={pos !== null}
               ariaLabel="Position"
             />
+            {/* After Position, as in the sheet: who is listed, cut by next season's rosters. A select
+                for the same reason as Position, and its clubs and statuses grow with the offseason. */}
+            {roster && (
+              <FilterSelect
+                value={roster.value}
+                options={roster.choices}
+                onChange={roster.onChange}
+                active={roster.value !== ''}
+                ariaLabel="2027 roster"
+                fitChoice
+              />
+            )}
             {!overall && (
               <>
                 <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: 'divider', mx: 0.25, flexShrink: 0 }} />

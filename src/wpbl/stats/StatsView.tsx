@@ -57,6 +57,12 @@ import { SeasonTable } from './SeasonTable'
 import { ControlBar } from './ControlBar'
 import { LeadersPane, BoardPane, type ChartInputs, type ChartFilters } from './Boards'
 import { buildRows } from './rows'
+import type { RosterControl } from './shared'
+import { useWpblRosterMoves } from '../useRosterMoves'
+import {
+  CLUB_CITIES, ROSTER_KIND_LABELS, parseRosterFilter, rosterFilterChoices, rosterFilterOffered,
+  rosterFilterParam, rosterStatuses, type RosterFilter,
+} from '../offseason2027'
 import { useBoardLayout } from './useBoardLayout'
 
 // Complete season stat table for the WPBL: a sortable board of every hitting and
@@ -354,6 +360,18 @@ export default function WpblStatsView({
   const positionIndex = useMemo(
     () => (stored ? stored.positions : buildPositionIndex(lines.batting, games)), [stored, lines.batting, games])
   const [qualified, setQualified] = useState(() => (fromUrl.source === 'charts' || !fromUrl.everyone) && qual.active)
+  // NEXT SEASON'S ROSTERS, ON LAST SEASON'S PLAYERS BOARD (Nov 24, 2026): a club's 2027 roster, or a
+  // status ("Draft eligible" is the draft pool), from the same `rosterStatuses` the player card and
+  // the Rosters page read. Offered by the calendar and the schedule alone (`rosterFilterOffered`),
+  // so the control is in the bar from the first paint and only its choices wait on the moves. The
+  // state outlives a board or season that does not offer it, and applies only where it is offered.
+  const [rosterNow] = useState(() => Date.now())
+  const [rosterCut, setRosterCut] = useState<RosterFilter | null>(() => parseRosterFilter(fromUrl.roster))
+  const rosterOffered = source === 'season' && mode === 'players'
+    && rosterFilterOffered(everySeason ? null : season, current, rosterNow)
+  const rosterOn = rosterOffered ? rosterCut : null
+  const rosterMoves = useWpblRosterMoves(rosterOffered)
+  const rosterMap = useMemo(() => (rosterMoves ? rosterStatuses(rosterMoves, rosterNow) : null), [rosterMoves, rosterNow])
   // The Charts board's Qualified and club chips. Their own state, not `qualified` and `teamId`:
   // a chart's club is a highlight over the whole league rather than a filter on the rows, and the
   // chart's bar is the regular season's whatever slice the tables show. Read from the address only
@@ -428,6 +446,9 @@ export default function WpblStatsView({
     if (focus.mode) setMode(focus.mode)
     if (focus.teamId !== undefined) setTeamId(focus.teamId)
     if (focus.qualified !== undefined) setQualified(focus.qualified)
+    // A jump never carries the 2027 cut, and one left on from earlier would hide most of the
+    // players the jump was made to show.
+    setRosterCut(null)
     // The card's ranks are regular-season ranks, so the board they open is too.
     if (focus.playerId) setScope('regular')
     linkLogged.current = true
@@ -671,7 +692,7 @@ export default function WpblStatsView({
   const applyAddress = useRef<() => void>(() => {})
   applyAddress.current = () => {
     const sp = new URLSearchParams(window.location.search)
-    if (!['board', 'side', 'sort', 'pos'].some(k => sp.has(k))) return
+    if (!['board', 'side', 'sort', 'pos', 'roster'].some(k => sp.has(k))) return
     const q = axesFromQuery()
     if (!q.source && !q.side && !q.sortKey) return
     // The writer leaves every default off, so a param that is absent IS the default.
@@ -680,6 +701,7 @@ export default function WpblStatsView({
     setSource(nextSource)
     setMode(q.mode ?? 'players')
     setPos(parsePositionFilter(q.pos))
+    setRosterCut(parseRosterFilter(q.roster))
     if (nextSide !== side) switchSide(nextSide, false)
     setChosenSide(nextSide)
     // After the switch, which re-sorts on the side's headline column: no `sort` is that column.
@@ -723,6 +745,11 @@ export default function WpblStatsView({
     setPos(p)
   }
   const posChoices = positionOptions(side)
+  const filterRoster = (value: string) => {
+    const next = parseRosterFilter(value)
+    track(EVENTS.WPBL_STATS_FILTERED, { filter: 'roster', on: next !== null, roster: value || null, side })
+    setRosterCut(next)
+  }
   const toggleQualified = () => {
     track(EVENTS.WPBL_STATS_FILTERED, { filter: 'qualified', on: !qualified, side })
     setQualified(q => !q)
@@ -808,6 +835,7 @@ export default function WpblStatsView({
     set('pit', finding && finderPitcherApplies(findSide, findQuery.per) ? findQuery.pitcherId ?? null : null)
     set('by', finding && finderPlayerApplies(findSide, findQuery.per, findQuery.byClub) ? findQuery.playerId ?? null : null)
     set('pos', source === 'season' && mode === 'players' ? posOn : null)
+    set('roster', rosterOn ? rosterFilterParam(rosterOn) : null)
     // THE FILTERS, which a reload used to drop: a link to Boston's playoff pitchers opened on the
     // whole league's regular season. Named as MLB's address names them. `team` is Find's own
     // param on Find (above), so the filter only writes it on the other boards.
@@ -822,7 +850,7 @@ export default function WpblStatsView({
     const url = str ? `${window.location.pathname}?${str}` : window.location.pathname
     if (url === window.location.pathname + window.location.search) return
     window.history.replaceState(window.history.state, '', url)
-  }, [active, source, mode, side, findSide, sortKey, sortAsc, findQuery, scope, posOn, teamId, qualified, qual.active, chartsClub, chartsEveryone, view, hasViews])
+  }, [active, source, mode, side, findSide, sortKey, sortAsc, findQuery, scope, posOn, rosterOn, teamId, qualified, qual.active, chartsClub, chartsEveryone, view, hasViews])
 
   const bestAsc = activeCol.lowerBetter ?? false
   const bestFirst = sortAsc === bestAsc
@@ -859,8 +887,8 @@ export default function WpblStatsView({
   const builtRows = useMemo<Row[]>(() => buildRows({
     mode, side, players, lines, fielding, valueSeasons, batSeasons, pitSeasons, teams, teamById, teamId,
     qualified, qual, activeCol, sortAsc, onOpenPlayer: openPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope,
-    positionIndex, pos: posOn, teamDp, armCs,
-  }), [mode, side, players, lines, fielding, valueSeasons, batSeasons, pitSeasons, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, openPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope, positionIndex, posOn, teamDp, armCs])
+    positionIndex, pos: posOn, teamDp, armCs, roster: rosterOn, rosterStatuses: rosterMap,
+  }), [mode, side, players, lines, fielding, valueSeasons, batSeasons, pitSeasons, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, openPlayer, onOpenTeam, playerLink, lobByGameTeam, games, scope, positionIndex, posOn, teamDp, armCs, rosterOn, rosterMap])
   // THE LIST DROPS A ROW WITH NO NUMBER FOR ITS ONE STAT. It shows that stat alone, so a pitcher
   // with no WAR was a name beside a dash, and with ten of them the board's tail was a column of
   // dashes. The table keeps them: there the row has fifteen other columns to read.
@@ -902,6 +930,40 @@ export default function WpblStatsView({
   const leagueCell = (c: Col<Totals>) => (c.rate ? cellText(c, leagueTotals) : '')
 
   const teamChips = [...teams].sort((a, b) => a.abbr.localeCompare(b.abbr))
+
+  // The 2027 filter's choices: the clubs holding, and the statuses held by, at least one player with
+  // a line this season, so no choice opens an empty board. Before the moves land, only the address's
+  // own choice beside All, so a link to the draft pool says so while the board waits for it.
+  const rosterClubName = (id: string) => CLUB_CITIES[id] ?? teamById.get(id)?.name ?? id
+  const rosterChoiceOf = (f: RosterFilter): RosterControl['choices'][number] => {
+    const value = rosterFilterParam(f)
+    if (f.kind === 'any') return { value, label: '2027: Any club', sheetLabel: 'Any club' }
+    if (f.kind === 'status') {
+      const word = ROSTER_KIND_LABELS[f.status]
+      return { value, label: `2027: ${word}`, sheetLabel: word, group: 'Status' }
+    }
+    const team = teamById.get(f.teamId)
+    return { value, label: `2027: ${rosterClubName(f.teamId)}`, sheetLabel: team ? wpblFullName(team) : rosterClubName(f.teamId), group: 'Club', team }
+  }
+  const rosterControl = useMemo<RosterControl | null>(() => {
+    if (!rosterOffered) return null
+    const ids = new Set([...batSeasons, ...pitSeasons].map(s => s.player.id))
+    const c = rosterMap ? rosterFilterChoices(rosterMap, ids) : { any: false, clubs: [], kinds: [] }
+    const filters: RosterFilter[] = [
+      ...(c.any ? [{ kind: 'any' } as const] : []),
+      ...c.clubs.map(teamId => ({ kind: 'club', teamId }) as const),
+      ...c.kinds.map(status => ({ kind: 'status', status }) as const),
+    ]
+    if (rosterCut && !filters.some(f => rosterFilterParam(f) === rosterFilterParam(rosterCut))) filters.push(rosterCut)
+    return {
+      value: rosterCut ? rosterFilterParam(rosterCut) : '',
+      choices: [{ value: '', label: '2027: All', sheetLabel: 'All players' }, ...filters.map(rosterChoiceOf)],
+      onChange: filterRoster,
+    }
+    // rosterChoiceOf, rosterClubName and filterRoster are rebuilt every render from teamById and
+    // the setters, which are listed; listing the functions would rebuild this on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rosterOffered, rosterMap, batSeasons, pitSeasons, rosterCut, teams, teamById, side])
 
   // Tracked joins Analysis while the league has published radar for enough games, and stays for the
   // session once a link has opened it anyway. See trackedOffered.
@@ -958,6 +1020,7 @@ export default function WpblStatsView({
   const seeAll = (key: string) => {
     selectBoard('players')
     setTeamId(null)
+    setRosterCut(null)
     const col = cols.find(c => c.key === key)
     setQualified(col?.rate ? qual.active : false)
     setSortKey(key); setSortAsc(defaultSort(side, key).asc)
@@ -978,7 +1041,7 @@ export default function WpblStatsView({
   // Overall has neither a qualifier nor a season slice, so neither can be "set" there.
   const overall = side === 'overall'
   const filtersSet = season !== current || (source === 'season'
-    ? teamId !== null || posOn !== null || (!overall && (qualified !== qual.active || scope !== 'regular'))
+    ? teamId !== null || posOn !== null || rosterOn !== null || (!overall && (qualified !== qual.active || scope !== 'regular'))
     : !overall && scope !== 'regular')
   // Whether the phone's sheet has a Filter tab: the club and the qualifying bar on Players, the
   // year once there is more than one, and the season slice wherever it does something (see the
@@ -1063,6 +1126,7 @@ export default function WpblStatsView({
   // and "Hunters" is a crossword clue.
   const teamWord = teamId ? (() => { const t = teamById.get(teamId); return t ? wpblFullName(t) : null })() : null
   const qualWord = mode === 'players' && qualified && !overall ? 'qualified only' : null
+  const rosterWord = rosterOn ? rosterChoiceOf(rosterOn).label : null
   // What the faded rows are, in the bar's own unit. The only place the qualifying bar is ever
   // stated as a number, so it is also the answer to "why is this player not on the qualified board".
   const qualBar = side === 'hitting' ? `${qual.minPa} PA`
@@ -1092,10 +1156,10 @@ export default function WpblStatsView({
   // A reader who has set nothing gets one line of controls; one who has set something sees what.
   const phoneTable = isNarrow && source === 'season' && !listView
   const footWords = phoneTable
-    ? [teamWord, qualified !== qual.active ? qualWord : null, fadedWord,
+    ? [teamWord, rosterWord, qualified !== qual.active ? qualWord : null, fadedWord,
         scope !== 'regular' && !overall ? scopeWord : null, eraWord]
     : [capped ? `${visibleRows.length} of ${rows.length} ${noun}` : `${rows.length} ${noun}`,
-        teamWord, qualWord, fadedWord, scopeWord, eraWord]
+        teamWord, rosterWord, qualWord, fadedWord, scopeWord, eraWord]
   // Labels only: "sort by any column heading" closed this line until Oct 21, 2026, an instruction
   // where every other word is a label (house rule: labels, not narration).
   const footText = (footWords.filter(Boolean) as string[]).join(' · ')
@@ -1118,7 +1182,7 @@ export default function WpblStatsView({
     ]
     const indexed = rows.map((r, i) => ({ r, i }))
     const parts = ['wpbl', everySeason ? 'all-seasons' : season, scope === 'regular' || overall ? null : scope, side, mode,
-      hasViews ? view : null, teamId, posOn]
+      hasViews ? view : null, teamId, posOn, rosterOn ? `2027-${rosterFilterParam(rosterOn)}` : null]
     let how: string
     if (kind === 'copy') {
       how = (await copyText(toTsv(indexed, exportCols))) ? 'copy' : 'failed'
@@ -1198,6 +1262,7 @@ export default function WpblStatsView({
         activeCol={activeCol} filtersSet={filtersSet} hasPostseason={hasPostseason} overall={overall}
         scope={scope} setScope={setScope} teamId={teamId} teamChips={teamChips} filterTeam={filterTeam}
         qualified={qualified} toggleQualified={toggleQualified} pos={posOn} posChoices={posChoices} filterPos={filterPos}
+        roster={rosterControl}
         allSeasons={boardTakesAll} multiSeason={multiSeason} />
 
       {/* ON A PHONE THE POSITION SAYS SO ABOVE THE TABLE: its picker is in the Filters sheet, and a
@@ -1222,7 +1287,8 @@ export default function WpblStatsView({
           players={players} lines={lines} fielding={fielding} linesIn={linesIn} games={games} scope={scope}
           findQuery={findQuery} setFindQuery={setFindQuery} onFindSide={pickSide} findFilters={findFilters} trackedOffered={trackedOffered} charts={chartInputs} chartFilters={chartFilters}
           onOpenPlayer={openPlayer} onOpenGame={onOpenGame} onOpenTeam={onOpenTeam} />
-      ) : (side === 'fielding' && fielding == null) || (side === 'overall' && valueSeasons == null) || (boardNeedsLines && !linesIn) ? (
+      ) : (side === 'fielding' && fielding == null) || (side === 'overall' && valueSeasons == null) || (boardNeedsLines && !linesIn)
+        || (rosterOn && !rosterMap) ? (
         // Only if the side is picked before its read (started on mount) has landed, or the box-score
         // lines a board needs and the stored seasons do not carry.
         <SubViewFallback />
@@ -1260,6 +1326,7 @@ export default function WpblStatsView({
           ) : null}
           filter={canFilter ? (
             <FilterBody teams={teamChips} teamId={teamId} onTeam={filterTeam} pos={posOn} posChoices={posChoices} onPos={filterPos}
+              roster={rosterControl}
               qualified={qualified} onQualified={toggleQualified}
               scope={hasPostseason && !overall ? scope : null} onScope={setScope}
               season={multiSeason ? (everySeason ? 'all' : season) : null} seasons={seasons} onSeason={pickSeason}

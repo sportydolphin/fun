@@ -314,13 +314,121 @@ export type RosterStatus =
 /** A player's 2027 status line, for the player page: null when there is nothing to say. */
 export function rosterStatus(playerId: string, moves: readonly WpblRosterMove[], now: number): RosterStatus | null {
   const placed = placements(moves)
+  return statusIn(placed, keptCounts(placed), playerId, now)
+}
+
+function keptCounts(placed: Map<string, Placement>): Map<string, number> {
+  const out = new Map<string, number>()
+  for (const p of placed.values()) if (p.standing === 'kept') out.set(p.teamId, (out.get(p.teamId) ?? 0) + 1)
+  return out
+}
+
+function statusIn(placed: Map<string, Placement>, kept: Map<string, number>, playerId: string, now: number): RosterStatus | null {
   const p = placed.get(playerId)
   if (p?.from) return { kind: 'traded', teamId: p.teamId, from: p.from, move: p.move }
   if (p) return { kind: p.standing === 'kept' ? 're-signed' : p.standing, teamId: p.teamId, move: p.move }
   const team = club2026(playerId)
   if (!team || resignPhase(now) === 'before') return null
-  const kept = [...placed.values()].filter(x => x.teamId === team && x.standing === 'kept').length
-  return { kind: unplacedStatus(kept, now), teamId: team }
+  return { kind: unplacedStatus(kept.get(team) ?? 0, now), teamId: team }
+}
+
+/** Every player's status at once, by player id: everyone on a 2026 roster and everyone a move names
+ *  by id. One pass over the moves, where `rosterStatus` per row would be one pass per player. */
+export function rosterStatuses(moves: readonly WpblRosterMove[], now: number): Map<string, RosterStatus> {
+  const placed = placements(moves)
+  const kept = keptCounts(placed)
+  const ids = new Set([...Object.values(ROSTERS_2026).flat(), ...[...placed.values()].flatMap(p => p.playerId ? [p.playerId] : [])])
+  const out = new Map<string, RosterStatus>()
+  for (const id of ids) {
+    const s = statusIn(placed, kept, id, now)
+    if (s) out.set(id, s)
+  }
+  return out
+}
+
+// ─── The Stats board's 2027 filter ───────────────────────────────────────────────────────────────
+//
+// ONE CHOICE, A CLUB OR A STATUS, read off `rosterStatuses`, so the board, the player card and the
+// Rosters page can never disagree about a player. Nothing here names a phase of the offseason: the
+// choices are whatever kinds and clubs the moves have produced so far, so the draft adds "Drafted"
+// and free agency "Signed" the day their first move is entered, and an expansion club appears with
+// its first player. Each new offseason is a new ROSTER_SEASON and ROSTERS_2026's successor; the
+// filter needs nothing else.
+
+export type RosterKind = RosterStatus['kind']
+
+/** The kinds that put a player on a club's roster for next season. Released and the unplaced do not. */
+const ON_ROSTER: ReadonlySet<RosterKind> = new Set<RosterKind>(['re-signed', 'traded', 'drafted', 'signed'])
+
+/** The order the statuses are offered in: how a player gets onto a roster, then who is still off one. */
+export const ROSTER_KIND_ORDER: readonly RosterKind[] =
+  ['re-signed', 'traded', 'drafted', 'signed', 'released', 'unsigned', 'not-announced', 'draft-eligible']
+
+/** As the player card says them, without the club (the filter's other half names that). */
+export const ROSTER_KIND_LABELS: Readonly<Record<RosterKind, string>> = {
+  're-signed': 'Re-signed', traded: 'Traded', drafted: 'Drafted', signed: 'Signed', released: 'Released',
+  ...UNPLACED_LABELS,
+}
+
+export type RosterFilter =
+  | { kind: 'any' }
+  | { kind: 'club'; teamId: string }
+  | { kind: 'status'; status: RosterKind }
+
+/** The address's `roster=` value: `any`, a status (`draft-eligible`) or a club (`bos`). Statuses are
+ *  words and club ids are two or three letters, so one value cannot read as both. */
+export function rosterFilterParam(f: RosterFilter): string {
+  return f.kind === 'any' ? 'any' : f.kind === 'status' ? f.status : f.teamId.toLowerCase()
+}
+
+export function parseRosterFilter(v: string | null | undefined): RosterFilter | null {
+  const t = (v ?? '').trim().toLowerCase()
+  if (!t) return null
+  if (t === 'any') return { kind: 'any' }
+  if ((ROSTER_KIND_ORDER as readonly string[]).includes(t)) return { kind: 'status', status: t as RosterKind }
+  return /^[a-z]{2,4}$/.test(t) ? { kind: 'club', teamId: t.toUpperCase() } : null
+}
+
+export const sameRosterFilter = (a: RosterFilter | null, b: RosterFilter | null): boolean =>
+  (a ? rosterFilterParam(a) : null) === (b ? rosterFilterParam(b) : null)
+
+/** Whether a player with `status` (undefined: none) passes. A club means the players it holds for
+ *  next season, never its 2026 players still waiting: an unplaced status carries the 2026 club. */
+export function matchesRosterFilter(f: RosterFilter, status: RosterStatus | undefined): boolean {
+  if (!status) return false
+  if (f.kind === 'status') return status.kind === f.status
+  if (!ON_ROSTER.has(status.kind)) return false
+  return f.kind === 'any' || status.teamId === f.teamId
+}
+
+/** What the filter offers, given the players a board lists: the clubs holding at least one of them
+ *  and the statuses at least one of them has, each in its order. `any` only once some club holds one. */
+export function rosterFilterChoices(statuses: ReadonlyMap<string, RosterStatus>, playerIds: Iterable<string>):
+  { any: boolean; clubs: string[]; kinds: RosterKind[] } {
+  const clubs = new Set<string>()
+  const kinds = new Set<RosterKind>()
+  for (const id of playerIds) {
+    const s = statuses.get(id)
+    if (!s) continue
+    kinds.add(s.kind)
+    if (ON_ROSTER.has(s.kind)) clubs.add(s.teamId)
+  }
+  return {
+    any: clubs.size > 0,
+    clubs: [...clubs].sort((a, b) => (CLUB_CITIES[a] ?? a).localeCompare(CLUB_CITIES[b] ?? b)),
+    kinds: ROSTER_KIND_ORDER.filter(k => kinds.has(k)),
+  }
+}
+
+/**
+ * Whether a season's board offers the filter: the season before ROSTER_SEASON, from the day the
+ * re-signing window opens until ROSTER_SEASON has a final of its own. After that the new season's
+ * own lines say who plays where, and "2027: Boston" on the 2026 board would be a second, staler
+ * answer to the question the 2027 board answers. Calendar and schedule only, never the moves, so
+ * the control is in the bar from the first paint.
+ */
+export function rosterFilterOffered(boardSeason: number | null, currentSeason: number | null, now: number): boolean {
+  return boardSeason === ROSTER_SEASON - 1 && (currentSeason ?? 0) < ROSTER_SEASON && resignPhase(now) !== 'before'
 }
 
 /** Every player some club holds now, by key: the ones on a 2027 roster, signed or not. */

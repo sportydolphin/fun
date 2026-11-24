@@ -11,6 +11,7 @@ import type { EraBasis } from '../stats'
 import type { Col } from '../statColumns'
 import type { Side, Totals } from './axes'
 import { statNames } from './columns'
+import type { RosterControl } from './shared'
 
 // ── The sheets, and the one rule they are built to ───────────────────────────────
 //
@@ -205,7 +206,7 @@ export function StatsSheet({ tab, onTab, side, sort, filter, filtersSet, onClose
 //
 // Rows rather than tiles: there are only seven, and a club wants its badge and its whole name
 // rather than three letters.
-export function FilterBody({ teams, teamId, onTeam, pos, posChoices, onPos, qualified, onQualified, scope, onScope, season, seasons, onSeason, offerAll = false, showWho, showQualified = true, bar }: {
+export function FilterBody({ teams, teamId, onTeam, pos, posChoices, onPos, roster = null, qualified, onQualified, scope, onScope, season, seasons, onSeason, offerAll = false, showWho, showQualified = true, bar }: {
   teams: WpblTeam[]
   teamId: string | null
   onTeam: (id: string | null) => void
@@ -213,6 +214,8 @@ export function FilterBody({ teams, teamId, onTeam, pos, posChoices, onPos, qual
   pos: PositionFilter | null
   posChoices: PositionFilterDef[]
   onPos: (p: PositionFilter | null) => void
+  /** The 2027 roster filter, null where the board or the season does not offer it. */
+  roster?: RosterControl | null
   qualified: boolean
   onQualified: () => void
   /** Null when no postseason game has finished, which is when the choice does not exist yet
@@ -282,6 +285,19 @@ export function FilterBody({ teams, teamId, onTeam, pos, posChoices, onPos, qual
           ))}
         </Box>
       </SheetGroup>
+
+      {/* After Position: the same kind of cut, by next season's rosters rather than this one's. */}
+      {roster && (
+        <SheetGroup title="2027">
+          <Box sx={rows}>
+            {roster.choices.map(c => (
+              <OptionRow key={c.value || 'all'} label={c.sheetLabel} on={roster.value === c.value}
+                icon={c.team ? <TeamBadge team={c.team} size={28} /> : undefined}
+                onClick={() => roster.onChange(roster.value === c.value ? '' : c.value)} />
+            ))}
+          </Box>
+        </SheetGroup>
+      )}
 
       {showQualified && <SheetGroup title="Who to include">
         <Box sx={rows}>
