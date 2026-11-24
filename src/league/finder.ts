@@ -802,6 +802,12 @@ export function validFinderSort(side: FinderBoardSide, query: Pick<FinderQuery, 
   return finderColumns(side, query).some(c => c.key === sort.key) ? sort : null
 }
 
+/** A club's half-inning's score, its own runs first, as the half began and as it ended. */
+export interface FinderInningScore { before: [number, number]; after: [number, number] }
+
+/** "2–5 → 10–5". */
+export const finderScoreText = (s: FinderInningScore): string => `${s.before[0]}–${s.before[1]} → ${s.after[0]}–${s.after[1]}`
+
 export interface FinderRow<P extends LeaguePlayer = LeaguePlayer, G extends LeagueGame = LeagueGame> {
   key: string
   player: P | null
@@ -814,7 +820,7 @@ export interface FinderRow<P extends LeaguePlayer = LeaguePlayer, G extends Leag
   /** Where in the game, on an inning or plate-appearance row: the half-inning, and the play Game
    *  Center opens on (the pitcher's first batter, or the plate appearance itself). On a plate
    *  appearance, `event` is what happened ("HR", "K"). Null on the other grains. */
-  inning: { inning: number; half: 'top' | 'bottom'; sequence: number; event?: string | null } | null
+  inning: { inning: number; half: 'top' | 'bottom'; sequence: number; event?: string | null; score?: FinderInningScore } | null
   /** The first and last game of a stretch row's run (`FinderQuery.stretch`). Absent on every other. */
   stretch?: { first: G; last: G }
   /** The year of a season row, when the lines searched held more than one (a career row has none).
@@ -1457,7 +1463,11 @@ export function runFinder<P extends LeaguePlayer, G extends LeagueGame>(
           teamId: line.team_id,
           game: season ? null : gameById.get(line.game_id) ?? null,
           inning: query.per === 'inning' || query.per === 'pa'
-            ? (({ inning, half, sequence, event }: FineLine) => ({ inning, half, sequence, ...(query.per === 'pa' ? { event } : {}) }))(line as unknown as FineLine)
+            ? (({ inning, half, sequence, event, start, r }: FineLine) => ({
+              inning, half, sequence, ...(query.per === 'pa' ? { event } : {}),
+              // A CLUB'S HALF AT THE PLATE carries the score it changed; a pitcher's or a fielder's half has none.
+              ...(start ? { score: { before: [start.us, start.them], after: [start.us + r, start.them] } as FinderInningScore } : {}),
+            }))(line as unknown as FineLine)
             : null,
           headline: v,
           headlineDisplay: lead.display ? lead.display(v) : String(v),

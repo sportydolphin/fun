@@ -388,7 +388,7 @@ export default function WpblFindView({
             rowParts={r => ({
         portrait: clubRows && r.teamId ? <TeamBadge team={{ id: r.teamId, abbr: r.teamId }} size={PORTRAIT_PX} />
           : <PlayerPortrait name={r.name} teamId={r.teamId} size={PORTRAIT_PX} />,
-        club: r.teamId && !clubRows ? <TeamBadge team={{ id: r.teamId, abbr: r.teamId }} size={16} /> : undefined,
+        club: r.teamId ? <TeamBadge team={{ id: r.teamId, abbr: r.teamId }} size={16} /> : undefined,
         playerLink: r.player ? playerLink(r.player, onOpenPlayer) : undefined,
         gameLink: r.game ? rowGameLink(r) : undefined,
       })}

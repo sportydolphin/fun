@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { clubFieldingInningLines, fieldingInningLines, inningPitchingLines, plateAppearanceLines, playTotals, runnerEvents, teamInningLines } from '../inningLines'
 import type { LeagueGame, RunValuePlay } from '../types'
+import { finderScoreText } from '../finder'
 import { WPBL_LEAGUE } from '../../wpbl/league'
 
 // The inning lines are the finder's third grain, so every number on one is a number a reader can
@@ -215,6 +216,10 @@ describe('teamInningLines', () => {
     expect(lines.map(l => [l.inning, l.half, l.r, l.trail, l.tooklead])).toEqual([
       [1, 'top', 2, 0, 1], [1, 'bottom', 1, 2, 0], [2, 'top', 0, 0, 0], [2, 'bottom', 2, 1, 1],
     ])
+    // Each club's own runs first; the last half's score after is the final, 3–2 for the home club.
+    expect(lines.map(l => l.start)).toEqual([{ us: 0, them: 0 }, { us: 0, them: 2 }, { us: 2, them: 1 }, { us: 1, them: 2 }])
+    const last = lines[3]
+    expect(finderScoreText({ before: [last.start!.us, last.start!.them], after: [last.start!.us + last.r, last.start!.them] })).toBe('1–2 → 3–2')
   })
 })
 

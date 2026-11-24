@@ -24,6 +24,20 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.261.0',
+    date:    '2026-11-23',
+    changes: [
+      {
+        short: 'Find: every column shows in Firefox',
+        full:  'Firefox drew the Find results table with only the rank and the name; the game, result and stat columns sat far off to the right. They are back.',
+      },
+      {
+        short: 'Find: a score column for club innings',
+        full:  'A club\'s inning on Hitting shows the score before and after it, "2–6 → 9–6", and each club row leads with its mark. The Game column is wider, so "Aug 28 vs BOS" no longer runs into its result.',
+      },
+    ],
+  },
+  {
     version: '1.260.5',
     date:    '2026-11-23',
     changes: [
