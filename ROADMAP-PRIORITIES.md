@@ -224,7 +224,9 @@ agency (the same count); then the schedule, when the card becomes Opening Day an
     Grows with the rosters, each step when the league fills them in, not on a date:
     - **each roster move**: nothing to do, the tab reads `heldPlayers` (every kind of move); check that the
       re-signed, drafted and signed players all project (a drafted player with no WPBL or World Cup
-      line projects as league average and should read as such);
+      line projects as league average and should read as such). Checked Nov 24, 2026 at 37 held
+      (re-signings and the Zettlemoyer trade): every one has a 2026 line of 10 PA or BF and projects.
+      A trade counts as an addition to the new club in Returning production, not only a loss to the old;
     - **the draft** (10 rounds): a replacement-level prior for players with no line, so a club's
       depth is not priced at league average; team strength as projected runs over a depth chart;
     - **rosters at 20**: projected standings and odds from team strength (`seriesOdds`, the

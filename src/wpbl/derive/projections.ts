@@ -410,25 +410,45 @@ export interface ClubReturning {
   pa: { back: number; total: number }
   outs: { back: number; total: number }
   war: { back: number; total: number } | null
+  /** Players another club had in 2026 that this one holds now (a trade, later a pick or a
+   *  signing), with what they produced there. Kept apart from `back` so the shares stay a share of
+   *  this club's own 2026. */
+  added: { players: number; pa: number; outs: number; war: number | null }
 }
 
-/** What share of each club's 2026 the players it still holds account for. A player is filed under the club
- *  their lines were for, the club that held their rights to re-sign. */
-export function returningProduction(rows: ClubShareInput[], back: ReadonlySet<string>): ClubReturning[] {
-  const by = new Map<string, ClubReturning & { warOk: boolean }>()
-  for (const r of rows) {
-    let c = by.get(r.teamId)
-    if (!c) by.set(r.teamId, c = {
-      teamId: r.teamId, players: 0, back: 0, pa: { back: 0, total: 0 }, outs: { back: 0, total: 0 },
-      war: { back: 0, total: 0 }, warOk: true,
+/** What share of each club's 2026 the players it still holds account for, and what it took on from
+ *  other clubs. A player's lines are filed under their 2026 club; `held` maps each player on a 2027
+ *  roster to the club holding them. A traded player is a loss to the first and an addition to the
+ *  second, never "back" for either: without the addition a trade read as production leaving the
+ *  league, which is how Boston looked after the Nov 21 trade for Alyssa Zettlemoyer. */
+export function returningProduction(rows: ClubShareInput[], held: ReadonlyMap<string, string>): ClubReturning[] {
+  const by = new Map<string, ClubReturning & { warOk: boolean; addedWarOk: boolean }>()
+  const club = (teamId: string) => {
+    let c = by.get(teamId)
+    if (!c) by.set(teamId, c = {
+      teamId, players: 0, back: 0, pa: { back: 0, total: 0 }, outs: { back: 0, total: 0 },
+      war: { back: 0, total: 0 }, added: { players: 0, pa: 0, outs: 0, war: 0 }, warOk: true, addedWarOk: true,
     })
-    const isBack = back.has(r.playerId)
+    return c
+  }
+  for (const r of rows) {
+    const c = club(r.teamId)
+    const now = held.get(r.playerId)
+    const isBack = now === r.teamId
     c.players++
     if (isBack) c.back++
     c.pa.total += r.pa; c.outs.total += r.outs
     if (isBack) { c.pa.back += r.pa; c.outs.back += r.outs }
     if (r.war == null) c.warOk = false
     else if (c.war) { c.war.total += r.war; if (isBack) c.war.back += r.war }
+    if (now && !isBack) {
+      const to = club(now)
+      to.added.players++; to.added.pa += r.pa; to.added.outs += r.outs
+      if (r.war == null) to.addedWarOk = false
+      else if (to.added.war != null) to.added.war += r.war
+    }
   }
-  return [...by.values()].map(({ warOk, ...c }) => ({ ...c, war: warOk ? c.war : null }))
+  return [...by.values()].map(({ warOk, addedWarOk, ...c }) => ({
+    ...c, war: warOk ? c.war : null, added: { ...c.added, war: addedWarOk ? c.added.war : null },
+  }))
 }
