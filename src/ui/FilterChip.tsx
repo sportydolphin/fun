@@ -106,8 +106,11 @@ export function ChipRow({ mb, children }: { mb: number; children: React.ReactNod
 export function FilterSelect({ value, options, onChange, active, ariaLabel, disabled = false, hint, fitChoice = false }: {
   value: string
   /** `group` sorts an option under a heading in the open list (an `<optgroup>`); options with the
-   *  same group should be adjacent. Ungrouped options render as they are. */
-  options: { value: string; label: string; group?: string }[]
+   *  same group should be adjacent. Ungrouped options render as they are. `shown` is the chip's
+   *  words while the option is picked, where they differ from the list's (`fitChoice` only): the
+   *  list says "Boston" under its Club heading, and the closed chip, with no heading beside it,
+   *  says "2027: Boston". A plain select can only ever show the option's own text. */
+  options: { value: string; label: string; group?: string; shown?: string }[]
   onChange: (v: string) => void
   active: boolean
   ariaLabel: string
@@ -137,7 +140,7 @@ export function FilterSelect({ value, options, onChange, active, ariaLabel, disa
     }}>
       {fitChoice && (
         <Box component="span" aria-hidden sx={{ ...pad, display: 'block', whiteSpace: 'nowrap' }}>
-          {options.find(o => o.value === value)?.label ?? ''}
+          {(o => o?.shown ?? o?.label ?? '')(options.find(o => o.value === value))}
         </Box>
       )}
       <Box component="select" value={value} aria-label={disabled && hint ? `${ariaLabel}, ${hint}` : ariaLabel} disabled={disabled}
