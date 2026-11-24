@@ -41,7 +41,11 @@ import {
   BAND_WASH, BAND_WASH_FLOOR, SENTENCE_W, CARD_RANK_BAR,
 } from './player/pieces'
 import { createBandStore, BandAwareEyebrow, useBandObserver } from './player/bandStore'
-import { usePlayerAwards, usePlayerLines, usePlayerMatchupPlays, useLeagueReads, usePlayerBoard } from './player/usePlayerReads'
+import { usePlayerAwards, usePlayerLines, usePlayerMatchupPlays, useLeagueReads, usePlayerBoard, useSeasonPlayLog } from './player/usePlayerReads'
+import { SplitsTable } from './player/Splits'
+import { playerSplits } from './derive/splits'
+import { plateAppearanceLines } from '../league/inningLines'
+import { WPBL_LEAGUE } from './league'
 import { usePlayerSeason } from './player/usePlayerSeason'
 import { useWpblRosterMoves, rosterFact } from './useRosterMoves'
 import { getStoredWpblRosterMoves } from './api'
@@ -239,6 +243,22 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     () => (matchupPlays ? thisSeason(matchupPlays.filter(p => p.batter_id === player.id && isBattedBall(p))) : []),
     [matchupPlays, player.id, games, season, career]) // eslint-disable-line react-hooks/exhaustive-deps
   const { leagueLines, articles } = useLeagueReads()
+
+  // THE SPLITS, off Find's own plate-appearance lines over the season's play log (derive/splits.ts),
+  // so a split here and the same question asked of Find agree. Built over the whole schedule, the
+  // same arrays the pitch profile and Find hand in, so the lines are built once per log and shared.
+  const playLog = useSeasonPlayLog(career ? null : season)
+  const splits = useMemo(() => {
+    if (!playLog) return null
+    if (playLog === 'failed') return 'failed' as const
+    const mine = scopedLines(thisSeason(plateAppearanceLines(WPBL_LEAGUE, playLog, games)), games, scope)
+    const byId = new Map(players.map(p => [p.id, p]))
+    const handOf = (id: string | null, key: 'bats' | 'throws') => (id ? byId.get(id)?.[key] ?? null : null)
+    return {
+      batting: playerSplits('batting', mine.filter(l => l.batter_id === player.id), handOf, scopedLines(batting, games, scope)),
+      pitching: playerSplits('pitching', mine.filter(l => l.pitcher_id === player.id), handOf),
+    }
+  }, [playLog, games, season, career, scope, players, player.id, batting]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // A different player also resets the scroll position (see usePlayerLines for the rest): the next
   // player opens at their name, not
@@ -534,6 +554,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     profile: (legend = true) => <PitchProfileBlock side="batting" profile={pitchProfiles?.batting} legend={legend} />,
     /** Under the profile: her line against every pitcher she has faced. */
     matchups: <MatchupTable player={player} side="batting" lines={matchups?.vsPitchers ?? []} players={players} scope={scope} accent={color} />,
+    splits: splits === 'failed' ? null : <SplitsTable side="batting" groups={splits?.batting ?? null} accent={color} />,
     line: (scopeControl?: React.ReactNode, caption = true) => (
       <>
         {caption && lineCaption('batting', scopeControl)}
@@ -589,6 +610,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     profile: (legend = true) => <PitchProfileBlock side="pitching" profile={pitchProfiles?.pitching} legend={legend} />,
     /** Under the profile: what every batter she has faced did against her. */
     matchups: <MatchupTable player={player} side="pitching" lines={matchups?.vsBatters ?? []} players={players} scope={scope} accent={color} />,
+    splits: splits === 'failed' ? null : <SplitsTable side="pitching" groups={splits?.pitching ?? null} accent={color} />,
     line: (scopeControl?: React.ReactNode, caption = true) => (
       <>
         {caption && lineCaption('pitching', scopeControl)}
@@ -662,6 +684,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
       hasLog: true,
       profile: () => null,
       matchups: null,
+      splits: null,
       extras: null,
       season: null,
       // The loaded summary over the totals so far, every figure a bar: the same columns, the same
@@ -773,6 +796,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
             late would push every section under it down by its own height. */}
         {first && !deskSkeleton && hasClips && <PlayerClips playerId={player.id} />}
         {pane.matchups}
+        {pane.splits}
         {/* One color key per page: a two-way player's second pitch mix is a scroll below the
             first, under the same key, so printing it again only repeated it. */}
         {pane.profile(first || !pitchProfiles?.[roles[0]])}
@@ -889,6 +913,7 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
               World Cup and the gallery, the place the desktop had moved them out of. */}
           <PlayerClips playerId={player.id} />
           {pane.matchups}
+          {pane.splits}
           {pane.profile()}
           {pane.extras}
           {/* Fielding is behind All stats (see statSummary), except for a defensive-only cameo,

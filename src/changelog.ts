@@ -24,6 +24,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.262.0',
+    date:    '2026-11-23',
+    changes: [
+      {
+        short: 'WPBL player pages: splits',
+        full:  'A Splits table under each player’s matchups: against lefties and righties, bases empty, men on, RISP and two outs, by the count, by the inning and by lineup spot. Pitchers get the same, against left- and right-handed batters. It follows the season and the Regular / Playoffs choice.',
+      },
+    ],
+  },
+  {
     version: '1.261.0',
     date:    '2026-11-23',
     changes: [

@@ -28,7 +28,7 @@ export {
   fetchWpblTrackedGameIds, fetchWpblGameTracking, type WpblPitchLoc
 } from './api/tracking'
 export {
-  getCachedWpblRunEnvironment, fetchWpblRunEnvironment, fetchWpblPlayLog, isBattedBall,
+  getCachedWpblRunEnvironment, fetchWpblRunEnvironment, fetchWpblPlayLog, getCachedWpblPlayLog, isBattedBall,
   fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays, fetchWpblAllPitchPlays,
   getCachedWpblAllPitchPlays, fetchWpblBattedBalls, fetchWpblAllMatchupPlays,
   getCachedWpblAllMatchupPlays, getCachedWpblPlayerMatchupPlays, fetchWpblPlayerMatchupPlays,

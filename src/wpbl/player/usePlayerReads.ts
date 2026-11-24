@@ -1,8 +1,9 @@
 import { startTransition, useEffect, useState } from 'react'
-import { fetchWpblPlayerLines, fetchWpblPitcherLocations, getSeedWpblPlayerLines, getCachedWpblPitcherLocations, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllLines, getCachedWpblAllLines, fetchWpblPlayerMatchupPlays, getCachedWpblPlayerMatchupPlays, type WpblPitchLoc } from '../api'
+import { fetchWpblPlayerLines, fetchWpblPitcherLocations, getSeedWpblPlayerLines, getCachedWpblPitcherLocations, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllLines, getCachedWpblAllLines, fetchWpblPlayerMatchupPlays, getCachedWpblPlayerMatchupPlays, fetchWpblPlayLog, getCachedWpblPlayLog, type WpblPitchLoc } from '../api'
 import { fetchWpblAwardResults, getCachedWpblAwardResults, fanAwardsWon } from '../awardVotes'
 import type { WpblAward } from '../awards'
 import type { WpblBoard, WpblBoardInput } from '../searchAnswers'
+import type { WpblLogPlay } from '../api/plays'
 import type { WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblArticle } from '../types'
 
 // The player card's reads. Each is seeded from the session caches on the card's first render, so
@@ -221,3 +222,24 @@ export function usePlayerBoard(base: Omit<WpblBoardInput, 'lines' | 'env' | 'pla
 }
 const boardsInFlight = new Map<string, Promise<WpblBoard | null>>()
 const boardsDone = new Map<string, WpblBoard | null>()
+
+/**
+ * The season's play log, for the splits table: the read the pitch profile already makes for the
+ * same year, so on this page it is a cache hit. Held WITH the year it was read for (src/wpbl/CLAUDE.md,
+ * the play log is the one per-season read): a year picked from the menu reads null until its own
+ * log lands, rather than cutting last year's plays to nothing.
+ */
+export function useSeasonPlayLog(season: number | null): WpblLogPlay[] | null | 'failed' {
+  const [held, setHeld] = useState<{ season: number | null; log: WpblLogPlay[] | null | 'failed' }>(
+    () => ({ season, log: getCachedWpblPlayLog(season) }))
+  useEffect(() => {
+    let cancelled = false
+    fetchWpblPlayLog(season)
+      .then(log => { if (!cancelled) lateUpdate(() => setHeld(h => (h.season === season && h.log === log ? h : { season, log }))) })
+      // 'failed' rather than null, so a read that never lands takes the table away instead of
+      // leaving its loading state on the page for good.
+      .catch(() => { if (!cancelled) setHeld({ season, log: 'failed' }) })
+    return () => { cancelled = true }
+  }, [season])
+  return held.season === season && held.log != null ? held.log : getCachedWpblPlayLog(season)
+}
