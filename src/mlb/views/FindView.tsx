@@ -181,7 +181,7 @@ export function MlbFindView({
                   ? <PlayerHeadshot variant="ring" playerId={r.player.playerId} name={r.name} teamId={club || undefined} size={PORTRAIT_PX} />
                   : clubRows && club > 0 ? <TeamLogo teamId={club} abbr={TEAM_ABBR[club] ?? ''} size={PORTRAIT_PX} />
                   : <Box sx={{ width: chromePx(PORTRAIT_PX), flexShrink: 0 }} />,
-                club: club > 0 && !clubRows ? <TeamLogo teamId={club} abbr={TEAM_ABBR[club] ?? ''} size={16} /> : undefined,
+                club: club > 0 ? <TeamLogo teamId={club} abbr={TEAM_ABBR[club] ?? ''} size={16} /> : undefined,
                 playerLink: r.player ? playerLink(r.player.playerId, r.name, onOpenPlayer) : undefined,
                 gameLink: game ? gameLink(game.gamePk, onOpenGame ? () => onOpenGame(game.gamePk) : undefined) : undefined,
               }

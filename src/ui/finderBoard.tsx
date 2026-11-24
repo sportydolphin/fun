@@ -6,7 +6,7 @@ import LinkIcon from '@mui/icons-material/Link'
 import CheckIcon from '@mui/icons-material/Check'
 import { FilterSelect } from './FilterChip'
 import { finderColumns, finderFields, defaultCondition,
-  displayFinderValue, describeFinderQuery, describeFinderConditions, describeFinderCuts, finderSpanText, finderLowerBetter, finderPlainCount,conditionsForPer, finderPitcherApplies, finderPlayerApplies, finderPlayerAt, hasPlayerFilter, FINDER_MONTH_NAMES, finderSpanMonth, finderMonthSpan,
+  displayFinderValue, describeFinderQuery, describeFinderConditions, describeFinderCuts, finderSpanText, finderScoreText, finderLowerBetter, finderPlainCount, conditionsForPer, finderPitcherApplies, finderPlayerApplies, finderPlayerAt, hasPlayerFilter, FINDER_MONTH_NAMES, finderSpanMonth, finderMonthSpan,
   finderCutsOf, finderDhText, finderStretchApplies, finderStretchText,
   type FinderCondition, type FinderPer, type FinderQuery, type FinderResult, type FinderRow,
   type FinderBoardSide, type FinderSort, type FinderTally, type FinderVenue,
@@ -62,7 +62,9 @@ const MAX_CONDITIONS = 6
 // THE RANK COLUMN HOLDS "T-10" at the meta size (37px of 40 at 1440), since ties are marked. The
 // half rem it gained came out of Result, whose widest score ("W 18–7") used 53px of 75, so the
 // player column kept its width: taken from the player column instead, "N. Yonetani" clipped.
-const COL = { rank: 2, player: 8, game: 5.25, result: 3.25, stat: 2.4, gap: 0.4 }
+// THE GAME COLUMN HOLDS "Aug 28 vs BOS" in bold, 85px at 1rem = 16px: at 5.25rem it had 72px, and the
+// date ran into its result (Nov 23, 2026). A two-digit day and a three-letter club is the widest night.
+const COL = { rank: 2, player: 8, game: 6.25, result: 3.25, stat: 2.4, gap: 0.4 }
 // A LINE'S STATS ARE COUNTS, a digit or two, so their columns are narrower than a season's rates
 // (".552", "1.155") and the player column takes the difference, floor and all. At 2.4 and 8 every
 // name column at 1440 sat on its floor beside the tally, and "F. Last" itself was cut by up to 31px
@@ -71,6 +73,8 @@ const COL = { rank: 2, player: 8, game: 5.25, result: 3.25, stat: 2.4, gap: 0.4 
 const LINE_COL = { ...COL, player: 10, stat: 2.15 }
 // A STRETCH'S GAMES, "Aug 13 to Sep 22" at the meta size: sixteen characters, about 0.5rem each.
 const STRETCH_COL_REM = 8.25
+// A CLUB'S HALF-INNING'S SCORE, "10–5 → 12–5" at the meta size: eleven characters and an arrow.
+const SCORE_COL_REM = 6.5
 // EVERY SEASON AT ONCE (GameYearContext): a season row's year in a column of its own ("2026"), and
 // the year on every game's date (", 2026", about six characters more in the Game column).
 const YEAR_COL_REM = 3
@@ -97,13 +101,13 @@ const statRem = (per: FinderPer, unit: string, count = false) =>
 /** The table's narrowest, which is what the main column must hold before it is drawn: the fixed
  *  columns, the player column's floor, the gaps, and the card's padding and borders (2 x 16 chrome
  *  px, under 2.5rem at either scale). */
-const tableMinRem = (units: readonly { unit: string; count: boolean }[], per: FinderPer = 'game', stretched = false, years = false, yearCol = false) => {
+const tableMinRem = (units: readonly { unit: string; count: boolean }[], per: FinderPer = 'game', stretched = false, years = false, yearCol = false, scored = false) => {
   const c = colsFor(per)
   const stats = units.length
   const statsRem = units.reduce((sum, u) => sum + statRem(per, u.unit, u.count), 0)
   return per === 'season'
     ? c.rank + c.player + statsRem + (stats + 1) * c.gap + 2.5 + (stretched ? STRETCH_COL_REM + c.gap : 0) + (yearCol ? YEAR_COL_REM + c.gap : 0)
-    : c.rank + c.player + c.game + c.result + statsRem + (stats + 3) * c.gap + 2.5 + (years ? GAME_YEAR_REM : 0)
+    : c.rank + c.player + c.game + c.result + statsRem + (stats + 3) * c.gap + 2.5 + (years ? GAME_YEAR_REM : 0) + (scored ? SCORE_COL_REM + c.gap : 0)
 }
 /** A grain's name over its examples. */
 const GRAIN_LABEL: Record<FinderPer, string> = { game: 'Single games', club: 'Club games', inning: 'Single innings', pa: 'Plate appearances', season: 'Season totals' }
@@ -522,6 +526,10 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
   const press = (key: string) => onSort({ key, desc: active.key === key ? !active.desc : best(key) })
   // A lone answer has no place to number.
   const ranked = loading || rows.length > 1
+  const clubRow = whoFor(side, query.per, query.byClub)[0] === 'club'
+  // A CLUB'S HALF AT THE PLATE says the score it changed: what makes a big inning big is the game it
+  // turned, and the final beside it cannot say whether those runs came from behind.
+  const scored = query.per === 'inning' && side === 'hitting'
   const narrowOnly = { [wide]: { display: 'none' } }
   const wideOnly = { display: 'none', [wide]: { display: 'table-cell' } }
   // The pinned column. A FIXED WIDTH while it holds the night under the name, so a long name steps
@@ -532,6 +540,16 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
   // than its head and, at the Large text size, spilled 5px out of a column sized to it; so did
   // MLB's "W 16–12" out of Result.
   const FIGURE_SLACK_REM = 0.5
+  const gameRem = widths.game + (years ? GAME_YEAR_REM : 0)
+  const resultRem = widths.result + FIGURE_SLACK_REM
+  const statW = (key: string, unit: string) => statRem(query.per, unit, finderPlainCount(side, key)) + FIGURE_SLACK_REM
+  // THE TABLE'S FLOOR, SUMMED, never `max-content`: Firefox measures a fixed-layout table at 100%
+  // width as all but infinitely wide, so the name column took 17,895,156px and every figure sat that
+  // far to the right, out of sight behind an overlay scrollbar (Nov 23, 2026). Chrome measured it
+  // right, which is why the sweep never saw it. Cells are border-box, so a width holds its padding.
+  const statsRem = cols.reduce((sum, c) => sum + statW(c.key, c.unit), 0)
+  const wideRem = (yearCol ? YEAR_COL_REM : 0) + (season ? 0 : gameRem + resultRem) + (stretched ? STRETCH_COL_REM : 0) + (scored ? SCORE_COL_REM : 0)
+  const floor = (rem: number) => `calc(${leadW} + ${rem}rem)`
   const headSx = {
     position: 'sticky', top: 0, zIndex: 2, bgcolor: CARD_FILL,
     fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: typePx(0.4), color: 'text.disabled',
@@ -605,18 +623,22 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
         // FIXED LAYOUT, every column's width set on its head: sized from its content, a column took
         // the loading row's width and then the loaded one's, and MLB's moved sideways as its lines
         // landed. The name column takes what is left on a wide board.
-        sx={{ width: '100%', minWidth: 'max-content', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 0 }}>
+        sx={{
+          width: '100%', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 0,
+          minWidth: floor(statsRem), [wide]: { minWidth: floor(statsRem + wideRem) },
+        }}>
         <Box component="thead">
           <Box component="tr">
             <Box component="th" scope="col" sx={{ ...headSx, ...pinnedSx, zIndex: 3, textAlign: 'left' }}>
               {ranked && <Box component="span" sx={{ ...rankSx, fontSize: 'inherit', color: 'inherit' }}>#</Box>}
-              <Box component="span" sx={{ pl: ranked ? 0.5 : 0 }}>{whoFor(side, query.per, query.byClub)[0] === 'club' ? 'CLUB' : 'PLAYER'}</Box>
+              <Box component="span" sx={{ pl: ranked ? 0.5 : 0 }}>{clubRow ? 'CLUB' : 'PLAYER'}</Box>
             </Box>
             {yearCol && plainHead('YEAR', { ...wideOnly, width: `${YEAR_COL_REM}rem` })}
-            {!season && sortHead('date', 'GAME', 'Sort by date', { ...wideOnly, textAlign: 'left', width: `${widths.game + (years ? GAME_YEAR_REM : 0)}rem` })}
-            {!season && plainHead('RESULT', { ...wideOnly, width: `${widths.result + FIGURE_SLACK_REM}rem` })}
+            {!season && sortHead('date', 'GAME', 'Sort by date', { ...wideOnly, textAlign: 'left', width: `${gameRem}rem` })}
+            {!season && plainHead('RESULT', { ...wideOnly, width: `${resultRem}rem` })}
+            {scored && plainHead('SCORE', { ...wideOnly, width: `${SCORE_COL_REM}rem` })}
             {stretched && plainHead('GAMES', { ...wideOnly, width: `${STRETCH_COL_REM}rem` })}
-            {cols.map(c => sortHead(c.key, c.unit, c.label, { width: `${statRem(query.per, c.unit, finderPlainCount(side, c.key)) + FIGURE_SLACK_REM}rem` }))}
+            {cols.map(c => sortHead(c.key, c.unit, c.label, { width: `${statW(c.key, c.unit)}rem` }))}
           </Box>
         </Box>
         <Box component="tbody">
@@ -635,6 +657,7 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
                 {yearCol && <Box component="td" sx={{ ...cellSx, ...wideOnly }}><Skeleton /></Box>}
                 {!season && <Box component="td" sx={{ ...cellSx, ...wideOnly }}><Skeleton /></Box>}
                 {!season && <Box component="td" sx={{ ...cellSx, ...wideOnly }}><Skeleton /></Box>}
+                {scored && <Box component="td" sx={{ ...cellSx, ...wideOnly }}><Skeleton /></Box>}
                 {stretched && <Box component="td" sx={{ ...cellSx, ...wideOnly }}><Skeleton /></Box>}
                 {cols.map(c => <Box component="td" key={c.key} sx={cellSx}><Skeleton /></Box>)}
               </Box>
@@ -642,6 +665,7 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
             : <NameColumn names={rows.map(r => r.name)}>{rows.map((r, i) => {
               const parts = rowParts(r)
               const result = resultOf(r)
+              const score = r.inning?.score ? finderScoreText(r.inning.score) : null
               return (
                 // A PLATE APPEARANCE OR AN INNING OPENS ON A TAP ANYWHERE IN ITS ROW: the play is the
                 // answer, and only the game's date led to it, a small target on a row that reads as one
@@ -656,15 +680,18 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
                       {ranked && <Box sx={rankSx}>{rankText(ranks[i])}</Box>}
                       <Box sx={{ flex: 1, minWidth: 0, pl: ranked ? 0.5 : 0 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+                          {/* A CLUB ROW LEADS WITH ITS MARK, as the tally beside it does; a player's
+                              mark follows the name, which is the row's subject. */}
+                          {clubRow && parts.club && <Box sx={{ display: 'flex', flexShrink: 0 }}>{parts.club}</Box>}
                           <NameText name={r.name} linkProps={parts.playerLink} sx={{
                             minWidth: 0, textDecoration: 'none', color: 'inherit', fontSize: TYPE_SCALE.meta, fontWeight: 700, lineHeight: NAME_LH,
                             ...(parts.playerLink ? hoverOnly({ textDecoration: 'underline' }) : {}),
                           }} />
-                          {parts.club && <Box sx={{ display: 'flex', flexShrink: 0 }}>{parts.club}</Box>}
+                          {!clubRow && parts.club && <Box sx={{ display: 'flex', flexShrink: 0 }}>{parts.club}</Box>}
                         </Box>
                         {!season && (
                           <Typography component="div" noWrap sx={{ fontSize: TYPE_SCALE.micro, color: 'text.secondary', lineHeight: NIGHT_LH, ...narrowOnly }}>
-                            {night(r, parts)}{result && result !== '—' ? ` · ${result}` : ''}
+                            {night(r, parts)}{score ? ` · ${score}` : result && result !== '—' ? ` · ${result}` : ''}
                           </Typography>
                         )}
                         {(stretched || yearCol) && (
@@ -678,6 +705,7 @@ function FinderTable<P extends LeaguePlayer, G extends LeagueGame>({
                   {yearCol && <Box component="td" sx={{ ...cellSx, ...wideOnly, textAlign: 'left', fontSize: TYPE_SCALE.meta }}>{r.season ?? '—'}</Box>}
                   {!season && <Box component="td" sx={{ ...cellSx, ...wideOnly, textAlign: 'left', fontSize: TYPE_SCALE.meta }}>{night(r, parts)}</Box>}
                   {!season && <Box component="td" sx={{ ...cellSx, ...wideOnly, textAlign: 'left', fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{result}</Box>}
+                  {scored && <Box component="td" sx={{ ...cellSx, ...wideOnly, textAlign: 'left', fontSize: TYPE_SCALE.meta }}>{score ?? '—'}</Box>}
                   {stretched && <Box component="td" sx={{ ...cellSx, ...wideOnly, textAlign: 'left', fontSize: TYPE_SCALE.meta, color: 'text.secondary' }}>{finderSpanText(r.stretch ?? null) || '—'}</Box>}
                   {cols.map(c => {
                     const first = c.key === asked[0]
@@ -989,7 +1017,8 @@ export function FinderBoard<P extends LeaguePlayer, G extends LeagueGame>({
   // (`onceText`), and the card goes.
 
   const tableRem = tableMinRem(finderColumns(side, query).map(col => ({ unit: col.unit, count: finderPlainCount(side, col.key) })), query.per,
-    query.per === 'season' && !!query.stretch && finderStretchApplies(side, query), everySeason, careerHere && !query.career)
+    query.per === 'season' && !!query.stretch && finderStretchApplies(side, query), everySeason, careerHere && !query.career,
+    query.per === 'inning' && side === 'hitting')
   // WHAT EACH COLUMN IS. "R2", "RS" and "ON" are this board's own, and a header's `title` never shows
   // on a touchscreen, where the phone row leads with one of them ("3 RS"). One key per table, as a
   // definition behind the card's InfoDot, rather than a dot on every header.

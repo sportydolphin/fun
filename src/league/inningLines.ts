@@ -482,6 +482,9 @@ export interface TeamInningLine {
   trail: number
   /** One when the club started the half level or behind and ended it in front. */
   tooklead: number
+  /** The score as the half began, the club's runs and its opponent's, off the same running sum as
+   *  `trail`; the score after is `start.us + r` to `start.them`, since only one side bats in a half. */
+  start?: { us: number; them: number }
   /** The club's runners: bases stolen (home among them), caught stealing and picked off (`runnerEvents`). */
   sb: number
   sbh: number
@@ -786,7 +789,7 @@ function buildTeamInningLines(league: League, plays: RunValuePlay[], games: Leag
         id, game_id: p.game_id, team_id: p.half === 'top' ? g.away_team_id : g.home_team_id,
         inning: p.inning, half: p.half, sequence: p.sequence,
         r: 0, h: 0, doubles: 0, triples: 0, hr: 0, tb: 0, bb: 0, so: 0, hbp: 0, ab: 0, sh: 0, sf: 0, r2: 0,
-        trail: Math.max(0, them - us), tooklead: 0, sb: 0, sbh: 0, cs: 0, pk: 0,
+        trail: Math.max(0, them - us), tooklead: 0, start: { us, them }, sb: 0, sbh: 0, cs: 0, pk: 0,
       }
     }
     const l = line!
