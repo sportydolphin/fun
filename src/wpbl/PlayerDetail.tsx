@@ -491,8 +491,11 @@ export default function PlayerDetailModal({ player, openingSeason = null, teams,
     // bats (a two-way player's chances come mostly off the mound), and is drawn once, since a
     // desktop shows both roles. The loading state reserves it on the one role it draws.
     const fieldsHere = placeholder || (hasFielding && r === (pitcherFirst && !twoWay ? 'pitching' : 'batting'))
+    // THE RANK LINE IS HELD ONLY UNTIL THE RANKS LAND. Held for good, a player ranked in nothing (a
+    // backup short of the qualifying bar) carried an empty line under every season row. Once they
+    // land, StatTable keeps the line wherever a column is ranked and drops it where none is.
     return (
-      <StatSummary accent={color} league reserveRanks={scope === 'regular' && !career} placeholder={placeholder}
+      <StatSummary accent={color} league reserveRanks={scope === 'regular' && !career && ranks == null} placeholder={placeholder}
         summary={statRow(lead, t.summary)} standard={statRow(lead, t.standard)} advanced={statRow(lead, t.advanced)}
         discipline={discipline ? statRow(lead, discipline) : null}
         fielding={fieldsHere ? statRow(lead, wpblFieldingCols(placeholder ? null : ft)) : null}

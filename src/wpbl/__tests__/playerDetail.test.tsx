@@ -427,14 +427,12 @@ describe('PlayerDetail: league ranks', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Fewer stats' }))
   })
 
-  // Most of the roster leads nothing. Anything below the card's top-three bar leaves its cell
-  // empty; the row itself is held open, blank, so the card is the height its loading state was
-  // and does not shrink when the ranks land (see StatTable's `reserveRanks`).
-  it('leaves the rank row blank for a player who leads nothing', async () => {
+  // Most of the roster leads nothing. The rank line is held open only until the ranks land; held
+  // for good, it put an empty band under every season row of a player ranked in nothing (v1.263.1).
+  it('draws no rank row for a player who leads nothing', async () => {
     showInLeague(player(), [bat({ ab: 4, h: 1, tb: 1 })])
     await waitFor(() => expect(battingShown()).toBe(true))
-    expect(rankRow().length).toBeGreaterThan(0)
-    expect(rankRow().every(c => !c.trim())).toBe(true)
+    await waitFor(() => expect(rankRow().length).toBe(0))
   })
 
   // Strikeouts are the one column that must never carry a rank. Second in the league in
