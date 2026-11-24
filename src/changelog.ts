@@ -24,6 +24,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.264.1',
+    date:    '2026-11-24',
+    changes: [
+      {
+        short: 'WPBL Stats: a cleaner 2027 menu',
+        full:  'The 2027 roster menu lists plain names under its Club and Status headings. The chip still says "2027: Boston" once a choice is made.',
+      },
+    ],
+  },
+  {
     version: '1.264.0',
     date:    '2026-11-24',
     changes: [

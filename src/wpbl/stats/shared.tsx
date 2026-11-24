@@ -11,11 +11,12 @@ import { ExportLinks, type ExportKind } from '../../ui/ExportLinks'
 export type { ExportKind }
 
 /** The 2027 roster filter as the bar and the sheet draw it. `value` is the address's `roster=`
- *  value, '' for none. Each choice carries the select's words ("2027: Boston"), the sheet's, which
- *  sit under a "2027" heading ("Boston Hunters"), and the club for the sheet's badge. */
+ *  value, '' for none. Each choice carries its words in the open list ("Boston", under a Club
+ *  heading), on the closed chip, which has no heading to lean on ("2027: Boston"), in the sheet,
+ *  under its "2027" heading ("Boston Hunters"), and the club for the sheet's badge. */
 export interface RosterControl {
   value: string
-  choices: { value: string; label: string; sheetLabel: string; group?: string; team?: WpblTeam }[]
+  choices: { value: string; label: string; shown: string; sheetLabel: string; group?: string; team?: WpblTeam }[]
   onChange: (value: string) => void
 }
 

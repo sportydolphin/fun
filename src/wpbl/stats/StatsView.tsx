@@ -937,13 +937,14 @@ export default function WpblStatsView({
   const rosterClubName = (id: string) => CLUB_CITIES[id] ?? teamById.get(id)?.name ?? id
   const rosterChoiceOf = (f: RosterFilter): RosterControl['choices'][number] => {
     const value = rosterFilterParam(f)
-    if (f.kind === 'any') return { value, label: '2027: Any club', sheetLabel: 'Any club' }
+    if (f.kind === 'any') return { value, label: 'Any club', shown: '2027: Any club', sheetLabel: 'Any club' }
     if (f.kind === 'status') {
       const word = ROSTER_KIND_LABELS[f.status]
-      return { value, label: `2027: ${word}`, sheetLabel: word, group: 'Status' }
+      return { value, label: word, shown: `2027: ${word}`, sheetLabel: word, group: 'Status' }
     }
     const team = teamById.get(f.teamId)
-    return { value, label: `2027: ${rosterClubName(f.teamId)}`, sheetLabel: team ? wpblFullName(team) : rosterClubName(f.teamId), group: 'Club', team }
+    const city = rosterClubName(f.teamId)
+    return { value, label: city, shown: `2027: ${city}`, sheetLabel: team ? wpblFullName(team) : city, group: 'Club', team }
   }
   const rosterControl = useMemo<RosterControl | null>(() => {
     if (!rosterOffered) return null
@@ -957,7 +958,7 @@ export default function WpblStatsView({
     if (rosterCut && !filters.some(f => rosterFilterParam(f) === rosterFilterParam(rosterCut))) filters.push(rosterCut)
     return {
       value: rosterCut ? rosterFilterParam(rosterCut) : '',
-      choices: [{ value: '', label: '2027: All', sheetLabel: 'All players' }, ...filters.map(rosterChoiceOf)],
+      choices: [{ value: '', label: 'All', shown: '2027: All', sheetLabel: 'All players' }, ...filters.map(rosterChoiceOf)],
       onChange: filterRoster,
     }
     // rosterChoiceOf, rosterClubName and filterRoster are rebuilt every render from teamById and
@@ -1126,7 +1127,7 @@ export default function WpblStatsView({
   // and "Hunters" is a crossword clue.
   const teamWord = teamId ? (() => { const t = teamById.get(teamId); return t ? wpblFullName(t) : null })() : null
   const qualWord = mode === 'players' && qualified && !overall ? 'qualified only' : null
-  const rosterWord = rosterOn ? rosterChoiceOf(rosterOn).label : null
+  const rosterWord = rosterOn ? rosterChoiceOf(rosterOn).shown : null
   // What the faded rows are, in the bar's own unit. The only place the qualifying bar is ever
   // stated as a number, so it is also the answer to "why is this player not on the qualified board".
   const qualBar = side === 'hitting' ? `${qual.minPa} PA`
