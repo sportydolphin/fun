@@ -705,7 +705,8 @@ export default function MlbPlayerDetail({ playerId, player, season: seasonProp, 
       <StatSummary accent={ACCENT_TEXT} placeholder={placeholder}
         // The skeleton draws before the career names a season, which `leagueOn` waits for.
         league={placeholder ? !careerView : leagueOn}
-        reserveRanks={!careerView && (scope === 'regular' || !hasPost)}
+        // Held only until the ranks land: see the same line in WPBL's PlayerDetail.
+        reserveRanks={!careerView && (scope === 'regular' || !hasPost) && ranksFor(r) == null}
         summary={{ lead, cols: summaryCols(r) }}
         standard={{ lead, cols: standardCols(r) }}
         advanced={adv ? { lead, cols: adv } : null}

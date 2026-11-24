@@ -24,6 +24,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.263.1',
+    date:    '2026-11-24',
+    changes: [
+      {
+        short: 'Player pages: the right columns stay',
+        full:  'A stat table too wide for the screen now gives up rare columns like HBP, SH and CS first, so H stays. A player with no league ranks no longer has an empty line under each season row.',
+      },
+    ],
+  },
+  {
     version: '1.263.0',
     date:    '2026-11-24',
     changes: [
