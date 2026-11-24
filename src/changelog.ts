@@ -24,6 +24,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.263.0',
+    date:    '2026-11-24',
+    changes: [
+      {
+        short: 'Player pages: stat tables fit the screen',
+        full:  'On a phone and in the desktop side panel, a stat table wider than the screen now drops its least used counts (3B, AB, 2B, R and so on) so AVG, OBP, SLG and OPS stay in view without scrolling sideways. Show more columns brings the rest back. Career, splits, World Cup and game log tables, in both leagues.',
+      },
+    ],
+  },
+  {
     version: '1.262.0',
     date:    '2026-11-23',
     changes: [

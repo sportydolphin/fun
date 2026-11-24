@@ -5,8 +5,9 @@ import { TapTip } from '../ui'
 import { SectionHead } from '../cardParts'
 import {
   isZeroStat, ZERO_SX, bleedSx, BLOCK_GAP,
-  useCollapsibleTable, ExpandToggle, thSx, tdSx, TIP_Z,
+  useCollapsibleTable, ExpandToggle, ColumnsToggle, TableToggles, thSx, tdSx, TIP_Z,
 } from '../../ui/playerCard'
+import { useFitColumns } from '../../ui/fitColumns'
 import { useEdgeFade } from '../../ui/edgeFade'
 import { playerSplits, splitRates, type SplitGroup, type SplitSide } from '../derive/splits'
 import { statTip } from './pieces'
@@ -40,10 +41,12 @@ export function SplitsTable({ side, groups, accent }: {
   const all = groups ?? shapeOf(side)
   // A player the play log never names (a pinch runner, a pitcher with no recorded plate
   // appearance) has no splits worth a table of dashes.
+  const cols = useFitColumns(scrollerRef, HEADS, `${expanded ? 1 : 0}|${loading ? 1 : 0}`)
   if (!loading && all.every(g => g.rows.every(r => r.line.pa === 0))) return null
   const shown = expanded ? all : all.slice(0, OPEN_GROUPS)
   // Counted off the loading shape too, so the toggle is there from the first frame.
   const hidden = all.slice(OPEN_GROUPS).reduce((n, g) => n + g.rows.length, 0)
+  const heads = HEADS.filter((_, j) => cols.keep[j])
   return (
     <Box ref={sectionRef} sx={{ mt: BLOCK_GAP }}>
       <SectionHead title="Splits" part="splits" />
@@ -52,7 +55,7 @@ export function SplitsTable({ side, groups, accent }: {
           <Box component="thead">
             <Box component="tr">
               <Box component="th" sx={{ ...thSx, textAlign: 'left' }}>Split</Box>
-              {HEADS.map(h => (
+              {heads.map(h => (
                 <TapTip key={h} title={statTip(h, eraBasis)} component="th" popperZIndex={TIP_Z} sx={thSx}>{h}</TapTip>
               ))}
             </Box>
@@ -60,7 +63,7 @@ export function SplitsTable({ side, groups, accent }: {
           {shown.map(g => (
             <Box component="tbody" key={g.key}>
               <Box component="tr">
-                <Box component="th" scope="colgroup" colSpan={HEADS.length + 1}
+                <Box component="th" scope="colgroup" colSpan={heads.length + 1}
                   sx={{ ...thSx, position: 'static', textAlign: 'left', pt: 1.2, boxShadow: 'none' }}>
                   {g.label}
                 </Box>
@@ -74,7 +77,7 @@ export function SplitsTable({ side, groups, accent }: {
                 return (
                   <Box component="tr" key={r.key} sx={i % 2 === 1 ? { bgcolor: 'action.hover' } : undefined}>
                     <Box component="th" scope="row" sx={{ ...tdSx, textAlign: 'left', fontWeight: 700 }}>{r.label}</Box>
-                    {cells.map((c, j) => (
+                    {cells.map((c, j) => cols.keep[j] && (
                       <Box component="td" key={j} sx={!loading && isZeroStat(c) ? { ...tdSx, ...ZERO_SX } : tdSx}>
                         {loading
                           ? <Skeleton variant="text" sx={{ display: 'inline-block', width: `${SAMPLES[j].length * 0.62}em` }} />
@@ -88,7 +91,10 @@ export function SplitsTable({ side, groups, accent }: {
           ))}
         </Box>
       </Box>
-      <ExpandToggle expanded={expanded} hidden={hidden} noun={['split', 'splits']} onToggle={toggle} accent={accent} />
+      <TableToggles>
+        <ExpandToggle expanded={expanded} hidden={hidden} noun={['split', 'splits']} onToggle={toggle} accent={accent} />
+        <ColumnsToggle showAll={cols.showAll} hidden={cols.hidden} onToggle={cols.toggle} accent={accent} />
+      </TableToggles>
     </Box>
   )
 }

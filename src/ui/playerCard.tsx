@@ -15,6 +15,7 @@ import { Box, Skeleton, Typography, type Theme } from '@mui/material'
 import { ExpandMore } from '@mui/icons-material'
 import { TapTip } from './TapTip'
 import { useEdgeFade } from './edgeFade'
+import { useFitColumns } from './fitColumns'
 import { TAPPABLE, hoverOnly } from './interaction'
 import { chromePx, typePx } from './scale'
 import { ICON_SIZE, TYPE_SCALE } from './card'
@@ -363,7 +364,7 @@ export interface StatRow { lead: string; cols: StatCol[] }
  * and drawn anywhere else it makes a reader hold a figure in their head on the way to it. Its line
  * is held open (`reserveRanks`) wherever ranks can arrive, so the row is one height before and after.
  */
-export function StatTable({ title, caption, part, row, league, reserveRanks, placeholder, flush = false }: {
+export function StatTable({ title, caption, part, row, league, reserveRanks, placeholder, flush = false, accent, quietFit = false }: {
   /** A heading over the table, as every other section's. None for the summary, which the role's
    *  own heading already names. */
   title?: string
@@ -378,11 +379,19 @@ export function StatTable({ title, caption, part, row, league, reserveRanks, pla
   reserveRanks?: boolean
   /** The loading state: every value is a sample, drawn as a bar of its width. */
   placeholder?: boolean
+  /** The color of the control that brings back columns dropped to fit. */
+  accent: string
+  /** Drop columns to fit without offering them back: the summary, whose every column is also in
+   *  the full tables one tap away under All stats. */
+  quietFit?: boolean
 }) {
   const { tip, ink } = useStatCard()
   const ranked = reserveRanks || row.cols.some(c => c.rank != null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const fade = useEdgeFade(scrollRef)
+  const labels = useMemo(() => row.cols.map(c => c.label), [row.cols])
+  const fit = useFitColumns(scrollRef, labels, placeholder ? 'loading' : 'loaded')
+  const cols = row.cols.filter((_, j) => fit.keep[j])
   return (
     <Box id={part ? playerPartAnchor(part) : undefined} sx={{ ...(title && !flush ? { mt: BLOCK_GAP } : null), ...(part ? PART_SCROLL_SX : null) }}>
       {title && <SectionHead title={title} caption={caption} />}
@@ -391,7 +400,7 @@ export function StatTable({ title, caption, part, row, league, reserveRanks, pla
           <Box component="thead">
             <Box component="tr">
               <Box component="th" sx={{ ...thSx, ...LEAD_SX, zIndex: 2, textAlign: 'left' }}>Season</Box>
-              {row.cols.map(c => (
+              {cols.map(c => (
                 <TapTip key={c.label} title={tip(c.term ?? c.label)} component="th" popperZIndex={TIP_Z}
                   sx={{ ...thSx, ...keepCase(c.label), minWidth: STAT_COL_MIN }}>
                   {c.label}
@@ -402,7 +411,7 @@ export function StatTable({ title, caption, part, row, league, reserveRanks, pla
           <Box component="tbody">
             <Box component="tr">
               <Box component="td" sx={{ ...tdSx, ...LEAD_SX, ...ROW_TOP_SX, borderTop: 'none', textAlign: 'left', fontWeight: 700 }}>{row.lead}</Box>
-              {row.cols.map(c => {
+              {cols.map(c => {
                 const lit = !placeholder && !c.pending && c.rank != null
                 return (
                   <Box component="td" key={c.label} sx={{ ...tdSx, ...ROW_TOP_SX, borderTop: 'none', fontWeight: 700, ...(lit ? { color: ink, fontWeight: 800 } : {}) }}>
@@ -421,7 +430,7 @@ export function StatTable({ title, caption, part, row, league, reserveRanks, pla
                 <Box component="td" sx={{ ...tdSx, ...LEAD_SX, ...LEAD_TINT_SX, textAlign: 'left', color: 'text.secondary' }}>
                   Avg
                 </Box>
-                {row.cols.map(c => (
+                {cols.map(c => (
                   <Box component="td" key={c.label} sx={{ ...tdSx, color: 'text.secondary' }}>
                     {placeholder || c.league == null ? '' : c.league}
                   </Box>
@@ -431,6 +440,9 @@ export function StatTable({ title, caption, part, row, league, reserveRanks, pla
           </Box>
         </Box>
       </Box>
+      {!quietFit && (placeholder
+        ? fit.hidden > 0 && <Box aria-hidden sx={{ visibility: 'hidden' }}><ColumnsToggle showAll={false} hidden={fit.hidden} onToggle={() => {}} accent={accent} /></Box>
+        : <ColumnsToggle showAll={fit.showAll} hidden={fit.hidden} onToggle={fit.toggle} accent={accent} />)}
     </Box>
   )
 }
@@ -508,15 +520,15 @@ export function StatSummary({ summary, standard, advanced, discipline, fielding,
   const covered = open && summaryCovered(summary, [standard, advanced, discipline])
   return (
     <>
-      {!covered && <StatTable row={summary} league={league} reserveRanks={reserveRanks} placeholder={placeholder} />}
+      {!covered && <StatTable quietFit accent={accent} row={summary} league={league} reserveRanks={reserveRanks} placeholder={placeholder} />}
       {more && open && (
         <>
-          {standard && <StatTable title="Standard" flush={covered} row={standard} league={league} reserveRanks={reserveRanks} placeholder={placeholder} />}
-          {advanced && <StatTable title="Advanced" part="advanced" row={advanced} league={league} placeholder={placeholder} />}
-          {discipline && <StatTable title="Plate discipline" row={discipline} league={league} placeholder={placeholder} />}
+          {standard && <StatTable accent={accent} title="Standard" flush={covered} row={standard} league={league} reserveRanks={reserveRanks} placeholder={placeholder} />}
+          {advanced && <StatTable accent={accent} title="Advanced" part="advanced" row={advanced} league={league} placeholder={placeholder} />}
+          {discipline && <StatTable accent={accent} title="Plate discipline" row={discipline} league={league} placeholder={placeholder} />}
           {/* No League avg row: a fielding average over every position at once compares a catcher
               with a left fielder, which says nothing about either. */}
-          {fielding && <StatTable title="Fielding" part="fielding" caption={fieldingCaption} row={fielding} placeholder={placeholder} />}
+          {fielding && <StatTable accent={accent} title="Fielding" part="fielding" caption={fieldingCaption} row={fielding} placeholder={placeholder} />}
         </>
       )}
       {more && (
@@ -797,6 +809,27 @@ export function ExpandToggle({ expanded, hidden, noun, onToggle, accent }: {
   )
 }
 
+/** The control that brings back the columns a table dropped to fit (useFitColumns). Beside the
+ *  rows' own Show more, in the same voice, since both put back what the box left out. */
+export function ColumnsToggle({ showAll, hidden, onToggle, accent }: {
+  showAll: boolean
+  hidden: number
+  onToggle: () => void
+  accent: string
+}) {
+  if (hidden <= 0) return null
+  return (
+    <ShowMoreButton expanded={showAll} onClick={onToggle} accent={accent}>
+      {showAll ? 'Show fewer columns' : `Show ${hidden} more ${hidden === 1 ? 'column' : 'columns'}`}
+    </ShowMoreButton>
+  )
+}
+
+/** Show more rows and Show more columns on one line, each half the width when both are there. */
+export function TableToggles({ children }: { children: React.ReactNode }) {
+  return <Box sx={{ display: 'flex', '& > *': { flex: 1, minWidth: 0 } }}>{children}</Box>
+}
+
 /**
  * A table of stat lines, one row each, with lead columns on the left: a game log (Date, Opp), a
  * career (Year, Team), a set of splits (Split). Built as the per-game log and still drawn exactly
@@ -877,6 +910,8 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
   const cut = rows.length > preview + 2 ? preview : rows.length
   const shown = expanded ? rows : rows.slice(0, cut)
   const hidden = rows.length - cut
+  const cols = useFitColumns(scrollerRef, statHeaders, `${shown.length}|${placeholder ? 1 : 0}`)
+  const pick = <T,>(cells: T[]) => cells.filter((_, j) => cols.keep[j])
   if (rows.length === 0) return null
   // The first lead (the date) is furniture, so it dims; the rest (the opponent) are what a reader
   // scans down, so they carry weight.
@@ -920,7 +955,7 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
                   almost none and its figures ran together ("0 0 0") while RBI took the slack. The
                   season row used to hide this by putting three digits in every column. In rem,
                   since it is room for a figure: it has to grow with the reader's text. */}
-              {statHeaders.map(h => (
+              {pick(statHeaders).map(h => (
                 <TapTip key={h} title={tip(h)} component="th" popperZIndex={TIP_Z} sx={{ ...thSx, ...keepCase(h), width: STAT_COL_MIN }}>{h}</TapTip>
               ))}
             </Box>
@@ -979,6 +1014,7 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
                   </Box>
                 ))}
                 {r.cells.map((c, j) => {
+                  if (!cols.keep[j]) return null
                   // BOLD WITH A DOT UNDER IT, NOT THE RANK BLUE. Blue on this card means a league
                   // rank, and the same blue on a game's 6 SO said "league leader" about a figure that
                   // is only this player's own best night. Every column that can be marked is one
@@ -1018,7 +1054,7 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
                   {totalsLabel}
                 </Box>
                 {leadHeaders.slice(1).map(h => <Box component="td" key={h} sx={{ ...totalTdSx, textAlign: 'left' }} />)}
-                {totals.map((c, j) => (
+                {totals.map((c, j) => cols.keep[j] && (
                   <Box component="td" key={j} sx={totalTdSx}>{c}</Box>
                 ))}
               </Box>
@@ -1027,8 +1063,18 @@ export function StatLogTable({ title, caption, leadHeaders = ['Date', 'Opp'], st
         </Box>
       </Box>
       {placeholder
-        ? <Box aria-hidden sx={{ visibility: 'hidden' }}><ExpandToggle expanded={false} hidden={hidden} noun={noun} onToggle={() => {}} accent={accent} /></Box>
-        : <ExpandToggle expanded={expanded} hidden={hidden} noun={noun} onToggle={toggle} accent={accent} />}
+        ? (
+          <TableToggles>
+            {hidden > 0 && <Box aria-hidden sx={{ visibility: 'hidden' }}><ExpandToggle expanded={false} hidden={hidden} noun={noun} onToggle={() => {}} accent={accent} /></Box>}
+            {cols.hidden > 0 && <Box aria-hidden sx={{ visibility: 'hidden' }}><ColumnsToggle showAll={false} hidden={cols.hidden} onToggle={() => {}} accent={accent} /></Box>}
+          </TableToggles>
+        )
+        : (
+          <TableToggles>
+            <ExpandToggle expanded={expanded} hidden={hidden} noun={noun} onToggle={toggle} accent={accent} />
+            <ColumnsToggle showAll={cols.showAll} hidden={cols.hidden} onToggle={cols.toggle} accent={accent} />
+          </TableToggles>
+        )}
     </Box>
   )
 }
