@@ -182,11 +182,14 @@ export interface WpblRosterMove {
   player_name: string | null
   /** The club the move is for; on a trade, the club that gets the player. */
   team_id: string
-  /** A trade only: the club that gives the player up. `draft_round`/`draft_pick` are then the pick
-   *  that went back to it. Null on every other kind (the table enforces both). */
+  /** A trade only: the club that gives up this row's player or pick. Null on every other kind (the
+   *  table enforces both). */
   from_team_id: string | null
   /** A trade only: shared by every row of one trade (a player-for-player deal is two rows). */
   trade_id: string | null
+  /** A traded pick only: the club the pick originally belonged to, which is not `from_team_id` once
+   *  a club passes on a pick it acquired. Null on every other row (the table enforces it). */
+  pick_team_id: string | null
   draft_round: number | null
   draft_pick: number | null
   announced_on: string

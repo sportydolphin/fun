@@ -31,7 +31,7 @@ function storeMoves(data: WpblRosterMove[]) {
 /** Fired after an owner write, so an open rosters page or player card redraws without a reload. */
 export const ROSTER_MOVES_CHANGED_EVENT = 'wpbl:roster-moves-changed'
 
-const COLUMNS = 'id,season,kind,player_id,player_name,team_id,from_team_id,trade_id,draft_round,draft_pick,announced_on,source_url'
+const COLUMNS = 'id,season,kind,player_id,player_name,team_id,from_team_id,trade_id,pick_team_id,draft_round,draft_pick,announced_on,source_url'
 
 export function fetchWpblRosterMoves(): Promise<WpblRosterMove[]> {
   if (isFreshSlow(movesCache)) return Promise.resolve(movesCache!.data)
@@ -58,6 +58,18 @@ export type NewRosterMove = Omit<WpblRosterMove, 'id'>
 
 export async function saveWpblRosterMove(move: NewRosterMove): Promise<boolean> {
   const ok = await ownerWrite('saveWpblRosterMove', () => supabase.from('wpbl_roster_moves').insert(move))
+  if (ok) changed()
+  return ok
+}
+
+/**
+ * Every row of one trade in a single insert. A trade saved a row at a time reached readers in
+ * pieces: the Instagram watch pushes whatever traded rows it finds unpushed, hourly, so a run
+ * between two saves sent half the trade ("Boston gets Zettlemoyer") on its own.
+ */
+export async function saveWpblTrade(rows: NewRosterMove[]): Promise<boolean> {
+  if (!rows.length) return false
+  const ok = await ownerWrite('saveWpblTrade', () => supabase.from('wpbl_roster_moves').insert(rows))
   if (ok) changed()
   return ok
 }

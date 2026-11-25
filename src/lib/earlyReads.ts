@@ -47,7 +47,7 @@ export const HOME_EARLY_READS = [
   '/rest/v1/wpbl_photo_subjects?select=id%2Cphoto_id%2Cplayer_id%2Cfigure_key%2Cteam_id&order=photo_id.asc%2Cid.asc&offset=0&limit=1000',
   '/rest/v1/wpbl_photo_figures?select=key%2Cname%2Ckind%2Cblurb%2Cteam_id&order=name.asc%2Ckey.asc&offset=0&limit=1000',
   '/rest/v1/wpbl_photo_categories?select=key%2Cname%2Cblurb%2Csort_order&order=sort_order.asc.nullslast%2Cname.asc',
-  '/rest/v1/wpbl_roster_moves?select=id%2Cseason%2Ckind%2Cplayer_id%2Cplayer_name%2Cteam_id%2Cfrom_team_id%2Ctrade_id%2Cdraft_round%2Cdraft_pick%2Cannounced_on%2Csource_url&order=announced_on.desc%2Cid.desc',
+  '/rest/v1/wpbl_roster_moves?select=id%2Cseason%2Ckind%2Cplayer_id%2Cplayer_name%2Cteam_id%2Cfrom_team_id%2Ctrade_id%2Cpick_team_id%2Cdraft_round%2Cdraft_pick%2Cannounced_on%2Csource_url&order=announced_on.desc%2Cid.desc',
 ] as const
 
 /** Where index.html leaves the started requests, keyed by the paths above. */

@@ -16,7 +16,7 @@ const OPEN = Date.parse('2026-11-12T18:00:00Z')
 let nextId = 1
 function move(over: Partial<WpblRosterMove>): WpblRosterMove {
   return {
-    id: nextId++, season: 2027, kind: 're-signed', player_id: KELSIE, player_name: null, team_id: 'SF', from_team_id: null, trade_id: null,
+    id: nextId++, season: 2027, kind: 're-signed', player_id: KELSIE, player_name: null, team_id: 'SF', from_team_id: null, trade_id: null, pick_team_id: null,
     draft_round: null, draft_pick: null, announced_on: '2026-11-12', source_url: 'https://example.com/a', ...over,
   }
 }
@@ -129,6 +129,17 @@ describe('trades', () => {
     ])
     const impossible = move({ kind: 'traded', player_id: null, team_id: 'SF', from_team_id: 'BOS', trade_id: 't8', draft_round: 6, announced_on: '2026-11-30' })
     expect(tradedPicks([pick(), impossible])).toEqual([{ round: 6, original: 'BOS', holder: 'NY' }])
+  })
+
+  it('moves the pick a row names, not whichever the giver holds first', () => {
+    // New York holds its own 6th and Boston's. It passes Boston's on to Los Angeles: the guess would
+    // have sent New York's own, and the draft board would show the wrong club picking.
+    const onward = move({ kind: 'traded', player_id: null, team_id: 'LA', from_team_id: 'NY', trade_id: 't9', draft_round: 6, pick_team_id: 'BOS', announced_on: '2026-11-25' })
+    expect(tradedPicks([pick(), onward])).toEqual([{ round: 6, original: 'BOS', holder: 'LA' }])
+    expect(openPicks([pick(), onward], 'NY').filter(p => p.round === 6).map(p => p.original)).toEqual(['NY'])
+    // A row naming a pick the giver does not hold moves nothing.
+    const notHeld = move({ kind: 'traded', player_id: null, team_id: 'SF', from_team_id: 'NY', trade_id: 't8', draft_round: 6, pick_team_id: 'LA', announced_on: '2026-11-26' })
+    expect(tradedPicks([pick(), notHeld])).toEqual([{ round: 6, original: 'BOS', holder: 'NY' }])
   })
 
   it('draws a player not yet in the database by name, and leaves the rosters alone', () => {

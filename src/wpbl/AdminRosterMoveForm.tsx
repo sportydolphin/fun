@@ -41,7 +41,7 @@ export default function AdminRosterMoveForm({ club, clubName, moves, players, so
   const save = async () => {
     setBusy(true); setError(null)
     const ok = await saveWpblRosterMove({
-      season: ROSTER_SEASON, kind, team_id: club, from_team_id: null, trade_id: null,
+      season: ROSTER_SEASON, kind, team_id: club, from_team_id: null, trade_id: null, pick_team_id: null,
       player_id: chosen?.playerId ?? null,
       player_name: chosen?.playerId ? null : chosen?.name ?? typed.trim(),
       draft_round: kind === 'drafted' ? pick!.round : null, draft_pick: kind === 'drafted' ? pick!.pick : null,
