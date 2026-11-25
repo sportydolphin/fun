@@ -14,24 +14,27 @@ export type PositionFilter = 'C' | '1B' | '2B' | '3B' | 'SS' | 'IF' | 'OF' | 'DH
 
 export interface PositionFilterDef {
   key: PositionFilter
-  /** "Catchers", for the chip and the search row. */
+  /** "First base", for the picker and the chip: the position's name, never a word for the people
+   *  who play it, since "First basemen" misnames a WPBL board. */
+  label: string
+  /** "First base players", for the search row's prose ("Best first base players"). */
   plural: string
   /** The side of the board it belongs on: a role only means anything among pitchers. */
   side: 'hitting' | 'pitching'
 }
 
 export const POSITION_FILTERS: readonly PositionFilterDef[] = [
-  { key: 'C', plural: 'Catchers', side: 'hitting' },
-  { key: '1B', plural: 'First basemen', side: 'hitting' },
-  { key: '2B', plural: 'Second basemen', side: 'hitting' },
-  { key: '3B', plural: 'Third basemen', side: 'hitting' },
-  { key: 'SS', plural: 'Shortstops', side: 'hitting' },
-  { key: 'IF', plural: 'Infielders', side: 'hitting' },
-  { key: 'OF', plural: 'Outfielders', side: 'hitting' },
-  { key: 'DH', plural: 'Designated hitters', side: 'hitting' },
-  { key: 'P', plural: 'Pitchers', side: 'pitching' },
-  { key: 'SP', plural: 'Starters', side: 'pitching' },
-  { key: 'RP', plural: 'Relievers', side: 'pitching' },
+  { key: 'C', label: 'Catcher', plural: 'Catchers', side: 'hitting' },
+  { key: '1B', label: 'First base', plural: 'First base players', side: 'hitting' },
+  { key: '2B', label: 'Second base', plural: 'Second base players', side: 'hitting' },
+  { key: '3B', label: 'Third base', plural: 'Third base players', side: 'hitting' },
+  { key: 'SS', label: 'Shortstop', plural: 'Shortstops', side: 'hitting' },
+  { key: 'IF', label: 'Infield', plural: 'Infielders', side: 'hitting' },
+  { key: 'OF', label: 'Outfield', plural: 'Outfielders', side: 'hitting' },
+  { key: 'DH', label: 'Designated hitter', plural: 'Designated hitters', side: 'hitting' },
+  { key: 'P', label: 'Pitcher', plural: 'Pitchers', side: 'pitching' },
+  { key: 'SP', label: 'Starter', plural: 'Starters', side: 'pitching' },
+  { key: 'RP', label: 'Reliever', plural: 'Relievers', side: 'pitching' },
 ]
 
 const BY_KEY = new Map(POSITION_FILTERS.map(d => [d.key, d]))

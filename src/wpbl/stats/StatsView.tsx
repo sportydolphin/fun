@@ -1271,7 +1271,7 @@ export default function WpblStatsView({
           The desktop's own select already shows it. */}
       {source === 'season' && mode === 'players' && posOn && isNarrow && (
         <Box sx={{ display: 'flex', mb: 1 }}>
-          <ActiveFilterChip label={positionFilterDef(posOn).plural} onClear={() => filterPos(null)} />
+          <ActiveFilterChip label={positionFilterDef(posOn).label} onClear={() => filterPos(null)} />
         </Box>
       )}
 

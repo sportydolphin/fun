@@ -528,7 +528,7 @@ export function positionRankSuggestions(section: FinderSection, text: string): O
     const who = def.plural.toLowerCase()
     const title = p ? `${leaderTitle(p)} among ${who}` : `Best ${who}`
     const span = String(p?.season ?? (section === 'mlb' ? CURRENT_SEASON : 'This season'))
-    const subtitle = [side === 'pitching' ? 'Pitching stats' : 'Hitting stats', span, `${def.plural} only`].join(' · ')
+    const subtitle = [side === 'pitching' ? 'Pitching stats' : 'Hitting stats', span, `${def.label} only`].join(' · ')
     return [{ key: `pos-rank-${href}`, title, subtitle, href }]
   })
 }
