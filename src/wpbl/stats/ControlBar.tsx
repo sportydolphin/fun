@@ -336,7 +336,7 @@ export function ControlBar({ newBoards, activeBoard, selectBoard, isAnalysis, an
                 rows and the phone's chip name it. */}
             <FilterSelect
               value={pos ?? ''}
-              options={[{ value: '', label: 'All positions' }, ...posChoices.map(d => ({ value: d.key, label: d.plural }))]}
+              options={[{ value: '', label: 'All positions' }, ...posChoices.map(d => ({ value: d.key, label: d.label }))]}
               onChange={v => filterPos(parsePositionFilter(v))}
               active={pos !== null}
               ariaLabel="Position"

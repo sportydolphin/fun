@@ -281,7 +281,7 @@ export function FilterBody({ teams, teamId, onTeam, pos, posChoices, onPos, rost
         <Box sx={rows}>
           <OptionRow label="All positions" on={pos === null} onClick={() => onPos(null)} />
           {posChoices.map(d => (
-            <OptionRow key={d.key} label={d.plural} on={pos === d.key} onClick={() => onPos(pos === d.key ? null : d.key)} />
+            <OptionRow key={d.key} label={d.label} on={pos === d.key} onClick={() => onPos(pos === d.key ? null : d.key)} />
           ))}
         </Box>
       </SheetGroup>

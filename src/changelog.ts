@@ -24,6 +24,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.264.2',
+    date:    '2026-11-24',
+    changes: [
+      {
+        short: 'Stats: positions by name',
+        full:  'The position filter on both Stats boards lists each position by name: Catcher, First base, Shortstop, Outfield and the rest. Search suggests "Best first base players".',
+      },
+    ],
+  },
+  {
     version: '1.264.1',
     date:    '2026-11-24',
     changes: [

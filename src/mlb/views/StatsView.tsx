@@ -437,7 +437,7 @@ export function StatsView({
             <FilterSelect
               ariaLabel="Position"
               value={whoOn ?? ''}
-              options={[{ value: '', label: 'All positions' }, ...positionOptions(lbGroup).map(d => ({ value: d.key, label: d.plural }))]}
+              options={[{ value: '', label: 'All positions' }, ...positionOptions(lbGroup).map(d => ({ value: d.key, label: d.label }))]}
               onChange={v => { setWho(parsePositionFilter(v)); setLbStatsLimit(50) }}
               active={whoOn != null}
             />
@@ -471,7 +471,7 @@ export function StatsView({
       {/* On a phone the position says so above the table, its picker being in the Filters sheet. */}
       {whoOn && setWho && !isDesktop && (
         <Box sx={{ display: 'flex', mb: 1 }}>
-          <ActiveFilterChip label={positionFilterDef(whoOn).plural} onClear={() => setWho(null)} />
+          <ActiveFilterChip label={positionFilterDef(whoOn).label} onClear={() => setWho(null)} />
         </Box>
       )}
 
