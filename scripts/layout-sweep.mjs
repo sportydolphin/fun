@@ -200,9 +200,11 @@ const DEFAULT_ROUTES = [
 // Pitching) are in the steps too, since a reload that lands on the wrong side loses the rest with it.
 const BEHAVIOR_BOARDS = [
   { route: '/wpbl/stats?board=players&side=hitting', steps: ['Playoffs', { select: 'Club', value: 'LA' }, '✓ Qualified'] },
-  // The clubs as a select here since the Position menu joined the row: the five chips no longer fit
-  // beside it at 1440, and the row measures itself rather than wrapping (useRowFit in ControlBar).
-  { route: '/wpbl/stats?board=players&side=fielding', steps: ['Both', { select: 'Club', value: 'NY' }, { select: 'Position', value: 'SS' }, '✓ Qualified'] },
+  // The clubs as chips here: the row measures itself (useRowFit in ControlBar), and with the Position
+  // menu naming positions ("Designated hitter", not "Designated hitters") the chips fit beside it at
+  // 1440 again. If this says there is no control "NY", the row got wider and the clubs are a select:
+  // step `{ select: 'Club', value: 'NY' }` instead.
+  { route: '/wpbl/stats?board=players&side=fielding', steps: ['Both', 'NY', { select: 'Position', value: 'SS' }, '✓ Qualified'] },
   { route: '/wpbl/stats?board=teams', steps: ['Pitching', 'Playoffs', 'Advanced'] },
   { route: '/wpbl/stats?side=hitting', steps: ['Pitching', 'Both'] },
   { route: '/mlb/stats', steps: ['Pitching', '✓ Qualified', 'Advanced', { select: 'Season', value: '2025' }] },
