@@ -16,7 +16,7 @@ const AFTER = Date.parse('2026-12-05T18:00:00Z')
 let nextId = 1
 function move(over: Partial<WpblRosterMove>): WpblRosterMove {
   return {
-    id: nextId++, season: 2027, kind: 're-signed', player_id: KELSIE, player_name: null, team_id: 'SF', from_team_id: null, trade_id: null,
+    id: nextId++, season: 2027, kind: 're-signed', player_id: KELSIE, player_name: null, team_id: 'SF', from_team_id: null, trade_id: null, pick_team_id: null,
     draft_round: null, draft_pick: null, announced_on: '2026-11-12', source_url: 'https://example.com/a', ...over,
   }
 }

@@ -22,7 +22,7 @@ async function choose(label: string, option: RegExp | string) {
   await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull())
 }
 
-const base = { season: 2027, team_id: 'NY', from_team_id: null, trade_id: null, announced_on: '2027-03-01', source_url: URL }
+const base = { season: 2027, team_id: 'NY', from_team_id: null, trade_id: null, pick_team_id: null, announced_on: '2027-03-01', source_url: URL }
 
 beforeEach(() => { save.mockReset().mockResolvedValue(true) })
 

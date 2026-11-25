@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 // would keep passing while the script drifted.
 import {
   classifyCaption, playerIndex, fold, toRows, resignMessage, tokenWarning, ACCOUNTS, plannedMoves, etDate,
-  needsReview, rosterSurnames, reviewMessage, tradeMessage, repeatsTrade, tradePushes,
+  needsReview, rosterSurnames, reviewMessage, tradeMessage, repeatsTrade, tradePushes, newTrades,
 } from '../../scripts/watch-wpbl-instagram.mjs'
 import { ROSTERS_2026 } from '../wpbl/offseason2027'
 
@@ -340,5 +340,13 @@ describe('trades: flagged, never recorded', () => {
       { ...base, id: 35, player_id: null, team_id: 'NY', from_team_id: 'BOS', draft_round: 6 },
     ], () => 'Alyssa Zettlemoyer')
     expect(n).toMatchObject({ id: 'wpbl-trade:t1', title: 'Trade: Boston and New York', body: 'Boston gets Alyssa Zettlemoyer. New York gets a 2027 6th-round pick.' })
+  })
+})
+
+describe('newTrades', () => {
+  it('pushes a new trade, and leaves a leg added to a trade already pushed', () => {
+    const rows = [{ id: 1, trade_id: 'a' }, { id: 2, trade_id: 'a' }, { id: 3, trade_id: 'b' }]
+    expect(newTrades(rows, []).map(r => r.id)).toEqual([1, 2, 3])
+    expect(newTrades(rows, ['b']).map(r => r.id)).toEqual([1, 2])
   })
 })

@@ -470,7 +470,7 @@ export interface Transaction { key: string; announced_on: string; trade: boolean
 export const pickLabel = (round: number): string => `${ordinal(round)}-round pick`
 
 /** Whether a traded row moves a pick rather than a player (it names nobody). */
-export const isPickRow = (m: WpblRosterMove): boolean =>
+export const isPickRow = (m: Pick<WpblRosterMove, 'kind' | 'player_id' | 'player_name' | 'draft_round'>): boolean =>
   m.kind === 'traded' && !m.player_id && !(m.player_name ?? '').trim() && m.draft_round != null
 
 /**
@@ -513,6 +513,13 @@ function pickHolders(moves: readonly WpblRosterMove[]): Map<string, string> {
   const picks = moves.filter(m => m.season === ROSTER_SEASON && isPickRow(m)).sort((a, b) => -byNewest(a, b))
   for (const m of picks) {
     const r = m.draft_round!
+    // A row names its pick (pick_team_id), so a club holding two in one round gives up the right
+    // one. A row without it can only be guessed at: the giver's own if it still holds that one.
+    if (m.pick_team_id) {
+      const key = `${r}:${m.pick_team_id}`
+      if (holder.get(key) === m.from_team_id) holder.set(key, m.team_id)
+      continue
+    }
     const own = `${r}:${m.from_team_id}`
     const key = holder.get(own) === m.from_team_id ? own
       : DRAFT_ORDER_2027.map(t => `${r}:${t}`).find(k => holder.get(k) === m.from_team_id)
@@ -540,9 +547,9 @@ export function openPicks(moves: readonly WpblRosterMove[], teamId: string): Dra
 
 /**
  * The 2027 picks that are not where the draft order put them, by round, then by draft order.
- * Each club starts with its own pick in every round; each pick row moves one of the giving club's
- * picks in that round to the receiving club, in the order announced, preferring the giver's own
- * pick when it holds more than one. A pick row the giver could not have held is ignored, the way
+ * Each club starts with its own pick in every round; each pick row moves the pick it names
+ * (`pick_team_id`) from the giving club to the receiving club, in the order announced. A pick row
+ * the giver could not have held is ignored, the way
  * the rosters ignore a trade from a club that does not hold the player.
  */
 export function tradedPicks(moves: readonly WpblRosterMove[]): TradedPick[] {

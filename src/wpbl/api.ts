@@ -62,7 +62,7 @@ export {
 } from './api/photoSubmissions'
 export {
   getCachedWpblRosterMoves, getStoredWpblRosterMoves, fetchWpblRosterMoves, ROSTER_MOVES_CHANGED_EVENT,
-  saveWpblRosterMove, deleteWpblRosterMove, type NewRosterMove
+  saveWpblRosterMove, saveWpblTrade, deleteWpblRosterMove, type NewRosterMove
 } from './api/offseasonMoves'
 export {
   type WpblNotePost, fetchWpblNotePosts, saveWpblNotePost, deleteWpblNotePost

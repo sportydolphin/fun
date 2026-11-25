@@ -418,7 +418,7 @@ export function tradeMessage(row) {
   const team = row.team_id ? TEAM_NAMES[row.team_id] : row.account
   return [
     `🔁 **Trade: ${row.player_names.join(', ')}**, posted by ${team}`,
-    'Not recorded. Record from /admin → Rosters (each player and pick is its own save).',
+    'Not recorded. Record from /admin → Rosters (add each player and pick, then save the trade).',
     row.permalink,
   ].join('\n')
 }
@@ -431,6 +431,17 @@ export function repeatsTrade(row, announced) {
   const at = Date.parse(row.posted_at)
   return announced.some(a => Math.abs(Date.parse(a.posted_at) - at) <= 3 * 86_400_000
     && a.player_ids.some(id => row.player_ids.includes(id)))
+}
+
+/**
+ * The unpushed traded rows whose trade readers have not heard of. A row added to a trade that was
+ * already pushed is a correction from /admin's "Part of", and pushing it would send one side of a
+ * trade on its own ("New York gets a 6th-round pick") as if it were news. Pure: `pushedTradeIds`
+ * are the trade ids with any row already pushed.
+ */
+export function newTrades(unpushed, pushedTradeIds) {
+  const told = new Set(pushedTradeIds)
+  return unpushed.filter(r => !told.has(r.trade_id))
 }
 
 /**
@@ -739,8 +750,13 @@ async function main() {
       .eq('kind', 'traded').is('pushed_at', null)
     if (error) throw new Error(`Reading unpushed trades: ${error.message}`)
     if (data.length) {
+      const { data: earlier, error: earlierErr } = await supabase.from('wpbl_roster_moves')
+        .select('trade_id').eq('kind', 'traded').not('pushed_at', 'is', null)
+        .in('trade_id', [...new Set(data.map(r => r.trade_id))])
+      if (earlierErr) throw new Error(`Reading pushed trades: ${earlierErr.message}`)
+      const fresh = newTrades(data, earlier.map(r => r.trade_id))
       const nameOf = new Map(players.map(p => [p.id, p.name]))
-      const sent = await sendPush(tradePushes(data, id => nameOf.get(id)), 'trade')
+      const sent = fresh.length ? await sendPush(tradePushes(fresh, id => nameOf.get(id)), 'trade') : 0
       if (sent !== null) {
         const { error: stampErr } = await supabase.from('wpbl_roster_moves')
           .update({ pushed_at: new Date().toISOString() }).in('id', data.map(r => r.id))

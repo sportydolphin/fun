@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, TextField, Button, MenuItem } from '@mui/material'
 import { ChipRow, FilterChip } from '../ui/FilterChip'
 import { CARD_BORDER, TYPE_SCALE } from './ui'
-import { fetchWpblTeams, fetchWpblAllPlayers, saveWpblRosterMove, deleteWpblRosterMove } from './api'
+import { fetchWpblTeams, fetchWpblAllPlayers, saveWpblRosterMove, saveWpblTrade, deleteWpblRosterMove, type NewRosterMove } from './api'
 import { useWpblRosterMoves } from './useRosterMoves'
-import { DRAFT_ORDER_2027, ROSTERS_2026, ROSTER_SEASON, MAX_RESIGNED, rosterBoards, isPickRow } from './offseason2027'
+import { DRAFT_ORDER_2027, ROSTERS_2026, ROSTER_SEASON, MAX_RESIGNED, rosterBoards, isPickRow, openPicks } from './offseason2027'
 import AdminRosterMoveForm from './AdminRosterMoveForm'
 import { wpblFullName } from './constants'
-import type { WpblPlayer, WpblRosterMove, WpblTeam } from './types'
+import type { WpblPlayer, WpblTeam } from './types'
 
 // /admin → Rosters: record each 2027 move as the league or a club announces it. The news watch
 // pages the owner when something moves; this is where it becomes a row on /wpbl/rosters.
@@ -20,10 +20,15 @@ import type { WpblPlayer, WpblRosterMove, WpblTeam } from './types'
 const PICK = '__pick'
 const UNLISTED = '__unlisted'
 
-/** A trade row as the form lists it: the player, or "Round 6 pick". */
-function legName(m: WpblRosterMove, playerById: Map<string, WpblPlayer>): string {
-  if (isPickRow(m)) return `Round ${m.draft_round} pick`
+/** A trade row as the form lists it: the player, or "Round 6 pick (BOS)", the pick's own club. */
+function legName(m: NewRosterMove, playerById: Map<string, WpblPlayer>): string {
+  if (isPickRow(m)) return `Round ${m.draft_round} pick${m.pick_team_id ? ` (${m.pick_team_id})` : ''}`
   return playerById.get(m.player_id ?? '')?.name ?? m.player_name ?? '?'
+}
+
+/** Whether a leg already on the trade being built is the "Gives" choice `key`. */
+function onTrade(m: NewRosterMove, key: string): boolean {
+  return m.player_id === key || (isPickRow(m) && `${PICK}:${m.draft_round}:${m.pick_team_id}` === key)
 }
 
 function todayEt(): string {
@@ -57,31 +62,38 @@ export default function AdminRosterMoves() {
   const resign = async (playerId: string) => {
     setBusy(playerId); setError(null)
     const ok = await saveWpblRosterMove({
-      season: ROSTER_SEASON, kind: 're-signed', player_id: playerId, player_name: null, team_id: club, from_team_id: null, trade_id: null,
+      season: ROSTER_SEASON, kind: 're-signed', player_id: playerId, player_name: null, team_id: club, from_team_id: null, trade_id: null, pick_team_id: null,
       draft_round: null, draft_pick: null, announced_on: day, source_url: source.trim(),
     })
     setBusy(null)
     if (!ok) setError('Not saved. The console has the reason.')
   }
-  // A TRADE IS RECORDED ONE THING AT A TIME, FROM THE CLUB THAT GIVES IT UP: the chips above pick
-  // that club, and each save is one player (from the club's list, or a name typed for someone not
-  // in wpbl_players yet) or one of its picks, to the club in "To". The trade's other legs are more
-  // saves with "Part of" set to the first, which may mean switching the chips to the other club:
-  // Zettlemoyer for a 6th is New York's player to Boston, then Boston's 6th-round pick to New York.
+  // A TRADE IS BUILT HERE AND SAVED WHOLE. Each leg is one thing moving from the club the chips
+  // pick to the club in "To": a player (from the club's list, or a name typed for someone not in
+  // wpbl_players yet) or one of the picks it holds. "Add" puts the leg on the trade below; switch
+  // the chips for the other club's legs (Zettlemoyer for a 6th is New York's player to Boston, then
+  // Boston's 6th-round pick to New York), and "Save trade" writes every leg in one insert. Saving a
+  // leg at a time let the hourly push go out with half a trade, and a leg saved without picking its
+  // trade again became a trade of its own. "Part of" adds legs to a trade already saved, a
+  // correction, which the push leaves alone.
   const [tradePlayer, setTradePlayer] = useState('')
   const [tradeTo, setTradeTo] = useState('')
-  const [tradeRound, setTradeRound] = useState('')
   const [tradeName, setTradeName] = useState('')
   const [tradeGroup, setTradeGroup] = useState('')
+  const [legs, setLegs] = useState<NewRosterMove[]>([])
   // Everyone the club can trade: who it holds, picks and typed names included, and the 2026 players
-  // no move has placed, who are still its to trade.
+  // no move has placed, who are still its to trade. Less whatever is already on the trade below.
   const holdable = useMemo(() => {
     if (!board) return []
     return [
       ...[...board.kept, ...board.drafted, ...board.signed],
       ...board.unsigned.map(id => ({ key: id, playerId: id, name: null })),
-    ]
-  }, [board])
+    ].filter(p => !legs.some(m => m.from_team_id === club && onTrade(m, p.key)))
+  }, [board, legs, club])
+  // The picks the club holds, its own and any it traded for, named by round and original club.
+  const picks = useMemo(() => openPicks(moves ?? [], club)
+    .map(p => ({ ...p, key: `${PICK}:${p.round}:${p.original}` }))
+    .filter(p => !legs.some(m => m.from_team_id === club && onTrade(m, p.key))), [moves, club, legs])
   const trades = (moves ?? []).filter(m => m.season === ROSTER_SEASON && m.kind === 'traded'
     && (m.team_id === club || m.from_team_id === club))
   const tradeGroups = useMemo(() => {
@@ -94,21 +106,26 @@ export default function AdminRosterMoves() {
     return [...byGroup]
   }, [moves, playerById])
   const given = holdable.find(p => p.key === tradePlayer)
-  const legKind = tradePlayer === PICK ? 'pick' : tradePlayer === UNLISTED ? 'name' : given ? 'player' : null
-  const roundOk = /^([1-9]|10)$/.test(tradeRound)
-  const legOk = legKind === 'player' || (legKind === 'name' && tradeName.trim() !== '') || (legKind === 'pick' && roundOk)
-  const trade = async () => {
-    setBusy('trade'); setError(null)
-    const ok = await saveWpblRosterMove({
+  const pick = picks.find(p => p.key === tradePlayer)
+  const legKind = pick ? 'pick' : tradePlayer === UNLISTED ? 'name' : given ? 'player' : null
+  const legOk = legKind === 'player' || legKind === 'pick' || (legKind === 'name' && tradeName.trim() !== '')
+  const addLeg = () => {
+    setLegs(l => [...l, {
       season: ROSTER_SEASON, kind: 'traded',
       player_id: legKind === 'player' ? given?.playerId ?? null : null,
       player_name: legKind === 'name' ? tradeName.trim() : legKind === 'player' ? given?.name ?? null : null,
-      team_id: tradeTo, from_team_id: club, trade_id: tradeGroup || crypto.randomUUID(),
-      draft_round: legKind === 'pick' ? Number(tradeRound) : null, draft_pick: null,
-      announced_on: day, source_url: source.trim(),
-    })
+      team_id: tradeTo, from_team_id: club, trade_id: null, pick_team_id: pick?.original ?? null,
+      draft_round: pick?.round ?? null, draft_pick: null, announced_on: day, source_url: '',
+    }])
+    setTradePlayer(''); setTradeTo(''); setTradeName('')
+  }
+  const trade = async () => {
+    setBusy('trade'); setError(null)
+    // The link and date are read at save, so a leg added before the link was pasted still cites it.
+    const id = tradeGroup || crypto.randomUUID()
+    const ok = await saveWpblTrade(legs.map(m => ({ ...m, trade_id: id, announced_on: day, source_url: source.trim() })))
     setBusy(null)
-    if (ok) { setTradePlayer(''); setTradeTo(''); setTradeRound(''); setTradeName(''); setTradeGroup('') } else setError('Not saved. The console has the reason.')
+    if (ok) { setLegs([]); setTradeGroup('') } else setError('Not saved. The console has the reason.')
   }
   const undo = async (id: number, playerId: string) => {
     setBusy(playerId); setError(null)
@@ -177,23 +194,32 @@ export default function AdminRosterMoves() {
           <TextField select size="small" label="Gives" value={legKind ? tradePlayer : ''} onChange={e => setTradePlayer(e.target.value)} sx={{ flex: 1 }}>
             {holdable.map(p => <MenuItem key={p.key} value={p.key}>{playerById.get(p.key)?.name ?? p.name ?? p.key}</MenuItem>)}
             <MenuItem value={UNLISTED}>Player not listed</MenuItem>
-            <MenuItem value={PICK}>Draft pick</MenuItem>
+            {picks.map(p => (
+              <MenuItem key={p.key} value={p.key}>Round {p.round} pick{p.original !== club ? ` (${p.original})` : ''}</MenuItem>
+            ))}
           </TextField>
           {legKind === 'name' && (
             <TextField size="small" label="Name" value={tradeName} onChange={e => setTradeName(e.target.value)} sx={{ width: 180 }} />
           )}
-          {legKind === 'pick' && (
-            <TextField size="small" label="Round" value={tradeRound} onChange={e => setTradeRound(e.target.value.trim())}
-              error={tradeRound !== '' && !roundOk} sx={{ width: 90 }} />
-          )}
           <TextField select size="small" label="To" value={tradeTo} onChange={e => setTradeTo(e.target.value)} sx={{ minWidth: 160 }}>
             {DRAFT_ORDER_2027.filter(id => id !== club).map(id => <MenuItem key={id} value={id}>{teamById.get(id)?.name ?? id}</MenuItem>)}
           </TextField>
-          <TextField select size="small" label="Part of" value={tradeGroup} onChange={e => setTradeGroup(e.target.value)} sx={{ minWidth: 160 }}>
+          <Button variant="outlined" disabled={!legOk || !tradeTo} onClick={addLeg}>Add</Button>
+        </Box>
+        {legs.map((m, i) => (
+          <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1, borderTop: '1px solid', borderColor: 'divider', pt: 0.75 }}>
+            <Typography sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 700 }}>
+              {legName(m, playerById)}: {m.from_team_id} to {m.team_id}
+            </Typography>
+            <Button size="small" onClick={() => setLegs(l => l.filter((_, j) => j !== i))}>Remove</Button>
+          </Box>
+        ))}
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5 }}>
+          <TextField select size="small" label="Part of" value={tradeGroup} onChange={e => setTradeGroup(e.target.value)} sx={{ minWidth: 160, flex: 1 }}>
             <MenuItem value="">New trade</MenuItem>
-            {tradeGroups.map(([id, legs]) => <MenuItem key={id} value={id}>{legs.join(', ')}</MenuItem>)}
+            {tradeGroups.map(([id, names]) => <MenuItem key={id} value={id}>{names.join(', ')}</MenuItem>)}
           </TextField>
-          <Button variant="outlined" disabled={!sourceOk || !day || !legOk || !tradeTo || busy === 'trade'}
+          <Button variant="outlined" disabled={!sourceOk || !day || !legs.length || busy === 'trade'}
             onClick={trade}>Save trade</Button>
         </Box>
         {trades.map(t => (
