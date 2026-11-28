@@ -24,6 +24,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.265.1',
+    date:    '2026-11-27',
+    changes: [
+      {
+        short: 'About the league: one season at a time',
+        full:  "The club table is the current season's record, labeled with its year, and the season length counts the schedule. Country chips sort by the count shown, Curaçao is spelled right, and Windows shows country names without letter pairs.",
+      },
+    ],
+  },
+  {
     version: '1.265.0',
     date:    '2026-11-27',
     changes: [
