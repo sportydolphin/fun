@@ -23,7 +23,8 @@ import { Box, Typography, Skeleton } from '@mui/material'
 import { fetchWpblAllPlayers, fetchWpblTeams, fetchWpblSchedule, fetchWpblAllLines, computeStandings, countsInStandings } from './api'
 import { FOCUS_RING, TAPPABLE, TeamBadge, PillGroup, TYPE_SCALE, CARD_BORDER, pressable, TextGhost, chromePx } from './ui'
 import { wpblFullName } from './constants'
-import { byCountry, countryOf, placeOf } from './derive/hometowns'
+import { byCountry, placeOf, flagEmojiDrawn } from './derive/hometowns'
+import { currentSeason, seasonsOnRecord, seasonGames } from './season'
 import { buildBracket, championResult } from './derive/bracket'
 import { wpblPlayerPath, wpblTeamPath, WPBL_GLOSSARY_PAGE, wpblSeasonPath } from './routes'
 import WpblPage, { SectionHeading } from './WpblPage'
@@ -67,19 +68,44 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
   const countries = useMemo(() => byCountry(players), [players])
   const filtering = playedOnly && appeared != null
   const shows = (p: WpblPlayer) => !filtering || !!appeared?.has(p.id)
-  const shownIn = (c: { players: WpblPlayer[] }) => c.players.filter(shows).length
-  const standings = useMemo(() => computeStandings(teams, games), [teams, games])
+  // The chips in the order of what they count: under Played, Japan's 8 ahead of Australia's 4, not
+  // the roster order the full list sorts by. Countries with nobody left drop out.
+  const chips = useMemo(() => countries
+    .map(c => ({ ...c, shown: c.players.filter(p => !filtering || !!appeared?.has(p.id)).length }))
+    .filter(c => c.shown > 0)
+    .sort((a, b) => b.shown - a.shown || a.country.localeCompare(b.country)),
+  [countries, filtering, appeared])
+  // ONE SEASON'S GAMES, NEVER THE WHOLE SCHEDULE. The schedule is every season, so the club table
+  // read off all of it would sum two years into one record the day 2027 has a final (15–7 under the
+  // dev fake season, and "each playing 22 regular-season games"). The table is the current season;
+  // the champions' line is the FIRST season's, which is what it names.
+  const year = useMemo(() => currentSeason(games), [games])
+  const yearGames = useMemo(() => (year == null ? games : seasonGames(games, year)), [games, year])
+  const standings = useMemo(() => computeStandings(teams, yearGames), [teams, yearGames])
   const champ = useMemo(() => {
-    const b = teams.length > 0 ? buildBracket(standings, games) : null
+    const on = seasonsOnRecord(games)
+    const first = on.length ? on[on.length - 1] : null
+    if (teams.length === 0 || first == null) return null
+    const firstGames = seasonGames(games, first)
+    const b = buildBracket(computeStandings(teams, firstGames), firstGames)
     return b ? championResult(b) : null
-  }, [standings, games, teams.length])
-  // Games per club, off the data rather than written down: the most any club has played in the
-  // regular season. Null until a game is final, so the line leaves itself out rather than say 0.
+  }, [games, teams])
+  // Read once: whether this system draws a flag emoji as a flag (Windows draws the two letters).
+  const flags = useMemo(() => flagEmojiDrawn(), [])
+  // Games per club, off the data rather than written down: the most any club is SCHEDULED for in
+  // the season's regular season, not the most it has played, which in May would call it a 7-game
+  // season. Null until a game is final, so the line leaves itself out rather than say 0, and the
+  // club table keeps the city order until there is a record to sort by.
+  const anyFinal = useMemo(() => yearGames.some(g => g.status === 'final' && countsInStandings(g)), [yearGames])
   const perClub = useMemo(() => {
-    const regular = games.filter(g => g.status === 'final' && countsInStandings(g))
-    if (regular.length === 0) return null
-    return Math.max(...standings.map(r => r.wins + r.losses))
-  }, [games, standings])
+    if (!anyFinal) return null
+    const per = new Map<string, number>()
+    for (const g of yearGames) {
+      if (!countsInStandings(g)) continue
+      for (const id of [g.home_team_id, g.away_team_id]) per.set(id, (per.get(id) ?? 0) + 1)
+    }
+    return Math.max(...per.values())
+  }, [yearGames, anyFinal])
 
   const link = (href: string) => ({
     component: 'a' as const, href,
@@ -155,7 +181,7 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
           <>
             <SectionHeading>The clubs</SectionHeading>
             <Box aria-hidden sx={CLUB_TABLE}>
-              <Box sx={CLUB_HEAD}><span>Club</span><span>W–L</span></Box>
+              <Box sx={CLUB_HEAD}><span>Club</span><span><TextGhost>2026</TextGhost> W–L</span></Box>
               {Array.from({ length: 4 }, (_, i) => (
                 <Box key={i} sx={CLUB_ROW}>
                   <Skeleton variant="circular" width={chromePx(28)} height={chromePx(28)} sx={{ flexShrink: 0 }} />
@@ -174,7 +200,7 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
               {/* Eleven chips at the lengths of the 2026 roster's country names. */}
               {[3, 6, 9, 5, 6, 11, 7, 6, 11, 14, 9].map((n, i) => (
                 <Box key={i} sx={{ ...CHIP, borderColor: CARD_BORDER, bgcolor: 'action.hover' }}>
-                  <TextGhost hidden>🏳</TextGhost>
+                  {flags && <TextGhost hidden>🏳</TextGhost>}
                   <Typography component="span" sx={CHIP_NAME}><TextGhost hidden>{'x'.repeat(n)}</TextGhost></Typography>
                   <Typography component="span" sx={CHIP_COUNT}><TextGhost hidden>0</TextGhost></Typography>
                 </Box>
@@ -191,11 +217,11 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
                 sets four clubs, and the badge already carries the club's color. Ordered by the
                 regular-season table, city as the tiebreak (and the whole order before a game). */}
             <Box sx={CLUB_TABLE}>
-              <Box aria-hidden sx={CLUB_HEAD}><span>Club</span><span>W–L</span></Box>
+              <Box aria-hidden sx={CLUB_HEAD}><span>Club</span><span>{year != null && `${year} `}W–L</span></Box>
               {[...teams].sort((a, b) => {
                 const ra = standings.findIndex(x => x.team.id === a.id)
                 const rb = standings.findIndex(x => x.team.id === b.id)
-                return perClub && ra !== rb ? ra - rb : a.city.localeCompare(b.city)
+                return anyFinal && ra !== rb ? ra - rb : a.city.localeCompare(b.city)
               }).map(t => {
                 const record = recordOf(t.id)
                 return (
@@ -227,7 +253,7 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
                   setPlayedOnly(on)
                   // A country with nobody who played has no chip under the filter, so it cannot
                   // stay picked with nothing on screen to unpick it.
-                  if (on && country && !players.some(p => appeared.has(p.id) && countryOf(p.hometown) === country)) setCountry(null)
+                  if (on && country && !countries.find(c => c.country === country)?.players.some(p => appeared.has(p.id))) setCountry(null)
                   track(EVENTS.WPBL_PAGE_CONTROL, { page: 'league', control: 'played', value: v })
                 }}
                 options={[
@@ -236,10 +262,8 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
                 ]} />
             )}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
-              {countries.map(c => {
+              {chips.map(c => {
                 const active = country === c.country
-                const count = shownIn(c)
-                if (count === 0) return null
                 return (
                   <Box key={c.country}
                     {...pressable(() => {
@@ -255,12 +279,12 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
                       color: active ? 'primary.contrastText' : 'text.primary',
                       ...(active ? null : TAPPABLE),
                     }}>
-                    {c.flag && <Box component="span" aria-hidden>{c.flag}</Box>}
+                    {flags && c.flag && <Box component="span" aria-hidden>{c.flag}</Box>}
                     <Typography component="span" sx={CHIP_NAME}>{c.country}</Typography>
                     <Typography component="span" sx={{
                       ...CHIP_COUNT,
                       color: active ? 'inherit' : 'text.secondary', opacity: active ? 0.85 : 1,
-                    }}>{count}</Typography>
+                    }}>{c.shown}</Typography>
                   </Box>
                 )
               })}

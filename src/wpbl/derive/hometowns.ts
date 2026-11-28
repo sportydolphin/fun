@@ -28,7 +28,7 @@ export interface HomeCountry {
  *  gets its row and its players, just without a flag, which is the right failure. */
 const ISO: Readonly<Record<string, string>> = {
   usa: 'US', canada: 'CA', mexico: 'MX', japan: 'JP', australia: 'AU',
-  'south korea': 'KR', venezuela: 'VE', 'puerto rico': 'PR', curacao: 'CW',
+  'south korea': 'KR', venezuela: 'VE', 'puerto rico': 'PR', 'curaçao': 'CW',
   'united kingdom': 'GB', france: 'FR', 'dominican republic': 'DO', cuba: 'CU',
   colombia: 'CO', panama: 'PA', taiwan: 'TW', netherlands: 'NL', italy: 'IT',
   germany: 'DE', 'new zealand': 'NZ', brazil: 'BR', philippines: 'PH', china: 'CN',
@@ -41,9 +41,34 @@ function flagFor(country: string): string {
   return String.fromCodePoint(...[...code].map(c => 0x1f1e6 + c.charCodeAt(0) - 65))
 }
 
+/** Names the feed writes without their accents. The league types "Curacao"; the country is Curaçao. */
+const SPELLED: Readonly<Record<string, string>> = { curacao: 'Curaçao' }
+
 export function countryOf(hometown: string | null | undefined): string | null {
   const parts = (hometown ?? '').split(',').map(s => s.trim()).filter(Boolean)
-  return parts.length ? parts[parts.length - 1] : null
+  if (!parts.length) return null
+  const last = parts[parts.length - 1]
+  return SPELLED[last.toLowerCase()] ?? last
+}
+
+/** Whether this system draws a flag emoji as a flag. Windows has no flag glyphs and draws the two
+ *  regional letters instead, so a chip read "US USA". Measured, never guessed from the user agent:
+ *  a flag drawn as one glyph is about one emoji wide, the letters about two. With no canvas (tests,
+ *  a locked-down browser) the answer is yes, which is every system but Windows. */
+let flagAnswer: boolean | null = null
+export function flagEmojiDrawn(): boolean {
+  if (flagAnswer != null) return flagAnswer
+  try {
+    // jsdom has no canvas and reports the call as an error, so the tests take the default.
+    if (typeof document === 'undefined' || /jsdom/.test(navigator.userAgent)) return (flagAnswer = true)
+    const ctx = document.createElement('canvas').getContext('2d')
+    if (!ctx) return (flagAnswer = true)
+    ctx.font = '32px sans-serif'
+    const flag = ctx.measureText('🇺🇸').width
+    const letter = ctx.measureText('🇺').width
+    flagAnswer = !(letter > 0 && flag > letter * 1.5)
+  } catch { flagAnswer = true }
+  return flagAnswer
 }
 
 /** The part before the country, which is what a player's row should show: "Osaka" reads better
