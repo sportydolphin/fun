@@ -24,6 +24,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.265.2',
+    date:    '2026-11-27',
+    changes: [
+      {
+        short: 'Rules & glossary: plainer',
+        full:  'Strike% and STR% are one row. "See the win rule" under W-L and DEC is a link to it. The ERA rule asks "Why is ERA per 7 innings?" and answers in two sentences, the win rule\'s evidence is dated 2026, and the section headings are Rules and Abbreviations, on both glossaries.',
+      },
+    ],
+  },
+  {
     version: '1.265.1',
     date:    '2026-11-27',
     changes: [

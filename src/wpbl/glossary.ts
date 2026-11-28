@@ -40,12 +40,12 @@ export const STAT_TERMS: GlossaryTerms = {
   ERA: { full: 'Earned run average', plain: `Earned runs per ${ERA_BASIS_CANONICAL} innings, which is one full WPBL game. Lower is better.` },
   'ERA+': { full: 'ERA against the league', plain: 'League ERA over the pitcher’s, times 100: 100 is average and higher is better. A 0.00 ERA reads ∞. No park factor.' },
   WHIP: { full: 'Walks + hits per inning pitched', plain: 'Base runners allowed per inning, errors aside. The league was at about 2.16 in 2026.' },
-  'W-L': { full: 'Wins–Losses', plain: 'A pitcher’s record. A starter needs four innings and a lead that holds; see the win rule.' },
+  'W-L': { full: 'Wins–Losses', plain: 'A pitcher’s record. A starter needs four innings and a lead that holds; see the win rule.', rule: { id: 'winning-pitcher', text: 'the win rule' } },
   SV: { full: 'Saves', plain: 'Credited to a reliever who finishes a close win without giving up the lead.' },
   IP: { full: 'Innings pitched', plain: 'Counted in outs: 4.1 means four innings and one out, not four and a tenth.' },
   ER: { full: 'Earned runs' },
   P: { full: 'Pitches thrown' },
-  DEC: { full: 'Decision (W/L/S)', plain: 'Which pitcher the result was credited to. See the win rule.' },
+  DEC: { full: 'Decision (W/L/S)', plain: 'Which pitcher the result was credited to. See the win rule.', rule: { id: 'winning-pitcher', text: 'the win rule' } },
   OPP: { full: 'Opponent' },
   POS: { full: 'Position played that game' },
   FPCT: { full: 'Fielding percentage', plain: 'Putouts and assists over total chances: the share of chances handled without an error.' },
@@ -84,7 +84,7 @@ export const STAT_TERMS: GlossaryTerms = {
   'SB%': { full: 'Stolen base success rate', plain: 'Steals over attempts. A caught stealing costs more than a steal gains, so a low rate costs runs.' },
   IBB: { full: 'Intentional walks' },
   XBH: { full: 'Extra-base hits', plain: 'Doubles, triples and home runs together.' },
-  WPA: { full: 'Win probability added', plain: 'The change in the team’s chance of winning on each play, added up: +1.00 is one win. Unlike run value it counts the score, so a hit in a tie game is worth more than the same hit in a rout. “Wins added” on Run value.' },
+  WPA: { full: 'Win probability added', plain: 'The change in the team’s chance of winning on each play, added up: +1.00 is one win. Unlike run value it counts the score, so a hit in a tie game is worth more than the same hit in a rout. The Run value board calls it Wins added.' },
   LI: { full: 'Leverage index', plain: 'How much the game can swing on the next plate appearance, against an average one: 1.00 is typical, 2.00 is twice the stakes, under 0.85 is low. Built from this league’s own plays and the win probability model, so a close seventh here reads high.' },
   pLI: { full: 'Average leverage index', plain: 'The average LI of a player’s plate appearances, batted or faced. Above 1.00 means they played in bigger spots than average. A fact about the spots, not a skill.' },
   gmLI: { full: 'Game entering leverage index', plain: 'For a relief pitcher, the average LI of the first batter faced in each appearance: how big the spots were when they were sent in.' },
@@ -102,7 +102,8 @@ export const STAT_TERMS: GlossaryTerms = {
   'Whiff%': { full: 'Whiff rate', plain: 'Share of swings that miss. For a pitcher, higher is better.' },
   'SwStr%': { full: 'Swinging strike rate', plain: 'Swings and misses over all pitches, not just swings. For a pitcher, higher is better.' },
   'CStr%': { full: 'Called strike rate', plain: 'Strikes taken without a swing, over every pitch. For a hitter, a high one means watching hittable pitches go by.' },
-  'Strike%': { full: 'Strike rate', plain: 'Strikes over pitches thrown: called, swinging, fouls and balls in play.' },
+  // The same stat as STR%, which is the Stats column's shorter label. One row on the glossary page.
+  'Strike%': { full: 'Strike rate', plain: 'Strikes over pitches thrown: called, swinging, fouls and balls in play.', also: ['STR%'] },
   'F-Strike%': { full: 'First-pitch strike rate', plain: 'Share of batters whose first pitch was a strike.' },
   'Putaway%': { full: 'Two-strike putaway rate', plain: 'Strikeouts over plate appearances that reached two strikes.' },
   FIP: { full: 'Fielding independent pitching', plain: 'An ERA built from strikeouts, walks, hit batters and home runs, the outcomes no fielder touches, weighted for this league and scaled to league ERA. A FIP well below the ERA suggests bad luck or poor defense.' },
@@ -132,10 +133,10 @@ export const WPBL_RULES: WpblRule[] = [
     answer: 'A starter has to complete four innings and leave with a lead their team never gives up. '
       + 'Fall short of either and the win goes to whichever reliever the official scorer judges most effective.',
     source: 'observed',
-    note: 'The league does not publish this one. Taken from every decision it has scored this season: no '
-      + 'starter has ever won with fewer than four innings, and on Aug 22 one went 3.2 innings leading 8–2 '
-      + 'and lost the win to a reliever who had thrown fewer innings. It is the standard '
-      + 'baseball rule scaled to a seven-inning game.',
+    // Dated, not "this season": the evidence is 2026's decisions and stays 2026's after another year.
+    note: 'Inferred from every decision the league scored in 2026: no starter won with fewer than four '
+      + 'innings, and on Aug 22, 2026 one went 3.2 innings leading 8–2 and lost the win to a reliever who '
+      + 'had thrown fewer innings. It is the standard baseball rule scaled to a seven-inning game.',
   },
   {
     id: 'game-length',
@@ -145,9 +146,9 @@ export const WPBL_RULES: WpblRule[] = [
   },
   {
     id: 'era-basis',
-    question: 'Is the ERA calculated differently?',
-    answer: `ERA and strikeout rates are per ${ERA_BASIS_CANONICAL} innings, matching what the league publishes, `
-      + 'because seven innings is a full game here; nine-inning leagues use nine.',
+    question: `Why is ERA per ${ERA_BASIS_CANONICAL} innings?`,
+    answer: `A WPBL game is seven innings, so ERA and strikeout rates are per ${ERA_BASIS_CANONICAL} innings, `
+      + 'as the league publishes them. MLB uses 9.',
     source: 'league',
     note: 'Settings can show them per 9 instead. Nothing is recomputed: it is one performance on two scales, '
       + 'so no ranking moves either way.',
