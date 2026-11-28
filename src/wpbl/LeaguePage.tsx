@@ -15,14 +15,15 @@
 // does not fit (see BottomNav.tsx); the More menu and the footer link it (morePages.ts).
 //
 // EVERY PLAYER NAME IS STILL A REAL LINK IN THE DOCUMENT. The hometown lists are hidden with
-// `display: none` rather than unmounted when their country is not picked, so the 118 anchors this
-// page carries (the same crawl path PlayersIndex.tsx exists for) are always there to follow.
+// `display: none` rather than unmounted when their country is not picked, or when the Played filter
+// leaves a player out, so the 118 anchors this page carries (the same crawl path PlayersIndex.tsx
+// exists for) are always there to follow.
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
-import { fetchWpblAllPlayers, fetchWpblTeams, fetchWpblSchedule, computeStandings, countsInStandings } from './api'
-import { FOCUS_RING, TAPPABLE, TeamBadge, TYPE_SCALE, CARD_BORDER, pressable, TextGhost, chromePx } from './ui'
+import { fetchWpblAllPlayers, fetchWpblTeams, fetchWpblSchedule, fetchWpblAllLines, computeStandings, countsInStandings } from './api'
+import { FOCUS_RING, TAPPABLE, TeamBadge, PillGroup, TYPE_SCALE, CARD_BORDER, pressable, TextGhost, chromePx } from './ui'
 import { wpblFullName } from './constants'
-import { byCountry, placeOf } from './derive/hometowns'
+import { byCountry, countryOf, placeOf } from './derive/hometowns'
 import { buildBracket, championResult } from './derive/bracket'
 import { wpblPlayerPath, wpblTeamPath, WPBL_GLOSSARY_PAGE, wpblSeasonPath } from './routes'
 import WpblPage, { SectionHeading } from './WpblPage'
@@ -37,6 +38,12 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
   const [loading, setLoading] = useState(true)
   // The one country whose players are showing, or none. See the note on the chips.
   const [country, setCountry] = useState<string | null>(null)
+  // Every player with a box-score line, batting or pitching: the same "appeared" PlayersIndex
+  // uses. The roster holds all 118 signings, and about a third never got into a game, so without
+  // this a country's list cannot say who actually played. Null until read, or if the read fails,
+  // which leaves the switch out rather than offer a filter that would empty the page.
+  const [appeared, setAppeared] = useState<Set<string> | null>(null)
+  const [playedOnly, setPlayedOnly] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -48,11 +55,19 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
       fetchWpblAllPlayers().then(p => { if (!cancelled) setPlayers(p) }),
       fetchWpblTeams().then(t => { if (!cancelled) setTeams(t) }),
       fetchWpblSchedule().then(g => { if (!cancelled) setGames(g) }),
+      // Waited for with the rest so the chips never paint and then grow a switch above them.
+      fetchWpblAllLines().then(l => {
+        const ids = new Set([...l.batting, ...l.pitching].map(x => x.player_id))
+        if (!cancelled && ids.size > 0) setAppeared(ids)
+      }),
     ]).then(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [])
 
   const countries = useMemo(() => byCountry(players), [players])
+  const filtering = playedOnly && appeared != null
+  const shows = (p: WpblPlayer) => !filtering || !!appeared?.has(p.id)
+  const shownIn = (c: { players: WpblPlayer[] }) => c.players.filter(shows).length
   const standings = useMemo(() => computeStandings(teams, games), [teams, games])
   const champ = useMemo(() => {
     const b = teams.length > 0 ? buildBracket(standings, games) : null
@@ -150,6 +165,11 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
               ))}
             </Box>
             <SectionHeading>Where the players are from</SectionHeading>
+            <Box aria-hidden sx={{ visibility: 'hidden' }}>
+              <PillGroup mb={1.25} value="all" onChange={() => {}} options={[
+                { value: 'all', label: 'All 118' }, { value: 'played', label: 'Played 69' },
+              ]} />
+            </Box>
             <Box aria-hidden sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
               {/* Eleven chips at the lengths of the 2026 roster's country names. */}
               {[3, 6, 9, 5, 6, 11, 7, 6, 11, 14, 9].map((n, i) => (
@@ -200,9 +220,26 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
                 which put 64 American names between the top of the page and the ten other countries,
                 a wall nobody scrolled past. The chips are the summary (every country and its count,
                 on one screen) and a tap shows that country's players. */}
+            {appeared && (
+              <PillGroup mb={1.25} value={playedOnly ? 'played' : 'all'}
+                onChange={v => {
+                  const on = v === 'played'
+                  setPlayedOnly(on)
+                  // A country with nobody who played has no chip under the filter, so it cannot
+                  // stay picked with nothing on screen to unpick it.
+                  if (on && country && !players.some(p => appeared.has(p.id) && countryOf(p.hometown) === country)) setCountry(null)
+                  track(EVENTS.WPBL_PAGE_CONTROL, { page: 'league', control: 'played', value: v })
+                }}
+                options={[
+                  { value: 'all', label: `All ${players.length}` },
+                  { value: 'played', label: `Played ${players.filter(p => appeared.has(p.id)).length}` },
+                ]} />
+            )}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
               {countries.map(c => {
                 const active = country === c.country
+                const count = shownIn(c)
+                if (count === 0) return null
                 return (
                   <Box key={c.country}
                     {...pressable(() => {
@@ -223,7 +260,7 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
                     <Typography component="span" sx={{
                       ...CHIP_COUNT,
                       color: active ? 'inherit' : 'text.secondary', opacity: active ? 0.85 : 1,
-                    }}>{c.players.length}</Typography>
+                    }}>{count}</Typography>
                   </Box>
                 )
               })}
@@ -245,7 +282,7 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
                   return (
                     <Box key={p.id} {...link(href)} sx={{
                       textDecoration: 'none', color: 'text.primary', borderRadius: 1.5,
-                      px: 1, py: 0.6, display: 'block', ...TAPPABLE,
+                      px: 1, py: 0.6, display: shows(p) ? 'block' : 'none', ...TAPPABLE,
                     }}>
                       <Box component="span" sx={{ display: 'block', fontSize: TYPE_SCALE.body, fontWeight: 600, lineHeight: 1.35 }}>
                         {p.name}

@@ -24,6 +24,16 @@ export async function loadOlderChangelog(): Promise<ChangelogEntry[]> {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.265.0',
+    date:    '2026-11-27',
+    changes: [
+      {
+        short: 'About the league: Played filter',
+        full:  'Where the players are from has an All / Played switch. Played keeps the 69 players who appeared in a game, and each country\'s count follows it.',
+      },
+    ],
+  },
+  {
     version: '1.264.2',
     date:    '2026-11-24',
     changes: [
