@@ -22,7 +22,7 @@ export default function MlbGlossaryPage() {
       back={{ href: '/mlb', label: 'Back to MLB' }}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <GlossaryRules title="The rules people ask about" rules={MLB_RULES} badge={noBadge} />
+        <GlossaryRules title="Rules" rules={MLB_RULES} badge={noBadge} />
         <GlossaryTerms groups={MLB_GLOSSARY_GROUPS} term={mlbGlossaryTerm} accent={ACCENT_TEXT} />
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.5 }}>
           Not affiliated with Major League Baseball. Advanced numbers (WAR, wRC+, the expected stats)

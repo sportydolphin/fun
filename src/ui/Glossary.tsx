@@ -30,7 +30,9 @@ export function GlossaryRules({ title, rules, badge }: {
             // seo.ts claims as much. An id per rule so a link can point at one.
             <Box key={r.id} id={r.id} sx={{ scrollMarginTop: '5rem' }}>
               <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
-                <Typography component="dt" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1.25 }}>
+                {/* Body size, not the card title's: at the title's size each question outranked the
+                    section heading above it, and the page read as five headings with no section. */}
+                <Typography component="dt" sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, lineHeight: 1.35 }}>
                   {r.question}
                 </Typography>
                 {label && (
@@ -76,7 +78,10 @@ export function GlossaryTerms({ groups, term, accent }: {
 }) {
   // "what is FIP" from the search opens the page at the term, which first needs its group on
   // screen: the list draws one group at a time, so the row the scroll waits for may not exist yet.
-  const holds = (g: GlossaryGroup | undefined, id: string) => !!g?.keys.some(k => sectionAnchorId(glossaryTermKey(k)) === id)
+  // A row answers its own label and any other label the stat goes by (`also`).
+  const labels = (k: string) => [k, ...(term(k)?.also ?? [])]
+  const holds = (g: GlossaryGroup | undefined, id: string) =>
+    !!g?.keys.some(k => labels(k).some(l => sectionAnchorId(glossaryTermKey(l)) === id))
   const groupAsked = (current?: string): string | null => {
     const id = pendingSectionScroll()
     if (!id || holds(groups.find(g => g.key === current), id)) return null
@@ -102,7 +107,7 @@ export function GlossaryTerms({ groups, term, accent }: {
 
   return (
     <SectionCard
-      title="What the abbreviations mean"
+      title="Abbreviations"
       frameless
       bare
     >
@@ -138,6 +143,12 @@ export function GlossaryTerms({ groups, term, accent }: {
               fontVariantNumeric: 'tabular-nums', color: accent, lineHeight: 1.4,
             }}>
               {t.k}
+              {/* The other labels, one a line, each its own anchor so a search for it lands here. */}
+              {t.also?.map(a => (
+                <Box key={a} component="span" id={sectionAnchorId(glossaryTermKey(a))} sx={{
+                  display: 'block', scrollMarginTop: 'calc(var(--app-header-h, 0px) + 0.75rem)',
+                }}>{a}</Box>
+              ))}
             </Typography>
             <Box sx={{ minWidth: 0 }}>
               <Typography component="dd" sx={{ m: 0, fontSize: TYPE_SCALE.meta, fontWeight: 600, lineHeight: 1.4 }}>
@@ -145,7 +156,7 @@ export function GlossaryTerms({ groups, term, accent }: {
               </Typography>
               {t.plain && (
                 <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.4, mt: 0.15 }}>
-                  {t.plain}
+                  <PlainWithRule plain={t.plain} rule={t.rule} accent={accent} />
                 </Typography>
               )}
             </Box>
@@ -153,5 +164,21 @@ export function GlossaryTerms({ groups, term, accent }: {
         ))}
       </Box>
     </SectionCard>
+  )
+}
+
+/** A definition with the words that point at a rule made a link to it. A plain same-page anchor:
+ *  the rules carry their ids for exactly this, and the browser's own jump needs no router. */
+function PlainWithRule({ plain, rule, accent }: { plain: string; rule?: { id: string; text: string }; accent: string }) {
+  const at = rule ? plain.lastIndexOf(rule.text) : -1
+  if (!rule || at < 0) return <>{plain}</>
+  return (
+    <>
+      {plain.slice(0, at)}
+      <Box component="a" href={`#${rule.id}`} sx={{
+        color: accent, fontWeight: 700, textDecoration: 'none', '&:hover': { textDecoration: 'underline' },
+      }}>{rule.text}</Box>
+      {plain.slice(at + rule.text.length)}
+    </>
   )
 }

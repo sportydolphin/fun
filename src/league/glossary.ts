@@ -15,6 +15,13 @@ export interface GlossaryEntry {
   /** One or two sentences of plain English, for a reader who does not follow baseball.
    *  Optional because plenty of these expand to their own explanation: "Runs", "Hits". */
   plain?: string | null
+  /** Other labels the same stat goes by on the site (a column header shorter than the player
+   *  table's). The glossary page lists the stat once and answers a link to either label. */
+  also?: readonly string[]
+  /** A rule on the same page that `plain` points to, and the words in `plain` to link to it. A
+   *  tooltip shows the words as they are; the page makes them a link, so "see the win rule" is
+   *  one tap rather than a scroll back to the top. */
+  rule?: { id: string; text: string }
 }
 
 export type GlossaryTerms = Readonly<Record<string, GlossaryEntry>>

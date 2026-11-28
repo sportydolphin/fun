@@ -34,7 +34,7 @@ describe('the rules the site quotes', () => {
     const r = ruleById('winning-pitcher')!
     expect(r.source).toBe('observed')
     expect(r.answer).toContain('four innings')
-    expect(r.note).toMatch(/does not publish/i)
+    expect(r.note).toMatch(/^Inferred from/)
   })
 
   it('has unique, stable ids, because a link points at one', () => {

@@ -18,10 +18,9 @@
 // the difference between a definition and a claim about somebody else's league, and it is
 // enforced by a test rather than by good intentions (see glossary.test.ts).
 import { useCallback } from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box } from '@mui/material'
 import { STAT_TERMS, WPBL_RULES, statFull, type RuleSource } from './glossary'
 import { useEraBasis } from './EraBasisContext'
-import { TYPE_SCALE } from './ui'
 import WpblPage from './WpblPage'
 import { GlossaryRules, GlossaryTerms } from '../ui/Glossary'
 
@@ -45,7 +44,7 @@ const GROUPS: { key: string; label: string; keys: string[] }[] = [
   {
     key: 'pitching', label: 'Pitching',
     keys: ['ERA', 'ERA+', 'FIP', 'WHIP', 'W-L', 'SV', 'IP', 'ER', 'BF', 'GS', 'K/7', 'K/9', 'HR/7',
-      'HR/9', 'K/BB', 'K%', 'BB%', 'K-BB%', 'Strike%', 'STR%', 'F-Strike%', 'SwStr%', 'Putaway%', 'BABIP', 'WPA', 'pLI', 'gmLI', 'WP', 'BK', 'P', 'DEC'],
+      'HR/9', 'K/BB', 'K%', 'BB%', 'K-BB%', 'Strike%', 'F-Strike%', 'SwStr%', 'Putaway%', 'BABIP', 'WPA', 'pLI', 'gmLI', 'WP', 'BK', 'P', 'DEC'],
   },
   {
     key: 'fielding', label: 'Fielding',
@@ -63,7 +62,7 @@ export default function WpblGlossaryPage() {
   // reader's own setting here exactly as it does in a tooltip.
   const term = useCallback((k: string) => {
     const t = STAT_TERMS[k]
-    return t ? { full: statFull(k, basis), plain: t.plain } : null
+    return t ? { ...t, full: statFull(k, basis) } : null
   }, [basis])
 
   return (
@@ -72,12 +71,8 @@ export default function WpblGlossaryPage() {
 
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <GlossaryRules title="How the league works" rules={WPBL_RULES} badge={s => SOURCE_BADGE[s as RuleSource]} />
+        <GlossaryRules title="Rules" rules={WPBL_RULES} badge={s => SOURCE_BADGE[s as RuleSource]} />
         <GlossaryTerms groups={GROUPS} term={term} accent="var(--wpbl-accent-fg)" />
-        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.5 }}>
-          Not affiliated with the WPBL. Where a rule is not published by the league, this page says
-          so and shows how it was worked out.
-        </Typography>
       </Box>
     </WpblPage>
   )
